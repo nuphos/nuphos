@@ -427,6 +427,7 @@ struct ConversationView: View {
         case .timestamp: 14
         case .reasoning, .tool, .toolRun, .work, .memory, .memoryRecall, .downloads: 14
         case .activity, .hint, .event: 18
+        case .channel: 0
         }
     }
 
@@ -479,6 +480,8 @@ struct ConversationView: View {
             HintRow(text: text, isError: isError)
         case .event(_, let event):
             EventLine(event: event, onLink: open(link:))
+        case .channel:
+            EmptyView()
         }
     }
 }
@@ -984,7 +987,7 @@ extension EnvironmentValues {
     fileprivate var barButtonsInSideRail: Bool { self[BarButtonsInSideRailKey.self] }
 }
 
-private extension View {
+extension View {
     /// The bar stays put while the transcript scrolls. Where the system
     /// minimizes it (iPhone Duo), each step resized the transcript and moved
     /// the composer docked under it.

@@ -1,6 +1,13 @@
 import type { Message, Tab } from './model.ts'
 import type { Part } from './parts.ts'
 
+/** Stored messages with nothing to show stay in tab.messages to keep their
+ * conversation index, but are not drawn. An autonomous turn shows its header
+ * before any output. */
+export function isShownMessage(message: Message): boolean {
+  return message.parts.length > 0 || message.turnOrigin === 'autonomous'
+}
+
 /** Stream output extends the open assistant message. A user message closes it,
  * so the next output opens a new one. Returns `messages` itself when nothing
  * changed. */

@@ -60,6 +60,8 @@ final class ChatSession {
     private(set) var resources: [SessionResource] = []
     /// Invites, removals and runtime moves, refreshed with every detail read.
     private(set) var timelineEvents: [AgentConversationDetail.TimelineEvent] = []
+    /// The session is a chat, found on loading it from a link.
+    private(set) var isChannel = false
     /// Files the agent sent the user here, read from the transfer store.
     private(set) var downloads: [TransferDownloadGroup] = []
     private(set) var isArchived = false
@@ -320,6 +322,8 @@ final class ChatSession {
             let observedAt = ProcessInfo.processInfo.systemUptime
             let detail = try await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId)
             serverTail = ServerTail(detail)
+            // A link can name a chat; the app shows it as one, not as an agent.
+            isChannel = detail.isChannel
             var msgs = detail.messages
             baseIndex = detail.messagesFirstIndex ?? 0
             readOnly = detail.readOnly ?? true

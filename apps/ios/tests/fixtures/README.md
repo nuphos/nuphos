@@ -25,3 +25,21 @@ is keyed by the target's team/session identity so step 4 replaces its ChatSessio
 Validated on iPhone 17 Pro Max / iOS 26.3 simulator. Device testing remains useful
 for APNs delivery itself; the fixture exercises the system notification delegate
 and navigation, not production provider execution.
+
+# Chats fixture
+
+`channel-responses.json` serves two chats (one unread), their posts from people
+and an agent, pushed and uploaded images, the loop guard's paused line, and an
+agent in a turn, so the typing bubble shows. Launch a Debug build with it:
+
+```sh
+SIMCTL_CHILD_NUPHOS_PREVIEW_RESPONSES="$PWD/tests/fixtures/channel-responses.json" \
+  xcrun simctl launch booted ai.nuphos.ios -preview-home \
+  -open-links https://nuphos.ai/teams/64b5f1c2e4b0a1d2c3e4f5a6/agent/chat-release
+```
+
+Add `-channel-send "text"` to post a few seconds after the chat opens. The
+fixture never returns that post, so it stays in its sending state.
+A fixture key may end in `?name=value` to answer only requests with that query
+item. `$FIXTURE_DIR` in a body is replaced with the fixture's folder, so transfer
+links can point at local images (`file://$FIXTURE_DIR/…`).

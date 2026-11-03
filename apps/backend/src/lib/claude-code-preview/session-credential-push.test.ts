@@ -5,7 +5,7 @@ import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-r
 import { OpenAbAcpClient } from './openab-acp-client'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { pushSessionCredentials } from './session-credential-push'
-import { renewTurnCredentials } from './turn-credential-renewal'
+import { UndeliveredCredentialPush, renewTurnCredentials } from './turn-credential-renewal'
 
 import type { CredentialPushTarget } from './session-credential-push'
 
@@ -152,9 +152,14 @@ test('renewal stops for a runtime that cannot take credentials mid-turn', async 
 
 test('a renewal never goes to a runtime other than the one the turn runs on', async () => {
   received.length = 0
-  await expect(
-    pushSessionCredentials({ ...target, runtimeUrl: 'ws://moved.invalid/acp' }, {}, {}),
-  ).rejects.toThrow('Conversation runtime changed')
+  const moved = await pushSessionCredentials(
+    { ...target, runtimeUrl: 'ws://moved.invalid/acp' },
+    {},
+    {},
+  ).catch((error: unknown) => error)
+
+  expect(moved).toBeInstanceOf(UndeliveredCredentialPush)
+  expect((moved as Error).cause).toEqual(new Error('Conversation runtime changed'))
   expect(received).toEqual([])
 })
 
@@ -170,7 +175,8 @@ test('renewals run one at a time; a failed push keeps the previous expectation',
       expected.push(current?.NUPHOS_TOKEN)
       await Bun.sleep(8)
       inFlight--
-      if (attempt === 1) throw new Error('Session credentials changed since this refresh')
+      if (attempt === 1)
+        throw new OpenAbRpcError('Session credentials changed since this refresh', -32602)
 
       return true
     },
@@ -183,29 +189,69 @@ test('renewals run one at a time; a failed push keeps the previous expectation',
   expect(expected.slice(0, 3)).toEqual(['turn', 'turn', 'next-2'])
 })
 
-test('a push applied without a reply is reconciled by the next one', async () => {
-  // The runtime applies a push only while it holds the push's `expected`.
-  let held = 'turn'
-  let attempt = 0
-  const renewal = renewTurnCredentials({
-    installed: { NUPHOS_TOKEN: 'turn' },
-    mint: () => ({ NUPHOS_TOKEN: `next-${String(++attempt)}` }),
-    push: async (expected, next) => {
-      if (expected?.NUPHOS_TOKEN !== held)
-        throw new Error('Session credentials changed since this refresh')
-      held = next?.NUPHOS_TOKEN ?? ''
-      // The first push lands, but its reply is lost.
-      if (attempt === 1) throw new Error('OpenAB ACP call timed out')
+// The runtime applies a push only while it holds the push's `expected`.
+function fakeRuntime(lostReplies: number[], undelivered: number[], failedWrites: number[] = []) {
+  const state = { held: 'turn', attempt: 0 }
+
+  return {
+    state,
+    mint: () => ({ NUPHOS_TOKEN: `next-${String(++state.attempt)}` }),
+    push: async (expected: Record<string, string> | undefined, next: typeof expected) => {
+      await Promise.resolve()
+      if (undelivered.includes(state.attempt)) throw new UndeliveredCredentialPush('offline')
+      if (expected?.NUPHOS_TOKEN !== state.held)
+        throw new OpenAbRpcError('Session credentials changed since this refresh', -32004)
+      // The session holds `expected`, but writing the new credential files fails.
+      if (failedWrites.includes(state.attempt))
+        throw new OpenAbRpcError('No space left on device (os error 28)', -32004)
+      state.held = next?.NUPHOS_TOKEN ?? ''
+      if (lostReplies.includes(state.attempt)) throw new Error('OpenAB ACP call timed out')
 
       return true
     },
+  }
+}
+
+async function renewUntil(runtime: ReturnType<typeof fakeRuntime>, attempts: number) {
+  const renewal = renewTurnCredentials({
+    installed: { NUPHOS_TOKEN: 'turn' },
+    mint: runtime.mint,
+    push: runtime.push,
     intervalMs: 2,
   })
+  const minted = () => runtime.state.attempt
 
-  const attempts = () => attempt
-
-  for (let waited = 0; attempts() < 3 && waited < 1_000; waited += 2) await Bun.sleep(2)
+  for (let waited = 0; minted() < attempts && waited < 2_000; waited += 2) await Bun.sleep(2)
   renewal.stop()
   await renewal.settled()
-  expect(held).toBe(`next-${String(attempt)}`)
+}
+
+test('a push applied without a reply is reconciled by the next one', async () => {
+  const runtime = fakeRuntime([1], [])
+
+  await renewUntil(runtime, 3)
+  expect(runtime.state.held).toBe(`next-${String(runtime.state.attempt)}`)
+})
+
+test('an applied push stays a candidate however many renewals fail to deliver', async () => {
+  // Reply to the first push is lost, then the runtime is unreachable for five renewals.
+  const runtime = fakeRuntime([1], [2, 3, 4, 5, 6])
+
+  await renewUntil(runtime, 8)
+  expect(runtime.state.held).toBe(`next-${String(runtime.state.attempt)}`)
+})
+
+test('several lost replies are reconciled once the runtime answers again', async () => {
+  const runtime = fakeRuntime([1, 2, 3, 4], [])
+
+  await renewUntil(runtime, 6)
+  expect(runtime.state.held).toBe(`next-${String(runtime.state.attempt)}`)
+})
+
+test('a failed credential write does not rule out the set the runtime holds', async () => {
+  // Reply to the first push is lost; the next push matches it but cannot be written.
+  const runtime = fakeRuntime([1], [], [2])
+
+  await renewUntil(runtime, 4)
+  expect(runtime.state.held).toBe(`next-${String(runtime.state.attempt)}`)
 })
