@@ -86,6 +86,7 @@ const fixture = (deviceId: string) => ({
 useAgentDeviceStore({
   getAgentDevice: (_owner, id) => Promise.resolve(fixture(id)),
   listTeamBoxes: () => Promise.resolve([fixture('box')]),
+  findGrantedDevices: () => Promise.resolve([]),
 })
 useIdentity({ getTeamMembership: () => Promise.resolve({ role: 'EDITOR' } as TeamMembership) })
 

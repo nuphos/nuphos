@@ -34,6 +34,8 @@ const deps: LocalRuntimeCatalogDeps = {
     listDevices: async (owner) =>
       owner === 'owner' ? [device(owner, 'mac-1', 'Olivia’s MacBook')] : [],
     listBoxes: async () => [],
+    listGranted: () => Promise.resolve([]),
+    findGranted: () => Promise.resolve([]),
     role: async (actor, team) => (teams.has(`${actor}:${team}`) ? 'EDITOR' : null),
   },
   isMember: async (userId, teamId) => teams.has(`${userId}:${teamId}`),
@@ -263,8 +265,10 @@ describe('team Box runtime authorization before transport', () => {
         provider: 'instabox' as const,
         teamId: 't1',
         createdBy: 'creator',
-        access: { everyone: false, userIds: ['teammate'] },
       },
+      access: [
+        { teamId: 't1', everyone: false, userIds: ['teammate'], managerIds: [] as string[] },
+      ],
     }
     const id = localRuntimeId({ userId: 'host', deviceId: 'box', provider: 'claude-code' })
     const calls: string[] = []
@@ -298,12 +302,12 @@ describe('team Box runtime authorization before transport', () => {
     await expect(
       resolveLocalRuntimeEndpoint('t1', forged, 'teammate', 'control', shared),
     ).rejects.toMatchObject({ status: 404 })
-    box.box.access.userIds = []
+    box.access[0]!.userIds = []
     for (const purpose of ['transport', 'control', 'login'] as const)
       await expect(
         resolveLocalRuntimeEndpoint('t1', id, 'teammate', purpose, shared),
       ).rejects.toMatchObject({ status: 404 })
-    box.box.access.userIds = ['teammate']
+    box.access[0]!.userIds = ['teammate']
     teams.delete('teammate:t1')
     await expect(
       resolveLocalRuntimeEndpoint('t1', id, 'teammate', 'transport', shared),
@@ -318,8 +322,10 @@ describe('team Box runtime authorization before transport', () => {
         provider: 'instabox' as const,
         teamId: 't1',
         createdBy: 'host',
-        access: { everyone: true, userIds: [] },
       },
+      access: [
+        { teamId: 't1', everyone: true, userIds: [] as string[], managerIds: [] as string[] },
+      ],
     }
     const id = localRuntimeId({ userId: 'host', deviceId: 'box', provider: 'claude-code' })
     const offline: LocalRuntimeCatalogDeps = {
@@ -339,8 +345,10 @@ describe('team Box runtime authorization before transport', () => {
       box: {
         provider: 'instabox' as const,
         teamId: 't1',
-        access: { everyone: false, userIds: ['teammate'] },
       },
+      access: [
+        { teamId: 't1', everyone: false, userIds: ['teammate'], managerIds: [] as string[] },
+      ],
     }
     const owners: string[] = []
     const shared: LocalRuntimeCatalogDeps = {

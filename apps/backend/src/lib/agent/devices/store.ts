@@ -1,7 +1,6 @@
 import { db } from '@/lib/db'
 
 import type { AgentAddition, RegisteredAgent } from './agent-registry'
-import type { LocalAgentShare } from './local-share-types'
 import type { RequestOrigin } from '@/lib/request-origin'
 import type { Collection } from 'mongodb'
 
@@ -20,10 +19,18 @@ export type AgentDeviceBox = {
   vcpus?: number
   /** Asset scope; independent of the host's transport owner. */
   teamId: string
+  /** Its owner; the transport `userId` stays whoever's credential the machine holds. */
   createdBy?: string
-  access?: { everyone: boolean; userIds: string[] }
   /** When an update last restarted its host; see box-updating. */
   updateStartedAt?: Date
+}
+
+/** In one team: who may use a computer and who may also manage it. */
+export type DeviceGrant = {
+  teamId: string
+  everyone: boolean
+  userIds: string[]
+  managerIds: string[]
 }
 
 export type AgentDevice = {
@@ -35,8 +42,8 @@ export type AgentDevice = {
   model?: string
   allowLocalExec: boolean
   box?: AgentDeviceBox
-  /** Teams in which its owner shares this computer's Local Agent; never on a Box. See local-share. */
-  shares?: LocalAgentShare[]
+  /** Who besides its owner may use or manage it, one grant per team; see box-access. */
+  access?: DeviceGrant[]
   /** Agents this computer has ever had signed in; see agent-registry. */
   agents?: RegisteredAgent[]
   /** Who added each of its added agents; absent for agents added before this was recorded. */
@@ -132,8 +139,7 @@ export async function insertJoinedAgentDevice(
 
 /**
  * A Box's device row exists from the moment the machine is ordered, so the UI can show it.
- * Its access is the creator's, plus `shared` when the route chose whom to share it with;
- * whatever access the registration carries is ignored.
+ * Its creator owns it; `shared` is whom the route chose to let use it.
  */
 export async function insertBoxAgentDevice(
   userId: string,
@@ -141,14 +147,18 @@ export async function insertBoxAgentDevice(
   shared?: { everyone: boolean; userIds: string[] },
 ): Promise<AgentDevice> {
   const now = new Date()
-  const access = {
-    everyone: shared?.everyone ?? false,
-    userIds: [...new Set([userId, ...(shared?.userIds ?? [])])],
-  }
   const created: AgentDevice = {
     ...device,
     userId,
-    box: { ...device.box, createdBy: userId, access },
+    box: { ...device.box, createdBy: userId },
+    access: [
+      {
+        teamId: device.box.teamId,
+        everyone: shared?.everyone ?? false,
+        userIds: (shared?.userIds ?? []).filter((id) => id !== userId),
+        managerIds: [],
+      },
+    ],
     createdAt: now,
     updatedAt: now,
   }
@@ -170,12 +180,8 @@ export async function insertManagedRuntimeDevice(
     platform: 'linux',
     allowLocalExec: false,
     userId,
-    box: {
-      provider: 'k8s',
-      teamId: device.teamId,
-      createdBy: userId,
-      access: { everyone: true, userIds: [] },
-    },
+    box: { provider: 'k8s', teamId: device.teamId, createdBy: userId },
+    access: [{ teamId: device.teamId, everyone: true, userIds: [], managerIds: [] }],
     createdAt: now,
     updatedAt: now,
   }
@@ -277,24 +283,16 @@ export async function listTeamBoxes(teamId: string): Promise<AgentDevice[]> {
     .toArray()
 }
 
-/** Replaces who may use a Box. Callers check `manage` first. */
-export async function setBoxAccess(
-  userId: string,
-  deviceId: string,
-  access: { everyone: boolean; userIds: string[] },
-): Promise<boolean> {
-  const result = await agentDevices().updateOne(
-    { userId, deviceId, box: { $exists: true } },
-    { $set: { 'box.access': access, updatedAt: new Date() } },
-  )
-
-  return result.matchedCount === 1
+/** People's computers with a grant in this team; a Box is listed with the team's Boxes. */
+export async function listDevicesGrantedInTeam(teamId: string): Promise<AgentDevice[]> {
+  return agentDevices()
+    .find({ 'access.teamId': teamId, box: { $exists: false } })
+    .toArray()
 }
 
-/** Someone who left the team leaves every one of its Box access lists. */
-export async function dropFromTeamBoxAccess(teamId: string, userId: string): Promise<void> {
-  await agentDevices().updateMany(
-    { 'box.teamId': teamId, 'box.access.userIds': userId },
-    { $pull: { 'box.access.userIds': userId } },
-  )
+/** A person's computer granted in this team by its id; ids are unique only per owner. */
+export async function findGrantedDevices(teamId: string, deviceId: string): Promise<AgentDevice[]> {
+  return agentDevices()
+    .find({ deviceId, 'access.teamId': teamId, box: { $exists: false } })
+    .toArray()
 }

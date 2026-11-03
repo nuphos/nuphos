@@ -1,9 +1,7 @@
 import { z } from 'zod'
 
-import { revokeAllTeamDeviceShares } from '@/lib/agent/devices/local-share-revoke'
 import { setTeamLocalAgentSharing } from '@/lib/agent/devices/local-share-ceiling'
 import { AppError } from '@/lib/errors'
-import { getTeamMembers } from '@/lib/identity'
 import { zv } from '@/lib/validate'
 import { requireTeamRole } from '@/middleware/auth'
 
@@ -17,9 +15,8 @@ const updateLocalAgentSharingSchema = z
   .strict()
 
 /**
- * The most a member may grant when sharing their own computer's Local Agent; see
- * lib/agent/devices/local-share. Lowering it applies on the next turn; turning it
- * off also closes teammates' open streams at once.
+ * The team setting released desktops still send. Access to computers no longer
+ * consults it (see box-access); it is stored only until it is removed.
  */
 export function registerLocalAgentSharingRoutes(
   teamScoped: Hono<{ Variables: TeamAuthVariables }>,
@@ -33,11 +30,6 @@ export function registerLocalAgentSharingRoutes(
       const team = await setTeamLocalAgentSharing(c.get('teamId'), level)
 
       if (!team) throw new AppError(404, 'team_not_found', 'Team not found')
-      if (level === 'off')
-        await revokeAllTeamDeviceShares(
-          c.get('teamId'),
-          (await getTeamMembers(c.get('teamId'))).map((member) => member.id),
-        )
 
       return c.json({
         ...team,

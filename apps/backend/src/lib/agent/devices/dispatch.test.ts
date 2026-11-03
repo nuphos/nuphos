@@ -15,7 +15,8 @@ const target: AgentDevice = {
   label: 'Box',
   platform: 'linux',
   allowLocalExec: true,
-  box: { provider: 'instabox', teamId: 't1', access: { everyone: false, userIds: ['viewer'] } },
+  box: { provider: 'instabox', teamId: 't1' },
+  access: [{ teamId: 't1', everyone: false, userIds: ['viewer'], managerIds: [] }],
   createdAt: new Date(),
   updatedAt: new Date(),
 }
@@ -23,6 +24,8 @@ const access: DeviceAccessDeps = {
   getDevice: () => Promise.resolve(target),
   listDevices: () => Promise.resolve([target]),
   listBoxes: () => Promise.resolve([target, { ...target, deviceId: 'offline' }]),
+  listGranted: () => Promise.resolve([]),
+  findGranted: () => Promise.resolve([]),
   role: (actor, team) =>
     Promise.resolve(team === 't1' ? (actor === 'u1' ? 'ADMINISTRATOR' : 'EDITOR') : null),
 }
@@ -169,7 +172,7 @@ test('dispatch authorizes the actor and sends through the owner tunnel; revocati
     ...shared,
     listBoxes: () =>
       Promise.resolve([
-        { ...target, box: { ...target.box!, access: { everyone: false, userIds: [] } } },
+        { ...target, access: [{ teamId: 't1', everyone: false, userIds: [], managerIds: [] }] },
       ]),
   }
 

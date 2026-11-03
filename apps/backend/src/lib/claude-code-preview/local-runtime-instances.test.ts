@@ -71,6 +71,8 @@ const deps: LocalRuntimeCatalogDeps = {
       },
     ],
     listBoxes: async () => [],
+    listGranted: () => Promise.resolve([]),
+    findGranted: () => Promise.resolve([]),
     role: async () => null,
   },
   isMember: async (userId, teamId) => userId === 'owner' && teamId === 'team',
@@ -205,8 +207,8 @@ test('Box instance use and login apply actor ACL before reading transport presen
       updatedAt: new Date(0),
       teamId: 'team',
       createdBy: 'owner',
-      access: { everyone: false, userIds: ['member'] },
     },
+    access: [{ teamId: 'team', everyone: false, userIds: ['member'], managerIds: ['admin'] }],
   }
   const boxDeps: LocalRuntimeCatalogDeps = {
     ...deps,
@@ -214,6 +216,8 @@ test('Box instance use and login apply actor ACL before reading transport presen
       getDevice: async () => box,
       listDevices: async () => [box],
       listBoxes: async (teamId) => (teamId === 'team' ? [box] : []),
+      listGranted: () => Promise.resolve([]),
+      findGranted: () => Promise.resolve([]),
       role: async (actorId) => (actorId === 'admin' ? 'ADMINISTRATOR' : 'EDITOR'),
     },
     isMember: async () => true,

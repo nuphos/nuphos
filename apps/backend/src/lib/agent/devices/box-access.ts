@@ -1,16 +1,51 @@
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 
+import { teamGrant } from './device-grants'
 import { tunnelBus } from './local-runtime/bus'
 import { holderChannel } from './local-runtime/protocol'
-import { getAgentDevice, listAgentDevicesForUser, listTeamBoxes } from './store'
+import {
+  findGrantedDevices,
+  getAgentDevice,
+  listAgentDevicesForUser,
+  listDevicesGrantedInTeam,
+  listTeamBoxes,
+} from './store'
 
 import type { HolderMessage } from './local-runtime/protocol'
-
 import type { AgentDevice } from './store'
 import type { NuphosTeamRole } from '@/lib/identity/types'
 
-export type DeviceAccessLevel = 'use' | 'manage'
+/** What a person may do with a computer: `use` is everything but managing it. */
+export type DeviceAccessLevel = 'use' | 'manage' | 'owner'
+
+const RANK: Record<DeviceAccessLevel, number> = { use: 0, manage: 1, owner: 2 }
+
+/** Whether `access` allows what `needed` asks for. */
+export function allows(access: DeviceAccessLevel | null, needed: DeviceAccessLevel): boolean {
+  return access !== null && RANK[access] >= RANK[needed]
+}
+
+/** Who owns a computer: whoever made a cloud computer, or the person whose computer it is. */
+export function deviceOwner(device: AgentDevice): string {
+  return device.box?.createdBy ?? device.userId
+}
+
+/** Who among these members can no longer use the computer under this team's new use list. */
+export function losingUse(
+  memberIds: string[],
+  device: AgentDevice,
+  teamId: string,
+  use: { everyone: boolean; userIds: string[] },
+): string[] {
+  const managers = teamGrant(device, teamId)?.managerIds ?? []
+
+  return use.everyone
+    ? []
+    : memberIds.filter(
+        (id) => id !== deviceOwner(device) && !managers.includes(id) && !use.userIds.includes(id),
+      )
+}
 
 /** The requested access, keeping only the team's current members, each once. */
 export function memberAccess(
@@ -28,33 +63,59 @@ export type DeviceAccessDeps = {
   getDevice: typeof getAgentDevice
   listDevices: typeof listAgentDevicesForUser
   listBoxes: typeof listTeamBoxes
+  listGranted: typeof listDevicesGrantedInTeam
+  findGranted: typeof findGrantedDevices
   role: (actorId: string, teamId: string) => Promise<NuphosTeamRole | null>
 }
 export const deviceAccessDeps: DeviceAccessDeps = {
   getDevice: (owner, id) => getAgentDevice(owner, id),
   listDevices: (owner) => listAgentDevicesForUser(owner),
   listBoxes: (team) => listTeamBoxes(team),
+  listGranted: (team) => listDevicesGrantedInTeam(team),
+  findGranted: (team, id) => findGrantedDevices(team, id),
   role: async (actorId, teamId) => (await getTeamMembership(actorId, teamId))?.role ?? null,
 }
 
-/** Legacy rows remain creator-only for use; createdBy never confers management. */
+/**
+ * The owner has every right; in the team asked about, a grant's managers manage and the
+ * rest it names use. A cloud computer counts only in its own team. Team roles confer nothing.
+ */
 export function deviceAccess(
   device: AgentDevice,
   actorId: string,
   teamId: string | undefined,
-  role: NuphosTeamRole | null,
 ): DeviceAccessLevel | null {
-  if (!device.box) return device.userId === actorId ? 'manage' : null
-  if (!teamId || device.box.teamId !== teamId || !role) return null
-  if (role === 'ADMINISTRATOR') return 'manage'
-  const access = device.box.access ?? {
-    everyone: false,
-    userIds: [device.box.createdBy ?? device.userId],
-  }
+  if (device.box && device.box.teamId !== teamId) return null
+  if (deviceOwner(device) === actorId) return 'owner'
+  const grant = teamId ? teamGrant(device, teamId) : undefined
 
-  return access.everyone || access.userIds.includes(actorId) ? 'use' : null
+  if (!grant) return null
+  if (grant.managerIds.includes(actorId)) return 'manage'
+
+  return grant.everyone || grant.userIds.includes(actorId) ? 'use' : null
 }
 
+/** A teammate's computer counts only while its owner is still in the team. */
+async function grantedInTeam(
+  devices: AgentDevice[],
+  actorId: string,
+  teamId: string,
+  deps: DeviceAccessDeps,
+): Promise<AgentDevice[]> {
+  const kept = await Promise.all(
+    devices.map(async (device) =>
+      device.userId !== actorId &&
+      deviceAccess(device, actorId, teamId) &&
+      (await deps.role(device.userId, teamId))
+        ? device
+        : null,
+    ),
+  )
+
+  return kept.filter((device) => device !== null)
+}
+
+/** The person's own computers, then in this team its cloud computers and teammates' they may use. */
 export async function listAccessibleDevices(
   actorId: string,
   teamId: string | undefined,
@@ -62,13 +123,16 @@ export async function listAccessibleDevices(
 ): Promise<AgentDevice[]> {
   const own = (await deps.listDevices(actorId)).filter((device) => !device.box)
 
-  if (!teamId) return own
-  const role = await deps.role(actorId, teamId)
+  if (!teamId || !(await deps.role(actorId, teamId))) return own
+  const boxes = (await deps.listBoxes(teamId)).filter((device) =>
+    deviceAccess(device, actorId, teamId),
+  )
 
-  if (!role) return own
-  const boxes = await deps.listBoxes(teamId)
-
-  return [...own, ...boxes.filter((device) => deviceAccess(device, actorId, teamId, role))]
+  return [
+    ...own,
+    ...boxes,
+    ...(await grantedInTeam(await deps.listGranted(teamId), actorId, teamId, deps)),
+  ]
 }
 
 /** Returns the persistent owner for transport; the caller must retain actorId for audit. */
@@ -84,18 +148,25 @@ export async function requireDeviceAccess(
   // A Box lives in a team: asking for your own without saying which is a client bug.
   if (!teamId && own?.box)
     throw new AppError(400, 'team_required', 'Pass the teamId of the Box’s team')
-  const role = teamId ? await deps.role(actorId, teamId) : null
+  const member = teamId ? (await deps.role(actorId, teamId)) !== null : false
   // Query the requested team, never a global deviceId lookup or the owner's other teams.
   const candidates =
     own && !own.box
       ? [own]
-      : teamId
-        ? (await deps.listBoxes(teamId)).filter((box) => box.deviceId === deviceId)
+      : teamId && member
+        ? [
+            ...(await deps.listBoxes(teamId)).filter((box) => box.deviceId === deviceId),
+            ...(await grantedInTeam(
+              await deps.findGranted(teamId, deviceId),
+              actorId,
+              teamId,
+              deps,
+            )),
+          ]
         : []
   const device = candidates.length === 1 ? candidates[0] : undefined
-  const access = device && deviceAccess(device, actorId, teamId, role)
 
-  if (!device || !access || (level === 'manage' && access !== 'manage'))
+  if (!device || !allows(deviceAccess(device, actorId, teamId), level))
     throw new AppError(404, 'device_not_found', 'Device is not available')
 
   return device

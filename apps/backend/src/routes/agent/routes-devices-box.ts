@@ -2,12 +2,15 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 
 import {
+  allows,
   deviceAccess,
   listAccessibleDevices,
+  losingUse,
   memberAccess,
   requireDeviceAccess,
 } from '@/lib/agent/devices/box-access'
 import { boxUpdatingSince } from '@/lib/agent/devices/box-updating'
+import { teamUse } from '@/lib/agent/devices/device-grants'
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 
@@ -80,7 +83,7 @@ async function deviceView(
       ? {
           box: {
             provider: device.box.provider,
-            ...(level === 'manage' && device.box.access ? { access: device.box.access } : {}),
+            ...(level === 'manage' ? { access: teamUse(device, device.box.teamId) } : {}),
             ...(device.box.sandboxId ? { sandboxId: device.box.sandboxId } : {}),
             state,
             // Its host restarting for an update: offline on purpose, and back on its own.
@@ -125,7 +128,7 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
             const view = await deviceView(
               deps,
               device,
-              deviceAccess(device, userId, teamId, role) ?? 'use',
+              allows(deviceAccess(device, userId, teamId), 'manage') ? 'manage' : 'use',
             )
 
             return view
@@ -241,7 +244,7 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
   })
 
   // Deletes the machine, revokes its credential and forgets the device.
-  // Who may use a Box: team administrators only. Whoever loses access has their open
+  // Who may use a Box: its owner and managers decide. Whoever loses access has their open
   // terminal, CUA and chat streams on it closed; a one-shot exec already sent finishes.
   routes.put(
     '/devices/:deviceId/box/access',
@@ -256,17 +259,15 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
         'manage',
         deps.access,
       )
-      const members = await deps.teamMembers(device.box?.teamId ?? '')
+      const boxTeam = device.box?.teamId ?? ''
+      const members = await deps.teamMembers(boxTeam)
       const access = memberAccess(members, c.req.valid('json'))
 
-      if (!(await deps.setBoxAccess(device.userId, device.deviceId, access)))
+      if (!(await deps.setTeamUse(device.userId, device.deviceId, boxTeam, access)))
         throw new AppError(404, 'device_not_found', 'Device is not available')
-      const lost = members
-        .filter((member) => member.role !== 'ADMINISTRATOR')
-        .filter((member) => !access.everyone && !access.userIds.includes(member.id))
-        .map((member) => member.id)
+      const memberIds = members.map((member) => member.id)
 
-      await deps.revokeStreams([device], lost)
+      await deps.revokeStreams([device], losingUse(memberIds, device, boxTeam, access))
 
       return c.json({ access })
     },
@@ -278,7 +279,7 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
       c.get('userId'),
       readTeamIdCandidate(c),
       deviceId,
-      'manage',
+      'owner',
       deps.access,
     )
 

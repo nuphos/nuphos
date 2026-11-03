@@ -29,12 +29,10 @@ describe('the device a managed runtime joins as', () => {
       teamId: 'team-1',
     })
 
-    expect(device.box).toEqual({
-      provider: 'k8s',
-      teamId: 'team-1',
-      createdBy: 'admin-1',
-      access: { everyone: true, userIds: [] },
-    })
+    expect(device.box).toEqual({ provider: 'k8s', teamId: 'team-1', createdBy: 'admin-1' })
+    expect(device.access).toEqual([
+      { teamId: 'team-1', everyone: true, userIds: [], managerIds: [] },
+    ])
     expect(device.allowLocalExec).toBe(false)
   })
 
