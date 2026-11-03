@@ -12,6 +12,7 @@ import {
   isChannel,
   listChannelAgents,
   listChannelMentions,
+  ownsChannelAgent,
   removeChannelAgent,
 } from '@/lib/agent/db/channels'
 import { addConversationParticipants } from '@/lib/agent/db/participants'
@@ -68,16 +69,6 @@ function channelOrNotFound(conversation: AgentConversation | null): AgentConvers
   return conversation
 }
 
-/** Whether the caller owns this agent, i.e. its session. */
-async function ownsAgent(agentSessionId: string, userId: string, teamId: string) {
-  const agent = await getConversationBySessionId(agentSessionId)
-
-  if (!agent || agent.teamId !== teamId || isChannel(agent))
-    throw new AppError(404, 'not_found', 'Agent conversation not found')
-
-  return agent.userId === userId
-}
-
 async function agentsResponse(channel: AgentConversation | null) {
   return { agents: await listChannelAgents(channelOrNotFound(channel)) }
 }
@@ -130,7 +121,7 @@ channelRoutes.post('/conversations/:sessionId/agents', async (c) => {
 
   if (typeof agentSessionId !== 'string' || !agentSessionId)
     throw new AppError(400, 'invalid_request', 'sessionId must name the agent’s conversation')
-  if (!(await ownsAgent(agentSessionId, userId, teamId)))
+  if (!(await ownsChannelAgent(agentSessionId, userId, teamId)))
     throw new AppError(403, 'forbidden', 'Only its owner can add this agent')
 
   return c.json(await agentsResponse(await addChannelAgent(channelId, agentSessionId)))
@@ -146,7 +137,7 @@ channelRoutes.delete('/conversations/:sessionId/agents/:agentSessionId', async (
   const found = await getConversationBySessionId(channelId)
   const channel = channelOrNotFound(found?.teamId === teamId ? found : null)
 
-  if (channel.userId !== userId && !(await ownsAgent(agentSessionId, userId, teamId)))
+  if (channel.userId !== userId && !(await ownsChannelAgent(agentSessionId, userId, teamId)))
     throw new AppError(
       403,
       'forbidden',

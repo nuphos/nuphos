@@ -24,6 +24,12 @@ let ownerOnTeam = true
 
 useIdentity({
   getTeamMembership: async () => (ownerOnTeam ? ({ role: 'MEMBER' } as never) : null),
+  getTeamMembers: async () =>
+    [
+      { id: 'owner', name: 'Owner', email: 'owner@example.com' },
+      { id: 'alice', name: 'Alice', email: 'Alice@example.com' },
+      { id: 'bob', name: 'Bob', email: 'bob@example.com' },
+    ] as never,
 })
 useAgentDb({
   appendConversationMessages: async (data) => {
@@ -35,6 +41,8 @@ useAgentDb({
 
 async function seed(sessionId: string, extra: Partial<AgentConversation> = {}) {
   await agentConversations().insertOne({
+    // The in-memory upsert tells rows apart by _id.
+    _id: sessionId as never,
     sessionId,
     userId: 'owner',
     teamId: 'team',
@@ -98,4 +106,68 @@ test('an agent whose owner left the team cannot read', async () => {
 
   expect(JSON.stringify(read)).toContain('no longer on the team')
   expect(appended).toHaveLength(0)
+})
+
+const channels = () => agentConversations().find({ kind: 'channel' }).toArray()
+
+test('an agent opens a channel as its owner and invites teammates', async () => {
+  const result = await tools('agent-a').channel_create?.({
+    label: 'x',
+    name: 'Launch',
+    people: ['alice', 'BOB@example.com', 'owner'],
+    message: 'Opening this to plan the launch.',
+  })
+  const { channelId } = (result as { structuredContent: { channelId: string } }).structuredContent
+  const channel = await agentConversations().findOne({ sessionId: channelId })
+
+  expect(channel).toMatchObject({
+    kind: 'channel',
+    userId: 'owner',
+    teamId: 'team',
+    title: 'Launch',
+    agentSessionIds: ['agent-a'],
+    participantIds: ['alice', 'bob'],
+  })
+  expect(appended).toHaveLength(1)
+  expect(appended[0]).toMatchObject({
+    sessionId: channelId,
+    messages: [
+      {
+        parts: [{ type: 'text', text: 'Opening this to plan the launch.' }],
+        metadata: { sender: { type: 'agent', id: 'agent-a' } },
+      },
+    ],
+  })
+})
+
+test('only teammates and the owner’s own agents can be brought in', async () => {
+  const before = (await channels()).length
+  const outsider = await tools('agent-a').channel_create?.({
+    label: 'x',
+    name: 'Nope',
+    people: ['alice', 'stranger@example.com'],
+  })
+
+  expect(JSON.stringify(outsider)).toContain('stranger@example.com')
+  await seed('someone-elses-agent', { userId: 'bob' })
+  const foreignAgent = await tools('agent-a').channel_create?.({
+    label: 'x',
+    name: 'Nope',
+    people: ['alice'],
+    agents: ['someone-elses-agent'],
+  })
+
+  expect(foreignAgent).toMatchObject({ isError: true })
+  expect(await channels()).toHaveLength(before)
+})
+
+test('an agent whose owner left the team cannot open a channel', async () => {
+  ownerOnTeam = false
+  const result = await tools('agent-a').channel_create?.({
+    label: 'x',
+    name: 'Nope',
+    people: ['alice'],
+  })
+
+  expect(JSON.stringify(result)).toContain('no longer on the team')
 })

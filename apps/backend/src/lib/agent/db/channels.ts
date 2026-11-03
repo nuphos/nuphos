@@ -52,6 +52,19 @@ export async function addChannelAgent(
   )
 }
 
+/**
+ * Whether this user owns that agent, i.e. its session. Only its owner may bring
+ * an agent into a channel. Another team's session or a channel is not an agent.
+ */
+export async function ownsChannelAgent(agentSessionId: string, userId: string, teamId: string) {
+  const agent = await agentConversations().findOne({ sessionId: agentSessionId })
+
+  if (!agent || agent.teamId !== teamId || isChannel(agent))
+    throw new AppError(404, 'not_found', 'Agent conversation not found')
+
+  return agent.userId === userId
+}
+
 export async function removeChannelAgent(
   channelId: string,
   agentSessionId: string,

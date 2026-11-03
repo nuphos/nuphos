@@ -126,10 +126,11 @@ async function wakeChannelAgents(
 }
 
 /**
- * A channel-woken turn's closing words are its reply, as a person's last words
- * in a group chat are what they said. Saying nothing leaves nothing behind.
+ * Posts in a channel in this agent's name: a channel-woken turn's closing words
+ * are its reply, as a person's last words in a group chat are what they said.
+ * Saying nothing leaves nothing behind.
  */
-async function postTurnReply(
+export async function postAsAgent(
   channelId: string,
   agent: Pick<AgentConversation, 'sessionId' | 'title' | 'agentRuntime'>,
   text: string,
@@ -197,7 +198,7 @@ export async function replyToChannel(
   const ui = persistedMessageToUiMessage(messages[answered]!)
   const text = ui ? closingWords(ui) : ''
 
-  if (text) await postTurnReply(first.slice(CHANNEL_SENDER_PREFIX.length), target, text)
+  if (text) await postAsAgent(first.slice(CHANNEL_SENDER_PREFIX.length), target, text)
 }
 
 onChannelTurnEnd(replyToChannel)
