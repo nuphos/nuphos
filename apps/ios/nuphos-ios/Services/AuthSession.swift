@@ -73,11 +73,18 @@ final class AuthSession {
         if let fixture = ProcessInfo.processInfo.environment["NUPHOS_PREVIEW_RESPONSES"] {
             UserDefaults.standard.set(fixture, forKey: "previewResponses")
         }
-        let previewFixture = UserDefaults.standard.string(forKey: "previewResponses")
+        // Share verification ignores a fixture left from an earlier preview launch.
+        let previewFixture = CommandLine.arguments.contains("-share-verification") ? nil : UserDefaults.standard.string(forKey: "previewResponses")
         #else
         let previewFixture: String? = nil
         #endif
-        if !CommandLine.arguments.contains("-share-verification") && (CommandLine.arguments.contains("-preview-home") || previewFixture != nil) {
+        // Login fixtures exercise the real form without creating a real account.
+        if CommandLine.arguments.contains("-preview-login") {
+            if previewFixture != nil { URLProtocol.registerClass(PreviewTransport.self) }
+            state = .signedOut(error: nil)
+            return
+        }
+        if CommandLine.arguments.contains("-preview-home") || previewFixture != nil {
             if previewFixture != nil {
                 URLProtocol.registerClass(PreviewTransport.self)
                 token = "preview-only"
@@ -86,11 +93,6 @@ final class AuthSession {
             aiConsentAccepted = !CommandLine.arguments.contains("-preview-consent")
             aiConsentVersion = AccountAPI.aiConsentVersion
             state = .signedIn(.preview)
-            return
-        }
-        // `-preview-login`: the sign-in screen, leaving any saved session alone.
-        if CommandLine.arguments.contains("-preview-login") {
-            state = .signedOut(error: nil)
             return
         }
         #endif
