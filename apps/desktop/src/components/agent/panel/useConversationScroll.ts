@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useRef } from 'react'
 
+import { followNewContent } from './conversationFollow'
 import { AUTO_SCROLL_BOTTOM_THRESHOLD, EARLIER_MESSAGES_SCROLL_THRESHOLD } from './model'
 import { useConversationFollowEffects } from './useConversationFollowEffects'
 
@@ -9,6 +10,7 @@ import type { RefObject, TouchEvent as ReactTouchEvent, WheelEvent as ReactWheel
 export function useConversationScroll({
   tab,
   lastMsg,
+  lastMsgIsOwn,
   lastStreamToken,
   localCommandToolToken,
   statusLabel,
@@ -24,6 +26,7 @@ export function useConversationScroll({
 }: {
   tab: Tab
   lastMsg: Message | undefined
+  lastMsgIsOwn: boolean
   lastStreamToken: string
   statusLabel: string | null
   localCommandToolToken: string
@@ -128,23 +131,30 @@ export function useConversationScroll({
     },
     [handleUserScrollIntent, lockScrollToHistory, touchStartYRef],
   )
-  const followLatestOrMarkUnseen = useCallback(() => {
-    const el = ref.current
+  const followLatestOrMarkUnseen = useCallback(
+    (ownSend = false) => {
+      const el = ref.current
+      const action = followNewContent({
+        ownSend,
+        lockedToHistory: userLockedScrollRef.current,
+        following: shouldFollowRef.current,
+        nearBottom: Boolean(el && isNearBottom(el)),
+      })
 
-    if (!userLockedScrollRef.current && (shouldFollowRef.current || (el && isNearBottom(el)))) {
-      return scrollToBottomAfterLayout()
-    }
-    unseenNewContentRef.current = true
-    setShowJumpToLatest(true)
-  }, [
-    isNearBottom,
-    ref,
-    scrollToBottomAfterLayout,
-    setShowJumpToLatest,
-    shouldFollowRef,
-    unseenNewContentRef,
-    userLockedScrollRef,
-  ])
+      if (action === 'follow') return scrollToBottomAfterLayout()
+      unseenNewContentRef.current = true
+      setShowJumpToLatest(true)
+    },
+    [
+      isNearBottom,
+      ref,
+      scrollToBottomAfterLayout,
+      setShowJumpToLatest,
+      shouldFollowRef,
+      unseenNewContentRef,
+      userLockedScrollRef,
+    ],
+  )
   const hasEarlier = (tab.historyBaseIndex ?? 0) > 0
   // Viewport anchor for earlier-page prepends: the first rendered message and
   // its on-screen offset at request time. Re-anchoring to the element (rather
@@ -241,6 +251,7 @@ export function useConversationScroll({
   useConversationFollowEffects({
     tab,
     lastMsg,
+    lastMsgIsOwn,
     lastStreamToken,
     localCommandToolToken,
     statusLabel,
