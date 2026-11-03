@@ -32,11 +32,11 @@ import ai.nuphos.android.model.ChannelItem
 import ai.nuphos.android.model.ChannelPost
 import ai.nuphos.android.model.ChatTime
 import ai.nuphos.android.model.TransferUpload
+import ai.nuphos.android.data.TransferDownloads
 import ai.nuphos.android.session.AiAccess
 import ai.nuphos.android.session.ChannelSession
 import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.LocalAuthSession
-import ai.nuphos.android.ui.chat.TransferCard
 import ai.nuphos.android.ui.components.AgentAvatar
 import ai.nuphos.android.ui.components.MarkdownText
 import kotlinx.coroutines.launch
@@ -92,9 +92,9 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
                 }
                 else -> {
                     val consent = AiAccess.revision
-                    ChannelTranscript(session, items, viewerId, onLink) {
+                    ChannelTranscript(session, items, viewerId, onLink, allowed = {
                         AiAccess.revision == consent && store.selectedTeam?.id == session.teamId && auth.aiAllowed
-                    }
+                    })
                 }
             }
         }
@@ -107,7 +107,8 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
 
 /** Newest at the bottom; the list opens there and keeps the reader's place while reading older posts. */
 @Composable
-internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>, viewerId: String?, onLink: (String) -> Unit, allowed: () -> Boolean = { true }) {
+internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>, viewerId: String?, onLink: (String) -> Unit, allowed: () -> Boolean = { true },
+                                downloads: TransferDownloads = remember { TransferDownloads() }) {
     val state = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val reversed = items.asReversed()
@@ -124,7 +125,7 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
             items(reversed, key = { it.key }) { item ->
                 when (item) {
-                    is ChannelItem.Post -> PostRow(session, item.post, item.first, item.post.isMine(viewerId), onLink, allowed)
+                    is ChannelItem.Post -> PostRow(session, item.post, item.first, item.post.isMine(viewerId), onLink, allowed, downloads)
                     is ChannelItem.Time -> TimeDivider(item.at)
                     is ChannelItem.Paused -> PausedLine(item.text)
                     is ChannelItem.Typing -> TypingRow(item)
@@ -140,7 +141,8 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
 
 /** Yours on the right; everyone else's on the left under their avatar and name, once per run. */
 @Composable
-private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, mine: Boolean, onLink: (String) -> Unit, allowed: () -> Boolean) {
+private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, mine: Boolean, onLink: (String) -> Unit, allowed: () -> Boolean,
+                    downloads: TransferDownloads) {
     Row(Modifier.fillMaxWidth().padding(top = if (first) 12.dp else 4.dp)) {
         if (mine) Spacer(Modifier.weight(1f).widthIn(min = 48.dp))
         Column(Modifier.widthIn(max = 300.dp), horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
@@ -152,22 +154,24 @@ private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, 
                     modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
                         .padding(horizontal = 6.dp, vertical = 2.dp))
             }
+            // A person's files show above their words, as on iOS.
+            if (post.uploads.isNotEmpty()) Box(Modifier.padding(bottom = 6.dp)) {
+                ChannelFiles(post.uploads, mine, session::transferGroup, allowed, downloads)
+            }
+            // A post on its way shows the files it is uploading.
+            if (post.sending) session.sendingAttachments[post.id]?.forEach { attachment ->
+                Text(attachment.name, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 4.dp).clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(horizontal = 8.dp, vertical = 4.dp))
+            }
             // A bubble is as wide as its words, up to the column's width.
             if (post.text.isNotEmpty()) Surface(modifier = Modifier.width(IntrinsicSize.Max), shape = RoundedCornerShape(18.dp),
                 color = if (mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh) {
                 Box(Modifier.padding(horizontal = 14.dp, vertical = 9.dp)) { MarkdownText(post.text, onLink = onLink, compact = true) }
             }
-            // A post on its way shows the files it is uploading.
-            if (post.sending) session.sendingAttachments[post.id]?.forEach { attachment ->
-                Text(attachment.name, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(horizontal = 8.dp, vertical = 4.dp))
-            }
-            post.groups.forEach { group ->
-                Box(Modifier.padding(top = 6.dp)) {
-                    TransferCard(TransferUpload(group, post.uploads.firstOrNull { it.groupId == group }?.names.orEmpty()),
-                        loadGroup = { session.transferGroup(group) }, canAccess = true, allowed = allowed, compact = true)
-                }
+            // An agent's files show below its words, every group in one grid.
+            if (post.downloads.isNotEmpty()) Box(Modifier.padding(top = 6.dp)) {
+                ChannelFiles(post.downloads.map { TransferUpload(it, emptyList()) }, mine, session::transferGroup, allowed, downloads)
             }
             // Times are dividers between runs now; only a post on its way says so.
             if (post.sending) Text("Sending…", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,

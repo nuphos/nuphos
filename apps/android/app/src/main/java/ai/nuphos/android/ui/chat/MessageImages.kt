@@ -117,14 +117,14 @@ internal object MessageImageDecoder {
 
 private val imageDecodeDispatcher = Dispatchers.Default.limitedParallelism(1)
 
-private sealed interface ImageLoad {
+internal sealed interface ImageLoad {
     data object Loading : ImageLoad
     data object Unavailable : ImageLoad
     data class Ready(val bitmap: ImageBitmap) : ImageLoad
 }
 
 @Composable
-private fun imageLoad(source: String, edge: Int, loader: MessageImageLoader): State<ImageLoad> = produceState<ImageLoad>(ImageLoad.Loading, source, edge, loader) {
+internal fun imageLoad(source: String, edge: Int, loader: MessageImageLoader): State<ImageLoad> = produceState<ImageLoad>(ImageLoad.Loading, source, edge, loader) {
     value = ImageLoad.Loading
     value = withContext(imageDecodeDispatcher) {
         loader(source, edge)?.let(ImageLoad::Ready) ?: ImageLoad.Unavailable
