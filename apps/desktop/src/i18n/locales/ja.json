@@ -5674,5 +5674,12 @@
   "≥ {pct}% of Limit": "制限の {pct}% 以上",
   "Stop viewing from iPhone": "iPhoneでの表示を停止",
   "Viewing from iPhone. Click to stop.": "iPhoneで表示中です。クリックで停止します。",
-  "✓ used": "✓ 使用済み"
+  "✓ used": "✓ 使用済み",
+  "Add account": "アカウントを追加",
+  "Add an account": "アカウントを追加",
+  "Log out of all accounts": "すべてのアカウントからログアウト",
+  "Could not switch accounts": "アカウントを切り替えられませんでした",
+  "Signed in on this computer": "このコンピュータでサインイン中",
+  "Sign in to {name} again.": "{name} にもう一度サインインしてください。",
+  "You stay signed in to the others, and can switch back any time.": "ほかのアカウントはサインインしたままで、いつでも切り替えて戻れます。"
 }

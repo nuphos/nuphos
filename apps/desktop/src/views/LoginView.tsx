@@ -19,20 +19,27 @@ import {
 import { signInEmailError } from '../lib/emailDomain'
 import { cssDurationMs, prefersReducedMotion } from '../lib/motion'
 
+import { LoginAccounts } from './LoginAccounts'
 import { LoginApiEndpoint } from './LoginApiEndpoint'
 import { LoginSocialButtons } from './LoginSocialButtons'
 
-import type { UserInfo } from '../types'
+import type { AccountSummary, UserInfo } from '../types'
 
 type Props = {
   onLogin: (user: UserInfo) => void
+  /** Other accounts signed in on this computer, to continue as one. */
+  accounts?: AccountSummary[]
+  /** Why this screen is shown, e.g. an account that must sign in again. */
+  notice?: string
+  /** Signing in to one more account: back to the workspace without it. */
+  onCancel?: () => void
 }
 
 const inputClasses =
   'w-full px-3 py-2 rounded-md bg-surface border border-zGray-800 text-main text-[14px] ' +
   'outline-none focus:border-zViolet-accent placeholder:text-secondary titlebar-no-drag t-input'
 
-export function LoginView({ onLogin }: Props) {
+export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
   const [step, setStep] = useState<'start' | 'code'>('start')
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
@@ -133,10 +140,16 @@ export function LoginView({ onLogin }: Props) {
           <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
             <NuphosLogo className="h-12 w-12" variant="white-bg" />
           </div>
-          <h1 className="text-[20px] font-semibold text-main mb-1.5">{t('Welcome to Nuphos')}</h1>
+          <h1 className="text-[20px] font-semibold text-main mb-1.5">
+            {onCancel ? t('Add an account') : t('Welcome to Nuphos')}
+          </h1>
           <p className="text-[13.5px] text-secondary leading-relaxed mb-8">
-            {t('The agent workspace for your team')}
+            {notice ??
+              (onCancel
+                ? t('You stay signed in to the others, and can switch back any time.')
+                : t('The agent workspace for your team'))}
           </p>
+          {step === 'start' && <LoginAccounts accounts={accounts} />}
 
           <div className="t-page-slide t-wizard-slide w-full" data-page={step === 'start' ? 1 : 2}>
             <section className="t-page" data-page-id="1" inert={step !== 'start'}>
@@ -261,6 +274,17 @@ export function LoginView({ onLogin }: Props) {
               </form>
             </section>
           </div>
+          {onCancel && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onCancel}
+              className="mt-4 titlebar-no-drag"
+            >
+              {t('Cancel')}
+            </Button>
+          )}
         </div>
       </div>
     </div>

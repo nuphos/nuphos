@@ -27,6 +27,7 @@ import type { Design, DesignOp, DesignPage, DesignSummary } from '../design/sche
 import type { DashboardViewRange } from '../dashboards/schema'
 import type { ConnectAgentLink } from '../lib/connectAgentLink.ts'
 import type {
+  AccountSummary,
   AtlasTeam,
   AuthStatus,
   ChangelogState,
@@ -62,6 +63,10 @@ export type WindowAppApi = {
   authLogin(provider: SocialProvider): Promise<UserInfo>
   authLogout(): Promise<void>
   authCancel(): Promise<void>
+  authListAccounts(): Promise<AccountSummary[]>
+  authSwitchAccount(key: string): Promise<'switched' | 'signInAgain'>
+  authSignOutAccount(key: string): Promise<void>
+  authSignOutAllAccounts(): Promise<void>
   authEmailRequestCode(email: string): Promise<void>
   authEmailVerifyCode(email: string, code: string): Promise<UserInfo>
   analyticsIdentify(userId: string, props?: Record<string, unknown>): Promise<void>

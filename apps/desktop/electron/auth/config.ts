@@ -3,6 +3,7 @@ import { authSession } from '../auth-session.ts'
 import { CLI_CONFIG_PATH, DESKTOP_CONFIG_PATH } from '../cli-config-path.ts'
 
 import {
+  AccountUnavailableError,
   accountKey,
   keyOf,
   normalizedApi,
@@ -108,10 +109,10 @@ export function configFile(deps: ConfigFileDeps) {
     const others = previous.accounts ?? []
     const target = others.find((a) => keyOf(a, api) === key)
 
-    if (!target) throw new Error('That account is not signed in on this computer')
+    if (!target) throw new AccountUnavailableError('That account is not signed in on this computer')
     const token = await tokenOf(target)
 
-    if (!token) throw new Error('Sign in to that account again')
+    if (!token) throw new AccountUnavailableError('Sign in to that account again')
     const rest = waiting(others, previous, key, api)
     const to = target.api ?? api
     const moves = normalizedApi(to) !== api

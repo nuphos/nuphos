@@ -68,6 +68,14 @@ export const appChannels = {
     return result
   },
   'auth:cancel': () => auth.cancelPendingLogin(),
+  // Leaving the active account reloads every window (account-leave.ts).
+  'auth:listAccounts': () => auth.listAccounts(),
+  'auth:switchAccount': (_e: unknown, key: string) => auth.switchAccount(key),
+  'auth:signOutAccount': (_e: unknown, key: string) => auth.signOutAccount(key),
+  'auth:signOutAllAccounts': async () => {
+    await auth.signOutAllAccounts()
+    resetAnalyticsUser()
+  },
   'auth:emailRequestCode': (_e: unknown, email: string) => auth.requestEmailCode(email),
   'auth:emailVerifyCode': (_e: unknown, email: string, code: string) =>
     auth.verifyEmailCode(email, code),

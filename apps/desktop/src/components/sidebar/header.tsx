@@ -1,5 +1,8 @@
 import { ChevronRight, ChevronsUpDown, Loader2, LogOut, Settings } from 'lucide-react'
+import { useState } from 'react'
 
+import { api } from '../../api'
+import { waitingAccounts } from '../../app/accounts'
 import { t } from '../../i18n'
 import { Avatar } from '../Avatar'
 import { SkeletonReveal } from '../SkeletonReveal'
@@ -15,11 +18,12 @@ import {
 } from '../ui/menu'
 import { renderWorkspaceMenuOptions } from '../WorkspaceMenuOptions'
 
+import { SidebarAccountItems } from './account-items'
 import { SidebarHistoryButtons } from './history-buttons'
 import { SidebarToggleButton } from './nav-stack'
 
 import type { ChatLookup, HistoryTimeline } from './historyRows'
-import type { UserInfo } from '../../types'
+import type { AccountSummary, UserInfo } from '../../types'
 import type { BreadcrumbSegment } from '../Toolbar'
 
 /**
@@ -183,9 +187,18 @@ export function SidebarUserEntry({
   onLogout: () => void
 }) {
   const name = user.name || user.username || user.email
+  const [waiting, setWaiting] = useState<AccountSummary[]>([])
 
   return (
-    <Menu>
+    <Menu
+      onOpenChange={(open) => {
+        if (open)
+          api
+            .authListAccounts()
+            .then((accounts) => setWaiting(waitingAccounts(accounts)))
+            .catch(() => undefined)
+      }}
+    >
       <MenuTrigger className="titlebar-no-drag min-w-0 flex-1 h-9 flex items-center gap-2.5 px-2 rounded-lg text-[13.5px] text-main outline-none transition-colors hover:bg-[var(--sidebar-overlay-hover)] focus-visible:bg-[var(--sidebar-overlay-focus)] data-[popup-open]:bg-[var(--sidebar-overlay-active)]">
         <Avatar
           src={user.avatarURL}
@@ -209,6 +222,8 @@ export function SidebarUserEntry({
           </div>
         </div>
         <MenuSeparator />
+        <SidebarAccountItems waiting={waiting} />
+        <MenuSeparator />
         {onOpenUserSettings && (
           <MenuItem
             icon={<Settings className="h-3.5 w-3.5" />}
@@ -221,6 +236,11 @@ export function SidebarUserEntry({
         <MenuItem icon={<LogOut className="h-3.5 w-3.5" />} onClick={() => onLogout()}>
           {t('Log out')}
         </MenuItem>
+        {waiting.length > 0 && (
+          <MenuItem onClick={() => void api.authSignOutAllAccounts().catch(() => onLogout())}>
+            {t('Log out of all accounts')}
+          </MenuItem>
+        )}
       </MenuContent>
     </Menu>
   )

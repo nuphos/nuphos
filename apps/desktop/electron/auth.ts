@@ -5,6 +5,7 @@ import { shell } from 'electron'
 // Extension-qualified so this module also resolves under plain node ESM, which
 // is how auth-login.test.ts drives login().
 import { apiUrl, setApiUrl } from './api-endpoint.ts'
+import { AccountUnavailableError } from './auth/accounts.ts'
 import { listenOnLoopback } from './auth/callback-server.ts'
 import {
   forgetAccountConfig,
@@ -145,8 +146,23 @@ export async function changeBackend(url: string | null): Promise<string> {
 /** The accounts signed in on this computer, the active one first; never their tokens. */
 export const listAccounts = listAccountConfigs
 
-/** Makes another signed-in account the active one, on the backend that issued its token. */
-export const switchAccount = switchAccountConfig
+/**
+ * Makes another signed-in account the active one, on the backend that issued
+ * its token. One whose token is gone (a locked or cleared keychain) is signed
+ * out of this app instead, to be signed in again.
+ */
+export async function switchAccount(key: string): Promise<'switched' | 'signInAgain'> {
+  try {
+    await switchAccountConfig(key)
+
+    return 'switched'
+  } catch (e) {
+    if (!(e instanceof AccountUnavailableError)) throw e
+    await signOutAccount(key)
+
+    return 'signInAgain'
+  }
+}
 
 /** Signs one account out of this app and ends its session on its backend. */
 export async function signOutAccount(key: string): Promise<void> {
@@ -156,6 +172,14 @@ export async function signOutAccount(key: string): Promise<void> {
   const ended = await forgetAccountConfig(key)
 
   if (ended) void endServerSession(ended.api, ended.token)
+}
+
+/** Signs every account out of this app, the active one last. */
+export async function signOutAllAccounts(): Promise<void> {
+  for (const account of await listAccounts()) {
+    if (!account.active) await signOutAccount(account.key)
+  }
+  await logout()
 }
 
 async function endServerSession(api: string, token: string): Promise<void> {

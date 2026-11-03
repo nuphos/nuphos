@@ -4,7 +4,7 @@ import { isTeamId } from '../lib/teamId.ts'
 import { renamedTeamNavKey } from '../lib/teamOverviewNav.ts'
 import { settingsSectionForPage } from '../views/settings/settingsNav.ts'
 
-import { readLocalStorage, writeLocalStorage } from './localStorage.ts'
+import { readAccountStorage, writeAccountStorage } from './accountStorage.ts'
 import { createWorkspaceTab, restoreNavigation } from './workspaceTabFactory.ts'
 import {
   LEGACY_WORKSPACE_TABS_STORAGE_KEY,
@@ -64,7 +64,7 @@ export function serializeWorkspace(
 /** Reads the pre-per-session (single global tab strip) format. Only used as
  *  the migration source for `readPersistedWorkspaceBySession` now. */
 export function readPersistedWorkspace(): PersistedWorkspace | null {
-  const raw = readLocalStorage(LEGACY_WORKSPACE_TABS_STORAGE_KEY)
+  const raw = readAccountStorage(LEGACY_WORKSPACE_TABS_STORAGE_KEY)
 
   if (!raw) return null
   try {
@@ -120,7 +120,7 @@ function parseWorkspaceBySession(raw: string): PersistedWorkspaceBySession | nul
  * unused key from then on, not worth adding a remove-key helper to clear.
  */
 export function readPersistedWorkspaceBySession(): PersistedWorkspaceBySession {
-  const raw = readLocalStorage(WORKSPACE_TABS_STORAGE_KEY)
+  const raw = readAccountStorage(WORKSPACE_TABS_STORAGE_KEY)
   const parsed = raw ? parseWorkspaceBySession(raw) : null
 
   if (parsed) return parsed
@@ -134,7 +134,7 @@ export function readPersistedWorkspaceBySession(): PersistedWorkspaceBySession {
  *  keeps at most `MAX_RESIDENT_SESSION_TAB_BUCKETS` sessions resident, so this
  *  mirrors that cap rather than enforcing its own. */
 export function writePersistedWorkspaceBySession(bySession: PersistedWorkspaceBySession) {
-  writeLocalStorage(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(bySession))
+  writeAccountStorage(WORKSPACE_TABS_STORAGE_KEY, JSON.stringify(bySession))
 }
 
 // A snapshot saved by an older build can name a connector this build no longer

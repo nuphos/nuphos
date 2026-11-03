@@ -12,6 +12,16 @@ export type UserInfo = {
 
 export type SocialProvider = 'google' | 'apple'
 
+/** An account signed in on this computer (electron/auth/accounts.ts); never its token. */
+export type AccountSummary = {
+  /** `<user id>@<backend>`: the same user on two backends is two accounts. */
+  key: string
+  /** The backend that issued its token. */
+  api: string
+  userInfo?: UserInfo
+  active: boolean
+}
+
 export type AuthStatus = { loggedIn: false } | { loggedIn: true; user: UserInfo; token: string }
 
 /** One of the account's sign-ins, as GET /auth/sessions lists it. */

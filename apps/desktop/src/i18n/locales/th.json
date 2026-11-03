@@ -5674,5 +5674,12 @@
   "≥ {pct}% of Limit": "≥ {pct}% ของขีดจำกัด",
   "Stop viewing from iPhone": "หยุดดูจาก iPhone",
   "Viewing from iPhone. Click to stop.": "กำลังดูจาก iPhone คลิกเพื่อหยุด",
-  "✓ used": "✓ ใช้แล้ว"
+  "✓ used": "✓ ใช้แล้ว",
+  "Add account": "เพิ่มบัญชี",
+  "Add an account": "เพิ่มบัญชี",
+  "Log out of all accounts": "ออกจากระบบทุกบัญชี",
+  "Could not switch accounts": "สลับบัญชีไม่ได้",
+  "Signed in on this computer": "ลงชื่อเข้าใช้ในคอมพิวเตอร์นี้",
+  "Sign in to {name} again.": "ลงชื่อเข้าใช้ {name} อีกครั้ง",
+  "You stay signed in to the others, and can switch back any time.": "บัญชีอื่นยังคงลงชื่อเข้าใช้อยู่ และสลับกลับได้ทุกเมื่อ"
 }
