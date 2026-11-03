@@ -34,7 +34,7 @@ export function DashboardPanelCard({
 }: {
   teamId: string
   pin: HomePanel
-  /** Also the only way out for a pin whose panel was deleted, which Customize no longer lists. */
+  /** Also the only way out for a pin whose panel was deleted, which the gallery no longer lists. */
   onOpenNuphosLink?: (href: string) => boolean
   onUnpin: () => void
 }) {

@@ -1,7 +1,4 @@
-import { LayoutGrid } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-
-import { t } from '../../../i18n'
 
 import { addCard } from './homeAddCard'
 import { DelayedPanelReveal } from './homeAnimation'
@@ -41,7 +38,7 @@ const versioned = (next: HomeLayout): HomeLayout => ({ ...next, gridVersion: HOM
 
 /**
  * The configurable cards under the home composer, added from the card
- * gallery that Customize and Add card open: team activity on or off, any
+ * gallery that Add card opens: team activity on or off, any
  * number of pull request and CI cards (each changed later from its own ⋯
  * menu), metric cards about the agents' work, and every pinned dashboard
  * panel as a card. Cards added in the gallery are outlined for a moment
@@ -162,7 +159,7 @@ export function HomeWidgets({
   ].filter((card) => card !== false)
 
   return (
-    <div className="group/home mb-6">
+    <div className="mb-6">
       {cards.length > 0 && (
         <HomeGrid
           cards={cards}
@@ -181,7 +178,7 @@ export function HomeWidgets({
         delayMs={revealAt + 150 * cards.length}
         className="mt-3 flex flex-col items-center gap-2"
       >
-        <AddCardButton subtle={cards.length > 0} onClick={() => setGalleryOpen(true)} />
+        <AddCardButton onClick={() => setGalleryOpen(true)} />
         <HomeCardGallery
           teamId={teamId}
           open={galleryOpen}
@@ -200,14 +197,6 @@ export function HomeWidgets({
           onReset={home.resetToTeamDefault}
           onSetTeamDefault={() => home.setAsTeamDefault(versioned(settings))}
         />
-        <button
-          type="button"
-          onClick={() => setGalleryOpen(true)}
-          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-tertiary outline-none transition-colors hover:bg-zGray-800/60 hover:text-main focus-visible:ring-2 focus-visible:ring-zViolet-accent"
-        >
-          <LayoutGrid className="h-3.5 w-3.5" strokeWidth={1.8} />
-          {t('Customize')}
-        </button>
       </DelayedPanelReveal>
     </div>
   )

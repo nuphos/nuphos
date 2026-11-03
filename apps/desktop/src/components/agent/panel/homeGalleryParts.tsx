@@ -218,19 +218,13 @@ export function GalleryPanels({
   )
 }
 
-/**
- * The way into the gallery at the end of the cards: always there when there
- * are none, otherwise shown while the cards are hovered or it has focus.
- */
-export function AddCardButton({ subtle, onClick }: { subtle: boolean; onClick: () => void }) {
+/** The way into the gallery, at the end of the cards. */
+export function AddCardButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={clsx(
-        'flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-zGray-800 text-[12px] text-tertiary outline-none transition-[opacity,color,border-color] hover:border-zGray-700 hover:text-main focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-zViolet-accent motion-reduce:transition-none',
-        subtle && 'opacity-0 group-hover/home:opacity-100',
-      )}
+      className="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-zGray-800 text-[12px] text-tertiary outline-none transition-colors hover:border-zGray-700 hover:text-main focus-visible:ring-2 focus-visible:ring-zViolet-accent motion-reduce:transition-none"
     >
       <Plus className="h-3.5 w-3.5" strokeWidth={1.8} />
       {t('Add card')}
