@@ -12,6 +12,7 @@ import { assertWanted, beginSignIn, cancelSignIns } from './auth/sign-in-attempt
 import {
   forgetAccountConfig,
   forgetAllAccountConfigs,
+  signOutConfig,
   listAccountConfigs,
   parkAccountConfig,
   switchAccountConfig,
@@ -123,11 +124,11 @@ export async function verifyEmailCode(email: string, code: string): Promise<User
 export async function logout() {
   // A sign-in still out must not land after this one is gone.
   cancelPendingLogin()
-  const { api, token } = await requestContext()
+  // The account removed here is the one whose session is ended: both are
+  // decided in one turn of the sign-in file. Ending it is best effort.
+  const ended = await signOutConfig()
 
-  // Signed out here first; ending the session on the server is best effort.
-  await writeConfig({})
-  if (token) await endServerSession(api, token)
+  if (ended) await endServerSession(ended.api, ended.token)
 }
 
 /**

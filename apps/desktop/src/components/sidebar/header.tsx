@@ -8,6 +8,7 @@ import { t } from '../../i18n'
 import { Avatar } from '../Avatar'
 import { SkeletonReveal } from '../SkeletonReveal'
 import { Kbd } from '../ui/kbd'
+import { toast } from '../ui/toast'
 import {
   Menu,
   MenuContent,
@@ -242,7 +243,10 @@ export function SidebarUserEntry({
             icon={<Users className="h-3.5 w-3.5" />}
             onClick={() => {
               signOutLocally()
-              void api.authSignOutAllAccounts().catch(() => onLogout())
+              // Said, not downgraded to signing out of this account alone.
+              void api
+                .authSignOutAllAccounts()
+                .catch((e: unknown) => toast.apiError(t('Could not log out'), e))
             }}
           >
             {t('Log out of all accounts')}

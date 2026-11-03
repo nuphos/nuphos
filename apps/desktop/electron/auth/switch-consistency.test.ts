@@ -268,3 +268,17 @@ test('a sign-out the file refuses leaves the sign-in it still holds in memory', 
   await fs.chmod(h.dir, 0o700)
   assert.deepEqual(pair(h.session), { api: SELF, token: 'tok-bob' })
 })
+
+test('a sign-out queued behind a switch removes and ends the same account', async () => {
+  const h = await harness()
+  const switching = h.config.switchTo(`alice@${CLOUD}`)
+  const ended = await h.config.signOut()
+
+  await switching
+  assert.deepEqual(ended, { api: CLOUD, token: 'tok-alice' }, 'the account the switch made active')
+  assert.ok(!(await h.config.list()).some((a) => a.key === `alice@${CLOUD}`))
+  assert.ok(
+    (await h.config.list()).some((a) => a.key === `bob@${SELF}`),
+    'Bob stays signed in',
+  )
+})

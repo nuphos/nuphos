@@ -13,6 +13,7 @@ import {
   waiting,
 } from './accounts.ts'
 import { keychainItems } from './keychain-items.ts'
+import { adoptLegacySignIn } from './legacy-adopt.ts'
 import { keychainStore, secureStorageEnabled } from './token-store.ts'
 import { readYaml, writeYaml } from './yaml-file.ts'
 
@@ -148,6 +149,32 @@ export function configFile(deps: ConfigFileDeps) {
     return token ? { api: target.api ?? api, token } : null
   }
 
+  /**
+   * Signs the active account out, in memory at once. Which account that is,
+   * and its token to end on its backend, are read in the same turn that
+   * removes it, so a switch queued before it cannot make the two differ. If
+   * the file keeps the sign-in after all, memory follows it rather than pretend.
+   */
+  async function signOut(): Promise<{ api: string; token: string } | null> {
+    deps.onAccount(currentApi(), null, null)
+    try {
+      return await inTurn(async () => {
+        const active = (await readFile(deps.path)) ?? {}
+        const token = await tokenOf(active)
+
+        await save({})
+
+        return token ? { api: active.api ?? currentApi(), token } : null
+      })
+    } catch (e) {
+      const kept = await inTurn(load)
+
+      if (kept.token)
+        deps.onAccount(kept.api ?? currentApi(), kept.token, kept.userInfo?.id ?? null)
+      throw e
+    }
+  }
+
   /** Signs every account out of this app in one turn; their tokens are returned to end them. */
   async function forgetAll(): Promise<{ api: string; token: string }[]> {
     const previous = (await readFile(deps.path)) ?? {}
@@ -178,34 +205,14 @@ export function configFile(deps: ConfigFileDeps) {
     return summaries(cfg, cfg.accounts ?? [], currentApi())
   }
 
-  /**
-   * Before this app had its own file it shared cli.yaml with the CLI: start
-   * from that sign-in, once. Where the token goes to the keychain it leaves
-   * cli.yaml as well, and `nuphos login` then takes it from here.
-   */
-  async function adopt(): Promise<Config | null> {
-    const legacy = deps.legacyPath ? await readFile(deps.legacyPath) : null
-
-    if (!deps.legacyPath || !legacy?.token) return null
-    const cfg = {
-      token: legacy.token,
-      // cli.yaml's sign-in was made on the backend the app starts on.
-      api: currentApi(),
-      user: legacy.user,
-      username: legacy.username,
-      userInfo: legacy.userInfo,
-    }
-
-    await save(cfg)
-    if (deps.secure()) await writeFile(deps.legacyPath, { ...legacy, token: undefined })
-
-    return cfg
-  }
-
   async function load(): Promise<Config> {
     const cfg = await readFile(deps.path)
 
-    if (!cfg) return (await adopt().catch(() => null)) ?? {}
+    if (!cfg) {
+      const adopted = adoptLegacySignIn({ ...deps, api: currentApi(), save })
+
+      return (await adopted.catch(() => null)) ?? {}
+    }
     // An account issued by another backend than the current one is never used
     // here: it waits in the list, still signed in there.
     if (cfg.api && normalizedApi(cfg.api) !== currentApi() && (cfg.token || cfg.keychainAccount)) {
@@ -241,17 +248,9 @@ export function configFile(deps: ConfigFileDeps) {
     read: () => inTurn(load),
     write: async (cfg: Config) => {
       if (cfg.token) return inTurn(() => save(cfg))
-      // A sign-out takes effect in memory at once, before its turn. If the file
-      // keeps the sign-in after all, memory follows it rather than pretend.
-      deps.onAccount(currentApi(), null, null)
-      await inTurn(() => save(cfg)).catch(async (e: unknown) => {
-        const kept = await inTurn(load)
-
-        if (kept.token)
-          deps.onAccount(kept.api ?? currentApi(), kept.token, kept.userInfo?.id ?? null)
-        throw e
-      })
+      await signOut()
     },
+    signOut,
     /**
      * Runs `task` in the file's turn only if `isCurrent` still holds when the
      * turn comes, so work begun as one account never commits after another
@@ -285,5 +284,6 @@ export const commitConfigIf = defaultConfigFile.commitIf
 export const switchAccountConfig = defaultConfigFile.switchTo
 export const forgetAccountConfig = defaultConfigFile.forgetAccount
 export const forgetAllAccountConfigs = defaultConfigFile.forgetAll
+export const signOutConfig = defaultConfigFile.signOut
 export const listAccountConfigs = defaultConfigFile.list
 export const parkAccountConfig = defaultConfigFile.park
