@@ -90,3 +90,69 @@ export async function addConversationCredentialIds(
 
   return result
 }
+
+const field = (key: string) => `credentialAccess.${key}`
+
+/**
+ * Removes ids from the named selection fields in one atomic update. `pull` drops
+ * ids from fields that must still be set; `narrow` sets fields that must still
+ * be unset (for some connectors, "all of them") to the ids left after removal.
+ * If either guard fails, the selection changed meanwhile: nothing is written and
+ * null is returned.
+ */
+export async function removeConversationCredentialIds(
+  sessionId: string,
+  userId: string,
+  teamId: string,
+  pull: Partial<Record<keyof AgentCredentialAccess, string[]>>,
+  narrow: Partial<Record<keyof AgentCredentialAccess, string[]>>,
+): Promise<AgentConversation | null> {
+  const now = new Date()
+  const guards: [string, { $exists: boolean }][] = [
+    ...Object.keys(pull).map((key): [string, { $exists: boolean }] => [
+      field(key),
+      { $exists: true },
+    ]),
+    ...Object.keys(narrow).map((key): [string, { $exists: boolean }] => [
+      field(key),
+      { $exists: false },
+    ]),
+  ]
+  const result = await agentConversations().findOneAndUpdate(
+    withTeamScope(
+      {
+        sessionId,
+        userId,
+        ...Object.fromEntries(guards),
+      },
+      teamId,
+    ),
+    {
+      ...(Object.keys(pull).length
+        ? {
+            $pull: Object.fromEntries(
+              Object.entries(pull).map(([key, ids]) => [field(key), { $in: ids }]),
+            ),
+          }
+        : {}),
+      $set: {
+        ...Object.fromEntries(Object.entries(narrow).map(([key, ids]) => [field(key), ids])),
+        'credentialAccess.updatedAt': now,
+        'credentialAccess.updatedBy': userId,
+        lastActiveAt: now,
+      },
+    },
+    { returnDocument: 'after' },
+  )
+
+  if (result) {
+    recordAgentEvent({
+      conversationId: sessionId,
+      event: 'credentials.updated',
+      userId,
+      data: { removed: { ...pull }, ...narrow },
+    })
+  }
+
+  return result
+}

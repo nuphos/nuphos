@@ -85,9 +85,12 @@ export async function createAgentThread(
   actor: ThreadActor,
   prompt: string,
   title: string,
-  pick: ThreadModelPick = {},
+  pick: ThreadModelPick & { credentials?: CredentialRef[] } = {},
 ) {
   const source = await authorizeThreadActor(actor)
+  const { threadCredentialAccess } = await import('./thread-credentials')
+  // Checked before anything is written, so a refused grant leaves no conversation.
+  const credentialAccess = await threadCredentialAccess(actor, source, pick.credentials)
   const threadId = randomUUID()
   const messageId = randomUUID()
 
@@ -99,7 +102,7 @@ export async function createAgentThread(
     firstMessage: prompt,
     locale: actor.locale,
     source: 'agent.thread',
-    credentialAccess: source.credentialAccess,
+    credentialAccess,
     agentRuntime: source.agentRuntime,
     runtimeId: source.runtimeId,
     runtimeLabel: source.runtimeLabel,
@@ -152,7 +155,12 @@ export async function listThreadRuntimes(actor: ThreadActor) {
 export async function updateThread(
   actor: ThreadActor,
   threadId: string,
-  change: { fullAccess?: boolean; runtimeId?: string; grant?: CredentialRef[] } & ThreadModelPick,
+  change: {
+    fullAccess?: boolean
+    runtimeId?: string
+    grant?: CredentialRef[]
+    revoke?: CredentialRef[]
+  } & ThreadModelPick,
 ) {
   const { target } = await authorizeThreadDelivery({ ...actor, targetSessionId: threadId })
 
@@ -167,8 +175,8 @@ export async function updateThread(
   const { assertThreadRuntime, setThreadModel } = await import('./thread-runtime')
 
   await assertThreadRuntime(actor, change.runtimeId)
-  const { grantThreadCredentials } = await import('./thread-credentials')
-  const granted = await grantThreadCredentials(actor, threadId, change.grant)
+  const { changeThreadCredentials } = await import('./thread-credentials')
+  const credentials = await changeThreadCredentials(actor, threadId, change)
   const { moveConversationRuntime } =
     await import('@/lib/claude-code-preview/conversation-runtime-move')
   const runtime = change.runtimeId
@@ -189,7 +197,7 @@ export async function updateThread(
 
   return {
     threadId,
-    ...(granted ? { granted } : {}),
+    ...credentials,
     ...(change.fullAccess === undefined
       ? {}
       : { mode: change.fullAccess ? 'full_access' : 'auto' }),
