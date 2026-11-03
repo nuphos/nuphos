@@ -4,6 +4,7 @@ import { Maximize2, SquarePen } from 'lucide-react'
 import { t } from '../../../i18n'
 
 import { ConversationSwitcher } from './ConversationSwitcher'
+import { DropOverlay } from './FileDropZone'
 
 import type { PanelViewCtx } from './ctx'
 import type { ReactNode } from 'react'
@@ -87,16 +88,7 @@ export function PanelContent({ c, homePage, conversationPage }: ContentProps) {
         <section className="t-page flex flex-col min-h-0" data-page-id="2">
           {conversationPage}
         </section>
-        {draggingFiles && (
-          // Whole-panel drop affordance — a light, transparent tint
-          // with a small pill, Codex-style. pointer-events-none so drag/drop keeps
-          // firing on the container underneath.
-          <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-[inherit] bg-zViolet-500/[0.06] ring-1 ring-inset ring-zViolet-accent/30">
-            <span className="rounded-full border border-zViolet-accent/30 bg-elevated/90 px-3 py-1 text-[12px] font-medium text-zViolet-accent shadow-sm backdrop-blur-sm">
-              {t('Drop to attach')}
-            </span>
-          </div>
-        )}
+        {draggingFiles && <DropOverlay />}
       </div>
     </div>
   )
