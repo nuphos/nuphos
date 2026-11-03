@@ -251,6 +251,8 @@ fun HomeRoute(
                     if (membershipsLoading) SplashScreen()
                     else HomeScreen(user, nav,
                         showComposer = !wide,
+                        // On a phone the list pane stays composed behind an open chat; it must not poll there.
+                        listVisible = wide || !showingDetail,
                         selectedSessionId = entry?.arguments?.getString("id"), newChatComposer = newChatComposer)
                 }
             },
@@ -322,6 +324,7 @@ fun HomeScreen(
     showComposer: Boolean = true,
     selectedSessionId: String? = null,
     newChatComposer: @Composable () -> Unit = { NewChatComposer(nav) },
+    listVisible: Boolean = true,
 ) {
     val store = LocalAgentStore.current
     val plans = LocalPlansStore.current
@@ -439,7 +442,7 @@ fun HomeScreen(
             }
             AnimatedContent(current, modifier = Modifier.weight(1f), label = "page") { dest ->
                 when (dest) {
-                    HomePage.Chats -> ai.nuphos.android.ui.chats.ChatsPage(nav, selectedSessionId, searching, { searching = it })
+                    HomePage.Chats -> ai.nuphos.android.ui.chats.ChatsPage(nav, selectedSessionId, searching, { searching = it }, active = listVisible)
                     HomePage.Agent -> AgentPage(searching = searching, onSearchingChange = { searching = it }, nav = nav, showComposer = showComposer, selectedSessionId = selectedSessionId, newChatComposer = newChatComposer)
                     HomePage.Runtimes -> ai.nuphos.android.ui.agent.RuntimesPage()
                     HomePage.Plans -> PlansPage(searching = searching, onSearchingChange = { searching = it }, nav = nav)
