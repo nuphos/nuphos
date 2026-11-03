@@ -194,10 +194,10 @@ export function WorkspaceAgentPane({
               />
             )}
           </div>
-          {selectedSessionId && (
+          {savedSessionId && (
             <SessionParticipants
-              key={selectedSessionId}
-              sessionId={selectedSessionId}
+              key={savedSessionId}
+              sessionId={savedSessionId}
               teamId={teamId}
               title={currentHeading.title}
               currentUserId={user.id}

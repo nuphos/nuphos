@@ -13,6 +13,7 @@ import { useConversationPlanReference } from './useConversationPlanReference'
 import type { ActivePlan } from './applyEvent'
 import type { JournalChatTarget } from '../JournalPanel'
 import type { PanelCtx } from './ctx'
+import type { Tab } from './model'
 
 type Acc = Pick<
   PanelCtx,
@@ -23,6 +24,7 @@ type Acc = Pick<
   | 'onImportConsumed'
   | 'onLocateConsumed'
   | 'onTitleChange'
+  | 'openingConversation'
   | 'panelRootRef'
   | 'pendingImport'
   | 'pendingLocate'
@@ -45,6 +47,7 @@ export function usePanelPlanPane(acc: Acc) {
     onImportConsumed,
     onLocateConsumed,
     onTitleChange,
+    openingConversation,
     panelRootRef,
     pendingImport,
     pendingLocate,
@@ -149,6 +152,7 @@ export function usePanelPlanPane(acc: Acc) {
     }
   }, [activePlan, activeTab])
   const onTitleChangeRef = useRef(onTitleChange)
+  const unavailable = openingConversation?.unavailable ? openingConversation.sessionId : null
 
   useEffect(() => {
     onTitleChangeRef.current = onTitleChange
@@ -160,19 +164,25 @@ export function usePanelPlanPane(acc: Acc) {
     // is reported with the session it belongs to — a consumer that already
     // knows the title of the one it asked for can ignore the stale report
     // instead of flickering back through it.
-    const gates = sessionActionGates(activeTab)
+    // A chat that cannot be read is reported as not saved and untitled, so the
+    // titlebar offers nothing (share, rename, fork) that would only fail on it.
+    const shown: (Partial<Tab> & Pick<Tab, 'sessionId'>) | null = unavailable
+      ? { sessionId: unavailable, unsaved: true }
+      : activeTab
+    const gates = sessionActionGates(shown)
 
     onTitleChangeRef.current?.(
-      activeTab?.title?.trim() || '',
-      activeTab?.sessionId ?? null,
-      activeTab?.agentRuntime,
+      shown?.title?.trim() || '',
+      shown?.sessionId ?? null,
+      shown?.agentRuntime,
       gates.canRename,
-      activeTab?.runtimeId,
+      shown?.runtimeId,
       gates.canArchive,
       gates.saved,
       gates.watching,
     )
   }, [
+    unavailable,
     activeTab?.readOnly,
     activeTab?.foreign,
     activeTab?.title,
