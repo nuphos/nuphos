@@ -64,7 +64,10 @@ fun CredentialPickerSheet(
     }
     val error = store.credentialCatalogError
     val scope = rememberCoroutineScope()
-    LaunchedEffect(store, store.workspaceRevision) { store.loadCredentialOptions() }
+    // Like iOS, always ask the server when the picker opens: a connector unbound
+    // and rebound since launch must not be offered under its old id. The cached
+    // catalog stays visible while this refresh is in flight or if it fails.
+    LaunchedEffect(store, store.workspaceRevision) { store.loadCredentialOptions(force = true) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = MaterialTheme.colorScheme.background) {
         if (computersOnly) {
             val allSelected = catalog?.let(selection::containsAllComputers) == true
