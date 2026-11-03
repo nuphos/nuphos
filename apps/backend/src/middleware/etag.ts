@@ -1,55 +1,77 @@
-import type { MiddlewareHandler } from 'hono'
+import type { Context, MiddlewareHandler } from 'hono'
 
 const JSON_TYPE = /^application\/(?:[\w.+-]+\+)?json\b/i
+// RFC 9110 §8.8.3: an opaque-tag may contain commas, so match tags, not split.
+const ENTITY_TAG = /(?:W\/)?"[^"]*"/g
+const NO_STORE = /(?:^|,)\s*no-store\s*(?:,|$)/i
 
-const stripWeak = (tag: string) => tag.trim().replace(/^W\//, '')
+const opaque = (tag: string) => tag.replace(/^W\//, '')
 
-function matches(tag: string, ifNoneMatch: string): boolean {
-  return ifNoneMatch.split(',').some((t) => t.trim() === '*' || stripWeak(t) === stripWeak(tag))
+/** The entity tags in an If-Match / If-None-Match value, or `'*'`. */
+function parseTags(value: string): '*' | string[] {
+  return value.trim() === '*' ? '*' : (value.match(ENTITY_TAG) ?? [])
 }
 
-/** Body headers a 304 must not carry. Everything else (CORS, request id, Vary) stays. */
+/** A response this middleware may tag: one c.json() body, with no validator of its own. */
+function taggable(res: Response): boolean {
+  const h = res.headers
+
+  if (res.status !== 200 || !res.body) return false
+  if (h.has('etag') || h.has('last-modified') || h.has('content-encoding')) return false
+  if (NO_STORE.test(h.get('cache-control') ?? '')) return false
+
+  return JSON_TYPE.test(h.get('content-type') ?? '')
+}
+
+/** RFC 9110 §8.8.1: a collision-resistant hash of the data. Weak: gzip shares it. */
+async function weakTag(res: Response): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', await res.clone().arrayBuffer())
+
+  return `W/"${Buffer.from(digest).toString('base64url')}"`
+}
+
+/** Body headers an empty 304 / 412 must not carry. CORS, request id and Vary stay. */
 function isRepresentationHeader(name: string): boolean {
   return (
     (name.startsWith('content-') && name !== 'content-location') || name === 'transfer-encoding'
   )
 }
 
-async function weakTag(res: Response): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-1', await res.clone().arrayBuffer())
-
-  return `W/"${Buffer.from(digest).toString('base64url')}"`
+function emptyResponse(c: Context, status: 304 | 412, tag: string): void {
+  // Assigning c.res copies the old headers over; drop the body's own.
+  c.res = new Response(null, { status })
+  for (const name of [...c.res.headers.keys()]) {
+    if (isRepresentationHeader(name)) c.res.headers.delete(name)
+  }
+  c.res.headers.set('ETag', tag)
 }
 
 /**
- * A weak ETag on 200 JSON GETs, and `304 Not Modified` when `If-None-Match`
- * matches, so a polled list that has not changed costs no body on the wire.
+ * A weak ETag on 200 JSON GETs, with the RFC 9110 §13.2.2 preconditions
+ * evaluated against it: If-Match first (412), then If-None-Match (304).
+ * If-Unmodified-Since and If-Modified-Since need a Last-Modified this never
+ * has, so §13.1.3 / §13.1.4 say to ignore them.
  *
  * Hono's `etag()` would hash every response, and an SSE stream never ends, so
  * it would never be sent. This only reads bodies `c.json()` already holds.
- * Handlers that set their own `ETag` keep full control of it.
  */
 export function jsonEtag(): MiddlewareHandler {
   return async (c, next) => {
     await next()
-    if (c.req.method !== 'GET') return
-    const res = c.res
-
-    if (res.status !== 200 || !res.body) return
-    if (res.headers.has('etag') || res.headers.has('content-encoding')) return
-    if (!JSON_TYPE.test(res.headers.get('content-type') ?? '')) return
-    const tag = await weakTag(res)
+    if (c.req.method !== 'GET' || !taggable(c.res)) return
+    const tag = await weakTag(c.res)
+    const ifMatch = c.req.header('If-Match')
     const ifNoneMatch = c.req.header('If-None-Match')
 
-    if (!ifNoneMatch || !matches(tag, ifNoneMatch)) {
-      res.headers.set('ETag', tag)
+    // §13.1.1 compares strongly, and a weak tag never strongly matches.
+    if (ifMatch !== undefined && parseTags(ifMatch) !== '*') return emptyResponse(c, 412, tag)
+    if (ifNoneMatch !== undefined) {
+      const tags = parseTags(ifNoneMatch)
 
-      return
-    }
-    // Assigning c.res copies the old headers over; drop the body's own.
-    c.res = new Response(null, { status: 304 })
-    for (const name of [...c.res.headers.keys()]) {
-      if (isRepresentationHeader(name)) c.res.headers.delete(name)
+      // §13.1.2 compares weakly.
+      if (tags === '*' || tags.some((t) => opaque(t) === opaque(tag))) {
+        return emptyResponse(c, 304, tag)
+      }
     }
     c.res.headers.set('ETag', tag)
   }

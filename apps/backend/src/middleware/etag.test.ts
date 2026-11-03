@@ -28,6 +28,16 @@ function buildApp() {
   })
   app.get('/missing', (c) => c.json({ error: 'not found' }, 404))
   app.get('/text', (c) => c.text('hello'))
+  app.get('/secret', (c) => {
+    c.header('Cache-Control', 'private, no-store')
+
+    return c.json({ token: 'short-lived' })
+  })
+  app.get('/dated', (c) => {
+    c.header('Last-Modified', 'Tue, 03 Nov 2026 00:00:00 GMT')
+
+    return c.json(PLANS)
+  })
   app.get('/own-tag', (c) => {
     c.header('ETag', '"rev-1"')
     if (c.req.header('If-None-Match') === '"rev-1"') return c.body(null, 304)
@@ -53,7 +63,8 @@ describe('jsonEtag', () => {
     const tag = first.headers.get('etag')
 
     expect(first.status).toBe(200)
-    expect(tag).toMatch(/^W\/"[\w-]+"$/)
+    // SHA-256, base64url: 43 characters.
+    expect(tag).toMatch(/^W\/"[\w-]{43}"$/)
     const again = await app.request('/plans', { headers: { 'if-none-match': tag ?? '' } })
 
     expect(again.status).toBe(304)
@@ -78,16 +89,51 @@ describe('jsonEtag', () => {
     expect(await res.json()).toEqual({ plans: [] })
   })
 
-  test('matches strong, weak and listed forms of the same tag', async () => {
+  test('compares If-None-Match weakly, across a list, and honours a lone *', async () => {
     const app = buildApp()
     const tag = (await app.request('/plans')).headers.get('etag') ?? ''
     const strong = tag.replace(/^W\//, '')
 
-    for (const header of [strong, `"other", ${tag}`, '*']) {
+    for (const header of [strong, `"other", ${tag}`, `W/"a,b", ${strong}`, '*']) {
       const res = await app.request('/plans', { headers: { 'if-none-match': header } })
 
       expect(res.status).toBe(304)
     }
+  })
+
+  test('answers a failed If-Match with 412 before If-None-Match, and lets * through', async () => {
+    const app = buildApp()
+    const tag = (await app.request('/plans')).headers.get('etag') ?? ''
+    const failed = await app.request('/plans', {
+      headers: { 'if-match': tag, 'if-none-match': tag },
+    })
+    const any = await app.request('/plans', { headers: { 'if-match': '*' } })
+
+    // A weak tag never matches under If-Match's strong comparison.
+    expect(failed.status).toBe(412)
+    expect(await failed.text()).toBe('')
+    expect(any.status).toBe(200)
+  })
+
+  test('ignores If-Modified-Since and If-Unmodified-Since, having no Last-Modified', async () => {
+    const res = await buildApp().request('/plans', {
+      headers: {
+        'if-modified-since': 'Tue, 03 Nov 2099 00:00:00 GMT',
+        'if-unmodified-since': 'Tue, 03 Nov 1999 00:00:00 GMT',
+      },
+    })
+
+    expect(res.status).toBe(200)
+  })
+
+  test('leaves no-store and Last-Modified responses untagged', async () => {
+    const app = buildApp()
+    const secret = await app.request('/secret', { headers: { 'if-none-match': '*' } })
+    const dated = await app.request('/dated')
+
+    expect(secret.status).toBe(200)
+    expect(secret.headers.get('etag')).toBeNull()
+    expect(dated.headers.get('etag')).toBeNull()
   })
 
   test('hashes the uncompressed body, so gzip and identity share one tag', async () => {

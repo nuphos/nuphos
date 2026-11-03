@@ -8,11 +8,14 @@ type Stored = { readonly etag: string; readonly text: string }
 /** One GET in flight: where its body is stored, and the body it revalidates. */
 export type ConditionalGet = { readonly key: string; readonly stored?: Stored }
 
+const NO_STORE = /(?:^|,)\s*no-store\s*(?:,|$)/i
 const MAX_CHARS = 8_000_000
 const MAX_ENTRY_CHARS = 2_000_000
 const entries = new Map<string, Stored>()
 const watched = new WeakSet<AbortSignal>()
 let chars = 0
+
+const opaque = (tag: string) => tag.trim().replace(/^W\//, '')
 
 function forget(key: string): void {
   const stored = entries.get(key)
@@ -52,25 +55,38 @@ export function beginGet(
   return { key, stored }
 }
 
-/** The stored body when the backend answered 304 to its tag. */
+/**
+ * The stored body when the backend answered 304 to its tag. RFC 9111 §4.3.4:
+ * only a 304 whose ETag matches the stored one may reuse it; otherwise the
+ * entry is dropped and the 304 is left to fail like any non-2xx.
+ */
 export function notModified(
   get: ConditionalGet | undefined,
   res: Response,
 ): { value: unknown } | null {
   if (res.status !== 304 || !get?.stored) return null
+  const etag = res.headers.get('etag')
+
+  if (!etag || opaque(etag) !== opaque(get.stored.etag)) {
+    forget(get.key)
+
+    return null
+  }
 
   return { value: JSON.parse(get.stored.text) }
 }
 
-/** Parses a 2xx body; a GET's is stored when it carries an ETag. */
+/** Parses a 2xx body; a GET's is stored when it carries an ETag and allows storing. */
 export async function readJson<T>(get: ConditionalGet | undefined, res: Response): Promise<T> {
   if (!get) return (await res.json()) as T
   const text = await res.text()
   const etag = res.headers.get('etag')
   const value = JSON.parse(text) as T
 
+  const storable = !NO_STORE.test(res.headers.get('cache-control') ?? '')
+
   forget(get.key)
-  if (etag && text.length <= MAX_ENTRY_CHARS) {
+  if (etag && storable && text.length <= MAX_ENTRY_CHARS) {
     entries.set(get.key, { etag, text })
     chars += text.length
     for (const key of entries.keys()) {
