@@ -2,9 +2,11 @@ import { t } from '../../../i18n/index.ts'
 import { listedAgents, unavailable } from '../../../lib/agentName.ts'
 import { quotaSignedOut } from '../../../lib/runtimeQuota.ts'
 import { AGENT_PROVIDER } from '../../../types/runtime.ts'
+import { computerOwner, ownerName } from '../../../views/settings/computerOwner.ts'
 
 import type { AgentDevice } from '../../../api/device-types'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
+import type { TeamMember } from '../../../types/team'
 
 export type SelectorBox = {
   id: string
@@ -116,4 +118,21 @@ export function boxAgentName(agent: Pick<RuntimeInstance, 'label' | 'local' | 'p
   if (!agent.local) return agent.label
 
   return agent.local.agentLabel ?? AGENT_PROVIDER[agent.provider].label
+}
+
+/**
+ * "Shared by <owner>" on a teammate's own computer, so it is told apart from one of the viewer's
+ * with a like name; null for their own computers, the team's cloud computers and a computer the
+ * device list has not named an owner for yet.
+ */
+export function sharedBoxOwner(
+  group: Pick<SelectorBox, 'device'>,
+  members: readonly TeamMember[] | null,
+): string | null {
+  const owner = group.device && !group.device.box ? computerOwner(group.device) : null
+
+  if (!owner) return null
+  const name = ownerName(owner, members)
+
+  return name ? t('Shared by {name}', { name }) : t('Shared by a teammate')
 }
