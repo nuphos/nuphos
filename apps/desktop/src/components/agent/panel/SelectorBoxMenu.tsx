@@ -2,10 +2,8 @@ import clsx from 'clsx'
 import { Box, Check, ChevronRight, Laptop } from 'lucide-react'
 
 import { t } from '../../../i18n'
-import { SHARED_COMPUTER_PRIVACY } from '../../../lib/sharedComputerDisclosure'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { RuntimeUsageBar } from '../../../views/settings/RuntimeUsageBar'
-import { SharedComputerLearnMore } from '../../SharedComputerLearnMore'
 import { MenuContent, MenuItem, MenuSubmenu, MenuSubmenuTrigger } from '../../ui/menu'
 
 import { AgentFixChip } from './AgentFixChip'
@@ -13,11 +11,10 @@ import { agentAskText, agentProblem } from './agentRowFix'
 import { adminName } from './agentSignInModel'
 import { AgentUpdateBadge } from './AgentUpdateBadge'
 import { AgentProviderIcon } from './icons'
-import { boxAgentName, selectorMetrics, showSharedComputerDisclosure } from './selectorBoxes'
+import { boxAgentName, selectorMetrics, sharedBoxOwner } from './selectorBoxes'
 
 import type { SelectorBox, SelectorMetrics } from './selectorBoxes'
 import type { PickerFixes } from './usePickerFixes'
-import type { AgentDevice } from '../../../api/device-types'
 import type { AgentUpdate } from '../../../hooks/useAgentUpdates'
 import type { RuntimeQuota } from '../../../types/runtime'
 
@@ -71,6 +68,11 @@ export function SelectorBoxMeters({ metrics }: { metrics: SelectorMetrics }) {
   )
 }
 
+/** Whose a teammate's shared computer is, quietly; nothing on the viewer's own. */
+function SharedBy({ text }: { text: string | null }) {
+  return text && <span className="block truncate text-[11px] text-tertiary">{text}</span>
+}
+
 /** One computer: its load in the trigger, its runtimes in the submenu. */
 export function SelectorBoxMenu({
   group,
@@ -90,11 +92,12 @@ export function SelectorBoxMenu({
   fixes: PickerFixes
   selectDisabled?: boolean
   /** Absent for a teammate's conversation: the list shows state and fixes, nothing to pick. */
-  onSelect?: (runtimeId: string, access?: AgentDevice['access']) => void
+  onSelect?: (runtimeId: string) => void
 }) {
   const current = group.agents.some((agent) => agent.id === selectedId)
   const metrics = metricsUnavailable ? null : selectorMetrics(group.device)
   const BoxIcon = group.device?.box || !group.agents[0]?.local ? Box : Laptop
+  const sharedBy = sharedBoxOwner(group, fixes.viewer.members)
 
   if (group.unavailable) {
     const problem = group.agents[0] && agentProblem(group.agents[0], undefined, fixes.viewer)
@@ -106,12 +109,16 @@ export function SelectorBoxMenu({
         onClick={() => problem && fixes.run(problem.fix)}
         hint={problem && <AgentFixChip fix={problem.fix} fixes={fixes} />}
       >
-        <span className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate font-medium text-secondary">{group.label}</span>
-          {current && <Check aria-label={t('Current computer')} className="h-3 w-3 shrink-0" />}
-          <span className="shrink-0 text-[11px] text-tertiary">
-            · {problem?.reason ?? t('Offline')}
+        {/* The owner goes on its own line, so the computer keeps its name. */}
+        <span className="block min-w-0">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate font-medium text-secondary">{group.label}</span>
+            {current && <Check aria-label={t('Current computer')} className="h-3 w-3 shrink-0" />}
+            <span className="shrink-0 text-[11px] text-tertiary">
+              · {problem?.reason ?? t('Offline')}
+            </span>
           </span>
+          <SharedBy text={sharedBy} />
         </span>
       </MenuItem>
     )
@@ -127,6 +134,7 @@ export function SelectorBoxMenu({
               <span className="truncate font-medium">{group.label}</span>
               {current && <Check aria-label={t('Current computer')} className="h-3 w-3 shrink-0" />}
             </span>
+            <SharedBy text={sharedBy} />
             {metrics && <SelectorBoxMeters metrics={metrics} />}
           </span>
         </span>
@@ -134,11 +142,6 @@ export function SelectorBoxMenu({
       <MenuContent className="w-72">
         <p className="truncate px-2.5 pb-1 pt-2 text-xs font-medium">{group.label}</p>
         {metrics && <p className="px-2.5 pb-2 text-[10px] text-tertiary">{metrics.capacity}</p>}
-        {showSharedComputerDisclosure(group) && (
-          <p className="px-2.5 py-2 text-[11px] leading-snug text-secondary">
-            {SHARED_COMPUTER_PRIVACY} <SharedComputerLearnMore />
-          </p>
-        )}
         {group.agents.map((instance) => {
           const update = updates.get(instance.id)
           const problem = agentProblem(instance, quotas?.get(instance.id), fixes.viewer)
@@ -157,7 +160,7 @@ export function SelectorBoxMenu({
               // A row that cannot take a turn starts its fix instead.
               closeOnClick={pickable}
               onClick={() => {
-                if (pickable) onSelect?.(instance.id, group.device?.access)
+                if (pickable) onSelect?.(instance.id)
                 else if (problem) fixes.run(problem.fix)
               }}
             >
