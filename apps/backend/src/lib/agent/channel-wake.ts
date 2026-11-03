@@ -1,4 +1,4 @@
-import { CHANNEL_SENDER_PREFIX, readChannelMessages } from './db/channels'
+import { CHANNEL_SENDER_PREFIX, markChannelRead, readChannelMessages } from './db/channels'
 import { agentConversations } from './db/shared'
 
 import type { MessageMetadata } from './message-metadata'
@@ -9,15 +9,16 @@ export const channelNotice = (channelId: string) =>
 
 /**
  * Puts what a channel notice is about into it: the posts the agent has not read,
- * read now that its turn starts, so it answers what was said rather than relying
- * on it to call channel_read. A notice that already carries posts keeps them,
- * should its turn be refused and requeued, and gains any posted since. One with
- * nothing to show (the agent caught up during the turn it waited behind) is dropped.
+ * so it answers what was said rather than relying on it to call channel_read.
+ * Nothing is marked read until `markRead`, once the turn ran, so a refused or
+ * failed turn delivers the same posts again. A notice with nothing to show
+ * (the agent caught up during the turn it waited behind) is dropped.
  */
 export async function withChannelPosts<
   M extends { source?: string; metadata?: MessageMetadata; renderedText: string },
->(agentSessionId: string, messages: M[]): Promise<M[]> {
+>(agentSessionId: string, messages: M[]) {
   const kept: M[] = []
+  const read: [string, number][] = []
 
   for (const message of messages) {
     const id = message.metadata?.sender?.id
@@ -28,17 +29,25 @@ export async function withChannelPosts<
     }
     const channelId = id.slice(CHANNEL_SENDER_PREFIX.length)
     const channel = await agentConversations().findOne({ sessionId: channelId })
-    const page = channel && (await readChannelMessages(channel, agentSessionId, true))
-    const carries = message.renderedText !== channelNotice(channelId)
 
-    if (!page?.messages.length) {
-      if (carries || !channel) kept.push(message)
+    if (!channel) {
+      kept.push(message)
       continue
     }
-    kept.push({ ...message, renderedText: `${message.renderedText}\n\n${channelPage(page)}` })
+    const page = await readChannelMessages(channel, agentSessionId, true)
+
+    if (page.messages.length === 0) continue
+    if (page.upTo !== undefined) read.push([channelId, page.upTo])
+    // From the bare notice, so a requeued one does not carry its posts twice.
+    kept.push({ ...message, renderedText: `${channelNotice(channelId)}\n\n${channelPage(page)}` })
   }
 
-  return kept
+  return {
+    messages: kept,
+    markRead: async () => {
+      for (const [channelId, index] of read) await markChannelRead(channelId, agentSessionId, index)
+    },
+  }
 }
 
 function channelPage(page: Awaited<ReturnType<typeof readChannelMessages>>): string {

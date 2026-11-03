@@ -120,7 +120,7 @@ export async function runTurn(
     // one after the last reply was accepted by a refused turn and runs again.
     const answered = history.messages.findLastIndex((message) => message.role === 'assistant')
     const ran = new Set(history.messages.slice(0, answered + 1).map((message) => message.messageId))
-    const fresh = await withChannelPosts(
+    const { messages: fresh, markRead } = await withChannelPosts(
       data.targetSessionId,
       pending.filter((message) => !ran.has(message.id)),
     )
@@ -169,6 +169,8 @@ export async function runTurn(
 
     if (outcome.status === 'failed')
       throw new Error('Thread run failed; inspect the target conversation.')
+    // The channel posts it carried were delivered: a retry would show them again.
+    await markRead()
     if (outcome.finishReason === 'connection-lost' && (await runtimeRestarted(data)))
       await reportUndelivered(data, fresh, LOST_TURN)
 

@@ -130,10 +130,20 @@ function channelUploadIds(parts: readonly unknown[] | undefined): string[] {
 // A turn's worth of reading. An agent new to the channel starts at its latest page.
 const READ_PAGE = 50
 
+/** Moves the agent's place in a channel forward to `index`. */
+export async function markChannelRead(channelId: string, agentSessionId: string, index: number) {
+  await agentConversations().updateOne(
+    { sessionId: channelId },
+    // Two reads at once must not move the place back.
+    { $max: { [`agentReadIndex.${agentSessionId}`]: index } },
+  )
+}
+
 /**
  * What the agent has not read yet, oldest first, and moves its cursor past it.
- * `holdFiles` stops the cursor before the first message with files, so a later
- * channel_read still places them on the agent's runtime.
+ * `peek` leaves the cursor for the caller to move to `upTo` once the posts are
+ * delivered; `upTo` stops before the first message with files, so channel_read
+ * still places them on the agent's runtime.
  */
 export async function readChannelMessages(
   channel: Pick<
@@ -141,7 +151,7 @@ export async function readChannelMessages(
     'sessionId' | 'userId' | 'messageCount' | 'agentReadIndex' | 'agentSessionIds'
   >,
   agentSessionId: string,
-  holdFiles = false,
+  peek = false,
 ) {
   const after = channel.agentReadIndex?.[agentSessionId] ?? channel.messageCount - READ_PAGE - 1
   const docs = await agentMessages()
@@ -150,15 +160,10 @@ export async function readChannelMessages(
     .limit(READ_PAGE + 1)
     .toArray()
   const page = docs.slice(0, READ_PAGE)
-  const held = holdFiles ? page.findIndex((doc) => channelUploadIds(doc.parts).length > 0) : -1
+  const held = peek ? page.findIndex((doc) => channelUploadIds(doc.parts).length > 0) : -1
   const last = held < 0 ? page.at(-1) : page[held - 1]
 
-  if (last)
-    await agentConversations().updateOne(
-      { sessionId: channel.sessionId },
-      // Two reads at once must not move the place back.
-      { $max: { [`agentReadIndex.${agentSessionId}`]: last.index } },
-    )
+  if (last && !peek) await markChannelRead(channel.sessionId, agentSessionId, last.index)
 
   return {
     messages: page.map((doc) => {
@@ -191,6 +196,7 @@ export async function readChannelMessages(
         ...(uploads.length > 0 ? { uploads } : {}),
       }
     }),
+    upTo: last?.index,
     more: docs.length > READ_PAGE,
     note:
       channel.agentSessionIds?.length === 1

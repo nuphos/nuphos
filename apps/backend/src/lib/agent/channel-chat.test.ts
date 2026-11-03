@@ -234,52 +234,50 @@ describe('waking a channel’s agents', () => {
     expect((await channel()).agentTurns ?? 0).toBe(0)
   })
 
+  type Notice = { id: string; source?: string; renderedText: string; metadata?: MessageMetadata }
+  const firstNotice = () => wakes[0]!.message as never as Notice
+  const deliver = async (agentId: string, notices: Notice[]) =>
+    await withChannelPosts(agentId, notices)
+
   test('a notice carries the posts its agent has not read, or is dropped', async () => {
     await say('first')
     await say('second')
-    const notices = wakes.map((wake) => wake.message) as never as {
-      id: string
-      source?: string
-      renderedText: string
-      metadata?: MessageMetadata
-    }[]
     // Only a resource notice is a channel notice, whatever its sender says.
-    const forged = { ...notices[0]!, id: 'forged', source: 'agent.thread' }
-    const all = [...notices, forged]
+    const forged = { ...firstNotice(), id: 'forged', source: 'agent.thread' }
 
     // agent-a read up to the last message during the turn its notice waited behind.
     await agentConversations().updateOne(
       { sessionId: 'channel' },
       { $set: { 'agentReadIndex.agent-a': 1 } },
     )
-    expect((await withChannelPosts('agent-a', all)).map((m) => m.id)).toEqual(['forged'])
-    // agent-b has not: its notice runs with what was said, and that counts as read.
-    const [delivered] = await withChannelPosts('agent-b', [notices[0]!])
+    expect((await deliver('agent-a', [firstNotice(), forged])).messages.map((m) => m.id)).toEqual([
+      'forged',
+    ])
+    // agent-b has not: its notice runs with what was said.
+    const { messages, markRead } = await deliver('agent-b', [firstNotice()])
 
-    expect(delivered!.renderedText).toContain('first')
-    expect(delivered!.renderedText).toContain('second')
+    expect(messages[0]!.renderedText).toContain('first')
+    expect(messages[0]!.renderedText).toContain('second')
+    // Read only once the turn ran.
+    expect((await channel()).agentReadIndex?.['agent-b']).toBeUndefined()
+    await markRead()
     expect((await channel()).agentReadIndex?.['agent-b']).toBe(1)
-    expect(await withChannelPosts('agent-b', [notices[0]!])).toEqual([])
+    expect((await deliver('agent-b', [firstNotice()])).messages).toEqual([])
   })
 
-  test('a refused, requeued notice keeps its posts and gains any posted since', async () => {
+  test('a turn that failed or was refused delivers the same posts again, once', async () => {
     await say('first')
-    const notice = wakes[0]!.message as never as {
-      id: string
-      source?: string
-      renderedText: string
-      metadata?: MessageMetadata
-    }
-    const [delivered] = await withChannelPosts('agent-b', [notice])
-    // The runtime refused the turn: the delivered notice goes back on the queue.
-    const [again] = await withChannelPosts('agent-b', [delivered!])
+    // The first attempt threw: nothing is marked read, and the retry gets the bare notice.
+    const failed = (await deliver('agent-b', [firstNotice()])).messages[0]!
+    const retried = (await deliver('agent-b', [firstNotice()])).messages[0]!
 
-    expect(again!.renderedText).toBe(delivered!.renderedText)
+    expect(retried.renderedText).toBe(failed.renderedText)
+    // A refused turn requeues the notice it was given: its posts are not doubled.
     await say('second')
-    const [later] = await withChannelPosts('agent-b', [again!])
+    const requeued = (await deliver('agent-b', [failed])).messages[0]!
 
-    expect(later!.renderedText).toContain('first')
-    expect(later!.renderedText).toContain('second')
+    expect(requeued.renderedText.match(/first/g)).toHaveLength(1)
+    expect(requeued.renderedText).toContain('second')
   })
 
   test('posts with files are delivered as words, and channel_read still places the files', async () => {
@@ -292,16 +290,11 @@ describe('waking a channel’s agents', () => {
       metadata: person,
       files: [upload],
     })
-    const notice = wakes[0]!.message as never as {
-      id: string
-      source?: string
-      renderedText: string
-      metadata?: MessageMetadata
-    }
-    const [delivered] = await withChannelPosts('agent-b', [notice])
+    const { messages, markRead } = await deliver('agent-b', [firstNotice()])
 
-    expect(delivered!.renderedText).toContain('the picture')
-    expect(delivered!.renderedText).toContain('Call channel_read to get the files')
+    expect(messages[0]!.renderedText).toContain('the picture')
+    expect(messages[0]!.renderedText).toContain('Call channel_read to get the files')
+    await markRead()
     // The cursor stops before the post with files, so channel_read returns it with them.
     expect((await readChannelMessages(await channel(), 'agent-b')).messages).toMatchObject([
       { uploads: ['g1'] },
