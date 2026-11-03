@@ -12,7 +12,7 @@ import { formatMessageTimestamp } from '../agent/panel/streamText'
 import { Avatar } from '../Avatar'
 
 import { ChannelFiles } from './ChannelFiles'
-import { channelFiles } from './channelFiles'
+import { channelFiles } from './postFiles'
 import { Typing } from './ChannelTyping'
 
 import type { AgentPersistedMessage, AgentTimelineEvent, ChannelAgent } from '../../api'

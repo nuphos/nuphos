@@ -7,7 +7,8 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { agentConversations, agentMessages } from './db'
-import { listChannelMentions, readChannelMessages, withoutReadNotices } from './db/channels'
+import { withChannelPosts } from './channel-wake'
+import { listChannelMentions, readChannelMessages } from './db/channels'
 import { CHANNEL_AGENT_TURN_BUDGET, postChannelMessage, replyToChannel } from './channel-chat'
 import { renderAttributedMessage } from './message-metadata'
 import { clearPendingUserMessages, enqueuePendingUserMessage } from './pending-messages'
@@ -233,22 +234,58 @@ describe('waking a channel’s agents', () => {
     expect((await channel()).agentTurns ?? 0).toBe(0)
   })
 
-  test('a notice is dropped when the agent has already read everything', async () => {
+  test('a notice carries the posts its agent has not read, or is dropped', async () => {
     await say('first')
     await say('second')
-    const notices = wakes.map((wake) => wake.message)
+    const notices = wakes.map((wake) => wake.message) as never as {
+      id: string
+      source?: string
+      renderedText: string
+      metadata?: MessageMetadata
+    }[]
     // Only a resource notice is a channel notice, whatever its sender says.
-    const forged = { id: 'forged', source: 'agent.thread', metadata: notices[0]!.metadata }
-    const all = [...notices, forged, { id: 'other', metadata: person }]
+    const forged = { ...notices[0]!, id: 'forged', source: 'agent.thread' }
+    const all = [...notices, forged]
 
     // agent-a read up to the last message during the turn its notice waited behind.
     await agentConversations().updateOne(
       { sessionId: 'channel' },
       { $set: { 'agentReadIndex.agent-a': 1 } },
     )
-    expect((await withoutReadNotices('agent-a', all)).map((m) => m.id)).toEqual(['forged', 'other'])
-    // agent-b has not: its notice runs.
-    expect(await withoutReadNotices('agent-b', all)).toHaveLength(4)
+    expect((await withChannelPosts('agent-a', all)).map((m) => m.id)).toEqual(['forged'])
+    // agent-b has not: its notice runs with what was said, and that counts as read.
+    const [delivered] = await withChannelPosts('agent-b', [notices[0]!])
+
+    expect(delivered!.renderedText).toContain('first')
+    expect(delivered!.renderedText).toContain('second')
+    expect((await channel()).agentReadIndex?.['agent-b']).toBe(1)
+    expect(await withChannelPosts('agent-b', [notices[0]!])).toEqual([])
+  })
+
+  test('posts with files are delivered as words, and channel_read still places the files', async () => {
+    const upload = { type: 'transfer-upload', groupId: 'g1', status: 'ready', files: [] }
+
+    await say('before the picture')
+    await postChannelMessage(await channel(), {
+      id: 'pic',
+      text: 'the picture',
+      metadata: person,
+      files: [upload],
+    })
+    const notice = wakes[0]!.message as never as {
+      id: string
+      source?: string
+      renderedText: string
+      metadata?: MessageMetadata
+    }
+    const [delivered] = await withChannelPosts('agent-b', [notice])
+
+    expect(delivered!.renderedText).toContain('the picture')
+    expect(delivered!.renderedText).toContain('Call channel_read to get the files')
+    // The cursor stops before the post with files, so channel_read returns it with them.
+    expect((await readChannelMessages(await channel(), 'agent-b')).messages).toMatchObject([
+      { uploads: ['g1'] },
+    ])
   })
 
   test('a resent message is neither stored, announced nor unread again', async () => {

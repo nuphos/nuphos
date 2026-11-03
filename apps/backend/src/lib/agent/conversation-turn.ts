@@ -8,7 +8,7 @@ import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
 import { agentMessages, getConversationBySessionId, getConversationWithMessages } from './db'
 import { channelTurnEnded } from './channel-reply'
-import { withoutReadNotices } from './db/channels'
+import { withChannelPosts } from './channel-wake'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
 import { requeueTurnQueue } from './session-released'
 import { turnRunner } from './turn-runner'
@@ -120,7 +120,7 @@ export async function runTurn(
     // one after the last reply was accepted by a refused turn and runs again.
     const answered = history.messages.findLastIndex((message) => message.role === 'assistant')
     const ran = new Set(history.messages.slice(0, answered + 1).map((message) => message.messageId))
-    const fresh = await withoutReadNotices(
+    const fresh = await withChannelPosts(
       data.targetSessionId,
       pending.filter((message) => !ran.has(message.id)),
     )

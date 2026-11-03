@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../api'
 import { DownloadFilesCard, UploadedFilesCard } from '../agent/panel/transferCards'
 
-import type { channelFiles } from './channelFiles'
+import type { channelFiles } from './postFiles'
 import type { FileTransferGroup } from '../../types'
 
 /** An agent's pushed files, drawn as the download card its own chat shows. */

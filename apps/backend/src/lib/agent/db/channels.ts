@@ -130,13 +130,18 @@ function channelUploadIds(parts: readonly unknown[] | undefined): string[] {
 // A turn's worth of reading. An agent new to the channel starts at its latest page.
 const READ_PAGE = 50
 
-/** What the agent has not read yet, oldest first, and moves its cursor past it. */
+/**
+ * What the agent has not read yet, oldest first, and moves its cursor past it.
+ * `holdFiles` stops the cursor before the first message with files, so a later
+ * channel_read still places them on the agent's runtime.
+ */
 export async function readChannelMessages(
   channel: Pick<
     AgentConversation,
     'sessionId' | 'userId' | 'messageCount' | 'agentReadIndex' | 'agentSessionIds'
   >,
   agentSessionId: string,
+  holdFiles = false,
 ) {
   const after = channel.agentReadIndex?.[agentSessionId] ?? channel.messageCount - READ_PAGE - 1
   const docs = await agentMessages()
@@ -145,7 +150,8 @@ export async function readChannelMessages(
     .limit(READ_PAGE + 1)
     .toArray()
   const page = docs.slice(0, READ_PAGE)
-  const last = page.at(-1)
+  const held = holdFiles ? page.findIndex((doc) => channelUploadIds(doc.parts).length > 0) : -1
+  const last = held < 0 ? page.at(-1) : page[held - 1]
 
   if (last)
     await agentConversations().updateOne(
@@ -191,36 +197,6 @@ export async function readChannelMessages(
         ? CHANNEL_READ_NOTE + ONLY_AGENT_NOTE
         : CHANNEL_READ_NOTE,
   }
-}
-
-/**
- * Drops channel notices the agent has nothing left to read for: it may have
- * caught up with channel_read during the turn the notice waited behind.
- */
-export async function withoutReadNotices<M extends { source?: string; metadata?: MessageMetadata }>(
-  agentSessionId: string,
-  messages: M[],
-): Promise<M[]> {
-  const kept: M[] = []
-
-  for (const message of messages) {
-    const id = message.metadata?.sender?.id
-
-    if (message.source !== 'agent.resource' || !id?.startsWith(CHANNEL_SENDER_PREFIX)) {
-      kept.push(message)
-      continue
-    }
-    const channel = await agentConversations().findOne(
-      { sessionId: id.slice(CHANNEL_SENDER_PREFIX.length) },
-      { projection: { messageCount: 1, agentReadIndex: 1 } },
-    )
-    const read = channel?.agentReadIndex?.[agentSessionId]
-
-    if (channel && read !== undefined && read >= channel.messageCount - 1) continue
-    kept.push(message)
-  }
-
-  return kept
 }
 
 /** Where the viewer was @mentioned and has not posted since: the newest first. */

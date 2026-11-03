@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { channelFiles } from './channelFiles.ts'
+import { channelFiles } from './postFiles.ts'
 
 import type { AgentPersistedMessage } from '../../api/agent-types'
 
