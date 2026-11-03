@@ -77,6 +77,7 @@ const joinTokenSchema = z.object({
 })
 
 const auditQuerySchema = z.object({
+  includeUnfinished: z.enum(['true', 'false']).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   before: z
     .string()
@@ -253,12 +254,13 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
         'manage',
         deps.access,
       )
-      const { limit, before } = c.req.valid('query')
+      const { limit, before, includeUnfinished } = c.req.valid('query')
       const device = await deps.getAgentDevice(userId, deviceId)
 
       if (!device) throw new AppError(404, 'device_not_found', 'Device is not registered')
       const page = await deps.listDeviceExecAudit(userId, deviceId, {
         limit,
+        ...(includeUnfinished === 'true' ? { includeUnfinished: true } : {}),
         ...(before ? { cursor: before } : {}),
       })
       const titles = await deps.conversationTitlesFor([
@@ -279,7 +281,7 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
           commandRedacted: entry.commandRedacted,
           requestedAt: entry.requestedAt.toISOString(),
           dispatchedAt: entry.dispatchedAt?.toISOString() ?? null,
-          finishedAt: entry.finishedAt.toISOString(),
+          finishedAt: entry.finishedAt?.toISOString() ?? null,
           durationMs: entry.durationMs,
           outcome: entry.outcome,
           exitCode: entry.exitCode ?? null,

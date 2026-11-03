@@ -29,6 +29,25 @@ function input(command: string): DeviceExecAuditInput {
 }
 
 describe('buildDeviceExecAuditEntry', () => {
+  test('keeps unfinished operations unknown without inventing a finish or duration', () => {
+    const entry = buildDeviceExecAuditEntry({
+      ...input('git status'),
+      operationId: 'operation-1',
+      outcome: 'unknown',
+      finishedAt: null,
+      dispatchedAt: undefined,
+      exitCode: undefined,
+    })
+
+    expect(entry).toMatchObject({
+      operationId: 'operation-1',
+      outcome: 'unknown',
+      finishedAt: null,
+      durationMs: null,
+    })
+    expect(entry.exitCode).toBeUndefined()
+  })
+
   test('keeps a harmless command verbatim and derives the duration', () => {
     const entry = buildDeviceExecAuditEntry(input('git status'))
 
