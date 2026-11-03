@@ -145,7 +145,7 @@ final class ShareViewController: UIViewController {
     }
     private func cancelShare() {
         guard !finished else { return }
-        finished = true; model.epoch = UUID(); model.openChat?.session.cancelSending(); task?.cancel(); cleanup()
+        finished = true; model.epoch = UUID(); model.openChat?.session?.cancelSending(); task?.cancel(); cleanup()
         extensionContext?.cancelRequest(withError: NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
     }
     private func cleanup() {
@@ -202,7 +202,7 @@ private final class ShareComposerModel {
             if let lease {
                 do { try SharedShareSession.validate(lease) }
                 catch {
-                    openChat?.session.cancelSending()
+                    openChat?.session?.cancelSending()
                     if (error as? SharedShareSession.Failure).map({ if case .changed = $0 { return true }; return false }) == true {
                         identityInvalidated = true
                         text = ""; attachments = []; discardFiles?()
@@ -236,9 +236,12 @@ private struct ShareConversationView: View {
                     .environment(store)
                     .environment(model.auth)
                     .navigationDestination(item: $model.openChat) { chat in
-                        ConversationView(session: chat.session, initialPrompt: chat.prompt, temporaryDirectory: model.temporaryDirectory)
-                            .environment(store)
-                            .environment(model.auth)
+                        // Sharing only starts agent conversations, never chats.
+                        if let session = chat.session {
+                            ConversationView(session: session, initialPrompt: chat.prompt, temporaryDirectory: model.temporaryDirectory)
+                                .environment(store)
+                                .environment(model.auth)
+                        }
                     }
                 } else if let error = model.error {
                     ContentUnavailableView {

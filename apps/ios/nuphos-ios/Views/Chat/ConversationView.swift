@@ -348,8 +348,6 @@ struct ConversationView: View {
                 canSteer: session.canSteer,
                 allowsAttachments: !session.canSteer,
                 editRequest: $session.editingSubmission,
-                voiceToken: auth.token,
-                temporaryDirectory: temporaryDirectory,
                 mentions: MentionSource(
                     teamId: session.teamId,
                     // Only someone who may change the session's devices can bring one in.
@@ -364,6 +362,8 @@ struct ConversationView: View {
                     }
                 ),
                 voiceTeamId: session.teamId,
+                voiceToken: auth.token,
+                temporaryDirectory: temporaryDirectory,
                 onSend: { session.send($0) },
                 onStop: { session.stop() }
             ) {

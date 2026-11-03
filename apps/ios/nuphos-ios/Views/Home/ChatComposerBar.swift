@@ -16,14 +16,14 @@ struct ChatComposerBar<Controls: View>: View {
     var allowsAttachments = true
     /// An unsent message to take back into the draft, for editing.
     var editRequest: Binding<ComposerSubmission?> = .constant(nil)
-    var voiceToken: String? = nil
-    /// Content received by another entry point, imported once without submitting.
-    var initialAttachments: [ComposerAttachment] = []
-    var temporaryDirectory: URL = FileManager.default.temporaryDirectory
     /// What an `@` offers: the viewer's devices and other sessions; nil offers none.
     var mentions: MentionSource? = nil
     /// The team voice input transcribes for; nil hides the microphone.
     var voiceTeamId: String? = nil
+    var voiceToken: String? = nil
+    /// Content received by another entry point, imported once without submitting.
+    var initialAttachments: [ComposerAttachment] = []
+    var temporaryDirectory: URL = FileManager.default.temporaryDirectory
     /// Who a message goes to, such as a chat's `#name`; nil asks Nuphos.
     var recipient: String? = nil
     var onSend: (ComposerSubmission) -> Void
