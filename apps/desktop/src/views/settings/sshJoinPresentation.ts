@@ -1,18 +1,6 @@
 import { t } from '../../i18n/index.ts'
 
-import type { AgentDevice, SshJoinProblem } from '../../api/device-types.ts'
-
-/** Each computer's id and whether it was online, before connecting a new one. */
-export const deviceSnapshot = (devices: AgentDevice[]) =>
-  new Map(devices.map((device) => [device.deviceId, Boolean(device.online)]))
-
-/** The computer the join brought online: a new one, or one that was offline (a machine joined again). */
-export function joinedDevice(
-  before: Map<string, boolean>,
-  devices: AgentDevice[],
-): AgentDevice | undefined {
-  return devices.find((device) => device.online && before.get(device.deviceId) !== true)
-}
+import type { SshJoinProblem } from '../../api/device-types.ts'
 
 /** Why connecting over SSH stopped, and what the user can do instead. */
 export function sshJoinNotice(problem: SshJoinProblem | 'timeout', host: string) {

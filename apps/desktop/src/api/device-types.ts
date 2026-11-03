@@ -255,4 +255,6 @@ export type SshHost = { alias: string; hostName?: string; user?: string }
 /** Why Desktop could not set up a computer over SSH. */
 export type SshJoinProblem = 'no-ssh' | 'host-key' | 'auth' | 'unreachable' | 'failed'
 
-export type SshJoinResult = { ok: true } | { ok: false; problem: SshJoinProblem }
+/** On success, the joined computer's id when the machine reported it. */
+export type SshJoinResult =
+  { ok: true; deviceId: string | null } | { ok: false; problem: SshJoinProblem }

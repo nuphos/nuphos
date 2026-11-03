@@ -4,7 +4,7 @@ import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
-import { deviceSnapshot, joinedDevice, sshJoinNotice } from './sshJoinPresentation'
+import { sshJoinNotice } from './sshJoinPresentation'
 
 import type { SshJoinProblem } from '../../api/device-types'
 
@@ -49,7 +49,6 @@ export function useSshJoin() {
     setOutput('')
     setComputer(null)
     try {
-      const before = deviceSnapshot((await api.boxListDevices()).devices)
       const result = await api.sshJoin(id, host)
 
       if (!current()) return
@@ -58,7 +57,9 @@ export function useSshJoin() {
       for (const deadline = Date.now() + ONLINE_TIMEOUT_MS; Date.now() < deadline;) {
         await new Promise((resolve) => setTimeout(resolve, POLL_MS))
         if (!current()) return
-        const device = joinedDevice(before, (await api.boxListDevices()).devices)
+        const device = (await api.boxListDevices()).devices.find(
+          (candidate) => candidate.deviceId === result.deviceId && candidate.online,
+        )
 
         if (device) {
           setComputer(device.label)

@@ -9,6 +9,7 @@ import {
   sshBinary,
   sshConfigHosts,
   sshJoinArgs,
+  sshJoinDevice,
   sshJoinProblem,
   sshJoinScript,
 } from './ssh-join-core.ts'
@@ -64,10 +65,14 @@ export async function sshJoin(
     const send = (text: string) => {
       if (!contents.isDestroyed()) contents.send('ssh-join:output', id, text)
     }
+    let stdout = ''
     let stderr = ''
 
     running.set(id, child)
-    child.stdout.on('data', (chunk: Buffer) => send(String(chunk)))
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdout += String(chunk)
+      send(String(chunk))
+    })
     child.stderr.on('data', (chunk: Buffer) => {
       stderr += String(chunk)
       send(String(chunk))
@@ -78,7 +83,11 @@ export async function sshJoin(
     })
     child.on('close', (code) => {
       running.delete(id)
-      resolve(code === 0 ? { ok: true } : { ok: false, problem: sshJoinProblem(code, stderr) })
+      resolve(
+        code === 0
+          ? { ok: true, deviceId: sshJoinDevice(stdout) }
+          : { ok: false, problem: sshJoinProblem(code, stderr) },
+      )
     })
     // ssh that ends before reading the script closes stdin; its exit says why.
     child.stdin.on('error', () => {

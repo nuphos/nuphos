@@ -5,6 +5,7 @@ import { test } from 'node:test'
 import {
   sshBinary,
   sshConfigHosts,
+  sshJoinDevice,
   sshJoinArgs,
   sshJoinProblem,
   sshJoinScript,
@@ -79,12 +80,22 @@ test('ssh runs without prompts, with a port when given, and never reads the targ
 test('the script starts the agent in the background with the token from stdin', () => {
   const script = sshJoinScript({ token: 'nj_1', apiUrl: 'https://api.dev' })
 
-  assert.match(script, /curl -fsSL https:\/\/nuphos.ai\/install \| sh/)
+  assert.match(
+    script,
+    /curl -fsSL https:\/\/nuphos.ai\/install \| PATH="\$HOME\/.local\/bin:\$PATH" sh/,
+  )
   assert.match(
     script,
     /NUPHOS_API_URL='https:\/\/api.dev' NUPHOS_JOIN_TOKEN='nj_1' nohup "\$HOME\/.local\/bin\/nuphos" agent .*&\n/,
   )
   assert.doesNotMatch(sshJoinScript({ token: 'nj_1', apiUrl: 'https://api.nuphos.ai' }), /API_URL/)
+  // An agent that exits at once fails the run with its log, instead of a silent wait.
+  assert.match(
+    script,
+    /kill -0 \$agent 2>\/dev\/null \|\| \{ cat "\$HOME\/.nuphos-agent.log" >&2; exit 1; \}/,
+  )
+  // It names the computer it joined, so Desktop waits for that one.
+  assert.match(script, /device-credential\.json[\s\S]*"deviceId"[\s\S]*Device: /)
   assert.throws(() => sshJoinScript({ token: "x'; rm -rf ~", apiUrl: null }))
 })
 
@@ -99,4 +110,12 @@ test('failures are told apart by what ssh wrote', () => {
 test('the system ssh, wherever OpenSSH puts it', () => {
   assert.equal(sshBinary('darwin'), '/usr/bin/ssh')
   assert.equal(sshBinary('win32', 'D:\\Win'), 'D:\\Win\\System32\\OpenSSH\\ssh.exe')
+})
+
+test('the joined computer is the id the script printed', () => {
+  assert.equal(
+    sshJoinDevice('Installed nuphos\nStarted.\nDevice: b6b2bd58-fd01-4414\n'),
+    'b6b2bd58-fd01-4414',
+  )
+  assert.equal(sshJoinDevice('Started.\n'), null)
 })

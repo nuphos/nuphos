@@ -153,12 +153,26 @@ export function sshJoinScript({ token, apiUrl }: { token: string; apiUrl: string
 
   return [
     'set -e',
-    'curl -fsSL https://nuphos.ai/install | sh',
+    // The CLI is run by its full path, so the installer has no PATH advice to give.
+    'curl -fsSL https://nuphos.ai/install | PATH="$HOME/.local/bin:$PATH" sh',
     'test -x "$HOME/.local/bin/nuphos" || { echo "The Nuphos CLI did not install." >&2; exit 1; }',
     `${env} nohup "$HOME/.local/bin/nuphos" agent >"$HOME/.nuphos-agent.log" 2>&1 </dev/null &`,
+    'agent=$!',
+    'cred="$HOME/.local/share/nuphos/agent/device-credential.json"',
+    // An agent that cannot start (no Node.js, a refused token) exits at once: say why now.
+    'sleep 5',
+    'i=0; while [ $i -lt 60 ] && [ ! -s "$cred" ] && kill -0 $agent 2>/dev/null; do sleep 1; i=$((i+1)); done',
+    'kill -0 $agent 2>/dev/null || { cat "$HOME/.nuphos-agent.log" >&2; exit 1; }',
     'echo "Started the Nuphos agent. Its log is ~/.nuphos-agent.log."',
+    // Which computer it is, so Desktop waits for this one: new, joined again or already there.
+    'sed -n \'s/.*"deviceId": *"\\([^"]*\\)".*/Device: \\1/p\' "$cred"',
     '',
   ].join('\n')
+}
+
+/** The computer the script reported, from its `Device: <id>` line. */
+export function sshJoinDevice(stdout: string): string | null {
+  return /^Device: ([\w-]+)$/m.exec(stdout)?.[1] ?? null
 }
 
 /** Why an ssh run failed. Only exit 255 is ssh's own failure; anything else came from the script. */
