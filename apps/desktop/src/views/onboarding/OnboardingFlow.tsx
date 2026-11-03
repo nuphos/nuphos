@@ -2,11 +2,13 @@ import { useReducedMotion } from 'framer-motion'
 import { ArrowLeft, LogOut } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
+import { useLocalRuntimeState } from '../../hooks/useLocalRuntimeState'
 import { t } from '../../i18n'
 
 import { AgentPanelStage } from './flow/AgentPanelStage'
 import { deriveDefaultWorkspaceName } from './flow/shared'
 import { useJoinOptionsSync, useWorkspaceActions } from './flow/use-join-options'
+import { readyLocalAgents } from './setup/agentSetup'
 import { AgentSetupFlow } from './setup/AgentSetupFlow'
 
 import type { ChatStep, OnboardingFlowProps } from './flow/shared'
@@ -25,8 +27,10 @@ export function OnboardingFlow({
   onLogout,
   onFinish,
 }: OnboardingFlowProps) {
-  // Set once a new workspace exists: its agent setup takes over the window. Joiners skip it.
-  const [setupTeam, setSetupTeam] = useState<AtlasTeam | null>(null)
+  // Set once a new workspace exists, or a joiner has no runtime ready on this computer:
+  // its agent setup takes over the window. A joiner who has one goes straight in.
+  const [setupTeamId, setSetupTeamId] = useState<string | null>(null)
+  const localState = useLocalRuntimeState()
   const [chatStep, setChatStep] = useState<ChatStep>('workspace')
   const [workspaceName, setWorkspaceName] = useState(() => deriveDefaultWorkspaceName(user))
   const [creating, setCreating] = useState(false)
@@ -104,8 +108,11 @@ export function OnboardingFlow({
       setJoinedTeams,
       setJoiningTeamId,
       joinedTeams,
-      onCreated: setSetupTeam,
-      onFinish,
+      onCreated: (team: AtlasTeam) => setSetupTeamId(team.id),
+      onFinish: (teamId) => {
+        if (teamId && readyLocalAgents(localState).length === 0) setSetupTeamId(teamId)
+        else onFinish(teamId)
+      },
     })
 
   // The visible titlebar and close button are intentionally gone. Dev-forced
@@ -121,7 +128,7 @@ export function OnboardingFlow({
     return () => window.removeEventListener('keydown', onKey)
   }, [dismissable, onClose])
 
-  if (setupTeam) return <AgentSetupFlow onFinish={() => onFinish(setupTeam.id)} />
+  if (setupTeamId) return <AgentSetupFlow onFinish={() => onFinish(setupTeamId)} />
 
   return (
     // The overlay stays transparent so the window's native vibrancy/blur shows
