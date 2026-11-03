@@ -87,7 +87,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
 
   installPreviewFrameConsumer(state, toolLog, prepared.memory)
 
-  const access = previewSessionAccess(sessionId, teamId, actorUserId, userId, {
+  const access = await previewSessionAccess(sessionId, teamId, actorUserId, userId, {
     ...args.endpoint,
     ...prepared.accessOptions,
   })

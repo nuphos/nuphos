@@ -22,9 +22,9 @@ describe('dashboard panel token', () => {
     expect(claims).toMatchObject({ sub: ids.userId, tid: ids.teamId, pid: panelId })
   })
 
-  test('is not interchangeable with a conversation token', () => {
+  test('is not interchangeable with a conversation token', async () => {
     const panelToken = mintDashboardPanelToken({ ...ids, panelId, ttlSec: 60 })
-    const conversationToken = mintPreviewMcpToken({ ...ids, sessionId: 'session-1' })
+    const conversationToken = await mintPreviewMcpToken({ ...ids, sessionId: 'session-1' })
 
     expect(verifyPreviewMcpToken(panelToken)).toBeNull()
     expect(verifyDashboardPanelToken(conversationToken)).toBeNull()

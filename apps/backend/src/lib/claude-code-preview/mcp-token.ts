@@ -4,10 +4,21 @@
 // conversation-aware API middleware. It is accepted only when the requested
 // operation matches the (session, team) and explicit capability it was minted
 // for; it never becomes a general Nuphos session token.
-import { createHmac, timingSafeEqual } from 'node:crypto'
+//
+// With an internal-token signer configured, conversation tokens are ES256 JWTs
+// from the dedicated internal issuer (`@/lib/internal-token`) and carry `jti`
+// and, when delegated, `act`. Both formats verify, so a rolling deploy does not
+// strand HS256 tokens that are still live.
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
+import {
+  internalTokenIssuer,
+  signInternalToken,
+  verifiedInternalPayload,
+} from '@/lib/internal-token'
+import { logEvent } from '@/lib/observability'
 
 const AUDIENCE = 'nuphos-preview-mcp'
 const DEFAULT_TTL_SEC = 24 * 60 * 60
@@ -23,6 +34,11 @@ export type PreviewMcpClaims = {
   ori: string
   /** Set when `sub` sent this turn's message, so their Personal Credentials apply. */
   hum?: true
+  iss?: string
+  /** Unique token id, logged at mint for audit and future revocation. Absent on older tokens. */
+  jti?: string
+  /** RFC 8693 actor: who this token was delegated to, e.g. `session:<parentSid>`. */
+  act?: { sub: string }
   iat: number
   exp: number
 }
@@ -45,7 +61,7 @@ function sign(headerAndPayload: string): string {
   return createHmac('sha256', secret()).update(headerAndPayload).digest('base64url')
 }
 
-export function mintPreviewMcpToken(args: {
+export async function mintPreviewMcpToken(args: {
   userId: string
   conversationOwnerUserId?: string
   sessionId: string
@@ -53,9 +69,12 @@ export function mintPreviewMcpToken(args: {
   apiOrigin?: string
   ttlSec?: number
   humanTurn?: boolean
-}): string {
+  /** The delegating party, recorded as the RFC 8693 `act` claim. */
+  actor?: string
+}): Promise<string> {
   const now = Math.floor(Date.now() / 1000)
   const claims: PreviewMcpClaims = {
+    iss: internalTokenIssuer(),
     aud: AUDIENCE,
     sub: args.userId,
     own: args.conversationOwnerUserId ?? args.userId,
@@ -63,11 +82,24 @@ export function mintPreviewMcpToken(args: {
     tid: args.teamId,
     ori: (args.apiOrigin ?? 'https://api.nuphos.ai').replace(/\/$/u, ''),
     ...(args.humanTurn ? { hum: true as const } : {}),
+    jti: randomUUID(),
+    ...(args.actor ? { act: { sub: args.actor } } : {}),
     iat: now,
     exp: now + (args.ttlSec ?? DEFAULT_TTL_SEC),
   }
+  const es256 = await signInternalToken(claims)
 
-  return signClaims(claims)
+  logEvent('info', 'auth.conversation_token.minted', {
+    jti: claims.jti,
+    alg: es256 ? 'ES256' : 'HS256',
+    session_id: claims.sid,
+    team_id: claims.tid,
+    subject: claims.sub,
+    actor: claims.act?.sub,
+    expires_at: claims.exp,
+  })
+
+  return es256 ?? signClaims(claims)
 }
 
 export function signClaims(claims: object): string {
@@ -78,8 +110,15 @@ export function signClaims(claims: object): string {
   return `${head}.${payload}.${signature}`
 }
 
-/** The payload of a token this backend signed, before any claim checks. */
+/**
+ * The payload of a token this backend signed, before any claim checks: an
+ * HS256 token, or an ES256 token from the internal issuer.
+ */
 export function signedPayload(token: string): Record<string, unknown> | null {
+  return hs256Payload(token) ?? verifiedInternalPayload(token)
+}
+
+function hs256Payload(token: string): Record<string, unknown> | null {
   const parts = token.split('.')
 
   if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) return null

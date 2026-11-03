@@ -38,6 +38,7 @@ import { connectDb, closeDb } from '@/lib/db'
 import { watchDevLauncher } from '@/lib/dev-launcher-watchdog'
 import { initDiscordGateway, shutdownDiscordGateway } from '@/lib/discord/gateway'
 import { backfillPersonalTokenExpiry } from '@/lib/identity/cli-tokens'
+import { initInternalTokens } from '@/lib/internal-token'
 import { initJournalSealer, shutdownJournalSealer } from '@/lib/journal/seal-scheduler'
 import { markShuttingDown } from '@/lib/lifecycle'
 import { setupMcpOAuthIndexes } from '@/lib/oauth/store'
@@ -61,11 +62,10 @@ watchDevLauncher(config.devLauncherPid, () => {
   process.kill(process.pid, 'SIGTERM')
 })
 
-// Fail fast on a malformed OIDC signing key — better a crashed deploy than
-// request-time 500s on /.well-known and AWS web-identity assumes.
+// Fail fast on a malformed signing key; load the conversation-token key first.
 validateAwsOidcConfig()
 
-await connectDb()
+await Promise.all([connectDb(), initInternalTokens()])
 await setupTraceIndexes().catch((error: unknown) => {
   logError('agent.trace.indexes_failed', error)
 })

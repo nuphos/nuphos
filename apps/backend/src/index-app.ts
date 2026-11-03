@@ -46,7 +46,7 @@ import { slackRoutes } from '@/routes/slack'
 import { slackAppRoutes } from '@/routes/slack-app'
 import { teamsRoutes } from '@/routes/teams'
 import { webhooksRoutes } from '@/routes/webhooks'
-import { wellKnownRoutes } from '@/routes/well-known'
+import { internalWellKnownRoutes, wellKnownRoutes } from '@/routes/well-known'
 
 export { websocket } from 'hono/bun'
 
@@ -90,6 +90,8 @@ app.route('/health', health)
 // Public OIDC issuer metadata for AWS BYOS web-identity federation. AWS STS
 // fetches these unauthenticated, so they live outside the auth'd route tree.
 app.route('/.well-known', wellKnownRoutes)
+// The internal issuer's JWKS (conversation tokens), kept apart from the one above.
+app.route('/internal/.well-known', internalWellKnownRoutes)
 app.route('/auth', cliAuthRoutes)
 app.route('/auth', auth)
 app.route('/avatars', avatarsRoutes)

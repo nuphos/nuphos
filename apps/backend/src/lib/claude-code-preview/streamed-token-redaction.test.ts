@@ -5,7 +5,7 @@ import { redactStreamedUpdates } from './streamed-token-redaction'
 
 import type { OpenAbSessionUpdate } from './openab-acp-updates'
 
-const token = mintPreviewMcpToken({ userId: 'u1', sessionId: 'conv-1', teamId: 't1' })
+const token = await mintPreviewMcpToken({ userId: 'u1', sessionId: 'conv-1', teamId: 't1' })
 const cut = Math.floor(token.length / 2)
 
 function collect() {
