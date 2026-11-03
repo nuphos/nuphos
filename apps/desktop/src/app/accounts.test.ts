@@ -96,3 +96,11 @@ test('an add-account request is held until it is cancelled, and announced', () =
   assert.equal(changes, 2)
   cancelAddAccount()
 })
+
+test('one backend spelt with another loopback name is not another backend', async () => {
+  const local = { ...bob, api: 'http://127.0.0.1:3718' }
+  const { events, deps } = switchDeps('signInAgain', 'http://localhost:3718/')
+
+  await switchToAccount(local, (n) => `again: ${n}`, deps)
+  assert.deepEqual(events, [`switch ${bob.key}`, 'sign in: again: bob'])
+})

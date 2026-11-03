@@ -78,13 +78,22 @@ type SwitchDeps = {
   reload: () => void
 }
 
-const sameBackend = (a: string, b: string) => {
+// As electron/auth/accounts.ts `normalizedApi`: every loopback name is one host.
+const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]'])
+
+function origin(api: string): string {
   try {
-    return new URL(a).origin === new URL(b).origin
+    const url = new URL(api)
+
+    if (LOOPBACK.has(url.hostname)) url.hostname = '127.0.0.1'
+
+    return url.origin
   } catch {
-    return a === b
+    return api
   }
 }
+
+const sameBackend = (a: string, b: string) => origin(a) === origin(b)
 
 // Survives the reload a move to another backend takes.
 const NOTICE_KEY = 'nuphos.signInAgain.notice'

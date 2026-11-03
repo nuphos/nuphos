@@ -1,4 +1,4 @@
-import { Suspense, use, useEffect, useState, useSyncExternalStore } from 'react'
+import { Suspense, use, useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 
 import { api, onSessionRejected } from './api'
 import {
@@ -44,6 +44,8 @@ function SignedInApp() {
   // Signing in to one more account, over the workspace.
   const adding = useSyncExternalStore(subscribeAddAccount, addAccountRequest)
   const signedIn = auth.status === 'authenticated'
+  // The sign-in screen holds focus, so no shortcut reaches a card behind it.
+  const takeFocus = useCallback((el: HTMLDivElement | null) => el?.focus(), [])
 
   useEffect(() => {
     if (!signedIn) return
@@ -97,17 +99,24 @@ function SignedInApp() {
 
   return (
     <CurrentUserContext value={auth.user}>
-      <Workspace
-        user={auth.user}
-        onUserUpdated={(user) => {
-          identifyUser(user)
-          setAuth({ status: 'authenticated', user })
-        }}
-        onLogout={() => logout()}
-      />
-      <BoxPaywallHost />
+      {/* Inert behind the sign-in screen: no focus, no keys, nothing to approve. */}
+      <div className="contents" inert={adding !== null}>
+        <Workspace
+          user={auth.user}
+          onUserUpdated={(user) => {
+            identifyUser(user)
+            setAuth({ status: 'authenticated', user })
+          }}
+          onLogout={() => logout()}
+        />
+        <BoxPaywallHost />
+      </div>
       {/* Over the workspace, which stays mounted: Cancel returns to it as it was. */}
-      {adding && <div className="fixed inset-0 z-[1000] bg-main">{signIn}</div>}
+      {adding && (
+        <div ref={takeFocus} tabIndex={-1} className="fixed inset-0 z-[1000] bg-main outline-none">
+          {signIn}
+        </div>
+      )}
     </CurrentUserContext>
   )
 }
