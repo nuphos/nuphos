@@ -20,18 +20,18 @@ import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { useBoxAvailable } from './useAgentDevices'
 
 import type { AddAgentAction, AddAgentStep } from './addAgentFlow'
-import type { BoxJoin } from './BoxParts'
+import type { BoxJoin } from './joinCommand'
 import type { RuntimeInstance } from '../../types/runtime'
 import type { CSSProperties } from 'react'
 
 const TITLE: Record<AddAgentStep, string> = {
-  choose: t('Add runtime'),
+  choose: t('Add computer'),
   'self-hosted': t('Self-hosted runtime'),
   'self-hosted-password': t('Self-hosted runtime'),
-  box: t('New computer'),
+  box: t('Nuphos cloud computer'),
 }
 
-/** One place to add a team agent, from Settings › Agent or the composer's agent picker. */
+/** The one place to add a computer (and so its runtimes), from the Runtimes page or the composer's agent picker. */
 export function AddAgentDialog({
   teamId,
   onClose,

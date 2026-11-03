@@ -46,7 +46,7 @@ export function Choice({
   )
 }
 
-/** Add agent's first step: what kind of agent to add. */
+/** Add computer's first step: a cloud computer, your own, or a self-hosted runtime. */
 export function AddAgentChoices({
   boxAvailable,
   footer,
@@ -66,7 +66,7 @@ export function AddAgentChoices({
       {boxAvailable && (
         <Choice
           icon={<Box className="h-4 w-4" />}
-          title={t('New computer')}
+          title={t('Nuphos cloud computer')}
           description={t(
             'A cloud computer Nuphos runs for you, with Claude Code and Codex. Sign in with your own account.',
           )}
@@ -76,8 +76,8 @@ export function AddAgentChoices({
       {boxAvailable && (
         <Choice
           icon={<Laptop className="h-4 w-4" />}
-          title={t('Connect your own machine')}
-          description={t('Connect a computer or server you run, with a one-time join command.')}
+          title={t('Your own computer')}
+          description={t('A laptop or server you run, connected with a one-time command.')}
           onClick={onJoin}
         />
       )}

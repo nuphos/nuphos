@@ -225,7 +225,6 @@
   "Add permissions": "Tambahkan izin",
   "Add record": "Tambahkan record",
   "Add role authorization": "Tambahkan otorisasi peran",
-  "Add runtime": "Tambahkan runtime",
   "Add teammates": "Tambahkan rekan tim",
   "Add the Nuphos bot to a Feishu / Lark group and it links automatically. Toggle which groups the agent responds in, then @mention Nuphos there.": "Tambahkan bot Nuphos ke grup Feishu / Lark dan grup akan tertaut secara otomatis. Atur grup mana saja yang direspons agen, lalu @mention Nuphos di sana.",
   "Add the bot to a Feishu / Lark group — it links automatically and shows up under Groups here. Then {mention} in that group, or DM the bot directly, and it replies.": "Tambahkan bot ke grup Feishu / Lark — bot tertaut otomatis dan muncul di bawah Grup di sini. Lalu {mention} di grup tersebut, atau DM bot secara langsung, dan bot akan membalas.",
@@ -866,7 +865,6 @@
   "Connect a Kubernetes cluster": "Hubungkan kluster Kubernetes",
   "Connect a Kubernetes cluster through an outbound-only agent.": "Hubungkan kluster Kubernetes melalui agen yang hanya menggunakan koneksi keluar.",
   "Connect a cloud, observability, networking, compliance, source-control, project, document, or messaging tool to this team.": "Hubungkan alat cloud, observabilitas, jaringan, kepatuhan, kontrol sumber, proyek, dokumen, atau perpesanan ke tim ini.",
-  "Connect a computer or server you run, with a one-time join command.": "Hubungkan komputer atau server milik Anda dengan perintah bergabung sekali pakai.",
   "Connect a runtime in Settings → Runtimes to get started.": "Hubungkan runtime di Pengaturan → Runtime untuk memulai.",
   "Connect a runtime to get started": "Hubungkan runtime untuk memulai",
   "Connect a runtime you run on your own server, with a pairing code from its console.": "Hubungkan runtime yang Anda jalankan di server sendiri dengan kode pemasangan dari konsolnya.",
@@ -883,7 +881,6 @@
   "Connect your first GitLab account": "Hubungkan akun GitLab pertama Anda",
   "Connect your first account": "Hubungkan akun pertama Anda",
   "Connect your own accounts so the agent acts as you.": "Hubungkan akun Anda sendiri agar agen bertindak atas nama Anda.",
-  "Connect your own machine": "Hubungkan mesin Anda sendiri",
   "Connect {name}": "Hubungkan {name}",
   "Connect {name} on this computer": "Hubungkan {name} di komputer ini",
   "Connect {name} to run your agents on this computer.": "Hubungkan {name} untuk menjalankan agen Anda di komputer ini.",
@@ -5674,5 +5671,10 @@
   "≥ {pct}% of Limit": "≥ {pct}% dari batas",
   "Stop viewing from iPhone": "Berhenti melihat dari iPhone",
   "Viewing from iPhone. Click to stop.": "Sedang dilihat dari iPhone. Klik untuk menghentikan.",
-  "✓ used": "✓ dipakai"
+  "✓ used": "✓ dipakai",
+  "Add computer": "Tambah komputer",
+  "Nuphos cloud computer": "Komputer cloud Nuphos",
+  "Your own computer": "Komputer Anda sendiri",
+  "A laptop or server you run, connected with a one-time command.": "Laptop atau server yang Anda kelola, dihubungkan dengan perintah sekali pakai.",
+  "Send it from here over SSH (optional)": "Kirim dari sini lewat SSH (opsional)"
 }

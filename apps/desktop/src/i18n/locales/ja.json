@@ -225,7 +225,6 @@
   "Add permissions": "権限を追加",
   "Add record": "レコードを追加",
   "Add role authorization": "ロール認可を追加",
-  "Add runtime": "ランタイムを追加",
   "Add teammates": "チームメンバーを追加",
   "Add the Nuphos bot to a Feishu / Lark group and it links automatically. Toggle which groups the agent responds in, then @mention Nuphos there.": "Nuphos ボットを Feishu / Lark のグループに追加すると、自動的にリンクされます。エージェントが応答するグループを切り替えてから、そのグループで Nuphos を @メンションしてください。",
   "Add the bot to a Feishu / Lark group — it links automatically and shows up under Groups here. Then {mention} in that group, or DM the bot directly, and it replies.": "ボットを Feishu / Lark のグループに追加すると、自動的に連携され、ここの「グループ」に表示されます。そのグループで {mention} するか、ボットに直接 DM を送ると返信します。",
@@ -866,7 +865,6 @@
   "Connect a Kubernetes cluster": "Kubernetes クラスターを接続",
   "Connect a Kubernetes cluster through an outbound-only agent.": "アウトバウンド専用のエージェントを介して Kubernetes クラスターを接続します。",
   "Connect a cloud, observability, networking, compliance, source-control, project, document, or messaging tool to this team.": "クラウド、オブザーバビリティ、ネットワーク、コンプライアンス、ソース管理、プロジェクト、ドキュメント、メッセージングのツールをこのチームに接続します。",
-  "Connect a computer or server you run, with a one-time join command.": "自分で運用しているコンピュータやサーバーを、1 回限りの参加コマンドで接続します。",
   "Connect a runtime in Settings → Runtimes to get started.": "［設定］→［ランタイム］でランタイムを接続して始めましょう。",
   "Connect a runtime to get started": "ランタイムを接続して始めましょう",
   "Connect a runtime you run on your own server, with a pairing code from its console.": "自分のサーバーで運用しているランタイムを、コンソールに表示されるペアリングコードで接続します。",
@@ -883,7 +881,6 @@
   "Connect your first GitLab account": "最初の GitLab アカウントを接続",
   "Connect your first account": "最初のアカウントを接続",
   "Connect your own accounts so the agent acts as you.": "自分のアカウントを接続すると、エージェントがあなたとして操作します。",
-  "Connect your own machine": "自分のマシンを接続",
   "Connect {name}": "{name} を接続",
   "Connect {name} on this computer": "このコンピュータで {name} を接続",
   "Connect {name} to run your agents on this computer.": "{name} を接続すると、このコンピュータでエージェントを実行できます。",
@@ -5674,5 +5671,10 @@
   "≥ {pct}% of Limit": "制限の {pct}% 以上",
   "Stop viewing from iPhone": "iPhoneでの表示を停止",
   "Viewing from iPhone. Click to stop.": "iPhoneで表示中です。クリックで停止します。",
-  "✓ used": "✓ 使用済み"
+  "✓ used": "✓ 使用済み",
+  "Add computer": "コンピューターを追加",
+  "Nuphos cloud computer": "Nuphos クラウドコンピューター",
+  "Your own computer": "自分のコンピューター",
+  "A laptop or server you run, connected with a one-time command.": "自分で運用するノート PC やサーバーを、1 回限りのコマンドで接続します。",
+  "Send it from here over SSH (optional)": "ここから SSH で送信（任意）"
 }

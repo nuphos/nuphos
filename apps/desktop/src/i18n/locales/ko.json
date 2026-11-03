@@ -225,7 +225,6 @@
   "Add permissions": "권한 추가",
   "Add record": "레코드 추가",
   "Add role authorization": "역할 권한 부여 추가",
-  "Add runtime": "런타임 추가",
   "Add teammates": "팀원 추가",
   "Add the Nuphos bot to a Feishu / Lark group and it links automatically. Toggle which groups the agent responds in, then @mention Nuphos there.": "Nuphos 봇을 Feishu / Lark 그룹에 추가하면 자동으로 연결됩니다. 에이전트가 응답할 그룹을 켜거나 끈 다음, 해당 그룹에서 Nuphos를 @멘션하세요.",
   "Add the bot to a Feishu / Lark group — it links automatically and shows up under Groups here. Then {mention} in that group, or DM the bot directly, and it replies.": "봇을 Feishu / Lark 그룹에 추가하면 자동으로 연결되어 여기 그룹 아래에 표시됩니다. 그런 다음 해당 그룹에서 {mention}하거나 봇에게 DM을 보내면 답장합니다.",
@@ -866,7 +865,6 @@
   "Connect a Kubernetes cluster": "Kubernetes 클러스터 연결",
   "Connect a Kubernetes cluster through an outbound-only agent.": "아웃바운드 전용 에이전트를 통해 Kubernetes 클러스터를 연결합니다.",
   "Connect a cloud, observability, networking, compliance, source-control, project, document, or messaging tool to this team.": "클라우드, 관측성, 네트워킹, 규정 준수, 소스 제어, 프로젝트, 문서, 메시징 도구를 이 팀에 연결합니다.",
-  "Connect a computer or server you run, with a one-time join command.": "직접 운영하는 컴퓨터나 서버를 일회용 참여 명령으로 연결합니다.",
   "Connect a runtime in Settings → Runtimes to get started.": "시작하려면 설정 → 런타임에서 런타임을 연결하세요.",
   "Connect a runtime to get started": "런타임을 연결하여 시작하세요",
   "Connect a runtime you run on your own server, with a pairing code from its console.": "직접 운영하는 서버의 런타임을 콘솔의 페어링 코드로 연결합니다.",
@@ -883,7 +881,6 @@
   "Connect your first GitLab account": "첫 GitLab 계정 연결",
   "Connect your first account": "첫 계정 연결",
   "Connect your own accounts so the agent acts as you.": "에이전트가 본인으로 활동하도록 개인 계정을 연결하세요.",
-  "Connect your own machine": "내 컴퓨터 연결",
   "Connect {name}": "{name} 연결",
   "Connect {name} on this computer": "이 컴퓨터에서 {name} 연결",
   "Connect {name} to run your agents on this computer.": "이 컴퓨터에서 에이전트를 실행하려면 {name} 계정을 연결하세요.",
@@ -5674,5 +5671,10 @@
   "≥ {pct}% of Limit": "제한의 {pct}% 이상",
   "Stop viewing from iPhone": "iPhone에서 보기 중지",
   "Viewing from iPhone. Click to stop.": "iPhone에서 보는 중입니다. 클릭하면 중지됩니다.",
-  "✓ used": "✓ 사용됨"
+  "✓ used": "✓ 사용됨",
+  "Add computer": "컴퓨터 추가",
+  "Nuphos cloud computer": "Nuphos 클라우드 컴퓨터",
+  "Your own computer": "내 컴퓨터",
+  "A laptop or server you run, connected with a one-time command.": "직접 운영하는 노트북이나 서버를 일회용 명령으로 연결합니다.",
+  "Send it from here over SSH (optional)": "여기에서 SSH로 보내기(선택 사항)"
 }

@@ -225,7 +225,6 @@
   "Add permissions": "新增權限",
   "Add record": "新增記錄",
   "Add role authorization": "新增角色授權",
-  "Add runtime": "新增執行環境",
   "Add teammates": "新增隊友",
   "Add the Nuphos bot to a Feishu / Lark group and it links automatically. Toggle which groups the agent responds in, then @mention Nuphos there.": "將 Nuphos 機器人加入飛書 / Lark 群組，即會自動連結。切換 Agent 要在哪些群組中回應，然後在群組中 @提及 Nuphos。",
   "Add the bot to a Feishu / Lark group — it links automatically and shows up under Groups here. Then {mention} in that group, or DM the bot directly, and it replies.": "將機器人加入飛書 / Lark 群組，系統會自動連結，並顯示在此處的「群組」下。接著在該群組中{mention}，或直接私訊機器人，它就會回覆。",
@@ -866,7 +865,6 @@
   "Connect a Kubernetes cluster": "連接 Kubernetes 叢集",
   "Connect a Kubernetes cluster through an outbound-only agent.": "透過僅限對外連線的代理程式連接 Kubernetes 叢集。",
   "Connect a cloud, observability, networking, compliance, source-control, project, document, or messaging tool to this team.": "將雲端、可觀測性、網路、合規、原始碼控管、專案、文件或訊息工具連接到此團隊。",
-  "Connect a computer or server you run, with a one-time join command.": "使用一次性加入指令，連接你自己管理的電腦或伺服器。",
   "Connect a runtime in Settings → Runtimes to get started.": "請前往「設定 → 執行環境」連接執行環境以開始使用。",
   "Connect a runtime to get started": "連接執行環境以開始使用",
   "Connect a runtime you run on your own server, with a pairing code from its console.": "使用主控台提供的配對碼，連接在你自己伺服器上運作的執行環境。",
@@ -883,7 +881,6 @@
   "Connect your first GitLab account": "連接你的第一個 GitLab 帳號",
   "Connect your first account": "連接你的第一個帳號",
   "Connect your own accounts so the agent acts as you.": "連接你自己的帳號，讓 Agent 以你的身分操作。",
-  "Connect your own machine": "連接你自己的機器",
   "Connect {name}": "連接 {name}",
   "Connect {name} on this computer": "在這台電腦上連接 {name}",
   "Connect {name} to run your agents on this computer.": "連接 {name}，即可在這台電腦上執行你的 Agent。",
@@ -5674,5 +5671,10 @@
   "≥ {pct}% of Limit": "≥ 限制的 {pct}%",
   "Stop viewing from iPhone": "停止在 iPhone 上檢視",
   "Viewing from iPhone. Click to stop.": "正在 iPhone 上檢視。點一下即可停止。",
-  "✓ used": "✓ 已使用"
+  "✓ used": "✓ 已使用",
+  "Add computer": "新增電腦",
+  "Nuphos cloud computer": "Nuphos 雲端電腦",
+  "Your own computer": "你自己的電腦",
+  "A laptop or server you run, connected with a one-time command.": "你自己管理的筆電或伺服器，用一次性指令連接。",
+  "Send it from here over SSH (optional)": "在這裡透過 SSH 傳送（選填）"
 }

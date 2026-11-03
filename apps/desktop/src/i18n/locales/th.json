@@ -225,7 +225,6 @@
   "Add permissions": "เพิ่มสิทธิ์",
   "Add record": "เพิ่มเรคคอร์ด",
   "Add role authorization": "เพิ่มการให้สิทธิ์บทบาท",
-  "Add runtime": "เพิ่มรันไทม์",
   "Add teammates": "เพิ่มเพื่อนร่วมทีม",
   "Add the Nuphos bot to a Feishu / Lark group and it links automatically. Toggle which groups the agent responds in, then @mention Nuphos there.": "เพิ่มบอต Nuphos ลงในกลุ่ม Feishu / Lark แล้วระบบจะเชื่อมโยงให้อัตโนมัติ เลือกเปิดหรือปิดกลุ่มที่เอเจนต์จะตอบกลับ จากนั้น @mention Nuphos ในกลุ่มนั้น",
   "Add the bot to a Feishu / Lark group — it links automatically and shows up under Groups here. Then {mention} in that group, or DM the bot directly, and it replies.": "เพิ่มบอตลงในกลุ่ม Feishu / Lark — ระบบจะเชื่อมโยงให้อัตโนมัติและแสดงใต้ Groups ที่นี่ จากนั้น {mention} ในกลุ่มนั้นหรือส่ง DM หาบอตโดยตรง บอตจะตอบกลับ",
@@ -866,7 +865,6 @@
   "Connect a Kubernetes cluster": "เชื่อมต่อคลัสเตอร์ Kubernetes",
   "Connect a Kubernetes cluster through an outbound-only agent.": "เชื่อมต่อคลัสเตอร์ Kubernetes ผ่านเอเจนต์ที่ใช้การเชื่อมต่อขาออกเท่านั้น",
   "Connect a cloud, observability, networking, compliance, source-control, project, document, or messaging tool to this team.": "เชื่อมต่อเครื่องมือด้านคลาวด์ การสังเกตการณ์ระบบ เครือข่าย การปฏิบัติตามข้อกำหนด การควบคุมซอร์สโค้ด โปรเจกต์ เอกสาร หรือการส่งข้อความเข้ากับทีมนี้",
-  "Connect a computer or server you run, with a one-time join command.": "เชื่อมต่อคอมพิวเตอร์หรือเซิร์ฟเวอร์ของคุณด้วยคำสั่งเข้าร่วมแบบใช้ครั้งเดียว",
   "Connect a runtime in Settings → Runtimes to get started.": "เชื่อมต่อรันไทม์ที่การตั้งค่า → รันไทม์ เพื่อเริ่มต้นใช้งาน",
   "Connect a runtime to get started": "เชื่อมต่อรันไทม์เพื่อเริ่มต้นใช้งาน",
   "Connect a runtime you run on your own server, with a pairing code from its console.": "เชื่อมต่อรันไทม์ที่รันบนเซิร์ฟเวอร์ของคุณเอง ด้วยรหัสจับคู่จากคอนโซลของรันไทม์",
@@ -883,7 +881,6 @@
   "Connect your first GitLab account": "เชื่อมต่อบัญชี GitLab แรกของคุณ",
   "Connect your first account": "เชื่อมต่อบัญชีแรกของคุณ",
   "Connect your own accounts so the agent acts as you.": "เชื่อมต่อบัญชีของคุณเองเพื่อให้เอเจนต์ทำงานในนามของคุณ",
-  "Connect your own machine": "เชื่อมต่อเครื่องของคุณเอง",
   "Connect {name}": "เชื่อมต่อ {name}",
   "Connect {name} on this computer": "เชื่อมต่อ {name} บนคอมพิวเตอร์เครื่องนี้",
   "Connect {name} to run your agents on this computer.": "เชื่อมต่อ {name} เพื่อรันเอเจนต์ของคุณบนคอมพิวเตอร์เครื่องนี้",
@@ -5674,5 +5671,10 @@
   "≥ {pct}% of Limit": "≥ {pct}% ของขีดจำกัด",
   "Stop viewing from iPhone": "หยุดดูจาก iPhone",
   "Viewing from iPhone. Click to stop.": "กำลังดูจาก iPhone คลิกเพื่อหยุด",
-  "✓ used": "✓ ใช้แล้ว"
+  "✓ used": "✓ ใช้แล้ว",
+  "Add computer": "เพิ่มคอมพิวเตอร์",
+  "Nuphos cloud computer": "คอมพิวเตอร์คลาวด์ของ Nuphos",
+  "Your own computer": "คอมพิวเตอร์ของคุณเอง",
+  "A laptop or server you run, connected with a one-time command.": "แล็ปท็อปหรือเซิร์ฟเวอร์ที่คุณดูแลเอง เชื่อมต่อด้วยคำสั่งแบบใช้ครั้งเดียว",
+  "Send it from here over SSH (optional)": "ส่งจากที่นี่ผ่าน SSH (ไม่บังคับ)"
 }

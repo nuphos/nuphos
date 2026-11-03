@@ -225,7 +225,6 @@
   "Add permissions": "Añadir permisos",
   "Add record": "Añadir registro",
   "Add role authorization": "Añadir autorización de rol",
-  "Add runtime": "Añadir entorno de ejecución",
   "Add teammates": "Añadir compañeros",
   "Add the Nuphos bot to a Feishu / Lark group and it links automatically. Toggle which groups the agent responds in, then @mention Nuphos there.": "Añade el bot de Nuphos a un grupo de Feishu / Lark y se vinculará automáticamente. Activa o desactiva los grupos en los que responde el agente y luego menciona a Nuphos con @ allí.",
   "Add the bot to a Feishu / Lark group — it links automatically and shows up under Groups here. Then {mention} in that group, or DM the bot directly, and it replies.": "Añade el bot a un grupo de Feishu / Lark: se vincula automáticamente y aparece aquí en Grupos. Luego usa {mention} en ese grupo o envía un mensaje directo al bot, y responderá.",
@@ -866,7 +865,6 @@
   "Connect a Kubernetes cluster": "Conectar un clúster de Kubernetes",
   "Connect a Kubernetes cluster through an outbound-only agent.": "Conecta un clúster de Kubernetes mediante un agente que solo usa conexiones salientes.",
   "Connect a cloud, observability, networking, compliance, source-control, project, document, or messaging tool to this team.": "Conecta a este equipo una herramienta de nube, observabilidad, redes, cumplimiento, control de código fuente, proyectos, documentos o mensajería.",
-  "Connect a computer or server you run, with a one-time join command.": "Conecta una computadora o un servidor propio con un comando de unión de un solo uso.",
   "Connect a runtime in Settings → Runtimes to get started.": "Conecta un entorno de ejecución en Configuración → Entornos de ejecución para empezar.",
   "Connect a runtime to get started": "Conecta un entorno de ejecución para empezar",
   "Connect a runtime you run on your own server, with a pairing code from its console.": "Conecta un entorno de ejecución que ejecutas en tu propio servidor con un código de vinculación de su consola.",
@@ -883,7 +881,6 @@
   "Connect your first GitLab account": "Conecta tu primera cuenta de GitLab",
   "Connect your first account": "Conecta tu primera cuenta",
   "Connect your own accounts so the agent acts as you.": "Conecta tus propias cuentas para que el agente actúe en tu nombre.",
-  "Connect your own machine": "Conectar tu propia máquina",
   "Connect {name}": "Conectar {name}",
   "Connect {name} on this computer": "Conectar {name} en esta computadora",
   "Connect {name} to run your agents on this computer.": "Conecta {name} para ejecutar tus agentes en esta computadora.",
@@ -5674,5 +5671,10 @@
   "≥ {pct}% of Limit": "≥ {pct}% del límite",
   "Stop viewing from iPhone": "Dejar de ver desde el iPhone",
   "Viewing from iPhone. Click to stop.": "Viéndose desde el iPhone. Haz clic para detener.",
-  "✓ used": "✓ usada"
+  "✓ used": "✓ usada",
+  "Add computer": "Añadir ordenador",
+  "Nuphos cloud computer": "Ordenador en la nube de Nuphos",
+  "Your own computer": "Tu propio ordenador",
+  "A laptop or server you run, connected with a one-time command.": "Un portátil o servidor que gestionas, conectado con un comando de un solo uso.",
+  "Send it from here over SSH (optional)": "Envíalo desde aquí por SSH (opcional)"
 }
