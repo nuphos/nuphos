@@ -13,10 +13,12 @@ function parseTags(value: string): '*' | string[] {
 }
 
 /** A response this middleware may tag: one c.json() body, with no validator of its own. */
-function taggable(res: Response): boolean {
+function taggable(res: Response, jsonBodies: WeakSet<ReadableStream>): boolean {
   const h = res.headers
 
-  if (res.status !== 200 || !res.body) return false
+  // A proxied upstream stream would have to finish downloading before it could
+  // be hashed; only bodies c.json() serialized are already in memory.
+  if (res.status !== 200 || !res.body || !jsonBodies.has(res.body)) return false
   if (h.has('etag') || h.has('last-modified') || h.has('content-encoding')) return false
   if (NO_STORE.test(h.get('cache-control') ?? '')) return false
 
@@ -52,13 +54,25 @@ function emptyResponse(c: Context, status: 304 | 412, tag: string): void {
  * If-Unmodified-Since and If-Modified-Since need a Last-Modified this never
  * has, so §13.1.3 / §13.1.4 say to ignore them.
  *
- * Hono's `etag()` would hash every response, and an SSE stream never ends, so
- * it would never be sent. This only reads bodies `c.json()` already holds.
+ * Hono's `etag()` would hash every response, and an SSE or proxied stream
+ * would have to end before it was sent. This only hashes bodies `c.json()`
+ * serialized, which are already in memory.
  */
 export function jsonEtag(): MiddlewareHandler {
   return async (c, next) => {
+    if (c.req.method !== 'GET') return next()
+    const jsonBodies = new WeakSet<ReadableStream>()
+    const json = c.json as unknown as (...args: unknown[]) => Response
+
+    c.json = ((...args: unknown[]) => {
+      const res = json(...args)
+
+      if (res.body) jsonBodies.add(res.body)
+
+      return res
+    }) as unknown as typeof c.json
     await next()
-    if (c.req.method !== 'GET' || !taggable(c.res)) return
+    if (!taggable(c.res, jsonBodies)) return
     const tag = await weakTag(c.res)
     const ifMatch = c.req.header('If-Match')
     const ifNoneMatch = c.req.header('If-None-Match')

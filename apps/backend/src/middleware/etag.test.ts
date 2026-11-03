@@ -44,6 +44,16 @@ function buildApp() {
 
     return c.json(PLANS)
   })
+  // Stands in for the Grafana proxy: an upstream JSON stream passed through.
+  app.get('/proxy', () => {
+    const upstream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"items":['))
+      },
+    })
+
+    return new Response(upstream, { headers: { 'content-type': 'application/json' } })
+  })
   app.get('/sse', (c) =>
     streamSSE(c, async (stream) => {
       for (;;) {
@@ -182,6 +192,19 @@ describe('jsonEtag', () => {
 
     await reader?.cancel()
     expect(first).toContain('data: tick')
+    expect(res.headers.get('etag')).toBeNull()
+  })
+
+  test('passes a proxied JSON stream through without hashing it', async () => {
+    const res = await buildApp().request('/proxy')
+    const reader = res.body?.getReader()
+    const first = await Promise.race([
+      reader?.read().then((r) => new TextDecoder().decode(r.value)),
+      Bun.sleep(1000).then(() => 'timed out'),
+    ])
+
+    await reader?.cancel()
+    expect(first).toBe('{"items":[')
     expect(res.headers.get('etag')).toBeNull()
   })
 
