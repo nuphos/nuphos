@@ -121,14 +121,18 @@ describe('internal tokens with an AWS KMS key', () => {
       send: (command: unknown) => {
         sent.push(command)
         if (command instanceof GetPublicKeyCommand) {
-          return Promise.resolve({ PublicKey: publicKey.export({ type: 'spki', format: 'der' }) })
+          return Promise.resolve({
+            KeyId: 'arn:aws:kms:us-east-1:111122223333:key/resolved',
+            PublicKey: publicKey.export({ type: 'spki', format: 'der' }),
+          })
         }
 
         // A real KMS key signs the digest; the test key signs the same input.
         return Promise.resolve({ Signature: sign('sha256', Buffer.from(signingInput), privateKey) })
       },
     }
-    const signer = kmsSigner('arn:aws:kms:us-east-1:111122223333:key/test', client as never)
+    // An alias resolves to an immutable key id, which signing then uses.
+    const signer = kmsSigner('alias/nuphos-internal-token', client as never)
 
     expect(keyIdOf(await signer.publicKey())).toBe(keyIdOf(publicKey))
     const signature = await signer.sign(signingInput)
@@ -144,7 +148,7 @@ describe('internal tokens with an AWS KMS key', () => {
     const signCommand = sent.find((command) => command instanceof SignCommand)!
 
     expect(signCommand.input).toMatchObject({
-      KeyId: 'arn:aws:kms:us-east-1:111122223333:key/test',
+      KeyId: 'arn:aws:kms:us-east-1:111122223333:key/resolved',
       MessageType: 'DIGEST',
       SigningAlgorithm: 'ECDSA_SHA_256',
     })
@@ -157,7 +161,10 @@ describe('internal tokens with an AWS KMS key', () => {
     const rsa = generateKeyPairSync('rsa', { modulusLength: 2048 })
     const client = {
       send: () =>
-        Promise.resolve({ PublicKey: rsa.publicKey.export({ type: 'spki', format: 'der' }) }),
+        Promise.resolve({
+          KeyId: 'k',
+          PublicKey: rsa.publicKey.export({ type: 'spki', format: 'der' }),
+        }),
     }
 
     await expect(kmsSigner('k', client as never).publicKey()).rejects.toThrow('P-256')

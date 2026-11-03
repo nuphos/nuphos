@@ -2,6 +2,8 @@
 // constants ↔ run-pump-helpers cycle initializes in production order.
 import '@/routes/agent'
 
+import { generateKeyPairSync } from 'node:crypto'
+
 import { expect, test } from 'bun:test'
 
 import {
@@ -10,7 +12,9 @@ import {
   hasPendingUserMessage,
 } from '@/lib/agent/pending-messages'
 import { takeTurnQueue } from '@/lib/agent/pending-queue'
+import { setInternalTokenSignerForTest } from '@/lib/internal-token'
 
+import { previewTurnAccess } from './chat-preview-access'
 import {
   lastUserMessageText,
   resumeMessage,
@@ -18,6 +22,8 @@ import {
   turnPromptMessages,
 } from './chat-preview-prepare'
 
+import type { PreparedPreviewTurn } from './chat-preview-prepare'
+import type { PreviewChatTurnArgs } from './chat-preview-turn'
 import type { UIMessage } from 'ai'
 
 const msg = (role: 'user' | 'assistant', parts: UIMessage['parts']): UIMessage => ({
@@ -257,4 +263,43 @@ test('a transcript turn leaves queued Slack and agent messages for their own tur
   expect((await takeTurnQueue('owner', 'queued', 'owner', true)).map((m) => m.id)).toEqual([
     slack.id,
   ])
+})
+
+test('a failed token mint hands the carried queue back and releases the turn', async () => {
+  const carried = buildPendingUserMessage({ renderedText: 'queued while idle', source: 'slack' })
+
+  await enqueuePendingUserMessage('owner', 'mint-fails', carried)
+  const taken = await takeTurnQueue('owner', 'mint-fails', 'owner', true)
+
+  expect(taken.map((m) => m.id)).toEqual([carried.id])
+  let released = false
+  const failing = {
+    sign: () => Promise.reject(new Error('KMS unavailable')),
+    publicKey: () => Promise.resolve(generateKeyPairSync('ec', { namedCurve: 'P-256' }).publicKey),
+  }
+
+  await setInternalTokenSignerForTest(failing)
+  try {
+    const args = {
+      userId: 'owner',
+      sessionId: 'mint-fails',
+      teamId: 'team-1',
+      endpoint: { backendUrl: 'https://backend.example' },
+    } as unknown as PreviewChatTurnArgs
+    const prepared = {
+      accessOptions: {},
+      carried: taken,
+      clearActiveTurn: () => {
+        released = true
+
+        return Promise.resolve()
+      },
+    } as unknown as PreparedPreviewTurn
+
+    await expect(previewTurnAccess(args, prepared)).rejects.toThrow('KMS unavailable')
+  } finally {
+    await setInternalTokenSignerForTest(null)
+  }
+  expect(released).toBe(true)
+  expect(await hasPendingUserMessage('owner', 'mint-fails', carried.id)).toBe(true)
 })

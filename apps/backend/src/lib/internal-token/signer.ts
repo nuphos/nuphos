@@ -81,13 +81,41 @@ export function derToJoseEs256(der: Buffer): Buffer {
 type KmsLike = Pick<KMSClient, 'send'>
 
 export function kmsSigner(keyId: string, client: KmsLike): InternalTokenSigner {
-  let cached: Promise<KeyObject> | undefined
+  // `keyId` may be an alias. Pin both signing and the published key to the key
+  // id GetPublicKey resolved it to, so retargeting the alias during a rotation
+  // cannot make this replica sign with a key whose kid it does not advertise.
+  let resolved: Promise<{ keyId: string; publicKey: KeyObject }> | undefined
+
+  const resolve = () => {
+    resolved ??= client
+      .send(new GetPublicKeyCommand({ KeyId: keyId }))
+      .then((response) => {
+        if (!response.PublicKey) throw new Error('KMS GetPublicKey returned no key')
+        if (!response.KeyId) throw new Error('KMS GetPublicKey returned no key id')
+        const publicKey = createPublicKey({
+          key: Buffer.from(response.PublicKey),
+          format: 'der',
+          type: 'spki',
+        })
+
+        assertP256(publicKey, 'NUPHOS_INTERNAL_TOKEN_KMS_KEY_ID')
+
+        return { keyId: response.KeyId, publicKey }
+      })
+      .catch((error: unknown) => {
+        resolved = undefined
+        throw error
+      })
+
+    return resolved
+  }
 
   return {
     sign: async (signingInput) => {
+      const { keyId: pinned } = await resolve()
       const response = await client.send(
         new SignCommand({
-          KeyId: keyId,
+          KeyId: pinned,
           Message: createHash('sha256').update(signingInput).digest(),
           MessageType: 'DIGEST',
           SigningAlgorithm: 'ECDSA_SHA_256',
@@ -98,28 +126,7 @@ export function kmsSigner(keyId: string, client: KmsLike): InternalTokenSigner {
 
       return derToJoseEs256(Buffer.from(response.Signature))
     },
-    publicKey: () => {
-      cached ??= client
-        .send(new GetPublicKeyCommand({ KeyId: keyId }))
-        .then((response) => {
-          if (!response.PublicKey) throw new Error('KMS GetPublicKey returned no key')
-          const publicKey = createPublicKey({
-            key: Buffer.from(response.PublicKey),
-            format: 'der',
-            type: 'spki',
-          })
-
-          assertP256(publicKey, 'NUPHOS_INTERNAL_TOKEN_KMS_KEY_ID')
-
-          return publicKey
-        })
-        .catch((error: unknown) => {
-          cached = undefined
-          throw error
-        })
-
-      return cached
-    },
+    publicKey: async () => (await resolve()).publicKey,
   }
 }
 
