@@ -3,17 +3,8 @@ import { randomUUID } from 'node:crypto'
 import { getTeamMembers, getTeamMembership } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 
-import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
-
-import {
-  agentMessages,
-  appendConversationMessages,
-  getConversationBySessionId,
-  getConversationWithMessages,
-} from './db'
-import { closingWords, onChannelTurnEnd } from './channel-reply'
+import { agentMessages, appendConversationMessages, getConversationBySessionId } from './db'
 import { channelNotice } from './channel-wake'
-import { pushedFileParts } from './channel-attachments'
 import { CHANNEL_SENDER_PREFIX, isChannel } from './db/channels'
 import { bumpConversationActivity } from './db/read-state'
 import { pushTimelineEvent } from './db/participants'
@@ -22,7 +13,6 @@ import { listPendingUserMessages } from './pending-queue'
 
 import type { AgentConversation } from './db'
 import type { MessageMetadata } from './message-metadata'
-import type { PendingUserMessage } from './pending-messages'
 
 /**
  * Turns agents may wake each other for between two posts by a person. Every
@@ -125,9 +115,8 @@ async function wakeChannelAgents(
 }
 
 /**
- * Posts in a channel in this agent's name: a channel-woken turn's closing words
- * are its reply, as a person's last words in a group chat are what they said.
- * Saying nothing leaves nothing behind.
+ * Posts in a channel in this agent's name. channel_post is the only way an agent
+ * speaks there: a channel-woken turn's own text stays in its transcript.
  */
 export async function postAsAgent(
   channelId: string,
@@ -160,39 +149,6 @@ export async function postAsAgent(
     agent.sessionId,
   )
 }
-
-/**
- * A turn a channel woke, and nothing else did, answers there with what it ends
- * on; silence posts nothing. Only this turn's own reply counts: one that comes
- * after what woke the turn, from a turn that completed.
- */
-export async function replyToChannel(
-  data: { userId: string; teamId: string; targetSessionId: string },
-  target: AgentConversation,
-  fresh: readonly Pick<PendingUserMessage, 'id' | 'metadata'>[],
-  completed: boolean,
-): Promise<void> {
-  const from = fresh.map((message) => message.metadata?.sender?.id)
-  const first = from[0]
-
-  if (!completed || !first?.startsWith(CHANNEL_SENDER_PREFIX) || from.some((id) => id !== first))
-    return
-  const after = await getConversationWithMessages(data.targetSessionId, data.userId, data.teamId)
-  const messages = after?.messages ?? []
-  const asked = messages.findLastIndex((m) => fresh.some((entry) => entry.id === m.messageId))
-  const answered = messages.findLastIndex((m) => m.role === 'assistant')
-
-  if (asked < 0 || answered < asked) return
-  const ui = persistedMessageToUiMessage(messages[answered]!)
-  const text = ui ? closingWords(ui) : ''
-  // Files it pushed for download this turn go with its words, as they would in its own chat.
-  const files = await pushedFileParts(target, messages[asked]!.createdAt).catch(() => [])
-
-  if (text || files.length > 0)
-    await postAsAgent(first.slice(CHANNEL_SENDER_PREFIX.length), target, text, files)
-}
-
-onChannelTurnEnd(replyToChannel)
 
 const senderId = (channelId: string) => `${CHANNEL_SENDER_PREFIX}${channelId}`
 

@@ -210,11 +210,10 @@ export function channelToolModule(): PreviewToolModule {
         name: 'channel_post',
         description:
           'Post a message as yourself in a Nuphos channel this conversation is in, with files ' +
-          'you pushed attached as download cards. Use it to deliver a result or follow-up to ' +
-          'the channel a request came from when this turn was not started by that channel ' +
-          '(a sub-agent report, a trigger, your owner’s chat): people waiting there do not see ' +
-          'your own chat. In a turn the channel woke, just answer: your final words are posted ' +
-          'there already, so posting the same thing here would say it twice.',
+          'you pushed attached as download cards. This is the only way you speak in a channel, ' +
+          'including in a turn the channel woke: nothing you write in this conversation is ' +
+          'posted for you, and people there do not see your own chat. Post once per reply; if ' +
+          'you have nothing to say, do not post.',
         inputSchema: toolInputJsonSchema(post),
       },
       {
@@ -226,7 +225,7 @@ export function channelToolModule(): PreviewToolModule {
           'talk together; for a one-person question use request_user_decision instead. Only ' +
           'team members can be invited; agents you add must belong to this conversation’s ' +
           'owner. The channel is owned by this conversation’s owner. Pass `message` to post ' +
-          'your opening words; after that you reply when the channel wakes you.',
+          'your opening words; after that, reply with channel_post when the channel wakes you.',
         inputSchema: toolInputJsonSchema(create),
       },
     ],

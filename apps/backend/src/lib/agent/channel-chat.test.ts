@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
-import * as transfers from '@/lib/file-transfer/service'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
@@ -9,7 +8,7 @@ import { portabilityDb } from '@/lib/test/runtime-portability-db'
 import { agentConversations, agentMessages } from './db'
 import { withChannelPosts } from './channel-wake'
 import { listChannelMentions, readChannelMessages } from './db/channels'
-import { CHANNEL_AGENT_TURN_BUDGET, postChannelMessage, replyToChannel } from './channel-chat'
+import { CHANNEL_AGENT_TURN_BUDGET, postAsAgent, postChannelMessage } from './channel-chat'
 import { renderAttributedMessage } from './message-metadata'
 import { clearPendingUserMessages, enqueuePendingUserMessage } from './pending-messages'
 import { listPendingUserMessages } from './pending-queue'
@@ -159,7 +158,7 @@ describe('waking a channel’s agents', () => {
       },
     })
     expect(renderAttributedMessage('w', 'x', wakeA?.message.metadata)).toContain(
-      'what you say at the end of this turn is posted there as your message',
+      'you speak there only by calling channel_post',
     )
   })
 
@@ -447,118 +446,59 @@ describe('the loop guard and mentions', () => {
   })
 })
 
-describe('a turn a channel woke answers with what it ends on', () => {
-  const data = { userId: 'agent-a-owner', teamId: TEAM, targetSessionId: 'agent-a' }
-  const wake = (...senders: string[]) =>
-    senders.map((id, i) => ({
-      id: `n${String(i)}`,
-      metadata: { sender: { type: 'system', id } },
-    })) as never
-  const user = (id: string) => ({ messageId: id, role: 'user', parts: [] })
-  const said = (parts: unknown[]) => ({ messageId: 'a1', role: 'assistant', parts })
-  const history = (...messages: unknown[]) =>
-    installAgentDb({
-      getConversationWithMessages: async () => ({ conversation: {}, messages }) as never,
-    })
-  const closing = (text: string) => said([{ type: 'text', text }])
-  const agent = async () => (await agentConversations().findOne({ sessionId: 'agent-a' }))!
-  const posted = () =>
-    agentMessages().find({ sessionId: 'channel', userId: 'channel-owner' }).toArray()
-  const reply = async (fresh: never, completed = true) =>
-    replyToChannel(data, await agent(), fresh, completed)
-
-  test('its closing words become its message, not what it said before a tool call', async () => {
-    history(
-      user('n0'),
-      said([
-        { type: 'text', text: 'Let me look.' },
-        { type: 'tool', toolName: 'channel_read', toolCallId: 'c1', state: 'output-available' },
-        { type: 'text', text: ' Hi, I am here. ' },
-      ]),
+describe('an agent speaks in a channel only with channel_post', () => {
+  const agentPosts = async () =>
+    (
+      await agentMessages().find({ sessionId: 'channel', userId: 'channel-owner' }).toArray()
+    ).filter(
+      (message) => (message.metadata as MessageMetadata | undefined)?.sender.type === 'agent',
     )
-    await reply(wake('channel:channel'))
 
-    expect(await posted()).toMatchObject([
+  // Each woken agent runs its turn at once; `turn` is what the agent does in it.
+  function runTurns(turn: (sessionId: string) => Promise<void>) {
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        // What it says in its own chat, which stays there.
+        await agentMessages().insertOne({
+          sessionId,
+          userId: `${sessionId}-owner`,
+          messageId: `${sessionId}-reply`,
+          role: 'assistant',
+          parts: [{ type: 'text', text: 'Hi, I am here.' }],
+        } as never)
+        await turn(sessionId)
+
+        return { status: 'completed' }
+      },
+    })
+  }
+
+  test('a turn the channel woke posts nothing unless the agent calls channel_post', async () => {
+    runTurns(async () => {})
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(await agentPosts()).toHaveLength(0)
+  })
+
+  test('channel_post in that turn posts exactly one message', async () => {
+    let spoke = false
+
+    runTurns(async (sessionId) => {
+      if (sessionId !== 'agent-a' || spoke) return
+      spoke = true
+      // What the channel_post tool does.
+      await postAsAgent('channel', (await agentConversations().findOne({ sessionId }))!, 'Hi')
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(await agentPosts()).toMatchObject([
       {
-        parts: [{ type: 'text', text: 'Hi, I am here.' }],
+        parts: [{ type: 'text', text: 'Hi' }],
         metadata: { sender: { type: 'agent', id: 'agent-a' } },
       },
     ])
-    // Like any post by an agent, it wakes the channel's other agents.
-    expect(wokenSessions()).toEqual(['agent-b'])
-  })
-
-  test('files it pushed this turn go with its words; earlier pushes stay out', async () => {
-    const asked = new Date()
-    const list = spyOn(transfers, 'listTransferGroups').mockResolvedValue([
-      { groupId: 'later', createdAt: new Date(asked.getTime() + 1000).toISOString() },
-      { groupId: 'before', createdAt: new Date(asked.getTime() - 1000).toISOString() },
-    ] as never)
-
-    try {
-      history({ ...user('n0'), createdAt: asked }, closing('Here are the clips.'))
-      await replyToChannel(
-        data,
-        { ...(await agent()), teamId: '69e989027ab63e8d6a0ffcb6' },
-        wake('channel:channel'),
-        true,
-      )
-      expect(await posted()).toMatchObject([
-        {
-          parts: [
-            { type: 'text', text: 'Here are the clips.' },
-            { type: 'transfer-download', groupId: 'later' },
-          ],
-        },
-      ])
-      expect(list.mock.calls[0]![0]).toMatchObject({
-        userId: 'agent-a-owner',
-        sessionId: 'agent-a',
-      })
-    } finally {
-      list.mockRestore()
-    }
-  })
-
-  test('ending without words posts nothing', async () => {
-    history(
-      user('n0'),
-      said([
-        { type: 'text', text: '   ' },
-        { type: 'tool', toolName: 'channel_read', toolCallId: 'c1', state: 'output-available' },
-      ]),
-    )
-    await reply(wake('channel:channel'))
-
-    expect(await posted()).toHaveLength(0)
-    expect(wokenSessions()).toEqual([])
-  })
-
-  test('an earlier turn’s reply is not posted again by a turn that wrote none', async () => {
-    history(closing('Answered before.'), user('n0'))
-    await reply(wake('channel:channel'))
-
-    expect(await posted()).toHaveLength(0)
-  })
-
-  test('a turn that did not complete posts nothing', async () => {
-    history(user('n0'), closing('Half a thought'))
-    await reply(wake('channel:channel'), false)
-
-    expect(await posted()).toHaveLength(0)
-  })
-
-  test('a turn something else woke posts nothing to any channel', async () => {
-    history(user('n0'), closing('Done.'))
-    await reply(wake('trigger:t1'))
-
-    expect(await posted()).toHaveLength(0)
-  })
-
-  test('a turn that also answered someone else posts nothing to the channel', async () => {
-    history(user('n0'), user('n1'), closing('Private answer.'))
-    await reply(wake('channel:channel', 'trigger:t1'))
-
-    expect(await posted()).toHaveLength(0)
   })
 })
