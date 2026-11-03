@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import { loadSidebarChats } from './load-sidebar-chats.ts'
+import { nestItems } from './nest-items.ts'
 
 import type { AgentConversation } from '../../api/agent-types.ts'
 
@@ -11,7 +12,8 @@ test('sidebar loads all pages, preserves order and deduplicates overlapping page
   const cursors: (string | undefined)[] = []
   const rows = await loadSidebarChats(
     async (options) => {
-      if (options.kind === 'channel') return { conversations: [], nextCursor: null, hasMore: false }
+      if (options.kind === 'channel' || options.scope === 'shared')
+        return { conversations: [], nextCursor: null, hasMore: false }
       cursors.push(options.cursor)
 
       return options.cursor
@@ -58,7 +60,8 @@ test('refresh moves an older active conversation above a newer idle one', async 
   const newer = { ...chat(2), createdAt: '2026-10-02T00:00:00Z' }
   let active = false
   const readPage: Parameters<typeof loadSidebarChats>[0] = async (options) => {
-    if (options.kind === 'channel') return { conversations: [], nextCursor: null, hasMore: false }
+    if (options.kind === 'channel' || options.scope === 'shared')
+      return { conversations: [], nextCursor: null, hasMore: false }
     assert.equal(options.sort, 'activity')
     assert.equal(options.scope, 'mine')
     assert.equal(options.archived, 'exclude')
@@ -114,9 +117,66 @@ test('channels come from their own listing, every page of it, after the agents',
   )
   assert.deepEqual(asked, [
     'mine::',
+    'shared::',
     'mine:channel:',
     'mine:channel:more',
     'shared:channel:',
     'shared:channel:more',
   ])
+})
+
+const at = (id: string, lastActiveAt: string, extra: Partial<AgentConversation> = {}) =>
+  ({ sessionId: id, lastActiveAt, ...extra }) as AgentConversation
+const page = (conversations: AgentConversation[]) => ({
+  conversations,
+  nextCursor: null,
+  hasMore: false,
+})
+
+test('agents shared with the viewer sit among their own, by recent activity', async () => {
+  const rows = await loadSidebarChats(
+    async (options) => {
+      if (options.kind === 'channel')
+        return page(
+          options.scope === 'mine' ? [at('c1', '2026-11-03T12:00:00Z', { kind: 'channel' })] : [],
+        )
+      if (options.scope === 'shared') return page([at('shared', '2026-11-02T00:00:00Z')])
+
+      return page([at('newest', '2026-11-03T00:00:00Z'), at('oldest', '2026-11-01T00:00:00Z')])
+    },
+    () => true,
+  )
+
+  assert.deepEqual(
+    rows?.map((row) => row.sessionId),
+    ['newest', 'shared', 'oldest', 'c1'],
+  )
+})
+
+test('a sub-agent shared with the viewer nests under its shared parent', async () => {
+  const rows = await loadSidebarChats(
+    async (options) => {
+      if (options.kind === 'channel' || options.scope === 'mine') return page([])
+
+      return page([
+        at('child', '2026-11-03T00:00:00Z', { parentSessionId: 'parent' }),
+        at('parent', '2026-11-02T00:00:00Z'),
+      ])
+    },
+    () => true,
+  )
+  const nested = nestItems(
+    (rows ?? []).map((row) => ({
+      key: `agent-session:${row.sessionId}`,
+      ...(row.parentSessionId ? { parentKey: `agent-session:${row.parentSessionId}` } : {}),
+    })),
+  )
+
+  assert.deepEqual(
+    nested.map(({ item, depth }) => [item.key, depth]),
+    [
+      ['agent-session:parent', 0],
+      ['agent-session:child', 1],
+    ],
+  )
 })

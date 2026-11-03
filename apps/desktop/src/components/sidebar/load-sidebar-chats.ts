@@ -11,9 +11,10 @@ type ReadPage = (options: {
 
 /**
  * Page size is a transport bound, never a limit on the visible chat list.
- * The viewer's own agents, then the channels they own or joined: lists never
- * mix the two, so channels are their own listing. A channel shared with the
- * whole team but never joined stays out, as an agent shared that way does.
+ * The agents the viewer owns or was invited to, in one order of recent
+ * activity, then the channels they own or joined: lists never mix the two, so
+ * channels are their own listing. Anything shared with the whole team but
+ * never joined stays out.
  */
 export async function loadSidebarChats(
   readPage: ReadPage,
@@ -23,6 +24,7 @@ export async function loadSidebarChats(
 
   for (const listing of [
     { scope: 'mine' },
+    { scope: 'shared' },
     { scope: 'mine', kind: 'channel' },
     { scope: 'shared', kind: 'channel' },
   ] as const) {
@@ -49,5 +51,15 @@ export async function loadSidebarChats(
     } while (cursor)
   }
 
-  return [...conversations.values()]
+  const rows = [...conversations.values()]
+  // Each listing comes newest first; a stable sort keeps that within each.
+  const agents = rows
+    .filter((row) => row.kind !== 'channel')
+    .sort((a, b) => activityTime(b) - activityTime(a))
+
+  return [...agents, ...rows.filter((row) => row.kind === 'channel')]
+}
+
+function activityTime(conversation: AgentConversation): number {
+  return Date.parse(conversation.lastActiveAt) || 0
 }
