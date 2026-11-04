@@ -11,7 +11,8 @@ import { AgentEventMessage } from './AgentEventMessage'
 import { EditMessageForm } from './EditMessageForm'
 import { CopyMessageButton, EditMessageButton } from './messageActions'
 import { ImageAttachmentThumb, ImageLightbox, LocalFileChip } from './messageInline'
-import { renderAtlasMentionLink } from './messageInlineLinks'
+import { renderAtlasMentionLink, renderMemberMentionLink } from './messageInlineLinks'
+import { linkMentions } from './messageMentionText'
 import { senderLabel } from './messageMetadata'
 import { formatMessageTimestamp } from './streamText'
 import { UploadedFilesCard } from './transferCards'
@@ -76,8 +77,9 @@ export const UserMessage = memo(
     const [editing, setEditing] = useState(false)
     const renderLink = useCallback(
       (href: string, children: ReactNode) =>
+        renderMemberMentionLink(href, children, teamId) ??
         renderAtlasMentionLink(href, children, onOpenNuphosLink),
-      [onOpenNuphosLink],
+      [onOpenNuphosLink, teamId],
     )
     const textParts = message.parts.filter((p): p is TextPart => p.type === 'text')
     const files = message.parts.filter((p): p is LocalFilePart => p.type === 'local-file')
@@ -197,7 +199,7 @@ export const UserMessage = memo(
                     renderLink={renderLink}
                     onLinkClick={onOpenNuphosLink}
                   >
-                    {p.text}
+                    {linkMentions(p.text, message.metadata?.mentions)}
                   </MessageResponse>
                 ))}
               </div>

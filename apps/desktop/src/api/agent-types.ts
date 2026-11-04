@@ -1,6 +1,9 @@
 import type { AgentCredentialAccess } from './agent-credential-types.ts'
 import type { SessionResource } from './session-resource-types'
+import type { AgentMessageMention } from './mention-types.ts'
 import type { AgentProvider } from '../types/runtime.ts'
+
+export type { AgentMessageMention, ChannelMention } from './mention-types.ts'
 
 /** Someone on a conversation: its owner, or a teammate who joined it. */
 export type AgentConversationPerson = {
@@ -40,16 +43,6 @@ export type AgentConversationParticipant = AgentConversationPerson & {
 export type ConversationAccessState = {
   generalAccess: GeneralAccess
   participants: AgentConversationParticipant[]
-}
-
-/** A post that @mentions the viewer in a channel they have not posted in since. */
-export type ChannelMention = {
-  channelId: string
-  title: string
-  messageId: string
-  at: string
-  sender: { type: 'user' | 'agent' | 'system'; id: string; name: string } | null
-  text: string
 }
 
 /** An agent in a channel: its session, which is the agent. */
@@ -236,6 +229,8 @@ export type AgentMessageMetadata = {
   replyTo?: { authorName: string; text: string }
   /** A Discord author with no verified Nuphos identity; the name is theirs to choose. */
   unattested?: true
+  /** Teammates it @mentions, as the server resolved them. */
+  mentions?: AgentMessageMention[]
 }
 
 export type AgentPersistedMessage = {

@@ -19,6 +19,7 @@ import { useComposerSlashCommands } from './useComposerSlashCommands'
 import { useComposerState } from './useComposerState'
 import { useSessionConfig } from './useSessionConfig'
 
+import type { ComposerSend } from './composerMentionChips'
 import type { ComposerRecall } from './composerRecall'
 import type { CredentialSelectorControl } from './credentialSections'
 import type { AgentPromptSeed } from './model'
@@ -59,7 +60,7 @@ export function Composer({
 }: {
   variant?: 'compact' | 'hero'
   newChat?: boolean // a new chat fixes an unusable agent by picking another
-  onSend: (text: string, filePaths: string[]) => void
+  onSend: ComposerSend
   onStop: () => void
   runtimeState?: RuntimeExecution
   executing?: boolean

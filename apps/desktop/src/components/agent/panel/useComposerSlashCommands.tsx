@@ -20,6 +20,7 @@ import {
   slashCommandsIn,
 } from './slashUsage'
 
+import type { ComposerSend } from './composerMentionChips'
 import type { SlashCommand, SlashOption, SlashToken } from './composerSlashCommands'
 import type { AgentCommand } from '../../../lib/runtimeExecution'
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
@@ -192,12 +193,12 @@ export function useComposerSlashCommands(
   )
 
   /** Wraps a send so the agent commands in each sent message count as used. */
-  function wrapSend(send: (text: string, filePaths: string[]) => void) {
-    return (text: string, filePaths: string[]) => {
+  function wrapSend(send: ComposerSend): ComposerSend {
+    return (text, filePaths, mentions) => {
       const used = slashCommandsIn(text, new Set(agentCommands.map((command) => command.name)))
 
       if (used.length > 0) setUsage(recordSlashUse(used))
-      send(text, filePaths)
+      send(text, filePaths, mentions)
     }
   }
 

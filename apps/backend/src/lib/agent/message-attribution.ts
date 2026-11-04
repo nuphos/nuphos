@@ -1,8 +1,10 @@
 import { trustedAvatarURL } from '../identity/avatar-url'
 
+import { getConversationBySessionId } from './db'
 import { addConversationParticipants } from './db/participants'
 import { getAgentDevice } from './devices/store'
 import { agentMessages } from './db/shared'
+import { noteMentions, resolveMentions } from './mentions'
 import { assertSingleNewUserMessage } from './message-input'
 import { restoreAppMessageMetadata, parseMessageMetadata } from './message-metadata'
 
@@ -11,6 +13,7 @@ import type { CliTokenPrincipal } from '@/lib/identity/cli-tokens'
 import type { UIMessage } from 'ai'
 
 import { getNuphosUserById } from '@/lib/identity/auth'
+import { logError } from '@/lib/observability'
 
 /**
  * `deviceId` is client-claimed, so it only counts when registered to this user.
@@ -75,6 +78,7 @@ export async function attributeAppMessages(
   continuation: boolean,
   deviceId?: string,
   cliToken?: CliTokenPrincipal,
+  teamId?: string,
 ): Promise<void> {
   const stored = await agentMessages()
     .find(
@@ -95,6 +99,33 @@ export async function attributeAppMessages(
   // attributes the message records its sender as a participant. `$addToSet`
   // makes the repeat on every later turn a no-op.
   if (fresh && actorId !== ownerId) await addConversationParticipants(sessionId, [actorId])
+  if (fresh && last && teamId) await attachMentions(fresh, last, sessionId, teamId, actorId)
 
   restoreAppMessageMetadata(messages, stored, fresh)
+}
+
+/** The composer's mention chips, as ids on the client's metadata, become trusted mentions. */
+async function attachMentions(
+  fresh: MessageMetadata,
+  message: UIMessage,
+  sessionId: string,
+  teamId: string,
+  actorId: string,
+) {
+  const claimed = (message.metadata as { mentions?: unknown } | undefined)?.mentions
+  const [mentions, conversation] = await Promise.all([
+    resolveMentions(teamId, claimed, actorId),
+    getConversationBySessionId(sessionId),
+  ])
+
+  if (mentions.length > 0) fresh.mentions = mentions
+  // A brand-new conversation has no one else in it to tell yet.
+  if (conversation?.teamId !== teamId) return
+  const text = message.parts.flatMap((part) => (part.type === 'text' ? [part.text] : [])).join('\n')
+
+  void noteMentions({ ...conversation, teamId }, { id: message.id, text, metadata: fresh }).catch(
+    (error: unknown) => {
+      logError('agent.mentions.note_failed', error, { session_id: sessionId })
+    },
+  )
 }

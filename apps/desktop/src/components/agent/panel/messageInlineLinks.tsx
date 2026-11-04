@@ -1,4 +1,6 @@
 import { AtlasMentionInline } from './messageInline'
+import { MemberMention } from './messageMentions'
+import { MENTION_HREF } from './messageMentionText'
 
 import type { ReactNode } from 'react'
 import { isAppWebUrl } from '../../../lib/webBaseUrl'
@@ -29,4 +31,20 @@ export function renderAtlasMentionLink(
   if (flattenLinkText(children).trim() !== href) return null
 
   return <AtlasMentionInline url={href} onOpen={onOpen} />
+}
+
+/** The `renderLink` half: a mention link becomes the person it names. */
+export function renderMemberMentionLink(
+  href: string,
+  children: ReactNode,
+  teamId?: string,
+): ReactNode | null {
+  if (!href.startsWith(MENTION_HREF)) return null
+  const userId = decodeURIComponent(href.slice(MENTION_HREF.length))
+
+  return userId ? (
+    <MemberMention teamId={teamId} userId={userId}>
+      {children}
+    </MemberMention>
+  ) : null
 }

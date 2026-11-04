@@ -3,10 +3,32 @@ import { renderMentionChip } from '../../../lib/atlasLinkMention'
 import { sessionMentionUrl } from './composerMention'
 
 import type { AgentCredentialOptions } from '../../../api/agent-credential-types'
-import type { AgentConversation } from '../../../api/agent-types'
+import type { AgentConversation, AgentMessageMention } from '../../../api/agent-types'
 import type { TeamMember } from '../../../types'
 
 export const MENTION_ATTR = 'data-mention-user-id'
+
+/** What a send carries besides its text: the teammates its chips mention. */
+export type ComposerSend = (
+  text: string,
+  filePaths: string[],
+  mentions?: AgentMessageMention[],
+) => void
+
+/** The teammates the editor's chips mention, once each, named as the chip shows them. */
+export function mentionedMembers(el: HTMLElement | null): AgentMessageMention[] {
+  const chips = el?.querySelectorAll<HTMLElement>(`[${MENTION_ATTR}]`) ?? []
+  const byId = new Map<string, string>()
+
+  for (const chip of chips) {
+    const id = chip.getAttribute(MENTION_ATTR)
+    const name = chip.textContent?.replace(/^@/, '') ?? ''
+
+    if (id && name && !byId.has(id)) byId.set(id, name)
+  }
+
+  return [...byId].map(([id, displayName]) => ({ id, displayName }))
+}
 
 export type MentionOption =
   | { kind: 'member'; member: TeamMember }
