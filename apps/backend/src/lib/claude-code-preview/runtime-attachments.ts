@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { ObjectId } from 'mongodb'
 
+import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { resolveDownloads } from '@/lib/file-transfer/service'
 
 import { controlRegistry } from './agent-chat-registry'
@@ -98,7 +99,7 @@ export async function materializeRuntimeAttachments(
     purpose: 'control',
   })
 
-  if (endpoint.url !== runtime.url)
+  if (!sameRuntimeUrl(endpoint.url, runtime.url))
     throw new Error('Conversation runtime changed. Retry this message.')
   let stdout = await localAttachments(teamId, ownerUserId, runtime.runtimeId, files)
 

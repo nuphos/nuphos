@@ -1,3 +1,4 @@
+import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { OpenAbAcpClient } from './openab-acp-client'
@@ -63,7 +64,8 @@ async function connectControl(target: CredentialPushTarget) {
     { purpose: 'control' },
   )
 
-  if (endpoint.url !== target.runtimeUrl) throw new Error('Conversation runtime changed')
+  if (!sameRuntimeUrl(endpoint.url, target.runtimeUrl))
+    throw new Error('Conversation runtime changed')
 
   return OpenAbAcpClient.connect({
     ...(await reachableRuntimeEndpoint(endpoint)),

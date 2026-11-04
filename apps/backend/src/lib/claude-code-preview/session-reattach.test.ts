@@ -123,6 +123,24 @@ test('resumes an observed session on a fresh transport when its transport closes
   expect(await session.reattached).toBe(true)
 })
 
+test('a teammate’s session on the owner’s computer is still theirs to resume after a blip', async () => {
+  const mac = { userId: 'owner', deviceId: 'mac', provider: 'claude-code' } as const
+  const replacement = fakeClient('replacement')
+
+  // The owner's turns attached the session; the teammate's turn opened this one.
+  attachment = { openabSessionId: 'sess-1', runtimeUrl: localRuntimeUrl(mac, 'team') }
+  session.endpoint = { ...endpoint, url: localRuntimeUrl(mac, 'team', 'teammate') }
+  acquire = spyOn(registry, 'acquire').mockResolvedValue(replacement)
+  const lost = session.client as ReturnType<typeof fakeClient>
+
+  observeSession(session)
+  lost.close()
+  await Bun.sleep(5)
+
+  expect(session.client).toBe(replacement)
+  expect(await session.reattached).toBe(true)
+})
+
 test('keeps retrying while the runtime is unreachable', async () => {
   const replacement = fakeClient('replacement')
 

@@ -76,6 +76,24 @@ export function isLocalRuntimeUrl(url: string): boolean {
   return url.startsWith(`${URL_SCHEME}//`)
 }
 
+/** A computer's address without who is acting on it: the same agent whoever sends. */
+export function runtimeAddress(url: string): string {
+  if (!isLocalRuntimeUrl(url)) return url
+  const parsed = new URL(url)
+
+  parsed.searchParams.delete('actor')
+
+  return parsed.toString()
+}
+
+/**
+ * Whether two addresses reach the same runtime. A teammate's turn on someone's
+ * computer carries `actor`, but runs on the same agent as the owner's (#1488).
+ */
+export function sameRuntimeUrl(a: string | undefined, b: string | undefined): boolean {
+  return a !== undefined && b !== undefined && runtimeAddress(a) === runtimeAddress(b)
+}
+
 export function parseLocalRuntimeUrl(
   url: string,
 ): (LocalAgentRef & { teamId: string; actorId: string }) | undefined {

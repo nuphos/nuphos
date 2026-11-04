@@ -2,6 +2,7 @@ import { controlRegistry } from './agent-chat-registry'
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 
 import { agentConversations } from '@/lib/agent/db/shared'
+import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 
 /** The runtime owns pending requests and decisions; this module only routes RPC. */
 export async function runtimeRequestStore(
@@ -20,7 +21,7 @@ export async function runtimeRequestStore(
     purpose: 'control',
   })
 
-  if (!endpoint || endpoint.url !== conversation.claudeCodePreview.runtimeUrl)
+  if (!endpoint || !sameRuntimeUrl(endpoint.url, conversation.claudeCodePreview.runtimeUrl))
     throw new Error('Runtime placement changed')
   const client = await controlRegistry.acquire(conversation.teamId, endpoint)
 

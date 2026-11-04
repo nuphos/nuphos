@@ -1,4 +1,5 @@
 import { getConversationPreviewAttachment, setConversationPromptSuggestion } from '@/lib/agent/db'
+import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { logError, logEvent } from '@/lib/observability'
 
 import {
@@ -81,7 +82,7 @@ async function attachmentIsCurrent(session: TeamSession): Promise<boolean> {
 
   return Boolean(
     attachment &&
-    attachment.runtimeUrl === session.endpoint.url &&
+    sameRuntimeUrl(attachment.runtimeUrl, session.endpoint.url) &&
     attachment.openabSessionId === session.openabSessionId,
   )
 }
