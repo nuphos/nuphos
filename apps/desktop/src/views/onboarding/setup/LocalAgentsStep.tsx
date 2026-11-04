@@ -9,12 +9,7 @@ import { isMac } from '../../../lib/platform'
 import { ClaudeSignInCode } from '../../settings/ClaudeSignInCode'
 import { useLocalAgentLogin } from '../../settings/useLocalAgentLogin'
 
-import {
-  LOCAL_AGENT_INFO,
-  LOCAL_SETUP_PROVIDERS,
-  setupAgentStatus,
-  readyLocalAgents,
-} from './agentSetup'
+import { LOCAL_AGENT_INFO, LOCAL_SETUP_PROVIDERS, localAgentStatus } from './agentSetup'
 import { SetupScreen, StatusPill } from './SetupChrome'
 
 import type { CliLoginProvider } from '../../../api'
@@ -87,8 +82,8 @@ function MissingCli({ command }: { command: string }) {
 
 function LocalAgentSetupCard({ provider }: { provider: CliLoginProvider }) {
   const state = useLocalRuntimeState()
-  const status = setupAgentStatus(state, provider)
-  const { name, installUrl, command } = LOCAL_AGENT_INFO[provider]
+  const status = localAgentStatus(state?.agents[provider].cli)
+  const { name, maker, installUrl, command } = LOCAL_AGENT_INFO[provider]
   const Icon = ICON[provider]
 
   return (
@@ -104,13 +99,7 @@ function LocalAgentSetupCard({ provider }: { provider: CliLoginProvider }) {
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[13.5px] font-medium text-main">{name}</p>
-          <p className="text-[12px] text-tertiary">
-            {status === 'ready' && t('Signed in and ready to use')}
-            {status === 'checking' && t('Checking installation and sign-in…')}
-            {status === 'signed-out' && t('Sign in to use your subscription')}
-            {status === 'missing' && t('Install this runtime to get started')}
-            {status === 'unavailable' && t('Local runtime detection is unavailable')}
-          </p>
+          <p className="text-[12px] text-tertiary">{maker}</p>
         </div>
         <StatusPill status={status} />
       </div>
@@ -131,54 +120,22 @@ function LocalAgentSetupCard({ provider }: { provider: CliLoginProvider }) {
 }
 
 export function LocalAgentsStep({ onContinue }: { onContinue: () => void }) {
-  const state = useLocalRuntimeState()
-  const ready = readyLocalAgents(state).length > 0
-  const checking = LOCAL_SETUP_PROVIDERS.some(
-    (provider) => setupAgentStatus(state, provider) === 'checking',
-  )
-  let continueLabel = t('Set up later')
-
-  if (ready) continueLabel = t('Continue')
-  else if (checking) continueLabel = t('Checking runtimes…')
-
   return (
     <SetupScreen
-      step={2}
       title={isMac ? t('Connect runtimes on this Mac') : t('Connect runtimes on this computer')}
       subtitle={
         isMac
           ? t(
-              'Use Claude Code or Codex with the subscriptions you already have. Here’s what we found on this Mac.',
+              'Nuphos runs these runtimes with the subscriptions you already have. Here’s what we found on this Mac.',
             )
           : t(
-              'Use Claude Code or Codex with the subscriptions you already have. Here’s what we found on this computer.',
+              'Nuphos runs these runtimes with the subscriptions you already have. Here’s what we found on this computer.',
             )
       }
-      hint={t('You can connect more runtimes later in Settings › Runtimes.')}
-      actions={
-        <>
-          {checking && !ready && (
-            <Button variant="ghost" onClick={onContinue}>
-              {t('Set up later')}
-            </Button>
-          )}
-          <Button onClick={onContinue} disabled={checking && !ready}>
-            {continueLabel}
-          </Button>
-        </>
-      }
+      hint={t('You can change this later in Settings › Runtimes.')}
+      actions={<Button onClick={onContinue}>{t('Continue')}</Button>}
     >
       <div className="space-y-3">
-        {state?.detectionDisabled && (
-          <p
-            role="status"
-            className="rounded-lg bg-zGray-800/40 px-4 py-3 text-[12.5px] leading-5 text-secondary"
-          >
-            {t(
-              'Local runtimes are disabled in development builds connected to Nuphos Cloud. This keeps the installed app’s connection active. You can continue to preview onboarding.',
-            )}
-          </p>
-        )}
         {LOCAL_SETUP_PROVIDERS.map((provider) => (
           <LocalAgentSetupCard key={provider} provider={provider} />
         ))}
