@@ -1,6 +1,9 @@
 import type { AgentCredentialAccess } from './agent-credential-types.ts'
 import type { SessionResource } from './session-resource-types'
+import type { AgentMessageMention } from './mention-types.ts'
 import type { AgentProvider } from '../types/runtime.ts'
+
+export type { AgentMessageMention, ChannelMention } from './mention-types.ts'
 
 /** Someone on a conversation: its owner, or a teammate who joined it. */
 export type AgentConversationPerson = {
@@ -40,18 +43,6 @@ export type AgentConversationParticipant = AgentConversationPerson & {
 export type ConversationAccessState = {
   generalAccess: GeneralAccess
   participants: AgentConversationParticipant[]
-}
-
-/** A message that @mentions the viewer in a channel or shared agent they have not posted in since. */
-export type ChannelMention = {
-  /** The conversation: a channel, or an agent shared with the viewer. */
-  channelId: string
-  kind?: 'channel' | 'agent'
-  title: string
-  messageId: string
-  at: string
-  sender: { type: 'user' | 'agent' | 'system'; id: string; name: string } | null
-  text: string
 }
 
 /** An agent in a channel: its session, which is the agent. */
@@ -241,8 +232,6 @@ export type AgentMessageMetadata = {
   /** Teammates it @mentions, as the server resolved them. */
   mentions?: AgentMessageMention[]
 }
-
-export type AgentMessageMention = { id: string; displayName: string }
 
 export type AgentPersistedMessage = {
   metadata?: AgentMessageMetadata
