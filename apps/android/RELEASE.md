@@ -1,9 +1,10 @@
 # Android release artifacts
 
-The manual **Android release artifacts** workflow builds a signed Android App
-Bundle (AAB) for a maintainer to download. It does not upload to Play, publish a
-GitHub Release, or change another platform's version. An AAB cannot be installed
-directly like a debug APK.
+The manual **Android release artifacts** workflow builds and signs an Android
+App Bundle (AAB), then uploads it with its R8 mapping file to the Play
+**internal testing** track. It never touches production, closed or open testing,
+publishes no GitHub Release, and changes no other platform's version. The signed
+AAB also stays downloadable as an artifact.
 
 ## Administrator setup
 
@@ -27,8 +28,18 @@ in the official `nuphos/nuphos` repository:
 - Keep an encrypted recovery copy of the upload key in the team's credential
   store, with two authorized custodians. GitHub Secrets are not the backup.
 
-This workflow uses GitHub-hosted runners. It needs no Play service account,
-Firebase project, GCP key or automatic store-upload permission.
+### Play upload (keyless)
+
+The signing job authenticates to Google Play with Workload Identity Federation;
+no JSON key exists. GCP project `nuphos` holds service account
+`play-publisher@nuphos.iam.gserviceaccount.com` (no GCP roles) and provider
+`github/nuphos-android-release`, which only accepts tokens whose repository ID,
+owner ID, ref and environment are `nuphos/nuphos`, `nuphos`, `refs/heads/main`
+and `android-release`. The Google Play Android Developer API is enabled there.
+
+In Play Console the service account is invited under **Users and permissions**
+with access to `ai.nuphos.android` limited to releasing to testing tracks. To
+rotate, remove that user and the provider; there is no secret to revoke.
 
 ## Firebase and optimization
 
@@ -76,8 +87,9 @@ and background notification delivery/navigation.
    every payload entry using JDK verification and rejects unsigned entries,
    duplicate entries, altered payloads and unexpected signers. A generic
    `jar verified` message alone does not prove all entries were signed.
-7. Submit manually to the approved Play test track after release acceptance.
-   This change does not approve a public rollout.
+7. After signing, the same job uploads the AAB and `mapping.txt` to the Play
+   internal testing track as release `<version_name> (<version_code>)` and
+   commits the edit. Promotion to other tracks stays manual in Play Console.
 
 ## Failure and retry
 
@@ -90,7 +102,7 @@ Environment; never paste key contents or passwords into a workflow log or issue.
 
 Retry the **entire workflow** for a fresh build/sign pair. A signing-only rerun
 fails the run-attempt provenance check. If Play has already received the version
-code, use a new higher code on the next submission. After an upload-key reset,
+code, the upload step fails; use a new higher code on the next run. After an upload-key reset,
 update CI only when the replacement certificate is approved and registered.
 
 ## Local verification
