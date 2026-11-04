@@ -10,8 +10,10 @@ import type { SlackAgentThreadSummary } from '@/lib/slack/agent-bot'
 
 import { channelFacesField } from '@/lib/agent/channel-faces'
 import { liveAttachment } from '@/lib/agent/db/shared'
+import { runChannels } from '@/lib/agent/run-admission'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
 import { sessionThreadResources } from '@/lib/agent/session-thread-resources'
+import { withRunChannels } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 import { readRuntimeStates } from '@/lib/claude-code-preview/runtime-state-store'
 import { sessionDesktops, withDesktops } from '@/lib/claude-code-preview/session-desktops'
 import { READY_FOR_NEXT_MESSAGE } from '@/lib/claude-code-preview/session-execution-state'
@@ -49,13 +51,19 @@ export function restingRuntimeState(
  */
 async function activeRunFor(
   conversation: ListedConversation,
-): Promise<ConversationActiveRun | null> {
+): Promise<(ConversationActiveRun & { channelIds: string[] }) | null> {
   try {
     const run =
       getLocalActiveAgentRun(conversation.userId, conversation.sessionId) ??
       (await getActiveAgentRunForSession(conversation.userId, conversation.sessionId))
 
-    return run ? { streamId: run.streamId, startedAt: run.startedAt ?? null } : null
+    if (!run) return null
+
+    return {
+      streamId: run.streamId,
+      startedAt: run.startedAt ?? null,
+      channelIds: await runChannels({ ...conversation, streamId: run.streamId }),
+    }
   } catch {
     return null
   }
@@ -133,9 +141,13 @@ export async function serializeConversationList<T extends ListedConversation>(
   ])
 
   return conversations.map((conversation, index) => {
-    const runtimeState = withDesktops(
-      restingRuntimeState(runtimeStates[index], Boolean(activeRuns[index])),
-      desktops[index] ?? { tools: [], canOpen: false },
+    const run = activeRuns[index]
+    const runtimeState = withRunChannels(
+      withDesktops(
+        restingRuntimeState(runtimeStates[index], Boolean(run)),
+        desktops[index] ?? { tools: [], canOpen: false },
+      ),
+      run,
     )
 
     return {
@@ -152,7 +164,10 @@ export async function serializeConversationList<T extends ListedConversation>(
         ...(threadResources.get(conversation.sessionId) ?? []),
         ...((conversation.linkedResources as unknown[] | undefined) ?? []),
       ],
-      activeRun: runtimeState.state === 'active' ? (activeRuns[index] ?? null) : null,
+      activeRun:
+        runtimeState.state === 'active' && run
+          ? { streamId: run.streamId, startedAt: run.startedAt }
+          : null,
       runtimeState,
       ...faces[index],
     }

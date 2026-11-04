@@ -43,6 +43,12 @@ export type SessionExecutionState = {
   canOpenDesktop?: boolean
   /** The agent's own slash commands (ACP `available_commands_update`), as the runtime last saw them. */
   commands?: AgentCommand[]
+  /**
+   * The channels whose posts started or were steered into the running turn;
+   * added by the backend, only while one runs. A channel shows the agent typing
+   * only when it is listed, so a turn about anything else shows nothing there.
+   */
+  channelIds?: string[]
   epoch?: string
   revision?: number
 }
@@ -131,4 +137,14 @@ export function parseSessionExecutionState(value: Record<string, unknown>): Sess
 
   // Validate the wire contract, but never reconstruct or own its session state here.
   return value as SessionExecutionState
+}
+
+/** The running turn's channels on its snapshot; any other snapshot names none. */
+export function withRunChannels<T extends SessionExecutionState>(
+  snapshot: T,
+  run: { channelIds?: string[] } | null | undefined,
+): T {
+  const { channelIds: _ignored, ...rest } = snapshot
+
+  return (snapshot.state === 'active' ? { ...rest, channelIds: run?.channelIds ?? [] } : rest) as T
 }

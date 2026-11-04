@@ -1,23 +1,23 @@
 import { t } from '../../i18n'
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
-import { runtimeTurnActive } from '../../lib/runtimeExecution'
+import { runtimeTypingIn } from '../../lib/runtimeExecution'
 import { AgentAvatar } from '../agent/AgentAvatar'
 
 import type { ChannelAgent } from '../../api'
 
 /**
- * iMessage-style dots for an agent in a turn. Each agent's bubble opens and
- * closes in place, after a beat, so an agent that reads the post and has
- * nothing to say never flashes them.
+ * iMessage-style dots for an agent in a turn this channel started or steered.
+ * Each agent's bubble opens and closes in place, after a beat, so an agent
+ * that reads the post and has nothing to say never flashes them.
  */
-export function Typing({ agents }: { agents: ChannelAgent[] }) {
+export function Typing({ agents, channelId }: { agents: ChannelAgent[]; channelId: string }) {
   const states = useAgentRuntimeStates()
 
   // Closed rows take no room: each open one brings its own gap.
   return (
     <div className="-mt-3">
       {agents.map((agent) => {
-        const open = String(runtimeTurnActive(states.get(agent.sessionId)))
+        const open = String(runtimeTypingIn(states.get(agent.sessionId), channelId))
         const transitionDelay = open === 'true' ? '800ms' : '0ms'
 
         return (

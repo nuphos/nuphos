@@ -7,6 +7,7 @@ import {
   runtimeAllows,
   runtimeBackgroundRunning,
   runtimeTurnActive,
+  runtimeTypingIn,
   runtimeStateLabel,
   chatRowIndicator,
 } from './runtimeExecution.ts'
@@ -140,4 +141,19 @@ test('a paused automatic continuation is neither a running turn nor background w
   assert.equal(runtimeTurnActive(paused), false)
   assert.equal(runtimeBackgroundRunning(paused), false)
   assert.equal(chatRowIndicator(paused, false), 'error')
+})
+
+test('a channel shows an agent typing only for a turn that answers that channel', () => {
+  const active = { state: 'active', schemaVersion: 2, phase: 'working' } as const
+  const answering: RuntimeExecution = { ...active, channelIds: ['channel-a'] }
+
+  assert.equal(runtimeTypingIn(answering, 'channel-a'), true)
+  // A turn about its own chat, or another channel, is not a reply coming here.
+  assert.equal(runtimeTypingIn({ ...active, channelIds: [] }, 'channel-a'), false)
+  assert.equal(runtimeTypingIn(answering, 'channel-b'), false)
+  // A backend that does not name channels: no bubble rather than a false one.
+  assert.equal(runtimeTypingIn(active, 'channel-a'), false)
+  // The turn ended.
+  assert.equal(runtimeTypingIn({ ...answering, state: 'idle', phase: 'idle' }, 'channel-a'), false)
+  assert.equal(runtimeTypingIn(undefined, 'channel-a'), false)
 })

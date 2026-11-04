@@ -48,10 +48,11 @@ export async function steerRunningTurn(
   metadata: MessageMetadata,
 ) {
   // Lazy so importing this does not pull in the runtime graph.
-  const [{ getActiveAgentRunForSession }, { steerConversationRuntime }] = await Promise.all([
-    import('@/lib/agent/run-store'),
-    import('@/lib/claude-code-preview/session-execution-state'),
-  ])
+  const [{ addRunChannels, getActiveAgentRunForSession }, { steerConversationRuntime }] =
+    await Promise.all([
+      import('@/lib/agent/run-store'),
+      import('@/lib/claude-code-preview/session-execution-state'),
+    ])
   const active = await getActiveAgentRunForSession(agent.userId, agent.sessionId)
 
   if (!active || (active.actorUserId && active.actorUserId !== agent.userId)) return false
@@ -69,9 +70,20 @@ export async function steerRunningTurn(
   } catch {
     return false
   }
+  // The turn now answers this channel too, so the channel shows it typing.
+  await addRunChannels(agent.userId, active.streamId, [channelId])
   await markRead()
 
   return true
+}
+
+/** The channel a message is the wake notice of, if it is one. */
+export function channelIdOf(message: { source?: string; metadata?: MessageMetadata }) {
+  const id = message.metadata?.sender?.id
+
+  return message.source === 'agent.resource' && id?.startsWith(CHANNEL_SENDER_PREFIX)
+    ? id.slice(CHANNEL_SENDER_PREFIX.length)
+    : undefined
 }
 
 /**
@@ -88,13 +100,12 @@ export async function withChannelPosts<
   const read: [string, number][] = []
 
   for (const message of messages) {
-    const id = message.metadata?.sender?.id
+    const channelId = channelIdOf(message)
 
-    if (message.source !== 'agent.resource' || !id?.startsWith(CHANNEL_SENDER_PREFIX)) {
+    if (!channelId) {
       kept.push(message)
       continue
     }
-    const channelId = id.slice(CHANNEL_SENDER_PREFIX.length)
     const channel = await agentConversations().findOne({ sessionId: channelId })
 
     if (!channel) {

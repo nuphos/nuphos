@@ -12,5 +12,6 @@ export {
   startAgentRunOwnership,
 } from './run-store/ownership'
 export { reserveActiveAgentRunForSession } from './run-store/reservation'
+export { addRunChannels, readRunChannels } from './run-store/run-channels'
 export { streamAgentRunFromRedis } from './run-store/stream'
 export { getRedis } from '@/lib/redis'

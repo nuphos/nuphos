@@ -78,8 +78,13 @@ useIdentity({
 let running = new Map<string, string>()
 let steerable = true
 const steers: { sessionId: string; text: string; userId: string; metadata?: MessageMetadata }[] = []
+// The channels recorded on a running turn, as `${ownerId} ${streamId} ${channelIds}`.
+const runChannels: string[] = []
 
 useAgentRunStore({
+  addRunChannels: async (userId, streamId, channelIds) => {
+    runChannels.push(`${userId} ${streamId} ${channelIds.join(',')}`)
+  },
   getActiveAgentRunForSession: async (_userId, sessionId) =>
     running.has(sessionId)
       ? {
@@ -166,6 +171,7 @@ beforeEach(async () => {
   running = new Map()
   steerable = true
   steers.length = 0
+  runChannels.length = 0
   departed = new Set()
   // Every agent is busy, so its notice waits in its queue, as the real claim does.
   installTurnRunner({
@@ -228,6 +234,8 @@ describe('waking a channel’s agents', () => {
       'agent-b',
     ])
     expect(runs[0]).toMatchObject({ source: 'agent.resource', origin: 'trigger' })
+    // The turn answers this channel, so the channel shows it typing.
+    expect(runs.map((run) => run.channelIds)).toEqual([['channel'], ['channel']])
   })
 
   test('posts at the same moment leave one notice per agent', async () => {
@@ -436,6 +444,23 @@ describe('a person posting while an agent’s turn runs', () => {
     expect(steers[1]!.text).not.toContain('go ahead')
     expect(steers[1]!.text).toContain('and this')
     expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toEqual([])
+  })
+
+  test('a turn about something else answers this channel only once steered with its posts', async () => {
+    // agent-a is busy with its own chat: nothing records it as answering the channel.
+    running.set('agent-a', 'agent-a-owner')
+    expect(runChannels).toEqual([])
+    await say('go ahead', { ...person, sender: { ...person.sender, id: 'agent-a-owner' } })
+    // Steered mid-turn, the same turn now answers the channel too.
+    expect(runChannels).toEqual(['agent-a-owner s channel'])
+  })
+
+  test('a steer the runtime refuses records nothing; the notice queues', async () => {
+    running.set('agent-a', 'agent-a-owner')
+    steerable = false
+    await say('go ahead', { ...person, sender: { ...person.sender, id: 'agent-a-owner' } })
+    expect(runChannels).toEqual([])
+    expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toHaveLength(1)
   })
 
   test('the steer’s receipt is the channel’s, not the turn actor’s', async () => {

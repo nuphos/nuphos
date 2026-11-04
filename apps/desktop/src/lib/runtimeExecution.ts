@@ -42,6 +42,8 @@ export type RuntimeExecution = {
   canOpenDesktop?: boolean
   /** The agent's own slash commands, as the runtime last saw them. */
   commands?: AgentCommand[]
+  /** The channels the running turn answers; only those show it typing. */
+  channelIds?: string[]
   epoch?: string
   revision?: number
 }
@@ -57,6 +59,18 @@ export function runtimeIsExecuting(snapshot: RuntimeExecution | undefined): bool
  */
 export function runtimeTurnActive(snapshot: RuntimeExecution | undefined): boolean {
   return snapshot?.state === 'active' && snapshot.phase !== 'resume_disconnected'
+}
+
+/**
+ * The agent is answering this channel: its turn was started or steered by the
+ * channel's posts. A turn about anything else, or a snapshot from a backend
+ * that does not name channels, shows nothing rather than a reply that never comes.
+ */
+export function runtimeTypingIn(
+  snapshot: RuntimeExecution | undefined,
+  channelId: string,
+): boolean {
+  return runtimeTurnActive(snapshot) && snapshot?.channelIds?.includes(channelId) === true
 }
 
 /** The turn ended while runtime-owned background tools or tasks keep running. */

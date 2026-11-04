@@ -7,7 +7,7 @@ import { logError } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
 import { agentMessages, getConversationBySessionId, getConversationWithMessages } from './db'
-import { withChannelPosts } from './channel-wake'
+import { channelIdOf, withChannelPosts } from './channel-wake'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
 import { requeueTurnQueue } from './session-released'
 import { turnRunner } from './turn-runner'
@@ -153,6 +153,8 @@ export async function runTurn(
         ...(data.locale ? { locale: data.locale } : {}),
         // 'user' adds no Full Access default: a thread took its parent's mode at creation.
         origin: source === 'agent.resource' ? 'trigger' : 'user',
+        // The channels this turn answers: they show it typing until it ends.
+        channelIds: fresh.flatMap((message) => channelIdOf(message) ?? []),
         // Not recorded as interrupted: the messages go back on the queue below.
         clientResendsRefusal: true,
       })

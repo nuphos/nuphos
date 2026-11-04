@@ -4,7 +4,7 @@ import {
   removePendingUserMessage,
 } from '@/lib/agent/pending-messages'
 import { agentRuns, claimAgentRunForSession } from '@/lib/agent/run-admission'
-import { startAgentRunOwnership } from '@/lib/agent/run-store'
+import { addRunChannels, startAgentRunOwnership } from '@/lib/agent/run-store'
 import { AppError } from '@/lib/errors'
 import { isShuttingDown } from '@/lib/lifecycle'
 import { logError, logEvent } from '@/lib/observability'
@@ -51,10 +51,16 @@ export function createAgentRun(
   sessionId: string,
   streamId: string,
   trace?: AgentRunTrace,
-  options: { runtimeOwned?: boolean } = {},
+  options: { runtimeOwned?: boolean; channelIds?: string[] } = {},
 ): AgentRun {
   const now = Date.now()
   const abortController = new AbortController()
+  const channelIds = [...(options.channelIds ?? [])]
+
+  // Every replica's readers see the channels it answers, so they show it typing.
+  void addRunChannels(userId, streamId, channelIds).catch((err: unknown) => {
+    logError('agent.run.channels_write_failed', err, { session_id: sessionId, stream_id: streamId })
+  })
 
   return {
     key: agentRunKey(userId, streamId),
@@ -63,6 +69,7 @@ export function createAgentRun(
     userId,
     trace,
     ...(options.runtimeOwned ? { runtimeOwned: true } : {}),
+    channelIds,
     frames: [],
     done: false,
     abortController,

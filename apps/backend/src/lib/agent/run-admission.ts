@@ -5,7 +5,11 @@ import { assertConversationRuntimeAvailable } from '@/lib/claude-code-preview/ru
 import { AppError } from '@/lib/errors'
 import { redisEnabled } from '@/lib/redis'
 
-import { getActiveAgentRunForSession, reserveActiveAgentRunForSession } from './run-store'
+import {
+  getActiveAgentRunForSession,
+  readRunChannels,
+  reserveActiveAgentRunForSession,
+} from './run-store'
 import { sessionReleased } from './session-released'
 
 import type { AgentRun } from '@/routes/agent/types'
@@ -21,7 +25,7 @@ export function getLocalActiveAgentRun(
   userId: string,
   sessionId: string,
   { claimsOnly = false } = {},
-): { streamId: string; startedAt: string; actorUserId: string } | null {
+): { streamId: string; startedAt: string; actorUserId: string; channelIds: string[] } | null {
   let latest: AgentRun | null = null
 
   // eslint-disable-next-line sonarjs/no-empty-collection -- shared map is populated by registerAgentRun in run-registry
@@ -37,8 +41,23 @@ export function getLocalActiveAgentRun(
         streamId: latest.streamId,
         startedAt: new Date(latest.createdAt).toISOString(),
         actorUserId: latest.trace?.userId ?? latest.userId,
+        channelIds: latest.channelIds ?? [],
       }
     : null
+}
+
+/**
+ * The channels the session's running turn answers. A post steered in on another
+ * replica is only in the shared store, so that is read whenever there is one.
+ */
+export async function runChannels(run: {
+  userId: string
+  sessionId: string
+  streamId: string
+}): Promise<string[]> {
+  if (!redisEnabled()) return getLocalActiveAgentRun(run.userId, run.sessionId)?.channelIds ?? []
+
+  return readRunChannels(run.userId, run.streamId)
 }
 
 /**
