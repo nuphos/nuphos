@@ -61,12 +61,7 @@ export async function inviteConversationParticipants(
     )
   }
 
-  // Inviting someone again lifts an older view-only invite.
-  return await agentConversations().findOneAndUpdate(
-    { sessionId },
-    { $pull: { viewOnlyIds: { $in: [...new Set(userIds)] } } },
-    { returnDocument: 'after' },
-  )
+  return await agentConversations().findOne({ sessionId })
 }
 
 export async function setGeneralAccess(
@@ -89,7 +84,7 @@ export async function removeConversationParticipant(
   await agentConversations().updateOne(
     { sessionId, participantIds: userId },
     {
-      $pull: { participantIds: userId, viewOnlyIds: userId },
+      $pull: { participantIds: userId },
       $push: pushTimelineEvent({
         kind: 'participant_removed',
         at: new Date(),

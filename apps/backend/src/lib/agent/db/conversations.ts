@@ -3,6 +3,7 @@
 // this file (import cycle).
 import { resolveForNewSession } from '@/lib/agent/memory-slots/session-stamp'
 
+import { canReplyIn } from '../devices/conversation-computer'
 import { fallbackTitle } from '../title-fallback'
 
 import { initialReadGrants, readableConversationScope } from './access'
@@ -252,15 +253,22 @@ export async function setMessageFeedback(args: {
   return result.matchedCount > 0
 }
 
-/** Conversation readable by the viewer (own, or any conversation of a verified team). */
+/**
+ * Conversation readable by the viewer in a verified team: shared with them, or
+ * opened by link on a computer they may use. Only their own without a team.
+ */
 export async function getReadableConversation(
   sessionId: string,
   viewerUserId: string,
   teamId?: string,
 ): Promise<AgentConversation | null> {
-  return await agentConversations().findOne(
-    readableConversationScope({ sessionId }, viewerUserId, teamId),
-  )
+  const scope = readableConversationScope({ sessionId }, viewerUserId, teamId)
+  const shared = await agentConversations().findOne(scope)
+
+  if (shared || !scope.teamId) return shared
+  const other = await agentConversations().findOne({ sessionId, teamId: scope.teamId })
+
+  return other && (await canReplyIn(other, viewerUserId)) ? other : null
 }
 
 export async function getConversationWithMessages(
@@ -269,9 +277,7 @@ export async function getConversationWithMessages(
   teamId?: string,
   options?: { tail?: number },
 ): Promise<{ conversation: AgentConversation; messages: AgentMessage[] } | null> {
-  const conversation = await agentConversations().findOne(
-    readableConversationScope({ sessionId }, viewerUserId, teamId),
-  )
+  const conversation = await getReadableConversation(sessionId, viewerUserId, teamId)
 
   if (!conversation) return null
   // `tail: 0` asks for none; Mongo would read `limit(0)` as no limit.

@@ -18,22 +18,42 @@ describe('conversationAccess', () => {
   })
 
   test('older sessions without general access stay open to the team to read', () => {
-    expect(conversationAccess(base, 'teammate', true)).toBe('view')
-    expect(conversationAccess({ ...base, generalAccess: 'reply' }, 'teammate', true)).toBe('view')
+    expect(conversationAccess(base, 'teammate', false)).toBe('view')
+    expect(conversationAccess({ ...base, generalAccess: 'reply' }, 'teammate', false)).toBe('view')
   })
 
-  test('a private session is closed to everyone not invited', () => {
-    expect(conversationAccess({ ...base, generalAccess: 'none' }, 'teammate', true)).toBeNull()
+  test('a private session is closed to everyone not invited who may not use its computer', () => {
+    expect(conversationAccess({ ...base, generalAccess: 'none' }, 'teammate', false)).toBeNull()
   })
 
-  test('a participant replies only while they may use the computer', () => {
+  test('whoever may use the computer replies, invited or not', () => {
+    for (const generalAccess of ['none', 'view'] as const) {
+      expect(conversationAccess({ ...base, generalAccess }, 'teammate', true)).toBe('reply')
+      expect(
+        conversationAccess(
+          { ...base, generalAccess, participantIds: ['teammate'] },
+          'teammate',
+          true,
+        ),
+      ).toBe('reply')
+    }
+  })
+
+  test('an invitee without the computer reads only', () => {
     const invited = { ...base, generalAccess: 'none' as const, participantIds: ['teammate'] }
 
-    expect(conversationAccess(invited, 'teammate', true)).toBe('reply')
     expect(conversationAccess(invited, 'teammate', false)).toBe('view')
   })
 
-  test('an older view-only invite stays read-only; an older manager mark changes nothing', () => {
+  test('on no one’s computer, being invited is what lets someone reply', () => {
+    const invited = { ...base, generalAccess: 'view' as const, participantIds: ['teammate'] }
+
+    expect(conversationAccess(invited, 'teammate')).toBe('reply')
+    expect(conversationAccess(invited, 'other')).toBe('view')
+    expect(conversationAccess({ ...base, generalAccess: 'none' }, 'other')).toBeNull()
+  })
+
+  test('an older view-only list or manager mark changes nothing', () => {
     const legacy = {
       ...base,
       generalAccess: 'none' as const,
@@ -42,8 +62,7 @@ describe('conversationAccess', () => {
       managerIds: ['manager'],
     }
 
-    expect(conversationAccess(legacy, 'viewer', true)).toBe('view')
-    expect(conversationAccess(legacy, 'manager', true)).toBe('reply')
+    expect(conversationAccess(legacy, 'viewer', true)).toBe('reply')
     expect(conversationAccess(legacy, 'manager', false)).toBe('view')
   })
 

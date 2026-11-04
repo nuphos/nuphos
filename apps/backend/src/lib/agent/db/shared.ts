@@ -88,12 +88,10 @@ export type AgentConversation = ConversationInputRequests & {
   // Teammates who joined this conversation beside its owner. Speaking in a
   // session and being invited from Share are the same fact — "this person is
   // part of this conversation" — so both append here instead of splitting into
-  // an invited/active pair of lists. Being here is also the person's own
-  // access grant: read, and reply while they may use the conversation's computer.
+  // an invited/active pair of lists. Being here puts the conversation in the
+  // person's list and lets them read it; reply follows its computer (access.ts).
   // Older rows also carry managerIds, which nothing reads now.
   participantIds?: string[]
-  /** Invited to view only before #1486; they read only until invited again. See access.ts. */
-  viewOnlyIds?: string[]
   /** Whether the rest of the team may read; see access.ts. Absent, or an old 'reply', = 'view'. */
   generalAccess?: GeneralAccess | 'reply'
   /** Who joined, left or moved this session, shown between its messages. */

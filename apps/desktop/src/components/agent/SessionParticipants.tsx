@@ -33,9 +33,9 @@ import type {
 import type { TeamMember } from '../../types'
 
 /**
- * The session's people, and the Share card that decides who else may open it.
- * Invited people reply while they may use the session's computer, so inviting
- * someone who may not asks to give them use of it. Only the owner changes this.
+ * The session's people, and the Share card that decides who else sees it.
+ * Whoever may use the session's computer replies, so inviting someone who may
+ * not asks to give them use of it. Only the owner changes this.
  */
 export function SessionParticipants({
   sessionId,

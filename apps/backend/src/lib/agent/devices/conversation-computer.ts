@@ -1,4 +1,4 @@
-import { canReply, conversationAccess, isParticipant } from '@/lib/agent/db/access'
+import { canReply, conversationAccess } from '@/lib/agent/db/access'
 import { AppError } from '@/lib/errors'
 
 import { allows, deviceAccess, deviceAccessDeps, requireDeviceAccess } from './box-access'
@@ -63,22 +63,24 @@ export async function computerUseGap(
   return { computer, needing, canGrant }
 }
 
-/** Whether the viewer is a participant who may use the conversation's computer. */
-async function participantUsesComputer(
+/**
+ * Whether the viewer may use the computer the conversation runs on; undefined
+ * when it runs on no one's computer or is their own conversation.
+ */
+async function usesComputer(
   conversation: ConversationAccessFields,
   viewerId: string,
   deps: DeviceAccessDeps,
-): Promise<boolean> {
-  return (
-    conversation.userId !== viewerId &&
-    isParticipant(conversation, viewerId) &&
-    (await usableConversationComputer(conversation, viewerId, deps)) !== null
-  )
+): Promise<boolean | undefined> {
+  if (conversation.userId === viewerId) return undefined
+  const computer = await usableConversationComputer(conversation, viewerId, deps)
+
+  return computer === undefined ? undefined : computer !== null
 }
 
 /**
- * What the viewer may do in the conversation. A participant replies while they
- * may use its computer, so losing the computer loses reply but keeps read.
+ * What the viewer may do in the conversation. Whoever may use its computer
+ * replies, invited or not; losing the computer leaves an invitee reading only.
  */
 export async function resolveConversationAccess(
   conversation: ConversationAccessFields,
@@ -88,7 +90,7 @@ export async function resolveConversationAccess(
   return conversationAccess(
     conversation,
     viewerId,
-    await participantUsesComputer(conversation, viewerId, deps),
+    await usesComputer(conversation, viewerId, deps),
   )
 }
 
@@ -106,17 +108,16 @@ export async function resolveConversationAccessList(
   viewerId: string,
   deps: DeviceAccessDeps = deviceAccessDeps,
 ): Promise<(ConversationAccess | null)[]> {
-  const asked = new Map<string, Promise<boolean>>()
+  const asked = new Map<string, Promise<boolean | undefined>>()
 
   return Promise.all(
     conversations.map(async (conversation) => {
-      if (conversation.userId === viewerId || !isParticipant(conversation, viewerId))
-        return conversationAccess(conversation, viewerId, false)
+      if (conversation.userId === viewerId) return 'owner'
       const key = `${conversation.teamId ?? ''} ${conversation.runtimeId ?? ''}`
       let uses = asked.get(key)
 
       if (!uses) {
-        uses = participantUsesComputer(conversation, viewerId, deps)
+        uses = usesComputer(conversation, viewerId, deps)
         asked.set(key, uses)
       }
 
