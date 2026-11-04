@@ -250,3 +250,17 @@ test('a switch overtaken by another is routed again from the account now in use'
   assert.equal(switched, true)
   assert.deepEqual(switchedTo, [b.key, b.key])
 })
+
+test('an overtaken switch still counts as a reload when no further switch is needed', async () => {
+  // The sidebar moved to an account already in the team: no second switch,
+  // but the windows did reload, so the link must wait to be delivered.
+  const routes = [b.key, null]
+  const switched = await routeAndSwitch({
+    epoch: () => 0,
+    route: async () => routes.shift() ?? null,
+    switchTo: async () => 'moved' as const,
+    attempts: 3,
+  })
+
+  assert.equal(switched, true)
+})

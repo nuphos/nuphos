@@ -94,19 +94,24 @@ export type RouteDeps = {
  * Routes a link and switches for it. An answer that arrived after the account
  * in use changed (a switch from the sidebar, say), or a switch that another
  * one overtook, is stale: routing starts over from the account now in use, a
- * few times at most. Whether this switched accounts.
+ * few times at most. Whether the windows reloaded for it: a switch that was
+ * overtaken still reloaded them, so its link must still wait to be delivered
+ * even when the account now in use needs no further switch.
  */
 export async function routeAndSwitch(deps: RouteDeps): Promise<boolean> {
+  let moved = false
+
   for (let attempt = 0; attempt < deps.attempts; attempt += 1) {
     const epoch = deps.epoch()
     const key = await deps.route().catch(() => null)
 
     if (deps.epoch() !== epoch) continue
-    if (!key) return false
+    if (!key) return moved
     const outcome = await deps.switchTo(key)
 
-    if (outcome !== 'moved') return outcome === 'switched'
+    if (outcome !== 'moved') return outcome === 'switched' || moved
+    moved = true
   }
 
-  return false
+  return moved
 }
