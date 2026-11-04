@@ -90,7 +90,12 @@ export const browserExtensionChannels = {
 
     return tab ? list(tab.id) : null
   },
-  'browser-extensions:add': (_event: IpcMainInvokeEvent, id: unknown) => install(extensionId(id)),
+  // Without a running host the package's APIs are ungated, so nothing new may load.
+  'browser-extensions:add': (_event: IpcMainInvokeEvent, id: unknown) => {
+    if (!extensionHost()) throw new Error('Browser extensions are unavailable')
+
+    return install(extensionId(id))
+  },
   'browser-extensions:remove': (_event: IpcMainInvokeEvent, id: unknown) => remove(extensionId(id)),
   'browser-extensions:pin': (_event: IpcMainInvokeEvent, id: unknown, pin: unknown) =>
     setPinned(extensionId(id), pin === true),

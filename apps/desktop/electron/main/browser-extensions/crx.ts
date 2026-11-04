@@ -5,6 +5,9 @@ import { createHash } from 'node:crypto'
 
 import { unzipSync } from 'fflate'
 
+/** The most an extension may unpack to; a bigger archive loses files and fails its check. */
+export const MAX_UNPACKED_BYTES = 512 * 1024 * 1024
+
 /** The extension ID Chrome derives from a public key: SHA-256, first 16 bytes, hex mapped to a-p. */
 export function extensionIdOf(publicKey: Uint8Array): string {
   const hex = createHash('sha256').update(publicKey).digest('hex').slice(0, 32)
@@ -72,9 +75,16 @@ export function readCrx(
     .find((key) => extensionIdOf(key) === extensionId)
 
   if (!publicKey) throw new Error(`The CRX is not signed by ${extensionId}`)
+  let unpacked = 0
 
   return {
     key: Buffer.from(publicKey).toString('base64'),
-    files: unzipSync(view.subarray(headerEnd)),
+    files: unzipSync(view.subarray(headerEnd), {
+      filter: (file) => {
+        unpacked += file.originalSize
+
+        return unpacked <= MAX_UNPACKED_BYTES
+      },
+    }),
   }
 }

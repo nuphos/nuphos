@@ -19,6 +19,8 @@ import type { ExtensionManifest } from './warnings.ts'
 
 const EXTENSION_ID = /^[a-p]{32}$/
 const VERSION = /^\d+(\.\d+){0,3}$/
+/** Far above any real password manager's CRX (Bitwarden's is about 26 MB); bounds memory. */
+const MAX_DOWNLOAD_BYTES = 256 * 1024 * 1024
 
 type InstallRecord = { verifiedContents: string; manifest: string; key: string }
 
@@ -81,7 +83,12 @@ export async function downloadExtension(id: string): Promise<Download> {
   const response = await net.fetch(url.href)
 
   if (!response.ok) throw new Error(`The Chrome Web Store answered ${String(response.status)}`)
-  const { key, files } = readCrx(new Uint8Array(await response.arrayBuffer()), id)
+  if (Number(response.headers.get('content-length')) > MAX_DOWNLOAD_BYTES)
+    throw new Error('The extension is too large')
+  const bytes = new Uint8Array(await response.arrayBuffer())
+
+  if (bytes.length > MAX_DOWNLOAD_BYTES) throw new Error('The extension is too large')
+  const { key, files } = readCrx(bytes, id)
   const verifiedContents = files[VERIFIED_CONTENTS_PATH]
 
   if (!verifiedContents) throw new Error('The extension has no Web Store hashes')
