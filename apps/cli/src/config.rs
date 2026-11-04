@@ -117,11 +117,13 @@ fn sibling(path: &std::path::Path, name: &str) -> PathBuf {
     path.with_file_name(file)
 }
 
-/// The desktop app's sign-in, to start the CLI's from. Reading its token from
-/// the keychain is what makes macOS ask once.
-pub fn read_desktop_session() -> Option<Session> {
+/// The desktop app's sign-in, to start the CLI's from, if `backend` issued it.
+/// The caller passes the backend its sign-in runs on: resolving it again here
+/// could pick another once the CLI's own sign-in, and its pin, is gone. Reading
+/// its token from the keychain is what makes macOS ask once.
+pub fn read_desktop_session(backend: &str) -> Option<Session> {
     let text = fs::read_to_string(desktop_session_path()).ok()?;
-    let mut session = desktop_session_for(&text, &api_url())?;
+    let mut session = desktop_session_for(&text, backend)?;
     if session.token.is_none() {
         session.token = secret::desktop_token(session.keychain_account.as_deref()?).ok().flatten();
     }
@@ -129,10 +131,10 @@ pub fn read_desktop_session() -> Option<Session> {
     session.token.is_some().then_some(session)
 }
 
-/// Whether the desktop app is signed in, without reading its token.
-pub fn desktop_signed_in() -> Option<String> {
+/// Whether the desktop app is signed in on `backend`, without reading its token.
+pub fn desktop_signed_in(backend: &str) -> Option<String> {
     let text = fs::read_to_string(desktop_session_path()).ok()?;
-    let session = desktop_session_for(&text, &api_url())?;
+    let session = desktop_session_for(&text, backend)?;
     if session.token.is_none() && session.keychain_account.is_none() {
         return None;
     }

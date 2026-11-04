@@ -178,7 +178,12 @@ async fn run(args: Args) -> Result<i32> {
         bail!("the TUI needs a terminal; use `nuphos exec` to send a message from a script");
     }
     if let Some(selector) = &args.account {
-        if matches!(args.command, Some(Command::Login { .. } | Command::Logout | Command::Auth { .. })) {
+        // Not for the sign-in itself, nor for `agent`, which hosts this computer
+        // with the CLI's saved sign-in rather than running one command.
+        if matches!(
+            args.command,
+            Some(Command::Login { .. } | Command::Logout | Command::Auth { .. } | Command::Agent { .. })
+        ) {
             bail!(
                 "--account runs one command as a desktop account; for the CLI's own sign-in use `nuphos auth switch`"
             );

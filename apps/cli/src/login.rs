@@ -178,9 +178,9 @@ pub async fn with_token(api_url: &str, token: &str) -> Result<Session> {
 /// after, since each then reads only its own. Checked with `/auth/me`, so a
 /// stale desktop session falls back to the browser.
 async fn from_desktop(api_url: &str) -> Option<Session> {
-    let who = config::desktop_signed_in()?;
+    let who = config::desktop_signed_in(api_url)?;
     eprintln!("Signing in as {} from Nuphos Desktop; macOS may ask once to allow it.", clean(&who));
-    let Some(token) = config::read_desktop_session().and_then(|s| s.token) else {
+    let Some(token) = config::read_desktop_session(api_url).and_then(|s| s.token) else {
         eprintln!("Could not read the desktop sign-in; continuing in the browser.");
         return None;
     };
