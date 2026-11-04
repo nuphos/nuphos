@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { addedAccess, installWarnings } from './warnings.ts'
+import { addedAccess, extensionName, installWarnings } from './warnings.ts'
 
 test('install lines use Chrome wording, and always say browsing history', () => {
   assert.deepEqual(
@@ -40,4 +40,22 @@ test('an update adds access for new hosts and any new API permission', () => {
     ),
     [],
   )
+})
+
+test("a localized name comes from the extension's default locale", () => {
+  const files = {
+    '_locales/en/messages.json': new TextEncoder().encode(
+      '﻿{"extName":{"message":"Bitwarden Password Manager"}}',
+    ),
+  }
+
+  assert.equal(
+    extensionName({ name: '__MSG_extName__', default_locale: 'en' }, files),
+    'Bitwarden Password Manager',
+  )
+  assert.equal(
+    extensionName({ name: '__MSG_missing__', default_locale: 'en' }, files),
+    '__MSG_missing__',
+  )
+  assert.equal(extensionName({ name: 'Plain' }, files), 'Plain')
 })

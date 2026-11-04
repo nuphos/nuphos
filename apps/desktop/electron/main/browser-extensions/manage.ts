@@ -18,7 +18,7 @@ import {
   pruneVersions,
   writeExtension,
 } from './store.ts'
-import { addedAccess, installWarnings } from './warnings.ts'
+import { addedAccess, extensionName, installWarnings } from './warnings.ts'
 
 import type { ExtensionManifest } from './warnings.ts'
 
@@ -33,9 +33,11 @@ const declinedUpdates = new Set<string>()
 
 const pinsFile = () => path.join(extensionsRoot(), 'pinned.json')
 
+/** Tells the app's windows (not extension windows) to reload the toolbar. */
 export function notifyChanged() {
-  for (const window of BrowserWindow.getAllWindows())
-    if (!window.isDestroyed()) window.webContents.send('browser-extensions:changed')
+  for (const { webContents } of BrowserWindow.getAllWindows())
+    if (!webContents.isDestroyed() && webContents.session !== browserSession())
+      webContents.send('browser-extensions:changed')
 }
 
 /** A question from the main process, so no page or renderer can answer it. */
@@ -103,26 +105,34 @@ export async function loadInstalled() {
   notifyChanged()
 }
 
+/** Extensions with an install under way; a second request for one waits for nothing and says no. */
+const installing = new Set<string>()
+
 /** Asks with Chrome's warnings, then installs and loads the Web Store's latest version of `id`. */
 export async function install(id: string): Promise<boolean> {
   if (browserSession().extensions.getExtension(id)) return true
-  const download = await downloadExtension(id)
-  const name = download.manifest.name ?? id
-  const allowed = await confirm(
-    'Add extension',
-    `Add "${name}"?`,
-    ['It can:', ...installWarnings(download.manifest)],
-    'Add extension',
-  )
+  if (installing.has(id)) return false
+  installing.add(id)
+  try {
+    const download = await downloadExtension(id)
+    const allowed = await confirm(
+      'Add extension',
+      `Add "${extensionName(download.manifest, download.files)}"?`,
+      ['It can:', ...installWarnings(download.manifest)],
+      'Add extension',
+    )
 
-  if (!allowed) return false
-  await pruneVersions(id)
-  failed.delete(id)
-  await writeExtension(download)
-  await browserSession().extensions.loadExtension(await checkInstalled(id, download.version))
-  notifyChanged()
+    if (!allowed) return false
+    await pruneVersions(id)
+    failed.delete(id)
+    await writeExtension(download)
+    await browserSession().extensions.loadExtension(await checkInstalled(id, download.version))
+    notifyChanged()
 
-  return true
+    return true
+  } finally {
+    installing.delete(id)
+  }
 }
 
 export async function remove(id: string): Promise<boolean> {

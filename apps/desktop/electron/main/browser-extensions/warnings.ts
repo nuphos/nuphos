@@ -2,6 +2,7 @@
 
 export type ExtensionManifest = {
   name?: string
+  default_locale?: string
   version?: string
   permissions?: unknown[]
   host_permissions?: unknown[]
@@ -106,4 +107,30 @@ export function addedAccess(current: ExtensionManifest, next: ExtensionManifest)
   )
 
   return [...described, ...silent.map((permission) => `Use the "${permission}" permission`)]
+}
+
+/**
+ * The name a person sees: `__MSG_extName__` resolved from the extension's
+ * default locale, as Chrome shows it. Falls back to the raw name.
+ */
+export function extensionName(
+  manifest: ExtensionManifest,
+  files: Record<string, Uint8Array | undefined>,
+): string {
+  const name = manifest.name ?? ''
+  const key = /^__MSG_(\w+)__$/.exec(name)?.[1]?.toLowerCase()
+  const messages = files[`_locales/${manifest.default_locale ?? ''}/messages.json`]
+
+  if (!key || !messages) return name
+  try {
+    const parsed = JSON.parse(new TextDecoder().decode(messages).replace(/^\uFEFF/, '')) as Record<
+      string,
+      { message?: unknown } | undefined
+    >
+    const entry = Object.entries(parsed).find(([candidate]) => candidate.toLowerCase() === key)?.[1]
+
+    return typeof entry?.message === 'string' && entry.message ? entry.message : name
+  } catch {
+    return name
+  }
 }
