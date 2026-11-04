@@ -162,6 +162,7 @@ RESOURCES = {
     "annotations": "annotation",
     "notebooks": "notebook",
     "error_tracking": "error_tracking",
+    "hog_functions": "hog_function",
     "query": "query",
 }
 
