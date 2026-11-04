@@ -5,7 +5,7 @@ import { config } from '@/config'
 import { withRedis } from '@/lib/redis'
 
 import { TRANSCRIPT_SOURCES } from './pending-message-types'
-import { localQueues, PENDING_TTL_SEC, pendingKey } from './pending-messages'
+import { localQueues, pendingKey } from './pending-messages'
 
 import type { PendingUserMessage } from './pending-message-types'
 import type { Redis } from 'ioredis'
@@ -150,11 +150,7 @@ export async function requeuePendingAtHead(
   }
   const raws = [...messages].reverse().map((message) => JSON.stringify(message))
 
-  // The list keeps its expiry; it is set only if the list had emptied.
-  await tryRedis(async (c) => {
-    await c.lpush(key, ...raws)
-    if ((await c.ttl(key)) < 0) await c.expire(key, PENDING_TTL_SEC)
-  })
+  await tryRedis((c) => c.lpush(key, ...raws))
 }
 
 /**

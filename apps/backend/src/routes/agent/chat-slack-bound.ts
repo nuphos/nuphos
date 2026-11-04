@@ -4,20 +4,15 @@ import { parseMessageMetadata, senderLabel } from '@/lib/agent/message-metadata'
 // A Slack-bound conversation continued from the Nuphos app: the owner's turn
 // runs through the normal /agent/chat pipeline (native SSE streaming,
 // attachments, local tools), while a Slack mirror posts the question and the
-// reply into the bound thread. This module keeps the chat route's branch thin:
-// binding lookup, the per-session claim shared with the Slack bridges, the
-// transcript merge, and the lazy handoff to the Slack delivery module.
+// reply into the bound thread. A send takes the session queue like any other,
+// so it waits behind a Slack-side reply. This module keeps the branch thin:
+// binding lookup, the transcript merge, and the lazy handoff to the Slack
+// delivery module.
 //
 // The thread lookup lives against lib/slack directly; the delivery setup is a
 // dynamic import because `@/routes/slack` transitively imports routes/agent —
 // same constraint as lib/agent/plan-slack-resume.ts.
 import { parseAgentMessageOrigin } from '@/lib/agent/message-origin'
-// The claim goes through the turn-runner seam like the Slack bridges' claims
-// do — a static ./run-registry import would make this module a second entry
-// point into the routes/agent cycle (run-registry → constants → tool barrels
-// → back into @/routes/agent), which explodes when a test loads this file
-// first.
-import { turnRunner } from '@/lib/agent/turn-runner'
 import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
 import { getSlackAgentThreadBySessionId } from '@/lib/slack/agent-bot'
@@ -94,29 +89,6 @@ export async function isTranscriptSyncBlockedBySlackBinding(sessionId: string): 
   return await getSlackAgentThreadBySessionId(sessionId)
     .then((thread) => thread !== null)
     .catch(() => true)
-}
-
-/**
- * Take the same per-session claim the Slack bridges take, so a thread reply
- * arriving mid-turn queues behind this run (and vice versa: this send is
- * refused while a Slack-side reply is running). Throws 409 conversation_busy
- * when the session is taken — the client renders it as a friendly notice.
- */
-export async function claimSlackBoundTurn(
-  runOwnerUserId: string,
-  sessionId: string,
-): Promise<() => void> {
-  const claim = await turnRunner.claimAgentRunForSession(runOwnerUserId, sessionId)
-
-  if (!claim) {
-    throw new AppError(
-      409,
-      'conversation_busy',
-      'The agent is currently replying in the linked Slack thread. Send your message again once that reply finishes.',
-    )
-  }
-
-  return claim
 }
 
 /**
