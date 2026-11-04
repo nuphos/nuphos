@@ -11,14 +11,21 @@ export const LOCAL_SETUP_PROVIDERS = [
 
 export const LOCAL_AGENT_INFO: Record<
   CliLoginProvider,
-  { name: string; maker: string; installUrl: string }
+  /** `command` is what Nuphos looks for on the login shell's PATH. */
+  { name: string; maker: string; installUrl: string; command: string }
 > = {
   'claude-code': {
     name: 'Claude Code',
     maker: 'Anthropic',
     installUrl: 'https://code.claude.com/docs/en/setup',
+    command: 'claude',
   },
-  codex: { name: 'Codex', maker: 'OpenAI', installUrl: 'https://developers.openai.com/codex/cli' },
+  codex: {
+    name: 'Codex',
+    maker: 'OpenAI',
+    installUrl: 'https://developers.openai.com/codex/cli',
+    command: 'codex',
+  },
 }
 
 export type LocalAgentStatus = 'checking' | 'ready' | 'signed-out' | 'missing'
