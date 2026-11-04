@@ -86,3 +86,53 @@ test('Box IPC channels reject arguments that are not strings', () => {
   )
   assert.throws(() => boxChannels['box:create'](null, 'team-1', {}), TypeError)
 })
+
+test('Saving Manage access keeps the managers the owner chose', async () => {
+  calls.length = 0
+  await boxChannels['localShare:set'](null, 'dev/1', 'team-1', {
+    level: 'full',
+    everyone: false,
+    userIds: ['avery', 'blake'],
+    managerIds: ['blake'],
+  })
+
+  assert.deepEqual(
+    calls.map(([method, route, body]) => [method, route, body]),
+    [
+      [
+        'PUT',
+        '/agent/devices/dev%2F1/share?teamId=team-1',
+        { level: 'full', everyone: false, userIds: ['avery', 'blake'], managerIds: ['blake'] },
+      ],
+    ],
+  )
+})
+
+test("A manager's save sends no managers, so the server keeps its own", async () => {
+  calls.length = 0
+  await boxChannels['localShare:set'](null, 'dev/1', 'team-1', {
+    level: 'approve',
+    everyone: true,
+    userIds: [],
+  })
+
+  assert.deepEqual(
+    calls.map(([, , body]) => body),
+    [{ level: 'approve', everyone: true, userIds: [] }],
+  )
+  assert.equal(Object.hasOwn(calls[0]?.[2] as object, 'managerIds'), false)
+})
+
+test('Saving Manage access rejects managers that are not a list of ids', () => {
+  for (const managerIds of ['blake', [42], null, { 0: 'blake' }])
+    assert.throws(
+      () =>
+        boxChannels['localShare:set'](null, 'dev/1', 'team-1', {
+          level: 'full',
+          everyone: false,
+          userIds: [],
+          managerIds,
+        }),
+      TypeError,
+    )
+})

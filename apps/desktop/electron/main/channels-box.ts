@@ -78,8 +78,15 @@ function localShare(value: unknown): LocalShareInput {
   const level = (['off', 'approve', 'full'] as const).find((known) => known === input?.level)
 
   if (!level || !input) throw new TypeError('Expected a sharing level')
+  const { managerIds } = input
 
-  return { level, ...boxAccess(input) }
+  // Only the owner sends managers; a manager's save leaves them out, and the
+  // server keeps the ones it has.
+  if (managerIds === undefined) return { level, ...boxAccess(input) }
+  if (!Array.isArray(managerIds) || !managerIds.every((id) => typeof id === 'string'))
+    throw new TypeError('Expected a list of managers')
+
+  return { level, ...boxAccess(input), managerIds }
 }
 
 export const boxChannels = {
