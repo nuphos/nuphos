@@ -17,10 +17,8 @@ export { TRANSCRIPT_SOURCES } from './pending-message-types'
 export type { PendingUserMessage } from './pending-message-types'
 import type { PendingUserMessage } from './pending-message-types'
 
-// Outlive the 45-minute headless ceiling, including human approval waits.
-export const PENDING_TTL_SEC = 60 * 60
-// Refuse newest when full; never evict an already acknowledged message.
-export const PENDING_MAX = 10
+// A queue has no size cap and no expiry: an accepted message waits until it runs,
+// or until its sender is told why it will not.
 const PENDING_TEXT_CHARS = 4_000
 
 export function pendingKey(userId: string, sessionId: string): string {
@@ -83,7 +81,6 @@ export async function enqueuePendingUserMessage(
     const queue = localQueues.get(key) ?? []
 
     if (wakeUp && queue.some((parked) => wakeUpKey(parked) === wakeUp)) return true
-    if (queue.length >= PENDING_MAX) return false
     queue.push(message)
     localQueues.set(key, queue)
 
@@ -92,26 +89,20 @@ export async function enqueuePendingUserMessage(
   const stored = await tryRedis((c) =>
     c.eval(
       `
-        for _, raw in ipairs(ARGV[4] ~= '' and redis.call('LRANGE', KEYS[1], 0, -1) or {}) do
+        for _, raw in ipairs(ARGV[2] ~= '' and redis.call('LRANGE', KEYS[1], 0, -1) or {}) do
           local ok, item = pcall(cjson.decode, raw)
           if ok and type(item) == 'table' and (item.source == 'app' and 'app ' .. tostring(item.id)
             or item.source == 'agent.resource' and type(item.metadata) == 'table'
-            and tostring(item.metadata.resourceUrl) .. ' ' .. tostring(item.renderedText)) == ARGV[4] then
-            return redis.call('EXPIRE', KEYS[1], ARGV[3])
+            and tostring(item.metadata.resourceUrl) .. ' ' .. tostring(item.renderedText)) == ARGV[2] then
+            return 1
           end
         end
-        if redis.call('LLEN', KEYS[1]) >= tonumber(ARGV[2]) then
-          return 0
-        end
         redis.call('RPUSH', KEYS[1], ARGV[1])
-        redis.call('EXPIRE', KEYS[1], ARGV[3])
         return 1
       `,
       1,
       key,
       JSON.stringify(message),
-      PENDING_MAX,
-      PENDING_TTL_SEC,
       wakeUp,
     ),
   )
@@ -121,7 +112,6 @@ export async function enqueuePendingUserMessage(
     user_id: userId,
     session_id: sessionId,
     source: message.source,
-    reason: stored === 0 ? 'queue_full' : 'redis_error',
   })
 
   return false
@@ -156,13 +146,11 @@ export async function removePendingUserMessage(
             redis.call('RPUSH', KEYS[1], raw)
           end
         end
-        if redis.call('LLEN', KEYS[1]) > 0 then redis.call('EXPIRE', KEYS[1], ARGV[2]) end
         return removed
       `,
       1,
       key,
       messageId,
-      PENDING_TTL_SEC,
     ),
   )
 
@@ -187,7 +175,7 @@ export async function drainPendingUserMessages(
             local items = redis.call('LRANGE', KEYS[1], 0, -1)
             redis.call('DEL', KEYS[1])
             local selected = {}
-            local sources = ARGV[4] ~= '' and cjson.decode(ARGV[4]) or nil
+            local sources = ARGV[3] ~= '' and cjson.decode(ARGV[3]) or nil
             for _, raw in ipairs(items) do
               local ok, item = pcall(cjson.decode, raw)
               local matches = ok and (
@@ -207,14 +195,12 @@ export async function drainPendingUserMessages(
                 redis.call('RPUSH', KEYS[1], raw)
               end
             end
-            if redis.call('LLEN', KEYS[1]) > 0 then redis.call('EXPIRE', KEYS[1], ARGV[3]) end
             return selected
           `,
           1,
           key,
           actorUserId,
           allowActorless ? '1' : '0',
-          PENDING_TTL_SEC,
           sources ? JSON.stringify(sources) : '',
         )
       : c.eval(

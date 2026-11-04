@@ -16,7 +16,7 @@ import { signNuphosToken } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
 
 import { launchAcceptedChatTurn } from './chat-post-run'
-import { buildSlackBoundTurnPlan } from './chat-slack-bound'
+import { buildSlackBoundTurnPlan, findSlackBoundThread } from './chat-slack-bound'
 import { decisionReplyOf } from './decision-reply'
 import { claimAgentRunForSession, createAgentRun } from './run-registry'
 import { queuedChatBody } from './session-queue-body'
@@ -41,7 +41,6 @@ export type QueueableChat = {
   readOnlyResume: boolean
   clientView: UIMessage[]
   snapshot: SessionExecutionState | undefined
-  slackBound: boolean
   context: Omit<QueuedChatTurn, 'streamId' | 'message' | 'credentialAccess'>
   credentialAccess: AgentCredentialAccess | undefined
   /** Its Box is offline and resuming: the message waits in the queue for it. */
@@ -83,39 +82,40 @@ const QUEUED_ID = /^[\w-]{1,128}$/
 // at 16 MB. A waiting message (inline photos included) sits in Redis until then.
 const MAX_QUEUED_MESSAGE_CHARS = 12_000_000
 
-/** A new message, not a continuation, reply or Slack-bound turn, in an existing conversation. */
-function freshSend({ body, conversation, ...args }: QueueableChat): AgentConversation | null {
-  const fresh =
-    !args.readOnlyResume && !body.resume && !body.resumeReason && !body.continueAfterInterruption
-
-  if (!fresh || args.slackBound || args.clientView.at(-1)?.role !== 'user') return null
-
-  return conversation
+/** A new message, not a continuation or a reply. */
+function freshSend({ body, ...args }: QueueableChat): boolean {
+  return (
+    !args.readOnlyResume &&
+    !body.resume &&
+    !body.resumeReason &&
+    !body.continueAfterInterruption &&
+    args.clientView.at(-1)?.role === 'user'
+  )
 }
 
 /**
  * The session claim when the message runs now, 'queued' when it waits. Null
- * leaves the request to the older admission (continuations, replies,
- * Slack-bound and new conversations).
+ * leaves the request to the runtime's own admission (continuations, replies).
  */
 export async function admitQueueableChat(
   args: QueueableChat,
 ): Promise<
   { mode: 'run'; release: () => void; item: PendingUserMessage } | { mode: 'queued' } | null
 > {
-  const conversation = freshSend(args)
+  const { conversation } = args
   const message = args.clientView.at(-1)
 
-  if (!conversation || !message) return null
-  // Without an authoritative runtime status the earlier admission answers 503.
-  if (conversation.claudeCodePreview && args.snapshot?.schemaVersion !== 2 && !args.runtimeOffline)
+  if (!freshSend(args) || !message) return null
+  // Without an authoritative runtime status the runtime admission answers 503.
+  if (conversation?.claudeCodePreview && args.snapshot?.schemaVersion !== 2 && !args.runtimeOffline)
     return null
   if (!QUEUED_ID.test(message.id))
     throw new AppError(400, 'invalid_request', 'A message id may use letters, digits, - and _')
   if (JSON.stringify(message).length > MAX_QUEUED_MESSAGE_CHARS)
     throw new AppError(413, 'message_too_large', 'This message is too large to send')
   const owner = args.runOwnerUserId
-  const sessionId = conversation.sessionId
+  // A new conversation's id: a send that waits for it runs once its first turn stores it.
+  const sessionId = args.body.id
   // Nothing overtakes a message that is already waiting.
   const release = (await hasQueuedTranscriptMessage(owner, sessionId))
     ? null
@@ -150,9 +150,9 @@ export async function admitQueueableChat(
   else sessionReleased(owner, sessionId)
   if (!queued)
     throw new AppError(
-      409,
-      'message_queue_full',
-      'Too many messages are waiting for this agent. Try again after it answers some.',
+      503,
+      'message_queue_unavailable',
+      'Could not queue this message. Send it again.',
     )
   logEvent('info', 'agent.chat.queued', {
     user_id: args.userId,
@@ -216,7 +216,8 @@ export async function launchQueuedChatTurn(
     return
   }
   const body = queuedChatBody(sessionId, teamId, chat)
-  const { messages } = await buildSlackBoundTurnPlan({
+  const slackThread = await findSlackBoundThread(sessionId, conversation.metadata?.source)
+  const { messages, mirror } = await buildSlackBoundTurnPlan({
     body,
     clientView: [chat.message],
     serverHistoryOnly: true,
@@ -279,7 +280,14 @@ export async function launchQueuedChatTurn(
     credentialAccess: chat.credentialAccess,
     credentialAccessRequested: Boolean(chat.credentialAccess),
     releaseClaim,
-    slack: null,
+    slack: slackThread
+      ? {
+          thread: slackThread,
+          runOwnerUserId: conversation.userId,
+          userName: item.metadata?.sender?.displayName ?? '',
+          mirror,
+        }
+      : null,
     chatRuntime,
     queued: item,
   })

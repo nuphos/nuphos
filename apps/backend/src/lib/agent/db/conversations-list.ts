@@ -1,10 +1,11 @@
-import { PENDING_TTL_SEC } from '../pending-messages'
-
 import { readableByFilter } from './access'
 import { OPEN_INPUT_REQUEST_FILTER } from './pending-decision'
 import { agentConversations, escapeRegExp } from './shared'
 
 import type { AgentConversation } from './shared'
+
+/** A sign-in ask holds its requester's messages this long; after that they run as usual. */
+export const ASK_OPEN_MS = 60 * 60_000
 
 export type ConversationsScope = 'mine' | 'team' | 'shared'
 export type ConversationsArchivedFilter = 'exclude' | 'only'
@@ -156,12 +157,12 @@ function inboxFilter(query: Record<string, unknown>, viewerUserId: string, owner
     decision.userId = query.userId
     delete query.userId
   }
-  // Only while the message it holds can still run (sign-in-request.ts ASK_OPEN_MS).
+  // Only while the ask still holds its messages.
   // Narrowed to one member like the rest of team scope, and only about the agent it runs on now.
   const asked = {
     ...(ownerId ? { userId: ownerId } : {}),
     'signInRequest.askedUserIds': viewerUserId,
-    'signInRequest.askedAt': { $gt: new Date(Date.now() - PENDING_TTL_SEC * 1000) },
+    'signInRequest.askedAt': { $gt: new Date(Date.now() - ASK_OPEN_MS) },
     $expr: { $eq: ['$signInRequest.runtimeId', '$runtimeId'] },
   }
 

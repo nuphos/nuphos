@@ -11,7 +11,7 @@ import { logEvent } from '@/lib/observability'
 import { notifyNudge } from '@/lib/push/notify'
 
 import { getConversationBySessionId } from './db'
-import { PENDING_TTL_SEC } from './pending-messages'
+import { ASK_OPEN_MS } from './db/conversations-list'
 
 import type { AgentConversation } from './db'
 import type { DownloadHandoffRateLimitResult } from '@/lib/download-handoff-rate-limit'
@@ -40,8 +40,7 @@ export const NOTIFY_REPEAT_MS = 30 * 60_000
 export const NUDGES_PER_HOUR = 10
 const NUDGES_PER_DAY = 30
 
-/** An ask holds messages as long as the queue keeps them; after that a send runs as usual. */
-export const ASK_OPEN_MS = PENDING_TTL_SEC * 1000
+export { ASK_OPEN_MS }
 
 /** The ask holding this conversation's sends: only one about the agent it runs on now. */
 export function openSignInRequest(

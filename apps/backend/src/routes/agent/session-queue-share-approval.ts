@@ -1,4 +1,5 @@
 // A send to a teammate's shared computer waits in the session queue for its owner's answer.
+import { reportUndelivered } from '@/lib/agent/conversation-turn'
 import {
   getConversationBySessionId,
   stampConversationRuntimeInstance,
@@ -112,8 +113,9 @@ async function startConversation(args: WaitingChat, runtimeId: string) {
 }
 
 /**
- * The owner answered: an approval starts what waited, a refusal drops the
- * requester's waiting sends, so a later one is told it was declined.
+ * The owner answered: an approval starts what waited; a refusal takes the
+ * requester's waiting sends out of the queue, and keeps each in the
+ * conversation with the reason, so the queue behind them can move.
  */
 export async function settleShareApprovalQueue(approval: ShareApproval): Promise<void> {
   const conversation = await getConversationBySessionId(approval.sessionId)
@@ -138,4 +140,9 @@ export async function settleShareApprovalQueue(approval: ShareApproval): Promise
       session_id: sessionId,
       message_ids: dropped.map((message) => message.id),
     })
+  await reportUndelivered(
+    { userId, teamId: conversation.teamId, targetSessionId: sessionId },
+    dropped,
+    'was not sent: the owner of the computer this conversation runs on declined to run it there. Move the conversation to another agent to continue.',
+  )
 }
