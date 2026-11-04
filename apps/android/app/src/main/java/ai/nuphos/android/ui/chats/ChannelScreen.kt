@@ -97,7 +97,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
     // The dots follow a read of the chat that started after the change and succeeded. An agent posts
     // before its turn ends, so its reply and the end of its dots arrive together, never the dots' end first.
     var typing by remember(session) { mutableStateOf(emptyList<ChannelAgent>()) }
-    val inTurn = session.agents.filter { store.inTurn(it.sessionId) }
+    val inTurn = session.agents.filter { store.typingIn(it.sessionId, session.channelId) }
     LaunchedEffect(session, lifecycle, inTurn.map { it.sessionId }) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             while (inTurn.map { it.sessionId } != typing.map { it.sessionId }) {
