@@ -105,17 +105,36 @@ final class ChatSession {
             || snapshot["tools"]?.arrayValue?.contains { $0["kind"]?.stringValue == "desktop" } == true
     }
     func makeDesktop() -> DesktopSession { DesktopSession(teamId: teamId, sessionId: sessionId, token: token) }
-    /// One of those tabs watched live, through the desktop viewer.
-    func makeBrowserView(_ tab: BrowserTab, size: CGSize) -> DesktopSession {
-        DesktopSession(teamId: teamId, sessionId: sessionId, token: token, browserTab: (tab.id, size))
+    /// This conversation's whole dock on its owner's computer, mirrored for the phone.
+    func dock() async throws -> DockState {
+        try await AgentChatAPI.dock(token: token, teamId: teamId, sessionId: sessionId)
     }
-    /// The browser tabs in this conversation's dock on its owner's computer.
-    func browserTabs() async throws -> [BrowserTab] {
-        try await AgentChatAPI.browserTabs(token: token, teamId: teamId, sessionId: sessionId)
+    /// Closes a dock tab on the owner's computer.
+    func closeDockTab(_ id: String) async throws {
+        try await AgentChatAPI.closeDockTab(token: token, teamId: teamId, sessionId: sessionId, tab: id)
     }
-    /// Brings `tab` forward on that computer: its window, this conversation and the dock tab.
-    func focus(_ tab: BrowserTab) async throws {
-        try await AgentChatAPI.focusBrowserTab(token: token, teamId: teamId, sessionId: sessionId, tab: tab.id)
+    /// Opens a page in the owner's dock: a web address as a Browser tab, or a page by app path or key.
+    @discardableResult
+    func openDockTab(url: URL? = nil, href: String? = nil, page: String? = nil) async throws -> String {
+        let team = teamId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? teamId
+        var path = href
+        if let url, var browser = URLComponents(string: "/teams/\(team)/browser") {
+            browser.queryItems = [URLQueryItem(name: "url", value: url.absoluteString)]
+            path = browser.string
+        }
+        return try await AgentChatAPI.openDockTab(token: token, teamId: teamId, sessionId: sessionId, href: path, page: page)
+    }
+    /// Shows a dock tab of any kind on the owner's computer.
+    func focusDockTab(_ id: String) async throws {
+        try await AgentChatAPI.focusBrowserTab(token: token, teamId: teamId, sessionId: sessionId, tab: id)
+    }
+    /// The team's pinned pages and chats, which the Mac's New Tab lists as Favorites.
+    func favorites() async throws -> [SidebarFavorites.Entry] {
+        try await NuphosAPI.sidebarFavorites(token: token, teamId: teamId).entries
+    }
+    /// A dock tab watched live from the Mac, through the desktop viewer.
+    func makeLiveView(tab id: String, size: CGSize) -> DesktopSession {
+        DesktopSession(teamId: teamId, sessionId: sessionId, token: token, browserTab: (id, size))
     }
     var runtimeStatus: String? {
         if submitting || awaitingAdmission { return "Sending…" }

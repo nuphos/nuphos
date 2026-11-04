@@ -96,8 +96,12 @@ export function useWorkspaceAgentLinks(a: Args) {
 
   useEffect(
     () =>
-      exposeDockBrowserTabs({ getState: workspaceStore.getState, actions: workspaceStore.actions }),
-    [workspaceStore],
+      exposeDockBrowserTabs({
+        userId: user.id,
+        getState: workspaceStore.getState,
+        actions: workspaceStore.actions,
+      }),
+    [user.id, workspaceStore],
   )
 
   useEffect(() => {

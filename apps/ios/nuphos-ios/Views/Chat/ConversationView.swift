@@ -31,8 +31,12 @@ struct ConversationView: View {
     @State private var showShare = false
     /// The desktop open from this conversation: beside it where the window is wide, else full screen.
     @State private var desktop: DesktopSession?
-    /// The dock panel: this conversation's desktop and the browser tabs its agent opened.
+    /// The dock panel: this conversation's dock, mirrored from the Mac.
     @State private var dockOpen = false
+    /// A dock page open in the phone's own browser.
+    @State private var web: DockWeb?
+    /// An iPhone screen opened from the dock: Plans, Runtimes or Connectors.
+    @State private var dockScreen: DockDestination?
     /// A watched tab is laid out on the Mac at this screen's size, so its page fits the phone.
     private static var screenSize: CGSize {
         let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
@@ -71,12 +75,26 @@ struct ConversationView: View {
             DockPanel(session: session) {
                 dockOpen = false
                 desktop = session.makeDesktop()
-            } openTab: { tab in
+            } openWeb: { url, tab in
                 dockOpen = false
-                desktop = session.makeBrowserView(tab, size: Self.screenSize)
+                web = DockWeb(url: url, tabId: tab)
+            } openScreen: { screen in
+                dockScreen = screen
             } close: {
                 dockOpen = false
             }
+        }
+        .fullScreenCover(item: $web) { page in
+            NativeBrowser(session: session, url: page.url, tabId: page.tabId) { tab in
+                web = nil
+                // The Mac's own page, live: only when asked for, from the browser's menu.
+                desktop = session.makeLiveView(tab: tab, size: Self.screenSize)
+            } close: {
+                web = nil
+            }
+        }
+        .sheet(item: $dockScreen) { screen in
+            NavigationStack { DockScreen(destination: screen) }
         }
         .desktop($desktop)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }

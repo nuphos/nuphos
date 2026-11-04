@@ -3,9 +3,12 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 
 import {
+  browserTabsOf,
+  closeSessionDockTab,
   focusSessionBrowserTab,
-  sessionBrowserTabs,
+  openSessionDockTab,
   sessionBrowserViewTarget,
+  sessionDock,
 } from './session-browser-tabs'
 
 import type { DeviceToolDeps } from './preview-tools/device-tool'
@@ -69,10 +72,24 @@ function device(result: unknown) {
 const tabs = [{ id: 'tab-1', url: 'https://example.com/', title: 'Example' }]
 
 describe('session browser tabs', () => {
-  test("lists the conversation's tabs from the owner's device, audited", async () => {
+  test("an older Desktop's list of browser tabs reads as a dock of them, audited", async () => {
     const fake = device({ content: [{ type: 'text', text: JSON.stringify(tabs) }] })
+    const dock = await sessionDock('t1', 'owner', 's1', fake.deps)
 
-    expect(await sessionBrowserTabs('t1', 'owner', 's1', fake.deps)).toEqual(tabs)
+    expect(dock).toEqual({
+      tabs: [
+        {
+          id: 'tab-1',
+          url: 'https://example.com/',
+          title: 'Example',
+          kind: 'team.browser',
+          href: '',
+        },
+      ],
+      activeTabId: null,
+      recent: [],
+    })
+    expect(browserTabsOf(dock)).toEqual(tabs)
     expect(fake.sent).toEqual([
       { t: 'call', session: 's1', turn: 's1', action: 'dock', team: 't1' },
     ])
@@ -95,11 +112,71 @@ describe('session browser tabs', () => {
     ])
   })
 
+  test('the whole dock comes as the Mac mirrors it; only its browser tabs keep the old shape', async () => {
+    const dock = {
+      tabs: [
+        {
+          id: 'b1',
+          kind: 'team.browser',
+          title: 'Example',
+          href: '/teams/t1/browser?url=x',
+          url: 'https://example.com/',
+        },
+        { id: 'term', kind: 'team.terminal', title: 'Local terminal', href: '/teams/t1/terminal' },
+      ],
+      activeTabId: 'term',
+      recent: [{ href: '/teams/t1/runtimes', title: 'Runtimes' }],
+    }
+    const fake = device({ content: [{ type: 'text', text: JSON.stringify(dock) }] })
+    const read = await sessionDock('t1', 'owner', 's1', fake.deps)
+
+    expect(read).toEqual(dock)
+    expect(browserTabsOf(read)).toEqual([
+      { id: 'b1', url: 'https://example.com/', title: 'Example' },
+    ])
+  })
+
+  test('close and open reach the Mac with only the tab id or the page, audited', async () => {
+    const fake = device({ content: [{ type: 'text', text: JSON.stringify({ id: 'new-tab' }) }] })
+
+    await closeSessionDockTab('t1', 'owner', 's1', 'tab-1', fake.deps)
+    expect(
+      await openSessionDockTab('t1', 'owner', 's1', { href: '/teams/t1/files' }, fake.deps),
+    ).toBe('new-tab')
+    await openSessionDockTab('t1', 'owner', 's1', { page: 'team.plans' }, fake.deps)
+    expect(
+      fake.sent.map(({ action, dockTab, href, page }) => ({ action, dockTab, href, page })),
+    ).toEqual([
+      { action: 'close', dockTab: 'tab-1', href: undefined, page: undefined },
+      { action: 'dock_open', dockTab: undefined, href: '/teams/t1/files', page: undefined },
+      { action: 'dock_open', dockTab: undefined, href: undefined, page: 'team.plans' },
+    ])
+    expect(new Set(fake.audits)).toEqual(
+      new Set([
+        '[browser] phone close tab=tab-1',
+        '[browser] phone dock_open /teams/t1/files',
+        '[browser] phone dock_open team.plans',
+      ]),
+    )
+  })
+
+  test("another team's page, or a malformed page key, never reaches the device", async () => {
+    const fake = device({ content: [{ type: 'text', text: '{}' }] })
+
+    await expect(
+      openSessionDockTab('t1', 'owner', 's1', { href: '/teams/t2/files' }, fake.deps),
+    ).rejects.toMatchObject({ status: 400 })
+    await expect(
+      openSessionDockTab('t1', 'owner', 's1', { page: 'team.plans/../../x' }, fake.deps),
+    ).rejects.toMatchObject({ status: 409 })
+    expect(fake.sent).toEqual([])
+  })
+
   test("someone else's conversation is not found and reaches no device", async () => {
     conversation = { userId: 'other', teamId: 't1' }
     const fake = device(null)
 
-    await expect(sessionBrowserTabs('t1', 'owner', 's1', fake.deps)).rejects.toMatchObject({
+    await expect(sessionDock('t1', 'owner', 's1', fake.deps)).rejects.toMatchObject({
       status: 404,
     })
     expect(fake.sent).toEqual([])
@@ -108,7 +185,7 @@ describe('session browser tabs', () => {
   test("a device's error reaches the caller as its text", async () => {
     const fake = device({ isError: true, content: [{ type: 'text', text: 'Update Nuphos' }] })
 
-    await expect(sessionBrowserTabs('t1', 'owner', 's1', fake.deps)).rejects.toMatchObject({
+    await expect(sessionDock('t1', 'owner', 's1', fake.deps)).rejects.toMatchObject({
       status: 409,
       message: 'Update Nuphos',
     })
