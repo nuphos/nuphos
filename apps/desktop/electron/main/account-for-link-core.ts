@@ -53,3 +53,19 @@ export async function switchThenWait(key: string, deps: SwitchDeps): Promise<boo
 
   return true
 }
+
+/**
+ * Runs tasks one at a time, each after the last has finished or failed: a
+ * second switch must never take the first one's reload as its own.
+ */
+export function oneAtATime(): <T>(task: () => Promise<T>) => Promise<T> {
+  let turn: Promise<unknown> = Promise.resolve()
+
+  return (task) => {
+    const run = turn.then(task, task)
+
+    turn = run.catch(() => undefined)
+
+    return run
+  }
+}

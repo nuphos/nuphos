@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { accountForTeam, switchThenWait, teamOfPath } from './account-for-link-core.ts'
+import { accountForTeam, oneAtATime, switchThenWait, teamOfPath } from './account-for-link-core.ts'
 
 import type { AccountSummary } from '../auth/accounts.ts'
 
@@ -143,4 +143,32 @@ test('a reload that never comes is waited for only so long', async () => {
 
   assert.equal(await switchThenWait(b.key, { ...h.deps, waitMs: 10 }), true)
   assert.equal(h.waiting.size, 0)
+})
+
+test("switches run one at a time, so the second never takes the first one's reload", async () => {
+  const inTurn = oneAtATime()
+  const events: string[] = []
+  let finishFirst!: () => void
+  const first = inTurn(async () => {
+    events.push('switch to B')
+    await new Promise<void>((resolve) => {
+      finishFirst = resolve
+    })
+    events.push('open B')
+  })
+  const second = inTurn(async () => {
+    events.push('switch to C')
+    throw new Error('C failed')
+  })
+  const third = inTurn(async () => {
+    events.push('open D')
+  })
+
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(events, ['switch to B'])
+  finishFirst()
+  await first
+  await assert.rejects(second)
+  await third
+  assert.deepEqual(events, ['switch to B', 'open B', 'switch to C', 'open D'])
 })

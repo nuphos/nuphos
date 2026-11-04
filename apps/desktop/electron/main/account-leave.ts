@@ -27,6 +27,17 @@ export function nextReload(): { reloaded: Promise<void>; cancel: () => void } {
   return { reloaded, cancel: () => reloadWaiters.delete(resolve) }
 }
 
+/** Reloads every window as the account now in use, and tells whoever waits for it. */
+export function reloadWindows(): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.reload()
+  }
+  const waiters = reloadWaiters
+
+  reloadWaiters = new Set()
+  for (const resolve of waiters) resolve()
+}
+
 // Wires leaving an account to the app (account-leave-core.ts), once, as
 // main.ts loads.
 followAccount(authSession, {
@@ -42,13 +53,5 @@ followAccount(authSession, {
     podExec.closeAllPodExecSessions()
     resetAnalyticsUser()
   },
-  reload: () => {
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (!win.isDestroyed()) win.webContents.reload()
-    }
-    const waiters = reloadWaiters
-
-    reloadWaiters = new Set()
-    for (const resolve of waiters) resolve()
-  },
+  reload: reloadWindows,
 })
