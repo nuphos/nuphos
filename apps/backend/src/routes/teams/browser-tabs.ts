@@ -2,9 +2,12 @@ import { upgradeWebSocket } from 'hono/bun'
 
 import { runtimeDesktopEvents } from '@/lib/claude-code-preview/runtime-desktop'
 import {
+  browserTabsOf,
+  closeSessionDockTab,
   focusSessionBrowserTab,
-  sessionBrowserTabs,
+  openSessionDockTab,
   sessionBrowserViewTarget,
+  sessionDock,
 } from '@/lib/claude-code-preview/session-browser-tabs'
 import { AppError } from '@/lib/errors'
 
@@ -24,11 +27,44 @@ function tabParam(c: Context): string {
 
 /** A conversation's dock browser tabs, listed and brought forward from another screen. */
 export function registerBrowserTabRoutes(teamScoped: Hono<{ Variables: TeamAuthVariables }>) {
-  teamScoped.get('/browser-tabs/:sessionId', async (c) =>
-    c.json({
-      tabs: await sessionBrowserTabs(c.get('teamId'), c.get('userId'), c.req.param('sessionId')),
-    }),
-  )
+  // `dock` is the whole dock, as the phone mirrors it; `tabs` its browser tabs, for older iPhone builds.
+  teamScoped.get('/browser-tabs/:sessionId', async (c) => {
+    const dock = await sessionDock(c.get('teamId'), c.get('userId'), c.req.param('sessionId'))
+
+    return c.json({ tabs: browserTabsOf(dock), dock })
+  })
+
+  // Opens a page in the dock on the Mac: `{ href }`, an app path of this team, or `{ page }`, a workspace page key.
+  teamScoped.post('/browser-tabs/:sessionId', async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { href?: unknown; page?: unknown } | null
+    const target =
+      typeof body?.href === 'string'
+        ? { href: body.href }
+        : typeof body?.page === 'string'
+          ? { page: body.page }
+          : null
+
+    if (!target) throw new AppError(400, 'invalid_body', 'href or page is required')
+    const id = await openSessionDockTab(
+      c.get('teamId'),
+      c.get('userId'),
+      c.req.param('sessionId'),
+      target,
+    )
+
+    return c.json({ id })
+  })
+
+  teamScoped.delete('/browser-tabs/:sessionId/:tab', async (c) => {
+    await closeSessionDockTab(
+      c.get('teamId'),
+      c.get('userId'),
+      c.req.param('sessionId'),
+      tabParam(c),
+    )
+
+    return c.json({ ok: true })
+  })
 
   teamScoped.post('/browser-tabs/:sessionId/:tab/focus', async (c) => {
     await focusSessionBrowserTab(

@@ -5,7 +5,7 @@ import { t } from '../../../i18n'
 import { toAbsoluteAtlasUrl } from '../../../lib/webBaseUrl'
 import { Avatar } from '../../Avatar'
 import { CloudLogo } from '../../CloudLogo'
-import { ChannelMark } from '../../channels/channelParts'
+import { ChatIcon } from '../../channels/channelParts'
 import { AgentAvatar } from '../AgentAvatar'
 import { MessageResponse } from '../MessageResponse'
 
@@ -51,7 +51,7 @@ export function AgentEventMessage({
 
     return (
       <Rule title={new Date(metadata.sentAt).toLocaleString()}>
-        <ChannelMark size={14} className="rounded" />
+        <ChatIcon title={displayName} size={14} />
         <span>{t('New messages in')}</span>
         {channelUrl && onOpenNuphosLink ? (
           <button

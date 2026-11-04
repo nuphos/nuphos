@@ -22,10 +22,31 @@ struct BrowserTab: Decodable, Identifiable, Equatable, Sendable {
 
 extension AgentChatAPI {
     /// `GET /teams/:teamId/browser-tabs/:sessionId`: asks the owner's computer, so it can be slow or offline.
-    static func browserTabs(token: String, teamId: String, sessionId: String) async throws -> [BrowserTab] {
-        struct List: Decodable { let tabs: [BrowserTab] }
+
+    /// The conversation's whole dock: every tab, the one in front, and the Mac's New Tab history.
+    /// A backend from before the mirrored dock answers only browser tabs; they read as a dock.
+    static func dock(token: String, teamId: String, sessionId: String) async throws -> DockState {
+        struct Response: Decodable { let tabs: [BrowserTab]; let dock: DockState? }
         let data = try await send("GET", "teams/\(teamId)/browser-tabs/\(sessionId)", token: token, body: Optional<Int>.none, timeout: 20)
-        return try JSONDecoder().decode(List.self, from: data).tabs
+        let response = try JSONDecoder().decode(Response.self, from: data)
+        return response.dock ?? DockState(
+            tabs: response.tabs.map { DockTab(id: $0.id, kind: "team.browser", title: $0.title, href: "", url: $0.url) },
+            activeTabId: nil, recent: []
+        )
+    }
+
+    /// `DELETE /teams/:teamId/browser-tabs/:sessionId/:tab`: closes the tab in the Mac's dock.
+    static func closeDockTab(token: String, teamId: String, sessionId: String, tab: String) async throws {
+        _ = try await send("DELETE", "teams/\(teamId)/browser-tabs/\(sessionId)/\(tab)", token: token, body: Optional<Int>.none, timeout: 20)
+    }
+
+    /// `POST /teams/:teamId/browser-tabs/:sessionId`: opens a page in the Mac's dock, by its app
+    /// path or its workspace page key. Answers the new tab's id.
+    static func openDockTab(token: String, teamId: String, sessionId: String, href: String?, page: String?) async throws -> String {
+        struct Body: Encodable { var href: String?; var page: String? }
+        struct Opened: Decodable { let id: String }
+        let data = try await send("POST", "teams/\(teamId)/browser-tabs/\(sessionId)", token: token, body: Body(href: href, page: page), timeout: 20)
+        return try JSONDecoder().decode(Opened.self, from: data).id
     }
 
     /// `POST /teams/:teamId/browser-tabs/:sessionId/:tab/focus`: shows the tab on that computer.

@@ -12,23 +12,21 @@ export const LOCAL_SETUP_PROVIDERS = [
 export const LOCAL_AGENT_INFO: Record<
   CliLoginProvider,
   /** `command` is what Nuphos looks for on the login shell's PATH. */
-  { name: string; maker: string; installUrl: string; command: string }
+  { name: string; installUrl: string; command: string }
 > = {
   'claude-code': {
     name: 'Claude Code',
-    maker: 'Anthropic',
     installUrl: 'https://code.claude.com/docs/en/setup',
     command: 'claude',
   },
   codex: {
     name: 'Codex',
-    maker: 'OpenAI',
     installUrl: 'https://developers.openai.com/codex/cli',
     command: 'codex',
   },
 }
 
-export type LocalAgentStatus = 'checking' | 'ready' | 'signed-out' | 'missing'
+export type LocalAgentStatus = 'checking' | 'ready' | 'signed-out' | 'missing' | 'unavailable'
 
 /** Where one local agent stands, from its own CLI as this computer last saw it. */
 export function localAgentStatus(cli: AgentCliStatus | null | undefined): LocalAgentStatus {
@@ -42,4 +40,16 @@ export function readyLocalAgents(state: LocalRuntimeState | null): CliLoginProvi
   return LOCAL_SETUP_PROVIDERS.filter(
     (provider) => localAgentStatus(state?.agents[provider].cli) === 'ready',
   )
+}
+
+/** A disabled or failed check must not look like an in-flight check. */
+export function setupAgentStatus(
+  state: LocalRuntimeState | null,
+  provider: CliLoginProvider,
+): LocalAgentStatus {
+  const agent = state?.agents[provider]
+
+  if (state?.detectionDisabled || (!agent?.cli && agent?.error)) return 'unavailable'
+
+  return localAgentStatus(agent?.cli)
 }

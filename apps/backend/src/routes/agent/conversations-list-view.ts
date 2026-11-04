@@ -8,6 +8,7 @@ import type { SessionThreadResource } from '@/lib/agent/session-thread-resources
 import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 import type { SlackAgentThreadSummary } from '@/lib/slack/agent-bot'
 
+import { channelFacesField } from '@/lib/agent/channel-faces'
 import { liveAttachment } from '@/lib/agent/db/shared'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
 import { sessionThreadResources } from '@/lib/agent/session-thread-resources'
@@ -122,9 +123,14 @@ export async function serializeConversationList<T extends ListedConversation>(
   const slackThreadBySessionId = new Map(slackThreads.map((thread) => [thread.sessionId, thread]))
 
   // A conversation's desktops on its Box come from the device's presence, not the snapshot.
-  const desktops = await Promise.all(
-    conversations.map((conversation) => sessionDesktops(conversation)),
-  )
+  const [desktops, faces] = await Promise.all([
+    Promise.all(conversations.map((conversation) => sessionDesktops(conversation))),
+    Promise.all(
+      conversations.map((conversation) =>
+        channelFacesField(conversation as unknown as AgentConversation, viewer.id, ownerById),
+      ),
+    ),
+  ])
 
   return conversations.map((conversation, index) => {
     const runtimeState = withDesktops(
@@ -148,6 +154,7 @@ export async function serializeConversationList<T extends ListedConversation>(
       ],
       activeRun: runtimeState.state === 'active' ? (activeRuns[index] ?? null) : null,
       runtimeState,
+      ...faces[index],
     }
   })
 }

@@ -12,6 +12,8 @@ export type BrowserCall = {
     | 'open'
     | 'dock'
     | 'focus'
+    | 'close'
+    | 'dock_open'
     | 'navigate'
     | 'eval'
     | 'screenshot'
@@ -21,8 +23,11 @@ export type BrowserCall = {
   /** The conversation calling; it sees and drives only the tabs it opened. */
   session: string
   tab?: number
-  /** A dock tab's workspace id, for `focus` from the iPhone's Dock panel. */
+  /** A dock tab's workspace id, for `focus` and `close` from the iPhone's Dock panel. */
   dockTab?: string
+  /** For `dock_open`: an app path, as New Tab and dock history name pages, or a workspace page key. */
+  href?: string
+  page?: string
   url?: string
   script?: string
 }
