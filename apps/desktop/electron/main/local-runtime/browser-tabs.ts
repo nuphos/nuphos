@@ -5,6 +5,7 @@ import { handleDeepLink } from '../deep-links.ts'
 import { startRecording, stopRecording } from './browser-recording.ts'
 import { failed } from './cua-host.ts'
 import { closeDockTab, dockMirrorOf, focusDockTab, openDockTab } from './dock-mirror.ts'
+import { proxyFetch } from './dock-proxy.ts'
 
 import type { BrowserCall } from './browser-stream.ts'
 import type { CuaToolResult } from './cua-host.ts'
@@ -162,6 +163,7 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
   if (call.action === 'focus') return focusDockTab(call)
   if (call.action === 'close') return closeDockTab(call)
   if (call.action === 'dock_open') return openDockTab(call)
+  if (call.action === 'fetch') return proxyFetch(call)
   if (call.action === 'open') {
     if (!isHttp(call.url)) return failed('url must be an http(s) URL.')
     const opened = openedTab(call.url, call.session)

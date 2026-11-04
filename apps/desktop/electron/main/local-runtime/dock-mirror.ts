@@ -74,6 +74,13 @@ export async function dockMirrorOf(call: BrowserCall): Promise<CuaToolResult> {
   })
 }
 
+/** The web addresses of the conversation's dock tabs, across this Mac's windows. */
+export async function dockTabUrls(call: BrowserCall): Promise<string[]> {
+  return (await mirrors(call)).flatMap(({ mirror }) =>
+    mirror.tabs.flatMap((tab) => (tab.url ? [tab.url] : [])),
+  )
+}
+
 /** The window holding one of the conversation's dock tabs. */
 async function windowWith(call: BrowserCall) {
   return (await mirrors(call)).find(({ mirror }) =>

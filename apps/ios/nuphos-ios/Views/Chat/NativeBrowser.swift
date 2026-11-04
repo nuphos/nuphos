@@ -13,21 +13,30 @@ struct NativeBrowser: View {
     var liveView: (String) -> Void
     var close: () -> Void
 
-    @State private var page = WebPage()
+    @State private var page: WebPage
     @State private var address = ""
     @State private var bannerHidden = false
     @State private var notice: String?
     @FocusState private var editing: Bool
 
-    /// A page on the Mac itself or its network: the phone can't reach it yet.
-    private var macOnly: URL? { page.target.flatMap { DockDestination.isLocal($0) ? $0 : nil } }
+    init(session: ChatSession, url: URL?, tabId: String?, liveView: @escaping (String) -> Void, close: @escaping () -> Void) {
+        self.session = session
+        self.url = url
+        self.tabId = tabId
+        self.liveView = liveView
+        self.close = close
+        _page = State(initialValue: WebPage(proxy: MacPageProxy { [session] in try await session.dockFetch($0) }))
+    }
+
+    /// A page on the Mac itself or its network, fetched there.
+    private var onMac: Bool { page.target.map(DockDestination.isLocal) ?? false }
 
     var body: some View {
         VStack(spacing: 0) {
             addressBar
             if page.loading { ProgressView(value: page.progress).progressViewStyle(.linear).tint(Theme.brand) }
-            if macOnly == nil, page.target != nil, !bannerHidden { signedOutBanner }
-            if let local = macOnly { macOnlyNotice(local) } else { WebPageView(page: page) }
+            if page.target != nil, !bannerHidden { onMac ? AnyView(liveReloadBanner) : AnyView(signedOutBanner) }
+            if onMac, let failure = page.failure { macPageFailure(failure) } else { WebPageView(page: page) }
             toolbar
         }
         .background(Theme.chatCanvas)
@@ -86,11 +95,30 @@ struct NativeBrowser: View {
         .accessibilityIdentifier("browser-signed-out")
     }
 
-    private func macOnlyNotice(_ url: URL) -> some View {
+    /// A Mac-only page comes through the Mac request by request; its dev server's live updates don't.
+    private var liveReloadBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "macbook").foregroundStyle(Theme.muted)
+            Text("Loaded from your Mac. Live reload doesn't update here; reload to see changes.")
+                .font(Theme.Text.label)
+                .foregroundStyle(Theme.body)
+            Spacer(minLength: 4)
+            Button("Hide", systemImage: "xmark") { bannerHidden = true }
+                .labelStyle(.iconOnly)
+                .font(Theme.Text.label)
+                .foregroundStyle(Theme.muted)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(Theme.chatSurface)
+        .accessibilityIdentifier("browser-live-reload")
+    }
+
+    private func macPageFailure(_ reason: String) -> some View {
         ContentUnavailableView {
-            Label("This page runs on your Mac", systemImage: "macbook")
+            Label("Couldn't load this page from your Mac", systemImage: "macbook")
         } description: {
-            Text("\(url.host() ?? url.absoluteString) is only reachable from your Mac's network, so it can't open on iPhone yet.")
+            Text(reason)
         } actions: {
             if let tabId {
                 Button("Live view on Mac") { liveView(tabId) }.buttonStyle(.borderedProminent)
@@ -156,22 +184,29 @@ final class WebPage: NSObject, WKNavigationDelegate {
     let view: WKWebView
     /// What was asked for, before any redirect: whether it is Mac-only is decided by it.
     private(set) var target: URL?
+    /// The page's own address: a Mac-only page reads as itself, not as the phone's scheme.
     private(set) var current: URL?
+    /// Why the last page failed to load, if it did.
+    private(set) var failure: String?
     private(set) var canGoBack = false
     private(set) var canGoForward = false
     private(set) var loading = false
     private(set) var progress = 0.0
     @ObservationIgnored private var observers: [NSKeyValueObservation] = []
 
-    override init() {
+    init(proxy: MacPageProxy) {
         let configuration = WKWebViewConfiguration()
         configuration.allowsInlineMediaPlayback = true
+        configuration.setURLSchemeHandler(proxy, forURLScheme: MacPageScheme.http)
+        configuration.setURLSchemeHandler(proxy, forURLScheme: MacPageScheme.https)
         view = WKWebView(frame: .zero, configuration: configuration)
         view.allowsBackForwardNavigationGestures = true
         super.init()
         view.navigationDelegate = self
         observers = [
-            view.observe(\.url) { [weak self] web, _ in Task { @MainActor in self?.current = web.url } },
+            view.observe(\.url) { [weak self] web, _ in
+                Task { @MainActor in self?.current = web.url.map { MacPageScheme.macURL($0) ?? $0 } }
+            },
             view.observe(\.canGoBack) { [weak self] web, _ in Task { @MainActor in self?.canGoBack = web.canGoBack } },
             view.observe(\.canGoForward) { [weak self] web, _ in Task { @MainActor in self?.canGoForward = web.canGoForward } },
             view.observe(\.isLoading) { [weak self] web, _ in Task { @MainActor in self?.loading = web.isLoading } },
@@ -179,12 +214,27 @@ final class WebPage: NSObject, WKNavigationDelegate {
         ]
     }
 
-    /// Opens a page. A Mac-only one is not requested at all: it would only time out.
+    /// Opens a page: a Mac-only one under the phone's scheme, so the Mac fetches it.
     func load(_ url: URL) {
         target = url
         current = url
-        guard !DockDestination.isLocal(url) else { return }
-        view.load(URLRequest(url: url))
+        failure = nil
+        view.load(URLRequest(url: MacPageScheme.phoneURL(url) ?? url))
+    }
+
+    /// A link from a Mac-only page to its own absolute address stays on the Mac.
+    func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction) async -> WKNavigationActionPolicy {
+        guard let url = action.request.url, let phone = MacPageScheme.phoneURL(url) else { return .allow }
+        load(MacPageScheme.macURL(phone) ?? url)
+        return .cancel
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error) {
+        failure = error.localizedDescription
+    }
+
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        failure = nil
     }
 }
 
