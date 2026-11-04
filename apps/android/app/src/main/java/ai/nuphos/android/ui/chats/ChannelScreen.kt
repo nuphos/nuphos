@@ -91,7 +91,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
             CenterAlignedTopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ChannelMark(28.dp)
+                        ChatIcon(session.faces, session.title, 28.dp)
                         Text(session.title, maxLines = 1, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     }
                 },

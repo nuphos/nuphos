@@ -12,6 +12,8 @@ final class ChannelSession {
     let channelId: String
     let teamId: String
     private(set) var title: String
+    /// The chat's icon: the members other than the viewer that it shows.
+    var faces: [ChatFace] = []
     private(set) var stored: [ChannelPost] = []
     private(set) var events: [AgentConversationDetail.TimelineEvent] = []
     private(set) var agents: [ChannelAgent] = []
@@ -89,6 +91,7 @@ final class ChannelSession {
         agents = listed
         readOnly = detail.readOnly ?? false
         if let title = detail.title, !title.isEmpty { self.title = title }
+        faces = detail.faces
         revision = stamp(of: detail)
         loadError = nil
         loaded = true

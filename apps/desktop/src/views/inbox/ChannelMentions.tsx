@@ -1,4 +1,4 @@
-import { ChannelMark } from '../../components/channels/channelParts'
+import { ChatIcon } from '../../components/channels/channelParts'
 import { t } from '../../i18n'
 
 import type { ChannelMention } from '../../api'
@@ -26,7 +26,7 @@ export function ChannelMentions({
               onClick={() => onOpen(mention.channelId)}
               className="flex w-full items-start gap-2.5 px-4 py-2.5 text-left text-[12.5px] hover:bg-zGray-800/40"
             >
-              <ChannelMark size={20} className="mt-0.5" />
+              <ChatIcon title={mention.title} size={20} className="mt-0.5" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-secondary">
                   <span className="text-main">{mention.sender?.name ?? t('Someone')}</span>{' '}

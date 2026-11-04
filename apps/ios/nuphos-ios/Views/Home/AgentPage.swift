@@ -458,7 +458,7 @@ struct ChannelRow: View {
     var body: some View {
         let team = channel.teamId ?? store.selectedTeam?.id ?? ""
         HStack(spacing: 12) {
-            ChannelMark(size: 36)
+            ChatIcon(faces: channel.faces ?? [], title: channel.displayTitle, size: 36)
             VStack(alignment: .leading, spacing: 3) {
                 Text(channel.displayTitle)
                     .font(Theme.Text.body.weight(.medium))

@@ -7,6 +7,7 @@ import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.data.TransferDownloadGroup
 import ai.nuphos.android.model.AgentConversationDetail
 import ai.nuphos.android.model.ChannelAgent
+import ai.nuphos.android.model.ChatFace
 import ai.nuphos.android.model.ChannelPost
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
@@ -63,6 +64,8 @@ class ChannelSession(
 
     var title by mutableStateOf(title)
         private set
+    /** The chat's icon: the members other than the viewer that it shows. */
+    var faces by mutableStateOf<List<ChatFace>>(emptyList())
     var stored by mutableStateOf<List<ChannelPost>>(emptyList())
         private set
     var events by mutableStateOf<List<AgentConversationDetail.TimelineEvent>>(emptyList())
@@ -215,6 +218,7 @@ class ChannelSession(
         agents = listed
         readOnly = detail.readOnly == true
         detail.title?.takeIf { it.isNotBlank() }?.let { title = it }
+        faces = detail.faces
         noteActivity(detail)
         revision = stamp(detail)
         loadError = null

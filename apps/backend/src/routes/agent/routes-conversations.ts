@@ -1,5 +1,6 @@
 import { resolveConversationAccess } from '@/lib/agent/devices/conversation-computer'
 import './routes-conversation-runtime'
+import './routes-conversation-messages'
 import './routes-message-retract'
 
 import {
@@ -29,6 +30,7 @@ import {
   getReadableConversation,
   updateConversationCredentialAccess,
 } from '@/lib/agent/db'
+import { channelFacesField } from '@/lib/agent/channel-faces'
 import { recheckLinkedResources } from '@/lib/agent/resource-recheck'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
 import { liveAttachment } from '@/lib/agent/db/shared'
@@ -239,6 +241,7 @@ agent.get('/conversations/:sessionId', async (c) => {
 
   return c.json({
     ...conversationForViewer,
+    ...(await channelFacesField(result.conversation, viewer.id, ownerById)),
     // A resolved Slack binding no longer forces read-only: the turn is mirrored
     // into the thread (the Slack-bound branch in routes-chat-post.ts). A FAILED
     // lookup still fails closed: the send path could not build the mirror
@@ -262,38 +265,5 @@ agent.get('/conversations/:sessionId', async (c) => {
             : activeRun.startedAt,
         }
       : null,
-  })
-})
-
-// Page backwards through transcript messages before the absolute `before`
-// index; `firstIndex` becomes the cursor until it reaches zero.
-agent.get('/conversations/:sessionId/messages', async (c) => {
-  const userId = c.get('userId')
-  const sessionId = c.req.param('sessionId')
-  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c))
-  const before = Number.parseInt(c.req.query('before') ?? '', 10)
-
-  if (!Number.isInteger(before) || before < 1) {
-    throw new AppError(400, 'invalid_request', 'before must be a positive integer')
-  }
-  const limitRaw = c.req.query('limit')
-  const limit = limitRaw !== undefined ? Number.parseInt(limitRaw, 10) : 100
-
-  if (!Number.isInteger(limit) || limit < 1 || limit > 1000) {
-    throw new AppError(400, 'invalid_request', 'limit must be an integer between 1 and 1000')
-  }
-  const conversation = await getReadableConversation(sessionId, userId, teamId)
-
-  if (!conversation) {
-    throw new AppError(404, 'not_found', 'Conversation not found')
-  }
-  const messages = await getConversationMessages(sessionId, conversation.userId, {
-    beforeIndex: before,
-    tail: limit,
-  })
-
-  return c.json({
-    messages: messages.map(serializeMessageDoc),
-    firstIndex: messages[0]?.index ?? 0,
   })
 })

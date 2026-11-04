@@ -1,24 +1,73 @@
 import { Popover } from '@base-ui/react/popover'
 import clsx from 'clsx'
-import { Hash, X } from 'lucide-react'
+import { X } from 'lucide-react'
 
 import { t } from '../../i18n'
+import { useAgentAppearance } from '../../lib/agentAppearance'
+import { AgentAvatar } from '../agent/AgentAvatar'
+import { Avatar } from '../Avatar'
 
+import type { ChannelFace } from '../../api'
 import type { ReactNode } from 'react'
 
-/** A channel's mark: a hash on the quiet surface. */
-export function ChannelMark({ size = 22, className }: { size?: number; className?: string }) {
+/**
+ * A chat's icon, as iMessage draws one: the one other member's face, or two
+ * overlapping, whoever spoke last in front. A chat with nobody else shows its
+ * title's initials.
+ */
+export function ChatIcon({
+  faces,
+  title,
+  size: given = 22,
+  sidebar = false,
+  className,
+}: {
+  faces?: ChannelFace[]
+  title: string
+  size?: number
+  /** The size an agent's face takes in the sidebar, which follows its density. */
+  sidebar?: boolean
+  className?: string
+}) {
+  const { density } = useAgentAppearance()
+  const size = sidebar ? (density === 'compact' ? 22 : 30) : given
+  const [front, back] = faces ?? []
+
+  if (!front) return <Avatar name={title} size={size} className={clsx('rounded-full', className)} />
+  if (!back)
+    return (
+      <span aria-hidden="true" className={clsx('inline-flex shrink-0', className)}>
+        <Face face={front} size={size} />
+      </span>
+    )
+  const small = Math.round(size * 0.72)
+
   return (
     <span
       aria-hidden="true"
-      className={clsx(
-        'inline-flex shrink-0 items-center justify-center rounded-md bg-zGray-800 text-secondary',
-        className,
-      )}
+      className={clsx('relative inline-flex shrink-0', className)}
       style={{ width: size, height: size }}
     >
-      <Hash style={{ width: size * 0.58, height: size * 0.58 }} strokeWidth={2.25} />
+      <span className="absolute left-0 top-0">
+        <Face face={back} size={small} />
+      </span>
+      <span className="absolute bottom-0 right-0 rounded-full bg-main p-px">
+        <Face face={front} size={small - 2} />
+      </span>
     </span>
+  )
+}
+
+function Face({ face, size }: { face: ChannelFace; size: number }) {
+  return face.agent ? (
+    <AgentAvatar
+      agentId={face.id}
+      avatar={face.agent.avatar}
+      provider={face.agent.provider}
+      size={size}
+    />
+  ) : (
+    <Avatar src={face.avatarURL} name={face.name} size={size} className="rounded-full" />
   )
 }
 

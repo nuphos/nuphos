@@ -60,6 +60,8 @@ data class AgentConversation(
     val runtimeLabel: String? = null,
     /** `channel` for a chat where people and agents talk; null for an agent. */
     val kind: String? = null,
+    /** A chat's icon: up to two members other than the viewer, whoever spoke last first. */
+    val faces: List<ChatFace>? = null,
 ) {
     @Transient
     val id: String get() = sessionId
@@ -91,6 +93,18 @@ data class AgentConversation(
         val origin: String,
         val linkedSlackThread: Boolean? = null,
     )
+}
+
+/** A member a chat's icon shows: a person, or an agent by its session (`ChannelFace` on desktop). */
+@Serializable
+data class ChatFace(
+    val id: String,
+    val name: String,
+    val avatarURL: String? = null,
+    val agent: Agent? = null,
+) {
+    @Serializable
+    data class Agent(val avatar: String? = null, val provider: String? = null)
 }
 
 @Serializable
@@ -133,6 +147,8 @@ data class AgentConversationDetail(
     /** `channel` for a chat; such a session never runs an agent turn of its own. */
     val kind: String? = null,
     val messageCount: Int? = null,
+    /** A chat's icon, as the list row carries it. */
+    val faces: List<ChatFace> = emptyList(),
 ) {
     val isChannel: Boolean get() = kind == "channel"
 
