@@ -5701,5 +5701,7 @@
   "Workspace created": "Espacio de trabajo creado",
   "You can connect more runtimes later in Settings › Runtimes.": "Puedes conectar más runtimes después en Configuración › Runtimes.",
   "You can manage runtimes any time in Settings › Runtimes.": "Puedes gestionar los runtimes cuando quieras en Configuración › Runtimes.",
-  "Your workspace is ready": "Tu espacio de trabajo está listo"
+  "Your workspace is ready": "Tu espacio de trabajo está listo",
+  "Continue to your workspace": "Continuar al espacio de trabajo",
+  "Workspace available": "Espacio de trabajo disponible"
 }

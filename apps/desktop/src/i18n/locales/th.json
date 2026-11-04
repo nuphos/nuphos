@@ -5701,5 +5701,7 @@
   "Workspace created": "สร้างเวิร์กสเปซแล้ว",
   "You can connect more runtimes later in Settings › Runtimes.": "คุณเชื่อมต่อรันไทม์เพิ่มเติมได้ภายหลังใน การตั้งค่า › รันไทม์",
   "You can manage runtimes any time in Settings › Runtimes.": "จัดการรันไทม์ได้ทุกเมื่อใน การตั้งค่า › รันไทม์",
-  "Your workspace is ready": "เวิร์กสเปซของคุณพร้อมแล้ว"
+  "Your workspace is ready": "เวิร์กสเปซของคุณพร้อมแล้ว",
+  "Continue to your workspace": "ไปยังเวิร์กสเปซของคุณ",
+  "Workspace available": "เวิร์กสเปซพร้อมใช้งาน"
 }

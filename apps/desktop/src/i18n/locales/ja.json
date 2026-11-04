@@ -5701,5 +5701,7 @@
   "Workspace created": "ワークスペースを作成しました",
   "You can connect more runtimes later in Settings › Runtimes.": "後から「設定 › ランタイム」でランタイムを追加できます。",
   "You can manage runtimes any time in Settings › Runtimes.": "「設定 › ランタイム」でいつでも管理できます。",
-  "Your workspace is ready": "ワークスペースの準備ができました"
+  "Your workspace is ready": "ワークスペースの準備ができました",
+  "Continue to your workspace": "ワークスペースに進む",
+  "Workspace available": "ワークスペースを利用できます"
 }

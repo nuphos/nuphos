@@ -5701,5 +5701,7 @@
   "Workspace created": "工作空间已创建",
   "You can connect more runtimes later in Settings › Runtimes.": "之后可以在“设置 › Runtimes”连接更多 runtime。",
   "You can manage runtimes any time in Settings › Runtimes.": "随时可以在“设置 › Runtimes”管理 runtime。",
-  "Your workspace is ready": "工作空间已准备好"
+  "Your workspace is ready": "工作空间已准备好",
+  "Continue to your workspace": "返回工作空间",
+  "Workspace available": "工作空间可供使用"
 }

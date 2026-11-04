@@ -9,16 +9,12 @@ export const LOCAL_SETUP_PROVIDERS = [
   'codex',
 ] as const satisfies readonly CliLoginProvider[]
 
-export const LOCAL_AGENT_INFO: Record<
-  CliLoginProvider,
-  { name: string; maker: string; installUrl: string }
-> = {
+export const LOCAL_AGENT_INFO: Record<CliLoginProvider, { name: string; installUrl: string }> = {
   'claude-code': {
     name: 'Claude Code',
-    maker: 'Anthropic',
     installUrl: 'https://code.claude.com/docs/en/setup',
   },
-  codex: { name: 'Codex', maker: 'OpenAI', installUrl: 'https://developers.openai.com/codex/cli' },
+  codex: { name: 'Codex', installUrl: 'https://developers.openai.com/codex/cli' },
 }
 
 export type LocalAgentStatus = 'checking' | 'ready' | 'signed-out' | 'missing' | 'unavailable'

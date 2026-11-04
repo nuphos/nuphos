@@ -36,14 +36,22 @@ function AgentRow({
 }
 
 /** Summarize readiness and let the user choose when to enter the workspace. */
-export function SetupComplete({ onFinish, onBack }: { onFinish: () => void; onBack: () => void }) {
+export function SetupComplete({
+  onFinish,
+  onBack,
+  workspaceCreated = false,
+}: {
+  onFinish: () => void
+  onBack: () => void
+  workspaceCreated?: boolean
+}) {
   const local = readyLocalAgents(useLocalRuntimeState())
   const empty = local.length === 0
 
   return (
     <SetupScreen
       step={3}
-      title={t('Your workspace is ready')}
+      title={workspaceCreated ? t('Your workspace is ready') : t('Continue to your workspace')}
       subtitle={
         empty
           ? t('Connect a runtime when you’re ready to start your first conversation.')
@@ -65,7 +73,9 @@ export function SetupComplete({ onFinish, onBack }: { onFinish: () => void; onBa
             <FolderOpen className="h-5 w-5" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[13.5px] font-medium text-main">{t('Workspace created')}</p>
+            <p className="text-[13.5px] font-medium text-main">
+              {workspaceCreated ? t('Workspace created') : t('Workspace available')}
+            </p>
             <p className="text-[12px] text-tertiary">
               {t('A shared place for your team’s conversations and work.')}
             </p>

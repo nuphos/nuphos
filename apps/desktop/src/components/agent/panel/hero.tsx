@@ -35,8 +35,12 @@ export function ConnectorStrip({
   onDismiss: () => void
 }) {
   return (
-    // Tuck the strip under the composer; light mode uses a distinct neutral fill.
-    <div className="relative z-0 -mt-3 flex items-center gap-3 rounded-b-xl composer-attached-strip px-4 pb-2 pt-5">
+    // Tucked 12px under the composer, so its square top shows only in the
+    // corner notches of the composer's curve. Half the composer's own fill over
+    // the page lands between the two in both themes, in their cool neutral —
+    // `bg-surface` sank below the page in dark mode, and the zGray rungs carry
+    // a violet cast that reads as red beside the composer.
+    <div className="relative z-0 -mt-3 flex items-center gap-3 rounded-b-xl bg-composer/50 px-4 pb-2 pt-5">
       <span className="min-w-0 flex-1 truncate text-[12px] text-secondary">{message}</span>
       <div className="flex flex-shrink-0 items-center gap-1">
         <BaseButton

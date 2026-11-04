@@ -8,7 +8,13 @@ import { SetupComplete } from './SetupComplete'
  * "You're all set". More runtimes are added later from Settings › Runtimes or the
  * composer's runtime picker.
  */
-export function AgentSetupFlow({ onFinish }: { onFinish: () => void }) {
+export function AgentSetupFlow({
+  onFinish,
+  workspaceCreated = false,
+}: {
+  onFinish: () => void
+  workspaceCreated?: boolean
+}) {
   const [done, setDone] = useState(false)
 
   return (
@@ -17,7 +23,11 @@ export function AgentSetupFlow({ onFinish }: { onFinish: () => void }) {
       {/* Only the top strip drags the window, so portaled dialogs keep their clicks. */}
       <div className="titlebar-drag absolute inset-x-0 top-0 h-11" aria-hidden="true" />
       {done ? (
-        <SetupComplete onFinish={onFinish} onBack={() => setDone(false)} />
+        <SetupComplete
+          workspaceCreated={workspaceCreated}
+          onFinish={onFinish}
+          onBack={() => setDone(false)}
+        />
       ) : (
         <LocalAgentsStep onContinue={() => setDone(true)} />
       )}

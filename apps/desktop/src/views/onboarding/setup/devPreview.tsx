@@ -25,5 +25,5 @@ export function showRuntimeSetupPreview() {
     container.remove()
     closePreview = undefined
   }
-  root.render(<AgentSetupFlow onFinish={() => closePreview?.()} />)
+  root.render(<AgentSetupFlow workspaceCreated onFinish={() => closePreview?.()} />)
 }

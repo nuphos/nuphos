@@ -5701,5 +5701,7 @@
   "Workspace created": "Ruang kerja dibuat",
   "You can connect more runtimes later in Settings › Runtimes.": "Anda dapat menghubungkan runtime lainnya nanti di Pengaturan › Runtime.",
   "You can manage runtimes any time in Settings › Runtimes.": "Anda dapat mengelola runtime kapan saja di Pengaturan › Runtime.",
-  "Your workspace is ready": "Ruang kerja Anda sudah siap"
+  "Your workspace is ready": "Ruang kerja Anda sudah siap",
+  "Continue to your workspace": "Lanjut ke ruang kerja Anda",
+  "Workspace available": "Ruang kerja tersedia"
 }

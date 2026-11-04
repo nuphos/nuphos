@@ -462,14 +462,6 @@
     color: #000;
   }
 
-  .composer-attached-strip {
-    background-color: rgb(var(--color-composer-surface) / 0.5);
-  }
-
-  html.light .composer-attached-strip {
-    background-color: rgb(244, 244, 246);
-  }
-
   .composer-surface {
     box-shadow:
       inset 0 1px 0 var(--surface-inner-highlight),
