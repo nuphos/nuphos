@@ -196,6 +196,8 @@ export function handleDeepLink(url: string) {
     // team id must not send as an account the user was not using.
     void openInTeamAccount(payload.teamId ?? null, (switched) => {
       queueDeepLink('deep-link:agent-chat', switched ? { ...payload, autoSend: false } : payload)
+
+      return delivery.drained()
     })
 
     return
@@ -212,6 +214,8 @@ export function handleDeepLink(url: string) {
     })
     void openInTeamAccount(teamOfPath(payload.path), () => {
       queueDeepLink('deep-link:app-open', payload)
+
+      return delivery.drained()
     })
 
     return
@@ -238,9 +242,14 @@ export function handleDeepLink(url: string) {
   }
 }
 
-/** Opens a Nuphos page in the workspace, as a `nuphos://open` link would. */
-export function openAppPath(path: string): void {
+/**
+ * Opens a Nuphos page in the workspace, as a `nuphos://open` link would;
+ * resolves once the workspace has it.
+ */
+export function openAppPath(path: string): Promise<void> {
   const payload = appOpenDeepLink.parseAppOpenUrl(`nuphos://open?path=${encodeURIComponent(path)}`)
 
   if (payload) queueDeepLink('deep-link:app-open', payload)
+
+  return delivery.drained()
 }

@@ -14,6 +14,13 @@ const RELOAD_WAIT_MS = 10_000
 // Per backend, asked in parallel: lookup and reload stay well inside the 35 s
 // a `local_browser` open waits for its tab (local-runtime/browser-tabs.ts).
 const LOOKUP_MS = 5_000
+// After a switch, how long the turn waits for its link to reach the workspace.
+const DELIVERY_WAIT_MS = 15_000
+
+/** Holds the turn until a link queued after a switch is in that account's workspace. */
+async function delivered(queued: void | Promise<unknown>): Promise<void> {
+  await Promise.race([queued, new Promise((resolve) => setTimeout(resolve, DELIVERY_WAIT_MS))])
+}
 
 async function teamIds(api: string, token: string): Promise<string[]> {
   const res = await fetch(`${api}/teams`, {
@@ -21,7 +28,8 @@ async function teamIds(api: string, token: string): Promise<string[]> {
     signal: AbortSignal.timeout(LOOKUP_MS),
   })
 
-  if (!res.ok) return []
+  // A failure is not an answer: the account in use keeps the link (accountForTeam).
+  if (!res.ok) throw new Error(`/teams answered ${String(res.status)}`)
   const body = (await res.json()) as { teams?: { id: string }[] }
 
   return (body.teams ?? []).map((team) => team.id)
@@ -72,12 +80,13 @@ function switching() {
  */
 export function openInTeamAccount(
   teamId: string | null,
-  open: (switched: boolean) => void,
+  open: (switched: boolean) => void | Promise<unknown>,
 ): Promise<void> {
   return inTurn(async () => {
     let switched = false
 
-    if (teamId && (await requestContext()).token) {
+    // Also with no account in use: a waiting account in the team still takes it.
+    if (teamId) {
       const key = await accountForTeam(teamId, {
         activeTeams,
         accounts: listAccounts,
@@ -86,7 +95,10 @@ export function openInTeamAccount(
 
       if (key) switched = await switchThenWait(key, switching())
     }
-    open(switched)
+    const queued = open(switched)
+
+    // The next switch must not reach the workspace before this link has.
+    if (switched) await delivered(queued)
   })
 }
 
@@ -94,11 +106,15 @@ export function openInTeamAccount(
  * Opens what a notification points at as the account it was raised for,
  * switching back to it first. Nothing opens for an account since signed out.
  */
-export function openAsAccount(owner: string, open: () => void): Promise<void> {
+export function openAsAccount(owner: string, open: () => void | Promise<unknown>): Promise<void> {
   return inTurn(async () => {
-    if (accountOf(authSession.context()) === owner) return open()
+    if (accountOf(authSession.context()) === owner) {
+      void open()
+
+      return
+    }
     const signedIn = (await listAccounts().catch(() => [])).some((a) => a.key === owner)
 
-    if (signedIn && (await switchThenWait(owner, switching()))) open()
+    if (signedIn && (await switchThenWait(owner, switching()))) await delivered(open())
   })
 }
