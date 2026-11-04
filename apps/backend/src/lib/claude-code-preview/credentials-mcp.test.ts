@@ -25,6 +25,19 @@ useCredentialListing({
 
 const agent = { userId: 'user-1', sessionId: 'conv-1' }
 
+async function sessionEnvWith(entries: ClaudeCodeCredentialEntry[]) {
+  listing.entries = entries
+  try {
+    return (
+      await previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', {
+        backendUrl: 'https://backend.example',
+      })
+    ).runtimeEnv
+  } finally {
+    listing.entries = []
+  }
+}
+
 const awsEntry: ClaudeCodeCredentialEntry = {
   provider: 'aws',
   id: 'role-1',
@@ -58,31 +71,25 @@ describe('credentialsMcpTools', () => {
   })
 
   test('clears runtime credential env only for the selected connectors’ providers', async () => {
-    const env = async (entries: ClaudeCodeCredentialEntry[]) => {
-      listing.entries = entries
-      try {
-        return (
-          await previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', {
-            backendUrl: 'https://backend.example',
-          })
-        ).runtimeEnv
-      } finally {
-        listing.entries = []
-      }
-    }
     const github = { provider: 'github', id: '1', label: 'org' }
 
-    const none = await env([])
+    const none = await sessionEnvWith([])
+
     for (const key of ['AWS_ACCESS_KEY_ID', 'AWS_PROFILE', 'GH_TOKEN', 'GITHUB_TOKEN'])
       expect(none).not.toHaveProperty(key)
-    const aws = await env([awsEntry])
+
+    const aws = await sessionEnvWith([awsEntry])
+
     expect(aws).toMatchObject({
       AWS_ACCESS_KEY_ID: '',
       AWS_SESSION_TOKEN: '',
       AWS_PROFILE: 'default',
     })
     expect(aws).not.toHaveProperty('GH_TOKEN')
-    expect(await env([awsEntry, github])).toMatchObject({ GH_TOKEN: '', GITHUB_TOKEN: '' })
+    expect(await sessionEnvWith([awsEntry, github])).toMatchObject({
+      GH_TOKEN: '',
+      GITHUB_TOKEN: '',
+    })
   })
 
   test('names the actor only when a teammate acts in someone else’s conversation', async () => {

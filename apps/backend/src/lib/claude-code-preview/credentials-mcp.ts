@@ -89,7 +89,9 @@ const CONNECTOR_ENV: Record<string, Record<string, string>> = {
 }
 
 function connectorEnv(providers: string[]): Record<string, string> {
-  return Object.assign({}, ...providers.map((provider) => CONNECTOR_ENV[provider]))
+  return Object.fromEntries(
+    providers.flatMap((provider) => Object.entries(CONNECTOR_ENV[provider] ?? {})),
+  )
 }
 
 export async function previewMcpServers(
