@@ -121,6 +121,7 @@ fn save_device_session(body: &Value) -> Result<Session> {
         keychain_account: None,
         from_env: false,
         cli_token: body.get("cliToken").cloned(),
+        ..Session::default()
     };
     config::write_session(&session)?;
     Ok(session)
@@ -158,8 +159,8 @@ pub async fn with_token(api_url: &str, token: &str) -> Result<Session> {
         username: me["username"].as_str().map(String::from),
         cli_token: me.get("cliToken").cloned(),
         user_info: Some(me),
-        keychain_account: None,
-        from_env: false,
+        api: Some(api_url.trim_end_matches('/').to_string()),
+        ..Session::default()
     };
     config::write_session(&session)?;
     Ok(session)
@@ -188,9 +189,8 @@ async fn from_desktop(api_url: &str) -> Option<Session> {
         user: me["name"].as_str().map(String::from),
         username: me["username"].as_str().map(String::from),
         user_info: Some(me),
-        keychain_account: None,
-        from_env: false,
-        cli_token: None,
+        api: Some(api_url.trim_end_matches('/').to_string()),
+        ..Session::default()
     };
     match config::write_session(&session) {
         Ok(()) => Some(session),
@@ -288,9 +288,7 @@ async fn browser(api_url: &str) -> Result<Session> {
             user: user["name"].as_str().map(String::from),
             username: user["username"].as_str().map(String::from),
             user_info: Some(user),
-            keychain_account: None,
-            from_env: false,
-            cli_token: None,
+            ..Session::default()
         };
         config::write_session(&session)?;
         respond(&mut browser, 200, "Signed in to Nuphos. You can close this tab and return to the terminal.").await;
