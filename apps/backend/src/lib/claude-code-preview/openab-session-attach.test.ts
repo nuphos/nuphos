@@ -1,6 +1,7 @@
 import { beforeEach, expect, test } from 'bun:test'
 
 import { attachOpenAbSession } from './openab-session-attach'
+import { localRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 
 import type { OpenAbSessionRuntime } from './openab-acp-session'
 import type { RuntimeDefaults } from './openab-acp-session'
@@ -120,4 +121,43 @@ test('failed placement reads cannot start a fresh session', async () => {
   readsFail = true
   await expect(attach()).rejects.toThrow('Database unavailable')
   expect(calls).toEqual([])
+})
+
+test('a teammate’s turn on the owner’s computer resumes the same session', async () => {
+  const ref = { userId: 'owner', deviceId: 'mac', provider: 'claude-code' } as const
+  const owners = { ...endpoint, url: localRuntimeUrl(ref, 'team') }
+  const teammates = { ...endpoint, url: localRuntimeUrl(ref, 'team', 'teammate') }
+
+  attachment = { openabSessionId: 'existing', runtimeUrl: owners.url }
+  const attached = await attachOpenAbSession(
+    client(),
+    'team',
+    'conversation',
+    teammates,
+    [],
+    undefined,
+    undefined,
+  )
+
+  expect(attached.openabSessionId).toBe('existing')
+  expect(calls.map((call) => call.method)).toEqual(['resume'])
+  // Another computer is still another runtime.
+  const elsewhere = {
+    ...endpoint,
+    url: localRuntimeUrl({ ...ref, deviceId: 'pc' }, 'team', 'teammate'),
+  }
+
+  expect(
+    (
+      await attachOpenAbSession(
+        client(),
+        'team',
+        'conversation',
+        elsewhere,
+        [],
+        undefined,
+        undefined,
+      )
+    ).fresh,
+  ).toBe(true)
 })

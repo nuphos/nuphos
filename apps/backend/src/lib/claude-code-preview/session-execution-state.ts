@@ -1,4 +1,5 @@
 import { liveAttachment } from '@/lib/agent/db/shared'
+import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { attributionHeader } from '@/lib/agent/message-metadata'
 import { AppError } from '@/lib/errors'
@@ -126,7 +127,7 @@ export async function cancelConversationRuntime(conversation: AgentConversation)
     purpose: 'control',
   })
 
-  if (!endpoint || endpoint.url !== attachment.runtimeUrl)
+  if (!endpoint || !sameRuntimeUrl(endpoint.url, attachment.runtimeUrl))
     throw new Error('Conversation runtime changed')
   const client = await OpenAbAcpClient.connect({
     ...(await reachableRuntimeEndpoint(endpoint)),
@@ -172,7 +173,7 @@ export async function placeOnConversationRuntime(
     userId,
   })
 
-  if (!endpoint || endpoint.url !== attachment.runtimeUrl)
+  if (!endpoint || !sameRuntimeUrl(endpoint.url, attachment.runtimeUrl))
     throw new AppError(409, 'runtime_unavailable', 'Conversation runtime changed')
   const placed = await materializeRuntimeAttachments(
     conversation.teamId,
@@ -237,7 +238,7 @@ export async function steerConversationRuntime(
     userId: steer.userId,
   })
 
-  if (!endpoint || endpoint.url !== attachment.runtimeUrl)
+  if (!endpoint || !sameRuntimeUrl(endpoint.url, attachment.runtimeUrl))
     throw new Error('Conversation runtime changed')
   // Same delivery as a normal turn: files land on the runtime as local paths.
   const files = steer.groupId

@@ -1,4 +1,5 @@
 import { getConversationPreviewAttachment } from '@/lib/agent/db'
+import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { RunHandoff } from '@/lib/lifecycle'
 
 import { registry } from './agent-chat-registry'
@@ -107,7 +108,7 @@ export async function runClaudeCodePreviewPrompt(args: {
   await assertRuntimeNotDeleting(args.teamId, args.endpoint.runtimeId, args.endpoint.url)
   const currentAttachment = await getConversationPreviewAttachment(args.conversationId, args.teamId)
 
-  if (currentAttachment && currentAttachment.runtimeUrl !== args.endpoint.url)
+  if (currentAttachment && !sameRuntimeUrl(currentAttachment.runtimeUrl, args.endpoint.url))
     throw new Error('Conversation runtime changed. Retry this message.')
   let fresh = false
   const session = await openConversationSession(

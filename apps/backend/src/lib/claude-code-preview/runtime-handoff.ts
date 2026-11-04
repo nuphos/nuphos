@@ -1,5 +1,6 @@
 import { getConversationBySessionId } from '@/lib/agent/db'
 import { liveAttachment } from '@/lib/agent/db/shared'
+import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import {
   getActiveAgentRunForSession,
   sweepAbandonedAgentRuns,
@@ -176,7 +177,11 @@ export async function adoptRuntimeHandoff(handoff: RuntimeHandoff): Promise<void
   })
 
   if (!endpoint) throw new Error('The handed-off conversation has no runtime to resume on')
-  if (handoff.abandonedStreamId && liveAttachment(conversation)?.runtimeUrl !== endpoint.url) return
+  if (
+    handoff.abandonedStreamId &&
+    !sameRuntimeUrl(liveAttachment(conversation)?.runtimeUrl, endpoint.url)
+  )
+    return
   const access = await previewSessionAccess(
     handoff.conversationId,
     handoff.teamId,
