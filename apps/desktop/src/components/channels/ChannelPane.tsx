@@ -17,7 +17,7 @@ import { sendingPost, stillSending } from './sendingPosts'
 import { useChannel } from './useChannel'
 import { useStickToBottom } from './useStickToBottom'
 
-import type { AgentPersistedMessage } from '../../api'
+import type { AgentMessageMention, AgentPersistedMessage } from '../../api'
 import type { UserInfo } from '../../types'
 import type { AgentPromptSeed } from '../agent/panel/model'
 import type { ReactNode } from 'react'
@@ -68,7 +68,7 @@ export function ChannelPane({
   // Open at the latest post, and follow new ones and the typing bubble.
   const stickToBottom = useStickToBottom(scrollRef)
 
-  const send = async (text: string, filePaths: string[]) => {
+  const send = async (text: string, filePaths: string[], mentions?: AgentMessageMention[]) => {
     if (!text.trim() && filePaths.length === 0) return
     const key = [text, ...filePaths].join('\n')
     const id = unsent.current?.key === key ? unsent.current.id : crypto.randomUUID()
@@ -77,11 +77,21 @@ export function ChannelPane({
 
     unsent.current = { key, id }
     stickToBottom()
-    setSending((posts) => [...posts, sendingPost(id, text, user, files?.optimisticPart())])
+    setSending((posts) => [
+      ...posts,
+      sendingPost(id, text, user, files?.optimisticPart(), mentions),
+    ])
     try {
       const upload = files ? (await files.runUpload(undefined)).groupId : undefined
 
-      await api.agentPostChannelMessage(channelId, teamId, text, id, upload)
+      await api.agentPostChannelMessage(
+        channelId,
+        teamId,
+        text,
+        id,
+        upload,
+        mentions?.map((mention) => mention.id),
+      )
     } catch (error) {
       setSending((posts) => posts.filter((post) => post.id !== id))
       toast.apiError(t('Could not send the message'), error)
@@ -158,7 +168,7 @@ export function ChannelPane({
       </div>
       <div className="mx-auto w-full max-w-[760px] px-3 pb-3">
         <Composer
-          onSend={(text, filePaths) => void send(text, filePaths)}
+          onSend={(text, filePaths, mentions) => void send(text, filePaths, mentions)}
           onStop={() => {}}
           readOnly={detail?.readOnly === true}
           pendingSeed={restore}

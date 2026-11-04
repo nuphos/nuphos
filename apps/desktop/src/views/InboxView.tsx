@@ -79,7 +79,7 @@ export function InboxView({
     setSelected(null)
   }
   const shareApprovals = useShareApprovals(teamId)
-  const mentions = useChannelMentions(teamId)
+  const mentions = useChannelMentions(teamId) ?? []
   const railRef = useRef<HTMLDivElement>(null)
   const readerRef = useRef<HTMLDivElement>(null)
 

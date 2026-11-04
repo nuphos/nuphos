@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import { getTeamMembers, getTeamMembership } from '@/lib/identity'
+import { getTeamMembership } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 
 import { agentMessages, appendConversationMessages, getConversationBySessionId } from './db'
@@ -9,6 +9,7 @@ import { isChannel } from './db/channels'
 import { bumpConversationActivity } from './db/read-state'
 import { pushTimelineEvent } from './db/participants'
 import { agentConversations } from './db/shared'
+import { noteMentions } from './mentions'
 import { listPendingUserMessages } from './pending-queue'
 
 import type { AgentConversation } from './db'
@@ -85,33 +86,6 @@ export async function wakeAfterTurn(agentSessionId: string): Promise<void> {
     if (channel?.teamId && isChannel(channel))
       await wakeChannelAgents({ ...channel, teamId: channel.teamId }, agentSessionId)
   }
-}
-
-/**
- * Who this post @mentions, among the channel's people, by the `@Name` the
- * composer and agents write. Each keeps an Inbox entry until they post here.
- */
-async function noteMentions(channel: AgentConversation & { teamId: string }, post: Post) {
-  const author = post.metadata.sender.type === 'user' ? post.metadata.sender.id : undefined
-  const people = new Set([channel.userId, ...(channel.participantIds ?? [])])
-  const mentioned = post.text.includes('@')
-    ? (await getTeamMembers(channel.teamId)).filter(
-        (member) =>
-          people.has(member.id) && member.id !== author && post.text.includes(`@${member.name}`),
-      )
-    : []
-  const set = Object.fromEntries(
-    mentioned.map((member) => [`mentions.${member.id}`, { messageId: post.id, at: new Date() }]),
-  )
-
-  if (mentioned.length === 0 && !author) return
-  await agentConversations().updateOne(
-    { sessionId: channel.sessionId },
-    {
-      ...(mentioned.length > 0 ? { $set: set } : {}),
-      ...(author ? { $unset: { [`mentions.${author}`]: '' } } : {}),
-    },
-  )
 }
 
 async function wakeChannelAgents(

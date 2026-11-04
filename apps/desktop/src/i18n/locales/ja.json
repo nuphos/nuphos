@@ -5631,7 +5631,6 @@
   "Could not copy chat ID": "チャット ID をコピーできませんでした",
   "Could not create the chat": "チャットを作成できませんでした",
   "Create chat": "チャットを作成",
-  "Mentions in chats": "チャットでのメンション",
   "Pick one agent and no name for a chat with just that agent.": "エージェントを1つ選び名前を空にすると、そのエージェントだけのチャットになります。",
   "Rename chat": "チャット名を変更",
   "Add to chat": "チャットに追加",
@@ -5686,5 +5685,9 @@
   "Find, read and save your own files.": "自分のファイルを検索、閲覧、保存します。",
   "Open Team settings": "チーム設定を開く",
   "Team connector": "チームのコネクタ",
-  "Your personal account": "あなたの個人アカウント"
+  "Your personal account": "あなたの個人アカウント",
+  "Mentions": "メンション",
+  "mentioned you in {title}": "が {title} であなたをメンションしました",
+  "{name} mentioned you in {title}": "{name} が {title} であなたをメンションしました",
+  "No longer in this team": "このチームにはもう所属していません"
 }

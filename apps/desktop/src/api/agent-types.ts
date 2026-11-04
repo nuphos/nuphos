@@ -42,9 +42,11 @@ export type ConversationAccessState = {
   participants: AgentConversationParticipant[]
 }
 
-/** A post that @mentions the viewer in a channel they have not posted in since. */
+/** A message that @mentions the viewer in a channel or shared agent they have not posted in since. */
 export type ChannelMention = {
+  /** The conversation: a channel, or an agent shared with the viewer. */
   channelId: string
+  kind?: 'channel' | 'agent'
   title: string
   messageId: string
   at: string
@@ -227,7 +229,11 @@ export type AgentMessageMetadata = {
   replyTo?: { authorName: string; text: string }
   /** A Discord author with no verified Nuphos identity; the name is theirs to choose. */
   unattested?: true
+  /** Teammates it @mentions, as the server resolved them. */
+  mentions?: AgentMessageMention[]
 }
+
+export type AgentMessageMention = { id: string; displayName: string }
 
 export type AgentPersistedMessage = {
   metadata?: AgentMessageMetadata

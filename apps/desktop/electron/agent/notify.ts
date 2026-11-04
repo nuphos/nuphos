@@ -31,6 +31,23 @@ function retainNotification(n: Notification): () => void {
   return () => liveNotifications.delete(n)
 }
 
+// Every window's sidebar polls the same mentions, so each is announced once here.
+const announcedMentions = new Set<string>()
+
+/** Someone @mentioned this person; clicking opens where they said it. */
+export function notifyMention(args: {
+  messageId: string
+  title: string
+  body: string
+  sessionId: string
+  teamId?: string
+  parentWindow?: BrowserWindow | null
+}): void {
+  if (announcedMentions.has(args.messageId)) return
+  announcedMentions.add(args.messageId)
+  notifyAgentStopped(args)
+}
+
 // Fired by the renderer, not from the stream: a stream ending is not the turn
 // stopping (step-cap pauses and client-tool handoffs both close one and continue
 // with a fresh streamId), and only the renderer's end handler knows which it is.

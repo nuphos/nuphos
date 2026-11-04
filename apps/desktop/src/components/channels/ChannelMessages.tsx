@@ -7,6 +7,8 @@ import { trustedAvatarURL } from '../../lib/avatarUrl'
 import { AgentAvatar } from '../agent/AgentAvatar'
 import { MessageResponse } from '../agent/MessageResponse'
 import { useAgentLinks } from '../agent/panel/useAgentLinks'
+import { renderMemberMentionLink } from '../agent/panel/messageInlineLinks'
+import { linkMentions } from '../agent/panel/messageMentionText'
 import { parseMessageMetadata } from '../agent/panel/messageMetadata'
 import { formatMessageTimestamp } from '../agent/panel/streamText'
 import { Avatar } from '../Avatar'
@@ -87,10 +89,12 @@ function ChannelMessage({
     <MessageResponse
       teamId={teamId}
       className="[&_p]:whitespace-pre-wrap"
-      renderLink={links.renderLink}
+      renderLink={(href, children) =>
+        renderMemberMentionLink(href, children, teamId) ?? links.renderLink(href, children)
+      }
       onLinkClick={links.onLinkClick}
     >
-      {text}
+      {linkMentions(text, metadata.mentions)}
     </MessageResponse>
   )
 

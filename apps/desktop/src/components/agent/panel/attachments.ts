@@ -7,6 +7,7 @@ import { fileNameFromPath } from './textUtils.ts'
 
 import type { Message } from './model'
 import type { TransferUploadPart } from './parts'
+import type { AgentMessageMention } from '../../../api/agent-types'
 import type { UserInfo } from '../../../types'
 
 // Build the optimistic-upload turn helpers. Shared by the active-tab
@@ -26,14 +27,24 @@ export function makeAttachmentTurn(
   text: string,
   filePaths: string[],
   teamId: string,
-  { turnKind, currentUser }: { turnKind?: Message['turnKind']; currentUser?: UserInfo | null } = {},
+  {
+    turnKind,
+    currentUser,
+    mentions,
+  }: {
+    turnKind?: Message['turnKind']
+    currentUser?: UserInfo | null
+    /** The composer's mention chips: the server resolves them, this shows them meanwhile. */
+    mentions?: AgentMessageMention[]
+  } = {},
 ) {
   const trimmed = text.trim()
   const messageId = uid()
 
   markMessageSent(messageId)
   const createdAt = Date.now()
-  const metadata = optimisticSenderMetadata(currentUser, createdAt)
+  const sender = optimisticSenderMetadata(currentUser, createdAt)
+  const metadata = sender && mentions?.length ? { ...sender, mentions } : sender
   const optimisticPart = (): TransferUploadPart => ({
     type: 'transfer-upload',
     groupId: '',

@@ -5631,7 +5631,6 @@
   "Could not copy chat ID": "Tidak dapat menyalin ID obrolan",
   "Could not create the chat": "Tidak dapat membuat obrolan",
   "Create chat": "Buat obrolan",
-  "Mentions in chats": "Sebutan di obrolan",
   "Pick one agent and no name for a chat with just that agent.": "Pilih satu agen dan kosongkan nama untuk obrolan hanya dengan agen itu.",
   "Rename chat": "Ganti nama obrolan",
   "Add to chat": "Tambahkan ke obrolan",
@@ -5686,5 +5685,9 @@
   "Find, read and save your own files.": "Cari, baca, dan simpan file Anda sendiri.",
   "Open Team settings": "Buka pengaturan tim",
   "Team connector": "Konektor tim",
-  "Your personal account": "Akun pribadi Anda"
+  "Your personal account": "Akun pribadi Anda",
+  "Mentions": "Sebutan",
+  "mentioned you in {title}": "menyebut Anda di {title}",
+  "{name} mentioned you in {title}": "{name} menyebut Anda di {title}",
+  "No longer in this team": "Tidak lagi di tim ini"
 }

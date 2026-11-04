@@ -18,6 +18,7 @@ import {
 import { addConversationParticipants } from '@/lib/agent/db/participants'
 import { channelUploadPart, resolveChannelFiles } from '@/lib/agent/channel-attachments'
 import { postChannelMessage } from '@/lib/agent/channel-chat'
+import { resolveMentions } from '@/lib/agent/mentions'
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { AppError } from '@/lib/errors'
 
@@ -180,12 +181,16 @@ channelRoutes.post('/conversations/:sessionId/channel-messages', async (c) => {
       : requireText(body.text, 'text', MAX_MESSAGE_LENGTH)
   // A client id makes a resend the same message; the transcript skips ids it has.
   const id = typeof body.id === 'string' && body.id.length <= 100 ? body.id : randomUUID()
-  const metadata = await createMessageMetadata(
-    userId,
-    'nuphos',
-    c.req.header('X-Nuphos-Device-Id')?.trim() || undefined,
-  )
+  const [metadata, mentions] = await Promise.all([
+    createMessageMetadata(
+      userId,
+      'nuphos',
+      c.req.header('X-Nuphos-Device-Id')?.trim() || undefined,
+    ),
+    resolveMentions(teamId, body.mentions, userId),
+  ])
 
+  if (mentions.length > 0) metadata.mentions = mentions
   await postChannelMessage(channel, { id, text, metadata, files: upload ? [upload] : [] })
   // Speaking in a channel is joining it, as it is anywhere else.
   if (userId !== channel.userId) await addConversationParticipants(channel.sessionId, [userId])

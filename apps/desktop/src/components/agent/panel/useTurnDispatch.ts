@@ -20,6 +20,7 @@ import { useSteering } from './useSteering'
 import type { PanelCtx } from './ctx'
 import type { Message } from './model'
 import type { TransferUploadPart } from './parts'
+import type { AgentMessageMention } from '../../../api/agent-types'
 
 type Acc = Pick<
   PanelCtx,
@@ -160,6 +161,7 @@ export function useTurnDispatch(acc: Acc) {
       filePaths: string[],
       turnKind?: Message['turnKind'],
       questionId?: string,
+      mentions?: AgentMessageMention[],
     ) =>
       runDispatchTurn(
         {
@@ -180,6 +182,7 @@ export function useTurnDispatch(acc: Acc) {
         text,
         filePaths,
         turnKind,
+        mentions,
       ),
     [
       currentUser,
@@ -211,6 +214,7 @@ export function useTurnDispatch(acc: Acc) {
       filePaths: string[] = [],
       turnKind?: Message['turnKind'],
       questionId?: string,
+      mentions?: AgentMessageMention[],
     ) => {
       const trimmed = text.trim()
 
@@ -229,7 +233,7 @@ export function useTurnDispatch(acc: Acc) {
           text,
           filePaths,
           teamId!,
-          { turnKind, currentUser },
+          { turnKind, currentUser, mentions },
         )
 
         startChatWith(
@@ -263,7 +267,7 @@ export function useTurnDispatch(acc: Acc) {
 
         return
       }
-      void dispatchTurn(activeId, trimmed, filePaths, turnKind, route.decisionReplyTo)
+      void dispatchTurn(activeId, trimmed, filePaths, turnKind, route.decisionReplyTo, mentions)
     },
     [activeId, startChatWith, dispatchTurn, sendSteering, teamId, currentUser],
   )

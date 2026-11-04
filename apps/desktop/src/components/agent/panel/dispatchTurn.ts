@@ -19,6 +19,7 @@ import { toPersistedMessages, toUiMessages } from './toUiMessages.ts'
 import type { PanelCtx } from './ctx'
 import type { Message } from './model'
 import type { TransferUploadPart } from './parts'
+import type { AgentMessageMention } from '../../../api/agent-types'
 
 // Each tab's latest fork history import, which a message sent meanwhile waits for.
 const forkImports = new Map<string, Promise<void>>()
@@ -45,6 +46,7 @@ export async function runDispatchTurn(
   text: string,
   filePaths: string[],
   turnKind?: Message['turnKind'],
+  mentions?: AgentMessageMention[],
 ) {
   const {
     currentUser,
@@ -79,7 +81,7 @@ export async function runDispatchTurn(
     text,
     filePaths,
     teamId!,
-    { turnKind, currentUser },
+    { turnKind, currentUser, mentions },
   )
   const baseMessages =
     tab.runtimeState?.schemaVersion === 2

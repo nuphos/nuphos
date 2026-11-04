@@ -11,11 +11,19 @@ export type WindowChannelsApi = {
     agentSessionId: string,
   ): Promise<{ agents: ChannelAgent[] }>
   agentRemoveChannelAgent(channelId: string, teamId: string, agentSessionId: string): Promise<void>
+  agentNotifyMention(args: {
+    messageId: string
+    title: string
+    body: string
+    sessionId: string
+    teamId?: string
+  }): Promise<void>
   agentPostChannelMessage(
     channelId: string,
     teamId: string,
     text: string,
     id: string,
     upload?: string,
+    mentions?: string[],
   ): Promise<{ id: string }>
 }

@@ -16,6 +16,7 @@ import {
   postChannelMessage,
   wakeAfterTurn,
 } from './channel-chat'
+import { resolveMentions } from './mentions'
 import { renderAttributedMessage } from './message-metadata'
 import { clearPendingUserMessages, enqueuePendingUserMessage } from './pending-messages'
 import { listPendingUserMessages } from './pending-queue'
@@ -63,10 +64,14 @@ useIdentity({
     departed.has(userId) ? null : ({ role: 'MEMBER' } as never),
   signNuphosToken: () => 'test-token',
   getTeamMembers: async () =>
-    ['owner', 'agent-a-owner', 'mei'].map((id) => ({
-      id,
-      name: id === 'mei' ? 'Mei Chen' : id,
-    })) as never,
+    [
+      ...['owner', 'agent-a-owner', 'mei'].map((id) => ({
+        id,
+        name: id === 'mei' ? 'Mei Chen' : id,
+      })),
+      // No display name: the composer's chip shows the email instead.
+      { id: 'lin', name: '', email: 'lin@example.com' },
+    ] as never,
 })
 
 // Agents whose turn is running, by session, with who runs it.
@@ -631,6 +636,30 @@ describe('the loop guard and mentions', () => {
     })
     expect((await channel()).mentions?.mei).toBeUndefined()
     expect(await listChannelMentions(TEAM, 'mei')).toEqual([])
+  })
+
+  test('a mention chip reaches a member who has no display name', async () => {
+    await agentConversations().updateOne(
+      { sessionId: 'channel' },
+      { $set: { participantIds: ['lin'] } },
+    )
+    const mentions = await resolveMentions(TEAM, ['lin', 'stranger', 'owner'], 'owner')
+
+    // Only team members, never the author, named by the server.
+    expect(mentions).toEqual([{ id: 'lin', displayName: 'lin@example.com' }])
+    await say('@lin@example.com Hi', { ...person, mentions })
+    expect(await listChannelMentions(TEAM, 'lin')).toMatchObject([
+      { channelId: 'channel', kind: 'channel', messageId: 'm1' },
+    ])
+  })
+
+  test('an agent mentioning a member by email reaches them', async () => {
+    await agentConversations().updateOne(
+      { sessionId: 'channel' },
+      { $set: { participantIds: ['lin'] } },
+    )
+    await say('@lin@example.com the canary is green', agentSpeaker('agent-a'), 'agent-a')
+    expect((await channel()).mentions?.lin?.messageId).toBe('m1')
   })
 })
 

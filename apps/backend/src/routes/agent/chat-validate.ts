@@ -113,6 +113,7 @@ export async function acceptClientTail(
   actorId = runOwnerUserId,
   deviceId?: string,
   cliToken?: CliTokenPrincipal,
+  teamId?: string,
 ): Promise<UIMessage[]> {
   const baseIndex = body.baseIndex ?? 0
   const messages = body.messages
@@ -134,6 +135,7 @@ export async function acceptClientTail(
     Boolean(body.resume || body.continueAfterInterruption),
     deviceId,
     cliToken,
+    teamId,
   )
 
   return messages

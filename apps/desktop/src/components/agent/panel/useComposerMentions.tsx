@@ -7,12 +7,12 @@ import { ComputerUseConfirm } from '../ComputerUseConfirm'
 import { needsComputerUse } from '../computerUse'
 
 import { matchDevices, matchMembers, mentionQuery } from './composerMention'
-import { MENTION_ATTR, optionChip } from './composerMentionChips'
+import { mentionedMembers, optionChip } from './composerMentionChips'
 import { MentionPicker } from './composerMentionOptions'
 import { announceTimelineChange } from './timelineEvents'
 
 import type { ComputerUseRequest } from '../computerUse'
-import type { MentionOption } from './composerMentionChips'
+import type { ComposerSend, MentionOption } from './composerMentionChips'
 import type { CredentialSelectorControl } from './credentialSections'
 import type { AgentConversation } from '../../../api/agent-types'
 import type { TeamMember } from '../../../types'
@@ -26,12 +26,6 @@ function caretText(el: HTMLElement): { node: Text; offset: number } | null {
   if (!sel?.isCollapsed || node?.nodeType !== Node.TEXT_NODE || !el.contains(node)) return null
 
   return { node: node as Text, offset: sel.anchorOffset }
-}
-
-function mentionedUserIds(el: HTMLElement | null): string[] {
-  const chips = el?.querySelectorAll<HTMLElement>(`[${MENTION_ATTR}]`) ?? []
-
-  return Array.from(new Set(Array.from(chips, (chip) => chip.dataset.mentionUserId ?? '')))
 }
 
 /**
@@ -205,11 +199,12 @@ export function useComposerMentions(
   }
 
   /** Read the mentions before the composer clears; ask about them once sent. */
-  function wrapSend(send: (text: string, filePaths: string[]) => void) {
-    return (text: string, filePaths: string[]) => {
-      const ids = mentionedUserIds(editorRef.current)
+  function wrapSend(send: ComposerSend): ComposerSend {
+    return (text, filePaths) => {
+      const mentions = mentionedMembers(editorRef.current)
+      const ids = mentions.map((mention) => mention.id)
 
-      send(text, filePaths)
+      send(text, filePaths, mentions)
       setQuery(null)
       // A brand-new conversation may not exist server-side yet; then there is
       // simply no one to offer.

@@ -27,13 +27,28 @@ export type MessageMetadata = {
   unattested?: true
   /** The stored CLI or agent token that sent it, for audit. */
   cliTokenId?: string
+  /** Team members it @mentions, resolved by the server from the composer's chips. */
+  mentions?: MessageMention[]
 }
+
+export type MessageMention = { id: string; displayName: string }
 
 const SOURCES = ['nuphos', 'slack', 'discord', 'lark', 'agent.thread', 'agent.resource'] as const
 
 export type MessageDevice = { label: string; platform: string }
 
 const nonEmpty = (value: unknown): value is string => typeof value === 'string' && value !== ''
+
+function parseMentions(value: unknown): MessageMention[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const mentions = value.flatMap((item: Partial<MessageMention> | null) =>
+    item && nonEmpty(item.id) && nonEmpty(item.displayName)
+      ? [{ id: item.id, displayName: item.displayName }]
+      : [],
+  )
+
+  return mentions.length > 0 ? mentions : undefined
+}
 
 function parseDevice(value: unknown): MessageDevice | undefined {
   if (!value || typeof value !== 'object') return undefined
@@ -71,6 +86,7 @@ export function parseMessageMetadata(value: unknown): MessageMetadata | undefine
     return undefined
 
   const device = parseDevice(m.device)
+  const mentions = m.source === 'nuphos' ? parseMentions(m.mentions) : undefined
   const replyTo =
     m.replyTo && nonEmpty(m.replyTo.authorName) && nonEmpty(m.replyTo.text)
       ? { authorName: m.replyTo.authorName, text: m.replyTo.text }
@@ -97,6 +113,7 @@ export function parseMessageMetadata(value: unknown): MessageMetadata | undefine
     ...(replyTo ? { replyTo } : {}),
     ...(m.source === 'discord' && m.unattested === true ? { unattested: true as const } : {}),
     ...(nonEmpty(m.cliTokenId) ? { cliTokenId: m.cliTokenId } : {}),
+    ...(mentions ? { mentions } : {}),
   }
 }
 

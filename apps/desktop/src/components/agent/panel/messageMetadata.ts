@@ -2,6 +2,8 @@ import { t } from '../../../i18n/index.ts'
 import { trustedAvatarURL } from '../../../lib/avatarUrl.ts'
 import { AGENT_PROVIDERS } from '../../../types/runtime.ts'
 
+import { parseMentions } from './messageMentionText.ts'
+
 import type { AgentMessageMetadata } from '../../../api/agent-types'
 
 const SOURCES = new Set(['nuphos', 'slack', 'discord', 'lark', 'agent.thread', 'agent.resource'])
@@ -38,6 +40,7 @@ export function parseMessageMetadata(value: unknown): AgentMessageMetadata | und
   const agentRuntime = AGENT_PROVIDERS.find((p) => p === m.sender?.agentRuntime)
   const avatarURL = trustedAvatarURL(m.sender.avatarURL)
   const replyTo = parseReplyTo(m.replyTo)
+  const mentions = m.source === 'nuphos' ? parseMentions(m.mentions) : undefined
 
   return {
     version: 1,
@@ -56,6 +59,7 @@ export function parseMessageMetadata(value: unknown): AgentMessageMetadata | und
       : {}),
     ...(replyTo ? { replyTo } : {}),
     ...(m.source === 'discord' && m.unattested === true ? { unattested: true as const } : {}),
+    ...(mentions ? { mentions } : {}),
   }
 }
 

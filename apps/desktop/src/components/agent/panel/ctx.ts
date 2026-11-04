@@ -1,6 +1,7 @@
 import type { AgentProvider } from '../../../types/runtime'
 import type {
   AgentConversation,
+  AgentMessageMention,
   AgentCredentialOptions,
   AgentCredentialSelection,
 } from '../../../api'
@@ -222,6 +223,7 @@ export type PanelCtx = {
     filePaths?: string[],
     turnKind?: Message['turnKind'],
     decisionReplyTo?: string,
+    mentions?: AgentMessageMention[],
   ) => Promise<void>
   steerQueued: (tabId: string, queuedId: string) => Promise<void>
   handleRejectPlan: (

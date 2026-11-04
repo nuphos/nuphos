@@ -26,7 +26,7 @@ export type ChannelFields = {
   agentTurns?: number
   /** On an agent: the channels it posted in this turn, woken once when the turn ends. */
   channelWakes?: string[]
-  /** People @mentioned here who have not posted since, by user id: their Inbox entry. */
+  /** People @mentioned here, in a channel or a shared agent, who have not posted since: their Inbox entry. */
   mentions?: Record<string, { messageId: string; at: Date }>
 }
 
@@ -227,11 +227,7 @@ export async function readChannelMessages(
 export async function listChannelMentions(teamId: string, viewerId: string) {
   const channels = await agentConversations()
     .find(
-      readableConversationScope(
-        { kind: 'channel', [`mentions.${viewerId}`]: { $exists: true } },
-        viewerId,
-        teamId,
-      ),
+      readableConversationScope({ [`mentions.${viewerId}`]: { $exists: true } }, viewerId, teamId),
     )
     .toArray()
   const found = await Promise.all(
@@ -251,6 +247,7 @@ export async function listChannelMentions(teamId: string, viewerId: string) {
       return [
         {
           channelId: channel.sessionId,
+          kind: isChannel(channel) ? 'channel' : 'agent',
           title: channel.title,
           messageId: mention.messageId,
           at: mention.at.toISOString(),

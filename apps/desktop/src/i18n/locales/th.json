@@ -5631,7 +5631,6 @@
   "Could not copy chat ID": "คัดลอก ID แชทไม่ได้",
   "Could not create the chat": "สร้างแชทไม่ได้",
   "Create chat": "สร้างแชท",
-  "Mentions in chats": "การกล่าวถึงในแชท",
   "Pick one agent and no name for a chat with just that agent.": "เลือกเอเจนต์เดียวและไม่ใส่ชื่อ จะได้แชทที่มีแค่เอเจนต์นั้น",
   "Rename chat": "เปลี่ยนชื่อแชท",
   "Add to chat": "เพิ่มในแชท",
@@ -5686,5 +5685,9 @@
   "Find, read and save your own files.": "ค้นหา อ่าน และบันทึกไฟล์ของคุณเอง",
   "Open Team settings": "เปิดการตั้งค่าทีม",
   "Team connector": "ตัวเชื่อมต่อของทีม",
-  "Your personal account": "บัญชีส่วนตัวของคุณ"
+  "Your personal account": "บัญชีส่วนตัวของคุณ",
+  "Mentions": "การกล่าวถึง",
+  "mentioned you in {title}": "กล่าวถึงคุณใน {title}",
+  "{name} mentioned you in {title}": "{name} กล่าวถึงคุณใน {title}",
+  "No longer in this team": "ไม่ได้อยู่ในทีมนี้แล้ว"
 }

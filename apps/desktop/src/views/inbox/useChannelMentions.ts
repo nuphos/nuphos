@@ -7,11 +7,11 @@ import type { ChannelMention } from '../../api'
 const MENTION_POLL_MS = 10_000
 
 /**
- * Channels where someone @mentioned the viewer since they last posted there.
- * Posting in the channel clears it.
+ * Channels and shared agents where someone @mentioned the viewer since they last
+ * posted there, or null before the first load. Posting there clears it.
  */
 export function useChannelMentions(teamId: string) {
-  const [mentions, setMentions] = useState<ChannelMention[]>([])
+  const [mentions, setMentions] = useState<ChannelMention[] | null>(null)
 
   useEffect(() => {
     if (!teamId) return
@@ -32,7 +32,7 @@ export function useChannelMentions(teamId: string) {
     return () => {
       live = false
       clearInterval(interval)
-      setMentions([])
+      setMentions(null)
     }
   }, [teamId])
 

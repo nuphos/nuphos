@@ -2,6 +2,8 @@ export const channelsApi = {
   agentCreateChannel: (teamId: string, title: string) =>
     window.api.agentCreateChannel(teamId, title),
   agentListChannelMentions: (teamId: string) => window.api.agentListChannelMentions(teamId),
+  agentNotifyMention: (args: Parameters<typeof window.api.agentNotifyMention>[0]) =>
+    window.api.agentNotifyMention(args),
   agentListChannelAgents: (channelId: string, teamId: string) =>
     window.api.agentListChannelAgents(channelId, teamId),
   agentAddChannelAgent: (channelId: string, teamId: string, agentSessionId: string) =>
@@ -14,5 +16,6 @@ export const channelsApi = {
     text: string,
     id: string,
     upload?: string,
-  ) => window.api.agentPostChannelMessage(channelId, teamId, text, id, upload),
+    mentions?: string[],
+  ) => window.api.agentPostChannelMessage(channelId, teamId, text, id, upload, mentions),
 }

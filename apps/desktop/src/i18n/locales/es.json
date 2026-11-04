@@ -5631,7 +5631,6 @@
   "Could not copy chat ID": "No se pudo copiar el ID del chat",
   "Could not create the chat": "No se pudo crear el chat",
   "Create chat": "Crear chat",
-  "Mentions in chats": "Menciones en chats",
   "Pick one agent and no name for a chat with just that agent.": "Elige un agente y deja el nombre vacío para un chat solo con ese agente.",
   "Rename chat": "Cambiar nombre del chat",
   "Add to chat": "Agregar al chat",
@@ -5686,5 +5685,9 @@
   "Find, read and save your own files.": "Busca, lee y guarda tus propios archivos.",
   "Open Team settings": "Abrir ajustes del equipo",
   "Team connector": "Conector del equipo",
-  "Your personal account": "Tu cuenta personal"
+  "Your personal account": "Tu cuenta personal",
+  "Mentions": "Menciones",
+  "mentioned you in {title}": "te mencionó en {title}",
+  "{name} mentioned you in {title}": "{name} te mencionó en {title}",
+  "No longer in this team": "Ya no está en este equipo"
 }
