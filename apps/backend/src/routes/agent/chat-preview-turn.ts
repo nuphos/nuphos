@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import './chat-preview-autonomous-runs'
 
 import { config } from '@/config'
+import { steeredNoticeSender } from '@/lib/agent/channel-wake'
 import { recordLocalRuntimeTurn } from '@/lib/agent/devices/local-runtime/activity'
 import { requeueTurnQueue } from '@/lib/agent/session-released'
 import {
@@ -169,7 +170,8 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
         }
         steer.observe(update)
         if (update.kind === 'steering') {
-          const receipt = steeringReceipt(update.id, update.text, steeringAttribution())
+          const sender = steeredNoticeSender(teamId, update.text) ?? steeringAttribution()
+          const receipt = steeringReceipt(update.id, update.text, sender)
 
           orderedParts.appendSteering(receipt)
           state.emit({ type: 'data-steering', data: receipt })

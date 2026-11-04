@@ -18,6 +18,7 @@ import type { RuntimeAttachment } from './runtime-attachments'
 import type { SessionExecutionState } from './runtime-execution-snapshot'
 import type { CliTokenPrincipal } from '@/lib/identity/cli-tokens'
 import type { AgentConversation } from '@/lib/agent/db'
+import type { MessageMetadata } from '@/lib/agent/message-metadata'
 
 /** No live session to report on: the next prompt starts or restores one. */
 export const READY_FOR_NEXT_MESSAGE: SessionExecutionState = {
@@ -222,6 +223,8 @@ export async function steerConversationRuntime(
     userId: string
     deviceId?: string
     cliToken?: CliTokenPrincipal
+    /** Who the steer is from, when not `userId` typing it (a channel's notice). */
+    metadata?: MessageMetadata
   },
   messageId: string,
 ): Promise<string> {
@@ -271,7 +274,8 @@ export async function steerConversationRuntime(
       attachments,
       attributionHeader(
         messageId,
-        await createMessageMetadata(steer.userId, 'nuphos', steer.deviceId, steer.cliToken),
+        steer.metadata ??
+          (await createMessageMetadata(steer.userId, 'nuphos', steer.deviceId, steer.cliToken)),
       ),
     )
 

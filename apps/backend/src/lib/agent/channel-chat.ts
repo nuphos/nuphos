@@ -4,8 +4,8 @@ import { getTeamMembers, getTeamMembership } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 
 import { agentMessages, appendConversationMessages, getConversationBySessionId } from './db'
-import { channelNotice } from './channel-wake'
-import { CHANNEL_SENDER_PREFIX, isChannel } from './db/channels'
+import { channelNotice, channelNoticeSender, steerRunningTurn } from './channel-wake'
+import { isChannel } from './db/channels'
 import { bumpConversationActivity } from './db/read-state'
 import { pushTimelineEvent } from './db/participants'
 import { agentConversations } from './db/shared'
@@ -175,8 +175,6 @@ export async function postAsAgent(
   )
 }
 
-const senderId = (channelId: string) => `${CHANNEL_SENDER_PREFIX}${channelId}`
-
 /** One more agent-woken turn, if the budget has room for it. */
 async function spendTurn(channelId: string): Promise<boolean> {
   const spent = await agentConversations().updateOne(
@@ -213,10 +211,11 @@ async function notePause(channelId: string) {
 }
 
 /**
- * Tells an agent its channel has news, never interrupting it: idle, it starts
- * a turn now; busy, the notice waits in its queue until that turn ends. One
- * notice per agent and channel waits at a time, and the agent then reads all
- * of it with channel_read, so a second notice is dropped here and costs
+ * Tells an agent its channel has news. A person's post reaches a running turn
+ * at once, steered in like a follow-up typed in the conversation; otherwise an
+ * idle agent starts a turn now and a busy one finds the notice in its queue when
+ * that turn ends. One notice per agent and channel waits at a time, and the
+ * agent then reads all of it, so a second notice is dropped here and costs
  * nothing.
  */
 async function notifyAgent(
@@ -229,10 +228,14 @@ async function notifyAgent(
   if (!agent?.teamId || agent.teamId !== channel.teamId || isChannel(agent)) return
   // An agent runs as its owner, so it goes quiet once its owner leaves the team.
   if (!(await getTeamMembership(agent.userId, channel.teamId))) return
+  // The title is a member's words, so it travels only in the metadata.
+  const metadata = channelNoticeSender(channel.teamId, channel.sessionId, channel.title)
+
+  // An agent's posts still wait for the turn to end: one wake per turn (#1458).
+  if (!fromAgent && (await steerRunningTurn(agent, channel.sessionId, metadata))) return
   const waiting = await listPendingUserMessages(agent.userId, sessionId)
 
-  if (waiting.some((message) => message.metadata?.sender?.id === senderId(channel.sessionId)))
-    return
+  if (waiting.some((message) => message.metadata?.sender?.id === metadata.sender.id)) return
   if (fromAgent && !(await spendTurn(channel.sessionId))) {
     await notePause(channel.sessionId)
 
@@ -249,17 +252,10 @@ async function notifyAgent(
       locale: agent.metadata?.locale ?? 'en-US',
     },
     agent,
-    // Fixed per channel, so the queue's dedupe keeps one; the title is a
-    // member's words and travels only in the metadata.
+    // Fixed per channel, so the queue's dedupe keeps one.
     channelNotice(channel.sessionId),
     'agent.resource',
-    {
-      version: 1,
-      sender: { type: 'system', id: senderId(channel.sessionId), displayName: channel.title },
-      source: 'agent.resource',
-      resourceUrl: `/teams/${channel.teamId}/agent/${channel.sessionId}`,
-      sentAt: new Date().toISOString(),
-    },
+    metadata,
   )
 
   run.catch((error: unknown) => {

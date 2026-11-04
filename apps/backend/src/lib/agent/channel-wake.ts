@@ -1,11 +1,78 @@
+import { randomUUID } from 'node:crypto'
+
 import { CHANNEL_SENDER_PREFIX, markChannelRead, readChannelMessages } from './db/channels'
 import { agentConversations } from './db/shared'
 
+import type { AgentConversation } from './db'
 import type { MessageMetadata } from './message-metadata'
 
 /** A channel's wake notice as queued: fixed per channel, so the queue keeps one. */
 export const channelNotice = (channelId: string) =>
   `New messages in a Nuphos channel (channelId ${channelId}).`
+
+/** Who a channel's wake notice is from: the channel, never a person. */
+export const channelNoticeSender = (
+  teamId: string,
+  channelId: string,
+  displayName: string,
+): MessageMetadata => ({
+  version: 1,
+  sender: { type: 'system', id: `${CHANNEL_SENDER_PREFIX}${channelId}`, displayName },
+  source: 'agent.resource',
+  resourceUrl: `/teams/${teamId}/agent/${channelId}`,
+  sentAt: new Date().toISOString(),
+})
+
+const STEERED_NOTICE = /^New messages in a Nuphos channel \(channelId ([^)\s]+)\)\./u
+
+/**
+ * A notice steered into a running turn comes back as a receipt with only its
+ * text. It carries what others posted, so it is the channel's, not the turn
+ * actor's. Text that merely looks like one only loses its typist's authority.
+ */
+export function steeredNoticeSender(teamId: string, text: string): MessageMetadata | undefined {
+  const channelId = STEERED_NOTICE.exec(text)?.[1]
+
+  return channelId ? channelNoticeSender(teamId, channelId, 'Nuphos channel') : undefined
+}
+
+/**
+ * Steers the agent's running turn with the notice and the posts it has not
+ * read, through the composer's steer. Only a turn its owner runs takes it, as
+ * the composer lets only a turn's actor steer. False when there is no such
+ * turn or the runtime cannot take it: the notice then queues.
+ */
+export async function steerRunningTurn(
+  agent: AgentConversation,
+  channelId: string,
+  metadata: MessageMetadata,
+) {
+  // Lazy so importing this does not pull in the runtime graph.
+  const [{ getActiveAgentRunForSession }, { steerConversationRuntime }] = await Promise.all([
+    import('@/lib/agent/run-store'),
+    import('@/lib/claude-code-preview/session-execution-state'),
+  ])
+  const active = await getActiveAgentRunForSession(agent.userId, agent.sessionId)
+
+  if (!active || (active.actorUserId && active.actorUserId !== agent.userId)) return false
+  const notice = { source: 'agent.resource', metadata, renderedText: channelNotice(channelId) }
+  const { messages, markRead } = await withChannelPosts(agent.sessionId, agent.userId, [notice])
+
+  // Already read, during the very turn it would steer.
+  if (!messages[0]) return true
+  try {
+    await steerConversationRuntime(
+      agent,
+      { text: messages[0].renderedText, userId: agent.userId, metadata },
+      randomUUID(),
+    )
+  } catch {
+    return false
+  }
+  await markRead()
+
+  return true
+}
 
 /**
  * Puts what a channel notice is about into it: the posts the agent has not read,
