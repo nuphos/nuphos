@@ -92,6 +92,7 @@ final class DockPanelUITests: XCTestCase {
         app.buttons["dock-close-tab-tab-terminal"].tap()
         XCTAssertTrue(app.buttons["dock-tab-tab-terminal"].waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.buttons["dock-tab-tab-docs"].exists)
+        sleep(2)
     }
 
     func testAPageTheIPhoneDoesNotHaveOpensOnTheMac() {
