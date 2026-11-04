@@ -5,9 +5,9 @@ import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../ui/m
 
 import type { GeneralAccess } from '../../api/agent-types'
 
-// Who may open the session without an invite. Replying takes an invite and
-// the computer the session runs on, so the team as a whole can only read. A
-// chat has no computer: the whole team may post in it too.
+// Who sees the session without an invite. Replying follows the computer the
+// session runs on instead, so the team as a whole can only read. A chat has no
+// computer: the whole team may post in it too.
 
 const GENERAL_OPTIONS: { value: GeneralAccess; title: string; detail: string }[] = [
   {

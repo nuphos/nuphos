@@ -51,7 +51,6 @@ export async function verifyAgentForActor(
         runtimeId: 1,
         generalAccess: 1,
         participantIds: 1,
-        viewOnlyIds: 1,
         kind: 1,
       },
     },

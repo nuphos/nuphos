@@ -6,7 +6,7 @@ import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 
 import { agentConversations, getConversationBySessionId } from './db'
-import { readsConversation } from './db/access'
+import { resolveConversationAccess } from './devices/conversation-computer'
 import { resolveResource } from './session-resource-lookup'
 import { unlinkSessionThread } from './session-thread-resources'
 
@@ -67,7 +67,7 @@ export async function resourceConversation(actor: ResourceActor, manage = false)
     !conversation ||
     conversation.teamId !== actor.teamId ||
     !(await getTeamMembership(actor.userId, actor.teamId)) ||
-    !readsConversation(conversation, actor.userId)
+    !(await resolveConversationAccess(conversation, actor.userId))
   ) {
     throw new AppError(404, 'not_found', 'Conversation not found')
   }

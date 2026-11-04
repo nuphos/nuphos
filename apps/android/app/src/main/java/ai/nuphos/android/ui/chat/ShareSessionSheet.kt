@@ -57,7 +57,7 @@ fun ShareSessionSheet(state: SharingState, url: String?, onDismiss: () -> Unit) 
             if (access != null) {
                 item {
                     Text("General access", style = MaterialTheme.typography.titleMedium)
-                    // Only a chat lets the whole team reply; elsewhere replying takes an invite and the computer.
+                    // Only a chat lets the whole team reply; elsewhere replying follows the computer.
                     if (state.canManage) ChoiceMenu("Team access", access.generalAccess.title, state.editable,
                         GeneralAccess.entries.filter { it != GeneralAccess.Reply || access.generalAccess == GeneralAccess.Reply },
                         { it.title }, onSelect = { scope.launch { state.general(it) } })

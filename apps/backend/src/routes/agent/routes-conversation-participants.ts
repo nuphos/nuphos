@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 
 import { getReadableConversation } from '@/lib/agent/db'
-import { conversationAccess, generalAccessOf, generalAccessValues } from '@/lib/agent/db/access'
+import { generalAccessOf, generalAccessValues } from '@/lib/agent/db/access'
 import {
   conversationParticipantIds,
   inviteConversationParticipants,
@@ -10,7 +10,7 @@ import {
 } from '@/lib/agent/db/participants'
 import {
   computerUseGap,
-  usableConversationComputer,
+  resolveConversationAccess,
 } from '@/lib/agent/devices/conversation-computer'
 import { addTeamUse } from '@/lib/agent/devices/device-grants'
 import { AppError } from '@/lib/errors'
@@ -36,30 +36,18 @@ const MAX_INVITES_PER_REQUEST = 20
 
 async function serializeAccess(conversation: AgentConversation, teamId: string | undefined) {
   const ids = conversationParticipantIds(conversation)
-  const [byId, usable] = await Promise.all([
+  const [byId, roles] = await Promise.all([
     buildConversationOwnerMap(teamId, ids),
-    Promise.all(
-      ids.map((id) =>
-        id === conversation.userId
-          ? Promise.resolve(undefined)
-          : usableConversationComputer(conversation, id),
-      ),
-    ),
+    Promise.all(ids.map((id) => resolveConversationAccess(conversation, id))),
   ])
 
   return {
     generalAccess: generalAccessOf(conversation),
-    participants: ids.map((id, index) => {
-      const resolved = byId.get(id)
-      const isOwner = id === conversation.userId
-
-      return {
-        ...(resolved ?? { id, name: 'Unknown user', email: '', avatarURL: '' }),
-        isOwner,
-        // A participant replies while they may use the conversation's computer.
-        role: isOwner ? 'owner' : conversationAccess(conversation, id, usable[index] !== null),
-      }
-    }),
+    participants: ids.map((id, index) => ({
+      ...(byId.get(id) ?? { id, name: 'Unknown user', email: '', avatarURL: '' }),
+      isOwner: id === conversation.userId,
+      role: roles[index],
+    })),
   }
 }
 

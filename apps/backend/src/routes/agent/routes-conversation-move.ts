@@ -25,18 +25,13 @@ async function ownedConversation(c: Context, teamIdCandidate?: string) {
   return { conversation, userId }
 }
 
-/**
- * Participants who would lose reply on `runtimeId`: they cannot use its computer.
- * An older view-only invitee reads only wherever it runs, so is not counted.
- */
+/** Participants who would lose reply on `runtimeId`: they cannot use its computer. */
 function participantsLosingReply(
   conversation: AgentConversation,
   userId: string,
   runtimeId: string,
 ) {
-  const people = conversationParticipantIds(conversation).filter(
-    (id) => id !== conversation.userId && !conversation.viewOnlyIds?.includes(id),
-  )
+  const people = conversationParticipantIds(conversation).filter((id) => id !== conversation.userId)
 
   return computerUseGap({ ...conversation, runtimeId }, userId, people)
 }

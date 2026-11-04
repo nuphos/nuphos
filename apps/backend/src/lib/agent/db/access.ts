@@ -1,13 +1,13 @@
 import { inTokenTeamScope, tokenTeamScope } from '@/lib/identity/token-team-scope'
 
 /**
- * Who in the team may open a conversation without being invited: nobody, or
- * everyone to read. Replying needs the conversation's computer, so only
- * invitees reply, and a stored 'reply' reads as 'view'. A chat has no
- * computer: posting there follows its members, so it keeps team-wide 'reply'.
+ * Who in the team sees a conversation without being invited: nobody, or
+ * everyone to read. Replying follows the conversation's computer instead, so a
+ * stored 'reply' reads as 'view'. A chat has no computer: posting there
+ * follows its members, so it keeps team-wide 'reply'.
  */
 export type GeneralAccess = 'none' | 'view' | 'reply'
-/** What one viewer may do: a participant replies while they may use the conversation's computer. */
+/** What one viewer may do: whoever may use the conversation's computer replies. */
 export type ConversationAccess = 'owner' | 'reply' | 'view'
 
 /** What the owner may choose; a chat may also choose 'reply'. */
@@ -23,11 +23,6 @@ export type ReadGrants = {
   /** 'channel' for a chat. */
   kind?: string
   participantIds?: string[]
-  /**
-   * Participants invited to view only, before replying followed the computer.
-   * They keep reading only until invited again, so nobody gains reply unasked.
-   */
-  viewOnlyIds?: string[]
 }
 type AccessFields = ReadGrants & { userId: string; teamId?: string }
 
@@ -46,27 +41,30 @@ export function isParticipant(conversation: ReadGrants, userId: string): boolean
 
 /**
  * What the viewer may do, given whether they may use the computer the
- * conversation runs on (see conversation-computer.ts). Team membership is the
- * caller's to verify: this only reads the conversation.
+ * conversation runs on (see conversation-computer.ts); undefined when it runs
+ * on no one's computer. Whoever may use the computer replies, invited or not:
+ * being invited only puts the conversation in their list. Team membership is
+ * the caller's to verify: this only reads the conversation.
  */
 export function conversationAccess(
   conversation: AccessFields,
   viewerId: string,
-  usesComputer: boolean,
+  usesComputer?: boolean,
 ): ConversationAccess | null {
   // An agent token reaches only its own team's conversations, its user's included.
   if (!inTokenTeamScope(conversation.teamId)) return null
   if (conversation.userId === viewerId) return 'owner'
   if (!conversation.teamId) return null
-  if (isParticipant(conversation, viewerId))
-    return usesComputer && !conversation.viewOnlyIds?.includes(viewerId) ? 'reply' : 'view'
+  // Without a computer, being invited is what lets someone reply.
+  if (usesComputer ?? isParticipant(conversation, viewerId)) return 'reply'
+  if (isParticipant(conversation, viewerId)) return 'view'
 
   const general = generalAccessOf(conversation)
 
   return general === 'none' ? null : general
 }
 
-/** Whether the viewer may read the conversation at all. */
+/** Whether the conversation is shared with the viewer, whatever computer it runs on. */
 export function readsConversation(conversation: AccessFields, viewerId: string): boolean {
   return conversationAccess(conversation, viewerId, false) !== null
 }
@@ -75,7 +73,7 @@ export function canReply(access: ConversationAccess | null) {
   return access === 'owner' || access === 'reply'
 }
 
-/** The Mongo form of "conversationAccess is not null", for list and read queries. */
+/** The Mongo form of readsConversation, for list and read queries. */
 export function readableByFilter(viewerId: string) {
   return {
     $or: [{ userId: viewerId }, { generalAccess: { $ne: 'none' } }, { participantIds: viewerId }],
@@ -104,7 +102,6 @@ export function threadReadGrants(parent: ReadGrants): ReadGrants {
   return {
     generalAccess: generalAccessOf(parent),
     ...(parent.participantIds?.length ? { participantIds: parent.participantIds } : {}),
-    ...(parent.viewOnlyIds?.length ? { viewOnlyIds: parent.viewOnlyIds } : {}),
   }
 }
 
@@ -116,7 +113,7 @@ export function initialReadGrants(source: string | undefined, parent?: ReadGrant
   return generalAccess ? { generalAccess } : {}
 }
 
-/** A read filter: the owner alone without a team, else whoever conversationAccess admits. */
+/** A read filter: the owner alone without a team, else whoever it is shared with. */
 export function readableConversationScope(
   base: Record<string, unknown>,
   viewerUserId: string,
