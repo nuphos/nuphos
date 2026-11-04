@@ -8,7 +8,9 @@ import { AppSelect } from '../../components/ui/select'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
+import { firesHourlyOrMore } from './cron'
 import { CronBuilder } from './CronBuilder'
+import { FrequentFireWarning } from './DeliversTo'
 import { ExecutionPrincipalBanner, Field, TypePill } from './parts'
 
 import type { FormState } from './useTriggerFormController'
@@ -162,6 +164,7 @@ export function TriggerFormFields({
         <DeliverToField
           teamId={teamId}
           value={form.targetSessionId}
+          frequent={form.triggerType === 'cron' && firesHourlyOrMore(form.cronExpression)}
           disabled={!canManage}
           onChange={(targetSessionId) => setForm((f) => ({ ...f, targetSessionId }))}
         />
@@ -222,11 +225,13 @@ const NEW_CONVERSATION = { value: '', label: t('A new agent each fire') }
 function DeliverToField({
   teamId,
   value,
+  frequent,
   disabled,
   onChange,
 }: {
   teamId: string
   value: string
+  frequent: boolean
   disabled: boolean
   onChange: (sessionId: string) => void
 }) {
@@ -278,6 +283,7 @@ function DeliverToField({
         disabled={disabled}
         onValueChange={onChange}
       />
+      {value && frequent && <FrequentFireWarning />}
     </Field>
   )
 }

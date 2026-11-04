@@ -1579,6 +1579,7 @@
   "Each agent's share of agent time.": "各 Agent 在 Agent 時長中的占比。",
   "Each fire is posted into this agent as an event. While it is busy, fires wait and run once after the current turn.": "每次觸發都會以事件形式傳入此 Agent。Agent 忙碌時，觸發會等待，並在目前回合結束後執行一次。",
   "Each fire starts its own agent, listed under this trigger.": "每次觸發都會啟動獨立的 Agent，並列在此觸發條件下。",
+  "Each fire resends this whole conversation to the agent, so an hourly or more frequent schedule uses much more of your plan.": "每次觸發都會把整段對話重新送給 Agent，所以每小時或更頻繁的排程會用掉更多方案額度。",
   "Each panel you check is pinned to the home page as a card of its own.": "勾選的每個面板都會作為單獨的卡片釘選在首頁上。",
   "Earlier messages are not loaded and are not searched.": "較早的訊息尚未載入，不在搜尋範圍內。",
   "Edit": "編輯",

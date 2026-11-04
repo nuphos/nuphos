@@ -1579,6 +1579,7 @@
   "Each agent's share of agent time.": "각 에이전트가 차지하는 에이전트 시간의 비율입니다.",
   "Each fire is posted into this agent as an event. While it is busy, fires wait and run once after the current turn.": "실행될 때마다 이 에이전트에 이벤트로 게시됩니다. 에이전트가 작업 중이면 대기했다가 현재 턴이 끝난 후 한 번 실행됩니다.",
   "Each fire starts its own agent, listed under this trigger.": "실행될 때마다 별도의 에이전트가 시작되며 이 트리거 아래에 표시됩니다.",
+  "Each fire resends this whole conversation to the agent, so an hourly or more frequent schedule uses much more of your plan.": "실행될 때마다 이 대화 전체가 에이전트에 다시 전송되므로, 매시간 또는 그보다 잦은 일정은 요금제 사용량을 훨씬 많이 소모합니다.",
   "Each panel you check is pinned to the home page as a card of its own.": "선택한 패널은 각각 별도의 카드로 홈에 고정됩니다.",
   "Earlier messages are not loaded and are not searched.": "이전 메시지는 불러오지 않아 검색되지 않습니다.",
   "Edit": "편집",

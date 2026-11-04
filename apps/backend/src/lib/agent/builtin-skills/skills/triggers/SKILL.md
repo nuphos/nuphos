@@ -57,7 +57,11 @@ copy of `webhookSecret`, the external `webhookUrl`, and `secretHeader`.
 Never print or persist the secret in a skill, receipt, log, or final answer.
 
 Any trigger type also accepts `targetSessionId`, which delivers every fire into
-that existing conversation instead of opening a new one:
+that existing conversation instead of opening a new one. Leave it unset unless
+the user asks for fires to land in a specific conversation. Each fire resends
+that conversation's whole history to the agent, so binding an hourly or more
+frequent trigger to a long conversation uses much more of the user's plan.
+Put the context recurring work needs in `messageTemplate` instead.
 
 - The session must be in the same team and owned by the
   trigger's execution principal. It cannot be combined with `sessionRouting`,

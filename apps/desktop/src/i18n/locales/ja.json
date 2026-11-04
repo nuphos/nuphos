@@ -1579,6 +1579,7 @@
   "Each agent's share of agent time.": "各エージェントが占めるエージェント時間の割合です。",
   "Each fire is posted into this agent as an event. While it is busy, fires wait and run once after the current turn.": "起動のたびにイベントとしてこのエージェントに送信されます。エージェントがビジー状態の間は待機し、現在のターン終了後に 1 回だけ実行されます。",
   "Each fire starts its own agent, listed under this trigger.": "起動のたびに専用のエージェントが開始され、このトリガーの下に表示されます。",
+  "Each fire resends this whole conversation to the agent, so an hourly or more frequent schedule uses much more of your plan.": "起動のたびにこの会話全体がエージェントに再送されるため、1 時間ごと以上の頻度のスケジュールはプランの使用量が大幅に増えます。",
   "Each panel you check is pinned to the home page as a card of its own.": "チェックしたパネルはそれぞれ個別のカードとしてホームに固定されます。",
   "Earlier messages are not loaded and are not searched.": "以前のメッセージは読み込まれていないため、検索対象外です。",
   "Edit": "編集",

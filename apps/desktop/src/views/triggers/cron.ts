@@ -220,3 +220,16 @@ export function sameMode(a: CronMode, b: CronMode): boolean {
 
   return false
 }
+
+/**
+ * True when a schedule fires at least once an hour for some stretch of the day:
+ * more than once within an hour, or in every hour of a range.
+ */
+export function firesHourlyOrMore(expr: string): boolean {
+  const parts = expr.trim().split(/\s+/)
+
+  if (parts.length !== 5) return false
+  const [min, hr] = parts
+
+  return !/^\d+$/.test(min) || hr === '*' || hr === '*/1' || /^\d+-\d+$/.test(hr)
+}

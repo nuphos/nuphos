@@ -1,4 +1,4 @@
-import { ArrowRight } from 'lucide-react'
+import { AlertTriangle, ArrowRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
@@ -46,5 +46,31 @@ export function DeliversTo({
       {target?.archived && <span className="flex-shrink-0 text-warning">{t('(archived)')}</span>}
       <ArrowRight className="h-3 w-3 flex-shrink-0" strokeWidth={2} />
     </button>
+  )
+}
+
+const TRIGGERS_DOCS_URL = 'https://docs.nuphos.ai/agent/triggers'
+
+/** Shown when a frequent schedule is bound to an existing conversation. */
+export function FrequentFireWarning() {
+  return (
+    <div
+      className="mt-2 flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-[12px] text-warning"
+      role="status"
+    >
+      <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-px" strokeWidth={2} />
+      <span className="leading-snug">
+        {t(
+          'Each fire resends this whole conversation to the agent, so an hourly or more frequent schedule uses much more of your plan.',
+        )}{' '}
+        <button
+          type="button"
+          className="underline underline-offset-2"
+          onClick={() => void api.appOpenExternal(TRIGGERS_DOCS_URL)}
+        >
+          {t('Learn more')}
+        </button>
+      </span>
+    </div>
   )
 }

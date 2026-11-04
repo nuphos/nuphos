@@ -1579,6 +1579,7 @@
   "Each agent's share of agent time.": "สัดส่วนเวลาของเอเจนต์แต่ละตัว",
   "Each fire is posted into this agent as an event. While it is busy, fires wait and run once after the current turn.": "ทุกครั้งที่ทำงานจะถูกส่งเข้าเอเจนต์นี้เป็นอีเวนต์ ขณะที่เอเจนต์ไม่ว่าง จะรอและรันหนึ่งครั้งหลังเทิร์นปัจจุบัน",
   "Each fire starts its own agent, listed under this trigger.": "ทุกครั้งที่ทำงานจะเริ่มเอเจนต์ของตัวเอง ซึ่งแสดงอยู่ใต้ทริกเกอร์นี้",
+  "Each fire resends this whole conversation to the agent, so an hourly or more frequent schedule uses much more of your plan.": "ทุกครั้งที่ทำงานจะส่งบทสนทนาทั้งหมดนี้ให้เอเจนต์อีกครั้ง ดังนั้นกำหนดการทุกชั่วโมงหรือถี่กว่านั้นจะใช้โควตาแพ็กเกจมากขึ้นมาก",
   "Each panel you check is pinned to the home page as a card of its own.": "แผงที่คุณเลือกแต่ละแผงจะถูกปักหมุดในหน้าแรกเป็นการ์ดของตัวเอง",
   "Earlier messages are not loaded and are not searched.": "ข้อความก่อนหน้ายังไม่ได้โหลด จึงไม่รวมอยู่ในการค้นหา",
   "Edit": "แก้ไข",
