@@ -14,7 +14,6 @@ export type BrowserCall = {
     | 'focus'
     | 'close'
     | 'dock_open'
-    | 'fetch'
     | 'navigate'
     | 'eval'
     | 'screenshot'
@@ -29,10 +28,6 @@ export type BrowserCall = {
   /** For `dock_open`: an app path, as New Tab and dock history name pages, or a workspace page key. */
   href?: string
   page?: string
-  /** For `fetch`: a request of the phone's page, its body in base64. */
-  method?: string
-  headers?: Record<string, string>
-  body?: string
   url?: string
   script?: string
 }

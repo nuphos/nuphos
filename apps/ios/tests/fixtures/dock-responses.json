@@ -320,16 +320,5 @@
     "body": {
       "ok": true
     }
-  },
-  "POST /teams/64b5f1c2e4b0a1d2c3e4f5a6/browser-tabs/dock-a/fetch": {
-    "status": 200,
-    "body": {
-      "status": 200,
-      "url": "http://localhost:3000/",
-      "headers": {
-        "content-type": "text/html; charset=utf-8"
-      },
-      "body": "PCFkb2N0eXBlIGh0bWw+PG1ldGEgbmFtZT12aWV3cG9ydCBjb250ZW50PSJ3aWR0aD1kZXZpY2Utd2lkdGgsaW5pdGlhbC1zY2FsZT0xIj48dGl0bGU+UHJldmlldyBhcHA8L3RpdGxlPgo8Ym9keSBzdHlsZT0iZm9udDoxN3B4IC1hcHBsZS1zeXN0ZW0sc2Fucy1zZXJpZjttYXJnaW46MDtiYWNrZ3JvdW5kOiNmMGZkZjQiPjxkaXYgc3R5bGU9InBhZGRpbmc6MjhweCAyMnB4Ij4KPGRpdiBzdHlsZT0iZm9udC13ZWlnaHQ6NzAwO2ZvbnQtc2l6ZToxM3B4O2NvbG9yOiMxNTgwM2Q7bGV0dGVyLXNwYWNpbmc6LjA0ZW0iPkxPQ0FMSE9TVDozMDAwPC9kaXY+CjxoMSBzdHlsZT0iZm9udC1zaXplOjI2cHg7bWFyZ2luOjEwcHggMCA4cHgiPlByZXZpZXcgYXBwIHJ1bm5pbmcgb24geW91ciBNYWM8L2gxPgo8cCBzdHlsZT0iY29sb3I6IzU1NSI+QSBmaXh0dXJlIGRldiBzZXJ2ZXIgcGFnZSwgZmV0Y2hlZCBvbiB0aGUgTWFjIGFuZCBzaG93biBvbiB0aGUgcGhvbmUuPC9wPgo8YSBocmVmPSIvc2V0dGluZ3MiIHN0eWxlPSJkaXNwbGF5OmlubGluZS1ibG9jazttYXJnaW4tdG9wOjEycHg7cGFkZGluZzoxMnB4IDE4cHg7Ym9yZGVyLXJhZGl1czoxMHB4O2JhY2tncm91bmQ6IzE2YTM0YTtjb2xvcjp3aGl0ZTt0ZXh0LWRlY29yYXRpb246bm9uZSI+T3BlbiBzZXR0aW5nczwvYT4KPC9kaXY+PC9ib2R5Pg=="
-    }
   }
 }

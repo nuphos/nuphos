@@ -72,7 +72,6 @@ before(async () => {
       app: { on: () => {}, off: () => {} },
       BrowserWindow: { getAllWindows: () => [window] },
       ipcMain: { on: () => {} },
-      net: { request: () => ({}) },
       session: { fromPartition: () => ({}) },
       webContents: { getAllWebContents: () => [] },
     },

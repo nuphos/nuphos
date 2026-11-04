@@ -64,18 +64,3 @@ enum DockDestinationTests {
         precondition(dock.recent.first?.destination == .runtimes)
     }
 }
-
-enum MacPageSchemeTests {
-    static func run() {
-        let page = URL(string: "http://localhost:3000/app?x=1#top")!
-        let phone = MacPageScheme.phoneURL(page)
-        precondition(phone?.absoluteString == "nuphos-mac-http://localhost:3000/app?x=1#top")
-        precondition(phone.flatMap(MacPageScheme.macURL) == page)
-        precondition(MacPageScheme.phoneURL(URL(string: "https://192.168.1.5/")!)?.scheme == "nuphos-mac-https")
-        // A public page is never sent through the Mac, and the phone's own scheme isn't re-mapped.
-        precondition(MacPageScheme.phoneURL(URL(string: "https://example.com/")!) == nil)
-        precondition(MacPageScheme.phoneURL(phone!) == nil)
-        precondition(MacPageScheme.macURL(URL(string: "https://example.com/")!) == nil)
-        print("Mac page scheme passed")
-    }
-}

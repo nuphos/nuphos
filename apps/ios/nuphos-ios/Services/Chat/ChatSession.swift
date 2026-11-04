@@ -124,10 +124,6 @@ final class ChatSession {
         }
         return try await AgentChatAPI.openDockTab(token: token, teamId: teamId, sessionId: sessionId, href: path, page: page)
     }
-    /// One request of a page on the owner's Mac or its network, fetched there for the phone.
-    func dockFetch(_ request: DockFetchRequest) async throws -> DockFetchResponse {
-        try await AgentChatAPI.dockFetch(token: token, teamId: teamId, sessionId: sessionId, request: request)
-    }
     /// Shows a dock tab of any kind on the owner's computer.
     func focusDockTab(_ id: String) async throws {
         try await AgentChatAPI.focusBrowserTab(token: token, teamId: teamId, sessionId: sessionId, tab: id)
@@ -636,7 +632,7 @@ final class ChatSession {
     /// when the destination can hold them — another Cloud agent of the same
     /// type — and the move falls back to the transcript alone when they cannot.
     func move(to target: RuntimeInstance) async throws {
-        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner or a manager can move it.") }
+        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner can move it.") }
         func request(workspace: Bool) async throws -> AgentChatAPI.RuntimeMove {
             try await AgentChatAPI.moveRuntime(token: token, teamId: teamId, sessionId: sessionId, runtimeId: target.id, workspace: workspace)
         }
@@ -688,7 +684,7 @@ final class ChatSession {
     }
 
     func setArchived(_ archived: Bool) async throws {
-        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner or a manager can archive it.") }
+        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner can archive it.") }
         try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: sessionId, archived: archived)
         isArchived = archived
     }

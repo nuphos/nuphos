@@ -9,10 +9,8 @@ import {
   sessionBrowserViewTarget,
   sessionDock,
 } from '@/lib/claude-code-preview/session-browser-tabs'
-import { fetchThroughDock, invalidDockFetch } from '@/lib/claude-code-preview/session-dock-proxy'
 import { AppError } from '@/lib/errors'
 
-import type { DockFetchRequest } from '@/lib/claude-code-preview/session-dock-proxy'
 import type { TeamAuthVariables } from '@/middleware/auth'
 import type { Context, Hono } from 'hono'
 
@@ -55,30 +53,6 @@ export function registerBrowserTabRoutes(teamScoped: Hono<{ Variables: TeamAuthV
     )
 
     return c.json({ id })
-  })
-
-  // One request of a Mac-only page open on the phone, fetched on the Mac (a dev server on localhost).
-  teamScoped.post('/browser-tabs/:sessionId/fetch', async (c) => {
-    const body = (await c.req.json().catch(() => null)) as Partial<DockFetchRequest> | null
-    const request = {
-      url: body?.url,
-      method: body?.method ?? 'GET',
-      headers: body?.headers ?? {},
-      body: body?.body,
-      document: body?.document === true,
-    }
-    const invalid = invalidDockFetch(request)
-
-    if (invalid) throw new AppError(400, 'invalid_request', invalid)
-
-    return c.json(
-      await fetchThroughDock(
-        c.get('teamId'),
-        c.get('userId'),
-        c.req.param('sessionId'),
-        request as DockFetchRequest,
-      ),
-    )
   })
 
   teamScoped.delete('/browser-tabs/:sessionId/:tab', async (c) => {

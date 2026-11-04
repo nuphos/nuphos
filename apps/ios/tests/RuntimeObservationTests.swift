@@ -184,7 +184,6 @@ struct RuntimeObservationTests {
         ChatRowTests.run()
         ChannelPostTests.run()
         DockDestinationTests.run()
-        MacPageSchemeTests.run()
         MessagePreviewTests.run()
         MarkdownImagesTests.run()
         ComposerActionTests.run()
