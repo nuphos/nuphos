@@ -159,7 +159,7 @@ fn desktop_session_for(text: &str, backend: &str) -> Option<Session> {
 /// Whether two endpoints name one backend, as the desktop compares them
 /// (`normalizedApi` in `apps/desktop/electron/auth/accounts.ts`): by origin,
 /// with every loopback name as one host.
-fn same_backend(a: &str, b: &str) -> bool {
+pub(crate) fn same_backend(a: &str, b: &str) -> bool {
     normalized_backend(a) == normalized_backend(b)
 }
 
@@ -224,6 +224,21 @@ pub fn login_url(api_url: &str) -> String {
         }
     }
     format!("{}/auth/social/login", api_url.trim_end_matches('/'))
+}
+
+/// The saved sign-in as its file has it, without reading the token from the
+/// keychain: who it is and which backend, for listing.
+pub fn saved_session() -> Session {
+    read_session_file()
+}
+
+/// An endpoint set in the environment, which outranks a sign-in's own backend.
+pub fn env_api_override() -> Option<String> {
+    ["NUPHOS_API_URL", "ATLAS_API_URL"]
+        .into_iter()
+        .filter_map(|key| std::env::var(key).ok())
+        .map(|v| v.trim().trim_end_matches('/').to_string())
+        .find(|v| !v.is_empty())
 }
 
 fn read_session_file() -> Session {

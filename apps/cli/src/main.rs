@@ -292,9 +292,9 @@ async fn run(args: Args) -> Result<i32> {
 /// backend. There is deliberately no command that prints the token: the
 /// keychain trusts this binary, so it would hand the token to any process.
 async fn auth(command: &AuthCommand, json: bool) -> Result<i32> {
-    let session = config::read_session();
     match command {
         AuthCommand::Status => {
+            let session = config::read_session();
             if session.token.is_none() {
                 eprintln!("nuphos: not signed in; run `nuphos login`");
                 return Ok(1);
@@ -304,6 +304,8 @@ async fn auth(command: &AuthCommand, json: bool) -> Result<i32> {
             println!("Token: {}", config::token_storage(&session));
         }
         AuthCommand::List => {
+            // From the file: listing never needs a token, nor the keychain.
+            let session = config::saved_session();
             let cli = accounts::key_of(&session);
             let desktop = accounts::desktop_accounts();
             if json {
@@ -336,6 +338,17 @@ async fn auth(command: &AuthCommand, json: bool) -> Result<i32> {
         }
         AuthCommand::Switch { selector } => {
             let target = accounts::find(accounts::desktop_accounts(), selector)?;
+            // The environment's endpoint outranks the saved one: every later
+            // command would send this account's token to that backend instead.
+            let env_api = config::env_api_override();
+            if accounts::override_conflicts(env_api.as_deref(), &target.api) {
+                bail!(
+                    "NUPHOS_API_URL points at {}, not {}'s backend ({}); unset it to switch to that account",
+                    render::clean(env_api.as_deref().unwrap_or_default()),
+                    render::clean(&target.who),
+                    render::clean(&target.api)
+                );
+            }
             let signed = target.sign_in()?;
             let token = signed.token.as_deref().unwrap_or_default();
             // Checked with its own backend, then saved with it: the CLI talks
