@@ -100,6 +100,8 @@ export type AgentRun = {
   trace?: AgentRunTrace
   // A turn the runtime started on its own: shown live, never a session claim.
   runtimeOwned?: boolean
+  /** The channels whose posts started or were steered into this turn. */
+  channelIds?: string[]
   frames: string[]
   done: boolean
   // Latest finishReason observed from streamText's onFinish. Stays undefined

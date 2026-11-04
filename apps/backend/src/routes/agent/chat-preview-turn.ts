@@ -19,7 +19,6 @@ import {
 import { watchPreviewTurnPauses } from '@/lib/claude-code-preview/preview-turn-pause'
 import { fallBackAfterFailure } from '@/lib/claude-code-preview/runtime-fallback'
 import { isRuntimeRefusal, queuedRefusal } from '@/lib/claude-code-preview/runtime-refusal'
-import { desktopTracker } from '@/lib/claude-code-preview/session-desktops'
 import {
   createSteeringAttribution,
   steeringReceipt,
@@ -46,6 +45,7 @@ import { carriedUserMessages, preparePreviewTurn } from './chat-preview-prepare'
 import { createPreviewRunState, createPreviewToolLog } from './chat-preview-run'
 import { handlePreviewToolUpdate, trackSteerCutOff } from './chat-preview-tool-update'
 import { appendAgentRunError, appendAgentRunPhase } from './run-frames'
+import { turnSnapshots } from './turn-snapshots'
 
 import type { PreviewChatTurnArgs, TurnEnd } from './chat-preview-run'
 import type { PreviewDecision } from '@/lib/claude-code-preview/decision-waiter'
@@ -65,7 +65,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
   const answers: string[] = []
   const toolLog = createPreviewToolLog()
   const state = createPreviewRunState({ run, userId, sessionId })
-  const tracking = desktopTracker({ sessionId, runtimeId: args.endpoint.runtimeId })
+  const tracking = turnSnapshots(run, { sessionId, runtimeId: args.endpoint.runtimeId })
   const diagnostic = createTurnDiagnostics(
     {
       streamId: run.streamId,

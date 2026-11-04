@@ -32,8 +32,10 @@ import {
 } from '@/lib/agent/db'
 import { channelFacesField } from '@/lib/agent/channel-faces'
 import { recheckLinkedResources } from '@/lib/agent/resource-recheck'
+import { runChannels } from '@/lib/agent/run-admission'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
 import { liveAttachment } from '@/lib/agent/db/shared'
+import { withRunChannels } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 import { readRuntimeStates } from '@/lib/claude-code-preview/runtime-state-store'
 import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
 import { withSessionDesktops } from '@/lib/claude-code-preview/session-desktops'
@@ -174,7 +176,7 @@ agent.get('/conversations/:sessionId', async (c) => {
   const openabSessionId = liveAttachment(result.conversation)?.openabSessionId
   // An unreachable runtime answers the way the list does, never "disconnected":
   // whether its Box is online is the agent's own status, not this session's.
-  const runtimeState =
+  const resting =
     probed && probed.state !== 'disconnected'
       ? probed
       : await withSessionDesktops(
@@ -186,6 +188,11 @@ agent.get('/conversations/:sessionId', async (c) => {
           ),
           result.conversation,
         )
+  const runtimeState = withRunChannels(resting, {
+    channelIds: transportRun
+      ? await runChannels({ ...result.conversation, streamId: transportRun.streamId })
+      : [],
+  })
   const activeRun = runtimeState.state === 'active' ? transportRun : null
   const startedAtMs = activeRun?.startedAt ? Number(activeRun.startedAt) : NaN
   const viewer = c.get('user')

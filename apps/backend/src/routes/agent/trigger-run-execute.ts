@@ -64,6 +64,8 @@ export type TriggerRunParams = {
   triggerNotification?: SlackTriggerNotificationContext
   /** A refused turn is not recorded as interrupted; the caller requeues its messages. */
   clientResendsRefusal?: boolean
+  /** The channels whose posts this turn answers. */
+  channelIds?: string[]
 }
 
 /**
@@ -133,7 +135,9 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
     method: 'TRIGGER',
     chatSpan,
   }
-  const run = createAgentRun(conversationOwnerUserId, sessionId, streamId, runTrace)
+  const run = createAgentRun(conversationOwnerUserId, sessionId, streamId, runTrace, {
+    channelIds: params.channelIds,
+  })
 
   // Every caller of this function is headless — nobody on the other end can
   // press Stop, so the turn needs an outer bound of its own.

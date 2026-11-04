@@ -1,6 +1,8 @@
 import { expect, test } from 'bun:test'
 
-import { parseSessionExecutionState } from './runtime-execution-snapshot'
+import { parseSessionExecutionState, withRunChannels } from './runtime-execution-snapshot'
+
+import type { SessionExecutionState } from './runtime-execution-snapshot'
 
 test('legacy run-shaped and malformed replies never authorize execution', () => {
   for (const value of [
@@ -150,4 +152,18 @@ test('a repeated name keeps its first entry, and the list stops at 100', () => {
   expect(commands?.[0]).toEqual({ name: 'review', description: 'first' })
   expect(commands?.filter((command) => command.name === 'review')).toHaveLength(1)
   expect(commands).toHaveLength(100)
+})
+
+test('only a running turn carries channels, and only those its run recorded', () => {
+  const active: SessionExecutionState = { state: 'active', epoch: 'r', revision: 2 }
+
+  expect(withRunChannels(active, { channelIds: ['channel-a'] }).channelIds).toEqual(['channel-a'])
+  expect(withRunChannels(active, null).channelIds).toEqual([])
+  // A finished turn's snapshot never names a channel, whatever it carried before.
+  expect(
+    withRunChannels<SessionExecutionState>(
+      { state: 'idle', channelIds: ['channel-a'] },
+      { channelIds: ['channel-a'] },
+    ),
+  ).toEqual({ state: 'idle' })
 })

@@ -279,7 +279,7 @@ export function ChannelMessages({
       {rows.map((row) => (
         <Fragment key={row.key}>{row.node}</Fragment>
       ))}
-      <Typing agents={agents} />
+      <Typing agents={agents} channelId={channelId} />
     </div>
   )
 }
