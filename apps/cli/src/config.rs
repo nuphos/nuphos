@@ -36,10 +36,37 @@ pub struct Session {
     /// the session is one.
     #[serde(rename = "cliToken", default, skip_serializing_if = "Option::is_none")]
     pub cli_token: Option<Value>,
+    /// The backend that issued the token. The CLI talks to it whatever
+    /// `cli.api-url` says since: the desktop moves that file when it switches
+    /// accounts, and a token is never sent to another backend.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub api: Option<String>,
     /// The token is `NUPHOS_CLI_TOKEN`, not the saved sign-in, which must then
     /// be left alone when the token fails.
     #[serde(skip)]
     pub from_env: bool,
+    /// The token is a desktop account's, for this run only (`--account`).
+    #[serde(skip)]
+    pub from_account: bool,
+}
+
+/// The desktop account `--account` names, used instead of the saved sign-in
+/// for this run.
+static ACCOUNT: std::sync::OnceLock<Session> = std::sync::OnceLock::new();
+
+/// Whether this run uses a desktop account (`--account`) instead of the saved sign-in.
+pub fn running_as_account() -> bool {
+    ACCOUNT.get().is_some()
+}
+
+/// `NUPHOS_CLI_TOKEN`, when set to something: an empty one is ignored everywhere.
+fn env_token() -> Option<String> {
+    std::env::var("NUPHOS_CLI_TOKEN").ok().map(|t| t.trim().to_string()).filter(|t| !t.is_empty())
+}
+
+/// Runs this process as `session`, a desktop account's sign-in.
+pub fn use_account(session: Session) {
+    let _ = ACCOUNT.set(Session { from_account: true, ..session });
 }
 
 /// What this client remembers between runs; the desktop keeps the same
@@ -90,11 +117,13 @@ fn sibling(path: &std::path::Path, name: &str) -> PathBuf {
     path.with_file_name(file)
 }
 
-/// The desktop app's sign-in, to start the CLI's from. Reading its token from
-/// the keychain is what makes macOS ask once.
-pub fn read_desktop_session() -> Option<Session> {
+/// The desktop app's sign-in, to start the CLI's from, if `backend` issued it.
+/// The caller passes the backend its sign-in runs on: resolving it again here
+/// could pick another once the CLI's own sign-in, and its pin, is gone. Reading
+/// its token from the keychain is what makes macOS ask once.
+pub fn read_desktop_session(backend: &str) -> Option<Session> {
     let text = fs::read_to_string(desktop_session_path()).ok()?;
-    let mut session = desktop_session_for(&text, &api_url())?;
+    let mut session = desktop_session_for(&text, backend)?;
     if session.token.is_none() {
         session.token = secret::desktop_token(session.keychain_account.as_deref()?).ok().flatten();
     }
@@ -102,10 +131,10 @@ pub fn read_desktop_session() -> Option<Session> {
     session.token.is_some().then_some(session)
 }
 
-/// Whether the desktop app is signed in, without reading its token.
-pub fn desktop_signed_in() -> Option<String> {
+/// Whether the desktop app is signed in on `backend`, without reading its token.
+pub fn desktop_signed_in(backend: &str) -> Option<String> {
     let text = fs::read_to_string(desktop_session_path()).ok()?;
-    let session = desktop_session_for(&text, &api_url())?;
+    let session = desktop_session_for(&text, backend)?;
     if session.token.is_none() && session.keychain_account.is_none() {
         return None;
     }
@@ -134,7 +163,7 @@ fn same_backend(a: &str, b: &str) -> bool {
     normalized_backend(a) == normalized_backend(b)
 }
 
-fn normalized_backend(api: &str) -> String {
+pub(crate) fn normalized_backend(api: &str) -> String {
     let Ok(mut url) = url::Url::parse(api.trim()) else {
         return api.trim().trim_end_matches('/').to_string();
     };
@@ -156,6 +185,9 @@ fn prefs_path() -> PathBuf {
 /// `NUPHOS_API_URL`, `ATLAS_API_URL`, the endpoint saved on the desktop's
 /// sign-in screen, then Nuphos Cloud.
 pub fn api_url() -> String {
+    if let Some(api) = ACCOUNT.get().and_then(|s| s.api.clone()) {
+        return api;
+    }
     for key in ["NUPHOS_API_URL", "ATLAS_API_URL"] {
         if let Ok(v) = std::env::var(key) {
             if !v.trim().is_empty() {
@@ -163,6 +195,20 @@ pub fn api_url() -> String {
             }
         }
     }
+    // The saved sign-in's own backend, before the shared endpoint file.
+    if let Some(api) = read_session_file().api.filter(|_| env_token().is_none()) {
+        return api.trim_end_matches('/').to_string();
+    }
+    fs::read_to_string(api_url_path())
+        .ok()
+        .map(|s| s.trim().trim_end_matches('/').to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| DEFAULT_API_URL.to_string())
+}
+
+/// The endpoint the desktop's sign-in screen saved (`cli.api-url`), else
+/// Nuphos Cloud: the backend of a desktop sign-in that does not name its own.
+pub fn shared_api_url() -> String {
     fs::read_to_string(api_url_path())
         .ok()
         .map(|s| s.trim().trim_end_matches('/').to_string())
@@ -192,8 +238,11 @@ fn read_session_file() -> Session {
 /// variable is not `NUPHOS_TOKEN`: Nuphos's own agent sandboxes set that one to
 /// a conversation credential.
 pub fn read_session() -> Session {
-    if let Some(token) = std::env::var("NUPHOS_CLI_TOKEN").ok().filter(|t| !t.trim().is_empty()) {
-        return Session { token: Some(token.trim().to_string()), from_env: true, ..Session::default() };
+    if let Some(account) = ACCOUNT.get() {
+        return account.clone();
+    }
+    if let Some(token) = env_token() {
+        return Session { token: Some(token), from_env: true, ..Session::default() };
     }
     let mut session = read_session_file();
     if session.token.is_some() {
@@ -231,6 +280,8 @@ pub fn write_session(session: &Session) -> anyhow::Result<()> {
     };
     let mut stored = session.clone();
     stored.keychain_account = None;
+    // Every saved token names the backend that issued it.
+    stored.api = Some(session.api.clone().unwrap_or_else(api_url));
     if secret::enabled() {
         let account = keychain_account(session);
         // Update in place only an item this client made: one that was already
@@ -258,7 +309,7 @@ pub fn write_session(session: &Session) -> anyhow::Result<()> {
 /// Nuphos Cloud's.
 fn keychain_account(session: &Session) -> String {
     let user = session.user_info.as_ref().and_then(|u| u["id"].as_str()).unwrap_or("default");
-    format!("{user}@{}", api_url())
+    format!("{user}@{}", session.api.clone().unwrap_or_else(api_url))
 }
 
 /// Signs out after the backend rejected `session`'s token, as the desktop
@@ -268,6 +319,9 @@ pub fn forget_rejected(session: &Session) -> anyhow::Result<()> {
     if session.from_env {
         anyhow::bail!("NUPHOS_CLI_TOKEN was rejected (revoked or expired); unset it or set a valid token");
     }
+    if session.from_account {
+        anyhow::bail!("that desktop account's sign-in was rejected; sign in to it again in Nuphos Desktop");
+    }
     write_session(&Session::default())
 }
 
@@ -275,6 +329,9 @@ pub fn forget_rejected(session: &Session) -> anyhow::Result<()> {
 pub fn token_storage(session: &Session) -> String {
     if session.from_env {
         return "the NUPHOS_CLI_TOKEN environment variable".to_string();
+    }
+    if session.from_account {
+        return "Nuphos Desktop's sign-in, for this run (--account)".to_string();
     }
     match &session.keychain_account {
         Some(_) => secret::STORE_NAME.to_string(),

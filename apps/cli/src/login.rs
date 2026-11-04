@@ -97,7 +97,7 @@ async fn device_code(api_url: &str) -> Result<Session> {
         let status = response.status();
         let body: Value = response.json().await.unwrap_or_default();
         if status.is_success() {
-            return save_device_session(&body);
+            return save_device_session(&body, api_url);
         }
         match body["error"]["code"].as_str() {
             Some("authorization_pending") => {}
@@ -110,7 +110,9 @@ async fn device_code(api_url: &str) -> Result<Session> {
     bail!("The code expired; run `nuphos login` again.")
 }
 
-fn save_device_session(body: &Value) -> Result<Session> {
+/// Saved as the backend the code was redeemed with, not whatever the shared
+/// endpoint says by now.
+fn save_device_session(body: &Value, api_url: &str) -> Result<Session> {
     let token = body["token"].as_str().ok_or_else(|| anyhow!("Malformed sign-in response"))?;
     let user = body["user"].clone();
     let session = Session {
@@ -121,6 +123,8 @@ fn save_device_session(body: &Value) -> Result<Session> {
         keychain_account: None,
         from_env: false,
         cli_token: body.get("cliToken").cloned(),
+        api: Some(api_url.trim_end_matches('/').to_string()),
+        ..Session::default()
     };
     config::write_session(&session)?;
     Ok(session)
@@ -132,6 +136,10 @@ fn save_device_session(body: &Value) -> Result<Session> {
 /// revoked on the server as well. An agent token, Desktop's sign-in and
 /// `NUPHOS_CLI_TOKEN` are used elsewhere too, so those are only forgotten here.
 pub async fn logout() -> Result<()> {
+    // A run as a desktop account (`--account`) never touches the saved sign-in.
+    if config::running_as_account() {
+        bail!("this run uses a desktop account (--account); run `nuphos logout` without it to sign the CLI out");
+    }
     let session = config::read_session();
     if let (Some(token), Some(id)) = (session.token.as_deref(), own_device_token(&session)) {
         let api = Api::new(config::api_url(), token.to_string());
@@ -151,15 +159,27 @@ fn own_device_token(session: &Session) -> Option<String> {
 }
 
 pub async fn with_token(api_url: &str, token: &str) -> Result<Session> {
+    save_checked_token(api_url, token, true).await
+}
+
+/// A Nuphos Desktop account's token, as the CLI's sign-in. It stays the
+/// desktop's: saved without its token record, so `nuphos logout` never revokes
+/// it and signs the desktop out too (as `from_desktop`).
+pub async fn with_desktop_token(api_url: &str, token: &str) -> Result<Session> {
+    save_checked_token(api_url, token, false).await
+}
+
+/// Checks `token` with the backend that issued it and saves it with that backend.
+async fn save_checked_token(api_url: &str, token: &str, owned: bool) -> Result<Session> {
     let me = Api::new(api_url.to_string(), token.to_string()).me().await.context("The token did not work")?;
     let session = Session {
         token: Some(token.to_string()),
         user: me["name"].as_str().map(String::from),
         username: me["username"].as_str().map(String::from),
-        cli_token: me.get("cliToken").cloned(),
+        cli_token: if owned { me.get("cliToken").cloned() } else { None },
         user_info: Some(me),
-        keychain_account: None,
-        from_env: false,
+        api: Some(api_url.trim_end_matches('/').to_string()),
+        ..Session::default()
     };
     config::write_session(&session)?;
     Ok(session)
@@ -170,9 +190,9 @@ pub async fn with_token(api_url: &str, token: &str) -> Result<Session> {
 /// after, since each then reads only its own. Checked with `/auth/me`, so a
 /// stale desktop session falls back to the browser.
 async fn from_desktop(api_url: &str) -> Option<Session> {
-    let who = config::desktop_signed_in()?;
+    let who = config::desktop_signed_in(api_url)?;
     eprintln!("Signing in as {} from Nuphos Desktop; macOS may ask once to allow it.", clean(&who));
-    let Some(token) = config::read_desktop_session().and_then(|s| s.token) else {
+    let Some(token) = config::read_desktop_session(api_url).and_then(|s| s.token) else {
         eprintln!("Could not read the desktop sign-in; continuing in the browser.");
         return None;
     };
@@ -188,9 +208,8 @@ async fn from_desktop(api_url: &str) -> Option<Session> {
         user: me["name"].as_str().map(String::from),
         username: me["username"].as_str().map(String::from),
         user_info: Some(me),
-        keychain_account: None,
-        from_env: false,
-        cli_token: None,
+        api: Some(api_url.trim_end_matches('/').to_string()),
+        ..Session::default()
     };
     match config::write_session(&session) {
         Ok(()) => Some(session),
@@ -288,9 +307,9 @@ async fn browser(api_url: &str) -> Result<Session> {
             user: user["name"].as_str().map(String::from),
             username: user["username"].as_str().map(String::from),
             user_info: Some(user),
-            keychain_account: None,
-            from_env: false,
-            cli_token: None,
+            // The backend this sign-in ran on, which issued the token.
+            api: Some(api_url.trim_end_matches('/').to_string()),
+            ..Session::default()
         };
         config::write_session(&session)?;
         respond(&mut browser, 200, "Signed in to Nuphos. You can close this tab and return to the terminal.").await;
