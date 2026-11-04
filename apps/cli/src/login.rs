@@ -159,12 +159,24 @@ fn own_device_token(session: &Session) -> Option<String> {
 }
 
 pub async fn with_token(api_url: &str, token: &str) -> Result<Session> {
+    save_checked_token(api_url, token, true).await
+}
+
+/// A Nuphos Desktop account's token, as the CLI's sign-in. It stays the
+/// desktop's: saved without its token record, so `nuphos logout` never revokes
+/// it and signs the desktop out too (as `from_desktop`).
+pub async fn with_desktop_token(api_url: &str, token: &str) -> Result<Session> {
+    save_checked_token(api_url, token, false).await
+}
+
+/// Checks `token` with the backend that issued it and saves it with that backend.
+async fn save_checked_token(api_url: &str, token: &str, owned: bool) -> Result<Session> {
     let me = Api::new(api_url.to_string(), token.to_string()).me().await.context("The token did not work")?;
     let session = Session {
         token: Some(token.to_string()),
         user: me["name"].as_str().map(String::from),
         username: me["username"].as_str().map(String::from),
-        cli_token: me.get("cliToken").cloned(),
+        cli_token: if owned { me.get("cliToken").cloned() } else { None },
         user_info: Some(me),
         api: Some(api_url.trim_end_matches('/').to_string()),
         ..Session::default()

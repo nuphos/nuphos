@@ -340,7 +340,7 @@ async fn auth(command: &AuthCommand, json: bool) -> Result<i32> {
             let token = signed.token.as_deref().unwrap_or_default();
             // Checked with its own backend, then saved with it: the CLI talks
             // to that backend from now on.
-            let session = login::with_token(&target.api, token).await?;
+            let session = login::with_desktop_token(&target.api, token).await?;
             println!("The CLI now uses {} on {}.", who(&session), render::clean(&target.api));
         }
     }
