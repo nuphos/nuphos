@@ -64,23 +64,25 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
         }
     }
     val viewerId = auth.user?.id
-    // Which agents are in a turn, checked every 3 s like the iOS list poll, only while on screen.
+    // Which of this chat's agents are in a turn, checked every 3 s, only while on screen.
     LaunchedEffect(store, session, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             while (true) {
-                if (session.agents.isNotEmpty()) store.loadAgentsInTurn()
+                store.loadAgentTurns(session.agents.map { it.sessionId })
                 delay(3_000)
             }
         }
     }
-    // The dots follow a read of the chat that started after the change. An agent posts before its
-    // turn ends, so its reply and the end of its dots arrive together, never the dots' end first.
+    // The dots follow a read of the chat that started after the change and succeeded. An agent posts
+    // before its turn ends, so its reply and the end of its dots arrive together, never the dots' end first.
     var typing by remember(session) { mutableStateOf(emptyList<ChannelAgent>()) }
     val inTurn = session.agents.filter { store.inTurn(it.sessionId) }
-    LaunchedEffect(session, inTurn.map { it.sessionId }) {
-        if (inTurn.map { it.sessionId } == typing.map { it.sessionId }) return@LaunchedEffect
-        session.refresh(force = true)
-        typing = inTurn
+    LaunchedEffect(session, lifecycle, inTurn.map { it.sessionId }) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (inTurn.map { it.sessionId } != typing.map { it.sessionId }) {
+                if (session.refresh(force = true)) typing = inTurn else delay(ChannelSession.POLL_MS)
+            }
+        }
     }
     val items = ChannelPost.items(session.posts, session.events, typing)
     Scaffold(

@@ -182,25 +182,30 @@ class AgentStore(
         channels = channels.map { if (it.sessionId == sessionId) withLocalRead(it) else it }
     }
 
-    /** The agents in a turn as of the last check; null until an open chat has checked. */
-    private var agentsInTurn by mutableStateOf<Set<String>?>(null)
+    /** What the last checks found for agents in an open chat. An agent not checked yet has no entry. */
+    private var agentTurns by mutableStateOf<Map<String, Boolean>>(emptyMap())
 
-    fun inTurn(sessionId: String): Boolean = agentsInTurn?.contains(sessionId)
+    fun inTurn(sessionId: String): Boolean = agentTurns[sessionId]
         ?: (conversations.firstOrNull { it.sessionId == sessionId }?.activeRun != null)
 
-    /** Which of the viewer's agents are in a turn, for an open chat. Leaves the agent list as it is. */
-    suspend fun loadAgentsInTurn() {
-        if (disposed || !hasAiAccess()) return
+    /**
+     * Asks each agent in an open chat whether it is in a turn. The agent list is one page of many
+     * and is left as it is. An agent that can't be read keeps what was last known.
+     */
+    suspend fun loadAgentTurns(sessionIds: List<String>) {
         val team = selectedTeam ?: return
         val workspace = workspaceRevision
-        try {
-            val rows = NuphosApi.conversations(token, team.id, limit = pageSize, scope = ConversationScope.Mine, search = "").rows
+        for (id in sessionIds) {
             if (disposed || !hasAiAccess() || selectedTeam?.id != team.id || workspace != workspaceRevision) return
-            agentsInTurn = rows.filter { it.activeRun != null }.map { it.sessionId }.toSet()
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (_: Exception) {
-            // Keep what was shown; the next check tries again.
+            try {
+                val active = NuphosApi.conversationDetail(token, team.id, id, tail = 1).activeRun != null
+                if (disposed || !hasAiAccess() || selectedTeam?.id != team.id || workspace != workspaceRevision) return
+                agentTurns = agentTurns + (id to active)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // Keep what was shown; the next check tries again.
+            }
         }
     }
 
@@ -222,7 +227,7 @@ class AgentStore(
         channelsLoaded = false
         channelSessions.clear()
         channelReads.clear()
-        agentsInTurn = null
+        agentTurns = emptyMap()
         searchJob?.cancel()
         refreshRequests.invalidate()
         isReloading = false

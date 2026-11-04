@@ -41,6 +41,9 @@ class ChannelTypingFixtureDeviceTest {
     private val token = "synthetic-chats-typing"
     private val team = Team("aaaaaaaaaaaaaaaaaaaaaaaa", "Fixture A")
     private val listings = AtomicInteger()
+    private val checks = AtomicInteger()
+    @Volatile private var failFullReads = false
+    @Volatile private var failChecks = false
     private val reads = CopyOnWriteArrayList<Int>()
     @Volatile private var messages = 1
     @Volatile private var running = false
@@ -58,9 +61,10 @@ class ChannelTypingFixtureDeviceTest {
         }
         return """{"kind":"channel","title":"chat-a","transcriptUpdatedAt":"t$messages","messageCount":$messages,"activitySeq":$messages,"messages":[$posts]}"""
     }
-    private fun agents(): String {
+    /** The agent is asked directly, so being past the first page of the agent list makes no difference. */
+    private fun agent(): String {
         val run = if (running) ""","activeRun":{"streamId":"run-1"}""" else ""
-        return """{"conversations":[{"sessionId":"agent-ops","teamId":"${team.id}","title":"Release ops","lastActiveAt":"2026-11-03T09:00:00Z","isOwner":true$run}],"hasMore":false}"""
+        return """{"sessionId":"agent-ops","title":"Release ops","isOwner":true,"messages":[]$run}"""
     }
 
     @Before fun before() {
@@ -73,15 +77,19 @@ class ChannelTypingFixtureDeviceTest {
         field.set(null, OkHttpClient.Builder().addInterceptor { chain ->
             val request = chain.request()
             val path = request.url.encodedPath
+            var code = 200
             val body = when {
-                path.endsWith("/agent/conversations/chat-a") -> { reads += messages; detail() }
+                path.endsWith("/agent/conversations/chat-a") -> {
+                    reads += messages
+                    if (failFullReads && request.url.queryParameter("tail") != "1") { code = 500; "{}" } else detail()
+                }
+                path.endsWith("/agent/conversations/agent-ops") -> { checks.incrementAndGet(); if (failChecks) { code = 500; "{}" } else agent() }
                 path.endsWith("/agents") -> """{"agents":[{"sessionId":"agent-ops","title":"Release ops"}]}"""
-                path.endsWith("/agent/conversations") && request.url.queryParameter("kind") == null -> { listings.incrementAndGet(); agents() }
-                path.endsWith("/agent/conversations") -> """{"conversations":[],"hasMore":false}"""
+                path.endsWith("/agent/conversations") -> { if (request.url.queryParameter("kind") == null) listings.incrementAndGet(); """{"conversations":[],"hasMore":false}""" }
                 path.endsWith("/read") -> """{"activitySeq":1,"readSeq":1,"unread":false}"""
                 else -> "{}"
             }
-            Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("fixture")
+            Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(code).message("fixture")
                 .body(body.toResponseBody(Http.jsonMedia)).build()
         }.build())
         val app = target.applicationContext as NuphosApplication
@@ -143,15 +151,44 @@ class ChannelTypingFixtureDeviceTest {
         compose.onNodeWithText("Post 2").assertExists()
     }
 
-    @Test fun checksStopWhileStopped() {
+    @Test fun whenTheReadFailsTheDotsWaitForTheReply() {
+        running = true
         render()
-        compose.waitUntil(8_000) { listings.get() >= 1 }
+        compose.waitUntil(8_000) { showing() }
+        failFullReads = true
+        messages = 2; running = false
+        val checked = checks.get()
+        compose.waitUntil(8_000) { checks.get() > checked + 1 }
+        Thread.sleep(5_000); compose.waitForIdle()
+        assertTrue("The read failed, so the reply isn't here: the dots stay", showing())
+        compose.onNodeWithText("Post 2").assertDoesNotExist()
+        failFullReads = false
+        compose.waitUntil(10_000) { !showing() }
+        compose.onNodeWithText("Post 2").assertExists()
+    }
+
+    @Test fun anAgentThatCannotBeCheckedKeepsItsDots() {
+        running = true
+        render()
+        compose.waitUntil(8_000) { showing() }
+        failChecks = true
+        val checked = checks.get()
+        compose.waitUntil(8_000) { checks.get() > checked + 1 }
+        compose.waitForIdle()
+        assertTrue(showing())
+    }
+
+    @Test fun checksStopWhileStoppedAndNeverTouchTheAgentList() {
+        render()
+        compose.waitUntil(8_000) { checks.get() >= 1 }
+        val listed = listings.get()
         compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
         Thread.sleep(1_000)
-        val stopped = listings.get()
+        val stopped = checks.get()
         Thread.sleep(7_000)
-        assertEquals("No checks while stopped", stopped, listings.get())
+        assertEquals("No checks while stopped", stopped, checks.get())
         compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
-        compose.waitUntil(8_000) { listings.get() > stopped }
+        compose.waitUntil(8_000) { checks.get() > stopped }
+        assertEquals(listed, listings.get())
     }
 }

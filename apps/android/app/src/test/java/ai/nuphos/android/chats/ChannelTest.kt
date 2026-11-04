@@ -84,11 +84,13 @@ class ChannelTest {
         var details = mutableListOf<Int>()
         var stamp = "t1"; var count = 1
         var activity: Int? = null
+        var failDetail = false
         var agentsCalls = 0
         val attachments = mutableListOf<String>()
         var failAttachment = true
         override suspend fun detail(tail: Int): AgentConversationDetail {
             details += tail
+            if (failDetail) error("offline")
             val mine = landed?.let { ",{\"id\":\"$it\",\"role\":\"user\",\"metadata\":{\"version\":1,\"sender\":{\"type\":\"user\",\"id\":\"me\",\"displayName\":\"Me\"},\"sentAt\":\"2026-11-03T09:40:00Z\"},\"parts\":[{\"type\":\"text\",\"text\":\"Posted\"}]}" }.orEmpty()
             val post = if (tail == 1) "" else POST + mine
             return Http.json.decodeFromString(
@@ -129,6 +131,18 @@ class ChannelTest {
         session.refresh()
         assertEquals(listOf(ChannelSession.TAIL, 1, 1, ChannelSession.TAIL), transport.details)
         assertEquals(2, transport.agentsCalls); assertEquals(2L, session.activitySeq)
+    }
+
+    @Test fun aRefreshSaysWhetherItCouldRead() = runTest {
+        val transport = FakeTransport()
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        assertTrue(session.refresh(force = true))
+        assertTrue("An unchanged probe read the chat", session.refresh())
+        transport.failDetail = true
+        assertFalse(session.refresh(force = true))
+        assertFalse(session.refresh())
+        transport.failDetail = false
+        assertTrue(session.refresh(force = true))
     }
 
     @Test fun theProbeSeesActivityThatLandsAfterThePost() = runTest {

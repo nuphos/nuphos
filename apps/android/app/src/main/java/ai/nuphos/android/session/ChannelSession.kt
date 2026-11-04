@@ -144,15 +144,15 @@ class ChannelSession(
         return true
     }
 
-    /** The probe, then the full read when the chat changed; `force` skips the probe. */
-    suspend fun refresh(force: Boolean = false) {
+    /** The probe, then the full read when the chat changed; `force` skips the probe. False if it could not read. */
+    suspend fun refresh(force: Boolean = false): Boolean {
         try {
             if (!force && loaded) {
                 val probe = transport.detail(1)
                 // The server bumps a post's activity after appending it, so the probe can see
                 // new activity under a stamp that has not changed.
                 noteActivity(probe)
-                if (stamp(probe) == revision) return
+                if (stamp(probe) == revision) return true
             }
             coroutineScope {
                 val detail = async { transport.detail(TAIL) }
@@ -160,10 +160,12 @@ class ChannelSession(
                 val read = detail.await()
                 apply(read, listed.await())
             }
+            return true
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             if (!loaded) { loadError = "Couldn't load this chat."; loaded = true }
+            return false
         } finally {
             reads++
         }
