@@ -13,6 +13,9 @@ export function splitPane(
 
     return { direction, children: before ? [{ id }, layout] : [layout, { id }] }
   }
+  const across = asLines(layout, target, direction)
+
+  if (across) return splitPane(across, target, id, direction, before)
   // Repeating a direction adds an equal-sized sibling rather than repeatedly halving it.
   if (
     layout.direction === direction &&
@@ -35,11 +38,51 @@ export function splitPane(
   }
 }
 
+/**
+ * Equal stacks side by side read as lines across them: two columns of two are
+ * two rows to the eye. Before `target` gains a sibling along `direction`,
+ * regroup such a grid into those lines, so the new pane joins its whole visual
+ * row (or column) and every pane in it gets an equal share.
+ */
+function asLines(
+  layout: { direction: 'row' | 'column'; children: SplitLayout[] },
+  target: string,
+  direction: 'row' | 'column',
+): SplitLayout | null {
+  if (layout.direction !== direction) return null
+  const stacks: SplitLayout[][] = []
+
+  for (const stack of layout.children) {
+    if ('id' in stack || stack.direction === direction) return null
+    if (stacks.length && stack.children.length !== stacks[0].length) return null
+    stacks.push(stack.children)
+  }
+  // A cell already split the same way contributes its panes to the line.
+  const lines = stacks[0].map((_, index) =>
+    stacks.flatMap((cells) => {
+      const cell = cells[index]
+
+      return 'id' in cell || cell.direction !== direction ? [cell] : cell.children
+    }),
+  )
+
+  if (!lines.some((line) => line.some((cell) => 'id' in cell && cell.id === target))) return null
+
+  return {
+    direction: direction === 'row' ? 'column' : 'row',
+    children: lines.map((children) => ({ direction, children })),
+  }
+}
+
 export function removePane(layout: SplitLayout, id: string): SplitLayout | null {
   if ('id' in layout) return layout.id === id ? null : layout
   const children = layout.children
     .map((child) => removePane(child, id))
     .filter((child): child is SplitLayout => child !== null)
+    // A collapsed branch running the same way merges into this line, so its panes share it equally.
+    .flatMap((child) =>
+      'id' in child || child.direction !== layout.direction ? [child] : child.children,
+    )
 
   if (children.length === 0) return null
 

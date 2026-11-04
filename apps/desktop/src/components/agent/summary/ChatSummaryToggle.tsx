@@ -1,3 +1,4 @@
+import { PanelRightClose } from 'lucide-react'
 import { useEffect } from 'react'
 
 import { usePaneId } from '../../../app/workspace/WorkspacePaneContext'
@@ -31,12 +32,15 @@ export function SummaryIcon() {
   )
 }
 
-/** An open question outranks running background work; neither leaves the plain label. */
-function tooltipLabel(pendingCount: number, background: string | null): string {
+/**
+ * An open question outranks running background work; neither leaves the plain
+ * label, which says the click hides the panel while it is open.
+ */
+function tooltipLabel(pendingCount: number, background: string | null, open: boolean): string {
   if (pendingCount === 1) return t('1 question needs your input')
   if (pendingCount) return t('{count} questions need your input', { count: pendingCount })
 
-  return background ?? t('Toggle agent summary')
+  return background ?? (open ? t('Hide agent summary') : t('Toggle agent summary'))
 }
 
 /**
@@ -88,7 +92,7 @@ export function ChatSummaryToggle({
       side="bottom"
       content={
         <span className="flex items-center gap-2">
-          {tooltipLabel(pendingCount, backgroundCount > 0 ? background : null)}
+          {tooltipLabel(pendingCount, backgroundCount > 0 ? background : null, open)}
           <Kbd combo="mod+i" />
         </span>
       }
@@ -100,7 +104,12 @@ export function ChatSummaryToggle({
         onClick={() => toggleChatSummary(paneId)}
         className="titlebar-no-drag relative ml-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main aria-pressed:bg-zGray-800/60 aria-pressed:text-main motion-reduce:transition-none"
       >
-        <SummaryIcon />
+        {/* While open it reads as the panel's own close, not the pane's X beside it. */}
+        {open ? (
+          <PanelRightClose className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
+        ) : (
+          <SummaryIcon />
+        )}
         {pendingCount > 0 && (
           <span
             aria-label={
