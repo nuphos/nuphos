@@ -27,7 +27,7 @@ export function sendNoticeFor(
   const own = here ?? runnable[0]
 
   return {
-    label: t('This agent runs on its owner’s computer, so only they can send messages here.'),
+    label: t('This agent runs with its owner’s own sign-in, so only they can send messages here.'),
     action: own
       ? {
           label: here ? t('Start your own chat on this computer') : t('Start your own chat'),

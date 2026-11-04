@@ -1,12 +1,11 @@
 import clsx from 'clsx'
 import { ChevronDown, Plus, Settings2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { useAgentUpdates } from '../../../hooks/useAgentUpdates'
 import { useThisComputer } from '../../../hooks/useThisComputer'
 import { t } from '../../../i18n'
 import { agentName } from '../../../lib/agentName'
-import { onOpenAgentMenu } from '../../../lib/localAgentSharing'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { RuntimeUsageBar } from '../../../views/settings/RuntimeUsageBar'
 import { useAgentDevices } from '../../../views/settings/useAgentDevices'
@@ -83,7 +82,6 @@ export function RuntimeSelector({
   menuOpen,
   onMenuOpenChange,
   teamId,
-  sessionId,
   canUpdateTeamAgents,
   value,
   options = [],
@@ -113,17 +111,6 @@ export function RuntimeSelector({
     setInternalOpen(next)
     onMenuOpenChange?.(next)
   }
-  const movable = Boolean(sessionId && onSelect)
-
-  // The Share card asks for it, to move a session teammates cannot send in.
-  useEffect(() => {
-    if (!sessionId || !movable) return
-
-    return onOpenAgentMenu(sessionId, () => {
-      setInternalOpen(true)
-      onMenuOpenChange?.(true)
-    })
-  }, [sessionId, movable, onMenuOpenChange])
   const devices = useAgentDevices(() => 5_000, teamId, {
     metrics: true,
     enabled: open && Boolean(teamId),

@@ -257,7 +257,7 @@ export function SessionParticipants({
                     onChange={changeGeneralAccess}
                   />
                 </ShareLink>
-                {warnLocalAgent && <LocalAgentSharingNote sessionId={sessionId} />}
+                {warnLocalAgent && <LocalAgentSharingNote />}
                 <ParticipantList
                   participants={everyone}
                   label={channel ? t('In this chat') : undefined}
