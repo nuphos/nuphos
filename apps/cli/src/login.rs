@@ -97,7 +97,7 @@ async fn device_code(api_url: &str) -> Result<Session> {
         let status = response.status();
         let body: Value = response.json().await.unwrap_or_default();
         if status.is_success() {
-            return save_device_session(&body);
+            return save_device_session(&body, api_url);
         }
         match body["error"]["code"].as_str() {
             Some("authorization_pending") => {}
@@ -110,7 +110,9 @@ async fn device_code(api_url: &str) -> Result<Session> {
     bail!("The code expired; run `nuphos login` again.")
 }
 
-fn save_device_session(body: &Value) -> Result<Session> {
+/// Saved as the backend the code was redeemed with, not whatever the shared
+/// endpoint says by now.
+fn save_device_session(body: &Value, api_url: &str) -> Result<Session> {
     let token = body["token"].as_str().ok_or_else(|| anyhow!("Malformed sign-in response"))?;
     let user = body["user"].clone();
     let session = Session {
@@ -121,6 +123,7 @@ fn save_device_session(body: &Value) -> Result<Session> {
         keychain_account: None,
         from_env: false,
         cli_token: body.get("cliToken").cloned(),
+        api: Some(api_url.trim_end_matches('/').to_string()),
         ..Session::default()
     };
     config::write_session(&session)?;
@@ -133,6 +136,10 @@ fn save_device_session(body: &Value) -> Result<Session> {
 /// revoked on the server as well. An agent token, Desktop's sign-in and
 /// `NUPHOS_CLI_TOKEN` are used elsewhere too, so those are only forgotten here.
 pub async fn logout() -> Result<()> {
+    // A run as a desktop account (`--account`) never touches the saved sign-in.
+    if config::running_as_account() {
+        bail!("this run uses a desktop account (--account); run `nuphos logout` without it to sign the CLI out");
+    }
     let session = config::read_session();
     if let (Some(token), Some(id)) = (session.token.as_deref(), own_device_token(&session)) {
         let api = Api::new(config::api_url(), token.to_string());
@@ -288,6 +295,8 @@ async fn browser(api_url: &str) -> Result<Session> {
             user: user["name"].as_str().map(String::from),
             username: user["username"].as_str().map(String::from),
             user_info: Some(user),
+            // The backend this sign-in ran on, which issued the token.
+            api: Some(api_url.trim_end_matches('/').to_string()),
             ..Session::default()
         };
         config::write_session(&session)?;

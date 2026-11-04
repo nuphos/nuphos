@@ -153,7 +153,11 @@ enum AuthCommand {
     /// The accounts signed in to Nuphos Desktop, and which one the CLI uses.
     List,
     /// Use a Nuphos Desktop account (its email or key) as the CLI's sign-in.
-    Switch { account: String },
+    Switch {
+        /// Not `account`: that id is the global `--account` option's.
+        #[arg(value_name = "ACCOUNT")]
+        selector: String,
+    },
 }
 
 #[tokio::main]
@@ -325,8 +329,8 @@ async fn auth(command: &AuthCommand, json: bool) -> Result<i32> {
                 println!("  {}  {}{marks}", render::clean(&a.who), render::clean(&a.key));
             }
         }
-        AuthCommand::Switch { account } => {
-            let target = accounts::find(accounts::desktop_accounts(), account)?;
+        AuthCommand::Switch { selector } => {
+            let target = accounts::find(accounts::desktop_accounts(), selector)?;
             let signed = target.sign_in()?;
             let token = signed.token.as_deref().unwrap_or_default();
             // Checked with its own backend, then saved with it: the CLI talks
@@ -525,5 +529,26 @@ mod avatar_tests {
         std::fs::write(&small, b"png").unwrap();
         assert_eq!(read_avatar(small.to_str().unwrap()).await.unwrap(), b"png");
         std::fs::remove_file(&small).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod account_args {
+    use clap::Parser;
+
+    use super::{Args, AuthCommand, Command};
+
+    #[test]
+    fn auth_switch_names_its_account_without_setting_the_global_flag() {
+        let args = Args::try_parse_from(["nuphos", "auth", "switch", "alex@example.com"]).unwrap();
+        assert!(args.account.is_none());
+        match args.command {
+            Some(Command::Auth { command: AuthCommand::Switch { selector } }) => {
+                assert_eq!(selector, "alex@example.com")
+            }
+            _ => panic!("not auth switch"),
+        }
+        let args = Args::try_parse_from(["nuphos", "--account", "sam@example.com", "team"]).unwrap();
+        assert_eq!(args.account.as_deref(), Some("sam@example.com"));
     }
 }

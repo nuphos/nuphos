@@ -54,6 +54,16 @@ pub struct Session {
 /// for this run.
 static ACCOUNT: std::sync::OnceLock<Session> = std::sync::OnceLock::new();
 
+/// Whether this run uses a desktop account (`--account`) instead of the saved sign-in.
+pub fn running_as_account() -> bool {
+    ACCOUNT.get().is_some()
+}
+
+/// `NUPHOS_CLI_TOKEN`, when set to something: an empty one is ignored everywhere.
+fn env_token() -> Option<String> {
+    std::env::var("NUPHOS_CLI_TOKEN").ok().map(|t| t.trim().to_string()).filter(|t| !t.is_empty())
+}
+
 /// Runs this process as `session`, a desktop account's sign-in.
 pub fn use_account(session: Session) {
     let _ = ACCOUNT.set(Session { from_account: true, ..session });
@@ -184,7 +194,7 @@ pub fn api_url() -> String {
         }
     }
     // The saved sign-in's own backend, before the shared endpoint file.
-    if let Some(api) = read_session_file().api.filter(|_| std::env::var_os("NUPHOS_CLI_TOKEN").is_none()) {
+    if let Some(api) = read_session_file().api.filter(|_| env_token().is_none()) {
         return api.trim_end_matches('/').to_string();
     }
     fs::read_to_string(api_url_path())
@@ -229,8 +239,8 @@ pub fn read_session() -> Session {
     if let Some(account) = ACCOUNT.get() {
         return account.clone();
     }
-    if let Some(token) = std::env::var("NUPHOS_CLI_TOKEN").ok().filter(|t| !t.trim().is_empty()) {
-        return Session { token: Some(token.trim().to_string()), from_env: true, ..Session::default() };
+    if let Some(token) = env_token() {
+        return Session { token: Some(token), from_env: true, ..Session::default() };
     }
     let mut session = read_session_file();
     if session.token.is_some() {
