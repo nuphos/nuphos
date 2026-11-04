@@ -176,6 +176,34 @@ test('real gcloud active configuration and gh token reads remain session scoped'
   }
 })
 
+test('credentials in the runtime environment do not beat the session connector files', (t) => {
+  const host = {
+    ...runtime(t),
+    AWS_ACCESS_KEY_ID: 'AKIARUNTIMEENV',
+    AWS_SECRET_ACCESS_KEY: 'runtime',
+    AWS_PROFILE: 'runtime-profile',
+    GH_TOKEN: 'runtime-token',
+  }
+  const env = { ...host, ...nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'a' }, host) }
+  put(
+    env.AWS_SHARED_CREDENTIALS_FILE,
+    '[default]\naws_access_key_id=AKIASESSIONFILE\naws_secret_access_key=s\n',
+  )
+  put(
+    join(env.GH_CONFIG_DIR, 'hosts.yml'),
+    'github.com:\n    oauth_token: session-token\n    user: bot\n',
+  )
+  if (spawnSync('aws', ['--version'], { stdio: 'ignore' }).status === 0) {
+    const list = execFileSync('aws', ['configure', 'list'], { env, encoding: 'utf8' })
+    assert.match(list, /access_key : \*+FILE +: shared-credentials-file/)
+  }
+  if (spawnSync('gh', ['--version'], { stdio: 'ignore' }).status === 0)
+    assert.equal(
+      execFileSync('gh', ['auth', 'token'], { env, encoding: 'utf8' }).trim(),
+      'session-token',
+    )
+})
+
 test('sessions get the long-lived token until it lapses, and an explicit one wins', (t) => {
   const host = runtime(t)
   const configDir = join(host.HOME, '.claude')
