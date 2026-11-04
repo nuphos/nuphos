@@ -7,6 +7,7 @@ import { rememberOpenedConversation } from '../../../lib/openedConversation'
 import { toast } from '../../ui/toast'
 
 import { finalizeIncompleteTools } from './clientTools'
+import { openingAfterFailure } from './conversationUnavailable'
 import { reconcileStoredCredentialAccess, credentialSelectionSignature } from './credentialAccess'
 import { CONVERSATION_TAIL_LIMIT } from './model'
 import { fromPersistedMessages, transcriptSignature } from './persistence'
@@ -242,8 +243,10 @@ export async function runOpenConversation(
 
       return
     }
-    toast.apiError(t('Failed to open agent'), err)
+    const settled = openingAfterFailure(sessionId, err)
+
+    if (!settled) toast.apiError(t('Failed to open agent'), err)
     clearPendingOpen(sessionId)
-    setOpeningConversation(null)
+    setOpeningConversation(settled)
   }
 }

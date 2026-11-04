@@ -84,6 +84,21 @@ export function decideErrorToast(e: unknown): ErrorToastDecision {
   return { action: 'suppress', reason: 'unexpected_error' }
 }
 
+/**
+ * Opening a chat failed because this reader can never see it: it is private to
+ * people they are not, or it was deleted. The backend answers both with the
+ * same 404 so a link never reveals that a private chat exists, so the two read
+ * as one state. Offline, 5xx and version skew are not this: they can succeed on
+ * a retry.
+ */
+export function isConversationUnavailable(e: unknown): boolean {
+  const parsed = parseAtlasError(e)
+
+  if (parsed.code === 'forbidden') return true
+
+  return parsed.code === 'not_found' && !isRouteNotFound(parsed)
+}
+
 /** The backend refused the stored session itself (expired, revoked, or signed
  *  by another deployment); no retry can succeed, only signing in again. */
 export function isSessionRejected(e: unknown): boolean {

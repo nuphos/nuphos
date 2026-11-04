@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
+import { isConversationUnavailable } from './api/errors.ts'
 import { decideErrorToast, isNetworkError, isSessionRejected } from './api.ts'
 
 // Run with: pnpm test  (node --experimental-strip-types --test; Node >= 22.6)
@@ -169,6 +170,36 @@ test('decideErrorToast suppresses everything without a structured backend code',
 test('decideErrorToast accepts non-Error inputs', () => {
   assert.equal(decideErrorToast('fetch failed').action, 'suppress')
   assert.equal(decideErrorToast(sentinel({ message: 'Nope', code: 'forbidden' })).action, 'show')
+})
+
+// The shape the atlas IPC bridge gives a backend error in the renderer.
+const backendError = (code: string, message: string) =>
+  new Error(
+    `Error invoking remote method 'atlas:call': Error: __ATLAS_API_ERROR__${JSON.stringify({ code, message })}`,
+  )
+
+test('isConversationUnavailable is true for a private or deleted chat, or a refused read', () => {
+  assert.equal(isConversationUnavailable(backendError('not_found', 'Conversation not found')), true)
+  assert.equal(
+    isConversationUnavailable(backendError('forbidden', 'You are not a member of this team')),
+    true,
+  )
+})
+
+test('isConversationUnavailable is false for version skew and retryable failures', () => {
+  assert.equal(
+    isConversationUnavailable(
+      backendError('not_found', 'Route GET /agent/conversations/abc not found'),
+    ),
+    false,
+  )
+  assert.equal(
+    isConversationUnavailable(backendError('route_not_found', 'Route GET /x not found')),
+    false,
+  )
+  assert.equal(isConversationUnavailable(new TypeError('fetch failed')), false)
+  assert.equal(isConversationUnavailable(backendError('internal_error', 'Server error')), false)
+  assert.equal(isConversationUnavailable(backendError('rate_limited', 'Slow down')), false)
 })
 
 test('isSessionRejected is true only for a refused session, never for a denied request', () => {

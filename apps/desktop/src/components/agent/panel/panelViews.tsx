@@ -1,5 +1,4 @@
 import clsx from 'clsx'
-import { Loader2 } from 'lucide-react'
 import { useMemo } from 'react'
 
 import { api } from '../../../api'
@@ -16,6 +15,7 @@ import { composerDraftKey } from './composerDrafts'
 import { sentHistory } from './composerRecall'
 import { ConnectCardContext } from './connectCardContext'
 import { Conversation } from './Conversation'
+import { ConversationPlaceholder } from './ConversationPlaceholder'
 import { ConversationReveal } from './ConversationReveal'
 import { useConversationRuntimeControl } from './conversationRuntimeControl'
 import { DelayedPanelReveal } from './homeAnimation'
@@ -287,13 +287,9 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
       </PermissionResumeContext.Provider>
     </ConversationReveal>
   ) : (
-    <div className="flex min-h-0 flex-1 items-center justify-center" aria-busy="true">
-      <Loader2
-        className="h-4 w-4 animate-spin text-tertiary/70"
-        strokeWidth={1.7}
-        aria-hidden="true"
-      />
-      <span className="sr-only">{t('Opening agent')}</span>
-    </div>
+    <ConversationPlaceholder
+      unavailable={c.openingConversation?.unavailable === true}
+      onNewChat={c.startNewChat}
+    />
   )
 }
