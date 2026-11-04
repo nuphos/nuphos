@@ -3,7 +3,12 @@ import { accountCredentials } from '../auth/config.ts'
 import { requestContext } from '../auth/request-context.ts'
 import { authSession } from '../auth-session.ts'
 
-import { accountForTeam, oneAtATime, switchThenWait } from './account-for-link-core.ts'
+import {
+  accountForTeam,
+  oneAtATime,
+  routeAndSwitch,
+  switchThenWait,
+} from './account-for-link-core.ts'
 import { nextReload, reloadWindows } from './account-leave'
 import { accountOf } from './account-leave-core.ts'
 
@@ -73,32 +78,45 @@ function switching() {
   }
 }
 
+/** The account in use, as the sign-in file has it (also before the startup check). */
+async function activeKey(): Promise<string | null> {
+  return (await listAccounts().catch(() => [])).find((a) => a.active)?.key ?? null
+}
+
+// A switch from elsewhere (the sidebar) while the teams were being asked
+// makes the answer stale; routing starts over, a few times at most.
+const ROUTING_ATTEMPTS = 3
+
 /**
  * Opens a link to `teamId` as the account in that team: the one in use if it
  * is, else another signed-in account that is, switched to first. `open` is
- * told whether the link switched accounts.
+ * told whether the account changed since the link arrived, by this switch or
+ * an earlier one, so that a prompt is never sent as an account that was not
+ * in use when its link came in.
  */
 export function openInTeamAccount(
   teamId: string | null,
   open: (switched: boolean) => void | Promise<unknown>,
 ): Promise<void> {
+  // Taken now, not in its turn: a link queued behind another link's switch
+  // must still count that switch as one.
+  const arrivedAs = activeKey()
+
   return inTurn(async () => {
-    let switched = false
-
     // Also with no account in use: a waiting account in the team still takes it.
-    if (teamId) {
-      const key = await accountForTeam(teamId, {
-        activeTeams,
-        accounts: listAccounts,
-        teamsOf,
-      }).catch(() => null)
-
-      if (key) switched = await switchThenWait(key, switching())
-    }
+    const switchedHere =
+      teamId !== null &&
+      (await routeAndSwitch({
+        epoch: () => authSession.context().epoch,
+        route: () => accountForTeam(teamId, { activeTeams, accounts: listAccounts, teamsOf }),
+        switchTo: (key) => switchThenWait(key, switching()),
+        attempts: ROUTING_ATTEMPTS,
+      }))
+    const switched = switchedHere || (await activeKey()) !== (await arrivedAs)
     const queued = open(switched)
 
     // The next switch must not reach the workspace before this link has.
-    if (switched) await delivered(queued)
+    if (switchedHere) await delivered(queued)
   })
 }
 

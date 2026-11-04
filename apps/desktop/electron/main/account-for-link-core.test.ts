@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { accountForTeam, oneAtATime, switchThenWait, teamOfPath } from './account-for-link-core.ts'
+import {
+  accountForTeam,
+  oneAtATime,
+  routeAndSwitch,
+  switchThenWait,
+  teamOfPath,
+} from './account-for-link-core.ts'
 
 import type { AccountSummary } from '../auth/accounts.ts'
 
@@ -171,4 +177,46 @@ test("switches run one at a time, so the second never takes the first one's relo
   await assert.rejects(second)
   await third
   assert.deepEqual(events, ['switch to B', 'open B', 'switch to C', 'open D'])
+})
+
+test('an answer that arrived after the account changed is asked again', async () => {
+  let epoch = 0
+  const asked: number[] = []
+  const switchedTo: string[] = []
+  const switched = await routeAndSwitch({
+    epoch: () => epoch,
+    route: async () => {
+      asked.push(epoch)
+      // The sidebar switches while the first answer is out.
+      if (asked.length === 1) epoch += 1
+
+      return asked.length === 1 ? null : b.key
+    },
+    switchTo: async (key) => {
+      switchedTo.push(key)
+
+      return true
+    },
+    attempts: 3,
+  })
+
+  assert.equal(switched, true)
+  assert.deepEqual(asked, [0, 1])
+  assert.deepEqual(switchedTo, [b.key])
+})
+
+test('routing that keeps going stale gives up without switching', async () => {
+  let epoch = 0
+  const switched = await routeAndSwitch({
+    epoch: () => epoch,
+    route: async () => {
+      epoch += 1
+
+      return b.key
+    },
+    switchTo: async () => true,
+    attempts: 3,
+  })
+
+  assert.equal(switched, false)
 })

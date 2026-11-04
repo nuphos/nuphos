@@ -69,3 +69,31 @@ export function oneAtATime(): <T>(task: () => Promise<T>) => Promise<T> {
     return run
   }
 }
+
+export type RouteDeps = {
+  /** Grows whenever the account in use changes, from anywhere. */
+  epoch: () => number
+  /** The waiting account to switch to for the link, if any. */
+  route: () => Promise<string | null>
+  /** Switches to `key`; whether it did. */
+  switchTo: (key: string) => Promise<boolean>
+  attempts: number
+}
+
+/**
+ * Routes a link and switches for it. An answer that arrived after the account
+ * in use changed (a switch from the sidebar, say) is stale: routing starts
+ * over, a few times at most. Whether this switched accounts.
+ */
+export async function routeAndSwitch(deps: RouteDeps): Promise<boolean> {
+  for (let attempt = 0; attempt < deps.attempts; attempt += 1) {
+    const epoch = deps.epoch()
+    const key = await deps.route().catch(() => null)
+
+    if (deps.epoch() !== epoch) continue
+
+    return key ? deps.switchTo(key) : false
+  }
+
+  return false
+}
