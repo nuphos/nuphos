@@ -1,6 +1,6 @@
 import { ObjectId as MongoObjectId } from 'mongodb'
 
-import { getLastActiveByTeam, getLastActiveByUser } from '@/lib/agent/db'
+import { getLastActiveByTeam, getLastActiveByUser } from '@/lib/agent/db/admin'
 import { escapeRegExp, mapTeam, mapUser, teams, users } from '@/lib/identity/shared'
 import { getMyTeams } from '@/lib/identity/teams'
 

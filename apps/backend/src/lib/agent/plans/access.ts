@@ -18,7 +18,6 @@ export async function assertPlanAccess(plan: PlanDTO, userId: string, need: 'rea
         runtimeId: 1,
         generalAccess: 1,
         participantIds: 1,
-        viewOnlyIds: 1,
         kind: 1,
       },
     },

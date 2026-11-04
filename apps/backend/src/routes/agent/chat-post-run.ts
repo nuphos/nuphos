@@ -183,7 +183,6 @@ export function launchAcceptedChatTurn(args: {
         localToolsEnabled: chatCtx.localToolsEnabled,
         explicitDecisionReplies: body.clientCapabilities?.decisionReplies === true,
         decisionReplyTo: decisionReplyOf(body),
-        clientResendsRefusal: body.clientCapabilities?.resendsRefusal === true,
         ...(args.queued ? { queued: args.queued } : {}),
         ...(body.continueAfterInterruption
           ? { resume: { ...(body.resumeReason ? { reason: body.resumeReason } : {}) } }

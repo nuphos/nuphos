@@ -49,10 +49,22 @@ describe('resolveConversationAccess', () => {
     ).toBeNull()
   })
 
-  test('a team runtime serves every participant', async () => {
+  test('whoever may use the computer replies, invited or not', async () => {
+    const uninvited = { ...onMac, generalAccess: 'none' as const, participantIds: ['reader'] }
+
+    expect(await resolveConversationAccess(uninvited, 'user', deps)).toBe('reply')
+    expect(await resolveConversationAccess(uninvited, 'reader', deps)).toBe('view')
+    expect(await resolveConversationAccess(uninvited, 'stranger', deps)).toBeNull()
+  })
+
+  test('a team runtime serves every participant, and only them', async () => {
     const managed = { ...onMac, runtimeId: 'managed-1' }
 
     expect(await resolveConversationAccess(managed, 'reader', deps)).toBe('reply')
+    expect(await resolveConversationAccess(managed, 'stranger', deps)).toBe('view')
+    expect(
+      await resolveConversationAccess({ ...managed, generalAccess: 'none' }, 'stranger', deps),
+    ).toBeNull()
   })
 
   test('a computer that is gone takes reply away', async () => {
@@ -64,7 +76,11 @@ describe('resolveConversationAccess', () => {
 
 test('a page asks about each computer once per viewer', async () => {
   lookups = 0
-  const page = [onMac, { ...onMac, sessionId: 'b' }, { ...onMac, userId: 'user' }]
+  const page = [
+    onMac,
+    { ...onMac, sessionId: 'b', participantIds: [] },
+    { ...onMac, userId: 'user' },
+  ]
 
   expect(await resolveConversationAccessList(page, 'user', deps)).toEqual([
     'reply',

@@ -90,6 +90,15 @@ describe('scope-set client ids', () => {
     expect(readOnly).not.toBe(oneWrite)
   })
 
+  test('new resources append to the ceiling so issued masks keep their meaning', () => {
+    expect(POSTHOG_SCOPE_CEILING.slice(-4)).toEqual([
+      'error_tracking:read',
+      'error_tracking:write',
+      'hog_function:read',
+      'hog_function:write',
+    ])
+  })
+
   test('rejects malformed, non-canonical and out-of-range masks', () => {
     for (const mask of ['', 'xyz', '03', 'f'.repeat(32)]) expect(decodeScopeSet(mask)).toBeNull()
   })

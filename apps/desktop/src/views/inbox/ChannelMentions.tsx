@@ -1,6 +1,6 @@
 import { AtSign } from 'lucide-react'
 
-import { ChannelMark } from '../../components/channels/channelParts'
+import { ChatIcon } from '../../components/channels/channelParts'
 import { t } from '../../i18n'
 
 import type { ChannelMention } from '../../api'
@@ -29,7 +29,7 @@ export function ChannelMentions({
               {mention.kind === 'agent' ? (
                 <AtSign className="mt-0.5 h-5 w-5 shrink-0 text-tertiary" strokeWidth={1.75} />
               ) : (
-                <ChannelMark size={20} className="mt-0.5" />
+                <ChatIcon title={mention.title} size={20} className="mt-0.5" />
               )}
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-secondary">

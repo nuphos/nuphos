@@ -21,8 +21,13 @@
   "GET /teams/64b5f1c2e4b0a1d2c3e4f5a6/favorites": {
     "status": 200,
     "body": {
-      "entries": [],
-      "revision": 0
+      "entries": [
+        {
+          "label": "Sign in \u00b7 Example Finance",
+          "href": "/teams/64b5f1c2e4b0a1d2c3e4f5a6/browser?url=https%3A%2F%2Fexample.com%2Flogin"
+        }
+      ],
+      "revision": 1
     }
   },
   "GET /agent/credential-options": {
@@ -169,8 +174,70 @@
           "id": "tab-docs",
           "url": "https://example.org/docs/getting-started",
           "title": "Getting started"
+        },
+        {
+          "id": "tab-local",
+          "url": "http://localhost:3000/",
+          "title": "Preview app"
         }
-      ]
+      ],
+      "dock": {
+        "tabs": [
+          {
+            "id": "tab-signup",
+            "kind": "team.browser",
+            "title": "Create your account",
+            "href": "/teams/64b5f1c2e4b0a1d2c3e4f5a6/browser?url=https%3A%2F%2Fexample.com%2Fsignup",
+            "url": "https://example.com/signup"
+          },
+          {
+            "id": "tab-docs",
+            "kind": "team.browser",
+            "title": "Getting started",
+            "href": "/teams/64b5f1c2e4b0a1d2c3e4f5a6/browser?url=https%3A%2F%2Fexample.org%2Fdocs%2Fgetting-started",
+            "url": "https://example.org/docs/getting-started"
+          },
+          {
+            "id": "tab-local",
+            "kind": "team.browser",
+            "title": "Preview app",
+            "href": "/teams/64b5f1c2e4b0a1d2c3e4f5a6/browser?url=http%3A%2F%2Flocalhost%3A3000%2F",
+            "url": "http://localhost:3000/"
+          },
+          {
+            "id": "tab-terminal",
+            "kind": "team.terminal",
+            "title": "Local terminal",
+            "href": "/teams/64b5f1c2e4b0a1d2c3e4f5a6/terminal"
+          }
+        ],
+        "activeTabId": "tab-docs",
+        "recent": [
+          {
+            "href": "/teams/64b5f1c2e4b0a1d2c3e4f5a6/terminal",
+            "title": "Local terminal"
+          },
+          {
+            "href": "/teams/64b5f1c2e4b0a1d2c3e4f5a6/runtimes",
+            "title": "Runtimes"
+          },
+          {
+            "href": "/teams/64b5f1c2e4b0a1d2c3e4f5a6/browser?url=http%3A%2F%2Flocalhost%3A3000%2F",
+            "title": "Browser",
+            "url": "http://localhost:3000/"
+          },
+          {
+            "href": "/teams/64b5f1c2e4b0a1d2c3e4f5a6/browser?url=http%3A%2F%2F127.0.0.1%3A5173%2F",
+            "title": "Browser",
+            "url": "http://127.0.0.1:5173/"
+          },
+          {
+            "href": "/teams/64b5f1c2e4b0a1d2c3e4f5a6/browser?url=https%3A%2F%2Fexample.net%2Fdeployments",
+            "title": "Deployments \u2013 Example",
+            "url": "https://example.net/deployments"
+          }
+        ]
+      }
     }
   },
   "POST /teams/64b5f1c2e4b0a1d2c3e4f5a6/browser-tabs/dock-a/tab-signup/focus": {
@@ -180,6 +247,75 @@
     }
   },
   "POST /teams/64b5f1c2e4b0a1d2c3e4f5a6/browser-tabs/dock-a/tab-docs/focus": {
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  },
+  "GET /agent/conversations?kind=channel": {
+    "status": 200,
+    "body": {
+      "conversations": [],
+      "hasMore": false,
+      "nextCursor": null
+    }
+  },
+  "GET /teams/64b5f1c2e4b0a1d2c3e4f5a6/connectors": {
+    "status": 200,
+    "body": {
+      "github": [
+        {
+          "id": "gh-1",
+          "installationId": 101,
+          "accountLogin": "example-org",
+          "accountType": "Organization"
+        }
+      ]
+    }
+  },
+  "DELETE /teams/64b5f1c2e4b0a1d2c3e4f5a6/browser-tabs/dock-a/tab-signup": {
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  },
+  "DELETE /teams/64b5f1c2e4b0a1d2c3e4f5a6/browser-tabs/dock-a/tab-docs": {
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  },
+  "POST /teams/64b5f1c2e4b0a1d2c3e4f5a6/browser-tabs/dock-a/tab-local/focus": {
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  },
+  "DELETE /teams/64b5f1c2e4b0a1d2c3e4f5a6/browser-tabs/dock-a/tab-local": {
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  },
+  "POST /teams/64b5f1c2e4b0a1d2c3e4f5a6/browser-tabs/dock-a/tab-terminal/focus": {
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  },
+  "DELETE /teams/64b5f1c2e4b0a1d2c3e4f5a6/browser-tabs/dock-a/tab-terminal": {
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  },
+  "POST /teams/64b5f1c2e4b0a1d2c3e4f5a6/browser-tabs/dock-a": {
+    "status": 200,
+    "body": {
+      "id": "tab-new"
+    }
+  },
+  "POST /teams/64b5f1c2e4b0a1d2c3e4f5a6/browser-tabs/dock-a/tab-new/focus": {
     "status": 200,
     "body": {
       "ok": true

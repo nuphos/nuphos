@@ -36,3 +36,14 @@ test('rejects a non-string stream id', async () => {
 
   expect(response.status).toBe(400)
 })
+
+test('answers a body that is not JSON with 400 invalid_request, not a server error', async () => {
+  const response = await app.request('/agent/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{"id": "session-1", "messages": [',
+  })
+
+  expect(response.status).toBe(400)
+  expect(await response.json()).toMatchObject({ error: { code: 'invalid_request' } })
+})

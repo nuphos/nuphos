@@ -144,4 +144,50 @@ class ChannelTranscriptFixtureDeviceTest {
         val edge = with(density) { 24.dp.toPx() }
         assertTrue("avatar=$dianaAvatar bubble=$bubble", kotlin.math.abs((bubble.left - with(density) { 14.dp.toPx() }) - dianaAvatar.left) < edge)
     }
+    /** The dots come and go in place, and being at the end, or not, doesn't change with them. */
+    @Test fun typingComesAndGoesWithoutMovingTheReader() {
+        val transport = Transport()
+        val session = ChannelSession("team", "chat-typing", "Chat", transport)
+        runBlocking { session.refresh(force = true) }
+        val agents = androidx.compose.runtime.mutableStateOf(emptyList<ChannelAgent>())
+        compose.setContent {
+            NuphosTheme(darkTheme = dark) {
+                ChannelTranscript(session, ChannelPost.items(session.posts, session.events, agents.value), viewerId = "me", onLink = {})
+            }
+        }
+        val dots = hasContentDescription("Release ops is typing")
+        compose.onNodeWithText("Post 30").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Scroll to latest").assertDoesNotExist()
+        compose.onNode(dots).assertDoesNotExist()
+        val before = compose.onNodeWithText("Post 30").fetchSemanticsNode().boundsInRoot
+        // In: the dots show, and the newest post rises to make room.
+        compose.runOnIdle { agents.value = listOf(ChannelAgent("agent-ops", "Release ops")) }
+        compose.waitUntil(5_000) { compose.onAllNodes(dots).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle()
+        compose.onNode(dots).assertIsDisplayed()
+        compose.onNodeWithContentDescription("Scroll to latest").assertDoesNotExist()
+        val above = compose.onNodeWithText("Post 30").fetchSemanticsNode().boundsInRoot
+        assertTrue("before=$before above=$above", above.top < before.top)
+        // Out: the dots are still there as they leave, then gone, and the post settles back.
+        compose.mainClock.autoAdvance = false
+        compose.runOnIdle { agents.value = emptyList() }
+        compose.mainClock.advanceTimeByFrame()
+        compose.mainClock.advanceTimeBy(48)
+        compose.onNode(dots).assertExists()
+        compose.mainClock.autoAdvance = true
+        compose.waitUntil(5_000) { compose.onAllNodes(dots).fetchSemanticsNodes().isEmpty() }
+        compose.waitForIdle()
+        assertEquals(before.top, compose.onNodeWithText("Post 30").fetchSemanticsNode().boundsInRoot.top, 2f)
+        compose.onNodeWithContentDescription("Scroll to latest").assertDoesNotExist()
+        // While reading older posts, the dots coming and going moves nothing on screen.
+        compose.onNodeWithTag("channel-transcript").performScrollToNode(hasText("Post 1"))
+        compose.waitForIdle()
+        val reading = compose.onNodeWithText("Post 1").fetchSemanticsNode().boundsInRoot
+        compose.runOnIdle { agents.value = listOf(ChannelAgent("agent-ops", "Release ops")) }
+        compose.waitForIdle()
+        assertEquals(reading.top, compose.onNodeWithText("Post 1").fetchSemanticsNode().boundsInRoot.top, 1f)
+        compose.runOnIdle { agents.value = emptyList() }
+        compose.waitForIdle()
+        assertEquals(reading.top, compose.onNodeWithText("Post 1").fetchSemanticsNode().boundsInRoot.top, 1f)
+    }
 }

@@ -23,6 +23,7 @@ import type { ComposerSend } from './composerMentionChips'
 import type { ComposerRecall } from './composerRecall'
 import type { CredentialSelectorControl } from './credentialSections'
 import type { AgentPromptSeed } from './model'
+import type { ViewOnlyNotice } from './viewOnlyNotice'
 import type { RuntimeControl } from './RuntimeSelector'
 import type { ModelSession } from './useSessionConfig'
 import type { AgentConversation, AgentSlackThread, LocalAgentSessionInfo } from '../../../api'
@@ -37,7 +38,7 @@ export function Composer({
   runtimeState,
   executing = false,
   readOnly = false,
-  readOnlyPlaceholder,
+  readOnlyNotice,
   activitySource,
   slackThread,
   credentialSelector,
@@ -64,9 +65,8 @@ export function Composer({
   runtimeState?: RuntimeExecution
   executing?: boolean
   readOnly?: boolean
-  /** Placeholder shown while `readOnly` — defaults to the read-only-conversation
-   *  copy; overridden (e.g. by the integration gate) to explain the lock. */
-  readOnlyPlaceholder?: string
+  /** While `readOnly`: the viewer's way on, beside the read-only copy. */
+  readOnlyNotice?: ViewOnlyNotice
   activitySource?: AgentConversation['activitySource']
   slackThread?: AgentSlackThread | null
   credentialSelector?: CredentialSelectorControl
@@ -121,7 +121,6 @@ export function Composer({
   const state = useComposerState({
     hero,
     readOnly,
-    readOnlyPlaceholder,
     streaming,
     autoFocus,
     focusKey: draftKey,
@@ -215,7 +214,8 @@ export function Composer({
             <ReadOnlyConversationNotice
               activitySource={activitySource}
               slackThread={slackThread}
-              label={readOnlyPlaceholder}
+              action={readOnlyNotice?.action}
+              secondary={readOnlyNotice?.secondary}
             />
           ) : (
             <ComposerEditor

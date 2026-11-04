@@ -121,6 +121,13 @@ export const POSTHOG_RESOURCES: readonly PosthogResource[] = [
     writable: true,
     writeWarning: null,
   },
+  {
+    id: 'hog_function',
+    label: 'Data pipelines',
+    description: 'Data pipeline destinations and transformations.',
+    writable: true,
+    writeWarning: 'Changing a destination changes where your data is sent.',
+  },
 ]
 
 const RESOURCE_IDS = new Set(POSTHOG_RESOURCES.map((resource) => resource.id))

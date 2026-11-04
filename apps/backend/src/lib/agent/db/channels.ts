@@ -1,3 +1,4 @@
+import { runtimeProvider } from '@/lib/claude-code-preview/runtime-provider'
 import { AppError } from '@/lib/errors'
 
 import { resolveConversationAccessList } from '../devices/conversation-computer'
@@ -86,13 +87,9 @@ export async function listChannelAgents(channel: ChannelFields & { teamId?: stri
   if (ids.length === 0) return []
   const sessions = await agentConversations()
     .find({ sessionId: { $in: ids }, teamId: channel.teamId })
-    .project<Pick<AgentConversation, 'sessionId' | 'userId' | 'title' | 'avatar'>>({
-      _id: 0,
-      sessionId: 1,
-      userId: 1,
-      title: 1,
-      avatar: 1,
-    })
+    .project<Pick<AgentConversation, 'sessionId' | 'userId' | 'title' | 'avatar' | 'agentRuntime'>>(
+      { _id: 0, sessionId: 1, userId: 1, title: 1, avatar: 1, agentRuntime: 1 },
+    )
     .toArray()
   const byId = new Map(sessions.map((session) => [session.sessionId, session]))
 
@@ -106,6 +103,7 @@ export async function listChannelAgents(channel: ChannelFields & { teamId?: stri
             title: session.title,
             ownerId: session.userId,
             ...(session.avatar ? { avatar: session.avatar } : {}),
+            provider: runtimeProvider(session.agentRuntime),
           },
         ]
       : []

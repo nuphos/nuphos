@@ -1,11 +1,11 @@
 import SwiftUI
 
 /// `ConversationAccessState` in the desktop's `api/agent-types.ts`: who in the
-/// team may read without an invite, and each person invited. A participant
-/// replies while they may use the computer the session runs on.
+/// team may read without an invite, and each person invited. Whoever may use
+/// the computer the session runs on replies, invited or not.
 struct SessionAccess: Decodable, Equatable {
     enum General: String, Decodable, CaseIterable {
-        /// `reply` is a chat's only: a session's team reads, its invited people reply.
+        /// `reply` is a chat's only: in a session, reply follows its computer.
         case onlyInvited = "none", view, reply
 
         var title: LocalizedStringKey {

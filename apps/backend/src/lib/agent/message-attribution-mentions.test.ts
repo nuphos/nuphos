@@ -118,29 +118,6 @@ test('someone outside the conversation gets the chip but no Inbox entry', async 
   expect((await agentConversations().findOne({ sessionId: 'session' }))?.mentions).toBeUndefined()
 })
 
-test('someone who may only view gets no Inbox entry they could never clear', async () => {
-  await agentConversations().updateOne(
-    { sessionId: 'session' },
-    { $set: { viewOnlyIds: ['daniel'] } },
-  )
-  const messages = said('@daniel@example.com fyi', ['daniel'])
-
-  await attributeAppMessages(
-    messages,
-    'session',
-    'owner',
-    'owner',
-    false,
-    undefined,
-    undefined,
-    TEAM,
-  )
-  await new Promise((resolve) => setTimeout(resolve, 50))
-
-  expect(messages[0]?.metadata).toMatchObject({ mentions: [{ id: 'daniel' }] })
-  expect((await agentConversations().findOne({ sessionId: 'session' }))?.mentions).toBeUndefined()
-})
-
 test('someone who cannot use the computer it runs on gets no Inbox entry', async () => {
   // The owner's own computer, which the mentioned teammate has no use of.
   await agentConversations().updateOne(
@@ -178,24 +155,5 @@ test('someone who cannot use the computer it runs on gets no Inbox entry', async
     role: 'user',
     parts: [{ type: 'text', text: 'hi' }],
   } as never)
-  expect(await listChannelMentions(TEAM, 'daniel')).toEqual([])
-})
-
-test('an entry stops showing once its person may only view', async () => {
-  await agentConversations().updateOne(
-    { sessionId: 'session' },
-    {
-      $set: { mentions: { daniel: { messageId: 'm1', at: new Date() } }, viewOnlyIds: ['daniel'] },
-    },
-  )
-  await agentMessages().insertOne({
-    sessionId: 'session',
-    userId: 'owner',
-    index: 0,
-    messageId: 'm1',
-    role: 'user',
-    parts: [{ type: 'text', text: 'hi' }],
-  } as never)
-
   expect(await listChannelMentions(TEAM, 'daniel')).toEqual([])
 })

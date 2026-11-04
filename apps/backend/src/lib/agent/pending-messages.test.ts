@@ -4,7 +4,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
 import {
-  PENDING_TTL_SEC,
   buildPendingUserMessage,
   clearPendingUserMessages,
   drainPendingUserMessages,
@@ -12,7 +11,6 @@ import {
   hasPendingUserMessages,
   renderInjectedUserMessages,
 } from './pending-messages'
-import { OPENAB_PERMISSION_DECISION_TIMEOUT_MS } from '../claude-code-preview/openab-permission-bridge'
 
 const USER = 'user-1'
 const SESSION = 'session-1'
@@ -92,10 +90,6 @@ describe('pending user messages', () => {
     ).toEqual(['from B'])
   })
 
-  test('accepted messages outlive the longest human tool-approval wait', () => {
-    expect(PENDING_TTL_SEC * 1_000).toBeGreaterThan(OPENAB_PERMISSION_DECISION_TIMEOUT_MS)
-  })
-
   test('an identical wake-up takes no slot; distinct events and resources keep one each', async () => {
     const wake = (pr: number, text: string) => {
       const message = buildPendingUserMessage({
@@ -133,33 +127,17 @@ describe('pending user messages', () => {
     expect(drained[0]!.id).toBe(first.message.id)
   })
 
-  test('a full queue refuses the newest message instead of evicting an acknowledged one', async () => {
+  test('a queue has no cap: every accepted message waits, in order', async () => {
     const outcomes: boolean[] = []
 
-    for (let i = 0; i < 15; i++) outcomes.push(await enqueue(`message ${String(i)}`))
+    for (let i = 0; i < 25; i++) outcomes.push(await enqueue(`message ${String(i)}`))
 
     const drained = await drainPendingUserMessages(USER, SESSION)
 
-    expect(drained).toHaveLength(10)
-    expect(drained[0]!.renderedText).toBe('message 0')
-    expect(drained.at(-1)!.renderedText).toBe('message 9')
-    expect(outcomes).toEqual([
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      false,
-      false,
-      false,
-      false,
-      false,
-    ])
+    expect(outcomes.every(Boolean)).toBe(true)
+    expect(drained.map((message) => message.renderedText)).toEqual(
+      Array.from({ length: 25 }, (_, i) => `message ${String(i)}`),
+    )
   })
 })
 

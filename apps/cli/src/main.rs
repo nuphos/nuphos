@@ -1,5 +1,6 @@
 //! `nuphos` — a terminal client for Nuphos agent conversations.
 
+mod accounts;
 mod agent;
 mod api;
 mod app;
@@ -31,6 +32,10 @@ struct Args {
     /// Print JSON instead of text.
     #[arg(long, global = true)]
     json: bool,
+    /// Run as this Nuphos Desktop account (its email, or its key from
+    /// `nuphos auth list`) for this command only.
+    #[arg(long, global = true)]
+    account: Option<String>,
     #[command(subcommand)]
     command: Option<Command>,
 }
@@ -145,6 +150,14 @@ enum TokenCommand {
 enum AuthCommand {
     /// Who is signed in, and where the session token is kept.
     Status,
+    /// The accounts signed in to Nuphos Desktop, and which one the CLI uses.
+    List,
+    /// Use a Nuphos Desktop account (its email or key) as the CLI's sign-in.
+    Switch {
+        /// Not `account`: that id is the global `--account` option's.
+        #[arg(value_name = "ACCOUNT")]
+        selector: String,
+    },
 }
 
 #[tokio::main]
@@ -164,6 +177,19 @@ async fn run(args: Args) -> Result<i32> {
     if interactive && !(std::io::stdin().is_terminal() && std::io::stdout().is_terminal()) {
         bail!("the TUI needs a terminal; use `nuphos exec` to send a message from a script");
     }
+    if let Some(selector) = &args.account {
+        // Not for the sign-in itself, nor for `agent`, which hosts this computer
+        // with the CLI's saved sign-in rather than running one command.
+        if matches!(
+            args.command,
+            Some(Command::Login { .. } | Command::Logout | Command::Auth { .. } | Command::Agent { .. })
+        ) {
+            bail!(
+                "--account runs one command as a desktop account; for the CLI's own sign-in use `nuphos auth switch`"
+            );
+        }
+        config::use_account(accounts::find(accounts::desktop_accounts(), selector)?.sign_in()?);
+    }
     match &args.command {
         Some(Command::Logout) => {
             login::logout().await?;
@@ -171,7 +197,7 @@ async fn run(args: Args) -> Result<i32> {
             return Ok(0);
         }
         Some(Command::Update) => return update::update().await,
-        Some(Command::Auth { command }) => return auth(command),
+        Some(Command::Auth { command }) => return auth(command, args.json).await,
         Some(Command::Agent { join }) => {
             let join = agent::join_token(join.as_deref())?;
             // A joined computer has its own credential; only the session needs signing in.
@@ -265,17 +291,76 @@ async fn run(args: Args) -> Result<i32> {
 /// `nuphos auth status`: read locally, without checking the token with the
 /// backend. There is deliberately no command that prints the token: the
 /// keychain trusts this binary, so it would hand the token to any process.
-fn auth(command: &AuthCommand) -> Result<i32> {
-    let session = config::read_session();
-    if session.token.is_none() {
-        eprintln!("nuphos: not signed in; run `nuphos login`");
-        return Ok(1);
-    }
+async fn auth(command: &AuthCommand, json: bool) -> Result<i32> {
     match command {
         AuthCommand::Status => {
+            let session = config::read_session();
+            if session.token.is_none() {
+                eprintln!("nuphos: not signed in; run `nuphos login`");
+                return Ok(1);
+            }
             println!("Signed in as {}", who(&session));
             println!("API: {}", config::api_url());
             println!("Token: {}", config::token_storage(&session));
+        }
+        AuthCommand::List => {
+            // From the file: listing never needs a token, nor the keychain.
+            let session = config::saved_session();
+            // NUPHOS_CLI_TOKEN outranks the saved sign-in: commands use it, and
+            // which account it is is not known without asking the backend.
+            let from_env = config::env_token_set();
+            let cli = if from_env { None } else { accounts::key_of(&session) };
+            let desktop = accounts::desktop_accounts();
+            if json {
+                let rows: Vec<Value> = desktop
+                    .iter()
+                    .map(|a| {
+                        serde_json::json!({
+                            "key": a.key, "api": a.api, "who": a.who,
+                            "desktopActive": a.active, "cli": cli.as_deref() == Some(a.key.as_str()),
+                        })
+                    })
+                    .collect();
+                println!("{}", serde_json::json!({ "cli": cli, "cliFromEnv": from_env, "desktop": rows }));
+                return Ok(0);
+            }
+            match &cli {
+                _ if from_env => {
+                    println!("CLI: the NUPHOS_CLI_TOKEN environment variable (`nuphos team` checks whose it is)")
+                }
+                Some(key) => println!("CLI: {} ({})", who(&session), render::clean(key)),
+                None => println!("CLI: not signed in"),
+            }
+            println!("Nuphos Desktop:{}", if desktop.is_empty() { " no accounts signed in" } else { "" });
+            for a in &desktop {
+                let marks = [
+                    a.active.then_some("in use on Desktop"),
+                    (cli.as_deref() == Some(a.key.as_str())).then_some("CLI"),
+                ];
+                let marks: Vec<&str> = marks.into_iter().flatten().collect();
+                let marks = if marks.is_empty() { String::new() } else { format!("  [{}]", marks.join(", ")) };
+                println!("  {}  {}{marks}", render::clean(&a.who), render::clean(&a.key));
+            }
+        }
+        AuthCommand::Switch { selector } => {
+            let target = accounts::find(accounts::desktop_accounts(), selector)?;
+            // The environment's endpoint outranks the saved one: every later
+            // command would send this account's token to that backend instead.
+            let env_api = config::env_api_override();
+            if accounts::override_conflicts(env_api.as_deref(), &target.api) {
+                bail!(
+                    "NUPHOS_API_URL points at {}, not {}'s backend ({}); unset it to switch to that account",
+                    render::clean(env_api.as_deref().unwrap_or_default()),
+                    render::clean(&target.who),
+                    render::clean(&target.api)
+                );
+            }
+            let signed = target.sign_in()?;
+            let token = signed.token.as_deref().unwrap_or_default();
+            // Checked with its own backend, then saved with it: the CLI talks
+            // to that backend from now on.
+            let session = login::with_desktop_token(&target.api, token).await?;
+            println!("The CLI now uses {} on {}.", who(&session), render::clean(&target.api));
         }
     }
     Ok(0)
@@ -468,5 +553,26 @@ mod avatar_tests {
         std::fs::write(&small, b"png").unwrap();
         assert_eq!(read_avatar(small.to_str().unwrap()).await.unwrap(), b"png");
         std::fs::remove_file(&small).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod account_args {
+    use clap::Parser;
+
+    use super::{Args, AuthCommand, Command};
+
+    #[test]
+    fn auth_switch_names_its_account_without_setting_the_global_flag() {
+        let args = Args::try_parse_from(["nuphos", "auth", "switch", "alex@example.com"]).unwrap();
+        assert!(args.account.is_none());
+        match args.command {
+            Some(Command::Auth { command: AuthCommand::Switch { selector } }) => {
+                assert_eq!(selector, "alex@example.com")
+            }
+            _ => panic!("not auth switch"),
+        }
+        let args = Args::try_parse_from(["nuphos", "--account", "sam@example.com", "team"]).unwrap();
+        assert_eq!(args.account.as_deref(), Some("sam@example.com"));
     }
 }

@@ -1,5 +1,19 @@
 import Foundation
 
+/// A member a chat's icon shows: a person, or an agent by its session
+/// (`ChannelFace` in the desktop's `api/agent-types.ts`).
+struct ChatFace: Codable, Equatable, Hashable, Sendable {
+    struct Agent: Codable, Equatable, Hashable, Sendable {
+        let avatar: String?
+        let provider: String?
+    }
+
+    let id: String
+    let name: String
+    let avatarURL: String?
+    let agent: Agent?
+}
+
 /// One row of `GET /agent/conversations` (`AgentConversation` in the
 /// desktop's `api/agent-types.ts`). Fields the list and detail screens read;
 /// the backend passes through more and we ignore it.
@@ -66,6 +80,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var watching: Bool?
     /// `channel` for a chat where people and agents talk; nil for an agent.
     var kind: String?
+    /// A chat's icon: up to two members other than the viewer, whoever spoke last first.
+    var faces: [ChatFace]?
 
     var id: String { sessionId }
 
@@ -108,6 +124,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         parentSessionId = try c.decodeIfPresent(String.self, forKey: .parentSessionId)
         watching = try? c.decodeIfPresent(Bool.self, forKey: .watching)
         kind = try? c.decodeIfPresent(String.self, forKey: .kind)
+        faces = try? c.decodeIfPresent([ChatFace].self, forKey: .faces)
     }
 
     init(
@@ -232,10 +249,13 @@ struct AgentConversationDetail: Decodable, Sendable {
     let messageCount: Int?
     let transcriptUpdatedAt: String?
 
+    /// A chat's icon, as the list row carries it.
+    let faces: [ChatFace]
+
     var isChannel: Bool { kind == "channel" }
 
     private enum CodingKeys: String, CodingKey {
-        case kind, messageCount, transcriptUpdatedAt, isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, promptSuggestion
+        case faces, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, promptSuggestion
     }
 
     init(from decoder: Decoder) throws {
@@ -260,6 +280,7 @@ struct AgentConversationDetail: Decodable, Sendable {
         promptSuggestion = try? c.decodeIfPresent(String.self, forKey: .promptSuggestion)
         kind = try? c.decodeIfPresent(String.self, forKey: .kind)
         messageCount = try? c.decodeIfPresent(Int.self, forKey: .messageCount)
+        faces = (try? c.decodeIfPresent([ChatFace].self, forKey: .faces)) ?? []
         transcriptUpdatedAt = try? c.decodeIfPresent(String.self, forKey: .transcriptUpdatedAt)
     }
 }

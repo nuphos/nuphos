@@ -18,6 +18,8 @@ import * as posthogInstall from '../posthog-install'
 import * as sentryInstall from '../sentry-install'
 import * as slackInstall from '../slack-install'
 
+import { openInTeamAccount } from './account-for-link'
+import { teamOfPath } from './account-for-link-core.ts'
 import { createDeepLinkDelivery } from './deep-link-delivery'
 
 import type { DeepLinkTarget } from './deep-link-delivery'
@@ -189,7 +191,14 @@ export function handleDeepLink(url: string) {
       has_team_id: Boolean(payload.teamId),
       auto_send: payload.autoSend,
     })
-    queueDeepLink('deep-link:agent-chat', payload)
+    // A link to a team another signed-in account is in opens as that account.
+    // Having switched for it, its prompt waits as a draft: a page that knows a
+    // team id must not send as an account the user was not using.
+    void openInTeamAccount(payload.teamId ?? null, (switched) => {
+      queueDeepLink('deep-link:agent-chat', switched ? { ...payload, autoSend: false } : payload)
+
+      return delivery.drained()
+    })
 
     return
   }
@@ -203,7 +212,11 @@ export function handleDeepLink(url: string) {
       kind: 'app_open',
       path: sanitizedPath,
     })
-    queueDeepLink('deep-link:app-open', payload)
+    void openInTeamAccount(teamOfPath(payload.path), () => {
+      queueDeepLink('deep-link:app-open', payload)
+
+      return delivery.drained()
+    })
 
     return
   }
@@ -227,4 +240,16 @@ export function handleDeepLink(url: string) {
     captureMain('deep_link_opened', { kind: 'connect_agent', valid: Boolean(payload) })
     if (payload) queueDeepLink('deep-link:connect-agent', payload)
   }
+}
+
+/**
+ * Opens a Nuphos page in the workspace, as a `nuphos://open` link would;
+ * resolves once the workspace has it.
+ */
+export function openAppPath(path: string): Promise<void> {
+  const payload = appOpenDeepLink.parseAppOpenUrl(`nuphos://open?path=${encodeURIComponent(path)}`)
+
+  if (payload) queueDeepLink('deep-link:app-open', payload)
+
+  return delivery.drained()
 }

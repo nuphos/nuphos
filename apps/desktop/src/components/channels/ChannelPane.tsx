@@ -12,7 +12,7 @@ import { SessionParticipants } from '../agent/SessionParticipants'
 import { toast } from '../ui/toast'
 
 import { ChannelMessages } from './ChannelMessages'
-import { ChannelMark } from './channelParts'
+import { ChatIcon } from './channelParts'
 import { sendingPost, stillSending } from './sendingPosts'
 import { useChannel } from './useChannel'
 import { useStickToBottom } from './useStickToBottom'
@@ -112,7 +112,7 @@ export function ChannelPane({
         )}
       >
         <div className="titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 overflow-hidden text-[13px] font-medium text-secondary">
-          <ChannelMark size={22} />
+          <ChatIcon faces={detail?.faces} title={title} size={22} />
           <span className="truncate text-main">{title}</span>
         </div>
         <SessionParticipants
@@ -143,7 +143,7 @@ export function ChannelPane({
         <div>
           {detail && messages.length === 0 && (
             <div className="mx-auto flex w-full max-w-[760px] flex-col items-start gap-3 px-3 pt-10">
-              <ChannelMark size={44} className="rounded-xl" />
+              <ChatIcon faces={detail.faces} title={title} size={44} />
               <div className="text-lg font-semibold leading-snug text-main">{title}</div>
               <div className="max-w-[560px] text-[13px] leading-relaxed text-secondary">
                 {t(

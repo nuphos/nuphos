@@ -108,6 +108,8 @@ describe('posthog skill', () => {
     [['query', 'select 1'], 'lacks query:read'],
     [['get', 'dashboards/'], 'lacks dashboard:read'],
     [['write', 'PATCH', 'feature_flags/5/', '--data', '{}'], 'lacks feature_flag:write'],
+    [['get', 'hog_functions/'], 'lacks hog_function:read'],
+    [['write', 'DELETE', '/api/environments/12/hog_functions/abc/'], 'lacks hog_function:write'],
     [['write', 'POST', 'query/', '--data', '{}'], 'only supported on a known PostHog resource'],
   ])('the helper refuses %p outside the granted scopes', (args, message) => {
     const proc = helper(args, 'https://us.posthog.com')
@@ -126,6 +128,17 @@ describe('posthog skill', () => {
     expect(proc.exitCode).toBe(3)
     expect(proc.stdout.toString()).toContain('DRY RUN - nothing was changed.')
     expect(proc.stdout.toString()).toContain('Would PATCH http://127.0.0.1:9/api/projects/12/feature_flags/5/')
+  })
+
+  test('a hog function write maps to the hog_function scope', () => {
+    const proc = helper(
+      ['write', 'DELETE', 'hog_functions/abc/'],
+      'http://127.0.0.1:9',
+      'hog_function:read hog_function:write',
+    )
+
+    expect(proc.exitCode).toBe(3)
+    expect(proc.stdout.toString()).toContain('Would DELETE http://127.0.0.1:9/api/projects/12/hog_functions/abc/')
   })
 
   test('the helper only sends the token to the PostHog Cloud hosts', () => {

@@ -27,6 +27,7 @@ import { QueuedStrip } from './QueuedStrip'
 import { cardReplyId } from './replyTarget'
 import { ReplyTargetChip } from './ReplyTargetChip'
 import { serverHasConversation } from './sessionActions'
+import { useViewOnlyNotice } from './useViewOnlyNotice'
 
 import type { PanelViewCtx } from './ctx'
 import type { Message } from './model'
@@ -69,6 +70,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   } = c
   const { runtimeControl: conversationControl } = useConversationRuntimeControl(c)
   const { runtimeControl, queuedApproval } = useQueuedShareApproval(conversationControl, activeTab)
+  const readOnlyNotice = useViewOnlyNotice(c)
   // The fork needs the chat stored on the server; each message is then gated on its author.
   const editableSessionId =
     activeTab && !activeTab.readOnly && !activeTab.unsaved ? activeTab.sessionId : undefined
@@ -231,6 +233,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
                     executing={runtimeIsExecuting(activeTab.runtimeState)}
                     readOnly={activeTab.readOnly}
+                    readOnlyNotice={readOnlyNotice}
                     activitySource={activeTab.activitySource}
                     slackThread={activeTab.slackThread}
                     credentialSelector={visibleConversationCredentialSelector}
@@ -265,6 +268,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
                     executing={runtimeIsExecuting(activeTab.runtimeState)}
                     readOnly={activeTab.readOnly}
+                    readOnlyNotice={readOnlyNotice}
                     activitySource={activeTab.activitySource}
                     slackThread={activeTab.slackThread}
                     credentialSelector={visibleConversationCredentialSelector}

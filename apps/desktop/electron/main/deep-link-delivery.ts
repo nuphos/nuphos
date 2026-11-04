@@ -46,6 +46,13 @@ export function createDeepLinkDelivery(resolveTarget: () => DeepLinkTarget | nul
   let nextDeliveryId = 1
   let retryTimer: ReturnType<typeof setTimeout> | null = null
   let retryDelayMs = FIRST_RETRY_MS
+  const drainWaiters = new Set<() => void>()
+
+  function settleDrain() {
+    if (pending.length > 0) return
+    for (const resolve of drainWaiters) resolve()
+    drainWaiters.clear()
+  }
 
   function cancelRetry() {
     if (!retryTimer) return
@@ -58,6 +65,7 @@ export function createDeepLinkDelivery(resolveTarget: () => DeepLinkTarget | nul
     const live = pending.filter((item) => item.queuedAt > cutoff)
 
     if (live.length !== pending.length) pending.splice(0, pending.length, ...live)
+    settleDrain()
   }
 
   // The ack rides back over IPC, so the queue is still full right after the
@@ -123,7 +131,16 @@ export function createDeepLinkDelivery(resolveTarget: () => DeepLinkTarget | nul
         cancelRetry()
         retryDelayMs = FIRST_RETRY_MS
       }
+      settleDrain()
     },
+
+    /** Resolves once every queued payload has been acked (or has expired). */
+    drained: (): Promise<void> =>
+      pending.length === 0
+        ? Promise.resolve()
+        : new Promise((resolve) => {
+            drainWaiters.add(resolve)
+          }),
 
     pendingCount: () => pending.length,
   }

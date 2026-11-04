@@ -247,18 +247,16 @@ test("a message queued before its thread was archived runs as the thread's turn"
   ])
 })
 
-test('a message left in a queue that never runs is dropped before its TTL and reported', async () => {
+test('a message that waited over an hour still runs: a queue has no expiry', async () => {
   await enqueuePendingUserMessage(
     'owner',
     'target',
-    threadMessage(new Date(Date.now() - 60 * 60 * 1000).toISOString()),
+    threadMessage(new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()),
   )
 
   await startQueuedTurn('owner', 'target')
   await settle()
-  expect(await hasPendingUserMessages('owner', 'target')).toBe(false)
-  expect(runs.map((run) => run.sessionId)).toEqual(['source'])
-  expect(noticeText()).toContain('was dropped after waiting an hour')
+  expect(runs.map((run) => run.sessionId)).toEqual(['target'])
 })
 
 for (const [name, receivedAt] of [

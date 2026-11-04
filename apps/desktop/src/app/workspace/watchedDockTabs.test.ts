@@ -69,7 +69,11 @@ test('one phone per tab: a second is refused, and the first keeps its watch', as
   const globals = globalThis as unknown as { window?: Window }
 
   globals.window ??= {} as Window
-  const unexpose = exposeDockBrowserTabs({ getState: store.getState, actions: store.actions })
+  const unexpose = exposeDockBrowserTabs({
+    userId: 'u1',
+    getState: store.getState,
+    actions: store.actions,
+  })
   const first = window.nuphosWatchDockTab?.('chat', 'b1', 390, 700)
   const unregister = registerBrowserView('b1', {
     getWebContentsId: () => 7,
