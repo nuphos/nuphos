@@ -1,6 +1,6 @@
 import { apiUrl } from '../api-endpoint.ts'
 import { authSession } from '../auth-session.ts'
-import { decideAuthStatus, isTokenRejected, isValidUserInfo } from '../auth-status.ts'
+import { classifyMeFailure, decideAuthStatus, isValidUserInfo } from '../auth-status.ts'
 
 import { OtherBackendError } from './accounts.ts'
 import { commitConfigIf, readConfig } from './config.ts'
@@ -35,10 +35,10 @@ export async function fetchUserInfo(token: string, api: string = apiUrl()): Prom
   return body
 }
 
-// Probe GET /auth/me, classifying the outcome so status() can tell a rejected
-// token (real logout) apart from a transient failure (keep the session). Never
-// throws — a network/transport error, timeout, or malformed body is just a
-// transient probe.
+// Probe GET /auth/me, classifying the outcome so status() can tell a credential
+// the backend proved dead (clear the sign-in) apart from a refusal it cannot
+// explain and a transient failure (both keep it). Never throws — a
+// network/transport error, timeout, or malformed body is just a transient probe.
 async function probeMe(token: string, api: string): Promise<MeProbe> {
   let res: Response
 
@@ -50,10 +50,22 @@ async function probeMe(token: string, api: string): Promise<MeProbe> {
   } catch {
     // Offline, DNS failure, connection reset, or timeout — never proof the
     // token is dead.
-    return { ok: false, transient: true }
+    return { ok: false, failure: 'transient' }
   }
   if (!res.ok) {
-    return { ok: false, transient: !isTokenRejected(res.status) }
+    // The body, not the status, says whether the credential itself is dead: a
+    // proxy's own 401 carries HTML, and a 403 never means an invalid session.
+    let code: string | undefined
+
+    try {
+      const body = (await res.json()) as { error?: { code?: unknown } } | null
+
+      if (typeof body?.error?.code === 'string') code = body.error.code
+    } catch {
+      // Not our JSON, so there is no code to trust.
+    }
+
+    return { ok: false, failure: classifyMeFailure(res.status, code), status: res.status }
   }
   let body: unknown
 
@@ -61,12 +73,12 @@ async function probeMe(token: string, api: string): Promise<MeProbe> {
     body = await res.json()
   } catch {
     // 2xx with an unparseable body is a server hiccup, not a rejected token.
-    return { ok: false, transient: true }
+    return { ok: false, failure: 'transient' }
   }
   if (!isValidUserInfo(body)) {
     // 2xx but null / missing-field identity — malformed, treat as transient
     // rather than logging in a half-empty user.
-    return { ok: false, transient: true }
+    return { ok: false, failure: 'transient' }
   }
 
   return { ok: true, user: body }
@@ -147,11 +159,23 @@ async function settle(
       if (e instanceof OtherBackendError) throw e
       console.warn('auth: failed to refresh cached identity', e)
     }
-  } else if (!probe.transient) {
-    try {
-      await save({})
-    } catch (e) {
-      console.warn('auth: failed to clear rejected token', e)
+  } else {
+    const detail = probe.status === undefined ? 'no response' : `HTTP ${String(probe.status)}`
+
+    if (probe.failure === 'invalid') {
+      // The one outcome that ends the sign-in: the backend proved the credential
+      // dead, so nothing here can succeed until the person signs in again.
+      try {
+        await save({})
+        console.warn(`auth: cleared the saved session — the backend rejected the token (${detail})`)
+      } catch (e) {
+        console.warn('auth: failed to clear rejected token', e)
+      }
+    } else {
+      // A refusal or a transient failure says nothing about the credential, so
+      // the token stays for the next launch; only this launch is signed out
+      // (or, when a user is cached, runs on the cached identity).
+      console.warn(`auth: kept the saved session after a ${probe.failure} probe (${detail})`)
     }
   }
 
