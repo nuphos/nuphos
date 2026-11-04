@@ -1,5 +1,17 @@
 package ai.nuphos.android.ui.chats
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -17,6 +29,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -42,6 +56,7 @@ import ai.nuphos.android.ui.components.AgentAvatar
 import ai.nuphos.android.ui.components.MarkdownText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 /** A chat opened from the list, a link or a notification. It never runs an agent turn. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -132,7 +147,8 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                                 downloads: TransferDownloads = remember { TransferDownloads() }) {
     val state = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    val reversed = items.asReversed()
+    val typing = (items.lastOrNull() as? ChannelItem.Typing)?.agents.orEmpty()
+    val reversed = items.filterNot { it is ChannelItem.Typing }.asReversed()
     val atLatest by remember { derivedStateOf { state.firstVisibleItemIndex == 0 && state.firstVisibleItemScrollOffset < 48 } }
     var wasAtLatest by remember { mutableStateOf(true) }
     val newest = reversed.firstOrNull()?.key
@@ -144,12 +160,13 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize().testTag("channel-transcript"), state = state, reverseLayout = true,
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
+            item(key = "typing") { TypingSlot(typing) }
             items(reversed, key = { it.key }) { item ->
                 when (item) {
                     is ChannelItem.Post -> PostRow(session, item.post, item.first, item.post.isMine(viewerId), onLink, allowed, downloads)
                     is ChannelItem.Time -> TimeDivider(item.at)
                     is ChannelItem.Paused -> PausedLine(item.text)
-                    is ChannelItem.Typing -> TypingRow(item)
+                    is ChannelItem.Typing -> Unit
                 }
             }
         }
@@ -229,17 +246,49 @@ private fun PausedLine(text: String) {
     }
 }
 
+/**
+ * Stays in the list so the dots can leave in place, not vanish with their row. It keeps a sliver of
+ * height when empty: a list skips an empty first item, and that would read as being away from the end.
+ */
 @Composable
-private fun TypingRow(item: ChannelItem.Typing) {
+private fun TypingSlot(agents: List<ChannelAgent>) {
+    var leaving by remember { mutableStateOf(agents) }
+    SideEffect { if (agents.isNotEmpty()) leaving = agents }
+    Box(Modifier.fillMaxWidth().heightIn(min = 1.dp)) {
+        AnimatedVisibility(
+            visible = agents.isNotEmpty(),
+            enter = fadeIn() + expandVertically(expandFrom = Alignment.Top) + scaleIn(initialScale = 0.8f, transformOrigin = TransformOrigin(0f, 1f)),
+            exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top) + scaleOut(targetScale = 0.8f, transformOrigin = TransformOrigin(0f, 1f)),
+        ) { TypingRow(agents.ifEmpty { leaving }) }
+    }
+}
+
+@Composable
+private fun TypingRow(agents: List<ChannelAgent>) {
     Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        item.agents.forEach { agent ->
+        agents.forEach { agent ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.semantics { contentDescription = "${agent.title.ifBlank { "Agent" }} is typing" }) {
                 AgentAvatar(agent.sessionId, runtime = null, size = 36.dp)
-                Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-                    Text("•••", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) { TypingDots() }
             }
+        }
+    }
+}
+
+/** Three dots that brighten in a wave. With system animations off, the transition holds them still. */
+@Composable
+private fun TypingDots() {
+    val wave = rememberInfiniteTransition(label = "typing").animateFloat(0f, 1f,
+        infiniteRepeatable(tween(durationMillis = 1_200, easing = LinearEasing)), label = "wave")
+    val color = MaterialTheme.colorScheme.onSurfaceVariant
+    Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        repeat(3) { index ->
+            // Read while drawing, so the wave never recomposes the row.
+            Box(Modifier.size(6.dp).graphicsLayer {
+                val phase = (wave.value - index / 3f + 1f) % 1f
+                alpha = 0.35f + 0.65f * (1f - abs(phase * 2f - 1f))
+            }.background(color, CircleShape))
         }
     }
 }
