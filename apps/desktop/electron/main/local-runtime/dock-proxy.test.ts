@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { EventEmitter } from 'node:events'
 import { before, mock, test } from 'node:test'
 
 import type { BrowserCall } from './browser-stream.ts'
@@ -30,13 +31,76 @@ const window = {
         : { tabs: [], activeTabId: null, recent: [] },
   },
 }
-/** What the Mac's browser session was asked to fetch. */
-const fetched: { url: string; init: RequestInit }[] = []
-let reply = (_url: string): Response =>
-  new Response('<h1>hi</h1>', {
-    status: 200,
-    headers: { 'content-type': 'text/html', 'set-cookie': 'sid=secret' },
+
+/** What a server answers: a redirect, or a status with headers and body chunks. */
+type Answer = {
+  status: number
+  location?: string
+  headers?: Record<string, string | string[]>
+  chunks?: Buffer[]
+}
+
+/** Every request the Mac's browser session sent, hop by hop, as `net.request` would. */
+const sent: { url: string; method: string; headers: Record<string, string>; body: string }[] = []
+let server: (url: string) => Answer = (_url) => ({
+  status: 200,
+  headers: { 'content-type': 'text/html', 'set-cookie': ['sid=secret'] },
+  chunks: [Buffer.from('<h1>hi</h1>')],
+})
+/** How many body chunks the fake response let out before it was stopped. */
+let streamed = 0
+
+/** `net.request` as Electron behaves under `redirect: 'manual'`: each hop waits for followRedirect. */
+function fakeRequest(options: { url: string; method: string; redirect: string }) {
+  const request = new EventEmitter() as EventEmitter & Record<string, unknown>
+  const headers: Record<string, string> = {}
+  let url = options.url
+  let body = ''
+  let aborted = false
+  const hop = () => {
+    const answer = server(url)
+
+    sent.push({ url, method: options.method, headers, body })
+    if (answer.location) {
+      request.emit('redirect', answer.status, options.method, new URL(answer.location, url).href)
+
+      return
+    }
+    const response = Object.assign(new EventEmitter(), {
+      statusCode: answer.status,
+      headers: answer.headers ?? {},
+    })
+
+    request.emit('response', response)
+    for (const chunk of answer.chunks ?? []) {
+      if (aborted) return
+      streamed++
+      response.emit('data', chunk)
+    }
+    if (!aborted) response.emit('end')
+  }
+
+  assert.equal(options.redirect, 'manual')
+  Object.assign(request, {
+    setHeader: (name: string, value: string) => {
+      headers[name] = value
+    },
+    write: (chunk: Buffer) => {
+      body += chunk.toString()
+    },
+    end: () => queueMicrotask(hop),
+    abort: () => {
+      aborted = true
+    },
+    followRedirect: () => {
+      url = new URL(server(url).location ?? '', url).href
+      queueMicrotask(hop)
+    },
   })
+
+  return request
+}
+
 let proxyFetch: typeof ProxyFetch
 let isLocalHost: typeof IsLocalHost
 
@@ -44,15 +108,8 @@ before(async () => {
   mock.module('electron', {
     namedExports: {
       BrowserWindow: { getAllWindows: () => [window] },
-      session: {
-        fromPartition: () => ({
-          fetch: async (url: string, init: RequestInit) => {
-            fetched.push({ url, init })
-
-            return reply(url)
-          },
-        }),
-      },
+      net: { request: fakeRequest },
+      session: { fromPartition: () => ({}) },
     },
   })
   ;({ proxyFetch, isLocalHost } = await import('./dock-proxy.ts'))
@@ -64,9 +121,16 @@ const call = (fields: Partial<BrowserCall>): BrowserCall => ({
   session: 'mine',
   ...fields,
 })
+const read = (result: Awaited<ReturnType<typeof ProxyFetch>>) =>
+  JSON.parse((result.content as { text: string }[])[0]?.text ?? '{}') as {
+    status: number
+    url: string
+    headers: Record<string, string>
+    body: string
+  }
 
 test("fetches a page at a dock tab's local address, without the Mac's cookies", async () => {
-  fetched.length = 0
+  sent.length = 0
   const result = await proxyFetch(
     call({
       url: 'http://localhost:3000/api?x=1',
@@ -79,26 +143,21 @@ test("fetches a page at a dock tab's local address, without the Mac's cookies", 
       body: Buffer.from('{"a":1}').toString('base64'),
     }),
   )
-  const value = JSON.parse((result.content as { text: string }[])[0]?.text ?? '{}') as {
-    status: number
-    headers: Record<string, string>
-    body: string
-  }
+  const value = read(result)
 
   assert.equal(result.isError, undefined)
-  assert.equal(fetched[0]?.url, 'http://localhost:3000/api?x=1')
-  assert.equal(fetched[0]?.init.redirect, 'manual')
-  assert.equal(fetched[0]?.init.method, 'POST')
+  assert.equal(sent[0]?.url, 'http://localhost:3000/api?x=1')
+  assert.equal(sent[0]?.method, 'POST')
   // Only headers a page needs pass; the Mac's own session brings its cookies, which never come back.
-  assert.deepEqual(fetched[0]?.init.headers, { 'Content-Type': 'application/json' })
-  assert.equal(Buffer.from(fetched[0]?.init.body as Buffer).toString(), '{"a":1}')
+  assert.deepEqual(sent[0]?.headers, { 'Content-Type': 'application/json' })
+  assert.equal(sent[0]?.body, '{"a":1}')
   assert.equal(value.status, 200)
   assert.deepEqual(value.headers, { 'content-type': 'text/html' })
   assert.equal(Buffer.from(value.body, 'base64').toString(), '<h1>hi</h1>')
 })
 
-test("refuses a public host, a local host no dock tab is on, and another conversation's", async () => {
-  fetched.length = 0
+test("refuses a public host, another port, a local host no tab is on, and another conversation's", async () => {
+  sent.length = 0
   for (const refused of [
     call({ url: 'https://example.com/' }),
     // Another port on the same host: a page fetched this way skips CORS, so only the tab's own.
@@ -108,54 +167,48 @@ test("refuses a public host, a local host no dock tab is on, and another convers
     call({ url: 'file:///etc/hosts' }),
   ])
     assert.equal((await proxyFetch(refused)).isError, true, refused.url)
-  assert.deepEqual(fetched, [])
+  assert.deepEqual(sent, [])
 })
 
-test('a redirect is followed only within the dock, each hop checked', async () => {
-  fetched.length = 0
-  reply = (url) =>
+test('a redirect is followed only within the dock, each hop checked before it is sent', async () => {
+  server = (url) =>
     url.endsWith('/old')
-      ? new Response(null, { status: 302, headers: { location: '/new' } })
+      ? { status: 307, location: '/new' }
       : url.endsWith('/away')
-        ? new Response(null, { status: 302, headers: { location: 'http://192.168.1.9/steal' } })
-        : new Response('moved here', { status: 200, headers: { 'content-type': 'text/plain' } })
-  const followed = await proxyFetch(call({ url: 'http://localhost:3000/old' }))
-  const value = JSON.parse((followed.content as { text: string }[])[0]?.text ?? '{}') as {
-    url: string
-    body: string
-  }
+        ? { status: 302, location: 'http://192.168.1.9/steal' }
+        : {
+            status: 200,
+            headers: { 'content-type': 'text/plain' },
+            chunks: [Buffer.from('moved here')],
+          }
+  sent.length = 0
+  const value = read(await proxyFetch(call({ url: 'http://localhost:3000/old' })))
 
   assert.deepEqual(
-    fetched.map((request) => request.url),
+    sent.map((request) => request.url),
     ['http://localhost:3000/old', 'http://localhost:3000/new'],
   )
   assert.equal(value.url, 'http://localhost:3000/new')
   assert.equal(Buffer.from(value.body, 'base64').toString(), 'moved here')
-  fetched.length = 0
+  sent.length = 0
   assert.equal((await proxyFetch(call({ url: 'http://localhost:3000/away' }))).isError, true)
   assert.deepEqual(
-    fetched.map((request) => request.url),
+    sent.map((request) => request.url),
     ['http://localhost:3000/away'],
   )
 })
 
 test('a response too large for the tunnel is stopped while it streams, not cut', async () => {
-  let pulled = 0
-
-  reply = () =>
-    new Response(
-      new ReadableStream({
-        pull(controller) {
-          pulled++
-          controller.enqueue(new Uint8Array(1024 * 1024))
-        },
-      }),
-    )
+  streamed = 0
+  server = () => ({
+    status: 200,
+    chunks: Array.from({ length: 64 }, () => Buffer.alloc(1024 * 1024)),
+  })
   const result = await proxyFetch(call({ url: 'http://localhost:3000/big.js' }))
 
   assert.equal(result.isError, true)
-  // An endless body is read only a little past the cap.
-  assert.ok(pulled < 10, String(pulled))
+  // Read only a little past the cap, not the whole 64 MB.
+  assert.ok(streamed <= 5, String(streamed))
 })
 
 test('local hosts: loopback, .local and private ranges only', () => {

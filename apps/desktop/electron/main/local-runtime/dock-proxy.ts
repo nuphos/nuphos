@@ -3,7 +3,7 @@
 // this Mac, as its in-app browser would. Only hosts that one of the
 // conversation's dock tabs is on, and only local ones: this is a way to reach
 // the Mac's own dev servers, not a general proxy.
-import { session } from 'electron'
+import { net, session } from 'electron'
 
 import { failed } from './cua-host.ts'
 import { dockTabUrls } from './dock-mirror.ts'
@@ -93,31 +93,90 @@ function refusal(url: URL, origins: Set<string>): string | undefined {
   return undefined
 }
 
-/** The body, read with a running cap: past it the read stops and the response is refused. */
-async function cappedBody(response: Response): Promise<Buffer | null> {
-  const reader = (response.body as ReadableStream<Uint8Array> | null)?.getReader()
-  const chunks: Uint8Array[] = []
-  let size = 0
+type Fetched = { status: number; url: string; headers: Record<string, string>; body: Buffer }
 
-  if (!reader) return Buffer.alloc(0)
-  for (;;) {
-    const { done, value } = await reader.read()
-
-    if (done) return Buffer.concat(chunks)
-    size += value.length
-    if (size > PROXY_MAX_BYTES) {
-      await reader.cancel()
-
-      return null
+/**
+ * One request through the in-app browser's session, with each redirect hop
+ * checked before it is followed and the body read with a running cap. Not
+ * `session.fetch`: under `redirect: 'manual'` it throws instead of answering.
+ */
+function sessionRequest(
+  url: URL,
+  init: { method: string; headers: Record<string, string>; body?: Buffer },
+  origins: Set<string>,
+): Promise<Fetched | { refused: string }> {
+  return new Promise((resolve) => {
+    let current = url
+    let hops = 0
+    let settled = false
+    const finish = (result: Fetched | { refused: string }) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve(result)
     }
-    chunks.push(value)
-  }
+    const request = net.request({
+      url: url.href,
+      method: init.method,
+      session: session.fromPartition('persist:browser'),
+      useSessionCookies: true,
+      redirect: 'manual',
+    })
+    const stop = (refused: string) => {
+      request.abort()
+      finish({ refused })
+    }
+    const timer = setTimeout(() => stop(`${url.host} did not answer in time.`), FETCH_TIMEOUT_MS)
+
+    for (const [name, value] of Object.entries(init.headers)) request.setHeader(name, value)
+    // Each hop is checked like the first: a dock tab's host can't send the phone anywhere else.
+    request.on('redirect', (_status, _method, location) => {
+      const next = new URL(location, current)
+      const elsewhere = refusal(next, origins)
+
+      if (++hops > MAX_REDIRECTS) return stop('Too many redirects.')
+      if (elsewhere) return stop(`The page redirected away: ${elsewhere}`)
+      current = next
+      request.followRedirect()
+    })
+    request.on('response', (response) => {
+      const chunks: Buffer[] = []
+      let size = 0
+
+      response.on('data', (chunk: Buffer) => {
+        size += chunk.length
+        if (size > PROXY_MAX_BYTES)
+          stop('The response is more than 4 MB, more than the phone can be sent.')
+        else chunks.push(chunk)
+      })
+      response.on('end', () =>
+        finish({
+          status: response.statusCode,
+          url: current.href,
+          headers: Object.fromEntries(
+            Object.entries(response.headers).flatMap(([name, value]) =>
+              RESPONSE_HEADERS.has(name.toLowerCase()) ? [[name, [value].flat().join(', ')]] : [],
+            ),
+          ),
+          body: Buffer.concat(chunks),
+        }),
+      )
+      response.on('error', (error: Error) =>
+        stop(`Couldn't reach ${url.host} from this Mac: ${error.message}`),
+      )
+    })
+    request.on('error', (error) =>
+      stop(`Couldn't reach ${url.host} from this Mac: ${error.message}`),
+    )
+    if (init.body) request.write(init.body)
+    request.end()
+  })
 }
 
 /** One request from the phone's page: fetched here, answered with status, headers and body. */
 export async function proxyFetch(call: BrowserCall): Promise<CuaToolResult> {
   if (!call.url || !URL.canParse(call.url)) return failed('url must be an http(s) URL.')
-  let url = new URL(call.url)
+  const url = new URL(call.url)
   const origins = await allowedOrigins(call)
   const refused = refusal(url, origins)
 
@@ -128,47 +187,14 @@ export async function proxyFetch(call: BrowserCall): Promise<CuaToolResult> {
   const headers = Object.fromEntries(
     Object.entries(call.headers ?? {}).filter(([name]) => REQUEST_HEADERS.has(name.toLowerCase())),
   )
-  let method = (call.method ?? 'GET').toUpperCase()
-  const signal = AbortSignal.timeout(FETCH_TIMEOUT_MS)
+  const method = (call.method ?? 'GET').toUpperCase()
+  const fetched = await sessionRequest(
+    url,
+    { method, headers, ...(body && method !== 'GET' && method !== 'HEAD' ? { body } : {}) },
+    origins,
+  )
 
-  try {
-    for (let hop = 0; ; hop++) {
-      const response = await session.fromPartition('persist:browser').fetch(url.href, {
-        method,
-        headers,
-        redirect: 'manual',
-        ...(body && method !== 'GET' && method !== 'HEAD' ? { body } : {}),
-        signal,
-      })
-      const location = response.headers.get('location')
+  if ('refused' in fetched) return failed(fetched.refused)
 
-      // Each hop is checked like the first: a dock tab's host can't send the phone anywhere else.
-      if (response.status >= 300 && response.status < 400 && location) {
-        await response.body?.cancel()
-        if (hop >= MAX_REDIRECTS) return failed('Too many redirects.')
-        url = new URL(location, url)
-        const elsewhere = refusal(url, origins)
-
-        if (elsewhere) return failed(`The page redirected away: ${elsewhere}`)
-        if (response.status === 303 || method === 'POST') method = 'GET'
-        continue
-      }
-      const data = await cappedBody(response)
-
-      if (!data) return failed('The response is more than 4 MB, more than the phone can be sent.')
-
-      return text({
-        status: response.status,
-        url: url.href,
-        headers: Object.fromEntries(
-          [...response.headers].filter(([name]) => RESPONSE_HEADERS.has(name.toLowerCase())),
-        ),
-        body: data.toString('base64'),
-      })
-    }
-  } catch (error) {
-    return failed(
-      `Couldn't reach ${url.host} from this Mac: ${error instanceof Error ? error.message : String(error)}`,
-    )
-  }
+  return text({ ...fetched, body: fetched.body.toString('base64') })
 }
