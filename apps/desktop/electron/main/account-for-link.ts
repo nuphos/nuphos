@@ -3,9 +3,9 @@ import { listAccounts, switchAccount } from '../auth'
 import { accountCredentials } from '../auth/config.ts'
 import { authSession } from '../auth-session.ts'
 
-import { accountForTeam } from './account-for-link-core.ts'
-import { accountOf } from './account-leave-core.ts'
+import { accountForTeam, switchThenWait } from './account-for-link-core.ts'
 import { nextReload } from './account-leave'
+import { accountOf } from './account-leave-core.ts'
 
 import type { AccountSummary } from '../auth/accounts.ts'
 
@@ -28,21 +28,19 @@ async function teamsOf(account: AccountSummary): Promise<string[]> {
   return (body.teams ?? []).map((team) => team.id)
 }
 
-/** Switches to `key`, and resolves once the windows are reloading as it. */
-async function switchThenWait(key: string): Promise<boolean> {
-  const reloading = nextReload()
-
-  if ((await switchAccount(key).catch(() => null)) !== 'switched') return false
-  await Promise.race([reloading, new Promise((r) => setTimeout(r, RELOAD_WAIT_MS))])
-
-  return true
-}
+const switching = { switchAccount, nextReload, waitMs: RELOAD_WAIT_MS }
 
 /**
  * Opens a link to `teamId` as the account in that team: the one in use if it
- * is, else another signed-in account that is, switched to first.
+ * is, else another signed-in account that is, switched to first. `open` is
+ * told whether the link switched accounts.
  */
-export async function openInTeamAccount(teamId: string | null, open: () => void): Promise<void> {
+export async function openInTeamAccount(
+  teamId: string | null,
+  open: (switched: boolean) => void,
+): Promise<void> {
+  let switched = false
+
   if (teamId && authSession.context().token) {
     const key = await accountForTeam(teamId, {
       activeTeams: async () => (await listTeams()).map((team) => team.id),
@@ -50,9 +48,9 @@ export async function openInTeamAccount(teamId: string | null, open: () => void)
       teamsOf,
     }).catch(() => null)
 
-    if (key) await switchThenWait(key)
+    if (key) switched = await switchThenWait(key, switching)
   }
-  open()
+  open(switched)
 }
 
 /**
@@ -63,5 +61,5 @@ export async function openAsAccount(owner: string, open: () => void): Promise<vo
   if (accountOf(authSession.context()) === owner) return open()
   const signedIn = (await listAccounts().catch(() => [])).some((a) => a.key === owner)
 
-  if (signedIn && (await switchThenWait(owner))) open()
+  if (signedIn && (await switchThenWait(owner, switching))) open()
 }

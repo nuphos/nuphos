@@ -1,12 +1,12 @@
 import { BrowserWindow, Notification } from 'electron'
 
-import { raiseWindow } from '../window-raise'
-
-import type { WebContents } from 'electron'
 import { authSession } from '../auth-session.ts'
 import { openAsAccount } from '../main/account-for-link'
 import { accountOf } from '../main/account-leave-core.ts'
 import { openAppPath } from '../main/deep-links'
+import { raiseWindow } from '../window-raise'
+
+import type { WebContents } from 'electron'
 
 export function send(wc: WebContents, channel: string, payload: unknown) {
   if (wc.isDestroyed()) return

@@ -192,8 +192,10 @@ export function handleDeepLink(url: string) {
       auto_send: payload.autoSend,
     })
     // A link to a team another signed-in account is in opens as that account.
-    void openInTeamAccount(payload.teamId ?? null, () => {
-      queueDeepLink('deep-link:agent-chat', payload)
+    // Having switched for it, its prompt waits as a draft: a page that knows a
+    // team id must not send as an account the user was not using.
+    void openInTeamAccount(payload.teamId ?? null, (switched) => {
+      queueDeepLink('deep-link:agent-chat', switched ? { ...payload, autoSend: false } : payload)
     })
 
     return

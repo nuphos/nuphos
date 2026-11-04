@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { accountForTeam, teamOfPath } from './account-for-link-core.ts'
+import { accountForTeam, switchThenWait, teamOfPath } from './account-for-link-core.ts'
 
 import type { AccountSummary } from '../auth/accounts.ts'
 
@@ -70,4 +70,77 @@ test('a team no account here is in, or an unreachable backend, switches nothing'
   })
 
   assert.equal(await accountForTeam('team-b', offline.deps), null)
+})
+
+test('every waiting account is asked at once, and the first in the list that is in the team wins', async () => {
+  const started: string[] = []
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const routing = accountForTeam('team-c', {
+    activeTeams: async () => ['team-a'],
+    accounts: async () => [a, b, c],
+    teamsOf: async (account) => {
+      started.push(account.key)
+      await gate
+
+      return teams[account.key] ?? []
+    },
+  })
+
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(started, [b.key, c.key], 'both asked before either answers')
+  release()
+  assert.equal(await routing, c.key)
+})
+
+function switching(outcome: 'switched' | 'signInAgain' | null, reloads: boolean) {
+  const waiting = new Set<() => void>()
+
+  return {
+    waiting,
+    deps: {
+      switchAccount: async () => {
+        if (reloads) setImmediate(() => [...waiting].forEach((resolve) => resolve()))
+        if (outcome === null) throw new Error('write failed')
+
+        return outcome
+      },
+      nextReload: () => {
+        let resolve!: () => void
+        const reloaded = new Promise<void>((r) => {
+          resolve = r
+        })
+
+        waiting.add(resolve)
+
+        return { reloaded, cancel: () => waiting.delete(resolve) }
+      },
+      waitMs: 5_000,
+    },
+  }
+}
+
+test('a switch resolves once the windows reload as the next account', async () => {
+  const h = switching('switched', true)
+
+  assert.equal(await switchThenWait(b.key, h.deps), true)
+  assert.equal(h.waiting.size, 0)
+})
+
+test('a switch that did not happen opens nothing and leaves no waiter behind', async () => {
+  for (const outcome of ['signInAgain', null] as const) {
+    const h = switching(outcome, false)
+
+    assert.equal(await switchThenWait(b.key, h.deps), false)
+    assert.equal(h.waiting.size, 0)
+  }
+})
+
+test('a reload that never comes is waited for only so long', async () => {
+  const h = switching('switched', false)
+
+  assert.equal(await switchThenWait(b.key, { ...h.deps, waitMs: 10 }), true)
+  assert.equal(h.waiting.size, 0)
 })

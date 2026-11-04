@@ -24,9 +24,32 @@ export async function accountForTeam(
   deps: LinkAccountDeps,
 ): Promise<string | null> {
   if ((await deps.activeTeams().catch(() => [teamId])).includes(teamId)) return null
-  for (const account of (await deps.accounts()).filter((a) => !a.active)) {
-    if ((await deps.teamsOf(account).catch((): string[] => [])).includes(teamId)) return account.key
-  }
+  const waiting = (await deps.accounts()).filter((a) => !a.active)
+  // All at once, so one slow or unreachable backend bounds the wait.
+  const teams = await Promise.all(waiting.map((a) => deps.teamsOf(a).catch((): string[] => [])))
 
-  return null
+  return waiting.find((_, i) => teams[i]?.includes(teamId))?.key ?? null
+}
+
+export type SwitchDeps = {
+  switchAccount: (key: string) => Promise<'switched' | 'signInAgain' | null>
+  /** Taken before the switch: resolves once the windows reload as the next account. */
+  nextReload: () => { reloaded: Promise<void>; cancel: () => void }
+  /** How long to wait for the reload before going on anyway. */
+  waitMs: number
+}
+
+/** Switches to `key`, and resolves once the windows are reloading as it; false if it did not switch. */
+export async function switchThenWait(key: string, deps: SwitchDeps): Promise<boolean> {
+  const { reloaded, cancel } = deps.nextReload()
+
+  if ((await deps.switchAccount(key).catch(() => null)) !== 'switched') {
+    cancel()
+
+    return false
+  }
+  await Promise.race([reloaded, new Promise((resolve) => setTimeout(resolve, deps.waitMs))])
+  cancel()
+
+  return true
 }
