@@ -17,7 +17,9 @@ struct ChannelView: View {
             .map { ChatRow.channel(id: $0.id, item: $0.item) }
     }
 
-    /// The chat's agents in a turn, as far as this device has seen their runtimes.
+    /// The chat's agents in a turn that answers this chat, as far as this device
+    /// has seen their runtimes. A turn about anything else, such as a direct
+    /// message in the agent's own conversation, shows no dots here.
     /// Seen from the conversation list's poll, not this chat's, so it only
     /// takes effect (`typing`) after a read of the chat that started later. An
     /// agent posts before its turn ends, so its reply and the end of its dots
@@ -25,8 +27,8 @@ struct ChannelView: View {
     /// turn shows above the dots: the agent is still working.
     private var inTurn: [ChannelAgent] {
         channel.agents.filter { agent in
-            RuntimeObservations.shared.value(team: channel.teamId, session: agent.sessionId)?.turnActive == true
-                || store.conversations.first { $0.sessionId == agent.sessionId }?.activeRun != nil
+            RuntimeObservations.shared.value(team: channel.teamId, session: agent.sessionId)?
+                .typing(in: channel.channelId) == true
         }
     }
 

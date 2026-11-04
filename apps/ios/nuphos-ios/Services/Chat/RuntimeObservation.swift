@@ -18,6 +18,12 @@ struct RuntimeObservation: Equatable, Sendable {
     var executing: Bool { snapshot["state"]?.stringValue == "active" }
     /// A user-visible turn, including a queued or running automatic continuation.
     var turnActive: Bool { executing && phase != "resume_disconnected" }
+    /// Desktop's `runtimeTypingIn`: the turn answers this chat, because the chat's
+    /// posts started it or were steered into it. A snapshot that names no chats,
+    /// as from an older backend, shows nothing rather than a reply that never comes.
+    func typing(in channelId: String) -> Bool {
+        turnActive && snapshot["channelIds"]?.arrayValue?.contains { $0.stringValue == channelId } == true
+    }
     /// The turn ended while runtime-owned background tools or tasks keep running.
     var backgroundRunning: Bool {
         !turnActive && snapshot["schemaVersion"]?.numberValue == 2 && phase == "background_tools"
