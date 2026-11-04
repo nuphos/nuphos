@@ -33,7 +33,7 @@ describe('conversationAccess', () => {
     expect(conversationAccess(invited, 'teammate', false)).toBe('view')
   })
 
-  test('older view-only and manager marks change nothing', () => {
+  test('an older view-only invite stays read-only; an older manager mark changes nothing', () => {
     const legacy = {
       ...base,
       generalAccess: 'none' as const,
@@ -42,7 +42,8 @@ describe('conversationAccess', () => {
       managerIds: ['manager'],
     }
 
-    expect(conversationAccess(legacy, 'viewer', true)).toBe('reply')
+    expect(conversationAccess(legacy, 'viewer', true)).toBe('view')
+    expect(conversationAccess(legacy, 'manager', true)).toBe('reply')
     expect(conversationAccess(legacy, 'manager', false)).toBe('view')
   })
 
@@ -69,6 +70,15 @@ describe('edge cases', () => {
     expect(canReply('reply')).toBe(true)
     expect(canReply('view')).toBe(false)
     expect(canReply(null)).toBe(false)
+  })
+
+  test('a chat has no computer, so its team-wide reply stays', () => {
+    const chat = { ...base, kind: 'channel' }
+
+    expect(generalAccessOf(chat)).toBe('reply')
+    expect(conversationAccess(chat, 'teammate', false)).toBe('reply')
+    expect(conversationAccess({ ...chat, generalAccess: 'view' }, 'teammate', false)).toBe('view')
+    expect(conversationAccess({ ...chat, generalAccess: 'none' }, 'teammate', false)).toBeNull()
   })
 
   test('general access is none or view', () => {

@@ -317,6 +317,7 @@ describe('conversation-scoped thread tools', () => {
     Object.assign(source, {
       generalAccess: 'reply',
       participantIds: ['x', 'v'],
+      viewOnlyIds: ['v'],
       watcherIds: ['owner', 'x'],
     })
     await createAgentThread(actor, 'Wait for CI', 'CI watcher')
@@ -324,6 +325,7 @@ describe('conversation-scoped thread tools', () => {
     expect(threadReadGrants(shells[0]!.parentGrants!)).toEqual({
       generalAccess: 'view',
       participantIds: ['x', 'v'],
+      viewOnlyIds: ['v'],
     })
   })
 

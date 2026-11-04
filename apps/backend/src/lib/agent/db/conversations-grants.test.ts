@@ -44,9 +44,13 @@ describe('a new thread inherits its parent read grants', () => {
       managerIds: ['x'],
     } as never)
 
-    // Older per-person roles stay behind, and an old team-wide reply reads as view.
-    expect(inserted).toMatchObject({ generalAccess: 'view', participantIds: ['x', 'v'] })
-    expect(inserted).not.toHaveProperty('viewOnlyIds')
+    // An older view-only invite stays read-only in the thread too; managing does
+    // not carry over, and an old team-wide reply reads as view.
+    expect(inserted).toMatchObject({
+      generalAccess: 'view',
+      participantIds: ['x', 'v'],
+      viewOnlyIds: ['v'],
+    })
     expect(inserted).not.toHaveProperty('managerIds')
     expect(inserted?.watcherIds).toEqual([])
   })

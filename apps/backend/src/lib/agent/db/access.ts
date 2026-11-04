@@ -1,29 +1,42 @@
 import { inTokenTeamScope, tokenTeamScope } from '@/lib/identity/token-team-scope'
 
 /**
- * Who in the team may read a conversation without being invited: nobody, or
- * everyone. Reading needs no computer; replying does, so only invitees reply.
- * A stored 'reply' predates that rule and reads as 'view'.
+ * Who in the team may open a conversation without being invited: nobody, or
+ * everyone to read. Replying needs the conversation's computer, so only
+ * invitees reply, and a stored 'reply' reads as 'view'. A chat has no
+ * computer: posting there follows its members, so it keeps team-wide 'reply'.
  */
-export type GeneralAccess = 'none' | 'view'
+export type GeneralAccess = 'none' | 'view' | 'reply'
 /** What one viewer may do: a participant replies while they may use the conversation's computer. */
 export type ConversationAccess = 'owner' | 'reply' | 'view'
 
-export const GENERAL_ACCESS_VALUES: readonly GeneralAccess[] = ['none', 'view']
+/** What the owner may choose; a chat may also choose 'reply'. */
+export function generalAccessValues(conversation: { kind?: string }): readonly GeneralAccess[] {
+  return conversation.kind === 'channel' ? ['none', 'view', 'reply'] : ['none', 'view']
+}
 
 // Spelled out rather than picked from AgentConversation, so shared.ts can use
 // this module without the two importing each other.
 /** Who besides the owner may read a conversation. */
 export type ReadGrants = {
-  generalAccess?: GeneralAccess | 'reply'
+  generalAccess?: GeneralAccess
+  /** 'channel' for a chat. */
+  kind?: string
   participantIds?: string[]
+  /**
+   * Participants invited to view only, before replying followed the computer.
+   * They keep reading only until invited again, so nobody gains reply unasked.
+   */
+  viewOnlyIds?: string[]
 }
 type AccessFields = ReadGrants & { userId: string; teamId?: string }
 
 // Absent is every conversation from before access existed, which the whole
-// team could already open. It stays open to read.
+// team could already open. It stays open to read, and a chat to post in.
 export function generalAccessOf(conversation: ReadGrants): GeneralAccess {
-  return conversation.generalAccess === 'none' ? 'none' : 'view'
+  const stored = conversation.generalAccess ?? 'reply'
+
+  return stored === 'reply' && conversation.kind !== 'channel' ? 'view' : stored
 }
 
 /** Whether the viewer is invited; the owner is not a participant. */
@@ -45,9 +58,12 @@ export function conversationAccess(
   if (!inTokenTeamScope(conversation.teamId)) return null
   if (conversation.userId === viewerId) return 'owner'
   if (!conversation.teamId) return null
-  if (isParticipant(conversation, viewerId)) return usesComputer ? 'reply' : 'view'
+  if (isParticipant(conversation, viewerId))
+    return usesComputer && !conversation.viewOnlyIds?.includes(viewerId) ? 'reply' : 'view'
 
-  return generalAccessOf(conversation) === 'view' ? 'view' : null
+  const general = generalAccessOf(conversation)
+
+  return general === 'none' ? null : general
 }
 
 /** Whether the viewer may read the conversation at all. */
@@ -88,6 +104,7 @@ export function threadReadGrants(parent: ReadGrants): ReadGrants {
   return {
     generalAccess: generalAccessOf(parent),
     ...(parent.participantIds?.length ? { participantIds: parent.participantIds } : {}),
+    ...(parent.viewOnlyIds?.length ? { viewOnlyIds: parent.viewOnlyIds } : {}),
   }
 }
 

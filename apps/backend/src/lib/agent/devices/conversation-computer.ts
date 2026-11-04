@@ -1,7 +1,7 @@
 import { canReply, conversationAccess, isParticipant } from '@/lib/agent/db/access'
 import { AppError } from '@/lib/errors'
 
-import { deviceAccessDeps, requireDeviceAccess } from './box-access'
+import { allows, deviceAccess, deviceAccessDeps, requireDeviceAccess } from './box-access'
 import { parseLocalRuntimeId } from './local-runtime/address'
 
 import type { DeviceAccessDeps } from './box-access'
@@ -15,19 +15,11 @@ export type ConversationAccessFields = ReadGrants & {
   runtimeId?: string
 }
 
-/** The fields to project for resolveConversationAccess. */
-export const CONVERSATION_ACCESS_PROJECTION = {
-  userId: 1,
-  teamId: 1,
-  runtimeId: 1,
-  generalAccess: 1,
-  participantIds: 1,
-} as const
-
 /**
  * The computer a conversation runs on, when the person may use it in the
- * conversation's team; null when they may not. Undefined when it runs on none:
- * a team runtime serves every member.
+ * conversation's team; null when they may not. Undefined when it runs on no
+ * one's computer (a managed, self-hosted or development runtime), which serves
+ * every member.
  */
 export async function usableConversationComputer(
   conversation: ConversationAccessFields,
@@ -45,6 +37,30 @@ export async function usableConversationComputer(
     if (error instanceof AppError && error.status < 500) return null
     throw error
   }
+}
+
+/**
+ * Who among these people cannot use the computer the conversation runs on (or
+ * would, on `runtimeId`), and whether `actorId` may give them `use` of it, as
+ * its owner or a manager. Undefined when nobody is missing it.
+ */
+export async function computerUseGap(
+  conversation: ConversationAccessFields,
+  actorId: string,
+  peopleIds: string[],
+  deps: DeviceAccessDeps = deviceAccessDeps,
+): Promise<{ computer: AgentDevice | null; needing: string[]; canGrant: boolean } | undefined> {
+  const usable = await Promise.all(
+    peopleIds.map((id) => usableConversationComputer(conversation, id, deps)),
+  )
+  const needing = peopleIds.filter((_, index) => usable[index] === null)
+
+  if (needing.length === 0) return undefined
+  const computer = (await usableConversationComputer(conversation, actorId, deps)) ?? null
+  const canGrant =
+    computer !== null && allows(deviceAccess(computer, actorId, conversation.teamId), 'manage')
+
+  return { computer, needing, canGrant }
 }
 
 /** Whether the viewer is a participant who may use the conversation's computer. */

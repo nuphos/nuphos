@@ -12,7 +12,6 @@ import {
   syncConversationTranscript,
   updateConversationCredentialAccess,
 } from '@/lib/agent/db'
-import { moveConversationRuntime } from '@/lib/claude-code-preview/conversation-runtime-move'
 import { requireRuntimeInstance } from '@/lib/claude-code-preview/runtime-catalog'
 import {
   isServerAuthoritativeTranscript,
@@ -258,22 +257,3 @@ agent.delete('/conversations/:sessionId', async () => {
 // Receives the run's SSE frames as they are appended, in order. Used by
 // trigger surfaces that mirror the live run elsewhere (e.g. the Slack stream
 // translator in lib/slack/stream-sink.ts). Both callbacks are invoked
-
-agent.post('/conversations/:sessionId/runtime', async (c) => {
-  const body = z
-    .object({
-      runtimeId: z.string().min(1).max(200),
-      mode: z.enum(['history', 'workspace']),
-      teamId: z.string().optional(),
-    })
-    .strict()
-    .parse(await c.req.json())
-  const userId = c.get('userId')
-  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.teamId))
-  // moveConversationRuntime decides who may move it: the owner or a manager.
-  const conversation = await getReadableConversation(c.req.param('sessionId'), userId, teamId)
-
-  if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
-
-  return c.json(await moveConversationRuntime(conversation, body.runtimeId, body.mode, userId))
-})

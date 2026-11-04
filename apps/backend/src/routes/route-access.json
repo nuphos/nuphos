@@ -193,6 +193,7 @@
   "GET /agent/conversations/:sessionId/messages": "user",
   "GET /agent/conversations/:sessionId/model-config": "user",
   "GET /agent/conversations/:sessionId/participants": "user",
+  "GET /agent/conversations/:sessionId/runtime-move": "user",
   "GET /agent/conversations/:sessionId/queue": "user",
   "GET /agent/conversations/:sessionId/resources": "user",
   "GET /agent/credential-options": "user",

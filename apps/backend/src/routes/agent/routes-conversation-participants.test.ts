@@ -73,11 +73,17 @@ async function remove(userId: string, team: string = TEAM) {
   })
 }
 
-async function invite(userIds: unknown, team: string = TEAM, role?: string) {
+async function invite(
+  userIds: unknown,
+  team: string = TEAM,
+  role?: string,
+  /** null stands for a release that sends no answer. */
+  grantComputerUse: boolean | null = false,
+) {
   return app.request(`/conversations/shared/participants?teamId=${team}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userIds, role }),
+    body: JSON.stringify({ userIds, role, grantComputerUse: grantComputerUse ?? undefined }),
   })
 }
 
@@ -219,6 +225,9 @@ describe('conversation participants API', () => {
     expect(((await response.json()) as ParticipantsBody).generalAccess).toBe('none')
     expect(conversation?.generalAccess).toBe('none')
     expect((await patch('access', { generalAccess: 'reply' })).status).toBe(400)
+    // A chat keeps team-wide reply.
+    conversation!.kind = 'channel'
+    expect((await patch('access', { generalAccess: 'reply' })).status).toBe(200)
     expect((await patch('access', { generalAccess: 'public' })).status).toBe(400)
     viewer = TEAMMATE
     expect((await patch('access', { generalAccess: 'view' })).status).toBe(403)
@@ -292,6 +301,14 @@ describe('a conversation on someone’s computer', () => {
 
   // The grant is a pipeline update this in-memory db does not run; device-grants.test
   // checks what it writes.
+  test('a release without the confirmation invites them to read only', async () => {
+    computer()
+    const body = (await (await invite([INVITEE], TEAM, undefined, null)).json()) as ParticipantsBody
+
+    expect(body.participants.find((p) => p.id === INVITEE)?.role).toBe('view')
+    expect(memory.rows('agent_devices')[0]!.access[0].userIds).toEqual([])
+  })
+
   test('the computer’s owner confirms, and the invite goes through', async () => {
     computer()
     expect((await inviteConfirmed([INVITEE])).status).toBe(200)

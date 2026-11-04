@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 
-import { resolveConversationAccess, resolveConversationAccessList } from './conversation-computer'
+import {
+  computerUseGap,
+  resolveConversationAccess,
+  resolveConversationAccessList,
+} from './conversation-computer'
 
 import type { DeviceAccessDeps } from './box-access'
 import type { AgentDevice } from './store'
@@ -68,4 +72,18 @@ test('a page asks about each computer once per viewer', async () => {
     'owner',
   ])
   expect(lookups).toBe(1)
+})
+
+test('the gap names who cannot use the computer, and whether the actor can give it', async () => {
+  expect(await computerUseGap(onMac, 'owner', ['user'], deps)).toBeUndefined()
+  expect(await computerUseGap(onMac, 'owner', ['user', 'reader'], deps)).toMatchObject({
+    computer: { deviceId: 'mac' },
+    needing: ['reader'],
+    canGrant: true,
+  })
+  // Someone who only uses the computer cannot give it away.
+  expect(await computerUseGap(onMac, 'user', ['reader'], deps)).toMatchObject({ canGrant: false })
+  expect(
+    await computerUseGap({ ...onMac, runtimeId: 'managed-1' }, 'owner', ['reader'], deps),
+  ).toBeUndefined()
 })

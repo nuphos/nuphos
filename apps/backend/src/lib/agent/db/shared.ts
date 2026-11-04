@@ -90,8 +90,10 @@ export type AgentConversation = ConversationInputRequests & {
   // part of this conversation" — so both append here instead of splitting into
   // an invited/active pair of lists. Being here is also the person's own
   // access grant: read, and reply while they may use the conversation's computer.
-  // Older rows also carry viewOnlyIds and managerIds, which nothing reads now.
+  // Older rows also carry managerIds, which nothing reads now.
   participantIds?: string[]
+  /** Invited to view only before #1486; they read only until invited again. See access.ts. */
+  viewOnlyIds?: string[]
   /** Whether the rest of the team may read; see access.ts. Absent, or an old 'reply', = 'view'. */
   generalAccess?: GeneralAccess | 'reply'
   /** Who joined, left or moved this session, shown between its messages. */
