@@ -313,6 +313,20 @@ class HistoryStatusFixtureDeviceTest {
         assertEquals(1L, HistoryStatus.sequence(store.conversations.single().readSeq))
         assertKnownRequests()
     }
+    @Test fun idlePollStopsInTheBackgroundAndComesBack() {
+        render()
+        compose.onNodeWithText("History fixture").performClick(); waitText("Displayed owner transcript")
+        fun detailReads() = requests.count { it.url.encodedPath == "/agent/conversations/saved" }
+        val opened = detailReads()
+        compose.waitUntil(8_000) { detailReads() > opened }
+        compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
+        android.os.SystemClock.sleep(1_000)
+        val stopped = detailReads()
+        android.os.SystemClock.sleep(7_000)
+        assertEquals("No idle polls while stopped", stopped, detailReads())
+        compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+        compose.waitUntil(8_000) { detailReads() > stopped }
+    }
     @Test fun sharedTranscriptNeverAcknowledges() {
         owner = false; render()
         compose.onNodeWithText("History fixture").performClick(); waitText("Displayed owner transcript")

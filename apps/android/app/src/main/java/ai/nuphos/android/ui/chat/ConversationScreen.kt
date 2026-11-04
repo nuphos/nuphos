@@ -90,6 +90,7 @@ import ai.nuphos.android.session.ChatSession
 import ai.nuphos.android.ui.LocalAuthSession
 import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.components.MarkdownText
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
@@ -189,7 +190,10 @@ fun ConversationScreen(
         } else if (!session.loaded) {
             session.load()
         }
-        session.pollWhileIdle()
+    }
+    // Picks up turns started elsewhere, only while on screen and in the foreground.
+    LaunchedEffect(session, lifecycle) {
+        if (!browsingOnly) lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { session.pollWhileIdle() }
     }
     // A teammate's computer that asks its owner first: say so until they answer.
     LaunchedEffect(session, session.runtimeId, session.queuedSends) { session.watchShareApproval() }

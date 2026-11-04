@@ -151,7 +151,7 @@ class AgentStore(
             if (!current()) return
             // A listing only ever shows chats; an agent row from an older server is left out.
             channels = rows.filter { it.isChannel && (it.teamId ?: team.id) == team.id }
-                .distinctBy { it.sessionId }.sortedByDescending { it.lastActiveAt }
+                .distinctBy { it.sessionId }.sortedByDescending { it.lastActiveAt }.map(::withLocalRead)
             channelsLoaded = true
             if (query.isEmpty()) prefs.edit().putBoolean(HAS_CHATS_KEY, channels.isNotEmpty()).apply()
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -162,6 +162,25 @@ class AgentStore(
     }
 
     fun channel(sessionId: String): AgentConversation? = channels.firstOrNull { it.sessionId == sessionId }
+
+    /** What this device has marked read, so a listing already on its way cannot bring a chat's dot back. */
+    private val channelReads = mutableMapOf<String, Long>()
+
+    private fun withLocalRead(row: AgentConversation): AgentConversation {
+        val read = channelReads[row.sessionId] ?: return row
+        val activity = HistoryStatus.sequence(row.activitySeq) ?: return row
+        if ((HistoryStatus.sequence(row.readSeq) ?: 0) >= read) return row
+        return row.copy(readSeq = ai.nuphos.android.data.JsonValue.Number(read.toDouble()), unread = ai.nuphos.android.data.JsonValue.Bool(activity > read))
+    }
+
+    /** Marks an open chat read; its row shows as read at once, not only after the next listing. */
+    suspend fun markChannelRead(teamId: String, sessionId: String, seq: Long) {
+        if (disposed || !hasAiAccess() || selectedTeam?.id != teamId) return
+        val state = markRead(teamId, sessionId, seq)
+        if (disposed || !hasAiAccess() || selectedTeam?.id != teamId) return
+        channelReads[sessionId] = maxOf(channelReads[sessionId] ?: 0, minOf(seq, state.readSeq))
+        channels = channels.map { if (it.sessionId == sessionId) withLocalRead(it) else it }
+    }
 
     private val channelSessions = mutableMapOf<Pair<String, String>, ChannelSession>()
 
@@ -180,6 +199,7 @@ class AgentStore(
         channels = emptyList()
         channelsLoaded = false
         channelSessions.clear()
+        channelReads.clear()
         searchJob?.cancel()
         refreshRequests.invalidate()
         isReloading = false

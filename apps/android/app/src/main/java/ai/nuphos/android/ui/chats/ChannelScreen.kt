@@ -51,15 +51,15 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
     val session = remember(store, teamId, store.workspaceRevision, AiAccess.revision, sessionId) { store.channelSession(sessionId) }
     if (session == null) { LaunchedEffect(Unit) { onBack() }; return }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    // Polled every 4 s while on screen, like Desktop and iOS.
+    // Only while on screen and in the foreground: polled every 4 s like Desktop and iOS, and read
+    // up to its newest activity. Coming back reads it at once and marks what arrived meanwhile.
     LaunchedEffect(session, lifecycle) {
-        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { session.poll() }
-    }
-    // An open chat marks itself read through the existing reader.
-    LaunchedEffect(session, session.activitySeq) {
-        val seq = session.activitySeq ?: return@LaunchedEffect
-        if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && store.selectedTeam?.id == session.teamId)
-            runCatching { store.markRead(session.teamId, session.channelId, seq) }
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            launch { session.poll() }
+            snapshotFlow { session.activitySeq to session.reads }.collect {
+                session.readUpToNewest { seq -> store.markChannelRead(session.teamId, session.channelId, seq) }
+            }
+        }
     }
     val viewerId = auth.user?.id
     val typing = session.agents.filter { agent -> store.conversations.firstOrNull { it.sessionId == agent.sessionId }?.activeRun != null }
