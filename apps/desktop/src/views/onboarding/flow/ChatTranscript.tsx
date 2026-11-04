@@ -62,11 +62,13 @@ export function ChatTranscript({
       {/* Bridge line when the user leaves the pick screen for the create
           composer: the greeting above pitched the join list, so the agent
           acknowledges the switch instead of rewriting history. */}
-      {hasJoinOptions && workspaceMode === 'create' && greetingDone && (
+      {workspaceMode === 'create' && greetingDone && (
         <StreamText
           reduce={reduce}
           startDelay={200}
-          segments={[t('Sure — give your new workspace a name below.')]}
+          segments={[
+            t('What would you like to call your workspace? You can always rename it later.'),
+          ]}
         />
       )}
 

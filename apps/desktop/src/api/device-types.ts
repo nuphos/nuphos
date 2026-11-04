@@ -89,6 +89,7 @@ export type SleepState = SleepPreferences & {
 }
 
 export type LocalRuntimeState = {
+  detectionDisabled?: boolean
   sleepPrevention?: SleepState
   claudeLogin?: LocalAgentLoginState
   codexLogin?: LocalAgentLoginState

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { localAgentStatus, readyLocalAgents } from './agentSetup.ts'
+import { localAgentStatus, readyLocalAgents, setupAgentStatus } from './agentSetup.ts'
 
 import type { LocalRuntimeState } from '../../../api/device-types.ts'
 
@@ -36,4 +36,29 @@ test('ready local agents keep the Claude Code, Codex order', () => {
     ['claude-code'],
   )
   assert.deepEqual(readyLocalAgents(null), [])
+})
+
+test('disabled dev detection and runtime failures never stay checking', () => {
+  const state = {
+    detectionDisabled: true,
+    agents: { codex: { cli: null } },
+  } as unknown as LocalRuntimeState
+
+  assert.equal(setupAgentStatus(state, 'codex'), 'unavailable')
+  assert.equal(setupAgentStatus(null, 'codex'), 'checking')
+  assert.equal(setupAgentStatus({ ...state, detectionDisabled: false }, 'codex'), 'checking')
+  assert.equal(
+    setupAgentStatus(
+      {
+        ...state,
+        detectionDisabled: false,
+        agents: {
+          ...state.agents,
+          codex: { available: false, online: false, cli: null, error: 'Missing bundle' },
+        },
+      },
+      'codex',
+    ),
+    'unavailable',
+  )
 })

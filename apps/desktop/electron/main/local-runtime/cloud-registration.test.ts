@@ -107,6 +107,7 @@ test('Cloud sign-in stays usable without registering a dev device or opening its
   await settle()
   assert.equal(authSession.current(), token)
   assert.equal(getLocalRuntimeState().userId, null)
+  assert.equal(getLocalRuntimeState().detectionDisabled, true)
   assert.deepEqual(requests, [])
   assert.deepEqual(sockets, [])
 })
