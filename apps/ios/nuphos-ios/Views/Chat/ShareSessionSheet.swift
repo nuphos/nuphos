@@ -36,11 +36,11 @@ struct SessionAccess: Decodable, Equatable {
     var participants: [Participant]
 }
 
-/// The backend refuses an invite with 409 while an invitee cannot use the
-/// session's computer, until the invite confirms giving them `use` of it.
+/// The backend refuses an invite with `computer_use_required` while an invitee
+/// cannot use the session's computer, until the invite confirms giving them `use` of it.
 enum ComputerUse {
     static func needsConfirmation(_ error: Error) -> Bool {
-        if case NuphosAPI.Failure.http(409, _) = error { return true }
+        if case AgentChatAPI.Conflict.other(code: "computer_use_required", _, _) = error { return true }
         return false
     }
 }

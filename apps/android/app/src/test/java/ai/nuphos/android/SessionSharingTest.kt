@@ -26,7 +26,8 @@ class SessionSharingTest {
         override suspend fun general(value: GeneralAccess) = write(state.copy(generalAccess = value))
         override suspend fun invite(userId: String, grantComputerUse: Boolean): SessionAccess {
             grants += grantComputerUse
-            if (userId !in withComputer && !grantComputerUse) throw NuphosApi.Failure.Http(409, "Adding this person also gives them use of Mac. Continue?")
+            // The real parser, so the state matches what the transport throws.
+            if (userId !in withComputer && !grantComputerUse) throw AgentChatApi.conflict(409, """{"error":{"code":"computer_use_required","message":"Adding this person to the conversation also gives them use of Mac. Continue?"}}""")
             withComputer += userId
             val joined = state.participants.filterNot { it.id == userId } + SessionAccess.Participant(userId, "New", "", false, "reply")
             return write(state.copy(participants = joined))
