@@ -91,16 +91,27 @@ pub fn find(accounts: Vec<DesktopAccount>, selector: &str) -> Result<DesktopAcco
     }
 }
 
+/// Whether an endpoint in the environment would send a switched-to account's
+/// token to another backend than the one that issued it.
+pub fn override_conflicts(env_api: Option<&str>, account_api: &str) -> bool {
+    env_api.is_some_and(|env| !config::same_backend(env, account_api))
+}
+
 /// The CLI's own sign-in as a desktop key, to mark it in `nuphos auth list`.
+/// Read from the file alone: a keychain item that cannot be opened right now
+/// (say, over SSH with no session bus) still names a signed-in account.
 pub fn key_of(session: &Session) -> Option<String> {
-    session.token.as_ref()?;
+    if session.token.is_none() && session.keychain_account.is_none() {
+        return None;
+    }
     let id = session.user_info.as_ref().and_then(|u| u["id"].as_str()).unwrap_or("default");
     Some(format!("{id}@{}", config::normalized_backend(&session.api.clone().unwrap_or_else(config::api_url))))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{desktop_accounts_in, find};
+    use super::{desktop_accounts_in, find, key_of, override_conflicts};
+    use crate::config::Session;
 
     const FILE: &str = "\
 api: https://api.nuphos.ai
@@ -148,5 +159,24 @@ accounts:
         let session = accounts[1].sign_in().unwrap();
         assert_eq!(session.token.as_deref(), Some("tok-self"));
         assert_eq!(session.api.as_deref(), Some("https://nuphos.example.com"));
+    }
+
+    #[test]
+    fn a_keychain_reference_alone_still_names_the_cli_account() {
+        let session = Session {
+            keychain_account: Some("alex@https://api.nuphos.ai".into()),
+            api: Some("https://api.nuphos.ai".into()),
+            user_info: Some(serde_json::json!({ "id": "alex" })),
+            ..Session::default()
+        };
+        assert_eq!(key_of(&session).as_deref(), Some("alex@https://api.nuphos.ai"));
+        assert_eq!(key_of(&Session::default()), None);
+    }
+
+    #[test]
+    fn an_environment_endpoint_for_another_backend_blocks_a_switch() {
+        assert!(override_conflicts(Some("https://api.nuphos.ai"), "https://nuphos.example.com"));
+        assert!(!override_conflicts(Some("http://localhost:3718/"), "http://127.0.0.1:3718"));
+        assert!(!override_conflicts(None, "https://nuphos.example.com"));
     }
 }

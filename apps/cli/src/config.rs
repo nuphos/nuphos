@@ -59,6 +59,11 @@ pub fn running_as_account() -> bool {
     ACCOUNT.get().is_some()
 }
 
+/// Whether commands authenticate with `NUPHOS_CLI_TOKEN` instead of the saved sign-in.
+pub fn env_token_set() -> bool {
+    env_token().is_some()
+}
+
 /// `NUPHOS_CLI_TOKEN`, when set to something: an empty one is ignored everywhere.
 fn env_token() -> Option<String> {
     std::env::var("NUPHOS_CLI_TOKEN").ok().map(|t| t.trim().to_string()).filter(|t| !t.is_empty())
@@ -159,7 +164,7 @@ fn desktop_session_for(text: &str, backend: &str) -> Option<Session> {
 /// Whether two endpoints name one backend, as the desktop compares them
 /// (`normalizedApi` in `apps/desktop/electron/auth/accounts.ts`): by origin,
 /// with every loopback name as one host.
-fn same_backend(a: &str, b: &str) -> bool {
+pub(crate) fn same_backend(a: &str, b: &str) -> bool {
     normalized_backend(a) == normalized_backend(b)
 }
 
@@ -224,6 +229,21 @@ pub fn login_url(api_url: &str) -> String {
         }
     }
     format!("{}/auth/social/login", api_url.trim_end_matches('/'))
+}
+
+/// The saved sign-in as its file has it, without reading the token from the
+/// keychain: who it is and which backend, for listing.
+pub fn saved_session() -> Session {
+    read_session_file()
+}
+
+/// An endpoint set in the environment, which outranks a sign-in's own backend.
+pub fn env_api_override() -> Option<String> {
+    ["NUPHOS_API_URL", "ATLAS_API_URL"]
+        .into_iter()
+        .filter_map(|key| std::env::var(key).ok())
+        .map(|v| v.trim().trim_end_matches('/').to_string())
+        .find(|v| !v.is_empty())
 }
 
 fn read_session_file() -> Session {
