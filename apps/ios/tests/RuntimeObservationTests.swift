@@ -20,6 +20,14 @@ struct RuntimeObservationTests {
         // Time alone never turns a status into "Connection lost": returning
         // from the background showed that until the next read landed.
         precondition(working.status == "Running tools…")
+        // A chat shows an agent typing only for a turn that answers that chat.
+        let answering = snapshot(#"{"schemaVersion":2,"epoch":"a","revision":5,"state":"active","phase":"working","channelIds":["chat-a"]}"#, at: 100)
+        precondition(answering.typing(in: "chat-a"))
+        precondition(!answering.typing(in: "chat-b"))
+        precondition(!snapshot(#"{"schemaVersion":2,"epoch":"a","revision":5,"state":"active","phase":"working","channelIds":[]}"#, at: 100).typing(in: "chat-a"))
+        // A backend that names no chats: no dots rather than false ones.
+        precondition(!working.typing(in: "chat-a"))
+        precondition(!snapshot(#"{"schemaVersion":2,"epoch":"a","revision":6,"state":"idle","phase":"idle","channelIds":["chat-a"]}"#, at: 100).typing(in: "chat-a"))
         let old = snapshot(#"{"epoch":"a","revision":3,"state":"idle"}"#, at: 105)
         precondition(!working.accepts(old)) // A late HTTP reply cannot clear newer streaming work.
         let replay = snapshot(#"{"epoch":"a","revision":4,"state":"active"}"#, at: 90)

@@ -72,6 +72,7 @@
             "revision": 2,
             "state": "active",
             "phase": "running",
+            "channelIds": ["chat-release"],
             "actions": {
               "send": true,
               "cancel": true,

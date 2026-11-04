@@ -30,7 +30,8 @@ and navigation, not production provider execution.
 
 `channel-responses.json` serves two chats (one unread), their posts from people
 and an agent, pushed and uploaded images, the loop guard's paused line, and an
-agent in a turn, so the typing bubble shows. Launch a Debug build with it:
+agent in a turn that answers `chat-release` (its `channelIds`), so the typing
+bubble shows there. Launch a Debug build with it:
 
 ```sh
 SIMCTL_CHILD_NUPHOS_PREVIEW_RESPONSES="$PWD/tests/fixtures/channel-responses.json" \
