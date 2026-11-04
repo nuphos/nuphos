@@ -122,3 +122,22 @@ test('drops a payload nobody ever collected instead of retrying forever', (t) =>
   t.mock.timers.tick(60_000)
   assert.equal(fake.sent.length, sentBefore)
 })
+
+test('drained resolves only once the renderer has every queued payload', async () => {
+  const delivery = createDeepLinkDelivery(() => fake.target)
+  const fake = fakeTarget((id) => delivery.ack(id))
+  let done = false
+
+  await delivery.drained()
+  delivery.enqueue('deep-link:app-open', { path: '/teams/t/agent/s' })
+  const drained = delivery.drained().then(() => {
+    done = true
+  })
+
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(done, false, 'nobody is listening yet')
+  fake.state.listening = true
+  delivery.ack(fake.sent[0]!.envelope.deliveryId)
+  await drained
+  assert.equal(done, true)
+})
