@@ -129,7 +129,9 @@ describe('agents in a channel', () => {
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({
-      agents: [{ sessionId: 'agent-a', title: 'agent-a title', ownerId: OWNER }],
+      agents: [
+        { sessionId: 'agent-a', title: 'agent-a title', ownerId: OWNER, provider: 'claude-code' },
+      ],
     })
   })
 
