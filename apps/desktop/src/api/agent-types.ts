@@ -53,15 +53,9 @@ export type ChannelMention = {
 }
 
 /** An agent in a channel: its session, which is the agent. */
-export type ChannelAgent = {
-  sessionId: string
-  title: string
-  ownerId: string
-  avatar?: string
-  provider?: AgentProvider
-}
+export type ChannelAgent = { sessionId: string; title: string; ownerId: string; avatar?: string }
 
-/** A member a chat's icon shows: a person, or an agent by its session. */
+/** A member a chat's icon shows (up to two, whoever spoke last first): a person, or an agent by its session. */
 export type ChannelFace = {
   id: string
   name: string
@@ -72,7 +66,6 @@ export type ChannelFace = {
 export type AgentConversation = {
   /** A channel: a place where people and agents talk. It runs no agent of its own. */
   kind?: 'channel'
-  /** A channel's icon: up to two members other than the viewer, whoever spoke last first. */
   faces?: ChannelFace[]
   /** A channel's agents, as their session ids. */
   agentSessionIds?: string[]
