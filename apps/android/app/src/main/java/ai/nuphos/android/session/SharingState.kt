@@ -79,7 +79,7 @@ class SharingState(val transport: SharingTransport, private val owner: () -> Boo
             true
         } catch (e: Exception) {
             e.rethrowCancellation()
-            if (!grantComputerUse && e is NuphosApi.Failure.Http && e.code == 409) needsComputer = invite
+            if (!grantComputerUse && e.needsComputerUse) needsComputer = invite
             else error = e.message ?: "Couldn't update sharing."
             false
         } finally { pending = null }
@@ -88,5 +88,7 @@ class SharingState(val transport: SharingTransport, private val owner: () -> Boo
         val member = added ?: return
         if (change(member.id) { transport.remove(member.id) }) added = null
     }
+    /** The backend's answer while an invitee cannot use the session's computer yet. */
+    private val Exception.needsComputerUse get() = this is AgentChatApi.Conflict.Other && code == "computer_use_required"
     private fun Exception.rethrowCancellation() { if (this is CancellationException) throw this }
 }
