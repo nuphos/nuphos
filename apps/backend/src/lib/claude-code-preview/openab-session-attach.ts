@@ -4,7 +4,7 @@ import {
   markConversationWorkLost,
   setConversationPreviewAttachment,
 } from '@/lib/agent/db'
-import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
+import { runtimeAddress, sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { logEvent } from '@/lib/observability'
 
 import {
@@ -86,7 +86,8 @@ export async function attachOpenAbSession(
   // exact runtime/session binding.
   await setConversationPreviewAttachment(conversationId, teamId, {
     openabSessionId,
-    runtimeUrl: endpoint.url,
+    // The computer's own address, whoever's turn made it: an owner's check then matches too.
+    runtimeUrl: runtimeAddress(endpoint.url),
     runtimeDefaults: defaults,
   })
 

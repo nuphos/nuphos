@@ -83,7 +83,7 @@ export async function probeExecutionState(
       purpose: 'control',
     })
 
-    if (!endpoint || (attachment && endpoint.url !== attachment.runtimeUrl))
+    if (!endpoint || (attachment && !sameRuntimeUrl(endpoint.url, attachment.runtimeUrl)))
       return { state: 'disconnected' }
     client = await OpenAbAcpClient.connect({
       ...(await reachableRuntimeEndpoint(endpoint)),

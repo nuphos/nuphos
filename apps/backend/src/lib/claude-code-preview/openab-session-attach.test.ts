@@ -160,4 +160,6 @@ test('a teammate’s turn on the owner’s computer resumes the same session', a
       )
     ).fresh,
   ).toBe(true)
+  // A teammate's turn records the computer itself, so the owner's checks match it too.
+  expect(attachment?.runtimeUrl).toBe(localRuntimeUrl({ ...ref, deviceId: 'pc' }, 'team'))
 })

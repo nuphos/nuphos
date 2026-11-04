@@ -1,4 +1,5 @@
 import { getConversationPreviewAttachment } from '@/lib/agent/db'
+import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { parseLocalRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
@@ -160,7 +161,7 @@ async function stillOwned(session: TeamSession, transport: TeamPreviewClient): P
 
   return Boolean(
     attachment &&
-    attachment.runtimeUrl === session.endpoint.url &&
+    sameRuntimeUrl(attachment.runtimeUrl, session.endpoint.url) &&
     attachment.openabSessionId === session.openabSessionId,
   )
 }

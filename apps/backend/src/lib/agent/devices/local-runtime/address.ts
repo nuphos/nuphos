@@ -77,7 +77,7 @@ export function isLocalRuntimeUrl(url: string): boolean {
 }
 
 /** A computer's address without who is acting on it: the same agent whoever sends. */
-function runtimeOf(url: string): string {
+export function runtimeAddress(url: string): string {
   if (!isLocalRuntimeUrl(url)) return url
   const parsed = new URL(url)
 
@@ -91,7 +91,7 @@ function runtimeOf(url: string): string {
  * computer carries `actor`, but runs on the same agent as the owner's (#1488).
  */
 export function sameRuntimeUrl(a: string | undefined, b: string | undefined): boolean {
-  return a !== undefined && b !== undefined && runtimeOf(a) === runtimeOf(b)
+  return a !== undefined && b !== undefined && runtimeAddress(a) === runtimeAddress(b)
 }
 
 export function parseLocalRuntimeUrl(
