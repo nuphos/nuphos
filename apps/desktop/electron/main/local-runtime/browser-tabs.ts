@@ -1,5 +1,6 @@
 import { app, session, webContents } from 'electron'
 
+import { AGENT_BROWSER_PARTITION, expectAgentTab } from '../agent-browser.ts'
 import { handleDeepLink } from '../deep-links.ts'
 
 import { startRecording, stopRecording } from './browser-recording.ts'
@@ -109,13 +110,16 @@ function onPage<T>(
 const sameUrl = (a: string, b: string) => URL.canParse(a) && new URL(a).href === new URL(b).href
 
 /**
- * The tab an `open` created: a browser guest attached after the request whose
- * main frame starts loading `url`, returned once that load stops (finished or
- * failed). Null if none does in time; a claimed tab still loading at the
- * deadline is returned as it is.
+ * The tab an `open` created: a browser guest in the agent session, attached
+ * after the request, whose main frame starts loading `url`, returned once that
+ * load stops (finished or failed). Null if none does in time; a claimed tab
+ * still loading at the deadline is returned as it is. A tab in the user's own
+ * session is never claimed, so an agent never drives a tab with their
+ * extensions or logins.
  */
 function openedTab(url: string, conversation: string): Promise<WebContents | null> {
-  const browser = session.fromPartition('persist:browser')
+  const browser = session.fromPartition(AGENT_BROWSER_PARTITION)
+  const unexpect = expectAgentTab(url)
 
   return new Promise((resolve) => {
     const candidates = new Map<
@@ -124,6 +128,7 @@ function openedTab(url: string, conversation: string): Promise<WebContents | nul
     >()
     let tab: WebContents | null = null
     const stopWatching = () => {
+      unexpect()
       app.off('web-contents-created', onCreated)
       for (const [contents, onNavigation] of candidates)
         contents.off('did-start-navigation', onNavigation)

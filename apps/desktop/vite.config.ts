@@ -9,6 +9,11 @@ export default defineConfig({
     electron({
       main: {
         entry: 'electron/main.ts',
+        // The plugin starts Electron with --no-sandbox, and Electron then runs no
+        // preload in extension service workers, so their chrome.* APIs are missing.
+        // Packaged builds are sandboxed; dev matches them outside Linux.
+        onstart: ({ startup }) =>
+          startup(process.platform === 'linux' ? ['.', '--no-sandbox'] : ['.']),
         vite: {
           build: {
             outDir: 'dist-electron',
@@ -21,6 +26,7 @@ export default defineConfig({
                 'ws',
                 'posthog-node',
                 'archiver',
+                'electron-chrome-extensions',
               ],
             },
           },

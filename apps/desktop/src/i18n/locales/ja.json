@@ -5711,5 +5711,14 @@
   "You can manage runtimes any time in Settings › Runtimes.": "「設定 › ランタイム」でいつでも管理できます。",
   "Your workspace is ready": "ワークスペースの準備ができました",
   "Continue to your workspace": "ワークスペースに進む",
-  "Workspace available": "ワークスペースを利用できます"
+  "Workspace available": "ワークスペースを利用できます",
+  "Extensions": "拡張機能",
+  "Could not add the extension": "拡張機能を追加できませんでした",
+  "Could not remove the extension": "拡張機能を削除できませんでした",
+  "Add this extension to Nuphos": "この拡張機能を Nuphos に追加",
+  "Find extensions in the Chrome Web Store": "Chrome ウェブストアで拡張機能を探す",
+  "{name} (turned off)": "{name}（オフ）",
+  "Unpin from toolbar": "ツールバーから固定を解除",
+  "Pin to toolbar": "ツールバーに固定",
+  "Remove from Nuphos…": "Nuphos から削除…"
 }

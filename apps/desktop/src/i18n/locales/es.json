@@ -5711,5 +5711,14 @@
   "You can manage runtimes any time in Settings › Runtimes.": "Puedes gestionar los runtimes cuando quieras en Configuración › Runtimes.",
   "Your workspace is ready": "Tu espacio de trabajo está listo",
   "Continue to your workspace": "Continuar al espacio de trabajo",
-  "Workspace available": "Espacio de trabajo disponible"
+  "Workspace available": "Espacio de trabajo disponible",
+  "Extensions": "Extensiones",
+  "Could not add the extension": "No se pudo añadir la extensión",
+  "Could not remove the extension": "No se pudo quitar la extensión",
+  "Add this extension to Nuphos": "Añadir esta extensión a Nuphos",
+  "Find extensions in the Chrome Web Store": "Buscar extensiones en Chrome Web Store",
+  "{name} (turned off)": "{name} (desactivada)",
+  "Unpin from toolbar": "Desfijar de la barra de herramientas",
+  "Pin to toolbar": "Fijar en la barra de herramientas",
+  "Remove from Nuphos…": "Quitar de Nuphos…"
 }
