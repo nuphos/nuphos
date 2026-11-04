@@ -57,14 +57,15 @@ async function textMentions(teamId: string, text: string): Promise<string[]> {
 type Mentioning = { id: string; text: string; metadata: MessageMetadata }
 
 /**
- * Who this message @mentions among the conversation's people: each keeps an
- * Inbox entry until they speak there, and gets a push now. Speaking clears the
- * author's own entry.
+ * Who this message @mentions among the conversation's people: each gets a push
+ * now, and keeps an Inbox entry until they speak there. Someone who may only
+ * view could never clear it, so they get the push alone.
  */
 export async function noteMentions(
-  conversation: Pick<AgentConversation, 'sessionId' | 'userId' | 'participantIds' | 'title'> & {
-    teamId: string
-  },
+  conversation: Pick<
+    AgentConversation,
+    'sessionId' | 'userId' | 'participantIds' | 'viewOnlyIds' | 'title'
+  > & { teamId: string },
   message: Mentioning,
 ): Promise<void> {
   const { sender } = message.metadata
@@ -76,15 +77,17 @@ export async function noteMentions(
   const mentioned = [...new Set(claimed)].filter((id) => people.has(id) && id !== author)
 
   if (mentioned.length === 0 && !author) return
+  const viewOnly = new Set(conversation.viewOnlyIds ?? [])
+  const inbox = mentioned.filter((id) => !viewOnly.has(id))
   const at = new Date()
 
   await agentConversations().updateOne(
     { sessionId: conversation.sessionId },
     {
-      ...(mentioned.length > 0
+      ...(inbox.length > 0
         ? {
             $set: Object.fromEntries(
-              mentioned.map((id) => [`mentions.${id}`, { messageId: message.id, at }]),
+              inbox.map((id) => [`mentions.${id}`, { messageId: message.id, at }]),
             ),
           }
         : {}),

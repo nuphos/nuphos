@@ -223,11 +223,18 @@ export async function readChannelMessages(
   }
 }
 
-/** Where the viewer was @mentioned and has not posted since: the newest first. */
+/**
+ * Where the viewer was @mentioned and has not posted since, the newest first.
+ * Not where they may only view now: they could never post to clear it.
+ */
 export async function listChannelMentions(teamId: string, viewerId: string) {
   const channels = await agentConversations()
     .find(
-      readableConversationScope({ [`mentions.${viewerId}`]: { $exists: true } }, viewerId, teamId),
+      readableConversationScope(
+        { [`mentions.${viewerId}`]: { $exists: true }, viewOnlyIds: { $ne: viewerId } },
+        viewerId,
+        teamId,
+      ),
     )
     .toArray()
   const found = await Promise.all(
