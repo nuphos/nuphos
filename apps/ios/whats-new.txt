@@ -1,9 +1,9 @@
-Chats come to iPhone: a Chats tab beside Agents, with unread dots, and you can post in them, with agents' files shown as download cards. The chat looks and moves like Messages, with bubbles sized to their text.
+Chats come to iPhone: a Chats tab beside Agents, with unread dots, Messages-style motion, and members' avatars as a chat's icon. Post in a chat, and agents' files show as download cards.
 
-Sign-in is simpler: enter your email, then a six-digit code, or continue with Google or Apple directly.
+The chat's dock is on your iPhone, mirrored from the Mac, and a Mac's localhost and LAN pages open natively.
 
-Switch workspace from the Account sheet.
+Invite someone to a conversation only if they can use its computer; people who can use the computer can reply.
 
-Download cards show while a turn is still running, and the credential picker refreshes its options every time it opens.
+Sign-in is simpler: enter your email, then a six-digit code, or continue with Google or Apple directly. Switch workspace from the Account sheet.
 
-Fixes: every chat opens, not only the first one after launch. A chat or conversation you have open is marked read, and only the open chat is polled.
+Fixes: every chat opens, not only the first one after launch. A chat or conversation you have open is marked read, a chat post keeps the line breaks you typed, and the keyboard's return key adds a new line again.
