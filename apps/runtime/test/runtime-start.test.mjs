@@ -359,6 +359,20 @@ test('the workspace is laid out the way a provisioned pod lays it out', () => {
   assert.equal(readlinkSync(join(workspace, 'skills')), '.claude/skills')
 })
 
+test('temp files Claude Code left mid-save are cleared before any agent starts', () => {
+  const home = mkdtempSync(join(tmpdir(), 'nuphos-home-'))
+
+  writeFileSync(join(home, '.claude.json'), '{}')
+  writeFileSync(join(home, '.claude.json.tmp.123.abcdef'), '{}')
+  writeFileSync(join(home, '.claude.json.tmp.456.012345'), '')
+  start({ OPENAB_ACP_AUTH_KEY: VECTORS[0][0], HOME: home }, home)
+
+  assert.deepEqual(
+    readdirSync(home).filter((name) => name.startsWith('.claude.json')),
+    ['.claude.json'],
+  )
+})
+
 test('an unwritable workspace does not stop the runtime starting', () => {
   const result = spawnSync('sh', [startScript, 'true'], {
     env: { PATH: process.env.PATH, NUPHOS_RUNTIME_WORKSPACE: '/proc/nuphos-cannot-exist' },
