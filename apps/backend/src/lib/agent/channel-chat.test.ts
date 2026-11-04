@@ -1,12 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
+import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-state'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { agentConversations, agentMessages } from './db'
-import { withChannelPosts } from './channel-wake'
+import { steeredNoticeSender, withChannelPosts } from './channel-wake'
 import { listChannelMentions, readChannelMessages } from './db/channels'
 import {
   CHANNEL_AGENT_TURN_BUDGET,
@@ -65,6 +67,31 @@ useIdentity({
       id,
       name: id === 'mei' ? 'Mei Chen' : id,
     })) as never,
+})
+
+// Agents whose turn is running, by session, with who runs it.
+let running = new Map<string, string>()
+let steerable = true
+const steers: { sessionId: string; text: string; userId: string; metadata?: MessageMetadata }[] = []
+
+useAgentRunStore({
+  getActiveAgentRunForSession: async (_userId, sessionId) =>
+    running.has(sessionId)
+      ? {
+          streamId: 's',
+          startedAt: null,
+          actorUserId: running.get(sessionId)!,
+          runtimeOwned: false,
+        }
+      : null,
+})
+useSessionExecutionState({
+  steerConversationRuntime: async (conversation, steer) => {
+    if (!steerable) throw new Error('runtime_steering_unavailable')
+    steers.push({ sessionId: conversation.sessionId, ...steer })
+
+    return steer.text
+  },
 })
 
 const person: MessageMetadata = {
@@ -131,6 +158,9 @@ beforeEach(async () => {
   memory = portabilityDb()
   wakes = []
   posts = 0
+  running = new Map()
+  steerable = true
+  steers.length = 0
   departed = new Set()
   // Every agent is busy, so its notice waits in its queue, as the real claim does.
   installTurnRunner({
@@ -371,6 +401,73 @@ describe('waking a channel’s agents', () => {
     await seed('other-channel', { kind: 'channel' })
     await say('hello')
     expect(wokenSessions()).toEqual(['agent-a'])
+  })
+})
+
+describe('a person posting while an agent’s turn runs', () => {
+  const steeredSessions = () =>
+    steers.map((steer) => steer.sessionId).sort((a, b) => a.localeCompare(b))
+
+  test('steers the running turn once, with the notice, its posts and its sender', async () => {
+    running.set('agent-a', 'agent-a-owner')
+    await say('go ahead', { ...person, sender: { ...person.sender, id: 'agent-a-owner' } })
+    // agent-a steered; agent-b is idle, so it wakes as before.
+    expect(steeredSessions()).toEqual(['agent-a'])
+    expect(wokenSessions()).toEqual(['agent-b'])
+    const [steer] = steers
+
+    expect(steer!.userId).toBe('agent-a-owner')
+    expect(steer!.text).toStartWith('New messages in a Nuphos channel (channelId channel).')
+    expect(steer!.text).toContain('go ahead')
+    expect(steer!.text).toContain('"fromOwner": true')
+    expect(steer!.metadata).toMatchObject({
+      sender: { type: 'system', id: 'channel:channel', displayName: 'channel title' },
+      source: 'agent.resource',
+      resourceUrl: '/teams/team/agent/channel',
+    })
+    // Delivered, so read: the next post steers only what is new.
+    await say('and this')
+    expect(steers.filter((s) => s.sessionId === 'agent-a')).toHaveLength(2)
+    expect(steers[1]!.text).not.toContain('go ahead')
+    expect(steers[1]!.text).toContain('and this')
+    expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toEqual([])
+  })
+
+  test('the steer’s receipt is the channel’s, not the turn actor’s', async () => {
+    running.set('agent-a', 'agent-a-owner')
+    await say('hello')
+    expect(steeredNoticeSender(TEAM, steers[0]!.text)?.sender).toMatchObject({
+      type: 'system',
+      id: 'channel:channel',
+    })
+    expect(steeredNoticeSender(TEAM, 'please look at the channel')).toBeUndefined()
+  })
+
+  test('with no running turn, a post wakes the agents', async () => {
+    await say('hello')
+    expect(steers).toEqual([])
+    expect(wokenSessions()).toEqual(['agent-a', 'agent-b'])
+  })
+
+  test('an agent’s post never steers: it wakes the others once, at its turn’s end', async () => {
+    running.set('agent-b', 'agent-b-owner')
+    await say('done', agentSpeaker('agent-a'), 'agent-a')
+    expect(steers).toEqual([])
+    expect(wokenSessions()).toEqual(['agent-b'])
+    expect((await channel()).agentTurns).toBe(1)
+  })
+
+  test('a runtime that cannot steer, or another person’s turn, gets the notice queued', async () => {
+    running.set('agent-a', 'agent-a-owner')
+    running.set('agent-b', 'mei')
+    steerable = false
+    await say('hello')
+    expect(steers).toEqual([])
+    expect(wokenSessions()).toEqual(['agent-a', 'agent-b'])
+    // Nothing was marked read: the queued notice still carries the post.
+    expect(
+      (await readChannelMessages(await channel(), 'agent-a', 'agent-a-owner')).messages,
+    ).toHaveLength(1)
   })
 })
 
