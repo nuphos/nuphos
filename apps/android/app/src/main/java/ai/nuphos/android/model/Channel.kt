@@ -72,9 +72,10 @@ data class ChannelPost(
             posts.forEachIndexed { index, post ->
                 // A post on its way is the newest, whatever the clocks say.
                 val at = if (post.sending) Instant.MAX else post.sentAt ?: Instant.MIN
-                // A post after a pause gets a centered time and starts a new run.
-                val timed = !post.sending && ChatTime.showsTimestamp(post.sentAt, previous)
-                if (timed) rows += Timed(at, rows.size, ChannelItem.Time("time.${post.id}", at))
+                // A post after a pause gets a centered time and starts a new run. A post on its way
+                // shows its time at once, so the chat returning it adds no row above it.
+                val timed = ChatTime.showsTimestamp(post.sentAt, previous)
+                if (timed) post.sentAt?.let { rows += Timed(at, rows.size, ChannelItem.Time("time.${post.id}", it)) }
                 previous = post.sentAt ?: previous
                 val first = timed || index == 0 || posts[index - 1].senderId != post.senderId
                 rows += Timed(at, rows.size, ChannelItem.Post(post, first))

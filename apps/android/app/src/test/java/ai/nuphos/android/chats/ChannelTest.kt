@@ -66,12 +66,15 @@ class ChannelTest {
         val posts = listOf(a, at("m2", "2026-11-03T09:25:00Z"), at("m3", "2026-11-03T09:30:01Z"), at("m4", "2026-11-03T12:40:00Z"),
             at("m5", "2026-11-03T12:41:00Z"), at("local", "2026-11-03T20:00:00Z").copy(sending = true))
         val items = ChannelPost.items(posts, emptyList(), emptyList())
-        assertEquals(listOf("time.m1", "post.m1", "post.m2", "time.m3", "post.m3", "time.m4", "post.m4", "post.m5", "post.local"),
+        assertEquals(listOf("time.m1", "post.m1", "post.m2", "time.m3", "post.m3", "time.m4", "post.m4", "post.m5", "time.local", "post.local"),
             items.map { it.key })
         val runs = items.filterIsInstance<ChannelItem.Post>().associate { it.post.id to it.first }
-        assertEquals(mapOf("m1" to true, "m2" to false, "m3" to true, "m4" to true, "m5" to false, "local" to false), runs)
+        assertEquals(mapOf("m1" to true, "m2" to false, "m3" to true, "m4" to true, "m5" to false, "local" to true), runs)
         assertTrue("Exactly five minutes is no pause", items.none { it.key == "time.m2" })
-        assertTrue("A post on its way is never timed", items.none { it.key == "time.local" })
+        assertEquals("A post on its way shows its time at once", Instant.parse("2026-11-03T20:00:00Z"),
+            (items.first { it.key == "time.local" } as ChannelItem.Time).at)
+        assertEquals("The chat returning it adds no row", items.map { it.key },
+            ChannelPost.items(posts.map { it.copy(sending = false) }, emptyList(), emptyList()).map { it.key })
     }
 
     private class FakeTransport : ChannelSession.Transport {
@@ -81,11 +84,13 @@ class ChannelTest {
         var details = mutableListOf<Int>()
         var stamp = "t1"; var count = 1
         var activity: Int? = null
+        var failDetail = false
         var agentsCalls = 0
         val attachments = mutableListOf<String>()
         var failAttachment = true
         override suspend fun detail(tail: Int): AgentConversationDetail {
             details += tail
+            if (failDetail) error("offline")
             val mine = landed?.let { ",{\"id\":\"$it\",\"role\":\"user\",\"metadata\":{\"version\":1,\"sender\":{\"type\":\"user\",\"id\":\"me\",\"displayName\":\"Me\"},\"sentAt\":\"2026-11-03T09:40:00Z\"},\"parts\":[{\"type\":\"text\",\"text\":\"Posted\"}]}" }.orEmpty()
             val post = if (tail == 1) "" else POST + mine
             return Http.json.decodeFromString(
@@ -126,6 +131,18 @@ class ChannelTest {
         session.refresh()
         assertEquals(listOf(ChannelSession.TAIL, 1, 1, ChannelSession.TAIL), transport.details)
         assertEquals(2, transport.agentsCalls); assertEquals(2L, session.activitySeq)
+    }
+
+    @Test fun aRefreshSaysWhetherItCouldRead() = runTest {
+        val transport = FakeTransport()
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        assertTrue(session.refresh(force = true))
+        assertTrue("An unchanged probe read the chat", session.refresh())
+        transport.failDetail = true
+        assertFalse(session.refresh(force = true))
+        assertFalse(session.refresh())
+        transport.failDetail = false
+        assertTrue(session.refresh(force = true))
     }
 
     @Test fun theProbeSeesActivityThatLandsAfterThePost() = runTest {
