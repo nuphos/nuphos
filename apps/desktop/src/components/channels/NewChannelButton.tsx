@@ -69,7 +69,6 @@ export function NewChannelButton({
           sessionId,
           teamId,
           people.map((person) => person.id),
-          'reply',
         )
       for (const agent of picked.filter((member) => member.agent))
         await api.agentAddChannelAgent(sessionId, teamId, agent.id)

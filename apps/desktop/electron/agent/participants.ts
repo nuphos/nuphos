@@ -1,10 +1,6 @@
-import { callJson, teamQuery } from './http'
+import { callJson, callJsonForRenderer, teamQuery } from './http'
 
-import type {
-  ConversationAccessState,
-  GeneralAccess,
-  ParticipantRole,
-} from '../../src/api/agent-types'
+import type { ConversationAccessState, GeneralAccess } from '../../src/api/agent-types'
 
 type ParticipantsResponse = ConversationAccessState
 
@@ -19,24 +15,23 @@ export function getConversationParticipants(
   return callJson('GET', participantsPath(sessionId, teamId), undefined, 12_000)
 }
 
+/**
+ * Someone who cannot use the session's computer is refused with
+ * `computer_use_required` until the invite confirms giving them `use` of it,
+ * so the error keeps its code for the renderer's confirmation.
+ */
 export function inviteConversationParticipants(
   sessionId: string,
   teamId: string,
   userIds: string[],
-  role: ParticipantRole,
+  grantComputerUse: boolean,
 ): Promise<ParticipantsResponse> {
-  return callJson('POST', participantsPath(sessionId, teamId), { userIds, role }, 12_000)
-}
-
-export function setConversationParticipantRole(
-  sessionId: string,
-  teamId: string,
-  userId: string,
-  role: ParticipantRole,
-): Promise<ParticipantsResponse> {
-  const path = `/agent/conversations/${encodeURIComponent(sessionId)}/participants/${encodeURIComponent(userId)}${teamQuery(teamId)}`
-
-  return callJson('PATCH', path, { role }, 12_000)
+  return callJsonForRenderer(
+    'POST',
+    participantsPath(sessionId, teamId),
+    { userIds, ...(grantComputerUse ? { grantComputerUse } : {}) },
+    12_000,
+  )
 }
 
 export function setConversationGeneralAccess(

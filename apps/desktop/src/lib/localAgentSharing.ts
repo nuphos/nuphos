@@ -8,14 +8,9 @@ export function isLocalAgentRuntime(runtimeId: string | undefined): boolean {
   return runtimeId?.startsWith('local_') === true
 }
 
-/** Shown in the Share menu of a session on the owner's computer. The backend
- *  refuses a turn there from anyone but the owner (`local_runtime_owner_only`),
- *  so the people it is shared with can read it but not run anything. */
-export const LOCAL_AGENT_SHARING_NOTE =
-  'This agent runs on your computer’s local runtime. People you share it with can read it, but only you can send messages. Move it to a team runtime to work on it together.'
-
+/** People in a session reply while they may use its computer, so a move can take that away. */
 export const OWN_LOCAL_AGENT_MOVE_NOTICE = t(
-  'After the move, only you can send messages; people you shared it with can still read it.',
+  'After the move, people you shared it with can reply only if they can use this computer; the others can still read it.',
 )
 
 /** Host trust and losing collaboration are separate reasons to explain a move. */
@@ -31,7 +26,9 @@ export function localAgentMoveWarning(
     (viewerUserId !== undefined && target.local?.ownerUserId === viewerUserId)
 
   if (!own && (access === 'use' || target.local?.shared))
-    return t('Its owner can see this work, and only you can send messages in this agent.')
+    return t(
+      'Its owner can see this work. People you shared it with can reply only if they can use this computer.',
+    )
   if (target.local?.box) return undefined
 
   return OWN_LOCAL_AGENT_MOVE_NOTICE

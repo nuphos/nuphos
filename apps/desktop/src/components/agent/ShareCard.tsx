@@ -9,13 +9,9 @@ import { Button } from '../ui/button'
 import { toast } from '../ui/toast'
 
 import { PersonFace } from './PersonFace'
-import { RoleMenu } from './ShareAccess'
+import { ParticipantMenu } from './ShareAccess'
 
-import type {
-  AgentConversationParticipant,
-  GeneralAccess,
-  ParticipantRole,
-} from '../../api/agent-types'
+import type { AgentConversationParticipant } from '../../api/agent-types'
 import type { Pickable } from './PersonFace'
 
 // The pieces of the Share card in SessionParticipants (the picker lives in
@@ -160,30 +156,33 @@ export function ShareLink({ url, children }: { url: string; children: React.Reac
   )
 }
 
+/**
+ * Everyone here. A participant replies while they may use the computer the
+ * session runs on; one who may not is shown as reading only, and why.
+ */
 export function ParticipantList({
   participants,
   currentUserId,
-  generalAccess,
   canManage,
   pending,
   label = t('In this agent'),
-  onRoleChange,
+  onAllowReply,
   onRemove,
 }: {
   participants: AgentConversationParticipant[]
   label?: string
   currentUserId: string
-  generalAccess: GeneralAccess
   canManage: boolean
   pending: string | null
-  onRoleChange: (participant: AgentConversationParticipant, role: ParticipantRole) => void
+  /** Invite a participant who reads only again, which offers them use of the computer. */
+  onAllowReply: (participant: AgentConversationParticipant) => void
   onRemove: (participant: AgentConversationParticipant) => void
 }) {
   return (
     <div className="flex flex-col gap-1">
       <div className={SECTION_LABEL}>{label}</div>
       {participants.map((participant) => {
-        const role = participant.role && participant.role !== 'owner' ? participant.role : 'reply'
+        const person = !participant.isOwner && !participant.agent
 
         return (
           <div
@@ -219,22 +218,24 @@ export function ParticipantList({
                 )}
               </>
             )}
-            {!participant.isOwner && !participant.agent && canManage && (
-              <RoleMenu
-                value={role}
-                floor={generalAccess}
+            {person && canManage && (
+              <ParticipantMenu
+                canReply={participant.role !== 'view'}
                 disabled={pending !== null}
-                onChange={(next) => onRoleChange(participant, next)}
+                onAllowReply={() => onAllowReply(participant)}
                 onRemove={() => onRemove(participant)}
               />
             )}
-            {!participant.isOwner && !participant.agent && !canManage && (
-              <span className="px-1.5 text-[12px] text-tertiary">
-                {role === 'manage'
-                  ? t('Can manage')
-                  : role === 'view' && generalAccess !== 'reply'
-                    ? t('Can view')
-                    : t('Can reply')}
+            {person && !canManage && (
+              <span
+                className="px-1.5 text-[12px] text-tertiary"
+                title={
+                  participant.role === 'view'
+                    ? t('They can reply once they can use the computer this agent runs on.')
+                    : undefined
+                }
+              >
+                {participant.role === 'view' ? t('Can view') : t('Can reply')}
               </span>
             )}
           </div>

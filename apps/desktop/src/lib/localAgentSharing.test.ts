@@ -1,11 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import {
-  LOCAL_AGENT_SHARING_NOTE,
-  localAgentMoveWarning,
-  OWN_LOCAL_AGENT_MOVE_NOTICE,
-} from './localAgentSharing.ts'
+import { localAgentMoveWarning, OWN_LOCAL_AGENT_MOVE_NOTICE } from './localAgentSharing.ts'
 
 const local = {
   ownerUserId: 'mate',
@@ -15,12 +11,12 @@ const local = {
   shared: { level: 'full' as const },
 }
 
-test('moving to a borrowed computer explains visibility and owner-only messages in one sentence', () => {
+test('moving to a borrowed computer explains visibility and who can still reply', () => {
   const warning = localAgentMoveWarning({ kind: 'local', local }, 'use', 'viewer')
 
   assert.equal(
     warning,
-    'Its owner can see this work, and only you can send messages in this agent.',
+    'Its owner can see this work. People you shared it with can reply only if they can use this computer.',
   )
 })
 
@@ -29,7 +25,7 @@ test('own Local Agents retain collaboration-loss consent without a host-trust no
     const warning = localAgentMoveWarning({ kind: 'local', local }, access, 'viewer')
 
     assert.equal(warning, OWN_LOCAL_AGENT_MOVE_NOTICE)
-    assert.match(warning ?? '', /only you can send messages/)
+    assert.match(warning ?? '', /reply only if they can use this computer/)
     assert.match(warning ?? '', /can still read/)
     assert.doesNotMatch(warning ?? '', /owner can see/)
   }
@@ -67,8 +63,4 @@ test('older shared catalogs and borrowed Boxes retain the short move notice', ()
 test('moves onto hosted agents need no Local Agent consent', () => {
   assert.equal(localAgentMoveWarning({ kind: 'managed' }), undefined)
   assert.equal(localAgentMoveWarning({ kind: 'external' }), undefined)
-})
-
-test('sharing a conversation retains its separate owner-only messaging explanation', () => {
-  assert.match(LOCAL_AGENT_SHARING_NOTE, /only you can send messages/)
 })

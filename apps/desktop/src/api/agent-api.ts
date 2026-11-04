@@ -12,7 +12,6 @@ import type {
   AgentCredentialSelection,
   AgentPersistedMessage,
   GeneralAccess,
-  ParticipantRole,
 } from './agent-types.ts'
 import type { LocalSessionSource } from './app-types.ts'
 import type { PlanUpdatePatch } from './plan-types.ts'
@@ -54,14 +53,8 @@ export const agentApi = {
     sessionId: string,
     teamId: string,
     userIds: string[],
-    role: ParticipantRole = 'reply',
-  ) => window.api.agentInviteConversationParticipants(sessionId, teamId, userIds, role),
-  agentSetConversationParticipantRole: (
-    sessionId: string,
-    teamId: string,
-    userId: string,
-    role: ParticipantRole,
-  ) => window.api.agentSetConversationParticipantRole(sessionId, teamId, userId, role),
+    grantComputerUse = false,
+  ) => window.api.agentInviteConversationParticipants(sessionId, teamId, userIds, grantComputerUse),
   agentSetConversationGeneralAccess: (
     sessionId: string,
     teamId: string,

@@ -112,7 +112,6 @@ export function ChannelPane({
           title={title}
           currentUserId={user.id}
           canManage={detail?.isOwner === true || detail?.canManage === true}
-          warnLocalAgent={false}
           compact={false}
           channel={
             detail

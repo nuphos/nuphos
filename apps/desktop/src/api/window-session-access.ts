@@ -1,4 +1,4 @@
-import type { ConversationAccessState, GeneralAccess, ParticipantRole } from './agent-types.ts'
+import type { ConversationAccessState, GeneralAccess } from './agent-types.ts'
 import type { SessionResourcesResponse } from './session-resource-types'
 
 /** Who may open a session and what they may do there. */
@@ -24,18 +24,12 @@ export type WindowSessionAccessApi = {
     sessionId: string,
     teamId: string,
     userIds: string[],
-    role: ParticipantRole,
+    grantComputerUse: boolean,
   ): Promise<ConversationAccessState>
   agentRemoveConversationParticipant(
     sessionId: string,
     teamId: string,
     userId: string,
-  ): Promise<ConversationAccessState>
-  agentSetConversationParticipantRole(
-    sessionId: string,
-    teamId: string,
-    userId: string,
-    role: ParticipantRole,
   ): Promise<ConversationAccessState>
   agentSetConversationGeneralAccess(
     sessionId: string,
