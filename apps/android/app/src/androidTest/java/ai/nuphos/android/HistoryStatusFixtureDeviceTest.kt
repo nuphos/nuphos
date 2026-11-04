@@ -166,14 +166,17 @@ class HistoryStatusFixtureDeviceTest {
         waitText(if (expectHistory) "History fixture" else "Couldn't load agents")
     }
     private fun waitText(text: String) { compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() } }
+    // The row's status is part of its detail line, and an unread reply is a dot with a state description.
+    private fun running() = compose.onNodeWithText("Running", substring = true)
+    private fun unreadDot() = compose.onNode(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Unread reply"), useUnmergedTree = true)
     private fun readCount() = requests.count { it.url.encodedPath.endsWith("/read") }
     @Test fun listIndicatorExpiresAndOnlyDisplayedOwnerAcknowledges() {
         render()
-        compose.onNodeWithText("Running").assertIsDisplayed()
+        running().assertIsDisplayed()
         assertEquals(0, readCount())
         android.os.SystemClock.sleep(12_100)
-        compose.waitUntil(15_000) { compose.onAllNodesWithText("Running").fetchSemanticsNodes().isEmpty() }
-        compose.onNodeWithText("Unread").assertIsDisplayed()
+        compose.waitUntil(15_000) { compose.onAllNodesWithText("Running", substring = true).fetchSemanticsNodes().isEmpty() }
+        unreadDot().assertExists()
         compose.onNodeWithText("History fixture").performClick()
         waitText("Displayed owner transcript")
         compose.waitUntil(5_000) { readCount() == 1 }
@@ -185,14 +188,15 @@ class HistoryStatusFixtureDeviceTest {
         return job
     }
     private fun assertKnownRequests() {
-        val allowed = setOf("/teams/A/favorites", "/teams/B/favorites", "/agent/auto-mode/bypass", "/agent/conversations", "/agent/conversations/saved", "/agent/conversations/saved/read")
-        assertTrue(requests.filter { it.header("Authorization") == "Bearer $token" }.all { it.url.encodedPath in allowed })
+        val allowed = setOf("/teams/A/favorites", "/teams/B/favorites", "/agent/auto-mode/bypass", "/agent/conversations", "/agent/credential-options", "/agent/conversations/saved", "/agent/conversations/saved/read", "/agent/conversations/saved/resources")
+        val unknown = requests.filter { it.header("Authorization") == "Bearer $token" }.map { it.url.encodedPath }.filter { it !in allowed }.distinct()
+        assertTrue("Unknown requests: $unknown", unknown.isEmpty())
     }
     @Test fun activeBackgroundAndUnreadStillShowsRunning() {
         backgroundPhase = true; render()
-        compose.onNodeWithText("Running").assertIsDisplayed()
-        compose.onNodeWithText("Background tools").assertDoesNotExist()
-        compose.onNodeWithText("Unread").assertDoesNotExist()
+        running().assertIsDisplayed()
+        compose.onNodeWithText("Background tools", substring = true).assertDoesNotExist()
+        unreadDot().assertDoesNotExist()
         assertKnownRequests()
     }
     @Test fun failedRefreshRetainsHistoryWithRetryAndExpiredRuntime() {
@@ -203,12 +207,14 @@ class HistoryStatusFixtureDeviceTest {
         compose.onNodeWithText("History fixture").assertIsDisplayed()
         compose.onNodeWithText("Couldn't load agents").assertDoesNotExist()
         android.os.SystemClock.sleep(12_100)
-        compose.waitUntil(15_000) { compose.onAllNodesWithText("Running").fetchSemanticsNodes().isEmpty() }
-        compose.onNodeWithText("Unread").assertIsDisplayed()
+        compose.waitUntil(15_000) { compose.onAllNodesWithText("Running", substring = true).fetchSemanticsNodes().isEmpty() }
+        unreadDot().assertExists()
         failList = false
         compose.onNodeWithText("Retry history").performClick()
         compose.waitUntil(5_000) { store.phaseError == null }
-        compose.onNodeWithText("Running").assertIsDisplayed()
+        // A successful retry brings the row's live status back.
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Running", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        running().assertIsDisplayed()
         assertKnownRequests()
     }
     @Test fun initialFailureHasNoRetainedHistoryBanner() {

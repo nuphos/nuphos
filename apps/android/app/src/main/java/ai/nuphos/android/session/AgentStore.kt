@@ -68,7 +68,11 @@ class AgentStore(
         }
         historyRevision++
     }
-    fun historyObservation(row: AgentConversation) = historyObservations[(row.teamId ?: selectedTeam?.id.orEmpty()) to row.sessionId]
+    /** Reads `historyRevision` so a row redraws when a fresh observation arrives with otherwise identical data. */
+    fun historyObservation(row: AgentConversation): HistoryStatus.Observation? {
+        historyRevision
+        return historyObservations[(row.teamId ?: selectedTeam?.id.orEmpty()) to row.sessionId]
+    }
     suspend fun markRead(teamId: String, sessionId: String, seq: Long) = ConversationReadApi.mark(token, teamId, sessionId, seq)
     fun applyRead(teamId: String, sessionId: String, seq: Long, state: ConversationReadApi.State) {
         if (!hasAiAccess() || selectedTeam?.id != teamId) return
