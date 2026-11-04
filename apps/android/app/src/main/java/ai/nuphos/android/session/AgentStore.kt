@@ -182,6 +182,28 @@ class AgentStore(
         channels = channels.map { if (it.sessionId == sessionId) withLocalRead(it) else it }
     }
 
+    /** The agents in a turn as of the last check; null until an open chat has checked. */
+    private var agentsInTurn by mutableStateOf<Set<String>?>(null)
+
+    fun inTurn(sessionId: String): Boolean = agentsInTurn?.contains(sessionId)
+        ?: (conversations.firstOrNull { it.sessionId == sessionId }?.activeRun != null)
+
+    /** Which of the viewer's agents are in a turn, for an open chat. Leaves the agent list as it is. */
+    suspend fun loadAgentsInTurn() {
+        if (disposed || !hasAiAccess()) return
+        val team = selectedTeam ?: return
+        val workspace = workspaceRevision
+        try {
+            val rows = NuphosApi.conversations(token, team.id, limit = pageSize, scope = ConversationScope.Mine, search = "").rows
+            if (disposed || !hasAiAccess() || selectedTeam?.id != team.id || workspace != workspaceRevision) return
+            agentsInTurn = rows.filter { it.activeRun != null }.map { it.sessionId }.toSet()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // Keep what was shown; the next check tries again.
+        }
+    }
+
     private val channelSessions = mutableMapOf<Pair<String, String>, ChannelSession>()
 
     /** One chat session per workspace and chat, dropped with the workspace. */
@@ -200,6 +222,7 @@ class AgentStore(
         channelsLoaded = false
         channelSessions.clear()
         channelReads.clear()
+        agentsInTurn = null
         searchJob?.cancel()
         refreshRequests.invalidate()
         isReloading = false

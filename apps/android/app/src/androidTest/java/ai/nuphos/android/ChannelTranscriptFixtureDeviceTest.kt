@@ -125,10 +125,10 @@ class ChannelTranscriptFixtureDeviceTest {
         compose.onNodeWithTag("channel-transcript").performScrollToNode(hasText("Clark Kent"))
         compose.onAllNodesWithTag("channel-time").assertCountEquals(2)
         compose.onNodeWithText("Diana Prince").assertExists()
-        // No time under any bubble; a post on its way still says so.
+        // No time under any bubble, and no footer on a post on its way.
         listOf("09:00", "09:02", "12:11", "12:13").forEach { compose.onNodeWithText(it).assertDoesNotExist() }
         compose.onNodeWithTag("channel-transcript").performScrollToNode(hasText("Synthetic sending check"))
-        compose.onNodeWithText("Sending…").assertIsDisplayed()
+        compose.onNodeWithText("Sending…").assertDoesNotExist()
         // Your own posts carry no name and no avatar.
         compose.onNodeWithText("Bruce Wayne").assertDoesNotExist()
         // Others: a 20 dp avatar left of the name, once per run, the bubble from the same leading edge.

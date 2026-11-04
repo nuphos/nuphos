@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ChannelItem
 import ai.nuphos.android.model.ChannelPost
 import ai.nuphos.android.model.ChatTime
@@ -39,6 +40,7 @@ import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.LocalAuthSession
 import ai.nuphos.android.ui.components.AgentAvatar
 import ai.nuphos.android.ui.components.MarkdownText
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** A chat opened from the list, a link or a notification. It never runs an agent turn. */
@@ -62,7 +64,24 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
         }
     }
     val viewerId = auth.user?.id
-    val typing = session.agents.filter { agent -> store.conversations.firstOrNull { it.sessionId == agent.sessionId }?.activeRun != null }
+    // Which agents are in a turn, checked every 3 s like the iOS list poll, only while on screen.
+    LaunchedEffect(store, session, lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) {
+                if (session.agents.isNotEmpty()) store.loadAgentsInTurn()
+                delay(3_000)
+            }
+        }
+    }
+    // The dots follow a read of the chat that started after the change. An agent posts before its
+    // turn ends, so its reply and the end of its dots arrive together, never the dots' end first.
+    var typing by remember(session) { mutableStateOf(emptyList<ChannelAgent>()) }
+    val inTurn = session.agents.filter { store.inTurn(it.sessionId) }
+    LaunchedEffect(session, inTurn.map { it.sessionId }) {
+        if (inTurn.map { it.sessionId } == typing.map { it.sessionId }) return@LaunchedEffect
+        session.refresh(force = true)
+        typing = inTurn
+    }
     val items = ChannelPost.items(session.posts, session.events, typing)
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -173,9 +192,6 @@ private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, 
             if (post.downloads.isNotEmpty()) Box(Modifier.padding(top = 6.dp)) {
                 ChannelFiles(post.downloads.map { TransferUpload(it, emptyList()) }, mine, session::transferGroup, allowed, downloads)
             }
-            // Times are dividers between runs now; only a post on its way says so.
-            if (post.sending) Text("Sending…", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp))
         }
         if (!mine) Spacer(Modifier.weight(1f).widthIn(min = 48.dp))
     }
