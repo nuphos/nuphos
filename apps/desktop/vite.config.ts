@@ -21,6 +21,7 @@ export default defineConfig({
                 'ws',
                 'posthog-node',
                 'archiver',
+                'electron-chrome-extensions',
               ],
             },
           },

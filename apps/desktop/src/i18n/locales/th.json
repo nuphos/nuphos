@@ -5711,5 +5711,14 @@
   "You can manage runtimes any time in Settings › Runtimes.": "จัดการรันไทม์ได้ทุกเมื่อใน การตั้งค่า › รันไทม์",
   "Your workspace is ready": "เวิร์กสเปซของคุณพร้อมแล้ว",
   "Continue to your workspace": "ไปยังเวิร์กสเปซของคุณ",
-  "Workspace available": "เวิร์กสเปซพร้อมใช้งาน"
+  "Workspace available": "เวิร์กสเปซพร้อมใช้งาน",
+  "Extensions": "ส่วนขยาย",
+  "Could not add the extension": "ไม่สามารถเพิ่มส่วนขยายได้",
+  "Could not remove the extension": "ไม่สามารถนำส่วนขยายออกได้",
+  "Add this extension to Nuphos": "เพิ่มส่วนขยายนี้ลงใน Nuphos",
+  "Find extensions in the Chrome Web Store": "ค้นหาส่วนขยายใน Chrome เว็บสโตร์",
+  "{name} (turned off)": "{name} (ปิดอยู่)",
+  "Unpin from toolbar": "เลิกปักหมุดจากแถบเครื่องมือ",
+  "Pin to toolbar": "ปักหมุดไว้ที่แถบเครื่องมือ",
+  "Remove from Nuphos…": "นำออกจาก Nuphos…"
 }

@@ -21,6 +21,7 @@ import { t } from '../i18n'
 import { BROWSER_HOME_URL, normalizeBrowserUrl } from '../lib/browserUrl'
 
 import { BrowserCommentBox } from './browser/BrowserCommentBox'
+import { BrowserExtensions } from './browser/BrowserExtensions'
 import { registerBrowserView } from '../app/workspace/watchedDockTabs'
 import { localPreviewRecorder } from './browser/localPreviewRecorder'
 import { focusOpenedPage } from './browser/pageFocus'
@@ -64,6 +65,8 @@ export function BrowserView({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
+  /** The page's web contents ID, which the extension host knows the tab by. */
+  const [guestId, setGuestId] = useState<number | null>(null)
   const comments = useBrowserComments(viewRef, onComment)
   const { reset: resetComments } = comments
 
@@ -107,6 +110,7 @@ export function BrowserView({
       unregister?.()
       unregister = registerBrowserView(tabId, view)
       setReady(true)
+      setGuestId(view.getWebContentsId())
       view.setZoomFactor(1)
       sync()
     }
@@ -223,6 +227,13 @@ export function BrowserView({
             spellCheck={false}
             className="ml-1 h-7 min-w-0 flex-1 rounded-md bg-zGray-900 px-2.5 text-xs text-main outline-none focus:ring-1 focus:ring-zGray-600"
             placeholder={t('Search or enter URL')}
+          />
+          <BrowserExtensions
+            tabId={guestId}
+            url={address}
+            active={isActive}
+            buttonClass={buttonClass}
+            viewRef={viewRef}
           />
           {onComment && (
             <button

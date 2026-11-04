@@ -3,6 +3,7 @@ import { contextBridge } from 'electron'
 import { agentApi } from './preload-parts/api-agent'
 import { appConfigApi } from './preload-parts/api-app-config'
 import { awsApi } from './preload-parts/api-aws'
+import { browserExtensionsApi } from './preload-parts/api-browser-extensions'
 import { cloudAccountsApi } from './preload-parts/api-cloud-accounts'
 import { cloudOpsApi } from './preload-parts/api-cloud-ops'
 import { cloudflareApi } from './preload-parts/api-cloudflare'
@@ -44,6 +45,7 @@ const api = {
   ...windowSessionApi,
   ...connectApi,
   ...instructionsApi,
+  ...browserExtensionsApi,
 }
 
 contextBridge.exposeInMainWorld('api', api)

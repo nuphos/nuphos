@@ -5711,5 +5711,14 @@
   "You can manage runtimes any time in Settings › Runtimes.": "隨時可以在「設定 › Runtimes」管理 runtime。",
   "Your workspace is ready": "工作空間已準備好",
   "Continue to your workspace": "返回工作空間",
-  "Workspace available": "工作空間可供使用"
+  "Workspace available": "工作空間可供使用",
+  "Extensions": "擴充功能",
+  "Could not add the extension": "無法新增擴充功能",
+  "Could not remove the extension": "無法移除擴充功能",
+  "Add this extension to Nuphos": "將這個擴充功能加入 Nuphos",
+  "Find extensions in the Chrome Web Store": "在 Chrome 線上應用程式商店尋找擴充功能",
+  "{name} (turned off)": "{name}（已停用）",
+  "Unpin from toolbar": "從工具列取消固定",
+  "Pin to toolbar": "固定到工具列",
+  "Remove from Nuphos…": "從 Nuphos 移除…"
 }

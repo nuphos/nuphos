@@ -5711,5 +5711,14 @@
   "You can manage runtimes any time in Settings › Runtimes.": "설정 › 런타임에서 언제든지 런타임을 관리할 수 있습니다.",
   "Your workspace is ready": "워크스페이스가 준비되었습니다",
   "Continue to your workspace": "워크스페이스로 이동",
-  "Workspace available": "워크스페이스 사용 가능"
+  "Workspace available": "워크스페이스 사용 가능",
+  "Extensions": "확장 프로그램",
+  "Could not add the extension": "확장 프로그램을 추가할 수 없습니다",
+  "Could not remove the extension": "확장 프로그램을 삭제할 수 없습니다",
+  "Add this extension to Nuphos": "이 확장 프로그램을 Nuphos에 추가",
+  "Find extensions in the Chrome Web Store": "Chrome 웹 스토어에서 확장 프로그램 찾기",
+  "{name} (turned off)": "{name}(꺼짐)",
+  "Unpin from toolbar": "도구 모음에서 고정 해제",
+  "Pin to toolbar": "도구 모음에 고정",
+  "Remove from Nuphos…": "Nuphos에서 삭제…"
 }

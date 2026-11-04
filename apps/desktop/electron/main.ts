@@ -59,7 +59,7 @@ import { installApplicationMenu } from './main/menu'
 import { applyAppIcon, readAppIcon } from './main/app-icon'
 import { readPersistedThemeSource } from './main/theme'
 import { initAutoUpdaterEvents, startUpdatePolling, stopUpdatePolling } from './main/updater'
-import { initWebviewGuard } from './main/webview-guard'
+import { initBrowserSessions } from './main/browser-sessions'
 import { initWindowSessionChannels, markAppQuitting } from './main/window-session'
 import { focusedAppWindow, restoreWindows, showMainWindow } from './main/windows'
 import * as podExec from './pod-exec'
@@ -216,7 +216,7 @@ app
     routeFetchThroughChromium(net)
     // Before any window exists: web-contents-created only fires for contents created
     // after registration, or the first window never gets the will-attach-webview hook.
-    initWebviewGuard()
+    initBrowserSessions()
     // Warm the shell env cache so the first local exec skips the shell probe.
     void resolveShellEnv()
     initMainAnalytics()
