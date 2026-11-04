@@ -21,6 +21,12 @@ config.autoAddCss = false
 initAnalytics()
 track('app_ready')
 
+if (import.meta.env.DEV) {
+  void import('./views/onboarding/setup/devPreview').then(({ showRuntimeSetupPreview }) => {
+    Object.assign(window, { onboardingSetup: showRuntimeSetupPreview })
+  })
+}
+
 if (isMac) {
   document.documentElement.classList.add('platform-darwin')
 } else if (navigator.userAgent.includes('Windows')) {

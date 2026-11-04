@@ -260,6 +260,7 @@ export function getLocalRuntimeState(): LocalRuntimeViewState {
 
   return {
     ...controller.state(),
+    detectionDisabled: !deviceRegistrationAllowed(isDev),
     sleepPrevention: sleep.sleepState(),
     claudeLogin: logins['claude-code'].state(),
     codexLogin: logins.codex.state(),

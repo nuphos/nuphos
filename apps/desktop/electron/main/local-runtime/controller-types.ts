@@ -32,6 +32,7 @@ export type LocalRuntimeState = {
 
 /** Desktop IPC contract, including account login and device-local sleep state. */
 export type LocalRuntimeViewState = LocalRuntimeState & {
+  detectionDisabled?: boolean
   deviceId: string
   sleepPrevention: SleepState
   devBundle?: DevBundleHint

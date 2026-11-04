@@ -4,6 +4,7 @@ import { ArrowRight, ArrowUp, Loader2 } from 'lucide-react'
 import { InvitationList } from '../../../components/InvitationList'
 import { Button } from '../../../components/ui/button'
 import { InputGroup, InputGroupInput } from '../../../components/ui/input-group'
+import { Tooltip } from '../../../components/ui/tooltip'
 import { t } from '../../../i18n'
 
 import type { DiscoverableTeam, TeamInvitation } from '../../../types'
@@ -56,9 +57,7 @@ export function PanelComposer({
 }) {
   const selectedCount = selectedInvitationIds.size + selectedTeamIds.size
 
-  // Composer — the workspace name input. Shown only while we're asking for
-  // the name (the intro demo panel has no input box); it fades + collapses
-  // once the name is sent.
+  // The naming composer collapses after the name is sent.
   return (
     <div
       style={{ maxWidth: 600 }}
@@ -79,7 +78,7 @@ export function PanelComposer({
                 value={workspaceName}
                 onChange={(e) => onWorkspaceNameChange(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing && canCreate) {
                     e.preventDefault()
                     onCreate()
                   }
@@ -90,22 +89,38 @@ export function PanelComposer({
             </div>
             <div className="mt-1 flex items-center gap-2">
               <div className="flex-1" />
-              <button
-                type="button"
-                onClick={onCreate}
+              <Tooltip
                 disabled={!canCreate}
-                title={t('Create workspace')}
-                className={clsx(
-                  'titlebar-no-drag flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
-                  canCreate ? 'bg-zViolet-500 text-white hover:bg-zViolet-400' : 'text-tertiary',
-                )}
+                trigger={
+                  <button
+                    type="button"
+                    onClick={onCreate}
+                    disabled={!canCreate}
+                    aria-label={t('Create workspace')}
+                    aria-keyshortcuts="Enter"
+                    className={clsx(
+                      'titlebar-no-drag flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
+                      canCreate
+                        ? 'bg-zViolet-500 text-white hover:bg-zViolet-400'
+                        : 'text-tertiary',
+                    )}
+                  />
+                }
+                content={
+                  <span className="flex items-center gap-3">
+                    {t('Continue')}
+                    <kbd className="rounded border border-zGray-700 px-1 py-px text-[10px] leading-4 text-tertiary">
+                      Enter ↵
+                    </kbd>
+                  </span>
+                }
               >
                 {creating ? (
                   <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.4} />
                 ) : (
                   <ArrowUp className="h-4 w-4" strokeWidth={2.4} />
                 )}
-              </button>
+              </Tooltip>
             </div>
           </InputGroup>
         </>
