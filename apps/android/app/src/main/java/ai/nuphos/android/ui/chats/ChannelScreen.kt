@@ -1,7 +1,10 @@
 package ai.nuphos.android.ui.chats
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -32,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -155,6 +159,10 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
     // Follow a new post only when the reader was already at the end.
     LaunchedEffect(newest) { if (wasAtLatest && reversed.isNotEmpty()) state.scrollToItem(0) }
     LaunchedEffect(atLatest) { wasAtLatest = atLatest }
+    // What is new to this open transcript: never a first read, or a row scrolled back into view.
+    val known = remember(session) { reversed.mapTo(mutableSetOf()) { it.key } }
+    val arrivals = reversed.filter { it.key !in known }.mapTo(mutableSetOf()) { it.key }
+    SideEffect { known += arrivals }
     // Your own send returns the transcript to the end.
     LaunchedEffect(session.lastSubmittedKey) { if (session.lastSubmittedKey != null && reversed.isNotEmpty()) state.scrollToItem(0) }
     Box(Modifier.fillMaxSize()) {
@@ -162,11 +170,15 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
             item(key = "typing") { TypingSlot(typing) }
             items(reversed, key = { it.key }) { item ->
-                when (item) {
-                    is ChannelItem.Post -> PostRow(session, item.post, item.first, item.post.isMine(viewerId), onLink, allowed, downloads)
-                    is ChannelItem.Time -> TimeDivider(item.at)
-                    is ChannelItem.Paused -> PausedLine(item.text)
-                    is ChannelItem.Typing -> Unit
+                // New rows fade in and rise a little as the rows on screen slide up to make room.
+                // The list keeps a reader's place by key, so someone reading older posts sees nothing move.
+                Box(Modifier.animateItem().arrival(item.key in arrivals)) {
+                    when (item) {
+                        is ChannelItem.Post -> PostRow(session, item.post, item.first, item.post.isMine(viewerId), onLink, allowed, downloads)
+                        is ChannelItem.Time -> TimeDivider(item.at)
+                        is ChannelItem.Paused -> PausedLine(item.text)
+                        is ChannelItem.Typing -> Unit
+                    }
                 }
             }
         }
@@ -244,6 +256,15 @@ private fun PausedLine(text: String) {
         Icon(Icons.Outlined.Pause, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.tertiary)
         Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+/** A row new to the transcript rises into place once. System animation settings apply as to any animation. */
+@Composable
+private fun Modifier.arrival(new: Boolean): Modifier {
+    val rise = with(LocalDensity.current) { 12.dp.toPx() }
+    val offset = remember { Animatable(if (new) rise else 0f) }
+    LaunchedEffect(Unit) { if (offset.value != 0f) offset.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow)) }
+    return graphicsLayer { translationY = offset.value }
 }
 
 /**
