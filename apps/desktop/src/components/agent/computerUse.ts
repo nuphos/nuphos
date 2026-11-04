@@ -1,4 +1,4 @@
-import { parseAtlasError } from '../../api/errors'
+import { parseAtlasError } from '../../api/errors.ts'
 
 /** An invite refused because some invitees cannot use the session's computer yet. */
 export function needsComputerUse(error: unknown): boolean {
