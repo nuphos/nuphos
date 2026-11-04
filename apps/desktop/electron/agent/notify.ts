@@ -3,6 +3,10 @@ import { BrowserWindow, Notification } from 'electron'
 import { raiseWindow } from '../window-raise'
 
 import type { WebContents } from 'electron'
+import { authSession } from '../auth-session.ts'
+import { openAsAccount } from '../main/account-for-link'
+import { accountOf } from '../main/account-leave-core.ts'
+import { openAppPath } from '../main/deep-links'
 
 export function send(wc: WebContents, channel: string, payload: unknown) {
   if (wc.isDestroyed()) return
@@ -43,6 +47,8 @@ export function notifyAgentStopped(args: {
   parentWindow?: BrowserWindow | null
 }): void {
   const { title, body, sessionId, teamId, parentWindow } = args
+  // Raised for the account in use now; clicked maybe after a switch.
+  const owner = accountOf(authSession.context())
 
   if (!Notification.isSupported()) return
   if (BrowserWindow.getAllWindows().some((w) => w.isFocused())) return
@@ -52,6 +58,13 @@ export function notifyAgentStopped(args: {
   n.on('close', release)
   n.on('click', () => {
     release()
+    // Since raised, the app moved to another account: back to this one first,
+    // then open the conversation in its reloaded workspace.
+    if (owner && teamId && accountOf(authSession.context()) !== owner) {
+      void openAsAccount(owner, () => openAppPath(`/teams/${teamId}/agent/${sessionId}`))
+
+      return
+    }
     if (!parentWindow || !raiseWindow(parentWindow)) return
     send(parentWindow.webContents, 'agent:focus-session', { sessionId, teamId })
   })

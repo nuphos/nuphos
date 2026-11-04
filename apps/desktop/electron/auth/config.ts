@@ -132,6 +132,15 @@ export function configFile(deps: ConfigFileDeps) {
     deps.onAccount(to, token, target.userInfo?.id ?? null)
   }
 
+  /** A waiting account's backend and token, to ask its own backend on its behalf. */
+  async function credentialsOf(key: string): Promise<{ api: string; token: string } | null> {
+    const file = (await readFile(deps.path)) ?? {}
+    const target = (file.accounts ?? []).find((a) => keyOf(a, currentApi()) === key)
+    const token = target ? await tokenOf(target) : null
+
+    return target && token ? { api: target.api ?? currentApi(), token } : null
+  }
+
   /** Signs a waiting account out of this app; its token is returned to end it on its backend. */
   async function forgetAccount(key: string): Promise<{ api: string; token: string } | null> {
     const previous = (await readFile(deps.path)) ?? {}
@@ -263,6 +272,7 @@ export function configFile(deps: ConfigFileDeps) {
     switchTo: (key: string) => inTurn(() => switchTo(key)),
     forgetAccount: (key: string) => inTurn(() => forgetAccount(key)),
     forgetAll: () => inTurn(forgetAll),
+    credentialsOf: (key: string) => inTurn(() => credentialsOf(key)),
     park: (api: string) => inTurn(() => park(api)),
     list: () => inTurn(list),
   }
@@ -285,5 +295,6 @@ export const switchAccountConfig = defaultConfigFile.switchTo
 export const forgetAccountConfig = defaultConfigFile.forgetAccount
 export const forgetAllAccountConfigs = defaultConfigFile.forgetAll
 export const signOutConfig = defaultConfigFile.signOut
+export const accountCredentials = defaultConfigFile.credentialsOf
 export const listAccountConfigs = defaultConfigFile.list
 export const parkAccountConfig = defaultConfigFile.park
