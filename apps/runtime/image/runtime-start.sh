@@ -181,6 +181,11 @@ if mkdir -p "$workspace/.claude" 2>/dev/null; then
   fi
 fi
 
+# Claude Code saves ~/.claude.json through a .claude.json.tmp.<pid>.<hex> file and leaves
+# it behind when a signal ends the process mid-save, as stopping a session does. Nothing
+# runs an agent yet, so every one here is orphaned; without this a home collects them.
+rm -f "${CLAUDE_CONFIG_DIR:-${HOME:-/home/node}}"/.claude.json.tmp.* 2>/dev/null || true
+
 # Grok Build, Antigravity and OpenCode install on first use (see the Dockerfile). Start that
 # now, so the first conversation does not wait on a download; a session that comes
 # sooner waits on the same per-tool lock.
