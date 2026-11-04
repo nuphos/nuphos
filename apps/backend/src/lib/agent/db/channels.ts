@@ -1,9 +1,10 @@
 import { AppError } from '@/lib/errors'
 
+import { resolveConversationAccessList } from '../devices/conversation-computer'
 import { parseMessageMetadata } from '../message-metadata'
 import { fenceUntrusted } from '../untrusted-content'
 
-import { readableConversationScope } from './access'
+import { canReply, readableConversationScope } from './access'
 import { agentConversations, agentMessages } from './shared'
 
 import type { AgentConversation } from './shared'
@@ -225,18 +226,16 @@ export async function readChannelMessages(
 
 /**
  * Where the viewer was @mentioned and has not posted since, the newest first.
- * Not where they may only view now: they could never post to clear it.
+ * Not where they cannot reply now: they could never post to clear it.
  */
 export async function listChannelMentions(teamId: string, viewerId: string) {
-  const channels = await agentConversations()
+  const mentioning = await agentConversations()
     .find(
-      readableConversationScope(
-        { [`mentions.${viewerId}`]: { $exists: true }, viewOnlyIds: { $ne: viewerId } },
-        viewerId,
-        teamId,
-      ),
+      readableConversationScope({ [`mentions.${viewerId}`]: { $exists: true } }, viewerId, teamId),
     )
     .toArray()
+  const access = await resolveConversationAccessList(mentioning, viewerId)
+  const channels = mentioning.filter((_, index) => canReply(access[index] ?? null))
   const found = await Promise.all(
     channels.map(async (channel) => {
       const mention = channel.mentions?.[viewerId]

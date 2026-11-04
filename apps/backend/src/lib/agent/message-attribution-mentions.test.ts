@@ -6,6 +6,7 @@ import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { agentConversations, agentMessages } from './db'
 import { listChannelMentions } from './db/channels'
+import { localRuntimeId } from './devices/local-runtime/address'
 import { attributeAppMessages } from './message-attribution'
 
 import type * as dbActual from '@/lib/db'
@@ -138,6 +139,46 @@ test('someone who may only view gets no Inbox entry they could never clear', asy
 
   expect(messages[0]?.metadata).toMatchObject({ mentions: [{ id: 'daniel' }] })
   expect((await agentConversations().findOne({ sessionId: 'session' }))?.mentions).toBeUndefined()
+})
+
+test('someone who cannot use the computer it runs on gets no Inbox entry', async () => {
+  // The owner's own computer, which the mentioned teammate has no use of.
+  await agentConversations().updateOne(
+    { sessionId: 'session' },
+    {
+      $set: { runtimeId: localRuntimeId({ userId: 'owner', deviceId: 'mac', provider: 'codex' }) },
+    },
+  )
+  const messages = said('@daniel@example.com fyi', ['daniel'])
+
+  await attributeAppMessages(
+    messages,
+    'session',
+    'owner',
+    'owner',
+    false,
+    undefined,
+    undefined,
+    TEAM,
+  )
+  await new Promise((resolve) => setTimeout(resolve, 50))
+
+  expect(messages[0]?.metadata).toMatchObject({ mentions: [{ id: 'daniel' }] })
+  expect((await agentConversations().findOne({ sessionId: 'session' }))?.mentions).toBeUndefined()
+  // Nor does an entry recorded before they lost it list.
+  await agentConversations().updateOne(
+    { sessionId: 'session' },
+    { $set: { mentions: { daniel: { messageId: 'm1', at: new Date() } } } },
+  )
+  await agentMessages().insertOne({
+    sessionId: 'session',
+    userId: 'owner',
+    index: 0,
+    messageId: 'm1',
+    role: 'user',
+    parts: [{ type: 'text', text: 'hi' }],
+  } as never)
+  expect(await listChannelMentions(TEAM, 'daniel')).toEqual([])
 })
 
 test('an entry stops showing once its person may only view', async () => {

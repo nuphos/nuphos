@@ -32,7 +32,9 @@ function retainNotification(n: Notification): () => void {
 }
 
 // Every window's sidebar polls the same mentions, so each is announced once here.
+// Only recent ones matter: an old mention is no longer new to any poll.
 const announcedMentions = new Set<string>()
+const MAX_ANNOUNCED_MENTIONS = 500
 
 /** Someone @mentioned this person; clicking opens where they said it. */
 export function notifyMention(args: {
@@ -45,6 +47,10 @@ export function notifyMention(args: {
 }): void {
   if (announcedMentions.has(args.messageId)) return
   announcedMentions.add(args.messageId)
+  for (const oldest of announcedMentions) {
+    if (announcedMentions.size <= MAX_ANNOUNCED_MENTIONS) break
+    announcedMentions.delete(oldest)
+  }
   notifyAgentStopped(args)
 }
 

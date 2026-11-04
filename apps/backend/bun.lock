@@ -89,7 +89,6 @@
       },
     },
   },
-  "trustedDependencies": [],
   "patchedDependencies": {
     "@opentelemetry/otlp-exporter-base@0.57.2": "patches/@opentelemetry%2Fotlp-exporter-base@0.57.2.patch",
   },

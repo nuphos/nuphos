@@ -2,6 +2,7 @@ import { getTeamMembers } from '@/lib/identity'
 import { notifyNudge } from '@/lib/push/notify'
 
 import { agentConversations } from './db/shared'
+import { canReplyIn } from './devices/conversation-computer'
 import { senderLabel } from './message-metadata'
 
 import type { AgentConversation } from './db'
@@ -58,14 +59,11 @@ type Mentioning = { id: string; text: string; metadata: MessageMetadata }
 
 /**
  * Who this message @mentions among the conversation's people: each gets a push
- * now, and keeps an Inbox entry until they speak there. Someone who may only
- * view could never clear it, so they get the push alone.
+ * now, and keeps an Inbox entry until they speak there. Someone who cannot reply
+ * there could never clear it, so they get the push alone.
  */
 export async function noteMentions(
-  conversation: Pick<
-    AgentConversation,
-    'sessionId' | 'userId' | 'participantIds' | 'viewOnlyIds' | 'title'
-  > & { teamId: string },
+  conversation: AgentConversation & { teamId: string },
   message: Mentioning,
 ): Promise<void> {
   const { sender } = message.metadata
@@ -77,8 +75,8 @@ export async function noteMentions(
   const mentioned = [...new Set(claimed)].filter((id) => people.has(id) && id !== author)
 
   if (mentioned.length === 0 && !author) return
-  const viewOnly = new Set(conversation.viewOnlyIds ?? [])
-  const inbox = mentioned.filter((id) => !viewOnly.has(id))
+  const replies = await Promise.all(mentioned.map((id) => canReplyIn(conversation, id)))
+  const inbox = mentioned.filter((_, index) => replies[index])
   const at = new Date()
 
   await agentConversations().updateOne(
