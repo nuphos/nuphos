@@ -59,6 +59,11 @@ pub fn running_as_account() -> bool {
     ACCOUNT.get().is_some()
 }
 
+/// Whether commands authenticate with `NUPHOS_CLI_TOKEN` instead of the saved sign-in.
+pub fn env_token_set() -> bool {
+    env_token().is_some()
+}
+
 /// `NUPHOS_CLI_TOKEN`, when set to something: an empty one is ignored everywhere.
 fn env_token() -> Option<String> {
     std::env::var("NUPHOS_CLI_TOKEN").ok().map(|t| t.trim().to_string()).filter(|t| !t.is_empty())

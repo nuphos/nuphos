@@ -306,7 +306,10 @@ async fn auth(command: &AuthCommand, json: bool) -> Result<i32> {
         AuthCommand::List => {
             // From the file: listing never needs a token, nor the keychain.
             let session = config::saved_session();
-            let cli = accounts::key_of(&session);
+            // NUPHOS_CLI_TOKEN outranks the saved sign-in: commands use it, and
+            // which account it is is not known without asking the backend.
+            let from_env = config::env_token_set();
+            let cli = if from_env { None } else { accounts::key_of(&session) };
             let desktop = accounts::desktop_accounts();
             if json {
                 let rows: Vec<Value> = desktop
@@ -318,10 +321,13 @@ async fn auth(command: &AuthCommand, json: bool) -> Result<i32> {
                         })
                     })
                     .collect();
-                println!("{}", serde_json::json!({ "cli": cli, "desktop": rows }));
+                println!("{}", serde_json::json!({ "cli": cli, "cliFromEnv": from_env, "desktop": rows }));
                 return Ok(0);
             }
             match &cli {
+                _ if from_env => {
+                    println!("CLI: the NUPHOS_CLI_TOKEN environment variable (`nuphos team` checks whose it is)")
+                }
                 Some(key) => println!("CLI: {} ({})", who(&session), render::clean(key)),
                 None => println!("CLI: not signed in"),
             }
