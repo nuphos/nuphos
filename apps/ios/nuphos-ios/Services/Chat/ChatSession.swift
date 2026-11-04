@@ -613,7 +613,7 @@ final class ChatSession {
     /// when the destination can hold them — another Cloud agent of the same
     /// type — and the move falls back to the transcript alone when they cannot.
     func move(to target: RuntimeInstance) async throws {
-        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner or a manager can move it.") }
+        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner can move it.") }
         func request(workspace: Bool) async throws -> AgentChatAPI.RuntimeMove {
             try await AgentChatAPI.moveRuntime(token: token, teamId: teamId, sessionId: sessionId, runtimeId: target.id, workspace: workspace)
         }
@@ -665,7 +665,7 @@ final class ChatSession {
     }
 
     func setArchived(_ archived: Bool) async throws {
-        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner or a manager can archive it.") }
+        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner can archive it.") }
         try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: sessionId, archived: archived)
         isArchived = archived
     }

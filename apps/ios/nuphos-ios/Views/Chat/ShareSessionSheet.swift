@@ -1,9 +1,11 @@
 import SwiftUI
 
-/// `ConversationAccessState` in the desktop's `api/agent-types.ts`: a
-/// team-wide general access plus a role for each invited person.
+/// `ConversationAccessState` in the desktop's `api/agent-types.ts`: who in the
+/// team may read without an invite, and each person invited. A participant
+/// replies while they may use the computer the session runs on.
 struct SessionAccess: Decodable, Equatable {
     enum General: String, Decodable, CaseIterable {
+        /// `reply` is a chat's only: a session's team reads, its invited people reply.
         case onlyInvited = "none", view, reply
 
         var title: LocalizedStringKey {
@@ -15,35 +17,6 @@ struct SessionAccess: Decodable, Equatable {
         }
     }
 
-    enum Role: String, CaseIterable {
-        case manage, reply, view
-
-        var title: LocalizedStringKey {
-            switch self {
-            case .manage: "Can manage"
-            case .reply: "Can reply"
-            case .view: "Can view"
-            }
-        }
-
-        var rank: Int {
-            switch self {
-            case .view: 1
-            case .reply: 2
-            case .manage: 3
-            }
-        }
-
-        /// What general access already gives everyone: a role below it changes nothing.
-        static func floor(_ general: General) -> Role? {
-            switch general {
-            case .onlyInvited: nil
-            case .view: .view
-            case .reply: .reply
-            }
-        }
-    }
-
     struct Participant: Decodable, Identifiable, Equatable {
         let id: String
         let name: String
@@ -51,27 +24,31 @@ struct SessionAccess: Decodable, Equatable {
         let avatarURL: String?
         let deactivated: Bool?
         let isOwner: Bool
-        /// `owner` | `view` | `reply` | `manage`.
+        /// `owner`, `reply`, or `view` for someone who cannot use the session's computer yet.
         let role: String?
 
         var user: NuphosUser { NuphosUser(id: id, email: email, name: name, username: "", avatarURL: avatarURL ?? "") }
 
-        /// The broader of their own role and the team-wide grant.
-        func effectiveRole(_ general: General) -> Role {
-            let own = role.flatMap(Role.init) ?? .view
-            guard let floor = Role.floor(general), floor.rank > own.rank else { return own }
-            return floor
-        }
+        var canReply: Bool { role != "view" }
     }
 
     var generalAccess: General
     var participants: [Participant]
 }
 
+/// The backend refuses an invite with 409 while an invitee cannot use the
+/// session's computer, until the invite confirms giving them `use` of it.
+enum ComputerUse {
+    static func needsConfirmation(_ error: Error) -> Bool {
+        if case NuphosAPI.Failure.http(409, _) = error { return true }
+        return false
+    }
+}
+
 /// Who may open this session — the desktop's Share card
-/// (`SessionParticipants.tsx`). The broader grant wins, the way Notion
-/// resolves it. Only the owner changes any of it; everyone else sees who is
-/// here and what they may do.
+/// (`SessionParticipants.tsx`). Inviting someone who cannot use the session's
+/// computer asks before giving them use of it. Only the owner changes any of
+/// it; everyone else sees who is here and what they may do.
 struct ShareSessionSheet: View {
     let session: ChatSession
 
@@ -81,9 +58,8 @@ struct ShareSessionSheet: View {
     @State private var access: SessionAccess?
     @State private var members: [TeamMember]?
     @State private var membersError: String?
-    /// An invite that would let someone run commands on the owner's computer, awaiting confirmation.
-    @State private var pendingInvite: TeamMember?
-    @State private var inviteRole = SessionAccess.Role.reply
+    /// An invite refused until it also gives this person use of the session's computer.
+    @State private var needsComputer: (id: String, name: String)?
     @State private var search = ""
     /// What a request is changing: `access`, or a user id.
     @State private var pending: String?
@@ -91,11 +67,6 @@ struct ShareSessionSheet: View {
     @State private var error: String?
 
     private var canManage: Bool { session.ownsChat }
-
-    /// The owner's own computer runs the turn, so sharing hands out commands on it.
-    private var runsOnOwnersComputer: Bool {
-        canManage && RuntimeInstance.isLocalAgent(session.runtimeId)
-    }
 
     var body: some View {
         NavigationStack {
@@ -128,11 +99,11 @@ struct ShareSessionSheet: View {
             } message: {
                 Text(error ?? "")
             }
-            .alert("Let \(pendingInvite?.displayName ?? "") use your computer?", isPresented: Binding(get: { pendingInvite != nil }, set: { if !$0 { pendingInvite = nil } }), presenting: pendingInvite) { member in
-                Button("Invite") { invite(member) }
+            .alert("Also give use of this computer?", isPresented: Binding(get: { needsComputer != nil }, set: { if !$0 { needsComputer = nil } }), presenting: needsComputer) { person in
+                Button("Continue") { invite(person.id, grantComputerUse: true) }
                 Button("Cancel", role: .cancel) {}
             } message: { _ in
-                Text("This agent runs on your computer’s local runtime. They will be able to run commands on your computer.")
+                Text("Adding this person to the conversation also gives them use of this computer. Continue?")
             }
             .task {
                 do { access = try await session.access("GET") } catch { loadError = error.localizedDescription }
@@ -152,16 +123,11 @@ struct ShareSessionSheet: View {
                 Picker("Team access", selection: Binding(get: { access.generalAccess }, set: { value in
                     change("access") { try await session.access("PATCH", "access", body: ["generalAccess": value.rawValue]) }
                 })) {
-                    ForEach(SessionAccess.General.allCases, id: \.self) { Text($0.title).tag($0) }
+                    ForEach(SessionAccess.General.allCases.filter { $0 != .reply || access.generalAccess == .reply }, id: \.self) { Text($0.title).tag($0) }
                 }
                 .disabled(pending != nil)
             } else {
                 LabeledContent("Team access") { Text(access.generalAccess.title) }
-            }
-            if runsOnOwnersComputer {
-                Label("This agent runs on your computer’s local runtime. Anyone you share it with can run commands on your computer.", systemImage: "exclamationmark.triangle")
-                    .font(.footnote)
-                    .foregroundStyle(Theme.warning)
             }
         } header: {
             Text("General access")
@@ -170,7 +136,7 @@ struct ShareSessionSheet: View {
 
         Section {
             ForEach(access.participants) { participant in
-                participantRow(participant, general: access.generalAccess)
+                participantRow(participant)
             }
         } header: {
             Text("In this agent")
@@ -182,8 +148,8 @@ struct ShareSessionSheet: View {
         if canManage { inviteSection(joined: Set(access.participants.map(\.id))) }
     }
 
-    private func participantRow(_ participant: SessionAccess.Participant, general: SessionAccess.General) -> some View {
-        let role = participant.effectiveRole(general)
+    private func participantRow(_ participant: SessionAccess.Participant) -> some View {
+        let label: LocalizedStringKey = participant.canReply ? "Can reply" : "Can view"
         return HStack(spacing: 12) {
             AvatarView(user: participant.user, size: 28)
                 .opacity(participant.deactivated == true ? 0.5 : 1)
@@ -197,13 +163,10 @@ struct ShareSessionSheet: View {
                     ProgressView()
                 } else {
                     Menu {
-                        Picker("Role", selection: Binding(get: { role }, set: { next in
-                            struct Body: Encodable { let role: String }
-                            change(participant.id) { try await session.access("PATCH", "participants/\(participant.id)", body: Body(role: next.rawValue)) }
-                        })) {
-                            ForEach(SessionAccess.Role.allCases, id: \.self) { option in
-                                Text(option.title).tag(option)
-                                    .disabled((SessionAccess.Role.floor(general)?.rank ?? 0) > option.rank)
+                        if !participant.canReply {
+                            // Inviting them again offers them use of the computer.
+                            Button("Let them reply", systemImage: "bubble.left") {
+                                invite(participant.id, name: participant.user.displayName)
                             }
                         }
                         Button("Remove", systemImage: "person.badge.minus", role: .destructive) {
@@ -211,7 +174,7 @@ struct ShareSessionSheet: View {
                         }
                     } label: {
                         HStack(spacing: 2) {
-                            Text(role.title)
+                            Text(label)
                             Image(systemName: "chevron.up.chevron.down").imageScale(.small)
                         }
                         .foregroundStyle(Theme.body)
@@ -219,7 +182,7 @@ struct ShareSessionSheet: View {
                     .disabled(pending != nil)
                 }
             } else {
-                Text(role.title).foregroundStyle(Theme.muted)
+                Text(label).foregroundStyle(Theme.muted)
             }
         }
     }
@@ -231,9 +194,6 @@ struct ShareSessionSheet: View {
                 && (query.isEmpty || member.displayName.localizedCaseInsensitiveContains(query) || member.email.localizedCaseInsensitiveContains(query))
         }
         return Section {
-            Picker("Invite as", selection: $inviteRole) {
-                ForEach(SessionAccess.Role.allCases, id: \.self) { Text($0.title).tag($0) }
-            }
             if let membersError {
                 Text(membersError).foregroundStyle(Theme.muted)
             } else if members == nil {
@@ -244,7 +204,7 @@ struct ShareSessionSheet: View {
                     .autocorrectionDisabled()
                 ForEach(invitable) { member in
                     Button {
-                        if runsOnOwnersComputer, inviteRole != .view { pendingInvite = member } else { invite(member) }
+                        invite(member.id, name: member.displayName)
                     } label: {
                         HStack(spacing: 12) {
                             AvatarView(user: member.asUser, size: 28)
@@ -265,10 +225,21 @@ struct ShareSessionSheet: View {
         .listRowBackground(Theme.surface)
     }
 
-    private func invite(_ member: TeamMember) {
-        struct Body: Encodable { let userIds: [String]; let role: String }
-        let role = inviteRole.rawValue
-        change(member.id) { try await session.access("POST", body: Body(userIds: [member.id], role: role)) }
+    /// Always says whether to give use of the computer: a request without it
+    /// comes from a release that predates asking, and invites to read only.
+    private func invite(_ id: String, name: String = "", grantComputerUse: Bool = false) {
+        struct Body: Encodable { let userIds: [String]; let grantComputerUse: Bool }
+        pending = id
+        Task {
+            defer { pending = nil }
+            do {
+                access = try await session.access("POST", body: Body(userIds: [id], grantComputerUse: grantComputerUse))
+            } catch where !grantComputerUse && ComputerUse.needsConfirmation(error) {
+                needsComputer = (id, name)
+            } catch {
+                self.error = error.localizedDescription
+            }
+        }
     }
 
     private func change(_ key: String, _ request: @escaping () async throws -> SessionAccess) {

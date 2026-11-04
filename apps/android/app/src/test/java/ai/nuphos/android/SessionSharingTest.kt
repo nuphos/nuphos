@@ -12,35 +12,40 @@ import org.junit.Test
 class SessionSharingTest {
     private val owner = SessionAccess.Participant("owner", "Owner", "", true, "owner")
     private val viewer = SessionAccess.Participant("viewer", "Viewer", "", false, "view")
-    private val initial = SessionAccess(GeneralAccess.Reply, listOf(owner, viewer))
+    private val initial = SessionAccess(GeneralAccess.View, listOf(owner, viewer))
     private val member = TeamMember("new", "New teammate", "new@example.invalid")
-    private class Fake(var state: SessionAccess) : SharingTransport {
+    /** Like the backend: an invitee without the computer is refused with 409 until the invite grants it. */
+    private class Fake(var state: SessionAccess, val withComputer: MutableSet<String> = mutableSetOf()) : SharingTransport {
         var writes = 0
         var fail = false
         var hold: CompletableDeferred<Unit>? = null
+        val grants = mutableListOf<Boolean>()
         override suspend fun read() = state
         override suspend fun members() = emptyList<TeamMember>()
-        override val localRuntime = true
         private suspend fun write(next: SessionAccess): SessionAccess { writes++; hold?.await(); if (fail) error("Synthetic denial (403)"); state = next; return next }
         override suspend fun general(value: GeneralAccess) = write(state.copy(generalAccess = value))
-        override suspend fun role(userId: String, role: ShareRole) = write(state.copy(participants = state.participants.map { if (it.id == userId) it.copy(role = role.raw) else it }))
-        override suspend fun invite(userId: String, role: ShareRole) = write(state.copy(participants = state.participants + SessionAccess.Participant(userId, "New", "", false, role.raw)))
+        override suspend fun invite(userId: String, grantComputerUse: Boolean): SessionAccess {
+            grants += grantComputerUse
+            if (userId !in withComputer && !grantComputerUse) throw NuphosApi.Failure.Http(409, "Adding this person also gives them use of Mac. Continue?")
+            withComputer += userId
+            val joined = state.participants.filterNot { it.id == userId } + SessionAccess.Participant(userId, "New", "", false, "reply")
+            return write(state.copy(participants = joined))
+        }
         override suspend fun remove(userId: String) = write(state.copy(participants = state.participants.filterNot { it.id == userId }))
     }
-    @Test fun broaderGrantWinsWithoutChangingIndividualRole() {
-        assertEquals(ShareRole.Reply, viewer.effectiveRole(GeneralAccess.Reply))
-        assertEquals(ShareRole.View, viewer.effectiveRole(GeneralAccess.Invited))
-        assertEquals(ShareRole.Manage, viewer.copy(role = "manage").effectiveRole(GeneralAccess.Reply))
+    @Test fun aParticipantRepliesOnlyWithTheComputer() {
+        assertFalse(viewer.canReply)
+        assertEquals("Can view", viewer.roleTitle)
+        assertTrue(viewer.copy(role = "reply").canReply)
     }
-    @Test fun ownerGateFloorAndFailurePreserveAuthoritativeState() = runTest {
-        val fake = Fake(initial)
+    @Test fun ownerGateAndFailurePreserveAuthoritativeState() = runTest {
+        val fake = Fake(initial, mutableSetOf(member.id))
         var owns = false
         val state = SharingState(fake) { owns }
         state.load()
-        assertFalse(state.general(GeneralAccess.View))
-        assertFalse(state.invite(member, ShareRole.Reply))
+        assertFalse(state.general(GeneralAccess.Invited))
+        assertFalse(state.invite(member))
         owns = true; state.load()
-        assertFalse(state.role(viewer, ShareRole.View))
         assertFalse(state.remove(owner))
         assertEquals(0, fake.writes)
         fake.fail = true
@@ -50,55 +55,68 @@ class SessionSharingTest {
         assertTrue(state.error!!.contains("403"))
         fake.fail = false
         assertTrue(state.general(GeneralAccess.Invited))
-        assertTrue(state.role(viewer, ShareRole.Manage))
-        assertEquals(ShareRole.Manage, state.access!!.participants.last().effectiveRole(GeneralAccess.Invited))
-        assertTrue(state.invite(member, ShareRole.Reply))
+        assertTrue(state.invite(member))
         assertEquals(member, state.added)
         state.undo()
         assertNull(state.added)
         assertFalse(state.access!!.participants.any { it.id == member.id })
+    }
+    @Test fun firstInviteWithoutTheComputerAsksThenGrantsOnConfirm() = runTest {
+        val fake = Fake(initial)
+        val state = SharingState(fake) { true }; state.load()
+        assertFalse(state.invite(member))
+        assertEquals(member.id, state.needsComputer?.id)
+        assertNull(state.error)
+        assertEquals(listOf(false), fake.grants)
+        assertTrue(state.confirmComputer())
+        assertEquals(listOf(false, true), fake.grants)
+        assertNull(state.needsComputer)
+        assertEquals(member, state.added)
+        assertTrue(state.access!!.participants.any { it.id == member.id })
+    }
+    @Test fun lettingAViewerReplyAsksTooAndLeavesNoReceipt() = runTest {
+        val fake = Fake(initial)
+        val state = SharingState(fake) { true }; state.load()
+        assertFalse(state.letReply(viewer))
+        assertEquals(viewer.id, state.needsComputer?.id)
+        state.cancelComputer()
+        assertNull(state.needsComputer)
+        assertFalse(state.letReply(viewer))
+        assertTrue(state.confirmComputer())
+        assertTrue(state.access!!.participants.first { it.id == viewer.id }.canReply)
+        assertNull(state.added)
     }
     @Test fun duplicateWritesAreBlockedWhilePendingAndPermissionIsRechecked() = runTest {
         val fake = Fake(initial)
         var owns = true
         val state = SharingState(fake) { owns }; state.load()
         fake.hold = CompletableDeferred()
-        val first = launch { state.general(GeneralAccess.View) }
+        val first = launch { state.general(GeneralAccess.Invited) }
         testScheduler.runCurrent()
         assertEquals("access", state.pending)
-        assertFalse(state.general(GeneralAccess.Invited))
+        assertFalse(state.general(GeneralAccess.View))
         assertEquals(1, fake.writes)
         fake.hold!!.complete(Unit); first.join()
         owns = false
         assertFalse(state.remove(viewer))
         assertEquals(1, fake.writes)
     }
-    @Test fun transportUsesExistingScopedRoutesAndFullServerResponse() = runTest {
+    @Test fun transportAlwaysSaysWhetherToGrantTheComputer() = runTest {
         data class Call(val method: String, val path: String, val query: List<Pair<String,String>>, val body: JsonValue?)
         val calls = mutableListOf<Call>()
-        val api = SessionSharingApi("synthetic-token", "team", "session", null) { method, path, _, query, body ->
+        val api = SessionSharingApi("synthetic-token", "team", "session") { method, path, _, query, body ->
             calls += Call(method,path,query,body)
             """{"generalAccess":"view","participants":[{"id":"owner","name":"Owner","email":"","isOwner":true,"role":"owner"}]}"""
         }
         assertEquals(GeneralAccess.View, api.read().generalAccess)
-        api.general(GeneralAccess.Reply); api.invite("new", ShareRole.Manage); api.role("a/b", ShareRole.View); api.remove("new")
-        assertEquals(listOf("GET", "PATCH", "POST", "PATCH", "DELETE"), calls.map { it.method })
+        api.general(GeneralAccess.Invited); api.invite("new", false); api.invite("new", true); api.remove("a/b")
+        assertEquals(listOf("GET", "PATCH", "POST", "POST", "DELETE"), calls.map { it.method })
         assertTrue(calls.all { it.query == listOf("teamId" to "team") })
-        assertEquals("agent/conversations/session/participants/a%2Fb", calls[3].path)
-        assertEquals("reply", calls[1].body!!["generalAccess"]?.stringValue)
-        assertEquals("manage", calls[2].body!!["role"]?.stringValue)
+        assertEquals("agent/conversations/session/participants/a%2Fb", calls[4].path)
+        assertEquals("none", calls[1].body!!["generalAccess"]?.stringValue)
+        assertEquals(JsonValue.Bool(false), calls[2].body!!["grantComputerUse"])
+        assertEquals(JsonValue.Bool(true), calls[3].body!!["grantComputerUse"])
+        assertNull(calls[2].body!!["role"])
         assertEquals(listOf(JsonValue.Str("new")), calls[2].body!!["userIds"]?.arrayValue)
     }
-    @Test fun offlineLocalAddressNeedsWarningWithoutCatalogRequest() = runTest {
-        var requests = 0
-        fun api(id: String?) = SessionSharingApi("synthetic", "team", "session", id) { _, _, _, _, _ ->
-            requests++; error("No catalog request is allowed")
-        }
-        assertTrue(api("local_owner_device_codex").localRuntime)
-        assertTrue(api("local_owner_device").localRuntime)
-        assertFalse(api("managed-agent").localRuntime)
-        assertFalse(api(null).localRuntime)
-        assertEquals(0, requests)
-    }
-
 }
