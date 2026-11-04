@@ -123,6 +123,54 @@ test('a teammate acting in a conversation gets their own HOME, the owner keeps t
   assert.equal(agentEnv('grok', { env: context }, host).HOME, guest.HOME)
 })
 
+test('a selected connector beats credentials in the runtime environment; without one they stay', (t) => {
+  const host = {
+    ...runtime(t),
+    AWS_ACCESS_KEY_ID: 'AKIARUNTIMEENV',
+    AWS_SECRET_ACCESS_KEY: 'runtime',
+    AWS_PROFILE: 'runtime-profile',
+    GH_TOKEN: 'runtime-token',
+  }
+  const session = { NUPHOS_SESSION_ID: 'a', NUPHOS_TOKEN: 't' }
+  // What the backend adds when AWS and GitHub connectors are selected (connectorEnv).
+  const cleared = {
+    AWS_ACCESS_KEY_ID: '',
+    AWS_SECRET_ACCESS_KEY: '',
+    AWS_SESSION_TOKEN: '',
+    AWS_PROFILE: 'default',
+    GH_TOKEN: '',
+    GITHUB_TOKEN: '',
+  }
+  // The Claude adapter spreads the session env over its own process env.
+  const claude = (context) => nuphosClaudeSessionEnv({ ...host, ...context }, context, host)
+  const grok = (context) => agentEnv('grok', { env: context }, host)
+
+  for (const env of [claude(session), grok(session)]) {
+    assert.equal(env.AWS_ACCESS_KEY_ID, 'AKIARUNTIMEENV')
+    assert.equal(env.AWS_PROFILE, 'runtime-profile')
+    assert.equal(env.GH_TOKEN, 'runtime-token')
+  }
+  for (const env of [claude({ ...session, ...cleared }), grok({ ...session, ...cleared })]) {
+    put(
+      env.AWS_SHARED_CREDENTIALS_FILE,
+      '[default]\naws_access_key_id=AKIASESSIONFILE\naws_secret_access_key=s\n',
+    )
+    put(
+      join(env.GH_CONFIG_DIR, 'hosts.yml'),
+      'github.com:\n    oauth_token: session-token\n    user: bot\n',
+    )
+    if (spawnSync('aws', ['--version'], { stdio: 'ignore' }).status === 0) {
+      const list = execFileSync('aws', ['configure', 'list'], { env, encoding: 'utf8' })
+      assert.match(list, /access_key : \*+FILE +: shared-credentials-file/)
+    }
+    if (spawnSync('gh', ['--version'], { stdio: 'ignore' }).status === 0)
+      assert.equal(
+        execFileSync('gh', ['auth', 'token'], { env, encoding: 'utf8' }).trim(),
+        'session-token',
+      )
+  }
+})
+
 test('real git global config changes stay in the calling session', (t) => {
   const host = runtime(t)
   const a = nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'a' }, host)
@@ -174,34 +222,6 @@ test('real gcloud active configuration and gh token reads remain session scoped'
     }).trim()
     assert.equal(token, `synthetic-${account}`)
   }
-})
-
-test('credentials in the runtime environment do not beat the session connector files', (t) => {
-  const host = {
-    ...runtime(t),
-    AWS_ACCESS_KEY_ID: 'AKIARUNTIMEENV',
-    AWS_SECRET_ACCESS_KEY: 'runtime',
-    AWS_PROFILE: 'runtime-profile',
-    GH_TOKEN: 'runtime-token',
-  }
-  const env = { ...host, ...nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'a' }, host) }
-  put(
-    env.AWS_SHARED_CREDENTIALS_FILE,
-    '[default]\naws_access_key_id=AKIASESSIONFILE\naws_secret_access_key=s\n',
-  )
-  put(
-    join(env.GH_CONFIG_DIR, 'hosts.yml'),
-    'github.com:\n    oauth_token: session-token\n    user: bot\n',
-  )
-  if (spawnSync('aws', ['--version'], { stdio: 'ignore' }).status === 0) {
-    const list = execFileSync('aws', ['configure', 'list'], { env, encoding: 'utf8' })
-    assert.match(list, /access_key : \*+FILE +: shared-credentials-file/)
-  }
-  if (spawnSync('gh', ['--version'], { stdio: 'ignore' }).status === 0)
-    assert.equal(
-      execFileSync('gh', ['auth', 'token'], { env, encoding: 'utf8' }).trim(),
-      'session-token',
-    )
 })
 
 test('sessions get the long-lived token until it lapses, and an explicit one wins', (t) => {

@@ -72,6 +72,26 @@ export function previewSessionEnv(args: {
   }
 }
 
+// CLIs rank credentials in the environment above the files a connector's setup
+// script writes, so ones the runtime already carries (an instabox Vault item, a
+// shell export) would beat the connector the conversation selected. Clear them
+// for the selected providers only: without a connector, the runtime's own stay.
+// Empty reads as unset; an empty AWS_PROFILE does not, so it names the profile
+// the aws skill writes.
+const CONNECTOR_ENV: Record<string, Record<string, string>> = {
+  aws: {
+    AWS_ACCESS_KEY_ID: '',
+    AWS_SECRET_ACCESS_KEY: '',
+    AWS_SESSION_TOKEN: '',
+    AWS_PROFILE: 'default',
+  },
+  github: { GH_TOKEN: '', GITHUB_TOKEN: '' },
+}
+
+function connectorEnv(providers: string[]): Record<string, string> {
+  return Object.assign({}, ...providers.map((provider) => CONNECTOR_ENV[provider]))
+}
+
 export async function previewMcpServers(
   conversationId: string,
   teamId: string,
@@ -123,6 +143,14 @@ export async function previewSessionAccess(
     humanTurn: options?.humanTurn,
   })
   const headers = [{ name: 'Authorization', value: `Bearer ${token}` }]
+  const selected = await listSelectedCredentials(
+    {
+      userId,
+      sessionId: conversationId,
+      ...(conversationOwnerUserId !== userId ? { conversationOwnerUserId } : {}),
+    },
+    teamId,
+  ).catch(() => [])
 
   return {
     mcpServers: [
@@ -136,18 +164,21 @@ export async function previewSessionAccess(
         headers,
       },
     ],
-    runtimeEnv: previewSessionEnv({
-      base,
-      mount,
-      token,
-      conversationId,
-      teamId,
-      // Personal skills are delivered only on the conversation owner's own turns. A
-      // guest's turn gets none, so nobody's skills are written into a conversation
-      // home that belongs to someone else.
-      personalSkillsOf: userId === conversationOwnerUserId ? userId : undefined,
-      sessionActor: previewSessionActor(userId, conversationOwnerUserId, options?.humanTurn),
-    }),
+    runtimeEnv: {
+      ...connectorEnv(selected.map((entry) => entry.provider)),
+      ...previewSessionEnv({
+        base,
+        mount,
+        token,
+        conversationId,
+        teamId,
+        // Personal skills are delivered only on the conversation owner's own turns. A
+        // guest's turn gets none, so nobody's skills are written into a conversation
+        // home that belongs to someone else.
+        personalSkillsOf: userId === conversationOwnerUserId ? userId : undefined,
+        sessionActor: previewSessionActor(userId, conversationOwnerUserId, options?.humanTurn),
+      }),
+    },
   }
 }
 

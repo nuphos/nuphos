@@ -82,16 +82,6 @@ export function nuphosSessionHomeEnv(sessionEnv = {}, runtimeEnv = process.env) 
     GIT_CONFIG_NOSYSTEM: '1',
     NPM_CONFIG_USERCONFIG: nuphosJoin(home, '.npmrc'),
     GNUPGHOME: nuphosJoin(home, '.gnupg'),
-    // Credentials in the runtime's own environment (an instabox Vault item, a shell
-    // export) beat the files this conversation's connectors write, so they are cleared
-    // like the config paths above. Empty reads as unset; an empty AWS_PROFILE does not,
-    // so it names the profile the aws skill writes.
-    AWS_ACCESS_KEY_ID: '',
-    AWS_SECRET_ACCESS_KEY: '',
-    AWS_SESSION_TOKEN: '',
-    AWS_PROFILE: 'default',
-    GH_TOKEN: '',
-    GITHUB_TOKEN: '',
     PATH: [nuphosJoin(home, '.local', 'bin'), runtimeEnv.PATH]
       .filter(Boolean)
       .join(nuphosPathDelimiter),
