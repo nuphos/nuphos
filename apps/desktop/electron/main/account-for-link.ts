@@ -57,6 +57,11 @@ async function activeTeams(): Promise<string[]> {
 // One switch and its link at a time (account-for-link-core.ts).
 const inTurn = oneAtATime()
 
+/** The account in use, as the sign-in file has it (also before the startup check). */
+async function activeKey(): Promise<string | null> {
+  return (await listAccounts().catch(() => [])).find((a) => a.active)?.key ?? null
+}
+
 function switching() {
   // Before the startup check no window has signed in yet: it reads the
   // account switched to, and nothing reloads.
@@ -75,12 +80,8 @@ function switching() {
     },
     nextReload,
     waitMs: started ? RELOAD_WAIT_MS : 0,
+    inUse: activeKey,
   }
-}
-
-/** The account in use, as the sign-in file has it (also before the startup check). */
-async function activeKey(): Promise<string | null> {
-  return (await listAccounts().catch(() => [])).find((a) => a.active)?.key ?? null
 }
 
 // A switch from elsewhere (the sidebar) while the teams were being asked
@@ -133,6 +134,8 @@ export function openAsAccount(owner: string, open: () => void | Promise<unknown>
     }
     const signedIn = (await listAccounts().catch(() => [])).some((a) => a.key === owner)
 
-    if (signedIn && (await switchThenWait(owner, switching()))) await delivered(open())
+    // Only into its own account's workspace: not if another switch overtook it.
+    if (signedIn && (await switchThenWait(owner, switching())) === 'switched')
+      await delivered(open())
   })
 }
