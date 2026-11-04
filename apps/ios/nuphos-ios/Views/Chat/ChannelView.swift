@@ -238,7 +238,7 @@ private struct ChannelPostRow: View {
     }
 
     private var bubble: some View {
-        AssistantMarkdown(text: post.text, theme: AssistantMarkdown.bubbleTheme, onLink: onLink)
+        AssistantMarkdown(text: post.text, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, onLink: onLink)
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
             .background(mine ? Theme.brand.opacity(0.14) : Theme.chatSurface,

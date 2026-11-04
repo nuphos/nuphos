@@ -18,6 +18,9 @@ struct AssistantMarkdown: View {
     /// only half there.
     var streaming = false
     var theme = AssistantMarkdown.theme
+    /// Each typed line stays a line, as in any chat app; Markdown would
+    /// join a single newline into a space. For people's chat posts.
+    var keepsLineBreaks = false
     /// A tapped link. Absent, links do nothing.
     var onLink: ((URL) -> Void)?
 
@@ -44,7 +47,7 @@ struct AssistantMarkdown: View {
     }
 
     private func markdown(_ text: String) -> some View {
-        MarkdownTextRepresentable(text: text, theme: theme, typeSize: typeSize, plain: false, selectable: true, onLink: onLink)
+        MarkdownTextRepresentable(text: text, theme: theme, typeSize: typeSize, plain: false, keepsLineBreaks: keepsLineBreaks, selectable: true, onLink: onLink)
     }
 
     static var theme: MarkdownTheme {
@@ -87,7 +90,7 @@ struct PlainMessageText: View {
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        MarkdownTextRepresentable(text: text, theme: Self.theme, typeSize: typeSize, plain: true, selectable: selectable, onLink: nil)
+        MarkdownTextRepresentable(text: text, theme: Self.theme, typeSize: typeSize, plain: true, keepsLineBreaks: false, selectable: selectable, onLink: nil)
     }
 
     /// Every line break is a paragraph end to the label, so no paragraph gap.
@@ -148,6 +151,7 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
     let typeSize: DynamicTypeSize
     /// The text as typed rather than parsed as Markdown.
     let plain: Bool
+    let keepsLineBreaks: Bool
     let selectable: Bool
     let onLink: ((URL) -> Void)?
 
@@ -184,6 +188,7 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
     func updateUIView(_ view: MarkdownTextView, context: Context) {
         context.coordinator.onLink = onLink
         context.coordinator.plain = plain
+        context.coordinator.keepsLineBreaks = keepsLineBreaks
         view.textLabelView.isSelectable = selectable
         context.coordinator.setTextThrottled(text, theme: theme, on: view)
     }
@@ -204,6 +209,7 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
 
         var onLink: ((URL) -> Void)?
         var plain = false
+        var keepsLineBreaks = false
 
         private var lastText = ""
         private var lastTheme: MarkdownTheme = .default
@@ -273,9 +279,13 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
             scheduled?.cancel()
             scheduled = nil
             pending = nil
-            let content = plain
-                ? MarkdownContent(blocks: [.paragraph(content: [.text(text)])], rendered: [:], highlightMaps: [:])
-                : MarkdownContent(markdown: text, theme: theme)
+            let content = if plain {
+                MarkdownContent(blocks: [.paragraph(content: [.text(text)])], rendered: [:], highlightMaps: [:])
+            } else if keepsLineBreaks {
+                MarkdownContent(markdown: text, theme: theme).keepingLineBreaks
+            } else {
+                MarkdownContent(markdown: text, theme: theme)
+            }
             view.setContentImmediately(content, theme: theme)
             view.invalidateIntrinsicContentSize()
             lastText = text
@@ -355,6 +365,7 @@ private struct MarkdownTextRepresentable: View {
     let theme: MarkdownTheme
     let typeSize: DynamicTypeSize
     let plain: Bool
+    let keepsLineBreaks: Bool
     let selectable: Bool
     let onLink: ((URL) -> Void)?
     var body: some View {
@@ -362,3 +373,39 @@ private struct MarkdownTextRepresentable: View {
     }
 }
 #endif
+
+/// The package's renderer joins a soft break (a single newline) into a space
+/// and has no option to keep it, so the parsed tree turns each soft break into
+/// a line separator: a new line in the same paragraph, without the gap a
+/// paragraph end (`\n`) gets. Code blocks are untouched, so their highlighting
+/// still applies.
+private extension MarkdownContent {
+    var keepingLineBreaks: MarkdownContent {
+        MarkdownContent(blocks: blocks.map(\.keepingLineBreaks), rendered: rendered, highlightMaps: highlightMaps, locale: locale)
+    }
+}
+
+private extension MarkdownBlockNode {
+    var keepingLineBreaks: MarkdownBlockNode {
+        switch self {
+        case let .paragraph(content): .paragraph(content: content.map(\.keepingLineBreaks))
+        case let .blockquote(children): .blockquote(children: children.map(\.keepingLineBreaks))
+        case let .bulletedList(tight, items):
+            .bulletedList(isTight: tight, items: items.map { RawListItem(children: $0.children.map(\.keepingLineBreaks)) })
+        case let .numberedList(tight, start, items):
+            .numberedList(isTight: tight, start: start, items: items.map { RawListItem(children: $0.children.map(\.keepingLineBreaks)) })
+        case let .taskList(tight, items):
+            .taskList(isTight: tight, items: items.map { RawTaskListItem(isCompleted: $0.isCompleted, children: $0.children.map(\.keepingLineBreaks)) })
+        default: self
+        }
+    }
+}
+
+private extension MarkdownInlineNode {
+    var keepingLineBreaks: MarkdownInlineNode {
+        if case .softBreak = self { return .text("\u{2028}") }
+        var node = self
+        node.children = children.map(\.keepingLineBreaks)
+        return node
+    }
+}
