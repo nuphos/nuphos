@@ -1,6 +1,6 @@
 import { ipcRenderer } from 'electron'
 
-import type { GeneralAccess, ParticipantRole } from '../../src/api/agent-types'
+import type { GeneralAccess } from '../../src/api/agent-types'
 
 export const sessionAccessApi = {
   agentGetSessionResources: (sessionId: string, teamId: string) =>
@@ -13,14 +13,15 @@ export const sessionAccessApi = {
     sessionId: string,
     teamId: string,
     userIds: string[],
-    role: ParticipantRole,
-  ) => ipcRenderer.invoke('agent:inviteConversationParticipants', sessionId, teamId, userIds, role),
-  agentSetConversationParticipantRole: (
-    sessionId: string,
-    teamId: string,
-    userId: string,
-    role: ParticipantRole,
-  ) => ipcRenderer.invoke('agent:setConversationParticipantRole', sessionId, teamId, userId, role),
+    grantComputerUse: boolean,
+  ) =>
+    ipcRenderer.invoke(
+      'agent:inviteConversationParticipants',
+      sessionId,
+      teamId,
+      userIds,
+      grantComputerUse,
+    ),
   agentSetConversationGeneralAccess: (
     sessionId: string,
     teamId: string,

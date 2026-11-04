@@ -14,7 +14,6 @@ import { useComposerReplyTarget } from '../../components/agent/summary/useCompos
 import { useSessionInputRequests } from '../../components/agent/summary/useSessionInputRequests'
 import { teamCanUseAgent } from '../../lib/agentAccess'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
-import { isLocalAgentRuntime } from '../../lib/localAgentSharing'
 
 import { CORNER_TITLEBAR_CLASS, CornerSidebarToggle } from './CornerSidebarToggle'
 import { PaneCloseButton } from './PaneCloseButton'
@@ -202,7 +201,6 @@ export function WorkspaceAgentPane({
               title={currentHeading.title}
               currentUserId={user.id}
               canManage={mayRename}
-              warnLocalAgent={mayRename && isLocalAgentRuntime(currentHeading.runtimeId)}
               compact={compact}
             />
           )}

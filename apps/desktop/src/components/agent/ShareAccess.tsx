@@ -3,10 +3,11 @@ import { ChevronDown, Lock, Users } from 'lucide-react'
 import { t } from '../../i18n'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../ui/menu'
 
-import type { GeneralAccess, ParticipantRole } from '../../api/agent-types'
+import type { GeneralAccess } from '../../api/agent-types'
 
-// The access controls in the Share card, modelled on Notion's: one team-wide
-// grant, and a role per invited person that can raise it but not lower it.
+// Who may open the session without an invite. Replying takes an invite and
+// the computer the session runs on, so the team as a whole can only read. A
+// chat has no computer: the whole team may post in it too.
 
 const GENERAL_OPTIONS: { value: GeneralAccess; title: string; detail: string }[] = [
   {
@@ -18,36 +19,19 @@ const GENERAL_OPTIONS: { value: GeneralAccess; title: string; detail: string }[]
   { value: 'reply', title: t('Everyone in the team'), detail: t('Can view and reply') },
 ]
 
-const ROLE_LABEL: Record<ParticipantRole, string> = {
-  manage: t('Can manage'),
-  reply: t('Can reply'),
-  view: t('Can view'),
-}
-
-const ROLE_DETAIL: Partial<Record<ParticipantRole, string>> = {
-  manage: t('Reply, and change the runtime and credentials'),
-}
-
-const RANK: Record<GeneralAccess | ParticipantRole, number> = {
-  none: 0,
-  view: 1,
-  reply: 2,
-  manage: 3,
-}
-
-const TRIGGER =
-  'flex h-6 shrink-0 items-center gap-0.5 rounded-md px-1.5 text-[12px] text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main data-[popup-open]:bg-zGray-800/60 disabled:pointer-events-none'
-
-/** Who in the team can open the session without an invite. */
+/** Who in the team can read the session without an invite. */
 export function GeneralAccessRow({
   value,
   canManage,
+  chat,
   onChange,
 }: {
   value: GeneralAccess
   canManage: boolean
+  chat?: boolean
   onChange: (value: GeneralAccess) => void
 }) {
+  const options = GENERAL_OPTIONS.filter((option) => chat || option.value !== 'reply')
   const current = GENERAL_OPTIONS.find((option) => option.value === value) ?? GENERAL_OPTIONS[0]
   const Icon = value === 'none' ? Lock : Users
   const body = (
@@ -71,7 +55,7 @@ export function GeneralAccessRow({
         <ChevronDown className="h-3.5 w-3.5 shrink-0 text-tertiary" strokeWidth={2} />
       </MenuTrigger>
       <MenuContent align="end" className="w-[240px]">
-        {GENERAL_OPTIONS.map((option) => (
+        {options.map((option) => (
           <MenuItem
             key={option.value}
             selected={option.value === value}
@@ -93,58 +77,45 @@ export function GeneralAccessRow({
   )
 }
 
+const TRIGGER =
+  'flex h-6 shrink-0 items-center gap-0.5 rounded-md px-1.5 text-[12px] text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main data-[popup-open]:bg-zGray-800/60 disabled:pointer-events-none'
+
 /**
- * A role picker. `floor` is the team-wide grant: a role below it would change
- * nothing, so it is offered disabled with the reason, the way Notion does.
+ * What one participant may do, for the owner to act on. Someone who reads only
+ * cannot use the session's computer yet; letting them reply offers it to them.
  */
-export function RoleMenu({
-  value,
-  floor = 'none',
+export function ParticipantMenu({
+  canReply,
   disabled,
-  onChange,
+  onAllowReply,
   onRemove,
 }: {
-  value: ParticipantRole
-  floor?: GeneralAccess
+  canReply: boolean
   disabled?: boolean
-  onChange: (role: ParticipantRole) => void
-  onRemove?: () => void
+  onAllowReply: () => void
+  onRemove: () => void
 }) {
-  const effective: ParticipantRole = RANK[floor] > RANK[value] ? (floor as ParticipantRole) : value
-
   return (
     <Menu>
       <MenuTrigger className={TRIGGER} disabled={disabled}>
-        {ROLE_LABEL[effective]}
+        {canReply ? t('Can reply') : t('Can view')}
         <ChevronDown className="h-3 w-3" strokeWidth={2} />
       </MenuTrigger>
-      <MenuContent align="end" className="w-[200px]">
-        {(['manage', 'reply', 'view'] as const).map((role) => {
-          const belowFloor = RANK[floor] > RANK[role]
-
-          return (
-            <MenuItem
-              key={role}
-              selected={role === effective}
-              disabled={belowFloor}
-              title={belowFloor ? t('Everyone in the team already has more access') : undefined}
-              onClick={() => role !== value && onChange(role)}
-            >
-              <span className="block">{ROLE_LABEL[role]}</span>
-              {ROLE_DETAIL[role] && (
-                <span className="block text-[11px] text-tertiary">{ROLE_DETAIL[role]}</span>
-              )}
-            </MenuItem>
-          )
-        })}
-        {onRemove && (
+      <MenuContent align="end" className="w-[220px]">
+        {!canReply && (
           <>
-            <MenuSeparator />
-            <MenuItem destructive onClick={onRemove}>
-              {t('Remove')}
+            <MenuItem onClick={onAllowReply}>
+              <span className="block">{t('Let them reply')}</span>
+              <span className="block text-[11px] text-tertiary">
+                {t('They can reply once they can use the computer this agent runs on.')}
+              </span>
             </MenuItem>
+            <MenuSeparator />
           </>
         )}
+        <MenuItem destructive onClick={onRemove}>
+          {t('Remove')}
+        </MenuItem>
       </MenuContent>
     </Menu>
   )
