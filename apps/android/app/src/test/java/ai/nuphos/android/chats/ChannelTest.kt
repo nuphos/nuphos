@@ -80,6 +80,7 @@ class ChannelTest {
         }
         var details = mutableListOf<Int>()
         var stamp = "t1"; var count = 1
+        var activity: Int? = null
         var agentsCalls = 0
         val attachments = mutableListOf<String>()
         var failAttachment = true
@@ -89,7 +90,7 @@ class ChannelTest {
             val post = if (tail == 1) "" else POST + mine
             return Http.json.decodeFromString(
                 "{\"kind\":\"channel\",\"title\":\"release-planning\",\"transcriptUpdatedAt\":\"" + stamp +
-                    "\",\"messageCount\":" + count + ",\"activitySeq\":" + count + ",\"messages\":[" + post + "]}")
+                    "\",\"messageCount\":" + count + ",\"activitySeq\":" + (activity ?: count) + ",\"messages\":[" + post + "]}")
         }
         override suspend fun agents(): List<ChannelAgent> { agentsCalls++; return listOf(ChannelAgent("agent-ops", "Release ops")) }
         override suspend fun attachment(groupId: String): TransferDownloadGroup {
@@ -125,6 +126,56 @@ class ChannelTest {
         session.refresh()
         assertEquals(listOf(ChannelSession.TAIL, 1, 1, ChannelSession.TAIL), transport.details)
         assertEquals(2, transport.agentsCalls); assertEquals(2L, session.activitySeq)
+    }
+
+    @Test fun theProbeSeesActivityThatLandsAfterThePost() = runTest {
+        val transport = FakeTransport()
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        session.refresh(force = true)
+        // Read between the server's two writes: the post is there, its activity not yet.
+        transport.stamp = "t2"; transport.count = 2; transport.activity = 1
+        session.refresh()
+        assertEquals(1L, session.activitySeq)
+        val reads = transport.details.size
+        transport.activity = 2
+        session.refresh()
+        assertEquals("The stamp did not change, the activity did", 2L, session.activitySeq)
+        assertEquals("Only the probe ran", reads + 1, transport.details.size)
+        transport.activity = 1
+        session.refresh()
+        assertEquals("Activity never goes back", 2L, session.activitySeq)
+    }
+
+    @Test fun aReadMarkerRetriesUntilItLandsAndIsNotRepeated() = runTest {
+        val transport = FakeTransport()
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        val marks = mutableListOf<Long>()
+        var fail = true
+        val mark: suspend (Long) -> Unit = { marks += it; if (fail) error("offline") }
+        session.readUpToNewest(mark)
+        assertTrue("Nothing to mark before the first read", marks.isEmpty())
+        val before = session.reads
+        session.refresh(force = true)
+        assertTrue("Every read gives a failed marker its retry", session.reads > before)
+        session.readUpToNewest(mark); session.readUpToNewest(mark)
+        assertEquals(listOf(1L, 1L), marks)
+        fail = false
+        session.readUpToNewest(mark); session.readUpToNewest(mark)
+        assertEquals("It landed once, and is not sent again", listOf(1L, 1L, 1L), marks)
+        transport.stamp = "t2"; transport.count = 2
+        session.refresh()
+        session.readUpToNewest(mark)
+        assertEquals(listOf(1L, 1L, 1L, 2L), marks)
+    }
+
+    @Test fun leavingDuringAReadMarkerCancelsIt() = runTest {
+        val session = ChannelSession("team", "chat-release", "Chat", FakeTransport())
+        session.refresh(force = true)
+        var calls = 0
+        val cancelled = runCatching { session.readUpToNewest { calls++; throw kotlinx.coroutines.CancellationException("left") } }
+        assertTrue(cancelled.exceptionOrNull() is kotlinx.coroutines.CancellationException)
+        session.readUpToNewest { calls++ }
+        assertEquals("A cancelled marker is still owed", 2, calls)
     }
 
     @Test fun aFailedFileReadIsRetriedNotCached() = runTest {

@@ -77,6 +77,10 @@ class ChannelSession(
         private set
     /** The newest activity this chat reported, for its read marker. */
     var activitySeq by mutableStateOf<Long?>(null)
+    /** Bumped after every read of the chat, so a failed read marker retries with the next poll. */
+    var reads by mutableStateOf(0L)
+        private set
+    private var markedSeq: Long? = null
         private set
     private var revision = ""
 
@@ -145,6 +149,9 @@ class ChannelSession(
         try {
             if (!force && loaded) {
                 val probe = transport.detail(1)
+                // The server bumps a post's activity after appending it, so the probe can see
+                // new activity under a stamp that has not changed.
+                noteActivity(probe)
                 if (stamp(probe) == revision) return
             }
             coroutineScope {
@@ -157,6 +164,25 @@ class ChannelSession(
             throw e
         } catch (e: Exception) {
             if (!loaded) { loadError = "Couldn't load this chat."; loaded = true }
+        } finally {
+            reads++
+        }
+    }
+
+    /**
+     * While the chat is open it is read up to its newest activity. A marker that failed is sent
+     * again when this next runs; one that succeeded is not repeated.
+     */
+    suspend fun readUpToNewest(mark: suspend (Long) -> Unit) {
+        val seq = activitySeq ?: return
+        if ((markedSeq ?: -1) >= seq) return
+        try {
+            mark(seq)
+            markedSeq = maxOf(markedSeq ?: seq, seq)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // Still unread; the next poll tries again.
         }
     }
 
@@ -172,6 +198,11 @@ class ChannelSession(
     /** A posted file group, read when its card shows; a failed read is never cached, so the card can retry. */
     suspend fun transferGroup(groupId: String): TransferDownloadGroup = transport.attachment(groupId)
 
+    private fun noteActivity(detail: AgentConversationDetail) {
+        val seq = detail.activitySeq?.numberValue?.toLong() ?: return
+        activitySeq = maxOf(activitySeq ?: seq, seq)
+    }
+
     private fun stamp(detail: AgentConversationDetail) = "${detail.transcriptUpdatedAt.orEmpty()}:${detail.messageCount ?: detail.messages.size}"
 
     private fun apply(detail: AgentConversationDetail, listed: List<ChannelAgent>) {
@@ -182,7 +213,7 @@ class ChannelSession(
         agents = listed
         readOnly = detail.readOnly == true
         detail.title?.takeIf { it.isNotBlank() }?.let { title = it }
-        activitySeq = detail.activitySeq?.numberValue?.toLong()
+        noteActivity(detail)
         revision = stamp(detail)
         loadError = null
         loaded = true
