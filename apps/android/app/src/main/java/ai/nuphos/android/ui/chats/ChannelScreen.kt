@@ -5,6 +5,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -59,6 +60,8 @@ import ai.nuphos.android.ui.LocalAuthSession
 import ai.nuphos.android.ui.components.AgentAvatar
 import ai.nuphos.android.ui.components.MarkdownText
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -163,6 +166,24 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
     val known = remember(session) { reversed.mapTo(mutableSetOf()) { it.key } }
     val arrivals = reversed.filter { it.key !in known }.mapTo(mutableSetOf()) { it.key }
     SideEffect { known += arrivals }
+    // Posts that came while the app was away are simply there on return, as on iOS: from leaving the
+    // foreground until the first read after coming back has drawn, rows don't animate.
+    var returning by remember(session) { mutableStateOf(false) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(session, lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            val readsAtReturn = session.reads
+            try {
+                snapshotFlow { session.reads }.first { it > readsAtReturn }
+                // Two frames: the rows from that read must have been laid out first.
+                repeat(2) { withFrameNanos { } }
+                returning = false
+                awaitCancellation()
+            } finally {
+                returning = true
+            }
+        }
+    }
     // Your own send returns the transcript to the end.
     LaunchedEffect(session.lastSubmittedKey) { if (session.lastSubmittedKey != null && reversed.isNotEmpty()) state.scrollToItem(0) }
     Box(Modifier.fillMaxSize()) {
@@ -172,7 +193,9 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
             items(reversed, key = { it.key }) { item ->
                 // New rows fade in and rise a little as the rows on screen slide up to make room.
                 // The list keeps a reader's place by key, so someone reading older posts sees nothing move.
-                Box(Modifier.animateItem().arrival(item.key in arrivals)) {
+                // Snapped, not switched off: the list keeps tracking positions, so nothing slides when this ends.
+                val motion = if (returning) Modifier.animateItem(fadeInSpec = snap(), placementSpec = snap(), fadeOutSpec = snap()) else Modifier.animateItem()
+                Box(motion.arrival(item.key in arrivals && !returning)) {
                     when (item) {
                         is ChannelItem.Post -> PostRow(session, item.post, item.first, item.post.isMine(viewerId), onLink, allowed, downloads)
                         is ChannelItem.Time -> TimeDivider(item.at)

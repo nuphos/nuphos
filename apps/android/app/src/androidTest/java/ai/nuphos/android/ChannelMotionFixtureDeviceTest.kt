@@ -247,6 +247,83 @@ class ChannelMotionFixtureDeviceTest {
         assertAtTheEnd("Post 43")
     }
 
+    private fun frames(until: () -> Boolean) {
+        var left = 600
+        while (!until() && left-- > 0) { compose.mainClock.advanceTimeByFrame(); Thread.sleep(10) }
+        assertTrue("Timed out stepping frames", until())
+    }
+
+    /** Posts from while the app was away are simply there: stepping the clock shows no row on its way. */
+    @Test fun postsFromWhileAwayAreInPlaceOnReturnWithNoMotion() {
+        render()
+        settle()
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        Thread.sleep(600)
+        val reads = detailReads()
+        count = 43
+        compose.mainClock.autoAdvance = false
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        frames { detailReads() > reads && compose.onAllNodesWithText("Post 43").fetchSemanticsNodes().isNotEmpty() }
+        // A snap settles on the next frame; from then on, nothing is on its way anywhere.
+        compose.mainClock.advanceTimeByFrame()
+        val arrived = top("Post 43")
+        val older = top("Post 40")
+        compose.mainClock.advanceTimeBy(48)
+        assertEquals("No rise", arrived, top("Post 43"), 1f)
+        assertEquals("No glide", older, top("Post 40"), 1f)
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        assertEquals(arrived, top("Post 43"), 1f)
+        assertEquals(older, top("Post 40"), 1f)
+        assertAtTheEnd("Post 43")
+    }
+
+    @Test fun readingOlderPostsOnReturnNothingMoves() {
+        render()
+        readOlder()
+        val place = top("Post 20")
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        Thread.sleep(600)
+        val reads = detailReads()
+        count = 42
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        compose.waitUntil(12_000) { detailReads() > reads }
+        settle()
+        assertEquals("The reader's place stays", place, top("Post 20"), 1f)
+        jump.assertIsDisplayed()
+        compose.onNodeWithText("Post 42").assertDoesNotExist()
+        jump.performClick()
+        waitFor("Post 42")
+        settle()
+        assertAtTheEnd("Post 42")
+    }
+
+    /** After the first read on return, posts arrive with motion again. */
+    @Test fun aPostAfterComingBackStillGlides() {
+        render()
+        settle()
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        Thread.sleep(600)
+        count = 41
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        waitFor("Post 41")
+        settle()
+        val before = top("Post 41")
+        val session = store.channelSession("chat-a")!!
+        count = 42
+        compose.mainClock.autoAdvance = false
+        kotlinx.coroutines.runBlocking { session.refresh(force = true) }
+        compose.mainClock.advanceTimeByFrame()
+        compose.mainClock.advanceTimeBy(48)
+        val during = top("Post 41")
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        val after = top("Post 41")
+        assertTrue("before=$before during=$during after=$after", after < during && during <= before)
+    }
+
     /** With the clock held, the older row is seen part of the way, so it glides, it doesn't jump. */
     @Test fun rowsGlideRatherThanJump() {
         render()
