@@ -83,6 +83,7 @@ beforeEach(() => {
     messageCount: 1,
     createdAt: new Date(0),
     lastActiveAt: new Date(0),
+    participantIds: ['dana'],
   }
   quota = 'allowed'
   signedIn = false
@@ -137,6 +138,7 @@ describe('who is asked', () => {
 
 describe('who may ask', () => {
   test('someone who cannot reply in the conversation cannot ask from it', async () => {
+    conversation.participantIds = []
     conversation.generalAccess = 'view'
     await expect(ask('dana')).rejects.toMatchObject({ status: 404 })
     conversation.generalAccess = 'none'

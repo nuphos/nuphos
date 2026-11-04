@@ -5,6 +5,7 @@ import { regionLabel } from '@/lib/agent/model-provider'
 import { startTraceSpan } from '@/lib/agent/tracing'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
 import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
+import { AppError } from '@/lib/errors'
 import { signNuphosToken } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
 
@@ -12,14 +13,8 @@ import { resolveChatConversation } from './chat-conversation'
 import { shouldInitializePermissionMode } from './chat-permission-mode'
 import { launchAcceptedChatTurn } from './chat-post-run'
 import { awaitAdoptedPreviewRun, resolvePreviewWaitFromChat } from './chat-preview-resume'
-import { admitPreviewTurn } from './chat-preview-steering'
 import { handleExistingRun, resumeFromRedisOrThrow } from './chat-resume'
-import {
-  buildSlackBoundTurnPlan,
-  claimSlackBoundTurn,
-  findSlackBoundThread,
-} from './chat-slack-bound'
-import { attachSteeringTurn } from './chat-steering-attach'
+import { buildSlackBoundTurnPlan, findSlackBoundThread } from './chat-slack-bound'
 import { acceptClientTail, validateChatBody } from './chat-validate'
 import { resolveAgentCredentialAccess } from './credential-resolve'
 import { agent } from './router'
@@ -40,7 +35,9 @@ agent.post('/chat', async (c) => {
   const userId = c.get('userId')
   const requestId = c.get('requestId') ?? randomUUID()
   const locale = c.req.header('X-Atlas-Locale') ?? 'en-US'
-  const body = await c.req.json<AgentChatBody>()
+  const body = await c.req.json<AgentChatBody>().catch(() => {
+    throw new AppError(400, 'invalid_request', 'The request body is not valid JSON')
+  })
   const { id } = body
   const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.teamId))
 
@@ -94,7 +91,6 @@ agent.post('/chat', async (c) => {
     readOnlyResume,
     conversation: conversationForResume,
     clientView,
-    slackBound: Boolean(slackThread),
     credentialAccess: requestedCredentialAccess?.access,
     context: queuedChatContext(c, locale, body, kubeContext),
   }
@@ -146,34 +142,16 @@ agent.post('/chat', async (c) => {
 
     if (queue?.mode === 'queued') return queuedChatReply(body, { status: 'queued', streamId })
     if (queue) [releaseAgentRunClaim, queuedItem] = [queue.release, queue.item]
-    else
+    else {
+      // A continuation or a reply belongs to a turn already running: the runtime admits it.
       await admitRuntimeChat(runtimeSnapshot, {
         attached: conversationForResume?.claudeCodePreview ? conversationForResume : undefined,
         replying: Boolean(body.resumeReason),
         read: conversationExecutionState,
       })
-    if (!queue && !runtimeOwnsAdmission) {
-      // Park onto this conversation's running turn, or claim the session first.
-      const admission = await admitPreviewTurn(
-        {
-          runOwnerUserId,
-          userId,
-          teamId,
-          sessionId: id,
-          messages: clientView,
-        },
-        { claim: claimAgentRunForSession },
-      )
-
-      if (admission?.mode === 'attach') {
-        return await attachSteeringTurn(resumeParams, admission.streamId, conversationForResume)
-      }
-      if (admission?.mode === 'launch') releaseAgentRunClaim = admission.releaseClaim
+      if (!runtimeOwnsAdmission)
+        releaseAgentRunClaim = await claimAgentRunForSession(runOwnerUserId, id)
     }
-  }
-
-  if (!releaseAgentRunClaim && slackThread && !runtimeOwnsAdmission) {
-    releaseAgentRunClaim = await claimSlackBoundTurn(runOwnerUserId, id)
   }
 
   try {

@@ -153,6 +153,18 @@ function legacyUse(teamId: string, use: { everyone: boolean; userIds: string[] }
   }
 }
 
+/** Lets these people use the computer in this team too, keeping everyone it already lets. */
+export async function addTeamUse(device: AgentDevice, teamId: string, userIds: string[]) {
+  const use = teamUse(device, teamId)
+
+  if (use.everyone) return true
+
+  return setTeamUse(device.userId, device.deviceId, teamId, {
+    everyone: false,
+    userIds: [...new Set([...use.userIds, ...userIds])],
+  })
+}
+
 /** Someone who left the team keeps no use or management of any computer in it. */
 export async function dropFromTeamGrants(teamId: string, userId: string): Promise<void> {
   await agentDevices().updateMany(

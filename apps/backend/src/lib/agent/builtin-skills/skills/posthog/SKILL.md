@@ -94,6 +94,7 @@ python3 $H get "event_definitions/?limit=100&search=checkout"
 python3 $H get "property_definitions/?type=event&search=plan"
 python3 $H get "persons/?search=jane@acme.com"           # a person and their properties
 python3 $H get "annotations/?limit=50"                   # deploy markers and notes
+python3 $H get "hog_functions/?limit=50"                 # data pipeline destinations and transformations (hog_function scope)
 python3 $H get /api/users/@me/                           # who authorized the grant
 ```
 

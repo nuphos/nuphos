@@ -51,7 +51,6 @@ export type TurnSession = Pick<
   | 'createdAt'
   | 'generalAccess'
   | 'participantIds'
-  | 'viewOnlyIds'
   | 'linkedResources'
 >
 
@@ -86,7 +85,6 @@ export async function readTeamTurns(
           createdAt: 1,
           generalAccess: 1,
           participantIds: 1,
-          viewOnlyIds: 1,
           'linkedResources.key': 1,
           'linkedResources.provider': 1,
           'linkedResources.linkedAt': 1,

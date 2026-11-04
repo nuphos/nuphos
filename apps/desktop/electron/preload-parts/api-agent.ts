@@ -16,7 +16,18 @@ export const agentApi = {
     teamId: string,
     runtimeId: string,
     mode: 'history' | 'workspace',
-  ) => ipcRenderer.invoke('agent:moveConversationRuntime', sessionId, teamId, runtimeId, mode),
+    grantComputerUse?: boolean,
+  ) =>
+    ipcRenderer.invoke(
+      'agent:moveConversationRuntime',
+      sessionId,
+      teamId,
+      runtimeId,
+      mode,
+      grantComputerUse,
+    ),
+  agentCheckConversationMove: (sessionId: string, teamId: string, runtimeId: string) =>
+    ipcRenderer.invoke('agent:checkConversationMove', sessionId, teamId, runtimeId),
   agentGetSessionConfig: (sessionId: string, teamId: string) =>
     ipcRenderer.invoke('agent:getSessionConfig', sessionId, teamId),
   agentImportLocalSession: (args: {

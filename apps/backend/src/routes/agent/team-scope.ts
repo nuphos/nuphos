@@ -1,5 +1,5 @@
 import { getConversationBySessionId, getConversationWithMessages } from '@/lib/agent/db'
-import { canReply, conversationAccess } from '@/lib/agent/db/access'
+import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
 import { parseUrlContext } from '@/lib/agent/url-context'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
@@ -115,7 +115,7 @@ export async function assertConversationSendable(
     )
   if (conversation.userId !== userId && (!teamId || !(await getTeamMembership(userId, teamId))))
     throw new AppError(403, 'forbidden', 'You are not a member of this conversation’s team')
-  if (!canReply(conversationAccess(conversation, userId)))
+  if (!(await canReplyIn(conversation, userId)))
     throw new AppError(403, 'conversation_read_only', 'You can only view this conversation')
 
   return conversation

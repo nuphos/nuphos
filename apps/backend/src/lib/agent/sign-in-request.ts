@@ -1,7 +1,7 @@
 // Someone who cannot sign an agent in asks the people who can. The ask lives on
 // the conversation, so their Inbox lists it, and the message it holds runs as
 // soon as anyone signs the agent in.
-import { canReply, conversationAccess } from '@/lib/agent/db/access'
+import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { consumePairQuota } from '@/lib/download-handoff-rate-limit'
@@ -11,7 +11,7 @@ import { logEvent } from '@/lib/observability'
 import { notifyNudge } from '@/lib/push/notify'
 
 import { getConversationBySessionId } from './db'
-import { PENDING_TTL_SEC } from './pending-messages'
+import { ASK_OPEN_MS } from './db/conversations-list'
 
 import type { AgentConversation } from './db'
 import type { DownloadHandoffRateLimitResult } from '@/lib/download-handoff-rate-limit'
@@ -40,8 +40,7 @@ export const NOTIFY_REPEAT_MS = 30 * 60_000
 export const NUDGES_PER_HOUR = 10
 const NUDGES_PER_DAY = 30
 
-/** An ask holds messages as long as the queue keeps them; after that a send runs as usual. */
-export const ASK_OPEN_MS = PENDING_TTL_SEC * 1000
+export { ASK_OPEN_MS }
 
 /** The ask holding this conversation's sends: only one about the agent it runs on now. */
 export function openSignInRequest(
@@ -194,7 +193,7 @@ export async function nudge(
   if (
     !conversation ||
     conversation.teamId !== teamId ||
-    !canReply(conversationAccess(conversation, requesterId))
+    !(await canReplyIn(conversation, requesterId))
   )
     throw new AppError(404, 'conversation_not_found', 'Conversation not found')
   if (conversation.runtimeId !== runtimeId)

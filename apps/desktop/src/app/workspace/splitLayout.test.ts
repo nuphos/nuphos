@@ -163,3 +163,59 @@ test('a sidebar chat previews a new pane only when it would split', () => {
     [PREVIEW_PANE, 'a', 'b'],
   )
 })
+
+const widths = (layout: Parameters<typeof paneRects>[0]) =>
+  Object.fromEntries(paneRects(layout).map((r) => [r.id, Math.round(r.width * 100) / 100]))
+
+test('a pane added to a row of a two-column grid splits that whole row equally', () => {
+  // Two columns of two read as a top row (a, b) and a bottom row (c, d).
+  let layout = splitPane({ id: 'a' }, 'a', 'b', 'row')
+
+  layout = splitPane(splitPane(layout, 'a', 'c', 'column'), 'b', 'd', 'column')
+  layout = splitPane(layout, 'd', 'e', 'row')
+
+  assert.deepEqual(widths(layout), { a: 50, b: 50, c: 33.33, d: 33.33, e: 33.33 })
+  assert.deepEqual(
+    paneRects(layout).map((r) => [r.id, r.top]),
+    [
+      ['a', 0],
+      ['b', 0],
+      ['c', 50],
+      ['d', 50],
+      ['e', 50],
+    ],
+  )
+  // Dropping one more on the middle pane's left edge keeps the row even.
+  assert.deepEqual(widths(dropPane(layout, 'd', 'f', 'left')), {
+    a: 50,
+    b: 50,
+    c: 25,
+    f: 25,
+    d: 25,
+    e: 25,
+  })
+})
+
+test('a stack beside a full-height pane still splits only its target', () => {
+  const layout = splitPane(splitPane({ id: 'a' }, 'a', 'b', 'row'), 'b', 'c', 'column')
+
+  assert.deepEqual(widths(splitPane(layout, 'c', 'd', 'row')), { a: 50, b: 50, c: 25, d: 25 })
+})
+
+test('closing a pane lets the rest of its row share the width equally', () => {
+  // row[c, column[row[d, e], f]]: closing f must not leave d and e at a quarter each.
+  const layout = splitPane(
+    splitPane(splitPane({ id: 'c' }, 'c', 'd', 'row'), 'd', 'f', 'column'),
+    'd',
+    'e',
+    'row',
+  )
+  const next = removePane(layout, 'f')
+
+  assert.ok(next)
+  assert.deepEqual(widths(next), { c: 33.33, d: 33.33, e: 33.33 })
+  const row = removePane(next, 'd')
+
+  assert.ok(row)
+  assert.deepEqual(widths(row), { c: 50, e: 50 })
+})

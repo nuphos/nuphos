@@ -1,7 +1,7 @@
 import * as agent from '../agent'
 import * as atlas from '../atlas'
 
-import type { GeneralAccess, ParticipantRole } from '../../src/api/agent-types'
+import type { GeneralAccess } from '../../src/api/agent-types'
 
 // Agent reads that no longer fit in channels-agent.ts or channels-team.ts (max-lines).
 export const agentReadChannels = {
@@ -17,6 +17,12 @@ export const agentReadChannels = {
   ) => agent.unlinkSessionResource(sessionId, teamId, resourceId),
   'agent:markConversationRead': (_e: unknown, sessionId: string, seq: number, teamId?: string) =>
     agent.markConversationRead(sessionId, seq, teamId),
+  'agent:checkConversationMove': (
+    _e: unknown,
+    sessionId: string,
+    teamId: string,
+    runtimeId: string,
+  ) => agent.checkConversationMove(sessionId, teamId, runtimeId),
   'agent:getConversationParticipants': (_e: unknown, sessionId: string, teamId?: string) =>
     agent.getConversationParticipants(sessionId, teamId),
   'agent:inviteConversationParticipants': (
@@ -24,15 +30,8 @@ export const agentReadChannels = {
     sessionId: string,
     teamId: string,
     userIds: string[],
-    role: ParticipantRole,
-  ) => agent.inviteConversationParticipants(sessionId, teamId, userIds, role),
-  'agent:setConversationParticipantRole': (
-    _e: unknown,
-    sessionId: string,
-    teamId: string,
-    userId: string,
-    role: ParticipantRole,
-  ) => agent.setConversationParticipantRole(sessionId, teamId, userId, role),
+    grantComputerUse: boolean,
+  ) => agent.inviteConversationParticipants(sessionId, teamId, userIds, grantComputerUse),
   'agent:setConversationGeneralAccess': (
     _e: unknown,
     sessionId: string,

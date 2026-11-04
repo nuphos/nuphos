@@ -78,7 +78,6 @@ function admit(id: string, overrides: Partial<Parameters<typeof admitQueueableCh
     readOnlyResume: false,
     clientView: [message(id)],
     snapshot: undefined,
-    slackBound: false,
     context: { locale: 'en', localTools: true, kubeContext: 'prod' },
     credentialAccess: undefined,
     ...overrides,
@@ -120,6 +119,35 @@ test('a continuation keeps the earlier admission', async () => {
       body: { id: SESSION, messages: [message('a')], continueAfterInterruption: true },
     }),
   ).toBeNull()
+})
+
+test("a new conversation's first message takes the queue too: it runs now on a free session", async () => {
+  const admitted = await admit('first', { conversation: null })
+
+  expect(admitted?.mode).toBe('run')
+  // Kept for the turn, so a refusal puts it back in the queue instead of losing it.
+  if (admitted?.mode === 'run') {
+    expect(admitted.item).toMatchObject({ id: 'first', chat: { streamId: 'stream-first' } })
+    admitted.release()
+  }
+})
+
+test('a send while the session is busy waits, never refused', async () => {
+  const done = busy()
+
+  try {
+    // A Slack-bound send answered 409 here before.
+    expect(await admit('slack')).toEqual({ mode: 'queued' })
+    // A conversation not stored yet has nothing to wait in: its send runs, and its
+    // first turn stores it before the runtime can refuse and requeue it.
+    const fresh = await admit('fresh', { conversation: null })
+
+    expect(fresh?.mode).toBe('run')
+    if (fresh?.mode === 'run') expect(fresh.item.id).toBe('fresh')
+  } finally {
+    done()
+  }
+  expect((await listPendingUserMessages(OWNER, SESSION)).map((m) => m.id)).toEqual(['slack'])
 })
 
 test('a free session runs the message now and holds the claim for it', async () => {
@@ -256,7 +284,6 @@ test('a send queues only for the Box its runtime resolution authorized', async (
     streamId: `stream-${id}`,
     readOnlyResume: false,
     clientView: [message(id)],
-    slackBound: false,
     context: { locale: 'en', localTools: true },
     credentialAccess: undefined,
   })
@@ -331,7 +358,7 @@ test('everyone in the conversation sees the queue; only the sender takes a messa
 test('a phone send while an agent message runs is queued in order, never refused', async () => {
   const done = busy()
   const phone = (id: string) => ({
-    body: { id: SESSION, messages: [message(id)], clientCapabilities: { resendsRefusal: true } },
+    body: { id: SESSION, messages: [message(id)] },
     clientView: [message(id)],
   })
   const thread = buildPendingUserMessage({ renderedText: 'CI passed', source: 'agent.thread' })
@@ -371,7 +398,7 @@ test('a queued send ends cleanly for a phone that reads only an event stream', a
   expect(await desktop.json()).toEqual({ status: 'queued', streamId: 'stream-d' })
   // An error frame would offer Retry, which resends under a new id.
   const phone = queuedChatReply(
-    { id: SESSION, messages: [], clientCapabilities: { resendsRefusal: true } },
+    { id: SESSION, messages: [] },
     { status: 'queued', streamId: 'stream-p' },
   )
 
@@ -570,7 +597,6 @@ test('a send while someone is asked to sign the agent in waits for them, named',
     streamId: 'stream-held',
     readOnlyResume: false,
     clientView: [message('held')],
-    slackBound: false,
     context: { locale: 'en', localTools: true },
     credentialAccess: undefined,
   })

@@ -51,7 +51,7 @@ export type PreviewChatTurnArgs = {
   channelTurn?: boolean
   /** Background shown to the model beside this turn's message, never stored in it. */
   turnContext?: string
-  /** The client declared it resends a refused message; headless senders never do. */
+  /** A headless caller that puts its own messages back on the queue when the runtime refuses. */
   clientResendsRefusal?: boolean
   /** Started from the session queue: a refusal puts this message back at its head. */
   queued?: PendingUserMessage

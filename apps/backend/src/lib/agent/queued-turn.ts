@@ -2,13 +2,13 @@
 
 import { wakeOfflineBox } from '@/lib/agent/devices/box-wake'
 import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
+import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
 
 import { reportUndelivered, runTurn } from './conversation-turn'
 import { getConversationBySessionId } from './db'
-import { canReply, conversationAccess } from './db/access'
-import { PENDING_TTL_SEC } from './pending-messages'
+import { canReplyIn } from './devices/conversation-computer'
 import { listPendingUserMessages, queueHead, takePendingUserMessages } from './pending-queue'
 import {
   queuedTurnSettled,
@@ -23,58 +23,8 @@ import type { AgentConversation } from './db'
 import type { PendingUserMessage } from './pending-message-types'
 import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 
-/**
- * A message that has waited this long, or failed this often, is dropped and its
- * sender told. A minute inside the queue's TTL, so the sweep drops it before Redis does.
- */
-const MAX_QUEUED_MS = (PENDING_TTL_SEC - 60) * 1000
-const MAX_ATTEMPTS = 5
-
 const runtimeAccepts = (state: SessionExecutionState) =>
   state.schemaVersion !== 2 || state.actions?.send === true
-
-const DROPPED = {
-  expired: 'was dropped after waiting an hour in its queue without running.',
-  too_many_attempts: 'was dropped after its runtime refused it five times.',
-}
-
-function stale(message: PendingUserMessage, now: number): keyof typeof DROPPED | null {
-  if ((message.attempts ?? 0) >= MAX_ATTEMPTS) return 'too_many_attempts'
-
-  return now - Date.parse(message.receivedAt) > MAX_QUEUED_MS ? 'expired' : null
-}
-
-async function dropStale(userId: string, sessionId: string, target: AgentConversation | null) {
-  const now = Date.now()
-  const dropped = (await listPendingUserMessages(userId, sessionId)).flatMap((message) => {
-    const reason = stale(message, now)
-
-    return reason ? [{ message, reason }] : []
-  })
-  const taken = await takePendingUserMessages(
-    userId,
-    sessionId,
-    dropped.map((entry) => entry.message),
-  )
-
-  for (const { message, reason } of dropped) {
-    // Another replica's sweep took it first, and reports it.
-    if (!taken.includes(message)) continue
-    logEvent('warn', 'agent.pending_messages.queued_dropped', {
-      user_id: userId,
-      session_id: sessionId,
-      message_id: message.id,
-      source: message.source,
-      reason,
-      attempts: message.attempts ?? 0,
-    })
-    await reportUndelivered(
-      { userId, teamId: target?.teamId, targetSessionId: sessionId },
-      [message],
-      DROPPED[reason],
-    )
-  }
-}
 
 /** Whether this conversation may run its queue now; schedules a retry when it should wait. */
 async function ready(userId: string, sessionId: string, target: AgentConversation | null) {
@@ -99,8 +49,6 @@ async function ready(userId: string, sessionId: string, target: AgentConversatio
 export async function startQueuedTurn(userId: string, sessionId: string): Promise<void> {
   const target = await getConversationBySessionId(sessionId)
 
-  // Ahead of the gate: a queue that never gets to run still answers its senders.
-  await dropStale(userId, sessionId, target)
   if (!(await ready(userId, sessionId, target))) return
   const release = await turnRunner.claimAgentRunForSession(userId, sessionId)
 
@@ -172,6 +120,21 @@ export async function startQueuedTurn(userId: string, sessionId: string): Promis
   }
 }
 
+// Busy, timed out, too early, rate limited: each passes with time.
+const RETRYABLE_STATUS = new Set([408, 409, 425, 429])
+
+/**
+ * A send that failed to start waits for another try when the failure can pass:
+ * a busy or rate-limited runtime, an approval still to come, or a server error. Anything else
+ * (an agent that is gone or signed out, a declined computer) never will, so
+ * its sender is told instead of the queue being held behind it.
+ */
+const mayStartLater = (error: unknown) =>
+  !(error instanceof AppError) ||
+  error.status >= 500 ||
+  RETRYABLE_STATUS.has(error.status) ||
+  error.code === 'local_share_approval_required'
+
 /** True once the turn holds the claim; a failure before that puts the message back. */
 async function launchChat(
   target: AgentConversation,
@@ -186,8 +149,13 @@ async function launchChat(
     actorUserId === target.userId ||
     (Boolean(target.teamId) && (await getTeamMembership(actorUserId, target.teamId ?? '')) !== null)
 
-  if (!member || !canReply(conversationAccess(target, actorUserId))) {
+  if (!member || !(await canReplyIn(target, actorUserId))) {
     logEvent('warn', 'agent.pending_messages.queued_dropped', { ...fields, reason: 'no_access' })
+    await reportUndelivered(
+      { userId: target.userId, teamId: target.teamId, targetSessionId: target.sessionId },
+      [item],
+      'was not sent: its sender can no longer reply in this conversation or use its computer.',
+    )
 
     return false
   }
@@ -201,7 +169,13 @@ async function launchChat(
       ...fields,
       error: error instanceof Error ? error.message : String(error),
     })
-    await requeueTurnQueue(target.userId, target.sessionId, [], item)
+    if (mayStartLater(error)) await requeueTurnQueue(target.userId, target.sessionId, [], item)
+    else
+      await reportUndelivered(
+        { userId: target.userId, teamId: target.teamId, targetSessionId: target.sessionId },
+        [item],
+        `was not sent: ${error instanceof Error ? error.message : 'its agent cannot run it.'}`,
+      )
 
     return false
   }

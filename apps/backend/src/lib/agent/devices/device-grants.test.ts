@@ -23,8 +23,14 @@ const collection = {
 
 useDb({ db: () => ({ collection: () => collection }) })
 
-const { dropFromTeamGrants, dropOwnerTeamGrants, setTeamUse, teamGrant, transferTeamComputers } =
-  await import('./device-grants')
+const {
+  addTeamUse,
+  dropFromTeamGrants,
+  dropOwnerTeamGrants,
+  setTeamUse,
+  teamGrant,
+  transferTeamComputers,
+} = await import('./device-grants')
 
 test('replacing a team’s use list is one update that keeps its managers', async () => {
   calls.length = 0
@@ -49,6 +55,32 @@ test('replacing a team’s use list is one update that keeps its managers', asyn
   expect(JSON.stringify(update[0]?.$set)).toContain(
     '{"teamId":"team","level":"full","everyone":false,"userIds":["mate"]}',
   )
+})
+
+test('adding use keeps who already uses it and leaves an everyone grant alone', async () => {
+  calls.length = 0
+  const device = {
+    userId: 'owner',
+    deviceId: 'mac',
+    access: [{ teamId: 'team', everyone: false, userIds: ['mate'], managerIds: ['lead'] }],
+  } as never
+
+  expect(await addTeamUse(device, 'team', ['mate', 'new'])).toBe(true)
+  const update = calls[0]?.update as { $set: { access: { $concatArrays: unknown[] } } }[]
+  const [, mine] = update[0]?.$set.access.$concatArrays ?? []
+
+  expect((mine as Record<string, unknown>[])[0]?.userIds).toEqual({ $literal: ['mate', 'new'] })
+  // Managers are not named, so the write keeps the stored ones.
+  expect(JSON.stringify(mine)).toContain('"$$current.managerIds"')
+  calls.length = 0
+  const everyone = {
+    userId: 'owner',
+    deviceId: 'mac',
+    access: [{ teamId: 'team', everyone: true, userIds: [], managerIds: [] }],
+  } as never
+
+  expect(await addTeamUse(everyone, 'team', ['new'])).toBe(true)
+  expect(calls).toHaveLength(0)
 })
 
 test('managers that followed from a read are written only while they still hold', async () => {

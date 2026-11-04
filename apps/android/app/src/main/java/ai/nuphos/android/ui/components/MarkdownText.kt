@@ -51,10 +51,13 @@ import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
 import com.mikepenz.markdown.model.MarkdownAnimations
+import com.mikepenz.markdown.model.MarkdownAnnotator
 import com.mikepenz.markdown.model.MarkdownColors
 import com.mikepenz.markdown.model.MarkdownPadding
 import com.mikepenz.markdown.model.MarkdownTypography
 import com.mikepenz.markdown.model.markdownAnimations
+import com.mikepenz.markdown.model.markdownAnnotator
+import com.mikepenz.markdown.model.markdownAnnotatorConfig
 import com.mikepenz.markdown.model.markdownPadding
 import com.mikepenz.markdown.model.rememberMarkdownState
 import com.mikepenz.markdown.model.rememberStreamingMarkdownState
@@ -69,7 +72,7 @@ fun MarkdownText(
     modifier: Modifier = Modifier,
     streaming: Boolean = false,
     onLink: ((String) -> Unit)? = null,
-    /** A chat bubble: a short gap between paragraphs, tight lists. */
+    /** A chat bubble: a short gap between paragraphs, tight lists, and each typed line kept as a line. */
     compact: Boolean = false,
 ) {
     val fallbackHandler = LocalUriHandler.current
@@ -124,6 +127,7 @@ private fun StreamingMarkdownDocument(text: String, modifier: Modifier, compact:
                 imageTransformer = Coil3ImageTransformerImpl,
                 animations = it.animations,
                 components = it.components,
+                annotator = it.annotator,
             )
         }
     }
@@ -142,6 +146,7 @@ private fun StaticMarkdownDocument(text: String, modifier: Modifier, compact: Bo
             imageTransformer = Coil3ImageTransformerImpl,
             animations = it.animations,
             components = it.components,
+            annotator = it.annotator,
             loading = {},
         )
     }
@@ -153,6 +158,7 @@ private class MarkdownChrome(
     val animations: MarkdownAnimations,
     val components: MarkdownComponents,
     val padding: MarkdownPadding,
+    val annotator: MarkdownAnnotator,
 )
 
 @Composable
@@ -198,7 +204,9 @@ private fun NuphosMarkdown(compact: Boolean, content: @Composable (MarkdownChrom
     // three block spacers between two paragraphs, so 3 dp reads as the 8 dp gap on screen.
     val padding = if (compact) markdownPadding(block = 3.dp, list = 0.dp, listItemTop = 2.dp, listItemBottom = 2.dp)
         else markdownPadding()
-    content(MarkdownChrome(colors, typography, animations, components, padding))
+    // Markdown joins a single newline into a space; a chat post keeps the line the person typed.
+    val annotator = markdownAnnotator(config = markdownAnnotatorConfig(eolAsNewLine = compact))
+    content(MarkdownChrome(colors, typography, animations, components, padding, annotator))
 }
 
 @Composable

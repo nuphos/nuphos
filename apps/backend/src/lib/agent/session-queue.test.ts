@@ -8,6 +8,7 @@ import { useRedis } from '@/lib/test/doubles/redis'
 import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-state'
 
 import { refusal } from '@/lib/claude-code-preview/runtime-refusal'
+import { AppError } from '@/lib/errors'
 
 import { startConversationTurn } from './conversation-turn'
 import { startQueuedTurn } from './queued-turn'
@@ -45,11 +46,13 @@ const conversation = {
   userId: OWNER,
   teamId: 'team',
   firstMessage: 'Start',
+  participantIds: ['teammate'],
 } as AgentConversation
 let runtimeSend = true
 let released = 0
 const runs: Parameters<TurnRunner['runAgentForTrigger']>[0][] = []
 const launched: PendingUserMessage[] = []
+const kept: { sessionId: string; messages: { id: string; role: string; parts: unknown[] }[] }[] = []
 
 let member = true
 let boxOffline = false
@@ -76,6 +79,11 @@ useAgentDb({
     ...(signInRequest ? { signInRequest, runtimeId: conversationRuntime } : {}),
   }),
   getConversationWithMessages: async () => ({ conversation, messages: [] }),
+  appendConversationMessages: async (args) => {
+    kept.push(args)
+
+    return true
+  },
 })
 useBoxWake({
   wakeOfflineBox: async (runtimeId) => {
@@ -128,6 +136,7 @@ beforeEach(() => {
   released = 0
   runs.length = 0
   launched.length = 0
+  kept.length = 0
   installTurnRunner({
     hasActiveAgentRunForSession: async () => false,
     claimAgentRunForSession: async () => () => {
@@ -291,26 +300,70 @@ test('a launch that fails puts the message back at the head, counted', async () 
   expect(released).toBe(1)
 })
 
-test('a message refused too often, or waiting too long, is dropped instead of retried', async () => {
+test('a message refused many times, or waiting for hours, still runs in its turn', async () => {
   await queue(
-    { ...human('refused'), attempts: 5 },
-    { ...agent('old'), receivedAt: new Date(Date.now() - 2 * 60 * 60_000).toISOString() },
-    human('next'),
+    { ...human('refused'), attempts: 9 },
+    { ...agent('old'), receivedAt: new Date(Date.now() - 5 * 60 * 60_000).toISOString() },
   )
   await startQueuedTurn(OWNER, SESSION)
 
-  expect(launched.map((item) => item.renderedText)).toEqual(['next'])
-  expect(await waiting()).toEqual([])
+  expect(launched.map((item) => item.renderedText)).toEqual(['refused'])
+  expect(await waiting()).toEqual(['old'])
 })
 
-test("a sender who left the conversation's team is not spoken for", async () => {
+test("a sender who left the conversation's team is not spoken for, and the send stays visible", async () => {
   member = false
   await queue(human('gone', 'teammate'))
   await startQueuedTurn(OWNER, SESSION)
 
   expect(launched).toHaveLength(0)
   expect(await waiting()).toEqual([])
+  expect(kept).toHaveLength(1)
+  expect(kept[0]?.sessionId).toBe(SESSION)
+  expect(kept[0]?.messages.map((message) => message.role)).toEqual(['user', 'assistant'])
+  expect(kept[0]?.messages[0]?.id).toBe('ui-gone')
+  expect(JSON.stringify(kept[0]?.messages[1]?.parts)).toContain('can no longer reply')
 })
+
+test('a send whose agent cannot run it is kept with the reason instead of retried forever', async () => {
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {},
+    launchQueuedChatTurn: async () => {
+      throw new AppError(404, 'agent_runtime_not_found', 'Its agent was deleted.')
+    },
+  })
+  await queue(human('orphan'), human('next'))
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(await waiting()).toEqual(['next'])
+  expect(JSON.stringify(kept[0]?.messages[1]?.parts)).toContain('Its agent was deleted.')
+})
+
+for (const failure of [
+  new Error('Mongo blip'),
+  new AppError(503, 'runtime_unavailable', 'Unavailable'),
+  new AppError(408, 'timeout', 'Timed out'),
+  new AppError(409, 'runtime_not_accepting_message', 'Busy'),
+  new AppError(425, 'too_early', 'Too early'),
+  new AppError(429, 'rate_limited', 'Slow down'),
+  new AppError(403, 'local_share_approval_required', 'Waiting for the owner'),
+]) {
+  test(`a send that fails to start with "${failure.message}" goes back to the head of the queue`, async () => {
+    installTurnRunner({
+      hasActiveAgentRunForSession: async () => false,
+      claimAgentRunForSession: async () => () => {},
+      launchQueuedChatTurn: async () => {
+        throw failure
+      },
+    })
+    await queue(human('retry'), human('next'))
+    await startQueuedTurn(OWNER, SESSION)
+
+    expect(await waiting()).toEqual(['retry', 'next'])
+    expect(kept).toEqual([])
+  })
+}
 
 test('two releases racing for one session start its head once', async () => {
   let held = false
@@ -335,7 +388,7 @@ test('two releases racing for one session start its head once', async () => {
   expect(launched.map((item) => item.renderedText)).toEqual(['once'])
 })
 
-test('with Redis, a take removes exactly its own messages and a requeue keeps the expiry', async () => {
+test('with Redis, a take removes exactly its own messages and a requeue sets no expiry', async () => {
   const list: string[] = []
   const expiries: number[] = []
   let ttl = 600
@@ -373,12 +426,10 @@ test('with Redis, a take removes exactly its own messages and a requeue keeps th
       'x|victim|',
       'victim',
     ])
-    expect(expiries).toEqual([])
-    // A list that had emptied lost its expiry; the requeue sets it again.
     list.length = 0
     ttl = -2
     await requeuePendingAtHead(OWNER, SESSION, [attacker])
-    expect(expiries).toEqual([3600])
+    expect(expiries).toEqual([])
   } finally {
     fakeRedis = null
     config.redis.enabled = enabled
@@ -605,4 +656,19 @@ test('a conversation moved to another agent is not held by an ask about the old 
   await startQueuedTurn(OWNER, SESSION)
 
   expect(launched.map((item) => item.actorUserId)).toEqual(['teammate'])
+})
+
+test("an owner's decline keeps the teammate's waiting sends in the conversation, with the reason", async () => {
+  const { settleShareApprovalQueue } = await import('@/routes/agent/session-queue-share-approval')
+
+  await queue(human('please', 'teammate'), human('mine'))
+  await settleShareApprovalQueue({
+    sessionId: SESSION,
+    actorId: 'teammate',
+    status: 'denied',
+  } as never)
+
+  expect(await waiting()).toEqual(['mine'])
+  expect(kept.map((entry) => entry.messages[0]?.id)).toEqual(['ui-please'])
+  expect(JSON.stringify(kept[0]?.messages[1]?.parts)).toContain('declined')
 })

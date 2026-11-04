@@ -34,6 +34,14 @@ const SESSION_ENV = new Set([
   'NUPHOS_SESSION_ACTOR',
   'NUPHOS_PLAN_API_BASE',
   'NUPHOS_PLAN_API_TOKEN',
+  // The backend clears these for a selected connector, so the runtime's own do
+  // not beat it. Codex needs none of them: its shells inherit nothing.
+  'AWS_ACCESS_KEY_ID',
+  'AWS_SECRET_ACCESS_KEY',
+  'AWS_SESSION_TOKEN',
+  'AWS_PROFILE',
+  'GH_TOKEN',
+  'GITHUB_TOKEN',
 ])
 
 export const PROVIDERS = {

@@ -24,7 +24,7 @@ let activeActor: string | null = null
 let cancelled = 0
 let steered = 0
 let steeredWith: unknown[] = []
-const conversation = { sessionId: 'shared-control', userId: 'owner', teamId }
+const conversation = { sessionId: 'shared-control', userId: 'owner', teamId, participantIds: [me] }
 
 let agentToken: { id: string; kind: 'agent'; name: string } | undefined
 

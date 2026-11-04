@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Forum
@@ -21,9 +20,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import ai.nuphos.android.model.AgentConversation
+import ai.nuphos.android.model.ChatFace
+import ai.nuphos.android.model.NuphosUser
+import ai.nuphos.android.ui.components.AgentAvatar
+import ai.nuphos.android.ui.components.NuphosAvatar
 import ai.nuphos.android.model.HistoryTime
 import ai.nuphos.android.ui.LocalAgentStore
 import androidx.lifecycle.repeatOnLifecycle
@@ -99,7 +103,7 @@ private fun ChatRow(chat: AgentConversation, selected: Boolean, onOpen: () -> Un
             contentDescription = chat.displayTitle + if (unread) ", unread posts" else ""
         },
         colors = ListItemDefaults.colors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background),
-        leadingContent = { ChannelMark(40.dp) },
+        leadingContent = { ChatIcon(chat.faces.orEmpty(), chat.displayTitleForChat, 40.dp) },
         headlineContent = { Text(chat.displayTitleForChat, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = { Text(HistoryTime.format(chat.lastActiveAt), color = MaterialTheme.colorScheme.onSurfaceVariant) },
         trailingContent = {
@@ -113,13 +117,29 @@ private fun ChatRow(chat: AgentConversation, selected: Boolean, onOpen: () -> Un
 
 internal val AgentConversation.displayTitleForChat: String get() = title.ifBlank { "Untitled chat" }
 
-/** The "#" mark that stands for a chat. */
+/**
+ * A chat's icon, as iMessage draws one: the one other member's face, or two overlapping, whoever spoke
+ * last in front. A chat with nobody else shows its title's initials.
+ */
 @Composable
-internal fun ChannelMark(size: androidx.compose.ui.unit.Dp) {
-    Box(Modifier.size(size).clip(RoundedCornerShape(size / 4)).background(MaterialTheme.colorScheme.surfaceContainerHigh),
-        contentAlignment = Alignment.Center) {
-        Text("#", style = if (size >= 32.dp) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+internal fun ChatIcon(faces: List<ChatFace>, title: String, size: Dp) {
+    val front = faces.getOrNull(0)
+    val back = faces.getOrNull(1)
+    when {
+        front == null -> NuphosAvatar(NuphosUser(id = "", name = title), size)
+        back == null -> Face(front, size)
+        else -> Box(Modifier.size(size)) {
+            val small = size * 0.72f
+            Box(Modifier.align(Alignment.TopStart)) { Face(back, small) }
+            Box(Modifier.align(Alignment.BottomEnd).clip(CircleShape).background(MaterialTheme.colorScheme.background)
+                .padding(1.5.dp)) { Face(front, small - 3.dp) }
+        }
     }
+}
+
+@Composable
+private fun Face(face: ChatFace, size: Dp) {
+    if (face.agent != null) AgentAvatar(face.id, face.agent.provider, size)
+    else NuphosAvatar(NuphosUser(id = face.id, name = face.name, avatarURL = face.avatarURL.orEmpty()), size)
 }
 

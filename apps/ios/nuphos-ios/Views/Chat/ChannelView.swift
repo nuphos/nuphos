@@ -42,7 +42,7 @@ struct ChannelView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     HStack(spacing: 8) {
-                        ChannelMark(size: 24)
+                        ChatIcon(faces: channel.faces, title: channel.title, size: 24)
                         Text(channel.title)
                             .font(Theme.Text.label.weight(.semibold))
                             .foregroundStyle(Theme.heading)
@@ -89,7 +89,7 @@ struct ChannelView: View {
             ContentUnavailableView("Couldn't load this chat", systemImage: "exclamationmark.bubble", description: Text(error))
         } else if channel.posts.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
-                ChannelMark(size: 44)
+                ChatIcon(faces: channel.faces, title: channel.title, size: 44)
                 Text(channel.title).font(.title3.weight(.semibold)).foregroundStyle(Theme.heading)
                 Text("Everyone here sees each message and decides for themselves whether to reply, as in any group chat.")
                     .font(Theme.Text.secondary)
@@ -159,17 +159,46 @@ struct ChannelView: View {
     }
 }
 
-/// A chat's mark: a hash on the quiet surface.
-struct ChannelMark: View {
+/// A chat's icon, as iMessage draws one: the one other member's face, or two
+/// overlapping, whoever spoke last in front. A chat with nobody else shows
+/// its title's initials.
+struct ChatIcon: View {
+    let faces: [ChatFace]
+    let title: String
     var size: CGFloat = 22
 
     var body: some View {
-        Image(systemName: "number")
-            .font(.system(size: size * 0.5, weight: .semibold))
-            .foregroundStyle(Theme.body)
-            .frame(width: size, height: size)
-            .background(Theme.bubble, in: RoundedRectangle(cornerRadius: size * 0.27, style: .continuous))
-            .accessibilityHidden(true)
+        Group {
+            if faces.count >= 2 {
+                let small = (size * 0.72).rounded()
+                ZStack {
+                    face(faces[1], size: small).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    face(faces[0], size: small)
+                        .padding(1.5)
+                        .background(Theme.chatCanvas, in: Circle())
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                }
+            } else if let only = faces.first {
+                face(only, size: size)
+            } else {
+                person(id: "", name: title, avatarURL: nil, size: size)
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private func face(_ face: ChatFace, size: CGFloat) -> some View {
+        if face.agent != nil {
+            AgentAvatar(agentId: face.id, runtime: face.agent?.provider, size: size)
+        } else {
+            person(id: face.id, name: face.name, avatarURL: face.avatarURL, size: size)
+        }
+    }
+
+    private func person(id: String, name: String, avatarURL: String?, size: CGFloat) -> some View {
+        AvatarView(user: NuphosUser(id: id, email: "", name: name, username: "", avatarURL: avatarURL ?? ""), size: size)
     }
 }
 
@@ -238,7 +267,7 @@ private struct ChannelPostRow: View {
     }
 
     private var bubble: some View {
-        AssistantMarkdown(text: post.text, theme: AssistantMarkdown.bubbleTheme, onLink: onLink)
+        AssistantMarkdown(text: post.text, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, onLink: onLink)
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
             .background(mine ? Theme.brand.opacity(0.14) : Theme.chatSurface,

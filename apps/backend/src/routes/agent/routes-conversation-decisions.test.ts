@@ -48,7 +48,8 @@ beforeEach(() => {
     messageCount: 2,
     createdAt: new Date(),
     lastActiveAt: new Date(),
-    generalAccess: 'reply',
+    generalAccess: 'view',
+    participantIds: [TEAMMATE],
     inputRequests: [
       {
         id: 'question-1',
@@ -110,7 +111,7 @@ test('a question stored before request lists still resolves by its id', async ()
   expect(conversation.pendingDecision).toBeUndefined()
 })
 
-test('a teammate with reply access can dismiss the owner’s question', async () => {
+test('a participant can dismiss the owner’s question', async () => {
   viewer = TEAMMATE
 
   expect((await resolve('question-1', 'dismissed')).status).toBe(200)
@@ -119,7 +120,7 @@ test('a teammate with reply access can dismiss the owner’s question', async ()
 
 test('viewers and former team members cannot resolve a question', async () => {
   viewer = TEAMMATE
-  conversation.generalAccess = 'view'
+  conversation.participantIds = []
   expect((await resolve()).status).toBe(403)
   member = false
   expect((await resolve()).status).toBe(404)

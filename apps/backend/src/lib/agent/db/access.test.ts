@@ -1,65 +1,73 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
-  canManage,
   canReply,
   conversationAccess,
   generalAccessOf,
   initialGeneralAccess,
-  managesConversation,
   readableByFilter,
   readableConversationScope,
+  readsConversation,
 } from './access'
 
 const base = { userId: 'owner', teamId: 'team' }
 
 describe('conversationAccess', () => {
   test('the owner always has full access, even in a private session', () => {
-    expect(conversationAccess({ ...base, generalAccess: 'none' }, 'owner')).toBe('owner')
+    expect(conversationAccess({ ...base, generalAccess: 'none' }, 'owner', false)).toBe('owner')
   })
 
-  test('older sessions without general access stay open to the team', () => {
-    expect(conversationAccess(base, 'teammate')).toBe('reply')
+  test('older sessions without general access stay open to the team to read', () => {
+    expect(conversationAccess(base, 'teammate', false)).toBe('view')
+    expect(conversationAccess({ ...base, generalAccess: 'reply' }, 'teammate', false)).toBe('view')
   })
 
-  test('a private session is closed to everyone not invited', () => {
-    expect(conversationAccess({ ...base, generalAccess: 'none' }, 'teammate')).toBeNull()
+  test('a private session is closed to everyone not invited who may not use its computer', () => {
+    expect(conversationAccess({ ...base, generalAccess: 'none' }, 'teammate', false)).toBeNull()
   })
 
-  test('the broader of general access and the own role wins', () => {
-    const viewOnlyInvite = { participantIds: ['teammate'], viewOnlyIds: ['teammate'] }
-
-    expect(
-      conversationAccess({ ...base, generalAccess: 'none', ...viewOnlyInvite }, 'teammate'),
-    ).toBe('view')
-    expect(
-      conversationAccess({ ...base, generalAccess: 'reply', ...viewOnlyInvite }, 'teammate'),
-    ).toBe('reply')
-    expect(
-      conversationAccess(
-        { ...base, generalAccess: 'view', participantIds: ['teammate'] },
-        'teammate',
-      ),
-    ).toBe('reply')
+  test('whoever may use the computer replies, invited or not', () => {
+    for (const generalAccess of ['none', 'view'] as const) {
+      expect(conversationAccess({ ...base, generalAccess }, 'teammate', true)).toBe('reply')
+      expect(
+        conversationAccess(
+          { ...base, generalAccess, participantIds: ['teammate'] },
+          'teammate',
+          true,
+        ),
+      ).toBe('reply')
+    }
   })
 
-  test('a manager can reply and change the runtime and credentials; reply cannot', () => {
-    const managed = {
+  test('an invitee without the computer reads only', () => {
+    const invited = { ...base, generalAccess: 'none' as const, participantIds: ['teammate'] }
+
+    expect(conversationAccess(invited, 'teammate', false)).toBe('view')
+  })
+
+  test('on no one’s computer, being invited is what lets someone reply', () => {
+    const invited = { ...base, generalAccess: 'view' as const, participantIds: ['teammate'] }
+
+    expect(conversationAccess(invited, 'teammate')).toBe('reply')
+    expect(conversationAccess(invited, 'other')).toBe('view')
+    expect(conversationAccess({ ...base, generalAccess: 'none' }, 'other')).toBeNull()
+  })
+
+  test('an older view-only list or manager mark changes nothing', () => {
+    const legacy = {
       ...base,
-      generalAccess: 'reply' as const,
-      participantIds: ['teammate'],
-      managerIds: ['teammate'],
+      generalAccess: 'none' as const,
+      participantIds: ['viewer', 'manager'],
+      viewOnlyIds: ['viewer'],
+      managerIds: ['manager'],
     }
 
-    expect(conversationAccess(managed, 'teammate')).toBe('manage')
-    expect(canReply('manage')).toBe(true)
-    expect(canManage('manage')).toBe(true)
-    expect(canManage('owner')).toBe(true)
-    expect(canManage(conversationAccess(managed, 'other'))).toBe(false)
+    expect(conversationAccess(legacy, 'viewer', true)).toBe('reply')
+    expect(conversationAccess(legacy, 'manager', false)).toBe('view')
   })
 
   test('a personal conversation is the owner’s alone', () => {
-    expect(conversationAccess({ userId: 'owner' }, 'teammate')).toBeNull()
+    expect(conversationAccess({ userId: 'owner' }, 'teammate', true)).toBeNull()
   })
 })
 
@@ -76,31 +84,6 @@ test('new sessions begin private unless a channel or trigger created them', () =
 })
 
 describe('edge cases', () => {
-  test('the owner keeps full access even if a stale row lists them as view-only', () => {
-    expect(
-      conversationAccess(
-        { ...base, generalAccess: 'none', participantIds: ['owner'], viewOnlyIds: ['owner'] },
-        'owner',
-      ),
-    ).toBe('owner')
-  })
-
-  test('a view-only mark without participation grants nothing', () => {
-    expect(
-      conversationAccess({ ...base, generalAccess: 'none', viewOnlyIds: ['teammate'] }, 'teammate'),
-    ).toBeNull()
-  })
-
-  test('team-wide view lets anyone read and an own reply role still raises it', () => {
-    expect(conversationAccess({ ...base, generalAccess: 'view' }, 'teammate')).toBe('view')
-    expect(
-      conversationAccess(
-        { ...base, generalAccess: 'view', participantIds: ['teammate'] },
-        'teammate',
-      ),
-    ).toBe('reply')
-  })
-
   test('only owner and reply may reply', () => {
     expect(canReply('owner')).toBe(true)
     expect(canReply('reply')).toBe(true)
@@ -108,8 +91,18 @@ describe('edge cases', () => {
     expect(canReply(null)).toBe(false)
   })
 
-  test('a missing general access reads as the legacy team-wide reply', () => {
-    expect(generalAccessOf({})).toBe('reply')
+  test('a chat has no computer, so its team-wide reply stays', () => {
+    const chat = { ...base, kind: 'channel' }
+
+    expect(generalAccessOf(chat)).toBe('reply')
+    expect(conversationAccess(chat, 'teammate', false)).toBe('reply')
+    expect(conversationAccess({ ...chat, generalAccess: 'view' }, 'teammate', false)).toBe('view')
+    expect(conversationAccess({ ...chat, generalAccess: 'none' }, 'teammate', false)).toBeNull()
+  })
+
+  test('general access is none or view', () => {
+    expect(generalAccessOf({})).toBe('view')
+    expect(generalAccessOf({ generalAccess: 'reply' })).toBe('view')
     expect(generalAccessOf({ generalAccess: 'none' })).toBe('none')
   })
 })
@@ -152,15 +145,9 @@ function mongoMatches(doc: Record<string, unknown>, filter: Record<string, unkno
   })
 }
 
-test('readableByFilter admits exactly the viewers conversationAccess admits', () => {
+test('readableByFilter admits exactly the viewers readsConversation admits', () => {
   const generals = [undefined, 'none', 'view', 'reply'] as const
-  const memberships = [
-    {},
-    { participantIds: ['viewer'] },
-    { participantIds: ['viewer'], viewOnlyIds: ['viewer'] },
-    { viewOnlyIds: ['viewer'] },
-    { participantIds: ['someone-else'] },
-  ]
+  const memberships = [{}, { participantIds: ['viewer'] }, { participantIds: ['someone-else'] }]
   let checked = 0
 
   for (const owner of ['owner', 'viewer'])
@@ -173,45 +160,8 @@ test('readableByFilter admits exactly the viewers conversationAccess admits', ()
           ...membership,
         }
 
-        expect(mongoMatches(doc, readableByFilter('viewer'))).toBe(
-          conversationAccess(doc, 'viewer') !== null,
-        )
+        expect(mongoMatches(doc, readableByFilter('viewer'))).toBe(readsConversation(doc, 'viewer'))
         checked++
       }
-  expect(checked).toBe(40)
-})
-
-describe('managesConversation', () => {
-  // No generalAccess: the whole team may reply, as in sessions from before access.
-  const invited = {
-    ...base,
-    participantIds: ['manager', 'replier'],
-    managerIds: ['manager'],
-  }
-
-  test('the owner manages, whatever the team says', () => {
-    expect(managesConversation(invited, 'owner', false)).toBe(true)
-  })
-
-  test('a manager who is a team member manages', () => {
-    expect(managesConversation(invited, 'manager', true)).toBe(true)
-  })
-
-  test('a manager who left the team does not', () => {
-    expect(managesConversation(invited, 'manager', false)).toBe(false)
-  })
-
-  test('a reply participant does not', () => {
-    expect(managesConversation(invited, 'replier', true)).toBe(false)
-  })
-
-  test('general access alone does not', () => {
-    expect(managesConversation(invited, 'teammate', true)).toBe(false)
-  })
-
-  test('a stranger does not', () => {
-    expect(managesConversation({ ...invited, generalAccess: 'none' }, 'stranger', false)).toBe(
-      false,
-    )
-  })
+  expect(checked).toBe(24)
 })

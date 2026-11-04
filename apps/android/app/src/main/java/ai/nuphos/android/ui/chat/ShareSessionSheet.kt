@@ -21,16 +21,12 @@ import ai.nuphos.android.model.TeamMember
 import ai.nuphos.android.session.SharingState
 import kotlinx.coroutines.launch
 
-private const val LOCAL_WARNING = "This agent runs on your computer’s local runtime. Anyone you share it with can run commands on your computer."
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShareSessionSheet(state: SharingState, url: String?, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var search by remember { mutableStateOf("") }
-    var inviteRole by remember { mutableStateOf(ShareRole.Reply) }
-    var confirm by remember { mutableStateOf<Pair<TeamMember, ShareRole>?>(null) }
     var copied by remember { mutableStateOf(false) }
     LaunchedEffect(state) { state.load() }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
@@ -61,11 +57,12 @@ fun ShareSessionSheet(state: SharingState, url: String?, onDismiss: () -> Unit) 
             if (access != null) {
                 item {
                     Text("General access", style = MaterialTheme.typography.titleMedium)
-                    if (state.canManage) ChoiceMenu("Team access", access.generalAccess.title, state.editable, GeneralAccess.entries,
+                    // Only a chat lets the whole team reply; elsewhere replying follows the computer.
+                    if (state.canManage) ChoiceMenu("Team access", access.generalAccess.title, state.editable,
+                        GeneralAccess.entries.filter { it != GeneralAccess.Reply || access.generalAccess == GeneralAccess.Reply },
                         { it.title }, onSelect = { scope.launch { state.general(it) } })
                     else Text(access.generalAccess.title)
                     if (state.pending == "access") CircularProgressIndicator(Modifier.size(20.dp))
-                    if (state.localRuntime && state.canManage) Text(LOCAL_WARNING, color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodySmall)
                 }
                 item { Text("In this agent", style = MaterialTheme.typography.titleMedium) }
                 items(access.participants, key = { "participant:${it.id}" }) { person ->
@@ -79,11 +76,14 @@ fun ShareSessionSheet(state: SharingState, url: String?, onDismiss: () -> Unit) 
                         if (person.deactivated) Text("Deactivated", style = MaterialTheme.typography.labelSmall)
                         }
                         if (person.isOwner) Text("Owner", style = MaterialTheme.typography.labelMedium)
-                        else if (!state.canManage) Text(person.effectiveRole(access.generalAccess).title)
-                        else ChoiceMenu("Role for ${person.displayName}", person.effectiveRole(access.generalAccess).title,
-                            state.editable, ShareRole.entries, { it.title }, allowed = { it.rank >= access.generalAccess.floor },
-                            onSelect = { scope.launch { state.role(person, it) } }, showLabel = false,
-                            extra = { close -> DropdownMenuItem(text = { Text("Remove") }, onClick = { close(); scope.launch { state.remove(person) } }) })
+                        else if (!state.canManage) Text(person.roleTitle)
+                        // "Can view": they cannot use the session's computer yet.
+                        else ChoiceMenu("Role for ${person.displayName}", person.roleTitle, state.editable, emptyList<Unit>(), { "" },
+                            onSelect = {}, showLabel = false,
+                            extra = { close ->
+                                if (!person.canReply) DropdownMenuItem(text = { Text("Let them reply") }, onClick = { close(); scope.launch { state.letReply(person) } })
+                                DropdownMenuItem(text = { Text("Remove") }, onClick = { close(); scope.launch { state.remove(person) } })
+                            })
                         }
                         HorizontalDivider(Modifier.padding(start = 38.dp), color = MaterialTheme.colorScheme.outlineVariant)
                         if (state.pending == person.id) CircularProgressIndicator(Modifier.size(20.dp))
@@ -101,7 +101,6 @@ fun ShareSessionSheet(state: SharingState, url: String?, onDismiss: () -> Unit) 
                     item {
                         HorizontalDivider()
                         Text("Add people", style = MaterialTheme.typography.titleMedium)
-                        ChoiceMenu("Invite as", inviteRole.title, state.editable, ShareRole.entries, { it.title }, onSelect = { inviteRole = it })
                         OutlinedTextField(value = search, onValueChange = { search = it }, label = { Text("Search teammates") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                         state.membersError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                         if (state.members == null && state.membersError == null) CircularProgressIndicator(Modifier.size(24.dp))
@@ -111,11 +110,7 @@ fun ShareSessionSheet(state: SharingState, url: String?, onDismiss: () -> Unit) 
                         (query.isBlank() || member.displayName.contains(query, true) || member.email.contains(query, true)) }
                     if (state.members != null && invitable.isEmpty()) item { Text("No teammates to add") }
                     items(invitable, key = { "member:${it.id}" }) { member ->
-                        OutlinedButton(enabled = state.canInvite, onClick = {
-                            val role = inviteRole
-                            if (state.localRuntime && role != ShareRole.View) confirm = member to role
-                            else scope.launch { state.invite(member, role) }
-                        }, modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(enabled = state.canInvite, onClick = { scope.launch { state.invite(member) } }, modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.weight(1f)) { Text(member.displayName); Text(member.email, style = MaterialTheme.typography.bodySmall) }
                             Text(if (state.pending == member.id) "Adding…" else "Add")
                         }
@@ -125,11 +120,11 @@ fun ShareSessionSheet(state: SharingState, url: String?, onDismiss: () -> Unit) 
             item { Spacer(Modifier.height(16.dp)) }
         }
     }
-    confirm?.let { (member, role) ->
-        AlertDialog(onDismissRequest = { confirm = null }, title = { Text("Let ${member.displayName} use your computer?") },
-            text = { Text("This agent runs on your computer’s local runtime. They will be able to run commands on your computer.") },
-            confirmButton = { TextButton(enabled = state.canInvite, onClick = { confirm = null; scope.launch { state.invite(member, role) } }) { Text("Invite") } },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text("Cancel") } })
+    state.needsComputer?.let {
+        AlertDialog(onDismissRequest = state::cancelComputer, title = { Text("Also give use of this computer?") },
+            text = { Text("Adding this person to the conversation also gives them use of this computer. Continue?") },
+            confirmButton = { TextButton(enabled = state.canInvite, onClick = { scope.launch { state.confirmComputer() } }) { Text("Continue") } },
+            dismissButton = { TextButton(onClick = state::cancelComputer) { Text("Cancel") } })
     }
     state.error?.let { message -> AlertDialog(onDismissRequest = state::clearError, title = { Text("Couldn't update sharing") }, text = { Text(message) },
         confirmButton = { TextButton(onClick = state::clearError) { Text("OK") } }) }

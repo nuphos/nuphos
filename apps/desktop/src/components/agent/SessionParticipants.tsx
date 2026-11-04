@@ -1,15 +1,16 @@
 import { Popover } from '@base-ui/react/popover'
 import clsx from 'clsx'
-import { Info, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
-import { LOCAL_AGENT_SHARING_NOTE } from '../../lib/localAgentSharing'
 import { toast } from '../ui/toast'
 
 import { TIMELINE_CHANGED_EVENT, announceTimelineChange } from './panel/timelineEvents'
 import { addableAgents, agentPeople, removePeople } from './channelPeople'
+import { ComputerUseConfirm } from './ComputerUseConfirm'
+import { needsComputerUse } from './computerUse'
 import { InviteSection } from './InviteSection'
 import { agentSessionUrl } from './sessionUrl'
 import { GeneralAccessRow } from './ShareAccess'
@@ -21,21 +22,20 @@ import {
   TitlebarDragSuspender,
 } from './ShareCard'
 
+import type { ComputerUseRequest } from './computerUse'
 import type { Pickable } from './PersonFace'
 import type {
   AgentConversationParticipant,
   ChannelAgent,
   ConversationAccessState,
   GeneralAccess,
-  ParticipantRole,
 } from '../../api/agent-types'
 import type { TeamMember } from '../../types'
 
 /**
- * The session's people, and the Share card that decides who else may open it:
- * a team-wide general access plus a role for each invited person, resolved the
- * way Notion does — the broader grant wins. Only the owner changes any of it;
- * everyone else sees who is here and what they may do.
+ * The session's people, and the Share card that decides who else sees it.
+ * Whoever may use the session's computer replies, so inviting someone who may
+ * not asks to give them use of it. Only the owner changes this.
  */
 export function SessionParticipants({
   sessionId,
@@ -43,7 +43,6 @@ export function SessionParticipants({
   title,
   currentUserId,
   canManage,
-  warnLocalAgent,
   compact,
   channel,
 }: {
@@ -53,8 +52,6 @@ export function SessionParticipants({
   currentUserId: string
   /** The viewer owns this session, so they decide who has access. */
   canManage: boolean
-  /** The viewer owns this session and it runs on their own computer's Local Agent. */
-  warnLocalAgent: boolean
   /** A narrow pane header: one avatar and no "Share" label. */
   compact?: boolean
   /** A channel: its agents are listed, picked and removed here like any teammate. */
@@ -62,7 +59,8 @@ export function SessionParticipants({
 }) {
   const [participants, setParticipants] = useState<AgentConversationParticipant[]>([])
   const [generalAccess, setGeneralAccess] = useState<GeneralAccess>('none')
-  const [inviteRole, setInviteRole] = useState<ParticipantRole>('reply')
+  // An invite waiting to also give its people use of the session's computer.
+  const [computerUse, setComputerUse] = useState<ComputerUseRequest | null>(null)
   const [members, setMembers] = useState<TeamMember[] | null>(null)
   const [picked, setPicked] = useState<Pickable[]>([])
   // Set once an invite lands: the card shows its receipt instead of the picker.
@@ -119,32 +117,54 @@ export function SessionParticipants({
         : [...current, member],
     )
 
+  const invitePeople = (people: Pickable[], grantComputerUse = false) =>
+    people.length > 0
+      ? api
+          .agentInviteConversationParticipants(
+            sessionId,
+            teamId,
+            people.map((member) => member.id),
+            grantComputerUse,
+          )
+          .then(apply)
+      : Promise.resolve()
+
+  const invited = () => {
+    setAdded(picked)
+    setPicked([])
+    channel?.onAgentsChange()
+    announceTimelineChange(sessionId)
+  }
+
+  // Someone who cannot use the computer yet is invited only once the owner confirms giving it.
+  const confirmComputerUse = (people: Pickable[], then: () => void) => (err: unknown) => {
+    if (!needsComputerUse(err)) return toast.apiError(t('Failed to add teammates'), err)
+    setComputerUse({
+      count: people.length,
+      confirm: () => invitePeople(people, true).then(then),
+    })
+  }
+
   const invite = () => {
     const people = picked.filter((member) => !member.agent)
 
     setPending('invite')
     Promise.all([
-      people.length > 0
-        ? api
-            .agentInviteConversationParticipants(
-              sessionId,
-              teamId,
-              people.map((member) => member.id),
-              inviteRole,
-            )
-            .then(apply)
-        : undefined,
+      invitePeople(people),
       ...picked
         .filter((member) => member.agent)
         .map((agent) => api.agentAddChannelAgent(sessionId, teamId, agent.id)),
     ])
-      .then(() => {
-        setAdded(picked)
-        setPicked([])
-        channel?.onAgentsChange()
-        announceTimelineChange(sessionId)
-      })
-      .catch((err: unknown) => toast.apiError(t('Failed to add teammates'), err))
+      .then(invited)
+      .catch(confirmComputerUse(people, invited))
+      .finally(() => setPending(null))
+  }
+
+  // Inviting a participant who reads only again offers them use of the computer.
+  const allowReply = (person: AgentConversationParticipant) => {
+    setPending(person.id)
+    invitePeople([person])
+      .catch(confirmComputerUse([person], () => announceTimelineChange(sessionId)))
       .finally(() => setPending(null))
   }
 
@@ -157,15 +177,6 @@ export function SessionParticipants({
     setPending(id)
     removeAll([person])
       .catch((err: unknown) => toast.apiError(t('Failed to remove {name}', { name }), err))
-      .finally(() => setPending(null))
-  }
-
-  const changeRole = ({ id, name }: AgentConversationParticipant, role: ParticipantRole) => {
-    setPending(id)
-    api
-      .agentSetConversationParticipantRole(sessionId, teamId, id, role)
-      .then(apply)
-      .catch((err: unknown) => toast.apiError(t('Failed to change {name}', { name }), err))
       .finally(() => setPending(null))
   }
 
@@ -229,11 +240,7 @@ export function SessionParticipants({
             {added ? (
               <AddedReceipt
                 added={added}
-                detail={
-                  inviteRole === 'view' && generalAccess !== 'reply'
-                    ? t('They can view this agent')
-                    : t('They can view and reply')
-                }
+                detail={t('They can view and reply')}
                 undoing={pending === 'undo'}
                 onUndo={undo}
               />
@@ -254,23 +261,17 @@ export function SessionParticipants({
                   <GeneralAccessRow
                     value={generalAccess}
                     canManage={canManage && pending === null}
+                    chat={channel !== undefined}
                     onChange={changeGeneralAccess}
                   />
                 </ShareLink>
-                {warnLocalAgent && (
-                  <div className="flex gap-2 px-1 text-[12px] leading-snug text-tertiary">
-                    <Info className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-                    {LOCAL_AGENT_SHARING_NOTE}
-                  </div>
-                )}
                 <ParticipantList
                   participants={everyone}
                   label={channel ? t('In this chat') : undefined}
                   currentUserId={currentUserId}
-                  generalAccess={generalAccess}
                   canManage={canManage}
                   pending={pending}
-                  onRoleChange={changeRole}
+                  onAllowReply={allowReply}
                   onRemove={remove}
                 />
                 {canPick ? (
@@ -279,8 +280,6 @@ export function SessionParticipants({
                     invitable={invitable}
                     picked={picked}
                     onToggle={togglePicked}
-                    role={canManage ? inviteRole : undefined}
-                    onRoleChange={setInviteRole}
                     chat={channel !== undefined}
                     pending={pending}
                     onInvite={invite}
@@ -295,6 +294,7 @@ export function SessionParticipants({
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>
+      <ComputerUseConfirm request={computerUse} onClose={() => setComputerUse(null)} />
     </Popover.Root>
   )
 }

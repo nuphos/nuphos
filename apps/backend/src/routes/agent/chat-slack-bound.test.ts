@@ -1,11 +1,9 @@
 // The chat route's Slack-bound branch: the turn's message list is a MERGE of
 // the stored transcript and the client view (store order wins, client copies
 // win id collisions, client-only messages append) so neither side's truth is
-// deleted; the per-session claim serializes app turns against Slack-side
-// replies; mirror setup fails open.
+// deleted; mirror setup fails open.
 import { beforeEach, describe, expect, test } from 'bun:test'
 
-import { useTurnRunner } from '@/lib/agent/turn-runner-testing'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 
 import type { AgentChatBody } from './types'
@@ -22,22 +20,7 @@ useAgentDb({
   getConversationWithMessages: async () => ({ conversation: {}, messages: state.stored }),
 })
 
-// In-process claim semantics: taken → null until released.
-const heldClaims = new Set<string>()
-
-useTurnRunner({
-  claimAgentRunForSession: async (userId: string, sessionId: string) => {
-    const key = `${userId}:${sessionId}`
-
-    if (heldClaims.has(key)) return null
-    heldClaims.add(key)
-
-    return () => heldClaims.delete(key)
-  },
-})
-
-const { beginSlackBoundTurnDelivery, buildSlackBoundTurnPlan, claimSlackBoundTurn } =
-  await import('./chat-slack-bound')
+const { beginSlackBoundTurnDelivery, buildSlackBoundTurnPlan } = await import('./chat-slack-bound')
 const { AppError } = await import('@/lib/errors')
 
 function textMessage(id: string, role: 'user' | 'assistant', text: string): StoredMessage {
@@ -60,7 +43,6 @@ function planArgs(clientView: UIMessage[], body?: Partial<AgentChatBody>) {
 
 beforeEach(() => {
   state.stored = []
-  heldClaims.clear()
 })
 
 describe('buildSlackBoundTurnPlan', () => {
@@ -211,27 +193,6 @@ describe('buildSlackBoundTurnPlan', () => {
 
   test('rejects a merge with no user message anywhere', async () => {
     await expect(buildSlackBoundTurnPlan(planArgs([]))).rejects.toThrow(AppError)
-  })
-})
-
-describe('claimSlackBoundTurn', () => {
-  test('second sender is refused with conversation_busy while the claim is held', async () => {
-    const release = await claimSlackBoundTurn(OWNER, 'sess-claim-1')
-
-    try {
-      await claimSlackBoundTurn(OWNER, 'sess-claim-1')
-      throw new Error('expected conversation_busy')
-    } catch (err) {
-      expect(err).toBeInstanceOf(AppError)
-      expect((err as InstanceType<typeof AppError>).status).toBe(409)
-      expect((err as InstanceType<typeof AppError>).code).toBe('conversation_busy')
-    } finally {
-      release()
-    }
-    // Released → the session is claimable again.
-    const again = await claimSlackBoundTurn(OWNER, 'sess-claim-1')
-
-    again()
   })
 })
 

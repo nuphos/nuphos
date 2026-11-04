@@ -1,5 +1,5 @@
 import { AgentAvatar } from '../agent/AgentAvatar'
-import { ChannelMark } from '../channels/channelParts'
+import { ChatIcon } from '../channels/channelParts'
 
 import { SharedByBadge } from './SharedByBadge'
 
@@ -8,8 +8,9 @@ import type { AgentConversation } from '../../api'
 
 /** Agent identity and current Runtime; execution status lives in ChatRowStatus. */
 export function chatRowIcon(conversation: AgentConversation): Pick<Item, 'icon' | 'iconNode'> {
-  // A channel is never an agent, so it never wears one's face.
-  if (conversation.kind === 'channel') return { iconNode: <ChannelMark size={22} /> }
+  // A chat wears its members' faces, never an agent's own.
+  if (conversation.kind === 'channel')
+    return { iconNode: <ChatIcon faces={conversation.faces} title={conversation.title} sidebar /> }
 
   const avatar = (
     <AgentAvatar

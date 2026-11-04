@@ -1,7 +1,6 @@
 import { z } from 'zod'
 
 import { getReadableConversation, setConversationAvatar } from '@/lib/agent/db'
-import { managesConversation } from '@/lib/agent/db/access'
 import { AppError } from '@/lib/errors'
 
 import { agent } from './router'
@@ -31,7 +30,7 @@ agent.patch('/conversations/:sessionId/avatar', async (c) => {
 
   if (
     !conversation ||
-    !managesConversation(conversation, userId, Boolean(teamId)) ||
+    conversation.userId !== userId ||
     !(await setConversationAvatar(sessionId, body.data.avatar))
   ) {
     throw new AppError(404, 'not_found', 'Conversation not found')

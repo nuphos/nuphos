@@ -30,11 +30,14 @@ class SharingFixtureDeviceTest {
         var reject = false
         override suspend fun read() = access
         override suspend fun members() = listOf(member, member.copy(id = "removed", removedAt = "2026-01-01"))
-        override val localRuntime = true
         private fun write(value: SessionAccess): SessionAccess { calls++; check(!reject) { "Synthetic permission denied (403)" }; access = value; return value }
         override suspend fun general(value: GeneralAccess) = write(access.copy(generalAccess = value))
-        override suspend fun invite(userId: String, role: ShareRole) = write(access.copy(participants = access.participants + SessionAccess.Participant(userId, member.name, member.email, false, role.raw)))
-        override suspend fun role(userId: String, role: ShareRole) = write(access.copy(participants = access.participants.map { if (it.id == userId) it.copy(role = role.raw) else it }))
+        /** Nobody here may use the session's computer until an invite grants it, as the backend answers. */
+        override suspend fun invite(userId: String, grantComputerUse: Boolean): SessionAccess {
+            if (!grantComputerUse) throw AgentChatApi.conflict(409, """{"error":{"code":"computer_use_required","message":"Adding this person to the conversation also gives them use of Synthetic Mac. Continue?"}}""")
+            val joined = access.participants.filterNot { it.id == userId } + SessionAccess.Participant(userId, if (userId == member.id) member.name else "Synthetic Viewer", member.email, false, "reply")
+            return write(access.copy(participants = joined))
+        }
         override suspend fun remove(userId: String) = write(access.copy(participants = access.participants.filterNot { it.id == userId }))
     }
     private fun snap(name: String) {
@@ -45,7 +48,7 @@ class SharingFixtureDeviceTest {
         bitmap.recycle()
     }
     @Test fun ownerSharingMatrixIsSynthetic() {
-        val initial = SessionAccess(GeneralAccess.Reply, listOf(SessionAccess.Participant("owner", "Synthetic Owner", "", true, "owner"), person))
+        val initial = SessionAccess(GeneralAccess.View, listOf(SessionAccess.Participant("owner", "Synthetic Owner", "", true, "owner"), person))
         val api = Fixture(initial, member)
         val state = SharingState(api) { true }
         var dark by mutableStateOf(false)
@@ -55,20 +58,22 @@ class SharingFixtureDeviceTest {
         snap("synthetic-owner-light")
         compose.runOnIdle { dark = true }
         snap("synthetic-owner-dark")
-        compose.onNodeWithContentDescription("Role for Synthetic Viewer: Can reply").performScrollTo().performClick()
-        compose.onNodeWithText("Can view").assertIsNotEnabled()
-        compose.onNodeWithText("Can manage").performClick()
-        compose.waitUntil { state.access!!.participants.last().role == "manage" }
-        compose.onNodeWithText("Team access: Team can view and reply").performScrollTo().performClick()
+        compose.runOnIdle { dark = false }
+        // Team-wide reply is a chat's only.
+        compose.onNodeWithText("Team access: Team can view").performScrollTo().performClick()
+        compose.onNodeWithText("Team can view and reply").assertDoesNotExist()
         compose.onNodeWithText("Only people invited").performClick()
         compose.waitUntil { state.access!!.generalAccess == GeneralAccess.Invited }
-        compose.onNodeWithText("Synthetic Teammate").performScrollTo().performClick()
-        compose.onNodeWithText("Let Synthetic Teammate use your computer?").assertExists()
-        snap("synthetic-local-confirm")
+        // A viewer cannot use the computer: letting them reply asks first.
+        compose.onNodeWithContentDescription("Role for Synthetic Viewer: Can view").performScrollTo().performClick()
+        snap("synthetic-viewer-menu")
+        compose.onNodeWithText("Let them reply").performClick()
+        compose.onNodeWithText("Also give use of this computer?").assertExists()
+        snap("synthetic-computer-confirm")
         compose.onNodeWithText("Cancel").performClick()
-        assertEquals(2, api.calls)
+        assertEquals(1, api.calls)
         compose.onNodeWithText("Synthetic Teammate").performScrollTo().performClick()
-        compose.onNodeWithText("Invite").performClick()
+        compose.onNodeWithText("Continue").performClick()
         compose.waitUntil { state.added != null }
         compose.onNodeWithText("Undo invite").performScrollTo().performClick()
         compose.waitUntil { state.added == null }
@@ -81,7 +86,7 @@ class SharingFixtureDeviceTest {
         compose.onNodeWithText("OK").performClick()
         assertEquals(GeneralAccess.Invited, state.access!!.generalAccess)
         compose.runOnIdle { api.reject = false }
-        compose.onNodeWithContentDescription("Role for Synthetic Viewer: Can manage").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Role for Synthetic Viewer: Can view").performScrollTo().performClick()
         compose.onNodeWithText("Remove").performClick()
         compose.waitUntil { state.access!!.participants.size == 1 }
     }

@@ -110,13 +110,11 @@ test('cross-team and non-participant reads fail closed', async () => {
   ).rejects.toThrow('not found')
   await expect(resourceConversation({ ...actor, userId: 'stranger' })).rejects.toThrow('not found')
 })
-test('reply-only participants cannot enable autonomous wakeups', async () => {
+test('participants cannot enable autonomous wakeups', async () => {
   conversation.participantIds = ['participant']
   await expect(resourceConversation({ ...actor, userId: 'participant' }, true)).rejects.toThrow(
-    'owner or manager',
+    'owner',
   )
-  conversation.managerIds = ['participant']
-  expect(await resourceConversation({ ...actor, userId: 'participant' }, true)).toBe(conversation)
 })
 test('worker rechecks unlink, membership, selection and disconnected integrations', async () => {
   expect(await authorizedResourceTurn(delivery)).not.toBeNull()
@@ -136,11 +134,11 @@ test('worker rechecks unlink, membership, selection and disconnected integration
   conversation.credentialAccess!.githubInstallationIds = []
   expect(await authorizedResourceTurn(delivery)).toBeNull()
 })
-test('reply-only participants cannot unlink the conversation thread', async () => {
+test('participants cannot unlink the conversation thread', async () => {
   conversation.participantIds = ['participant']
   await expect(
     unlinkSessionResource({ ...actor, userId: 'participant' }, 'slack:C1:1.2'),
-  ).rejects.toThrow('owner or manager')
+  ).rejects.toThrow('owner')
   expect(updates).toEqual([])
 })
 test('unlink only updates the authorized conversation', async () => {

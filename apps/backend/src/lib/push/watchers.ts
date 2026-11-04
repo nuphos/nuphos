@@ -1,4 +1,4 @@
-import { conversationAccess } from '@/lib/agent/db/access'
+import { readsConversation } from '@/lib/agent/db/access'
 import { getTeamMembership } from '@/lib/identity'
 
 import type { AgentConversation } from '@/lib/agent/db'
@@ -10,15 +10,12 @@ import type { AgentConversation } from '@/lib/agent/db'
  * `watcherIds`.
  */
 export async function watcherCanRead(
-  conversation: Pick<
-    AgentConversation,
-    'userId' | 'teamId' | 'generalAccess' | 'participantIds' | 'viewOnlyIds' | 'managerIds'
-  >,
+  conversation: Pick<AgentConversation, 'userId' | 'teamId' | 'generalAccess' | 'participantIds'>,
   userId: string,
   isMember: (userId: string, teamId: string) => Promise<unknown> = getTeamMembership,
 ): Promise<boolean> {
   if (conversation.userId === userId) return true
-  if (!conversation.teamId || !conversationAccess(conversation, userId)) return false
+  if (!conversation.teamId || !readsConversation(conversation, userId)) return false
 
   return Boolean(await isMember(userId, conversation.teamId))
 }

@@ -25,7 +25,6 @@ beforeEach(() => {
       teamId: TEAM,
       generalAccess: 'none',
       participantIds: ['viewer'],
-      viewOnlyIds: ['viewer'],
       title: 'Shared',
     },
     { sessionId: 'legacy', userId: 'owner', teamId: TEAM, title: 'Team' },

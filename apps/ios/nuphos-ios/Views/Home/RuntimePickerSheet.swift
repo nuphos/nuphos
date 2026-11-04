@@ -78,7 +78,7 @@ private struct RuntimePicker: View {
                 Button("Move") { onMove(runtime); dismiss() }
                 Button("Cancel", role: .cancel) {}
             } message: { _ in
-                Text("This runtime runs on your computer. After the move, anyone in this team can open this agent and run commands on your computer.")
+                Text("This runtime runs on your computer. After the move, people in this conversation can reply only if they can use this computer; the others can still read it.")
             }
             .task(id: store.selectedTeam?.id) {
                 initialized = false

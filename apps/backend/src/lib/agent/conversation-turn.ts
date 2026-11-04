@@ -11,6 +11,7 @@ import { withChannelPosts } from './channel-wake'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
 import { requeueTurnQueue } from './session-released'
 import { turnRunner } from './turn-runner'
+import { keepUndeliveredSend } from './undelivered-send'
 
 import type { AgentConversation } from './db'
 import type { MessageMetadata } from './message-metadata'
@@ -205,8 +206,9 @@ async function runtimeRestarted(data: DeliveredTo): Promise<boolean> {
 }
 
 /**
- * The one rule for an accepted thread message: it runs as a turn of its target,
- * or its sender is told, once, that it did not.
+ * The one rule for an accepted message: it runs as a turn of its target, or its
+ * sender is told, once, that it did not. A thread message is answered in its
+ * sender's thread; a person's send stays in the conversation, with the reason.
  */
 export async function reportUndelivered(
   // No team when the target conversation is gone: the sender's own is the one it sent from.
@@ -217,6 +219,8 @@ export async function reportUndelivered(
   for (const message of messages) {
     const senderId = message.metadata?.sourceSessionId
 
+    if (message.chat)
+      await keepUndeliveredSend(data, message, `${UNDELIVERED_NOTICE} This message ${reason}`)
     if (message.source !== 'agent.thread' || !senderId) continue
     if (message.renderedText.startsWith(UNDELIVERED_NOTICE)) continue
     const failed = (error: unknown) => {

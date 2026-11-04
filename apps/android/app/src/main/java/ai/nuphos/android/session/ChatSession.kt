@@ -256,7 +256,7 @@ class ChatSession(
     val canOpenDesktop get() = canManage && isOwner && !browsingOnly && runtimeObservation?.snapshot?.let { snapshot ->
         snapshot["canOpenDesktop"]?.boolValue == true || snapshot["tools"]?.arrayValue?.any { it["kind"]?.stringValue == "desktop" } == true
     } == true
-    fun sharingState() = SharingState(ai.nuphos.android.data.SessionSharingApi(token, teamId, sessionId, runtimeId)) {
+    fun sharingState() = SharingState(ai.nuphos.android.data.SessionSharingApi(token, teamId, sessionId)) {
         canManage && isOwner && !browsingOnly
     }
 

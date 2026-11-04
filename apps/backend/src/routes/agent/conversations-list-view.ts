@@ -1,11 +1,14 @@
+import { resolveConversationAccessList } from '@/lib/agent/devices/conversation-computer'
 import { buildConversationOwnerMap, serializeConversationForViewer } from './conversation-view'
 import { getLocalActiveAgentRun } from './run-registry'
 
+import type { ConversationAccessFields } from '@/lib/agent/devices/conversation-computer'
 import type { AgentConversation } from '@/lib/agent/db'
 import type { SessionThreadResource } from '@/lib/agent/session-thread-resources'
 import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 import type { SlackAgentThreadSummary } from '@/lib/slack/agent-bot'
 
+import { channelFacesField } from '@/lib/agent/channel-faces'
 import { liveAttachment } from '@/lib/agent/db/shared'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
 import { sessionThreadResources } from '@/lib/agent/session-thread-resources'
@@ -96,28 +99,38 @@ export async function serializeConversationList<T extends ListedConversation>(
       }),
     ),
   )
-  const [ownerById, slackThreads, activeRuns, runtimeStates, threadResources] = await Promise.all([
-    buildConversationOwnerMap(
-      teamId,
-      conversations.map((conversation) => conversation.userId),
-    ),
-    slackThreadsPromise,
-    activeRunsPromise,
-    runtimeStatesPromise,
-    sessionThreadResources(
-      conversations as unknown as Pick<AgentConversation, 'sessionId' | 'firstMessage'>[],
-    ).catch((err: unknown) => {
-      logError('agent.conversations.thread_resources.error', err, { team_id: teamId })
+  const [ownerById, slackThreads, activeRuns, runtimeStates, threadResources, accesses] =
+    await Promise.all([
+      buildConversationOwnerMap(
+        teamId,
+        conversations.map((conversation) => conversation.userId),
+      ),
+      slackThreadsPromise,
+      activeRunsPromise,
+      runtimeStatesPromise,
+      sessionThreadResources(
+        conversations as unknown as Pick<AgentConversation, 'sessionId' | 'firstMessage'>[],
+      ).catch((err: unknown) => {
+        logError('agent.conversations.thread_resources.error', err, { team_id: teamId })
 
-      return new Map<string, SessionThreadResource[]>()
-    }),
-  ])
+        return new Map<string, SessionThreadResource[]>()
+      }),
+      resolveConversationAccessList(
+        conversations as unknown as ConversationAccessFields[],
+        viewer.id,
+      ),
+    ])
   const slackThreadBySessionId = new Map(slackThreads.map((thread) => [thread.sessionId, thread]))
 
   // A conversation's desktops on its Box come from the device's presence, not the snapshot.
-  const desktops = await Promise.all(
-    conversations.map((conversation) => sessionDesktops(conversation)),
-  )
+  const [desktops, faces] = await Promise.all([
+    Promise.all(conversations.map((conversation) => sessionDesktops(conversation))),
+    Promise.all(
+      conversations.map((conversation) =>
+        channelFacesField(conversation as unknown as AgentConversation, viewer.id, ownerById),
+      ),
+    ),
+  ])
 
   return conversations.map((conversation, index) => {
     const runtimeState = withDesktops(
@@ -132,6 +145,7 @@ export async function serializeConversationList<T extends ListedConversation>(
           viewer,
           ownerById,
           slackThreadBySessionId.get(conversation.sessionId),
+          accesses[index] ?? null,
         ),
       ),
       linkedResources: [
@@ -140,6 +154,7 @@ export async function serializeConversationList<T extends ListedConversation>(
       ],
       activeRun: runtimeState.state === 'active' ? (activeRuns[index] ?? null) : null,
       runtimeState,
+      ...faces[index],
     }
   })
 }

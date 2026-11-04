@@ -313,20 +313,17 @@ describe('conversation-scoped thread tools', () => {
     })
   })
 
-  test("a thread copies its parent's readers, never its managers or watchers", async () => {
+  test("a thread copies its parent's readers, never its watchers", async () => {
     Object.assign(source, {
       generalAccess: 'reply',
-      participantIds: ['x', 'v', 'm'],
-      viewOnlyIds: ['v'],
-      managerIds: ['m'],
+      participantIds: ['x', 'v'],
       watcherIds: ['owner', 'x'],
     })
     await createAgentThread(actor, 'Wait for CI', 'CI watcher')
 
     expect(threadReadGrants(shells[0]!.parentGrants!)).toEqual({
-      generalAccess: 'reply',
-      participantIds: ['x', 'v', 'm'],
-      viewOnlyIds: ['v'],
+      generalAccess: 'view',
+      participantIds: ['x', 'v'],
     })
   })
 

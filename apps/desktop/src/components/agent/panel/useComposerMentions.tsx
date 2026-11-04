@@ -3,12 +3,15 @@ import { useRef, useState } from 'react'
 import { api } from '../../../api'
 import { t } from '../../../i18n'
 import { AppAlertDialog } from '../../ui/alert-dialog'
+import { ComputerUseConfirm } from '../ComputerUseConfirm'
+import { needsComputerUse } from '../computerUse'
 
 import { matchDevices, matchMembers, mentionQuery } from './composerMention'
 import { MENTION_ATTR, optionChip } from './composerMentionChips'
 import { MentionPicker } from './composerMentionOptions'
 import { announceTimelineChange } from './timelineEvents'
 
+import type { ComputerUseRequest } from '../computerUse'
 import type { MentionOption } from './composerMentionChips'
 import type { CredentialSelectorControl } from './credentialSections'
 import type { AgentConversation } from '../../../api/agent-types'
@@ -60,6 +63,7 @@ export function useComposerMentions(
     contextElement: HTMLElement
   } | null>(null)
   const [uninvited, setUninvited] = useState<TeamMember[]>([])
+  const [computerUse, setComputerUse] = useState<ComputerUseRequest | null>(null)
   // Tagged with the query they answer, so a list for an earlier keystroke is
   // never shown (or picked) under a later one.
   const [sessions, setSessions] = useState<{ query: string; list: AgentConversation[] }>()
@@ -239,15 +243,21 @@ export function useComposerMentions(
         cancelLabel={t("Don't invite")}
         onConfirm={async () => {
           if (!scope?.sessionId) return
-          await api.agentInviteConversationParticipants(
-            scope.sessionId,
-            scope.teamId,
-            uninvited.map((member) => member.id),
-          )
-          announceTimelineChange(scope.sessionId)
+          const { sessionId, teamId } = scope
+          const ids = uninvited.map((member) => member.id)
+          const invite = (grantComputerUse?: boolean) =>
+            api
+              .agentInviteConversationParticipants(sessionId, teamId, ids, grantComputerUse)
+              .then(() => announceTimelineChange(sessionId))
+
+          await invite().catch((err: unknown) => {
+            if (!needsComputerUse(err)) throw err
+            setComputerUse({ count: ids.length, confirm: () => invite(true) })
+          })
         }}
         onClose={() => setUninvited([])}
       />
+      <ComputerUseConfirm request={computerUse} onClose={() => setComputerUse(null)} />
     </>
   )
 
