@@ -132,20 +132,22 @@ test("a new conversation's first message takes the queue too: it runs now on a f
   }
 })
 
-test('a send while the session is busy waits, never refused, whatever the conversation', async () => {
+test('a send while the session is busy waits, never refused', async () => {
   const done = busy()
 
   try {
-    // A new conversation's send, like a Slack-bound one, answered 409 here before.
+    // A Slack-bound send answered 409 here before.
     expect(await admit('slack')).toEqual({ mode: 'queued' })
-    expect(await admit('fresh', { conversation: null })).toEqual({ mode: 'queued' })
+    // A conversation not stored yet has nothing to wait in: its send runs, and its
+    // first turn stores it before the runtime can refuse and requeue it.
+    const fresh = await admit('fresh', { conversation: null })
+
+    expect(fresh?.mode).toBe('run')
+    if (fresh?.mode === 'run') expect(fresh.item.id).toBe('fresh')
   } finally {
     done()
   }
-  expect((await listPendingUserMessages(OWNER, SESSION)).map((m) => m.id)).toEqual([
-    'slack',
-    'fresh',
-  ])
+  expect((await listPendingUserMessages(OWNER, SESSION)).map((m) => m.id)).toEqual(['slack'])
 })
 
 test('a free session runs the message now and holds the claim for it', async () => {

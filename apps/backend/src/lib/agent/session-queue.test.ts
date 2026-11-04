@@ -340,20 +340,30 @@ test('a send whose agent cannot run it is kept with the reason instead of retrie
   expect(JSON.stringify(kept[0]?.messages[1]?.parts)).toContain('Its agent was deleted.')
 })
 
-test('a send that fails to start for a passing reason goes back to the head of the queue', async () => {
-  installTurnRunner({
-    hasActiveAgentRunForSession: async () => false,
-    claimAgentRunForSession: async () => () => {},
-    launchQueuedChatTurn: async () => {
-      throw new Error('Mongo blip')
-    },
-  })
-  await queue(human('retry'), human('next'))
-  await startQueuedTurn(OWNER, SESSION)
+for (const failure of [
+  new Error('Mongo blip'),
+  new AppError(503, 'runtime_unavailable', 'Unavailable'),
+  new AppError(408, 'timeout', 'Timed out'),
+  new AppError(409, 'runtime_not_accepting_message', 'Busy'),
+  new AppError(425, 'too_early', 'Too early'),
+  new AppError(429, 'rate_limited', 'Slow down'),
+  new AppError(403, 'local_share_approval_required', 'Waiting for the owner'),
+]) {
+  test(`a send that fails to start with "${failure.message}" goes back to the head of the queue`, async () => {
+    installTurnRunner({
+      hasActiveAgentRunForSession: async () => false,
+      claimAgentRunForSession: async () => () => {},
+      launchQueuedChatTurn: async () => {
+        throw failure
+      },
+    })
+    await queue(human('retry'), human('next'))
+    await startQueuedTurn(OWNER, SESSION)
 
-  expect(await waiting()).toEqual(['retry', 'next'])
-  expect(kept).toEqual([])
-})
+    expect(await waiting()).toEqual(['retry', 'next'])
+    expect(kept).toEqual([])
+  })
+}
 
 test('two releases racing for one session start its head once', async () => {
   let held = false

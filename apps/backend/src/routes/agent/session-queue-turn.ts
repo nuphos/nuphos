@@ -114,7 +114,6 @@ export async function admitQueueableChat(
   if (JSON.stringify(message).length > MAX_QUEUED_MESSAGE_CHARS)
     throw new AppError(413, 'message_too_large', 'This message is too large to send')
   const owner = args.runOwnerUserId
-  // A new conversation's id: a send that waits for it runs once its first turn stores it.
   const sessionId = args.body.id
   // Nothing overtakes a message that is already waiting.
   const release = (await hasQueuedTranscriptMessage(owner, sessionId))
@@ -141,8 +140,11 @@ export async function admitQueueableChat(
     },
   }
 
-  // Run now; a runtime refusal mid-start puts it at the head of the queue.
-  if (release && !runtimeBusy) return { mode: 'run', release, item }
+  // Run now; a runtime refusal mid-start puts it at the head of the queue. A
+  // conversation not stored yet always runs now: its first turn stores it before
+  // the runtime can refuse, so nothing ever waits for a conversation that may never exist.
+  if (!conversation || (release && !runtimeBusy))
+    return { mode: 'run', release: release ?? (() => {}), item }
   const queued = await enqueuePendingUserMessage(owner, sessionId, item)
 
   // Letting go of the claim starts the queue; otherwise nudge it ourselves.
