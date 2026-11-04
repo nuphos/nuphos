@@ -1,11 +1,9 @@
-import { AtSign } from 'lucide-react'
-
 import { ChatIcon } from '../../components/channels/channelParts'
 import { t } from '../../i18n'
 
 import type { ChannelMention } from '../../api'
 
-/** Chats and shared agents where someone @mentioned the viewer. A row opens it. */
+/** Channels where someone @mentioned the viewer. A row opens the channel. */
 export function ChannelMentions({
   mentions,
   onOpen,
@@ -17,7 +15,9 @@ export function ChannelMentions({
 
   return (
     <section className="flex-shrink-0 border-b border-zGray-800/70">
-      <div className="px-4 pt-3 pb-1 text-[12px] font-medium text-tertiary">{t('Mentions')}</div>
+      <div className="px-4 pt-3 pb-1 text-[12px] font-medium text-tertiary">
+        {t('Mentions in chats')}
+      </div>
       <ul>
         {mentions.map((mention) => (
           <li key={mention.channelId}>
@@ -26,17 +26,11 @@ export function ChannelMentions({
               onClick={() => onOpen(mention.channelId)}
               className="flex w-full items-start gap-2.5 px-4 py-2.5 text-left text-[12.5px] hover:bg-zGray-800/40"
             >
-              {mention.kind === 'agent' ? (
-                <AtSign className="mt-0.5 h-5 w-5 shrink-0 text-tertiary" strokeWidth={1.75} />
-              ) : (
-                <ChatIcon title={mention.title} size={20} className="mt-0.5" />
-              )}
+              <ChatIcon title={mention.title} size={20} className="mt-0.5" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-secondary">
                   <span className="text-main">{mention.sender?.name ?? t('Someone')}</span>{' '}
-                  {mention.kind === 'agent'
-                    ? t('mentioned you in {title}', { title: mention.title })
-                    : t('mentioned you in #{name}', { name: mention.title })}
+                  {t('mentioned you in #{name}', { name: mention.title })}
                 </span>
                 <span className="block truncate text-tertiary">{mention.text}</span>
               </span>
