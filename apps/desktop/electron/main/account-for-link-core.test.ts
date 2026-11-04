@@ -101,7 +101,11 @@ test('every waiting account is asked at once, and the first in the list that is 
   assert.equal(await routing, c.key)
 })
 
-function switching(outcome: 'switched' | 'signInAgain' | null, reloads: boolean) {
+function switching(
+  outcome: 'switched' | 'signInAgain' | null,
+  reloads: boolean,
+  inUse: string | null = b.key,
+) {
   const waiting = new Set<() => void>()
 
   return {
@@ -124,6 +128,7 @@ function switching(outcome: 'switched' | 'signInAgain' | null, reloads: boolean)
         return { reloaded, cancel: () => waiting.delete(resolve) }
       },
       waitMs: 5_000,
+      inUse: async () => inUse,
     },
   }
 }
@@ -131,15 +136,22 @@ function switching(outcome: 'switched' | 'signInAgain' | null, reloads: boolean)
 test('a switch resolves once the windows reload as the next account', async () => {
   const h = switching('switched', true)
 
-  assert.equal(await switchThenWait(b.key, h.deps), true)
+  assert.equal(await switchThenWait(b.key, h.deps), 'switched')
   assert.equal(h.waiting.size, 0)
+})
+
+test('a switch another one overtook before the reload is not reported as this account', async () => {
+  // The sidebar's switch to C landed first; the reload waited for was C's.
+  const h = switching('switched', true, c.key)
+
+  assert.equal(await switchThenWait(b.key, h.deps), 'moved')
 })
 
 test('a switch that did not happen opens nothing and leaves no waiter behind', async () => {
   for (const outcome of ['signInAgain', null] as const) {
     const h = switching(outcome, false)
 
-    assert.equal(await switchThenWait(b.key, h.deps), false)
+    assert.equal(await switchThenWait(b.key, h.deps), 'failed')
     assert.equal(h.waiting.size, 0)
   }
 })
@@ -147,7 +159,7 @@ test('a switch that did not happen opens nothing and leaves no waiter behind', a
 test('a reload that never comes is waited for only so long', async () => {
   const h = switching('switched', false)
 
-  assert.equal(await switchThenWait(b.key, { ...h.deps, waitMs: 10 }), true)
+  assert.equal(await switchThenWait(b.key, { ...h.deps, waitMs: 10 }), 'switched')
   assert.equal(h.waiting.size, 0)
 })
 
@@ -195,7 +207,7 @@ test('an answer that arrived after the account changed is asked again', async ()
     switchTo: async (key) => {
       switchedTo.push(key)
 
-      return true
+      return 'switched' as const
     },
     attempts: 3,
   })
@@ -214,9 +226,27 @@ test('routing that keeps going stale gives up without switching', async () => {
 
       return b.key
     },
-    switchTo: async () => true,
+    switchTo: async () => 'switched' as const,
     attempts: 3,
   })
 
   assert.equal(switched, false)
+})
+
+test('a switch overtaken by another is routed again from the account now in use', async () => {
+  const outcomes = ['moved', 'switched'] as const
+  const switchedTo: string[] = []
+  const switched = await routeAndSwitch({
+    epoch: () => 0,
+    route: async () => b.key,
+    switchTo: async (key) => {
+      switchedTo.push(key)
+
+      return outcomes[switchedTo.length - 1]!
+    },
+    attempts: 3,
+  })
+
+  assert.equal(switched, true)
+  assert.deepEqual(switchedTo, [b.key, b.key])
 })

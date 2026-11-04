@@ -37,21 +37,32 @@ export type SwitchDeps = {
   nextReload: () => { reloaded: Promise<void>; cancel: () => void }
   /** How long to wait for the reload before going on anyway. */
   waitMs: number
+  /** The key of the account in use now. */
+  inUse: () => Promise<string | null>
 }
 
-/** Switches to `key`, and resolves once the windows are reloading as it; false if it did not switch. */
-export async function switchThenWait(key: string, deps: SwitchDeps): Promise<boolean> {
+/**
+ * How a switch for a link ended: `switched` once the windows reload as `key`;
+ * `moved` when it switched but another switch (from the sidebar, say) landed
+ * before the reload, so the windows are some other account's; `failed` when
+ * it did not switch.
+ */
+export type SwitchOutcome = 'switched' | 'moved' | 'failed'
+
+/** Switches to `key`, and resolves once the windows are reloading as it. */
+export async function switchThenWait(key: string, deps: SwitchDeps): Promise<SwitchOutcome> {
   const { reloaded, cancel } = deps.nextReload()
 
   if ((await deps.switchAccount(key).catch(() => null)) !== 'switched') {
     cancel()
 
-    return false
+    return 'failed'
   }
   await Promise.race([reloaded, new Promise((resolve) => setTimeout(resolve, deps.waitMs))])
   cancel()
 
-  return true
+  // The reload waited for may have been another account's.
+  return (await deps.inUse().catch(() => null)) === key ? 'switched' : 'moved'
 }
 
 /**
@@ -75,15 +86,15 @@ export type RouteDeps = {
   epoch: () => number
   /** The waiting account to switch to for the link, if any. */
   route: () => Promise<string | null>
-  /** Switches to `key`; whether it did. */
-  switchTo: (key: string) => Promise<boolean>
+  switchTo: (key: string) => Promise<SwitchOutcome>
   attempts: number
 }
 
 /**
  * Routes a link and switches for it. An answer that arrived after the account
- * in use changed (a switch from the sidebar, say) is stale: routing starts
- * over, a few times at most. Whether this switched accounts.
+ * in use changed (a switch from the sidebar, say), or a switch that another
+ * one overtook, is stale: routing starts over from the account now in use, a
+ * few times at most. Whether this switched accounts.
  */
 export async function routeAndSwitch(deps: RouteDeps): Promise<boolean> {
   for (let attempt = 0; attempt < deps.attempts; attempt += 1) {
@@ -91,8 +102,10 @@ export async function routeAndSwitch(deps: RouteDeps): Promise<boolean> {
     const key = await deps.route().catch(() => null)
 
     if (deps.epoch() !== epoch) continue
+    if (!key) return false
+    const outcome = await deps.switchTo(key)
 
-    return key ? deps.switchTo(key) : false
+    if (outcome !== 'moved') return outcome === 'switched'
   }
 
   return false
