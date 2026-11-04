@@ -123,11 +123,24 @@ export type BoxState = 'creating' | 'connecting' | 'running' | 'paused' | 'error
 /** How far an owner lets teammates use their own computer's Local Agent. */
 export type LocalShareLevel = 'off' | 'approve' | 'full'
 
-/** Who a computer is shared with in one team, and how far. */
-export type LocalShareInput = { level: LocalShareLevel; everyone: boolean; userIds: string[] }
+/**
+ * Who a computer is shared with in one team, and how far. `managerIds` also manage it; only its
+ * owner sends them, and leaving them out keeps them.
+ */
+export type LocalShareInput = {
+  level: LocalShareLevel
+  everyone: boolean
+  userIds: string[]
+  managerIds?: string[]
+}
 
-/** A computer's share in one team, and the most the team's administrators allow. */
-export type LocalAgentShareState = { share: LocalShareInput; ceiling: LocalShareLevel }
+/** A computer's share in one team, the most the team's administrators allow, and its managers. */
+export type LocalAgentShareState = {
+  share: LocalShareInput
+  ceiling: LocalShareLevel
+  /** Absent from older backends. */
+  managerIds?: string[]
+}
 
 /** A teammate's conversation waiting for the owner's answer before it runs on their computer. */
 /** Where a person's own conversation stands with the owner of a shared computer; null when never asked. */

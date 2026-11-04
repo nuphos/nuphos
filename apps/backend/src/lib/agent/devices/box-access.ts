@@ -37,14 +37,59 @@ export function losingUse(
   device: AgentDevice,
   teamId: string,
   use: { everyone: boolean; userIds: string[] },
+  /** The team's managers after the change; its current ones when it leaves them as they are. */
+  managers: string[] = teamGrant(device, teamId)?.managerIds ?? [],
 ): string[] {
-  const managers = teamGrant(device, teamId)?.managerIds ?? []
-
   return use.everyone
     ? []
     : memberIds.filter(
         (id) => id !== deviceOwner(device) && !managers.includes(id) && !use.userIds.includes(id),
       )
+}
+
+/**
+ * Who manages the computer in this team after a share request. Only its owner names managers,
+ * from the team's other members, and a manager may repeat them but not change them. A request
+ * that names none, from a release that knows only the use list, keeps the managers it still
+ * lets use the computer when it comes from the owner, and all of them from a manager. `read` is
+ * set when the result follows from the managers as read, so the write can check they still are.
+ */
+export function chosenManagers(
+  device: AgentDevice,
+  /** Who asks, in which team. */
+  { userId, teamId }: { userId: string; teamId: string },
+  memberIds: string[],
+  { managerIds: requested }: { managerIds?: string[] },
+  use: { everyone: boolean; userIds: string[] },
+): { ids: string[]; read?: string[] } {
+  const current = teamGrant(device, teamId)?.managerIds ?? []
+  const owner = deviceOwner(device)
+
+  if (requested === undefined) {
+    const kept =
+      userId !== owner || use.everyone ? current : current.filter((id) => use.userIds.includes(id))
+
+    return { ids: kept, read: current }
+  }
+  const asked = [...new Set(requested.filter((id) => id !== owner))]
+  const same = asked.length === current.length && asked.every((id) => current.includes(id))
+
+  if (userId !== owner && !same)
+    throw new AppError(403, 'owner_only', 'Only the owner of this computer chooses who manages it.')
+  const managers = asked.filter((id) => memberIds.includes(id))
+
+  return userId === owner ? { ids: managers } : { ids: managers, read: current }
+}
+
+/**
+ * Managing a computer includes using it, so its managers stay in the use list too: a release
+ * that knows only that list still lets them use it.
+ */
+export function withManagers(
+  use: { everyone: boolean; userIds: string[] },
+  managers: string[],
+): { everyone: boolean; userIds: string[] } {
+  return { everyone: use.everyone, userIds: [...new Set([...use.userIds, ...managers])] }
 }
 
 /** The requested access, keeping only the team's current members, each once. */

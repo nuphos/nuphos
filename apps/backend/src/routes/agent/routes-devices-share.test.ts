@@ -1,6 +1,8 @@
 import { expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
+import { AppError } from '@/lib/errors'
+
 import { createDeviceShareRoutes } from './routes-devices-share'
 
 import type { DeviceShareRouteDependencies } from './routes-devices-share'
@@ -19,10 +21,13 @@ const computer = (extra: Partial<AgentDevice> = {}): AgentDevice => ({
   ...extra,
 })
 
-function app(options: { device?: AgentDevice; userId?: string } = {}) {
+function app(options: { device?: AgentDevice; userId?: string; stored?: string[] } = {}) {
   const device = options.device ?? computer()
+  // The team's managers in the database now; by default, what the request read.
+  const stored = options.stored ?? device.access?.find((grant) => grant.teamId === TEAM)?.managerIds
   const calls: {
     set?: { everyone: boolean; userIds: string[] }
+    managers?: string[]
     revoked?: string[]
     dropped?: string[]
     settled?: string
@@ -41,8 +46,11 @@ function app(options: { device?: AgentDevice; userId?: string } = {}) {
     isMember: async () => true,
     teamMembers: async () => [{ id: 'owner' }, { id: 'mate' }, { id: 'other' }],
     getDevice: async () => device,
-    setUse: async (_owner, _device, _team, use) => {
-      calls.push({ set: use })
+    setUse: async (_owner, _device, _team, use, managers) => {
+      // As the guarded update: managers that followed from a read need that read to still hold.
+      if (managers?.read && managers.read.join() !== (stored ?? []).join())
+        throw new AppError(409, 'access_changed', 'Access changed while you were editing')
+      calls.push({ set: use, managers: managers?.ids })
 
       return true
     },
@@ -185,6 +193,7 @@ test('nothing caps sharing: any level is use, and the answer says full', async (
   expect(await response.json()).toEqual({
     share: { level: 'full', everyone: true, userIds: [] },
     ceiling: 'full',
+    managerIds: [],
   })
 })
 
@@ -195,9 +204,164 @@ test('a manager of a teammate’s computer lets others use it', async () => {
   const { put, calls } = app({ device, userId: 'lead' })
 
   expect((await put({ level: 'approve', everyone: false, userIds: ['mate'] })).status).toBe(200)
-  expect(calls[0]?.set).toEqual({ everyone: false, userIds: ['mate'] })
+  // Its managers stay, and stay in the use list.
+  expect(calls[0]).toEqual({
+    set: { everyone: false, userIds: ['mate', 'lead'] },
+    managers: ['lead'],
+  })
   // Revoking spares the owner and managers.
   expect(calls[1]?.revoked).toEqual(['other'])
+})
+
+test('the owner makes a teammate a manager, who also uses it', async () => {
+  const { put, calls } = app()
+  const response = await put({
+    level: 'full',
+    everyone: false,
+    userIds: [],
+    managerIds: ['mate', 'owner', 'stranger'],
+  })
+
+  expect(response.status).toBe(200)
+  // Only the team's other members manage; managing includes using, so an older release sees them.
+  expect(calls[0]).toEqual({ set: { everyone: false, userIds: ['mate'] }, managers: ['mate'] })
+  expect(calls[1]?.revoked).toEqual(['other'])
+  expect(await response.json()).toMatchObject({
+    share: { everyone: false, userIds: ['mate'] },
+    managerIds: ['mate'],
+  })
+})
+
+// A teammate who manages the computer, and so is in its use list too.
+const managedByMate = () =>
+  computer({
+    access: [{ teamId: TEAM, everyone: false, userIds: ['mate'], managerIds: ['mate'] }],
+  })
+
+test('a manager moved to use keeps using it; moved to no access loses both', async () => {
+  const toUse = app({ device: managedByMate() })
+
+  await toUse.put({ level: 'full', everyone: false, userIds: ['mate'], managerIds: [] })
+  expect(toUse.calls[0]).toEqual({ set: { everyone: false, userIds: ['mate'] }, managers: [] })
+  expect(toUse.calls[1]?.revoked).toEqual(['other'])
+  const toNone = app({ device: managedByMate() })
+
+  await toNone.put({ level: 'off', everyone: false, userIds: [], managerIds: [] })
+  expect(toNone.calls[0]).toEqual({ set: { everyone: false, userIds: [] }, managers: [] })
+  expect(toNone.calls[1]?.revoked).toEqual(['mate', 'other'])
+})
+
+// An owner on a release that knows only the use list: who it no longer lets use the computer
+// stops managing it too.
+const twoManagers = () =>
+  computer({
+    access: [
+      { teamId: TEAM, everyone: false, userIds: ['mate', 'other'], managerIds: ['mate', 'other'] },
+    ],
+  })
+
+test('a released desktop turning sharing off clears the managers and closes their streams', async () => {
+  const { put, calls } = app({ device: twoManagers() })
+
+  await put({ level: 'off', everyone: false, userIds: [] })
+  expect(calls[0]).toEqual({ set: { everyone: false, userIds: [] }, managers: [] })
+  expect(calls[1]?.revoked).toEqual(['mate', 'other'])
+})
+
+test('a released desktop unchecking a manager removes their manage and use', async () => {
+  const { put, calls } = app({ device: twoManagers() })
+
+  await put({ level: 'full', everyone: false, userIds: ['other'] })
+  expect(calls[0]).toEqual({ set: { everyone: false, userIds: ['other'] }, managers: ['other'] })
+  expect(calls[1]?.revoked).toEqual(['mate'])
+})
+
+test('a released desktop saving the same list keeps every manager', async () => {
+  const { put, calls } = app({ device: twoManagers() })
+
+  await put({ level: 'full', everyone: false, userIds: ['mate', 'other'] })
+  expect(calls).toEqual([
+    { set: { everyone: false, userIds: ['mate', 'other'] }, managers: ['mate', 'other'] },
+  ])
+})
+
+test('a released desktop letting everyone use it keeps every manager', async () => {
+  const { put, calls } = app({ device: twoManagers() })
+
+  await put({ level: 'full', everyone: true, userIds: [] })
+  expect(calls).toEqual([
+    { set: { everyone: true, userIds: ['mate', 'other'] }, managers: ['mate', 'other'] },
+  ])
+})
+
+test('a save from a stale read gets access_changed, and the stored managers stay', async () => {
+  // The owner has just removed Mate as a manager; Lead saves from the dialog opened before.
+  const device = twoManagers()
+  const lead = computer({
+    access: [
+      { teamId: TEAM, everyone: false, userIds: ['lead', 'mate'], managerIds: ['lead', 'mate'] },
+    ],
+  })
+  const manager = app({ device: lead, userId: 'lead', stored: ['lead'] })
+  const response = await manager.put({ level: 'full', everyone: false, userIds: ['lead', 'mate'] })
+
+  expect(response.status).toBe(409)
+  expect(await response.json()).toEqual({ error: 'access_changed' })
+  expect(manager.calls).toEqual([])
+  // An owner on a released desktop, whose kept managers follow from the read, is checked too.
+  const owner = app({ device, stored: ['other'] })
+
+  expect(
+    (await owner.put({ level: 'full', everyone: false, userIds: ['mate', 'other'] })).status,
+  ).toBe(409)
+  expect(owner.calls).toEqual([])
+})
+
+test('a save from a fresh read goes through, and the owner naming managers needs no read', async () => {
+  const fresh = app({ device: twoManagers() })
+
+  expect(
+    (await fresh.put({ level: 'full', everyone: false, userIds: ['mate', 'other'] })).status,
+  ).toBe(200)
+  // The owner decides the managers outright, so a changed store does not stop them.
+  const owner = app({ device: twoManagers(), stored: ['other'] })
+  const response = await owner.put({
+    level: 'full',
+    everyone: false,
+    userIds: ['mate'],
+    managerIds: ['mate'],
+  })
+
+  expect(response.status).toBe(200)
+  expect(owner.calls[0]).toEqual({
+    set: { everyone: false, userIds: ['mate'] },
+    managers: ['mate'],
+  })
+})
+
+test('only the owner changes managers; a manager may only repeat them', async () => {
+  const device = computer({
+    access: [{ teamId: TEAM, everyone: false, userIds: ['lead'], managerIds: ['lead'] }],
+  })
+  const lead = app({ device, userId: 'lead' })
+  const changed = await lead.put({
+    level: 'full',
+    everyone: false,
+    userIds: [],
+    managerIds: ['lead', 'mate'],
+  })
+
+  expect(changed.status).toBe(403)
+  expect(await changed.json()).toEqual({ error: 'owner_only' })
+  expect(lead.calls).toEqual([])
+  const repeated = await lead.put({
+    level: 'full',
+    everyone: false,
+    userIds: ['mate'],
+    managerIds: ['lead'],
+  })
+
+  expect(repeated.status).toBe(200)
 })
 
 test('a Box or someone else’s computer cannot be shared this way', async () => {
@@ -221,6 +385,7 @@ test('reads the current use list as a share', async () => {
   expect(await response.json()).toEqual({
     share: { level: 'full', everyone: false, userIds: ['mate'] },
     ceiling: 'full',
+    managerIds: [],
   })
 })
 

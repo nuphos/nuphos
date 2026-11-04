@@ -43,7 +43,7 @@ export function canManage(device: AgentDevice): boolean {
 const REMOVE_FALLBACK = t('Could not remove it. Update Nuphos and try again.')
 
 /** Only the owner removes a machine; a list without the access field is the viewer's own. */
-export function isOwner(device: AgentDevice): boolean {
+export function isOwner(device: Pick<AgentDevice, 'access'>): boolean {
   return device.access === undefined || device.access === 'owner'
 }
 

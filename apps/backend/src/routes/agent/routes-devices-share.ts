@@ -3,13 +3,15 @@ import { z } from 'zod'
 
 import { agentConversations } from '@/lib/agent/db/shared'
 import {
+  chosenManagers,
   deviceAccessDeps,
   losingUse,
   memberAccess,
   requireDeviceAccess,
   revokeBoxStreams,
+  withManagers,
 } from '@/lib/agent/devices/box-access'
-import { setTeamUse, teamUse } from '@/lib/agent/devices/device-grants'
+import { setTeamUse, teamGrant, teamUse } from '@/lib/agent/devices/device-grants'
 import {
   decideShareApproval,
   dropShareApprovals,
@@ -48,6 +50,8 @@ const shareSchema = z.object({
   level: z.enum(LOCAL_SHARE_LEVELS as [LocalShareLevel, ...LocalShareLevel[]]),
   everyone: z.boolean(),
   userIds: z.array(z.string().trim().min(1).max(64)).max(500),
+  /** Who manages it; only its owner may change them. Released desktops send none, keeping them. */
+  managerIds: z.array(z.string().trim().min(1).max(64)).max(500).optional(),
 })
 // Approving can also trust the teammate on this computer, so their next conversations run unasked.
 const decisionSchema = z.object({
@@ -147,7 +151,9 @@ export function createDeviceShareRoutes(deps: DeviceShareRouteDependencies = def
       c.req.valid('param').deviceId,
     )
 
-    return c.json({ share: shareOf(teamUse(device, teamId)), ceiling: CEILING })
+    const managerIds = teamGrant(device, teamId)?.managerIds ?? []
+
+    return c.json({ share: shareOf(teamUse(device, teamId)), ceiling: CEILING, managerIds })
   })
 
   // Whoever loses access has their open streams on it closed and their answers forgotten.
@@ -164,17 +170,19 @@ export function createDeviceShareRoutes(deps: DeviceShareRouteDependencies = def
       )
       const input = c.req.valid('json')
       const memberIds = (await deps.teamMembers(teamId)).map((member) => member.id)
-      const use =
+      const ask =
         input.level === 'off'
           ? { everyone: false, userIds: [] }
           : memberAccess(
               memberIds.filter((id) => id !== device.userId).map((id) => ({ id })),
               input,
             )
+      const managers = chosenManagers(device, { userId, teamId }, memberIds, input, ask)
+      const use = withManagers(ask, managers.ids)
 
-      if (!(await deps.setUse(device.userId, device.deviceId, teamId, use)))
+      if (!(await deps.setUse(device.userId, device.deviceId, teamId, use, managers)))
         throw new AppError(404, 'device_not_found', 'Device is not available')
-      const lost = losingUse(memberIds, device, teamId, use)
+      const lost = losingUse(memberIds, device, teamId, use, managers.ids)
 
       if (lost.length) {
         await deps.revokeStreams([device], lost, teamId)
@@ -182,7 +190,7 @@ export function createDeviceShareRoutes(deps: DeviceShareRouteDependencies = def
         await deps.dropTrusts(device.userId, device.deviceId, teamId, lost)
       }
 
-      return c.json({ share: shareOf(use), ceiling: CEILING })
+      return c.json({ share: shareOf(use), ceiling: CEILING, managerIds: managers.ids })
     },
   )
 
