@@ -191,12 +191,23 @@ class ChannelSession(
         }
     }
 
+    /**
+     * True from leaving the screen until this poll's first good read on return. Only that read
+     * counts: one that failed brought nothing, and another caller's may predate what arrived.
+     */
+    var returning by mutableStateOf(false)
+        private set
+
     /** Until cancelled, while the chat is on screen. */
     suspend fun poll() {
-        refresh(force = !loaded)
-        while (true) {
-            delay(POLL_MS)
-            refresh()
+        try {
+            if (refresh(force = !loaded)) returning = false
+            while (true) {
+                delay(POLL_MS)
+                if (refresh()) returning = false
+            }
+        } finally {
+            returning = true
         }
     }
 
