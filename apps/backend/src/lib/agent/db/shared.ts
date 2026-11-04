@@ -79,7 +79,7 @@ export type AgentConversation = ConversationInputRequests & {
   transcriptUpdatedAt?: Date
   createdAt: Date
   lastActiveAt: Date
-  // Archive marker, set by the owner or a manager. Archived conversations stay fully intact and
+  // Archive marker, set by the owner. Archived conversations stay fully intact and
   // readable; list endpoints only hide them when asked (archived=exclude).
   archivedAt?: Date
   // When it was last un-archived by hand. The idle sweep counts from here as well as from
@@ -89,14 +89,11 @@ export type AgentConversation = ConversationInputRequests & {
   // session and being invited from Share are the same fact — "this person is
   // part of this conversation" — so both append here instead of splitting into
   // an invited/active pair of lists. Being here is also the person's own
-  // access grant: reply, unless they are listed in viewOnlyIds or managerIds.
+  // access grant: read, and reply while they may use the conversation's computer.
+  // Older rows also carry viewOnlyIds and managerIds, which nothing reads now.
   participantIds?: string[]
-  /** Participants who may read but not reply. Always a subset of participantIds. */
-  viewOnlyIds?: string[]
-  /** Participants who may also change the runtime and credentials. Disjoint from viewOnlyIds. */
-  managerIds?: string[]
-  /** What the rest of the team may do; see access.ts. Absent = 'reply'. */
-  generalAccess?: GeneralAccess
+  /** Whether the rest of the team may read; see access.ts. Absent, or an old 'reply', = 'view'. */
+  generalAccess?: GeneralAccess | 'reply'
   /** Who joined, left or moved this session, shown between its messages. */
   timelineEvents?: ConversationTimelineEvent[]
   /** Incremented at every assistant turn boundary. Absent means zero. */

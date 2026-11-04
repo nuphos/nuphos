@@ -175,14 +175,12 @@ describe('conversation participants API', () => {
   })
 
   test('the owner removes a teammate, and the timeline says who did it', async () => {
-    await invite([INVITEE], TEAM, 'view')
+    await invite([INVITEE])
     const response = await remove(INVITEE)
     const body = (await response.json()) as ParticipantsBody
 
     expect(response.status).toBe(200)
     expect(body.participants.map((participant) => participant.id)).toEqual([OWNER, TEAMMATE])
-    // Their own grant goes with them, so a later re-invite starts clean.
-    expect(conversation?.viewOnlyIds ?? []).toEqual([])
     expect(conversation?.timelineEvents?.at(-1)).toMatchObject({
       kind: 'participant_removed',
       actorId: OWNER,
@@ -202,93 +200,117 @@ describe('conversation participants API', () => {
     expect(participantIds()).toEqual([TEAMMATE])
   })
 
-  test('an invite carries a role, and re-inviting changes it', async () => {
-    const viewing = (await (await invite([INVITEE], TEAM, 'view')).json()) as ParticipantsBody
+  test('participants have no roles to choose; a role other than reply is refused', async () => {
+    const body = (await (await invite([INVITEE], TEAM, 'reply')).json()) as ParticipantsBody
 
-    expect(viewing.participants.find((p) => p.id === INVITEE)?.role).toBe('view')
-    expect(viewing.participants.find((p) => p.id === TEAMMATE)?.role).toBe('reply')
-    expect(viewing.participants.find((p) => p.id === OWNER)?.role).toBe('owner')
-
-    await invite([INVITEE])
-    expect(conversation?.viewOnlyIds ?? []).toEqual([])
-    expect((await invite([INVITEE], TEAM, 'admin')).status).toBe(400)
+    expect(body.participants.find((p) => p.id === OWNER)?.role).toBe('owner')
+    // On a team runtime every member may use the computer, so participants reply.
+    expect(body.participants.find((p) => p.id === INVITEE)?.role).toBe('reply')
+    expect((await invite([INVITEE], TEAM, 'view')).status).toBe(400)
+    expect((await invite([INVITEE], TEAM, 'manage')).status).toBe(400)
+    expect((await patch(`participants/${TEAMMATE}`, { role: 'view' })).status).toBe(404)
   })
 
-  test('the owner changes a participant role; anyone else is refused', async () => {
-    const response = await patch(`participants/${TEAMMATE}`, { role: 'view' })
-
-    expect(response.status).toBe(200)
-    expect(conversation?.viewOnlyIds).toEqual([TEAMMATE])
-    expect((await patch(`participants/${INVITEE}`, { role: 'view' })).status).toBe(404)
-    viewer = TEAMMATE
-    expect((await patch(`participants/${TEAMMATE}`, { role: 'reply' })).status).toBe(403)
-  })
-
-  test('manage and view are exclusive, and removing someone drops either', async () => {
-    expect((await patch(`participants/${TEAMMATE}`, { role: 'view' })).status).toBe(200)
-    const body = (await (
-      await patch(`participants/${TEAMMATE}`, { role: 'manage' })
-    ).json()) as ParticipantsBody
-
-    expect(body.participants.find((p) => p.id === TEAMMATE)?.role).toBe('manage')
-    expect(conversation?.managerIds).toEqual([TEAMMATE])
-    expect(conversation?.viewOnlyIds ?? []).toEqual([])
-    await patch(`participants/${TEAMMATE}`, { role: 'reply' })
-    expect(conversation?.managerIds ?? []).toEqual([])
-    await patch(`participants/${TEAMMATE}`, { role: 'manage' })
-    await remove(TEAMMATE)
-    expect(conversation?.managerIds ?? []).toEqual([])
-  })
-
-  test('general access defaults to reply for older sessions and only the owner changes it', async () => {
-    expect((await listParticipants()).body.generalAccess).toBe('reply')
+  test('general access is none or view, older sessions read as view, and only the owner changes it', async () => {
+    expect((await listParticipants()).body.generalAccess).toBe('view')
     const response = await patch('access', { generalAccess: 'none' })
 
     expect(response.status).toBe(200)
     expect(((await response.json()) as ParticipantsBody).generalAccess).toBe('none')
     expect(conversation?.generalAccess).toBe('none')
+    expect((await patch('access', { generalAccess: 'reply' })).status).toBe(400)
     expect((await patch('access', { generalAccess: 'public' })).status).toBe(400)
     viewer = TEAMMATE
-    expect((await patch('access', { generalAccess: 'reply' })).status).toBe(403)
+    expect((await patch('access', { generalAccess: 'view' })).status).toBe(403)
+    viewer = OUTSIDER
+    expect((await patch('access', { generalAccess: 'view' })).status).toBe(403)
   })
+})
 
-  test('inviting the owner as view-only changes nothing about the owner', async () => {
-    const body = (await (await invite([OWNER], TEAM, 'view')).json()) as ParticipantsBody
+describe('a conversation on someone’s computer', () => {
+  const DEVICE = 'owner-mac'
 
-    expect(body.participants[0]).toMatchObject({ id: OWNER, role: 'owner' })
-    expect(conversation?.viewOnlyIds ?? []).toEqual([])
-  })
+  function computer(grant: { userIds?: string[]; managerIds?: string[] } = {}) {
+    memory.rows('agent_devices').push({
+      userId: OWNER,
+      deviceId: DEVICE,
+      label: 'Owner’s Mac',
+      createdAt: new Date(),
+      access: [
+        {
+          teamId: TEAM,
+          everyone: false,
+          userIds: grant.userIds ?? [],
+          managerIds: grant.managerIds ?? [],
+        },
+      ],
+    })
+    conversation!.runtimeId = `local_${OWNER}_${DEVICE}`
+  }
 
-  test('removing a view-only participant and inviting them again starts at reply', async () => {
-    await invite([INVITEE], TEAM, 'view')
-    await remove(INVITEE)
-    const body = (await (await invite([INVITEE])).json()) as ParticipantsBody
+  async function inviteConfirmed(userIds: string[]) {
+    return app.request(`/conversations/shared/participants?teamId=${TEAM}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userIds, grantComputerUse: true }),
+    })
+  }
 
-    expect(body.participants.find((p) => p.id === INVITEE)?.role).toBe('reply')
-    expect(conversation?.viewOnlyIds ?? []).toEqual([])
-  })
-
-  test('a role change targets participants only and rejects unknown roles', async () => {
-    expect((await patch(`participants/${OWNER}`, { role: 'view' })).status).toBe(404)
-    expect((await patch(`participants/${TEAMMATE}`, { role: 'owner' })).status).toBe(400)
-    expect((await patch(`participants/${TEAMMATE}`, {})).status).toBe(200)
-    expect(conversation?.viewOnlyIds ?? []).toEqual([])
-  })
-
-  test('changing general access keeps every participant role', async () => {
-    await patch(`participants/${TEAMMATE}`, { role: 'view' })
-    await patch('access', { generalAccess: 'reply' })
-    const body = (await (
-      await patch('access', { generalAccess: 'none' })
-    ).json()) as ParticipantsBody
+  test('a participant who may not use the computer is listed as reading only', async () => {
+    computer()
+    const { body } = await listParticipants()
 
     expect(body.participants.find((p) => p.id === TEAMMATE)?.role).toBe('view')
   })
 
-  test('an outsider can neither change general access nor roles', async () => {
-    viewer = OUTSIDER
-    expect((await patch('access', { generalAccess: 'reply' })).status).toBe(403)
-    expect((await patch(`participants/${TEAMMATE}`, { role: 'view' })).status).toBe(403)
-    expect(conversation?.generalAccess).toBeUndefined()
+  test('a participant who may use the computer replies', async () => {
+    computer({ userIds: [TEAMMATE] })
+    const { body } = await listParticipants()
+
+    expect(body.participants.find((p) => p.id === TEAMMATE)?.role).toBe('reply')
+  })
+
+  test('inviting someone who may not use it asks to confirm giving them use', async () => {
+    computer()
+    const response = await invite([INVITEE])
+
+    expect(response.status).toBe(409)
+    expect(await response.json()).toMatchObject({
+      error: {
+        code: 'computer_use_required',
+        details: { userIds: [INVITEE], computer: { deviceId: DEVICE, label: 'Owner’s Mac' } },
+      },
+    })
+    expect(participantIds()).toEqual([TEAMMATE])
+  })
+
+  test('someone who already may use it is invited without asking', async () => {
+    computer({ userIds: [INVITEE] })
+    expect((await invite([INVITEE])).status).toBe(200)
+    expect(participantIds()).toEqual([TEAMMATE, INVITEE])
+  })
+
+  // The grant is a pipeline update this in-memory db does not run; device-grants.test
+  // checks what it writes.
+  test('the computer’s owner confirms, and the invite goes through', async () => {
+    computer()
+    expect((await inviteConfirmed([INVITEE])).status).toBe(200)
+    expect(participantIds()).toEqual([TEAMMATE, INVITEE])
+  })
+
+  test('an owner who only uses the computer cannot give it away', async () => {
+    memory.rows('agent_devices').push({
+      userId: TEAMMATE,
+      deviceId: 'mate-mac',
+      label: 'Teammate’s Mac',
+      createdAt: new Date(),
+      access: [{ teamId: TEAM, everyone: false, userIds: [OWNER], managerIds: [] }],
+    })
+    conversation!.runtimeId = `local_${TEAMMATE}_mate-mac`
+    const response = await inviteConfirmed([INVITEE])
+
+    expect(response.status).toBe(403)
+    expect(await response.json()).toMatchObject({ error: { code: 'computer_manage_required' } })
+    expect(participantIds()).toEqual([TEAMMATE])
   })
 })

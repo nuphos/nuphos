@@ -7,7 +7,7 @@ import { logEvent } from '@/lib/observability'
 
 import { reportUndelivered, runTurn } from './conversation-turn'
 import { getConversationBySessionId } from './db'
-import { canReply, conversationAccess } from './db/access'
+import { canReplyIn } from './devices/conversation-computer'
 import { PENDING_TTL_SEC } from './pending-messages'
 import { listPendingUserMessages, queueHead, takePendingUserMessages } from './pending-queue'
 import {
@@ -186,7 +186,7 @@ async function launchChat(
     actorUserId === target.userId ||
     (Boolean(target.teamId) && (await getTeamMembership(actorUserId, target.teamId ?? '')) !== null)
 
-  if (!member || !canReply(conversationAccess(target, actorUserId))) {
+  if (!member || !(await canReplyIn(target, actorUserId))) {
     logEvent('warn', 'agent.pending_messages.queued_dropped', { ...fields, reason: 'no_access' })
 
     return false

@@ -1,92 +1,62 @@
 import { inTokenTeamScope, tokenTeamScope } from '@/lib/identity/token-team-scope'
 
 /**
- * Who in the team may open a conversation without being invited: nobody, or
- * everyone — to read, or to read and reply. Invitees add to it; they can raise
- * what one person may do, never lower it below this.
+ * Who in the team may read a conversation without being invited: nobody, or
+ * everyone. Reading needs no computer; replying does, so only invitees reply.
+ * A stored 'reply' predates that rule and reads as 'view'.
  */
-export type GeneralAccess = 'none' | 'view' | 'reply'
-/** `manage` also changes the session's runtime and credentials. */
-export type ParticipantRole = 'view' | 'reply' | 'manage'
-/** What one viewer may do in a conversation. */
-export type ConversationAccess = 'owner' | ParticipantRole
+export type GeneralAccess = 'none' | 'view'
+/** What one viewer may do: a participant replies while they may use the conversation's computer. */
+export type ConversationAccess = 'owner' | 'reply' | 'view'
 
-export const GENERAL_ACCESS_VALUES: readonly GeneralAccess[] = ['none', 'view', 'reply']
-export const PARTICIPANT_ROLES: readonly ParticipantRole[] = ['view', 'reply', 'manage']
+export const GENERAL_ACCESS_VALUES: readonly GeneralAccess[] = ['none', 'view']
 
 // Spelled out rather than picked from AgentConversation, so shared.ts can use
 // this module without the two importing each other.
-type GrantFields = {
-  generalAccess?: GeneralAccess
-  participantIds?: string[]
-  viewOnlyIds?: string[]
-  managerIds?: string[]
-}
-type AccessFields = GrantFields & { userId: string; teamId?: string }
 /** Who besides the owner may read a conversation. */
-export type ReadGrants = Omit<GrantFields, 'managerIds'>
+export type ReadGrants = {
+  generalAccess?: GeneralAccess | 'reply'
+  participantIds?: string[]
+}
+type AccessFields = ReadGrants & { userId: string; teamId?: string }
 
 // Absent is every conversation from before access existed, which the whole
-// team could already read and reply to. Reading it that way keeps them as they
-// were without a migration.
-export function generalAccessOf(conversation: GrantFields) {
-  return conversation.generalAccess ?? 'reply'
+// team could already open. It stays open to read.
+export function generalAccessOf(conversation: ReadGrants): GeneralAccess {
+  return conversation.generalAccess === 'none' ? 'none' : 'view'
 }
 
-/** A participant's own grant; the owner is not a participant. */
-export function participantRole(conversation: GrantFields, userId: string): ParticipantRole | null {
-  if (!conversation.participantIds?.includes(userId)) return null
-
-  if (conversation.viewOnlyIds?.includes(userId)) return 'view'
-
-  return conversation.managerIds?.includes(userId) ? 'manage' : 'reply'
+/** Whether the viewer is invited; the owner is not a participant. */
+export function isParticipant(conversation: ReadGrants, userId: string): boolean {
+  return conversation.participantIds?.includes(userId) ?? false
 }
 
 /**
- * The broader of the team-wide grant and the viewer's own, the way Notion
- * resolves a page. Team membership is the caller's to verify: this only reads
- * the conversation.
+ * What the viewer may do, given whether they may use the computer the
+ * conversation runs on (see conversation-computer.ts). Team membership is the
+ * caller's to verify: this only reads the conversation.
  */
 export function conversationAccess(
   conversation: AccessFields,
   viewerId: string,
+  usesComputer: boolean,
 ): ConversationAccess | null {
   // An agent token reaches only its own team's conversations, its user's included.
   if (!inTokenTeamScope(conversation.teamId)) return null
   if (conversation.userId === viewerId) return 'owner'
   if (!conversation.teamId) return null
-  const general = generalAccessOf(conversation)
-  const own = participantRole(conversation, viewerId)
+  if (isParticipant(conversation, viewerId)) return usesComputer ? 'reply' : 'view'
 
-  if (own === 'manage') return 'manage'
-  if (general === 'reply' || own === 'reply') return 'reply'
-  if (general === 'view' || own === 'view') return 'view'
+  return generalAccessOf(conversation) === 'view' ? 'view' : null
+}
 
-  return null
+/** Whether the viewer may read the conversation at all. */
+export function readsConversation(conversation: AccessFields, viewerId: string): boolean {
+  return conversationAccess(conversation, viewerId, false) !== null
 }
 
 export function canReply(access: ConversationAccess | null) {
-  return access === 'owner' || access === 'reply' || access === 'manage'
-}
-
-/** Moving the session to another runtime or changing its credentials. */
-export function canManage(access: ConversationAccess | null) {
-  return access === 'owner' || access === 'manage'
-}
-
-/**
- * Switching Full Access and the runtime, and archiving: the owner, or a
- * participant invited to manage who is still a member of the conversation's
- * team. General access never reaches this; it grants reply at most.
- */
-export function managesConversation(
-  conversation: AccessFields,
-  viewerId: string,
-  isTeamMember: boolean,
-) {
-  if (conversation.userId === viewerId) return true
-
-  return isTeamMember && canManage(conversationAccess(conversation, viewerId))
+  return access === 'owner' || access === 'reply'
 }
 
 /** The Mongo form of "conversationAccess is not null", for list and read queries. */
@@ -113,15 +83,11 @@ export function initialGeneralAccess(source: string | undefined): GeneralAccess 
   return teamWide ? undefined : 'none'
 }
 
-/**
- * What a new thread copies from its parent, so whoever can read the parent can
- * read its threads. Managing stays the owner's to give, one thread at a time.
- */
-export function threadReadGrants(parent: GrantFields): ReadGrants {
+/** What a new thread copies from its parent, so whoever can read the parent can read its threads. */
+export function threadReadGrants(parent: ReadGrants): ReadGrants {
   return {
     generalAccess: generalAccessOf(parent),
     ...(parent.participantIds?.length ? { participantIds: parent.participantIds } : {}),
-    ...(parent.viewOnlyIds?.length ? { viewOnlyIds: parent.viewOnlyIds } : {}),
   }
 }
 

@@ -110,7 +110,23 @@ beforeEach(async () => {
   })
 })
 
-describe('a local agent is listed only for its owner', () => {
+/** Lets the teammate use the owner's computer in the team, as its owner can. */
+function shareWithTeammate() {
+  const shared = {
+    ...ownerComputer,
+    access: [{ teamId: TEAM, everyone: false, userIds: ['teammate'], managerIds: [] }],
+  }
+
+  Object.assign(deviceAccessDeps, {
+    getDevice: (userId: string) => Promise.resolve(userId === 'owner' ? shared : null),
+    listDevices: (userId: string) => Promise.resolve(userId === 'owner' ? [shared] : []),
+    listGranted: () => Promise.resolve([shared]),
+    findGranted: () => Promise.resolve([shared]),
+    role: () => Promise.resolve('EDITOR' as const),
+  })
+}
+
+describe('a local agent is listed only for those who may use it', () => {
   test('the owner sees it; a teammate and team-wide lists do not', async () => {
     expect((await listRuntimeInstances(TEAM, 'owner')).map((r) => r.id)).toEqual([localId])
     expect(await listRuntimeInstances(TEAM, 'teammate')).toEqual([])
@@ -124,7 +140,7 @@ describe('a local agent is listed only for its owner', () => {
   })
 })
 
-describe('only the owner can put a session on their local agent', () => {
+describe('a local agent serves whoever may use its computer', () => {
   test('the owner’s own turn resolves to their computer', async () => {
     const { endpoint } = await resolveConversationChatRuntime(TEAM, conversation('owner'), {
       userId: 'owner',
@@ -157,7 +173,7 @@ describe('only the owner can put a session on their local agent', () => {
     expect(endpoint.authKey).toBe('control')
   })
 
-  test('a teammate cannot steer the owner’s conversation on it, even with no active run', async () => {
+  test('a teammate who may not use it cannot steer the owner’s conversation, even with no active run', async () => {
     const attached = {
       ...conversation('owner'),
       claudeCodePreview: { runtimeUrl: 'nuphos-device://placeholder', openabSessionId: 's' },
@@ -165,7 +181,7 @@ describe('only the owner can put a session on their local agent', () => {
 
     await expect(
       steerConversationRuntime(attached, { text: 'hi', userId: 'teammate' }, 'm1'),
-    ).rejects.toMatchObject({ status: 403, code: 'local_runtime_owner_only' })
+    ).rejects.toMatchObject(notFound)
   })
 
   test('a teammate cannot start a new conversation on it', async () => {
@@ -174,10 +190,23 @@ describe('only the owner can put a session on their local agent', () => {
     ).rejects.toMatchObject(notFound)
   })
 
-  test('a teammate cannot send to the owner’s conversation on the owner’s computer', async () => {
+  test('a teammate who may not use the computer cannot send to a conversation on it', async () => {
     await expect(
       resolveConversationChatRuntime(TEAM, conversation('owner'), { userId: 'teammate' }),
-    ).rejects.toMatchObject({ status: 403, code: 'local_runtime_owner_only' })
+    ).rejects.toMatchObject(notFound)
+  })
+
+  test('a teammate who may use the computer sends as themselves', async () => {
+    shareWithTeammate()
+    const { endpoint } = await resolveConversationChatRuntime(TEAM, conversation('owner'), {
+      userId: 'teammate',
+    })
+
+    expect(parseLocalRuntimeUrl(endpoint.url)).toMatchObject({
+      userId: 'owner',
+      teamId: TEAM,
+      actorId: 'teammate',
+    })
   })
 
   test('a teammate cannot put the owner’s unpinned conversation on it', async () => {
@@ -190,10 +219,11 @@ describe('only the owner can put a session on their local agent', () => {
     ).rejects.toMatchObject(notFound)
   })
 
-  test('the owner’s computer never serves someone else’s conversation', async () => {
-    await expect(
-      resolveConversationChatRuntime(TEAM, conversation('teammate'), { userId: 'owner' }),
-    ).rejects.toMatchObject({ status: 403, code: 'local_runtime_owner_only' })
+  test('a conversation on the computer is served only to someone who may use it', async () => {
+    expect(
+      (await resolveConversationChatRuntime(TEAM, conversation('teammate'), { userId: 'owner' }))
+        .runtimeId,
+    ).toBe(localId)
     await expect(
       resolveConversationChatRuntime(TEAM, conversation('teammate'), { purpose: 'control' }),
     ).rejects.toMatchObject(notFound)

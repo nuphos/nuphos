@@ -1,8 +1,6 @@
 import { getSessionBypass, setSessionBypass } from '@/lib/agent/auto-mode/store'
 import { getConversationBySessionId, recordAgentEvent } from '@/lib/agent/db'
-import { managesConversation } from '@/lib/agent/db/access'
 import { AppError } from '@/lib/errors'
-import { getTeamMembership } from '@/lib/identity'
 
 import { agent } from './router'
 
@@ -12,16 +10,12 @@ import { agent } from './router'
 agent.get('/auto-mode/policy/rules', (c) => c.json({ enabled: true, rules: [] }))
 
 // Full Access: a per-conversation switch that allows the runtime's permission
-// requests without asking. Each person has their own, applied to the turns they
-// send; the owner and managers may set theirs.
+// requests without asking, applied to the turns the person who set it sends.
+// Only the owner sets it.
 async function assertCanSetMode(sessionId: string, userId: string) {
   const conversation = await getConversationBySessionId(sessionId)
-  const isTeamMember =
-    conversation?.userId !== userId && conversation?.teamId
-      ? Boolean(await getTeamMembership(userId, conversation.teamId))
-      : false
 
-  if (!conversation || !managesConversation(conversation, userId, isTeamMember)) {
+  if (!conversation || conversation.userId !== userId) {
     throw new AppError(404, 'not_found', 'Conversation not found')
   }
 }

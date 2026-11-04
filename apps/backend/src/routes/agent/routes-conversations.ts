@@ -1,3 +1,4 @@
+import { resolveConversationAccess } from '@/lib/agent/devices/conversation-computer'
 import './routes-conversation-runtime'
 import './routes-message-retract'
 
@@ -233,17 +234,15 @@ agent.get('/conversations/:sessionId', async (c) => {
     viewer,
     ownerById,
     slackThreadRecord,
+    await resolveConversationAccess(result.conversation, viewer.id),
   )
 
   return c.json({
     ...conversationForViewer,
-    // A resolved Slack binding no longer forces read-only: the owner continues
-    // the conversation from the app and the turn is mirrored into the thread
-    // (the Slack-bound branch in routes-chat-post.ts). Non-owners stay
-    // read-only via the base flag. A FAILED lookup still fails closed: the
-    // send path could not build the mirror either, so a turn would run
-    // invisible to the thread — a transient read-only view is the cheaper
-    // failure.
+    // A resolved Slack binding no longer forces read-only: the turn is mirrored
+    // into the thread (the Slack-bound branch in routes-chat-post.ts). A FAILED
+    // lookup still fails closed: the send path could not build the mirror
+    // either, so a transient read-only view is the cheaper failure.
     readOnly: slackThreadLookupFailed ? true : conversationForViewer.readOnly,
     slackThread,
     messages: result.messages.map(serializeMessageDoc),

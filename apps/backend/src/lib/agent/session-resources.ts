@@ -6,7 +6,7 @@ import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 
 import { agentConversations, getConversationBySessionId } from './db'
-import { canManage, conversationAccess } from './db/access'
+import { readsConversation } from './db/access'
 import { resolveResource } from './session-resource-lookup'
 import { unlinkSessionThread } from './session-thread-resources'
 
@@ -67,19 +67,12 @@ export async function resourceConversation(actor: ResourceActor, manage = false)
     !conversation ||
     conversation.teamId !== actor.teamId ||
     !(await getTeamMembership(actor.userId, actor.teamId)) ||
-    !conversationAccess(conversation, actor.userId)
+    !readsConversation(conversation, actor.userId)
   ) {
     throw new AppError(404, 'not_found', 'Conversation not found')
   }
-  if (
-    manage &&
-    (!canManage(conversationAccess(conversation, actor.userId)) || conversation.archivedAt)
-  ) {
-    throw new AppError(
-      403,
-      'forbidden',
-      'Only an active conversation owner or manager can change resource bindings',
-    )
+  if (manage && (conversation.userId !== actor.userId || conversation.archivedAt)) {
+    throw new AppError(403, 'forbidden', 'Only the conversation owner can change resource bindings')
   }
 
   return conversation

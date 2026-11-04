@@ -1,19 +1,16 @@
 import { Hono } from 'hono'
 
 import { getReadableConversation } from '@/lib/agent/db'
-import {
-  GENERAL_ACCESS_VALUES,
-  PARTICIPANT_ROLES,
-  generalAccessOf,
-  participantRole,
-} from '@/lib/agent/db/access'
+import { GENERAL_ACCESS_VALUES, generalAccessOf } from '@/lib/agent/db/access'
 import {
   conversationParticipantIds,
   inviteConversationParticipants,
   removeConversationParticipant,
   setGeneralAccess,
-  setParticipantRole,
 } from '@/lib/agent/db/participants'
+import { allows, deviceAccess } from '@/lib/agent/devices/box-access'
+import { usableConversationComputer } from '@/lib/agent/devices/conversation-computer'
+import { addTeamUse } from '@/lib/agent/devices/device-grants'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 
@@ -24,7 +21,7 @@ import {
   resolveVerifiedTeamId,
 } from './team-scope'
 
-import type { GeneralAccess, ParticipantRole } from '@/lib/agent/db/access'
+import type { GeneralAccess } from '@/lib/agent/db/access'
 
 import type { AgentConversation } from '@/lib/agent/db'
 import type { AuthVariables } from '@/middleware/auth'
@@ -35,37 +32,65 @@ export const conversationParticipantsRoutes = new Hono<{ Variables: AuthVariable
 
 const MAX_INVITES_PER_REQUEST = 20
 
-async function serializeAccess(
-  conversation: Pick<
-    AgentConversation,
-    'userId' | 'participantIds' | 'viewOnlyIds' | 'managerIds' | 'generalAccess'
-  >,
-  teamId: string | undefined,
-) {
+async function serializeAccess(conversation: AgentConversation, teamId: string | undefined) {
   const ids = conversationParticipantIds(conversation)
-  const byId = await buildConversationOwnerMap(teamId, ids)
+  const [byId, usable] = await Promise.all([
+    buildConversationOwnerMap(teamId, ids),
+    Promise.all(ids.map((id) => usableConversationComputer(conversation, id))),
+  ])
 
   return {
     generalAccess: generalAccessOf(conversation),
-    participants: ids.map((id) => {
+    participants: ids.map((id, index) => {
       const resolved = byId.get(id)
       const isOwner = id === conversation.userId
 
       return {
         ...(resolved ?? { id, name: 'Unknown user', email: '', avatarURL: '' }),
         isOwner,
-        role: isOwner ? 'owner' : participantRole(conversation, id),
+        // A participant replies while they may use the conversation's computer.
+        role: isOwner ? 'owner' : usable[index] === null ? 'view' : 'reply',
       }
     }),
   }
 }
 
-function readRole(value: unknown): ParticipantRole {
-  if (value === undefined) return 'reply'
-  if (!PARTICIPANT_ROLES.includes(value as ParticipantRole))
-    throw new AppError(400, 'invalid_request', 'role must be "view", "reply" or "manage"')
+/**
+ * Taking part means using the conversation's computer, so an invitee who may not
+ * use it is refused until the invite confirms giving them `use` on it. Only
+ * someone who manages the computer can give that.
+ */
+async function grantComputerUse(
+  conversation: AgentConversation,
+  actorId: string,
+  teamId: string,
+  invitees: string[],
+  confirmed: boolean,
+) {
+  const usable = await Promise.all(
+    invitees.map((id) => usableConversationComputer(conversation, id)),
+  )
+  const needing = invitees.filter((_, index) => usable[index] === null)
 
-  return value as ParticipantRole
+  if (needing.length === 0) return
+  const computer = await usableConversationComputer(conversation, actorId)
+
+  if (!computer || !allows(deviceAccess(computer, actorId, teamId), 'manage'))
+    throw new AppError(
+      403,
+      'computer_manage_required',
+      'They cannot use the computer this conversation runs on. Ask its owner to give them access first.',
+      { userIds: needing },
+    )
+  if (!confirmed)
+    throw new AppError(
+      409,
+      'computer_use_required',
+      `Adding this person to the conversation also gives them use of ${computer.label}.`,
+      { userIds: needing, computer: { deviceId: computer.deviceId, label: computer.label } },
+    )
+  if (!(await addTeamUse(computer, teamId, needing)))
+    throw new AppError(404, 'device_not_found', 'Device is not available')
 }
 
 /** Every change to who may be here is the owner's, so the gate is the owner gate. */
@@ -96,8 +121,8 @@ conversationParticipantsRoutes.get('/conversations/:sessionId/participants', asy
   return c.json(await serializeAccess(conversation, teamId))
 })
 
-// Inviting is a grant: the invitee may read, and reply unless invited to view.
-// Re-inviting someone sets their role.
+// Inviting is a grant: the invitee may read, and reply on the conversation's
+// computer, which they are given `use` of once the invite confirms it.
 conversationParticipantsRoutes.post('/conversations/:sessionId/participants', async (c) => {
   const userId = c.get('userId')
   const sessionId = c.req.param('sessionId')
@@ -121,7 +146,9 @@ conversationParticipantsRoutes.post('/conversations/:sessionId/participants', as
       `userIds may contain at most ${String(MAX_INVITES_PER_REQUEST)} ids`,
     )
   }
-  const role = readRole(body.role)
+  // Releases that offered roles send one; only reply is left.
+  if (body.role !== undefined && body.role !== 'reply')
+    throw new AppError(400, 'invalid_request', 'role must be "reply"')
   const conversation = await requireOwnedConversation(sessionId, userId, teamId)
   const invitees = userIds.filter((id) => id !== conversation.userId)
   // A private conversation is worth nothing shared with someone who cannot open
@@ -140,7 +167,8 @@ conversationParticipantsRoutes.post('/conversations/:sessionId/participants', as
   }
   // Render the post-write document rather than a locally merged copy, so a
   // simultaneous invite from someone else is already reflected in the answer.
-  const updated = await inviteConversationParticipants(sessionId, userId, invitees, role)
+  await grantComputerUse(conversation, userId, teamId, invitees, body.grantComputerUse === true)
+  const updated = await inviteConversationParticipants(sessionId, userId, invitees)
 
   if (!updated) throw new AppError(404, 'not_found', 'Conversation not found')
 
@@ -169,28 +197,6 @@ conversationParticipantsRoutes.delete(
   },
 )
 
-conversationParticipantsRoutes.patch(
-  '/conversations/:sessionId/participants/:userId',
-  async (c) => {
-    const sessionId = c.req.param('sessionId')
-    const targetId = c.req.param('userId')
-    const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
-    const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.teamId))
-
-    if (!teamId) throw new AppError(403, 'forbidden', 'Workspace membership is required')
-    const role = readRole(body.role)
-    const conversation = await requireOwnedConversation(sessionId, c.get('userId'), teamId)
-
-    if (!participantRole(conversation, targetId))
-      throw new AppError(404, 'not_found', 'That person is not in this conversation')
-    const updated = await setParticipantRole(sessionId, [targetId], role)
-
-    if (!updated) throw new AppError(404, 'not_found', 'Conversation not found')
-
-    return c.json(await serializeAccess(updated, teamId))
-  },
-)
-
 conversationParticipantsRoutes.patch('/conversations/:sessionId/access', async (c) => {
   const sessionId = c.req.param('sessionId')
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
@@ -200,7 +206,7 @@ conversationParticipantsRoutes.patch('/conversations/:sessionId/access', async (
   const generalAccess = body.generalAccess as GeneralAccess
 
   if (!GENERAL_ACCESS_VALUES.includes(generalAccess))
-    throw new AppError(400, 'invalid_request', 'generalAccess must be "none", "view" or "reply"')
+    throw new AppError(400, 'invalid_request', 'generalAccess must be "none" or "view"')
   await requireOwnedConversation(sessionId, c.get('userId'), teamId)
   const updated = await setGeneralAccess(sessionId, generalAccess)
 

@@ -36,6 +36,7 @@ useAgentDb({
           sessionId: 's1',
           userId: 'owner',
           teamId,
+          participantIds: [caller],
           claudeCodePreviewContext: activeTurn ? { activeTurnKey: activeTurn } : {},
         }
       : null,

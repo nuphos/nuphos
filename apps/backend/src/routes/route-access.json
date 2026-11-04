@@ -593,7 +593,6 @@
   "PATCH /agent/conversations/:sessionId/avatar": "user",
   "PATCH /agent/conversations/:sessionId/credentials": "user",
   "PATCH /agent/conversations/:sessionId/model-config": "user",
-  "PATCH /agent/conversations/:sessionId/participants/:userId": "user",
   "PATCH /agent/conversations/:sessionId/title": "user",
   "PATCH /agent/devices/:deviceId": "user",
   "PATCH /agent/devices/:deviceId/agents/:agent": "user",

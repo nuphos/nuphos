@@ -1,7 +1,7 @@
 // Someone who cannot sign an agent in asks the people who can. The ask lives on
 // the conversation, so their Inbox lists it, and the message it holds runs as
 // soon as anyone signs the agent in.
-import { canReply, conversationAccess } from '@/lib/agent/db/access'
+import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { consumePairQuota } from '@/lib/download-handoff-rate-limit'
@@ -194,7 +194,7 @@ export async function nudge(
   if (
     !conversation ||
     conversation.teamId !== teamId ||
-    !canReply(conversationAccess(conversation, requesterId))
+    !(await canReplyIn(conversation, requesterId))
   )
     throw new AppError(404, 'conversation_not_found', 'Conversation not found')
   if (conversation.runtimeId !== runtimeId)

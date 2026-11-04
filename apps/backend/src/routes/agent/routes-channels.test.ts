@@ -249,14 +249,21 @@ describe('posting to a channel', () => {
     })
   })
 
-  test('a teammate with reply access joins by speaking', async () => {
+  test('a teammate who may only read cannot speak; an invited one can', async () => {
     const channelId = await createChannel()
 
     await agentConversations().updateOne(
       { sessionId: channelId },
-      { $set: { generalAccess: 'reply' } },
+      { $set: { generalAccess: 'view' } },
     )
     viewer = TEAMMATE
+    expect(
+      (await send('POST', `/conversations/${channelId}/channel-messages`, { text: 'hi' })).status,
+    ).toBe(403)
+    await agentConversations().updateOne(
+      { sessionId: channelId },
+      { $set: { participantIds: [TEAMMATE] } },
+    )
     expect(
       (await send('POST', `/conversations/${channelId}/channel-messages`, { text: 'hi' })).status,
     ).toBe(201)

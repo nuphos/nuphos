@@ -12,7 +12,6 @@ import {
   syncConversationTranscript,
   updateConversationCredentialAccess,
 } from '@/lib/agent/db'
-import { conversationAccess, managesConversation } from '@/lib/agent/db/access'
 import { moveConversationRuntime } from '@/lib/claude-code-preview/conversation-runtime-move'
 import { requireRuntimeInstance } from '@/lib/claude-code-preview/runtime-catalog'
 import {
@@ -25,7 +24,7 @@ import { AppError } from '@/lib/errors'
 import { isTranscriptSyncBlockedBySlackBinding } from './chat-slack-bound'
 import { hydrateStoredPrefix } from './chat-validate'
 import { credentialAccessResponse } from './credential-access'
-import { resolveAgentCredentialAccess, resolveManagerCredentialAccess } from './credential-resolve'
+import { resolveAgentCredentialAccess } from './credential-resolve'
 import { agent } from './router'
 import {
   assertConversationWritable,
@@ -100,32 +99,13 @@ agent.patch('/conversations/:sessionId/credentials', async (c) => {
   const body = await c.req.json()
   const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.teamId))
   const stored = await getConversationBySessionId(sessionId)
-  const manager =
-    stored &&
-    teamId &&
-    stored.userId !== userId &&
-    stored.teamId === teamId &&
-    conversationAccess(stored, userId) === 'manage'
-  const { access, options } = manager
-    ? await resolveManagerCredentialAccess({
-        teamId,
-        managerId: userId,
-        ownerId: stored.userId,
-        selection: body.credentialAccess,
-        stored: stored.credentialAccess,
-      })
-    : await resolveAgentCredentialAccess({
-        teamId,
-        userId,
-        selection: body.credentialAccess,
-        ...(stored?.userId === userId ? { stored: stored.credentialAccess } : {}),
-      })
-  const conversation = await updateConversationCredentialAccess(
-    sessionId,
-    manager ? stored.userId : userId,
+  const { access, options } = await resolveAgentCredentialAccess({
     teamId,
-    access,
-  )
+    userId,
+    selection: body.credentialAccess,
+    ...(stored?.userId === userId ? { stored: stored.credentialAccess } : {}),
+  })
+  const conversation = await updateConversationCredentialAccess(sessionId, userId, teamId, access)
 
   if (!conversation) {
     throw new AppError(404, 'not_found', 'Conversation not found')
@@ -164,9 +144,8 @@ agent.patch('/conversations/:sessionId/archive', async (c) => {
   const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.teamId))
   const conversation = await getReadableConversation(sessionId, userId, teamId)
 
-  // The owner and managers archive; anyone else sees no such conversation. A
-  // verified teamId is membership of the team the conversation was found in.
-  if (!conversation || !managesConversation(conversation, userId, Boolean(teamId))) {
+  // The owner archives; anyone else sees no such conversation.
+  if (!conversation || conversation.userId !== userId) {
     throw new AppError(404, 'not_found', 'Conversation not found')
   }
   await setConversationArchived(sessionId, body.archived)

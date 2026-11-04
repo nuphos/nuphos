@@ -1,5 +1,5 @@
 import { agentConversations } from '@/lib/agent/db'
-import { canReply, conversationAccess } from '@/lib/agent/db/access'
+import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
 
 export type AgentRef = {
   /** Principal whose permissions and credentials this execution may use. */
@@ -48,15 +48,14 @@ export async function verifyAgentForActor(
         _id: 0,
         userId: 1,
         teamId: 1,
+        runtimeId: 1,
         generalAccess: 1,
         participantIds: 1,
-        viewOnlyIds: 1,
-        managerIds: 1,
       },
     },
   )
 
-  if (!conv || !canReply(conversationAccess(conv, actorUserId))) return null
+  if (!conv || !(await canReplyIn(conv, actorUserId))) return null
 
   return { userId: actorUserId, sessionId, conversationOwnerUserId }
 }
