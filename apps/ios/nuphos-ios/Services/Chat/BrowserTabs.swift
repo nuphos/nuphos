@@ -49,6 +49,13 @@ extension AgentChatAPI {
         return try JSONDecoder().decode(Opened.self, from: data).id
     }
 
+    /// `POST /teams/:teamId/browser-tabs/:sessionId/fetch`: one request of a page on the owner's
+    /// Mac or its network, fetched there.
+    static func dockFetch(token: String, teamId: String, sessionId: String, request: DockFetchRequest) async throws -> DockFetchResponse {
+        let data = try await send("POST", "teams/\(teamId)/browser-tabs/\(sessionId)/fetch", token: token, body: request, timeout: 25)
+        return try JSONDecoder().decode(DockFetchResponse.self, from: data)
+    }
+
     /// `POST /teams/:teamId/browser-tabs/:sessionId/:tab/focus`: shows the tab on that computer.
     static func focusBrowserTab(token: String, teamId: String, sessionId: String, tab: String) async throws {
         _ = try await send("POST", "teams/\(teamId)/browser-tabs/\(sessionId)/\(tab)/focus", token: token, body: Optional<Int>.none, timeout: 20)
