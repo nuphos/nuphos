@@ -24,19 +24,49 @@ const PHONE_TIMEOUT_MS = 15_000
 /** A tab in the conversation's dock: opened by the agent or the user, live or restored. */
 export type SessionBrowserTab = { id: string; url: string; title: string }
 
-type Call = { action: 'dock' } | { action: 'focus'; dockTab: string }
+/** Any tab in the dock: its page key (`team.browser`, `team.terminal`, …), title, app path. */
+export type SessionDockTab = { id: string; kind: string; title: string; href: string; url?: string }
+
+/** The dock as the phone mirrors it: its tabs, the one in front, and the Mac's New Tab Recent. */
+export type SessionDock = {
+  tabs: SessionDockTab[]
+  activeTabId: string | null
+  recent: { href: string; title: string; url?: string }[]
+}
+
+/** A page the phone opens in the dock: an app path of this team, or a workspace page key. */
+export type DockOpenTarget = { href: string } | { page: string }
+
+type Call =
+  | { action: 'dock' }
+  | { action: 'focus'; dockTab: string }
+  | { action: 'close'; dockTab: string }
+  | ({ action: 'dock_open' } & DockOpenTarget)
+
+const TAB_ID = /^[\w-]{1,128}$/
+const PAGE_KEY = /^team\.[\w.-]{1,64}$/
+const MAX_HREF = 4096
 
 const dockTool: DeviceTool = {
   name: 'local_browser',
   label: 'The dock',
   purpose: 'browser',
   invalid: (raw) => {
-    const args = raw as Partial<Call> & { dockTab?: unknown }
+    const args = raw as { action?: unknown; dockTab?: unknown; href?: unknown; page?: unknown }
+    const tab = typeof args.dockTab === 'string' && TAB_ID.test(args.dockTab)
 
     if (args.action === 'dock') return undefined
-    if (args.action === 'focus' && typeof args.dockTab === 'string') return undefined
+    if ((args.action === 'focus' || args.action === 'close') && tab) return undefined
+    if (
+      args.action === 'dock_open' &&
+      ((typeof args.href === 'string' &&
+        args.href.length <= MAX_HREF &&
+        args.href.startsWith('/teams/')) ||
+        (typeof args.page === 'string' && PAGE_KEY.test(args.page)))
+    )
+      return undefined
 
-    return 'Only dock, and focus with a dock tab id, are allowed.'
+    return "Only dock; focus or close with a dock tab id; or dock_open with this team's href or a page key."
   },
   frame: (raw, ctx) => ({ ...(raw as Call), team: ctx.teamId }),
   audit: (raw) => {
@@ -46,6 +76,7 @@ const dockTool: DeviceTool = {
       '[browser] phone',
       args.action,
       ...('dockTab' in args ? [`tab=${args.dockTab}`] : []),
+      ...('href' in args ? [args.href] : 'page' in args ? [args.page] : []),
     ].join(' ')
   },
   errorReason: 'browser_error',
@@ -90,16 +121,60 @@ async function call(
   return result
 }
 
-/** The browser tabs in this conversation's dock, in its owner's Nuphos Desktop. */
-export async function sessionBrowserTabs(
+/**
+ * The conversation's dock, in its owner's Nuphos Desktop. An older Desktop
+ * answers with only its browser tabs, as a list; that reads as a dock of them.
+ */
+export async function sessionDock(
   teamId: string,
   userId: string,
   sessionId: string,
   deps: DeviceToolDeps = quietDeps,
-): Promise<SessionBrowserTab[]> {
+): Promise<SessionDock> {
   const result = await call(teamId, userId, sessionId, { action: 'dock' }, deps)
+  const value = JSON.parse(resultText(result)) as SessionDock | SessionBrowserTab[]
 
-  return JSON.parse(resultText(result)) as SessionBrowserTab[]
+  if (!Array.isArray(value)) return value
+
+  return {
+    tabs: value.map((tab) => ({ ...tab, kind: 'team.browser', href: '' })),
+    activeTabId: null,
+    recent: [],
+  }
+}
+
+/** The dock's browser tabs, in the shape iPhone builds before the mirrored dock read. */
+export function browserTabsOf(dock: SessionDock): SessionBrowserTab[] {
+  return dock.tabs.flatMap((tab) =>
+    tab.kind === 'team.browser' && tab.url ? [{ id: tab.id, url: tab.url, title: tab.title }] : [],
+  )
+}
+
+/** Closes one of the conversation's dock tabs on the owner's Mac, as its × does. */
+export async function closeSessionDockTab(
+  teamId: string,
+  userId: string,
+  sessionId: string,
+  dockTab: string,
+  deps: DeviceToolDeps = quietDeps,
+): Promise<void> {
+  await call(teamId, userId, sessionId, { action: 'close', dockTab }, deps)
+}
+
+/** Opens a page in the conversation's dock on the owner's Mac; answers the new tab's id. */
+export async function openSessionDockTab(
+  teamId: string,
+  userId: string,
+  sessionId: string,
+  target: DockOpenTarget,
+  deps: DeviceToolDeps = quietDeps,
+): Promise<string> {
+  // Only this team's pages; the Mac checks again before it opens anything.
+  if ('href' in target && !target.href.startsWith(`/teams/${encodeURIComponent(teamId)}/`))
+    throw new AppError(400, 'invalid_href', "href must be one of this team's pages")
+  const result = await call(teamId, userId, sessionId, { action: 'dock_open', ...target }, deps)
+
+  return (JSON.parse(resultText(result)) as { id: string }).id
 }
 
 /** Shows one of those tabs on the owner's Mac: its window, its conversation, its dock tab. */

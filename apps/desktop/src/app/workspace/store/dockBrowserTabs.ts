@@ -1,7 +1,17 @@
+import {
+  dockHistoryKey,
+  parseDockHistory,
+  readDockHistorySnapshot,
+} from '../../../lib/dockHistory.ts'
+import { emptyNavigation } from '../../../lib/app-routes/parseShared.ts'
+import { navigationFromAppPath } from '../../../lib/appRoutes.ts'
+import { createWorkspaceTabFromNavigation } from '../../workspaceTabFactory.ts'
 import { browserViewId, isWatchedDockTab, setWatchedDockTab } from '../watchedDockTabs.ts'
 
+import { dockMirror } from './dockMirror.ts'
 import { sessionKeyOf } from './workspaceState.ts'
 
+import type { DockMirror } from './dockMirror'
 import type { WorkspaceState } from './workspaceState'
 import type { WorkspaceActions } from './workspaceStore'
 
@@ -26,7 +36,14 @@ export function dockBrowserTabs(state: WorkspaceState, sessionId: string): DockB
 /** How long a watched tab may take to mount and attach its page. */
 const ATTACH_TIMEOUT_MS = 15_000
 
-type PaneStore = { getState: () => WorkspaceState; actions: Pick<WorkspaceActions, 'mountTab'> }
+type PaneStore = {
+  userId: string
+  getState: () => WorkspaceState
+  actions: Pick<WorkspaceActions, 'mountTab' | 'closeTab' | 'openTabInSession'>
+}
+
+/** A page the phone opens in a dock: an app path from New Tab or history, or a workspace page key. */
+type OpenTarget = { href: string } | { page: string }
 
 /** Every split pane's store; a conversation's dock lives in whichever pane holds it. */
 const stores = new Set<PaneStore>()
@@ -34,8 +51,10 @@ const stores = new Set<PaneStore>()
 declare global {
   // eslint-disable-next-line @typescript-eslint/consistent-type-definitions -- merges into Window
   interface Window {
-    /** Read by the main process (`browser-tabs.ts`) when the iPhone asks for a dock's tabs. */
-    nuphosDockBrowserTabs?: (sessionId: string) => DockBrowserTab[]
+    /** Read by the main process (`dock-mirror.ts`) when the iPhone asks for a dock. */
+    nuphosDockMirror?: (sessionId: string, teamId: string) => DockMirror | null
+    nuphosCloseDockTab?: (sessionId: string, tabId: string) => boolean
+    nuphosOpenDockTab?: (sessionId: string, teamId: string, target: OpenTarget) => string | null
     /**
      * A phone starts watching a dock tab (`browser-view.ts`): its page is mounted and kept
      * painting at `width`x`height`. Resolves the page's webContents id, or null.
@@ -50,13 +69,46 @@ declare global {
   }
 }
 
-function listDockTabs(sessionId: string): DockBrowserTab[] {
-  const byId = new Map<string, DockBrowserTab>()
+/** The pane store holding the conversation's dock, if any pane does. */
+const storeWithDock = (sessionId: string) =>
+  [...stores].find((store) => store.getState().buckets[sessionKeyOf(sessionId)] !== undefined)
 
-  for (const store of stores)
-    for (const tab of dockBrowserTabs(store.getState(), sessionId)) byId.set(tab.id, tab)
+function mirrorDock(sessionId: string, teamId: string): DockMirror | null {
+  const store = storeWithDock(sessionId) ?? [...stores][0]
 
-  return [...byId.values()]
+  if (!store) return null
+  const history = parseDockHistory(readDockHistorySnapshot(dockHistoryKey(store.userId, teamId)))
+
+  return dockMirror(store.getState(), sessionId, history)
+}
+
+function closeDockTab(sessionId: string, tabId: string): boolean {
+  const store = [...stores].find((candidate) =>
+    candidate.getState().buckets[sessionKeyOf(sessionId)]?.tabs.some((tab) => tab.id === tabId),
+  )
+
+  if (!store) return false
+  store.actions.closeTab(tabId)
+
+  return true
+}
+
+/** Opens a page in the conversation's dock without bringing it on screen; only this team's pages. */
+function openDockTab(sessionId: string, teamId: string, target: OpenTarget): string | null {
+  const store = storeWithDock(sessionId) ?? [...stores][0]
+  const navigation =
+    'href' in target
+      ? target.href.startsWith(`/teams/${encodeURIComponent(teamId)}/`)
+        ? navigationFromAppPath(target.href)
+        : null
+      : emptyNavigation({ kind: 'team', teamId }, target.page)
+
+  if (!store || navigation?.scope.teamId !== teamId) return null
+  const tab = createWorkspaceTabFromNavigation(navigation)
+
+  store.actions.openTabInSession(sessionId, tab)
+
+  return tab.id
 }
 
 async function watchDockTab(sessionId: string, tabId: string, width: number, height: number) {
@@ -76,10 +128,12 @@ async function watchDockTab(sessionId: string, tabId: string, width: number, hei
   return id
 }
 
-/** Lists a pane's dock tabs to the main process, and lets it watch them, while the pane is mounted. */
+/** Mirrors a pane's docks to the main process, and lets the phone change and watch them, while it is mounted. */
 export function exposeDockBrowserTabs(store: PaneStore): () => void {
   stores.add(store)
-  window.nuphosDockBrowserTabs = listDockTabs
+  window.nuphosDockMirror = mirrorDock
+  window.nuphosCloseDockTab = closeDockTab
+  window.nuphosOpenDockTab = openDockTab
   window.nuphosWatchDockTab = watchDockTab
   window.nuphosUnwatchDockTab = (tabId) => setWatchedDockTab(tabId, null)
 
