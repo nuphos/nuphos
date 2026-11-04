@@ -33,10 +33,9 @@ import type {
 import type { TeamMember } from '../../types'
 
 /**
- * The session's people, and the Share card that decides who else may open it:
- * the team may read, and invited people reply while they may use the computer
- * the session runs on. Inviting someone who may not asks to give them use of
- * it. Only the owner changes any of it; everyone else sees who is here.
+ * The session's people, and the Share card that decides who else may open it.
+ * Invited people reply while they may use the session's computer, so inviting
+ * someone who may not asks to give them use of it. Only the owner changes this.
  */
 export function SessionParticipants({
   sessionId,
@@ -262,6 +261,7 @@ export function SessionParticipants({
                   <GeneralAccessRow
                     value={generalAccess}
                     canManage={canManage && pending === null}
+                    chat={channel !== undefined}
                     onChange={changeGeneralAccess}
                   />
                 </ShareLink>

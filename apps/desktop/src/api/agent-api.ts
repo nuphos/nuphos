@@ -37,7 +37,11 @@ export const agentApi = {
     teamId: string,
     runtimeId: string,
     mode: 'history' | 'workspace',
-  ) => window.api.agentMoveConversationRuntime(sessionId, teamId, runtimeId, mode),
+    grantComputerUse?: boolean,
+  ) =>
+    window.api.agentMoveConversationRuntime(sessionId, teamId, runtimeId, mode, grantComputerUse),
+  agentCheckConversationMove: (sessionId: string, teamId: string, runtimeId: string) =>
+    window.api.agentCheckConversationMove(sessionId, teamId, runtimeId),
   agentImportLocalSession: (args: {
     source: LocalSessionSource
     id: string

@@ -1,3 +1,4 @@
+import type { ConversationMoveCheck } from '../../src/api/agent-types'
 import type { AgentProvider } from '../../src/types/runtime'
 import { AtlasHttpError, callJson, callJsonForRenderer, teamQuery } from './http'
 import { importInChunks } from './transcript-import'
@@ -221,6 +222,7 @@ export async function moveConversationRuntime(
   teamId: string,
   runtimeId: string,
   mode: 'history' | 'workspace',
+  grantComputerUse?: boolean,
 ): Promise<{
   runtimeId: string
   runtimeLabel: string
@@ -230,7 +232,21 @@ export async function moveConversationRuntime(
   return callJsonForRenderer(
     'POST',
     `/agent/conversations/${encodeURIComponent(sessionId)}/runtime${teamQuery(teamId)}`,
-    { runtimeId, mode },
+    { runtimeId, mode, ...(grantComputerUse ? { grantComputerUse } : {}) },
+  )
+}
+
+/** Before a move: who would lose reply on the target's computer, and whether the mover can give it. */
+export async function checkConversationMove(
+  sessionId: string,
+  teamId: string,
+  runtimeId: string,
+): Promise<ConversationMoveCheck> {
+  const query = new URLSearchParams({ teamId, runtimeId })
+
+  return callJsonForRenderer(
+    'GET',
+    `/agent/conversations/${encodeURIComponent(sessionId)}/runtime-move?${query.toString()}`,
   )
 }
 

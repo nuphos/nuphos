@@ -17,6 +17,12 @@ export const agentReadChannels = {
   ) => agent.unlinkSessionResource(sessionId, teamId, resourceId),
   'agent:markConversationRead': (_e: unknown, sessionId: string, seq: number, teamId?: string) =>
     agent.markConversationRead(sessionId, seq, teamId),
+  'agent:checkConversationMove': (
+    _e: unknown,
+    sessionId: string,
+    teamId: string,
+    runtimeId: string,
+  ) => agent.checkConversationMove(sessionId, teamId, runtimeId),
   'agent:getConversationParticipants': (_e: unknown, sessionId: string, teamId?: string) =>
     agent.getConversationParticipants(sessionId, teamId),
   'agent:inviteConversationParticipants': (

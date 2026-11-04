@@ -11,6 +11,7 @@ import type {
   AgentMemoryScorecard,
 } from './agent-audit-types.ts'
 import type { AgentDecisionApi, AgentStartArgs } from './agent-chat-types.ts'
+import type { ConversationMoveCheck } from './agent-types.ts'
 import type {
   AgentTrigger,
   AgentTriggerGroup,
@@ -42,11 +43,17 @@ import type { AgentProvider } from '../types/runtime.ts'
 export type WindowAgentApi = AgentDecisionApi & {
   cloudProbeCliVersion(provider: CloudCliProvider, probeId?: string): Promise<string | null>
   cloudProbeCli(provider: CloudCliProvider): Promise<CloudCliProbe>
+  agentCheckConversationMove(
+    sessionId: string,
+    teamId: string,
+    runtimeId: string,
+  ): Promise<ConversationMoveCheck>
   agentMoveConversationRuntime(
     sessionId: string,
     teamId: string,
     runtimeId: string,
     mode: 'history' | 'workspace',
+    grantComputerUse?: boolean,
   ): Promise<{
     runtimeId: string
     runtimeLabel: string

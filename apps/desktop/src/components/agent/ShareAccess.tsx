@@ -5,8 +5,9 @@ import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../ui/m
 
 import type { GeneralAccess } from '../../api/agent-types'
 
-// Who may read the session without an invite. Replying takes an invite, and
-// the computer the session runs on, so the team as a whole can only read.
+// Who may open the session without an invite. Replying takes an invite and
+// the computer the session runs on, so the team as a whole can only read. A
+// chat has no computer: the whole team may post in it too.
 
 const GENERAL_OPTIONS: { value: GeneralAccess; title: string; detail: string }[] = [
   {
@@ -15,18 +16,22 @@ const GENERAL_OPTIONS: { value: GeneralAccess; title: string; detail: string }[]
     detail: t('Only you and the people you invite'),
   },
   { value: 'view', title: t('Everyone in the team'), detail: t('Can view') },
+  { value: 'reply', title: t('Everyone in the team'), detail: t('Can view and reply') },
 ]
 
 /** Who in the team can read the session without an invite. */
 export function GeneralAccessRow({
   value,
   canManage,
+  chat,
   onChange,
 }: {
   value: GeneralAccess
   canManage: boolean
+  chat?: boolean
   onChange: (value: GeneralAccess) => void
 }) {
+  const options = GENERAL_OPTIONS.filter((option) => chat || option.value !== 'reply')
   const current = GENERAL_OPTIONS.find((option) => option.value === value) ?? GENERAL_OPTIONS[0]
   const Icon = value === 'none' ? Lock : Users
   const body = (
@@ -50,7 +55,7 @@ export function GeneralAccessRow({
         <ChevronDown className="h-3.5 w-3.5 shrink-0 text-tertiary" strokeWidth={2} />
       </MenuTrigger>
       <MenuContent align="end" className="w-[240px]">
-        {GENERAL_OPTIONS.map((option) => (
+        {options.map((option) => (
           <MenuItem
             key={option.value}
             selected={option.value === value}

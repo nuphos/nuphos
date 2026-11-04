@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { api } from '../../../api'
 import { decideErrorToast, parseAtlasError } from '../../../api/errors'
 import { t } from '../../../i18n/index.ts'
-import { localAgentMoveWarning, OWN_LOCAL_AGENT_MOVE_NOTICE } from '../../../lib/localAgentSharing'
+import { localAgentMoveWarning, moveNotice } from '../../../lib/localAgentSharing'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { toast } from '../../ui/toast'
 
@@ -50,7 +50,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
   )
 
   const move = useCallback(
-    async (runtimeId: string) => {
+    async (runtimeId: string, grantComputerUse?: boolean) => {
       const target = runtimeInstances.find((instance) => instance.id === runtimeId)
 
       if (moving) return
@@ -78,6 +78,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
             teamId,
             runtimeId,
             canCarryWorkspace(target, provider) ? 'workspace' : 'history',
+            grantComputerUse,
           )
           .catch(async (cause: unknown) => {
             // The backend's code crosses IPC inside the error message, not as a
@@ -88,6 +89,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
               teamId,
               runtimeId,
               'history',
+              grantComputerUse,
             )
 
             toast.success(t('Agent moved'), t('The working files could not come along.'))
@@ -125,11 +127,12 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     [moving, provider, refreshHistory, runtimeInstances, sessionId, setTab, tabId, teamId],
   )
 
-  // Explain host trust or loss of collaboration before a local move.
-  const [pendingLocal, setPendingLocal] = useState<{
+  // Explain host trust, and who would lose reply, before a move.
+  const [pendingMove, setPendingMove] = useState<{
     target: RuntimeInstance
-    warning: string
+    notice: string
     docs: boolean
+    grant: boolean
   } | null>(null)
 
   const runtimeControl = useMemo<RuntimeControl | undefined>(() => {
@@ -156,11 +159,25 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
       ...(canMove && {
         onSelect: (runtimeId: string, access) => {
           const target = runtimeInstances.find((instance) => instance.id === runtimeId)
-          const warning = target && localAgentMoveWarning(target, access, c.currentUser?.id)
 
-          if (target && warning)
-            setPendingLocal({ target, warning, docs: warning !== OWN_LOCAL_AGENT_MOVE_NOTICE })
-          else void move(runtimeId)
+          if (!target) return void move(runtimeId)
+          const hostTrust = localAgentMoveWarning(target, access, c.currentUser?.id)
+
+          void api
+            .agentCheckConversationMove(sessionId, teamId, runtimeId)
+            // A backend without the check: nobody to list, as before.
+            .catch(() => null)
+            .then((check) => {
+              const notice = moveNotice(target, hostTrust, check)
+
+              if (!notice) return void move(runtimeId)
+              setPendingMove({
+                target,
+                notice,
+                docs: hostTrust !== undefined,
+                grant: Boolean(check?.canGrant && check.losing.length > 0),
+              })
+            })
         },
       }),
       selectDisabled: tab?.streaming || moving,
@@ -170,24 +187,24 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
       loading: runtimeInstancesLoading,
       error: runtimeInstancesError,
       onSettings: onOpenAgentSettings,
-      ...(pendingLocal
+      ...(pendingMove
         ? {
             confirm: {
-              title: t('Move to {name}?', { name: pendingLocal.target.label }),
-              description: pendingLocal.warning,
-              sharedComputerDocs: pendingLocal.docs,
+              title: t('Move to {name}?', { name: pendingMove.target.label }),
+              description: pendingMove.notice,
+              sharedComputerDocs: pendingMove.docs,
               confirmLabel: t('Move'),
               onConfirm: () => {
-                setPendingLocal(null)
-                void move(pendingLocal.target.id)
+                setPendingMove(null)
+                void move(pendingMove.target.id, pendingMove.grant)
               },
-              onCancel: () => setPendingLocal(null),
+              onCancel: () => setPendingMove(null),
             },
           }
         : {}),
     }
   }, [
-    pendingLocal,
+    pendingMove,
     c.currentUser?.id,
     move,
     moving,

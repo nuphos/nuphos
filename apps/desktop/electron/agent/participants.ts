@@ -18,7 +18,9 @@ export function getConversationParticipants(
 /**
  * Someone who cannot use the session's computer is refused with
  * `computer_use_required` until the invite confirms giving them `use` of it,
- * so the error keeps its code for the renderer's confirmation.
+ * so the error keeps its code for the renderer's confirmation. The answer is
+ * always sent: a request without one comes from an older release, whose
+ * invitees join reading only.
  */
 export function inviteConversationParticipants(
   sessionId: string,
@@ -29,7 +31,7 @@ export function inviteConversationParticipants(
   return callJsonForRenderer(
     'POST',
     participantsPath(sessionId, teamId),
-    { userIds, ...(grantComputerUse ? { grantComputerUse } : {}) },
+    { userIds, grantComputerUse },
     12_000,
   )
 }

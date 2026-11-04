@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { localAgentMoveWarning, OWN_LOCAL_AGENT_MOVE_NOTICE } from './localAgentSharing.ts'
+import { localAgentMoveWarning, moveNotice } from './localAgentSharing.ts'
 
 const local = {
   ownerUserId: 'mate',
@@ -11,45 +11,12 @@ const local = {
   shared: { level: 'full' as const },
 }
 
-test('moving to a borrowed computer explains visibility and who can still reply', () => {
-  const warning = localAgentMoveWarning({ kind: 'local', local }, 'use', 'viewer')
-
+test('moving onto a borrowed computer says its owner can see the work', () => {
   assert.equal(
-    warning,
-    'Its owner can see this work. People you shared it with can reply only if they can use this computer.',
+    localAgentMoveWarning({ kind: 'local', local }, 'use', 'viewer'),
+    'Its owner can see this work.',
   )
-})
-
-test('own Local Agents retain collaboration-loss consent without a host-trust notice', () => {
-  for (const access of ['owner', 'manage'] as const) {
-    const warning = localAgentMoveWarning({ kind: 'local', local }, access, 'viewer')
-
-    assert.equal(warning, OWN_LOCAL_AGENT_MOVE_NOTICE)
-    assert.match(warning ?? '', /reply only if they can use this computer/)
-    assert.match(warning ?? '', /can still read/)
-    assert.doesNotMatch(warning ?? '', /owner can see/)
-  }
-})
-
-test('older own catalogs retain consent; own or managed Boxes need no host-trust prompt', () => {
-  assert.equal(
-    localAgentMoveWarning({ kind: 'local', local }, undefined, 'mate'),
-    OWN_LOCAL_AGENT_MOVE_NOTICE,
-  )
-  assert.equal(localAgentMoveWarning({ kind: 'local' }), OWN_LOCAL_AGENT_MOVE_NOTICE)
-  for (const access of ['owner', 'manage'] as const) {
-    assert.equal(
-      localAgentMoveWarning(
-        { kind: 'local', local: { ...local, box: { state: 'running' } } },
-        access,
-        'viewer',
-      ),
-      undefined,
-    )
-  }
-})
-
-test('older shared catalogs and borrowed Boxes retain the short move notice', () => {
+  // Older catalogs that report only the share.
   assert.ok(localAgentMoveWarning({ kind: 'local', local }, undefined, 'viewer'))
   assert.ok(
     localAgentMoveWarning(
@@ -60,7 +27,31 @@ test('older shared catalogs and borrowed Boxes retain the short move notice', ()
   )
 })
 
-test('moves onto hosted agents need no Local Agent consent', () => {
+test('your own or managed computers, and hosted agents, need no host-trust notice', () => {
+  for (const access of ['owner', 'manage'] as const)
+    assert.equal(localAgentMoveWarning({ kind: 'local', local }, access, 'viewer'), undefined)
+  assert.equal(localAgentMoveWarning({ kind: 'local', local }, undefined, 'mate'), undefined)
+  assert.equal(localAgentMoveWarning({ kind: 'local' }), undefined)
   assert.equal(localAgentMoveWarning({ kind: 'managed' }), undefined)
   assert.equal(localAgentMoveWarning({ kind: 'external' }), undefined)
+})
+
+test('a move names who would lose reply, and offers the computer when the mover can give it', () => {
+  const target = { label: 'Claude Code in Mac' }
+  const losing = [
+    { id: 'u2', name: 'Sam' },
+    { id: 'u3', name: 'Jordan' },
+  ]
+  const computer = { deviceId: 'mac', label: 'Mac' }
+
+  assert.equal(moveNotice(target, undefined, null), undefined)
+  assert.equal(moveNotice(target, undefined, { computer, losing: [], canGrant: true }), undefined)
+  assert.equal(
+    moveNotice(target, undefined, { computer, losing, canGrant: true }),
+    'Moving this conversation will give these teammates use of Mac: Sam, Jordan. Continue?',
+  )
+  assert.equal(
+    moveNotice(target, 'Its owner can see this work.', { computer, losing, canGrant: false }),
+    'Its owner can see this work. Sam, Jordan can’t use Mac, so after the move they can only view this conversation.',
+  )
 })

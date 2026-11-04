@@ -14,8 +14,16 @@ export type AgentConversationPerson = {
 }
 
 /** Owner first, then whoever spoke here or was invited from Share. */
-/** Who in the team may read a session without an invite. */
-export type GeneralAccess = 'none' | 'view'
+/** Who in the team may open a session without an invite; only a chat offers 'reply'. */
+export type GeneralAccess = 'none' | 'view' | 'reply'
+/** Who would lose reply if the session moved to a runtime: they cannot use its computer. */
+export type ConversationMoveCheck = {
+  computer: { deviceId: string; label: string } | null
+  losing: { id: string; name: string }[]
+  /** The mover owns or manages that computer, so confirming gives them use of it. */
+  canGrant: boolean
+}
+
 /** A participant replies while they may use the computer the session runs on; else they read. */
 export type ConversationAccess = 'owner' | 'reply' | 'view'
 
