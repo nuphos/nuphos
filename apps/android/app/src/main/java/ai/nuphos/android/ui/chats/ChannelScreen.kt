@@ -60,8 +60,7 @@ import ai.nuphos.android.ui.LocalAuthSession
 import ai.nuphos.android.ui.components.AgentAvatar
 import ai.nuphos.android.ui.components.MarkdownText
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -166,22 +165,13 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
     val known = remember(session) { reversed.mapTo(mutableSetOf()) { it.key } }
     val arrivals = reversed.filter { it.key !in known }.mapTo(mutableSetOf()) { it.key }
     SideEffect { known += arrivals }
-    // Posts that came while the app was away are simply there on return, as on iOS: from leaving the
-    // foreground until the first read after coming back has drawn, rows don't animate.
-    var returning by remember(session) { mutableStateOf(false) }
-    val lifecycle = LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(session, lifecycle) {
-        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            val readsAtReturn = session.reads
-            try {
-                snapshotFlow { session.reads }.first { it > readsAtReturn }
-                // Two frames: the rows from that read must have been laid out first.
-                repeat(2) { withFrameNanos { } }
-                returning = false
-                awaitCancellation()
-            } finally {
-                returning = true
-            }
+    // Posts that came while the app was away are simply there on return, as on iOS. Rows from the
+    // first good read must be laid out before motion resumes, hence the two frames.
+    var returning by remember(session) { mutableStateOf(session.returning) }
+    LaunchedEffect(session) {
+        snapshotFlow { session.returning }.collectLatest { value ->
+            if (!value) repeat(2) { withFrameNanos { } }
+            returning = value
         }
     }
     // Your own send returns the transcript to the end.

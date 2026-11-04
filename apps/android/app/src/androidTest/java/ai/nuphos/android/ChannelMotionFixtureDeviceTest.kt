@@ -48,6 +48,8 @@ class ChannelMotionFixtureDeviceTest {
     @Suppress("UNCHECKED_CAST") private fun access() = AiAccess::class.java.getDeclaredField("state")
         .also { it.isAccessible = true }.get(AiAccess) as MutableState<Any?>
     private val reads = AtomicInteger()
+    @Volatile private var failReads = false
+    @Volatile private var holdReads: java.util.concurrent.CountDownLatch? = null
     private val posted = CopyOnWriteArrayList<String>()
     @Volatile private var count = 40
     @Volatile private var echoSends = true
@@ -73,6 +75,7 @@ class ChannelMotionFixtureDeviceTest {
         field.set(null, OkHttpClient.Builder().addInterceptor { chain ->
             val request = chain.request()
             val path = request.url.encodedPath
+            var code = 200
             val body = when {
                 path.endsWith("/channel-messages") -> {
                     val raw = okio.Buffer().also { request.body?.writeTo(it) }.readUtf8()
@@ -80,14 +83,18 @@ class ChannelMotionFixtureDeviceTest {
                     posted += Regex("\"text\":\"([^\"]*)\"").find(raw)!!.groupValues[1]
                     """{"ok":true}"""
                 }
-                path.endsWith("/agent/conversations/chat-a") -> { reads.incrementAndGet(); detail() }
+                path.endsWith("/agent/conversations/chat-a") -> {
+                    holdReads?.await(10, java.util.concurrent.TimeUnit.SECONDS)
+                    reads.incrementAndGet()
+                    if (failReads) { code = 500; "{}" } else detail()
+                }
                 path.endsWith("/agents") -> """{"agents":[{"sessionId":"agent-ops","title":"Release ops"}]}"""
                 path.endsWith("/agent/conversations/agent-ops") -> """{"sessionId":"agent-ops","title":"Release ops","isOwner":true,"messages":[]${if (turn) ""","activeRun":{"streamId":"r"}""" else ""}}"""
                 path.endsWith("/agent/conversations") -> """{"conversations":[],"hasMore":false}"""
                 path.endsWith("/read") -> """{"activitySeq":1,"readSeq":1,"unread":false}"""
                 else -> "{}"
             }
-            Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("fixture")
+            Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(code).message("fixture")
                 .body(body.toResponseBody(Http.jsonMedia)).build()
         }.build())
         val app = target.applicationContext as NuphosApplication
@@ -297,6 +304,57 @@ class ChannelMotionFixtureDeviceTest {
         waitFor("Post 42")
         settle()
         assertAtTheEnd("Post 42")
+    }
+
+    /** A first read that fails on return brought nothing: the retry's posts are still from while away. */
+    @Test fun aFailedReadOnReturnStillBringsTheBacklogWithNoMotion() {
+        render()
+        settle()
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        Thread.sleep(600)
+        failReads = true
+        count = 43
+        val failed = reads.get()
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        compose.waitUntil(8_000) { reads.get() > failed }
+        settle()
+        compose.onNodeWithText("Post 43").assertDoesNotExist()
+        failReads = false
+        compose.mainClock.autoAdvance = false
+        frames { compose.onAllNodesWithText("Post 43").fetchSemanticsNodes().isNotEmpty() }
+        compose.mainClock.advanceTimeByFrame()
+        val arrived = top("Post 43")
+        val older = top("Post 40")
+        compose.mainClock.advanceTimeBy(48)
+        assertEquals("No rise", arrived, top("Post 43"), 1f)
+        assertEquals("No glide", older, top("Post 40"), 1f)
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        assertAtTheEnd("Post 43")
+    }
+
+    /** A read still out when coming back is the one that counts; nothing ends the quiet early. */
+    @Test fun aSlowReadOnReturnStillBringsTheBacklogWithNoMotion() {
+        render()
+        settle()
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        Thread.sleep(600)
+        val held = java.util.concurrent.CountDownLatch(1)
+        holdReads = held
+        count = 43
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        Thread.sleep(1_500); compose.waitForIdle()
+        compose.onNodeWithText("Post 43").assertDoesNotExist()
+        compose.mainClock.autoAdvance = false
+        holdReads = null; held.countDown()
+        frames { compose.onAllNodesWithText("Post 43").fetchSemanticsNodes().isNotEmpty() }
+        compose.mainClock.advanceTimeByFrame()
+        val arrived = top("Post 43")
+        compose.mainClock.advanceTimeBy(48)
+        assertEquals("No rise", arrived, top("Post 43"), 1f)
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        assertAtTheEnd("Post 43")
     }
 
     /** After the first read on return, posts arrive with motion again. */
