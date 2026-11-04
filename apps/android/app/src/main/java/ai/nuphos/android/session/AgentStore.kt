@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import ai.nuphos.android.data.ConversationReadApi
 import ai.nuphos.android.data.ConversationActions
+import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.model.AgentConversation
 import ai.nuphos.android.model.ConversationScope
@@ -186,11 +187,12 @@ class AgentStore(
         channels = channels.map { if (it.sessionId == sessionId) withLocalRead(it) else it }
     }
 
-    /** What the last checks found for agents in an open chat. An agent not checked yet has no entry. */
-    private var agentTurns by mutableStateOf<Map<String, Boolean>>(emptyMap())
+    /** The runtime state the last checks found for agents in an open chat. An agent not checked yet has no entry. */
+    private var agentTurns by mutableStateOf<Map<String, JsonValue>>(emptyMap())
 
-    fun inTurn(sessionId: String): Boolean = agentTurns[sessionId]
-        ?: (conversations.firstOrNull { it.sessionId == sessionId }?.activeRun != null)
+    /** The agent is in a turn that answers this chat; a turn about anything else shows no dots there. */
+    fun typingIn(sessionId: String, channelId: String): Boolean = RuntimeObservation.typingIn(
+        agentTurns[sessionId] ?: conversations.firstOrNull { it.sessionId == sessionId }?.runtimeState, channelId)
 
     /**
      * Asks each agent in an open chat whether it is in a turn. The agent list is one page of many
@@ -202,9 +204,9 @@ class AgentStore(
         for (id in sessionIds) {
             if (disposed || !hasAiAccess() || selectedTeam?.id != team.id || workspace != workspaceRevision) return
             try {
-                val active = NuphosApi.conversationDetail(token, team.id, id, tail = 1).activeRun != null
+                val state = NuphosApi.conversationDetail(token, team.id, id, tail = 1).runtimeState ?: JsonValue.obj()
                 if (disposed || !hasAiAccess() || selectedTeam?.id != team.id || workspace != workspaceRevision) return
-                agentTurns = agentTurns + (id to active)
+                agentTurns = agentTurns + (id to state)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (_: Exception) {

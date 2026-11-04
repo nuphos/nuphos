@@ -8,6 +8,19 @@ class RuntimeObservationTest {
     private fun observation(time: Double = 10.0, revision: Int = 2, epoch: String = "a", version: Int = 2) =
         RuntimeObservation(JsonValue.parse("""{"state":"active","schemaVersion":$version,"epoch":"$epoch","revision":$revision,"actions":{"send":true,"cancel":false,"steer":true}}""")!!, time)
 
+    @Test fun aChatShowsTypingOnlyForATurnThatAnswersIt() {
+        fun state(json: String) = JsonValue.parse(json)!!
+        val answering = state("""{"state":"active","schemaVersion":2,"phase":"working","channelIds":["chat-a"]}""")
+        assertTrue(RuntimeObservation.typingIn(answering, "chat-a"))
+        assertFalse(RuntimeObservation.typingIn(answering, "chat-b"))
+        // A turn about the agent's own chat names no channel.
+        assertFalse(RuntimeObservation.typingIn(state("""{"state":"active","channelIds":[]}"""), "chat-a"))
+        // A backend that names no chats: no dots rather than false ones.
+        assertFalse(RuntimeObservation.typingIn(state("""{"state":"active","phase":"working"}"""), "chat-a"))
+        assertFalse(RuntimeObservation.typingIn(state("""{"state":"idle","channelIds":["chat-a"]}"""), "chat-a"))
+        assertFalse(RuntimeObservation.typingIn(state("""{"state":"active","phase":"resume_disconnected","channelIds":["chat-a"]}"""), "chat-a"))
+        assertFalse(RuntimeObservation.typingIn(null, "chat-a"))
+    }
     @Test fun actionsRequireFreshV2AndExactFlag() {
         val value = observation()
         assertTrue(value.allows("send", 21.999))

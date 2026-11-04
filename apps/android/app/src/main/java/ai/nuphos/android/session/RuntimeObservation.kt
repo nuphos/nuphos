@@ -22,6 +22,15 @@ data class RuntimeObservation(val snapshot: JsonValue, val observedAt: Double) {
         return snapshot["label"]?.stringValue
     }
     companion object {
+        /**
+         * Desktop's `runtimeTypingIn`: the agent's turn answers this chat, because the chat's posts
+         * started it or were steered into it. A snapshot that names no chats, as from an older
+         * backend, shows nothing rather than a reply that never comes.
+         */
+        fun typingIn(snapshot: JsonValue?, channelId: String): Boolean =
+            snapshot?.get("state")?.stringValue == "active" &&
+                snapshot["phase"]?.stringValue != "resume_disconnected" &&
+                snapshot["channelIds"]?.arrayValue?.any { it.stringValue == channelId } == true
         fun now(): Double = System.nanoTime() / 1_000_000_000.0
         fun frameObservedAt(received: Double, wallMillis: Double, emittedMillis: Double?): Double =
             if (emittedMillis == null) Double.NEGATIVE_INFINITY else received - maxOf(0.0, wallMillis - emittedMillis) / 1000.0
