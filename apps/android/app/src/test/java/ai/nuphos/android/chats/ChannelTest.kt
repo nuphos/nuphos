@@ -14,6 +14,7 @@ import ai.nuphos.android.model.ComposerSubmission
 import ai.nuphos.android.model.ConversationScope
 import ai.nuphos.android.model.HomePage
 import ai.nuphos.android.session.ChannelSession
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Test
@@ -131,6 +132,30 @@ class ChannelTest {
         session.refresh()
         assertEquals(listOf(ChannelSession.TAIL, 1, 1, ChannelSession.TAIL), transport.details)
         assertEquals(2, transport.agentsCalls); assertEquals(2L, session.activitySeq)
+    }
+
+    @Test fun returningEndsOnlyWithThePollsOwnGoodRead() = runTest {
+        val transport = FakeTransport()
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        assertFalse("A first open isn't a return", session.returning)
+        val first = launch { session.poll() }
+        testScheduler.runCurrent()
+        assertFalse(session.returning)
+        first.cancel(); first.join()
+        assertTrue("Leaving starts it", session.returning)
+        // Another caller's read doesn't end it: it may predate what arrived.
+        session.refresh(force = true)
+        assertTrue(session.returning)
+        // A failed read brought nothing, so it holds through the retry.
+        transport.failDetail = true
+        val second = launch { session.poll() }
+        testScheduler.runCurrent()
+        assertTrue("The read failed", session.returning)
+        transport.failDetail = false
+        testScheduler.advanceTimeBy(ChannelSession.POLL_MS + 1)
+        testScheduler.runCurrent()
+        assertFalse("The next good read ends it", session.returning)
+        second.cancel(); second.join()
     }
 
     @Test fun aRefreshSaysWhetherItCouldRead() = runTest {

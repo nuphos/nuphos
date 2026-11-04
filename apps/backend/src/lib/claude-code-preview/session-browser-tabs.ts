@@ -84,18 +84,18 @@ const dockTool: DeviceTool = {
   unsupported: 'The computer went offline, or its Nuphos Desktop needs an update.',
 }
 
-const quietDeps: DeviceToolDeps = {
+export const quietDeps: DeviceToolDeps = {
   ...defaultDeviceToolDeps,
   // The conversation's run never shows these calls as tool cards.
   publish: async () => {},
   timeoutMs: PHONE_TIMEOUT_MS,
 }
 
-const resultText = (result: ToolResult) =>
+export const resultText = (result: ToolResult) =>
   result.content.map((part) => (part.type === 'text' ? part.text : '')).join('\n')
 
 /** The dock is the owner's own screen, as local_browser only runs in your own conversations. */
-async function requireOwnConversation(teamId: string, userId: string, sessionId: string) {
+export async function requireOwnConversation(teamId: string, userId: string, sessionId: string) {
   const conversation = await getReadableConversation(sessionId, userId, teamId)
 
   if (conversation?.userId !== userId || conversation.teamId !== teamId)

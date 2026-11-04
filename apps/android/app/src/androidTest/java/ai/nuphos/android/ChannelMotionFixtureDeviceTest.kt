@@ -48,6 +48,8 @@ class ChannelMotionFixtureDeviceTest {
     @Suppress("UNCHECKED_CAST") private fun access() = AiAccess::class.java.getDeclaredField("state")
         .also { it.isAccessible = true }.get(AiAccess) as MutableState<Any?>
     private val reads = AtomicInteger()
+    @Volatile private var failReads = false
+    @Volatile private var holdReads: java.util.concurrent.CountDownLatch? = null
     private val posted = CopyOnWriteArrayList<String>()
     @Volatile private var count = 40
     @Volatile private var echoSends = true
@@ -73,6 +75,7 @@ class ChannelMotionFixtureDeviceTest {
         field.set(null, OkHttpClient.Builder().addInterceptor { chain ->
             val request = chain.request()
             val path = request.url.encodedPath
+            var code = 200
             val body = when {
                 path.endsWith("/channel-messages") -> {
                     val raw = okio.Buffer().also { request.body?.writeTo(it) }.readUtf8()
@@ -80,14 +83,18 @@ class ChannelMotionFixtureDeviceTest {
                     posted += Regex("\"text\":\"([^\"]*)\"").find(raw)!!.groupValues[1]
                     """{"ok":true}"""
                 }
-                path.endsWith("/agent/conversations/chat-a") -> { reads.incrementAndGet(); detail() }
+                path.endsWith("/agent/conversations/chat-a") -> {
+                    holdReads?.await(10, java.util.concurrent.TimeUnit.SECONDS)
+                    reads.incrementAndGet()
+                    if (failReads) { code = 500; "{}" } else detail()
+                }
                 path.endsWith("/agents") -> """{"agents":[{"sessionId":"agent-ops","title":"Release ops"}]}"""
                 path.endsWith("/agent/conversations/agent-ops") -> """{"sessionId":"agent-ops","title":"Release ops","isOwner":true,"messages":[]${if (turn) ""","activeRun":{"streamId":"r"}""" else ""}}"""
                 path.endsWith("/agent/conversations") -> """{"conversations":[],"hasMore":false}"""
                 path.endsWith("/read") -> """{"activitySeq":1,"readSeq":1,"unread":false}"""
                 else -> "{}"
             }
-            Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("fixture")
+            Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(code).message("fixture")
                 .body(body.toResponseBody(Http.jsonMedia)).build()
         }.build())
         val app = target.applicationContext as NuphosApplication
@@ -245,6 +252,134 @@ class ChannelMotionFixtureDeviceTest {
         waitFor("Post 43")
         settle()
         assertAtTheEnd("Post 43")
+    }
+
+    private fun frames(until: () -> Boolean) {
+        var left = 600
+        while (!until() && left-- > 0) { compose.mainClock.advanceTimeByFrame(); Thread.sleep(10) }
+        assertTrue("Timed out stepping frames", until())
+    }
+
+    /** Posts from while the app was away are simply there: stepping the clock shows no row on its way. */
+    @Test fun postsFromWhileAwayAreInPlaceOnReturnWithNoMotion() {
+        render()
+        settle()
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        Thread.sleep(600)
+        val reads = detailReads()
+        count = 43
+        compose.mainClock.autoAdvance = false
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        frames { detailReads() > reads && compose.onAllNodesWithText("Post 43").fetchSemanticsNodes().isNotEmpty() }
+        // A snap settles on the next frame; from then on, nothing is on its way anywhere.
+        compose.mainClock.advanceTimeByFrame()
+        val arrived = top("Post 43")
+        val older = top("Post 40")
+        compose.mainClock.advanceTimeBy(48)
+        assertEquals("No rise", arrived, top("Post 43"), 1f)
+        assertEquals("No glide", older, top("Post 40"), 1f)
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        assertEquals(arrived, top("Post 43"), 1f)
+        assertEquals(older, top("Post 40"), 1f)
+        assertAtTheEnd("Post 43")
+    }
+
+    @Test fun readingOlderPostsOnReturnNothingMoves() {
+        render()
+        readOlder()
+        val place = top("Post 20")
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        Thread.sleep(600)
+        val reads = detailReads()
+        count = 42
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        compose.waitUntil(12_000) { detailReads() > reads }
+        settle()
+        assertEquals("The reader's place stays", place, top("Post 20"), 1f)
+        jump.assertIsDisplayed()
+        compose.onNodeWithText("Post 42").assertDoesNotExist()
+        jump.performClick()
+        waitFor("Post 42")
+        settle()
+        assertAtTheEnd("Post 42")
+    }
+
+    /** A first read that fails on return brought nothing: the retry's posts are still from while away. */
+    @Test fun aFailedReadOnReturnStillBringsTheBacklogWithNoMotion() {
+        render()
+        settle()
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        Thread.sleep(600)
+        failReads = true
+        count = 43
+        val failed = reads.get()
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        compose.waitUntil(8_000) { reads.get() > failed }
+        settle()
+        compose.onNodeWithText("Post 43").assertDoesNotExist()
+        failReads = false
+        compose.mainClock.autoAdvance = false
+        frames { compose.onAllNodesWithText("Post 43").fetchSemanticsNodes().isNotEmpty() }
+        compose.mainClock.advanceTimeByFrame()
+        val arrived = top("Post 43")
+        val older = top("Post 40")
+        compose.mainClock.advanceTimeBy(48)
+        assertEquals("No rise", arrived, top("Post 43"), 1f)
+        assertEquals("No glide", older, top("Post 40"), 1f)
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        assertAtTheEnd("Post 43")
+    }
+
+    /** A read still out when coming back is the one that counts; nothing ends the quiet early. */
+    @Test fun aSlowReadOnReturnStillBringsTheBacklogWithNoMotion() {
+        render()
+        settle()
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        Thread.sleep(600)
+        val held = java.util.concurrent.CountDownLatch(1)
+        holdReads = held
+        count = 43
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        Thread.sleep(1_500); compose.waitForIdle()
+        compose.onNodeWithText("Post 43").assertDoesNotExist()
+        compose.mainClock.autoAdvance = false
+        holdReads = null; held.countDown()
+        frames { compose.onAllNodesWithText("Post 43").fetchSemanticsNodes().isNotEmpty() }
+        compose.mainClock.advanceTimeByFrame()
+        val arrived = top("Post 43")
+        compose.mainClock.advanceTimeBy(48)
+        assertEquals("No rise", arrived, top("Post 43"), 1f)
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        assertAtTheEnd("Post 43")
+    }
+
+    /** After the first read on return, posts arrive with motion again. */
+    @Test fun aPostAfterComingBackStillGlides() {
+        render()
+        settle()
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        Thread.sleep(600)
+        count = 41
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        waitFor("Post 41")
+        settle()
+        val before = top("Post 41")
+        val session = store.channelSession("chat-a")!!
+        count = 42
+        compose.mainClock.autoAdvance = false
+        kotlinx.coroutines.runBlocking { session.refresh(force = true) }
+        compose.mainClock.advanceTimeByFrame()
+        compose.mainClock.advanceTimeBy(48)
+        val during = top("Post 41")
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        val after = top("Post 41")
+        assertTrue("before=$before during=$during after=$after", after < during && during <= before)
     }
 
     /** With the clock held, the older row is seen part of the way, so it glides, it doesn't jump. */

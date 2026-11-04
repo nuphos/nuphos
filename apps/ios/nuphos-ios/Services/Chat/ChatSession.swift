@@ -124,6 +124,10 @@ final class ChatSession {
         }
         return try await AgentChatAPI.openDockTab(token: token, teamId: teamId, sessionId: sessionId, href: path, page: page)
     }
+    /// One request of a page on the owner's Mac or its network, fetched there for the phone.
+    func dockFetch(_ request: DockFetchRequest) async throws -> DockFetchResponse {
+        try await AgentChatAPI.dockFetch(token: token, teamId: teamId, sessionId: sessionId, request: request)
+    }
     /// Shows a dock tab of any kind on the owner's computer.
     func focusDockTab(_ id: String) async throws {
         try await AgentChatAPI.focusBrowserTab(token: token, teamId: teamId, sessionId: sessionId, tab: id)

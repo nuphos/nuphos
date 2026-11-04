@@ -71,7 +71,7 @@ final class DockPanelUITests: XCTestCase {
         app.buttons["browser-done"].tap()
     }
 
-    func testAMacOnlyPageSaysSoInsteadOfTimingOut() {
+    func testAPageOnTheMacsNetworkLoadsThroughTheMac() {
         let app = launch()
         sleep(1)
         swipeInFromRightEdge(app)
@@ -79,9 +79,10 @@ final class DockPanelUITests: XCTestCase {
         XCTAssertTrue(tab.waitForExistence(timeout: 5))
         reveal(tab, in: app, sideways: true)
         tab.tap()
-        XCTAssertTrue(app.staticTexts["This page runs on your Mac"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Live view on Mac"].exists)
-        sleep(1)
+        XCTAssertTrue(app.staticTexts["Preview app running on your Mac"].waitForExistence(timeout: 10), "The Mac's page did not load")
+        XCTAssertEqual(app.textFields["browser-address"].value as? String, "http://localhost:3000/")
+        XCTAssertTrue(app.otherElements["browser-live-reload"].exists || app.staticTexts["Loaded from your Mac. Live reload doesn't update here; reload to see changes."].exists)
+        sleep(2)
     }
 
     func testClosingATabOnThePhoneClosesItInTheStrip() {

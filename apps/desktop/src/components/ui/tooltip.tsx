@@ -1,7 +1,7 @@
 import { Tooltip as TooltipPrimitive } from '@base-ui/react/tooltip'
 import clsx from 'clsx'
 
-import type { ReactNode } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 
 type Side = NonNullable<TooltipPrimitive.Positioner.Props['side']>
 
@@ -29,6 +29,7 @@ function popupOrigin(side: Side) {
  */
 export function Tooltip({
   content,
+  trigger,
   children,
   side = 'top',
   disabled,
@@ -36,6 +37,8 @@ export function Tooltip({
   delay = 300,
 }: {
   content: ReactNode
+  /** Render the actual control as the trigger so its keyboard focus opens the tooltip. */
+  trigger?: ReactElement
   /** The element to hover. Rendered as the trigger, so it must accept a ref. */
   children: ReactNode
   side?: Side
@@ -52,7 +55,7 @@ export function Tooltip({
     <TooltipPrimitive.Provider delay={delay}>
       <TooltipPrimitive.Root disabled={disabled}>
         <TooltipPrimitive.Trigger
-          render={<span className={clsx('inline-flex', triggerClassName)} />}
+          render={trigger ?? <span className={clsx('inline-flex', triggerClassName)} />}
         >
           {children}
         </TooltipPrimitive.Trigger>

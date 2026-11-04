@@ -29,6 +29,7 @@ export function OnboardingFlow({
 }: OnboardingFlowProps) {
   // Set once a new workspace exists, or a joiner has no runtime ready on this computer:
   // its agent setup takes over the window. A joiner who has one goes straight in.
+  const [workspaceCreated, setWorkspaceCreated] = useState(false)
   const [setupTeamId, setSetupTeamId] = useState<string | null>(null)
   const localState = useLocalRuntimeState()
   const [chatStep, setChatStep] = useState<ChatStep>('workspace')
@@ -108,7 +109,10 @@ export function OnboardingFlow({
       setJoinedTeams,
       setJoiningTeamId,
       joinedTeams,
-      onCreated: (team: AtlasTeam) => setSetupTeamId(team.id),
+      onCreated: (team: AtlasTeam) => {
+        setWorkspaceCreated(true)
+        setSetupTeamId(team.id)
+      },
       onFinish: (teamId) => {
         if (teamId && readyLocalAgents(localState).length === 0) setSetupTeamId(teamId)
         else onFinish(teamId)
@@ -128,7 +132,10 @@ export function OnboardingFlow({
     return () => window.removeEventListener('keydown', onKey)
   }, [dismissable, onClose])
 
-  if (setupTeamId) return <AgentSetupFlow onFinish={() => onFinish(setupTeamId)} />
+  if (setupTeamId)
+    return (
+      <AgentSetupFlow workspaceCreated={workspaceCreated} onFinish={() => onFinish(setupTeamId)} />
+    )
 
   return (
     // The overlay stays transparent so the window's native vibrancy/blur shows

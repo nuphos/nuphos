@@ -8,20 +8,27 @@ import type { ReactNode } from 'react'
 /** The centered column every setup screen uses: heading, body, then its actions. */
 export function SetupScreen({
   title,
+  step,
   subtitle,
   children,
   hint,
   actions,
 }: {
   title: string
+  step?: 2 | 3
   subtitle?: ReactNode
   children: ReactNode
   hint?: ReactNode
   actions: ReactNode
 }) {
   return (
-    <section className="mx-auto w-full max-w-[720px] space-y-6">
+    <section className="mx-auto w-full max-w-[600px] space-y-6">
       <header className="space-y-2">
+        {step && (
+          <p className="pb-2 text-[12px] text-tertiary">
+            {t('Step {step} of 3', { step })} · {step === 2 ? t('Runtimes') : t('Ready')}
+          </p>
+        )}
         <h1 className="text-[22px] font-semibold text-main">{title}</h1>
         {subtitle && <p className="text-[13.5px] leading-6 text-secondary">{subtitle}</p>}
       </header>
@@ -35,6 +42,7 @@ export function SetupScreen({
 }
 
 const PILL: Record<LocalAgentStatus, { label: string; className: string }> = {
+  unavailable: { label: t('Unavailable'), className: 'bg-zGray-800 text-tertiary' },
   ready: { label: t('Ready'), className: 'bg-success/15 text-success' },
   'signed-out': { label: t('Not signed in'), className: 'bg-warning/15 text-warning' },
   missing: { label: t('Not installed'), className: 'bg-zGray-800 text-tertiary' },

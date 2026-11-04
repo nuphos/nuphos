@@ -17,6 +17,7 @@ before(async () => {
       app,
       BrowserWindow: { getAllWindows: () => [] },
       ipcMain: { on: () => {} },
+      net: { request: () => ({}) },
       session: { fromPartition: () => browserSession },
       webContents: { getAllWebContents: () => guests },
     },
