@@ -1,5 +1,6 @@
 import { agentConversations } from '@/lib/agent/db'
-import { canReply, conversationAccess } from '@/lib/agent/db/access'
+import { canReply } from '@/lib/agent/db/access'
+import { resolveConversationAccess } from '@/lib/agent/devices/conversation-computer'
 import { AppError } from '@/lib/errors'
 
 import type { PlanDTO } from './serialize'
@@ -14,17 +15,18 @@ export async function assertPlanAccess(plan: PlanDTO, userId: string, need: 'rea
       projection: {
         userId: 1,
         teamId: 1,
+        runtimeId: 1,
         generalAccess: 1,
         participantIds: 1,
         viewOnlyIds: 1,
-        managerIds: 1,
+        kind: 1,
       },
     },
   )
 
   // No conversation left means nobody to protect, as in the team journal.
   if (!conversation) return
-  const access = conversationAccess(conversation, userId)
+  const access = await resolveConversationAccess(conversation, userId)
 
   if (!access) throw new AppError(404, 'not_found', 'Plan not found')
   if (need === 'reply' && !canReply(access)) {

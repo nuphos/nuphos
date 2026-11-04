@@ -1,5 +1,5 @@
 import { agentConversations } from '@/lib/agent/db'
-import { conversationAccess } from '@/lib/agent/db/access'
+import { readsConversation } from '@/lib/agent/db/access'
 import { AppError } from '@/lib/errors'
 import { canonicalize, sha256Hex } from '@/lib/journal'
 import { normalizeComplianceTimestamp } from '@/lib/journal/compliance-export'
@@ -53,11 +53,10 @@ export const JOURNAL_CONVERSATION_PROJECTION = {
   teamId: 1,
   generalAccess: 1,
   participantIds: 1,
-  viewOnlyIds: 1,
 } as const
 
 export function journalConversationTitle(conversation: AgentConversation, viewerId: string) {
-  return conversationAccess(conversation, viewerId)
+  return readsConversation(conversation, viewerId)
     ? conversation.title || 'Untitled chat'
     : 'Private session'
 }
@@ -74,7 +73,7 @@ export async function unreadableSessionIds(sessionIds: string[], viewerId: strin
     .toArray()
 
   return new Set(
-    docs.filter((doc) => !conversationAccess(doc, viewerId)).map((doc) => doc.sessionId),
+    docs.filter((doc) => !readsConversation(doc, viewerId)).map((doc) => doc.sessionId),
   )
 }
 

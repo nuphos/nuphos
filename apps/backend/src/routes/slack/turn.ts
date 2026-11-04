@@ -1,3 +1,4 @@
+import { addConversationParticipants } from '@/lib/agent/db/participants'
 import { pausedTurnKind } from '@/lib/agent/round-continuation'
 import { turnRunner } from '@/lib/agent/turn-runner'
 import { resolvePreviewDecisionByRef } from '@/lib/claude-code-preview/decision-waiter'
@@ -89,7 +90,17 @@ export async function recordSlackTurnTranscript(
 // Callers hold the per-session run claim. Never throws: Slack delivery is
 // best-effort and failures are logged + surfaced into the thread where
 // possible.
+/**
+ * Speaking in the thread is joining the session, as in the app and Discord. A
+ * participant's turn is theirs while they may use the conversation's computer.
+ */
+async function joinBySpeaking({ sessionId, agentUserId, actorUserId }: SlackAgentTurnArgs) {
+  if (actorUserId && actorUserId !== agentUserId)
+    await addConversationParticipants(sessionId, [actorUserId])
+}
+
 export async function executeSlackAgentTurn(args: SlackAgentTurnArgs): Promise<void> {
+  await joinBySpeaking(args)
   // Files are matched to this turn by creation time (the transfer store has no
   // per-turn marker), so stamp the boundary before the run starts.
   const turnStartedAt = new Date()

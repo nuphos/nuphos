@@ -21,7 +21,8 @@ beforeEach(() => {
   conversation = { sessionId: 'shared', userId: 'owner', teamId } as AgentConversation
 })
 
-test('a current teammate can send without gaining owner management rights', async () => {
+test('a current participant can send without gaining owner management rights', async () => {
+  conversation!.participantIds = ['teammate']
   expect(await assertConversationSendable('shared', 'teammate', teamId)).toBe(conversation)
   await expect(assertConversationWritable('shared', 'teammate', teamId)).rejects.toMatchObject({
     status: 403,
@@ -44,32 +45,17 @@ test('revoked membership, another team and unscoped private sessions stay closed
   expect(await assertConversationSendable('shared', 'owner', undefined)).toBe(conversation)
 })
 
-test('a teammate can view and reply to a session on another member’s local agent', async () => {
-  const viewer = { id: 'teammate' } as NuphosUser
-  const local = { userId: 'owner', teamId, runtimeId: 'local_owner_device' }
-
-  expect(serializeConversationForViewer(local, viewer, new Map())).toMatchObject({
-    readOnly: false,
-    isOwner: false,
-  })
-  conversation!.runtimeId = 'local_owner_device'
-  expect(await assertConversationSendable('shared', 'teammate', teamId)).toBe(conversation)
-})
-
-test('general access and a participant role decide who may reply', async () => {
-  conversation!.generalAccess = 'none'
-  await expect(assertConversationSendable('shared', 'teammate', teamId)).rejects.toMatchObject({
-    status: 403,
-  })
-  conversation!.participantIds = ['teammate']
-  expect(await assertConversationSendable('shared', 'teammate', teamId)).toBe(conversation)
-  conversation!.viewOnlyIds = ['teammate']
+test('general access lets the team read; only participants reply', async () => {
   await expect(assertConversationSendable('shared', 'teammate', teamId)).rejects.toMatchObject({
     status: 403,
     code: 'conversation_read_only',
   })
-  // The broader grant wins: a team that may reply outranks a view-only invite.
-  conversation!.generalAccess = 'reply'
+  conversation!.generalAccess = 'none'
+  await expect(assertConversationSendable('shared', 'teammate', teamId)).rejects.toMatchObject({
+    status: 403,
+  })
+  // On a team runtime every member may use the computer, so a participant replies.
+  conversation!.participantIds = ['teammate']
   expect(await assertConversationSendable('shared', 'teammate', teamId)).toBe(conversation)
   expect(await assertConversationSendable('shared', 'owner', teamId)).toBe(conversation)
 })
@@ -78,7 +64,7 @@ test('a viewer who may only read is served read-only', () => {
   const viewer = { id: 'teammate' } as NuphosUser
   const viewOnly = { userId: 'owner', teamId, generalAccess: 'view' }
 
-  expect(serializeConversationForViewer(viewOnly, viewer, new Map())).toMatchObject({
+  expect(serializeConversationForViewer(viewOnly, viewer, new Map(), null, 'view')).toMatchObject({
     access: 'view',
     generalAccess: 'view',
     readOnly: true,
@@ -87,26 +73,35 @@ test('a viewer who may only read is served read-only', () => {
 
 test('the serializer tells each viewer what they may do', () => {
   const doc = { userId: 'owner', teamId, generalAccess: 'none', participantIds: ['invited'] }
-  const as = (id: string) => serializeConversationForViewer(doc, { id } as NuphosUser, new Map())
+  const as = (id: string, access: 'owner' | 'reply' | 'view' | null) =>
+    serializeConversationForViewer(doc, { id } as NuphosUser, new Map(), null, access)
 
-  expect(as('owner')).toMatchObject({ access: 'owner', readOnly: false, isOwner: true })
-  expect(as('invited')).toMatchObject({ access: 'reply', readOnly: false, isOwner: false })
+  expect(as('owner', 'owner')).toMatchObject({
+    access: 'owner',
+    readOnly: false,
+    isOwner: true,
+    canManage: true,
+  })
+  expect(as('invited', 'reply')).toMatchObject({
+    access: 'reply',
+    readOnly: false,
+    isOwner: false,
+    canManage: false,
+  })
   // iOS v0.8.0 hides steering, approvals and Stop unless both of these are true.
-  expect(as('invited')).toMatchObject({ canCancelRun: true, canRespondToRun: true })
-  expect(as('stranger')).toMatchObject({ canCancelRun: false, canRespondToRun: false })
-  // Lists never hand this one over; if a caller did, it must still be read-only.
-  expect(as('stranger')).toMatchObject({ access: null, readOnly: true })
+  expect(as('invited', 'reply')).toMatchObject({ canCancelRun: true, canRespondToRun: true })
+  // A participant who may not use the computer reads only.
+  expect(as('invited', 'view')).toMatchObject({ readOnly: true, canCancelRun: false })
+  expect(as('stranger', null)).toMatchObject({ access: null, readOnly: true })
   expect(
     serializeConversationForViewer(
       { userId: 'owner', teamId },
       { id: 'x' } as NuphosUser,
       new Map(),
+      null,
+      'view',
     ),
-  ).toMatchObject({
-    access: 'reply',
-    generalAccess: 'reply',
-    readOnly: false,
-  })
+  ).toMatchObject({ generalAccess: 'view' })
 })
 
 test('a removed participant falls back to whatever general access still grants', async () => {

@@ -1,5 +1,5 @@
 import { getReadableConversation, retractTrailingUserMessage } from '@/lib/agent/db'
-import { canReply, conversationAccess } from '@/lib/agent/db/access'
+import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
 import { liveTurnHasOutput } from '@/lib/agent/live-turn'
 import { turnCarried } from '@/lib/agent/retract-marks'
 import { cancelConversationRuntime } from '@/lib/claude-code-preview/session-execution-state'
@@ -27,7 +27,7 @@ agent.post('/conversations/:sessionId/messages/:messageId/retract', async (c) =>
   const conversation = await read()
 
   if (!conversation?.teamId) throw new AppError(404, 'not_found', 'Conversation not found')
-  if (!canReply(conversationAccess(conversation, userId)))
+  if (!(await canReplyIn(conversation, userId)))
     throw new AppError(403, 'conversation_read_only', 'You can only view this conversation')
   const turn = conversation.claudeCodePreviewContext
 

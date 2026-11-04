@@ -1,6 +1,14 @@
 import { useDb } from '@/lib/test/doubles/db'
 
-useDb({ db: () => ({ collection: () => ({ findOne: () => Promise.resolve(null) }) }) })
+useDb({
+  db: () => ({
+    collection: () => ({
+      findOne: () => Promise.resolve(null),
+      // Speaking in a thread records the speaker as a participant.
+      findOneAndUpdate: () => Promise.resolve(null),
+    }),
+  }),
+})
 
 // Every @-mention of the bot (and every reply in a thread the bot started) must
 // produce a visible outcome — a turn, a hint, an onboarding prompt, or an

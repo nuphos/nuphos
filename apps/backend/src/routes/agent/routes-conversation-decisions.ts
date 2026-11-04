@@ -2,7 +2,7 @@ import { agent } from './router'
 import { readTeamIdCandidate, resolveVerifiedTeamId } from './team-scope'
 
 import { getReadableConversation, resolveInputRequest } from '@/lib/agent/db'
-import { canReply, conversationAccess } from '@/lib/agent/db/access'
+import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
 import { AppError } from '@/lib/errors'
 import { logEvent } from '@/lib/observability'
 
@@ -14,7 +14,7 @@ agent.post('/conversations/:sessionId/decisions/:toolCallId/resolve', async (c) 
   const conversation = await getReadableConversation(sessionId, userId, teamId)
 
   if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
-  if (!canReply(conversationAccess(conversation, userId)))
+  if (!(await canReplyIn(conversation, userId)))
     throw new AppError(403, 'conversation_read_only', 'You can only view this conversation')
   const body: unknown = await c.req.json().catch(() => null)
   const resolution =

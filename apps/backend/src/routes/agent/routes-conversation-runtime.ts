@@ -6,7 +6,7 @@ import { getReadableConversation } from '@/lib/agent/db'
 import { requeuePendingAtHead } from '@/lib/agent/pending-queue'
 import { sessionReleased } from '@/lib/agent/session-released'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
-import { canReply, conversationAccess } from '@/lib/agent/db/access'
+import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
 import {
   cancelConversationRuntime,
   conversationExecutionState,
@@ -25,7 +25,7 @@ agent.post('/conversations/:sessionId/cancel-runtime', async (c) => {
   const conversation = await getReadableConversation(sessionId, userId, teamId)
 
   if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
-  if (!canReply(conversationAccess(conversation, userId)))
+  if (!(await canReplyIn(conversation, userId)))
     throw new AppError(403, 'conversation_read_only', 'You can only view this conversation')
   await cancelConversationRuntime(conversation)
   logEvent('info', 'agent.runtime.cancel_requested', {
@@ -47,7 +47,7 @@ agent.post('/conversations/:sessionId/steer', async (c) => {
   const conversation = await getReadableConversation(sessionId, userId, teamId)
 
   if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
-  if (!canReply(conversationAccess(conversation, userId)))
+  if (!(await canReplyIn(conversation, userId)))
     throw new AppError(403, 'conversation_read_only', 'You can only view this conversation')
   const body = await c.req.json<{ text?: unknown; groupId?: unknown; queuedId?: unknown }>()
   const text = typeof body.text === 'string' ? body.text.trim() : ''

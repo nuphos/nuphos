@@ -45,6 +45,7 @@ const conversation = {
   userId: OWNER,
   teamId: 'team',
   firstMessage: 'Start',
+  participantIds: ['teammate'],
 } as AgentConversation
 let runtimeSend = true
 let released = 0

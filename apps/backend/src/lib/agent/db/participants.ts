@@ -1,6 +1,6 @@
 import { agentConversations } from './shared'
 
-import type { GeneralAccess, ParticipantRole } from './access'
+import type { GeneralAccess } from './access'
 import type { AgentConversation, ConversationTimelineEvent } from './shared'
 
 /**
@@ -43,7 +43,6 @@ export async function inviteConversationParticipants(
   sessionId: string,
   actorId: string,
   userIds: readonly string[],
-  role: ParticipantRole = 'reply',
 ): Promise<AgentConversation | null> {
   for (const id of new Set(userIds)) {
     await agentConversations().updateOne(
@@ -62,30 +61,10 @@ export async function inviteConversationParticipants(
     )
   }
 
-  // Re-inviting someone already here sets their role too, so the invite form
-  // and the per-person menu never disagree about it.
-  return await setParticipantRole(sessionId, userIds, role)
-}
-
-/** Set participants' own role. Callers pass participants only, never the owner. */
-export async function setParticipantRole(
-  sessionId: string,
-  userIds: readonly string[],
-  role: ParticipantRole,
-): Promise<AgentConversation | null> {
-  const ids = [...new Set(userIds)]
-
+  // Inviting someone again lifts an older view-only invite.
   return await agentConversations().findOneAndUpdate(
     { sessionId },
-    {
-      $pull: {
-        ...(role !== 'view' ? { viewOnlyIds: { $in: ids } } : {}),
-        ...(role !== 'manage' ? { managerIds: { $in: ids } } : {}),
-      },
-      ...(role === 'reply'
-        ? {}
-        : { $addToSet: { [role === 'view' ? 'viewOnlyIds' : 'managerIds']: { $each: ids } } }),
-    },
+    { $pull: { viewOnlyIds: { $in: [...new Set(userIds)] } } },
     { returnDocument: 'after' },
   )
 }
@@ -110,7 +89,7 @@ export async function removeConversationParticipant(
   await agentConversations().updateOne(
     { sessionId, participantIds: userId },
     {
-      $pull: { participantIds: userId, viewOnlyIds: userId, managerIds: userId },
+      $pull: { participantIds: userId, viewOnlyIds: userId },
       $push: pushTimelineEvent({
         kind: 'participant_removed',
         at: new Date(),

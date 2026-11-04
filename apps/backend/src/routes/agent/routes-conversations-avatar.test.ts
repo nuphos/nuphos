@@ -59,12 +59,12 @@ test('the owner picks a character and can go back to the derived one', async () 
   expect(saved).toEqual(['05-rembrandt', null])
 })
 
-test('a manager may pick; a teammate who only replies may not', async () => {
+test('only the owner picks; a participant may not', async () => {
   owner = 'someone-else'
   expect((await pick('07-ada')).status).toBe(404)
   managerIds = [caller]
-  expect((await pick('07-ada')).status).toBe(200)
-  expect(saved).toEqual(['07-ada'])
+  expect((await pick('07-ada')).status).toBe(404)
+  expect(saved).toEqual([])
 })
 
 test('rejects anything that is not a catalog name', async () => {

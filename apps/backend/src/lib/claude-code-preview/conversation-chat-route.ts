@@ -1,7 +1,6 @@
 import { ObjectId } from 'mongodb'
 
 import { stampConversationAgentRuntime, stampConversationRuntimeInstance } from '@/lib/agent/db'
-import { isLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { AppError } from '@/lib/errors'
 import { getTeamAgentRuntime } from '@/lib/identity'
 import { userTeamRuntimeFallbacks } from '@/models'
@@ -77,21 +76,14 @@ export async function resolveConversationChatRuntime(
   const pinned = Boolean(conversation?.agentRuntime || conversation?.claudeCodePreview)
   const actor = request.userId ?? conversation?.userId
   const owner = conversation ? conversation.userId : (request.ownerUserId ?? actor)
-  const localAgentUser = owner === actor ? actor : undefined
+  // A stored conversation's computer serves whoever may use it; a new one's only its owner.
+  const localAgentUser = conversation || owner === actor ? actor : undefined
   // Nothing pins an agent (a trigger's or channel's first turn): the owner's own default.
   const selectedId =
     resolveConversationRuntimeId(conversation, request.runtimeId) ??
-    (teamId && localAgentUser && !pinned
-      ? await ownerDefaultRuntimeId(teamId, localAgentUser, requestedRuntime)
+    (teamId && owner === actor && actor && !pinned
+      ? await ownerDefaultRuntimeId(teamId, actor, requestedRuntime)
       : undefined)
-
-  // A local agent runs on its owner's computer, as them, so only they drive it.
-  if (conversation && actor !== conversation.userId && isLocalRuntimeId(conversation.runtimeId))
-    throw new AppError(
-      403,
-      'local_runtime_owner_only',
-      'This conversation runs on its owner’s own agent, which is not available to anyone else, so only they can send messages here.',
-    )
 
   if (selectedId && !teamId)
     throw new AppError(400, 'invalid_request', 'An agent requires a workspace')

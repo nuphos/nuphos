@@ -1,7 +1,7 @@
 import { config } from '@/config'
 import { normalizeConversationActivitySource } from '@/lib/agent/conversation-activity-source'
 import { normalizeConversationTriggerRun } from '@/lib/agent/conversation-trigger-run'
-import { canManage, canReply, conversationAccess, generalAccessOf } from '@/lib/agent/db/access'
+import { canReply, generalAccessOf } from '@/lib/agent/db/access'
 import { conversationReadState } from '@/lib/agent/db/read-state'
 import { fetchCachedUsers } from '@/lib/agent/directory'
 import { slackThreadFallbackUrl } from '@/lib/agent/session-thread-resources'
@@ -11,6 +11,7 @@ import { logError, logEvent } from '@/lib/observability'
 
 import { serializeConversationDoc } from './transcript'
 
+import type { ConversationAccess } from '@/lib/agent/db/access'
 import type { AgentConversation } from '@/lib/agent/db'
 import type { NuphosUser } from '@/lib/identity'
 import type { SlackAgentThread } from '@/lib/slack/agent-bot'
@@ -148,11 +149,12 @@ export function serializeConversationForViewer(
   conversation: Record<string, unknown> & { userId: string },
   viewer: NuphosUser,
   ownerById: Map<string, ConversationOwner>,
-  slackThread?: Pick<SlackAgentThread, 'origin'> | null,
+  slackThread: Pick<SlackAgentThread, 'origin'> | null | undefined,
+  /** From resolveConversationAccess: a participant replies while they may use its computer. */
+  access: ConversationAccess | null,
 ) {
   const isOwner = conversation.userId === viewer.id
   const grants = conversation as unknown as AgentConversation
-  const access = conversationAccess(grants, viewer.id)
   const owner =
     ownerById.get(conversation.userId) ??
     (isOwner
@@ -199,8 +201,9 @@ export function serializeConversationForViewer(
     // who can reply may steer or stop, so both follow reply access.
     canCancelRun: canReply(access),
     canRespondToRun: canReply(access),
-    // May move the session to another runtime and change its credentials.
-    canManage: canManage(access),
+    // Moving the runtime, credentials, Full Access and archiving are the owner's.
+    // Kept for clients that read it.
+    canManage: isOwner,
     // A channel's members each have their own marker; any other conversation is the owner's.
     ...(isOwner || conversation.kind === 'channel'
       ? conversationReadState(conversation, viewer.id)

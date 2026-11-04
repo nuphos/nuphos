@@ -1,4 +1,3 @@
-import { canManage, conversationAccess } from '@/lib/agent/db/access'
 import { recheckLinkedResources } from '@/lib/agent/resource-recheck'
 import { resourceConversation, unlinkSessionResource } from '@/lib/agent/session-resources'
 import { sessionResources } from '@/lib/agent/session-thread-resources'
@@ -23,8 +22,7 @@ agent.get('/conversations/:sessionId/resources', async (c) => {
 
   return c.json({
     resources: await sessionResources(conversation),
-    canManage:
-      !conversation.archivedAt && canManage(conversationAccess(conversation, c.get('userId'))),
+    canManage: !conversation.archivedAt && conversation.userId === c.get('userId'),
   })
 })
 

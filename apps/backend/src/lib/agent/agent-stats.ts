@@ -1,4 +1,4 @@
-import { conversationAccess } from '@/lib/agent/db/access'
+import { readsConversation } from '@/lib/agent/db/access'
 
 import { localDay, localHour, peakOverlap, streaks, zoneClock } from './agent-stats-time'
 import { ACTIVITY_RANGES } from './team-activity'
@@ -152,7 +152,7 @@ export function summarizeStats(
   const t = newTally()
   const byId = new Map(read.sessions.map((s) => [s.session.sessionId, s.session]))
   const ref = (s: TurnSession | undefined): SessionRef =>
-    s && conversationAccess(s, viewerId) ? { id: s.sessionId, title: s.title } : null
+    s && readsConversation(s, viewerId) ? { id: s.sessionId, title: s.title } : null
 
   for (const s of read.sessions)
     if (scope === 'team' || s.session.userId === viewerId) tallySession(t, w, s)

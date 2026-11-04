@@ -44,8 +44,10 @@ describe('a new thread inherits its parent read grants', () => {
       managerIds: ['x'],
     } as never)
 
+    // An older view-only invite stays read-only in the thread too; managing does
+    // not carry over, and an old team-wide reply reads as view.
     expect(inserted).toMatchObject({
-      generalAccess: 'reply',
+      generalAccess: 'view',
       participantIds: ['x', 'v'],
       viewOnlyIds: ['v'],
     })
@@ -62,8 +64,8 @@ describe('a new thread inherits its parent read grants', () => {
     expect(inserted).toMatchObject({ generalAccess: 'none' })
   })
 
-  test('a legacy parent without general access reads as team-wide reply', async () => {
+  test('a legacy parent without general access reads as team-wide view', async () => {
     await openThread({})
-    expect(inserted).toMatchObject({ generalAccess: 'reply' })
+    expect(inserted).toMatchObject({ generalAccess: 'view' })
   })
 })

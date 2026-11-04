@@ -51,10 +51,12 @@ describe('verifyAgentForActor', () => {
     })
   })
 
-  test('keeps channel conversations open to the team', async () => {
-    // Slack, Discord and Lark conversations leave generalAccess unset: team-wide reply.
+  test('a channel conversation is the team’s to read, and its speakers’ to act in', async () => {
+    // Slack, Discord and Lark conversations leave generalAccess unset: the team reads.
     stored = { ...shared }
-
+    expect(await verifyAgentForActor('teammate', 'owner', 's1')).toBeNull()
+    // Speaking in the thread made them a participant; a team runtime serves every member.
+    stored = { ...shared, participantIds: ['teammate'] }
     expect(await verifyAgentForActor('teammate', 'owner', 's1')).not.toBeNull()
   })
 
@@ -64,13 +66,8 @@ describe('verifyAgentForActor', () => {
     expect(await verifyAgentForActor('guest', 'owner', 's1')).toBeNull()
   })
 
-  test('stops a teammate whose grant was lowered to view', async () => {
-    stored = {
-      ...shared,
-      generalAccess: 'view',
-      participantIds: ['guest'],
-      viewOnlyIds: ['guest'],
-    }
+  test('stops a teammate who may only read', async () => {
+    stored = { ...shared, generalAccess: 'view' }
 
     expect(await verifyAgentForActor('guest', 'owner', 's1')).toBeNull()
   })
