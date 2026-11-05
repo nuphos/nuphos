@@ -50,6 +50,16 @@ struct AgentPage: View {
             }
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
             .sheet(isPresented: $showAgentSetup) { if let team = store.selectedTeam { AgentSetupSheet(team: team) } }
+            .alert(
+                LocalizedStringKey(store.rowActionFailure?.title ?? ""),
+                isPresented: Binding(get: { store.rowActionFailure != nil }, set: { if !$0 { store.rowActionFailure = nil } }),
+                presenting: store.rowActionFailure
+            ) { failure in
+                Button("OK", role: .cancel) {}
+                Button("Try again") { Task { await failure.retry() } }
+            } message: { failure in
+                Text(failure.message)
+            }
             .alert("Rename agent", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } }), presenting: renaming) { conversation in
                 let title = renamedTitle.trimmingCharacters(in: .whitespacesAndNewlines)
                 TextField("Title", text: $renamedTitle)
@@ -278,6 +288,7 @@ struct AgentPage: View {
                 Label(watching ? "Unwatch" : "Watch", systemImage: watching ? "bell.slash" : "bell")
             }
             .tint(.teal)
+            .disabled(store.watchChanges.contains(conversation.sessionId))
         }
         if conversation.ownsChat {
             Button {
