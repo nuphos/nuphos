@@ -148,9 +148,14 @@ class RuntimeSheetFixtureDeviceTest {
         }
         compose.onNodeWithContentDescription("Back").assertIsDisplayed()
     }
+    /** The runtime picker is opened from the agent menu. */
+    private fun openMenuItem() {
+        compose.onNodeWithContentDescription("Agent actions").performClick()
+        compose.onNodeWithText("Switch runtime").performClick()
+    }
     private fun open() {
-        compose.onNodeWithContentDescription("Runtime for this agent").performClick()
-        compose.onNodeWithText("Runtime", useUnmergedTree = true).assertExists()
+        openMenuItem()
+        compose.onNodeWithText("Choose runtime", useUnmergedTree = true).assertExists()
     }
     private fun box() = compose.onNodeWithTag("conversation-runtime-sheet").fetchSemanticsNode().boundsInWindow
     private fun shot(name: String) {
@@ -165,12 +170,12 @@ class RuntimeSheetFixtureDeviceTest {
         val loading = box()
         shot("runtime-sheet-loading.png")
         gate.countDown()
-        compose.waitUntil { compose.onAllNodesWithText("Synthetic Cloud").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Cloud").fetchSemanticsNodes().isNotEmpty() }
         val loaded = box()
         shot("runtime-sheet-loaded.png")
         Assert.assertEquals("Catalog changed the sheet height", loading.height, loaded.height, 2f)
         Assert.assertEquals("Catalog changed the settled sheet anchor", loading.top, loaded.top, 2f)
-        compose.onNodeWithText("Done").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Close runtime picker").performClick()
         compose.onNodeWithTag("conversation-runtime-sheet").assertDoesNotExist()
         open()
         Assert.assertEquals(loaded.top,box().top,2f)
@@ -184,19 +189,21 @@ class RuntimeSheetFixtureDeviceTest {
         open()
         val loading=box()
         gate.countDown()
-        compose.waitUntil { compose.onAllNodesWithText("Runtime request was rejected (503).").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Runtime request was rejected (503).").fetchSemanticsNodes().isNotEmpty() }
         Assert.assertEquals(loading.height,box().height,2f)
         catalogStatus=200; catalogBody="""{"runtimes":[]}"""
         compose.onNodeWithText("Refresh runtimes").performScrollTo().performClick()
-        compose.waitUntil { compose.onAllNodesWithText("No available runtimes.").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("No available runtimes.").fetchSemanticsNodes().isNotEmpty() }
         Assert.assertEquals(loading.top,box().top,2f)
         shot("runtime-sheet-empty.png")
         Assert.assertTrue(requests.none { it.method != "GET" })
     }
     @Test fun everyOpeningFrameAndLateCatalogHaveOneSettledAnchor() {
         render(snapshot(phase="completed",send=true), native=false, owner=true)
+        compose.onNodeWithContentDescription("Agent actions").performClick()
+        compose.waitForIdle()
         compose.mainClock.autoAdvance=false
-        compose.onNodeWithContentDescription("Runtime for this agent").performClick()
+        compose.onNodeWithText("Switch runtime").performClick()
         val trace=mutableListOf("phase,timeMs,topPx,heightPx")
         fun frames(phase: String) {
             repeat(50) {
@@ -213,7 +220,7 @@ class RuntimeSheetFixtureDeviceTest {
         gate.countDown()
         frames("catalog-released")
         compose.mainClock.autoAdvance=true
-        compose.waitUntil { compose.onAllNodesWithText("Synthetic Cloud").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Cloud").fetchSemanticsNodes().isNotEmpty() }
         val after=box()
         val c=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
         java.io.File(c.getExternalFilesDir(null),"runtime-sheet-frames.csv").writeText(trace.joinToString("\n"))
@@ -228,9 +235,10 @@ class RuntimeSheetFixtureDeviceTest {
     }
     @Test fun readOnlyDoesNotExposeMoves() {
         render(snapshot(phase="completed",send=true), native=false, owner=false, readOnly=true)
-        open(); gate.countDown()
+        // Without manage rights the menu doesn't offer the move, so the sheet can't open.
+        compose.onNodeWithContentDescription("Agent actions").performClick()
         compose.onNodeWithText("Switch runtime").assertDoesNotExist()
-        compose.onNodeWithText("Done").performScrollTo().performClick()
+        gate.countDown()
         Assert.assertTrue(requests.none { it.method != "GET" })
     }
 
@@ -240,14 +248,16 @@ class RuntimeSheetFixtureDeviceTest {
         open()
         val loading=box()
         gate.countDown()
-        compose.waitUntil { compose.onAllNodesWithText("Synthetic Computer").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Synthetic Computer").fetchSemanticsNodes().isNotEmpty() }
         Assert.assertEquals(loading.top,box().top,2f)
-        compose.onNodeWithText("Synthetic Computer").performScrollTo().performClick()
+        // The computer's group folds its runtimes under the same name: open it, then choose the runtime.
+        compose.onAllNodesWithText("Synthetic Computer")[0].performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Use Synthetic Computer").performScrollTo().performClick()
         compose.onNodeWithText("Move to Synthetic Computer?").assertIsDisplayed()
         compose.onNodeWithText("Cancel").performClick()
         compose.onNodeWithText("Move to Synthetic Computer?").assertDoesNotExist()
         shot("runtime-sheet-rtl-large.png")
-        compose.onNodeWithText("Done").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Close runtime picker").performClick()
         Assert.assertTrue(requests.none { it.method != "GET" })
     }
 

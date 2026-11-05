@@ -40,6 +40,7 @@ class RuntimeSetupFixtureDeviceTest {
     private var administrator = true
     private var expired = 0
     private lateinit var store: RuntimeSetupStore
+    private var sheetOpen by mutableStateOf(true)
     private val owner = RuntimeSelections()
     private val selection = owner.bind("synthetic-account", "507f1f77bcf86cd799439011")
     private fun runtime(runtimeId: String = id, active: Boolean = true, label: String = "Fixture Agent", kind: String = "managed") = """{"id":"$runtimeId","provider":"$provider","label":"$label","status":"${if (active) "active" else "disabled"}","kind":"$kind"}"""
@@ -63,6 +64,8 @@ class RuntimeSetupFixtureDeviceTest {
             request.method == "POST" && path.endsWith("/login") -> { code = 202; if (lostReceipt) throw IOException("Synthetic lost login receipt"); login() }
             request.method == "GET" && path.endsWith("/login") -> if (noLogin) { code = 404; """{"error":{"code":"runtime_login_not_found"}}""" } else login()
             request.method == "DELETE" && path.endsWith("/login") -> { code = 204; status = "cancelled"; "" }
+            request.method == "GET" && path == "/agent/devices" -> """{"devices":[]}"""
+            request.method == "GET" && path.endsWith("/agent-runtimes/quota") -> """{"quotas":[]}"""
             else -> throw AssertionError("Unexpected synthetic request")
         }
         Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(code).message("fixture").body(body.toResponseBody(Http.jsonMedia)).build()
@@ -72,42 +75,45 @@ class RuntimeSetupFixtureDeviceTest {
             val scope = rememberCoroutineScope()
             val setup = remember { RuntimeSetupStore(api, scope, { current }, { administrator }, selection, { expired++ }) }
             store = setup
-            var visible by remember { mutableStateOf(true) }
-            NuphosTheme { if (visible) RuntimeSetupSheet(setup, { visible = false }, { browsers += it }) }
+            NuphosTheme { if (sheetOpen) RuntimeSetupSheet(setup, { sheetOpen = false }, { browsers += it }) }
         }
-        waitText("Choose a runtime")
+        waitText("Choose runtime")
         compose.waitUntil(5_000) { store.state.catalogLoaded && !store.state.busy }
     }
     private fun waitText(text: String, substring: Boolean = false) {
         compose.waitUntil(5_000) { compose.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty() }
     }
     private fun click(text: String) = compose.onNodeWithText(text).performScrollTo().performClick()
+    /** Choosing a runtime closes the sheet; open it again to see what it shows now. */
     private fun select(manage: Boolean = true) {
-        if (compose.onAllNodesWithText("Choose a runtime").fetchSemanticsNodes().isEmpty()) click("Change runtime")
         compose.onNodeWithContentDescription("Use Fixture Agent").performScrollTo().performClick()
+        compose.waitUntil(5_000) { selection.selectedId == id && !sheetOpen }
+        compose.runOnIdle { sheetOpen = true }
+        waitText("Choose runtime")
+        compose.waitUntil(5_000) { store.state.catalogLoaded && !store.state.busy }
         compose.waitUntil(5_000) {
             compose.onAllNodesWithContentDescription("Selected Fixture Agent").fetchSemanticsNodes().isNotEmpty()
         }
-        if (manage && administrator) click("Manage runtimes")
+        if (manage && administrator) click("Manage computers and runtimes")
     }
     private fun posts(suffix: String) = requests.count { it.method == "POST" && it.url.encodedPath.endsWith(suffix) }
     @Test fun pickerGroupsAgentsAndKeepsManagementSeparate() {
         catalog = "[${runtime(runtimeId = "computer", label = "My laptop", kind = "local")},${runtime()}]"
         render()
-        compose.onNodeWithText("Computers").assertExists()
-        compose.onNodeWithText("Cloud and servers").assertExists()
+        compose.onNodeWithText("Cloud").assertExists()
+        compose.onAllNodesWithText("My laptop")[0].assertExists()
         compose.onAllNodesWithText("Create runtime").assertCountEquals(0)
-        compose.onNodeWithText("Manage runtimes").performClick()
+        click("Manage computers and runtimes")
         compose.onNodeWithText("Create runtime").assertExists()
         click("Back to runtimes")
         compose.onAllNodesWithText("Create runtime").assertCountEquals(0)
-        compose.onNodeWithText("Computers").assertExists()
+        compose.onNodeWithText("Cloud").assertExists()
         assertEquals(0, posts("/agent-runtimes"))
         assertEquals(0, posts("/login"))
     }
 
     @Test fun actualSheetCreatesOnceThenSelectsExactSavedRegistration() {
-        render(); click("Manage runtimes"); compose.onNodeWithText("Runtime label (optional)").performScrollTo().performTextInput(" Fixture Agent ")
+        render(); click("Manage computers and runtimes"); compose.onNodeWithText("Runtime label (optional)").performScrollTo().performTextInput(" Fixture Agent ")
         click("Create runtime"); waitText("Runtime registered and selected.", true)
         assertEquals(id, selection.selectedId); assertEquals(1, posts("/agent-runtimes"))
         assertEquals("GET", requests.last().method)
@@ -119,29 +125,34 @@ class RuntimeSetupFixtureDeviceTest {
         catalog = "[${runtime(active = false)}]"; click("Refresh runtimes")
         waitText("The selected runtime is unavailable.", true)
         assertTrue(selection.reselectionRequired); assertNull(selection.binding)
-        compose.onNodeWithContentDescription("Selected Fixture Agent").assertIsNotEnabled()
+        // The unavailable runtime leaves the list rather than stay selectable.
+        compose.onNodeWithContentDescription("Selected Fixture Agent").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Use Fixture Agent").assertDoesNotExist()
         assertEquals(0, posts("/login"))
     }
     @Test fun homeSelectionLabelUpdatesAndDoesNotShowUnavailableAgent() {
         selection.saveCatalog(listOf(AgentRuntime("computer", "codex", "My laptop", "active", "local")))
         compose.setContent { NuphosTheme { AgentChip(selection, true, {}) } }
-        compose.onNodeWithText("Choose a runtime").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Runtime for new agents").assertIsDisplayed()
+        compose.onNodeWithText("Choose runtime").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Runtime for new agents: Choose runtime").assertIsDisplayed()
         compose.runOnIdle { assertTrue(selection.select("computer")) }
-        compose.onNodeWithText("My laptop").assertIsDisplayed()
+        compose.onNodeWithText("Codex · My laptop").assertIsDisplayed()
         compose.runOnIdle { selection.saveCatalog(emptyList()) }
         compose.onNodeWithText("Choose an available runtime").assertIsDisplayed()
-        compose.onNodeWithText("My laptop").assertDoesNotExist()
+        compose.onNodeWithText("Codex · My laptop").assertDoesNotExist()
     }
 
     @Test fun localAgentCanBeSelectedByTouchWithoutProviderWrites() {
         catalog = "[${runtime(runtimeId = "computer", label = "My laptop", kind = "local")},${runtime()}]"
         render()
-        compose.onNodeWithText("Computer").performScrollTo().performClick()
+        // A computer's runtimes are folded under its name.
+        compose.onAllNodesWithText("My laptop")[0].performScrollTo().performClick()
         val card = compose.onNodeWithContentDescription("Use My laptop")
         card.performScrollTo().assertIsDisplayed().assertIsNotSelected()
         card.performTouchInput { click() }
-        compose.waitUntil(5_000) { selection.selectedId == "computer" }
+        compose.waitUntil(5_000) { selection.selectedId == "computer" && !sheetOpen }
+        compose.runOnIdle { sheetOpen = true }
+        compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription("Selected My laptop").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription("Selected My laptop").assertIsSelected()
         assertEquals("computer", selection.binding?.runtimeId)
         assertTrue(requests.none { it.method != "GET" })
@@ -168,7 +179,7 @@ class RuntimeSetupFixtureDeviceTest {
         assertEquals(0, expired)
     }
     @Test fun forbiddenCreateShowsDenialWithoutExpiry() {
-        forbidden = true; render(); click("Manage runtimes"); click("Create runtime")
+        forbidden = true; render(); click("Manage computers and runtimes"); click("Create runtime")
         waitText("Administrator permission is required.", true); assertEquals(0, expired); assertNull(selection.selected)
     }
     @Test fun codexDeviceBrowserIsInjectedAndCancelUsesExactAttempt() {
@@ -204,10 +215,10 @@ class RuntimeSetupFixtureDeviceTest {
         assertEquals(1, posts("/login")); assertNull(store.state.attempt)
     }
     @Test fun uncertainCreateRequiresExplicitSavedReview() {
-        lostReceipt = true; render(); click("Manage runtimes"); click("Create runtime")
+        lostReceipt = true; render(); click("Manage computers and runtimes"); click("Create runtime")
         waitText("We could not identify the saved result.", true)
         compose.onNodeWithText("Create runtime").assertIsNotEnabled(); assertNull(selection.selected)
-        select(); assertEquals(1, posts("/agent-runtimes"))
+        click("Back to runtimes"); select(); assertEquals(1, posts("/agent-runtimes"))
         click("I reviewed saved runtimes"); compose.onNodeWithText("Create runtime").assertIsEnabled()
     }
     @Test fun newSessionCapturesExactBindingWithoutNativeAdmission() {
