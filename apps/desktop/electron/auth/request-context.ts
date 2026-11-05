@@ -13,7 +13,9 @@ export async function requestContext(): Promise<AccountContext> {
   const ctx = authSession.context()
 
   if (ctx.token || authSession.settled()) return ctx
-  const { token } = await readConfig()
+  // An unreadable sign-in is for the startup check to report: a request goes
+  // out without a token, so the login screen (its endpoint field) keeps working.
+  const { token } = await readConfig().catch(() => ({ token: undefined }))
   const now = authSession.context()
 
   return now === ctx && token ? { ...ctx, token } : now
