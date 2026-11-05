@@ -4219,7 +4219,7 @@
   "Starting agents…": "กำลังเริ่มเอเจนต์…",
   "Starting local shell…": "กำลังเริ่มเชลล์ในเครื่อง…",
   "Starting the computer and its runtimes, usually 10 to 30 seconds…": "กำลังเริ่มคอมพิวเตอร์และรันไทม์ โดยปกติใช้เวลา 10 ถึง 30 วินาที…",
-  "Starting your runtime… You can close this and sign in from its card once it is running.": "กำลังเริ่มรันไทม์… คุณปิดหน้านี้ได้ แล้วลงชื่อเข้าใช้จากการ์ดเมื่อรันไทม์ทำงานแล้ว",
+  "Starting your runtime… This can take a few minutes.": "กำลังเริ่มรันไทม์… อาจใช้เวลาสักครู่",
   "Starting {name} needs {n} vCPU; {free} free.": "การเริ่ม {name} ต้องใช้ {n} vCPU แต่ว่างอยู่ {free}",
   "Starting {name}…": "กำลังเริ่ม {name}…",
   "Starting…": "กำลังเริ่ม…",

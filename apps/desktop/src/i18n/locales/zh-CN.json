@@ -4219,7 +4219,7 @@
   "Starting agents…": "正在启动 Agent…",
   "Starting local shell…": "正在启动本地 Shell…",
   "Starting the computer and its runtimes, usually 10 to 30 seconds…": "正在启动电脑及其运行环境，通常需要 10 到 30 秒…",
-  "Starting your runtime… You can close this and sign in from its card once it is running.": "正在启动运行环境…你可以先关闭此窗口，待其运行后再从卡片中登录。",
+  "Starting your runtime… This can take a few minutes.": "正在启动运行环境… 可能需要几分钟。",
   "Starting {name} needs {n} vCPU; {free} free.": "启动 {name} 需要 {n} vCPU，当前剩余 {free}。",
   "Starting {name}…": "正在启动 {name}…",
   "Starting…": "正在启动…",

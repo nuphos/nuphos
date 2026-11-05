@@ -111,9 +111,7 @@ export function RuntimeLoginBody({
           <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
           {reachable
             ? t('Preparing secure sign-in…')
-            : t(
-                'Starting your runtime… You can close this and sign in from its card once it is running.',
-              )}
+            : t('Starting your runtime… This can take a few minutes.')}
         </div>
       )}
       {error && login && !failed && <p className="text-xs text-error">{error}</p>}

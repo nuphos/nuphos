@@ -4219,7 +4219,7 @@
   "Starting agents…": "Memulai agen…",
   "Starting local shell…": "Memulai shell lokal…",
   "Starting the computer and its runtimes, usually 10 to 30 seconds…": "Memulai komputer dan runtime-nya, biasanya 10 hingga 30 detik…",
-  "Starting your runtime… You can close this and sign in from its card once it is running.": "Memulai runtime Anda… Anda dapat menutup ini dan masuk dari kartunya setelah runtime berjalan.",
+  "Starting your runtime… This can take a few minutes.": "Memulai runtime Anda… Ini bisa memakan waktu beberapa menit.",
   "Starting {name} needs {n} vCPU; {free} free.": "Memulai {name} memerlukan {n} vCPU; tersedia {free}.",
   "Starting {name}…": "Memulai {name}…",
   "Starting…": "Memulai…",

@@ -31,6 +31,7 @@ export function useLocalAgentLogin(provider: CliLoginProvider, notify: boolean) 
   const [failed, setFailed] = useState(false)
   const [starting, setStarting] = useState(false)
   const [attempted, setAttempted] = useState(false)
+  const cancelFailed = useRef(false)
   const codex = provider === 'codex'
   const name = codex ? 'Codex' : 'Claude'
   const login = codex ? state?.codexLogin : state?.claudeLogin
@@ -54,7 +55,10 @@ export function useLocalAgentLogin(provider: CliLoginProvider, notify: boolean) 
     }
   }
 
-  /** Cancels a running attempt. False when cancelling failed and the caller should stay. */
+  /**
+   * Cancels a running attempt. False the first time cancelling fails, so the caller stays and can
+   * try again; after that it may leave, and reopening picks the attempt up again.
+   */
   async function cancel(): Promise<boolean> {
     try {
       if (busy)
@@ -63,8 +67,11 @@ export function useLocalAgentLogin(provider: CliLoginProvider, notify: boolean) 
       return true
     } catch (err) {
       toast.apiError(t('Could not cancel {name} sign-in', { name }), err)
+      const leave = cancelFailed.current
 
-      return false
+      cancelFailed.current = true
+
+      return leave
     }
   }
 

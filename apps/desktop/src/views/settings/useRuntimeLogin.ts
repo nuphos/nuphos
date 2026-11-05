@@ -6,6 +6,7 @@ import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { useStableCallback } from '../../hooks/useStableCallback'
 import { t } from '../../i18n'
 
+import { BOX_SETUP_TIMEOUT_MS, boxSetupProblem } from './boxPresentation'
 import { boxWakes } from './boxWakes'
 import { authorizeUrl, devicePage } from './runtimeLogin'
 
@@ -31,6 +32,8 @@ export function useRuntimeLogin(
   // Reuse the start request across StrictMode's effect replay: every start replaces the
   // agent's previous sign-in.
   const request = useRef<Promise<RuntimeLoginStatus> | null>(null)
+  // A cancel that failed once: closing again leaves, and the attempt expires on its own.
+  const cancelFailed = useRef(false)
   const complete = useStableCallback(() => {
     window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
     onConnected()
@@ -74,8 +77,16 @@ export function useRuntimeLogin(
     // A just-created agent is still starting; sign-in needs it to answer first. A paused Box is
     // woken by the same request, and the runtime picker shows it waking meanwhile.
     let endWake: (() => void) | undefined
+    const waitingSince = Date.now()
     const whenReachable = () => {
       if (deviceId) endWake ??= boxWakes.begin(deviceId)
+      // A runtime that never comes up ends the wait with why, and Try again, not a spinner.
+      if (Date.now() - waitingSince > BOX_SETUP_TIMEOUT_MS) {
+        endWake?.()
+        setError(boxSetupProblem('timeout'))
+
+        return
+      }
       void api.atlasGetRuntimeInstanceStatus(teamId, id, true).then(
         (status) => {
           if (stopped) return
@@ -100,7 +111,10 @@ export function useRuntimeLogin(
     }
   }, [teamId, id, deviceId, retry, complete, immediate])
 
-  /** Cancels an attempt still in progress. False when cancelling failed and the caller should stay. */
+  /**
+   * Cancels an attempt still in progress. False the first time cancelling fails, so the caller
+   * stays and can try again; after that it may leave, and the attempt expires on its own.
+   */
   async function cancel(): Promise<boolean> {
     if (closing) return false
     setClosing(true)
@@ -114,8 +128,11 @@ export function useRuntimeLogin(
       return true
     } catch (cause) {
       toast.apiError(t('Could not cancel sign-in'), cause)
+      const leave = cancelFailed.current
 
-      return false
+      cancelFailed.current = true
+
+      return leave
     } finally {
       setClosing(false)
     }

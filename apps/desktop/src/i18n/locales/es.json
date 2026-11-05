@@ -4219,7 +4219,7 @@
   "Starting agents…": "Iniciando agentes…",
   "Starting local shell…": "Iniciando shell local…",
   "Starting the computer and its runtimes, usually 10 to 30 seconds…": "Iniciando la computadora y sus entornos de ejecución; suele tardar entre 10 y 30 segundos…",
-  "Starting your runtime… You can close this and sign in from its card once it is running.": "Iniciando tu entorno de ejecución… Puedes cerrar esto e iniciar sesión desde su tarjeta cuando esté en ejecución.",
+  "Starting your runtime… This can take a few minutes.": "Iniciando tu entorno de ejecución… Puede tardar unos minutos.",
   "Starting {name} needs {n} vCPU; {free} free.": "Iniciar {name} requiere {n} vCPU; hay {free} libres.",
   "Starting {name}…": "Iniciando {name}…",
   "Starting…": "Iniciando…",

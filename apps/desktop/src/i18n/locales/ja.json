@@ -4219,7 +4219,7 @@
   "Starting agents…": "エージェントを起動中…",
   "Starting local shell…": "ローカルシェルを起動中…",
   "Starting the computer and its runtimes, usually 10 to 30 seconds…": "コンピュータとランタイムを起動中です。通常 10〜30 秒かかります…",
-  "Starting your runtime… You can close this and sign in from its card once it is running.": "ランタイムを起動中… この画面を閉じて、起動後にカードからサインインすることもできます。",
+  "Starting your runtime… This can take a few minutes.": "ランタイムを起動しています… 数分かかることがあります。",
   "Starting {name} needs {n} vCPU; {free} free.": "{name} の起動には {n} vCPU が必要です（空き {free}）。",
   "Starting {name}…": "{name} を起動中…",
   "Starting…": "起動中…",
