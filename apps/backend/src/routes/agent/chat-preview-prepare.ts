@@ -7,6 +7,7 @@ import {
   clearConversationPreviewLocalTools,
   clearPendingDecision,
   clearConversationPreviewTurn,
+  getConversationBySessionId,
   openConversationPromptSuggestion,
   resolveInputRequest,
   setConversationPreviewContext,
@@ -186,40 +187,47 @@ export async function preparePreviewTurn(
   const userTexts = getUserMessageTexts(args.messages)
 
   await persistPreviewTurnContext(args, requestId)
-  const [memory, systemPrompt, compactionSummary, drained, toolsVersion] = await Promise.all([
-    resolvePreviewTurnMemory({
-      sessionId,
-      userId: actorUserId,
-      teamId,
-      requestId,
-      messages: args.messages,
-    }).catch((err: unknown): PreviewTurnMemory | null => {
-      traceAgentChatError('agent.chat.preview_memory.error', err, args.run.trace, {})
+  const [memory, systemPrompt, compactionSummary, drained, toolsVersion, conversation] =
+    await Promise.all([
+      resolvePreviewTurnMemory({
+        sessionId,
+        userId: actorUserId,
+        teamId,
+        requestId,
+        messages: args.messages,
+      }).catch((err: unknown): PreviewTurnMemory | null => {
+        traceAgentChatError('agent.chat.preview_memory.error', err, args.run.trace, {})
 
-      return null
-    }),
-    buildPreviewSystemPrompt({
-      provider: args.endpoint.provider,
-      runtimeId: args.endpoint.runtimeId,
-      userId: actorUserId,
-      conversationOwnerUserId: userId,
-      teamId,
-      sessionId,
-      locale: args.locale,
-      userTexts,
-      ...(args.kubeContext ? { kubeContext: args.kubeContext } : {}),
-      ...(args.diagramId ? { diagramId: args.diagramId } : {}),
-      ...(args.currentUrl ? { currentUrl: args.currentUrl } : {}),
-      ...(args.slackThread ? { slackThread: args.slackThread } : {}),
-    }).catch((err: unknown): string | undefined => {
-      traceAgentChatError('agent.chat.preview_prompt.error', err, args.run.trace, {})
+        return null
+      }),
+      buildPreviewSystemPrompt({
+        provider: args.endpoint.provider,
+        runtimeId: args.endpoint.runtimeId,
+        userId: actorUserId,
+        conversationOwnerUserId: userId,
+        teamId,
+        sessionId,
+        locale: args.locale,
+        userTexts,
+        ...(args.kubeContext ? { kubeContext: args.kubeContext } : {}),
+        ...(args.diagramId ? { diagramId: args.diagramId } : {}),
+        ...(args.currentUrl ? { currentUrl: args.currentUrl } : {}),
+        ...(args.slackThread ? { slackThread: args.slackThread } : {}),
+      }).catch((err: unknown): string | undefined => {
+        traceAgentChatError('agent.chat.preview_prompt.error', err, args.run.trace, {})
 
-      return undefined
-    }),
-    previewCompactionSummary(sessionId, userId),
-    takeTurnQueue(userId, sessionId, actorUserId, args.channelTurn).then(markCarried(requestId)),
-    nuphosToolsVersion({ userId: actorUserId, conversationOwnerUserId: userId, teamId, sessionId }),
-  ])
+        return undefined
+      }),
+      previewCompactionSummary(sessionId, userId),
+      takeTurnQueue(userId, sessionId, actorUserId, args.channelTurn).then(markCarried(requestId)),
+      nuphosToolsVersion({
+        userId: actorUserId,
+        conversationOwnerUserId: userId,
+        teamId,
+        sessionId,
+      }),
+      getConversationBySessionId(sessionId),
+    ])
   // A channel that syncs its thread into the transcript may already hold a queued message.
   const carried = drained.filter((entry) => !args.messages.some((m) => m.id === entry.id))
 
@@ -247,7 +255,11 @@ export async function preparePreviewTurn(
     memory,
     attachments,
     systemPrompt,
-    accessOptions: { humanTurn: args.humanTurn, toolsVersion },
+    accessOptions: {
+      humanTurn: args.humanTurn,
+      toolsVersion,
+      parentSessionId: conversation?.parentSessionId,
+    },
     message: lead(),
     text,
     freshSessionMessage: (uncertain?: boolean) =>

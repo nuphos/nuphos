@@ -94,18 +94,6 @@ function connectorEnv(providers: string[]): Record<string, string> {
   )
 }
 
-export async function previewMcpServers(
-  conversationId: string,
-  teamId: string,
-  userId: string,
-  conversationOwnerUserId = userId,
-  options?: PreviewSessionAccessOptions,
-): Promise<AcpHttpMcpServer[]> {
-  return (
-    await previewSessionAccess(conversationId, teamId, userId, conversationOwnerUserId, options)
-  ).mcpServers
-}
-
 // A teammate's own turn runs in their HOME. Everything else, including
 // automated turns, acts as the session owner and runs in the owner's.
 export function previewSessionActor(
@@ -123,6 +111,8 @@ export type PreviewSessionAccessOptions = {
   humanTurn?: boolean
   /** From `nuphosToolsVersion`; a change makes the runtime respawn an idle agent. */
   toolsVersion?: string
+  /** Set for a sub-agent thread: its tokens name the parent as the RFC 8693 actor. */
+  parentSessionId?: string
 }
 
 export async function previewSessionAccess(
@@ -143,6 +133,7 @@ export async function previewSessionAccess(
     teamId,
     apiOrigin: base,
     humanTurn: options?.humanTurn,
+    ...(options?.parentSessionId ? { actor: `session:${options.parentSessionId}` } : {}),
   })
   const headers = [{ name: 'Authorization', value: `Bearer ${token}` }]
   const selected = await listSelectedCredentials(
@@ -183,8 +174,6 @@ export async function previewSessionAccess(
     },
   }
 }
-
-export const credentialsMcpServers = previewMcpServers
 
 // Same contract as Claude Code's Bash tool: a one-line intent the chat UI
 // shows as the tool card title. claude-agent-acp titles MCP calls by bare
