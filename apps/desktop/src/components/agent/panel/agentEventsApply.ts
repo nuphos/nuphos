@@ -132,7 +132,7 @@ export function applyStreamEvent(
         const message =
           typeof ev.message === 'string'
             ? ev.message
-            : 'Connect your runtime in Settings → Runtimes, then try again.'
+            : 'Connect your runtime on the Runtimes page, then try again.'
         const nextTab = {
           ...t,
           messages: stampAssistantTurnEnd(finalizeIncompleteTools(t.messages, message)),

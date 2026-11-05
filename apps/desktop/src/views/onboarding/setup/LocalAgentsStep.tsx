@@ -154,7 +154,7 @@ export function LocalAgentsStep({ onContinue }: { onContinue: () => void }) {
               'Use Claude Code or Codex with the subscriptions you already have. Here’s what we found on this computer.',
             )
       }
-      hint={t('You can connect more runtimes later in Settings › Runtimes.')}
+      hint={t('You can connect more runtimes later on the Runtimes page.')}
       actions={
         <>
           {checking && !ready && (

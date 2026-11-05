@@ -24,7 +24,7 @@ export function assertClaudeCodeSetupConfigured(
   throw new AppError(
     409,
     `${runtimeErrorPrefix(provider)}_setup_required`,
-    `${runtimeLabel(provider)} is not set up in this workspace yet. A workspace administrator must add an agent in Settings → Agent and sign it in before using Agent.`,
+    `${runtimeLabel(provider)} is not set up in this workspace yet. A workspace administrator must add an agent on the Runtimes page and sign it in before using Agent.`,
   )
 }
 

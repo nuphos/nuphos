@@ -96,7 +96,7 @@ export async function resolveConversationChatRuntime(
     throw new AppError(
       409,
       'runtime_disabled',
-      'This conversation’s agent is disabled. Enable it in Settings → Agent, or start a new conversation with another agent.',
+      'This conversation’s agent is disabled. Enable it on the Runtimes page, or start a new conversation with another agent.',
     )
   const needsTeamDefault = !instance && !requestedRuntime && !pinned
   const teamDefault = needsTeamDefault && teamId ? await getTeamAgentRuntime(teamId) : 'claude-code'
