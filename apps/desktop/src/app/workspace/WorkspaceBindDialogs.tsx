@@ -22,6 +22,7 @@ export function WorkspaceBindDialogs({ ws }: { ws: WorkspaceController }) {
     currentTeam,
     switchTeam,
     openSettingsSection,
+    onSidebarSelect,
   } = ws
   const [connectAgent, setConnectAgent] = useState<ConnectAgentLink | null>(null)
 
@@ -36,12 +37,12 @@ export function WorkspaceBindDialogs({ ws }: { ws: WorkspaceController }) {
           {
             action: {
               label: t('Connect'),
-              onClick: () => openSettingsSection('team.integrations'),
+              onClick: () => onSidebarSelect('team.integrations'),
             },
           },
         ),
       ),
-    [openSettingsSection],
+    [onSidebarSelect],
   )
 
   return (
