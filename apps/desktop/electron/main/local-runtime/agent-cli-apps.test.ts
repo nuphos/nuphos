@@ -111,3 +111,24 @@ test('findFile skips an app executable that differs only in case from the CLI', 
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+test(
+  "OpenCode's own installer location is found without it on PATH",
+  {
+    skip:
+      process.platform === 'win32' ||
+      findAgentCli('opencode', { HOME: os.tmpdir(), PATH: '' }) !== null,
+  },
+  (t) => {
+    const home = mkdtempSync(path.join(os.tmpdir(), 'nuphos-opencode-'))
+
+    t.after(() => rmSync(home, { recursive: true, force: true }))
+    const env = { HOME: home, PATH: '' }
+    const cli = path.join(home, '.opencode', 'bin', 'opencode')
+
+    assert.equal(findAgentCli('opencode', env), null)
+    mkdirSync(path.dirname(cli), { recursive: true })
+    writeFileSync(cli, '#!/bin/sh\n', { mode: 0o700 })
+    assert.equal(findAgentCli('opencode', env), cli)
+  },
+)

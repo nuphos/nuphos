@@ -27,6 +27,8 @@ function fallbackDirs(home: string, env: NodeJS.ProcessEnv): string[] {
   return [
     path.join(home, '.local', 'bin'),
     path.join(home, '.claude', 'local'),
+    // OpenCode's own installer (opencode.ai/install), which only adds it to PATH in some shells.
+    path.join(home, '.opencode', 'bin'),
     '/opt/homebrew/bin',
     '/usr/local/bin',
     // The CLI bundled with the ChatGPT (Codex) desktop app, for users without a separate install.
