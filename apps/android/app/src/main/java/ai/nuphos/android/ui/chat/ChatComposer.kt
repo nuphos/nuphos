@@ -861,21 +861,12 @@ fun ChatComposer(
                     Spacer(Modifier.weight(1f))
                     VoiceMic(enabled = effectiveDraftingEnabled && !picking && !voice.active, onClick = ::startVoice)
                     val stoppable = onStop != null && (isStreaming || stopsRuntimeTurn)
-                    if (isStreaming && onStop != null && hasPayload) {
-                        IconButton(onClick = ::send, enabled = canSubmit && !picking && !voice.active, modifier = Modifier.size(36.dp)) {
-                            Icon(Icons.Outlined.PlaylistAdd, "Queue message")
-                        }
-                    } else if (stoppable && hasPayload) TrailingButton(
-                        isStreaming = false,
-                        hasPayload = canSubmit && !picking && !voice.active,
-                        onStop = null,
-                        onSend = ::send,
-                        sendQueues = sendQueues,
-                    )
+                    // With a draft, Stop steps left so the corner keeps sending, as on iOS.
+                    if (stoppable && hasPayload) TrailingButton(isStreaming = true, hasPayload = false, onStop = onStop, onSend = {})
                     TrailingButton(
-                        isStreaming = isStreaming || stoppable,
+                        isStreaming = isStreaming || (stoppable && !hasPayload),
                         hasPayload = hasPayload && canSubmit && !picking && !voice.active,
-                        onStop = onStop,
+                        onStop = if (hasPayload) null else onStop,
                         onSend = ::send,
                         sendQueues = sendQueues,
                     )
