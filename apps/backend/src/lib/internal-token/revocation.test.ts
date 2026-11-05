@@ -41,8 +41,18 @@ function fakeCollection(name: string) {
     updateOne: async (filter: { _id: string }, update: Update) => {
       upsert(filter._id, update)
     },
-    bulkWrite: async (ops: { updateOne: { filter: { _id: string }; update: Update } }[]) => {
-      for (const op of ops) upsert(op.updateOne.filter._id, op.updateOne.update)
+    bulkWrite: async (
+      ops: {
+        updateOne: { filter: { _id: string; before?: number }; update: Update; upsert?: boolean }
+      }[],
+    ) => {
+      for (const { updateOne: op } of ops) {
+        const doc = docs.get(op.filter._id)
+
+        if (!doc && !op.upsert) continue
+        if (op.filter.before !== undefined && doc?.before !== op.filter.before) continue
+        upsert(op.filter._id, op.update)
+      }
       onBulkWrite?.(name)
     },
     find: (filter: { parentJti: { $in: string[] } }) => ({
@@ -153,7 +163,7 @@ describe('token revocation', () => {
   })
 
   test('a restore in the second of its archive keeps the restored tokens valid', async () => {
-    await revokeSessionTokens(['conv-1'], 'archived', 1000)
+    await revokeSessionTokens(['conv-1'], 'archived', { 'conv-1': 1000 })
     await releaseRestoredSessions(['conv-1'], 1000)
     expect(await isTokenRevoked({ jti: 'fresh', sid: 'conv-1', iat: now() })).toBe(false)
     expect(await isTokenRevoked({ jti: 'old', sid: 'conv-1', iat: now() - 10 })).toBe(true)
@@ -208,9 +218,9 @@ describe('token revocation', () => {
   })
 
   test('a restore releases only the cutoff of the archive it restored', async () => {
-    await revokeSessionTokens(['conv-1'], 'archived', 1000)
+    await revokeSessionTokens(['conv-1'], 'archived', { 'conv-1': 1000 })
     // A newer archive on another replica lands before the restore's release.
-    await revokeSessionTokens(['conv-1'], 'archived', 2000)
+    await revokeSessionTokens(['conv-1'], 'archived', { 'conv-1': 2000 })
     await releaseRestoredSessions(['conv-1'], 1000)
     expect(await isTokenRevoked({ jti: 'x', sid: 'conv-1', iat: now() }, true)).toBe(true)
   })
@@ -226,12 +236,33 @@ describe('token revocation', () => {
       if (writes === 1) Date.now = () => realNow() + 1000
     }
     try {
-      await revokeSessionTokens(['conv-1'], 'archived', 1000)
+      await revokeSessionTokens(['conv-1'], 'archived', { 'conv-1': 1000 })
     } finally {
       Date.now = realNow
       onBulkWrite = undefined
     }
     expect(writes).toBe(2)
     expect(await isTokenRevoked({ jti: 'child', sid: 'conv-1', iat: now() + 1 }, true)).toBe(true)
+  })
+
+  test('the second cutoff write never undoes a restore that landed in between', async () => {
+    const realNow = Date.now
+
+    onBulkWrite = (collection) => {
+      if (collection !== 'revoked_conversation_sessions' || onBulkWrite === undefined) return
+      onBulkWrite = undefined
+      // The restore lands, then the clock moves on before the second write.
+      void releaseRestoredSessions(['conv-1'], 1000).then(() => {
+        Date.now = () => realNow() + 1000
+      })
+    }
+    try {
+      await revokeSessionTokens(['conv-1'], 'archived', { 'conv-1': 1000 })
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    } finally {
+      Date.now = realNow
+      onBulkWrite = undefined
+    }
+    expect(await isTokenRevoked({ jti: 'restored', sid: 'conv-1', iat: now() }, true)).toBe(false)
   })
 })

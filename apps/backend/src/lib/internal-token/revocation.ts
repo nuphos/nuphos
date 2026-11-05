@@ -150,37 +150,49 @@ export async function releaseRestoredSessions(
 }
 
 /**
- * Revokes every token these sessions were issued up to now. `generation` is
- * the archive stamp (ms), so a later restore can release exactly this cutoff.
+ * Revokes every token these sessions were issued up to now. `generations`
+ * holds each session's archive stamp (ms), so a later restore of that session
+ * releases exactly its own cutoff.
  *
  * The cutoff is written twice. An exchange that checked its subject while the
  * first write was in flight may already have minted a child past that cutoff;
- * the second write, stamped once the first has landed, covers it.
+ * the second write, stamped once the first has landed, covers it. The second
+ * write only moves a cutoff still at the first one's value, so it never undoes
+ * a restore that released it in between.
  */
 export async function revokeSessionTokens(
   sessionIds: string[],
   reason: string,
-  generation?: number,
+  generations: Record<string, number> = {},
 ): Promise<void> {
   if (sessionIds.length === 0) return
   const expiresAt = new Date(Date.now() + MAX_TOKEN_LIFETIME_MS)
-  const write = (before: number) =>
-    revokedSessions().bulkWrite(
-      sessionIds.map((sid) => ({
+  const first = Math.floor(Date.now() / 1000)
+
+  await revokedSessions().bulkWrite(
+    sessionIds.map((sid) => {
+      const generation = generations[sid]
+
+      return {
         updateOne: {
           filter: { _id: sid },
           // $max: an overlapping, older revocation can never move a cutoff back.
           update: {
-            $max: { before, expiresAt, ...(generation === undefined ? {} : { generation }) },
+            $max: { before: first, expiresAt, ...(generation === undefined ? {} : { generation }) },
             $set: { reason },
           },
           upsert: true,
         },
-      })),
-    )
+      }
+    }),
+  )
+  const second = Math.floor(Date.now() / 1000)
 
-  await write(Math.floor(Date.now() / 1000))
-  await write(Math.floor(Date.now() / 1000))
+  await revokedSessions().bulkWrite(
+    sessionIds.map((sid) => ({
+      updateOne: { filter: { _id: sid, before: first }, update: { $max: { before: second } } },
+    })),
+  )
   for (const sid of sessionIds) cache.delete(`sid:${sid}`)
   logEvent('info', 'auth.conversation_session_tokens.revoked', {
     session_ids: sessionIds,

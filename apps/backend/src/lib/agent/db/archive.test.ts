@@ -10,10 +10,12 @@ import type * as dbActual from '@/lib/db'
 // The sessions whose tokens each archive revoked.
 const revokedSessions: string[][] = []
 const releasedSessions: string[][] = []
+let lastGenerations: Record<string, number> = {}
 
 useTokenRevocation({
-  revokeSessionTokens: async (sessionIds) => {
+  revokeSessionTokens: async (sessionIds, _reason, generations) => {
     revokedSessions.push(sessionIds)
+    lastGenerations = generations ?? {}
   },
   releaseRestoredSessions: async (sessionIds) => {
     releasedSessions.push(sessionIds)
@@ -105,8 +107,14 @@ describe('setConversationArchived', () => {
 
   test('restores what the cascade archived, not a thread archived on its own earlier', async () => {
     await setConversationArchived('grandchild', true)
+    const grandchildGeneration = lastGenerations.grandchild
+
     await new Promise((resolve) => setTimeout(resolve, 2))
     await setConversationArchived('root', true)
+    // The thread archived on its own keeps its own generation; the cascade stamps the rest.
+    expect(lastGenerations.grandchild).toBe(grandchildGeneration)
+    expect(lastGenerations.child).toBe(lastGenerations.root)
+    expect(lastGenerations.root).toBeGreaterThan(grandchildGeneration!)
     await setConversationArchived('root', false)
 
     expect(['root', 'child', 'grandchild'].map(archived)).toEqual([false, false, true])

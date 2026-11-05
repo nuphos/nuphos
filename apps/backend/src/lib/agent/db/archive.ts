@@ -28,13 +28,26 @@ export async function setConversationArchived(sessionId: string, archived: boole
 
   if (archived) {
     const stamp = archivedAt ?? new Date()
+    // A thread archived on its own keeps its stamp, and so its own generation.
+    const earlier = await agentConversations()
+      .find(
+        { sessionId: { $in: descendants }, archivedAt: { $exists: true } },
+        { projection: { sessionId: 1, archivedAt: 1 } },
+      )
+      .toArray()
+    const generations = Object.fromEntries(
+      [sessionId, ...descendants].map((id) => [id, stamp.getTime()]),
+    )
 
+    for (const thread of earlier) {
+      if (thread.archivedAt) generations[thread.sessionId] = thread.archivedAt.getTime()
+    }
     await agentConversations().updateMany(
       { sessionId: { $in: [sessionId, ...descendants] }, archivedAt: { $exists: false } },
       { $set: { archivedAt: stamp } },
     )
     // A thread never outlives its parent: tokens issued so far stop working.
-    await revokeSessionTokens([sessionId, ...descendants], 'archived', stamp.getTime())
+    await revokeSessionTokens([sessionId, ...descendants], 'archived', generations)
 
     return
   }
