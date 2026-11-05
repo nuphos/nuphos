@@ -4519,6 +4519,7 @@
   "This collection is not sharded.": "Koleksi ini tidak di-shard.",
   "This computer": "Komputer ini",
   "This computer · {provider}": "Komputer ini · {provider}",
+  "This connection attempt expired or was cancelled. Click Connect again.": "Upaya koneksi ini kedaluwarsa atau dibatalkan. Klik Hubungkan lagi.",
   "This dashboard has no widgets.": "Dasbor ini tidak memiliki widget.",
   "This dashboard is empty.": "Dasbor ini kosong.",
   "This database connection no longer exists or is unavailable.": "Koneksi database ini sudah tidak ada atau tidak tersedia.",

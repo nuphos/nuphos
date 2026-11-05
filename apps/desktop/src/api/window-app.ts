@@ -98,6 +98,7 @@ export type WindowAppApi = {
   onAgentChatDeepLink(cb: (payload: AgentChatDeepLinkPayload) => void): () => void
   onAppOpenDeepLink(cb: (payload: AppOpenDeepLinkPayload) => void): () => void
   onConnectAgentDeepLink(cb: (payload: ConnectAgentLink) => void): () => void
+  onConnectorStaleDeepLink(cb: (payload: { name: string }) => void): () => void
   onWebUrlDeepLink(cb: (url: string) => void): () => void
   onPersonalCredentialDeepLink(cb: (payload: PersonalCredentialDeepLinkPayload) => void): () => void
   onAgentFocusSession(cb: (payload: AgentFocusSessionPayload) => void): () => void

@@ -24,6 +24,9 @@ export type SentryBindResult = {
 
 const pending = new Map<string, Pending>()
 
+/** Whether a callback's state still belongs to an attempt in progress. */
+export const hasPending = (state: string) => pending.has(state)
+
 export async function startInstall(teamId: string): Promise<SentryBindResult> {
   const { authorizeUrl, state } = await atlas.startSentryOAuth(teamId)
 

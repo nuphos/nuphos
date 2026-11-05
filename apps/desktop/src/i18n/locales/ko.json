@@ -4519,6 +4519,7 @@
   "This collection is not sharded.": "이 컬렉션은 샤딩되지 않았습니다.",
   "This computer": "이 컴퓨터",
   "This computer · {provider}": "이 컴퓨터 · {provider}",
+  "This connection attempt expired or was cancelled. Click Connect again.": "이 연결 시도가 만료되었거나 취소되었습니다. 연결을 다시 클릭하세요.",
   "This dashboard has no widgets.": "이 대시보드에는 위젯이 없습니다.",
   "This dashboard is empty.": "이 대시보드는 비어 있습니다.",
   "This database connection no longer exists or is unavailable.": "이 데이터베이스 연결이 더 이상 존재하지 않거나 사용할 수 없습니다.",

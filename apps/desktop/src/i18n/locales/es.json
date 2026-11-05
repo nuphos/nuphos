@@ -4519,6 +4519,7 @@
   "This collection is not sharded.": "Esta colección no está fragmentada.",
   "This computer": "Esta computadora",
   "This computer · {provider}": "Este equipo · {provider}",
+  "This connection attempt expired or was cancelled. Click Connect again.": "Este intento de conexión caducó o se canceló. Haz clic en Conectar de nuevo.",
   "This dashboard has no widgets.": "Este panel no tiene widgets.",
   "This dashboard is empty.": "Este panel está vacío.",
   "This database connection no longer exists or is unavailable.": "Esta conexión de base de datos ya no existe o no está disponible.",
