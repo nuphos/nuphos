@@ -93,8 +93,7 @@ export function InboxView({
       stopRefresh()
     }
   }, [])
-  // A question answered here leaves the Inbox at once, as it does the badge;
-  // the server's listing only drops it once the reply reaches the agent.
+  // A question answered here leaves the Inbox and the badge at once, as the listing does.
   const answered = useAnsweredOnDevice()
   const { waiting, openId, hiddenSessionIds } = inboxReader(items, selected, answered)
 
@@ -260,6 +259,7 @@ export function InboxView({
                 showingConversation={showConversation}
                 onChoose={setChosenRequest}
                 onAnswer={(requestId, text) => {
+                  if (answer) return // One answer per question: a repeated click sends nothing.
                   setChosenRequest(requestId)
                   setAnswer({ text, nonce: Date.now(), autoSend: true, replace: true })
                 }}

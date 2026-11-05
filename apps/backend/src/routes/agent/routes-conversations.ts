@@ -18,6 +18,7 @@ import {
 } from './credential-access'
 import { serializeTimelineEvents, timelineEventUserIds } from './conversation-timeline'
 import { getAgentCredentialOptions } from './credential-options'
+import { answeringIds } from './decision-reply'
 import { serializeMessageDoc } from './errors'
 import { agent } from './router'
 import { getLocalActiveAgentRun } from './run-registry'
@@ -244,6 +245,7 @@ agent.get('/conversations/:sessionId', async (c) => {
     ownerById,
     slackThreadRecord,
     await resolveConversationAccess(result.conversation, viewer.id),
+    await answeringIds(result.conversation),
   )
 
   return c.json({

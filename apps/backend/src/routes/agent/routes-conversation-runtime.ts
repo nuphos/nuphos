@@ -3,7 +3,7 @@ import { agent } from './router'
 import { cancelSessionRun } from './run-cancel'
 import { resolveVerifiedTeamId, readTeamIdCandidate } from './team-scope'
 
-import { getReadableConversation } from '@/lib/agent/db'
+import { getReadableConversation, resolveInputRequest } from '@/lib/agent/db'
 import { requeuePendingAtHead } from '@/lib/agent/pending-queue'
 import { sessionReleased } from '@/lib/agent/session-released'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
@@ -103,6 +103,11 @@ agent.post('/conversations/:sessionId/steer', async (c) => {
     }
     throw error
   })
+  const answers = claimed?.chat?.decisionReplyTo
+
+  // A waiting answer steered in has reached the agent: no turn of its own will resolve it.
+  if (claimed && answers)
+    await resolveInputRequest(sessionId, conversation.userId, answers, 'answered')
 
   return c.json({
     ok: true,

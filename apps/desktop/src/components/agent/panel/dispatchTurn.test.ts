@@ -18,6 +18,7 @@ let failImport = false
 let startGate: Promise<void> = Promise.resolve()
 // Holds the import open until a test lets it finish.
 let importGate: Promise<void> | null = null
+const toasts: string[] = []
 
 before(async () => {
   mock.module('../../../architecture/activeDiagram.ts', {
@@ -27,7 +28,13 @@ before(async () => {
     namedExports: { track: () => {}, trackError: () => {} },
   })
   mock.module('../../ui/toast.ts', {
-    namedExports: { toast: { apiError: () => {}, error: () => {} } },
+    namedExports: {
+      toast: {
+        apiError: (title: string) => toasts.push(title),
+        error: () => {},
+        info: (title: string) => toasts.push(title),
+      },
+    },
   })
   mock.module('./attachments.ts', {
     namedExports: {
@@ -207,6 +214,35 @@ test('an answer leaves the Inbox badge as it is sent, and comes back if the send
     inbox.publishInboxListing('team', [waiting])
     assert.equal(inbox.inboxCountFor('team'), fails ? 1 : 0, 'a listing from before the answer')
   }
+})
+
+test('an answer to a busy agent leaves the badge at once and says it is queued', async () => {
+  const request = {
+    id: 'busy-q',
+    category: 'preference',
+    question: '?',
+    askedAt: '',
+    status: 'open',
+  }
+
+  toasts.length = 0
+  startGate = Promise.resolve()
+  inbox.publishInboxListing('team', [
+    { sessionId: 'fork', inputRequests: [request] } as AgentConversation,
+  ])
+  const state = context({
+    unsaved: false,
+    runtimeState: { state: 'active', schemaVersion: 2, actions: { send: true, steer: true } },
+  } as Partial<Tab>)
+
+  state.ctx.decisionReplyTo = 'busy-q'
+  await runDispatchTurn(state.ctx, 'tab', 'Keep it public', [])
+  await settle()
+  assert.equal(inbox.inboxCountFor('team'), 0)
+  assert.deepEqual(toasts, ['Answer queued'])
+  // The server holds the question for the queued answer, so its listing agrees.
+  inbox.publishInboxListing('team', [{ sessionId: 'fork' } as AgentConversation])
+  assert.equal(inbox.inboxCountFor('team'), 0)
 })
 
 test('a failed import does not start the turn and surfaces the error', async () => {

@@ -41,6 +41,22 @@ export async function listPendingUserMessages(
   return [...(localQueues.get(key) ?? []), ...stored]
 }
 
+/** The questions queued messages answer, each with the message answering it. */
+export async function queuedAnswers(
+  userId: string,
+  sessionId: string,
+): Promise<Map<string, string>> {
+  const answers = new Map<string, string>()
+
+  for (const message of await listPendingUserMessages(userId, sessionId)) {
+    const id = message.chat?.decisionReplyTo
+
+    if (id && !answers.has(id)) answers.set(id, message.id)
+  }
+
+  return answers
+}
+
 const isTranscriptMessage = (message: PendingUserMessage) =>
   (TRANSCRIPT_SOURCES as readonly string[]).includes(message.source)
 

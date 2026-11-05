@@ -70,3 +70,31 @@ test('a legacy single question is listed too, and nothing open sends neither fie
   expect(resolved).not.toHaveProperty('inputRequests')
   expect(resolved).not.toHaveProperty('pendingDecision')
 })
+
+test('a question a queued message answers is no longer listed as open, so the badge clears', () => {
+  const question = {
+    category: 'preference',
+    question: 'Public?',
+    askedAt: askedAt(1),
+    status: 'open',
+  }
+  const body = serializeConversationDoc(
+    {
+      sessionId: 's1',
+      inputRequests: [
+        { ...question, id: 'q1' },
+        { ...question, id: 'q2' },
+      ],
+    },
+    new Set(['q1']),
+  )
+
+  expect((body.inputRequests as { id: string }[]).map((request) => request.id)).toEqual(['q2'])
+  const all = serializeConversationDoc(
+    { sessionId: 's1', inputRequests: [{ ...question, id: 'q1' }] },
+    new Set(['q1']),
+  )
+
+  expect(all.inputRequests).toBeUndefined()
+  expect(all.pendingDecision).toBeUndefined()
+})
