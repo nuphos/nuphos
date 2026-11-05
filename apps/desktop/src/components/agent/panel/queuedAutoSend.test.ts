@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   adoptSideStream,
+  canStopTurn,
   dispatchedDraft,
   rememberDispatchedDraft,
   rememberSideSend,
@@ -136,4 +137,46 @@ test('the strip follows the server queue but keeps what is still being sent', ()
   // The local copy keeps its attachments.
   assert.deepEqual(synced.queued?.[0]?.filePaths, ['a.png'])
   takeSideSend('side-sync')
+})
+
+// Tim, Desktop on macOS: a runtime connection dropped mid-turn and the composer
+// showed only Send, which queued, with no Stop. The runtime reported nothing to
+// cancel while a message waited behind a turn the backend still held.
+test('the composer offers Stop through a dropped runtime connection and after the reconnect gives up', () => {
+  const waiting = [{ id: 'next', text: 'then remove the worktree', filePaths: [] }]
+  const running: RuntimeExecution = {
+    schemaVersion: 2,
+    state: 'active',
+    actions: { send: false, cancel: true, steer: false },
+  }
+  // What the backend answers while it cannot reach the runtime (READY_FOR_NEXT_MESSAGE).
+  const unreachable: RuntimeExecution = {
+    schemaVersion: 2,
+    state: 'dormant',
+    phase: 'dormant',
+    actions: { send: true, cancel: false, steer: false },
+  }
+
+  assert.equal(canStopTurn(tab({ runtimeState: running })), true)
+  // Reconnect window: the tab still follows its turn, or a message waits behind it.
+  assert.equal(canStopTurn(tab({ runtimeState: unreachable, streaming: true })), true)
+  assert.equal(canStopTurn(tab({ runtimeState: { state: 'disconnected' }, streaming: true })), true)
+  assert.equal(canStopTurn(tab({ runtimeState: unreachable, queued: waiting })), true)
+  // After the give-up: the runtime is idle, the message still waits.
+  assert.equal(canStopTurn(tab({ runtimeState: status(true), queued: waiting })), true)
+  // Nothing ahead: Send only.
+  assert.equal(canStopTurn(tab({ runtimeState: status(true) })), false)
+  // A queued message whose turn started is not waiting any more.
+  assert.equal(
+    canStopTurn(
+      tab({
+        runtimeState: status(true),
+        queued: waiting,
+        messages: [
+          { id: 'next', role: 'user', content: 'then remove the worktree' },
+        ] as Tab['messages'],
+      }),
+    ),
+    false,
+  )
 })

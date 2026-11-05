@@ -35,6 +35,7 @@ export function Composer({
   newChat = false,
   onSend,
   onStop,
+  canStop,
   runtimeState,
   executing = false,
   readOnly = false,
@@ -62,6 +63,8 @@ export function Composer({
   newChat?: boolean // a new chat fixes an unusable agent by picking another
   onSend: ComposerSend
   onStop: () => void
+  /** Something is ahead of this person (canStopTurn); without it, what the runtime can cancel. */
+  canStop?: boolean
   runtimeState?: RuntimeExecution
   executing?: boolean
   readOnly?: boolean
@@ -109,7 +112,7 @@ export function Composer({
     !runtimeAllows(runtimeState, 'reply') &&
     !runtimeMayAcceptLater(runtimeState),
   )
-  const runtimeCanCancel = runtimeAllows(runtimeState, 'cancel')
+  const runtimeCanCancel = canStop ?? runtimeAllows(runtimeState, 'cancel')
   const modelControl = useSessionConfig(
     modelSession,
     runtimeState ? !runtimeAllows(runtimeState, 'send') : streaming,

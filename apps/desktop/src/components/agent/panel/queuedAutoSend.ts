@@ -1,3 +1,5 @@
+import { runtimeAllows } from '../../../lib/runtimeExecution.ts'
+
 import type { Message, QueuedMessage, Tab } from './model.ts'
 import type { RuntimeExecution } from '../../../lib/runtimeExecution.ts'
 
@@ -131,6 +133,20 @@ export function waitingMessages(tab: Pick<Tab, 'queued' | 'messages'>): QueuedMe
   const started = new Set(tab.messages.map((message) => message.id))
 
   return (tab.queued ?? []).filter((item) => !started.has(item.id))
+}
+
+/**
+ * Stop is offered whenever something is ahead of this person: the runtime's
+ * turn, this tab's own stream, or whatever their queued messages wait for. After
+ * a dropped runtime connection the runtime can report nothing to cancel while
+ * the other two remain, and Stop is then the only way forward.
+ */
+export function canStopTurn(
+  tab: Pick<Tab, 'runtimeState' | 'streaming' | 'queued' | 'messages'>,
+): boolean {
+  return (
+    runtimeAllows(tab.runtimeState, 'cancel') || tab.streaming || waitingMessages(tab).length > 0
+  )
 }
 
 export function withoutQueued(tab: Tab, queuedId: string): Tab {

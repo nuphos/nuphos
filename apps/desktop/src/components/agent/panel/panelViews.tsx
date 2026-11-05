@@ -21,7 +21,7 @@ import { useConversationRuntimeControl } from './conversationRuntimeControl'
 import { DelayedPanelReveal } from './homeAnimation'
 import { canEditMessage } from './messageEdit'
 import { AuthorizationActionContext } from './parts'
-import { waitingMessages } from './queuedAutoSend'
+import { canStopTurn, waitingMessages } from './queuedAutoSend'
 import { useQueuedShareApproval } from './queuedShareApproval'
 import { QueuedStrip } from './QueuedStrip'
 import { cardReplyId } from './replyTarget'
@@ -267,7 +267,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     }
                     autoFocus={focusComposerOnOpen}
                     runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
-                    executing={runtimeIsExecuting(activeTab.runtimeState)}
+                    canStop={canStopTurn(activeTab)}
                     readOnly={activeTab.readOnly}
                     readOnlyNotice={readOnlyNotice}
                     activitySource={activeTab.activitySource}
