@@ -36,15 +36,22 @@ export async function setConversationArchived(sessionId: string, archived: boole
 
     return
   }
+  // Only threads the cascade archived come back; one archived on its own stays.
+  const restored =
+    archivedAt && descendants.length > 0
+      ? (
+          await agentConversations()
+            .find({ sessionId: { $in: descendants }, archivedAt }, { projection: { sessionId: 1 } })
+            .toArray()
+        ).map((thread) => thread.sessionId)
+      : []
+
   // Descendants first: the parent's stamp is what a retry needs to find them.
-  if (archivedAt && descendants.length > 0) {
-    await agentConversations().updateMany(
-      { sessionId: { $in: descendants }, archivedAt },
-      restore(),
-    )
+  if (restored.length > 0) {
+    await agentConversations().updateMany({ sessionId: { $in: restored }, archivedAt }, restore())
   }
   await agentConversations().updateOne({ sessionId }, restore())
-  await releaseRestoredSessions([sessionId, ...descendants])
+  await releaseRestoredSessions([sessionId, ...restored])
 }
 
 /** Every conversation nested below `rootId` matching `scope`; `seen` stops a loop. */

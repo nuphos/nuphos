@@ -17,36 +17,45 @@ type Doc = Record<string, unknown> & { _id: string }
 
 // Just enough of a Mongo collection for the revocation module.
 const collections = new Map<string, Map<string, Doc>>()
+let onFind: (() => void) | undefined
 
 function fakeCollection(name: string) {
   const docs = collections.get(name) ?? new Map<string, Doc>()
 
   collections.set(name, docs)
-  const upsert = (id: string, set: Record<string, unknown>) =>
-    docs.set(id, { ...(docs.get(id) ?? { _id: id }), ...set })
+  type Update = { $set?: Record<string, unknown>; $max?: Record<string, number | Date> }
+  const upsert = (id: string, update: Update) => {
+    const doc: Doc = { ...(docs.get(id) ?? { _id: id }), ...update.$set }
+
+    for (const [key, value] of Object.entries(update.$max ?? {})) {
+      const current = doc[key] as number | Date | undefined
+
+      if (current === undefined || +value > +current) doc[key] = value
+    }
+    docs.set(id, doc)
+  }
 
   return {
     createIndex: async () => 'ok',
-    updateOne: async (filter: { _id: string }, update: { $set: Record<string, unknown> }) => {
-      upsert(filter._id, update.$set)
+    updateOne: async (filter: { _id: string }, update: Update) => {
+      upsert(filter._id, update)
     },
-    bulkWrite: async (
-      ops: { updateOne: { filter: { _id: string }; update: { $set: Record<string, unknown> } } }[],
-    ) => {
-      for (const op of ops) upsert(op.updateOne.filter._id, op.updateOne.update.$set)
+    bulkWrite: async (ops: { updateOne: { filter: { _id: string }; update: Update } }[]) => {
+      for (const op of ops) upsert(op.updateOne.filter._id, op.updateOne.update)
     },
     find: (filter: { parentJti: { $in: string[] } }) => ({
       toArray: async () =>
+        onFind?.() ??
         [...docs.values()].filter((doc) => filter.parentJti.$in.includes(doc.parentJti as string)),
     }),
     updateMany: async (
       filter: { _id: { $in: string[] }; before: { $gte: number } },
-      update: { $set: Record<string, unknown> },
+      update: Update,
     ) => {
       for (const id of filter._id.$in) {
         const doc = docs.get(id)
 
-        if (doc && (doc.before as number) >= filter.before.$gte) upsert(id, update.$set)
+        if (doc && (doc.before as number) >= filter.before.$gte) upsert(id, update)
       }
     },
     countDocuments: async (filter: { _id: string }) => (docs.has(filter._id) ? 1 : 0),
@@ -157,5 +166,37 @@ describe('token revocation', () => {
     }
     // Everything older than the cache window is gone; only the newest lookups remain.
     expect(revocationCacheSizeForTest()).toBeLessThanOrEqual(2)
+  })
+
+  test('an older, overlapping session revocation never moves the cutoff back', async () => {
+    await revokeSessionTokens(['conv-1'], 'archived')
+    const cutoff = collections.get('revoked_conversation_sessions')?.get('conv-1')?.before as number
+    const realNow = Date.now
+
+    // A write captured a second earlier lands after the newer one.
+    Date.now = () => realNow() - 1000
+    try {
+      await revokeSessionTokens(['conv-1'], 'archived')
+    } finally {
+      Date.now = realNow
+    }
+    expect(collections.get('revoked_conversation_sessions')?.get('conv-1')?.before).toBe(cutoff)
+  })
+
+  test('each level is revoked before its children are read', async () => {
+    await recordTokenLink('c', 'p', now() + 60)
+    const parentRevokedAtRead: boolean[] = []
+
+    onFind = () => {
+      parentRevokedAtRead.push(collections.get('revoked_conversation_tokens')?.has('p') ?? false)
+    }
+    try {
+      await revokeToken('p', now() + 60, 'test')
+    } finally {
+      onFind = undefined
+    }
+    // An exchange that links a child after this read re-reads p and finds it revoked.
+    expect(parentRevokedAtRead[0]).toBe(true)
+    expect(collections.get('revoked_conversation_tokens')?.has('c')).toBe(true)
   })
 })

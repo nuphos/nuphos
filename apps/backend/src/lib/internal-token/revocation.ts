@@ -89,11 +89,25 @@ export async function recordTokenLink(childJti: string, parentJti: string, exp: 
 /** Revokes `jti` and every token exchanged from it, directly or through others. */
 export async function revokeToken(jti: string, exp: number, reason: string): Promise<number> {
   const revokedAt = new Date()
+  // A child never outlives its parent, so the parent's expiry bounds them all.
   const expiresAt = new Date(exp * 1000)
   const seen = new Set([jti])
   let frontier = [jti]
 
+  // Each level is persisted before its child links are read. An exchange links
+  // its child first and then re-reads the subject (inheritRevocation), so a
+  // link this walk misses always sees its parent already revoked.
   while (frontier.length > 0) {
+    await revokedTokens().bulkWrite(
+      frontier.map((id) => ({
+        updateOne: {
+          filter: { _id: id },
+          update: { $set: { expiresAt, reason, revokedAt } },
+          upsert: true,
+        },
+      })),
+    )
+    for (const id of frontier) cache.delete(`jti:${id}`)
     const children = await tokenLinks()
       .find({ parentJti: { $in: frontier } }, { projection: { _id: 1 } })
       .toArray()
@@ -101,17 +115,6 @@ export async function revokeToken(jti: string, exp: number, reason: string): Pro
     frontier = children.map((child) => child._id).filter((id) => !seen.has(id))
     for (const id of frontier) seen.add(id)
   }
-  // A child never outlives its parent, so the parent's expiry bounds them all.
-  await revokedTokens().bulkWrite(
-    [...seen].map((id) => ({
-      updateOne: {
-        filter: { _id: id },
-        update: { $set: { expiresAt, reason, revokedAt } },
-        upsert: true,
-      },
-    })),
-  )
-  for (const id of seen) cache.delete(`jti:${id}`)
   logEvent('info', 'auth.conversation_token.revoked', { jti, reason, derived: seen.size - 1 })
 
   return seen.size
@@ -144,7 +147,8 @@ export async function revokeSessionTokens(sessionIds: string[], reason: string):
     sessionIds.map((sid) => ({
       updateOne: {
         filter: { _id: sid },
-        update: { $set: { before, expiresAt, reason } },
+        // $max: an overlapping, older revocation can never move a cutoff back.
+        update: { $max: { before, expiresAt }, $set: { reason } },
         upsert: true,
       },
     })),
