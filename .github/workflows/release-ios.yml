@@ -94,6 +94,7 @@ jobs:
           PROFILE_BASE64: ${{ secrets.APPLE_APPSTORE_PROFILE_BASE64 }}
           WIDGETS_PROFILE_BASE64: ${{ secrets.APPLE_WIDGETS_APPSTORE_PROFILE_BASE64 }}
           NOTIFICATIONS_PROFILE_BASE64: ${{ secrets.APPLE_NOTIFICATIONS_APPSTORE_PROFILE_BASE64 }}
+          SHARE_PROFILE_BASE64: ${{ secrets.APPLE_SHARE_APPSTORE_PROFILE_BASE64 }}
         run: |
           set -euo pipefail
           KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
@@ -116,6 +117,10 @@ jobs:
           echo "$PROFILE_BASE64" | base64 -d > "$PROFILES/nuphos-appstore.mobileprovision"
           echo "$WIDGETS_PROFILE_BASE64" | base64 -d > "$PROFILES/nuphos-widgets-appstore.mobileprovision"
           echo "$NOTIFICATIONS_PROFILE_BASE64" | base64 -d > "$PROFILES/nuphos-notifications-appstore.mobileprovision"
+          # Only the Share Extension needs this; a build from before it existed ignores it.
+          if [ -n "$SHARE_PROFILE_BASE64" ]; then
+            echo "$SHARE_PROFILE_BASE64" | base64 -d > "$PROFILES/nuphos-share-appstore.mobileprovision"
+          fi
           security find-identity -v -p codesigning "$KEYCHAIN"
 
       # codesign refuses an entitlement the profile does not grant, so a
