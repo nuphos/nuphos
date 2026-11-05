@@ -254,7 +254,10 @@ export function personalCredentialSubject(
   const token = authorization?.startsWith('Bearer ') ? authorization.slice('Bearer '.length) : ''
   const claims = token ? verifyPreviewMcpToken(token) : null
 
-  if (!claims) return null
+  // A member's own grant reaches every installation or workspace they can see,
+  // so an exchanged token never uses it: it gets the team identity, which is
+  // scoped to the one binding its limit was checked against.
+  if (!claims || claims.lim) return null
 
   return claims.hum ? claims.sub : claims.own
 }
