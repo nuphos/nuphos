@@ -508,7 +508,9 @@ test('after a restart the backstop starts a waiting queue, at most once per inte
     await sweepQueuedSessions('0')
     await sweepQueuedSessions('0')
     await new Promise((resolve) => setTimeout(resolve, 20))
-    expect(started).toEqual(['backstop-session'])
+    // A sweep starts every waiting queue in the process, including ones other
+    // test files share, so only this session's starts are under test.
+    expect(started.filter((id) => id === 'backstop-session')).toEqual(['backstop-session'])
   } finally {
     installQueuedTurnStarter(startQueuedTurn)
     await clearPendingUserMessages(OWNER, 'backstop-session')
