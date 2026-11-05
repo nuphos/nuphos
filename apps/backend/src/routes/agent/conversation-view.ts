@@ -152,6 +152,7 @@ export function serializeConversationForViewer(
   slackThread: Pick<SlackAgentThread, 'origin'> | null | undefined,
   /** From resolveConversationAccess: a participant replies while they may use its computer. */
   access: ConversationAccess | null,
+  answering?: ReadonlySet<string>,
 ) {
   const isOwner = conversation.userId === viewer.id
   const grants = conversation as unknown as AgentConversation
@@ -178,7 +179,7 @@ export function serializeConversationForViewer(
   const triggerRun = normalizeConversationTriggerRun(metadata)
 
   return {
-    ...serializeConversationDoc(conversation),
+    ...serializeConversationDoc(conversation, answering),
     claudeCodeRuntimeAttached: true,
     agentRuntime: runtimeProvider(conversation.agentRuntime),
     runtimeId: conversation.runtimeId,

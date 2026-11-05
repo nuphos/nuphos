@@ -7,6 +7,7 @@ import {
   buildPendingUserMessage,
   clearPendingUserMessages,
   enqueuePendingUserMessage,
+  removePendingUserMessage,
 } from '@/lib/agent/pending-messages'
 import { listPendingUserMessages } from '@/lib/agent/pending-queue'
 import { queuedRefusal, refusal } from '@/lib/claude-code-preview/runtime-refusal'
@@ -17,6 +18,7 @@ import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
 import { claimAgentRunOrEnqueue } from './claim-or-enqueue'
+import { answeringIds } from './decision-reply'
 import { agentRuns, createAgentRun, registerAgentRun } from './run-registry'
 import { queuedChatBody } from './session-queue-body'
 import { queueForOfflineBox } from './session-queue-offline'
@@ -615,4 +617,82 @@ test('a send while someone is asked to sign the agent in waits for them, named',
     actorUserId: TEAMMATE,
     chat: { streamId: 'stream-held' },
   })
+})
+
+function asked(status: 'open' | 'answered' | 'dismissed') {
+  const request = {
+    id: 'q1',
+    category: 'preference',
+    question: 'Public?',
+    askedAt: new Date(),
+    status,
+  }
+
+  return { ...conversation, inputRequests: [request] } as AgentConversation
+}
+
+const answer = (id: string, status: 'open' | 'answered' | 'dismissed' = 'open') =>
+  admit(id, {
+    conversation: asked(status),
+    context: { locale: 'en', localTools: true, decisionReplyTo: 'q1' },
+  })
+
+test('a question takes one answer: a repeated click or another option is refused', async () => {
+  const done = busy()
+
+  try {
+    expect(await answer('keep-public')).toEqual({ mode: 'queued' })
+    // The queued answer holds the question: the Inbox stops asking now, not when the turn runs.
+    expect([...(await answeringIds(asked('open')))]).toEqual(['q1'])
+    // The same message sent again is the same answer, not a second one.
+    expect(await answer('keep-public')).toEqual({ mode: 'queued' })
+    await expect(answer('make-private')).rejects.toMatchObject({
+      status: 409,
+      code: 'decision_already_answered',
+    })
+    expect((await listPendingUserMessages(OWNER, SESSION)).map((m) => m.id)).toEqual([
+      'keep-public',
+    ])
+    // A plain message is never refused for it.
+    expect(await admit('plain', { conversation: asked('open') })).toEqual({ mode: 'queued' })
+  } finally {
+    done()
+  }
+})
+
+test('an answer taken back, or never queued, leaves its question answerable', async () => {
+  const done = busy()
+
+  try {
+    expect(await answer('keep-public')).toEqual({ mode: 'queued' })
+    await removePendingUserMessage(OWNER, SESSION, 'keep-public')
+    expect(await answeringIds(asked('open'))).toEqual(new Set())
+    expect(await answer('make-private')).toEqual({ mode: 'queued' })
+  } finally {
+    done()
+  }
+})
+
+test('an answer to a question already answered or dismissed is refused', async () => {
+  for (const status of ['answered', 'dismissed'] as const) {
+    await expect(answer(`late-${status}`, status)).rejects.toMatchObject({
+      status: 409,
+      code: 'decision_already_answered',
+    })
+  }
+  expect(await listPendingUserMessages(OWNER, SESSION)).toEqual([])
+})
+
+test('an answer to a question this conversation does not list is left to the turn', async () => {
+  const done = busy()
+
+  try {
+    expect(
+      await admit('older-card', {
+        context: { locale: 'en', localTools: true, decisionReplyTo: 'not-listed' },
+      }),
+    ).toEqual({ mode: 'queued' })
+  } finally {
+    done()
+  }
 })

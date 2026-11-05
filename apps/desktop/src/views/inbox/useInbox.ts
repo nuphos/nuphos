@@ -1,6 +1,8 @@
 import { useEffect, useSyncExternalStore } from 'react'
 
 import { api } from '../../api.ts'
+import { toast } from '../../components/ui/toast.ts'
+import { t } from '../../i18n/index.ts'
 import { onInputRequestsRefresh } from '../../lib/inputRequestRefresh.ts'
 
 import { answeredIn, inboxCount } from './inboxItems.ts'
@@ -45,8 +47,13 @@ export function publishInboxListing(teamId: string, conversations: AgentConversa
 /**
  * Hides the question a reply answers from the badge while `send` is under way,
  * and after it succeeds until the server agrees. A failed send shows it again.
+ * A reply `queued` behind a running turn says so, since its question is gone.
  */
-export function answeringInbox<T>(requestId: string | undefined, send: Promise<T>): Promise<T> {
+export function answeringInbox<T>(
+  requestId: string | undefined,
+  send: Promise<T>,
+  queued = false,
+): Promise<T> {
   if (!requestId) return send
   answered.set(requestId, Infinity)
   emit()
@@ -55,6 +62,8 @@ export function answeringInbox<T>(requestId: string | undefined, send: Promise<T
     if (sent) answered.set(requestId, Date.now() + ANSWER_HOLD_MS)
     else answered.delete(requestId)
     emit()
+    if (sent && queued)
+      toast.info(t('Answer queued'), t('The agent will see it after its current step.'))
   }
 
   send.then(

@@ -108,13 +108,23 @@ export const OPEN_INPUT_REQUEST_FILTER = {
   $or: [{ 'inputRequests.status': 'open' }, { pendingDecision: { $exists: true } }],
 }
 
-/** Every open request, the legacy one included, oldest first. */
-export function openInputRequests(conversation: ConversationInputRequests): InputRequest[] {
+/**
+ * Every open request, the legacy one included, oldest first. A request a
+ * queued message answers (`answering`, from the session queue) waits on no one.
+ */
+export function openInputRequests(
+  conversation: ConversationInputRequests,
+  answering: ReadonlySet<string> = new Set(),
+): InputRequest[] {
   const listed = conversation.inputRequests ?? []
-  const open = listed.filter((request) => request.status === 'open')
+  const open = listed.filter((request) => request.status === 'open' && !answering.has(request.id))
   const legacy = conversation.pendingDecision
 
-  if (legacy && !listed.some((request) => request.id === legacy.toolCallId)) {
+  if (
+    legacy &&
+    !answering.has(legacy.toolCallId) &&
+    !listed.some((request) => request.id === legacy.toolCallId)
+  ) {
     const { toolCallId, ...rest } = legacy
 
     open.push({ ...rest, id: toolCallId, status: 'open' })

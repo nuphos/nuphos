@@ -35,3 +35,13 @@ test('steering is unchanged by an open question and never carries it', () => {
   // A turn kind still goes out as its own turn, as before.
   assert.deepEqual(routeSend(running, 'plan-approval', 'q1'), { steer: false })
 })
+
+test('an Inbox answer waits behind the running turn with its question, never steers', () => {
+  assert.deepEqual(routeSend(running, undefined, 'q1', true), {
+    steer: false,
+    decisionReplyTo: 'q1',
+  })
+  assert.deepEqual(routeSend(idle, undefined, 'q1', true), { steer: false, decisionReplyTo: 'q1' })
+  // With no question to answer, it steers like any other send.
+  assert.deepEqual(routeSend(running, undefined, undefined, true), { steer: true })
+})

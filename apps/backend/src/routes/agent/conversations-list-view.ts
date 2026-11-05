@@ -1,5 +1,6 @@
 import { resolveConversationAccessList } from '@/lib/agent/devices/conversation-computer'
 import { buildConversationOwnerMap, serializeConversationForViewer } from './conversation-view'
+import { answeringIds } from './decision-reply'
 import { getLocalActiveAgentRun } from './run-registry'
 
 import type { ConversationAccessFields } from '@/lib/agent/devices/conversation-computer'
@@ -131,11 +132,17 @@ export async function serializeConversationList<T extends ListedConversation>(
   const slackThreadBySessionId = new Map(slackThreads.map((thread) => [thread.sessionId, thread]))
 
   // A conversation's desktops on its Box come from the device's presence, not the snapshot.
-  const [desktops, faces] = await Promise.all([
+  const [desktops, faces, answering] = await Promise.all([
     Promise.all(conversations.map((conversation) => sessionDesktops(conversation))),
     Promise.all(
       conversations.map((conversation) =>
         channelFacesField(conversation as unknown as AgentConversation, viewer.id, ownerById),
+      ),
+    ),
+    // A question a queued message answers no longer waits on anyone.
+    Promise.all(
+      conversations.map((conversation) =>
+        answeringIds(conversation as unknown as AgentConversation),
       ),
     ),
   ])
@@ -158,6 +165,7 @@ export async function serializeConversationList<T extends ListedConversation>(
           ownerById,
           slackThreadBySessionId.get(conversation.sessionId),
           accesses[index] ?? null,
+          answering[index],
         ),
       ),
       linkedResources: [

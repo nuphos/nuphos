@@ -34,6 +34,7 @@ type Acc = Pick<
   | 'newConversationSessionConfig'
   | 'newConversationCredentialAccess'
   | 'onOpenAgentSettings'
+  | 'replyTarget'
   | 'sendableCredentialAccess'
   | 'setActiveId'
   | 'setBypassBySession'
@@ -59,6 +60,7 @@ export function useTurnDispatch(acc: Acc) {
     newConversationSessionConfig,
     newConversationCredentialAccess,
     onOpenAgentSettings,
+    replyTarget,
     sendableCredentialAccess,
     setActiveId,
     setBypassBySession,
@@ -70,6 +72,8 @@ export function useTurnDispatch(acc: Acc) {
     uploadingTabsRef,
     urlRef,
   } = acc
+  // Without the main chat's chip, a question id comes from a surface that only answers it.
+  const answering = !replyTarget
 
   const startChatWith = useCallback(
     (
@@ -248,7 +252,7 @@ export function useTurnDispatch(acc: Acc) {
 
       if (!tab) return
       if (tab.readOnly) return
-      const route = routeSend(tab.runtimeState, turnKind, questionId)
+      const route = routeSend(tab.runtimeState, turnKind, questionId, answering)
 
       // The backend decides whose turn it is: a refused steer is sent as a
       // message and waits its turn in the server queue.
@@ -269,7 +273,7 @@ export function useTurnDispatch(acc: Acc) {
       }
       void dispatchTurn(activeId, trimmed, filePaths, turnKind, route.decisionReplyTo, mentions)
     },
-    [activeId, startChatWith, dispatchTurn, sendSteering, teamId, currentUser],
+    [activeId, answering, startChatWith, dispatchTurn, sendSteering, teamId, currentUser],
   )
 
   const { steerQueued, removeQueued } = useQueueActions({ tabsRef, setTabs, teamId, sendSteering })

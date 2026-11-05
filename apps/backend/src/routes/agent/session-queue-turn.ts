@@ -17,7 +17,7 @@ import { logEvent } from '@/lib/observability'
 
 import { launchAcceptedChatTurn } from './chat-post-run'
 import { buildSlackBoundTurnPlan, findSlackBoundThread } from './chat-slack-bound'
-import { decisionReplyOf } from './decision-reply'
+import { assertDecisionUnanswered, decisionReplyOf } from './decision-reply'
 import { claimAgentRunForSession, createAgentRun } from './run-registry'
 import { queuedChatBody } from './session-queue-body'
 import { getFirstUserMessage } from './transcript'
@@ -113,6 +113,8 @@ export async function admitQueueableChat(
     throw new AppError(400, 'invalid_request', 'A message id may use letters, digits, - and _')
   if (JSON.stringify(message).length > MAX_QUEUED_MESSAGE_CHARS)
     throw new AppError(413, 'message_too_large', 'This message is too large to send')
+  if (conversation && args.context.decisionReplyTo)
+    await assertDecisionUnanswered(conversation, args.context.decisionReplyTo, message.id)
   const owner = args.runOwnerUserId
   const sessionId = args.body.id
   // Nothing overtakes a message that is already waiting.

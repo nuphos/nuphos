@@ -12,6 +12,7 @@ import { AppError } from '@/lib/errors'
 
 import type { ConversationTriggerRun } from '@/lib/agent/conversation-trigger-run'
 import type { AgentClientMeta, AgentConversation, AgentCredentialAccess } from '@/lib/agent/db'
+import type { ConversationInputRequests } from '@/lib/agent/db/pending-decision'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 import type { AgentMessageOrigin } from '@/lib/agent/message-origin'
 import type { ProviderOptions } from '@/lib/agent/model-provider'
@@ -266,7 +267,10 @@ export async function persistAcceptedConversationTurn(args: {
   })
 }
 
-export function serializeConversationDoc(conversation: Record<string, unknown>) {
+export function serializeConversationDoc(
+  conversation: Record<string, unknown>,
+  answering?: ReadonlySet<string>,
+) {
   const {
     _id,
     runtimeOperation: _runtimeOperation,
@@ -280,9 +284,7 @@ export function serializeConversationDoc(conversation: Record<string, unknown>) 
     inputRequests: _inputRequests,
     ...rest
   } = conversation
-  const open = openInputRequests(
-    conversation as Pick<AgentConversation, 'pendingDecision' | 'inputRequests'>,
-  )
+  const open = openInputRequests(conversation as ConversationInputRequests, answering)
 
   if (open.length > 0) {
     rest.pendingDecision = legacyPendingDecision(open)
