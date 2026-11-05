@@ -2935,6 +2935,8 @@
   "Not shared": "共有しない",
   "Not signed in": "未サインイン",
   "Not signed in.": "サインインしていません。",
+  "Not signed in. Ask {name} to sign it in.": "サインインしていません。{name} さんにサインインを依頼してください。",
+  "Not signed in. Ask a workspace administrator to sign it in.": "サインインしていません。ワークスペースの管理者にサインインを依頼してください。",
   "Not signed in. Sign in here, or on the runtime’s host:": "サインインしていません。ここで、またはランタイムのホストでサインインしてください：",
   "Note": "メモ",
   "Note the provider {name} — you enter it below": "プロバイダーの{name}を控えておいてください。下で入力します",

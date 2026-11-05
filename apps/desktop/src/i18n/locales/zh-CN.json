@@ -2935,6 +2935,8 @@
   "Not shared": "未共享",
   "Not signed in": "未登录",
   "Not signed in.": "未登录。",
+  "Not signed in. Ask {name} to sign it in.": "未登录。请让 {name} 登录。",
+  "Not signed in. Ask a workspace administrator to sign it in.": "未登录。请让工作区管理员登录。",
   "Not signed in. Sign in here, or on the runtime’s host:": "未登录。请在此处登录，或在运行环境所在主机上登录：",
   "Note": "便签",
   "Note the provider {name} — you enter it below": "记下提供商的{name}，下方需要填写",
