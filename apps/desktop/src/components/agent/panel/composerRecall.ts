@@ -22,9 +22,19 @@ function isOutput(part: Message['parts'][number]): boolean {
 
 export type ComposerRecall = {
   /** What Esc put back, once taken back; null when there is nothing to take back. */
-  retract: () => Promise<{ text: string; filePaths: string[] } | null> | null
+  retract: () => Promise<RetractedDraft | null> | null
   /** Your sent messages, oldest first. */
   history: string[]
+}
+
+export type RetractedDraft = {
+  text: string
+  filePaths: string[]
+  /**
+   * Set when the composer gets the draft before the server has taken the
+   * message back; resolves true if it could not, and the message stays sent.
+   */
+  undone?: Promise<boolean>
 }
 
 export type RetractTarget =
@@ -36,12 +46,12 @@ export type RetractTarget =
  * with no output yet. Both are only ever this person's own sends.
  */
 export function retractTarget(
-  tab: Pick<Tab, 'queued' | 'streaming' | 'streamId' | 'messages' | 'unsaved'>,
+  tab: Pick<Tab, 'queued' | 'streaming' | 'streamId' | 'messages' | 'unsaved' | 'retracting'>,
 ): RetractTarget | null {
   const item = waitingMessages(tab).findLast((queued) => !queued.steering)
 
   if (item) return { kind: 'queued', item }
-  if (!tab.streaming || !tab.streamId || tab.unsaved) return null
+  if (!tab.streaming || !tab.streamId || tab.unsaved || tab.retracting) return null
   const draft = dispatchedDraft(tab.streamId)
   const index = tab.messages.findIndex((message) => message.id === draft?.id)
 
@@ -58,6 +68,11 @@ export function withoutRetracted<T extends Pick<Tab, 'messages'>>(tab: T, messag
   const index = tab.messages.findIndex((message) => message.id === messageId)
 
   return index < 0 ? tab : { ...tab, messages: tab.messages.slice(0, index) }
+}
+
+/** The tab as shown: a message being taken back is already gone. */
+export function hidingRetracted<T extends Pick<Tab, 'messages' | 'retracting'>>(tab: T): T {
+  return tab.retracting ? withoutRetracted(tab, tab.retracting) : tab
 }
 
 /** Your own typed messages in this conversation, oldest first. */

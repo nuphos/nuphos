@@ -4390,6 +4390,7 @@
   "The agent could not be resumed.": "ไม่สามารถทำงานต่อในเอเจนต์ได้",
   "The agent decided to run this on its own — no plan or per-command approval was in effect": "เอเจนต์ตัดสินใจรันเอง — ไม่มีแผนหรือการอนุมัติรายคำสั่งที่มีผลอยู่",
   "The agent finished without a text response.": "เอเจนต์ทำงานเสร็จโดยไม่มีคำตอบเป็นข้อความ",
+  "The agent had already started, so your message stays and the turn stops": "เอเจนต์เริ่มตอบไปแล้ว ข้อความของคุณจึงยังอยู่ และจะหยุดรอบนี้",
   "The agent is currently replying in the linked Slack thread. Send your message again once that reply finishes.": "เอเจนต์กำลังตอบกลับในเธรด Slack ที่ลิงก์ไว้ ส่งข้อความของคุณอีกครั้งเมื่อการตอบกลับนั้นเสร็จสิ้น",
   "The agent is starting the first command.": "เอเจนต์กำลังเริ่มคำสั่งแรก",
   "The agent is still archived. Try again from the Agent history.": "เอเจนต์ยังคงถูกเก็บถาวรอยู่ โปรดลองอีกครั้งจากประวัติเอเจนต์",

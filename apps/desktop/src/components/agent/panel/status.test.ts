@@ -105,3 +105,14 @@ test('a failed turn that explains itself does not also claim the session was int
   current.runtimeState.actions = { send: false, cancel: false, steer: false }
   assert.equal(computeStatus(current, failed)?.label, 'Session interrupted')
 })
+test('a stop asked for here says so before the runtime does, until the turn ends', () => {
+  const current = { ...tab('Running a command…'), phase: 'stopping' } as Tab
+
+  assert.equal(computeStatus(current, message)?.label, 'Stopping…')
+  assert.equal(
+    computeStatus({ ...current, streaming: false }, message)?.label,
+    'Running a command…',
+  )
+  current.runtimeState = { ...current.runtimeState!, state: 'idle', phase: 'cancelled' }
+  assert.equal(computeStatus(current, message), null)
+})

@@ -4390,6 +4390,7 @@
   "The agent could not be resumed.": "无法恢复 Agent。",
   "The agent decided to run this on its own — no plan or per-command approval was in effect": "由 Agent 自行决定运行，当时没有生效的计划或单条命令批准",
   "The agent finished without a text response.": "Agent 已结束，但没有文本回复。",
+  "The agent had already started, so your message stays and the turn stops": "Agent 已经开始回应，消息会保留，并停止本次执行",
   "The agent is currently replying in the linked Slack thread. Send your message again once that reply finishes.": "Agent 正在关联的 Slack 会话串中回复。请等该回复完成后再重新发送你的消息。",
   "The agent is starting the first command.": "Agent 正在启动第一条命令。",
   "The agent is still archived. Try again from the Agent history.": "Agent 仍处于归档状态。请在 Agent 历史记录中重试。",

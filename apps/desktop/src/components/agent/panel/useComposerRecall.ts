@@ -84,7 +84,14 @@ export function useComposerRecall(
       e.preventDefault()
       void retracted.then((draft) => {
         // Typed into meanwhile: what you typed wins.
-        if (draft && !state.readText().trim()) replaceDraft(state, draft.text, draft.filePaths)
+        if (!draft || state.readText().trim()) return
+        replaceDraft(state, draft.text, draft.filePaths)
+        void draft.undone?.then((undone) => {
+          // The message stayed sent: drop the copy, unless it was edited since.
+          if (!undone || state.readText().trim() !== draft.text.trim()) return
+          state.setFilePaths((prev) => prev.filter((path) => !draft.filePaths.includes(path)))
+          replaceDraft(state, '')
+        })
       })
 
       return true

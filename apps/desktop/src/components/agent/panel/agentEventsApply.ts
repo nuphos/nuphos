@@ -40,7 +40,7 @@ export function applyStreamEvent(
     prev.map((t) => {
       if (t.streamId !== streamId) return t
       if (evType === 'aborted' && runtimeStateOf(t.sessionId)?.schemaVersion === 2) {
-        return { ...t, streaming: false, connected: false, streamId: null }
+        return { ...t, streaming: false, connected: false, streamId: null, phase: null }
       }
       if (evType === 'aborted') {
         // Clear streaming/streamId here so the trailing `end` event (which

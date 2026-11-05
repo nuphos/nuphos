@@ -12,7 +12,7 @@ import { PermissionResumeContext } from '../permissionResumeContext'
 
 import { Composer } from './Composer'
 import { composerDraftKey } from './composerDrafts'
-import { sentHistory } from './composerRecall'
+import { hidingRetracted, sentHistory } from './composerRecall'
 import { ConnectCardContext } from './connectCardContext'
 import { Conversation } from './Conversation'
 import { ConversationPlaceholder } from './ConversationPlaceholder'
@@ -81,6 +81,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     () => sentHistory(activeMessages ?? [], currentUserId, foreignChat),
     [activeMessages, currentUserId, foreignChat],
   )
+  const shownTab = useMemo(() => activeTab && hidingRetracted(activeTab), [activeTab])
   // Every message in the transcript receives these handlers. Stable identities
   // keep the messages memoized when this page renders again — opening the dock,
   // a background refresh — instead of rendering the whole transcript each time.
@@ -189,7 +190,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                 }}
               >
                 <Conversation
-                  tab={activeTab}
+                  tab={shownTab ?? activeTab}
                   visible={c.visible && c.showingConversationPage}
                   teamId={teamId}
                   isTeamAdmin={isTeamAdmin}
