@@ -119,6 +119,7 @@ describe('turn notifier', () => {
       environment: 'sandbox',
       collapseId: 'session-1',
       payload: {
+        accountId: 'user-1',
         aps: {
           alert: { title: 'Clear the cache', body: 'All done.' },
           badge: 3,
@@ -287,7 +288,10 @@ describe('turn notifier', () => {
     scheduled[0]?.work()
     await new Promise((resolve) => setTimeout(resolve, 0))
 
-    expect(sent.map((r) => r.payload)).toEqual([{ aps: { badge: 0 } }, { aps: { badge: 0 } }])
+    expect(sent.map((r) => r.payload)).toEqual([
+      { accountId: 'user-1', aps: { badge: 0 } },
+      { accountId: 'user-1', aps: { badge: 0 } },
+    ])
     expect(sent[0]?.collapseId).toBe('badge')
     n.badgeChanged('user-1')
     expect(scheduled).toHaveLength(2)

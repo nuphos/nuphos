@@ -27,7 +27,7 @@ struct ChannelView: View {
     /// turn shows above the dots: the agent is still working.
     private var inTurn: [ChannelAgent] {
         channel.agents.filter { agent in
-            RuntimeObservations.shared.value(team: channel.teamId, session: agent.sessionId)?
+            store.observations.value(team: channel.teamId, session: agent.sessionId)?
                 .typing(in: channel.channelId) == true
         }
     }
@@ -54,7 +54,7 @@ struct ChannelView: View {
             }
             .onAppear {
                 Analytics.shared.screen("channel", teamID: channel.teamId)
-                if draft.isEmpty { draft = ComposerDrafts.text(team: channel.teamId, session: channel.channelId) }
+                if draft.isEmpty { draft = ComposerDrafts.text(team: channel.teamId, session: channel.channelId, identity: store.token) }
             }
             .onChange(of: inTurn.map(\.id), initial: true) {
                 guard inTurn.map(\.id) != typing.map(\.id) else { return }
@@ -65,7 +65,7 @@ struct ChannelView: View {
                     typing = inTurn
                 }
             }
-            .onChange(of: draft) { _, text in ComposerDrafts.set(text, team: channel.teamId, session: channel.channelId) }
+            .onChange(of: draft) { _, text in ComposerDrafts.set(text, team: channel.teamId, session: channel.channelId, identity: store.token) }
             .alert("Couldn't send the message", isPresented: Binding(
                 get: { channel.sendError != nil }, set: { if !$0 { channel.sendError = nil } })) {
                 Button("OK") { channel.sendError = nil }

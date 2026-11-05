@@ -3,6 +3,11 @@ import Foundation
 @main
 struct RuntimeObservationTests {
     static func main() throws {
+        let oldUnread = ConversationUnread.forAccount("old-synthetic-token")
+        oldUnread.receive(team: "shared", session: "same", activity: 9, read: 0, displayed: false)
+        precondition(oldUnread.contains(team: "shared", session: "same"))
+        precondition(!ConversationUnread.forAccount("new-synthetic-token").contains(team: "shared", session: "same"))
+        precondition(RuntimeObservations.forAccount("old-synthetic-token") !== RuntimeObservations.forAccount("new-synthetic-token"))
         try BotAvatarTests.run()
         LiveActivityCardTests.run()
         ResumeFallbackTests.run()

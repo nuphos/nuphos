@@ -120,6 +120,7 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
           ...(sessionId ? { 'thread-id': sessionId } : {}),
           ...aps,
         },
+        accountId: userId,
         ...(sessionId ? { sessionId } : {}),
         ...(teamId ? { teamId } : {}),
       },
@@ -167,7 +168,7 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
       await sendAndroidBadge(devices, project, userId, badge, deps.sendFcmBadge, (token) =>
         deps.devices.removeToken(token),
       )
-    await send(devices, { aps: { badge } }, 'badge')
+    await send(devices, { accountId: userId, aps: { badge } }, 'badge')
   }
 
   async function planNumber(run: NotifiableRun, conversation: PushConversation | null) {

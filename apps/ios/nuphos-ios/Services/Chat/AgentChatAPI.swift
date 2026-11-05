@@ -26,7 +26,7 @@ enum AgentChatAPI {
     /// The `POST /agent/chat` request. `accept-encoding: identity` is
     /// load-bearing: a compressed SSE body gets buffered.
     static func chatRequest(token: String, body: ChatRequest) throws -> URLRequest {
-        var request = URLRequest(url: baseURL.appending(path: "agent/chat"))
+        var request = URLRequest(url: NuphosAPI.baseURL(for: token).appending(path: "agent/chat"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "content-type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "authorization")
@@ -65,7 +65,7 @@ enum AgentChatAPI {
     enum AbortStatus: String { case local, forwarded, notFound = "not_found", failed }
 
     static func abort(token: String, streamId: String) async -> AbortStatus {
-        var request = URLRequest(url: baseURL.appending(path: "agent/chat/\(streamId)/abort"))
+        var request = URLRequest(url: NuphosAPI.baseURL(for: token).appending(path: "agent/chat/\(streamId)/abort"))
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "authorization")
         request.timeoutInterval = 10
@@ -444,7 +444,7 @@ enum AgentChatAPI {
         _ method: String, _ path: String, query: [URLQueryItem] = [], token: String, body: B?, encodeNulls: Bool = false,
         timeout: TimeInterval = 30
     ) async throws -> Data {
-        var components = URLComponents(url: baseURL.appending(path: path), resolvingAgainstBaseURL: false)!
+        var components = URLComponents(url: NuphosAPI.baseURL(for: token).appending(path: path), resolvingAgainstBaseURL: false)!
         if !query.isEmpty { components.queryItems = query }
         var request = URLRequest(url: components.url!)
         request.httpMethod = method

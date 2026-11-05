@@ -141,7 +141,7 @@ final class DesktopSession {
         var components: URLComponents
         if let browserTab {
             // A dock tab needs no display: the Mac serves the tab's page itself.
-            components = URLComponents(url: NuphosAPI.baseURL.appending(path: "teams/\(teamId)/browser-tabs/\(sessionId)/\(browserTab.id)/view"), resolvingAgainstBaseURL: false)!
+            components = URLComponents(url: NuphosAPI.baseURL(for: token).appending(path: "teams/\(teamId)/browser-tabs/\(sessionId)/\(browserTab.id)/view"), resolvingAgainstBaseURL: false)!
             components.queryItems = [
                 URLQueryItem(name: "w", value: String(Int(browserTab.size.width))),
                 URLQueryItem(name: "h", value: String(Int(browserTab.size.height))),
@@ -149,7 +149,7 @@ final class DesktopSession {
         } else {
             let display = try await Self.open(token: token, teamId: teamId, sessionId: sessionId)
             self.display = display
-            components = URLComponents(url: NuphosAPI.baseURL.appending(path: "teams/\(teamId)/runtime-desktop/\(sessionId)/\(display)"), resolvingAgainstBaseURL: false)!
+            components = URLComponents(url: NuphosAPI.baseURL(for: token).appending(path: "teams/\(teamId)/runtime-desktop/\(sessionId)/\(display)"), resolvingAgainstBaseURL: false)!
         }
         components.scheme = components.scheme == "http" ? "ws" : "wss"
         var request = URLRequest(url: components.url!)
@@ -435,7 +435,7 @@ final class DesktopSession {
     /// `POST /teams/:teamId/runtime-desktop/:sessionId` — claims the session's
     /// desktop on its runtime, or answers the display it already holds.
     private static func open(token: String, teamId: String, sessionId: String) async throws -> Int {
-        var request = URLRequest(url: NuphosAPI.baseURL.appending(path: "teams/\(teamId)/runtime-desktop/\(sessionId)"))
+        var request = URLRequest(url: NuphosAPI.baseURL(for: token).appending(path: "teams/\(teamId)/runtime-desktop/\(sessionId)"))
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue(AccountAPI.aiConsentVersion, forHTTPHeaderField: "x-nuphos-ai-consent-version")

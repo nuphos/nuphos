@@ -28,14 +28,23 @@ struct ProfileSheet: View {
                 }
 
                 if let store, !store.teams.isEmpty {
-                    Section {
-                        Picker("Workspace", selection: Binding(get: { store.selectedTeam }, set: { if let team = $0 { store.select(team: team) } })) {
-                            ForEach(store.teams) { Text($0.name).tag(Optional($0)) }
+                    Section("Team") {
+                        NavigationLink {
+                            TeamPickerView(store: store)
+                        } label: {
+                            if let team = store.selectedTeam {
+                                TeamSelectionLabel(team: team)
+                            } else {
+                                Label("Choose team", systemImage: "person.3")
+                                    .frame(minHeight: 44)
+                            }
                         }
-                        .pickerStyle(.navigationLink)
                     }
                     .listRowBackground(Theme.surface)
                 }
+
+                Section("Signed-in accounts") { SavedAccountsView(allowAdding: true) }
+                    .listRowBackground(Theme.surface)
 
                 Section("Account") {
                     Button("Edit profile") { editing = true }
