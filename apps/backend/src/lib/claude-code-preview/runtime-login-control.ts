@@ -196,7 +196,7 @@ async function execControlRuntimeLogin(
   // A computer without the agent's CLI answers, yet its agent never comes up: say so.
   const client = await acquireStarting(doc.teamId, endpoint, signal).catch(
     async (error: unknown) => {
-      throw (await localAgentNotInstalled(endpoint.runtimeId)) ?? error
+      throw (await localAgentNotInstalled(endpoint.runtimeId).catch(() => undefined)) ?? error
     },
   )
   const provider = runtimeProvider(endpoint.provider)
