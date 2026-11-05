@@ -8,6 +8,7 @@ import {
   rememberDispatchedDraft,
   rememberSideSend,
   runtimeMayAcceptLater,
+  runtimeSendRefusal,
   sendsAsNewSession,
   showQueued,
   showTurnQueued,
@@ -179,4 +180,13 @@ test('the composer offers Stop through a dropped runtime connection and after th
     ),
     false,
   )
+})
+
+test('an outdated runtime blocks Send with why; one that can take it later does not', () => {
+  const outdated = { state: 'idle' as const, observedAt: performance.now() }
+
+  assert.equal(runtimeSendRefusal(outdated), 'Runtime status unavailable — runtime update required')
+  assert.equal(runtimeSendRefusal(status(false)), null)
+  assert.equal(runtimeSendRefusal(undefined), null)
+  assert.equal(runtimeSendRefusal({ state: 'disconnected', observedAt: performance.now() }), null)
 })

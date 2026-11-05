@@ -1,4 +1,4 @@
-import { runtimeAllows } from '../../../lib/runtimeExecution.ts'
+import { runtimeAllows, runtimeStateLabel } from '../../../lib/runtimeExecution.ts'
 
 import type { Message, QueuedMessage, Tab } from './model.ts'
 import type { RuntimeExecution } from '../../../lib/runtimeExecution.ts'
@@ -74,6 +74,16 @@ export function syncQueued(tab: Tab, server: { id: string; mine: boolean; text: 
 /** A runtime that reports it will never accept sends (outdated agent) should not be waited on. */
 export function runtimeMayAcceptLater(snapshot: RuntimeExecution | undefined): boolean {
   return !snapshot || snapshot.schemaVersion === 2 || snapshot.state === 'disconnected'
+}
+
+/** Why Send is blocked by the runtime itself: it takes nothing now and never will, so no queue. */
+export function runtimeSendRefusal(snapshot: RuntimeExecution | undefined): string | null {
+  if (!snapshot || runtimeMayAcceptLater(snapshot)) return null
+  const takes = (['send', 'steer', 'reply'] as const).some((action) =>
+    runtimeAllows(snapshot, action),
+  )
+
+  return takes ? null : runtimeStateLabel(snapshot)
 }
 
 /** An unsaved fork has no server session to report a runtime state, so its first
