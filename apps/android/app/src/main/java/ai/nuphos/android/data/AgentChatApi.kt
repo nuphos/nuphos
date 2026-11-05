@@ -246,7 +246,22 @@ object AgentChatApi {
         data class Other(val code: String?, val serverMessage: String, val status: Int) : Conflict() {
             override val message = serverMessage
         }
+        /** The conversation's runtime can't take a turn; another runtime gets past it. */
+        data class RuntimeBlocked(val code: String) : Conflict() {
+            override val message = RUNTIME_BLOCKED.getValue(code)
+        }
     }
+
+    /** Said on a phone, where the desktop's Runtimes page is not; the same words as iOS. */
+    private val RUNTIME_BLOCKED = mapOf(
+        "runtime_login_required" to "This runtime is signed out. Sign it in from Nuphos on the computer it runs on, or switch to another runtime.",
+        "runtime_disabled" to "This agent's runtime is disabled. Switch to another runtime to continue.",
+        "runtime_not_found" to "This runtime is no longer available in this workspace. Switch to another runtime to continue.",
+        "runtime_offline" to "The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime.",
+    )
+
+    /** The errors the conversation shows Switch runtime beside. */
+    val switchRuntimeErrors: Set<String> = RUNTIME_BLOCKED.values.toSet()
 
     fun conflict(status: Int, body: String?): Conflict {
         var code: String? = null
@@ -263,6 +278,7 @@ object AgentChatApi {
             "stream_not_resumable" -> Conflict.StreamNotResumable
             "stream_conflict" -> Conflict.StreamConflict
             "conversation_busy" -> Conflict.ConversationBusy
+            in RUNTIME_BLOCKED -> Conflict.RuntimeBlocked(code!!)
             else -> Conflict.Other(code, message, status)
         }
     }

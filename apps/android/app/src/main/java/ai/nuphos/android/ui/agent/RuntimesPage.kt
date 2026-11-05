@@ -71,7 +71,9 @@ fun RuntimesPage() {
                 quotas = observations.quotas, initialManaging = true, initialRuntimeId = runtimeId, newRuntimeOnly = runtimeId == null, inventoryMode = true, devices = observations.devices)
             else if (runtime != null && destination == InventoryDestination.ProviderSignIn) RuntimeSetupSheet(setup, onDismiss = close,
                 quotas = observations.quotas, initialManaging = true, initialSignInRuntimeId = runtime.id, inventoryMode = true, devices = observations.devices)
-            else RuntimeInventoryInstructions(runtime, destination, onClose = close)
+            else RuntimeInventoryInstructions(runtime, destination, onClose = close,
+                // A computer the viewer only uses: its owner signs it in.
+                teammate = runtime?.local?.let { local -> observations.devices.firstOrNull { it.id == local.deviceId }?.access == "use" } == true)
         }
         }
     }
@@ -220,7 +222,7 @@ private fun inventoryReset(raw: String?): String = runCatching {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun RuntimeInventoryInstructions(runtime: ai.nuphos.android.data.AgentRuntime?, destination: InventoryDestination?, onClose: () -> Unit) {
+internal fun RuntimeInventoryInstructions(runtime: ai.nuphos.android.data.AgentRuntime?, destination: InventoryDestination?, onClose: () -> Unit, teammate: Boolean = false) {
     ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.background) {
         RuntimePickerHeader("Sign in", onClose = onClose)
@@ -229,13 +231,14 @@ internal fun RuntimeInventoryInstructions(runtime: ai.nuphos.android.data.AgentR
             runtime?.let { ai.nuphos.android.ui.components.RuntimeMark(it.provider, 56.dp) }
             val host = runtime?.local?.deviceLabel
             Text(when { runtime == null -> "Runtime unavailable"; destination == InventoryDestination.Unavailable -> "Runtime unavailable"
-                host != null -> "Sign in on $host"; else -> "Ask an administrator to sign in" }, style = MaterialTheme.typography.titleMedium)
+                host != null && teammate -> "Ask its owner to sign in"; host != null -> "Sign in on $host"; else -> "Ask an administrator to sign in" }, style = MaterialTheme.typography.titleMedium)
             runtime?.let { Text(ai.nuphos.android.model.RuntimeIdentity.detail(it.provider, it.label), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             Text(when {
                 runtime == null -> "This runtime is no longer in the current workspace. Refresh runtimes before continuing."
                 destination == InventoryDestination.Unavailable -> "This runtime is disabled or being removed. Ask an administrator to check its saved state."
-                host != null -> "Open Nuphos on $host, go to Settings → Runtimes, then choose Sign in for this runtime."
-                else -> "A workspace administrator can sign in to this runtime in Settings → Runtimes."
+                host != null && teammate -> "$host belongs to a teammate, so only they can sign it in. Ask them to open Nuphos on it and choose Sign in on the Runtimes page."
+                host != null -> "On $host, open Nuphos, go to the Runtimes page and choose Sign in for this runtime."
+                else -> "A workspace administrator can sign it in from the Runtimes page in Nuphos on their computer."
             }, color = MaterialTheme.colorScheme.onSurfaceVariant)
             TextButton(onClick = onClose) { Text("Done") }
         }
