@@ -143,6 +143,11 @@ export const dispatchConversationTeamApi: MiddlewareHandler<{
     assertConnectorSelectionAllowed(await getAgentCredentialAccess(agent, teamId), scoped)
   }
 
+  // An exchanged token vends only its credentials: connector metadata reads
+  // stay open, everything else goes through the credential routes above.
+  if (agent.credentialLimit && route === 'canonical' && c.req.method !== 'GET') {
+    throw new AppError(403, 'conversation_api_forbidden', 'This token is limited to credentials')
+  }
   if (route === 'canonical') return next()
   const source = new URL(c.req.url)
 

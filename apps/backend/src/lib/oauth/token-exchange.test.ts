@@ -7,7 +7,11 @@ import {
 } from '@/lib/test/doubles/agent-sessions-shared'
 import { useAgentsIdentity } from '@/lib/test/doubles/agents-identity'
 import { real as realOptions, useCredentialOptions } from '@/lib/test/doubles/credential-options'
-import { mintPreviewMcpToken, verifyPreviewMcpToken } from '@/lib/claude-code-preview/mcp-token'
+import {
+  mintPreviewMcpToken,
+  scopedPathAllowed,
+  verifyPreviewMcpToken,
+} from '@/lib/claude-code-preview/mcp-token'
 import { registerOauthTokenRoute } from '@/routes/oauth/token'
 
 import { EXCHANGED_TOKEN_MAX_TTL_SEC, TOKEN_EXCHANGE_GRANT } from './token-exchange'
@@ -179,5 +183,30 @@ describe('limitCredentialAccess', () => {
       linearWorkspaceIds: [],
       githubInstallationIds: ['gh-1'],
     })
+  })
+})
+
+describe('limited tokens vend credentials only', () => {
+  const claims = { sid: 'conv-1', tid: 'team-1', lim: { awsRoleIds: ['role-1'] } }
+  const mount = '/agent-sessions/conv-1/teams/team-1'
+
+  test('credential routes, the credentials MCP and the selection stay open', () => {
+    for (const suffix of [
+      '/mcp',
+      '/selected-credentials',
+      '/aws-accounts/123/credentials',
+      '/linode-accounts/abc/credentials',
+      '/tencent-accounts/t1/credentials',
+    ]) {
+      expect(scopedPathAllowed(`${mount}${suffix}`, claims)).toBe(true)
+    }
+  })
+
+  test('native tools, plans and file transfers are refused', () => {
+    for (const suffix of ['/mcp-tools', '/plans/1', '/file-transfers/x', '/aws-accounts']) {
+      expect(scopedPathAllowed(`${mount}${suffix}`, claims)).toBe(false)
+      // Unlimited conversation tokens keep their access.
+      expect(scopedPathAllowed(`${mount}${suffix}`, { sid: 'conv-1', tid: 'team-1' })).toBe(true)
+    }
   })
 })

@@ -157,6 +157,22 @@ function hs256Payload(token: string): Record<string, unknown> | null {
   }
 }
 
+// Credential vending only: the credentials MCP, the selection list, and the
+// per-provider credential routes. Native tools, plans and file transfers build
+// their own context from the conversation, so a limited token is refused there.
+const LIMITED_TOKEN_ENDPOINTS = new Set(['/mcp', '/selected-credentials'])
+const PROVIDER_ROUTE =
+  /^\/[a-z0-9-]+-(?:accounts|projects|integrations|instances|workspaces|sites|clients|providers)\/[^/]+\/./u
+
+/** Whether an exchanged token's credential limit may be honored on this mount path. */
+export function limitedTokenPathAllowed(path: string): boolean {
+  const suffix = /^(?:\/agent-sessions)?\/[^/]+\/teams\/[^/]+(\/.*)$/u.exec(path)?.[1]
+
+  return (
+    suffix !== undefined && (LIMITED_TOKEN_ENDPOINTS.has(suffix) || PROVIDER_ROUTE.test(suffix))
+  )
+}
+
 /**
  * Whether an agent-session request path is inside the token's scope: anything under the
  * conversation's own `/agent-sessions/:sessionId/teams/:teamId/` mount (MCP
@@ -164,10 +180,16 @@ function hs256Payload(token: string): Record<string, unknown> | null {
  * without the mount prefix — the internal vend dispatch calls the sub-app
  * directly.
  */
-export function scopedPathAllowed(path: string, claims: Pick<PreviewMcpClaims, 'sid' | 'tid'>) {
+export function scopedPathAllowed(
+  path: string,
+  claims: Pick<PreviewMcpClaims, 'sid' | 'tid' | 'lim'>,
+) {
   const match = /^(?:\/agent-sessions)?\/([^/]+)\/teams\/([^/]+)\//u.exec(path)
 
-  return match !== null && match[1] === claims.sid && match[2] === claims.tid
+  if (match === null || match[1] !== claims.sid || match[2] !== claims.tid) return false
+
+  // An exchanged token is honored only where its credential limit applies.
+  return !claims.lim || limitedTokenPathAllowed(path)
 }
 
 const SIGNED_TOKEN = /\beyJ[\w-]*\.[\w-]+\.[\w-]+/gu
