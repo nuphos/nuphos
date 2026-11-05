@@ -17946,7 +17946,7 @@
           "OAuth"
         ],
         "summary": "Exchange a conversation token for a narrower one (RFC 8693)",
-        "description": "Form-encoded (`application/x-www-form-urlencoded`). Turns a conversation token into one that is never broader: same conversation and team, a subset of the credentials the subject may vend, at most 30 minutes, and no later than the subject expires. No refresh token is issued. A request that would widen credentials, team or lifetime fails with `invalid_target` or `invalid_request`. Rate limited per subject token and per team; 429 means retry later. The same endpoint also serves the `authorization_code` and `refresh_token` grants of the MCP OAuth flow.",
+        "description": "Form-encoded (`application/x-www-form-urlencoded`). Turns a conversation token into one that is never broader: same conversation and team, a subset of the credentials the subject may vend, at most 30 minutes, and no later than the subject expires. No refresh token is issued. A request that would widen credentials, team or lifetime fails with `invalid_target` or `invalid_request`. Rate limited per subject token and per team; 429 means retry later (only when the backend has Redis). A token issued with `resource` vends only those credentials and is refused by the native tools, plans and file transfers. The same endpoint also serves the `authorization_code` and `refresh_token` grants of the MCP OAuth flow.",
         "requestBody": {
           "required": true,
           "content": {
@@ -18003,7 +18003,7 @@
                   },
                   "actor": {
                     "type": "string",
-                    "description": "Who the token is delegated to, recorded as the `act` claim: `desktop:<id>`, `cli:<id>`, `session:<id>` or `runtime:<id>`. Defaults to the subject conversation."
+                    "description": "Who the token is delegated to, recorded as the `act` claim: `desktop:<id>`, `cli:<id>`, `session:<id>` or `runtime:<id>`. Defaults to the subject conversation. It is an audit label the caller supplies, not an authenticated identity."
                   }
                 },
                 "required": [

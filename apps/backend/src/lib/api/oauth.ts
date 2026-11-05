@@ -31,7 +31,8 @@ const tokenExchangeRequestSchema = z.object({
     .optional()
     .describe(
       'Who the token is delegated to, recorded as the `act` claim: `desktop:<id>`, `cli:<id>`, ' +
-        '`session:<id>` or `runtime:<id>`. Defaults to the subject conversation.',
+        '`session:<id>` or `runtime:<id>`. Defaults to the subject conversation. It is an ' +
+        'audit label the caller supplies, not an authenticated identity.',
     ),
 })
 
@@ -55,7 +56,8 @@ export const oauthApiOperations = [
       'may vend, at most 30 minutes, and no later than the subject expires. No refresh token is ' +
       'issued. A request that would widen credentials, team or lifetime fails with ' +
       '`invalid_target` or `invalid_request`. Rate limited per subject token and per team; 429 ' +
-      'means retry later. The same endpoint also serves the `authorization_code` and ' +
+      'means retry later (only when the backend has Redis). A token issued with `resource` vends ' +
+      'only those credentials and is refused by the native tools, plans and file transfers. The same endpoint also serves the `authorization_code` and ' +
       '`refresh_token` grants of the MCP OAuth flow.',
     auth: 'none',
     requestContentType: 'application/x-www-form-urlencoded',
