@@ -147,7 +147,7 @@ describe('Box update', () => {
     expect(BOX_UPDATE_COMMAND).toContain('grep -L web-browser.desktop')
   })
 
-  test('/tmp and /var/tmp are bound to /data once, however often the install runs', () => {
+  test('/tmp, /var/tmp and an empty Docker are bound to /data once, however often the install runs', () => {
     const lines = BOX_INSTALL_COMMAND.split('\n').filter((entry) => entry.includes('/etc/fstab'))
     const fstab = path.join(mkdtempSync(path.join(os.tmpdir(), 'box-fstab-')), 'fstab')
 
@@ -162,8 +162,21 @@ describe('Box update', () => {
     expect(binds).toEqual([
       '/data/tmp /tmp none bind,nofail,x-systemd.requires-mounts-for=/data 0 0',
       '/data/var-tmp /var/tmp none bind,nofail,x-systemd.requires-mounts-for=/data 0 0',
+      '/data/docker /var/lib/docker none bind,nofail,x-systemd.requires-mounts-for=/data,x-systemd.before=docker.service 0 0',
+      '/data/containerd /var/lib/containerd none bind,nofail,x-systemd.requires-mounts-for=/data,x-systemd.before=containerd.service 0 0',
     ])
     expect(BOX_INSTALL_COMMAND).not.toContain('systemctl mask')
+    // A Docker that already holds images or volumes keeps them where they are.
+    const bin = mkdtempSync(path.join(os.tmpdir(), 'box-bin-'))
+
+    writeFileSync(path.join(bin, 'docker'), '#!/bin/sh\n[ "$1" = images ] && echo sha256:abc\n', {
+      mode: 0o755,
+    })
+    writeFileSync(fstab, '/dev/vdb  /data  ext4  defaults,nofail 0 2\n')
+    execFileSync('/bin/bash', ['-ec', script], {
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
+    })
+    expect(readFileSync(fstab, 'utf8')).not.toContain('/var/lib/docker')
   })
 
   test('the update empties a written AGENTS.md and keeps its links, never one someone edited', () => {
