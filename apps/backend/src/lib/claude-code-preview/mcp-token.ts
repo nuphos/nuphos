@@ -23,8 +23,18 @@ import { logEvent } from '@/lib/observability'
 const AUDIENCE = 'nuphos-preview-mcp'
 const DEFAULT_TTL_SEC = 24 * 60 * 60
 
+/** RFC 8693 actor chain: the current actor, and whoever delegated to it. */
+export type TokenActor = { sub: string; act?: TokenActor }
+
+/**
+ * The credentials an exchanged token may vend, per selection field. Every
+ * field is present; one that is absent or empty vends nothing.
+ */
+export type CredentialLimit = Readonly<Record<string, readonly string[]>>
+
 export type PreviewMcpClaims = {
-  aud: typeof AUDIENCE
+  /** `nuphos-preview-mcp`, followed by `credential:<provider>/<id>` resources on exchanged tokens. */
+  aud: typeof AUDIENCE | [typeof AUDIENCE, ...string[]]
   /** Execution actor. */
   sub: string
   /** Durable conversation owner. */
@@ -38,7 +48,9 @@ export type PreviewMcpClaims = {
   /** Unique token id, logged at mint for audit and future revocation. Absent on older tokens. */
   jti?: string
   /** RFC 8693 actor: who this token was delegated to, e.g. `session:<parentSid>`. */
-  act?: { sub: string }
+  act?: TokenActor
+  /** Set on exchanged tokens: the only credentials they may vend. */
+  lim?: CredentialLimit
   iat: number
   exp: number
 }
@@ -70,12 +82,19 @@ export async function mintPreviewMcpToken(args: {
   ttlSec?: number
   humanTurn?: boolean
   /** The delegating party, recorded as the RFC 8693 `act` claim. */
-  actor?: string
+  actor?: string | TokenActor
+  /** Absolute expiry (seconds); wins over `ttlSec` when it is earlier. */
+  expiresAt?: number
+  /** Exchanged tokens: the credentials they may vend, and the matching resources. */
+  credentialLimit?: CredentialLimit
+  resources?: string[]
 }): Promise<string> {
   const now = Math.floor(Date.now() / 1000)
+  const ttlExpiry = now + (args.ttlSec ?? DEFAULT_TTL_SEC)
+  const actor = typeof args.actor === 'string' ? { sub: args.actor } : args.actor
   const claims: PreviewMcpClaims = {
     iss: internalTokenIssuer(),
-    aud: AUDIENCE,
+    aud: args.resources?.length ? [AUDIENCE, ...args.resources] : AUDIENCE,
     sub: args.userId,
     own: args.conversationOwnerUserId ?? args.userId,
     sid: args.sessionId,
@@ -83,9 +102,10 @@ export async function mintPreviewMcpToken(args: {
     ori: (args.apiOrigin ?? 'https://api.nuphos.ai').replace(/\/$/u, ''),
     ...(args.humanTurn ? { hum: true as const } : {}),
     jti: randomUUID(),
-    ...(args.actor ? { act: { sub: args.actor } } : {}),
+    ...(actor ? { act: actor } : {}),
+    ...(args.credentialLimit ? { lim: args.credentialLimit } : {}),
     iat: now,
-    exp: now + (args.ttlSec ?? DEFAULT_TTL_SEC),
+    exp: args.expiresAt === undefined ? ttlExpiry : Math.min(ttlExpiry, args.expiresAt),
   }
   const es256 = await signInternalToken(claims)
 
@@ -96,6 +116,7 @@ export async function mintPreviewMcpToken(args: {
     team_id: claims.tid,
     subject: claims.sub,
     actor: claims.act?.sub,
+    limited: claims.lim !== undefined,
     expires_at: claims.exp,
   })
 
@@ -136,6 +157,22 @@ function hs256Payload(token: string): Record<string, unknown> | null {
   }
 }
 
+// Credential vending only: the credentials MCP, the selection list, and the
+// per-provider credential routes. Native tools, plans and file transfers build
+// their own context from the conversation, so a limited token is refused there.
+const LIMITED_TOKEN_ENDPOINTS = new Set(['/mcp', '/selected-credentials'])
+const PROVIDER_ROUTE =
+  /^\/[a-z0-9-]+-(?:accounts|projects|integrations|instances|workspaces|sites|clients|providers)\/[^/]+\/./u
+
+/** Whether an exchanged token's credential limit may be honored on this mount path. */
+export function limitedTokenPathAllowed(path: string): boolean {
+  const suffix = /^(?:\/agent-sessions)?\/[^/]+\/teams\/[^/]+(\/.*)$/u.exec(path)?.[1]
+
+  return (
+    suffix !== undefined && (LIMITED_TOKEN_ENDPOINTS.has(suffix) || PROVIDER_ROUTE.test(suffix))
+  )
+}
+
 /**
  * Whether an agent-session request path is inside the token's scope: anything under the
  * conversation's own `/agent-sessions/:sessionId/teams/:teamId/` mount (MCP
@@ -143,10 +180,16 @@ function hs256Payload(token: string): Record<string, unknown> | null {
  * without the mount prefix — the internal vend dispatch calls the sub-app
  * directly.
  */
-export function scopedPathAllowed(path: string, claims: Pick<PreviewMcpClaims, 'sid' | 'tid'>) {
+export function scopedPathAllowed(
+  path: string,
+  claims: Pick<PreviewMcpClaims, 'sid' | 'tid' | 'lim'>,
+) {
   const match = /^(?:\/agent-sessions)?\/([^/]+)\/teams\/([^/]+)\//u.exec(path)
 
-  return match !== null && match[1] === claims.sid && match[2] === claims.tid
+  if (match === null || match[1] !== claims.sid || match[2] !== claims.tid) return false
+
+  // An exchanged token is honored only where its credential limit applies.
+  return !claims.lim || limitedTokenPathAllowed(path)
 }
 
 const SIGNED_TOKEN = /\beyJ[\w-]*\.[\w-]+\.[\w-]+/gu
@@ -171,7 +214,8 @@ export function verifyPreviewMcpToken(token: string): PreviewMcpClaims | null {
   if (!payload) return null
   const claims = payload as PreviewMcpClaims
 
-  if (claims.aud !== AUDIENCE) return null
+  if (Array.isArray(claims.aud) ? claims.aud[0] !== AUDIENCE : claims.aud !== AUDIENCE) return null
+  if (claims.lim !== undefined && !validLimit(claims.lim)) return null
   if (typeof claims.sub !== 'string' || !claims.sub) return null
   // Tokens minted before the owner/actor split are same-principal tokens.
   // Normalize them here so a rolling deploy does not strand active turns.
@@ -183,6 +227,17 @@ export function verifyPreviewMcpToken(token: string): PreviewMcpClaims | null {
   if (typeof claims.exp !== 'number' || claims.exp < Math.floor(Date.now() / 1000)) return null
 
   return claims
+}
+
+function validLimit(limit: unknown): limit is CredentialLimit {
+  return (
+    typeof limit === 'object' &&
+    limit !== null &&
+    !Array.isArray(limit) &&
+    Object.values(limit).every(
+      (ids) => Array.isArray(ids) && ids.every((id) => typeof id === 'string'),
+    )
+  )
 }
 
 /**

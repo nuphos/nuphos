@@ -14,6 +14,8 @@ export type ApiOperation = {
   pathSchema?: z.ZodTypeAny
   querySchema?: z.ZodTypeAny
   requestSchema?: z.ZodTypeAny
+  /** Defaults to `application/json`. */
+  requestContentType?: 'application/json' | 'application/x-www-form-urlencoded'
   responseSchema: z.ZodTypeAny
   agent?: {
     toolName: string

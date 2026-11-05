@@ -1,4 +1,9 @@
 import { consumeAuthCode, consumeRefreshToken, issueRefreshToken } from '@/lib/oauth/store'
+import {
+  exchangeConversationToken,
+  JWT_TOKEN_TYPE,
+  TOKEN_EXCHANGE_GRANT,
+} from '@/lib/oauth/token-exchange'
 import { signAccessToken, verifyPkceS256 } from '@/lib/oauth/tokens'
 import { ACCESS_TOKEN_TTL_SEC, baseUrl } from '@/routes/oauth/shared'
 
@@ -15,9 +20,43 @@ export function registerOauthTokenRoute(oauthRoutes: Hono) {
     // RFC 6749 §5.1: responses carrying tokens must not be cached.
     c.header('Cache-Control', 'no-store')
     c.header('Pragma', 'no-cache')
-    const form = await c.req.parseBody()
-    const get = (k: string) => (typeof form[k] === 'string' ? (form[k] as string) : '')
+    // `all` keeps repeated fields (RFC 8693 `resource`) as arrays.
+    const form = await c.req.parseBody({ all: true })
+    // A repeated single-valued field keeps its last value, as before `all`.
+    const get = (k: string) => {
+      const value = form[k]
+      const last = Array.isArray(value) ? value.at(-1) : value
+
+      return typeof last === 'string' ? last : ''
+    }
     const grantType = get('grant_type')
+
+    if (grantType === TOKEN_EXCHANGE_GRANT) {
+      const raw = form.resource
+      const resources = (Array.isArray(raw) ? raw : raw === undefined ? [] : [raw]).filter(
+        (value): value is string => typeof value === 'string',
+      )
+      const result = await exchangeConversationToken({
+        subjectToken: get('subject_token'),
+        subjectTokenType: get('subject_token_type'),
+        resources,
+        audience: get('audience') || undefined,
+        teamId: get('team_id') || undefined,
+        expiresIn: get('expires_in') || undefined,
+        actor: get('actor') || undefined,
+      })
+
+      if (!result.ok) {
+        return c.json({ error: result.error, error_description: result.description }, result.status)
+      }
+
+      return c.json({
+        access_token: result.accessToken,
+        issued_token_type: JWT_TOKEN_TYPE,
+        token_type: 'Bearer',
+        expires_in: result.expiresIn,
+      })
+    }
 
     if (grantType === 'authorization_code') {
       const code = get('code')

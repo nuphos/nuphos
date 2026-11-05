@@ -85,6 +85,7 @@ const previewMcpOrSessionAuth: MiddlewareHandler<{ Variables: AuthVariables }> =
   }
   c.set('userId', claims.sub)
   c.set('previewConversationOwnerUserId', claims.own)
+  if (claims.lim) c.set('previewCredentialLimit', claims.lim)
   await next()
 }
 
@@ -121,7 +122,9 @@ agentSessions.use('/:sessionId/*', async (c, next) => {
   const ref = await verifyAgentForActor(userId, conversationOwnerUserId, sessionId)
 
   if (!ref) throw new AppError(403, 'forbidden', 'Session not found or not owned by caller')
-  c.set('agent', ref)
+  const credentialLimit = c.get('previewCredentialLimit')
+
+  c.set('agent', credentialLimit ? { ...ref, credentialLimit } : ref)
   await next()
 })
 

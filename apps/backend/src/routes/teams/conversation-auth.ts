@@ -86,7 +86,7 @@ export const requireUserOrConversationAuth: MiddlewareHandler<{
   }
   c.set('userId', claims.sub)
   c.set('authToken', token)
-  c.set('conversationAgent', agent)
+  c.set('conversationAgent', claims.lim ? { ...agent, credentialLimit: claims.lim } : agent)
   await next()
 }
 
@@ -143,6 +143,12 @@ export const dispatchConversationTeamApi: MiddlewareHandler<{
     assertConnectorSelectionAllowed(await getAgentCredentialAccess(agent, teamId), scoped)
   }
 
+  // An exchanged token vends only its credentials. On canonical routes that
+  // leaves the per-binding connector paths whose binding its limit was just
+  // checked against; triggers, dashboards, members and the rest are refused.
+  if (agent.credentialLimit && route === 'canonical' && !scoped) {
+    throw new AppError(403, 'conversation_api_forbidden', 'This token is limited to credentials')
+  }
   if (route === 'canonical') return next()
   const source = new URL(c.req.url)
 

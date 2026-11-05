@@ -113,7 +113,7 @@ function buildOpenApi() {
             requestBody: {
               required: true,
               content: {
-                'application/json': {
+                [operation.requestContentType ?? 'application/json']: {
                   schema: requestSchema,
                 },
               },
