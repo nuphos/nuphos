@@ -175,7 +175,7 @@ class ConversationUnlinkFixtureDeviceTest {
     private fun deletes() = requests.count { it.method == "DELETE" }
     private fun child() = store.conversations.first { it.sessionId == "child" }
     private fun openConfirm() {
-        compose.onNodeWithTag("row-more:child").performClick()
+        compose.onNodeWithTag("conversation-row:child").performTouchInput { longClick() }
         compose.onNodeWithTag("menu-unlink:child").performClick()
         waitText("Unlink agent?")
     }
@@ -218,7 +218,7 @@ class ConversationUnlinkFixtureDeviceTest {
             child().copy(readOnly = true), child().copy(parentSessionId = null), child().copy(teamId = "bbbbbbbbbbbbbbbbbbbbbbbb"))
         for (row in denied) {
             compose.runOnIdle { state(store, "conversations").value = listOf(row) }
-            compose.onNodeWithTag("row-more:child").performClick()
+            compose.onNodeWithTag("conversation-row:child").performTouchInput { longClick() }
             compose.onNodeWithTag("menu-unlink:child").assertDoesNotExist()
             androidx.test.espresso.Espresso.pressBack()
             runBlocking(Dispatchers.Main) { store.unlinkParent(row) }
@@ -325,7 +325,7 @@ class ConversationUnlinkFixtureDeviceTest {
         compose.waitForIdle()
         assertTrue(requests.none { it.method in setOf("PUT", "PATCH", "DELETE") })
         androidx.test.espresso.Espresso.pressBack()
-        compose.onNodeWithTag("row-more:child").performClick()
+        compose.onNodeWithTag("conversation-row:child").performTouchInput { longClick() }
         compose.onNodeWithTag("menu-archive:child").performClick()
         compose.onNodeWithText("Archive agent?").assertIsDisplayed()
         compose.onNodeWithText("Cancel").performClick()

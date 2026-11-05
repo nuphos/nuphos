@@ -108,7 +108,7 @@ class PinnedListFixtureDeviceTest {
     }
     @get:Rule val rules: RuleChain = RuleChain.outerRule(network).around(compose)
 
-    private fun render() {
+    private fun render(awaitRows: Boolean = true) {
         compose.runOnIdle {
             AiAccess.grant(token)
             store = AgentStore(token, compose.activity)
@@ -134,7 +134,7 @@ class PinnedListFixtureDeviceTest {
                 } } }
             }
         }
-        waitText("Synthetic parent")
+        if (awaitRows) waitText("Synthetic parent")
     }
     private fun waitText(text: String) { compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() } }
 
@@ -162,7 +162,7 @@ class PinnedListFixtureDeviceTest {
         compose.onAllNodesWithContentDescription("Pinned agent",useUnmergedTree=true).assertCountEquals(3)
         assertTrue(top("Pin C") < top("Pin B"));assertTrue(top("Pin B") < top("Pin A"));assertTrue(top("Pin A") < top("Synthetic parent"))
         shot("ranked")
-        compose.onNodeWithTag("row-more:c",useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("conversation-row:c",useUnmergedTree=true).performTouchInput { longClick() }
         compose.onNodeWithTag("menu-pin:c").assertTextContains("Unpin")
         androidx.test.espresso.Espresso.pressBack()
         compose.onNodeWithTag("conversation-row:c").performTouchInput { swipeLeft() }
@@ -192,9 +192,11 @@ class PinnedListFixtureDeviceTest {
     @Test fun desktopHrefPinAppearsAtTopAfterAsynchronousFavoritesRead() {
         holdFavorites = true
         entries = """[{"href":"/teams/A/agent/outside","label":"Desktop remote pin"},{"href":"/teams/A/agent/child","label":"Desktop child pin"},{"href":"/teams/B/agent/foreign","label":"Foreign team pin"},{"href":"https://example.com/teams/A/agent/external","label":"External pin"},{"key":"agent-session:child","label":"Duplicate child"}]"""
-        render()
-        assertTrue(favoritesHeld.await(5, java.util.concurrent.TimeUnit.SECONDS))
-        compose.onNodeWithText("Loading pinned agents…").assertIsDisplayed()
+        // Until favorites are read, the first load shows only the loading state, so no row jumps when they arrive.
+        render(awaitRows = false)
+        compose.waitUntil(5_000) { favoritesHeld.count == 0L }
+        waitText("Loading agents…")
+        compose.onNodeWithText("Synthetic parent").assertDoesNotExist()
         compose.onNodeWithText("Desktop remote pin").assertDoesNotExist()
         releaseFavorites.countDown()
         waitText("Desktop remote pin")
@@ -204,7 +206,7 @@ class PinnedListFixtureDeviceTest {
         assertTrue(top("Synthetic child") < top("Desktop remote pin"))
         assertTrue(top("Desktop remote pin") < top("Synthetic parent"))
         compose.onAllNodesWithContentDescription("Pinned agent", useUnmergedTree=true).assertCountEquals(2)
-        compose.onNodeWithTag("row-more:child", useUnmergedTree=true).performClick()
+        compose.onNodeWithTag("conversation-row:child", useUnmergedTree=true).performTouchInput { longClick() }
         compose.onNodeWithTag("menu-pin:child").assertTextContains("Unpin")
         androidx.test.espresso.Espresso.pressBack()
         shot("desktop-href-late")
