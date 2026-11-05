@@ -387,10 +387,10 @@ enum AgentChatAPI {
             case .streamConflict: "That stream belongs to another agent."
             case .conversationBusy: "This agent is busy with another reply."
             case .runtimeNotReady: "The runtime is not ready for a new message yet. Try again in a moment."
-            case .runtimeLoginRequired: "This runtime is not signed in. Sign in to it on the computer running it, or ask an administrator to sign in a cloud runtime from the runtime list."
-            case .runtimeDisabled: "This agent's runtime is disabled. Start a new agent on another runtime."
-            case .runtimeNotFound: "This runtime is no longer available in this workspace. Start a new agent on another runtime."
-            case .runtimeOffline: "The computer running this runtime is offline. Open Nuphos on it with the local runtime turned on, or start a new agent on a cloud runtime."
+            case .runtimeLoginRequired: "This runtime is signed out. Sign it in from Nuphos on the computer it runs on, or switch to another runtime."
+            case .runtimeDisabled: "This agent's runtime is disabled. Switch to another runtime to continue."
+            case .runtimeNotFound: "This runtime is no longer available in this workspace. Switch to another runtime to continue."
+            case .runtimeOffline: "The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime."
             case .runtimeUnavailable(let message): message
             case .runtimeBusy: "Wait for the current reply to finish before changing model settings."
             case .conversationNotRunning: "This agent is no longer running."
@@ -400,6 +400,11 @@ enum AgentChatAPI {
             }
         }
     }
+
+    /// The errors another runtime gets past: the conversation shows Switch runtime beside them.
+    static let switchRuntimeErrors: Set<String> = Set(
+        [Conflict.runtimeLoginRequired, .runtimeDisabled, .runtimeNotFound, .runtimeOffline].compactMap(\.errorDescription)
+    )
 
     /// Parses an Atlas error body into a typed conflict.
     static func conflict(status: Int, body: String?) -> Conflict {

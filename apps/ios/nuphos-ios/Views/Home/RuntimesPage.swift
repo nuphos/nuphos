@@ -116,7 +116,7 @@ private struct RuntimeDestination: View {
                 .first(where: { $0.agents.contains(runtime) })?.canSignIn(runtime, administrator: team.isAdministrator) == true {
                 AgentSetupView(team: team, runtime: runtime, selectOnCompletion: false)
             } else {
-                AgentSignInInstructions(runtime: runtime)
+                AgentSignInInstructions(runtime: runtime, teammate: runtime.local.map { $0.ownerUserId != store.userId } ?? false)
             }
         }
     }
@@ -124,15 +124,33 @@ private struct RuntimeDestination: View {
 
 private struct AgentSignInInstructions: View {
     let runtime: RuntimeInstance
+    /// A teammate's computer: only its owner can sign it in.
+    var teammate = false
+
     var body: some View {
         List {
             VStack(spacing: 12) {
                 BrandLogo(name: RuntimeInstance.Provider.logo(runtime.provider.rawValue), size: 56)
-                Text(runtime.local.map { "Sign in on \($0.deviceLabel)" } ?? "Ask an administrator to sign in").font(.title3.weight(.semibold))
+                Text(title).font(.title3.weight(.semibold))
                 Text(RuntimeInstance.Provider.detail(runtime.provider.rawValue, instance: runtime.label)).font(.subheadline).foregroundStyle(Theme.muted)
-                Text(runtime.local.map { "Open Nuphos on \($0.deviceLabel), go to Settings → Runtimes, then choose Sign in for this runtime." } ?? "A workspace administrator can sign in to this runtime in Settings → Runtimes.")
+                Text(steps)
                     .font(.subheadline).foregroundStyle(Theme.body).multilineTextAlignment(.center)
             }.frame(maxWidth: .infinity).padding(.vertical, 16).listRowBackground(Color.clear)
         }.scrollContentBackground(.hidden).background(Theme.canvas).navigationTitle("Sign in").navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var title: String {
+        guard let local = runtime.local else { return "Ask an administrator to sign in" }
+        return teammate ? "Ask its owner to sign in" : "Sign in on \(local.deviceLabel)"
+    }
+
+    /// The Runtimes page is in Nuphos on a computer, not in this app.
+    private var steps: String {
+        guard let local = runtime.local else {
+            return "A workspace administrator can sign it in from the Runtimes page in Nuphos on their computer."
+        }
+        return teammate
+            ? "\(local.deviceLabel) belongs to a teammate, so only they can sign it in. Ask them to open Nuphos on it and choose Sign in on the Runtimes page."
+            : "On \(local.deviceLabel), open Nuphos, go to the Runtimes page and choose Sign in for this runtime."
     }
 }

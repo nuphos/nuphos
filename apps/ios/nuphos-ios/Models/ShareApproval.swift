@@ -28,7 +28,7 @@ enum ShareApprovalWait: Equatable, Sendable {
     func message(computer: String) -> String {
         switch self {
         case .pending: "Waiting for the owner of \(computer) to approve. Your message is sent once they do."
-        case .denied: "The owner of \(computer) declined this conversation. Move it to another agent to continue."
+        case .denied: "The owner of \(computer) declined this conversation. Switch to another runtime to continue."
         }
     }
 }
