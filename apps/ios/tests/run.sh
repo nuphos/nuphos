@@ -14,5 +14,7 @@ bash tests/auth-session.sh
 
 swiftc nuphos-ios/Services/Chat/JSONValue.swift ShareSupport/SharedShareSession.swift tests/ShareSessionLeaseTests.swift -o "$test_dir/share-lease-tests"
 "$test_dir/share-lease-tests"
+swiftc -D DEBUG -parse-as-library nuphos-ios/Services/NuphosAPIBase.swift nuphos-ios/Services/PreviewIsolation.swift nuphos-ios/Services/PreviewTransport.swift nuphos-ios/Services/Chat/SSEClient.swift tests/PreviewIsolationTests.swift -o "$test_dir/preview-isolation-tests"
+"$test_dir/preview-isolation-tests"
 swiftc NuphosShare/ShareFollowState.swift tests/ShareFollowStateTests.swift -o "$test_dir/share-follow-tests"
 "$test_dir/share-follow-tests"

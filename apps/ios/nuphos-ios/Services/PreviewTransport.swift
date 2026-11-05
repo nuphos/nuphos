@@ -4,10 +4,16 @@ import OSLog
 
 /// Opt-in simulator fixtures; never compiled into a release build.
 nonisolated final class PreviewTransport: URLProtocol, @unchecked Sendable {
-    override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "api.nuphos.ai" }
+    override class func canInit(with request: URLRequest) -> Bool { PreviewIsolation.route(request.url) != .local }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
-        guard let url = request.url else { return }
+        guard PreviewIsolation.route(request.url) == .fixture, let url = request.url else {
+            PreviewIsolation.report(request.url)
+            client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet, userInfo: [
+                NSLocalizedDescriptionKey: "Preview mode blocked this request",
+            ]))
+            return
+        }
         let env = ProcessInfo.processInfo.environment
         let file = env["NUPHOS_PREVIEW_RESPONSES"] ?? UserDefaults.standard.string(forKey: "previewResponses") ?? ""
         let responses = (try? Data(contentsOf: URL(fileURLWithPath: file))).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
