@@ -73,6 +73,14 @@ final class AgentListFailureUITests: XCTestCase {
         XCTAssertFalse(app.alerts["Couldn't update agent"].waitForExistence(timeout: 14), "A second Unwatch was sent")
     }
 
+    func testAFailureFromTheLastWorkspaceDoesNotShowInTheNextOne() throws {
+        try assertNoStaleFailure(switches: 1)
+    }
+
+    func testAFailureFromTheLastWorkspaceDoesNotShowAfterComingBack() throws {
+        try assertNoStaleFailure(switches: 2)
+    }
+
     func testTryAgainReadsAFailedListAgain() throws {
         // An empty list leaves nothing in the launch cache to fall back on.
         let original = try originalList()
@@ -119,6 +127,38 @@ final class AgentListFailureUITests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    /// The write fails only after the workspace has changed.
+    private func assertNoStaleFailure(switches: Int) throws {
+        var teams = try XCTUnwrap(responses["GET /teams"] as? [String: Any])
+        var body = try XCTUnwrap(teams["body"] as? [String: Any])
+        var list = try XCTUnwrap(body["teams"] as? [[String: Any]])
+        list.append(["id": "64b5f1c2e4b0a1d2c3e4f5a7", "name": "Second workspace", "isOwner": true, "role": "ADMINISTRATOR"])
+        body["teams"] = list
+        teams["body"] = body
+        responses["GET /teams"] = teams
+        responses[watch] = ["status": 500, "body": ["error": ["message": "Too late"]], "delayMs": 15000]
+        launch()
+        try unwatch()
+        let names = list.compactMap { $0["name"] as? String }
+        for _ in 0..<switches { switchWorkspace(among: names) }
+        XCTAssertFalse(app.alerts["Couldn't update agent"].waitForExistence(timeout: 22), "A failure from the last workspace showed")
+    }
+
+    private func switchWorkspace(among names: [String]) {
+        app.buttons["Account"].firstMatch.tap()
+        let picker = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Workspace")).firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 5), "No workspace picker")
+        let shown = picker.label + ((picker.value as? String) ?? "")
+        picker.tap()
+        let next = app.buttons[names.first { !shown.contains($0) } ?? names[0]].firstMatch
+        XCTAssertTrue(next.waitForExistence(timeout: 5), "No other workspace")
+        next.tap()
+        sleep(1)
+        let done = app.buttons["Done"].firstMatch
+        if done.exists { done.tap() } else { app.swipeDown(velocity: .fast) }
+        sleep(1)
+    }
 
     private func launch(page: Bool = true) {
         try? write()

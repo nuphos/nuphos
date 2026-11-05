@@ -27,6 +27,9 @@ final class AgentStore {
     private(set) var phase: Phase = .idle
     /// A list action or refresh that failed. The rows it acted on stay on screen.
     var rowActionFailure: RowActionFailure?
+    /// Moves on with every change of workspace, so an answer to something done in
+    /// the last one, even after coming back, is dropped rather than shown here.
+    private var workspaceScope = 0
     /// Conversations with a Watch or Unwatch on its way.
     private(set) var watchChanges: Set<String> = []
     private(set) var isLoadingMore = false
@@ -153,11 +156,13 @@ final class AgentStore {
 
     func archive(sessionId: String, teamId: String?) async {
         guard let teamId = teamId ?? selectedTeam?.id else { return }
+        let scope = workspaceScope
         do {
             try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: sessionId, archived: true)
+            guard scope == workspaceScope else { return }
             removeFromList(sessionId)
         } catch {
-            rowActionFailed(error) { [weak self] in await self?.archive(sessionId: sessionId, teamId: teamId) }
+            rowActionFailed(error, scope: scope) { [weak self] in await self?.archive(sessionId: sessionId, teamId: teamId) }
         }
     }
 
@@ -167,9 +172,11 @@ final class AgentStore {
     func setWatching(_ watching: Bool, conversation: AgentConversation) async {
         guard let teamId = conversation.teamId ?? selectedTeam?.id,
               watchChanges.insert(conversation.sessionId).inserted else { return }
+        let scope = workspaceScope
         do {
             try await AgentChatAPI.setWatching(token: token, teamId: teamId, sessionId: conversation.sessionId, watching: watching)
             watchChanges.remove(conversation.sessionId)
+            guard scope == workspaceScope else { return }
             // At once, so a failed read below leaves the row saying what was saved.
             if let index = conversations.firstIndex(where: { $0.sessionId == conversation.sessionId }) {
                 conversations[index].watching = watching
@@ -177,12 +184,16 @@ final class AgentStore {
             await reload(afterChange: true)
         } catch {
             watchChanges.remove(conversation.sessionId)
-            rowActionFailed(error) { [weak self] in await self?.setWatching(watching, conversation: conversation) }
+            rowActionFailed(error, scope: scope) { [weak self] in await self?.setWatching(watching, conversation: conversation) }
         }
     }
 
-    private func rowActionFailed(_ error: Error, retry: @escaping @MainActor () async -> Void) {
-        rowActionFailure = RowActionFailure(title: "Couldn't update agent", message: error.localizedDescription, retry: retry)
+    private func rowActionFailed(_ error: Error, scope: Int, retry: @escaping @MainActor () async -> Void) {
+        guard scope == workspaceScope else { return }
+        rowActionFailure = RowActionFailure(title: "Couldn't update agent", message: error.localizedDescription) { [weak self] in
+            guard self?.workspaceScope == scope else { return }
+            await retry()
+        }
     }
 
     /// Drops a chat that was archived. The poller
@@ -223,23 +234,27 @@ final class AgentStore {
 
     func rename(_ conversation: AgentConversation, title: String) async {
         guard conversation.ownsChat, let teamId = conversation.teamId ?? selectedTeam?.id else { return }
+        let scope = workspaceScope
         do {
             try await AgentChatAPI.rename(token: token, teamId: teamId, sessionId: conversation.sessionId, title: title)
+            guard scope == workspaceScope else { return }
             await reload(afterChange: true)
         } catch {
-            rowActionFailed(error) { [weak self] in await self?.rename(conversation, title: title) }
+            rowActionFailed(error, scope: scope) { [weak self] in await self?.rename(conversation, title: title) }
         }
     }
 
     func unlinkParent(_ conversation: AgentConversation) async {
         guard conversation.ownsChat, let teamId = conversation.teamId ?? selectedTeam?.id else { return }
+        let scope = workspaceScope
         do {
             try await AgentChatAPI.unlinkParent(token: token, teamId: teamId, sessionId: conversation.sessionId)
+            guard scope == workspaceScope else { return }
             if let index = conversations.firstIndex(where: { $0.sessionId == conversation.sessionId }) {
                 conversations[index].parentSessionId = nil
             }
         } catch {
-            rowActionFailed(error) { [weak self] in await self?.unlinkParent(conversation) }
+            rowActionFailed(error, scope: scope) { [weak self] in await self?.unlinkParent(conversation) }
         }
     }
 
@@ -376,6 +391,8 @@ final class AgentStore {
     }
 
     private func resetTeamScopedState() {
+        workspaceScope += 1
+        rowActionFailure = nil
         newModelRequest = UUID()
         newModelRuntimeId = nil
         newModelConfig = nil
