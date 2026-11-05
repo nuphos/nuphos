@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../api'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { Button } from '../../components/ui/button'
 import { InlineRename } from '../../components/ui/inline-rename'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
@@ -234,7 +235,13 @@ export function RuntimeInstanceCard({
             ) : localSignIn ? (
               <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
                 <p className="text-xs leading-relaxed text-tertiary">{t('Not signed in.')}</p>
-                <LocalAgentSignIn provider={localSignIn} />
+                {localSignIn === 'runtime' ? (
+                  <Button size="sm" disabled={busy} onClick={() => setSigningIn(true)}>
+                    {t('Sign in')}
+                  </Button>
+                ) : (
+                  <LocalAgentSignIn provider={localSignIn} />
+                )}
               </div>
             ) : (
               hosted &&
