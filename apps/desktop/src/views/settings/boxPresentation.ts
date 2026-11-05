@@ -170,17 +170,6 @@ export function boxAgents(deviceId: string, instances: RuntimeInstance[]): Runti
   )
 }
 
-/** What New Agent does for a provider: add an agent when the host can, else sign in the one it has. */
-export function newAgentAction(
-  agents: RuntimeInstance[],
-  provider: LocalAgentProvider,
-): { create: true } | { signIn: string } | null {
-  if (agents.some((agent) => agent.local?.agentInstances === true)) return { create: true }
-  const idle = agents.find((agent) => agent.provider === provider && agent.local?.signedIn !== true)
-
-  return idle ? { signIn: idle.id } : null
-}
-
 /** Whether an agent on this machine already goes by this name, in any case. */
 export function agentNameTaken(agents: RuntimeInstance[], name: string): boolean {
   const wanted = name.trim().toLocaleLowerCase()

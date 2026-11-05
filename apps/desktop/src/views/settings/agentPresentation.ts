@@ -1,6 +1,7 @@
 import { t } from '../../i18n/index.ts'
 import { AGENT_PROVIDER } from '../../types/runtime.ts'
 
+import type { LocalAgentProvider } from '../../api/device-types'
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 
 /**
@@ -69,22 +70,37 @@ export function agentRunsOn(
 }
 
 /**
- * How to sign in right here, for this computer's own agent while it is not signed in: the CLI
- * for its default Claude Code or Codex agent, the runtime sign-in for an added agent (the CLI's
- * login is the default agent's). Another computer's agent signs in on that computer.
+ * How the viewer signs in one of their own computers' agents while it is not signed in. This
+ * computer's default Claude Code or Codex agent signs in through its CLI. Any other agent, added
+ * or on another computer, signs in through the runtime sign-in, which reaches exactly that agent
+ * (the CLI's login is only this computer's default agent's). Someone else's agent: none.
  */
-export function thisComputerSignIn(
+export function localSignIn(
   instance: RuntimeInstance,
   thisComputer: { userId: string; deviceId: string } | null,
 ): 'claude-code' | 'codex' | 'runtime' | undefined {
   const local = instance.local
 
-  if (!local || local.signedIn === true) return undefined
-  if (local.deviceId !== thisComputer?.deviceId || local.ownerUserId !== thisComputer.userId)
+  if (!local || local.signedIn === true || local.ownerUserId !== thisComputer?.userId)
     return undefined
-  if (local.instanceId) return 'runtime'
+  if (instance.provider !== 'claude-code' && instance.provider !== 'codex') return 'runtime'
 
-  return instance.provider === 'claude-code' || instance.provider === 'codex'
+  return !local.instanceId && local.deviceId === thisComputer.deviceId
     ? instance.provider
-    : undefined
+    : 'runtime'
+}
+
+/**
+ * What New Agent does for a provider: sign in the machine's signed-out one first, so a lapsed
+ * sign-in never turns into a second agent; else add an agent when the host can.
+ */
+export function newAgentAction(
+  agents: RuntimeInstance[],
+  provider: LocalAgentProvider,
+): { create: true } | { signIn: string } | null {
+  const idle = agents.find((agent) => agent.provider === provider && agent.local?.signedIn !== true)
+
+  if (idle) return { signIn: idle.id }
+
+  return agents.some((agent) => agent.local?.agentInstances === true) ? { create: true } : null
 }

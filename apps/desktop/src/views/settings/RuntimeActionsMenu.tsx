@@ -12,6 +12,7 @@ export function RuntimeActionsMenu({
   busy,
   canEdit,
   authenticated,
+  localSignIn,
   onRename,
   onSignIn,
   onToggleEnabled,
@@ -22,6 +23,8 @@ export function RuntimeActionsMenu({
   canEdit: boolean
   /** What the runtime reported about its own account, if it can say. */
   authenticated?: boolean
+  /** One of the viewer's own computers' agents that is signed out, so it signs in from here too. */
+  localSignIn?: boolean
   onRename: () => void
   onSignIn: () => void
   onToggleEnabled: () => void
@@ -30,7 +33,8 @@ export function RuntimeActionsMenu({
   if (!canEdit) return null
   const enabled = instance.status === 'active'
   // Unknown authentication is not evidence that the agent cannot sign in.
-  const canSignIn = enabled && (instance.kind === 'managed' || instance.kind === 'external')
+  const canSignIn =
+    enabled && (instance.kind === 'managed' || instance.kind === 'external' || localSignIn === true)
 
   return (
     <Menu>
