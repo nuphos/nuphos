@@ -1,5 +1,8 @@
+import { buildAtlasError } from '../atlas/error.ts'
+
 import { LOGIN_TIMEOUT_MS, onCallback } from './callback-server.ts'
 import { writeConfig } from './config.ts'
+import { unsavedReason } from './unsaved.ts'
 import { assertWanted } from './sign-in-attempt.ts'
 import { fetchUserInfo } from './me.ts'
 import { describeCallbackFailure, errorPage, SUCCESS_HTML } from './pages.ts'
@@ -58,9 +61,15 @@ export async function completeLegacyLogin(
           clearTimeout(timeout)
           resolve(user)
         } catch (e) {
-          received.respond(500, errorPage('Nuphos could not finish the sign-in. Please try again.'))
+          const reason = unsavedReason(e)
+
+          received.respond(
+            500,
+            errorPage(reason ?? 'Nuphos could not finish the sign-in. Please try again.'),
+          )
           clearTimeout(timeout)
-          reject(e instanceof Error ? e : new Error(String(e)))
+          if (reason) reject(buildAtlasError(reason, 'sign_in_not_saved'))
+          else reject(e instanceof Error ? e : new Error(String(e)))
         }
       })()
     })
