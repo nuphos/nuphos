@@ -46,13 +46,13 @@ function harness() {
   }
 }
 
-test('a rejected token clears the session and notifies authenticated transport owners', async () => {
+test('a dead credential clears the session and notifies authenticated transport owners', async () => {
   const h = harness()
   const sessions: (string | null)[] = []
 
   h.session.subscribe(({ token }) => sessions.push(token))
   await status(h.deps)
-  h.setProbe({ ok: false, transient: false })
+  h.setProbe({ ok: false, failure: 'invalid', status: 401 })
   assert.deepEqual(await status(h.deps), { loggedIn: false })
   assert.equal(h.session.current(), null)
   assert.equal(h.config().token, undefined)
@@ -60,11 +60,34 @@ test('a rejected token clears the session and notifies authenticated transport o
   assert.ok(sessions.includes('tok-1'))
 })
 
+test('a refusal without proof signs out this launch and keeps the saved sign-in', async () => {
+  const h = harness()
+
+  await status(h.deps)
+  h.setProbe({ ok: false, failure: 'refused', status: 403 })
+
+  assert.deepEqual(await status(h.deps), { loggedIn: false })
+  assert.equal(h.session.current(), null)
+  assert.equal(h.config().token, 'tok-1', 'a refusal says nothing about the credential')
+})
+
+test('the sign-in kept after a refusal signs in again on the next check', async () => {
+  const h = harness()
+
+  await status(h.deps)
+  h.setProbe({ ok: false, failure: 'refused', status: 401 })
+  await status(h.deps)
+
+  h.setProbe({ ok: true, user: USER })
+  assert.deepEqual(await status(h.deps), { loggedIn: true, user: USER, token: 'tok-1' })
+  assert.equal(h.session.current(), 'tok-1', 'no new sign-in was needed')
+})
+
 test('a transient probe failure with a cached user keeps the session', async () => {
   const h = harness()
 
   await status(h.deps)
-  h.setProbe({ ok: false, transient: true })
+  h.setProbe({ ok: false, failure: 'transient', status: 503 })
   await status(h.deps)
 
   assert.equal(h.session.current(), 'tok-1')
@@ -75,7 +98,7 @@ test('a transient probe failure with no cached identity leaves the session unaut
   const h = harness()
 
   await status(h.deps)
-  h.setProbe({ ok: false, transient: true })
+  h.setProbe({ ok: false, failure: 'transient', status: 503 })
   await h.deps.writeConfig({ token: 'tok-1' })
   await status(h.deps)
 
@@ -100,7 +123,7 @@ test('a relaunch keeps the signed-in user, so the local runtime keeps running', 
 test('offline at launch, the cached user still runs the local runtime', async () => {
   const h = harness()
 
-  h.setProbe({ ok: false, transient: true })
+  h.setProbe({ ok: false, failure: 'transient' })
   await status(h.deps)
   assert.equal(h.session.userId(), 'u1')
 })
