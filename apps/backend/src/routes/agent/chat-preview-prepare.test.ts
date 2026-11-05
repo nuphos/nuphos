@@ -8,6 +8,7 @@ import { expect, test } from 'bun:test'
 
 import {
   buildPendingUserMessage,
+  clearPendingUserMessages,
   enqueuePendingUserMessage,
   hasPendingUserMessage,
 } from '@/lib/agent/pending-messages'
@@ -256,13 +257,19 @@ test('a transcript turn leaves queued Slack and agent messages for their own tur
   await enqueuePendingUserMessage('owner', 'queued', thread)
   await enqueuePendingUserMessage('owner', 'queued', slack)
 
-  // An agent's message never joins a person's turn: it waits to run as its own.
-  expect(await takeTurnQueue('owner', 'queued', 'owner')).toEqual([])
-  expect(await hasPendingUserMessage('owner', 'queued', thread.id)).toBe(true)
-  expect(await hasPendingUserMessage('owner', 'queued', slack.id)).toBe(true)
-  expect((await takeTurnQueue('owner', 'queued', 'owner', true)).map((m) => m.id)).toEqual([
-    slack.id,
-  ])
+  try {
+    // An agent's message never joins a person's turn: it waits to run as its own.
+    expect(await takeTurnQueue('owner', 'queued', 'owner')).toEqual([])
+    expect(await hasPendingUserMessage('owner', 'queued', thread.id)).toBe(true)
+    expect(await hasPendingUserMessage('owner', 'queued', slack.id)).toBe(true)
+    expect((await takeTurnQueue('owner', 'queued', 'owner', true)).map((m) => m.id)).toEqual([
+      slack.id,
+    ])
+  } finally {
+    // The queue is process-wide: a leftover would be swept and started by
+    // another file's backstop, so remove it before this test ends.
+    await clearPendingUserMessages('owner', 'queued')
+  }
 })
 
 test('a failed token mint hands the carried queue back and releases the turn', async () => {
