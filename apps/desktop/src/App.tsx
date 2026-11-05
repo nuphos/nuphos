@@ -46,6 +46,22 @@ function SignedInApp() {
   // Signing in to one more account, over the workspace.
   const adding = useSyncExternalStore(subscribeAddAccount, addAccountRequest)
   const signedIn = auth.status === 'authenticated'
+  const unreadable = auth.status === 'anonymous' && auth.unreadable === true
+  // Each page load reads the sign-in once (startupAuth.ts), so trying again is a reload.
+  const unreadableNotice = (
+    <>
+      {t(
+        'Nuphos couldn’t read its saved sign-in from your keychain. If you’re asked for access, allow it, then try again.',
+      )}{' '}
+      <button
+        type="button"
+        className="text-main underline titlebar-no-drag"
+        onClick={() => window.location.reload()}
+      >
+        {t('Try again')}
+      </button>
+    </>
+  )
   // The sign-in screen holds focus, so no shortcut reaches a card behind it.
   const takeFocus = useCallback((el: HTMLDivElement | null) => el?.focus(), [])
 
@@ -80,7 +96,7 @@ function SignedInApp() {
   const signIn = (
     <LoginView
       accounts={auth.status === 'anonymous' ? auth.accounts : []}
-      notice={adding?.notice ?? signInNotice}
+      notice={adding?.notice ?? signInNotice ?? (unreadable ? unreadableNotice : undefined)}
       onCancel={
         adding && signedIn
           ? () => {

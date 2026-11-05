@@ -38,13 +38,19 @@ async function autoSyncTeams(): Promise<string[]> {
 }
 
 function syncAutoTeams() {
-  void autoSyncTeams().then((teamIds) => {
-    for (const teamId of teamIds) {
-      syncLocalSetup(teamId).catch((e: unknown) => {
-        console.warn('local-setup: sync failed', e)
-      })
-    }
-  })
+  void autoSyncTeams().then(
+    (teamIds) => {
+      for (const teamId of teamIds) {
+        syncLocalSetup(teamId).catch((e: unknown) => {
+          console.warn('local-setup: sync failed', e)
+        })
+      }
+    },
+    (e: unknown) => {
+      // The sign-in could not be read (a locked keychain): the next tick tries again.
+      console.warn('local-setup: sync failed', e)
+    },
+  )
 }
 
 function schedule() {

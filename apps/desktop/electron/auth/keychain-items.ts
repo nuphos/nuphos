@@ -34,6 +34,10 @@ export function keychainItems(store: TokenStore, secure: () => boolean, path: st
       // the XARA attacks), so it is replaced.
       if (had !== item) await store.delete(item).catch(() => null)
       await store.set(item, token)
+      // An item this app cannot read back is not a kept sign-in: the next read
+      // would find nothing, so the token stays in the file as on a refused write.
+      if ((await store.get(item)) !== token)
+        throw new Error('the keychain did not return the token')
       active.token = undefined
       active.keychainAccount = item
     } catch (e) {

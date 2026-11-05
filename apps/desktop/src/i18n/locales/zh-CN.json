@@ -2957,6 +2957,7 @@
   "Numeric operational metrics only. Query text, result values, credentials, current operations, and profiler documents are not collected.": "仅采集数值型运维指标，不会采集查询文本、结果值、凭据、当前操作和 profiler 文档。",
   "Nuphos cannot reach its own relay right now — this one is on us.": "Nuphos 目前无法连接自己的中继，这是我们这边的问题。",
   "Nuphos couldn’t find {command} on this computer. If it’s installed, add it to your login shell’s PATH, then reopen Nuphos.": "Nuphos 在这台电脑上找不到 {command}。如果已安装，请将它加入登录 shell 的 PATH，然后重新打开 Nuphos。",
+  "Nuphos couldn’t read its saved sign-in from your keychain. If you’re asked for access, allow it, then try again.": "Nuphos 无法从钥匙串读取已保存的登录信息。如果系统请求访问权限，请允许，然后重试。",
   "Nuphos downloads updates in the background.": "Nuphos 会在后台下载更新。",
   "Nuphos encrypts it on its way to the runtime, which keeps it; Nuphos does not keep a copy.": "Nuphos 会在传输到运行环境的过程中对其加密，由运行环境保存；Nuphos 不会保留副本。",
   "Nuphos encrypts the credential in the backend and only returns redacted connection metadata.": "Nuphos 会在后端加密凭据，且只返回脱敏后的连接元数据。",

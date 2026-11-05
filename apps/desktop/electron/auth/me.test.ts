@@ -127,3 +127,20 @@ test('offline at launch, the cached user still runs the local runtime', async ()
   await status(h.deps)
   assert.equal(h.session.userId(), 'u1')
 })
+
+test('a sign-in that cannot be read is an error, not a sign-out', async () => {
+  const h = harness()
+  let probed = false
+
+  h.deps.readConfig = () => Promise.reject(new Error('denied'))
+  h.deps.probe = () => {
+    probed = true
+
+    return Promise.resolve({ ok: true, user: USER })
+  }
+
+  await assert.rejects(status(h.deps), /denied/)
+  assert.equal(probed, false)
+  assert.equal(h.session.settled(), false)
+  assert.equal(h.config().token, 'tok-1')
+})

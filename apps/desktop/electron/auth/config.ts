@@ -243,12 +243,9 @@ export function configFile(deps: ConfigFileDeps) {
     // Node (tests, `pnpm test` in a shell) is another binary, and macOS would
     // ask for the login keychain password.
     if (!cfg.keychainAccount || !deps.secure()) return cfg
-    const token = await deps.store.get(cfg.keychainAccount).catch((e: unknown) => {
-      // Locked or denied: signed out for now, without forgetting the sign-in.
-      console.warn('auth: failed to read the session token from the keychain', e)
-
-      return null
-    })
+    // Locked or denied throws, and the sign-in file stays as it is: reading as
+    // signed out instead would send a kept sign-in to the login screen unexplained.
+    const token = await deps.store.get(cfg.keychainAccount)
 
     return token ? { ...cfg, token } : cfg
   }

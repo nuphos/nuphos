@@ -24,13 +24,14 @@ import { LoginApiEndpoint } from './LoginApiEndpoint'
 import { LoginSocialButtons } from './LoginSocialButtons'
 
 import type { AccountSummary, UserInfo } from '../types'
+import type { ReactNode } from 'react'
 
 type Props = {
   onLogin: (user: UserInfo) => void
   /** Other accounts signed in on this computer, to continue as one. */
   accounts?: AccountSummary[]
   /** Why this screen is shown, e.g. an account that must sign in again. */
-  notice?: string
+  notice?: ReactNode
   /** Signing in to one more account: back to the workspace without it. */
   onCancel?: () => void
 }
