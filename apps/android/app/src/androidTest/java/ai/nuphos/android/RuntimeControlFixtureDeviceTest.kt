@@ -159,35 +159,40 @@ class RuntimeControlFixtureDeviceTest {
     }
     private fun assertNoMutations() = Assert.assertTrue(requests.none { it.method != "GET" })
 
+    /** Named "Queue message" while the runtime takes steering, "Send" otherwise. */
+    private fun sendButton() = compose.onNode(hasContentDescription("Send") or hasContentDescription("Queue message"))
     @Test fun nativeStatusAndFreshnessControlTheActualComposer() {
         render(snapshot(phase = "idle", label = "Must not show idle", send = true))
         compose.onNodeWithContentDescription("Ask Nuphos anything").performTextInput("Keep runtime draft")
-        compose.onNodeWithContentDescription("Send").assertIsEnabled()
+        sendButton().assertIsEnabled()
         compose.onNodeWithText("Must not show idle").assertDoesNotExist()
         compose.runOnIdle { metadata(snapshot(cancel = true)) }
         compose.onNodeWithText("Running fixture").assertIsDisplayed()
         compose.onNodeWithContentDescription("Stop").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
+        // A running turn that can't take steering still accepts messages into the server queue.
+        compose.onNodeWithContentDescription("Queue message").assertIsEnabled()
         compose.runOnIdle { metadata(snapshot(phase = "awaiting-input", label = "Waiting for fixture input", reply = true)) }
         compose.onNodeWithText("Waiting for fixture input").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Send").assertIsEnabled()
+        sendButton().assertIsEnabled()
         compose.runOnIdle { metadata(snapshot(phase = "completed", label = "Fixture completed", send = true)) }
         compose.onNodeWithText("Fixture completed").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Send").assertIsEnabled()
+        sendButton().assertIsEnabled()
         compose.runOnIdle {
             state(session, "runtimeObservation", RuntimeObservation(snapshot(send = true, reply = true, cancel = true), RuntimeObservation.now() - 20))
             state(session, "observationClock", RuntimeObservation.now())
         }
         compose.onNodeWithText("Runtime status unavailable — reconnecting").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
+        // A supported runtime may accept it later, so the message can still wait in the server queue.
+        compose.onNodeWithContentDescription("Queue message").assertIsEnabled()
         compose.onNodeWithContentDescription("Stop").assertDoesNotExist()
         compose.runOnIdle { metadata(snapshot(schema = 99, send = true, reply = true, cancel = true)) }
         compose.onNodeWithText("Runtime status unavailable — runtime update required").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
+        sendButton().assertIsNotEnabled()
         compose.onNodeWithContentDescription("Stop").assertDoesNotExist()
         compose.runOnIdle { metadata(snapshot(reply = true, steer = true, cancel = true), actor = false) }
         compose.onNodeWithText("Running fixture").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
+        // Without respond rights the message can't steer, but it can wait in the queue. iOS does the same.
+        compose.onNodeWithContentDescription("Queue message").assertIsEnabled()
         compose.onNodeWithContentDescription("Stop").assertDoesNotExist()
         compose.onNodeWithText("Keep runtime draft").assertExists()
         assertNoMutations()
@@ -197,8 +202,8 @@ class RuntimeControlFixtureDeviceTest {
         compose.onNodeWithText("Running fixture").assertIsDisplayed()
         compose.onNodeWithText("Read-only agent").assertIsDisplayed()
         // Read-only conversations disable drafting entirely (checkpoint behavior), so nothing can be typed or sent.
-        compose.onNodeWithContentDescription("Ask Nuphos anything").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Queue a message").assertIsNotEnabled()
+        sendButton().assertIsNotEnabled()
         compose.onNodeWithContentDescription("Stop").assertDoesNotExist()
         assertNoMutations()
     }

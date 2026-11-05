@@ -35,6 +35,11 @@ import java.util.concurrent.CopyOnWriteArrayList
 /** Device UI tests with synthetic transcripts and blocked HTTP. No backend writes occur. */
 @RunWith(AndroidJUnit4::class)
 class FixtureDeviceTest {
+    // Before the Activity starts: a fresh install's notification prompt would otherwise take over the first test.
+    init {
+        val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+        instrumentation.uiAutomation.grantRuntimePermission(instrumentation.targetContext.packageName, android.Manifest.permission.POST_NOTIFICATIONS)
+    }
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private val originals = mutableMapOf<String, OkHttpClient>()
     private val requests = CopyOnWriteArrayList<String>()
@@ -108,7 +113,8 @@ class FixtureDeviceTest {
 
     @Test fun readOnlyComposerPreventsSubmission() {
         render(listOf(ChatPart.Text(text = "Read-only fixture")), readOnly = true)
-        compose.onNodeWithContentDescription("Ask Nuphos anything").performTextInput("Unsent read-only fixture")
+        // Read-only conversations disable drafting entirely, so nothing can be typed.
+        compose.onNodeWithContentDescription("Ask Nuphos anything").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
     }
     @Test fun readOnlySessionRejectsDirectMutations() {
@@ -127,12 +133,11 @@ class FixtureDeviceTest {
         }
         Assert.assertEquals(before, requests.toList())
     }
-    @Test fun loadErrorDisablesSendAndPreservesTypedDraft() {
+    @Test fun loadErrorDisablesDraftingAndSend() {
         status = 404
         render(emptyList())
-        compose.onNodeWithContentDescription("Ask Nuphos anything").performTextInput("Keep failed-load draft")
+        compose.onNodeWithContentDescription("Ask Nuphos anything").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
-        compose.onNodeWithText("Keep failed-load draft").assertExists()
         Assert.assertFalse(store.session("fixture", "").send("No request"))
     }
     @Test fun metadataRevocationAppliesWithUnchangedMessageCount() {
@@ -145,7 +150,7 @@ class FixtureDeviceTest {
         compose.waitForIdle()
         Assert.assertFalse(session.canSubmit)
         Assert.assertFalse(session.canManage)
-        compose.onNodeWithContentDescription("Ask Nuphos anything").performTextInput("Keep revoked draft")
+        compose.onNodeWithContentDescription("Ask Nuphos anything").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
     }
     @Test fun writableTeammateHasSendWithoutOwnerActions() {
@@ -164,11 +169,15 @@ class FixtureDeviceTest {
         render(listOf(tool()))
         compose.onNodeWithText("Fixture terminal").performScrollTo().performClick()
         compose.onNodeWithText("FIXTURE_TOOL_OUTPUT", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("FIXTURE_TOOL_INPUT", substring = true).assertIsDisplayed()
+        compose.onAllNodesWithText("FIXTURE_TOOL_INPUT", substring = true).onLast().assertIsDisplayed()
         compose.onNodeWithText("Done").performClick()
         compose.onNodeWithText("FIXTURE_TOOL_OUTPUT", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Fixture terminal").performClick()
+        // Back must reach the open sheet, not the Activity behind it.
+        compose.onNodeWithText("Done").assertIsDisplayed()
+        compose.waitForIdle()
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+        compose.waitForIdle()
         compose.onNodeWithText("FIXTURE_TOOL_OUTPUT", substring = true).assertDoesNotExist()
         Assert.assertFalse(returned)
     }
@@ -190,6 +199,8 @@ class FixtureDeviceTest {
         compose.onNodeWithText("Fixture terminal").assertExists()
         compose.onNodeWithText("Second terminal").assertDoesNotExist()
         compose.onNodeWithText("Worked through 3 steps").performScrollTo().performClick()
+        // Two calls in a row fold into one line, named after the last.
+        compose.onNodeWithText("Third terminal · 2 calls").performScrollTo().performClick()
         compose.onNodeWithText("Second terminal").assertExists()
         compose.onNodeWithText("Worked through 2 steps").performScrollTo().performClick()
         compose.onNodeWithText("Fixture terminal").assertDoesNotExist()
@@ -213,14 +224,15 @@ class FixtureDeviceTest {
         render(listOf(tool().copy(output = null, state = ChatPart.Tool.State.InputAvailable)))
         compose.onNodeWithText("Fixture terminal").performScrollTo().performClick()
         compose.onNodeWithText("Pending").assertIsDisplayed()
-        compose.onNodeWithText("Waiting for output").assertIsDisplayed()
+        compose.onNodeWithText("No output available").assertIsDisplayed()
     }
     @Test fun longToolDetailsCanScrollAndClose() {
         render(listOf(tool().copy(input = JsonValue.Str((1..80).joinToString("\n") { "Input line $it" }),
             output = JsonValue.Str("FIXTURE_LONG_OUTPUT_END"))))
         compose.onNodeWithText("Fixture terminal").performScrollTo().performClick()
         compose.onNodeWithText("FIXTURE_LONG_OUTPUT_END").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Done").assertIsDisplayed().performClick()
+        // Done stays at the top of the long sheet, so scroll back to it.
+        compose.onNodeWithText("Done").performScrollTo().assertIsDisplayed().performClick()
         compose.onNodeWithText("Fixture terminal").assertIsDisplayed()
     }
     @Test fun reasoningExpandsAndCollapses() {
