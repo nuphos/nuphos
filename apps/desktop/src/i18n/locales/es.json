@@ -5431,6 +5431,7 @@
   "{name} disconnected": "{name} desconectado",
   "{name} installed": "{name} instalado",
   "{name} is connected. Your local runtime is ready.": "{name} está conectado. Tu entorno de ejecución local está listo.",
+  "{name} is no longer available.": "{name} ya no está disponible.",
   "{name} is not installed on this computer.": "{name} no está instalado en esta computadora.",
   "{name} is now available in {team}.": "{name} ya está disponible en {team}.",
   "{name} is now signed in.": "{name} ya inició sesión.",

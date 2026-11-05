@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   noAgentToRun,
   runtimeControlSendBlock,
+  runtimeGone,
   selectedAgentName,
   selectedAgentReachability,
 } from './runtimeControlSignOut.ts'
@@ -109,4 +110,23 @@ test('sending sets up an agent only when the team surely has none to run', () =>
   // Not known yet, or not knowable: the composer stays as it is.
   assert.equal(noAgentToRun([], true, null), false)
   assert.equal(noAgentToRun([], false, 'offline'), false)
+})
+
+test("a conversation whose agent is gone can't send, and says why", () => {
+  const gone: RuntimeControl = {
+    value: { id: 'rt-removed', provider: 'claude-code', label: 'Build agent' },
+    options: [],
+    unavailable: true,
+  }
+
+  assert.equal(runtimeGone(gone), true)
+  // Moving it is the fix, so its manager is asked to pick; anyone else is told what happened.
+  assert.equal(runtimeControlSendBlock({ ...gone, onSelect: noop }), 'Choose a runtime to send')
+  assert.equal(runtimeControlSendBlock(gone), 'Build agent is no longer available.')
+  // Not known yet, or no agent named at all: nothing to say.
+  assert.equal(runtimeGone({ ...gone, unavailable: false }), false)
+  assert.equal(
+    runtimeGone({ ...gone, value: { provider: 'claude-code', label: 'Claude Code' } }),
+    false,
+  )
 })
