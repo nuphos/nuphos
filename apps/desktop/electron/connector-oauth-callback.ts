@@ -1,3 +1,5 @@
+import { ATLAS_ERROR_SENTINEL, buildAtlasError } from './atlas/error.ts'
+
 type Complete = (teamId: string, state: string, code: string) => Promise<Record<string, string>>
 
 /**
@@ -30,4 +32,19 @@ export async function connectorCallbackParams(
       error_description: e instanceof Error ? e.message : String(e),
     })
   }
+}
+
+/**
+ * The rejection for a callback that came back with an error. It carries a code
+ * so the connect dialog's toast shows the provider's or backend's reason
+ * instead of a generic "check your connection".
+ */
+export function connectorCallbackError(name: string, params: URLSearchParams): Error {
+  const error = params.get('error') || 'oauth_failed'
+  const description = params.get('error_description') || error
+
+  // A failed completion already holds the backend's own structured error.
+  if (description.includes(ATLAS_ERROR_SENTINEL)) return new Error(description)
+
+  return buildAtlasError(`${name} OAuth failed: ${description}`, error)
 }

@@ -1,7 +1,7 @@
 import { shell } from 'electron'
 
 import * as atlas from './atlas'
-import { connectorCallbackParams } from './connector-oauth-callback'
+import { connectorCallbackError, connectorCallbackParams } from './connector-oauth-callback'
 
 // Shared scheme with linear-install / github-install — jira uses a distinct
 // hostname (nuphos://jira-callback) so the dispatcher in main.ts can route by
@@ -112,9 +112,7 @@ export async function handleCallback(rawUrl: string): Promise<void> {
   const error = params.get('error')
 
   if (error) {
-    const description = params.get('error_description') || error
-
-    p.reject(new Error(`Jira OAuth failed: ${description}`))
+    p.reject(connectorCallbackError('Jira', params))
 
     return
   }

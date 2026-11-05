@@ -24,6 +24,21 @@ import { createDeepLinkDelivery } from './deep-link-delivery'
 
 import type { DeepLinkTarget } from './deep-link-delivery'
 
+// Every connector's OAuth/app-install return link, with its analytics kind.
+const CONNECTOR_CALLBACKS = [
+  ['github_callback', githubInstall],
+  ['gitlab_callback', gitlabInstall],
+  ['cloudflare_callback', cloudflareInstall],
+  ['linear_callback', linearInstall],
+  ['jira_callback', jiraInstall],
+  ['asana_callback', asanaInstall],
+  ['sentry_callback', sentryInstall],
+  ['plaud_callback', plaudInstall],
+  ['posthog_callback', posthogInstall],
+  ['slack_callback', slackInstall],
+  ['discord_callback', discordInstall],
+] as const
+
 type DeepLinkWindowHooks = {
   focusedAppWindow: () => BrowserWindow | null
   showMainWindow: () => BrowserWindow
@@ -50,17 +65,7 @@ function fallbackDeepLinkTarget(): DeepLinkTarget | null {
 
 export function findDeepLinkInArgv(argv: readonly string[]): string | null {
   for (const arg of argv) {
-    if (githubInstall.isCallbackUrl(arg)) return arg
-    if (gitlabInstall.isCallbackUrl(arg)) return arg
-    if (cloudflareInstall.isCallbackUrl(arg)) return arg
-    if (linearInstall.isCallbackUrl(arg)) return arg
-    if (jiraInstall.isCallbackUrl(arg)) return arg
-    if (asanaInstall.isCallbackUrl(arg)) return arg
-    if (sentryInstall.isCallbackUrl(arg)) return arg
-    if (posthogInstall.isCallbackUrl(arg)) return arg
-    if (plaudInstall.isCallbackUrl(arg)) return arg
-    if (slackInstall.isCallbackUrl(arg)) return arg
-    if (discordInstall.isCallbackUrl(arg)) return arg
+    if (CONNECTOR_CALLBACKS.some(([, install]) => install.isCallbackUrl(arg))) return arg
     if (agentChatDeepLink.isAgentChatUrl(arg)) return arg
     if (appOpenDeepLink.isAppOpenUrl(arg)) return arg
     if (personalCredentialDeepLink.isPersonalCredentialUrl(arg)) return arg
@@ -114,69 +119,16 @@ export function handleDeepLink(url: string) {
 
     return
   }
-  if (githubInstall.isCallbackUrl(url)) {
-    captureMain('deep_link_opened', { kind: 'github_callback' })
-    void githubInstall.handleCallback(url)
+  const connector = CONNECTOR_CALLBACKS.find(([, install]) => install.isCallbackUrl(url))
 
-    return
-  }
-  if (gitlabInstall.isCallbackUrl(url)) {
-    captureMain('deep_link_opened', { kind: 'gitlab_callback' })
-    void gitlabInstall.handleCallback(url)
+  if (connector) {
+    const [kind, install] = connector
 
-    return
-  }
-  if (cloudflareInstall.isCallbackUrl(url)) {
-    captureMain('deep_link_opened', { kind: 'cloudflare_callback' })
-    void cloudflareInstall.handleCallback(url)
-
-    return
-  }
-  if (linearInstall.isCallbackUrl(url)) {
-    captureMain('deep_link_opened', { kind: 'linear_callback' })
-    void linearInstall.handleCallback(url)
-
-    return
-  }
-  if (jiraInstall.isCallbackUrl(url)) {
-    captureMain('deep_link_opened', { kind: 'jira_callback' })
-    void jiraInstall.handleCallback(url)
-
-    return
-  }
-  if (asanaInstall.isCallbackUrl(url)) {
-    captureMain('deep_link_opened', { kind: 'asana_callback' })
-    void asanaInstall.handleCallback(url)
-
-    return
-  }
-  if (sentryInstall.isCallbackUrl(url)) {
-    captureMain('deep_link_opened', { kind: 'sentry_callback' })
-    void sentryInstall.handleCallback(url)
-
-    return
-  }
-  if (plaudInstall.isCallbackUrl(url)) {
-    captureMain('deep_link_opened', { kind: 'plaud_callback' })
-    void plaudInstall.handleCallback(url)
-
-    return
-  }
-  if (posthogInstall.isCallbackUrl(url)) {
-    captureMain('deep_link_opened', { kind: 'posthog_callback' })
-    void posthogInstall.handleCallback(url)
-
-    return
-  }
-  if (slackInstall.isCallbackUrl(url)) {
-    captureMain('deep_link_opened', { kind: 'slack_callback' })
-    void slackInstall.handleCallback(url)
-
-    return
-  }
-  if (discordInstall.isCallbackUrl(url)) {
-    captureMain('deep_link_opened', { kind: 'discord_callback' })
-    void discordInstall.handleCallback(url)
+    captureMain('deep_link_opened', { kind })
+    // macOS delivers open-url without raising a window; Windows/Linux raise it
+    // in second-instance. Do it here so "Open Nuphos" visibly lands either way.
+    if (app.isReady()) windowHooks?.showMainWindow()
+    void install.handleCallback(url)
 
     return
   }

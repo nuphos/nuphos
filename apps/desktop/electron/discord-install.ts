@@ -1,7 +1,7 @@
 import { shell } from 'electron'
 
 import * as atlas from './atlas'
-import { connectorCallbackParams } from './connector-oauth-callback'
+import { connectorCallbackError, connectorCallbackParams } from './connector-oauth-callback'
 
 export const DISCORD_CALLBACK_HOST = 'discord-callback'
 const TIMEOUT_MS = 10 * 60 * 1000
@@ -57,9 +57,7 @@ export async function handleCallback(rawUrl: string): Promise<void> {
   const error = params.get('error')
 
   if (error) {
-    request.reject(
-      new Error(`Discord authorization failed: ${params.get('error_description') ?? error}`),
-    )
+    request.reject(connectorCallbackError('Discord', params))
 
     return
   }

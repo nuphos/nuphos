@@ -1,3 +1,5 @@
+import { useRef } from 'react'
+
 import { api } from '../api'
 import { Modal } from '../components/Modal'
 import { toast } from '../components/ui/toast'
@@ -44,10 +46,14 @@ export function BindAccountDialog({
   const { provider, submitting, cloudflareConnecting, reset, error } = st
 
   const cliCheck = useCloudCliCheck(open && Boolean(onOpenAgentChat), provider, teamId)
+  // Closing the dialog cancels the attempt in flight; its rejection must not
+  // toast, and a late result must not touch the next attempt.
+  const cloudflareAttempt = useRef(0)
 
   function close() {
     if (submitting) return
     if (cloudflareConnecting) {
+      cloudflareAttempt.current += 1
       void api.atlasCancelCloudflareConnect(teamId).catch(() => {})
       st.setCloudflareConnecting(false)
     }
@@ -56,20 +62,24 @@ export function BindAccountDialog({
   }
 
   async function connectCloudflareOAuth(scopes?: string[]) {
+    const attempt = ++cloudflareAttempt.current
+
     st.setCloudflareConnecting(true)
     try {
       // Resolves when Cloudflare redirects back through the backend and the
       // desktop receives the nuphos://cloudflare-callback deep link.
       await api.atlasStartCloudflareConnect(teamId, scopes)
+      if (attempt !== cloudflareAttempt.current) return
       reset()
       onBound()
       onClose()
     } catch (e) {
+      if (attempt !== cloudflareAttempt.current) return
       toast.apiError(t('Could not connect {name}', { name: 'Cloudflare' }), e, {
         fallback: t('Check the details and your connection, then try again.'),
       })
     } finally {
-      st.setCloudflareConnecting(false)
+      if (attempt === cloudflareAttempt.current) st.setCloudflareConnecting(false)
     }
   }
 

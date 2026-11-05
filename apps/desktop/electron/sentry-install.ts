@@ -1,7 +1,7 @@
 import { shell } from 'electron'
 
 import * as atlas from './atlas'
-import { connectorCallbackParams } from './connector-oauth-callback'
+import { connectorCallbackError, connectorCallbackParams } from './connector-oauth-callback'
 
 // Shared scheme with asana-install / jira-install — sentry uses a distinct
 // hostname (nuphos://sentry-callback) so the dispatcher in main.ts can route by
@@ -112,9 +112,7 @@ export async function handleCallback(rawUrl: string): Promise<void> {
   const error = params.get('error')
 
   if (error) {
-    const description = params.get('error_description') || error
-
-    p.reject(new Error(`Sentry OAuth failed: ${description}`))
+    p.reject(connectorCallbackError('Sentry', params))
 
     return
   }
