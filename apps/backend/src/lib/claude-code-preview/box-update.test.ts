@@ -153,8 +153,22 @@ describe('Box update', () => {
 
     writeFileSync(fstab, '/dev/vdb  /data  ext4  defaults,nofail 0 2\n')
     const script = lines.join('\n').replaceAll('/etc/fstab', fstab).replaceAll('sudo ', '')
+    // A fake `docker` on PATH, so the host's own Docker never decides the outcome.
+    const withDocker = (images: string) => {
+      const bin = mkdtempSync(path.join(os.tmpdir(), 'box-bin-'))
 
-    execFileSync('/bin/bash', ['-ec', `${script}\n${script}`])
+      writeFileSync(
+        path.join(bin, 'docker'),
+        `#!/bin/sh\n[ "$1" = images ] && echo ${images}\n:\n`,
+        {
+          mode: 0o755,
+        },
+      )
+
+      return { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } }
+    }
+
+    execFileSync('/bin/bash', ['-ec', `${script}\n${script}`], withDocker(''))
     const binds = readFileSync(fstab, 'utf8')
       .split('\n')
       .filter((entry) => entry.includes(' bind,'))
@@ -167,15 +181,8 @@ describe('Box update', () => {
     ])
     expect(BOX_INSTALL_COMMAND).not.toContain('systemctl mask')
     // A Docker that already holds images or volumes keeps them where they are.
-    const bin = mkdtempSync(path.join(os.tmpdir(), 'box-bin-'))
-
-    writeFileSync(path.join(bin, 'docker'), '#!/bin/sh\n[ "$1" = images ] && echo sha256:abc\n', {
-      mode: 0o755,
-    })
     writeFileSync(fstab, '/dev/vdb  /data  ext4  defaults,nofail 0 2\n')
-    execFileSync('/bin/bash', ['-ec', script], {
-      env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
-    })
+    execFileSync('/bin/bash', ['-ec', script], withDocker('sha256:abc'))
     expect(readFileSync(fstab, 'utf8')).not.toContain('/var/lib/docker')
   })
 
