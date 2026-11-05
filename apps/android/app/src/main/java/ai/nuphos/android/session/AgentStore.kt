@@ -465,6 +465,12 @@ class AgentStore(
         fun current() = !disposed && hasAiAccess() && selectedTeam?.id == team && workspaceRevision == revision
         watchingSessionIds = watchingSessionIds + id
         watchError = null
+        // Released once, when this write ends: by then a later write may hold the same conversation.
+        var writing = true
+        fun writeEnded() {
+            if (writing && current()) watchingSessionIds = watchingSessionIds - id
+            writing = false
+        }
         try {
             ConversationActions.watch(token, team, id, watching)
             if (!current()) return
@@ -475,8 +481,8 @@ class AgentStore(
             conversations = conversations.map { if (it.sessionId == id && (it.teamId ?: team) == team) it.copy(watching = watching) else it }
             val affected = sessions.values.filter { it.teamId == team }.toList()
             affected.forEach { if (it.sessionId == id) it.applyWatching(watching) else it.watchingChangedElsewhere() }
-            // The write is done, so the item can be used again while the reads below run.
-            watchingSessionIds = watchingSessionIds - id
+            // The item can be used again while the reads below run.
+            writeEnded()
             reload()
             var refreshFailed = phaseError != null
             for (session in affected.filter { !it.browsingOnly }) {
@@ -489,7 +495,7 @@ class AgentStore(
         } catch (e: Exception) {
             if (current()) watchError = "Could not update watch status. Refresh and try again."
         } finally {
-            if (current()) watchingSessionIds = watchingSessionIds - id
+            writeEnded()
         }
     }
 

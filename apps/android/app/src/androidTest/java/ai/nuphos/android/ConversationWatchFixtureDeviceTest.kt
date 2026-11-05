@@ -301,6 +301,33 @@ class ConversationWatchFixtureDeviceTest {
         jobs.forEach { it.cancel() }
         assertTrue("Still one write for the conversation", deletes("parent") <= 1)
     }
+    @Test fun anEarlierChangeFinishingLeavesTheNextWriteLocked() {
+        render()
+        val firstReread = java.util.concurrent.CountDownLatch(1)
+        val secondWrite = java.util.concurrent.CountDownLatch(1)
+        holdNextList = firstReread
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        val first = compose.runOnIdle { scope.launch { store.setWatching(row("parent")) } }
+        var second: Job? = null
+        var third: Job? = null
+        try {
+            compose.waitUntil(5_000) { row("parent").watching == false && !store.isChangingWatch("parent") }
+            holdWrite = secondWrite
+            second = compose.runOnIdle { scope.launch { store.setWatching(row("parent")) } }
+            compose.waitUntil(5_000) { store.isChangingWatch("parent") }
+            firstReread.countDown()
+            compose.waitUntil(5_000) { first.isCompleted }
+            compose.waitForIdle()
+            assertTrue("The first change finishing can't unlock the second", store.isChangingWatch("parent"))
+            third = compose.runOnIdle { scope.launch { store.setWatching(row("parent")) } }
+            compose.waitForIdle()
+            assertEquals("No third write", 1, requests.count { it.method == "DELETE" && it.url.encodedPath.endsWith("/parent/watch") })
+            assertEquals(1, requests.count { it.method == "PUT" && it.url.encodedPath.endsWith("/parent/watch") })
+        } finally { firstReread.countDown(); secondWrite.countDown() }
+        compose.waitUntil(5_000) { second?.isCompleted == true && !store.isChangingWatch("parent") && row("parent").watching == true }
+        third?.cancel()
+        assertTrue(watched)
+    }
     @Test fun aFailedRereadKeepsTheItemsAndCanBeRetried() {
         render()
         failList = true
