@@ -18,7 +18,7 @@ import type { AuthVariables } from '@/middleware/auth'
 import type { Context, Next } from 'hono'
 
 // Revocation has its own suite; these tokens are never revoked.
-useTokenRevocation({ isTokenRevoked: async () => false, recordTokenLink: async () => {} })
+useTokenRevocation({ isTokenRevoked: async () => false, inheritRevocation: async () => false })
 
 type Doc = Record<string, unknown>
 

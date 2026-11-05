@@ -7,7 +7,7 @@ import { agentSessions } from '@/routes/agent-sessions'
 // Revocation has its own suite; these tokens are never revoked.
 const revocation = useTokenRevocation({
   isTokenRevoked: async () => false,
-  recordTokenLink: async () => {},
+  inheritRevocation: async () => false,
 })
 
 // A token exchanged for `credential:aws/role-1` (#1546). The native tools,

@@ -21,7 +21,7 @@ import { EXCHANGED_TOKEN_MAX_TTL_SEC, TOKEN_EXCHANGE_GRANT } from './token-excha
 import type { AgentRef } from '@/lib/agents/identity'
 
 // Revocation has its own suite; these tokens are never revoked.
-useTokenRevocation({ isTokenRevoked: async () => false, recordTokenLink: async () => {} })
+useTokenRevocation({ isTokenRevoked: async () => false, inheritRevocation: async () => false })
 
 const JWT = 'urn:ietf:params:oauth:token-type:jwt'
 const app = new Hono()

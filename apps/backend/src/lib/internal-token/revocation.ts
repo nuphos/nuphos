@@ -7,6 +7,10 @@
 //
 // Every record carries a TTL on the latest moment a matching token could still
 // be valid, so the collections only ever hold live revocations.
+//
+// Tokens minted before #1374 carry no `jti`: they cannot be revoked one by one,
+// and a token exchanged from one is not linked. Both share their session id,
+// so the session cutoff (archiving) still reaches them.
 import { db } from '@/lib/db'
 import { logEvent } from '@/lib/observability'
 
@@ -18,6 +22,8 @@ type RevokedSession = { _id: string; before: number; expiresAt: Date; reason: st
 const MAX_TOKEN_LIFETIME_MS = 25 * 60 * 60 * 1000
 /** How long one replica trusts a lookup; a revocation reaches every replica within this. */
 const CACHE_MS = 5_000
+/** Above this many entries, expired ones are swept before the next insert. */
+const CACHE_SWEEP_AT = 5_000
 
 const revokedTokens = () => db().collection<RevokedToken>('revoked_conversation_tokens')
 const tokenLinks = () => db().collection<TokenLink>('conversation_token_links')
@@ -52,14 +58,23 @@ async function cached<T extends boolean | number | null>(
   if (hit && hit.until > Date.now()) return hit.value as T
   const value = await load()
 
+  if (cache.size >= CACHE_SWEEP_AT) {
+    const now = Date.now()
+
+    for (const [entry, { until }] of cache) if (until <= now) cache.delete(entry)
+  }
   cache.set(key, { value, until: Date.now() + CACHE_MS })
 
   return value
 }
 
-/** Test hook. */
+/** Test hooks. */
 export function clearRevocationCacheForTest(): void {
   cache.clear()
+}
+
+export function revocationCacheSizeForTest(): number {
+  return cache.size
 }
 
 /** Records that `childJti` was exchanged from `parentJti`, so revoking the parent reaches it. */
@@ -102,6 +117,23 @@ export async function revokeToken(jti: string, exp: number, reason: string): Pro
   return seen.size
 }
 
+/**
+ * Restoring an archived session within the second it was archived would leave
+ * tokens minted after the restore at the cutoff's `iat`. Move such a cutoff one
+ * second back: tokens from that same second before the archive stay valid, which
+ * is the lesser risk than rejecting the restored conversation's own tokens.
+ */
+export async function releaseRestoredSessions(sessionIds: string[]): Promise<void> {
+  if (sessionIds.length === 0) return
+  const now = Math.floor(Date.now() / 1000)
+
+  await revokedSessions().updateMany(
+    { _id: { $in: sessionIds }, before: { $gte: now } },
+    { $set: { before: now - 1 } },
+  )
+  for (const sid of sessionIds) cache.delete(`sid:${sid}`)
+}
+
 /** Revokes every token these sessions were issued up to now. */
 export async function revokeSessionTokens(sessionIds: string[], reason: string): Promise<void> {
   if (sessionIds.length === 0) return
@@ -124,22 +156,39 @@ export async function revokeSessionTokens(sessionIds: string[], reason: string):
   })
 }
 
-/** Whether a verified conversation token has been revoked. */
-export async function isTokenRevoked(claims: {
-  jti?: string
-  sid: string
-  iat: number
-}): Promise<boolean> {
-  const { jti } = claims
-  const [byJti, sessionCutoff] = await Promise.all([
-    jti
-      ? cached(`jti:${jti}`, async () => (await revokedTokens().countDocuments({ _id: jti })) > 0)
-      : false,
-    cached(
-      `sid:${claims.sid}`,
-      async () => (await revokedSessions().findOne({ _id: claims.sid }))?.before ?? null,
-    ),
+type RevocableClaims = { jti?: string; sid: string; iat: number }
+
+const jtiRevoked = async (jti: string) => (await revokedTokens().countDocuments({ _id: jti })) > 0
+const sessionCutoff = async (sid: string) =>
+  (await revokedSessions().findOne({ _id: sid }))?.before ?? null
+
+/**
+ * Whether a verified conversation token has been revoked. `fresh` skips the
+ * per-replica cache, for checks that must not act on a stale answer.
+ */
+export async function isTokenRevoked(claims: RevocableClaims, fresh = false): Promise<boolean> {
+  const { jti, sid } = claims
+  const [byJti, cutoff] = await Promise.all([
+    jti ? (fresh ? jtiRevoked(jti) : cached(`jti:${jti}`, () => jtiRevoked(jti))) : false,
+    fresh ? sessionCutoff(sid) : cached(`sid:${sid}`, () => sessionCutoff(sid)),
   ])
 
-  return byJti || (sessionCutoff !== null && claims.iat <= sessionCutoff)
+  return byJti || (cutoff !== null && claims.iat <= cutoff)
+}
+
+/**
+ * Links a token exchanged from `subject`, then re-reads the subject's state
+ * without the cache. A revocation that raced the exchange, whether by jti
+ * (its link walk ran before this link existed) or by session (this child's
+ * `iat` is past the cutoff), therefore still reaches the child.
+ */
+export async function inheritRevocation(
+  child: { jti: string; exp: number },
+  subject: RevocableClaims,
+): Promise<boolean> {
+  if (subject.jti) await recordTokenLink(child.jti, subject.jti, child.exp)
+  if (!(await isTokenRevoked(subject, true))) return false
+  await revokeToken(child.jti, child.exp, 'subject-revoked')
+
+  return true
 }

@@ -6,7 +6,7 @@
 import { verifyAgentForActor } from '@/lib/agents/identity'
 import { CREDENTIAL_LISTERS } from '@/lib/claude-code-preview/credential-listing'
 import { mintPreviewMcpToken, verifyPreviewMcpToken } from '@/lib/claude-code-preview/mcp-token'
-import { isTokenRevoked, recordTokenLink } from '@/lib/internal-token/revocation'
+import { inheritRevocation, isTokenRevoked } from '@/lib/internal-token/revocation'
 import { logEvent } from '@/lib/observability'
 import { redisEnabled, withRedis } from '@/lib/redis'
 import { getAgentCredentialOptions } from '@/routes/agent/credential-options'
@@ -245,8 +245,10 @@ export async function exchangeConversationToken(
 
   const issued = verifyPreviewMcpToken(accessToken)
 
-  // Revoking the subject later revokes this token too.
-  if (issued?.jti && claims.jti) await recordTokenLink(issued.jti, claims.jti, issued.exp)
+  // Revoking the subject, now or racing this exchange, revokes this token too.
+  if (issued?.jti && (await inheritRevocation({ jti: issued.jti, exp: issued.exp }, claims))) {
+    return fail('invalid_grant', 'subject_token is not a valid conversation token')
+  }
   logEvent('info', 'auth.token_exchange', {
     jti: issued?.jti,
     subject_jti: claims.jti,

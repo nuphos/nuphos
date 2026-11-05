@@ -4,8 +4,11 @@ import { useDb } from '@/lib/test/doubles/db'
 
 import {
   clearRevocationCacheForTest,
+  inheritRevocation,
   isTokenRevoked,
   recordTokenLink,
+  releaseRestoredSessions,
+  revocationCacheSizeForTest,
   revokeSessionTokens,
   revokeToken,
 } from './revocation'
@@ -36,6 +39,16 @@ function fakeCollection(name: string) {
       toArray: async () =>
         [...docs.values()].filter((doc) => filter.parentJti.$in.includes(doc.parentJti as string)),
     }),
+    updateMany: async (
+      filter: { _id: { $in: string[] }; before: { $gte: number } },
+      update: { $set: Record<string, unknown> },
+    ) => {
+      for (const id of filter._id.$in) {
+        const doc = docs.get(id)
+
+        if (doc && (doc.before as number) >= filter.before.$gte) upsert(id, update.$set)
+      }
+    },
     countDocuments: async (filter: { _id: string }) => (docs.has(filter._id) ? 1 : 0),
     findOne: async (filter: { _id: string }) => docs.get(filter._id) ?? null,
   }
@@ -92,5 +105,57 @@ describe('token revocation', () => {
     expect(await isTokenRevoked(claims)).toBe(false)
     await revokeToken('cached', now() + 60, 'test')
     expect(await isTokenRevoked(claims)).toBe(true)
+  })
+
+  test('an exchange that raced a revocation on another replica inherits it', async () => {
+    const subject = { jti: 'parent', sid: 'conv-1', iat: now() }
+
+    // This replica still has a cached "not revoked" for the subject.
+    expect(await isTokenRevoked(subject)).toBe(false)
+    collections.get('revoked_conversation_tokens')?.set('parent', { _id: 'parent' })
+    expect(await isTokenRevoked(subject)).toBe(false)
+    // The uncached re-read after linking catches it and revokes the child.
+    expect(await inheritRevocation({ jti: 'child', exp: now() + 60 }, subject)).toBe(true)
+    expect(await isTokenRevoked({ jti: 'child', sid: 'conv-1', iat: now() })).toBe(true)
+  })
+
+  test('an exchange after a session revocation inherits it too', async () => {
+    const subject = { jti: 'p2', sid: 'conv-1', iat: now() - 10 }
+
+    await revokeSessionTokens(['conv-1'], 'archived')
+    // The child is minted after the cutoff, so only the link keeps it in reach.
+    expect(await inheritRevocation({ jti: 'c2', exp: now() + 60 }, subject)).toBe(true)
+    expect(await isTokenRevoked({ jti: 'c2', sid: 'conv-1', iat: now() + 5 })).toBe(true)
+  })
+
+  test('an exchange from a live subject only records the link', async () => {
+    expect(
+      await inheritRevocation({ jti: 'c3', exp: now() + 60 }, { jti: 'p3', sid: 's', iat: now() }),
+    ).toBe(false)
+    await revokeToken('p3', now() + 60, 'test')
+    expect(await isTokenRevoked({ jti: 'c3', sid: 's', iat: now() })).toBe(true)
+  })
+
+  test('a restore in the second of its archive keeps the restored tokens valid', async () => {
+    await revokeSessionTokens(['conv-1'], 'archived')
+    await releaseRestoredSessions(['conv-1'])
+    expect(await isTokenRevoked({ jti: 'fresh', sid: 'conv-1', iat: now() })).toBe(false)
+    expect(await isTokenRevoked({ jti: 'old', sid: 'conv-1', iat: now() - 10 })).toBe(true)
+  })
+
+  test('expired cache entries are swept once the cache grows', async () => {
+    for (let i = 0; i < 5000; i++)
+      await isTokenRevoked({ jti: `t${String(i)}`, sid: 's', iat: now() })
+    expect(revocationCacheSizeForTest()).toBeGreaterThanOrEqual(5000)
+    const realNow = Date.now
+
+    Date.now = () => realNow() + 10_000
+    try {
+      await isTokenRevoked({ jti: 'after', sid: 's2', iat: now() })
+    } finally {
+      Date.now = realNow
+    }
+    // Everything older than the cache window is gone; only the newest lookups remain.
+    expect(revocationCacheSizeForTest()).toBeLessThanOrEqual(2)
   })
 })

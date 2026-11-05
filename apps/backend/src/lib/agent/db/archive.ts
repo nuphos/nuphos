@@ -1,4 +1,4 @@
-import { revokeSessionTokens } from '@/lib/internal-token/revocation'
+import { releaseRestoredSessions, revokeSessionTokens } from '@/lib/internal-token/revocation'
 
 import { agentConversations } from './shared'
 
@@ -44,6 +44,7 @@ export async function setConversationArchived(sessionId: string, archived: boole
     )
   }
   await agentConversations().updateOne({ sessionId }, restore())
+  await releaseRestoredSessions([sessionId, ...descendants])
 }
 
 /** Every conversation nested below `rootId` matching `scope`; `seen` stops a loop. */
@@ -73,6 +74,8 @@ export async function restoreArchivedConversation(sessionId: string): Promise<bo
     { sessionId, archivedAt: { $exists: true } },
     { $unset: { archivedAt: '' }, $set: { archiveRestoredAt: new Date() } },
   )
+
+  if (result.modifiedCount > 0) await releaseRestoredSessions([sessionId])
 
   return result.modifiedCount > 0
 }

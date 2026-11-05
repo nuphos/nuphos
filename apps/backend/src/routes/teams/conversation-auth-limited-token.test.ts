@@ -10,7 +10,7 @@ import { useTokenRevocation } from '@/lib/test/doubles/token-revocation'
 import { dispatchConversationTeamApi, requireUserOrConversationAuth } from './conversation-auth'
 
 // Revocation has its own suite; these tokens are never revoked.
-useTokenRevocation({ isTokenRevoked: async () => false, recordTokenLink: async () => {} })
+useTokenRevocation({ isTokenRevoked: async () => false, inheritRevocation: async () => false })
 
 useAgentsIdentity({
   verifyAgentForActor: async (userId, owner, sessionId) => ({

@@ -14,6 +14,7 @@ useTokenRevocation({
   revokeSessionTokens: async (sessionIds) => {
     revokedSessions.push(sessionIds)
   },
+  releaseRestoredSessions: async () => {},
 })
 
 type Doc = Record<string, unknown>
