@@ -20,7 +20,11 @@ export async function sessionConfigRestoreContext(
     teamId,
     conversation.userId,
     conversation.userId,
-    { external: endpoint?.external, backendUrl: endpoint?.backendUrl },
+    {
+      external: endpoint?.external,
+      backendUrl: endpoint?.backendUrl,
+      parentSessionId: conversation.parentSessionId,
+    },
   )
   const provider = runtimeProvider(conversation.agentRuntime)
   const systemPrompt = await buildPreviewSystemPrompt({

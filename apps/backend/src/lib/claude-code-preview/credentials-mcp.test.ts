@@ -270,3 +270,27 @@ describe('credentialsMcpTools', () => {
     expect(result.content[0]).toMatchObject({ text: expect.stringContaining('403') })
   })
 })
+
+describe('sub-agent thread tokens', () => {
+  const tokenOf = async (options?: { parentSessionId?: string }) => {
+    const access = await previewSessionAccess('thread-1', 'team-1', 'owner', 'owner', {
+      backendUrl: 'https://backend.example',
+      ...options,
+    })
+    const header = access.mcpServers[0]?.headers.find((h) => h.name === 'Authorization')
+
+    return verifyPreviewMcpToken(header?.value.slice('Bearer '.length) ?? '')
+  }
+
+  test('name the parent conversation as the RFC 8693 actor', async () => {
+    const claims = await tokenOf({ parentSessionId: 'parent-1' })
+
+    expect(claims?.act).toEqual({ sub: 'session:parent-1' })
+    // A thread token is not credential-limited: its subset is its own selection (#1408).
+    expect(claims?.lim).toBeUndefined()
+  })
+
+  test('a top-level conversation has no actor', async () => {
+    expect((await tokenOf())?.act).toBeUndefined()
+  })
+})
