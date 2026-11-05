@@ -92,9 +92,15 @@ export function decideErrorToast(e: unknown): ErrorToastDecision {
  * a retry.
  */
 export function isConversationUnavailable(e: unknown): boolean {
-  const parsed = parseAtlasError(e)
+  if (parseAtlasError(e).code === 'forbidden') return true
 
-  if (parsed.code === 'forbidden') return true
+  return isNotFound(e)
+}
+
+/** The backend says the requested resource does not exist. A route missing on
+ *  an older backend is version skew, not this. */
+export function isNotFound(e: unknown): boolean {
+  const parsed = parseAtlasError(e)
 
   return parsed.code === 'not_found' && !isRouteNotFound(parsed)
 }
