@@ -4390,6 +4390,7 @@
   "The agent could not be resumed.": "No se pudo reanudar el agente.",
   "The agent decided to run this on its own — no plan or per-command approval was in effect": "El agente decidió ejecutarlo por su cuenta: no había ningún plan ni aprobación por comando vigente",
   "The agent finished without a text response.": "El agente terminó sin una respuesta de texto.",
+  "The agent had already started, so your message stays and the turn stops": "El agente ya había empezado, así que tu mensaje se queda y el turno se detiene",
   "The agent is currently replying in the linked Slack thread. Send your message again once that reply finishes.": "El agente está respondiendo en el hilo de Slack vinculado. Vuelve a enviar tu mensaje cuando termine esa respuesta.",
   "The agent is starting the first command.": "El agente está iniciando el primer comando.",
   "The agent is still archived. Try again from the Agent history.": "El agente sigue archivado. Inténtalo de nuevo desde el historial de agentes.",

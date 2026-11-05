@@ -4390,6 +4390,7 @@
   "The agent could not be resumed.": "Agen tidak dapat dilanjutkan.",
   "The agent decided to run this on its own — no plan or per-command approval was in effect": "Agen memutuskan menjalankan ini sendiri — tidak ada rencana atau persetujuan per perintah yang berlaku",
   "The agent finished without a text response.": "Agen selesai tanpa respons teks.",
+  "The agent had already started, so your message stays and the turn stops": "Agen sudah mulai menjawab, jadi pesanmu tetap ada dan giliran ini dihentikan",
   "The agent is currently replying in the linked Slack thread. Send your message again once that reply finishes.": "Agen sedang membalas di thread Slack yang tertaut. Kirim lagi pesan Anda setelah balasan itu selesai.",
   "The agent is starting the first command.": "Agen sedang memulai perintah pertama.",
   "The agent is still archived. Try again from the Agent history.": "Agen masih diarsipkan. Coba lagi dari riwayat Agen.",

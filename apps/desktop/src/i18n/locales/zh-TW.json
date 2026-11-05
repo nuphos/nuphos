@@ -4390,6 +4390,7 @@
   "The agent could not be resumed.": "無法繼續此 Agent。",
   "The agent decided to run this on its own — no plan or per-command approval was in effect": "由 Agent 自行決定執行，當時沒有生效中的計畫或逐一核准",
   "The agent finished without a text response.": "Agent 已結束，但沒有文字回應。",
+  "The agent had already started, so your message stays and the turn stops": "Agent 已經開始回應，訊息會保留，並停止這次執行",
   "The agent is currently replying in the linked Slack thread. Send your message again once that reply finishes.": "Agent 目前正在已連結的 Slack 討論串中回覆。請等回覆完成後再重新傳送訊息。",
   "The agent is starting the first command.": "Agent 正在執行第一個指令。",
   "The agent is still archived. Try again from the Agent history.": "Agent 仍處於封存狀態。請從 Agent 歷史記錄中再試一次。",

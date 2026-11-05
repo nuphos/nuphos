@@ -142,6 +142,8 @@ export type Tab = {
   canManage?: boolean
   /** A fork the server has not stored yet: its sessionId is client-minted until the first turn. */
   unsaved?: boolean
+  /** A message Esc took back while its turn still stops: hidden until the server drops it. */
+  retracting?: string | null
   /** Opened from Archived Chats: archiving again would only rewrite its date. */
   archived?: boolean
   /** The viewer gets this chat's push notifications; absent from an older backend. */

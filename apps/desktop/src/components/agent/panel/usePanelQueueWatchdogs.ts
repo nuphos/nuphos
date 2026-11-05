@@ -10,6 +10,7 @@ import { retractTarget, withoutRetracted } from './composerRecall'
 import { withoutQueued } from './queuedAutoSend'
 
 import type { PanelCtx } from './ctx'
+import type { Tab } from './model'
 
 type Acc = Pick<
   PanelCtx,
@@ -24,14 +25,34 @@ export function usePanelQueueWatchdogs({
   tabsRef,
   teamIdRef,
 }: Acc) {
+  const setPhase = useCallback(
+    (tabId: string, phase: 'stopping' | null) =>
+      setTabs((prev) =>
+        prev.map((t) =>
+          t.id === tabId && (phase === 'stopping' || t.phase === 'stopping') ? { ...t, phase } : t,
+        ),
+      ),
+    [setTabs],
+  )
+
+  /** Stop the running turn; it says "Stopping…" at once, not when the runtime catches up. */
+  const stopTab = useCallback(
+    (tab: Tab) => {
+      setPhase(tab.id, 'stopping')
+      void api.agentCancelRuntime(tab.sessionId, teamIdRef.current).catch((error: unknown) => {
+        setPhase(tab.id, null)
+        toast.apiError(t('Could not send the stop request to the agent'), error)
+      })
+    },
+    [setPhase, teamIdRef],
+  )
+
   const stopActive = useCallback(() => {
     const tab = tabsRef.current.find((candidate) => candidate.id === activeId)
 
     if (!tab || !runtimeAllows(tab.runtimeState, 'cancel')) return
-    void api.agentCancelRuntime(tab.sessionId, teamIdRef.current).catch((error: unknown) => {
-      toast.apiError(t('Could not send the stop request to the agent'), error)
-    })
-  }, [activeId, tabsRef, teamIdRef])
+    stopTab(tab)
+  }, [activeId, stopTab, tabsRef])
 
   /**
    * Esc in an empty composer: take back the newest queued message, else the
@@ -67,20 +88,46 @@ export function usePanelQueueWatchdogs({
     }
     if (!runtimeAllows(tab.runtimeState, 'cancel')) return null
     const { draft } = target
+    // The server stops the turn and waits for it to end before it drops the
+    // message, which takes seconds. Hide it and hand the text back now; the
+    // message returns only if the server refuses.
+    const settle = (taken: boolean) =>
+      setTabs((prev) =>
+        prev.map((t) => {
+          if (t.id !== tab.id || t.retracting !== draft.id) return t
 
-    return api.agentRetractMessage(tab.sessionId, draft.id, teamIdRef.current).then(
+          return taken
+            ? { ...withoutRetracted(t, draft.id), retracting: null }
+            : { ...t, retracting: null }
+        }),
+      )
+
+    setTabs((prev) =>
+      prev.map((t) => (t.id === tab.id ? { ...t, retracting: draft.id, phase: 'stopping' } : t)),
+    )
+    const undone = api.agentRetractMessage(tab.sessionId, draft.id, teamIdRef.current).then(
       () => {
-        setTabs((prev) => prev.map((t) => (t.id === tab.id ? withoutRetracted(t, draft.id) : t)))
+        settle(true)
 
-        return draft
+        return false
       },
       (error: unknown) => {
-        toast.apiError(t('Could not take back the message'), error)
+        settle(false)
+        if (parseAtlasError(error).code === 'message_answered') {
+          // Output arrived first: Esc still stops the turn, as it does once the agent answers.
+          stopTab(tab)
+          toast.info(t('The agent had already started, so your message stays and the turn stops'))
+        } else {
+          setPhase(tab.id, null)
+          toast.apiError(t('Could not take back the message'), error)
+        }
 
-        return null
+        return true
       },
     )
-  }, [activeId, setTabs, tabsRef, teamIdRef])
+
+    return Promise.resolve({ text: draft.text, filePaths: draft.filePaths, undone })
+  }, [activeId, setPhase, setTabs, stopTab, tabsRef, teamIdRef])
 
   useEffect(() => {
     if (!runtimeAllows(activeTab?.runtimeState, 'cancel')) return

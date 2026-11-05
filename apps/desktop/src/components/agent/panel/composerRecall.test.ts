@@ -3,6 +3,7 @@ import { test } from 'node:test'
 
 import {
   caretAtEdge,
+  hidingRetracted,
   historyStep,
   IDLE_CURSOR,
   recallKey,
@@ -180,4 +181,23 @@ test('a taken-back message leaves the transcript with the empty turn after it', 
 
   assert.deepEqual(withoutRetracted({ messages }, 'm1').messages, [messages[0]])
   assert.deepEqual(withoutRetracted({ messages }, 'gone').messages, messages)
+})
+
+test('a message being taken back is hidden at once and not taken back twice', () => {
+  rememberDispatchedDraft('stream-4', { id: 'm1', text: 'deploy it', filePaths: [] })
+  const earlier = [said('m0', 'user', 'hi'), said('a0', 'assistant', 'hello')]
+  const tab = {
+    ...idle,
+    streaming: true,
+    streamId: 'stream-4',
+    messages: [...earlier, said('m1', 'user', 'deploy it'), said('a1', 'assistant', '')],
+  }
+
+  assert.equal(hidingRetracted(tab), tab)
+  const retracting = { ...tab, retracting: 'm1' }
+
+  assert.deepEqual(hidingRetracted(retracting).messages, earlier)
+  // Kept in the tab, so it shows again if the server refuses.
+  assert.equal(retracting.messages.length, 4)
+  assert.equal(retractTarget(retracting), null)
 })

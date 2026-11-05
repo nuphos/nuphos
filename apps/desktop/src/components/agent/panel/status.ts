@@ -108,6 +108,8 @@ export function computeStatus(tab: Tab, lastMsg: Message | undefined): AgentStat
     ['idle', 'dormant', 'cancelled'].includes(snapshot.phase ?? snapshot.state)
   )
     return null
+  // Stop was asked for here; say so before the runtime reports it.
+  if (tab.streaming && tab.phase === 'stopping') return { label: AGENT_PHASE_LABELS.stopping }
   if (failedTurnExplainedInline(snapshot, lastMsg)) return null
   // Running background work already shows as the composer's chip; one place says so.
   if (snapshot.phase === 'background_tools' && shellsFromRuntimeState(snapshot).length > 0)
