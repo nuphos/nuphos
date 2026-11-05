@@ -14,7 +14,8 @@ const tokenExchangeRequestSchema = z.object({
     .describe(
       'Repeatable. `credential:<provider>/<id>`, as `list_credentials` names it. The new token ' +
         'vends only these, each of which the subject token must be able to vend. Omit it to keep ' +
-        "the subject's credentials.",
+        "the subject's credentials. Devices, on-prem clusters and Vanta / Secureframe " +
+        'integrations cannot be named: a limited token has no route to use them.',
     ),
   audience: z.literal('nuphos-preview-mcp').optional(),
   team_id: z.string().optional().describe("Must match the subject token's team when given."),

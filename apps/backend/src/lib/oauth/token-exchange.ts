@@ -113,6 +113,18 @@ function parseTtl(raw: string | undefined, remaining: number): Ttl {
 type Ref = { provider: string; id: string }
 
 /**
+ * Selection fields a limited token cannot use: they are reached only through
+ * native tools (devices, on-prem kubeconfigs) or unscoped team routes
+ * (compliance test proxies), all of which refuse limited tokens.
+ */
+const UNDELEGABLE = new Set<SelectionKey>([
+  'deviceIds',
+  'onpremClusterIds',
+  'vantaIntegrationIds',
+  'secureframeIntegrationIds',
+])
+
+/**
  * The credential limit for `resources`, each one the subject may vend now, as
  * its list_credentials shows it. Returns the refs it could not match instead.
  */
@@ -120,12 +132,13 @@ async function limitFor(
   agent: AgentRef,
   teamId: string,
   refs: Ref[],
-): Promise<{ limit: Record<string, string[]> } | { missing: Ref[] }> {
+): Promise<{ limit: Record<string, string[]> } | { missing: Ref[] } | { undelegable: Ref[] }> {
   const [access, options] = await Promise.all([
     getAgentCredentialAccess(agent, teamId),
     getAgentCredentialOptions(teamId, agent.userId),
   ])
   const limit: Record<string, string[]> = {}
+  const undelegable: Ref[] = []
   let pending = refs
 
   for (const key of Object.keys(CREDENTIAL_LISTERS) as SelectionKey[]) {
@@ -133,11 +146,15 @@ async function limitFor(
     const matches = (ref: Ref) =>
       selected.some((entry) => entry.provider === ref.provider && entry.id === ref.id)
 
-    limit[key] = [...new Set(pending.filter(matches).map((ref) => ref.id))]
+    const matched = pending.filter(matches)
+
+    if (UNDELEGABLE.has(key)) undelegable.push(...matched)
+    limit[key] = [...new Set(matched.map((ref) => ref.id))]
     pending = pending.filter((ref) => !matches(ref))
   }
+  if (pending.length) return { missing: pending }
 
-  return pending.length ? { missing: pending } : { limit }
+  return undelegable.length ? { undelegable } : { limit }
 }
 
 export async function exchangeConversationToken(
@@ -191,10 +208,17 @@ export async function exchangeConversationToken(
   const agent: AgentRef = claims.lim ? { ...ref, credentialLimit: claims.lim } : ref
   const narrowed = refs.length ? await limitFor(agent, claims.tid, refs) : null
 
-  if (narrowed && 'missing' in narrowed) {
-    const names = narrowed.missing.map(({ provider, id }) => `credential:${provider}/${id}`)
+  const named = (list: Ref[]) =>
+    list.map(({ provider, id }) => `credential:${provider}/${id}`).join(', ')
 
-    return fail('invalid_target', `Not available to the subject token: ${names.join(', ')}`)
+  if (narrowed && 'missing' in narrowed) {
+    return fail('invalid_target', `Not available to the subject token: ${named(narrowed.missing)}`)
+  }
+  if (narrowed && 'undelegable' in narrowed) {
+    return fail(
+      'invalid_target',
+      `Cannot be delegated to a limited token: ${named(narrowed.undelegable)}. Exchange without resource to keep the subject's access.`,
+    )
   }
   const actor: TokenActor = {
     sub: request.actor ?? `session:${claims.sid}`,
