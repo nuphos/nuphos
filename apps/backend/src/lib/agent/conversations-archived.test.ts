@@ -10,6 +10,7 @@ import type * as dbActual from '@/lib/db'
 
 // Restores release a same-second session cutoff; its own suite covers that.
 const released: { sessionIds: string[]; generation: number }[] = []
+
 useTokenRevocation({
   releaseRestoredSessions: async (sessionIds, generation) => {
     released.push({ sessionIds, generation })
