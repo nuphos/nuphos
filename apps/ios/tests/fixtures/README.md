@@ -1,3 +1,11 @@
+# Offline by construction
+
+Preview mode (a `-preview-*` argument or `NUPHOS_PREVIEW_RESPONSES`) cannot reach a
+real backend. The API moves to `api.preview.invalid`, answered from the fixture.
+Every other host is refused and logged as `preview_blocked`, except this machine:
+`127.0.0.1`, `localhost` and files still work, so point local assets at those.
+A web view's subresources are out of reach of this, so the dock opens only local pages.
+
 # Simulator notification regression
 
 Build Debug and install `ai.nuphos.ios` into an iOS simulator. Launch it with
