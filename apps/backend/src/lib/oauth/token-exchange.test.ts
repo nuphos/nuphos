@@ -23,7 +23,11 @@ const app = new Hono()
 
 registerOauthTokenRoute(app)
 
-const selection = { awsRoleIds: ['role-1', 'role-2'], linearWorkspaceIds: ['ws-1'] }
+const selection = {
+  awsRoleIds: ['role-1', 'role-2'],
+  linearWorkspaceIds: ['ws-1'],
+  vantaIntegrationIds: ['vanta-1'],
+}
 const baseOptions = await realOptions.getAgentCredentialOptions(undefined, 'user-1')
 
 useAgentsIdentity({
@@ -36,6 +40,7 @@ useCredentialOptions({
       ...baseOptions,
       awsRoles: ['role-1', 'role-2', 'role-3'].map((roleId) => ({ roleId, accountId: roleId })),
       linearWorkspaces: [{ workspaceId: 'ws-1', label: 'Zeabur' }],
+      vantaIntegrations: [{ integrationId: 'vanta-1', label: 'Vanta' }],
     }) as never,
 })
 useAgentSessionsShared({
@@ -218,4 +223,16 @@ test('a repeated single-valued field keeps its last value', async () => {
   })
 
   expect(status).toBe(200)
+})
+
+test('refuses credentials a limited token could not use', async () => {
+  const { status, json } = await exchange({
+    subject_token: await subject(),
+    resource: ['credential:aws/role-1', 'credential:vanta/vanta-1'],
+  })
+
+  expect(status).toBe(400)
+  expect(json.error).toBe('invalid_target')
+  expect(json.error_description).toContain('Cannot be delegated to a limited token')
+  expect(json.error_description).toContain('credential:vanta/vanta-1')
 })
