@@ -1,3 +1,5 @@
+import { releaseRestoredSessions, revokeSessionTokens } from '@/lib/internal-token/revocation'
+
 import { agentConversations } from './shared'
 
 const restore = () => ({
@@ -29,17 +31,27 @@ export async function setConversationArchived(sessionId: string, archived: boole
       { sessionId: { $in: [sessionId, ...descendants] }, archivedAt: { $exists: false } },
       { $set: { archivedAt: archivedAt ?? new Date() } },
     )
+    // A thread never outlives its parent: tokens issued so far stop working.
+    await revokeSessionTokens([sessionId, ...descendants], 'archived')
 
     return
   }
+  // Only threads the cascade archived come back; one archived on its own stays.
+  const restored =
+    archivedAt && descendants.length > 0
+      ? (
+          await agentConversations()
+            .find({ sessionId: { $in: descendants }, archivedAt }, { projection: { sessionId: 1 } })
+            .toArray()
+        ).map((thread) => thread.sessionId)
+      : []
+
   // Descendants first: the parent's stamp is what a retry needs to find them.
-  if (archivedAt && descendants.length > 0) {
-    await agentConversations().updateMany(
-      { sessionId: { $in: descendants }, archivedAt },
-      restore(),
-    )
+  if (restored.length > 0) {
+    await agentConversations().updateMany({ sessionId: { $in: restored }, archivedAt }, restore())
   }
   await agentConversations().updateOne({ sessionId }, restore())
+  await releaseRestoredSessions([sessionId, ...restored])
 }
 
 /** Every conversation nested below `rootId` matching `scope`; `seen` stops a loop. */
@@ -69,6 +81,8 @@ export async function restoreArchivedConversation(sessionId: string): Promise<bo
     { sessionId, archivedAt: { $exists: true } },
     { $unset: { archivedAt: '' }, $set: { archiveRestoredAt: new Date() } },
   )
+
+  if (result.modifiedCount > 0) await releaseRestoredSessions([sessionId])
 
   return result.modifiedCount > 0
 }

@@ -702,6 +702,7 @@
   "POST /oauth/authorize": "public",
   "POST /oauth/authorize/email": "public",
   "POST /oauth/register": "public",
+  "POST /oauth/revoke": "public",
   "POST /oauth/token": "public",
   "POST /personal-credentials/:provider/complete": "user",
   "POST /personal-credentials/:provider/start": "user",

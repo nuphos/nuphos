@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 import { verifyPreviewMcpToken } from '@/lib/claude-code-preview/mcp-token'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
+import { isTokenRevoked } from '@/lib/internal-token/revocation'
 import { logError } from '@/lib/observability'
 import {
   claimPersonalCredential,
@@ -119,7 +120,7 @@ personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
     ? verifyPreviewMcpToken(authorization.slice('Bearer '.length))
     : null
 
-  if (!claims) {
+  if (!claims || (await isTokenRevoked(claims))) {
     throw new AppError(403, 'forbidden', 'Only an agent conversation can use this handout')
   }
   // An exchanged token vends only the credentials it names; mail and files are not among them.

@@ -21,6 +21,7 @@ import { Hono } from 'hono'
 
 import { registerOauthAuthorizeRoutes } from '@/routes/oauth/authorize'
 import { registerOauthRegisterRoute } from '@/routes/oauth/register'
+import { registerOauthRevokeRoute } from '@/routes/oauth/revoke'
 import { registerOauthTokenRoute } from '@/routes/oauth/token'
 
 export const oauthRoutes = new Hono()
@@ -28,3 +29,4 @@ export const oauthRoutes = new Hono()
 registerOauthRegisterRoute(oauthRoutes)
 registerOauthAuthorizeRoutes(oauthRoutes)
 registerOauthTokenRoute(oauthRoutes)
+registerOauthRevokeRoute(oauthRoutes)

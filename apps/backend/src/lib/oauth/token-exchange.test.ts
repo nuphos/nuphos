@@ -2,22 +2,26 @@ import { describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
 import {
-  useAgentSessionsShared,
-  real as realShared,
-} from '@/lib/test/doubles/agent-sessions-shared'
-import { useAgentsIdentity } from '@/lib/test/doubles/agents-identity'
-import { real as realOptions, useCredentialOptions } from '@/lib/test/doubles/credential-options'
-import {
   mintPreviewMcpToken,
   personalCredentialSubject,
   scopedPathAllowed,
   verifyPreviewMcpToken,
 } from '@/lib/claude-code-preview/mcp-token'
+import {
+  useAgentSessionsShared,
+  real as realShared,
+} from '@/lib/test/doubles/agent-sessions-shared'
+import { useAgentsIdentity } from '@/lib/test/doubles/agents-identity'
+import { real as realOptions, useCredentialOptions } from '@/lib/test/doubles/credential-options'
+import { useTokenRevocation } from '@/lib/test/doubles/token-revocation'
 import { registerOauthTokenRoute } from '@/routes/oauth/token'
 
 import { EXCHANGED_TOKEN_MAX_TTL_SEC, TOKEN_EXCHANGE_GRANT } from './token-exchange'
 
 import type { AgentRef } from '@/lib/agents/identity'
+
+// Revocation has its own suite; these tokens are never revoked.
+useTokenRevocation({ isTokenRevoked: async () => false, inheritRevocation: async () => false })
 
 const JWT = 'urn:ietf:params:oauth:token-type:jwt'
 const app = new Hono()
@@ -36,13 +40,12 @@ useAgentsIdentity({
     sessionId === 'gone' ? null : { userId, sessionId, conversationOwnerUserId: owner },
 })
 useCredentialOptions({
-  getAgentCredentialOptions: async () =>
-    ({
-      ...baseOptions,
-      awsRoles: ['role-1', 'role-2', 'role-3'].map((roleId) => ({ roleId, accountId: roleId })),
-      linearWorkspaces: [{ workspaceId: 'ws-1', label: 'Zeabur' }],
-      vantaIntegrations: [{ integrationId: 'vanta-1', label: 'Vanta' }],
-    }) as never,
+  getAgentCredentialOptions: async () => ({
+    ...baseOptions,
+    awsRoles: ['role-1', 'role-2', 'role-3'].map((roleId) => ({ roleId, accountId: roleId })),
+    linearWorkspaces: [{ workspaceId: 'ws-1', label: 'Zeabur' }],
+    vantaIntegrations: [{ integrationId: 'vanta-1', label: 'Vanta' }],
+  }),
 })
 useAgentSessionsShared({
   getAgentCredentialAccess: async (agent: AgentRef) => {
@@ -175,14 +178,15 @@ describe('token exchange', () => {
 
 describe('limitCredentialAccess', () => {
   test('intersects selections and narrows team-wide fields to the limit', () => {
-    const limited = realShared.limitCredentialAccess(
-      {
-        awsRoleIds: ['role-1', 'role-2'],
-        linearWorkspaceIds: ['ws-1'],
-        githubInstallationIds: undefined,
-      } as Record<string, string[] | undefined>,
-      { awsRoleIds: ['role-2'], githubInstallationIds: ['gh-1'] },
-    )
+    const conversationAccess: Record<string, string[] | undefined> = {
+      awsRoleIds: ['role-1', 'role-2'],
+      linearWorkspaceIds: ['ws-1'],
+      githubInstallationIds: undefined,
+    }
+    const limited = realShared.limitCredentialAccess(conversationAccess, {
+      awsRoleIds: ['role-2'],
+      githubInstallationIds: ['gh-1'],
+    })
 
     expect(limited).toEqual({
       awsRoleIds: ['role-2'],

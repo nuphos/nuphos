@@ -8,6 +8,7 @@ import {
 import { verifyAgentForActor } from '@/lib/agents/identity'
 import { verifyPreviewMcpToken } from '@/lib/claude-code-preview/mcp-token'
 import { AppError } from '@/lib/errors'
+import { isTokenRevoked } from '@/lib/internal-token/revocation'
 import { requireAuth } from '@/middleware/auth'
 import { agentSessions } from '@/routes/agent-sessions'
 import { getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
@@ -71,6 +72,9 @@ export const requireUserOrConversationAuth: MiddlewareHandler<{
   const claims = verifyPreviewMcpToken(token)
 
   if (!claims) return requireAuth(c, next)
+  if (await isTokenRevoked(claims)) {
+    throw new AppError(401, 'token_revoked', 'This conversation token has been revoked')
+  }
   const pathTeamId = teamIdFromPath(c.req.path)
 
   if (pathTeamId !== claims.tid) {

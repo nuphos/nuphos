@@ -16,6 +16,7 @@ import { scopedPathAllowed, verifyPreviewMcpToken } from '@/lib/claude-code-prev
 import { nuphosToolsMcp } from '@/lib/claude-code-preview/nuphos-tools-mcp'
 import { resolvePreviewToolContext } from '@/lib/claude-code-preview/preview-tool-context-resolve'
 import { AppError, errorHandler, notFoundHandler } from '@/lib/errors'
+import { isTokenRevoked } from '@/lib/internal-token/revocation'
 import { fail, handleMcpHttpPayload } from '@/lib/mcp/protocol'
 import { requireAuth, requireTeamMember } from '@/middleware/auth'
 import { accountScoped } from '@/routes/agent-sessions/aws'
@@ -80,6 +81,9 @@ const previewMcpOrSessionAuth: MiddlewareHandler<{ Variables: AuthVariables }> =
   const claims = bearer ? verifyPreviewMcpToken(bearer) : null
 
   if (!claims) return requireAuth(c, next)
+  if (await isTokenRevoked(claims)) {
+    throw new AppError(401, 'token_revoked', 'This conversation token has been revoked')
+  }
   if (!scopedPathAllowed(c.req.path, claims)) {
     throw new AppError(403, 'forbidden', 'This token is not valid for this path')
   }

@@ -1,10 +1,24 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { useDb } from '@/lib/test/doubles/db'
+import { useTokenRevocation } from '@/lib/test/doubles/token-revocation'
 
 import { setConversationArchived } from './archive'
 
 import type * as dbActual from '@/lib/db'
+
+// The sessions whose tokens each archive revoked.
+const revokedSessions: string[][] = []
+const releasedSessions: string[][] = []
+
+useTokenRevocation({
+  revokeSessionTokens: async (sessionIds) => {
+    revokedSessions.push(sessionIds)
+  },
+  releaseRestoredSessions: async (sessionIds) => {
+    releasedSessions.push(sessionIds)
+  },
+})
 
 type Doc = Record<string, unknown>
 
@@ -79,6 +93,8 @@ describe('setConversationArchived', () => {
 
     expect(['root', 'child', 'grandchild'].map(archived)).toEqual([true, true, true])
     expect(archived('unrelated')).toBe(false)
+    // A thread never outlives its parent: every token the tree was issued is revoked.
+    expect(revokedSessions.at(-1)?.toSorted()).toEqual(['child', 'grandchild', 'root'])
   })
 
   test("leaves a teammate's conversation alone", async () => {
@@ -94,6 +110,8 @@ describe('setConversationArchived', () => {
     await setConversationArchived('root', false)
 
     expect(['root', 'child', 'grandchild'].map(archived)).toEqual([false, false, true])
+    // The thread that stays archived keeps its revoked tokens revoked.
+    expect(releasedSessions.at(-1)?.toSorted()).toEqual(['child', 'root'])
   })
 
   test('a restore retried after a failed write still restores the tree', async () => {

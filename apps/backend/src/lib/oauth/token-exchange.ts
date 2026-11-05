@@ -6,6 +6,7 @@
 import { verifyAgentForActor } from '@/lib/agents/identity'
 import { CREDENTIAL_LISTERS } from '@/lib/claude-code-preview/credential-listing'
 import { mintPreviewMcpToken, verifyPreviewMcpToken } from '@/lib/claude-code-preview/mcp-token'
+import { inheritRevocation, isTokenRevoked } from '@/lib/internal-token/revocation'
 import { logEvent } from '@/lib/observability'
 import { redisEnabled, withRedis } from '@/lib/redis'
 import { getAgentCredentialOptions } from '@/routes/agent/credential-options'
@@ -177,7 +178,9 @@ export async function exchangeConversationToken(
   }
   const claims = verifyPreviewMcpToken(request.subjectToken)
 
-  if (!claims) return fail('invalid_grant', 'subject_token is not a valid conversation token')
+  if (!claims || (await isTokenRevoked(claims))) {
+    return fail('invalid_grant', 'subject_token is not a valid conversation token')
+  }
   if (request.teamId && request.teamId !== claims.tid) {
     return fail('invalid_target', 'The subject token is not valid for this team')
   }
@@ -240,8 +243,14 @@ export async function exchangeConversationToken(
     ...(!narrowed && claims.lim ? { credentialLimit: claims.lim } : {}),
   })
 
+  const issued = verifyPreviewMcpToken(accessToken)
+
+  // Revoking the subject, now or racing this exchange, revokes this token too.
+  if (issued?.jti && (await inheritRevocation({ jti: issued.jti, exp: issued.exp }, claims))) {
+    return fail('invalid_grant', 'subject_token is not a valid conversation token')
+  }
   logEvent('info', 'auth.token_exchange', {
-    jti: verifyPreviewMcpToken(accessToken)?.jti,
+    jti: issued?.jti,
     subject_jti: claims.jti,
     session_id: claims.sid,
     team_id: claims.tid,

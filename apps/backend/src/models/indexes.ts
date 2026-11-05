@@ -34,6 +34,7 @@ import { setupDeviceLoginIndexes } from '@/lib/identity/device-login'
 import { setupPasswordIndexes } from '@/lib/identity/password'
 import { setupUserSessionIndexes } from '@/lib/identity/sessions'
 import { setupSocialAuthIndexes } from '@/lib/identity/social-store'
+import { setupTokenRevocationIndexes } from '@/lib/internal-token/revocation'
 import { setupLarkAgentIndexes } from '@/lib/lark/agent-bot'
 import { setupNativeAuthIndexes } from '@/lib/native-auth'
 import { logEvent } from '@/lib/observability'
@@ -78,6 +79,7 @@ export async function setupIndexes(): Promise<void> {
     ['core', setupCoreIndexes],
     ['identity', setupIdentityIndexes],
     ['email-otp', setupEmailOtpIndexes],
+    ['token-revocation', setupTokenRevocationIndexes],
     ['password-login', setupPasswordIndexes],
     ['download-link-email', setupDownloadLinkEmailIndexes],
     ['native-auth', setupNativeAuthIndexes],

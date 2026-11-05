@@ -1,7 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 
 import { mintPreviewMcpToken } from '@/lib/claude-code-preview/mcp-token'
+import { useTokenRevocation } from '@/lib/test/doubles/token-revocation'
 import { agentSessions } from '@/routes/agent-sessions'
+
+// Revocation has its own suite; these tokens are never revoked.
+const revocation = useTokenRevocation({
+  isTokenRevoked: async () => false,
+  inheritRevocation: async () => false,
+})
 
 // A token exchanged for `credential:aws/role-1` (#1546). The native tools,
 // plans and file transfers build their own context from the conversation, so
@@ -47,4 +54,15 @@ describe('a limited token on the agent-session mount', () => {
 
     expect(await call('POST', '/mcp-tools', token)).not.toBe(PATH_DENIED)
   })
+})
+
+test('a revoked conversation token is rejected before any handler runs', async () => {
+  revocation({ isTokenRevoked: async () => true })
+  const token = await mintPreviewMcpToken({
+    userId: '64b000000000000000000001',
+    sessionId: 'conv-1',
+    teamId: 'team-1',
+  })
+
+  expect(await call('POST', '/mcp', token)).toBe('401 This conversation token has been revoked')
 })
