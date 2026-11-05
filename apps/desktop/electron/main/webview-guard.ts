@@ -1,6 +1,5 @@
 import { app, BrowserWindow, session } from 'electron'
 
-import { AGENT_BROWSER_PARTITION, claimAgentTab } from './agent-browser.ts'
 import { CHANGELOG_PAGE_PREFIX } from './changelog-feed.ts'
 import { openExternal } from './open-external.ts'
 
@@ -34,29 +33,26 @@ function openExternally(url: string) {
 const isExtensionPage = (url: string) => url.startsWith('chrome-extension://')
 
 /**
- * Browser guests use isolated persistent sessions: the user's, and agents' own
- * (no extensions, none of the user's site data). The reader stays restricted.
+ * Browser guests use one isolated persistent session, shared by the user's tabs
+ * and the ones agents open. The reader stays restricted.
  */
 export function initWebviewGuard() {
   const browserSession = session.fromPartition('persist:browser')
-  const agentSession = session.fromPartition(AGENT_BROWSER_PARTITION)
 
-  for (const browser of [browserSession, agentSession]) {
-    // Remote pages cannot gain device, clipboard, or other permissions implicitly.
-    // Keep both paths denied until the browser has an explicit permission UI.
-    browser.setPermissionCheckHandler(() => false)
-    browser.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
-    browser.setDevicePermissionHandler(() => false)
-    // Sites that remember a trusted browser (Apple ID) bind it to the user agent, so drop the
-    // app and Electron tokens that change with every release and present plain Chrome.
-    browser.setUserAgent(
-      browser
-        .getUserAgent()
-        .replace(/ ([^\s/()]+)\/\S+/g, (token, product: string) =>
-          ['AppleWebKit', 'Chrome', 'Safari'].includes(product) ? token : '',
-        ),
-    )
-  }
+  // Remote pages cannot gain device, clipboard, or other permissions implicitly.
+  // Keep both paths denied until the browser has an explicit permission UI.
+  browserSession.setPermissionCheckHandler(() => false)
+  browserSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
+  browserSession.setDevicePermissionHandler(() => false)
+  // Sites that remember a trusted browser (Apple ID) bind it to the user agent, so drop the
+  // app and Electron tokens that change with every release and present plain Chrome.
+  browserSession.setUserAgent(
+    browserSession
+      .getUserAgent()
+      .replace(/ ([^\s/()]+)\/\S+/g, (token, product: string) =>
+        ['AppleWebKit', 'Chrome', 'Safari'].includes(product) ? token : '',
+      ),
+  )
 
   app.on('web-contents-created', (_event, contents) => {
     contents.on('will-attach-webview', (event, webPreferences, params) => {
@@ -70,9 +66,6 @@ export function initWebviewGuard() {
 
         return
       }
-      // A tab an agent's `open` asked for moves to the agent session before it starts.
-      if (params.partition === 'persist:browser' && claimAgentTab(params.src))
-        (webPreferences as { partition?: string }).partition = AGENT_BROWSER_PARTITION
       delete webPreferences.preload
       webPreferences.nodeIntegration = false
       webPreferences.nodeIntegrationInSubFrames = false
@@ -82,7 +75,7 @@ export function initWebviewGuard() {
     })
 
     // Session identity remains stable during redirects and failed navigation.
-    const browser = contents.session === browserSession || contents.session === agentSession
+    const browser = contents.session === browserSession
     // Extension popups and pages are windows of their own in the user's session; Dock tabs never
     // show extension pages.
     const extensionHost = contents.session === browserSession && contents.getType() !== 'webview'
