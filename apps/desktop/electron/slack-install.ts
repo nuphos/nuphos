@@ -1,7 +1,7 @@
 import { shell } from 'electron'
 
 import * as atlas from './atlas'
-import { connectorCallbackParams } from './connector-oauth-callback'
+import { connectorCallbackError, connectorCallbackParams } from './connector-oauth-callback'
 
 export const SLACK_CALLBACK_HOST = 'slack-callback'
 const INSTALL_TIMEOUT_MS = 10 * 60 * 1000
@@ -106,9 +106,7 @@ export async function handleCallback(rawUrl: string): Promise<void> {
 
   if (error) {
     void atlas.cancelSlackOAuth(p.teamId, state).catch(() => {})
-    const description = params.get('error_description') || error
-
-    p.reject(new Error(`Slack install failed: ${description}`))
+    p.reject(connectorCallbackError('Slack', params))
 
     return
   }

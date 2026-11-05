@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { connectorCallbackParams } from './connector-oauth-callback.ts'
+import { decideErrorToast } from '../src/api/errors.ts'
+
+import { buildAtlasError } from './atlas/error.ts'
+import { connectorCallbackError, connectorCallbackParams } from './connector-oauth-callback.ts'
 
 const never = () => Promise.reject(new Error('should not be called'))
 
@@ -31,4 +34,30 @@ test('turns a failed completion into an error the install flow reports', async (
 
   assert.equal(params.get('error'), 'complete_failed')
   assert.equal(params.get('error_description'), 'gone')
+})
+
+test("a provider's refusal reaches the connect toast instead of the generic fallback", () => {
+  const params = new URLSearchParams({
+    error: 'access_denied',
+    error_description: 'The user denied access',
+  })
+
+  assert.deepEqual(decideErrorToast(connectorCallbackError('Cloudflare', params)), {
+    action: 'show',
+    description: 'Cloudflare OAuth failed: The user denied access',
+  })
+})
+
+test("a failed completion shows the backend's own message", async () => {
+  const url = new URL('nuphos://cloudflare-callback?state=s&deferred=1&code=c')
+  const params = await connectorCallbackParams(url, 't', () =>
+    Promise.reject(
+      buildAtlasError('No approved connection is waiting for this request', 'oauth_not_ready'),
+    ),
+  )
+
+  assert.deepEqual(decideErrorToast(connectorCallbackError('Cloudflare', params)), {
+    action: 'show',
+    description: 'No approved connection is waiting for this request',
+  })
 })
