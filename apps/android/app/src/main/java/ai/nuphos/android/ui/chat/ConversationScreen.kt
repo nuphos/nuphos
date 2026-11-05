@@ -719,7 +719,7 @@ internal fun UserMessageContent(sender: MessageAttribution?, text: String, attac
 
 @Composable
 private fun UserAttachments(row: ChatRow.User, session: ChatSession) {
-    MessageImages(row.images, row.messageId)
+    MessageImages(row.images, row.messageId, alignEnd = true)
     row.uploads.forEach { attachment ->
         key(attachment.groupId, session) {
             TransferCard(attachment, { session.transferGroup(attachment.groupId) }, session.canReadAttachments, { session.canReadAttachments })
