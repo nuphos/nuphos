@@ -90,7 +90,9 @@ class WorkspaceSetupFixtureDeviceTest {
                 val plans = request.method == "GET" && path == "/agent/plans" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
                 val members = request.method == "GET" && path in setOf("/teams/${a.id}/members", "/teams/${b.id}/members")
                 val policy = request.method == "GET" && path == "/agent/plan-approval-policy" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
-                if (!create && !join && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !policy) unexpected += request
+                // Background reads the home composer makes. Writes stay unexpected.
+                val backgroundRead = request.method == "GET" && (path == "/agent/credential-options" || path == "/agent/devices" || path.endsWith("/agent-runtimes/quota"))
+                if (!create && !join && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !policy && !backgroundRead) unexpected += request
                 var code = 200
                 val body = when {
                     create || join -> {
