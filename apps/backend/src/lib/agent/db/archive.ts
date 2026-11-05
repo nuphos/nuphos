@@ -1,3 +1,5 @@
+import { revokeSessionTokens } from '@/lib/internal-token/revocation'
+
 import { agentConversations } from './shared'
 
 const restore = () => ({
@@ -29,6 +31,8 @@ export async function setConversationArchived(sessionId: string, archived: boole
       { sessionId: { $in: [sessionId, ...descendants] }, archivedAt: { $exists: false } },
       { $set: { archivedAt: archivedAt ?? new Date() } },
     )
+    // A thread never outlives its parent: tokens issued so far stop working.
+    await revokeSessionTokens([sessionId, ...descendants], 'archived')
 
     return
   }

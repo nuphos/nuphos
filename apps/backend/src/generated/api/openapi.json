@@ -18066,6 +18066,64 @@
           }
         }
       }
+    },
+    "/oauth/revoke": {
+      "post": {
+        "operationId": "oauth.revoke",
+        "tags": [
+          "OAuth"
+        ],
+        "summary": "Revoke a conversation token (RFC 7009)",
+        "description": "Form-encoded (`application/x-www-form-urlencoded`). Whoever holds a conversation token may revoke it; every token exchanged from it is revoked too. Responds 200 with an empty body, also for a token that is unknown or already invalid. A revocation reaches every backend replica within a few seconds.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "The conversation token to revoke."
+                  },
+                  "token_type_hint": {
+                    "type": "string",
+                    "description": "Ignored."
+                  }
+                },
+                "required": [
+                  "token"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": false,
+                  "description": "Empty body."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
     }
   }
 }

@@ -65,4 +65,23 @@ export const oauthApiOperations = [
     requestSchema: tokenExchangeRequestSchema,
     responseSchema: tokenExchangeResponseSchema,
   },
+  {
+    operationId: 'oauth.revoke',
+    method: 'post',
+    path: '/oauth/revoke',
+    tags: ['OAuth'],
+    summary: 'Revoke a conversation token (RFC 7009)',
+    description:
+      'Form-encoded (`application/x-www-form-urlencoded`). Whoever holds a conversation token may ' +
+      'revoke it; every token exchanged from it is revoked too. Responds 200 with an empty body, ' +
+      'also for a token that is unknown or already invalid. A revocation reaches every backend ' +
+      'replica within a few seconds.',
+    auth: 'none',
+    requestContentType: 'application/x-www-form-urlencoded',
+    requestSchema: z.object({
+      token: z.string().describe('The conversation token to revoke.'),
+      token_type_hint: z.string().optional().describe('Ignored.'),
+    }),
+    responseSchema: z.object({}).describe('Empty body.'),
+  },
 ] as const satisfies readonly ApiOperation[]

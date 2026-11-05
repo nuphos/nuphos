@@ -5,8 +5,12 @@ import { mintPreviewMcpToken } from '@/lib/claude-code-preview/mcp-token'
 import { errorHandler } from '@/lib/errors'
 import { useAgentSessionsShared } from '@/lib/test/doubles/agent-sessions-shared'
 import { useAgentsIdentity } from '@/lib/test/doubles/agents-identity'
+import { useTokenRevocation } from '@/lib/test/doubles/token-revocation'
 
 import { dispatchConversationTeamApi, requireUserOrConversationAuth } from './conversation-auth'
+
+// Revocation has its own suite; these tokens are never revoked.
+useTokenRevocation({ isTokenRevoked: async () => false, recordTokenLink: async () => {} })
 
 useAgentsIdentity({
   verifyAgentForActor: async (userId, owner, sessionId) => ({
@@ -17,8 +21,7 @@ useAgentsIdentity({
 })
 // The selection as the request sees it once a limit to aws/role-1 is applied.
 useAgentSessionsShared({
-  getAgentCredentialAccess: async () =>
-    ({ awsRoleIds: ['role-1'], githubInstallationIds: [] }) as never,
+  getAgentCredentialAccess: async () => ({ awsRoleIds: ['role-1'], githubInstallationIds: [] }),
 })
 
 const app = new Hono()

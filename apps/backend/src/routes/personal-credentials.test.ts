@@ -9,12 +9,16 @@ import { useAuthMiddleware } from '@/lib/test/doubles/auth-middleware'
 import { useByosSecrets } from '@/lib/test/doubles/byos-secrets'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useModels } from '@/lib/test/doubles/models'
+import { useTokenRevocation } from '@/lib/test/doubles/token-revocation'
 
 import { personalCredentialRoutes, personalCredentialTokenRoutes } from './personal-credentials'
 
 import type { EncryptedSecret } from '@/lib/byos/secrets'
 import type { AuthVariables } from '@/middleware/auth'
 import type { Context, Next } from 'hono'
+
+// Revocation has its own suite; these tokens are never revoked.
+useTokenRevocation({ isTokenRevoked: async () => false, recordTokenLink: async () => {} })
 
 type Doc = Record<string, unknown>
 
@@ -72,24 +76,23 @@ const TEAM_B_CLIENT = {
 let teamClient: { clientId: string; encryptedClientSecret: EncryptedSecret } | null = null
 
 useModels({
-  personalCredentialPendingOAuth: () => collection(pending) as never,
-  personalCredentials: () => collection(saved) as never,
-  teamByosBindings: () =>
-    ({
-      findOne: (filter: { _id: ObjectId }) => {
-        const client = { [TEAM]: teamClient, [TEAM_B]: TEAM_B_CLIENT }[filter._id.toHexString()]
+  personalCredentialPendingOAuth: () => collection(pending),
+  personalCredentials: () => collection(saved),
+  teamByosBindings: () => ({
+    findOne: (filter: { _id: ObjectId }) => {
+      const client = { [TEAM]: teamClient, [TEAM_B]: TEAM_B_CLIENT }[filter._id.toHexString()]
 
-        return Promise.resolve(client ? { googleOAuthClient: client } : null)
-      },
-    }) as never,
+      return Promise.resolve(client ? { googleOAuthClient: client } : null)
+    },
+  }),
 })
 useIdentity({
-  getTeamMembership: ((userId: string, teamId: string) =>
+  getTeamMembership: (userId: string, teamId: string) =>
     Promise.resolve(
       (teamId === TEAM || teamId === TEAM_B) && userId !== 'outsider'
         ? { role: 'MEMBER', team: { id: teamId, name: teamId === TEAM ? 'Acme' : 'Beta' } }
         : null,
-    )) as never,
+    ),
 })
 const fakeOpen = (envelope: EncryptedSecret) =>
   (envelope as unknown as { plaintext: string }).plaintext
