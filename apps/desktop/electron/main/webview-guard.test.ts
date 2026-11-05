@@ -228,28 +228,6 @@ test('changelog popups still open externally, with or without window features', 
   assert.equal(externalUrls.at(-1), 'https://accounts.google.com/gsi/transform')
 })
 
-test("an agent's tab moves to the agent session once, before it starts", async () => {
-  const { expectAgentTab } = await import('./agent-browser.ts')
-  const contents = host()
-  const attach = (src: string) => {
-    const preferences: Record<string, unknown> = {}
-
-    contents.emit('will-attach-webview', { preventDefault: mock.fn() }, preferences, {
-      src,
-      partition: 'persist:browser',
-    })
-
-    return preferences.partition
-  }
-  const drop = expectAgentTab('https://example.com')
-
-  assert.equal(attach('https://other.example'), undefined)
-  assert.equal(attach('https://example.com/'), 'persist:browser-agent')
-  // The user's own tab at the same address stays in their session.
-  assert.equal(attach('https://example.com/'), undefined)
-  drop()
-})
-
 test('extension pages show only in windows of their own, never in a Dock tab', () => {
   for (const [type, allowed] of [
     ['window', true],

@@ -1,5 +1,4 @@
 // Chrome extension APIs in the Dock browser's session (`persist:browser`) only.
-// Agent tabs use another session and never see them.
 import { app, BrowserWindow, webContents } from 'electron'
 import { ElectronChromeExtensions } from 'electron-chrome-extensions'
 
