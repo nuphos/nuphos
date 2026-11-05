@@ -117,7 +117,6 @@ export function ComposerSendControls({
 }: {
   hero: boolean
   readOnly: boolean
-  streaming: boolean
   runtimeCanCancel?: boolean
   executing?: boolean
   slackThread?: AgentSlackThread | null

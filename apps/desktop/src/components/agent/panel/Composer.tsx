@@ -284,7 +284,6 @@ export function Composer({
               executing={executing}
               hero={hero}
               readOnly={readOnly}
-              streaming={streaming}
               slackThread={slackThread}
               hasQueueablePayload={!(isEmpty && filePaths.length === 0)}
               sendDisabled={sendDisabled}
