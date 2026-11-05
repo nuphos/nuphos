@@ -1,12 +1,14 @@
-import clsx from 'clsx'
-import { ExternalLink, Loader2 } from 'lucide-react'
+import { ExternalLink, Loader2, RotateCw } from 'lucide-react'
+import { useState } from 'react'
 
+import { api } from '../../../api'
 import { ClaudeIcon, CodexIcon } from '../../../components/agent/panel/icons'
 import { Button } from '../../../components/ui/button'
 import { useLocalRuntimeState } from '../../../hooks/useLocalRuntimeState'
 import { t } from '../../../i18n'
 import { isMac } from '../../../lib/platform'
 import { ClaudeSignInCode } from '../../settings/ClaudeSignInCode'
+import { InstallButton } from '../../settings/LocalAgentCard'
 import { useLocalAgentLogin } from '../../settings/useLocalAgentLogin'
 
 import {
@@ -85,6 +87,32 @@ function MissingCli({ command }: { command: string }) {
   )
 }
 
+/** Install it from here, or look again after installing it some other way. */
+function MissingCliActions({ provider }: { provider: CliLoginProvider }) {
+  const [checking, setChecking] = useState(false)
+
+  async function check() {
+    setChecking(true)
+    try {
+      await api.localRuntimeRefresh()
+    } catch {
+      // The state push is the answer; a failed look leaves the card as it is.
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <InstallButton provider={provider} />
+      <Button size="sm" variant="ghost" disabled={checking} onClick={() => void check()}>
+        <RotateCw strokeWidth={1.5} className="mr-1.5 h-3.5 w-3.5" />
+        {t('Check again')}
+      </Button>
+    </div>
+  )
+}
+
 function LocalAgentSetupCard({ provider }: { provider: CliLoginProvider }) {
   const state = useLocalRuntimeState()
   const status = setupAgentStatus(state, provider)
@@ -92,12 +120,7 @@ function LocalAgentSetupCard({ provider }: { provider: CliLoginProvider }) {
   const Icon = ICON[provider]
 
   return (
-    <div
-      className={clsx(
-        'space-y-3 rounded-xl border border-zGray-800 bg-zGray-900 px-4 py-3.5',
-        status === 'missing' && 'opacity-60',
-      )}
-    >
+    <div className="space-y-3 rounded-xl border border-zGray-800 bg-zGray-900 px-4 py-3.5">
       <div className="flex items-center gap-3">
         <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-zGray-800 text-main">
           <Icon className="h-5 w-5" />
@@ -116,6 +139,7 @@ function LocalAgentSetupCard({ provider }: { provider: CliLoginProvider }) {
       </div>
       {status === 'signed-out' && <InlineSignIn provider={provider} />}
       {status === 'missing' && <MissingCli command={command} />}
+      {status === 'missing' && <MissingCliActions provider={provider} />}
       {status === 'missing' && (
         <a
           href={installUrl}
