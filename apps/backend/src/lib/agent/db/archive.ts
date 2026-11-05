@@ -27,12 +27,14 @@ export async function setConversationArchived(sessionId: string, archived: boole
   })
 
   if (archived) {
+    const stamp = archivedAt ?? new Date()
+
     await agentConversations().updateMany(
       { sessionId: { $in: [sessionId, ...descendants] }, archivedAt: { $exists: false } },
-      { $set: { archivedAt: archivedAt ?? new Date() } },
+      { $set: { archivedAt: stamp } },
     )
     // A thread never outlives its parent: tokens issued so far stop working.
-    await revokeSessionTokens([sessionId, ...descendants], 'archived')
+    await revokeSessionTokens([sessionId, ...descendants], 'archived', stamp.getTime())
 
     return
   }
@@ -51,7 +53,7 @@ export async function setConversationArchived(sessionId: string, archived: boole
     await agentConversations().updateMany({ sessionId: { $in: restored }, archivedAt }, restore())
   }
   await agentConversations().updateOne({ sessionId }, restore())
-  await releaseRestoredSessions([sessionId, ...restored])
+  if (archivedAt) await releaseRestoredSessions([sessionId, ...restored], archivedAt.getTime())
 }
 
 /** Every conversation nested below `rootId` matching `scope`; `seen` stops a loop. */
@@ -77,12 +79,13 @@ export async function descendantSessionIds(
 
 /** Any new human turn brings an archived conversation back, whoever sends it. */
 export async function restoreArchivedConversation(sessionId: string): Promise<boolean> {
-  const result = await agentConversations().updateOne(
+  const before = await agentConversations().findOneAndUpdate(
     { sessionId, archivedAt: { $exists: true } },
     { $unset: { archivedAt: '' }, $set: { archiveRestoredAt: new Date() } },
+    { returnDocument: 'before', projection: { archivedAt: 1 } },
   )
 
-  if (result.modifiedCount > 0) await releaseRestoredSessions([sessionId])
+  if (before?.archivedAt) await releaseRestoredSessions([sessionId], before.archivedAt.getTime())
 
-  return result.modifiedCount > 0
+  return before !== null
 }

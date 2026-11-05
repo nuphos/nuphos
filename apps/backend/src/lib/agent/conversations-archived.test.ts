@@ -9,7 +9,12 @@ import { getConversations, restoreArchivedConversation } from './db'
 import type * as dbActual from '@/lib/db'
 
 // Restores release a same-second session cutoff; its own suite covers that.
-useTokenRevocation({ releaseRestoredSessions: async () => {} })
+const released: { sessionIds: string[]; generation: number }[] = []
+useTokenRevocation({
+  releaseRestoredSessions: async (sessionIds, generation) => {
+    released.push({ sessionIds, generation })
+  },
+})
 
 let lastQuery: Record<string, unknown> | undefined
 let lastSort: Record<string, number> | undefined
@@ -28,10 +33,10 @@ const collection = {
       },
     }
   },
-  updateOne(filter: unknown, update: unknown) {
+  findOneAndUpdate(filter: unknown, update: unknown) {
     lastUpdate = { filter, update }
 
-    return Promise.resolve({ matchedCount: 1, modifiedCount: 1 })
+    return Promise.resolve({ archivedAt: new Date('2026-11-05T00:00:00Z') })
   },
 }
 
@@ -91,6 +96,11 @@ describe('restoreArchivedConversation', () => {
     expect(lastUpdate?.update).toMatchObject({
       $unset: { archivedAt: '' },
       $set: { archiveRestoredAt: expect.any(Date) },
+    })
+    // Releases only the cutoff of the archive it restored.
+    expect(released.at(-1)).toEqual({
+      sessionIds: ['sess-1'],
+      generation: new Date('2026-11-05T00:00:00Z').getTime(),
     })
   })
 })

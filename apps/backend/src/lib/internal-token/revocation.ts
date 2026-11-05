@@ -16,7 +16,14 @@ import { logEvent } from '@/lib/observability'
 
 type RevokedToken = { _id: string; expiresAt: Date; reason: string; revokedAt: Date }
 type TokenLink = { _id: string; parentJti: string; expiresAt: Date }
-type RevokedSession = { _id: string; before: number; expiresAt: Date; reason: string }
+type RevokedSession = {
+  _id: string
+  before: number
+  expiresAt: Date
+  reason: string
+  /** The archive stamp (ms) that set this cutoff; a restore releases only its own. */
+  generation?: number
+}
 
 /** Longest a conversation token can live (24h), plus slack for clock skew. */
 const MAX_TOKEN_LIFETIME_MS = 25 * 60 * 60 * 1000
@@ -125,34 +132,55 @@ export async function revokeToken(jti: string, exp: number, reason: string): Pro
  * tokens minted after the restore at the cutoff's `iat`. Move such a cutoff one
  * second back: tokens from that same second before the archive stay valid, which
  * is the lesser risk than rejecting the restored conversation's own tokens.
+ * Only the cutoff of the archive being restored (`generation`) is released, so
+ * a newer archive that raced the restore keeps its cutoff.
  */
-export async function releaseRestoredSessions(sessionIds: string[]): Promise<void> {
+export async function releaseRestoredSessions(
+  sessionIds: string[],
+  generation: number,
+): Promise<void> {
   if (sessionIds.length === 0) return
   const now = Math.floor(Date.now() / 1000)
 
   await revokedSessions().updateMany(
-    { _id: { $in: sessionIds }, before: { $gte: now } },
+    { _id: { $in: sessionIds }, before: { $gte: now }, generation },
     { $set: { before: now - 1 } },
   )
   for (const sid of sessionIds) cache.delete(`sid:${sid}`)
 }
 
-/** Revokes every token these sessions were issued up to now. */
-export async function revokeSessionTokens(sessionIds: string[], reason: string): Promise<void> {
+/**
+ * Revokes every token these sessions were issued up to now. `generation` is
+ * the archive stamp (ms), so a later restore can release exactly this cutoff.
+ *
+ * The cutoff is written twice. An exchange that checked its subject while the
+ * first write was in flight may already have minted a child past that cutoff;
+ * the second write, stamped once the first has landed, covers it.
+ */
+export async function revokeSessionTokens(
+  sessionIds: string[],
+  reason: string,
+  generation?: number,
+): Promise<void> {
   if (sessionIds.length === 0) return
-  const before = Math.floor(Date.now() / 1000)
   const expiresAt = new Date(Date.now() + MAX_TOKEN_LIFETIME_MS)
+  const write = (before: number) =>
+    revokedSessions().bulkWrite(
+      sessionIds.map((sid) => ({
+        updateOne: {
+          filter: { _id: sid },
+          // $max: an overlapping, older revocation can never move a cutoff back.
+          update: {
+            $max: { before, expiresAt, ...(generation === undefined ? {} : { generation }) },
+            $set: { reason },
+          },
+          upsert: true,
+        },
+      })),
+    )
 
-  await revokedSessions().bulkWrite(
-    sessionIds.map((sid) => ({
-      updateOne: {
-        filter: { _id: sid },
-        // $max: an overlapping, older revocation can never move a cutoff back.
-        update: { $max: { before, expiresAt }, $set: { reason } },
-        upsert: true,
-      },
-    })),
-  )
+  await write(Math.floor(Date.now() / 1000))
+  await write(Math.floor(Date.now() / 1000))
   for (const sid of sessionIds) cache.delete(`sid:${sid}`)
   logEvent('info', 'auth.conversation_session_tokens.revoked', {
     session_ids: sessionIds,
