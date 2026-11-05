@@ -5,6 +5,7 @@ import { shell } from 'electron'
 // Extension-qualified so this module also resolves under plain node ESM, which
 // is how auth-login.test.ts drives login().
 import { apiUrl, setApiUrl } from './api-endpoint.ts'
+import { buildAtlasError } from './atlas/error.ts'
 import { AccountUnavailableError } from './auth/accounts.ts'
 import { listenOnLoopback } from './auth/callback-server.ts'
 import { requestContext } from './auth/request-context.ts'
@@ -18,6 +19,7 @@ import {
   switchAccountConfig,
   writeConfig,
 } from './auth/config.ts'
+import { unsavedReason } from './auth/unsaved.ts'
 import { apiErrorMessage } from './auth/web.ts'
 import { completeLegacyLogin } from './auth/legacy.ts'
 import { completeNativeLogin } from './auth/native.ts'
@@ -110,13 +112,19 @@ export async function verifyEmailCode(email: string, code: string): Promise<User
   const user = body.user
 
   assertWanted(attempt)
-  await writeConfig({
-    token,
-    api,
-    user: user.name,
-    username: user.username,
-    userInfo: user,
-  })
+  try {
+    await writeConfig({
+      token,
+      api,
+      user: user.name,
+      username: user.username,
+      userInfo: user,
+    })
+  } catch (e) {
+    const reason = unsavedReason(e)
+
+    throw reason ? buildAtlasError(reason, 'sign_in_not_saved') : e
+  }
 
   return user
 }

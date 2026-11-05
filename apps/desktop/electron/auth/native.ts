@@ -1,3 +1,4 @@
+import { buildAtlasError } from '../atlas/error.ts'
 import { isValidUserInfo } from '../auth-status.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../client-version.ts'
 
@@ -8,6 +9,7 @@ import {
   SESSION_POLL_INTERVAL_MS,
 } from './callback-server.ts'
 import { writeConfig } from './config.ts'
+import { unsavedReason } from './unsaved.ts'
 import { assertWanted } from './sign-in-attempt.ts'
 import { apiErrorMessage } from './web.ts'
 import { describeCallbackFailure, errorPage, SUCCESS_HTML } from './pages.ts'
@@ -136,11 +138,13 @@ export async function completeNativeLogin(
           })
         } catch (e) {
           // Never leave the browser waiting on a sign-in that was not kept.
+          const reason = unsavedReason(e)
+
           browser.hit?.respond(
             500,
-            errorPage('Nuphos could not finish the sign-in. Please try again.'),
+            errorPage(reason ?? 'Nuphos could not finish the sign-in. Please try again.'),
           )
-          throw e
+          throw reason ? buildAtlasError(reason, 'sign_in_not_saved') : e
         }
         browser.hit?.respond(200, SUCCESS_HTML)
 
