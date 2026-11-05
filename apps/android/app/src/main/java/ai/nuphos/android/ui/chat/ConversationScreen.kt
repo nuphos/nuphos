@@ -81,6 +81,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.Offset
@@ -416,9 +418,6 @@ fun ConversationScreen(
                                     }
                                 }
                             }
-                            session.runtimeLabel?.let { Text(it, modifier = Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall) }
-                            if (session.cancelRequested) Text("Cancellation requested", modifier = Modifier.padding(horizontal = 16.dp))
-                            if (session.isNative && session.canCancel) TextButton(onClick = session::stop) { Text("Cancel run") }
                             if (session.readOnly) Text("Read-only agent", modifier = Modifier.padding(horizontal = 16.dp))
                             if (session.queued.isNotEmpty()) {
                                 Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -562,6 +561,7 @@ fun ConversationScreen(
                             rejectedSubmission = session.rejectedSubmission,
                             onRejectedRestored = session::clearRejectedSubmission,
                             onStop = if (session.canCancel) session::stop else null,
+                    stopsRuntimeTurn = session.isNative,
                             showControls = session.canManage,
                             selection = session.credentialAccess ?: ai.nuphos.android.model.CredentialSelection(),
                             onSelectionChange = { if (session.canManage) session.credentialAccess = it },
@@ -672,9 +672,8 @@ private fun ChatRowView(
             ),
         )
         is ChatRow.Activity -> Row(verticalAlignment = Alignment.CenterVertically) {
-            if (!row.text.isNullOrEmpty()) Text(row.text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.size(8.dp))
-            if (row.live) LoadingIndicator(Modifier.size(20.dp))
+            if (!row.text.isNullOrEmpty()) ActivityText(row.text, row.live)
+            else if (row.live) LoadingIndicator(Modifier.size(20.dp))
         }
         is ChatRow.Hint -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(row.text, color = if (row.isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodySmall)
@@ -683,6 +682,25 @@ private fun ChatRowView(
         }
         ChatRow.Bottom -> Spacer(Modifier.height(1.dp))
     }
+}
+
+/** What the turn is doing. A band of light moves across it while it's live, as on iOS. */
+@Composable
+private fun ActivityText(text: String, live: Boolean) {
+    val style = MaterialTheme.typography.bodySmall
+    val base = MaterialTheme.colorScheme.onSurfaceVariant
+    if (!live) { Text(text, style = style, color = base); return }
+    val highlight = MaterialTheme.colorScheme.onSurface
+    val shimmer by rememberInfiniteTransition(label = "activity").animateFloat(
+        initialValue = -0.3f, targetValue = 1.3f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            androidx.compose.animation.core.tween(1400, easing = androidx.compose.animation.core.LinearEasing)),
+        label = "activity-band",
+    )
+    Text(text, modifier = Modifier.testTag("activity-live"), style = style.copy(brush = androidx.compose.ui.graphics.Brush.linearGradient(
+        0f to base, (shimmer - 0.15f).coerceIn(0f, 1f) to base, shimmer.coerceIn(0f, 1f) to highlight, (shimmer + 0.15f).coerceIn(0f, 1f) to base, 1f to base,
+        start = androidx.compose.ui.geometry.Offset(0f, 0f), end = androidx.compose.ui.geometry.Offset(320f, 0f),
+    )))
 }
 
 /** The empty space above the composer's rounded card: the transcript can show through it. */

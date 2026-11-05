@@ -34,6 +34,9 @@ sealed class ChatRow {
             messages = session.messages,
             isStreaming = session.isStreaming,
             phaseLabel = session.phaseLabel,
+            runtimeStatus = session.runtimeLabel,
+            runtimeTurnActive = session.runtimeTurnActive,
+            cancelRequested = session.isNative && session.cancelRequested,
             error = session.error,
             stoppedByUser = session.stoppedByUser,
             downloads = if (session.canReadDownloads) session.downloads else emptyList(),
@@ -46,6 +49,9 @@ sealed class ChatRow {
             messages: List<ChatMessage>,
             isStreaming: Boolean = false,
             phaseLabel: String? = null,
+            runtimeStatus: String? = null,
+            runtimeTurnActive: Boolean = false,
+            cancelRequested: Boolean = false,
             error: String? = null,
             stoppedByUser: Boolean = false,
             downloads: List<ai.nuphos.android.data.TransferDownloadGroup> = emptyList(),
@@ -100,7 +106,10 @@ sealed class ChatRow {
                 }
             }
             rows += eventRows(-1)
-            if (isStreaming || !phaseLabel.isNullOrBlank()) rows += Activity(phaseLabel, live = isStreaming)
+            // A native runtime reports its own status; it's the transcript's last row, as on iOS.
+            if (!runtimeStatus.isNullOrBlank()) rows += Activity(runtimeStatus, live = isStreaming || runtimeTurnActive)
+            else if (isStreaming || !phaseLabel.isNullOrBlank()) rows += Activity(phaseLabel, live = isStreaming)
+            if (cancelRequested) rows += Hint("cancel-requested", "Cancellation requested", false)
             error?.takeIf { !stoppedByUser }?.let { rows += Hint("error", it, true) }
             rows += Bottom
             return rows

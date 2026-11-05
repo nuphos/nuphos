@@ -313,6 +313,11 @@ class ChatSession(
         if (observation == null) "Runtime status unavailable" else observation.status(observationClock)
     } else null
 
+    /** The runtime says a turn is running, whether or not this device started it. */
+    val runtimeTurnActive get() = isNative && runtimeObservation?.let {
+        it.fresh(observationClock) && it.snapshot["state"]?.stringValue == "active"
+    } == true
+
     val isNew: Boolean get() = messages.isEmpty() && loaded
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -651,7 +656,12 @@ class ChatSession(
             cancelRequested = true
             scope.launch {
                 try { if (!hasAiAccess) return@launch; RuntimeApi.cancel(token, teamId, sessionId) }
-                catch (e: Exception) { cancelRequested = false; error = e.message }
+                catch (e: Exception) {
+                    cancelRequested = false
+                    error = e.message
+                    // The reader asked for this and may be far up the transcript: show them why it didn't happen.
+                    scrollToLatestRevision += 1
+                }
             }
             return
         }

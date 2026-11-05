@@ -36,6 +36,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 /** Actual Compose controls with synthetic sessions, blocked HTTP, and deferred acknowledgements. */
 @RunWith(AndroidJUnit4::class)
 class RuntimeControlFixtureDeviceTest {
+    @Volatile private var failCancel = false
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private val originals = mutableMapOf<String, OkHttpClient>()
     private data class Recorded(val method: String, val path: String, val body: JsonValue)
@@ -72,7 +73,7 @@ class RuntimeControlFixtureDeviceTest {
                 else -> "{\"error\":{\"message\":\"Fixture polling unavailable\"}}"
             }
             // Failed synthetic reads keep the explicitly seeded status from being refreshed by polling.
-            Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(if (chat || cancel) 200 else 503)
+            Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(if (cancel && failCancel) 503 else if (chat || cancel) 200 else 503)
                 .message("fixture").header("Content-Type", media.toString()).body(text.toResponseBody(media)).build()
         }.build()
         for (name in listOf("client", "chatClient")) {
@@ -165,7 +166,7 @@ class RuntimeControlFixtureDeviceTest {
         compose.onNodeWithText("Must not show idle").assertDoesNotExist()
         compose.runOnIdle { metadata(snapshot(cancel = true)) }
         compose.onNodeWithText("Running fixture").assertIsDisplayed()
-        compose.onNodeWithText("Cancel run").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Stop").assertIsDisplayed()
         compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
         compose.runOnIdle { metadata(snapshot(phase = "awaiting-input", label = "Waiting for fixture input", reply = true)) }
         compose.onNodeWithText("Waiting for fixture input").assertIsDisplayed()
@@ -179,15 +180,15 @@ class RuntimeControlFixtureDeviceTest {
         }
         compose.onNodeWithText("Runtime status unavailable — reconnecting").assertIsDisplayed()
         compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
-        compose.onNodeWithText("Cancel run").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Stop").assertDoesNotExist()
         compose.runOnIdle { metadata(snapshot(schema = 99, send = true, reply = true, cancel = true)) }
         compose.onNodeWithText("Runtime status unavailable — runtime update required").assertIsDisplayed()
         compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
-        compose.onNodeWithText("Cancel run").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Stop").assertDoesNotExist()
         compose.runOnIdle { metadata(snapshot(reply = true, steer = true, cancel = true), actor = false) }
         compose.onNodeWithText("Running fixture").assertIsDisplayed()
         compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
-        compose.onNodeWithText("Cancel run").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Stop").assertDoesNotExist()
         compose.onNodeWithText("Keep runtime draft").assertExists()
         assertNoMutations()
     }
@@ -198,7 +199,7 @@ class RuntimeControlFixtureDeviceTest {
         // Read-only conversations disable drafting entirely (checkpoint behavior), so nothing can be typed or sent.
         compose.onNodeWithContentDescription("Ask Nuphos anything").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
-        compose.onNodeWithText("Cancel run").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Stop").assertDoesNotExist()
         assertNoMutations()
     }
     private fun approvalTool() = ChatPart.Tool("ui-tool", "terminal", false, ChatPart.Tool.State.ApprovalRequested,
@@ -258,11 +259,11 @@ class RuntimeControlFixtureDeviceTest {
     }
     @Test fun cancelRunButtonKeepsAcknowledgementSeparateFromStopped() {
         render(snapshot(cancel = true))
-        compose.onNodeWithText("Cancel run").performClick()
+        compose.onNodeWithContentDescription("Stop").performClick()
         compose.waitUntil(10_000) { requests.any { it.path.endsWith("/cancel-runtime") } }
         compose.onNodeWithText("Cancellation requested").assertIsDisplayed()
         compose.onNodeWithText("Running fixture").assertIsDisplayed()
-        compose.onNodeWithText("Cancel run").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Stop").assertDoesNotExist()
         compose.onNodeWithText("Stopped", substring = true).assertDoesNotExist()
         Assert.assertFalse(session.stoppedByUser)
         Assert.assertEquals(1, requests.count { it.path.endsWith("/cancel-runtime") })
@@ -304,7 +305,7 @@ class RuntimeControlFixtureDeviceTest {
         submit("Legacy UI fixture")
         compose.waitUntil(10_000) { chats.isNotEmpty() && !session.isStreaming }
         Assert.assertTrue(chats.single().body.compact.contains("Legacy UI fixture"))
-        compose.onNodeWithText("Cancel run").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Stop").assertDoesNotExist()
     }
 
     private fun retained() = ComposerSubmission("Read the retained fixture", listOf(ComposerAttachment(
@@ -389,5 +390,50 @@ class RuntimeControlFixtureDeviceTest {
             release.await()
             progress(bytes.size.toLong())
         }
+    }
+
+    private val longParts = (1..30).map { ChatPart.Text(text = "Fixture line $it\nSecond line\nThird line") }
+    private fun readOlder() {
+        compose.onNodeWithTag("transcript-list").performTouchInput { swipeDown(); swipeDown() }
+        compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription("Scroll to latest").fetchSemanticsNodes().isNotEmpty() }
+    }
+    @Test fun theStatusIsATranscriptRowThatScrollsAway() {
+        render(snapshot(cancel = true), parts = longParts)
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Running fixture").fetchSemanticsNodes().isNotEmpty() }
+        val bar = compose.onNodeWithTag("transcript-list").fetchSemanticsNode().boundsInRoot
+        val row = compose.onNodeWithText("Running fixture", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        Assert.assertTrue("It's inside the list", row.top >= bar.top && row.bottom <= bar.bottom)
+        readOlder()
+        compose.onAllNodesWithText("Running fixture").assertCountEquals(0)
+    }
+    @Test fun stopWorksWhileReadingOlderMessagesAndReportsNoStoppedState() {
+        render(snapshot(cancel = true), parts = longParts)
+        readOlder()
+        val before = compose.onNodeWithContentDescription("Scroll to latest").fetchSemanticsNode().boundsInRoot
+        compose.onNodeWithContentDescription("Stop").assertIsDisplayed().performClick()
+        compose.waitUntil(10_000) { requests.any { it.path.endsWith("/cancel-runtime") } }
+        compose.onNodeWithContentDescription("Stop").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Scroll to latest").assertExists()
+        Assert.assertEquals(before, compose.onNodeWithContentDescription("Scroll to latest").fetchSemanticsNode().boundsInRoot)
+        Assert.assertTrue(session.cancelRequested)
+        Assert.assertFalse(session.stoppedByUser)
+    }
+    @Test fun aRefusedStopComesBackAndShowsWhy() {
+        render(snapshot(cancel = true), parts = longParts)
+        readOlder()
+        failCancel = true
+        compose.onNodeWithContentDescription("Stop").performClick()
+        compose.waitUntil(10_000) { session.error != null && !session.cancelRequested }
+        compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription("Scroll to latest").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithText(session.error!!, useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithContentDescription("Stop").assertIsDisplayed().assertIsEnabled()
+    }
+    @Test fun aDraftKeepsSendBesideStop() {
+        render(snapshot(cancel = true, steer = true, reply = true))
+        compose.onNodeWithContentDescription("Ask Nuphos anything").performTextInput("Steer this")
+        compose.onNodeWithContentDescription("Stop").assertIsDisplayed()
+        val stop = compose.onNodeWithContentDescription("Stop").fetchSemanticsNode().boundsInRoot
+        val send = compose.onNodeWithContentDescription("Send").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        Assert.assertTrue("Send comes first, as on iOS it's beside Stop", send.right <= stop.left)
     }
 }
