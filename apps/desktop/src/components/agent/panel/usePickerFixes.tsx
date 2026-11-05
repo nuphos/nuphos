@@ -15,6 +15,7 @@ import { RuntimeLoginDialog } from '../../../views/settings/RuntimeLoginDialog'
 import { toast } from '../../ui/toast'
 
 import { resumeComputer } from './agentRowFix'
+import { rememberSignInAsk } from './signInAsks'
 
 import type { AgentFix, AgentRowViewer } from './agentRowFix'
 
@@ -24,9 +25,13 @@ export type PickerFixes = {
   run: (fix: AgentFix) => void
   /** The fix is underway: a Box waking (from here or a sign-in), or a computer looked at again. */
   busy: (fix: AgentFix) => boolean
+  /** An "ask" this conversation can send: a sign-in, with a conversation to hold it. */
+  canAsk: (fix: AgentFix) => boolean
 }
 
 function busyKey(fix: AgentFix): string | null {
+  if (fix.kind === 'ask') return 'ask'
+
   return fix.kind === 'retry' ? 'retry' : null
 }
 
@@ -37,6 +42,7 @@ export function usePickerFixes({
   open,
   closeMenu,
   onSettings,
+  sessionId,
 }: {
   teamId?: string
   isTeamAdmin: boolean
@@ -44,6 +50,8 @@ export function usePickerFixes({
   /** The picker closes its menu for a sign-in dialog; the banner has none. */
   closeMenu?: () => void
   onSettings?: () => void
+  /** The open conversation, which an ask to sign its agent in belongs to. */
+  sessionId?: string
 }): { fixes: PickerFixes; dialogs: React.ReactNode } {
   const viewerId = useCurrentUser()?.id
   const thisComputer = useThisComputer()
@@ -61,6 +69,30 @@ export function usePickerFixes({
 
       return next
     })
+
+  const canAsk = (fix: AgentFix) =>
+    fix.kind === 'ask' && Boolean(fix.runtimeId && teamId && sessionId)
+  const ask = async (runtimeId: string) => {
+    if (!teamId || !sessionId) return
+    mark('ask', true)
+    try {
+      const { askedName } = await api.runtimeSignInAsk(teamId, runtimeId, sessionId)
+
+      rememberSignInAsk(sessionId, {
+        runtimeId,
+        requesterId: viewerId ?? '',
+        requesterName: '',
+        askedUserIds: [],
+        askedName,
+        askedAt: new Date().toISOString(),
+      })
+      closeMenu?.()
+    } catch (error) {
+      toast.apiError(t('Could not send the request'), error)
+    } finally {
+      mark('ask', false)
+    }
+  }
 
   const run = (fix: AgentFix) => {
     const key = busyKey(fix)
@@ -87,6 +119,8 @@ export function usePickerFixes({
             toast.apiError(t('Could not resume computer'), error)
         },
       })
+    } else if (fix.kind === 'ask' && fix.runtimeId && canAsk(fix)) {
+      void ask(fix.runtimeId)
     } else if (fix.kind === 'retry' && key) {
       mark(key, true)
       window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
@@ -120,6 +154,7 @@ export function usePickerFixes({
 
         return Boolean(key && pending.has(key))
       },
+      canAsk,
     },
     dialogs,
   }
