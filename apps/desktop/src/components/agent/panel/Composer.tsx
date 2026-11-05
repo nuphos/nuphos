@@ -8,7 +8,7 @@ import { ComposerEditor, ComposerSendControls, ComposerTools } from './composerC
 import { BypassControlMenu, ComposerAttachmentMenu } from './composerMenus'
 import { CredentialSelectorButton } from './CredentialSelectorButton'
 import { ModelSelector } from './ModelSelector'
-import { runtimeMayAcceptLater } from './queuedAutoSend'
+import { runtimeSendRefusal } from './queuedAutoSend'
 import { AgentStatusBanner, ReadOnlyConversationNotice } from './ReadOnlyNotice'
 import { runtimeControlSendBlock } from './runtimeControlSignOut'
 import { RuntimeSelector } from './RuntimeSelector'
@@ -104,14 +104,8 @@ export function Composer({
 }) {
   // A transport never authorizes execution or a client-owned follow-up queue.
   const streaming = false
-  // A message the agent can't take yet is queued and sent later, not refused.
-  const runtimeSendBlocked = Boolean(
-    runtimeState &&
-    !runtimeAllows(runtimeState, 'send') &&
-    !runtimeAllows(runtimeState, 'steer') &&
-    !runtimeAllows(runtimeState, 'reply') &&
-    !runtimeMayAcceptLater(runtimeState),
-  )
+  // Queued and sent later, not refused, unless it never will be (an outdated runtime): say why.
+  const runtimeSendBlock = runtimeSendRefusal(runtimeState)
   const runtimeCanCancel = canStop ?? runtimeAllows(runtimeState, 'cancel')
   const modelControl = useSessionConfig(
     modelSession,
@@ -120,7 +114,7 @@ export function Composer({
   const hero = variant === 'hero'
   const agentSendBlock = runtimeControlSendBlock(runtimeControl)
   const [agentMenuOpen, setAgentMenuOpen] = useState(false) // the banner can open it
-  const sendBlocked = runtimeSendBlocked || modelControl.saving || Boolean(agentSendBlock)
+  const sendBlocked = Boolean(runtimeSendBlock ?? agentSendBlock) || modelControl.saving
   const state = useComposerState({
     hero,
     readOnly,
@@ -287,7 +281,7 @@ export function Composer({
               slackThread={slackThread}
               hasQueueablePayload={!(isEmpty && filePaths.length === 0)}
               sendDisabled={sendDisabled}
-              sendBlockedReason={agentSendBlock}
+              sendBlockedReason={agentSendBlock ?? runtimeSendBlock}
               onConnectAgent={runtimeControl?.onConnectAgent}
               onSubmit={actions.submit}
               onStop={onStop}

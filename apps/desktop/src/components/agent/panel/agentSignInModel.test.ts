@@ -78,7 +78,17 @@ test("this computer's agent signs in through its own CLI", () => {
 
   assert.deepEqual(route('local_u-editor_dev-1'), { kind: 'cli', provider: 'claude-code' })
   assert.deepEqual(route('local_u-editor_dev-1_codex'), { kind: 'cli', provider: 'codex' })
-  assert.deepEqual(route('local_u-editor_dev-1_grok'), { kind: 'none' })
+})
+
+test('Grok Build on this computer signs in with the runtime sign-in, as in settings', () => {
+  const runtimeId = 'local_u-editor_dev-1_grok'
+  const instance = { ...managed, id: runtimeId, kind: 'local' as const }
+
+  // It has no CLI sign-in here, and a card with nothing to press was the old answer.
+  assert.deepEqual(signInRoute({ ...base, runtimeId, instance, onThisComputer: true }), {
+    kind: 'dialog',
+    instance,
+  })
 })
 
 test("an added agent on this computer signs in through the runtime, not the default agent's CLI", () => {
