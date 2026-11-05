@@ -20,13 +20,16 @@ import {
 import { mapUser } from './shared'
 import { signNuphosToken } from './token'
 
-import type { NuphosUserDoc } from './shared'
-
 import { errorHandler } from '@/lib/errors'
+import { sha256Hex } from '@/lib/journal/hashing'
 import { useDb } from '@/lib/test/doubles/db'
+import { useDownloadHandoffRateLimit } from '@/lib/test/doubles/download-handoff-rate-limit'
 import { useEmailOtp } from '@/lib/test/doubles/email-otp'
 import { real as realIdentity, useIdentity } from '@/lib/test/doubles/identity'
 import { requireAuth } from '@/middleware/auth/core'
+
+import type { QuotaWindow } from '@/lib/download-handoff-rate-limit'
+import type { NuphosUserDoc } from './shared'
 
 type Doc = Record<string, any>
 const testPassword = randomBytes(24).toString('base64url')
@@ -134,8 +137,32 @@ useEmailOtp({
   },
 })
 
+// Password sign-in now consumes an IP quota through the same primitive as
+// email-otp. Redis is absent in tests, so it returns 'unavailable' — fail-open,
+// exactly as production does. The per-email lockout below still applies.
+//
+// The per-test installer below carries the recorder: it records every
+// consumeQuota call and answers 'unavailable' by default, swapping in a
+// 'limited' stub for the assertions that need it. A no-arg call drops back to
+// this recording base, so the fail-open default stays in place for every test.
+const calls: QuotaWindow[] = []
+
+// Per-test installer for the IP-quota test. Captured at suite scope so the
+// stub can be swapped inside a test body without re-registering
+// beforeEach/afterAll, which the double registry does for every install call.
+// The recording base answers 'unavailable' (fail-open) for every other test;
+// the IP-quota test swaps in 'limited' via setRateLimit({...}).
+const setRateLimit = useDownloadHandoffRateLimit({
+  consumeQuota: (window: QuotaWindow) => {
+    calls.push(window)
+
+    return Promise.resolve('unavailable')
+  },
+})
+
 beforeEach(() => {
   collections.clear()
+  calls.length = 0
   otpValid = true
   docs('users').push({
     _id: USER,
@@ -414,4 +441,114 @@ test('deletion can use the account password without access to the email inbox', 
   expect(otpValid).toBe(false)
   // The member's own GitHub / Linear grants stop working right away.
   expect(docs('personal_credentials')).toHaveLength(0)
+})
+
+test('password sign-in is bounded per IP, not per email', async () => {
+  // An attacker who rotates addresses cannot exhaust the shared Argon2 pool.
+  // The IP quota is the gate that stops a flood of unknown emails from
+  // returning 429 login_busy for legitimate users. The IP gate runs before any
+  // Mongo write, so a limited IP never leaves a per-email attempt behind.
+  const ip = '1.2.3.4'
+  const ipKey = `password-login:ip:${sha256Hex(ip)}`
+  const headers = new Headers({ 'CF-Connecting-IP': ip })
+
+  setRateLimit({
+    consumeQuota: (window: QuotaWindow) => {
+      calls.push(window)
+
+      return Promise.resolve('limited')
+    },
+  })
+
+  await expect(
+    signInWithPassword({ email: 'victim@example.com', password: testPassword }, headers),
+  ).rejects.toMatchObject({ code: 'login_busy' })
+  expect(calls).toHaveLength(1)
+  expect(calls[0]!.key).toBe(ipKey)
+  expect(calls[0]!.limit).toBe(30)
+  expect(calls[0]!.windowSeconds).toBe(15 * 60)
+  // The IP quota fires before the per-email Mongo upsert: no attempt is
+  // recorded, so the counter stays empty.
+  expect(docs('password_login_attempts')).toHaveLength(0)
+
+  // Rotating the email address does not reset the IP cap, and every call still
+  // uses the same IP-keyed window.
+  calls.length = 0
+  await expect(
+    signInWithPassword({ email: 'attacker-2@example.com', password: testPassword }, headers),
+  ).rejects.toMatchObject({ code: 'login_busy' })
+  expect(calls).toHaveLength(1)
+  expect(calls[0]!.key).toBe(ipKey)
+  expect(calls[0]!.limit).toBe(30)
+  expect(calls[0]!.windowSeconds).toBe(15 * 60)
+  expect(docs('password_login_attempts')).toHaveLength(0)
+
+  // A different IP is not limited by this quota: Redis returns fail-open and
+  // the IP cap does not gate the request, so the real failure is the wrong
+  // password, not a 429. Drop back to the recording file-level base.
+  calls.length = 0
+  setRateLimit()
+  await expect(
+    signInWithPassword(
+      { email: 'victim@example.com', password: wrongPassword },
+      new Headers({ 'CF-Connecting-IP': '5.6.7.8' }),
+    ),
+  ).rejects.toMatchObject({ code: 'invalid_credentials' })
+  expect(calls).toHaveLength(1)
+  expect(calls[0]!.key).toBe(`password-login:ip:${sha256Hex('5.6.7.8')}`)
+  expect(calls[0]!.limit).toBe(30)
+  expect(calls[0]!.windowSeconds).toBe(15 * 60)
+})
+
+test('password sign-in keys the IP quota per client IP, so one client cannot spend another’s', async () => {
+  const limitedIp = '1.2.3.4'
+  const limitedKey = `password-login:ip:${sha256Hex(limitedIp)}`
+
+  setRateLimit({
+    consumeQuota: (window: QuotaWindow) => {
+      calls.push(window)
+
+      // Only the first client has spent its window.
+      return Promise.resolve(window.key === limitedKey ? 'limited' : 'unavailable')
+    },
+  })
+
+  try {
+    await expect(
+      signInWithPassword(
+        { email: 'victim@example.com', password: wrongPassword },
+        new Headers({ 'CF-Connecting-IP': limitedIp }),
+      ),
+    ).rejects.toMatchObject({ code: 'login_busy' })
+
+    // The second client has its own bucket and reaches the real password check.
+    await expect(
+      signInWithPassword(
+        { email: 'victim@example.com', password: wrongPassword },
+        new Headers({ 'CF-Connecting-IP': '5.6.7.8' }),
+      ),
+    ).rejects.toMatchObject({ code: 'invalid_credentials' })
+  } finally {
+    setRateLimit()
+  }
+
+  expect(calls.map((window) => window.key)).toEqual([
+    limitedKey,
+    `password-login:ip:${sha256Hex('5.6.7.8')}`,
+  ])
+})
+
+test('password sign-in without a usable client IP skips the IP quota', async () => {
+  // Neither an absent header nor a value that is not an address yields an IP.
+  // There is no honest key, so nothing is charged to a shared "unknown" bucket
+  // that would throttle every IP-less caller together.
+  for (const headers of [new Headers(), new Headers({ 'X-Forwarded-For': 'not-an-ip' })]) {
+    await expect(
+      signInWithPassword({ email: 'review@example.com', password: wrongPassword }, headers),
+    ).rejects.toMatchObject({ code: 'invalid_credentials' })
+  }
+
+  expect(calls).toHaveLength(0)
+  // The per-email limit still counts both attempts.
+  expect(docs('password_login_attempts')[0]!.count).toBe(2)
 })

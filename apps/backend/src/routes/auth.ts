@@ -10,7 +10,7 @@ import { signInWithGoogleCode } from '@/lib/identity'
 import { getDeletionRequest, requestAccountDeletion } from '@/lib/identity/account-deletion'
 import { readAIConsent, saveAIConsent } from '@/lib/identity/ai-consent'
 import { MAX_AVATAR_UPLOAD_BYTES, removeAvatar, uploadAvatar } from '@/lib/identity/avatar-upload'
-import { signInWithPassword, setPasswordWithEmailCode } from '@/lib/identity/password'
+import { setPasswordWithEmailCode, signInFromRequest } from '@/lib/identity/password'
 import { updateProfile } from '@/lib/identity/profile'
 import { FIRST_TOUCH_COOKIE, recordSignupSource } from '@/lib/identity/signup-source'
 import { startSession } from '@/lib/identity/start-session'
@@ -85,7 +85,7 @@ auth.put('/me/avatar', requireAuth, avatarBodyLimit, async (c) =>
 auth.delete('/me/avatar', requireAuth, async (c) => c.json(await removeAvatar(c.get('userId'))))
 
 auth.post('/password/sign-in', async (c) =>
-  c.json(await startSession(c, await signInWithPassword(await c.req.json().catch(() => null)))),
+  c.json(await startSession(c, await signInFromRequest(c.req.raw))),
 )
 
 auth.post('/password/set', async (c) => {
