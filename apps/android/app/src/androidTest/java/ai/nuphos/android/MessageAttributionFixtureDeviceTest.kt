@@ -6,6 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
@@ -13,8 +14,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import ai.nuphos.android.model.*
 import ai.nuphos.android.ui.chat.AgentEventRow
+import ai.nuphos.android.ui.chat.MessageImages
 import ai.nuphos.android.ui.chat.MessageSenderLabel
+import ai.nuphos.android.ui.chat.UserMessageContent
 import ai.nuphos.android.ui.theme.NuphosTheme
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -67,5 +71,60 @@ class MessageAttributionFixtureDeviceTest {
         compose.onNodeWithContentDescription("Collapse event").performClick()
         compose.onNodeWithText("Fixture attachment preserved").assertDoesNotExist()
         compose.onNodeWithText("Android checks finished").assertIsDisplayed()
+    }
+
+    private fun image(): String {
+        val bitmap = Bitmap.createBitmap(200, 200, Bitmap.Config.ARGB_8888)
+        val bytes = java.io.ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+        return "data:image/png;base64," + android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+    }
+    private val me = MessageAttribution("me", "Can Yu", "user", "nuphos")
+    private fun message(sender: MessageAttribution?, text: String, images: Int = 0) {
+        val sources = List(images) { image() }
+        compose.setContent {
+            NuphosTheme(darkTheme = false) {
+                Surface {
+                    Box(Modifier.fillMaxWidth().testTag("message")) {
+                        UserMessageContent(sender, text) { MessageImages(sources, "message") }
+                    }
+                }
+            }
+        }
+        if (images > 0) compose.waitUntil(5_000) {
+            compose.onAllNodesWithContentDescription("Image 1 of $images", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.waitForIdle()
+    }
+    private fun tag(name: String) = compose.onNodeWithTag(name, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+    private fun picture(index: Int, count: Int) =
+        compose.onNodeWithContentDescription("Image $index of $count", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+    private fun assertGap(above: androidx.compose.ui.geometry.Rect, below: androidx.compose.ui.geometry.Rect) {
+        assertEquals(with(compose.density) { 6.dp.toPx() }, below.top - above.bottom, 1f)
+    }
+
+    @Test fun senderAndTextAreSixDpApart() {
+        message(me, "Please check this.")
+        assertGap(tag("message-sender"), tag("user-bubble"))
+    }
+    @Test fun aLongSenderNameKeepsTheGap() {
+        message(MessageAttribution("me", "A very long sender name that needs more than one line to fit in this message", "user", "nuphos"), "Hi")
+        assertGap(tag("message-sender"), tag("user-bubble"))
+    }
+    @Test fun senderImagesAndTextAreSixDpApart() {
+        message(me, "With pictures.", images = 2)
+        assertGap(tag("message-sender"), picture(1, 2))
+        assertGap(picture(1, 2), picture(2, 2))
+        assertGap(picture(2, 2), tag("user-bubble"))
+    }
+    @Test fun onlyImagesLeaveNoSpaceBelowThem() {
+        message(me, "", images = 1)
+        assertGap(tag("message-sender"), picture(1, 1))
+        assertEquals(picture(1, 1).bottom, tag("message").bottom, 1f)
+    }
+    @Test fun withoutASenderThereIsNoSpaceAbove() {
+        message(null, "No sender.")
+        compose.onAllNodesWithTag("message-sender", useUnmergedTree = true).assertCountEquals(0)
+        assertEquals(tag("message").top, tag("user-bubble").top, 1f)
+        assertEquals(tag("message").bottom, tag("user-bubble").bottom, 1f)
     }
 }

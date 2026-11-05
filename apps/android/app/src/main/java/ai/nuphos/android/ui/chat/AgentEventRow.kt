@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,12 +28,13 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ai.nuphos.android.model.ChatRow
+import androidx.compose.ui.platform.testTag
 import ai.nuphos.android.model.MessageAttribution
 import ai.nuphos.android.ui.components.MarkdownText
 
 @Composable
 internal fun MessageSenderLabel(sender: MessageAttribution) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
+    Row(modifier = Modifier.testTag("message-sender"), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
         androidx.compose.foundation.layout.Box(
             Modifier.size(20.dp).clip(androidx.compose.foundation.shape.CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center,
@@ -75,7 +77,7 @@ internal fun AgentEventRow(row: ChatRow.Event, onLink: (String) -> Unit, attachm
             Surface(border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), shape = MaterialTheme.shapes.medium) {
                 Column(Modifier.fillMaxWidth().padding(12.dp)) {
                     MarkdownText(content.text, streaming = false, onLink = onLink)
-                    attachments()
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) { attachments() }
                 }
             }
         }

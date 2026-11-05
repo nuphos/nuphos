@@ -87,6 +87,7 @@ import androidx.navigation.NavHostController
 import ai.nuphos.android.model.ChatPart
 import ai.nuphos.android.model.ChatRow
 import ai.nuphos.android.model.ChatTime
+import ai.nuphos.android.model.MessageAttribution
 import ai.nuphos.android.model.PlanLink
 import ai.nuphos.android.session.ChatSession
 import ai.nuphos.android.ui.LocalAuthSession
@@ -602,13 +603,7 @@ private fun ChatRowView(
         is ChatRow.Event -> AgentEventRow(row, onLink) {
             UserAttachments(row.content, session)
         }
-        is ChatRow.User -> Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
-            row.sender?.let { MessageSenderLabel(it) }
-            UserAttachments(row, session)
-            if (row.text.isNotEmpty()) {
-                UserMessageBubble(row.text)
-            }
-        }
+        is ChatRow.User -> UserMessageContent(row.sender, row.text) { UserAttachments(row, session) }
         is ChatRow.AssistantText -> MarkdownText(row.text, streaming = row.streaming, onLink = onLink)
         is ChatRow.Downloads -> {
             val agents = LocalAgentStore.current
@@ -665,6 +660,16 @@ private fun ChatRowView(
             if (onSwitchRuntime != null && row.text in AgentChatApi.switchRuntimeErrors) SwitchRuntimeButton(onSwitchRuntime)
         }
         ChatRow.Bottom -> Spacer(Modifier.height(1.dp))
+    }
+}
+
+/** Sender, attachments and text, the same 6 dp apart as iOS. A part that isn't there takes no space. */
+@Composable
+internal fun UserMessageContent(sender: MessageAttribution?, text: String, attachments: @Composable () -> Unit) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp), horizontalAlignment = Alignment.End) {
+        sender?.let { MessageSenderLabel(it) }
+        attachments()
+        if (text.isNotEmpty()) UserMessageBubble(text)
     }
 }
 
@@ -822,7 +827,7 @@ internal fun UserMessageBubble(text: String) {
     val preview = remember(text) { MessagePreview.head(text) }
     val folded = preview != null && !expanded
     Surface(
-        modifier = Modifier.padding(start = 56.dp).widthIn(max = 640.dp),
+        modifier = Modifier.padding(start = 56.dp).widthIn(max = 640.dp).testTag("user-bubble"),
         shape = RoundedCornerShape(18.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
