@@ -87,6 +87,7 @@ export function PaneAgentPage({
           unbound={agentUnbound}
           connectedResources={agentConnectedResources}
           onDockToSidebar={onDockAgentToSidebar}
+          newChatDraftId={`tab:${tab.id}`}
           sessionId={tab.agentSessionId}
           onSessionChange={(sid) => updateTab(tabId, (cur) => ({ ...cur, agentSessionId: sid }))}
           onOpenNuphosLink={onOpenNuphosLink}

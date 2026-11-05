@@ -6,6 +6,7 @@ import {
   clearComposerDrafts,
   composerDraftKey,
   loadComposerDraft,
+  newChatDraftKey,
   saveComposerDraft,
 } from './composerDrafts.ts'
 
@@ -57,10 +58,38 @@ test('the new-conversation draft is per team', () => {
   const storage = memoryStorage()
 
   claimComposerDrafts('user-1', storage)
-  saveComposerDraft(composerDraftKey('team-1'), draft('for team one'), storage)
+  saveComposerDraft(newChatDraftKey('team-1', 'primary'), draft('for team one'), storage)
 
-  assert.equal(loadComposerDraft(composerDraftKey('team-2'), storage), null)
-  assert.equal(loadComposerDraft(composerDraftKey('team-1'), storage)?.text, 'for team one')
+  assert.equal(loadComposerDraft(newChatDraftKey('team-2', 'primary'), storage), null)
+  assert.equal(
+    loadComposerDraft(newChatDraftKey('team-1', 'primary'), storage)?.text,
+    'for team one',
+  )
+})
+
+test('a split pane or new tab starts its new chat empty and the original keeps its draft', () => {
+  const storage = memoryStorage()
+  const primary = newChatDraftKey('team-1', 'primary')
+
+  claimComposerDrafts('user-1', storage)
+  saveComposerDraft(primary, draft('h'), storage)
+
+  assert.equal(loadComposerDraft(newChatDraftKey('team-1', 'pane-2'), storage), null)
+  assert.equal(loadComposerDraft(newChatDraftKey('team-1', 'tab:t1'), storage), null)
+  saveComposerDraft(newChatDraftKey('team-1', 'pane-2'), draft('other pane'), storage)
+  assert.equal(loadComposerDraft(primary, storage)?.text, 'h')
+})
+
+test('the first pane still finds the new-chat draft saved before panes had their own', () => {
+  const storage = memoryStorage()
+
+  claimComposerDrafts('user-1', storage)
+  saveComposerDraft('team-1:new', draft('saved by an older version'), storage)
+
+  assert.equal(
+    loadComposerDraft(newChatDraftKey('team-1', 'primary'), storage)?.text,
+    'saved by an older version',
+  )
 })
 
 test('drafts never reach another account', () => {

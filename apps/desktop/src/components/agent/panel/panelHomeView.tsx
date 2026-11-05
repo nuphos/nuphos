@@ -1,6 +1,6 @@
 import { AgentHomePage } from './AgentHomePage'
 import { Composer } from './Composer'
-import { composerDraftKey } from './composerDrafts'
+import { newChatDraftKey } from './composerDrafts'
 import { Welcome } from './homeAnimation'
 import { useLocalSessionImport } from './importLocalSession'
 import { ModelSelector } from './ModelSelector'
@@ -39,6 +39,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
     variant,
     visibleHomeCredentialSelector,
   } = c
+  const draftKey = newChatDraftKey(teamId, c.newChatDraftId)
   const addAgent = useAddAgent(teamId, isTeamAdmin, selectConversationRuntime)
   const { importSession } = useLocalSessionImport({
     teamId,
@@ -106,6 +107,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
         dropRegisterRef={homeDropRef}
         unbound={unbound}
         teamId={teamId}
+        draftKey={draftKey}
         starterSuggestions={homeStarterSuggestions.suggestions}
         starterSuggestionsLoading={homeStarterSuggestions.loading}
       />
@@ -128,7 +130,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
         onSeedConsumed={onPromptConsumed}
         sidebar={isSidebarMode}
         dropRegisterRef={homeDropRef}
-        draftKey={composerDraftKey(teamId)}
+        draftKey={draftKey}
         onImportSession={importSession}
         mentionScope={teamId ? { teamId } : undefined}
       />

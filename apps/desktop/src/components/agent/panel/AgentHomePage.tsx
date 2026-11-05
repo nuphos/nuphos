@@ -1,7 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 
 import { Composer } from './Composer'
-import { composerDraftKey } from './composerDrafts'
 import { successfulTurns } from './endEventEffects'
 import { StarStrip } from './hero'
 import { RevealedHistoryBlock } from './historyRows'
@@ -57,6 +56,7 @@ export function AgentHomePage({
   dropRegisterRef,
   unbound = false,
   teamId,
+  draftKey,
   starterSuggestions = [],
   starterSuggestionsLoading = false,
   shown = true,
@@ -92,8 +92,10 @@ export function AgentHomePage({
   /** Whether the page is in view; each time it comes back, the entrance replays. */
   shown?: boolean
   newChatRequest?: number
-  /** Scopes the composer draft and mentions. Undefined outside a team. */
+  /** Scopes the composer's mentions. Undefined outside a team. */
   teamId?: string
+  /** Where the composer's unsent text is kept; see newChatDraftKey. */
+  draftKey?: string
   // LLM-generated starter questions tailored to the team's connected resources.
   // Empty (and not loading) → the block is hidden.
   starterSuggestions?: AgentStarterSuggestion[]
@@ -167,7 +169,7 @@ export function AgentHomePage({
                   onSeedConsumed={onSeedConsumed}
                   autoFocus={autoFocusComposer && shown}
                   dropRegisterRef={dropRegisterRef}
-                  draftKey={composerDraftKey(teamId)}
+                  draftKey={draftKey}
                   onImportSession={onImportSession}
                   mentionScope={teamId ? { teamId } : undefined}
                 />
