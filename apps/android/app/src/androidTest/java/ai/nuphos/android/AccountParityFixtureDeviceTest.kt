@@ -160,6 +160,11 @@ class AccountParityFixtureDeviceTest {
                     draftNavigation && request.method == "GET" && path == "/teams/bbbbbbbbbbbbbbbbbbbbbbbb/members" -> """{"members":[]}"""
                     draftNavigation && request.method == "GET" && path == "/agent/plan-approval-policy" && request.url.queryParameter("teamId") == "bbbbbbbbbbbbbbbbbbbbbbbb" -> """{"requesterApprovalRequired":true,"minimumOtherApprovals":0}"""
                     request.method == "GET" && path.matches(Regex("/teams/[a-f0-9]{24}/agent-runtimes/quota")) -> """{"quotas":[]}"""
+                    // Background reads the composer and transcript make. Writes stay unexpected.
+                    request.method == "GET" && path == "/agent/credential-options" -> """{"options":{}}"""
+                    request.method == "GET" && path == "/agent/devices" -> """{"devices":[]}"""
+                    request.method == "GET" && path.endsWith("/resources") -> """{"resources":[]}"""
+                    request.method == "GET" && path.endsWith("/file-transfers/downloads") -> """{"groups":[]}"""
                     request.method == "GET" && path == "/agent/conversations" -> """{"conversations":[]}"""
                     request.method == "GET" && path == "/agent/plans" -> """{"plans":[]}"""
                     else -> { unexpected += read; status = 599; "{}" }

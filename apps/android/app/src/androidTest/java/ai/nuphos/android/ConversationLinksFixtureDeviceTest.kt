@@ -83,6 +83,9 @@ class ConversationLinksFixtureDeviceTest {
     @Before fun setup() {
         val optedIn = InstrumentationRegistry.getArguments().getString("isolatedConversationLinks") == "true"
         assumeTrue("Disposable emulator fixture is disabled by default", optedIn)
+        // A fresh install would otherwise cover the first test with the notification prompt.
+        InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(
+            InstrumentationRegistry.getInstrumentation().targetContext.packageName, android.Manifest.permission.POST_NOTIFICATIONS)
         assertTrue("Physical devices require the isolated fixture package",
             Build.HARDWARE in setOf("ranchu", "goldfish") || instrumentation.targetContext.packageName == "ai.nuphos.android.adaptivefixture")
         app = instrumentation.targetContext.applicationContext as NuphosApplication
@@ -102,6 +105,9 @@ class ConversationLinksFixtureDeviceTest {
                 path == "/auth/me" -> Http.json.encodeToString(NuphosUser.serializer(), NuphosUser.preview)
                 path == "/teams" -> """{"teams":[{"id":"$a","name":"Fixture Alpha"},{"id":"$b","name":"Fixture Beta"}]}"""
                 path == "/agent/credential-options" -> """{"options":{}}"""
+                path == "/agent/devices" -> """{"devices":[]}"""
+                // The sign-in screen asks which providers to offer.
+                path == "/auth/social/login" -> "{}"
                 path.endsWith("/agent-runtimes/quota") -> """{"quotas":{}}"""
                 path.endsWith("/agent-runtimes") -> """{"runtimes":[]}"""
                 path == "/agent/conversations" -> if (adaptiveHistory)

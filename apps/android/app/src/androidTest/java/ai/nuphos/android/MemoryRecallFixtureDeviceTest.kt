@@ -57,7 +57,11 @@ class MemoryRecallFixtureDeviceTest {
                 val bypassRequest = request.method == "GET" && request.url.encodedPath == "/agent/auto-mode/bypass" &&
                     request.url.queryParameter("sessionId") == "saved"
                 val favoritesRequest = request.method == "GET" && request.url.encodedPath in setOf("/teams/A/favorites", "/teams/B/favorites")
-                if (!detailRequest && !bypassRequest && !favoritesRequest) unexpected += request
+                // Background reads of the screen around the transcript, none of which show recall details.
+                val backgroundRead = request.method == "GET" && (request.url.encodedPath in setOf("/auth/me", "/auth/social/login") ||
+                    request.url.encodedPath == "/agent/conversations/saved/resources" ||
+                    request.url.encodedPath.endsWith("/file-transfers/downloads"))
+                if (!detailRequest && !bypassRequest && !favoritesRequest && !backgroundRead) unexpected += request
                 val detail = AgentConversationDetail(isOwner = false, agentRuntime = "nuphos", title = "Recall fixture",
                     messages = listOf(ChatMessage(id = "recall-message", parts = listOf(
                         ChatPart.Other(JsonValue.parse("""{"type":"memory-provenance","turnKey":"one","recalledTeamIds":["team-id","team-id","missing","duplicate"],"fetchedPersonalIds":["private-id","duplicate"],"fetchedIds":["team-id","private-id","unknown-id","missing","duplicate"],"labels":{"team-id":"${"Team guide ".repeat(80)}","private-id":"Private secret","unknown-id":"Unknown secret","duplicate":"Duplicate secret"}}""")!!),
