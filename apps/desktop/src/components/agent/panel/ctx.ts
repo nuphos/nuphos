@@ -69,6 +69,7 @@ export type PanelCtx = {
   autoFocusComposer: boolean
   focusComposerOnOpen: boolean
   composerDraftId?: string
+  newChatDraftId: string
   decisionReplyTo?: string
   hideTranscript: boolean
   replyTarget?: ComposerReplyTarget

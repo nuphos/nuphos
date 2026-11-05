@@ -4,7 +4,7 @@
 // without threading a callback through every render layer. Null outside the
 // page variant (no side-pane slot -> no entry point).
 
-import { memo, useLayoutEffect } from 'react'
+import { memo, useLayoutEffect, useState } from 'react'
 
 import { SlashCommandsContext } from './panel/composerSlashCommands'
 import { HOME_TAB_ID } from './panel/model'
@@ -110,6 +110,8 @@ type Props = {
   focusComposerOnOpen?: boolean
   /** A request's reply draft is separate from the same session's normal composer. */
   composerDraftId?: string
+  /** The pane or tab this panel lives in, so its new-chat draft is its own; see newChatDraftKey. */
+  newChatDraftId?: string
   decisionReplyTo?: string
   /** Keep the conversation but show only its composer; the Inbox puts the question above it. */
   hideTranscript?: boolean
@@ -177,6 +179,7 @@ export const AgentPanel = memo(function AgentPanel({
   autoFocusComposer = false,
   focusComposerOnOpen = true,
   composerDraftId,
+  newChatDraftId,
   decisionReplyTo,
   hideTranscript = false,
   replyTarget,
@@ -187,6 +190,8 @@ export const AgentPanel = memo(function AgentPanel({
   unbound = false,
   connectedResources,
 }: Props) {
+  // Without a host's id, the new-chat draft lives only as long as this panel.
+  const [ownNewChatDraftId] = useState(() => crypto.randomUUID())
   const acc1 = {
     variant,
     open,
@@ -216,6 +221,7 @@ export const AgentPanel = memo(function AgentPanel({
     autoFocusComposer,
     focusComposerOnOpen,
     composerDraftId,
+    newChatDraftId: newChatDraftId ?? ownNewChatDraftId,
     decisionReplyTo,
     hideTranscript,
     replyTarget,

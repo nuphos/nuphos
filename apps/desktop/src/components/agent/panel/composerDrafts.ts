@@ -55,9 +55,19 @@ function write(storage: Storage | undefined, store: DraftStore): void {
   }
 }
 
-/** One draft per conversation, and one per team for the new-conversation composer. */
-export function composerDraftKey(teamId: string | undefined, sessionId?: string): string {
-  return `${teamId ?? 'no-team'}:${sessionId ?? 'new'}`
+/** One draft per conversation. */
+export function composerDraftKey(teamId: string | undefined, sessionId: string): string {
+  return `${teamId ?? 'no-team'}:${sessionId}`
+}
+
+/**
+ * One draft per new-conversation composer: each pane and tab (`surface`) has
+ * its own, so a split or a new tab starts empty. The first pane keeps the key
+ * all of them shared before, so the draft it saved is still there.
+ */
+export function newChatDraftKey(teamId: string | undefined, surface: string): string {
+  // 'primary' is PRIMARY_PANE_ID, the window's first pane.
+  return composerDraftKey(teamId, surface === 'primary' ? 'new' : `new:${surface}`)
 }
 
 /** Bind drafts to the signed-in account; another account's drafts are dropped. */

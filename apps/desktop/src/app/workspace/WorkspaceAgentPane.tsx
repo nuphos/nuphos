@@ -23,7 +23,7 @@ import { SessionFindBar } from './SessionFindBar'
 import { useTitlebarFit } from './titlebarFit'
 import { useOwnPaneSummary } from './usePaneSummary'
 import { useSessionHeading } from './useSessionHeading'
-import { useWorkspacePane } from './WorkspacePaneContext'
+import { usePaneId, useWorkspacePane } from './WorkspacePaneContext'
 
 import type { WorkspaceController } from './useWorkspaceController'
 import type { JournalChatTarget } from '../../lib/journalEvent'
@@ -39,6 +39,7 @@ export function WorkspaceAgentPane({
   workspaceExpanded?: boolean
 }) {
   const pane = useWorkspacePane()
+  const paneId = usePaneId()
   const paneActive = pane?.active ?? true
   const paneInFront = paneActive && !ws.mainPageOpen
   const {
@@ -257,6 +258,7 @@ export function WorkspaceAgentPane({
               connectedResources={connectedResources}
               autoFocusComposer={paneActive && !dockOpen}
               newChatRequest={ws.newChatRequest}
+              newChatDraftId={paneId}
               sessionId={selectedSessionId}
               sessionReadOnly={selectedSessionReadOnly}
               decisionReplyTo={replyTarget?.chosen ?? undefined}
