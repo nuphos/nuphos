@@ -32,7 +32,7 @@ export type AgentFocusSessionPayload = {
 }
 
 export type AgentChatSkillTarget = 'claude' | 'codex'
-export type AgentChatSkillId = 'open-in-nuphos' | 'get-short-lived-creds-from-nuphos'
+export type AgentChatSkillId = 'open-in-nuphos'
 
 export type AgentChatSkillInstallResult = {
   skillId: AgentChatSkillId

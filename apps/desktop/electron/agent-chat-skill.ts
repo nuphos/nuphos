@@ -3,10 +3,6 @@ import os from 'node:os'
 import path from 'node:path'
 
 import {
-  getShortLivedCredsSkillBody,
-  shortLivedCredsHelperScript,
-} from './agent-chat-skill/content-creds'
-import {
   openInNuphosHelperScript,
   openInNuphosSkillBody,
 } from './agent-chat-skill/content-open-in-nuphos'
@@ -23,6 +19,10 @@ import type {
 export type * from './agent-chat-skill/types'
 
 const LEGACY_SKILL_NAME = 'nuphos-agent-chat'
+// Removed skills Desktop may have installed earlier. get-short-lived-creds-from-nuphos
+// read the full session token, which now lives in the OS credential store, so it could
+// no longer work; agents that need credentials run in a Nuphos runtime instead (#1039).
+const RETIRED_SKILL_IDS = ['get-short-lived-creds-from-nuphos']
 const TARGET_LABELS: Record<AgentChatSkillTarget, string> = {
   claude: 'Claude Code',
   codex: 'Codex',
@@ -72,14 +72,6 @@ const SKILLS: SkillDefinition[] = [
     legacyHelperName: 'open-agent-chat.sh',
     skillBody: openInNuphosSkillBody,
     helperScript: openInNuphosHelperScript,
-  },
-  {
-    id: 'get-short-lived-creds-from-nuphos',
-    name: 'Get Short-Lived Creds',
-    description: 'Fetch short-lived AWS, GCP, or Kubernetes credentials from Nuphos.',
-    helperName: 'get-short-lived-creds-from-nuphos',
-    skillBody: getShortLivedCredsSkillBody,
-    helperScript: shortLivedCredsHelperScript,
   },
 ]
 
@@ -198,7 +190,20 @@ export async function getAgentChatSkillStatus(
   }
 }
 
+/** Deletes retired skills from both agents' skill folders; missing ones are fine. */
+async function removeRetiredSkills(): Promise<void> {
+  await Promise.all(
+    (['claude', 'codex'] as const).flatMap((target) =>
+      RETIRED_SKILL_IDS.map((id) =>
+        fs.rm(path.join(skillsRoot(target), id), { recursive: true, force: true }),
+      ),
+    ),
+  )
+}
+
 export async function listAgentChatSkillStatuses(): Promise<AgentChatSkillStatus[]> {
+  await removeRetiredSkills().catch(() => undefined)
+
   return Promise.all(
     (['claude', 'codex'] as const).flatMap((target) =>
       SKILLS.map((skill) => getAgentChatSkillStatus(target, skill.id)),
