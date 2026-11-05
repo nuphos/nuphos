@@ -1,18 +1,20 @@
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
+import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { AppError } from '@/lib/errors'
 
 import { controlRegistry } from './agent-chat-registry'
-import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
+import { reportedLocalAgent, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { requireRuntimeInstance } from './runtime-catalog'
 import { loginFrameReader } from './runtime-login-exec'
-import { runtimeProvider } from './runtime-provider'
+import { runtimeLabel, runtimeProvider, runtimeShortName } from './runtime-provider'
 import { resolveTeamRuntimeEndpoints } from './runtime-registry'
 
 import type { RuntimeLoginFrame } from './runtime-login-step'
 import type { RuntimeLoginDoc } from './runtime-login-store'
 import type { OpenAbProvider } from './runtime-provider'
 import type { TeamPreviewClient } from './team-openab-runtime'
+import type { LocalRuntimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 
 const CODEX_LOGIN_FAILED =
   'Sign-in did not complete. Retry and check device-code login in ChatGPT security settings.'
@@ -164,13 +166,39 @@ export async function acquireStarting(
   }
 }
 
+/**
+ * A computer that answers but cannot start the agent reads as offline to its stream; when
+ * the computer reports the agent's CLI missing, that is the reason to give instead.
+ */
+export async function localAgentNotInstalled(
+  runtimeId: string | undefined,
+  presence: Pick<LocalRuntimePresenceStore, 'get'> = runtimePresenceStore(),
+): Promise<AppError | undefined> {
+  const ref = runtimeId ? parseLocalRuntimeId(runtimeId) : undefined
+  const agent =
+    ref && reportedLocalAgent((await presence.get(ref.userId, ref.deviceId))?.status, ref)
+
+  if (!ref || agent?.cli.installed !== false) return undefined
+
+  return new AppError(
+    409,
+    'runtime_not_installed',
+    `${runtimeLabel(ref.provider)} is not installed on the computer running this agent. Install it there so \`${runtimeShortName(ref.provider)}\` runs in a terminal, then try again.`,
+  )
+}
+
 async function execControlRuntimeLogin(
   endpoint: ControlLoginTarget,
   onFrame: (frame: RuntimeLoginFrame) => void,
   signal: AbortSignal,
   doc: RuntimeLoginDoc,
 ): Promise<void> {
-  const client = await acquireStarting(doc.teamId, endpoint, signal)
+  // A computer without the agent's CLI answers, yet its agent never comes up: say so.
+  const client = await acquireStarting(doc.teamId, endpoint, signal).catch(
+    async (error: unknown) => {
+      throw (await localAgentNotInstalled(endpoint.runtimeId)) ?? error
+    },
+  )
   const provider = runtimeProvider(endpoint.provider)
 
   await driveControlRuntimeLogin(
