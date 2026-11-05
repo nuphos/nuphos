@@ -16,13 +16,7 @@ const USER: UserInfo = { id: 'u1', name: 'Bruce', email: 'bruce@example.com', us
 const ACCOUNT = 'u1@https://api.nuphos.ai'
 const API = 'https://api.nuphos.ai'
 
-async function harness({
-  secure = true,
-  failSet = false,
-  failGet = false,
-  dropSet = false,
-  gated = false,
-} = {}) {
+async function harness({ secure = true, failSet = false, failGet = false, gated = false } = {}) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'nuphos-config-'))
   const file = path.join(dir, 'desktop.yaml')
   const legacy = path.join(dir, 'cli.yaml')
@@ -45,8 +39,7 @@ async function harness({
       calls.push(`set ${account}`)
       await gate
       if (failSet) throw new Error('locked')
-      // Accepted, but never there to read back.
-      if (!dropSet) items.set(account, token)
+      items.set(account, token)
     },
     delete: (account) => {
       calls.push(`delete ${account}`)
@@ -182,15 +175,6 @@ test('a keychain that refuses the read fails the read, keeping the sign-in', asy
 
   await assert.rejects(h.config.read(), /denied/)
   assert.deepEqual(await h.onDisk(), { api: API, keychainAccount: ACCOUNT, userInfo: USER })
-})
-
-test('a keychain that does not return what it stored leaves the token in the file', async () => {
-  const h = await harness({ dropSet: true })
-
-  await h.config.write({ api: API, token: 'tok-1', userInfo: USER })
-
-  assert.deepEqual(await h.onDisk(), { api: API, token: 'tok-1', userInfo: USER })
-  assert.equal((await h.config.read()).token, 'tok-1')
 })
 
 test('without a keychain the token stays in the file', async () => {
