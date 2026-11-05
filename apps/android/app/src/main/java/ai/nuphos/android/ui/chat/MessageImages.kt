@@ -135,20 +135,22 @@ internal fun imageLoad(source: String, edge: Int, loader: MessageImageLoader): S
 internal fun MessageImages(images: List<String>, messageId: String, loader: MessageImageLoader = inlineImageLoader, originalWriter: ImageOriginalWriter = ImageExports::writeInline) {
     // Save only the selected index, never duplicate base64 in saved instance state.
     var selected by rememberSaveable(messageId) { mutableIntStateOf(-1) }
-    images.take(4).forEachIndexed { index, source ->
-        val load by imageLoad(source, 256, loader)
-        Box(Modifier.padding(bottom = 6.dp).size(96.dp).clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .clickable(onClickLabel = "Open image ${index + 1} of ${images.size}") { selected = index },
-            contentAlignment = Alignment.Center) {
-            when (val result = load) {
-                is ImageLoad.Ready -> Image(result.bitmap, "Image ${index + 1} of ${images.size}",
-                    Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                ImageLoad.Loading -> Text("Loading image", style = MaterialTheme.typography.labelSmall)
-                ImageLoad.Unavailable -> Text("Image unavailable", style = MaterialTheme.typography.labelSmall)
+    if (images.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        images.take(4).forEachIndexed { index, source ->
+            val load by imageLoad(source, 256, loader)
+            Box(Modifier.size(96.dp).clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .clickable(onClickLabel = "Open image ${index + 1} of ${images.size}") { selected = index },
+                contentAlignment = Alignment.Center) {
+                when (val result = load) {
+                    is ImageLoad.Ready -> Image(result.bitmap, "Image ${index + 1} of ${images.size}",
+                        Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    ImageLoad.Loading -> Text("Loading image", style = MaterialTheme.typography.labelSmall)
+                    ImageLoad.Unavailable -> Text("Image unavailable", style = MaterialTheme.typography.labelSmall)
+                }
+                if (index == 3 && images.size > 4) Text("+${images.size - 4}", color = Color.White,
+                    modifier = Modifier.align(Alignment.BottomEnd).background(Color.Black.copy(alpha = .7f)).padding(6.dp))
             }
-            if (index == 3 && images.size > 4) Text("+${images.size - 4}", color = Color.White,
-                modifier = Modifier.align(Alignment.BottomEnd).background(Color.Black.copy(alpha = .7f)).padding(6.dp))
         }
     }
     if (selected >= 0 && images.isNotEmpty()) {
