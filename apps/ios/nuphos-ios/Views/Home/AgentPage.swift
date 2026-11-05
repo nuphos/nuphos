@@ -20,6 +20,7 @@ struct AgentPage: View {
     @State private var showAgentSetup = false
     @State private var renaming: AgentConversation?
     @State private var renamedTitle = ""
+    @State private var refreshing = false
     #if DEBUG
     /// `-preview-agent-login`: the authorization-code step with a canned attempt.
     @State private var previewLogin = false
@@ -46,13 +47,21 @@ struct AgentPage: View {
         content
             // On the switch, so the empty and error states refresh too.
             .refreshable {
+                // An alert shown before the pull has settled leaves the spinner running for good.
+                refreshing = true
+                defer {
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(600))
+                        refreshing = false
+                    }
+                }
                 if store.selectedTeam == nil { await store.loadTeams() } else { await store.reload() }
             }
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
             .sheet(isPresented: $showAgentSetup) { if let team = store.selectedTeam { AgentSetupSheet(team: team) } }
             .alert(
                 LocalizedStringKey(store.rowActionFailure?.title ?? ""),
-                isPresented: Binding(get: { store.rowActionFailure != nil }, set: { if !$0 { store.rowActionFailure = nil } }),
+                isPresented: Binding(get: { store.rowActionFailure != nil && !refreshing }, set: { if !$0 { store.rowActionFailure = nil } }),
                 presenting: store.rowActionFailure
             ) { failure in
                 Button("OK", role: .cancel) {}

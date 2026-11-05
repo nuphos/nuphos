@@ -64,29 +64,37 @@ final class AgentListFailureUITests: XCTestCase {
 
     func testAWriteOnItsWayCannotBeRepeated() throws {
         responses[watch] = ["status": 200, "body": ["ok": true], "delayMs": 6000]
-        try write()
         launch()
-
         try unwatch()
-        let cell = row("Release ops")
-        cell.swipeLeft()
-        let item = app.buttons["Unwatch"].firstMatch
-        XCTAssertTrue(item.waitForExistence(timeout: 3))
-        XCTAssertFalse(item.isEnabled, "A second Unwatch could be sent")
+
+        // The first write has already read its answer. A second one would get this.
+        try respond(watch, status: 500, body: ["error": ["message": "Sent twice"]])
+        try unwatch()
+        XCTAssertFalse(app.alerts["Couldn't update agent"].waitForExistence(timeout: 14), "A second Unwatch was sent")
     }
 
     func testTryAgainReadsAFailedListAgain() throws {
+        // An empty list leaves nothing in the launch cache to fall back on.
         let original = try originalList()
-        try respond(list, status: 500, body: ["error": ["message": "Synthetic list failure"]])
+        responses[list] = ["status": 200, "body": ["conversations": [], "hasMore": false]]
         launch(page: false)
-        let error = app.staticTexts["Couldn't load agents"]
         openAgents()
-        XCTAssertTrue(error.waitForExistence(timeout: 10), "The first read should fail")
+        XCTAssertTrue(app.staticTexts["No agents yet"].waitForExistence(timeout: 10), "The empty list did not load")
+
+        try respond(list, status: 500, body: ["error": ["message": "First failure"]])
+        launch(page: false)
+        openAgents()
+        XCTAssertTrue(app.staticTexts["Couldn't load agents"].waitForExistence(timeout: 10), "The first read should fail")
+        XCTAssertTrue(app.staticTexts["First failure"].exists)
+
+        // Polling reads quietly, so only Try again can change the message.
+        try respond(list, status: 500, body: ["error": ["message": "Second failure"]])
+        app.buttons["Try again"].tap()
+        XCTAssertTrue(app.staticTexts["Second failure"].waitForExistence(timeout: 5), "Try again did not read the list")
 
         responses[list] = original
         try write()
-        let again = app.buttons["Try again"]
-        if again.exists { again.tap() }
+        app.buttons["Try again"].tap()
         XCTAssertTrue(row("Release ops").waitForExistence(timeout: 10), "The list did not come back")
     }
 
@@ -94,13 +102,18 @@ final class AgentListFailureUITests: XCTestCase {
         launch()
         let original = try originalList()
         try respond(list, status: 500, body: ["error": ["message": "Synthetic read failure"]])
-        row("Release ops").press(forDuration: 0.05, thenDragTo: app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.9)))
+        let window = app.windows.firstMatch
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.3))
+            .press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.9)))
         let alert = app.alerts["Couldn't refresh agents"]
         XCTAssertTrue(alert.waitForExistence(timeout: 8), "The failed refresh was not reported")
         XCTAssertFalse(app.staticTexts["Couldn't load agents"].exists, "The list was replaced")
         responses[list] = original
         try write()
+        // A spinner that never stops holds the tap until the app counts as idle, a full minute.
+        let tapped = Date()
         alert.buttons["Try again"].tap()
+        XCTAssertLessThan(Date().timeIntervalSince(tapped), 30, "The pull's spinner did not stop")
         XCTAssertFalse(alert.waitForExistence(timeout: 2), "The retry failed")
         XCTAssertTrue(row("Release ops").exists)
     }
@@ -137,7 +150,6 @@ final class AgentListFailureUITests: XCTestCase {
     private func assertMenu(shows title: String) throws {
         row("Release ops").swipeLeft()
         XCTAssertTrue(app.buttons[title].firstMatch.waitForExistence(timeout: 5), "The row does not offer \(title)")
-        row("Check the staging cluster").tap()
     }
 
     private func originalList() throws -> [String: Any] {

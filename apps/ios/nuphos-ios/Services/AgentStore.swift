@@ -585,7 +585,7 @@ final class AgentStore {
             }
         } catch {
             guard generation == loadGeneration else { return }
-            guard phase == .loaded, !conversations.isEmpty || !channels.isEmpty else {
+            guard phase == .loaded else {
                 phase = .failed(error.localizedDescription)
                 return
             }
