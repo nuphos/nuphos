@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  noAgentToRun,
   runtimeControlSendBlock,
   selectedAgentName,
   selectedAgentReachability,
@@ -83,4 +84,25 @@ test('a signed-out agent is named with its computer, not as the computer', () =>
   )
   assert.equal(selectedAgentName(control(undefined)), 'Claude Code')
   assert.equal(selectedAgentName({ value: null }), 'The runtime')
+})
+
+const agent = (over: Partial<RuntimeInstance> = {}): RuntimeInstance => ({
+  id,
+  provider: 'claude-code',
+  label: 'Claude Code',
+  status: 'active',
+  kind: 'managed',
+  createdAt: '2026-11-05T00:00:00Z',
+  ...over,
+})
+
+test('sending sets up an agent only when the team surely has none to run', () => {
+  assert.equal(noAgentToRun([], false, null), true)
+  assert.equal(noAgentToRun([agent({ status: 'disabled' })], false, null), true)
+  assert.equal(noAgentToRun([agent({ deletion: { state: 'deleting' } })], false, null), true)
+  assert.equal(noAgentToRun([agent()], false, null), false)
+  assert.equal(noAgentToRun([agent({ starting: true })], false, null), false)
+  // Not known yet, or not knowable: the composer stays as it is.
+  assert.equal(noAgentToRun([], true, null), false)
+  assert.equal(noAgentToRun([], false, 'offline'), false)
 })

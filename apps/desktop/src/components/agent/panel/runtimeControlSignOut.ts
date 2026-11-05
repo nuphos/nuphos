@@ -2,6 +2,7 @@ import { t } from '../../../i18n/index.ts'
 import { AGENT_PROVIDER } from '../../../types/runtime.ts'
 
 import type { RuntimeControl } from './RuntimeSelector'
+import type { RuntimeInstance } from '../../../types/runtime.ts'
 
 /** Whether the picked agent can take a message now: its Box first, then its sign-in. */
 export type AgentReachability = 'ready' | 'signIn' | 'offline'
@@ -49,4 +50,16 @@ export function runtimeControlSendBlock(control: RuntimeControl | undefined): st
   if (reachability === 'signIn') return t('The runtime needs to sign in')
 
   return null
+}
+
+/**
+ * The team has no agent a new conversation could start on, so sending can only
+ * mean setting one up. Unknown while the list loads or fails: never claimed then.
+ */
+export function noAgentToRun(
+  instances: readonly RuntimeInstance[],
+  loading: boolean,
+  error: string | null,
+): boolean {
+  return !loading && !error && !instances.some((i) => i.status === 'active' && !i.deletion)
 }

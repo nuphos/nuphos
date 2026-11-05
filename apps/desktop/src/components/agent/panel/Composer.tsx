@@ -289,6 +289,7 @@ export function Composer({
               hasQueueablePayload={!(isEmpty && filePaths.length === 0)}
               sendDisabled={sendDisabled}
               sendBlockedReason={agentSendBlock}
+              onConnectAgent={runtimeControl?.onConnectAgent}
               onSubmit={actions.submit}
               onStop={onStop}
             />
