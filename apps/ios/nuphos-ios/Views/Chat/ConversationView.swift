@@ -6,9 +6,11 @@ struct ConversationView: View {
     @Bindable var session: ChatSession
     /// First message for a brand-new chat, sent once the view appears.
     var initialPrompt: ComposerSubmission?
+    var temporaryDirectory: URL = FileManager.default.temporaryDirectory
     /// Top-level page that presented this chat, used by navigation diagnostics.
     var sourcePage = HomePage.agent.rawValue
 
+    @Environment(AuthSession.self) private var auth
     @State private var draft = ""
     @State private var toolDetail: ChatPart.ToolPart?
     /// A plan link tapped in the transcript.
@@ -39,8 +41,13 @@ struct ConversationView: View {
     @State private var dockScreen: DockDestination?
     /// A watched tab is laid out on the Mac at this screen's size, so its page fits the phone.
     private static var screenSize: CGSize {
+        #if NUPHOS_SHARE_EXTENSION
+        // Extensions cannot reach UIApplication; the share sheet keeps the default size.
+        return CGSize(width: 390, height: 844)
+        #else
         let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
         return scene?.screen.bounds.size ?? CGSize(width: 390, height: 844)
+        #endif
     }
     /// The dock shows the owner's own computer, so only the owner gets it.
     private var hasDock: Bool { !session.isNew && session.ownsChat }
@@ -348,6 +355,8 @@ struct ConversationView: View {
                     }
                 ),
                 voiceTeamId: session.teamId,
+                voiceToken: auth.token,
+                temporaryDirectory: temporaryDirectory,
                 onSend: { session.send($0) },
                 onStop: { session.stop() }
             ) {

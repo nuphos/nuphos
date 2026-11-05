@@ -4,6 +4,14 @@ import Foundation
 /// encoding of this type is exactly what `POST /agent/chat` and
 /// `PUT …/transcript` expect, so parts keep the SDK's field names.
 struct ChatMessage: Identifiable, Equatable, Sendable {
+    /// Shared by composer size validation and the actual chat request.
+    static let wireEncoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        return encoder
+    }()
+
     enum Role: String, Codable, Sendable { case user, assistant, system }
 
     var id: String

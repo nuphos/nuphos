@@ -20,6 +20,10 @@ struct ChatComposerBar<Controls: View>: View {
     var mentions: MentionSource? = nil
     /// The team voice input transcribes for; nil hides the microphone.
     var voiceTeamId: String? = nil
+    var voiceToken: String? = nil
+    /// Content received by another entry point, imported once without submitting.
+    var initialAttachments: [ComposerAttachment] = []
+    var temporaryDirectory: URL = FileManager.default.temporaryDirectory
     /// Who a message goes to, such as a chat's `#name`; nil asks Nuphos.
     var recipient: String? = nil
     var onSend: (ComposerSubmission) -> Void
@@ -27,12 +31,12 @@ struct ChatComposerBar<Controls: View>: View {
     /// Shown above the input while expanded (Credentials picker, permission mode).
     @ViewBuilder var controls: () -> Controls
 
-    @Environment(AuthSession.self) private var session
     @FocusState private var focused: Bool
     /// From focus until the keyboard it raised has finished hiding, so the
     /// page lowers this composer along with its own keyboard.
     @State private var ownsKeyboard = false
     @State private var attachments: [ComposerAttachment] = []
+    @State private var importedInitialAttachments = false
     @State private var showPhotos = false
     @State private var showFiles = false
     @State private var attachmentError: String?
@@ -154,6 +158,11 @@ struct ChatComposerBar<Controls: View>: View {
             let found = await mentions.search(query)
             if !Task.isCancelled { mentionResults = found }
         }
+        .onAppear {
+            guard !importedInitialAttachments else { return }
+            importedInitialAttachments = true
+            attachments.append(contentsOf: initialAttachments)
+        }
         .onDisappear(perform: cancelDictation)
         .onChange(of: focused) { _, focused in if focused { ownsKeyboard = true } }
         #if canImport(UIKit)
@@ -173,14 +182,14 @@ struct ChatComposerBar<Controls: View>: View {
             photoItems = []
             Task {
                 for item in items {
-                    if let attachment = await ComposerAttachment.load(item) { attachments.append(attachment) }
+                    if let attachment = await ComposerAttachment.load(item, temporaryDirectory: temporaryDirectory) { attachments.append(attachment) }
                     else { attachmentError = "Couldn’t prepare this photo or video. Try a different one or choose it from Files." }
                 }
             }
         }
         .fileImporter(isPresented: $showFiles, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
             if case .success(let urls) = result {
-                attachments.append(contentsOf: urls.compactMap(ComposerAttachment.load(fileURL:)))
+                attachments.append(contentsOf: urls.compactMap { ComposerAttachment.load(fileURL: $0, temporaryDirectory: temporaryDirectory) })
             }
         }
         .alert("Couldn't send attachment", isPresented: Binding(get: { attachmentError != nil }, set: { if !$0 { attachmentError = nil } })) {
@@ -401,7 +410,7 @@ struct ChatComposerBar<Controls: View>: View {
     }
 
     private func finishDictation(thenSend: Bool) {
-        guard let take = dictation, let token = session.token, let teamId = voiceTeamId else { return }
+        guard let take = dictation, let token = voiceToken, let teamId = voiceTeamId else { return }
         transcription = Task {
             do {
                 let words = try await take.finish(token: token, teamId: teamId)
@@ -462,7 +471,7 @@ struct ChatComposerBar<Controls: View>: View {
                     text += string
                 } else if !allowsAttachments {
                     attachmentError = "Send attachments after this turn; it takes text now."
-                } else if let attachment = await ComposerAttachment.load(pasted: provider) {
+                } else if let attachment = await ComposerAttachment.load(pasted: provider, temporaryDirectory: temporaryDirectory) {
                     attachments.append(attachment)
                 } else {
                     attachmentError = "Couldn’t paste this item. Try choosing it from Files."
@@ -560,7 +569,7 @@ struct ChatComposerBar<Controls: View>: View {
                             .file(.init(mediaType: "image/jpeg", filename: draft.attachments[index].name,
                                         url: "data:image/jpeg;base64," + data.base64EncodedString()))
                         }
-                        return try AgentChatAPI.encoder.encode(ChatMessage(role: .user, parts: parts).forWire)
+                        return try ChatMessage.wireEncoder.encode(ChatMessage(role: .user, parts: parts).forWire)
                     }
                     for (index, data) in zip(imageIndices, fitted) {
                         submission.attachments[index].kind = .image(data)
@@ -669,7 +678,6 @@ struct BrandLogo: View {
             ComposerChip(title: "Auto Mode")
         }
     }
-    .environment(AuthSession())
 }
 
 #if canImport(UIKit)

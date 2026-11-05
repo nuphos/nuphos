@@ -36,7 +36,9 @@ final class VoiceDictation {
         try session.setCategory(.record, mode: .default)
         try session.setActive(true)
         // The recording ends when the screen locks, so it stays on meanwhile.
+        #if !NUPHOS_SHARE_EXTENSION
         UIApplication.shared.isIdleTimerDisabled = true
+        #endif
         #endif
         let recorder = try AVAudioRecorder(url: file, settings: [
             AVFormatIDKey: kAudioFormatMPEG4AAC,
@@ -80,7 +82,9 @@ final class VoiceDictation {
         recorder = nil
         #if os(iOS)
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        #if !NUPHOS_SHARE_EXTENSION
         UIApplication.shared.isIdleTimerDisabled = false
+        #endif
         #endif
     }
 }
@@ -104,7 +108,7 @@ enum Whisper {
         request.httpMethod = "POST"
         request.timeoutInterval = 90
         request.setValue("Bearer \(token)", forHTTPHeaderField: "authorization")
-        request.setValue(AgentChatAPI.clientVersion, forHTTPHeaderField: "x-atlas-client")
+        request.setValue("nuphos-ios/\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0")", forHTTPHeaderField: "x-atlas-client")
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "content-type")
 
         var body = Data()

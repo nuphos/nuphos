@@ -11,3 +11,8 @@ swiftc "$desktop/ZlibStream.swift" "$desktop/RFBFramebuffer.swift" "$desktop/RFB
 bash tests/analytics.sh
 bash tests/social-login.sh
 bash tests/auth-session.sh
+
+swiftc nuphos-ios/Services/Chat/JSONValue.swift ShareSupport/SharedShareSession.swift tests/ShareSessionLeaseTests.swift -o "$test_dir/share-lease-tests"
+"$test_dir/share-lease-tests"
+swiftc NuphosShare/ShareFollowState.swift tests/ShareFollowStateTests.swift -o "$test_dir/share-follow-tests"
+"$test_dir/share-follow-tests"
