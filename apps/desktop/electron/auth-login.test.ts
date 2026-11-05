@@ -440,7 +440,7 @@ const EACCES = () =>
   Object.assign(new Error("EACCES: permission denied, mkdir '/Users/u/.config/nuphos'"), {
     code: 'EACCES',
   })
-const UNSAVED = /Nuphos couldn.t save your sign-in: \S+ isn.t writable \(permission denied\)/
+const UNSAVED = /Nuphos couldn.t save your sign-in to \S+: permission denied\./
 
 test('native: a sign-in that cannot be saved says why, in the browser and the app', async () => {
   mkdirError = EACCES()
