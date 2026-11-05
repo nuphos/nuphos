@@ -38,7 +38,7 @@ fun AgentChip(selection: RuntimeSelections.Selection?, enabled: Boolean, onClick
         else Icon(Icons.Outlined.Memory, contentDescription = null, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(6.dp))
         Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false).widthIn(max = 160.dp))
+            modifier = Modifier.widthIn(max = 160.dp))
         Spacer(Modifier.width(2.dp))
         Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(16.dp))
     }

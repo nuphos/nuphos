@@ -27,24 +27,59 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class ComposerAgentFixtureDeviceTest {
     @get:Rule val compose = createComposeRule()
+    /** The chip sits in a row that scrolls sideways: its label must still get width there. */
+    @Test fun runtimeChipShowsItsLabelAndLeavesSendInPlace() {
+        val long = "A very long runtime name that must not push Send away"
+        val selection = RuntimeSelections.Selection("fixture-account", "fixture-team")
+        selection.saveCatalog(listOf(
+            AgentRuntime("short", "codex", "Laptop", "active", "local"),
+            AgentRuntime("long", "codex", long, "active", "local"),
+        ))
+        render { ChatComposer(isStreaming = false, onSend = { true }, showControls = true,
+            agent = selection, onChooseAgent = { }) }
+        compose.onNodeWithContentDescription("Ask Nuphos anything").performClick()
+        compose.waitForIdle()
+        val send = compose.onNodeWithContentDescription("Send").fetchSemanticsNode().boundsInRoot
+        fun assertSendStayed() = assertEquals(send, compose.onNodeWithContentDescription("Send").fetchSemanticsNode().boundsInRoot)
+        // The unmerged node is the text itself: the merged one measures the whole button.
+        fun label(text: String) = compose.onNodeWithText(text, substring = true, useUnmergedTree = true).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+
+        assertTrue(label("Choose runtime").width > 0f)
+        compose.runOnIdle { assertTrue(selection.select("short")) }
+        assertTrue(label("Laptop").width > 0f)
+        assertSendStayed()
+
+        compose.runOnIdle { assertTrue(selection.select("long")) }
+        val width = label(long).width
+        assertTrue(width > 0f)
+        assertTrue("A long name stops at the chip's limit", width <= with(compose.density) { 160.dp.toPx() } + 1f)
+        assertSendStayed()
+
+        // Past a long name, the rest of the row is still there to scroll to.
+        compose.onNodeWithText("Computers").performScrollTo().assertIsDisplayed()
+        assertSendStayed()
+    }
+
     @Test fun runtimeControlsStayAboveInputWithoutMovingSend() {
         val name = "A very long Agent name that must leave Send visible"
         val selection = RuntimeSelections.Selection("fixture-account", "fixture-team")
         selection.saveCatalog(listOf(AgentRuntime("fixture-agent", "codex", name, "active", "local")))
         selection.select("fixture-agent")
+        val label = "Codex · $name"
         var choices = 0
         render { ChatComposer(isStreaming = false, onSend = { true }, showControls = true,
             agent = selection, onChooseAgent = { choices++ }) }
         fun checkRow() {
-            compose.onNodeWithText(name).assertIsDisplayed()
+            // The unmerged node is the text itself: the merged one is the whole button, even with no text showing.
+            compose.onNodeWithText(label, useUnmergedTree = true).assertIsDisplayed()
             compose.onNodeWithContentDescription("Send").assertIsDisplayed()
-            val chip = compose.onNodeWithText(name).fetchSemanticsNode().boundsInRoot
+            val chip = compose.onNodeWithText(label).fetchSemanticsNode().boundsInRoot
             val send = compose.onNodeWithContentDescription("Send").fetchSemanticsNode().boundsInRoot
             val input = compose.onNodeWithContentDescription("Ask Nuphos anything").fetchSemanticsNode().boundsInRoot
             assertTrue("Runtime control belongs above the input", chip.bottom <= input.top)
             assertTrue("Send remains below the runtime control", send.top >= chip.bottom)
         }
-        compose.onNodeWithText(name).assertDoesNotExist()
+        compose.onNodeWithText(label).assertDoesNotExist()
         compose.onNodeWithContentDescription("Photos").assertDoesNotExist()
         compose.onNodeWithContentDescription("Send").assertIsDisplayed()
         compose.onNodeWithContentDescription("Voice input").assertIsDisplayed()
@@ -56,12 +91,12 @@ class ComposerAgentFixtureDeviceTest {
         val send = compose.onNodeWithContentDescription("Send").fetchSemanticsNode().boundsInRoot
         val composer = compose.onNodeWithContentDescription("Ask Nuphos anything").fetchSemanticsNode().boundsInRoot
         assertTrue("Send must remain at the right edge", send.right >= composer.right - 12f)
-        compose.onNodeWithText(name).performClick()
+        compose.onNodeWithText(label).performClick()
         assertEquals(1, choices)
         compose.onNodeWithContentDescription("Ask Nuphos anything").performTextInput("line one\nline two")
         compose.waitForIdle()
         checkRow()
-        compose.onAllNodesWithText(name).assertCountEquals(1)
+        compose.onAllNodesWithText(label).assertCountEquals(1)
         compose.onNodeWithContentDescription("Send").assertIsEnabled()
         capture("agent-beside-send")
     }
