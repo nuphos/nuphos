@@ -81,6 +81,27 @@ test("this computer's agent signs in through its own CLI", () => {
   assert.deepEqual(route('local_u-editor_dev-1_grok'), { kind: 'none' })
 })
 
+test("an added agent on this computer signs in through the runtime, not the default agent's CLI", () => {
+  const runtimeId = 'local_u-editor_dev-1_claude-code_i2'
+  const instance = {
+    ...managed,
+    id: runtimeId,
+    kind: 'local' as const,
+    local: {
+      ownerUserId: 'u-editor',
+      deviceId: 'dev-1',
+      deviceLabel: 'Mac',
+      instanceId: 'i2',
+      signedIn: false,
+    },
+  }
+
+  assert.deepEqual(signInRoute({ ...base, runtimeId, instance, onThisComputer: true }), {
+    kind: 'dialog',
+    instance,
+  })
+})
+
 test('the last message you sent is what gets resent', () => {
   const messages = [
     { id: '1', role: 'user', parts: [{ type: 'text', text: 'first' }] },

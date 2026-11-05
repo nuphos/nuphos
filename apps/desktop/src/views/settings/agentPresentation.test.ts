@@ -200,8 +200,17 @@ test("this computer's signed-out agent signs in right here; others do not", () =
   assert.equal(thisComputerSignIn(local('a', 'mac', false), null), undefined)
   const extra = local('a', 'mac', false)
 
+  const added = { ...extra, local: { ...extra.local!, instanceId: 'x' } }
+
+  // An added agent has its own login, so it signs in through the runtime, never the CLI.
+  assert.equal(thisComputerSignIn(added, here), 'runtime')
+  assert.equal(thisComputerSignIn({ ...added, provider: 'grok' }, here), 'runtime')
   assert.equal(
-    thisComputerSignIn({ ...extra, local: { ...extra.local!, instanceId: 'x' } }, here),
+    thisComputerSignIn({ ...added, local: { ...added.local, signedIn: true } }, here),
+    undefined,
+  )
+  assert.equal(
+    thisComputerSignIn({ ...added, local: { ...added.local, deviceId: 'box1' } }, here),
     undefined,
   )
   assert.equal(thisComputerSignIn({ ...extra, provider: 'grok' }, here), undefined)

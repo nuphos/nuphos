@@ -69,18 +69,20 @@ export function agentRunsOn(
 }
 
 /**
- * The CLI to sign in to right here, for this computer's own Claude Code or Codex agent while it
- * is not signed in. Another computer's agent signs in on that computer.
+ * How to sign in right here, for this computer's own agent while it is not signed in: the CLI
+ * for its default Claude Code or Codex agent, the runtime sign-in for an added agent (the CLI's
+ * login is the default agent's). Another computer's agent signs in on that computer.
  */
 export function thisComputerSignIn(
   instance: RuntimeInstance,
   thisComputer: { userId: string; deviceId: string } | null,
-): 'claude-code' | 'codex' | undefined {
+): 'claude-code' | 'codex' | 'runtime' | undefined {
   const local = instance.local
 
-  if (!local || local.instanceId || local.signedIn === true) return undefined
+  if (!local || local.signedIn === true) return undefined
   if (local.deviceId !== thisComputer?.deviceId || local.ownerUserId !== thisComputer.userId)
     return undefined
+  if (local.instanceId) return 'runtime'
 
   return instance.provider === 'claude-code' || instance.provider === 'codex'
     ? instance.provider

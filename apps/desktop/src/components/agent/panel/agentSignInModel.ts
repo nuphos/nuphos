@@ -41,8 +41,9 @@ export function signInRoute({
   members: TeamMember[] | null
 }): SignInRoute {
   if (!runtimeId) return { kind: 'none' }
-  // Grok Build and OpenCode sign in from Agent settings, not through their own CLI here.
-  if (onThisComputer)
+  // Grok Build and OpenCode sign in from Agent settings, not through their own CLI here. An
+  // added agent has its own login, which only the runtime sign-in below reaches.
+  if (onThisComputer && !instance?.local?.instanceId)
     return /_(grok|opencode)$/u.test(runtimeId)
       ? { kind: 'none' }
       : { kind: 'cli', provider: runtimeId.endsWith('_codex') ? 'codex' : 'claude-code' }
