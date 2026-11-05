@@ -5,23 +5,22 @@ import { Ban, ExternalLink, Hourglass, KeyRound, Loader2, WifiOff } from 'lucide
 import { useCallback, useState } from 'react'
 
 import { api } from '../../../api'
-import { useCurrentUser } from '../../../hooks/useCurrentUser'
-import { RUNTIME_INSTANCES_CHANGED } from '../../../hooks/useRuntimeInstances'
-import { useThisComputer } from '../../../hooks/useThisComputer'
 import { t } from '../../../i18n'
-import { agentTier } from '../../../lib/agentName'
 import { conversationReadOnlyLabel } from '../../../lib/conversationActivityBadges'
-import { RuntimeLoginDialog } from '../../../views/settings/RuntimeLoginDialog'
 import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
 
-import { resumeBox } from './bannerActions'
+import { reachabilityCopy } from './agentBannerCopy'
+import { agentProblem } from './agentRowFix'
 import { ConversationActivityBadges } from './historyRows'
 import { sharedComputerLabel, shareApprovalText } from './queuedShareApproval'
-import { selectedAgentName, selectedAgentReachability } from './runtimeControlSignOut'
+import { selectedAgentReachability } from './runtimeControlSignOut'
 import { slackThreadFallbackUrl } from './slackThreadUrl'
+import { usePickerFixes } from './usePickerFixes'
 import { useShareApprovalWait } from './useShareApprovalWait'
 
+import type { BannerCopy } from './agentBannerCopy'
+import type { AgentFix } from './agentRowFix'
 import type { RuntimeControl } from './RuntimeSelector'
 import type { ViewOnlyNotice } from './viewOnlyNotice'
 import type { AgentConversation, AgentSlackThread } from '../../../api'
@@ -125,65 +124,22 @@ const BANNER = {
 
 type BannerKind = keyof typeof BANNER
 
-/** What the viewer can do about the agent from here, worked out by the banner. */
-type BannerFix = {
-  signIn?: () => void
-  resume?: () => void
-  askOwner?: boolean
-}
-
 function bannerCopy(
   reachability: BannerKind,
   control: RuntimeControl,
+  fix: AgentFix | undefined,
+  runFix: (fix: AgentFix) => void,
   onSwitchAgent?: () => void,
-  fix: BannerFix = {},
-): { text: string; action: { label: string; run: () => void } | null } {
-  const { value, options, canUpdateTeamAgents: isTeamAdmin, onSettings } = control
-  const name = selectedAgentName(control)
-  // A new chat has nothing to retry or reconnect yet: it just starts on another agent.
+): BannerCopy {
+  if (reachability === 'signIn' || reachability === 'offline')
+    return reachabilityCopy(reachability, control, fix, runFix, onSwitchAgent)
+  const computer = sharedComputerLabel(control)
+  // A new chat has nothing to wait for: it just starts on another agent.
   const switchAgent = onSwitchAgent && { label: t('Switch runtime'), run: onSwitchAgent }
 
-  if (reachability === 'waiting' || reachability === 'declined') {
-    const computer = sharedComputerLabel(control)
-
-    return reachability === 'waiting'
-      ? { text: shareApprovalText('pending', computer), action: null }
-      : { text: shareApprovalText('denied', computer), action: switchAgent ?? null }
-  }
-  if (reachability === 'offline') {
-    const box = options?.find((instance) => instance.id === value?.id)?.local?.deviceLabel
-
-    return {
-      text: box ? t('{box} is offline.', { box }) : t('Its computer is offline.'),
-      action: (fix.resume && { label: t('Resume'), run: fix.resume }) ??
-        switchAgent ?? {
-          label: t('Retry'),
-          run: () => window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED)),
-        },
-    }
-  }
-  if (switchAgent) return { text: t('{name} is signed out.', { name }), action: switchAgent }
-  if (fix.signIn)
-    return {
-      text: t('{name} is signed out. Sign it in to send messages.', { name }),
-      action: { label: t('Sign in'), run: fix.signIn },
-    }
-  // A teammate's computer: only its owner can sign it in, administrators included.
-  if (fix.askOwner)
-    return { text: t('{name} is signed out. Ask its owner to sign it in.', { name }), action: null }
-  // Only an administrator can sign a team agent back in.
-  if (isTeamAdmin && onSettings)
-    return {
-      text: t('{name} is signed out. Sign it in to send messages.', { name }),
-      action: { label: t('Runtime settings'), run: onSettings },
-    }
-
-  return {
-    text: t('{name} is signed out. Ask a workspace administrator to reconnect this runtime.', {
-      name,
-    }),
-    action: null,
-  }
+  return reachability === 'waiting'
+    ? { text: shareApprovalText('pending', computer), action: null }
+    : { text: shareApprovalText('denied', computer), action: switchAgent ?? null }
 }
 
 /**
@@ -212,35 +168,21 @@ export function AgentStatusBanner({
     (shareApproval === 'pending' ? 'waiting' : shareApproval === 'denied' ? 'declined' : null)
   // The words stay while the banner leaves, so it closes on what it said.
   const [shown, setShown] = useState(blocked)
-  const [signingIn, setSigningIn] = useState(false)
-  const viewerId = useCurrentUser()?.id
-  const thisComputer = useThisComputer()
   const selected = control.options?.find((instance) => instance.id === control.value?.id)
-  // Your own Box or other computer signs in from here; this computer's agent uses its CLI.
-  const ownSignIn =
-    reachability === 'signIn' &&
-    control.teamId &&
-    viewerId &&
-    selected?.local?.ownerUserId === viewerId &&
-    agentTier(selected, thisComputer) === 'remote'
-      ? { teamId: control.teamId, instance: selected }
-      : null
-  const local = selected?.local
-  const teamId = control.teamId
-  const fix: BannerFix = {
-    ...(ownSignIn && { signIn: () => setSigningIn(true) }),
-    ...(reachability === 'signIn' && local && local.ownerUserId !== viewerId && { askOwner: true }),
-    // Your own paused Box wakes from here instead of Retry.
-    ...(reachability === 'offline' &&
-      teamId &&
-      local?.box?.state === 'paused' &&
-      local.ownerUserId === viewerId && { resume: () => void resumeBox(local.deviceId, teamId) }),
-  }
+  // The same fix the picker offers for this agent, so the two never disagree.
+  const { fixes, dialogs } = usePickerFixes({
+    teamId: control.teamId,
+    isTeamAdmin: Boolean(control.canUpdateTeamAgents),
+    open: unreachable !== null,
+    onSettings: control.onSettings,
+  })
+  const fix =
+    unreachable && selected ? agentProblem(selected, undefined, fixes.viewer)?.fix : undefined
 
   if (blocked && blocked !== shown) setShown(blocked)
   const variant = shown ? BANNER[shown] : null
   const { text, action } = shown
-    ? bannerCopy(shown, control, onSwitchAgent, fix)
+    ? bannerCopy(shown, control, fix, fixes.run, onSwitchAgent)
     : { text: '', action: null }
 
   return (
@@ -282,13 +224,7 @@ export function AgentStatusBanner({
           </div>
         )}
       </div>
-      {signingIn && ownSignIn && (
-        <RuntimeLoginDialog
-          teamId={ownSignIn.teamId}
-          instance={ownSignIn.instance}
-          onClose={() => setSigningIn(false)}
-        />
-      )}
+      {dialogs}
     </>
   )
 }
