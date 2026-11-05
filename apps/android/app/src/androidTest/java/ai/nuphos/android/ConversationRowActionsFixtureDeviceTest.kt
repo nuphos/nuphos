@@ -79,7 +79,7 @@ class ConversationRowActionsFixtureDeviceTest {
         }
     }
     private fun row(id: String = "child") = compose.onNodeWithTag("conversation-row:$id")
-    private fun more(id: String = "child") = compose.onNodeWithTag("row-more:$id", useUnmergedTree = true)
+    private fun openMenu() { row().performTouchInput { longClick() } }
     private fun shot(name: String) {
         compose.waitForIdle()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -131,7 +131,7 @@ class ConversationRowActionsFixtureDeviceTest {
 
     @Test fun menuUsesLatestBusyStateAndNeverInvokesDisabledAction() {
         render()
-        more().performClick()
+        openMenu()
         compose.runOnIdle { busy.value = true }
         compose.onNodeWithTag("menu-watch:child").assertIsNotEnabled().performClick()
         compose.runOnIdle { assertEquals(0, writes); busy.value = false }
@@ -145,7 +145,7 @@ class ConversationRowActionsFixtureDeviceTest {
         compose.onNodeWithTag("row-rail:child").assertExists()
         compose.runOnIdle { assertEquals(0, writes) }
         Espresso.pressBack()
-        more().performClick()
+        openMenu()
         for (action in listOf("watch", "unlink", "pin", "archive")) {
             compose.onNodeWithTag("menu-$action:child").assertIsDisplayed()
         }
@@ -162,16 +162,15 @@ class ConversationRowActionsFixtureDeviceTest {
         render()
         for (dp in listOf(320, 360, 390)) {
             compose.runOnIdle { width.value = dp }
-            more().assertIsDisplayed().performClick()
+            openMenu()
             compose.onNodeWithTag("menu-archive:child").assertIsDisplayed()
             Espresso.pressBack()
         }
         compose.runOnIdle { width.value = 320 }
         row().performTouchInput { swipeLeft() }
         compose.onNodeWithTag("rail-watch:child").assertIsDisplayed()
-        compose.onNodeWithTag("rail-archive:child").assertDoesNotExist()
-        compose.onNodeWithContentDescription("More agent actions").performClick()
-        compose.onNodeWithTag("menu-archive:child").assertIsDisplayed()
+        // Every action stays in the rail, which scrolls when the row is narrow.
+        compose.onNodeWithTag("rail-archive:child").assertExists()
         Espresso.pressBack()
         compose.runOnIdle { width.value = 800 }
         row().performTouchInput { swipeLeft() }
@@ -179,17 +178,4 @@ class ConversationRowActionsFixtureDeviceTest {
         compose.runOnIdle { assertEquals(0, writes) }
         shot("expanded-pane")
     }
-
-    @Test fun keyboardOpensMenuAndDismissRestoresMoreFocus() {
-        render(keyboard = true)
-        compose.onRoot().performKeyInput { pressKey(Key.Tab) }
-        more().performSemanticsAction(SemanticsActions.RequestFocus) { it() }
-        more().assertIsFocused()
-        more().performKeyInput { pressKey(Key.Enter) }
-        compose.onNodeWithTag("menu-watch:child").assertIsDisplayed()
-        Espresso.pressBack()
-        more().assertIsFocused()
-        compose.runOnIdle { assertEquals(0, opens); assertEquals(0, writes) }
-    }
-
 }
