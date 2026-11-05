@@ -6,6 +6,7 @@ import { t } from '../../../i18n'
 
 import { isRichImageDrop } from './attachmentDrag'
 import { AGENT_QUEUE_PLACEHOLDER } from './constants'
+import { usePastedTextChips } from './usePastedTextChips'
 import { OpenSlackThreadButton } from './ReadOnlyNotice'
 
 import type { AgentSlackThread } from '../../../api'
@@ -43,8 +44,11 @@ export function ComposerEditor({
   onCompositionStart: () => void
   onCompositionEnd: () => void
 }) {
+  const pastes = usePastedTextChips()
+
   return (
     <div className="relative">
+      {pastes.dialog}
       {!hasEditorContent && (
         <div className="pointer-events-none absolute left-0 top-0 z-0 flex max-w-full items-baseline gap-2">
           <span
@@ -83,6 +87,7 @@ export function ComposerEditor({
         onInput={onInput}
         onKeyDown={onKeyDown}
         onPaste={onPaste}
+        onClick={pastes.onClick}
         onDrop={(e) => {
           if (isRichImageDrop(e.dataTransfer)) e.preventDefault()
         }}

@@ -283,7 +283,7 @@ export function useComposerActions(
 
     if (!raw) return
     e.preventDefault()
-    handleComposerPasteText(raw, insertMention)
+    if (state.ref.current) handleComposerPasteText(state.ref.current, raw, insertMention)
     state.syncEmpty()
   }
 

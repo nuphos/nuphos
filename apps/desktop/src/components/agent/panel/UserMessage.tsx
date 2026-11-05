@@ -1,8 +1,10 @@
+import { FileText } from 'lucide-react'
 import { memo, useCallback, useMemo, useState } from 'react'
 
 import { t } from '../../../i18n'
 import { parseAtlasLink } from '../../../lib/atlasLinkMention'
 import { trustedAvatarURL } from '../../../lib/avatarUrl'
+import { pastedTextLabel, splitPastedText } from '../../../lib/pastedText'
 import { Avatar } from '../../Avatar'
 import { MessageResponse } from '../MessageResponse'
 import { PlanCard } from '../PlanTool'
@@ -14,6 +16,7 @@ import { ImageAttachmentThumb, ImageLightbox, LocalFileChip } from './messageInl
 import { renderAtlasMentionLink, renderMemberMentionLink } from './messageInlineLinks'
 import { linkMentions } from './messageMentionText'
 import { senderLabel } from './messageMetadata'
+import { PastedTextDialog } from './PastedTextDialog'
 import { formatMessageTimestamp } from './streamText'
 import { UploadedFilesCard } from './transferCards'
 import { useSentMessageMotion } from './useSentMessageMotion'
@@ -75,6 +78,7 @@ export const UserMessage = memo(
     const sendMotionRef = useSentMessageMotion(message.id)
     const [preview, setPreview] = useState<number | null>(null)
     const [editing, setEditing] = useState(false)
+    const [viewingPaste, setViewingPaste] = useState<string | null>(null)
     const renderLink = useCallback(
       (href: string, children: ReactNode) =>
         renderMemberMentionLink(href, children, teamId) ??
@@ -190,20 +194,38 @@ export const UserMessage = memo(
             )}
             {!editing && textParts.length > 0 && (
               <div className="user-message-bubble max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words space-y-2">
-                {textParts.map((p, i) => (
-                  <MessageResponse
-                    key={i}
-                    // Markdown collapses single newlines; pre-wrap keeps the user's
-                    // line breaks visible without turning them into paragraphs.
-                    className="[&_p]:whitespace-pre-wrap [&_li]:whitespace-pre-wrap"
-                    renderLink={renderLink}
-                    onLinkClick={onOpenNuphosLink}
-                  >
-                    {linkMentions(p.text, message.metadata?.mentions)}
-                  </MessageResponse>
-                ))}
+                {textParts.map((p, i) =>
+                  splitPastedText(p.text).map((segment, j) =>
+                    segment.pasted ? (
+                      // A long paste stays folded; the agent got all of it.
+                      <button
+                        key={`${String(i)}:${String(j)}`}
+                        type="button"
+                        className="atlas-mention"
+                        onClick={() => setViewingPaste(segment.text)}
+                      >
+                        <FileText size={12} className="atlas-mention-icon" aria-hidden />
+                        <span className="atlas-mention-label">{pastedTextLabel(segment.text)}</span>
+                      </button>
+                    ) : (
+                      segment.text.trim() && (
+                        <MessageResponse
+                          key={`${String(i)}:${String(j)}`}
+                          // Markdown collapses single newlines; pre-wrap keeps the user's
+                          // line breaks visible without turning them into paragraphs.
+                          className="[&_p]:whitespace-pre-wrap [&_li]:whitespace-pre-wrap"
+                          renderLink={renderLink}
+                          onLinkClick={onOpenNuphosLink}
+                        >
+                          {linkMentions(segment.text, message.metadata?.mentions)}
+                        </MessageResponse>
+                      )
+                    ),
+                  ),
+                )}
               </div>
             )}
+            <PastedTextDialog text={viewingPaste} onClose={() => setViewingPaste(null)} />
             {!editing && (copyableText || typeof message.createdAt === 'number') && (
               <div className="-mt-1 flex min-h-7 items-center justify-end gap-1 opacity-0 group-hover/message:opacity-100 group-focus-within/message:opacity-100 transition-opacity">
                 {typeof message.createdAt === 'number' && (
