@@ -84,6 +84,8 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.drawBehind
@@ -691,16 +693,27 @@ private fun ActivityText(text: String, live: Boolean) {
     val base = MaterialTheme.colorScheme.onSurfaceVariant
     if (!live) { Text(text, style = style, color = base); return }
     val highlight = MaterialTheme.colorScheme.onSurface
-    val shimmer by rememberInfiniteTransition(label = "activity").animateFloat(
+    // Read only while drawing, so the band repaints each frame without recomposing the row.
+    val band = rememberInfiniteTransition(label = "activity").animateFloat(
         initialValue = -0.3f, targetValue = 1.3f,
         animationSpec = androidx.compose.animation.core.infiniteRepeatable(
             androidx.compose.animation.core.tween(1400, easing = androidx.compose.animation.core.LinearEasing)),
         label = "activity-band",
     )
-    Text(text, modifier = Modifier.testTag("activity-live"), style = style.copy(brush = androidx.compose.ui.graphics.Brush.linearGradient(
-        0f to base, (shimmer - 0.15f).coerceIn(0f, 1f) to base, shimmer.coerceIn(0f, 1f) to highlight, (shimmer + 0.15f).coerceIn(0f, 1f) to base, 1f to base,
-        start = androidx.compose.ui.geometry.Offset(0f, 0f), end = androidx.compose.ui.geometry.Offset(320f, 0f),
-    )))
+    Text(text, color = base, style = style, modifier = Modifier.testTag("activity-live")
+        .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+        .drawWithContent {
+            drawContent()
+            val center = band.value * size.width
+            val half = size.width * 0.15f
+            drawRect(
+                androidx.compose.ui.graphics.Brush.horizontalGradient(
+                    0f to androidx.compose.ui.graphics.Color.Transparent, 0.5f to highlight, 1f to androidx.compose.ui.graphics.Color.Transparent,
+                    startX = center - half, endX = center + half,
+                ),
+                blendMode = androidx.compose.ui.graphics.BlendMode.SrcAtop,
+            )
+        })
 }
 
 /** The empty space above the composer's rounded card: the transcript can show through it. */
