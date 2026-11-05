@@ -33,6 +33,10 @@ export const BOX_INSTALL_COMMAND = [
   'grep -q " /tmp " /etc/fstab || echo "/data/tmp /tmp none bind,nofail,x-systemd.requires-mounts-for=/data 0 0" | sudo tee -a /etc/fstab >/dev/null',
   'grep -q " /var/tmp " /etc/fstab || echo "/data/var-tmp /var/tmp none bind,nofail,x-systemd.requires-mounts-for=/data 0 0" | sudo tee -a /etc/fstab >/dev/null',
   'sudo systemctl unmask --quiet tmp.mount || true',
+  // Docker and containerd keep images, containers and volumes on /data too: built images otherwise
+  // fill the root disk. Only while Docker holds nothing yet, since the bind would hide what it has.
+  'sudo install -d -m 711 /data/docker /data/containerd',
+  'grep -q " /var/lib/docker " /etc/fstab || [ -n "$(sudo docker images -q 2>/dev/null)$(sudo docker volume ls -q 2>/dev/null)" ] || printf "%s\\n" "/data/docker /var/lib/docker none bind,nofail,x-systemd.requires-mounts-for=/data,x-systemd.before=docker.service 0 0" "/data/containerd /var/lib/containerd none bind,nofail,x-systemd.requires-mounts-for=/data,x-systemd.before=containerd.service 0 0" | sudo tee -a /etc/fstab >/dev/null',
   'command -v grok >/dev/null || curl -fsSL https://x.ai/cli/install.sh | GROK_BIN_DIR="$HOME/.local/bin" bash',
   // Always the newest CLI, so the same step installs a Box and updates one.
   'curl -fsSL https://nuphos.ai/install | sh',
