@@ -122,6 +122,10 @@ personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
   if (!claims) {
     throw new AppError(403, 'forbidden', 'Only an agent conversation can use this handout')
   }
+  // An exchanged token vends only the credentials it names; mail and files are not among them.
+  if (claims.lim) {
+    throw new AppError(403, 'forbidden', 'This token is limited to other credentials')
+  }
   if (claims.hum && claims.sub !== claims.own) {
     throw new AppError(
       403,

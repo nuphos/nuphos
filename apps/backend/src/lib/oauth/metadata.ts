@@ -43,7 +43,11 @@ export function buildAuthorizationServerMetadata(
     scopes_supported: [MCP_SCOPE],
     response_types_supported: ['code'],
     response_modes_supported: ['query'],
-    grant_types_supported: ['authorization_code', 'refresh_token'],
+    grant_types_supported: [
+      'authorization_code',
+      'refresh_token',
+      'urn:ietf:params:oauth:grant-type:token-exchange',
+    ],
     // Public clients (native apps) authenticate with PKCE, not a client secret.
     token_endpoint_auth_methods_supported: ['none'],
     // S256 only — plain PKCE is disallowed by OAuth 2.1.

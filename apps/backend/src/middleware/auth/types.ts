@@ -32,6 +32,8 @@ export type AuthVariables = {
   authToken: string
   /** Scoped Claude-runtime token metadata; absent for normal user sessions. */
   previewConversationOwnerUserId?: string
+  /** An exchanged conversation token's credential limit (`lim`). */
+  previewCredentialLimit?: Readonly<Record<string, readonly string[]>>
   /** Set when the request came with a stored CLI token rather than a session. */
   cliToken?: CliTokenPrincipal
   /** The sign-in session behind the request; absent for CLI and agent-run tokens. */

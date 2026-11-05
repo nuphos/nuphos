@@ -88,7 +88,36 @@ async function dashboardPanelCredentialAccess(panelId: ObjectId, agent: AgentRef
   )
 }
 
+/**
+ * The credentials a request may vend: the conversation's selection, narrowed
+ * to an exchanged token's limit when it carries one. A field the conversation
+ * leaves unset (team-wide reach) narrows to exactly the limit's ids.
+ */
 export async function getAgentCredentialAccess(agent: AgentRef, teamId: string) {
+  const access = await selectedCredentialAccess(agent, teamId)
+
+  return agent.credentialLimit ? limitCredentialAccess(access, agent.credentialLimit) : access
+}
+
+export function limitCredentialAccess<T extends Record<string, unknown>>(
+  access: T,
+  limit: Readonly<Record<string, readonly string[]>>,
+): T {
+  const limited: Record<string, unknown> = { ...access }
+
+  for (const [key, selected] of Object.entries(access)) {
+    if (selected !== undefined && !Array.isArray(selected)) continue
+    const allowed = limit[key] ?? []
+
+    limited[key] = selected
+      ? (selected as string[]).filter((id) => allowed.includes(id))
+      : [...allowed]
+  }
+
+  return limited as T
+}
+
+async function selectedCredentialAccess(agent: AgentRef, teamId: string) {
   const panelId = dashboardPanelIdFromSessionId(agent.sessionId)
 
   if (panelId) return dashboardPanelCredentialAccess(panelId, agent, teamId)

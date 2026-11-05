@@ -7,6 +7,11 @@ export type AgentRef = {
   sessionId: string
   /** Durable conversation/run owner when execution is delegated from a shared channel. */
   conversationOwnerUserId?: string
+  /**
+   * From an exchanged conversation token: the only credentials this request may
+   * vend, per selection field. Applied on top of the conversation's selection.
+   */
+  credentialLimit?: Readonly<Record<string, readonly string[]>>
 }
 
 export function agentSubjectId(ref: AgentRef): string {

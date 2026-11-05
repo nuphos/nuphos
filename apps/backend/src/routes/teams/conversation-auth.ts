@@ -86,7 +86,7 @@ export const requireUserOrConversationAuth: MiddlewareHandler<{
   }
   c.set('userId', claims.sub)
   c.set('authToken', token)
-  c.set('conversationAgent', agent)
+  c.set('conversationAgent', claims.lim ? { ...agent, credentialLimit: claims.lim } : agent)
   await next()
 }
 
