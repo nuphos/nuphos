@@ -170,13 +170,11 @@ class ChannelTypingFixtureDeviceTest {
 
     @Test fun aTurnAnsweringElsewhereShowsNoDotsHere() {
         running = true
-        answering = "chat-b"
         render()
-        val checked = checks.get()
-        compose.waitUntil(8_000) { checks.get() > checked + 1 }
-        compose.waitForIdle()
-        assertFalse("The agent is working, but not on this chat", showing())
-        // The same check shows them once this chat's posts steer the turn here.
+        compose.waitUntil(8_000) { showing() }
+        // The agent stays in its turn throughout: only the chat it answers changes.
+        answering = "chat-b"
+        compose.waitUntil(8_000) { !showing() }
         answering = "chat-a"
         compose.waitUntil(8_000) { showing() }
     }
