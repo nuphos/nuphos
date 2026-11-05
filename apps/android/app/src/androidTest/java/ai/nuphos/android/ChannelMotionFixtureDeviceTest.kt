@@ -89,7 +89,7 @@ class ChannelMotionFixtureDeviceTest {
                     if (failReads) { code = 500; "{}" } else detail()
                 }
                 path.endsWith("/agents") -> """{"agents":[{"sessionId":"agent-ops","title":"Release ops"}]}"""
-                path.endsWith("/agent/conversations/agent-ops") -> """{"sessionId":"agent-ops","title":"Release ops","isOwner":true,"messages":[]${if (turn) ""","activeRun":{"streamId":"r"}""" else ""}}"""
+                path.endsWith("/agent/conversations/agent-ops") -> """{"sessionId":"agent-ops","title":"Release ops","isOwner":true,"messages":[]${if (turn) ""","activeRun":{"streamId":"r"},"runtimeState":{"state":"active","schemaVersion":2,"phase":"working","channelIds":["chat-a"]}""" else ""}}"""
                 path.endsWith("/agent/conversations") -> """{"conversations":[],"hasMore":false}"""
                 path.endsWith("/read") -> """{"activitySeq":1,"readSeq":1,"unread":false}"""
                 else -> "{}"

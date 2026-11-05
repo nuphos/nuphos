@@ -47,6 +47,7 @@ class ChannelTypingFixtureDeviceTest {
     private val reads = CopyOnWriteArrayList<Int>()
     @Volatile private var messages = 1
     @Volatile private var running = false
+    @Volatile private var answering = "chat-a"
     private lateinit var store: AgentStore
     private lateinit var auth: AuthSession
     private lateinit var tokens: TokenStore
@@ -63,7 +64,7 @@ class ChannelTypingFixtureDeviceTest {
     }
     /** The agent is asked directly, so being past the first page of the agent list makes no difference. */
     private fun agent(): String {
-        val run = if (running) ""","activeRun":{"streamId":"run-1"}""" else ""
+        val run = if (running) ""","activeRun":{"streamId":"run-1"},"runtimeState":{"state":"active","schemaVersion":2,"phase":"working","channelIds":["$answering"]}""" else ""
         return """{"sessionId":"agent-ops","title":"Release ops","isOwner":true,"messages":[]$run}"""
     }
 
@@ -165,6 +166,17 @@ class ChannelTypingFixtureDeviceTest {
         failFullReads = false
         compose.waitUntil(10_000) { !showing() }
         compose.onNodeWithText("Post 2").assertExists()
+    }
+
+    @Test fun aTurnAnsweringElsewhereShowsNoDotsHere() {
+        running = true
+        render()
+        compose.waitUntil(8_000) { showing() }
+        // The agent stays in its turn throughout: only the chat it answers changes.
+        answering = "chat-b"
+        compose.waitUntil(8_000) { !showing() }
+        answering = "chat-a"
+        compose.waitUntil(8_000) { showing() }
     }
 
     @Test fun anAgentThatCannotBeCheckedKeepsItsDots() {
