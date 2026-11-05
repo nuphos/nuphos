@@ -170,7 +170,7 @@ describe('limitCredentialAccess', () => {
         awsRoleIds: ['role-1', 'role-2'],
         linearWorkspaceIds: ['ws-1'],
         githubInstallationIds: undefined,
-      },
+      } as Record<string, string[] | undefined>,
       { awsRoleIds: ['role-2'], githubInstallationIds: ['gh-1'] },
     )
 
