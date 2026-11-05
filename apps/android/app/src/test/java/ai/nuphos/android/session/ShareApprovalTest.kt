@@ -18,6 +18,7 @@ class ShareApprovalTest {
         assertNull(ShareApprovalWait.of("approved"))
         assertNull(ShareApprovalWait.of(null))
         assertTrue(ShareApprovalWait.Pending.message("Mac").startsWith("Waiting for the owner of Mac"))
+        assertTrue(ShareApprovalWait.Denied.message("Mac").contains("Switch to another runtime"))
     }
 
     @Test fun keepsAskingUntilTheOwnerApproves() = runTest {

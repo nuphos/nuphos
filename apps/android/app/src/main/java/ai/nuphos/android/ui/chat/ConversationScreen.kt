@@ -13,6 +13,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -63,6 +64,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import ai.nuphos.android.data.AgentChatApi
 import ai.nuphos.android.session.ShareApprovalWait
 import ai.nuphos.android.session.ConversationReads
 import ai.nuphos.android.session.AiAccess
@@ -342,6 +344,7 @@ fun ConversationScreen(
                                 alwaysTarget = it
                             },
                             onOpenTool = { toolDetail = it },
+                            onSwitchRuntime = if (!browsingOnly && session.canManage) ({ showAgent = true }) else null,
                         )
                     }
                 }
@@ -353,12 +356,16 @@ fun ConversationScreen(
                         shape = MaterialTheme.shapes.medium,
                         color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     ) {
-                        Text(
-                            wait.message(session.runtimeDeviceLabel ?: "this computer"),
-                            Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (wait == ShareApprovalWait.Denied) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                        )
+                        Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                wait.message(session.runtimeDeviceLabel ?: "this computer"),
+                                Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (wait == ShareApprovalWait.Denied) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                            )
+                            // Declined: the conversation moves on to another runtime.
+                            if (wait == ShareApprovalWait.Denied && session.canManage) SwitchRuntimeButton { showAgent = true }
+                        }
                     }
                 }
                 if (session.runtimeRecoveryRequired) {
@@ -582,6 +589,7 @@ private fun ChatRowView(
     onLink: (String) -> Unit,
     onAlwaysAllow: (ChatPart.Tool) -> Unit,
     onOpenTool: (ChatPart.Tool) -> Unit,
+    onSwitchRuntime: (() -> Unit)? = null,
 ) {
     when (row) {
         is ChatRow.Timestamp -> Text(
@@ -651,7 +659,11 @@ private fun ChatRowView(
             Spacer(Modifier.size(8.dp))
             if (row.live) LoadingIndicator(Modifier.size(20.dp))
         }
-        is ChatRow.Hint -> Text(row.text, color = if (row.isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodySmall)
+        is ChatRow.Hint -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(row.text, color = if (row.isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodySmall)
+            // A runtime that can't take the turn: moving the conversation is the way on.
+            if (onSwitchRuntime != null && row.text in AgentChatApi.switchRuntimeErrors) SwitchRuntimeButton(onSwitchRuntime)
+        }
         ChatRow.Bottom -> Spacer(Modifier.height(1.dp))
     }
 }
@@ -867,5 +879,13 @@ private fun ToolDetailDialog(part: ChatPart.Tool, onDismiss: () -> Unit) {
             }
             part.errorText?.takeIf { it.isNotBlank() }?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
+    }
+}
+
+/** Opens the runtime sheet, which moves this conversation to the runtime chosen. */
+@Composable
+internal fun SwitchRuntimeButton(onClick: () -> Unit) {
+    OutlinedButton(onClick = onClick, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {
+        Text("Switch runtime", style = MaterialTheme.typography.labelMedium)
     }
 }

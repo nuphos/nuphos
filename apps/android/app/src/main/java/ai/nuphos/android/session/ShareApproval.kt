@@ -10,7 +10,7 @@ enum class ShareApprovalWait {
 
     fun message(computer: String): String = when (this) {
         Pending -> "Waiting for the owner of $computer to approve. Your message is sent once they do."
-        Denied -> "The owner of $computer declined this conversation. Move it to another agent to continue."
+        Denied -> "The owner of $computer declined this conversation. Switch to another runtime to continue."
     }
 
     companion object {
