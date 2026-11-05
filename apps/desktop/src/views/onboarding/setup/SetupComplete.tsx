@@ -57,7 +57,7 @@ export function SetupComplete({
           ? t('Connect a runtime when you’re ready to start your first conversation.')
           : t('Start a conversation, give your runtime a task, and work through it with your team.')
       }
-      hint={t('You can manage runtimes any time in Settings › Runtimes.')}
+      hint={t('You can manage runtimes any time on the Runtimes page.')}
       actions={
         <>
           <Button variant="ghost" onClick={onBack}>

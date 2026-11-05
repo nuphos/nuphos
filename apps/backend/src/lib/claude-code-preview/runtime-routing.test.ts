@@ -29,7 +29,7 @@ describe('assertClaudeCodeSetupConfigured', () => {
       expect(appError.status).toBe(409)
       expect(appError.code).toBe('claude_code_setup_required')
       expect(appError.message).toContain('add an agent')
-      expect(appError.message).toContain('Settings → Agent')
+      expect(appError.message).toContain('Runtimes page')
     }
   })
 })

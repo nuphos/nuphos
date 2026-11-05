@@ -222,10 +222,10 @@ export function boxSetupPhase(
 /** Why a setup flow's Box did not come up, or null while it still may. */
 export function boxSetupProblem(phase: BoxSetupPhase): string | null {
   if (phase === 'error')
-    return t('The computer could not start. Delete it in Settings › Runtimes and try again.')
+    return t('The computer could not start. Delete it on the Runtimes page and try again.')
   if (phase === 'timeout')
     return t(
-      'The computer has not started after 5 minutes. Delete it in Settings › Runtimes and try again.',
+      'The computer has not started after 5 minutes. Delete it on the Runtimes page and try again.',
     )
 
   return null
