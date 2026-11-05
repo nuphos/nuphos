@@ -6,7 +6,8 @@ import {
   agentOffline,
   agentRunsOn,
   localRemovalId,
-  thisComputerSignIn,
+  localSignIn,
+  newAgentAction,
   visibleAgent,
 } from './agentPresentation.ts'
 import { boxAgents } from './boxPresentation.ts'
@@ -186,32 +187,62 @@ test("a computer's agent goes by the name given to it, else its provider's", () 
   assert.equal(agentName({ ...agent, local: { ...agent.local!, agentLabel: 'Review' } }), 'Review')
 })
 
-test("this computer's signed-out agent signs in right here; others do not", () => {
+test("every signed-out agent on the viewer's own computers can sign in; others' cannot", () => {
   const here = { userId: 'owner', deviceId: 'mac' }
+  const codex = local('a', 'mac', false)
+  const added = { ...codex, local: { ...codex.local!, instanceId: 'x' } }
 
-  assert.equal(thisComputerSignIn(local('a', 'mac', false), here), 'codex')
-  assert.equal(thisComputerSignIn(local('a', 'mac', null), here), 'codex')
-  assert.equal(thisComputerSignIn(local('a', 'mac', true), here), undefined)
-  assert.equal(thisComputerSignIn(local('a', 'box1', false), here), undefined)
-  assert.equal(
-    thisComputerSignIn(local('a', 'mac', false), { ...here, userId: 'other' }),
-    undefined,
-  )
-  assert.equal(thisComputerSignIn(local('a', 'mac', false), null), undefined)
-  const extra = local('a', 'mac', false)
+  // This computer's default Claude Code or Codex agent: its own CLI.
+  assert.equal(localSignIn(codex, here), 'codex')
+  assert.equal(localSignIn(local('a', 'mac', null), here), 'codex')
+  // An added agent, or any agent on another computer, has a login of its own that only the
+  // runtime sign-in reaches.
+  assert.equal(localSignIn(added, here), 'runtime')
+  assert.equal(localSignIn(local('a', 'box1', false), here), 'runtime')
+  assert.equal(localSignIn({ ...codex, provider: 'grok' }, here), 'runtime')
+  // Signed in already, or someone else's agent: nothing to offer.
+  assert.equal(localSignIn(local('a', 'mac', true), here), undefined)
+  assert.equal(localSignIn(local('a', 'box1', true), here), undefined)
+  assert.equal(localSignIn(codex, { ...here, userId: 'other' }), undefined)
+  assert.equal(localSignIn(codex, null), undefined)
+  assert.equal(localSignIn(teamAgent('managed'), here), undefined)
+})
 
-  const added = { ...extra, local: { ...extra.local!, instanceId: 'x' } }
+const hostAgent = (
+  id: string,
+  provider: RuntimeInstance['provider'],
+  signedIn: boolean | null,
+  agentInstances?: boolean,
+) =>
+  ({
+    id,
+    provider,
+    kind: 'local',
+    local: { deviceId: 'a', signedIn, agentInstances },
+  }) as RuntimeInstance
 
-  // An added agent has its own login, so it signs in through the runtime, never the CLI.
-  assert.equal(thisComputerSignIn(added, here), 'runtime')
-  assert.equal(thisComputerSignIn({ ...added, provider: 'grok' }, here), 'runtime')
-  assert.equal(
-    thisComputerSignIn({ ...added, local: { ...added.local, signedIn: true } }, here),
-    undefined,
-  )
-  assert.equal(
-    thisComputerSignIn({ ...added, local: { ...added.local, deviceId: 'box1' } }, here),
-    undefined,
-  )
-  assert.equal(thisComputerSignIn({ ...extra, provider: 'grok' }, here), undefined)
+test('New Agent signs in a signed-out agent of that provider before it adds another', () => {
+  const old = [hostAgent('claude', 'claude-code', true), hostAgent('codex', 'codex', null)]
+  const capable = [
+    hostAgent('claude', 'claude-code', true, true),
+    hostAgent('codex', 'codex', null, true),
+  ]
+  const lapsed = [
+    hostAgent('claude', 'claude-code', false, true),
+    hostAgent('claude-2', 'claude-code', true, true),
+  ]
+
+  // A lapsed sign-in is signed in again, never turned into "Claude Code 2".
+  // A new computer whose first sign-in was cancelled: its agent is hidden (never signed in), so
+  // New runtime is the way back to it.
+  const fresh = hostAgent('claude', 'claude-code', false, true)
+
+  assert.equal(visibleAgent(fresh), false)
+  assert.deepEqual(newAgentAction([fresh], 'claude-code'), { signIn: 'claude' })
+  assert.deepEqual(newAgentAction(lapsed, 'claude-code'), { signIn: 'claude' })
+  assert.deepEqual(newAgentAction(capable, 'codex'), { signIn: 'codex' })
+  // Every agent of the provider signed in: a capable host adds one, an older host has none to add.
+  assert.deepEqual(newAgentAction(capable, 'claude-code'), { create: true })
+  assert.deepEqual(newAgentAction(old, 'codex'), { signIn: 'codex' })
+  assert.equal(newAgentAction(old, 'claude-code'), null)
 })

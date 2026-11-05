@@ -8,8 +8,8 @@ import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../components/ui/me
 import { t } from '../../i18n'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
-import { agentName, agentOffline } from './agentPresentation'
-import { accessHint, machineLine, newAgentAction, seenFrom } from './boxPresentation'
+import { agentName, agentOffline, newAgentAction } from './agentPresentation'
+import { accessHint, machineLine, seenFrom } from './boxPresentation'
 import { STATUS_DOT } from './runtimePresentation'
 
 import type { AgentDevice } from '../../api'
@@ -118,18 +118,23 @@ export function NewAgentMenu({
         <Plus className="h-3.5 w-3.5" />
       </MenuTrigger>
       <MenuContent align="start">
-        {PROVIDERS.map((provider) => (
-          <MenuItem
-            key={provider}
-            disabled={busy || !newAgentAction(agents, provider)}
-            icon={<AgentProviderIcon provider={provider} className="h-4 w-4" />}
-            onClick={() => onAdd(provider)}
-          >
-            {canAddAgents
-              ? AGENT_PROVIDER[provider].label
-              : t('Sign in to {provider}', { provider: AGENT_PROVIDER[provider].label })}
-          </MenuItem>
-        ))}
+        {PROVIDERS.map((provider) => {
+          const action = newAgentAction(agents, provider)
+          const label = AGENT_PROVIDER[provider].label
+
+          return (
+            <MenuItem
+              key={provider}
+              disabled={busy || !action}
+              icon={<AgentProviderIcon provider={provider} className="h-4 w-4" />}
+              onClick={() => onAdd(provider)}
+            >
+              {action && 'create' in action
+                ? label
+                : t('Sign in to {provider}', { provider: label })}
+            </MenuItem>
+          )
+        })}
         {!canAddAgents && (
           <MenuItem disabled>{t('Update the computer host to add more runtimes')}</MenuItem>
         )}
