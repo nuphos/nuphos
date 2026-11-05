@@ -66,6 +66,8 @@ class WorkspaceSetupFixtureDeviceTest {
     private val network = object : ExternalResource() {
         override fun before() {
             app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
+            // A fresh install would otherwise cover the first test with the notification prompt.
+            InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(app.packageName, android.Manifest.permission.POST_NOTIFICATIONS)
             savedAuth = app.authSession
             savedLastTeam = app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).getString("nuphos.workspace.lastTeamId", null)
             InstrumentationRegistry.getInstrumentation().runOnMainSync {
@@ -231,6 +233,19 @@ class WorkspaceSetupFixtureDeviceTest {
         compose.runOnIdle { setup.close(); assertNull(selected) }
         assertEquals(1, posts())
     }
+    /** The workspace list is in the profile sheet. */
+    private fun openWorkspaces() {
+        compose.onNodeWithContentDescription("Profile").performClick()
+        waitText("Workspace")
+        compose.onNodeWithText("Workspace").performScrollTo().performClick()
+    }
+    private fun chooseWorkspace(team: Team) {
+        openWorkspaces()
+        waitText(team.name)
+        compose.onAllNodesWithText(team.name).onLast().performClick()
+        compose.waitUntil(5_000) { agent.selectedTeam == team }
+        compose.waitForIdle()
+    }
     private fun renderHome(saved: List<Team>) {
         memberships = saved
         compose.runOnIdle {
@@ -268,8 +283,8 @@ class WorkspaceSetupFixtureDeviceTest {
         membershipStatus = 500
         compose.activityRule.scenario.recreate()
         release!!.countDown()
-        waitText("Choose workspace")
-        compose.onNodeWithText("Choose workspace").performClick()
+        openWorkspaces()
+        waitText("Set up a workspace")
         compose.onNodeWithText("Set up a workspace").performClick()
         waitText("The request may have completed. Closing this sheet does not undo a saved workspace.")
         compose.onNodeWithText("Create workspace").assertIsNotEnabled()
@@ -293,30 +308,28 @@ class WorkspaceSetupFixtureDeviceTest {
         compose.onNodeWithText("Refresh workspaces").performScrollTo().performClick()
         compose.waitUntil(5_000) { agent.teams == listOf(b) }
         compose.onNodeWithText("Close").performScrollTo().performClick()
-        compose.onNodeWithText("Choose workspace").performClick()
-        compose.onNodeWithText("Fixture Beta").performClick()
-        compose.runOnIdle { assertEquals(b, agent.selectedTeam) }
+        chooseWorkspace(b)
         assertEquals(0, posts())
     }
     @Test fun actualChooserSwitchesMembershipAndPreservesRealDraftStore() {
-        renderHome(listOf(a, b)); waitText("Fixture Alpha")
+        renderHome(listOf(a, b))
+        compose.waitUntil(5_000) { agent.selectedTeam == a }
         compose.runOnIdle {
             auth.composerDrafts.bind(NuphosUser.preview.id, a.id, ComposerDrafts.Destination.NewChat)!!.write(" Alpha draft ")
         }
-        compose.onNodeWithText("Fixture Alpha").performClick()
-        compose.onNodeWithText("Fixture Beta").performClick()
+        chooseWorkspace(b)
         compose.runOnIdle {
             assertEquals(b, agent.selectedTeam)
             auth.composerDrafts.bind(NuphosUser.preview.id, b.id, ComposerDrafts.Destination.NewChat)!!.write("Beta draft")
         }
-        compose.onNodeWithText("Fixture Beta").performClick()
-        compose.onNodeWithText("Fixture Alpha").performClick()
+        chooseWorkspace(a)
         compose.runOnIdle {
             assertEquals(a, agent.selectedTeam)
             assertEquals(" Alpha draft ", auth.composerDrafts.bind(NuphosUser.preview.id, a.id, ComposerDrafts.Destination.NewChat)!!.text)
             assertEquals("Beta draft", auth.composerDrafts.bind(NuphosUser.preview.id, b.id, ComposerDrafts.Destination.NewChat)!!.text)
         }
-        compose.onNodeWithText("Fixture Alpha").performClick()
+        openWorkspaces()
+        waitText("Set up a workspace")
         compose.onNodeWithText("Set up a workspace").performClick()
         waitText("Workspace name")
     }
