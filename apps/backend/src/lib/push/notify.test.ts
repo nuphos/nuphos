@@ -1,5 +1,8 @@
-import { beforeEach, describe, expect, test } from 'bun:test'
+import { generateKeyPairSync } from 'node:crypto'
 
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+
+import { sendApns, setApnsTransportForTests } from './apns'
 import {
   BADGE_DEBOUNCE_MS,
   createTurnNotifier,
@@ -19,6 +22,12 @@ const credentials: ApnsCredentials = {
   environment: 'production',
 }
 const frame = (payload: Record<string, unknown>) => `data: ${JSON.stringify(payload)}\n\n`
+// The turn-end path is exercised through the real sender, so its key must sign.
+const signingKey = generateKeyPairSync('ec', { namedCurve: 'prime256v1' })
+const signingCredentials: ApnsCredentials = {
+  ...credentials,
+  privateKey: signingKey.privateKey.export({ type: 'pkcs8', format: 'pem' }),
+}
 const finishedFrames = [
   frame({ type: 'text-delta', id: 't', delta: 'All done.' }),
   frame({ type: 'atlas-turn-complete', finishReason: 'stop' }),
@@ -108,6 +117,10 @@ beforeEach(() => {
   scheduled = []
   watchers = {}
   lostAccess = []
+})
+
+afterEach(() => {
+  setApnsTransportForTests(null)
 })
 
 describe('turn notifier', () => {
@@ -459,6 +472,37 @@ describe('empty completed turns', () => {
       }),
     )
     expect(sent[0]?.payload).toMatchObject({ aps: { alert: { body: 'Provider failed' } } })
+  })
+
+  test('an error-ending turn is retried past a refused stream and still arrives', async () => {
+    const bodies: string[] = []
+    let attempts = 0
+
+    devices = [device('aa')]
+    setApnsTransportForTests(async (_host, _headers, body) => {
+      attempts += 1
+      bodies.push(body)
+      if (attempts === 1)
+        throw Object.assign(new Error('Stream closed with error code NGHTTP2_REFUSED_STREAM'), {
+          code: 'ERR_HTTP2_STREAM_ERROR',
+        })
+
+      return { status: 200 }
+    })
+
+    await notifier({ credentials: () => signingCredentials, send: sendApns }).runEnded(
+      run({
+        frames: [
+          frame({ type: 'error', errorText: '-32000 Authentication required' }),
+          frame({ type: 'atlas-turn-complete' }),
+        ],
+      }),
+    )
+
+    expect(attempts).toBe(2)
+    expect(JSON.parse(bodies[1] ?? '{}')).toMatchObject({
+      aps: { alert: { body: '-32000 Authentication required' } },
+    })
   })
 })
 

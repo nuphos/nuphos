@@ -2,6 +2,7 @@ import { createPrivateKey, sign } from 'node:crypto'
 import { connect, constants } from 'node:http2'
 
 import { config } from '@/config'
+import { logEvent } from '@/lib/observability'
 
 import type { ClientHttp2Session } from 'node:http2'
 
@@ -104,6 +105,17 @@ function http2Session(host: string): ClientHttp2Session {
   return session
 }
 
+/** A connection that refused a stream is likely to refuse the next one, so a
+ *  retry dials again instead of reusing it. The old session is closed, not
+ *  destroyed: a sibling push already sending on it must finish. */
+function resetSession(host: string): void {
+  const session = sessions.get(host)
+
+  if (!session) return
+  sessions.delete(host)
+  session.close()
+}
+
 const http2Transport: ApnsTransport = (host, headers, body) =>
   new Promise((resolve, reject) => {
     const request = http2Session(host).request({
@@ -138,6 +150,67 @@ const http2Transport: ApnsTransport = (host, headers, body) =>
     request.end(body)
   })
 
+// APNs refuses a stream when a connection is at its limit or in GOAWAY; the
+// request was never processed, so a fresh connection can carry it. Half the
+// backoff is fixed, half jittered, so two refused pushes do not reconnect together.
+export const APNS_SEND_ATTEMPTS = 3
+const RETRY_BASE_MS = 200
+const RETRY_MAX_MS = 2_000
+const NGHTTP2_CODE = /NGHTTP2_[A-Z_]+/u
+const REFUSED_STREAM = 'NGHTTP2_REFUSED_STREAM'
+
+// The socket died before APNs answered, so no rejection was handed back.
+const TRANSIENT_CODES = new Set([
+  'ECONNRESET',
+  'EPIPE',
+  'ETIMEDOUT',
+  'ECONNREFUSED',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'EAI_AGAIN',
+  'ENOTFOUND',
+  'ERR_HTTP2_GOAWAY_SESSION',
+  'ERR_HTTP2_SESSION_ERROR',
+])
+
+export function apnsRetryDelayMs(attempt: number, random: () => number = Math.random): number {
+  const ceiling = Math.min(RETRY_BASE_MS * 2 ** attempt, RETRY_MAX_MS)
+
+  return Math.round(ceiling / 2 + random() * (ceiling / 2))
+}
+
+/** Node names the nghttp2 code in the message, not in `error.code`, and only
+ *  REFUSED_STREAM promises the request was never processed. */
+export function isTransientApnsFailure(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  const code = (error as { code?: unknown }).code
+
+  return (
+    (typeof code === 'string' && TRANSIENT_CODES.has(code)) ||
+    NGHTTP2_CODE.exec(error.message)?.[0] === REFUSED_STREAM
+  )
+}
+
+/** The nghttp2 code the message names, else the error's own code. */
+function failureCode(error: unknown): string {
+  if (!(error instanceof Error)) return 'unknown'
+  const named = NGHTTP2_CODE.exec(error.message)?.[0]
+  const code = (error as { code?: unknown }).code
+
+  if (named) return named
+
+  return typeof code === 'string' ? code : 'unknown'
+}
+
+/** The cached session goes before the wait, so the retry is not on it. */
+async function retryAfter(host: string, attempt: number, code: string): Promise<void> {
+  resetSession(host)
+  logEvent('warn', 'push.apns.retry', { attempt, of: APNS_SEND_ATTEMPTS, code })
+  await new Promise((resolve) => {
+    setTimeout(resolve, apnsRetryDelayMs(attempt - 1))
+  })
+}
+
 let transport: ApnsTransport = http2Transport
 
 export function setApnsTransportForTests(next: ApnsTransport | null): void {
@@ -151,6 +224,7 @@ export async function sendApns(
   nowMs = Date.now(),
 ): Promise<ApnsResponse> {
   const pushType = request.pushType ?? 'alert'
+  const host = HOSTS[request.environment]
   const headers: Record<string, string> = {
     [constants.HTTP2_HEADER_PATH]: `/3/device/${request.deviceToken}`,
     authorization: `bearer ${providerToken(credentials, nowMs)}`,
@@ -164,8 +238,20 @@ export async function sendApns(
   }
 
   if (request.collapseId) headers['apns-collapse-id'] = request.collapseId.slice(0, 64)
+  const body = JSON.stringify(request.payload)
 
-  return transport(HOSTS[request.environment], headers, JSON.stringify(request.payload))
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const response = await transport(host, headers, body)
+
+      // APNs answers every request with a status; none means the stream closed first.
+      if (response.status !== 0 || attempt >= APNS_SEND_ATTEMPTS) return response
+      await retryAfter(host, attempt, 'no-response')
+    } catch (error) {
+      if (attempt >= APNS_SEND_ATTEMPTS || !isTransientApnsFailure(error)) throw error
+      await retryAfter(host, attempt, failureCode(error))
+    }
+  }
 }
 
 /** The token will never deliver again: uninstalled app, revoked permission,
