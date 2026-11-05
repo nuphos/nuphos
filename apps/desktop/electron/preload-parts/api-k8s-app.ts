@@ -269,6 +269,8 @@ export const k8sAppApi = {
     subscribeDeepLink('deep-link:app-open', cb),
   onConnectAgentDeepLink: (cb: (payload: unknown) => void) =>
     subscribeDeepLink('deep-link:connect-agent', cb),
+  onConnectorStaleDeepLink: (cb: (payload: unknown) => void) =>
+    subscribeDeepLink('deep-link:connector-stale', cb),
   onWebUrlDeepLink: (cb: (payload: unknown) => void) => subscribeDeepLink('deep-link:web-url', cb),
   onPersonalCredentialDeepLink: (cb: (payload: unknown) => void) =>
     subscribeDeepLink('deep-link:personal-credential', cb),

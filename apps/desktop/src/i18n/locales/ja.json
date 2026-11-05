@@ -4519,6 +4519,7 @@
   "This collection is not sharded.": "このコレクションはシャーディングされていません。",
   "This computer": "このコンピュータ",
   "This computer · {provider}": "このコンピューター · {provider}",
+  "This connection attempt expired or was cancelled. Click Connect again.": "この接続の試行は期限切れになったか、キャンセルされました。もう一度「接続」をクリックしてください。",
   "This dashboard has no widgets.": "このダッシュボードにはウィジェットがありません。",
   "This dashboard is empty.": "このダッシュボードは空です。",
   "This database connection no longer exists or is unavailable.": "このデータベース接続は存在しないか、利用できません。",

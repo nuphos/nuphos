@@ -4519,6 +4519,7 @@
   "This collection is not sharded.": "此集合未分片。",
   "This computer": "本机",
   "This computer · {provider}": "此电脑 · {provider}",
+  "This connection attempt expired or was cancelled. Click Connect again.": "此次连接尝试已过期或已取消。请再次点击“连接”。",
   "This dashboard has no widgets.": "此仪表盘没有任何微件。",
   "This dashboard is empty.": "此仪表盘为空。",
   "This database connection no longer exists or is unavailable.": "此数据库连接已不存在或不可用。",

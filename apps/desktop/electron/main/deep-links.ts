@@ -24,19 +24,19 @@ import { createDeepLinkDelivery } from './deep-link-delivery'
 
 import type { DeepLinkTarget } from './deep-link-delivery'
 
-// Every connector's OAuth/app-install return link, with its analytics kind.
+// Every connector's OAuth/app-install return link, with its analytics kind and name.
 const CONNECTOR_CALLBACKS = [
-  ['github_callback', githubInstall],
-  ['gitlab_callback', gitlabInstall],
-  ['cloudflare_callback', cloudflareInstall],
-  ['linear_callback', linearInstall],
-  ['jira_callback', jiraInstall],
-  ['asana_callback', asanaInstall],
-  ['sentry_callback', sentryInstall],
-  ['plaud_callback', plaudInstall],
-  ['posthog_callback', posthogInstall],
-  ['slack_callback', slackInstall],
-  ['discord_callback', discordInstall],
+  ['github_callback', githubInstall, 'GitHub'],
+  ['gitlab_callback', gitlabInstall, 'GitLab'],
+  ['cloudflare_callback', cloudflareInstall, 'Cloudflare'],
+  ['linear_callback', linearInstall, 'Linear'],
+  ['jira_callback', jiraInstall, 'Jira'],
+  ['asana_callback', asanaInstall, 'Asana'],
+  ['sentry_callback', sentryInstall, 'Sentry'],
+  ['plaud_callback', plaudInstall, 'Plaud'],
+  ['posthog_callback', posthogInstall, 'PostHog'],
+  ['slack_callback', slackInstall, 'Slack'],
+  ['discord_callback', discordInstall, 'Discord'],
 ] as const
 
 type DeepLinkWindowHooks = {
@@ -122,9 +122,17 @@ export function handleDeepLink(url: string) {
   const connector = CONNECTOR_CALLBACKS.find(([, install]) => install.isCallbackUrl(url))
 
   if (connector) {
-    const [kind, install] = connector
+    const [kind, install, name] = connector
+    const state = new URL(url).searchParams.get('state')
 
     captureMain('deep_link_opened', { kind })
+    // The attempt was cancelled, timed out, or began before a restart: say so
+    // instead of dropping the link. queueDeepLink raises the window.
+    if (!state || !install.hasPending(state)) {
+      queueDeepLink('deep-link:connector-stale', { name })
+
+      return
+    }
     // macOS delivers open-url without raising a window; Windows/Linux raise it
     // in second-instance. Do it here so "Open Nuphos" visibly lands either way.
     if (app.isReady()) windowHooks?.showMainWindow()

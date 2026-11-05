@@ -4519,6 +4519,7 @@
   "This collection is not sharded.": "คอลเลกชันนี้ไม่ได้ทำ Sharding",
   "This computer": "คอมพิวเตอร์เครื่องนี้",
   "This computer · {provider}": "คอมพิวเตอร์เครื่องนี้ · {provider}",
+  "This connection attempt expired or was cancelled. Click Connect again.": "การพยายามเชื่อมต่อครั้งนี้หมดอายุหรือถูกยกเลิกแล้ว คลิก เชื่อมต่อ อีกครั้ง",
   "This dashboard has no widgets.": "แดชบอร์ดนี้ไม่มีวิดเจ็ต",
   "This dashboard is empty.": "แดชบอร์ดนี้ว่างเปล่า",
   "This database connection no longer exists or is unavailable.": "การเชื่อมต่อฐานข้อมูลนี้ไม่มีอยู่แล้วหรือไม่พร้อมใช้งาน",

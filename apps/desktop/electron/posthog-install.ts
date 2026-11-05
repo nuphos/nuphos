@@ -27,6 +27,9 @@ type Pending = {
 
 const pending = new Map<string, Pending>()
 
+/** Whether a callback's state still belongs to an attempt in progress. */
+export const hasPending = (state: string) => pending.has(state)
+
 function drop(state: string, p: Pending, reason: string) {
   pending.delete(state)
   clearTimeout(p.timeout)
