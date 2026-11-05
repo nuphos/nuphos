@@ -313,7 +313,8 @@ struct ConversationView: View {
             if let wait = session.shareApproval, ShareApprovalWait.asksOwner(conversationRuntime) {
                 ShareApprovalStrip(
                     wait: wait,
-                    computer: conversationRuntime?.local?.deviceLabel ?? "this computer"
+                    computer: conversationRuntime?.local?.deviceLabel ?? "this computer",
+                    onSwitchRuntime: session.canManage ? { showRuntimes = true } : nil
                 )
             }
             if !session.queued.isEmpty || !session.serverQueued.isEmpty {
@@ -480,7 +481,11 @@ struct ConversationView: View {
                 FailedBubble(submission: submission, onRetry: session.retryFailed, onEdit: session.editFailed)
             }
         case .hint(_, let text, let isError):
-            HintRow(text: text, isError: isError)
+            // A runtime that can't take the turn: moving the conversation is the way on.
+            HintRow(
+                text: text, isError: isError,
+                onSwitchRuntime: session.canManage && AgentChatAPI.switchRuntimeErrors.contains(text) ? { showRuntimes = true } : nil
+            )
         case .event(_, let event):
             EventLine(event: event, onLink: open(link:))
         case .channel:
@@ -666,16 +671,35 @@ struct TimestampLabel: View {
 struct HintRow: View {
     let text: String
     var isError = false
+    /// Set when another runtime is the way past this error.
+    var onSwitchRuntime: (() -> Void)? = nil
 
     var body: some View {
-        HStack(alignment: .top, spacing: 6) {
-            if isError {
-                Image(systemName: "exclamationmark.triangle.fill").font(Theme.Text.caption)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 6) {
+                if isError {
+                    Image(systemName: "exclamationmark.triangle.fill").font(Theme.Text.caption)
+                }
+                Text(text).font(Theme.Text.label)
             }
-            Text(text).font(Theme.Text.label)
+            .foregroundStyle(isError ? Color.red : Theme.muted)
+            if let onSwitchRuntime {
+                SwitchRuntimeButton(action: onSwitchRuntime)
+            }
         }
-        .foregroundStyle(isError ? Color.red : Theme.muted)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// Opens the runtime picker, which moves this conversation to the runtime chosen.
+struct SwitchRuntimeButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button("Switch runtime", systemImage: "arrow.left.arrow.right", action: action)
+            .font(Theme.Text.label.weight(.medium))
+            .buttonStyle(.bordered)
+            .controlSize(.small)
     }
 }
 
@@ -952,9 +976,11 @@ struct QueuedStrip: View {
 struct ShareApprovalStrip: View {
     let wait: ShareApprovalWait
     let computer: String
+    /// Declined, the conversation moves on to another runtime; set when the viewer may move it.
+    var onSwitchRuntime: (() -> Void)? = nil
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .center, spacing: 8) {
             Image(systemName: wait == .pending ? "hourglass" : "nosign")
                 .font(Theme.Text.label)
                 .foregroundStyle(wait == .pending ? Theme.warning : Color.red)
@@ -963,13 +989,16 @@ struct ShareApprovalStrip: View {
                 .foregroundStyle(Theme.body)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
+            if wait == .denied, let onSwitchRuntime {
+                SwitchRuntimeButton(action: onSwitchRuntime)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal, 16)
         .padding(.bottom, 6)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: onSwitchRuntime == nil ? .combine : .contain)
     }
 }
 

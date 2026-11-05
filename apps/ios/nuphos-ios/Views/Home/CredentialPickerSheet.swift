@@ -213,7 +213,8 @@ struct ComposerControls: View {
         if let runtime = session.runtime ?? store.runtimes.first(where: { $0.id == session.runtimeId }) {
             return SelectorBox.agentName(runtime)
         }
-        return session.runtimeDisplayName
+        // Gone from the list: the chip still opens the picker, which is how the conversation moves.
+        return session.runtimeDisplayName ?? "Choose runtime"
     }
 
     private func modelTitle(_ session: ChatSession) -> String {

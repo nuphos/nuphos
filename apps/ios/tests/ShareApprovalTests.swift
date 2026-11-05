@@ -30,6 +30,7 @@ enum ShareApprovalTests {
         precondition(ShareApprovalWait(status: "approved") == nil)
         precondition(ShareApprovalWait(status: nil) == nil)
         precondition(ShareApprovalWait.pending.message(computer: "Mac").contains("Waiting for the owner of Mac"))
+        precondition(ShareApprovalWait.denied.message(computer: "Mac").contains("Switch to another runtime"))
         let answer = try! JSONDecoder().decode(ShareApprovalStatus.self, from: Data(#"{"status":null}"#.utf8))
         precondition(answer.status == nil)
     }
