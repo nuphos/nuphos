@@ -11,6 +11,7 @@ import {
   enqueuePendingUserMessage,
 } from '@/lib/agent/pending-messages'
 import { listPendingUserMessages } from '@/lib/agent/pending-queue'
+import { startQueuedTurn } from '@/lib/agent/queued-turn'
 import { installQueuedTurnStarter } from '@/lib/agent/session-released'
 import { AppError } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
@@ -79,10 +80,6 @@ let queueStarts: string[] = []
 let secretsSaved = 0
 let queuedWhileSteering: string[] = []
 const app = new Hono().route('/agent', agent)
-
-installQueuedTurnStarter(async (_user, sessionId) => {
-  queueStarts.push(sessionId)
-})
 
 app.onError((error, c) =>
   c.json({ error: error.message }, (error as { status?: 403 | 404 | 409 }).status ?? 500),
@@ -238,10 +235,18 @@ test('Stop ends a turn the backend still holds and starts the queue, even if the
     buildPendingUserMessage({ renderedText: 'and then deploy', source: 'app' }),
   )
 
-  expect((await request('cancel-runtime')).status).toBe(200)
-  expect(stoppedRuns).toEqual(['running'])
-  await Bun.sleep(0)
-  expect(queueStarts).toEqual(['shared-control'])
+  installQueuedTurnStarter(async (_user, sessionId) => {
+    queueStarts.push(sessionId)
+  })
+  try {
+    expect((await request('cancel-runtime')).status).toBe(200)
+    expect(stoppedRuns).toEqual(['running'])
+    await Bun.sleep(0)
+    expect(queueStarts).toEqual(['shared-control'])
+  } finally {
+    installQueuedTurnStarter(startQueuedTurn)
+    await drainPendingUserMessages('owner', 'shared-control')
+  }
 })
 
 test('Stop with nothing held and no runtime to reach reports the failure', async () => {
