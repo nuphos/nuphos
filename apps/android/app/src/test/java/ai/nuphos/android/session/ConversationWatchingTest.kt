@@ -31,17 +31,48 @@ class ConversationWatchingTest {
         assertFalse(browsing.canWatch)
         browsing.disposeForConsent()
     }
-    @Test fun lateLoadCannotRestoreWatchStateAfterCascadeInvalidation() = runTest {
+    @Test fun aLateLoadCannotOverwriteAnAppliedChange() = runTest {
         val response = CompletableDeferred<AgentConversationDetail>()
         val session = ChatSession("fixture", "A", readBypass = { _, _ -> false }, aiAllowed = { true }, readDetail = { _, _, _ -> response.await() })
         val load = launch { session.load() }
         runCurrent()
-        session.invalidateWatching()
+        session.applyWatching(false)
         response.complete(AgentConversationDetail(watching = true))
         load.join()
-        assertNull(session.watching)
-        session.refreshWatching()
+        assertEquals(false, session.watching)
+        session.disposeForConsent()
+    }
+    @Test fun aChangeElsewhereKeepsTheValueAndOnlyANewerReadReplacesIt() = runTest {
+        var next: AgentConversationDetail = AgentConversationDetail(watching = true)
+        val held = CompletableDeferred<AgentConversationDetail>()
+        var hold = false
+        val session = ChatSession("fixture", "A", readBypass = { _, _ -> false }, aiAllowed = { true },
+            readDetail = { _, _, _ -> if (hold) held.await() else next })
+        session.load()
         assertEquals(true, session.watching)
+        hold = true
+        val late = launch { session.refreshWatching() }
+        runCurrent()
+        session.watchingChangedElsewhere()
+        assertEquals("The value stays while the read is out", true, session.watching)
+        held.complete(AgentConversationDetail(watching = true))
+        late.join()
+        hold = false
+        next = AgentConversationDetail(watching = false)
+        session.refreshWatching()
+        assertEquals(false, session.watching)
+        session.disposeForConsent()
+    }
+    @Test fun aFailedReadKeepsWhatIsShown() = runTest {
+        var fail = false
+        val session = ChatSession("fixture", "A", readBypass = { _, _ -> false }, aiAllowed = { true },
+            readDetail = { _, _, _ -> if (fail) error("synthetic") else AgentConversationDetail(watching = true) })
+        session.load()
+        session.applyWatching(false)
+        fail = true
+        runCatching { session.refreshWatching() }
+        assertEquals(false, session.watching)
+        assertTrue(session.canWatch)
         session.disposeForConsent()
     }
     @Test fun lateRefreshCannotRestoreStateAfterConsentOrSignOut() = runTest {

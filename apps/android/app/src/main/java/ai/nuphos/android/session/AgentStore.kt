@@ -427,8 +427,9 @@ class AgentStore(
     suspend fun pin(row: AgentConversation, pinned: Boolean) = rowAction(row, archive = null, pinned = pinned)
     suspend fun archive(row: AgentConversation, archived: Boolean) = rowAction(row, archive = archived, pinned = null)
 
-    var watchingSessionId: String? by mutableStateOf(null)
-        private set
+    private var watchingSessionIds by mutableStateOf(emptySet<String>())
+    /** Only the conversation being changed waits: every other one stays available. */
+    fun isChangingWatch(sessionId: String) = sessionId in watchingSessionIds
     var watchError: String? by mutableStateOf(null)
         private set
     fun clearWatchError() { watchError = null }
@@ -459,34 +460,36 @@ class AgentStore(
         }
     }
     private suspend fun changeWatching(team: String, id: String, watching: Boolean) {
-        if (disposed || !hasAiAccess() || watchingSessionId != null) return
+        if (disposed || !hasAiAccess() || id in watchingSessionIds) return
         val revision = workspaceRevision
         fun current() = !disposed && hasAiAccess() && selectedTeam?.id == team && workspaceRevision == revision
-        watchingSessionId = id
+        watchingSessionIds = watchingSessionIds + id
         watchError = null
         try {
             ConversationActions.watch(token, team, id, watching)
             if (!current()) return
-            // DELETE cascades to unloaded descendants. Invalidate instead of guessing
-            // ancestry from a partial page; only subsequent server reads restore it.
+            // Reads that started before this write can no longer land, but what's shown stays:
+            // the row changed here is known, and DELETE's cascade comes from the reads below.
             loadGeneration++
             isLoadingMore = false
-            conversations = conversations.map { it.copy(watching = null) }
+            conversations = conversations.map { if (it.sessionId == id && (it.teamId ?: team) == team) it.copy(watching = watching) else it }
             val affected = sessions.values.filter { it.teamId == team }.toList()
-            affected.forEach { it.invalidateWatching() }
+            affected.forEach { if (it.sessionId == id) it.applyWatching(watching) else it.watchingChangedElsewhere() }
+            // The write is done, so the item can be used again while the reads below run.
+            watchingSessionIds = watchingSessionIds - id
             reload()
             var refreshFailed = phaseError != null
-            for (session in affected.filter { it.loaded && !it.browsingOnly }) {
+            for (session in affected.filter { !it.browsingOnly }) {
                 if (!current()) return
                 try { session.refreshWatching() } catch (e: kotlinx.coroutines.CancellationException) { throw e
-                } catch (_: Exception) { refreshFailed = true }
+                } catch (_: Exception) { if (session.loaded) refreshFailed = true }
             }
             if (current() && refreshFailed) watchError = "Watch change saved, but status could not refresh. Refresh and try again."
         } catch (e: kotlinx.coroutines.CancellationException) { throw e
         } catch (e: Exception) {
             if (current()) watchError = "Could not update watch status. Refresh and try again."
         } finally {
-            if (current()) watchingSessionId = null
+            if (current()) watchingSessionIds = watchingSessionIds - id
         }
     }
 
@@ -621,7 +624,7 @@ class AgentStore(
                 workspaceRevision++
                 rowActionSessionId = null
                 rowActionError = null
-                watchingSessionId = null
+                watchingSessionIds = emptySet()
                 watchError = null
                 unlinkingSessionId = null
                 unlinkError = null
@@ -656,7 +659,7 @@ class AgentStore(
                 workspaceRevision++
                 rowActionSessionId = null
                 rowActionError = null
-                watchingSessionId = null
+                watchingSessionIds = emptySet()
                 watchError = null
                 unlinkingSessionId = null
                 unlinkError = null
@@ -670,7 +673,7 @@ class AgentStore(
                     workspaceRevision++
                     rowActionSessionId = null
                     rowActionError = null
-                    watchingSessionId = null
+                    watchingSessionIds = emptySet()
                     watchError = null
                     unlinkingSessionId = null
                     unlinkError = null
@@ -689,7 +692,7 @@ class AgentStore(
         workspaceRevision++
         rowActionSessionId = null
         rowActionError = null
-        watchingSessionId = null
+        watchingSessionIds = emptySet()
         watchError = null
         unlinkingSessionId = null
         unlinkError = null
@@ -871,7 +874,7 @@ class AgentStore(
         workspaceRevision++
         rowActionSessionId = null
         rowActionError = null
-        watchingSessionId = null
+        watchingSessionIds = emptySet()
         watchError = null
         unlinkingSessionId = null
         unlinkError = null

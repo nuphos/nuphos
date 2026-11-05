@@ -58,7 +58,7 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
         if (session.canWatch) DropdownMenuItem(
             text = { Text(if (session.watching == true) "Unwatch" else "Watch") },
             leadingIcon = { Icon(if (session.watching == true) Icons.Outlined.NotificationsOff else Icons.Outlined.Notifications, null) },
-            enabled = !busy && store.watchingSessionId == null,
+            enabled = !busy && !store.isChangingWatch(session.sessionId),
             onClick = { open = false; perform { store.setWatching(session); error = store.watchError } },
         )
         if (session.canManage) {
