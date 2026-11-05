@@ -5,6 +5,13 @@ import Observation
 /// session; owns pagination, search and the selected team.
 @Observable
 final class AgentStore {
+    /// What failed, and how to try it again.
+    struct RowActionFailure {
+        let title: String
+        let message: String
+        let retry: @MainActor () async -> Void
+    }
+
     enum Phase: Equatable {
         case idle, loading, loaded, failed(String)
     }
@@ -18,6 +25,13 @@ final class AgentStore {
 
     private(set) var conversations: [AgentConversation] = []
     private(set) var phase: Phase = .idle
+    /// A list action or refresh that failed. The rows it acted on stay on screen.
+    var rowActionFailure: RowActionFailure?
+    /// Moves on with every change of workspace, so an answer to something done in
+    /// the last one, even after coming back, is dropped rather than shown here.
+    private var workspaceScope = 0
+    /// Conversations with a Watch or Unwatch on its way.
+    private(set) var watchChanges: Set<String> = []
     private(set) var isLoadingMore = false
     private(set) var hasMore = false
     private var nextCursor: String?
@@ -142,11 +156,13 @@ final class AgentStore {
 
     func archive(sessionId: String, teamId: String?) async {
         guard let teamId = teamId ?? selectedTeam?.id else { return }
+        let scope = workspaceScope
         do {
             try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: sessionId, archived: true)
+            guard scope == workspaceScope else { return }
             removeFromList(sessionId)
         } catch {
-            phase = .failed(error.localizedDescription)
+            rowActionFailed(error, scope: scope) { [weak self] in await self?.archive(sessionId: sessionId, teamId: teamId) }
         }
     }
 
@@ -154,12 +170,29 @@ final class AgentStore {
     /// replaces every row with what it did, as rename and runtime moves do,
     /// instead of repeating that cascade here.
     func setWatching(_ watching: Bool, conversation: AgentConversation) async {
-        guard let teamId = conversation.teamId ?? selectedTeam?.id else { return }
+        guard let teamId = conversation.teamId ?? selectedTeam?.id,
+              watchChanges.insert(conversation.sessionId).inserted else { return }
+        let scope = workspaceScope
         do {
             try await AgentChatAPI.setWatching(token: token, teamId: teamId, sessionId: conversation.sessionId, watching: watching)
-            await reload()
+            watchChanges.remove(conversation.sessionId)
+            guard scope == workspaceScope else { return }
+            // At once, so a failed read below leaves the row saying what was saved.
+            if let index = conversations.firstIndex(where: { $0.sessionId == conversation.sessionId }) {
+                conversations[index].watching = watching
+            }
+            await reload(afterChange: true)
         } catch {
-            phase = .failed(error.localizedDescription)
+            watchChanges.remove(conversation.sessionId)
+            rowActionFailed(error, scope: scope) { [weak self] in await self?.setWatching(watching, conversation: conversation) }
+        }
+    }
+
+    private func rowActionFailed(_ error: Error, scope: Int, retry: @escaping @MainActor () async -> Void) {
+        guard scope == workspaceScope else { return }
+        rowActionFailure = RowActionFailure(title: "Couldn't update agent", message: error.localizedDescription) { [weak self] in
+            guard self?.workspaceScope == scope else { return }
+            await retry()
         }
     }
 
@@ -201,23 +234,27 @@ final class AgentStore {
 
     func rename(_ conversation: AgentConversation, title: String) async {
         guard conversation.ownsChat, let teamId = conversation.teamId ?? selectedTeam?.id else { return }
+        let scope = workspaceScope
         do {
             try await AgentChatAPI.rename(token: token, teamId: teamId, sessionId: conversation.sessionId, title: title)
-            await reload()
+            guard scope == workspaceScope else { return }
+            await reload(afterChange: true)
         } catch {
-            phase = .failed(error.localizedDescription)
+            rowActionFailed(error, scope: scope) { [weak self] in await self?.rename(conversation, title: title) }
         }
     }
 
     func unlinkParent(_ conversation: AgentConversation) async {
         guard conversation.ownsChat, let teamId = conversation.teamId ?? selectedTeam?.id else { return }
+        let scope = workspaceScope
         do {
             try await AgentChatAPI.unlinkParent(token: token, teamId: teamId, sessionId: conversation.sessionId)
+            guard scope == workspaceScope else { return }
             if let index = conversations.firstIndex(where: { $0.sessionId == conversation.sessionId }) {
                 conversations[index].parentSessionId = nil
             }
         } catch {
-            phase = .failed(error.localizedDescription)
+            rowActionFailed(error, scope: scope) { [weak self] in await self?.unlinkParent(conversation) }
         }
     }
 
@@ -354,6 +391,8 @@ final class AgentStore {
     }
 
     private func resetTeamScopedState() {
+        workspaceScope += 1
+        rowActionFailure = nil
         newModelRequest = UUID()
         newModelRuntimeId = nil
         newModelConfig = nil
@@ -466,8 +505,8 @@ final class AgentStore {
                 selectedTeam = pick
                 resetTeamScopedState()
                 await reload()
-            } else if firstLoad {
-                // Showing the launch cache: refresh it in place.
+            } else if firstLoad || isFailed {
+                // Showing the launch cache, or a failed list: read it again.
                 await reload()
             }
         } catch {
@@ -521,7 +560,9 @@ final class AgentStore {
 
     /// First page, replacing whatever is shown. Keeps the old rows visible
     /// while loading so a refresh does not flash empty.
-    func reload() async {
+    /// A failure keeps a list already on screen and reports it instead.
+    /// `afterChange`: the read follows a change that was saved.
+    func reload(afterChange: Bool = false) async {
         guard let team = selectedTeam else {
             conversations = []
             phase = teamsPhase == .loaded ? .loaded : phase
@@ -561,8 +602,20 @@ final class AgentStore {
             }
         } catch {
             guard generation == loadGeneration else { return }
-            phase = .failed(error.localizedDescription)
+            guard phase == .loaded else {
+                phase = .failed(error.localizedDescription)
+                return
+            }
+            rowActionFailure = RowActionFailure(
+                title: "Couldn't refresh agents",
+                message: afterChange ? "Your change was saved, but the list could not refresh." : error.localizedDescription,
+                retry: { [weak self] in await self?.reload() }
+            )
         }
+    }
+
+    private var isFailed: Bool {
+        if case .failed = phase { true } else { false }
     }
 
     /// Next page, appended. Rows can repeat across pages because the cursor
@@ -649,7 +702,8 @@ final class AgentStore {
     }
 
     private func pollOnce() async {
-        guard phase == .loaded, !isLoadingMore else { return }
+        // A failed list keeps polling too, so it comes back on its own.
+        guard phase == .loaded || isFailed, !isLoadingMore else { return }
         async let chats: () = loadChannels()
         await refreshFirstPage()
         await chats
@@ -664,6 +718,7 @@ final class AgentStore {
             token: token, teamId: team.id, limit: Self.pageSize, search: search
         ), generation == loadGeneration, !Task.isCancelled else { return }
         conversations = conversations.refreshed(firstPage: page.rows)
+        if isFailed { phase = .loaded }
         if loadedPageCursors.isEmpty, !isLoadingMore, conversations.count <= page.rows.count {
             nextCursor = page.nextCursor
             hasMore = page.hasMore

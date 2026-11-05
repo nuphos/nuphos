@@ -32,6 +32,8 @@ nonisolated final class PreviewTransport: URLProtocol, @unchecked Sendable {
         let json = (try? JSONSerialization.data(withJSONObject: body, options: [.fragmentsAllowed, .withoutEscapingSlashes])) ?? Data()
         let folder = URL(fileURLWithPath: file).deletingLastPathComponent().path
         let data = Data((String(data: json, encoding: .utf8) ?? "").replacingOccurrences(of: "$FIXTURE_DIR", with: folder).utf8)
+        // `delayMs` holds a response, to look at what is on screen while a write is on its way.
+        if let delay = entry?["delayMs"] as? Int { Thread.sleep(forTimeInterval: Double(delay) / 1000) }
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: (entry?["headers"] as? [String: String]) ?? ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: data)
         client?.urlProtocolDidFinishLoading(self)
