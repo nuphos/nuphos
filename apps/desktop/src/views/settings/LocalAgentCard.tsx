@@ -45,7 +45,7 @@ const AGENT: Record<
 }
 
 /** Runs the vendor's own installer here, so nobody has to find a terminal first. */
-function InstallButton({ provider }: { provider: CliLoginProvider }) {
+export function InstallButton({ provider }: { provider: CliLoginProvider }) {
   const [installing, setInstalling] = useState(false)
   const { name, install } = AGENT[provider]
 
