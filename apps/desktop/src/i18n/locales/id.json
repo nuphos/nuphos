@@ -2934,6 +2934,8 @@
   "Not shared": "Tidak dibagikan",
   "Not signed in": "Belum login",
   "Not signed in.": "Belum masuk.",
+  "Not signed in. Ask {name} to sign it in.": "Belum masuk. Minta {name} untuk masuk.",
+  "Not signed in. Ask a workspace administrator to sign it in.": "Belum masuk. Minta administrator workspace untuk masuk.",
   "Not signed in. Sign in here, or on the runtime’s host:": "Belum masuk. Masuk di sini, atau di host runtime:",
   "Note": "Catatan",
   "Note the provider {name} — you enter it below": "Catat {name} penyedia — Anda memasukkannya di bawah",

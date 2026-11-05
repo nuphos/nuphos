@@ -2934,6 +2934,8 @@
   "Not shared": "No compartido",
   "Not signed in": "Sin sesión iniciada",
   "Not signed in.": "Sin sesión iniciada.",
+  "Not signed in. Ask {name} to sign it in.": "No ha iniciado sesión. Pídele a {name} que inicie sesión.",
+  "Not signed in. Ask a workspace administrator to sign it in.": "No ha iniciado sesión. Pídele a un administrador del espacio de trabajo que inicie sesión.",
   "Not signed in. Sign in here, or on the runtime’s host:": "Sin sesión iniciada. Inicia sesión aquí o en el host del entorno de ejecución:",
   "Note": "Nota",
   "Note the provider {name} — you enter it below": "Anota el {name} del proveedor: lo introducirás abajo",

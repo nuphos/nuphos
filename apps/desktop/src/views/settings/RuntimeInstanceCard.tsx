@@ -255,6 +255,7 @@ export function RuntimeInstanceCard({
                     ? { expiresAt: runtime.credentialExpiresAt }
                     : {})}
                   {...(canEdit && !busy ? { onSignIn: () => setSigningIn(true) } : {})}
+                  {...(isAdmin ? {} : { memberOf: teamId })}
                 />
               )
             )}

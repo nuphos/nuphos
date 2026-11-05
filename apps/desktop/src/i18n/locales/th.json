@@ -2934,6 +2934,8 @@
   "Not shared": "ไม่แชร์",
   "Not signed in": "ยังไม่ได้ลงชื่อเข้าใช้",
   "Not signed in.": "ยังไม่ได้ลงชื่อเข้าใช้",
+  "Not signed in. Ask {name} to sign it in.": "ยังไม่ได้ลงชื่อเข้าใช้ ขอให้ {name} ลงชื่อเข้าใช้",
+  "Not signed in. Ask a workspace administrator to sign it in.": "ยังไม่ได้ลงชื่อเข้าใช้ ขอให้ผู้ดูแลเวิร์กสเปซลงชื่อเข้าใช้",
   "Not signed in. Sign in here, or on the runtime’s host:": "ยังไม่ได้ลงชื่อเข้าใช้ ลงชื่อเข้าใช้ที่นี่ หรือบนโฮสต์ของรันไทม์:",
   "Note": "โน้ต",
   "Note the provider {name} — you enter it below": "จด{name}ของผู้ให้บริการไว้ — คุณจะต้องป้อนด้านล่าง",

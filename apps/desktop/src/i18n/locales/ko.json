@@ -2934,6 +2934,8 @@
   "Not shared": "공유 안 함",
   "Not signed in": "로그인하지 않음",
   "Not signed in.": "로그인되지 않았습니다.",
+  "Not signed in. Ask {name} to sign it in.": "로그인되어 있지 않습니다. {name}님에게 로그인을 요청하세요.",
+  "Not signed in. Ask a workspace administrator to sign it in.": "로그인되어 있지 않습니다. 워크스페이스 관리자에게 로그인을 요청하세요.",
   "Not signed in. Sign in here, or on the runtime’s host:": "로그인되지 않았습니다. 여기에서 또는 런타임 호스트에서 로그인하세요:",
   "Note": "메모",
   "Note the provider {name} — you enter it below": "공급자 {name}을(를) 기록해 두세요. 아래에 입력합니다",

@@ -1,4 +1,6 @@
+import { adminName } from '../../components/agent/panel/agentSignInModel'
 import { Button } from '../../components/ui/button'
+import { useTeamMemberList } from '../../hooks/useTeamMemberList'
 import { t } from '../../i18n'
 
 import { longLivedSignIn } from './longLivedSignIn'
@@ -13,19 +15,32 @@ const HOST_SIGN_IN: Partial<Record<RuntimeInstance['provider'], string>> = {
   opencode: 'docker exec -it <container> opencode providers login',
 }
 
+function memberNote(askAdmin: string | null | undefined): string {
+  if (askAdmin === undefined) return t('Not signed in.')
+
+  return askAdmin
+    ? t('Not signed in. Ask {name} to sign it in.', { name: askAdmin })
+    : t('Not signed in. Ask a workspace administrator to sign it in.')
+}
+
 /** The agent owns its login; this only shows what the agent reports. */
 export function RuntimeSignIn({
   instance,
   authenticated,
   expiresAt,
   onSignIn,
+  memberOf,
 }: {
   instance: RuntimeInstance
   authenticated: boolean | undefined
   /** Set for a sign-in that lapses on its own: a one-year token. */
   expiresAt?: string
   onSignIn?: () => void
+  /** Set for a member, who cannot sign it in: the team whose administrator can. */
+  memberOf?: string
 }) {
+  const members = useTeamMemberList(memberOf, Boolean(memberOf))
+  const askAdmin = memberOf ? adminName(members) : undefined
   const longLived = authenticated && expiresAt ? longLivedSignIn(expiresAt) : null
 
   if (longLived)
@@ -43,8 +58,11 @@ export function RuntimeSignIn({
   if (authenticated && !(instance.provider === 'opencode' && onSignIn)) {
     return <p className="px-4 py-4 text-xs text-tertiary">{t('Signed in on the runtime.')}</p>
   }
-  const hostSignIn = instance.kind === 'external' ? HOST_SIGN_IN[instance.provider] : undefined
   const signedOut = authenticated === false
+  const member = askAdmin !== undefined
+  // Only an administrator signs a team runtime in, here or on its host.
+  const hostSignIn =
+    instance.kind === 'external' && !member ? HOST_SIGN_IN[instance.provider] : undefined
   const note = authenticated
     ? t('Signed in on the runtime. Sign in to another model provider to use its models too.')
     : hostSignIn
@@ -52,7 +70,7 @@ export function RuntimeSignIn({
         ? t('Not signed in. Sign in here, or on the runtime’s host:')
         : t('Sign-in status is unknown. Try signing in here, or on the runtime’s host:')
       : signedOut
-        ? t('Not signed in.')
+        ? memberNote(askAdmin)
         : t('This runtime does not report its sign-in yet.')
 
   return (
