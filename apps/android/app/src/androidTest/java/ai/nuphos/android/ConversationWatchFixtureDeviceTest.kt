@@ -45,9 +45,14 @@ class ConversationWatchFixtureDeviceTest {
     private var savedAuthToken: String? = null
     private var preferences: Map<String, *> = emptyMap<String, Any>()
     @Volatile private var legacyServer = false
-    @Volatile private var watched = true
+    private val watching = java.util.concurrent.ConcurrentHashMap(mapOf("parent" to true, "child" to true, "other" to true))
+    private val watched get() = watching.getValue("parent")
     @Volatile private var rejectNext = false
     @Volatile private var holdWrite: java.util.concurrent.CountDownLatch? = null
+    @Volatile private var holdNextList: java.util.concurrent.CountDownLatch? = null
+    @Volatile private var holdDetails: java.util.concurrent.CountDownLatch? = null
+    @Volatile private var failList = false
+    @Volatile private var failDetails = false
     private val entries = """[{"key":"agent-session:normal","label":"Synthetic pin"}]"""
     @Suppress("UNCHECKED_CAST") private fun state(target: Any, name: String, delegated: Boolean = true) =
         target.javaClass.getDeclaredField(name + if (delegated) "\$delegate" else "").also { it.isAccessible = true }.get(target) as MutableState<Any?>
@@ -70,24 +75,34 @@ class ConversationWatchFixtureDeviceTest {
             val client = OkHttpClient.Builder().addInterceptor { chain ->
                 val req = chain.request(); requests += req
                 val path = req.url.encodedPath
-                val mutation = path == "/agent/conversations/parent/watch" && req.method in setOf("PUT", "DELETE")
+                val watchId = Regex("/agent/conversations/(parent|child|other)/watch").matchEntire(path)?.groupValues?.get(1)
+                val mutation = watchId != null && req.method in setOf("PUT", "DELETE")
                 val denied = mutation && rejectNext
                 if (denied) rejectNext = false
-                if (mutation) check(holdWrite?.await(10, java.util.concurrent.TimeUnit.SECONDS) != false)
-                if (mutation && !denied) watched = req.method == "PUT"
+                if (mutation && watchId == "parent") check(holdWrite?.await(10, java.util.concurrent.TimeUnit.SECONDS) != false)
+                if (mutation && !denied) {
+                    watching[watchId!!] = req.method == "PUT"
+                    // The server's DELETE cascades to descendants.
+                    if (watchId == "parent" && req.method == "DELETE") watching["child"] = false
+                }
+                val listing = path == "/agent/conversations"
+                val detailId = Regex("/agent/conversations/(parent|child|other)").matchEntire(path)?.groupValues?.get(1)
+                // A read answers with what was true when it reached the server, however late it returns.
                 val text = when {
                     mutation && denied -> """{"error":"synthetic unavailable"}"""
-                    mutation -> """{"ok":true,"watching":$watched}"""
-                    path == "/agent/conversations" && req.url.queryParameter("teamId") == "B" -> """{"conversations":[],"hasMore":false}"""
-                    path == "/agent/conversations" -> """{"conversations":[{"sessionId":"parent","teamId":"A","title":"Synthetic shared parent","watching":$watched,"readOnly":true,"isOwner":false},{"sessionId":"child","teamId":"A","title":"Synthetic child","parentSessionId":"parent","isOwner":false,"readOnly":true,"watching":$watched}],"hasMore":false}"""
-                    path == "/agent/conversations/parent" || path == "/agent/conversations/child" -> """{"messages":[],"readOnly":true,"isOwner":false,"watching":$watched}"""
-
+                    mutation -> """{"ok":true,"watching":${watching[watchId!!]}}"""
+                    listing && req.url.queryParameter("teamId") == "B" -> """{"conversations":[],"hasMore":false}"""
+                    listing -> """{"conversations":[{"sessionId":"parent","teamId":"A","title":"Synthetic shared parent","watching":${watching["parent"]},"readOnly":true,"isOwner":false},{"sessionId":"child","teamId":"A","title":"Synthetic child","parentSessionId":"parent","isOwner":false,"readOnly":true,"watching":${watching["child"]}},{"sessionId":"other","teamId":"A","title":"Synthetic other","isOwner":false,"readOnly":true,"watching":${watching["other"]}}],"hasMore":false}"""
+                    detailId != null -> """{"messages":[],"readOnly":true,"isOwner":false,"watching":${watching[detailId]}}"""
                     path == "/teams/A/favorites" -> """{"revision":1,"entries":$entries}"""
                     else -> "{}"
                 }
-                val code = if (denied) 503 else if (mutation || path in setOf("/teams/A/favorites", "/agent/conversations", "/agent/conversations/parent", "/agent/conversations/child")) 200 else 404
+                if (listing && req.url.queryParameter("teamId") != "B") holdNextList?.let { holdNextList = null; check(it.await(10, java.util.concurrent.TimeUnit.SECONDS)) }
+                if (detailId != null) holdDetails?.await(10, java.util.concurrent.TimeUnit.SECONDS)
+                val failed = (listing && failList) || (detailId != null && failDetails)
+                val code = if (denied || failed) 503 else if (mutation || listing || detailId != null || path == "/teams/A/favorites") 200 else 404
                 Response.Builder().request(req).protocol(Protocol.HTTP_1_1).code(code).message("fixture")
-                    .body((if (legacyServer) text.replace(",\"watching\":$watched", "") else text).toResponseBody(Http.jsonMedia)).build()
+                    .body((if (legacyServer) text.replace(Regex(",\"watching\":(true|false)"), "") else text).toResponseBody(Http.jsonMedia)).build()
             }.build()
             for (name in listOf("client", "chatClient")) {
                 val field = Http::class.java.getDeclaredField(name).also { it.isAccessible = true }
@@ -124,7 +139,8 @@ class ConversationWatchFixtureDeviceTest {
             state(store, "phase").value = AgentStore.Phase.Loaded
             state(store, "conversations").value = listOf(
                 AgentConversation("parent", "A", "Synthetic shared parent", watching = true, isOwner = false, readOnly = true),
-                AgentConversation("child", "A", "Synthetic child", parentSessionId = "parent", watching = true, isOwner = false, readOnly = true))
+                AgentConversation("child", "A", "Synthetic child", parentSessionId = "parent", watching = true, isOwner = false, readOnly = true),
+                AgentConversation("other", "A", "Synthetic other", watching = true, isOwner = false, readOnly = true))
             val auth = AuthSession(app, app.tokenStore)
             AuthSession::class.java.getDeclaredField("token").also { it.isAccessible = true }.set(auth, token)
             compose.activity.setContent {
@@ -157,12 +173,19 @@ class ConversationWatchFixtureDeviceTest {
         bitmap.recycle()
     }
 
+    private fun openRowMenu(id: String) {
+        compose.onNodeWithTag("conversation-row:$id").performTouchInput { longClick() }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("menu-watch:$id").fetchSemanticsNodes().isNotEmpty() }
+    }
+    private fun tapWatch(id: String) { openRowMenu(id); compose.onNodeWithTag("menu-watch:$id").performClick() }
+    private fun row(id: String) = store.conversations.first { it.sessionId == id }
+    private fun deletes(id: String) = requests.count { it.method == "DELETE" && it.url.encodedPath.endsWith("/$id/watch") }
+
     @Test fun sharedReaderCanUnwatchCascadeAndWatchAgainFromListAndMenu() {
         render()
         shot("list-before")
-        compose.onNodeWithTag("row-more:parent").performClick()
-        compose.onNodeWithTag("menu-watch:parent").performClick()
-        compose.waitUntil(5_000) { !watched && store.watchingSessionId == null && store.conversations.all { it.watching == false } }
+        tapWatch("parent")
+        compose.waitUntil(5_000) { !watched && !store.isChangingWatch("parent") && row("parent").watching == false && row("child").watching == false }
         shot("list-after-cascade")
         compose.onNodeWithText("Synthetic shared parent").performClick()
         waitText("Synthetic shared conversation")
@@ -171,7 +194,7 @@ class ConversationWatchFixtureDeviceTest {
         shot("shared-menu-watch")
         compose.onNodeWithText("Rename").assertDoesNotExist()
         compose.onNodeWithText("Watch").performClick()
-        compose.waitUntil(5_000) { watched && store.watchingSessionId == null }
+        compose.waitUntil(5_000) { watched && !store.isChangingWatch("parent") }
         compose.onNodeWithContentDescription("Agent actions").performClick()
         waitText("Unwatch")
         shot("shared-menu-unwatch")
@@ -199,7 +222,7 @@ class ConversationWatchFixtureDeviceTest {
             assertEquals("B", store.selectedTeam?.id)
             assertTrue(store.conversations.isEmpty())
             assertNull(store.watchError)
-            assertNull(store.watchingSessionId)
+            assertFalse(store.isChangingWatch("parent"))
         } finally { hold.countDown(); jobs.forEach { it.cancel() } }
     }
     @Test fun legacyServerHidesControlsInListAndMenu() {
@@ -221,17 +244,168 @@ class ConversationWatchFixtureDeviceTest {
     @Test fun failedWriteLeavesStateAndAllowsExplicitRetry() {
         render()
         rejectNext = true
-        compose.onNodeWithTag("row-more:parent").performClick()
-        compose.onNodeWithTag("menu-watch:parent").performClick()
+        tapWatch("parent")
         waitText("Watch update failed")
         assertTrue(watched)
         assertEquals(true, store.conversations.first().watching)
         shot("failure-retry")
         compose.onNodeWithText("Refresh").performClick()
         compose.waitUntil(5_000) { store.watchError == null }
-        compose.onNodeWithTag("row-more:parent").performClick()
-        compose.onNodeWithTag("menu-watch:parent").performClick()
-        compose.waitUntil(5_000) { !watched && store.watchingSessionId == null }
+        tapWatch("parent")
+        compose.waitUntil(5_000) { !watched && !store.isChangingWatch("parent") }
         assertEquals(2, requests.count { it.method == "DELETE" })
+    }
+
+    @Test fun theItemFlipsAtOnceAndOtherRowsWaitForTheReread() {
+        render()
+        val reread = java.util.concurrent.CountDownLatch(1)
+        holdNextList = reread
+        try {
+            tapWatch("parent")
+            compose.waitUntil(5_000) { row("parent").watching == false }
+            assertEquals("The row not written to keeps its value", true, row("other").watching)
+            assertEquals("A cascade comes from the read, not a guess", true, row("child").watching)
+            openRowMenu("parent")
+            compose.onNodeWithTag("menu-watch:parent").assertTextEquals("Watch").assertIsEnabled()
+            shot("list-flipped-before-reread")
+            androidx.test.espresso.Espresso.pressBack()
+            openRowMenu("other")
+            compose.onNodeWithTag("menu-watch:other").assertTextEquals("Unwatch")
+            androidx.test.espresso.Espresso.pressBack()
+        } finally { reread.countDown() }
+        compose.waitUntil(5_000) { row("child").watching == false }
+        assertEquals(true, row("other").watching)
+        assertNull(store.watchError)
+    }
+    @Test fun anotherConversationCanChangeWhileOneIsInFlight() {
+        render()
+        val write = java.util.concurrent.CountDownLatch(1)
+        holdWrite = write
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        val jobs = mutableListOf<Job>()
+        try {
+            tapWatch("parent")
+            compose.waitUntil(5_000) { store.isChangingWatch("parent") }
+            openRowMenu("parent")
+            compose.onNodeWithTag("menu-watch:parent").assertIsNotEnabled()
+            androidx.test.espresso.Espresso.pressBack()
+            // Even a direct second call for the same conversation sends nothing more.
+            compose.runOnIdle { jobs += scope.launch { store.setWatching(row("parent")) } }
+            tapWatch("other")
+            compose.waitUntil(5_000) { row("other").watching == false && !store.isChangingWatch("other") }
+            assertEquals(1, deletes("other"))
+            assertTrue(store.isChangingWatch("parent"))
+            assertEquals(true, row("parent").watching)
+        } finally { write.countDown() }
+        compose.waitUntil(5_000) { !store.isChangingWatch("parent") && row("parent").watching == false }
+        jobs.forEach { it.cancel() }
+        assertTrue("Still one write for the conversation", deletes("parent") <= 1)
+    }
+    @Test fun anEarlierChangeFinishingLeavesTheNextWriteLocked() {
+        render()
+        val firstReread = java.util.concurrent.CountDownLatch(1)
+        val secondWrite = java.util.concurrent.CountDownLatch(1)
+        holdNextList = firstReread
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        val first = compose.runOnIdle { scope.launch { store.setWatching(row("parent")) } }
+        var second: Job? = null
+        var third: Job? = null
+        try {
+            compose.waitUntil(5_000) { row("parent").watching == false && !store.isChangingWatch("parent") }
+            holdWrite = secondWrite
+            second = compose.runOnIdle { scope.launch { store.setWatching(row("parent")) } }
+            compose.waitUntil(5_000) { store.isChangingWatch("parent") }
+            firstReread.countDown()
+            compose.waitUntil(5_000) { first.isCompleted }
+            compose.waitForIdle()
+            assertTrue("The first change finishing can't unlock the second", store.isChangingWatch("parent"))
+            third = compose.runOnIdle { scope.launch { store.setWatching(row("parent")) } }
+            compose.waitForIdle()
+            assertEquals("No third write", 1, requests.count { it.method == "DELETE" && it.url.encodedPath.endsWith("/parent/watch") })
+            assertEquals(1, requests.count { it.method == "PUT" && it.url.encodedPath.endsWith("/parent/watch") })
+        } finally { firstReread.countDown(); secondWrite.countDown() }
+        compose.waitUntil(5_000) { second?.isCompleted == true && !store.isChangingWatch("parent") && row("parent").watching == true }
+        third?.cancel()
+        assertTrue(watched)
+    }
+    @Test fun aFailedRereadKeepsTheItemsAndCanBeRetried() {
+        render()
+        failList = true
+        tapWatch("parent")
+        waitText("Watch update failed")
+        assertEquals(false, row("parent").watching)
+        assertEquals(true, row("other").watching)
+        assertEquals(3, store.conversations.size)
+        shot("reread-failed")
+        failList = false
+        compose.onNodeWithText("Refresh").performClick()
+        compose.waitUntil(5_000) { store.watchError == null && row("child").watching == false }
+        openRowMenu("parent")
+        compose.onNodeWithTag("menu-watch:parent").assertTextEquals("Watch").assertIsEnabled()
+    }
+    @Test fun aReadFromBeforeTheWriteCannotUndoIt() {
+        render()
+        val late = java.util.concurrent.CountDownLatch(1)
+        holdNextList = late
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        val before = requests.size
+        val read = compose.runOnIdle { scope.launch { store.reload() } }
+        compose.waitUntil(5_000) { requests.drop(before).any { it.url.encodedPath == "/agent/conversations" } }
+        compose.runOnIdle { scope.launch { store.setWatching(row("parent")) } }
+        compose.waitUntil(5_000) { !store.isChangingWatch("parent") && deletes("parent") == 1 }
+        assertEquals(false, row("parent").watching)
+        late.countDown()
+        compose.waitUntil(5_000) { read.isCompleted }
+        compose.waitForIdle()
+        assertEquals("The read saw the old value and arrived late", false, row("parent").watching)
+    }
+    @Test fun loadedSessionsFollowTheWriteAndTheCascade() {
+        render()
+        lateinit var parent: ai.nuphos.android.session.ChatSession
+        lateinit var child: ai.nuphos.android.session.ChatSession
+        compose.runOnIdle { parent = store.session("parent", "Synthetic shared parent"); child = store.session("child", "Synthetic child") }
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        val loads = compose.runOnIdle { listOf(scope.launch { parent.load() }, scope.launch { child.load() }) }
+        compose.waitUntil(5_000) { loads.all { it.isCompleted } && parent.canWatch && child.canWatch }
+        val reads = java.util.concurrent.CountDownLatch(1)
+        holdDetails = reads
+        try {
+            tapWatch("parent")
+            compose.waitUntil(5_000) { parent.watching == false }
+            assertEquals("Shown until a read says otherwise", true, child.watching)
+            assertTrue(parent.canWatch && child.canWatch)
+        } finally { reads.countDown(); holdDetails = null }
+        compose.waitUntil(5_000) { child.watching == false && !store.isChangingWatch("parent") }
+        assertNull(store.watchError)
+    }
+    @Test fun aFailedSessionReadKeepsTheItem() {
+        render()
+        lateinit var child: ai.nuphos.android.session.ChatSession
+        compose.runOnIdle { child = store.session("child", "Synthetic child") }
+        val load = compose.runOnIdle { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).launch { child.load() } }
+        compose.waitUntil(5_000) { load.isCompleted && child.canWatch }
+        failDetails = true
+        tapWatch("parent")
+        waitText("Watch update failed")
+        assertEquals(true, child.watching)
+        assertTrue(child.canWatch)
+    }
+    @Test fun theConversationMenuFlipsAtOnce() {
+        render()
+        compose.onNodeWithText("Synthetic shared parent").performClick()
+        waitText("Synthetic shared conversation")
+        compose.onNodeWithContentDescription("Agent actions").performClick()
+        waitText("Unwatch")
+        val reads = java.util.concurrent.CountDownLatch(1)
+        holdNextList = reads
+        holdDetails = reads
+        try {
+            compose.onNodeWithText("Unwatch").performClick()
+            compose.waitUntil(5_000) { !watched && store.conversations.first { it.sessionId == "parent" }.watching == false }
+            compose.onNodeWithContentDescription("Agent actions").performClick()
+            waitText("Watch")
+            compose.onAllNodesWithText("Unwatch").assertCountEquals(0)
+            shot("menu-flipped-before-reread")
+        } finally { reads.countDown(); holdDetails = null }
     }
 }

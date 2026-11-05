@@ -243,10 +243,13 @@ class ChatSession(
     var watching: Boolean? by mutableStateOf(null)
         private set
     val canWatch get() = hasAiAccess && loaded && loadError == null && !browsingOnly && watching != null
-    fun invalidateWatching() {
+    /** A write succeeded: show its result, and let no read from before it land. */
+    fun applyWatching(value: Boolean) {
         watchRevision++
-        watching = null
+        watching = value
     }
+    /** Another conversation's write may cascade here: keep what's shown until a newer read says otherwise. */
+    fun watchingChangedElsewhere() { watchRevision++ }
     suspend fun refreshWatching() {
         val revision = watchRevision
         val detail = readDetail(token, teamId, sessionId)

@@ -298,7 +298,7 @@ fun AgentPage(
                                     ConversationTreeRow(row, store.favorites?.contains(row.conversation.sessionId) == true,
                                         ConversationNesting.status(row) { store.historyObservation(it)?.label(maxOf(statusClock, RuntimeObservation.now())) },
                                         onWatch = if (store.canWatch(row.conversation)) ({ scope.launch { store.setWatching(row.conversation) } }) else null,
-                                        watchBusy = store.watchingSessionId != null,
+                                        watchBusy = store.isChangingWatch(row.conversation.sessionId),
                                         onUnlink = if (store.canUnlink(row.conversation)) ({ store.clearUnlinkError(); unlinkTarget = row.conversation }) else null,
                                         unlinking = store.unlinkingSessionId == row.conversation.sessionId,
                                         interactions = rowInteractions,
