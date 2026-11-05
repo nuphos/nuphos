@@ -3,6 +3,7 @@
 import fsSync from 'node:fs'
 import path from 'node:path'
 
+import { removeRetiredAgentChatSkills } from '../agent-chat-skill.ts'
 import { readConfig } from '../auth/config.ts'
 
 import { claudeDir, readTeam, stateKey, teamKeys, updateTeam } from './local-setup-state.ts'
@@ -84,6 +85,8 @@ export function startLocalSetupWatcher() {
 
 /** At start-up: watch only when some team has "Keep in sync" on. */
 export function resumeLocalSetupSync() {
+  // A skill Desktop no longer ships is removed from the agents' folders on every start.
+  void removeRetiredAgentChatSkills().catch(() => undefined)
   if (teamKeys().some((key) => readTeam(key).autoSync)) startLocalSetupWatcher()
 }
 

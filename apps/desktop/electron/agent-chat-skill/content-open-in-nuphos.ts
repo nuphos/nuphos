@@ -1,4 +1,4 @@
-import type { AgentChatSkillTarget } from './types'
+import type { AgentChatSkillTarget } from './types.ts'
 
 export function openInNuphosSkillBody(target: AgentChatSkillTarget): string {
   const source = target === 'codex' ? 'codex' : 'claude-code'

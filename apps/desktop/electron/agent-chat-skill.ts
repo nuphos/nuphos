@@ -5,7 +5,7 @@ import path from 'node:path'
 import {
   openInNuphosHelperScript,
   openInNuphosSkillBody,
-} from './agent-chat-skill/content-open-in-nuphos'
+} from './agent-chat-skill/content-open-in-nuphos.ts'
 
 import type {
   AgentChatSkillId,
@@ -14,9 +14,9 @@ import type {
   AgentChatSkillTarget,
   AgentChatSkillUninstallResult,
   SkillDefinition,
-} from './agent-chat-skill/types'
+} from './agent-chat-skill/types.ts'
 
-export type * from './agent-chat-skill/types'
+export type * from './agent-chat-skill/types.ts'
 
 const LEGACY_SKILL_NAME = 'nuphos-agent-chat'
 // Removed skills Desktop may have installed earlier. get-short-lived-creds-from-nuphos
@@ -190,8 +190,8 @@ export async function getAgentChatSkillStatus(
   }
 }
 
-/** Deletes retired skills from both agents' skill folders; missing ones are fine. */
-async function removeRetiredSkills(): Promise<void> {
+/** Deletes retired skills from both agents' skill folders; missing ones are fine. Runs at startup. */
+export async function removeRetiredAgentChatSkills(): Promise<void> {
   await Promise.all(
     (['claude', 'codex'] as const).flatMap((target) =>
       RETIRED_SKILL_IDS.map((id) =>
@@ -202,8 +202,6 @@ async function removeRetiredSkills(): Promise<void> {
 }
 
 export async function listAgentChatSkillStatuses(): Promise<AgentChatSkillStatus[]> {
-  await removeRetiredSkills().catch(() => undefined)
-
   return Promise.all(
     (['claude', 'codex'] as const).flatMap((target) =>
       SKILLS.map((skill) => getAgentChatSkillStatus(target, skill.id)),
