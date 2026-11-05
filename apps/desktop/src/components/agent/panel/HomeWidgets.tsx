@@ -8,7 +8,7 @@ import { GithubCard } from './homeCards'
 import { AddCardButton } from './homeGalleryParts'
 import { HomeGrid } from './homeGrid'
 import { HomeMetricCard } from './homeMetricLive'
-import { DashboardPanelCard } from './homePanelCard'
+import { DashboardPanelCard, DeletedPinsNotice } from './homePanelCard'
 import { TeamActivityCard } from './homeTeamCard'
 import {
   GRID_COLUMNS,
@@ -68,6 +68,8 @@ export function HomeWidgets({
   const [galleryOpen, setGalleryOpen] = useState(false)
   // The cards added in the gallery, outlined for a moment once it has closed.
   const [highlight, setHighlight] = useState<string[]>([])
+  // Pins whose panel or dashboard was deleted: left out of the grid, offered for removal below it.
+  const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set())
   // Grid keys of the cards added while the gallery is open, in order.
   const added = useRef<string[]>([])
 
@@ -102,6 +104,10 @@ export function HomeWidgets({
   const forget = (key: string) => {
     added.current = added.current.filter((k) => k !== key)
   }
+  const markGone = (key: string) =>
+    setGone((prev) => (prev.has(key) ? prev : new Set(prev).add(key)))
+  const removeGone = () =>
+    update({ ...settings, panels: settings.panels.filter((pin) => !gone.has(panelKey(pin))) })
   const pinFromGallery = (pin: HomePanel) => {
     const key = `panel:${panelKey(pin)}`
 
@@ -147,15 +153,18 @@ export function HomeWidgets({
           onOpenConversation={onOpenConversation}
         />
       )),
-    ...settings.panels.map((pin) => (
-      <DashboardPanelCard
-        key={`panel:${panelKey(pin)}`}
-        teamId={teamId}
-        onOpenNuphosLink={onOpenNuphosLink}
-        pin={pin}
-        onUnpin={() => togglePanel(pin)}
-      />
-    )),
+    ...settings.panels
+      .filter((pin) => !gone.has(panelKey(pin)))
+      .map((pin) => (
+        <DashboardPanelCard
+          key={`panel:${panelKey(pin)}`}
+          teamId={teamId}
+          onOpenNuphosLink={onOpenNuphosLink}
+          pin={pin}
+          onUnpin={() => togglePanel(pin)}
+          onGone={() => markGone(panelKey(pin))}
+        />
+      )),
   ].filter((card) => card !== false)
 
   return (
@@ -178,6 +187,10 @@ export function HomeWidgets({
         delayMs={revealAt + 150 * cards.length}
         className="mt-3 flex flex-col items-center gap-2"
       >
+        <DeletedPinsNotice
+          count={settings.panels.filter((pin) => gone.has(panelKey(pin))).length}
+          onRemove={removeGone}
+        />
         <AddCardButton onClick={() => setGalleryOpen(true)} />
         <HomeCardGallery
           teamId={teamId}
