@@ -3,6 +3,7 @@
 // any messages queued while no turn was running (they ride the first prompt).
 
 import { wakeAfterTurn } from '@/lib/agent/channel-chat'
+import { recentChatsNote } from '@/lib/agent/channel-wake'
 import {
   clearConversationPreviewLocalTools,
   clearPendingDecision,
@@ -186,6 +187,10 @@ export async function preparePreviewTurn(
   const userTexts = getUserMessageTexts(args.messages)
 
   await persistPreviewTurnContext(args, requestId)
+  // Whatever woke this turn, the chats it may owe an answer in.
+  const chats = recentChatsNote(sessionId).catch((err: unknown) => {
+    traceAgentChatError('agent.chat.recent_chats.error', err, args.run.trace, {})
+  })
   const [memory, systemPrompt, compactionSummary, drained, toolsVersion] = await Promise.all([
     resolvePreviewTurnMemory({
       sessionId,
@@ -239,7 +244,7 @@ export async function preparePreviewTurn(
   const { lead, text } = turnPrompt({
     resume: resumeMessage(args.resume),
     inputs,
-    turnContext: args.turnContext,
+    turnContext: [args.turnContext, await chats].filter(Boolean).join('\n\n'),
     carried: carried.length > 0 ? renderInjectedUserMessages(carried) : '',
   })
 

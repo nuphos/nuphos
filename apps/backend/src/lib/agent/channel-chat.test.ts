@@ -8,7 +8,12 @@ import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-s
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { agentConversations, agentMessages } from './db'
-import { steeredNoticeSender, withChannelPosts } from './channel-wake'
+import {
+  RECENT_CHAT_MS,
+  recentChatsNote,
+  steeredNoticeSender,
+  withChannelPosts,
+} from './channel-wake'
 import { listChannelMentions, readChannelMessages } from './db/channels'
 import {
   CHANNEL_AGENT_TURN_BUDGET,
@@ -742,5 +747,27 @@ describe('an agent speaks in a channel only with channel_post', () => {
         metadata: { sender: { type: 'agent', id: 'agent-a' } },
       },
     ])
+  })
+})
+
+describe('a turn from anywhere hears the chats it may owe an answer', () => {
+  test('a person’s recent post shows, with the agent’s own post since', async () => {
+    await say('what broke the deploy? <b>')
+    await say('on it', agentSpeaker('agent-a'), 'agent-a')
+    const note = await recentChatsNote('agent-a')
+
+    expect(note).toContain('post it with channel_post')
+    expect(note).toContain('Chat channel,')
+    expect(note).toContain('Owner: what broke the deploy? &lt;b>\nagent-a title: on it')
+    // agent-b has not posted: only the person's post shows.
+    expect(await recentChatsNote('agent-b')).not.toContain('agent-a title')
+  })
+
+  test('nothing when no person spoke lately, or in no chat it is in', async () => {
+    await say('hello')
+    expect(await recentChatsNote('agent-a', Date.now() + RECENT_CHAT_MS)).toBeUndefined()
+    expect(await recentChatsNote('agent-c')).toBeUndefined()
+    await seed('quiet', { kind: 'channel', agentSessionIds: ['agent-c'] })
+    expect(await recentChatsNote('agent-c')).toBeUndefined()
   })
 })
