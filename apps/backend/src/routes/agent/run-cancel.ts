@@ -1,3 +1,8 @@
+import { getLocalActiveAgentRun } from '@/lib/agent/run-admission'
+import { getActiveAgentRunForSession, requestAgentRunCancellation } from '@/lib/agent/run-store'
+
+import { agentRunKey, agentRuns } from './run-registry'
+
 import type { AgentRun } from './types'
 
 /**
@@ -10,4 +15,20 @@ export function signalAgentRunCancellation(run: AgentRun): boolean {
   run.abortController.abort()
 
   return true
+}
+
+/**
+ * Asks the turn holding a session to stop, on whichever replica runs it. A
+ * runtime-started turn holds no claim, so nothing waits behind it.
+ */
+export async function cancelSessionRun(userId: string, sessionId: string): Promise<boolean> {
+  const local = getLocalActiveAgentRun(userId, sessionId, { claimsOnly: true })
+  const run = local && agentRuns.get(agentRunKey(userId, local.streamId))
+
+  if (run) return signalAgentRunCancellation(run)
+  const shared = await getActiveAgentRunForSession(userId, sessionId)
+
+  return Boolean(
+    shared && !shared.runtimeOwned && (await requestAgentRunCancellation(userId, shared.streamId)),
+  )
 }

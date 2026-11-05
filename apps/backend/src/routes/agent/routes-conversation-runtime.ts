@@ -1,5 +1,6 @@
 import { takeOwnQueued } from './routes-conversation-queue'
 import { agent } from './router'
+import { cancelSessionRun } from './run-cancel'
 import { resolveVerifiedTeamId, readTeamIdCandidate } from './team-scope'
 
 import { getReadableConversation } from '@/lib/agent/db'
@@ -27,7 +28,18 @@ agent.post('/conversations/:sessionId/cancel-runtime', async (c) => {
   if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
   if (!(await canReplyIn(conversation, userId)))
     throw new AppError(403, 'conversation_read_only', 'You can only view this conversation')
-  await cancelConversationRuntime(conversation)
+  // Stop ends what a waiting message is behind: the runtime's turn, and a run
+  // the backend still holds for the session, which a dropped runtime
+  // connection can leave without the other. Then the queue goes.
+  const runStopped = await cancelSessionRun(conversation.userId, sessionId)
+
+  try {
+    await cancelConversationRuntime(conversation)
+  } catch (error) {
+    if (!runStopped) throw error
+  } finally {
+    sessionReleased(conversation.userId, sessionId)
+  }
   logEvent('info', 'agent.runtime.cancel_requested', {
     trace_id: c.get('requestId'),
     auth_source: 'authenticated_http',

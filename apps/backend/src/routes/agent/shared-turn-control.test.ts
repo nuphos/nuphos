@@ -11,6 +11,8 @@ import {
   enqueuePendingUserMessage,
 } from '@/lib/agent/pending-messages'
 import { listPendingUserMessages } from '@/lib/agent/pending-queue'
+import { startQueuedTurn } from '@/lib/agent/queued-turn'
+import { installQueuedTurnStarter } from '@/lib/agent/session-released'
 import { AppError } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
@@ -40,11 +42,19 @@ useAgentDb({
 })
 useAgentRunStore({
   getActiveAgentRunForSession: async () =>
-    activeActor ? { streamId: 'running', startedAt: null, actorUserId: activeActor } : null,
+    activeActor
+      ? { streamId: 'running', startedAt: null, actorUserId: activeActor, runtimeOwned: false }
+      : null,
+  requestAgentRunCancellation: async (_user, streamId) => {
+    stoppedRuns.push(streamId)
+
+    return true
+  },
 })
 useSessionExecutionState({
   conversationExecutionState: async () => ({ schemaVersion: 2, actions: { steer: true } }),
   cancelConversationRuntime: async () => {
+    if (unreachable) throw new Error('The agent could not be reached')
     cancelled++
   },
   putConversationSecret: async () => {
@@ -64,6 +74,9 @@ useSessionExecutionState({
   },
 })
 let refuse = false
+let unreachable = false
+let stoppedRuns: string[] = []
+let queueStarts: string[] = []
 let secretsSaved = 0
 let queuedWhileSteering: string[] = []
 const app = new Hono().route('/agent', agent)
@@ -77,6 +90,9 @@ beforeEach(async () => {
   cancelled = 0
   steered = 0
   refuse = false
+  unreachable = false
+  stoppedRuns = []
+  queueStarts = []
   agentToken = undefined
   await drainPendingUserMessages('owner', 'shared-control')
 })
@@ -205,4 +221,37 @@ test('only the conversation owner can provide a secret, not a teammate who can r
   } finally {
     conversation.userId = 'owner'
   }
+})
+
+// A dropped runtime connection can leave the backend holding a turn the runtime
+// no longer runs, or a runtime that cannot be reached. Stop still gets the
+// person out: it stops the held turn, and what waited behind it goes next.
+test('Stop ends a turn the backend still holds and starts the queue, even if the runtime is unreachable', async () => {
+  activeActor = 'owner'
+  unreachable = true
+  await enqueuePendingUserMessage(
+    'owner',
+    'shared-control',
+    buildPendingUserMessage({ renderedText: 'and then deploy', source: 'app' }),
+  )
+
+  installQueuedTurnStarter(async (_user, sessionId) => {
+    queueStarts.push(sessionId)
+  })
+  try {
+    expect((await request('cancel-runtime')).status).toBe(200)
+    expect(stoppedRuns).toEqual(['running'])
+    await Bun.sleep(0)
+    expect(queueStarts).toEqual(['shared-control'])
+  } finally {
+    installQueuedTurnStarter(startQueuedTurn)
+    await drainPendingUserMessages('owner', 'shared-control')
+  }
+})
+
+test('Stop with nothing held and no runtime to reach reports the failure', async () => {
+  unreachable = true
+
+  expect((await request('cancel-runtime')).status).toBe(500)
+  expect(stoppedRuns).toEqual([])
 })

@@ -7,7 +7,7 @@ import { runtimeAllows } from '../../../lib/runtimeExecution'
 import { toast } from '../../ui/toast'
 
 import { retractTarget, withoutRetracted } from './composerRecall'
-import { withoutQueued } from './queuedAutoSend'
+import { canStopTurn, withoutQueued } from './queuedAutoSend'
 
 import type { PanelCtx } from './ctx'
 import type { Tab } from './model'
@@ -50,7 +50,7 @@ export function usePanelQueueWatchdogs({
   const stopActive = useCallback(() => {
     const tab = tabsRef.current.find((candidate) => candidate.id === activeId)
 
-    if (!tab || !runtimeAllows(tab.runtimeState, 'cancel')) return
+    if (!tab || !canStopTurn(tab)) return
     stopTab(tab)
   }, [activeId, stopTab, tabsRef])
 
