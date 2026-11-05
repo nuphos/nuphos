@@ -41,10 +41,23 @@ export function selectedAgentName(control: Pick<RuntimeControl, 'value' | 'optio
   })
 }
 
+/** The conversation's own agent is disabled or no longer in the workspace. */
+export function runtimeGone(control: RuntimeControl | undefined): control is RuntimeControl {
+  return Boolean(control?.unavailable && control.value?.id)
+}
+
+/** What the banner and the send button say about a gone agent. */
+export function runtimeGoneText(control: Pick<RuntimeControl, 'value'>): string {
+  return t('{name} is no longer available.', { name: control.value?.label ?? t('The runtime') })
+}
+
 /** Why the next message cannot go, or null when it can: no agent, or one that cannot take it. */
 export function runtimeControlSendBlock(control: RuntimeControl | undefined): string | null {
   if (control?.onSelect && (!control.value || control.value.status === 'disabled'))
     return t('Choose a runtime to send')
+  // Its agent was removed: a message would only come back as runtime_not_found.
+  if (runtimeGone(control))
+    return control.onSelect ? t('Choose a runtime to send') : runtimeGoneText(control)
   const reachability = selectedAgentReachability(control)
 
   if (reachability === 'offline') return t('Its computer is offline')

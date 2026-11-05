@@ -5431,6 +5431,7 @@
   "{name} disconnected": "{name} 已断开连接",
   "{name} installed": "{name} 已安装",
   "{name} is connected. Your local runtime is ready.": "{name} 已连接，本地运行环境已就绪。",
+  "{name} is no longer available.": "{name} 已不可用。",
   "{name} is not installed on this computer.": "此电脑上未安装 {name}。",
   "{name} is now available in {team}.": "{name} 现已在 {team} 中可用。",
   "{name} is now signed in.": "{name} 已登录。",

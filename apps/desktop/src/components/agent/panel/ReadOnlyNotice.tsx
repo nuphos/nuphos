@@ -14,7 +14,7 @@ import { reachabilityCopy } from './agentBannerCopy'
 import { agentProblem } from './agentRowFix'
 import { ConversationActivityBadges } from './historyRows'
 import { sharedComputerLabel, shareApprovalText } from './queuedShareApproval'
-import { selectedAgentReachability } from './runtimeControlSignOut'
+import { runtimeGone, runtimeGoneText, selectedAgentReachability } from './runtimeControlSignOut'
 import { useAskedName } from './signInAsks'
 import { slackThreadFallbackUrl } from './slackThreadUrl'
 import { usePickerFixes } from './usePickerFixes'
@@ -121,6 +121,7 @@ const BANNER = {
     tint: 'bg-warning/10',
   },
   declined: { Icon: Ban, icon: 'text-error', border: 'border-error/35', tint: 'bg-error/10' },
+  gone: { Icon: Ban, icon: 'text-error', border: 'border-error/35', tint: 'bg-error/10' },
 } as const
 
 type BannerKind = keyof typeof BANNER
@@ -132,6 +133,15 @@ function bannerCopy(
   fixes: BannerFixes,
   onSwitchAgent?: () => void,
 ): BannerCopy {
+  if (reachability === 'gone')
+    return {
+      text: runtimeGoneText(control),
+      // Moving needs the conversation's manager; anyone else just reads why.
+      action:
+        onSwitchAgent && control.onSelect
+          ? { label: t('Switch runtime'), run: onSwitchAgent }
+          : null,
+    }
   if (reachability === 'signIn' || reachability === 'offline')
     return reachabilityCopy(reachability, control, fix, fixes, onSwitchAgent)
   const computer = sharedComputerLabel(control)
@@ -156,7 +166,7 @@ export function AgentStatusBanner({
   control: RuntimeControl
   /** The new-chat card: wider corners to clear. */
   hero?: boolean
-  /** Set for a new chat, whose fix is picking another agent. */
+  /** Set for a new chat, or a conversation whose agent is gone: the fix is picking another. */
   onSwitchAgent?: () => void
 }) {
   const reachability = selectedAgentReachability(control)
@@ -164,7 +174,9 @@ export function AgentStatusBanner({
   const shareApproval = useShareApprovalWait(control, control.sessionId)
   const unreachable = reachability === 'signIn' || reachability === 'offline' ? reachability : null
   // Reachability comes first: an offline computer cannot run it even once approved.
+  // Its agent is gone: nothing else about it matters until the conversation moves.
   const blocked: BannerKind | null =
+    (runtimeGone(control) ? 'gone' : null) ??
     unreachable ??
     (shareApproval === 'pending' ? 'waiting' : shareApproval === 'denied' ? 'declined' : null)
   // The words stay while the banner leaves, so it closes on what it said.
