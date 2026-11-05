@@ -219,11 +219,20 @@ final class WebPage: NSObject, WKNavigationDelegate {
         target = url
         current = url
         failure = nil
+        #if DEBUG
+        if PreviewIsolation.refuses(url) {
+            failure = "Preview mode does not open pages."
+            return
+        }
+        #endif
         view.load(URLRequest(url: MacPageScheme.phoneURL(url) ?? url))
     }
 
     /// A link from a Mac-only page to its own absolute address stays on the Mac.
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction) async -> WKNavigationActionPolicy {
+        #if DEBUG
+        if let url = action.request.url, PreviewIsolation.refuses(url) { return .cancel }
+        #endif
         guard let url = action.request.url, let phone = MacPageScheme.phoneURL(url) else { return .allow }
         load(MacPageScheme.macURL(phone) ?? url)
         return .cancel

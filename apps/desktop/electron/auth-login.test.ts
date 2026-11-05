@@ -54,6 +54,8 @@ let redeemCalls = 0
 /** Bodies POSTed to /auth/native/session/redeem, so tests can assert on them. */
 let redeemBodies: { handle: string; codeVerifier: string; code?: string }[] = []
 let meHandler: () => Promise<Response> = async () => json(USER)
+/** Set to make creating the sign-in folder fail, as a `~/.config` owned by root does. */
+let mkdirError: NodeJS.ErrnoException | null = null
 
 let auth: typeof import('./auth.ts')
 const realFetch = globalThis.fetch
@@ -91,7 +93,9 @@ before(async () => {
 
         return data
       },
-      mkdir: async () => {},
+      mkdir: async () => {
+        if (mkdirError) throw mkdirError
+      },
       writeFile: async (at: string, data: string) => {
         files.set(at, data)
         configWrites.push(data)
@@ -146,6 +150,8 @@ before(async () => {
       return json({ ok: true })
     }
 
+    if (url.endsWith('/auth/email/verify-code')) return json({ token: TOKEN, user: USER })
+
     if (url.endsWith('/auth/sessions/current')) {
       sessionEnds.push({
         method: init?.method,
@@ -175,6 +181,7 @@ beforeEach(() => {
   redeemCalls = 0
   redeemBodies = []
   meHandler = async () => json(USER)
+  mkdirError = null
 })
 
 after(() => {
@@ -427,6 +434,51 @@ test('native: a rejected redemption fails the sign-in and stores nothing', async
 
   await assert.rejects(loginPromise, /no longer valid/)
   assert.equal(configWrites.length, 0)
+})
+
+const EACCES = () =>
+  Object.assign(new Error("EACCES: permission denied, mkdir '/Users/u/.config/nuphos'"), {
+    code: 'EACCES',
+  })
+const UNSAVED = /Nuphos couldn.t save your sign-in to \S+: permission denied\./
+
+test('native: a sign-in that cannot be saved says why, in the browser and the app', async () => {
+  mkdirError = EACCES()
+
+  const loginPromise = auth.login('google')
+
+  loginPromise.catch(() => {})
+  await waitForBrowser()
+  const res = await hitCallback(registeredPort(), {
+    state: registrations[0]!.clientState,
+    code: DELIVERY_CODE,
+  })
+
+  assert.equal(res.status, 500)
+  assert.match((await res.text()).replaceAll('&#39;', "'"), UNSAVED)
+  // Coded, so the app's toast shows the message rather than a network fallback.
+  await assert.rejects(loginPromise, (e: Error) => {
+    assert.match(e.message, /__ATLAS_API_ERROR__.*"code":"sign_in_not_saved"/)
+    assert.match(e.message, UNSAVED)
+
+    return true
+  })
+})
+
+test('an email-code sign-in that cannot be saved says why', async () => {
+  mkdirError = EACCES()
+
+  await assert.rejects(auth.verifyEmailCode('dev@example.com', '123456'), UNSAVED)
+})
+
+test('a sign-in that fails to save for another reason keeps its own error', async () => {
+  mkdirError = Object.assign(new Error('ENOSPC: no space left on device'), { code: 'ENOSPC' })
+
+  await assert.rejects(auth.verifyEmailCode('dev@example.com', '123456'), (e: Error) => {
+    assert.equal(e.message, 'ENOSPC: no space left on device')
+
+    return true
+  })
 })
 
 test('native: an error reported by the browser fails fast', async () => {

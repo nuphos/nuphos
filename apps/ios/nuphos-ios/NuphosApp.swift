@@ -8,6 +8,10 @@ struct NuphosApp: App {
     #endif
     @State private var session = AuthSession()
 
+    #if DEBUG
+    init() { PreviewIsolation.installIfPreview() }
+    #endif
+
     var body: some Scene {
         WindowGroup {
             #if DEBUG && os(iOS)
