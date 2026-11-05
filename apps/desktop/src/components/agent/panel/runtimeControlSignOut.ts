@@ -1,4 +1,5 @@
 import { t } from '../../../i18n/index.ts'
+import { usable } from '../../../lib/agentName.ts'
 import { AGENT_PROVIDER } from '../../../types/runtime.ts'
 
 import type { RuntimeControl } from './RuntimeSelector'
@@ -53,13 +54,14 @@ export function runtimeControlSendBlock(control: RuntimeControl | undefined): st
 }
 
 /**
- * The team has no agent a new conversation could start on, so sending can only
- * mean setting one up. Unknown while the list loads or fails: never claimed then.
+ * No agent a new conversation could start on (none, or only signed-out, offline
+ * or deleting ones), so sending can only mean setting one up. Unknown while the
+ * list loads or fails: never claimed then.
  */
 export function noAgentToRun(
   instances: readonly RuntimeInstance[],
   loading: boolean,
   error: string | null,
 ): boolean {
-  return !loading && !error && !instances.some((i) => i.status === 'active' && !i.deletion)
+  return !loading && !error && !instances.some((i) => usable(i) && !i.deletion)
 }

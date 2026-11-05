@@ -100,6 +100,10 @@ test('sending sets up an agent only when the team surely has none to run', () =>
   assert.equal(noAgentToRun([], false, null), true)
   assert.equal(noAgentToRun([agent({ status: 'disabled' })], false, null), true)
   assert.equal(noAgentToRun([agent({ deletion: { state: 'deleting' } })], false, null), true)
+  const local = { ownerUserId: 'u', deviceId: 'box1', deviceLabel: 'Mac' }
+
+  assert.equal(noAgentToRun([agent({ local: { ...local, signedIn: false } })], false, null), true)
+  assert.equal(noAgentToRun([agent({ local: { ...local, online: false } })], false, null), true)
   assert.equal(noAgentToRun([agent()], false, null), false)
   assert.equal(noAgentToRun([agent({ starting: true })], false, null), false)
   // Not known yet, or not knowable: the composer stays as it is.

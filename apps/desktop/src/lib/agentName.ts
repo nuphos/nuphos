@@ -50,7 +50,11 @@ export function groupAgentsByTier<T extends NamedAgent>(
   return agents.length ? [{ tier: 'local' as const, title: '', agents: [...agents] }] : []
 }
 
-type SelectableAgent = NamedAgent & { status: 'active' | 'disabled'; notReady?: boolean }
+type SelectableAgent = NamedAgent & {
+  status: 'active' | 'disabled'
+  notReady?: boolean
+  provider?: string
+}
 
 /** Why an agent cannot take a turn now: listed greyed out with this, never chosen. */
 export function unavailable(agent: NamedAgent): string | null {
@@ -74,24 +78,47 @@ export function listedAgents<T extends SelectableAgent>(agents: readonly T[]): T
   return agents.filter(listable)
 }
 
-/** A new conversation starts on the usable agent with the most quota left; unknown counts as full. */
+// This computer's Claude Code, then its other agents, then any other: the one
+// the person most likely just set up comes first.
+function nearness(agent: SelectableAgent, owner: ThisComputer): number {
+  if (agentTier(agent, owner) !== 'local') return 2
+
+  return agent.provider === 'claude-code' ? 0 : 1
+}
+
+/**
+ * A new conversation starts on the nearest usable agent; among equally near
+ * ones, the one with the most quota left, unknown counting as full.
+ */
 export function defaultAgent<T extends SelectableAgent & { id: string }>(
   agents: readonly T[],
-  _owner: ThisComputer,
+  owner: ThisComputer,
   usedPercent: (agent: T) => number | undefined = () => {},
 ): T | undefined {
   let best: T | undefined
-  let bestUsed = Infinity
+  let bestRank: [number, number] = [Infinity, Infinity]
 
   for (const agent of agents) {
     if (!usable(agent)) continue
-    const used = usedPercent(agent) ?? 0
+    const rank: [number, number] = [nearness(agent, owner), usedPercent(agent) ?? 0]
 
-    if (used < bestUsed) {
+    if (rank[0] < bestRank[0] || (rank[0] === bestRank[0] && rank[1] < bestRank[1])) {
       best = agent
-      bestUsed = used
+      bestRank = rank
     }
   }
 
   return best
+}
+
+/** The agent a new chat starts on: the last one picked while it can still run, else the default. */
+export function newChatAgent<T extends SelectableAgent & { id: string }>(
+  agents: readonly T[],
+  lastPickedId: string | undefined,
+  owner: ThisComputer,
+  usedPercent?: (agent: T) => number | undefined,
+): T | undefined {
+  const last = agents.find((agent) => agent.id === lastPickedId)
+
+  return last && usable(last) ? last : defaultAgent(agents, owner, usedPercent)
 }
