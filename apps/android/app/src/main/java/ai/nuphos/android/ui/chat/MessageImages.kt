@@ -131,11 +131,16 @@ internal fun imageLoad(source: String, edge: Int, loader: MessageImageLoader): S
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun MessageImages(images: List<String>, messageId: String, loader: MessageImageLoader = inlineImageLoader, originalWriter: ImageOriginalWriter = ImageExports::writeInline) {
+internal fun MessageImages(images: List<String>, messageId: String, loader: MessageImageLoader = inlineImageLoader, originalWriter: ImageOriginalWriter = ImageExports::writeInline, alignEnd: Boolean = false) {
     // Save only the selected index, never duplicate base64 in saved instance state.
     var selected by rememberSaveable(messageId) { mutableIntStateOf(-1) }
-    if (images.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    // A row while they fit, then the next line: more than fit must never push the message off screen.
+    if (images.isNotEmpty()) FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp, if (alignEnd) Alignment.End else Alignment.Start),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
         images.take(4).forEachIndexed { index, source ->
             val load by imageLoad(source, 256, loader)
             Box(Modifier.size(96.dp).clip(RoundedCornerShape(14.dp))

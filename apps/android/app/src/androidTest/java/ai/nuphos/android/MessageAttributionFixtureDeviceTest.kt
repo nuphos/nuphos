@@ -19,6 +19,7 @@ import ai.nuphos.android.ui.chat.MessageSenderLabel
 import ai.nuphos.android.ui.chat.UserMessageContent
 import ai.nuphos.android.ui.theme.NuphosTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -79,13 +80,13 @@ class MessageAttributionFixtureDeviceTest {
         return "data:image/png;base64," + android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
     }
     private val me = MessageAttribution("me", "Can Yu", "user", "nuphos")
-    private fun message(sender: MessageAttribution?, text: String, images: Int = 0) {
+    private fun message(sender: MessageAttribution?, text: String, images: Int = 0, width: Int = 400) {
         val sources = List(images) { image() }
         compose.setContent {
             NuphosTheme(darkTheme = false) {
                 Surface {
-                    Box(Modifier.fillMaxWidth().testTag("message")) {
-                        UserMessageContent(sender, text) { MessageImages(sources, "message") }
+                    Box(Modifier.width(width.dp).testTag("message")) {
+                        UserMessageContent(sender, text) { MessageImages(sources, "message", alignEnd = true) }
                     }
                 }
             }
@@ -113,7 +114,9 @@ class MessageAttributionFixtureDeviceTest {
     @Test fun senderImagesAndTextAreSixDpApart() {
         message(me, "With pictures.", images = 2)
         assertGap(tag("message-sender"), picture(1, 2))
-        assertGap(picture(1, 2), picture(2, 2))
+        assertEquals("Side by side", picture(1, 2).top, picture(2, 2).top, 1f)
+        assertEquals(with(compose.density) { 6.dp.toPx() }, picture(2, 2).left - picture(1, 2).right, 1f)
+        assertEquals("Against the right edge", tag("message").right, picture(2, 2).right, 1f)
         assertGap(picture(2, 2), tag("user-bubble"))
     }
     @Test fun onlyImagesLeaveNoSpaceBelowThem() {
@@ -126,5 +129,26 @@ class MessageAttributionFixtureDeviceTest {
         compose.onAllNodesWithTag("message-sender", useUnmergedTree = true).assertCountEquals(0)
         assertEquals(tag("message").top, tag("user-bubble").top, 1f)
         assertEquals(tag("message").bottom, tag("user-bubble").bottom, 1f)
+    }
+    @Test fun imagesThatDontFitWrapInsideTheMessage() {
+        // 96 dp images: 4 need 402 dp, so 300 dp fits three and wraps the fourth.
+        message(me, "Four pictures.", images = 4, width = 300)
+        val box = tag("message")
+        (1..4).forEach { assertTrue("Image $it stays inside", picture(it, 4).left >= box.left - 1f && picture(it, 4).right <= box.right + 1f) }
+        assertEquals("Three fit on the first line", picture(1, 4).top, picture(3, 4).top, 1f)
+        assertGap(picture(3, 4), picture(4, 4))
+        assertEquals("The last line stays on the right", box.right, picture(4, 4).right, 1f)
+        assertGap(picture(4, 4), tag("user-bubble"))
+    }
+    @Test fun aNarrowMessageStacksTheImages() {
+        message(me, "", images = 3, width = 120)
+        assertGap(picture(1, 3), picture(2, 3))
+        assertGap(picture(2, 3), picture(3, 3))
+        assertEquals(tag("message").right, picture(3, 3).right, 1f)
+    }
+    @Test fun moreThanFourShowsTheCount() {
+        message(me, "", images = 6)
+        compose.onNodeWithText("+2").assertExists()
+        compose.onAllNodesWithContentDescription("Image 5 of 6", useUnmergedTree = true).assertCountEquals(0)
     }
 }
