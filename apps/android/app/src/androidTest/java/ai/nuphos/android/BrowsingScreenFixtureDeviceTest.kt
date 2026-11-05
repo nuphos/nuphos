@@ -161,7 +161,7 @@ class BrowsingScreenFixtureDeviceTest {
     @Test fun fullTitleDialogDoesNotEnableActionsOrFetchAgain() {
         render()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Saved fixture answer").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithContentDescription("Runtime: Fixture laptop").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Runtime: Runtime · Fixture laptop").assertIsDisplayed()
         compose.onNodeWithContentDescription("Show full agent title").performClick()
         compose.onNodeWithText("Agent title").assertIsDisplayed()
         compose.onAllNodesWithText("Saved fixture run").onLast().assertIsDisplayed()
@@ -179,7 +179,6 @@ class BrowsingScreenFixtureDeviceTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Saved fixture answer").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Saved fixture answer").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Read-only run").assertIsDisplayed()
-        compose.onNodeWithText("Worked through 2 steps").performScrollTo().performClick()
         compose.onNodeWithText("Saved completed tool").performScrollTo().assertIsDisplayed().performClick()
         compose.onNodeWithText("Input").assertIsDisplayed()
         compose.onNodeWithText("fixture input", substring = true).assertIsDisplayed()

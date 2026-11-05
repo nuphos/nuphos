@@ -84,7 +84,7 @@ class DeviceMentionFixtureDeviceTest {
         compose.onNodeWithText("…-mac").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("…c-pc").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("…-mac").performScrollTo()
-        compose.onNodeWithContentDescription("Attach").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Photos").assertIsDisplayed()
         compose.onNodeWithContentDescription("Send").assertIsDisplayed()
         snap("synthetic-device-mention-light")
         compose.runOnIdle { dark = true }

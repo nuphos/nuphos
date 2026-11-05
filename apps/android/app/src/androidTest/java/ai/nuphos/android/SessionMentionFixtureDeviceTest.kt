@@ -83,7 +83,7 @@ class SessionMentionFixtureDeviceTest {
         compose.onNodeWithText("Current chat").assertDoesNotExist()
         compose.onNodeWithText("Other team").assertDoesNotExist()
         compose.onNodeWithContentDescription("Send").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Attach").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Photos").assertIsDisplayed()
         snap("synthetic-mention-light")
         compose.runOnIdle { dark = true }
         snap("synthetic-mention-dark")
