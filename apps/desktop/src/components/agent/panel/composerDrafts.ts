@@ -12,6 +12,10 @@ const STORAGE_KEY = 'nuphos.agent.composerDrafts.v1'
 const MAX_DRAFTS = 50
 const MAX_TEXT_LENGTH = 100_000
 
+// A draft too long for storage stays here until the app reloads. Cut short,
+// it would come back with half a pasted-text block in it.
+const unsaved = new Map<string, ComposerDraft>()
+
 function defaultStorage(): Storage | undefined {
   try {
     return globalThis.localStorage
@@ -75,10 +79,12 @@ export function claimComposerDrafts(userId: string, storage = defaultStorage()):
   const store = read(storage)
 
   if (store.owner === userId) return
+  unsaved.clear()
   write(storage, { owner: userId, drafts: {} })
 }
 
 export function clearComposerDrafts(storage = defaultStorage()): void {
+  unsaved.clear()
   try {
     storage?.removeItem(STORAGE_KEY)
   } catch {
@@ -90,7 +96,7 @@ export function loadComposerDraft(key: string, storage = defaultStorage()): Comp
   const store = read(storage)
 
   if (!store.owner) return null
-  const draft = store.drafts[key]
+  const draft = unsaved.get(key) ?? store.drafts[key]
 
   return draft
     ? { text: draft.text, filePaths: draft.filePaths, folderPaths: draft.folderPaths }
@@ -109,12 +115,15 @@ export function saveComposerDraft(
   if (!store.owner) return
   const drafts = { ...store.drafts }
   const empty = !draft.text.trim() && draft.filePaths.length === 0
+  const tooLong = draft.text.length > MAX_TEXT_LENGTH
 
-  if (empty) {
+  unsaved.delete(key)
+  if (tooLong && !empty) unsaved.set(key, draft)
+  if (empty || tooLong) {
     if (!(key in drafts)) return
     delete drafts[key]
   } else {
-    drafts[key] = { ...draft, text: draft.text.slice(0, MAX_TEXT_LENGTH), updatedAt: now }
+    drafts[key] = { ...draft, updatedAt: now }
   }
   const kept = Object.entries(drafts)
     .sort(([, a], [, b]) => b.updatedAt - a.updatedAt)

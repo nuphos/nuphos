@@ -583,6 +583,26 @@
     outline: none;
     box-shadow: inset 0 0 0 2px rgb(var(--color-zViolet-accent));
   }
+  /* A long paste: click it to read it, × takes it out. */
+  .atlas-mention[data-pasted-text],
+  button.atlas-mention {
+    cursor: pointer;
+  }
+  .atlas-mention[data-pasted-text] .atlas-mention-label,
+  button.atlas-mention .atlas-mention-label {
+    max-width: none;
+  }
+  .atlas-mention-remove {
+    display: inline-flex;
+    margin-right: -0.25rem;
+    padding: 1px;
+    border-radius: 0.25rem;
+    opacity: 0.7;
+  }
+  .atlas-mention-remove:hover {
+    opacity: 1;
+    background-color: rgba(var(--color-zViolet-accent), 0.15);
+  }
 
   .user-message-bubble .atlas-mention {
     gap: 0.35rem;

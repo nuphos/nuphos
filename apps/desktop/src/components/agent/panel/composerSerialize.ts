@@ -1,8 +1,11 @@
 import { api } from '../../../api'
 import { svg } from '../../../lib/atlas-link-mention/icons'
 import { isAtlasUrl, renderMentionChip } from '../../../lib/atlasLinkMention'
+import { pastesAsChip, splitPastedText } from '../../../lib/pastedText'
 
 import { attachmentDragPaths } from './attachmentDrag'
+import { pastePieces } from './composerPaste'
+import { pastedTextChip } from './composerPastedText'
 import { isImageAttachmentPath } from './attachments'
 
 // ------------------------------------------------------------------------
@@ -59,6 +62,7 @@ export function serializeNode(node: Node): string {
   if (node instanceof HTMLElement) {
     if (node.dataset.atlasUrl) return node.dataset.atlasUrl
     if (node.dataset.imageRef) return `[Image #${node.dataset.imageRef}]`
+    if (node.dataset.pastedText !== undefined) return node.dataset.pastedText
     if (node.nodeName === 'DIV' || node.nodeName === 'P') {
       // Browsers wrap soft-broken lines in <div>/<p> on contenteditable.
       // Treat them as line breaks.
@@ -98,6 +102,14 @@ export function focusAtEnd(el: HTMLElement) {
 export function restoreEditorText(el: HTMLDivElement, text: string, images = 0) {
   const nodes: Node[] = []
 
+  for (const segment of splitPastedText(text)) {
+    if (segment.pasted) nodes.push(pastedTextChip(segment.text))
+    else restoreLines(nodes, segment.text, images)
+  }
+  el.replaceChildren(...nodes)
+}
+
+function restoreLines(nodes: Node[], text: string, images: number) {
   text.split('\n').forEach((line, index) => {
     if (index > 0) nodes.push(document.createElement('br'))
     // split() with a capture group puts each reference's N at an odd index.
@@ -117,7 +129,6 @@ export function restoreEditorText(el: HTMLDivElement, text: string, images = 0) 
       }
     })
   })
-  el.replaceChildren(...nodes)
 }
 
 // ------------------------------------------------------------------------
@@ -261,33 +272,18 @@ export async function saveClipboardAttachments(data: DataTransfer): Promise<stri
   return [...directPaths, ...savedFromBytes]
 }
 
-export function handleComposerPasteText(raw: string, insertMention: (url: string) => void) {
-  // Insert pasted content piece-by-piece: Nuphos URLs (possibly inline within
-  // larger text) become mention chips, everything else stays plain text.
-  const parts = raw.split(/(\S+)/) // keep whitespace runs as their own parts
+export function handleComposerPasteText(
+  el: HTMLDivElement,
+  raw: string,
+  insertMention: (url: string) => void,
+) {
+  if (pastesAsChip(raw)) {
+    insertChipIntoEditor(el, pastedTextChip(raw))
 
-  for (const part of parts) {
-    if (!part) continue
-    // Peel surrounding punctuation so URLs like "(https://...)," or
-    // "https://...," still chipify. The stripped chars get reinserted as
-    // plain text around the chip.
-    const leading = /^[([{<"'`]*/.exec(part)?.[0] ?? ''
-    const m = /^([^)\]}>"'`,.;:!?]+)([)\]}>"'`,.;:!?]*)$/.exec(part.slice(leading.length))
-
-    if (m) {
-      const [, core, trailing] = m
-
-      if (isAtlasUrl(core)) {
-        if (leading) document.execCommand('insertText', false, leading)
-        insertMention(core)
-        if (trailing) document.execCommand('insertText', false, trailing)
-        continue
-      }
-    }
-    if (isAtlasUrl(part)) {
-      insertMention(part.trim())
-    } else {
-      document.execCommand('insertText', false, part)
-    }
+    return
+  }
+  for (const piece of pastePieces(raw, isAtlasUrl)) {
+    if ('url' in piece) insertMention(piece.url)
+    else document.execCommand('insertText', false, piece.text)
   }
 }

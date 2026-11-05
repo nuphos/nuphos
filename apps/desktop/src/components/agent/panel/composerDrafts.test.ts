@@ -141,3 +141,18 @@ test('only the most recent drafts are kept and broken storage is ignored', () =>
   assert.doesNotThrow(() => saveComposerDraft('k', draft('x'), throwing))
   assert.equal(loadComposerDraft('k', throwing), null)
 })
+
+test('a draft too long to store is kept whole for the session, never cut short', () => {
+  const storage = memoryStorage()
+  const key = composerDraftKey('team-1', 'session-a')
+  const long = 'x'.repeat(150_000)
+
+  claimComposerDrafts('user-1', storage)
+  saveComposerDraft(key, draft('short'), storage)
+  saveComposerDraft(key, draft(long), storage)
+
+  assert.equal(loadComposerDraft(key, storage)?.text, long)
+  assert.ok(!storage.getItem('nuphos.agent.composerDrafts.v1')?.includes('short'))
+  saveComposerDraft(key, draft(''), storage)
+  assert.equal(loadComposerDraft(key, storage), null)
+})
