@@ -12,6 +12,10 @@ import type { RefObject } from 'react'
  * composer), as long as the reader is at or near the bottom, with the same
  * threshold a conversation uses. Only the reader scrolling up lets go
  * (stillStuck). Returns a jump back.
+ *
+ * While it follows, the bottom is the anchor, so the browser's scroll anchoring
+ * is off: when a full chat drops its oldest post as a reply lands, anchoring
+ * would move the view up by that post, which reads as the reader leaving.
  */
 export function useStickToBottom(ref: RefObject<HTMLDivElement | null>) {
   const stuck = useRef(true)
@@ -28,12 +32,14 @@ export function useStickToBottom(ref: RefObject<HTMLDivElement | null>) {
         scroller.scrollHeight - top - scroller.clientHeight <= AUTO_SCROLL_BOTTOM_THRESHOLD
 
       stuck.current = stillStuck(stuck.current, near, top, lastTop)
+      scroller.style.overflowAnchor = stuck.current ? 'none' : ''
       lastTop = top
     }
     const follow = new ResizeObserver(() => {
       if (stuck.current) scroller.scrollTop = scroller.scrollHeight
     })
 
+    scroller.style.overflowAnchor = stuck.current ? 'none' : ''
     scroller.addEventListener('scroll', onScroll, { passive: true })
     follow.observe(content)
     follow.observe(scroller)
@@ -48,6 +54,8 @@ export function useStickToBottom(ref: RefObject<HTMLDivElement | null>) {
     const scroller = ref.current
 
     stuck.current = true
-    if (scroller) scroller.scrollTop = scroller.scrollHeight
+    if (!scroller) return
+    scroller.style.overflowAnchor = 'none'
+    scroller.scrollTop = scroller.scrollHeight
   }, [ref])
 }
