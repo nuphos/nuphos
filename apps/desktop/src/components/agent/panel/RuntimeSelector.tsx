@@ -87,6 +87,7 @@ export function RuntimeSelector({
   loading,
   error,
   onSettings,
+  sessionId,
   onAddAgent,
   confirm,
   hero = false,
@@ -124,6 +125,7 @@ export function RuntimeSelector({
     open,
     closeMenu: () => setOpen(false),
     onSettings,
+    sessionId,
   })
   const reachability = selectedAgentReachability({ value, options })
   const dot = reachability ? AGENT_DOT[reachability] : null

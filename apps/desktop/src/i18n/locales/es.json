@@ -443,6 +443,7 @@
   "Ask {name} to sign in": "Pedir a {name} que inicie sesión",
   "Ask {name} to sign this agent in, then resend your message.": "Pide a {name} que inicie sesión en este agente y luego reenvía tu mensaje.",
   "Ask {name} to update": "Pide a {name} que lo actualice",
+  "Asked {name}. You can send once they sign it in.": "Se lo pediste a {name}. Podrás enviar cuando inicie sesión.",
   "Asked {name}. Your message will run once they sign in.": "Se lo pediste a {name}. Tu mensaje se enviará cuando inicie sesión.",
   "Assign a role on the subscription": "Asignar un rol en la suscripción",
   "Assignees": "Asignados",

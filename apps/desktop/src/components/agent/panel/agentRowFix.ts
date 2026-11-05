@@ -16,8 +16,11 @@ export type AgentFix =
   | { kind: 'resume'; deviceId: string; runtimeId: string }
   /** An offline computer: look again. */
   | { kind: 'retry' }
-  /** Someone else fixes it; `name` is null until the team's members load. */
-  | { kind: 'ask'; name: string | null }
+  /**
+   * Someone else fixes it; `name` is null until the team's members load. `runtimeId` is set
+   * for a sign-in, which a conversation can ask them for.
+   */
+  | { kind: 'ask'; name: string | null; runtimeId?: string }
   /** Nothing to start from here: Agent settings has it. */
   | { kind: 'settings' }
 
@@ -77,7 +80,7 @@ export function agentProblem(
       : route.kind === 'dialog'
         ? { kind: 'signIn', instance: route.instance }
         : route.kind === 'ask'
-          ? { kind: 'ask', name: route.name }
+          ? { kind: 'ask', name: route.name, runtimeId: instance.id }
           : // Grok Build and OpenCode on your own computer: the runtime sign-in, as in settings.
             local?.ownerUserId === viewer.viewerId
             ? { kind: 'signIn', instance }

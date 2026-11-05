@@ -34,6 +34,7 @@ function banner(
   instance: RuntimeInstance,
   viewer: Partial<AgentRowViewer> = {},
   onSwitchAgent?: () => void,
+  ask: { canAsk?: boolean; askedName?: string } = {},
 ) {
   const runs: AgentFix[] = []
   const fix = agentProblem(instance, undefined, {
@@ -48,7 +49,11 @@ function banner(
     reachability,
     { value: instance, options: [instance] },
     fix,
-    (run) => runs.push(run),
+    {
+      run: (run) => runs.push(run),
+      canAsk: () => ask.canAsk ?? false,
+      ...(ask.askedName && { askedName: ask.askedName }),
+    },
     onSwitchAgent,
   )
 
@@ -93,4 +98,29 @@ test('offline: your own paused Box resumes, anything else retries, a new chat sw
 
   assert.equal(copy.action?.label, 'Switch runtime')
   assert.ok(switched)
+})
+
+test("in a conversation, a teammate's signed-out computer offers to ask its owner", () => {
+  const instance = agent('u-taylor', {})
+  const members = [
+    {
+      id: 'u-taylor',
+      name: 'Taylor',
+      email: 't@example.com',
+      username: 't',
+      role: 'MEMBER' as const,
+      joinedAt: '2026-01-01T00:00:00Z',
+    },
+  ]
+  const copy = banner(instance, { members }, undefined, { canAsk: true })
+
+  assert.equal(copy.action?.label, 'Ask Taylor to sign in')
+  assert.deepEqual(copy.runs, [{ kind: 'ask', name: 'Taylor', runtimeId: instance.id }])
+})
+
+test('once asked, the banner says who, with nothing more to press', () => {
+  const copy = banner(agent('u-taylor', {}), {}, undefined, { canAsk: true, askedName: 'Taylor' })
+
+  assert.equal(copy.text, 'Asked Taylor. You can send once they sign it in.')
+  assert.equal(copy.action, null)
 })

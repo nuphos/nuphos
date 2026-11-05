@@ -443,6 +443,7 @@
   "Ask {name} to sign in": "Minta {name} untuk masuk",
   "Ask {name} to sign this agent in, then resend your message.": "Minta {name} untuk memasukkan agen ini, lalu kirim ulang pesan Anda.",
   "Ask {name} to update": "Minta {name} untuk memperbarui",
+  "Asked {name}. You can send once they sign it in.": "Sudah meminta {name}. Anda bisa mengirim setelah mereka masuk.",
   "Asked {name}. Your message will run once they sign in.": "{name} sudah diminta. Pesan Anda akan dijalankan setelah mereka masuk.",
   "Assign a role on the subscription": "Tetapkan peran pada langganan",
   "Assignees": "Penerima tugas",

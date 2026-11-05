@@ -77,7 +77,7 @@ test('a signed-out team agent: the administrator signs it in, a member asks them
   const member = agentProblem(managed, signedOutQuota, viewer('u-shant'))
 
   assert.deepEqual(admin?.fix, { kind: 'signIn', instance: managed })
-  assert.deepEqual(member?.fix, { kind: 'ask', name: 'Bryan' })
+  assert.deepEqual(member?.fix, { kind: 'ask', name: 'Bryan', runtimeId: 'rt-prod' })
   // The probe's sign-in hint can be wrong, so the agent can still be picked.
   assert.equal(member?.pickable, true)
   assert.equal(agentAskText({ kind: 'ask', name: 'Bryan' }), 'Ask Bryan')
@@ -98,7 +98,8 @@ test("this computer's signed-out CLI signs in with its own login and cannot be p
 test("a teammate's signed-out computer is signed in by its owner", () => {
   const problem = agentProblem(local('u-bryan', { signedIn: false }), undefined, viewer('u-shant'))
 
-  assert.deepEqual(problem?.fix, { kind: 'ask', name: 'Bryan' })
+  // A sign-in, so a conversation can send the ask; a paused computer's ask is only said.
+  assert.deepEqual(problem?.fix, { kind: 'ask', name: 'Bryan', runtimeId: 'local_u-bryan_d1' })
 })
 
 test("your own paused Box resumes; someone else's asks its owner; an offline computer retries", () => {
@@ -123,7 +124,7 @@ test("your own paused Box resumes; someone else's asks its owner; an offline com
 test('without the member list the ask names no one yet', () => {
   const problem = agentProblem(managed, signedOutQuota, { ...viewer('u-shant'), members: null })
 
-  assert.deepEqual(problem?.fix, { kind: 'ask', name: null })
+  assert.deepEqual(problem?.fix, { kind: 'ask', name: null, runtimeId: 'rt-prod' })
   assert.equal(agentAskText({ kind: 'ask', name: null }), 'Ask an administrator')
 })
 

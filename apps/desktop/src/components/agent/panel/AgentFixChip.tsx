@@ -13,11 +13,12 @@ const CHIP =
 
 /** The fix as a button chip in a picker row. */
 export function AgentFixChip({ fix, fixes }: { fix: AgentFix; fixes: PickerFixes }) {
-  const label = agentFixLabel(fix)
-
   // Who to ask is said in the row's subtitle, where a long name can truncate.
-  if (fix.kind === 'ask' || !label) return null
-  if (fixes.busy(fix))
+  const ask = fix.kind === 'ask'
+  const label = ask ? fixes.canAsk(fix) && t('Ask to sign in') : agentFixLabel(fix)
+
+  if (!label) return null
+  if (fixes.busy(fix) && !ask)
     return (
       <span className={clsx(CHIP, 'border-warning/30 bg-warning/10 text-warning')} role="status">
         <Loader2 aria-hidden className="h-2.5 w-2.5 animate-spin motion-reduce:animate-none" />
@@ -34,6 +35,7 @@ export function AgentFixChip({ fix, fixes }: { fix: AgentFix; fixes: PickerFixes
       )}
       // Inside a menu item: the fix neither picks this agent nor lets the item act on its own.
       onPointerDown={(event) => event.stopPropagation()}
+      disabled={fixes.busy(fix)}
       onClick={(event) => {
         event.preventDefault()
         event.stopPropagation()

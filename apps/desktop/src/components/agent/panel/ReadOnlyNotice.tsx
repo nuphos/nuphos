@@ -15,11 +15,12 @@ import { agentProblem } from './agentRowFix'
 import { ConversationActivityBadges } from './historyRows'
 import { sharedComputerLabel, shareApprovalText } from './queuedShareApproval'
 import { selectedAgentReachability } from './runtimeControlSignOut'
+import { useAskedName } from './signInAsks'
 import { slackThreadFallbackUrl } from './slackThreadUrl'
 import { usePickerFixes } from './usePickerFixes'
 import { useShareApprovalWait } from './useShareApprovalWait'
 
-import type { BannerCopy } from './agentBannerCopy'
+import type { BannerCopy, BannerFixes } from './agentBannerCopy'
 import type { AgentFix } from './agentRowFix'
 import type { RuntimeControl } from './RuntimeSelector'
 import type { ViewOnlyNotice } from './viewOnlyNotice'
@@ -128,11 +129,11 @@ function bannerCopy(
   reachability: BannerKind,
   control: RuntimeControl,
   fix: AgentFix | undefined,
-  runFix: (fix: AgentFix) => void,
+  fixes: BannerFixes,
   onSwitchAgent?: () => void,
 ): BannerCopy {
   if (reachability === 'signIn' || reachability === 'offline')
-    return reachabilityCopy(reachability, control, fix, runFix, onSwitchAgent)
+    return reachabilityCopy(reachability, control, fix, fixes, onSwitchAgent)
   const computer = sharedComputerLabel(control)
   // A new chat has nothing to wait for: it just starts on another agent.
   const switchAgent = onSwitchAgent && { label: t('Switch runtime'), run: onSwitchAgent }
@@ -175,14 +176,16 @@ export function AgentStatusBanner({
     isTeamAdmin: Boolean(control.canUpdateTeamAgents),
     open: unreachable !== null,
     onSettings: control.onSettings,
+    sessionId: control.sessionId,
   })
+  const askedName = useAskedName(control.sessionId, selected?.id)
   const fix =
     unreachable && selected ? agentProblem(selected, undefined, fixes.viewer)?.fix : undefined
 
   if (blocked && blocked !== shown) setShown(blocked)
   const variant = shown ? BANNER[shown] : null
   const { text, action } = shown
-    ? bannerCopy(shown, control, fix, fixes.run, onSwitchAgent)
+    ? bannerCopy(shown, control, fix, { ...fixes, ...(askedName && { askedName }) }, onSwitchAgent)
     : { text: '', action: null }
 
   return (

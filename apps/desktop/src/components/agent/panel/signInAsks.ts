@@ -30,3 +30,13 @@ export function useSignInRequest(
 
   return Date.parse(local.askedAt) >= Date.parse(fromServer.askedAt) ? local : fromServer
 }
+
+/** Whom this window asked to sign this agent in for this conversation; the banner says so. */
+export function useAskedName(
+  sessionId: string | undefined,
+  runtimeId: string | undefined,
+): string | undefined {
+  const ask = useSyncExternalStore(subscribe, () => (sessionId ? asks.get(sessionId) : undefined))
+
+  return ask && ask.runtimeId === runtimeId ? ask.askedName : undefined
+}

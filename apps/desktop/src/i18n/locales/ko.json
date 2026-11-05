@@ -443,6 +443,7 @@
   "Ask {name} to sign in": "{name}님에게 로그인 요청",
   "Ask {name} to sign this agent in, then resend your message.": "{name}님에게 이 에이전트에 로그인해 달라고 요청한 다음 메시지를 다시 보내세요.",
   "Ask {name} to update": "{name}에게 업데이트 요청",
+  "Asked {name}. You can send once they sign it in.": "{name}님에게 요청했습니다. 로그인하면 보낼 수 있습니다.",
   "Asked {name}. Your message will run once they sign in.": "{name}님에게 요청했습니다. 로그인하면 메시지가 실행됩니다.",
   "Assign a role on the subscription": "구독에 역할 할당",
   "Assignees": "담당자",
