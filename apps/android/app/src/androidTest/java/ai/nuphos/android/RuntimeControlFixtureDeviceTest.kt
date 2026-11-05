@@ -439,6 +439,6 @@ class RuntimeControlFixtureDeviceTest {
         compose.onNodeWithContentDescription("Stop").assertIsDisplayed()
         val stop = compose.onNodeWithContentDescription("Stop").fetchSemanticsNode().boundsInRoot
         val send = compose.onNodeWithContentDescription("Send").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        Assert.assertTrue("Send comes first, as on iOS it's beside Stop", send.right <= stop.left)
+        Assert.assertTrue("Stop is on the left, as on iOS", stop.right <= send.left)
     }
 }

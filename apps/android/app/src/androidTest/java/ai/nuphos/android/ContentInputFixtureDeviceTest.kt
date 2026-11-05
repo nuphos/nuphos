@@ -49,6 +49,7 @@ class ContentInputFixtureDeviceTest {
     }
     private var sendCount = 0
     private var sent: ComposerSubmission? = null
+    private var stoppable = false
     private var inputDescription = "Ask Nuphos anything"
 
     private fun render(streaming: Boolean = false, controlledPicker: Boolean = false) {
@@ -71,7 +72,7 @@ class ContentInputFixtureDeviceTest {
             }
             NuphosTheme { CompositionLocalProvider(LocalAgentStore provides store, ai.nuphos.android.ui.LocalAuthSession provides (androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as ai.nuphos.android.NuphosApplication).authSession) {
                 val composer = @androidx.compose.runtime.Composable {
-                    ChatComposer(isStreaming = streaming, draft = lease.value, canSubmit = sendAllowed.value,
+                    ChatComposer(isStreaming = streaming, onStop = if (stoppable) ({ }) else null, draft = lease.value, canSubmit = sendAllowed.value,
                         draftingEnabled = editAllowed.value, onSend = { sendCount++; sent = it; true })
                 }
                 if (controlledPicker) CompositionLocalProvider(
@@ -291,6 +292,15 @@ class ContentInputFixtureDeviceTest {
             assertEquals("queued text", sent?.text)
             assertEquals("fixture.txt", sent!!.attachments.single().name)
         } finally { sent?.attachments?.forEach { it.releaseOwnedCopy() } }
+    }
+    @Test fun aFileOnlyDraftPutsStopLeftOfQueue() {
+        stoppable = true
+        render(streaming = true)
+        paste(clip("fixture.txt"))
+        compose.waitUntil(10_000) { compose.onAllNodesWithText("Reading files…").fetchSemanticsNodes().isEmpty() }
+        val stop = compose.onNodeWithContentDescription("Stop").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val queue = compose.onNodeWithContentDescription("Queue message").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue(stop.right <= queue.left)
     }
     @Test fun imeCommitContentReachesTheSameAttachmentPipeline() {
         render()

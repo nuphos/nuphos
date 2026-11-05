@@ -27,6 +27,39 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class ComposerAgentFixtureDeviceTest {
     @get:Rule val compose = createComposeRule()
+    private fun bounds(description: String) = compose.onNodeWithContentDescription(description).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+    /** The bottom-right button keeps its place, and Stop steps left of it once there's a draft. */
+    private fun assertStopSteppedLeft(primary: String, input: String, stopped: () -> Int) {
+        compose.onNodeWithContentDescription(input).performClick()
+        compose.waitForIdle()
+        val corner = bounds("Stop")
+        compose.onNodeWithContentDescription(primary).assertDoesNotExist()
+        compose.onNodeWithContentDescription(input).performTextInput("A draft")
+        compose.waitForIdle()
+        assertEquals("The corner button doesn't move", corner, bounds(primary))
+        assertTrue("Stop is on its left", bounds("Stop").right <= bounds(primary).left)
+        compose.onNodeWithContentDescription("Stop").performClick()
+        assertEquals(1, stopped())
+    }
+    @Test fun aStreamingDraftQueuesInTheCornerWithStopOnItsLeft() {
+        var stops = 0
+        render { ChatComposer(isStreaming = true, onSend = { true }, onStop = { stops++ }) }
+        assertStopSteppedLeft("Queue message", "Queue a message") { stops }
+    }
+    @Test fun aRuntimeTurnsDraftSendsInTheCornerWithStopOnItsLeft() {
+        var stops = 0
+        render { ChatComposer(isStreaming = false, onSend = { true }, onStop = { stops++ }, stopsRuntimeTurn = true) }
+        assertStopSteppedLeft("Send", "Ask Nuphos anything") { stops }
+    }
+    @Test fun withoutCancelRightsThereIsNoStop() {
+        render { ChatComposer(isStreaming = true, onSend = { true }, stopsRuntimeTurn = true) }
+        compose.onNodeWithContentDescription("Queue a message").performClick()
+        compose.onNodeWithContentDescription("Stop").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Queue a message").performTextInput("A draft")
+        compose.onNodeWithContentDescription("Stop").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Queue message").assertIsDisplayed()
+    }
+
     /** The chip sits in a row that scrolls sideways: its label must still get width there. */
     @Test fun runtimeChipShowsItsLabelAndLeavesSendInPlace() {
         val long = "A very long runtime name that must not push Send away"
