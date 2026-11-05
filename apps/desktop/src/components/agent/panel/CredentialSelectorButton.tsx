@@ -99,12 +99,15 @@ function SelectionButton({
         aria-label={title}
       >
         <Icon className={iconSize} strokeWidth={devices ? 1.75 : 2} />
-        <span
-          key={selectedCount}
-          className="absolute -right-1 -top-1 flex min-w-3.5 h-3.5 items-center justify-center rounded-full bg-zViolet-accent px-0.5 text-[9.5px] text-white font-medium leading-none transition-[transform,opacity,background-color] duration-150 ease-out"
-        >
-          {selectedCount}
-        </span>
+        {/* Nothing to pick yet: a "0" reads as a warning, not a count. */}
+        {totalCount > 0 && (
+          <span
+            key={selectedCount}
+            className="absolute -right-1 -top-1 flex min-w-3.5 h-3.5 items-center justify-center rounded-full bg-zViolet-accent px-0.5 text-[9.5px] text-white font-medium leading-none transition-[transform,opacity,background-color] duration-150 ease-out"
+          >
+            {selectedCount}
+          </span>
+        )}
         {hasNew && (
           <span
             aria-hidden

@@ -284,11 +284,11 @@ export function Composer({
               executing={executing}
               hero={hero}
               readOnly={readOnly}
-              streaming={streaming}
               slackThread={slackThread}
               hasQueueablePayload={!(isEmpty && filePaths.length === 0)}
               sendDisabled={sendDisabled}
               sendBlockedReason={agentSendBlock}
+              onConnectAgent={runtimeControl?.onConnectAgent}
               onSubmit={actions.submit}
               onStop={onStop}
             />

@@ -3,6 +3,7 @@ import { ArrowUp, Square } from 'lucide-react'
 import { useLayoutEffect, useRef } from 'react'
 
 import { t } from '../../../i18n'
+import { Button } from '../../ui/button'
 
 import { isRichImageDrop } from './attachmentDrag'
 import { AGENT_QUEUE_PLACEHOLDER } from './constants'
@@ -110,12 +111,12 @@ export function ComposerSendControls({
   hasQueueablePayload,
   sendDisabled,
   sendBlockedReason,
+  onConnectAgent,
   onSubmit,
   onStop,
 }: {
   hero: boolean
   readOnly: boolean
-  streaming: boolean
   runtimeCanCancel?: boolean
   executing?: boolean
   slackThread?: AgentSlackThread | null
@@ -123,6 +124,8 @@ export function ComposerSendControls({
   sendDisabled: boolean
   /** Shown on the disabled button: why this message cannot go. */
   sendBlockedReason?: string | null
+  /** Takes the send button's place while no agent can run. */
+  onConnectAgent?: () => void
   onSubmit: () => void
   onStop: () => void
 }) {
@@ -155,6 +158,14 @@ export function ComposerSendControls({
           <Square className="w-3 h-3 fill-current" strokeWidth={2.2} />
         </button>
       </div>
+    )
+  }
+
+  if (onConnectAgent && !readOnly) {
+    return (
+      <Button size="sm" onClick={onConnectAgent} className={hero ? 'rounded-full' : undefined}>
+        {t('Connect your agent')}
+      </Button>
     )
   }
 

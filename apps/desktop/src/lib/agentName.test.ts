@@ -7,6 +7,7 @@ import {
   defaultAgent,
   groupAgentsByTier,
   listedAgents,
+  newChatAgent,
   unavailable,
   usable,
 } from './agentName.ts'
@@ -56,7 +57,7 @@ test('the picker lists every agent in one untitled group', () => {
   assert.deepEqual(groupAgentsByTier([], me), [])
 })
 
-test('a new conversation starts on the usable agent with the most quota left', () => {
+test('a new conversation starts on the nearest usable agent, quota breaking ties', () => {
   const cloud = { ...managed, status: 'active' as const }
   const local = { ...here, status: 'active' as const }
   const remote = { ...studio, status: 'active' as const }
@@ -65,10 +66,15 @@ test('a new conversation starts on the usable agent with the most quota left', (
     ['local_u1_mac', 40],
   ])
 
-  assert.equal(defaultAgent([cloud, remote, local], me)?.id, 'rt-1')
-  assert.equal(defaultAgent([cloud, local], me, (agent) => used.get(agent.id))?.id, 'local_u1_mac')
+  // This computer comes first, however much quota the others have left.
+  assert.equal(defaultAgent([cloud, remote, local], me)?.id, 'local_u1_mac')
   assert.equal(
     defaultAgent([cloud, remote, local], me, (agent) => used.get(agent.id))?.id,
+    'local_u1_mac',
+  )
+  // Among the rest, the most quota left.
+  assert.equal(
+    defaultAgent([cloud, remote], me, (agent) => used.get(agent.id))?.id,
     'local_u1_studio',
   )
   assert.equal(
@@ -117,4 +123,37 @@ test('an offline computer is never the default, though its unread quota looks em
     defaultAgent([offline, online], me, (agent) => (agent.id === online.id ? 40 : undefined))?.id,
     online.id,
   )
+})
+
+test('new chats pick: last used, then Claude Code here, other agents here, any other', () => {
+  const claude = { ...here, provider: 'claude-code', status: 'active' as const }
+  const codex = { ...hereCodex, provider: 'codex', status: 'active' as const }
+  const remote = { ...studio, provider: 'claude-code', status: 'active' as const }
+  const cloud = { ...managed, provider: 'claude-code', status: 'active' as const }
+  const all = [cloud, remote, codex, claude]
+
+  assert.equal(newChatAgent(all, 'rt-1', me)?.id, 'rt-1')
+  assert.equal(newChatAgent(all, undefined, me)?.id, 'local_u1_mac')
+  assert.equal(newChatAgent([cloud, remote, codex], undefined, me)?.id, 'local_u1_mac_codex')
+  // Any other: quota decides, then list order.
+  assert.equal(newChatAgent([cloud, remote], undefined, me)?.id, 'rt-1')
+  // The last pick stands only while it can run: offline, disabled or gone, it is passed over.
+  const disabled = { ...cloud, id: 'rt-9', status: 'disabled' as const }
+  const offline = { ...remote, local: { ...remote.local, online: false } }
+
+  assert.equal(newChatAgent([disabled, ...all], 'rt-9', me)?.id, 'local_u1_mac')
+  assert.equal(newChatAgent([offline, cloud], 'local_u1_studio', me)?.id, 'rt-1')
+  assert.equal(newChatAgent(all, 'deleted-id', me)?.id, 'local_u1_mac')
+  assert.equal(newChatAgent([], 'rt-1', me), undefined)
+})
+
+test('the agent connected from the home composer is picked as soon as it lists', () => {
+  // Before setup: nothing to run. Setup signs in Claude Code here, and this
+  // computer's agent lists (first as the desktop's own pending entry).
+  const connected = { ...here, provider: 'claude-code', status: 'active' as const, starting: true }
+  const signedOut = { ...connected, local: { ...here.local, signedIn: false } }
+
+  assert.equal(newChatAgent([], undefined, me), undefined)
+  assert.equal(newChatAgent([signedOut], undefined, me), undefined)
+  assert.equal(newChatAgent([connected], undefined, me)?.id, 'local_u1_mac')
 })

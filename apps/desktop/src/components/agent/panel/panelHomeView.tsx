@@ -1,9 +1,12 @@
+import { openAgentSetup } from '../../../views/onboarding/setup/agentSetupStore'
+
 import { AgentHomePage } from './AgentHomePage'
 import { Composer } from './Composer'
 import { newChatDraftKey } from './composerDrafts'
 import { Welcome } from './homeAnimation'
 import { useLocalSessionImport } from './importLocalSession'
 import { ModelSelector } from './ModelSelector'
+import { noAgentToRun } from './runtimeControlSignOut'
 import { useAddAgent } from './useAddAgent'
 import { useRuntimeModelConfig } from './useRuntimeModelConfig'
 
@@ -47,6 +50,15 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
     openConversation: c.openConversation,
   })
 
+  // The draft stays in the composer while setup runs over it.
+  const onConnectAgent = noAgentToRun(
+    runtimeInstances,
+    runtimeInstancesLoading,
+    runtimeInstancesError,
+  )
+    ? openAgentSetup
+    : undefined
+
   const runtimeControl = {
     teamId,
     canUpdateTeamAgents: isTeamAdmin,
@@ -58,6 +70,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
     error: runtimeInstancesError,
     onSettings: onOpenAgentSettings,
     ...addAgent.control,
+    onConnectAgent,
   }
   // A local agent still starting has no models to report yet.
   const modelRuntimeId =
@@ -115,7 +128,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
   ) : (
     <>
       {addAgent.dialog}
-      <Welcome onPick={(prompt) => startChatWith(prompt)} />
+      <Welcome onPick={(prompt) => (onConnectAgent ? onConnectAgent() : startChatWith(prompt))} />
       <Composer
         newChat
         onSend={(text, filePaths, mentions) =>

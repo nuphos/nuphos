@@ -54,6 +54,8 @@ export type RuntimeControl = {
   onSettings?: () => void
   /** New conversation: add a team agent in place, without leaving the conversation. */
   onAddAgent?: () => void
+  /** New conversation, and the team has no agent to run: sending sets one up, the draft waits. */
+  onConnectAgent?: () => void
   /** A pick that needs the user's go-ahead before it takes effect. */
   confirm?: {
     title: string

@@ -5,8 +5,8 @@ import { successfulTurns } from './endEventEffects'
 import { StarStrip } from './hero'
 import { RevealedHistoryBlock } from './historyRows'
 import { AgentHomeAnimation, COMPOSER_REVEAL_MS, DelayedPanelReveal } from './homeAnimation'
+import { HomeGithubButton } from './HomeGithubButton'
 import { HomeWidgets } from './HomeWidgets'
-import { LocalAgentHint } from './LocalAgentHint'
 import { StarterSuggestionsBlock } from './starterSuggestions'
 import { homeGreeting } from './textUtils'
 import { useEntranceCount } from './useEntranceCount'
@@ -121,6 +121,7 @@ export function AgentHomePage({
   // "not now" both retire it for good.
   const [starDismissed, dismissStar] = useStickyDismiss('nuphos.agent.starStrip.dismissed')
   const showStar = !starDismissed && successfulTurns() >= 5
+  const onConnectAgent = runtimeControl?.onConnectAgent
 
   return (
     // A size container, so the block above can measure half of what is visible.
@@ -180,7 +181,9 @@ export function AgentHomePage({
         </div>
         <div className="mx-auto w-full max-w-[820px]">
           <DelayedPanelReveal replayKey={entranceKey}>
-            <LocalAgentHint />
+            {teamId && isTeamAdmin && !onConnectAgent && !runtimeControl?.loading && (
+              <HomeGithubButton teamId={teamId} />
+            )}
           </DelayedPanelReveal>
           <div className="pt-3">
             {!unbound &&
@@ -191,7 +194,7 @@ export function AgentHomePage({
                   <StarterSuggestionsBlock
                     loading={starterSuggestionsLoading}
                     suggestions={starterSuggestions}
-                    onPick={(prompt) => onSend(prompt, [])}
+                    onPick={(prompt) => (onConnectAgent ? onConnectAgent() : onSend(prompt, []))}
                   />
                 </RevealedHistoryBlock>
               )}

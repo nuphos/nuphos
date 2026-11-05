@@ -4,7 +4,7 @@ import { useLocalRuntimeState } from '../../../hooks/useLocalRuntimeState'
 import { useRuntimeInstances } from '../../../hooks/useRuntimeInstances'
 import { useRuntimeQuotas } from '../../../hooks/useRuntimeQuotas'
 import { useThisComputer } from '../../../hooks/useThisComputer'
-import { defaultAgent, usable } from '../../../lib/agentName'
+import { newChatAgent } from '../../../lib/agentName'
 import { pendingLocalAgents } from '../../../lib/localAgentReady'
 
 import {
@@ -30,14 +30,14 @@ export function useNewConversationRuntime(teamId?: string) {
     ? [...catalog.instances, ...pendingLocalAgents(localState, catalog.instances)]
     : catalog.instances
   const choice = readNewChatChoice(newChatChoiceKey(teamId))
-  const best = defaultAgent(instances, owner, (instance) => {
+  // The saved agent stands while it is usable; otherwise the nearest one, never none.
+  // So an agent connected from the home composer is picked the moment it lists.
+  const selected = newChatAgent(instances, choice?.runtimeId, owner, (instance) => {
     const windows = runtimeQuotas.get(instance.id)?.windows ?? []
 
     return windows.length ? Math.max(...windows.map((window) => window.usedPercent)) : undefined
   })
-  // The saved agent stands while it is usable; otherwise the best agent, never none.
-  const chosen = choice && instances.find((instance) => instance.id === choice.runtimeId)
-  const selected = chosen && usable(chosen) ? chosen : best
+  const chosen = selected?.id === choice?.runtimeId ? selected : undefined
 
   function save(next: NewChatChoice) {
     saveNewChatChoice(newChatChoiceKey(teamId), next)
