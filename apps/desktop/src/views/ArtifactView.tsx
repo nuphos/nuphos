@@ -112,6 +112,7 @@ export function ArtifactView({
             />
           )}
           <ArtifactBody
+            teamId={teamId}
             version={current}
             view={current.kind === 'code' ? 'source' : view}
             onError={(message) => recordError(current.version, message)}
@@ -131,10 +132,13 @@ export function ArtifactView({
 }
 
 function ArtifactBody({
+  teamId,
   version,
   view,
   onError,
 }: {
+  /** Resolves the files a document shows (`_reply-images` links) with the viewer's credentials. */
+  teamId: string
   version: ArtifactVersion
   view: ArtifactViewMode
   onError: (message: string) => void
@@ -176,7 +180,9 @@ function ArtifactBody({
   return (
     <div className="min-h-0 flex-1 overflow-auto scrollbar-thin">
       <article className="mx-auto w-full max-w-[72ch] px-4 pb-12 pt-6 @[480px]:px-8 @[480px]:pb-16 @[480px]:pt-10">
-        <MessageResponse className={ARTIFACT_DOCUMENT_TYPE}>{version.content}</MessageResponse>
+        <MessageResponse className={ARTIFACT_DOCUMENT_TYPE} teamId={teamId}>
+          {version.content}
+        </MessageResponse>
       </article>
     </div>
   )

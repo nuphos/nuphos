@@ -96,7 +96,7 @@ function ArtifactCard({
 
   return (
     <div className={CARD}>
-      {latest && <ArtifactPreview payload={payload} />}
+      {latest && <ArtifactPreview payload={payload} teamId={teamId} />}
       <div className="flex items-center gap-4 px-4 py-3.5">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           {/* The title is the card's one control; its hit area stretches over the whole card. */}
@@ -162,7 +162,13 @@ function versionMeta(kind: string, version: number, total: number): string {
 }
 
 /** The first screen of the artifact, the way it will look when opened. */
-function ArtifactPreview({ payload }: { payload: ArtifactPayload }) {
+function ArtifactPreview({
+  payload,
+  teamId,
+}: {
+  payload: ArtifactPayload
+  teamId: string | undefined
+}) {
   return (
     <span className="relative block aspect-[16/7] w-full overflow-hidden border-b border-zGray-800">
       {payload.kind === 'html' && (
@@ -189,6 +195,7 @@ function ArtifactPreview({ payload }: { payload: ArtifactPayload }) {
               ARTIFACT_DOCUMENT_TYPE,
               'pointer-events-none origin-top-left scale-[0.7] [width:142.857%]',
             )}
+            teamId={teamId}
           >
             {payload.content.slice(0, 2400)}
           </MessageResponse>
