@@ -226,7 +226,8 @@ export async function preparePreviewTurn(
         teamId,
         sessionId,
       }),
-      getConversationBySessionId(sessionId),
+      // Only names the thread's parent on the token; never fail the turn after the queue was taken.
+      getConversationBySessionId(sessionId).catch(() => null),
     ])
   // A channel that syncs its thread into the transcript may already hold a queued message.
   const carried = drained.filter((entry) => !args.messages.some((m) => m.id === entry.id))
