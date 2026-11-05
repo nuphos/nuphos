@@ -7,6 +7,7 @@ import ai.nuphos.android.model.ChatRow
 import ai.nuphos.android.ui.chat.MemoryRecallAccess
 import ai.nuphos.android.ui.chat.visibleTeamLabels
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -149,5 +150,24 @@ class ChatRowTest {
         assertTrue(row.visibleTeamLabels(access.copy(selectedTeamId = "B")).isEmpty())
         val duplicate = row.copy(entries = row.entries + ChatRow.MemoryEntry("t", "Hidden duplicate", "unknown"))
         assertTrue(duplicate.visibleTeamLabels(access).isEmpty())
+    }
+
+    @Test fun aRuntimeStatusIsTheLastRowAndOutranksThePhase() {
+        val rows = ChatRow.rows(emptyList(), phaseLabel = "Thinking", runtimeStatus = "Running tools", runtimeTurnActive = true)
+        val activity = rows.filterIsInstance<ChatRow.Activity>().single()
+        assertEquals("Running tools", activity.text)
+        assertTrue(activity.live)
+        assertEquals(ChatRow.Bottom, rows.last())
+        assertEquals(activity, rows[rows.lastIndex - 1])
+    }
+    @Test fun anIdleRuntimeStatusIsntLive() {
+        val activity = ChatRow.rows(emptyList(), runtimeStatus = "Completed").filterIsInstance<ChatRow.Activity>().single()
+        assertFalse(activity.live)
+    }
+    @Test fun aRequestedCancelFollowsTheStatus() {
+        val rows = ChatRow.rows(emptyList(), runtimeStatus = "Running tools", runtimeTurnActive = true, cancelRequested = true)
+        val hint = rows.filterIsInstance<ChatRow.Hint>().single()
+        assertEquals("Cancellation requested", hint.text)
+        assertTrue(rows.indexOf(hint) > rows.indexOfFirst { it is ChatRow.Activity })
     }
 }

@@ -164,6 +164,8 @@ fun ChatComposer(
     promptSuggestion: () -> String? = { null },
     onRejectedRestored: () -> Unit = {},
     onStop: (() -> Unit)? = null,
+    /** A native runtime's turn isn't a stream here, but [onStop] still ends it. */
+    stopsRuntimeTurn: Boolean = false,
     showControls: Boolean = false,
     selection: CredentialSelection? = null,
     onSelectionChange: ((CredentialSelection) -> Unit)? = null,
@@ -795,7 +797,7 @@ fun ChatComposer(
                 )
                 if (!expanded) {
                     VoiceMic(enabled = effectiveDraftingEnabled && !picking && !voice.active, onClick = ::startVoice)
-                    TrailingButton(isStreaming = isStreaming, hasPayload = hasPayload && canSubmit && !picking && !voice.active,
+                    TrailingButton(isStreaming = isStreaming || (stopsRuntimeTurn && onStop != null), hasPayload = hasPayload && canSubmit && !picking && !voice.active,
                         onStop = onStop, onSend = ::send, sendQueues = sendQueues)
                 }
             }
@@ -858,13 +860,20 @@ fun ChatComposer(
                     }
                     Spacer(Modifier.weight(1f))
                     VoiceMic(enabled = effectiveDraftingEnabled && !picking && !voice.active, onClick = ::startVoice)
+                    val stoppable = onStop != null && (isStreaming || stopsRuntimeTurn)
                     if (isStreaming && onStop != null && hasPayload) {
                         IconButton(onClick = ::send, enabled = canSubmit && !picking && !voice.active, modifier = Modifier.size(36.dp)) {
                             Icon(Icons.Outlined.PlaylistAdd, "Queue message")
                         }
-                    }
+                    } else if (stoppable && hasPayload) TrailingButton(
+                        isStreaming = false,
+                        hasPayload = canSubmit && !picking && !voice.active,
+                        onStop = null,
+                        onSend = ::send,
+                        sendQueues = sendQueues,
+                    )
                     TrailingButton(
-                        isStreaming = isStreaming,
+                        isStreaming = isStreaming || stoppable,
                         hasPayload = hasPayload && canSubmit && !picking && !voice.active,
                         onStop = onStop,
                         onSend = ::send,
