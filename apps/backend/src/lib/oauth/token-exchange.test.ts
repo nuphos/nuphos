@@ -9,6 +9,7 @@ import { useAgentsIdentity } from '@/lib/test/doubles/agents-identity'
 import { real as realOptions, useCredentialOptions } from '@/lib/test/doubles/credential-options'
 import {
   mintPreviewMcpToken,
+  personalCredentialSubject,
   scopedPathAllowed,
   verifyPreviewMcpToken,
 } from '@/lib/claude-code-preview/mcp-token'
@@ -235,4 +236,21 @@ test('refuses credentials a limited token could not use', async () => {
   expect(json.error).toBe('invalid_target')
   expect(json.error_description).toContain('Cannot be delegated to a limited token')
   expect(json.error_description).toContain('credential:vanta/vanta-1')
+})
+
+test('a limited token never uses a member’s Personal Credential', async () => {
+  const unlimited = await mintPreviewMcpToken({
+    userId: 'user-1',
+    sessionId: 'conv-1',
+    teamId: 'team-1',
+    humanTurn: true,
+  })
+  const { json } = await exchange({
+    subject_token: unlimited,
+    resource: 'credential:aws/role-1',
+  })
+
+  expect(personalCredentialSubject(`Bearer ${unlimited}`)).toBe('user-1')
+  // GitHub and Linear fall back to the team identity, scoped to the one binding.
+  expect(personalCredentialSubject(`Bearer ${json.access_token as string}`)).toBeNull()
 })
