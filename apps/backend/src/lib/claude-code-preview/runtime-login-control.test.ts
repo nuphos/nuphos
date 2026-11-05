@@ -4,7 +4,11 @@ import { AppError } from '@/lib/errors'
 
 import { OpenAbRpcError } from './openab-acp-errors'
 import { OpenAbAcpLifecycle } from './openab-acp-lifecycle'
-import { acquireStarting, driveControlRuntimeLogin } from './runtime-login-control'
+import {
+  acquireStarting,
+  driveControlRuntimeLogin,
+  localAgentNotInstalled,
+} from './runtime-login-control'
 
 import type { RuntimeLoginFrame } from './runtime-login-step'
 import type { RuntimeLoginDoc } from './runtime-login-store'
@@ -261,5 +265,37 @@ describe('signing in an agent that is still starting', () => {
     ).rejects.toThrow('down')
     await expect(acquireStarting('team', added, cancelled.signal, fail)).rejects.toThrow('down')
     expect(attempts).toBe(2)
+  })
+})
+
+describe('an added agent whose CLI is missing', () => {
+  const instanceId = '11111111-1111-4111-8111-111111111111'
+  const runtimeId = `local_owner_mac-1_opencode_${instanceId}`
+  const reporting = (installed: boolean) => ({
+    get: () =>
+      Promise.resolve({
+        conn: 'c1',
+        seenAt: Date.now(),
+        status: {
+          agents: {},
+          instances: [{ instanceId, provider: 'opencode', cli: { installed, loggedIn: false } }],
+        },
+      } as never),
+  })
+
+  test('names the missing CLI, not an offline computer', async () => {
+    const error = await localAgentNotInstalled(runtimeId, reporting(false))
+
+    expect(error).toMatchObject({ status: 409, code: 'runtime_not_installed' })
+    expect(error?.message).toStartWith('OpenCode is not installed')
+    expect(error?.message).toContain('`opencode`')
+  })
+
+  test('says nothing when the CLI is there or the agent is not reported', async () => {
+    expect(await localAgentNotInstalled(runtimeId, reporting(true))).toBeUndefined()
+    expect(
+      await localAgentNotInstalled(runtimeId, { get: () => Promise.resolve(null) }),
+    ).toBeUndefined()
+    expect(await localAgentNotInstalled('shared-runtime', reporting(false))).toBeUndefined()
   })
 })
