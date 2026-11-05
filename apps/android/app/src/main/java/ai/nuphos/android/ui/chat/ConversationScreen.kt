@@ -82,6 +82,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import ai.nuphos.android.model.ChatPart
@@ -313,243 +318,260 @@ fun ConversationScreen(
                 val retryScope = rememberCoroutineScope()
                 TextButton(onClick = { retryScope.launch { session.refreshDownloads() } }) { Text("Retry files") }
             }
-            when {
-                !session.loaded -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { LoadingIndicator() }
-                session.loadError != null -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text(session.loadError ?: "", color = MaterialTheme.colorScheme.error)
-                }
-                else -> key(session) {
-                    TranscriptList(
-                        rows = rows,
-                        latestRequest = session.scrollToLatestRevision,
-                        modifier = Modifier.weight(1f).fillMaxWidth(),
-                    ) { row ->
-                        ChatRowView(
-                            row = row,
-                            session = session,
-                            onLink = { url ->
-                                val target = PlanLink.target(url)
-                                if (!browsingOnly) {
-                                    val conversation = ai.nuphos.android.session.ConversationLink.parse(url)
-                                    if (target != null) nav.navigate("plan/${target.planId}")
-                                    else if (conversation != null) app.conversationLinks.offer(conversation)
-                                    else uriHandler.openUri(url)
-                                } else if (target == null) {
-                                    val uri = runCatching { java.net.URI(url) }.getOrNull()
-                                    if (uri?.scheme?.equals("https", ignoreCase = true) == true &&
-                                        !uri.host.isNullOrBlank() && uri.rawUserInfo == null) uriHandler.openUri(url)
-                                }
-                            },
-                            onAlwaysAllow = {
-                                alwaysRule = it.authorization?.get("suggestedRule")?.stringValue.orEmpty()
-                                alwaysTarget = it
-                            },
-                            onOpenTool = { toolDetail = it },
-                            onSwitchRuntime = if (!browsingOnly && session.canManage) ({ showAgent = true }) else null,
-                        )
+            // The transcript runs on behind what's laid over its bottom edge, down to the composer's rounded card.
+            var bottomInset by remember { mutableStateOf(0.dp) }
+            val density = LocalDensity.current
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                when {
+                    !session.loaded -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingIndicator() }
+                    session.loadError != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(session.loadError ?: "", color = MaterialTheme.colorScheme.error)
                     }
-                }
-            }
-            if (!browsingOnly) {
-                session.shareApproval?.let { wait ->
-                    Surface(
-                        Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth(),
-                        shape = MaterialTheme.shapes.medium,
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    ) {
-                        Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                wait.message(session.runtimeDeviceLabel ?: "this computer"),
-                                Modifier.weight(1f),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (wait == ShareApprovalWait.Denied) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                    else -> key(session) {
+                        TranscriptList(
+                            rows = rows,
+                            latestRequest = session.scrollToLatestRevision,
+                            modifier = Modifier.fillMaxSize(),
+                            bottomInset = bottomInset,
+                        ) { row ->
+                            ChatRowView(
+                                row = row,
+                                session = session,
+                                onLink = { url ->
+                                    val target = PlanLink.target(url)
+                                    if (!browsingOnly) {
+                                        val conversation = ai.nuphos.android.session.ConversationLink.parse(url)
+                                        if (target != null) nav.navigate("plan/${target.planId}")
+                                        else if (conversation != null) app.conversationLinks.offer(conversation)
+                                        else uriHandler.openUri(url)
+                                    } else if (target == null) {
+                                        val uri = runCatching { java.net.URI(url) }.getOrNull()
+                                        if (uri?.scheme?.equals("https", ignoreCase = true) == true &&
+                                            !uri.host.isNullOrBlank() && uri.rawUserInfo == null) uriHandler.openUri(url)
+                                    }
+                                },
+                                onAlwaysAllow = {
+                                    alwaysRule = it.authorization?.get("suggestedRule")?.stringValue.orEmpty()
+                                    alwaysTarget = it
+                                },
+                                onOpenTool = { toolDetail = it },
+                                onSwitchRuntime = if (!browsingOnly && session.canManage) ({ showAgent = true }) else null,
                             )
-                            // Declined: the conversation moves on to another runtime.
-                            if (wait == ShareApprovalWait.Denied && session.canManage) SwitchRuntimeButton { showAgent = true }
                         }
                     }
                 }
-                if (session.runtimeRecoveryRequired) {
-                    Text("Message delivery needs to be checked before you send again.", modifier = Modifier.padding(horizontal = 16.dp))
-                    TextButton(enabled = session.loaded && !session.readOnly, onClick = session::recoverRuntime) { Text("Check delivery") }
-                }
-                if (session.steeringRetryRequired) {
-                    Text("Steering was rejected. Your unsent text is retained.", modifier = Modifier.padding(horizontal = 16.dp))
-                    TextButton(enabled = session.loaded && !session.readOnly, onClick = session::retryQueued) { Text("Retry steering") }
-                }
-                session.uploadDraft?.let { draft ->
-                    Column(Modifier.padding(horizontal = 16.dp)) {
-                        Text(draft.text.ifBlank { "Attachment message" }, maxLines = 2)
-                        Text(draft.attachments.joinToString(", ") { it.name }, maxLines = 2)
-                        session.uploadProgress?.let { progress ->
-                            Text(when (progress.stage) {
-                                ai.nuphos.android.data.AttachmentTransfers.Stage.Intent -> "Preparing upload…"
-                                ai.nuphos.android.data.AttachmentTransfers.Stage.Uploading -> "Uploading ${progress.bytesWritten} / ${progress.totalBytes} bytes"
-                                ai.nuphos.android.data.AttachmentTransfers.Stage.Finalizing -> "Checking uploaded files…"
-                                ai.nuphos.android.data.AttachmentTransfers.Stage.Ready -> "Files ready"
+                val behindComposer = chatCanvas
+                Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                    // Rows show past the card's top and sides, but not as a cut-off line under it.
+                    .drawBehind {
+                        val fill = COMPOSER_BOTTOM_FILL.toPx().coerceAtMost(size.height)
+                        drawRect(behindComposer, topLeft = Offset(0f, size.height - fill), size = Size(size.width, fill))
+                    }
+                    .onSizeChanged { bottomInset = with(density) { (it.height.toDp() - COMPOSER_TOP_MARGIN).coerceAtLeast(0.dp) } }) {
+                    if (!browsingOnly) {
+                        Column(Modifier.fillMaxWidth().background(chatCanvas)) {
+                            session.shareApproval?.let { wait ->
+                                Surface(
+                                    Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth(),
+                                    shape = MaterialTheme.shapes.medium,
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                ) {
+                                    Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            wait.message(session.runtimeDeviceLabel ?: "this computer"),
+                                            Modifier.weight(1f),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = if (wait == ShareApprovalWait.Denied) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                                        )
+                                        // Declined: the conversation moves on to another runtime.
+                                        if (wait == ShareApprovalWait.Denied && session.canManage) SwitchRuntimeButton { showAgent = true }
+                                    }
+                                }
+                            }
+                            if (session.runtimeRecoveryRequired) {
+                                Text("Message delivery needs to be checked before you send again.", modifier = Modifier.padding(horizontal = 16.dp))
+                                TextButton(enabled = session.loaded && !session.readOnly, onClick = session::recoverRuntime) { Text("Check delivery") }
+                            }
+                            if (session.steeringRetryRequired) {
+                                Text("Steering was rejected. Your unsent text is retained.", modifier = Modifier.padding(horizontal = 16.dp))
+                                TextButton(enabled = session.loaded && !session.readOnly, onClick = session::retryQueued) { Text("Retry steering") }
+                            }
+                            session.uploadDraft?.let { draft ->
+                                Column(Modifier.padding(horizontal = 16.dp)) {
+                                    Text(draft.text.ifBlank { "Attachment message" }, maxLines = 2)
+                                    Text(draft.attachments.joinToString(", ") { it.name }, maxLines = 2)
+                                    session.uploadProgress?.let { progress ->
+                                        Text(when (progress.stage) {
+                                            ai.nuphos.android.data.AttachmentTransfers.Stage.Intent -> "Preparing upload…"
+                                            ai.nuphos.android.data.AttachmentTransfers.Stage.Uploading -> "Uploading ${progress.bytesWritten} / ${progress.totalBytes} bytes"
+                                            ai.nuphos.android.data.AttachmentTransfers.Stage.Finalizing -> "Checking uploaded files…"
+                                            ai.nuphos.android.data.AttachmentTransfers.Stage.Ready -> "Files ready"
+                                        })
+                                    }
+                                    session.uploadError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                                    Row {
+                                        if (session.uploadBusy) TextButton(onClick = session::cancelUpload) { Text("Cancel upload") }
+                                        else TextButton(enabled = session.canSubmit, onClick = session::retryUpload) { Text("Retry attachment message") }
+                                        TextButton(onClick = session::discardUpload) { Text("Remove attachment message") }
+                                    }
+                                }
+                            }
+                            session.runtimeLabel?.let { Text(it, modifier = Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall) }
+                            if (session.cancelRequested) Text("Cancellation requested", modifier = Modifier.padding(horizontal = 16.dp))
+                            if (session.isNative && session.canCancel) TextButton(onClick = session::stop) { Text("Cancel run") }
+                            if (session.readOnly) Text("Read-only agent", modifier = Modifier.padding(horizontal = 16.dp))
+                            if (session.queued.isNotEmpty()) {
+                                Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    session.queued.forEachIndexed { i, item ->
+                                        Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                                            Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                Text(item, maxLines = 1, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f, false).widthIn(max = 180.dp))
+                                                TextButton(onClick = { session.removeQueued(i) }) { Text("×") }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        val draftAuth = ai.nuphos.android.ui.LocalAuthSession.current
+                        val draftAccount = draftAuth.user?.id
+                        val draftTeam = session.teamId
+                        val draft = remember(draftAccount, draftTeam, sessionId, draftAuth.generation, ai.nuphos.android.session.AiAccess.revision) {
+                            draftAccount?.let { draftAuth.composerDrafts.bind(it, draftTeam, ai.nuphos.android.session.ComposerDrafts.Destination.Chat(sessionId), ai.nuphos.android.session.AiAccess.bind(draftAuth.token.orEmpty())) }
+                        }
+                        val draftApp = androidx.compose.ui.platform.LocalContext.current.applicationContext as ai.nuphos.android.NuphosApplication
+                        LaunchedEffect(session.draftAccessInvalidated, draft) {
+                            if (session.draftAccessInvalidated && draft != null && draftApp.incomingShares.hasDraft(draft.key)) {
+                                draftApp.incomingShares.drop(draft.key)
+                                draft.write("")
+                            }
+                        }
+                        val quotas = ai.nuphos.android.ui.agent.rememberRuntimeQuotas(draftAuth.token, session.teamId)
+                        if (showAgent && draftAuth.token != null && draftAuth.aiAllowed) {
+                            val generation = draftAuth.generation
+                            val workspaceRevision = store.workspaceRevision
+                            ConversationAgentSheet(session, draftAuth.token!!, quotas,
+                                isCurrent = { draftAuth.generation == generation && draftAuth.aiAllowed &&
+                                    store.workspaceRevision == workspaceRevision && store.selectedTeam?.id == session.teamId },
+                                onDismiss = { showAgent = false },
+                                onManage = { showAgent = false; showRuntimeManagement = true })
+                        }
+                        if (showRuntimeManagement && draftAuth.token != null && draftAuth.aiAllowed && store.selectedTeam?.id == session.teamId) {
+                            ModalBottomSheet(onDismissRequest = { showRuntimeManagement = false; showAgent = true },
+                                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                                containerColor = MaterialTheme.colorScheme.background) {
+                                Column(Modifier.fillMaxWidth().fillMaxHeight()) {
+                                    ai.nuphos.android.ui.agent.RuntimePickerHeader(title = "Computers and runtimes",
+                                        onClose = { showRuntimeManagement = false; showAgent = true })
+                                    HorizontalDivider()
+                                    ai.nuphos.android.ui.agent.RuntimesPage()
+                                }
+                            }
+                        }
+                        androidx.compose.runtime.DisposableEffect(session, store.workspaceRevision, draftAuth.generation) {
+                            val modelWorkspaceRevision = store.workspaceRevision
+                            val modelAuthGeneration = draftAuth.generation
+                            session.activateModelSettings(store.selectedTeam?.id == session.teamId && draftAuth.aiAllowed) {
+                                store.workspaceRevision == modelWorkspaceRevision && store.selectedTeam?.id == session.teamId &&
+                                    draftAuth.generation == modelAuthGeneration && draftAuth.aiAllowed
+                            }
+                            onDispose { session.activateModelSettings(false) }
+                        }
+                        LaunchedEffect(session.modelSettings, session.isStreaming, session.runtimeObservation?.phase) {
+                            session.modelSettings?.refresh()
+                        }
+                        LaunchedEffect(session.modelSettings, session.modelSettings?.pending?.isNotEmpty()) {
+                            val settings = session.modelSettings
+                            while (settings != null && settings.pending.isNotEmpty() && settings.error == null) {
+                                kotlinx.coroutines.delay(2500)
+                                settings.refresh()
+                            }
+                        }
+                        val queueGeneration = draftAuth.generation
+                        val queueWorkspace = store.workspaceRevision
+                        val queueConsent = ai.nuphos.android.session.AiAccess.revision
+                        androidx.compose.runtime.DisposableEffect(session, queueGeneration, queueWorkspace, queueConsent, draft) {
+                            session.activateQueue {
+                                draft != null && draftAuth.generation == queueGeneration && draftAuth.aiAllowed &&
+                                    ai.nuphos.android.session.AiAccess.revision == queueConsent &&
+                                    store.workspaceRevision == queueWorkspace && store.selectedTeam?.id == session.teamId
+                            }
+                            onDispose { session.deactivateQueue() }
+                        }
+                        LaunchedEffect(session, resumed, queueGeneration, queueWorkspace, queueConsent, session.loaded, session.isStreaming, session.queuedSends, session.sendQueues, session.runtimeObservation?.phase) {
+                            if (resumed) while (true) {
+                                session.serverQueue.refresh()
+                                if (session.serverQueue.items.isEmpty() && !session.isStreaming && !session.sendQueues) break
+                                kotlinx.coroutines.delay(3_000)
+                            }
+                        }
+                        var recalledFiles by remember(session, queueGeneration, queueWorkspace, queueConsent) {
+                            mutableStateOf(emptyList<ai.nuphos.android.model.ComposerAttachment>())
+                        }
+                        ServerQueuedMessages(session.serverQueue, writable = !session.readOnly && !session.isArchived,
+                            canSteer = session.canSteer, onRecall = { recalled ->
+                                if (draft == null) false else runCatching {
+                                    val files = recalled.files.map { file ->
+                                        require(file.mediaType == "image/jpeg" && file.url.startsWith("data:image/jpeg;base64,")) {
+                                            "This queued attachment cannot be edited on this device."
+                                        }
+                                        require(file.url.length <= 30_000_000)
+                                        ai.nuphos.android.model.ComposerAttachment(
+                                            id = "recalled-${file.url.hashCode()}-${file.filename}", name = file.filename ?: "Queued photo.jpg",
+                                            kind = ai.nuphos.android.model.ComposerAttachment.Kind.Image(java.util.Base64.getDecoder().decode(file.url.substringAfter(','))))
+                                    }
+                                    val existing = draftApp.incomingShares.text(draft.key) ?: draft.text
+                                    val merged = if (existing == recalled.text || existing.endsWith("\n\n${recalled.text}")) existing
+                                        else listOf(existing, recalled.text).filter { it.isNotBlank() }.joinToString("\n\n")
+                                    draftApp.incomingShares.writeText(draft.key, merged)
+                                    val saved = draft.write(merged)
+                                    if (saved) recalledFiles = (recalledFiles + files).distinctBy { it.id }
+                                    saved
+                                }.getOrDefault(false)
                             })
-                        }
-                        session.uploadError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                        Row {
-                            if (session.uploadBusy) TextButton(onClick = session::cancelUpload) { Text("Cancel upload") }
-                            else TextButton(enabled = session.canSubmit, onClick = session::retryUpload) { Text("Retry attachment message") }
-                            TextButton(onClick = session::discardUpload) { Text("Remove attachment message") }
-                        }
-                    }
-                }
-                session.runtimeLabel?.let { Text(it, modifier = Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall) }
-                if (session.cancelRequested) Text("Cancellation requested", modifier = Modifier.padding(horizontal = 16.dp))
-                if (session.isNative && session.canCancel) TextButton(onClick = session::stop) { Text("Cancel run") }
-                if (session.readOnly) Text("Read-only agent", modifier = Modifier.padding(horizontal = 16.dp))
-                if (session.queued.isNotEmpty()) {
-                    Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        session.queued.forEachIndexed { i, item ->
-                            Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-                                Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text(item, maxLines = 1, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f, false).widthIn(max = 180.dp))
-                                    TextButton(onClick = { session.removeQueued(i) }) { Text("×") }
+                        ChatComposer(
+                            promptSuggestion = { session.promptSuggestion },
+                            modelSettings = session.modelSettings,
+                            recalledFiles = recalledFiles,
+                            onRecalledFilesRestored = { recalledFiles = emptyList() },
+                            mentions = if (store.selectedTeam?.id != draftTeam) null else remember(store, draftTeam, sessionId) {
+                                SessionMentionSource(draftTeam, sessionId) { query ->
+                                    store.mentionableSessions(draftTeam, query)
                                 }
-                            }
-                        }
-                    }
-                }
-                val draftAuth = ai.nuphos.android.ui.LocalAuthSession.current
-                val draftAccount = draftAuth.user?.id
-                val draftTeam = session.teamId
-                val draft = remember(draftAccount, draftTeam, sessionId, draftAuth.generation, ai.nuphos.android.session.AiAccess.revision) {
-                    draftAccount?.let { draftAuth.composerDrafts.bind(it, draftTeam, ai.nuphos.android.session.ComposerDrafts.Destination.Chat(sessionId), ai.nuphos.android.session.AiAccess.bind(draftAuth.token.orEmpty())) }
-                }
-                val draftApp = androidx.compose.ui.platform.LocalContext.current.applicationContext as ai.nuphos.android.NuphosApplication
-                LaunchedEffect(session.draftAccessInvalidated, draft) {
-                    if (session.draftAccessInvalidated && draft != null && draftApp.incomingShares.hasDraft(draft.key)) {
-                        draftApp.incomingShares.drop(draft.key)
-                        draft.write("")
-                    }
-                }
-                val quotas = ai.nuphos.android.ui.agent.rememberRuntimeQuotas(draftAuth.token, session.teamId)
-                if (showAgent && draftAuth.token != null && draftAuth.aiAllowed) {
-                    val generation = draftAuth.generation
-                    val workspaceRevision = store.workspaceRevision
-                    ConversationAgentSheet(session, draftAuth.token!!, quotas,
-                        isCurrent = { draftAuth.generation == generation && draftAuth.aiAllowed &&
-                            store.workspaceRevision == workspaceRevision && store.selectedTeam?.id == session.teamId },
-                        onDismiss = { showAgent = false },
-                        onManage = { showAgent = false; showRuntimeManagement = true })
-                }
-                if (showRuntimeManagement && draftAuth.token != null && draftAuth.aiAllowed && store.selectedTeam?.id == session.teamId) {
-                    ModalBottomSheet(onDismissRequest = { showRuntimeManagement = false; showAgent = true },
-                        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-                        containerColor = MaterialTheme.colorScheme.background) {
-                        Column(Modifier.fillMaxWidth().fillMaxHeight()) {
-                            ai.nuphos.android.ui.agent.RuntimePickerHeader(title = "Computers and runtimes",
-                                onClose = { showRuntimeManagement = false; showAgent = true })
-                            HorizontalDivider()
-                            ai.nuphos.android.ui.agent.RuntimesPage()
-                        }
-                    }
-                }
-                androidx.compose.runtime.DisposableEffect(session, store.workspaceRevision, draftAuth.generation) {
-                    val modelWorkspaceRevision = store.workspaceRevision
-                    val modelAuthGeneration = draftAuth.generation
-                    session.activateModelSettings(store.selectedTeam?.id == session.teamId && draftAuth.aiAllowed) {
-                        store.workspaceRevision == modelWorkspaceRevision && store.selectedTeam?.id == session.teamId &&
-                            draftAuth.generation == modelAuthGeneration && draftAuth.aiAllowed
-                    }
-                    onDispose { session.activateModelSettings(false) }
-                }
-                LaunchedEffect(session.modelSettings, session.isStreaming, session.runtimeObservation?.phase) {
-                    session.modelSettings?.refresh()
-                }
-                LaunchedEffect(session.modelSettings, session.modelSettings?.pending?.isNotEmpty()) {
-                    val settings = session.modelSettings
-                    while (settings != null && settings.pending.isNotEmpty() && settings.error == null) {
-                        kotlinx.coroutines.delay(2500)
-                        settings.refresh()
-                    }
-                }
-                val queueGeneration = draftAuth.generation
-                val queueWorkspace = store.workspaceRevision
-                val queueConsent = ai.nuphos.android.session.AiAccess.revision
-                androidx.compose.runtime.DisposableEffect(session, queueGeneration, queueWorkspace, queueConsent, draft) {
-                    session.activateQueue {
-                        draft != null && draftAuth.generation == queueGeneration && draftAuth.aiAllowed &&
-                            ai.nuphos.android.session.AiAccess.revision == queueConsent &&
-                            store.workspaceRevision == queueWorkspace && store.selectedTeam?.id == session.teamId
-                    }
-                    onDispose { session.deactivateQueue() }
-                }
-                LaunchedEffect(session, resumed, queueGeneration, queueWorkspace, queueConsent, session.loaded, session.isStreaming, session.queuedSends, session.sendQueues, session.runtimeObservation?.phase) {
-                    if (resumed) while (true) {
-                        session.serverQueue.refresh()
-                        if (session.serverQueue.items.isEmpty() && !session.isStreaming && !session.sendQueues) break
-                        kotlinx.coroutines.delay(3_000)
-                    }
-                }
-                var recalledFiles by remember(session, queueGeneration, queueWorkspace, queueConsent) {
-                    mutableStateOf(emptyList<ai.nuphos.android.model.ComposerAttachment>())
-                }
-                ServerQueuedMessages(session.serverQueue, writable = !session.readOnly && !session.isArchived,
-                    canSteer = session.canSteer, onRecall = { recalled ->
-                        if (draft == null) false else runCatching {
-                            val files = recalled.files.map { file ->
-                                require(file.mediaType == "image/jpeg" && file.url.startsWith("data:image/jpeg;base64,")) {
-                                    "This queued attachment cannot be edited on this device."
-                                }
-                                require(file.url.length <= 30_000_000)
-                                ai.nuphos.android.model.ComposerAttachment(
-                                    id = "recalled-${file.url.hashCode()}-${file.filename}", name = file.filename ?: "Queued photo.jpg",
-                                    kind = ai.nuphos.android.model.ComposerAttachment.Kind.Image(java.util.Base64.getDecoder().decode(file.url.substringAfter(','))))
-                            }
-                            val existing = draftApp.incomingShares.text(draft.key) ?: draft.text
-                            val merged = if (existing == recalled.text || existing.endsWith("\n\n${recalled.text}")) existing
-                                else listOf(existing, recalled.text).filter { it.isNotBlank() }.joinToString("\n\n")
-                            draftApp.incomingShares.writeText(draft.key, merged)
-                            val saved = draft.write(merged)
-                            if (saved) recalledFiles = (recalledFiles + files).distinctBy { it.id }
-                            saved
-                        }.getOrDefault(false)
-                    })
-                ChatComposer(
-                    promptSuggestion = { session.promptSuggestion },
-                    modelSettings = session.modelSettings,
-                    recalledFiles = recalledFiles,
-                    onRecalledFilesRestored = { recalledFiles = emptyList() },
-                    mentions = if (store.selectedTeam?.id != draftTeam) null else remember(store, draftTeam, sessionId) {
-                        SessionMentionSource(draftTeam, sessionId) { query ->
-                            store.mentionableSessions(draftTeam, query)
-                        }
-                    },
-                    devices = if (!session.canManage || store.selectedTeam?.id != draftTeam) null
-                    else remember(store, session, draftTeam, store.workspaceRevision) {
-                        DeviceMentionSource(draftTeam,
-                            load = { store.mentionableComputers(draftTeam) },
-                            pick = { device ->
-                                if (!session.canManage || store.selectedTeam?.id != draftTeam || !draftAuth.aiAllowed) false
-                                else DeviceMention.select(session.credentialAccess ?: ai.nuphos.android.model.CredentialSelection(), device)?.let {
-                                    session.credentialAccess = it
-                                    true
-                                } ?: false
                             },
+                            devices = if (!session.canManage || store.selectedTeam?.id != draftTeam) null
+                            else remember(store, session, draftTeam, store.workspaceRevision) {
+                                DeviceMentionSource(draftTeam,
+                                    load = { store.mentionableComputers(draftTeam) },
+                                    pick = { device ->
+                                        if (!session.canManage || store.selectedTeam?.id != draftTeam || !draftAuth.aiAllowed) false
+                                        else DeviceMention.select(session.credentialAccess ?: ai.nuphos.android.model.CredentialSelection(), device)?.let {
+                                            session.credentialAccess = it
+                                            true
+                                        } ?: false
+                                    },
+                                )
+                            },
+                            draft = draft,
+                            draftingEnabled = draft != null && draftAuth.aiAllowed && store.selectedTeam != null &&
+                                session.loaded && session.loadError == null && !session.readOnly && !session.isArchived,
+                            isStreaming = session.isStreaming && !session.isNative,
+                            onSend = session::send,
+                            canSubmit = session.canSubmit && session.uploadDraft == null,
+                            sendQueues = session.sendQueues,
+                            rejectedSubmission = session.rejectedSubmission,
+                            onRejectedRestored = session::clearRejectedSubmission,
+                            onStop = if (session.canCancel) session::stop else null,
+                            showControls = session.canManage,
+                            selection = session.credentialAccess ?: ai.nuphos.android.model.CredentialSelection(),
+                            onSelectionChange = { if (session.canManage) session.credentialAccess = it },
+                            mode = session.permissionMode,
+                            onModeChange = session::updatePermissionMode,
                         )
-                    },
-                    draft = draft,
-                    draftingEnabled = draft != null && draftAuth.aiAllowed && store.selectedTeam != null &&
-                        session.loaded && session.loadError == null && !session.readOnly && !session.isArchived,
-                    isStreaming = session.isStreaming && !session.isNative,
-                    onSend = session::send,
-                    canSubmit = session.canSubmit && session.uploadDraft == null,
-                    sendQueues = session.sendQueues,
-                    rejectedSubmission = session.rejectedSubmission,
-                    onRejectedRestored = session::clearRejectedSubmission,
-                    onStop = if (session.canCancel) session::stop else null,
-                    showControls = session.canManage,
-                    selection = session.credentialAccess ?: ai.nuphos.android.model.CredentialSelection(),
-                    onSelectionChange = { if (session.canManage) session.credentialAccess = it },
-                    mode = session.permissionMode,
-                    onModeChange = session::updatePermissionMode,
-                )
-            } else {
-                Text("Read-only run", modifier = Modifier.padding(horizontal = 16.dp))
+                    } else {
+                        Text("Read-only run", modifier = Modifier.fillMaxWidth().background(chatCanvas).padding(horizontal = 16.dp))
+                    }
+                }
             }
         }
     }
@@ -662,6 +684,10 @@ private fun ChatRowView(
         ChatRow.Bottom -> Spacer(Modifier.height(1.dp))
     }
 }
+
+/** The empty space above the composer's rounded card: the transcript can show through it. */
+private val COMPOSER_TOP_MARGIN = 8.dp
+private val COMPOSER_BOTTOM_FILL = 32.dp
 
 /** Sender, attachments and text, the same 6 dp apart as iOS. A part that isn't there takes no space. */
 @Composable
