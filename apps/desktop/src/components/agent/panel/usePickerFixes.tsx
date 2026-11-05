@@ -41,7 +41,8 @@ export function usePickerFixes({
   teamId?: string
   isTeamAdmin: boolean
   open: boolean
-  closeMenu: () => void
+  /** The picker closes its menu for a sign-in dialog; the banner has none. */
+  closeMenu?: () => void
   onSettings?: () => void
 }): { fixes: PickerFixes; dialogs: React.ReactNode } {
   const viewerId = useCurrentUser()?.id
@@ -66,10 +67,10 @@ export function usePickerFixes({
 
     if ((key && pending.has(key)) || (fix.kind === 'resume' && wakes.has(fix.deviceId))) return
     if (fix.kind === 'signIn' || fix.kind === 'cli') {
-      closeMenu()
+      closeMenu?.()
       setSignIn(fix)
     } else if (fix.kind === 'settings') {
-      closeMenu()
+      closeMenu?.()
       onSettings?.()
     } else if (fix.kind === 'resume' && teamId) {
       void resumeComputer({
