@@ -210,3 +210,12 @@ describe('limited tokens vend credentials only', () => {
     }
   })
 })
+
+test('a repeated single-valued field keeps its last value', async () => {
+  const { status } = await exchange({
+    subject_token: ['ignored', await subject()],
+    resource: 'credential:aws/role-1',
+  })
+
+  expect(status).toBe(200)
+})

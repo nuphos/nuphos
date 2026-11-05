@@ -22,7 +22,13 @@ export function registerOauthTokenRoute(oauthRoutes: Hono) {
     c.header('Pragma', 'no-cache')
     // `all` keeps repeated fields (RFC 8693 `resource`) as arrays.
     const form = await c.req.parseBody({ all: true })
-    const get = (k: string) => (typeof form[k] === 'string' ? form[k] : '')
+    // A repeated single-valued field keeps its last value, as before `all`.
+    const get = (k: string) => {
+      const value = form[k]
+      const last = Array.isArray(value) ? value.at(-1) : value
+
+      return typeof last === 'string' ? last : ''
+    }
     const grantType = get('grant_type')
 
     if (grantType === TOKEN_EXCHANGE_GRANT) {
