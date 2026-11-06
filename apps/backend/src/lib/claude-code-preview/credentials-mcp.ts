@@ -3,6 +3,7 @@
 // as `vend` (an internal dispatch to the existing per-provider vending routes)
 // so this module carries no authorization logic of its own — the routes' gate
 // is the gate.
+import { waitPastSessionCutoffs } from '@/lib/internal-token/revocation'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
 import { listSelectedCredentials, listSessionCredentials } from './credential-listing'
@@ -126,6 +127,10 @@ export async function previewSessionAccess(
 
   if (!base || !userId) return { mcpServers: [] }
   const mount = `${base.endsWith('/') ? base.slice(0, -1) : base}/agent-sessions/${conversationId}/teams/${teamId}`
+
+  // Cutoffs only move up, so a token minted in the second the session was
+  // archived would stay revoked: mint past it. Best effort, it only costs a turn.
+  await waitPastSessionCutoffs([conversationId]).catch(() => undefined)
   const token = await mintPreviewMcpToken({
     userId,
     conversationOwnerUserId,

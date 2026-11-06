@@ -122,10 +122,10 @@ export async function revokeToken(jti: string, exp: number, reason: string): Pro
 
 /**
  * Waits until the current second is past every cutoff of these sessions, so a
- * token minted next (its `iat` in whole seconds) is not caught by a cutoff in
- * the second it was restored. Cutoffs only ever move up, so this is the one
- * place a restore has to care about them; it costs at most about a second, and
- * only when a session is restored in the second it was archived.
+ * token minted next (its `iat` in whole seconds) is not caught by a cutoff from
+ * the second the session was archived. Cutoffs only ever move up, so conversation
+ * tokens are minted through this; it costs at most about a second, and only for
+ * a session restored in the very second it was archived.
  */
 export async function waitPastSessionCutoffs(sessionIds: string[]): Promise<void> {
   if (sessionIds.length === 0) return

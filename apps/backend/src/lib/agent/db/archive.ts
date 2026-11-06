@@ -1,4 +1,4 @@
-import { revokeSessionTokens, waitPastSessionCutoffs } from '@/lib/internal-token/revocation'
+import { revokeSessionTokens } from '@/lib/internal-token/revocation'
 
 import { agentConversations } from './shared'
 
@@ -45,8 +45,6 @@ export async function setConversationArchived(sessionId: string, archived: boole
     )
   }
   await agentConversations().updateOne({ sessionId }, restore())
-  // Tokens minted from here on must land past the archive's cutoff.
-  await waitPastSessionCutoffs([sessionId, ...descendants])
 }
 
 /** Every conversation nested below `rootId` matching `scope`; `seen` stops a loop. */
@@ -76,8 +74,6 @@ export async function restoreArchivedConversation(sessionId: string): Promise<bo
     { sessionId, archivedAt: { $exists: true } },
     { $unset: { archivedAt: '' }, $set: { archiveRestoredAt: new Date() } },
   )
-
-  if (result.modifiedCount > 0) await waitPastSessionCutoffs([sessionId])
 
   return result.modifiedCount > 0
 }

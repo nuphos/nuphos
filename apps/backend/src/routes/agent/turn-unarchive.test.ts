@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
 import { useDb } from '@/lib/test/doubles/db'
-import { useTokenRevocation } from '@/lib/test/doubles/token-revocation'
 
 import { restoreArchivedForTurn, restoreArchivedSession } from './turn-unarchive'
 
@@ -19,7 +18,6 @@ useDb({
     collection: () => ({ updateOne: () => updateOne() }),
   })) as unknown as typeof dbActual.db,
 })
-useTokenRevocation({ waitPastSessionCutoffs: async () => {} })
 
 const archived = { sessionId: 's1', archivedAt: new Date('2026-09-01T00:00:00Z') }
 const active = { sessionId: 's2' }

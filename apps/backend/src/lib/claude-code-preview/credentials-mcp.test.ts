@@ -1,6 +1,7 @@
 import { describe, expect, setSystemTime, test } from 'bun:test'
 
 import { useCredentialListing } from '@/lib/test/doubles/claude-code-credential-listing'
+import { useTokenRevocation } from '@/lib/test/doubles/token-revocation'
 
 import {
   CREDENTIALS_MCP_SURFACE,
@@ -44,6 +45,16 @@ const awsEntry: ClaudeCodeCredentialEntry = {
   label: 'prod (123456789012)',
   credentialPath: 'aws-accounts/123456789012/credentials',
 }
+
+const waited: string[][] = []
+let waitFails = false
+
+useTokenRevocation({
+  waitPastSessionCutoffs: async (sessionIds) => {
+    waited.push(sessionIds)
+    if (waitFails) throw new Error('mongo down')
+  },
+})
 
 describe('credentialsMcpTools', () => {
   test('session environment supports native Plan and provider scripts with one scoped token', () => {
@@ -292,5 +303,30 @@ describe('sub-agent thread tokens', () => {
 
   test('a top-level conversation has no actor', async () => {
     expect((await tokenOf())?.act).toBeUndefined()
+  })
+})
+
+describe('conversation tokens are minted past the session cutoff', () => {
+  test('previewSessionAccess waits for the session before minting', async () => {
+    waited.length = 0
+    const access = await previewSessionAccess('conv-9', 'team-1', 'owner', 'owner', {
+      backendUrl: 'https://backend.example',
+    })
+
+    expect(waited).toEqual([['conv-9']])
+    expect(access.mcpServers.length).toBeGreaterThan(0)
+  })
+
+  test('a failed wait never blocks the turn', async () => {
+    waitFails = true
+    try {
+      const access = await previewSessionAccess('conv-9', 'team-1', 'owner', 'owner', {
+        backendUrl: 'https://backend.example',
+      })
+
+      expect(access.mcpServers.length).toBeGreaterThan(0)
+    } finally {
+      waitFails = false
+    }
   })
 })
