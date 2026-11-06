@@ -7,11 +7,11 @@ import { openChatSummarySubAgents } from '../../lib/chatSummaryPanel'
 import type { Item } from './types'
 import type { ReactNode } from 'react'
 
-// Tree lines follow the icon centre in either sidebar density. A comfortable
-// row's face sits right of its status dot, so a thread indents further there
-// and the turn runs through the dot to the face.
+// Tree lines follow the icon centre in compact density. A comfortable row's
+// face sits close beside its status dot, so there they run down the dot column,
+// from a parent's dot to its threads' dots.
 const NEST_INDENT = 16
-const COMFORTABLE_INDENT = 38
+const COMFORTABLE_INDENT = 19
 const LINE = 'pointer-events-none absolute border-zGray-800/60'
 // -bottom-0.5 spans the 2px gap between rows so the next row's line joins on.
 const DOWN = `${LINE} -bottom-0.5 border-l`
@@ -35,9 +35,9 @@ export function NestedRowBody({
 }) {
   const own = trail.length - 1
   const indent = comfortable ? COMFORTABLE_INDENT : NEST_INDENT
-  const x = (level: number) => ({ left: level * indent + (comfortable ? 44 : 19) })
-  const centerY = comfortable ? 34 : 15
-  const bottomY = comfortable ? 54 : 27
+  const x = (level: number) => ({ left: level * indent + (comfortable ? 9 : 19) })
+  const centerY = comfortable ? 32 : 15
+  const bottomY = comfortable ? 38 : 27
 
   return (
     <>
@@ -55,7 +55,7 @@ export function NestedRowBody({
             <span
               aria-hidden
               className={`${LINE} top-0 rounded-bl-[6px] border-b border-l`}
-              style={{ ...x(level), height: centerY, width: comfortable ? 18 : 6 }}
+              style={{ ...x(level), height: centerY, width: comfortable ? 14 : 6 }}
             />
           )}
         </Fragment>

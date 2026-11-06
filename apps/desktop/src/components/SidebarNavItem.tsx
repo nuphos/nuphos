@@ -94,8 +94,10 @@ export function SidebarNavItem({
   const { containerRef, start, stop } = useHoverMarquee<HTMLSpanElement>(label)
   const id = useId()
   const badgeShown = badge !== undefined && badge > 0
-  // A comfortable row shows its state beside the face instead, leaving this slot to the actions.
-  const rest = comfortable ? null : trailing
+  // A comfortable row shows its state beside the face instead, and its time here.
+  const rest = comfortable
+    ? time && <span className="text-[11px] font-normal tabular-nums text-tertiary">{time}</span>
+    : trailing
   const iconBox = (
     <span
       className={clsx(
@@ -110,7 +112,13 @@ export function SidebarNavItem({
     <span
       id={`${id}-label`}
       ref={containerRef}
-      className={clsx('t-marquee flex-1 min-w-0 text-left', comfortable && 'font-medium')}
+      className={clsx(
+        comfortable ? 'truncate' : 't-marquee',
+        'flex-1 min-w-0 text-left',
+        // The animated label is an inline-block; it carries the ellipsis itself.
+        comfortable &&
+          'font-medium [&>.t-text-swap]:max-w-full [&>.t-text-swap]:truncate [&>.t-text-swap]:align-top',
+      )}
     >
       {animateLabel ? <SwapLabel label={label} /> : label}
     </span>
@@ -209,7 +217,7 @@ export function SidebarNavItem({
       }}
       className={clsx(
         SIDEBAR_ROW_CLASS,
-        comfortable && '!h-[68px] !rounded-xl',
+        comfortable && '!h-16 !rounded-xl !pl-1 !gap-2',
         'group group/row w-full flex items-center transition-colors outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0',
         !sharedBackground && 'focus-visible:bg-[var(--sidebar-overlay-focus)]',
         active
@@ -227,7 +235,7 @@ export function SidebarNavItem({
         <>
           {/* The row's state sits left of the face, as iMessage's unread dot does. */}
           <span className="flex-shrink-0 flex items-center gap-0.5">
-            <span id={`${id}-trailing`} className="w-3.5 flex items-center justify-center">
+            <span id={`${id}-trailing`} className="w-2.5 flex items-center justify-center">
               {trailing}
             </span>
             {iconBox}
@@ -235,20 +243,15 @@ export function SidebarNavItem({
           <span
             className={clsx(
               'flex-1 min-w-0 self-stretch flex flex-col',
-              preview ? 'pt-2' : 'justify-center',
+              preview ? 'pt-[7px]' : 'justify-center',
             )}
           >
             <span className="flex items-center gap-2 text-main">
               {labelBox}
-              {time && (
-                <span className="flex-shrink-0 text-[12px] font-normal tabular-nums text-tertiary">
-                  {time}
-                </span>
-              )}
               {tail}
             </span>
             {preview && (
-              <span className="line-clamp-2 break-words text-left text-[13px] leading-[17px] font-normal text-secondary">
+              <span className="line-clamp-2 break-words text-left text-[13px] leading-4 font-normal text-secondary">
                 {preview}
               </span>
             )}
