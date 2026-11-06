@@ -42,10 +42,12 @@ struct ChannelPost: Equatable, Identifiable, Sendable {
         self.sending = sending
     }
 
-    /// Nil for a message without a sender, or with nothing to show.
+    /// Nil for a message without a sender, with nothing to show, or not posted
+    /// by a person or an agent: a chat shows only their posts.
     init?(_ message: ChatMessage) {
         let metadata = message.metadata
         guard let sender = metadata?["sender"], let type = sender["type"]?.stringValue,
+              type == "user" || type == "agent",
               let senderId = metadata?["sourceSessionId"]?.stringValue ?? sender["id"]?.stringValue,
               let attributed = message.sender else { return nil }
         let uploads = message.parts.compactMap(TransferUpload.init)

@@ -150,16 +150,6 @@ struct ConversationView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button("Share", systemImage: "person.crop.circle.badge.plus") { showShare = true }
-                        Button {
-                            Task {
-                                updating = true
-                                defer { updating = false }
-                                do { try await store.setPinned(!store.isPinned(session.sessionId), sessionId: session.sessionId, title: session.title) }
-                                catch { archiveError = error.localizedDescription }
-                            }
-                        } label: {
-                            Label(store.isPinned(session.sessionId) ? "Unpin" : "Pin", systemImage: store.isPinned(session.sessionId) ? "pin.slash" : "pin")
-                        }
                         if let watching = session.isWatching {
                             Button {
                                 Task {

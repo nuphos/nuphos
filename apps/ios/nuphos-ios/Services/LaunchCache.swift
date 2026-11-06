@@ -11,11 +11,10 @@ enum LaunchCache {
         let aiConsentVersion: String
     }
 
-    /// The Agent page's first page and pins for the team it was showing.
+    /// The Agent page's first page for the team it was showing.
     struct Agents: Codable {
         let team: Team
         let conversations: [AgentConversation]
-        let favorites: SidebarFavorites?
     }
 
     static func read<T: Decodable>(_ type: T.Type) -> T? {

@@ -250,15 +250,9 @@ struct SidebarFavorites: Codable, Equatable, Sendable {
                   let id = parts[4].removingPercentEncoding, !id.isEmpty else { return nil }
             return id
         }
-
-        static func chat(sessionId: String, label: String) -> Entry {
-            Entry(label: String(label.prefix(200)), key: sessionPrefix + sessionId, href: nil)
-        }
     }
 
     var entries: [Entry]
     var revision: Int
-
-    var pinnedSessionIds: Set<String> { Set(entries.compactMap(\.sessionId)) }
 }
 

@@ -139,6 +139,22 @@ enum ChatRowTests {
         precondition(owner.canManage)
         let missing = try! decoder.decode(AgentConversationDetail.self, from: Data(#"{"messages":[]}"#.utf8))
         precondition(missing.isOwner == nil)
+        // #1691: a conversation with a face is a Bot; a chat with one is still a chat.
+        let bot = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"b","avatar":"07-ada"}"#.utf8))
+        precondition(bot.isBot && bot.avatar == "07-ada")
+        precondition(!owner.isBot)
+        let chat = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"c","kind":"channel","avatar":"07-ada"}"#.utf8))
+        precondition(!chat.isBot)
+        // A chat whose one other member is an agent with a face is that Bot's 1:1.
+        let face = #"{"id":"b","name":"Ada","agent":{"avatar":"07-ada"}}"#
+        let oneToOne = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"c","kind":"channel","faces":[\#(face)]}"#.utf8))
+        precondition(oneToOne.botId == "b")
+        let group = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"g","kind":"channel","faces":[\#(face),{"id":"u","name":"Kim"}]}"#.utf8))
+        precondition(group.botId == nil)
+        let task = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"t","kind":"channel","faces":[{"id":"a","name":"Task","agent":{}}]}"#.utf8))
+        precondition(task.botId == nil)
+        let previewed = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"c","kind":"channel","lastMessage":{"text":"Will do","from":"Kim"}}"#.utf8))
+        precondition(previewed.lastMessage == .init(text: "Will do", from: "Kim") && oneToOne.lastMessage == nil)
     }
 
     private static func repeatsNoFailureTheTranscriptShows() {
