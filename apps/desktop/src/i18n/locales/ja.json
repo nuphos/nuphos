@@ -5758,5 +5758,19 @@
   "Task ID copied": "タスク ID をコピーしました",
   "Bot ID copied": "ボット ID をコピーしました",
   "Hide summary": "概要を非表示",
-  "Show summary": "概要を表示"
+  "Show summary": "概要を表示",
+  "A computer on your instabox account is billed by instabox, outside your plan.": "instabox アカウント上のコンピューターは instabox が課金し、プランには含まれません。",
+  "A friendly name to identify this instabox account.": "この instabox アカウントを識別するための名前。",
+  "A label and an instabox API key are required.": "ラベルと instabox API キーが必要です。",
+  "Billed to": "請求先",
+  "Cloud computers for your agents, billed to your instabox account.": "エージェント用のクラウドコンピューター。instabox アカウントに課金されます。",
+  "Computers made on this account are billed to it by instabox, not to your Nuphos plan.": "このアカウントで作成したコンピューターは instabox がこのアカウントに課金し、Nuphos のプランには含まれません。",
+  "Computers on it are billed by instabox.": "このアカウント上のコンピューターは instabox が課金します。",
+  "Copy the key (starts with {prefix}).": "キー（{prefix} で始まる）をコピーします。",
+  "Encrypted before storage; agents never see it.": "保存前に暗号化され、エージェントからは見えません。",
+  "How to get your instabox API key": "instabox API キーの取得方法",
+  "Open the instabox dashboard and go to {page}, or run {command}.": "instabox のダッシュボードで {page} を開くか、{command} を実行します。",
+  "Your Nuphos plan": "Nuphos のプラン",
+  "instabox account": "instabox アカウント",
+  "instabox: {label}": "instabox：{label}"
 }

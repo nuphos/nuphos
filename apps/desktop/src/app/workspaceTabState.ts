@@ -23,6 +23,7 @@ import type {
   GcpProject,
   HetznerAccount,
   HuaweiAccount,
+  InstaboxAccount,
   JiraSite,
   LarkInstallation,
   LinearWorkspace,
@@ -74,6 +75,7 @@ export type AccountSet = {
   onprem: OnpremCluster[]
   upstash: UpstashAccount[]
   resend: ResendIntegration[]
+  instabox: InstaboxAccount[]
   tencent: TencentAccount[]
   aliyun: AliyunAccount[]
   volcengine: VolcengineAccount[]

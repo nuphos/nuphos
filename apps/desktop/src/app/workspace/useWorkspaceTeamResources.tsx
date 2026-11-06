@@ -84,6 +84,7 @@ export function useWorkspaceTeamResources(a: Args) {
             onprem: bundle.onprem ?? [],
             upstash: bundle.upstash ?? [],
             resend: bundle.resend ?? [],
+            instabox: bundle.instabox ?? [],
             tencent: bundle.tencent ?? [],
             aliyun: bundle.aliyun ?? [],
             volcengine: bundle.volcengine ?? [],

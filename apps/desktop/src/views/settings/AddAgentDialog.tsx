@@ -14,7 +14,8 @@ import { AddAgentChoices } from './AddAgentChoice'
 import { BoxAgentForm } from './BoxAgentStep'
 import { JoinDialog } from './JoinDialog'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
-import { useBoxAvailable } from './useAgentDevices'
+import { useAgentDevices } from './useAgentDevices'
+import { useInstaboxAccounts } from './useInstaboxAccounts'
 
 import type { BoxJoin } from './joinCommand'
 import type { RuntimeInstance } from '../../types/runtime'
@@ -38,7 +39,13 @@ export function AddAgentDialog({
   onAdded?: (runtimeId: string) => void
 }) {
   const [step, setStep] = useState<Step>('choose')
-  const boxAvailable = useBoxAvailable()
+  const devices = useAgentDevices(() => 0, teamId, { teamId }).list
+  const deploymentBoxes = devices?.boxAvailable === true
+  const instaboxAccounts = useInstaboxAccounts(teamId)
+  // A team's own instabox account offers computers even where Nuphos has none, to those who
+  // may create one there: its administrators.
+  const boxAvailable =
+    deploymentBoxes || (instaboxAccounts.length > 0 && devices?.canCreateBox === true)
   const [signingIn, setSigningIn] = useState<RuntimeInstance | null>(null)
   const [join, setJoin] = useState<BoxJoin | null>(null)
   // Slide direction of the step that just entered: deeper from the right, back
@@ -121,6 +128,8 @@ export function AddAgentDialog({
                   {step === 'box' && (
                     <BoxAgentForm
                       teamId={teamId}
+                      accounts={instaboxAccounts}
+                      deployment={deploymentBoxes}
                       footer={footer}
                       onCloseGuard={(guard) => {
                         closeGuard.current = guard

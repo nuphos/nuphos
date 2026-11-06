@@ -10,9 +10,11 @@ import type {
   AgentDeviceListOptions,
   BillingSummary,
   BoxAccess,
+  BoxSize,
   BoxUsage,
   BoxUsageHistory,
   DeviceAgentInstance,
+  InstaboxAccount,
   LocalAgentProvider,
 } from '../../src/api/device-types.ts'
 
@@ -61,6 +63,7 @@ export function createBox(
   teamId?: string,
   vcpus?: number,
   access?: BoxAccess,
+  instaboxAccountId?: string,
 ): Promise<AgentDevice> {
   return call(
     'POST',
@@ -70,9 +73,35 @@ export function createBox(
       ...(teamId ? { teamId } : {}),
       ...(vcpus ? { vcpus } : {}),
       ...(access ? { access } : {}),
+      ...(instaboxAccountId ? { instaboxAccountId } : {}),
     },
     { retry: false },
   )
+}
+
+// A team's own instabox accounts, which bill the Boxes made on them.
+const instabox = (teamId: string, accountId?: string) => {
+  const base = `/teams/${encodeURIComponent(teamId)}/instabox-accounts`
+
+  return accountId ? `${base}/${encodeURIComponent(accountId)}` : base
+}
+
+export async function listInstaboxAccounts(teamId: string): Promise<InstaboxAccount[]> {
+  return (await call<{ accounts: InstaboxAccount[] }>('GET', instabox(teamId))).accounts
+}
+export function bindInstaboxAccount(
+  teamId: string,
+  label: string,
+  apiKey: string,
+): Promise<InstaboxAccount> {
+  return call('POST', instabox(teamId), { label, apiKey }, { retry: false })
+}
+export async function unbindInstaboxAccount(teamId: string, accountId: string): Promise<void> {
+  await call<void>('DELETE', instabox(teamId, accountId), undefined, { retry: false })
+}
+/** The sizes a Box on this account can have, smallest first. */
+export async function instaboxAccountSizes(teamId: string, accountId: string) {
+  return (await call<{ sizes: BoxSize[] }>('GET', instabox(teamId, accountId))).sizes
 }
 /** Add another agent on a device: the Box records it pending and answers at once; it exists once signed in.
  *  Without a label it takes its provider's name. */

@@ -48,8 +48,20 @@ export const deviceApi = {
     ipcRenderer.invoke('localRuntime:listActivity', before),
   boxListDevices: (options?: AgentDeviceListOptions) =>
     ipcRenderer.invoke('box:listDevices', options),
-  boxCreate: (label?: string, teamId?: string, vcpus?: number, access?: BoxAccess) =>
-    ipcRenderer.invoke('box:create', label, teamId, vcpus, access),
+  boxCreate: (
+    label?: string,
+    teamId?: string,
+    vcpus?: number,
+    access?: BoxAccess,
+    instaboxAccountId?: string,
+  ) => ipcRenderer.invoke('box:create', label, teamId, vcpus, access, instaboxAccountId),
+  instaboxAccounts: (teamId: string) => ipcRenderer.invoke('box:instaboxAccounts', teamId),
+  bindInstaboxAccount: (teamId: string, label: string, apiKey: string) =>
+    ipcRenderer.invoke('box:bindInstaboxAccount', teamId, label, apiKey),
+  unbindInstaboxAccount: (teamId: string, accountId: string) =>
+    ipcRenderer.invoke('box:unbindInstaboxAccount', teamId, accountId),
+  instaboxSizes: (teamId: string, accountId: string) =>
+    ipcRenderer.invoke('box:instaboxSizes', teamId, accountId),
   boxPause: (deviceId: string, teamId: string) => ipcRenderer.invoke('box:pause', deviceId, teamId),
   boxResume: (deviceId: string, teamId: string) =>
     ipcRenderer.invoke('box:resume', deviceId, teamId),

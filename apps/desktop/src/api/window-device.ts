@@ -4,10 +4,12 @@ import type {
   AgentDeviceListOptions,
   BillingSummary,
   BoxAccess,
+  BoxSize,
   BoxStatus,
   BoxUsage,
   BoxUsageHistory,
   DeviceAgentInstance,
+  InstaboxAccount,
   SleepPreferences,
   SshHost,
   SshJoinResult,
@@ -55,7 +57,12 @@ export type WindowDeviceApi = {
     teamId?: string,
     vcpus?: number,
     access?: BoxAccess,
+    instaboxAccountId?: string,
   ): Promise<AgentDevice>
+  instaboxAccounts(teamId: string): Promise<InstaboxAccount[]>
+  bindInstaboxAccount(teamId: string, label: string, apiKey: string): Promise<InstaboxAccount>
+  unbindInstaboxAccount(teamId: string, accountId: string): Promise<void>
+  instaboxSizes(teamId: string, accountId: string): Promise<BoxSize[]>
   boxPause(deviceId: string, teamId: string): Promise<{ box: BoxStatus }>
   boxResume(deviceId: string, teamId: string): Promise<{ box: BoxStatus }>
   boxDelete(deviceId: string, teamId: string): Promise<{ ok: true }>

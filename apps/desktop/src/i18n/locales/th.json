@@ -5758,5 +5758,19 @@
   "Task ID copied": "คัดลอก ID งานแล้ว",
   "Bot ID copied": "คัดลอก ID บอทแล้ว",
   "Hide summary": "ซ่อนสรุป",
-  "Show summary": "แสดงสรุป"
+  "Show summary": "แสดงสรุป",
+  "A computer on your instabox account is billed by instabox, outside your plan.": "คอมพิวเตอร์ในบัญชี instabox ของคุณจะถูกเรียกเก็บเงินโดย instabox นอกแผนของคุณ",
+  "A friendly name to identify this instabox account.": "ชื่อสำหรับระบุบัญชี instabox นี้",
+  "A label and an instabox API key are required.": "ต้องระบุชื่อและคีย์ API ของ instabox",
+  "Billed to": "เรียกเก็บเงินที่",
+  "Cloud computers for your agents, billed to your instabox account.": "คอมพิวเตอร์คลาวด์สำหรับเอเจนต์ของคุณ เรียกเก็บเงินที่บัญชี instabox ของคุณ",
+  "Computers made on this account are billed to it by instabox, not to your Nuphos plan.": "คอมพิวเตอร์ที่สร้างในบัญชีนี้จะถูก instabox เรียกเก็บเงินที่บัญชีนี้ ไม่ใช่แผน Nuphos ของคุณ",
+  "Computers on it are billed by instabox.": "คอมพิวเตอร์ในบัญชีนี้ถูกเรียกเก็บเงินโดย instabox",
+  "Copy the key (starts with {prefix}).": "คัดลอกคีย์ (ขึ้นต้นด้วย {prefix})",
+  "Encrypted before storage; agents never see it.": "เข้ารหัสก่อนจัดเก็บ เอเจนต์จะไม่เห็นคีย์นี้",
+  "How to get your instabox API key": "วิธีรับคีย์ API ของ instabox",
+  "Open the instabox dashboard and go to {page}, or run {command}.": "เปิดแดชบอร์ด instabox แล้วไปที่ {page} หรือรัน {command}",
+  "Your Nuphos plan": "แผน Nuphos ของคุณ",
+  "instabox account": "บัญชี instabox",
+  "instabox: {label}": "instabox: {label}"
 }

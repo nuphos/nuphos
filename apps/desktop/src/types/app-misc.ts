@@ -25,6 +25,7 @@ import type {
   GcpProject,
   HetznerAccount,
   HuaweiAccount,
+  InstaboxAccount,
   LinodeAccount,
   NotionIntegration,
   ResendIntegration,
@@ -116,6 +117,7 @@ export type TeamConnectorsBundle = {
   onprem: OnpremCluster[]
   upstash: UpstashAccount[]
   resend: ResendIntegration[]
+  instabox?: InstaboxAccount[]
   betterstack: BetterStackIntegration[]
   uptimeKuma: UptimeKumaInstance[]
   tailscale: TailscaleOAuthClient[]

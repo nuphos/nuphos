@@ -5758,5 +5758,19 @@
   "Task ID copied": "已复制任务 ID",
   "Bot ID copied": "已复制 Bot ID",
   "Hide summary": "隐藏摘要",
-  "Show summary": "显示摘要"
+  "Show summary": "显示摘要",
+  "A computer on your instabox account is billed by instabox, outside your plan.": "放在你 instabox 账号上的电脑由 instabox 计费，不计入你的套餐。",
+  "A friendly name to identify this instabox account.": "用来识别此 instabox 账号的名称。",
+  "A label and an instabox API key are required.": "需要名称和 instabox API 密钥。",
+  "Billed to": "计费对象",
+  "Cloud computers for your agents, billed to your instabox account.": "给 agent 用的云端电脑，由你的 instabox 账号计费。",
+  "Computers made on this account are billed to it by instabox, not to your Nuphos plan.": "在此账号上创建的电脑由 instabox 向这个账号计费，不计入你的 Nuphos 套餐。",
+  "Computers on it are billed by instabox.": "其上的电脑由 instabox 计费。",
+  "Copy the key (starts with {prefix}).": "复制密钥（以 {prefix} 开头）。",
+  "Encrypted before storage; agents never see it.": "存储前会加密，agent 永远看不到它。",
+  "How to get your instabox API key": "如何获取 instabox API 密钥",
+  "Open the instabox dashboard and go to {page}, or run {command}.": "打开 instabox 控制台并前往 {page}，或运行 {command}。",
+  "Your Nuphos plan": "你的 Nuphos 套餐",
+  "instabox account": "instabox 账号",
+  "instabox: {label}": "instabox：{label}"
 }

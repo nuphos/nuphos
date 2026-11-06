@@ -11,6 +11,10 @@ import {
   removeDevice,
   getBoxUsage,
   getBoxUsageHistory,
+  bindInstaboxAccount,
+  instaboxAccountSizes,
+  listInstaboxAccounts,
+  unbindInstaboxAccount,
   renameBox,
   setBoxAccess,
   renameDeviceAgent,
@@ -103,13 +107,22 @@ export const boxChannels = {
     teamId?: unknown,
     vcpus?: unknown,
     access?: unknown,
+    instaboxAccountId?: unknown,
   ) =>
     createBox(
       optionalString(label),
       optionalString(teamId),
       typeof vcpus === 'number' ? vcpus : undefined,
       access === undefined ? undefined : boxAccess(access),
+      optionalString(instaboxAccountId),
     ),
+  'box:instaboxAccounts': (_e: unknown, teamId: unknown) => listInstaboxAccounts(string(teamId)),
+  'box:bindInstaboxAccount': (_e: unknown, teamId: unknown, label: unknown, apiKey: unknown) =>
+    bindInstaboxAccount(string(teamId), string(label), string(apiKey)),
+  'box:unbindInstaboxAccount': (_e: unknown, teamId: unknown, accountId: unknown) =>
+    unbindInstaboxAccount(string(teamId), string(accountId)),
+  'box:instaboxSizes': (_e: unknown, teamId: unknown, accountId: unknown) =>
+    instaboxAccountSizes(string(teamId), string(accountId)),
   'box:createAgent': (
     _e: unknown,
     deviceId: unknown,

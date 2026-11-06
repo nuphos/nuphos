@@ -36,8 +36,19 @@ export const deviceApi = {
   localRuntimeOpenWorkspace: () => window.api.localRuntimeOpenWorkspace(),
   localRuntimeListActivity: (before?: string) => window.api.localRuntimeListActivity(before),
   boxListDevices: (options?: AgentDeviceListOptions) => window.api.boxListDevices(options),
-  boxCreate: (label?: string, teamId?: string, vcpus?: number, access?: BoxAccess) =>
-    window.api.boxCreate(label, teamId, vcpus, access),
+  boxCreate: (
+    label?: string,
+    teamId?: string,
+    vcpus?: number,
+    access?: BoxAccess,
+    instaboxAccountId?: string,
+  ) => window.api.boxCreate(label, teamId, vcpus, access, instaboxAccountId),
+  instaboxAccounts: (teamId: string) => window.api.instaboxAccounts(teamId),
+  bindInstaboxAccount: (teamId: string, label: string, apiKey: string) =>
+    window.api.bindInstaboxAccount(teamId, label, apiKey),
+  unbindInstaboxAccount: (teamId: string, accountId: string) =>
+    window.api.unbindInstaboxAccount(teamId, accountId),
+  instaboxSizes: (teamId: string, accountId: string) => window.api.instaboxSizes(teamId, accountId),
   boxPause: (deviceId: string, teamId: string) => window.api.boxPause(deviceId, teamId),
   boxResume: (deviceId: string, teamId: string) => window.api.boxResume(deviceId, teamId),
   boxDelete: (deviceId: string, teamId: string) => window.api.boxDelete(deviceId, teamId),

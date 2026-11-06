@@ -36,6 +36,8 @@ export function useTokenProviderState() {
   const [upstashApiKey, setUpstashApiKey] = useState('')
   const [resendLabel, setResendLabel] = useState('')
   const [resendApiKey, setResendApiKey] = useState('')
+  const [instaboxLabel, setInstaboxLabel] = useState('')
+  const [instaboxApiKey, setInstaboxApiKey] = useState('')
 
   function resetTokenState() {
     setCfScopeAccess(CLOUDFLARE_DEFAULT_SCOPE_ACCESS)
@@ -70,6 +72,8 @@ export function useTokenProviderState() {
     setUpstashApiKey('')
     setResendLabel('')
     setResendApiKey('')
+    setInstaboxLabel('')
+    setInstaboxApiKey('')
   }
 
   return {
@@ -139,6 +143,10 @@ export function useTokenProviderState() {
     setResendLabel,
     resendApiKey,
     setResendApiKey,
+    instaboxLabel,
+    setInstaboxLabel,
+    instaboxApiKey,
+    setInstaboxApiKey,
     resetTokenState,
   }
 }

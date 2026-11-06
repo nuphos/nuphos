@@ -45,6 +45,22 @@ export const devToolLoaders: ConnectorInfoLoaders = {
       externalLabel: t('Open {name}', { name: 'Upstash Console' }),
     }
   },
+  instabox: async (teamId, connectorId) => {
+    const item = (await api.instaboxAccounts(teamId)).find((row) => row.id === connectorId)
+
+    if (!item) return null
+
+    return {
+      name: item.label,
+      fields: [
+        { label: t('Label'), value: item.label },
+        { label: t('Billing'), value: t('Computers on it are billed by instabox.') },
+        { label: t('Connector ID'), value: item.id, mono: true },
+      ],
+      externalUrl: 'https://instabox.sh',
+      externalLabel: t('Open {name}', { name: 'instabox' }),
+    }
+  },
   resend: async (teamId, connectorId) => {
     const item = (await api.atlasListResendIntegrations(teamId)).find(
       (row) => row.id === connectorId,

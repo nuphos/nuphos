@@ -156,6 +156,28 @@ export async function submitResend(st: BindState, env: SubmitEnv) {
   }
 }
 
+export async function submitInstabox(st: BindState, env: SubmitEnv) {
+  const { setError, setSubmitting, reset } = st
+  const label = st.instaboxLabel.trim()
+  const apiKey = st.instaboxApiKey.trim()
+
+  if (!label || !apiKey) {
+    setError(t('A label and an instabox API key are required.'))
+
+    return
+  }
+  setSubmitting(true)
+  try {
+    await api.bindInstaboxAccount(env.teamId, label, apiKey)
+    reset()
+    env.onBound()
+    env.onClose()
+  } catch (e) {
+    setError(errorMessage(e))
+    setSubmitting(false)
+  }
+}
+
 export async function submitZeabur(st: BindState, env: SubmitEnv) {
   const { setError, setSubmitting, reset } = st
   const token = st.zeaburToken.trim()

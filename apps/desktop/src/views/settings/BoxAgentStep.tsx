@@ -15,6 +15,7 @@ import { useBoxSetup } from './useBoxSetup'
 import { useBoxUsage } from './useBoxUsage'
 import { useNewBox } from './useNewBox'
 
+import type { InstaboxAccount } from '../../api/device-types'
 import type { RuntimeInstance } from '../../types/runtime'
 
 /** Makes a Box with New Box's form, waits for its agents, then hands the chosen one to sign-in. */
@@ -24,8 +25,13 @@ export function BoxAgentForm({
   onCloseGuard,
   onBack,
   onChosen,
+  accounts,
+  deployment,
 }: {
   teamId: string
+  /** The team's own instabox accounts, and whether Nuphos's own can make Boxes here. */
+  accounts: InstaboxAccount[]
+  deployment: boolean
   footer: HTMLElement | null
   /** Hands the dialog whether it may close now: not while creating, nor on an Escape meant for the plans. */
   onCloseGuard: (canClose: (() => boolean) | null) => void
@@ -35,7 +41,14 @@ export function BoxAgentForm({
   const [deviceId, setDeviceId] = useState<string | null>(null)
   const box = useBoxSetup(teamId, deviceId, setDeviceId)
   const { usage, reload: reloadUsage } = useBoxUsage(teamId)
-  const newBox = useNewBox({ teamId, usage, labels: box.labels, onCreated: setDeviceId })
+  const newBox = useNewBox({
+    teamId,
+    usage,
+    labels: box.labels,
+    onCreated: setDeviceId,
+    accounts,
+    deployment,
+  })
   const { creating, canClose } = newBox
 
   useEffect(() => {
@@ -51,7 +64,10 @@ export function BoxAgentForm({
     <div className="space-y-4">
       {box.phase === 'idle' && (
         <>
-          <p className="text-[12.5px] leading-5 text-secondary">{NEW_BOX_DESCRIPTION}</p>
+          {/* Its vCPU line is about the plan; a team's instabox account bills the computer itself. */}
+          {!newBox.account.accountId && (
+            <p className="text-[12.5px] leading-5 text-secondary">{NEW_BOX_DESCRIPTION}</p>
+          )}
           <NewBoxFields box={newBox} className="space-y-5" onPlanChanged={reloadUsage} />
         </>
       )}
