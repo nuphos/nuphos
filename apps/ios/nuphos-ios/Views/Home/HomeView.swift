@@ -21,6 +21,11 @@ struct HomeView: View {
     @State private var openChat: AgentPage.OpenChat?
     /// A desktop shows beside the open conversation, with the list put away meanwhile.
     @State private var desktopOpen = false
+    private var columns: Binding<NavigationSplitViewVisibility> { .home(desktopOpen: desktopOpen) }
+    private var desktopBeside: ((Bool) -> Void)? {
+        guard sizeClass == .regular else { return nil }
+        return { open in desktopOpen = open }
+    }
     /// The window's, not a column's: a split view's columns report compact.
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.scenePhase) private var scenePhase
@@ -32,7 +37,7 @@ struct HomeView: View {
     var body: some View {
         // Collapses to a single stack when compact; side by side when wide,
         // such as iPhone Duo's inner display and iPad.
-        NavigationSplitView(columnVisibility: .home(desktopOpen: desktopOpen)) {
+        NavigationSplitView(columnVisibility: columns) {
             Group {
                 if let store, let plans, let connectors {
                     pageContent
@@ -161,7 +166,7 @@ struct HomeView: View {
         .environment(plans)
         .environment(connectors)
         // Wide, a conversation shows its desktop beside it, with the list put away meanwhile.
-        .environment(\.desktopBeside, sizeClass == .regular ? { desktopOpen = $0 } : nil)
+        .environment(\.desktopBeside, desktopBeside)
         .tint(Theme.heading)
         .animation(.easeOut(duration: 0.2), value: titleCollapsed)
         .onAppear {
