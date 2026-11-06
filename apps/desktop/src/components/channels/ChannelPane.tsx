@@ -181,7 +181,7 @@ export function ChannelPane({
             channel: true,
             only: { agentIds: agents.map((agent) => agent.sessionId), selfId: user.id },
           }}
-          placeholder={t('Message {name}', { name: `#${title}` })}
+          placeholder={t('Message {name}', { name: title })}
         />
       </div>
     </FileDropZone>

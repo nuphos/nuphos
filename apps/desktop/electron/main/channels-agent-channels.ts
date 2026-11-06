@@ -6,8 +6,7 @@ import type { IpcMainInvokeEvent } from 'electron'
 
 // Channels: places where people and agents talk.
 export const agentChannelChannels = {
-  'agent:createChannel': (_e: unknown, teamId: string, title: string) =>
-    agent.createChannel(teamId, title),
+  'agent:createChannel': (_e: unknown, teamId: string) => agent.createChannel(teamId),
   'agent:listChannelMentions': (_e: unknown, teamId: string) => agent.listChannelMentions(teamId),
   'agent:notifyMention': (
     e: IpcMainInvokeEvent,

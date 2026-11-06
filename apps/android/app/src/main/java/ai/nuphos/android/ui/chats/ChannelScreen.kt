@@ -364,6 +364,6 @@ private fun ChannelComposer(session: ChannelSession) {
         // A post that failed goes back into the composer.
         rejectedSubmission = session.unsent,
         onRejectedRestored = { session.unsent = null },
-        placeholder = "Message #${session.title}",
+        placeholder = "Message ${session.title}",
     )
 }

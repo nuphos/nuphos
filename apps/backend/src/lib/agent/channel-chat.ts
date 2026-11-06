@@ -203,7 +203,11 @@ async function notifyAgent(
   // An agent runs as its owner, so it goes quiet once its owner leaves the team.
   if (!(await getTeamMembership(agent.userId, channel.teamId))) return
   // The title is a member's words, so it travels only in the metadata.
-  const metadata = channelNoticeSender(channel.teamId, channel.sessionId, channel.title)
+  const metadata = channelNoticeSender(
+    channel.teamId,
+    channel.sessionId,
+    channel.title || 'Nuphos channel',
+  )
 
   // An agent's posts still wait for the turn to end: one wake per turn (#1458).
   if (!fromAgent && (await steerRunningTurn(agent, channel.sessionId, metadata))) return

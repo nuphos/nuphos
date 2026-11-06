@@ -5,9 +5,12 @@ import type { FileTransferGroup } from '../../src/types'
 
 const at = (sessionId: string) => `/agent/conversations/${encodeURIComponent(sessionId)}`
 
-/** A new channel, private until shared; its people and agents are added after. */
-export async function createChannel(teamId: string, title: string): Promise<{ sessionId: string }> {
-  return callJsonForRenderer('POST', `/agent/channels${teamQuery(teamId)}`, { title })
+/**
+ * A new channel, private until shared; its people and agents are added after.
+ * It has no name: each member sees it called by the others in it.
+ */
+export async function createChannel(teamId: string): Promise<{ sessionId: string }> {
+  return callJsonForRenderer('POST', `/agent/channels${teamQuery(teamId)}`, {})
 }
 
 export async function listChannelAgents(
