@@ -212,6 +212,26 @@ test('open tells the agent whether the user can see the new tab', async () => {
   assert.equal(await onScreen(false), false, 'a tab in a hidden dock is not in front of the user')
 })
 
+test('open still returns the tab when checking whether it is on screen fails', async () => {
+  let guest: Guest | undefined
+
+  onDeepLink = () => {
+    guest = new Guest().attach()
+    guest.capturePage = () => Promise.reject(new Error('gone'))
+    guest.navigate('https://example.com/fragile').finish()
+  }
+  const result = await runBrowserCall({
+    action: 'open',
+    team: 't1',
+    session: 's1',
+    url: 'https://example.com/fragile',
+  })
+
+  assert.notEqual(result.isError, true)
+  assert.equal(tabOf(result), guest?.id)
+  assert.equal((JSON.parse(textOf(result)) as { onScreen: boolean }).onScreen, false)
+})
+
 /** The tab ids `session` lists. */
 const listed = (session: string) =>
   runBrowserCall({ action: 'tabs', team: 't1', session }).then((result) =>

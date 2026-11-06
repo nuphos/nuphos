@@ -178,8 +178,12 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
       return failed(
         'No browser tab opened. Nuphos Desktop needs an open window signed in to this team.',
       )
-    // A tab painted nowhere is in a dock the user is not looking at.
-    const onScreen = !(await onPage(contents, contents.capturePage())).isEmpty()
+    // A tab painted nowhere is in a dock the user is not looking at. The tab is
+    // open either way, so a capture that fails only means it is not on screen.
+    const onScreen = await onPage(contents, contents.capturePage()).then(
+      (image) => !image.isEmpty(),
+      () => false,
+    )
 
     return text({
       ...describe(contents),
