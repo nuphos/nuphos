@@ -34,6 +34,7 @@ export type CredentialSection = {
     | 'sentry'
     | 'posthog'
     | 'plaud'
+    | 'instabox'
     | 'tailscale'
     | 'zeabur'
     | 'vanta'

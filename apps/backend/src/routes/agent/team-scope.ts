@@ -149,8 +149,7 @@ export function readTeamIdCandidate(c: Context, bodyTeamId?: unknown): string | 
     throw new AppError(400, 'invalid_request', 'Conflicting teamId sources')
   }
 
-  // Prefer explicit page/query scope over body — the URL is the user's
-  // actual current context.
+  // Prefer explicit page/query scope over body: the URL is the user's actual current context.
   return query ?? url ?? body
 }
 
@@ -243,6 +242,7 @@ export function normalizeCredentialSelection(input: unknown): AgentCredentialSel
       raw.cloudflareAccountIds,
       'cloudflareAccountIds',
     ),
+    instaboxAccountIds: normalizeOptionalObjectIdList(raw.instaboxAccountIds, 'instaboxAccountIds'),
     teamIdentity: normalizeTeamIdentity(raw.teamIdentity),
   }
 }

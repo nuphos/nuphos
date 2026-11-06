@@ -18,6 +18,7 @@ export const CONNECT_SELECTION_KEY = {
   upstash: 'upstashAccountIds',
   resend: 'resendIntegrationIds',
   cloudflare: 'cloudflareAccountIds',
+  instabox: 'instaboxAccountIds',
   betterstack: 'betterStackIntegrationIds',
   'uptime-kuma': 'uptimeKumaInstanceIds',
   tailscale: 'tailscaleClientIds',

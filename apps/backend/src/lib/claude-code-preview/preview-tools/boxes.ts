@@ -36,13 +36,23 @@ const JOIN_WAIT_MS = 4 * 60_000
 
 const label = z.string().min(1).describe('Short description of this step in the user’s language.')
 
-async function teamAccounts(teamId: string) {
-  const doc = await teamByosBindings().findOne(
-    { _id: parseObjectId(teamId, 'teamId') },
-    { projection: { instaboxAccounts: 1 } },
-  )
+/** The team's instabox accounts this conversation may use: all of them until it selects some. */
+async function teamAccounts({ teamId, sessionId }: PreviewToolContext) {
+  const [doc, conversation] = await Promise.all([
+    teamByosBindings().findOne(
+      { _id: parseObjectId(teamId, 'teamId') },
+      { projection: { instaboxAccounts: 1 } },
+    ),
+    agentConversations().findOne(
+      { sessionId, teamId },
+      { projection: { 'credentialAccess.instaboxAccountIds': 1 } },
+    ),
+  ])
+  const selected = conversation?.credentialAccess?.instaboxAccountIds
 
-  return (doc?.instaboxAccounts ?? []).map((a) => ({ id: a.id.toHexString(), label: a.label }))
+  return (doc?.instaboxAccounts ?? [])
+    .map((a) => ({ id: a.id.toHexString(), label: a.label }))
+    .filter((a) => !selected || selected.includes(a.id))
 }
 
 async function view(device: AgentDevice) {
@@ -65,8 +75,12 @@ async function requireAgentBox(
 ) {
   const device = await requireDeviceAccess(ctx.userId, ctx.teamId, deviceId, level)
 
-  if (!device.box?.accountId)
-    throw new Error('Only Boxes on one of the team’s instabox accounts can be managed here.')
+  const accountId = device.box?.accountId
+
+  if (!accountId || !(await teamAccounts(ctx)).some((a) => a.id === accountId))
+    throw new Error(
+      'Only Boxes on an instabox account this conversation may use can be managed here.',
+    )
 
   return device
 }
@@ -84,7 +98,7 @@ export function boxToolModule(
           'local_exec, local_cua or update_thread.',
         inputSchema: z.object({ label }).strict(),
         execute: async () => {
-          const accounts = await teamAccounts(ctx.teamId)
+          const accounts = await teamAccounts(ctx)
           const ids = new Set(accounts.map((a) => a.id))
           const boxes = (await listTeamBoxes(ctx.teamId)).filter(
             (d) => d.box?.accountId && ids.has(d.box.accountId),
@@ -118,14 +132,14 @@ export function boxToolModule(
           })
           .strict(),
         execute: async ({ accountId, name, vcpus }) => {
-          const accounts = await teamAccounts(ctx.teamId)
+          const accounts = await teamAccounts(ctx)
           const account = accountId ?? (accounts.length === 1 ? accounts[0]?.id : undefined)
 
-          if (!account)
+          if (!account || !accounts.some((a) => a.id === account))
             throw new Error(
               accounts.length === 0
-                ? 'The team has no instabox account. A team administrator binds one under Settings → Integrations.'
-                : 'Pass accountId: the team has several instabox accounts (see list_boxes).',
+                ? 'No instabox account is available here: a team administrator binds one under Settings → Integrations, and the conversation must not have deselected it.'
+                : 'Pass an accountId from list_boxes: this conversation may use several instabox accounts.',
             )
           if ((await deviceAccessDeps.role(ctx.userId, ctx.teamId)) !== 'ADMINISTRATOR')
             throw new Error('Only a team administrator can create a Box.')

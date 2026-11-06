@@ -19,6 +19,7 @@ const ctx = { userId: 'actor', teamId, sessionId: 'session', locale: 'en' }
 const accountId = new ObjectId().toHexString()
 let accounts: { id: ObjectId; label: string }[] = []
 let role: 'ADMINISTRATOR' | 'MEMBER' = 'ADMINISTRATOR'
+let selection: string[] | undefined
 const calls: unknown[][] = []
 const box = (deviceId: string, account?: string) =>
   ({
@@ -42,6 +43,10 @@ useModels({
 })
 useAgentDb({
   agentConversations: (() => ({
+    findOne: () =>
+      Promise.resolve(
+        selection === undefined ? null : { credentialAccess: { instaboxAccountIds: selection } },
+      ),
     updateOne: (filter: unknown, update: unknown) => {
       calls.push(['select', filter, update])
 
@@ -78,6 +83,7 @@ beforeEach(() => {
   calls.length = 0
   accounts = [{ id: new ObjectId(accountId), label: 'Team account' }]
   role = 'ADMINISTRATOR'
+  selection = undefined
   Object.assign(deviceAccessDeps, {
     role: () => Promise.resolve(role),
     findGranted: () => Promise.resolve([]),
@@ -136,6 +142,21 @@ test('a Box on the deployment’s account is out of reach', async () => {
   })
 
   expect(refused.isError).toBe(true)
+  await handlers().update_box!({ label: 'Stop', deviceId: 'team-box', action: 'stop' })
+  expect(calls).toEqual([['pause', 'team-box']])
+})
+
+test('a conversation that selected instabox accounts reaches only those', async () => {
+  selection = []
+  expect((await handlers().list_boxes!({ label: 'List' })).structuredContent).toMatchObject({
+    accounts: [],
+    boxes: [],
+  })
+  expect((await handlers().create_box!({ label: 'Create' })).isError).toBe(true)
+  expect(
+    (await handlers().update_box!({ label: 'Stop', deviceId: 'team-box', action: 'stop' })).isError,
+  ).toBe(true)
+  selection = [accountId]
   await handlers().update_box!({ label: 'Stop', deviceId: 'team-box', action: 'stop' })
   expect(calls).toEqual([['pause', 'team-box']])
 })

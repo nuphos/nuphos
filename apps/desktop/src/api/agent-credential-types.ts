@@ -33,6 +33,7 @@ export type AgentCredentialSelection = {
   notionIntegrationIds: string[]
   upstashAccountIds: string[]
   cloudflareAccountIds: string[]
+  instaboxAccountIds: string[]
   deviceIds: string[]
   /** Providers this conversation acts as the team on, despite the member's Personal Credential. */
   teamIdentity?: PersonalCredentialProvider[]
@@ -194,6 +195,10 @@ export type AgentCredentialOptions = {
   cloudflareAccounts: {
     accountId: string
     accountName: string | null
+  }[]
+  instaboxAccounts: {
+    accountId: string
+    label: string
   }[]
   devices: {
     deviceId: string

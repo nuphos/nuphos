@@ -39,6 +39,7 @@ const CREDENTIAL_ARRAY_KEYS = [
   'notionIntegrationIds',
   'upstashAccountIds',
   'cloudflareAccountIds',
+  'instaboxAccountIds',
 ] as const satisfies readonly CredentialArrayKey[]
 
 export type TriggerCredentialMode = 'all' | 'selected'

@@ -217,6 +217,12 @@ export function CredentialSelectorSectionList({
         newIds={unseen?.cloudflareAccountIds}
         onChangeIds={(ids) => onChange({ ...value, cloudflareAccountIds: ids })}
       />
+      <CredentialSectionGroup
+        sections={sections.instaboxSections}
+        selectedIds={value.instaboxAccountIds}
+        newIds={unseen?.instaboxAccountIds}
+        onChangeIds={(ids) => onChange({ ...value, instaboxAccountIds: ids })}
+      />
     </>
   )
 }

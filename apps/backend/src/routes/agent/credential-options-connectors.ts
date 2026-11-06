@@ -13,6 +13,7 @@ type ConnectorKeys =
   | 'posthogIntegrations'
   | 'plaudAccounts'
   | 'cloudflareAccounts'
+  | 'instaboxAccounts'
 
 export type ConnectorBindingsDoc = Pick<TeamByosBindings, ConnectorKeys>
 
@@ -27,6 +28,7 @@ export type ConnectorCredentialOptions = Pick<
   | 'posthogIntegrations'
   | 'plaudAccounts'
   | 'cloudflareAccounts'
+  | 'instaboxAccounts'
 >
 
 export const emptyConnectorCredentialOptions = (): ConnectorCredentialOptions => ({
@@ -39,6 +41,7 @@ export const emptyConnectorCredentialOptions = (): ConnectorCredentialOptions =>
   posthogIntegrations: [],
   plaudAccounts: [],
   cloudflareAccounts: [],
+  instaboxAccounts: [],
 })
 
 export const connectorCredentialOptionsProjection = {
@@ -51,6 +54,7 @@ export const connectorCredentialOptionsProjection = {
   posthogIntegrations: 1,
   plaudAccounts: 1,
   cloudflareAccounts: 1,
+  instaboxAccounts: 1,
 } as const
 
 export function connectorCredentialOptions(
@@ -120,6 +124,12 @@ export function connectorCredentialOptions(
       accountName: binding.accountName,
     }))
 
+  // No member allow-list: the key never leaves the backend, and creating a Box needs an admin.
+  const instaboxAccounts = (doc?.instaboxAccounts ?? []).map((binding) => ({
+    accountId: binding.id.toHexString(),
+    label: binding.label,
+  }))
+
   return {
     githubInstallations,
     gitlabBindings,
@@ -130,5 +140,6 @@ export function connectorCredentialOptions(
     posthogIntegrations,
     plaudAccounts,
     cloudflareAccounts,
+    instaboxAccounts,
   }
 }

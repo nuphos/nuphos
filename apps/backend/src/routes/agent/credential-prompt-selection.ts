@@ -33,6 +33,7 @@ export type AgentCredentialAccessSelection = Pick<
   | 'notionIntegrationIds'
   | 'upstashAccountIds'
   | 'cloudflareAccountIds'
+  | 'instaboxAccountIds'
   | 'deviceIds'
 >
 
@@ -195,6 +196,11 @@ export function selectAgentCredentials(
     cloudflareAccounts: pick(
       options.cloudflareAccounts,
       access.cloudflareAccountIds,
+      (account) => account.accountId,
+    ),
+    instaboxAccounts: pick(
+      options.instaboxAccounts,
+      access.instaboxAccountIds,
       (account) => account.accountId,
     ),
     // Only devices usable now are offered to the model; a selected offline one waits.

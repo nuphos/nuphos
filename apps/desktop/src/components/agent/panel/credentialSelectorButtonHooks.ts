@@ -32,6 +32,7 @@ import {
 } from './credentialSectionsB'
 import {
   buildCloudflareCredentialSections,
+  buildInstaboxCredentialSections,
   buildGithubCredentialSections,
   buildGitlabCredentialSections,
   buildGrafanaCredentialSections,
@@ -194,6 +195,10 @@ export function useCredentialSections(options: CredentialSelectorControl['option
     () => buildCloudflareCredentialSections(options.cloudflareAccounts),
     [options.cloudflareAccounts],
   )
+  const instaboxSections = useMemo(
+    () => buildInstaboxCredentialSections(options.instaboxAccounts),
+    [options.instaboxAccounts],
+  )
 
   return {
     awsSections,
@@ -226,5 +231,6 @@ export function useCredentialSections(options: CredentialSelectorControl['option
     notionSections,
     upstashSections,
     cloudflareSections,
+    instaboxSections,
   }
 }
