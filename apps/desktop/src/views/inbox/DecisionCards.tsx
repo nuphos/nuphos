@@ -88,8 +88,9 @@ export function DecisionCards({
             aria-current={selected}
             onClick={() => onChoose(request.id)}
             className={clsx(
-              'rounded-lg border px-4 py-3.5',
-              selected ? 'border-action-primary/60 bg-state-selected' : 'border-line-control/70',
+              'rounded-lg px-4 py-3.5',
+              // The question being answered lifts like the composer; the rest stay on the sheet.
+              selected ? 'surface-raised bg-surface-raised' : 'border border-line-control/70',
             )}
           >
             <h2 className="selectable text-[15px] font-medium leading-6 text-main">
