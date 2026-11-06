@@ -65,10 +65,10 @@ class PullRefreshFixtureDeviceTest {
 
     private val network = object : ExternalResource() {
         override fun before() {
+            check(InstrumentationRegistry.getInstrumentation().targetContext.packageName.let { it.endsWith(".refreshfixture") || it.endsWith(".listrefresh1319") }) { "Run only in the isolated refresh fixture package" }
             // A fresh install otherwise prompts for notifications on top of the first test.
             InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(
                 InstrumentationRegistry.getInstrumentation().targetContext.packageName, android.Manifest.permission.POST_NOTIFICATIONS)
-            check(InstrumentationRegistry.getInstrumentation().targetContext.packageName.let { it.endsWith(".refreshfixture") || it.endsWith(".listrefresh1319") }) { "Run only in the isolated refresh fixture package" }
             app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
             preferences = app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).all.toMap()
             InstrumentationRegistry.getInstrumentation().runOnMainSync {
