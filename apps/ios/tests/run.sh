@@ -18,3 +18,5 @@ swiftc -D DEBUG -parse-as-library nuphos-ios/Services/NuphosAPIBase.swift nuphos
 "$test_dir/preview-isolation-tests"
 swiftc NuphosShare/ShareFollowState.swift tests/ShareFollowStateTests.swift -o "$test_dir/share-follow-tests"
 "$test_dir/share-follow-tests"
+swiftc nuphos-ios/Views/Home/HomeColumns.swift tests/HomeColumnsTests.swift -o "$test_dir/home-columns-tests"
+"$test_dir/home-columns-tests"
