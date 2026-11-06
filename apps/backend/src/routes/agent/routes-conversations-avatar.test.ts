@@ -30,6 +30,7 @@ let stillThere = true
 let shells: Record<string, unknown>[] = []
 let currentAvatar: string | undefined
 let member = true
+let claimWins = true
 
 useIdentity({
   authenticateToken: async () => ({ user: { id: caller } }),
@@ -52,6 +53,16 @@ useAgentDb({
 
     return { isNew: true }
   },
+  claimBotAvatar: async (_session, avatar) => {
+    if (!claimWins) {
+      currentAvatar = '07-ada'
+
+      return false
+    }
+    saved.push(avatar)
+
+    return true
+  },
   setConversationAvatar: async (_session, avatar) => {
     saved.push(avatar)
 
@@ -71,6 +82,7 @@ beforeEach(() => {
   shells = []
   currentAvatar = undefined
   member = true
+  claimWins = true
   turns.length = 0
 })
 const pick = (avatar: unknown, team = teamId) =>
@@ -191,4 +203,12 @@ test('"+" on Bots needs membership in the team', async () => {
   member = false
   expect((await createBot()).status).toBe(403)
   expect(shells).toEqual([])
+})
+
+test('"Make this a Bot" clicked twice at once starts one turn', async () => {
+  claimWins = false
+
+  expect(await (await makeBot()).json()).toEqual({ avatar: '07-ada' })
+  expect(saved).toEqual([])
+  expect(turns).toEqual([])
 })
