@@ -48,18 +48,15 @@ screenshots, through each tab's `webContents` (`local-runtime/browser-tabs.ts`).
 It is gated like `local_exec` — the owner's own conversations, on a selected
 device with local exec allowed — and opens no debugging port.
 
-### Box desktops and snapshots
+### Box desktops
 
 On a Linux Box every conversation gets a `nuphos-desktop` MCP server
 (`local-runtime/desktop-session.mjs`). It claims a display from the pool on its
 first tool call, not when the session starts. Agents open apps from the XFCE
 panel's launchers; their desktop guidance is in the backend runtime prompt, so a
-snapshot's `AGENTS.md` needs none. A Box snapshot is built by hand:
-
-1. Create a Box from the current snapshot (`NUPHOS_BOX_TEMPLATE`).
-2. Run `nuphos update` on it and check the runtime bundle version under `~/.local/share/nuphos/runtime`.
-3. Run instabox `createSnapshot` on that machine.
-4. Point `NUPHOS_BOX_TEMPLATE` at the new id, dev before prod.
+Box's `AGENTS.md` needs none. A Box starts from instabox's `agent-browser`
+template, and its install adds grok and the newest CLI, which fetches the
+newest runtime bundle, so nothing is built or kept by hand.
 
 ## Local production build (unsigned)
 

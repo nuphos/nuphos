@@ -6,7 +6,6 @@ import { randomUUID } from 'node:crypto'
 
 import { Sandbox } from '@insforge/instabox-sdk'
 
-import { config } from '@/config'
 import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
 
@@ -14,6 +13,7 @@ import { boxConnection, findInstaboxAccount } from './box-instabox-account'
 import {
   AGENT_COMMAND,
   BOX_INSTALL_COMMAND,
+  BOX_MOUNTS_COMMAND,
   BOX_TEMPLATE,
   CREATE_TIMEOUT_MS,
   INSTALL_TIMEOUT_MS,
@@ -94,7 +94,7 @@ async function order(
   let sandbox: Sandbox | undefined
 
   try {
-    sandbox = await Sandbox.create(config.box.template ?? BOX_TEMPLATE, {
+    sandbox = await Sandbox.create(BOX_TEMPLATE, {
       ...(await boxConnection(box, CREATE_TIMEOUT_MS)),
       name: `nuphos-${deviceId.slice(0, 8)}`,
       metadata: { teamId: box.teamId, deviceId, createdBy: userId },
@@ -111,21 +111,21 @@ async function order(
       expiresInSec: JOIN_TOKEN_TTL_SEC,
     })
 
-    // A configured template or snapshot already carries node, the agents and nuphos.
-    // The install is one long exec request, so it runs on a connection without the
-    // per-request cap: the exec request then waits as long as the command may run.
-    if (!config.box.template)
-      await (
-        await Sandbox.connect(sandbox.sandboxId, {
-          ...(await boxConnection(box, INSTALL_TIMEOUT_MS)),
-          requestTimeoutMs: undefined,
-          resume: false,
-        })
-      ).commands.run(BOX_INSTALL_COMMAND, { envs: downloadEnv(), timeoutMs: INSTALL_TIMEOUT_MS })
+    // The template comes from instabox's warm pool, so the install is the longest step.
+    // It is one long exec request, so it runs on a connection without the per-request
+    // cap: the exec request then waits as long as the command may run.
+    await (
+      await Sandbox.connect(sandbox.sandboxId, {
+        ...(await boxConnection(box, INSTALL_TIMEOUT_MS)),
+        requestTimeoutMs: undefined,
+        resume: false,
+      })
+    ).commands.run(BOX_INSTALL_COMMAND, { envs: downloadEnv(), timeoutMs: INSTALL_TIMEOUT_MS })
     await sandbox.commands.run(AGENT_COMMAND, {
       envs: { ...downloadEnv(), NUPHOS_JOIN_TOKEN: token, NUPHOS_API_URL: url },
       background: true,
     })
+    await sandbox.commands.run(BOX_MOUNTS_COMMAND, { background: true })
     // Setup is done when the machine is actually here, not when its commands returned.
     if (!(await waitForPresence(userId, deviceId, JOIN_TIMEOUT_MS)))
       throw new Error('The machine did not join within the time allowed')

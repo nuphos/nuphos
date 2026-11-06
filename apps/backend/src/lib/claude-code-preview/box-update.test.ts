@@ -6,7 +6,11 @@ import path from 'node:path'
 import { describe, expect, test } from 'bun:test'
 
 import { localRuntimeId } from '@/lib/agent/devices/local-runtime/address'
-import { BOX_INSTALL_COMMAND, BOX_UPDATE_COMMAND } from '@/lib/agent/devices/box-instabox-client'
+import {
+  BOX_INSTALL_COMMAND,
+  BOX_MOUNTS_COMMAND,
+  BOX_UPDATE_COMMAND,
+} from '@/lib/agent/devices/box-instabox-client'
 
 import { boxUpdateStatus, requestBoxUpdate } from './box-update'
 
@@ -142,13 +146,20 @@ describe('Box update', () => {
     expect(lines[0]).toContain('pkill -f "[h]ost.mjs"')
     expect(lines[1]).toBe('pkill -9 -f "[h]ost.mjs"')
     expect(lines.at(-1)).toContain('nuphos agent')
-    expect(BOX_UPDATE_COMMAND).toContain(`(\n${BOX_INSTALL_COMMAND}`)
+    expect(BOX_UPDATE_COMMAND).toContain(`(\n${BOX_INSTALL_COMMAND}\n${BOX_MOUNTS_COMMAND}`)
     // Only session panels without the browser launcher are dropped.
     expect(BOX_UPDATE_COMMAND).toContain('grep -L web-browser.desktop')
   })
 
+  test('the host waits only for the agents and the CLI, fetched side by side', () => {
+    expect(BOX_INSTALL_COMMAND).toContain('& agents=$!')
+    expect(BOX_INSTALL_COMMAND.split('\n').at(-1)).toBe('wait $agents')
+    expect(BOX_INSTALL_COMMAND).toContain('command -v grok')
+    expect(BOX_INSTALL_COMMAND).not.toContain('/etc/fstab')
+  })
+
   test('/tmp, /var/tmp and an empty Docker are bound to /data once, however often the install runs', () => {
-    const lines = BOX_INSTALL_COMMAND.split('\n').filter((entry) => entry.includes('/etc/fstab'))
+    const lines = BOX_MOUNTS_COMMAND.split('\n').filter((entry) => entry.includes('/etc/fstab'))
     const fstab = path.join(mkdtempSync(path.join(os.tmpdir(), 'box-fstab-')), 'fstab')
 
     writeFileSync(fstab, '/dev/vdb  /data  ext4  defaults,nofail 0 2\n')
@@ -179,7 +190,7 @@ describe('Box update', () => {
       '/data/docker /var/lib/docker none bind,nofail,x-systemd.requires-mounts-for=/data,x-systemd.before=docker.service 0 0',
       '/data/containerd /var/lib/containerd none bind,nofail,x-systemd.requires-mounts-for=/data,x-systemd.before=containerd.service 0 0',
     ])
-    expect(BOX_INSTALL_COMMAND).not.toContain('systemctl mask')
+    expect(BOX_MOUNTS_COMMAND).not.toContain('systemctl mask')
     // A Docker that already holds images or volumes keeps them where they are.
     writeFileSync(fstab, '/dev/vdb  /data  ext4  defaults,nofail 0 2\n')
     execFileSync('/bin/bash', ['-ec', script], withDocker('sha256:abc'))
