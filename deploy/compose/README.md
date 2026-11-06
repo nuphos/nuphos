@@ -166,6 +166,52 @@ File uploads and downloads use presigned URLs whose host is `rustfs`. To let Des
 echo '127.0.0.1 rustfs' | sudo tee -a /etc/hosts
 ```
 
+## Health telemetry (optional, off by default)
+
+An instance can send Nuphos a small health report every 5 minutes, so we learn
+when a self-hosted install breaks. Nothing is collected or sent unless
+`NUPHOS_TELEMETRY_KEY` is set; leave it unset and the instance never contacts
+`telemetry.nuphos.ai`.
+
+**What is sent** (numbers only; the full allowlist is `REPORT_FIELDS` in
+[`apps/backend/src/lib/telemetry/report.ts`](../../apps/backend/src/lib/telemetry/report.ts)):
+
+- a random instance id generated on first use (flagged when Mongo is unreachable and a stand-in is sent), a random id per backend process, and the backend version
+- whether Mongo answers (and its ping time), whether S3, email and KMS are configured, and how many computers are connected
+- Mongo data and storage size, and the used and total size of its disk
+- API request count, 4xx and 5xx counts, and p50/p95/p99 latency
+- the number of distinct signed-in users who made a request in the window
+- how many times each [allowlisted](../../apps/backend/src/lib/telemetry/events.json) log event fired
+
+**Never sent:** user or team ids, emails, conversation or memory content,
+prompts or error messages. The payload contains no hostnames or IP addresses,
+but like any HTTPS request, the receiver sees the source IP of the connection.
+
+**Enable:** add the key Nuphos issued for your instance to `.env` and restart
+the backend:
+
+```sh
+echo 'NUPHOS_TELEMETRY_KEY=<key>' >> .env
+docker compose up -d backend
+```
+
+With the Helm chart, add it to `backend.extraEnv`.
+
+**See the last report and switch it off or on** without a restart:
+
+```sh
+docker compose exec backend nuphos-admin telemetry       # status and the exact last payload
+docker compose exec backend nuphos-admin telemetry off   # stop sending
+docker compose exec backend nuphos-admin telemetry on    # resume
+```
+
+Admins can do the same over HTTP with `GET /admin/telemetry` and
+`PUT /admin/telemetry` (`{"enabled": false}`); switching it on without
+`NUPHOS_TELEMETRY_KEY` set is refused. To stop for good, remove
+`NUPHOS_TELEMETRY_KEY`; Nuphos can also revoke a key. A report that cannot be
+delivered is retried twice, then dropped with one `backend.telemetry.send_failed`
+log line; it never blocks a request.
+
 ## Test managed agents locally (OrbStack)
 
 Managed agents are the one thing this stack cannot run: they are Kubernetes

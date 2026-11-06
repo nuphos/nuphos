@@ -3,7 +3,7 @@ import { afterEach, describe, expect, spyOn, test } from 'bun:test'
 import { localRuntimeUrl } from './address'
 import { createLocalTunnelBus } from './bus'
 import { holderChannel } from './protocol'
-import { attachRuntimeTunnel, TUNNEL_CLOSE_SUPERSEDED } from './holder'
+import { attachRuntimeTunnel, connectedComputerCount, TUNNEL_CLOSE_SUPERSEDED } from './holder'
 import { createMemoryPresenceStore } from './presence'
 import { processSingleton } from './singleton'
 import { openLocalRuntimeSocket } from './socket'
@@ -252,6 +252,21 @@ describe('local runtime tunnel', () => {
     await eventually(() => events.some((event) => event.type === 'open'))
     expect(second.frames.some((frame) => frame.t === 'open')).toBe(true)
     expect(first.frames.some((frame) => frame.t === 'open')).toBe(false)
+  })
+
+  test('counts each held computer once, however its tunnel ends', async () => {
+    const bus = createLocalTunnelBus()
+    const presence = createMemoryPresenceStore()
+    const before = connectedComputerCount()
+    const first = await connectDesktop(bus, presence, new Set(['t1']))
+
+    expect(connectedComputerCount()).toBe(before + 1)
+    const second = await connectDesktop(bus, presence, new Set(['t1']))
+
+    expect(connectedComputerCount()).toBe(before + 1)
+    first.tunnel.closed()
+    second.tunnel.closed()
+    expect(connectedComputerCount()).toBe(before)
   })
 
   test('closing the backend side tells the computer to drop the stream', async () => {

@@ -6,7 +6,8 @@ backend:
     repository: ghcr.io/nuphos/backend
     tag: '' # defaults to v{{ .Chart.AppVersion }}
     pullPolicy: IfNotPresent
-  # Extra env vars, e.g. ATLAS_ADMIN_TEAM_ID or Bedrock credentials.
+  # Extra env vars, e.g. ATLAS_ADMIN_TEAM_ID, Bedrock credentials or the opt-in
+  # NUPHOS_TELEMETRY_KEY (see deploy/compose/README.md).
   extraEnv: []
   resources:
     requests:

@@ -5,6 +5,7 @@
  *   nuphos-admin bootstrap --email <email> --team <name>
  *   nuphos-admin sign-in-code --email <email>
  *   nuphos-admin join-token --team <teamId> [--label <label>]
+ *   nuphos-admin telemetry [on|off]
  */
 import { config } from '@/config'
 import { boxBackendUrl } from '@/lib/agent/devices/box-instabox-client'
@@ -17,6 +18,7 @@ import {
   getTeamsByIds,
   signInWithVerifiedEmail,
 } from '@/lib/identity'
+import { setTelemetryEnabled, telemetryStatus } from '@/lib/telemetry/report'
 
 const USAGE = `usage:
   nuphos-admin bootstrap --email <email> --team <name>
@@ -25,7 +27,10 @@ const USAGE = `usage:
   nuphos-admin sign-in-code --email <email>
       Prints a 10-minute sign-in code for a server that does not send email.
   nuphos-admin join-token --team <teamId> [--label <label>]
-      Prints a one-time token that joins a machine as the team owner's computer.`
+      Prints a one-time token that joins a machine as the team owner's computer.
+  nuphos-admin telemetry [on|off]
+      Prints whether health reports are sent and the exact last one; on/off
+      switches sending without a restart (NUPHOS_TELEMETRY_KEY must be set).`
 
 function flag(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`)
@@ -82,10 +87,21 @@ On the machine (keep NUPHOS_API_URL set for later runs, e.g. in its systemd unit
   NUPHOS_API_URL=${api} nuphos agent --join -    # paste the token`
 }
 
+async function telemetry(): Promise<string> {
+  const action = process.argv[3]
+  const status =
+    action === 'on' || action === 'off'
+      ? await setTelemetryEnabled(action === 'on')
+      : await telemetryStatus()
+
+  return JSON.stringify(status, null, 2)
+}
+
 const commands: Record<string, () => Promise<string>> = {
   bootstrap,
   'sign-in-code': () => signInCode(need('email')),
   'join-token': joinToken,
+  telemetry,
 }
 const run = commands[process.argv[2] ?? '']
 
