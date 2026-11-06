@@ -9,6 +9,10 @@ import {
   setConversationAvatar,
   upsertConversationShell,
 } from '@/lib/agent/db'
+import {
+  validateRequestedAgentRuntime,
+  validateRequestedRuntimeId,
+} from '@/lib/claude-code-preview/runtime-routing'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
@@ -49,15 +53,26 @@ agent.patch('/conversations/:sessionId/avatar', async (c) => {
 })
 
 // "+" on Bots: a Bot exists, with a name and a face, before anyone types. It
-// has no runtime yet; its first turn picks one, as a new Task's does.
+// is placed on the runtime the client would start a new chat on, so its
+// composer shows that runtime and its first turn runs there.
+const createBotBody = z
+  .object({
+    teamId: z.string().optional(),
+    runtimeId: z.unknown().optional(),
+    agentRuntime: z.unknown().optional(),
+    runtimeLabel: z.string().max(200).optional(),
+  })
+  .strict()
+
 agent.post('/bots', async (c) => {
-  const body = z
-    .object({ teamId: z.string().optional() })
-    .safeParse(await c.req.json().catch(() => ({})))
-  const teamId = await resolveVerifiedTeamId(
-    c,
-    readTeamIdCandidate(c, body.success ? body.data.teamId : undefined),
-  )
+  const body = createBotBody.safeParse(await c.req.json().catch(() => ({})))
+
+  if (!body.success) throw new AppError(400, 'invalid_request', 'Invalid Bot request')
+  const { runtimeId, agentRuntime, runtimeLabel } = body.data
+
+  validateRequestedRuntimeId(runtimeId)
+  validateRequestedAgentRuntime(agentRuntime)
+  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.data.teamId))
 
   if (!teamId) throw new AppError(403, 'forbidden', 'Workspace membership is required')
   const sessionId = randomUUID()
@@ -71,6 +86,8 @@ agent.post('/bots', async (c) => {
     title,
     firstMessage: '',
     avatar,
+    ...(agentRuntime ? { agentRuntime } : {}),
+    ...(runtimeId ? { runtimeId, ...(runtimeLabel ? { runtimeLabel } : {}) } : {}),
   })
 
   return c.json({ sessionId, title, avatar }, 201)

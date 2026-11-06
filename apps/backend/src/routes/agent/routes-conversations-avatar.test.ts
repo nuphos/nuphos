@@ -111,11 +111,11 @@ test('an Agent deleted between the check and the write is not found', async () =
   expect((await pick('07-ada')).status).toBe(404)
 })
 
-const createBot = (team = teamId) =>
+const createBot = (body: Record<string, unknown> = {}, team = teamId) =>
   app.request(`/agent/bots?teamId=${team}`, {
     method: 'POST',
     headers: { authorization: 'Bearer test-token', 'content-type': 'application/json' },
-    body: '{}',
+    body: JSON.stringify(body),
   })
 
 test('"+" on Bots creates a Bot with a name and its derived face, before any message', async () => {
@@ -162,4 +162,25 @@ test('"Make this a Bot" leaves a Bot as it is, and only the owner may', async ()
   expect((await makeBot()).status).toBe(404)
   expect(saved).toEqual([])
   expect(turns).toEqual([])
+})
+
+test('"+" on Bots places the Bot on the runtime a new chat would use', async () => {
+  const response = await createBot({
+    runtimeId: 'rt_local-1',
+    agentRuntime: 'claude-code',
+    runtimeLabel: 'This Mac',
+  })
+
+  expect(response.status).toBe(201)
+  expect(shells[0]).toMatchObject({
+    agentRuntime: 'claude-code',
+    runtimeId: 'rt_local-1',
+    runtimeLabel: 'This Mac',
+  })
+})
+
+test('"+" on Bots rejects a runtime that is not one', async () => {
+  expect((await createBot({ agentRuntime: 'not-a-runtime' })).status).toBe(400)
+  expect((await createBot({ runtimeId: '../x' })).status).toBe(400)
+  expect(shells).toEqual([])
 })
