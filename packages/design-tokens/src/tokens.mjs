@@ -27,6 +27,8 @@ export const themes = {
     'text.secondary': '#5C5852',
     'text.tertiary': '#69645D',
     'text.inverse': '#FCFBF9',
+    // A link in running text: the system's one blue, so it reads as a link without a brand colour.
+    'text.link': '#2F4F7F',
 
     // Lines belong to controls only; areas are separated by surfaces, not dividers.
     'line.control': '#E2DFDA',
@@ -58,6 +60,7 @@ export const themes = {
     'text.secondary': '#B8B4AD',
     'text.tertiary': '#A09C95',
     'text.inverse': '#1A1917',
+    'text.link': '#7C9CCB',
 
     'line.control': '#33312E',
     'line.focus': '#A09C95',

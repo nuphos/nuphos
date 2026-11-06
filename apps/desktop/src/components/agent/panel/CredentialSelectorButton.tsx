@@ -157,7 +157,7 @@ function SelectionButton({
               type="button"
               onClick={() => changeAll(true)}
               disabled={selectedCount === totalCount}
-              className="text-[11.5px] text-primary hover:underline disabled:text-tertiary disabled:no-underline disabled:cursor-default"
+              className="text-[11.5px] text-link hover:underline disabled:text-tertiary disabled:no-underline disabled:cursor-default"
             >
               {t('Select all')}
             </button>

@@ -82,7 +82,7 @@ export function FormStep({
             <button
               type="button"
               onClick={() => onEditDuplicate(duplicate)}
-              className="text-primary hover:underline"
+              className="text-link hover:underline"
             >
               {t('Edit its permissions instead')}
             </button>

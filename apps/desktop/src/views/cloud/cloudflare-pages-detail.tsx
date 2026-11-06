@@ -122,7 +122,7 @@ export function CloudflarePagesProjectDetailView({
               value={
                 project?.subdomain ? (
                   <a
-                    className="text-primary hover:underline"
+                    className="text-link hover:underline"
                     onClick={() => {
                       if (project?.subdomain) {
                         void api.appOpenExternal(`https://${project.subdomain}`)

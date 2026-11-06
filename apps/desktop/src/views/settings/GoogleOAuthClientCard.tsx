@@ -73,7 +73,7 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
           {t('Members connect Gmail and Google Drive through your own Google Cloud OAuth client.')}{' '}
           <button
             type="button"
-            className="text-primary hover:underline"
+            className="text-link hover:underline"
             onClick={() => void api.appOpenExternal(GOOGLE_CLIENT_GUIDE_URL)}
           >
             {t('Setup guide')}

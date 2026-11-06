@@ -153,7 +153,7 @@ export function GithubRefLink({
       <ChatLink
         link={ref.href}
         onLinkClick={onOpen}
-        className="text-primary hover:underline"
+        className="text-link hover:underline"
         aria-label={describe(ref, summary)}
       >
         <span className="mr-0.5 inline-flex align-[-0.15em]">

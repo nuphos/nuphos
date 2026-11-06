@@ -136,7 +136,7 @@ export function CloudCliSetupChoice({
                             command: check.result.command ?? 'CLI',
                           })
                     }
-                    className={`${check.versionRequested ? 'ml-2 ' : ''}font-sans text-primary hover:underline`}
+                    className={`${check.versionRequested ? 'ml-2 ' : ''}font-sans text-link hover:underline`}
                   >
                     {check.versionRequested ? t('Retry') : t('Read version')}
                   </button>

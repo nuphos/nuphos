@@ -103,7 +103,7 @@ export function LambdaConfigEditModal({
             <button
               type="button"
               onClick={() => setEnvRows((rows) => [...rows, { key: '', value: '' }])}
-              className="inline-flex items-center gap-1 text-[12px] text-primary hover:underline"
+              className="inline-flex items-center gap-1 text-[12px] text-link hover:underline"
             >
               <Plus className="w-3.5 h-3.5" strokeWidth={1.8} />
               {t('Add')}
