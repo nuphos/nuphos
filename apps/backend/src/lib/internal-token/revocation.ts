@@ -121,20 +121,21 @@ export async function revokeToken(jti: string, exp: number, reason: string): Pro
 }
 
 /**
- * Restoring an archived session within the second it was archived would leave
- * tokens minted after the restore at the cutoff's `iat`. Move such a cutoff one
- * second back: tokens from that same second before the archive stay valid, which
- * is the lesser risk than rejecting the restored conversation's own tokens.
+ * Waits until the current second is past every cutoff of these sessions, so a
+ * token minted next (its `iat` in whole seconds) is not caught by a cutoff from
+ * the second the session was archived. Cutoffs only ever move up, so conversation
+ * tokens are minted through this; it costs at most about a second, and only for
+ * a session restored in the very second it was archived.
  */
-export async function releaseRestoredSessions(sessionIds: string[]): Promise<void> {
+export async function waitPastSessionCutoffs(sessionIds: string[]): Promise<void> {
   if (sessionIds.length === 0) return
-  const now = Math.floor(Date.now() / 1000)
+  const cutoffs = await revokedSessions()
+    .find({ _id: { $in: sessionIds } }, { projection: { before: 1 } })
+    .toArray()
+  const latest = Math.max(...cutoffs.map((cutoff) => cutoff.before), -Infinity)
+  const waitMs = (latest + 1) * 1000 - Date.now()
 
-  await revokedSessions().updateMany(
-    { _id: { $in: sessionIds }, before: { $gte: now } },
-    { $set: { before: now - 1 } },
-  )
-  for (const sid of sessionIds) cache.delete(`sid:${sid}`)
+  if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, Math.min(waitMs, 3_000)))
 }
 
 /** Revokes every token these sessions were issued up to now. */
@@ -143,16 +144,23 @@ export async function revokeSessionTokens(sessionIds: string[], reason: string):
   const before = Math.floor(Date.now() / 1000)
   const expiresAt = new Date(Date.now() + MAX_TOKEN_LIFETIME_MS)
 
-  await revokedSessions().bulkWrite(
-    sessionIds.map((sid) => ({
-      updateOne: {
-        filter: { _id: sid },
-        // $max: an overlapping, older revocation can never move a cutoff back.
-        update: { $max: { before, expiresAt }, $set: { reason } },
-        upsert: true,
-      },
-    })),
-  )
+  const write = (cutoff: number) =>
+    revokedSessions().bulkWrite(
+      sessionIds.map((sid) => ({
+        updateOne: {
+          filter: { _id: sid },
+          // $max: a cutoff only ever moves up; nothing can move it back.
+          update: { $max: { before: cutoff, expiresAt }, $set: { reason } },
+          upsert: true,
+        },
+      })),
+    )
+
+  // Written twice. An exchange that checked its subject while the first write
+  // was in flight may already have minted a child past that cutoff; the second
+  // write, stamped once the first has landed, covers it.
+  await write(before)
+  await write(Math.floor(Date.now() / 1000))
   for (const sid of sessionIds) cache.delete(`sid:${sid}`)
   logEvent('info', 'auth.conversation_session_tokens.revoked', {
     session_ids: sessionIds,

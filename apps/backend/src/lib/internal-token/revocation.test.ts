@@ -7,10 +7,10 @@ import {
   inheritRevocation,
   isTokenRevoked,
   recordTokenLink,
-  releaseRestoredSessions,
   revocationCacheSizeForTest,
   revokeSessionTokens,
   revokeToken,
+  waitPastSessionCutoffs,
 } from './revocation'
 
 type Doc = Record<string, unknown> & { _id: string }
@@ -18,6 +18,7 @@ type Doc = Record<string, unknown> & { _id: string }
 // Just enough of a Mongo collection for the revocation module.
 const collections = new Map<string, Map<string, Doc>>()
 let onFind: (() => void) | undefined
+let onBulkWrite: ((collection: string) => void) | undefined
 
 function fakeCollection(name: string) {
   const docs = collections.get(name) ?? new Map<string, Doc>()
@@ -42,11 +43,16 @@ function fakeCollection(name: string) {
     },
     bulkWrite: async (ops: { updateOne: { filter: { _id: string }; update: Update } }[]) => {
       for (const op of ops) upsert(op.updateOne.filter._id, op.updateOne.update)
+      onBulkWrite?.(name)
     },
-    find: (filter: { parentJti: { $in: string[] } }) => ({
+    find: (filter: { parentJti?: { $in: string[] }; _id?: { $in: string[] } }) => ({
       toArray: async () =>
-        onFind?.() ??
-        [...docs.values()].filter((doc) => filter.parentJti.$in.includes(doc.parentJti as string)),
+        filter._id
+          ? [...docs.values()].filter((doc) => filter._id!.$in.includes(doc._id))
+          : (onFind?.() ??
+            [...docs.values()].filter((doc) =>
+              filter.parentJti!.$in.includes(doc.parentJti as string),
+            )),
     }),
     updateMany: async (
       filter: { _id: { $in: string[] }; before: { $gte: number } },
@@ -145,11 +151,41 @@ describe('token revocation', () => {
     expect(await isTokenRevoked({ jti: 'c3', sid: 's', iat: now() })).toBe(true)
   })
 
-  test('a restore in the second of its archive keeps the restored tokens valid', async () => {
+  test('a restore waits until a token minted next is past the cutoff', async () => {
     await revokeSessionTokens(['conv-1'], 'archived')
-    await releaseRestoredSessions(['conv-1'])
-    expect(await isTokenRevoked({ jti: 'fresh', sid: 'conv-1', iat: now() })).toBe(false)
-    expect(await isTokenRevoked({ jti: 'old', sid: 'conv-1', iat: now() - 10 })).toBe(true)
+    const cutoff = collections.get('revoked_conversation_sessions')?.get('conv-1')?.before as number
+
+    await waitPastSessionCutoffs(['conv-1'])
+    expect(now()).toBeGreaterThan(cutoff)
+    expect(await isTokenRevoked({ jti: 'fresh', sid: 'conv-1', iat: now() }, true)).toBe(false)
+    expect(await isTokenRevoked({ jti: 'old', sid: 'conv-1', iat: cutoff }, true)).toBe(true)
+  })
+
+  test('a session with no cutoff restores without waiting', async () => {
+    const started = Date.now()
+
+    await waitPastSessionCutoffs(['never-archived'])
+    expect(Date.now() - started).toBeLessThan(50)
+  })
+
+  test('a child minted while the first cutoff write was in flight is still revoked', async () => {
+    const realNow = Date.now
+    let writes = 0
+
+    // The exchange's child is minted a second after the first write captured its cutoff.
+    onBulkWrite = (collection) => {
+      if (collection !== 'revoked_conversation_sessions') return
+      writes++
+      if (writes === 1) Date.now = () => realNow() + 1000
+    }
+    try {
+      await revokeSessionTokens(['conv-1'], 'archived')
+    } finally {
+      Date.now = realNow
+      onBulkWrite = undefined
+    }
+    expect(writes).toBe(2)
+    expect(await isTokenRevoked({ jti: 'child', sid: 'conv-1', iat: now() + 1 }, true)).toBe(true)
   })
 
   test('expired cache entries are swept once the cache grows', async () => {

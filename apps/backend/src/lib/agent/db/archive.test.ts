@@ -9,14 +9,10 @@ import type * as dbActual from '@/lib/db'
 
 // The sessions whose tokens each archive revoked.
 const revokedSessions: string[][] = []
-const releasedSessions: string[][] = []
 
 useTokenRevocation({
   revokeSessionTokens: async (sessionIds) => {
     revokedSessions.push(sessionIds)
-  },
-  releaseRestoredSessions: async (sessionIds) => {
-    releasedSessions.push(sessionIds)
   },
 })
 
@@ -111,7 +107,6 @@ describe('setConversationArchived', () => {
 
     expect(['root', 'child', 'grandchild'].map(archived)).toEqual([false, false, true])
     // The thread that stays archived keeps its revoked tokens revoked.
-    expect(releasedSessions.at(-1)?.toSorted()).toEqual(['child', 'root'])
   })
 
   test('a restore retried after a failed write still restores the tree', async () => {

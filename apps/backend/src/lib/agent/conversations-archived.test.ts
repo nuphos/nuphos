@@ -1,15 +1,11 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { useDb } from '@/lib/test/doubles/db'
-import { useTokenRevocation } from '@/lib/test/doubles/token-revocation'
 
 import { readableByFilter } from './db/access'
 import { getConversations, restoreArchivedConversation } from './db'
 
 import type * as dbActual from '@/lib/db'
-
-// Restores release a same-second session cutoff; its own suite covers that.
-useTokenRevocation({ releaseRestoredSessions: async () => {} })
 
 let lastQuery: Record<string, unknown> | undefined
 let lastSort: Record<string, number> | undefined
