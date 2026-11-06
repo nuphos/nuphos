@@ -21,6 +21,10 @@ test('the label reads like iMessage', () => {
 
   assert.match(timeGapLabel(at(6, 13, 5), now), /^Today /)
   assert.match(timeGapLabel(at(5, 9, 12), now), /^Yesterday /)
-  assert.match(timeGapLabel(at(3, 9), now), /^Tuesday /)
-  assert.match(timeGapLabel(at(20, 9, 0) - 30 * 86_400_000, now), /Oct/)
+  // Weekdays and months follow the system locale; compare with the same formatter.
+  const weekday = new Date(at(3, 9)).toLocaleDateString([], { weekday: 'long' })
+  const month = new Date(2026, 9, 21).toLocaleDateString([], { month: 'short' })
+
+  assert.ok(timeGapLabel(at(3, 9), now).startsWith(`${weekday} `))
+  assert.ok(timeGapLabel(new Date(2026, 9, 21, 9).getTime(), now).includes(month))
 })
