@@ -3,13 +3,14 @@ import { ChevronRight, Pin, PinOff, Puzzle, Store, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 import { api } from '../../api'
+import { Button } from '../../components/ui/button'
 import { Menu, MenuContent, MenuItem, MenuSubmenu, MenuTrigger } from '../../components/ui/menu'
 import { MenuSeparator, MenuSubmenuTrigger } from '../../components/ui/menu-extras'
 import { toast } from '../../components/ui/toast'
 import { Tooltip } from '../../components/ui/tooltip'
 import { t } from '../../i18n'
 
-import { WEB_STORE_URL, webStoreItemId } from './webStore'
+import { WEB_STORE_URL, addableExtensionId } from './webStore'
 
 import type { BrowserExtensionItem } from '../../api/browser-extension-types'
 import type { WebviewTag } from 'electron'
@@ -24,8 +25,8 @@ function ExtensionIcon({ item, className }: { item: BrowserExtensionItem; classN
 }
 
 /**
- * The browser toolbar's extensions: pinned buttons that open each popup, and a
- * menu to add, pin and remove. Shows nothing for a tab outside the user's
+ * The browser toolbar's extensions: an "Add to Nuphos" button on a Web Store
+ * item page, pinned buttons that open each popup, and a menu to pin and remove. Shows nothing for a tab outside the user's
  * browser session (an agent's), which has no extensions.
  */
 export function BrowserExtensions({
@@ -65,8 +66,8 @@ export function BrowserExtensions({
   }, [active, items, tabId])
 
   if (tabId === null || !items) return null
-  const storeItemId = webStoreItemId(url)
-  const installed = storeItemId ? items.some((item) => item.id === storeItemId) : false
+  // The store's own "Add to Chrome" can't work here, so offer ours beside the address.
+  const addableId = addableExtensionId(url, items)
 
   const add = (id: string) => {
     setAdding(true)
@@ -83,6 +84,17 @@ export function BrowserExtensions({
 
   return (
     <>
+      {addableId && (
+        <Button
+          size="sm"
+          className="ml-1 !h-7 shrink-0 gap-1.5 px-2 text-[12.5px]"
+          disabled={adding}
+          onClick={() => add(addableId)}
+        >
+          <Puzzle className="h-3.5 w-3.5" aria-hidden="true" />
+          {adding ? t('Adding…') : t('Add to Nuphos')}
+        </Button>
+      )}
       {items
         .filter((item) => item.pinned && !item.error)
         .map((item) => (
@@ -123,24 +135,14 @@ export function BrowserExtensions({
           }
         />
         <MenuContent align="end" className="w-[260px]">
-          {storeItemId && !installed ? (
-            <MenuItem
-              icon={<Store className="h-3.5 w-3.5" />}
-              disabled={adding}
-              onClick={() => add(storeItemId)}
-            >
-              {adding ? t('Adding…') : t('Add this extension to Nuphos')}
-            </MenuItem>
-          ) : (
-            <MenuItem
-              icon={<Store className="h-3.5 w-3.5" />}
-              onClick={() => {
-                if (viewRef.current) viewRef.current.src = WEB_STORE_URL
-              }}
-            >
-              {t('Find extensions in the Chrome Web Store')}
-            </MenuItem>
-          )}
+          <MenuItem
+            icon={<Store className="h-3.5 w-3.5" />}
+            onClick={() => {
+              if (viewRef.current) viewRef.current.src = WEB_STORE_URL
+            }}
+          >
+            {t('Find extensions in the Chrome Web Store')}
+          </MenuItem>
           {items.length > 0 && <MenuSeparator />}
           {items.map((item) => (
             <MenuSubmenu key={item.id}>

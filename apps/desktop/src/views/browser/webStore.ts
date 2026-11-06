@@ -8,3 +8,10 @@ export function webStoreItemId(url: string): string | null {
     )?.[1] ?? null
   )
 }
+
+/** The extension a Web Store item page offers, unless it is already added. */
+export function addableExtensionId(url: string, installed: { id: string }[]): string | null {
+  const id = webStoreItemId(url)
+
+  return id && !installed.some((item) => item.id === id) ? id : null
+}

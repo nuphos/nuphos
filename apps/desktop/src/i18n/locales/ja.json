@@ -5733,7 +5733,7 @@
   "Extensions": "拡張機能",
   "Could not add the extension": "拡張機能を追加できませんでした",
   "Could not remove the extension": "拡張機能を削除できませんでした",
-  "Add this extension to Nuphos": "この拡張機能を Nuphos に追加",
+  "Add to Nuphos": "Nuphos に追加",
   "Find extensions in the Chrome Web Store": "Chrome ウェブストアで拡張機能を探す",
   "{name} (turned off)": "{name}（オフ）",
   "Unpin from toolbar": "ツールバーから固定を解除",

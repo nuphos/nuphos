@@ -5733,7 +5733,7 @@
   "Extensions": "ส่วนขยาย",
   "Could not add the extension": "ไม่สามารถเพิ่มส่วนขยายได้",
   "Could not remove the extension": "ไม่สามารถนำส่วนขยายออกได้",
-  "Add this extension to Nuphos": "เพิ่มส่วนขยายนี้ลงใน Nuphos",
+  "Add to Nuphos": "เพิ่มลงใน Nuphos",
   "Find extensions in the Chrome Web Store": "ค้นหาส่วนขยายใน Chrome เว็บสโตร์",
   "{name} (turned off)": "{name} (ปิดอยู่)",
   "Unpin from toolbar": "เลิกปักหมุดจากแถบเครื่องมือ",
