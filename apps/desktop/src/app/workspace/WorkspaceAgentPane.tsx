@@ -195,7 +195,6 @@ export function WorkspaceAgentPane({
               key={`menu-${savedSessionId}`}
               sessionId={savedSessionId}
               teamId={teamId}
-              userId={user.id}
               title={currentHeading.title}
               canRename={mayRename}
               canArchive={currentHeading.canArchive === true}

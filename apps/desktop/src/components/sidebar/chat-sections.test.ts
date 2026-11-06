@@ -5,74 +5,97 @@ import { withChatSections } from './chat-sections.ts'
 
 import type { Item, Section } from './types'
 
-const row = (key: string, parentKey?: string): Item => ({
+const row = (
+  key: string,
+  {
+    parentKey,
+    bot,
+    channel,
+    botChannelOf,
+  }: { parentKey?: string; bot?: boolean; channel?: boolean; botChannelOf?: string } = {},
+): Item => ({
   key,
   label: key,
   enabled: true,
   ...(parentKey ? { parentKey } : {}),
+  ...(bot ? { bot } : {}),
+  ...(channel ? { channel } : {}),
+  ...(botChannelOf ? { botChannelOf } : {}),
 })
 const layout = (sections: Section[]) =>
   Object.fromEntries(
     sections.map((section) => [section.title ?? '', section.items.map((item) => item.key)]),
   )
-const build = (chats: Item[], pinned: string[]) =>
-  layout(
-    withChatSections(
-      [{ items: [] }, { title: 'Agents', items: chats }],
-      chats.filter((item) => pinned.includes(item.key)),
-      (item) => pinned.includes(item.key),
-    ),
-  )
+const build = (agents: Item[]) =>
+  layout(withChatSections([{ items: [] }, { title: 'Agents', items: agents }]))
 
-test('a pinned conversation takes its threads to Pinned', () => {
-  const chats = [row('thread', 'parent'), row('grandchild', 'thread'), row('parent'), row('other')]
+test('Bots holds group chats and Bots in the list order; Tasks holds every session', () => {
+  const agents = [
+    row('newest-task'),
+    row('zeta', { bot: true }),
+    row('group', { channel: true }),
+    row('older-task'),
+    row('alpha', { bot: true }),
+  ]
 
-  assert.deepEqual(build(chats, ['parent']), {
+  assert.deepEqual(build(agents), {
     '': [],
-    Pinned: ['parent', 'thread', 'grandchild'],
-    Agents: ['other'],
+    Channels: ['zeta', 'group', 'alpha'],
+    Tasks: ['newest-task', 'zeta', 'older-task', 'alpha'],
   })
 })
 
-test('a pinned thread leaves its parent and takes its own threads along', () => {
-  const chats = [
-    row('parent'),
-    row('thread', 'parent'),
-    row('grandchild', 'thread'),
-    row('sibling', 'parent'),
+test('a Bot with its chat is listed as that chat; its Tasks are under Tasks', () => {
+  const agents = [
+    row('agent-session:dm', { channel: true, botChannelOf: 'ada' }),
+    row('agent-session:ada', { bot: true }),
+    row('task-of-ada', { parentKey: 'agent-session:ada' }),
+    row('agent-session:new', { bot: true }),
   ]
 
-  assert.deepEqual(build(chats, ['thread']), {
+  assert.deepEqual(build(agents), {
     '': [],
-    Pinned: ['thread', 'grandchild'],
-    Agents: ['parent', 'sibling'],
+    Channels: ['agent-session:dm', 'agent-session:new'],
+    Tasks: ['agent-session:ada', 'task-of-ada', 'agent-session:new'],
   })
+})
+
+test('opening a Bot without its chat makes the chat', () => {
+  const opened: string[] = []
+  const [, chats] = withChatSections(
+    [{ items: [] }, { title: 'Agents', items: [row('agent-session:new', { bot: true })] }],
+    (botId) => opened.push(botId),
+  )
+
+  chats?.items[0]?.onActivate?.(false)
+  assert.deepEqual(opened, ['new'])
+})
+
+test('a chat drops its linked-work line; a Task keeps it', () => {
+  const sections = withChatSections([
+    {
+      title: 'Agents',
+      items: [
+        { ...row('bot', { bot: true }), description: 'PR' },
+        { ...row('task'), description: 'PR' },
+      ],
+    },
+  ])
+
+  assert.deepEqual(
+    sections.map((section) => section.items.map((item) => item.description)),
+    [[undefined], ['PR', 'PR']],
+  )
 })
 
 test('a parent cycle does not loop', () => {
-  assert.deepEqual(build([row('a', 'b'), row('b', 'a')], []), { '': [], Agents: ['a', 'b'] })
+  assert.deepEqual(build([row('a', { parentKey: 'b' }), row('b', { parentKey: 'a' })]), {
+    '': [],
+    Channels: [],
+    Tasks: ['a', 'b'],
+  })
 })
 
-test('a pinned chat that left the chat list, like an archived one, leaves Pinned', () => {
-  const pinned = ['archived', 'kept']
-  const sidebar = (chats: Item[]) =>
-    layout(
-      withChatSections(
-        [{ items: [] }, { title: 'Agents', items: chats }],
-        pinned.map((key) => row(key)),
-        (item) => pinned.includes(item.key),
-      ),
-    )
-
-  assert.deepEqual(sidebar([row('kept'), row('other')]), {
-    '': [],
-    Pinned: ['kept'],
-    Agents: ['other'],
-  })
-  // Restored, it lists again and is back in Pinned.
-  assert.deepEqual(sidebar([row('archived'), row('kept'), row('other')]), {
-    '': [],
-    Pinned: ['archived', 'kept'],
-    Agents: ['other'],
-  })
+test('Chats shows even with no agents at all, so its "+" can make the first', () => {
+  assert.deepEqual(build([]), { '': [], Channels: [] })
 })

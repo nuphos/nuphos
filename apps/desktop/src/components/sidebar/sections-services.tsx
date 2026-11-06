@@ -145,11 +145,8 @@ export function teamSections(
         enabled: true,
       })),
     },
-    // Always shown, so its "+" can start the first one.
-    { title: 'Channels', items: agentSessionItems.filter((item) => item.channel) },
-    ...(agentSessionItems.some((item) => !item.channel)
-      ? [{ title: 'Agents', items: agentSessionItems.filter((item) => !item.channel) }]
-      : []),
+    // Split into Chats and Tasks by withChatSections.
+    { title: 'Agents', items: agentSessionItems },
     ...loadingPlaceholder,
     ...connectorGroups.map(({ category, items }) => ({
       title: category.label,

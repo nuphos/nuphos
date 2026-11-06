@@ -104,7 +104,11 @@ export function ArchivedChatsView({
                     onClick={() => void unarchive(conversation)}
                   >
                     <ArchiveRestore className="h-3.5 w-3.5" strokeWidth={1.8} />
-                    {t('Unarchive')}
+                    {conversation.kind === 'channel'
+                      ? t('Unarchive')
+                      : conversation.avatar
+                        ? t('Unarchive Bot')
+                        : t('Unarchive Task')}
                   </Button>
                 </div>
               }

@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { agentApi } from '../../api/agent-api'
 import { t } from '../../i18n'
-import { useAgentAppearance } from '../../lib/agentAppearance'
 import { openChatSummaryChanges } from '../../lib/chatSummaryPanel'
 import { useSessionTerminalProcesses } from '../../lib/sessionTerminalProcesses'
 import { toast } from '../ui/toast'
@@ -38,7 +37,6 @@ export function SessionResources({
   onOpenTab?: (tabId: string) => void
 }) {
   const processes = useSessionTerminalProcesses(sessionId)
-  const { density } = useAgentAppearance()
 
   const [canManage, setCanManage] = useState(false)
   const [removed, setRemoved] = useState<string[]>([])
@@ -139,7 +137,7 @@ export function SessionResources({
       className={
         titlebar
           ? 't-session-heading relative flex flex-1 items-center gap-1 overflow-hidden text-[11px] text-tertiary'
-          : `relative flex min-w-0 items-center gap-2 overflow-hidden pr-2 text-[11px] text-tertiary ${density === 'compact' ? 'pl-[40px] pb-1' : 'pl-[48px] pb-1.5'}`
+          : `relative flex min-w-0 items-center gap-2 overflow-hidden pr-2 text-[11px] text-tertiary pl-[40px] pb-1`
       }
       aria-label={t('Linked resources')}
     >

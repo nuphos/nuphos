@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
+import { useAgentAvatarPicks } from '../../lib/agentAvatarChoices'
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
 import { useAgentUnreadSessions } from '../../lib/agentUnreadSessions'
 import { archiveChat as archiveChatRequest } from '../../lib/archiveChat'
@@ -272,6 +273,7 @@ export function useSidebarChats({
 
   const runtimeStates = useAgentRuntimeStates()
   const unreadSessions = useAgentUnreadSessions()
+  const avatarPicks = useAgentAvatarPicks()
   const chatItems: Item[] = agentSessions.map((conversation) => {
     const item = chatSidebarItem({
       conversation,
@@ -279,6 +281,7 @@ export function useSidebarChats({
       active: chatShown && agentSessionId === conversation.sessionId,
       runtimeState: runtimeStates.get(conversation.sessionId),
       unread: unreadSessions.has(conversation.sessionId),
+      picked: avatarPicks.get(conversation.sessionId),
     })
 
     // A menu rather than a one-click archive: a stray click only opens it.

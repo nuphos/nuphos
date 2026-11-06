@@ -2,6 +2,8 @@ import {
   Archive,
   Bell,
   BellOff,
+  Bot,
+  BotOff,
   ChevronRight,
   Copy,
   GitBranch,
@@ -9,8 +11,6 @@ import {
   Link2,
   MoreHorizontal,
   Pencil,
-  Pin,
-  PinOff,
   X,
 } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -18,17 +18,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { api } from '../../api'
 import { usePaneSummary } from '../../app/workspace/usePaneSummary'
 import { t } from '../../i18n'
-import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
+import { pickAgentAvatar, useAgentAvatarPick } from '../../lib/agentAvatarChoices'
 import { copyLinkWithFeedback } from '../../lib/copyLink'
 import { sessionShortcutCombo } from '../../lib/sessionShortcuts'
-import {
-  addSidebarFavorite,
-  favoriteIdentity,
-  readSidebarFavorites,
-  removeSidebarFavorite,
-  subscribeSidebarFavorites,
-} from '../../lib/sidebarFavorites'
-import { favoriteSessionId, favoriteToggleTitle } from '../../lib/sidebarPinnedChats'
 import {
   Menu,
   MenuContent,
@@ -41,6 +33,7 @@ import {
 import { ShortcutHint } from '../ui/shortcut-hint'
 import { toast } from '../ui/toast'
 import { Tooltip } from '../ui/tooltip'
+import { makeBot } from '../channels/botChannel'
 
 import { agentSessionUrl } from './sessionUrl'
 import { SummaryIcon } from './summary/ChatSummaryToggle'
@@ -49,7 +42,6 @@ import { useArchiveSession } from './useArchiveSession'
 type Props = {
   sessionId: string
   teamId: string
-  userId: string
   title: string
   canRename: boolean
   canArchive: boolean
@@ -68,30 +60,10 @@ type Props = {
   summaryInMenu?: boolean
 }
 
-function findPin(userId: string, teamId: string, sessionId: string) {
-  return readSidebarFavorites(userId, teamId).find(
-    (entry) => favoriteSessionId(entry) === sessionId,
-  )
-}
-
-/** The sidebar pin for this chat, whichever identity it was pinned under. */
-function useSessionPin(userId: string, teamId: string, sessionId: string) {
-  const [pin, setPin] = useState(() => findPin(userId, teamId, sessionId))
-
-  useEffect(
-    () =>
-      subscribeSidebarFavorites(userId, teamId, () => setPin(findPin(userId, teamId, sessionId))),
-    [sessionId, teamId, userId],
-  )
-
-  return pin
-}
-
 /** Titlebar "⋯" beside Share: the sidebar row's session actions for the open chat. */
 export function SessionHeaderMenu({
   sessionId,
   teamId,
-  userId,
   title,
   canRename,
   canArchive,
@@ -105,7 +77,7 @@ export function SessionHeaderMenu({
 }: Props) {
   const { archiving, archive } = useArchiveSession({ sessionId, teamId, title })
   const { open: summaryOpen, toggle: toggleSummary } = usePaneSummary()
-  const pin = useSessionPin(userId, teamId, sessionId)
+  const isBot = Boolean(useAgentAvatarPick(sessionId))
   // What the server said when the chat opened; a toggle here wins after that.
   const [toggled, setToggled] = useState<boolean | undefined>(undefined)
   const watching = toggled ?? reportedWatching
@@ -119,6 +91,17 @@ export function SessionHeaderMenu({
       toast.apiError(next ? t('Could not watch agent') : t('Could not unwatch agent'), err)
     })
   }
+  // "Turn into a Task" takes the face away; "Make this a Bot" is shared with the Tasks row menu.
+  function setBot(bot: boolean) {
+    if (bot) {
+      void makeBot(teamId, sessionId)
+
+      return
+    }
+    void pickAgentAvatar(sessionId, null, () =>
+      api.agentSetConversationAvatar(sessionId, null, teamId),
+    ).catch((err: unknown) => toast.apiError(t('Could not change avatar'), err))
+  }
   // Rename waits for the popup to finish closing; otherwise focus returning to
   // the trigger blurs the title input, and blur saves and closes it.
   const renameOnClose = useRef(false)
@@ -126,23 +109,13 @@ export function SessionHeaderMenu({
   // pane, which would make the closed pane the active one again.
   const closePaneOnClose = useRef(false)
 
-  function togglePin() {
-    if (pin) {
-      removeSidebarFavorite(userId, teamId, favoriteIdentity(pin))
+  function copy(value: string, what: 'Link' | 'ID') {
+    const copied =
+      what === 'Link' ? t('Link copied') : isBot ? t('Bot ID copied') : t('Task ID copied')
 
-      return
-    }
-    const href = pageLocationForNavigation(
-      emptyNavigation({ kind: 'team', teamId }, 'team.agent', { agentSessionId: sessionId }),
-    ).href
-
-    addSidebarFavorite(userId, teamId, { label: title, href })
-  }
-
-  function copy(value: string, what: 'Link' | 'Agent ID') {
     void copyLinkWithFeedback(value, (text) => navigator.clipboard.writeText(text), {
       onSuccess: () =>
-        toast.success(what === 'Link' ? t('Link copied') : t('Agent ID copied'), undefined, {
+        toast.success(copied, undefined, {
           timeoutMs: 1200,
           dedupe: false,
         }),
@@ -154,13 +127,12 @@ export function SessionHeaderMenu({
     })
   }
 
-  // ⌥⌘R, ⌥⌘P, ⇧⌘C and ⇧⌘A run the same actions as the menu items below.
+  // ⌥⌘R, ⇧⌘C and ⇧⌘A run the same actions as the menu items below.
   const onShortcut = useRef<((action: string) => void) | null>(null)
 
   useLayoutEffect(() => {
     onShortcut.current = (action) => {
       if (action === 'rename-chat' && canRename) onRename()
-      else if (action === 'toggle-pin-chat') togglePin()
       else if (action === 'copy-chat-link') copy(agentSessionUrl(teamId, sessionId), 'Link')
       else if (action === 'archive-chat' && canArchive && !archiving) void archive()
     }
@@ -192,7 +164,7 @@ export function SessionHeaderMenu({
     >
       <Tooltip content={t('More actions')} side="bottom">
         <MenuTrigger
-          aria-label={t('More agent actions')}
+          aria-label={t('More actions')}
           className="titlebar-no-drag ml-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-secondary transition-colors hover:bg-state-hover hover:text-main data-[popup-open]:bg-state-selected data-[popup-open]:text-main motion-reduce:transition-none"
         >
           <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
@@ -206,7 +178,7 @@ export function SessionHeaderMenu({
               hint={<ShortcutHint combo="mod+i" className="pl-4" />}
               onClick={toggleSummary}
             >
-              {summaryOpen ? t('Hide agent summary') : t('Show agent summary')}
+              {summaryOpen ? t('Hide summary') : t('Show summary')}
             </MenuItem>
             <MenuSeparator />
           </>
@@ -219,27 +191,34 @@ export function SessionHeaderMenu({
               renameOnClose.current = true
             }}
           >
-            {t('Rename agent')}
+            {isBot ? t('Rename Bot') : t('Rename task')}
           </MenuItem>
         )}
-        <MenuItem
-          icon={pin ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
-          hint={<ShortcutHint combo={sessionShortcutCombo('toggle-pin-chat')} className="pl-4" />}
-          onClick={togglePin}
-        >
-          {favoriteToggleTitle(true, Boolean(pin))}
-        </MenuItem>
+        {canRename && (
+          <MenuItem
+            icon={isBot ? <BotOff className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
+            onClick={() => setBot(!isBot)}
+          >
+            {isBot ? t('Turn into a Task') : t('Make this a Bot')}
+          </MenuItem>
+        )}
         {watching !== undefined && (
           <MenuItem
             icon={watching ? <BellOff className="h-3.5 w-3.5" /> : <Bell className="h-3.5 w-3.5" />}
             onClick={toggleWatch}
           >
-            {watching ? t('Unwatch agent') : t('Watch agent')}
+            {watching
+              ? isBot
+                ? t('Unwatch Bot')
+                : t('Unwatch task')
+              : isBot
+                ? t('Watch Bot')
+                : t('Watch task')}
           </MenuItem>
         )}
         {canFork && (
           <MenuItem icon={<GitBranch className="h-3.5 w-3.5" />} onClick={onFork}>
-            {t('Fork agent')}
+            {isBot ? t('Fork Bot') : t('Fork task')}
           </MenuItem>
         )}
         <MenuSubmenu>
@@ -259,11 +238,8 @@ export function SessionHeaderMenu({
             >
               {t('Link')}
             </MenuItem>
-            <MenuItem
-              icon={<Hash className="h-3.5 w-3.5" />}
-              onClick={() => copy(sessionId, 'Agent ID')}
-            >
-              {t('Agent ID')}
+            <MenuItem icon={<Hash className="h-3.5 w-3.5" />} onClick={() => copy(sessionId, 'ID')}>
+              {isBot ? t('Bot ID') : t('Task ID')}
             </MenuItem>
           </MenuContent>
         </MenuSubmenu>
@@ -276,7 +252,7 @@ export function SessionHeaderMenu({
               disabled={archiving}
               onClick={() => void archive()}
             >
-              {archiving ? t('Archiving…') : t('Archive agent')}
+              {archiving ? t('Archiving…') : isBot ? t('Archive Bot') : t('Archive Task')}
             </MenuItem>
           </>
         )}

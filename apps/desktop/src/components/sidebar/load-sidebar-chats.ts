@@ -11,8 +11,8 @@ type ReadPage = (options: {
 
 /**
  * Page size is a transport bound, never a limit on the visible chat list.
- * The agents the viewer owns or was invited to, in one order of recent
- * activity, then the channels they own or joined: lists never mix the two, so
+ * The agents the viewer owns or was invited to and the channels they own or
+ * joined, in one order of recent activity. The server lists the two apart, so
  * channels are their own listing. Anything shared with the whole team but
  * never joined stays out.
  */
@@ -51,13 +51,8 @@ export async function loadSidebarChats(
     } while (cursor)
   }
 
-  const rows = [...conversations.values()]
-  // Each listing comes newest first; a stable sort keeps that within each.
-  const agents = rows
-    .filter((row) => row.kind !== 'channel')
-    .sort((a, b) => activityTime(b) - activityTime(a))
-
-  return [...agents, ...rows.filter((row) => row.kind === 'channel')]
+  // Agents and group chats share one list (Chats), newest activity first.
+  return [...conversations.values()].sort((a, b) => activityTime(b) - activityTime(a))
 }
 
 function activityTime(conversation: AgentConversation): number {

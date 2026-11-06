@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto'
 
 import { z } from 'zod'
 
-import { derivedAvatar } from '@/lib/agent/bot-avatars'
+import { initializeSessionBypass } from '@/lib/agent/auto-mode/store'
+import { BOT_AVATARS, derivedAvatar } from '@/lib/agent/bot-avatars'
 import { startConversationTurn } from '@/lib/agent/conversation-turn'
 import {
   claimBotAvatar,
@@ -53,12 +54,14 @@ agent.patch('/conversations/:sessionId/avatar', async (c) => {
   return c.json({ avatar: body.data.avatar })
 })
 
-// "+" on Bots: a Bot exists, with a name and a face, before anyone types. It
-// is placed on the runtime the client would start a new chat on, so its
+// "+" on Bots: a Bot exists, with the name and face its maker chose, before
+// anyone types. It is placed on the runtime the client would start a new chat on, so its
 // composer shows that runtime and its first turn runs there.
 const createBotBody = z
   .object({
     teamId: z.string().optional(),
+    title: z.string().trim().min(1).max(120).optional(),
+    avatar: z.enum(BOT_AVATARS).optional(),
     runtimeId: z.unknown().optional(),
     agentRuntime: z.unknown().optional(),
     runtimeLabel: z.string().max(200).optional(),
@@ -77,8 +80,8 @@ agent.post('/bots', async (c) => {
 
   if (!teamId) throw new AppError(403, 'forbidden', 'Workspace membership is required')
   const sessionId = randomUUID()
-  const avatar = derivedAvatar(sessionId)
-  const title = 'New Bot'
+  const avatar = body.data.avatar ?? derivedAvatar(sessionId)
+  const title = body.data.title ?? 'New Bot'
 
   await upsertConversationShell({
     sessionId,
@@ -90,6 +93,8 @@ agent.post('/bots', async (c) => {
     ...(agentRuntime ? { agentRuntime } : {}),
     ...(runtimeId ? { runtimeId, ...(runtimeLabel ? { runtimeLabel } : {}) } : {}),
   })
+  // A Bot works on its own, so it starts in full access, as a new chat would set it.
+  await initializeSessionBypass(sessionId, c.get('userId'), true)
 
   return c.json({ sessionId, title, avatar }, 201)
 })

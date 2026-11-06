@@ -15,7 +15,7 @@ const DOTS: Record<'background' | 'unread' | 'waiting', { label: string; tone: S
   waiting: { label: t('Needs your input'), tone: 'attention' },
 }
 
-/** The row's status at its right edge; the left icon only ever names the agent. */
+/** The row's status, at its right edge. The icon only ever names the agent. */
 export function ChatRowStatus({
   runtimeState: state,
   dot,

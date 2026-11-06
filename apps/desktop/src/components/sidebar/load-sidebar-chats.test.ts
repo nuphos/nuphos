@@ -88,7 +88,7 @@ test('refresh moves an older active conversation above a newer idle one', async 
   )
 })
 
-test('channels come from their own listing, every page of it, after the agents', async () => {
+test('channels come from their own listing, every page of it', async () => {
   const asked: string[] = []
   const rows = await loadSidebarChats(
     async (options) => {
@@ -133,7 +133,7 @@ const page = (conversations: AgentConversation[]) => ({
   hasMore: false,
 })
 
-test('agents shared with the viewer sit among their own, by recent activity', async () => {
+test("shared agents and channels sit among the viewer's own, by recent activity", async () => {
   const rows = await loadSidebarChats(
     async (options) => {
       if (options.kind === 'channel')
@@ -149,7 +149,7 @@ test('agents shared with the viewer sit among their own, by recent activity', as
 
   assert.deepEqual(
     rows?.map((row) => row.sessionId),
-    ['newest', 'shared', 'oldest', 'c1'],
+    ['c1', 'newest', 'shared', 'oldest'],
   )
 })
 
