@@ -16,6 +16,7 @@ let owner = caller
 let managerIds: string[] = []
 let saved: (string | null)[] = []
 let stillThere = true
+let shells: Record<string, unknown>[] = []
 
 useIdentity({
   authenticateToken: async () => ({ user: { id: caller } }),
@@ -26,6 +27,11 @@ useAgentDb({
     team === teamId
       ? { sessionId: 's1', userId: owner, teamId, participantIds: managerIds, managerIds }
       : null,
+  upsertConversationShell: async (data) => {
+    shells.push(data)
+
+    return { isNew: true }
+  },
   setConversationAvatar: async (_session, avatar) => {
     saved.push(avatar)
 
@@ -42,6 +48,7 @@ beforeEach(() => {
   managerIds = []
   saved = []
   stillThere = true
+  shells = []
 })
 const pick = (avatar: unknown, team = teamId) =>
   app.request(`/agent/conversations/s1/avatar?teamId=${team}`, {
@@ -81,4 +88,30 @@ test('another team cannot see the conversation', async () => {
 test('an Agent deleted between the check and the write is not found', async () => {
   stillThere = false
   expect((await pick('07-ada')).status).toBe(404)
+})
+
+const createBot = (team = teamId) =>
+  app.request(`/agent/bots?teamId=${team}`, {
+    method: 'POST',
+    headers: { authorization: 'Bearer test-token', 'content-type': 'application/json' },
+    body: '{}',
+  })
+
+test('"+" on Bots creates a Bot with a name and its derived face, before any message', async () => {
+  const response = await createBot()
+  const body = (await response.json()) as { sessionId: string; title: string; avatar: string }
+
+  expect(response.status).toBe(201)
+  expect(body.title).toBe('New Bot')
+  expect(body.avatar).toMatch(/^\d{2}-[a-z-]+$/)
+  expect(shells).toEqual([
+    {
+      sessionId: body.sessionId,
+      userId: caller,
+      teamId,
+      title: 'New Bot',
+      firstMessage: '',
+      avatar: body.avatar,
+    },
+  ])
 })
