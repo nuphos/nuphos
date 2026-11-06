@@ -16,7 +16,7 @@ class RuntimeDeviceLabelTest {
 
     @Test fun serverLabelReplacesCreationLabelAndMissingLabelDoesNotKeepOldDevice() = runTest {
         var detail = AgentConversationDetail(runtimeId = "laptop", runtimeLabel = "My laptop", agentRuntime = "codex")
-        val session = ChatSession("fixture", "team", browsingOnly = true, aiAllowed = { true },
+        val session = ChatSession("fixture", "team", readBypass = { _, _ -> false }, aiAllowed = { true },
             readDetail = { _, _, _ -> detail }, creationRuntimeBinding = RuntimeBinding("cloud", "codex", "Cloud Agent"))
         assertEquals("Cloud Agent", session.runtimeDeviceLabel)
         assertEquals("cloud", session.outgoingCreationBinding?.runtimeId)
@@ -26,6 +26,6 @@ class RuntimeDeviceLabelTest {
         detail = AgentConversationDetail(runtimeId = "other", agentRuntime = "claude-code")
         session.reloadFromServer()
         assertNull(session.runtimeDeviceLabel)
-        session.disposeBrowsing()
+        session.disposeForConsent()
     }
 }

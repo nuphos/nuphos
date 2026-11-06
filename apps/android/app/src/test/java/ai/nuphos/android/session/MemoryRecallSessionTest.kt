@@ -21,7 +21,7 @@ class MemoryRecallSessionTest {
     @Test fun sharedLoadedTranscriptAllowsRecallButFreshFailureAndDisposedDoNot() = runTest {
         var allowed = true
         var fail = false
-        val session = ChatSession("fixture", "team", browsingOnly = true, aiAllowed = { allowed }, readDetail = { _, team, _ ->
+        val session = ChatSession("fixture", "team", readBypass = { _, _ -> false }, aiAllowed = { allowed }, readDetail = { _, team, _ ->
             assertEquals("team", team)
             if (fail) error("denied") else detail()
         })
@@ -41,8 +41,6 @@ class MemoryRecallSessionTest {
         fail = false
         session.load()
         assertTrue(session.canShowRecall(row))
-        session.disposeBrowsing()
-        assertFalse(session.canShowRecall(row))
         session.disposeForConsent()
         assertFalse(session.canShowRecall(row))
     }
@@ -76,24 +74,6 @@ class MemoryRecallSessionTest {
         release.complete(Unit)
         fetch.join()
         assertTrue(session.canShowRecall(row))
-        session.disposeForConsent()
-    }
-    @Test fun lateSuccessfulBrowsingDetailCannotRestoreDisposedRecallWitness() = runTest {
-        val release = CompletableDeferred<Unit>()
-        val started = CompletableDeferred<Unit>()
-        val session = ChatSession("fixture", "team", browsingOnly = true, aiAllowed = { true }, readDetail = { _, _, _ ->
-            started.complete(Unit)
-            release.await()
-            detail()
-        })
-        val fetch = launch { session.reloadFromServer() }
-        started.await()
-        session.disposeBrowsing()
-        release.complete(Unit)
-        fetch.join()
-        val row = ChatRow.rows(detail().messages).filterIsInstance<ChatRow.MemoryRecall>().single()
-        assertFalse(session.canShowRecall(row))
-        assertTrue(session.messages.isEmpty())
         session.disposeForConsent()
     }
 }

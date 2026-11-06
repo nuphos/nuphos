@@ -41,7 +41,6 @@ class ChatSession(
     val sessionId: String = UUID.randomUUID().toString().lowercase(),
     title: String = "New agent",
     private val transfers: AttachmentTransfers = AttachmentTransfers(),
-    val browsingOnly: Boolean = false,
     private val readDetail: suspend (String, String, String) -> AgentConversationDetail = NuphosApi::conversationDetail,
     private val aiAllowed: () -> Boolean = AiAccess.bind(token),
     val creationRuntimeBinding: ai.nuphos.android.data.RuntimeBinding? = null,
@@ -64,7 +63,7 @@ class ChatSession(
 
     private var suggestedPrompt by mutableStateOf<String?>(null)
     val promptSuggestion: String? get() = suggestedPrompt?.takeIf {
-        hasAiAccess && !browsingOnly && loaded && loadError == null && !readOnly && !isArchived &&
+        hasAiAccess && loaded && loadError == null && !readOnly && !isArchived &&
             !isStreaming && !hasActiveRun && !steeringPending && !submissionPending && canSubmit &&
             runtimeObservation?.let { !it.fresh(RuntimeObservation.now()) || it.phase in setOf("idle", "dormant", "cancelled") } != false &&
             retrySubmission == null &&
@@ -92,7 +91,7 @@ class ChatSession(
         modelScopeRevision++
         modelSettings?.invalidate()
         modelSettings = null
-        if (!modelScopeActive || !modelViewCurrent() || !hasAiAccess || browsingOnly || !serverMetadataObserved || !isNative) return
+        if (!modelScopeActive || !modelViewCurrent() || !hasAiAccess || !serverMetadataObserved || !isNative) return
         val revision = modelScopeRevision
         modelSettings = ModelSettingsStore(
             isCurrent = { modelScopeActive && modelViewCurrent() && revision == modelScopeRevision && hasAiAccess },
@@ -112,7 +111,7 @@ class ChatSession(
         private set
     var timelineEvents by mutableStateOf<List<AgentConversationDetail.TimelineEvent>>(emptyList())
         private set
-    val canReadDownloads get() = hasAiAccess && !browsingOnly && loaded && loadError == null && isOwner
+    val canReadDownloads get() = hasAiAccess && loaded && loadError == null && isOwner
     suspend fun refreshDownloads() {
         if (!canReadDownloads) { downloads = emptyList(); downloadsError = null; return }
         val generation = detailLoadGeneration
@@ -151,12 +150,12 @@ class ChatSession(
     fun canShowRecall(row: ChatRow.MemoryRecall) = hasAiAccess && loaded && loadError == null && row in recallRows
     private var readGeneration = 0L
     private var detailLoadGeneration = 0L
-    val readAllowed get() = hasAiAccess && !browsingOnly && loaded && loadError == null
+    val readAllowed get() = hasAiAccess && loaded && loadError == null
     private fun recordReadTranscript(detail: AgentConversationDetail) {
         recallRows = if (messages == detail.messages) ChatRow.rows(detail.messages)
             .filterIsInstance<ChatRow.MemoryRecall>().toSet() else emptySet()
         val seq = HistoryStatus.sequence(detail.activitySeq)
-        if (detail.isOwner != true || browsingOnly || seq == null || ((detail.messagesFirstIndex ?: 0) != 0 && detail.activeRun != null) || messages != detail.messages) { readTranscript = null; return }
+        if (detail.isOwner != true || seq == null || ((detail.messagesFirstIndex ?: 0) != 0 && detail.activeRun != null) || messages != detail.messages) { readTranscript = null; return }
         if (readTranscript?.seq != seq || readTranscript?.messages != messages)
             readTranscript = ReadTranscript(++readGeneration, seq, messages)
     }
@@ -170,7 +169,7 @@ class ChatSession(
         private set
     var queued by mutableStateOf(listOf<String>())
         private set
-    var readOnly by mutableStateOf(browsingOnly)
+    var readOnly by mutableStateOf(false)
         private set
     var loaded by mutableStateOf(false)
         private set
@@ -242,7 +241,7 @@ class ChatSession(
     private var watchRevision = 0L
     var watching: Boolean? by mutableStateOf(null)
         private set
-    val canWatch get() = hasAiAccess && loaded && loadError == null && !browsingOnly && watching != null
+    val canWatch get() = hasAiAccess && loaded && loadError == null && watching != null
     /** A write succeeded: show its result, and let no read from before it land. */
     fun applyWatching(value: Boolean) {
         watchRevision++
@@ -256,11 +255,11 @@ class ChatSession(
         if (hasAiAccess && revision == watchRevision) watching = detail.watching
     }
     val canManage get() = permissions.writable && (if (serverMetadataObserved) manages else isOwner)
-    val canOpenDesktop get() = canManage && isOwner && !browsingOnly && runtimeObservation?.snapshot?.let { snapshot ->
+    val canOpenDesktop get() = canManage && isOwner && runtimeObservation?.snapshot?.let { snapshot ->
         snapshot["canOpenDesktop"]?.boolValue == true || snapshot["tools"]?.arrayValue?.any { it["kind"]?.stringValue == "desktop" } == true
     } == true
     fun sharingState() = SharingState(ai.nuphos.android.data.SessionSharingApi(token, teamId, sessionId)) {
-        canManage && isOwner && !browsingOnly
+        canManage && isOwner
     }
 
     val canMoveAgent get() = canManage && serverMetadataObserved && !isStreaming && !hasActiveRun &&
@@ -297,7 +296,7 @@ class ChatSession(
     val sendQueues get() = isNative && !canReply && !canEnqueueSteering && runtimeObservation?.allows("send", RuntimeObservation.now()) != true && (runtimeObservation?.mayAcceptLater ?: true)
     private var queueCurrent: () -> Boolean = { false }
     internal val serverQueue = ServerQueueStore(
-        current = { queueCurrent() && hasAiAccess && !browsingOnly && loaded && loadError == null && isNative },
+        current = { queueCurrent() && hasAiAccess && loaded && loadError == null && isNative },
         writable = { permissions.writable && !movingAgent && !isArchived },
         canSteer = { canSteer },
         read = { AgentChatApi.queue(token, teamId, sessionId) },
@@ -368,16 +367,15 @@ class ChatSession(
             var msgs = detail.messages
             baseIndex = detail.messagesFirstIndex ?: 0
             isArchived = detail.archivedAt != null
-            readOnly = browsingOnly || (detail.readOnly ?: false)
+            readOnly = detail.readOnly ?: false
             draftAccessInvalidated = readOnly || isArchived
-            if (browsingOnly) loadError = null
             detail.title?.takeIf { it.isNotEmpty() }?.let { title = it }
             if (detail.isChannel) markChannel()
             detail.credentialAccess?.let {
                 val selection = CredentialSelection(it)
                 credentialAccess = if (selection.isEmpty) null else selection
             }
-            if (!browsingOnly) scope.launch {
+            scope.launch {
                 if (!hasAiAccess) return@launch
                 runCatching { readBypass(token, sessionId) }.getOrNull()?.let {
                     if (!hasAiAccess) return@launch
@@ -385,7 +383,7 @@ class ChatSession(
                 }
             }
             val run = detail.activeRun
-            if (run != null && !browsingOnly) {
+            if (run != null) {
                 val lastUser = msgs.indexOfLast { it.role == ChatMessage.Role.User }
                 if (!isNative && lastUser >= 0) msgs = msgs.take(lastUser + 1)
                 messages = msgs
@@ -707,7 +705,7 @@ class ChatSession(
     }
 
     private fun startTurn(options: TurnOptions) {
-        if (browsingOnly || !hasAiAccess) return
+        if (!hasAiAccess) return
         streamJob?.cancel()
         transportGeneration += 1
         val generation = transportGeneration
@@ -843,7 +841,7 @@ class ChatSession(
         }
         if (watchReadRevision == watchRevision) watching = detail.watching
         isArchived = detail.archivedAt != null
-        readOnly = browsingOnly || (detail.readOnly ?: false)
+        readOnly = detail.readOnly ?: false
         timelineEvents = detail.timelineEvents
         isOwner = detail.isOwner ?: false
         if (!isOwner) { downloads = emptyList(); downloadsError = null }
@@ -943,7 +941,7 @@ class ChatSession(
     }
 
     fun recoverRuntime(): Boolean {
-        if (browsingOnly || !hasAiAccess) return false
+        if (!hasAiAccess) return false
         val streamId = currentStreamId ?: return false
         if (!runtimeRecoveryRequired || isStreaming || !loaded || loadError != null) return false
         startTurn(TurnOptions(streamId, explicitResume = true, resumeFrom = streamCursors[streamId] ?: 0))
@@ -1022,10 +1020,6 @@ class ChatSession(
 
     suspend fun reloadFromServer() {
         if (!hasAiAccess) return
-        if (browsingOnly) {
-            load()
-            return
-        }
         delay(400)
         if (!hasAiAccess || (isStreaming && !isNative)) return
         val generation = transportGeneration
@@ -1048,7 +1042,7 @@ class ChatSession(
      * asking while the owner has not answered. A decline stays shown.
      */
     suspend fun watchShareApproval() {
-        if (browsingOnly || runtimeId?.startsWith("local_") != true) return
+        if (runtimeId?.startsWith("local_") != true) return
         while (coroutineContext.isActive && hasAiAccess) {
             val status = runCatching { readShareApproval(token, sessionId) }
             if (status.isSuccess) {
@@ -1060,7 +1054,7 @@ class ChatSession(
     }
 
     suspend fun pollWhileIdle() {
-        if (browsingOnly || !hasAiAccess) return
+        if (!hasAiAccess) return
         while (coroutineContext.isActive && hasAiAccess) {
             delay(3_000)
             if (!hasAiAccess) return
@@ -1531,17 +1525,6 @@ class ChatSession(
         steeringPending = false
         steeringHold = null
         credentialAccess = null
-    }
-
-    /** Release this view's local jobs without cancelling the server run. */
-    fun disposeBrowsing() {
-        if (browsingOnly) {
-            linkedResources.invalidate()
-            recallRows = emptySet()
-            detailLoadGeneration++
-            transportGeneration++
-            scope.cancel()
-        }
     }
 
     private fun newId() = UUID.randomUUID().toString().lowercase()

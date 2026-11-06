@@ -122,9 +122,6 @@ fun ConversationScreen(
         if (fresh) store.session(sessionId, "New agent")
         else conversation?.let { store.session(it) } ?: store.session(sessionId, store.pinnedShortcuts.firstOrNull { it.sessionId == sessionId }?.title ?: "Agent")
     }
-    DisposableEffect(session) {
-        onDispose { session.disposeBrowsing() }
-    }
     // A chat named by a link before the list knew it: show it as a chat once its detail says so.
     if (session.isChannel) {
         ai.nuphos.android.ui.chats.ChannelScreen(sessionId = sessionId, onBack = onBack)
@@ -783,7 +780,7 @@ private fun ToolCallRow(
         if (part.state == ChatPart.Tool.State.ApprovalRequested) {
             val reason = part.authorization?.get("reason")?.stringValue
             Text(reason?.let { "Authorization required — $it" } ?: "Authorization required", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
-            if (canDecide && !session.browsingOnly) {
+            if (canDecide) {
                 Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(modifier = Modifier.testTag("approve-once:${part.toolCallId}"), enabled = !session.readOnly && (if (session.isNative) session.canReply else session.canSubmit), onClick = { session.decide(part.toolCallId, ChatSession.ApprovalDecision.Once) }) { Text("Approve once") }
                     if (part.approval?.source != "openab") {
