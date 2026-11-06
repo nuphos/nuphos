@@ -9,13 +9,10 @@ import { toast } from '../../ui/toast'
 import type { PanelCtx } from './ctx'
 import type { PermissionMode } from '../../../lib/permissionMode'
 
-type Acc = Pick<
-  PanelCtx,
-  'activeId' | 'setHistory' | 'setHistoryLoading' | 'setTabs' | 'tabs' | 'tabsRef' | 'teamId'
->
+type Acc = Pick<PanelCtx, 'activeId' | 'setHistory' | 'setTabs' | 'tabs' | 'tabsRef' | 'teamId'>
 
 export function usePanelPermissions(acc: Acc) {
-  const { activeId, setHistory, setHistoryLoading, setTabs, tabs, tabsRef, teamId } = acc
+  const { activeId, setHistory, setTabs, tabs, tabsRef, teamId } = acc
 
   const activeTab = useMemo(() => tabs.find((t) => t.id === activeId) ?? null, [tabs, activeId])
   // The toolCallId of the LAST unresolved require_auth in the active tab — only
@@ -129,10 +126,9 @@ export function usePanelPermissions(acc: Acc) {
     },
     [activeId, bypassBySession, applyBypass, tabsRef],
   )
-  // The only consumer left is the starter-suggestions gate — those are for
-  // someone who has not started a conversation here yet — so this asks the
-  // narrowest question that answers it rather than paging a list nobody
-  // renders. The full history lives on the Chats page now.
+  // Fetches only the newest conversation: enough to fill `history` for
+  // openConversation and to sync runtime info onto open tabs. The full history
+  // lives on the Chats page.
   const refreshHistory = useCallback(async () => {
     // No team, no listing — history is a per-team question and the backend
     // rejects it without one.
@@ -141,7 +137,6 @@ export function usePanelPermissions(acc: Acc) {
 
       return
     }
-    setHistoryLoading(true)
     try {
       const page = await api.agentListConversations(teamId, { limit: 1, scope: 'mine' })
 
@@ -179,10 +174,8 @@ export function usePanelPermissions(acc: Acc) {
       )
     } catch (err) {
       toast.apiError(t('Failed to load recent agents'), err)
-    } finally {
-      setHistoryLoading(false)
     }
-  }, [setHistory, setHistoryLoading, setTabs, teamId])
+  }, [setHistory, setTabs, teamId])
 
   return {
     activeTab,

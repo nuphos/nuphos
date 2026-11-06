@@ -160,8 +160,6 @@ export const agentApi = {
   agentListJournalEvents: (args: AgentAuditListArgs) => window.api.agentListJournalEvents(args),
   agentExportJournal: (args: AgentAuditListArgs) => window.api.agentExportJournal(args),
   agentGetCredentialOptions: (teamId?: string) => window.api.agentGetCredentialOptions(teamId),
-  agentGetStarterSuggestions: (args: { teamId?: string; resources: string[]; locale?: string }) =>
-    window.api.agentGetStarterSuggestions(args),
   agentUpdateConversationCredentials: (args: {
     sessionId: string
     teamId?: string

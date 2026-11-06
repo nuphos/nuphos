@@ -6,53 +6,6 @@ import type { NavigationSnapshot } from '../lib/appRoutes'
 import type { AwsAccount, Scope } from '../types'
 import type { AccountSet } from './workspaceTabState'
 
-// Human labels for every integration the team has bound, fed to the agent
-// home page so it can generate starter questions tailored to what's connected.
-// Covers every AccountSet provider plus the outside-AccountSet connectors
-// (github, gitlab, grafana) the caller passes in.
-export function connectedResourceLabels(
-  accounts: AccountSet | undefined,
-  githubCount: number,
-  gitlabCount: number,
-  grafanaCount: number,
-): string[] {
-  const labels: string[] = []
-
-  if (accounts) {
-    if (accounts.aws.length > 0) labels.push('AWS')
-    if (accounts.gcp.length > 0) labels.push('Google Cloud')
-    if (accounts.cloudflare.length > 0) labels.push('Cloudflare')
-    if (accounts.linode.length > 0) labels.push('Linode')
-    if (accounts.hetzner.length > 0) labels.push('Hetzner')
-    if (accounts.tencent.length > 0) labels.push('Tencent Cloud')
-    if (accounts.aliyun.length > 0) labels.push('Alibaba Cloud')
-    if (accounts.volcengine.length > 0) labels.push('Volcengine')
-    if (accounts.azure.length > 0) labels.push('Azure')
-    if (accounts.betterstack.length > 0) labels.push('BetterStack')
-    if (accounts.uptimeKuma.length > 0) labels.push('Uptime Kuma')
-    if (accounts.tailscale.length > 0) labels.push('Tailscale')
-    if (accounts.zeabur.length > 0) labels.push('Zeabur')
-    if (accounts.linear.length > 0) labels.push('Linear')
-    if (accounts.jira.length > 0) labels.push('Jira')
-    if (accounts.asana.length > 0) labels.push('Asana')
-    if (accounts.notion.length > 0) labels.push('Notion')
-    if (accounts.plaud.length > 0) labels.push('Plaud')
-    if (accounts.onprem.length > 0) labels.push('Kubernetes')
-    if (accounts.vanta.length > 0) labels.push('Vanta')
-    if (accounts.secureframe.length > 0) labels.push('Secureframe')
-    if (accounts.sonarqube.length > 0) labels.push('SonarQube')
-    if (accounts.slackInstallation !== null || (accounts.slackLinkedChannels?.count ?? 0) > 0)
-      labels.push('Slack')
-    if (accounts.slackInstallation !== null) labels.push('Slack')
-    if (accounts.discordConnection?.installation) labels.push('Discord')
-  }
-  if (githubCount > 0) labels.push('GitHub')
-  if (gitlabCount > 0) labels.push('GitLab')
-  if (grafanaCount > 0) labels.push('Grafana')
-
-  return labels
-}
-
 export function awsRoleName(roleArn: string): string {
   return roleArn.split('/').pop() || roleArn
 }

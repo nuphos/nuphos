@@ -5,7 +5,6 @@ import { EMPTY_LIST } from '../../app/workspaceTabState'
 import { PageAsideContext } from '../../hooks/usePageAside'
 import { ToolbarSlotsContext } from '../../hooks/useToolbarControls'
 import { ToolbarPrimaryActionContext } from '../../hooks/useToolbarPrimaryAction'
-import { teamCanUseAgent } from '../../lib/agentAccess'
 import { reportPaneRender } from '../../lib/tabSwitchLog'
 
 import { usePaneOrder } from './usePaneOrder'
@@ -143,7 +142,6 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
                           isTeamAdmin={
                             teams.find((t) => t.id === tab.scope.teamId)?.role === 'ADMINISTRATOR'
                           }
-                          agentPaid={teamCanUseAgent(teams.find((t) => t.id === tab.scope.teamId))}
                           active={tab.id === activeTabId}
                           mounted={mountedIds.has(tab.id)}
                           accounts={accounts}

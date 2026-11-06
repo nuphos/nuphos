@@ -6,53 +6,21 @@ import { AGENT_WIDTH_KEY, DEFAULT_WIDTH_VW, MAX_WIDTH_VW, MIN_WIDTH_VW } from '.
 import { HOME_TAB_ID } from './model'
 import { panelVisible } from './panelVisibility'
 import { useNewConversationRuntime } from './useNewConversationRuntime'
-import { useStarterSuggestions } from './useStarterSuggestions'
 
 import type { PanelCtx } from './ctx'
 import type { Tab } from './model'
 
 type Acc = Pick<
   PanelCtx,
-  | 'connectedResources'
-  | 'kubeContext'
-  | 'open'
-  | 'paid'
-  | 'runtimeKubeContextRef'
-  | 'runtimeUrlRef'
-  | 'teamId'
-  | 'unbound'
-  | 'url'
-  | 'variant'
+  'kubeContext' | 'open' | 'runtimeKubeContextRef' | 'runtimeUrlRef' | 'teamId' | 'url' | 'variant'
 >
 
 export function usePanelBase(acc: Acc) {
-  const {
-    connectedResources,
-    kubeContext,
-    open,
-    paid,
-    runtimeKubeContextRef,
-    runtimeUrlRef,
-    teamId,
-    unbound,
-    url,
-    variant,
-  } = acc
+  const { kubeContext, open, runtimeKubeContextRef, runtimeUrlRef, teamId, url, variant } = acc
 
   const conversationRuntime = useNewConversationRuntime(teamId)
   const visible = panelVisible(variant, open)
-  // No integrations bound yet. The page used to refuse to talk at all in this
-  // state; now it only withholds what genuinely needs resources behind it.
-  const gated = unbound
   const isSidebarMode = variant === 'panel'
-  // Starter questions tailored to the connected resources, shown on the page
-  // home once at least one integration is bound (i.e. not gated). Only fetched
-  // in page mode — the sidebar Welcome keeps its static presets.
-  const homeStarterSuggestions = useStarterSuggestions({
-    teamId,
-    resources: connectedResources,
-    enabled: variant === 'page' && !gated && paid,
-  })
   // Read the latest URL inside callbacks without re-creating them on every nav.
   const localUrlRef = useRef<string | undefined>(url)
 
@@ -141,9 +109,7 @@ export function usePanelBase(acc: Acc) {
   return {
     ...conversationRuntime,
     visible,
-    gated,
     isSidebarMode,
-    homeStarterSuggestions,
     urlRef,
     kubeContextRef,
     teamIdRef,

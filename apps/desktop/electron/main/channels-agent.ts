@@ -160,10 +160,6 @@ export const agentChannels = {
   },
   'agent:getCredentialOptions': (_e: unknown, teamId?: string) =>
     agent.getCredentialOptions(teamId),
-  'agent:getStarterSuggestions': (
-    _e: unknown,
-    args: { teamId?: string; resources: string[]; locale?: string },
-  ) => agent.getStarterSuggestions(args),
   'agent:updateConversationCredentials': (
     _e: unknown,
     args: {

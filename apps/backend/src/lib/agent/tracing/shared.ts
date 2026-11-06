@@ -7,9 +7,7 @@ import { getTracer } from '@/otel/api'
 
 import type { Attributes, Context as OtelContext } from '@opentelemetry/api'
 
-// Metrics-only mode also needs AI SDK spans for gen_ai.* metrics.
-export const otelEnabled =
-  config.otel.enabled && (config.otel.traces.enabled || config.otel.metrics.enabled)
+export const otelEnabled = config.otel.enabled && config.otel.traces.enabled
 
 // Lightweight span surface so callers do not have to know which tracing sinks
 // are enabled. The implementation can write MongoDB, OTel, or both.

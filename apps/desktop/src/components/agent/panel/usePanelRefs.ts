@@ -32,7 +32,6 @@ export function usePanelRefs() {
   const [draggingFiles, setDraggingFiles] = useState(false)
   const dragDepthRef = useRef(0)
   const [history, setHistory] = useState<AgentConversation[]>([])
-  const [historyLoading, setHistoryLoading] = useState(false)
   const [openingConversation, setOpeningConversation] = useState<OpeningConversation | null>(null)
   const [credentialOptions, setCredentialOptions] =
     useState<AgentCredentialOptions>(EMPTY_CREDENTIAL_OPTIONS)
@@ -95,8 +94,6 @@ export function usePanelRefs() {
     dragDepthRef,
     history,
     setHistory,
-    historyLoading,
-    setHistoryLoading,
     openingConversation,
     setOpeningConversation,
     credentialOptions,

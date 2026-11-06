@@ -111,30 +111,3 @@ function sumTokenValues(...values: unknown[]): number | undefined {
 
   return seen ? total : undefined
 }
-
-// Pricing carries ONE cache-write rate — input x 1.25, the 5-minute TTL — which
-// is what every row in our history has ever used (Vertex
-// ephemeral_1h_input_tokens is 0 throughout; every Bedrock cacheDetails ttl is
-// '5m'). A 1-hour cache write bills at 2x input, so if one ever appears the
-// table under-bills it by 60% with nothing to show for it. This is the tripwire:
-// callers log loudly rather than quietly mispricing.
-export function hasNonFiveMinuteCacheWrite(usage: unknown): boolean {
-  const providerRaw = objectValue(objectValue(usage)?.raw)
-
-  if (!providerRaw) return false
-  const cacheCreation = objectValue(providerRaw.cache_creation)
-
-  for (const [key, value] of Object.entries(cacheCreation ?? {})) {
-    if (key === 'ephemeral_5m_input_tokens') continue
-    if (typeof value === 'number' && value > 0) return true
-  }
-  const cacheDetails = providerRaw.cacheDetails
-
-  if (!Array.isArray(cacheDetails)) return false
-
-  return cacheDetails.some((detail) => {
-    const ttl = objectValue(detail)?.ttl
-
-    return typeof ttl === 'string' && ttl !== '5m'
-  })
-}

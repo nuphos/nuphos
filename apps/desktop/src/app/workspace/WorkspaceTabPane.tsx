@@ -8,7 +8,6 @@ import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 import { connectKubernetesCluster } from '../../lib/kubernetesCluster'
 import { WorkspaceRowLinkProvider } from '../../lib/WorkspaceRowLinkProvider'
 import { DEFAULT_GITLAB_NAV } from '../../views/gitlabNav'
-import { connectedResourceLabels } from '../accountScopes'
 import { PageMetaContext } from '../pageMetaContext'
 import { ScopeContent } from '../scopeContent/ScopeContent'
 import { pageLocationForTab } from '../workspaceTabFactory'
@@ -72,7 +71,6 @@ export const WorkspaceTabPane = memo(
     slackBindRequested,
     onSlackBindHandled,
     isTeamAdmin,
-    agentPaid,
     renderAgentPage = true,
     dockVisible = true,
   }: WorkspaceTabPaneProps) => {
@@ -131,18 +129,6 @@ export const WorkspaceTabPane = memo(
 
       return !hasCloudOnboardingBinding(accounts)
     }, [accounts, firstRunDevForced])
-    // Labels for the team's bound integrations — drives the agent home page's
-    // LLM-generated starter suggestions once at least one connector exists.
-    const agentConnectedResources = useMemo(
-      () =>
-        connectedResourceLabels(
-          accounts,
-          githubInstallations.length,
-          gitlabBindings.length,
-          grafanaInstances.length,
-        ),
-      [accounts, githubInstallations.length, gitlabBindings.length, grafanaInstances.length],
-    )
     const viewSetters = useTabViewSetters(tabId, updateTab)
     const connectorActions = useTabConnectorActions({ tabId, tab, enterScopeInTab })
     const clusterPickers = useTabClusterPickers({
@@ -254,10 +240,8 @@ export const WorkspaceTabPane = memo(
                     user={user}
                     active={active}
                     isTeamAdmin={isTeamAdmin}
-                    agentPaid={agentPaid}
                     pageHref={pageHref}
                     agentUnbound={agentUnbound}
-                    agentConnectedResources={agentConnectedResources}
                     pendingPageImport={pendingPageImport}
                     pendingChatPrompt={pendingChatPrompt}
                     onDockAgentToSidebar={onDockAgentToSidebar}

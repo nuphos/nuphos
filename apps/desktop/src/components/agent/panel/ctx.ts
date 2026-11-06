@@ -14,7 +14,6 @@ import type { AuthorizationDecisionAction, ToolPart, TransferUploadPart } from '
 import type { ComposerReplyTarget, ReplyQuestion } from './replyTarget'
 import type { StallDetail } from './stall'
 import type { TextStreamBuffer } from './streamBuffer'
-import type { useStarterSuggestions } from './useStarterSuggestions'
 import type { PermissionMode } from '../../../lib/permissionMode'
 import type { SessionConfigPick } from '../../../api/session-config-types'
 import type { UserInfo } from '../../../types'
@@ -33,11 +32,9 @@ export type PanelCtx = {
   currentUser?: UserInfo | null
   userName?: string
   teamId?: string
-  paid: boolean
   url?: string
   runtimeUrlRef?: Ref<string | undefined>
   unbound: boolean
-  gated: boolean
   isSidebarMode: boolean
   visible: boolean
   isTeamAdmin: boolean
@@ -76,10 +73,8 @@ export type PanelCtx = {
   openQuestions?: ReplyQuestion[]
   kubeContext?: string | null
   runtimeKubeContextRef?: Ref<string | null | undefined>
-  connectedResources?: string[]
   onDockToSidebar?: (snapshot: Tab | null) => void
   onExpandToPage?: (snapshot: Tab | null, opts?: { newTab?: boolean }) => void
-  homeStarterSuggestions: ReturnType<typeof useStarterSuggestions>
   urlRef: Ref<string | undefined>
   kubeContextRef: Ref<string | null | undefined>
   teamIdRef: Ref<string | undefined>
@@ -102,8 +97,6 @@ export type PanelCtx = {
   dragDepthRef: Ref<number>
   history: AgentConversation[]
   setHistory: Dispatch<SetStateAction<AgentConversation[]>>
-  historyLoading: boolean
-  setHistoryLoading: Dispatch<SetStateAction<boolean>>
   /** The chat being fetched; `unavailable` once the reader turned out unable to see it. */
   openingConversation: OpeningConversation | null
   setOpeningConversation: Dispatch<SetStateAction<OpeningConversation | null>>

@@ -16,10 +16,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
   const {
     autoFocusComposer,
     defaultPermissionMode,
-    history,
-    historyLoading,
     homeDropRef,
-    homeStarterSuggestions,
     isTeamAdmin,
     newConversationRuntime,
     newConversationSessionConfig,
@@ -38,7 +35,6 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
     startChatWith,
     stopActive,
     teamId,
-    unbound,
     variant,
     visibleHomeCredentialSelector,
   } = c
@@ -103,8 +99,6 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
         newChatRequest={c.newChatRequest}
         shown={c.homeShown}
         userName={c.userName}
-        conversations={history}
-        loading={historyLoading}
         onSend={(text, filePaths, mentions) =>
           void sendInActive(text, filePaths, undefined, undefined, mentions)
         }
@@ -118,11 +112,8 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
         onSeedConsumed={onPromptConsumed}
         autoFocusComposer={autoFocusComposer}
         dropRegisterRef={homeDropRef}
-        unbound={unbound}
         teamId={teamId}
         draftKey={draftKey}
-        starterSuggestions={homeStarterSuggestions.suggestions}
-        starterSuggestionsLoading={homeStarterSuggestions.loading}
       />
     </>
   ) : (

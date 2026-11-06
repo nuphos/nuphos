@@ -1,7 +1,6 @@
 import { clsx } from 'clsx'
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 
-import { connectedResourceLabels } from '../../app/accountScopes'
 import { AgentAvatar } from '../../components/agent/AgentAvatar'
 import { AgentPanel } from '../../components/agent/AgentPanel'
 import { EditableConversationTitle } from '../../components/agent/panel/ConversationTitleEditor'
@@ -12,7 +11,6 @@ import { ChatSummaryPanel } from '../../components/agent/summary/ChatSummaryPane
 import { ChatSummaryToggle } from '../../components/agent/summary/ChatSummaryToggle'
 import { useComposerReplyTarget } from '../../components/agent/summary/useComposerReplyTarget'
 import { useSessionInputRequests } from '../../components/agent/summary/useSessionInputRequests'
-import { teamCanUseAgent } from '../../lib/agentAccess'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 
 import { CORNER_TITLEBAR_CLASS, CornerSidebarToggle } from './CornerSidebarToggle'
@@ -54,9 +52,6 @@ export function WorkspaceAgentPane({
     consumeChatPrompt,
     currentTeam,
     firstRunDevForced,
-    githubInstallationsByTeam,
-    gitlabBindingsByTeam,
-    grafanaInstancesByTeam,
     openSettingsSection,
     pendingChatPrompt,
     scope,
@@ -77,16 +72,6 @@ export function WorkspaceAgentPane({
   const teamId = scope?.teamId
   const inputQueue = useSessionInputRequests(savedSessionId, teamId)
   const { replyTarget, openQuestions } = useComposerReplyTarget(savedSessionId, teamId, inputQueue)
-  const connectedResources = useMemo(
-    () =>
-      connectedResourceLabels(
-        accounts,
-        teamId ? (githubInstallationsByTeam[teamId]?.length ?? 0) : 0,
-        teamId ? (gitlabBindingsByTeam[teamId]?.length ?? 0) : 0,
-        teamId ? (grafanaInstancesByTeam[teamId]?.length ?? 0) : 0,
-      ),
-    [accounts, githubInstallationsByTeam, gitlabBindingsByTeam, grafanaInstancesByTeam, teamId],
-  )
   const unbound =
     firstRunDevForced || (accounts !== undefined && !hasCloudOnboardingBinding(accounts))
   // Workspace context is consumed only when dispatching the next turn. Keep it
@@ -251,11 +236,9 @@ export function WorkspaceAgentPane({
               userName={user.name}
               runtimeUrlRef={runtimeUrlRef}
               teamId={teamId}
-              paid={teamCanUseAgent(currentTeam)}
               isTeamAdmin={currentTeam?.role === 'ADMINISTRATOR'}
               runtimeKubeContextRef={runtimeKubeContextRef}
               unbound={unbound}
-              connectedResources={connectedResources}
               autoFocusComposer={paneActive && !dockOpen}
               newChatRequest={ws.newChatRequest}
               newChatDraftId={paneId}
