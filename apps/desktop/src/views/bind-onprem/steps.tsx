@@ -121,12 +121,12 @@ export function InstallStep({
       <div
         className={`flex items-center gap-2 rounded-md border px-3 py-2 text-[12.5px] ${
           connected
-            ? 'border-emerald-900/60 bg-emerald-950/30 text-emerald-300'
+            ? 'border-status-success/60 bg-status-success/30 text-status-success'
             : 'border-line-control bg-surface-sheet text-secondary'
         }`}
       >
         <span
-          className={`h-2 w-2 rounded-full ${connected ? 'bg-emerald-400' : 'animate-pulse bg-line-control'}`}
+          className={`h-2 w-2 rounded-full ${connected ? 'bg-status-success' : 'animate-pulse bg-line-control'}`}
         />
         {connected ? (
           <span>
@@ -205,7 +205,7 @@ function AccessReadout({ access }: { access: OnpremClusterAccess }) {
   if (!access.reachable) {
     return (
       <div className="space-y-2">
-        <div className="rounded-md border border-amber-900/60 bg-amber-950/30 px-3 py-2 text-[12.5px] text-amber-200">
+        <div className="rounded-md border border-status-warning/60 bg-status-warning/30 px-3 py-2 text-[12.5px] text-status-warning">
           {access.unreachableReason ?? t('Could not reach the API server through the relay.')}
         </div>
         <p className="text-[11px] text-tertiary">
@@ -217,7 +217,7 @@ function AccessReadout({ access }: { access: OnpremClusterAccess }) {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-md border border-emerald-900/60 bg-emerald-950/30 px-3 py-2 text-[12.5px] text-emerald-300">
+      <div className="rounded-md border border-status-success/60 bg-status-success/30 px-3 py-2 text-[12.5px] text-status-success">
         {access.serverVersion
           ? t('Connected to the API server · {version}.', { version: access.serverVersion })
           : t('Connected to the API server.')}
@@ -242,7 +242,7 @@ function AccessReadout({ access }: { access: OnpremClusterAccess }) {
               )}
             </ul>
             {access.permissions.incompleteReason && (
-              <p className="mt-1 text-[11px] text-amber-300/90">
+              <p className="mt-1 text-[11px] text-status-warning/90">
                 {t(
                   '{reason} Rules missing from a partial answer could include write access, so this is not a read-only guarantee.',
                   { reason: access.permissions.incompleteReason },

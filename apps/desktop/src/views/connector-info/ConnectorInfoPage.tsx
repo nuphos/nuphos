@@ -75,7 +75,7 @@ function ConnectionDetails({
               <button
                 type="button"
                 onClick={onDisconnect}
-                className="flex h-8 items-center gap-1.5 rounded-lg border border-red-500/25 bg-red-500/5 px-3 text-[12.5px] font-medium text-red-400 transition-colors hover:border-red-500/40 hover:bg-red-500/10"
+                className="flex h-8 items-center gap-1.5 rounded-lg border border-status-danger/25 bg-status-danger/5 px-3 text-[12.5px] font-medium text-status-danger transition-colors hover:border-status-danger/40 hover:bg-status-danger/10"
               >
                 <Unplug className="h-3.5 w-3.5" strokeWidth={1.9} />
                 {t('Disconnect')}
@@ -206,7 +206,7 @@ export function ConnectorInfoPage({
                   <div className="flex items-center gap-1.5 rounded-full border border-line-control/55 bg-surface px-2.5 py-1 text-[11.5px] text-secondary">
                     <span
                       className={`h-1.5 w-1.5 rounded-full ${
-                        connection.attention ? 'bg-warning' : 'bg-green-500'
+                        connection.attention ? 'bg-warning' : 'bg-status-success'
                       }`}
                     />
                     {connection.attention ?? t('Connected')}

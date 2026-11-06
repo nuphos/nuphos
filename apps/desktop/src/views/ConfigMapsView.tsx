@@ -133,7 +133,7 @@ export function ConfigMapsView({
             sortAccessor: (r) => r.immutable,
             render: (r) =>
               r.immutable ? (
-                <span className="inline-flex items-center gap-1 text-[11.5px] text-amber-300">
+                <span className="inline-flex items-center gap-1 text-[11.5px] text-status-warning">
                   <Lock className="w-3 h-3" strokeWidth={2} />
                   {t('Immutable')}
                 </span>

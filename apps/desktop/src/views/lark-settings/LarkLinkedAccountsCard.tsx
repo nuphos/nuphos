@@ -46,7 +46,7 @@ export function LarkLinkedAccountsCard({
                   <div className="flex items-center gap-1.5 font-mono text-[11.5px] text-tertiary truncate">
                     {mapping.larkOpenId}
                     {mapping.createdBy === 'pair-code' && (
-                      <span className="rounded border border-emerald-500/35 bg-emerald-500/10 px-1.5 py-0.5 font-sans text-[11px] text-emerald-300">
+                      <span className="rounded border border-status-success/35 bg-status-success/10 px-1.5 py-0.5 font-sans text-[11px] text-status-success">
                         {t('self-linked')}
                       </span>
                     )}
@@ -56,7 +56,7 @@ export function LarkLinkedAccountsCard({
                   type="button"
                   onClick={() => void onDelete(mapping)}
                   disabled={busyKey === `user:${mapping.id}`}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-red-500/10 hover:text-error disabled:opacity-50"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-status-danger/10 hover:text-error disabled:opacity-50"
                   title={t('Remove mapping')}
                   aria-label={t('Remove linked account')}
                 >

@@ -36,7 +36,7 @@ export function CommandTerminalView({ part }: { part: ToolPart }) {
         {done && exitCode !== null && exitCode !== 0 && (
           <span className="normal-case text-error">{t('exit {code}', { code: exitCode })}</span>
         )}
-        {done && !failed && <Check className="h-3 w-3 text-emerald-400" strokeWidth={2.5} />}
+        {done && !failed && <Check className="h-3 w-3 text-status-success" strokeWidth={2.5} />}
         {done && failed && <X className="h-3 w-3 text-error" strokeWidth={2.5} />}
       </div>
       <div
@@ -44,7 +44,7 @@ export function CommandTerminalView({ part }: { part: ToolPart }) {
         className="min-w-0 max-w-full max-h-72 overflow-auto scrollbar-thin px-3 py-2 leading-[1.55]"
       >
         <div className="whitespace-pre text-main">
-          <span className="select-none text-emerald-400">$ </span>
+          <span className="select-none text-status-success">$ </span>
           {command}
         </div>
         {stdout && <div className="mt-1 whitespace-pre text-secondary">{stdout}</div>}

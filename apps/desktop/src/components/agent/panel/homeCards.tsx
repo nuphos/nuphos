@@ -123,7 +123,9 @@ export function HomeCard({
   } else if (count === 0 && failed.length === total) {
     // Nothing loaded at all: an empty list here would read as all clear.
     body = (
-      <div className="px-1 py-1.5 text-[12px] text-amber-400">{t("Couldn't load from GitHub")}</div>
+      <div className="px-1 py-1.5 text-[12px] text-status-warning">
+        {t("Couldn't load from GitHub")}
+      </div>
     )
   } else if (count === 0) {
     body = <div className="px-1 py-1.5 text-[12px] text-tertiary">{empty}</div>
@@ -140,7 +142,10 @@ export function HomeCard({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">{body}</div>
       {failed.length > 0 && failed.length < total && (
-        <div className="truncate px-1 pt-1.5 text-[11px] text-amber-400" title={failed.join(', ')}>
+        <div
+          className="truncate px-1 pt-1.5 text-[11px] text-status-warning"
+          title={failed.join(', ')}
+        >
           {t("Couldn't check {repos}", { repos: failed.join(', ') })}
         </div>
       )}

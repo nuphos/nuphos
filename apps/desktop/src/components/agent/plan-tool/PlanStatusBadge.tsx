@@ -20,7 +20,7 @@ const PLAN_STATUS_TONE: Record<PlanLifecycleStatus, string> = {
   proposed: 'text-primary bg-state-selected border-action-primary/30',
   approved: 'text-primary bg-state-selected border-action-primary/30',
   executing: 'text-primary bg-state-selected border-action-primary/40',
-  completed: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+  completed: 'text-status-success bg-status-success/10 border-status-success/30',
   failed: 'text-error bg-error/10 border-error/30',
   rejected: 'text-tertiary bg-state-selected border-line-control',
   cancelled: 'text-tertiary bg-state-selected border-line-control',

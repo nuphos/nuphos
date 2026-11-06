@@ -8,10 +8,10 @@ export type RuntimeStatusTone = 'online' | 'pending' | 'off' | 'error'
 export type RuntimeStatusView = { label: string; tone: RuntimeStatusTone }
 
 export const STATUS_DOT: Record<RuntimeStatusTone, string> = {
-  online: 'bg-emerald-500',
-  pending: 'bg-amber-500',
+  online: 'bg-status-success',
+  pending: 'bg-status-warning',
   off: 'bg-line-control',
-  error: 'bg-red-500',
+  error: 'bg-status-danger',
 }
 
 export function runtimeStatusView(

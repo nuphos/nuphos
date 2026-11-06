@@ -72,12 +72,12 @@ export function buildMemoryColumns(
                 <span
                   className={clsx(
                     'font-mono text-[12px]',
-                    s.applied > 0 ? 'text-emerald-500' : 'text-tertiary',
+                    s.applied > 0 ? 'text-status-success' : 'text-tertiary',
                   )}
                   title={`${t('Verified as used in {applied} of {turns} observed turns', { applied: String(s.applied), turns: String(s.turns) })} · ${reach}${corrected}`}
                 >
                   {s.applied}/{s.turns}
-                  {s.corrections > 0 && <span className="text-red-400"> ●</span>}
+                  {s.corrections > 0 && <span className="text-status-danger"> ●</span>}
                 </span>
               )
             },

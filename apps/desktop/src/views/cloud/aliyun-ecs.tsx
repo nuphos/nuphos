@@ -123,9 +123,9 @@ export function AliyunEcsInstancesView({
               const s = r.state
               let cls = 'text-secondary'
 
-              if (s === 'Running') cls = 'text-[#73bf69]'
+              if (s === 'Running') cls = 'text-status-success'
               else if (s === 'Stopped') cls = 'text-error'
-              else if (/Pending|Starting|Stopping/.test(s)) cls = 'text-amber-400'
+              else if (/Pending|Starting|Stopping/.test(s)) cls = 'text-status-warning'
 
               return <span className={cls}>{s}</span>
             },

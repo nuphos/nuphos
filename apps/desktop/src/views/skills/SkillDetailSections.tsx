@@ -29,9 +29,9 @@ export function SkillHistorySection({
                 className={clsx(
                   'font-mono text-[11px]',
                   event.status === 'applied'
-                    ? 'text-emerald-400'
+                    ? 'text-status-success'
                     : event.status === 'failed' || event.status === 'partial'
-                      ? 'text-red-400'
+                      ? 'text-status-danger'
                       : 'text-tertiary',
                 )}
               >
@@ -49,7 +49,7 @@ export function SkillHistorySection({
               · <Age value={event.createdAt} />
             </div>
             {event.error && (
-              <div className="mt-1 line-clamp-2 text-[11px] text-red-300" title={event.error}>
+              <div className="mt-1 line-clamp-2 text-[11px] text-status-danger" title={event.error}>
                 <VisibleErrorReporter message={event.error} surface="skill_history_error" />
                 {event.error}
               </div>
@@ -182,7 +182,7 @@ export function SkillFilesSection({
                   <button
                     type="button"
                     onClick={() => onDeleteFile(file.key)}
-                    className="h-7 w-7 rounded-md text-tertiary hover:text-red-400 hover:bg-state-hover flex items-center justify-center"
+                    className="h-7 w-7 rounded-md text-tertiary hover:text-status-danger hover:bg-state-hover flex items-center justify-center"
                     title={t('Delete {name}', { name: file.key })}
                     aria-label={t('Delete {name}', { name: file.key })}
                   >

@@ -214,7 +214,7 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
               className={clsx(
                 'w-full h-10 rounded-md text-[13px] font-medium transition-colors',
                 name.trim() && !creating
-                  ? 'bg-line-control hover:bg-state-hover [.light_&]:bg-white [.light_&]:hover:bg-neutral-100 text-black border border-black/10'
+                  ? 'bg-action-primary text-inverse hover:bg-action-primary/90'
                   : 'border border-line-control text-secondary opacity-50 cursor-default',
               )}
             >

@@ -146,7 +146,7 @@ export function BoxSizePicker({
           onClick={() => onUpgrade(choice)}
           className={clsx(
             CARD,
-            'group border-dashed border-line-control bg-transparent hover:border-amber-500/60 focus-visible:ring-amber-500/60',
+            'group border-dashed border-line-control bg-transparent hover:border-status-warning/60 focus-visible:ring-status-warning/60',
           )}
         >
           <span className="flex flex-col items-start gap-2 opacity-55">
@@ -157,7 +157,7 @@ export function BoxSizePicker({
             className="absolute right-2.5 top-2.5 h-3.5 w-3.5 text-tertiary"
             aria-hidden="true"
           />
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-500 ring-1 ring-amber-500/40 transition-colors group-hover:bg-amber-500/25">
+          <span className="inline-flex items-center gap-1 rounded-full bg-status-warning/15 px-2 py-0.5 text-[11px] font-semibold text-status-warning ring-1 ring-status-warning/40 transition-colors group-hover:bg-status-warning/25">
             {t('Upgrade to unlock')}
             <ArrowUpRight className="h-3 w-3" strokeWidth={2.5} aria-hidden="true" />
           </span>

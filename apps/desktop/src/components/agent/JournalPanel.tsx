@@ -88,7 +88,7 @@ export function JournalSidePanel({
 
     if (!el) return
     el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    const flash = ['bg-violet-500/15']
+    const flash = ['bg-state-selected']
 
     el.classList.add(...flash)
     const timer = window.setTimeout(() => el.classList.remove(...flash), 1600)

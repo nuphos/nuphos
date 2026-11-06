@@ -32,7 +32,9 @@ function ScalarView({ output }: { output: Extract<DashboardPanelOutput, { kind: 
       </div>
       {output.deltaPct !== undefined && (
         <div className="mt-1 text-[12px]">
-          <span className={up ? 'text-orange-400' : down ? 'text-emerald-400' : 'text-tertiary'}>
+          <span
+            className={up ? 'text-status-warning' : down ? 'text-status-success' : 'text-tertiary'}
+          >
             {up ? '▲' : down ? '▼' : ''} {Math.abs(output.deltaPct).toFixed(1)}%
           </span>
         </div>

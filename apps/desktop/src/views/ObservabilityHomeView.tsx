@@ -117,7 +117,7 @@ export function ObservabilityHomeView({ teamId, filter, refreshKey, onCount, onP
       header: t('Status'),
       width: 140,
       render: () => (
-        <span className="inline-flex items-center gap-1.5 text-[#73bf69]">
+        <span className="inline-flex items-center gap-1.5 text-status-success">
           <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={1.8} />
           {t('Connected')}
         </span>

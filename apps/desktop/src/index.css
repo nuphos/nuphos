@@ -10,7 +10,6 @@
     --color-warning: var(--color-status-warning);
     /* Slack badge text — the brand's light aubergine reads on the dark canvas. */
     --color-slack-text: 215, 154, 221;
-    /* Composer mention chip. Brand violet keeps the accent text above 4.5:1 here. */
     /* The workspace sheet: inset from the desk, its corner, and its lift. */
     --sheet-inset: 8px;
     --sheet-radius: 14px;

@@ -97,14 +97,18 @@ function fileMeta(fileName: string, size: number | null): string {
 }
 
 const KINDS: { exts: string[]; Icon: LucideIcon; color: string }[] = [
-  { exts: ['zip', 'tar', 'gz', 'tgz', '7z', 'rar'], Icon: FileArchive, color: 'text-amber-500' },
-  { exts: ['pdf'], Icon: FileText, color: 'text-red-500' },
+  {
+    exts: ['zip', 'tar', 'gz', 'tgz', '7z', 'rar'],
+    Icon: FileArchive,
+    color: 'text-status-warning',
+  },
+  { exts: ['pdf'], Icon: FileText, color: 'text-status-danger' },
   {
     exts: ['xlsx', 'xls', 'csv', 'tsv', 'numbers'],
     Icon: FileSpreadsheet,
-    color: 'text-emerald-500',
+    color: 'text-status-success',
   },
-  { exts: ['md', 'txt', 'doc', 'docx', 'rtf'], Icon: FileText, color: 'text-blue-500' },
+  { exts: ['md', 'txt', 'doc', 'docx', 'rtf'], Icon: FileText, color: 'text-data-1' },
   {
     exts: [
       'ts',
@@ -124,7 +128,7 @@ const KINDS: { exts: string[]; Icon: LucideIcon; color: string }[] = [
       'css',
     ],
     Icon: FileCode,
-    color: 'text-violet-500',
+    color: 'text-secondary',
   },
 ]
 

@@ -223,7 +223,7 @@ export function MemoryProvenancePartView({
                     {e.scope === 'team' ? t('Team') : t('Personal')}
                   </span>
                   {tiers[e.id] === 'applied' && (
-                    <span className="shrink-0 rounded px-1.5 py-px text-[10.5px] font-medium bg-emerald-500/10 text-emerald-500">
+                    <span className="shrink-0 rounded px-1.5 py-px text-[10.5px] font-medium bg-status-success/10 text-status-success">
                       {t('✓ used')}
                     </span>
                   )}

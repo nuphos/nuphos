@@ -138,9 +138,9 @@ export function EC2InstancesView({
               const s = r.state
               let cls = 'text-secondary'
 
-              if (s === 'running') cls = 'text-[#73bf69]'
+              if (s === 'running') cls = 'text-status-success'
               else if (s === 'stopped') cls = 'text-error'
-              else if (s === 'pending' || s === 'stopping') cls = 'text-amber-400'
+              else if (s === 'pending' || s === 'stopping') cls = 'text-status-warning'
 
               return <span className={cls}>{s}</span>
             },

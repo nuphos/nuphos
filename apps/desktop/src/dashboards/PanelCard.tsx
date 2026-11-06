@@ -116,7 +116,7 @@ export const PanelCard = memo(
           )}
           <div className="min-w-0 flex-1">
             <div className="truncate text-[13.5px] font-medium text-main">{panel.title}</div>
-            {rangeLabel && <div className="text-[11px] text-amber-400">{rangeLabel}</div>}
+            {rangeLabel && <div className="text-[11px] text-status-warning">{rangeLabel}</div>}
             {subtitle && <div className="truncate text-[11px] text-tertiary">{subtitle}</div>}
           </div>
           <Menu>
@@ -170,7 +170,7 @@ export const PanelCard = memo(
               title={t('View error log')}
               aria-label={t('View error log for {title}', { title: panel.title })}
               onClick={() => setErrorOpen(true)}
-              className="rounded p-1 text-orange-400 outline-none transition-colors hover:bg-orange-400/10 hover:text-orange-300 focus-visible:ring-1 focus-visible:ring-orange-400/50"
+              className="rounded p-1 text-status-warning outline-none transition-colors hover:bg-status-warning/10 focus-visible:ring-1 focus-visible:ring-line-focus"
             >
               <AlertTriangle className="h-4 w-4" />
             </button>

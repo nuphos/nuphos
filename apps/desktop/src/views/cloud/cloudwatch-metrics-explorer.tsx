@@ -232,7 +232,7 @@ export function CloudWatchMetricsExplorerView({
         <RangeButtons rangeMinutes={rangeMinutes} setRangeMinutes={setRangeMinutes} />
         {metricsTruncated && (
           <span
-            className="text-[11px] text-amber-400"
+            className="text-[11px] text-status-warning"
             title={t(
               'This region has more metrics than the discovery sweep returns. The namespace list may be incomplete; metrics inside a selected namespace are re-queried in full.',
             )}

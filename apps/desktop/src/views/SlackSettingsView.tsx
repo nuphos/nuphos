@@ -24,7 +24,7 @@ import { useSlackSettings } from './slack-settings/useSlackSettings'
 import type { SlackChannelMapping, SlackChannelOption } from '../types'
 
 const WARN_BADGE =
-  'flex-shrink-0 rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-300'
+  'flex-shrink-0 rounded border border-status-warning/40 bg-status-warning/10 px-1.5 py-0.5 text-[11px] text-status-warning'
 const MUTED_BADGE =
   'flex-shrink-0 rounded border border-line-control px-1.5 py-0.5 text-[11px] text-tertiary'
 
@@ -173,7 +173,7 @@ export function SlackSettingsView({
         </div>
       </div>
       {tokenRevoked && (
-        <div className="mb-4 text-[12.5px] text-amber-300">
+        <div className="mb-4 text-[12.5px] text-status-warning">
           {t(
             "Slack no longer accepts this installation's token — it was likely revoked or the app was removed from the workspace. Reinstall to restore the bot.",
           )}
@@ -241,7 +241,7 @@ export function SlackSettingsView({
                     type="button"
                     onClick={() => void deleteChannel(mapping)}
                     disabled={busyKey === `channel:${mapping.id}`}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-red-500/10 hover:text-error disabled:opacity-50"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-status-danger/10 hover:text-error disabled:opacity-50"
                     title={t('Remove mapping')}
                   >
                     <FontAwesomeIcon icon={faTrash} className="h-3 w-3" />

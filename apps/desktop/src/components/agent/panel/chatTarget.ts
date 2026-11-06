@@ -92,7 +92,8 @@ export function locateChatTarget(
     return false
   }
   centerInScroller(element, root)
-  const flashClasses = ['ring-2', 'ring-violet-400/70', 'rounded-lg']
+  // The same ring as keyboard focus: "this one", in ink rather than a brand hue.
+  const flashClasses = ['ring-2', 'ring-line-focus', 'rounded-lg']
 
   element.classList.add(...flashClasses)
   window.setTimeout(() => element.classList.remove(...flashClasses), 1600)

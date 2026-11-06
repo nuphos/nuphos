@@ -164,7 +164,7 @@ export function AvatarCropDialog({
               <ZoomIn className="h-3.5 w-3.5 shrink-0" />
             </label>
             {error && (
-              <p role="alert" className="text-sm text-red-400">
+              <p role="alert" className="text-sm text-status-danger">
                 {error}
               </p>
             )}

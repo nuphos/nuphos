@@ -36,7 +36,7 @@ export function cloudWatchAlarmUrl(alarm: AwsCloudWatchAlarm): string {
 
 export function alarmStateClass(state: string): string {
   if (state === 'ALARM') return 'text-error'
-  if (state === 'OK') return 'text-[#73bf69]'
+  if (state === 'OK') return 'text-status-success'
 
-  return 'text-amber-400'
+  return 'text-status-warning'
 }

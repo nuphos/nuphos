@@ -18,7 +18,7 @@ export function roleClass(role: TeamRole): string {
     case 'ADMINISTRATOR':
       return 'border-action-primary/45 bg-state-selected text-primary'
     case 'EDITOR':
-      return 'border-emerald-500/35 bg-emerald-500/10 text-emerald-300'
+      return 'border-status-success/35 bg-status-success/10 text-status-success'
     case 'VIEWER':
       return 'border-line-control bg-state-selected text-secondary'
   }

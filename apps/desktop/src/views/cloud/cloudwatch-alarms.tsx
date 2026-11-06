@@ -161,8 +161,8 @@ export function CloudWatchAlarmsView({
                 r.state === 'ALARM'
                   ? 'text-error'
                   : r.state === 'OK'
-                    ? 'text-[#73bf69]'
-                    : 'text-amber-400'
+                    ? 'text-status-success'
+                    : 'text-status-warning'
 
               return <span className={`font-medium ${cls}`}>{r.state}</span>
             },

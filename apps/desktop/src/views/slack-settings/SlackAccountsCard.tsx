@@ -68,7 +68,7 @@ export function SlackAccountsCard({
                       </span>
                     )}
                     {mapping.slackUser?.matchMethod === 'email' && (
-                      <span className="flex-shrink-0 rounded border border-emerald-500/35 bg-emerald-500/10 px-1.5 py-0.5 text-[11px] text-emerald-300">
+                      <span className="flex-shrink-0 rounded border border-status-success/35 bg-status-success/10 px-1.5 py-0.5 text-[11px] text-status-success">
                         {t('matched by email')}
                       </span>
                     )}

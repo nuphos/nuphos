@@ -124,7 +124,7 @@ export function PairedToolBody({
       </div>
       {!result && !mayBeRunning && !tailTruncated && (
         <div
-          className="inline-flex items-center gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-400/90"
+          className="inline-flex items-center gap-1 rounded border border-status-warning/30 bg-status-warning/10 px-1.5 py-0.5 text-[10px] text-status-warning/90"
           title={t(
             'A tool_call_intent was durably journaled but no result event followed — the call was rejected, interrupted, or crashed',
           )}

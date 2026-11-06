@@ -128,7 +128,7 @@ export function AuditConversationsTable({
               <span
                 className={clsx(
                   'font-mono text-[12px]',
-                  r.mutationCount > 0 ? 'text-amber-300' : 'text-tertiary',
+                  r.mutationCount > 0 ? 'text-status-warning' : 'text-tertiary',
                 )}
               >
                 {r.mutationCount}

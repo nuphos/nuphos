@@ -168,7 +168,7 @@ export function GcpDashboardPanel({
           <>
             {partial && (
               <span
-                className="rounded bg-amber-500/10 px-1.5 py-px text-[9.5px] text-amber-400"
+                className="rounded bg-status-warning/10 px-1.5 py-px text-[9.5px] text-status-warning"
                 title={t('Some saved query types are not supported')}
               >
                 {t('Partial')}
@@ -176,7 +176,7 @@ export function GcpDashboardPanel({
             )}
             {truncated && (
               <span
-                className="text-[9.5px] text-amber-400"
+                className="text-[9.5px] text-status-warning"
                 title={t('Cloud Monitoring pagination limit reached')}
               >
                 {t('Truncated')}

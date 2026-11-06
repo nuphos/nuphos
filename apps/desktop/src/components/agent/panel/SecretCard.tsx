@@ -89,7 +89,7 @@ export function SecretCard({
           </form>
         )}
         {phase === 'error' && (
-          <div className="mt-1.5 text-[12px] text-red-400">
+          <div className="mt-1.5 text-[12px] text-status-danger">
             {t("Could not save it on the agent's runtime. Try again.")}
           </div>
         )}

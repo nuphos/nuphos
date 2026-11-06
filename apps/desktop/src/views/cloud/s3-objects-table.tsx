@@ -42,7 +42,7 @@ export function S3ObjectsTable({
           render: (r) => (
             <span className="inline-flex items-center gap-2 truncate">
               {r.kind === 'prefix' ? (
-                <Folder className="w-3.5 h-3.5 text-amber-400 shrink-0" strokeWidth={1.8} />
+                <Folder className="w-3.5 h-3.5 text-status-warning shrink-0" strokeWidth={1.8} />
               ) : (
                 <FileIcon className="w-3.5 h-3.5 text-tertiary shrink-0" strokeWidth={1.8} />
               )}

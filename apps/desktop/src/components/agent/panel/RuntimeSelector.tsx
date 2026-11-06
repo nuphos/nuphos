@@ -150,7 +150,7 @@ export function RuntimeSelector({
           className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot.color}`}
         />
       )}
-      {unavailable && <span className="shrink-0 text-amber-400">· {t('Unavailable')}</span>}
+      {unavailable && <span className="shrink-0 text-status-warning">· {t('Unavailable')}</span>}
     </>
   )
   const classes = clsx(

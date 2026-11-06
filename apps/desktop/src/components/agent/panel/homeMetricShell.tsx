@@ -170,7 +170,9 @@ export function MetricCardView({
   } else if (stats) {
     body = <def.Body stats={stats} onOpenConversation={onOpenConversation} />
   } else if (failed) {
-    body = <div className="py-1 text-[12px] text-amber-400">{t("Couldn't load agent stats")}</div>
+    body = (
+      <div className="py-1 text-[12px] text-status-warning">{t("Couldn't load agent stats")}</div>
+    )
   }
 
   return (

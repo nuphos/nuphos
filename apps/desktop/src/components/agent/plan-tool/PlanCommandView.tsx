@@ -11,7 +11,7 @@ import type { PlanCommand } from '../planPayload'
 export function StatusIcon({ status }: { status: PlanStepStatus | null }) {
   if (status === 'done') {
     return (
-      <span className="flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
+      <span className="flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-full bg-status-success/15 text-status-success">
         <Check className="h-2.5 w-2.5" strokeWidth={3} />
       </span>
     )
@@ -61,7 +61,7 @@ export function PlanCommandView({
       className={clsx(
         'rounded ring-1 px-2 py-1.5 font-mono text-[12.5px] leading-relaxed transition-colors',
         status === 'done'
-          ? 'bg-emerald-500/[0.04] ring-emerald-500/20'
+          ? 'bg-status-success/[0.04] ring-status-success/20'
           : status === 'failed'
             ? 'bg-error/[0.05] ring-error/30'
             : status === 'running'
@@ -75,7 +75,7 @@ export function PlanCommandView({
             <StatusIcon status={status} />
           </span>
         ) : (
-          <span className="select-none text-emerald-400">$</span>
+          <span className="select-none text-status-success">$</span>
         )}
         <span
           className={clsx(
