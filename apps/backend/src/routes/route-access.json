@@ -893,5 +893,9 @@
   "PUT /teams/:teamId/tailscale-clients/:clientId/sandbox-access": "admin",
   "PUT /teams/:teamId/tencent-accounts/:accountId/access": "admin",
   "PUT /teams/:teamId/upstash-accounts/:accountId/access": "admin",
-  "PUT /teams/:teamId/volcengine-accounts/:accountId/access": "admin"
+  "PUT /teams/:teamId/volcengine-accounts/:accountId/access": "admin",
+  "GET /teams/:teamId/instabox-accounts": "member",
+  "GET /teams/:teamId/instabox-accounts/:accountId": "member",
+  "POST /teams/:teamId/instabox-accounts": "admin",
+  "DELETE /teams/:teamId/instabox-accounts/:accountId": "admin"
 }
