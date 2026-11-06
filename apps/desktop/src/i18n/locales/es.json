@@ -1056,8 +1056,6 @@
   "Could not connect {name}": "No se pudo conectar {name}",
   "Could not continue sign-in": "No se pudo continuar con el inicio de sesión",
   "Could not copy": "No se pudo copiar",
-  "Could not copy agent ID": "No se pudo copiar el ID del agente",
-  "Could not copy agent id": "No se pudo copiar el ID del agente",
   "Could not copy code": "No se pudo copiar el código",
   "Could not copy link": "No se pudo copiar el enlace",
   "Could not copy logs": "No se pudieron copiar los registros",
@@ -5767,5 +5765,7 @@
   "Open the instabox dashboard and go to {page}, or run {command}.": "Abre el panel de instabox y ve a {page}, o ejecuta {command}.",
   "Your Nuphos plan": "Tu plan de Nuphos",
   "instabox account": "Cuenta de instabox",
-  "instabox: {label}": "instabox: {label}"
+  "instabox: {label}": "instabox: {label}",
+  "Could not copy task ID": "No se pudo copiar el ID de la tarea",
+  "Could not copy Bot ID": "No se pudo copiar el ID del bot"
 }

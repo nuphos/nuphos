@@ -121,7 +121,11 @@ export function SessionHeaderMenu({
         }),
       onError: () =>
         toast.error(
-          what === 'Link' ? t('Could not copy link') : t('Could not copy agent id'),
+          what === 'Link'
+            ? t('Could not copy link')
+            : isBot
+              ? t('Could not copy Bot ID')
+              : t('Could not copy task ID'),
           t('Clipboard was blocked.'),
         ),
     })

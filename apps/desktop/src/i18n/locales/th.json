@@ -1056,8 +1056,6 @@
   "Could not connect {name}": "ไม่สามารถเชื่อมต่อ {name}",
   "Could not continue sign-in": "ไม่สามารถลงชื่อเข้าใช้ต่อ",
   "Could not copy": "คัดลอกไม่สำเร็จ",
-  "Could not copy agent ID": "ไม่สามารถคัดลอก ID เอเจนต์",
-  "Could not copy agent id": "ไม่สามารถคัดลอก ID เอเจนต์",
   "Could not copy code": "ไม่สามารถคัดลอกรหัส",
   "Could not copy link": "ไม่สามารถคัดลอกลิงก์",
   "Could not copy logs": "คัดลอกล็อกไม่สำเร็จ",
@@ -5767,5 +5765,7 @@
   "Open the instabox dashboard and go to {page}, or run {command}.": "เปิดแดชบอร์ด instabox แล้วไปที่ {page} หรือรัน {command}",
   "Your Nuphos plan": "แผน Nuphos ของคุณ",
   "instabox account": "บัญชี instabox",
-  "instabox: {label}": "instabox: {label}"
+  "instabox: {label}": "instabox: {label}",
+  "Could not copy task ID": "คัดลอก ID งานไม่ได้",
+  "Could not copy Bot ID": "คัดลอก ID บอทไม่ได้"
 }

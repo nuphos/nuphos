@@ -1056,8 +1056,6 @@
   "Could not connect {name}": "{name} 계정을 연결할 수 없습니다",
   "Could not continue sign-in": "로그인을 계속할 수 없습니다",
   "Could not copy": "복사할 수 없습니다",
-  "Could not copy agent ID": "에이전트 ID를 복사할 수 없습니다",
-  "Could not copy agent id": "에이전트 ID를 복사할 수 없습니다",
   "Could not copy code": "코드를 복사할 수 없습니다",
   "Could not copy link": "링크를 복사할 수 없습니다",
   "Could not copy logs": "로그를 복사할 수 없습니다",
@@ -5767,5 +5765,7 @@
   "Open the instabox dashboard and go to {page}, or run {command}.": "instabox 대시보드에서 {page}로 이동하거나 {command}를 실행합니다.",
   "Your Nuphos plan": "Nuphos 플랜",
   "instabox account": "instabox 계정",
-  "instabox: {label}": "instabox: {label}"
+  "instabox: {label}": "instabox: {label}",
+  "Could not copy task ID": "태스크 ID를 복사할 수 없습니다",
+  "Could not copy Bot ID": "봇 ID를 복사할 수 없습니다"
 }

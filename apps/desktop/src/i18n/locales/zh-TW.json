@@ -1056,8 +1056,6 @@
   "Could not connect {name}": "無法連接 {name}",
   "Could not continue sign-in": "無法繼續登入",
   "Could not copy": "無法複製",
-  "Could not copy agent ID": "無法複製 Agent ID",
-  "Could not copy agent id": "無法複製 Agent ID",
   "Could not copy code": "無法複製代碼",
   "Could not copy link": "無法複製連結",
   "Could not copy logs": "無法複製日誌",
@@ -5767,5 +5765,7 @@
   "Open the instabox dashboard and go to {page}, or run {command}.": "開啟 instabox 主控台並前往 {page}，或執行 {command}。",
   "Your Nuphos plan": "你的 Nuphos 方案",
   "instabox account": "instabox 帳號",
-  "instabox: {label}": "instabox：{label}"
+  "instabox: {label}": "instabox：{label}",
+  "Could not copy task ID": "無法複製任務 ID",
+  "Could not copy Bot ID": "無法複製 Bot ID"
 }

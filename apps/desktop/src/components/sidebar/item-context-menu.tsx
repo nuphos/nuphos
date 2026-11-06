@@ -214,7 +214,9 @@ function copy(value: string, what: keyof typeof COPIED) {
           ? t('Could not copy link')
           : what === 'chat'
             ? t('Could not copy chat ID')
-            : t('Could not copy agent ID'),
+            : what === 'bot'
+              ? t('Could not copy Bot ID')
+              : t('Could not copy task ID'),
         t('Clipboard was blocked.'),
       ),
   })

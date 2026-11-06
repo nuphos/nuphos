@@ -1056,8 +1056,6 @@
   "Could not connect {name}": "{name} に接続できませんでした",
   "Could not continue sign-in": "サインインを続行できませんでした",
   "Could not copy": "コピーできませんでした",
-  "Could not copy agent ID": "エージェント ID をコピーできませんでした",
-  "Could not copy agent id": "エージェント ID をコピーできませんでした",
   "Could not copy code": "コードをコピーできませんでした",
   "Could not copy link": "リンクをコピーできませんでした",
   "Could not copy logs": "ログをコピーできませんでした",
@@ -5767,5 +5765,7 @@
   "Open the instabox dashboard and go to {page}, or run {command}.": "instabox のダッシュボードで {page} を開くか、{command} を実行します。",
   "Your Nuphos plan": "Nuphos のプラン",
   "instabox account": "instabox アカウント",
-  "instabox: {label}": "instabox：{label}"
+  "instabox: {label}": "instabox：{label}",
+  "Could not copy task ID": "タスク ID をコピーできませんでした",
+  "Could not copy Bot ID": "ボット ID をコピーできませんでした"
 }
