@@ -5,6 +5,7 @@ import { Hono } from 'hono'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useConversationTurn } from '@/lib/test/doubles/conversation-turn'
+import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
 import { agent } from './router'
@@ -68,6 +69,23 @@ useAgentDb({
 
     return stillThere
   },
+})
+// Full-access grants a new Bot starts with: \`${userId}:${conversationId}\` → bypass.
+const bypass = new Map<string, unknown>()
+
+useDb({
+  db: () => ({
+    collection: () => ({
+      updateOne: (
+        filter: { conversationId: string; userId: string },
+        update: { $setOnInsert?: { bypass?: unknown } },
+      ) => {
+        bypass.set(`${filter.userId}:${filter.conversationId}`, update.$setOnInsert?.bypass)
+
+        return Promise.resolve()
+      },
+    }),
+  }),
 })
 const app = new Hono().route('/agent', agent)
 
@@ -137,6 +155,8 @@ test('"+" on Bots creates a Bot with a name and its derived face, before any mes
   const body = (await response.json()) as { sessionId: string; title: string; avatar: string }
 
   expect(response.status).toBe(201)
+  // A Bot works on its own: it starts in full access.
+  expect(bypass.get(`${caller}:${body.sessionId}`)).toBe(true)
   expect(body.title).toBe('New Bot')
   expect(body.avatar).toMatch(/^\d{2}-[a-z-]+$/)
   expect(shells).toEqual([
