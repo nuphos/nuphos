@@ -310,3 +310,40 @@ test('the +N label names what it folds, the badge by its own label', () => {
   assert.equal(overflowLabel(chips.slice(1, 2)), '1 more linked resource, show all')
   assert.equal(overflowLabel([chips[1], chips[3]]), '1 more linked resource and 2 merged, show all')
 })
+
+test('three or more open links from one provider share a chip; fewer stay apart', () => {
+  const issue = (id: string) =>
+    resource({ id, provider: 'linear', title: `SUP-${id} Reply`, stateType: 'started' })
+  const chips = resourceChips(
+    [issue('1'), resource({ id: 'p1', number: 7 }), issue('2'), issue('3')],
+    [],
+  )
+
+  assert.deepEqual(
+    chips.map((chip) => chip.key),
+    ['group-linear', 'p1'],
+  )
+  assert.deepEqual(chipNames(chips), ['SUP-1 Reply', 'SUP-2 Reply', 'SUP-3 Reply', '#7 Fix chips'])
+  assert.deepEqual(
+    resourceChips([issue('1'), issue('2')], []).map((chip) => chip.kind),
+    ['resource', 'resource'],
+  )
+})
+
+test('finished links never count toward a group', () => {
+  const done = (id: string) =>
+    resource({ id, provider: 'linear', title: `SUP-${id}`, state: 'Done', stateType: 'completed' })
+  const chips = resourceChips(
+    [
+      done('1'),
+      done('2'),
+      resource({ id: 'o', provider: 'linear', title: 'SUP-3', stateType: 'started' }),
+    ],
+    [],
+  )
+
+  assert.deepEqual(
+    chips.map((chip) => chip.kind),
+    ['resource', 'finished'],
+  )
+})

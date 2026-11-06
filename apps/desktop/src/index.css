@@ -2321,14 +2321,6 @@ html.light {
 .session-resource-pending {
   color: var(--resource-pending);
 }
-.session-resource-tag {
-  border-color: color-mix(in srgb, currentColor 30%, transparent);
-  background-color: color-mix(in srgb, currentColor 6%, rgb(var(--color-background-base)));
-}
-.session-resource-tag button[title='Unlink resource']:hover {
-  color: var(--resource-closed);
-}
-
 /* A sidebar row lifts its title for the detail line only when that line has
    something to show; rows without one just change their background on hover. */
 [data-sidebar-row]:has([data-row-detail]:not(:empty)):is(:hover, :focus-within) [data-row-title] {

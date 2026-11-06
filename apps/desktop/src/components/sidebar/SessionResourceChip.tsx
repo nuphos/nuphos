@@ -8,6 +8,7 @@ import { ResourceMark } from './ResourceMark'
 import {
   chipNames,
   finishedBreakdown,
+  groupLabel,
   finishedFilter,
   finishedLabel,
   finishedTooltip,
@@ -28,6 +29,8 @@ type ChipProps = {
   removing: boolean
   onUnlink: (resourceId: string) => void
   actions: ResourceActions
+  /** Ids being unlinked, for the rows a group chip lists. */
+  removingIds?: string[]
 }
 
 function stopTitlebarPointer(titlebar: boolean) {
@@ -46,6 +49,7 @@ export function SessionResourceChip({ chip, ...props }: ChipProps & { chip: Reso
 
   if (chip.kind === 'resource') return <ResourceBadge resource={chip.resource} {...props} />
   if (chip.kind === 'finished') return <FinishedBadge resources={chip.resources} {...props} />
+  if (chip.kind === 'group') return <GroupBadge chip={chip} {...props} />
 
   if (chip.kind === 'terminals') {
     const content = (
@@ -152,7 +156,7 @@ function ResourceBadge({
         aria-label={t('Unlink {label}', { label })}
         title={t('Unlink resource')}
         disabled={removing}
-        className="inline-flex shrink-0 self-stretch items-center rounded-r px-1 transition-colors text-tertiary hover:bg-red-500/15 hover:text-red-500 focus-visible:outline focus-visible:outline-1 focus-visible:outline-current disabled:opacity-40"
+        className="-ml-1 inline-flex shrink-0 self-stretch items-center rounded-r-md pr-1 text-tertiary opacity-0 transition-[opacity,color] hover:text-status-danger focus-visible:opacity-100 focus-visible:outline focus-visible:outline-1 focus-visible:outline-current group-hover/chip:opacity-100 disabled:opacity-40"
         onPointerDown={(event) => event.stopPropagation()}
         onClick={unlink}
       >
@@ -174,20 +178,20 @@ function ResourceBadge({
 
   const badge = (
     <span
-      className={`inline-flex min-w-0 items-center ${titlebar ? 'session-resource-tag rounded border' : ''} ${titlebar && !measure ? 'titlebar-no-drag' : ''} ${color}`}
+      className={`group/chip inline-flex min-w-0 items-center text-secondary ${titlebar ? 'rounded-md transition-colors hover:bg-state-hover' : ''} ${titlebar && !measure ? 'titlebar-no-drag' : ''}`}
     >
       <Label
         onPointerDown={stopTitlebarPointer(titlebar)}
         onClick={(event) => actions.openResource(resource, event)}
         className={
           titlebar
-            ? 'inline-flex min-w-0 max-w-24 items-center gap-1 rounded-l px-1.5 py-0.5 transition-colors hover:bg-[var(--sidebar-overlay-hover)] active:bg-[var(--sidebar-overlay-active)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-current'
+            ? 'inline-flex min-w-0 max-w-24 items-center gap-1 rounded-md px-1.5 py-0.5 focus-visible:outline focus-visible:outline-1 focus-visible:outline-current'
             : 'inline-flex min-w-0 max-w-40 items-center gap-1'
         }
         title={github ? undefined : `${resource.title} · ${resource.state}`}
         aria-label={`${label} · ${resourceStatus(resource)}`}
       >
-        <span className="inline-flex shrink-0">{icon}</span>
+        <span className={`inline-flex shrink-0 ${color}`}>{icon}</span>
         <span className="truncate">{label}</span>
         <ResourceMark resource={resource} />
       </Label>
@@ -209,5 +213,44 @@ function ResourceBadge({
     </ResourcePreview>
   ) : (
     badge
+  )
+}
+
+/**
+ * Three or more open links from one provider as one chip, e.g. `9 issues`.
+ * The titlebar lists them to open or unlink; in the sidebar it only names them.
+ */
+function GroupBadge({
+  chip,
+  titlebar,
+  measure,
+  canManage,
+  removingIds = [],
+  onUnlink,
+  actions,
+}: ChipProps & { chip: Extract<ResourceChip, { kind: 'group' }> }) {
+  const { icon, color } = resourceStyle(chip.resources[0])
+  const label = groupLabel(chip.provider, chip.resources.length)
+  const content = (
+    <>
+      <span className={`inline-flex shrink-0 ${color}`}>{icon}</span>
+      <span>{label}</span>
+    </>
+  )
+
+  return titlebar && !measure ? (
+    <ResourceListMenu
+      chips={[chip]}
+      actions={actions}
+      unlink={canManage ? { removing: removingIds, onUnlink } : undefined}
+      label={label}
+      className={`${menuChipClass(titlebar)} titlebar-no-drag`}
+    >
+      {content}
+    </ResourceListMenu>
+  ) : (
+    <span className={menuChipClass(titlebar)} title={chipNames([chip]).join('\n')}>
+      {content}
+    </span>
   )
 }
