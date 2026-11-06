@@ -31,6 +31,7 @@ export type PinnedConversation = {
   teamId?: string
   kind?: 'channel'
   avatar?: string
+  archivedAt?: Date
 }
 
 export type BotMigrationPlan = {
@@ -43,13 +44,15 @@ export type BotMigrationPlan = {
     pinnedByNonOwner: number
     pinnedChannels: number
     missing: number
+    /** Owner pins of archived agents: stale bookmarks, left as Tasks. */
+    archived: number
   }
 }
 
 /**
- * Owner pins of agent conversations without an avatar get their derived face.
- * Pins by anyone else, pins of channels and pins of missing conversations are
- * only counted. A conversation pinned twice is counted once per pin.
+ * Owner pins of unarchived agent conversations without an avatar get their
+ * derived face. Pins by anyone else, of archived agents, of channels and of
+ * missing conversations are only counted. A conversation pinned twice is counted once per pin.
  */
 export function planBotMigration(
   favorites: PinnedFavorites[],
@@ -63,6 +66,7 @@ export function planBotMigration(
     pinnedByNonOwner: 0,
     pinnedChannels: 0,
     missing: 0,
+    archived: 0,
   }
 
   for (const doc of favorites) {
@@ -78,6 +82,7 @@ export function planBotMigration(
       else if (conversation.userId !== doc.userId || conversation.teamId !== doc.teamId)
         counts.pinnedByNonOwner += 1
       else if (conversation.avatar) counts.alreadyBots += 1
+      else if (conversation.archivedAt) counts.archived += 1
       else if (!promote.has(sessionId)) promote.set(sessionId, derivedAvatar(sessionId))
     }
   }

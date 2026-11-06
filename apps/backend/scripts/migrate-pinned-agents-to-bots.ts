@@ -42,7 +42,7 @@ async function main(): Promise<void> {
     for (const doc of await agentConversations()
       .find(
         { sessionId: { $in: [...sessionIds] } },
-        { projection: { sessionId: 1, userId: 1, teamId: 1, kind: 1, avatar: 1 } },
+        { projection: { sessionId: 1, userId: 1, teamId: 1, kind: 1, avatar: 1, archivedAt: 1 } },
       )
       .toArray()) {
       conversations.set(doc.sessionId, doc as PinnedConversation)
@@ -78,7 +78,7 @@ async function main(): Promise<void> {
 
     for (const [sessionId, avatar] of plan.promote) {
       const result = await agentConversations().updateOne(
-        { sessionId, avatar: { $exists: false } },
+        { sessionId, avatar: { $exists: false }, archivedAt: { $exists: false } },
         { $set: { avatar } },
       )
 

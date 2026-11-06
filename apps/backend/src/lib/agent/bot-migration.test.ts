@@ -80,3 +80,13 @@ describe('planBotMigration', () => {
     expect(plan.counts).toMatchObject({ pinnedChannels: 1, missing: 1 })
   })
 })
+
+test('leaves an archived pin a Task: a stale bookmark is not a living Bot', () => {
+  const plan = planBotMigration(
+    [{ userId: OWNER, teamId: TEAM, entries: [{ key: `agent-session:${A}` }] }],
+    new Map([[A, { sessionId: A, userId: OWNER, teamId: TEAM, archivedAt: new Date() }]]),
+  )
+
+  expect(plan.promote.size).toBe(0)
+  expect(plan.counts).toMatchObject({ archived: 1, toPromote: 0 })
+})
