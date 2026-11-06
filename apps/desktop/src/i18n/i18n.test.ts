@@ -53,6 +53,7 @@ test('every locale translates exactly the strings the app uses', () => {
 test('every locale keeps its keys sorted', () => {
   for (const [code, messages] of Object.entries(MESSAGES)) {
     const keys = Object.keys(messages)
+
     assert.deepEqual(keys, [...keys].sort(), `${code}: run node scripts/sort-locales.mjs`)
   }
 })
