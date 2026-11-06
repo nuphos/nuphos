@@ -125,7 +125,7 @@ export function ChatSummaryToggle({
           />
         )}
         {pendingCount === 0 && backgroundCount > 0 && (
-          <StatusDot tone="running" label={background} className="absolute right-0.5 top-0.5" />
+          <StatusDot tone="warning" label={background} className="absolute right-0.5 top-0.5" />
         )}
       </button>
     </Tooltip>
