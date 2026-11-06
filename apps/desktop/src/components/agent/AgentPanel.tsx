@@ -33,6 +33,7 @@ import { usePanelTranscripts } from './panel/usePanelTranscripts'
 import { useTextStreaming } from './panel/useTextStreaming'
 import { useTurnDispatch } from './panel/useTurnDispatch'
 
+import { useComposerPlaceholder } from './panel/useComposerPlaceholder'
 import type { JournalChatTarget } from './JournalPanel'
 import type { AgentProvider } from '../../types/runtime'
 import type { PanelViewCtx } from './panel/ctx'
@@ -233,7 +234,8 @@ export const AgentPanel = memo(function AgentPanel({
 
   useConversationCatchUp(acc15)
   usePanelSessionBridge(acc15)
-  const c: PanelViewCtx = { ...acc15, ...computePanelRenderState(acc15) }
+  const composerPlaceholder = useComposerPlaceholder(acc15.activeTab)
+  const c: PanelViewCtx = { ...acc15, ...computePanelRenderState(acc15), composerPlaceholder }
   const { activeId, setActiveId } = c
 
   // A seeded shortcut must switch to the blank composer before paint. Updating

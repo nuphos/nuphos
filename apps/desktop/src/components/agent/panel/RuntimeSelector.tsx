@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { ChevronDown, Plus, Settings2 } from 'lucide-react'
+import { ChevronDown, Plus } from 'lucide-react'
 import { useState } from 'react'
 
 import { useAgentUpdates } from '../../../hooks/useAgentUpdates'
@@ -7,12 +7,13 @@ import { useThisComputer } from '../../../hooks/useThisComputer'
 import { t } from '../../../i18n'
 import { agentName } from '../../../lib/agentName'
 import { AGENT_PROVIDER } from '../../../types/runtime'
-import { RuntimeUsageBar } from '../../../views/settings/RuntimeUsageBar'
+import { RuntimeUsageBar, RuntimeUsageNote } from '../../../views/settings/RuntimeUsageBar'
 import { useAgentDevices } from '../../../views/settings/useAgentDevices'
 import { ConfirmDialog } from '../../ConfirmDialog'
 import { SharedComputerLearnMore } from '../../SharedComputerLearnMore'
-import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../ui/menu'
+import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../ui/menu'
 
+import { RUNTIME_LINE } from './composerSetupStyle'
 import { AgentProviderIcon } from './icons'
 import { selectedAgentReachability } from './runtimeControlSignOut'
 import { selectorBoxes } from './selectorBoxes'
@@ -67,10 +68,10 @@ export type RuntimeControl = {
   }
 }
 
-const AGENT_DOT = {
-  ready: { color: 'bg-success', label: t('Computer online · runtime ready') },
-  signIn: { color: 'bg-warning', label: t('Computer online · runtime needs sign-in') },
-  offline: { color: 'bg-error', label: t('Computer offline') },
+// Ready needs no mark; only a runtime you can't use yet says why, in words.
+const AGENT_STATE = {
+  signIn: { text: t('Sign in'), label: t('Computer online · runtime needs sign-in') },
+  offline: { text: t('Offline'), label: t('Computer offline') },
 } as const
 
 export function RuntimeSelector({
@@ -91,12 +92,15 @@ export function RuntimeSelector({
   onAddAgent,
   confirm,
   hero = false,
+  line = false,
 }: RuntimeControl & {
   /** Lets the composer open the list, e.g. from the agent-status banner. */
   menuOpen?: boolean
   onMenuOpenChange?: (open: boolean) => void
   /** Sized like the hero composer's other controls; compact otherwise. */
   hero?: boolean
+  /** The composer's quiet runtime line. */
+  line?: boolean
 }) {
   const providerName = AGENT_PROVIDER[value?.provider ?? 'claude-code'].label
   const owner = useThisComputer()
@@ -128,7 +132,7 @@ export function RuntimeSelector({
     sessionId,
   })
   const reachability = selectedAgentReachability({ value, options })
-  const dot = reachability ? AGENT_DOT[reachability] : null
+  const state = reachability && reachability !== 'ready' ? AGENT_STATE[reachability] : null
   const content = (
     <>
       <AgentProviderIcon provider={value?.provider} className="h-3.5 w-3.5 shrink-0" />
@@ -139,24 +143,28 @@ export function RuntimeSelector({
           className="h-3 w-16 rounded bg-state-selected animate-pulse motion-reduce:animate-none"
         />
       ) : (
-        <span className="min-w-0 max-w-40 truncate">{label}</span>
+        <span className={clsx('min-w-0 truncate', line ? 'max-w-60' : 'max-w-40')}>{label}</span>
       )}
-      {value?.id && <RuntimeUsageBar quota={quotas?.get(value.id)} />}
-      {dot && (
-        <span
-          role="img"
-          aria-label={dot.label}
-          title={dot.label}
-          className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot.color}`}
-        />
+      {value?.id &&
+        (line ? (
+          <RuntimeUsageNote quota={quotas?.get(value.id)} />
+        ) : (
+          <RuntimeUsageBar quota={quotas?.get(value.id)} />
+        ))}
+      {state && (
+        <span title={state.label} className="shrink-0 text-tertiary">
+          · {state.text}
+        </span>
       )}
-      {unavailable && <span className="shrink-0 text-amber-400">· {t('Unavailable')}</span>}
+      {unavailable && <span className="shrink-0 text-status-warning">· {t('Unavailable')}</span>}
     </>
   )
-  const classes = clsx(
-    hero ? 'h-8 px-2.5' : 'h-7 px-2',
-    'hidden min-w-0 max-w-fit grow basis-16 items-center gap-1.5 overflow-hidden rounded-full text-[12px] text-secondary @[230px]:flex',
-  )
+  const classes = line
+    ? RUNTIME_LINE
+    : clsx(
+        hero ? 'h-8 px-2.5' : 'h-7 px-2',
+        'hidden min-w-0 max-w-fit grow basis-16 items-center gap-1.5 overflow-hidden rounded-full text-[12px] text-secondary @[230px]:flex',
+      )
 
   return (
     <>
@@ -182,7 +190,8 @@ export function RuntimeSelector({
           className={`${classes} transition-colors hover:bg-state-hover hover:text-main`}
         >
           {content}
-          <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
+          {/* The composer line sits beside its ⋯, which already says there is more. */}
+          {!line && <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />}
         </MenuTrigger>
         <MenuContent side="top" align="end" className="w-72">
           {error && <p className="px-2 py-2 text-xs text-error">{error}</p>}
@@ -206,19 +215,12 @@ export function RuntimeSelector({
               />
             ))}
           </div>
-          {(onAddAgent ?? onSettings) && (
-            <>
-              {groups.length > 0 && <MenuSeparator />}
-              {onAddAgent ? (
-                <MenuItem icon={<Plus className="h-3.5 w-3.5" />} onClick={onAddAgent}>
-                  {t('Add new runtime')}
-                </MenuItem>
-              ) : (
-                <MenuItem icon={<Settings2 className="h-3.5 w-3.5" />} onClick={onSettings}>
-                  {t('Manage computers and runtimes')}
-                </MenuItem>
-              )}
-            </>
+          {/* Runtimes are managed from the sidebar. Only an empty list offers to add one in
+              place, since then there is nothing else to pick. */}
+          {onAddAgent && groups.length === 0 && (
+            <MenuItem icon={<Plus className="h-3.5 w-3.5" />} onClick={onAddAgent}>
+              {t('Add new runtime')}
+            </MenuItem>
           )}
         </MenuContent>
       </Menu>

@@ -227,6 +227,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                       void sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions)
                     }
                     onStop={stopActive}
+                    placeholder={c.composerPlaceholder}
                     autoFocus={focusComposerOnOpen}
                     runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
                     executing={runtimeIsExecuting(activeTab.runtimeState)}
@@ -257,6 +258,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                       void sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions)
                     }
                     onStop={stopActive}
+                    placeholder={c.composerPlaceholder}
                     promptSuggestion={
                       activeTab.streaming || runtimeIsExecuting(activeTab.runtimeState)
                         ? null

@@ -12,9 +12,9 @@ import { useEntranceCount } from './useEntranceCount'
 import type { ComposerSend } from './composerMentionChips'
 import type { CredentialSelectorControl } from './credentialSections'
 import type { AgentPromptSeed } from './model'
+import type { ModelControl } from './ModelSelector'
 import type { RuntimeControl } from './RuntimeSelector'
 import type { LocalAgentSessionInfo } from '../../../api'
-import type { ReactNode } from 'react'
 
 // "Not now" has to stick, or a nudge becomes nagging.
 function useStickyDismiss(key: string | null) {
@@ -66,7 +66,7 @@ export function AgentHomePage({
   runtimeControl?: RuntimeControl
   /** Default-model picker for the runtime this conversation will start on —
    *  there is no session yet to read a live model list from. */
-  newConversationModelControl?: ReactNode
+  newConversationModelControl?: ModelControl
   bypassControl?: { active: boolean; onSelect: (bypass: boolean) => void }
   pendingSeed?: AgentPromptSeed | null
   onSeedConsumed?: () => void

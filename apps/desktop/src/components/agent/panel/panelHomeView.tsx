@@ -5,7 +5,6 @@ import { Composer } from './Composer'
 import { newChatDraftKey } from './composerDrafts'
 import { Welcome } from './homeAnimation'
 import { useLocalSessionImport } from './importLocalSession'
-import { ModelSelector } from './ModelSelector'
 import { noAgentToRun } from './runtimeControlSignOut'
 import { useAddAgent } from './useAddAgent'
 import { useRuntimeModelConfig } from './useRuntimeModelConfig'
@@ -79,9 +78,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
     newConversationSessionConfig,
     pickNewConversationSessionConfig,
   )
-  const newConversationModelControl = modelRuntimeId && (
-    <ModelSelector control={modelControl} disabled={false} hero={variant === 'page'} />
-  )
+  const newConversationModelControl = modelRuntimeId ? modelControl : undefined
 
   const bypassControl = {
     active: defaultPermissionMode === 'bypass',

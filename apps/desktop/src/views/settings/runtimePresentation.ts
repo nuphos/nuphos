@@ -71,10 +71,11 @@ export function reportedSeries<Series extends { key: RuntimeMetricKey }>(
 }
 
 /** A draining usage bar is green while healthy, amber when it runs low and red once it is spent. */
+// Usage is an amount, so it reads in the data blue; only a window running out takes a status colour.
 export const QUOTA_FILL_CLASS: Record<QuotaTone, string> = {
-  ok: 'bg-success',
-  warning: 'bg-warning',
-  exhausted: 'bg-error',
+  ok: 'bg-data-1',
+  warning: 'bg-status-warning',
+  exhausted: 'bg-status-danger',
 }
 
 /** An empty bar has no fill left to colour, so its label carries the tone too. */

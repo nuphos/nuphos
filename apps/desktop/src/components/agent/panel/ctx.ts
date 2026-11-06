@@ -268,4 +268,8 @@ export type PanelRenderState = {
   switchingConversation: boolean
 }
 
-export type PanelViewCtx = PanelCtx & PanelRenderState
+export type PanelViewCtx = PanelCtx &
+  PanelRenderState & {
+    /** Who the composer writes to: a Bot by name, a Task by its agent. */
+    composerPlaceholder: string | undefined
+  }

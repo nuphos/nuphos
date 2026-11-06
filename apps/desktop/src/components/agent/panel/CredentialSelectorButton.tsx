@@ -42,11 +42,9 @@ function SelectionButton({
   devices,
 }: SelectorProps & { devices: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const personal = usePersonalCredentials(Boolean(personalIdentity) && !devices && menuOpen)
   const listedDevices = shownDevices(options.devices, value.deviceIds)
   const selectedCount = devices ? value.deviceIds.length : countSelectedCredentials(value)
   const totalCount = devices ? listedDevices.length : countTotalCredentials(options)
-  const sections = useCredentialSections(options)
   const hasNew =
     unseen !== undefined &&
     (devices
@@ -55,20 +53,6 @@ function SelectionButton({
   const title = devices ? t('Computers') : t('Agent credentials')
   const Icon = devices ? Laptop : Shield
   const iconSize = devices ? 'h-4 w-4' : 'h-3.5 w-3.5'
-  const changeAll = (select: boolean) => {
-    const next = select ? allCredentialAccess(options) : emptyCredentialAccess()
-
-    onChange(
-      devices
-        ? { ...value, deviceIds: select ? selectAllDevices(value.deviceIds, options.devices) : [] }
-        : // Select all also restores the member's own identity; Clear all leaves it be.
-          {
-            ...next,
-            deviceIds: value.deviceIds,
-            ...(!select && value.teamIdentity ? { teamIdentity: value.teamIdentity } : {}),
-          },
-    )
-  }
 
   return (
     <Menu
@@ -144,47 +128,97 @@ function SelectionButton({
             <X className="h-3.5 w-3.5" strokeWidth={1.8} />
           </button>
         </div>
-        {totalCount === 0 && (
-          <div className="px-2 py-3 text-[12px] text-tertiary">
-            {devices
-              ? t('No computers available to this team yet.')
-              : t('No credentials bound to this team yet.')}
-          </div>
-        )}
-        {totalCount > 0 && (
-          <div className="px-2 pb-1.5 mb-1 flex items-center gap-2 border-b border-line-control/60">
-            <button
-              type="button"
-              onClick={() => changeAll(true)}
-              disabled={selectedCount === totalCount}
-              className="text-[11.5px] text-primary hover:underline disabled:text-tertiary disabled:no-underline disabled:cursor-default"
-            >
-              {t('Select all')}
-            </button>
-            <span className="text-tertiary text-[11px]">·</span>
-            <button
-              type="button"
-              onClick={() => changeAll(false)}
-              disabled={selectedCount === 0}
-              className="text-[11.5px] text-secondary hover:text-main hover:underline disabled:text-tertiary disabled:no-underline disabled:cursor-default"
-            >
-              {t('Clear all')}
-            </button>
-          </div>
-        )}
-        {devices ? (
-          <DeviceOptions options={options} value={value} unseen={unseen} onChange={onChange} />
-        ) : (
-          <CredentialSelectorSectionList
-            sections={sections}
-            value={value}
-            unseen={unseen}
-            personal={personalIdentity && menuOpen ? personal : null}
-            onChange={onChange}
-          />
-        )}
+        <CredentialSelectionList
+          options={options}
+          value={value}
+          unseen={unseen}
+          onChange={onChange}
+          personalIdentity={personalIdentity}
+          devices={devices}
+        />
       </MenuContent>
     </Menu>
+  )
+}
+
+/**
+ * The pick list itself: select all / clear all, then every connector or computer
+ * as a checkbox. Mounted only while its menu or submenu is open, so it fetches
+ * the member's personal credentials then.
+ */
+export function CredentialSelectionList({
+  options,
+  value,
+  unseen,
+  onChange,
+  personalIdentity,
+  devices,
+}: Pick<CredentialSelectorControl, 'options' | 'value' | 'unseen' | 'onChange'> & {
+  personalIdentity?: boolean
+  devices: boolean
+}) {
+  const personal = usePersonalCredentials(Boolean(personalIdentity) && !devices)
+  const sections = useCredentialSections(options)
+  const listedDevices = shownDevices(options.devices, value.deviceIds)
+  const selectedCount = devices ? value.deviceIds.length : countSelectedCredentials(value)
+  const totalCount = devices ? listedDevices.length : countTotalCredentials(options)
+  const changeAll = (select: boolean) => {
+    const next = select ? allCredentialAccess(options) : emptyCredentialAccess()
+
+    onChange(
+      devices
+        ? { ...value, deviceIds: select ? selectAllDevices(value.deviceIds, options.devices) : [] }
+        : // Select all also restores the member's own identity; Clear all leaves it be.
+          {
+            ...next,
+            deviceIds: value.deviceIds,
+            ...(!select && value.teamIdentity ? { teamIdentity: value.teamIdentity } : {}),
+          },
+    )
+  }
+
+  return (
+    <>
+      {totalCount === 0 && (
+        <div className="px-2 py-3 text-[12px] text-tertiary">
+          {devices
+            ? t('No computers available to this team yet.')
+            : t('No credentials bound to this team yet.')}
+        </div>
+      )}
+      {totalCount > 0 && (
+        <div className="px-2 pb-1.5 mb-1 flex items-center gap-2 border-b border-line-control/60">
+          <button
+            type="button"
+            onClick={() => changeAll(true)}
+            disabled={selectedCount === totalCount}
+            className="text-[11.5px] text-primary hover:underline disabled:text-tertiary disabled:no-underline disabled:cursor-default"
+          >
+            {t('Select all')}
+          </button>
+          <span className="text-tertiary text-[11px]">·</span>
+          <button
+            type="button"
+            onClick={() => changeAll(false)}
+            disabled={selectedCount === 0}
+            className="text-[11.5px] text-secondary hover:text-main hover:underline disabled:text-tertiary disabled:no-underline disabled:cursor-default"
+          >
+            {t('Clear all')}
+          </button>
+        </div>
+      )}
+      {devices ? (
+        <DeviceOptions options={options} value={value} unseen={unseen} onChange={onChange} />
+      ) : (
+        <CredentialSelectorSectionList
+          sections={sections}
+          value={value}
+          unseen={unseen}
+          personal={personalIdentity ? personal : null}
+          onChange={onChange}
+        />
+      )}
+    </>
   )
 }
 

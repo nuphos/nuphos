@@ -31,77 +31,82 @@ export function QueuedStrip({
   if (items.length === 0) return null
 
   return (
-    <div className={clsx('mx-auto w-full', sidebar ? '' : 'max-w-[760px]')}>
-      <div className="px-1 text-xs text-tertiary">{t('Queued messages')}</div>
-      {approval && (
-        <div
-          role="status"
-          className="flex min-w-0 items-start gap-1.5 px-1 pb-1.5 text-[12px] text-secondary"
-        >
-          {approval.status === 'pending' ? (
-            <Hourglass
-              aria-hidden
-              className="mt-px h-3.5 w-3.5 shrink-0 text-warning"
-              strokeWidth={2}
-            />
-          ) : (
-            <Ban aria-hidden className="mt-px h-3.5 w-3.5 shrink-0 text-error" strokeWidth={2} />
-          )}
-          <span className="min-w-0">{approval.text}</span>
-        </div>
-      )}
-      <div className="flex flex-col gap-1.5 px-1 pb-1">
-        {items.map((item, index) => {
-          const label =
-            item.text.trim() || item.filePaths.map(fileNameFromPath).join(', ') || t('Attachment')
+    // The composer's own insets, so the queue lines up with its edges at every width.
+    <div className={sidebar ? 'px-2.5' : 'px-3'}>
+      <div className={clsx('mx-auto w-full', sidebar ? '' : 'max-w-[760px]')}>
+        <div className="px-1 text-xs text-tertiary">{t('Queued messages')}</div>
+        {approval && (
+          <div
+            role="status"
+            className="flex min-w-0 items-start gap-1.5 px-1 pb-1.5 text-[12px] text-secondary"
+          >
+            {approval.status === 'pending' ? (
+              <Hourglass
+                aria-hidden
+                className="mt-px h-3.5 w-3.5 shrink-0 text-warning"
+                strokeWidth={2}
+              />
+            ) : (
+              <Ban aria-hidden className="mt-px h-3.5 w-3.5 shrink-0 text-error" strokeWidth={2} />
+            )}
+            <span className="min-w-0">{approval.text}</span>
+          </div>
+        )}
+        <div className="flex flex-col gap-1.5 pb-1">
+          {items.map((item, index) => {
+            const label =
+              item.text.trim() || item.filePaths.map(fileNameFromPath).join(', ') || t('Attachment')
 
-          return (
-            <div
-              key={item.id}
-              className="group flex items-center gap-2 rounded-lg border border-line-control/80 bg-state-selected px-2.5 py-1.5"
-              title={label}
-            >
-              <ListPlus className="h-3.5 w-3.5 flex-shrink-0 text-tertiary" strokeWidth={2} />
-              <span className="flex-shrink-0 text-[11px] tabular-nums text-tertiary">
-                {index + 1}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-[12.5px] text-secondary">{label}</span>
-              <span className="flex-shrink-0 text-[11px] text-tertiary">
-                {approval?.status === 'pending' ? t('Waiting') : t('Runs after the turn ahead')}
-              </span>
-              {item.filePaths.length > 0 && (
-                <span className="flex-shrink-0 text-[11px] text-tertiary">
-                  {item.filePaths.length > 1
-                    ? t('{n} files', { n: item.filePaths.length })
-                    : t('1 file')}
+            return (
+              <div
+                key={item.id}
+                className="group flex items-center gap-2 rounded-lg border border-line-control/80 bg-state-selected px-2.5 py-1.5"
+                title={label}
+              >
+                <ListPlus className="h-3.5 w-3.5 flex-shrink-0 text-tertiary" strokeWidth={2} />
+                <span className="flex-shrink-0 text-[11px] tabular-nums text-tertiary">
+                  {index + 1}
                 </span>
-              )}
-              <button
-                type="button"
-                onClick={() => onSteer(item.id)}
-                disabled={item.steering || !canSteer}
-                className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-tertiary transition-colors enabled:hover:bg-state-hover enabled:hover:text-main disabled:opacity-40"
-                title={t('Send into the running turn')}
-                aria-label={t('Send into the running turn')}
-              >
-                {item.steering ? (
-                  <LoaderCircle className="h-3 w-3 animate-spin" strokeWidth={2.2} />
-                ) : (
-                  <CornerDownRight className="h-3 w-3" strokeWidth={2.2} />
+                <span className="min-w-0 flex-1 truncate text-[12.5px] text-secondary">
+                  {label}
+                </span>
+                <span className="flex-shrink-0 text-[11px] text-tertiary">
+                  {approval?.status === 'pending' ? t('Waiting') : t('Runs after the turn ahead')}
+                </span>
+                {item.filePaths.length > 0 && (
+                  <span className="flex-shrink-0 text-[11px] text-tertiary">
+                    {item.filePaths.length > 1
+                      ? t('{n} files', { n: item.filePaths.length })
+                      : t('1 file')}
+                  </span>
                 )}
-              </button>
-              <button
-                type="button"
-                onClick={() => onRemove(item.id)}
-                className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-tertiary transition-colors hover:bg-state-hover hover:text-main"
-                title={t('Take back')}
-                aria-label={t('Take back')}
-              >
-                <X className="h-3 w-3" strokeWidth={2.2} />
-              </button>
-            </div>
-          )
-        })}
+                <button
+                  type="button"
+                  onClick={() => onSteer(item.id)}
+                  disabled={item.steering || !canSteer}
+                  className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-tertiary transition-colors enabled:hover:bg-state-hover enabled:hover:text-main disabled:opacity-40"
+                  title={t('Send into the running turn')}
+                  aria-label={t('Send into the running turn')}
+                >
+                  {item.steering ? (
+                    <LoaderCircle className="h-3 w-3 animate-spin" strokeWidth={2.2} />
+                  ) : (
+                    <CornerDownRight className="h-3 w-3" strokeWidth={2.2} />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRemove(item.id)}
+                  className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-tertiary transition-colors hover:bg-state-hover hover:text-main"
+                  title={t('Take back')}
+                  aria-label={t('Take back')}
+                >
+                  <X className="h-3 w-3" strokeWidth={2.2} />
+                </button>
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>
   )

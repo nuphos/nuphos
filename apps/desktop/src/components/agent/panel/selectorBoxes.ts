@@ -105,6 +105,20 @@ export function selectorMetrics(device?: AgentDevice) {
   }
 }
 
+/**
+ * A computer close enough to full that a turn may fail on it, said in words.
+ * Load below that is noise in a picker, so it says nothing.
+ */
+export function boxWarning(metrics: SelectorMetrics | null): string | null {
+  if (!metrics) return null
+  if (metrics.disk >= 90)
+    return t('Disk almost full · {percent}%', { percent: Math.round(metrics.disk) })
+  if (metrics.memory >= 90)
+    return t('Memory almost full · {percent}%', { percent: Math.round(metrics.memory) })
+
+  return null
+}
+
 function formatCapacity(value: { used: number; total: number }) {
   const gb = 1024 ** 3
   const format = (bytes: number) =>

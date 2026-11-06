@@ -5,13 +5,11 @@ import { runtimeAllows } from '../../../lib/runtimeExecution'
 
 import { AttachmentChips } from './composerAttachments'
 import { ComposerEditor, ComposerSendControls, ComposerTools } from './composerControls'
-import { BypassControlMenu, ComposerAttachmentMenu } from './composerMenus'
-import { CredentialSelectorButton } from './CredentialSelectorButton'
-import { ModelSelector } from './ModelSelector'
+import { ComposerAttachmentMenu } from './composerMenus'
+import { ComposerRuntime, ComposerSetup } from './ComposerSetup'
 import { runtimeSendRefusal } from './queuedAutoSend'
 import { AgentStatusBanner, ReadOnlyConversationNotice } from './ReadOnlyNotice'
 import { runtimeControlSendBlock, runtimeGone } from './runtimeControlSignOut'
-import { RuntimeSelector } from './RuntimeSelector'
 import { useComposerActions } from './useComposerActions'
 import { useComposerDraft } from './useComposerDraft'
 import { useComposerMentions } from './useComposerMentions'
@@ -23,12 +21,12 @@ import type { ComposerSend } from './composerMentionChips'
 import type { ComposerRecall } from './composerRecall'
 import type { CredentialSelectorControl } from './credentialSections'
 import type { AgentPromptSeed } from './model'
-import type { ViewOnlyNotice } from './viewOnlyNotice'
+import type { ModelControl } from './ModelSelector'
 import type { RuntimeControl } from './RuntimeSelector'
 import type { ModelSession } from './useSessionConfig'
+import type { ViewOnlyNotice } from './viewOnlyNotice'
 import type { AgentConversation, AgentSlackThread, LocalAgentSessionInfo } from '../../../api'
 import type { RuntimeExecution } from '../../../lib/runtimeExecution'
-import type { ReactNode } from 'react'
 
 export function Composer({
   variant = 'compact',
@@ -76,7 +74,8 @@ export function Composer({
   runtimeControl?: RuntimeControl
   modelSession?: ModelSession
   /** Model settings for a conversation that does not exist yet. */
-  newConversationModelControl?: ReactNode
+  /** A new chat's model picks, before it has a session of its own. */
+  newConversationModelControl?: ModelControl
   /** Authorization-mode picker for this conversation (Auto Mode ↔ Bypass
    *  Permissions) — absent when the conversation has no session yet. */
   bypassControl?: { active: boolean; onSelect: (bypass: boolean) => void }
@@ -253,24 +252,22 @@ export function Composer({
                 onSelectAttachment={actions.selectAttachment}
                 onSelectFolderAttachment={actions.selectFolderAttachment}
               />
-              {credentialSelector && (
-                <CredentialSelectorButton {...credentialSelector} hero={hero} personalIdentity />
-              )}
-              {bypassControl && <BypassControlMenu bypassControl={bypassControl} hero={hero} />}
               {runtimeControl && (
-                <RuntimeSelector
-                  {...runtimeControl}
+                <ComposerRuntime
+                  runtimeControl={runtimeControl}
                   menuOpen={agentMenuOpen}
                   onMenuOpenChange={setAgentMenuOpen}
                   hero={hero}
                 />
               )}
+              <ComposerSetup
+                hero={hero}
+                credentialSelector={credentialSelector}
+                bypassControl={bypassControl}
+                modelControl={modelSession ? modelControl : newConversationModelControl}
+                readOnly={readOnly}
+              />
             </ComposerTools>
-            {modelSession ? (
-              <ModelSelector control={modelControl} disabled={readOnly} hero={hero} />
-            ) : (
-              newConversationModelControl
-            )}
             <ComposerSendControls
               runtimeCanCancel={runtimeCanCancel}
               executing={executing}
