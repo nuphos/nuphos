@@ -352,7 +352,7 @@ private struct ReadWhileShown: ViewModifier {
 
     private func update() {
         let open = shown && scenePhase == .active
-        ConversationUnread.shared.setReading(open, reader: reader, team: session.teamId, session: session.sessionId)
+        store.unread.setReading(open, reader: reader, team: session.teamId, session: session.sessionId)
         if open { store.follow(session) } else { store.unfollow(session) }
     }
 }

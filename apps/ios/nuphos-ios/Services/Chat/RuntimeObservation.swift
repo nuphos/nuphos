@@ -76,6 +76,16 @@ enum ConversationIndicator: Equatable {
 @Observable
 final class RuntimeObservations {
     static let shared = RuntimeObservations()
+    private final class Weak { weak var value: RuntimeObservations?; init(_ value: RuntimeObservations) { self.value = value } }
+    private static var accounts: [String: Weak] = [:]
+
+    static func forAccount(_ token: String) -> RuntimeObservations {
+        if let existing = accounts[token]?.value { return existing }
+        accounts = accounts.filter { $0.value.value != nil }
+        let value = RuntimeObservations()
+        accounts[token] = Weak(value)
+        return value
+    }
     private var values: [String: RuntimeObservation] = [:]
     func value(team: String, session: String) -> RuntimeObservation? { values["\(team)/\(session)"] }
     func receive(_ snapshot: JSONValue?, team: String, session: String, observedAt: TimeInterval) {

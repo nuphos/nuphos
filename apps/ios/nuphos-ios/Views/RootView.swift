@@ -11,12 +11,12 @@ struct RootView: View {
             case .restoring:
                 SplashView()
             case .signedOut, .signingIn:
-                LoginView()
+                LoginView().id(session.generation)
             case .signedIn(let user):
                 if session.aiConsentAccepted {
-                    HomeView(user: user).id(user.id)
+                    HomeView(user: user).id(session.generation)
                 } else {
-                    AIConsentView(user: user).id(user.id)
+                    AIConsentView(user: user).id(session.generation)
                 }
             }
         }
@@ -28,8 +28,8 @@ struct RootView: View {
         .onChange(of: scenePhase, initial: true) { _, phase in
             Analytics.shared.setActive(phase == .active)
         }
-        .task(id: isSignedIn) {
-            if isSignedIn, let token = session.token { await PushNotifications.shared.activate(authToken: token) }
+        .task(id: "\(session.generation)/\(isSignedIn)") {
+            if isSignedIn { await session.activatePush() }
         }
     }
 

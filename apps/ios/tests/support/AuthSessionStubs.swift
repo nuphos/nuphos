@@ -5,13 +5,18 @@ import Foundation
 
 enum Keychain {
     nonisolated(unsafe) static var items: [String: String] = [:]
+    static func load(_ key: String) throws -> String? { items[key] }
     static func read(_ key: String) -> String? { items[key] }
     static func write(_ value: String, for key: String) throws { items[key] = value }
     static func delete(_ key: String) { items[key] = nil }
 }
 
 enum NuphosAPI {
-    static let baseURL = URL(string: "https://example.invalid")!
+    @discardableResult static func rememberOrigin(_ origin: String, token: String) -> Bool { true }
+    static func baseURL(for token: String?) -> URL { baseURL }
+    static let baseURLKey = "test-api-base-url"
+    static let baseURL = URL(string: "https://api.nuphos.ai")!
+
     nonisolated(unsafe) static var sharedSessionBaseURL: URL?
     enum Failure: LocalizedError {
         case unauthorized
@@ -32,7 +37,10 @@ enum AccountAPI {
     /// The token the email sign-in hands out.
     nonisolated(unsafe) static var signInToken = ""
 
+    nonisolated(unsafe) static var consentReply: ((String) async throws -> Consent)?
+
     static func request<T: Decodable>(_ path: String, method: String = "GET", token: String? = nil, body: [String: Any]? = nil, upload: Data? = nil) async throws -> T {
+        if path == "ai-consent", let consentReply { return try await consentReply(token ?? "") as! T }
         let json: Any = path == "ai-consent"
             ? ["version": aiConsentVersion, "accepted": true]
             : ["token": signInToken, "user": ["id": "u-\(signInToken)"]]
@@ -63,7 +71,14 @@ final class Analytics {
 
 final class PushNotifications {
     static let shared = PushNotifications()
-    func deactivate() async {}
+    var routingEnabled = true
+    var activation: ((String) async -> Void)?
+    func deactivate() async { routingEnabled = false }
+    func invalidateRouting() { routingEnabled = false }
+    func activate(authToken: String) async {
+        routingEnabled = true
+        await activation?(authToken)
+    }
 }
 
 enum ComposerDrafts {

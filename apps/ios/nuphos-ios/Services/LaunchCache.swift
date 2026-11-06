@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 /// What the last launch showed, so the next one can paint it at once and
 /// refresh behind it. Only a convenience: a missing or unreadable file means
@@ -16,6 +17,11 @@ enum LaunchCache {
         let team: Team
         let conversations: [AgentConversation]
         let favorites: SidebarFavorites?
+        var accountKey: String? = nil
+    }
+
+    static func accountKey(_ token: String) -> String {
+        SHA256.hash(data: Data(token.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 
     static func read<T: Decodable>(_ type: T.Type) -> T? {

@@ -35,6 +35,21 @@ struct PushTarget: Equatable, Hashable, Identifiable {
 final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
     static let shared = PushNotifications()
 
+    private var routingEnabled = true
+
+    func invalidateRouting() {
+        routingEnabled = false
+        pendingTarget = nil
+        pendingPlan = nil
+        pendingConversations = false
+    }
+
+    var canRoute: Bool { routingEnabled }
+
+    private func matchesAccount(_ userInfo: [AnyHashable: Any]) -> Bool {
+        routingEnabled && SavedAccounts().acceptsNotification(accountID: userInfo["accountId"] as? String)
+    }
+
     var pendingTarget: PushTarget?
     var pendingPlan: PlanLink.Target?
     /// The Live Activity was tapped outside its rows: show the conversation list.
@@ -44,6 +59,7 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
     /// opened the app. False when the app has no screen for it.
     @discardableResult
     func open(_ url: URL) -> Bool {
+        guard routingEnabled else { return false }
         switch AppLink(url) {
         case .session(let teamId, let sessionId): pendingTarget = PushTarget(teamId: teamId, sessionId: sessionId)
         case .plan(let plan): pendingPlan = plan
@@ -56,6 +72,7 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
     @ObservationIgnored private var authToken: String?
     @ObservationIgnored private var deviceToken: String?
     @ObservationIgnored private var liveActivityStartToken: String?
+    @ObservationIgnored private var uploadTask: Task<Void, Never>?
     @ObservationIgnored private var registeredPair: String?
 
     static var deviceId: String {
@@ -93,7 +110,7 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
     /// before any screen has signed in.
     private func reply(_ text: String, to target: PushTarget) async {
         do {
-            guard let token = Keychain.read(AuthSession.tokenKey) else { throw NuphosAPI.Failure.unauthorized }
+            guard let token = SavedAccounts().active?.token else { throw NuphosAPI.Failure.unauthorized }
             try await AgentChatAPI.reply(token: token, teamId: target.teamId, sessionId: target.sessionId, text: text)
         } catch {
             // Never lost silently: the text comes back, and a tap opens the conversation.
@@ -111,6 +128,7 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
     func activate(authToken: String) async {
         #if !NUPHOS_SHARE_EXTENSION
         self.authToken = authToken
+        routingEnabled = true
         #if DEBUG
         // Simulator scripts cannot answer the permission alert, and it blocks links.
         if CommandLine.arguments.contains("-preview-no-push") { return }
@@ -129,9 +147,16 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
     func deactivate() async {
         let authToken = self.authToken
         self.authToken = nil
+        invalidateRouting()
         pendingTarget = nil
         pendingPlan = nil
+        pendingConversations = false
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        #if os(iOS)
+        await TurnLiveActivity.reset()
+        #endif
         registeredPair = nil
+        await uploadTask?.value
         guard let authToken, let deviceToken else { return }
         try? await AgentChatAPI.unregisterPushDevice(token: authToken, deviceToken: deviceToken)
     }
@@ -147,6 +172,13 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func upload() async {
+        let previous = uploadTask
+        let task = Task { await previous?.value; await self.performUpload() }
+        uploadTask = task
+        await task.value
+    }
+
+    private func performUpload() async {
         guard let authToken, let deviceToken else { return }
         let pair = "\(authToken)/\(deviceToken)/\(liveActivityStartToken ?? "")"
         guard pair != registeredPair else { return }
@@ -157,7 +189,7 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
                               bundleId: Bundle.main.bundleIdentifier ?? "",
                               liveActivityStartToken: liveActivityStartToken)
             )
-            registeredPair = pair
+            if self.authToken == authToken { registeredPair = pair }
         } catch {
             // Retried on the next launch or token refresh.
         }
@@ -177,7 +209,8 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         let hasAlert = !content.title.isEmpty || !content.body.isEmpty
         let target = PushTarget(userInfo: content.userInfo)
         Task { @MainActor in
-            if !hasAlert || target.map({ ConversationUnread.shared.isReading(team: $0.teamId, session: $0.sessionId) }) == true {
+            guard self.matchesAccount(content.userInfo) else { completionHandler([]); return }
+            if !hasAlert || target.map({ ConversationUnread.forAccount(self.authToken ?? "").isReading(team: $0.teamId, session: $0.sessionId) }) == true {
                 completionHandler([.badge])
             } else {
                 completionHandler([.banner, .list, .sound, .badge])
@@ -192,6 +225,10 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         let target = PushTarget(userInfo: response.notification.request.content.userInfo)
         let text = (response as? UNTextInputNotificationResponse)?.userText.trimmingCharacters(in: .whitespacesAndNewlines)
         Task { @MainActor in
+            guard self.matchesAccount(response.notification.request.content.userInfo) else {
+                completionHandler()
+                return
+            }
             if let text {
                 if let target, !text.isEmpty { await PushNotifications.shared.reply(text, to: target) }
             } else if let target {

@@ -20,6 +20,24 @@ enum NuphosAPI {
         }
     }
 
+    private static let originsLock = NSLock()
+    nonisolated(unsafe) private static var tokenOrigins: [String: URL] = [:]
+
+    @discardableResult
+    static func rememberOrigin(_ origin: String, token: String) -> Bool {
+        guard let url = URL(string: origin) else { return false }
+        return originsLock.withLock {
+            if let existing = tokenOrigins[token], existing != url { return false }
+            tokenOrigins[token] = url
+            return true
+        }
+    }
+
+    static func baseURL(for token: String?) -> URL {
+        guard let token else { return baseURL }
+        return originsLock.withLock { tokenOrigins[token] } ?? baseURL
+    }
+
     static let defaultBaseURL = URL(string: "https://api.nuphos.ai")!
     /// UserDefaults key for a self-hosted backend origin; unset means Nuphos Cloud.
     static let baseURLKey = "apiBaseURL"

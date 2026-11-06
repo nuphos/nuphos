@@ -115,10 +115,10 @@ struct ConversationView: View {
         .onAppear {
             UIEventLog.pageTransition(from: sourcePage, to: "chat")
             Analytics.shared.screen("chat", teamID: session.teamId)
-            if draft.isEmpty { draft = ComposerDrafts.text(team: session.teamId, session: session.sessionId) }
+            if draft.isEmpty { draft = ComposerDrafts.text(team: session.teamId, session: session.sessionId, identity: store.token) }
         }
         .onChange(of: draft) { _, text in
-            ComposerDrafts.set(text, team: session.teamId, session: session.sessionId)
+            ComposerDrafts.set(text, team: session.teamId, session: session.sessionId, identity: store.token)
         }
         .onDisappear {
             UIEventLog.pageTransition(from: "chat", to: sourcePage)

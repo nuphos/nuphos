@@ -94,7 +94,7 @@ enum ConnectorsAPI {
     private static func raw<B: Encodable>(
         _ method: String, _ path: String, token: String, body: B?, timeout: TimeInterval
     ) async throws -> Data {
-        var request = URLRequest(url: NuphosAPI.baseURL.appending(path: path))
+        var request = URLRequest(url: NuphosAPI.baseURL(for: token).appending(path: path))
         request.httpMethod = method
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")

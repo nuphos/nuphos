@@ -17,7 +17,7 @@ final class AgentStore {
     }
 
     static let pageSize = 30
-    private static let lastTeamKey = "nuphos.workspace.lastTeamId"
+    private var lastTeamKey: String { "nuphos.workspace.lastTeamId.\(LaunchCache.accountKey(token))" }
 
     private(set) var teams: [Team] = []
     private(set) var teamsPhase: Phase = .idle
@@ -269,7 +269,7 @@ final class AgentStore {
     /// again", never a silent switch to another account.
     private(set) var selectedRuntimeId: String?
 
-    private func runtimeKey(for team: Team) -> String { "nuphos.agent.runtimeInstance.\(team.id)" }
+    private func runtimeKey(for team: Team) -> String { "nuphos.agent.runtimeInstance.\(LaunchCache.accountKey(token)).\(team.id)" }
 
     var newConversationRuntime: RuntimeInstance? {
         if let selectedRuntimeId { return runtimes.first { $0.id == selectedRuntimeId && $0.isSelectable } }
@@ -416,6 +416,8 @@ final class AgentStore {
     let token: String
     private var sharingOwner: SharedShareSession.Owner
     private var isShareEntry = false
+    let unread: ConversationUnread
+    let observations: RuntimeObservations
     private var searchTask: Task<Void, Never>?
     private var loadGeneration = 0
     private var loadedPageCursors: [String] = []
@@ -431,7 +433,7 @@ final class AgentStore {
 
     // MARK: - Composer settings (IAM + permission mode)
 
-    private static let permissionModeKey = "nuphos.agentPermissionMode"
+    private var permissionModeKey: String { "nuphos.agentPermissionMode.\(LaunchCache.accountKey(token))" }
 
     private var credentials = CredentialDraft()
     var credentialCatalog: CredentialCatalog? { credentials.catalog }
@@ -444,11 +446,8 @@ final class AgentStore {
     }
     /// Nothing stored yet means Full Access; anything unreadable fails safe
     /// to Auto Mode.
-    var permissionMode: PermissionMode = {
-        guard let stored = UserDefaults.standard.string(forKey: AgentStore.permissionModeKey) else { return .bypass }
-        return stored == PermissionMode.bypass.rawValue ? .bypass : .auto
-    }() {
-        didSet { UserDefaults.standard.set(permissionMode.rawValue, forKey: Self.permissionModeKey); publishSharingContext() }
+    var permissionMode: PermissionMode = .bypass {
+        didSet { UserDefaults.standard.set(permissionMode.rawValue, forKey: permissionModeKey); publishSharingContext() }
     }
 
     /// Loads the IAM catalog for the selected team (cached per team).
@@ -472,14 +471,19 @@ final class AgentStore {
         self.loadsHistory = loadsHistory
         self.token = token
         sharingOwner = SharedShareSession.Owner(token: token)
-        ConversationUnread.shared.markRead = { team, session, seq in
+        unread = ConversationUnread.forAccount(token)
+        observations = RuntimeObservations.forAccount(token)
+        if let stored = UserDefaults.standard.string(forKey: permissionModeKey) {
+            permissionMode = stored == PermissionMode.bypass.rawValue ? .bypass : .auto
+        }
+        unread.markRead = { team, session, seq in
             try? await AgentChatAPI.markRead(token: token, teamId: team, sessionId: session, seq: seq)
         }
-        ConversationUnread.shared.probe = { team, session in
+        unread.probe = { team, session in
             _ = try? await NuphosAPI.conversationDetail(token: token, teamId: team, sessionId: session, tail: 1)
         }
         // The list the last launch showed, until `loadTeams` refreshes it.
-        if let cached = LaunchCache.read(LaunchCache.Agents.self) {
+        if let cached = LaunchCache.read(LaunchCache.Agents.self), cached.accountKey == LaunchCache.accountKey(token) {
             selectedTeam = cached.team
             conversations = cached.conversations
             favorites = cached.favorites
@@ -499,7 +503,7 @@ final class AgentStore {
             let teams = try await NuphosAPI.teams(token: token)
             self.teams = teams
             teamsPhase = .loaded
-            let remembered = UserDefaults.standard.string(forKey: Self.lastTeamKey)
+            let remembered = UserDefaults.standard.string(forKey: lastTeamKey)
             let pick = teams.first { $0.id == remembered } ?? teams.first
             if pick != selectedTeam || phase == .idle {
                 selectedTeam = pick
@@ -519,7 +523,7 @@ final class AgentStore {
         guard team != selectedTeam else { return }
         selectedTeam = team
         Analytics.shared.track("team_switched", teamID: team.id)
-        UserDefaults.standard.set(team.id, forKey: Self.lastTeamKey)
+        UserDefaults.standard.set(team.id, forKey: lastTeamKey)
         resetTeamScopedState()
         publishSharingContext()
         Task { await reload() }
@@ -593,7 +597,7 @@ final class AgentStore {
             hasMore = page.hasMore
             phase = .loaded
             if search.isEmpty {
-                LaunchCache.write(LaunchCache.Agents(team: team, conversations: page.rows, favorites: favorites))
+                LaunchCache.write(LaunchCache.Agents(team: team, conversations: page.rows, favorites: favorites, accountKey: LaunchCache.accountKey(token)))
             }
             // A pinned chat stays on top however old it is, so page until each one is listed.
             for _ in 0..<10 where hasMore && search.isEmpty

@@ -1,10 +1,10 @@
 import XCTest
 
 final class LoginUITests: XCTestCase {
-    private func launch() -> XCUIApplication {
+    private func launch(fixtureName: String = "login-responses.json") -> XCUIApplication {
         let fixture = URL(filePath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent()
-            .appending(path: "tests/fixtures/login-responses.json")
+            .appending(path: "tests/fixtures/\(fixtureName)")
         let app = XCUIApplication()
         app.launchArguments = ["-preview-login", "-preview-no-push"]
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": fixture.path]
@@ -21,7 +21,7 @@ final class LoginUITests: XCTestCase {
         add(attachment)
     }
 
-    func testEmailCodeCanRetryAndChangeAddress() {
+    func testEmailCodeAutomaticallyVerifiesAndCanRetryAndChangeAddress() {
         let app = launch()
         capture("Login entry")
         XCTAssertTrue(app.textFields["login.email"].waitForExistence(timeout: 5))
@@ -36,19 +36,47 @@ final class LoginUITests: XCTestCase {
         capture("Email verification")
         code.tap()
         code.typeText("123")
+        XCTAssertFalse(app.buttons["login.submit"].isEnabled)
+        XCTAssertFalse(app.staticTexts["login.error"].exists)
         code.typeText(XCUIKeyboardKey.delete.rawValue)
         XCTAssertEqual(code.value as? String, "12")
         code.typeText("3456")
         XCTAssertEqual(code.value as? String, "123456")
         capture("Six-digit code entered")
-        app.buttons["login.submit"].tap()
         XCTAssertTrue(app.staticTexts["login.error"].waitForExistence(timeout: 5))
         XCTAssertTrue(code.exists)
+        XCTAssertTrue(app.buttons["login.submit"].isEnabled)
         app.swipeUp()
         app.buttons["login.change-email"].tap()
         XCTAssertTrue(email.waitForExistence(timeout: 5))
         XCTAssertEqual(email.value as? String, "alex@example.com")
         XCTAssertTrue(app.buttons["login.submit"].exists)
+    }
+
+    func testAddingAccountStartsWithAnEmptyEmailForm() {
+        let app = launch(fixtureName: "accounts-responses.json")
+        let email = app.textFields["login.email"]
+        email.tap()
+        email.typeText("alex@example.com")
+        app.buttons["login.submit"].tap()
+        let code = app.textFields["login.code"]
+        XCTAssertTrue(code.waitForExistence(timeout: 5))
+        code.tap()
+        code.typeText("123456")
+        let account = app.buttons["Account"]
+        XCTAssertTrue(account.waitForExistence(timeout: 10))
+        account.tap()
+        app.buttons["Add account"].tap()
+        XCTAssertTrue(email.waitForExistence(timeout: 5))
+        XCTAssertEqual(email.value as? String, email.placeholderValue)
+        XCTAssertFalse(code.exists)
+        app.buttons["Cancel adding account"].tap()
+        XCTAssertTrue(account.waitForExistence(timeout: 10))
+        account.tap()
+        app.buttons["Account options for alex@example.com"].tap()
+        app.buttons["Sign out"].firstMatch.tap()
+        app.sheets.buttons["Sign out"].tap()
+        XCTAssertTrue(email.waitForExistence(timeout: 5))
     }
 
     func testVerificationBackPreservesEmail() {
