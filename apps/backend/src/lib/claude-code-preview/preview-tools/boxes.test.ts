@@ -45,7 +45,7 @@ useAgentDb({
     updateOne: (filter: unknown, update: unknown) => {
       calls.push(['select', filter, update])
 
-      return Promise.resolve({})
+      return Promise.resolve({ matchedCount: 1 })
     },
   })) as never,
 })
@@ -112,7 +112,11 @@ test('creates on the only account and selects the Box for this conversation', as
       { $addToSet: { 'credentialAccess.deviceIds': 'new-box' } },
     ],
   ])
-  expect(result.structuredContent).toMatchObject({ deviceId: 'new-box', joined: true })
+  expect(result.structuredContent).toMatchObject({
+    deviceId: 'new-box',
+    joined: true,
+    selected: true,
+  })
 })
 
 test('creating needs an administrator and a bound account', async () => {
