@@ -121,17 +121,12 @@ function SecretDone({
   saved: boolean
 }) {
   return (
-    <div
-      data-tool-call-id={toolCallId}
-      className="flex items-center gap-1.5 text-[12px] text-tertiary"
-    >
-      <Lock className="size-3.5 shrink-0" aria-hidden />
-      <span className="font-mono">{name}</span>
-      <span>
-        {saved
-          ? t("Saved on the agent's runtime.")
-          : t('This request is closed. Ask the agent to request the secret again.')}
-      </span>
+    <div data-tool-call-id={toolCallId} className="text-[12px] text-tertiary">
+      <Lock className="mr-1.5 inline size-3.5 align-[-2px]" aria-hidden />
+      <span className="mr-1.5 font-mono">{name}</span>
+      {saved
+        ? t("Saved on the agent's runtime.")
+        : t('This request is closed. Ask the agent to request the secret again.')}
     </div>
   )
 }
