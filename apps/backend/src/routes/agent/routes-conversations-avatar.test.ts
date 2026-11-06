@@ -4,9 +4,20 @@ import { beforeEach, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useConversationTurn } from '@/lib/test/doubles/conversation-turn'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
 import { agent } from './router'
+
+const turns: { text: string; avatar?: string }[] = []
+
+useConversationTurn({
+  startConversationTurn: (_data, target, text) => {
+    turns.push({ text, avatar: target.avatar })
+
+    return Promise.resolve({ status: 'started' as const, run: Promise.resolve(undefined) })
+  },
+})
 
 const teamId = 'aaaaaaaaaaaaaaaaaaaaaaaa'
 const otherTeam = 'cccccccccccccccccccccccc'
@@ -17,6 +28,7 @@ let managerIds: string[] = []
 let saved: (string | null)[] = []
 let stillThere = true
 let shells: Record<string, unknown>[] = []
+let currentAvatar: string | undefined
 
 useIdentity({
   authenticateToken: async () => ({ user: { id: caller } }),
@@ -25,7 +37,14 @@ useIdentity({
 useAgentDb({
   getReadableConversation: async (_session, _user, team) =>
     team === teamId
-      ? { sessionId: 's1', userId: owner, teamId, participantIds: managerIds, managerIds }
+      ? {
+          sessionId: 's1',
+          userId: owner,
+          teamId,
+          participantIds: managerIds,
+          managerIds,
+          ...(currentAvatar ? { avatar: currentAvatar } : {}),
+        }
       : null,
   upsertConversationShell: async (data) => {
     shells.push(data)
@@ -49,6 +68,8 @@ beforeEach(() => {
   saved = []
   stillThere = true
   shells = []
+  currentAvatar = undefined
+  turns.length = 0
 })
 const pick = (avatar: unknown, team = teamId) =>
   app.request(`/agent/conversations/s1/avatar?teamId=${team}`, {
@@ -114,4 +135,31 @@ test('"+" on Bots creates a Bot with a name and its derived face, before any mes
       avatar: body.avatar,
     },
   ])
+})
+
+const makeBot = () =>
+  app.request(`/agent/conversations/s1/bot?teamId=${teamId}`, {
+    method: 'POST',
+    headers: { authorization: 'Bearer test-token' },
+  })
+
+test('"Make this a Bot" gives the Task its face and asks it to name itself', async () => {
+  const response = await makeBot()
+  const { avatar } = (await response.json()) as { avatar: string }
+
+  expect(response.status).toBe(200)
+  expect(saved).toEqual([avatar])
+  expect(turns).toHaveLength(1)
+  expect(turns[0]?.avatar).toBe(avatar)
+  expect(turns[0]?.text).toContain('update_self')
+})
+
+test('"Make this a Bot" leaves a Bot as it is, and only the owner may', async () => {
+  currentAvatar = '07-ada'
+  expect(await (await makeBot()).json()).toEqual({ avatar: '07-ada' })
+  currentAvatar = undefined
+  owner = 'someone-else'
+  expect((await makeBot()).status).toBe(404)
+  expect(saved).toEqual([])
+  expect(turns).toEqual([])
 })
