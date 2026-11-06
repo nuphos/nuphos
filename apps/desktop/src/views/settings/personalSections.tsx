@@ -4,13 +4,10 @@ import clsx from 'clsx'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
-import { AgentAvatar } from '../../components/agent/AgentAvatar'
 import { AppSelect } from '../../components/ui/select'
-import { Switch } from '../../components/ui/Switch'
 import { toast } from '../../components/ui/toast'
 import { useTheme } from '../../hooks/useTheme'
 import { LOCALES, locale, setLocale, t } from '../../i18n'
-import { setAgentAppearance, useAgentAppearance } from '../../lib/agentAppearance'
 import { isMac } from '../../lib/platform'
 import { AuditLogView } from '../AuditLogView'
 import { TeamMembersView } from '../TeamMembersView'
@@ -140,7 +137,6 @@ function AppIconPicker() {
 
 export function AppearanceSection() {
   const { preference, setPreference } = useTheme()
-  const { botAvatars, density } = useAgentAppearance()
 
   return (
     <div>
@@ -186,60 +182,6 @@ export function AppearanceSection() {
         </Field>
       </div>
       {isMac && <AppIconPicker />}
-      <div className="mt-8 space-y-5">
-        <h3 className="text-[14px] font-semibold text-main">{t('Agents')}</h3>
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <div className="text-[13px] font-medium text-main">{t('Bot avatars')}</div>
-            <p className="mt-1 text-[12px] text-tertiary">
-              {t('Give Agents a character avatar. Turn off to show Runtime icons.')}
-            </p>
-          </div>
-          <Switch
-            label={t('Bot avatars')}
-            checked={botAvatars}
-            onChange={(next) => setAgentAppearance({ botAvatars: next })}
-          />
-        </div>
-        <fieldset>
-          <legend className="mb-1.5 text-[12.5px] font-medium text-secondary">
-            {t('Sidebar density')}
-          </legend>
-          <div className="grid grid-cols-2 gap-2" role="group" aria-label={t('Sidebar density')}>
-            {(['compact', 'comfortable'] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={density === value}
-                onClick={() => setAgentAppearance({ density: value })}
-                className={clsx(
-                  'rounded-lg border px-3 py-2 text-[13px] font-medium transition-colors',
-                  density === value
-                    ? 'border-action-primary/70 bg-state-selected text-main'
-                    : 'border-line-control bg-surface text-secondary hover:text-main',
-                )}
-              >
-                {value === 'compact' ? t('Compact') : t('Comfortable')}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-        <div
-          className="rounded-lg border border-line-control bg-surface p-3"
-          aria-label={t('Agent appearance preview')}
-        >
-          <div className="mb-2 text-[11px] text-tertiary">{t('Preview')}</div>
-          <div
-            className={clsx(
-              'flex items-center gap-2.5 text-[14px] text-secondary',
-              density === 'compact' ? 'h-[30px]' : 'h-[42px]',
-            )}
-          >
-            <AgentAvatar agentId="appearance-preview" provider="claude-code" sidebar animated />
-            <span>{t('Product design')}</span>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }

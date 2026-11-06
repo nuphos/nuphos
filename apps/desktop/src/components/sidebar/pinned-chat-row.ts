@@ -13,6 +13,8 @@ export function pinnedChatFields(live: Item | undefined) {
     actions: live?.actions,
     watching: live?.watching,
     description: live?.description,
+    preview: live?.preview,
+    time: live?.time,
     readOnlyChat: live?.readOnlyChat,
     managedChat: live?.managedChat,
   }

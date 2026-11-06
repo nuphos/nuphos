@@ -2,6 +2,18 @@ import { ipcRenderer } from 'electron'
 
 export const channelsApi = {
   agentCreateChannel: (teamId: string) => ipcRenderer.invoke('agent:createChannel', teamId),
+  agentCreateBot: (
+    teamId: string,
+    bot?: {
+      title?: string
+      avatar?: string
+      runtimeId?: string
+      agentRuntime?: string
+      runtimeLabel?: string
+    },
+  ) => ipcRenderer.invoke('agent:createBot', teamId, bot),
+  agentMakeBot: (sessionId: string, teamId: string) =>
+    ipcRenderer.invoke('agent:makeBot', sessionId, teamId),
   agentListChannelMentions: (teamId: string) =>
     ipcRenderer.invoke('agent:listChannelMentions', teamId),
   agentListChannelAgents: (channelId: string, teamId: string) =>

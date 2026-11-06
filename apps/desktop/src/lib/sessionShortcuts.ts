@@ -7,8 +7,7 @@
 
 import { isMac } from './platform.ts'
 
-export type SessionShortcutAction =
-  'rename-chat' | 'toggle-pin-chat' | 'copy-chat-link' | 'archive-chat'
+export type SessionShortcutAction = 'rename-chat' | 'copy-chat-link' | 'archive-chat'
 
 type SessionShortcut = {
   action: SessionShortcutAction
@@ -26,13 +25,6 @@ export const SESSION_SHORTCUTS: SessionShortcut[] = [
     action: 'rename-chat',
     combo: 'mod+alt+r',
     code: 'KeyR',
-    alt: true,
-    shift: false,
-  },
-  {
-    action: 'toggle-pin-chat',
-    combo: 'mod+alt+p',
-    code: 'KeyP',
     alt: true,
     shift: false,
   },

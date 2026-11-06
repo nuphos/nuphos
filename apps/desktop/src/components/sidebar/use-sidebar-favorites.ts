@@ -92,11 +92,13 @@ export function useSidebarFavorites({
   // Overview pages are already permanently in the sidebar, so pinning one only
   // duplicates a row. Favorites is for what the sidebar can't otherwise reach:
   // chats, drill-downs, and pages captured from a tab. Pins made before this
-  // rule keep their control so they can still be removed.
+  // rule keep their control so they can still be removed. Agents are not
+  // pinned: a Bot already stays in Bots, and a Task is one-off.
   const canFavorite = useCallback(
     (item: Item) =>
       teamView &&
       item.enabled &&
+      favoriteSessionId({ key: item.key, href: item.href }) === null &&
       (!teamOverviewNavItemFor(item.key) || Boolean(favoriteMatch(item))),
     [favoriteMatch, teamView],
   )

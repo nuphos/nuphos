@@ -3,16 +3,17 @@ import { memo, useState } from 'react'
 
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
 import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor'
-import { NewChannelButton } from '../channels/NewChannelButton'
+import { openBotChannel } from '../channels/botChannel'
 import { SidebarSearchButton } from '../session-search/SidebarSearchButton'
 import { SIDEBAR_PANEL_PADDING_CLASS } from '../SidebarNavItem'
 
-import { isChatSection, withChannelAction, withChatSections } from './chat-sections'
+import { isChatSection, withChatSections, withSectionActions } from './chat-sections'
 import { SidebarHeaderBar, SidebarTeamSwitcher, SidebarUserEntry } from './header'
 import { SidebarHelpMenu } from './help-menu'
 import { SidebarItemContextMenu } from './item-context-menu'
 import { SidebarBackControl, SidebarNavStack } from './nav-stack'
 import { SidebarIdentitySelector, SidebarInvitations } from './parts'
+import { chatSectionActions } from './section-actions'
 import { SidebarSectionList } from './sections-list'
 import { teamSections } from './sections-services'
 import { settingsBackTarget } from './types'
@@ -108,7 +109,7 @@ export const Sidebar = memo(function Sidebar({
   const teamView = view.level === 0
   const settingsBack = dynamicNavigation ? settingsBackTarget(scope, active) : null
 
-  const { favoriteMatch, canFavorite, toggleFavorite, movePinned, favoriteItems, pinnedChatItems } =
+  const { favoriteMatch, canFavorite, toggleFavorite, movePinned, favoriteItems } =
     useSidebarFavorites({
       userId: user?.id ?? '',
       teamId,
@@ -123,19 +124,19 @@ export const Sidebar = memo(function Sidebar({
 
   const [itemMenu, setItemMenu] = useState<ItemMenuRequest | null>(null)
 
-  const renderSections = teamView
-    ? withChatSections(sections, pinnedChatItems, favoriteMatch)
-    : [...sections]
+  const renderSections = withChatSections(sections, (botId) =>
+    openBotChannel(teamId, botId, onSelect),
+  )
 
   if (dynamicNavigation && teamView && favoriteItems.length > 0) {
     renderSections.splice(1, 0, { title: 'Favorites', items: favoriteItems })
   }
 
-  const sidebarSections = withChannelAction(
+  const sidebarSections = withSectionActions(
     dynamicNavigation
       ? renderSections
       : renderSections.filter((section, index) => index === 0 || isChatSection(section)),
-    <NewChannelButton teamId={teamId} onCreated={(id) => onSelect(`agent-session:${id}`)} />,
+    chatSectionActions(teamId, onSelect),
   )
 
   useChatNavKeys(sidebarSections, chrome.isGroupCollapsed, onSelect, chatNavKeysLive)

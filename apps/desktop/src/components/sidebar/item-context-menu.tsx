@@ -4,6 +4,7 @@ import {
   ArrowUp,
   Bell,
   BellOff,
+  Bot,
   Hash,
   Link2,
   Pencil,
@@ -19,6 +20,7 @@ import { t } from '../../i18n'
 import { copyLinkWithFeedback } from '../../lib/copyLink'
 import { favoriteSessionId, favoriteToggleTitle } from '../../lib/sidebarPinnedChats'
 import { agentSessionUrl } from '../agent/sessionUrl'
+import { makeBot } from '../channels/botChannel'
 import { ContextMenu } from '../ContextMenu'
 import { toast } from '../ui/toast'
 
@@ -48,6 +50,15 @@ export function SidebarItemContextMenu({
 }) {
   // A channel's row: its own nouns, and no pin or watch, which are an agent's.
   const channel = menu.item.channel === true
+  // The row's noun follows its section: a Task, a Bot (its chat or itself), or a group chat.
+  const noun = menu.item.task
+    ? 'task'
+    : menu.item.bot || menu.item.botChannelOf
+      ? 'bot'
+      : channel
+        ? 'chat'
+        : 'task'
+  const sessionId = menu.item.key.slice('agent-session:'.length)
   // A chat pins, matching the Pinned section; other destinations favorite.
   const chatRow = favoriteSessionId(menu.item) !== null
   const [addIcon, removeIcon] = chatRow ? [Pin, PinOff] : [Star, StarOff]
@@ -102,20 +113,16 @@ export function SidebarItemContextMenu({
               },
               {
                 key: 'copy-session-id',
-                label: channel ? t('Copy chat ID') : t('Copy agent ID'),
+                label: COPY_ID[noun](),
                 icon: Hash,
-                onSelect: () =>
-                  copy(
-                    menu.item.key.slice('agent-session:'.length),
-                    channel ? 'Channel ID' : 'Agent ID',
-                  ),
+                onSelect: () => copy(sessionId, noun),
               },
               ...(menu.item.readOnlyChat
                 ? []
                 : [
                     {
                       key: 'rename',
-                      label: channel ? t('Rename chat') : t('Rename agent'),
+                      label: RENAME[noun](),
                       icon: Pencil,
                       onSelect: () =>
                         renameChat(menu.item.key.slice('agent-session:'.length), menu.item.label),
@@ -139,9 +146,26 @@ export function SidebarItemContextMenu({
           ? [
               {
                 key: 'watch',
-                label: menu.item.watching ? t('Unwatch agent') : t('Watch agent'),
+                label: menu.item.watching
+                  ? noun === 'bot'
+                    ? t('Unwatch Bot')
+                    : t('Unwatch task')
+                  : noun === 'bot'
+                    ? t('Watch Bot')
+                    : t('Watch task'),
                 icon: menu.item.watching ? BellOff : Bell,
                 onSelect: () => watchChat(menu.item, teamId),
+              },
+            ]
+          : []),
+        // A Task becomes a Bot from its row too, as from its session's menu.
+        ...(menu.item.task && !menu.item.bot && !menu.item.readOnlyChat
+          ? [
+              {
+                key: 'make-bot',
+                label: t('Make this a Bot'),
+                icon: Bot,
+                onSelect: () => void makeBot(teamId, sessionId),
               },
             ]
           : []),
@@ -150,9 +174,13 @@ export function SidebarItemContextMenu({
           ? [
               {
                 key: 'archive',
-                label: channel ? t('Archive chat') : t('Archive agent'),
+                label: ARCHIVE[noun](),
                 icon: Archive,
-                onSelect: () => archiveChat(menu.item.key.slice('agent-session:'.length)),
+                onSelect: () => {
+                  void archiveChat(menu.item.key.slice('agent-session:'.length))
+                  // A Bot goes with its chat, so neither brings the other back.
+                  if (menu.item.botChannelOf) void archiveChat(menu.item.botChannelOf)
+                },
               },
             ]
           : []),
@@ -172,10 +200,26 @@ function watchChat(item: Item, teamId: string) {
     })
 }
 
+const COPY_ID = {
+  task: () => t('Copy task ID'),
+  bot: () => t('Copy Bot ID'),
+  chat: () => t('Copy chat ID'),
+}
+const RENAME = {
+  task: () => t('Rename task'),
+  bot: () => t('Rename Bot'),
+  chat: () => t('Rename chat'),
+}
+const ARCHIVE = {
+  task: () => t('Archive Task'),
+  bot: () => t('Archive Bot'),
+  chat: () => t('Archive chat'),
+}
 const COPIED = {
   Link: () => t('Link copied'),
-  'Agent ID': () => t('Agent ID copied'),
-  'Channel ID': () => t('Chat ID copied'),
+  task: () => t('Task ID copied'),
+  bot: () => t('Bot ID copied'),
+  chat: () => t('Chat ID copied'),
 }
 
 function copy(value: string, what: keyof typeof COPIED) {
@@ -189,7 +233,7 @@ function copy(value: string, what: keyof typeof COPIED) {
       toast.error(
         what === 'Link'
           ? t('Could not copy link')
-          : what === 'Channel ID'
+          : what === 'chat'
             ? t('Could not copy chat ID')
             : t('Could not copy agent ID'),
         t('Clipboard was blocked.'),

@@ -199,7 +199,9 @@ async function notifyAgent(
 ) {
   const agent = await getConversationBySessionId(sessionId)
 
-  if (!agent?.teamId || agent.teamId !== channel.teamId || isChannel(agent)) return
+  // An archived agent stays archived: a channel post does not wake it back.
+  if (!agent?.teamId || agent.teamId !== channel.teamId || isChannel(agent) || agent.archivedAt)
+    return
   // An agent runs as its owner, so it goes quiet once its owner leaves the team.
   if (!(await getTeamMembership(agent.userId, channel.teamId))) return
   // The title is a member's words, so it travels only in the metadata.

@@ -11,6 +11,7 @@ import type { SlackAgentThreadSummary } from '@/lib/slack/agent-bot'
 
 import { channelFacesField } from '@/lib/agent/channel-faces'
 import { liveAttachment } from '@/lib/agent/db/shared'
+import { lastMessage } from '@/lib/agent/last-message'
 import { runChannels } from '@/lib/agent/run-admission'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
 import { sessionThreadResources } from '@/lib/agent/session-thread-resources'
@@ -132,7 +133,7 @@ export async function serializeConversationList<T extends ListedConversation>(
   const slackThreadBySessionId = new Map(slackThreads.map((thread) => [thread.sessionId, thread]))
 
   // A conversation's desktops on its Box come from the device's presence, not the snapshot.
-  const [desktops, faces, answering] = await Promise.all([
+  const [desktops, faces, answering, lastMessages] = await Promise.all([
     Promise.all(conversations.map((conversation) => sessionDesktops(conversation))),
     Promise.all(
       conversations.map((conversation) =>
@@ -144,6 +145,9 @@ export async function serializeConversationList<T extends ListedConversation>(
       conversations.map((conversation) =>
         answeringIds(conversation as unknown as AgentConversation),
       ),
+    ),
+    Promise.all(
+      conversations.map((conversation) => lastMessage(conversation, viewer.id).catch(() => null)),
     ),
   ])
 
@@ -178,6 +182,7 @@ export async function serializeConversationList<T extends ListedConversation>(
           : null,
       runtimeState,
       ...faces[index],
+      ...(lastMessages[index] ? { lastMessage: lastMessages[index] } : {}),
     }
   })
 }

@@ -21,10 +21,6 @@ test('macOS ⌥⌘ combos match by physical key, ignoring the composed character
     matchSessionShortcut(press('KeyR', '®', { meta: true, alt: true }), true),
     'rename-chat',
   )
-  assert.equal(
-    matchSessionShortcut(press('KeyP', 'π', { meta: true, alt: true }), true),
-    'toggle-pin-chat',
-  )
 })
 
 test('macOS ⇧⌘ combos', () => {
@@ -92,8 +88,8 @@ test('AltGr text input off macOS is not a shortcut', () => {
   // Some layouts type ¶ with AltGr+R.
   assert.equal(matchSessionShortcut(press('KeyR', '¶', { control: true, alt: true }), false), null)
   assert.equal(
-    matchSessionShortcut(press('KeyP', 'P', { control: true, alt: true }), false),
-    'toggle-pin-chat',
+    matchSessionShortcut(press('KeyR', 'R', { control: true, alt: true }), false),
+    'rename-chat',
   )
 })
 

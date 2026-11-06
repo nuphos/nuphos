@@ -149,10 +149,7 @@ export async function runOpenConversation(
       phase: null,
       streamId: activeRun?.streamId ?? null,
       streamStartedAt: activeRun ? streamStartedAt : null,
-      error:
-        !activeRun && replayBaseMessages.length === 0
-          ? t('This agent has no saved messages yet.')
-          : null,
+      error: null,
       autoResumeAttempts: 0,
       historyBaseIndex,
       credentialAccess,

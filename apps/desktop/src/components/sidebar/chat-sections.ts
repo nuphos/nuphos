@@ -2,60 +2,60 @@ import type { Item, Section } from './types'
 import type { ReactNode } from 'react'
 
 /**
- * The chat groups in team view: what the viewer pinned, above their own Chats.
- * A thread goes wherever the row it nests under goes, so a pinned conversation
- * keeps its threads exactly as Chats would show them; a pinned thread takes its
- * own threads to Pinned. Pinned only holds chats the chat list still has, so
- * an archived chat leaves Pinned with its row and is back when it is restored.
- * No chat is listed twice, and an empty group contributes no section at all.
+ * The agent groups in team view, iMessage-style. Bots holds chats: group
+ * channels and each Bot's 1:1 channel, newest message first (the list's own
+ * order); a Bot without its chat yet is listed there until opened, which makes
+ * it. Tasks holds every agent session, a Bot's own included, as on main.
  */
 export function withChatSections(
   sections: Section[],
-  pinnedChatItems: Item[],
-  isPinned: (item: Item) => unknown,
+  openBot?: (botId: string) => void,
 ): Section[] {
-  const chatItems = sections.find((section) => section.title === 'Agents')?.items ?? []
-  const byKey = new Map(chatItems.map((item) => [item.key, item]))
-  const inPinned = (item: Item, seen = new Set<string>()): boolean => {
-    if (isPinned(item)) return true
-    const parent = item.parentKey ? byKey.get(item.parentKey) : undefined
+  const agents = sections.find((section) => section.title === 'Agents')
 
-    return Boolean(parent && !seen.has(item.key) && inPinned(parent, seen.add(item.key)))
-  }
-  // A kept agent is who it is: its name and face. Its work stays in its tasks.
-  const pinned = [
-    ...pinnedChatItems.filter((item) => byKey.has(item.key)),
-    ...chatItems.filter((item) => !isPinned(item) && inPinned(item)),
-  ].map((item) => ({ ...item, description: undefined }))
-  const result = sections.flatMap((section) => {
-    if (section.title !== 'Agents') return [section]
-    // Everything not kept as an agent is a task: no face and no mark, the title
-    // leads, and its state stays at the right edge, shown only when it matters.
-    const items = chatItems
-      .filter((item) => !inPinned(item))
-      .map((item) => ({ ...item, iconNode: undefined, icon: undefined, task: true }))
+  if (!agents) return [...sections]
+  const chatted = new Set(agents.items.flatMap((item) => item.botChannelOf ?? []))
+  const sessionOf = (item: Item) => item.key.replace('agent-session:', '')
+  const isChat = (item: Item) => item.channel || (item.bot && !chatted.has(sessionOf(item)))
+  const chats = agents.items.filter(isChat).map((item) => ({
+    ...item,
+    description: undefined,
+    // Bots shows faces: a Bot not yet in its chat wears its own, as its chat will.
+    ...(item.bot && {
+      iconNode: item.face,
+      ...(openBot && { onActivate: () => openBot(sessionOf(item)) }),
+    }),
+  }))
+  // A Task is one line: its runtime icon and title, no latest message.
+  const tasks = agents.items
+    .filter((item) => !item.channel)
+    .map(({ preview: _preview, time: _time, ...item }) => ({ ...item, task: true }))
 
-    return items.length > 0 ? [{ ...section, items }] : []
-  })
-  const chatsIndex = result.findIndex((section) => section.title === 'Agents')
-
-  if (pinned.length > 0) {
-    result.splice(chatsIndex === -1 ? 1 : chatsIndex, 0, { title: 'Pinned', items: pinned })
-  }
-
-  return result
+  return sections.flatMap((section) =>
+    section === agents
+      ? [
+          { title: 'Channels', items: chats },
+          ...(tasks.length > 0 ? [{ title: 'Tasks', items: tasks }] : []),
+        ]
+      : [section],
+  )
 }
 
-const CHAT_SECTIONS = new Set<string | undefined>(['Pinned', 'Channels', 'Agents'])
+const CHAT_SECTIONS = new Set<string | undefined>(['Channels', 'Agents', 'Tasks'])
 
 /** The sections that hold chats, the only ones a split sidebar keeps. */
 export function isChatSection(section: Section): boolean {
   return CHAT_SECTIONS.has(section.title)
 }
 
-/** Channels carries its "+" beside the title. */
-export function withChannelAction(sections: Section[], action: ReactNode): Section[] {
-  return sections.map((section) =>
-    section.title === 'Channels' ? { ...section, action } : section,
-  )
+/** Chats carries its "+" beside the title. */
+export function withSectionActions(
+  sections: Section[],
+  actions: Partial<Record<string, ReactNode>>,
+): Section[] {
+  return sections.map((section) => {
+    const action = section.title ? actions[section.title] : undefined
+
+    return action ? { ...section, action } : section
+  })
 }

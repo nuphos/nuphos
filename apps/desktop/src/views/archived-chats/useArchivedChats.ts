@@ -4,6 +4,7 @@ import { api } from '../../api'
 import { useDebouncedValue } from '../../components/agent/panel/historyPageHooks'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n/index.ts'
+import { botOfChannel } from '../../components/channels/botChannel'
 import { announceChatUnarchived } from '../../lib/chatArchiveEvents'
 
 import { appendArchivedPage } from './archivedChatsList'
@@ -108,9 +109,19 @@ export function useArchivedChats({
       if (restoringIds.has(sessionId)) return
       setRestoringIds((prev) => new Set(prev).add(sessionId))
       try {
-        await api.agentSetConversationArchived(sessionId, false, teamId)
-        setItems((prev) => prev.filter((c) => c.sessionId !== sessionId))
-        announceChatUnarchived(sessionId)
+        // A Bot comes back with its chat, as they were archived together.
+        const ids = [
+          sessionId,
+          ...items.flatMap((c) =>
+            botOfChannel(conversation.faces) === c.sessionId || botOfChannel(c.faces) === sessionId
+              ? [c.sessionId]
+              : [],
+          ),
+        ]
+
+        await Promise.all(ids.map((id) => api.agentSetConversationArchived(id, false, teamId)))
+        setItems((prev) => prev.filter((c) => !ids.includes(c.sessionId)))
+        ids.forEach(announceChatUnarchived)
         toast.success(
           t('Agent unarchived'),
           t('"{name}" is back in Agents.', { name: chatLabel(conversation) }),
@@ -127,7 +138,7 @@ export function useArchivedChats({
         })
       }
     },
-    [restoringIds, teamId],
+    [items, restoringIds, teamId],
   )
 
   return {

@@ -3,13 +3,6 @@ import { useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { t } from '../../../i18n'
-import { agentAvatarPick, pickAgentAvatar } from '../../../lib/agentAvatarChoices'
-import {
-  botAvatarFile,
-  botAvatarLabel,
-  botAvatarName,
-  derivedBotAvatar,
-} from '../../../lib/botAvatars'
 import { announceChatTitle } from '../../../lib/chatTitleEvents'
 import { sessionShortcutCombo } from '../../../lib/sessionShortcuts'
 import { Modal } from '../../Modal'
@@ -17,10 +10,6 @@ import { Button } from '../../ui/button'
 import { ShortcutLabel } from '../../ui/shortcut-hint'
 import { toast } from '../../ui/toast'
 import { Tooltip } from '../../ui/tooltip'
-import { AgentAvatarGrid } from '../AgentAvatarGrid'
-import { BotAvatarImage } from '../BotAvatarImage'
-
-import type { BotAvatarFile } from '../../../lib/botAvatars'
 
 export function EditableConversationTitle({
   sessionId,
@@ -75,7 +64,10 @@ export function EditableConversationTitle({
   )
 }
 
-/** Renames the Agent and picks its avatar; both are shared with everyone who sees it. */
+/**
+ * Renames the agent for everyone who sees it. A Bot's face and instructions are
+ * not edited here: you tell the Bot, and it changes itself with `update_self`.
+ */
 export function RenameConversationDialog({
   sessionId,
   teamId,
@@ -87,58 +79,36 @@ export function RenameConversationDialog({
   title: string
   onClose: () => void
 }) {
-  // What this Agent shows now; a save compares against it.
-  // What the server holds now. Each part moves forward once it saves, so a
-  // retry after a partial failure only sends the part that failed.
-  const [openedPick] = useState(() => agentAvatarPick(sessionId) ?? null)
-  const savedTitle = useRef(title)
-  const savedPick = useRef(openedPick)
-  const inFlight = useRef(false)
-  const [avatar, setAvatar] = useState(() => botAvatarFile(sessionId, openedPick))
-  const [preview, setPreview] = useState<BotAvatarFile | null>(null)
   const [draft, setDraft] = useState(title)
   const [saving, setSaving] = useState(false)
-  const shown = preview ?? avatar
+  const inFlight = useRef(false)
 
   async function save() {
     const name = draft.trim()
 
     if (!name || inFlight.current) return
-    // Picking the character the ID already selects clears the pick.
-    const pick = avatar === derivedBotAvatar(sessionId) ? null : botAvatarName(avatar)
+    if (name === title) {
+      onClose()
 
+      return
+    }
     inFlight.current = true
     setSaving(true)
-    const [renamed, picked] = await Promise.allSettled([
-      name !== savedTitle.current &&
-        api.agentRenameConversation(sessionId, name, teamId).then((result) => {
-          savedTitle.current = result.title
-          announceChatTitle({ sessionId, teamId, title: result.title })
-        }),
-      pick !== savedPick.current &&
-        pickAgentAvatar(sessionId, pick, () =>
-          api.agentSetConversationAvatar(sessionId, pick, teamId),
-        ).then(() => {
-          savedPick.current = pick
-        }),
-    ])
+    try {
+      const result = await api.agentRenameConversation(sessionId, name, teamId)
 
-    inFlight.current = false
-    setSaving(false)
-    if (renamed.status === 'rejected') toast.apiError(t('Could not rename agent'), renamed.reason)
-    if (picked.status === 'rejected') toast.apiError(t('Could not change avatar'), picked.reason)
-    if (renamed.status === 'fulfilled' && picked.status === 'fulfilled') onClose()
+      announceChatTitle({ sessionId, teamId, title: result.title })
+      onClose()
+    } catch (error) {
+      toast.apiError(t('Could not rename agent'), error)
+    } finally {
+      inFlight.current = false
+      setSaving(false)
+    }
   }
 
   return (
-    <Modal
-      open
-      title={t('Rename agent')}
-      description={t('Your team sees the same name and avatar.')}
-      appearance="prompt"
-      width={420}
-      onClose={onClose}
-    >
+    <Modal open title={t('Rename agent')} appearance="prompt" width={420} onClose={onClose}>
       <form
         className="titlebar-no-drag"
         onSubmit={(event) => {
@@ -147,10 +117,6 @@ export function RenameConversationDialog({
         }}
       >
         <div className="flex flex-col items-center px-5 pt-1 pb-5">
-          <BotAvatarImage file={shown} className="size-16 object-contain" />
-          <span aria-live="polite" className="mt-1 h-4 text-[12px] leading-4 text-tertiary">
-            {botAvatarLabel(shown)}
-          </span>
           <input
             aria-label={t('Agent name')}
             autoFocus
@@ -167,11 +133,8 @@ export function RenameConversationDialog({
                 onClose()
               }
             }}
-            className="mt-3 w-full rounded-md border border-main bg-main px-3 py-2 text-[13px] text-main outline-none focus:border-line-focus"
+            className="w-full rounded-md border border-main bg-main px-3 py-2 text-[13px] text-main outline-none focus:border-line-focus"
           />
-          <div className="mt-4 w-full">
-            <AgentAvatarGrid value={avatar} onChange={setAvatar} onPreview={setPreview} />
-          </div>
         </div>
         <div className="flex justify-end gap-3 px-5 pb-5">
           <Button
