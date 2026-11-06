@@ -2,8 +2,8 @@ import { getTeamMembers, getTeamsByIds } from '@/lib/identity'
 
 import { revokeBoxStreams, revokeTeamBoxStreams } from './box-access'
 import { dropFromTeamGrants, dropOwnerTeamGrants, transferTeamComputers } from './device-grants'
-import { dropMemberShareApprovals } from './local-share-store'
-import { dropMemberShareTrusts } from './local-share-trust'
+import { dropDeviceShareApprovals, dropMemberShareApprovals } from './local-share-store'
+import { dropDeviceShareTrusts, dropMemberShareTrusts } from './local-share-trust'
 import { listDevicesGrantedInTeam } from './store'
 
 import type { AgentDevice } from './store'
@@ -64,4 +64,14 @@ export async function revokeTeamMemberAccess(
   if (owner && owner !== actorId) await deps.transferComputers(teamId, actorId, owner)
   await deps.dropApprovals(teamId, actorId)
   await deps.dropTrusts(teamId, actorId)
+}
+
+/**
+ * Forgets every team's answers and trusts about one computer, for a computer
+ * that is being deleted. Its id is the machine's own and survives a reinstall,
+ * so leaving them would hand them to whatever registers under it next.
+ */
+export async function forgetDeviceShares(ownerId: string, deviceId: string): Promise<void> {
+  await dropDeviceShareApprovals(ownerId, deviceId)
+  await dropDeviceShareTrusts(ownerId, deviceId)
 }

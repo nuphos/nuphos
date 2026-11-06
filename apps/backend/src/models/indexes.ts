@@ -7,6 +7,7 @@ import { setupBoxUsageHistoryIndexes } from '@/lib/agent/devices/box-usage-histo
 import { setupDeviceGrantIndexes } from '@/lib/agent/devices/device-grants'
 import { setupDeviceJoinTokenIndexes } from '@/lib/agent/devices/join-tokens'
 import { setupLocalRuntimeActivityIndexes } from '@/lib/agent/devices/local-runtime/activity'
+import { dropOrphanedShareState } from '@/lib/agent/devices/local-share-orphans'
 import { setupShareApprovalIndexes } from '@/lib/agent/devices/local-share-store'
 import { setupShareTrustIndexes } from '@/lib/agent/devices/local-share-trust'
 import { setupAgentDeviceIndexes } from '@/lib/agent/devices/store'
@@ -124,6 +125,10 @@ export async function setupIndexes(): Promise<void> {
     ['agent-device-shares', setupShareApprovalIndexes],
     ['agent-device-access', setupDeviceGrantIndexes],
     ['agent-device-share-trusts', setupShareTrustIndexes],
+    // Idempotent backfill, not an index: share rows left by a delete from before it
+    // forgot them, which a machine registering under the same id would inherit.
+    // Remove once every deployment has run it.
+    ['agent-device-share-orphans', dropOrphanedShareState],
     ['agent-device-join-tokens', setupDeviceJoinTokenIndexes],
     ['agent-device-exec-audit', setupDeviceExecAuditIndexes],
     ['agent-device-runtime-sessions', setupLocalRuntimeActivityIndexes],

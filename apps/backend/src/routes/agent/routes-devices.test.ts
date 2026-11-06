@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
+import { forgetDeviceShares } from '@/lib/agent/devices/local-share-revoke'
 import { errorHandler } from '@/lib/errors'
+import { useDb } from '@/lib/test/doubles/db'
 import { createAgentDeviceRoutes } from '@/routes/agent/routes-devices'
 import { nextBoxLabel } from '@/routes/agent/routes-devices-box'
 
@@ -37,6 +39,39 @@ const members = [
 function key(userId: string, deviceId: string): string {
   return `${userId}:${deviceId}`
 }
+
+type ShareRow = Record<string, unknown>
+/** What each share collection holds, by collection name. */
+const shareTables: Record<string, ShareRow[]> = {
+  agent_device_share_approvals: [],
+  agent_device_share_trusts: [],
+}
+
+/** Serves the two collections a delete forgets share state in; nothing else in
+ *  this suite reads the database. */
+useDb({
+  db: () => ({
+    collection: (name: string) => {
+      const rows = shareTables[name]
+
+      if (!rows) return {}
+
+      return {
+        deleteMany: async (filter: ShareRow) => {
+          const kept = rows.filter((row) =>
+            Object.entries(filter).some(([field, value]) => row[field] !== value),
+          )
+          const deletedCount = rows.length - kept.length
+
+          rows.length = 0
+          rows.push(...kept)
+
+          return { deletedCount }
+        },
+      }
+    },
+  }),
+})
 
 type BoxDeps = NonNullable<AgentDeviceRouteDependencies['box']>
 
@@ -88,6 +123,7 @@ function buildApp(box: BoxDeps | null = null) {
       listDevices: async (userId) => Object.values(devices).filter((d) => d.userId === userId),
       isOnline: async () => onlineNow,
       deleteDevice: async (userId, deviceId) => delete devices[key(userId, deviceId)],
+      forgetDeviceShares,
       renameDevice: async (userId, deviceId, label) => {
         const device = devices[key(userId, deviceId)]
 
@@ -147,6 +183,8 @@ beforeEach(() => {
   revoked = []
   metricsReads = []
   onlineNow = false
+  shareTables.agent_device_share_approvals = []
+  shareTables.agent_device_share_trusts = []
 })
 
 function auditEntry(overrides: Partial<DeviceExecAuditEntry>): DeviceExecAuditEntry {
@@ -206,6 +244,54 @@ describe('agent device routes', () => {
     expect(new Set(Object.keys(devices))).toEqual(
       new Set([key('user-1', 'live'), key('user-1', 'b1'), key('someone-else', 'theirs')]),
     )
+  })
+
+  test('DELETE /agent/devices/:id forgets the computer share answers in every team', async () => {
+    const app = buildApp()
+    const remove = (deviceId: string) =>
+      app.request(`/agent/devices/${deviceId}?teamId=team-1`, { method: 'DELETE' })
+
+    shareTables.agent_device_share_approvals = [
+      { ownerId: 'user-1', deviceId: 'gone', teamId: 'team-1', actorId: 'alice' },
+      { ownerId: 'user-1', deviceId: 'gone', teamId: 'team-2', actorId: 'bob' },
+      { ownerId: 'user-1', deviceId: 'live', teamId: 'team-1', actorId: 'alice' },
+      { ownerId: 'someone-else', deviceId: 'theirs', teamId: 'team-1', actorId: 'alice' },
+    ]
+    shareTables.agent_device_share_trusts = [
+      { ownerId: 'user-1', deviceId: 'gone', teamId: 'team-1', actorId: 'alice' },
+      { ownerId: 'user-1', deviceId: 'live', teamId: 'team-1', actorId: 'alice' },
+    ]
+    registerDevice('user-1', 'gone')
+    registerDevice('user-1', 'live')
+    registerDevice('someone-else', 'theirs')
+
+    // Another person's computer is not the caller's to delete, and keeps its rows.
+    expect((await remove('theirs')).status).toBe(404)
+    expect((await remove('gone')).status).toBe(200)
+    expect(shareTables.agent_device_share_approvals).toEqual([
+      { ownerId: 'user-1', deviceId: 'live', teamId: 'team-1', actorId: 'alice' },
+      { ownerId: 'someone-else', deviceId: 'theirs', teamId: 'team-1', actorId: 'alice' },
+    ])
+    expect(shareTables.agent_device_share_trusts).toEqual([
+      { ownerId: 'user-1', deviceId: 'live', teamId: 'team-1', actorId: 'alice' },
+    ])
+    // Nuphos there registers the machine again under the id it keeps, and its
+    // owner's answers are not waiting for it when it does.
+    const again = await app.request('/agent/devices', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        deviceId: 'gone',
+        label: 'MacBook',
+        platform: 'darwin',
+        allowLocalExec: true,
+      }),
+    })
+
+    expect(again.status).toBe(200)
+    expect(devices[key('user-1', 'gone')]).toBeDefined()
+    expect(shareTables.agent_device_share_approvals).toHaveLength(2)
+    expect(shareTables.agent_device_share_trusts).toHaveLength(1)
   })
 
   test('PUT /agent/devices upserts for the signed-in user', async () => {
