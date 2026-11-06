@@ -35,7 +35,9 @@ tag; publish a new version when the source changes. Maintainers must restrict cr
 and Linux AppImages (x64 and arm64), including the pinned local runtime.
 macOS builds must be signed and notarized. Windows and Linux builds are unsigned.
 Artifacts and update manifests use the S3 publish destination already defined in
-`apps/desktop/package.json`. A GitHub Release links to the downloads only after
+`apps/desktop/package.json`. The two macOS archs build in parallel, and
+`latest-mac.yml`, which lists both, is published only after every platform build
+succeeds. A GitHub Release links to the downloads only after
 all platform builds succeed. A failed platform can leave other platforms already
 published; retry the same tag to finish it.
 
