@@ -13,6 +13,8 @@ import { isMac } from '../../../lib/platform'
 import { Kbd } from '../../ui/kbd'
 import { Tooltip } from '../../ui/tooltip'
 import { shellsFromRuntimeState } from '../panel/shells'
+import { CountBadge } from '../../ui/count-badge'
+import { StatusDot } from '../../ui/status-dot'
 
 export function SummaryIcon() {
   return (
@@ -111,23 +113,19 @@ export function ChatSummaryToggle({
           <SummaryIcon />
         )}
         {pendingCount > 0 && (
-          <span
-            aria-label={
+          <CountBadge
+            size="sm"
+            count={pendingCount}
+            label={
               pendingCount === 1
                 ? t('1 pending question')
                 : t('{count} pending questions', { count: pendingCount })
             }
-            className="absolute -right-1.5 -top-1 flex min-w-4 items-center justify-center rounded-full bg-warning px-1 text-[9px] font-semibold leading-4 text-tertiary"
-          >
-            {pendingCount > 99 ? '99+' : pendingCount}
-          </span>
+            className="absolute -right-1.5 -top-1"
+          />
         )}
         {pendingCount === 0 && backgroundCount > 0 && (
-          <span
-            role="img"
-            aria-label={background}
-            className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-warning"
-          />
+          <StatusDot tone="running" label={background} className="absolute right-0.5 top-0.5" />
         )}
       </button>
     </Tooltip>

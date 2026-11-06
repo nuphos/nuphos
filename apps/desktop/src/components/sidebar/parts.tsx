@@ -11,6 +11,7 @@ import { renderWorkspaceMenuOptions } from '../WorkspaceMenuOptions'
 
 import type { Scope, TeamInvitation } from '../../types'
 import type { BreadcrumbSegment } from '../Toolbar'
+import { CountBadge } from '../ui/count-badge'
 
 export function SidebarIdentitySelector({
   scope,
@@ -106,9 +107,7 @@ export function SidebarInvitations({
         title={count === 1 ? t('1 team invitation') : t('{count} team invitations', { count })}
       >
         <Mail className="h-3.5 w-3.5" strokeWidth={2} />
-        <span className="absolute -right-0.5 -top-0.5 flex h-3 min-w-3 items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-semibold leading-none text-white">
-          {count}
-        </span>
+        <CountBadge size="sm" count={count} className="absolute -right-1.5 -top-1" />
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner side="top" align="start" sideOffset={8} className="z-[1000]">

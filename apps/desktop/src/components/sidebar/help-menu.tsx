@@ -21,6 +21,7 @@ import { useReadyUpdate } from '../useReadyUpdate'
 import { WhatsNewReader } from '../WhatsNewReader'
 
 import type { ChangelogEntry } from '../../types/team'
+import { StatusDot } from '../ui/status-dot'
 
 function shortDate(date: string): string {
   const parsed = new Date(`${date}T00:00:00`)
@@ -107,7 +108,7 @@ export function SidebarHelpMenu({ onOpenShortcutsHelp }: { onOpenShortcutsHelp?:
             <CircleHelp className="h-4 w-4" strokeWidth={1.8} />
           )}
           {!update && changelog.unread && (
-            <span className="absolute right-0 top-0 h-2 w-2 rounded-full border border-main bg-red-500" />
+            <StatusDot tone="unread" label={t("What's new")} className="absolute right-0 top-0" />
           )}
         </MenuTrigger>
         <MenuContent side="top" align="end" sideOffset={8} className="w-[300px]">

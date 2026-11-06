@@ -4,6 +4,7 @@ import { useEffect, useId } from 'react'
 
 import { useHoverMarquee } from '../hooks/useHoverMarquee'
 import { useTextSwap } from '../hooks/useTextSwap'
+import { CountBadge } from './ui/count-badge'
 
 import type { LucideIcon } from 'lucide-react'
 import type React from 'react'
@@ -199,14 +200,7 @@ export function SidebarNavItem({
           {note}
         </span>
       )}
-      {badgeShown && (
-        <span
-          id={`${id}-badge`}
-          className="flex-shrink-0 inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-status-attention text-inverse text-[11px] font-medium leading-none"
-        >
-          {badge > 99 ? '99+' : badge}
-        </span>
-      )}
+      {badgeShown && <CountBadge id={`${id}-badge`} count={badge} />}
       {/* Presses here must not navigate the row: activation happens at
           pointerdown, so they are fenced off. */}
       <Fenced>
