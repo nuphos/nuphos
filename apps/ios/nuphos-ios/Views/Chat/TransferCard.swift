@@ -166,23 +166,11 @@ struct TransferCard: View {
         failed = false
         defer { opening = nil }
         do {
-            // Presigned URLs expire; mint fresh ones for every open. Only the
-            // tapped file must arrive; the group's other images come along when
-            // they can, so Quick Look can swipe between them.
-            let fresh = try await fetch().flatMap(\.files)
-            func remote(_ item: TransferDownloadGroup.File) -> URL? {
-                fresh.first(where: { $0.id == item.id })?.downloadUrl.flatMap(URL.init(string:))
-            }
-            guard let url = remote(file) else { throw URLError(.fileDoesNotExist) }
-            var locals = [file.id: try await Self.download(file, from: url)]
-            if file.isImage {
-                await withTaskGroup(of: (String, URL?).self) { group in
-                    for item in images where item.id != file.id {
-                        guard let url = remote(item) else { continue }
-                        group.addTask { (item.id, try? await Self.download(item, from: url)) }
-                    }
-                    for await (id, local) in group { locals[id] = local }
-                }
+            // A file already on disk opens at once; only missing ones are
+            // re-signed (presigned links expire) and fetched. The group's
+            // other images come along so the pager can swipe between them.
+            let locals = try await TransferFiles.localCopies(of: file.isImage ? images : [file], tapped: file) {
+                try await fetch().flatMap(\.files)
             }
             previewItems = (file.isImage ? images : [file]).compactMap { locals[$0.id] }
             #if os(iOS)
@@ -210,18 +198,6 @@ struct TransferCard: View {
         }
         if groups.isEmpty, let failure { throw failure }
         return groups
-    }
-
-    /// One local copy per file: a file already downloaded is reused, not fetched again.
-    private static func download(_ file: TransferDownloadGroup.File, from remote: URL) async throws -> URL {
-        let dir = FileManager.default.temporaryDirectory.appending(path: "downloads/\(file.id)")
-        let local = dir.appending(path: file.fileName.replacingOccurrences(of: "/", with: "_"))
-        if FileManager.default.fileExists(atPath: local.path) { return local }
-        let (temp, response) = try await URLSession.shared.download(from: remote)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { throw URLError(.badServerResponse) }
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        try FileManager.default.moveItem(at: temp, to: local)
-        return local
     }
 }
 

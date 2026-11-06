@@ -97,8 +97,10 @@ internal fun TransferCard(
     val imageLoader: MessageImageLoader = remember(directory, retry, downloads) {
         { id, edge ->
             try {
-                val remote = fresh(id)
+                check(latestAllowed())
+                // A copy already on disk is decoded again without re-signing its link.
                 val local = cached[id]?.takeIf { it.isFile } ?: withContext(Dispatchers.IO) {
+                    val remote = fresh(id)
                     val file = File.createTempFile("image-", ".preview", directory)
                     try {
                         file.outputStream().use { downloads.copy(remote, it) { latestAllowed() } }
