@@ -34,6 +34,7 @@ type Props = {
     | 'notion'
     | 'upstash'
     | 'resend'
+    | 'instabox'
     | 'tencent'
     | 'aliyun'
     | 'volcengine'
@@ -84,6 +85,8 @@ const SRC = {
   upstash: 'https://cdn.simpleicons.org/upstash/00E9A3',
   // Resend's mark is monochrome; no local asset, keep the CDN source.
   resend: 'https://cdn.simpleicons.org/resend/FFFFFF',
+  // instabox's own favicon: a white mark on black, legible on both themes.
+  instabox: '/instabox.svg',
   tencent: '/tencent.svg',
   aliyun: '/aliyun.svg',
   volcengine: '/volcengine.svg',

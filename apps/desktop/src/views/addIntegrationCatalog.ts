@@ -47,6 +47,7 @@ export type AddIntegrationKey =
   | 'notion'
   | 'upstash'
   | 'resend'
+  | 'instabox'
   | 'slack'
   | 'discord'
   | 'lark'
@@ -98,6 +99,10 @@ const ITEM_META: Record<AddIntegrationKey, { name: string; description: string }
   plaud: { name: 'Plaud', description: t('Recordings, transcripts & summaries.') },
   notion: { name: 'Notion', description: t('Pages, databases & docs.') },
   resend: { name: 'Resend', description: t('Send transactional email.') },
+  instabox: {
+    name: 'instabox',
+    description: t('Cloud computers for your agents, billed to your instabox account.'),
+  },
   slack: { name: 'Slack', description: t('Chat with the agent from Slack channels.') },
   discord: { name: 'Discord', description: t('Mention the agent in Discord channels.') },
   lark: { name: 'Lark (Feishu)', description: t('Chat with the agent from Lark (Feishu) groups.') },

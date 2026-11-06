@@ -13,6 +13,7 @@ import type {
   GrafanaInstance,
   HetznerAccount,
   HuaweiAccount,
+  InstaboxAccount,
   JiraSite,
   LarkInstallation,
   LinearWorkspace,
@@ -51,6 +52,7 @@ export type TeamHomeViewProps = {
   onpremClusters: OnpremCluster[]
   upstashAccounts: UpstashAccount[]
   resendIntegrations: ResendIntegration[]
+  instaboxAccounts: InstaboxAccount[]
   tencentAccounts: TencentAccount[]
   aliyunAccounts: AliyunAccount[]
   volcengineAccounts: VolcengineAccount[]

@@ -144,6 +144,9 @@ export type ResendIntegration = {
   createdAt?: string
 }
 
+// A team's own instabox account: Boxes on it are billed to the team, outside the vCPU limit.
+export type InstaboxAccount = { id: string; label: string; createdAt?: string }
+
 // Tencent Cloud has two isolated partitions (like AWS aws vs aws-cn):
 //  - 'china'         — cloud.tencent.com (mainland China)
 //  - 'international'  — tencentcloud.com (global)

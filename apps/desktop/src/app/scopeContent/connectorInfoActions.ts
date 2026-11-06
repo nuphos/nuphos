@@ -152,6 +152,7 @@ export function connectorInfoActions(
     case 'notion':
     case 'upstash':
     case 'resend':
+    case 'instabox':
     case 'jira':
     case 'asana':
     case 'sentry':
@@ -198,6 +199,7 @@ function connectorInfoRow(ctx: ScopeRenderContext, connectorId: string) {
       notionIntegrations: accounts.notion,
       upstashAccounts: accounts.upstash,
       resendIntegrations: accounts.resend,
+      instaboxAccounts: accounts.instabox,
       tencentAccounts: accounts.tencent,
       aliyunAccounts: accounts.aliyun,
       volcengineAccounts: accounts.volcengine,

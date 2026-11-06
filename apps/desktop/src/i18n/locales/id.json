@@ -5753,5 +5753,19 @@
   "API key removed": "Kunci API dihapus",
   "Could not remove the API key": "Tidak dapat menghapus kunci API",
   "Remove API key": "Hapus kunci API",
-  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "Runtime tidak menerima kunci. Perbarui Nuphos di komputer tempat runtime berjalan, lalu coba lagi."
+  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "Runtime tidak menerima kunci. Perbarui Nuphos di komputer tempat runtime berjalan, lalu coba lagi.",
+  "A computer on your instabox account is billed by instabox, outside your plan.": "Komputer di akun instabox Anda ditagih oleh instabox, di luar paket Anda.",
+  "A friendly name to identify this instabox account.": "Nama untuk mengenali akun instabox ini.",
+  "A label and an instabox API key are required.": "Label dan kunci API instabox wajib diisi.",
+  "Billed to": "Ditagihkan ke",
+  "Cloud computers for your agents, billed to your instabox account.": "Komputer cloud untuk agen Anda, ditagihkan ke akun instabox Anda.",
+  "Computers made on this account are billed to it by instabox, not to your Nuphos plan.": "Komputer yang dibuat di akun ini ditagih oleh instabox ke akun ini, bukan ke paket Nuphos Anda.",
+  "Computers on it are billed by instabox.": "Komputer di dalamnya ditagih oleh instabox.",
+  "Copy the key (starts with {prefix}).": "Salin kuncinya (diawali {prefix}).",
+  "Encrypted before storage; agents never see it.": "Dienkripsi sebelum disimpan; agen tidak pernah melihatnya.",
+  "How to get your instabox API key": "Cara mendapatkan kunci API instabox",
+  "Open the instabox dashboard and go to {page}, or run {command}.": "Buka dasbor instabox dan masuk ke {page}, atau jalankan {command}.",
+  "Your Nuphos plan": "Paket Nuphos Anda",
+  "instabox account": "Akun instabox",
+  "instabox: {label}": "instabox: {label}"
 }

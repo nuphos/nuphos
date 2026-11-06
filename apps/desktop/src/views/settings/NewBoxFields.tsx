@@ -1,3 +1,4 @@
+import { AppSelect } from '../../components/ui/select'
 import { t } from '../../i18n'
 
 import { BoxAccessFields } from './BoxAccessFields'
@@ -26,7 +27,9 @@ export function NewBoxFields({
   /** A bigger plan was bought from here: read the plan again. */
   onPlanChanged: () => void
 }) {
-  const { teamId, usage, choices, quota, vcpus, creating } = box
+  const { teamId, usage, choices, quota, vcpus, creating, account } = box
+  // A team account's sizes are its own; failing to read them reads like the plan's.
+  const sizesRead = account.accountId ? account.sizes !== null : Boolean(usage)
 
   return (
     <form
@@ -52,10 +55,32 @@ export function NewBoxFields({
           onChange={(event) => box.setName(event.target.value)}
         />
       </Field>
+      {account.accounts.length > 0 && (
+        <Field
+          label={t('Billed to')}
+          hint={t('A computer on your instabox account is billed by instabox, outside your plan.')}
+        >
+          <AppSelect
+            ariaLabel={t('Billed to')}
+            // Above the dialog it sits in (z-1001).
+            positionerClassName="!z-[1100]"
+            value={account.accountId ?? ''}
+            disabled={creating}
+            onValueChange={account.setAccountId}
+            options={[
+              ...(account.deployment ? [{ value: '', label: t('Your Nuphos plan') }] : []),
+              ...account.accounts.map((a) => ({
+                value: a.id,
+                label: t('instabox: {label}', { label: a.label }),
+              })),
+            ]}
+          />
+        </Field>
+      )}
       <div className="space-y-2">
         <span className="block text-[12.5px] font-medium text-secondary">{t('Size')}</span>
-        <BoxQuotaMeter usage={usage} adding={vcpus} />
-        {choices.length === 0 && usage && (
+        {!account.accountId && <BoxQuotaMeter usage={usage} adding={vcpus} />}
+        {choices.length === 0 && sizesRead && (
           <p className="text-[12.5px] text-tertiary">
             {t('The sizes could not be loaded, so the new computer will be the smallest size.')}
           </p>

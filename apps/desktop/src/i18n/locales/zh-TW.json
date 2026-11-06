@@ -5753,5 +5753,19 @@
   "API key removed": "已移除 API 金鑰",
   "Could not remove the API key": "無法移除 API 金鑰",
   "Remove API key": "移除 API 金鑰",
-  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "執行環境沒有接收這組金鑰。請更新執行它的電腦上的 Nuphos，然後再試一次。"
+  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "執行環境沒有接收這組金鑰。請更新執行它的電腦上的 Nuphos，然後再試一次。",
+  "A computer on your instabox account is billed by instabox, outside your plan.": "放在你 instabox 帳號上的電腦由 instabox 計費，不計入你的方案。",
+  "A friendly name to identify this instabox account.": "用來辨識此 instabox 帳號的名稱。",
+  "A label and an instabox API key are required.": "需要名稱與 instabox API 金鑰。",
+  "Billed to": "計費對象",
+  "Cloud computers for your agents, billed to your instabox account.": "給 agent 用的雲端電腦，由你的 instabox 帳號計費。",
+  "Computers made on this account are billed to it by instabox, not to your Nuphos plan.": "在此帳號上建立的電腦由 instabox 向這個帳號計費，不計入你的 Nuphos 方案。",
+  "Computers on it are billed by instabox.": "其上的電腦由 instabox 計費。",
+  "Copy the key (starts with {prefix}).": "複製金鑰（以 {prefix} 開頭）。",
+  "Encrypted before storage; agents never see it.": "儲存前會加密，agent 永遠看不到它。",
+  "How to get your instabox API key": "如何取得 instabox API 金鑰",
+  "Open the instabox dashboard and go to {page}, or run {command}.": "開啟 instabox 主控台並前往 {page}，或執行 {command}。",
+  "Your Nuphos plan": "你的 Nuphos 方案",
+  "instabox account": "instabox 帳號",
+  "instabox: {label}": "instabox：{label}"
 }

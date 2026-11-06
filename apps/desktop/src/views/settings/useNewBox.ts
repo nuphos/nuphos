@@ -8,8 +8,9 @@ import { boxCreateSize, boxQuota, nextBoxName } from './boxCreatePresentation'
 import { boxPaywall, openBoxPaywall } from './boxPaywallStore'
 import { boxSizeChoices } from './boxPresentation'
 import { useBoxAccessChoice } from './useBoxAccessChoice'
+import { useBoxAccount } from './useInstaboxAccounts'
 
-import type { BoxUsage } from '../../api/device-types'
+import type { BoxUsage, InstaboxAccount } from '../../api/device-types'
 
 /**
  * True while the plans are open or just closed. They open over the dialog making the Box,
@@ -38,16 +39,24 @@ export function useNewBox({
   usage,
   labels,
   onCreated,
+  accounts = [],
+  deployment = true,
 }: {
   teamId: string
   usage: BoxUsage | null
+  /** The team's own instabox accounts, which a Box may go on instead of Nuphos's. */
+  accounts?: InstaboxAccount[]
+  /** Whether Nuphos's own account can make Boxes here. */
+  deployment?: boolean
   /** The names already taken, to suggest the next "Box N". */
   labels: string[]
   /** Also after the paywall, when the plan bought there lets the Box be made. */
   onCreated: (deviceId: string) => void
 }) {
-  const choices = boxSizeChoices(usage?.sizes ?? [])
-  const quota = usage ? boxQuota(usage) : null
+  const account = useBoxAccount(teamId, accounts, deployment)
+  // A team's own account is billed by instabox: its own sizes, and no Nuphos plan or limit.
+  const choices = boxSizeChoices((account.accountId ? account.sizes : usage?.sizes) ?? [])
+  const quota = usage && !account.accountId ? boxQuota(usage) : null
   const [name, setName] = useState('')
   const [picked, setPicked] = useState<number>()
   const vcpus = boxCreateSize(choices, picked, quota?.left ?? null)
@@ -58,7 +67,13 @@ export function useNewBox({
 
   const create = async (): Promise<NewBoxResult> => {
     // The name shown as the default is the one sent, so the hint is what the Box is called.
-    const request = [name.trim() || placeholder, teamId, vcpus, access.payload()] as const
+    const request = [
+      name.trim() || placeholder,
+      teamId,
+      vcpus,
+      access.payload(),
+      account.accountId,
+    ] as const
     // After the paywall: make this same Box once the plan allows it, creating again meanwhile so
     // a form still open cannot make a second one.
     const retry = () => {
@@ -81,7 +96,7 @@ export function useNewBox({
       return 'created'
     } catch (error) {
       // No plan, or past it: the paywall offers one, then retries.
-      if (openBoxPaywall(teamId, error, retry)) return 'paywall'
+      if (!account.accountId && openBoxPaywall(teamId, error, retry)) return 'paywall'
       toast.apiError(t('Could not create computer'), error)
 
       return 'failed'
@@ -101,6 +116,7 @@ export function useNewBox({
     vcpus,
     setPicked,
     access,
+    account,
     creating,
     create,
     /** Whether a close now would be the user's: not while creating, nor an Escape meant for the plans. */

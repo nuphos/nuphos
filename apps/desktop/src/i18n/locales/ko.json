@@ -5753,5 +5753,19 @@
   "API key removed": "API 키를 제거했습니다",
   "Could not remove the API key": "API 키를 제거할 수 없습니다",
   "Remove API key": "API 키 제거",
-  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "런타임이 키를 받지 않았습니다. 런타임이 실행되는 컴퓨터의 Nuphos를 업데이트한 후 다시 시도하세요."
+  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "런타임이 키를 받지 않았습니다. 런타임이 실행되는 컴퓨터의 Nuphos를 업데이트한 후 다시 시도하세요.",
+  "A computer on your instabox account is billed by instabox, outside your plan.": "instabox 계정의 컴퓨터는 instabox가 청구하며 플랜에 포함되지 않습니다.",
+  "A friendly name to identify this instabox account.": "이 instabox 계정을 구분할 이름입니다.",
+  "A label and an instabox API key are required.": "레이블과 instabox API 키가 필요합니다.",
+  "Billed to": "청구 대상",
+  "Cloud computers for your agents, billed to your instabox account.": "에이전트용 클라우드 컴퓨터로, instabox 계정에 청구됩니다.",
+  "Computers made on this account are billed to it by instabox, not to your Nuphos plan.": "이 계정에서 만든 컴퓨터는 instabox가 이 계정에 청구하며 Nuphos 플랜에는 포함되지 않습니다.",
+  "Computers on it are billed by instabox.": "이 계정의 컴퓨터는 instabox가 청구합니다.",
+  "Copy the key (starts with {prefix}).": "키({prefix}로 시작)를 복사합니다.",
+  "Encrypted before storage; agents never see it.": "저장 전에 암호화되며 에이전트는 볼 수 없습니다.",
+  "How to get your instabox API key": "instabox API 키 받는 방법",
+  "Open the instabox dashboard and go to {page}, or run {command}.": "instabox 대시보드에서 {page}로 이동하거나 {command}를 실행합니다.",
+  "Your Nuphos plan": "Nuphos 플랜",
+  "instabox account": "instabox 계정",
+  "instabox: {label}": "instabox: {label}"
 }

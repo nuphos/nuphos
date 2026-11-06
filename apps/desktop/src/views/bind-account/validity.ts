@@ -53,38 +53,43 @@ export function bindFormValid(st: BindState): boolean {
                             st.upstashApiKey.trim().length > 0
                           : st.provider === 'resend'
                             ? st.resendLabel.trim().length > 0 && st.resendApiKey.trim().length > 0
-                            : st.provider === 'tencent'
-                              ? st.tencentLabel.trim().length > 0 &&
-                                TENCENT_ROLE_ARN_PATTERN.test(st.tencentRoleArn.trim()) &&
-                                st.tencentProviderId.trim().length > 0 &&
-                                // Don't offer Bind when we know the connector is unconfigured
-                                // (binding would 503). Unknown/loading (null) stays enabled.
-                                st.tencentOidc?.configured !== false
-                              : st.provider === 'aliyun'
-                                ? st.aliyunLabel.trim().length > 0 &&
-                                  ALIYUN_ROLE_ARN_PATTERN.test(st.aliyunRoleArn.trim()) &&
-                                  ALIYUN_OIDC_PROVIDER_ARN_PATTERN.test(
-                                    st.aliyunOidcProviderArn.trim(),
-                                  )
-                                : st.provider === 'volcengine'
-                                  ? st.volcengineLabel.trim().length > 0 &&
-                                    TRN_PATTERN.test(st.volcengineRoleTrn.trim())
-                                  : st.provider === 'huawei'
-                                    ? st.huaweiLabel.trim().length > 0 &&
-                                      HUAWEI_DOMAIN_ID_PATTERN.test(st.huaweiDomainId.trim()) &&
-                                      HUAWEI_IDP_NAME_PATTERN.test(st.huaweiIdpId.trim()) &&
-                                      HUAWEI_AGENCY_NAME_PATTERN.test(st.huaweiAgencyName.trim()) &&
-                                      // Don't offer Bind when we know the connector is
-                                      // unconfigured (binding would 503).
-                                      st.huaweiOidc?.configured !== false
-                                    : st.provider === 'azure'
-                                      ? st.azureLabel.trim().length > 0 &&
-                                        AZURE_GUID_PATTERN.test(st.azureTenantId.trim()) &&
-                                        AZURE_GUID_PATTERN.test(st.azureClientId.trim()) &&
-                                        AZURE_GUID_PATTERN.test(st.azureSubscriptionId.trim()) &&
-                                        // Don't offer Bind when the connector is known-unconfigured.
-                                        st.azureOidc?.configured !== false
-                                      : st.zeaburToken.trim().length > 0
+                            : st.provider === 'instabox'
+                              ? st.instaboxLabel.trim().length > 0 &&
+                                st.instaboxApiKey.trim().length > 0
+                              : st.provider === 'tencent'
+                                ? st.tencentLabel.trim().length > 0 &&
+                                  TENCENT_ROLE_ARN_PATTERN.test(st.tencentRoleArn.trim()) &&
+                                  st.tencentProviderId.trim().length > 0 &&
+                                  // Don't offer Bind when we know the connector is unconfigured
+                                  // (binding would 503). Unknown/loading (null) stays enabled.
+                                  st.tencentOidc?.configured !== false
+                                : st.provider === 'aliyun'
+                                  ? st.aliyunLabel.trim().length > 0 &&
+                                    ALIYUN_ROLE_ARN_PATTERN.test(st.aliyunRoleArn.trim()) &&
+                                    ALIYUN_OIDC_PROVIDER_ARN_PATTERN.test(
+                                      st.aliyunOidcProviderArn.trim(),
+                                    )
+                                  : st.provider === 'volcengine'
+                                    ? st.volcengineLabel.trim().length > 0 &&
+                                      TRN_PATTERN.test(st.volcengineRoleTrn.trim())
+                                    : st.provider === 'huawei'
+                                      ? st.huaweiLabel.trim().length > 0 &&
+                                        HUAWEI_DOMAIN_ID_PATTERN.test(st.huaweiDomainId.trim()) &&
+                                        HUAWEI_IDP_NAME_PATTERN.test(st.huaweiIdpId.trim()) &&
+                                        HUAWEI_AGENCY_NAME_PATTERN.test(
+                                          st.huaweiAgencyName.trim(),
+                                        ) &&
+                                        // Don't offer Bind when we know the connector is
+                                        // unconfigured (binding would 503).
+                                        st.huaweiOidc?.configured !== false
+                                      : st.provider === 'azure'
+                                        ? st.azureLabel.trim().length > 0 &&
+                                          AZURE_GUID_PATTERN.test(st.azureTenantId.trim()) &&
+                                          AZURE_GUID_PATTERN.test(st.azureClientId.trim()) &&
+                                          AZURE_GUID_PATTERN.test(st.azureSubscriptionId.trim()) &&
+                                          // Don't offer Bind when the connector is known-unconfigured.
+                                          st.azureOidc?.configured !== false
+                                        : st.zeaburToken.trim().length > 0
 }
 
 export function providerLabelOf(provider: Provider): string {
@@ -114,15 +119,17 @@ export function providerLabelOf(provider: Provider): string {
                           ? 'Upstash'
                           : provider === 'resend'
                             ? 'Resend'
-                            : provider === 'tencent'
-                              ? 'Tencent Cloud'
-                              : provider === 'aliyun'
-                                ? 'Alibaba Cloud'
-                                : provider === 'volcengine'
-                                  ? 'Volcengine'
-                                  : provider === 'huawei'
-                                    ? 'Huawei Cloud'
-                                    : provider === 'azure'
-                                      ? 'Microsoft Azure'
-                                      : 'Zeabur'
+                            : provider === 'instabox'
+                              ? 'instabox'
+                              : provider === 'tencent'
+                                ? 'Tencent Cloud'
+                                : provider === 'aliyun'
+                                  ? 'Alibaba Cloud'
+                                  : provider === 'volcengine'
+                                    ? 'Volcengine'
+                                    : provider === 'huawei'
+                                      ? 'Huawei Cloud'
+                                      : provider === 'azure'
+                                        ? 'Microsoft Azure'
+                                        : 'Zeabur'
 }

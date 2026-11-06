@@ -58,6 +58,7 @@ export const CONNECTOR_CATEGORIES: ConnectorCategory[] = [
       'huawei',
       'azure',
       'zeabur',
+      'instabox',
       'onprem-k8s',
     ],
   },

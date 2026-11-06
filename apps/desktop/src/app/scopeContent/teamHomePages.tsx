@@ -84,6 +84,7 @@ export function renderTeamHomePages(ctx: ScopeRenderContext): React.ReactNode | 
         onpremClusters={accounts?.onprem ?? []}
         upstashAccounts={accounts?.upstash ?? []}
         resendIntegrations={accounts?.resend ?? []}
+        instaboxAccounts={accounts?.instabox ?? []}
         tencentAccounts={accounts?.tencent ?? []}
         aliyunAccounts={accounts?.aliyun ?? []}
         volcengineAccounts={accounts?.volcengine ?? []}
