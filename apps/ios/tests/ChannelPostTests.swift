@@ -55,6 +55,9 @@ enum ChannelPostTests {
         precondition(ChannelPost(ChatMessage.user("no metadata")) == nil)
         precondition(ChannelPost(message("m", sender: person("me", "Bruce"), parts: [])) == nil)
         precondition(ChannelPost(message("m", sender: ["type": .string("user"), "id": .string("me")], parts: [text("hi")])) == nil)
+        // A chat shows only what people and agents post, never a system notice.
+        let system: [String: JSONValue] = ["type": .string("system"), "id": .string("nuphos"), "displayName": .string("Nuphos")]
+        precondition(ChannelPost(message("m", sender: system, parts: [text("Release Helper finished a turn.")])) == nil)
     }
 
     private static func post(_ id: String, _ sender: String, at seconds: TimeInterval, sending: Bool = false) -> ChannelPost {

@@ -47,6 +47,12 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         let startedAt: String?
     }
 
+    /// A chat's newest post, as its row previews it. `from` names the sender.
+    struct LastMessage: Codable, Equatable, Hashable, Sendable {
+        let text: String
+        let from: String?
+    }
+
     let sessionId: String
     let teamId: String?
     let title: String
@@ -82,10 +88,23 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var kind: String?
     /// A chat's icon: up to two members other than the viewer, whoever spoke last first.
     var faces: [ChatFace]?
+    /// A Bot's face, e.g. `05-rembrandt`; nil for a Task (#1691).
+    var avatar: String?
+    /// Absent when the chat has no post yet, or from an older backend.
+    var lastMessage: LastMessage?
 
     var id: String { sessionId }
 
     var isChannel: Bool { kind == "channel" }
+
+    /// An agent with a face: a Bot, talked to in its 1:1 chat (#1691).
+    var isBot: Bool { avatar != nil && !isChannel }
+
+    /// The Bot this chat is the 1:1 of: its one other member is an agent with a face.
+    var botId: String? {
+        guard isChannel, let faces, faces.count == 1, faces[0].agent?.avatar != nil else { return nil }
+        return faces[0].id
+    }
 
     var isNativeRuntime: Bool { agentRuntime != nil && agentRuntime != "nuphos" }
 
@@ -125,6 +144,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         watching = try? c.decodeIfPresent(Bool.self, forKey: .watching)
         kind = try? c.decodeIfPresent(String.self, forKey: .kind)
         faces = try? c.decodeIfPresent([ChatFace].self, forKey: .faces)
+        avatar = try? c.decodeIfPresent(String.self, forKey: .avatar)
+        lastMessage = try? c.decodeIfPresent(LastMessage.self, forKey: .lastMessage)
     }
 
     init(

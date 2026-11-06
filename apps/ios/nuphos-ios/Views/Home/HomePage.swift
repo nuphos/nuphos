@@ -10,8 +10,8 @@ enum HomePage: String, CaseIterable, Identifiable {
 
     var title: LocalizedStringKey {
         switch self {
-        case .chats: "Chats"
-        case .agent: "Agents"
+        case .chats: "Bots"
+        case .agent: "Tasks"
         case .plans: "Plans"
         case .runtimes: "Runtimes"
         case .connectors: "Connectors"

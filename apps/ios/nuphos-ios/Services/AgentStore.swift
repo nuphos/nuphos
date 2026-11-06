@@ -23,7 +23,9 @@ final class AgentStore {
     private(set) var teamsPhase: Phase = .idle
     private(set) var selectedTeam: Team?
 
-    private(set) var conversations: [AgentConversation] = []
+    private(set) var conversations: [AgentConversation] = [] {
+        didSet { BotFaces.shared.learn(conversations) }
+    }
     private(set) var phase: Phase = .idle
     /// A list action or refresh that failed. The rows it acted on stay on screen.
     var rowActionFailure: RowActionFailure?
@@ -39,7 +41,9 @@ final class AgentStore {
     // MARK: - Chats (channels)
 
     /// The chats the viewer owns or joined, newest activity first.
-    private(set) var channels: [AgentConversation] = []
+    private(set) var channels: [AgentConversation] = [] {
+        didSet { BotFaces.shared.learn(channels) }
+    }
     /// Set once the chats have loaded, so the home list can open on the right tab.
     private(set) var channelsLoaded = false
 
@@ -57,7 +61,7 @@ final class AgentStore {
         }
         guard team.id == selectedTeam?.id, query == search, !Task.isCancelled else { return }
         channels = rows.sorted { $0.lastActiveAt > $1.lastActiveAt }
-        if query.isEmpty { HomePage.hasChats = !channels.isEmpty }
+        if query.isEmpty { HomePage.hasChats = !botsList.isEmpty }
         channelsLoaded = true
     }
 
@@ -110,46 +114,17 @@ final class AgentStore {
         return channel
     }
 
-    // MARK: - Pinned chats (sidebar favorites)
-
-    private(set) var favorites: SidebarFavorites?
-    var pinnedSessionIds: Set<String> { favorites?.pinnedSessionIds ?? [] }
-    /// Pinned chats in pin order, as the desktop sidebar lists them.
-    private var pinnedOrder: [String] { (favorites?.entries ?? []).compactMap(\.sessionId) }
-
-    /// What the Agent page lists, as the desktop sidebar does: pinned chats
-    /// first, then the rest by latest activity.
+    /// What Tasks lists: every agent, Bots too, by latest activity (#1691).
     var listedConversations: [AgentConversation] {
-        let rows = conversations.sorted { $0.lastActiveAt > $1.lastActiveAt }
-        let rank = Dictionary(pinnedOrder.enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
-        return rows.compactMap { row in rank[row.sessionId].map { (row, $0) } }.sorted { $0.1 < $1.1 }.map(\.0)
-            + rows.filter { rank[$0.sessionId] == nil }
+        conversations.sorted { $0.lastActiveAt > $1.lastActiveAt }
     }
 
-    func isPinned(_ sessionId: String) -> Bool { pinnedSessionIds.contains(sessionId) }
-
-    func loadFavorites() async {
-        guard loadsHistory else { return }
-        guard let team = selectedTeam else { return }
-        favorites = try? await NuphosAPI.sidebarFavorites(token: token, teamId: team.id)
-    }
-
-    /// Pins or unpins; retried once on a stale revision.
-    func setPinned(_ pinned: Bool, sessionId: String, title: String) async throws {
-        guard let team = selectedTeam else { return }
-        for _ in 0..<2 {
-            var loaded = favorites
-            if loaded == nil { loaded = try? await NuphosAPI.sidebarFavorites(token: token, teamId: team.id) }
-            let current = loaded ?? SidebarFavorites(entries: [], revision: 0)
-            var entries = current.entries.filter { $0.sessionId != sessionId }
-            if pinned { entries.append(.chat(sessionId: sessionId, label: title)) }
-            do {
-                favorites = try await AgentChatAPI.putSidebarFavorites(token: token, teamId: team.id, entries: entries, expectedRevision: current.revision)
-                return
-            } catch AgentChatAPI.Conflict.favoritesChanged {
-                favorites = try? await NuphosAPI.sidebarFavorites(token: token, teamId: team.id)
-            }
-        }
+    /// What Bots lists, newest first: every chat, and each Bot that has no
+    /// 1:1 chat yet, by its face.
+    var botsList: [AgentConversation] {
+        let chatted = Set(channels.compactMap(\.botId))
+        let unchatted = conversations.filter { $0.isBot && !chatted.contains($0.sessionId) }
+        return (channels + unchatted).sorted { $0.lastActiveAt > $1.lastActiveAt }
     }
 
     // MARK: - Archive
@@ -214,12 +189,9 @@ final class AgentStore {
         (UserDefaults.standard.dictionary(forKey: AgentStore.foldedThreadsKey) as? [String: [String]] ?? [:])
             .mapValues(Set.init)
 
-    /// The Agent page's rows: agent-opened threads under the conversation
-    /// that opened them. A pinned thread stays with the pins.
+    /// The Tasks rows: agent-opened threads under the conversation that opened them.
     var nestedConversations: [NestedConversation] {
-        ConversationNesting.nest(
-            listedConversations, folded: foldedThreads[selectedTeam?.id ?? ""] ?? [], pinned: pinnedSessionIds
-        )
+        ConversationNesting.nest(listedConversations, folded: foldedThreads[selectedTeam?.id ?? ""] ?? [])
     }
 
     func isFolded(_ sessionId: String) -> Bool { foldedThreads[selectedTeam?.id ?? ""]?.contains(sessionId) == true }
@@ -241,6 +213,62 @@ final class AgentStore {
             await reload(afterChange: true)
         } catch {
             rowActionFailed(error, scope: scope) { [weak self] in await self?.rename(conversation, title: title) }
+        }
+    }
+
+    /// While "+" on Bots or a Bot's first chat waits for the server, so a
+    /// second tap makes no second one.
+    private(set) var creatingBot = false
+
+    /// A Bot's 1:1 chat, made the first time it is opened (#1691).
+    func botChannel(botId: String) async -> ChannelSession? {
+        if let chat = channels.first(where: { $0.botId == botId }) { return channel(for: chat) }
+        guard let teamId = selectedTeam?.id, !creatingBot else { return nil }
+        creatingBot = true
+        defer { creatingBot = false }
+        let scope = workspaceScope
+        do {
+            let id = try await AgentChatAPI.createBotChannel(token: token, teamId: teamId, botId: botId)
+            guard scope == workspaceScope else { return nil }
+            await loadChannels()
+            let title = conversations.first { $0.sessionId == botId }?.displayTitle ?? ""
+            return channel(sessionId: id, title: channels.first { $0.sessionId == id }?.displayTitle ?? title, teamId: teamId)
+        } catch {
+            rowActionFailed(error, scope: scope) { [weak self] in _ = await self?.botChannel(botId: botId) }
+            return nil
+        }
+    }
+
+    /// "+" on Bots: makes the Bot with the picked name and face, then its 1:1 chat.
+    func createBot(title: String, avatar: String) async -> ChannelSession? {
+        guard let teamId = selectedTeam?.id, !creatingBot else { return nil }
+        creatingBot = true
+        let scope = workspaceScope
+        do {
+            let id = try await AgentChatAPI.createBot(token: token, teamId: teamId, title: title, avatar: avatar, runtime: newConversationRuntime)
+            creatingBot = false
+            guard scope == workspaceScope else { return nil }
+            await reload(afterChange: true)
+            return await botChannel(botId: id)
+        } catch {
+            creatingBot = false
+            rowActionFailed(error, scope: scope) { [weak self] in _ = await self?.createBot(title: title, avatar: avatar) }
+            return nil
+        }
+    }
+
+    /// "Make this a Bot", which then opens its 1:1 chat, or "Turn into a Task".
+    func setBot(_ bot: Bool, conversation: AgentConversation) async -> ChannelSession? {
+        guard conversation.ownsChat, let teamId = conversation.teamId ?? selectedTeam?.id else { return nil }
+        let scope = workspaceScope
+        do {
+            try await AgentChatAPI.setBot(bot, token: token, teamId: teamId, sessionId: conversation.sessionId)
+            guard scope == workspaceScope else { return nil }
+            await reload(afterChange: true)
+            return bot ? await botChannel(botId: conversation.sessionId) : nil
+        } catch {
+            rowActionFailed(error, scope: scope) { [weak self] in _ = await self?.setBot(bot, conversation: conversation) }
+            return nil
         }
     }
 
@@ -399,7 +427,6 @@ final class AgentStore {
         newModelError = nil
         newModelPick = [:]
         credentials.reset()
-        favorites = nil
         channels = []
         runtimes = []
         agentDevices = []
@@ -482,7 +509,6 @@ final class AgentStore {
         if let cached = LaunchCache.read(LaunchCache.Agents.self) {
             selectedTeam = cached.team
             conversations = cached.conversations
-            favorites = cached.favorites
             selectedRuntimeId = UserDefaults.standard.string(forKey: runtimeKey(for: cached.team))
             phase = .loaded
         }
@@ -578,7 +604,6 @@ final class AgentStore {
         refreshPageIndex = 0
         let generation = loadGeneration
         if conversations.isEmpty { phase = .loading }
-        async let favoritesLoad: () = loadFavorites()
         async let runtimesLoad: () = loadRuntimes()
         async let channelsLoad: () = loadChannels()
 
@@ -586,19 +611,14 @@ final class AgentStore {
             let page = try await NuphosAPI.conversations(
                 token: token, teamId: team.id, limit: Self.pageSize, search: search
             )
-            _ = await (favoritesLoad, runtimesLoad, channelsLoad)
+            _ = await (runtimesLoad, channelsLoad)
             guard generation == loadGeneration else { return }
             conversations = page.rows
             nextCursor = page.nextCursor
             hasMore = page.hasMore
             phase = .loaded
             if search.isEmpty {
-                LaunchCache.write(LaunchCache.Agents(team: team, conversations: page.rows, favorites: favorites))
-            }
-            // A pinned chat stays on top however old it is, so page until each one is listed.
-            for _ in 0..<10 where hasMore && search.isEmpty
-                && !Set(pinnedOrder).isSubset(of: conversations.map(\.sessionId)) {
-                await loadMore()
+                LaunchCache.write(LaunchCache.Agents(team: team, conversations: page.rows))
             }
         } catch {
             guard generation == loadGeneration else { return }

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Stable conversation identity. Provider metadata lives beside the runtime name.
+/// A Bot wears its face; a Task (no face) shows its runtime mark (#1691).
 struct AgentAvatar: View {
     let agentId: String
     let runtime: String?
@@ -9,8 +9,9 @@ struct AgentAvatar: View {
 
     var body: some View {
         Group {
-            if enabled {
-                Image(BotAvatars.asset(for: agentId)).resizable().scaledToFit()
+            if enabled, let face = BotFaces.shared.face(for: agentId) {
+                // A face this build doesn't ship falls back to the one the id derives, as on Desktop.
+                Image(BotAvatars.asset(named: face) ?? BotAvatars.asset(for: agentId)).resizable().scaledToFit()
             } else {
                 RuntimeMark(runtime: runtime, size: 20)
             }
