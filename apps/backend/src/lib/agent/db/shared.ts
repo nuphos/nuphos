@@ -214,6 +214,7 @@ export type AgentCredentialAccess = {
   notionIntegrationIds?: string[]
   upstashAccountIds?: string[]
   cloudflareAccountIds?: string[]
+  instaboxAccountIds?: string[]
   // Optional for docs older than device selection; devices are user-owned, never team-shared.
   deviceIds?: string[]
   teamIdentity?: ('github' | 'linear')[] // act as the team, not a member's Personal Credential

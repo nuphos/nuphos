@@ -29,6 +29,7 @@ export type AgentCredentialSelection = {
   notionIntegrationIds?: string[]
   upstashAccountIds?: string[]
   cloudflareAccountIds?: string[]
+  instaboxAccountIds?: string[]
   deviceIds?: string[]
   teamIdentity?: ('github' | 'linear')[]
 }
@@ -187,6 +188,10 @@ export type AgentCredentialOptions = {
     // Cloudflare's own account id, which is also the route key.
     accountId: string
     accountName: string | null
+  }[]
+  instaboxAccounts: {
+    accountId: string
+    label: string
   }[]
   devices: {
     deviceId: string

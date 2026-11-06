@@ -135,3 +135,22 @@ export function buildCloudflareCredentialSections(
     },
   ]
 }
+
+export function buildInstaboxCredentialSections(
+  accounts: AgentCredentialOptions['instaboxAccounts'],
+): CredentialSection[] {
+  if (accounts.length === 0) return []
+
+  return [
+    {
+      id: 'instabox',
+      provider: 'instabox' as const,
+      title: 'instabox',
+      items: accounts.map((account) => ({
+        id: account.accountId,
+        label: account.label,
+        sublabel: account.accountId,
+      })),
+    },
+  ]
+}

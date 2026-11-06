@@ -42,6 +42,7 @@ export function normalizeCredentialAccess(
     notionIntegrationIds: value?.notionIntegrationIds ?? [],
     upstashAccountIds: value?.upstashAccountIds ?? [],
     cloudflareAccountIds: value?.cloudflareAccountIds ?? [],
+    instaboxAccountIds: value?.instaboxAccountIds ?? [],
     deviceIds: value?.deviceIds ?? [],
     ...teamIdentityOf(value),
   }
@@ -81,6 +82,7 @@ export function normalizeCredentialOptions(
     notionIntegrations: value?.notionIntegrations ?? [],
     upstashAccounts: value?.upstashAccounts ?? [],
     cloudflareAccounts: value?.cloudflareAccounts ?? [],
+    instaboxAccounts: value?.instaboxAccounts ?? [],
     devices: value?.devices ?? [],
   }
 }
@@ -121,6 +123,7 @@ export function credentialSelectionSignature(value: AgentCredentialSelection): s
     notionIntegrationIds: sortedIds(value.notionIntegrationIds),
     upstashAccountIds: sortedIds(value.upstashAccountIds),
     cloudflareAccountIds: sortedIds(value.cloudflareAccountIds),
+    instaboxAccountIds: sortedIds(value.instaboxAccountIds),
     deviceIds: sortedIds(value.deviceIds),
     teamIdentity: sortedIds(value.teamIdentity ?? []),
   })
@@ -178,6 +181,7 @@ export function allCredentialAccess(options: AgentCredentialOptions): AgentCrede
     ),
     upstashAccountIds: (options.upstashAccounts ?? []).map((account) => account.accountId),
     cloudflareAccountIds: (options.cloudflareAccounts ?? []).map((account) => account.accountId),
+    instaboxAccountIds: (options.instaboxAccounts ?? []).map((account) => account.accountId),
     deviceIds: (options.devices ?? []).map((device) => device.deviceId),
   }
 }
@@ -265,6 +269,7 @@ export function emptyCredentialAccess(): AgentCredentialSelection {
     notionIntegrationIds: [],
     upstashAccountIds: [],
     cloudflareAccountIds: [],
+    instaboxAccountIds: [],
     deviceIds: [],
   }
 }

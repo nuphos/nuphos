@@ -10,6 +10,7 @@ export type ConnectorCredentialAccess = Pick<
   | 'notionIntegrationIds'
   | 'upstashAccountIds'
   | 'cloudflareAccountIds'
+  | 'instaboxAccountIds'
 >
 
 /**
@@ -66,6 +67,11 @@ export function resolveConnectorCredentialAccess(
     cloudflareAccountIds: narrow(
       selection.cloudflareAccountIds,
       options.cloudflareAccounts,
+      (account) => account.accountId,
+    ),
+    instaboxAccountIds: narrow(
+      selection.instaboxAccountIds,
+      options.instaboxAccounts,
       (account) => account.accountId,
     ),
   }

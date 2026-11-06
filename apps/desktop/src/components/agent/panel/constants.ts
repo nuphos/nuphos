@@ -67,6 +67,7 @@ export const EMPTY_CREDENTIAL_ACCESS: AgentCredentialSelection = {
   notionIntegrationIds: [],
   upstashAccountIds: [],
   cloudflareAccountIds: [],
+  instaboxAccountIds: [],
   deviceIds: [],
 }
 
@@ -101,6 +102,7 @@ export const EMPTY_CREDENTIAL_OPTIONS: AgentCredentialOptions = {
   notionIntegrations: [],
   upstashAccounts: [],
   cloudflareAccounts: [],
+  instaboxAccounts: [],
   devices: [],
 }
 

@@ -88,6 +88,7 @@ function oneOfEach(): AgentCredentialOptions {
     ],
     plaudAccounts: [{ bindingId: ID, label }],
     cloudflareAccounts: [{ accountId: ID, accountName: label }],
+    instaboxAccounts: [{ accountId: ID, label }],
     devices: [{ deviceId: ID, label, platform: 'darwin', available: true }],
   }
 }
@@ -202,7 +203,13 @@ describe('usage notes', () => {
         grafanaInstanceIds: [ID],
         sonarqubeIntegrationIds: [ID],
       },
-      { ...oneOfEach(), cloudflareAccounts: [], notionIntegrations: [], upstashAccounts: [] },
+      {
+        ...oneOfEach(),
+        cloudflareAccounts: [],
+        notionIntegrations: [],
+        upstashAccounts: [],
+        instaboxAccounts: [],
+      },
     )
 
     expect(entries.map((entry) => [entry.provider, entry.usage])).toEqual([

@@ -218,6 +218,7 @@ function normalizeCredentialAccess(
     notionIntegrationIds: access?.notionIntegrationIds,
     upstashAccountIds: access?.upstashAccountIds,
     cloudflareAccountIds: access?.cloudflareAccountIds,
+    instaboxAccountIds: access?.instaboxAccountIds,
     deviceIds: access?.deviceIds ?? [],
   }
 }

@@ -216,6 +216,16 @@ export const CREDENTIAL_LISTERS: Record<SelectionKey, Lister> = {
     }),
     unsetMeansAll: true,
   }),
+  instaboxAccountIds: lister({
+    provider: 'instabox',
+    available: (o) => o.instaboxAccounts,
+    idOf: (a) => a.accountId,
+    details: (a, id) => ({
+      label: a.label,
+      usage: `Cloud computers billed to this instabox account: list_boxes, create_box (accountId=${id}) and update_box. The key stays server-side.`,
+    }),
+    unsetMeansAll: true,
+  }),
   deviceIds: (selectedIds, options) => {
     const listed = deviceLister(selectedIds, options)
     const usable = new Set(options.devices.filter((d) => d.available).map((d) => d.deviceId))

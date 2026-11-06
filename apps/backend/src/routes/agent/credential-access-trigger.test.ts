@@ -48,6 +48,7 @@ const options: AgentCredentialOptions = {
   posthogIntegrations: [],
   plaudAccounts: [],
   cloudflareAccounts: [],
+  instaboxAccounts: [],
 }
 
 useCredentialOptions({ getAgentCredentialOptions: () => Promise.resolve(options) })

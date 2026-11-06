@@ -46,6 +46,7 @@ const options = {
   posthogIntegrations: [],
   plaudAccounts: [],
   cloudflareAccounts: [],
+  instaboxAccounts: [],
   devices: [],
 } as unknown as AgentCredentialOptions
 

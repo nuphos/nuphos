@@ -41,6 +41,7 @@ const EMPTY_OPTIONS: AgentCredentialOptions = {
   posthogIntegrations: [],
   plaudAccounts: [],
   cloudflareAccounts: [],
+  instaboxAccounts: [],
 }
 
 function access(overrides: Partial<AgentCredentialAccess> = {}): AgentCredentialAccess {

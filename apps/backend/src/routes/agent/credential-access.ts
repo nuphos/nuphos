@@ -55,6 +55,7 @@ export function allCredentialAccessFromOptions(
           notionIntegrationIds: options.notionIntegrations.map((entry) => entry.integrationId),
           upstashAccountIds: options.upstashAccounts.map((entry) => entry.accountId),
           cloudflareAccountIds: options.cloudflareAccounts.map((entry) => entry.accountId),
+          instaboxAccountIds: options.instaboxAccounts.map((entry) => entry.accountId),
         }
       : {}),
     updatedAt: new Date(),
@@ -112,6 +113,7 @@ export function hasCredentialOptions(options: AgentCredentialOptions): boolean {
       options.notionIntegrations.length +
       options.upstashAccounts.length +
       options.cloudflareAccounts.length +
+      options.instaboxAccounts.length +
       options.devices.length >
     0
   )
@@ -151,6 +153,7 @@ export function isEmptyCredentialAccess(access: AgentCredentialAccess | undefine
       (access.notionIntegrationIds?.length ?? 0) +
       (access.upstashAccountIds?.length ?? 0) +
       (access.cloudflareAccountIds?.length ?? 0) +
+      (access.instaboxAccountIds?.length ?? 0) +
       (access.deviceIds?.length ?? 0) ===
     0
   )

@@ -45,6 +45,7 @@ function credentialOptions(): AgentCredentialOptions {
     posthogIntegrations: [],
     plaudAccounts: [],
     cloudflareAccounts: [],
+    instaboxAccounts: [],
   }
 }
 
