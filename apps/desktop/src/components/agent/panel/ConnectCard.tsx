@@ -16,6 +16,7 @@ import {
 } from './connectCardModel'
 import { ConnectHeader, ConnectRow, ContinueFooter } from './ConnectCardRows'
 import { allCredentialAccess, normalizeCredentialOptions } from './credentialAccess'
+import { cardAnswerState } from './replyTarget'
 import { SecretCard } from './SecretCard'
 import { ToolPartView } from './ToolPartView'
 import { isDecisionFailed } from './toolRuns'
@@ -195,16 +196,25 @@ export function DecisionToolPart({
   now,
   teamId,
   canAct,
+  canReply,
 }: {
   part: ToolPart
   now: number
   teamId?: string
+  /** The latest idle reply. */
   canAct: boolean
+  canReply: boolean
 }) {
+  const openQuestions = useContext(ConnectCardContext)?.openQuestions
   const failed = isDecisionFailed(part)
   const connect = failed ? null : parseConnectRequest(part.input)
   const secret = failed || connect ? null : parseSecretRequest(part.input)
   const choice = failed || connect || secret ? null : parseChoiceRequest(part.input)
+  const state = (question: string, options?: string[]) =>
+    cardAnswerState({ toolCallId: part.toolCallId, question, options }, openQuestions, {
+      latestIdle: canAct,
+      canReply,
+    })
 
   if (connect) {
     return (
@@ -213,12 +223,22 @@ export function DecisionToolPart({
         teamId={teamId}
         providers={connect.providers}
         reason={connect.reason}
-        canAct={canAct}
+        canAct={state(connect.reason) === 'open'}
       />
     )
   }
-  if (secret) return <SecretCard {...secret} toolCallId={part.toolCallId} canAct={canAct} />
-  if (choice) return <ChoiceCard {...choice} toolCallId={part.toolCallId} canAct={canAct} />
+  if (secret) {
+    return <SecretCard {...secret} toolCallId={part.toolCallId} state={state(secret.reason)} />
+  }
+  if (choice) {
+    return (
+      <ChoiceCard
+        {...choice}
+        toolCallId={part.toolCallId}
+        canAct={state(choice.question, choice.options) === 'open'}
+      />
+    )
+  }
 
   return <ToolPartView part={part} now={now} />
 }

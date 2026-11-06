@@ -20,6 +20,8 @@ export type CardContext = {
   now: number
   /** The latest idle reply: decision cards can act. */
   canAct: boolean
+  /** The runtime takes a reply and the viewer may send one. */
+  canReply: boolean
   /** Viewer may approve permission-grant proposals. */
   canApprove: boolean
 }
@@ -28,7 +30,7 @@ export type CardContext = {
 export function renderCardToolPart(
   part: ToolPart,
   key: string,
-  { teamId, onOpen, now, canAct, canApprove }: CardContext,
+  { teamId, onOpen, now, canAct, canReply, canApprove }: CardContext,
 ): ReactElement | null {
   if (isThreadBadgePart(part)) {
     return <ThreadBadge key={key} part={part} teamId={teamId} onOpen={onOpen} />
@@ -41,7 +43,16 @@ export function renderCardToolPart(
     return <ArtifactToolPart key={key} part={part} now={now} teamId={teamId} onOpen={onOpen} />
   }
   if (isDecisionCardPart(part)) {
-    return <DecisionToolPart key={key} part={part} now={now} teamId={teamId} canAct={canAct} />
+    return (
+      <DecisionToolPart
+        key={key}
+        part={part}
+        now={now}
+        teamId={teamId}
+        canAct={canAct}
+        canReply={canReply}
+      />
+    )
   }
   if (part.toolName === 'propose_permission_grant') {
     const proposalId = extractProposalIdFromOutput(part.output)
