@@ -18,6 +18,7 @@
     "skills:backfill-metadata": "bun scripts/backfill-skill-metadata.ts",
     "skills:reconcile-mutations": "bun scripts/reconcile-skill-mutations.ts",
     "sonarqube:fixture": "bash scripts/scan-sonarqube-fixture.sh",
+    "bots:migrate-pinned": "bun scripts/migrate-pinned-agents-to-bots.ts",
     "billing:backfill-cache-write": "bun scripts/backfill-cache-write-tokens.ts",
     "billing:reconcile-vertex": "bun scripts/reconcile-vertex-billing.ts",
     "test:e2e:webhook-routing": "bun run scripts/webhook-routing-e2e/run.ts"
