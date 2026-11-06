@@ -96,7 +96,7 @@ export function ImageAttachmentThumb({
         )}
       </div>
       {badge && (
-        <span className="pointer-events-none absolute bottom-1 left-1 rounded bg-state-selected px-1 text-[10px] font-medium leading-4 text-main tabular-nums">
+        <span className="pointer-events-none absolute bottom-1 left-1 rounded bg-surface-raised px-1 text-[10px] font-medium leading-4 text-main tabular-nums">
           {badge}
         </span>
       )}
