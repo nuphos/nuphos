@@ -2,47 +2,9 @@
 // Bot by getting the face it already shows. Pure planning lives here so it can
 // be tested; scripts/migrate-pinned-agents-to-bots.ts does the reads and writes.
 
-/** The first 28 bot-avatar names, in the order clients derive a face from. Keep
- *  in sync with DEFAULT_BOT_AVATAR_COUNT in apps/desktop/src/lib/botAvatars.ts. */
-const DERIVED_AVATARS = [
-  '01-vermeer-girl',
-  '02-leonardo',
-  '03-mona-lisa',
-  '04-venus',
-  '05-rembrandt',
-  '06-beethoven',
-  '07-ada',
-  '08-socrates',
-  '09-frida',
-  '10-van-gogh',
-  '11-mozart',
-  '12-newton',
-  '13-shakespeare',
-  '14-napoleon',
-  '15-cleopatra',
-  '16-athena',
-  '17-the-scream',
-  '18-american-gothic',
-  '19-the-fifer',
-  '20-son-of-man',
-  '21-the-milkmaid',
-  '22-lady-with-an-ermine',
-  '23-girl-with-peaches',
-  '24-the-blue-boy',
-  '25-infanta',
-  '26-the-swing',
-  '27-the-astronomer',
-  '28-the-sleeping-gypsy',
-] as const
+import { derivedAvatar } from './bot-avatars'
 
-/** The face clients show for a conversation with no `avatar` (FNV-1a of the id). */
-export function derivedAvatar(sessionId: string): string {
-  let hash = 2166136261
-
-  for (const char of sessionId) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619) >>> 0
-
-  return DERIVED_AVATARS[hash % DERIVED_AVATARS.length] ?? DERIVED_AVATARS[0]
-}
+export { derivedAvatar }
 
 const AGENT_SESSION_KEY_PREFIX = 'agent-session:'
 const AGENT_PATH = /\/agent\/([0-9a-f-]{36})(?:[/?#]|$)/i

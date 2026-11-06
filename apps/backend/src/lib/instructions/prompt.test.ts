@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { ObjectId } from 'mongodb'
 
+import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useModels } from '@/lib/test/doubles/models'
 import { createFakeInstructionsCollection } from '@/lib/test/fake-instructions-collection'
 
@@ -16,6 +17,25 @@ useModels({
 
     return collection
   },
+})
+
+useAgentDb({
+  getConversationBySessionId: (sessionId) =>
+    Promise.resolve(
+      {
+        'bot-session': {
+          sessionId,
+          title: 'Release Helper',
+          avatar: '07-ada',
+          instructions: 'Ship on Fridays.',
+        },
+        'task-session': {
+          sessionId,
+          title: 'Fix the build',
+          instructions: 'Ignored without a face.',
+        },
+      }[sessionId] as never,
+    ),
 })
 
 const { loadInstructionsBlock, renderInstructionsBlock } = await import('@/lib/instructions/prompt')
@@ -105,5 +125,28 @@ describe('loadInstructionsBlock', () => {
     seed({ title: 'Rule' })
     failReads = true
     expect(await loadInstructionsBlock(TEAM_ID.toHexString(), 'user-a')).toBeNull()
+  })
+})
+
+describe('Bot identity', () => {
+  test('a Bot gets its name and instructions after the team and personal ones', async () => {
+    seed({ title: 'Team rule' })
+
+    const block = await loadInstructionsBlock(TEAM_ID.toHexString(), 'user-a', 'bot-session')
+
+    expect(block).toContain('## This Bot')
+    expect(block).toContain('"Release Helper"')
+    expect(block).toContain('Ship on Fridays.')
+    expect(block?.indexOf('Team rule')).toBeLessThan(block?.indexOf('## This Bot') ?? -1)
+  })
+
+  test('a Task gets no Bot section, even with stored instructions', async () => {
+    expect(await loadInstructionsBlock(TEAM_ID.toHexString(), 'user-a', 'task-session')).toBeNull()
+  })
+
+  test('a Bot without instructions is told to ask for them', () => {
+    expect(renderInstructionsBlock([], [], { name: 'New Bot' })).toContain(
+      'You have no instructions yet',
+    )
   })
 })
