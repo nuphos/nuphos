@@ -1,8 +1,8 @@
 # Android release artifacts
 
 The manual **Android release artifacts** workflow builds and signs an Android
-App Bundle (AAB), then uploads it with its R8 mapping file to the Play
-**internal testing** track. It never touches production, closed or open testing,
+App Bundle (AAB), then uploads it with its R8 mapping file and releases it to
+the Play **production** track at full rollout. It touches no testing track,
 publishes no GitHub Release, and changes no other platform's version. The signed
 AAB also stays downloadable as an artifact.
 
@@ -38,7 +38,7 @@ owner ID, ref and environment are `nuphos/nuphos`, `nuphos`, `refs/heads/main`
 and `android-release`. The Google Play Android Developer API is enabled there.
 
 In Play Console the service account is invited under **Users and permissions**
-with access to `ai.nuphos.android` limited to releasing to testing tracks. To
+with access to `ai.nuphos.android` limited to releasing to production. To
 rotate, remove that user and the provider; there is no secret to revoke.
 
 ## Firebase and optimization
@@ -88,8 +88,9 @@ and background notification delivery/navigation.
    duplicate entries, altered payloads and unexpected signers. A generic
    `jar verified` message alone does not prove all entries were signed.
 7. After signing, the same job uploads the AAB and `mapping.txt` to the Play
-   internal testing track as release `<version_name> (<version_code>)` and
-   commits the edit. Promotion to other tracks stays manual in Play Console.
+   production track as release `<version_name> (<version_code>)` with status
+   `completed` (full rollout) and commits the edit. Play may still hold the
+   release for review; halting or staged rollout stays manual in Play Console.
 
 ## Failure and retry
 

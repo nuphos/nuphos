@@ -219,7 +219,7 @@ jobs:
           token_format: access_token
           access_token_scopes: https://www.googleapis.com/auth/androidpublisher
           create_credentials_file: false
-      - name: Upload to Play internal testing
+      - name: Release to Play production
         env:
           TOKEN: ${{ steps.play-auth.outputs.access_token }}
           VERSION_CODE: ${{ inputs.version_code }}
@@ -235,10 +235,10 @@ jobs:
           play -X POST -H 'Content-Type: application/octet-stream' --data-binary @"$RUNNER_TEMP/android-unsigned/mapping.txt" \
             "$upload/edits/$edit/apks/$VERSION_CODE/deobfuscationFiles/proguard?uploadType=media" > /dev/null
           jq -n --arg name "$VERSION_NAME ($VERSION_CODE)" --arg code "$VERSION_CODE" \
-            '{track: "internal", releases: [{name: $name, versionCodes: [$code], status: "completed"}]}' |
-            play -X PUT -H 'Content-Type: application/json' --data-binary @- "$api/edits/$edit/tracks/internal" > /dev/null
+            '{track: "production", releases: [{name: $name, versionCodes: [$code], status: "completed"}]}' |
+            play -X PUT -H 'Content-Type: application/json' --data-binary @- "$api/edits/$edit/tracks/production" > /dev/null
           play -X POST "$api/edits/$edit:commit" > /dev/null
-          echo "Uploaded $VERSION_NAME ($VERSION_CODE) to Play internal testing."
+          echo "Uploaded $VERSION_NAME ($VERSION_CODE) to Play production."
       - name: Remove temporary signing files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP"/android-sign-* "$RUNNER_TEMP/android-signed"
