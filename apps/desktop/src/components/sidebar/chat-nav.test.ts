@@ -42,7 +42,7 @@ test('chatNavKey reads ⌥↑/⌥↓ and the ⇧ attention variant only', () => 
 test('steps through chat rows across sections in sidebar order, stopping at the ends', () => {
   const sections: Section[] = [
     { items: [{ key: 'team.inbox', label: 'Inbox', enabled: true }] },
-    { title: 'Pinned', items: [chat('p')] },
+    { title: 'Bots', items: [chat('p')] },
     { title: 'Agents', items: [chat('a', { active: true }), chat('b')] },
   ]
 
@@ -61,14 +61,14 @@ test('with no open chat, down starts at the top and up at the bottom', () => {
 
 test('skips collapsed groups and folded threads; a folded parent stands in for its open thread', () => {
   const sections: Section[] = [
-    { title: 'Pinned', items: [chat('p')] },
+    { title: 'Bots', items: [chat('p')] },
     {
       title: 'Agents',
       items: [chat('a'), chat('t', { parentKey: 'agent-session:a', active: true }), chat('b')],
     },
   ]
   const folded = ({ title }: Pick<Section, 'title'>) =>
-    title === 'Pinned' || title === 'agent-session:a'
+    title === 'Bots' || title === 'agent-session:a'
 
   assert.equal(ids(chatRowToward(sections, folded, 1)), 'b')
   assert.equal(chatRowToward(sections, folded, -1), undefined)

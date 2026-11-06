@@ -13,7 +13,6 @@ import {
 } from '../SidebarNavItem'
 import { Kbd } from '../ui/kbd'
 
-import { DropLine } from './drop-line'
 import { FavoriteToggle } from './favorite-toggle'
 import { FoldedStatus } from './folded-status'
 import { NestedRowBody } from './nest-guides'
@@ -25,7 +24,6 @@ import { SECTION_LABELS } from './section-labels'
 import { SessionRowSurface } from './SessionRowSurface'
 import { isSidebarItemActive } from './types'
 import { useInboxBadge } from './use-inbox-badge'
-import { usePinnedDrag } from './use-pinned-drag'
 
 import type { Item, ItemMenuRequest, Section } from './types'
 import type { SidebarFavorite } from '../../lib/sidebarFavorites'
@@ -43,7 +41,6 @@ type SectionListProps = {
   favoriteMatch: (item: Item) => SidebarFavorite | undefined
   canFavorite: (item: Item) => boolean
   toggleFavorite: (item: Item) => void
-  movePinned?: (item: Item, before: Item | null) => void
   onItemMenu: (menu: ItemMenuRequest) => void
   onSelect: (key: string) => void
   onOpenKey?: (key: string, favoriteLabel: string | null, newTab: boolean) => void
@@ -61,14 +58,12 @@ export function SidebarSectionList({
   favoriteMatch,
   canFavorite,
   toggleFavorite,
-  movePinned,
   onItemMenu,
   onSelect,
   onOpenKey,
 }: SectionListProps) {
   // The Inbox row carries how many conversations wait on the viewer.
   const shown = useInboxBadge(scope.teamId, sections)
-  const pinned = usePinnedDrag(shown.find((s) => s.title === 'Pinned')?.items ?? [], movePinned)
 
   return (
     <>
@@ -110,11 +105,9 @@ export function SidebarSectionList({
           <div className="t-collapse" data-open={isGroupCollapsed(section) ? 'false' : 'true'}>
             <div className="t-collapse-inner">
               <div
-                {...(section.title === 'Pinned' && { ref: pinned.listRef, ...pinned.listHandlers })}
                 className={clsx(
                   SIDEBAR_GROUP_ITEMS_CLASS,
                   't-panel-slide [--panel-translate-y:8px]',
-                  section.title === 'Pinned' && 'relative',
                 )}
                 data-open="true"
               >
@@ -125,7 +118,6 @@ export function SidebarSectionList({
                     ({ item, trail, hasChildren, hidden, done }) => {
                       const Icon = item.icon
                       const leading = item.iconNode ?? (Icon && <SidebarNavIcon icon={Icon} />)
-                      const inPinned = section.title === 'Pinned'
                       const isActive =
                         item.enabled &&
                         (item.key === 'team.agent'
@@ -145,7 +137,6 @@ export function SidebarSectionList({
                       const twoLine = chatRow && !item.task
                       const favoriteToggle = canFavorite(item) ? (
                         <FavoriteToggle
-                          chatRow={chatRow}
                           favorited={favorited}
                           label={item.label}
                           onToggle={() => toggleFavorite(item)}
@@ -184,16 +175,13 @@ export function SidebarSectionList({
                           onSelect={onSelect}
                           sessionId={rowSessionId}
                           teamId={scope.teamId}
-                          reorderDrag={inPinned ? pinned.rowDrag(item.key) : undefined}
                           revealDetail={Boolean(item.description)}
                           onContextMenu={
                             // Only open when the menu would have something in it.
                             canFavorite(item) || (teamView && Boolean(rowSessionId))
                               ? (e) => {
                                   e.preventDefault()
-                                  const moves = inPinned ? pinned.menuMoves(item.key) : undefined
-
-                                  onItemMenu({ x: e.clientX, y: e.clientY, item, moves })
+                                  onItemMenu({ x: e.clientX, y: e.clientY, item })
                                 }
                               : undefined
                           }
@@ -254,17 +242,12 @@ export function SidebarSectionList({
                       return rowSessionId ? (
                         <div
                           key={item.key}
-                          ref={inPinned ? pinned.rowRef(item.key) : undefined}
                           className={clsx(
                             't-collapse t-sidebar-session t-stagger relative',
                             archivingIds.has(rowSessionId) ? 'is-hiding' : 'is-shown',
-                            pinned.isDragged(item.key) && 'opacity-40',
                           )}
                           data-open={archivingIds.has(rowSessionId) ? 'false' : 'true'}
                         >
-                          {inPinned && pinned.dropIndex === pinned.heads.indexOf(item.key) && (
-                            <DropLine edge="top" />
-                          )}
                           <NestedRowBody trail={trail} expanded={hasChildren && !folded}>
                             {row}
                           </NestedRowBody>
@@ -275,17 +258,11 @@ export function SidebarSectionList({
                     },
                   )
                 )}
-                {section.title === 'Pinned' && pinned.dropIndex === pinned.heads.length && (
-                  <DropLine edge="bottom" />
-                )}
               </div>
             </div>
           </div>
         </div>
       ))}
-      <div role="status" aria-live="polite" className="sr-only">
-        {pinned.announcement}
-      </div>
     </>
   )
 }

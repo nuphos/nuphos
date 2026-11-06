@@ -5,7 +5,6 @@ import test from 'node:test'
 import {
   BOT_AVATARS,
   DEFAULT_BOT_AVATAR_COUNT,
-  botAvatarLabel,
   botAvatarName,
   botAvatarUrl,
   derivedBotAvatar,
@@ -76,9 +75,5 @@ test('a picked character wins; a name this build does not ship falls back to the
   assert.equal(botAvatarUrl('any-agent', '99-from-the-future'), botAvatarUrl('any-agent'))
   assert.equal(botAvatarUrl('any-agent', null), botAvatarUrl('any-agent'))
   for (const file of BOT_AVATARS) assert.match(botAvatarName(file), /^\d{2}-[a-z0-9-]{1,40}$/)
-  assert.equal(botAvatarLabel('22-lady-with-an-ermine.svg'), 'Lady with an ermine')
-  assert.equal(botAvatarLabel('03-mona-lisa.svg'), 'Mona Lisa')
-  assert.equal(botAvatarLabel('10-van-gogh.svg'), 'Van Gogh')
-  assert.equal(botAvatarLabel('29-amelia-earhart.svg'), 'Amelia Earhart')
   assert.equal(botAvatarName('29-amelia-earhart.svg'), '29-amelia-earhart')
 })

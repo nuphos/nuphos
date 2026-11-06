@@ -109,18 +109,16 @@ export const Sidebar = memo(function Sidebar({
   const teamView = view.level === 0
   const settingsBack = dynamicNavigation ? settingsBackTarget(scope, active) : null
 
-  const { favoriteMatch, canFavorite, toggleFavorite, movePinned, favoriteItems } =
-    useSidebarFavorites({
-      userId: user?.id ?? '',
-      teamId,
-      teamView,
-      sections,
-      currentHref,
-      activeSessionId: chatShown ? agentSessionId : undefined,
-      scopeChipForPath,
-      onOpenPath,
-      onOpenKey,
-    })
+  const { favoriteMatch, canFavorite, toggleFavorite, favoriteItems } = useSidebarFavorites({
+    userId: user?.id ?? '',
+    teamId,
+    teamView,
+    sections,
+    currentHref,
+    scopeChipForPath,
+    onOpenPath,
+    onOpenKey,
+  })
 
   const [itemMenu, setItemMenu] = useState<ItemMenuRequest | null>(null)
 
@@ -238,7 +236,6 @@ export const Sidebar = memo(function Sidebar({
               favoriteMatch={favoriteMatch}
               canFavorite={canFavorite}
               toggleFavorite={toggleFavorite}
-              movePinned={movePinned}
               onItemMenu={setItemMenu}
               onSelect={onSelect}
               onOpenKey={onOpenKey}

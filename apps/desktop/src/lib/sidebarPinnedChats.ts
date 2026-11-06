@@ -1,11 +1,9 @@
-import { t } from '../i18n/index.ts'
-
 import { navigationFromAppPath } from './appRoutes.ts'
 import { HREF_FAVORITE_PREFIX } from './sidebar-favorites/store.ts'
 
 import type { SidebarFavorite } from './sidebarFavorites.ts'
 
-export const AGENT_SESSION_KEY_PREFIX = 'agent-session:'
+const AGENT_SESSION_KEY_PREFIX = 'agent-session:'
 
 /**
  * The conversation a favorite points at, whichever identity it was pinned
@@ -24,23 +22,4 @@ export function favoriteSessionId(entry: Pick<SidebarFavorite, 'key' | 'href'>):
   const navigation = navigationFromAppPath(href)
 
   return navigation?.active === 'team.agent' ? navigation.agentSessionId : null
-}
-
-export function partitionPinnedChats<T extends { entry: Pick<SidebarFavorite, 'key' | 'href'> }>(
-  favorites: T[],
-): { pinnedChats: T[]; others: T[] } {
-  const pinnedChats: T[] = []
-  const others: T[] = []
-
-  for (const favorite of favorites) {
-    ;(favoriteSessionId(favorite.entry) ? pinnedChats : others).push(favorite)
-  }
-
-  return { pinnedChats, others }
-}
-
-export function favoriteToggleTitle(chatRow: boolean, favorited: boolean): string {
-  if (chatRow) return favorited ? t('Unpin agent') : t('Pin agent')
-
-  return favorited ? t('Remove from Favorites') : t('Add to Favorites')
 }
