@@ -107,3 +107,12 @@ export async function dropShareTrusts(
 export async function dropMemberShareTrusts(teamId: string, userId: string): Promise<void> {
   await shareTrusts().deleteMany({ teamId, $or: [{ actorId: userId }, { ownerId: userId }] })
 }
+
+/**
+ * Every team's trusts on this computer. Their team is not named, because the
+ * computer is going: a machine that registers again under the same id is a
+ * stranger to everyone who trusted the one that left.
+ */
+export async function dropDeviceShareTrusts(ownerId: string, deviceId: string): Promise<void> {
+  await shareTrusts().deleteMany({ ownerId, deviceId })
+}

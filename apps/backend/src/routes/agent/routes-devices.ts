@@ -33,6 +33,7 @@ import { setTeamUse } from '@/lib/agent/devices/device-grants'
 import { boxDesktops } from '@/lib/claude-code-preview/session-desktops'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { holderChannel } from '@/lib/agent/devices/local-runtime/protocol'
+import { forgetDeviceShares } from '@/lib/agent/devices/local-share-revoke'
 import { isDevicePresent } from '@/lib/agent/devices/presence'
 import {
   deleteAgentDevice,
@@ -102,6 +103,8 @@ export type AgentDeviceRouteDependencies = {
   listDevices: (userId: string) => Promise<AgentDevice[]>
   isOnline: (userId: string, deviceId: string) => Promise<boolean>
   deleteDevice: (userId: string, deviceId: string) => Promise<boolean>
+  /** Forgets every team's answers and trusts about a computer that is going away. */
+  forgetDeviceShares: typeof forgetDeviceShares
   renameDevice: (userId: string, deviceId: string, label: string) => Promise<boolean>
   /** Where a joining machine dials: this deployment's public URL, if it has one. */
   publicUrl: () => string | undefined
@@ -143,6 +146,7 @@ const defaultDependencies: AgentDeviceRouteDependencies = {
   listDevices: listAgentDevicesForUser,
   isOnline: isDevicePresent,
   deleteDevice: deleteAgentDevice,
+  forgetDeviceShares,
   renameDevice: renameAgentDevice,
   publicUrl: boxBackendUrl,
   box: boxesEnabled()
@@ -228,6 +232,9 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
       if (device.box) throw new AppError(400, 'device_is_box', 'Delete a Box with its Box delete')
       if (await deps.isOnline(userId, deviceId))
         throw new AppError(409, 'device_online', 'Quit Nuphos on this computer first')
+      // Forgotten before the delete, so a failure here leaves the computer registered and
+      // deletable again, rather than leaving these rows behind with nothing left to match.
+      await deps.forgetDeviceShares(userId, deviceId)
       await deps.deleteDevice(userId, deviceId)
       // In case it connected since the check: its credential is gone, so close what it holds.
       await deps.disconnect(userId, deviceId)

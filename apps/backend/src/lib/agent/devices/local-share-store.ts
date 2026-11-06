@@ -37,6 +37,14 @@ export async function dropMemberShareApprovals(teamId: string, userId: string): 
   await shareApprovals().deleteMany({ teamId, $or: [{ actorId: userId }, { ownerId: userId }] })
 }
 
+/**
+ * Every team's answers about this computer. Their team is not named, because the
+ * computer is going: a machine that registers again under the same id asks afresh.
+ */
+export async function dropDeviceShareApprovals(ownerId: string, deviceId: string): Promise<void> {
+  await shareApprovals().deleteMany({ ownerId, deviceId })
+}
+
 export async function findShareApproval(
   ownerId: string,
   deviceId: string,
