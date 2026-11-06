@@ -1,1 +1,5 @@
-The Agents list stays on screen when a row action fails. A failed Watch, Unwatch, Rename, Archive or Unlink shows an alert with Try again instead of replacing the whole list with an error page, and a failed refresh offers its own retry.
+Bots and Tasks: the Bots page lists your chats, a Bot's 1:1 chat and group chats, newest first with each chat's latest message. Tasks list every agent session.
+
+Create a chat without a name; an unnamed chat shows its members. Chats show iMessage-style time separators.
+
+Fixes: a lone image is sized to its own shape, an opened attachment reopens from disk without a spinner, and the agent list stays after switching apps on the unfolded iPhone Duo.
