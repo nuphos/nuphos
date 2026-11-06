@@ -69,7 +69,7 @@ export function PlanActionBar({
       className={clsx(
         'flex flex-shrink-0 flex-col gap-2.5 px-4',
         floating
-          ? 'rounded-lg border border-line-control/60 bg-surface-sheet py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]'
+          ? 'rounded-lg surface-raised bg-surface-raised py-3'
           : 'border-t border-line-control/70 bg-state-selected py-3',
         decision === 'approved' && 'bg-emerald-500/5',
         decision === 'chatting' && 'bg-state-selected',

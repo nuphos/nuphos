@@ -197,7 +197,7 @@ export const PlanTool = memo(function PlanTool({
     // Linear-style cards: solid surface (one rung brighter than the page),
     // generous radius, a hairline border plus a faint shadow for lift.
     const cardClass =
-      'rounded-lg border border-line-control/60 bg-surface-sheet shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden'
+      'rounded-lg surface-raised bg-surface-raised overflow-hidden'
 
     return (
       <div className="flex h-full min-h-0 flex-col">

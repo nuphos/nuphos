@@ -44,7 +44,7 @@ export function SecretCard({
     <div
       data-tool-call-id={toolCallId}
       data-decision-question={reason || undefined}
-      className="overflow-hidden rounded-xl border border-line-control bg-surface-sunken"
+      className="overflow-hidden rounded-xl surface-raised bg-surface-raised"
     >
       <div className="px-4 pb-2.5 pt-3.5">
         <div className="text-[13.5px] font-medium text-main">
