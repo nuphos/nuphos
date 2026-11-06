@@ -148,18 +148,27 @@ export function boxToolModule(
             accountId: account,
           })
 
-          // Without a selection yet the conversation cannot use any computer; say so, do not claim it.
-          const { matchedCount } = await agentConversations().updateOne(
-            { sessionId: ctx.sessionId, teamId: ctx.teamId, credentialAccess: { $exists: true } },
-            { $addToSet: { 'credentialAccess.deviceIds': device.deviceId } },
-          )
+          // As if the user had picked it: a conversation without a selection yet gets one.
+          await agentConversations().updateOne({ sessionId: ctx.sessionId, teamId: ctx.teamId }, [
+            {
+              $set: {
+                credentialAccess: { $ifNull: ['$credentialAccess', { updatedAt: '$$NOW' }] },
+              },
+            },
+            {
+              $set: {
+                'credentialAccess.deviceIds': {
+                  $setUnion: [{ $ifNull: ['$credentialAccess.deviceIds', []] }, [device.deviceId]],
+                },
+              },
+            },
+          ])
           const joined = await waitForPresence(ctx.userId, device.deviceId, JOIN_WAIT_MS)
 
           return {
             // Re-read: the machine id is recorded once it was ordered.
             ...(await view((await getAgentDevice(device.userId, device.deviceId)) ?? device)),
             joined,
-            selected: matchedCount > 0,
             ...(joined ? {} : { note: 'Not joined yet; check list_boxes again shortly.' }),
           }
         },

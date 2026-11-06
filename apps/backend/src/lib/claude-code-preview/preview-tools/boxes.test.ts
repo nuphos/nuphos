@@ -50,7 +50,7 @@ useAgentDb({
     updateOne: (filter: unknown, update: unknown) => {
       calls.push(['select', filter, update])
 
-      return Promise.resolve({ matchedCount: 1 })
+      return Promise.resolve({ matchedCount: 0 })
     },
   })) as never,
 })
@@ -112,16 +112,13 @@ test('creates on the only account and selects the Box for this conversation', as
   expect(result.isError).not.toBe(true)
   expect(calls).toEqual([
     ['create', 'actor', teamId, 'Agent Box', { vcpus: undefined, accountId }],
-    [
-      'select',
-      { sessionId: 'session', teamId, credentialAccess: { $exists: true } },
-      { $addToSet: { 'credentialAccess.deviceIds': 'new-box' } },
-    ],
+    ['select', { sessionId: 'session', teamId }, expect.anything()],
   ])
+  // Selected even when the conversation had no selection yet: the update matches it unfiltered.
+  expect(JSON.stringify(calls[1]?.[2])).toContain('"new-box"')
   expect(result.structuredContent).toMatchObject({
     deviceId: 'new-box',
     joined: true,
-    selected: true,
   })
 })
 
