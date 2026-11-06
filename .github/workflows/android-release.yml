@@ -228,7 +228,7 @@ jobs:
           set -euo pipefail
           api=https://androidpublisher.googleapis.com/androidpublisher/v3/applications/ai.nuphos.android
           upload=https://androidpublisher.googleapis.com/upload/androidpublisher/v3/applications/ai.nuphos.android
-          play() { curl --fail-with-body -sS -H "Authorization: Bearer $TOKEN" "$@"; }
+          play() { curl --fail-with-body -sS -H "Authorization: Bearer $TOKEN" "$@" | tee /dev/stderr; } # Log Google's response, including error details
           edit=$(play -X POST "$api/edits" | jq -r .id)
           play -X POST -H 'Content-Type: application/octet-stream' --data-binary @"$RUNNER_TEMP/android-signed/Nuphos-Android-$VERSION_NAME-$VERSION_CODE.aab" \
             "$upload/edits/$edit/bundles?uploadType=media" > /dev/null
