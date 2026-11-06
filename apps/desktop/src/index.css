@@ -420,7 +420,9 @@
     color: rgba(var(--color-text-primary), 1);
     font-size: 12.5px;
     line-height: 1.35;
-    vertical-align: baseline;
+    /* A flex chip's baseline is its icon's bottom edge, so baseline alignment
+       lifts it above the text. Middle centers it on the text's x-height. */
+    vertical-align: middle;
     user-select: none;
     cursor: default;
     white-space: nowrap;
@@ -477,10 +479,16 @@
     box-shadow: inset 0 0 0 1px rgba(var(--color-text-primary), 0.18);
     font-size: 0.9em;
     line-height: 1.4;
-    vertical-align: -0.075em;
     transition:
       background-color 150ms,
       box-shadow 150ms;
+  }
+
+  /* A chip on a row of its own (a pasted text) is a block, not a line of text. */
+  .user-message-bubble > .atlas-mention {
+    display: flex;
+    width: fit-content;
+    margin: 0;
   }
 
   .user-message-bubble .atlas-mention-icon {
