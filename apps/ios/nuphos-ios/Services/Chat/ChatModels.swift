@@ -274,7 +274,7 @@ enum ChatPart: Equatable, Sendable {
         var secretRequest: (name: String, reason: String)? {
             guard input?["category"]?.stringValue == "credential",
                   let name = input?["secretName"]?.stringValue,
-                  name.range(of: #"^[A-Za-z]\w{0,63}$"#, options: .regularExpression) != nil else { return nil }
+                  name.range(of: #"^[A-Za-z][A-Za-z0-9_]{0,63}$"#, options: .regularExpression) != nil else { return nil }
             return (name, input?["question"]?.stringValue ?? "")
         }
 

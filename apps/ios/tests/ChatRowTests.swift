@@ -311,6 +311,8 @@ enum ChatRowTests {
         precondition(secret.decisionRequestId == "req-1")
         precondition(secret.kind == .question)
         precondition(ask(["category": .string("credential"), "secretName": .string("1BAD")]).secretRequest == nil)
+        // The backend takes ASCII names only.
+        precondition(ask(["category": .string("credential"), "secretName": .string("CLÉ")]).secretRequest == nil)
         precondition(ask(["category": .string("approval"), "secretName": .string("KEY")]).secretRequest == nil)
         precondition(ask(["category": .string("credential"), "secretName": .string("KEY")]).decisionRequestId == "ask")
 

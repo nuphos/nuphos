@@ -63,7 +63,6 @@ struct SecretCard: View {
             HStack(spacing: 8) {
                 SecureField("Paste the value", text: $value)
                     .font(Theme.Text.mono(.footnote))
-                    .textContentType(.password)
                     .autocorrectionDisabled()
                     #if canImport(UIKit)
                     .textInputAutocapitalization(.never)
