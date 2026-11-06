@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { api } from '../../api'
 import { t } from '../../i18n'
 import { receiveAgentAvatars } from '../../lib/agentAvatarChoices'
+import { useNewConversationRuntime } from '../agent/panel/useNewConversationRuntime'
 import { toast } from '../ui/toast'
 
 /**
@@ -18,13 +19,20 @@ export function NewBotButton({
   onCreated: (sessionId: string) => void
 }) {
   const [busy, setBusy] = useState(false)
+  // The Bot runs where a new chat would, so it is ready the moment it opens.
+  const runtime = useNewConversationRuntime(teamId).newConversationRuntime
 
   const create = async () => {
     if (busy) return
     setBusy(true)
     try {
       const startedAt = Date.now()
-      const bot = await api.agentCreateBot(teamId)
+      const bot = await api.agentCreateBot(
+        teamId,
+        runtime
+          ? { runtimeId: runtime.id, agentRuntime: runtime.provider, runtimeLabel: runtime.label }
+          : {},
+      )
 
       receiveAgentAvatars([bot], startedAt)
       onCreated(bot.sessionId)
