@@ -44,6 +44,9 @@ class Guest extends EventEmitter {
   /** What the page's script resolves to; never settles unless a test says so. */
   script = new Promise<unknown>(() => {})
   executeJavaScript = () => this.script
+  /** Whether the tab is painted in a dock on screen; a hidden dock captures nothing. */
+  painted = true
+  capturePage = () => Promise.resolve({ isEmpty: () => !this.painted })
 
   attach(): this {
     guests.push(this)
@@ -185,6 +188,28 @@ test('open asks the workspace to show the tab in the calling conversation', asyn
     url: 'https://example.com/mine',
   })
   assert.equal(new URL(link).searchParams.get('session'), 's9')
+})
+
+test('open tells the agent whether the user can see the new tab', async () => {
+  const onScreen = async (painted: boolean) => {
+    onDeepLink = () => {
+      const guest = new Guest().attach()
+
+      guest.painted = painted
+      guest.navigate('https://example.com/seen').finish()
+    }
+    const result = await runBrowserCall({
+      action: 'open',
+      team: 't1',
+      session: 's1',
+      url: 'https://example.com/seen',
+    })
+
+    return (JSON.parse(textOf(result)) as { onScreen: boolean }).onScreen
+  }
+
+  assert.equal(await onScreen(true), true)
+  assert.equal(await onScreen(false), false, 'a tab in a hidden dock is not in front of the user')
 })
 
 /** The tab ids `session` lists. */

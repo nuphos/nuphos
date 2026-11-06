@@ -13,6 +13,13 @@ const TAIL = 200
 
 type Channel = { detail: AgentConversationDetail; agents: ChannelAgent[] }
 
+const pollKey = (teamId: string, channelId: string) => `channel:${teamId}:${channelId}`
+
+/** The agents (session ids) of a channel on screen, as its poll last saw them; none for anything else. */
+export function channelAgentIds(teamId: string, channelId: string): readonly string[] {
+  return pollSnapshot<Channel>(pollKey(teamId, channelId)).value?.detail.agentSessionIds ?? []
+}
+
 /**
  * A channel's messages and agents, polled while it is on screen. One load runs
  * at a time and ticks skip while the window is hidden (sharedPoll); a failed
@@ -22,7 +29,7 @@ export function useChannel(teamId: string, channelId: string) {
   // A background workspace tab stays mounted but hidden; outside any tab, the pane is on screen.
   const tab = useContext(WorkspaceTabContext)
   const onScreen = tab ? tab.isActive : true
-  const key = `channel:${teamId}:${channelId}`
+  const key = pollKey(teamId, channelId)
   const state = useRef({
     revision: '',
     last: undefined as Channel | undefined,

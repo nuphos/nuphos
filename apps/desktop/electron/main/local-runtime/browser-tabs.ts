@@ -178,8 +178,16 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
       return failed(
         'No browser tab opened. Nuphos Desktop needs an open window signed in to this team.',
       )
+    // A tab painted nowhere is in a dock the user is not looking at.
+    const onScreen = !(await onPage(contents, contents.capturePage())).isEmpty()
 
-    return text(describe(contents))
+    return text({
+      ...describe(contents),
+      onScreen,
+      shown: onScreen
+        ? "On the user's screen, in the dock of the chat they have open."
+        : "In this conversation's dock, which is not on the user's screen. Tell the user to open this conversation to see it.",
+    })
   }
   const contents = browserTabs(call.session).find((c) => c.id === call.tab)
 

@@ -75,6 +75,7 @@ const definition = {
     'When a task needs the user to sign in or sign up somewhere, open that login or sign-up page here yourself, sub-agents included, and say what to do on it; the user types their own password and passes human checks, never you. ' +
     "Operate this conversation's browser tabs inside the user's Nuphos Desktop workspace (the in-app browser, not Chrome or Safari): open a page in a new tab in this conversation's dock, list the tabs this conversation opened, navigate, run JavaScript in a page, or take a screenshot. " +
     'Pages keep the logins the user made in the in-app browser. Start with action "open" (or "tabs"), then pass the returned tab id. ' +
+    "open returns onScreen: whether the user can see the tab now (it opens in the dock of a channel on screen that you are in). When it is false, the tab is only in this conversation's dock; say so, never that it is open in front of the user. " +
     'eval runs `script` in the page as a user gesture and returns its JSON-serializable value (an awaited Promise for async code): read the DOM, click, fill inputs (dispatch input events for frameworks). ' +
     'screenshot only works while the tab is on screen. ' +
     "record_start captures the tab's network traffic (requests, responses, headers including cookies, bodies) until record_stop, which writes it as a HAR file on the device and returns its path with one line per request; read details from that file on the device. " +

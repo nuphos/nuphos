@@ -149,4 +149,12 @@ describe('local_browser', () => {
       'open that login or sign-up page here yourself, sub-agents included',
     )
   })
+  test('tells the agent to check onScreen before saying the tab is in front of the user', () => {
+    const description = String(
+      (localBrowserToolModule.definitions[0] as { description?: string }).description,
+    )
+
+    expect(description).toContain('open returns onScreen')
+    expect(description).toContain('never that it is open in front of the user')
+  })
 })
