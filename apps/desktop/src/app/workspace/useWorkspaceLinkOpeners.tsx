@@ -10,7 +10,6 @@ import {
   retargetWorkspaceTabToNavigation,
   tabOpenedFrom,
 } from '../../app/workspaceTabFactory'
-import { channelAgentIds } from '../../components/channels/useChannel'
 import {
   navigationFromAppPath,
   pageLocationForNavigation,
@@ -22,7 +21,6 @@ import { isTeamId } from '../../lib/teamId'
 import { ATLAS_WEB_BASE_URL, toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
 import { settingsLinkTarget, settingsSectionForPage } from '../../views/settings/settingsNav'
 
-import { agentTabSession } from './store/dockBrowserTabs'
 import { selectActiveTab, selectCurrentBucket, selectScope } from './store/workspaceState'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
@@ -211,14 +209,14 @@ export function useWorkspaceLinkOpeners(a: Args) {
 
   const openAppOpenDeepLink = useCallback(
     (payload: AppOpenDeepLinkPayload) => {
-      // An agent's local_browser tab opens in its own dock, or in the on-screen channel it is in.
+      // An agent's local_browser tab belongs to its own conversation, which may not be on screen.
       const sessionNavigation = payload.session ? navigationFromAppPath(payload.path) : null
 
       if (payload.session && sessionNavigation) {
-        const agentsOf = (id: string) => channelAgentIds(sessionNavigation.scope.teamId, id)
-        const dock = agentTabSession(workspaceStore.getState(), payload.session, agentsOf)
-
-        workspaceActions.openTabInSession(dock, createWorkspaceTabFromNavigation(sessionNavigation))
+        workspaceActions.openTabInSession(
+          payload.session,
+          createWorkspaceTabFromNavigation(sessionNavigation),
+        )
 
         return
       }
@@ -239,7 +237,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
 
       openInChat(payload.url, { forceOpen: true })
     },
-    [openInChat, openNuphosLinkInNewTab, workspaceActions, workspaceStore],
+    [openInChat, openNuphosLinkInNewTab, workspaceActions],
   )
 
   const scopeChipForPath = useCallback(

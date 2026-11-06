@@ -170,7 +170,7 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
     const path = `/teams/${encodeURIComponent(call.team)}/browser?url=${encodeURIComponent(call.url)}`
 
     handleDeepLink(
-      `nuphos://open?path=${encodeURIComponent(path)}&session=${encodeURIComponent(call.session)}`,
+      `nuphos://open?path=${encodeURIComponent(path)}&session=${encodeURIComponent(call.dock ?? call.session)}`,
     )
     const contents = await opened
 
@@ -178,20 +178,8 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
       return failed(
         'No browser tab opened. Nuphos Desktop needs an open window signed in to this team.',
       )
-    // A tab painted nowhere is in a dock the user is not looking at. The tab is
-    // open either way, so a capture that fails only means it is not on screen.
-    const onScreen = await onPage(contents, contents.capturePage()).then(
-      (image) => !image.isEmpty(),
-      () => false,
-    )
 
-    return text({
-      ...describe(contents),
-      onScreen,
-      shown: onScreen
-        ? "On the user's screen, in the dock of the chat they have open."
-        : "In this conversation's dock, which is not on the user's screen. Tell the user to open this conversation to see it.",
-    })
+    return text(describe(contents))
   }
   const contents = browserTabs(call.session).find((c) => c.id === call.tab)
 

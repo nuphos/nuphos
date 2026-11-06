@@ -4,7 +4,7 @@ import test from 'node:test'
 import { serializeWorkspace } from '../../workspacePersistence.ts'
 import { createWorkspaceTab } from '../../workspaceTabFactory.ts'
 
-import { agentTabSession, dockBrowserTabs } from './dockBrowserTabs.ts'
+import { dockBrowserTabs } from './dockBrowserTabs.ts'
 import { createWorkspaceState } from './workspaceState.ts'
 import { hydrateWorkspaceState } from './workspaceStorePersistence.ts'
 
@@ -62,22 +62,4 @@ test('lists a tab restored after a restart, from the persisted dock', () => {
 
   assert.equal(tab?.url, 'https://restored.test/a')
   assert.equal(tab?.title, 'Restored page')
-})
-
-const channelAgents = (sessionId: string) => (sessionId === 'channel-1' ? ['agent-a'] : [])
-
-test("an agent's browser tab opens in the channel on screen that the agent is in", () => {
-  const showing = (sessionId: string, mainPageOpen = false) => ({
-    ...createWorkspaceState(),
-    sessionId,
-    mainPageOpen,
-  })
-
-  assert.equal(agentTabSession(showing('channel-1'), 'agent-a', channelAgents), 'channel-1')
-  // An agent outside that channel never puts its tab in front of the user.
-  assert.equal(agentTabSession(showing('channel-1'), 'agent-b', channelAgents), 'agent-b')
-  assert.equal(agentTabSession(showing('chat-2'), 'agent-a', channelAgents), 'agent-a')
-  assert.equal(agentTabSession(showing('agent-a'), 'agent-a', channelAgents), 'agent-a')
-  // A page in the main pane hides the channel, so the tab stays in the agent's dock.
-  assert.equal(agentTabSession(showing('channel-1', true), 'agent-a', channelAgents), 'agent-a')
 })

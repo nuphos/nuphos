@@ -33,21 +33,6 @@ export function dockBrowserTabs(state: WorkspaceState, sessionId: string): DockB
     }))
 }
 
-/**
- * The conversation whose dock an agent's browser tab opens in: the agent's own,
- * unless the main pane shows a channel the agent is in. A request made in a
- * channel is answered there, so its tab opens where the person asking sees it.
- */
-export function agentTabSession(
-  state: WorkspaceState,
-  agent: string,
-  channelAgents: (channelId: string) => readonly string[],
-): string {
-  const shown = state.mainPageOpen ? null : state.sessionId
-
-  return shown && channelAgents(shown).includes(agent) ? shown : agent
-}
-
 /** How long a watched tab may take to mount and attach its page. */
 const ATTACH_TIMEOUT_MS = 15_000
 

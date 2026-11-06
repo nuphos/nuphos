@@ -44,9 +44,6 @@ class Guest extends EventEmitter {
   /** What the page's script resolves to; never settles unless a test says so. */
   script = new Promise<unknown>(() => {})
   executeJavaScript = () => this.script
-  /** Whether the tab is painted in a dock on screen; a hidden dock captures nothing. */
-  painted = true
-  capturePage = () => Promise.resolve({ isEmpty: () => !this.painted })
 
   attach(): this {
     guests.push(this)
@@ -190,53 +187,31 @@ test('open asks the workspace to show the tab in the calling conversation', asyn
   assert.equal(new URL(link).searchParams.get('session'), 's9')
 })
 
-test('open tells the agent whether the user can see the new tab', async () => {
-  const onScreen = async (painted: boolean) => {
-    onDeepLink = () => {
-      const guest = new Guest().attach()
-
-      guest.painted = painted
-      guest.navigate('https://example.com/seen').finish()
-    }
-    const result = await runBrowserCall({
-      action: 'open',
-      team: 't1',
-      session: 's1',
-      url: 'https://example.com/seen',
-    })
-
-    return (JSON.parse(textOf(result)) as { onScreen: boolean }).onScreen
-  }
-
-  assert.equal(await onScreen(true), true)
-  assert.equal(await onScreen(false), false, 'a tab in a hidden dock is not in front of the user')
-})
-
-test('open still returns the tab when checking whether it is on screen fails', async () => {
-  let guest: Guest | undefined
-
-  onDeepLink = () => {
-    guest = new Guest().attach()
-    guest.capturePage = () => Promise.reject(new Error('gone'))
-    guest.navigate('https://example.com/fragile').finish()
-  }
-  const result = await runBrowserCall({
-    action: 'open',
-    team: 't1',
-    session: 's1',
-    url: 'https://example.com/fragile',
-  })
-
-  assert.notEqual(result.isError, true)
-  assert.equal(tabOf(result), guest?.id)
-  assert.equal((JSON.parse(textOf(result)) as { onScreen: boolean }).onScreen, false)
-})
-
 /** The tab ids `session` lists. */
 const listed = (session: string) =>
   runBrowserCall({ action: 'tabs', team: 't1', session }).then((result) =>
     (JSON.parse(textOf(result)) as { tab: number }[]).map((tab) => tab.tab),
   )
+
+test('open shows the tab in the dock of the channel that asked for it, and the agent still owns it', async () => {
+  let link = ''
+
+  onDeepLink = (url) => {
+    link = url
+    new Guest().attach().navigate('https://example.com/asked').finish()
+  }
+  const result = await runBrowserCall({
+    action: 'open',
+    team: 't1',
+    session: 'agent-1',
+    dock: 'channel-1',
+    url: 'https://example.com/asked',
+  })
+
+  assert.equal(new URL(link).searchParams.get('session'), 'channel-1')
+  assert.deepEqual(await listed('agent-1'), [tabOf(result)])
+  assert.deepEqual(await listed('channel-1'), [])
+})
 
 test('a conversation sees and drives only the tabs it opened', async () => {
   const mine = await opened('own-a', 'https://example.com/mine')
