@@ -5743,5 +5743,15 @@
   "Pin to toolbar": "固定到工具列",
   "Remove from Nuphos…": "從 Nuphos 移除…",
   "Today {time}": "今天 {time}",
-  "Yesterday {time}": "昨天 {time}"
+  "Yesterday {time}": "昨天 {time}",
+  "Use an API key instead": "改用 API 金鑰",
+  "Could not use the API key": "無法使用這組 API 金鑰",
+  "{vendor} API key": "{vendor} API 金鑰",
+  "The key is saved only on the runtime, in the CLI’s own settings. Nuphos does not keep a copy, and the key is not shown again.": "金鑰只會儲存在執行環境上，放在 CLI 自己的設定中。Nuphos 不會保留副本，金鑰也不會再次顯示。",
+  "Use API key": "使用 API 金鑰",
+  "Signed in with an API key.": "已使用 API 金鑰登入。",
+  "API key removed": "已移除 API 金鑰",
+  "Could not remove the API key": "無法移除 API 金鑰",
+  "Remove API key": "移除 API 金鑰",
+  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "執行環境沒有接收這組金鑰。請更新執行它的電腦上的 Nuphos，然後再試一次。"
 }

@@ -6,6 +6,7 @@ import { t } from '../../i18n'
 import { longLivedSignIn } from './longLivedSignIn'
 
 import type { RuntimeInstance } from '../../types/runtime'
+import type { OpenAbRuntimeStatus } from '../../types/team'
 
 /** Antigravity signs in through a browser on the agent's own loopback address, so only the app can. */
 const HOST_SIGN_IN: Partial<Record<RuntimeInstance['provider'], string>> = {
@@ -26,15 +27,13 @@ function memberNote(askAdmin: string | null | undefined): string {
 /** The agent owns its login; this only shows what the agent reports. */
 export function RuntimeSignIn({
   instance,
-  authenticated,
-  expiresAt,
+  runtime: { authenticated, credentialExpiresAt: expiresAt, apiKey },
   onSignIn,
   memberOf,
 }: {
   instance: RuntimeInstance
-  authenticated: boolean | undefined
-  /** Set for a sign-in that lapses on its own: a one-year token. */
-  expiresAt?: string
+  /** What the agent reports: whether it is signed in, with an API key, until when (a one-year token). */
+  runtime: Pick<OpenAbRuntimeStatus, 'authenticated' | 'credentialExpiresAt' | 'apiKey'>
   onSignIn?: () => void
   /** Set for a member, who cannot sign it in: the team whose administrator can. */
   memberOf?: string
@@ -50,6 +49,25 @@ export function RuntimeSignIn({
         {longLived.renew && onSignIn && (
           <Button size="sm" className="shrink-0" type="button" onClick={onSignIn}>
             {t('Sign in')}
+          </Button>
+        )}
+      </div>
+    )
+  if (authenticated && apiKey)
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
+        <p className="min-w-0 text-xs leading-relaxed text-tertiary">
+          {t('Signed in with an API key.')}
+        </p>
+        {onSignIn && (
+          <Button
+            size="sm"
+            variant="secondary"
+            className="shrink-0"
+            type="button"
+            onClick={onSignIn}
+          >
+            {t('Manage')}
           </Button>
         )}
       </div>

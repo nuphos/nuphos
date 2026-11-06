@@ -11,6 +11,7 @@ import { localRuntimeStatusSchema } from '@/lib/agent/devices/local-runtime/prot
 import {
   listOwnLocalRuntimes,
   localRuntimeModels,
+  localRuntimeStatus,
   resolveLocalRuntimeEndpoint,
 } from './local-runtime-catalog'
 
@@ -357,4 +358,18 @@ describe('signing in an agent the computer has not reported yet', () => {
       }),
     ).rejects.toMatchObject({ code: 'runtime_offline' })
   })
+})
+
+test('a computer signed in with an API key says so, and only that', async () => {
+  const keyed = localRuntimeStatusSchema.parse({
+    agents: { codex: { cli: { installed: true, loggedIn: true, apiKey: true } } },
+  })
+  const presence = { getPresence: async () => ({ conn: 'c1', seenAt: Date.now(), status: keyed }) }
+  const id = localRuntimeId({ ...ref, provider: 'codex' })
+
+  expect(await localRuntimeStatus(id, presence)).toMatchObject({
+    authenticated: true,
+    apiKey: true,
+  })
+  expect(await localRuntimeStatus(localRuntimeId(ref), deps)).not.toHaveProperty('apiKey')
 })

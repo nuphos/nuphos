@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
@@ -8,7 +8,12 @@ import { PassThrough } from 'node:stream'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-import { authorizeUrl, isAuthorizationCode, runClaudeLogin } from '../image/claude-login.mjs'
+import {
+  authorizeUrl,
+  isAuthorizationCode,
+  loginChoice,
+  runClaudeLogin,
+} from '../image/claude-login.mjs'
 
 // A managed runtime's login is the file its agent signs in with. These tests only ever
 // write where they are told to, but on such a pod they do not spawn a CLI at all.
@@ -37,6 +42,8 @@ const user = process.env.USER ?? null;
 if (process.argv.slice(-3).join(' ') === 'auth status --json') {
   let loggedIn = false;
   try { loggedIn = JSON.parse(readFileSync(target, 'utf8')).user === user; } catch {}
+  // Claude Code applies its settings' env, so a key there signs it in.
+  try { loggedIn ||= Boolean(JSON.parse(readFileSync(process.env.CLAUDE_CONFIG_DIR + '/settings.json', 'utf8')).env.ANTHROPIC_API_KEY); } catch {}
   process.stdout.write(JSON.stringify({ loggedIn }));
   process.exit(loggedIn ? 0 : 1);
 }
@@ -310,3 +317,124 @@ test(
     }
   },
 )
+
+const API_KEY = 'sk-ant-api03-test-key-not-real-0123456789'
+
+test('only an Anthropic API key or a sign-out replaces the account sign-in', () => {
+  assert.deepEqual(loginChoice(` ${API_KEY} `), { apiKey: API_KEY })
+  assert.deepEqual(loginChoice('sign-out'), { signOut: true })
+  assert.equal(loginChoice('sk-proj-an-openai-key-0123456789'), null)
+  assert.equal(loginChoice(`${API_KEY} extra`), null)
+  assert.equal(loginChoice('good-code#state'), null)
+})
+
+test(
+  'an API key sent while the sign-in waits lands in Claude settings, and a sign-out removes it',
+  spawnsCli,
+  async () => {
+    const { home, script } = await fixture()
+    const credential = join(home, '.claude', '.credentials.json')
+    const settings = join(home, '.claude', 'settings.json')
+    const sendWhenAsked = (input, line, frames) => (frame) => {
+      frames.push(frame)
+      if (frame.type === 'authorize') input.write(`${line}\n`)
+    }
+
+    try {
+      await mkdir(join(home, '.claude'), { recursive: true })
+      await writeFile(settings, '{"syncClaudeAiSkills":false}')
+      let input = new PassThrough()
+      let frames = []
+
+      await login({ script, credential, home, input, emit: sendWhenAsked(input, API_KEY, frames) })
+      assert.deepEqual(
+        frames.map((frame) => frame.type),
+        ['authorize', 'authenticated'],
+      )
+      assert.equal(JSON.stringify(frames).includes(API_KEY), false)
+      assert.deepEqual(JSON.parse(await readFile(settings, 'utf8')), {
+        syncClaudeAiSkills: false,
+        env: { ANTHROPIC_API_KEY: API_KEY },
+      })
+      assert.equal((await stat(settings)).mode & 0o777, 0o600)
+
+      input = new PassThrough()
+      frames = []
+      await login({
+        script,
+        credential,
+        home,
+        input,
+        emit: sendWhenAsked(input, 'sign-out', frames),
+      })
+      assert.deepEqual(
+        frames.map((frame) => frame.type),
+        ['authorize', 'signedOut'],
+      )
+      assert.deepEqual(JSON.parse(await readFile(settings, 'utf8')), { syncClaudeAiSkills: false })
+
+      // An account sign-in replaces a key, which would otherwise outrank it.
+      await writeFile(settings, JSON.stringify({ env: { ANTHROPIC_API_KEY: API_KEY } }))
+      input = new PassThrough()
+      await login({ script, credential, home, input, emit: pasteWhenAsked(input) })
+      assert.deepEqual(JSON.parse(await readFile(settings, 'utf8')), {})
+    } finally {
+      await rm(home, { recursive: true, force: true })
+    }
+  },
+)
+
+test('`--api-key` reads the key from stdin, `--sign-out` removes it, and a closed stdin is no failure', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'claude-login-direct-test-'))
+  const settings = join(home, '.claude', 'settings.json')
+  const run = (flag, input) =>
+    new Promise((resolve) => {
+      const child = spawn(
+        process.execPath,
+        [fileURLToPath(new URL('../image/claude-login.mjs', import.meta.url)), flag],
+        { env: { PATH: process.env.PATH, HOME: home } },
+      )
+      let out = ''
+      child.stdout.on('data', (chunk) => (out += chunk))
+      child.on('close', () => resolve(JSON.parse(out.trim()).type))
+      child.stdin.end(input)
+    })
+
+  try {
+    assert.equal(await run('--api-key', `${API_KEY}\n`), 'authenticated')
+    assert.deepEqual(JSON.parse(await readFile(settings, 'utf8')), {
+      env: { ANTHROPIC_API_KEY: API_KEY },
+    })
+    assert.equal(await run('--sign-out', ''), 'signedOut')
+    assert.deepEqual(JSON.parse(await readFile(settings, 'utf8')), {})
+    assert.equal(await run('--api-key', 'not-a-key\n'), 'error')
+  } finally {
+    await rm(home, { recursive: true, force: true })
+  }
+})
+
+test('a key sent as the last line still signs in after stdin closes', spawnsCli, async () => {
+  const { home, script } = await fixture()
+  const credential = join(home, '.claude', '.credentials.json')
+  const input = new PassThrough()
+  const frames = []
+
+  try {
+    await login({
+      script,
+      credential,
+      home,
+      input,
+      emit: (frame) => {
+        frames.push(frame)
+        if (frame.type === 'authorize') input.end(`${API_KEY}\n`)
+      },
+    })
+    assert.deepEqual(
+      frames.map((frame) => frame.type),
+      ['authorize', 'authenticated'],
+    )
+  } finally {
+    await rm(home, { recursive: true, force: true })
+  }
+})

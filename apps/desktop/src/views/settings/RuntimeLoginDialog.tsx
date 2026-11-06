@@ -38,12 +38,15 @@ export function RuntimeLoginDialog({
   teamId,
   instance,
   immediate,
+  apiKey,
   onClose,
 }: {
   teamId: string
   instance: RuntimeInstance
   /** Start sign-in right away; the backend waits for an agent that is still starting. */
   immediate?: boolean
+  /** It is signed in with an API key now, which can be removed from here. */
+  apiKey?: boolean
   /** `connected` is true when the sign-in succeeded. */
   onClose: (connected: boolean) => void
 }) {
@@ -59,6 +62,10 @@ export function RuntimeLoginDialog({
       onClose(true)
     },
     immediate,
+    () => {
+      toast.success(t('API key removed'), instance.label)
+      onClose(false)
+    },
   )
   // Focus starts in the sign-in, not on the page behind it (or the step before it).
   const body = useRef<HTMLDivElement>(null)
@@ -85,6 +92,24 @@ export function RuntimeLoginDialog({
         role="status"
         aria-live="polite"
       >
+        {apiKey && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line-control px-4 py-3">
+            <p className="text-[13px] text-secondary">{t('Signed in with an API key.')}</p>
+            <Button
+              size="sm"
+              variant="secondary"
+              type="button"
+              disabled={!state.awaiting || state.login?.codeSubmitted === true}
+              onClick={() =>
+                void state.submitCode('sign-out').catch((cause: unknown) => {
+                  toast.apiError(t('Could not remove the API key'), cause)
+                })
+              }
+            >
+              {t('Remove API key')}
+            </Button>
+          </div>
+        )}
         <RuntimeLoginBody instance={instance} state={state} />
       </div>
     </Modal>

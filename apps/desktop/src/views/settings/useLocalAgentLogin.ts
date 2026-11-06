@@ -54,6 +54,13 @@ export function useLocalAgentLogin(provider: CliLoginProvider, notify: boolean) 
     }
   }
 
+  /** Signs in with an API key instead; null removes the key. Rejects for the caller to say why. */
+  async function applyApiKey(key: string | null) {
+    setFailed(false)
+    setAttempted(true)
+    await api.localRuntimeApplyApiKey(provider, key)
+  }
+
   /** Cancels a running attempt. False when cancelling failed and the caller should stay. */
   async function cancel(): Promise<boolean> {
     try {
@@ -82,6 +89,7 @@ export function useLocalAgentLogin(provider: CliLoginProvider, notify: boolean) 
     retry,
     connected: attempted && !starting && login?.state === 'connected',
     start,
+    applyApiKey,
     cancel,
     resume,
   }

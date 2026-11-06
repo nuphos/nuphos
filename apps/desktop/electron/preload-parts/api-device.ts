@@ -20,6 +20,9 @@ export const deviceApi = {
   deviceListAudit: (before?: string) => ipcRenderer.invoke('device:listAudit', before),
   localRuntimeSubmitClaudeLoginCode: (code: string) =>
     ipcRenderer.invoke('localRuntime:submitClaudeLoginCode', code),
+  /** The key goes straight to the main process, which hands it only to the CLI's login. */
+  localRuntimeApplyApiKey: (provider: 'claude-code' | 'codex', key: string | null) =>
+    ipcRenderer.invoke('localRuntime:applyApiKey', provider, key),
   localRuntimeStartClaudeLogin: () => ipcRenderer.invoke('localRuntime:startClaudeLogin'),
   localRuntimeStartCodexLogin: () => ipcRenderer.invoke('localRuntime:startCodexLogin'),
   localRuntimeCancelClaudeLogin: () => ipcRenderer.invoke('localRuntime:cancelClaudeLogin'),

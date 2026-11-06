@@ -232,3 +232,11 @@ test('only a runtime that signs in by steps may ask, and only within bounds', as
   ])
     expect(() => read(`${JSON.stringify(bad)}\n`)).toThrow()
 })
+
+test('a removed API key reaches the sign-in as a frame of its own, with nothing in it', () => {
+  const frames: RuntimeLoginFrame[] = []
+  const read = loginFrameReader((frame) => frames.push(frame))
+
+  read(`${JSON.stringify({ type: 'signedOut', key: 'sk-should-not-pass' })}\n`)
+  expect(frames).toEqual([{ type: 'signedOut' }])
+})

@@ -283,5 +283,6 @@ export async function localRuntimeStatus(
     busyConversations: null,
     ...(agent?.version ? { runtimeAdapterVersion: agent.version } : {}),
     ...(typeof signedIn === 'boolean' ? { authenticated: signedIn } : {}),
+    ...(signedIn && agent?.cli.apiKey ? { apiKey: true as const } : {}),
   }
 }

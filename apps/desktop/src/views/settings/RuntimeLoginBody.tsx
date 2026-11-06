@@ -1,11 +1,13 @@
 import { Check, Copy, ExternalLink, Loader2 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
+import { ApiKeyEntry, ApiKeyLink } from './ApiKeyEntry'
+import { signsInWithApiKey } from './apiKeyProviders'
 import { BrowserCodeEntry } from './BrowserCodeEntry'
 import { RuntimeLoginStep } from './RuntimeLoginStep'
 
@@ -78,6 +80,49 @@ export function RuntimeLoginBody({
   state: RuntimeLogin
 }) {
   const { login, error, reachable, awaiting, authorizationUrl, verificationUri, failed } = state
+  const [keyEntry, setKeyEntry] = useState(false)
+  // The attempt a key went to; a new attempt starts over.
+  const [keyFor, setKeyFor] = useState<string | null>(null)
+  const [ignoredFor, setIgnoredFor] = useState<string | null>(null)
+  const keySent = login !== null && keyFor === login.attemptId
+  const keyIgnored = keySent && ignoredFor === keyFor
+  // The account sign-in waits; its own CLI can take an API key in its place.
+  const keyable =
+    awaiting && login && !login.step && signsInWithApiKey(instance.provider)
+      ? instance.provider
+      : null
+
+  // A runtime from before API keys ignores one and keeps waiting for its account sign-in.
+  useEffect(() => {
+    if (!keySent || !awaiting) return
+    const timer = setTimeout(() => setIgnoredFor(keyFor), 60_000)
+
+    return () => clearTimeout(timer)
+  }, [keySent, awaiting, keyFor])
+
+  if (keyable && (keyEntry || keySent))
+    return keyIgnored ? (
+      <p className="text-[13px] leading-5 text-error">
+        {t(
+          'The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.',
+        )}
+      </p>
+    ) : keySent ? (
+      <div className="flex items-center gap-3 text-[13px] text-secondary">
+        <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+        {t('Verifying your sign-in…')}
+      </div>
+    ) : (
+      <ApiKeyEntry
+        provider={keyable}
+        onBack={() => setKeyEntry(false)}
+        onSubmit={async (key) => {
+          await state.submitCode(key)
+          setKeyFor(login?.attemptId ?? null)
+          setKeyEntry(false)
+        }}
+      />
+    )
 
   return (
     <>
@@ -116,6 +161,7 @@ export function RuntimeLoginBody({
               )}
         </div>
       )}
+      {keyable && !login?.codeSubmitted && <ApiKeyLink onClick={() => setKeyEntry(true)} />}
       {error && login && !failed && <p className="text-xs text-error">{error}</p>}
     </>
   )

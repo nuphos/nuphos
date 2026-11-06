@@ -123,7 +123,7 @@ class AgentRuntimeApi internal constructor(private val token: String, teamId: St
         fun field(name: String) = (obj[name] as? JsonPrimitive)?.takeIf { it.isString }?.content
         val id = field("attemptId") ?: throw NuphosApi.Failure.InvalidResponse; attempt(id)
         val state = field("state") ?: throw NuphosApi.Failure.InvalidResponse
-        if (state !in setOf("starting", "awaiting_authorization", "connected", "failed", "cancelled")) throw NuphosApi.Failure.InvalidResponse
+        if (state !in setOf("starting", "awaiting_authorization", "connected", "signed_out", "failed", "cancelled")) throw NuphosApi.Failure.InvalidResponse
         val expiry = Instant.parse(field("expiresAt")).toEpochMilli()
         RuntimeLogin(id, state, expiry,
             if (state == "awaiting_authorization") field("verificationUri") else null,

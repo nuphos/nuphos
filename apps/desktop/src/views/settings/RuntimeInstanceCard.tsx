@@ -244,16 +244,13 @@ export function RuntimeInstanceCard({
                 busy={busy}
               />
             ) : (
-              hosted &&
+              (hosted || runtime?.apiKey) &&
               enabled &&
               runtime &&
               !statusError && (
                 <RuntimeSignIn
                   instance={instance}
-                  authenticated={runtime.authenticated}
-                  {...(runtime.credentialExpiresAt
-                    ? { expiresAt: runtime.credentialExpiresAt }
-                    : {})}
+                  runtime={runtime}
                   {...(canEdit && !busy ? { onSignIn: () => setSigningIn(true) } : {})}
                   {...(isAdmin ? {} : { memberOf: teamId })}
                 />
@@ -273,6 +270,7 @@ export function RuntimeInstanceCard({
         <RuntimeLoginDialog
           teamId={teamId}
           instance={instance}
+          apiKey={runtime?.apiKey === true}
           onClose={() => setSigningIn(false)}
         />
       )}

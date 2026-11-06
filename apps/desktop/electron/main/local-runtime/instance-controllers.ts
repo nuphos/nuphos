@@ -136,6 +136,7 @@ export class InstanceControllers {
         cli: {
           installed: cli?.installed ?? false,
           loggedIn: cli?.installed ? cli.loggedIn : false,
+          ...(cli?.installed && cli.apiKey ? { apiKey: true as const } : {}),
         },
       }
     })

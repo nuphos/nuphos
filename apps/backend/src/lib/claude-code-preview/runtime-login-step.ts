@@ -14,6 +14,8 @@ export type RuntimeLoginFrame =
   | { type: 'authorize'; url: string }
   | { type: 'step'; step: RuntimeLoginStep }
   | { type: 'authenticated' }
+  /** The runtime removed the API key it was signed in with. */
+  | { type: 'signedOut' }
   | { type: 'error'; message: string }
 
 const text = (value: unknown, max: number): value is string =>

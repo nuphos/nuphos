@@ -14,6 +14,8 @@ export const deviceApi = {
   /** Ends a phone watching this dock tab (`dock-tabs.ts`). */
   stopDockTabWatch: (tabId: string) => window.api.stopDockTabWatch(tabId),
   deviceListAudit: (before?: string) => window.api.deviceListAudit(before),
+  localRuntimeApplyApiKey: (provider: 'claude-code' | 'codex', key: string | null) =>
+    window.api.localRuntimeApplyApiKey(provider, key),
   localRuntimeSubmitClaudeLoginCode: (code: string) =>
     window.api.localRuntimeSubmitClaudeLoginCode(code),
   localRuntimeStartClaudeLogin: () => window.api.localRuntimeStartClaudeLogin(),

@@ -12,6 +12,7 @@ import { chmod, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/
 import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createInterface } from 'node:readline'
 import { stripVTControlCharacters } from 'node:util'
 import { pathToFileURL } from 'node:url'
 
@@ -24,6 +25,17 @@ export function deviceCodePrompt(output) {
   return userCode
     ? { type: 'device', verificationUri: 'https://auth.openai.com/codex/device', userCode }
     : null
+}
+
+/**
+ * What a line on stdin asks for while the account sign-in waits: an OpenAI API key to sign
+ * in with instead (`codex login --with-api-key`), or removing the key this runtime uses.
+ */
+export function loginChoice(line) {
+  const text = String(line).trim()
+  if (/^sk-[\w-]{20,400}$/u.test(text)) return { apiKey: text }
+  if (text === 'sign-out') return { signOut: true }
+  return null
 }
 
 export const CODEX_AUTH_DIRECTORY = process.env.NUPHOS_CODEX_AUTH_DIRECTORY ?? '/home/node/.codex'
@@ -44,6 +56,19 @@ export async function installAuthJson(authJson, directory = CODEX_AUTH_DIRECTORY
   await writeFile(join(directory, '.nuphos-auth-revision'), revision, { mode: 0o600 })
 }
 
+/** Removes the login only when it is an API key; an account sign-in is left alone. */
+export async function removeApiKey(directory = CODEX_AUTH_DIRECTORY) {
+  const auth = await readFile(join(directory, 'auth.json'), 'utf8').then(JSON.parse, () => null)
+  if (auth?.auth_mode !== 'apikey') return
+  await rm(join(directory, 'auth.json'), { force: true })
+  await rm(join(directory, '.nuphos-auth-revision'), { force: true })
+}
+
+/**
+ * The account sign-in (`--device-auth`), or with `apiKey` the key sign-in, which reads the key
+ * from stdin. A key is only accepted with `install`: the path that hands the credential back
+ * would carry it out of this container.
+ */
 export async function runDeviceLogin({
   executable = process.execPath,
   args = ['/opt/nuphos-codex-acp/node_modules/@openai/codex/bin/codex.js'],
@@ -53,12 +78,25 @@ export async function runDeviceLogin({
   install = false,
   authDirectory = CODEX_AUTH_DIRECTORY,
   signal,
+  // Lines the person sends while the account sign-in waits (see `loginChoice`).
+  input,
+  apiKey,
 }) {
+  if (apiKey !== undefined && (!install || !loginChoice(apiKey)?.apiKey))
+    throw new Error('Codex API key refused')
   const directory = await mkdtemp(join(tmpdir(), 'nuphos-codex-login-'))
+  let choice
+  let lines
   try {
     const child = spawn(
       executable,
-      [...args, '-c', 'cli_auth_credentials_store="file"', 'login', '--device-auth'],
+      [
+        ...args,
+        '-c',
+        'cli_auth_credentials_store="file"',
+        'login',
+        apiKey === undefined ? '--device-auth' : '--with-api-key',
+      ],
       {
         // Do not inherit transport keys, actor tokens, or another Codex login.
         env: {
@@ -67,7 +105,7 @@ export async function runDeviceLogin({
           PATH: '/usr/local/bin:/usr/bin:/bin',
           TERM: 'dumb',
         },
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: [apiKey === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
         // The npm CLI launches a native child. Cancel the entire process group,
         // otherwise that child keeps the pipes and temporary login home alive.
         detached: process.platform !== 'win32',
@@ -87,10 +125,11 @@ export async function runDeviceLogin({
     }
     child.stdout.on('data', collect)
     child.stderr.on('data', collect)
+    child.stdin?.on('error', () => {})
+    child.stdin?.end(`${apiKey}\n`)
     const code = await new Promise((resolve, reject) => {
       let failure
-      const stop = () => {
-        failure = new Error('Codex login stopped')
+      const kill = () => {
         if (!child.pid) return
         try {
           if (process.platform === 'win32') child.kill('SIGKILL')
@@ -98,6 +137,18 @@ export async function runDeviceLogin({
         } catch (error) {
           if (error.code !== 'ESRCH') failure = error
         }
+      }
+      const stop = () => {
+        failure = new Error('Codex login stopped')
+        kill()
+      }
+      // A key or a sign-out replaces the account sign-in that is waiting.
+      if (install && input && apiKey === undefined) {
+        lines = createInterface({ input })
+        lines.on('line', (line) => {
+          choice ??= loginChoice(line) ?? undefined
+          if (choice) kill()
+        })
       }
       const timeout = setTimeout(stop, 15 * 60_000)
       signal?.addEventListener('abort', stop, { once: true })
@@ -111,6 +162,24 @@ export async function runDeviceLogin({
       })
       if (signal?.aborted) stop()
     })
+    lines?.close()
+    if (choice?.signOut) {
+      await removeApiKey(authDirectory)
+      emit({ type: 'signedOut' })
+
+      return
+    }
+    if (choice?.apiKey)
+      return await runDeviceLogin({
+        executable,
+        args,
+        home,
+        emit,
+        install,
+        authDirectory,
+        signal,
+        apiKey: choice.apiKey,
+      })
     if (code !== 0) throw new Error('Codex login did not complete')
     const authJson = await readFile(join(directory, 'auth.json'), 'utf8')
     if (authJson.length > 64 * 1024) throw new Error('Unexpected Codex login response')
@@ -122,6 +191,7 @@ export async function runDeviceLogin({
     await installAuthJson(authJson, authDirectory)
     emit({ type: 'authenticated' })
   } finally {
+    lines?.close()
     await rm(directory, { recursive: true, force: true })
   }
 }
@@ -131,17 +201,33 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   for (const event of ['SIGTERM', 'SIGINT']) process.once(event, () => controller.abort())
   process.stdout.on('error', () => controller.abort())
   try {
-    await runDeviceLogin({
+    const install = process.argv.includes('--install')
+    // The Desktop's own sign-in for this computer: one line on stdin, the key, or a sign-out.
+    const direct = process.argv.includes('--api-key') || process.argv.includes('--sign-out')
+    const line = direct
+      ? await new Promise((resolve) => {
+          const lines = createInterface({ input: process.stdin })
+          lines.once('line', (value) => {
+            resolve(value)
+            lines.close()
+          })
+          lines.once('close', () => resolve(''))
+        })
+      : undefined
+    const login = {
       ...(process.env.CODEX_EXECUTABLE
         ? { executable: process.env.CODEX_EXECUTABLE, args: [] }
         : {}),
       home: process.env.HOME ?? '/home/node',
       signal: controller.signal,
-      ...(process.env.CODEX_EXECUTABLE
-        ? { executable: process.env.CODEX_EXECUTABLE, args: [] }
-        : {}),
-      install: process.argv.includes('--install'),
-    })
+      install,
+    }
+
+    if (process.argv.includes('--sign-out')) {
+      await removeApiKey()
+      process.stdout.write(`${JSON.stringify({ type: 'signedOut' })}\n`)
+    } else if (direct) await runDeviceLogin({ ...login, apiKey: line })
+    else await runDeviceLogin({ ...login, input: process.stdin })
   } catch {
     // Provider output can contain sensitive values; report only a fixed error.
     process.stdout.write(

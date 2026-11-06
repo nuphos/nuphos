@@ -182,6 +182,19 @@ export function claudeHomeSettings(workspace: string): Record<string, unknown> {
   }
 }
 
+/** The API key this agent was signed in with (claude-login.mjs), which a rewrite keeps. */
+function apiKeyEnv(file: string): { env?: { ANTHROPIC_API_KEY: string } } {
+  try {
+    const key = (
+      JSON.parse(readFileSync(file, 'utf8')) as { env?: { ANTHROPIC_API_KEY?: unknown } }
+    ).env?.ANTHROPIC_API_KEY
+
+    return typeof key === 'string' && key ? { env: { ANTHROPIC_API_KEY: key } } : {}
+  } catch {
+    return {}
+  }
+}
+
 /**
  * A CLAUDE_CONFIG_DIR of Nuphos's own, so Claude Code serving Nuphos never
  * loads the owner's settings, hooks, plugins, skills, MCP servers or
@@ -193,9 +206,11 @@ export function prepareClaudeHome(userDir: string, workspace: string): string | 
 
   try {
     mkdirSync(home, { recursive: true, mode: 0o700 })
+    const file = path.join(home, 'settings.json')
+
     writeFileSync(
-      path.join(home, 'settings.json'),
-      `${JSON.stringify(claudeHomeSettings(workspace), null, 2)}\n`,
+      file,
+      `${JSON.stringify({ ...claudeHomeSettings(workspace), ...apiKeyEnv(file) }, null, 2)}\n`,
       { mode: 0o600 },
     )
 

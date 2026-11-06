@@ -59,6 +59,8 @@ export type AgentCliStatus =
       loggedIn: boolean | null
       account?: string
       plan?: string
+      /** Signed in with an API key rather than an account. */
+      apiKey?: true
       /** Lives inside an app bundle, which updates it. */
       bundled?: true
     }
