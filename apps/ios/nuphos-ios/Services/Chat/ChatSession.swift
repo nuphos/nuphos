@@ -411,13 +411,14 @@ final class ChatSession {
         guard let name = part.secretRequest?.name else { return }
         let path = try await AgentChatAPI.saveSecret(token: token, teamId: teamId, sessionId: sessionId, name: name, value: value)
         try? await AgentChatAPI.resolveDecision(token: token, teamId: teamId, sessionId: sessionId, requestId: part.decisionRequestId)
-        send("🔒 \(name) saved to \(path)")
+        send(SecretCard.savedReply(name) + path)
     }
 
-    /// Whether someone already replied after the message that asked.
-    func hasReply(after messageId: String) -> Bool {
-        guard let i = messages.lastIndex(where: { $0.id == messageId }) else { return false }
-        return messages[(i + 1)...].contains { $0.role == .user }
+    /// The first reply after the message that asked, if anyone replied yet.
+    func reply(after messageId: String) -> String? {
+        guard let i = messages.lastIndex(where: { $0.id == messageId }),
+              let reply = messages[(i + 1)...].first(where: { $0.role == .user }) else { return nil }
+        return reply.parts.compactMap { if case .text(let t) = $0 { t.text } else { nil } }.joined()
     }
 
     /// Sends text plus attachments. Runtime agents get every attachment from
