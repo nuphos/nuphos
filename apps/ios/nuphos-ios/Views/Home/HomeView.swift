@@ -19,7 +19,13 @@ struct HomeView: View {
     @State private var plans: PlansStore?
     @State private var connectors: ConnectorsStore?
     @State private var openChat: AgentPage.OpenChat?
-    @State private var columns = NavigationSplitViewVisibility.all
+    /// A desktop shows beside the open conversation, with the list put away meanwhile.
+    @State private var desktopOpen = false
+    private var columns: Binding<NavigationSplitViewVisibility> { NavigationSplitViewVisibility.home(desktopOpen: desktopOpen) }
+    private var desktopBeside: ((Bool) -> Void)? {
+        guard sizeClass == .regular else { return nil }
+        return { open in desktopOpen = open }
+    }
     /// The window's, not a column's: a split view's columns report compact.
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.scenePhase) private var scenePhase
@@ -31,7 +37,7 @@ struct HomeView: View {
     var body: some View {
         // Collapses to a single stack when compact; side by side when wide,
         // such as iPhone Duo's inner display and iPad.
-        NavigationSplitView(columnVisibility: $columns) {
+        NavigationSplitView(columnVisibility: columns) {
             Group {
                 if let store, let plans, let connectors {
                     pageContent
@@ -55,6 +61,8 @@ struct HomeView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
+            // Wide, the list always stays: there is nothing to put it away with.
+            .toolbar(removing: .sidebarToggle)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     PageTitleMenu(selection: $page, style: .bar)
@@ -150,8 +158,7 @@ struct HomeView: View {
             }
         }
         // Wide, the list stays beside the detail. The automatic style overlays
-        // it on a portrait-shaped window (the unfolded iPhone Duo), where picking
-        // a chat or leaving the app put it away.
+        // it on a portrait-shaped window, where picking a chat put it away.
         .navigationSplitViewStyle(.balanced)
         // On the split view itself, so the detail column and pushed
         // destinations see the store too — not only pageContent.
@@ -159,7 +166,7 @@ struct HomeView: View {
         .environment(plans)
         .environment(connectors)
         // Wide, a conversation shows its desktop beside it, with the list put away meanwhile.
-        .environment(\.desktopBeside, sizeClass == .regular ? { open in columns = open ? .detailOnly : .all } : nil)
+        .environment(\.desktopBeside, desktopBeside)
         .tint(Theme.heading)
         .animation(.easeOut(duration: 0.2), value: titleCollapsed)
         .onAppear {
