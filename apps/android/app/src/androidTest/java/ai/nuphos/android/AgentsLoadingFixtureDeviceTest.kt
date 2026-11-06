@@ -217,6 +217,7 @@ class AgentsLoadingFixtureDeviceTest {
     @Test fun coldHistoryHasLoadingButNoFakeRowsOrEmptyMessage() {
         holdNextList = true; render()
         compose.waitUntil(5_000) { listHeld.count == 0L }
+        waitText("Loading agents…")
         compose.onNodeWithText("Loading agents…").assertIsDisplayed()
         compose.onNodeWithText("No agents yet").assertDoesNotExist()
         compose.onNodeWithText("History fixture").assertDoesNotExist()
