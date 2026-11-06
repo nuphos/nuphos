@@ -373,18 +373,18 @@ jobs:
       - name: Build renderer and main bundles
         working-directory: apps/desktop
         run: pnpm exec vite build
-      # Staging and electron-builder cost ~3.5 minutes and have not caught
-      # anything the steps above missed, so they run only in the merge queue and
-      # only when a packaging input changed against the queue's base. Nothing
-      # that can break the package lands without being packaged; a PR still
-      # reports this required check, just without the package.
+      # Staging and electron-builder cost ~4 minutes and have not caught
+      # anything the steps above missed, so they run only on a pull request that
+      # changes a packaging input. The merge queue re-runs the steps above on
+      # the merged result and skips the package, so a queued PR does not wait
+      # for it again; the release workflow packages before anything ships.
       - name: Stage the local agent adapter
-        if: github.event_name == 'merge_group' && needs.changes.outputs.desktop_package == 'true'
+        if: github.event_name == 'pull_request' && needs.changes.outputs.desktop_package == 'true'
         working-directory: apps/desktop
         run: node local-runtime/prepare.mjs --targets darwin-arm64,darwin-x64 --no-openab
       # Exercise both native architectures without producing release ZIP/DMG files.
       - name: Package Nuphos macOS app
-        if: github.event_name == 'merge_group' && needs.changes.outputs.desktop_package == 'true'
+        if: github.event_name == 'pull_request' && needs.changes.outputs.desktop_package == 'true'
         working-directory: apps/desktop
         run: pnpm exec electron-builder --mac --arm64 --x64 --dir --publish never
         env:
