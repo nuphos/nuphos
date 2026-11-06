@@ -1,16 +1,17 @@
-import { selectActiveTab } from './workspaceState.ts'
+import {
+  createWorkspaceState,
+  selectActiveTab,
+  selectCurrentBucket,
+  sessionKeyOf,
+  teamScopeOf,
+} from './workspaceState.ts'
 
 import type { WorkspaceState } from './workspaceState'
 import type { WorkspaceStore } from './workspaceStore'
-import type { WindowSurface } from '../../../api/window-shell'
-
-export type WindowSurfaceBridge = {
-  takeWindowSurface(): Promise<WindowSurface | null>
-  reportWindowSurface(surface: WindowSurface): void
-}
+import type { PaneLayout, PaneSurface, WindowSurface } from '../../../api/window-shell'
 
 /** Nothing until the teams arrive: a surface reported before then would lose its team. */
-export function windowSurfaceOf(state: WorkspaceState): WindowSurface | null {
+export function paneSurfaceOf(state: WorkspaceState): PaneSurface | null {
   if (!state.teamsKnown) return null
   const mainPageTeam = state.mainPageOpen ? selectActiveTab(state)?.scope.teamId : undefined
 
@@ -19,7 +20,31 @@ export function windowSurfaceOf(state: WorkspaceState): WindowSurface | null {
     readOnly: state.sessionReadOnly,
     teamId: mainPageTeam ?? state.teamScope?.teamId ?? null,
     mainPageOpen: state.mainPageOpen,
+    dockOpen: !state.mainPageOpen && selectCurrentBucket(state).dockOpen,
   }
+}
+
+export function paneIdsOf(layout: PaneLayout): string[] {
+  return 'id' in layout ? [layout.id] : layout.children.flatMap(paneIdsOf)
+}
+
+/** Nothing until every pane has a store that knows its teams. */
+export function windowSurfaceOf(
+  layout: PaneLayout,
+  activeId: string,
+  stores: ReadonlyMap<string, Pick<WorkspaceStore, 'getState'>>,
+): WindowSurface | null {
+  const panes: Record<string, PaneSurface> = {}
+
+  for (const id of paneIdsOf(layout)) {
+    const state = stores.get(id)?.getState()
+    const pane = state && paneSurfaceOf(state)
+
+    if (!pane) return null
+    panes[id] = pane
+  }
+
+  return { layout, activeId, panes }
 }
 
 /**
@@ -27,7 +52,7 @@ export function windowSurfaceOf(state: WorkspaceState): WindowSurface | null {
  * conversation that no longer opens or a team the account left is dropped by
  * the same paths that handle it during a session.
  */
-export function applyWindowSurface(store: WorkspaceStore, saved: WindowSurface) {
+export function applyPaneSurface(store: WorkspaceStore, saved: PaneSurface) {
   const state = store.getState()
 
   if (state.sessionId !== null || state.mainPageOpen) return
@@ -39,35 +64,61 @@ export function applyWindowSurface(store: WorkspaceStore, saved: WindowSurface) 
       teamId: saved.teamId ?? undefined,
     })
   }
+  // A dock whose tabs are gone stays closed rather than opening on a New Tab.
+  if (saved.dockOpen && selectCurrentBucket(store.getState()).tabs.length > 0) {
+    store.actions.setDockOpen(true)
+  }
 }
 
-/** Restores this window's last surface once, then reports every change of it to the main process. */
-export function syncWindowSurface(store: WorkspaceStore, bridge: WindowSurfaceBridge): () => void {
-  let stopped = false
-  let unsubscribe: (() => void) | null = null
+/** The saved window, its first pane renamed to the pane that is already mounted. */
+export function restoredWindowSurface(saved: WindowSurface, mountedId: string): WindowSurface {
+  const first = paneIdsOf(saved.layout)[0]
+  const swap = new Map([
+    [first, mountedId],
+    [mountedId, first],
+  ])
+  const rename = (id: string) => swap.get(id) ?? id
+  const relabel = (layout: PaneLayout): PaneLayout =>
+    'id' in layout
+      ? { id: rename(layout.id) }
+      : { ...layout, children: layout.children.map(relabel) }
 
-  void bridge
-    .takeWindowSurface()
-    .catch(() => null)
-    .then((saved) => {
-      if (stopped) return
-      if (saved) applyWindowSurface(store, saved)
-      let last: string | null = null
-      const report = () => {
-        const surface = windowSurfaceOf(store.getState())
-        const encoded = surface && JSON.stringify(surface)
+  return {
+    layout: relabel(saved.layout),
+    activeId: rename(saved.activeId),
+    panes: Object.fromEntries(Object.entries(saved.panes).map(([id, pane]) => [rename(id), pane])),
+  }
+}
 
-        if (!surface || encoded === last) return
-        last = encoded
-        bridge.reportWindowSurface(surface)
-      }
+/** The docks a restored split pane takes from the first pane, which loaded every dock. */
+export function restoredPaneBucketKeys(pane: PaneSurface): string[] {
+  return pane.mainPageOpen ? [] : [sessionKeyOf(pane.sessionId)]
+}
 
-      report()
-      unsubscribe = store.subscribe(report)
-    })
+/** A restored split pane starts in its saved team with its docks, handed over from `from`. */
+export function restoredPaneSeed(pane: PaneSurface, from: WorkspaceState): WorkspaceState {
+  const keys = restoredPaneBucketKeys(pane)
 
-  return () => {
-    stopped = true
-    unsubscribe?.()
+  return {
+    ...createWorkspaceState(
+      Object.fromEntries(Object.entries(from.buckets).filter(([key]) => keys.includes(key))),
+    ),
+    teamScope: pane.teamId ? teamScopeOf(pane.teamId) : null,
+    teamsKnown: true,
+  }
+}
+
+/** Reports a window's surface to the main process each time it changes. */
+export function createWindowSurfaceReporter(bridge: {
+  reportWindowSurface(surface: WindowSurface): void
+}) {
+  let last: string | null = null
+
+  return (surface: WindowSurface) => {
+    const encoded = JSON.stringify(surface)
+
+    if (encoded === last) return
+    last = encoded
+    bridge.reportWindowSurface(surface)
   }
 }

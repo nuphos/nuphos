@@ -25,6 +25,7 @@ import {
 } from './store/workspaceState'
 import { GLIDE, usePaneDropPreview } from './usePaneDropPreview'
 import { usePaneFocusTracking } from './usePaneFocusTracking'
+import { useWindowRestore } from './useWindowRestore'
 import { WorkspacePaneContext } from './WorkspacePaneContext'
 
 import type { BesidePane, DropZone, SplitLayout } from './splitLayout'
@@ -67,6 +68,7 @@ export function WorkspaceSplits({
   const [stores] = useState(() => new Map<string, WorkspaceStore>())
   const [seeds] = useState(() => new Map<string, WorkspaceState>())
   const [registrations] = useState(() => new Map<string, (store: WorkspaceStore) => () => void>())
+  const restore = useWindowRestore({ layout, setLayout, activeId, setActiveId, stores, seeds })
   const focusSession = useCallback(
     (sessionId: string, teamId?: string) => {
       // Prefer the focused pane if an older layout already contains duplicates.
@@ -211,13 +213,7 @@ export function WorkspaceSplits({
           let registerStore = registrations.get(rect.id)
 
           if (!registerStore) {
-            registerStore = (store) => {
-              stores.set(rect.id, store)
-
-              return () => {
-                stores.delete(rect.id)
-              }
-            }
+            registerStore = (store) => restore.register(rect.id, store)
             registrations.set(rect.id, registerStore)
           }
 
@@ -234,7 +230,11 @@ export function WorkspaceSplits({
                 focusSession,
                 openSessionBeside: (sessionId, teamId) =>
                   openSessionBeside(rect.id, sessionId, teamId),
-                sessionUnshown: (sessionId) => markBesideUnshown(beside.current, sessionId),
+                sessionUnshown: (sessionId) => {
+                  markBesideUnshown(beside.current, sessionId)
+                  // A restored pane whose conversation is gone is not reopened empty.
+                  if (restore.unshown(rect.id, sessionId) && multiple) close(rect.id)
+                },
                 sidebarCollapsed,
                 toggleSidebarCollapsed,
                 cornerPane,

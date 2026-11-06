@@ -240,6 +240,8 @@ export function WorkspaceAgentPane({
               runtimeKubeContextRef={runtimeKubeContextRef}
               unbound={unbound}
               autoFocusComposer={paneActive && !dockOpen}
+              // A pane in the background that opens a chat must not take the keyboard.
+              focusComposerOnOpen={paneActive}
               newChatRequest={ws.newChatRequest}
               newChatDraftId={paneId}
               sessionId={selectedSessionId}

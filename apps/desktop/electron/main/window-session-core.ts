@@ -7,12 +7,22 @@ import path from 'node:path'
 
 export type Rect = { x: number; y: number; width: number; height: number }
 
-/** What a window's main pane showed. Tabs are restored separately, per session. */
-export type WindowSurface = {
+/** What one pane showed. Its dock tabs are restored separately, per session. */
+export type PaneSurface = {
   sessionId: string | null
   readOnly: boolean
   teamId: string | null
   mainPageOpen: boolean
+  dockOpen: boolean
+}
+
+export type PaneLayout = { id: string } | { direction: 'row' | 'column'; children: PaneLayout[] }
+
+/** A window's split panes, the focused one, and what each pane showed. */
+export type WindowSurface = {
+  layout: PaneLayout
+  activeId: string
+  panes: Record<string, PaneSurface>
 }
 
 /** `account` is who `surface` belongs to; another account restores only the bounds. */
@@ -29,6 +39,8 @@ export type WindowSession = { version: 1; windows: SavedWindow[] }
 export const DEFAULT_WINDOW_SIZE = { width: 1400, height: 880 }
 export const MIN_WINDOW_SIZE = { width: 900, height: 600 }
 export const MAX_SAVED_WINDOWS = 12
+const MAX_PANES = 16
+const MAX_LAYOUT_DEPTH = 8
 
 const ID_PATTERN = /^[\w-]{1,128}$/
 // Enough of the titlebar on screen to grab and drag the window back.
@@ -52,7 +64,7 @@ function parseRect(value: unknown): Rect | null {
   return rect.width > 0 && rect.height > 0 ? rect : null
 }
 
-export function parseWindowSurface(value: unknown): WindowSurface | null {
+function parsePaneSurface(value: unknown): PaneSurface | null {
   if (!isRecord(value)) return null
 
   return {
@@ -60,7 +72,52 @@ export function parseWindowSurface(value: unknown): WindowSurface | null {
     readOnly: value.readOnly === true,
     teamId: parseId(value.teamId),
     mainPageOpen: value.mainPageOpen === true,
+    dockOpen: value.dockOpen === true,
   }
+}
+
+function parseLayout(value: unknown, leaves: string[], depth = 0): PaneLayout | null {
+  if (!isRecord(value) || depth > MAX_LAYOUT_DEPTH) return null
+  if ('id' in value) {
+    const id = parseId(value.id)
+
+    if (!id || leaves.includes(id) || leaves.length >= MAX_PANES) return null
+    leaves.push(id)
+
+    return { id }
+  }
+  const { direction, children } = value
+
+  if ((direction !== 'row' && direction !== 'column') || !Array.isArray(children)) return null
+  const parsed = children.map((child) => parseLayout(child, leaves, depth + 1))
+
+  if (parsed.length < 2 || parsed.some((child) => child === null)) return null
+
+  return { direction, children: parsed as PaneLayout[] }
+}
+
+/** A surface saved before split panes were restored described one pane, as `primary`. */
+export function parseWindowSurface(value: unknown): WindowSurface | null {
+  if (!isRecord(value)) return null
+  if (!('layout' in value)) {
+    const pane = parsePaneSurface(value)
+
+    return pane && { layout: { id: 'primary' }, activeId: 'primary', panes: { primary: pane } }
+  }
+  const leaves: string[] = []
+  const layout = parseLayout(value.layout, leaves)
+  const panes: Record<string, PaneSurface> = {}
+
+  if (!layout || !isRecord(value.panes)) return null
+  for (const id of leaves) {
+    const pane = parsePaneSurface(value.panes[id])
+
+    if (!pane) return null
+    panes[id] = pane
+  }
+  const activeId = leaves.find((id) => id === value.activeId) ?? leaves[0]
+
+  return { layout, activeId, panes }
 }
 
 function parseSavedWindow(value: unknown): SavedWindow | null {

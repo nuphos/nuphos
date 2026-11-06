@@ -225,7 +225,9 @@ export function useComposerState({
     })
 
     return () => window.cancelAnimationFrame(frame)
-  }, [autoFocus, isEmpty, readOnly, streaming])
+    // Not on `autoFocus` itself: a click that focuses a split pane keeps what it clicked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEmpty, readOnly, streaming])
 
   useEffect(() => {
     if (!autoFocus || readOnly) return

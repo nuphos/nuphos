@@ -50,6 +50,7 @@ export type WorkspaceAction =
   | { type: 'retainTeams'; teamIds: readonly string[]; preferredTeamId: string | null }
   | { type: 'removeTeam'; teamId: string }
   | { type: 'adoptBuckets'; buckets: Readonly<Record<string, TabBucket>> }
+  | { type: 'releaseBuckets'; keys: readonly string[] }
 
 export type WorkspaceStoreDeps = {
   createTab: (teamId: string) => WorkspaceTabState

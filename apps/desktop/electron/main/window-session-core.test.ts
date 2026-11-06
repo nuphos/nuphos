@@ -26,9 +26,17 @@ function saved(overrides: Partial<SavedWindow> = {}): SavedWindow {
     maximized: false,
     fullScreen: false,
     account: 'https://api.nuphos.ai#user-1',
-    surface: { sessionId: 'session-1', readOnly: false, teamId: 'team-1', mainPageOpen: false },
+    surface: {
+      layout: { direction: 'row', children: [{ id: 'primary' }, { id: 'pane-2' }] },
+      activeId: 'pane-2',
+      panes: { primary: pane('session-1'), 'pane-2': { ...pane('session-2'), dockOpen: true } },
+    },
     ...overrides,
   }
+}
+
+function pane(sessionId: string | null) {
+  return { sessionId, readOnly: false, teamId: 'team-1', mainPageOpen: false, dockOpen: false }
 }
 
 test('bounds on a connected display are kept as they were', () => {
@@ -87,17 +95,45 @@ test('a damaged or foreign file restores nothing instead of failing', () => {
 })
 
 test('surface ids that could not have come from the app are dropped', () => {
-  const parsed = parseWindowSession({
-    version: 1,
-    windows: [saved({ surface: { sessionId: '../../etc', teamId: 7 } as never })],
-  })
+  const surface = {
+    layout: { id: 'primary' },
+    activeId: 'primary',
+    panes: { primary: { sessionId: '../../etc', teamId: 7 } },
+  }
+  const parsed = parseWindowSession({ version: 1, windows: [saved({ surface } as never)] })
+
+  assert.deepEqual(parsed.windows[0].surface?.panes.primary, { ...pane(null), teamId: null })
+})
+
+test('a surface saved before split panes restores as its one pane', () => {
+  const legacy = { sessionId: 'session-1', readOnly: true, teamId: 'team-1', mainPageOpen: false }
+  const parsed = parseWindowSession({ version: 1, windows: [saved({ surface: legacy } as never)] })
 
   assert.deepEqual(parsed.windows[0].surface, {
-    sessionId: null,
-    readOnly: false,
-    teamId: null,
-    mainPageOpen: false,
+    layout: { id: 'primary' },
+    activeId: 'primary',
+    panes: { primary: { ...legacy, dockOpen: false } },
   })
+})
+
+const restoredSurface = (surface: unknown) =>
+  parseWindowSession({ version: 1, windows: [saved({ surface } as never)] }).windows[0].surface
+
+test('a split layout that is malformed or does not match its panes restores no surface', () => {
+  const panes = { a: pane('s-a'), b: pane('s-b') }
+
+  for (const layout of [
+    { direction: 'diagonal', children: [{ id: 'a' }, { id: 'b' }] },
+    { direction: 'row', children: [{ id: 'a' }] },
+    { direction: 'row', children: [{ id: 'a' }, { id: 'a' }] },
+    { direction: 'row', children: [{ id: 'a' }, { id: 'missing' }] },
+    { direction: 'row', children: [{ id: 'a' }, { id: '../b' }] },
+  ]) {
+    assert.equal(restoredSurface({ layout, activeId: 'a', panes }), null, JSON.stringify(layout))
+  }
+  const layout = { direction: 'column', children: [{ id: 'a' }, { id: 'b' }] }
+
+  assert.equal(restoredSurface({ layout, activeId: 'gone', panes })?.activeId, 'a')
 })
 
 test('the number of windows reopened is capped', () => {

@@ -64,6 +64,8 @@ export type WorkspaceActions = {
   removeTeam: (teamId: string) => void
   /** Takes over the docks of a split pane that is closing; see `adoptBuckets`. */
   adoptBuckets: (buckets: Readonly<Record<string, TabBucket>>) => void
+  /** Hands docks over to a restored split pane, which then holds the only copy. */
+  releaseBuckets: (keys: readonly string[]) => void
 }
 
 export type WorkspaceStore = {
@@ -165,6 +167,7 @@ export function createWorkspaceStore(
       dispatch({ type: 'retainTeams', teamIds, preferredTeamId }),
     removeTeam: (teamId) => dispatch({ type: 'removeTeam', teamId }),
     adoptBuckets: (buckets) => dispatch({ type: 'adoptBuckets', buckets }),
+    releaseBuckets: (keys) => dispatch({ type: 'releaseBuckets', keys }),
   }
 
   return { getState, subscribe, dispatch, actions }
