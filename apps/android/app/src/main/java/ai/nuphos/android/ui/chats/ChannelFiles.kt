@@ -226,8 +226,8 @@ internal fun ChannelFiles(
 private fun LoneImage(file: PostFile, loader: MessageImageLoader, mine: Boolean, onOpen: () -> Unit) {
     val load by imageLoad(file.key, 1024, loader)
     val shape = RoundedCornerShape(12.dp)
-    // The row's height is fixed before the image loads; only its width follows the image.
-    Box(Modifier.height(LONE).widthIn(max = LONE), contentAlignment = if (mine) Alignment.CenterEnd else Alignment.CenterStart) {
+    // The frame takes the image's shape, with its longer side at LONE, so there's no empty band around a wide one.
+    Box(Modifier.widthIn(max = LONE), contentAlignment = if (mine) Alignment.CenterEnd else Alignment.CenterStart) {
         val open = Modifier.clip(shape).border(1.dp, MaterialTheme.colorScheme.surfaceContainerHigh, shape)
             .clickable(onClickLabel = "Open ${file.file.fileName}", onClick = onOpen)
         when (val result = load) {

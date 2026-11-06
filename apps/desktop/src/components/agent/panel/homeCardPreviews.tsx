@@ -192,7 +192,7 @@ export function SampleTag() {
   return (
     <span
       aria-hidden
-      className="absolute right-2 top-2 rounded bg-state-selected px-1.5 py-px text-[10.5px] text-tertiary"
+      className="absolute right-2 top-2 rounded bg-surface-raised px-1.5 py-px text-[10.5px] text-tertiary"
     >
       {t('Sample')}
     </span>

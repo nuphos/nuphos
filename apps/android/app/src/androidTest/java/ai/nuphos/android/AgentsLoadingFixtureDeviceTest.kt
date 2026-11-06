@@ -113,7 +113,8 @@ class AgentsLoadingFixtureDeviceTest {
                             readSeq = JsonValue.Number(listRead.toDouble()), unread = JsonValue.Bool(owner && listActivity > listRead),
                             runtimeState = if (backgroundPhase) JsonValue.parse("""{"schemaVersion":2,"state":"active","phase":"background_tools","epoch":"a","revision":2}""") else row().runtimeState)
                         val fail = failList
-                        if (holdNextList) { holdNextList = false; listHeld.countDown(); check(listRelease.await(10, TimeUnit.SECONDS)) }
+                        // Chats are listed from the same path at the same time; only the history request is held.
+                        if (holdNextList && req.url.queryParameter("kind") != "channel") { holdNextList = false; listHeld.countDown(); check(listRelease.await(10, TimeUnit.SECONDS)) }
                         if (req.url.queryParameter("cursor") == "following-page") { followingHeld.countDown(); check(followingRelease.await(10, TimeUnit.SECONDS)) }
                         if (crossTeamPins) {
                             val isPage = req.url.queryParameter("cursor") != null
@@ -216,6 +217,7 @@ class AgentsLoadingFixtureDeviceTest {
     @Test fun coldHistoryHasLoadingButNoFakeRowsOrEmptyMessage() {
         holdNextList = true; render()
         compose.waitUntil(5_000) { listHeld.count == 0L }
+        waitText("Loading agents…")
         compose.onNodeWithText("Loading agents…").assertIsDisplayed()
         compose.onNodeWithText("No agents yet").assertDoesNotExist()
         compose.onNodeWithText("History fixture").assertDoesNotExist()
@@ -244,7 +246,7 @@ class AgentsLoadingFixtureDeviceTest {
         render(); waitText("History fixture"); holdNextList = true
         compose.runOnIdle { store.refresh() }
         compose.waitUntil(5_000) { listHeld.count == 0L }
-        compose.runOnIdle { store.select(Team("B", "Fixture B")); assertTrue(store.conversations.isEmpty()) }
+        compose.runOnIdle { store.select(Team("B", "Fixture B")); assertTrue(store.conversations.none { it.teamId == "A" }) }
         waitText("Team B history")
         listRelease.countDown()
         compose.waitUntil(5_000) { !store.isRefreshing }

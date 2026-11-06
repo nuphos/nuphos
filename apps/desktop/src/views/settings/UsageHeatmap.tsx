@@ -172,7 +172,7 @@ export function UsageHeatmap({
           style={{ left: hover.x, top: hover.y }}
           className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full pb-1.5"
         >
-          <div className="whitespace-nowrap rounded-md border border-line-control bg-state-selected px-2 py-1 text-[11px] shadow-lg">
+          <div className="whitespace-nowrap rounded-md border border-line-control bg-surface-raised px-2 py-1 text-[11px] shadow-lg">
             <div className="text-tertiary">
               {hover.agent} · {timeLabel(hover.point.at)}
             </div>

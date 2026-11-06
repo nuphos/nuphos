@@ -14,6 +14,7 @@ test('exposes the past-conversation tools in a team', () => {
     'list_recent_conversations',
     'read_conversation',
     'rename_conversation',
+    'update_self',
   ])
 })
 
@@ -25,6 +26,7 @@ let runningLastAssistantAt: Date | null = null
 const diagnostics = [{ message_index: 7, outcome: 'interrupted', reason: 'timeout' }]
 
 let listOptions: unknown
+const selfUpdates: unknown[] = []
 
 useAgentDb({
   getConversations: async (viewer, options) => {
@@ -46,6 +48,11 @@ useAgentDb({
       nextCursor: null,
       hasMore: false,
     }
+  },
+  updateBotSelf: async (sessionId, userId, teamId, update) => {
+    selfUpdates.push(update)
+
+    return sessionId === 'c' && userId === 'u' && teamId === 'team'
   },
   renameConversation: async (sessionId, userId, teamId, title) =>
     sessionId === 'c' && userId === 'u' && teamId === 'team' && title === 'Incident review',
@@ -185,4 +192,29 @@ test('rename_conversation reports a conversation it cannot rename', async () => 
   )
 
   expect(result).toHaveProperty('error')
+})
+
+test('update_self changes only the fields it is given, on the current conversation', async () => {
+  const tool = createSessionTools('u', 'c', 'team').update_self!
+  const result = await tool.execute!(
+    { label: 'Name myself', name: 'Release Helper', avatar: '07-ada' },
+    { toolCallId: 'self', messages: [] },
+  )
+
+  expect(result).toEqual({ updated: ['title', 'avatar'] })
+  expect(selfUpdates.at(-1)).toEqual({ title: 'Release Helper', avatar: '07-ada' })
+})
+
+test('update_self refuses an empty change and a conversation that is not a Bot', async () => {
+  const empty = await createSessionTools('u', 'c', 'team').update_self!.execute!(
+    { label: 'Nothing' },
+    { toolCallId: 'self', messages: [] },
+  )
+  const task = await createSessionTools('u', 'a-task', 'team').update_self!.execute!(
+    { label: 'Instructions', instructions: 'Be brief.' },
+    { toolCallId: 'self', messages: [] },
+  )
+
+  expect(empty).toHaveProperty('error')
+  expect(task).toHaveProperty('error')
 })

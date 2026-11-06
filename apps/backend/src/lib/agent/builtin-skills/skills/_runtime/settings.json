@@ -3,7 +3,11 @@
   "fastMode": true,
   "disableArtifact": true,
   "permissions": {
-    "allow": ["mcp__nuphos-tools__memory_get"]
+    "allow": [
+      "mcp__nuphos-tools__memory_get",
+      "mcp__nuphos-tools__channel_read",
+      "mcp__nuphos-tools__channel_post"
+    ]
   },
   "hooks": {
     "PostToolUseFailure": [

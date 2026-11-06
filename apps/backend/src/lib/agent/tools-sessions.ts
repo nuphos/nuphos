@@ -6,7 +6,9 @@ import {
   getConversationTranscriptForAgent,
   liveTurnTranscriptLine,
   renameConversation,
+  updateBotSelf,
 } from './db'
+import { BOT_AVATARS } from './bot-avatars'
 import { getLiveTurn } from './live-turn'
 import { withLabel } from './tools-skilled/labeling'
 
@@ -27,6 +29,12 @@ const RENAME_DESCRIPTION =
   "Set a conversation's title, as if the user renamed it in the sidebar. Defaults to the current conversation. " +
   'Use it only when the user asks to rename a conversation. ' +
   'Only conversations the user owns in this workspace can be renamed; the new title is kept over any generated one.'
+
+const UPDATE_SELF_DESCRIPTION =
+  'Change who you are, when this conversation is a Bot: your name, your face, or your standing instructions. ' +
+  'People see the new name and face in the sidebar and titlebar; the instructions apply from your next turn. ' +
+  'Use it when the person you work for tells you what you are for, what to call you, how to behave, or asks you to change any of that — draft the instructions from the conversation, in the second person, and send the whole new text. ' +
+  'Pass only the fields that change. Only the owner of a Bot can change it, and a Task (a conversation without a face) cannot use it.'
 
 function conversationSummary(
   c: {
@@ -205,5 +213,40 @@ export function createSessionTools(
     renameShape,
   )
 
-  return { list_recent_conversations, read_conversation, rename_conversation }
+  const updateSelfShape = {
+    name: z.string().trim().min(1).max(120).optional().describe('Your new name, 1–120 characters.'),
+    avatar: z.enum(BOT_AVATARS).optional().describe('Your new face, by name.'),
+    instructions: z
+      .string()
+      .trim()
+      .max(8000)
+      .optional()
+      .describe('Your complete standing instructions, replacing the old ones. Empty clears them.'),
+  }
+  const update_self = withLabel(
+    tool({
+      description: UPDATE_SELF_DESCRIPTION,
+      inputSchema: z.object(updateSelfShape),
+      execute: async ({ name, avatar, instructions }) => {
+        const update = {
+          ...(name === undefined ? {} : { title: name }),
+          ...(avatar === undefined ? {} : { avatar }),
+          ...(instructions === undefined ? {} : { instructions }),
+        }
+
+        if (Object.keys(update).length === 0) return { error: 'Pass at least one field to change.' }
+        if (!(await updateBotSelf(conversationId, userId, teamId, update))) {
+          return {
+            error:
+              'This conversation is not a Bot owned by the person you are working for, so it cannot change itself.',
+          }
+        }
+
+        return { updated: Object.keys(update) }
+      },
+    }),
+    updateSelfShape,
+  )
+
+  return { list_recent_conversations, read_conversation, rename_conversation, update_self }
 }

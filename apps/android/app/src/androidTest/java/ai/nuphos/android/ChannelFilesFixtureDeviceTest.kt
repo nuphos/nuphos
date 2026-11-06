@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import ai.nuphos.android.data.TransferDownloadFile
@@ -50,6 +51,7 @@ class ChannelFilesFixtureDeviceTest {
     private val images = mapOf(
         "img1" to png("1", 0xFFE53935.toInt()), "img2" to png("2", 0xFF43A047.toInt()), "img3" to png("3", 0xFF1E88E5.toInt()),
         "img4" to png("4", 0xFFFB8C00.toInt()), "img5" to png("5", 0xFFD500F9.toInt(), 600, 400), "img6" to png("6", 0xFF00ACC1.toInt()),
+        "wide" to png("W", 0xFF5E35B1.toInt(), 800, 200), "tall" to png("T", 0xFF6D4C41.toInt(), 360, 640), "long" to png("L", 0xFF546E7A.toInt(), 200, 800),
     )
     private val storage = TransferDownloads(OkHttpClient.Builder().addInterceptor { chain ->
         val request = chain.request()
@@ -69,6 +71,8 @@ class ChannelFilesFixtureDeviceTest {
         "gB2" to listOf(file("pdf", "report.pdf", "application/pdf"), file("txt", "notes.txt", "text/plain")),
         "gC1" to listOf(file("img5", "five.png", "image/png")),
         "gD2" to listOf(file("img6", "six.png", "image/png")),
+        "gW" to listOf(file("wide", "wide.png", "image/png")), "gT" to listOf(file("tall", "tall.png", "image/png")),
+        "gL" to listOf(file("long", "long.png", "image/png")),
     )
     private val gone = mutableSetOf("gD1", "gE1", "gE2")
 
@@ -87,9 +91,9 @@ class ChannelFilesFixtureDeviceTest {
                      agent: Boolean = true) = ChannelPost(id, if (agent) "agent-ops" else "diana", agent, if (agent) "Release ops" else "Diana Prince",
         text = text, uploads = uploads, downloads = downloads, sentAt = Instant.parse("2026-11-03T12:%02d:00Z".format(minute)))
 
-    private fun render() {
+    private fun render(posts: List<ChannelPost>? = null) {
         val session = ChannelSession("team", "chat-files", "release-planning", Transport())
-        val posts = listOf(
+        val posts = posts ?: listOf(
             post("p1", 0, "Single upload: the text sits below the image.", uploads = listOf(TransferUpload("gC1", listOf("five.png"))), agent = false),
             post("p2", 1, "Two groups, all images:", downloads = listOf("gA1", "gA2")),
             post("p3", 2, "Mixed groups:", downloads = listOf("gB1", "gB2")),
@@ -138,6 +142,29 @@ class ChannelFilesFixtureDeviceTest {
         compose.onNodeWithText("2 / 3").assertDoesNotExist()
     }
 
+    @Test fun aLoneImageTakesItsOwnShape() {
+        render(listOf(post("w", 0, "Wide", downloads = listOf("gW")), post("t", 1, "Tall", downloads = listOf("gT")),
+            post("l", 2, "Long", downloads = listOf("gL")), post("s", 3, "Square", downloads = listOf("gD2"))))
+        fun assertSize(name: String, text: String, width: Float, height: Float) {
+            scrollTo(text)
+            compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription(name).fetchSemanticsNodes().isNotEmpty() }
+            compose.waitForIdle()
+            val box = bounds(name)
+            // The node's own size: a tall image can run past the bottom of the screen, which clips its bounds.
+            val size = compose.onNodeWithContentDescription(name).fetchSemanticsNode().size
+            with(compose.density) {
+                assertEquals("$name width", width.dp.toPx(), size.width.toFloat(), 2f)
+                assertEquals("$name height", height.dp.toPx(), size.height.toFloat(), 2f)
+            }
+            val words = compose.onNodeWithText(text).fetchSemanticsNode().boundsInRoot
+            val gap = box.top - words.bottom
+            with(compose.density) { assertTrue("$name has no band above it: $gap", gap >= 0f && gap <= 16.dp.toPx()) }
+        }
+        assertSize("wide.png", "Wide", 260f, 65f)
+        assertSize("tall.png", "Tall", 146.25f, 260f)
+        assertSize("long.png", "Long", 65f, 260f)
+        assertSize("six.png", "Square", 260f, 260f)
+    }
     @Test fun mixedGroupsLoneImagesAndGoneGroups() {
         render()
         // Mixed: images and videos in one grid, other files as chips below it; the pager holds only images.
