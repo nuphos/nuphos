@@ -170,7 +170,7 @@ class ConversationRowActionsFixtureDeviceTest {
         row().performTouchInput { swipeLeft() }
         compose.onNodeWithTag("rail-watch:child").assertIsDisplayed()
         // Every action stays in the rail, which scrolls when the row is narrow.
-        compose.onNodeWithTag("rail-archive:child").assertExists()
+        compose.onNodeWithTag("rail-archive:child").performScrollTo().assertIsDisplayed()
         Espresso.pressBack()
         compose.runOnIdle { width.value = 800 }
         row().performTouchInput { swipeLeft() }

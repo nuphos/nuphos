@@ -83,11 +83,11 @@ class ConversationLinksFixtureDeviceTest {
     @Before fun setup() {
         val optedIn = InstrumentationRegistry.getArguments().getString("isolatedConversationLinks") == "true"
         assumeTrue("Disposable emulator fixture is disabled by default", optedIn)
+        assertTrue("Physical devices require the isolated fixture package",
+            Build.HARDWARE in setOf("ranchu", "goldfish") || instrumentation.targetContext.packageName == "ai.nuphos.android.adaptivefixture")
         // A fresh install would otherwise cover the first test with the notification prompt.
         InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(
             InstrumentationRegistry.getInstrumentation().targetContext.packageName, android.Manifest.permission.POST_NOTIFICATIONS)
-        assertTrue("Physical devices require the isolated fixture package",
-            Build.HARDWARE in setOf("ranchu", "goldfish") || instrumentation.targetContext.packageName == "ai.nuphos.android.adaptivefixture")
         app = instrumentation.targetContext.applicationContext as NuphosApplication
         assertNull("Refuse to replace an installed account", app.tokenStore.read())
         originalAuth = app.authSession

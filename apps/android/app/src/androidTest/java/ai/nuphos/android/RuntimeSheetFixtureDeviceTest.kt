@@ -175,6 +175,10 @@ class RuntimeSheetFixtureDeviceTest {
         shot("runtime-sheet-loaded.png")
         Assert.assertEquals("Catalog changed the sheet height", loading.height, loaded.height, 2f)
         Assert.assertEquals("Catalog changed the settled sheet anchor", loading.top, loaded.top, 2f)
+        compose.onNodeWithText("Cloud").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Synthetic Cloud", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Cloud").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Synthetic Cloud", substring = true).fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithContentDescription("Close runtime picker").performClick()
         compose.onNodeWithTag("conversation-runtime-sheet").assertDoesNotExist()
         open()
