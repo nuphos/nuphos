@@ -13,6 +13,8 @@ export type WorkspacePaneValue = {
   setSessionSearchOpen: Dispatch<SetStateAction<boolean>>
   focusSession: (sessionId: string, teamId?: string) => boolean
   openSessionBeside: (sessionId: string, teamId?: string) => boolean
+  /** A chat whose open never landed, so this pane went back to a blank chat. */
+  sessionUnshown: (sessionId: string) => void
   sidebarCollapsed: boolean
   toggleSidebarCollapsed: () => void
   /** The sidebar is collapsed and this pane sits in the window's top-left corner. */

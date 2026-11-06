@@ -5,6 +5,7 @@ import {
   dropPane,
   dropZone,
   focusPaneState,
+  markBesideUnshown,
   PREVIEW_PANE,
   paneRects,
   previewDrop,
@@ -66,7 +67,7 @@ test('closing the original pane leaves a stable first leaf to take over persiste
   assert.equal(paneRects(expanded)[0].id, 'surviving-pane')
 })
 
-const shown = (map: Record<string, string>) => (pane: string) => map[pane]
+const shown = (map: Record<string, string | null | undefined>) => (pane: string) => map[pane]
 
 test('a Cmd-click reuses the last beside pane only while it still shows that chat', () => {
   const last = { pane: 'b', sessionId: 's1' }
@@ -78,6 +79,29 @@ test('a Cmd-click reuses the last beside pane only while it still shows that cha
   // The user opened another chat there, or closed the pane.
   assert.equal(reusableBesidePane(last, 'a', shown({ b: 's2' })), null)
   assert.equal(reusableBesidePane(last, 'a', shown({})), null)
+})
+
+test('a Cmd-click reuses the pane whose unopenable chat left it blank', () => {
+  // While the open is settling the pane still reports the chat, as it does when
+  // the backend's refusal becomes the pane's own "you can't open this".
+  assert.equal(reusableBesidePane({ pane: 'b', sessionId: 'gone' }, 'a', shown({ b: 'gone' })), 'b')
+
+  // A failed open clears the pane's chat. That pane is the one this click
+  // filled, so it is reused rather than a second empty pane split off beside it.
+  const failed = { pane: 'b', sessionId: 'gone' }
+
+  markBesideUnshown(failed, 'gone')
+  assert.equal(reusableBesidePane(failed, 'a', shown({ b: null })), 'b')
+  // Never the pane the click came from, and never one now holding another chat
+  // — nor a pane that is gone, which reports nothing at all.
+  assert.equal(reusableBesidePane(failed, 'b', shown({ b: null })), null)
+  assert.equal(reusableBesidePane(failed, 'a', shown({ b: 's2' })), null)
+  assert.equal(reusableBesidePane(failed, 'a', shown({})), null)
+  // A chat that failed somewhere else marks nothing here.
+  const clean = { pane: 'b', sessionId: 'gone' }
+
+  markBesideUnshown(clean, 'other')
+  assert.equal(reusableBesidePane(clean, 'a', shown({ b: null })), null)
 })
 
 test('changing panes closes search permanently while focusing the current pane preserves it', () => {

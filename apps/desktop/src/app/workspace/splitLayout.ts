@@ -193,16 +193,33 @@ export function isSplitShortcut(
   )
 }
 
+/** The pane a ⌘-click filled, and the chat it asked that pane to show. */
+export type BesidePane = { pane: string; sessionId: string; unshown?: true }
+
 /**
  * The pane a ⌘-click reuses: the one the last ⌘-click filled, as long as it
- * still shows that chat and is not the pane the click came from.
+ * still shows that chat — or was left blank because that chat would not open —
+ * and is not the pane the click came from. `shownIn` reports a chat, `null` for
+ * a blank pane, and `undefined` for one that is gone or showing the main page.
  */
 export function reusableBesidePane(
-  last: { pane: string; sessionId: string } | null,
+  last: BesidePane | null,
   source: string,
   shownIn: (pane: string) => string | null | undefined,
 ): string | null {
-  return last && last.pane !== source && shownIn(last.pane) === last.sessionId ? last.pane : null
+  if (!last || last.pane === source) return null
+  const shown = shownIn(last.pane)
+
+  if (shown === last.sessionId) return last.pane
+
+  // The open never landed, so this pane sits blank exactly where that click put
+  // it: fill it again rather than stacking another empty pane beside it.
+  return last.unshown && shown === null ? last.pane : null
+}
+
+/** Records that the pane `last` filled was left blank instead of showing `sessionId`. */
+export function markBesideUnshown(last: BesidePane | null, sessionId: string): void {
+  if (last?.sessionId === sessionId) last.unshown = true
 }
 
 /** A window's search belongs to its current focus, never to a hidden pane. */
