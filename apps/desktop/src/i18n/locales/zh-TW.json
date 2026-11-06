@@ -5733,7 +5733,7 @@
   "Extensions": "擴充功能",
   "Could not add the extension": "無法新增擴充功能",
   "Could not remove the extension": "無法移除擴充功能",
-  "Add this extension to Nuphos": "將這個擴充功能加入 Nuphos",
+  "Add to Nuphos": "加入 Nuphos",
   "Find extensions in the Chrome Web Store": "在 Chrome 線上應用程式商店尋找擴充功能",
   "{name} (turned off)": "{name}（已停用）",
   "Unpin from toolbar": "從工具列取消固定",

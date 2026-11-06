@@ -5733,7 +5733,7 @@
   "Extensions": "확장 프로그램",
   "Could not add the extension": "확장 프로그램을 추가할 수 없습니다",
   "Could not remove the extension": "확장 프로그램을 삭제할 수 없습니다",
-  "Add this extension to Nuphos": "이 확장 프로그램을 Nuphos에 추가",
+  "Add to Nuphos": "Nuphos에 추가",
   "Find extensions in the Chrome Web Store": "Chrome 웹 스토어에서 확장 프로그램 찾기",
   "{name} (turned off)": "{name}(꺼짐)",
   "Unpin from toolbar": "도구 모음에서 고정 해제",
