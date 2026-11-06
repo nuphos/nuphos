@@ -1,4 +1,4 @@
-import { releaseRestoredSessions, revokeSessionTokens } from '@/lib/internal-token/revocation'
+import { revokeSessionTokens, waitPastSessionCutoffs } from '@/lib/internal-token/revocation'
 
 import { agentConversations } from './shared'
 
@@ -27,46 +27,26 @@ export async function setConversationArchived(sessionId: string, archived: boole
   })
 
   if (archived) {
-    const stamp = archivedAt ?? new Date()
-    // A thread archived on its own keeps its stamp, and so its own generation.
-    const earlier = await agentConversations()
-      .find(
-        { sessionId: { $in: descendants }, archivedAt: { $exists: true } },
-        { projection: { sessionId: 1, archivedAt: 1 } },
-      )
-      .toArray()
-    const generations = Object.fromEntries(
-      [sessionId, ...descendants].map((id) => [id, stamp.getTime()]),
-    )
-
-    for (const thread of earlier) {
-      if (thread.archivedAt) generations[thread.sessionId] = thread.archivedAt.getTime()
-    }
     await agentConversations().updateMany(
       { sessionId: { $in: [sessionId, ...descendants] }, archivedAt: { $exists: false } },
-      { $set: { archivedAt: stamp } },
+      { $set: { archivedAt: archivedAt ?? new Date() } },
     )
     // A thread never outlives its parent: tokens issued so far stop working.
-    await revokeSessionTokens([sessionId, ...descendants], 'archived', generations)
+    await revokeSessionTokens([sessionId, ...descendants], 'archived')
 
     return
   }
   // Only threads the cascade archived come back; one archived on its own stays.
-  const restored =
-    archivedAt && descendants.length > 0
-      ? (
-          await agentConversations()
-            .find({ sessionId: { $in: descendants }, archivedAt }, { projection: { sessionId: 1 } })
-            .toArray()
-        ).map((thread) => thread.sessionId)
-      : []
-
   // Descendants first: the parent's stamp is what a retry needs to find them.
-  if (restored.length > 0) {
-    await agentConversations().updateMany({ sessionId: { $in: restored }, archivedAt }, restore())
+  if (archivedAt && descendants.length > 0) {
+    await agentConversations().updateMany(
+      { sessionId: { $in: descendants }, archivedAt },
+      restore(),
+    )
   }
   await agentConversations().updateOne({ sessionId }, restore())
-  if (archivedAt) await releaseRestoredSessions([sessionId, ...restored], archivedAt.getTime())
+  // Tokens minted from here on must land past the archive's cutoff.
+  await waitPastSessionCutoffs([sessionId, ...descendants])
 }
 
 /** Every conversation nested below `rootId` matching `scope`; `seen` stops a loop. */
@@ -92,13 +72,12 @@ export async function descendantSessionIds(
 
 /** Any new human turn brings an archived conversation back, whoever sends it. */
 export async function restoreArchivedConversation(sessionId: string): Promise<boolean> {
-  const before = await agentConversations().findOneAndUpdate(
+  const result = await agentConversations().updateOne(
     { sessionId, archivedAt: { $exists: true } },
     { $unset: { archivedAt: '' }, $set: { archiveRestoredAt: new Date() } },
-    { returnDocument: 'before', projection: { archivedAt: 1 } },
   )
 
-  if (before?.archivedAt) await releaseRestoredSessions([sessionId], before.archivedAt.getTime())
+  if (result.modifiedCount > 0) await waitPastSessionCutoffs([sessionId])
 
-  return before !== null
+  return result.modifiedCount > 0
 }

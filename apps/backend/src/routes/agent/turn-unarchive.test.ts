@@ -8,18 +8,18 @@ import { restoreArchivedForTurn, restoreArchivedSession } from './turn-unarchive
 import type * as dbActual from '@/lib/db'
 
 let restores = 0
-let findOneAndUpdate: () => Promise<{ archivedAt: Date } | null> = () => {
+let updateOne: () => Promise<{ modifiedCount: number }> = () => {
   restores++
 
-  return Promise.resolve({ archivedAt: new Date('2026-09-01T00:00:00Z') })
+  return Promise.resolve({ modifiedCount: 1 })
 }
 
 useDb({
   db: (() => ({
-    collection: () => ({ findOneAndUpdate: () => findOneAndUpdate() }),
+    collection: () => ({ updateOne: () => updateOne() }),
   })) as unknown as typeof dbActual.db,
 })
-useTokenRevocation({ releaseRestoredSessions: async () => {} })
+useTokenRevocation({ waitPastSessionCutoffs: async () => {} })
 
 const archived = { sessionId: 's1', archivedAt: new Date('2026-09-01T00:00:00Z') }
 const active = { sessionId: 's2' }
@@ -42,7 +42,7 @@ describe('restoreArchivedForTurn', () => {
 
 describe('restoreArchivedSession', () => {
   test('a failed restore never fails the admitted turn', async () => {
-    findOneAndUpdate = () => Promise.reject(new Error('mongo down'))
+    updateOne = () => Promise.reject(new Error('mongo down'))
 
     expect(await restoreArchivedSession('s1', 'user')).toBeUndefined()
   })

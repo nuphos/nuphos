@@ -9,16 +9,14 @@ import type * as dbActual from '@/lib/db'
 
 // The sessions whose tokens each archive revoked.
 const revokedSessions: string[][] = []
-const releasedSessions: string[][] = []
-let lastGenerations: Record<string, number> = {}
+const waitedSessions: string[][] = []
 
 useTokenRevocation({
-  revokeSessionTokens: async (sessionIds, _reason, generations) => {
+  revokeSessionTokens: async (sessionIds) => {
     revokedSessions.push(sessionIds)
-    lastGenerations = generations ?? {}
   },
-  releaseRestoredSessions: async (sessionIds) => {
-    releasedSessions.push(sessionIds)
+  waitPastSessionCutoffs: async (sessionIds) => {
+    waitedSessions.push(sessionIds)
   },
 })
 
@@ -107,19 +105,14 @@ describe('setConversationArchived', () => {
 
   test('restores what the cascade archived, not a thread archived on its own earlier', async () => {
     await setConversationArchived('grandchild', true)
-    const grandchildGeneration = lastGenerations.grandchild
-
     await new Promise((resolve) => setTimeout(resolve, 2))
     await setConversationArchived('root', true)
-    // The thread archived on its own keeps its own generation; the cascade stamps the rest.
-    expect(lastGenerations.grandchild).toBe(grandchildGeneration)
-    expect(lastGenerations.child).toBe(lastGenerations.root)
-    expect(lastGenerations.root).toBeGreaterThan(grandchildGeneration!)
     await setConversationArchived('root', false)
 
     expect(['root', 'child', 'grandchild'].map(archived)).toEqual([false, false, true])
     // The thread that stays archived keeps its revoked tokens revoked.
-    expect(releasedSessions.at(-1)?.toSorted()).toEqual(['child', 'root'])
+    // A restore never lowers a cutoff; it waits until new tokens land past it.
+    expect(waitedSessions.at(-1)?.toSorted()).toEqual(['child', 'grandchild', 'root'])
   })
 
   test('a restore retried after a failed write still restores the tree', async () => {
