@@ -1,6 +1,8 @@
 import { api } from '../../api'
 import { t } from '../../i18n'
+import { pickAgentAvatar } from '../../lib/agentAvatarChoices'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
+import { botAvatarName, derivedBotAvatar } from '../../lib/botAvatars'
 import { toast } from '../ui/toast'
 
 import { markChannel } from './channelKind'
@@ -47,4 +49,16 @@ export async function openNewBotChat(teamId: string, botId: string) {
   )
 
   window.dispatchEvent(new CustomEvent('nuphos:open-in-app', { detail: href }))
+}
+
+/**
+ * "Make this a Bot": the face shows at once, the server sets the same one and
+ * asks the agent to name itself, and the Bot's chat is made and opened.
+ */
+export function makeBot(teamId: string, sessionId: string) {
+  return pickAgentAvatar(sessionId, botAvatarName(derivedBotAvatar(sessionId)), () =>
+    api.agentMakeBot(sessionId, teamId),
+  )
+    .then(() => openNewBotChat(teamId, sessionId))
+    .catch((err: unknown) => toast.apiError(t('Could not change avatar'), err))
 }

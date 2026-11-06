@@ -19,7 +19,6 @@ import { api } from '../../api'
 import { usePaneSummary } from '../../app/workspace/usePaneSummary'
 import { t } from '../../i18n'
 import { pickAgentAvatar, useAgentAvatarPick } from '../../lib/agentAvatarChoices'
-import { botAvatarName, derivedBotAvatar } from '../../lib/botAvatars'
 import { copyLinkWithFeedback } from '../../lib/copyLink'
 import { sessionShortcutCombo } from '../../lib/sessionShortcuts'
 import {
@@ -34,7 +33,7 @@ import {
 import { ShortcutHint } from '../ui/shortcut-hint'
 import { toast } from '../ui/toast'
 import { Tooltip } from '../ui/tooltip'
-import { openNewBotChat } from '../channels/botChannel'
+import { makeBot } from '../channels/botChannel'
 
 import { agentSessionUrl } from './sessionUrl'
 import { SummaryIcon } from './summary/ChatSummaryToggle'
@@ -92,19 +91,16 @@ export function SessionHeaderMenu({
       toast.apiError(next ? t('Could not watch agent') : t('Could not unwatch agent'), err)
     })
   }
-  // "Make this a Bot" shows the face at once; the server sets the same one and
-  // asks the agent to name itself. "Turn into a Task" takes the face away.
+  // "Turn into a Task" takes the face away; "Make this a Bot" is shared with the Tasks row menu.
   function setBot(bot: boolean) {
-    const avatar = bot ? botAvatarName(derivedBotAvatar(sessionId)) : null
+    if (bot) {
+      void makeBot(teamId, sessionId)
 
-    void pickAgentAvatar(sessionId, avatar, () =>
-      bot
-        ? api.agentMakeBot(sessionId, teamId)
-        : api.agentSetConversationAvatar(sessionId, null, teamId),
-    )
-      // A Bot is talked to in its own chat, as one made with "+".
-      .then(() => (bot ? openNewBotChat(teamId, sessionId) : undefined))
-      .catch((err: unknown) => toast.apiError(t('Could not change avatar'), err))
+      return
+    }
+    void pickAgentAvatar(sessionId, null, () =>
+      api.agentSetConversationAvatar(sessionId, null, teamId),
+    ).catch((err: unknown) => toast.apiError(t('Could not change avatar'), err))
   }
   // Rename waits for the popup to finish closing; otherwise focus returning to
   // the trigger blurs the title input, and blur saves and closes it.
@@ -113,10 +109,12 @@ export function SessionHeaderMenu({
   // pane, which would make the closed pane the active one again.
   const closePaneOnClose = useRef(false)
 
-  function copy(value: string, what: 'Link' | 'Agent ID') {
+  function copy(value: string, what: 'Link' | 'ID') {
+    const copied = what === 'Link' ? t('Link copied') : isBot ? t('Bot ID copied') : t('Task ID copied')
+
     void copyLinkWithFeedback(value, (text) => navigator.clipboard.writeText(text), {
       onSuccess: () =>
-        toast.success(what === 'Link' ? t('Link copied') : t('Agent ID copied'), undefined, {
+        toast.success(copied, undefined, {
           timeoutMs: 1200,
           dedupe: false,
         }),
@@ -165,7 +163,7 @@ export function SessionHeaderMenu({
     >
       <Tooltip content={t('More actions')} side="bottom">
         <MenuTrigger
-          aria-label={t('More agent actions')}
+          aria-label={t('More actions')}
           className="titlebar-no-drag ml-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-secondary transition-colors hover:bg-state-hover hover:text-main data-[popup-open]:bg-state-selected data-[popup-open]:text-main motion-reduce:transition-none"
         >
           <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
@@ -179,7 +177,7 @@ export function SessionHeaderMenu({
               hint={<ShortcutHint combo="mod+i" className="pl-4" />}
               onClick={toggleSummary}
             >
-              {summaryOpen ? t('Hide agent summary') : t('Show agent summary')}
+              {summaryOpen ? t('Hide summary') : t('Show summary')}
             </MenuItem>
             <MenuSeparator />
           </>
@@ -192,7 +190,7 @@ export function SessionHeaderMenu({
               renameOnClose.current = true
             }}
           >
-            {t('Rename agent')}
+            {isBot ? t('Rename Bot') : t('Rename task')}
           </MenuItem>
         )}
         {canRename && (
@@ -208,12 +206,18 @@ export function SessionHeaderMenu({
             icon={watching ? <BellOff className="h-3.5 w-3.5" /> : <Bell className="h-3.5 w-3.5" />}
             onClick={toggleWatch}
           >
-            {watching ? t('Unwatch agent') : t('Watch agent')}
+            {watching
+              ? isBot
+                ? t('Unwatch Bot')
+                : t('Unwatch task')
+              : isBot
+                ? t('Watch Bot')
+                : t('Watch task')}
           </MenuItem>
         )}
         {canFork && (
           <MenuItem icon={<GitBranch className="h-3.5 w-3.5" />} onClick={onFork}>
-            {t('Fork agent')}
+            {isBot ? t('Fork Bot') : t('Fork task')}
           </MenuItem>
         )}
         <MenuSubmenu>
@@ -235,9 +239,9 @@ export function SessionHeaderMenu({
             </MenuItem>
             <MenuItem
               icon={<Hash className="h-3.5 w-3.5" />}
-              onClick={() => copy(sessionId, 'Agent ID')}
+              onClick={() => copy(sessionId, 'ID')}
             >
-              {t('Agent ID')}
+              {isBot ? t('Bot ID') : t('Task ID')}
             </MenuItem>
           </MenuContent>
         </MenuSubmenu>

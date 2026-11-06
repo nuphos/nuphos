@@ -161,7 +161,7 @@ export function HistoryPageList({
               ? ([
                   {
                     key: 'rename',
-                    label: t('Rename agent'),
+                    label: rowMenu.conversation.avatar ? t('Rename Bot') : t('Rename task'),
                     icon: Pencil,
                     disabled: !teamId,
                     onSelect: () => setRenameTarget(rowMenu.conversation),
