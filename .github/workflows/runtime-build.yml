@@ -229,7 +229,9 @@ jobs:
             RUNTIME_TAGS="${RUNTIME_IMAGE}:commit-${BUILD_SHA}-${VARIANT}"
             if [[ -n "$RELEASE_TAG" ]]; then
               BASE_TAGS="${RUNTIME_IMAGE}:${VERSION}-base-${VARIANT},${BASE_TAGS}"
-              RUNTIME_TAGS="${RUNTIME_IMAGE}:${VERSION}-${VARIANT},${RUNTIME_TAGS}"
+              # latest-<variant> moves with every release, for deployments that
+              # follow the newest runtime (the published Railway template).
+              RUNTIME_TAGS="${RUNTIME_IMAGE}:${VERSION}-${VARIANT},${RUNTIME_IMAGE}:latest-${VARIANT},${RUNTIME_TAGS}"
             fi
             printf 'base_tags=%s\n' "$BASE_TAGS"
             printf 'runtime_tags=%s\n' "$RUNTIME_TAGS"
