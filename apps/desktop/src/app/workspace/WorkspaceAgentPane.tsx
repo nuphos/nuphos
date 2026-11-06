@@ -101,10 +101,11 @@ export function WorkspaceAgentPane({
   }, [activeKubeContext, activePageUrl])
   const handleSessionChange = useCallback(
     (sessionId: string | null, unshown?: string) => {
-      if (unshown) workspaceActions.forgetSession(unshown)
-      else workspaceActions.selectSession(sessionId, { keepMainPage: true })
+      if (!unshown) return workspaceActions.selectSession(sessionId, { keepMainPage: true })
+      pane?.sessionUnshown(unshown)
+      workspaceActions.forgetSession(unshown)
     },
-    [workspaceActions],
+    [pane, workspaceActions],
   )
   const openDockTab = useCallback(
     (tabId: string) => {
@@ -129,7 +130,6 @@ export function WorkspaceAgentPane({
     },
     [setAuditChatLocate, workspaceActions],
   )
-
   const transcriptRef = useRef<HTMLDivElement>(null)
   const [titlebarRef, { compact, tight }] = useTitlebarFit()
 

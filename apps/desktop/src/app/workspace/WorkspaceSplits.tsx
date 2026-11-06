@@ -12,6 +12,7 @@ import {
   dropPane,
   focusPaneState,
   isSplitShortcut,
+  markBesideUnshown,
   paneRects,
   removePane,
   reusableBesidePane,
@@ -26,7 +27,7 @@ import { GLIDE, usePaneDropPreview } from './usePaneDropPreview'
 import { usePaneFocusTracking } from './usePaneFocusTracking'
 import { WorkspacePaneContext } from './WorkspacePaneContext'
 
-import type { DropZone, SplitLayout } from './splitLayout'
+import type { BesidePane, DropZone, SplitLayout } from './splitLayout'
 import type { WorkspaceState } from './store/workspaceState'
 import type { WorkspaceStore } from './store/workspaceStore'
 import type { WorkspaceProps } from './workspaceProps'
@@ -118,14 +119,15 @@ export function WorkspaceSplits({
   )
   // ⌘-click on a session link: focus it where it is already open, else show it
   // in the pane the last ⌘-click filled, else split one off to the right.
-  const beside = useRef<{ pane: string; sessionId: string } | null>(null)
+  const beside = useRef<BesidePane | null>(null)
   const openSessionBeside = useCallback(
     (source: string, sessionId: string, teamId?: string) => {
       if (focusSession(sessionId, teamId)) return true
       let pane = reusableBesidePane(beside.current, source, (id) => {
         const state = stores.get(id)?.getState()
 
-        return state && !state.mainPageOpen ? state.sessionId : null
+        // A pane that is gone or on the main page reports nothing, not a blank chat.
+        return state?.mainPageOpen ? undefined : state?.sessionId
       })
 
       if (pane) stores.get(pane)?.actions.selectSession(sessionId, { teamId })
@@ -232,6 +234,7 @@ export function WorkspaceSplits({
                 focusSession,
                 openSessionBeside: (sessionId, teamId) =>
                   openSessionBeside(rect.id, sessionId, teamId),
+                sessionUnshown: (sessionId) => markBesideUnshown(beside.current, sessionId),
                 sidebarCollapsed,
                 toggleSidebarCollapsed,
                 cornerPane,
