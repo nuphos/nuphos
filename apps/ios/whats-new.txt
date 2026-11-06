@@ -1,5 +1,1 @@
-Share to Nuphos from any app: choose Nuphos in the system share sheet to send text, links, images or files into a conversation.
-
-When a conversation's computer can't take a turn, you can now switch its runtime from the conversation.
-
-An agent shows as typing only in the chats its turn answers, not in every chat it belongs to.
+The Agents list stays on screen when a row action fails. A failed Watch, Unwatch, Rename, Archive or Unlink shows an alert with Try again instead of replacing the whole list with an error page, and a failed refresh offers its own retry.
