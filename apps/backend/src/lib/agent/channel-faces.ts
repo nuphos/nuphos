@@ -83,10 +83,14 @@ export async function channelFacesField(
     ...(conversation.title
       ? {}
       : {
-          title: members
-            .map((member) => member.name)
-            .sort((a, b) => a.localeCompare(b))
-            .join(', '),
+          // Alone in it, the viewer sees their own name rather than none.
+          title:
+            members.length > 0
+              ? members
+                  .map((member) => member.name)
+                  .sort((a, b) => a.localeCompare(b))
+                  .join(', ')
+              : (people.get(viewerId)?.name ?? ''),
         }),
   }
 }

@@ -110,6 +110,12 @@ describe('channelFacesField', () => {
     expect((await channelFacesField(pair, 'ann', people)).title).toBe('Me')
   })
 
+  test('an unnamed chat with no one else is called by the viewer', async () => {
+    const alone = { ...channel, title: '', participantIds: [], agentSessionIds: [] }
+
+    expect((await channelFacesField(alone, 'me', people)).title).toBe('Me')
+  })
+
   test('other conversations carry neither', async () => {
     expect(await channelFacesField({ ...channel, kind: undefined }, 'me', people)).toEqual({})
   })
