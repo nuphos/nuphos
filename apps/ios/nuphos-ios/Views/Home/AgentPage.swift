@@ -436,6 +436,8 @@ struct AgentPage: View {
                         .listRowBackground(Color.clear)
                         .task { await store.loadMore() }
                     }
+                } header: {
+                    if !rows.tasks.isEmpty { sectionHeader("Tasks") }
                 }
             }
         }
