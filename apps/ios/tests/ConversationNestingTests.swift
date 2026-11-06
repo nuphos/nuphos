@@ -37,13 +37,13 @@ enum ConversationNestingTests {
 
     private static func anUnlistedOrPinnedParentLeavesTheRowTopLevel() {
         precondition(ConversationNesting.nest([row("thread", parent: "gone")]).map(\.depth) == [0])
-        let pinned = ConversationNesting.nest([row("pinned", parent: "parent"), row("parent")], pinned: ["pinned"])
+        let pinned = ConversationNesting.nest([row("pinned", parent: "parent"), row("parent")], bots: ["pinned"])
         precondition(pinned.map(\.id) == ["pinned", "parent"] && pinned.allSatisfy { $0.depth == 0 })
         let bothPinned = ConversationNesting.nest(
-            [row("pinned", parent: "parent"), row("parent")], pinned: ["pinned", "parent"]
+            [row("pinned", parent: "parent"), row("parent")], bots: ["pinned", "parent"]
         )
         precondition(bothPinned.map(\.id) == ["parent", "pinned"] && bothPinned.map(\.depth) == [0, 1])
-        let pinnedParent = ConversationNesting.nest([row("thread", parent: "parent"), row("parent")], pinned: ["parent"])
+        let pinnedParent = ConversationNesting.nest([row("thread", parent: "parent"), row("parent")], bots: ["parent"])
         precondition(pinnedParent.map(\.id) == ["parent", "thread"] && pinnedParent.map(\.depth) == [0, 1])
     }
 

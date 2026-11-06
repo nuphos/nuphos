@@ -6,7 +6,6 @@ struct ConversationRow: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @AppStorage(BotAvatars.enabledKey, store: BotAvatars.defaults) private var botAvatars = true
     let conversation: AgentConversation
-    var pinned = false
     /// Threads a folded parent hides; the row shows the most pressing of their states.
     var hidden: [AgentConversation] = []
     @Environment(AgentStore.self) private var store
@@ -28,18 +27,6 @@ struct ConversationRow: View {
         HStack(spacing: 12) {
             AgentAvatar(agentId: conversation.sessionId, runtime: conversation.agentRuntime, size: 36)
                 .opacity(conversation.owner?.deactivated == true ? 0.5 : 1)
-                .overlay(alignment: .topTrailing) {
-                    if pinned {
-                        Image(systemName: "pin.fill")
-                            .font(.system(size: 7, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 15, height: 15)
-                            .background(Circle().fill(Theme.muted))
-                            .overlay(Circle().stroke(Theme.canvas, lineWidth: 1.5))
-                            .offset(x: 3, y: -3)
-                            .accessibilityLabel("Pinned")
-                    }
-                }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(conversation.displayTitle)
@@ -48,7 +35,7 @@ struct ConversationRow: View {
                     .lineLimit(1)
 
                 HStack(spacing: 5) {
-                    if botAvatars { RuntimeMark(runtime: conversation.agentRuntime) }
+                    if botAvatars && conversation.isBot { RuntimeMark(runtime: conversation.agentRuntime) }
                     Text(meta)
                         .font(Theme.Text.label)
                         .foregroundStyle(Theme.muted)

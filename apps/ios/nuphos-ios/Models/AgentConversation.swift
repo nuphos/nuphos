@@ -82,10 +82,15 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var kind: String?
     /// A chat's icon: up to two members other than the viewer, whoever spoke last first.
     var faces: [ChatFace]?
+    /// A Bot's face, e.g. `05-rembrandt`; nil for a Task (#1691).
+    var avatar: String?
 
     var id: String { sessionId }
 
     var isChannel: Bool { kind == "channel" }
+
+    /// A persistent agent with a face, listed under Bots; every other agent is a Task.
+    var isBot: Bool { avatar != nil && !isChannel }
 
     var isNativeRuntime: Bool { agentRuntime != nil && agentRuntime != "nuphos" }
 
@@ -125,6 +130,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         watching = try? c.decodeIfPresent(Bool.self, forKey: .watching)
         kind = try? c.decodeIfPresent(String.self, forKey: .kind)
         faces = try? c.decodeIfPresent([ChatFace].self, forKey: .faces)
+        avatar = try? c.decodeIfPresent(String.self, forKey: .avatar)
     }
 
     init(

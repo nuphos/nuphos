@@ -22,8 +22,6 @@ enum SidebarFavoritesTests {
         precondition(entry(href: "/teams/team-1/agent/ses_abc").sessionId == "ses_abc")
         precondition(entry(href: "/teams/team-1/agent/ses_abc?x=1").sessionId == "ses_abc")
         precondition(entry(href: "/teams/team-1/agent/a%20b").sessionId == "a b")
-        let favorites = SidebarFavorites(entries: [entry(href: "/teams/team-1/agent/ses_abc")], revision: 1)
-        precondition(favorites.pinnedSessionIds == ["ses_abc"])
     }
 
     private static func ignoresOtherPages() {

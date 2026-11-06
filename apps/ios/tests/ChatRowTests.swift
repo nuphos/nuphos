@@ -139,6 +139,12 @@ enum ChatRowTests {
         precondition(owner.canManage)
         let missing = try! decoder.decode(AgentConversationDetail.self, from: Data(#"{"messages":[]}"#.utf8))
         precondition(missing.isOwner == nil)
+        // #1691: a conversation with a face is a Bot; a chat with one is still a chat.
+        let bot = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"b","avatar":"07-ada"}"#.utf8))
+        precondition(bot.isBot && bot.avatar == "07-ada")
+        precondition(!owner.isBot)
+        let chat = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"c","kind":"channel","avatar":"07-ada"}"#.utf8))
+        precondition(!chat.isBot)
     }
 
     private static func repeatsNoFailureTheTranscriptShows() {

@@ -276,6 +276,64 @@ struct AgentPage: View {
         }
     }
 
+    /// One agent row; Bots and Tasks render alike, a Bot wearing its face.
+    @ViewBuilder
+    private func agentRow(_ item: NestedConversation) -> some View {
+                let conversation = item.conversation
+                let folded = item.hasChildren && store.isFolded(conversation.sessionId)
+                NavigationLink(value: conversation.sessionId) {
+                    HStack(spacing: 0) {
+                        ConversationRow(
+                            conversation: conversation, hidden: item.hidden
+                        )
+                        if item.hasChildren {
+                            // The thread count, so it never reads as the row's own disclosure chevron.
+                            Button { store.toggleFolded(conversation.sessionId) } label: {
+                                HStack(spacing: 3) {
+                                    Text("\(item.threads)")
+                                    Image(systemName: folded ? "chevron.down" : "chevron.up")
+                                        .font(Theme.Text.caption.weight(.semibold))
+                                }
+                                .font(Theme.Text.label.weight(.medium))
+                                .foregroundStyle(Theme.muted)
+                                .padding(.horizontal, 8)
+                                .frame(height: 24)
+                                .background(Capsule().fill(Theme.muted.opacity(0.12)))
+                                .padding(.leading, 8)
+                                .frame(minHeight: 44)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.borderless)
+                            .accessibilityLabel(folded ? "Show \(item.threads) sub-agents" : "Hide \(item.threads) sub-agents")
+                        }
+                    }
+                    // Insets live here, not on the row, so the tree lines span the whole row.
+                    .padding(.leading, CGFloat(item.depth) * ThreadTree.indent)
+                    .padding(.vertical, 12)
+                    .background(alignment: .leading) {
+                        ThreadTree(trail: item.trail, expanded: item.hasChildren && !folded)
+                    }
+                }
+                // A custom row background hides the system selection
+                // highlight, so the open chat's row draws its own.
+                .listRowBackground(openChat?.id == conversation.sessionId ? Theme.muted.opacity(0.12) : Color.clear)
+                .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 16))
+                .listSectionSeparator(.hidden, edges: .top)
+                // A separator would cut through the lines of an open tree.
+                .listRowSeparator(item.depth > 0 || (item.hasChildren && !folded) ? .hidden : .automatic)
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) { rowActions(conversation) }
+                // The same actions for a long press or a secondary click.
+                .contextMenu { rowActions(conversation) }
+    }
+
+    private func sectionHeader<Action: View>(_ title: String, @ViewBuilder action: () -> Action = { EmptyView() }) -> some View {
+        HStack {
+            Text(title).font(Theme.Text.label.weight(.semibold)).foregroundStyle(Theme.muted)
+            Spacer()
+            action().foregroundStyle(Theme.muted)
+        }
+    }
+
     @ViewBuilder
     private func rowActions(_ conversation: AgentConversation) -> some View {
         if conversation.canManage { Button {
@@ -284,12 +342,14 @@ struct AgentPage: View {
             Label("Archive", systemImage: "archivebox")
         }
         .tint(.orange) }
-        Button {
-            Task { try? await store.setPinned(!store.isPinned(conversation.sessionId), sessionId: conversation.sessionId, title: conversation.displayTitle) }
-        } label: {
-            Label(store.isPinned(conversation.sessionId) ? "Unpin" : "Pin", systemImage: store.isPinned(conversation.sessionId) ? "pin.slash" : "pin")
+        if conversation.ownsChat, !conversation.isChannel {
+            Button {
+                Task { await store.setBot(!conversation.isBot, conversation: conversation) }
+            } label: {
+                Label(conversation.isBot ? "Turn into a Task" : "Make this a Bot", systemImage: conversation.isBot ? "person.crop.circle.badge.minus" : "person.crop.circle.badge.plus")
+            }
+            .tint(.indigo)
         }
-        .tint(.indigo)
         if let watching = conversation.watching {
             Button {
                 Task { await store.setWatching(!watching, conversation: conversation) }
@@ -347,54 +407,25 @@ struct AgentPage: View {
                     }
                 }
             } else {
+                let rows = store.botAndTaskRows
                 Section {
-                    ForEach(store.nestedConversations) { item in
-                        let conversation = item.conversation
-                        let folded = item.hasChildren && store.isFolded(conversation.sessionId)
-                        NavigationLink(value: conversation.sessionId) {
-                            HStack(spacing: 0) {
-                                ConversationRow(
-                                    conversation: conversation, pinned: store.isPinned(conversation.sessionId), hidden: item.hidden
-                                )
-                                if item.hasChildren {
-                                    // The thread count, so it never reads as the row's own disclosure chevron.
-                                    Button { store.toggleFolded(conversation.sessionId) } label: {
-                                        HStack(spacing: 3) {
-                                            Text("\(item.threads)")
-                                            Image(systemName: folded ? "chevron.down" : "chevron.up")
-                                                .font(Theme.Text.caption.weight(.semibold))
-                                        }
-                                        .font(Theme.Text.label.weight(.medium))
-                                        .foregroundStyle(Theme.muted)
-                                        .padding(.horizontal, 8)
-                                        .frame(height: 24)
-                                        .background(Capsule().fill(Theme.muted.opacity(0.12)))
-                                        .padding(.leading, 8)
-                                        .frame(minHeight: 44)
-                                        .contentShape(Rectangle())
-                                    }
-                                    .buttonStyle(.borderless)
-                                    .accessibilityLabel(folded ? "Show \(item.threads) sub-agents" : "Hide \(item.threads) sub-agents")
+                    ForEach(rows.bots) { item in agentRow(item) }
+                } header: {
+                    sectionHeader("Bots") {
+                        Button {
+                            Task {
+                                if let id = await store.createBot() {
+                                    openChat = OpenChat(session: store.session(sessionId: id, title: "New Bot"))
                                 }
                             }
-                            // Insets live here, not on the row, so the tree lines span the whole row.
-                            .padding(.leading, CGFloat(item.depth) * ThreadTree.indent)
-                            .padding(.vertical, 12)
-                            .background(alignment: .leading) {
-                                ThreadTree(trail: item.trail, expanded: item.hasChildren && !folded)
-                            }
+                        } label: {
+                            Image(systemName: "plus")
                         }
-                        // A custom row background hides the system selection
-                        // highlight, so the open chat's row draws its own.
-                        .listRowBackground(openChat?.id == conversation.sessionId ? Theme.muted.opacity(0.12) : Color.clear)
-                        .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 16))
-                        .listSectionSeparator(.hidden, edges: .top)
-                        // A separator would cut through the lines of an open tree.
-                        .listRowSeparator(item.depth > 0 || (item.hasChildren && !folded) ? .hidden : .automatic)
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) { rowActions(conversation) }
-                        // The same actions for a long press or a secondary click.
-                        .contextMenu { rowActions(conversation) }
+                        .accessibilityLabel("New Bot")
                     }
+                }
+                Section {
+                    ForEach(rows.tasks) { item in agentRow(item) }
 
                     if store.hasMore {
                         HStack {

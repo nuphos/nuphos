@@ -22,13 +22,11 @@ enum LaunchCacheTests {
         )
         let cached = LaunchCache.Agents(
             team: Team(id: "team-1", name: "Team", role: "EDITOR"),
-            conversations: [row],
-            favorites: SidebarFavorites(entries: [.chat(sessionId: "ses_1", label: "Deploy")], revision: 3)
+            conversations: [row]
         )
         let decoded = try! JSONDecoder().decode(LaunchCache.Agents.self, from: JSONEncoder().encode(cached))
         precondition(decoded.team == cached.team)
         precondition(decoded.conversations == cached.conversations)
-        precondition(decoded.favorites == cached.favorites)
     }
 
     private static func keepsTheUserThroughARoundTrip() {

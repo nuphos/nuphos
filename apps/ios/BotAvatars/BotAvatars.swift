@@ -62,6 +62,11 @@ enum BotAvatars {
         return files[Int(hash % UInt32(defaultCount))]
     }
 
+    /// The image for a picked face, when this build ships it.
+    static func asset(named avatar: String) -> String? {
+        files.contains("\(avatar).svg") ? "bot-avatar-" + avatar : nil
+    }
+
     static func asset(for id: String) -> String {
         "bot-avatar-" + file(for: id).replacingOccurrences(of: ".svg", with: "")
     }

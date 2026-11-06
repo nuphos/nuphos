@@ -158,6 +158,32 @@ enum AgentChatAPI {
         )
     }
 
+    /// `POST /agent/bots` — a Bot with a name and a face, before anyone types,
+    /// on the runtime a new chat would use (#1691).
+    static func createBot(token: String, teamId: String, runtime: RuntimeInstance?) async throws -> String {
+        struct Body: Encodable { let runtimeId: String?; let agentRuntime: String?; let runtimeLabel: String? }
+        struct Created: Decodable { let sessionId: String }
+        let data = try await send(
+            "POST", "agent/bots", query: [URLQueryItem(name: "teamId", value: teamId)], token: token,
+            body: Body(runtimeId: runtime?.id, agentRuntime: runtime?.provider.rawValue, runtimeLabel: runtime?.label)
+        )
+        return try JSONDecoder().decode(Created.self, from: data).sessionId
+    }
+
+    /// `POST /agent/conversations/:id/bot` makes a Task a Bot and asks it to
+    /// name itself; `PATCH …/avatar` with null turns a Bot back into a Task.
+    static func setBot(_ bot: Bool, token: String, teamId: String, sessionId: String) async throws {
+        struct NoFace: Encodable { let avatar: String? = nil }
+        let query = [URLQueryItem(name: "teamId", value: teamId)]
+        if bot {
+            _ = try await send("POST", "agent/conversations/\(sessionId)/bot", query: query, token: token, body: [String: String]())
+        } else {
+            _ = try await send(
+                "PATCH", "agent/conversations/\(sessionId)/avatar", query: query, token: token, body: NoFace(), encodeNulls: true
+            )
+        }
+    }
+
     /// `PUT` / `DELETE /agent/conversations/:id/watch` — whether this user gets
     /// the chat's push notifications. Unwatching also unwatches its threads.
     static func setWatching(token: String, teamId: String, sessionId: String, watching: Bool) async throws {
@@ -269,14 +295,6 @@ enum AgentChatAPI {
         return try JSONDecoder().decode(SessionConfigState.self, from: data)
     }
 
-    /// `PUT /teams/:id/favorites` — replaces the whole list; 409
-    /// `sidebar_favorites_changed` when `expectedRevision` is stale.
-    static func putSidebarFavorites(token: String, teamId: String, entries: [SidebarFavorites.Entry], expectedRevision: Int) async throws -> SidebarFavorites {
-        struct Body: Encodable { var expectedRevision: Int; var entries: [SidebarFavorites.Entry] }
-        let data = try await send("PUT", "teams/\(teamId)/favorites", token: token, body: Body(expectedRevision: expectedRevision, entries: entries))
-        return try JSONDecoder().decode(SidebarFavorites.self, from: data)
-    }
-
     /// `POST …/messages/:id/feedback`.
     static func feedback(token: String, teamId: String, sessionId: String, messageId: String, rating: String?, comment: String? = nil) async throws {
         struct Body: Encodable { var rating: String?; var comment: String?; var teamId: String }
@@ -377,7 +395,6 @@ enum AgentChatAPI {
         case runtimeBusy
         case conversationNotRunning
         case conversationInUseByTeammate
-        case favoritesChanged
         case other(code: String?, message: String, status: Int)
 
         var errorDescription: String? {
@@ -395,7 +412,6 @@ enum AgentChatAPI {
             case .runtimeBusy: "Wait for the current reply to finish before changing model settings."
             case .conversationNotRunning: "This agent is no longer running."
             case .conversationInUseByTeammate: "A teammate is using this agent right now. Try again after their turn finishes."
-            case .favoritesChanged: "Pinned agents changed elsewhere; refreshing."
             case .other(_, let message, _): message
             }
         }
@@ -433,7 +449,6 @@ enum AgentChatAPI {
         case "runtime_busy": return .runtimeBusy
         case "conversation_not_running": return .conversationNotRunning
         case "conversation_in_use_by_teammate": return .conversationInUseByTeammate
-        case "sidebar_favorites_changed": return .favoritesChanged
         default: return .other(code: code, message: message, status: status)
         }
     }
