@@ -1,5 +1,4 @@
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
-import { judgeThreadAddressing } from '@/lib/agent/thread-addressing'
 import { turnRunner } from '@/lib/agent/turn-runner'
 import { createDiscordThread, getDiscordChannel, sendDiscordMessage } from '@/lib/discord/api'
 import {
@@ -11,18 +10,15 @@ import {
   getOrCreateDiscordThread,
   markDiscordEvent,
   refreshDiscordEventClaim,
-  discordDecisions,
 } from '@/lib/discord/store'
 import { getTeamMembership, signNuphosToken } from '@/lib/identity'
 
 import { recordDiscordSessionMessage } from './session-context'
-import { getDiscordThreadHistory, recordDiscordThreadMessage } from './thread-history'
 import { buildMessagesForDiscordTurn, syncDiscordThread } from './transcript'
 import { executeDiscordTurn } from './turn'
 
 export const defaultDependencies = {
   recordDiscordSessionMessage,
-  discordDecisions,
   claimDiscordEvent,
   discordAgentThreads,
   discordChannelMappings,
@@ -36,9 +32,6 @@ export const defaultDependencies = {
   createDiscordThread,
   getDiscordChannel,
   sendDiscordMessage,
-  getDiscordThreadHistory,
-  recordDiscordThreadMessage,
-  judgeThreadAddressing,
   buildMessagesForDiscordTurn,
   syncDiscordThread,
   createMessageMetadata,

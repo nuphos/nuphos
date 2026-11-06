@@ -1,12 +1,8 @@
 // Durable-transcript helpers for Claude Code preview turns: assistant messages
-// that carry their tool steps, and the conversation title the classic turn
-// would have generated. The history preamble lives in
+// that carry their tool steps. The history preamble lives in
 // preview-history-preamble.ts (this file sits at the max-lines limit).
 
-import { getCompactionSummary, getConversation, updateConversationTitle } from '@/lib/agent/db'
-import { fallbackTitle } from '@/lib/agent/title-fallback'
-import { generateConversationTitle } from '@/lib/agent/title-generator'
-import { logError } from '@/lib/observability'
+import { getCompactionSummary } from '@/lib/agent/db'
 
 import { CodexTurnFailedError } from './codex-turn-failure'
 import {
@@ -249,38 +245,5 @@ export async function previewCompactionSummary(
     return (await getCompactionSummary(sessionId, userId))?.summary ?? null
   } catch {
     return null
-  }
-}
-
-/**
- * Gives a preview conversation the AI-generated title the classic first round
- * would have produced; a no-op once a real title exists.
- */
-export async function ensurePreviewTitle(args: {
-  sessionId: string
-  userId: string
-  teamId: string
-  firstMessage: string
-  assistantResponse: string
-  locale: string
-}): Promise<void> {
-  if (!args.firstMessage) return
-  try {
-    const conversation = await getConversation(args.sessionId, args.userId, args.teamId)
-
-    if (!conversation || conversation.titleManuallySet) return
-    const current = conversation.title.trim()
-
-    if (current && current !== fallbackTitle(args.firstMessage)) return
-    const title = await generateConversationTitle(
-      args.firstMessage,
-      args.assistantResponse,
-      args.locale,
-      { userId: args.userId, sessionId: args.sessionId, teamId: args.teamId },
-    )
-
-    await updateConversationTitle(args.sessionId, args.userId, title)
-  } catch (err) {
-    logError('agent.chat.title_generation.error', err, { teamId: args.teamId })
   }
 }

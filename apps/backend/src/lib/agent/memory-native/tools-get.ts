@@ -1,9 +1,6 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 
-import { config } from '@/config'
-
-import { rerankCandidates } from './rerank'
 import {
   getMemoryRecord,
   getTeamMemory,
@@ -19,13 +16,10 @@ import type { MemoryFetchedObserver, MemorySearchedObserver } from './tools-shar
 export function createMemoryGetTool(deps: {
   userId: string
   teamId: string | null | undefined
-  /** Attributes the optional rerank model call's token usage to the real
-   *  conversation rather than a synthetic per-user session. */
-  conversationId?: string
   onMemoryFetched?: MemoryFetchedObserver
   onMemorySearched?: MemorySearchedObserver
 }) {
-  const { userId, teamId, conversationId, onMemoryFetched, onMemorySearched } = deps
+  const { userId, teamId, onMemoryFetched, onMemorySearched } = deps
 
   return tool({
     description:
@@ -69,18 +63,8 @@ export function createMemoryGetTool(deps: {
       if (input.query) {
         const limit = input.limit ?? 8
         const filters = { tags: input.tags, scope: input.scope }
-        // Rung 1.5 (flagged): pull a wider lexical candidate set, let the
-        // small model reorder it, return the top `limit`. Fails open to
-        // lexical order inside rerankCandidates.
-        const rerank = config.agent.memoryRerankEnabled
-        const [rawHits, playbookHits] = await Promise.all([
-          searchMemoryRecords(
-            userId,
-            teamId,
-            input.query,
-            rerank ? Math.max(20, limit) : limit,
-            filters,
-          ),
+        const [hits, playbookHits] = await Promise.all([
+          searchMemoryRecords(userId, teamId, input.query, limit, filters),
           // Playbook hits are summaries (title + signals), not full bodies —
           // loading one by id is what counts as a fetch. A personal-only
           // search honors its scope filter and skips playbooks entirely.
@@ -88,19 +72,6 @@ export function createMemoryGetTool(deps: {
             ? searchTeamPlaybooks(teamId, input.query)
             : Promise.resolve([]),
         ])
-        const hits = rerank
-          ? (
-              await rerankCandidates(
-                input.query,
-                rawHits.map((h) => ({
-                  ...h,
-                  memoryId: h._id.toHexString(),
-                  label: h.title || h.text.slice(0, 160),
-                })),
-                { userId, teamId, sessionId: conversationId },
-              )
-            ).slice(0, limit)
-          : rawHits
 
         onMemorySearched?.({
           query: input.query,

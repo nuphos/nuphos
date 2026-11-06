@@ -8,13 +8,11 @@ import type { TeamAuthVariables } from '@/middleware/auth'
 import type { AgentVars } from '@/routes/agent-sessions/shared'
 
 const calls: {
-  awaiting: unknown[]
   create: unknown[]
   get: unknown[]
   list: unknown[]
   update: unknown[]
 } = {
-  awaiting: [],
   create: [],
   get: [],
   list: [],
@@ -31,11 +29,6 @@ const current = {
 } as never
 
 useAgentPlans({
-  hasPlanAwaitingApprovalForConversation: async (sessionId, scope) => {
-    calls.awaiting.push({ sessionId, scope })
-
-    return true
-  },
   createPlan: async (input) => {
     calls.create.push(input)
 
@@ -71,7 +64,6 @@ app.route('/plans', previewPlans)
 app.onError(errorHandler)
 
 beforeEach(() => {
-  calls.awaiting.length = 0
   calls.create.length = 0
   calls.get.length = 0
   calls.list.length = 0

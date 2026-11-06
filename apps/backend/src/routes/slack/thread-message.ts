@@ -29,11 +29,7 @@ import {
   SUBTYPES_WITH_ATTACHMENTS,
 } from '@/routes/slack/shared'
 import { beginThreadStatus } from '@/routes/slack/status'
-import {
-  checkNotificationReplyAccess,
-  isReplyAddressedToAgent,
-  verifyThreadTeamAccess,
-} from '@/routes/slack/thread-gates'
+import { checkNotificationReplyAccess, verifyThreadTeamAccess } from '@/routes/slack/thread-gates'
 import { executeSlackAgentTurn } from '@/routes/slack/turn'
 import { claimSlackTurnOrQueue } from '@/routes/slack/turn-admission'
 
@@ -143,25 +139,14 @@ export async function handleThreadMessage(envelope: SlackEventEnvelope): Promise
   }).catch(() => {})
 
   // Mentions never reach here for Slack-origin threads (they route to
-  // handleAppMention); in notification threads they stay, and an explicit
-  // mention is an answer on its own.
+  // handleAppMention); in notification threads they stay.
   const mentionsBot =
     Boolean(runtime.botUserId) && (event.text ?? '').includes(`<@${runtime.botUserId}>`)
   const history = (thread.recentMessages ?? []).filter((record) => record.ts !== event.ts)
 
-  if (
-    !mentionsBot &&
-    !(await isReplyAddressedToAgent({
-      thread,
-      history,
-      senderName,
-      resolvedText,
-      slackWorkspaceId,
-      channelId: event.channel,
-      threadTs: event.thread_ts,
-      eventId,
-    }))
-  ) {
+  // Nuphos answers only when mentioned. Unmentioned replies stay in the
+  // thread history above and reach the agent with the next mention.
+  if (!mentionsBot) {
     await markSlackEvent(eventId, 'ignored')
 
     return

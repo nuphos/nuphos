@@ -1,4 +1,3 @@
-import { config } from '@/config'
 import { appendTranscriptMessages } from '@/lib/agent/db'
 import { legacyPendingDecision, openInputRequests } from '@/lib/agent/db/pending-decision'
 import { persistedImagePart } from '@/lib/agent/image-parts'
@@ -6,8 +5,6 @@ import { stripInlineFileData } from '@/lib/agent/inbound-files'
 import { parseMessageMetadata } from '@/lib/agent/message-metadata'
 import { parseAgentMessageOrigin } from '@/lib/agent/message-origin'
 import { withCostUsd } from '@/lib/agent/model-pricing'
-import { withCachePoint } from '@/lib/agent/model-provider'
-import { isOpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 import { AppError } from '@/lib/errors'
 
 import type { ConversationTriggerRun } from '@/lib/agent/conversation-trigger-run'
@@ -15,7 +12,6 @@ import type { AgentClientMeta, AgentConversation, AgentCredentialAccess } from '
 import type { ConversationInputRequests } from '@/lib/agent/db/pending-decision'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 import type { AgentMessageOrigin } from '@/lib/agent/message-origin'
-import type { ProviderOptions } from '@/lib/agent/model-provider'
 import type { AgentTokenUsageSummary } from '@/lib/agent/token-usage'
 import type { UIMessage } from 'ai'
 
@@ -123,20 +119,6 @@ export function normalizeTranscriptMessages(value: unknown): TranscriptMessage[]
       ...(message.turnKind === 'plan-approval' ? { turnKind: 'plan-approval' as const } : {}),
     }
   })
-}
-
-// Attach the second static cache breakpoint to the last message of a
-// system-segment span (ADR-0002 §3): the span's tail varies by conversation
-// (URL context, kube context, diagrams are optional), and the breakpoint must
-// exist in EVERY conversation, not only those with URL context.
-export function withCachePointOnLast<
-  T extends { role: 'system'; content: string; providerOptions?: ProviderOptions },
->(messages: T[]): T[] {
-  const last = messages[messages.length - 1]
-
-  if (last) last.providerOptions = withCachePoint(last.providerOptions)
-
-  return messages
 }
 
 function isToolPartState(
@@ -255,7 +237,7 @@ export async function persistAcceptedConversationTurn(args: {
     firstMessage: getFirstTranscriptMessage(transcriptMessages, args.firstMessage || 'New chat'),
     messages: transcriptMessages,
     locale: args.locale,
-    provider: isOpenAbProvider(args.agentRuntime) ? args.agentRuntime : config.agent.modelProvider,
+    provider: args.agentRuntime,
     source: args.source,
     trigger: args.trigger,
     client: args.client,

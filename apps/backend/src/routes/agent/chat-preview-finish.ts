@@ -11,7 +11,6 @@ import { partsWithoutFailureNotice } from '@/lib/claude-code-preview/codex-turn-
 import { completedTurnOutput } from '@/lib/claude-code-preview/empty-turn'
 import {
   classifyPreviewInterruption,
-  ensurePreviewTitle,
   interruptToolSteps,
   previewAssistantMessageParts,
   turnInterruptedPart,
@@ -53,8 +52,6 @@ export async function finishPreviewTurn(args: {
   startedAt: number
   /** The final segment's text (after the last steering boundary). */
   text: string
-  /** Every segment's text joined — what the turn answered overall. */
-  answer: string
   reasoning: string
   /** Final segment parts in runtime arrival order. */
   orderedParts?: UIMessage['parts']
@@ -104,7 +101,7 @@ export async function finishPreviewTurn(args: {
   // stream event to place them precisely. Preserve their previous position
   // immediately before the final answer instead of moving the answer's
   // interleaved commentary and tools around them.
-  const { parts, steered, answer } = completedTurnOutput(
+  const { parts, steered } = completedTurnOutput(
     insertBeforeFinalText(orderedParts, nativePlanParts),
     args.steered,
   )
@@ -139,17 +136,9 @@ export async function finishPreviewTurn(args: {
       message_count: transcriptMessages.length,
     })
   }
-  // The durable answer is now available to every replica. Title generation
-  // and memory enrichment must not prolong runtime execution in the UI.
+  // The durable answer is now available to every replica. Memory enrichment
+  // must not prolong runtime execution in the UI.
   args.onRuntimeComplete?.()
-  await ensurePreviewTitle({
-    sessionId,
-    userId,
-    teamId,
-    firstMessage: args.firstMessage,
-    assistantResponse: answer,
-    locale: args.locale,
-  })
   if (args.memory) {
     const accumulator = args.memory.turnMemory.accumulator
 
@@ -166,7 +155,6 @@ export async function finishPreviewTurn(args: {
       teamId,
       requestId: args.requestId,
       memory: args.memory,
-      answer,
       emitFrame: args.emit,
     }).catch((err: unknown) => {
       traceAgentChatError('agent.chat.preview_memory_finish.error', err, run.trace, {})

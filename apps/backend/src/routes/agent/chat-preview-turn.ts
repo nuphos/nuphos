@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto'
 
 import './chat-preview-autonomous-runs'
 
-import { config } from '@/config'
 import { steeredNoticeSender } from '@/lib/agent/channel-wake'
 import { recordLocalRuntimeTurn } from '@/lib/agent/devices/local-runtime/activity'
 import { requeueTurnQueue } from '@/lib/agent/session-released'
@@ -62,7 +61,6 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
   const acc = { text: '', reasoning: '' }
   const steeringAttribution = createSteeringAttribution(actorUserId)
   const orderedParts = createPreviewAssistantPartAccumulator(steeringAttribution)
-  const answers: string[] = []
   const toolLog = createPreviewToolLog()
   const state = createPreviewRunState({ run, userId, sessionId })
   const tracking = turnSnapshots(run, { sessionId, runtimeId: args.endpoint.runtimeId })
@@ -206,7 +204,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       error,
       diagnostics: diagnostic.finish(error),
       emit: state.emit,
-      provider: config.agent.modelProvider,
+      provider: args.endpoint.provider ?? 'claude-code',
     })
 
   const prompt = promptOnce()
@@ -217,6 +215,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       state.unbind()
       await handOffPreviewTurn({
         ...args,
+        provider: args.endpoint.provider ?? 'claude-code',
         actorUserId,
         prompt,
         run: state.current(),
@@ -235,7 +234,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       await persistHandedOffPreviewTurn({
         ...args,
         run: state.current(),
-        provider: config.agent.modelProvider,
+        provider: args.endpoint.provider ?? 'claude-code',
         orderedParts: orderedParts.materialize(
           interruptToolSteps(toolLog.list(), CONNECTION_LOST_TOOL_ERROR),
         ),
@@ -272,7 +271,6 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
     return
   }
   pauses.abort()
-  if (acc.text) answers.push(acc.text)
 
   await prepared.openPromptSuggestion()
 
@@ -282,7 +280,6 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       requestId,
       startedAt,
       text: acc.text,
-      answer: answers.join('\n\n'),
       reasoning: acc.reasoning,
       orderedParts: orderedParts.materialize(toolLog.list()),
       toolSteps: toolLog.list(),
@@ -291,7 +288,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       memory: prepared.memory,
       emit: state.emit,
       onRuntimeComplete: state.finish,
-      provider: config.agent.modelProvider,
+      provider: args.endpoint.provider ?? 'claude-code',
     })
   } finally {
     await clearActiveTurn()

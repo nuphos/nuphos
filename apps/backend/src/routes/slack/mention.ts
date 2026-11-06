@@ -149,13 +149,13 @@ export async function handleAppMention(envelope: SlackEventEnvelope): Promise<vo
 
   if (!text && !hasAttachments) {
     // A bare mention has no turn to run, but the thread row above is already
-    // registered, so a plain reply in this thread reaches the agent — without
-    // it the hint would start a dead-end thread whose replies are dropped.
+    // registered, so the next mention in this thread continues the same
+    // conversation.
     await postThreadMessage(
       runtime,
       event.channel,
       slackThreadTs,
-      'What would you like Nuphos to look into? Just reply in this thread.',
+      'What would you like Nuphos to look into? Mention me in this thread with your question.',
     )
     await markSlackEvent(eventId, 'completed')
 

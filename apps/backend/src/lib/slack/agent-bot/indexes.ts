@@ -1,6 +1,5 @@
 import {
   isDuplicateKeyError,
-  slackAddressingVerdicts,
   slackAgentThreads,
   slackAssistantThreadContexts,
   slackChannelMappings,
@@ -90,7 +89,4 @@ export async function setupSlackAgentIndexes(): Promise<void> {
     { slackWorkspaceId: 1, slackChannelId: 1, slackThreadTs: 1 },
     { unique: true, background: true },
   )
-  await slackAddressingVerdicts().createIndex({ dedupeKey: 1 }, { unique: true, background: true })
-  await slackAddressingVerdicts().createIndex({ addressed: 1, createdAt: -1 }, { background: true })
-  await slackAddressingVerdicts().createIndex({ sessionId: 1, createdAt: -1 }, { background: true })
 }

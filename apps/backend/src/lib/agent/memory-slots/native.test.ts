@@ -353,7 +353,6 @@ beforeEach(() => {
   })
   membershipRole = 'EDITOR'
   for (const key of Object.keys(agentOverrides)) delete agentOverrides[key]
-  agentOverrides.memoryRerankEnabled = false
 })
 
 describe('provider surface', () => {

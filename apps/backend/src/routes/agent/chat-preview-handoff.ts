@@ -1,4 +1,3 @@
-import { config } from '@/config'
 import { OpenAbConnectionLostError } from '@/lib/claude-code-preview/openab-acp-errors'
 import { queueRuntimeHandoff } from '@/lib/claude-code-preview/runtime-handoff'
 import { RunHandoff } from '@/lib/lifecycle'
@@ -46,6 +45,7 @@ type PreviewHandoffArgs = {
   messages: UIMessage[]
   firstMessage: string
   locale: string
+  provider: string
   /** Still running on the runtime; this replica stops listening to it. */
   prompt: Promise<unknown>
   /** Tools still running on the runtime are marked as handed off by the caller. */
@@ -56,10 +56,7 @@ type PreviewHandoffArgs = {
 /** Save what streamed so far and leave the rest of the turn to the adopting replica. */
 export async function handOffPreviewTurn(args: PreviewHandoffArgs): Promise<void> {
   args.prompt.catch(() => {})
-  await persistHandedOffPreviewTurn({
-    ...args,
-    provider: config.agent.modelProvider,
-  })
+  await persistHandedOffPreviewTurn(args)
   queueRuntimeHandoff({
     teamId: args.teamId,
     conversationId: args.sessionId,

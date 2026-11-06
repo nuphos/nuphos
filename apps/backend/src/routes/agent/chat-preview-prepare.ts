@@ -194,7 +194,6 @@ export async function preparePreviewTurn(
         userId: actorUserId,
         teamId,
         requestId,
-        messages: args.messages,
       }).catch((err: unknown): PreviewTurnMemory | null => {
         traceAgentChatError('agent.chat.preview_memory.error', err, args.run.trace, {})
 

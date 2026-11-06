@@ -4,7 +4,6 @@
 // an interactive preview turn, without inventing a synthetic user message.
 import { randomUUID } from 'node:crypto'
 
-import { config } from '@/config'
 import { appendAutonomousConversationTurn } from '@/lib/agent/db'
 import { withoutEmptyTurnSentinel } from '@/lib/claude-code-preview/empty-turn'
 import { handleOpenAbPermissionRequest } from '@/lib/claude-code-preview/openab-permission-bridge'
@@ -99,7 +98,6 @@ async function finishTurn(
           parts,
         },
         locale,
-        provider: config.agent.modelProvider,
       })
     }
   } catch (error) {

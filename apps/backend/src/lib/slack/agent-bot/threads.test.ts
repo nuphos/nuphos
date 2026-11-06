@@ -6,7 +6,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   TRANSCRIPT_BOT_MESSAGE_CHARS,
   TRANSCRIPT_MESSAGE_CHARS,
-} from '@/lib/agent/thread-addressing-core'
+} from '@/lib/agent/thread-transcript'
 import { useDb } from '@/lib/test/doubles/db'
 
 import type { SlackThreadMessageRecord } from '@/lib/slack/agent-bot/collections'

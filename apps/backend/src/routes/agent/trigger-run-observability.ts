@@ -1,4 +1,3 @@
-import { config } from '@/config'
 import { captureException } from '@/lib/posthog'
 
 import { traceAgentChatError } from './trace'
@@ -10,11 +9,7 @@ export function recordTriggerRunFailure(
   trace: AgentRunTrace,
   source: string,
 ): void {
-  const errorContext = {
-    source,
-    provider: config.agent.modelProvider,
-    model_id: config.agent.agentModelId,
-  }
+  const errorContext = { source }
 
   traceAgentChatError('agent.trigger.request.error', error, trace, errorContext)
   captureException(error, {

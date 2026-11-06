@@ -41,7 +41,6 @@ await mock.module('@/config', () => ({
     ...realConfig,
     agent: {
       ...realAgent,
-      memoryRerankEnabled: false,
     },
   },
 }))

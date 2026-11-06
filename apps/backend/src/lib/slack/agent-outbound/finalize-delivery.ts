@@ -7,15 +7,15 @@ import type {
 import type { SlackOutboundDestination } from '@/lib/slack/destinations'
 import type { SlackIncidentReservation } from '@/lib/slack/incident-notifications'
 
-// Server-written, so "you can reply here" reads the same under every report.
+// Server-written, so "you can mention me here" reads the same under every report.
 // Left to the model it would be phrased differently each time — and a reader
 // cannot tell a repliable message from a dead one by how it happens to be worded.
-const REPLY_THREAD_INVITATION = 'Reply in this thread if you want me to dig into any of it.'
+const REPLY_THREAD_INVITATION = 'Mention me in this thread if you want me to dig into any of it.'
 
-// The addressing judge reads a thread's rolling transcript, and inbound routes
-// only record what humans send. An outbound post into a bound thread must be
-// recorded here or the judge never sees what the bot itself said — and then
-// misreads follow-up questions about it as teammate chatter. Best-effort: the
+// A mention carries the thread's rolling transcript since the bot last spoke,
+// and inbound routes only record what humans send. An outbound post into a
+// bound thread must be recorded here, or the next mention replays messages the
+// bot already answered. Best-effort: the
 // message is already delivered, so a failed append is logged, never raised.
 async function appendToBoundThreadTranscript(input: {
   dependencies: SlackOutboundDependencies

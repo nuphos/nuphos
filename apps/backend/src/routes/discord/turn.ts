@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto'
-
 import { parseMessageMetadata, senderLabel } from '@/lib/agent/message-metadata'
 import { pausedTurnKind } from '@/lib/agent/round-continuation'
 import { turnRunner } from '@/lib/agent/turn-runner'
@@ -16,7 +14,6 @@ import { SlackAgentRunSink } from '@/lib/slack/stream-sink'
 
 import { postDiscordToolApproval } from './approval'
 import { postAgentProducedDiscordFiles } from './attachments'
-import { recordDiscordThreadMessage } from './thread-history'
 import { syncDiscordThread } from './transcript'
 
 import type { UIMessage } from 'ai'
@@ -51,7 +48,6 @@ const mirrorDependencies = {
   discordAgentThreads,
   isDiscordThreadConnected,
   sendDiscordMessage,
-  recordDiscordThreadMessage,
   syncDiscordThread,
 }
 
@@ -82,12 +78,6 @@ export async function mirrorAppTurnToDiscord(
       thread.threadChannelId,
       fromBot ? text : `**${authorName}** (from Nuphos):\n${text}`,
     )
-    await deps.recordDiscordThreadMessage(args.sessionId, {
-      id: randomUUID(),
-      authorName,
-      text,
-      ...(fromBot ? { fromBot } : {}),
-    })
   }
   const text = args.message?.parts
     .flatMap((part) => (part.type === 'text' && part.text ? [part.text] : []))
@@ -137,12 +127,6 @@ export async function executeDiscordTurn(args: {
     async (text) => {
       if (!(await isConnected())) return
       await sendDiscordMessage(args.threadChannelId, text)
-      await recordDiscordThreadMessage(args.sessionId, {
-        id: randomUUID(),
-        authorName: 'Nuphos',
-        text,
-        fromBot: true,
-      })
     },
     undefined,
     (request) =>
@@ -179,8 +163,8 @@ export async function executeDiscordTurn(args: {
     if (sink.terminal() === 'paused') {
       await sink.say(
         pausedTurnKind(outcome.pauseReason) === 'budget-exhausted'
-          ? 'This task needs another turn. Reply in this thread and I will continue.'
-          : 'This turn stopped before finishing. Reply in this thread to resume.',
+          ? 'This task needs another turn. Mention me in this thread and I will continue.'
+          : 'This turn stopped before finishing. Mention me in this thread to resume.',
       )
     } else if (sink.terminal() === 'error') {
       await sink.say('Nuphos hit an error while handling this request.')

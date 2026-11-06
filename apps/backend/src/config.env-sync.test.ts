@@ -86,9 +86,7 @@ const SCRIPTS_BYPASS_ALLOWLIST = new Set([
   // They read ad-hoc knobs a developer exports for one run, which is exactly
   // the kind of var that should NOT be in config.ts or .env.example.
   'scripts/agent-drive.ts',
-  'scripts/cache-smoke.ts',
   'scripts/test-deploy-flow.ts',
-  'scripts/thinking-smoke.ts',
   'scripts/xtrace-webhook.ts',
   // Isolated process E2E: binary overrides and a sanitized child environment.
   'scripts/webhook-routing-e2e/run.ts',

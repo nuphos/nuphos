@@ -204,8 +204,8 @@ export async function beginNuphosSlackTurn(args: {
         // a human; without this line the thread goes dark mid-work.
         await sink.say(
           pausedTurnKind(outcome.pauseReason) === 'budget-exhausted'
-            ? '_This task was too long to finish in one turn. Reply in this thread, or continue it from Nuphos, and I will pick up where I left off._'
-            : '_This turn stopped before finishing. Reply in this thread, or continue it from Nuphos, to pick it back up._',
+            ? '_This task was too long to finish in one turn. Mention me in this thread, or continue it from Nuphos, and I will pick up where I left off._'
+            : '_This turn stopped before finishing. Mention me in this thread, or continue it from Nuphos, to pick it back up._',
         )
       }
       const postedPlanCards = await postPlanApprovalCards({

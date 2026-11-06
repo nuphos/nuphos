@@ -46,5 +46,4 @@ test('cleans steered assistant segments and preserves user text and tool errors'
   expect(result.parts).toEqual([{ type: 'text', text: 'Checked the status.' }, tool])
   expect(result.steered[0]?.parts).toEqual([{ type: 'reasoning', text: 'Kept' }])
   expect(result.steered[1]?.parts).toEqual([{ type: 'text', text: '(no response)' }])
-  expect(result.answer).toBe('Checked the status.')
 })

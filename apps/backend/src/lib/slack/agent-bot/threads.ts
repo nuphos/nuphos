@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import { clipTranscriptText } from '@/lib/agent/thread-addressing-core'
+import { clipTranscriptText } from '@/lib/agent/thread-transcript'
 import { SLACK_THREAD_WINDOW, slackAgentThreads } from '@/lib/slack/agent-bot/collections'
 
 import type {
