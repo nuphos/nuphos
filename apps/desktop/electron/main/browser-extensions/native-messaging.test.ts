@@ -5,7 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
-import { decoder, encode, findHost, nativeMessaging } from './native-messaging.ts'
+import { builtInHosts, decoder, encode, findHost, nativeMessaging } from './native-messaging.ts'
 
 import type { Sender } from './native-messaging.ts'
 
@@ -109,6 +109,28 @@ test('only an allow-listed extension, listed in the manifest, finds its host', a
 
   assert.equal(await findHost(HOST, EXTENSION_ID, [unlisted, listed]), null)
   assert.equal(await findHost(HOST, EXTENSION_ID, [relative]), null)
+})
+
+test('with no manifest anywhere, the app-installed host is used if it exists', async () => {
+  const empty = await mkdtemp(path.join(os.tmpdir(), 'native-host-'))
+  const helper = path.join(empty, 'helper')
+
+  await writeFile(helper, '')
+  assert.equal(await findHost(HOST, EXTENSION_ID, [empty], { [HOST]: helper }), helper)
+  assert.equal(await findHost(HOST, OTHER, [empty], { [HOST]: helper }), null)
+  assert.equal(await findHost(HOST, EXTENSION_ID, [empty], { [HOST]: `${helper}-gone` }), null)
+
+  // A manifest, when there is one, still decides.
+  const unlisted = await hostDir({
+    name: HOST,
+    type: 'stdio',
+    path: helper,
+    allowed_origins: [`chrome-extension://${OTHER}/`],
+  })
+
+  assert.equal(await findHost(HOST, EXTENSION_ID, [unlisted], { [HOST]: helper }), null)
+  assert.match(builtInHosts('darwin')[HOST], /^\/Applications\/1Password\.app\//)
+  assert.deepEqual(builtInHosts('linux'), {})
 })
 
 test('a port runs the host with the origin, relays both ways and stops it on disconnect', async () => {

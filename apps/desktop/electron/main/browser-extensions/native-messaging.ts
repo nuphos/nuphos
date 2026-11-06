@@ -1,7 +1,7 @@
 // Native messaging, only between a known password manager's extension and its own
 // desktop app. It speaks the package's preload protocol (`crx-native-msg-<id>`).
 import { spawn } from 'node:child_process'
-import { readFile } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -40,38 +40,53 @@ export function manifestDirs(platform = process.platform, home = os.homedir()): 
   return []
 }
 
+/**
+ * Each host's program where its app installs it, for when no manifest exists:
+ * 1Password may write its manifest only for browsers that are installed.
+ */
+export function builtInHosts(platform = process.platform): Record<string, string> {
+  return platform === 'darwin'
+    ? {
+        'com.1password.1password':
+          '/Applications/1Password.app/Contents/Library/LoginItems/1Password Browser Helper.app/Contents/MacOS/1Password-BrowserSupport',
+      }
+    : {}
+}
+
+/** A manifest's program, if it is valid for `host` and lists the extension, as Chrome requires. */
+function manifestProgram(text: string, host: string, extensionId: string): string | null {
+  try {
+    const manifest = JSON.parse(text) as Record<string, unknown>
+
+    return manifest.name === host &&
+      manifest.type === 'stdio' &&
+      typeof manifest.path === 'string' &&
+      path.isAbsolute(manifest.path) &&
+      Array.isArray(manifest.allowed_origins) &&
+      manifest.allowed_origins.includes(`chrome-extension://${extensionId}/`)
+      ? manifest.path
+      : null
+  } catch {
+    return null
+  }
+}
+
 /** The program to start for `host`, if `extensionId` may start it. Like Chrome, the first manifest found decides. */
 export async function findHost(
   host: string,
   extensionId: string,
   dirs: string[],
+  builtIn: Record<string, string> = {},
 ): Promise<string | null> {
   if (!Object.hasOwn(ALLOWED_HOSTS, host) || !ALLOWED_HOSTS[host].includes(extensionId)) return null
   for (const dir of dirs) {
-    let text: string
+    const text = await readFile(path.join(dir, `${host}.json`), 'utf8').catch(() => null)
 
-    try {
-      text = await readFile(path.join(dir, `${host}.json`), 'utf8')
-    } catch {
-      continue
-    }
-    try {
-      const manifest = JSON.parse(text) as Record<string, unknown>
-
-      return manifest.name === host &&
-        manifest.type === 'stdio' &&
-        typeof manifest.path === 'string' &&
-        path.isAbsolute(manifest.path) &&
-        Array.isArray(manifest.allowed_origins) &&
-        manifest.allowed_origins.includes(`chrome-extension://${extensionId}/`)
-        ? manifest.path
-        : null
-    } catch {
-      return null
-    }
+    if (text !== null) return manifestProgram(text, host, extensionId)
   }
+  const program = Object.hasOwn(builtIn, host) ? builtIn[host] : null
 
-  return null
+  return program && (await stat(program).catch(() => null))?.isFile() ? program : null
 }
 
 /** One message as Chrome frames it: a 4-byte little-endian length, then UTF-8 JSON. */
@@ -137,7 +152,7 @@ function start(program: string, extensionId: string): ChildProcess {
 }
 
 /** `runtime.connectNative`, `disconnectNative` and `sendNativeMessage` for the package's router. */
-export function nativeMessaging(dirs: string[]) {
+export function nativeMessaging(dirs: string[], builtIn: Record<string, string> = {}) {
   const ports = new Map<string, { extensionId: string; close: () => void }>()
 
   const connectNative = async (event: Event, connectionId: unknown, host: unknown) => {
@@ -167,7 +182,7 @@ export function nativeMessaging(dirs: string[]) {
 
     ports.set(connectionId, { extensionId, close })
     sender.ipc.on(channel, fromExtension)
-    const program = await findHost(host, extensionId, dirs)
+    const program = await findHost(host, extensionId, dirs, builtIn)
 
     if (!program || !ports.has(connectionId)) return close()
     child = start(program, extensionId)
@@ -195,7 +210,8 @@ export function nativeMessaging(dirs: string[]) {
 
   const sendNativeMessage = async (event: Event, host: unknown, message: unknown) => {
     const extensionId = caller(event)
-    const program = typeof host === 'string' ? await findHost(host, extensionId, dirs) : null
+    const program =
+      typeof host === 'string' ? await findHost(host, extensionId, dirs, builtIn) : null
 
     if (!program) return
     const child = start(program, extensionId)
