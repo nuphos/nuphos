@@ -5738,5 +5738,7 @@
   "{name} (turned off)": "{name} (nonaktif)",
   "Unpin from toolbar": "Lepas sematan dari toolbar",
   "Pin to toolbar": "Sematkan ke toolbar",
-  "Remove from Nuphos…": "Hapus dari Nuphos…"
+  "Remove from Nuphos…": "Hapus dari Nuphos…",
+  "Today {time}": "Hari ini {time}",
+  "Yesterday {time}": "Kemarin {time}"
 }

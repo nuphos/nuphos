@@ -24,7 +24,7 @@ class ChannelTest {
     private fun message(json: String): ChatMessage = Http.json.decodeFromString(json)
     private val person = """{"id":"m1","role":"user","metadata":{"version":1,"sender":{"type":"user","id":"diana","displayName":"Diana Prince"},"sentAt":"2026-11-03T09:20:00.000Z"},"parts":[{"type":"text","text":"Morning!"}]}"""
     private val agent = """{"id":"m2","role":"user","metadata":{"version":1,"sender":{"type":"agent","id":"agent-ops","displayName":"Release ops"},"sentAt":"2026-11-03T09:23:00.000Z","sourceSessionId":"agent-ops"},"parts":[{"type":"text","text":"Screenshots:"},{"type":"transfer-download","groupId":"g1"},{"type":"transfer-download","groupId":"g2"}]}"""
-    private val upload = """{"id":"m3","role":"user","metadata":{"version":1,"sender":{"type":"user","id":"diana","displayName":"Diana Prince"},"sentAt":"2026-11-03T09:30:00.000Z"},"parts":[{"type":"text","text":"Crash"},{"type":"transfer-upload","groupId":"64b5f1c2e4b0a1d2c3e4f5a7","status":"ready","files":[{"fileName":"crash.png","status":"ready"}]}]}"""
+    private val upload = """{"id":"m3","role":"user","metadata":{"version":1,"sender":{"type":"user","id":"diana","displayName":"Diana Prince"},"sentAt":"2026-11-03T09:40:00.000Z"},"parts":[{"type":"text","text":"Crash"},{"type":"transfer-upload","groupId":"64b5f1c2e4b0a1d2c3e4f5a7","status":"ready","files":[{"fileName":"crash.png","status":"ready"}]}]}"""
 
     @Test fun postsReadPeopleAgentsAndBothKindsOfFiles() {
         val a = ChannelPost.from(message(person))!!
@@ -61,17 +61,17 @@ class ChannelTest {
         assertEquals(listOf("m1"), ChannelPost.stillSending(listOf(b), listOf(a, b)).map { it.id })
     }
 
-    @Test fun aPauseOfMoreThanFiveMinutesShowsATimeAndStartsANewRun() {
+    @Test fun aPauseOfMoreThanFifteenMinutesShowsATimeAndStartsANewRun() {
         val a = ChannelPost.from(message(person))!!
         fun at(id: String, time: String) = a.copy(id = id, sentAt = Instant.parse(time))
-        val posts = listOf(a, at("m2", "2026-11-03T09:25:00Z"), at("m3", "2026-11-03T09:30:01Z"), at("m4", "2026-11-03T12:40:00Z"),
+        val posts = listOf(a, at("m2", "2026-11-03T09:35:00Z"), at("m3", "2026-11-03T09:50:01Z"), at("m4", "2026-11-03T12:40:00Z"),
             at("m5", "2026-11-03T12:41:00Z"), at("local", "2026-11-03T20:00:00Z").copy(sending = true))
         val items = ChannelPost.items(posts, emptyList(), emptyList())
         assertEquals(listOf("time.m1", "post.m1", "post.m2", "time.m3", "post.m3", "time.m4", "post.m4", "post.m5", "time.local", "post.local"),
             items.map { it.key })
         val runs = items.filterIsInstance<ChannelItem.Post>().associate { it.post.id to it.first }
         assertEquals(mapOf("m1" to true, "m2" to false, "m3" to true, "m4" to true, "m5" to false, "local" to true), runs)
-        assertTrue("Exactly five minutes is no pause", items.none { it.key == "time.m2" })
+        assertTrue("Exactly 15 minutes is no pause", items.none { it.key == "time.m2" })
         assertEquals("A post on its way shows its time at once", Instant.parse("2026-11-03T20:00:00Z"),
             (items.first { it.key == "time.local" } as ChannelItem.Time).at)
         assertEquals("The chat returning it adds no row", items.map { it.key },

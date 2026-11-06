@@ -188,7 +188,7 @@ enum class HistoryTime {
 }
 
 object ChatTime {
-    const val SEPARATOR_SECONDS = 5 * 60L
+    const val SEPARATOR_SECONDS = 15 * 60L
 
     fun label(date: Instant, now: Instant = Instant.now()): String {
         val seconds = now.epochSecond - date.epochSecond
@@ -224,7 +224,10 @@ object ChatTime {
     fun showsTimestamp(date: Instant?, previous: Instant?): Boolean {
         if (date == null) return false
         if (previous == null) return true
-        return date.epochSecond - previous.epochSecond > SEPARATOR_SECONDS
+        // After a pause or on a new day, as in iMessage.
+        val zone = java.time.ZoneId.systemDefault()
+        return date.epochSecond - previous.epochSecond > SEPARATOR_SECONDS ||
+            date.atZone(zone).toLocalDate() != previous.atZone(zone).toLocalDate()
     }
 }
 

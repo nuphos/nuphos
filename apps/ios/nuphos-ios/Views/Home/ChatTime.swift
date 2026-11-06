@@ -7,8 +7,8 @@ import Foundation
 ///   just now · 5 min ago · 2 hrs ago · 13:30 · Yesterday 13:30 ·
 ///   2 days ago 13:30 · 13:30, 08/26 · 13:30 08/26/2026
 enum ChatTime {
-    /// Gap after which a message gets its own timestamp.
-    static let separatorInterval: TimeInterval = 5 * 60
+    /// Gap after which a message gets its own timestamp, as in iMessage.
+    static let separatorInterval: TimeInterval = 15 * 60
 
     static func label(for date: Date, now: Date = .now, calendar: Calendar = .current) -> String {
         let seconds = now.timeIntervalSince(date)
@@ -44,10 +44,11 @@ enum ChatTime {
         }
     }
 
-    /// Whether `message` should carry a timestamp given the one before it.
-    static func showsTimestamp(_ date: Date?, after previous: Date?) -> Bool {
+    /// Whether `message` should carry a timestamp given the one before it:
+    /// it follows a pause or starts a new day.
+    static func showsTimestamp(_ date: Date?, after previous: Date?, calendar: Calendar = .current) -> Bool {
         guard let date else { return false }
         guard let previous else { return true }
-        return date.timeIntervalSince(previous) > separatorInterval
+        return date.timeIntervalSince(previous) > separatorInterval || !calendar.isDate(date, inSameDayAs: previous)
     }
 }

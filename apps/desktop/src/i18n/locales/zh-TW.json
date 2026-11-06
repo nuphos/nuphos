@@ -5738,5 +5738,7 @@
   "{name} (turned off)": "{name}（已停用）",
   "Unpin from toolbar": "從工具列取消固定",
   "Pin to toolbar": "固定到工具列",
-  "Remove from Nuphos…": "從 Nuphos 移除…"
+  "Remove from Nuphos…": "從 Nuphos 移除…",
+  "Today {time}": "今天 {time}",
+  "Yesterday {time}": "昨天 {time}"
 }
