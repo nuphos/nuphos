@@ -19,7 +19,8 @@ enum TransferFiles {
             locals[item.id] = path(item, root)
         }
         guard locals.count < wanted.count else { return locals }
-        let fresh = (try? await links()) ?? []
+        // An uncached tap reports why the links could not be read (offline, say).
+        let fresh = locals[tapped.id] == nil ? try await links() : (try? await links()) ?? []
         func remote(_ item: TransferDownloadGroup.File) -> URL? {
             fresh.first(where: { $0.id == item.id })?.downloadUrl.flatMap(URL.init(string:))
         }
@@ -36,6 +37,11 @@ enum TransferFiles {
         }
         trim(root, keeping: Set(locals.keys))
         return locals
+    }
+
+    /// Drops every copy, so files do not outlive the account that could read them.
+    static func clear(_ root: URL = defaultRoot) {
+        try? FileManager.default.removeItem(at: root)
     }
 
     private static func path(_ file: TransferDownloadGroup.File, _ root: URL) -> URL {

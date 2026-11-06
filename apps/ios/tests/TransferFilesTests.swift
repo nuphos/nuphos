@@ -82,6 +82,10 @@ enum TransferFilesTests {
         precondition(links.reads == 2 && Store.requests.count == 3, "the first PDF open fetches it")
         _ = await open([pdf], pdf, links, root)
         precondition(links.reads == 2 && Store.requests.count == 3, "a second PDF open makes no request")
+
+        TransferFiles.clear(root)
+        _ = await open([pdf], pdf, links, root)
+        precondition(links.reads == 3 && Store.requests.count == 4, "after sign-out clears the copies, a file is fetched again")
     }
 
     private static func fetchesOnlyWhatIsMissing() async {
@@ -102,6 +106,12 @@ enum TransferFilesTests {
         links.failing = true
         let locals = await open([a, b], a, links, root)
         precondition(locals.keys.sorted() == ["img-a"], "a copy on disk opens without fresh links")
+        do {
+            _ = try await TransferFiles.localCopies(of: [b], tapped: b, links: { try links.read() }, root: root, session: session)
+            preconditionFailure("an uncached file cannot open offline")
+        } catch let error as URLError {
+            precondition(error.code == .notConnectedToInternet, "an uncached file offline reports the network error, got \(error.code)")
+        } catch { preconditionFailure("unexpected \(error)") }
     }
 
     private static func keepsTheCopiesBounded() {

@@ -293,6 +293,7 @@ final class AuthSession {
         SharedShareSession.revoke()
         Keychain.delete(Self.tokenKey)
         LaunchCache.clear()
+        TransferFiles.clear()
         token = nil
         aiConsentAccepted = false
         aiConsentVersion = nil

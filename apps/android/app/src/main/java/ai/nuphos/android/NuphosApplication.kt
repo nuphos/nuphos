@@ -36,7 +36,12 @@ class NuphosApplication : Application() {
         localNotifications = ai.nuphos.android.notifications.LocalNotifications(this, { authSession.user?.id }, { authSession.aiAllowed })
         pushNotifications = ai.nuphos.android.notifications.PushNotifications(this)
         ai.nuphos.android.session.AiAccess.onRevoked = { pushNotifications.reset(clearPending = false); incomingShares.identityReset() }
-        authSession.onIdentityReset = { pushNotifications.reset(); incomingShares.identityReset() }
+        authSession.onIdentityReset = {
+            pushNotifications.reset()
+            incomingShares.identityReset()
+            // Downloaded attachments must not outlive the account that could read them.
+            cacheDir.listFiles { file -> file.name.startsWith("transfer-") }?.forEach { it.deleteRecursively() }
+        }
         authSession.awaitIdentityCleanup = { incomingShares.awaitIdle() }
         authSession.beforeSessionEnd = { pushNotifications.awaitUnregistered() }
         registerActivityLifecycleCallbacks(pushNotifications)
