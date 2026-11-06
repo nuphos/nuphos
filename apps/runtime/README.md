@@ -155,6 +155,20 @@ current member. Conversation history is stored under the persistent runtime home
 survives reconnects and member changes. Mount `/home/node` persistently. Do not put
 credentials in the image or repository.
 
+After installing `image/pi-acp` dependencies, run the live check from the repository root:
+
+```bash
+NUPHOS_PI_CONFIG_DIR=/path/to/private/pi-config \
+NUPHOS_TEST_ROOT=/path/to/private/test-output \
+NUPHOS_TEST_MCP_COMMAND=/path/to/mcp-server-filesystem \
+node apps/runtime/test/pi-live.mjs
+```
+
+This uses a real configured model and the official filesystem MCP server. It checks
+file creation, MCP tool execution, process restart and another member resuming the
+same conversation. Each run creates a separate workspace. Without
+`NUPHOS_TEST_MCP_COMMAND`, the result explicitly reports that MCP was not exercised.
+
 ## Building
 
 Two builds, in order. The base is the gateway, built from `openab/`; the
