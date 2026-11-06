@@ -41,7 +41,7 @@ class SignedInDevicesFixtureDeviceTest {
 
     private fun render(load: DevicesLoad) {
         compose.setContent {
-            NuphosTheme(darkTheme = false) {
+            NuphosTheme {
                 Surface(Modifier.fillMaxSize()) {
                     Column(Modifier.systemBarsPadding().padding(top = 16.dp)) {
                         SignedInDevicesContent(

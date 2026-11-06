@@ -65,6 +65,9 @@ class PullRefreshFixtureDeviceTest {
 
     private val network = object : ExternalResource() {
         override fun before() {
+            // A fresh install otherwise prompts for notifications on top of the first test.
+            InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(
+                InstrumentationRegistry.getInstrumentation().targetContext.packageName, android.Manifest.permission.POST_NOTIFICATIONS)
             check(InstrumentationRegistry.getInstrumentation().targetContext.packageName.let { it.endsWith(".refreshfixture") || it.endsWith(".listrefresh1319") }) { "Run only in the isolated refresh fixture package" }
             app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
             preferences = app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).all.toMap()
@@ -155,7 +158,7 @@ class PullRefreshFixtureDeviceTest {
             fixtureAuth.composerDrafts.onIdentity("refresh-fixture")
             val auth = fixtureAuth
             compose.activity.setContent {
-                NuphosTheme(darkTheme = false) { CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
+                NuphosTheme { CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
                     val nav = rememberNavController()
                     navController = nav
                     androidx.compose.runtime.SideEffect {

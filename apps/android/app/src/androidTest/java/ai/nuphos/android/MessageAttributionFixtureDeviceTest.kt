@@ -31,7 +31,7 @@ class MessageAttributionFixtureDeviceTest {
     @get:Rule val compose = createComposeRule()
     private fun render() {
         compose.setContent {
-            NuphosTheme(darkTheme = false) {
+            NuphosTheme {
                 Surface {
                     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("Message attribution fixture", style = MaterialTheme.typography.titleLarge)
@@ -83,7 +83,7 @@ class MessageAttributionFixtureDeviceTest {
     private fun message(sender: MessageAttribution?, text: String, images: Int = 0, width: Int = 400) {
         val sources = List(images) { image() }
         compose.setContent {
-            NuphosTheme(darkTheme = false) {
+            NuphosTheme {
                 Surface {
                     Box(Modifier.width(width.dp).testTag("message")) {
                         UserMessageContent(sender, text) { MessageImages(sources, "message", alignEnd = true) }
