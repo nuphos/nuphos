@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { derivedAvatar } from '@/lib/agent/bot-avatars'
 import { startConversationTurn } from '@/lib/agent/conversation-turn'
 import {
+  claimBotAvatar,
   getReadableConversation,
   setConversationAvatar,
   upsertConversationShell,
@@ -111,9 +112,14 @@ agent.post('/conversations/:sessionId/bot', async (c) => {
   if (conversation.avatar) return c.json({ avatar: conversation.avatar })
   const avatar = derivedAvatar(sessionId)
 
-  if (!(await setConversationAvatar(sessionId, avatar)))
-    throw new AppError(404, 'not_found', 'Conversation not found')
-  // Runs or queues as its own turn; the reply streams to whoever watches.
+  // A second click that lost the race finds the face set: nothing more to do.
+  if (!(await claimBotAvatar(sessionId, avatar))) {
+    const current = await getReadableConversation(sessionId, userId, teamId)
+
+    return c.json({ avatar: current?.avatar ?? avatar })
+  }
+  // Runs or queues as its own turn; the reply streams to whoever watches. Both
+  // the hand-off and the turn itself report a failure here, not as unhandled.
   void startConversationTurn(
     {
       userId,
@@ -131,7 +137,9 @@ agent.post('/conversations/:sessionId/bot', async (c) => {
       source: 'agent.resource',
       sentAt: new Date().toISOString(),
     },
-  ).catch((error: unknown) => logError('agent.make_bot.turn_failed', error))
+  )
+    .then(({ run }) => run)
+    .catch((error: unknown) => logError('agent.make_bot.turn_failed', error))
 
   return c.json({ avatar })
 })
