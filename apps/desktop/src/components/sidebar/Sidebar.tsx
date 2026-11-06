@@ -108,7 +108,7 @@ export const Sidebar = memo(function Sidebar({
   const teamView = view.level === 0
   const settingsBack = dynamicNavigation ? settingsBackTarget(scope, active) : null
 
-  const { favoriteMatch, canFavorite, toggleFavorite, movePinned, favoriteItems, pinnedChatItems } =
+  const { favoriteMatch, canFavorite, toggleFavorite, movePinned, favoriteItems } =
     useSidebarFavorites({
       userId: user?.id ?? '',
       teamId,
@@ -123,9 +123,7 @@ export const Sidebar = memo(function Sidebar({
 
   const [itemMenu, setItemMenu] = useState<ItemMenuRequest | null>(null)
 
-  const renderSections = teamView
-    ? withChatSections(sections, pinnedChatItems, favoriteMatch)
-    : [...sections]
+  const renderSections = teamView ? withChatSections(sections) : [...sections]
 
   if (dynamicNavigation && teamView && favoriteItems.length > 0) {
     renderSections.splice(1, 0, { title: 'Favorites', items: favoriteItems })

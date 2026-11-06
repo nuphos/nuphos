@@ -44,6 +44,7 @@ export function chatSidebarItem({
     enabled: true,
     active,
     ...(conversation.kind === 'channel' ? { channel: true } : {}),
+    ...(conversation.avatar && conversation.kind !== 'channel' ? { bot: true } : {}),
     ...chatRowAccess(conversation),
     ...(conversation.watching !== undefined ? { watching: conversation.watching } : {}),
     ...(conversation.parentSessionId

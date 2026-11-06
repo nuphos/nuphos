@@ -5753,5 +5753,6 @@
   "API key removed": "API キーを削除しました",
   "Could not remove the API key": "API キーを削除できませんでした",
   "Remove API key": "API キーを削除",
-  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "ランタイムがキーを受け取りませんでした。実行しているコンピューターの Nuphos を更新してから、もう一度お試しください。"
+  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "ランタイムがキーを受け取りませんでした。実行しているコンピューターの Nuphos を更新してから、もう一度お試しください。",
+  "Bots": "ボット"
 }

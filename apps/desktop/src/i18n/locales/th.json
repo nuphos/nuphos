@@ -5753,5 +5753,6 @@
   "API key removed": "ลบคีย์ API แล้ว",
   "Could not remove the API key": "ลบคีย์ API ไม่ได้",
   "Remove API key": "ลบคีย์ API",
-  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "รันไทม์ไม่ได้รับคีย์ โปรดอัปเดต Nuphos บนคอมพิวเตอร์ที่รันไทม์ทำงานอยู่ แล้วลองอีกครั้ง"
+  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "รันไทม์ไม่ได้รับคีย์ โปรดอัปเดต Nuphos บนคอมพิวเตอร์ที่รันไทม์ทำงานอยู่ แล้วลองอีกครั้ง",
+  "Bots": "บอท"
 }

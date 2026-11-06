@@ -5,6 +5,8 @@ import { t } from '../../i18n'
 export const SECTION_LABELS: Record<string, string> = {
   Channels: t('Chats'),
   Agents: t('Agents'),
+  Bots: t('Bots'),
+  Tasks: t('Tasks'),
   Pinned: t('Pinned'),
   Favorites: t('Favorites'),
 }

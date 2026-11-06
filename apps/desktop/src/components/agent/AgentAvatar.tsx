@@ -9,7 +9,10 @@ import { AgentProviderIcon } from './panel/icons'
 
 import type { AgentProvider } from '../../types/runtime'
 
-/** Agent identity stays stable when its title or Runtime changes. */
+/**
+ * A Bot wears its face; a Task (no avatar) shows its Runtime's icon. The face
+ * stays stable when the title or Runtime changes.
+ */
 export function AgentAvatar({
   agentId,
   avatar,
@@ -29,6 +32,7 @@ export function AgentAvatar({
 }) {
   const { botAvatars, density } = useAgentAppearance()
   const seen = useAgentAvatarPick(agentId)
+  const picked = seen === undefined ? avatar : seen
   const running = runtimeTurnActive(useAgentRuntimeStates().get(agentId))
   const sidebarSize = density === 'compact' ? 22 : 30
   const box = sidebar ? sidebarSize : size
@@ -43,10 +47,10 @@ export function AgentAvatar({
       className="relative inline-flex shrink-0 items-center justify-center align-middle"
       style={{ width: box, height: box }}
     >
-      {botAvatars ? (
+      {botAvatars && picked ? (
         <>
           <BotAvatarImage
-            file={botAvatarFile(agentId, seen === undefined ? avatar : seen)}
+            file={botAvatarFile(agentId, picked)}
             looping={animated && running}
             className="absolute left-0 top-0 object-contain"
             style={{ width: box, height: box }}

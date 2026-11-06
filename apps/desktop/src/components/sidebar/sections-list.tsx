@@ -126,9 +126,7 @@ export function SidebarSectionList({
                   nestItems(section.items, (key) => isGroupCollapsed({ title: key })).map(
                     ({ item, trail, hasChildren, hidden, done }) => {
                       const Icon = item.icon
-                      const leading = item.task
-                        ? null
-                        : (item.iconNode ?? (Icon && <SidebarNavIcon icon={Icon} />))
+                      const leading = item.iconNode ?? (Icon && <SidebarNavIcon icon={Icon} />)
                       const inPinned = section.title === 'Pinned'
                       const isActive =
                         item.enabled &&

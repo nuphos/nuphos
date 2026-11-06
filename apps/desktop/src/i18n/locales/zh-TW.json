@@ -5753,5 +5753,6 @@
   "API key removed": "已移除 API 金鑰",
   "Could not remove the API key": "無法移除 API 金鑰",
   "Remove API key": "移除 API 金鑰",
-  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "執行環境沒有接收這組金鑰。請更新執行它的電腦上的 Nuphos，然後再試一次。"
+  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "執行環境沒有接收這組金鑰。請更新執行它的電腦上的 Nuphos，然後再試一次。",
+  "Bots": "Bot"
 }

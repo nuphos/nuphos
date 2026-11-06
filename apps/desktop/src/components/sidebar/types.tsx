@@ -18,8 +18,8 @@ export type Item = {
   description?: ReactNode
   icon?: LucideIcon
   iconNode?: ReactNode
-  /** Listed as a task, not an agent: no leading mark, the title leads. */
-  task?: boolean
+  /** A Bot (a conversation with an avatar), listed under Bots; every other agent row is a Task. */
+  bot?: boolean
   enabled: boolean
   active?: boolean
   /** Optional count to render as a small badge to the right of the label. */

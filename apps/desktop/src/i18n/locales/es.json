@@ -5753,5 +5753,6 @@
   "API key removed": "Clave de API eliminada",
   "Could not remove the API key": "No se pudo eliminar la clave de API",
   "Remove API key": "Eliminar clave de API",
-  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "El entorno de ejecución no aceptó la clave. Actualiza Nuphos en el equipo donde se ejecuta y vuelve a intentarlo."
+  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "El entorno de ejecución no aceptó la clave. Actualiza Nuphos en el equipo donde se ejecuta y vuelve a intentarlo.",
+  "Bots": "Bots"
 }

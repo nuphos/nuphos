@@ -5,74 +5,84 @@ import { withChatSections } from './chat-sections.ts'
 
 import type { Item, Section } from './types'
 
-const row = (key: string, parentKey?: string): Item => ({
+const row = (
+  key: string,
+  { parentKey, bot }: { parentKey?: string; bot?: boolean } = {},
+): Item => ({
   key,
   label: key,
   enabled: true,
   ...(parentKey ? { parentKey } : {}),
+  ...(bot ? { bot } : {}),
 })
 const layout = (sections: Section[]) =>
   Object.fromEntries(
     sections.map((section) => [section.title ?? '', section.items.map((item) => item.key)]),
   )
-const build = (chats: Item[], pinned: string[]) =>
-  layout(
-    withChatSections(
-      [{ items: [] }, { title: 'Agents', items: chats }],
-      chats.filter((item) => pinned.includes(item.key)),
-      (item) => pinned.includes(item.key),
-    ),
-  )
+const build = (chats: Item[]) =>
+  layout(withChatSections([{ items: [] }, { title: 'Agents', items: chats }]))
 
-test('a pinned conversation takes its threads to Pinned', () => {
-  const chats = [row('thread', 'parent'), row('grandchild', 'thread'), row('parent'), row('other')]
-
-  assert.deepEqual(build(chats, ['parent']), {
+test('a conversation with an avatar is a Bot; everything else is a Task', () => {
+  assert.deepEqual(build([row('task'), row('helper', { bot: true })]), {
     '': [],
-    Pinned: ['parent', 'thread', 'grandchild'],
-    Agents: ['other'],
+    Bots: ['helper'],
+    Tasks: ['task'],
   })
 })
 
-test('a pinned thread leaves its parent and takes its own threads along', () => {
+test('Bots are ordered by name, Tasks keep newest first', () => {
   const chats = [
-    row('parent'),
-    row('thread', 'parent'),
-    row('grandchild', 'thread'),
-    row('sibling', 'parent'),
+    row('newest-task'),
+    row('zeta', { bot: true }),
+    row('older-task'),
+    row('alpha', { bot: true }),
   ]
 
-  assert.deepEqual(build(chats, ['thread']), {
+  assert.deepEqual(build(chats), {
     '': [],
-    Pinned: ['thread', 'grandchild'],
-    Agents: ['parent', 'sibling'],
+    Bots: ['alpha', 'zeta'],
+    Tasks: ['newest-task', 'older-task'],
   })
 })
 
-test('a parent cycle does not loop', () => {
-  assert.deepEqual(build([row('a', 'b'), row('b', 'a')], []), { '': [], Agents: ['a', 'b'] })
+test('a Bot keeps the Tasks it started, and a Bot thread takes its own along', () => {
+  const chats = [
+    row('task-of-bot', { parentKey: 'bot' }),
+    row('grandchild', { parentKey: 'task-of-bot' }),
+    row('bot', { bot: true }),
+    row('parent'),
+    row('bot-thread', { parentKey: 'parent', bot: true }),
+    row('its-task', { parentKey: 'bot-thread' }),
+  ]
+
+  assert.deepEqual(build(chats), {
+    '': [],
+    Bots: ['bot', 'bot-thread', 'task-of-bot', 'grandchild', 'its-task'],
+    Tasks: ['parent'],
+  })
 })
 
-test('a pinned chat that left the chat list, like an archived one, leaves Pinned', () => {
-  const pinned = ['archived', 'kept']
-  const sidebar = (chats: Item[]) =>
-    layout(
-      withChatSections(
-        [{ items: [] }, { title: 'Agents', items: chats }],
-        pinned.map((key) => row(key)),
-        (item) => pinned.includes(item.key),
-      ),
-    )
+test('a Bot drops its linked-work line; a Task keeps it', () => {
+  const sections = withChatSections([
+    {
+      title: 'Agents',
+      items: [
+        { ...row('bot', { bot: true }), description: 'PR' },
+        { ...row('task'), description: 'PR' },
+      ],
+    },
+  ])
 
-  assert.deepEqual(sidebar([row('kept'), row('other')]), {
+  assert.deepEqual(
+    sections.map((section) => section.items.map((item) => item.description)),
+    [[undefined], ['PR']],
+  )
+})
+
+test('a parent cycle does not loop, and an empty group adds no section', () => {
+  assert.deepEqual(build([row('a', { parentKey: 'b' }), row('b', { parentKey: 'a' })]), {
     '': [],
-    Pinned: ['kept'],
-    Agents: ['other'],
+    Tasks: ['a', 'b'],
   })
-  // Restored, it lists again and is back in Pinned.
-  assert.deepEqual(sidebar([row('archived'), row('kept'), row('other')]), {
-    '': [],
-    Pinned: ['archived', 'kept'],
-    Agents: ['other'],
-  })
+  assert.deepEqual(build([]), { '': [] })
 })

@@ -20,8 +20,6 @@ export function RowDetail({ item }: { item: Item }) {
         'group-hover/session:pointer-events-auto group-hover/session:translate-y-0 group-hover/session:opacity-100',
         'group-focus-within/session:pointer-events-auto group-focus-within/session:translate-y-0',
         'group-focus-within/session:opacity-100 motion-reduce:transition-none [&>*]:pb-0',
-        // A task has no leading mark, so its detail starts at the row inset.
-        item.task && '[&>*]:pl-2',
       )}
     >
       {item.description}

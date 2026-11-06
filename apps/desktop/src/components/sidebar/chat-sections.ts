@@ -2,51 +2,43 @@ import type { Item, Section } from './types'
 import type { ReactNode } from 'react'
 
 /**
- * The chat groups in team view: what the viewer pinned, above their own Chats.
- * A thread goes wherever the row it nests under goes, so a pinned conversation
- * keeps its threads exactly as Chats would show them; a pinned thread takes its
- * own threads to Pinned. Pinned only holds chats the chat list still has, so
- * an archived chat leaves Pinned with its row and is back when it is restored.
- * No chat is listed twice, and an empty group contributes no section at all.
+ * The agent groups in team view: Bots, then Tasks. A Bot is a conversation
+ * with an avatar; everything else is a Task. A thread goes wherever the row it
+ * nests under goes, so a Bot keeps the Tasks it started, and a Bot started as a
+ * thread takes its own threads to Bots. Bots are ordered by name, a stable
+ * list that needs no stored order; Tasks keep the list's newest-first order.
+ * An empty group contributes no section at all.
  */
-export function withChatSections(
-  sections: Section[],
-  pinnedChatItems: Item[],
-  isPinned: (item: Item) => unknown,
-): Section[] {
+const byBotName = (a: Item, b: Item) => (a.bot && b.bot ? a.label.localeCompare(b.label) : 0)
+
+export function withChatSections(sections: Section[]): Section[] {
   const chatItems = sections.find((section) => section.title === 'Agents')?.items ?? []
   const byKey = new Map(chatItems.map((item) => [item.key, item]))
-  const inPinned = (item: Item, seen = new Set<string>()): boolean => {
-    if (isPinned(item)) return true
+  const inBots = (item: Item, seen = new Set<string>()): boolean => {
+    if (item.bot) return true
     const parent = item.parentKey ? byKey.get(item.parentKey) : undefined
 
-    return Boolean(parent && !seen.has(item.key) && inPinned(parent, seen.add(item.key)))
+    return Boolean(parent && !seen.has(item.key) && inBots(parent, seen.add(item.key)))
   }
-  // A kept agent is who it is: its name and face. Its work stays in its tasks.
-  const pinned = [
-    ...pinnedChatItems.filter((item) => byKey.has(item.key)),
-    ...chatItems.filter((item) => !isPinned(item) && inPinned(item)),
-  ].map((item) => ({ ...item, description: undefined }))
-  const result = sections.flatMap((section) => {
+  // A Bot is who it is: its name and face. Its work stays in its Tasks.
+  const bots = chatItems
+    .filter((item) => inBots(item))
+    .map((item) => (item.bot ? { ...item, description: undefined } : item))
+    // Bots by name; their Tasks keep their order and nest back under them.
+    .sort((a, b) => Number(Boolean(b.bot)) - Number(Boolean(a.bot)) || byBotName(a, b))
+  const tasks = chatItems.filter((item) => !inBots(item))
+
+  return sections.flatMap((section) => {
     if (section.title !== 'Agents') return [section]
-    // Everything not kept as an agent is a task: no face and no mark, the title
-    // leads, and its state stays at the right edge, shown only when it matters.
-    const items = chatItems
-      .filter((item) => !inPinned(item))
-      .map((item) => ({ ...item, iconNode: undefined, icon: undefined, task: true }))
 
-    return items.length > 0 ? [{ ...section, items }] : []
+    return [
+      ...(bots.length > 0 ? [{ title: 'Bots', items: bots }] : []),
+      ...(tasks.length > 0 ? [{ title: 'Tasks', items: tasks }] : []),
+    ]
   })
-  const chatsIndex = result.findIndex((section) => section.title === 'Agents')
-
-  if (pinned.length > 0) {
-    result.splice(chatsIndex === -1 ? 1 : chatsIndex, 0, { title: 'Pinned', items: pinned })
-  }
-
-  return result
 }
 
-const CHAT_SECTIONS = new Set<string | undefined>(['Pinned', 'Channels', 'Agents'])
+const CHAT_SECTIONS = new Set<string | undefined>(['Channels', 'Agents', 'Bots', 'Tasks'])
 
 /** The sections that hold chats, the only ones a split sidebar keeps. */
 export function isChatSection(section: Section): boolean {
