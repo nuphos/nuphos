@@ -1,7 +1,6 @@
 package ai.nuphos.android
 
 import ai.nuphos.android.data.NuphosApi
-import ai.nuphos.android.model.ConversationScope
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -16,10 +15,4 @@ class ConversationListQueryTest {
         assertEquals("needle", query["search"])
     }
 
-    @Test fun triggerRunsKeepTeamScopeAndActivityOrder() {
-        val trigger = NuphosApi.conversationQuery("team", scope = ConversationScope.Mine, triggerId = "aaaaaaaaaaaaaaaaaaaaaaaa").toMap()
-        assertEquals("activity", trigger["sort"])
-        assertEquals("team", trigger["scope"])
-        assertEquals("aaaaaaaaaaaaaaaaaaaaaaaa", trigger["triggerId"])
-    }
 }

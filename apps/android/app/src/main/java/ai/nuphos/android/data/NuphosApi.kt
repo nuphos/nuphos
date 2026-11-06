@@ -1,6 +1,5 @@
 package ai.nuphos.android.data
 
-import ai.nuphos.android.model.validTriggerId
 import ai.nuphos.android.model.AgentConversationDetail
 import ai.nuphos.android.model.AgentConversationsPage
 import ai.nuphos.android.model.ChannelAgent
@@ -58,10 +57,9 @@ object NuphosApi {
         scope: ConversationScope = ConversationScope.Mine,
         search: String? = null,
         includeArchived: Boolean = false,
-        triggerId: String? = null,
         channels: Boolean = false,
     ): AgentConversationsPage {
-        val query = conversationQuery(teamId, cursor, limit, scope, search, includeArchived, triggerId, channels)
+        val query = conversationQuery(teamId, cursor, limit, scope, search, includeArchived, channels)
         return get("agent/conversations", token, query, timeoutSeconds = 20)
     }
 
@@ -72,19 +70,14 @@ object NuphosApi {
         scope: ConversationScope = ConversationScope.Mine,
         search: String? = null,
         includeArchived: Boolean = false,
-        triggerId: String? = null,
         channels: Boolean = false,
     ): List<Pair<String, String>> {
-        if (triggerId != null) {
-            require(teamId.isNotBlank() && validTriggerId(triggerId)) { "Select a valid trigger and team." }
-        }
         return buildList {
             add("teamId" to teamId)
             add("limit" to limit.toString())
             // Same fixed order as iOS: most recent activity first.
             add("sort" to "activity")
-            add("scope" to if (triggerId != null) ConversationScope.Team.raw else scope.raw)
-            if (triggerId != null) add("triggerId" to triggerId)
+            add("scope" to scope.raw)
             if (cursor != null) add("cursor" to cursor)
             if (!search.isNullOrEmpty()) add("search" to search)
             if (!includeArchived) add("archived" to "exclude")

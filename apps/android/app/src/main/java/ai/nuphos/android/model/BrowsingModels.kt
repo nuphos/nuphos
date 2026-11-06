@@ -10,7 +10,6 @@ fun providerHttpsUrl(value: String?): String? = value?.let {
 }
 
 private fun JsonValue.text(key: String) = this[key]?.stringValue?.takeIf { it.isNotBlank() }
-fun validTriggerId(value: String?) = value != null && Regex("[a-fA-F0-9]{24}").matches(value)
 
 data class MonitoringRow(
     val id: String, val provider: String, val integrationId: String, val integrationLabel: String,
@@ -38,30 +37,6 @@ data class MonitoringOverview(val rows: List<MonitoringRow> = emptyList(), val p
                 MonitoringProviderError(provider, integration, row.text("integrationLabel") ?: integration, "Could not load this provider. Refresh to try again.")
             }
             return MonitoringOverview(rows, errors)
-        }
-    }
-}
-data class TriggerRow(
-    val id: String, val name: String, val triggerType: String, val enabled: Boolean,
-    val cronExpression: String? = null, val nextRuns: List<String> = emptyList(),
-    val executionPrincipalId: String? = null, val authorizationStatus: String? = null,
-    val providerCleanupStatus: String? = null, val watchGroupId: String? = null,
-    val providerHint: String? = null, val createdAt: String? = null, val updatedAt: String? = null,
-    val expiresAt: String? = null, val lastExecutedAt: String? = null, val scheduleTimezone: String = "UTC",
-) {
-    companion object {
-        fun decodeList(value: JsonValue): List<TriggerRow> {
-            require(value.arrayValue != null) { "Invalid trigger response" }
-            return value.arrayValue.orEmpty().take(100).mapNotNull { row ->
-                val id = row.text("id")?.takeIf(::validTriggerId) ?: return@mapNotNull null
-                val type = row.text("triggerType") ?: return@mapNotNull null
-                val enabled = row["enabled"]?.boolValue ?: return@mapNotNull null
-                TriggerRow(id, row.text("name") ?: "Unnamed trigger", type, enabled,
-                    row.text("cronExpression"), row["nextRuns"]?.arrayValue.orEmpty().mapNotNull { it.stringValue },
-                    row.text("executionPrincipalUserId"), row.text("executionAuthorizationStatus"),
-                    row.text("cleanupStatus"), row.text("watchGroupId"), row.text("providerHint"),
-                    row.text("createdAt"), row.text("updatedAt"), row.text("expiresAt"), row.text("lastRunAt"))
-            }.distinctBy { it.id }
         }
     }
 }
