@@ -195,7 +195,16 @@ class AccountParityFixtureDeviceTest {
             if (savedToken == null) app.tokenStore.clear() else app.tokenStore.write(requireNotNull(savedToken))
             originals.forEach { (name, client) -> Http::class.java.getDeclaredField(name).also { it.isAccessible = true }.set(null, client) }
             assertTrue("Installed token changed (values withheld)", savedToken == app.tokenStore.read())
-            assertTrue("Installed preferences changed (values withheld)", preferences == app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).all)
+            // Loading the fixture's team and chats makes the app remember both.
+            app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).edit().apply {
+                val previousTeam = preferences["nuphos.workspace.lastTeamId"] as String?
+                if (previousTeam == null) remove("nuphos.workspace.lastTeamId") else putString("nuphos.workspace.lastTeamId", previousTeam)
+                val previousChats = preferences["nuphos.home.hasChats"] as Boolean?
+                if (previousChats == null) remove("nuphos.home.hasChats") else putBoolean("nuphos.home.hasChats", previousChats)
+            }.commit()
+            val installed = app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).all
+            val changedKeys = (preferences.keys + installed.keys).filter { preferences[it] != installed[it] }
+            assertTrue("Installed preferences changed (values withheld): $changedKeys", changedKeys.isEmpty())
             assertTrue("Unexpected endpoint or body (values withheld): $unexpected", unexpected.isEmpty())
         }
     }
@@ -241,6 +250,8 @@ class AccountParityFixtureDeviceTest {
         awaitText("Edit profile")
     }
     private fun deletion() { account(); tap("Account deletion request"); awaitText("Request permanent deletion") }
+    /** The profile sheet's top bar doesn't scroll, so its actions are tapped where they are. */
+    private fun tapAction(text: String) = compose.onNodeWithText(text).performClick()
     private fun enter(label: String, value: String) = compose.onNodeWithText(label).performScrollTo().performTextReplacement(value)
     private fun submits() = count("POST", "/auth/account-deletion")
 
@@ -331,7 +342,9 @@ class AccountParityFixtureDeviceTest {
             }
         }
         awaitText("Draft chat one")
-        fun input() = compose.onNodeWithContentDescription("Ask Nuphos anything")
+        // The new-chat composer stays composed at zero size behind an open chat.
+        val laidOut = SemanticsMatcher("has a size") { it.size.width > 0 && it.size.height > 0 }
+        fun input() = compose.onNode(hasContentDescription("Ask Nuphos anything") and laidOut)
         fun backToHistory() {
             compose.onNodeWithContentDescription("Back").performClick()
             compose.waitUntil(8_000) { compose.onAllNodesWithText("Draft chat one", useUnmergedTree = true).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
@@ -385,6 +398,7 @@ class AccountParityFixtureDeviceTest {
     }
 
     @Test fun composerDisabledFalseRejectedAndAcceptedSubmitKeepCorrectTextOwnership() {
+        draftTeam = true
         awaitText("Before you use AI agents")
         compose.waitUntil(8_000) { !app.authSession.consentBusy }
         val token = requireNotNull(app.authSession.token)
@@ -398,13 +412,19 @@ class AccountParityFixtureDeviceTest {
         val visible = androidx.compose.runtime.mutableStateOf(true)
         var attempts = 0
         var restored = 0
+        lateinit var agent: ai.nuphos.android.session.AgentStore
+        // The root binds this only after agreement; the composer stays disabled until then.
+        runBlocking { app.incomingShares.bindAccount(account) }
         compose.runOnIdle {
             AiAccess.grant(token)
             other.write("unrelated")
-            val agent = ai.nuphos.android.session.AgentStore(token, app)
+            agent = ai.nuphos.android.session.AgentStore(token, app)
             compose.activity.setContent {
                 ai.nuphos.android.ui.theme.NuphosTheme {
-                    androidx.compose.runtime.CompositionLocalProvider(ai.nuphos.android.ui.LocalAgentStore provides agent) {
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        ai.nuphos.android.ui.LocalAuthSession provides app.authSession,
+                        ai.nuphos.android.ui.LocalAgentStore provides agent,
+                    ) {
                         if (visible.value) ai.nuphos.android.ui.chat.ChatComposer(
                             isStreaming = false, draft = draft, canSubmit = enabled.value,
                             onSend = { attempts++; accepts.value }, rejectedSubmission = rejected.value,
@@ -414,6 +434,9 @@ class AccountParityFixtureDeviceTest {
                 }
             }
         }
+        // Sending needs the draft's team to be the selected one.
+        runBlocking(Dispatchers.Main) { agent.loadTeams() }
+        compose.waitUntil(8_000) { agent.selectedTeam?.id == "aaaaaaaaaaaaaaaaaaaaaaaa" }
         fun input() = compose.onNodeWithContentDescription("Ask Nuphos anything")
         input().performTextReplacement("  unsent\n ")
         compose.onNodeWithContentDescription("Send").performClick()
@@ -421,12 +444,14 @@ class AccountParityFixtureDeviceTest {
         assertEquals(0, attempts)
         compose.runOnIdle { enabled.value = true }
         compose.onNodeWithContentDescription("Send").performClick()
+        compose.waitUntil(8_000) { attempts == 1 }
+        compose.waitForIdle()
         input().assertTextEquals("  unsent\n ")
-        assertEquals(1, attempts)
         compose.runOnIdle { accepts.value = true }
         compose.onNodeWithContentDescription("Send").performClick()
+        compose.waitUntil(8_000) { attempts == 2 }
+        compose.waitForIdle()
         input().assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.EditableText, androidx.compose.ui.text.AnnotatedString("")))
-        assertEquals(2, attempts)
         assertEquals("unrelated", other.text)
         compose.runOnIdle { visible.value = false }
         compose.waitForIdle()
@@ -444,18 +469,18 @@ class AccountParityFixtureDeviceTest {
         tap("Edit profile")
         screenshot("edit-profile")
         enter("Name", "Cancelled fixture name")
-        tap("Cancel")
+        tapAction("Cancel")
         assertEquals("Cancel sent a profile mutation", 0, count("PATCH", "/auth/me"))
         tap("Edit profile")
         enter("Username", "occupied_fixture")
-        tap("Save")
+        tapAction("Save")
         awaitText("That username is already in use. Choose another one.")
         compose.onNodeWithText("occupied_fixture").assertExists()
         assertEquals("Conflict changed authenticated user", "account_fixture", app.authSession.user?.username)
-        tap("Cancel")
+        tapAction("Cancel")
         tap("Edit profile")
         enter("Name", "Updated fixture name")
-        tap("Save")
+        tapAction("Save")
         compose.waitUntil(8_000) { app.authSession.user?.name == "Updated fixture name" }
         compose.waitUntil(8_000) { compose.onAllNodesWithText("Save").fetchSemanticsNodes().isEmpty() }
         compose.onAllNodesWithText("Updated fixture name").onFirst().assertIsDisplayed()
@@ -602,9 +627,10 @@ class AccountParityFixtureDeviceTest {
         consentReadMode = "error"
         compose.runOnUiThread { app.authSession.loadAIConsent() }
         awaitText("We could not load your AI sharing choice. Retry or manage your account.")
-        compose.onNodeWithText("Agree and continue").performScrollTo().assertIsNotEnabled()
+        // Without a confirmed notice version the recovery screen offers no way to agree.
+        compose.onNodeWithText("Agree and continue").assertDoesNotExist()
         assertEquals("Failed consent read initialized teams", 0, count("GET", "/teams"))
-        tap("Not now — manage my account")
+        tap("Manage my account")
         awaitText("Edit profile")
         assertNotNull("Consent error removed authenticated account access", app.authSession.user)
         assertTrue(InstrumentationRegistry.getInstrumentation().uiAutomation.performGlobalAction(
@@ -613,7 +639,7 @@ class AccountParityFixtureDeviceTest {
         consentReadMode = "unsupported"
         tap("Retry loading consent")
         awaitText("This privacy notice has changed. Please update Nuphos before using AI.")
-        compose.onNodeWithText("Agree and continue").performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithText("Agree and continue").assertDoesNotExist()
         assertFalse("Unsupported version granted AI access", app.authSession.aiAllowed)
         consentReadMode = "valid"
         tap("Retry loading consent")
