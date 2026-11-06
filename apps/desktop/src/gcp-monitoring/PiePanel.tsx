@@ -50,9 +50,9 @@ export function GcpPiePanel({ frames, unit, donut, showLabels }: Props) {
           <Tooltip
             formatter={(value) => formatValue(Number(value), unit)}
             contentStyle={{
-              border: '1px solid rgb(var(--color-zGray-800))',
+              border: '1px solid rgb(var(--color-line-control))',
               borderRadius: 6,
-              background: 'rgb(var(--color-zGray-925))',
+              background: 'rgb(var(--color-surface-sheet))',
               color: 'rgb(var(--color-text-main))',
               fontSize: 11,
             }}

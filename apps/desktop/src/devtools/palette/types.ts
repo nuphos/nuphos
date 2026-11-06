@@ -6,13 +6,13 @@ export type Theme = 'dark' | 'light'
 
 // How a token's authored value reads in index.css:
 //   triple → "25, 24, 27"           (editable as an RGB color)
-//   ref    → "var(--color-zGray-900)" (a dependency edge; resolves to a color)
+//   ref    → "var(--color-surface-sheet)" (a dependency edge; resolves to a color)
 //   rgba   → "rgba(255,255,255,0.05)" (alpha token, e.g. sidebar overlays — read-only)
 //   other  → anything else (durations, easings — not shown by the color tool)
 export type TokenKind = 'triple' | 'ref' | 'rgba' | 'other'
 
 export type TokenDef = {
-  name: string // "--color-zGray-900"
+  name: string // "--color-surface-sheet"
   authored: string // raw value straight from the CSS rule (preserves var(...))
   kind: TokenKind
   refs: string[] // token names referenced via var(...) — graph edges

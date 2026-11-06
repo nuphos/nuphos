@@ -6,7 +6,7 @@ export function Legend({ series }: { series: Series[] }) {
   if (series.length === 0) return null
 
   return (
-    <div className="flex flex-wrap gap-x-3 gap-y-1 px-3 py-2 border-t border-zGray-800/60 max-h-20 overflow-y-auto scrollbar-thin">
+    <div className="flex flex-wrap gap-x-3 gap-y-1 px-3 py-2 border-t border-line-control/60 max-h-20 overflow-y-auto scrollbar-thin">
       {series.map((s, i) => (
         <div key={i} className="flex items-center gap-1.5 text-[11px] text-tertiary min-w-0">
           <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: s.color }} />
@@ -58,11 +58,11 @@ export function Tooltip({
           top: 0,
           bottom: 0,
           width: 1,
-          backgroundColor: 'rgba(var(--color-zGray-500), 0.4)',
+          backgroundColor: 'rgba(var(--color-text-tertiary), 0.4)',
         }}
       />
       <div
-        className="absolute bg-zGray-850 border border-zGray-700 rounded shadow-lg px-2 py-1.5 text-[11px] pointer-events-none"
+        className="absolute bg-surface-sunken border border-line-control rounded shadow-lg px-2 py-1.5 text-[11px] pointer-events-none"
         style={{ left, top, width: tipW }}
       >
         <div className="text-tertiary mb-1">{new Date(ts).toLocaleTimeString()}</div>

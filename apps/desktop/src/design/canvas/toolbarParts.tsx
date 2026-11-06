@@ -33,7 +33,7 @@ export function ToolButton({
         aria-pressed={active}
         className={clsx(
           'h-7 w-7',
-          active && 'bg-zViolet-500 text-white hover:bg-zViolet-400 hover:text-white',
+          active && 'bg-action-primary text-inverse hover:bg-action-primary/90 hover:text-inverse',
         )}
         onClick={onClick}
       >

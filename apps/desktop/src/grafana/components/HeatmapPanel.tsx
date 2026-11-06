@@ -103,7 +103,7 @@ function HeatmapChart({
               y={yFor(b)}
               width={Math.max(0, cellW - 0.5)}
               height={Math.max(0, cellH - 0.5)}
-              fill={`rgba(var(--color-zViolet-accent), ${alpha.toFixed(3)})`}
+              fill={`rgba(var(--color-text-primary), ${alpha.toFixed(3)})`}
             />
           )
         }),

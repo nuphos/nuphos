@@ -28,7 +28,7 @@ export function QueryError({ message }: { message: string }) {
           </Collapsible.Trigger>
           <Collapsible.Panel className="t-acc-collapsible">
             <pre
-              className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all border-l border-zGray-800 pl-2 font-mono text-[11px] leading-4 text-tertiary scrollbar-thin"
+              className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all border-l border-line-control pl-2 font-mono text-[11px] leading-4 text-tertiary scrollbar-thin"
               data-ph-mask
             >
               {detail}
@@ -50,7 +50,7 @@ export function QueryError({ message }: { message: string }) {
                     )
                   })
               }}
-              className="mt-1.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-tertiary hover:bg-zGray-800 hover:text-main"
+              className="mt-1.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-tertiary hover:bg-state-hover hover:text-main"
             >
               <Clipboard className="h-3 w-3" strokeWidth={1.8} />
               {copied ? t('Copied') : t('Copy')}

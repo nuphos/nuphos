@@ -28,8 +28,7 @@ function extractRefs(value: string): string[] {
   return refs
 }
 
-// Palette-scale names look like `--color-zGray-900`, `--color-zViolet-accent`,
-// `--color-zBlue-hover`. Everything else (`--color-background-base`,
+// Palette-scale names are hue-named rungs (`--color-<hue><Scale>-400`, `-hover`). Everything else (`--color-background-base`,
 // `--color-text-*`, `--color-appBg`, status colors) is semantic.
 const RAW_RE = /^--color-[a-z]+[A-Z]\w*-(\d+|accent|hover|active)$/
 

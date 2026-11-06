@@ -78,7 +78,7 @@ export function EditableTitle({
       }}
       aria-label={t('Title')}
       className={clsx(
-        'nodrag nopan h-6 rounded border border-zViolet-500 bg-main px-1.5 text-main outline-none focus:ring-1 focus:ring-zViolet-500/60',
+        'nodrag nopan h-6 rounded border border-action-primary bg-main px-1.5 text-main outline-none focus:ring-1 focus:ring-line-focus',
         className,
       )}
     />
@@ -125,7 +125,7 @@ export function TextEditor({
       onKeyDown={onKeyDown}
       aria-label={t('Text')}
       className={clsx(
-        'nodrag nopan nowheel h-full w-full resize-none border border-transparent bg-transparent outline-none focus:ring-1 focus:ring-zViolet-500/60',
+        'nodrag nopan nowheel h-full w-full resize-none border border-transparent bg-transparent outline-none focus:ring-1 focus:ring-line-focus',
         className,
       )}
       style={style}

@@ -78,7 +78,7 @@ export function toFlowEdge(
       type: MarkerType.ArrowClosed,
       width: 16,
       height: 16,
-      color: 'rgb(var(--color-zViolet-accent))',
+      color: 'rgb(var(--color-text-primary))',
     },
     data: { label: l.label ?? '', onLabelChange: (label: string) => onLabelChange(l.id, label) },
   }
