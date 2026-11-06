@@ -131,6 +131,16 @@ test('a split layout that is malformed or does not match its panes restores no s
   ]) {
     assert.equal(restoredSurface({ layout, activeId: 'a', panes }), null, JSON.stringify(layout))
   }
+  const proto = JSON.parse(
+    '{"layout":{"id":"__proto__"},"activeId":"__proto__","panes":{"__proto__":{"sessionId":"s"}}}',
+  ) as unknown
+
+  assert.equal(
+    Object.getOwnPropertyDescriptor(restoredSurface(proto)?.panes, '__proto__')?.value.sessionId,
+    's',
+  )
+  assert.equal(Object.getPrototypeOf(restoredSurface(proto)?.panes), Object.prototype)
+  assert.equal(restoredSurface({ layout: { id: 'toString' }, activeId: 'x', panes: {} }), null)
   const layout = { direction: 'column', children: [{ id: 'a' }, { id: 'b' }] }
 
   assert.equal(restoredSurface({ layout, activeId: 'gone', panes })?.activeId, 'a')

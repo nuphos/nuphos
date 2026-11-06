@@ -90,7 +90,8 @@ export async function getConversation(
   if (options?.messages) params.set('messages', options.messages)
   const q = params.toString() ? `?${String(params)}` : ''
 
-  return callJson<ConversationDetail>(
+  // Not found and forbidden reach the renderer as such, so it can tell a gone chat from an outage.
+  return callJsonForRenderer<ConversationDetail>(
     'GET',
     `/agent/conversations/${encodeURIComponent(sessionId)}${q}`,
   )
