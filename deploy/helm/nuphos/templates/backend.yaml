@@ -75,13 +75,15 @@ spec:
               value: {{ include "nuphos.backendUrl" . }}
             - name: NUPHOS_PUBLIC_BACKEND_URL
               value: {{ include "nuphos.backendUrl" . }}
+            # Optional: without both, email sign-in is off and `nuphos-admin` issues codes.
             - name: RESEND_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ $secret }}
                   key: RESEND_API_KEY
+                  optional: true
             - name: NUPHOS_EMAIL_FROM
-              value: {{ required "email.from is required" .Values.email.from | quote }}
+              value: {{ .Values.email.from | quote }}
             - name: ATLAS_REDIS_ENABLED
               value: 'false'
             - name: CLAUDE_CODE_RUNTIME_KUBECTL

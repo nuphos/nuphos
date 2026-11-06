@@ -9,8 +9,10 @@ the backend runs as one replica in in-memory mode.
 - Kubernetes 1.27+ with a default StorageClass and an Ingress controller.
 - Three DNS names with TLS: backend, storage and runtime. Presigned file URLs
   name the storage host, so Desktop and the runtime must reach it directly.
-- A Resend API key and a sender on a domain verified in Resend.
-  Production sign-in sends the code by email and never logs it.
+- Optional: a Resend API key and a sender on a domain verified in Resend, to
+  email sign-in codes. Without them email sign-in is off and an operator issues
+  codes with `nuphos-admin` (see [First user and team](#first-user-and-team)).
+- A backend image newer than v0.118.0, which ships `nuphos-admin`.
 - An amd64 node for the runtime image.
 
 ## Install
@@ -23,9 +25,6 @@ storage:
   url: https://storage.nuphos.example.com
 runtime:
   url: https://runtime.nuphos.example.com
-email:
-  resendApiKey: <resend-api-key>
-  from: Nuphos <noreply@example.com>
 ingress:
   className: nginx
   annotations:
@@ -47,6 +46,44 @@ The install notes print the next steps: sign in from Desktop with
 Secret, set the runtime's public URL to `wss://<runtime-host>/acp`, pair it with
 your team and sign in to Claude from the console.
 
+## First user and team
+
+`nuphos-admin` in the backend image creates them, with no email involved:
+
+```sh
+kubectl -n nuphos exec deploy/nuphos-backend -- \
+  nuphos-admin bootstrap --email you@example.com --team Ops
+```
+
+It prints the team id, an `ATLAS_ADMIN_TEAM_ID=<id>` line and a sign-in code
+valid for 10 minutes. Running it again reuses the same user and team. In Desktop,
+choose **Self-hosted? Set API endpoint**, enter the backend URL, then **Continue
+with email** with that address and the printed code. To turn on `/admin` for the
+team, add the line to `backend.extraEnv` and upgrade:
+
+```yaml
+backend:
+  extraEnv:
+    - name: ATLAS_ADMIN_TEAM_ID
+      value: '<id>'
+```
+
+Other commands:
+
+- `nuphos-admin sign-in-code --email <email>` prints a code for anyone else.
+  Without Resend, this is how people sign in. Run it just before they press
+  **Continue with email**; the backend accepts the request because a code is
+  already waiting, and sends nothing. After five wrong tries a code is locked;
+  issue a new one.
+- `nuphos-admin join-token --team <id> [--label <name>]` prints a one-time token
+  that joins a server as the team owner's computer, with
+  `NUPHOS_API_URL=<backend-url> nuphos agent --join -` on that server. It is the
+  same token `POST /agent/devices/join-tokens` issues, so no browser or
+  `nuphos login --device` is needed.
+
+To email codes instead, set `email.resendApiKey` and `email.from` (a sender on a
+domain verified in Resend), or add `RESEND_API_KEY` to `secrets.existingSecret`.
+
 ## Secrets
 
 The chart generates the JWT secret, Mongo password, storage secret key, runtime
@@ -55,12 +92,19 @@ upgrade, and leaves the Secret behind on uninstall. Renderers without cluster
 access (`helm template`, Argo CD, Flux with `--dry-run`) regenerate them on every
 render. For those, set `secrets.existingSecret` to a Secret you manage with the
 keys `NUPHOS_JWT_SECRET`, `MONGO_PASSWORD`, `STORAGE_SECRET_KEY`,
-`RUNTIME_AUTH_KEY`, `RUNTIME_TOKEN_ENCRYPTION_KEY` and `RESEND_API_KEY`. Keep the Mongo password
+`RUNTIME_AUTH_KEY`, `RUNTIME_TOKEN_ENCRYPTION_KEY` and, optionally, `RESEND_API_KEY`. Keep the Mongo password
 alphanumeric: it is placed in the connection URI as is.
 `RUNTIME_TOKEN_ENCRYPTION_KEY` is base64 of 32 random bytes
 (`openssl rand -base64 32`). It seals the runtime credentials the backend
 stores, so changing it disconnects every runtime. `extraObjects` renders any manifest with the release, such
-as an `ExternalSecret` that fills that Secret.
+as an `ExternalSecret` that fills that Secret from a secrets manager, including
+one reachable only inside your VPC: the backend reads plain environment
+variables and never calls a secrets manager itself.
+
+## Upgrading to 0.3.0
+
+`email.resendApiKey` and `email.from` are optional. Existing values keep
+emailing codes; nothing changes on upgrade.
 
 ## Upgrading to 0.2.0
 
@@ -71,9 +115,7 @@ Resend. Before you upgrade, create a Resend API key and verify the domain of
 - set `email.resendApiKey`, and remove `email.provider` and `email.zsendApiKey`; or
 - with `secrets.existingSecret`, add `RESEND_API_KEY` to that Secret.
 
-Without the key, rendering fails (`email.resendApiKey is required`) or the
-backend pod fails with `CreateContainerConfigError`. With an unverified sender,
-sign-in codes are not delivered.
+With an unverified sender, sign-in codes are not delivered.
 
 ## Isolation
 

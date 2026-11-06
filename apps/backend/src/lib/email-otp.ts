@@ -54,10 +54,12 @@ export async function requestEmailOtp(
   const normalized = normalizeEmail(email)
 
   if (!config.email.devLogOtp && !isEmailConfigured()) {
+    // Nothing can be sent, but a code an operator issued (`nuphos-admin sign-in-code`) can be entered.
+    if (await otps().findOne({ email: normalized, expiresAt: { $gt: new Date() } })) return
     throw new AppError(503, 'email_not_configured', 'Email sign-in is not available on this server')
   }
 
-  const code = randomInt(0, 1_000_000).toString().padStart(6, '0')
+  const code = newCode()
   const codeHash = hashCode(normalized, code)
   const now = new Date()
   // Atomic cooldown: the filter only matches docs older than the cooldown, so
@@ -138,6 +140,31 @@ export async function requestEmailOtp(
   }
 }
 
+/**
+ * Stores a fresh code for `email` and returns it, replacing any earlier one, so
+ * an operator can hand it over on a server that does not send email.
+ */
+export async function issueEmailOtpCode(email: string): Promise<string> {
+  const normalized = normalizeEmail(email)
+  const code = newCode()
+  const now = new Date()
+
+  await otps().updateOne(
+    { email: normalized },
+    {
+      $set: {
+        codeHash: hashCode(normalized, code),
+        attempts: 0,
+        createdAt: now,
+        expiresAt: new Date(now.getTime() + CODE_TTL_MS),
+      },
+    },
+    { upsert: true },
+  )
+
+  return code
+}
+
 export async function verifyEmailOtp(email: string, code: string): Promise<NuphosUser> {
   const normalized = normalizeEmail(email)
 
@@ -177,6 +204,10 @@ export async function verifyEmailOtp(email: string, code: string): Promise<Nupho
   if (!consumed) throw new AppError(400, 'otp_invalid', 'Incorrect or expired code')
 
   return signInWithVerifiedEmail(normalized)
+}
+
+function newCode(): string {
+  return randomInt(0, 1_000_000).toString().padStart(6, '0')
 }
 
 function normalizeEmail(email: string): string {

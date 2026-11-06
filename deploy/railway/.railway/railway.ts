@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { defineRailway, image, project, service, volume } from 'railway/iac'
-import { required, domain } from './inputs.ts'
+import { required, optional, domain } from './inputs.ts'
 
 // Same bootstrap as the Helm chart, except Mongo also listens on IPv6 for Railway's private network.
 const bootstrap = (file: string, shell: string) => {
@@ -67,8 +67,11 @@ export default defineRailway(() => {
       NUPHOS_AUTH_BASE_URL: `https://${apiDomain}`,
       NUPHOS_BACKEND_URL: `https://${apiDomain}`,
       NUPHOS_PUBLIC_BACKEND_URL: `https://${apiDomain}`,
-      RESEND_API_KEY: required('RESEND_API_KEY'),
-      NUPHOS_EMAIL_FROM: required('NUPHOS_EMAIL_FROM'),
+      // Optional: without a key, email sign-in is off and `nuphos-admin` issues codes.
+      ...(optional('RESEND_API_KEY') && {
+        RESEND_API_KEY: required('RESEND_API_KEY'),
+        NUPHOS_EMAIL_FROM: required('NUPHOS_EMAIL_FROM'),
+      }),
       ATLAS_REDIS_ENABLED: 'false',
       CLAUDE_CODE_RUNTIME_KUBECTL: 'false',
       CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED: 'false',

@@ -111,6 +111,8 @@ services:
       NUPHOS_AUTH_BASE_URL: http://localhost:${BACKEND_PORT:-3000}
       NUPHOS_DEV_EMAIL_OTP_LOG: 'true'
       NUPHOS_LOCAL_STACK: 'true'
+      # Printed by `nuphos-admin bootstrap`; set it in .env to turn on /admin.
+      ATLAS_ADMIN_TEAM_ID: ${ATLAS_ADMIN_TEAM_ID:-}
       ATLAS_REDIS_ENABLED: 'false'
       NUPHOS_BACKEND_URL: http://backend:3000
       NUPHOS_FILE_TRANSFER_S3_BUCKET: nuphos-file-transfers
