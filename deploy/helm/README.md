@@ -12,7 +12,7 @@ the backend runs as one replica in in-memory mode.
 - Optional: a Resend API key and a sender on a domain verified in Resend, to
   email sign-in codes. Without them email sign-in is off and an operator issues
   codes with `nuphos-admin` (see [First user and team](#first-user-and-team)).
-- A backend image newer than v0.118.0, which ships `nuphos-admin`.
+- Backend image v0.119.0 or newer, which ships `nuphos-admin`.
 - An amd64 node for the runtime image.
 
 ## Install
