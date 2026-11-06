@@ -30,7 +30,7 @@ export function AgentAvatar({
   /** Loops the idle loop while this agent has a running turn. Message rows keep it off; hover still plays it once. */
   animated?: boolean
 }) {
-  const { botAvatars, density } = useAgentAppearance()
+  const { density } = useAgentAppearance()
   const seen = useAgentAvatarPick(agentId)
   const picked = seen === undefined ? avatar : seen
   const running = runtimeTurnActive(useAgentRuntimeStates().get(agentId))
@@ -47,7 +47,7 @@ export function AgentAvatar({
       className="relative inline-flex shrink-0 items-center justify-center align-middle"
       style={{ width: box, height: box }}
     >
-      {botAvatars && picked ? (
+      {picked ? (
         <>
           <BotAvatarImage
             file={botAvatarFile(agentId, picked)}

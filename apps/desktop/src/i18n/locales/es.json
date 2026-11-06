@@ -563,7 +563,6 @@
   "Binding…": "Vinculando…",
   "Bleed": "A sangre",
   "Blueprint": "Blueprint",
-  "Bot avatars": "Avatares de bots",
   "Bot user ID": "ID de usuario del bot",
   "Both fields are required.": "Ambos campos son obligatorios.",
   "Branch": "Rama",
@@ -1939,7 +1938,6 @@
   "GitHub is still working it out. Refresh in a moment.": "GitHub aún lo está procesando. Actualiza en un momento.",
   "GitLab account": "Cuenta de GitLab",
   "GitLab host": "Host de GitLab",
-  "Give Agents a character avatar. Turn off to show Runtime icons.": "Asigna a los agentes un avatar de personaje. Desactívalo para mostrar los iconos del entorno de ejecución.",
   "Give it the permissions Nuphos should have (read-only is enough for browsing), scoped to {scope} — Nuphos requests an account-scoped credential, which a project-only agency cannot grant": "Dale los permisos que debe tener Nuphos (solo lectura basta para explorar), con alcance {scope}: Nuphos solicita una credencial con alcance de cuenta, que una agencia limitada a un proyecto no puede conceder",
   "Give the instruction a title and some content.": "Ponle un título y algo de contenido a la instrucción.",
   "Go there": "Ir allí",
@@ -5033,7 +5031,6 @@
   "Your running computers use {used} of {limit} vCPU. They keep running; starting or resuming a computer that doesn't fit is refused until you pause a computer.": "Tus computadoras en ejecución usan {used} de {limit} vCPU. Siguen funcionando, pero no se podrá iniciar ni reanudar una computadora que no quepa hasta que pauses otra.",
   "Your sign-in email cannot be changed here.": "Tu correo de inicio de sesión no se puede cambiar aquí.",
   "Your team has no vCPU limit for computers.": "Tu equipo no tiene límite de vCPU para las computadoras.",
-  "Your team sees the same name and avatar.": "Tu equipo ve el mismo nombre y avatar.",
   "Your team's computer plan, billed monthly.": "El plan de computadoras de tu equipo, con facturación mensual.",
   "Your vote is already included in this plan.": "Tu voto ya está incluido en este plan.",
   "Your workspace": "Tu espacio de trabajo",
@@ -5754,5 +5751,9 @@
   "Could not remove the API key": "No se pudo eliminar la clave de API",
   "Remove API key": "Eliminar clave de API",
   "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "El entorno de ejecución no aceptó la clave. Actualiza Nuphos en el equipo donde se ejecuta y vuelve a intentarlo.",
-  "Bots": "Bots"
+  "Bots": "Bots",
+  "Make this a Bot": "Convertir en bot",
+  "Turn into a Task": "Convertir en tarea",
+  "New Bot": "Nuevo bot",
+  "Could not create the Bot": "No se pudo crear el bot"
 }

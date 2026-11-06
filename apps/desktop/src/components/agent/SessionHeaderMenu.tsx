@@ -2,6 +2,8 @@ import {
   Archive,
   Bell,
   BellOff,
+  Bot,
+  BotOff,
   ChevronRight,
   Copy,
   GitBranch,
@@ -16,6 +18,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { api } from '../../api'
 import { usePaneSummary } from '../../app/workspace/usePaneSummary'
 import { t } from '../../i18n'
+import { pickAgentAvatar, useAgentAvatarPick } from '../../lib/agentAvatarChoices'
+import { botAvatarName, derivedBotAvatar } from '../../lib/botAvatars'
 import { copyLinkWithFeedback } from '../../lib/copyLink'
 import { sessionShortcutCombo } from '../../lib/sessionShortcuts'
 import {
@@ -73,6 +77,7 @@ export function SessionHeaderMenu({
 }: Props) {
   const { archiving, archive } = useArchiveSession({ sessionId, teamId, title })
   const { open: summaryOpen, toggle: toggleSummary } = usePaneSummary()
+  const isBot = Boolean(useAgentAvatarPick(sessionId))
   // What the server said when the chat opened; a toggle here wins after that.
   const [toggled, setToggled] = useState<boolean | undefined>(undefined)
   const watching = toggled ?? reportedWatching
@@ -85,6 +90,17 @@ export function SessionHeaderMenu({
       setToggled(!next)
       toast.apiError(next ? t('Could not watch agent') : t('Could not unwatch agent'), err)
     })
+  }
+  // "Make this a Bot" shows the face at once; the server sets the same one and
+  // asks the agent to name itself. "Turn into a Task" takes the face away.
+  function setBot(bot: boolean) {
+    const avatar = bot ? botAvatarName(derivedBotAvatar(sessionId)) : null
+
+    void pickAgentAvatar(sessionId, avatar, () =>
+      bot
+        ? api.agentMakeBot(sessionId, teamId)
+        : api.agentSetConversationAvatar(sessionId, null, teamId),
+    ).catch((err: unknown) => toast.apiError(t('Could not change avatar'), err))
   }
   // Rename waits for the popup to finish closing; otherwise focus returning to
   // the trigger blurs the title input, and blur saves and closes it.
@@ -173,6 +189,14 @@ export function SessionHeaderMenu({
             }}
           >
             {t('Rename agent')}
+          </MenuItem>
+        )}
+        {canRename && (
+          <MenuItem
+            icon={isBot ? <BotOff className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
+            onClick={() => setBot(!isBot)}
+          >
+            {isBot ? t('Turn into a Task') : t('Make this a Bot')}
           </MenuItem>
         )}
         {watching !== undefined && (

@@ -20,11 +20,18 @@ const layout = (sections: Section[]) =>
     sections.map((section) => [section.title ?? '', section.items.map((item) => item.key)]),
   )
 const build = (chats: Item[]) =>
-  layout(withChatSections([{ items: [] }, { title: 'Agents', items: chats }]))
+  layout(
+    withChatSections([
+      { items: [] },
+      { title: 'Channels', items: [] },
+      { title: 'Agents', items: chats },
+    ]),
+  )
 
 test('a conversation with an avatar is a Bot; everything else is a Task', () => {
   assert.deepEqual(build([row('task'), row('helper', { bot: true })]), {
     '': [],
+    Channels: [],
     Bots: ['helper'],
     Tasks: ['task'],
   })
@@ -40,6 +47,7 @@ test('Bots are ordered by name, Tasks keep newest first', () => {
 
   assert.deepEqual(build(chats), {
     '': [],
+    Channels: [],
     Bots: ['alpha', 'zeta'],
     Tasks: ['newest-task', 'older-task'],
   })
@@ -57,6 +65,7 @@ test('a Bot keeps the Tasks it started, and a Bot thread takes its own along', (
 
   assert.deepEqual(build(chats), {
     '': [],
+    Channels: [],
     Bots: ['bot', 'bot-thread', 'task-of-bot', 'grandchild', 'its-task'],
     Tasks: ['parent'],
   })
@@ -79,10 +88,20 @@ test('a Bot drops its linked-work line; a Task keeps it', () => {
   )
 })
 
-test('a parent cycle does not loop, and an empty group adds no section', () => {
+test('a parent cycle does not loop', () => {
   assert.deepEqual(build([row('a', { parentKey: 'b' }), row('b', { parentKey: 'a' })]), {
     '': [],
+    Channels: [],
+    Bots: [],
     Tasks: ['a', 'b'],
   })
-  assert.deepEqual(build([]), { '': [] })
+})
+
+test('Bots shows even with no agents at all, so its "+" can make the first', () => {
+  // With no agents there is no Agents section to split.
+  assert.deepEqual(layout(withChatSections([{ items: [] }, { title: 'Channels', items: [] }])), {
+    '': [],
+    Channels: [],
+    Bots: [],
+  })
 })

@@ -563,7 +563,6 @@
   "Binding…": "正在绑定…",
   "Bleed": "满版",
   "Blueprint": "蓝图",
-  "Bot avatars": "机器人头像",
   "Bot user ID": "机器人用户 ID",
   "Both fields are required.": "两个字段均为必填项。",
   "Branch": "分支",
@@ -1939,7 +1938,6 @@
   "GitHub is still working it out. Refresh in a moment.": "GitHub 仍在处理中，请稍后刷新。",
   "GitLab account": "GitLab 账号",
   "GitLab host": "GitLab 主机",
-  "Give Agents a character avatar. Turn off to show Runtime icons.": "为 Agent 设置角色头像。关闭后显示运行环境图标。",
   "Give it the permissions Nuphos should have (read-only is enough for browsing), scoped to {scope} — Nuphos requests an account-scoped credential, which a project-only agency cannot grant": "授予 Nuphos 应有的权限（浏览只需只读即可），范围设为 {scope}。Nuphos 请求的是账号级凭据，仅限项目的委托无法授予。",
   "Give the instruction a title and some content.": "请为指令填写标题和内容。",
   "Go there": "前往",
@@ -5033,7 +5031,6 @@
   "Your running computers use {used} of {limit} vCPU. They keep running; starting or resuming a computer that doesn't fit is refused until you pause a computer.": "运行中的电脑已使用 {used}/{limit} vCPU。它们会继续运行，但在你暂停某台电脑之前，无法启动或恢复超出额度的电脑。",
   "Your sign-in email cannot be changed here.": "登录邮箱无法在此处更改。",
   "Your team has no vCPU limit for computers.": "团队电脑没有 vCPU 限制。",
-  "Your team sees the same name and avatar.": "团队成员看到的名称和头像与你相同。",
   "Your team's computer plan, billed monthly.": "团队的电脑套餐，按月计费。",
   "Your vote is already included in this plan.": "你的投票已包含在此计划中。",
   "Your workspace": "你的工作区",
@@ -5754,5 +5751,9 @@
   "Could not remove the API key": "无法移除 API 密钥",
   "Remove API key": "移除 API 密钥",
   "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "运行环境没有接收此密钥。请更新运行它的电脑上的 Nuphos，然后重试。",
-  "Bots": "Bot"
+  "Bots": "Bot",
+  "Make this a Bot": "变成 Bot",
+  "Turn into a Task": "变回任务",
+  "New Bot": "新 Bot",
+  "Could not create the Bot": "无法创建 Bot"
 }

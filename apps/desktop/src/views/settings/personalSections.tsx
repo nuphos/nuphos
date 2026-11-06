@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react'
 import { api } from '../../api'
 import { AgentAvatar } from '../../components/agent/AgentAvatar'
 import { AppSelect } from '../../components/ui/select'
-import { Switch } from '../../components/ui/Switch'
 import { toast } from '../../components/ui/toast'
 import { useTheme } from '../../hooks/useTheme'
 import { LOCALES, locale, setLocale, t } from '../../i18n'
@@ -140,7 +139,7 @@ function AppIconPicker() {
 
 export function AppearanceSection() {
   const { preference, setPreference } = useTheme()
-  const { botAvatars, density } = useAgentAppearance()
+  const { density } = useAgentAppearance()
 
   return (
     <div>
@@ -188,19 +187,6 @@ export function AppearanceSection() {
       {isMac && <AppIconPicker />}
       <div className="mt-8 space-y-5">
         <h3 className="text-[14px] font-semibold text-main">{t('Agents')}</h3>
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <div className="text-[13px] font-medium text-main">{t('Bot avatars')}</div>
-            <p className="mt-1 text-[12px] text-tertiary">
-              {t('Give Agents a character avatar. Turn off to show Runtime icons.')}
-            </p>
-          </div>
-          <Switch
-            label={t('Bot avatars')}
-            checked={botAvatars}
-            onChange={(next) => setAgentAppearance({ botAvatars: next })}
-          />
-        </div>
         <fieldset>
           <legend className="mb-1.5 text-[12.5px] font-medium text-secondary">
             {t('Sidebar density')}
@@ -235,7 +221,13 @@ export function AppearanceSection() {
               density === 'compact' ? 'h-[30px]' : 'h-[42px]',
             )}
           >
-            <AgentAvatar agentId="appearance-preview" provider="claude-code" sidebar animated />
+            <AgentAvatar
+              agentId="appearance-preview"
+              avatar="05-rembrandt"
+              provider="claude-code"
+              sidebar
+              animated
+            />
             <span>{t('Product design')}</span>
           </div>
         </div>

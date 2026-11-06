@@ -3,12 +3,11 @@ import { useSyncExternalStore } from 'react'
 import { readLocalStorage, writeLocalStorage } from '../app/localStorage.ts'
 
 export type AgentAppearance = {
-  botAvatars: boolean
   density: 'compact' | 'comfortable'
 }
 
 const KEY = 'nuphos.agentAppearance'
-const DEFAULTS: AgentAppearance = { botAvatars: true, density: 'compact' }
+const DEFAULTS: AgentAppearance = { density: 'compact' }
 
 export function parseAgentAppearance(raw: string | null): AgentAppearance {
   try {
@@ -16,7 +15,6 @@ export function parseAgentAppearance(raw: string | null): AgentAppearance {
 
     if (value && typeof value === 'object') {
       return {
-        botAvatars: !('botAvatars' in value && value.botAvatars === false),
         density: 'density' in value && value.density === 'comfortable' ? 'comfortable' : 'compact',
       }
     }
@@ -31,7 +29,7 @@ let appearance = parseAgentAppearance(readLocalStorage(KEY))
 const listeners = new Set<() => void>()
 
 function publish(next: AgentAppearance) {
-  if (next.botAvatars === appearance.botAvatars && next.density === appearance.density) return
+  if (next.density === appearance.density) return
   appearance = next
   for (const listener of listeners) listener()
 }
@@ -58,11 +56,6 @@ function subscribe(listener: () => void) {
     listeners.delete(listener)
     if (!listeners.size) window.removeEventListener('storage', onStorage)
   }
-}
-
-/** For DOM rendered outside React, such as mention chips. */
-export function agentAppearance(): AgentAppearance {
-  return appearance
 }
 
 export function useAgentAppearance(): AgentAppearance {

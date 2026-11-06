@@ -6,7 +6,6 @@
 // inline mention pills with a type-specific icon and the resource's real name,
 // instead of a raw URL or a path segment.
 
-import { agentAppearance } from './agentAppearance'
 import { agentAvatarPick } from './agentAvatarChoices'
 import { AGENT_SUBPAGE_SEGMENTS } from './appRoutes'
 import { iconNameForType, svg } from './atlas-link-mention/icons.ts'
@@ -228,10 +227,11 @@ export function renderMentionChip(url: string): HTMLElement {
   // Fire-and-forget: if the resource has a richer name on the backend, swap
   // it in. Tied to the URL so re-renders of the same chip don't refetch.
   void resolveMentionLabel(target, url).then((name) => {
-    // Fetching the agent also learned its picked avatar.
-    const avatar = span.querySelector('img')
+    // Fetching the agent also learned whether it is a Bot, and its face.
+    const icon = span.firstElementChild
 
-    if (avatar && target.type === 'agent-session') avatar.src = agentAvatarSrc(target.sessionId)
+    if (icon && target.type === 'agent-session' && span.isConnected)
+      icon.outerHTML = chipIcon(target)
     if (!name) return
     const lbl = span.querySelector<HTMLElement>('.atlas-mention-label')
 
@@ -241,17 +241,15 @@ export function renderMentionChip(url: string): HTMLElement {
   return span
 }
 
-/** An agent shows its bot avatar, as everywhere else; other targets their type's icon. */
+/** A Bot shows its face, as everywhere else; a Task and other targets their type's icon. */
 function chipIcon(target: MentionTarget): string {
-  if (target.type === 'agent-session' && agentAppearance().botAvatars) {
-    return `<img src="${agentAvatarSrc(target.sessionId)}" alt="" draggable="false" class="atlas-mention-icon atlas-mention-avatar">`
+  const avatar = target.type === 'agent-session' ? agentAvatarPick(target.sessionId) : null
+
+  if (target.type === 'agent-session' && avatar) {
+    return `<img src="${botAvatarUrl(target.sessionId, avatar)}" alt="" draggable="false" class="atlas-mention-icon atlas-mention-avatar">`
   }
 
   return svg(iconNameForType(target))
-}
-
-function agentAvatarSrc(sessionId: string): string {
-  return botAvatarUrl(sessionId, agentAvatarPick(sessionId))
 }
 
 function escapeHtml(s: string): string {

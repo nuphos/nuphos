@@ -3,6 +3,8 @@ import type { ChannelAgent, ChannelMention } from './agent-types.ts'
 /** Channels: places where people and agents talk. */
 export type WindowChannelsApi = {
   agentCreateChannel(teamId: string): Promise<{ sessionId: string }>
+  agentCreateBot(teamId: string): Promise<{ sessionId: string; title: string; avatar: string }>
+  agentMakeBot(sessionId: string, teamId: string): Promise<{ avatar: string }>
   agentListChannelMentions(teamId: string): Promise<{ mentions: ChannelMention[] }>
   agentListChannelAgents(channelId: string, teamId: string): Promise<{ agents: ChannelAgent[] }>
   agentAddChannelAgent(

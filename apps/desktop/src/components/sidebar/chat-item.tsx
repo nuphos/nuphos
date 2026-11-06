@@ -20,12 +20,15 @@ export function chatSidebarItem({
   active,
   runtimeState,
   unread,
+  picked,
 }: {
   conversation: AgentConversation
   teamId: string
   active: boolean
   runtimeState: RuntimeExecution | undefined
   unread: boolean
+  /** A face picked in this app since the list loaded (null: taken away), which wins. */
+  picked?: string | null
 }): Item {
   const dot = rowDot(conversation, runtimeState, unread)
   const status = <ChatRowStatus runtimeState={runtimeState} dot={dot} />
@@ -44,7 +47,9 @@ export function chatSidebarItem({
     enabled: true,
     active,
     ...(conversation.kind === 'channel' ? { channel: true } : {}),
-    ...(conversation.avatar && conversation.kind !== 'channel' ? { bot: true } : {}),
+    ...((picked === undefined ? conversation.avatar : picked) && conversation.kind !== 'channel'
+      ? { bot: true }
+      : {}),
     ...chatRowAccess(conversation),
     ...(conversation.watching !== undefined ? { watching: conversation.watching } : {}),
     ...(conversation.parentSessionId

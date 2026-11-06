@@ -563,7 +563,6 @@
   "Binding…": "กำลังผูก…",
   "Bleed": "เต็มขอบ",
   "Blueprint": "Blueprint",
-  "Bot avatars": "รูปประจำตัวบอท",
   "Bot user ID": "ID ผู้ใช้ของบอต",
   "Both fields are required.": "ต้องกรอกทั้งสองช่อง",
   "Branch": "Branch",
@@ -1939,7 +1938,6 @@
   "GitHub is still working it out. Refresh in a moment.": "GitHub ยังประมวลผลอยู่ โปรดรีเฟรชอีกสักครู่",
   "GitLab account": "บัญชี GitLab",
   "GitLab host": "โฮสต์ GitLab",
-  "Give Agents a character avatar. Turn off to show Runtime icons.": "ให้เอเจนต์มีรูปประจำตัวเป็นตัวละคร ปิดเพื่อแสดงไอคอนรันไทม์แทน",
   "Give it the permissions Nuphos should have (read-only is enough for browsing), scoped to {scope} — Nuphos requests an account-scoped credential, which a project-only agency cannot grant": "กำหนดสิทธิ์ที่ Nuphos ควรมี (หากแค่เรียกดู สิทธิ์อ่านอย่างเดียวก็เพียงพอ) โดยกำหนดขอบเขตเป็น {scope} — Nuphos ขอข้อมูลรับรองระดับบัญชี ซึ่ง agency ที่จำกัดเฉพาะโปรเจกต์ไม่สามารถให้ได้",
   "Give the instruction a title and some content.": "ใส่ชื่อและเนื้อหาให้คำสั่ง",
   "Go there": "ไปที่นั่น",
@@ -5033,7 +5031,6 @@
   "Your running computers use {used} of {limit} vCPU. They keep running; starting or resuming a computer that doesn't fit is refused until you pause a computer.": "คอมพิวเตอร์ที่กำลังทำงานใช้ {used} จาก {limit} vCPU เครื่องเหล่านี้จะยังทำงานต่อ แต่จะเริ่มหรือเริ่มต่อคอมพิวเตอร์ที่เกินโควตาไม่ได้จนกว่าคุณจะหยุดคอมพิวเตอร์บางเครื่องชั่วคราว",
   "Your sign-in email cannot be changed here.": "ไม่สามารถเปลี่ยนอีเมลที่ใช้ลงชื่อเข้าใช้ได้ที่นี่",
   "Your team has no vCPU limit for computers.": "ทีมของคุณไม่มีขีดจำกัด vCPU สำหรับคอมพิวเตอร์",
-  "Your team sees the same name and avatar.": "ทีมของคุณจะเห็นชื่อและรูปประจำตัวเดียวกันนี้",
   "Your team's computer plan, billed monthly.": "แพ็กเกจคอมพิวเตอร์ของทีม เรียกเก็บเงินรายเดือน",
   "Your vote is already included in this plan.": "คะแนนโหวตของคุณรวมอยู่ในแผนนี้แล้ว",
   "Your workspace": "เวิร์กสเปซของคุณ",
@@ -5754,5 +5751,9 @@
   "Could not remove the API key": "ลบคีย์ API ไม่ได้",
   "Remove API key": "ลบคีย์ API",
   "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "รันไทม์ไม่ได้รับคีย์ โปรดอัปเดต Nuphos บนคอมพิวเตอร์ที่รันไทม์ทำงานอยู่ แล้วลองอีกครั้ง",
-  "Bots": "บอท"
+  "Bots": "บอท",
+  "Make this a Bot": "เปลี่ยนเป็นบอท",
+  "Turn into a Task": "เปลี่ยนเป็นงาน",
+  "New Bot": "บอทใหม่",
+  "Could not create the Bot": "สร้างบอทไม่สำเร็จ"
 }

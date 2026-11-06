@@ -563,7 +563,6 @@
   "Binding…": "紐付け中…",
   "Bleed": "フチなし",
   "Blueprint": "ブループリント",
-  "Bot avatars": "ボットのアバター",
   "Bot user ID": "ボットのユーザー ID",
   "Both fields are required.": "両方のフィールドが必須です。",
   "Branch": "ブランチ",
@@ -1939,7 +1938,6 @@
   "GitHub is still working it out. Refresh in a moment.": "GitHub で処理中です。しばらくしてから更新してください。",
   "GitLab account": "GitLab アカウント",
   "GitLab host": "GitLab ホスト",
-  "Give Agents a character avatar. Turn off to show Runtime icons.": "エージェントにキャラクターのアバターを表示します。オフにするとランタイムのアイコンを表示します。",
   "Give it the permissions Nuphos should have (read-only is enough for browsing), scoped to {scope} — Nuphos requests an account-scoped credential, which a project-only agency cannot grant": "Nuphos に付与する権限（参照だけなら読み取り専用で十分です）を設定し、スコープを {scope} にします。Nuphos はアカウント単位の認証情報を要求するため、プロジェクト限定の委託では付与できません",
   "Give the instruction a title and some content.": "指示のタイトルと内容を入力してください。",
   "Go there": "移動する",
@@ -5033,7 +5031,6 @@
   "Your running computers use {used} of {limit} vCPU. They keep running; starting or resuming a computer that doesn't fit is refused until you pause a computer.": "実行中のコンピュータは {limit} vCPU のうち {used} vCPU を使用しています。実行中のものはそのまま動作しますが、コンピュータを一時停止するまで、収まらないコンピュータの起動・再開はできません。",
   "Your sign-in email cannot be changed here.": "サインイン用のメールアドレスはここでは変更できません。",
   "Your team has no vCPU limit for computers.": "チームのコンピュータには vCPU の上限がありません。",
-  "Your team sees the same name and avatar.": "チームにも同じ名前とアバターが表示されます。",
   "Your team's computer plan, billed monthly.": "チームのコンピュータプランです。毎月請求されます。",
   "Your vote is already included in this plan.": "あなたの投票はすでにこのプランに含まれています。",
   "Your workspace": "あなたのワークスペース",
@@ -5754,5 +5751,9 @@
   "Could not remove the API key": "API キーを削除できませんでした",
   "Remove API key": "API キーを削除",
   "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "ランタイムがキーを受け取りませんでした。実行しているコンピューターの Nuphos を更新してから、もう一度お試しください。",
-  "Bots": "ボット"
+  "Bots": "ボット",
+  "Make this a Bot": "ボットにする",
+  "Turn into a Task": "タスクに戻す",
+  "New Bot": "新しいボット",
+  "Could not create the Bot": "ボットを作成できませんでした"
 }

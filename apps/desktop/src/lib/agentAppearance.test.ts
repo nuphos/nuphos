@@ -3,23 +3,15 @@ import test from 'node:test'
 
 import { parseAgentAppearance } from './agentAppearance.ts'
 
-test('new and invalid settings use Bot Avatar on + Compact', () => {
+test('new and invalid settings use Compact', () => {
   for (const raw of [null, '', '{', 'null', '[]', '{}', '{"density":"large"}']) {
-    assert.deepEqual(parseAgentAppearance(raw), { botAvatars: true, density: 'compact' })
+    assert.deepEqual(parseAgentAppearance(raw), { density: 'compact' })
   }
 })
 
-test('the two preferences remain independent when restored', () => {
-  for (const botAvatars of [true, false]) {
-    for (const density of ['compact', 'comfortable']) {
-      assert.deepEqual(parseAgentAppearance(JSON.stringify({ botAvatars, density })), {
-        botAvatars,
-        density,
-      })
-    }
-  }
-  assert.deepEqual(parseAgentAppearance('{"botAvatars":false}'), {
-    botAvatars: false,
+test('a saved density is restored, and the retired Bot avatars switch is ignored', () => {
+  assert.deepEqual(parseAgentAppearance('{"density":"comfortable"}'), { density: 'comfortable' })
+  assert.deepEqual(parseAgentAppearance('{"botAvatars":false,"density":"compact"}'), {
     density: 'compact',
   })
 })

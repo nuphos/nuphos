@@ -563,7 +563,6 @@
   "Binding…": "Mengikat…",
   "Bleed": "Penuh",
   "Blueprint": "Blueprint",
-  "Bot avatars": "Avatar bot",
   "Bot user ID": "ID pengguna bot",
   "Both fields are required.": "Kedua kolom wajib diisi.",
   "Branch": "Branch",
@@ -1939,7 +1938,6 @@
   "GitHub is still working it out. Refresh in a moment.": "GitHub masih memprosesnya. Segarkan sebentar lagi.",
   "GitLab account": "Akun GitLab",
   "GitLab host": "Host GitLab",
-  "Give Agents a character avatar. Turn off to show Runtime icons.": "Beri agen avatar karakter. Matikan untuk menampilkan ikon runtime.",
   "Give it the permissions Nuphos should have (read-only is enough for browsing), scoped to {scope} — Nuphos requests an account-scoped credential, which a project-only agency cannot grant": "Berikan izin yang seharusnya dimiliki Nuphos (hanya-baca sudah cukup untuk menjelajah), dengan cakupan {scope} — Nuphos meminta kredensial bercakupan akun, yang tidak dapat diberikan oleh agency khusus proyek",
   "Give the instruction a title and some content.": "Beri instruksi judul dan isi.",
   "Go there": "Buka",
@@ -5033,7 +5031,6 @@
   "Your running computers use {used} of {limit} vCPU. They keep running; starting or resuming a computer that doesn't fit is refused until you pause a computer.": "Komputer Anda yang berjalan memakai {used} dari {limit} vCPU. Komputer tersebut tetap berjalan; memulai atau melanjutkan komputer yang tidak muat akan ditolak sampai Anda menjeda komputer.",
   "Your sign-in email cannot be changed here.": "Email masuk Anda tidak dapat diubah di sini.",
   "Your team has no vCPU limit for computers.": "Tim Anda tidak memiliki batas vCPU untuk komputer.",
-  "Your team sees the same name and avatar.": "Tim Anda melihat nama dan avatar yang sama.",
   "Your team's computer plan, billed monthly.": "Paket komputer tim Anda, ditagih bulanan.",
   "Your vote is already included in this plan.": "Suara Anda sudah termasuk dalam rencana ini.",
   "Your workspace": "Workspace Anda",
@@ -5754,5 +5751,9 @@
   "Could not remove the API key": "Tidak dapat menghapus kunci API",
   "Remove API key": "Hapus kunci API",
   "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "Runtime tidak menerima kunci. Perbarui Nuphos di komputer tempat runtime berjalan, lalu coba lagi.",
-  "Bots": "Bot"
+  "Bots": "Bot",
+  "Make this a Bot": "Jadikan Bot",
+  "Turn into a Task": "Jadikan tugas",
+  "New Bot": "Bot baru",
+  "Could not create the Bot": "Tidak dapat membuat Bot"
 }

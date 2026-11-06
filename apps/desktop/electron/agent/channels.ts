@@ -13,6 +13,18 @@ export async function createChannel(teamId: string): Promise<{ sessionId: string
   return callJsonForRenderer('POST', `/agent/channels${teamQuery(teamId)}`, {})
 }
 
+/** "+" on Bots: a Bot with a name and a face, before anyone types. */
+export async function createBot(
+  teamId: string,
+): Promise<{ sessionId: string; title: string; avatar: string }> {
+  return callJsonForRenderer('POST', `/agent/bots${teamQuery(teamId)}`, {})
+}
+
+/** "Make this a Bot": the Task gets its face and is asked to name itself. */
+export async function makeBot(sessionId: string, teamId: string): Promise<{ avatar: string }> {
+  return callJsonForRenderer('POST', `${at(sessionId)}/bot${teamQuery(teamId)}`, {})
+}
+
 export async function listChannelAgents(
   channelId: string,
   teamId: string,

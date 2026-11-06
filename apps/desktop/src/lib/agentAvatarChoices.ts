@@ -77,3 +77,8 @@ export function agentAvatarPick(agentId: string): string | null | undefined {
 export function useAgentAvatarPick(agentId: string): string | null | undefined {
   return useSyncExternalStore(subscribe, () => agentAvatarPick(agentId))
 }
+
+/** Every pick this app knows, for lists that sort agents by whether they have a face. */
+export function useAgentAvatarPicks(): ReadonlyMap<string, string | null> {
+  return useSyncExternalStore(subscribe, () => picks)
+}
