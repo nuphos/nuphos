@@ -93,12 +93,13 @@ export async function noteMentions(
     },
   )
   if (mentioned.length === 0) return
-  const title = conversation.title || 'Nuphos'
+  // An unnamed chat's name is each reader's own view; the push goes to all of them alike.
+  const where = conversation.title ? ` in ${conversation.title}` : ''
 
   notifyNudge(mentioned, {
     sessionId: conversation.sessionId,
     teamId: conversation.teamId,
-    title: `${senderLabel(sender)} mentioned you in ${title}`,
+    title: `${senderLabel(sender)} mentioned you${where}`,
     body: message.text.slice(0, PUSH_BODY_CHARS),
   })
 }

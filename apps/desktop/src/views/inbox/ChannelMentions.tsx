@@ -34,9 +34,7 @@ export function ChannelMentions({
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-secondary">
                   <span className="text-main">{mention.sender?.name ?? t('Someone')}</span>{' '}
-                  {mention.kind === 'agent'
-                    ? t('mentioned you in {title}', { title: mention.title })
-                    : t('mentioned you in #{name}', { name: mention.title })}
+                  {t('mentioned you in {title}', { title: mention.title })}
                 </span>
                 <span className="block truncate text-tertiary">{mention.text}</span>
               </span>

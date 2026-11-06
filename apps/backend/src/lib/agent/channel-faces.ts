@@ -20,10 +20,10 @@ const FACES = 2
 const RECENT_POSTS = 20
 
 /**
- * The chat's icon, as iMessage draws one: up to two members other than the
- * viewer, whoever spoke last first, then the rest in the order they joined.
+ * A chat's members other than the viewer, as iMessage orders them: whoever
+ * spoke last first, then the rest in the order they joined.
  */
-export async function channelFaces(
+export async function channelMembers(
   channel: Pick<
     AgentConversation,
     'sessionId' | 'userId' | 'teamId' | 'participantIds' | 'agentSessionIds'
@@ -62,16 +62,31 @@ export async function channelFaces(
   const spoke = posts.flatMap((post) => parseMessageMetadata(post.metadata)?.sender.id ?? [])
   const order = new Set([...spoke.filter((id) => members.has(id)), ...members.keys()])
 
-  return [...order].slice(0, FACES).flatMap((id) => members.get(id) ?? [])
+  return [...order].flatMap((id) => members.get(id) ?? [])
 }
 
-/** The `faces` a chat's list row and detail carry; other conversations carry none. */
+/**
+ * What a chat's list row and detail carry for the viewer: the `faces` of its
+ * icon and, when no one named it, a `title` of everyone else in it. The name
+ * is the viewer's own view, so it is never stored. Other conversations carry neither.
+ */
 export async function channelFacesField(
-  conversation: Parameters<typeof channelFaces>[0] & { kind?: string },
+  conversation: Parameters<typeof channelMembers>[0] & { kind?: string; title?: string },
   viewerId: string,
   people: Map<string, Person>,
-): Promise<{ faces?: ChannelFace[] }> {
-  return conversation.kind === 'channel'
-    ? { faces: await channelFaces(conversation, viewerId, people) }
-    : {}
+): Promise<{ faces?: ChannelFace[]; title?: string }> {
+  if (conversation.kind !== 'channel') return {}
+  const members = await channelMembers(conversation, viewerId, people)
+
+  return {
+    faces: members.slice(0, FACES),
+    ...(conversation.title
+      ? {}
+      : {
+          title: members
+            .map((member) => member.name)
+            .sort((a, b) => a.localeCompare(b))
+            .join(', '),
+        }),
+  }
 }

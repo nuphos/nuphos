@@ -17,11 +17,13 @@ import {
 } from '@/lib/agent/db/channels'
 import { addConversationParticipants } from '@/lib/agent/db/participants'
 import { channelUploadPart, resolveChannelFiles } from '@/lib/agent/channel-attachments'
+import { channelFacesField } from '@/lib/agent/channel-faces'
 import { postChannelMessage } from '@/lib/agent/channel-chat'
 import { resolveMentions } from '@/lib/agent/mentions'
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { AppError } from '@/lib/errors'
 
+import { buildConversationOwnerMap } from './conversation-view'
 import {
   assertConversationSendable,
   readTeamIdCandidate,
@@ -78,7 +80,15 @@ async function agentsResponse(channel: AgentConversation | null) {
 channelRoutes.post('/channels', async (c) => {
   const body = await readBody(c)
   const teamId = await requireTeam(c, body)
-  const title = requireText(body.title, 'title', MAX_TITLE_LENGTH)
+  // A chat may go unnamed: each member then sees it called by the others in it.
+  const title = typeof body.title === 'string' ? body.title.trim() : ''
+
+  if (title.length > MAX_TITLE_LENGTH)
+    throw new AppError(
+      400,
+      'invalid_request',
+      `title must be at most ${String(MAX_TITLE_LENGTH)} characters`,
+    )
   const sessionId = randomUUID()
 
   await upsertConversationShell({
@@ -96,8 +106,30 @@ channelRoutes.post('/channels', async (c) => {
 // The Inbox's channel entries: posts that @mention the viewer, until they reply there.
 channelRoutes.get('/channels/mentions', async (c) => {
   const teamId = await requireTeam(c)
+  const viewerId = c.get('userId')
+  const mentions = await listChannelMentions(teamId, viewerId)
+  const unnamed = mentions.filter((mention) => mention.kind === 'channel' && !mention.title)
 
-  return c.json({ mentions: await listChannelMentions(teamId, c.get('userId')) })
+  if (unnamed.length === 0) return c.json({ mentions })
+  // An unnamed chat is called by everyone but the viewer, as in the chat list.
+  const people = await buildConversationOwnerMap(teamId, [])
+  const titles = new Map(
+    await Promise.all(
+      unnamed.map(async (mention) => {
+        const channel = await getConversationBySessionId(mention.channelId)
+        const named = channel ? await channelFacesField(channel, viewerId, people) : {}
+
+        return [mention.channelId, named.title ?? ''] as const
+      }),
+    ),
+  )
+
+  return c.json({
+    mentions: mentions.map((mention) => ({
+      ...mention,
+      title: titles.get(mention.channelId) ?? mention.title,
+    })),
+  })
 })
 
 channelRoutes.get('/conversations/:sessionId/agents', async (c) => {

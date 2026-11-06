@@ -34,6 +34,11 @@ useAgentDb({
 useIdentity({
   getTeamMembership: async (userId, teamId) =>
     teamId === TEAM && MEMBERS.includes(userId) ? ({ role: 'MEMBER' } as never) : null,
+  getTeamMembers: async () =>
+    [
+      { id: OWNER, name: 'Olive' },
+      { id: TEAMMATE, name: 'Tom' },
+    ] as never,
 })
 
 const { channelRoutes } = await import('./routes-channels')
@@ -110,8 +115,16 @@ describe('creating a channel', () => {
     expect(channel?.agentRuntime).toBeUndefined()
   })
 
-  test('needs a title and a team the caller belongs to', async () => {
-    expect((await send('POST', '/channels', { title: '  ' })).status).toBe(400)
+  test('may go unnamed', async () => {
+    const response = await send('POST', '/channels', {})
+    const { sessionId } = (await response.json()) as { sessionId: string }
+
+    expect(response.status).toBe(201)
+    expect(await agentConversations().findOne({ sessionId })).toMatchObject({ title: '' })
+  })
+
+  test('needs a short title, if any, and a team the caller belongs to', async () => {
+    expect((await send('POST', '/channels', { title: 'x'.repeat(201) })).status).toBe(400)
     viewer = 'outsider'
     expect((await send('POST', '/channels', { title: 'x' })).status).toBe(403)
   })
@@ -330,4 +343,30 @@ test('the Inbox lists channels that @mention the viewer, and no others', async (
   ])
   viewer = OWNER
   expect(await (await send('GET', '/channels/mentions')).json()).toEqual({ mentions: [] })
+})
+
+test('the Inbox calls an unnamed chat by everyone but the viewer', async () => {
+  const channelId = await createChannel('')
+
+  await agentConversations().updateOne(
+    { sessionId: channelId },
+    {
+      $set: {
+        participantIds: [TEAMMATE],
+        'mentions.teammate-user': { messageId: 'm1', at: new Date() },
+      },
+    },
+  )
+  await memory.rows('agent_messages').push({
+    sessionId: channelId,
+    userId: OWNER,
+    index: 0,
+    messageId: 'm1',
+    role: 'user',
+    parts: [{ type: 'text', text: '@teammate-user look' }],
+  })
+  viewer = TEAMMATE
+  const mine = (await (await send('GET', '/channels/mentions')).json()) as { mentions: unknown[] }
+
+  expect(mine.mentions).toMatchObject([{ channelId, title: 'Olive' }])
 })

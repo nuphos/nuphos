@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { useDb } from '@/lib/test/doubles/db'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
-import { channelFaces } from './channel-faces'
+import { channelFacesField } from './channel-faces'
 import { agentConversations, agentMessages } from './db'
 
 import type { AgentConversation } from './db'
@@ -20,6 +20,8 @@ const people = new Map([
 ])
 
 const channel = {
+  kind: 'channel',
+  title: 'Launch room',
   sessionId: 'chat',
   userId: 'me',
   teamId: 'team',
@@ -42,7 +44,7 @@ async function post(index: number, type: 'user' | 'agent', id: string) {
   } as never)
 }
 
-describe('channelFaces', () => {
+describe('channelFacesField', () => {
   beforeEach(async () => {
     memory = portabilityDb()
     for (const [sessionId, title] of [
@@ -65,14 +67,14 @@ describe('channelFaces', () => {
     await post(1, 'agent', 'a2')
     await post(0, 'user', 'bob')
 
-    expect(await channelFaces(channel, 'me', people)).toEqual([
+    expect((await channelFacesField(channel, 'me', people)).faces).toEqual([
       { id: 'a2', name: 'Reviewer', agent: { avatar: 'a2-pick', provider: 'codex' } },
       { id: 'bob', name: 'Bob' },
     ])
   })
 
   test('a quiet chat shows its members in the order they joined', async () => {
-    expect(await channelFaces(channel, 'ann', people)).toEqual([
+    expect((await channelFacesField(channel, 'ann', people)).faces).toEqual([
       { id: 'a1', name: 'Writer', agent: { avatar: 'a1-pick', provider: 'codex' } },
       { id: 'a2', name: 'Reviewer', agent: { avatar: 'a2-pick', provider: 'codex' } },
     ])
@@ -81,8 +83,34 @@ describe('channelFaces', () => {
   test('a chat with one other member shows just them', async () => {
     const pair = { ...channel, participantIds: ['ann'], agentSessionIds: [] }
 
-    expect(await channelFaces(pair, 'me', people)).toEqual([
+    expect((await channelFacesField(pair, 'me', people)).faces).toEqual([
       { id: 'ann', name: 'Ann', avatarURL: 'https://a/ann.png' },
     ])
+  })
+
+  test('a named chat keeps its name', async () => {
+    expect(await channelFacesField(channel, 'me', people)).not.toHaveProperty('title')
+  })
+
+  test('an unnamed chat is called by everyone but the viewer', async () => {
+    const unnamed = { ...channel, title: '' }
+
+    expect((await channelFacesField(unnamed, 'me', people)).title).toBe(
+      'Ann, Bob, Reviewer, Writer',
+    )
+    expect((await channelFacesField(unnamed, 'ann', people)).title).toBe(
+      'Bob, Me, Reviewer, Writer',
+    )
+  })
+
+  test('an unnamed chat with one other member is called by their name', async () => {
+    const pair = { ...channel, title: '', participantIds: ['ann'], agentSessionIds: [] }
+
+    expect((await channelFacesField(pair, 'me', people)).title).toBe('Ann')
+    expect((await channelFacesField(pair, 'ann', people)).title).toBe('Me')
+  })
+
+  test('other conversations carry neither', async () => {
+    expect(await channelFacesField({ ...channel, kind: undefined }, 'me', people)).toEqual({})
   })
 })
