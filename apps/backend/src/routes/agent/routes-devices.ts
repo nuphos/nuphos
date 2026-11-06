@@ -16,21 +16,19 @@ import {
   boxDesktopUrl,
   boxState,
   boxesAvailable,
-  boxesEnabled,
   createBox,
   destroyBox,
   healBox,
   pauseBox,
   resumeBox,
 } from '@/lib/agent/devices/box-instabox'
+import { readBoxMetrics } from '@/lib/agent/devices/box-metrics'
+import { setTeamUse } from '@/lib/agent/devices/device-grants'
 import {
   DEVICE_JOIN_TOKEN_DEFAULT_TTL_SEC,
   DEVICE_JOIN_TOKEN_MAX_TTL_SEC,
   issueDeviceJoinToken,
 } from '@/lib/agent/devices/join-tokens'
-import { readBoxMetrics } from '@/lib/agent/devices/box-metrics'
-import { setTeamUse } from '@/lib/agent/devices/device-grants'
-import { boxDesktops } from '@/lib/claude-code-preview/session-desktops'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { holderChannel } from '@/lib/agent/devices/local-runtime/protocol'
 import { isDevicePresent } from '@/lib/agent/devices/presence'
@@ -42,13 +40,14 @@ import {
   revokeAgentDeviceCredential,
   upsertAgentDevice,
 } from '@/lib/agent/devices/store'
+import { boxDesktops } from '@/lib/claude-code-preview/session-desktops'
 import { AppError } from '@/lib/errors'
 import { getTeamMembers } from '@/lib/identity'
 import { zv } from '@/lib/validate'
 
 import { agent } from './router'
-import { createAgentDeviceBoxRoutes } from './routes-devices-box'
 import { createDeviceAgentRoutes } from './routes-device-agents'
+import { createAgentDeviceBoxRoutes } from './routes-devices-box'
 import { readTeamIdCandidate } from './team-scope'
 
 import type { DeviceAccessDeps } from '@/lib/agent/devices/box-access'
@@ -105,7 +104,7 @@ export type AgentDeviceRouteDependencies = {
   renameDevice: (userId: string, deviceId: string, label: string) => Promise<boolean>
   /** Where a joining machine dials: this deployment's public URL, if it has one. */
   publicUrl: () => string | undefined
-  /** Null when this deployment has no Box provider. */
+  /** Null only in tests that have no Box provider. */
   box: {
     create: typeof createBox
     pause: (userId: string, deviceId: string) => Promise<AgentDevice>
@@ -145,18 +144,17 @@ const defaultDependencies: AgentDeviceRouteDependencies = {
   deleteDevice: deleteAgentDevice,
   renameDevice: renameAgentDevice,
   publicUrl: boxBackendUrl,
-  box: boxesEnabled()
-    ? {
-        create: createBox,
-        pause: pauseBox,
-        resume: resumeBox,
-        destroy: destroyBox,
-        desktop: boxDesktopUrl,
-        heal: healBox,
-        available: boxesAvailable,
-        state: boxState,
-      }
-    : null,
+  // Always on: a team may bring its own instabox account when the deployment has none.
+  box: {
+    create: createBox,
+    pause: pauseBox,
+    resume: resumeBox,
+    destroy: destroyBox,
+    desktop: boxDesktopUrl,
+    heal: healBox,
+    available: boxesAvailable,
+    state: boxState,
+  },
 }
 
 export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = defaultDependencies) {

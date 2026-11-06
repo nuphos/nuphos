@@ -17,7 +17,7 @@ export const CREATE_TIMEOUT_MS = 3 * 60_000
 /** Anything on a turn's path: an instabox outage must not stall a conversation for long. */
 export const QUICK_TIMEOUT_MS = 30_000
 /** The most one HTTP request to instabox may take; long operations poll within their own budget. */
-const REQUEST_TIMEOUT_MS = 15_000
+export const REQUEST_TIMEOUT_MS = 15_000
 
 /** Node 22 and the agents, then the CLI; idempotent, so a resume can run it again. */
 export const BOX_INSTALL_COMMAND = [
@@ -92,10 +92,6 @@ export function connection(timeoutMs: number) {
   }
 }
 
-export function boxesEnabled(): boolean {
-  return config.box.instabox !== null
-}
-
 /** Where a Box dials this backend from the internet: its public backend URL, else the deployment's. */
 export function boxBackendUrl(): string | undefined {
   const url = config.agent.publicBackendUrl ?? config.auth.publicBaseUrl
@@ -103,8 +99,26 @@ export function boxBackendUrl(): string | undefined {
   return /^https?:\/\/localhost(?::\d+)?$/u.test(url) ? undefined : url
 }
 
+/** The CLI and its runtime bundle come from the release, or from a mirror in development. */
+export function downloadEnv(): Record<string, string> {
+  return config.box.downloadUrl ? { NUPHOS_DOWNLOAD_URL: config.box.downloadUrl } : {}
+}
+
+export function requireBackendUrl(): string {
+  const url = boxBackendUrl()
+
+  if (!url)
+    throw new AppError(
+      503,
+      'box_unavailable',
+      'This deployment has no public URL for a Box to reach',
+    )
+
+  return url
+}
+
 export function boxesAvailable(): boolean {
-  return boxesEnabled() && boxBackendUrl() !== undefined
+  return config.box.instabox !== null && boxBackendUrl() !== undefined
 }
 
 export const reason = (error: unknown) => (error instanceof Error ? error.message : String(error))
@@ -128,10 +142,7 @@ export async function killBoxMachine(
 }
 
 /** Deletes a machine, treating one that is already gone as deleted. */
-export async function kill(
-  sandboxId: string,
-  conn: ReturnType<typeof connection> = connection(QUICK_TIMEOUT_MS),
-): Promise<void> {
+async function kill(sandboxId: string, conn: ReturnType<typeof connection>): Promise<void> {
   try {
     await killMachine(conn, sandboxId)
   } catch (error) {

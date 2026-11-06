@@ -19,6 +19,8 @@ export type AgentDeviceBox = {
   vcpus?: number
   /** Asset scope; independent of the host's transport owner. */
   teamId: string
+  /** The team's instabox account binding it lives on; absent is the deployment's account. */
+  accountId?: string
   /** Its owner; the transport `userId` stays whoever's credential the machine holds. */
   createdBy?: string
   /** When an update last restarted its host; see box-updating. */

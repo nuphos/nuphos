@@ -3,10 +3,10 @@
 
 import { InstaboxError } from '@insforge/instabox-sdk'
 
-import { connection } from './box-instabox-client'
+import { boxConnection } from './box-instabox-account'
 import { machineState } from './instabox-machines'
 
-import type { AgentDevice } from './store'
+import type { AgentDevice, AgentDeviceBox } from './store'
 
 /** `error` means instabox could not say; `gone` that it no longer has the machine. */
 /** `connecting`: the machine runs but its host has not joined yet. */
@@ -30,7 +30,9 @@ export async function boxState(device: AgentDevice, online: boolean): Promise<Bo
   const { sandboxId } = device.box
   const cached = stateReads.get(sandboxId)
   const read =
-    cached && Date.now() - cached.at < STATE_CACHE_MS ? cached.read : readMachineState(sandboxId)
+    cached && Date.now() - cached.at < STATE_CACHE_MS
+      ? cached.read
+      : readMachineState(device.box, sandboxId)
 
   if (read !== cached?.read) stateReads.set(sandboxId, { at: Date.now(), read })
   const state = await read
@@ -39,9 +41,9 @@ export async function boxState(device: AgentDevice, online: boolean): Promise<Bo
   return state === 'running' && !device.lastSeenAt ? 'connecting' : state
 }
 
-async function readMachineState(sandboxId: string): Promise<BoxState | 'gone'> {
+async function readMachineState(box: AgentDeviceBox, sandboxId: string) {
   try {
-    const state = await machineState(connection(READ_TIMEOUT_MS), sandboxId)
+    const state = await machineState(await boxConnection(box, READ_TIMEOUT_MS), sandboxId)
 
     return state === 'running' || state === 'starting' ? 'running' : 'paused'
   } catch (error) {
