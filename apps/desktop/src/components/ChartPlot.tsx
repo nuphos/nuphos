@@ -16,15 +16,14 @@ import {
 
 import type { ChartPayload } from './agent/chartPayload'
 
-// Pulled from index.css palette so charts feel like the rest of Nuphos.
-// Order matters: index 0 is the dominant series accent.
+// One data hue (design tokens, #1632): further series step down in opacity
+// before falling back to the text tones, so charts read as one family.
 const SERIES_COLORS = [
-  'rgb(164, 105, 255)', // zViolet-accent
-  'rgb(116, 93, 243)', // zViolet-400
-  'rgb(238, 67, 14)', // zOrangered-500
-  'rgb(52, 211, 153)', // emerald-400
-  'rgb(96, 165, 250)', // blue-400
-  'rgb(251, 191, 36)', // amber-400
+  'rgb(var(--color-data-1))',
+  'rgba(var(--color-data-1), 0.6)',
+  'rgba(var(--color-data-1), 0.35)',
+  'rgb(var(--color-text-secondary))',
+  'rgb(var(--color-text-tertiary))',
 ]
 
 const AXIS_STYLE = {
@@ -32,7 +31,7 @@ const AXIS_STYLE = {
   fill: 'rgb(var(--color-text-tertiary))',
 } as const
 
-const GRID_STROKE = 'rgba(var(--color-zGray-800), 0.6)'
+const GRID_STROKE = 'rgba(var(--color-line-control), 0.6)'
 
 function TooltipContent({
   active,
@@ -51,7 +50,7 @@ function TooltipContent({
   if (!active || !payload || payload.length === 0) return null
 
   return (
-    <div className="rounded-md border border-zGray-800 bg-zGray-950/95 px-2.5 py-1.5 text-[12px] shadow-lg">
+    <div className="rounded-md border border-line-control bg-state-selected px-2.5 py-1.5 text-[12px] shadow-lg">
       {label !== undefined && <div className="mb-1 font-medium text-main">{String(label)}</div>}
       <div className="space-y-0.5">
         {payload.map((p, i) => (
@@ -155,10 +154,7 @@ export function ChartPlot({
               <CartesianGrid stroke={GRID_STROKE} vertical={false} />
               <XAxis dataKey={xKey} tick={AXIS_STYLE} tickLine={false} axisLine={false} />
               <YAxis tick={AXIS_STYLE} tickLine={false} axisLine={false} width={36} />
-              <Tooltip
-                content={<TooltipContent />}
-                cursor={{ fill: 'rgba(164, 105, 255, 0.08)' }}
-              />
+              <Tooltip content={<TooltipContent />} cursor={{ fill: 'var(--color-state-hover)' }} />
               {visible.map((s) => (
                 <Bar
                   key={s.key}

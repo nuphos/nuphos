@@ -47,10 +47,10 @@ export function RegionCombobox({
       <ComboboxInput
         aria-label={t('Select region')}
         placeholder={t('Region')}
-        className="h-7 w-[150px] border-zGray-800"
+        className="h-7 w-[150px] border-line-control"
         inputClassName="px-2 text-[12px]"
       />
-      <ComboboxContent className="w-[200px] max-h-[340px] bg-zGray-850 p-0 [padding-block:0]">
+      <ComboboxContent className="w-[200px] max-h-[340px] bg-surface-sunken p-0 [padding-block:0]">
         <ComboboxList className="max-h-[300px] overflow-auto p-0 [padding-block:0]">
           {(r) => (
             <ComboboxItem key={String(r)} value={r}>

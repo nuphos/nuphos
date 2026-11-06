@@ -33,7 +33,7 @@ export function FeedbackCommentDialog({
           autoFocus
           rows={4}
           placeholder={t('What was inaccurate, unhelpful, or unexpected? (optional)')}
-          className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent resize-none"
+          className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-line-control text-main outline-none focus:border-line-focus resize-none"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
               e.preventDefault()
@@ -42,7 +42,7 @@ export function FeedbackCommentDialog({
           }}
         />
       </div>
-      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-zGray-800">
+      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-line-control">
         <button
           onClick={onClose}
           className="px-3 py-1.5 rounded-md text-secondary hover:text-main text-[12.5px]"

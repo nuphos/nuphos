@@ -28,7 +28,7 @@ export function FollowTailButton({
           })
         }
       }}
-      className="px-2 py-1 rounded text-zViolet-accent hover:bg-zGray-800"
+      className="px-2 py-1 rounded text-primary hover:bg-state-hover"
     >
       Follow tail
     </button>
@@ -46,7 +46,7 @@ export function LogStreamStatus({
     <span className="flex items-center gap-1.5">
       {previous ? (
         <>
-          <span className="w-1.5 h-1.5 rounded-full bg-zViolet-accent" />
+          <span className="w-1.5 h-1.5 rounded-full bg-action-primary" />
           previous
         </>
       ) : streaming ? (
@@ -56,7 +56,7 @@ export function LogStreamStatus({
         </>
       ) : (
         <>
-          <span className="w-1.5 h-1.5 rounded-full bg-zGray-600" />
+          <span className="w-1.5 h-1.5 rounded-full bg-line-control" />
           stopped
         </>
       )}

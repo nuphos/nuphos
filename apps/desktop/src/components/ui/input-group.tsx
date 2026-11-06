@@ -5,7 +5,7 @@ import * as React from 'react'
 
 // Text-entry controls have no global focus ring, so the decorated wrapper shows
 // focus for the chrome-less control inside it, following its own border-radius.
-export const inputGroupFocusClass = 'focus-within:ring-1 focus-within:ring-zViolet-500/60'
+export const inputGroupFocusClass = 'focus-within:ring-1 focus-within:ring-line-focus'
 export const inputGroupControlClass = 'bg-transparent outline-none'
 /**
  * Trims a block of text to its cap height, so a container that centers it centers the letters
@@ -18,7 +18,7 @@ export const capCenterClass = '[text-box:trim-both_cap_alphabetic]'
  * buttons read as one family. Height comes from the caller: h-9 in forms, h-8 beside small buttons.
  */
 export const fieldClass =
-  'w-full rounded-md border border-main bg-surface px-2.5 text-[12.5px] text-main outline-none placeholder:text-tertiary focus:border-zViolet-500'
+  'w-full rounded-md border border-main bg-surface px-2.5 text-[12.5px] text-main outline-none placeholder:text-tertiary focus:border-line-focus'
 
 export function InputGroup({ render, className, ...props }: useRender.ComponentProps<'div'>) {
   return useRender({

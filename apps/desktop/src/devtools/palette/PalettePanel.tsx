@@ -96,13 +96,13 @@ export function PalettePanel({ onClose }: { onClose: () => void }) {
   const body = (
     <div
       data-dev-palette=""
-      className="fixed z-[1001] flex flex-col rounded-lg border border-zGray-800/70 bg-main text-main shadow-[0_16px_40px_-12px_rgba(0,0,0,0.6)]"
+      className="fixed z-[1001] flex flex-col rounded-lg border border-line-control/70 bg-main text-main shadow-[0_16px_40px_-12px_rgba(0,0,0,0.6)]"
       style={{ left: pos.x, top: pos.y, width: PANEL_W, maxHeight: '80vh' }}
     >
       {/* Titlebar */}
       <div
         onMouseDown={onDragStart}
-        className="flex items-center gap-2 px-2.5 py-2 border-b border-zGray-800/60 cursor-move select-none"
+        className="flex items-center gap-2 px-2.5 py-2 border-b border-line-control/60 cursor-move select-none"
       >
         <GripHorizontal className="h-3.5 w-3.5 text-tertiary" strokeWidth={2} />
         <span className="text-[12.5px] font-semibold">Palette</span>
@@ -148,7 +148,7 @@ export function PalettePanel({ onClose }: { onClose: () => void }) {
               <button
                 type="button"
                 onClick={rescan}
-                className="ml-auto rounded px-1.5 py-1 text-[11px] text-tertiary hover:bg-zGray-800/60 hover:text-secondary"
+                className="ml-auto rounded px-1.5 py-1 text-[11px] text-tertiary hover:bg-state-hover hover:text-secondary"
               >
                 Rescan
               </button>
@@ -156,7 +156,7 @@ export function PalettePanel({ onClose }: { onClose: () => void }) {
           </div>
 
           {inspectResult && (
-            <div className="mx-2.5 mb-1.5 rounded-md border border-zGray-800/60 bg-elevated px-2 py-1.5 text-[11px]">
+            <div className="mx-2.5 mb-1.5 rounded-md border border-line-control/60 bg-elevated px-2 py-1.5 text-[11px]">
               <span className="text-tertiary">Inspected </span>
               <span className="font-mono text-secondary">{inspectResult.label}</span>
               {inspectResult.tokens.length === 0 && (

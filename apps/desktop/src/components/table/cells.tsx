@@ -29,7 +29,7 @@ type TableRowProps<T> = {
 }
 
 /** Row rule. On the cells, not the row: `border-separate` ignores `tr` borders. */
-const ROW_RULE = 'border-b border-zGray-850'
+const ROW_RULE = 'border-b border-line-control'
 
 /**
  * A pinned cell has to stay unclipped so its edge shade can hang outside it, so
@@ -51,8 +51,8 @@ function stickyCell(content: ReactNode): ReactNode {
  * `:hover` rule.
  */
 function rowTint(isChecked: boolean, isSel: boolean): CSSProperties | undefined {
-  if (isChecked) return { '--row-tint': 'rgba(var(--color-zViolet-500), 0.15)' } as CSSProperties
-  if (isSel) return { '--row-tint': 'rgba(var(--color-zViolet-500), 0.1)' } as CSSProperties
+  if (isChecked) return { '--row-tint': 'rgba(var(--color-action-primary), 0.15)' } as CSSProperties
+  if (isSel) return { '--row-tint': 'rgba(var(--color-action-primary), 0.1)' } as CSSProperties
 
   return undefined
 }
@@ -94,7 +94,7 @@ function TableRowInner<T>({
         'group table-row-tint h-[30px] transition-colors',
         // Subtle inset border marks the focused row without shifting layout.
         // `relative z-[1]` lifts it over the neighbours' bottom borders.
-        isFocused && 'relative z-[1] outline outline-1 -outline-offset-1 outline-zViolet-400/50',
+        isFocused && 'relative z-[1] outline outline-1 -outline-offset-1 outline-line-focus',
       )}
     >
       {selectable && (

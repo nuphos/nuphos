@@ -125,13 +125,13 @@ export function LambdaOverviewPanel({ detail }: { detail: AwsLambdaFunctionDetai
         {envEntries.length === 0 ? (
           <div className="text-[12px] text-tertiary italic">{t('No environment variables.')}</div>
         ) : (
-          <div className="border border-zGray-800 rounded bg-zGray-900 divide-y divide-zGray-850">
+          <div className="border border-line-control rounded bg-surface-sheet divide-y divide-line-control">
             {envEntries.map(([k, v]) => (
               <div
                 key={k}
                 className="px-2.5 py-1.5 grid grid-cols-[minmax(120px,max-content),1fr] gap-x-4 text-[11.5px] font-mono"
               >
-                <span className="text-zViolet-accent break-all">{k}</span>
+                <span className="text-primary break-all">{k}</span>
                 <span className="text-secondary break-all">{v}</span>
               </div>
             ))}

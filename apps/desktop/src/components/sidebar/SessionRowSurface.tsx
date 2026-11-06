@@ -13,6 +13,8 @@ type Props = Pick<HTMLAttributes<HTMLDivElement>, 'children' | 'onContextMenu'> 
   /** A chat row drags onto the conversation area to open it in a split. */
   sessionId?: string | null
   teamId?: string
+  /** The row shows its description below the title on hover (a fixed-height row). */
+  revealDetail?: boolean
   /** A Pinned row also drags within Pinned to change its place. */
   reorderDrag?: { onDragStart: (event: DragEvent<HTMLElement>) => void; onDragEnd: () => void }
 }
@@ -25,6 +27,7 @@ export function SessionRowSurface({
   sessionId,
   teamId,
   reorderDrag,
+  revealDetail = false,
   ...props
 }: Props) {
   const activate = (event: MouseEvent) => {
@@ -48,7 +51,10 @@ export function SessionRowSurface({
         reorderDrag?.onDragStart(event)
       }}
       onDragEnd={reorderDrag?.onDragEnd}
+      data-sidebar-row
       className={clsx(
+        // A row with a detail line keeps one height; the detail rises into it on hover.
+        revealDetail && 'group/session relative h-9 overflow-hidden',
         item.description &&
           'group rounded-lg transition-colors focus-within:bg-[var(--sidebar-overlay-focus)]',
         item.description &&

@@ -104,12 +104,9 @@ export function GcpDashboardBrowserView(props: Props) {
                   if (event.detail !== 0) return
                   setSelected(dashboard)
                 }}
-                className="flex w-full items-center gap-3 border-b border-zGray-800/40 px-6 py-3 text-left transition-colors hover:bg-zGray-850"
+                className="flex w-full items-center gap-3 border-b border-line-control/40 px-6 py-3 text-left transition-colors hover:bg-state-hover"
               >
-                <LayoutDashboard
-                  className="h-4 w-4 flex-shrink-0 text-zViolet-accent"
-                  strokeWidth={1.8}
-                />
+                <LayoutDashboard className="h-4 w-4 flex-shrink-0 text-primary" strokeWidth={1.8} />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[13px] text-main">{dashboard.displayName}</div>
                   <div className="mt-0.5 truncate font-mono text-[10.5px] text-tertiary">
@@ -121,7 +118,7 @@ export function GcpDashboardBrowserView(props: Props) {
                   .map(([key, value]) => (
                     <span
                       key={key}
-                      className="max-w-36 truncate rounded bg-zGray-800/60 px-1.5 py-px text-[10.5px] text-tertiary"
+                      className="max-w-36 truncate rounded bg-state-selected px-1.5 py-px text-[10.5px] text-tertiary"
                       title={`${key}=${value}`}
                     >
                       {key}={value}

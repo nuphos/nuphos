@@ -111,8 +111,8 @@ function Tag({
         className={clsx(
           'inline-flex flex-shrink-0 items-center gap-1 rounded border px-1.5 py-px text-[10.5px] uppercase tracking-wide',
           tone === 'error' && 'border-error/40 text-error',
-          tone === 'accent' && 'border-zViolet-500/40 text-zViolet-accent',
-          tone === 'muted' && 'border-zGray-700 text-tertiary',
+          tone === 'accent' && 'border-action-primary/40 text-primary',
+          tone === 'muted' && 'border-line-control text-tertiary',
         )}
       >
         {children}

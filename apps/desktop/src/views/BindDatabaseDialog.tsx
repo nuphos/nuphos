@@ -27,7 +27,7 @@ type Props = {
 }
 
 const fieldClass =
-  'w-full rounded-md border border-zGray-800 bg-surface px-2.5 py-1.5 text-[12.5px] text-main outline-none focus:border-zViolet-accent disabled:opacity-50'
+  'w-full rounded-md border border-line-control bg-surface px-2.5 py-1.5 text-[12.5px] text-main outline-none focus:border-line-focus disabled:opacity-50'
 
 export function BindDatabaseDialog({ open, teamId, onClose, onBound }: Props) {
   const [name, setName] = useState('')
@@ -145,7 +145,7 @@ export function BindDatabaseDialog({ open, teamId, onClose, onBound }: Props) {
           <button
             onClick={() => void testConnection()}
             disabled={testing || submitting}
-            className="rounded-md border border-zGray-700 px-3 py-1.5 text-[12.5px] text-secondary hover:text-main disabled:opacity-50"
+            className="rounded-md border border-line-control px-3 py-1.5 text-[12.5px] text-secondary hover:text-main disabled:opacity-50"
           >
             {testing ? (
               <span className="flex items-center gap-1.5">
@@ -233,7 +233,7 @@ export function BindDatabaseDialog({ open, teamId, onClose, onBound }: Props) {
             />
           </Field>
         </div>
-        <div className="rounded-lg border border-zGray-800 bg-zGray-900/60 p-3 text-[12px] text-secondary">
+        <div className="rounded-lg border border-line-control bg-state-selected p-3 text-[12px] text-secondary">
           <div className="flex items-center gap-2 text-main">
             <ShieldCheck className="h-4 w-4 text-success" />
             {t('Public network via backend proxy')}

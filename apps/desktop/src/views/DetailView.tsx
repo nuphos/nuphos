@@ -184,7 +184,7 @@ export function DetailView({ target, refreshKey, onClose, onNavigate }: Props) {
                 type="button"
                 onClick={() => void handleOpenPortForward()}
                 disabled={portForwardLoading}
-                className="text-secondary hover:text-main w-7 h-7 flex items-center justify-center rounded hover:bg-zGray-800 disabled:opacity-50"
+                className="text-secondary hover:text-main w-7 h-7 flex items-center justify-center rounded hover:bg-state-hover disabled:opacity-50"
                 title={t('Port forward')}
               >
                 <Network className="w-4 h-4" strokeWidth={2} />
@@ -192,14 +192,14 @@ export function DetailView({ target, refreshKey, onClose, onNavigate }: Props) {
             )}
             <button
               onClick={onClose}
-              className="text-secondary hover:text-main w-7 h-7 flex items-center justify-center rounded hover:bg-zGray-800"
+              className="text-secondary hover:text-main w-7 h-7 flex items-center justify-center rounded hover:bg-state-hover"
               title={t('Close details')}
             >
               <X className="w-4 h-4" strokeWidth={2} />
             </button>
           </div>
         </div>
-        <div className="-mx-6 mt-4 flex gap-1 border-b border-zGray-800 px-3">
+        <div className="-mx-6 mt-4 flex gap-1 border-b border-line-control px-3">
           {tabs.map((tabName) => (
             <button
               key={tabName}
@@ -215,7 +215,7 @@ export function DetailView({ target, refreshKey, onClose, onNavigate }: Props) {
               className={clsx(
                 'px-3 py-2 text-[12.5px] -mb-px border-b-2 transition-colors',
                 tab === tabName
-                  ? 'border-zViolet-accent text-main'
+                  ? 'border-action-primary text-main'
                   : 'border-transparent text-secondary hover:text-main',
               )}
             >

@@ -9,7 +9,7 @@ import type { ReactNode } from 'react'
 
 // Tree lines follow the icon centre in either sidebar density.
 const NEST_INDENT = 16
-const LINE = 'pointer-events-none absolute border-zGray-800/60'
+const LINE = 'pointer-events-none absolute border-line-control/60'
 // -bottom-0.5 spans the 2px gap between rows so the next row's line joins on.
 const DOWN = `${LINE} -bottom-0.5 border-l`
 

@@ -114,17 +114,17 @@ export function CloudflareKvNamespaceDetailView({
       <CfDetailActionBar>
         <button
           onClick={() => setEditing({ key: '', value: '', isNew: true })}
-          className="h-7 px-2.5 rounded-md bg-zGray-850 hover:bg-zGray-800 text-secondary hover:text-main text-[12.5px] flex items-center gap-1.5"
+          className="h-7 px-2.5 rounded-md bg-surface-sunken hover:bg-state-hover text-secondary hover:text-main text-[12.5px] flex items-center gap-1.5"
         >
           <FontAwesomeIcon icon={faPlus} className="w-3.5 h-3.5" /> {t('Add key')}
         </button>
       </CfDetailActionBar>
-      <div className="px-4 py-2 border-b border-zGray-850 flex items-center gap-2">
+      <div className="px-4 py-2 border-b border-line-control flex items-center gap-2">
         <input
           value={prefix}
           onChange={(e) => setPrefix(e.target.value)}
           placeholder={t('Filter by key prefix…')}
-          className="px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12px] w-72"
+          className="px-2.5 py-1.5 rounded-md bg-surface border border-line-control text-main outline-none focus:border-line-focus font-mono text-[12px] w-72"
         />
       </div>
       {error ? (
@@ -184,11 +184,11 @@ export function CloudflareKvNamespaceDetailView({
             ]}
           />
           {cursor && (
-            <div className="px-4 py-2 border-t border-zGray-850 flex items-center justify-center">
+            <div className="px-4 py-2 border-t border-line-control flex items-center justify-center">
               <button
                 onClick={loadMore}
                 disabled={paging}
-                className="px-3 py-1 rounded-md bg-zGray-850 hover:bg-zGray-800 text-secondary text-[12px] disabled:opacity-50"
+                className="px-3 py-1 rounded-md bg-surface-sunken hover:bg-state-hover text-secondary text-[12px] disabled:opacity-50"
               >
                 {paging ? t('Loading…') : t('Load more')}
               </button>

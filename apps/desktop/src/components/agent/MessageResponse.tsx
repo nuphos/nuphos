@@ -52,7 +52,7 @@ function extractText(node: ReactNode): string {
 export function ChatLink({
   link,
   onLinkClick,
-  className = 'text-zViolet-accent hover:underline',
+  className = 'text-primary hover:underline',
   title,
   'aria-label': ariaLabel,
   children,
@@ -199,28 +199,28 @@ function createComponents(
       )
     },
     blockquote: ({ children }) => (
-      <blockquote className="my-2 border-l-2 border-zGray-700 pl-3 text-tertiary">
+      <blockquote className="my-2 border-l-2 border-line-control pl-3 text-tertiary">
         {children}
       </blockquote>
     ),
-    hr: () => <hr className="my-3 border-zGray-800" />,
+    hr: () => <hr className="my-3 border-line-control" />,
     table: ({ children }) => (
       <div className="my-2 overflow-x-auto scrollbar-thin">
-        <table className="w-full border-separate border-spacing-0 overflow-hidden rounded-md border border-zGray-800 text-[13.5px]">
+        <table className="w-full border-separate border-spacing-0 overflow-hidden rounded-md border border-line-control text-[13.5px]">
           {children}
         </table>
       </div>
     ),
-    thead: ({ children }) => <thead className="bg-zGray-900">{children}</thead>,
+    thead: ({ children }) => <thead className="bg-surface-sheet">{children}</thead>,
     tbody: ({ children }) => <tbody>{children}</tbody>,
     tr: ({ children }) => <tr>{children}</tr>,
     th: ({ children }) => (
-      <th className="border-b border-zGray-800 px-2.5 py-1.5 text-left font-medium text-main">
+      <th className="border-b border-line-control px-2.5 py-1.5 text-left font-medium text-main">
         {children}
       </th>
     ),
     td: ({ children }) => (
-      <td className="border-b border-zGray-800 px-2.5 py-1.5 text-main last:[tr:last-child_&]:border-b-0">
+      <td className="border-b border-line-control px-2.5 py-1.5 text-main last:[tr:last-child_&]:border-b-0">
         {children}
       </td>
     ),
@@ -255,7 +255,7 @@ export const MessageResponse = memo(
           'message-response min-w-0 break-words text-[14px] text-main [&>*:first-child]:mt-0 [&>*:last-child]:mb-0',
           // Inline code: subtle pill (the `:not(pre)>code` selector dodges fenced code);
           // a path link's code keeps the link color.
-          '[&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-zGray-800/70 [&_:not(pre)>code]:px-1.5 [&_:not(pre)>code]:py-0.5 [&_:not(pre)>code]:font-mono [&_:not(pre)>code]:text-[13.5px] [&_:not(pre):not(a)>code]:text-main',
+          '[&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-state-selected [&_:not(pre)>code]:px-1.5 [&_:not(pre)>code]:py-0.5 [&_:not(pre)>code]:font-mono [&_:not(pre)>code]:text-[13.5px] [&_:not(pre):not(a)>code]:text-main',
           streaming && 'agent-streaming-response',
           className,
         )}

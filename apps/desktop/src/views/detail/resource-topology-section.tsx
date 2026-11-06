@@ -61,15 +61,15 @@ function ResourceLink({
           name: relation.name,
         })
       }
-      className="group flex w-full min-w-0 items-center gap-2.5 rounded-md px-2 py-2 text-left hover:bg-zGray-850 disabled:pointer-events-none"
+      className="group flex w-full min-w-0 items-center gap-2.5 rounded-md px-2 py-2 text-left hover:bg-state-hover disabled:pointer-events-none"
       title={usageTitle ?? t('Open {kind} {name}', { kind: relation.kind, name: relation.name })}
     >
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-zViolet-500/10 text-zViolet-accent ring-1 ring-inset ring-zViolet-500/15">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-state-selected text-primary ring-1 ring-inset ring-line-focus">
         <ResourceKindIcon kind={relation.kind} />
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-baseline gap-1.5">
-          <span className="truncate text-[12.5px] font-medium text-main group-hover:text-zViolet-accent">
+          <span className="truncate text-[12.5px] font-medium text-main group-hover:text-primary">
             {relation.name}
           </span>
           <span className="shrink-0 text-[10.5px] text-tertiary">{relation.kind}</span>
@@ -210,11 +210,11 @@ function SourceLabel({
     <button
       type="button"
       onClick={() => onNavigate({ kind, namespace, name })}
-      className="group flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-left hover:text-zViolet-accent"
+      className="group flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-left hover:text-primary"
       title={t('Open {kind} {name}', { kind, name })}
     >
       {label}
-      <ArrowUpRight className="h-3 w-3 shrink-0 text-tertiary group-hover:text-zViolet-accent" />
+      <ArrowUpRight className="h-3 w-3 shrink-0 text-tertiary group-hover:text-primary" />
     </button>
   )
 }
@@ -233,7 +233,7 @@ export function VolumeMap({
   }
 
   return (
-    <div className="divide-y divide-zGray-800">
+    <div className="divide-y divide-line-control">
       {topology.volumes.map((volume) => (
         <div
           key={volume.name}
@@ -264,7 +264,7 @@ export function VolumeMap({
                 {volume.mounts.map((mount) => (
                   <span
                     key={`${mount.container}:${mount.path}`}
-                    className="max-w-full truncate rounded bg-zGray-800 px-1.5 py-0.5 font-mono text-[10.5px] text-secondary"
+                    className="max-w-full truncate rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[10.5px] text-secondary"
                     title={mountTitle(mount)}
                   >
                     {mount.init ? 'init/' : mount.ephemeral ? 'ephemeral/' : ''}

@@ -111,14 +111,14 @@
   height: 3px;
   overflow: hidden;
   border-radius: 2px;
-  background: rgba(var(--color-zGray-800), 0.9);
+  background: rgba(var(--color-line-control), 0.9);
 }
 
 .desk-meter > i {
   display: block;
   height: 100%;
   border-radius: 2px;
-  background: rgb(var(--color-zViolet-400));
+  background: rgb(var(--color-text-primary));
   transform-origin: left;
   transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -133,7 +133,7 @@
 }
 
 .desk-readings.is-stale .desk-meter > i {
-  background: rgb(var(--color-zGray-500));
+  background: rgb(var(--color-text-tertiary));
 }
 
 .desk-stale {
@@ -150,7 +150,7 @@
 }
 
 .desk-link {
-  color: rgb(var(--color-zViolet-accent));
+  color: rgb(var(--color-text-primary));
   font-weight: 500;
 }
 

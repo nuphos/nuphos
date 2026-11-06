@@ -38,7 +38,7 @@ function HorizontalBars({ bars }: { bars: BarGaugeBar[] }) {
           >
             {bar.label}
           </span>
-          <span className="relative h-4 min-w-0 flex-1 overflow-hidden rounded-sm bg-zGray-800/60">
+          <span className="relative h-4 min-w-0 flex-1 overflow-hidden rounded-sm bg-state-selected">
             <span
               className="absolute inset-y-0 left-0 rounded-sm"
               style={{ width: `${String(bar.fraction * 100)}%`, background: bar.color }}
@@ -64,7 +64,7 @@ function VerticalBars({ bars }: { bars: BarGaugeBar[] }) {
           <span className="text-[11.5px] font-medium" style={{ color: bar.color }}>
             {bar.text}
           </span>
-          <span className="relative w-full min-w-0 flex-1 overflow-hidden rounded-sm bg-zGray-800/60">
+          <span className="relative w-full min-w-0 flex-1 overflow-hidden rounded-sm bg-state-selected">
             <span
               className="absolute inset-x-0 bottom-0 rounded-sm"
               style={{ height: `${String(bar.fraction * 100)}%`, background: bar.color }}

@@ -108,7 +108,7 @@ export function LocalAgentSignIn({
                 href={login.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block text-[13px] text-zViolet-400 underline"
+                className="block text-[13px] text-secondary underline"
               >
                 {t('Open the sign-in page')}
               </a>

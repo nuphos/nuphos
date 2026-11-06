@@ -110,11 +110,11 @@ export function S3ObjectPreviewPanel({
   return (
     <DetailSidebarTransition
       onClose={onClose}
-      className="w-[420px] shrink-0 flex flex-col border-l border-zGray-800 bg-zGray-950 min-h-0"
+      className="w-[420px] shrink-0 flex flex-col border-l border-line-control bg-surface-canvas min-h-0"
     >
       {(requestClose) => (
         <>
-          <header className="px-3 py-2 border-b border-zGray-800 flex items-center gap-2">
+          <header className="px-3 py-2 border-b border-line-control flex items-center gap-2">
             <FileIcon className="w-3.5 h-3.5 text-tertiary shrink-0" strokeWidth={1.8} />
             <span className="text-[12px] text-main truncate" title={object.key}>
               {basename(object.key)}
@@ -178,7 +178,7 @@ export function S3ObjectPreviewPanel({
 
             <div className="px-3 pb-3">
               {looksImage && downloadUrl && (
-                <div className="border border-zGray-800 rounded bg-zGray-900 p-2 flex items-center justify-center">
+                <div className="border border-line-control rounded bg-surface-sheet p-2 flex items-center justify-center">
                   <img
                     src={downloadUrl}
                     alt={basename(object.key)}
@@ -194,7 +194,7 @@ export function S3ObjectPreviewPanel({
               )}
 
               {looksText && (
-                <div className="border border-zGray-800 rounded bg-zGray-900">
+                <div className="border border-line-control rounded bg-surface-sheet">
                   {previewLoading && (
                     <div className="px-2 py-3 text-tertiary text-[12px]">{t('Loading…')}</div>
                   )}
@@ -207,7 +207,7 @@ export function S3ObjectPreviewPanel({
                         {preview.text || t('(empty file)')}
                       </pre>
                       {preview.truncated && (
-                        <div className="px-2 py-1.5 border-t border-zGray-800 text-[11px] text-tertiary">
+                        <div className="px-2 py-1.5 border-t border-line-control text-[11px] text-tertiary">
                           {t('Showing first {shown} of {total} — download to view full file.', {
                             shown: formatBytes(preview.text.length),
                             total: formatBytes(preview.size),
@@ -227,12 +227,12 @@ export function S3ObjectPreviewPanel({
             </div>
           </div>
 
-          <footer className="px-3 py-2 border-t border-zGray-800 flex items-center gap-2">
+          <footer className="px-3 py-2 border-t border-line-control flex items-center gap-2">
             <button
               type="button"
               onClick={onDownload}
               disabled={!getDownloadUrl}
-              className="inline-flex items-center gap-1 text-[12px] text-zViolet-accent hover:underline disabled:opacity-50 disabled:no-underline"
+              className="inline-flex items-center gap-1 text-[12px] text-primary hover:underline disabled:opacity-50 disabled:no-underline"
               title={t('Download via presigned URL')}
             >
               <Download className="w-3.5 h-3.5" strokeWidth={1.8} />

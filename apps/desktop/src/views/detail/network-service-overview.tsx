@@ -79,7 +79,7 @@ export function ServiceOverview({
                   type="button"
                   disabled={!onNavigate}
                   onClick={() => onNavigate?.({ kind: 'EndpointSlice', namespace, name })}
-                  className="inline-flex items-center gap-1 font-mono text-zViolet-accent disabled:text-secondary"
+                  className="inline-flex items-center gap-1 font-mono text-primary disabled:text-secondary"
                 >
                   EndpointSlice/{name}
                   {onNavigate && <ArrowUpRight className="h-3 w-3" />}
@@ -92,7 +92,7 @@ export function ServiceOverview({
         <div className="mb-2 text-[11.5px] uppercase tracking-wider text-tertiary">
           {t('Ports')}
         </div>
-        <div className="divide-y divide-zGray-800 rounded-md border border-zGray-800">
+        <div className="divide-y divide-line-control rounded-md border border-line-control">
           {records(spec.ports).map((port, index) => (
             <div key={String(index)} className="grid grid-cols-4 gap-3 px-4 py-3 text-[12.5px]">
               <Field label={t('Name')} value={text(port.name)} />

@@ -22,13 +22,18 @@ export function withChatSections(
 
     return Boolean(parent && !seen.has(item.key) && inPinned(parent, seen.add(item.key)))
   }
+  // A kept agent is who it is: its name and face. Its work stays in its tasks.
   const pinned = [
     ...pinnedChatItems.filter((item) => byKey.has(item.key)),
     ...chatItems.filter((item) => !isPinned(item) && inPinned(item)),
-  ]
+  ].map((item) => ({ ...item, description: undefined }))
   const result = sections.flatMap((section) => {
     if (section.title !== 'Agents') return [section]
-    const items = chatItems.filter((item) => !inPinned(item))
+    // Everything not kept as an agent is a task: no face and no mark, the title
+    // leads, and its state stays at the right edge, shown only when it matters.
+    const items = chatItems
+      .filter((item) => !inPinned(item))
+      .map((item) => ({ ...item, iconNode: undefined, icon: undefined, task: true }))
 
     return items.length > 0 ? [{ ...section, items }] : []
   })

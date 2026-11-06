@@ -1,6 +1,5 @@
 import clsx from 'clsx'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import { Fragment } from 'react'
 
 import { t } from '../../i18n'
 import { useAgentAppearance } from '../../lib/agentAppearance'
@@ -17,10 +16,12 @@ import { Kbd } from '../ui/kbd'
 
 import { DropLine } from './drop-line'
 import { FavoriteToggle } from './favorite-toggle'
+import { FoldedStatus } from './folded-status'
 import { NestedRowBody } from './nest-guides'
-import { rowNote } from './row-note'
 import { nestItems } from './nest-items'
 import { SidebarSectionSkeleton } from './parts'
+import { RowDetail } from './row-detail'
+import { rowNote } from './row-note'
 import { SECTION_LABELS } from './section-labels'
 import { SessionRowSurface } from './SessionRowSurface'
 import { isSidebarItemActive } from './types'
@@ -125,6 +126,9 @@ export function SidebarSectionList({
                   nestItems(section.items, (key) => isGroupCollapsed({ title: key })).map(
                     ({ item, trail, hasChildren, hidden, done }) => {
                       const Icon = item.icon
+                      const leading = item.task
+                        ? null
+                        : (item.iconNode ?? (Icon && <SidebarNavIcon icon={Icon} />))
                       const inPinned = section.title === 'Pinned'
                       const isActive =
                         item.enabled &&
@@ -183,6 +187,7 @@ export function SidebarSectionList({
                           sessionId={rowSessionId}
                           teamId={scope.teamId}
                           reorderDrag={inPinned ? pinned.rowDrag(item.key) : undefined}
+                          revealDetail={Boolean(item.description)}
                           onContextMenu={
                             // Only open when the menu would have something in it.
                             canFavorite(item) || (teamView && Boolean(rowSessionId))
@@ -218,12 +223,7 @@ export function SidebarSectionList({
                             trailing={
                               <>
                                 {item.trailing}
-                                {/* One dot for whatever the fold hides; the rest render null. */}
-                                <span className="contents [&>*:not(:first-child)]:hidden">
-                                  {hidden.map((row) => (
-                                    <Fragment key={row.key}>{row.foldedStatus}</Fragment>
-                                  ))}
-                                </span>
+                                <FoldedStatus rows={hidden} />
                               </>
                             }
                             edge={foldToggle}
@@ -238,9 +238,10 @@ export function SidebarSectionList({
                                 </>
                               ) : undefined
                             }
-                            icon={item.iconNode ?? (Icon && <SidebarNavIcon icon={Icon} />)}
+                            icon={leading}
+                            revealDetail={Boolean(item.description)}
                           />
-                          {item.description}
+                          <RowDetail item={item} />
                         </SessionRowSurface>
                       )
 

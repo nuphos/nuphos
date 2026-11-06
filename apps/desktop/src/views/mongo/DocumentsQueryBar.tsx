@@ -56,7 +56,7 @@ export function DocumentsQueryBar({
       <button
         onClick={onReset}
         title={t('Reset query')}
-        className="h-8 rounded-md border border-zGray-700 px-2 text-tertiary hover:text-main"
+        className="h-8 rounded-md border border-line-control px-2 text-tertiary hover:text-main"
       >
         <RotateCcw className="h-3.5 w-3.5" />
       </button>
@@ -75,13 +75,13 @@ export function DocumentsQueryBar({
         onChange={(event) =>
           onLimitChange(Math.max(1, Math.min(100, Number(event.target.value) || 1)))
         }
-        className="h-8 w-full rounded-md border border-zGray-700 bg-surface px-2 text-[12px] text-main outline-none focus:border-zViolet-500"
+        className="h-8 w-full rounded-md border border-line-control bg-surface px-2 text-[12px] text-main outline-none focus:border-line-focus"
       />
     </label>
   )
 
   return (
-    <div className="border-b border-zGray-800 bg-zGray-900/35 p-3">
+    <div className="border-b border-line-control bg-state-selected p-3">
       {operation === 'aggregate' ? (
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
@@ -92,7 +92,7 @@ export function DocumentsQueryBar({
               value={pipeline}
               onChange={onPipelineChange}
               minimap={false}
-              className="h-40 overflow-hidden rounded-md border border-zGray-700 focus-within:border-zViolet-500"
+              className="h-40 overflow-hidden rounded-md border border-line-control focus-within:border-line-focus"
             />
           </div>
           {limitField}
@@ -110,7 +110,7 @@ export function DocumentsQueryBar({
               minimap={false}
               lineNumbers="off"
               wordWrap="on"
-              className="h-[70px] overflow-hidden rounded-md border border-zGray-700 focus-within:border-zViolet-500"
+              className="h-[70px] overflow-hidden rounded-md border border-line-control focus-within:border-line-focus"
             />
           </div>
           {operation !== 'count' && (
@@ -125,7 +125,7 @@ export function DocumentsQueryBar({
                   minimap={false}
                   lineNumbers="off"
                   wordWrap="on"
-                  className="h-[70px] overflow-hidden rounded-md border border-zGray-700 focus-within:border-zViolet-500"
+                  className="h-[70px] overflow-hidden rounded-md border border-line-control focus-within:border-line-focus"
                 />
               </div>
               <div className="w-40">
@@ -138,7 +138,7 @@ export function DocumentsQueryBar({
                   minimap={false}
                   lineNumbers="off"
                   wordWrap="on"
-                  className="h-[70px] overflow-hidden rounded-md border border-zGray-700 focus-within:border-zViolet-500"
+                  className="h-[70px] overflow-hidden rounded-md border border-line-control focus-within:border-line-focus"
                 />
               </div>
             </>

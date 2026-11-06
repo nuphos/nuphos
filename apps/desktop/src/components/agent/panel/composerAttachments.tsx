@@ -72,10 +72,10 @@ export function AttachmentChips({
             // composer now that the composer itself is the light surface.
             className="surface-raised group relative flex h-12 max-w-[220px] items-center gap-2.5 rounded-lg bg-agentCanvas pl-2 pr-3"
           >
-            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-zGray-800">
+            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-surface-sunken">
               <FontAwesomeIcon
                 icon={isFolder ? faFolder : faFile}
-                className={clsx('h-3.5 w-3.5', isFolder ? 'text-zBlue-accent' : 'text-tertiary')}
+                className={clsx('h-3.5 w-3.5', isFolder ? 'text-secondary' : 'text-tertiary')}
               />
             </div>
             <div className="flex min-w-0 flex-col">

@@ -202,7 +202,7 @@ export function CloudWatchMetricsExplorerView({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 py-2 border-b border-zGray-800 flex items-center gap-2 text-[11.5px] flex-wrap">
+      <div className="px-4 py-2 border-b border-line-control flex items-center gap-2 text-[11.5px] flex-wrap">
         <RegionCombobox regions={AWS_REGIONS} value={region} onChange={setRegion} />
         <AppSelect
           value={namespace}
@@ -212,7 +212,7 @@ export function CloudWatchMetricsExplorerView({
           }}
           placeholder={metricsLoading ? t('Loading namespaces…') : t('Namespace')}
           disabled={!metrics || namespaces.length === 0}
-          triggerClassName="h-7 border-zGray-800 px-2 text-[12px] min-w-[180px]"
+          triggerClassName="h-7 border-line-control px-2 text-[12px] min-w-[180px]"
           options={namespaces.map((n) => ({ value: n, label: n }))}
         />
         <AppSelect
@@ -220,13 +220,13 @@ export function CloudWatchMetricsExplorerView({
           onValueChange={setMetricName}
           placeholder={t('Metric')}
           disabled={!namespace}
-          triggerClassName="h-7 border-zGray-800 px-2 text-[12px] min-w-[180px]"
+          triggerClassName="h-7 border-line-control px-2 text-[12px] min-w-[180px]"
           options={metricNames.map((n) => ({ value: n, label: n }))}
         />
         <AppSelect
           value={stat}
           onValueChange={(v) => setStat(v as MetricStat)}
-          triggerClassName="h-7 border-zGray-800 px-2 text-[12px] w-[110px]"
+          triggerClassName="h-7 border-line-control px-2 text-[12px] w-[110px]"
           options={METRIC_STATS.map((s) => ({ value: s, label: s }))}
         />
         <RangeButtons rangeMinutes={rangeMinutes} setRangeMinutes={setRangeMinutes} />

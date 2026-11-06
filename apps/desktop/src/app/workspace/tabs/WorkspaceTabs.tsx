@@ -35,6 +35,8 @@ export function WorkspaceTabs({
   onCopyPageUrl,
   sidebarCollapsed,
   onToggleSidebarCollapse,
+  leading,
+  trailing,
 }: WorkspaceTabsProps) {
   const [draggingTabId, setDraggingTabId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<TabDropTarget>(null)
@@ -185,7 +187,7 @@ export function WorkspaceTabs({
     // sidebar header puts its own controls. A `pt-1` here pushed the tabs —
     // and the sidebar toggle that reappears beside them once the sidebar is
     // collapsed — 2px below all three.
-    <div className="workspace-dock-toggle-pad bg-main h-[44px] flex-shrink-0 flex items-center gap-0.5 titlebar-caption-pad titlebar-drag">
+    <div className="workspace-dock-toggle-pad sheet-titlebar-row bg-main flex-shrink-0 flex items-center gap-0.5 titlebar-caption-pad titlebar-drag">
       {sidebarCollapsed && onToggleSidebarCollapse && (
         // Mirror the sidebar's titlebar button once the sidebar is hidden. On
         // macOS the leading margin clears the traffic lights it now sits beside;
@@ -196,6 +198,7 @@ export function WorkspaceTabs({
           className="titlebar-lead-ml mr-0.5 flex-shrink-0"
         />
       )}
+      {leading}
       <div
         className="t-tab-strip flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto overflow-y-hidden pl-2 scrollbar-none"
         data-drop-settling={tabDropSettling ? 'true' : undefined}
@@ -221,13 +224,14 @@ export function WorkspaceTabs({
               logNewTabRequested('plus-button')
               onNew()
             }}
-            className="titlebar-no-drag ml-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-tertiary outline-none ring-0 transition-colors hover:bg-zGray-800/60 hover:text-main focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+            className="titlebar-no-drag ml-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-tertiary outline-none ring-0 transition-colors hover:bg-state-hover hover:text-main focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
             aria-label={t('New tab')}
           >
             <FontAwesomeIcon icon={faPlus} className="w-3.5 h-3.5" />
           </button>
         </Tooltip>
       </div>
+      {trailing}
       {tabContextMenu && (
         <WorkspaceTabsContextMenu
           menu={tabContextMenu}

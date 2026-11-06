@@ -41,7 +41,7 @@ function nameChip(name: string, userId?: string): HTMLElement {
 
   chip.contentEditable = 'false'
   if (userId) chip.setAttribute(MENTION_ATTR, userId)
-  chip.className = 'rounded px-0.5 font-medium text-zViolet-accent bg-zViolet-accent/10'
+  chip.className = 'rounded px-0.5 font-medium text-primary bg-state-selected'
   chip.textContent = `@${name}`
 
   return chip

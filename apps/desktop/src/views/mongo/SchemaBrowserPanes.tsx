@@ -19,7 +19,7 @@ export function DatabasesSidebar({
   onSelect: (name: string) => void
 }) {
   return (
-    <aside className="w-52 shrink-0 overflow-y-auto border-r border-zGray-800 bg-zGray-900/45 p-2">
+    <aside className="w-52 shrink-0 overflow-y-auto border-r border-line-control bg-state-selected p-2">
       <div className="flex items-center justify-between px-2 py-1.5">
         <span className="text-[11px] font-medium uppercase tracking-wide text-tertiary">
           {t('Databases')}
@@ -38,7 +38,7 @@ export function DatabasesSidebar({
             if (event.detail !== 0) return
             onSelect(database.name)
           }}
-          className={`mt-0.5 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${selectedDatabase === database.name ? 'bg-zGray-700/70 text-main' : 'text-secondary hover:bg-zGray-800/60 hover:text-main'}`}
+          className={`mt-0.5 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${selectedDatabase === database.name ? 'bg-state-selected text-main' : 'text-secondary hover:bg-state-hover hover:text-main'}`}
         >
           <Database
             className={`h-3.5 w-3.5 shrink-0 ${SYSTEM_DATABASES.has(database.name) ? 'text-tertiary' : 'text-[#47A248]'}`}
@@ -91,8 +91,8 @@ export function CollectionList({
         />
       )}
       <table className="w-full text-left text-[11.5px]">
-        <thead className="sticky top-0 z-10 bg-zGray-900 text-tertiary">
-          <tr className="border-b border-zGray-800">
+        <thead className="sticky top-0 z-10 bg-surface-sheet text-tertiary">
+          <tr className="border-b border-line-control">
             <th className="px-4 py-2.5 font-medium">{t('Collection')}</th>
             <th className="px-3 py-2.5 font-medium">{t('Documents')}</th>
             <th className="px-3 py-2.5 font-medium">{t('Avg. size')}</th>
@@ -106,13 +106,13 @@ export function CollectionList({
             <tr
               key={collection.name}
               onClick={() => onOpen(collection)}
-              className="border-b border-zGray-800/70 text-secondary hover:bg-zGray-800/35 hover:text-main"
+              className="border-b border-line-control/70 text-secondary hover:bg-state-hover hover:text-main"
             >
               <td className="px-4 py-2.5">
                 <div className="flex items-center gap-2">
                   <CollectionGlyph type={collection.type} />
                   <span className="font-medium">{collection.name}</span>
-                  <span className="rounded bg-zGray-800 px-1.5 py-0.5 text-[9.5px] text-tertiary">
+                  <span className="rounded bg-surface-sunken px-1.5 py-0.5 text-[9.5px] text-tertiary">
                     {typeLabel(collection.type)}
                   </span>
                 </div>

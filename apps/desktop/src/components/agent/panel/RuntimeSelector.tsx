@@ -136,7 +136,7 @@ export function RuntimeSelector({
         <span
           aria-label={t('Loading runtime')}
           role="status"
-          className="h-3 w-16 rounded bg-zGray-700/60 animate-pulse motion-reduce:animate-none"
+          className="h-3 w-16 rounded bg-state-selected animate-pulse motion-reduce:animate-none"
         />
       ) : (
         <span className="min-w-0 max-w-40 truncate">{label}</span>
@@ -179,7 +179,7 @@ export function RuntimeSelector({
         <MenuTrigger
           aria-label={t('Agent runtime: {label}', { label })}
           title={`${label} · ${providerName}`}
-          className={`${classes} transition-colors hover:bg-zGray-800/60 hover:text-main`}
+          className={`${classes} transition-colors hover:bg-state-hover hover:text-main`}
         >
           {content}
           <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />

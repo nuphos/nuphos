@@ -11,7 +11,7 @@ import type { HealthTone } from '../../lib/k8sHealth'
 import type { ReactNode } from 'react'
 
 export function SkeletonLine({ className }: { className: string }) {
-  return <div className={clsx('rounded bg-zGray-800/70 animate-pulse', className)} />
+  return <div className={clsx('rounded bg-state-selected animate-pulse', className)} />
 }
 
 export function SkeletonField() {
@@ -38,9 +38,9 @@ export function ContainerCard({
       onClick={onSelect}
       aria-pressed={onSelect ? selected : undefined}
       className={clsx(
-        'min-w-0 rounded-lg border bg-zGray-900 p-3.5 text-left',
-        onSelect && 'transition-colors hover:border-zGray-700 hover:bg-zGray-850',
-        selected ? 'border-zViolet-500/50 ring-1 ring-zViolet-500/20' : 'border-zGray-800',
+        'min-w-0 rounded-lg border bg-surface-sheet p-3.5 text-left',
+        onSelect && 'transition-colors hover:border-line-control hover:bg-state-hover',
+        selected ? 'border-action-primary/50 ring-1 ring-line-focus' : 'border-line-control',
       )}
     >
       <div className="flex min-w-0 items-center gap-2">
@@ -48,8 +48,8 @@ export function ContainerCard({
           className={clsx(
             'flex h-7 w-7 shrink-0 items-center justify-center rounded-md ring-1 ring-inset',
             c.is_init || c.is_ephemeral
-              ? 'bg-zGray-800 text-secondary ring-zGray-700'
-              : 'bg-zViolet-500/10 text-zViolet-accent ring-zViolet-500/15',
+              ? 'bg-surface-sunken text-secondary ring-line-control'
+              : 'bg-state-selected text-primary ring-line-focus',
           )}
         >
           <Box className="h-3.5 w-3.5" strokeWidth={1.8} />
@@ -68,7 +68,7 @@ export function ContainerCard({
           </div>
         </div>
       </div>
-      <div className="mt-3 flex items-center gap-3 border-t border-zGray-800 pt-3 text-[11.5px]">
+      <div className="mt-3 flex items-center gap-3 border-t border-line-control pt-3 text-[11.5px]">
         <PodStatus status={c.status} ready={c.ready ? '1/1' : '0/1'} />
         {c.started && <span className="text-secondary">{t('Started')}</span>}
         {c.status === 'Running' && (
@@ -85,7 +85,7 @@ export function ContainerCard({
           value={c.last_restart ? <Age value={c.last_restart} /> : '-'}
         />
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 border-t border-zGray-800 pt-3 text-[11.5px]">
+      <div className="mt-3 grid grid-cols-2 gap-2 border-t border-line-control pt-3 text-[11.5px]">
         <ResourceStat label={t('CPU')} request={c.cpu_request} limit={c.cpu_limit} />
         <ResourceStat label={t('Memory')} request={c.memory_request} limit={c.memory_limit} />
       </div>
@@ -128,7 +128,7 @@ export function Stat({ label, value }: { label: string; value: React.ReactNode }
 
 export function Section({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-zGray-900 border border-zGray-800 rounded-md px-4 py-3 grid grid-cols-2 gap-x-6 gap-y-3">
+    <div className="bg-surface-sheet border border-line-control rounded-md px-4 py-3 grid grid-cols-2 gap-x-6 gap-y-3">
       {children}
     </div>
   )
@@ -153,8 +153,8 @@ export function OverviewSection({
   children: ReactNode
 }) {
   return (
-    <section className="min-w-0 bg-zGray-950">
-      <div className="flex min-w-0 items-center justify-between gap-3 border-b border-zGray-800 px-6 py-3">
+    <section className="min-w-0 bg-surface-canvas">
+      <div className="flex min-w-0 items-center justify-between gap-3 border-b border-line-control px-6 py-3">
         <h2 className="text-[13px] font-semibold text-main">{title}</h2>
         {meta && <div className="min-w-0 text-[12px] text-tertiary">{meta}</div>}
       </div>
@@ -180,7 +180,7 @@ export function OverviewChipList({
         <span
           key={`${chip.label}:${String(index)}`}
           className={clsx(
-            'max-w-full truncate rounded bg-zGray-800 px-1.5 py-0.5 font-mono text-[11.5px]',
+            'max-w-full truncate rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[11.5px]',
             chip.tone ? healthClass[chip.tone] : 'text-secondary',
           )}
           title={chip.title ?? chip.label}
@@ -213,7 +213,7 @@ export function WorkloadMetric({
   })()
 
   return (
-    <div className="min-w-0 bg-zGray-900 px-6 py-3">
+    <div className="min-w-0 bg-surface-sheet px-6 py-3">
       <div className="mb-1 text-[10.5px] uppercase tracking-wider text-tertiary">{label}</div>
       <div
         className={clsx('min-w-0 truncate text-[14px] font-semibold', toneClass)}

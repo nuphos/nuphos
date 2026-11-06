@@ -56,8 +56,8 @@ export type MetricCardDef = {
 function Skeleton() {
   return (
     <div className="flex flex-col gap-2">
-      <div className="h-7 w-20 rounded-md bg-zGray-800/40 animate-pulse" />
-      <div className="h-3 w-32 rounded bg-zGray-800/40 animate-pulse" />
+      <div className="h-7 w-20 rounded-md bg-state-selected animate-pulse" />
+      <div className="h-3 w-32 rounded bg-state-selected animate-pulse" />
     </div>
   )
 }
@@ -111,7 +111,7 @@ function MetricCardHeader({
           <BaseButton
             aria-label={t('How this is counted')}
             aria-describedby={noteId}
-            className="flex flex-none rounded text-tertiary outline-none transition-colors hover:text-main focus-visible:text-main focus-visible:ring-1 focus-visible:ring-zGray-600"
+            className="flex flex-none rounded text-tertiary outline-none transition-colors hover:text-main focus-visible:text-main focus-visible:ring-1 focus-visible:ring-line-control"
           >
             <Info className="h-3 w-3" strokeWidth={1.8} />
           </BaseButton>
@@ -174,7 +174,7 @@ export function MetricCardView({
   }
 
   return (
-    <section className="@container flex h-full min-w-0 flex-col rounded-lg border border-zGray-800/60 p-3">
+    <section className="@container flex h-full min-w-0 flex-col rounded-lg border border-line-control/60 p-3">
       <MetricCardHeader
         def={def}
         card={card}
@@ -236,7 +236,7 @@ export function Change({
       <BaseButton
         aria-describedby={id}
         className={clsx(
-          'rounded px-1 py-px text-[10.5px] font-medium tabular-nums bg-zGray-800/40 outline-none focus-visible:ring-1 focus-visible:ring-zGray-600',
+          'rounded px-1 py-px text-[10.5px] font-medium tabular-nums bg-state-selected outline-none focus-visible:ring-1 focus-visible:ring-line-control',
           percent > 0 ? 'text-success' : 'text-tertiary',
         )}
       >
@@ -272,7 +272,7 @@ export function SessionName({
   return (
     <BaseButton
       onClick={() => onOpen(session.id, session.title)}
-      className="max-w-full cursor-pointer truncate text-left text-main underline decoration-zGray-700 underline-offset-2 outline-none transition-colors hover:decoration-current focus-visible:decoration-current"
+      className="max-w-full cursor-pointer truncate text-left text-main underline decoration-tertiary underline-offset-2 outline-none transition-colors hover:decoration-current focus-visible:decoration-current"
     >
       {title}
     </BaseButton>

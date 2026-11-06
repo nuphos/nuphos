@@ -21,6 +21,7 @@ import { useReadyUpdate } from '../useReadyUpdate'
 import { WhatsNewReader } from '../WhatsNewReader'
 
 import type { ChangelogEntry } from '../../types/team'
+import { StatusDot } from '../ui/status-dot'
 
 function shortDate(date: string): string {
   const parsed = new Date(`${date}T00:00:00`)
@@ -33,7 +34,7 @@ function shortDate(date: string): string {
 function TimelineDot() {
   return (
     <span className="relative z-10 flex h-4 w-4 items-center justify-center">
-      <span className="h-[7px] w-[7px] rounded-full border border-zGray-500 bg-main" />
+      <span className="h-[7px] w-[7px] rounded-full border border-line-control bg-main" />
     </span>
   )
 }
@@ -51,7 +52,7 @@ function WhatsNewGroup({
       <div className="relative">
         <span
           aria-hidden
-          className="absolute bottom-4 top-4 left-[17.5px] border-l border-zGray-700"
+          className="absolute bottom-4 top-4 left-[17.5px] border-l border-line-control"
         />
         {entries.slice(0, 3).map((entry) => (
           <MenuItem
@@ -91,7 +92,7 @@ export function SidebarHelpMenu({ onOpenShortcutsHelp }: { onOpenShortcutsHelp?:
           className={clsx(
             'titlebar-no-drag relative flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full outline-none transition-colors',
             update
-              ? 'update-notif-enter bg-zViolet-500 text-white shadow-sm shadow-zViolet-900/40 hover:bg-zViolet-400'
+              ? 'update-notif-enter bg-action-primary text-inverse shadow-sm shadow-black/25 hover:bg-action-primary/90'
               : 'text-tertiary hover:bg-[var(--sidebar-overlay-hover)] hover:text-secondary data-[popup-open]:bg-[var(--sidebar-overlay-active)]',
           )}
           aria-label={
@@ -107,7 +108,7 @@ export function SidebarHelpMenu({ onOpenShortcutsHelp }: { onOpenShortcutsHelp?:
             <CircleHelp className="h-4 w-4" strokeWidth={1.8} />
           )}
           {!update && changelog.unread && (
-            <span className="absolute right-0 top-0 h-2 w-2 rounded-full border border-main bg-red-500" />
+            <StatusDot tone="unread" label={t("What's new")} className="absolute right-0 top-0" />
           )}
         </MenuTrigger>
         <MenuContent side="top" align="end" sideOffset={8} className="w-[300px]">

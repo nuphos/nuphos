@@ -24,9 +24,9 @@ import type { MouseEvent, ReactNode } from 'react'
 const STATE: Record<GithubRefState, { label: string; tone: string }> = {
   open: { label: t('Open|state'), tone: 'text-success' },
   draft: { label: t('Draft'), tone: 'text-tertiary' },
-  merged: { label: t('Merged'), tone: 'text-zViolet-accent' },
+  merged: { label: t('Merged'), tone: 'text-primary' },
   closed: { label: t('Closed'), tone: 'text-error' },
-  completed: { label: t('Closed'), tone: 'text-zViolet-accent' },
+  completed: { label: t('Closed'), tone: 'text-primary' },
   not_planned: { label: t('Not planned'), tone: 'text-tertiary' },
 }
 
@@ -88,7 +88,7 @@ function openFromPreview(href: string, onOpen?: OpenLink) {
 }
 
 const CHIP =
-  'group/gh inline-flex h-[22px] max-w-full items-center gap-1.5 rounded-md border border-zGray-800 bg-zGray-900/60 px-1.5 align-middle text-[12.5px] leading-none text-main no-underline transition-colors duration-150 hover:border-zGray-700 hover:bg-zGray-850 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zViolet-accent motion-reduce:transition-none'
+  'group/gh inline-flex h-[22px] max-w-full items-center gap-1.5 rounded-md border border-line-control bg-state-selected px-1.5 align-middle text-[12.5px] leading-none text-main no-underline transition-colors duration-150 hover:border-line-control hover:bg-state-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-line-focus motion-reduce:transition-none'
 
 /** A pull request or issue with its title, number and state; opens like any chat link. */
 export function GithubRefChip({
@@ -153,7 +153,7 @@ export function GithubRefLink({
       <ChatLink
         link={ref.href}
         onLinkClick={onOpen}
-        className="text-zViolet-accent hover:underline"
+        className="text-primary hover:underline"
         aria-label={describe(ref, summary)}
       >
         <span className="mr-0.5 inline-flex align-[-0.15em]">

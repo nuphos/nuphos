@@ -72,17 +72,17 @@ export function MonitoringSummaryHeader({
     : null
 
   return (
-    <section className="rounded-xl border border-zGray-800 bg-zGray-900/20">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-zGray-800 px-4 py-3.5">
+    <section className="rounded-xl border border-line-control bg-state-selected">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line-control px-4 py-3.5">
         <div className="flex min-w-0 items-start gap-3">
-          <div className="rounded-lg border border-zGray-700 bg-zGray-900 p-2 text-zViolet-accent">
+          <div className="rounded-lg border border-line-control bg-surface-sheet p-2 text-primary">
             <Activity className="h-4 w-4" />
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-[14px] font-medium text-main">{t('MongoDB performance')}</h2>
               <span
-                className={`rounded-full border px-2 py-0.5 text-[9.5px] font-medium ${paused ? 'border-zGray-700 text-tertiary' : 'border-success/30 bg-success/5 text-success'}`}
+                className={`rounded-full border px-2 py-0.5 text-[9.5px] font-medium ${paused ? 'border-line-control text-tertiary' : 'border-success/30 bg-success/5 text-success'}`}
               >
                 {paused ? t('Paused') : t('Sampling while open')}
               </span>
@@ -99,7 +99,7 @@ export function MonitoringSummaryHeader({
             value={String(rangeMinutes)}
             onValueChange={(value) => onRangeChange(Number(value))}
             ariaLabel={t('Time range')}
-            triggerClassName="h-8 border-zGray-800 bg-surface px-2.5 text-[12px]"
+            triggerClassName="h-8 border-line-control bg-surface px-2.5 text-[12px]"
             options={RANGE_OPTIONS.map((option) => ({
               value: String(option.value),
               label: option.label,
@@ -110,7 +110,7 @@ export function MonitoringSummaryHeader({
             onValueChange={(value) => onIntervalChange(Number(value))}
             disabled={paused}
             ariaLabel={t('Sampling interval')}
-            triggerClassName="h-8 border-zGray-800 bg-surface px-2.5 text-[12px]"
+            triggerClassName="h-8 border-line-control bg-surface px-2.5 text-[12px]"
             options={INTERVAL_OPTIONS.map((seconds) => ({
               value: String(seconds),
               label: t('Every {n}s', { n: seconds }),
@@ -119,7 +119,7 @@ export function MonitoringSummaryHeader({
           <button
             type="button"
             onClick={onTogglePause}
-            className="flex items-center gap-1.5 rounded-md border border-zGray-700 px-2.5 py-1.5 text-[11px] text-secondary hover:text-main"
+            className="flex items-center gap-1.5 rounded-md border border-line-control px-2.5 py-1.5 text-[11px] text-secondary hover:text-main"
           >
             {paused ? (
               <CirclePlay className="h-3.5 w-3.5" />
@@ -133,7 +133,7 @@ export function MonitoringSummaryHeader({
             aria-label={t('Collect a fresh sample')}
             disabled={sampling}
             onClick={onRefresh}
-            className="rounded-md border border-zGray-700 p-1.5 text-tertiary hover:text-main disabled:opacity-50"
+            className="rounded-md border border-line-control p-1.5 text-tertiary hover:text-main disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${sampling ? 'animate-spin' : ''}`} />
           </button>
@@ -204,7 +204,7 @@ function SummaryCard({
   detail: string
 }) {
   return (
-    <div className="rounded-xl border border-zGray-800 bg-zGray-950/35 p-3.5">
+    <div className="rounded-xl border border-line-control bg-state-selected p-3.5">
       <div className="flex items-center gap-2 text-[10.5px] text-tertiary">
         <span className="[&>svg]:h-3.5 [&>svg]:w-3.5">{icon}</span>
         {label}

@@ -233,7 +233,7 @@ export function DeploymentEnvTab({
   }
 
   return (
-    <div className={clsx('flex flex-col', !embedded && 'min-h-full bg-zGray-950')}>
+    <div className={clsx('flex flex-col', !embedded && 'min-h-full bg-surface-canvas')}>
       <EnvTabHeader
         containers={containers}
         selectedKey={selectedKey}
@@ -266,7 +266,7 @@ export function DeploymentEnvTab({
         </div>
       )}
       {actionNotice && (
-        <div className="border-b border-zGray-800 bg-zGray-900 px-6 py-2 text-[12.5px] text-secondary">
+        <div className="border-b border-line-control bg-surface-sheet px-6 py-2 text-[12.5px] text-secondary">
           {actionNotice}
         </div>
       )}
@@ -280,7 +280,7 @@ export function DeploymentEnvTab({
             empty={t('No environment variables.')}
           />
         </div>
-        <div className="min-h-[160px] border-t border-zGray-800">
+        <div className="min-h-[160px] border-t border-line-control">
           <Table
             columns={envFromColumns}
             rows={envFromRows}

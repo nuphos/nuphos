@@ -144,11 +144,11 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
           onRejectInvitation={rejectInvitation}
         />
         <main className="flex-1 flex flex-col min-w-0 bg-main">
-          <div className="titlebar-drag h-[44px] flex-shrink-0 border-b border-zGray-800/60" />
+          <div className="titlebar-drag h-[44px] flex-shrink-0" />
           <div className="flex-1 flex flex-col items-center justify-center gap-3 text-tertiary text-[13px]">
             {backendUnreachable ? (
               <>
-                <div className="w-6 h-6 rounded-full border-2 border-zGray-700 border-t-zViolet-accent animate-spin" />
+                <div className="w-6 h-6 rounded-full border-2 border-line-control border-t-action-primary animate-spin" />
                 <div className="max-w-md text-center">{t('Connecting…')}</div>
               </>
             ) : error ? (
@@ -157,7 +157,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
                 <button
                   onClick={() => void loadTeams()}
                   disabled={teamsLoading}
-                  className="px-3 py-1.5 rounded-md bg-zGray-800 hover:bg-zGray-700 text-main text-[12.5px] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-1.5 rounded-md bg-surface-sunken hover:bg-state-hover text-main text-[12.5px] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {teamsLoading ? t('Retrying…') : t('Retry')}
                 </button>

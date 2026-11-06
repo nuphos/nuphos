@@ -188,11 +188,11 @@ export function LocalSetupSection({ team }: { team: AtlasTeam | undefined }) {
             onRetry={() => void refresh()}
           />
         ) : (
-          <div aria-busy="true" className="h-16 animate-pulse rounded-lg bg-zGray-800/40" />
+          <div aria-busy="true" className="h-16 animate-pulse rounded-lg bg-state-selected" />
         ))}
       {status && (
         <div className="space-y-5">
-          <div className="rounded-lg border border-zGray-800 px-4 py-3 text-[13px] text-secondary">
+          <div className="rounded-lg border border-line-control px-4 py-3 text-[13px] text-secondary">
             <p className="text-main">
               {status.claudeMdChars === null
                 ? t('Found {skills} in ~/.claude/skills and no CLAUDE.md.', {

@@ -124,7 +124,7 @@ export function Chart({
               x2={padding.left + plotW}
               y1={y}
               y2={y}
-              stroke="rgba(var(--color-zGray-800), 0.6)"
+              stroke="rgba(var(--color-line-control), 0.6)"
               strokeWidth={1}
             />
             <text

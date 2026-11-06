@@ -143,7 +143,7 @@ export function VariablePicker({
 
   if (!pickable) {
     return (
-      <div className="px-2 py-1 rounded-md bg-zGray-900 border border-zGray-800 text-[11.5px] text-tertiary">
+      <div className="px-2 py-1 rounded-md bg-surface-sheet border border-line-control text-[11.5px] text-tertiary">
         <span className="text-tertiary">{label}:</span>{' '}
         <span className="text-secondary">{shownText}</span>
       </div>
@@ -185,7 +185,7 @@ export function VariablePicker({
 
   return (
     <Menu>
-      <MenuTrigger className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zGray-900 border border-zGray-800 hover:bg-zGray-800 text-[11.5px]">
+      <MenuTrigger className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface-sheet border border-line-control hover:bg-state-hover text-[11.5px]">
         <span className="text-tertiary">{label}:</span>
         <span className="text-main max-w-[160px] truncate">{shownText}</span>
         <ChevronDown className="w-3 h-3 text-tertiary" strokeWidth={1.8} />

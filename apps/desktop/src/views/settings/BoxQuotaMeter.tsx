@@ -11,10 +11,10 @@ import type { BoxUsage } from '../../api/device-types'
 const MAX_CELLS = 32
 
 const CELL_CLASS: Record<QuotaCell, string> = {
-  used: 'bg-zViolet-500',
-  adding: 'bg-zViolet-500/35 ring-1 ring-inset ring-zViolet-500/60',
+  used: 'bg-action-primary',
+  adding: 'bg-action-primary/35 ring-1 ring-inset ring-line-focus',
   over: 'bg-amber-500',
-  free: 'bg-zGray-800',
+  free: 'bg-surface-sunken',
 }
 
 function Legend({ cell, label }: { cell: QuotaCell; label: string }) {
@@ -61,7 +61,7 @@ export function BoxQuotaMeter({
   const fits = adding === undefined || adding <= quota.left
 
   return (
-    <div className="rounded-xl border border-zGray-800 bg-gradient-to-br from-zViolet-500/10 via-transparent to-transparent px-4 py-3.5">
+    <div className="rounded-xl border border-line-control bg-gradient-to-br from-state-selected via-transparent to-transparent px-4 py-3.5">
       <div className="flex items-end justify-between gap-4">
         <div>
           <span className="block text-[11px] font-medium uppercase tracking-wide text-tertiary">

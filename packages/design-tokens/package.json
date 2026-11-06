@@ -1,0 +1,14 @@
+{
+  "name": "@nuphos/design-tokens",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Semantic design tokens shared by every Nuphos surface.",
+  "type": "module",
+  "exports": {
+    ".": "./src/tokens.mjs",
+    "./tailwind": "./src/tailwind.mjs"
+  },
+  "scripts": {
+    "test": "node --test src/*.test.mjs"
+  }
+}

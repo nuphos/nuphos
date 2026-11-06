@@ -104,7 +104,7 @@ export function AuditEventsStream({
                     )
                   }
                   title={t('View in journal')}
-                  className="flex gap-3 rounded-md px-2 py-2 transition-colors hover:bg-zGray-800/40"
+                  className="flex gap-3 rounded-md px-2 py-2 transition-colors hover:bg-state-hover"
                 >
                   <Icon
                     className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-tertiary"
@@ -204,7 +204,7 @@ function SkillAuditRow({
       title={onOpen ? t('View originating agent') : undefined}
       className={clsx(
         'flex gap-3 rounded-md px-2 py-2',
-        onOpen && 'transition-colors hover:bg-zGray-800/40',
+        onOpen && 'transition-colors hover:bg-state-hover',
       )}
     >
       <FileClock className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-violet-300" strokeWidth={1.8} />

@@ -37,14 +37,14 @@ export function MetricChart({
   const hasValues = data.some((row) => lines.some(([key]) => typeof row[key] === 'number'))
 
   return (
-    <section className="rounded-xl border border-zGray-800 bg-zGray-950/35 p-3.5">
+    <section className="rounded-xl border border-line-control bg-state-selected p-3.5">
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="text-[12.5px] font-medium text-main">{title}</h3>
         <span className="text-[9.5px] text-tertiary">{t('{n} samples', { n: data.length })}</span>
       </div>
       <div className="mt-3 h-48">
         {!hasValues ? (
-          <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-zGray-800 text-center text-[10.5px] text-tertiary">
+          <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-line-control text-center text-[10.5px] text-tertiary">
             {t('Waiting for two samples or the required MongoDB privilege.')}
           </div>
         ) : (
@@ -107,7 +107,7 @@ export function CapabilityPanel({
   const capabilities = Object.entries(sample.capabilities)
 
   return (
-    <section className="rounded-xl border border-zGray-800 bg-zGray-900/20 p-4">
+    <section className="rounded-xl border border-line-control bg-state-selected p-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h3 className="text-[13px] font-medium text-main">{t('Source and metric coverage')}</h3>
@@ -143,8 +143,8 @@ export function CapabilityPanel({
         />
       </div>
       {sample.replicaMembers.length > 0 && (
-        <div className="mt-4 overflow-hidden rounded-lg border border-zGray-800">
-          <div className="grid grid-cols-[minmax(0,1fr)_120px_90px] border-b border-zGray-800 px-3 py-2 text-[9.5px] uppercase tracking-wide text-tertiary">
+        <div className="mt-4 overflow-hidden rounded-lg border border-line-control">
+          <div className="grid grid-cols-[minmax(0,1fr)_120px_90px] border-b border-line-control px-3 py-2 text-[9.5px] uppercase tracking-wide text-tertiary">
             <span>{t('Replica member')}</span>
             <span>{t('State')}</span>
             <span>{t('Lag')}</span>
@@ -152,7 +152,7 @@ export function CapabilityPanel({
           {sample.replicaMembers.map((member) => (
             <div
               key={member.name}
-              className="grid grid-cols-[minmax(0,1fr)_120px_90px] border-b border-zGray-800/60 px-3 py-2 text-[10.5px] last:border-b-0"
+              className="grid grid-cols-[minmax(0,1fr)_120px_90px] border-b border-line-control/60 px-3 py-2 text-[10.5px] last:border-b-0"
             >
               <span className="truncate font-mono text-secondary">{member.name}</span>
               <span className="text-tertiary">
@@ -173,7 +173,7 @@ function CapabilityBadge({ name, state }: { name: string; state: MongoMonitoring
     state === 'available'
       ? 'border-success/30 bg-success/5 text-success'
       : state === 'unsupported'
-        ? 'border-zGray-700 text-tertiary'
+        ? 'border-line-control text-tertiary'
         : 'border-warning/30 bg-warning/5 text-warning'
 
   return (
@@ -188,7 +188,7 @@ function CapabilityBadge({ name, state }: { name: string; state: MongoMonitoring
 
 function Info({ label, value, icon }: { label: string; value: string; icon: ReactElement }) {
   return (
-    <div className="rounded-lg border border-zGray-800 bg-zGray-950/30 p-3">
+    <div className="rounded-lg border border-line-control bg-state-selected p-3">
       <div className="flex items-center gap-1.5 text-[9.5px] uppercase tracking-wide text-tertiary">
         <span className="[&>svg]:h-3.5 [&>svg]:w-3.5">{icon}</span>
         {label}
@@ -200,8 +200,8 @@ function Info({ label, value, icon }: { label: string; value: string; icon: Reac
 
 export function EmptyMonitoring() {
   return (
-    <div className="flex min-h-64 flex-col items-center justify-center rounded-xl border border-dashed border-zGray-700 px-6 text-center">
-      <Network className="h-7 w-7 text-zGray-600" />
+    <div className="flex min-h-64 flex-col items-center justify-center rounded-xl border border-dashed border-line-control px-6 text-center">
+      <Network className="h-7 w-7 text-tertiary" />
       <div className="mt-3 text-[12.5px] text-secondary">{t('No metric samples yet')}</div>
       <p className="mt-1 max-w-lg text-[10.5px] leading-4 text-tertiary">
         {t(

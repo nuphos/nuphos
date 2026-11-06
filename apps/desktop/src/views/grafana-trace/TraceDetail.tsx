@@ -77,8 +77,8 @@ export function TraceDetail({
         className="h-full min-h-0 min-w-[360px] overflow-auto scrollbar-thin"
         style={{ width: `${String(100 - inspectorPanePct)}%` }}
       >
-        <div className="sticky top-0 z-10 bg-zGray-950 border-b border-zGray-800/60">
-          <div className="px-4 py-3 border-b border-zGray-800/50">
+        <div className="sticky top-0 z-10 bg-surface-canvas border-b border-line-control/60">
+          <div className="px-4 py-3 border-b border-line-control/50">
             <div className="flex items-center gap-2 min-w-0">
               <div className="text-[13px] text-main font-medium truncate flex-1">{root.name}</div>
               <CopyButton value={trace.traceId} title={t('Copy trace ID')} />
@@ -175,8 +175,8 @@ function SpanRow({
       onClick={onSelect}
       style={{ gridTemplateColumns: gridTemplate }}
       className={[
-        'w-full grid gap-3 items-center rounded-md px-2 py-1.5 text-left hover:bg-zGray-900/70',
-        selected ? 'bg-zViolet-500/12 ring-1 ring-zViolet-500/30' : '',
+        'w-full grid gap-3 items-center rounded-md px-2 py-1.5 text-left hover:bg-state-hover',
+        selected ? 'bg-state-selected ring-1 ring-line-focus' : '',
       ].join(' ')}
     >
       <div className="min-w-0">
@@ -194,9 +194,9 @@ function SpanRow({
           <span className="truncate">{span.serviceName || t('unknown service')}</span>
         </div>
       </div>
-      <div className="relative h-6 rounded bg-zGray-900 overflow-hidden">
+      <div className="relative h-6 rounded bg-surface-sheet overflow-hidden">
         <div
-          className="absolute top-1 bottom-1 rounded-sm bg-zViolet-accent/70"
+          className="absolute top-1 bottom-1 rounded-sm bg-action-primary/70"
           style={{ left: `${String(left)}%`, width: `${String(width)}%` }}
         />
       </div>

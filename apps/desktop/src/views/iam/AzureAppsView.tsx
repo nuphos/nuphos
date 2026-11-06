@@ -81,9 +81,7 @@ export function AzureAppsView({
                       <span
                         className={clsx(
                           'truncate',
-                          app.id === selectedApp?.id
-                            ? 'text-main font-medium'
-                            : 'text-zViolet-accent',
+                          app.id === selectedApp?.id ? 'text-main font-medium' : 'text-primary',
                         )}
                       >
                         {app.label}
@@ -168,7 +166,7 @@ function AzureAppPermissionsView({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-start justify-between gap-2 px-4 py-3 border-b border-zGray-800">
+      <div className="flex items-start justify-between gap-2 px-4 py-3 border-b border-line-control">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="text-[13px] text-main font-medium truncate">{app.label}</span>
@@ -179,7 +177,7 @@ function AzureAppPermissionsView({
         <button
           type="button"
           onClick={onClose}
-          className="flex-shrink-0 h-7 w-7 rounded-md flex items-center justify-center text-tertiary hover:text-main hover:bg-zGray-800"
+          className="flex-shrink-0 h-7 w-7 rounded-md flex items-center justify-center text-tertiary hover:text-main hover:bg-state-hover"
           title={t('Close')}
         >
           <X className="w-4 h-4" strokeWidth={1.8} />
@@ -207,7 +205,7 @@ function AzureAppPermissionsView({
               {assignments!.map((assignment, i) => (
                 <div
                   key={`${assignment.roleDefinitionId}:${assignment.scope}:${String(i)}`}
-                  className="px-3 py-2 rounded-md border border-zGray-800 bg-zGray-850"
+                  className="px-3 py-2 rounded-md border border-line-control bg-surface-sunken"
                 >
                   <div className="text-[12.5px] text-main font-medium">{assignment.roleName}</div>
                   <div

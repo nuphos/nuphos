@@ -28,7 +28,7 @@ export function RuntimeUpdateNotice({
 
   return (
     <div
-      className="flex flex-wrap items-center justify-between gap-3 border-t border-zGray-800/60 px-4 py-3"
+      className="flex flex-wrap items-center justify-between gap-3 border-t border-line-control/60 px-4 py-3"
       role="status"
     >
       <div className="min-w-0 flex-1">
@@ -38,7 +38,7 @@ export function RuntimeUpdateNotice({
         </p>
         <p className="mt-1 text-xs text-secondary">{view.detail}</p>
         <a
-          className="mt-1 inline-block text-xs text-zViolet-400 hover:underline"
+          className="mt-1 inline-block text-xs text-secondary hover:underline"
           href={update.releaseUrl}
           target="_blank"
           rel="noreferrer"

@@ -123,7 +123,7 @@ export function NamespacedTable<T extends { namespace: string; name: string; age
             header: t('Name'),
             width: 280,
             sortAccessor: (r) => r.name,
-            render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
+            render: (r) => <span className="text-primary">{r.name}</span>,
           },
           ...columns,
           {
@@ -207,7 +207,7 @@ export function ClusterTable<T extends { name: string; age: string | null }>({
             header: t('Name'),
             width: 300,
             sortAccessor: (r) => r.name,
-            render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
+            render: (r) => <span className="text-primary">{r.name}</span>,
           },
           ...columns,
           {

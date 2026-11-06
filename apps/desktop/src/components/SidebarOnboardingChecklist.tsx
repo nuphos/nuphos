@@ -183,7 +183,7 @@ export function SidebarOnboardingChecklist({
 
   return (
     <div className="px-1 pt-1 pb-2 titlebar-no-drag">
-      <div className="rounded-lg rounded-bl-xl border border-zGray-800/70 bg-zGray-900/40 p-2">
+      <div className="rounded-lg rounded-bl-xl border border-line-control/70 bg-state-selected p-2">
         {/* Header — always visible; the whole row toggles minimized/expanded,
             so the minimized state is this same card reduced to its header. */}
         <button
@@ -194,7 +194,7 @@ export function SidebarOnboardingChecklist({
           aria-label={collapsed ? t('Expand checklist') : t('Minimize checklist')}
           className="flex w-full items-center gap-2 rounded-md px-1 py-0.5 text-left"
         >
-          <Rocket className="h-3.5 w-3.5 flex-shrink-0 text-zViolet-300" strokeWidth={2} />
+          <Rocket className="h-3.5 w-3.5 flex-shrink-0 text-secondary" strokeWidth={2} />
           <span className="flex-1 truncate text-[12px] font-medium text-secondary">
             {t('Get started')}
           </span>
@@ -243,8 +243,8 @@ export function SidebarOnboardingChecklist({
                       className={clsx(
                         'mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full transition-colors',
                         done
-                          ? 'bg-zViolet-500 text-white'
-                          : 'border border-zGray-700 text-tertiary group-hover:border-zGray-600 group-hover:text-secondary',
+                          ? 'bg-action-primary text-inverse'
+                          : 'border border-line-control text-tertiary group-hover:border-line-control group-hover:text-secondary',
                       )}
                     >
                       {done ? (

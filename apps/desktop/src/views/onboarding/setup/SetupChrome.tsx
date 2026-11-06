@@ -33,7 +33,7 @@ export function SetupScreen({
         {subtitle && <p className="text-[13.5px] leading-6 text-secondary">{subtitle}</p>}
       </header>
       {children}
-      <footer className="flex items-center gap-3 border-t border-zGray-800/70 pt-4">
+      <footer className="flex items-center gap-3 border-t border-line-control/70 pt-4">
         <span className="min-w-0 flex-1 text-[12px] text-tertiary">{hint}</span>
         {actions}
       </footer>
@@ -42,11 +42,11 @@ export function SetupScreen({
 }
 
 const PILL: Record<LocalAgentStatus, { label: string; className: string }> = {
-  unavailable: { label: t('Unavailable'), className: 'bg-zGray-800 text-tertiary' },
+  unavailable: { label: t('Unavailable'), className: 'bg-surface-sunken text-tertiary' },
   ready: { label: t('Ready'), className: 'bg-success/15 text-success' },
   'signed-out': { label: t('Not signed in'), className: 'bg-warning/15 text-warning' },
-  missing: { label: t('Not installed'), className: 'bg-zGray-800 text-tertiary' },
-  checking: { label: t('Checking…'), className: 'bg-zGray-800 text-tertiary' },
+  missing: { label: t('Not installed'), className: 'bg-surface-sunken text-tertiary' },
+  checking: { label: t('Checking…'), className: 'bg-surface-sunken text-tertiary' },
 }
 
 export function StatusPill({ status }: { status: LocalAgentStatus }) {

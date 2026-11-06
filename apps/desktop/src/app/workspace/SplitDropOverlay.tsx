@@ -173,8 +173,8 @@ function HintLabel({ zone, movingPane }: { zone: DropZone; movingPane: boolean }
   const { Icon, text } = hintFor(zone, movingPane)
 
   return (
-    <span className="flex items-center gap-1.5 rounded-full border border-zGray-700 bg-elevated/95 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-main shadow-lg">
-      <Icon className="h-3.5 w-3.5 text-zViolet-300" strokeWidth={1.8} />
+    <span className="flex items-center gap-1.5 rounded-full border border-line-control bg-elevated/95 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-main shadow-lg">
+      <Icon className="h-3.5 w-3.5 text-secondary" strokeWidth={1.8} />
       {text}
     </span>
   )
@@ -193,7 +193,7 @@ function LandingHint({
   return (
     <div
       className={clsx(
-        'pointer-events-none absolute m-2 flex items-center justify-center rounded-lg border-2 border-dashed border-zViolet-400/70 bg-zViolet-500/10 transition-all',
+        'pointer-events-none absolute m-2 flex items-center justify-center rounded-lg border-2 border-dashed border-action-primary/70 bg-state-selected transition-all',
         GLIDE,
       )}
       style={zoneStyle(rect, 'center')}
@@ -216,12 +216,12 @@ function ZoneHint({
   return (
     <>
       <div
-        className="pointer-events-none absolute bg-zGray-950/25 backdrop-blur-[3px] transition-all duration-150"
+        className="pointer-events-none absolute bg-state-selected backdrop-blur-[3px] transition-all duration-150"
         style={zoneStyle(rect, zone)}
       />
       <div
         className={clsx(
-          'pointer-events-none absolute flex items-center justify-center rounded-lg border border-zViolet-400/70 bg-zViolet-500/10 transition-all duration-150 ease-out',
+          'pointer-events-none absolute flex items-center justify-center rounded-lg border border-action-primary/70 bg-state-selected transition-all duration-150 ease-out',
           zone === 'center' ? 'm-2' : 'm-1.5',
         )}
         style={zoneStyle(rect, zone)}
@@ -238,7 +238,7 @@ function SourceVeil({ rect }: { rect?: PaneRect }) {
 
   return (
     <div
-      className={clsx('pointer-events-none absolute bg-zGray-950/25 transition-all', GLIDE)}
+      className={clsx('pointer-events-none absolute bg-state-selected transition-all', GLIDE)}
       style={zoneStyle(rect, 'center')}
     />
   )

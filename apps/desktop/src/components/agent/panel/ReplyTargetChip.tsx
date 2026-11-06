@@ -45,7 +45,7 @@ export function ReplyTargetChip({
           event.stopPropagation()
           clear()
         }}
-        className="flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-zGray-800/80 bg-zGray-900/60 py-0.5 pl-2.5 pr-1 text-[12px]"
+        className="flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-line-control/80 bg-state-selected py-0.5 pl-2.5 pr-1 text-[12px]"
       >
         <CornerUpLeft aria-hidden className="size-3 shrink-0 text-tertiary" strokeWidth={2.2} />
         <span className="shrink-0 text-tertiary">{t('Replying to:')}</span>
@@ -56,7 +56,7 @@ export function ReplyTargetChip({
                 question: chosen.question,
               })}
               title={chosen.question}
-              className="flex min-w-0 items-center gap-1 rounded-full text-secondary outline-none hover:text-main focus-visible:ring-1 focus-visible:ring-zViolet-accent"
+              className="flex min-w-0 items-center gap-1 rounded-full text-secondary outline-none hover:text-main focus-visible:ring-1 focus-visible:ring-line-focus"
             >
               <span className="min-w-0 truncate">{chosen.question}</span>
               <ChevronDown aria-hidden className="size-3 shrink-0 opacity-60" strokeWidth={2} />
@@ -88,7 +88,7 @@ export function ReplyTargetChip({
           type="button"
           onMouseDown={keepComposerFocus}
           onClick={clear}
-          className="flex size-5 shrink-0 items-center justify-center rounded-full text-tertiary transition-colors hover:bg-zGray-800 hover:text-main"
+          className="flex size-5 shrink-0 items-center justify-center rounded-full text-tertiary transition-colors hover:bg-state-hover hover:text-main"
           title={t('Send as an ordinary message')}
           aria-label={t('Send as an ordinary message')}
         >

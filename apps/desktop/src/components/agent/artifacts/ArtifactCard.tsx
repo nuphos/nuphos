@@ -21,7 +21,7 @@ import type { OpenLink } from '../panel/LocalUrlChip'
 import type { ToolPart } from '../panel/parts'
 
 const CARD =
-  'group/artifact relative w-full max-w-[520px] overflow-hidden rounded-xl border border-zGray-800 bg-main text-main transition-colors duration-150 hover:border-zGray-600 has-[button:focus-visible]:ring-2 has-[button:focus-visible]:ring-zViolet-accent has-[button:disabled]:hover:border-zGray-800 motion-reduce:transition-none'
+  'group/artifact relative w-full max-w-[520px] overflow-hidden rounded-xl border border-line-control bg-main text-main transition-colors duration-150 hover:border-line-control has-[button:focus-visible]:ring-2 has-[button:focus-visible]:ring-line-focus has-[button:disabled]:hover:border-line-control motion-reduce:transition-none'
 
 /** Fades a clipped excerpt out at the bottom edge of the preview. */
 const FADE = '[mask-image:linear-gradient(to_bottom,black_55%,transparent)]'
@@ -120,7 +120,7 @@ function ArtifactCard({
         </div>
         <span
           aria-hidden
-          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-zGray-800 px-2 text-[12px] leading-none text-secondary transition-colors duration-150 group-hover/artifact:bg-zGray-800/40 group-hover/artifact:text-main group-active/artifact:bg-zGray-800/60 group-has-[button:disabled]/artifact:opacity-50 motion-reduce:transition-none"
+          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-line-control px-2 text-[12px] leading-none text-secondary transition-colors duration-150 group-hover/artifact:bg-state-hover group-hover/artifact:text-main group-active/artifact:bg-state-hover group-has-[button:disabled]/artifact:opacity-50 motion-reduce:transition-none"
         >
           {t('Open')}
           <PanelRight className="size-3" strokeWidth={1.75} />
@@ -170,7 +170,7 @@ function ArtifactPreview({
   teamId: string | undefined
 }) {
   return (
-    <span className="relative block aspect-[16/7] w-full overflow-hidden border-b border-zGray-800">
+    <span className="relative block aspect-[16/7] w-full overflow-hidden border-b border-line-control">
       {payload.kind === 'html' && (
         <ArtifactThumbnail html={payload.content} title={payload.title} />
       )}
@@ -188,7 +188,10 @@ function ArtifactPreview({
         <span
           aria-hidden
           inert
-          className={clsx('absolute inset-0 block overflow-hidden bg-zGray-900/30 px-6 pt-5', FADE)}
+          className={clsx(
+            'absolute inset-0 block overflow-hidden bg-state-selected px-6 pt-5',
+            FADE,
+          )}
         >
           <MessageResponse
             className={clsx(
@@ -204,7 +207,7 @@ function ArtifactPreview({
       {payload.kind === 'code' && (
         <span
           aria-hidden
-          className={clsx('absolute inset-0 block overflow-hidden bg-zGray-900/30', FADE)}
+          className={clsx('absolute inset-0 block overflow-hidden bg-state-selected', FADE)}
         >
           <pre className="m-0 px-4 py-3.5 font-mono text-[11.5px] leading-[18px] text-secondary">
             {payload.content.split('\n').slice(0, 14).join('\n')}

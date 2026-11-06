@@ -10,7 +10,7 @@ import type { TeamMember } from '../../types'
 
 const ACCESS_AVATAR_SIZE = 24
 const ACCESS_AVATAR_CHROME =
-  'shrink-0 !rounded-full border-2 border-zGray-900 !shadow-none !bg-zGray-850'
+  'shrink-0 !rounded-full border-2 border-line-control !shadow-none !bg-surface-sunken'
 const avatarImageLoadCache = new Map<string, Promise<boolean>>()
 
 type AccessMemberEntry = {
@@ -166,18 +166,18 @@ function LoadedAccessMembersAvatarGroup({
           {visible.map(({ id }) => (
             <div
               key={id}
-              className={clsx(ACCESS_AVATAR_CHROME, 'bg-zGray-800')}
+              className={clsx(ACCESS_AVATAR_CHROME, 'bg-surface-sunken')}
               style={{ width: ACCESS_AVATAR_SIZE, height: ACCESS_AVATAR_SIZE }}
             />
           ))}
           {hiddenCount > 0 && (
             <div
-              className={clsx(ACCESS_AVATAR_CHROME, 'bg-zGray-800')}
+              className={clsx(ACCESS_AVATAR_CHROME, 'bg-surface-sunken')}
               style={{ width: ACCESS_AVATAR_SIZE, height: ACCESS_AVATAR_SIZE }}
             />
           )}
         </div>
-        <div className="h-3 w-20 rounded bg-zGray-800" />
+        <div className="h-3 w-20 rounded bg-surface-sunken" />
       </div>
       <div className="t-skel-content flex items-center gap-2 min-w-0">
         <div className="flex -space-x-2">

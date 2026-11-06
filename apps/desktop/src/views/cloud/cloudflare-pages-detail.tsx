@@ -102,7 +102,7 @@ export function CloudflarePagesProjectDetailView({
         <button
           onClick={() => void triggerDeploy()}
           disabled={busy}
-          className="h-7 px-2.5 rounded-md bg-zGray-850 hover:bg-zGray-800 text-secondary hover:text-main text-[12.5px] flex items-center gap-1.5 disabled:opacity-50"
+          className="h-7 px-2.5 rounded-md bg-surface-sunken hover:bg-state-hover text-secondary hover:text-main text-[12.5px] flex items-center gap-1.5 disabled:opacity-50"
         >
           <FontAwesomeIcon icon={faPlay} className="w-3.5 h-3.5" /> {t('Deploy')}
         </button>
@@ -122,7 +122,7 @@ export function CloudflarePagesProjectDetailView({
               value={
                 project?.subdomain ? (
                   <a
-                    className="text-zViolet-accent hover:underline"
+                    className="text-primary hover:underline"
                     onClick={() => {
                       if (project?.subdomain) {
                         void api.appOpenExternal(`https://${project.subdomain}`)
@@ -214,21 +214,21 @@ export function CloudflarePagesProjectDetailView({
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => setLogsFor(r.id)}
-                        className="px-1.5 h-6 rounded text-[11px] text-tertiary hover:bg-zGray-800 hover:text-main flex items-center"
+                        className="px-1.5 h-6 rounded text-[11px] text-tertiary hover:bg-state-hover hover:text-main flex items-center"
                         title={t('Logs')}
                       >
                         {t('Logs')}
                       </button>
                       <button
                         onClick={() => void retryDeployment(r.id)}
-                        className="w-6 h-6 rounded text-tertiary hover:bg-zGray-800 hover:text-main flex items-center justify-center"
+                        className="w-6 h-6 rounded text-tertiary hover:bg-state-hover hover:text-main flex items-center justify-center"
                         title={t('Retry')}
                       >
                         <FontAwesomeIcon icon={faRotateLeft} className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => setPendingRollback(r.id)}
-                        className="w-6 h-6 rounded text-tertiary hover:bg-zGray-800 hover:text-main flex items-center justify-center"
+                        className="w-6 h-6 rounded text-tertiary hover:bg-state-hover hover:text-main flex items-center justify-center"
                         title={t('Rollback to this deployment')}
                       >
                         <FontAwesomeIcon icon={faArrowsRotate} className="w-3.5 h-3.5" />

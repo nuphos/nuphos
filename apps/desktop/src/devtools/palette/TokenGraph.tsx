@@ -74,7 +74,7 @@ export function TokenGraph({
         fontSize: 11,
         padding: '4px 8px',
         borderRadius: 6,
-        border: '1px solid rgb(var(--color-zGray-800))',
+        border: '1px solid rgb(var(--color-line-control))',
         background: 'rgb(var(--color-background-elevated))',
         color: 'rgb(var(--color-text-secondary))',
         width: COL - 48,
@@ -86,12 +86,12 @@ export function TokenGraph({
       id: `${e.from}->${e.to}`,
       source: e.from,
       target: e.to,
-      style: { stroke: 'rgb(var(--color-zGray-700))' },
+      style: { stroke: 'rgb(var(--color-line-control))' },
       markerEnd: {
         type: MarkerType.ArrowClosed,
         width: 12,
         height: 12,
-        color: 'rgb(var(--color-zGray-600))',
+        color: 'rgb(var(--color-text-tertiary))',
       },
     }))
 

@@ -36,7 +36,7 @@ export function MetricCardMenu({
     <Menu>
       <MenuTrigger
         aria-label={t('Card options')}
-        className="rounded p-0.5 text-tertiary outline-none transition-colors hover:bg-zGray-800/60 hover:text-main"
+        className="rounded p-0.5 text-tertiary outline-none transition-colors hover:bg-state-hover hover:text-main"
       >
         <Ellipsis className="h-3.5 w-3.5" strokeWidth={1.8} />
       </MenuTrigger>

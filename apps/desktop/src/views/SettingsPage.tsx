@@ -10,6 +10,7 @@ import {
 } from './settings/settingsNav'
 import { SettingsNav } from './settings/SettingsNavPanel'
 import { SettingsSectionBody } from './settings/SettingsSectionBody'
+import { HeaderEdge } from '../components/ui/header-edge'
 import {
   MemoriesSection,
   NoTeam,
@@ -108,15 +109,16 @@ export function SettingsPage({
     <div className="fixed inset-0 z-50 flex flex-col content-canvas text-main">
       {/* Match the titlebar row the operation pages sit under, so the settings
           content starts at the same vertical offset. */}
-      <div className="titlebar-drag h-[44px] flex-shrink-0" />
+      <div className="titlebar-drag desk-titlebar-row flex-shrink-0" />
 
       <div className="flex min-h-0 flex-1">
         <SettingsNav groups={navGroups} section={section} onSelect={setSection} onBack={onClose} />
 
-        <main className="flex flex-1 min-h-0 min-w-0 flex-col pr-1 pt-px pb-1">
-          <div className="flex flex-1 min-h-0 flex-col overflow-hidden rounded-lg rounded-br-xl border border-zGray-800/60 bg-main shadow-[0_4px_6px_-5px_rgba(0,0,0,0.2)]">
+        <main className="flex flex-1 min-h-0 min-w-0 flex-col">
+          {/* The settings page is one sheet, starting under the title-bar row. */}
+          <div className="workspace-content-surface !mt-0 flex flex-1 min-h-0 flex-col overflow-hidden">
             {fullHeightSection ?? (
-              <div className="flex-1 overflow-y-auto scrollbar-thin">
+              <HeaderEdge className="flex-1 overflow-y-auto scrollbar-thin">
                 <div className="max-w-[640px] mx-auto py-10 px-8">
                   <SettingsSectionBody
                     section={section}
@@ -130,7 +132,7 @@ export function SettingsPage({
                     onOpenSection={setSection}
                   />
                 </div>
-              </div>
+              </HeaderEdge>
             )}
           </div>
         </main>

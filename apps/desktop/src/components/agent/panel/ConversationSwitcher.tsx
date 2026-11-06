@@ -95,7 +95,7 @@ export function ConversationSwitcher({
       }}
     >
       <MenuTrigger
-        className="flex h-7 w-7 items-center justify-center rounded-md text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main data-[popup-open]:bg-zGray-800/60 data-[popup-open]:text-main"
+        className="flex h-7 w-7 items-center justify-center rounded-md text-secondary transition-colors hover:bg-state-hover hover:text-main data-[popup-open]:bg-state-selected data-[popup-open]:text-main"
         title={t('Switch agent')}
         aria-label={t('Switch agent')}
       >

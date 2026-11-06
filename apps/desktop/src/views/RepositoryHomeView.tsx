@@ -155,7 +155,7 @@ export function RepositoryHomeView({
             e.stopPropagation()
             setUnbindTarget(x)
           }}
-          className="p-1 rounded text-tertiary hover:text-error hover:bg-zGray-800"
+          className="p-1 rounded text-tertiary hover:text-error hover:bg-state-hover"
           title={t('Disconnect')}
         >
           <Trash2 className="w-3.5 h-3.5" strokeWidth={1.8} />
@@ -189,7 +189,7 @@ export function RepositoryHomeView({
           <div>{t('No GitHub accounts connected to this team yet.')}</div>
           <button
             onClick={onConnectGithub}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-zGray-800 hover:bg-zGray-700 text-main text-[12.5px]"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-surface-sunken hover:bg-state-hover text-main text-[12.5px]"
           >
             <Plus className="w-3.5 h-3.5" strokeWidth={2} />
             {t('Connect your first account')}

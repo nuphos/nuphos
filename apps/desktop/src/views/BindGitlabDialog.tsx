@@ -116,7 +116,7 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
         {phase.kind === 'idle' && (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-zGray-850 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full bg-surface-sunken flex items-center justify-center">
                 <CloudLogo provider="gitlab" size={26} />
               </div>
               <div className="text-[12.5px] text-secondary leading-relaxed text-center max-w-[400px]">
@@ -135,12 +135,12 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
                 value={hostUrl}
                 onChange={(e) => setHostUrl(e.target.value)}
                 placeholder="https://gitlab.com"
-                className="h-8 px-2.5 rounded-md bg-surface border border-zGray-700 text-[12.5px] text-main focus:outline-none focus:border-zViolet-500"
+                className="h-8 px-2.5 rounded-md bg-surface border border-line-control text-[12.5px] text-main focus:outline-none focus:border-line-focus"
               />
             </label>
 
             <div className="space-y-1.5">
-              <div className="flex items-center gap-2.5 rounded-lg border border-zGray-800 bg-zGray-850/40 px-3 py-2">
+              <div className="flex items-center gap-2.5 rounded-lg border border-line-control bg-state-selected px-3 py-2">
                 <Search className="h-3.5 w-3.5 text-[#fc6d26]" strokeWidth={1.8} />
                 <div className="min-w-0 flex-1">
                   <div className="text-[12.5px] leading-none text-main">{t('Read projects')}</div>
@@ -148,12 +148,12 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
                     {t('Projects, repositories, MRs, pipelines')}
                   </div>
                 </div>
-                <span className="rounded-md bg-zGray-800 px-2 py-1 text-[11px] font-medium text-secondary">
+                <span className="rounded-md bg-surface-sunken px-2 py-1 text-[11px] font-medium text-secondary">
                   {t('Always on')}
                 </span>
               </div>
 
-              <label className="flex items-center gap-2.5 rounded-lg border border-zGray-800 bg-zGray-850/40 px-3 py-2">
+              <label className="flex items-center gap-2.5 rounded-lg border border-line-control bg-state-selected px-3 py-2">
                 <GitBranch className="h-3.5 w-3.5 text-[#fc6d26]" strokeWidth={1.8} />
                 <div className="min-w-0 flex-1">
                   <div className="text-[12.5px] leading-none text-main">{t('Push branches')}</div>
@@ -170,7 +170,7 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
                 />
               </label>
 
-              <label className="flex items-center gap-2.5 rounded-lg border border-zGray-800 bg-zGray-850/40 px-3 py-2">
+              <label className="flex items-center gap-2.5 rounded-lg border border-line-control bg-state-selected px-3 py-2">
                 <GitPullRequest className="h-3.5 w-3.5 text-[#fc6d26]" strokeWidth={1.8} />
                 <div className="min-w-0 flex-1">
                   <div className="text-[12.5px] leading-none text-main">
@@ -206,7 +206,7 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
             </div>
 
             {showAdvanced && (
-              <div className="flex flex-col gap-3 border-t border-zGray-800 pt-3">
+              <div className="flex flex-col gap-3 border-t border-line-control pt-3">
                 <div className="text-[11.5px] text-tertiary">
                   {selfHosted
                     ? t(
@@ -223,7 +223,7 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
                     value={clientId}
                     onChange={(e) => setClientId(e.target.value)}
                     placeholder="abc123…"
-                    className="h-8 px-2.5 rounded-md bg-surface border border-zGray-700 text-[12.5px] text-main font-mono focus:outline-none focus:border-zViolet-500"
+                    className="h-8 px-2.5 rounded-md bg-surface border border-line-control text-[12.5px] text-main font-mono focus:outline-none focus:border-line-focus"
                   />
                 </label>
                 <label className="flex flex-col gap-1.5">
@@ -235,7 +235,7 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
                     value={clientSecret}
                     onChange={(e) => setClientSecret(e.target.value)}
                     placeholder="gloas-…"
-                    className="h-8 px-2.5 rounded-md bg-surface border border-zGray-700 text-[12.5px] text-main font-mono focus:outline-none focus:border-zViolet-500"
+                    className="h-8 px-2.5 rounded-md bg-surface border border-line-control text-[12.5px] text-main font-mono focus:outline-none focus:border-line-focus"
                   />
                 </label>
               </div>
@@ -245,7 +245,7 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
 
         {phase.kind === 'waiting' && (
           <div className="flex flex-col items-center gap-4 py-3">
-            <Loader2 className="w-6 h-6 text-zViolet-accent animate-spin" strokeWidth={1.8} />
+            <Loader2 className="w-6 h-6 text-primary animate-spin" strokeWidth={1.8} />
             <div className="text-[12.5px] text-secondary text-center">
               {t('Waiting for {name}… complete the authorization in your browser.', {
                 name: 'GitLab',
@@ -267,10 +267,10 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
         )}
       </div>
 
-      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-zGray-800 bg-zGray-900/60">
+      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-line-control bg-state-selected">
         <button
           onClick={close}
-          className="h-8 px-3 rounded-md text-[12.5px] text-secondary hover:text-main hover:bg-zGray-800"
+          className="h-8 px-3 rounded-md text-[12.5px] text-secondary hover:text-main hover:bg-state-hover"
         >
           {phase.kind === 'waiting' ? t('Cancel') : t('Close')}
         </button>

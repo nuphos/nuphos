@@ -31,8 +31,8 @@ export function SiteStep({
             className={clsx(
               'flex flex-1 flex-col items-start gap-0.5 rounded-md border px-3 py-2.5 text-left transition-colors',
               domain === d
-                ? 'border-zViolet-500 bg-zViolet-500/10'
-                : 'border-zGray-800 hover:border-zGray-700',
+                ? 'border-action-primary bg-state-selected'
+                : 'border-line-control hover:border-line-control',
             )}
           >
             <span
@@ -68,13 +68,13 @@ export function WebhookRow({ url }: { url: string }) {
 
   return (
     <div className="flex items-center gap-2">
-      <code className="min-w-0 flex-1 truncate rounded-md border border-zGray-800 bg-zGray-900 px-2.5 py-2 text-[12px] text-main">
+      <code className="min-w-0 flex-1 truncate rounded-md border border-line-control bg-surface-sheet px-2.5 py-2 text-[12px] text-main">
         {url}
       </code>
       <button
         type="button"
         onClick={() => void copy()}
-        className="inline-flex h-9 items-center gap-1.5 rounded-md border border-zGray-800 px-3 text-[12px] font-medium text-secondary transition-colors hover:border-zGray-700 hover:text-main"
+        className="inline-flex h-9 items-center gap-1.5 rounded-md border border-line-control px-3 text-[12px] font-medium text-secondary transition-colors hover:border-line-control hover:text-main"
       >
         <FontAwesomeIcon icon={copied ? faCheck : faCopy} className="h-3 w-3" />
         {copied ? t('Copied') : t('Copy')}
@@ -114,7 +114,7 @@ export function Input({
       spellCheck={false}
       autoComplete="off"
       className={clsx(
-        'h-9 w-full rounded-md border border-zGray-800 bg-zGray-900 px-2.5 text-[12.5px] text-main outline-none transition-colors placeholder:text-zGray-600 focus:border-zViolet-500',
+        'h-9 w-full rounded-md border border-line-control bg-surface-sheet px-2.5 text-[12.5px] text-main outline-none transition-colors placeholder:text-tertiary focus:border-line-focus',
         mono && 'font-mono',
       )}
     />

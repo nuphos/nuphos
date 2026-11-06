@@ -16,10 +16,10 @@ import type { PosthogAccess, PosthogPermissions, PosthogScopeCatalog } from '../
 const LEVELS: PosthogAccess[] = ['none', 'read', 'write']
 
 const SEGMENT_CLASS =
-  'h-7 px-2.5 text-[11.5px] text-secondary outline-none transition-colors hover:text-main focus-visible:ring-2 focus-visible:ring-zViolet-accent data-[pressed]:bg-zViolet-500 data-[pressed]:text-white data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40 inline-flex items-center gap-1'
+  'h-7 px-2.5 text-[11.5px] text-secondary outline-none transition-colors hover:text-main focus-visible:ring-2 focus-visible:ring-line-focus data-[pressed]:bg-action-primary data-[pressed]:text-inverse data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40 inline-flex items-center gap-1'
 
 const GROUP_CLASS =
-  'inline-flex overflow-hidden rounded-md border border-zGray-800 divide-x divide-zGray-800'
+  'inline-flex overflow-hidden rounded-md border border-line-control divide-x divide-line-control'
 
 export function PosthogPermissionMatrix({
   catalog,
@@ -66,8 +66,8 @@ export function PosthogPermissionMatrix({
           </Toggle>
         ))}
       </ToggleGroup>
-      <div className="rounded-md border border-zGray-800">
-        <div className="px-3 py-2 text-[11px] text-tertiary border-b border-zGray-800">
+      <div className="rounded-md border border-line-control">
+        <div className="px-3 py-2 text-[11px] text-tertiary border-b border-line-control">
           {t('Always requested: {scopes}')
             .split('{scopes}')
             .map((part, i) => (
@@ -106,7 +106,7 @@ function PermissionRow({
   bordered: boolean
 }) {
   return (
-    <div className={`px-3 py-2 ${bordered ? 'border-t border-zGray-800/60' : ''}`}>
+    <div className={`px-3 py-2 ${bordered ? 'border-t border-line-control/60' : ''}`}>
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <div className="text-[12.5px] text-main">{resource.label}</div>

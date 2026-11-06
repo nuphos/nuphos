@@ -73,7 +73,7 @@ export function ComposerEditor({
             // does, so neither has to be recognised on its own.
             <kbd
               title={t('Press Tab to use this suggestion')}
-              className="flex flex-shrink-0 items-center gap-1 rounded border border-zGray-700 px-1 py-px font-sans text-[10px] leading-4 text-tertiary/60"
+              className="flex flex-shrink-0 items-center gap-1 rounded border border-line-control px-1 py-px font-sans text-[10px] leading-4 text-tertiary/60"
             >
               <span className="text-[11px] leading-none">⇥</span>
               Tab
@@ -145,7 +145,7 @@ export function ComposerSendControls({
             onClick={onSubmit}
             className={clsx(
               hero ? 'w-8 h-8 rounded-full' : 'w-7 h-7 rounded-md',
-              'bg-zViolet-500 hover:bg-zViolet-400 text-white flex items-center justify-center transition-colors',
+              'bg-action-primary hover:bg-action-primary/90 text-inverse flex items-center justify-center transition-colors',
             )}
             title={t('Send response')}
           >
@@ -156,7 +156,7 @@ export function ComposerSendControls({
           onClick={onStop}
           className={clsx(
             hero ? 'w-8 h-8 rounded-full' : 'w-7 h-7 rounded-md',
-            'bg-zGray-800 hover:bg-zGray-700 text-main flex items-center justify-center transition-colors',
+            'bg-surface-sunken hover:bg-state-hover text-main flex items-center justify-center transition-colors',
           )}
           title={t('Stop agent')}
         >
@@ -186,7 +186,9 @@ export function ComposerSendControls({
         className={clsx(
           hero ? 'w-8 h-8 rounded-full' : 'w-7 h-7 rounded-md',
           'flex items-center justify-center transition-colors',
-          sendDisabled ? 'text-tertiary' : 'bg-zViolet-500 hover:bg-zViolet-400 text-white',
+          sendDisabled
+            ? 'text-tertiary'
+            : 'bg-action-primary hover:bg-action-primary/90 text-inverse',
         )}
         title={sendBlockedReason ? undefined : t('Send')}
       >

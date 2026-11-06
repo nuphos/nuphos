@@ -32,8 +32,8 @@ export function LarkPairCard({
   onCopy: () => Promise<void>
 }) {
   return (
-    <div className="mb-6 overflow-hidden rounded-lg border border-zGray-800/70 bg-surface">
-      <div className="border-b border-zGray-800/60 px-4 py-3">
+    <div className="mb-6 overflow-hidden rounded-lg border border-line-control/70 bg-surface">
+      <div className="border-b border-line-control/60 px-4 py-3">
         <div className="text-[13px] font-medium text-main">{t('Link your Lark account')}</div>
         <div className="mt-0.5 text-[12px] text-tertiary">
           {t(
@@ -45,13 +45,13 @@ export function LarkPairCard({
         {pairCode ? (
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3">
-              <code className="rounded-md border border-zGray-800 bg-zGray-950/60 px-3 py-2 font-mono text-[18px] tracking-[0.2em] text-main">
+              <code className="rounded-md border border-line-control bg-state-selected px-3 py-2 font-mono text-[18px] tracking-[0.2em] text-main">
                 {pairCode.code}
               </code>
               <button
                 type="button"
                 onClick={() => void onCopy()}
-                className="inline-flex h-9 items-center gap-1.5 rounded-md border border-zGray-800 px-3 text-[12.5px] font-medium text-secondary transition-colors hover:border-zGray-700 hover:text-main"
+                className="inline-flex h-9 items-center gap-1.5 rounded-md border border-line-control px-3 text-[12.5px] font-medium text-secondary transition-colors hover:border-line-control hover:text-main"
                 title={t('Copy code')}
               >
                 <FontAwesomeIcon icon={pairCopied ? faCheck : faCopy} className="h-3 w-3" />
@@ -67,7 +67,7 @@ export function LarkPairCard({
               type="button"
               onClick={() => void onGenerate()}
               disabled={pairGenerating}
-              className="self-start text-[12.5px] font-medium text-zViolet-400 transition-colors hover:text-zViolet-300 disabled:opacity-50"
+              className="self-start text-[12.5px] font-medium text-secondary transition-colors hover:text-primary disabled:opacity-50"
             >
               {t('Generate a new code')}
             </button>

@@ -199,7 +199,7 @@ export function TailscaleDevicesView({
                   {i.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="bg-zGray-800 px-1.5 py-0.5 rounded text-[11px] text-tertiary font-mono"
+                      className="bg-surface-sunken px-1.5 py-0.5 rounded text-[11px] text-tertiary font-mono"
                     >
                       {tag}
                     </span>

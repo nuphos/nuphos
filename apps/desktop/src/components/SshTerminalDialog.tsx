@@ -127,7 +127,7 @@ export function SshTerminalDialog({ sessionId, title, onClose }: Props) {
       <div className="p-3">
         <div
           ref={containerRef}
-          className={`h-[560px] overflow-hidden rounded-lg border border-zGray-800 ${
+          className={`h-[560px] overflow-hidden rounded-lg border border-line-control ${
             resolved === 'light' ? 'bg-white' : 'bg-[#0f0e11]'
           } p-2`}
         />

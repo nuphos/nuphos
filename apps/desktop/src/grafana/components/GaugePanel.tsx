@@ -141,7 +141,7 @@ function Gauge({
       <path
         d={arcPath(cx, cy, r, START_DEG, START_DEG + SWEEP_DEG)}
         fill="none"
-        stroke="rgba(var(--color-zGray-800), 0.8)"
+        stroke="rgba(var(--color-line-control), 0.8)"
         strokeWidth={stroke}
         strokeLinecap="round"
       />

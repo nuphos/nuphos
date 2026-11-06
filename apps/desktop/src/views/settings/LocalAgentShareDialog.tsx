@@ -161,7 +161,7 @@ function ShareForm({
     >
       <div className="space-y-4 p-5">
         <SharedComputerNotice />
-        <div className="rounded-xl border border-zGray-800">
+        <div className="rounded-xl border border-line-control">
           <label className="flex items-center justify-between gap-3 px-3 py-2.5 text-[12.5px] text-main">
             {t('Everyone in this team, including people who join later')}
             <Switch
@@ -170,7 +170,7 @@ function ShareForm({
               onChange={setEveryone}
             />
           </label>
-          <ul className="max-h-60 space-y-0.5 overflow-y-auto border-t border-zGray-800 p-1.5">
+          <ul className="max-h-60 space-y-0.5 overflow-y-auto border-t border-line-control p-1.5">
             {members.map((member) => {
               const name = memberDisplayName(member)
               const role = shownRole(roles.get(member.id), everyone)
@@ -180,7 +180,7 @@ function ShareForm({
                   key={member.id}
                   className={clsx(
                     'flex items-center gap-2.5 rounded-lg px-2 py-1.5',
-                    role !== 'none' && 'bg-zViolet-accent/10',
+                    role !== 'none' && 'bg-state-selected',
                   )}
                 >
                   <Avatar src={member.avatarURL} name={name} size={24} className="rounded-full" />

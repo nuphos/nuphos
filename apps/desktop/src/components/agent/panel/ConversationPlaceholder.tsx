@@ -32,7 +32,7 @@ export function ConversationPlaceholder({ unavailable, onNewChat }: Props) {
   return (
     <div className="flex min-h-0 flex-1 items-center justify-center" aria-busy="true">
       <Loader2
-        className="h-4 w-4 animate-spin text-tertiary/70"
+        className="h-4 w-4 animate-spin text-tertiary"
         strokeWidth={1.7}
         aria-hidden="true"
       />

@@ -41,7 +41,7 @@ export function RuntimeActionsMenu({
       <MenuTrigger
         aria-label={t('Manage {name}', { name: instance.label })}
         disabled={busy}
-        className="flex h-7 w-7 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800/60 hover:text-main"
+        className="flex h-7 w-7 items-center justify-center rounded-md text-tertiary hover:bg-state-hover hover:text-main"
       >
         <Ellipsis className="h-4 w-4" />
       </MenuTrigger>

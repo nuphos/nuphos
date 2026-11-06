@@ -17,7 +17,7 @@ import type { SessionConfigOption } from '../../../api/session-config-types'
 const KNOB = 28
 const along = (fraction: number) =>
   `calc(${String(KNOB / 2)}px + (100% - ${String(KNOB)}px) * ${String(fraction)})`
-const HOVER = 'hover:bg-zGray-800/80 focus-visible:bg-zGray-800/80'
+const HOVER = 'hover:bg-state-hover focus-visible:bg-state-hover'
 
 function IconButton({
   label,
@@ -134,7 +134,7 @@ export function ModelEffortPanel({
                 disabled={blocked || saving}
                 inert={Boolean(fastReason)}
                 onClick={() => onSelect(fast.id, fastOn ? 'off' : 'on')}
-                className={fastOn ? 'text-zOrangered-400' : 'text-tertiary'}
+                className={fastOn ? 'text-status-attention' : 'text-tertiary'}
               >
                 <Zap size={16} strokeWidth={1.6} fill={fastOn ? 'currentColor' : 'none'} />
               </IconButton>
@@ -147,7 +147,7 @@ export function ModelEffortPanel({
                 pressed={ultrafastOn}
                 disabled={blocked || saving}
                 onClick={() => onSelect(fast.id, ultrafastOn ? 'off' : 'ultrafast')}
-                className={ultrafastOn ? 'text-zOrangered-400' : 'text-tertiary'}
+                className={ultrafastOn ? 'text-status-attention' : 'text-tertiary'}
               >
                 <Rocket size={16} strokeWidth={1.6} fill={ultrafastOn ? 'currentColor' : 'none'} />
               </IconButton>
@@ -169,7 +169,7 @@ export function ModelEffortPanel({
         </Tooltip>
       )}
       <div className="flex flex-col items-center">
-        <span className="text-sm font-medium text-zOrangered-400">
+        <span className="text-sm font-medium text-status-attention">
           {current ? effortLabel(current) : t('Default')}
         </span>
         <button
@@ -208,10 +208,10 @@ export function ModelEffortPanel({
         className="mt-4 data-[disabled]:opacity-60"
       >
         <Slider.Control className="relative h-7 cursor-pointer touch-none select-none">
-          <Slider.Track className="relative h-full w-full rounded-full bg-zGray-800">
+          <Slider.Track className="relative h-full w-full rounded-full bg-surface-sunken">
             {index >= 0 && (
               <span
-                className="absolute inset-y-0 left-0 rounded-l-full bg-zOrangered-400"
+                className="absolute inset-y-0 left-0 rounded-l-full bg-status-attention"
                 style={{ width: along(fraction) }}
               />
             )}
@@ -221,7 +221,7 @@ export function ModelEffortPanel({
                 aria-hidden
                 className={clsx(
                   'absolute top-1/2 h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full',
-                  stopIndex <= index ? 'bg-white/40' : 'bg-zGray-600',
+                  stopIndex <= index ? 'bg-white/40' : 'bg-line-control',
                 )}
                 style={{ left: along(stopFraction(stops.length, stopIndex)) }}
               />
@@ -230,7 +230,7 @@ export function ModelEffortPanel({
               inputRef={sliderRef}
               getAriaValueText={() => (current ? effortLabel(current) : t('Default'))}
               className={clsx(
-                'h-7 w-7 rounded-full border border-black/10 bg-white shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-zOrangered-400/60',
+                'h-7 w-7 rounded-full border border-black/10 bg-white shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-status-attention/60',
                 index < 0 && 'opacity-0',
               )}
             />

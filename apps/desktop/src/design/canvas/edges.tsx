@@ -12,7 +12,7 @@ export type FlowLinkData = {
   onLabelChange?: (label: string) => void
 }
 
-const STROKE = 'rgb(var(--color-zViolet-accent))'
+const STROKE = 'rgb(var(--color-text-primary))'
 
 /** A flow arrow between two screens, with a label you can edit in place. */
 export function FlowLinkEdge({
@@ -81,7 +81,7 @@ export function FlowLinkEdge({
               }}
               placeholder={t('Label')}
               aria-label={t('Link label')}
-              className="h-6 w-36 rounded border border-zViolet-500 bg-main px-2 text-[12px] text-main outline-none focus:ring-1 focus:ring-zViolet-500/60"
+              className="h-6 w-36 rounded border border-action-primary bg-main px-2 text-[12px] text-main outline-none focus:ring-1 focus:ring-line-focus"
             />
           ) : label || selected ? (
             <span

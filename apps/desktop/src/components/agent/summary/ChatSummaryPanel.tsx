@@ -68,7 +68,7 @@ function Skeleton() {
         <div
           key={height}
           style={{ height }}
-          className="animate-pulse rounded-xl bg-zGray-800/40 motion-reduce:animate-none"
+          className="animate-pulse rounded-xl bg-state-selected motion-reduce:animate-none"
         />
       ))}
     </div>
@@ -190,7 +190,7 @@ function SummaryBody({
         onKeyDown={(event) => closeOnEscape(event, rootRef.current, paneId)}
         className={clsx(
           closing ? 't-summary-out' : 't-summary-in',
-          'absolute inset-y-0 right-0 z-10 flex max-w-full flex-shrink-0 flex-col border-l border-zGray-800/60 bg-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)]',
+          'absolute inset-y-0 right-0 z-10 flex max-w-full flex-shrink-0 flex-col border-l border-line-control/60 bg-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)]',
           selected
             ? 'w-[440px] overflow-hidden @[1000px]:static'
             : 'w-[304px] gap-3 overflow-y-auto px-3.5 py-3 @[760px]:static @[760px]:border-l-0 @[760px]:bg-transparent',

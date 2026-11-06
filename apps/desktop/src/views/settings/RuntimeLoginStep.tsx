@@ -111,7 +111,7 @@ function Pick({
           type="button"
           disabled={sending !== null}
           onClick={() => void pick(option.value)}
-          className="flex w-full items-center justify-between gap-3 rounded-lg border border-zGray-700 px-4 py-3 text-left text-[13px] text-main hover:bg-zGray-800/60 disabled:opacity-50"
+          className="flex w-full items-center justify-between gap-3 rounded-lg border border-line-control px-4 py-3 text-left text-[13px] text-main hover:bg-state-hover disabled:opacity-50"
         >
           <span className="min-w-0 truncate">{option.label}</span>
           {sending === option.value ? (
@@ -154,7 +154,7 @@ function Instructions({ instructions }: { instructions: string }) {
               () => toast.error(t('Could not copy code')),
             )
           }}
-          className="flex w-full items-center justify-between gap-4 rounded-lg border border-zGray-700 bg-zGray-800/40 px-4 py-4 text-main hover:bg-zGray-800/70"
+          className="flex w-full items-center justify-between gap-4 rounded-lg border border-line-control bg-state-selected px-4 py-4 text-main hover:bg-state-hover"
         >
           <code className="text-2xl font-semibold tracking-widest">{code}</code>
           <span className="flex items-center gap-1.5 text-xs text-secondary">
@@ -164,7 +164,7 @@ function Instructions({ instructions }: { instructions: string }) {
         </button>
       )}
       {rest && (
-        <p className="whitespace-pre-wrap rounded-lg border border-zGray-700 bg-zGray-800/40 px-4 py-3 text-[13px] text-main select-text">
+        <p className="whitespace-pre-wrap rounded-lg border border-line-control bg-state-selected px-4 py-3 text-[13px] text-main select-text">
           {rest}
         </p>
       )}

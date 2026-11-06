@@ -2,7 +2,7 @@ import { objectBox } from '../schema'
 
 import type { DesignFrame, DesignObject, DesignPage } from '../schema'
 
-export const PRIMARY = 'rgb(var(--color-zViolet-500))'
+export const PRIMARY = 'rgb(var(--color-action-primary))'
 
 export const INK_COLORS = [
   '#6300FF',

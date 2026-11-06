@@ -45,20 +45,20 @@ export function PlanCards({
             <section
               key={plan.vcpus}
               className={clsx(
-                'flex flex-col gap-3 rounded-[10px] border bg-zGray-850 p-4 text-[13px] transition-opacity',
-                recommended ? 'border-zViolet-500' : 'border-white/[0.09]',
+                'flex flex-col gap-3 rounded-[10px] border bg-surface-sunken p-4 text-[13px] transition-opacity',
+                recommended ? 'border-action-primary' : 'border-white/[0.09]',
                 state === 'short' && 'opacity-50',
               )}
             >
               <div className="flex items-center gap-2">
                 <h3 className="text-[15px] font-semibold text-main">{plan.name}</h3>
                 {recommended && (
-                  <span className="rounded-full bg-zViolet-accent/15 px-2 py-0.5 text-[11px] text-zViolet-accent">
+                  <span className="rounded-full bg-state-selected px-2 py-0.5 text-[11px] text-primary">
                     {t('Recommended')}
                   </span>
                 )}
                 {state === 'current' && (
-                  <span className="rounded-full bg-zGray-800 px-2 py-0.5 text-[11px] text-secondary">
+                  <span className="rounded-full bg-surface-sunken px-2 py-0.5 text-[11px] text-secondary">
                     {t('Current plan')}
                   </span>
                 )}

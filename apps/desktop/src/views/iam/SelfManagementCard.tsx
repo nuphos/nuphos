@@ -28,9 +28,9 @@ export function SelfManagementCard({
   //   canWrite = false → neutral (informational: you'd need higher-level
   //                      access elsewhere to change the permissions)
   return (
-    <section className="px-6 py-4 border-t border-zGray-800/60">
+    <section className="px-6 py-4 border-t border-line-control/60">
       <div className="flex items-center gap-2 mb-3">
-        <KeyRound className="w-4 h-4 text-zViolet-accent" strokeWidth={1.8} />
+        <KeyRound className="w-4 h-4 text-primary" strokeWidth={1.8} />
         <h2 className="text-[13px] font-semibold text-main">{title}</h2>
         {capabilities.inferred && (
           <span
@@ -108,12 +108,12 @@ function CapabilityRow({
       badge: 'bg-warning/20 text-warning',
     },
     neutral: {
-      border: 'border-zGray-800',
-      bg: 'bg-zGray-950',
-      iconWrap: 'bg-zGray-850 text-tertiary',
+      border: 'border-line-control',
+      bg: 'bg-surface-canvas',
+      iconWrap: 'bg-surface-sunken text-tertiary',
       iconStroke: 1.8,
       label: 'text-main font-medium',
-      badge: 'bg-zGray-850 text-tertiary',
+      badge: 'bg-surface-sunken text-tertiary',
     },
   }[tone]
 

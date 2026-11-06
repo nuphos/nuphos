@@ -34,8 +34,8 @@ export function useInspect(registry: RegistrySnapshot, onResult: (result: Inspec
       'pointer-events:none',
       'z-index:1000',
       'display:none',
-      'border:2px solid rgb(var(--color-zViolet-accent))',
-      'background:rgba(var(--color-zViolet-accent),0.12)',
+      'border:2px solid rgb(var(--color-text-primary))',
+      'background:rgba(var(--color-text-primary),0.12)',
       'border-radius:3px',
       'transition:left 60ms ease,top 60ms ease,width 60ms ease,height 60ms ease',
     ].join(';')

@@ -36,8 +36,8 @@ export function EnvTabHeader({
   return (
     <div
       className={clsx(
-        'z-10 border-b border-zGray-800 py-2.5',
-        embedded ? 'bg-transparent px-6' : 'sticky top-0 bg-zGray-900 px-6',
+        'z-10 border-b border-line-control py-2.5',
+        embedded ? 'bg-transparent px-6' : 'sticky top-0 bg-surface-sheet px-6',
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -65,8 +65,8 @@ export function EnvTabHeader({
                 className={clsx(
                   'inline-flex h-7 max-w-[220px] items-center gap-1.5 rounded px-2.5 text-[12px]',
                   selectedKey === key
-                    ? 'bg-zViolet-500/20 text-zViolet-accent'
-                    : 'text-secondary hover:bg-zGray-800 hover:text-main',
+                    ? 'bg-state-selected text-primary'
+                    : 'text-secondary hover:bg-state-hover hover:text-main',
                 )}
                 title={
                   dirty
@@ -98,7 +98,7 @@ export function EnvTabHeader({
           <button
             type="button"
             onClick={onAddEnv}
-            className="inline-flex h-7 items-center gap-1.5 rounded bg-zGray-800 px-2.5 text-[12px] text-main hover:bg-zGray-750"
+            className="inline-flex h-7 items-center gap-1.5 rounded bg-surface-sunken px-2.5 text-[12px] text-main hover:bg-state-hover"
           >
             <Plus className="h-3.5 w-3.5" strokeWidth={2} />
             Env
@@ -106,7 +106,7 @@ export function EnvTabHeader({
           <button
             type="button"
             onClick={onAddEnvFrom}
-            className="inline-flex h-7 items-center gap-1.5 rounded bg-zGray-800 px-2.5 text-[12px] text-main hover:bg-zGray-750"
+            className="inline-flex h-7 items-center gap-1.5 rounded bg-surface-sunken px-2.5 text-[12px] text-main hover:bg-state-hover"
           >
             <Plus className="h-3.5 w-3.5" strokeWidth={2} />
             EnvFrom

@@ -138,7 +138,7 @@ export function CloudflareDnsRecordsView({
             width: 260,
             sortAccessor: (r) => r.name,
             render: (r) => (
-              <span className="text-zViolet-accent truncate block max-w-[240px]" title={r.name}>
+              <span className="text-primary truncate block max-w-[240px]" title={r.name}>
                 {r.name}
               </span>
             ),
@@ -214,7 +214,7 @@ export function CloudflareDnsRecordsView({
                     e.stopPropagation()
                     setDialog({ mode: 'edit', record: r })
                   }}
-                  className="w-6 h-6 rounded text-tertiary hover:bg-zGray-800 hover:text-main flex items-center justify-center"
+                  className="w-6 h-6 rounded text-tertiary hover:bg-state-hover hover:text-main flex items-center justify-center"
                   title={t('Edit DNS record')}
                 >
                   <Pencil className="w-3.5 h-3.5" strokeWidth={1.8} />

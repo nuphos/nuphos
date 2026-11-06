@@ -10,7 +10,7 @@ export function ColorDot({ color }: { color: string | null | undefined }) {
 
   return (
     <span
-      className="h-2 w-2 shrink-0 rounded-full bg-zGray-500"
+      className="h-2 w-2 shrink-0 rounded-full bg-line-control"
       style={hex ? { backgroundColor: hex } : undefined}
     />
   )
@@ -19,7 +19,7 @@ export function ColorDot({ color }: { color: string | null | undefined }) {
 export function StateBadge({ state }: { state: LinearIssueState }) {
   return (
     <span
-      className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-zGray-800/60 px-2 py-0.5 text-[11.5px] font-medium text-secondary"
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-state-selected px-2 py-0.5 text-[11.5px] font-medium text-secondary"
       title={state.type}
     >
       <ColorDot color={state.color} />

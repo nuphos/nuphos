@@ -135,9 +135,9 @@ export function AwsIamPermissionsView({
           >
             {isRetiredBinding && <RetiredBindingNotice principal="role" />}
             <Warnings warnings={visibleData.warnings} />
-            <section className="px-6 py-4 border-t border-zGray-800/60">
+            <section className="px-6 py-4 border-t border-line-control/60">
               <SectionHeader
-                icon={<ShieldCheck className="w-4 h-4 text-zViolet-accent" strokeWidth={1.8} />}
+                icon={<ShieldCheck className="w-4 h-4 text-primary" strokeWidth={1.8} />}
                 title={t('Granted policies')}
                 hint={
                   visibleData.policies.length === 1
@@ -152,7 +152,7 @@ export function AwsIamPermissionsView({
                   )}
                 />
               ) : (
-                <div className="border-y border-zGray-800/60">
+                <div className="border-y border-line-control/60">
                   {visibleData.policies.map((p) => (
                     <PolicyCard key={`${p.kind}:${p.arn ?? p.name}`} policy={p} />
                   ))}
@@ -160,13 +160,13 @@ export function AwsIamPermissionsView({
               )}
             </section>
             {visibleData.trustPolicySummary && (
-              <section className="px-6 py-4 border-t border-zGray-800/60">
+              <section className="px-6 py-4 border-t border-line-control/60">
                 <SectionHeader
-                  icon={<KeyRound className="w-4 h-4 text-zViolet-accent" strokeWidth={1.8} />}
+                  icon={<KeyRound className="w-4 h-4 text-primary" strokeWidth={1.8} />}
                   title={t('Trust policy')}
                   hint={t('Who is allowed to assume this role')}
                 />
-                <pre className="mt-2 border-y border-zGray-850 bg-zGray-950 py-3 text-[11.5px] font-mono text-secondary overflow-x-auto whitespace-pre-wrap break-words">
+                <pre className="mt-2 border-y border-line-control bg-surface-canvas py-3 text-[11.5px] font-mono text-secondary overflow-x-auto whitespace-pre-wrap break-words">
                   {visibleData.trustPolicySummary}
                 </pre>
               </section>
@@ -182,7 +182,7 @@ export function AwsIamPermissionsView({
                 onAccessChanged={onAccessChanged}
               />
             ) : (
-              <section className="px-6 py-4 border-t border-zGray-800/60">
+              <section className="px-6 py-4 border-t border-line-control/60">
                 <EmptyHint message={t('Open a specific role to manage who can use it.')} />
               </section>
             )}

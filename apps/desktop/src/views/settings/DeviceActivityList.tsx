@@ -23,7 +23,7 @@ import type { DeviceExecAuditEntry, DeviceExecAuditPage } from '../../api'
 import type { ReactNode } from 'react'
 
 const EMPTY_CLASSES =
-  'rounded-lg border border-zGray-800/60 bg-surface p-4 text-[13px] text-tertiary'
+  'rounded-lg border border-line-control/60 bg-surface p-4 text-[13px] text-tertiary'
 
 const TONE_CLASSES: Record<OutcomeTone, string> = {
   success: 'text-success',
@@ -46,7 +46,7 @@ function ActivityRow({
   const title = entry.conversationTitle ?? t('Untitled agent')
 
   return (
-    <div className="border-t border-zGray-800/60 bg-surface px-4 py-2.5 first:border-t-0">
+    <div className="border-t border-line-control/60 bg-surface px-4 py-2.5 first:border-t-0">
       <div className="flex items-center gap-2 text-[11px] text-tertiary">
         <span title={new Date(entry.requestedAt).toLocaleString()}>
           {formatActivityTime(entry.requestedAt)}
@@ -158,7 +158,7 @@ export function DeviceActivityList({
   } else {
     body = (
       <>
-        <div className="overflow-hidden rounded-lg border border-zGray-800/60">
+        <div className="overflow-hidden rounded-lg border border-line-control/60">
           {entries.map((entry) => (
             <ActivityRow
               key={entry.id}

@@ -185,7 +185,7 @@ export function DnsRecordDialog({
               checked={proxied}
               disabled={!proxyCapable}
               onChange={(e) => setProxied(e.target.checked)}
-              className="h-4 w-4 rounded border-zGray-700 bg-zGray-950"
+              className="h-4 w-4 rounded border-line-control bg-surface-canvas"
             />
             {t('Proxied')}
           </label>

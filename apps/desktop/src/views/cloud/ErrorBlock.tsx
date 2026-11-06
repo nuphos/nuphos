@@ -58,7 +58,7 @@ export function ErrorBlock({ message }: { message: string }) {
               <button
                 type="button"
                 onClick={() => void api.appOpenExternal(details.activationUrl!).catch(() => {})}
-                className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-zViolet-accent/15 text-zViolet-accent hover:bg-zViolet-accent/25 text-[12px]"
+                className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-state-selected text-primary hover:bg-state-selected text-[12px]"
               >
                 <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.8} />
                 {t('Enable in Google Cloud Console')}

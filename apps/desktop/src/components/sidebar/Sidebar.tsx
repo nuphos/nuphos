@@ -189,7 +189,7 @@ export const Sidebar = memo(function Sidebar({
             onMouseDown={() => setDragging(true)}
             className={clsx(
               'absolute right-0 top-[55px] bottom-3 w-0.5 cursor-col-resize z-10',
-              dragging ? 'bg-zViolet-500/30' : 'hover:bg-zGray-800/60',
+              dragging ? 'bg-action-primary/30' : 'hover:bg-state-hover',
             )}
           />
         )}
@@ -218,7 +218,7 @@ export const Sidebar = memo(function Sidebar({
           className={clsx(
             SIDEBAR_PANEL_PADDING_CLASS,
             'flex-1 overflow-x-hidden overflow-y-auto scrollbar-thin scrollbar-overlay',
-            'border-t border-transparent transition-colors duration-200 data-[scrolled]:border-zGray-800/60',
+            'border-t border-transparent transition-colors duration-200 data-[scrolled]:border-line-control/60',
           )}
         >
           <SidebarNavStack viewKey={view.key} level={view.level}>
@@ -248,12 +248,12 @@ export const Sidebar = memo(function Sidebar({
         {dynamicNavigation &&
           identitySegment &&
           (scope.kind === 'aws-account' || scope.kind === 'gcp-project') && (
-            <div className="px-3.5 pt-2.5 pb-3.5 titlebar-no-drag border-t border-zGray-800/60">
+            <div className="px-3.5 pt-2.5 pb-3.5 titlebar-no-drag border-t border-line-control/60">
               <SidebarIdentitySelector scope={scope} segment={identitySegment} />
             </div>
           )}
 
-        <div className="flex-shrink-0 flex items-center gap-1 border-t border-zGray-800/60 px-1.5 pb-1.5 pt-1.5">
+        <div className="flex-shrink-0 flex items-center gap-1 border-t border-line-control/60 px-1.5 pb-1.5 pt-1.5">
           {user ? (
             <SidebarUserEntry
               user={user}

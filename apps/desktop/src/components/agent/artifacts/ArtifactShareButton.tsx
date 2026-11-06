@@ -12,7 +12,7 @@ import { artifactFileName } from './artifactPayload'
 import type { ArtifactVersion } from './artifactPayload'
 
 const TRIGGER =
-  'titlebar-no-drag relative flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-zGray-800 px-2 text-[12px] font-medium text-secondary outline-none transition-colors hover:bg-zGray-800/60 hover:text-main focus-visible:ring-2 focus-visible:ring-zViolet-accent data-[popup-open]:bg-zGray-800/60 data-[popup-open]:text-main disabled:opacity-50'
+  'titlebar-no-drag relative flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-line-control px-2 text-[12px] font-medium text-secondary outline-none transition-colors hover:bg-state-hover hover:text-main focus-visible:ring-2 focus-visible:ring-line-focus data-[popup-open]:bg-state-selected data-[popup-open]:text-main disabled:opacity-50'
 
 /**
  * Share inside the team: a link that opens this version beside its chat for
@@ -44,7 +44,7 @@ export function ArtifactShareButton({
           <Popover.Popup
             className={(popup) =>
               clsx(
-                't-dropdown w-[320px] rounded-xl border border-zGray-800/60 bg-main p-3 shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none',
+                't-dropdown w-[320px] rounded-xl border border-line-control/60 bg-main p-3 shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none',
                 popup.open && 'is-open',
                 popup.transitionStatus === 'ending' && 'is-closing',
               )
@@ -52,7 +52,7 @@ export function ArtifactShareButton({
             style={{ transformOrigin: 'top right' }}
           >
             <div className="mb-3 flex items-start gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zGray-850 text-secondary">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-secondary">
                 <Users className="h-4 w-4" strokeWidth={1.8} />
               </span>
               <span className="flex min-w-0 flex-col gap-0.5">
@@ -75,7 +75,7 @@ export function ArtifactShareButton({
               <Link2 className="h-3.5 w-3.5" />
               {t('Copy link to version {version}', { version: String(current.version) })}
             </Button>
-            <div className="mt-3 border-t border-zGray-800/60 pt-3">
+            <div className="mt-3 border-t border-line-control/60 pt-3">
               <p className="m-0 mb-2 text-[12px] leading-5 text-tertiary">
                 {t('For anyone else, send the file. It opens anywhere and works offline.')}
               </p>

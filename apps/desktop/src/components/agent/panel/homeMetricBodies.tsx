@@ -113,7 +113,7 @@ export function StreakBody({ stats }: MetricBodyProps) {
         <span
           className={clsx(
             'flex h-7 w-7 flex-none items-center justify-center rounded-md',
-            current > 0 ? 'bg-warning/10 text-warning' : 'bg-zGray-800/40 text-tertiary',
+            current > 0 ? 'bg-warning/10 text-warning' : 'bg-state-selected text-tertiary',
           )}
         >
           <Flame className="h-4 w-4" strokeWidth={1.8} />

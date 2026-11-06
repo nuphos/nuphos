@@ -50,7 +50,7 @@ export function GeneralAccessRow({
 
   return (
     <Menu>
-      <MenuTrigger className="flex w-full items-center gap-2 px-2.5 py-1.5 transition-colors hover:bg-zGray-800/40 data-[popup-open]:bg-zGray-800/40">
+      <MenuTrigger className="flex w-full items-center gap-2 px-2.5 py-1.5 transition-colors hover:bg-state-hover data-[popup-open]:bg-state-selected">
         {body}
         <ChevronDown className="h-3.5 w-3.5 shrink-0 text-tertiary" strokeWidth={2} />
       </MenuTrigger>
@@ -78,7 +78,7 @@ export function GeneralAccessRow({
 }
 
 const TRIGGER =
-  'flex h-6 shrink-0 items-center gap-0.5 rounded-md px-1.5 text-[12px] text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main data-[popup-open]:bg-zGray-800/60 disabled:pointer-events-none'
+  'flex h-6 shrink-0 items-center gap-0.5 rounded-md px-1.5 text-[12px] text-secondary transition-colors hover:bg-state-hover hover:text-main data-[popup-open]:bg-state-selected disabled:pointer-events-none'
 
 /**
  * What one participant may do, for the owner to act on. Someone who reads only

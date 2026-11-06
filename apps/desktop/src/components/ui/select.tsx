@@ -108,7 +108,7 @@ export function AppSelect({
             <SelectPrimitive.Popup
               className={(state) =>
                 clsx(
-                  't-dropdown max-h-72 min-w-[var(--anchor-width)] overflow-auto scrollbar-thin rounded-lg border border-zGray-800/60 bg-main p-0 shadow-[0_4px_6px_-5px_rgba(0,0,0,0.2)]',
+                  't-dropdown max-h-72 min-w-[var(--anchor-width)] overflow-auto scrollbar-thin rounded-lg border border-line-control/60 bg-main p-0 shadow-[0_4px_6px_-5px_rgba(0,0,0,0.2)]',
                   state.open && 'is-open',
                   state.transitionStatus === 'ending' && 'is-closing',
                   contentClassName,
@@ -125,7 +125,7 @@ export function AppSelect({
                     className={(state) =>
                       clsx(
                         'flex min-h-7 cursor-default select-none items-center gap-2 px-2 py-1.5 text-[13px] text-main outline-none transition-colors',
-                        state.highlighted && 'bg-zGray-800/80',
+                        state.highlighted && 'bg-state-selected',
                         state.disabled && 'pointer-events-none opacity-50',
                         itemClassName,
                       )

@@ -66,13 +66,13 @@ export function TeammatePicker({
     <div className="flex flex-col gap-2">
       <div className="px-1 text-[11px] font-medium text-tertiary">{t('Add teammates')}</div>
       <InputGroup
-        className="flex h-8 items-center gap-1 overflow-x-auto rounded-lg border border-zGray-800/60 px-1 [scrollbar-width:none]"
+        className="flex h-8 items-center gap-1 overflow-x-auto rounded-lg border border-line-control/60 px-1 [scrollbar-width:none]"
         onClick={() => inputRef.current?.focus()}
       >
         {picked.map((member) => (
           <span
             key={member.id}
-            className="t-share-in flex h-6 shrink-0 items-center gap-1 rounded-full bg-zGray-800/60 pl-0.5 pr-1 text-[12px] text-main"
+            className="t-share-in flex h-6 shrink-0 items-center gap-1 rounded-full bg-state-selected pl-0.5 pr-1 text-[12px] text-main"
           >
             <PersonFace person={member} size={20} className="!rounded-full" />
             <span className="max-w-[96px] truncate">{member.name}</span>
@@ -134,16 +134,16 @@ export function TeammatePicker({
                 // ring; picking with the mouse should leave focus where it was.
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => toggle(member)}
-                className="flex min-w-0 flex-col items-center gap-1 rounded-lg px-0.5 py-1.5 transition-colors hover:bg-zGray-800/40"
+                className="flex min-w-0 flex-col items-center gap-1 rounded-lg px-0.5 py-1.5 transition-colors hover:bg-state-hover"
               >
                 <span
                   className={clsx(
                     'relative flex rounded-full ring-2 ring-offset-2 ring-offset-[rgb(var(--color-background-base))] transition-shadow',
-                    selected ? 'ring-zViolet-accent' : 'ring-transparent',
+                    selected ? 'ring-line-focus' : 'ring-transparent',
                   )}
                 >
                   <PersonFace person={member} size={36} className="!rounded-full" />
-                  {selected && <CheckBadge className="-bottom-0.5 -right-0.5 bg-zViolet-500" />}
+                  {selected && <CheckBadge className="-bottom-0.5 -right-0.5 bg-action-primary" />}
                 </span>
                 <span className="w-full truncate text-[11px] text-secondary">
                   {member.agent ? member.name : member.name.split(' ')[0]}

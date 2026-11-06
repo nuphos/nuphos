@@ -121,8 +121,8 @@ export function SessionSearchDialog({
                     className={clsx(
                       'flex items-center gap-1.5 rounded-md px-2 py-1 text-xs focus-visible:outline focus-visible:outline-2',
                       mode === value
-                        ? 'bg-zGray-750 font-medium text-main'
-                        : 'text-secondary hover:bg-zGray-800',
+                        ? 'bg-line-control font-medium text-main'
+                        : 'text-secondary hover:bg-state-hover',
                     )}
                   >
                     <Icon size={15} />
@@ -140,7 +140,7 @@ export function SessionSearchDialog({
                     setOwner(null)
                     inputRef.current?.focus()
                   }}
-                  className="flex max-w-[45%] items-center gap-1.5 rounded-md bg-zViolet-500/15 px-2 py-1 text-xs text-main"
+                  className="flex max-w-[45%] items-center gap-1.5 rounded-md bg-state-selected px-2 py-1 text-xs text-main"
                 >
                   <UserRound size={14} className="shrink-0" />
                   <span className="truncate">{owner.name || owner.email}</span>

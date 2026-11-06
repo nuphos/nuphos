@@ -69,10 +69,10 @@ export function PlanActionBar({
       className={clsx(
         'flex flex-shrink-0 flex-col gap-2.5 px-4',
         floating
-          ? 'rounded-lg border border-zGray-800/60 bg-zGray-900 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]'
-          : 'border-t border-zGray-800/70 bg-zGray-950/95 py-3',
+          ? 'rounded-lg surface-raised bg-surface-raised py-3'
+          : 'border-t border-line-control/70 bg-state-selected py-3',
         decision === 'approved' && 'bg-emerald-500/5',
-        decision === 'chatting' && 'bg-zGray-800/40',
+        decision === 'chatting' && 'bg-state-selected',
       )}
     >
       <div
@@ -126,7 +126,7 @@ export function PlanActionBar({
                           if (hasChangeRequest) requestChanges()
                         }
                       }}
-                      className="w-full resize-none rounded-lg border border-zGray-800 bg-surface px-3 py-2 text-[13px] leading-snug text-main placeholder:text-tertiary focus:border-zViolet-accent/40 focus:outline-none"
+                      className="w-full resize-none rounded-lg border border-line-control bg-surface px-3 py-2 text-[13px] leading-snug text-main placeholder:text-tertiary focus:border-line-focus focus:outline-none"
                     />
                   </div>
                 </div>
@@ -191,7 +191,7 @@ export function PlanActionBar({
                   {onReject && (
                     <Menu>
                       <MenuTrigger
-                        className="flex h-8 w-8 flex-shrink-0 items-center justify-center border-l border-white/20 bg-zViolet-500 text-white transition hover:bg-zViolet-400 data-[popup-open]:bg-zViolet-400"
+                        className="flex h-8 w-8 flex-shrink-0 items-center justify-center border-l border-white/20 bg-action-primary text-inverse transition hover:bg-action-primary/90 data-[popup-open]:bg-action-primary/90"
                         aria-label={t('More plan actions')}
                       >
                         <ChevronDown className="h-3.5 w-3.5" strokeWidth={2.4} />
@@ -252,7 +252,7 @@ export function PlanActionBar({
             {t('Plan approved — ready to proceed.')}
           </span>
         ) : decision === 'approval-recorded' ? (
-          <span className="inline-flex items-center gap-1.5 text-[12.5px] text-zViolet-accent">
+          <span className="inline-flex items-center gap-1.5 text-[12.5px] text-primary">
             <Check className="h-3.5 w-3.5" strokeWidth={2.4} />
             {t('Approval recorded — waiting for {n} more required approval(s).', {
               n: Math.max(

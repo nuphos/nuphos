@@ -16,6 +16,7 @@ import { ChatIcon } from './channelParts'
 import { sendingPost, stillSending } from './sendingPosts'
 import { useChannel } from './useChannel'
 import { useStickToBottom } from './useStickToBottom'
+import { HeaderEdge } from '../ui/header-edge'
 
 import type { AgentMessageMention, AgentPersistedMessage } from '../../api'
 import type { UserInfo } from '../../types'
@@ -107,7 +108,7 @@ export function ChannelPane({
     <FileDropZone target={dropRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div
         className={clsx(
-          'workspace-agent-titlebar relative flex h-[44px] flex-shrink-0 items-center gap-2 border-b border-zGray-800/60 pl-3',
+          'workspace-agent-titlebar sheet-titlebar-row relative flex flex-shrink-0 items-center gap-2 pl-3',
           dockOpen ? 'pr-3' : 'pr-12',
         )}
       >
@@ -135,7 +136,7 @@ export function ChannelPane({
         />
         {grip}
       </div>
-      <div
+      <HeaderEdge
         ref={scrollRef}
         className="min-h-0 flex-1 overflow-y-auto scrollbar-thin px-3 pt-5 pb-4 selectable"
       >
@@ -165,7 +166,7 @@ export function ChannelPane({
             />
           )}
         </div>
-      </div>
+      </HeaderEdge>
       <div className="mx-auto w-full max-w-[760px] px-3 pb-3">
         <Composer
           onSend={(text, filePaths, mentions) => void send(text, filePaths, mentions)}

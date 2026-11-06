@@ -123,18 +123,18 @@ export function HelmReleaseOverview({
             <button
               type="button"
               onClick={() => setRevealedPayloadKey(showValues ? null : payloadKey)}
-              className="inline-flex items-center gap-1.5 rounded bg-zGray-800 px-2.5 py-1 text-[11.5px] text-secondary hover:text-main"
+              className="inline-flex items-center gap-1.5 rounded bg-surface-sunken px-2.5 py-1 text-[11.5px] text-secondary hover:text-main"
             >
               {showValues ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
               {showValues ? t('Hide values') : t('Reveal values')}
             </button>
           </div>
           {showValues ? (
-            <pre className="max-h-72 overflow-auto rounded-md border border-zGray-800 bg-zGray-900 p-3 text-[11.5px] text-secondary">
+            <pre className="max-h-72 overflow-auto rounded-md border border-line-control bg-surface-sheet p-3 text-[11.5px] text-secondary">
               {yaml.dump(release.config, { noRefs: true })}
             </pre>
           ) : (
-            <div className="rounded-md border border-zGray-800 bg-zGray-900 p-3 text-[12px] text-tertiary">
+            <div className="rounded-md border border-line-control bg-surface-sheet p-3 text-[12px] text-tertiary">
               {t('Values are hidden because Helm configuration can contain credentials.')}
             </div>
           )}

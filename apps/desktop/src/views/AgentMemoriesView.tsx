@@ -159,7 +159,7 @@ export function AgentMemoriesView({
                 placeholder={t('Why remove it? (optional — e.g. wrong, outdated, duplicate)')}
                 rows={2}
                 maxLength={300}
-                className="w-full resize-none rounded-md bg-zGray-850 border border-zGray-800 px-2.5 py-1.5 text-[12.5px] text-main placeholder:text-quaternary outline-none focus:border-zGray-600 transition-colors"
+                className="w-full resize-none rounded-md bg-surface-sunken border border-line-control px-2.5 py-1.5 text-[12.5px] text-main placeholder:text-quaternary outline-none focus:border-line-control transition-colors"
               />
             </div>
           }
@@ -187,14 +187,14 @@ export function AgentMemoriesView({
                 className={clsx(
                   'h-7 px-2.5 text-[12px] rounded-md transition-colors',
                   scope === tab.scope
-                    ? 'bg-zGray-800 text-main'
-                    : 'text-tertiary hover:text-secondary hover:bg-zGray-800/50',
+                    ? 'bg-surface-sunken text-main'
+                    : 'text-tertiary hover:text-secondary hover:bg-state-hover',
                 )}
               >
                 {tab.label}
               </button>
             ))}
-            <div className="mx-1 h-4 w-px bg-zGray-800" />
+            <div className="mx-1 h-4 w-px bg-surface-sunken" />
             {(['live', 'removed'] as const).map((s) => (
               <button
                 key={s}
@@ -203,8 +203,8 @@ export function AgentMemoriesView({
                 className={clsx(
                   'h-7 px-2.5 text-[12px] rounded-md transition-colors capitalize',
                   stateFilter === s
-                    ? 'bg-zGray-800 text-main'
-                    : 'text-tertiary hover:text-secondary hover:bg-zGray-800/50',
+                    ? 'bg-surface-sunken text-main'
+                    : 'text-tertiary hover:text-secondary hover:bg-state-hover',
                 )}
               >
                 {s === 'live' ? t('Active') : t('Removed')}
@@ -212,7 +212,7 @@ export function AgentMemoriesView({
             ))}
             {summary && stateFilter === 'live' && summary.turns.total > 0 && (
               <>
-                <div className="mx-1 h-4 w-px bg-zGray-800" />
+                <div className="mx-1 h-4 w-px bg-surface-sunken" />
                 <MemoryScorecardStrip summary={summary} />
               </>
             )}
@@ -222,7 +222,7 @@ export function AgentMemoriesView({
       <div
         className={clsx(
           'flex flex-col min-h-0',
-          selected ? 'flex-1 min-w-0 border-r border-zGray-800/60' : 'flex-1 min-w-0',
+          selected ? 'flex-1 min-w-0 border-r border-line-control/60' : 'flex-1 min-w-0',
         )}
       >
         {state.kind === 'ready' && rows.length === 0 && !filter && stateFilter === 'live' ? (
@@ -261,12 +261,12 @@ export function AgentMemoriesView({
           />
         )}
         {hasMore && (
-          <div className="px-6 py-3 border-t border-zGray-800/60 flex-shrink-0">
+          <div className="px-6 py-3 border-t border-line-control/60 flex-shrink-0">
             <button
               type="button"
               onClick={() => void loadMore()}
               disabled={loadingMore}
-              className="w-full px-3 py-2 text-[12px] text-secondary hover:text-main rounded border border-zGray-800/60 hover:border-zGray-700/60 disabled:opacity-50"
+              className="w-full px-3 py-2 text-[12px] text-secondary hover:text-main rounded border border-line-control/60 hover:border-line-control/60 disabled:opacity-50"
             >
               {loadingMore ? t('Loading…') : t('Load more')}
             </button>

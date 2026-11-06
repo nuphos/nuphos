@@ -95,7 +95,7 @@ export function TransferPreviews({
                 aria-label={t('Play {name}', { name: f.fileName })}
                 className={clsx(
                   MEDIA_BOX,
-                  'relative flex-shrink-0 cursor-zoom-in overflow-hidden rounded-lg border border-zGray-800 bg-black',
+                  'relative flex-shrink-0 cursor-zoom-in overflow-hidden rounded-lg border border-line-control bg-black',
                 )}
               >
                 <video

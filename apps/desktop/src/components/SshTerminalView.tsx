@@ -122,7 +122,7 @@ export function SshTerminalView({ sessionId, title, subtitle, status, error }: P
         className={`mb-2 inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11.5px] ${
           status === 'error'
             ? 'border-error/40 bg-error/10 text-error'
-            : 'border-zViolet-accent/40 bg-zViolet-accent/10 text-zViolet-accent'
+            : 'border-action-primary/40 bg-state-selected text-primary'
         }`}
       >
         {status === 'connecting' ? (

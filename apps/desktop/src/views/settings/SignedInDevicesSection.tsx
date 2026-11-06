@@ -84,7 +84,7 @@ export function SignedInDevicesSection({ onSignOut }: { onSignOut: () => void })
         )}
       />
       {load.state === 'signInAgain' && (
-        <div className="rounded-lg border border-zGray-800/70 bg-surface px-4 py-3.5">
+        <div className="rounded-lg border border-line-control/70 bg-surface px-4 py-3.5">
           <p className="text-[13px] text-main">{t('Sign in again to manage your devices.')}</p>
           <p className="mt-1 text-[12.5px] text-tertiary">
             {t('This device signed in before device management existed.')}
@@ -112,8 +112,8 @@ export function SignedInDevicesSection({ onSignOut }: { onSignOut: () => void })
           ready={load.state === 'ready'}
           skeleton={
             <div aria-busy="true" className="space-y-2">
-              <div className="h-[60px] rounded-lg bg-zGray-800/40" />
-              <div className="h-[60px] rounded-lg bg-zGray-800/40" />
+              <div className="h-[60px] rounded-lg bg-state-selected" />
+              <div className="h-[60px] rounded-lg bg-state-selected" />
             </div>
           }
         >
@@ -121,13 +121,13 @@ export function SignedInDevicesSection({ onSignOut }: { onSignOut: () => void })
             {sessions.map((session) => (
               <div
                 key={session.id}
-                className="flex items-center gap-4 rounded-lg border border-zGray-800/70 bg-surface px-4 py-3"
+                className="flex items-center gap-4 rounded-lg border border-line-control/70 bg-surface px-4 py-3"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 text-[13.5px] font-medium text-main">
                     <span className="truncate">{sessionDevice(session)}</span>
                     {session.current && (
-                      <span className="shrink-0 rounded bg-zGray-800/60 px-1.5 py-0.5 text-[11px] font-normal text-secondary">
+                      <span className="shrink-0 rounded bg-state-selected px-1.5 py-0.5 text-[11px] font-normal text-secondary">
                         {t('This device')}
                       </span>
                     )}

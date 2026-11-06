@@ -60,13 +60,13 @@ export function MemoryScorecardStrip({ summary }: { summary: AgentMemoryScorecar
       <Popover.Trigger
         title={t('Memory stats')}
         aria-label={t('Memory stats')}
-        className="h-7 px-2 rounded-md inline-flex items-center text-tertiary transition-colors hover:text-secondary hover:bg-zGray-800/50"
+        className="h-7 px-2 rounded-md inline-flex items-center text-tertiary transition-colors hover:text-secondary hover:bg-state-hover"
       >
         <Info className="h-3.5 w-3.5" />
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner side="bottom" align="end" sideOffset={6} className="z-[1000]">
-          <Popover.Popup className="w-[268px] rounded-lg border border-zGray-800 bg-zGray-900 p-3.5 shadow-xl outline-none">
+          <Popover.Popup className="w-[268px] rounded-lg border border-line-control bg-surface-sheet p-3.5 shadow-xl outline-none">
             <div className="flex flex-col gap-3">
               <Stat
                 label={t('applied')}

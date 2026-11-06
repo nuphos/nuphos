@@ -44,7 +44,7 @@ export function LoginAccounts({ accounts }: { accounts: AccountSummary[] }) {
                 type="button"
                 disabled={busy !== null}
                 onClick={() => void choose(account)}
-                className="titlebar-no-drag w-full flex items-center gap-2.5 px-3 py-2 rounded-md border border-zGray-800 bg-surface text-left hover:bg-[var(--sidebar-overlay-hover)] disabled:opacity-60"
+                className="titlebar-no-drag w-full flex items-center gap-2.5 px-3 py-2 rounded-md border border-line-control bg-surface text-left hover:bg-[var(--sidebar-overlay-hover)] disabled:opacity-60"
               >
                 <Avatar
                   src={account.userInfo?.avatarURL}

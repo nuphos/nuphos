@@ -83,7 +83,7 @@ export function DashboardPanelCard({
     onOpenNuphosLink?.(
       `/teams/${encodeURIComponent(teamId)}/dashboards/${encodeURIComponent(pin.dashboardId)}`,
     )
-  let content = <div className="h-24 rounded-md bg-zGray-800/40 animate-pulse" />
+  let content = <div className="h-24 rounded-md bg-state-selected animate-pulse" />
 
   if (body.kind === 'output') {
     content = <PanelOutputView output={body.output} fill />
@@ -103,7 +103,7 @@ export function DashboardPanelCard({
   }
 
   return (
-    <section className="flex h-full min-w-0 flex-col rounded-lg border border-zGray-800/60 p-3">
+    <section className="flex h-full min-w-0 flex-col rounded-lg border border-line-control/60 p-3">
       <div className="group home-card-drag cursor-grab active:cursor-grabbing mb-2 flex items-center gap-1.5 px-1 text-[12px] text-secondary">
         <LayoutDashboard className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={1.8} />
         <BaseButton

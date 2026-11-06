@@ -127,32 +127,32 @@ export function NamespaceCombobox({
                   document.activeElement.blur()
                 }
               }}
-              className="flex h-full w-6 flex-shrink-0 items-center justify-center rounded-md text-tertiary outline-none transition-colors hover:bg-zGray-800/70 hover:text-main"
+              className="flex h-full w-6 flex-shrink-0 items-center justify-center rounded-md text-tertiary outline-none transition-colors hover:bg-state-hover hover:text-main"
             >
               <X className="h-3.5 w-3.5" strokeWidth={2} />
             </button>
           ) : null
         }
-        className="h-7 w-[220px] max-w-[220px] text-secondary hover:bg-zGray-800/60 focus-within:ring-1 focus-within:ring-zGray-700"
+        className="h-7 w-[220px] max-w-[220px] text-secondary hover:bg-state-hover focus-within:ring-1 focus-within:ring-line-control"
         inputClassName="px-2 text-[12.5px]"
       />
-      <ComboboxContent className="w-[260px] max-h-[420px] bg-zGray-850 p-0 [padding-block:0]">
+      <ComboboxContent className="w-[260px] max-h-[420px] bg-surface-sunken p-0 [padding-block:0]">
         <ComboboxList className="max-h-[340px] overflow-auto p-0 [padding-block:0]">
           {(ns) => (
             <Fragment key={ns === '' ? '__all__' : ns}>
               <ComboboxItem value={ns}>{labelForNamespace(String(ns))}</ComboboxItem>
               {ns === '' && namespaces.length > 0 && (
-                <ComboboxSeparator className="my-1 h-px bg-zGray-800" />
+                <ComboboxSeparator className="my-1 h-px bg-surface-sunken" />
               )}
             </Fragment>
           )}
         </ComboboxList>
         {loading ? (
-          <div className="border-t border-zGray-800 px-2 py-1.5 text-[11.5px] text-tertiary">
+          <div className="border-t border-line-control px-2 py-1.5 text-[11.5px] text-tertiary">
             {t('Loading namespaces…')}
           </div>
         ) : hiddenCount > 0 || fetchedIsPartial ? (
-          <div className="border-t border-zGray-800 px-2 py-1.5 text-[11.5px] text-tertiary">
+          <div className="border-t border-line-control px-2 py-1.5 text-[11.5px] text-tertiary">
             {t('Showing {shown} of {total} — type to filter', {
               shown: shownCount,
               total: matches.length.toLocaleString(),
@@ -161,7 +161,7 @@ export function NamespaceCombobox({
                 thousands of namespaces the fetched page is a rounding error,
                 and only what we fetched is searchable here. */}
             {fetchedIsPartial && (
-              <div className="mt-0.5 text-tertiary/80">
+              <div className="mt-0.5 text-tertiary">
                 {total != null
                   ? t('Searching the first {n} of {total} namespaces in this cluster', {
                       n: namespaces.length.toLocaleString(),
@@ -189,7 +189,7 @@ export function RefreshButton({
   return (
     <button
       onClick={onRefresh}
-      className="w-7 h-7 rounded-md hover:bg-zGray-800/60 text-secondary hover:text-main flex items-center justify-center"
+      className="w-7 h-7 rounded-md hover:bg-state-hover text-secondary hover:text-main flex items-center justify-center"
       title={t('Refresh')}
       aria-label={t('Refresh')}
     >

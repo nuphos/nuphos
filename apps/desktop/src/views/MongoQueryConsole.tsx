@@ -93,9 +93,9 @@ export function MongoQueryConsole({
   }, [teamId, connection.id, database])
 
   return (
-    <div className="overflow-hidden rounded-xl border border-zGray-800 bg-zGray-900/20">
+    <div className="overflow-hidden rounded-xl border border-line-control bg-state-selected">
       <div className="flex h-[620px] min-h-0">
-        <aside className="w-56 shrink-0 overflow-y-auto border-r border-zGray-800 bg-zGray-900/45 p-2">
+        <aside className="w-56 shrink-0 overflow-y-auto border-r border-line-control bg-state-selected p-2">
           <div className="flex items-center justify-between px-2 py-1.5 text-[10px] font-medium uppercase tracking-wide text-tertiary">
             <span>{t('Query scope')}</span>
             {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
@@ -104,18 +104,18 @@ export function MongoQueryConsole({
             <div key={item.name}>
               <button
                 onClick={() => setDatabase(item.name)}
-                className={`mt-0.5 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[11.5px] ${database === item.name ? 'bg-zGray-700/70 text-main' : 'text-secondary hover:bg-zGray-800/60'}`}
+                className={`mt-0.5 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[11.5px] ${database === item.name ? 'bg-state-selected text-main' : 'text-secondary hover:bg-state-hover'}`}
               >
                 <Database className="h-3.5 w-3.5 text-[#47A248]" />
                 <span className="truncate">{item.name}</span>
               </button>
               {database === item.name && (
-                <div className="ml-3 border-l border-zGray-800 pl-2">
+                <div className="ml-3 border-l border-line-control pl-2">
                   {collections.map((candidate) => (
                     <button
                       key={candidate.name}
                       onClick={() => setCollection(candidate.name)}
-                      className={`mt-0.5 flex w-full items-center gap-2 rounded px-2 py-1 text-left text-[10.5px] ${collection === candidate.name ? 'bg-zViolet-500/10 text-zViolet-accent' : 'text-tertiary hover:text-secondary'}`}
+                      className={`mt-0.5 flex w-full items-center gap-2 rounded px-2 py-1 text-left text-[10.5px] ${collection === candidate.name ? 'bg-state-selected text-primary' : 'text-tertiary hover:text-secondary'}`}
                     >
                       <Table2 className="h-3 w-3" />
                       <span className="truncate">{candidate.name}</span>

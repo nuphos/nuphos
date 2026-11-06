@@ -28,12 +28,12 @@ export function TablePanel({ frames, panel }: Props) {
   return (
     <div className="absolute inset-0 overflow-auto scrollbar-thin">
       <table className="w-full text-[11.5px] border-collapse">
-        <thead className="sticky top-0 bg-zGray-925 z-10">
+        <thead className="sticky top-0 bg-surface-sheet z-10">
           <tr>
             {model.labelColumns.map((c) => (
               <th
                 key={c}
-                className="text-left font-medium text-tertiary px-3 py-1.5 border-b border-zGray-800/60 whitespace-nowrap"
+                className="text-left font-medium text-tertiary px-3 py-1.5 border-b border-line-control/60 whitespace-nowrap"
               >
                 {model.labelTitles[c] ?? c}
               </th>
@@ -41,7 +41,7 @@ export function TablePanel({ frames, panel }: Props) {
             {model.valueColumns.map((c) => (
               <th
                 key={c.key}
-                className="text-right font-medium text-tertiary px-3 py-1.5 border-b border-zGray-800/60 whitespace-nowrap"
+                className="text-right font-medium text-tertiary px-3 py-1.5 border-b border-line-control/60 whitespace-nowrap"
               >
                 {c.title}
               </th>
@@ -50,11 +50,11 @@ export function TablePanel({ frames, panel }: Props) {
         </thead>
         <tbody>
           {model.rows.map((row, i) => (
-            <tr key={i} className="hover:bg-zGray-900/60">
+            <tr key={i} className="hover:bg-state-hover">
               {model.labelColumns.map((c) => (
                 <td
                   key={c}
-                  className="px-3 py-1 text-secondary border-b border-zGray-850/60 max-w-[280px] truncate"
+                  className="px-3 py-1 text-secondary border-b border-line-control/60 max-w-[280px] truncate"
                   title={row.labels[c] ?? ''}
                 >
                   {row.labels[c] ?? ''}
@@ -67,7 +67,7 @@ export function TablePanel({ frames, panel }: Props) {
                 return (
                   <td
                     key={c.key}
-                    className="px-3 py-1 text-right font-mono text-main border-b border-zGray-850/60 whitespace-nowrap"
+                    className="px-3 py-1 text-right font-mono text-main border-b border-line-control/60 whitespace-nowrap"
                     style={bg ? { backgroundColor: withAlpha(bg, 0.22) } : undefined}
                   >
                     {formatCell(v, c)}

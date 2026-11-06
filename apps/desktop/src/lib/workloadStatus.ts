@@ -42,7 +42,7 @@ export function toneBgClass(tone: Tone): string {
       return 'bg-error'
     case 'neutral':
     default:
-      return 'bg-zGray-600'
+      return 'bg-line-control'
   }
 }
 

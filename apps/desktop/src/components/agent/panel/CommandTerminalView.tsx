@@ -27,8 +27,8 @@ export function CommandTerminalView({ part }: { part: ToolPart }) {
   }, [done, stdout, stderr])
 
   return (
-    <div className="box-border w-full max-w-full overflow-hidden rounded-md border border-zGray-800/70 bg-zGray-950/60 font-mono text-[13px]">
-      <div className="flex items-center gap-1.5 border-b border-zGray-800/40 px-3 py-1 text-[11px] uppercase tracking-wider text-tertiary">
+    <div className="box-border w-full max-w-full overflow-hidden rounded-md border border-line-control/70 bg-state-selected font-mono text-[13px]">
+      <div className="flex items-center gap-1.5 border-b border-line-control/40 px-3 py-1 text-[11px] uppercase tracking-wider text-tertiary">
         <Terminal className="w-3 h-3" strokeWidth={2} />
         <span>{labelTool}</span>
         <div className="flex-1" />
@@ -65,7 +65,7 @@ export function CodeSection({ label, value }: { label: string; value: unknown })
   return (
     <div>
       <div className="text-[11px] uppercase tracking-wider text-tertiary mb-0.5">{label}</div>
-      <pre className="text-[12px] font-mono text-secondary bg-zGray-950/60 rounded p-2 overflow-auto max-h-48 scrollbar-thin whitespace-pre-wrap break-words">
+      <pre className="text-[12px] font-mono text-secondary bg-state-selected rounded p-2 overflow-auto max-h-48 scrollbar-thin whitespace-pre-wrap break-words">
         {text}
       </pre>
     </div>

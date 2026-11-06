@@ -65,7 +65,7 @@ export function TriggerFormFields({
         />
       )}
       {!canManage && (
-        <div className="rounded-md border border-zGray-800 bg-zGray-950 px-3 py-2 text-[11.5px] text-tertiary">
+        <div className="rounded-md border border-line-control bg-surface-canvas px-3 py-2 text-[11.5px] text-tertiary">
           {t(
             'You can view this team trigger. Editor or administrator access is required to change or test it.',
           )}
@@ -76,7 +76,7 @@ export function TriggerFormFields({
           className={clsx(
             'flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]',
             loaded.cleanupStatus === 'deleting'
-              ? 'border-zViolet-500/40 bg-zViolet-500/10 text-zViolet-accent'
+              ? 'border-action-primary/40 bg-state-selected text-primary'
               : 'border-error/40 bg-error/10 text-error',
           )}
           role="status"
@@ -104,7 +104,7 @@ export function TriggerFormFields({
           onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
           maxLength={100}
           placeholder={t('Daily standup summary')}
-          className="w-full h-8 px-2.5 rounded-md bg-surface border border-zGray-800 text-[13px] text-main focus:outline-none focus:border-zViolet-500"
+          className="w-full h-8 px-2.5 rounded-md bg-surface border border-line-control text-[13px] text-main focus:outline-none focus:border-line-focus"
         />
       </Field>
 
@@ -198,7 +198,7 @@ export function TriggerFormFields({
                 })
               : t('Summarise yesterday’s open PRs across our repos.')
           }
-          className="w-full min-h-[220px] resize-y px-2.5 py-2 rounded-md bg-surface border border-zGray-800 text-[13px] leading-relaxed text-main focus:outline-none focus:border-zViolet-500"
+          className="w-full min-h-[220px] resize-y px-2.5 py-2 rounded-md bg-surface border border-line-control text-[13px] leading-relaxed text-main focus:outline-none focus:border-line-focus"
         />
       </Field>
     </>

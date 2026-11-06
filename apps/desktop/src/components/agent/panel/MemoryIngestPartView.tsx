@@ -114,7 +114,7 @@ export function MemoryIngestPartView({
               memories?.map((memory) => (
                 <div
                   key={memory.id}
-                  className="rounded-md border border-zGray-800/70 bg-zGray-900/40 px-2.5 py-2 space-y-1.5"
+                  className="rounded-md border border-line-control/70 bg-state-selected px-2.5 py-2 space-y-1.5"
                 >
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="uppercase tracking-wide text-[10.5px] text-tertiary">
@@ -150,6 +150,8 @@ export function MemoryIngestPartView({
 
 export function ScopeBadge({ label }: { label: string }) {
   return (
-    <span className="rounded bg-zGray-800 px-1.5 py-0.5 text-[10.5px] text-tertiary">{label}</span>
+    <span className="rounded bg-surface-sunken px-1.5 py-0.5 text-[10.5px] text-tertiary">
+      {label}
+    </span>
   )
 }

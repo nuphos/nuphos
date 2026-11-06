@@ -85,7 +85,7 @@ export function RuntimeFallbackSection({ team }: { team: AtlasTeam | undefined }
       {runtimeIds && (
         <div className="space-y-3">
           {listed.length > 0 ? (
-            <ol className="divide-y divide-zGray-800 rounded-lg border border-zGray-800">
+            <ol className="divide-y divide-line-control rounded-lg border border-line-control">
               {listed.map((id, index) => {
                 const instance = instances.find((candidate) => candidate.id === id)
 

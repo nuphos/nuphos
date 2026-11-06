@@ -30,7 +30,7 @@ export function NodeUtilizationCard({
           : 'bg-success'
 
   return (
-    <div className="bg-zGray-900 border border-zGray-800 rounded-md px-4 py-3">
+    <div className="bg-surface-sheet border border-line-control rounded-md px-4 py-3">
       <div className="text-[11.5px] uppercase tracking-wider text-tertiary mb-2">{title}</div>
       <div className="flex items-baseline justify-between text-[12px]">
         <span className="text-secondary">{t('Usage')}</span>
@@ -39,7 +39,7 @@ export function NodeUtilizationCard({
         </span>
       </div>
       <div className="mt-1 flex items-center gap-2">
-        <div className="flex-1 h-1.5 rounded-full bg-zGray-800 overflow-hidden">
+        <div className="flex-1 h-1.5 rounded-full bg-surface-sunken overflow-hidden">
           {usagePct != null && (
             <div
               className={clsx('h-full', usageTone)}
@@ -68,10 +68,10 @@ function NodeSubMeter({ label, value, pct }: { label: string; value: string; pct
   return (
     <div className="flex items-center gap-2 text-[11.5px]">
       <span className="w-20 shrink-0 text-tertiary">{label}</span>
-      <div className="flex-1 h-1 rounded-full bg-zGray-800 overflow-hidden">
+      <div className="flex-1 h-1 rounded-full bg-surface-sunken overflow-hidden">
         {pct != null && (
           <div
-            className="h-full bg-zViolet-accent/70"
+            className="h-full bg-action-primary/70"
             style={{ width: `${String(Math.min(100, pct))}%` }}
           />
         )}
@@ -102,7 +102,7 @@ export function CollapsibleChips({
       {shown.map(([k, v]) => (
         <span
           key={k}
-          className="max-w-full truncate bg-zGray-800 px-1.5 py-0.5 rounded text-[11.5px] text-secondary font-mono"
+          className="max-w-full truncate bg-surface-sunken px-1.5 py-0.5 rounded text-[11.5px] text-secondary font-mono"
           title={keyOnly ? k : `${k}: ${v}`}
         >
           {keyOnly ? k : `${k}: ${v}`}
@@ -118,7 +118,7 @@ export function CollapsibleChips({
               ? t('Show fewer items')
               : t('Show {count} more items', { count: entries.length - limit })
           }
-          className="text-[11px] text-zViolet-accent hover:opacity-80"
+          className="text-[11px] text-primary hover:opacity-80"
         >
           {expanded ? t('show less') : t('show more (+{count})', { count: entries.length - limit })}
         </button>
@@ -135,7 +135,7 @@ export function ConditionChip({ c }: { c: NodeDetail['conditions'][number] }) {
   return (
     <span
       className={clsx(
-        'bg-zGray-800 px-1.5 py-0.5 rounded text-[11.5px] font-mono',
+        'bg-surface-sunken px-1.5 py-0.5 rounded text-[11.5px] font-mono',
         bad ? 'text-error' : 'text-success',
       )}
     >

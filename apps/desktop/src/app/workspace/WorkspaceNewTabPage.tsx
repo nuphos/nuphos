@@ -198,7 +198,7 @@ export function WorkspaceNewTabPage({
           <div className="mb-5">
             <InputGroup
               render={<label />}
-              className="flex h-9 items-center gap-2.5 rounded-lg border border-zGray-800/70 bg-main/75 px-3 transition-colors focus-within:bg-main"
+              className="flex h-9 items-center gap-2.5 rounded-lg border border-line-control/70 bg-main/75 px-3 transition-colors focus-within:bg-main"
             >
               <Search className="h-3.5 w-3.5 flex-shrink-0 text-tertiary" strokeWidth={1.7} />
               <InputGroupInput
@@ -265,7 +265,7 @@ export function WorkspaceNewTabPage({
           {loading && rootIntegrations.length === 0 && (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-1">
               {Array.from({ length: 6 }, (_, index) => (
-                <div key={index} className="h-9 animate-pulse rounded-md bg-zGray-800/25" />
+                <div key={index} className="h-9 animate-pulse rounded-md bg-state-selected" />
               ))}
             </div>
           )}
@@ -279,7 +279,7 @@ export function WorkspaceNewTabPage({
                 <button
                   type="button"
                   onClick={() => onOpenKey('team.integrations', null, false)}
-                  className="mt-3 rounded-md bg-zGray-800 px-2.5 py-1 text-[12px] font-medium text-main transition-colors hover:bg-zGray-700"
+                  className="mt-3 rounded-md bg-surface-sunken px-2.5 py-1 text-[12px] font-medium text-main transition-colors hover:bg-state-hover"
                 >
                   {t('Add a connector')}
                 </button>

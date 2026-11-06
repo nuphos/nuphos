@@ -258,7 +258,7 @@ export const WorkspaceTabPane = memo(
             )}
             {tab.switching && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-main text-tertiary text-[12.5px]">
-                <div className="w-6 h-6 rounded-full border-2 border-zGray-700 border-t-zViolet-accent animate-spin" />
+                <div className="w-6 h-6 rounded-full border-2 border-line-control border-t-action-primary animate-spin" />
                 <div>
                   {t('Connecting to {cluster}…')
                     .split('{cluster}')

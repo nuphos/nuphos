@@ -73,7 +73,7 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
           {t('Members connect Gmail and Google Drive through your own Google Cloud OAuth client.')}{' '}
           <button
             type="button"
-            className="text-zViolet-accent hover:underline"
+            className="text-primary hover:underline"
             onClick={() => void api.appOpenExternal(GOOGLE_CLIENT_GUIDE_URL)}
           >
             {t('Setup guide')}
@@ -88,7 +88,7 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
         />
       ) : isAdmin ? (
         <form
-          className="space-y-3 rounded-lg border border-zGray-800/70 bg-surface px-4 py-3.5"
+          className="space-y-3 rounded-lg border border-line-control/70 bg-surface px-4 py-3.5"
           onSubmit={(e) => {
             e.preventDefault()
             void save()
@@ -135,7 +135,7 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
           </div>
         </form>
       ) : (
-        <div className="rounded-lg border border-zGray-800/70 bg-surface px-4 py-3.5 text-[12.5px] text-secondary">
+        <div className="rounded-lg border border-line-control/70 bg-surface px-4 py-3.5 text-[12.5px] text-secondary">
           {savedClientId === undefined
             ? '—'
             : savedClientId

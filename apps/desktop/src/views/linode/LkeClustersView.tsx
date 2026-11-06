@@ -224,13 +224,13 @@ export function LkeClustersView({
             value={overrideInput}
             onChange={(e) => setOverrideInput(e.target.value)}
             placeholder="k8s-api.your-network.example.com"
-            className="h-8 rounded-md border border-zGray-700 bg-surface px-2.5 font-mono text-[12px] text-main placeholder:text-tertiary focus:border-zViolet-accent focus:outline-none"
+            className="h-8 rounded-md border border-line-control bg-surface px-2.5 font-mono text-[12px] text-main placeholder:text-tertiary focus:border-line-focus focus:outline-none"
           />
           <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setOverrideDialog(null)}
-              className="h-7 rounded-md px-3 text-[12px] text-secondary hover:bg-zGray-850"
+              className="h-7 rounded-md px-3 text-[12px] text-secondary hover:bg-state-hover"
             >
               {t('Cancel')}
             </button>

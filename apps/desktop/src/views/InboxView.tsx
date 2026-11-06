@@ -226,7 +226,7 @@ export function InboxView({
           className={clsx(
             'flex h-full min-h-0 flex-col',
             empty && 'hidden',
-            twoPane ? 'flex-shrink-0 border-r border-zGray-800/70' : 'min-w-0 flex-1',
+            twoPane ? 'flex-shrink-0' : 'min-w-0 flex-1',
           )}
           style={twoPane ? { width: RAIL_WIDTH } : undefined}
         >

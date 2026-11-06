@@ -116,7 +116,7 @@ export function HomeCard({
     body = (
       <div className="space-y-1.5">
         {[0, 1].map((i) => (
-          <div key={i} className="h-7 rounded-md bg-zGray-800/40 animate-pulse" />
+          <div key={i} className="h-7 rounded-md bg-state-selected animate-pulse" />
         ))}
       </div>
     )
@@ -131,7 +131,7 @@ export function HomeCard({
 
   return (
     // A size container, so rows can show more when the card is wide.
-    <section className="@container flex h-full min-w-0 flex-col rounded-lg border border-zGray-800/60 p-3">
+    <section className="@container flex h-full min-w-0 flex-col rounded-lg border border-line-control/60 p-3">
       <div className="home-card-drag cursor-grab active:cursor-grabbing mb-2 flex items-center gap-1.5 px-1 text-[12px] text-secondary">
         {icon}
         <span className="truncate">{title}</span>

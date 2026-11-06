@@ -214,7 +214,7 @@ export function PortForwardDialog({ open, context, target: forwardTarget, onClos
           />
         ) : status === 'connecting' ? (
           <div className="flex items-center gap-2 text-[13px] text-secondary py-2">
-            <Loader2 className="w-4 h-4 animate-spin text-zViolet-accent" />
+            <Loader2 className="w-4 h-4 animate-spin text-primary" />
             {t('Connecting…')}
           </div>
         ) : (
@@ -226,7 +226,7 @@ export function PortForwardDialog({ open, context, target: forwardTarget, onClos
           />
         )}
       </div>
-      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-zGray-800 bg-zGray-900/60">
+      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-line-control bg-state-selected">
         {status === 'active' ? (
           <>
             <button
@@ -244,7 +244,7 @@ export function PortForwardDialog({ open, context, target: forwardTarget, onClos
             <button
               onClick={handleClose}
               disabled={status === 'connecting'}
-              className="h-8 px-3 rounded-md text-[12.5px] text-secondary hover:text-main hover:bg-zGray-800 disabled:opacity-50"
+              className="h-8 px-3 rounded-md text-[12.5px] text-secondary hover:text-main hover:bg-state-hover disabled:opacity-50"
             >
               {t('Cancel')}
             </button>

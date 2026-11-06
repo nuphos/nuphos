@@ -64,7 +64,7 @@ export function Tooltip({
             <TooltipPrimitive.Popup
               className={(state) =>
                 clsx(
-                  't-dropdown max-w-[280px] rounded-lg border border-zGray-800/60 bg-main px-2.5 py-1.5',
+                  't-dropdown max-w-[280px] rounded-lg border border-line-control/60 bg-main px-2.5 py-1.5',
                   'text-[11.5px] leading-snug text-secondary shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none',
                   state.open && 'is-open',
                   state.transitionStatus === 'ending' && 'is-closing',

@@ -44,14 +44,14 @@ function InstalledConnector({
           CONNECTOR_HOVER,
         )}
       >
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-zGray-800/55 bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-line-control/55 bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <IntegrationPlatformIcon provider={row.provider} size={20} />
         </span>
         {attention && (
           <span className="absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full border-2 border-surface bg-warning" />
         )}
         {rows.length > 1 && (
-          <span className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-zGray-200 px-1 text-[9px] font-medium leading-none text-zGray-900 shadow-sm">
+          <span className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-line-control px-1 text-[9px] font-medium leading-none text-secondary shadow-sm">
             {rows.length}
           </span>
         )}
@@ -76,7 +76,7 @@ export function InstalledList({
       <>
         {Array.from({ length: 7 }, (_, index) => (
           <div key={index} className="flex h-11 w-11 items-center justify-center">
-            <div className="h-9 w-9 animate-pulse rounded-lg border border-zGray-800 bg-zGray-850" />
+            <div className="h-9 w-9 animate-pulse rounded-lg border border-line-control bg-surface-sunken" />
           </div>
         ))}
       </>

@@ -47,7 +47,7 @@ export function SessionInputQueue({
           key={inputRequestKey(request)}
           type="button"
           onClick={() => onSelect(request)}
-          className="-mx-1.5 flex items-start gap-2.5 rounded-md px-1.5 py-2 text-left outline-none hover:bg-zGray-800/50 focus-visible:ring-1 focus-visible:ring-zViolet-accent"
+          className="-mx-1.5 flex items-start gap-2.5 rounded-md px-1.5 py-2 text-left outline-none hover:bg-state-hover focus-visible:ring-1 focus-visible:ring-line-focus"
         >
           <MessageCircleQuestion aria-hidden className="mt-0.5 size-3.5 shrink-0 text-warning" />
           <span className="min-w-0 flex-1">
@@ -117,7 +117,7 @@ export function SessionInputReply({
 
   return (
     <>
-      <div className="flex shrink-0 items-center gap-2 border-b border-zGray-800/60 px-3 py-2.5">
+      <div className="flex shrink-0 items-center gap-2 border-b border-line-control/60 px-3 py-2.5">
         <button
           type="button"
           aria-label={t('Back to pending questions')}
@@ -146,7 +146,7 @@ export function SessionInputReply({
           <X aria-hidden className="size-4" />
         </button>
       </div>
-      <div className="shrink-0 border-b border-zGray-800/60 px-4 py-3">
+      <div className="shrink-0 border-b border-line-control/60 px-4 py-3">
         <p className="text-[12px] leading-5 text-main">{request.inputRequest.question}</p>
         <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-tertiary">
           <span role="status">
@@ -157,11 +157,7 @@ export function SessionInputReply({
                 : t('Your reply goes to this agent only.')}
           </span>
           {next && (
-            <button
-              type="button"
-              onClick={() => onSelect(next)}
-              className="shrink-0 text-zViolet-accent"
-            >
+            <button type="button" onClick={() => onSelect(next)} className="shrink-0 text-primary">
               {t('Next question →')}
             </button>
           )}

@@ -24,7 +24,7 @@ export function DialogFooter({
   onSave: () => void
 }) {
   return (
-    <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-zGray-800">
+    <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-line-control">
       <button
         type="button"
         onClick={onCancel}
@@ -51,7 +51,7 @@ export function DialogFooter({
 export function WaitingForBrowser({ keepsGrant }: { keepsGrant: boolean }) {
   return (
     <div className="flex flex-col items-center gap-3 py-3 text-center">
-      <Loader2 className="h-6 w-6 animate-spin text-zViolet-accent" />
+      <Loader2 className="h-6 w-6 animate-spin text-primary" />
       <div className="text-[12.5px] text-secondary">
         {t('Waiting for PostHog… complete the authorization in your browser.')}
       </div>

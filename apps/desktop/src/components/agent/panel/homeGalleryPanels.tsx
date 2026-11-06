@@ -14,13 +14,13 @@ import type { NuphosDashboard } from '../../../dashboards/schema'
 type PanelOption = { id: string; title: string }
 
 const rowClass =
-  'flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] outline-none transition-colors hover:bg-zGray-800/60 focus-visible:ring-2 focus-visible:ring-zViolet-accent'
+  'flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] outline-none transition-colors hover:bg-state-hover focus-visible:ring-2 focus-visible:ring-line-focus'
 
 function Skeleton() {
   return (
     <div className="space-y-1.5">
       {[0, 1, 2].map((i) => (
-        <div key={i} className="h-8 rounded-md bg-zGray-800/40 animate-pulse" />
+        <div key={i} className="h-8 rounded-md bg-state-selected animate-pulse" />
       ))}
     </div>
   )
@@ -82,7 +82,7 @@ function DashboardRow({
                 <Checkbox
                   checked={pinned.has(panelKey(pin))}
                   onCheckedChange={() => onToggle(pin)}
-                  className="data-[checked]:border-zViolet-500 data-[checked]:bg-zViolet-500"
+                  className="data-[checked]:border-action-primary data-[checked]:bg-action-primary"
                 />
                 <span className="min-w-0 flex-1 truncate text-secondary">{p.title}</span>
               </label>

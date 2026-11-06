@@ -36,7 +36,7 @@ export function InviteMemberModal({
       <form onSubmit={onSubmit} className="p-5 space-y-4">
         <label className="block">
           <span className="block text-[12px] text-tertiary mb-1.5">{t('Email')}</span>
-          <InputGroup className="flex items-center gap-2 rounded-md border border-zGray-800 bg-surface px-3 h-10 transition-colors">
+          <InputGroup className="flex items-center gap-2 rounded-md border border-line-control bg-surface px-3 h-10 transition-colors">
             <Mail className="w-4 h-4 text-tertiary" strokeWidth={1.8} />
             <InputGroupInput
               type="email"
@@ -54,7 +54,7 @@ export function InviteMemberModal({
             type="button"
             disabled={submitting}
             onClick={onClose}
-            className="h-8 px-3 rounded-md border border-zGray-800 text-secondary hover:text-main hover:bg-zGray-800/70 text-[12.5px] transition-colors disabled:cursor-default disabled:opacity-60"
+            className="h-8 px-3 rounded-md border border-line-control text-secondary hover:text-main hover:bg-state-hover text-[12.5px] transition-colors disabled:cursor-default disabled:opacity-60"
           >
             {t('Cancel')}
           </button>

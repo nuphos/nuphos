@@ -17,7 +17,7 @@ import type { HomeGithubCard, HomeRepo } from '../../../types/team.ts'
 type GithubSetup = Pick<HomeGithubCard, 'repos' | 'statuses'>
 
 const rowClass =
-  'flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-[13px] transition-colors hover:bg-zGray-800/60'
+  'flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-[13px] transition-colors hover:bg-state-hover'
 
 /** The repositories to follow, grouped by owner, narrowed by a filter. */
 function RepoPicker({
@@ -41,7 +41,7 @@ function RepoPicker({
     return (
       <div className="space-y-1.5">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="h-8 rounded-md bg-zGray-800/40 animate-pulse" />
+          <div key={i} className="h-8 rounded-md bg-state-selected animate-pulse" />
         ))}
       </div>
     )
@@ -58,7 +58,7 @@ function RepoPicker({
     <div className="flex min-h-0 flex-col gap-2">
       <InputGroup
         render={<label />}
-        className="flex h-8 flex-none items-center gap-2 rounded-md border border-main bg-surface px-2 text-[13px] focus-within:border-zViolet-500"
+        className="flex h-8 flex-none items-center gap-2 rounded-md border border-main bg-surface px-2 text-[13px] focus-within:border-line-focus"
       >
         <Search className="h-3.5 w-3.5 flex-none text-tertiary" strokeWidth={1.8} />
         <InputGroupInput
@@ -80,7 +80,7 @@ function RepoPicker({
                 <Checkbox
                   checked={chosen.some((r) => repoKey(r) === repoKey(repo))}
                   onCheckedChange={() => onToggle(repo)}
-                  className="data-[checked]:border-zViolet-500 data-[checked]:bg-zViolet-500"
+                  className="data-[checked]:border-action-primary data-[checked]:bg-action-primary"
                 />
                 <span className="min-w-0 flex-1 truncate text-secondary">
                   {repo.fullName.split('/')[1]}
@@ -135,7 +135,7 @@ export function GalleryGithubSetup({
         {t('Pick what it follows. You can change it later from the card’s ⋯ menu.')}
       </p>
       <div className="grid gap-4 @2xl:grid-cols-2">
-        <div className="relative h-[176px] overflow-hidden rounded-lg border border-main bg-zGray-900/40">
+        <div className="relative h-[176px] overflow-hidden rounded-lg border border-main bg-state-selected">
           {repos.length > 0 ? (
             <>
               <ScaledCard kind={kind}>
@@ -166,10 +166,10 @@ export function GalleryGithubSetup({
                     if (next.length > 0) setPicked(next)
                   }}
                   className={clsx(
-                    'h-7 rounded-full border px-3 text-[12px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-zViolet-accent',
+                    'h-7 rounded-full border px-3 text-[12px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-line-focus',
                     on
-                      ? 'border-zViolet-500 bg-zViolet-500/15 text-main'
-                      : 'border-main text-secondary hover:bg-zGray-800/60',
+                      ? 'border-action-primary bg-state-selected text-main'
+                      : 'border-main text-secondary hover:bg-state-hover',
                   )}
                 >
                   {s.label}

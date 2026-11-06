@@ -22,8 +22,8 @@ function AgentRow({
   status: 'ready'
 }) {
   return (
-    <li className="flex items-center gap-3 rounded-xl border border-zGray-800 bg-zGray-900 px-4 py-3">
-      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-zGray-800 text-main">
+    <li className="flex items-center gap-3 rounded-xl border border-line-control bg-surface-sheet px-4 py-3">
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-sunken text-main">
         {icon}
       </span>
       <div className="min-w-0 flex-1">
@@ -68,8 +68,8 @@ export function SetupComplete({
       }
     >
       <ul className="space-y-3">
-        <li className="flex items-center gap-3 rounded-xl border border-zGray-800 bg-zGray-900 px-4 py-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zGray-800 text-main">
+        <li className="flex items-center gap-3 rounded-xl border border-line-control bg-surface-sheet px-4 py-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-main">
             <FolderOpen className="h-5 w-5" />
           </span>
           <div className="min-w-0 flex-1">
@@ -83,8 +83,8 @@ export function SetupComplete({
           <Check className="h-4 w-4 shrink-0 text-success" aria-label={t('Complete')} />
         </li>
         {empty && (
-          <li className="flex items-center gap-3 rounded-xl border border-zGray-800 bg-zGray-900 px-4 py-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zGray-800 text-tertiary">
+          <li className="flex items-center gap-3 rounded-xl border border-line-control bg-surface-sheet px-4 py-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-tertiary">
               <Monitor className="h-5 w-5" />
             </span>
             <div className="min-w-0 flex-1">

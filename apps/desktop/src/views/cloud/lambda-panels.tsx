@@ -88,7 +88,7 @@ export function LambdaTestPanel({
             onChange={(e) => setPayload(e.target.value)}
             spellCheck={false}
             rows={8}
-            className="w-full px-2.5 py-2 rounded bg-surface border border-zGray-800 text-[12px] font-mono text-secondary focus:outline-none focus:border-zViolet-accent/60 resize-y"
+            className="w-full px-2.5 py-2 rounded bg-surface border border-line-control text-[12px] font-mono text-secondary focus:outline-none focus:border-line-focus resize-y"
           />
         </div>
         <div className="flex items-center gap-3">
@@ -125,7 +125,7 @@ export function LambdaTestPanel({
               <div className="text-[11px] text-tertiary uppercase tracking-wider mb-1.5">
                 {t('Response')}
               </div>
-              <pre className="px-2.5 py-2 rounded bg-zGray-900 border border-zGray-800 text-[11.5px] font-mono text-secondary whitespace-pre-wrap break-all max-h-64 overflow-auto scrollbar-thin">
+              <pre className="px-2.5 py-2 rounded bg-surface-sheet border border-line-control text-[11.5px] font-mono text-secondary whitespace-pre-wrap break-all max-h-64 overflow-auto scrollbar-thin">
                 {prettyPayload || t('(empty response)')}
               </pre>
             </div>
@@ -134,7 +134,7 @@ export function LambdaTestPanel({
                 <div className="text-[11px] text-tertiary uppercase tracking-wider mb-1.5">
                   {t('Log output (tail)')}
                 </div>
-                <pre className="px-2.5 py-2 rounded bg-zGray-900 border border-zGray-800 text-[11.5px] font-mono text-secondary whitespace-pre-wrap break-all max-h-72 overflow-auto scrollbar-thin">
+                <pre className="px-2.5 py-2 rounded bg-surface-sheet border border-line-control text-[11.5px] font-mono text-secondary whitespace-pre-wrap break-all max-h-72 overflow-auto scrollbar-thin">
                   {result.logTail}
                 </pre>
               </div>
@@ -221,7 +221,7 @@ export function LambdaTriggersPanel({
               {t('No poll-based event sources (SQS / Kinesis / DynamoDB).')}
             </div>
           ) : (
-            <div className="border border-zGray-800 rounded bg-zGray-900 divide-y divide-zGray-850">
+            <div className="border border-line-control rounded bg-surface-sheet divide-y divide-line-control">
               {triggers.eventSourceMappings.map((m) => (
                 <div key={m.uuid} className="px-2.5 py-1.5 text-[11.5px]">
                   <div className="font-mono text-secondary break-all">
@@ -250,7 +250,7 @@ export function LambdaTriggersPanel({
               )}
             </div>
           ) : (
-            <div className="border border-zGray-800 rounded bg-zGray-900 divide-y divide-zGray-850">
+            <div className="border border-line-control rounded bg-surface-sheet divide-y divide-line-control">
               {triggers.policyTriggers.map((p, i) => (
                 <div key={p.statementId ?? i} className="px-2.5 py-1.5 text-[11.5px]">
                   <div className="text-secondary">{p.principal}</div>

@@ -37,7 +37,7 @@ export function Typing({ agents, channelId }: { agents: ChannelAgent[]; channelI
                 aria-label={t('{name} is thinking', { name: agent.title })}
               >
                 <AgentAvatar agentId={agent.sessionId} avatar={agent.avatar} size={28} />
-                <div className="flex items-center gap-1 rounded-2xl rounded-bl-md bg-zGray-800/70 px-3.5 py-3 text-tertiary">
+                <div className="flex items-center gap-1 rounded-2xl rounded-bl-md bg-state-selected px-3.5 py-3 text-tertiary">
                   {[0, 160, 320].map((delay) => (
                     <span
                       key={delay}

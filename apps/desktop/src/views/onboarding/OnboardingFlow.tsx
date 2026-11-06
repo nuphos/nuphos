@@ -173,7 +173,7 @@ export function OnboardingFlow({
           <button
             type="button"
             onClick={handleShowPickTeams}
-            className="titlebar-no-drag absolute top-12 left-3 z-10 flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-tertiary transition-colors hover:bg-zGray-800/60 hover:text-secondary"
+            className="titlebar-no-drag absolute top-12 left-3 z-10 flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-tertiary transition-colors hover:bg-state-hover hover:text-secondary"
           >
             <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.8} />
             {t('Back')}
@@ -183,7 +183,7 @@ export function OnboardingFlow({
           <button
             type="button"
             onClick={onLogout}
-            className="titlebar-no-drag absolute bottom-3 left-3 z-10 flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-tertiary transition-colors hover:bg-zGray-800/60 hover:text-secondary"
+            className="titlebar-no-drag absolute bottom-3 left-3 z-10 flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-tertiary transition-colors hover:bg-state-hover hover:text-secondary"
           >
             <LogOut className="h-3.5 w-3.5" strokeWidth={1.8} />
             {t('Log out')}

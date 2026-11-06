@@ -6,7 +6,7 @@ import type { Column } from './support.ts'
  * nested text-main/text-secondary spans that would otherwise hide the link.
  */
 export const TABLE_CELL_ACTION_CLASS =
-  'inline-block max-w-full cursor-pointer overflow-hidden text-ellipsis align-middle text-left text-zViolet-accent hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zViolet-accent/70 [&_*]:!text-inherit'
+  'inline-block max-w-full cursor-pointer overflow-hidden text-ellipsis align-middle text-left text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-line-focus [&_*]:!text-inherit'
 
 const PRIMARY_IDENTIFIER_KEYS = [
   'name',

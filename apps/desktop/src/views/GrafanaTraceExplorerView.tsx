@@ -143,7 +143,7 @@ export function GrafanaTraceExplorerView({ target, datasource, onBack }: Props) 
         actions={
           <button
             onClick={onBack}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12.5px] text-secondary hover:text-main hover:bg-zGray-800/60"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12.5px] text-secondary hover:text-main hover:bg-state-hover"
           >
             <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.8} />
             {t('Datasources')}
@@ -151,9 +151,9 @@ export function GrafanaTraceExplorerView({ target, datasource, onBack }: Props) 
         }
       />
 
-      <div className="border-b border-zGray-800/60 p-4 space-y-3">
+      <div className="border-b border-line-control/60 p-4 space-y-3">
         <div className="flex items-center gap-2">
-          <InputGroup className="flex-1 flex items-center gap-2 h-8 px-2.5 rounded-md bg-surface border border-zGray-800 transition-colors min-w-0">
+          <InputGroup className="flex-1 flex items-center gap-2 h-8 px-2.5 rounded-md bg-surface border border-line-control transition-colors min-w-0">
             <Search className="w-3.5 h-3.5 text-tertiary flex-shrink-0" strokeWidth={1.8} />
             <InputGroupInput
               value={query}
@@ -175,7 +175,7 @@ export function GrafanaTraceExplorerView({ target, datasource, onBack }: Props) 
             value={String(rangeMs)}
             onValueChange={(nextValue) => setRangeMs(Number(nextValue))}
             ariaLabel={t('Trace search range')}
-            triggerClassName="h-8 w-[72px] border-zGray-800 bg-zGray-900 px-2 text-[12.5px]"
+            triggerClassName="h-8 w-[72px] border-line-control bg-surface-sheet px-2 text-[12.5px]"
             options={RANGE_OPTIONS.map((option) => ({
               value: String(option.ms),
               label: option.label,
@@ -187,7 +187,7 @@ export function GrafanaTraceExplorerView({ target, datasource, onBack }: Props) 
             max={100}
             value={limit}
             onChange={(e) => setLimit(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
-            className="h-8 w-16 bg-surface border border-zGray-800 rounded-md px-2 text-[12.5px] text-main outline-none focus:border-zViolet-500"
+            className="h-8 w-16 bg-surface border border-line-control rounded-md px-2 text-[12.5px] text-main outline-none focus:border-line-focus"
             aria-label={t('Trace search limit')}
           />
           <Button size="sm" onClick={() => void runSearch()} disabled={loading}>

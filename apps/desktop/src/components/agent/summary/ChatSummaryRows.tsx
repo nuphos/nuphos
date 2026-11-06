@@ -17,15 +17,15 @@ import type { SessionResource } from '../../../api/session-resource-types'
 import type { SubAgentState } from '../../../lib/subAgentState'
 import type { ReactNode, Ref } from 'react'
 
-export const sectionClass = 'rounded-xl border border-zGray-800 px-3.5 py-3'
+export const sectionClass = 'rounded-xl border border-line-control px-3.5 py-3'
 const focusClass =
   'outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:outline-current'
 const hoverRowClass =
-  '-mx-1.5 rounded-md px-1.5 transition-colors hover:bg-zGray-800/50 motion-reduce:transition-none'
+  '-mx-1.5 rounded-md px-1.5 transition-colors hover:bg-state-hover motion-reduce:transition-none'
 
 export const focusRingClass =
-  'outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-zViolet-500/70'
-const rowFocusClass = `focus-visible:bg-zGray-800/50 ${focusRingClass}`
+  'outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-line-focus'
+const rowFocusClass = `focus-visible:bg-state-hover ${focusRingClass}`
 
 /** A titled block of rows; `header` sits under the title, above the rows. */
 export function SummarySection({
@@ -117,7 +117,7 @@ export function ChangeRow({
   return (
     <div
       className={clsx(
-        'group flex min-w-0 items-start gap-3 py-1 focus-within:bg-zGray-800/50',
+        'group flex min-w-0 items-start gap-3 py-1 focus-within:bg-state-hover',
         hoverRowClass,
       )}
     >
@@ -146,7 +146,7 @@ export function ChangeRow({
         <MenuTrigger
           aria-label={t('More actions for {title}', { title })}
           className={clsx(
-            'mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-zGray-800/80 hover:text-main data-[popup-open]:bg-zGray-800/80 data-[popup-open]:text-main motion-reduce:transition-none',
+            'mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-state-hover hover:text-main data-[popup-open]:bg-state-selected data-[popup-open]:text-main motion-reduce:transition-none',
             focusClass,
           )}
         >

@@ -212,13 +212,13 @@ export function CloudflareR2BucketDetailView({
       <CfDetailActionBar>
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="h-7 px-2.5 rounded-md bg-zGray-850 hover:bg-zGray-800 text-secondary hover:text-main text-[12.5px] flex items-center gap-1.5"
+          className="h-7 px-2.5 rounded-md bg-surface-sunken hover:bg-state-hover text-secondary hover:text-main text-[12.5px] flex items-center gap-1.5"
         >
           <FontAwesomeIcon icon={faUpload} className="w-3.5 h-3.5" /> {t('Upload')}
         </button>
         <button
           onClick={() => loadObjects(prefix)}
-          className="w-6 h-6 rounded text-tertiary hover:bg-zGray-800 hover:text-main flex items-center justify-center"
+          className="w-6 h-6 rounded text-tertiary hover:bg-state-hover hover:text-main flex items-center justify-center"
           title={t('Refresh')}
         >
           <FontAwesomeIcon icon={faArrowsRotate} className="w-3.5 h-3.5" />

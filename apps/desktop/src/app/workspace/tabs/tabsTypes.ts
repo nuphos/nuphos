@@ -1,4 +1,5 @@
 import type { DatabaseConnection } from '../../../types'
+import type { ReactNode } from 'react'
 import type { AccountSet, WorkspaceTabState } from '../../workspaceTabState'
 
 export type TabDropPlacement = 'before' | 'after'
@@ -18,6 +19,10 @@ export type WorkspaceTabsProps = {
   onCopyPageUrl: (href: string) => void | Promise<void>
   sidebarCollapsed?: boolean
   onToggleSidebarCollapse?: () => void
+  /** Shown before the tabs, e.g. the way back from an expanded dock. */
+  leading?: ReactNode
+  /** Shown after the tabs, at the strip's trailing end. */
+  trailing?: ReactNode
 }
 
 export type TabContextMenuState = {

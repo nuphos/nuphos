@@ -60,18 +60,18 @@ export function GalleryTile({
   return (
     <li
       className={clsx(
-        'flex flex-col overflow-hidden rounded-lg border border-main bg-surface/40 transition-colors hover:border-zGray-700 focus-within:border-zGray-700',
+        'flex flex-col overflow-hidden rounded-lg border border-main bg-surface/40 transition-colors hover:border-line-control focus-within:border-line-control',
         // A full-width card gets the full row, so its preview stays readable.
         card.size.w === GRID_COLUMNS && '@lg:col-span-2',
       )}
     >
       <div
         aria-hidden
-        className="relative h-[132px] overflow-hidden border-b border-main bg-zGray-900/40"
+        className="relative h-[132px] overflow-hidden border-b border-main bg-state-selected"
       >
         {preview ?? (
           <div className="flex h-full items-center justify-center">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-zGray-800/60 text-secondary">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-state-selected text-secondary">
               <Icon className="h-5 w-5" strokeWidth={1.6} />
             </span>
           </div>

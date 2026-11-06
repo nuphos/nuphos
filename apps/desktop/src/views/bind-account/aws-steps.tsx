@@ -200,7 +200,7 @@ export function AwsWizardStepContent({
               value={roleArn}
               onChange={(e) => onRoleArnChange(e.target.value)}
               placeholder="arn:aws:iam::123456789012:role/NuphosRole"
-              className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+              className="w-full h-9 px-2.5 rounded-md bg-surface border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
             />
           </Field>
         </div>

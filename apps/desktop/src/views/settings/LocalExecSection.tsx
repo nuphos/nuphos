@@ -82,7 +82,7 @@ export function LocalExecSection({
             onRetry={() => setAttempt((value) => value + 1)}
           />
         ) : (
-          <div aria-busy="true" className="h-16 animate-pulse rounded-lg bg-zGray-800/40" />
+          <div aria-busy="true" className="h-16 animate-pulse rounded-lg bg-state-selected" />
         ))}
       {identity && (
         <div className="space-y-5">

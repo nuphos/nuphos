@@ -31,13 +31,13 @@ function StoragePhaseValue({ phase }: { phase: string | null }) {
 // Clickable value for PV↔PVC cross-links (Volume / Claim). Falls back to a
 // non-interactive accent label when navigation isn't wired up.
 function StorageNavValue({ label, onClick }: { label: string; onClick?: () => void }) {
-  if (!onClick) return <span className="text-zViolet-accent break-all">{label}</span>
+  if (!onClick) return <span className="text-primary break-all">{label}</span>
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="text-left text-zViolet-accent hover:underline break-all"
+      className="text-left text-primary hover:underline break-all"
     >
       {label}
     </button>
@@ -52,7 +52,7 @@ function StorageTextValue({ value }: { value: string }) {
 
 function StorageChipCard({ label, chips }: { label: string; chips: StorageChip[] }) {
   return (
-    <div className="bg-zGray-900 border border-zGray-800 rounded-md px-4 py-3">
+    <div className="bg-surface-sheet border border-line-control rounded-md px-4 py-3">
       <div className="text-[11.5px] uppercase tracking-wider text-tertiary mb-1.5">{label}</div>
       <OverviewChipList chips={chips} />
     </div>
@@ -92,7 +92,7 @@ export function PvcOverview({
         />
         <Field
           label={t('Namespace')}
-          value={<span className="text-zViolet-accent">{summary.namespace}</span>}
+          value={<span className="text-primary">{summary.namespace}</span>}
         />
         <Field
           label={t('Storage Class')}

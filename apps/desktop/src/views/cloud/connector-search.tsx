@@ -104,7 +104,7 @@ export function ConnectorSearch({
           placeholder={t('Search connectors')}
           showTrigger={false}
           onFocus={() => setOpen(true)}
-          className="h-8 rounded-lg border-zGray-800/55 bg-transparent"
+          className="h-8 rounded-lg border-line-control/55 bg-transparent"
           inputClassName="pl-8 text-[12.5px]"
         />
       </div>

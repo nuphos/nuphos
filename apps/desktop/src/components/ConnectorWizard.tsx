@@ -28,7 +28,7 @@ export function WizardStepBar({ steps, current }: { steps: string[]; current: nu
             key={title}
             className={clsx(
               'h-1 flex-1 rounded-full transition-colors',
-              i <= current ? 'bg-zViolet-500' : 'bg-zGray-800',
+              i <= current ? 'bg-action-primary' : 'bg-surface-sunken',
             )}
           />
         ))}
@@ -97,7 +97,7 @@ export function WizardConsoleLink({ href, children }: { href: string; children: 
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex h-7 items-center gap-1.5 rounded-md bg-zGray-800 px-2.5 text-[12px] font-medium text-main no-underline transition-colors hover:bg-zGray-700"
+      className="inline-flex h-7 items-center gap-1.5 rounded-md bg-surface-sunken px-2.5 text-[12px] font-medium text-main no-underline transition-colors hover:bg-state-hover"
     >
       <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-3.5 w-3.5" />
       {children}
@@ -119,7 +119,7 @@ export function WizardDownloadLink({
     <a
       href={href}
       download={download}
-      className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zGray-800 px-2.5 text-[12px] font-medium text-secondary no-underline transition-colors hover:border-zGray-700 hover:text-main"
+      className="inline-flex h-7 items-center gap-1.5 rounded-md border border-line-control px-2.5 text-[12px] font-medium text-secondary no-underline transition-colors hover:border-line-control hover:text-main"
     >
       <FontAwesomeIcon icon={faDownload} className="h-3.5 w-3.5" />
       {children}
@@ -147,12 +147,12 @@ export function WizardCopyableValue({ value }: { value: string }) {
       type="button"
       onClick={() => void copy()}
       title={t('Copy')}
-      className="inline-flex max-w-full items-center gap-1.5 rounded border border-zGray-800 bg-zGray-850 px-1.5 py-0.5 align-middle font-mono text-[11.5px] text-main transition-colors hover:border-zGray-700"
+      className="inline-flex max-w-full items-center gap-1.5 rounded border border-line-control bg-surface-sunken px-1.5 py-0.5 align-middle font-mono text-[11.5px] text-main transition-colors hover:border-line-control"
     >
       <span className="truncate">{value}</span>
       <FontAwesomeIcon
         icon={copied ? faCheck : faCopy}
-        className={clsx('h-3 w-3 flex-shrink-0', copied ? 'text-zViolet-accent' : 'text-tertiary')}
+        className={clsx('h-3 w-3 flex-shrink-0', copied ? 'text-primary' : 'text-tertiary')}
       />
     </button>
   )
@@ -174,11 +174,11 @@ export function WizardCopyableBlock({ value }: { value: string }) {
   }
 
   return (
-    <div className="relative rounded-md border border-zGray-800 bg-zGray-900">
+    <div className="relative rounded-md border border-line-control bg-surface-sheet">
       <button
         type="button"
         onClick={() => void copy()}
-        className="absolute right-2 top-2 inline-flex h-6 items-center gap-1 rounded border border-zGray-800 bg-zGray-850 px-1.5 text-[11px] font-medium text-secondary transition-colors hover:border-zGray-700 hover:text-main"
+        className="absolute right-2 top-2 inline-flex h-6 items-center gap-1 rounded border border-line-control bg-surface-sunken px-1.5 text-[11px] font-medium text-secondary transition-colors hover:border-line-control hover:text-main"
       >
         <FontAwesomeIcon icon={copied ? faCheck : faCopy} className="h-3 w-3" />
         {copied ? t('Copied') : t('Copy')}

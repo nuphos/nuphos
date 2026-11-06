@@ -67,7 +67,7 @@ export function ChoiceCard({
       data-tool-call-id={toolCallId}
       data-decision-question={question}
       data-decision-options={JSON.stringify(options)}
-      className="overflow-hidden rounded-xl border border-zGray-800 bg-zGray-875"
+      className="overflow-hidden rounded-xl surface-raised bg-surface-raised"
     >
       <div className="px-4 pb-2.5 pt-3.5">
         <div className="text-[13.5px] font-medium text-main">
@@ -76,7 +76,7 @@ export function ChoiceCard({
         <AgentQuote text={question} />
       </div>
       {options.length > 0 ? (
-        <div className="flex flex-wrap gap-2 border-t border-zGray-800/60 px-4 py-2.5">
+        <div className="flex flex-wrap gap-2 border-t border-line-control/60 px-4 py-2.5">
           {options.map((option, index) => (
             <Button
               key={option}
@@ -85,7 +85,7 @@ export function ChoiceCard({
               className={clsx(
                 'h-auto min-h-7 gap-1.5 whitespace-normal px-2.5 py-1 text-left text-[12.5px]',
                 // Important: the disabled fade's order among variants is not fixed.
-                option === chosen && '!opacity-100 border-zViolet-accent/60 bg-zViolet-accent/10',
+                option === chosen && '!opacity-100 border-action-primary/60 bg-state-selected',
               )}
               disabled={!interactive}
               aria-pressed={chosen ? option === chosen : undefined}
@@ -93,7 +93,7 @@ export function ChoiceCard({
               onClick={() => act(() => choose(option))}
             >
               {option === chosen && (
-                <Check className="h-3.5 w-3.5 shrink-0 text-zViolet-accent" strokeWidth={2.25} />
+                <Check className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2.25} />
               )}
               {option}
             </Button>
@@ -111,7 +111,7 @@ export function ChoiceCard({
         </div>
       ) : (
         canAct && (
-          <div className="border-t border-zGray-800/60 px-4 py-2.5 text-[12px] text-tertiary">
+          <div className="border-t border-line-control/60 px-4 py-2.5 text-[12px] text-tertiary">
             {t('Reply below to answer.')}
           </div>
         )

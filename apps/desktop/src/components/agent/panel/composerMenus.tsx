@@ -150,7 +150,7 @@ export function ComposerAttachmentMenu({
           'flex items-center justify-center transition-colors flex-shrink-0',
           readOnly
             ? 'text-tertiary'
-            : 'text-secondary hover:text-main hover:bg-zGray-800/60 data-[popup-open]:bg-zGray-800/60 data-[popup-open]:text-main',
+            : 'text-secondary hover:text-main hover:bg-state-hover data-[popup-open]:bg-state-selected data-[popup-open]:text-main',
         )}
         title={t('Add attachment')}
       >
@@ -213,7 +213,7 @@ export function BypassControlMenu({
         className={clsx(
           'hidden @[210px]:flex items-center gap-1.5 flex-shrink-0 rounded-full transition-colors',
           hero ? 'h-8 px-1.5 @[400px]:px-3' : 'h-7 px-1.5 @[400px]:px-2.5',
-          'text-secondary hover:text-main hover:bg-zGray-800/60',
+          'text-secondary hover:text-main hover:bg-state-hover',
         )}
         title={t('Choose how commands in this agent are authorized')}
       >

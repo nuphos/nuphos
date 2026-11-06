@@ -30,7 +30,7 @@ export const MenuCheckboxItem = React.forwardRef<HTMLDivElement, MenuCheckboxIte
         className={(state) =>
           clsx(
             'flex min-h-8 cursor-default select-none items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] text-main outline-none transition-colors',
-            state.highlighted && 'bg-zGray-800/80',
+            state.highlighted && 'bg-state-selected',
             state.disabled && 'pointer-events-none opacity-50',
             className,
           )
@@ -61,7 +61,7 @@ export const MenuRadioItem = React.forwardRef<
       className={(state) =>
         clsx(
           'flex min-h-8 cursor-default select-none items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] text-main outline-none transition-colors',
-          state.highlighted && 'bg-zGray-800/80',
+          state.highlighted && 'bg-state-selected',
           state.disabled && 'pointer-events-none opacity-50',
           className,
         )
@@ -121,7 +121,7 @@ export const MenuSubmenuTrigger = React.forwardRef<HTMLDivElement, MenuSubmenuTr
         className={(state) =>
           clsx(
             'flex min-h-8 cursor-default select-none items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] text-main outline-none transition-colors',
-            (state.highlighted || state.open) && 'bg-zGray-800/80',
+            (state.highlighted || state.open) && 'bg-state-selected',
             state.disabled && 'pointer-events-none opacity-50',
             className,
           )
@@ -140,7 +140,7 @@ export const MenuSubmenuTrigger = React.forwardRef<HTMLDivElement, MenuSubmenuTr
 )
 
 export function MenuSeparator({ className }: { className?: string }) {
-  return <MenuPrimitive.Separator className={clsx('my-1 h-px bg-zGray-800/60', className)} />
+  return <MenuPrimitive.Separator className={clsx('my-1 h-px bg-state-selected', className)} />
 }
 
 export function MenuGroupLabel({

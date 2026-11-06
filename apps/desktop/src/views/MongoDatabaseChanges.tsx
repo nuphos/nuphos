@@ -154,8 +154,8 @@ export function MongoDatabaseChanges({
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-zGray-800 bg-zGray-900/20">
-      <div className="flex items-center justify-between border-b border-zGray-800 px-4 py-3">
+    <div className="overflow-hidden rounded-xl border border-line-control bg-state-selected">
+      <div className="flex items-center justify-between border-b border-line-control px-4 py-3">
         <div>
           <div className="text-[13px] font-medium text-main">MongoDB changes</div>
           <div className="mt-0.5 text-[10.5px] text-tertiary">
@@ -168,7 +168,7 @@ export function MongoDatabaseChanges({
               setError(null)
               load()
             }}
-            className="rounded-md border border-zGray-800 p-1.5 text-tertiary hover:text-main"
+            className="rounded-md border border-line-control p-1.5 text-tertiary hover:text-main"
           >
             <RefreshCw className="h-3.5 w-3.5" />
           </button>
@@ -184,7 +184,7 @@ export function MongoDatabaseChanges({
         </div>
       )}
       <div className="grid min-h-[520px] grid-cols-[280px_minmax(0,1fr)]">
-        <div className="border-r border-zGray-800">
+        <div className="border-r border-line-control">
           {changes === null ? (
             <CenteredLoader />
           ) : changes.length === 0 ? (
@@ -203,7 +203,7 @@ export function MongoDatabaseChanges({
                   if (e.detail !== 0) return
                   setSelectedId(change.id)
                 }}
-                className={`block w-full border-b border-zGray-800 px-3 py-3 text-left ${selectedId === change.id ? 'bg-zViolet-500/10' : 'hover:bg-zGray-800/30'}`}
+                className={`block w-full border-b border-line-control px-3 py-3 text-left ${selectedId === change.id ? 'bg-state-selected' : 'hover:bg-state-hover'}`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="truncate text-[12px] font-medium text-main">{change.title}</span>

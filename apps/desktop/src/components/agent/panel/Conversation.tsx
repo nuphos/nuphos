@@ -128,7 +128,7 @@ export function Conversation({
             <button
               type="button"
               onClick={onDockToSidebar}
-              className="h-7 w-7 rounded-md text-tertiary hover:text-main hover:bg-zGray-800/70 flex items-center justify-center transition-colors"
+              className="h-7 w-7 rounded-md text-tertiary hover:text-main hover:bg-state-hover flex items-center justify-center transition-colors"
               title={t('Move to sidebar')}
               aria-label={t('Move agent to sidebar')}
             >

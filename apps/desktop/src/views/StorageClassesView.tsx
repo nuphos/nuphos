@@ -85,7 +85,7 @@ export function StorageClassesView({ filter, refreshKey, onSelect, onCount, onLo
             width: 280,
             sortAccessor: (r) => r.name,
             render: (r) => (
-              <span className="text-zViolet-accent">
+              <span className="text-primary">
                 {r.name}
                 {r.is_default && (
                   <span className="ml-1.5 text-[10.5px] text-warning">{t('(default)')}</span>

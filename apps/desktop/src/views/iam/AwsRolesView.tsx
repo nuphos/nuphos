@@ -103,7 +103,7 @@ export function AwsRolesView({
                           'truncate',
                           role.roleId === selectedRole?.roleId
                             ? 'text-main font-medium'
-                            : 'text-zViolet-accent',
+                            : 'text-primary',
                         )}
                       >
                         {awsRoleName(role.roleArn)}

@@ -18,7 +18,7 @@ export function ExternalPageLinkButton({ link }: { link: ExternalPageLink }) {
     <button
       type="button"
       onClick={() => open(link.url)}
-      className="w-7 h-7 rounded-md hover:bg-zGray-800/60 text-secondary hover:text-main flex items-center justify-center"
+      className="w-7 h-7 rounded-md hover:bg-state-hover text-secondary hover:text-main flex items-center justify-center"
       title={label}
       aria-label={label}
     >

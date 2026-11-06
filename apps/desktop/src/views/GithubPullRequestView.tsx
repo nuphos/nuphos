@@ -57,7 +57,7 @@ function StateBadge({ pull }: { pull: GithubPRDetail }) {
 function BranchChip({ name }: { name: string }) {
   return (
     <span
-      className="inline-block max-w-[220px] truncate rounded bg-zViolet-accent/10 px-1.5 py-0.5 align-bottom font-mono text-[11px] text-zViolet-accent"
+      className="inline-block max-w-[220px] truncate rounded bg-state-selected px-1.5 py-0.5 align-bottom font-mono text-[11px] text-primary"
       title={name}
     >
       {name}
@@ -136,7 +136,7 @@ export function GithubPullRequestView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="border-b border-zGray-800/70">
+      <div className="border-b border-line-control/70">
         <div className="mx-auto w-full max-w-6xl px-3 pb-3 pt-3 @sm:px-4 @xl:px-5 @xl:pt-4">
           <div className="flex min-w-0 flex-col gap-2 @sm:flex-row @sm:items-start @sm:gap-3">
             <StateBadge pull={pull} />
@@ -165,7 +165,9 @@ export function GithubPullRequestView({
                 onClick={() => setTab(value)}
                 className={clsx(
                   'h-7 shrink-0 whitespace-nowrap rounded-md px-2.5 text-[12px] capitalize transition-colors',
-                  tab === value ? 'bg-zGray-800 text-main' : 'text-tertiary hover:text-secondary',
+                  tab === value
+                    ? 'bg-surface-sunken text-main'
+                    : 'text-tertiary hover:text-secondary',
                 )}
               >
                 {value === 'conversation'
@@ -191,7 +193,7 @@ export function GithubPullRequestView({
         />
       ) : (
         <div className="flex min-h-0 flex-1">
-          <aside className="hidden w-64 shrink-0 overflow-y-auto border-r border-zGray-800/70 px-1.5 scrollbar-thin @3xl:block">
+          <aside className="hidden w-64 shrink-0 overflow-y-auto border-r border-line-control/70 px-1.5 scrollbar-thin @3xl:block">
             <ChangedFilesTree files={pull.files} />
           </aside>
           <div className="min-h-0 min-w-0 flex-1 overflow-y-auto scrollbar-thin">

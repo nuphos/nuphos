@@ -55,14 +55,14 @@ export function JournalTimeline({
 
           return (
             <li key={item.event.eventId} className="flex items-center gap-2 pb-3 pt-1.5">
-              <div className="h-px flex-1 bg-zGray-800" />
+              <div className="h-px flex-1 bg-surface-sunken" />
               <span className="flex-shrink-0 text-[10px] uppercase tracking-wider text-tertiary">
                 {t('turn')} · {formatJournalTs(item.event.ts)}
                 {typeof payload.messageCount === 'number'
                   ? ` · ${t('{n} msgs in context', { n: String(payload.messageCount) })}`
                   : ''}
               </span>
-              <div className="h-px flex-1 bg-zGray-800" />
+              <div className="h-px flex-1 bg-surface-sunken" />
             </li>
           )
         }
@@ -87,7 +87,7 @@ export function JournalTimeline({
             onClick={target && onLocateInChat ? () => onLocateInChat(target) : undefined}
             className={clsx(
               'relative flex gap-2.5 rounded-md px-1 pb-3.5 transition-colors last:pb-0',
-              target && onLocateInChat && 'hover:bg-zGray-800/40',
+              target && onLocateInChat && 'hover:bg-state-hover',
             )}
             title={`#${String(anchorEvent.seq)} · ${formatJournalTs(anchorEvent.ts)}${
               target && onLocateInChat ? ` — ${t('click to show in conversation')}` : ''
@@ -105,7 +105,7 @@ export function JournalTimeline({
             </span>
             <div className="flex flex-col items-center pt-0.5">
               <Icon className="h-3.5 w-3.5 flex-shrink-0 text-tertiary" strokeWidth={1.8} />
-              <div className="mt-1 w-px flex-1 bg-zGray-800" />
+              <div className="mt-1 w-px flex-1 bg-surface-sunken" />
             </div>
             <div className="min-w-0 flex-1 space-y-1">
               {sealed && (

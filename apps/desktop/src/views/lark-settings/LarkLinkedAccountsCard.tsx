@@ -19,8 +19,8 @@ export function LarkLinkedAccountsCard({
   onDelete: (mapping: LarkUserMapping) => Promise<void>
 }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-zGray-800/70 bg-surface">
-      <div className="border-b border-zGray-800/60 px-4 py-3">
+    <div className="overflow-hidden rounded-lg border border-line-control/70 bg-surface">
+      <div className="border-b border-line-control/60 px-4 py-3">
         <div className="text-[13px] font-medium text-main">{t('Linked accounts')}</div>
         <div className="mt-0.5 text-[12px] text-tertiary">
           {t(
@@ -33,7 +33,7 @@ export function LarkLinkedAccountsCard({
       ) : userMappings.length === 0 ? (
         <div className="px-4 py-6 text-[13px] text-tertiary">{t('No accounts linked yet.')}</div>
       ) : (
-        <div className="divide-y divide-zGray-800/60">
+        <div className="divide-y divide-line-control/60">
           {userMappings.map((mapping) => {
             const member = memberById.get(mapping.nuphosUserId)
 

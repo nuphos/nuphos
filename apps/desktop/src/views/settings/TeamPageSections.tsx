@@ -86,7 +86,7 @@ function SettingsPageFrame({
         }
       />
       {/* Shown only while something is in it: a form has no search and no controls. */}
-      <div className="hidden h-[42px] flex-shrink-0 items-center gap-2 border-b border-zGray-800/60 px-6 has-[>:not(:empty)]:flex">
+      <div className="hidden h-[42px] flex-shrink-0 items-center gap-2 border-b border-line-control/60 px-6 has-[>:not(:empty)]:flex">
         {searchable && <SearchBox filter={filter} onFilterChange={onFilterChange} count={count} />}
         <div ref={setLeft} className="flex min-w-0 items-center gap-1 empty:hidden" />
         <div className="flex-1" />

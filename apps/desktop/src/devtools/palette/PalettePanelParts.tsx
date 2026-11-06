@@ -26,8 +26,8 @@ export function IconBtn({
       className={clsx(
         'flex h-6 w-6 items-center justify-center rounded outline-none transition-colors',
         active
-          ? 'bg-zViolet-500/20 text-zViolet-accent'
-          : 'text-tertiary hover:bg-zGray-800/60 hover:text-secondary',
+          ? 'bg-state-selected text-primary'
+          : 'text-tertiary hover:bg-state-hover hover:text-secondary',
       )}
     >
       {children}
@@ -99,7 +99,7 @@ export function TokenRow({
       ref={rowRef}
       className={clsx(
         'flex items-center gap-2 rounded px-1 py-1',
-        highlighted && 'ring-1 ring-zViolet-accent/60',
+        highlighted && 'ring-1 ring-line-focus',
       )}
     >
       {editable ? (
@@ -107,12 +107,12 @@ export function TokenRow({
           type="color"
           value={hex.slice(0, 7)}
           onChange={(e) => onSetHex(e.target.value)}
-          className="h-6 w-6 flex-shrink-0 rounded border border-zGray-800/60 bg-transparent p-0"
+          className="h-6 w-6 flex-shrink-0 rounded border border-line-control/60 bg-transparent p-0"
           title={def.name}
         />
       ) : (
         <span
-          className="h-6 w-6 flex-shrink-0 rounded border border-zGray-800/60"
+          className="h-6 w-6 flex-shrink-0 rounded border border-line-control/60"
           style={{ background: `rgb(var(${def.name}))` }}
           title={def.name}
         />
@@ -124,7 +124,7 @@ export function TokenRow({
           <button
             type="button"
             onClick={() => onJump(def.refs[0])}
-            className="truncate text-[10px] text-tertiary hover:text-zViolet-accent"
+            className="truncate text-[10px] text-tertiary hover:text-primary"
             title={`Go to ${def.refs[0]}`}
           >
             → {def.refs[0].replace('--color-', '')}
@@ -145,7 +145,7 @@ export function TokenRow({
           }}
           onBlur={(e) => onSetHex(e.target.value)}
           spellCheck={false}
-          className="w-[68px] flex-shrink-0 rounded border border-zGray-800/60 bg-surface px-1.5 py-0.5 font-mono text-[11px] text-secondary outline-none focus:border-zViolet-accent/60"
+          className="w-[68px] flex-shrink-0 rounded border border-line-control/60 bg-surface px-1.5 py-0.5 font-mono text-[11px] text-secondary outline-none focus:border-line-focus"
         />
       ) : (
         <span className="w-[68px] flex-shrink-0 text-right text-[10px] text-tertiary">
@@ -160,7 +160,9 @@ export function TokenRow({
         title={overridden ? 'Reset to stock' : 'Not overridden'}
         className={clsx(
           'h-4 w-4 flex-shrink-0 rounded-full transition-colors',
-          overridden ? 'bg-zViolet-accent hover:bg-zViolet-400' : 'bg-zGray-800/50 opacity-40',
+          overridden
+            ? 'bg-action-primary hover:bg-action-primary/90'
+            : 'bg-state-selected opacity-40',
         )}
       />
     </div>

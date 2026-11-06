@@ -27,7 +27,7 @@ export function ModelFooter({
     <div
       className={clsx(
         'mx-3 py-2 text-center text-xs text-tertiary',
-        divided && 'border-t border-zGray-800/60',
+        divided && 'border-t border-line-control/60',
       )}
     >
       {lines.map((line) => (
@@ -40,7 +40,7 @@ export function ModelFooter({
           type="button"
           disabled={retrying}
           onClick={onRetry}
-          className="mx-auto mt-1.5 flex items-center gap-1.5 rounded-md px-2 py-1 text-main outline-none hover:bg-zGray-800/80 focus-visible:bg-zGray-800/80 disabled:opacity-50"
+          className="mx-auto mt-1.5 flex items-center gap-1.5 rounded-md px-2 py-1 text-main outline-none hover:bg-state-hover focus-visible:bg-state-hover disabled:opacity-50"
         >
           <Icon size={13} className={clsx(retrying && 'animate-spin')} />
           {t('Retry connection')}

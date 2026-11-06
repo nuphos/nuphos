@@ -91,8 +91,8 @@ export function HistoryConversationRow({
         // the full row width.
         'group flex items-center transition-colors',
         compact ? 'rounded-md' : undefined,
-        selected ? 'bg-zGray-800/70' : 'hover:bg-zGray-800/40',
-        opening && 'bg-zGray-800/55',
+        selected ? 'bg-state-selected' : 'hover:bg-state-hover',
+        opening && 'bg-state-selected',
       )}
     >
       <button
@@ -110,13 +110,13 @@ export function HistoryConversationRow({
           // the OS accent colour and fights everything here. A thin inset ring,
           // never a fill: focus lingers on the row you last clicked, and a fill
           // there is indistinguishable from the selected row's own background.
-          'focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-zViolet-accent/40',
+          'focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-line-focus',
           compact ? 'px-2.5 py-2' : 'px-3 py-3.5',
           opening && 'cursor-wait',
         )}
       >
         {opening ? (
-          <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-zViolet-accent" />
+          <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-primary" />
         ) : (
           <div className="relative flex-shrink-0">
             <Avatar
@@ -146,7 +146,7 @@ export function HistoryConversationRow({
             </span>
             {/* Beside the title, not in the preview, so a narrow column never cuts it off. */}
             {questionCount && (
-              <span className="inline-flex h-4 flex-shrink-0 items-center rounded-full border border-zGray-800/80 bg-zGray-900/60 px-1.5 text-[10px] font-medium leading-none text-tertiary">
+              <span className="inline-flex h-4 flex-shrink-0 items-center rounded-full border border-line-control/80 bg-state-selected px-1.5 text-[10px] font-medium leading-none text-tertiary">
                 {questionCount}
               </span>
             )}
@@ -164,7 +164,7 @@ export function HistoryConversationRow({
             {triggerBadge && (
               <>
                 {' · '}
-                <span title={triggerBadge.description} className="text-zViolet-accent">
+                <span title={triggerBadge.description} className="text-primary">
                   {triggerBadge.label}
                 </span>
               </>
@@ -172,7 +172,7 @@ export function HistoryConversationRow({
             {runLabel?.label && (
               <>
                 {' · '}
-                <span title={runLabel.description} className="text-zViolet-accent">
+                <span title={runLabel.description} className="text-primary">
                   {runLabel.label}
                 </span>
               </>
@@ -185,7 +185,7 @@ export function HistoryConversationRow({
         <span
           aria-label={t('Unread reply')}
           title={t('Unread reply')}
-          className="mr-2.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-zViolet-500 group-hover:hidden"
+          className="mr-2.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-action-primary group-hover:hidden"
         />
       )}
       {trailing}

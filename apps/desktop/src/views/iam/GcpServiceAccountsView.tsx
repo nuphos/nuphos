@@ -155,7 +155,7 @@ export function GcpServiceAccountsView({
                           serviceAccount.serviceAccountId ===
                             selectedServiceAccount?.serviceAccountId
                             ? 'text-main font-medium'
-                            : 'text-zViolet-accent',
+                            : 'text-primary',
                         )}
                       >
                         {serviceAccount.serviceAccountEmail}

@@ -11,7 +11,7 @@ export function JumpToLatestButton({ unseen, onClick }: { unseen: number; onClic
       type="button"
       onClick={onClick}
       className={clsx(
-        'absolute bottom-3 left-1/2 z-20 flex h-9 -translate-x-1/2 items-center justify-center gap-1.5 rounded-full border border-zGray-700/80 bg-elevated/90 text-secondary shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md transition-[transform,color,border-color,background-color] hover:-translate-x-1/2 hover:-translate-y-0.5 hover:border-zViolet-accent/60 hover:bg-zGray-800 hover:text-main',
+        'absolute bottom-3 left-1/2 z-20 flex h-9 -translate-x-1/2 items-center justify-center gap-1.5 rounded-full border border-line-control/80 bg-elevated/90 text-secondary shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md transition-[transform,color,border-color,background-color] hover:-translate-x-1/2 hover:-translate-y-0.5 hover:border-action-primary/60 hover:bg-state-hover hover:text-main',
         unseen > 0 ? 'px-3.5 text-[13px] font-medium text-main' : 'w-9',
       )}
       title={t('Jump to latest')}

@@ -48,7 +48,7 @@ export function JoinDialog({ join, onClose }: { join: BoxJoin; onClose: () => vo
             {t('Uses your SSH config, keys and agent on this computer. Nuphos never sees them.')}
           </p>
           {ssh.output && (
-            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-zGray-800 bg-main p-3 font-mono text-[11.5px] text-secondary">
+            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-line-control bg-main p-3 font-mono text-[11.5px] text-secondary">
               {ssh.output}
             </pre>
           )}
@@ -65,11 +65,11 @@ export function JoinDialog({ join, onClose }: { join: BoxJoin; onClose: () => vo
             </p>
           )}
         </section>
-        <section className="space-y-2 border-t border-zGray-800 pt-4">
+        <section className="space-y-2 border-t border-line-control pt-4">
           <p className="text-[12px] text-secondary">
             {t('Or run this on the machine. The token works once and expires in an hour.')}
           </p>
-          <pre className="whitespace-pre-wrap break-all rounded-lg border border-zGray-800 bg-main p-3 font-mono text-[12px] text-main">
+          <pre className="whitespace-pre-wrap break-all rounded-lg border border-line-control bg-main p-3 font-mono text-[12px] text-main">
             {command}
           </pre>
           <div className="flex justify-end gap-2">

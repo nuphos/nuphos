@@ -205,10 +205,7 @@ export function CloudWatchLogGroupsView({
             width: 380,
             sortAccessor: (r) => r.name,
             render: (r) => (
-              <span
-                className="text-zViolet-accent truncate block font-mono text-[12px]"
-                title={r.name}
-              >
+              <span className="text-primary truncate block font-mono text-[12px]" title={r.name}>
                 {r.name}
               </span>
             ),

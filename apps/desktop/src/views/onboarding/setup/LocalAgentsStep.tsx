@@ -59,7 +59,7 @@ function InlineSignIn({ provider }: { provider: CliLoginProvider }) {
             href={login.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-zViolet-400 underline"
+            className="text-secondary underline"
           >
             {t('Open the sign-in page')}
           </a>
@@ -120,9 +120,9 @@ function LocalAgentSetupCard({ provider }: { provider: CliLoginProvider }) {
   const Icon = ICON[provider]
 
   return (
-    <div className="space-y-3 rounded-xl border border-zGray-800 bg-zGray-900 px-4 py-3.5">
+    <div className="space-y-3 rounded-xl border border-line-control bg-surface-sheet px-4 py-3.5">
       <div className="flex items-center gap-3">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-zGray-800 text-main">
+        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-sunken text-main">
           <Icon className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
@@ -145,7 +145,7 @@ function LocalAgentSetupCard({ provider }: { provider: CliLoginProvider }) {
           href={installUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-[12.5px] text-zViolet-400 hover:underline"
+          className="inline-flex items-center gap-1 text-[12.5px] text-secondary hover:underline"
         >
           {t('How to install')} <ExternalLink className="h-3 w-3" />
         </a>
@@ -196,7 +196,7 @@ export function LocalAgentsStep({ onContinue }: { onContinue: () => void }) {
         {state?.detectionDisabled && (
           <p
             role="status"
-            className="rounded-lg bg-zGray-800/40 px-4 py-3 text-[12.5px] leading-5 text-secondary"
+            className="rounded-lg bg-state-selected px-4 py-3 text-[12.5px] leading-5 text-secondary"
           >
             {t(
               'Local runtimes are disabled in development builds connected to Nuphos Cloud. This keeps the installed app’s connection active. You can continue to preview onboarding.',

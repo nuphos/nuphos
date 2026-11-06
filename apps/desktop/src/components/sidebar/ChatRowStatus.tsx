@@ -3,15 +3,17 @@ import { CircleAlert, Loader2 } from 'lucide-react'
 import { t } from '../../i18n'
 import { runtimeStateLabel } from '../../lib/runtimeExecution'
 import { rowIndicator } from '../../lib/subAgentState'
+import { StatusDot } from '../ui/status-dot'
 
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
 import type { RowDot } from '../../lib/subAgentState'
+import type { StatusDotTone } from '../ui/status-dot'
 
-const DOTS = {
-  background: { label: t('Background task running'), color: 'bg-warning' },
-  unread: { label: t('Unread reply'), color: 'bg-zViolet-500' },
-  waiting: { label: t('Needs your input'), color: 'bg-zViolet-500' },
-} as const
+const DOTS: Record<'background' | 'unread' | 'waiting', { label: string; tone: StatusDotTone }> = {
+  background: { label: t('Background task running'), tone: 'warning' },
+  unread: { label: t('Unread reply'), tone: 'unread' },
+  waiting: { label: t('Needs your input'), tone: 'attention' },
+}
 
 /** The row's status at its right edge; the left icon only ever names the agent. */
 export function ChatRowStatus({
@@ -39,14 +41,7 @@ export function ChatRowStatus({
       </span>
     )
   }
-  const { label, color } = DOTS[indicator]
+  const { label, tone } = DOTS[indicator]
 
-  return (
-    <span
-      role="img"
-      aria-label={label}
-      title={label}
-      className={`flex-shrink-0 w-1.5 h-1.5 rounded-full ${color}`}
-    />
-  )
+  return <StatusDot tone={tone} label={label} />
 }

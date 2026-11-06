@@ -64,7 +64,7 @@ export function ScaleDeploymentDialog({
             step={1}
             value={replicas}
             onChange={(event) => setReplicas(event.target.value)}
-            className="h-9 w-full rounded-md border border-zGray-700 bg-surface px-2.5 text-[13px] text-main outline-none focus:border-zViolet-500"
+            className="h-9 w-full rounded-md border border-line-control bg-surface px-2.5 text-[13px] text-main outline-none focus:border-line-focus"
           />
         </label>
         {error && <div className="text-[12.5px] text-error">{error}</div>}
@@ -72,7 +72,7 @@ export function ScaleDeploymentDialog({
           <button
             type="button"
             onClick={onClose}
-            className="h-8 px-3 rounded-md text-[12.5px] text-secondary hover:bg-zGray-800 hover:text-main"
+            className="h-8 px-3 rounded-md text-[12.5px] text-secondary hover:bg-state-hover hover:text-main"
           >
             {t('Cancel')}
           </button>
@@ -135,7 +135,7 @@ export function BulkScaleDialog({
             step={1}
             value={replicas}
             onChange={(event) => setReplicas(event.target.value)}
-            className="h-9 w-full rounded-md border border-zGray-700 bg-surface px-2.5 text-[13px] text-main outline-none focus:border-zViolet-500"
+            className="h-9 w-full rounded-md border border-line-control bg-surface px-2.5 text-[13px] text-main outline-none focus:border-line-focus"
           />
         </label>
         {error && <div className="text-[12.5px] text-error">{error}</div>}
@@ -143,7 +143,7 @@ export function BulkScaleDialog({
           <button
             type="button"
             onClick={onClose}
-            className="h-8 px-3 rounded-md text-[12.5px] text-secondary hover:bg-zGray-800 hover:text-main"
+            className="h-8 px-3 rounded-md text-[12.5px] text-secondary hover:bg-state-hover hover:text-main"
           >
             {t('Cancel')}
           </button>

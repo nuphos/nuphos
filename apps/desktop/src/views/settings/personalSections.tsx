@@ -123,8 +123,8 @@ function AppIconPicker() {
             className={clsx(
               'aspect-square rounded-xl border-2 transition-colors',
               selected === id
-                ? 'border-zViolet-500/70 bg-zViolet-500/10'
-                : 'border-transparent hover:border-zGray-700',
+                ? 'border-action-primary/70 bg-state-selected'
+                : 'border-transparent hover:border-line-control',
             )}
           >
             <img src={`/app-icons/${id}.png`} alt="" className="w-full h-full" draggable={false} />
@@ -161,13 +161,13 @@ export function AppearanceSection() {
                 className={clsx(
                   'flex flex-col items-center justify-center gap-2 h-[88px] rounded-lg border text-[13px] font-medium transition-colors',
                   active
-                    ? 'border-zViolet-500/70 bg-zViolet-500/10 text-main'
-                    : 'border-zGray-800 bg-surface text-secondary hover:border-zGray-700 hover:text-main',
+                    ? 'border-action-primary/70 bg-state-selected text-main'
+                    : 'border-line-control bg-surface text-secondary hover:border-line-control hover:text-main',
                 )}
               >
                 <FontAwesomeIcon
                   icon={option.icon}
-                  className={clsx('w-5 h-5', active ? 'text-zViolet-accent' : 'text-tertiary')}
+                  className={clsx('w-5 h-5', active ? 'text-primary' : 'text-tertiary')}
                 />
                 {option.label}
               </button>
@@ -215,8 +215,8 @@ export function AppearanceSection() {
                 className={clsx(
                   'rounded-lg border px-3 py-2 text-[13px] font-medium transition-colors',
                   density === value
-                    ? 'border-zViolet-500/70 bg-zViolet-500/10 text-main'
-                    : 'border-zGray-800 bg-surface text-secondary hover:text-main',
+                    ? 'border-action-primary/70 bg-state-selected text-main'
+                    : 'border-line-control bg-surface text-secondary hover:text-main',
                 )}
               >
                 {value === 'compact' ? t('Compact') : t('Comfortable')}
@@ -225,7 +225,7 @@ export function AppearanceSection() {
           </div>
         </fieldset>
         <div
-          className="rounded-lg border border-zGray-800 bg-surface p-3"
+          className="rounded-lg border border-line-control bg-surface p-3"
           aria-label={t('Agent appearance preview')}
         >
           <div className="mb-2 text-[11px] text-tertiary">{t('Preview')}</div>

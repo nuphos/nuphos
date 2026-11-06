@@ -22,6 +22,7 @@ import { useTitlebarFit } from './titlebarFit'
 import { useOwnPaneSummary } from './usePaneSummary'
 import { useSessionHeading } from './useSessionHeading'
 import { usePaneId, useWorkspacePane } from './WorkspacePaneContext'
+import { HeaderEdge } from '../../components/ui/header-edge'
 
 import type { WorkspaceController } from './useWorkspaceController'
 import type { JournalChatTarget } from '../../lib/journalEvent'
@@ -129,17 +130,16 @@ export function WorkspaceAgentPane({
       inert={workspaceExpanded}
       className={clsx(
         'relative min-h-0 min-w-0 flex-1 flex-col overflow-hidden workspace-content-surface',
+        dockOpen && 'workspace-content-surface--leading',
+        workspaceExpanded && 'workspace-content-surface--collapsed',
         ws.mainPageOpen ? 'hidden' : 'flex',
       )}
     >
-      <div
-        style={{ minWidth: dockOpen ? 'calc(100cqw - var(--workspace-dock-width))' : undefined }}
-        className="flex min-h-0 w-full flex-1 flex-col"
-      >
+      <div className="workspace-session-body flex min-h-0 w-full flex-1 flex-col">
         <div
           ref={titlebarRef}
           className={clsx(
-            'workspace-agent-titlebar relative flex h-[44px] flex-shrink-0 items-center border-b border-zGray-800/60 pl-3',
+            'workspace-agent-titlebar sheet-titlebar-row relative flex flex-shrink-0 items-center pl-3',
             pane?.cornerPane && CORNER_TITLEBAR_CLASS,
             // The viewport-anchored dock toggle (see `.workspace-dock-toggle`)
             // sits over this header only while the dock is closed; once it is
@@ -227,7 +227,7 @@ export function WorkspaceAgentPane({
           rootRef={transcriptRef}
           active={paneInFront && !workspaceExpanded}
         />
-        <div className="@container relative flex min-h-0 min-w-0 flex-1">
+        <HeaderEdge className="@container relative flex min-h-0 min-w-0 flex-1">
           <div ref={transcriptRef} className="flex min-h-0 min-w-0 flex-1">
             <AgentPanel
               key={`agent-main-${teamId}`}
@@ -276,7 +276,7 @@ export function WorkspaceAgentPane({
               requestsFailed={inputQueue.failed}
             />
           )}
-        </div>
+        </HeaderEdge>
       </div>
     </main>
   )

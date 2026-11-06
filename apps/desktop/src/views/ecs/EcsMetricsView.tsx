@@ -82,7 +82,7 @@ export function EcsMetricsView({
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-      <div className="flex items-center gap-1.5 px-4 py-2 border-b border-zGray-850 bg-zGray-950 text-[12px]">
+      <div className="flex items-center gap-1.5 px-4 py-2 border-b border-line-control bg-surface-canvas text-[12px]">
         <span className="text-tertiary mr-1">{t('Time range')}</span>
         {RANGE_OPTIONS.map((opt) => (
           <button
@@ -98,8 +98,8 @@ export function EcsMetricsView({
             }}
             className={`h-7 px-2.5 rounded-md text-[12.5px] font-medium ${
               rangeMinutes === opt.minutes
-                ? 'bg-zViolet-500/15 text-zViolet-accent'
-                : 'bg-zGray-850 hover:bg-zGray-800 text-secondary hover:text-main'
+                ? 'bg-state-selected text-primary'
+                : 'bg-surface-sunken hover:bg-state-hover text-secondary hover:text-main'
             }`}
           >
             {opt.label}
@@ -123,7 +123,10 @@ export function EcsMetricsView({
       ) : (
         <div className="grid grid-cols-1 @3xl:grid-cols-2 gap-4 p-4">
           {items?.series.map((s) => (
-            <div key={s.metricName} className="bg-zGray-950 border border-zGray-850 rounded-md p-3">
+            <div
+              key={s.metricName}
+              className="bg-surface-canvas border border-line-control rounded-md p-3"
+            >
               <div className="flex items-baseline gap-2 mb-2">
                 <span className="text-[13px] font-medium text-main">
                   {METRIC_LABELS[s.metricName] ?? s.metricName}
@@ -137,8 +140,8 @@ export function EcsMetricsView({
                   <AreaChart data={chartData}>
                     <defs>
                       <linearGradient id={`grad-${s.metricName}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="rgb(164, 105, 255)" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="rgb(164, 105, 255)" stopOpacity={0} />
+                        <stop offset="0%" stopColor="rgb(var(--color-data-1))" stopOpacity={0.35} />
+                        <stop offset="100%" stopColor="rgb(var(--color-data-1))" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#2a2730" />
@@ -171,7 +174,7 @@ export function EcsMetricsView({
                     <Area
                       type="monotone"
                       dataKey={s.metricName}
-                      stroke="rgb(164, 105, 255)"
+                      stroke="rgb(var(--color-data-1))"
                       strokeWidth={1.5}
                       fill={`url(#grad-${s.metricName})`}
                       isAnimationActive={false}

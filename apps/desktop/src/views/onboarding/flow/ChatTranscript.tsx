@@ -54,8 +54,8 @@ export function ChatTranscript({
         onDone={markGreetingDone}
         segments={
           hasJoinOptions
-            ? [teamsPre, { text: t('teams'), className: 'text-zViolet-300' }, teamsPost]
-            : [wsPre, { text: t('workspace'), className: 'text-zViolet-300' }, wsPost]
+            ? [teamsPre, { text: t('teams'), className: 'text-secondary' }, teamsPost]
+            : [wsPre, { text: t('workspace'), className: 'text-secondary' }, wsPost]
         }
       />
 

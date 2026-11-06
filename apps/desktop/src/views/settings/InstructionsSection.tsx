@@ -94,8 +94,8 @@ export function InstructionsSection({
       <SectionHeader title={GROUPS[scope].header} description={GROUPS[scope].headerDescription} />
       {loading && !listing && (
         <div aria-busy="true" className="space-y-3">
-          <div className="h-16 animate-pulse rounded-xl bg-zGray-800/40" />
-          <div className="h-16 animate-pulse rounded-xl bg-zGray-800/40" />
+          <div className="h-16 animate-pulse rounded-xl bg-state-selected" />
+          <div className="h-16 animate-pulse rounded-xl bg-state-selected" />
         </div>
       )}
       {failed && !listing && (
@@ -184,7 +184,7 @@ function InstructionGroup({
         )}
       </div>
       {items.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-zGray-800 p-6 text-sm text-tertiary">
+        <p className="rounded-xl border border-dashed border-line-control p-6 text-sm text-tertiary">
           {editable
             ? scope === 'team'
               ? t('No team instructions yet.')

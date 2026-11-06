@@ -65,7 +65,7 @@ export function EditableConversationTitle({
           type="button"
           aria-label={t('Rename agent: {title}', { title })}
           onClick={() => setEditing(true)}
-          className="titlebar-no-drag group flex min-w-0 items-center gap-1.5 rounded px-1 py-1 text-left hover:bg-zGray-800/60"
+          className="titlebar-no-drag group flex min-w-0 items-center gap-1.5 rounded px-1 py-1 text-left hover:bg-state-hover"
         >
           <span className="truncate">{title}</span>
           <Pencil className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
@@ -167,7 +167,7 @@ export function RenameConversationDialog({
                 onClose()
               }
             }}
-            className="mt-3 w-full rounded-md border border-main bg-main px-3 py-2 text-[13px] text-main outline-none focus:border-zViolet-accent"
+            className="mt-3 w-full rounded-md border border-main bg-main px-3 py-2 text-[13px] text-main outline-none focus:border-line-focus"
           />
           <div className="mt-4 w-full">
             <AgentAvatarGrid value={avatar} onChange={setAvatar} onPreview={setPreview} />

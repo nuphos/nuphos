@@ -37,7 +37,7 @@ function EditorTabs({
           onClick={() => onChange(value)}
           className={clsx(
             'rounded-md px-2 py-1 text-[12px] capitalize transition-colors',
-            tab === value ? 'bg-zGray-800 text-main' : 'text-tertiary hover:text-secondary',
+            tab === value ? 'bg-surface-sunken text-main' : 'text-tertiary hover:text-secondary',
           )}
         >
           {value === 'write' ? t('Write') : t('Preview')}
@@ -52,7 +52,7 @@ function EditorTabs({
 
 function MarkdownPreview({ content }: { content: string }) {
   return (
-    <div className="max-h-[420px] min-h-[120px] overflow-y-auto rounded-md border border-zGray-800 px-3 py-2 text-[13px]">
+    <div className="max-h-[420px] min-h-[120px] overflow-y-auto rounded-md border border-line-control px-3 py-2 text-[13px]">
       {content.trim() ? (
         <MessageResponse>{content}</MessageResponse>
       ) : (

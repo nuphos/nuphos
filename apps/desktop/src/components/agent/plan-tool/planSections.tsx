@@ -93,9 +93,9 @@ export function PlanDecisionsView({
       floating={floating}
       Icon={SlidersHorizontal}
       title={t('Decisions')}
-      titleClassName="text-zViolet-accent/90"
-      iconBoxClassName="bg-zViolet-500/15 text-zViolet-accent"
-      sectionClassName="border-b border-zGray-800/70 bg-zGray-900/30 px-3.5 py-2.5"
+      titleClassName="text-primary"
+      iconBoxClassName="bg-state-selected text-primary"
+      sectionClassName="border-b border-line-control/70 bg-state-selected px-3.5 py-2.5"
     >
       <ul className="mt-1.5 space-y-2">
         {decisions.map((d, i) => (
@@ -127,7 +127,7 @@ export function PlanDatabaseActionView({
       title={t('Database change · {kind}', { kind: action.kind.toUpperCase() })}
       titleClassName="text-sky-300"
       iconBoxClassName="bg-sky-500/15 text-sky-300"
-      sectionClassName="border-b border-zGray-800/70 bg-sky-500/[0.025] px-3.5 py-2.5"
+      sectionClassName="border-b border-line-control/70 bg-sky-500/[0.025] px-3.5 py-2.5"
     >
       <dl className="mt-1.5 grid grid-cols-[7rem_minmax(0,1fr)] gap-x-2 gap-y-1 text-[12px] leading-relaxed">
         <dt className="text-tertiary">{t('Namespace')}</dt>
@@ -152,7 +152,7 @@ export function PlanDatabaseActionView({
       <div className="mt-2 text-[11.5px] font-medium leading-relaxed text-tertiary">
         {t('Approved statement preview')}
       </div>
-      <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md border border-sky-500/20 bg-zGray-950/70 px-2.5 py-2 font-mono text-[12px] leading-relaxed text-sky-100 scrollbar-thin">
+      <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md border border-sky-500/20 bg-state-selected px-2.5 py-2 font-mono text-[12px] leading-relaxed text-sky-100 scrollbar-thin">
         {action.statementPreview}
       </pre>
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] leading-relaxed text-tertiary">
@@ -216,8 +216,8 @@ export function PlanRiskView({ risk, floating }: { risk: PlanRisk; floating?: bo
       floating={floating}
       Icon={AlertTriangle}
       title={t('Risk')}
-      titleClassName="text-zOrangered-400/90"
-      iconBoxClassName="bg-zOrangered-500/15 text-zOrangered-400"
+      titleClassName="text-status-attention/90"
+      iconBoxClassName="bg-status-attention/15 text-status-attention"
       sectionClassName="px-3.5 py-2.5"
     >
       <div className="mt-0.5 text-[13px] leading-relaxed text-main">

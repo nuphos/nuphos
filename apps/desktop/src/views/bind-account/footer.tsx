@@ -7,7 +7,7 @@ import { ALIYUN_STEPS, HUAWEI_STEPS, TENCENT_STEPS, VOLC_STEPS } from './steps'
 import type { BindState } from './use-bind-state'
 
 const backButtonClass =
-  'h-8 px-3 rounded-md text-[12.5px] text-secondary hover:text-main hover:bg-zGray-800 disabled:opacity-50'
+  'h-8 px-3 rounded-md text-[12.5px] text-secondary hover:text-main hover:bg-state-hover disabled:opacity-50'
 
 export function BindDialogFooter({
   st,
@@ -41,7 +41,7 @@ export function BindDialogFooter({
   } = st
 
   return (
-    <div className="flex items-center justify-end gap-2 px-5 py-3 bg-zGray-900/60">
+    <div className="flex items-center justify-end gap-2 px-5 py-3 bg-state-selected">
       <div className="flex items-center gap-2">
         {provider === 'aws' && (
           <button

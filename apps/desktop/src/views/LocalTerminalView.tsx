@@ -159,7 +159,7 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
       <div
         className={`flex h-full min-h-0 flex-col ${resolved === 'light' ? 'bg-white' : 'bg-[#0f0e11]'}`}
       >
-        <div className="flex h-9 shrink-0 items-center gap-2 border-b border-zGray-800/60 px-3 text-xs text-tertiary">
+        <div className="flex h-9 shrink-0 items-center gap-2 border-b border-line-control/60 px-3 text-xs text-tertiary">
           <Terminal className="h-3.5 w-3.5" />
           <span>{sessionId ? t('Runtime terminal') : t('Local terminal')}</span>
           <span className="ml-auto" role="status">
@@ -169,7 +169,7 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
             <button
               type="button"
               onClick={newShell}
-              className="flex items-center gap-1 rounded px-2 py-1 text-secondary hover:bg-zGray-800/60"
+              className="flex items-center gap-1 rounded px-2 py-1 text-secondary hover:bg-state-hover"
               aria-label={t('New shell')}
             >
               <RotateCw className="h-3 w-3" /> {t('New shell')}

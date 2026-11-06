@@ -30,7 +30,8 @@ export const RANGE_OPTIONS = [
 
 export const INTERVAL_OPTIONS = [15, 30, 60] as const
 
-export const CHART_COLORS = ['#a469ff', '#43d9ad', '#f1b84b', '#5da9ff']
+// The first series takes the data color (design tokens); the rest stay distinct hues.
+export const CHART_COLORS = ['rgb(var(--color-data-1))', '#43d9ad', '#f1b84b', '#5da9ff']
 
 export function toChartRow(sample: MongoMonitoringSample): ChartRow {
   const metrics = sample.metrics

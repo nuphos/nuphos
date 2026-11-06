@@ -5,7 +5,7 @@ import clsx from 'clsx'
 import { t } from '../../i18n'
 
 const buttonClasses =
-  'inline-flex h-8 items-center gap-1.5 rounded-md border border-zGray-800 px-2.5 text-[12.5px] font-medium text-secondary transition-colors disabled:cursor-not-allowed disabled:opacity-50'
+  'inline-flex h-8 items-center gap-1.5 rounded-md border border-line-control px-2.5 text-[12.5px] font-medium text-secondary transition-colors disabled:cursor-not-allowed disabled:opacity-50'
 
 /** Reinstall / reconfigure + disconnect pair for an installed messaging app. */
 export function ConnectionActions({
@@ -30,7 +30,7 @@ export function ConnectionActions({
         onClick={onPrimary}
         disabled={primaryDisabled}
         title={primaryTitle}
-        className={clsx(buttonClasses, 'hover:border-zGray-700 hover:text-main')}
+        className={clsx(buttonClasses, 'hover:border-line-control hover:text-main')}
       >
         <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-3 w-3" />
         {primaryLabel}

@@ -49,13 +49,13 @@ export function D1SchemaExplorer({
   }, [load])
 
   return (
-    <section className="overflow-hidden rounded-xl border border-zGray-800 bg-zGray-900/20">
-      <div className="flex h-12 items-center gap-2 border-b border-zGray-800 px-4">
+    <section className="overflow-hidden rounded-xl border border-line-control bg-state-selected">
+      <div className="flex h-12 items-center gap-2 border-b border-line-control px-4">
         <Database className="h-4 w-4 text-[#F38020]" />
         <span className="min-w-0 flex-1 truncate text-[13px] text-main">
           {connection.databaseName ?? connection.name}
         </span>
-        <span className="rounded bg-zGray-800 px-2 py-0.5 text-[10px] text-tertiary">
+        <span className="rounded bg-surface-sunken px-2 py-0.5 text-[10px] text-tertiary">
           {t('SQLite tables via Cloudflare D1')}
         </span>
         <button
@@ -65,7 +65,7 @@ export function D1SchemaExplorer({
             load(true)
           }}
           disabled={loading}
-          className="rounded p-1.5 text-tertiary hover:bg-zGray-800 hover:text-main disabled:opacity-50"
+          className="rounded p-1.5 text-tertiary hover:bg-state-hover hover:text-main disabled:opacity-50"
           title={t('Refresh tables')}
         >
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -86,8 +86,8 @@ export function D1SchemaExplorer({
       ) : (
         <div className="max-h-[508px] overflow-auto">
           <table className="w-full text-left text-[11.5px]">
-            <thead className="sticky top-0 bg-zGray-900 text-tertiary">
-              <tr className="border-b border-zGray-800">
+            <thead className="sticky top-0 bg-surface-sheet text-tertiary">
+              <tr className="border-b border-line-control">
                 <th className="px-4 py-2.5 font-medium">{t('Table')}</th>
                 <th className="px-3 py-2.5 font-medium">{t('Product')}</th>
                 <th className="px-3 py-2.5 font-medium">{t('Details')}</th>
@@ -97,7 +97,7 @@ export function D1SchemaExplorer({
               {catalog.collections.map((table) => (
                 <tr
                   key={table.name}
-                  className="border-b border-zGray-800/70 text-secondary last:border-0"
+                  className="border-b border-line-control/70 text-secondary last:border-0"
                 >
                   <td className="px-4 py-2.5">
                     <span className="flex items-center gap-2 font-medium text-main">

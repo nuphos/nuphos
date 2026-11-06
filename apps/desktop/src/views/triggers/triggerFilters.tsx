@@ -27,8 +27,8 @@ export function FilterTabs<T extends string>({
           className={clsx(
             'h-7 rounded-md px-2.5 text-[12px] transition-colors',
             value === tab.value
-              ? 'bg-zGray-800 text-main'
-              : 'text-tertiary hover:bg-zGray-800/50 hover:text-secondary',
+              ? 'bg-surface-sunken text-main'
+              : 'text-tertiary hover:bg-state-hover hover:text-secondary',
           )}
         >
           {tab.label}
@@ -70,8 +70,8 @@ export function PrincipalFilter({
       <MenuTrigger
         className={clsx(
           'flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] transition-colors',
-          'data-[popup-open]:bg-zGray-800 data-[popup-open]:text-main',
-          value ? 'bg-zGray-800 text-main' : 'text-tertiary hover:bg-zGray-800/50',
+          'data-[popup-open]:bg-state-selected data-[popup-open]:text-main',
+          value ? 'bg-surface-sunken text-main' : 'text-tertiary hover:bg-state-hover',
         )}
         title={label}
       >

@@ -71,7 +71,7 @@ function CrumbFace({ seg }: { seg: BreadcrumbSegment }): ReactNode {
   return (
     <>
       {seg.loading ? (
-        <Loader2 className="w-3.5 h-3.5 flex-shrink-0 animate-spin text-zViolet-accent" />
+        <Loader2 className="w-3.5 h-3.5 flex-shrink-0 animate-spin text-primary" />
       ) : (
         seg.icon && (
           // Shrink-proofed here rather than at each call site: the label beside
@@ -123,7 +123,7 @@ function PlainCrumb({
         go()
       }}
       className={clsx(
-        'h-7 px-2 rounded-md flex items-center gap-1.5 text-[13px] outline-none focus-visible:ring-1 focus-visible:ring-zGray-700 hover:bg-zGray-800/60 text-main',
+        'h-7 px-2 rounded-md flex items-center gap-1.5 text-[13px] outline-none focus-visible:ring-1 focus-visible:ring-line-control hover:bg-state-hover text-main',
         widthClass,
       )}
     >
@@ -181,8 +181,8 @@ function SplitCrumb({
           aria-label={t('Switch {label}', { label: seg.label })}
           className={clsx(
             'h-7 rounded-md pl-2 pr-2 flex items-center gap-1.5 text-[13px] text-main outline-none',
-            'hover:bg-zGray-800/60 data-[popup-open]:bg-zGray-800/60',
-            'focus-visible:ring-1 focus-visible:ring-zGray-700',
+            'hover:bg-state-hover data-[popup-open]:bg-state-selected',
+            'focus-visible:ring-1 focus-visible:ring-line-control',
             widthClass,
           )}
         >
@@ -200,7 +200,7 @@ function SplitCrumb({
         className={clsx(
           'flex h-7 items-center rounded-md',
           widthClass,
-          go && 'hover:bg-zGray-800/60',
+          go && 'hover:bg-state-hover',
         )}
       >
         <button
@@ -220,7 +220,7 @@ function SplitCrumb({
             // The chevron half fills with its own deeper tint on hover, and
             // that fill starts where this padding ends — too little and the
             // label reads as touching it.
-            'h-7 min-w-0 rounded-l-md pl-2 pr-1.5 flex items-center gap-1.5 text-[13px] text-main outline-none focus-visible:ring-1 focus-visible:ring-zGray-700',
+            'h-7 min-w-0 rounded-l-md pl-2 pr-1.5 flex items-center gap-1.5 text-[13px] text-main outline-none focus-visible:ring-1 focus-visible:ring-line-control',
             !go && 'cursor-default',
           )}
         >
@@ -239,8 +239,8 @@ function SplitCrumb({
               // block is what you notice. Matches the label's leading inset, so
               // the crumb is evenly inset at both ends too.
               'h-7 flex-shrink-0 rounded-r-md px-2 flex items-center text-main outline-none',
-              'hover:bg-zGray-800 data-[popup-open]:bg-zGray-800',
-              'focus-visible:ring-1 focus-visible:ring-zGray-700',
+              'hover:bg-state-hover data-[popup-open]:bg-state-selected',
+              'focus-visible:ring-1 focus-visible:ring-line-control',
             )}
           >
             <ChevronDown className="w-3 h-3 flex-shrink-0 opacity-60" />

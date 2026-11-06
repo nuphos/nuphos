@@ -106,11 +106,11 @@ export function BoxUsageChart({
         }
       />
       {empty ? (
-        <p className="rounded-xl border border-dashed border-zGray-800 px-4 py-6 text-center text-xs leading-5 text-tertiary">
+        <p className="rounded-xl border border-dashed border-line-control px-4 py-6 text-center text-xs leading-5 text-tertiary">
           {t('No computers ran in this range.')}
         </p>
       ) : (
-        <div className="h-40 rounded-xl border border-zGray-800/60 bg-surface/40 px-2 pb-1 pt-3">
+        <div className="h-40 rounded-xl border border-line-control/60 bg-surface/40 px-2 pb-1 pt-3">
           {points && (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={points} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
@@ -134,7 +134,7 @@ export function BoxUsageChart({
                   axisLine={false}
                 />
                 <Tooltip
-                  cursor={{ stroke: 'rgba(164, 105, 255, 0.4)' }}
+                  cursor={{ stroke: 'rgba(var(--color-data-1), 0.4)' }}
                   content={({ active, payload }) => {
                     const point = payload?.[0]?.payload as Point | undefined
 
@@ -142,7 +142,7 @@ export function BoxUsageChart({
                     const atLimit = point.limit !== null && point.used >= point.limit
 
                     return (
-                      <div className="rounded-md border border-zGray-800 bg-zGray-950/95 px-2 py-1 text-[11px] shadow-lg">
+                      <div className="rounded-md border border-line-control bg-state-selected px-2 py-1 text-[11px] shadow-lg">
                         <div className="text-tertiary">{timeLabel(point.at, range)}</div>
                         <div className={atLimit ? 'font-mono text-warning' : 'font-mono text-main'}>
                           {point.used}

@@ -89,7 +89,7 @@ export function Toolbar(p: ToolbarProps) {
         {draftName === null ? (
           <button
             type="button"
-            className="h-7 max-w-[12rem] truncate rounded px-2 text-[13px] font-medium text-main hover:bg-zGray-800"
+            className="h-7 max-w-[12rem] truncate rounded px-2 text-[13px] font-medium text-main hover:bg-state-hover"
             title={t('Rename design')}
             onClick={() => setDraftName(p.name)}
           >
@@ -114,13 +114,13 @@ export function Toolbar(p: ToolbarProps) {
             }}
             aria-label={t('Design name')}
             maxLength={100}
-            className="h-7 w-44 rounded border border-zViolet-500 bg-main px-2 text-[13px] text-main outline-none focus:ring-1 focus:ring-zViolet-500/60"
+            className="h-7 w-44 rounded border border-action-primary bg-main px-2 text-[13px] text-main outline-none focus:ring-1 focus:ring-line-focus"
           />
         )}
-        <span className="mx-0.5 h-5 w-px bg-zGray-800" />
+        <span className="mx-0.5 h-5 w-px bg-surface-sunken" />
         <Menu>
           <MenuTrigger
-            className="inline-flex h-7 items-center gap-1 rounded px-2 text-[13px] text-main hover:bg-zGray-800"
+            className="inline-flex h-7 items-center gap-1 rounded px-2 text-[13px] text-main hover:bg-state-hover"
             title={t('Pages')}
           >
             <span className="max-w-[10rem] truncate">{page?.name ?? t('Page')}</span>
@@ -179,9 +179,9 @@ export function Toolbar(p: ToolbarProps) {
             aria-pressed={p.tool === 'shape'}
             title={t('Shape (R)')}
             className={clsx(
-              'inline-flex h-7 items-center gap-0.5 rounded-md px-1 text-secondary hover:bg-zGray-800 hover:text-main',
+              'inline-flex h-7 items-center gap-0.5 rounded-md px-1 text-secondary hover:bg-state-hover hover:text-main',
               p.tool === 'shape' &&
-                'bg-zViolet-500 text-white hover:bg-zViolet-400 hover:text-white',
+                'bg-action-primary text-inverse hover:bg-action-primary/90 hover:text-inverse',
             )}
           >
             <Shapes className="h-4 w-4" />
@@ -205,7 +205,7 @@ export function Toolbar(p: ToolbarProps) {
         </Menu>
         {p.tool === 'frame' && (
           <>
-            <span className="mx-0.5 h-5 w-px bg-zGray-800" />
+            <span className="mx-0.5 h-5 w-px bg-surface-sunken" />
             {(Object.keys(FRAME_PRESETS) as FramePreset[]).map((key) => (
               <Button
                 key={key}
@@ -213,7 +213,7 @@ export function Toolbar(p: ToolbarProps) {
                 size="sm"
                 className={clsx(
                   'h-7 px-2 text-[12px]',
-                  p.framePreset === key && 'bg-zGray-800 text-main',
+                  p.framePreset === key && 'bg-surface-sunken text-main',
                 )}
                 onClick={() => p.onFramePreset(key)}
               >
@@ -224,7 +224,7 @@ export function Toolbar(p: ToolbarProps) {
         )}
         {(p.tool === 'pen' || p.tool === 'shape') && (
           <>
-            <span className="mx-0.5 h-5 w-px bg-zGray-800" />
+            <span className="mx-0.5 h-5 w-px bg-surface-sunken" />
             <span
               className="flex items-center gap-1 px-1"
               role="radiogroup"
@@ -237,7 +237,7 @@ export function Toolbar(p: ToolbarProps) {
                   role="radio"
                   aria-checked={p.inkColor === color}
                   aria-label={color}
-                  className="flex h-5 w-5 items-center justify-center rounded-full ring-offset-1 ring-offset-[rgb(var(--color-background-base))] focus-visible:ring-2 focus-visible:ring-zViolet-accent"
+                  className="flex h-5 w-5 items-center justify-center rounded-full ring-offset-1 ring-offset-[rgb(var(--color-background-base))] focus-visible:ring-2 focus-visible:ring-line-focus"
                   style={{
                     background: color,
                     boxShadow: p.inkColor === color ? `0 0 0 2px ${color}` : undefined,

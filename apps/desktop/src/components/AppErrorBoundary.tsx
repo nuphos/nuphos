@@ -89,8 +89,8 @@ function CrashPage({
           </div>
         </header>
 
-        <div className="rounded-lg border border-zGray-800 bg-zGray-900/80 shadow-2xl shadow-black/20">
-          <div className="flex items-start gap-4 border-b border-zGray-800 px-5 py-5">
+        <div className="rounded-lg border border-line-control bg-state-selected shadow-2xl shadow-black/20">
+          <div className="flex items-start gap-4 border-b border-line-control px-5 py-5">
             <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border border-error/35 bg-error/10 text-error">
               <AlertTriangle className="h-5 w-5" strokeWidth={2} />
             </div>
@@ -104,11 +104,11 @@ function CrashPage({
                 )}
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-tertiary">
-                <span className="rounded-md border border-zGray-800 bg-zGray-950/60 px-2 py-1 font-mono">
+                <span className="rounded-md border border-line-control bg-state-selected px-2 py-1 font-mono">
                   {crash.source ?? 'unknown'}
                 </span>
                 {crash.eventId && (
-                  <span className="rounded-md border border-zGray-800 bg-zGray-950/60 px-2 py-1 font-mono">
+                  <span className="rounded-md border border-line-control bg-state-selected px-2 py-1 font-mono">
                     {crash.eventId}
                   </span>
                 )}
@@ -119,17 +119,17 @@ function CrashPage({
           <div className="space-y-4 px-5 py-5">
             <div>
               <div className="text-[12px] font-medium uppercase text-tertiary">{t('Error')}</div>
-              <div className="mt-2 rounded-md border border-zGray-800 bg-zGray-950/70 px-3 py-2 font-mono text-[12.5px] leading-5 text-main">
+              <div className="mt-2 rounded-md border border-line-control bg-state-selected px-3 py-2 font-mono text-[12.5px] leading-5 text-main">
                 {error.name}: {error.message}
               </div>
             </div>
 
-            <details className="rounded-md border border-zGray-800 bg-zGray-950/50" open>
+            <details className="rounded-md border border-line-control bg-state-selected" open>
               <summary className="cursor-default px-3 py-2 text-[12.5px] font-medium text-secondary hover:text-main">
                 {t('Diagnostics')}
               </summary>
               <pre
-                className="max-h-72 overflow-auto whitespace-pre-wrap border-t border-zGray-800 px-3 py-3 font-mono text-[11.5px] leading-5 text-secondary scrollbar-thin"
+                className="max-h-72 overflow-auto whitespace-pre-wrap border-t border-line-control px-3 py-3 font-mono text-[11.5px] leading-5 text-secondary scrollbar-thin"
                 data-ph-mask
               >
                 {details}
@@ -137,11 +137,11 @@ function CrashPage({
             </details>
           </div>
 
-          <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-zGray-800 bg-zGray-950/40 px-5 py-4">
+          <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-line-control bg-state-selected px-5 py-4">
             <button
               type="button"
               onClick={onCopy}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zGray-700 bg-zGray-900 px-3 text-[12.5px] text-secondary hover:bg-zGray-800 hover:text-main"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line-control bg-surface-sheet px-3 text-[12.5px] text-secondary hover:bg-state-hover hover:text-main"
             >
               <Clipboard className="h-3.5 w-3.5" strokeWidth={1.8} />
               {copied ? t('Copied') : t('Copy details')}

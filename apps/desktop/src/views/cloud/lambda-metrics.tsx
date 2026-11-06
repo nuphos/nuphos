@@ -101,7 +101,7 @@ export function LambdaMetricsPanel({
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-y-auto scrollbar-thin">
-      <div className="flex items-center gap-1.5 px-4 py-2 border-b border-zGray-850 text-[12px]">
+      <div className="flex items-center gap-1.5 px-4 py-2 border-b border-line-control text-[12px]">
         <span className="text-tertiary mr-1">{t('Time range')}</span>
         {LAMBDA_RANGE_OPTIONS.map((opt) => (
           <button
@@ -117,8 +117,8 @@ export function LambdaMetricsPanel({
             }}
             className={`h-7 px-2.5 rounded-md text-[12.5px] font-medium ${
               rangeMinutes === opt.minutes
-                ? 'bg-zViolet-500/15 text-zViolet-accent'
-                : 'bg-zGray-850 hover:bg-zGray-800 text-secondary hover:text-main'
+                ? 'bg-state-selected text-primary'
+                : 'bg-surface-sunken hover:bg-state-hover text-secondary hover:text-main'
             }`}
           >
             {opt.label}
@@ -152,7 +152,10 @@ export function LambdaMetricsPanel({
       ) : (
         <div className="grid grid-cols-1 @3xl:grid-cols-2 gap-4 p-4">
           {charts.map((s) => (
-            <div key={s.metricName} className="bg-zGray-950 border border-zGray-850 rounded-md p-3">
+            <div
+              key={s.metricName}
+              className="bg-surface-canvas border border-line-control rounded-md p-3"
+            >
               <div className="flex items-baseline gap-2 mb-2">
                 <span className="text-[13px] font-medium text-main">{s.metricName}</span>
                 <span className="text-[11.5px] text-tertiary">

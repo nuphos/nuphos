@@ -25,15 +25,15 @@ export function ContainerSpecCards({ containers }: { containers: ContainerSpecMo
       {containers.map((container) => (
         <article
           key={`${container.init ? 'init' : container.ephemeral ? 'ephemeral' : 'main'}:${container.name}`}
-          className="min-w-0 rounded-lg border border-zGray-800 bg-zGray-900 p-3.5"
+          className="min-w-0 rounded-lg border border-line-control bg-surface-sheet p-3.5"
         >
           <div className="flex min-w-0 items-center gap-2">
             <span
               className={clsx(
                 'flex h-7 w-7 shrink-0 items-center justify-center rounded-md ring-1 ring-inset',
                 container.init
-                  ? 'bg-zGray-800 text-secondary ring-zGray-700'
-                  : 'bg-zViolet-500/10 text-zViolet-accent ring-zViolet-500/15',
+                  ? 'bg-surface-sunken text-secondary ring-line-control'
+                  : 'bg-state-selected text-primary ring-line-focus',
               )}
             >
               <Box className="h-3.5 w-3.5" strokeWidth={1.8} />
@@ -55,7 +55,7 @@ export function ContainerSpecCards({ containers }: { containers: ContainerSpecMo
               </div>
             </div>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-zGray-800 pt-3">
+          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-line-control pt-3">
             <SmallFact label={t('CPU')}>
               {t('{request} req · {limit} limit', {
                 request: container.cpuRequest ?? '-',

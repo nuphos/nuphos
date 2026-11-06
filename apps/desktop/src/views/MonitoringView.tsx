@@ -162,7 +162,7 @@ export function MonitoringView({
         )}
 
       {(overview?.providerErrors.length ?? 0) > 0 && (
-        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-zGray-800 px-4 py-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line-control px-4 py-2">
           {overview!.providerErrors.map((e) => (
             <span
               key={`${e.provider}:${e.integrationId}`}

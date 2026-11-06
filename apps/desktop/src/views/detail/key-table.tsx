@@ -31,7 +31,7 @@ export function MetadataPills({
               {row.values.slice(0, 12).map((value) => (
                 <span
                   key={value}
-                  className="max-w-full truncate rounded bg-zGray-850 px-1.5 py-0.5 font-mono text-[11.5px] text-secondary"
+                  className="max-w-full truncate rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[11.5px] text-secondary"
                   title={value}
                 >
                   {value}
@@ -86,7 +86,7 @@ export function KeyTable({
             type="button"
             onClick={onAdd}
             disabled={addDisabled}
-            className="inline-flex h-7 items-center gap-1.5 rounded bg-zGray-800 px-2.5 text-[12px] text-main hover:bg-zGray-750 disabled:opacity-45 disabled:hover:bg-zGray-800"
+            className="inline-flex h-7 items-center gap-1.5 rounded bg-surface-sunken px-2.5 text-[12px] text-main hover:bg-state-hover disabled:opacity-45 disabled:hover:bg-state-hover"
             title={addDisabled ? t('Immutable resources cannot be edited') : t('Add key')}
           >
             <Plus className="h-3.5 w-3.5" strokeWidth={2} />
@@ -95,12 +95,12 @@ export function KeyTable({
         )}
       </div>
       {keys.length === 0 ? (
-        <div className="border border-zGray-800 bg-zGray-900 px-4 py-5 text-[12.5px] text-tertiary">
+        <div className="border border-line-control bg-surface-sheet px-4 py-5 text-[12.5px] text-tertiary">
           {empty}
         </div>
       ) : (
-        <div className="overflow-hidden border border-zGray-800">
-          <div className="grid grid-cols-[minmax(150px,1.1fr)_110px_90px_minmax(180px,2fr)_132px] border-b border-zGray-800 bg-zGray-900 px-3 py-2 text-[11.5px] uppercase tracking-wider text-tertiary">
+        <div className="overflow-hidden border border-line-control">
+          <div className="grid grid-cols-[minmax(150px,1.1fr)_110px_90px_minmax(180px,2fr)_132px] border-b border-line-control bg-surface-sheet px-3 py-2 text-[11.5px] uppercase tracking-wider text-tertiary">
             <div>{t('Key')}</div>
             <div>{t('Source')}</div>
             <div>{t('Size')}</div>
@@ -110,7 +110,7 @@ export function KeyTable({
           {keys.map((entry) => (
             <div
               key={`${entry.source}:${entry.key}`}
-              className="grid grid-cols-[minmax(150px,1.1fr)_110px_90px_minmax(180px,2fr)_132px] items-center border-b border-zGray-850 px-3 py-2 text-[12.5px] last:border-b-0"
+              className="grid grid-cols-[minmax(150px,1.1fr)_110px_90px_minmax(180px,2fr)_132px] items-center border-b border-line-control px-3 py-2 text-[12.5px] last:border-b-0"
             >
               <div className="min-w-0 truncate font-mono text-main" title={entry.key}>
                 {entry.key}
@@ -139,10 +139,7 @@ export function KeyTable({
                     onClick={() => onCopy(entry)}
                   >
                     <Copy
-                      className={clsx(
-                        'h-3.5 w-3.5',
-                        copiedId === entry.id && 'text-zViolet-accent',
-                      )}
+                      className={clsx('h-3.5 w-3.5', copiedId === entry.id && 'text-primary')}
                       strokeWidth={2}
                     />
                   </IconButton>
@@ -183,7 +180,7 @@ function IconButton({
       title={title}
       onClick={onClick}
       className={clsx(
-        'flex h-7 w-7 items-center justify-center rounded text-tertiary hover:bg-zGray-800 hover:text-main',
+        'flex h-7 w-7 items-center justify-center rounded text-tertiary hover:bg-state-hover hover:text-main',
         danger && 'hover:bg-error/15 hover:text-error',
       )}
     >

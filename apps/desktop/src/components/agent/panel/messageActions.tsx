@@ -64,7 +64,7 @@ export function CopyMessageButton({
       type="button"
       data-copy-latest={shortcut ? '' : undefined}
       onClick={handleCopy}
-      className="flex h-7 w-7 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-zGray-800/60 hover:text-main outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zViolet-accent"
+      className="flex h-7 w-7 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-state-hover hover:text-main outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-line-focus"
       title={copied ? t('Copied') : idleTitle}
       aria-label={copied ? t('Copied') : label}
     >
@@ -85,7 +85,7 @@ export function EditMessageButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex h-7 w-7 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-zGray-800/60 hover:text-main outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zViolet-accent"
+      className="flex h-7 w-7 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-state-hover hover:text-main outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-line-focus"
       title={t('Edit')}
       aria-label={t('Edit message')}
     >
@@ -119,10 +119,10 @@ export function AssistantMessageActions({
         type="button"
         onClick={() => onSelectRating?.(selected ? null : rating)}
         className={clsx(
-          'flex h-7 w-7 items-center justify-center rounded-md transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zViolet-accent',
+          'flex h-7 w-7 items-center justify-center rounded-md transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-line-focus',
           selected
-            ? 'bg-zGray-800/80 text-main'
-            : 'text-tertiary hover:bg-zGray-800/60 hover:text-main',
+            ? 'bg-state-selected text-main'
+            : 'text-tertiary hover:bg-state-hover hover:text-main',
         )}
         title={rating === 'up' ? t('Good response') : t('Bad response')}
         aria-label={rating === 'up' ? t('Good response') : t('Bad response')}

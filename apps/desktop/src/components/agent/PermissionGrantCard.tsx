@@ -13,13 +13,13 @@ function statusChip(status: PermissionGrantProposalView['status']): {
 } {
   switch (status) {
     case 'proposed':
-      return { label: t('Retired'), className: 'bg-zGray-800 text-tertiary' }
+      return { label: t('Retired'), className: 'bg-surface-sunken text-tertiary' }
     case 'executing':
-      return { label: t('Applying…'), className: 'bg-zViolet-500/15 text-zViolet-accent' }
+      return { label: t('Applying…'), className: 'bg-state-selected text-primary' }
     case 'executed':
       return { label: t('Applied'), className: 'bg-success/15 text-success' }
     case 'rejected':
-      return { label: t('Rejected'), className: 'bg-zGray-800 text-tertiary' }
+      return { label: t('Rejected'), className: 'bg-surface-sunken text-tertiary' }
     case 'failed':
       return { label: t('Failed'), className: 'bg-error/15 text-error' }
   }
@@ -68,14 +68,14 @@ export function PermissionGrantCard({
 
   if (loadError && !proposal) {
     return (
-      <div className="rounded-lg border border-zGray-800 bg-zGray-875 p-3 text-[12px] text-tertiary">
+      <div className="rounded-lg border border-line-control bg-surface-sunken p-3 text-[12px] text-tertiary">
         {t("Couldn't load the permission proposal: {error}", { error: loadError })}
       </div>
     )
   }
   if (!proposal) {
     return (
-      <div className="rounded-lg border border-zGray-800 bg-zGray-875 p-3 text-[12px] text-tertiary inline-flex items-center gap-1.5">
+      <div className="rounded-lg border border-line-control bg-surface-sunken p-3 text-[12px] text-tertiary inline-flex items-center gap-1.5">
         <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('Loading permission proposal…')}
       </div>
     )
@@ -84,9 +84,9 @@ export function PermissionGrantCard({
   const chip = statusChip(proposal.status)
 
   return (
-    <div className="rounded-lg border border-zViolet-500/30 bg-zViolet-500/[0.06] overflow-hidden">
-      <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-zGray-800/60">
-        <ShieldCheck className="h-4 w-4 text-zViolet-accent flex-shrink-0" strokeWidth={1.8} />
+    <div className="rounded-lg border border-action-primary/30 bg-action-primary/[0.06] overflow-hidden">
+      <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-line-control/60">
+        <ShieldCheck className="h-4 w-4 text-primary flex-shrink-0" strokeWidth={1.8} />
         <div className="text-[13px] text-main font-medium">
           {proposal.action === 'revoke'
             ? t('Permission removal proposed')
@@ -109,7 +109,7 @@ export function PermissionGrantCard({
           ))}
         </div>
 
-        <div className="text-[11.5px] text-secondary leading-relaxed border-t border-zGray-800/60 pt-2">
+        <div className="text-[11.5px] text-secondary leading-relaxed border-t border-line-control/60 pt-2">
           <span className="text-tertiary">{t('Why:')} </span>
           {proposal.reason}
         </div>

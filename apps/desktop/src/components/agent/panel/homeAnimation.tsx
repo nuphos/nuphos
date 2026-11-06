@@ -265,7 +265,7 @@ export function Welcome({ onPick }: { onPick: (prompt: string) => void }) {
             <button
               key={i}
               onClick={() => onPick(p.prompt)}
-              className="w-full text-left px-3 py-2 rounded-md hover:bg-zGray-800/60 transition-colors flex items-center gap-3 group"
+              className="w-full text-left px-3 py-2 rounded-md hover:bg-state-hover transition-colors flex items-center gap-3 group"
             >
               <Icon className="w-4 h-4 text-tertiary flex-shrink-0" strokeWidth={1.8} />
               <span className="text-[13px] text-secondary group-hover:text-main truncate">

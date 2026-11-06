@@ -18,7 +18,7 @@ export function Kbd({ combo, className }: KbdProps) {
   return (
     <kbd
       className={clsx(
-        'inline-flex flex-shrink-0 items-center gap-0.5 rounded border border-zGray-700 px-1 py-px',
+        'inline-flex flex-shrink-0 items-center gap-0.5 rounded border border-line-control px-1 py-px',
         'font-sans text-[10px] normal-case leading-4 tracking-normal text-tertiary',
         className,
       )}

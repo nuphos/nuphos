@@ -127,7 +127,7 @@ export function GcpDashboardDetailView({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <DashboardDetailHeader summary={summary} onBack={onBack} />
-      <div className="flex flex-wrap items-center gap-2 border-b border-zGray-800/60 px-4 py-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-line-control/60 px-4 py-2">
         {dashboard.filters.map((dashboardFilter) =>
           dashboardFilter.options.length > 0 ? (
             <div key={dashboardFilter.id} className="flex items-center gap-1.5">
@@ -161,7 +161,7 @@ export function GcpDashboardDetailView({
                   }))
                 }
                 placeholder={t('All')}
-                className="h-7 w-[140px] rounded border border-zGray-800 bg-surface px-2 text-[11.5px] text-main outline-none focus:border-zViolet-accent/60"
+                className="h-7 w-[140px] rounded border border-line-control bg-surface px-2 text-[11.5px] text-main outline-none focus:border-line-focus"
               />
             </label>
           ),
@@ -181,8 +181,8 @@ export function GcpDashboardDetailView({
               }}
               className={`h-6 rounded px-2 text-[11px] font-medium ${
                 rangeMinutes === option.minutes
-                  ? 'bg-zViolet-accent/15 text-zViolet-accent'
-                  : 'text-tertiary hover:bg-zGray-850 hover:text-main'
+                  ? 'bg-state-selected text-primary'
+                  : 'text-tertiary hover:bg-state-hover hover:text-main'
               }`}
             >
               {option.label}
@@ -194,7 +194,7 @@ export function GcpDashboardDetailView({
               setDefinitionTick((value) => value + 1)
               setQueryTick((value) => value + 1)
             }}
-            className="ml-1 flex h-7 w-7 items-center justify-center rounded border border-zGray-800 text-tertiary hover:bg-zGray-850 hover:text-main"
+            className="ml-1 flex h-7 w-7 items-center justify-center rounded border border-line-control text-tertiary hover:bg-state-hover hover:text-main"
             title={t('Refresh dashboard definition and data')}
           >
             <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.8} />
@@ -235,14 +235,14 @@ export function GcpDashboardDetailView({
                   <div
                     key={widget.ref}
                     style={style}
-                    className="pointer-events-none outline outline-1 outline-zViolet-accent/30"
+                    className="pointer-events-none outline outline-1 outline-line-focus"
                   >
                     <button
                       type="button"
                       onClick={() =>
                         setGroupOpen((current) => ({ ...current, [widget.ref]: !open }))
                       }
-                      className="pointer-events-auto flex h-8 items-center gap-1.5 border-b border-zViolet-accent/20 bg-zGray-950/95 px-3 text-[11.5px] font-medium text-secondary hover:text-main"
+                      className="pointer-events-auto flex h-8 items-center gap-1.5 border-b border-action-primary/20 bg-state-selected px-3 text-[11.5px] font-medium text-secondary hover:text-main"
                     >
                       {open ? (
                         <ChevronDown className="h-3.5 w-3.5" strokeWidth={1.8} />

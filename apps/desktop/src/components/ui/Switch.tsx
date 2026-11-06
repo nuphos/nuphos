@@ -27,7 +27,7 @@ export function Switch({
       className={clsx(
         'relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors',
         'disabled:cursor-not-allowed disabled:opacity-50',
-        checked ? 'bg-zViolet-500' : 'bg-zGray-700',
+        checked ? 'bg-action-primary' : 'bg-line-control',
       )}
     >
       <span

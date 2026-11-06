@@ -150,7 +150,7 @@ export const UserMessage = memo(
             )}
             {message.metadata?.replyTo && (
               <div
-                className="max-w-full border-l-2 border-zGray-700 pl-2 pr-1 text-xs leading-4 text-tertiary line-clamp-2 whitespace-pre-wrap break-words"
+                className="max-w-full border-l-2 border-line-control pl-2 pr-1 text-xs leading-4 text-tertiary line-clamp-2 whitespace-pre-wrap break-words"
                 title={message.metadata.replyTo.text}
               >
                 <span className="font-medium text-secondary">

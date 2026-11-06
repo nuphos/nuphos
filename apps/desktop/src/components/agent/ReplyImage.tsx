@@ -9,7 +9,7 @@ import { MEDIA_BOX } from './panel/transferDownloads'
 
 import type { FileTransferGroup } from '../../types'
 
-const FRAME = `block rounded-lg border border-zGray-800 bg-zGray-900 ${MEDIA_BOX}`
+const FRAME = `block rounded-lg border border-line-control bg-surface-sheet ${MEDIA_BOX}`
 
 /**
  * Any other markdown or HTML image (GitHub bodies and comments included):

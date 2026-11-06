@@ -20,9 +20,9 @@ export function SkillHistorySection({
   return (
     <section className="space-y-2">
       <div className="text-[11px] uppercase tracking-wide text-tertiary">{t('History')}</div>
-      <div className="overflow-hidden rounded-md border border-zGray-800/60">
+      <div className="overflow-hidden rounded-md border border-line-control/60">
         {events.slice(0, 20).map((event) => (
-          <div key={event.id} className="border-b border-zGray-800/40 px-3 py-2 last:border-b-0">
+          <div key={event.id} className="border-b border-line-control/40 px-3 py-2 last:border-b-0">
             <div className="flex items-center gap-2 text-[12px]">
               <span className="font-mono text-main">{event.action.replaceAll('_', ' ')}</span>
               <span
@@ -77,7 +77,7 @@ export function SkillUploadSection({
   onUploadFile: (file: File, keyOverride?: string) => void
 }) {
   return (
-    <section className="space-y-2 rounded-md border border-zGray-800/60 px-3 py-3">
+    <section className="space-y-2 rounded-md border border-line-control/60 px-3 py-3">
       <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-tertiary">
         <Upload className="w-3.5 h-3.5" strokeWidth={1.8} />
         {t('Upload file')}
@@ -87,7 +87,7 @@ export function SkillUploadSection({
         value={uploadKey}
         onChange={(event) => onUploadKeyChange(event.target.value)}
         spellCheck={false}
-        className="w-full h-8 px-2.5 rounded-md border border-zGray-800/60 bg-surface text-[12px] font-mono text-main outline-none focus:border-zViolet-500"
+        className="w-full h-8 px-2.5 rounded-md border border-line-control/60 bg-surface text-[12px] font-mono text-main outline-none focus:border-line-focus"
         placeholder={`${prefix}SKILL.md`}
       />
       <p className="text-[11px] text-tertiary leading-relaxed">
@@ -155,14 +155,14 @@ export function SkillFilesSection({
       {files.length === 0 ? (
         <p className="text-[12px] text-tertiary">{t('No files under this skill.')}</p>
       ) : (
-        <div className="rounded-md border border-zGray-800/60 overflow-hidden">
+        <div className="rounded-md border border-line-control/60 overflow-hidden">
           {files.map((file) => {
             const relative = file.key.slice(prefix.length) || file.key
 
             return (
               <div
                 key={file.key}
-                className="flex items-center gap-2 px-3 py-2 border-b border-zGray-800/40 last:border-b-0 text-[12px]"
+                className="flex items-center gap-2 px-3 py-2 border-b border-line-control/40 last:border-b-0 text-[12px]"
               >
                 <div className="min-w-0 flex-1">
                   <div className="font-mono text-main truncate" title={file.key}>
@@ -182,7 +182,7 @@ export function SkillFilesSection({
                   <button
                     type="button"
                     onClick={() => onDeleteFile(file.key)}
-                    className="h-7 w-7 rounded-md text-tertiary hover:text-red-400 hover:bg-zGray-800 flex items-center justify-center"
+                    className="h-7 w-7 rounded-md text-tertiary hover:text-red-400 hover:bg-state-hover flex items-center justify-center"
                     title={t('Delete {name}', { name: file.key })}
                     aria-label={t('Delete {name}', { name: file.key })}
                   >

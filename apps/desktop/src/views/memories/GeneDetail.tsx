@@ -14,7 +14,7 @@ export function GeneDetail({ gene }: { gene: NonNullable<AgentMemoryItem['gene']
         <DetailBlock label={t('Signals')}>
           <div className="flex flex-wrap gap-1.5">
             {gene.triggerSignals.map((s, i) => (
-              <span key={i} className="px-2 py-1 rounded-md bg-zGray-850 text-secondary">
+              <span key={i} className="px-2 py-1 rounded-md bg-surface-sunken text-secondary">
                 {s}
               </span>
             ))}
@@ -69,7 +69,7 @@ export function GeneDetail({ gene }: { gene: NonNullable<AgentMemoryItem['gene']
             {gene.capsules!.map((c, i) => (
               <div
                 key={i}
-                className="rounded-md border border-zGray-800/60 bg-zGray-850 p-2.5 space-y-1.5"
+                className="rounded-md border border-line-control/60 bg-surface-sunken p-2.5 space-y-1.5"
               >
                 <div className="flex items-center gap-1.5 text-xs text-tertiary uppercase tracking-wide">
                   <span>{c.outcome}</span>

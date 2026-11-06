@@ -40,10 +40,10 @@ export function ZoomMenu(p: ZoomMenuProps) {
             {t('Play')}
           </Button>
         </Tooltip>
-        <span className="mx-0.5 h-5 w-px bg-zGray-800" />
+        <span className="mx-0.5 h-5 w-px bg-surface-sunken" />
         <Menu>
           <MenuTrigger
-            className="inline-flex h-7 min-w-[4.5rem] items-center justify-between gap-1 rounded px-2 font-mono text-[12px] text-main hover:bg-zGray-800"
+            className="inline-flex h-7 min-w-[4.5rem] items-center justify-between gap-1 rounded px-2 font-mono text-[12px] text-main hover:bg-state-hover"
             title={t('Zoom')}
           >
             {Math.round(zoom * 100)}%

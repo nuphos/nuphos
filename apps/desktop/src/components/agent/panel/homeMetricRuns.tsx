@@ -28,7 +28,7 @@ export function LongestRunBody({ stats, onOpenConversation }: MetricBodyProps) {
     <>
       <BigNumber value={formatDuration(ms)}>
         {ms >= MARATHON_MS && (
-          <span className="flex-none self-center whitespace-nowrap rounded-full bg-zGray-800/40 px-2 py-0.5 text-[11px] text-secondary">
+          <span className="flex-none self-center whitespace-nowrap rounded-full bg-state-selected px-2 py-0.5 text-[11px] text-secondary">
             {t('Marathon')}
           </span>
         )}

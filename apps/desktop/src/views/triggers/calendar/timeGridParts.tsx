@@ -13,11 +13,11 @@ const WEEKDAY_FMT = new Intl.DateTimeFormat('en-US', { weekday: 'short' })
 export function DayHeaderCell({ day, now }: { day: Date; now: Date }) {
   return (
     <div
-      className={`flex flex-1 items-baseline justify-center gap-1.5 border-l border-main/60 py-2 text-[12px] ${isWeekend(day) ? 'bg-zGray-800/25' : ''}`}
+      className={`flex flex-1 items-baseline justify-center gap-1.5 border-l border-main/60 py-2 text-[12px] ${isWeekend(day) ? 'bg-state-selected' : ''}`}
     >
       <span className="text-tertiary">{WEEKDAY_FMT.format(day)}</span>
       {sameDay(day, now) ? (
-        <span className="rounded-[5px] bg-zOrangered-500 px-1.5 font-semibold text-white">
+        <span className="rounded-[5px] bg-status-attention px-1.5 font-semibold text-white">
           {day.getDate()}
         </span>
       ) : (
@@ -45,7 +45,9 @@ export function DayColumn({
   const positioned = useMemo(() => layoutDayEvents(events), [events])
 
   return (
-    <div className={`relative flex-1 border-l border-main/60 ${weekend ? 'bg-zGray-800/25' : ''}`}>
+    <div
+      className={`relative flex-1 border-l border-main/60 ${weekend ? 'bg-state-selected' : ''}`}
+    >
       {positioned.map(({ event, lane, laneCount }) => {
         const top = (event.start.getHours() * 60 + event.start.getMinutes()) * MINUTE_HEIGHT
         const time = formatEventTime(event.start)
@@ -82,12 +84,12 @@ export function DayColumn({
       {nowTop !== null &&
         (isToday ? (
           <div className="pointer-events-none absolute inset-x-0 z-10" style={{ top: nowTop }}>
-            <div className="absolute -left-px -top-[3px] h-[7px] w-[7px] rounded-full bg-zOrangered-500" />
-            <div className="h-px bg-zOrangered-500" />
+            <div className="absolute -left-px -top-[3px] h-[7px] w-[7px] rounded-full bg-status-attention" />
+            <div className="h-px bg-status-attention" />
           </div>
         ) : (
           <div
-            className="pointer-events-none absolute inset-x-0 z-10 border-t border-dashed border-zOrangered-500/45"
+            className="pointer-events-none absolute inset-x-0 z-10 border-t border-dashed border-status-attention/45"
             style={{ top: nowTop }}
           />
         ))}

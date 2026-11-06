@@ -178,7 +178,7 @@ function ChannelMessage({
         {text && (
           <div
             className={clsx(
-              'max-w-full rounded-2xl rounded-tl-md bg-zGray-800/70 px-3.5 py-2 break-words',
+              'max-w-full rounded-2xl rounded-tl-md bg-state-selected px-3.5 py-2 break-words',
               fresh && 't-bubble-in',
             )}
           >
@@ -195,8 +195,8 @@ function ChannelMessage({
 function Paused({ turns }: { turns: number }) {
   return (
     <div className="flex items-center gap-3 py-1">
-      <span className="h-px flex-1 bg-zGray-800" />
-      <span className="flex items-center gap-1.5 rounded-full border border-zGray-800/60 bg-main px-3 py-1 text-[12px] text-secondary">
+      <span className="h-px flex-1 bg-surface-sunken" />
+      <span className="flex items-center gap-1.5 rounded-full border border-line-control/60 bg-main px-3 py-1 text-[12px] text-secondary">
         <Pause className="h-3 w-3 text-warning" strokeWidth={2.5} />
         {t(
           'Agents paused after {count} replies to each other. They pick up again when someone posts.',
@@ -205,7 +205,7 @@ function Paused({ turns }: { turns: number }) {
           },
         )}
       </span>
-      <span className="h-px flex-1 bg-zGray-800" />
+      <span className="h-px flex-1 bg-surface-sunken" />
     </div>
   )
 }

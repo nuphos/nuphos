@@ -33,7 +33,13 @@ export function WorkspaceSessionPane({
     <main
       data-workspace-focus-surface="session"
       inert={workspaceExpanded}
-      className={clsx('min-h-0 min-w-0 flex-1', ws.mainPageOpen ? 'hidden' : 'flex')}
+      // A channel is a sheet on the desk, like an agent's pane.
+      className={clsx(
+        'workspace-content-surface min-h-0 min-w-0 flex-1 flex-col overflow-hidden',
+        ws.dockOpen && 'workspace-content-surface--leading',
+        workspaceExpanded && 'workspace-content-surface--collapsed',
+        ws.mainPageOpen ? 'hidden' : 'flex',
+      )}
     >
       <ChannelPane
         key={sessionId}

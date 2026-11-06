@@ -4,13 +4,13 @@ export function TableSkeletonRows({ rows = 8 }: { rows?: number }) {
   return (
     <div className="animate-pulse">
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="flex h-[30px] items-center gap-3 border-b border-zGray-850 px-2">
-          <div className="h-3 w-16 rounded bg-zGray-850" />
-          <div className="h-3 w-48 rounded bg-zGray-850" />
-          <div className="h-3 w-24 rounded bg-zGray-850" />
-          <div className="h-3 w-14 rounded bg-zGray-850" />
-          <div className="h-3 w-56 rounded bg-zGray-850" />
-          <div className="h-3 w-20 rounded bg-zGray-850" />
+        <div key={i} className="flex h-[30px] items-center gap-3 border-b border-line-control px-2">
+          <div className="h-3 w-16 rounded bg-surface-sunken" />
+          <div className="h-3 w-48 rounded bg-surface-sunken" />
+          <div className="h-3 w-24 rounded bg-surface-sunken" />
+          <div className="h-3 w-14 rounded bg-surface-sunken" />
+          <div className="h-3 w-56 rounded bg-surface-sunken" />
+          <div className="h-3 w-20 rounded bg-surface-sunken" />
         </div>
       ))}
     </div>
@@ -22,9 +22,9 @@ export function TableSkeletonRows({ rows = 8 }: { rows?: number }) {
 export function TableSkeleton({ rows = 8 }: { rows?: number }) {
   return (
     <div>
-      <div className="flex h-8 animate-pulse items-center gap-3 border-b border-zGray-800 px-2">
+      <div className="flex h-8 animate-pulse items-center gap-3 border-b border-line-control px-2">
         {[110, 280, 170, 100, 320, 140].map((w, i) => (
-          <div key={i} className="h-3 rounded bg-zGray-800" style={{ width: w * 0.6 }} />
+          <div key={i} className="h-3 rounded bg-surface-sunken" style={{ width: w * 0.6 }} />
         ))}
       </div>
       <TableSkeletonRows rows={rows} />

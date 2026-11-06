@@ -19,11 +19,11 @@ export function PlanBuildingView({ payload }: { payload: PlanPayload }) {
   return (
     <PlanRevealSection
       revealKey={`building-${nextSection}`}
-      className="border-b border-zGray-800/70 bg-zGray-900/20 px-3.5 py-2.5"
+      className="border-b border-line-control/70 bg-state-selected px-3.5 py-2.5"
     >
       <div className="flex items-start gap-2.5">
         <Loader2
-          className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 animate-spin text-zViolet-accent"
+          className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 animate-spin text-primary"
           strokeWidth={2.4}
         />
         <div className="min-w-0 flex-1">
@@ -50,11 +50,11 @@ export function PlanExecutionPreparingView() {
   return (
     <PlanRevealSection
       revealKey="execution-preparing"
-      className="border-b border-zGray-800/70 bg-zViolet-500/10 px-3.5 py-2.5"
+      className="border-b border-line-control/70 bg-state-selected px-3.5 py-2.5"
     >
       <div className="flex items-start gap-2.5">
         <Loader2
-          className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 animate-spin text-zViolet-accent"
+          className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 animate-spin text-primary"
           strokeWidth={2.4}
         />
         <div className="min-w-0 flex-1">

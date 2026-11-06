@@ -17,13 +17,13 @@ const PLAN_STATUS_LABEL: Record<PlanLifecycleStatus, string> = {
 }
 
 const PLAN_STATUS_TONE: Record<PlanLifecycleStatus, string> = {
-  proposed: 'text-zViolet-accent bg-zViolet-500/10 border-zViolet-500/30',
-  approved: 'text-zViolet-accent bg-zViolet-500/10 border-zViolet-500/30',
-  executing: 'text-zViolet-accent bg-zViolet-500/15 border-zViolet-500/40',
+  proposed: 'text-primary bg-state-selected border-action-primary/30',
+  approved: 'text-primary bg-state-selected border-action-primary/30',
+  executing: 'text-primary bg-state-selected border-action-primary/40',
   completed: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
   failed: 'text-error bg-error/10 border-error/30',
-  rejected: 'text-tertiary bg-zGray-800/50 border-zGray-700',
-  cancelled: 'text-tertiary bg-zGray-800/50 border-zGray-700',
+  rejected: 'text-tertiary bg-state-selected border-line-control',
+  cancelled: 'text-tertiary bg-state-selected border-line-control',
 }
 
 export function PlanStatusBadge({ status }: { status: PlanLifecycleStatus }) {

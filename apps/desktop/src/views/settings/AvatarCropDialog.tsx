@@ -100,22 +100,22 @@ export function AvatarCropDialog({
     <Dialog.Root open onOpenChange={(open) => !open && !saving && onClose()}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-[1000] bg-black/40 backdrop-blur-sm transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
-        <Dialog.Popup className="fixed left-1/2 top-1/2 z-[1001] w-[340px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-zGray-800 bg-zGray-900 shadow-2xl shadow-black/50 outline-none transition-[opacity,transform] duration-150 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
-          <div className="flex items-center justify-between border-b border-zGray-800 px-5 py-4">
+        <Dialog.Popup className="fixed left-1/2 top-1/2 z-[1001] w-[340px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-line-control bg-surface-sheet shadow-2xl shadow-black/50 outline-none transition-[opacity,transform] duration-150 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+          <div className="flex items-center justify-between border-b border-line-control px-5 py-4">
             <Dialog.Title className="text-[14px] font-semibold text-main">
               {icon ? t('Crop icon') : t('Crop photo')}
             </Dialog.Title>
             <Dialog.Close
               aria-label={t('Close')}
               disabled={saving}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800 hover:text-main"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-tertiary hover:bg-state-hover hover:text-main"
             >
               <X className="h-3.5 w-3.5" />
             </Dialog.Close>
           </div>
           <div className="space-y-4 px-5 py-4">
             <div
-              className="relative mx-auto cursor-grab touch-none overflow-hidden rounded-lg bg-zGray-950 active:cursor-grabbing"
+              className="relative mx-auto cursor-grab touch-none overflow-hidden rounded-lg bg-surface-canvas active:cursor-grabbing"
               style={{ width: VIEWPORT, height: VIEWPORT }}
               onPointerDown={(event) => {
                 event.currentTarget.setPointerCapture(event.pointerId)
@@ -159,7 +159,7 @@ export function AvatarCropDialog({
                 value={crop?.zoom ?? MIN_ZOOM}
                 disabled={!crop || saving}
                 onChange={(event) => update({ zoom: Number(event.target.value) })}
-                className="w-full accent-zViolet-500"
+                className="w-full accent-action-primary"
               />
               <ZoomIn className="h-3.5 w-3.5 shrink-0" />
             </label>

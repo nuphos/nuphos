@@ -35,7 +35,7 @@ export function CfDetailActionBar({ children }: { children?: React.ReactNode }) 
   if (!children) return null
 
   return (
-    <div className="flex items-center justify-end gap-2 px-4 py-2 border-b border-zGray-850 bg-zGray-950 text-[12.5px]">
+    <div className="flex items-center justify-end gap-2 px-4 py-2 border-b border-line-control bg-surface-canvas text-[12.5px]">
       {children}
     </div>
   )
@@ -109,11 +109,11 @@ export function CreateNameDialog({
             onChange={(e) => setName(e.target.value)}
             placeholder={placeholder}
             autoFocus
-            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
+            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-line-control text-main outline-none focus:border-line-focus font-mono text-[12.5px]"
           />
         </label>
       </div>
-      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-zGray-800">
+      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-line-control">
         <button
           onClick={onClose}
           disabled={saving}

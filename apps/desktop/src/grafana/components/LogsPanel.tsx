@@ -29,7 +29,7 @@ export function LogsPanel({ frames }: Props) {
         {rows.map((r, i) => (
           <div
             key={i}
-            className="flex items-start gap-2 px-3 py-1 border-b border-zGray-850/60 hover:bg-zGray-850/40"
+            className="flex items-start gap-2 px-3 py-1 border-b border-line-control/60 hover:bg-state-hover"
           >
             <span className="text-tertiary tabular-nums flex-shrink-0">
               {r.ts !== null ? new Date(r.ts).toLocaleTimeString() : ''}
@@ -51,8 +51,8 @@ function levelColor(level: string): string {
   const l = level.toLowerCase()
 
   if (l.startsWith('err') || l === 'fatal') return 'text-error'
-  if (l.startsWith('warn')) return 'text-zOrangered-400'
-  if (l.startsWith('info')) return 'text-zViolet-300'
+  if (l.startsWith('warn')) return 'text-status-attention'
+  if (l.startsWith('info')) return 'text-secondary'
 
   return 'text-tertiary'
 }

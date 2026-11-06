@@ -129,7 +129,7 @@ function Pie({
             <path
               d={pieSlicePath(ring, slice.fromDeg, slice.toDeg)}
               fill={slice.color}
-              stroke="rgb(var(--color-zGray-900))"
+              stroke="rgb(var(--color-surface-sheet))"
               strokeWidth={1}
             />
             {label && slice.fraction >= LABEL_MIN_FRACTION && (

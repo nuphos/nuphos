@@ -46,7 +46,7 @@ export function TriggerRunsList({
 
   return (
     <div
-      className="flex h-full min-h-0 flex-shrink-0 flex-col border-r border-zGray-800/70"
+      className="flex h-full min-h-0 flex-shrink-0 flex-col border-r border-line-control/70"
       style={{ width: COLUMN_WIDTH }}
     >
       {/* What produces this list. The trigger's name is on the breadcrumb, so

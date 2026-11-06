@@ -17,7 +17,7 @@ export function SectionNode({ data, selected }: NodeProps) {
   const { object: section } = data as DesignNodeData<DesignSection>
   const canvas = useDesignCanvas()
   const scale = useScreenScale()
-  const color = section.color || 'rgb(var(--color-zViolet-accent))'
+  const color = section.color || 'rgb(var(--color-text-primary))'
 
   return (
     <div

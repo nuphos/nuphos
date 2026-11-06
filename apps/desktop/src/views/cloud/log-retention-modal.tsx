@@ -36,12 +36,12 @@ export function LogRetentionModal({
           <AppSelect
             value={value}
             onValueChange={onValueChange}
-            triggerClassName="h-8 border-zGray-800 px-2 text-[13px]"
+            triggerClassName="h-8 border-line-control px-2 text-[13px]"
             options={[...LOG_RETENTION_OPTIONS]}
           />
         </label>
       </div>
-      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-zGray-800">
+      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-line-control">
         <button
           type="button"
           onClick={onCancel}

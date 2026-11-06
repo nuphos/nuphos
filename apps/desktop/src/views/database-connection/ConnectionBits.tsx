@@ -20,7 +20,7 @@ export function HealthBadge({ connection }: { connection: DatabaseConnection }) 
 
 export function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-zGray-800/70 py-2 text-[12px] last:border-0">
+    <div className="flex items-start justify-between gap-4 border-b border-line-control/70 py-2 text-[12px] last:border-0">
       <span className="text-tertiary">{label}</span>
       <span className="break-all text-right text-secondary">{value}</span>
     </div>
@@ -39,7 +39,7 @@ export function ProviderResourceCard({ connection }: { connection: DatabaseConne
   ] as const
 
   return (
-    <section className="mt-4 rounded-xl border border-zGray-800 bg-zGray-900/30 p-4">
+    <section className="mt-4 rounded-xl border border-line-control bg-state-selected p-4">
       <h2 className="text-[13px] font-medium text-main">{t('Provider resource')}</h2>
       <p className="mt-1 text-[11.5px] leading-5 text-tertiary">
         {t(
@@ -56,7 +56,7 @@ export function ProviderResourceCard({ connection }: { connection: DatabaseConne
         {capabilities.map(([label, supported]) => (
           <span
             key={label}
-            className={`rounded-full border px-2 py-0.5 text-[10.5px] ${supported ? 'border-success/30 bg-success/5 text-success' : 'border-zGray-800 bg-zGray-900 text-tertiary'}`}
+            className={`rounded-full border px-2 py-0.5 text-[10.5px] ${supported ? 'border-success/30 bg-success/5 text-success' : 'border-line-control bg-surface-sheet text-tertiary'}`}
           >
             {supported
               ? t('{capability}: available', { capability: label })
@@ -70,7 +70,7 @@ export function ProviderResourceCard({ connection }: { connection: DatabaseConne
 
 export function ComingSoon({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-zGray-700 px-6 py-12 text-center">
+    <div className="rounded-xl border border-dashed border-line-control px-6 py-12 text-center">
       <Database className="mx-auto h-7 w-7 text-tertiary" />
       <div className="mt-3 text-[14px] text-main">{title}</div>
       <p className="mx-auto mt-1 max-w-lg text-[12.5px] leading-5 text-tertiary">{body}</p>

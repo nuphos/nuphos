@@ -99,9 +99,7 @@ export function CloudflarePagesView({
             header: t('Name'),
             width: 240,
             sortAccessor: (r) => r.name,
-            render: (r) => (
-              <span className="font-mono text-[12.5px] text-zViolet-accent">{r.name}</span>
-            ),
+            render: (r) => <span className="font-mono text-[12.5px] text-primary">{r.name}</span>,
           },
           {
             key: 'branch',

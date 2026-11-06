@@ -142,7 +142,7 @@ export function NodeOverview({
             {data.taints.map((taint, i) => (
               <span
                 key={`${taint.key}:${String(i)}`}
-                className="bg-zGray-800 px-1.5 py-0.5 rounded text-[11.5px] text-secondary font-mono"
+                className="bg-surface-sunken px-1.5 py-0.5 rounded text-[11.5px] text-secondary font-mono"
               >
                 {taint.key}
                 {taint.value ? `=${taint.value}` : ''}:{taint.effect}
@@ -239,7 +239,7 @@ function NodeScheduledPods({
           </span>
         )}
         {pct != null && (
-          <div className="flex-1 max-w-[240px] h-1.5 rounded-full bg-zGray-800 overflow-hidden">
+          <div className="flex-1 max-w-[240px] h-1.5 rounded-full bg-surface-sunken overflow-hidden">
             <div
               className={clsx('h-full', pctTone)}
               style={{ width: `${String(Math.min(100, pct))}%` }}
@@ -248,7 +248,7 @@ function NodeScheduledPods({
         )}
       </div>
       {pods === null ? (
-        <div className="bg-zGray-900 border border-zGray-800 rounded-md px-4 py-6 text-center text-[12px] text-tertiary">
+        <div className="bg-surface-sheet border border-line-control rounded-md px-4 py-6 text-center text-[12px] text-tertiary">
           {t('Unavailable')}
         </div>
       ) : (

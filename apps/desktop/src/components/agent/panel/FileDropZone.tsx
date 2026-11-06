@@ -14,8 +14,8 @@ import type { ReactNode } from 'react'
  */
 export function DropOverlay() {
   return (
-    <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-[inherit] bg-zViolet-500/[0.06] ring-1 ring-inset ring-zViolet-accent/30">
-      <span className="rounded-full border border-zViolet-accent/30 bg-elevated/90 px-3 py-1 text-[12px] font-medium text-zViolet-accent shadow-sm backdrop-blur-sm">
+    <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-[inherit] bg-action-primary/[0.06] ring-1 ring-inset ring-line-focus">
+      <span className="rounded-full border border-action-primary/30 bg-elevated/90 px-3 py-1 text-[12px] font-medium text-primary shadow-sm backdrop-blur-sm">
         {t('Drop to attach')}
       </span>
     </div>

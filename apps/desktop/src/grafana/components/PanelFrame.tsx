@@ -14,15 +14,15 @@ type Props = {
 
 export function PanelFrame({ title, loading, error, actions, children }: Props) {
   return (
-    <div className="h-full flex flex-col outline outline-1 outline-zGray-800/60">
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-zGray-800/60">
+    <div className="h-full flex flex-col outline outline-1 outline-line-control/60">
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-line-control/60">
         <div className="text-[12.5px] font-medium text-secondary truncate">
           {title || t('Untitled')}
         </div>
         <div className="flex flex-shrink-0 items-center gap-1.5">
           {actions}
           {loading && (
-            <div className="w-3 h-3 rounded-full border-2 border-zGray-700 border-t-zViolet-accent animate-spin" />
+            <div className="w-3 h-3 rounded-full border-2 border-line-control border-t-action-primary animate-spin" />
           )}
         </div>
       </div>

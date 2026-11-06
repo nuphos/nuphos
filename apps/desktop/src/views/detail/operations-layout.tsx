@@ -17,7 +17,7 @@ const toneSurface: Record<HealthTone, string> = {
   success: 'bg-success/10 ring-success/15',
   warning: 'bg-warning/10 ring-warning/15',
   error: 'bg-error/10 ring-error/15',
-  neutral: 'bg-zGray-800 ring-zGray-700',
+  neutral: 'bg-surface-sunken ring-line-control',
 }
 
 export function OperationsHero({
@@ -36,13 +36,13 @@ export function OperationsHero({
   facts: { label: string; value: ReactNode; detail?: ReactNode }[]
 }) {
   return (
-    <section className="relative isolate overflow-hidden rounded-2xl border border-zGray-800 bg-zGray-900 shadow-sm">
+    <section className="relative isolate overflow-hidden rounded-2xl border border-line-control bg-surface-sheet shadow-sm">
       <div
         aria-hidden
-        className="pointer-events-none absolute -left-24 -top-32 h-72 w-72 rounded-full bg-zViolet-500/[0.08] blur-3xl"
+        className="pointer-events-none absolute -left-24 -top-32 h-72 w-72 rounded-full bg-action-primary/[0.08] blur-3xl"
       />
       <div className="relative grid min-w-0 grid-cols-1 @5xl:grid-cols-[minmax(300px,0.8fr)_minmax(0,1.45fr)]">
-        <div className="flex min-w-0 items-start gap-3.5 border-b border-zGray-800 p-5 @2xl:p-6 @5xl:border-b-0 @5xl:border-r">
+        <div className="flex min-w-0 items-start gap-3.5 border-b border-line-control p-5 @2xl:p-6 @5xl:border-b-0 @5xl:border-r">
           <span
             className={clsx(
               'mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset',
@@ -64,9 +64,12 @@ export function OperationsHero({
             </div>
           </div>
         </div>
-        <div className="grid min-w-0 grid-cols-2 gap-px bg-zGray-800 @2xl:grid-cols-3">
+        <div className="grid min-w-0 grid-cols-2 gap-px bg-surface-sunken @2xl:grid-cols-3">
           {facts.map((fact) => (
-            <div key={fact.label} className="min-w-0 bg-zGray-900 px-4 py-4 @2xl:px-5 @2xl:py-5">
+            <div
+              key={fact.label}
+              className="min-w-0 bg-surface-sheet px-4 py-4 @2xl:px-5 @2xl:py-5"
+            >
               <div className="text-[9.5px] font-medium uppercase tracking-[0.14em] text-tertiary">
                 {fact.label}
               </div>
@@ -112,14 +115,14 @@ export function OperationsPanel({
   return (
     <section
       className={clsx(
-        'min-w-0 overflow-hidden rounded-xl border border-zGray-800 bg-zGray-900 shadow-sm',
+        'min-w-0 overflow-hidden rounded-xl border border-line-control bg-surface-sheet shadow-sm',
         className,
       )}
     >
-      <div className="flex min-w-0 items-center justify-between gap-3 border-b border-zGray-800 px-4 py-3.5 @2xl:px-5">
+      <div className="flex min-w-0 items-center justify-between gap-3 border-b border-line-control px-4 py-3.5 @2xl:px-5">
         <div className="flex min-w-0 items-center gap-2.5">
           {icon && (
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zGray-800 text-secondary">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-secondary">
               {icon}
             </span>
           )}
@@ -153,7 +156,7 @@ export function ProgressFact({
     success: 'bg-success',
     warning: 'bg-warning',
     error: 'bg-error',
-    neutral: 'bg-zGray-600',
+    neutral: 'bg-line-control',
   }
 
   return (
@@ -164,7 +167,7 @@ export function ProgressFact({
           {value} / {desired}
         </span>
       </div>
-      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zGray-800">
+      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-sunken">
         <div
           className={clsx('h-full rounded-full transition-[width] duration-300', fillClass[tone])}
           style={{ width: `${String(fraction * 100)}%` }}
@@ -184,7 +187,7 @@ export function FactRow({
   mono?: boolean
 }) {
   return (
-    <div className="flex min-w-0 items-start justify-between gap-4 border-b border-zGray-800 py-2.5 last:border-b-0">
+    <div className="flex min-w-0 items-start justify-between gap-4 border-b border-line-control py-2.5 last:border-b-0">
       <span className="shrink-0 text-[11px] text-tertiary">{label}</span>
       <span
         className={clsx(

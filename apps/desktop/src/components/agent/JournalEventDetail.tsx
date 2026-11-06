@@ -96,7 +96,7 @@ export function CommandCard({ command, rest }: { command: string | null; rest?: 
   if (!command && !rest) return null
 
   return (
-    <div className="overflow-hidden rounded-md border border-zGray-800 bg-zGray-925/80">
+    <div className="overflow-hidden rounded-md border border-line-control bg-state-selected">
       {command && (
         <div className="flex gap-1.5 px-2.5 py-1.5 text-[11px] leading-4">
           <span className="select-none font-mono text-tertiary">$</span>
@@ -106,7 +106,7 @@ export function CommandCard({ command, rest }: { command: string | null; rest?: 
         </div>
       )}
       {rest && (
-        <div className="border-t border-zGray-800/60 px-2.5 py-1.5">
+        <div className="border-t border-line-control/60 px-2.5 py-1.5">
           {looksLikeJson(rest) ? (
             <ClampedCode text={rest} lang="json" limit={280} />
           ) : (
@@ -174,7 +174,7 @@ export function ReasoningText({ text, label = t('Reasoning') }: { text: string; 
         {label}
       </Collapsible.Trigger>
       <Collapsible.Panel className="t-acc-collapsible">
-        <div className="mt-1 border-l-2 border-zGray-800 pl-2 text-main/70 italic">
+        <div className="mt-1 border-l-2 border-line-control pl-2 text-main/70 italic">
           <ClampedText text={text} limit={600} />
         </div>
       </Collapsible.Panel>

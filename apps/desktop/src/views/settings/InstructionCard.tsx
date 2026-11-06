@@ -26,7 +26,7 @@ export function InstructionCard({
   return (
     <div
       className={clsx(
-        'rounded-xl border border-zGray-800 p-4 transition-opacity',
+        'rounded-xl border border-line-control p-4 transition-opacity',
         !instruction.enabled && 'opacity-60',
       )}
     >

@@ -106,7 +106,7 @@ export function ProfileSection({
           {saving ? t('Saving…') : t('Save changes')}
         </Button>
       </form>
-      <div className="mt-6 flex items-center justify-between rounded-lg border border-zGray-800/70 bg-surface px-4 py-3.5">
+      <div className="mt-6 flex items-center justify-between rounded-lg border border-line-control/70 bg-surface px-4 py-3.5">
         <div className="text-[13px] text-secondary">{t('Log out of Nuphos on this computer.')}</div>
         <Button type="button" size="sm" variant="secondary" onClick={onSignOut} disabled={saving}>
           {t('Log out')}

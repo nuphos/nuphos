@@ -26,7 +26,7 @@ import type { SlackChannelMapping, SlackChannelOption } from '../types'
 const WARN_BADGE =
   'flex-shrink-0 rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-300'
 const MUTED_BADGE =
-  'flex-shrink-0 rounded border border-zGray-700 px-1.5 py-0.5 text-[11px] text-tertiary'
+  'flex-shrink-0 rounded border border-line-control px-1.5 py-0.5 text-[11px] text-tertiary'
 
 function channelLabel(
   mapping: SlackChannelMapping,
@@ -162,7 +162,7 @@ export function SlackSettingsView({
             type="button"
             onClick={() => void load()}
             disabled={loading}
-            className="mt-0.5 inline-flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md border border-zGray-800 px-2.5 text-[12.5px] font-medium text-secondary transition-colors hover:border-zGray-700 hover:text-main disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-0.5 inline-flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md border border-line-control px-2.5 text-[12.5px] font-medium text-secondary transition-colors hover:border-line-control hover:text-main disabled:cursor-not-allowed disabled:opacity-50"
           >
             <FontAwesomeIcon
               icon={faRotateRight}
@@ -179,12 +179,12 @@ export function SlackSettingsView({
           )}
         </div>
       )}
-      <div className="mb-8 overflow-hidden rounded-lg border border-zGray-800/70 bg-surface">
-        <div className="border-b border-zGray-800/60 px-4 py-3">
+      <div className="mb-8 overflow-hidden rounded-lg border border-line-control/70 bg-surface">
+        <div className="border-b border-line-control/60 px-4 py-3">
           <div className="text-[13px] font-medium text-main">
             {t('Linked channels')}
             {!loading && channelMappings.length > 0 && (
-              <span className="ml-2 rounded-full border border-zGray-700 px-1.5 py-0.5 text-[11px] font-normal text-tertiary">
+              <span className="ml-2 rounded-full border border-line-control px-1.5 py-0.5 text-[11px] font-normal text-tertiary">
                 {channelMappings.length}
               </span>
             )}
@@ -204,7 +204,7 @@ export function SlackSettingsView({
             )}
           </div>
         ) : (
-          <div className="divide-y divide-zGray-800/60">
+          <div className="divide-y divide-line-control/60">
             {channelMappings.map((mapping) => (
               <div key={mapping.id} className="flex items-center gap-3 px-4 py-3">
                 <div className="min-w-0 flex-1">
@@ -230,7 +230,7 @@ export function SlackSettingsView({
                       '_blank',
                     )
                   }
-                  className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zGray-800 px-2 text-[11.5px] text-secondary transition-colors hover:border-zGray-700 hover:text-main"
+                  className="inline-flex h-7 items-center gap-1.5 rounded-md border border-line-control px-2 text-[11.5px] text-secondary transition-colors hover:border-line-control hover:text-main"
                   title={t('Open this channel in Slack')}
                 >
                   <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-2.5 w-2.5" />
@@ -252,11 +252,11 @@ export function SlackSettingsView({
           </div>
         )}
         {!loading && (
-          <div className="border-t border-zGray-800/60">
+          <div className="border-t border-line-control/60">
             <button
               type="button"
               onClick={() => setLinkChannelOpen((open) => !open)}
-              className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-zGray-950/30"
+              className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-state-hover"
             >
               <span className="inline-flex items-center gap-2 text-[12.5px] font-medium text-main">
                 <FontAwesomeIcon icon={faPlus} className="h-3 w-3 text-tertiary" />

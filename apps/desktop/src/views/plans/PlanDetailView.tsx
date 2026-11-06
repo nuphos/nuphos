@@ -86,7 +86,7 @@ export function PlanDetailView({ teamId, planId, onOpenInChat }: Props) {
 
   return (
     <div className="min-h-0 flex-1">
-      <div className="mx-auto h-full w-full max-w-[1120px] border-x border-zGray-800/40">
+      <div className="mx-auto h-full w-full max-w-[1120px] border-x border-line-control/40">
         {plan && payload ? (
           <PlanTool
             key={plan.id}

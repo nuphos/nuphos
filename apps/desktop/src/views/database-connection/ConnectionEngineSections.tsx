@@ -17,7 +17,7 @@ export function CollectionsSection({
   connection: DatabaseConnection
 }) {
   return (
-    <div className="border-t border-zGray-800/60 px-6 py-4">
+    <div className="border-t border-line-control/60 px-6 py-4">
       {connection.engine === 'mongodb' ? (
         <MongoSchemaExplorer teamId={teamId} connection={connection} />
       ) : connection.engine === 'cloudflare-d1' ? (
@@ -44,7 +44,7 @@ export function QuerySection({
   visible: boolean
 }) {
   return (
-    <div className={visible ? 'border-t border-zGray-800/60 px-6 py-4' : 'hidden'}>
+    <div className={visible ? 'border-t border-line-control/60 px-6 py-4' : 'hidden'}>
       {connection.engine === 'mongodb' ? (
         <MongoQueryConsole key={connection.id} teamId={teamId} connection={connection} />
       ) : connection.engine === 'cloudflare-d1' ? (
@@ -80,7 +80,7 @@ export function ChangesSection({
   onOpenPlanInChat?: (planId: string) => void
 }) {
   return (
-    <div className="border-t border-zGray-800/60 px-6 py-4">
+    <div className="border-t border-line-control/60 px-6 py-4">
       {connection.engine === 'mongodb' ? (
         <MongoDatabaseChanges
           teamId={teamId}
@@ -119,7 +119,7 @@ export function MonitoringSection({
   connection: DatabaseConnection
 }) {
   return (
-    <div className="border-t border-zGray-800/60 px-6 py-4">
+    <div className="border-t border-line-control/60 px-6 py-4">
       {connection.engine === 'mongodb' ? (
         <MongoDatabaseMonitoring teamId={teamId} connection={connection} />
       ) : (

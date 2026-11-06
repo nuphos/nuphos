@@ -26,7 +26,7 @@ export const segBtn = (active: boolean): CSSProperties => ({
   padding: '5px 9px',
   fontSize: 12,
   cursor: 'default',
-  background: active ? 'rgb(var(--color-zViolet-500))' : 'transparent',
+  background: active ? 'rgb(var(--color-action-primary))' : 'transparent',
   color: active ? '#fff' : 'inherit',
 })
 

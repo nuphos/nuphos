@@ -160,7 +160,7 @@ export function HomeGrid({
                   className={clsx(
                     'group/section relative h-full rounded-lg transition-shadow duration-700 motion-reduce:transition-none',
                     highlight?.includes(id) &&
-                      'ring-2 ring-zViolet-500 ring-offset-2 ring-offset-[rgb(var(--color-background-base))]',
+                      'ring-2 ring-line-focus ring-offset-2 ring-offset-[rgb(var(--color-background-base))]',
                   )}
                 >
                   <SectionGrip

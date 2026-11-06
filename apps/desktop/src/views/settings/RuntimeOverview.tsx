@@ -42,7 +42,7 @@ function QuotaStats({ quota }: { quota?: RuntimeQuota }) {
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={left}
-                className="mt-2 h-2 overflow-hidden rounded-full bg-zGray-800"
+                className="mt-2 h-2 overflow-hidden rounded-full bg-surface-sunken"
               >
                 <div
                   className={`h-full rounded-full ${QUOTA_FILL_CLASS[tone]}`}
@@ -72,7 +72,7 @@ export function RuntimeOverview({
   } else if (statusError) {
     body = <Note tone="error">{t('Could not load runtime status. Retrying…')}</Note>
   } else if (!runtime) {
-    body = <div aria-busy="true" className="h-10 animate-pulse rounded-md bg-zGray-800/40" />
+    body = <div aria-busy="true" className="h-10 animate-pulse rounded-md bg-state-selected" />
   } else if (!runtime.configured) {
     body = (
       <Note>
@@ -133,7 +133,7 @@ export function RuntimeOverview({
         skeleton={
           <div aria-busy="true" className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             {[0, 1, 2, 3].map((key) => (
-              <div key={key} className="h-12 rounded-md bg-zGray-800/40" />
+              <div key={key} className="h-12 rounded-md bg-state-selected" />
             ))}
           </div>
         }

@@ -45,7 +45,7 @@ export function EcsTasksView({
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <div className="flex items-center gap-1.5 px-4 py-2 border-b border-zGray-850 bg-zGray-950 text-[12px]">
+      <div className="flex items-center gap-1.5 px-4 py-2 border-b border-line-control bg-surface-canvas text-[12px]">
         <span className="text-tertiary mr-1">{t('Desired status')}</span>
         {(['RUNNING', 'STOPPED'] as const).map((s) => (
           <button
@@ -53,8 +53,8 @@ export function EcsTasksView({
             onClick={() => setDesiredStatus(s)}
             className={`h-7 px-2.5 rounded-md text-[12.5px] font-medium ${
               desiredStatus === s
-                ? 'bg-zViolet-500/15 text-zViolet-accent'
-                : 'bg-zGray-850 hover:bg-zGray-800 text-secondary hover:text-main'
+                ? 'bg-state-selected text-primary'
+                : 'bg-surface-sunken hover:bg-state-hover text-secondary hover:text-main'
             }`}
           >
             {s === 'RUNNING' ? t('Running') : t('Stopped')}
@@ -75,9 +75,7 @@ export function EcsTasksView({
             header: t('Task ID'),
             width: 280,
             sortAccessor: (r) => r.taskId,
-            render: (r) => (
-              <span className="font-mono text-[11.5px] text-zViolet-accent">{r.taskId}</span>
-            ),
+            render: (r) => <span className="font-mono text-[11.5px] text-primary">{r.taskId}</span>,
           },
           {
             key: 'lastStatus',

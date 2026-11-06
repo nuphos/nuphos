@@ -158,7 +158,7 @@ export function Modal({
           shown ? 'is-open' : !open && 'is-closing',
           isLight
             ? 'border-[rgb(208,206,212)] bg-white shadow-black/20'
-            : 'border-zGray-800 bg-zGray-900 shadow-black/50',
+            : 'border-line-control bg-surface-sheet shadow-black/50',
         )}
       >
         <div
@@ -169,7 +169,10 @@ export function Modal({
             'relative z-20 flex shrink-0 items-start',
             headerCompact ? 'px-4 py-2.5 pr-12' : 'px-5 py-4 pr-14',
             headerDivider &&
-              !isPrompt && ['border-b', isLight ? 'border-[rgb(208,206,212)]' : 'border-zGray-800'],
+              !isPrompt && [
+                'border-b',
+                isLight ? 'border-[rgb(208,206,212)]' : 'border-line-control',
+              ],
           )}
         >
           <div className="min-w-0">
@@ -215,7 +218,7 @@ export function Modal({
               'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md transition-colors',
               isLight
                 ? 'text-[rgb(126,122,133)] hover:bg-[rgb(245,244,245)] hover:text-[rgb(15,14,17)]'
-                : 'text-tertiary hover:bg-zGray-800 hover:text-main',
+                : 'text-tertiary hover:bg-state-hover hover:text-main',
             )}
           >
             <X className="h-3.5 w-3.5" strokeWidth={2} />
@@ -235,7 +238,7 @@ export function Modal({
             className={clsx(
               // shrink-0 pins the footer below the scrollable body.
               'relative z-20 shrink-0 border-t',
-              isLight ? 'border-[rgb(208,206,212)]' : 'border-zGray-800',
+              isLight ? 'border-[rgb(208,206,212)]' : 'border-line-control',
             )}
           >
             {footer}

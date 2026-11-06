@@ -50,7 +50,7 @@ export function UpdatesSection() {
         title={t('Updates')}
         description={t('Nuphos downloads updates in the background.')}
       />
-      <div className="rounded-lg border border-zGray-800 bg-surface p-4">
+      <div className="rounded-lg border border-line-control bg-surface p-4">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
             <div className="text-[13px] font-medium text-main">Nuphos {version}</div>
@@ -75,14 +75,14 @@ export function UpdatesSection() {
         {progress && (
           <div className="mt-3">
             <div
-              className="h-1.5 overflow-hidden rounded-full bg-zGray-800"
+              className="h-1.5 overflow-hidden rounded-full bg-surface-sunken"
               role="progressbar"
               aria-valuenow={progress.percent}
               aria-valuemin={0}
               aria-valuemax={100}
             >
               <div
-                className="h-full rounded-full bg-zViolet-500 transition-[width] duration-700"
+                className="h-full rounded-full bg-action-primary transition-[width] duration-700"
                 style={{ width: `${String(progress.percent)}%` }}
               />
             </div>

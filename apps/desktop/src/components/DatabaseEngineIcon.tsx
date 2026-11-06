@@ -34,14 +34,14 @@ export function DatabaseEngineGlyph({ engine, className = 'h-4 w-4' }: Props) {
     return <Database aria-hidden="true" className={`${className} text-[#F38020]`} />
   }
 
-  return <Database aria-hidden="true" className={`${className} text-zViolet-accent`} />
+  return <Database aria-hidden="true" className={`${className} text-primary`} />
 }
 
 export function DatabaseEngineIcon({ engine, className }: Props) {
   return (
     <div
       title={databaseEngineLabel(engine)}
-      className={`${className ?? 'h-8 w-8'} flex shrink-0 items-center justify-center rounded-lg bg-zGray-800/70`}
+      className={`${className ?? 'h-8 w-8'} flex shrink-0 items-center justify-center rounded-lg bg-state-selected`}
     >
       <DatabaseEngineGlyph
         engine={engine}

@@ -18,7 +18,7 @@ export const AGENT_USAGE_COLUMNS =
 
 /** Usage fills match MetricChart's violet; the used-up orange is a token the theme leaves alone. */
 export const USED_FILL = `rgb(${ACCENT_RGB})`
-export const LIMIT_FILL = 'rgba(var(--color-zOrangered-500), 0.7)'
+export const LIMIT_FILL = 'rgba(var(--color-status-attention), 0.7)'
 
 const percent = (value: number) => `${String(Math.round(value))}%`
 
@@ -44,12 +44,12 @@ export function AgentUsageRow({
       type="button"
       onClick={() => onSelect(instance.id)}
       className={clsx(
-        `t-agents-row group grid w-full cursor-pointer ${AGENT_USAGE_COLUMNS} items-center border-b border-zGray-800/60 px-4 py-2.5 text-left outline-none last:border-b-0 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zViolet-500/60`,
-        selected ? 'bg-zViolet-500/[0.07]' : 'hover:bg-zGray-800/40',
+        `t-agents-row group grid w-full cursor-pointer ${AGENT_USAGE_COLUMNS} items-center border-b border-line-control/60 px-4 py-2.5 text-left outline-none last:border-b-0 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-line-focus`,
+        selected ? 'bg-action-primary/[0.07]' : 'hover:bg-state-hover',
       )}
     >
       <span className="flex min-w-0 items-center gap-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zGray-800/70 bg-main">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line-control/70 bg-main">
           <AgentProviderIcon provider={instance.provider} className="h-4 w-4" />
         </span>
         <span className="truncate text-[13px] font-medium text-main">{agentName(instance)}</span>
@@ -58,7 +58,7 @@ export function AgentUsageRow({
           <span className="shrink-0 text-[11px] text-tertiary @3xl:hidden">{t('Disabled')}</span>
         )}
         {atLimit && (
-          <span className="shrink-0 rounded-full bg-zOrangered-500/10 px-2 py-0.5 text-[11px] text-zOrangered-400">
+          <span className="shrink-0 rounded-full bg-status-attention/10 px-2 py-0.5 text-[11px] text-status-attention">
             {t('At limit')}
           </span>
         )}
@@ -85,7 +85,7 @@ export function AgentUsageRow({
               className="flex items-center gap-2 text-[11px]"
             >
               <span className="w-14 shrink-0 truncate text-tertiary">{window.label}</span>
-              <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-zGray-800">
+              <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-sunken">
                 <span
                   className="block h-full rounded-full"
                   style={{
@@ -97,7 +97,7 @@ export function AgentUsageRow({
               <span
                 className={clsx(
                   'w-9 shrink-0 text-right font-mono',
-                  window.usedPercent >= 100 ? 'text-zOrangered-400' : 'text-main',
+                  window.usedPercent >= 100 ? 'text-status-attention' : 'text-main',
                 )}
               >
                 {percent(window.usedPercent)}

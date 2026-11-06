@@ -92,9 +92,9 @@ export function DownloadFilesCard({
     const total = files.reduce((sum, f) => sum + (f.size ?? 0), 0)
 
     return (
-      <div className="w-full max-w-[520px] overflow-hidden rounded-xl border border-zGray-800 bg-surface">
+      <div className="w-full max-w-[520px] overflow-hidden rounded-xl border border-line-control bg-surface">
         {(multiple || expired) && (
-          <div className="flex h-10 items-center justify-between gap-2 border-b border-zGray-800 pl-3.5 pr-2 text-[12px] text-tertiary">
+          <div className="flex h-10 items-center justify-between gap-2 border-b border-line-control pl-3.5 pr-2 text-[12px] text-tertiary">
             {expired ? (
               <span className="flex items-center gap-1.5">
                 <TimerOff className="h-3.5 w-3.5" strokeWidth={2} />
@@ -260,7 +260,7 @@ function UploadedFilesList({
             key={`${f.fileName}:${String(i)}`}
             className={clsx(
               'flex h-8 min-w-0 max-w-full items-center gap-1.5 rounded-full border bg-surface px-3 text-[13px]',
-              failed ? 'border-error/30 text-error' : 'border-zGray-800 text-main',
+              failed ? 'border-error/30 text-error' : 'border-line-control text-main',
             )}
           >
             <Icon

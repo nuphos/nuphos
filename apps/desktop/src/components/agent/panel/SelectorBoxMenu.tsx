@@ -31,7 +31,7 @@ function meterTone(value: number) {
   if (value >= 95) return { bar: 'bg-error', text: 'text-error' }
   if (value >= 80) return { bar: 'bg-warning', text: 'text-warning' }
 
-  return { bar: 'bg-zViolet-400', text: 'text-secondary' }
+  return { bar: 'bg-action-primary/90', text: 'text-secondary' }
 }
 
 function percent(value: number) {
@@ -64,7 +64,7 @@ export function SelectorBoxMeters({ metrics }: { metrics: SelectorMetrics }) {
               {percent(value)}
             </span>
           </span>
-          <span className="mt-1 block h-[3px] overflow-hidden rounded-full bg-zGray-700/40">
+          <span className="mt-1 block h-[3px] overflow-hidden rounded-full bg-state-selected">
             <span
               className={clsx('block h-full rounded-full', meterTone(value).bar)}
               style={{ width: percent(value) }}

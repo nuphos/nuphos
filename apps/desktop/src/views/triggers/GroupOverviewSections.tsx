@@ -29,7 +29,7 @@ export function GroupFormFields({
           disabled={!canManage}
           onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
           maxLength={100}
-          className="h-8 w-full rounded-md border border-zGray-800 bg-surface px-2.5 text-[13px] text-main focus:border-zViolet-500 focus:outline-none"
+          className="h-8 w-full rounded-md border border-line-control bg-surface px-2.5 text-[13px] text-main focus:border-line-focus focus:outline-none"
         />
       </Field>
 
@@ -71,7 +71,7 @@ export function GroupFormFields({
             }))
           }
           rows={14}
-          className="min-h-[220px] w-full resize-y rounded-md border border-zGray-800 bg-surface px-2.5 py-2 text-[13px] leading-relaxed text-main focus:border-zViolet-500 focus:outline-none"
+          className="min-h-[220px] w-full resize-y rounded-md border border-line-control bg-surface px-2.5 py-2 text-[13px] leading-relaxed text-main focus:border-line-focus focus:outline-none"
         />
       </Field>
     </>
@@ -134,7 +134,7 @@ export function GroupOverviewFooter({
   onSave: () => void
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-t border-zGray-800 px-5 py-3">
+    <div className="flex items-center justify-between gap-3 border-t border-line-control px-5 py-3">
       <div>
         {canDelete && (
           <Button

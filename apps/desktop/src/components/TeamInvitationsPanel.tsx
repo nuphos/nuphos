@@ -90,7 +90,7 @@ export function TeamInvitationsTakeover({
           <button
             type="button"
             onClick={onClose}
-            className="h-8 px-3 rounded-md border border-zGray-800 text-secondary hover:text-main hover:bg-zGray-800/70 text-[12.5px] transition-colors"
+            className="h-8 px-3 rounded-md border border-line-control text-secondary hover:text-main hover:bg-state-hover text-[12.5px] transition-colors"
           >
             {t('Later')}
           </button>

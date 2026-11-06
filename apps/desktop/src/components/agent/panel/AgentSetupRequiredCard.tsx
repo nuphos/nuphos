@@ -125,9 +125,9 @@ export function AgentSetupRequiredCard({
   }
 
   return (
-    <div className="rounded-md border border-zViolet-500/30 bg-zViolet-500/[0.07] px-3.5 py-3 flex flex-col gap-2">
+    <div className="rounded-md border border-action-primary/30 bg-action-primary/[0.07] px-3.5 py-3 flex flex-col gap-2">
       <div className="flex items-center gap-2 text-[13.5px] font-medium text-main">
-        <KeyRound className="h-4 w-4 text-zViolet-400" strokeWidth={1.8} />
+        <KeyRound className="h-4 w-4 text-secondary" strokeWidth={1.8} />
         <span>
           {reason === 'reauthentication' || !failed
             ? t('Sign in again to continue')

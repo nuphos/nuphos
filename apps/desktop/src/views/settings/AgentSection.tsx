@@ -162,15 +162,15 @@ export function AgentSection({
             inert={!open}
             onKeyDown={closeOnEscape}
             style={{ '--agent-panel-w': open ? PANEL_WIDTH : '0px' } as CSSProperties}
-            className="t-agent-panel flex h-full shrink-0 overflow-hidden border-l border-zGray-800/60 sidebar-surface"
+            className="t-agent-panel flex h-full shrink-0 overflow-hidden border-l border-line-control/60 sidebar-surface"
           >
             <div style={{ width: PANEL_WIDTH }} className="flex h-full shrink-0 flex-col">
-              <div className="titlebar-drag flex h-[42px] shrink-0 items-center gap-2 border-b border-zGray-800/60 px-3">
+              <div className="titlebar-drag flex h-[42px] shrink-0 items-center gap-2 border-b border-line-control/60 px-3">
                 <button
                   type="button"
                   aria-label={t('Close')}
                   onClick={close}
-                  className="titlebar-no-drag rounded-md p-1.5 text-tertiary outline-none hover:bg-zGray-800/60 hover:text-main focus-visible:ring-2 focus-visible:ring-zViolet-500/60"
+                  className="titlebar-no-drag rounded-md p-1.5 text-tertiary outline-none hover:bg-state-hover hover:text-main focus-visible:ring-2 focus-visible:ring-line-focus"
                 >
                   <X className="h-4 w-4" />
                 </button>

@@ -23,7 +23,7 @@ export const prColumns: Column<GithubPR>[] = [
     render: (pr) => (
       <span className="text-main">
         {pr.draft && (
-          <span className="mr-1.5 text-[11px] text-tertiary border border-zGray-700 rounded px-1 py-0.5">
+          <span className="mr-1.5 text-[11px] text-tertiary border border-line-control rounded px-1 py-0.5">
             {t('Draft')}
           </span>
         )}

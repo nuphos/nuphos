@@ -98,7 +98,7 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
       <button
         type="button"
         onClick={onClose}
-        className="absolute top-[52px] left-4 flex items-center gap-1 h-7 px-1.5 rounded-md text-[12px] font-normal text-tertiary hover:text-secondary hover:bg-zGray-800/50 transition-colors"
+        className="absolute top-[52px] left-4 flex items-center gap-1 h-7 px-1.5 rounded-md text-[12px] font-normal text-tertiary hover:text-secondary hover:bg-state-hover transition-colors"
         title={t('Back')}
         aria-label={t('Back')}
       >
@@ -113,7 +113,7 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
               <h1 className="text-[20px] font-semibold text-main text-center">
                 {t('Join a team')}
               </h1>
-              <div className="mt-6 rounded-lg border border-zGray-800/70 bg-surface divide-y divide-zGray-800/60">
+              <div className="mt-6 rounded-lg border border-line-control/70 bg-surface divide-y divide-line-control/60">
                 {discoverable!.map((team) => {
                   const joined = joinedIds.has(team.id)
                   const joining = joiningId === team.id
@@ -155,7 +155,7 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
                           </span>
                         ))}
                         {extraMembers > 0 && (
-                          <span className="-ml-1.5 flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-zGray-800 px-1 text-[10px] font-medium text-secondary ring-2 ring-surface">
+                          <span className="-ml-1.5 flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-surface-sunken px-1 text-[10px] font-medium text-secondary ring-2 ring-surface">
                             +{extraMembers}
                           </span>
                         )}
@@ -176,9 +176,9 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
               </div>
 
               <div className="my-8 flex items-center gap-3">
-                <div className="h-px flex-1 bg-zGray-800/70" />
+                <div className="h-px flex-1 bg-state-selected" />
                 <span className="text-[12px] text-tertiary">{t('or')}</span>
-                <div className="h-px flex-1 bg-zGray-800/70" />
+                <div className="h-px flex-1 bg-state-selected" />
               </div>
             </>
           )}
@@ -202,11 +202,10 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={t('Engineering')}
-                className="w-full h-10 rounded-md border border-zGray-800 bg-surface px-3 text-[13px] text-main outline-none transition-colors focus:border-zViolet-500/70 placeholder:text-tertiary"
+                className="w-full h-10 rounded-md border border-line-control bg-surface px-3 text-[13px] text-main outline-none transition-colors focus:border-line-focus placeholder:text-tertiary"
               />
             </label>
-            {/* Enabled fill per design: soft off-white in dark mode (zGray-100
-                ≈ rgb 234 there), overridden to pure white on the light theme
+            {/* Enabled fill per design: soft off-white in dark mode, overridden to pure white on the light theme
                 via the html.light ancestor variant. The hairline black/10
                 border keeps it visible on light's near-white canvas. */}
             <button
@@ -215,8 +214,8 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
               className={clsx(
                 'w-full h-10 rounded-md text-[13px] font-medium transition-colors',
                 name.trim() && !creating
-                  ? 'bg-zGray-100 hover:bg-zGray-150 [.light_&]:bg-white [.light_&]:hover:bg-neutral-100 text-black border border-black/10'
-                  : 'border border-zGray-800 text-secondary opacity-50 cursor-default',
+                  ? 'bg-line-control hover:bg-state-hover [.light_&]:bg-white [.light_&]:hover:bg-neutral-100 text-black border border-black/10'
+                  : 'border border-line-control text-secondary opacity-50 cursor-default',
               )}
             >
               {creating ? t('Creating…') : t('Create')}

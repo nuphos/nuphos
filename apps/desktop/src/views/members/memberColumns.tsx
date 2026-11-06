@@ -28,7 +28,7 @@ export function buildMemberColumns(): Column<MemberRow>[] {
               className="rounded-md !shadow-none"
             />
           ) : (
-            <div className="w-7 h-7 rounded-md border border-dashed border-zGray-700 bg-zGray-850 flex items-center justify-center text-tertiary">
+            <div className="w-7 h-7 rounded-md border border-dashed border-line-control bg-surface-sunken flex items-center justify-center text-tertiary">
               <Mail className="w-3.5 h-3.5" strokeWidth={1.8} />
             </div>
           )}

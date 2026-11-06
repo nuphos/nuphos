@@ -62,14 +62,14 @@ export function AbnormalUsagePanel({
               onClick={() => onNavigate?.('workloads.pods', `ns=${r.namespace} ${r.pod}`)}
               className={clsx(
                 'flex items-center gap-2 text-left rounded px-1 py-0.5',
-                onNavigate && 'hover:bg-zGray-850',
+                onNavigate && 'hover:bg-state-hover',
               )}
               title={
                 onNavigate ? t('Show pod {name}', { name: `${r.namespace}/${r.pod}` }) : undefined
               }
             >
               <span className="min-w-0 flex-1">
-                <span className="text-[12px] text-zViolet-accent truncate">{r.pod}</span>
+                <span className="text-[12px] text-primary truncate">{r.pod}</span>
                 <span className="text-[11px] text-tertiary"> · {r.container}</span>
                 <span className="block text-[11px] text-tertiary truncate">{r.namespace}</span>
               </span>
@@ -93,7 +93,7 @@ export function AbnormalUsagePanel({
   }
 
   return (
-    <div className="mt-3 bg-zGray-900 border border-zGray-800 rounded-md px-4 py-3">
+    <div className="mt-3 bg-surface-sheet border border-line-control rounded-md px-4 py-3">
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="text-[11.5px] uppercase tracking-wider text-tertiary">
           {t('High / Abnormal Resource Usage')}
@@ -142,7 +142,7 @@ function UsagePctCell({
 
 export function SkeletonCard() {
   return (
-    <div className="bg-zGray-900 border border-zGray-800 rounded-md px-4 py-3 h-[92px]">
+    <div className="bg-surface-sheet border border-line-control rounded-md px-4 py-3 h-[92px]">
       <div className="text-[11.5px] uppercase tracking-wider text-tertiary">—</div>
       <div className="text-[24px] font-semibold mt-1 text-main">…</div>
     </div>
@@ -159,7 +159,7 @@ export function OverviewCardView({
   const navigable = !!card.navKey && card.total !== null
 
   return (
-    <div className="bg-zGray-900 border border-zGray-800 rounded-md px-4 py-3 flex flex-col gap-2">
+    <div className="bg-surface-sheet border border-line-control rounded-md px-4 py-3 flex flex-col gap-2">
       <button
         type="button"
         disabled={!navigable}
@@ -224,11 +224,11 @@ export function OverviewCardView({
 // A thin proportional bar summarising the phase breakdown, à la Aptakube.
 function StatusBar({ segments, total }: { segments: Segment[]; total: number }) {
   if (total <= 0) {
-    return <div className="h-1.5 rounded-full bg-zGray-800" />
+    return <div className="h-1.5 rounded-full bg-surface-sunken" />
   }
 
   return (
-    <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-zGray-800">
+    <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken">
       {segments.map((seg) => (
         <div
           key={seg.label}

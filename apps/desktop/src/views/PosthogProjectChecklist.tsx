@@ -41,23 +41,23 @@ export function PosthogProjectChecklist({
 
   if (projects.length === 0) {
     return (
-      <div className="rounded-md border border-zGray-800 px-3 py-3 text-[12px] text-tertiary">
+      <div className="rounded-md border border-line-control px-3 py-3 text-[12px] text-tertiary">
         This key cannot see any projects. Check the key's organization and project access.
       </div>
     )
   }
 
   return (
-    <div className="max-h-64 overflow-y-auto rounded-md border border-zGray-800">
+    <div className="max-h-64 overflow-y-auto rounded-md border border-line-control">
       {groupByOrganization(projects).map(([organizationId, group], groupIndex) => (
-        <div key={organizationId} className={groupIndex > 0 ? 'border-t border-zGray-800' : ''}>
+        <div key={organizationId} className={groupIndex > 0 ? 'border-t border-line-control' : ''}>
           <div className="px-3 pt-2 pb-1 text-[10.5px] uppercase tracking-wide text-tertiary">
             {group.name}
           </div>
           {group.projects.map((project) => (
             <label
               key={project.id}
-              className="flex cursor-pointer items-center gap-2.5 px-3 py-1.5 hover:bg-zGray-850/70"
+              className="flex cursor-pointer items-center gap-2.5 px-3 py-1.5 hover:bg-state-hover"
             >
               <Checkbox
                 checked={selected.has(project.id)}

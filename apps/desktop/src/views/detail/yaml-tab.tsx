@@ -131,8 +131,8 @@ export function YamlTab({ target, refreshKey }: { target: DetailTarget; refreshK
   }
 
   return (
-    <div className="flex h-full flex-col bg-zGray-950">
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-zGray-800 bg-zGray-900 px-6 py-2.5">
+    <div className="flex h-full flex-col bg-surface-canvas">
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-line-control bg-surface-sheet px-6 py-2.5">
         <div className="min-w-0 text-[12.5px] text-tertiary">
           {helmReleaseReadOnly
             ? t(
@@ -147,7 +147,7 @@ export function YamlTab({ target, refreshKey }: { target: DetailTarget; refreshK
             type="button"
             onClick={() => editorRef.current?.openSearchPanel()}
             title={t('Find (Cmd+F / Ctrl+F)')}
-            className="inline-flex h-7 flex-shrink-0 items-center gap-1.5 rounded bg-zGray-800 px-2.5 text-[12px] text-main hover:bg-zGray-750"
+            className="inline-flex h-7 flex-shrink-0 items-center gap-1.5 rounded bg-surface-sunken px-2.5 text-[12px] text-main hover:bg-state-hover"
           >
             <Search className="h-3.5 w-3.5" strokeWidth={2} />
             {t('Find')}
@@ -156,7 +156,7 @@ export function YamlTab({ target, refreshKey }: { target: DetailTarget; refreshK
             <button
               type="button"
               onClick={() => setShowSecretValues((value) => !value)}
-              className="inline-flex h-7 flex-shrink-0 items-center gap-1.5 rounded bg-zGray-800 px-2.5 text-[12px] text-main hover:bg-zGray-750"
+              className="inline-flex h-7 flex-shrink-0 items-center gap-1.5 rounded bg-surface-sunken px-2.5 text-[12px] text-main hover:bg-state-hover"
             >
               <Eye className="h-3.5 w-3.5" strokeWidth={2} />
               {showSecretValues ? t('Hide values') : t('Reveal encoded values')}

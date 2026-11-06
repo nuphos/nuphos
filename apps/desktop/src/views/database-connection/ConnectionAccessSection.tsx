@@ -27,18 +27,18 @@ export function ConnectionAccessSection({
   return (
     <section className="px-6 py-4">
       <SectionHeader
-        icon={<ShieldCheck className="h-4 w-4 text-zViolet-accent" strokeWidth={1.8} />}
+        icon={<ShieldCheck className="h-4 w-4 text-primary" strokeWidth={1.8} />}
         title={t('Access policy')}
         hint={t('Who — and which agents — may use this connection')}
       />
       <div className="max-w-xl">
         <div className="text-[12px] text-secondary">{t('Member access')}</div>
-        <div className="mt-1 flex rounded-md border border-zGray-800 bg-zGray-900 p-0.5">
+        <div className="mt-1 flex rounded-md border border-line-control bg-surface-sheet p-0.5">
           <button
             type="button"
             disabled={!isTeamAdmin || busy || !connection.access}
             onClick={() => onUpdateMemberAccess(['*'])}
-            className={`flex-1 rounded px-2 py-1 text-[11.5px] ${connection.access?.memberAllowList.includes('*') ? 'bg-zViolet-500 text-white' : 'text-tertiary hover:text-main'} disabled:opacity-50`}
+            className={`flex-1 rounded px-2 py-1 text-[11.5px] ${connection.access?.memberAllowList.includes('*') ? 'bg-action-primary text-inverse' : 'text-tertiary hover:text-main'} disabled:opacity-50`}
           >
             {t('All team members')}
           </button>
@@ -52,20 +52,20 @@ export function ConnectionAccessSection({
                   : (connection.access?.memberAllowList ?? [currentUserId]),
               )
             }
-            className={`flex-1 rounded px-2 py-1 text-[11.5px] ${connection.access && !connection.access.memberAllowList.includes('*') ? 'bg-zGray-700 text-main' : 'text-tertiary hover:text-main'} disabled:opacity-50`}
+            className={`flex-1 rounded px-2 py-1 text-[11.5px] ${connection.access && !connection.access.memberAllowList.includes('*') ? 'bg-line-control text-main' : 'text-tertiary hover:text-main'} disabled:opacity-50`}
           >
             {t('Specific members')}
           </button>
         </div>
         {connection.access && !connection.access.memberAllowList.includes('*') && (
-          <div className="mt-2 max-h-48 space-y-1 overflow-y-auto rounded-md border border-zGray-800 p-2">
+          <div className="mt-2 max-h-48 space-y-1 overflow-y-auto rounded-md border border-line-control p-2">
             {members.map((member) => {
               const checked = connection.access!.memberAllowList.includes(member.id)
 
               return (
                 <label
                   key={member.id}
-                  className="flex items-center gap-2 rounded px-2 py-1.5 text-[11.5px] text-secondary hover:bg-zGray-800/50"
+                  className="flex items-center gap-2 rounded px-2 py-1.5 text-[11.5px] text-secondary hover:bg-state-hover"
                 >
                   <input
                     type="checkbox"
@@ -109,7 +109,7 @@ export function ConnectionAccessSection({
             />
           </div>
         </label>
-        <div className="mt-2 rounded-md border border-zGray-800 bg-zGray-900/55 p-2.5 text-[10.5px] leading-4 text-tertiary">
+        <div className="mt-2 rounded-md border border-line-control bg-state-selected p-2.5 text-[10.5px] leading-4 text-tertiary">
           {connection.agentPolicy === 'disabled'
             ? t('Agent tools cannot discover or access this database.')
             : connection.providerOrigin

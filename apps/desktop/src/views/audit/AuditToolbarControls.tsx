@@ -12,7 +12,7 @@ import type { Range, Scope, Tab } from './shared'
 const pill = (active: boolean) =>
   clsx(
     'rounded-full px-2.5 py-1 text-[12px] transition-colors',
-    active ? 'bg-zGray-800 text-main' : 'text-tertiary hover:text-secondary',
+    active ? 'bg-surface-sunken text-main' : 'text-tertiary hover:text-secondary',
   )
 
 export function AuditFilterControls({
@@ -53,7 +53,7 @@ export function AuditFilterControls({
           </button>
         ))}
       </div>
-      <div className="mx-1 h-4 w-px bg-zGray-800" />
+      <div className="mx-1 h-4 w-px bg-surface-sunken" />
       <div className="flex items-center gap-1">
         {(['team', 'mine'] as const).map((s) => (
           <button
@@ -69,7 +69,7 @@ export function AuditFilterControls({
           </button>
         ))}
       </div>
-      <div className="mx-1 h-4 w-px bg-zGray-800" />
+      <div className="mx-1 h-4 w-px bg-surface-sunken" />
       <button
         type="button"
         onClick={() => {
@@ -85,7 +85,7 @@ export function AuditFilterControls({
         <Zap className="h-3 w-3" strokeWidth={2} />
         {t('Mutations only')}
       </button>
-      <div className="mx-1 h-4 w-px bg-zGray-800" />
+      <div className="mx-1 h-4 w-px bg-surface-sunken" />
       <AppSelect
         value={range}
         onValueChange={(value) => {

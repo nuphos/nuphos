@@ -1,13 +1,13 @@
 import { t } from '../../i18n'
 
-const SKELETON = 'animate-pulse rounded bg-zGray-800/50 motion-reduce:animate-none'
+const SKELETON = 'animate-pulse rounded bg-state-selected motion-reduce:animate-none'
 
 /** The heatmap card's shape while its history loads, so the table does not jump. */
 export function HeatmapSkeleton({ rows }: { rows: number }) {
   return (
     <div
       aria-hidden="true"
-      className="mb-4 rounded-xl border border-zGray-800/60 bg-surface/40 px-4 pb-3 pt-3"
+      className="mb-4 rounded-xl border border-line-control/60 bg-surface/40 px-4 pb-3 pt-3"
     >
       <div className={`mb-4 h-3.5 w-48 ${SKELETON}`} />
       <div className="space-y-2">
@@ -29,11 +29,11 @@ export function AgentUsageSkeleton() {
       <div className={`mb-2 h-3 w-36 ${SKELETON}`} />
       <div className={`mb-4 h-3 w-64 ${SKELETON}`} />
       <HeatmapSkeleton rows={5} />
-      <div aria-hidden="true" className="rounded-xl border border-zGray-800/60 bg-surface/40">
+      <div aria-hidden="true" className="rounded-xl border border-line-control/60 bg-surface/40">
         {Array.from({ length: 4 }, (_, i) => (
           <div
             key={i}
-            className="flex items-center gap-3 border-b border-zGray-800/60 px-4 py-3 last:border-b-0"
+            className="flex items-center gap-3 border-b border-line-control/60 px-4 py-3 last:border-b-0"
           >
             <div className={`h-8 w-8 shrink-0 rounded-lg ${SKELETON}`} />
             <div className={`h-3 w-40 ${SKELETON}`} />

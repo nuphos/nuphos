@@ -28,12 +28,12 @@ export function MemberCell({
   if (!member) {
     return compact ? (
       <div className="flex items-center gap-2 min-w-0 text-tertiary text-[12px]">
-        <div className="h-5 w-5 flex-shrink-0 rounded-[5px] bg-zGray-850" />
+        <div className="h-5 w-5 flex-shrink-0 rounded-[5px] bg-surface-sunken" />
         <span className="truncate">{t('Unknown member')}</span>
       </div>
     ) : (
       <div className="flex items-center gap-2 min-w-0 text-tertiary text-[12px]">
-        <div className="w-6 h-6 rounded-[5px] bg-zGray-850 flex-shrink-0" />
+        <div className="w-6 h-6 rounded-[5px] bg-surface-sunken flex-shrink-0" />
         <div className="min-w-0">
           <div className="truncate">{t('Unknown member')}</div>
           <div className="truncate text-[11px]">{t('Not in current team')}</div>

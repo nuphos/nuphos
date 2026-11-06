@@ -47,9 +47,7 @@ export function S3ObjectsTable({
                 <FileIcon className="w-3.5 h-3.5 text-tertiary shrink-0" strokeWidth={1.8} />
               )}
               <span
-                className={
-                  r.kind === 'prefix' ? 'text-zViolet-accent truncate' : 'text-main truncate'
-                }
+                className={r.kind === 'prefix' ? 'text-primary truncate' : 'text-main truncate'}
                 title={r.name}
               >
                 {r.name}
@@ -90,7 +88,7 @@ export function S3ObjectsTable({
           sortAccessor: (r) => (r.kind === 'object' ? (r.object.storageClass ?? '') : ''),
           render: (r) =>
             r.kind === 'object' ? (
-              <span className="text-[11px] text-secondary px-1.5 py-0.5 rounded bg-zGray-800/60">
+              <span className="text-[11px] text-secondary px-1.5 py-0.5 rounded bg-state-selected">
                 {r.object.storageClass ?? 'STANDARD'}
               </span>
             ) : (

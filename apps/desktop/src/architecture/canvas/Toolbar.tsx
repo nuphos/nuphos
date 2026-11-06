@@ -59,7 +59,7 @@ export function Toolbar({
       <input
         value={diagram.name}
         onChange={(e) => onNameChange(e.target.value)}
-        className="rounded focus:ring-1 focus:ring-zViolet-500/60"
+        className="rounded focus:ring-1 focus:ring-line-focus"
         style={{
           fontSize: 14,
           fontWeight: 500,

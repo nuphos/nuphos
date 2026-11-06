@@ -185,7 +185,7 @@ export const TimeGrid = forwardRef<TimeGridHandle, Props>(function TimeGrid(
             ))}
             {showsToday && (
               <div
-                className="absolute right-1 -translate-y-1/2 rounded bg-zOrangered-500 px-1 py-px text-[10px] font-medium text-white"
+                className="absolute right-1 -translate-y-1/2 rounded bg-status-attention px-1 py-px text-[10px] font-medium text-white"
                 style={{ top: nowTop }}
               >
                 {formatEventTime(now)}

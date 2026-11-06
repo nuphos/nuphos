@@ -38,7 +38,7 @@ function ConnectionDetails({
   const hasActions = actions.length > 0 || Boolean(externalUrl) || Boolean(onDisconnect)
 
   return (
-    <div className="border-t border-zGray-800/55 bg-zGray-950/15 px-4 pb-5 pt-4">
+    <div className="border-t border-line-control/55 bg-state-selected px-4 pb-5 pt-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-[12px] font-medium text-secondary">{t('Connection details')}</h3>
         {hasActions && (
@@ -50,8 +50,8 @@ function ConnectionDetails({
                 onClick={action.onOpen}
                 className={
                   action.kind === 'primary'
-                    ? 'flex h-8 items-center rounded-lg bg-zGray-50 px-3 text-[12.5px] font-medium text-zGray-950 transition-colors hover:bg-zGray-150'
-                    : 'flex h-8 items-center rounded-lg border border-zGray-800/60 bg-surface px-3 text-[12.5px] font-medium text-secondary transition-colors hover:bg-zGray-850 hover:text-main'
+                    ? 'flex h-8 items-center rounded-lg bg-line-control px-3 text-[12.5px] font-medium text-tertiary transition-colors hover:bg-state-hover'
+                    : 'flex h-8 items-center rounded-lg border border-line-control/60 bg-surface px-3 text-[12.5px] font-medium text-secondary transition-colors hover:bg-state-hover hover:text-main'
                 }
               >
                 {action.label}
@@ -65,7 +65,7 @@ function ConnectionDetails({
                     .appOpenExternal(externalUrl)
                     .catch(() => toast.error(t('Could not open {name}', { name: providerLabel })))
                 }}
-                className="flex h-8 items-center gap-1.5 rounded-lg border border-zGray-800/60 bg-surface px-3 text-[12.5px] font-medium text-secondary transition-colors hover:bg-zGray-850 hover:text-main"
+                className="flex h-8 items-center gap-1.5 rounded-lg border border-line-control/60 bg-surface px-3 text-[12.5px] font-medium text-secondary transition-colors hover:bg-state-hover hover:text-main"
               >
                 <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.9} />
                 {info.externalLabel}
@@ -138,7 +138,7 @@ export function ConnectorInfoPage({
   return (
     <div className="mx-auto w-full max-w-[760px] px-7 py-10">
       <header>
-        <div className="flex h-14 w-14 items-center justify-center rounded-[14px] border border-zGray-800/60 bg-surface shadow-sm">
+        <div className="flex h-14 w-14 items-center justify-center rounded-[14px] border border-line-control/60 bg-surface shadow-sm">
           <ConnectorLogo provider={provider} size={31} />
         </div>
 
@@ -153,7 +153,7 @@ export function ConnectorInfoPage({
       </header>
 
       <section className="mt-10">
-        <div className="flex items-center justify-between border-b border-zGray-800/55 pb-2.5">
+        <div className="flex items-center justify-between border-b border-line-control/55 pb-2.5">
           <h2 className="text-[13.5px] font-medium text-main">{t('Connections')}</h2>
           <div className="flex items-center gap-3">
             <span className="text-[11.5px] text-tertiary">
@@ -165,7 +165,7 @@ export function ConnectorInfoPage({
               <button
                 type="button"
                 onClick={addAction.onClick}
-                className="flex h-7 items-center gap-1 rounded-lg border border-zGray-800/60 bg-surface px-2.5 text-[12px] font-medium text-secondary transition-colors hover:bg-zGray-850 hover:text-main"
+                className="flex h-7 items-center gap-1 rounded-lg border border-line-control/60 bg-surface px-2.5 text-[12px] font-medium text-secondary transition-colors hover:bg-state-hover hover:text-main"
               >
                 <Plus className="h-3.5 w-3.5" strokeWidth={2} />
                 {addAction.label}
@@ -182,8 +182,8 @@ export function ConnectorInfoPage({
                 key={connection.id}
                 className={`overflow-hidden rounded-xl border transition-colors ${
                   isSelected
-                    ? 'border-zGray-700/70 bg-surface shadow-sm'
-                    : 'border-transparent hover:border-zGray-800/55 hover:bg-zGray-900/40'
+                    ? 'border-line-control/70 bg-surface shadow-sm'
+                    : 'border-transparent hover:border-line-control/55 hover:bg-state-hover'
                 }`}
               >
                 <button
@@ -192,7 +192,7 @@ export function ConnectorInfoPage({
                   onClick={() => onSelect(isSelected ? null : connection.id)}
                   className="flex w-full items-center gap-3 px-3 py-3.5 text-left"
                 >
-                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] border border-zGray-800/55 bg-surface">
+                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] border border-line-control/55 bg-surface">
                     <ConnectorLogo provider={provider} size={20} />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -203,7 +203,7 @@ export function ConnectorInfoPage({
                       {t('{name} connection', { name: providerLabel })}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 rounded-full border border-zGray-800/55 bg-surface px-2.5 py-1 text-[11.5px] text-secondary">
+                  <div className="flex items-center gap-1.5 rounded-full border border-line-control/55 bg-surface px-2.5 py-1 text-[11.5px] text-secondary">
                     <span
                       className={`h-1.5 w-1.5 rounded-full ${
                         connection.attention ? 'bg-warning' : 'bg-green-500'
@@ -236,7 +236,7 @@ export function ConnectorInfoPage({
                       }
                     />
                     {connection.details && (
-                      <div className="border-t border-zGray-800/55 bg-zGray-950/15 px-4 py-5">
+                      <div className="border-t border-line-control/55 bg-state-selected px-4 py-5">
                         {connection.details}
                       </div>
                     )}

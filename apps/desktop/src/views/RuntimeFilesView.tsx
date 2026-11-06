@@ -183,7 +183,7 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
             </div>
           ) : preview ? (
             'image' in preview ? (
-              <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-zGray-900/30 p-6">
+              <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-state-selected p-6">
                 <img
                   src={preview.image}
                   alt={fileName}
@@ -198,7 +198,7 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
               </div>
             )
           ) : media ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-zGray-900/30 p-6">
+            <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-state-selected p-6">
               {media.kind === 'video' ? (
                 <video src={media.url} controls className="max-h-full max-w-full rounded" />
               ) : media.kind === 'audio' ? (
@@ -263,10 +263,7 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
                 render: (entry) => (
                   <span className="flex min-w-0 items-center gap-2">
                     {entry.kind === 'directory' ? (
-                      <Folder
-                        className="h-3.5 w-3.5 shrink-0 text-zViolet-accent"
-                        strokeWidth={1.6}
-                      />
+                      <Folder className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={1.6} />
                     ) : (
                       <File className="h-3.5 w-3.5 shrink-0 text-tertiary" strokeWidth={1.6} />
                     )}

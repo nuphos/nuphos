@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/button'
 import { t } from '../../i18n'
 
 const FIELD =
-  'w-full rounded-md border border-main bg-surface px-3 py-2 text-[13px] text-main outline-none focus:border-zViolet-500'
+  'w-full rounded-md border border-main bg-surface px-3 py-2 text-[13px] text-main outline-none focus:border-line-focus'
 
 /** Ask the agent to change the selected screens: the request, in the user's words. Mount it to open it. */
 export function AskAgentDialog({

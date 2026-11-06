@@ -218,7 +218,7 @@ export function CloudRunServicesView({
             header: t('Name'),
             width: 220,
             sortAccessor: (r) => r.name,
-            render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
+            render: (r) => <span className="text-primary">{r.name}</span>,
           },
           {
             key: 'status',
@@ -245,7 +245,7 @@ export function CloudRunServicesView({
                   href={r.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-mono text-[12px] text-zViolet-accent hover:underline truncate block max-w-full"
+                  className="font-mono text-[12px] text-primary hover:underline truncate block max-w-full"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {r.url}

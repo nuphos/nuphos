@@ -37,7 +37,7 @@ export function PosthogPermissionsSection({
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] text-secondary hover:bg-zGray-850 hover:text-main"
+          className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] text-secondary hover:bg-state-hover hover:text-main"
         >
           <ShieldCheck className="h-3 w-3" strokeWidth={1.9} />
           {t('Edit permissions')}
@@ -46,13 +46,13 @@ export function PosthogPermissionsSection({
       {notices.map((notice) => (
         <div
           key={notice.kind}
-          className="mb-2 flex items-start gap-1.5 rounded-md border border-zGray-800 px-3 py-2 text-[11.5px] text-warning"
+          className="mb-2 flex items-start gap-1.5 rounded-md border border-line-control px-3 py-2 text-[11.5px] text-warning"
         >
           <AlertTriangle className="mt-px h-3.5 w-3.5 flex-shrink-0" />
           <span className="font-mono break-all">{notice.text}</span>
         </div>
       ))}
-      <div className="overflow-hidden rounded-lg border border-zGray-800">
+      <div className="overflow-hidden rounded-lg border border-line-control">
         {resources.map((resource, index) => {
           const level = integration.permissions[resource.id] ?? 'none'
 
@@ -60,7 +60,7 @@ export function PosthogPermissionsSection({
             <div
               key={resource.id}
               className={`flex items-center gap-3 px-4 py-2 ${
-                index > 0 ? 'border-t border-zGray-800/60' : ''
+                index > 0 ? 'border-t border-line-control/60' : ''
               }`}
             >
               <div className="min-w-0 flex-1 truncate text-[12.5px] text-main">

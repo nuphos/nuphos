@@ -192,17 +192,15 @@ function MonthCell({
 
   return (
     <div
-      className={`flex min-h-0 flex-col gap-0.5 overflow-hidden border-b border-main/60 p-1 ${isFirstColumn ? '' : 'border-l'} ${weekend ? 'bg-zGray-800/25' : ''}`}
+      className={`flex min-h-0 flex-col gap-0.5 overflow-hidden border-b border-main/60 p-1 ${isFirstColumn ? '' : 'border-l'} ${weekend ? 'bg-state-selected' : ''}`}
     >
       <div className="flex justify-start px-0.5 text-[11.5px] leading-5">
         {isToday ? (
-          <span className="rounded-[5px] bg-zOrangered-500 px-1 font-semibold text-white">
+          <span className="rounded-[5px] bg-status-attention px-1 font-semibold text-white">
             {label}
           </span>
         ) : (
-          <span className={inMonth ? 'font-medium text-secondary' : 'text-tertiary/70'}>
-            {label}
-          </span>
+          <span className={inMonth ? 'font-medium text-secondary' : 'text-tertiary'}>{label}</span>
         )}
       </div>
       {visible.map((event) => {

@@ -69,11 +69,11 @@ export function SkillDetailPane({
   return (
     <DetailSidebarTransition
       onClose={onClose}
-      className="w-[420px] flex-shrink-0 min-h-0 flex flex-col bg-zGray-925/40"
+      className="w-[420px] flex-shrink-0 min-h-0 flex flex-col bg-state-selected"
     >
       {(requestClose) => (
         <>
-          <div className="px-4 py-3 border-b border-zGray-800/60 flex items-start justify-between gap-3">
+          <div className="px-4 py-3 border-b border-line-control/60 flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="text-[12px] uppercase tracking-wide text-tertiary">
                 {t('Team skill')}
@@ -86,7 +86,7 @@ export function SkillDetailPane({
             <button
               type="button"
               onClick={requestClose}
-              className="h-7 w-7 rounded-md text-tertiary hover:text-main hover:bg-zGray-800 flex items-center justify-center"
+              className="h-7 w-7 rounded-md text-tertiary hover:text-main hover:bg-state-hover flex items-center justify-center"
               title={t('Close details')}
               aria-label={t('Close details')}
             >
@@ -185,7 +185,7 @@ export function SkillDetailPane({
                     <div className="text-[11px] uppercase tracking-wide text-tertiary">
                       SKILL.md
                     </div>
-                    <pre className="max-h-[240px] overflow-auto whitespace-pre-wrap break-words rounded-md border border-zGray-800/60 bg-zGray-950 px-3 py-2 font-mono text-[11px] text-secondary">
+                    <pre className="max-h-[240px] overflow-auto whitespace-pre-wrap break-words rounded-md border border-line-control/60 bg-surface-canvas px-3 py-2 font-mono text-[11px] text-secondary">
                       {skillMd.text}
                     </pre>
                     {skillMd.textTruncated && (

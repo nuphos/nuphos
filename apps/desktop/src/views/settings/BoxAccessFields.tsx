@@ -36,11 +36,11 @@ function AvatarStack({ members }: { members: TeamMember[] }) {
           src={member.avatarURL}
           name={memberDisplayName(member)}
           size={22}
-          className="-ml-1.5 rounded-full ring-2 ring-zGray-900 first:ml-0"
+          className="-ml-1.5 rounded-full ring-2 ring-line-control first:ml-0"
         />
       ))}
       {extra > 0 && (
-        <span className="-ml-1.5 flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-zGray-800 px-1 text-[10.5px] font-medium text-secondary ring-2 ring-zGray-900">
+        <span className="-ml-1.5 flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-surface-sunken px-1 text-[10.5px] font-medium text-secondary ring-2 ring-line-control">
           +{extra}
         </span>
       )}
@@ -64,7 +64,7 @@ function MemberRow({
       <label
         className={clsx(
           'flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors',
-          checked ? 'bg-zViolet-accent/10' : 'hover:bg-zGray-800/50',
+          checked ? 'bg-state-selected' : 'hover:bg-state-hover',
         )}
       >
         <Avatar src={member.avatarURL} name={name} size={26} className="rounded-full" />
@@ -135,14 +135,14 @@ export function BoxAccessFields({
               key={mode}
               value={mode}
               className={clsx(
-                'relative flex flex-col items-start gap-1.5 rounded-xl border px-3 py-2.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-zViolet-accent',
+                'relative flex flex-col items-start gap-1.5 rounded-xl border px-3 py-2.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-line-focus',
                 selected
-                  ? 'border-zViolet-accent bg-zViolet-accent/10'
-                  : 'border-zGray-800 bg-zGray-900 hover:border-zGray-700',
+                  ? 'border-action-primary bg-state-selected'
+                  : 'border-line-control bg-surface-sheet hover:border-line-control',
               )}
             >
               <Icon
-                className={clsx('h-4 w-4', selected ? 'text-zViolet-accent' : 'text-tertiary')}
+                className={clsx('h-4 w-4', selected ? 'text-primary' : 'text-tertiary')}
                 aria-hidden="true"
               />
               <span className="text-[13px] font-semibold text-main">{title}</span>
@@ -151,7 +151,7 @@ export function BoxAccessFields({
                 keepMounted
                 className={clsx(
                   'absolute right-2.5 top-2.5 flex h-4 w-4 items-center justify-center rounded-full',
-                  selected ? 'bg-zViolet-accent text-white' : 'border border-zGray-700',
+                  selected ? 'bg-action-primary text-inverse' : 'border border-line-control',
                 )}
               >
                 {selected && <Check className="h-2.5 w-2.5" strokeWidth={3.5} />}
@@ -160,7 +160,7 @@ export function BoxAccessFields({
           )
         })}
       </RadioGroup>
-      <div className="rounded-xl border border-zGray-800">
+      <div className="rounded-xl border border-line-control">
         <div className="flex items-center justify-between gap-3 px-3 py-2.5">
           <span className="text-[12px] text-secondary">
             {choice.mode === 'everyone'
@@ -170,7 +170,7 @@ export function BoxAccessFields({
           <AvatarStack members={choice.mode === 'everyone' ? members : admins} />
         </div>
         {choice.mode === 'members' && (
-          <div className="border-t border-zGray-800 px-1.5 pb-1.5 pt-2">
+          <div className="border-t border-line-control px-1.5 pb-1.5 pt-2">
             <div className="flex items-center justify-between gap-2 px-1.5 pb-1.5">
               <span className="text-[11px] font-medium uppercase tracking-wide text-tertiary">
                 {t('Members')}
@@ -182,7 +182,7 @@ export function BoxAccessFields({
             {others.length > SEARCH_FROM && (
               <InputGroup
                 render={<label />}
-                className="mx-1.5 mb-1.5 flex h-8 items-center gap-2 rounded-md border border-zGray-800 bg-surface px-2.5 text-tertiary"
+                className="mx-1.5 mb-1.5 flex h-8 items-center gap-2 rounded-md border border-line-control bg-surface px-2.5 text-tertiary"
               >
                 <Search className="h-3.5 w-3.5" aria-hidden="true" />
                 <InputGroupInput

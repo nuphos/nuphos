@@ -5,12 +5,12 @@ import type { WorkloadLogLine } from '../../types'
 // obvious in a scrollback. One-shot fetch with a tail; users can hit
 // Refresh to re-pull.
 const POD_LOG_COLORS = [
-  'text-zViolet-accent',
+  'text-primary',
   'text-success',
   'text-warning',
-  'text-zOrangered-500',
-  'text-zViolet-400',
-  'text-zGray-300',
+  'text-status-attention',
+  'text-secondary',
+  'text-secondary',
 ]
 
 // Rolling-window cap on the live log buffer. Picks the largest value that

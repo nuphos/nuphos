@@ -10,7 +10,7 @@ function nodeConditionChipClass(condition: string): string {
     return 'border-warning/30 bg-warning/10 text-warning'
   }
 
-  return 'border-zGray-700 bg-zGray-850 text-tertiary'
+  return 'border-line-control bg-surface-sunken text-tertiary'
 }
 
 export function CompactChipList({ items, kind }: { items: string[]; kind: 'taint' | 'condition' }) {
@@ -34,7 +34,7 @@ export function CompactChipList({ items, kind }: { items: string[]; kind: 'taint
         </span>
       ))}
       {hidden > 0 && (
-        <span className="shrink-0 rounded bg-zGray-850 px-1.5 py-0.5 text-[11px] text-tertiary">
+        <span className="shrink-0 rounded bg-surface-sunken px-1.5 py-0.5 text-[11px] text-tertiary">
           +{hidden}
         </span>
       )}

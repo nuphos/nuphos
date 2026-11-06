@@ -160,13 +160,13 @@ export function AuditLogView({
             title={t('Audit log')}
             subtitle={t('Review agent activity and resource changes across agents')}
           />
-          <div className="flex h-[42px] flex-shrink-0 items-center gap-2 border-b border-zGray-800/60 px-6">
+          <div className="flex h-[42px] flex-shrink-0 items-center gap-2 border-b border-line-control/60 px-6">
             <SearchBox
               filter={internalFilter}
               onFilterChange={setInternalFilter}
               count={tab === 'conversations' ? conversationRows.length : eventRows.length}
             />
-            <div className="mx-1 h-4 w-px bg-zGray-800" />
+            <div className="mx-1 h-4 w-px bg-surface-sunken" />
             {filterControls}
             <div className="flex-1" />
             {exportControl}
@@ -203,7 +203,7 @@ export function AuditLogView({
         {selected && (
           <DetailSidebarTransition
             onClose={() => setSelected(null)}
-            className="flex-shrink-0 w-[44%] min-w-[300px] max-w-[680px] flex flex-col bg-zGray-950 min-h-0 overflow-hidden border-l border-zGray-800/60"
+            className="flex-shrink-0 w-[44%] min-w-[300px] max-w-[680px] flex flex-col bg-surface-canvas min-h-0 overflow-hidden border-l border-line-control/60"
           >
             {/* Same journal panel the chat uses — single implementation. It is
               read-only here (no onLocateInChat: there is no transcript beside
@@ -223,7 +223,7 @@ export function AuditLogView({
                   }
                 />
                 {onOpenConversation && (
-                  <div className="flex-shrink-0 border-t border-zGray-800/60 p-3">
+                  <div className="flex-shrink-0 border-t border-line-control/60 p-3">
                     <Button
                       variant="primary"
                       onClick={() => onOpenConversation(selected.sessionId)}

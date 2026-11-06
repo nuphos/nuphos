@@ -34,7 +34,7 @@ export function AgentTile({ agent, onSelect }: { agent: RuntimeInstance; onSelec
         title={label}
         aria-label={t('Open {label} details', { label })}
         onClick={onSelect}
-        className={`flex h-8 w-8 items-center justify-center rounded-lg bg-zGray-800/40 transition-colors hover:bg-zGray-800/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zViolet-500/60 ${offline || signedOut ? 'opacity-40 grayscale' : ''}`}
+        className={`flex h-8 w-8 items-center justify-center rounded-lg bg-state-selected transition-colors hover:bg-state-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-line-focus ${offline || signedOut ? 'opacity-40 grayscale' : ''}`}
       >
         <AgentProviderIcon provider={agent.provider} className="h-4 w-4" />
       </button>

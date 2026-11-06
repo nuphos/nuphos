@@ -20,7 +20,7 @@ export function EditMessageForm({
   return (
     <InputGroup
       render={<form />}
-      className="flex w-full flex-col gap-2 rounded-2xl border border-main bg-zGray-800/60 p-2"
+      className="flex w-full flex-col gap-2 rounded-2xl border border-main bg-state-selected p-2"
       onSubmit={(event) => {
         event.preventDefault()
         if (trimmed) onSend(trimmed)

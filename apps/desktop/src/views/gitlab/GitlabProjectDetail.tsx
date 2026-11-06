@@ -128,13 +128,13 @@ export function ProjectDetail({
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <div className="px-3 py-2 border-b border-zGray-800 flex items-center gap-3 flex-shrink-0">
+      <div className="px-3 py-2 border-b border-line-control flex items-center gap-3 flex-shrink-0">
         <div className="flex gap-1">
           <button
             onClick={() => onTabChange('merge-requests')}
             className={`h-7 px-3 rounded-md text-[12px] ${
               tab === 'merge-requests'
-                ? 'bg-zGray-800 text-main'
+                ? 'bg-surface-sunken text-main'
                 : 'text-tertiary hover:text-secondary'
             }`}
           >
@@ -143,7 +143,9 @@ export function ProjectDetail({
           <button
             onClick={() => onTabChange('pipelines')}
             className={`h-7 px-3 rounded-md text-[12px] ${
-              tab === 'pipelines' ? 'bg-zGray-800 text-main' : 'text-tertiary hover:text-secondary'
+              tab === 'pipelines'
+                ? 'bg-surface-sunken text-main'
+                : 'text-tertiary hover:text-secondary'
             }`}
           >
             {t('Pipelines')}
@@ -156,7 +158,9 @@ export function ProjectDetail({
                 key={s}
                 onClick={() => onMrStateChange(s)}
                 className={`h-6 px-2 rounded text-[11px] ${
-                  mrState === s ? 'bg-zGray-800 text-main' : 'text-tertiary hover:text-secondary'
+                  mrState === s
+                    ? 'bg-surface-sunken text-main'
+                    : 'text-tertiary hover:text-secondary'
                 }`}
               >
                 {s === 'opened'

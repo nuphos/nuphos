@@ -70,11 +70,11 @@ export function LabelChip({ name, color }: { name: string; color: string }) {
 
   return (
     <span
-      className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-zGray-800 px-2 py-0.5 text-[11.5px] font-medium text-main"
+      className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-line-control px-2 py-0.5 text-[11.5px] font-medium text-main"
       style={hex ? { backgroundColor: `${hex}26`, borderColor: `${hex}80` } : undefined}
     >
       <span
-        className="h-2 w-2 shrink-0 rounded-full bg-zGray-500"
+        className="h-2 w-2 shrink-0 rounded-full bg-line-control"
         style={hex ? { backgroundColor: hex } : undefined}
       />
       <span className="truncate">{name}</span>
@@ -90,7 +90,7 @@ export function PullRequestSidebar({
   reviewers: Reviewer[]
 }) {
   return (
-    <aside className="grid grid-cols-1 gap-x-5 gap-y-4 rounded-lg border border-zGray-800/80 bg-zGray-900/50 p-3 @md:grid-cols-2">
+    <aside className="grid grid-cols-1 gap-x-5 gap-y-4 rounded-lg border border-line-control/80 bg-state-selected p-3 @md:grid-cols-2">
       <Section title={t('Reviewers')}>
         {reviewers.length ? (
           reviewers.map((reviewer) => <ReviewerRow key={reviewer.login} reviewer={reviewer} />)

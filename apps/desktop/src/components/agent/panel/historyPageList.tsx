@@ -27,7 +27,7 @@ function ArchiveButton({ onClick }: { onClick: () => void }) {
       aria-label={t('Archive agent')}
       title={t('Archive agent')}
       onClick={onClick}
-      className="mr-2 hidden h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary outline-none transition-colors hover:bg-zGray-800/60 hover:text-main focus-visible:inline-flex focus-visible:bg-zGray-800/60 group-hover:inline-flex"
+      className="mr-2 hidden h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary outline-none transition-colors hover:bg-state-hover hover:text-main focus-visible:inline-flex focus-visible:bg-state-hover group-hover:inline-flex"
     >
       <Archive className="h-3.5 w-3.5" strokeWidth={1.8} />
     </button>
@@ -183,7 +183,7 @@ export function HistoryPageList({
       {hasMore && (
         <div ref={sentinelRef} className="flex items-center justify-center py-3">
           {loadingMore ? (
-            <Loader2 className="h-4 w-4 animate-spin text-zViolet-accent" />
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
           ) : (
             <button
               onClick={() => void loadMore()}

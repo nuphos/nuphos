@@ -128,7 +128,7 @@ export function CloudflareIamPermissionsView({
               <Warnings warnings={oauth.warnings} />
               <section className="px-6 py-4">
                 <SectionHeader
-                  icon={<ShieldCheck className="w-4 h-4 text-zViolet-accent" strokeWidth={1.8} />}
+                  icon={<ShieldCheck className="w-4 h-4 text-primary" strokeWidth={1.8} />}
                   title={t('Granted scopes')}
                   hint={
                     oauth.scopes.length === 1
@@ -147,7 +147,7 @@ export function CloudflareIamPermissionsView({
                     {oauth.scopes.map((scope) => (
                       <span
                         key={scope}
-                        className="px-2 py-1 rounded-md border border-zGray-800 bg-zGray-950 font-mono text-[11.5px] text-secondary"
+                        className="px-2 py-1 rounded-md border border-line-control bg-surface-canvas font-mono text-[11.5px] text-secondary"
                       >
                         {scope}
                       </span>
@@ -209,7 +209,7 @@ export function CloudflareIamPermissionsView({
         <Warnings warnings={data.warnings} />
         <section className="px-6 py-4">
           <SectionHeader
-            icon={<ShieldCheck className="w-4 h-4 text-zViolet-accent" strokeWidth={1.8} />}
+            icon={<ShieldCheck className="w-4 h-4 text-primary" strokeWidth={1.8} />}
             title={t('Token policies')}
             hint={
               data.policies === null
@@ -241,7 +241,7 @@ export function CloudflareIamPermissionsView({
                 <div
                   key={idx}
                   className={clsx(
-                    'rounded-md border bg-zGray-950 px-3 py-2',
+                    'rounded-md border bg-surface-canvas px-3 py-2',
                     p.effect === 'allow' ? 'border-success/30' : 'border-error/30',
                   )}
                 >
@@ -269,7 +269,7 @@ export function CloudflareIamPermissionsView({
                       {p.permissionGroups.map((g) => (
                         <span
                           key={g.id}
-                          className="text-[10.5px] font-mono px-1.5 py-0.5 rounded bg-zGray-900 text-secondary border border-zGray-850"
+                          className="text-[10.5px] font-mono px-1.5 py-0.5 rounded bg-surface-sheet text-secondary border border-line-control"
                           title={g.scopes?.join(', ')}
                         >
                           {g.name}

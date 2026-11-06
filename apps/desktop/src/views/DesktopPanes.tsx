@@ -123,7 +123,7 @@ export function SessionDesktopView({
         <button
           type="button"
           onClick={toggle}
-          className="rounded border border-zGray-700 px-2 py-0.5 text-main hover:bg-zGray-800"
+          className="rounded border border-line-control px-2 py-0.5 text-main hover:bg-state-hover"
         >
           {holding ? t('Hand back') : t('Take over')}
         </button>

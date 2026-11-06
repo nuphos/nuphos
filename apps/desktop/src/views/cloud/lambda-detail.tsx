@@ -127,8 +127,8 @@ export function LambdaFunctionDetailView({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 py-2 border-b border-zGray-800 flex items-center gap-3 text-[11.5px]">
-        <span className="text-secondary px-1.5 py-0.5 rounded bg-zGray-800/60 shrink-0">
+      <div className="px-4 py-2 border-b border-line-control flex items-center gap-3 text-[11.5px]">
+        <span className="text-secondary px-1.5 py-0.5 rounded bg-state-selected shrink-0">
           {fn.region}
         </span>
         {detail?.state && (
@@ -155,8 +155,8 @@ export function LambdaFunctionDetailView({
                 }}
                 className={`h-6 px-2 rounded text-[11.5px] font-medium ${
                   tab === name
-                    ? 'bg-zViolet-accent/15 text-zViolet-accent'
-                    : 'text-tertiary hover:text-main hover:bg-zGray-850'
+                    ? 'bg-state-selected text-primary'
+                    : 'text-tertiary hover:text-main hover:bg-state-hover'
                 }`}
               >
                 {TAB_LABELS[name]}

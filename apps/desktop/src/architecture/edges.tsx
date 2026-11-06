@@ -246,9 +246,7 @@ export function EditableEdge({
         path={path}
         markerEnd={markerEnd}
         style={
-          selected
-            ? { ...style, stroke: 'rgb(var(--color-zViolet-accent))', strokeWidth: 2 }
-            : style
+          selected ? { ...style, stroke: 'rgb(var(--color-text-primary))', strokeWidth: 2 } : style
         }
       />
       {/* The whole line is draggable (edit mode only): a transparent wide

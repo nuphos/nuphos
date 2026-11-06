@@ -142,7 +142,7 @@ export function GcpIamPermissionsView({
             <Warnings warnings={visibleData.warnings} />
             <section className="px-6 py-4">
               <SectionHeader
-                icon={<ShieldCheck className="w-4 h-4 text-zViolet-accent" strokeWidth={1.8} />}
+                icon={<ShieldCheck className="w-4 h-4 text-primary" strokeWidth={1.8} />}
                 title={t('Granted roles')}
                 hint={
                   visibleData.bindings.length > 0
@@ -195,7 +195,7 @@ export function GcpIamPermissionsView({
                 onAccessChanged={onAccessChanged}
               />
             ) : (
-              <section className="px-6 py-4 border-t border-zGray-800/60">
+              <section className="px-6 py-4 border-t border-line-control/60">
                 <EmptyHint
                   message={t('Open a specific service account to manage who can use it.')}
                 />
