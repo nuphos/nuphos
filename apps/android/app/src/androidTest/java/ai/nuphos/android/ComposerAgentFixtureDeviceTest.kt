@@ -51,6 +51,13 @@ class ComposerAgentFixtureDeviceTest {
         render { ChatComposer(isStreaming = false, onSend = { true }, onStop = { stops++ }, stopsRuntimeTurn = true) }
         assertStopSteppedLeft("Send", "Ask Nuphos anything") { stops }
     }
+    @Test fun aRunningTurnDoesNotOfferToQueueWhileDraftingIsDisabled() {
+        render { ChatComposer(isStreaming = true, onSend = { true }, draftingEnabled = false) }
+        compose.onNodeWithContentDescription("Ask Nuphos anything").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Queue a message").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Queue message").assertDoesNotExist()
+    }
     @Test fun withoutCancelRightsThereIsNoStop() {
         render { ChatComposer(isStreaming = true, onSend = { true }, stopsRuntimeTurn = true) }
         compose.onNodeWithContentDescription("Queue a message").performClick()
