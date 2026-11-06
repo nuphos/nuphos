@@ -36,7 +36,9 @@ export function claudeLoginUrl(output: string): string | undefined {
 export function isApiKey(provider: 'claude-code' | 'codex', value: unknown): value is string {
   return (
     typeof value === 'string' &&
-    (provider === 'codex' ? /^sk-(?!ant-)[\w-]{20,400}$/u : /^sk-ant-[\w-]{20,400}$/u).test(value.trim())
+    (provider === 'codex' ? /^sk-(?!ant-)[\w-]{20,400}$/u : /^sk-ant-[\w-]{20,400}$/u).test(
+      value.trim(),
+    )
   )
 }
 
