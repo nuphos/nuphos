@@ -62,10 +62,12 @@ describe('lastMessage', () => {
     expect(await lastMessage(chat, 'me')).toEqual({ text: '' })
   })
 
-  test('a message with neither text nor files has none', async () => {
+  test('a tool-only message falls back to the newest one with text', async () => {
+    // The test store ignores sort, so posts go in newest first.
     await post([{ type: 'tool-bash' }])
+    await post([{ type: 'text', text: 'Working on it.' }])
 
-    expect(await lastMessage(chat, 'me')).toBeUndefined()
+    expect(await lastMessage(chat, 'me')).toEqual({ text: 'Working on it.' })
   })
 
   test('a group chat names a person by first name and an agent by its title', async () => {

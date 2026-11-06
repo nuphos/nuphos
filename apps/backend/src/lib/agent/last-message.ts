@@ -20,7 +20,12 @@ export async function lastMessage(
   viewerId: string,
 ): Promise<LastMessage | undefined> {
   const [message] = await agentMessages()
-    .find({ sessionId: conversation.sessionId, userId: conversation.userId })
+    // Skip a turn's tool-only messages, so the preview holds while an agent works.
+    .find({
+      sessionId: conversation.sessionId,
+      userId: conversation.userId,
+      'parts.type': { $in: ['text', ...FILE_PARTS] },
+    })
     .sort({ index: -1 })
     .limit(1)
     // Only short text and file markers leave the database: a turn's tool output can be large.
