@@ -1,0 +1,14 @@
+diff --git a/dist/chrome-extension-api.preload.js b/dist/chrome-extension-api.preload.js
+index 67d3be4b5026069ec4ae73c1fc6e661f8a19098e..b253204e99b172f4c406099b9047e797edf69dc1 100644
+--- a/dist/chrome-extension-api.preload.js
++++ b/dist/chrome-extension-api.preload.js
+@@ -568,6 +568,9 @@
+       });
+       delete globalThis.electron;
+       Object.freeze(chrome);
++      // Chromium also defines a native `browser` without these APIs, and some
++      // extensions (1Password) prefer it, so both names must be this object.
++      Object.defineProperty(globalThis, "browser", { value: chrome, configurable: true, writable: true });
+     }
+     if (!process.contextIsolated) {
+       console.warn(`injectExtensionAPIs: context isolation disabled in ${location.href}`);

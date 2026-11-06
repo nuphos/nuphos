@@ -8,6 +8,9 @@ patchedDependencies:
   app-builder-lib@26.15.7:
     hash: 4688f96749e3d76cf27bc535d874470bf264610a331db13644df7715d699acf1
     path: patches/app-builder-lib@26.15.7.patch
+  electron-chrome-extensions@4.10.0:
+    hash: 1ea62aa03e1308c928d45773214ab01969c6617c4219e7a2572854aabcf55858
+    path: patches/electron-chrome-extensions@4.10.0.patch
 
 importers:
 
@@ -72,7 +75,7 @@ importers:
         version: 4.9.0
       electron-chrome-extensions:
         specifier: 4.10.0
-        version: 4.10.0
+        version: 4.10.0(patch_hash=1ea62aa03e1308c928d45773214ab01969c6617c4219e7a2572854aabcf55858)
       electron-updater:
         specifier: ^6.8.11
         version: 6.8.11
@@ -6699,7 +6702,7 @@ snapshots:
       - electron-builder-squirrel-windows
       - supports-color
 
-  electron-chrome-extensions@4.10.0:
+  electron-chrome-extensions@4.10.0(patch_hash=1ea62aa03e1308c928d45773214ab01969c6617c4219e7a2572854aabcf55858):
     dependencies:
       debug: 4.4.3
     transitivePeerDependencies:
