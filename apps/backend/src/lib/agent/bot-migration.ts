@@ -1,92 +1,23 @@
-// One-off migration for #1691: an agent conversation its owner pinned becomes a
-// Bot by getting the face it already shows. Pure planning lives here so it can
-// be tested; scripts/migrate-pinned-agents-to-bots.ts does the reads and writes.
+// One-off migration for #1691: every top-level agent conversation people use
+// directly becomes a Bot, by storing the face it already shows. Sub-threads
+// and trigger runs stay Tasks; so do archived conversations.
+// scripts/migrate-agents-to-bots.ts does the reads and writes.
 
-import { derivedAvatar } from './bot-avatars'
+import type { AgentConversation } from './db'
+import type { Filter } from 'mongodb'
 
-export { derivedAvatar }
+export { derivedAvatar } from './bot-avatars'
 
-const AGENT_SESSION_KEY_PREFIX = 'agent-session:'
-const AGENT_PATH = /\/agent\/([0-9a-f-]{36})(?:[/?#]|$)/i
-
-/** The conversation a sidebar favorite points at, under any key it was pinned with. */
-export function pinnedSessionId(entry: { key?: string; href?: string }): string | null {
-  if (entry.key?.startsWith(AGENT_SESSION_KEY_PREFIX)) {
-    return entry.key.slice(AGENT_SESSION_KEY_PREFIX.length) || null
-  }
-  const path = entry.key?.match(AGENT_PATH) ? entry.key : entry.href
-
-  return path?.match(AGENT_PATH)?.[1]?.toLowerCase() ?? null
+/** Conversations the migration promotes; also re-checked on every write. */
+export const botMigrationFilter: Filter<AgentConversation> = {
+  kind: { $ne: 'channel' },
+  archivedAt: { $exists: false },
+  parentSessionId: { $exists: false },
+  'metadata.trigger': { $exists: false },
+  avatar: { $exists: false },
 }
 
-export type PinnedFavorites = {
-  userId: string
-  teamId: string
-  entries: { key?: string; href?: string }[]
-}
-
-export type PinnedConversation = {
-  sessionId: string
-  userId: string
-  teamId?: string
-  kind?: 'channel'
-  avatar?: string
-  archivedAt?: Date
-}
-
-export type BotMigrationPlan = {
-  /** sessionId → avatar to set. */
-  promote: Map<string, string>
-  counts: {
-    agentPins: number
-    alreadyBots: number
-    toPromote: number
-    pinnedByNonOwner: number
-    pinnedChannels: number
-    missing: number
-    /** Owner pins of archived agents: stale bookmarks, left as Tasks. */
-    archived: number
-  }
-}
-
-/**
- * Owner pins of unarchived agent conversations without an avatar get their
- * derived face. Pins by anyone else, of archived agents, of channels and of
- * missing conversations are only counted. A conversation pinned twice is counted once per pin.
- */
-export function planBotMigration(
-  favorites: PinnedFavorites[],
-  conversations: Map<string, PinnedConversation>,
-): BotMigrationPlan {
-  const promote = new Map<string, string>()
-  const counts = {
-    agentPins: 0,
-    alreadyBots: 0,
-    toPromote: 0,
-    pinnedByNonOwner: 0,
-    pinnedChannels: 0,
-    missing: 0,
-    archived: 0,
-  }
-
-  for (const doc of favorites) {
-    for (const entry of doc.entries) {
-      const sessionId = pinnedSessionId(entry)
-
-      if (!sessionId) continue
-      counts.agentPins += 1
-      const conversation = conversations.get(sessionId)
-
-      if (!conversation) counts.missing += 1
-      else if (conversation.kind === 'channel') counts.pinnedChannels += 1
-      else if (conversation.userId !== doc.userId || conversation.teamId !== doc.teamId)
-        counts.pinnedByNonOwner += 1
-      else if (conversation.avatar) counts.alreadyBots += 1
-      else if (conversation.archivedAt) counts.archived += 1
-      else if (!promote.has(sessionId)) promote.set(sessionId, derivedAvatar(sessionId))
-    }
-  }
-  counts.toPromote = promote.size
-
-  return { promote, counts }
+/** The median of counts already sorted ascending (the lower one when even). */
+export function lowerMedian(sorted: number[]): number {
+  return sorted.length ? (sorted[Math.floor((sorted.length - 1) / 2)] ?? 0) : 0
 }
