@@ -230,9 +230,14 @@ final class AgentStore {
         }
     }
 
+    /// While "+" on Bots waits for the server, so a second tap makes no second Bot.
+    private(set) var creatingBot = false
+
     /// "+" on Bots: the new Bot's id, listed once the page reloads.
     func createBot() async -> String? {
-        guard let teamId = selectedTeam?.id else { return nil }
+        guard let teamId = selectedTeam?.id, !creatingBot else { return nil }
+        creatingBot = true
+        defer { creatingBot = false }
         let scope = workspaceScope
         do {
             let id = try await AgentChatAPI.createBot(token: token, teamId: teamId, runtime: newConversationRuntime)
@@ -245,8 +250,8 @@ final class AgentStore {
         }
     }
 
-    /// "Make this a Bot" / "Turn into a Task". The face changes at once; the
-    /// row moves when the list reloads.
+    /// "Make this a Bot" / "Turn into a Task". The face and the row change
+    /// when the list reloads right after.
     func setBot(_ bot: Bool, conversation: AgentConversation) async {
         guard conversation.ownsChat, let teamId = conversation.teamId ?? selectedTeam?.id else { return }
         let scope = workspaceScope

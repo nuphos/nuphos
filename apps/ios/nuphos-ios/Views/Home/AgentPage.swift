@@ -419,8 +419,13 @@ struct AgentPage: View {
                                 }
                             }
                         } label: {
+                            // A 44pt hit area without making the header taller.
                             Image(systemName: "plus")
+                                .padding(14)
+                                .contentShape(Rectangle())
+                                .padding(-14)
                         }
+                        .disabled(store.creatingBot)
                         .accessibilityLabel("New Bot")
                     }
                 }
