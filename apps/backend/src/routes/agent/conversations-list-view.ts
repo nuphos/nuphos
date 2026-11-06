@@ -147,9 +147,7 @@ export async function serializeConversationList<T extends ListedConversation>(
       ),
     ),
     Promise.all(
-      conversations.map((conversation) =>
-        lastMessage(conversation, viewer.id).catch(() => null),
-      ),
+      conversations.map((conversation) => lastMessage(conversation, viewer.id).catch(() => null)),
     ),
   ])
 

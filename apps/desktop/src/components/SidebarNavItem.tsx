@@ -157,7 +157,9 @@ export function SidebarNavItem({
           {animateLabel ? <SwapLabel label={label} /> : label}
         </span>
         {preview && (
-          <span className="t-marquee text-[12px] leading-4 font-normal text-tertiary">{preview}</span>
+          <span className="t-marquee text-[12px] leading-4 font-normal text-tertiary">
+            {preview}
+          </span>
         )}
       </span>
       {note != null && (

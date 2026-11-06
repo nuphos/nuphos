@@ -15,7 +15,10 @@ useDb({ db: () => memory })
 const chat = { sessionId: 'chat', userId: 'me' }
 const channel = { ...chat, kind: 'channel' }
 
-async function post(parts: unknown[], sender?: { type: 'user' | 'agent'; id: string; name: string }) {
+async function post(
+  parts: unknown[],
+  sender?: { type: 'user' | 'agent'; id: string; name: string },
+) {
   await agentMessages().insertOne({
     ...chat,
     index: 0,
