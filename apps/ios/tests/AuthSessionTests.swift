@@ -76,8 +76,10 @@ import Foundation
     private static func aLateRejectionAfterSignOutStaysSignedOut() async {
         let session = AuthSession()
         let reply = await launch(session)
+        let clears = TransferFiles.clears
         session.signOut()
         precondition(LaunchCache.user == nil)
+        precondition(TransferFiles.clears == clears + 1, "sign-out drops downloaded attachments")
         await reply(.failure(NuphosAPI.Failure.unauthorized))
         precondition(session.state == .signedOut(error: nil))
     }

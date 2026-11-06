@@ -66,6 +66,11 @@ final class PushNotifications {
     func deactivate() async {}
 }
 
+enum TransferFiles {
+    nonisolated(unsafe) static var clears = 0
+    static func clear() { clears += 1 }
+}
+
 enum ComposerDrafts {
     static func clear() {}
 }

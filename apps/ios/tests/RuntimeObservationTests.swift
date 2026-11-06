@@ -191,6 +191,7 @@ struct RuntimeObservationTests {
         print("Runtime observation, transcript replay, steering, turn start and unread regressions passed")
         ChatRowTests.run()
         ChannelPostTests.run()
+        TransferFilesTests.run()
         DockDestinationTests.run()
         MacPageSchemeTests.run()
         MessagePreviewTests.run()
