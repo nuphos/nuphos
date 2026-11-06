@@ -48,7 +48,7 @@ test('a first-turn model pick is trimmed, and anything else is refused', () => {
 })
 
 test('accepts a per-conversation runtime or an omitted preference', () => {
-  for (const agentRuntime of [undefined, 'claude-code', 'codex'] as const) {
+  for (const agentRuntime of [undefined, 'claude-code', 'codex', 'opencode', 'pi'] as const) {
     expect(() => validateChatBody({ id: 'new-chat', messages: [], agentRuntime })).not.toThrow()
   }
 })
@@ -61,7 +61,7 @@ test('rejects invalid runtime preferences before accepting a chat', () => {
         messages: [],
         agentRuntime: agentRuntime as 'codex',
       }),
-    ).toThrow('agentRuntime must be one of claude-code, codex, grok, antigravity, opencode')
+    ).toThrow('agentRuntime must be one of claude-code, codex, grok, antigravity, opencode, pi')
   }
 })
 

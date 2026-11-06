@@ -1,7 +1,14 @@
 import type { BoxState } from '../api/device-types.ts'
 
 /** Every agent a team runtime can run. This computer's own agent is narrower: `LocalAgentProvider`. */
-export const AGENT_PROVIDERS = ['claude-code', 'codex', 'grok', 'antigravity', 'opencode'] as const
+export const AGENT_PROVIDERS = [
+  'claude-code',
+  'codex',
+  'grok',
+  'antigravity',
+  'opencode',
+  'pi',
+] as const
 
 export type AgentProvider = (typeof AGENT_PROVIDERS)[number]
 
@@ -12,6 +19,7 @@ export const AGENT_PROVIDER: Record<AgentProvider, { label: string; account: str
   grok: { label: 'Grok Build', account: 'xAI' },
   antigravity: { label: 'Antigravity', account: 'Google' },
   opencode: { label: 'OpenCode', account: 'a model provider' },
+  pi: { label: 'Pi', account: 'a model provider' },
 }
 
 export type LocalRuntimeSummary = {

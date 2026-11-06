@@ -1,0 +1,13 @@
+{
+  "name": "nuphos-pi-runtime",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "1.4.0",
+    "pi-acp": "0.0.34"
+  },
+  "overrides": {
+    "undici": "8.12.2",
+    "zod": "4.6.6"
+  }
+}

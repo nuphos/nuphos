@@ -35,6 +35,7 @@ export async function probeExternalRuntimeProvider(
     if (adapterVersion?.startsWith('grok@')) return 'grok'
     if (adapterVersion?.startsWith('antigravity-acp@')) return 'antigravity'
     if (adapterVersion?.startsWith('opencode@')) return 'opencode'
+    if (adapterVersion?.startsWith('pi-acp@')) return 'pi'
 
     return undefined
   } catch {

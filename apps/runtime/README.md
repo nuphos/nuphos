@@ -140,6 +140,21 @@ No credentials, and no prompts. The agent's system prompt, its MCP servers, its
 skills and its per-turn credentials are all delivered at runtime by the backend
 over ACP, or fetched at startup. An image is the same for every workspace.
 
+## Pi runtime
+
+Build the `pi` variant to run `pi-acp@0.0.34` with `@earendil-works/pi-coding-agent@1.4.0`.
+Place your provider configuration in `/home/node/.pi/agent/models.json` and credentials in
+`/home/node/.pi/agent/auth.json`. Alternatively, mount an operator-owned directory and
+set `NUPHOS_PI_CONFIG_DIR` to its path. Pi uses these configured accounts without an
+interactive Nuphos sign-in flow. Custom Node.js certificate trust can be supplied through
+`NODE_EXTRA_CA_CERTS`.
+
+Each conversation member receives an isolated Pi agent directory. Model and account
+configuration is linked from the operator directory; MCP configuration belongs to the
+current member. Conversation history is stored under the persistent runtime home and
+survives reconnects and member changes. Mount `/home/node` persistently. Do not put
+credentials in the image or repository.
+
 ## Building
 
 Two builds, in order. The base is the gateway, built from `openab/`; the
@@ -160,7 +175,7 @@ docker build -f image/Dockerfile \
   -t nuphos-runtime-codex:local image
 ```
 
-For the other runtimes use `RUNTIME_PROVIDER=claude-code`, `grok`, `antigravity` or `opencode`. Any image with
+For the other runtimes use `RUNTIME_PROVIDER=claude-code`, `grok`, `antigravity`, `opencode` or `pi`. Any image with
 the binary at `/usr/local/bin/openab` works as `BASE_IMAGE`, including a
 published `X.Y.Z-base-<provider>` tag.
 
