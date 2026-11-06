@@ -49,6 +49,14 @@ test('every locale translates exactly the strings the app uses', () => {
   }
 })
 
+// Sorted, two PRs that add strings rarely touch the same lines and conflict.
+test('every locale keeps its keys sorted', () => {
+  for (const [code, messages] of Object.entries(MESSAGES)) {
+    const keys = Object.keys(messages)
+    assert.deepEqual(keys, [...keys].sort(), `${code}: run node scripts/sort-locales.mjs`)
+  }
+})
+
 test('t falls back to English and fills placeholders', () => {
   assert.equal(t('Not a real key {n}', { n: 3 }), 'Not a real key 3')
   assert.equal(t('Open|state'), 'Open')
