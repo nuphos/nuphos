@@ -115,7 +115,7 @@ class HomeNavigationFixtureDeviceTest {
                 val history = request.method == "GET" && path == "/agent/conversations" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
                 val plans = request.method == "GET" && path == "/agent/plans" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
                 val members = request.method == "GET" && path in setOf("/teams/${a.id}/members", "/teams/${b.id}/members")
-                val browsing = request.method == "GET" && path in setOf("/teams/${a.id}/monitoring/overview", "/teams/${a.id}/agent-triggers", "/teams/${a.id}/agent-triggers/scheduler-status", "/teams/${b.id}/monitoring/overview", "/teams/${b.id}/agent-triggers", "/teams/${b.id}/agent-triggers/scheduler-status")
+                val browsing = request.method == "GET" && path in setOf("/teams/${a.id}/monitoring/overview", "/teams/${b.id}/monitoring/overview")
                 val policy = request.method == "GET" && path == "/agent/plan-approval-policy" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
                 if (!runtimeCatalog && !runtimeQuotas && !devices && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !policy && !browsing && !credentials && !archive && !detail) unexpected += request
                 var code = 200
@@ -190,10 +190,6 @@ class HomeNavigationFixtureDeviceTest {
             agent = AgentStore(token, app); agent.acceptMemberships(memberships, a.id)
             auth.composerDrafts.onIdentity(NuphosUser.preview.id)
             plansStore = PlansStore(token)
-            val browsing = BrowsingApi(token)
-            val monitoring = MonitoringStore(browsing)
-            val triggers = TriggersStore(browsing)
-            val runs = TriggerRunsStore { team, trigger, cursor -> NuphosApi.conversations(token, team, cursor = cursor, scope = ConversationScope.Team, triggerId = trigger) }
             val connectors = ConnectorsStore(ConnectorApi(token))
             val content: @Composable () -> Unit = {
                 val inputMode = LocalInputModeManager.current

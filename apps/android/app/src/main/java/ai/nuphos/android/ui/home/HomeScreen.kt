@@ -292,24 +292,6 @@ fun HomeRoute(
                         if (membershipsLoading) SplashScreen()
                         else PlanDetailScreen(planId = id, nav = nav, teamId = agentStore.selectedTeam?.id)
                     }
-                    // Compatibility only: old run links remain read-only; no trigger-management UI is wired.
-                    composable(
-                        "trigger-run/{id}?teamId={teamId}",
-                        arguments = listOf(
-                            navArgument("id") { type = NavType.StringType },
-                            navArgument("teamId") { type = NavType.StringType },
-                        ),
-                    ) { entry ->
-                        if (membershipsLoading) SplashScreen()
-                        else ConversationScreen(
-                            sessionId = entry.arguments?.getString("id").orEmpty(),
-                            fresh = false,
-                            onBack = { nav.popBackStack() },
-                            nav = nav,
-                            browsingOnly = true,
-                            browsingTeamId = entry.arguments?.getString("teamId"),
-                        )
-                    }
                 }
             },
         )
