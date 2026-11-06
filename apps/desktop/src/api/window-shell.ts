@@ -33,12 +33,23 @@ export type AppShortcutAction =
   | SessionShortcutAction
   | RegionShortcutAction
 
-/** What a window's main pane shows, saved so a relaunch reopens it. */
-export type WindowSurface = {
+/** What one pane shows, saved so a relaunch reopens it. */
+export type PaneSurface = {
   sessionId: string | null
   readOnly: boolean
   teamId: string | null
   mainPageOpen: boolean
+  dockOpen: boolean
+}
+
+/** The same tree as the workspace's split layout. */
+export type PaneLayout = { id: string } | { direction: 'row' | 'column'; children: PaneLayout[] }
+
+/** A window's split panes, the focused one, and what each shows. */
+export type WindowSurface = {
+  layout: PaneLayout
+  activeId: string
+  panes: Record<string, PaneSurface>
 }
 
 export type WindowShellApi = {

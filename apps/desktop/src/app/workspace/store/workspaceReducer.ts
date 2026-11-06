@@ -144,7 +144,7 @@ function removeTeam(state: WorkspaceState, teamId: string): WorkspaceState {
   return next.teamScope?.teamId === teamId ? { ...next, teamScope: null } : next
 }
 
-const WORKSPACE_LEVEL_ACTIONS = new Set<WorkspaceAction['type']>([
+const WORKSPACE_LEVEL_ACTIONS = [
   'selectSession',
   'openMainPage',
   'stepSurface',
@@ -155,28 +155,17 @@ const WORKSPACE_LEVEL_ACTIONS = new Set<WorkspaceAction['type']>([
   'retainTeams',
   'removeTeam',
   'adoptBuckets',
-])
+  'releaseBuckets',
+] as const satisfies readonly WorkspaceAction['type'][]
 
 type WorkspaceLevelAction = Extract<
   WorkspaceAction,
-  {
-    type:
-      | 'selectSession'
-      | 'openMainPage'
-      | 'stepSurface'
-      | 'goToSurface'
-      | 'forgetSession'
-      | 'setSessionReadOnly'
-      | 'switchTeam'
-      | 'retainTeams'
-      | 'removeTeam'
-      | 'adoptBuckets'
-  }
+  { type: (typeof WORKSPACE_LEVEL_ACTIONS)[number] }
 >
 type TabAction = Exclude<WorkspaceAction, WorkspaceLevelAction>
 
 function isTabAction(action: WorkspaceAction): action is TabAction {
-  return !WORKSPACE_LEVEL_ACTIONS.has(action.type)
+  return !(WORKSPACE_LEVEL_ACTIONS as readonly string[]).includes(action.type)
 }
 
 function applyTabAction(
@@ -275,6 +264,13 @@ function applyAction(
       const buckets = adoptBucketsIn(state.buckets, action.buckets)
 
       return buckets === state.buckets ? state : { ...state, buckets }
+    }
+    case 'releaseBuckets': {
+      const kept = Object.entries(state.buckets).filter(([key]) => !action.keys.includes(key))
+
+      return kept.length === Object.keys(state.buckets).length
+        ? state
+        : { ...state, buckets: Object.fromEntries(kept) }
     }
   }
 }

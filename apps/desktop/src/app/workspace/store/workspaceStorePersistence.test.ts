@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { beforeEach, test } from 'node:test'
 
-import { serializeWorkspace } from '../../workspacePersistence.ts'
 import { emptyNavigation } from '../../../lib/app-routes/parseShared.ts'
+import { serializeWorkspace } from '../../workspacePersistence.ts'
 import { createWorkspaceTab, createWorkspaceTabFromNavigation } from '../../workspaceTabFactory.ts'
 import {
   LEGACY_WORKSPACE_TABS_STORAGE_KEY,
@@ -105,7 +105,11 @@ test('restores a Cost Management tab as Dashboards with its open dashboard', () 
 test('writes every resident session and skips churn that does not change navigation', () => {
   const writes: PersistedWorkspaceBySession[] = []
   const store = createWorkspaceStore(hydrateWorkspaceState({ 'session-a': persistedStrip(1, 0) }))
-  const stop = persistWorkspaceStore(store, (bySession) => writes.push(bySession))
+  const stop = persistWorkspaceStore(
+    store,
+    () => ({}),
+    (bySession) => writes.push(bySession),
+  )
 
   assert.equal(writes.length, 1)
   store.actions.selectSession('session-a')
@@ -116,6 +120,40 @@ test('writes every resident session and skips churn that does not change navigat
   assert.equal(writes.length, 2)
   assert.deepEqual(writes[1], serializeWorkspaceBuckets(store.getState().buckets))
   stop()
+})
+
+test('panes and windows each write only the docks they changed', () => {
+  let disk: PersistedWorkspaceBySession = {
+    'session-a': persistedStrip(1, 0),
+    'session-b': persistedStrip(1, 0),
+  }
+  const read = () => ({ ...disk })
+  const write = (bySession: PersistedWorkspaceBySession) => {
+    disk = bySession
+  }
+  // Two panes (or windows) that each hydrated every dock.
+  const left = createWorkspaceStore(hydrateWorkspaceState(disk))
+  const right = createWorkspaceStore(hydrateWorkspaceState(disk))
+  const stops = [
+    persistWorkspaceStore(left, read, write),
+    persistWorkspaceStore(right, read, write),
+  ]
+
+  left.actions.selectSession('session-a')
+  left.actions.updateActiveTab((tab) => ({ ...tab, active: 'team.plans' }))
+  right.actions.selectSession('session-b')
+  right.actions.updateActiveTab((tab) => ({ ...tab, active: 'team.browser' }))
+
+  const reloaded = hydrateWorkspaceState(disk)
+
+  assert.equal(reloaded.buckets['session-a'].tabs[0].active, 'team.plans')
+  assert.equal(reloaded.buckets['session-b'].tabs[0].active, 'team.browser')
+
+  // A pane that closes its last tab in a dock removes that dock only.
+  right.actions.closeTab(right.getState().buckets['session-b'].tabs[0].id)
+  assert.equal(disk['session-b'], undefined)
+  assert.ok(disk['session-a'])
+  for (const stop of stops) stop()
 })
 
 test('round-trips through the per-session storage key', () => {

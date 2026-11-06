@@ -77,25 +77,39 @@ export function serializeWorkspaceBuckets(
   return bySession
 }
 
-/** Mirrors every resident session's dock to disk. Tab churn that doesn't touch
- *  navigation (poll ticks, loading flags) serializes identically and is skipped. */
+/**
+ * Mirrors this store's docks to disk. Every pane of every window has its own
+ * store, so each writes only the docks it changed or dropped and leaves the
+ * rest of the file to the others. Tab churn that doesn't touch navigation
+ * (poll ticks, loading flags) serializes identically and is skipped.
+ */
 export function persistWorkspaceStore(
   store: WorkspaceStore,
+  read: () => PersistedWorkspaceBySession = readPersistedWorkspaceBySession,
   write: (bySession: PersistedWorkspaceBySession) => void = writePersistedWorkspaceBySession,
 ): () => void {
   let lastBuckets: WorkspaceState['buckets'] | null = null
-  let lastEncoded: string | null = null
+  let written: Record<string, string> = {}
   const sync = () => {
     const { buckets } = store.getState()
 
     if (buckets === lastBuckets) return
     lastBuckets = buckets
-    const bySession = serializeWorkspaceBuckets(buckets)
-    const encoded = JSON.stringify(bySession)
+    const mine = serializeWorkspaceBuckets(buckets)
+    const encoded = Object.fromEntries(
+      Object.entries(mine).map(([key, value]) => [key, JSON.stringify(value)]),
+    )
+    const changed = Object.keys(encoded).filter((key) => written[key] !== encoded[key])
+    const dropped = Object.keys(written).filter((key) => !(key in encoded))
 
-    if (encoded === lastEncoded) return
-    lastEncoded = encoded
-    write(bySession)
+    written = encoded
+    if (changed.length === 0 && dropped.length === 0) return
+    const next = Object.fromEntries(
+      Object.entries(read()).filter(([key]) => !dropped.includes(key)),
+    )
+
+    for (const key of changed) next[key] = mine[key]
+    write(next)
   }
 
   sync()
