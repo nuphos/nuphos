@@ -99,6 +99,9 @@ class PersistentShareProcessDeviceTest {
         assumeTrue("Disposable emulator fixture is disabled by default", optedIn)
         assertTrue("Physical devices require the isolated fixture package",
             instrumentation.targetContext.packageName == "ai.nuphos.android.sharepersist1359")
+        // A fresh install otherwise prompts for notifications on top of the first phase.
+        if (android.os.Build.VERSION.SDK_INT >= 33) instrumentation.uiAutomation.grantRuntimePermission(
+            instrumentation.targetContext.packageName, android.Manifest.permission.POST_NOTIFICATIONS)
         app = instrumentation.targetContext.applicationContext as NuphosApplication
         assertNull("Refuse to replace an installed account", app.tokenStore.read())
         originalAuth = app.authSession
@@ -391,7 +394,8 @@ class PersistentShareProcessDeviceTest {
             "removeTeam" -> {
                 onlyOtherTeam = true
                 open()
-                awaitText("Fixture Beta")
+                // No team name shows on this screen; the team list is what removes the old team.
+                compose.waitUntil(15_000) { requests.any { it.url.encodedPath == "/teams" } }
                 compose.waitUntil(15_000) { app.shareDraftStore.load().drafts.filter { it.address.team == a }.all { it.text.isEmpty() && it.blobs.isEmpty() } }
                 assertTrue(app.incomingShares.attachments(key()).isEmpty())
             }
