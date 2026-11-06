@@ -35,7 +35,7 @@ class TranscriptScrollFixtureDeviceTest {
     private fun initialRows() = (0..34).map { ChatRow.AssistantText("row-$it", "m-$it", "Synthetic history $it\nSecond line\nThird line", false) } + ChatRow.Bottom
     private fun render() {
         compose.setContent {
-            NuphosTheme(darkTheme = false) {
+            NuphosTheme {
                 state = rememberLazyListState()
                 Surface(Modifier.fillMaxSize()) {
                     Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing).padding(16.dp)) {
@@ -134,7 +134,7 @@ class TranscriptScrollFixtureDeviceTest {
         render(); scrollUp()
         compose.runOnIdle { rows = rows.dropLast(1) + ChatRow.AssistantText("late", "late", "A late error\n".repeat(6), false) + ChatRow.Bottom }
         compose.waitForIdle()
-        compose.onNodeWithContentDescription("Scroll to latest").performClick(); atBottom()
+        compose.onNodeWithContentDescription("Scroll to latest").assertHasClickAction().performClick(); atBottom()
         compose.onNodeWithContentDescription("Scroll to latest").assertDoesNotExist()
         val covered = listBounds.bottom - with(compose.density) { 120.dp.toPx() }
         assertTrue(compose.onNodeWithText("A late error", substring = true).fetchSemanticsNode().boundsInRoot.bottom <= covered)

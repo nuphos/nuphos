@@ -144,7 +144,7 @@ class ConversationWatchFixtureDeviceTest {
             val auth = AuthSession(app, app.tokenStore)
             AuthSession::class.java.getDeclaredField("token").also { it.isAccessible = true }.set(auth, token)
             compose.activity.setContent {
-                NuphosTheme(darkTheme = false) { androidx.compose.material3.Surface(Modifier.fillMaxSize().systemBarsPadding()) { CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
+                NuphosTheme { androidx.compose.material3.Surface(Modifier.fillMaxSize().systemBarsPadding()) { CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
                     val nav = rememberNavController()
                     NavHost(nav, startDestination = "history") {
                         composable("history") { AgentPage(false, {}, nav) }

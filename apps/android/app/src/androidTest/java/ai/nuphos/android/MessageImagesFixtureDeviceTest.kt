@@ -64,7 +64,7 @@ class MessageImagesFixtureDeviceTest {
 
     @Test fun thumbnailOpensAllImagesZoomPanResetSwipeAndClose() {
         val images = (1..5).map { image(it.toString()) }
-        compose.setContent { NuphosTheme(darkTheme = false) {
+        compose.setContent { NuphosTheme {
             val view = LocalView.current
             val activity = requireNotNull(LocalActivity.current)
             SideEffect { WindowCompat.getInsetsController(activity.window, view).apply {
@@ -97,6 +97,29 @@ class MessageImagesFixtureDeviceTest {
         compose.onNodeWithText("1 / 5").assertDoesNotExist()
     }
 
+    /** Sends two fingers through the system's input path, spreading them apart across the node's center. */
+    private fun fingerPinch(node: androidx.compose.ui.semantics.SemanticsNode) {
+        val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+        val y = node.positionOnScreen.y + node.size.height / 2f
+        val centerX = node.positionOnScreen.x + node.size.width / 2f
+        val start = android.os.SystemClock.uptimeMillis()
+        var time = start
+        fun send(action: Int, spread: Float, pointers: Int) {
+            val properties = Array(pointers) { android.view.MotionEvent.PointerProperties().apply { id = it; toolType = android.view.MotionEvent.TOOL_TYPE_FINGER } }
+            val coordinates = Array(pointers) { android.view.MotionEvent.PointerCoords().apply { x = centerX + (if (it == 0) -spread else spread); this.y = y; pressure = 1f; size = 1f } }
+            val event = android.view.MotionEvent.obtain(start, time, action, pointers, properties, coordinates, 0, 0, 1f, 1f, 0, 0, android.view.InputDevice.SOURCE_TOUCHSCREEN, 0)
+            instrumentation.sendPointerSync(event)
+            event.recycle()
+            time += 16
+        }
+        val second = 1 shl android.view.MotionEvent.ACTION_POINTER_INDEX_SHIFT
+        send(android.view.MotionEvent.ACTION_DOWN, 40f, 1)
+        send(android.view.MotionEvent.ACTION_POINTER_DOWN or second, 40f, 2)
+        for (step in 1..12) send(android.view.MotionEvent.ACTION_MOVE, 40f + step * 15f, 2)
+        send(android.view.MotionEvent.ACTION_POINTER_UP or second, 220f, 2)
+        send(android.view.MotionEvent.ACTION_UP, 220f, 1)
+    }
+
     @Test fun pinchZoomAndSystemBack() {
         val visible = mutableStateOf(true)
         val images = listOf(image("PINCH"))
@@ -105,13 +128,11 @@ class MessageImagesFixtureDeviceTest {
             else Text("Viewer dismissed")
         } }
         ready(1, 1)
-        page(1, 1).performTouchInput {
-            pinch(androidx.compose.ui.geometry.Offset(centerX - 30, centerY), androidx.compose.ui.geometry.Offset(centerX + 30, centerY),
-                androidx.compose.ui.geometry.Offset(centerX - 180, centerY), androidx.compose.ui.geometry.Offset(centerX + 180, centerY))
+        fingerPinch(page(1, 1).fetchSemanticsNode())
+        compose.waitUntil(5_000) {
+            val zoom = page(1, 1).fetchSemanticsNode().config.getOrNull(SemanticsProperties.StateDescription)
+            zoom != null && zoom.removeSuffix(" percent zoom").toInt() > 100
         }
-        page(1, 1).assert(SemanticsMatcher("pinch enlarges image") {
-            it.config.getOrNull(SemanticsProperties.StateDescription) != "100 percent zoom"
-        })
         androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
         compose.onNodeWithText("Viewer dismissed").assertIsDisplayed()
     }

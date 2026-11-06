@@ -57,7 +57,7 @@ class ModelSettingsFixtureDeviceTest {
                 if (id == "fast") fast = value
                 state()
             })) }
-            NuphosTheme(darkTheme = false) {
+            NuphosTheme {
                 Surface(Modifier.fillMaxSize().systemBarsPadding()) {
                     Column {
                         Button(onClick = { busy = false; scope.launch { store.refresh() } }) { Text("Finish synthetic reply") }
@@ -126,7 +126,7 @@ class ModelSettingsFixtureDeviceTest {
             val settings = remember { ModelSettingsStore({ true }, { true }, { false }, { state() }) }
             LaunchedEffect(settings) { settings.refresh() }
             CompositionLocalProvider(ai.nuphos.android.ui.LocalAgentStore provides agents, ai.nuphos.android.ui.LocalAuthSession provides (androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as ai.nuphos.android.NuphosApplication).authSession) {
-                NuphosTheme(darkTheme = false) {
+                NuphosTheme {
                     Surface(Modifier.fillMaxSize().systemBarsPadding()) {
                         Column(verticalArrangement = Arrangement.Bottom) {
                             ai.nuphos.android.ui.chat.ChatComposer(isStreaming = false, onSend = { false }, showControls = true,
