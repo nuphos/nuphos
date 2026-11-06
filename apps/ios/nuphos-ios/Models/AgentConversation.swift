@@ -47,6 +47,12 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         let startedAt: String?
     }
 
+    /// A chat's newest post, as its row previews it. `from` names the sender.
+    struct LastMessage: Codable, Equatable, Hashable, Sendable {
+        let text: String
+        let from: String?
+    }
+
     let sessionId: String
     let teamId: String?
     let title: String
@@ -84,6 +90,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var faces: [ChatFace]?
     /// A Bot's face, e.g. `05-rembrandt`; nil for a Task (#1691).
     var avatar: String?
+    /// Absent when the chat has no post yet, or from an older backend.
+    var lastMessage: LastMessage?
 
     var id: String { sessionId }
 
@@ -137,6 +145,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         kind = try? c.decodeIfPresent(String.self, forKey: .kind)
         faces = try? c.decodeIfPresent([ChatFace].self, forKey: .faces)
         avatar = try? c.decodeIfPresent(String.self, forKey: .avatar)
+        lastMessage = try? c.decodeIfPresent(LastMessage.self, forKey: .lastMessage)
     }
 
     init(

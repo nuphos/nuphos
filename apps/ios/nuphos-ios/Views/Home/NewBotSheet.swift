@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// "+" on Bots: a name and a face, then the new Bot's 1:1 chat opens (#1691).
+/// It stays open, with what was picked, when creating fails.
 struct NewBotSheet: View {
-    let create: (_ title: String, _ avatar: String) async -> Void
+    let create: (_ title: String, _ avatar: String) async -> Bool
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var face = BotAvatars.files.randomElement()!.replacingOccurrences(of: ".svg", with: "")
@@ -49,9 +50,9 @@ struct NewBotSheet: View {
                     Button("Create") {
                         creating = true
                         Task {
-                            await create(title, face)
+                            let created = await create(title, face)
                             creating = false
-                            dismiss()
+                            if created { dismiss() }
                         }
                     }
                     .disabled(title.isEmpty || title.count > 120 || creating)

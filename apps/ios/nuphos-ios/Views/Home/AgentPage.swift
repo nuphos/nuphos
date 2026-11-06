@@ -62,7 +62,9 @@ struct AgentPage: View {
             .sheet(isPresented: $showAgentSetup) { if let team = store.selectedTeam { AgentSetupSheet(team: team) } }
             .sheet(isPresented: $showNewBot) {
                 NewBotSheet { title, avatar in
-                    if let channel = await store.createBot(title: title, avatar: avatar) { openChat = OpenChat(channel: channel) }
+                    guard let channel = await store.createBot(title: title, avatar: avatar) else { return false }
+                    openChat = OpenChat(channel: channel)
+                    return true
                 }
             }
             .alert(
@@ -143,6 +145,7 @@ struct AgentPage: View {
                     openChat = store.conversations.first.map { OpenChat(session: store.session(for: $0)) }
                 }
                 if CommandLine.arguments.contains("-show-agent-setup") { showAgentSetup = true }
+                if CommandLine.arguments.contains("-show-new-bot") { showNewBot = true }
                 if CommandLine.arguments.contains("-preview-agent-login") { previewLogin = true }
                 // `-preview-approval`: a canned tool run + pending approval, for UI work.
                 if CommandLine.arguments.contains("-preview-approval") {
@@ -505,7 +508,7 @@ struct HomeTabs: View {
 }
 
 /// A row under Bots: a chat, or a Bot with no chat yet, by its face. A chat
-/// shows its newest post and when it last moved.
+/// shows its newest post (`lastMessage`) and when it last moved.
 struct ChannelRow: View {
     let channel: AgentConversation
     @Environment(AgentStore.self) private var store
@@ -530,8 +533,9 @@ struct ChannelRow: View {
                         .foregroundStyle(Theme.muted)
                         .lineLimit(1)
                 }
-                if let preview = store.channelPreviews[channel.sessionId] {
-                    Text(preview)
+                if let last = channel.lastMessage {
+                    // A group names who posted; a Bot's 1:1 chat needs no name.
+                    Text(channel.botId == nil && last.from != nil ? "\(last.from!): \(last.text)" : last.text)
                         .font(Theme.Text.label)
                         .foregroundStyle(Theme.muted)
                         .lineLimit(1)

@@ -153,6 +153,8 @@ enum ChatRowTests {
         precondition(group.botId == nil)
         let task = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"t","kind":"channel","faces":[{"id":"a","name":"Task","agent":{}}]}"#.utf8))
         precondition(task.botId == nil)
+        let previewed = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"c","kind":"channel","lastMessage":{"text":"Will do","from":"Kim"}}"#.utf8))
+        precondition(previewed.lastMessage == .init(text: "Will do", from: "Kim") && oneToOne.lastMessage == nil)
     }
 
     private static func repeatsNoFailureTheTranscriptShows() {

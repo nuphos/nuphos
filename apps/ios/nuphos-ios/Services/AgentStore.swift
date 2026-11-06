@@ -63,35 +63,6 @@ final class AgentStore {
         channels = rows.sorted { $0.lastActiveAt > $1.lastActiveAt }
         if query.isEmpty { HomePage.hasChats = !botsList.isEmpty }
         channelsLoaded = true
-        await loadPreviews(team: team.id)
-    }
-
-    /// Each chat's newest post, for its row under Bots.
-    private(set) var channelPreviews: [String: String] = [:]
-    /// The activity each preview was read at, so a quiet chat is not read again.
-    private var previewedAt: [String: Date] = [:]
-
-    private func loadPreviews(team: String) async {
-        let stale = channels.filter { previewedAt[$0.sessionId] != $0.lastActiveAt }
-        typealias Read = (id: String, at: Date, preview: String?)
-        let read: [Read] = await withTaskGroup(of: Read?.self) { group in
-            for chat in stale {
-                group.addTask { [token = self.token] in
-                    guard let detail = try? await NuphosAPI.conversationDetail(
-                        token: token, teamId: team, sessionId: chat.sessionId, tail: 10, displayed: false
-                    ) else { return nil }
-                    return (chat.sessionId, chat.lastActiveAt, ChannelPost.preview(detail.messages))
-                }
-            }
-            var rows: [Read] = []
-            for await row in group { if let row { rows.append(row) } }
-            return rows
-        }
-        guard team == selectedTeam?.id else { return }
-        for row in read {
-            previewedAt[row.id] = row.at
-            channelPreviews[row.id] = row.preview
-        }
     }
 
     func channel(for conversation: AgentConversation) -> ChannelSession {
@@ -457,8 +428,6 @@ final class AgentStore {
         newModelPick = [:]
         credentials.reset()
         channels = []
-        channelPreviews = [:]
-        previewedAt = [:]
         runtimes = []
         agentDevices = []
         agentDevicesError = false

@@ -66,16 +66,6 @@ struct ChannelPost: Equatable, Identifiable, Sendable {
 
     func isMine(viewerId: String?) -> Bool { !isAgent && senderId == viewerId }
 
-    /// A chat row's preview: the newest words a person or an agent posted,
-    /// never a line Nuphos itself sent.
-    static func preview(_ messages: [ChatMessage]) -> String? {
-        messages.reversed().lazy
-            .filter { $0.metadata?["sender"]?["type"]?.stringValue != "system" }
-            .compactMap(ChannelPost.init)
-            .first { !$0.text.isEmpty }?.text
-            .split(whereSeparator: \.isNewline).joined(separator: " ")
-    }
-
     private static func parseDate(_ raw: String) -> Date? {
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
