@@ -1056,8 +1056,6 @@
   "Could not connect {name}": "无法连接 {name}",
   "Could not continue sign-in": "无法继续登录",
   "Could not copy": "无法复制",
-  "Could not copy agent ID": "无法复制 Agent ID",
-  "Could not copy agent id": "无法复制 Agent ID",
   "Could not copy code": "无法复制代码",
   "Could not copy link": "无法复制链接",
   "Could not copy logs": "无法复制日志",
@@ -3276,10 +3274,7 @@
   "Pick what shows under the composer. Drag cards on the home page to arrange them.": "选择在输入框下方显示的内容。在主页拖动卡片即可调整排列。",
   "Pick who can use it": "选择可使用的成员",
   "Picked up in Slack": "已在 Slack 中接手",
-  "Pin agent": "置顶 Agent",
   "Pin any panel from your Nuphos dashboards.": "固定 Nuphos 仪表板中的任意面板。",
-  "Pin {label}": "置顶 {label}",
-  "Pinned": "已置顶",
   "Pipeline": "管道",
   "Pipeline stages": "管道阶段",
   "Pipeline structure is shown for discovery. Sensitive keys and non-structural literal values are redacted by the backend.": "显示管道结构仅供探索之用。敏感键和非结构性字面值会由后端脱敏。",
@@ -4708,9 +4703,7 @@
   "Unlink resource": "取消关联资源",
   "Unlink {label}": "取消关联 {label}",
   "Unpick {name}": "取消选择 {name}",
-  "Unpin agent": "取消置顶 Agent",
   "Unpin from home": "从首页取消固定",
-  "Unpin {label}": "取消置顶 {label}",
   "Unplanned": "计划外",
   "Unreachable": "无法访问",
   "Unread reply": "未读回复",
@@ -5772,5 +5765,7 @@
   "Open the instabox dashboard and go to {page}, or run {command}.": "打开 instabox 控制台并前往 {page}，或运行 {command}。",
   "Your Nuphos plan": "你的 Nuphos 套餐",
   "instabox account": "instabox 账号",
-  "instabox: {label}": "instabox：{label}"
+  "instabox: {label}": "instabox：{label}",
+  "Could not copy task ID": "无法复制任务 ID",
+  "Could not copy Bot ID": "无法复制 Bot ID"
 }

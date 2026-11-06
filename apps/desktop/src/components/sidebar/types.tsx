@@ -5,7 +5,6 @@ import { HREF_FAVORITE_PREFIX } from '../../lib/sidebarFavorites'
 import { teamOverviewNavItemFor } from '../../lib/teamOverviewNav'
 
 import type { HistoryTimeline } from './historyRows'
-import type { PinnedMoves } from './pinned-order'
 import type { RowDot } from '../../lib/subAgentState'
 import type { Scope, TeamInvitation, UserInfo } from '../../types'
 import type { BreadcrumbSegment } from '../Toolbar'
@@ -68,7 +67,7 @@ export type Item = {
 }
 
 /** A right-click or More button asking for a row's menu, where it should open. */
-export type ItemMenuRequest = { x: number; y: number; item: Item; moves?: PinnedMoves }
+export type ItemMenuRequest = { x: number; y: number; item: Item }
 
 export type Section = {
   /**

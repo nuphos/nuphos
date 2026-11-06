@@ -6,6 +6,5 @@ export const SECTION_LABELS: Record<string, string> = {
   Channels: t('Bots'),
   Agents: t('Agents'),
   Tasks: t('Tasks'),
-  Pinned: t('Pinned'),
   Favorites: t('Favorites'),
 }

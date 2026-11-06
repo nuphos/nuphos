@@ -1056,8 +1056,6 @@
   "Could not connect {name}": "{name} に接続できませんでした",
   "Could not continue sign-in": "サインインを続行できませんでした",
   "Could not copy": "コピーできませんでした",
-  "Could not copy agent ID": "エージェント ID をコピーできませんでした",
-  "Could not copy agent id": "エージェント ID をコピーできませんでした",
   "Could not copy code": "コードをコピーできませんでした",
   "Could not copy link": "リンクをコピーできませんでした",
   "Could not copy logs": "ログをコピーできませんでした",
@@ -3276,10 +3274,7 @@
   "Pick what shows under the composer. Drag cards on the home page to arrange them.": "入力欄の下に表示するものを選びます。ホームでカードをドラッグして並べ替えられます。",
   "Pick who can use it": "使用できるユーザーを選択",
   "Picked up in Slack": "Slack で続行中",
-  "Pin agent": "エージェントをピン留め",
   "Pin any panel from your Nuphos dashboards.": "Nuphos ダッシュボードの任意のパネルを固定します。",
-  "Pin {label}": "{label} を固定",
-  "Pinned": "固定済み",
   "Pipeline": "パイプライン",
   "Pipeline stages": "パイプラインステージ",
   "Pipeline structure is shown for discovery. Sensitive keys and non-structural literal values are redacted by the backend.": "パイプラインの構造は把握用に表示しています。機密性のあるキーと構造に関係しないリテラル値はバックエンドで秘匿されます。",
@@ -4708,9 +4703,7 @@
   "Unlink resource": "リソースのリンクを解除",
   "Unlink {label}": "{label} のリンクを解除",
   "Unpick {name}": "{name} の選択を解除",
-  "Unpin agent": "エージェントのピン留めを解除",
   "Unpin from home": "ホームから固定を解除",
-  "Unpin {label}": "{label} の固定を解除",
   "Unplanned": "計画外",
   "Unreachable": "到達不可",
   "Unread reply": "未読の返信",
@@ -5772,5 +5765,7 @@
   "Open the instabox dashboard and go to {page}, or run {command}.": "instabox のダッシュボードで {page} を開くか、{command} を実行します。",
   "Your Nuphos plan": "Nuphos のプラン",
   "instabox account": "instabox アカウント",
-  "instabox: {label}": "instabox：{label}"
+  "instabox: {label}": "instabox：{label}",
+  "Could not copy task ID": "タスク ID をコピーできませんでした",
+  "Could not copy Bot ID": "ボット ID をコピーできませんでした"
 }

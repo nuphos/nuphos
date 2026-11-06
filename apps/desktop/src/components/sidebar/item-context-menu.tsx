@@ -1,15 +1,11 @@
 import {
   Archive,
-  ArrowDown,
-  ArrowUp,
   Bell,
   BellOff,
   Bot,
   Hash,
   Link2,
   Pencil,
-  Pin,
-  PinOff,
   Star,
   StarOff,
   Unlink,
@@ -18,7 +14,6 @@ import {
 import { api } from '../../api'
 import { t } from '../../i18n'
 import { copyLinkWithFeedback } from '../../lib/copyLink'
-import { favoriteSessionId, favoriteToggleTitle } from '../../lib/sidebarPinnedChats'
 import { agentSessionUrl } from '../agent/sessionUrl'
 import { makeBot } from '../channels/botChannel'
 import { ContextMenu } from '../ContextMenu'
@@ -59,9 +54,6 @@ export function SidebarItemContextMenu({
         ? 'chat'
         : 'task'
   const sessionId = menu.item.key.slice('agent-session:'.length)
-  // A chat pins, matching the Pinned section; other destinations favorite.
-  const chatRow = favoriteSessionId(menu.item) !== null
-  const [addIcon, removeIcon] = chatRow ? [Pin, PinOff] : [Star, StarOff]
 
   return (
     <ContextMenu
@@ -74,29 +66,16 @@ export function SidebarItemContextMenu({
               favoriteMatch(menu.item)
                 ? {
                     key: 'unfavorite',
-                    label: favoriteToggleTitle(chatRow, true),
-                    icon: removeIcon,
+                    label: t('Remove from Favorites'),
+                    icon: StarOff,
                     onSelect: () => toggleFavorite(menu.item),
                   }
                 : {
                     key: 'favorite',
-                    label: favoriteToggleTitle(chatRow, false),
-                    icon: addIcon,
+                    label: t('Add to Favorites'),
+                    icon: Star,
                     onSelect: () => toggleFavorite(menu.item),
                   },
-            ]
-          : []),
-        ...(menu.moves?.up
-          ? [{ key: 'move-up', label: t('Move up'), icon: ArrowUp, onSelect: menu.moves.up }]
-          : []),
-        ...(menu.moves?.down
-          ? [
-              {
-                key: 'move-down',
-                label: t('Move down'),
-                icon: ArrowDown,
-                onSelect: menu.moves.down,
-              },
             ]
           : []),
         ...(menu.item.key.startsWith('agent-session:')
@@ -235,7 +214,9 @@ function copy(value: string, what: keyof typeof COPIED) {
           ? t('Could not copy link')
           : what === 'chat'
             ? t('Could not copy chat ID')
-            : t('Could not copy agent ID'),
+            : what === 'bot'
+              ? t('Could not copy Bot ID')
+              : t('Could not copy task ID'),
         t('Clipboard was blocked.'),
       ),
   })

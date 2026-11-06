@@ -3,7 +3,7 @@ import clsx from 'clsx'
 import { SESSION_DRAG_TYPE } from '../../app/workspace/splitLayout'
 
 import type { Item } from './types'
-import type { DragEvent, HTMLAttributes, MouseEvent } from 'react'
+import type { HTMLAttributes, MouseEvent } from 'react'
 
 type Props = Pick<HTMLAttributes<HTMLDivElement>, 'children' | 'onContextMenu'> & {
   item: Item
@@ -15,8 +15,6 @@ type Props = Pick<HTMLAttributes<HTMLDivElement>, 'children' | 'onContextMenu'> 
   teamId?: string
   /** The row shows its description below the title on hover (a fixed-height row). */
   revealDetail?: boolean
-  /** A Pinned row also drags within Pinned to change its place. */
-  reorderDrag?: { onDragStart: (event: DragEvent<HTMLElement>) => void; onDragEnd: () => void }
 }
 
 export function SessionRowSurface({
@@ -26,7 +24,6 @@ export function SessionRowSurface({
   onOpenKey,
   sessionId,
   teamId,
-  reorderDrag,
   revealDetail = false,
   ...props
 }: Props) {
@@ -48,9 +45,7 @@ export function SessionRowSurface({
         if (!sessionId) return
         event.dataTransfer.effectAllowed = 'move'
         event.dataTransfer.setData(SESSION_DRAG_TYPE, JSON.stringify({ sessionId, teamId }))
-        reorderDrag?.onDragStart(event)
       }}
-      onDragEnd={reorderDrag?.onDragEnd}
       data-sidebar-row
       className={clsx(
         // A row with a detail line keeps one height; the detail rises into it on hover.

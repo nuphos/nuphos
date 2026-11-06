@@ -1056,8 +1056,6 @@
   "Could not connect {name}": "Tidak dapat menghubungkan {name}",
   "Could not continue sign-in": "Tidak dapat melanjutkan proses masuk",
   "Could not copy": "Tidak dapat menyalin",
-  "Could not copy agent ID": "Tidak dapat menyalin ID agen",
-  "Could not copy agent id": "Tidak dapat menyalin ID agen",
   "Could not copy code": "Tidak dapat menyalin kode",
   "Could not copy link": "Tidak dapat menyalin tautan",
   "Could not copy logs": "Tidak dapat menyalin log",
@@ -3276,10 +3274,7 @@
   "Pick what shows under the composer. Drag cards on the home page to arrange them.": "Pilih apa yang tampil di bawah kotak pesan. Seret kartu di beranda untuk mengaturnya.",
   "Pick who can use it": "Pilih siapa yang dapat memakainya",
   "Picked up in Slack": "Dilanjutkan di Slack",
-  "Pin agent": "Sematkan agen",
   "Pin any panel from your Nuphos dashboards.": "Sematkan panel apa pun dari dasbor Nuphos Anda.",
-  "Pin {label}": "Sematkan {label}",
-  "Pinned": "Disematkan",
   "Pipeline": "Pipeline",
   "Pipeline stages": "Tahap pipeline",
   "Pipeline structure is shown for discovery. Sensitive keys and non-structural literal values are redacted by the backend.": "Struktur pipeline ditampilkan untuk penelusuran. Kunci sensitif dan nilai literal non-struktural disamarkan oleh backend.",
@@ -4708,9 +4703,7 @@
   "Unlink resource": "Lepas tautan sumber daya",
   "Unlink {label}": "Lepas tautan {label}",
   "Unpick {name}": "Batalkan pilihan {name}",
-  "Unpin agent": "Lepas sematan agen",
   "Unpin from home": "Lepas sematan dari beranda",
-  "Unpin {label}": "Lepas sematan {label}",
   "Unplanned": "Di luar rencana",
   "Unreachable": "Tidak terjangkau",
   "Unread reply": "Balasan belum dibaca",
@@ -5772,5 +5765,7 @@
   "Open the instabox dashboard and go to {page}, or run {command}.": "Buka dasbor instabox dan masuk ke {page}, atau jalankan {command}.",
   "Your Nuphos plan": "Paket Nuphos Anda",
   "instabox account": "Akun instabox",
-  "instabox: {label}": "instabox: {label}"
+  "instabox: {label}": "instabox: {label}",
+  "Could not copy task ID": "Tidak dapat menyalin ID tugas",
+  "Could not copy Bot ID": "Tidak dapat menyalin ID Bot"
 }

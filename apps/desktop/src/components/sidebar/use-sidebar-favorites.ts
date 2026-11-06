@@ -3,20 +3,18 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   addSidebarFavorite,
   favoriteIdentity,
-  moveSidebarFavorite,
   readSidebarFavorites,
   removeSidebarFavorite,
   subscribeSidebarFavorites,
   syncSidebarFavorites,
 } from '../../lib/sidebarFavorites'
-import { AGENT_SESSION_KEY_PREFIX, favoriteSessionId } from '../../lib/sidebarPinnedChats'
+import { favoriteSessionId } from '../../lib/sidebarPinnedChats'
 import {
   renamedTeamNavKey,
   renamedTeamPagePath,
   teamOverviewNavItemFor,
 } from '../../lib/teamOverviewNav'
 
-import { pinnedChatFields } from './pinned-chat-row'
 import { favoriteFallbackIcon } from './types'
 
 import type { Item, Section } from './types'
@@ -29,7 +27,6 @@ export function useSidebarFavorites({
   teamView,
   sections,
   currentHref,
-  activeSessionId,
   scopeChipForPath,
   onOpenPath,
   onOpenKey,
@@ -39,8 +36,6 @@ export function useSidebarFavorites({
   teamView: boolean
   sections: Section[]
   currentHref: string | null
-  /** The conversation open in the main pane, which a pinned chat row tracks. */
-  activeSessionId?: string | null
   scopeChipForPath?: (href: string) => { label: string; icon: ReactNode } | null
   onOpenPath?: (href: string, label: string, newTab: boolean) => void
   onOpenKey?: (key: string, favoriteLabel: string | null, newTab: boolean) => void
@@ -114,23 +109,6 @@ export function useSidebarFavorites({
     [favoriteEntryForItem, favoriteMatch, teamId, userId],
   )
 
-  // Puts a pinned row just before another, or last when `before` is null.
-  const movePinned = useCallback(
-    (item: Item, before: Item | null) => {
-      const moved = favoriteMatch(item)
-      const anchor = before && favoriteMatch(before)
-
-      if (!moved || (before && !anchor)) return
-      moveSidebarFavorite(
-        userId,
-        teamId,
-        favoriteIdentity(moved),
-        anchor ? favoriteIdentity(anchor) : null,
-      )
-    },
-    [favoriteMatch, teamId, userId],
-  )
-
   // Resolve favorites against the live items so labels/active state stay
   // fresh; entries whose source left the list fall back to their snapshot.
   const liveItemsByKey = new Map<string, Item>()
@@ -148,7 +126,6 @@ export function useSidebarFavorites({
     if (entry.href) {
       const href = renamedTeamPagePath(entry.href)
       const live = liveItemsByHref.get(href)
-      const sessionId = favoriteSessionId(entry)
       // "Monitors" alone doesn't say which BetterStack instance it belongs to,
       // and two instances would produce two identical rows. Qualify with the
       // scope, and take its logo as the row icon.
@@ -157,25 +134,15 @@ export function useSidebarFavorites({
       const label = chip ? `${chip.label} · ${liveLabel}` : liveLabel
 
       return {
-        // A pinned chat keeps its chat row identity, so its threads nest and
-        // fold under it in Pinned exactly as they do in Chats.
-        key: sessionId ? `${AGENT_SESSION_KEY_PREFIX}${sessionId}` : identity,
+        key: identity,
         href,
-        ...pinnedChatFields(live),
         label,
         icon:
           chip || live?.iconNode ? undefined : (live?.icon ?? favoriteFallbackIcon(identity, href)),
         iconNode: chip?.icon ?? live?.iconNode,
         enabled: true,
-        active: sessionId
-          ? sessionId === activeSessionId
-          : currentHref != null && currentHref === href,
-        // A pinned chat opens like any chat row — in the main pane, not by
-        // retargeting the dock tab.
-        onActivate: sessionId
-          ? onOpenKey &&
-            ((newTab) => onOpenKey(`${AGENT_SESSION_KEY_PREFIX}${sessionId}`, label, newTab))
-          : onOpenPath && ((newTab) => onOpenPath(href, label, newTab)),
+        active: currentHref != null && currentHref === href,
+        onActivate: onOpenPath && ((newTab) => onOpenPath(href, label, newTab)),
       }
     }
     const key = entry.key && renamedTeamNavKey(entry.key)
@@ -196,21 +163,15 @@ export function useSidebarFavorites({
           enabled: true,
         }
   }
-  // Pinned chats get their own list above Chats; everything else stays in the
-  // generic Favorites group.
-  const favoriteItems: Item[] = []
-  const pinnedChatItems: Item[] = []
-
-  for (const entry of favorites) {
-    ;(favoriteSessionId(entry) ? pinnedChatItems : favoriteItems).push(resolveFavorite(entry))
-  }
+  // Agents are not pinned: an old agent pin stays stored but is not listed.
+  const favoriteItems = favorites
+    .filter((entry) => favoriteSessionId(entry) === null)
+    .map(resolveFavorite)
 
   return {
     favoriteMatch,
     canFavorite,
     toggleFavorite,
-    movePinned,
     favoriteItems,
-    pinnedChatItems,
   }
 }
