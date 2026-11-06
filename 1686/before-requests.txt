@@ -1,0 +1,25 @@
+2026-11-06 14:13:45.874 preview_marker open image 1
+2026-11-06 14:13:46.382 preview_request GET /agent/conversations/chat-release/attachments/g-shot1
+2026-11-06 14:13:47.400 preview_request GET /agent/conversations/chat-release/attachments/g-shot2
+2026-11-06 14:13:48.419 preview_request GET /agent/conversations/chat-release/attachments/g-doc
+2026-11-06 14:13:49.848 preview_marker opened image 1 after 3.97s
+2026-11-06 14:14:01.951 preview_marker closed image 1
+2026-11-06 14:14:08.495 preview_marker open image 2
+2026-11-06 14:14:09.089 preview_request GET /agent/conversations/chat-release/attachments/g-shot1
+2026-11-06 14:14:10.099 preview_request GET /agent/conversations/chat-release/attachments/g-shot2
+2026-11-06 14:14:11.110 preview_request GET /agent/conversations/chat-release/attachments/g-doc
+2026-11-06 14:14:12.441 preview_marker opened image 2 after 3.95s
+2026-11-06 14:14:24.076 preview_marker closed image 2
+2026-11-06 14:14:28.711 preview_marker open pdf 1
+2026-11-06 14:14:29.120 preview_request GET /agent/conversations/chat-release/attachments/g-shot1
+2026-11-06 14:14:30.141 preview_request GET /agent/conversations/chat-release/attachments/g-shot2
+2026-11-06 14:14:31.166 preview_request GET /agent/conversations/chat-release/attachments/g-doc
+2026-11-06 14:14:33.881 preview_marker opened pdf 1 after 5.17s
+2026-11-06 14:14:59.399 preview_marker closed pdf 1
+2026-11-06 14:15:04.859 preview_marker open pdf 2
+2026-11-06 14:15:05.448 preview_request GET /agent/conversations/chat-release/attachments/g-shot1
+2026-11-06 14:15:06.482 preview_request GET /agent/conversations/chat-release/attachments/g-shot2
+2026-11-06 14:15:07.500 preview_request GET /agent/conversations/chat-release/attachments/g-doc
+2026-11-06 14:15:09.390 preview_marker opened pdf 2 after 4.53s
+2026-11-06 14:15:17.877 preview_marker closed pdf 2
+2026-11-06 14:15:21.258 preview_marker done
