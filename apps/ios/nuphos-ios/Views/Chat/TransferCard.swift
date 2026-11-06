@@ -5,8 +5,8 @@ import SwiftUI
 /// The files in one transfer group: what the agent sent, or what the user
 /// uploaded. Images and videos are one grid of fixed squares, so nothing
 /// grows once it loads; a video shows its first frame under a play glyph.
-/// A lone image shows whole at a fixed height instead, so a portrait
-/// screenshot is not cropped to a square and its row still keeps its height.
+/// A lone image shows whole, fitted within a 260pt square, so a portrait
+/// screenshot is not cropped and a wide one is not boxed in empty space.
 /// Images open in the pager, which swipes through all of them. Videos and
 /// other files (chips) open in Quick Look from a freshly signed link, with
 /// Save and Share.
@@ -88,7 +88,7 @@ struct TransferCard: View {
     private var media: [TransferDownloadGroup.File] { files.filter { $0.isImage || $0.isVideo } }
     private var others: [TransferDownloadGroup.File] { files.filter { !$0.isImage && !$0.isVideo } }
 
-    /// The lone image's height, and its widest.
+    /// The lone image's widest and tallest.
     private static let loneSide: CGFloat = 260
 
     private func openButton(_ file: TransferDownloadGroup.File, lone: Bool = false) -> some View {
@@ -102,18 +102,16 @@ struct TransferCard: View {
     private func label(_ file: TransferDownloadGroup.File, lone: Bool = false) -> some View {
         if lone, let url = file.downloadUrl.flatMap(URL.init(string:)) {
             let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
-            AsyncImage(url: url) { image in
-                // Clipped and outlined before the frame, so the outline hugs the image.
-                image.resizable().scaledToFit()
-                    .clipShape(shape)
-                    .overlay(shape.strokeBorder(Theme.bubble))
-                    .overlay { if opening == file.id { ProgressView() } }
-            } placeholder: {
-                shape.fill(Theme.bubble).frame(width: Self.loneSide * 0.75)
+            FitWithin(side: Self.loneSide) {
+                AsyncImage(url: url) { image in
+                    image.resizable().scaledToFit()
+                        .clipShape(shape)
+                        .overlay(shape.strokeBorder(Theme.bubble))
+                        .overlay { if opening == file.id { ProgressView() } }
+                } placeholder: {
+                    shape.fill(Theme.bubble).frame(width: Self.loneSide * 0.75)
+                }
             }
-            .frame(maxWidth: Self.loneSide, maxHeight: Self.loneSide, alignment: fromUser ? .trailing : .leading)
-            // The height is fixed before the image loads; only the width follows it.
-            .frame(height: Self.loneSide)
         } else if file.isImage || file.isVideo, let url = file.downloadUrl.flatMap(URL.init(string:)) {
             let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
             Group {
@@ -224,6 +222,21 @@ struct TransferCard: View {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try FileManager.default.moveItem(at: temp, to: local)
         return local
+    }
+}
+
+/// Offers its content a square of `side` and takes the size the content
+/// picks, so a lone image is as wide and as tall as it fits: no empty band
+/// above and below a wide one, as a fixed-height frame would leave.
+private struct FitWithin: Layout {
+    let side: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        subviews.first?.sizeThatFits(ProposedViewSize(width: min(proposal.width ?? side, side), height: side)) ?? .zero
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
     }
 }
 
