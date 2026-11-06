@@ -1,6 +1,5 @@
-import { Hash } from 'lucide-react'
-
 import { AgentAvatar } from '../agent/AgentAvatar'
+import { ChatIcon } from '../channels/channelParts'
 
 import { SharedByBadge } from './SharedByBadge'
 
@@ -9,15 +8,9 @@ import type { AgentConversation } from '../../api'
 
 /** Agent identity and current Runtime; execution status lives in ChatRowStatus. */
 export function chatRowIcon(conversation: AgentConversation): Pick<Item, 'icon' | 'iconNode'> {
-  // A chat is a place, not a person: it wears a channel mark. Faces are for agents.
+  // A chat wears its members' faces, never an agent's own.
   if (conversation.kind === 'channel')
-    return {
-      iconNode: (
-        <span className="inline-flex size-[22px] shrink-0 items-center justify-center rounded-md bg-surface-sunken text-secondary">
-          <Hash className="size-3.5" strokeWidth={1.75} aria-hidden />
-        </span>
-      ),
-    }
+    return { iconNode: <ChatIcon faces={conversation.faces} title={conversation.title} sidebar /> }
 
   const avatar = (
     <AgentAvatar
