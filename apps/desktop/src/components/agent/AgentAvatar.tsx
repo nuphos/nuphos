@@ -30,7 +30,9 @@ export function AgentAvatar({
   const { botAvatars, density } = useAgentAppearance()
   const seen = useAgentAvatarPick(agentId)
   const running = runtimeTurnActive(useAgentRuntimeStates().get(agentId))
-  const sidebarSize = density === 'compact' ? 22 : 40
+  // A comfortable sidebar row shows one clean face, as the iOS list does: no runtime badge.
+  const clean = sidebar && density === 'comfortable'
+  const sidebarSize = density === 'compact' ? 22 : 36
   const box = sidebar ? sidebarSize : size
   const badge = box <= 24 ? 9 : 12
   const runtime = (
@@ -51,12 +53,14 @@ export function AgentAvatar({
             className="absolute left-0 top-0 object-contain"
             style={{ width: box, height: box }}
           />
-          <span
-            className="absolute bottom-0 right-0 flex items-center justify-center rounded-full bg-main p-px text-secondary"
-            style={{ width: badge, height: badge }}
-          >
-            {runtime}
-          </span>
+          {!clean && (
+            <span
+              className="absolute bottom-0 right-0 flex items-center justify-center rounded-full bg-main p-px text-secondary"
+              style={{ width: badge, height: badge }}
+            >
+              {runtime}
+            </span>
+          )}
         </>
       ) : (
         <span className="inline-flex size-4">{runtime}</span>

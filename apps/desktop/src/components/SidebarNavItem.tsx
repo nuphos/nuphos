@@ -48,7 +48,7 @@ type SidebarNavItemProps = {
   hoverActions?: ReactNode
   /** Larger Agent row; other navigation keeps its compact height. */
   comfortable?: boolean
-  /** Comfortable chat rows: the newest message, up to two lines under the label. */
+  /** Comfortable chat rows: the newest message, one line under the label. */
   preview?: string
   /** Comfortable chat rows: when the chat was last active, at the label's right. */
   time?: string
@@ -96,7 +96,11 @@ export function SidebarNavItem({
   const badgeShown = badge !== undefined && badge > 0
   // A comfortable row shows its state beside the face instead, and its time here.
   const rest = comfortable
-    ? time && <span className="text-[11px] font-normal tabular-nums text-tertiary">{time}</span>
+    ? time && (
+        <span className="text-[11px] font-normal tabular-nums text-tertiary opacity-75">
+          {time}
+        </span>
+      )
     : trailing
   const iconBox = (
     <span
@@ -217,7 +221,7 @@ export function SidebarNavItem({
       }}
       className={clsx(
         SIDEBAR_ROW_CLASS,
-        comfortable && '!h-16 !rounded-xl !pl-1 !gap-2',
+        comfortable && '!h-[60px] !gap-3 !rounded-xl',
         'group group/row w-full flex items-center transition-colors outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0',
         !sharedBackground && 'focus-visible:bg-[var(--sidebar-overlay-focus)]',
         active
@@ -233,28 +237,21 @@ export function SidebarNavItem({
     >
       {comfortable ? (
         <>
-          {/* The row's state sits left of the face, as iMessage's unread dot does. */}
-          <span className="flex-shrink-0 flex items-center gap-0.5">
-            <span id={`${id}-trailing`} className="w-2.5 flex items-center justify-center">
-              {trailing}
-            </span>
-            {iconBox}
-          </span>
-          <span
-            className={clsx(
-              'flex-1 min-w-0 self-stretch flex flex-col',
-              preview ? 'pt-[7px]' : 'justify-center',
-            )}
-          >
+          {iconBox}
+          <span className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
             <span className="flex items-center gap-2 text-main">
               {labelBox}
               {tail}
             </span>
-            {preview && (
-              <span className="line-clamp-2 break-words text-left text-[13px] leading-4 font-normal text-secondary">
+            {/* The row's state ends the preview line, as the iOS list's dot does. */}
+            <span className="flex min-h-4 items-center gap-2">
+              <span className="flex-1 min-w-0 truncate text-left text-[13px] leading-4 font-normal text-secondary">
                 {preview}
               </span>
-            )}
+              <span id={`${id}-trailing`} className="flex-shrink-0 flex items-center">
+                {trailing}
+              </span>
+            </span>
           </span>
         </>
       ) : (

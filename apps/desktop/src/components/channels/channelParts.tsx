@@ -30,14 +30,15 @@ export function ChatIcon({
   className?: string
 }) {
   const { density } = useAgentAppearance()
-  const size = sidebar ? (density === 'compact' ? 22 : 40) : given
+  const size = sidebar ? (density === 'compact' ? 22 : 36) : given
   const [front, back] = faces ?? []
 
   if (!front) return <Avatar name={title} size={size} className={clsx('rounded-full', className)} />
-  if (!back)
+  // A comfortable sidebar row shows one clean face: whoever spoke last.
+  if (!back || (sidebar && density === 'comfortable'))
     return (
       <span aria-hidden="true" className={clsx('inline-flex shrink-0', className)}>
-        <Face face={front} size={size} />
+        <Face face={front} size={size} sidebar={sidebar} />
       </span>
     )
   const small = Math.round(size * 0.72)
@@ -58,13 +59,14 @@ export function ChatIcon({
   )
 }
 
-function Face({ face, size }: { face: ChannelFace; size: number }) {
+function Face({ face, size, sidebar }: { face: ChannelFace; size: number; sidebar?: boolean }) {
   return face.agent ? (
     <AgentAvatar
       agentId={face.id}
       avatar={face.agent.avatar}
       provider={face.agent.provider}
       size={size}
+      sidebar={sidebar}
     />
   ) : (
     <Avatar src={face.avatarURL} name={face.name} size={size} className="rounded-full" />

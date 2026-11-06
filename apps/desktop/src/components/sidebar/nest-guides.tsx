@@ -7,11 +7,8 @@ import { openChatSummarySubAgents } from '../../lib/chatSummaryPanel'
 import type { Item } from './types'
 import type { ReactNode } from 'react'
 
-// Tree lines follow the icon centre in compact density. A comfortable row's
-// face sits close beside its status dot, so there they run down the dot column,
-// from a parent's dot to its threads' dots.
+// Tree lines follow the icon centre. Comfortable rows show none: the indent alone nests them.
 const NEST_INDENT = 16
-const COMFORTABLE_INDENT = 19
 const LINE = 'pointer-events-none absolute border-zGray-800/60'
 // -bottom-0.5 spans the 2px gap between rows so the next row's line joins on.
 const DOWN = `${LINE} -bottom-0.5 border-l`
@@ -34,34 +31,33 @@ export function NestedRowBody({
   children: ReactNode
 }) {
   const own = trail.length - 1
-  const indent = comfortable ? COMFORTABLE_INDENT : NEST_INDENT
-  const x = (level: number) => ({ left: level * indent + (comfortable ? 9 : 19) })
-  const centerY = comfortable ? 32 : 15
-  const bottomY = comfortable ? 38 : 27
+  const x = (level: number) => ({ left: level * NEST_INDENT + 19 })
+  const lines = !comfortable
 
   return (
     <>
       <div
         className="t-collapse-inner t-stagger-line"
-        style={trail.length ? { paddingLeft: trail.length * indent } : undefined}
+        style={trail.length ? { paddingLeft: trail.length * NEST_INDENT } : undefined}
       >
         {children}
       </div>
-      {trail.map((continues, level) => (
-        <Fragment key={level}>
-          {continues && <span aria-hidden className={`${DOWN} top-0`} style={x(level)} />}
-          {level === own && (
-            // The turn into this row's icon.
-            <span
-              aria-hidden
-              className={`${LINE} top-0 rounded-bl-[6px] border-b border-l`}
-              style={{ ...x(level), height: centerY, width: comfortable ? 14 : 6 }}
-            />
-          )}
-        </Fragment>
-      ))}
-      {expanded && (
-        <span aria-hidden className={DOWN} style={{ ...x(trail.length), top: bottomY }} />
+      {lines &&
+        trail.map((continues, level) => (
+          <Fragment key={level}>
+            {continues && <span aria-hidden className={`${DOWN} top-0`} style={x(level)} />}
+            {level === own && (
+              // The turn into this row's icon.
+              <span
+                aria-hidden
+                className={`${LINE} top-0 w-[6px] rounded-bl-[6px] border-b border-l`}
+                style={{ ...x(level), height: 15 }}
+              />
+            )}
+          </Fragment>
+        ))}
+      {lines && expanded && (
+        <span aria-hidden className={DOWN} style={{ ...x(trail.length), top: 27 }} />
       )}
     </>
   )
