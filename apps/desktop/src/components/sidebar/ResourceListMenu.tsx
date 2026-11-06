@@ -69,7 +69,11 @@ export function ResourceListMenu({
   className: string
   children: ReactNode
 }) {
-  const resources = chips.flatMap((chip) => (chip.kind === 'resource' ? [chip.resource] : []))
+  const resources = chips.flatMap((chip) => {
+    if (chip.kind === 'resource') return [chip.resource]
+
+    return chip.kind === 'group' ? chip.resources : []
+  })
   const finished = chips.filter((chip) => chip.kind === 'finished')
   // The merged badge's row hands focus to the Changes list; closing the menu
   // must not pull it back to the trigger.
@@ -157,7 +161,8 @@ export function ResourceListMenu({
           </MenuItem>
         ))}
         {chips.flatMap((chip) => {
-          if (chip.kind === 'resource' || chip.kind === 'finished') return []
+          if (chip.kind === 'resource' || chip.kind === 'finished' || chip.kind === 'group')
+            return []
           const terminals = chip.kind === 'terminal' ? [chip.terminal] : chip.terminals
 
           return terminals.map(({ tabId, name }) => (

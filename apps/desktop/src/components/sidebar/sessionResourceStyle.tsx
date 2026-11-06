@@ -9,8 +9,9 @@ import type { ReactNode } from 'react'
 
 const iconClass = 'size-3 shrink-0'
 
+// Plain text until hovered: the title stays the loudest thing in the titlebar.
 export const titlebarChip =
-  'rounded border border-[var(--sidebar-overlay-active)] px-1.5 py-0.5 transition-colors hover:bg-[var(--sidebar-overlay-hover)] active:bg-[var(--sidebar-overlay-active)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-current'
+  'rounded-md px-1.5 py-0.5 transition-colors hover:bg-state-hover active:bg-state-selected focus-visible:outline focus-visible:outline-1 focus-visible:outline-current'
 
 /** A chip standing for several; the overflow chip and its sizing copy share it so both size alike. */
 export function menuChipClass(titlebar: boolean) {

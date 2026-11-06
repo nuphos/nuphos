@@ -9,6 +9,23 @@ export type ResourceChip =
   | { kind: 'terminal'; key: string; terminal: TerminalProcess }
   | { kind: 'terminals'; key: string; terminals: TerminalProcess[] }
   | { kind: 'finished'; key: string; resources: SessionResource[] }
+  | {
+      kind: 'group'
+      key: string
+      provider: SessionResource['provider']
+      resources: SessionResource[]
+    }
+
+/** From this many open links of one provider, they share a single chip that lists them. */
+export const GROUP_THRESHOLD = 3
+
+/** A group chip's label, e.g. `9 issues` or `3 pull requests`. */
+export function groupLabel(provider: SessionResource['provider'], n: number): string {
+  if (provider === 'linear') return t('{n} issues', { n })
+  if (provider === 'github') return t('{n} pull requests', { n })
+
+  return t('{n} threads', { n })
+}
 
 /** What a chip says: a PR number, a thread's title, or an issue's identifier. */
 export function resourceLabel(resource: SessionResource): string {
@@ -108,7 +125,8 @@ export function chipNames(chips: ResourceChip[]): string[] {
   return chips.flatMap((chip) => {
     if (chip.kind === 'resource') return [resourceFullLabel(chip.resource)]
     if (chip.kind === 'terminal') return [chip.terminal.name]
-    if (chip.kind === 'finished') return chip.resources.map(resourceFullLabel)
+    if (chip.kind === 'finished' || chip.kind === 'group')
+      return chip.resources.map(resourceFullLabel)
 
     return chip.terminals.map((terminal) => terminal.name)
   })
@@ -179,7 +197,9 @@ export function finishedFilter(resources: SessionResource[]): ChangesFilter {
 }
 
 /**
- * One chip per open linked resource. Open terminals are interchangeable
+ * One chip per open linked resource, except that three or more open links from
+ * one provider share a chip that lists them, so a busy chat's titlebar does
+ * not turn into a row of identifiers. Open terminals are interchangeable
  * shells, so two or more share a single chip that lists them, leaving room for
  * the links. Merged and closed PRs and done or canceled issues are worth
  * knowing but no longer need attention, so they fold into one quiet badge
@@ -190,9 +210,28 @@ export function resourceChips(
   terminals: TerminalProcess[],
 ): ResourceChip[] {
   const finished = resources.filter((resource) => changeStatus(resource) !== 'open')
-  const chips: ResourceChip[] = resources
-    .filter((resource) => changeStatus(resource) === 'open')
-    .map((resource) => ({ kind: 'resource', key: resource.id, resource }))
+  const open = resources.filter((resource) => changeStatus(resource) === 'open')
+  const byProvider = new Map<SessionResource['provider'], SessionResource[]>()
+
+  for (const resource of open) {
+    byProvider.set(resource.provider, [...(byProvider.get(resource.provider) ?? []), resource])
+  }
+  const chips: ResourceChip[] = []
+
+  for (const resource of open) {
+    const siblings = byProvider.get(resource.provider) ?? []
+
+    if (siblings.length < GROUP_THRESHOLD) {
+      chips.push({ kind: 'resource', key: resource.id, resource })
+    } else if (siblings[0] === resource) {
+      chips.push({
+        kind: 'group',
+        key: `group-${resource.provider}`,
+        provider: resource.provider,
+        resources: siblings,
+      })
+    }
+  }
 
   if (terminals.length > 1) chips.push({ kind: 'terminals', key: 'terminals', terminals })
   else if (terminals.length === 1)

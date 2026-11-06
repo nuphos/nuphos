@@ -124,6 +124,7 @@ export function SessionResources({
   const chipProps = {
     titlebar,
     canManage,
+    removingIds: removing,
     onUnlink: (resourceId: string) => void unlink(resourceId),
     actions,
   }
