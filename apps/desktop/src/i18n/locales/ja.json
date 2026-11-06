@@ -5735,5 +5735,7 @@
   "{name} (turned off)": "{name}（オフ）",
   "Unpin from toolbar": "ツールバーから固定を解除",
   "Pin to toolbar": "ツールバーに固定",
-  "Remove from Nuphos…": "Nuphos から削除…"
+  "Remove from Nuphos…": "Nuphos から削除…",
+  "Today {time}": "今日 {time}",
+  "Yesterday {time}": "昨日 {time}"
 }

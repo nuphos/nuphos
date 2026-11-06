@@ -5735,5 +5735,7 @@
   "{name} (turned off)": "{name} (ปิดอยู่)",
   "Unpin from toolbar": "เลิกปักหมุดจากแถบเครื่องมือ",
   "Pin to toolbar": "ปักหมุดไว้ที่แถบเครื่องมือ",
-  "Remove from Nuphos…": "นำออกจาก Nuphos…"
+  "Remove from Nuphos…": "นำออกจาก Nuphos…",
+  "Today {time}": "วันนี้ {time}",
+  "Yesterday {time}": "เมื่อวาน {time}"
 }

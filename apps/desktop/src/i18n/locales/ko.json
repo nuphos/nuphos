@@ -5735,5 +5735,7 @@
   "{name} (turned off)": "{name}(꺼짐)",
   "Unpin from toolbar": "도구 모음에서 고정 해제",
   "Pin to toolbar": "도구 모음에 고정",
-  "Remove from Nuphos…": "Nuphos에서 삭제…"
+  "Remove from Nuphos…": "Nuphos에서 삭제…",
+  "Today {time}": "오늘 {time}",
+  "Yesterday {time}": "어제 {time}"
 }

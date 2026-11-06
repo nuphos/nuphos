@@ -5735,5 +5735,7 @@
   "{name} (turned off)": "{name} (desactivada)",
   "Unpin from toolbar": "Desfijar de la barra de herramientas",
   "Pin to toolbar": "Fijar en la barra de herramientas",
-  "Remove from Nuphos…": "Quitar de Nuphos…"
+  "Remove from Nuphos…": "Quitar de Nuphos…",
+  "Today {time}": "Hoy {time}",
+  "Yesterday {time}": "Ayer {time}"
 }

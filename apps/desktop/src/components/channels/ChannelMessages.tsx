@@ -10,10 +10,10 @@ import { useAgentLinks } from '../agent/panel/useAgentLinks'
 import { renderMemberMentionLink } from '../agent/panel/messageInlineLinks'
 import { linkMentions } from '../agent/panel/messageMentionText'
 import { parseMessageMetadata } from '../agent/panel/messageMetadata'
-import { formatMessageTimestamp } from '../agent/panel/streamText'
 import { Avatar } from '../Avatar'
 
 import { ChannelFiles } from './ChannelFiles'
+import { exactTime, startsTimeGap, timeGapLabel } from './chatTime'
 import { channelFiles } from './postFiles'
 import { Typing } from './ChannelTyping'
 
@@ -37,12 +37,6 @@ function textOf(message: AgentPersistedMessage): string {
     .join('\n')
 }
 
-function time(message: AgentPersistedMessage, sentAt?: string) {
-  const at = Date.parse(sentAt ?? message.createdAt ?? '')
-
-  return Number.isFinite(at) ? formatMessageTimestamp(at) : ''
-}
-
 /** Who posted: the sender's id, so consecutive posts from one sender form a run. */
 function senderOf(message: AgentPersistedMessage): string | undefined {
   const metadata = parseMessageMetadata(message.metadata)
@@ -56,6 +50,7 @@ function senderOf(message: AgentPersistedMessage): string | undefined {
  */
 function ChannelMessage({
   message,
+  at,
   first,
   fresh,
   ownAgent,
@@ -65,6 +60,8 @@ function ChannelMessage({
   onOpenSession,
 }: {
   message: AgentPersistedMessage
+  /** When it was posted: the exact time shows on hover. */
+  at: number
   first: boolean
   /** Arrived while the channel was open: it springs in. */
   fresh: boolean
@@ -82,7 +79,6 @@ function ChannelMessage({
 
   if (!metadata || (!text && !posted.any)) return null
   const { sender } = metadata
-  const when = time(message, metadata.sentAt)
   const agentId = sender.type === 'agent' ? (metadata.sourceSessionId ?? sender.id) : null
   const open = agentId && ownAgent ? () => onOpenSession(agentId) : null
   const body = (
@@ -108,7 +104,7 @@ function ChannelMessage({
   if (mine)
     return (
       <div className="flex w-full items-start justify-end gap-2.5">
-        <div className="flex min-w-0 max-w-[85%] flex-col items-end gap-1">
+        <div title={exactTime(at)} className="flex min-w-0 max-w-[85%] flex-col items-end gap-1">
           {files}
           {text && (
             <div
@@ -120,7 +116,6 @@ function ChannelMessage({
               {body}
             </div>
           )}
-          <span className="pr-0.5 text-[11px] text-tertiary tabular-nums">{when}</span>
         </div>
         <div className="w-7 shrink-0">
           {first && (
@@ -157,7 +152,7 @@ function ChannelMessage({
             />
           ))}
       </div>
-      <div className="flex min-w-0 max-w-[85%] flex-col items-start gap-1">
+      <div title={exactTime(at)} className="flex min-w-0 max-w-[85%] flex-col items-start gap-1">
         {first && (
           <div className="flex max-w-full items-center gap-2 px-1 text-xs leading-4">
             {open ? (
@@ -191,7 +186,6 @@ function ChannelMessage({
           </div>
         )}
         {shown({ ...posted, uploads: [] })}
-        <span className="px-1 text-[11px] text-tertiary tabular-nums">{when}</span>
       </div>
     </div>
   )
@@ -217,6 +211,8 @@ function Paused({ turns }: { turns: number }) {
 }
 
 const stamp = (value: string | undefined) => Date.parse(value ?? '') || 0
+const postedAt = (message: AgentPersistedMessage) =>
+  stamp(parseMessageMetadata(message.metadata)?.sentAt ?? message.createdAt)
 
 export function ChannelMessages({
   messages,
@@ -249,22 +245,36 @@ export function ChannelMessages({
   const [initial] = useState(() => new Set(messages.map((message) => message.id)))
   // Posts and timeline lines in the order they happened.
   const rows = [
-    ...messages.map((message, i) => ({
-      at: stamp(parseMessageMetadata(message.metadata)?.sentAt ?? message.createdAt),
-      key: message.id,
-      node: (
-        <ChannelMessage
-          message={message}
-          first={i === 0 || senderOf(messages[i - 1]!) !== senderOf(message)}
-          fresh={!initial.has(message.id)}
-          ownAgent={owned.has(senderOf(message) ?? '')}
-          viewerId={viewerId}
-          teamId={teamId}
-          links={links}
-          onOpenSession={onOpenSession}
-        />
-      ),
-    })),
+    ...messages.map((message, i) => {
+      const at = postedAt(message)
+      // A time above the post starts a new run, as in iMessage.
+      const gap = startsTimeGap(at, i > 0 ? postedAt(messages[i - 1]!) : undefined)
+
+      return {
+        at,
+        key: message.id,
+        node: (
+          <>
+            {gap && (
+              <div className="pt-2 text-center text-[11px] text-tertiary tabular-nums">
+                {timeGapLabel(at)}
+              </div>
+            )}
+            <ChannelMessage
+              message={message}
+              at={at}
+              first={gap || i === 0 || senderOf(messages[i - 1]!) !== senderOf(message)}
+              fresh={!initial.has(message.id)}
+              ownAgent={owned.has(senderOf(message) ?? '')}
+              viewerId={viewerId}
+              teamId={teamId}
+              links={links}
+              onOpenSession={onOpenSession}
+            />
+          </>
+        ),
+      }
+    }),
     ...events
       .filter((event) => event.kind === 'agents_paused')
       .map((event) => ({

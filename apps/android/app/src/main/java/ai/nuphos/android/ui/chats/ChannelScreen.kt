@@ -241,7 +241,7 @@ private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, 
     }
 }
 
-/** A centered time above a post that follows a pause of more than five minutes. */
+/** A centered time above a post that follows a pause of more than 15 minutes or starts a new day. */
 @Composable
 private fun TimeDivider(at: java.time.Instant) {
     Text(ChatTime.label(at), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline,
