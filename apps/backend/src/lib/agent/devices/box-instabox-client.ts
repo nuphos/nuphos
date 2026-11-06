@@ -19,14 +19,35 @@ export const QUICK_TIMEOUT_MS = 30_000
 /** The most one HTTP request to instabox may take; long operations poll within their own budget. */
 export const REQUEST_TIMEOUT_MS = 15_000
 
-/** Node 22 and the agents, then the CLI; idempotent, so a resume can run it again. */
-export const BOX_INSTALL_COMMAND = [
-  'set -e',
-  'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"',
+const PATHS = 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"'
+
+/** Node 22 and the agents; the template already has all but grok, so this is mostly checks. */
+const AGENTS = [
   'if ! node -e "process.exit(+process.versions.node.split(\'.\')[0] >= 22 ? 0 : 1)" 2>/dev/null; then',
   '  curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs',
   'fi',
   'command -v claude >/dev/null && command -v codex >/dev/null && command -v opencode >/dev/null || { npm config set prefix "$HOME/.npm-global" && npm i -g @anthropic-ai/claude-code @openai/codex opencode-ai; }',
+  'command -v grok >/dev/null || curl -fsSL https://x.ai/cli/install.sh | GROK_BIN_DIR="$HOME/.local/bin" bash',
+]
+
+/**
+ * What the host needs before it starts: the agents (it looks for them once, at start) and the
+ * newest CLI, whose host fetches the newest runtime. Both download, so they run side by side.
+ * Idempotent, so an update runs it again.
+ */
+export const BOX_INSTALL_COMMAND = [
+  'set -e',
+  PATHS,
+  `( ${AGENTS.join('\n')}\n) & agents=$!`,
+  // Always the newest CLI, so the same step installs a Box and updates one.
+  'curl -fsSL https://nuphos.ai/install | sh',
+  // So `nuphos` also works in the Box\'s own terminal, not only in the commands run here.
+  'grep -q .local/bin "$HOME/.profile" 2>/dev/null || echo \'export PATH="$HOME/.local/bin:$PATH"\' >> "$HOME/.profile"',
+  'wait $agents',
+].join('\n')
+
+/** Disk layout that takes effect from the next start, so it runs after the host is up. */
+export const BOX_MOUNTS_COMMAND = [
   // From the next start /tmp and /var/tmp live on /data: neither memory (the default tmpfs) nor
   // the small root disk, which agents' scratch files fill within days.
   'sudo install -d -m 1777 /data/tmp /data/var-tmp',
@@ -37,11 +58,6 @@ export const BOX_INSTALL_COMMAND = [
   // fill the root disk. Only while Docker holds nothing yet, since the bind would hide what it has.
   'sudo install -d -m 711 /data/docker /data/containerd',
   'grep -q " /var/lib/docker " /etc/fstab || [ -n "$(sudo docker images -q 2>/dev/null)$(sudo docker volume ls -q 2>/dev/null)" ] || printf "%s\\n" "/data/docker /var/lib/docker none bind,nofail,x-systemd.requires-mounts-for=/data,x-systemd.before=docker.service 0 0" "/data/containerd /var/lib/containerd none bind,nofail,x-systemd.requires-mounts-for=/data,x-systemd.before=containerd.service 0 0" | sudo tee -a /etc/fstab >/dev/null',
-  'command -v grok >/dev/null || curl -fsSL https://x.ai/cli/install.sh | GROK_BIN_DIR="$HOME/.local/bin" bash',
-  // Always the newest CLI, so the same step installs a Box and updates one.
-  'curl -fsSL https://nuphos.ai/install | sh',
-  // So `nuphos` also works in the Box\'s own terminal, not only in the commands run here.
-  'grep -q .local/bin "$HOME/.profile" 2>/dev/null || echo \'export PATH="$HOME/.local/bin:$PATH"\' >> "$HOME/.profile"',
 ].join('\n')
 
 /**
@@ -69,6 +85,7 @@ export const BOX_UPDATE_COMMAND = [
   'pkill -9 -f "[h]ost.mjs"',
   '(',
   BOX_INSTALL_COMMAND,
+  BOX_MOUNTS_COMMAND,
   // Only panels from before the browser launcher; ones that have it are the user's.
   'grep -L web-browser.desktop "$HOME"/.nuphos/session-homes/*/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml | xargs -r rm -f',
   // The written AGENTS.md (sent agents to /data/workspace and MACHINE.md) is emptied, not
