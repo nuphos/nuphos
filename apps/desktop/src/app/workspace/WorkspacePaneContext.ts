@@ -21,6 +21,7 @@ export type WorkspacePaneValue = {
   cornerPane: boolean
   isTabFocused: () => boolean
   closePane: () => void
+  closeOtherPanes: () => void
   /** More than one pane is showing, so this one can be closed. */
   split: boolean
   active: boolean

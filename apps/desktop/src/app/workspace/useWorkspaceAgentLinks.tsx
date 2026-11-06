@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { api } from '../../api'
 import { writeAccountStorage } from '../../app/accountStorage'
 import { LAST_TEAM_STORAGE_KEY } from '../../app/workspaceTabState'
+import { useStableCallback } from '../../hooks/useStableCallback'
 import { ATLAS_WEB_BASE_URL } from '../../lib/webBaseUrl'
 
 import { exposeDockBrowserTabs } from './store/dockBrowserTabs'
@@ -177,13 +178,15 @@ export function useWorkspaceAgentLinks(a: Args) {
     ],
   )
 
+  const closeOtherPanes = useStableCallback(() => pane?.closeOtherPanes())
   const switchTeam = useCallback(
     (nextTeamId: string) => {
+      closeOtherPanes()
       workspaceActions.switchTeam(nextTeamId)
       writeAccountStorage(LAST_TEAM_STORAGE_KEY, nextTeamId)
       setError(null)
     },
-    [setError, workspaceActions],
+    [closeOtherPanes, setError, workspaceActions],
   )
 
   return {

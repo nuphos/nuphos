@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { isMac } from '../../lib/platform'
 import { readLocalStorage, writeLocalStorage } from '../localStorage'
 
-import { tabsEndingWithPane } from './paneClose'
+import { closeOtherPanes, handOverPane } from './paneClose'
 import { createSidebarSlot } from './sidebarSlot'
 import { SidebarSlotHost } from './SidebarSlotHost'
 import { SplitDropOverlay } from './SplitDropOverlay'
@@ -161,6 +161,11 @@ export function WorkspaceSplits({
   const rects = paneRects(layout)
   const multiple = rects.length > 1
 
+  const forget = (id: string) => {
+    focusSurfaces.delete(id)
+    seeds.delete(id)
+    registrations.delete(id)
+  }
   const close = (id: string) => {
     const next = removePane(layout, id)
 
@@ -176,19 +181,16 @@ export function WorkspaceSplits({
 
     const heir = activeId === id ? paneRects(next)[0].id : activeId
 
-    if (store) {
-      // Dispatch before unmount so the teardown observer ends their sessions.
-      for (const tabId of tabsEndingWithPane(store.getState())) store.actions.closeTab(tabId)
-      // Closing a pane only changes the layout: its chats' docks, terminals
-      // included, carry on in the pane that takes focus. Their shells are keyed
-      // by tab id, so they reattach there with their scrollback.
-      stores.get(heir)?.actions.adoptBuckets(store.getState().buckets)
-    }
+    if (store) handOverPane(store, stores.get(heir))
     setLayout(next)
     if (activeId === id) setActiveId(heir)
-    focusSurfaces.delete(id)
-    seeds.delete(id)
-    registrations.delete(id)
+    forget(id)
+  }
+  // A window shows one team: switching it collapses the split back to the pane that switched.
+  const keepOnly = (keep: string) => {
+    for (const id of closeOtherPanes(layout, keep, stores)) forget(id)
+    setLayout({ id: keep })
+    setActiveId(keep)
   }
 
   const win = useWindowRestore({ layout, setLayout, activeId, setActiveId, stores, seeds, close })
@@ -237,6 +239,7 @@ export function WorkspaceSplits({
                 cornerPane,
                 isTabFocused: () => focusSurfaces.get(rect.id) === 'tab',
                 closePane: () => close(rect.id),
+                closeOtherPanes: () => keepOnly(rect.id),
                 split: multiple,
                 active: activeId === rect.id,
                 // The first surviving leaf owns persistence, even after the original closes.
