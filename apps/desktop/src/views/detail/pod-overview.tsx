@@ -87,7 +87,7 @@ function RelatedResourceButton({
     <button
       type="button"
       onClick={() => onNavigate({ kind, namespace, name })}
-      className="group inline-flex max-w-full items-center gap-1 hover:text-zViolet-accent"
+      className="group inline-flex max-w-full items-center gap-1 hover:text-primary"
       title={t('Open {kind} {name}', { kind, name })}
     >
       <span className="truncate">{name}</span>
@@ -327,7 +327,7 @@ export function PodOverview({
                   {selectedContainerTopology.mounts.map((mount) => (
                     <div
                       key={`${mount.volumeName}:${mount.path}`}
-                      className="flex min-w-0 items-center gap-2 rounded bg-zGray-900 px-2.5 py-2 font-mono text-[11.5px]"
+                      className="flex min-w-0 items-center gap-2 rounded bg-surface-sheet px-2.5 py-2 font-mono text-[11.5px]"
                     >
                       <span className="truncate text-main">{mount.path}</span>
                       <span className="text-tertiary">←</span>

@@ -173,7 +173,7 @@ export function CloudWatchAlarmsView({
             width: 300,
             sortAccessor: (r) => r.name,
             render: (r) => (
-              <span className="text-zViolet-accent truncate block" title={r.name}>
+              <span className="text-primary truncate block" title={r.name}>
                 {r.name}
               </span>
             ),

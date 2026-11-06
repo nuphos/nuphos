@@ -40,7 +40,7 @@ export function TimeRangePicker({
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen} modal>
-      <Popover.Trigger className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zGray-900 border border-zGray-800 hover:bg-zGray-800 text-[11.5px]">
+      <Popover.Trigger className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface-sheet border border-line-control hover:bg-state-hover text-[11.5px]">
         <Clock className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />
         <span className="text-main">{timeSelLabel(sel)}</span>
         <ChevronDown className="w-3 h-3 text-tertiary" strokeWidth={1.8} />
@@ -50,14 +50,14 @@ export function TimeRangePicker({
           <Popover.Popup
             className={(state) =>
               clsx(
-                't-dropdown flex overflow-hidden rounded-lg border border-zGray-800/60 bg-main shadow-[0_4px_6px_-5px_rgba(0,0,0,0.2)] outline-none',
+                't-dropdown flex overflow-hidden rounded-lg border border-line-control/60 bg-main shadow-[0_4px_6px_-5px_rgba(0,0,0,0.2)] outline-none',
                 state.open && 'is-open',
                 state.transitionStatus === 'ending' && 'is-closing',
               )
             }
             style={{ transformOrigin: 'top right' }}
           >
-            <div className="w-[230px] px-3 py-2.5 border-r border-zGray-800/60">
+            <div className="w-[230px] px-3 py-2.5 border-r border-line-control/60">
               <div className="text-[11px] font-medium text-secondary mb-2">
                 {t('Absolute time range')}
               </div>
@@ -66,14 +66,14 @@ export function TimeRangePicker({
                 type="datetime-local"
                 value={fromInput}
                 onChange={(e) => setFromInput(e.target.value)}
-                className="w-full mb-2 px-2 py-1 rounded bg-surface border border-zGray-800 text-[11.5px] text-main outline-none focus:border-zViolet-accent/60"
+                className="w-full mb-2 px-2 py-1 rounded bg-surface border border-line-control text-[11.5px] text-main outline-none focus:border-line-focus"
               />
               <label className="block text-[10.5px] text-tertiary mb-1">{t('To')}</label>
               <input
                 type="datetime-local"
                 value={toInput}
                 onChange={(e) => setToInput(e.target.value)}
-                className="w-full mb-2.5 px-2 py-1 rounded bg-surface border border-zGray-800 text-[11.5px] text-main outline-none focus:border-zViolet-accent/60"
+                className="w-full mb-2.5 px-2 py-1 rounded bg-surface border border-line-control text-[11.5px] text-main outline-none focus:border-line-focus"
               />
               <Button
                 size="sm"
@@ -97,8 +97,8 @@ export function TimeRangePicker({
                       onChange({ kind: 'relative', from: r.from })
                       setOpen(false)
                     }}
-                    className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-zGray-800 ${
-                      active ? 'text-zViolet-accent' : 'text-secondary'
+                    className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-state-hover ${
+                      active ? 'text-primary' : 'text-secondary'
                     }`}
                   >
                     {r.label}

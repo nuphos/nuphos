@@ -10,7 +10,7 @@ import type { ReactNode } from 'react'
 
 function RecentPanel({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="bg-zGray-900 border border-zGray-800 rounded-md px-4 py-3 min-h-[120px]">
+    <div className="bg-surface-sheet border border-line-control rounded-md px-4 py-3 min-h-[120px]">
       <div className="text-[11.5px] uppercase tracking-wider text-tertiary mb-3">{title}</div>
       {children}
     </div>
@@ -91,7 +91,7 @@ export function RecentRestartsPanel({
             }
           >
             <span className="min-w-0">
-              <span className="text-[12px] text-zViolet-accent truncate">{r.name}</span>
+              <span className="text-[12px] text-primary truncate">{r.name}</span>
               <span className="text-[11px] text-tertiary"> · {r.namespace}</span>
             </span>
             <span
@@ -114,17 +114,17 @@ export function RecentRestartsPanel({
 
 export function SkeletonResourcePanel() {
   return (
-    <div className="mt-3 bg-zGray-900 border border-zGray-800 rounded-md px-4 py-3">
+    <div className="mt-3 bg-surface-sheet border border-line-control rounded-md px-4 py-3">
       <div className="text-[11.5px] uppercase tracking-wider text-tertiary mb-3">
         {t('Resource Usage')}
       </div>
       <div className="grid grid-cols-1 @3xl:grid-cols-2 gap-x-10 gap-y-4">
         {[0, 1].map((col) => (
           <div key={col}>
-            <div className="h-3 w-32 rounded bg-zGray-800 mb-3" />
+            <div className="h-3 w-32 rounded bg-surface-sunken mb-3" />
             <div className="flex flex-col gap-2">
               {[0, 1, 2].map((row) => (
-                <div key={row} className="h-1.5 rounded-full bg-zGray-800" />
+                <div key={row} className="h-1.5 rounded-full bg-surface-sunken" />
               ))}
             </div>
           </div>
@@ -136,7 +136,7 @@ export function SkeletonResourcePanel() {
 
 export function ResourceUsagePanel({ resources }: { resources: ResourceSummary }) {
   return (
-    <div className="mt-3 bg-zGray-900 border border-zGray-800 rounded-md px-4 py-3">
+    <div className="mt-3 bg-surface-sheet border border-line-control rounded-md px-4 py-3">
       <div className="text-[11.5px] uppercase tracking-wider text-tertiary mb-3">
         {t('Resource Usage')}
       </div>
@@ -181,7 +181,7 @@ function MeterRow({
       <span className="w-9 shrink-0 text-right tabular-nums text-secondary">
         {pct != null ? `${String(Math.round(pct))}%` : '–'}
       </span>
-      <div className="flex-1 h-1.5 rounded-full bg-zGray-800 overflow-hidden">
+      <div className="flex-1 h-1.5 rounded-full bg-surface-sunken overflow-hidden">
         {pct != null && (
           <div
             className={clsx('h-full', toneBgClass(tone))}

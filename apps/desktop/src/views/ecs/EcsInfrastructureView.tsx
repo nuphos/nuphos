@@ -41,7 +41,7 @@ export function EcsInfrastructureView({
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <div className="px-4 py-3 border-b border-zGray-850 bg-zGray-950">
+      <div className="px-4 py-3 border-b border-line-control bg-surface-canvas">
         <div className="text-[11px] uppercase tracking-wide text-tertiary mb-1.5">
           {t('Capacity providers')}
         </div>
@@ -52,7 +52,7 @@ export function EcsInfrastructureView({
             {capacityProviders.map((cp) => (
               <span
                 key={cp}
-                className="inline-flex items-center h-6 px-2 rounded bg-zGray-850 text-[12px] text-secondary font-mono"
+                className="inline-flex items-center h-6 px-2 rounded bg-surface-sunken text-[12px] text-secondary font-mono"
               >
                 {cp}
               </span>
@@ -74,7 +74,7 @@ export function EcsInfrastructureView({
             width: 200,
             sortAccessor: (r) => r.ec2InstanceId,
             render: (r) => (
-              <span className="font-mono text-[11.5px] text-zViolet-accent">{r.ec2InstanceId}</span>
+              <span className="font-mono text-[11.5px] text-primary">{r.ec2InstanceId}</span>
             ),
           },
           {

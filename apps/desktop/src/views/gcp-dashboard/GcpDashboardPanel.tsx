@@ -186,7 +186,7 @@ export function GcpDashboardPanel({
               <button
                 type="button"
                 onClick={() => setWatchOpen(true)}
-                className="inline-flex h-5 items-center gap-1 rounded px-1.5 text-[10px] text-tertiary hover:bg-zGray-800 hover:text-main"
+                className="inline-flex h-5 items-center gap-1 rounded px-1.5 text-[10px] text-tertiary hover:bg-state-hover hover:text-main"
                 title={t('Watch this saved dashboard panel with the agent')}
               >
                 <Eye className="h-3 w-3" strokeWidth={1.8} />
@@ -196,7 +196,7 @@ export function GcpDashboardPanel({
             <button
               type="button"
               onClick={() => void api.appOpenExternal(dashboard.consoleUrl)}
-              className="flex h-5 w-5 items-center justify-center rounded text-tertiary hover:bg-zGray-800 hover:text-main"
+              className="flex h-5 w-5 items-center justify-center rounded text-tertiary hover:bg-state-hover hover:text-main"
               title={t('Open this dashboard in GCP')}
             >
               <ExternalLink className="h-3 w-3" strokeWidth={1.8} />

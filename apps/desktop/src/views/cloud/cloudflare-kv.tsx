@@ -109,9 +109,7 @@ export function CloudflareKvView({
             header: t('Title'),
             width: 280,
             sortAccessor: (r) => r.title,
-            render: (r) => (
-              <span className="font-mono text-[12.5px] text-zViolet-accent">{r.title}</span>
-            ),
+            render: (r) => <span className="font-mono text-[12.5px] text-primary">{r.title}</span>,
           },
           {
             key: 'id',
@@ -131,7 +129,7 @@ export function CloudflareKvView({
                     e.stopPropagation()
                     setRenaming(r)
                   }}
-                  className="w-6 h-6 rounded text-tertiary hover:bg-zGray-800 hover:text-main flex items-center justify-center"
+                  className="w-6 h-6 rounded text-tertiary hover:bg-state-hover hover:text-main flex items-center justify-center"
                   title={t('Rename')}
                 >
                   <FontAwesomeIcon icon={faPencil} className="w-3.5 h-3.5" />

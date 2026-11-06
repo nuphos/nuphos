@@ -43,7 +43,7 @@ export function PortForwardForm({
               id={TARGET_PORT_SELECT_ID}
               value={targetPortMode}
               onValueChange={onTargetPortModeChange}
-              triggerClassName="h-8 bg-zGray-800 px-2 text-[13px]"
+              triggerClassName="h-8 bg-surface-sunken px-2 text-[13px]"
               options={[
                 ...ports.map((p) => {
                   const named = p.name ? `${p.name} (${String(p.port)})` : String(p.port)
@@ -65,7 +65,7 @@ export function PortForwardForm({
                   value={targetPort}
                   onChange={(e) => onTargetPortChange(e.target.value)}
                   placeholder={t('e.g. 8080')}
-                  className="h-8 px-2 rounded-md bg-surface border border-zGray-700 text-[13px] text-main placeholder:text-tertiary focus:outline-none focus:ring-1 focus:ring-zViolet-500"
+                  className="h-8 px-2 rounded-md bg-surface border border-line-control text-[13px] text-main placeholder:text-tertiary focus:outline-none focus:ring-1 focus:ring-line-focus"
                 />
               </div>
             )}
@@ -81,7 +81,7 @@ export function PortForwardForm({
             value={localPort}
             onChange={(e) => onLocalPortChange(e.target.value)}
             placeholder={t('auto')}
-            className="h-8 px-2 rounded-md bg-surface border border-zGray-700 text-[13px] text-main placeholder:text-tertiary focus:outline-none focus:ring-1 focus:ring-zViolet-500"
+            className="h-8 px-2 rounded-md bg-surface border border-line-control text-[13px] text-main placeholder:text-tertiary focus:outline-none focus:ring-1 focus:ring-line-focus"
           />
         </div>
       </div>
@@ -107,7 +107,7 @@ export function ActiveForwardPanel({
         <span className="w-2 h-2 rounded-full bg-success flex-shrink-0" />
         <span className="text-[13px] text-success font-medium">{t('Forwarding')}</span>
       </div>
-      <div className="flex items-center gap-2 bg-zGray-800 rounded-lg px-3 py-2">
+      <div className="flex items-center gap-2 bg-surface-sunken rounded-lg px-3 py-2">
         <span className="font-mono text-[13px] text-main flex-1">
           localhost:{activeInfo?.localPort}
         </span>

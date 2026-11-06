@@ -32,8 +32,8 @@ export function Choice({
       className={clsx(
         'flex w-full items-start gap-3 rounded-lg border px-3.5 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60',
         selected
-          ? 'border-zViolet-500/70 bg-zViolet-500/10'
-          : 'border-zGray-800 hover:border-zGray-700 hover:bg-zGray-800/40',
+          ? 'border-action-primary/70 bg-state-selected'
+          : 'border-line-control hover:border-line-control hover:bg-state-hover',
       )}
     >
       <span className="mt-0.5 text-secondary">{icon}</span>
@@ -82,7 +82,7 @@ export function AddAgentChoices({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-md px-3 py-1.5 text-[12.5px] text-secondary hover:bg-zGray-800/60"
+          className="rounded-md px-3 py-1.5 text-[12.5px] text-secondary hover:bg-state-hover"
         >
           {t('Cancel')}
         </button>

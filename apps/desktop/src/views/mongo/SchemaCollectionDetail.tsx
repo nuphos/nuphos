@@ -47,12 +47,12 @@ export function CollectionDetail({
 
   return (
     <div className="h-[508px] overflow-hidden">
-      <div className="flex h-10 items-end gap-1 border-b border-zGray-800 px-4">
+      <div className="flex h-10 items-end gap-1 border-b border-line-control px-4">
         {detailTabs.map((item) => (
           <button
             key={item}
             onClick={() => onTab(item)}
-            className={`border-b-2 px-3 py-2 text-[11.5px] ${tab === item ? 'border-zViolet-accent text-main' : 'border-transparent text-tertiary hover:text-secondary'}`}
+            className={`border-b-2 px-3 py-2 text-[11.5px] ${tab === item ? 'border-action-primary text-main' : 'border-transparent text-tertiary hover:text-secondary'}`}
           >
             {item === 'Indexes'
               ? t('Indexes ({n})', { n: detail.indexes.length })
@@ -93,10 +93,10 @@ function SchemaTab({ detail }: { detail: MongoCollectionDetail }) {
   return (
     <div>
       <div className="mb-3 flex flex-wrap gap-2 text-[10.5px] text-tertiary">
-        <span className="rounded bg-zGray-800 px-2 py-1">
+        <span className="rounded bg-surface-sunken px-2 py-1">
           {t('Sampled {n} documents', { n: detail.schema.sampleSize })}
         </span>
-        <span className="rounded bg-zGray-800 px-2 py-1">
+        <span className="rounded bg-surface-sunken px-2 py-1">
           {t('{n} field paths', { n: detail.schema.fields.length })}
         </span>
         {detail.schema.truncated && (
@@ -108,9 +108,9 @@ function SchemaTab({ detail }: { detail: MongoCollectionDetail }) {
       {detail.schema.fields.length === 0 ? (
         <EmptyDetail text={t('No fields could be sampled from this collection.')} />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-zGray-800">
+        <div className="overflow-hidden rounded-lg border border-line-control">
           <table className="w-full text-left text-[11.5px]">
-            <thead className="bg-zGray-900 text-tertiary">
+            <thead className="bg-surface-sheet text-tertiary">
               <tr>
                 <th className="px-3 py-2 font-medium">{t('Field path')}</th>
                 <th className="px-3 py-2 font-medium">{t('Types')}</th>
@@ -119,14 +119,14 @@ function SchemaTab({ detail }: { detail: MongoCollectionDetail }) {
             </thead>
             <tbody>
               {detail.schema.fields.map((field) => (
-                <tr key={field.path} className="border-t border-zGray-800/70">
+                <tr key={field.path} className="border-t border-line-control/70">
                   <td className="px-3 py-2 font-mono text-secondary">{field.path}</td>
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-1">
                       {field.types.map((type) => (
                         <span
                           key={type.type}
-                          className="rounded bg-zViolet-500/10 px-1.5 py-0.5 font-mono text-[10px] text-zViolet-accent"
+                          className="rounded bg-state-selected px-1.5 py-0.5 font-mono text-[10px] text-primary"
                         >
                           {type.type} · {type.count}
                         </span>
@@ -156,12 +156,12 @@ function IndexesTab({ detail }: { detail: MongoCollectionDetail }) {
         <SafetyNotice text={t('Only the first 200 indexes are shown.')} />
       )}
       {detail.indexes.map((index) => (
-        <div key={index.name} className="rounded-lg border border-zGray-800 p-3">
+        <div key={index.name} className="rounded-lg border border-line-control p-3">
           <div className="flex items-center gap-2">
-            <KeyRound className="h-3.5 w-3.5 text-zViolet-accent" />
+            <KeyRound className="h-3.5 w-3.5 text-primary" />
             <span className="text-[12px] font-medium text-main">{index.name}</span>
           </div>
-          <pre className="mt-2 overflow-x-auto rounded bg-zGray-900 px-2.5 py-2 text-[10.5px] text-secondary">
+          <pre className="mt-2 overflow-x-auto rounded bg-surface-sheet px-2.5 py-2 text-[10.5px] text-secondary">
             {JSON.stringify(index.keys, null, 2)}
           </pre>
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -177,7 +177,7 @@ function IndexesTab({ detail }: { detail: MongoCollectionDetail }) {
               .map((property) => (
                 <span
                   key={String(property)}
-                  className="rounded bg-zGray-800 px-1.5 py-0.5 text-[9.5px] text-tertiary"
+                  className="rounded bg-surface-sunken px-1.5 py-0.5 text-[9.5px] text-tertiary"
                 >
                   {property}
                 </span>

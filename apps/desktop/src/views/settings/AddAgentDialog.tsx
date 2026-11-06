@@ -80,8 +80,8 @@ export function AddAgentDialog({
     >
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-[1000] bg-black/40 backdrop-blur-sm transition-opacity duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:opacity-0 motion-reduce:transition-none" />
-        <Dialog.Popup className="fixed left-1/2 top-1/2 z-[1001] w-[560px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-zGray-800 bg-zGray-900 shadow-2xl shadow-black/50 outline-none transition-[opacity,transform] duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:scale-[var(--modal-scale-close)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:scale-[var(--modal-scale)] data-[starting-style]:opacity-0 motion-reduce:transition-none">
-          <div className="flex items-center justify-between border-b border-zGray-800 px-5 py-4">
+        <Dialog.Popup className="fixed left-1/2 top-1/2 z-[1001] w-[560px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-line-control bg-surface-sheet shadow-2xl shadow-black/50 outline-none transition-[opacity,transform] duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:scale-[var(--modal-scale-close)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:scale-[var(--modal-scale)] data-[starting-style]:opacity-0 motion-reduce:transition-none">
+          <div className="flex items-center justify-between border-b border-line-control px-5 py-4">
             <Dialog.Title className="text-[14px] font-semibold text-main">
               <span ref={titleRef} className="t-text-swap">
                 {title}
@@ -89,7 +89,7 @@ export function AddAgentDialog({
             </Dialog.Title>
             <Dialog.Close
               aria-label={t('Close')}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800 hover:text-main"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-tertiary hover:bg-state-hover hover:text-main"
             >
               <X className="h-3.5 w-3.5" />
             </Dialog.Close>
@@ -134,7 +134,7 @@ export function AddAgentDialog({
             </div>
           </div>
           {/* Every step's actions, pinned below the scrolling body as in Modal's footer. */}
-          <div ref={setFooter} className="border-t border-zGray-800" />
+          <div ref={setFooter} className="border-t border-line-control" />
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>

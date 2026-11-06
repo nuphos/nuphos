@@ -55,7 +55,7 @@ export function PagesDomainsSection({
         <span className="text-[12px] font-medium text-main">{t('Custom domains')}</span>
         <button
           onClick={() => setAdding((v) => !v)}
-          className="text-[12px] text-zViolet-accent hover:underline flex items-center gap-1"
+          className="text-[12px] text-primary hover:underline flex items-center gap-1"
         >
           <FontAwesomeIcon icon={faPlus} className="w-3 h-3" /> {t('Add')}
         </button>
@@ -66,7 +66,7 @@ export function PagesDomainsSection({
             value={newDomain}
             onChange={(e) => setNewDomain(e.target.value)}
             placeholder="www.example.com"
-            className="px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12px] w-64"
+            className="px-2.5 py-1.5 rounded-md bg-surface border border-line-control text-main outline-none focus:border-line-focus font-mono text-[12px] w-64"
           />
           <Button size="sm" onClick={() => void addDomain()}>
             {t('Add')}

@@ -38,7 +38,7 @@ export function ConnectionHeader({
             <button
               onClick={onTest}
               disabled={busy}
-              className="flex h-7 items-center gap-1.5 rounded-md border border-zGray-700 px-2.5 text-[12px] text-secondary hover:text-main disabled:opacity-50"
+              className="flex h-7 items-center gap-1.5 rounded-md border border-line-control px-2.5 text-[12px] text-secondary hover:text-main disabled:opacity-50"
             >
               {busy ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -68,9 +68,9 @@ export function OverviewSection({
 }) {
   return (
     <>
-      <section className="border-t border-zGray-800/60 px-6 py-4">
+      <section className="border-t border-line-control/60 px-6 py-4">
         <SectionHeader
-          icon={<Plug className="h-4 w-4 text-zViolet-accent" strokeWidth={1.8} />}
+          icon={<Plug className="h-4 w-4 text-primary" strokeWidth={1.8} />}
           title={t('Connection')}
           hint={t('How Nuphos reaches this database')}
         />
@@ -87,9 +87,9 @@ export function OverviewSection({
           }
         />
       </section>
-      <section className="border-t border-zGray-800/60 px-6 py-4">
+      <section className="border-t border-line-control/60 px-6 py-4">
         <SectionHeader
-          icon={<HeartPulse className="h-4 w-4 text-zViolet-accent" strokeWidth={1.8} />}
+          icon={<HeartPulse className="h-4 w-4 text-primary" strokeWidth={1.8} />}
           title={t('Health')}
           hint={checked ? t('Checked {time}', { time: checked }) : undefined}
         />
@@ -97,9 +97,9 @@ export function OverviewSection({
         <Row label={t('Latency')} value={`${String(connection.health.latencyMs)} ms`} />
         <Row label={t('Server')} value={connection.health.serverVersion ?? t('Unknown')} />
       </section>
-      <section className="border-t border-zGray-800/60 px-6 py-4">
+      <section className="border-t border-line-control/60 px-6 py-4">
         <SectionHeader
-          icon={<Network className="h-4 w-4 text-zViolet-accent" strokeWidth={1.8} />}
+          icon={<Network className="h-4 w-4 text-primary" strokeWidth={1.8} />}
           title={t('Related resources')}
           hint={
             connection.relations.length
@@ -120,7 +120,7 @@ export function OverviewSection({
         )}
       </section>
       {connection.providerOrigin && (
-        <div className="border-t border-zGray-800/60 px-6 py-4">
+        <div className="border-t border-line-control/60 px-6 py-4">
           <ProviderResourceCard connection={connection} />
         </div>
       )}

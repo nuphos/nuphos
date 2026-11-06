@@ -24,7 +24,7 @@ export function ReadOnlyEditableCell({
         onEdit()
       }}
       className={clsx(
-        'block h-8 w-full min-w-0 rounded px-1.5 text-[13px] hover:bg-zGray-800/70',
+        'block h-8 w-full min-w-0 rounded px-1.5 text-[13px] hover:bg-state-hover',
         align === 'center' ? 'text-center' : 'text-left',
       )}
     >
@@ -59,7 +59,7 @@ export function EnvRefNavButton({
         event.stopPropagation()
         onNavigate({ kind, namespace, name })
       }}
-      className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-tertiary hover:bg-zGray-800 hover:text-main"
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-tertiary hover:bg-state-hover hover:text-main"
     >
       <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={2} />
     </button>

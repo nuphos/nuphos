@@ -165,7 +165,7 @@ export function BoxRow({
           }}
         />
         {thisComputer && (
-          <span className="shrink-0 rounded-full bg-zGray-800/60 px-1.5 text-[10.5px] leading-4 text-secondary">
+          <span className="shrink-0 rounded-full bg-state-selected px-1.5 text-[10.5px] leading-4 text-secondary">
             {t('This computer')}
           </span>
         )}
@@ -175,7 +175,7 @@ export function BoxRow({
             <MenuTrigger
               aria-label={t('Manage {name}', { name: device.label })}
               disabled={busy}
-              className="-mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800/60 hover:text-main"
+              className="-mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-tertiary hover:bg-state-hover hover:text-main"
             >
               <Ellipsis className="h-4 w-4" />
             </MenuTrigger>

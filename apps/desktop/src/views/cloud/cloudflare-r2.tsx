@@ -109,9 +109,7 @@ export function CloudflareR2View({
             header: t('Name'),
             width: 320,
             sortAccessor: (r) => r.name,
-            render: (r) => (
-              <span className="font-mono text-[12.5px] text-zViolet-accent">{r.name}</span>
-            ),
+            render: (r) => <span className="font-mono text-[12.5px] text-primary">{r.name}</span>,
           },
           {
             key: 'location',
@@ -232,7 +230,7 @@ function CreateR2BucketDialog({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="my-bucket"
-            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
+            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-line-control text-main outline-none focus:border-line-focus font-mono text-[12.5px]"
           />
         </label>
         <label className="block">
@@ -247,7 +245,7 @@ function CreateR2BucketDialog({
           />
         </label>
       </div>
-      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-zGray-800">
+      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-line-control">
         <button
           onClick={onClose}
           disabled={saving}

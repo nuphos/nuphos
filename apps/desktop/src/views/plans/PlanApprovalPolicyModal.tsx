@@ -72,8 +72,8 @@ export function PlanApprovalPolicyModal({
             className={clsx(
               'flex items-start gap-3 rounded-lg border px-3.5 py-3 transition-colors',
               mode === value
-                ? 'border-zViolet-accent/60 bg-zViolet-500/10'
-                : 'border-zGray-800 hover:border-zGray-700',
+                ? 'border-action-primary/60 bg-state-selected'
+                : 'border-line-control hover:border-line-control',
             )}
           >
             <input
@@ -97,7 +97,7 @@ export function PlanApprovalPolicyModal({
                   onQuorumChange(Math.max(2, Math.min(20, Number(event.target.value) || 2)))
                 }
                 onClick={(event) => event.stopPropagation()}
-                className="w-16 rounded-md border border-zGray-700 bg-surface px-2 py-1 text-[12px] text-main outline-none focus:border-zViolet-accent/60"
+                className="w-16 rounded-md border border-line-control bg-surface px-2 py-1 text-[12px] text-main outline-none focus:border-line-focus"
                 aria-label={t('Required other team approvals')}
               />
             )}

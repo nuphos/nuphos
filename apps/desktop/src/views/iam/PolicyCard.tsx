@@ -21,10 +21,10 @@ export function PolicyCard({ policy }: { policy: AwsIamPolicy }) {
   const [open, setOpen] = useState(false)
 
   return (
-    <div className="border-t border-zGray-800/60 first:border-t-0">
+    <div className="border-t border-line-control/60 first:border-t-0">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full py-2 flex items-center gap-2 text-left hover:bg-zGray-950"
+        className="w-full py-2 flex items-center gap-2 text-left hover:bg-state-hover"
       >
         {open ? (
           <ChevronDown className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />
@@ -36,9 +36,9 @@ export function PolicyCard({ policy }: { policy: AwsIamPolicy }) {
           className={clsx(
             'ml-auto text-[10.5px] uppercase tracking-wider font-medium px-1.5 py-0.5 rounded',
             policy.kind === 'inline'
-              ? 'bg-zViolet-500/15 text-zViolet-accent'
+              ? 'bg-state-selected text-primary'
               : policy.awsManaged
-                ? 'bg-zGray-800 text-secondary'
+                ? 'bg-surface-sunken text-secondary'
                 : 'bg-warning/15 text-warning',
           )}
         >
@@ -50,7 +50,7 @@ export function PolicyCard({ policy }: { policy: AwsIamPolicy }) {
         </span>
       </button>
       {open && (
-        <div className="border-t border-zGray-850 py-2 space-y-2">
+        <div className="border-t border-line-control py-2 space-y-2">
           {policy.arn && (
             <div className="font-mono text-[11px] text-tertiary truncate" title={policy.arn}>
               {policy.arn}

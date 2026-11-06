@@ -22,8 +22,8 @@ export function DocumentsHistoryPanel({
   onLoadEntry: (event: DatabaseQueryAudit) => void
 }) {
   return (
-    <div className="absolute inset-y-0 right-0 z-30 flex w-[430px] flex-col border-l border-zGray-700 bg-zGray-950 shadow-2xl">
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-zGray-800 px-3">
+    <div className="absolute inset-y-0 right-0 z-30 flex w-[430px] flex-col border-l border-line-control bg-surface-canvas shadow-2xl">
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-line-control px-3">
         <div>
           <div className="text-[12px] font-medium text-main">{t('Query history')}</div>
           <div className="text-[9.5px] text-tertiary">
@@ -34,14 +34,14 @@ export function DocumentsHistoryPanel({
           <button
             type="button"
             onClick={onRefresh}
-            className="rounded p-1.5 text-tertiary hover:bg-zGray-800 hover:text-main"
+            className="rounded p-1.5 text-tertiary hover:bg-state-hover hover:text-main"
           >
             <RefreshCw className="h-3.5 w-3.5" />
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1.5 text-tertiary hover:bg-zGray-800 hover:text-main"
+            className="rounded p-1.5 text-tertiary hover:bg-state-hover hover:text-main"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -66,7 +66,7 @@ export function DocumentsHistoryPanel({
             {history.map((event) => (
               <div
                 key={event.id}
-                className="rounded-lg border border-zGray-800 bg-zGray-900/60 p-2.5"
+                className="rounded-lg border border-line-control bg-state-selected p-2.5"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -91,12 +91,12 @@ export function DocumentsHistoryPanel({
                     type="button"
                     disabled={!event.queryInput}
                     onClick={() => onLoadEntry(event)}
-                    className="rounded border border-zGray-700 px-2 py-1 text-[9.5px] text-secondary hover:border-zGray-600 hover:text-main disabled:opacity-35"
+                    className="rounded border border-line-control px-2 py-1 text-[9.5px] text-secondary hover:border-line-control hover:text-main disabled:opacity-35"
                   >
                     {t('Load')}
                   </button>
                 </div>
-                <pre className="mt-2 max-h-28 overflow-hidden whitespace-pre-wrap break-words rounded bg-zGray-950/80 px-2 py-1.5 font-mono text-[9.5px] leading-4 text-tertiary">
+                <pre className="mt-2 max-h-28 overflow-hidden whitespace-pre-wrap break-words rounded bg-state-selected px-2 py-1.5 font-mono text-[9.5px] leading-4 text-tertiary">
                   {event.queryStatement ??
                     t('Legacy record · fields: {fields}', {
                       fields: event.queryShape.join(', ') || t('none'),

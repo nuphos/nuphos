@@ -48,10 +48,10 @@ export function CronTriggersDialog({
           onChange={(e) => setText(e.target.value)}
           rows={6}
           placeholder={'*/5 * * * *\n0 0 * * *'}
-          className="w-full px-2.5 py-2 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
+          className="w-full px-2.5 py-2 rounded-md bg-surface border border-line-control text-main outline-none focus:border-line-focus font-mono text-[12.5px]"
         />
       </div>
-      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-zGray-800">
+      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-line-control">
         <button
           onClick={onClose}
           disabled={saving}

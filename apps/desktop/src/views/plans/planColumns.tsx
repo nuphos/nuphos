@@ -47,7 +47,7 @@ export function buildPlanColumns(membersById: Map<string, TeamMember>): Column<R
           </span>
         ) : (
           <ShieldCheck
-            className="h-3.5 w-3.5 text-zViolet-accent"
+            className="h-3.5 w-3.5 text-primary"
             strokeWidth={1.8}
             aria-label={t('Permission request')}
           />

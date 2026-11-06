@@ -82,7 +82,7 @@ export function CloudRunErrorBlock({
         {apiDisabled && details.activationUrl && (
           <button
             onClick={() => void api.appOpenExternal(details.activationUrl!).catch(() => {})}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-zViolet-accent/15 text-zViolet-accent hover:bg-zViolet-accent/25 text-[12px]"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-state-selected text-primary hover:bg-state-selected text-[12px]"
           >
             <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.8} />
             {t('Enable in Google Cloud Console')}
@@ -91,7 +91,7 @@ export function CloudRunErrorBlock({
         {iamUrl && (
           <button
             onClick={() => void api.appOpenExternal(iamUrl).catch(() => {})}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-zViolet-accent/15 text-zViolet-accent hover:bg-zViolet-accent/25 text-[12px]"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-state-selected text-primary hover:bg-state-selected text-[12px]"
           >
             <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.8} />
             {t('Open IAM in Google Cloud Console')}
@@ -113,7 +113,7 @@ export function CloudRunErrorBlock({
         )}
         <button
           onClick={onRetry}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-zGray-800 text-main hover:bg-zGray-700 text-[12px]"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-sunken text-main hover:bg-state-hover text-[12px]"
         >
           <RotateCcw className="w-3.5 h-3.5" strokeWidth={1.8} />
           {t('Retry')}

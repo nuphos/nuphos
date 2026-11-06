@@ -96,9 +96,9 @@ export function AvatarPicker({
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
           className={clsx(
-            'group relative outline-none focus-visible:ring-2 focus-visible:ring-zViolet-500',
+            'group relative outline-none focus-visible:ring-2 focus-visible:ring-line-focus',
             shape,
-            dragging && 'ring-2 ring-zViolet-500 ring-offset-2 ring-offset-zGray-900',
+            dragging && 'ring-2 ring-line-focus ring-offset-2 ring-offset-surface-sheet',
           )}
         >
           <Avatar src={src} name={name} size={64} className={clsx(shape, '!shadow-none')} />

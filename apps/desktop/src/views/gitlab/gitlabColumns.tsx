@@ -23,7 +23,7 @@ export const mrColumns: Column<GitlabMergeRequest>[] = [
     render: (m) => (
       <span className="text-main">
         {m.draft && (
-          <span className="mr-1.5 text-[11px] text-tertiary border border-zGray-700 rounded px-1 py-0.5">
+          <span className="mr-1.5 text-[11px] text-tertiary border border-line-control rounded px-1 py-0.5">
             {t('Draft')}
           </span>
         )}
@@ -61,7 +61,7 @@ export const mrColumns: Column<GitlabMergeRequest>[] = [
           {m.labels.map((l) => (
             <span
               key={l}
-              className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-zGray-800 text-secondary"
+              className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-surface-sunken text-secondary"
             >
               {l}
             </span>

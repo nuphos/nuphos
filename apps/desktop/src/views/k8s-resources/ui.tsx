@@ -8,7 +8,7 @@ export function ChipList({ values, empty = '-' }: { values: string[]; empty?: st
       {values.slice(0, 3).map((value) => (
         <span
           key={value}
-          className="truncate rounded bg-zGray-850 px-1.5 py-0.5 font-mono text-[11.5px] text-secondary"
+          className="truncate rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[11.5px] text-secondary"
           title={value}
         >
           {value}

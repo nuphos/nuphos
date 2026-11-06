@@ -57,13 +57,13 @@ function CatalogConnector({
         }
         className="flex min-w-0 flex-1 items-center gap-3 text-left outline-none focus-visible:shadow-none focus-visible:!outline-none"
       >
-        <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-zGray-800/55 bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-line-control/55 bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <CatalogLogo provider={item.key} />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[13.5px] font-medium text-main">{item.name}</span>
           {connectedSummary ? (
-            <span className="mt-0.5 flex items-center gap-1.5 text-[12px] text-secondary/80">
+            <span className="mt-0.5 flex items-center gap-1.5 text-[12px] text-secondary">
               <Tooltip content={connectedSummary.attention ? t('Needs attention') : t('Connected')}>
                 <span
                   className={clsx(
@@ -80,12 +80,12 @@ function CatalogConnector({
           ) : (
             <OverflowMarquee
               text={item.description}
-              className="mt-0.5 text-[12px] text-secondary/80"
+              className="mt-0.5 text-[12px] text-secondary"
             />
           )}
         </span>
       </button>
-      <span className="flex h-7 w-[76px] flex-none items-center justify-center rounded-lg border border-zGray-750 bg-zGray-900 text-[12px] font-medium text-secondary transition-colors group-hover:border-zGray-650 group-hover:text-main">
+      <span className="flex h-7 w-[76px] flex-none items-center justify-center rounded-lg border border-line-control bg-surface-sheet text-[12px] font-medium text-secondary transition-colors group-hover:border-line-control group-hover:text-main">
         {connected ? t('Manage') : t('Add')}
       </span>
     </div>
@@ -188,7 +188,7 @@ export function IntegrationCatalog({
         {/* A search with no installed match skips this section, so only one empty message shows. */}
         {(loading || visibleRows.length > 0 || terms.length === 0) && (
           <section>
-            <h2 className="border-b border-zGray-800/55 pb-2.5 text-[13px] font-medium text-main">
+            <h2 className="border-b border-line-control/55 pb-2.5 text-[13px] font-medium text-main">
               {t('Installed')}
             </h2>
             <div className="flex min-h-[76px] flex-wrap items-center gap-2 py-4">
@@ -208,7 +208,7 @@ export function IntegrationCatalog({
             )}
             {visibleCategories.map((category) => (
               <section key={category.id}>
-                <h2 className="mb-1.5 border-b border-zGray-800/55 pb-2.5 text-[13px] font-medium text-main">
+                <h2 className="mb-1.5 border-b border-line-control/55 pb-2.5 text-[13px] font-medium text-main">
                   {category.title}
                 </h2>
                 <div className="-mx-2 grid grid-cols-1 gap-x-5 gap-y-0.5 sm:grid-cols-2">

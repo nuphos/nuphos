@@ -62,7 +62,7 @@ export function DecisionCards({
     <div
       className={clsx(
         'flex min-h-0 flex-col gap-3 overflow-y-auto px-6 pb-5 pt-4',
-        showingConversation ? 'max-h-[45%] shrink-0 border-b border-zGray-800/60' : 'flex-1',
+        showingConversation ? 'max-h-[45%] shrink-0 border-b border-line-control/60' : 'flex-1',
       )}
     >
       <div className="flex items-center gap-2 text-[12px] text-tertiary">
@@ -89,7 +89,7 @@ export function DecisionCards({
             onClick={() => onChoose(request.id)}
             className={clsx(
               'rounded-lg border px-4 py-3.5',
-              selected ? 'border-zViolet-accent/60 bg-zGray-800/40' : 'border-zGray-800/70',
+              selected ? 'border-action-primary/60 bg-state-selected' : 'border-line-control/70',
             )}
           >
             <h2 className="selectable text-[15px] font-medium leading-6 text-main">
@@ -169,7 +169,7 @@ function ReplyField({ onSend }: { onSend: (text: string) => void }) {
         onChange={(event) => setText(event.target.value)}
         placeholder={t('Or type a different answer')}
         aria-label={t('Reply to this question')}
-        className="min-w-0 flex-1 rounded-md border border-zGray-700 bg-transparent px-2.5 py-1.5 text-[12px] text-main outline-none placeholder:text-tertiary focus-visible:ring-1 focus-visible:ring-zViolet-accent"
+        className="min-w-0 flex-1 rounded-md border border-line-control bg-transparent px-2.5 py-1.5 text-[12px] text-main outline-none placeholder:text-tertiary focus-visible:ring-1 focus-visible:ring-line-focus"
       />
       <button type="submit" disabled={!text.trim()} className={primaryButton}>
         {t('Send')}
@@ -179,4 +179,4 @@ function ReplyField({ onSend }: { onSend: (text: string) => void }) {
 }
 
 const primaryButton =
-  'rounded-md border border-zGray-700 px-3 py-1.5 text-[12px] text-main outline-none hover:bg-zGray-800/70 focus-visible:ring-1 focus-visible:ring-zViolet-accent disabled:opacity-50'
+  'rounded-md border border-line-control px-3 py-1.5 text-[12px] text-main outline-none hover:bg-state-hover focus-visible:ring-1 focus-visible:ring-line-focus disabled:opacity-50'

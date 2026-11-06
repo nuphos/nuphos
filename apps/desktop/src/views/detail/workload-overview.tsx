@@ -227,7 +227,7 @@ export function WorkloadOverview({
           { label: t('Age'), value: summary.createdAt ? <Age value={summary.createdAt} /> : '-' },
           {
             label: t('Namespace'),
-            value: <span className="text-zViolet-accent">{summary.namespace}</span>,
+            value: <span className="text-primary">{summary.namespace}</span>,
           },
         ]}
       />
@@ -282,7 +282,7 @@ export function WorkloadOverview({
               tone={updatedTone}
             />
           </div>
-          <div className="mt-5 border-t border-zGray-800 pt-4">
+          <div className="mt-5 border-t border-line-control pt-4">
             <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-tertiary">
               {t('Conditions')}
             </div>
@@ -333,7 +333,7 @@ export function WorkloadOverview({
             <FactRow label={t('Service account')} value={summary.serviceAccount} />
             <FactRow label={t('API')} value={`${summary.apiVersion} · ${summary.kind}`} />
           </div>
-          <div className="mt-4 border-t border-zGray-800 pt-4">
+          <div className="mt-4 border-t border-line-control pt-4">
             <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-tertiary">
               {t('Selector')}
             </div>

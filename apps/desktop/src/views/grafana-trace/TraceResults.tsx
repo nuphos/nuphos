@@ -19,8 +19,8 @@ export function TraceResults({
   onOpen: (traceId: string) => void
 }) {
   return (
-    <div className="border-r border-zGray-800/60 h-full min-h-0 overflow-auto scrollbar-thin">
-      <div className="sticky top-0 z-10 bg-zGray-950 border-b border-zGray-800/60 px-4 py-2 text-[11.5px] text-tertiary uppercase tracking-wider">
+    <div className="border-r border-line-control/60 h-full min-h-0 overflow-auto scrollbar-thin">
+      <div className="sticky top-0 z-10 bg-surface-canvas border-b border-line-control/60 px-4 py-2 text-[11.5px] text-tertiary uppercase tracking-wider">
         {loading
           ? t('Loading traces…')
           : traces.length === 1
@@ -38,8 +38,8 @@ export function TraceResults({
               key={trace.traceId}
               onClick={() => onOpen(trace.traceId)}
               className={[
-                'w-full text-left px-4 py-2.5 border-b border-zGray-800/40 hover:bg-zGray-900/60',
-                selectedTraceId === trace.traceId ? 'bg-zViolet-500/10' : '',
+                'w-full text-left px-4 py-2.5 border-b border-line-control/40 hover:bg-state-hover',
+                selectedTraceId === trace.traceId ? 'bg-state-selected' : '',
               ].join(' ')}
             >
               <div className="flex items-center gap-2 min-w-0">
@@ -81,10 +81,10 @@ export function TraceNoticeBanner({
   onDismiss: () => void
 }) {
   return (
-    <div className="px-4 py-2.5 bg-zGray-900/80 text-secondary text-[12.5px] border-b border-zGray-800/80">
+    <div className="px-4 py-2.5 bg-state-selected text-secondary text-[12.5px] border-b border-line-control/80">
       <div className="flex items-start gap-2">
         <AlertCircle
-          className="w-4 h-4 mt-0.5 text-zOrangered-400 flex-shrink-0"
+          className="w-4 h-4 mt-0.5 text-status-attention flex-shrink-0"
           strokeWidth={1.8}
         />
         <div className="min-w-0 flex-1">
@@ -97,7 +97,7 @@ export function TraceNoticeBanner({
         </div>
         <button
           onClick={onDismiss}
-          className="h-6 w-6 inline-flex items-center justify-center rounded-md text-tertiary hover:text-main hover:bg-zGray-800"
+          className="h-6 w-6 inline-flex items-center justify-center rounded-md text-tertiary hover:text-main hover:bg-state-hover"
           title={t('Dismiss')}
         >
           <X className="w-3.5 h-3.5" strokeWidth={1.8} />

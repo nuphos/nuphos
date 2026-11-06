@@ -126,11 +126,11 @@ export function CloudWatchAlarmDetailView({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 py-2 border-b border-zGray-800 flex items-center gap-3 text-[11.5px]">
+      <div className="px-4 py-2 border-b border-line-control flex items-center gap-3 text-[11.5px]">
         <span className={`shrink-0 font-medium ${alarmStateClass(alarm.state)}`}>
           {alarm.state}
         </span>
-        <span className="text-secondary px-1.5 py-0.5 rounded bg-zGray-800/60 shrink-0">
+        <span className="text-secondary px-1.5 py-0.5 rounded bg-state-selected shrink-0">
           {alarm.region}
         </span>
         <div className="ml-auto flex items-center gap-2 shrink-0">
@@ -157,7 +157,7 @@ export function CloudWatchAlarmDetailView({
       <div className="flex-1 min-h-0 overflow-auto scrollbar-thin px-4 py-3">
         <div className="max-w-4xl flex flex-col gap-4">
           {canChart && (
-            <div className="bg-zGray-950 border border-zGray-850 rounded-md p-3">
+            <div className="bg-surface-canvas border border-line-control rounded-md p-3">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-[13px] font-medium text-main">
                   {alarm.namespace} · {alarm.metricName}
@@ -257,7 +257,7 @@ export function CloudWatchAlarmDetailView({
               ) : history.length === 0 ? (
                 <div className="text-tertiary text-[12px] italic">{t('No recorded history.')}</div>
               ) : (
-                <div className="border border-zGray-800 rounded bg-zGray-900 divide-y divide-zGray-850">
+                <div className="border border-line-control rounded bg-surface-sheet divide-y divide-line-control">
                   {history.map((h, i) => (
                     <div key={i} className="px-2.5 py-1.5 text-[11.5px] flex gap-3">
                       <span className="text-tertiary shrink-0 tabular-nums">

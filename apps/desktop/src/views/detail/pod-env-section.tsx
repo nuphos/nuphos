@@ -213,8 +213,8 @@ export function PodEnvSection({
                   className={clsx(
                     'inline-flex h-7 max-w-[220px] items-center rounded px-2.5 text-[12px]',
                     selected.name === container.name
-                      ? 'bg-zViolet-500/20 text-zViolet-accent'
-                      : 'text-secondary hover:bg-zGray-800 hover:text-main',
+                      ? 'bg-state-selected text-primary'
+                      : 'text-secondary hover:bg-state-hover hover:text-main',
                   )}
                   title={container.image}
                 >
@@ -225,7 +225,7 @@ export function PodEnvSection({
           </div>
         )}
       </div>
-      <div className="rounded-md border border-zGray-800 bg-zGray-900">
+      <div className="rounded-md border border-line-control bg-surface-sheet">
         <div className="min-h-[120px]">
           <Table
             columns={envColumns}
@@ -236,7 +236,7 @@ export function PodEnvSection({
           />
         </div>
         {envFromRows.length > 0 && (
-          <div className="border-t border-zGray-800">
+          <div className="border-t border-line-control">
             <Table
               columns={envFromColumns}
               rows={envFromRows}

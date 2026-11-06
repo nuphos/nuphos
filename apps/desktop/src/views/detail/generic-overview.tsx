@@ -114,7 +114,10 @@ export function GenericOverview({
   return (
     <div className="p-6 space-y-3">
       {summary.map((s) => (
-        <div key={s.label} className="bg-zGray-900 border border-zGray-800 rounded-md px-4 py-3">
+        <div
+          key={s.label}
+          className="bg-surface-sheet border border-line-control rounded-md px-4 py-3"
+        >
           <div className="text-[11.5px] uppercase tracking-wider text-tertiary mb-1">{s.label}</div>
           <div className="text-[12.5px] text-main">{s.value}</div>
         </div>

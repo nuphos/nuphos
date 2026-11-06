@@ -48,7 +48,7 @@ function ResourceButton({
       type="button"
       disabled={!onNavigate}
       onClick={() => onNavigate?.({ kind, namespace, name })}
-      className="inline-flex items-center gap-1 font-mono text-zViolet-accent disabled:text-secondary"
+      className="inline-flex items-center gap-1 font-mono text-primary disabled:text-secondary"
     >
       {kind}/{name}
       {onNavigate && <ArrowUpRight className="h-3 w-3" />}
@@ -58,7 +58,9 @@ function ResourceButton({
 
 function Rows({ children }: { children: React.ReactNode }) {
   return (
-    <div className="divide-y divide-zGray-800 rounded-md border border-zGray-800">{children}</div>
+    <div className="divide-y divide-line-control rounded-md border border-line-control">
+      {children}
+    </div>
   )
 }
 

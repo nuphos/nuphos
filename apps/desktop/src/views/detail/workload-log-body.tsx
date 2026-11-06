@@ -34,7 +34,7 @@ export function WorkloadLogBody({
     <div
       ref={scrollRef}
       onScroll={onScroll}
-      className="flex-1 min-h-0 overflow-auto scrollbar-thin font-mono text-[11.5px] p-4 bg-zGray-950 selectable"
+      className="flex-1 min-h-0 overflow-auto scrollbar-thin font-mono text-[11.5px] p-4 bg-surface-canvas selectable"
     >
       {previousLoading ? (
         <span className="text-tertiary">{t('Loading previous logs…')}</span>

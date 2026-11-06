@@ -57,7 +57,7 @@ export function EcsServicesView({
           header: t('Service Name'),
           width: 280,
           sortAccessor: (r) => r.serviceName,
-          render: (r) => <span className="font-medium text-zViolet-accent">{r.serviceName}</span>,
+          render: (r) => <span className="font-medium text-primary">{r.serviceName}</span>,
         },
         {
           key: 'status',

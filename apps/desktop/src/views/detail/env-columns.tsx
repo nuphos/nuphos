@@ -161,7 +161,7 @@ export function buildEnvColumns(ctx: EnvColumnsContext): Column<EnvTableRow>[] {
                 env: ctx.selectedDraft.env.filter((row) => row.id !== item.row.id),
               })
             }}
-            className="flex h-8 w-8 items-center justify-center rounded text-tertiary hover:bg-zGray-800 hover:text-error"
+            className="flex h-8 w-8 items-center justify-center rounded text-tertiary hover:bg-state-hover hover:text-error"
             title={t('Remove')}
           >
             <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />

@@ -28,8 +28,8 @@ export function RangeButtons({
           }}
           className={`h-6 px-2 rounded text-[11.5px] font-medium ${
             rangeMinutes === opt.minutes
-              ? 'bg-zViolet-accent/15 text-zViolet-accent'
-              : 'text-tertiary hover:text-main hover:bg-zGray-850'
+              ? 'bg-state-selected text-primary'
+              : 'text-tertiary hover:text-main hover:bg-state-hover'
           }`}
         >
           {opt.label}
@@ -54,7 +54,7 @@ export function MetricSeriesCard({
 }) {
   return (
     <div className="flex-1 min-h-0 overflow-auto scrollbar-thin p-4">
-      <div className="bg-zGray-950 border border-zGray-850 rounded-md p-3">
+      <div className="bg-surface-canvas border border-line-control rounded-md p-3">
         <div className="flex items-baseline gap-2 mb-2">
           <span className="text-[13px] font-medium text-main">{title}</span>
           <span className="text-[11.5px] text-tertiary">{subtitle}</span>

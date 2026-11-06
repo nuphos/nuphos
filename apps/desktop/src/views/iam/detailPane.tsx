@@ -120,7 +120,7 @@ export function ResizableDetailPane({
       data-open={open ? 'true' : 'false'}
       style={{ width: open ? width : 0, minWidth: open ? undefined : 0 }}
       className={clsx(
-        't-detail-sidebar-frame relative flex-shrink-0 border-l border-zGray-800 bg-zGray-950/60 flex flex-col min-h-0',
+        't-detail-sidebar-frame relative flex-shrink-0 border-l border-line-control bg-state-selected flex flex-col min-h-0',
         dragging && 'select-none',
       )}
     >
@@ -132,7 +132,7 @@ export function ResizableDetailPane({
         onPointerDown={startResize}
         className="group absolute left-0 top-0 bottom-0 z-20 w-3 -translate-x-1/2 cursor-col-resize touch-none"
       >
-        <div className="mx-auto h-full w-px bg-transparent group-hover:bg-zViolet-accent/60" />
+        <div className="mx-auto h-full w-px bg-transparent group-hover:bg-action-primary/60" />
       </div>
       <div
         className="t-panel-slide t-detail-sidebar-content flex min-h-0 flex-col"
@@ -151,7 +151,7 @@ export function DetailSidebarCloseButton({ onClose }: { onClose?: () => void }) 
     <button
       type="button"
       onClick={onClose}
-      className="absolute right-3 top-3 z-30 w-7 h-7 rounded-md text-tertiary hover:text-main hover:bg-zGray-800 flex items-center justify-center"
+      className="absolute right-3 top-3 z-30 w-7 h-7 rounded-md text-tertiary hover:text-main hover:bg-state-hover flex items-center justify-center"
       title={t('Close')}
     >
       <X className="w-3.5 h-3.5" strokeWidth={1.8} />
@@ -162,7 +162,7 @@ export function DetailSidebarCloseButton({ onClose }: { onClose?: () => void }) 
 export function DetailSidebarLoading() {
   return (
     <div className="flex min-h-[220px] flex-1 items-center justify-center">
-      <Loader2 className="w-4 h-4 animate-spin text-zViolet-accent" strokeWidth={1.8} />
+      <Loader2 className="w-4 h-4 animate-spin text-primary" strokeWidth={1.8} />
     </div>
   )
 }

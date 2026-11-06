@@ -63,9 +63,9 @@ export function ColumnResizeHandle({
       aria-label={label}
       onPointerDown={startResize}
       style={{ touchAction: 'none' }}
-      className="group relative z-20 w-1.5 flex-shrink-0 cursor-col-resize bg-zGray-950 hover:bg-zGray-900"
+      className="group relative z-20 w-1.5 flex-shrink-0 cursor-col-resize bg-surface-canvas hover:bg-state-hover"
     >
-      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-zGray-800 group-hover:w-0.5 group-hover:bg-zViolet-accent" />
+      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-surface-sunken group-hover:w-0.5 group-hover:bg-action-primary" />
     </div>
   )
 }
@@ -125,7 +125,7 @@ export function InlineColumnResizeHandle({
       style={{ left: `${String(valuePct)}%`, touchAction: 'none' }}
       className="absolute inset-y-0 z-30 w-3 -translate-x-1/2 cursor-col-resize group"
     >
-      <div className="mx-auto h-full w-px bg-zGray-800 group-hover:w-0.5 group-hover:bg-zViolet-accent" />
+      <div className="mx-auto h-full w-px bg-surface-sunken group-hover:w-0.5 group-hover:bg-action-primary" />
     </div>
   )
 }

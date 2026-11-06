@@ -21,7 +21,7 @@ export function DashboardDetailHeader({
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex h-8 items-center gap-1.5 rounded border border-zGray-800 px-2.5 text-[11.5px] text-secondary hover:bg-zGray-850 hover:text-main"
+            className="inline-flex h-8 items-center gap-1.5 rounded border border-line-control px-2.5 text-[11.5px] text-secondary hover:bg-state-hover hover:text-main"
           >
             <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.8} />
             Dashboards
@@ -29,7 +29,7 @@ export function DashboardDetailHeader({
           <button
             type="button"
             onClick={() => void api.appOpenExternal(summary.consoleUrl)}
-            className="inline-flex h-8 items-center gap-1.5 rounded border border-zGray-800 px-2.5 text-[11.5px] text-secondary hover:bg-zGray-850 hover:text-main"
+            className="inline-flex h-8 items-center gap-1.5 rounded border border-line-control px-2.5 text-[11.5px] text-secondary hover:bg-state-hover hover:text-main"
           >
             Open in GCP
             <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.8} />

@@ -37,7 +37,7 @@ function TreeRows({ nodes, depth }: { nodes: FileTreeNode<GithubPRFile>[]; depth
             .getElementById(changedFileAnchor(file.filename))
             ?.scrollIntoView({ block: 'start' })
         }
-        className="flex h-7 w-full items-center gap-1.5 rounded pr-2 text-left text-[12px] text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main"
+        className="flex h-7 w-full items-center gap-1.5 rounded pr-2 text-left text-[12px] text-secondary transition-colors hover:bg-state-hover hover:text-main"
         style={indent}
         title={file.filename}
       >

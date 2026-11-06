@@ -16,7 +16,7 @@ export function ChannelMentions({
   if (mentions.length === 0) return null
 
   return (
-    <section className="flex-shrink-0 border-b border-zGray-800/70">
+    <section className="flex-shrink-0 border-b border-line-control/70">
       <div className="px-4 pt-3 pb-1 text-[12px] font-medium text-tertiary">{t('Mentions')}</div>
       <ul>
         {mentions.map((mention) => (
@@ -24,7 +24,7 @@ export function ChannelMentions({
             <button
               type="button"
               onClick={() => onOpen(mention.channelId)}
-              className="flex w-full items-start gap-2.5 px-4 py-2.5 text-left text-[12.5px] hover:bg-zGray-800/40"
+              className="flex w-full items-start gap-2.5 px-4 py-2.5 text-left text-[12.5px] hover:bg-state-hover"
             >
               {mention.kind === 'agent' ? (
                 <AtSign className="mt-0.5 h-5 w-5 shrink-0 text-tertiary" strokeWidth={1.75} />

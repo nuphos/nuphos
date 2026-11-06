@@ -14,7 +14,7 @@ import type { BillingSummary, BoxUsage } from '../../api/device-types'
 import type { ReactNode } from 'react'
 
 export const CARD =
-  'flex flex-col gap-2.5 rounded-[10px] border border-white/[0.09] bg-zGray-850 p-5 text-[13px]'
+  'flex flex-col gap-2.5 rounded-[10px] border border-white/[0.09] bg-surface-sunken p-5 text-[13px]'
 export const LIST = 'divide-y divide-white/[0.09] rounded-lg border border-white/[0.09] text-[13px]'
 export function Pill({
   tone,
@@ -29,7 +29,7 @@ export function Pill({
         'rounded-full px-2 py-0.5 text-[11px] font-medium capitalize',
         tone === 'success' && 'bg-success/10 text-success',
         tone === 'warning' && 'bg-warning/10 text-warning',
-        tone === 'muted' && 'bg-zGray-800 text-tertiary',
+        tone === 'muted' && 'bg-surface-sunken text-tertiary',
       )}
     >
       {children}
@@ -154,9 +154,9 @@ export function InUse({
           {t('of {limit} vCPU running', { limit })}
         </span>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-zGray-800">
+      <div className="h-1.5 overflow-hidden rounded-full bg-surface-sunken">
         <div
-          className={clsx('h-full rounded-full', blocked ? 'bg-warning' : 'bg-zViolet-500')}
+          className={clsx('h-full rounded-full', blocked ? 'bg-warning' : 'bg-action-primary')}
           style={{ width: `${String(Math.min(100, limit ? (used / limit) * 100 : 0))}%` }}
         />
       </div>
@@ -176,7 +176,7 @@ export function InUse({
                 <span
                   className={clsx(
                     'h-1.5 w-1.5 rounded-full',
-                    row.running ? 'bg-success' : 'bg-zGray-500',
+                    row.running ? 'bg-success' : 'bg-line-control',
                   )}
                 />
                 {row.running ? t('Running') : t('Paused · {n} vCPU when running', { n: row.vcpus })}
@@ -211,13 +211,13 @@ export function PlansTable({ current }: { current: number | null }) {
           key={vcpus}
           className={clsx(
             'flex h-10 w-full items-center border-t border-white/[0.09] px-3.5',
-            vcpus === current && 'bg-zViolet-500/[0.08]',
+            vcpus === current && 'bg-action-primary/[0.08]',
           )}
         >
           <span className="flex w-40 items-center gap-2">
             <span className="font-medium text-main">{name}</span>
             {vcpus === current && (
-              <span className="rounded-full bg-zViolet-accent/15 px-2 py-0.5 text-[11px] text-zViolet-accent">
+              <span className="rounded-full bg-state-selected px-2 py-0.5 text-[11px] text-primary">
                 {t('Current')}
               </span>
             )}

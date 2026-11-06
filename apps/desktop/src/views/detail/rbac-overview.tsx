@@ -33,7 +33,7 @@ function ResourceButton({
       type="button"
       disabled={!onNavigate}
       onClick={() => onNavigate?.(target)}
-      className="inline-flex items-center gap-1 font-mono text-zViolet-accent disabled:text-secondary"
+      className="inline-flex items-center gap-1 font-mono text-primary disabled:text-secondary"
     >
       {label}
       {onNavigate && <ArrowUpRight className="h-3 w-3" />}
@@ -90,7 +90,7 @@ export function RbacOverview({
           <div className="mb-2 text-[11.5px] uppercase tracking-wider text-tertiary">
             {t('Subjects')}
           </div>
-          <div className="divide-y divide-zGray-800 rounded-md border border-zGray-800 bg-zGray-900">
+          <div className="divide-y divide-line-control rounded-md border border-line-control bg-surface-sheet">
             {subjects.map((subject, index) => {
               const kind = typeof subject.kind === 'string' ? subject.kind : t('Subject')
               const name = typeof subject.name === 'string' ? subject.name : '-'
@@ -148,7 +148,7 @@ export function RbacOverview({
       <div className="mb-2 text-[11.5px] uppercase tracking-wider text-tertiary">
         {t('Permission rules')}
       </div>
-      <div className="divide-y divide-zGray-800 rounded-md border border-zGray-800 bg-zGray-900">
+      <div className="divide-y divide-line-control rounded-md border border-line-control bg-surface-sheet">
         {rules.map((rule, index) => {
           const apiGroups = strings(rule.apiGroups).map((group) => group || 'core')
           const resources = strings(rule.resources)

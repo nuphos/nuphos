@@ -139,7 +139,7 @@ export function PodLogs({ namespace, name }: { namespace: string; name: string }
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-6 py-2 border-b border-zGray-800 flex items-center gap-2 bg-zGray-900">
+      <div className="px-6 py-2 border-b border-line-control flex items-center gap-2 bg-surface-sheet">
         <span className="text-[11.5px] text-tertiary uppercase tracking-wider">
           {t('Container:')}
         </span>
@@ -150,8 +150,8 @@ export function PodLogs({ namespace, name }: { namespace: string; name: string }
             className={clsx(
               'px-2 py-1 rounded text-[12px]',
               container === c.name
-                ? 'bg-zViolet-500/20 text-zViolet-accent'
-                : 'text-secondary hover:bg-zGray-800',
+                ? 'bg-state-selected text-primary'
+                : 'text-secondary hover:bg-state-hover',
             )}
           >
             {c.label}
@@ -187,7 +187,7 @@ export function PodLogs({ namespace, name }: { namespace: string; name: string }
       </div>
       <div
         ref={scrollRef}
-        className="flex-1 overflow-auto scrollbar-thin font-mono text-[11.5px] p-4 bg-zGray-950 selectable"
+        className="flex-1 overflow-auto scrollbar-thin font-mono text-[11.5px] p-4 bg-surface-canvas selectable"
       >
         {loading ? (
           <span className="text-tertiary">{t('Loading…')}</span>

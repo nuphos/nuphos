@@ -16,11 +16,11 @@ export function roleLabel(role: TeamRole): string {
 export function roleClass(role: TeamRole): string {
   switch (role) {
     case 'ADMINISTRATOR':
-      return 'border-zViolet-500/45 bg-zViolet-500/12 text-zViolet-accent'
+      return 'border-action-primary/45 bg-state-selected text-primary'
     case 'EDITOR':
       return 'border-emerald-500/35 bg-emerald-500/10 text-emerald-300'
     case 'VIEWER':
-      return 'border-zGray-700 bg-zGray-800/70 text-secondary'
+      return 'border-line-control bg-state-selected text-secondary'
   }
 }
 

@@ -62,7 +62,7 @@ export function CloudflareZonesView({
             header: t('Domain'),
             width: 260,
             sortAccessor: (r) => r.name,
-            render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
+            render: (r) => <span className="text-primary">{r.name}</span>,
           },
           {
             key: 'status',

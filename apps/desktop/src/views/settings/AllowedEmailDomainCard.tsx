@@ -61,7 +61,7 @@ export function AllowedEmailDomainCard({
         </p>
       </div>
 
-      <div className="flex items-center gap-4 rounded-lg border border-zGray-800/70 bg-surface px-4 py-3.5">
+      <div className="flex items-center gap-4 rounded-lg border border-line-control/70 bg-surface px-4 py-3.5">
         <FontAwesomeIcon icon={faAt} className="w-3.5 h-3.5 flex-shrink-0 text-tertiary" />
         <div className="min-w-0 flex-1">
           <div className="font-mono text-[12.5px] text-main truncate">

@@ -4,7 +4,7 @@ import type { MongoCollectionSummary } from '../../types'
 
 export function CollectionGlyph({ type }: { type: MongoCollectionSummary['type'] }) {
   if (type === 'view') return <Eye className="h-4 w-4 text-secondary" />
-  if (type === 'timeseries') return <Braces className="h-4 w-4 text-zViolet-accent" />
+  if (type === 'timeseries') return <Braces className="h-4 w-4 text-primary" />
 
   return <Table2 className="h-4 w-4 text-[#47A248]" />
 }
@@ -14,7 +14,7 @@ export function JsonPanel({ value, empty }: { value: unknown; empty: string }) {
     return <EmptyDetail text={empty} />
 
   return (
-    <pre className="overflow-x-auto rounded-lg border border-zGray-800 bg-zGray-900 p-3 text-[10.5px] leading-5 text-secondary">
+    <pre className="overflow-x-auto rounded-lg border border-line-control bg-surface-sheet p-3 text-[10.5px] leading-5 text-secondary">
       {JSON.stringify(value, null, 2)}
     </pre>
   )
@@ -22,7 +22,7 @@ export function JsonPanel({ value, empty }: { value: unknown; empty: string }) {
 
 export function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-zGray-800 p-3">
+    <div className="rounded-lg border border-line-control p-3">
       <div className="text-[10px] uppercase tracking-wide text-tertiary">{label}</div>
       <div className="mt-1 text-[12px] text-secondary">{value}</div>
     </div>
@@ -31,7 +31,7 @@ export function Metric({ label, value }: { label: string; value: string }) {
 
 export function EmptyDetail({ text }: { text: string }) {
   return (
-    <div className="flex min-h-40 items-center justify-center rounded-lg border border-dashed border-zGray-800 text-[11.5px] text-tertiary">
+    <div className="flex min-h-40 items-center justify-center rounded-lg border border-dashed border-line-control text-[11.5px] text-tertiary">
       {text}
     </div>
   )

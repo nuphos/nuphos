@@ -24,7 +24,7 @@ export function ConnectionSettingsSection({
       {connection.engine === 'mongodb' && (
         <section className="px-6 py-4">
           <SectionHeader
-            icon={<ShieldCheck className="h-4 w-4 text-zViolet-accent" strokeWidth={1.8} />}
+            icon={<ShieldCheck className="h-4 w-4 text-primary" strokeWidth={1.8} />}
             title={t('Plan approval policy')}
             hint={t('Configured team-wide in Plans')}
           />
@@ -34,7 +34,7 @@ export function ConnectionSettingsSection({
                 'New MongoDB DML and DDL proposals are normal team Plans. They use the team-wide Plan policy configured in Plans: requester only, requester plus one teammate, or a larger quorum.',
               )}
             </p>
-            <div className="mt-3 rounded-md border border-zGray-800 bg-zGray-900/55 p-2.5 text-[10.5px] leading-4 text-tertiary">
+            <div className="mt-3 rounded-md border border-line-control bg-state-selected p-2.5 text-[10.5px] leading-4 text-tertiary">
               {t(
                 'Approval and execution remain separate. Only the requester and any additional executors selected when the Plan was proposed may explicitly run its immutable approved statement. Existing legacy database requests retain their original policy snapshot.',
               )}
@@ -42,7 +42,7 @@ export function ConnectionSettingsSection({
           </div>
         </section>
       )}
-      <section className="border-t border-zGray-800/60 px-6 py-4">
+      <section className="border-t border-line-control/60 px-6 py-4">
         <SectionHeader
           icon={<Trash2 className="h-4 w-4 text-error" strokeWidth={1.8} />}
           title={t('Danger zone')}
@@ -150,7 +150,7 @@ export function RemoveConnectionModal({
             value={removeName}
             onChange={(event) => onRemoveNameChange(event.target.value)}
             placeholder={connection.name}
-            className="mt-1 w-full rounded-md border border-zGray-800 bg-surface px-2.5 py-2 font-mono text-[12.5px] text-main outline-none focus:border-error"
+            className="mt-1 w-full rounded-md border border-line-control bg-surface px-2.5 py-2 font-mono text-[12.5px] text-main outline-none focus:border-error"
           />
         </label>
       </div>

@@ -68,7 +68,7 @@ export function CronJobOverview({
               {data.labels.map(([k, v]) => (
                 <span
                   key={k}
-                  className="bg-zGray-800 px-1.5 py-0.5 rounded text-[11.5px] text-secondary font-mono"
+                  className="bg-surface-sunken px-1.5 py-0.5 rounded text-[11.5px] text-secondary font-mono"
                 >
                   {k}: {v}
                 </span>
@@ -79,7 +79,7 @@ export function CronJobOverview({
         />
         <Field
           label={t('Namespace')}
-          value={<span className="text-zViolet-accent">{data.namespace}</span>}
+          value={<span className="text-primary">{data.namespace}</span>}
         />
         <Field
           label={t('Annotations')}
@@ -92,7 +92,7 @@ export function CronJobOverview({
                   <span
                     key={k}
                     title={`${k}: ${v}`}
-                    className="max-w-full truncate bg-zGray-800 px-1.5 py-0.5 rounded text-[11px] text-tertiary font-mono"
+                    className="max-w-full truncate bg-surface-sunken px-1.5 py-0.5 rounded text-[11px] text-tertiary font-mono"
                   >
                     {k}
                   </span>
@@ -191,12 +191,12 @@ function CronJobJobsSection({
           {t('Could not load Jobs: {error}', { error })}
         </div>
       ) : jobs.length === 0 ? (
-        <div className="border border-zGray-800 bg-zGray-900 px-4 py-5 text-[12.5px] text-tertiary">
+        <div className="border border-line-control bg-surface-sheet px-4 py-5 text-[12.5px] text-tertiary">
           {t('No Jobs have been spawned by this CronJob yet.')}
         </div>
       ) : (
-        <div className="overflow-hidden border border-zGray-800 rounded-md">
-          <div className="grid grid-cols-[minmax(220px,2fr)_110px_110px_90px_110px_90px] border-b border-zGray-800 bg-zGray-900 px-3 py-2 text-[11.5px] uppercase tracking-wider text-tertiary">
+        <div className="overflow-hidden border border-line-control rounded-md">
+          <div className="grid grid-cols-[minmax(220px,2fr)_110px_110px_90px_110px_90px] border-b border-line-control bg-surface-sheet px-3 py-2 text-[11.5px] uppercase tracking-wider text-tertiary">
             <div>{t('Name')}</div>
             <div>{t('Status')}</div>
             <div>{t('Completions')}</div>
@@ -209,11 +209,11 @@ function CronJobJobsSection({
               key={`${j.namespace}/${j.name}`}
               onClick={() => onSelect?.(j)}
               className={clsx(
-                'grid grid-cols-[minmax(220px,2fr)_110px_110px_90px_110px_90px] items-center border-b border-zGray-850 px-3 py-2 text-[12.5px] last:border-b-0',
-                onSelect && 'hover:bg-zGray-850',
+                'grid grid-cols-[minmax(220px,2fr)_110px_110px_90px_110px_90px] items-center border-b border-line-control px-3 py-2 text-[12.5px] last:border-b-0',
+                onSelect && 'hover:bg-state-hover',
               )}
             >
-              <div className="min-w-0 truncate text-zViolet-accent" title={j.name}>
+              <div className="min-w-0 truncate text-primary" title={j.name}>
                 {j.name}
               </div>
               <div>

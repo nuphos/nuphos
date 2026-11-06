@@ -164,11 +164,11 @@ export function S3BucketDetailView({
         />
       )}
 
-      <div className="px-4 py-2 border-b border-zGray-800 flex items-center gap-3 text-[11.5px]">
+      <div className="px-4 py-2 border-b border-line-control flex items-center gap-3 text-[11.5px]">
         <span className="text-tertiary truncate" title={s3Uri(bucket.name, prefix)}>
           {s3Uri(bucket.name, prefix)}
         </span>
-        <span className="text-secondary px-1.5 py-0.5 rounded bg-zGray-800/60">
+        <span className="text-secondary px-1.5 py-0.5 rounded bg-state-selected">
           {bucket.region || 'us-east-1'}
         </span>
         <div className="ml-auto flex items-center gap-2">
@@ -221,12 +221,12 @@ export function S3BucketDetailView({
             />
 
             {isTruncated && (
-              <div className="px-4 py-2 border-t border-zGray-800 flex items-center justify-center">
+              <div className="px-4 py-2 border-t border-line-control flex items-center justify-center">
                 <button
                   type="button"
                   onClick={loadMore}
                   disabled={paging || !nextToken}
-                  className="text-[12px] text-zViolet-accent hover:underline disabled:opacity-50 disabled:no-underline"
+                  className="text-[12px] text-primary hover:underline disabled:opacity-50 disabled:no-underline"
                 >
                   {paging ? t('Loading…') : t('Load more')}
                 </button>

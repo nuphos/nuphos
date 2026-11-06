@@ -146,7 +146,7 @@ export function ComplianceIntegrationView({
     <div className="flex-1 flex min-h-0">
       {menu}
       <div
-        className={`flex flex-col min-h-0 flex-1 min-w-0${selectedRow ? ' border-r border-zGray-800/60' : ''}`}
+        className={`flex flex-col min-h-0 flex-1 min-w-0${selectedRow ? ' border-r border-line-control/60' : ''}`}
       >
         {error && (
           <div className="px-6 py-2 border-b border-error/30 bg-error/10 text-[12.5px] text-error">
@@ -234,7 +234,7 @@ export function ComplianceIntegrationView({
       {selectedRow && (
         <DetailSidebarTransition
           onClose={() => setSelectedId(null)}
-          className="flex-shrink-0 w-[44%] min-w-[380px] max-w-[680px] flex flex-col bg-zGray-950 min-h-0 overflow-hidden"
+          className="flex-shrink-0 w-[44%] min-w-[380px] max-w-[680px] flex flex-col bg-surface-canvas min-h-0 overflow-hidden"
         >
           {(requestClose) => (
             <ComplianceTestDetail

@@ -46,7 +46,7 @@ function TeamRow({ team, onOpen }: { team: LinearTeamSummary; onOpen: () => void
       <button
         type="button"
         onClick={onOpen}
-        className="group flex w-full items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-zGray-800/50"
+        className="group flex w-full items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-state-hover"
       >
         <ColorDot color={team.color} />
         <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-main">

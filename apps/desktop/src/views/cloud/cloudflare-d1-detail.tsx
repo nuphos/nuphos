@@ -62,11 +62,11 @@ export function CloudflareD1DatabaseDetailView({
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <div className="shrink-0 border-b border-zGray-850 px-3 py-2">
+      <div className="shrink-0 border-b border-line-control px-3 py-2">
         <div className="text-[12px] text-tertiary">{t('Cloudflare D1 · provider managed')}</div>
       </div>
       <div className="flex-1 flex min-h-0">
-        <div className="w-48 shrink-0 border-r border-zGray-850 overflow-auto p-3">
+        <div className="w-48 shrink-0 border-r border-line-control overflow-auto p-3">
           <div className="text-[11px] font-medium text-tertiary mb-2 uppercase tracking-wide">
             {t('Tables')}
           </div>
@@ -78,7 +78,7 @@ export function CloudflareD1DatabaseDetailView({
                 <button
                   key={table}
                   onClick={() => setSql(`SELECT * FROM ${quoteD1Identifier(table)} LIMIT 100;`)}
-                  className="block w-full text-left px-2 py-1 rounded text-[12px] font-mono text-secondary hover:bg-zGray-850 hover:text-main truncate"
+                  className="block w-full text-left px-2 py-1 rounded text-[12px] font-mono text-secondary hover:bg-state-hover hover:text-main truncate"
                   title={table}
                 >
                   {table}
@@ -88,7 +88,7 @@ export function CloudflareD1DatabaseDetailView({
           )}
         </div>
         <div className="flex-1 flex flex-col min-h-0">
-          <div className="p-3 border-b border-zGray-850">
+          <div className="p-3 border-b border-line-control">
             <textarea
               value={sql}
               onChange={(e) => setSql(e.target.value)}
@@ -100,7 +100,7 @@ export function CloudflareD1DatabaseDetailView({
               }}
               rows={4}
               spellCheck={false}
-              className="w-full px-2.5 py-2 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px] resize-y"
+              className="w-full px-2.5 py-2 rounded-md bg-surface border border-line-control text-main outline-none focus:border-line-focus font-mono text-[12.5px] resize-y"
             />
             <div className="flex items-center gap-2 mt-2">
               <Button size="sm" onClick={() => void runQuery()} disabled={running}>

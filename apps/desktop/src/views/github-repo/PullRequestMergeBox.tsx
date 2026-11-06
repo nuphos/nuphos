@@ -77,7 +77,7 @@ function CheckRow({ check }: { check: GithubPRCheck }) {
       {detailsUrl && (
         <button
           type="button"
-          className="shrink-0 rounded text-zViolet-accent hover:underline"
+          className="shrink-0 rounded text-primary hover:underline"
           onClick={() => openOnGithub(detailsUrl)}
         >
           Details
@@ -90,15 +90,15 @@ function CheckRow({ check }: { check: GithubPRCheck }) {
 function ChecksRow({ checks, summary }: { checks: GithubPRCheck[]; summary: StatusSummary }) {
   return (
     <Collapsible.Root>
-      <Collapsible.Trigger className="group flex w-full items-start gap-3 px-4 py-3 text-left outline-none transition-colors hover:bg-zGray-800/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zViolet-accent/60">
+      <Collapsible.Trigger className="group flex w-full items-start gap-3 px-4 py-3 text-left outline-none transition-colors hover:bg-state-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-line-focus">
         <StatusRow summary={summary} />
         <ChevronRight
           className="mt-1.5 h-4 w-4 shrink-0 text-tertiary transition-transform group-data-[panel-open]:rotate-90"
           strokeWidth={2}
         />
       </Collapsible.Trigger>
-      <Collapsible.Panel className="t-acc-collapsible border-t border-zGray-800/70 bg-zGray-900/40">
-        <div className="max-h-72 divide-y divide-zGray-800/50 overflow-y-auto scrollbar-thin">
+      <Collapsible.Panel className="t-acc-collapsible border-t border-line-control/70 bg-state-selected">
+        <div className="max-h-72 divide-y divide-line-control/50 overflow-y-auto scrollbar-thin">
           {sortChecks(checks).map((check) => (
             <CheckRow key={check.id} check={check} />
           ))}
@@ -123,7 +123,7 @@ export function PullRequestMergeBox({
   )
 
   return (
-    <section className="divide-y divide-zGray-800/70 overflow-hidden rounded-lg border border-zGray-800/80 bg-zGray-900/50">
+    <section className="divide-y divide-line-control/70 overflow-hidden rounded-lg border border-line-control/80 bg-state-selected">
       {closed ? (
         mergeRow
       ) : (

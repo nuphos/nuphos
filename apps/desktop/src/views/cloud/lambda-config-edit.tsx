@@ -84,7 +84,7 @@ export function LambdaConfigEditModal({
               value={memory}
               onChange={(e) => setMemory(e.target.value)}
               inputMode="numeric"
-              className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
+              className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-line-control text-main outline-none focus:border-line-focus font-mono text-[12.5px]"
             />
           </label>
           <label className="block">
@@ -93,7 +93,7 @@ export function LambdaConfigEditModal({
               value={timeout_}
               onChange={(e) => setTimeout_(e.target.value)}
               inputMode="numeric"
-              className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
+              className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-line-control text-main outline-none focus:border-line-focus font-mono text-[12.5px]"
             />
           </label>
         </div>
@@ -103,7 +103,7 @@ export function LambdaConfigEditModal({
             <button
               type="button"
               onClick={() => setEnvRows((rows) => [...rows, { key: '', value: '' }])}
-              className="inline-flex items-center gap-1 text-[12px] text-zViolet-accent hover:underline"
+              className="inline-flex items-center gap-1 text-[12px] text-primary hover:underline"
             >
               <Plus className="w-3.5 h-3.5" strokeWidth={1.8} />
               {t('Add')}
@@ -126,7 +126,7 @@ export function LambdaConfigEditModal({
                   }
                   placeholder="KEY"
                   spellCheck={false}
-                  className="flex-1 px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
+                  className="flex-1 px-2.5 py-1.5 rounded-md bg-surface border border-line-control text-main outline-none focus:border-line-focus font-mono text-[12.5px]"
                 />
                 <input
                   value={row.value}
@@ -137,7 +137,7 @@ export function LambdaConfigEditModal({
                   }
                   placeholder={t('value')}
                   spellCheck={false}
-                  className="flex-[2] px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
+                  className="flex-[2] px-2.5 py-1.5 rounded-md bg-surface border border-line-control text-main outline-none focus:border-line-focus font-mono text-[12.5px]"
                 />
                 <button
                   type="button"
@@ -155,7 +155,7 @@ export function LambdaConfigEditModal({
           </div>
         </div>
       </div>
-      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-zGray-800">
+      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-line-control">
         <button
           type="button"
           onClick={onClose}

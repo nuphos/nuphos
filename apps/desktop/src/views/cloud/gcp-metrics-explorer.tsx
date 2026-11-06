@@ -193,7 +193,7 @@ export function GcpMetricsExplorerView({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 py-2 border-b border-zGray-800 flex items-center gap-2 text-[11.5px] flex-wrap">
+      <div className="px-4 py-2 border-b border-line-control flex items-center gap-2 text-[11.5px] flex-wrap">
         <AppSelect
           value={service}
           onValueChange={(v) => {
@@ -202,7 +202,7 @@ export function GcpMetricsExplorerView({
           }}
           placeholder={descriptorsLoading ? t('Loading services…') : t('Service')}
           disabled={!descriptors || services.length === 0}
-          triggerClassName="h-7 border-zGray-800 px-2 text-[12px] min-w-[220px]"
+          triggerClassName="h-7 border-line-control px-2 text-[12px] min-w-[220px]"
           options={services.map((s) => ({ value: s, label: s }))}
         />
         <AppSelect
@@ -210,7 +210,7 @@ export function GcpMetricsExplorerView({
           onValueChange={setMetricType}
           placeholder={t('Metric')}
           disabled={!service}
-          triggerClassName="h-7 border-zGray-800 px-2 text-[12px] min-w-[260px]"
+          triggerClassName="h-7 border-line-control px-2 text-[12px] min-w-[260px]"
           options={serviceMetrics.map((d) => ({
             value: d.type,
             label: metricLeaf(d.type),
@@ -220,7 +220,7 @@ export function GcpMetricsExplorerView({
         <AppSelect
           value={aligner}
           onValueChange={setAligner}
-          triggerClassName="h-7 border-zGray-800 px-2 text-[12px] w-[100px]"
+          triggerClassName="h-7 border-line-control px-2 text-[12px] w-[100px]"
           options={GCP_ALIGNERS.map((a) => ({ value: a.value, label: a.label }))}
         />
         <RangeButtons rangeMinutes={rangeMinutes} setRangeMinutes={setRangeMinutes} />

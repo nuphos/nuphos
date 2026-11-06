@@ -45,7 +45,7 @@ export function BoxAgentForm({
   })
 
   const button =
-    'rounded-md px-3 py-1.5 text-[12.5px] text-secondary hover:bg-zGray-800/60 disabled:opacity-50'
+    'rounded-md px-3 py-1.5 text-[12.5px] text-secondary hover:bg-state-hover disabled:opacity-50'
 
   return (
     <div className="space-y-4">

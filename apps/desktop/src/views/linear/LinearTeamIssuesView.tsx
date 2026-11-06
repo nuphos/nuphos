@@ -33,7 +33,7 @@ function IssueRow({ issue, onOpen }: { issue: LinearIssueRow; onOpen: () => void
       <button
         type="button"
         onClick={onOpen}
-        className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-[12.5px] hover:bg-zGray-800/50"
+        className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-[12.5px] hover:bg-state-hover"
       >
         <span className="inline-flex" title={issue.state.name}>
           <ColorDot color={issue.state.color} />
@@ -117,7 +117,7 @@ export function LinearTeamIssuesView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="shrink-0 border-b border-zGray-800/70">
+      <header className="shrink-0 border-b border-line-control/70">
         <div className="mx-auto max-w-3xl px-4 py-3 @xl:px-6">
           <h1 className="truncate text-[15px] font-semibold text-main">{team.name}</h1>
           <div className="text-[12px] text-tertiary">

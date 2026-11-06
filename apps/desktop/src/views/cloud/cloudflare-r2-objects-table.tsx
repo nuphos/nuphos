@@ -129,7 +129,7 @@ export function R2ObjectsTable({
                           }),
                         )
                     }}
-                    className="w-6 h-6 rounded text-tertiary hover:bg-zGray-800 hover:text-main flex items-center justify-center"
+                    className="w-6 h-6 rounded text-tertiary hover:bg-state-hover hover:text-main flex items-center justify-center"
                     title={t('Download')}
                   >
                     <FontAwesomeIcon icon={faDownload} className="w-3.5 h-3.5" />
@@ -150,11 +150,11 @@ export function R2ObjectsTable({
         ]}
       />
       {truncated && (
-        <div className="px-4 py-2 border-t border-zGray-850 flex items-center justify-center">
+        <div className="px-4 py-2 border-t border-line-control flex items-center justify-center">
           <button
             onClick={onLoadMore}
             disabled={paging || !cursor}
-            className="px-3 py-1 rounded-md bg-zGray-850 hover:bg-zGray-800 text-secondary text-[12px] disabled:opacity-50"
+            className="px-3 py-1 rounded-md bg-surface-sunken hover:bg-state-hover text-secondary text-[12px] disabled:opacity-50"
           >
             {paging ? t('Loading…') : t('Load more')}
           </button>

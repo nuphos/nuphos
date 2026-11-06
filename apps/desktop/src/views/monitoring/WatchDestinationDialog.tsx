@@ -154,8 +154,8 @@ export function WatchDestinationDialog({
     <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-[1000] bg-black/40 backdrop-blur-sm opacity-100 transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
-        <Dialog.Popup className="fixed left-1/2 top-1/2 z-[1001] w-[460px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-zGray-800 bg-zGray-900 shadow-2xl shadow-black/50 outline-none transition-[opacity,transform] duration-150 data-[ending-style]:-translate-y-[48%] data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:-translate-y-[48%] data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
-          <div className="flex items-start justify-between border-b border-zGray-800 px-5 py-4">
+        <Dialog.Popup className="fixed left-1/2 top-1/2 z-[1001] w-[460px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-line-control bg-surface-sheet shadow-2xl shadow-black/50 outline-none transition-[opacity,transform] duration-150 data-[ending-style]:-translate-y-[48%] data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:-translate-y-[48%] data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+          <div className="flex items-start justify-between border-b border-line-control px-5 py-4">
             <div className="min-w-0 pr-4">
               <Dialog.Title className="text-[14px] font-semibold text-main">
                 {t('Where should Nuphos report?')}
@@ -167,7 +167,7 @@ export function WatchDestinationDialog({
               </Dialog.Description>
             </div>
             <Dialog.Close
-              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800 hover:text-main"
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary hover:bg-state-hover hover:text-main"
               aria-label={t('Close')}
             >
               <FontAwesomeIcon icon={faXmark} className="h-3.5 w-3.5" />
@@ -175,7 +175,7 @@ export function WatchDestinationDialog({
           </div>
 
           {group && (
-            <div className="border-b border-zGray-800 px-5 py-3.5">
+            <div className="border-b border-line-control px-5 py-3.5">
               <label className="block text-[11.5px] font-medium text-secondary">
                 {t('Group name')}
                 <input
@@ -184,7 +184,7 @@ export function WatchDestinationDialog({
                   onChange={(event) => setGroupName(event.target.value)}
                   maxLength={100}
                   autoFocus
-                  className="mt-1.5 h-8 w-full rounded-md border border-zGray-700 bg-surface px-2.5 text-[12px] text-main placeholder:text-tertiary focus:border-zViolet-accent focus:outline-none"
+                  className="mt-1.5 h-8 w-full rounded-md border border-line-control bg-surface px-2.5 text-[12px] text-main placeholder:text-tertiary focus:border-line-focus focus:outline-none"
                 />
               </label>
               <p className="mt-2 text-[11px] text-tertiary">
@@ -261,8 +261,8 @@ export function WatchDestinationDialog({
             )}
           </RadioGroup>
 
-          <div className="flex items-center justify-end gap-2 border-t border-zGray-800 px-5 py-3.5">
-            <Dialog.Close className="h-8 rounded-md px-3 text-[12px] text-secondary hover:bg-zGray-800 hover:text-main">
+          <div className="flex items-center justify-end gap-2 border-t border-line-control px-5 py-3.5">
+            <Dialog.Close className="h-8 rounded-md px-3 text-[12px] text-secondary hover:bg-state-hover hover:text-main">
               {t('Cancel')}
             </Dialog.Close>
             <Button size="sm" type="button" disabled={!canContinue} onClick={submit}>

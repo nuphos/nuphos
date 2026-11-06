@@ -82,7 +82,7 @@ export function LogGroupEventsView({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 py-2 border-b border-zGray-800 flex items-center gap-3 text-[11.5px]">
+      <div className="px-4 py-2 border-b border-line-control flex items-center gap-3 text-[11.5px]">
         {onBack && (
           <button
             type="button"
@@ -96,7 +96,7 @@ export function LogGroupEventsView({
         <span className="font-mono text-secondary truncate" title={group.name}>
           {group.name}
         </span>
-        <span className="text-secondary px-1.5 py-0.5 rounded bg-zGray-800/60 shrink-0">
+        <span className="text-secondary px-1.5 py-0.5 rounded bg-state-selected shrink-0">
           {group.region}
         </span>
         <div className="ml-auto flex items-center gap-2 shrink-0">
@@ -135,7 +135,7 @@ export function LogGroupEventsView({
       </div>
 
       {searchEvents && (
-        <div className="px-4 py-1.5 border-b border-zGray-800 flex items-center gap-2 text-[11.5px]">
+        <div className="px-4 py-1.5 border-b border-line-control flex items-center gap-2 text-[11.5px]">
           <div className="flex items-center gap-1 shrink-0">
             <button
               type="button"
@@ -150,8 +150,8 @@ export function LogGroupEventsView({
               }}
               className={`h-6 px-2 rounded text-[11.5px] font-medium ${
                 !searchMode
-                  ? 'bg-zViolet-accent/15 text-zViolet-accent'
-                  : 'text-tertiary hover:text-main hover:bg-zGray-850'
+                  ? 'bg-state-selected text-primary'
+                  : 'text-tertiary hover:text-main hover:bg-state-hover'
               }`}
               title={t('Latest events across the most recent streams')}
             >
@@ -171,8 +171,8 @@ export function LogGroupEventsView({
                 }}
                 className={`h-6 px-2 rounded text-[11.5px] font-medium ${
                   rangeMinutes === opt.minutes
-                    ? 'bg-zViolet-accent/15 text-zViolet-accent'
-                    : 'text-tertiary hover:text-main hover:bg-zGray-850'
+                    ? 'bg-state-selected text-primary'
+                    : 'text-tertiary hover:text-main hover:bg-state-hover'
                 }`}
               >
                 {opt.label}
@@ -184,14 +184,14 @@ export function LogGroupEventsView({
               value={patternInput}
               onChange={(e) => setPatternInput(e.target.value)}
               placeholder={t('Filter pattern — e.g. ERROR, "timed out", { $.level = "error" }')}
-              className="w-full h-6 px-2 rounded bg-surface border border-zGray-800 text-[11.5px] font-mono text-secondary placeholder:text-tertiary/70 focus:outline-none focus:border-zViolet-accent/60"
+              className="w-full h-6 px-2 rounded bg-surface border border-line-control text-[11.5px] font-mono text-secondary placeholder:text-tertiary focus:outline-none focus:border-line-focus"
             />
           </form>
           {streams.length > 0 && (
             <AppSelect
               value={streamFilter}
               onValueChange={setStreamFilter}
-              triggerClassName="h-6 border-zGray-800 px-2 text-[11.5px] max-w-[220px]"
+              triggerClassName="h-6 border-line-control px-2 text-[11.5px] max-w-[220px]"
               options={[
                 { value: '', label: t('All streams') },
                 ...streams.map((s) => ({ value: s.name, label: s.name })),
@@ -204,12 +204,12 @@ export function LogGroupEventsView({
             className={`h-6 px-2 rounded text-[11.5px] font-medium inline-flex items-center gap-1.5 shrink-0 ${
               live
                 ? 'bg-[#73bf69]/15 text-[#73bf69]'
-                : 'text-tertiary hover:text-main hover:bg-zGray-850'
+                : 'text-tertiary hover:text-main hover:bg-state-hover'
             }`}
             title={live ? t('Stop live tail') : t('Poll for new events every few seconds')}
           >
             <span
-              className={`w-1.5 h-1.5 rounded-full ${live ? 'bg-[#73bf69] animate-pulse' : 'bg-zGray-600'}`}
+              className={`w-1.5 h-1.5 rounded-full ${live ? 'bg-[#73bf69] animate-pulse' : 'bg-line-control'}`}
             />
             {t('Live')}
           </button>
@@ -238,7 +238,7 @@ export function LogGroupEventsView({
           ) : (
             <div className="px-4 py-2">
               {filtered.map((e, i) => (
-                <div key={i} className="flex gap-3 hover:bg-zGray-900/60">
+                <div key={i} className="flex gap-3 hover:bg-state-hover">
                   <span className="text-tertiary shrink-0 tabular-nums" title={e.logStreamName}>
                     {formatLogTimestamp(e.timestamp)}
                   </span>
@@ -252,7 +252,7 @@ export function LogGroupEventsView({
                   type="button"
                   onClick={loadMore}
                   disabled={paging}
-                  className="my-2 h-6 px-2.5 rounded bg-zGray-850 hover:bg-zGray-800 text-secondary hover:text-main font-sans text-[11.5px] disabled:opacity-50"
+                  className="my-2 h-6 px-2.5 rounded bg-surface-sunken hover:bg-state-hover text-secondary hover:text-main font-sans text-[11.5px] disabled:opacity-50"
                 >
                   {paging ? t('Loading…') : t('Load more')}
                 </button>

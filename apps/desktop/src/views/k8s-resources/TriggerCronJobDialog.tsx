@@ -91,7 +91,7 @@ export function TriggerCronJobDialog({
             autoFocus
             value={jobName}
             onChange={(event) => setJobName(event.target.value)}
-            className="h-9 w-full rounded-md border border-zGray-700 bg-surface px-2.5 font-mono text-[13px] text-main outline-none focus:border-zViolet-500"
+            className="h-9 w-full rounded-md border border-line-control bg-surface px-2.5 font-mono text-[13px] text-main outline-none focus:border-line-focus"
           />
         </label>
 
@@ -106,7 +106,7 @@ export function TriggerCronJobDialog({
           ) : info.containers.length === 0 ? (
             <div className="text-[12.5px] text-tertiary">{t('No containers found.')}</div>
           ) : (
-            <div className="space-y-2 rounded-md border border-zGray-800 bg-zGray-950 p-2.5">
+            <div className="space-y-2 rounded-md border border-line-control bg-surface-canvas p-2.5">
               {info.containers.map((c) => (
                 <div key={c.name} className="min-w-0">
                   <div className="truncate text-[12.5px] text-main" title={c.name}>
@@ -134,7 +134,7 @@ export function TriggerCronJobDialog({
           <button
             type="button"
             onClick={onClose}
-            className="h-8 rounded-md px-3 text-[12.5px] text-secondary hover:bg-zGray-800 hover:text-main"
+            className="h-8 rounded-md px-3 text-[12.5px] text-secondary hover:bg-state-hover hover:text-main"
           >
             {t('Cancel')}
           </button>

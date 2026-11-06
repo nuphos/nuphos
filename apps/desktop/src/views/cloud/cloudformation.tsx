@@ -74,7 +74,7 @@ export function CloudFormationView({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-zGray-850 bg-zGray-950 text-[12px]">
+      <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-line-control bg-surface-canvas text-[12px]">
         <CloudFormationStat label={t('Complete')} value={statusCounts.complete} tone="success" />
         <CloudFormationStat
           label={t('In progress')}
@@ -104,7 +104,7 @@ export function CloudFormationView({
             width: 260,
             sortAccessor: (r) => r.stackName,
             render: (r) => (
-              <span className="text-zViolet-accent truncate block" title={r.stackName}>
+              <span className="text-primary truncate block" title={r.stackName}>
                 {r.stackName}
               </span>
             ),
@@ -203,7 +203,7 @@ export function CloudFormationView({
                   e.stopPropagation()
                   openStack(r)
                 }}
-                className="w-6 h-6 rounded text-tertiary hover:bg-zGray-800 hover:text-main flex items-center justify-center"
+                className="w-6 h-6 rounded text-tertiary hover:bg-state-hover hover:text-main flex items-center justify-center"
                 title={t('Open stack in AWS Console')}
               >
                 <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.8} />

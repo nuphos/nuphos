@@ -10,11 +10,8 @@ import { t } from '../../i18n'
 export function RetiredBindingNotice({ principal }: { principal: 'role' | 'service account' }) {
   return (
     <section className="px-6 py-4">
-      <div className="flex items-start gap-2.5 p-3 rounded-md border border-zViolet-500/30 bg-zViolet-500/10">
-        <ShieldCheck
-          className="w-4 h-4 text-zViolet-accent flex-shrink-0 mt-0.5"
-          strokeWidth={1.8}
-        />
+      <div className="flex items-start gap-2.5 p-3 rounded-md border border-action-primary/30 bg-state-selected">
+        <ShieldCheck className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" strokeWidth={1.8} />
         <div className="text-[12px] text-secondary leading-relaxed">
           {principal === 'role'
             ? t(
@@ -31,7 +28,7 @@ export function RetiredBindingNotice({ principal }: { principal: 'role' | 'servi
 
 export function EmptyHint({ message }: { message: string }) {
   return (
-    <div className="border-y border-zGray-800 bg-zGray-950 py-3 text-[12px] text-tertiary leading-relaxed">
+    <div className="border-y border-line-control bg-surface-canvas py-3 text-[12px] text-tertiary leading-relaxed">
       {message}
     </div>
   )
@@ -56,7 +53,7 @@ export function EffectivePermissions({
   }
 
   return (
-    <div className="rounded-md border border-zGray-800 bg-zGray-950 px-3 py-3 space-y-2">
+    <div className="rounded-md border border-line-control bg-surface-canvas px-3 py-3 space-y-2">
       <div className="text-[11.5px] text-tertiary leading-relaxed">
         {(permissions.length === 1
           ? t(
@@ -80,7 +77,7 @@ export function EffectivePermissions({
         {permissions.map((p) => (
           <span
             key={p}
-            className="text-[10.5px] font-mono px-1.5 py-0.5 rounded bg-zGray-900 text-secondary border border-zGray-850"
+            className="text-[10.5px] font-mono px-1.5 py-0.5 rounded bg-surface-sheet text-secondary border border-line-control"
           >
             {p}
           </span>
@@ -153,7 +150,7 @@ export function ProviderSummaryCard({
     <section
       className={clsx(
         'px-6 py-4',
-        pinned && 'flex-shrink-0 border-b border-zGray-800/60 bg-zGray-950/80 pr-14',
+        pinned && 'flex-shrink-0 border-b border-line-control/60 bg-state-selected pr-14',
       )}
     >
       <div className="flex items-start justify-between gap-3 mb-3">

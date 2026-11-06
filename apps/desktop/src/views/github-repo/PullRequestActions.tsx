@@ -74,7 +74,7 @@ export function PullRequestActions({
   )
 
   return (
-    <section className="divide-y divide-zGray-800/70 overflow-hidden rounded-lg border border-zGray-800/80 bg-zGray-900/50">
+    <section className="divide-y divide-line-control/70 overflow-hidden rounded-lg border border-line-control/80 bg-state-selected">
       <div className="flex items-center gap-2 px-3 py-2 text-[12px] text-tertiary">
         {viewer ? (
           <>
@@ -117,7 +117,7 @@ export function PullRequestActions({
           disabled={disabled}
           placeholder={t('Leave a comment')}
           rows={4}
-          className="w-full resize-y rounded-md border border-zGray-800 bg-zGray-850 px-2.5 py-1.5 text-[12.5px] text-main outline-none transition-colors placeholder:text-quaternary focus:border-zGray-600 disabled:opacity-50"
+          className="w-full resize-y rounded-md border border-line-control bg-surface-sunken px-2.5 py-1.5 text-[12.5px] text-main outline-none transition-colors placeholder:text-quaternary focus:border-line-control disabled:opacity-50"
         />
         <div className="flex flex-wrap justify-end gap-2">
           {!isAuthor && open && (

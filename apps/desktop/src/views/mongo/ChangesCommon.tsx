@@ -10,7 +10,7 @@ export function StatusBadge({ status }: { status: DatabaseChangeRequest['status'
         ? 'bg-error/10 text-error'
         : status === 'approved'
           ? 'bg-warning/10 text-warning'
-          : 'bg-zGray-800 text-secondary'
+          : 'bg-surface-sunken text-secondary'
 
   return (
     <span className={`rounded-full px-2 py-0.5 text-[9.5px] ${tone}`}>
@@ -39,7 +39,7 @@ export function ActionButton({
         ? 'border-warning/35 text-warning'
         : tone === 'error'
           ? 'border-error/35 text-error'
-          : 'border-zGray-700 text-secondary'
+          : 'border-line-control text-secondary'
 
   return (
     <button
@@ -81,7 +81,7 @@ export function Label({ children }: { children: React.ReactNode }) {
 
 export function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-zGray-800 p-3">
+    <div className="rounded-lg border border-line-control p-3">
       <div className="text-[10px] text-tertiary">{label}</div>
       <div className="mt-1 text-[12px] text-secondary">{value}</div>
     </div>
@@ -90,7 +90,7 @@ export function Metric({ label, value }: { label: string; value: string }) {
 
 export function TextBlock({ title, text }: { title: string; text: string }) {
   return (
-    <div className="rounded-lg border border-zGray-800 p-3">
+    <div className="rounded-lg border border-line-control p-3">
       <div className="text-[10px] font-medium uppercase tracking-wide text-tertiary">{title}</div>
       <p className="mt-1 whitespace-pre-wrap text-[11px] leading-5 text-secondary">{text}</p>
     </div>
@@ -117,7 +117,7 @@ export function ExecutorsPicker({
   onChange: (next: string[]) => void
 }) {
   return (
-    <div className="grid grid-cols-2 gap-1 rounded-md border border-zGray-800 p-2">
+    <div className="grid grid-cols-2 gap-1 rounded-md border border-line-control p-2">
       {members.map((member) => {
         const requester = member.id === currentUserId
         const checked = requester || executors.includes(member.id)
@@ -125,7 +125,7 @@ export function ExecutorsPicker({
         return (
           <label
             key={member.id}
-            className="flex items-center gap-2 rounded px-2 py-1.5 text-[11.5px] text-secondary hover:bg-zGray-800/50"
+            className="flex items-center gap-2 rounded px-2 py-1.5 text-[11.5px] text-secondary hover:bg-state-hover"
           >
             <input
               type="checkbox"

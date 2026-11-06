@@ -88,7 +88,7 @@ export function SonarqubeConnectorGuide({
 
   return (
     <div className="mt-6 space-y-5">
-      <div className="rounded-lg border border-zGray-800 bg-zGray-900/30 px-4 py-3">
+      <div className="rounded-lg border border-line-control bg-state-selected px-4 py-3">
         <div className="text-[12.5px] font-medium text-main">
           {t('SonarQube provides the analysis data')}
         </div>
@@ -103,12 +103,12 @@ export function SonarqubeConnectorGuide({
         <div className="mb-2 flex items-center gap-2">
           <h3 className="text-[12.5px] font-medium text-main">{t('Available projects')}</h3>
           {projectsState.status === 'ready' && (
-            <span className="rounded-full bg-zGray-850 px-2 py-0.5 text-[10.5px] text-tertiary">
+            <span className="rounded-full bg-surface-sunken px-2 py-0.5 text-[10.5px] text-tertiary">
               {projectsState.total}
             </span>
           )}
         </div>
-        <div className="overflow-hidden rounded-lg border border-zGray-800">
+        <div className="overflow-hidden rounded-lg border border-line-control">
           {projectsState.status === 'loading' && (
             <div className="px-4 py-4 text-[12px] text-tertiary">
               {t('Checking project access…')}
@@ -139,7 +139,7 @@ export function SonarqubeConnectorGuide({
               <div
                 key={project.key}
                 className={`flex items-center gap-3 px-4 py-3 ${
-                  index > 0 ? 'border-t border-zGray-800/60' : ''
+                  index > 0 ? 'border-t border-line-control/60' : ''
                 }`}
               >
                 <Code2 className="h-4 w-4 flex-shrink-0 text-tertiary" strokeWidth={1.8} />
@@ -165,7 +165,7 @@ export function SonarqubeConnectorGuide({
 
       <section>
         <div className="mb-3 flex items-center gap-1.5 px-3 text-[11px] uppercase text-tertiary">
-          <Sparkles className="h-3 w-3 text-zViolet-accent" strokeWidth={2} />
+          <Sparkles className="h-3 w-3 text-primary" strokeWidth={2} />
           <span>{t('Suggested for this connector')}</span>
         </div>
         <div className="space-y-0.5">
@@ -174,12 +174,9 @@ export function SonarqubeConnectorGuide({
               key={title}
               type="button"
               onClick={() => openPrompt(prompt)}
-              className="group flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left outline-none transition-colors hover:bg-zGray-800/60 focus-visible:bg-zGray-800/60 focus-visible:ring-2 focus-visible:ring-zViolet-400/50"
+              className="group flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left outline-none transition-colors hover:bg-state-hover focus-visible:bg-state-hover focus-visible:ring-2 focus-visible:ring-line-focus"
             >
-              <Sparkles
-                className="mt-0.5 h-4 w-4 flex-shrink-0 text-zViolet-accent"
-                strokeWidth={1.8}
-              />
+              <Sparkles className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" strokeWidth={1.8} />
               <div className="min-w-0 flex-1">
                 <div className="text-[13px] text-secondary group-hover:text-main">{title}</div>
                 <div className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-tertiary">

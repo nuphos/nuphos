@@ -18,7 +18,7 @@ export function SpanInspector({
 }) {
   if (!span) {
     return (
-      <div className="border-l border-zGray-800/60 h-full min-h-0 flex items-center justify-center text-[12.5px] text-tertiary">
+      <div className="border-l border-line-control/60 h-full min-h-0 flex items-center justify-center text-[12.5px] text-tertiary">
         {t('Select a span for details.')}
       </div>
     )
@@ -27,8 +27,8 @@ export function SpanInspector({
   const entries = Object.entries(span.attributes).sort(([a], [b]) => a.localeCompare(b))
 
   return (
-    <div className="border-l border-zGray-800/60 h-full min-h-0 flex flex-col">
-      <div className="flex-shrink-0 bg-zGray-950 border-b border-zGray-800/60 px-4 py-3">
+    <div className="border-l border-line-control/60 h-full min-h-0 flex flex-col">
+      <div className="flex-shrink-0 bg-surface-canvas border-b border-line-control/60 px-4 py-3">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <div className="text-[13px] text-main font-medium truncate">{span.name}</div>
@@ -38,7 +38,7 @@ export function SpanInspector({
           </div>
           <button
             onClick={onClose}
-            className="h-6 w-6 inline-flex items-center justify-center rounded-md text-tertiary hover:text-main hover:bg-zGray-800"
+            className="h-6 w-6 inline-flex items-center justify-center rounded-md text-tertiary hover:text-main hover:bg-state-hover"
             title={t('Close span details')}
           >
             <X className="w-3.5 h-3.5" strokeWidth={1.8} />
@@ -77,7 +77,7 @@ export function SpanInspector({
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-zGray-800/70 bg-zGray-900/50 px-3 py-2 min-w-0">
+    <div className="rounded-md border border-line-control/70 bg-state-selected px-3 py-2 min-w-0">
       <div className="text-[10.5px] uppercase tracking-wider text-tertiary">{label}</div>
       <div className="mt-0.5 text-[12.5px] text-main break-words">{value}</div>
     </div>
@@ -90,7 +90,7 @@ function InspectorHeader({ title }: { title: string }) {
 
 function KeyValue({ label, value, copy }: { label: string; value: string; copy?: boolean }) {
   return (
-    <div className="group rounded-md border border-zGray-800/50 bg-zGray-900/30 px-3 py-2 min-w-0">
+    <div className="group rounded-md border border-line-control/50 bg-state-selected px-3 py-2 min-w-0">
       <div className="flex items-center gap-2">
         <div className="text-[11px] text-tertiary truncate flex-1">{label}</div>
         {copy && <CopyButton value={value} title={t('Copy {name}', { name: label })} />}
@@ -119,7 +119,7 @@ export function CopyButton({ value, title }: { value: string; title: string }) {
         e.stopPropagation()
         void copy()
       }}
-      className="h-6 px-1.5 inline-flex items-center gap-1 rounded-md text-tertiary hover:text-main hover:bg-zGray-800"
+      className="h-6 px-1.5 inline-flex items-center gap-1 rounded-md text-tertiary hover:text-main hover:bg-state-hover"
       title={title}
     >
       <Clipboard className="w-3.5 h-3.5" strokeWidth={1.8} />

@@ -62,7 +62,7 @@ function PlanCard({
         )}
       </div>
       <p className="flex items-center gap-2 text-secondary">
-        <Box size={14} className="text-zViolet-accent" />
+        <Box size={14} className="text-primary" />
         {t('Your running computers can use {n} vCPU in total. Paused computers use none.', {
           n: usage.limitVcpus ?? '',
         })}

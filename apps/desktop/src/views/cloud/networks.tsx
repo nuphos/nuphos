@@ -79,7 +79,7 @@ export function VpcsView({
             header: t('Name'),
             width: 220,
             sortAccessor: (r) => r.name ?? '',
-            render: (r) => <span className="text-zViolet-accent">{r.name || '-'}</span>,
+            render: (r) => <span className="text-primary">{r.name || '-'}</span>,
           },
           {
             key: 'cidr',
@@ -171,9 +171,7 @@ export function NaclsView({
             header: 'ID',
             width: 200,
             sortAccessor: (r) => r.id,
-            render: (r) => (
-              <span className="font-mono text-[12px] text-zViolet-accent">{r.id}</span>
-            ),
+            render: (r) => <span className="font-mono text-[12px] text-primary">{r.id}</span>,
           },
           {
             key: 'vpcId',

@@ -73,7 +73,7 @@ export function LogViewControls({
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder={t('Find logs…')}
-          className="w-44 pl-7 pr-2 py-1 rounded text-[12px] bg-surface border border-zGray-800 text-secondary placeholder:text-tertiary focus:outline-none focus:border-zViolet-500/50"
+          className="w-44 pl-7 pr-2 py-1 rounded text-[12px] bg-surface border border-line-control text-secondary placeholder:text-tertiary focus:outline-none focus:border-line-focus"
         />
       </div>
       <div className="flex items-center gap-1">
@@ -87,8 +87,8 @@ export function LogViewControls({
             className={clsx(
               'px-2 py-1 rounded text-[12px] capitalize',
               tsMode === m
-                ? 'bg-zViolet-500/20 text-zViolet-accent'
-                : 'text-secondary hover:bg-zGray-800',
+                ? 'bg-state-selected text-primary'
+                : 'text-secondary hover:bg-state-hover',
             )}
           >
             {TS_MODE_LABELS[m]}
@@ -100,7 +100,7 @@ export function LogViewControls({
           title={
             query ? t('Exports the current search-filtered view') : t('Exports all loaded logs')
           }
-          className="flex items-center gap-1 px-2 py-1 rounded text-[12px] text-secondary hover:bg-zGray-800"
+          className="flex items-center gap-1 px-2 py-1 rounded text-[12px] text-secondary hover:bg-state-hover"
         >
           <Download className="w-3 h-3" />
           {t('Export')}
@@ -153,7 +153,7 @@ export const LOG_TIME_MODE_CAP = 5000
 function rangeBtn(active: boolean): string {
   return clsx(
     'px-2 py-1 rounded text-[12px]',
-    active ? 'bg-zViolet-500/20 text-zViolet-accent' : 'text-secondary hover:bg-zGray-800',
+    active ? 'bg-state-selected text-primary' : 'text-secondary hover:bg-state-hover',
   )
 }
 
@@ -178,7 +178,7 @@ export function LogRangeSelector({
   return (
     <>
       <span className="text-[11.5px] text-tertiary uppercase tracking-wider">{t('Range')}</span>
-      <div className="inline-flex rounded overflow-hidden border border-zGray-800">
+      <div className="inline-flex rounded overflow-hidden border border-line-control">
         {(['lines', 'time'] as LogRangeMode[]).map((m) => (
           <button
             key={m}
@@ -187,9 +187,7 @@ export function LogRangeSelector({
             aria-pressed={mode === m}
             className={clsx(
               'px-2 py-1 text-[12px] capitalize',
-              mode === m
-                ? 'bg-zViolet-500/20 text-zViolet-accent'
-                : 'text-secondary hover:bg-zGray-800',
+              mode === m ? 'bg-state-selected text-primary' : 'text-secondary hover:bg-state-hover',
             )}
           >
             {m === 'lines' ? t('Lines') : t('Time')}
@@ -250,7 +248,7 @@ export function LogPreviousToggle({
       }
       className={clsx(
         'px-2 py-1 rounded text-[12px]',
-        value ? 'bg-zViolet-500/20 text-zViolet-accent' : 'text-secondary hover:bg-zGray-800',
+        value ? 'bg-state-selected text-primary' : 'text-secondary hover:bg-state-hover',
         disabled && 'opacity-40 cursor-not-allowed',
       )}
     >

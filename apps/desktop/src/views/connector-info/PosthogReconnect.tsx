@@ -19,7 +19,7 @@ export function PosthogReconnectPrompt({
   const [open, setOpen] = useState(false)
 
   return (
-    <div className="flex flex-col items-center gap-3 rounded-lg border border-zGray-800 px-4 py-4 text-center">
+    <div className="flex flex-col items-center gap-3 rounded-lg border border-line-control px-4 py-4 text-center">
       <div className="text-[12.5px] text-secondary">
         {t('{name} authorization expired or was revoked. Reconnect {name} to keep using it.', {
           name: 'PostHog',

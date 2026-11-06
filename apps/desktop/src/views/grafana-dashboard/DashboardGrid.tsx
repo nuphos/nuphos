@@ -170,8 +170,8 @@ function RowHeader({
     <button
       onClick={expandable ? onToggle : undefined}
       disabled={!expandable}
-      className={`w-full h-full flex items-center gap-1.5 px-3 text-[11.5px] uppercase tracking-wider text-tertiary outline outline-1 outline-zGray-800/60 bg-zGray-950/40 ${
-        expandable ? 'hover:text-secondary hover:bg-zGray-900/60' : ''
+      className={`w-full h-full flex items-center gap-1.5 px-3 text-[11.5px] uppercase tracking-wider text-tertiary outline outline-1 outline-line-control/60 bg-state-selected ${
+        expandable ? 'hover:text-secondary hover:bg-state-hover' : ''
       }`}
     >
       {expandable &&

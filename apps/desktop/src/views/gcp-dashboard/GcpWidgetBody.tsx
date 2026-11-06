@@ -99,7 +99,7 @@ export function UnsupportedPanel({ type, url }: { type: string; url: string }) {
       <button
         type="button"
         onClick={() => void api.appOpenExternal(url)}
-        className="inline-flex items-center gap-1 text-zViolet-accent hover:underline"
+        className="inline-flex items-center gap-1 text-primary hover:underline"
       >
         Open in GCP
         <ExternalLink className="h-3 w-3" strokeWidth={1.8} />

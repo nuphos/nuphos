@@ -19,7 +19,7 @@ export const NODE_POD_COLUMNS: Column<PodItem>[] = [
     header: t('Name'),
     width: 280,
     sortAccessor: (r) => r.name,
-    render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
+    render: (r) => <span className="text-primary">{r.name}</span>,
   },
   {
     key: 'ready',

@@ -115,7 +115,7 @@ export function UptimeKumaInstanceView({
                 {row.isGroup ? (
                   <Folder className="w-3.5 h-3.5 flex-shrink-0 text-tertiary" strokeWidth={1.8} />
                 ) : row.depth > 0 ? (
-                  <span className="w-3.5 h-3.5 flex-shrink-0 border-l border-b border-zGray-700/70 rounded-bl-[3px]" />
+                  <span className="w-3.5 h-3.5 flex-shrink-0 border-l border-b border-line-control/70 rounded-bl-[3px]" />
                 ) : (
                   <span className="w-3.5 h-3.5 flex-shrink-0" />
                 )}

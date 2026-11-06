@@ -40,8 +40,8 @@ function BoxPaywall({ request }: { request: BoxPaywallRequest }) {
     <Dialog.Root open onOpenChange={(open) => !open && boxPaywall.close()}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-[1100] bg-black/40 backdrop-blur-sm transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
-        <Dialog.Popup className="fixed left-1/2 top-1/2 z-[1101] w-[760px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-zGray-800 bg-zGray-900 shadow-2xl shadow-black/50 outline-none transition-[opacity,transform] duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:scale-[var(--modal-scale-close)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:scale-[var(--modal-scale)] data-[starting-style]:opacity-0">
-          <div className="flex items-start justify-between gap-4 border-b border-zGray-800 px-5 py-4">
+        <Dialog.Popup className="fixed left-1/2 top-1/2 z-[1101] w-[760px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-line-control bg-surface-sheet shadow-2xl shadow-black/50 outline-none transition-[opacity,transform] duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:scale-[var(--modal-scale-close)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:scale-[var(--modal-scale)] data-[starting-style]:opacity-0">
+          <div className="flex items-start justify-between gap-4 border-b border-line-control px-5 py-4">
             <div className="flex flex-col gap-1">
               <Dialog.Title className="text-[15px] font-semibold text-main">
                 {t('Choose a computer plan')}
@@ -52,7 +52,7 @@ function BoxPaywall({ request }: { request: BoxPaywallRequest }) {
             </div>
             <Dialog.Close
               aria-label={t('Close')}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800 hover:text-main"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-tertiary hover:bg-state-hover hover:text-main"
             >
               <X className="h-3.5 w-3.5" />
             </Dialog.Close>
@@ -65,7 +65,7 @@ function BoxPaywall({ request }: { request: BoxPaywallRequest }) {
             />
             <p className="text-[13px] text-tertiary">{hint}</p>
           </div>
-          <div className="flex justify-end border-t border-zGray-800 px-5 py-3">
+          <div className="flex justify-end border-t border-line-control px-5 py-3">
             <Button size="sm" variant="ghost" onClick={boxPaywall.close}>
               {t('Not now')}
             </Button>

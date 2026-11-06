@@ -74,7 +74,7 @@ function Card({
   children?: ReactNode
 }) {
   return (
-    <section className="divide-y divide-zGray-800/70 overflow-hidden rounded-lg border border-zGray-800/80 bg-zGray-900/50">
+    <section className="divide-y divide-line-control/70 overflow-hidden rounded-lg border border-line-control/80 bg-state-selected">
       <div className="flex items-center justify-between gap-2 px-3 py-2">
         {header}
         {trailing}
@@ -132,7 +132,7 @@ function CommentCard({ comment }: { comment: GithubPRComment }) {
       }
     >
       {comment.path && (
-        <div className="flex items-center gap-1.5 bg-zGray-900/40 px-3 py-1.5 font-mono text-[11px] text-secondary">
+        <div className="flex items-center gap-1.5 bg-state-selected px-3 py-1.5 font-mono text-[11px] text-secondary">
           <FileDiff className="h-3 w-3 shrink-0 text-tertiary" strokeWidth={1.8} />
           <span className="min-w-0 truncate" title={comment.path}>
             {comment.path}

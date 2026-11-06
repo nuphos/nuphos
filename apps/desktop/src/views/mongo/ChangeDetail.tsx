@@ -125,7 +125,7 @@ export function ChangeDetail({
       </div>
       <section>
         <Label>{t('Approved statement preview')}</Label>
-        <div className="max-h-72 overflow-auto rounded-lg border border-zGray-800 bg-[#011627] p-3">
+        <div className="max-h-72 overflow-auto rounded-lg border border-line-control bg-[#011627] p-3">
           <HighlightedJson value={previewValue(change)} />
         </div>
         {change.statementRedactedFields.length > 0 && (
@@ -147,7 +147,7 @@ export function ChangeDetail({
           {change.authorizedExecutorUserIds.map((id) => (
             <span
               key={id}
-              className="rounded-full border border-zGray-800 px-2 py-1 text-[10.5px] text-secondary"
+              className="rounded-full border border-line-control px-2 py-1 text-[10.5px] text-secondary"
             >
               {id === change.requesterUserId
                 ? t('{name} · requester', { name: memberName(id) })
@@ -163,7 +163,7 @@ export function ChangeDetail({
             {change.approvals.map((approval) => (
               <div
                 key={`${approval.userId}:${approval.createdAt}`}
-                className="flex items-center gap-2 rounded-md border border-zGray-800 px-2.5 py-2 text-[10.5px]"
+                className="flex items-center gap-2 rounded-md border border-line-control px-2.5 py-2 text-[10.5px]"
               >
                 <CheckCircle2 className="h-3.5 w-3.5 text-success" />
                 <span className="text-secondary">{memberName(approval.userId)}</span>
@@ -214,7 +214,7 @@ export function ChangeDetail({
           ))}
         </div>
       </section>
-      <div className="flex gap-2 rounded-md border border-zGray-800 bg-zGray-900/50 p-2.5 text-[10.5px] leading-4 text-tertiary">
+      <div className="flex gap-2 rounded-md border border-line-control bg-state-selected p-2.5 text-[10.5px] leading-4 text-tertiary">
         <ShieldCheck className="h-4 w-4 shrink-0 text-success" />
         {t(
           'Approval never executes the request or grants execution rights. Only the listed executors can explicitly claim the immutable approved digest.',

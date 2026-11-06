@@ -68,7 +68,7 @@ export function PanelComposer({
     >
       {workspaceMode === 'create' ? (
         <>
-          <InputGroup className="relative w-full rounded-2xl border border-zGray-800/80 bg-zGray-900/60 px-4 pt-4 pb-3 backdrop-blur transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]">
+          <InputGroup className="relative w-full rounded-2xl border border-line-control/80 bg-state-selected px-4 pt-4 pb-3 backdrop-blur transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]">
             <div className="relative min-h-[36px]">
               <InputGroupInput
                 ref={inputRef}
@@ -101,7 +101,7 @@ export function PanelComposer({
                     className={clsx(
                       'titlebar-no-drag flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
                       canCreate
-                        ? 'bg-zViolet-500 text-white hover:bg-zViolet-400'
+                        ? 'bg-action-primary text-inverse hover:bg-action-primary/90'
                         : 'text-tertiary',
                     )}
                   />
@@ -109,7 +109,7 @@ export function PanelComposer({
                 content={
                   <span className="flex items-center gap-3">
                     {t('Continue')}
-                    <kbd className="rounded border border-zGray-700 px-1 py-px text-[10px] leading-4 text-tertiary">
+                    <kbd className="rounded border border-line-control px-1 py-px text-[10px] leading-4 text-tertiary">
                       Enter ↵
                     </kbd>
                   </span>
@@ -157,9 +157,9 @@ export function PanelComposer({
             </Button>
           </div>
           <div className="mt-4 flex items-center gap-3" aria-hidden>
-            <div className="h-px flex-1 bg-zGray-800/80" />
+            <div className="h-px flex-1 bg-state-selected" />
             <span className="text-[11.5px] text-tertiary">{t('or')}</span>
-            <div className="h-px flex-1 bg-zGray-800/80" />
+            <div className="h-px flex-1 bg-state-selected" />
           </div>
           <div className="mt-3 flex justify-center">
             <Button

@@ -67,7 +67,7 @@ export function PodTerminalTab({ namespace, name }: { namespace: string; name: s
   return (
     <div className="flex flex-col h-full">
       {containers.length > 1 && (
-        <div className="px-6 py-2 border-b border-zGray-800 flex items-center gap-2 bg-zGray-900">
+        <div className="px-6 py-2 border-b border-line-control flex items-center gap-2 bg-surface-sheet">
           <span className="text-[11.5px] text-tertiary uppercase tracking-wider">
             {t('Container:')}
           </span>
@@ -78,8 +78,8 @@ export function PodTerminalTab({ namespace, name }: { namespace: string; name: s
               className={clsx(
                 'px-2 py-1 rounded text-[12px]',
                 container === c.name
-                  ? 'bg-zViolet-500/20 text-zViolet-accent'
-                  : 'text-secondary hover:bg-zGray-800',
+                  ? 'bg-state-selected text-primary'
+                  : 'text-secondary hover:bg-state-hover',
               )}
             >
               {c.label}
@@ -141,7 +141,7 @@ export function NodeTerminalTab({ name }: { name: string }) {
   if (!confirmed) {
     return (
       <div className="flex-1 min-h-0 flex items-center justify-center p-8">
-        <div className="max-w-md bg-zGray-900 border border-zGray-800 rounded-md p-5 space-y-3">
+        <div className="max-w-md bg-surface-sheet border border-line-control rounded-md p-5 space-y-3">
           <div className="flex items-center gap-2 text-warning text-[13px] font-semibold">
             <FontAwesomeIcon icon={faTriangleExclamation} className="w-4 h-4" />
             {t('Open a node shell?')}

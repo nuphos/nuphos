@@ -120,7 +120,7 @@ export function PosthogConnectorGuide({
               type="button"
               onClick={() => void startEditing()}
               disabled={busy || projects === null}
-              className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] text-secondary hover:bg-zGray-850 hover:text-main disabled:opacity-50"
+              className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] text-secondary hover:bg-state-hover hover:text-main disabled:opacity-50"
             >
               <Pencil className="h-3 w-3" strokeWidth={1.9} />
               {t('Edit projects')}
@@ -167,7 +167,7 @@ export function PosthogConnectorGuide({
 
 function ProjectList({ projects }: { projects: PosthogProject[] | null }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-zGray-800">
+    <div className="overflow-hidden rounded-lg border border-line-control">
       {projects === null && (
         <div className="px-4 py-4 text-[12px] text-tertiary">{t('Loading projects…')}</div>
       )}
@@ -175,7 +175,7 @@ function ProjectList({ projects }: { projects: PosthogProject[] | null }) {
         <div
           key={project.id}
           className={`flex items-center gap-3 px-4 py-3 ${
-            index > 0 ? 'border-t border-zGray-800/60' : ''
+            index > 0 ? 'border-t border-line-control/60' : ''
           }`}
         >
           <BarChart3 className="h-4 w-4 flex-shrink-0 text-tertiary" strokeWidth={1.8} />

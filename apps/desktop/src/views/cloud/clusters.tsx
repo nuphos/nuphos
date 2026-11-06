@@ -64,7 +64,7 @@ export function CloudClustersView({
             header: t('Name'),
             width: 280,
             sortAccessor: (r) => r.name,
-            render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
+            render: (r) => <span className="text-primary">{r.name}</span>,
           },
           {
             key: 'region',
@@ -154,7 +154,7 @@ export function EcsClustersView({
             header: t('Cluster Name'),
             width: 260,
             sortAccessor: (r) => r.clusterName,
-            render: (r) => <span className="font-medium text-zViolet-accent">{r.clusterName}</span>,
+            render: (r) => <span className="font-medium text-primary">{r.clusterName}</span>,
           },
           {
             key: 'status',

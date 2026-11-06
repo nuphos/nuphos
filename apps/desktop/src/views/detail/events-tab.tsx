@@ -85,7 +85,7 @@ export function EventsTab({ target, refreshKey }: { target: DetailTarget; refres
                 e.uid ??
                 `${e.namespace}/${e.kind}/${e.name}/${e.reason}/${String(e.timestamp ?? i)}`
               }
-              className="bg-zGray-900 border border-zGray-800 rounded-md px-4 py-3"
+              className="bg-surface-sheet border border-line-control rounded-md px-4 py-3"
             >
               <div className="flex items-center gap-2 text-[12.5px]">
                 <span
@@ -93,7 +93,7 @@ export function EventsTab({ target, refreshKey }: { target: DetailTarget; refres
                     'px-1.5 py-0.5 rounded text-[11px]',
                     e.type_ === 'Warning'
                       ? 'bg-error/15 text-error'
-                      : 'bg-zGray-800 text-secondary',
+                      : 'bg-surface-sunken text-secondary',
                   )}
                 >
                   {e.type_ || 'Normal'}

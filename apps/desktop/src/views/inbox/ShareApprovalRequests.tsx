@@ -52,7 +52,7 @@ export function ShareApprovalRequests({
   }
 
   return (
-    <section className="flex-shrink-0 border-b border-zGray-800/70">
+    <section className="flex-shrink-0 border-b border-line-control/70">
       <div className="px-4 pt-3 pb-1 text-[12px] font-medium text-tertiary">
         {t('Requests to use your computer')}
       </div>

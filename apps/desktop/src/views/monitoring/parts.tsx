@@ -62,7 +62,7 @@ export function FilterSelect<T extends string>({
       // search box, namespace picker) rather than the default bordered field —
       // `!` because the base trigger's h-9/border/bg are later utilities that
       // would otherwise win.
-      triggerClassName="!h-7 !border-transparent !bg-transparent text-[12.5px] text-secondary hover:!bg-zGray-800/60"
+      triggerClassName="!h-7 !border-transparent !bg-transparent text-[12.5px] text-secondary hover:!bg-state-hover"
     />
   )
 }

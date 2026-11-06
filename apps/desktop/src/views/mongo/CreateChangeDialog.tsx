@@ -161,7 +161,7 @@ export function CreateChangeDialog({
               value={filter}
               onChange={setFilter}
               minimap={false}
-              className="h-40 overflow-hidden rounded-md border border-zGray-800"
+              className="h-40 overflow-hidden rounded-md border border-line-control"
             />
           </Field>
         )}
@@ -181,7 +181,7 @@ export function CreateChangeDialog({
               value={payload}
               onChange={setPayload}
               minimap={false}
-              className="h-48 overflow-hidden rounded-md border border-zGray-800"
+              className="h-48 overflow-hidden rounded-md border border-line-control"
             />
           </Field>
         )}

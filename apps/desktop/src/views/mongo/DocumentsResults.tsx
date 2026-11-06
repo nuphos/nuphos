@@ -31,7 +31,7 @@ export function OperationTabs({
   onToggleHistory: () => void
 }) {
   return (
-    <div className="flex shrink-0 items-center justify-between border-b border-zGray-800 bg-zGray-900/55 px-3">
+    <div className="flex shrink-0 items-center justify-between border-b border-line-control bg-state-selected px-3">
       <div className="flex h-10 items-end gap-1">
         {OPERATIONS.map((candidate) => (
           <button
@@ -39,7 +39,7 @@ export function OperationTabs({
             type="button"
             title={candidate.description}
             onClick={() => onSelectOperation(candidate.value)}
-            className={`h-10 border-b-2 px-3 text-[11px] ${operation === candidate.value ? 'border-zViolet-accent text-main' : 'border-transparent text-tertiary hover:text-secondary'}`}
+            className={`h-10 border-b-2 px-3 text-[11px] ${operation === candidate.value ? 'border-action-primary text-main' : 'border-transparent text-tertiary hover:text-secondary'}`}
           >
             {candidate.label}
           </button>
@@ -48,7 +48,7 @@ export function OperationTabs({
       <button
         type="button"
         onClick={onToggleHistory}
-        className={`flex items-center gap-1.5 rounded px-2 py-1 text-[10.5px] ${historyOpen ? 'bg-zGray-700 text-main' : 'text-tertiary hover:bg-zGray-800 hover:text-main'}`}
+        className={`flex items-center gap-1.5 rounded px-2 py-1 text-[10.5px] ${historyOpen ? 'bg-line-control text-main' : 'text-tertiary hover:bg-state-hover hover:text-main'}`}
       >
         <History className="h-3.5 w-3.5" />
         {t('History')}
@@ -75,21 +75,21 @@ export function ResultsPager({
   onNext: () => void
 }) {
   return (
-    <div className="flex h-10 shrink-0 items-center justify-end gap-2 border-t border-zGray-800 px-3 text-[10.5px] text-tertiary">
+    <div className="flex h-10 shrink-0 items-center justify-end gap-2 border-t border-line-control px-3 text-[10.5px] text-tertiary">
       {pageable ? (
         <>
           <span>{t('Page {page}', { page })}</span>
           <button
             onClick={onPrevious}
             disabled={loading || skip === 0}
-            className="rounded border border-zGray-800 p-1 disabled:opacity-35"
+            className="rounded border border-line-control p-1 disabled:opacity-35"
           >
             <ChevronLeft className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={onNext}
             disabled={loading || !canNext}
-            className="rounded border border-zGray-800 p-1 disabled:opacity-35"
+            className="rounded border border-line-control p-1 disabled:opacity-35"
           >
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
@@ -113,7 +113,7 @@ export function ResultsToolbar({
   onExport: (kind: 'json' | 'csv') => void
 }) {
   return (
-    <div className="flex h-10 shrink-0 items-center justify-between border-b border-zGray-800 px-3">
+    <div className="flex h-10 shrink-0 items-center justify-between border-b border-line-control px-3">
       <div className="flex items-center gap-2 text-[10.5px] text-tertiary">
         <ShieldCheck className="h-3.5 w-3.5 text-success" />
         <span>{t('Read-only gateway')}</span>
@@ -144,7 +144,7 @@ export function ResultsToolbar({
         <button
           onClick={() => onExport('json')}
           disabled={!result}
-          className="flex items-center gap-1 rounded px-2 py-1 text-[10.5px] text-tertiary hover:bg-zGray-800 hover:text-main disabled:opacity-40"
+          className="flex items-center gap-1 rounded px-2 py-1 text-[10.5px] text-tertiary hover:bg-state-hover hover:text-main disabled:opacity-40"
         >
           <Download className="h-3.5 w-3.5" />
           JSON
@@ -152,11 +152,11 @@ export function ResultsToolbar({
         <button
           onClick={() => onExport('csv')}
           disabled={!result}
-          className="rounded px-2 py-1 text-[10.5px] text-tertiary hover:bg-zGray-800 hover:text-main disabled:opacity-40"
+          className="rounded px-2 py-1 text-[10.5px] text-tertiary hover:bg-state-hover hover:text-main disabled:opacity-40"
         >
           CSV
         </button>
-        <span className="mx-1 h-4 w-px bg-zGray-800" />
+        <span className="mx-1 h-4 w-px bg-surface-sunken" />
         <button
           onPointerDown={(e) => {
             if (e.button !== 0) return
@@ -166,7 +166,7 @@ export function ResultsToolbar({
             if (e.detail !== 0) return
             onViewChange('documents')
           }}
-          className={`rounded p-1.5 ${view === 'documents' ? 'bg-zGray-700 text-main' : 'text-tertiary hover:text-main'}`}
+          className={`rounded p-1.5 ${view === 'documents' ? 'bg-line-control text-main' : 'text-tertiary hover:text-main'}`}
           title={t('Document view')}
         >
           <Braces className="h-3.5 w-3.5" />
@@ -180,7 +180,7 @@ export function ResultsToolbar({
             if (e.detail !== 0) return
             onViewChange('table')
           }}
-          className={`rounded p-1.5 ${view === 'table' ? 'bg-zGray-700 text-main' : 'text-tertiary hover:text-main'}`}
+          className={`rounded p-1.5 ${view === 'table' ? 'bg-line-control text-main' : 'text-tertiary hover:text-main'}`}
           title={t('Table view')}
         >
           <List className="h-3.5 w-3.5" />
@@ -222,7 +222,7 @@ export function ResultsBody({
           {rows.map((row, index) => (
             <div
               key={index}
-              className="overflow-x-auto rounded-lg border border-zGray-800 bg-zGray-900/65 p-3"
+              className="overflow-x-auto rounded-lg border border-line-control bg-state-selected p-3"
             >
               <HighlightedJson value={row} />
             </div>
@@ -231,12 +231,12 @@ export function ResultsBody({
       ) : (
         <div className="min-w-max">
           <table className="w-full text-left text-[10.5px]">
-            <thead className="sticky top-0 z-10 bg-zGray-900 text-tertiary">
+            <thead className="sticky top-0 z-10 bg-surface-sheet text-tertiary">
               <tr>
                 {columns.map((column) => (
                   <th
                     key={column}
-                    className="border-b border-r border-zGray-800 px-3 py-2 font-medium last:border-r-0"
+                    className="border-b border-r border-line-control px-3 py-2 font-medium last:border-r-0"
                   >
                     {column}
                   </th>
@@ -245,11 +245,11 @@ export function ResultsBody({
             </thead>
             <tbody>
               {rows.map((row, index) => (
-                <tr key={index} className="border-b border-zGray-800/70">
+                <tr key={index} className="border-b border-line-control/70">
                   {columns.map((column) => (
                     <td
                       key={column}
-                      className="max-w-80 truncate border-r border-zGray-800/50 px-3 py-2 font-mono text-secondary last:border-r-0"
+                      className="max-w-80 truncate border-r border-line-control/50 px-3 py-2 font-mono text-secondary last:border-r-0"
                       title={displayValue(
                         row && typeof row === 'object' && !Array.isArray(row)
                           ? (row as Record<string, unknown>)[column]

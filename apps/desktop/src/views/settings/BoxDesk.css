@@ -75,9 +75,9 @@
   background:
     linear-gradient(
       135deg,
-      rgba(var(--color-zViolet-400), 0.2),
-      rgba(var(--color-zViolet-400), 0.06) 55%,
-      rgba(var(--color-zBlue-400), 0.16)
+      rgba(var(--color-text-primary), 0.2),
+      rgba(var(--color-text-primary), 0.06) 55%,
+      rgba(var(--color-data-1), 0.16)
     ),
     rgb(var(--color-background-surface));
 }
@@ -513,7 +513,7 @@
       rgba(0, 0, 0, 0.3)
     ),
     linear-gradient(#2e2e32, #222225 80%, #1b1b1e);
-  --desk-led: #a78bfa;
+  --desk-led: rgb(var(--color-data-1));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
