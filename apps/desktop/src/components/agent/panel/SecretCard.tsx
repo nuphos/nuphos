@@ -1,16 +1,20 @@
+import { Lock } from 'lucide-react'
 import { useContext, useState } from 'react'
 
 import { t } from '../../../i18n'
 import { Button } from '../../ui/button'
 
 import { ConnectCardContext } from './connectCardContext'
+import { secretSavedReply } from './connectCardModel'
 import { AgentQuote } from './ConnectCardRows'
+import { DecisionAnswersContext } from './decisionAnswers'
 
 import type { CardAnswerState } from './replyTarget'
 
 /**
  * A secret the agent asked for: the value goes straight to a file on its
- * runtime, and only the file's path is sent as the reply.
+ * runtime, and only the file's path is sent as the reply. Once saved or
+ * closed, the card is one line.
  */
 export function SecretCard({
   toolCallId,
@@ -27,9 +31,10 @@ export function SecretCard({
   state: CardAnswerState
 }) {
   const ctx = useContext(ConnectCardContext)
+  const answered = useContext(DecisionAnswersContext).has(toolCallId)
   const [value, setValue] = useState('')
   const [phase, setPhase] = useState<'idle' | 'saving' | 'sent' | 'error'>('idle')
-  const interactive = Boolean(ctx?.saveSecret) && state === 'open' && phase !== 'sent'
+  const interactive = Boolean(ctx?.saveSecret) && state === 'open'
   const submit = async () => {
     if (!ctx?.saveSecret || !value) return
     setPhase('saving')
@@ -38,7 +43,7 @@ export function SecretCard({
 
       setValue('')
       setPhase('sent')
-      ctx.send(`🔒 ${name} saved to ${path}`, {
+      ctx.send(`${secretSavedReply(name)}${path}`, {
         toolCallId,
         requestId,
         question: reason,
@@ -48,6 +53,11 @@ export function SecretCard({
       setPhase('error')
     }
   }
+
+  const saved = phase === 'sent' || answered
+
+  if (saved || state === 'closed')
+    return <SecretDone toolCallId={toolCallId} name={name} saved={saved} />
 
   return (
     <div
@@ -62,46 +72,66 @@ export function SecretCard({
         {reason && <AgentQuote text={reason} />}
       </div>
       <div className="border-t border-line-control/60 px-4 py-2.5">
-        {phase === 'sent' ? (
-          <div className="text-[12px] text-tertiary">{t("Saved on the agent's runtime.")}</div>
-        ) : (
-          <form
-            className="flex items-center gap-2"
-            onSubmit={(event) => {
-              event.preventDefault()
-              void submit()
-            }}
-          >
-            <input
-              type="password"
-              autoComplete="off"
-              spellCheck={false}
-              aria-label={name}
-              placeholder={t('Paste the value')}
-              value={value}
-              disabled={!interactive || phase === 'saving'}
-              onChange={(event) => setValue(event.target.value)}
-              className="min-w-0 flex-1 rounded-md border border-line-control bg-surface px-2.5 py-1.5 font-mono text-[12.5px] text-main outline-none focus:border-line-focus"
-            />
-            <Button type="submit" size="sm" disabled={!interactive || !value || phase === 'saving'}>
-              {phase === 'saving' ? t('Saving…') : t('Send securely')}
-            </Button>
-          </form>
-        )}
+        <form
+          className="flex items-center gap-2"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void submit()
+          }}
+        >
+          <input
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            aria-label={name}
+            placeholder={t('Paste the value')}
+            value={value}
+            disabled={!interactive || phase === 'saving'}
+            onChange={(event) => setValue(event.target.value)}
+            className="min-w-0 flex-1 rounded-md border border-line-control bg-surface px-2.5 py-1.5 font-mono text-[12.5px] text-main outline-none focus:border-line-focus"
+          />
+          <Button type="submit" size="sm" disabled={!interactive || !value || phase === 'saving'}>
+            {phase === 'saving' ? t('Saving…') : t('Send securely')}
+          </Button>
+        </form>
         {phase === 'error' && (
           <div className="mt-1.5 text-[12px] text-red-400">
             {t("Could not save it on the agent's runtime. Try again.")}
           </div>
         )}
-        {phase !== 'sent' && <SecretBlocked state={ctx?.saveSecret ? state : 'notOwner'} />}
-        {phase !== 'sent' && (
-          <div className="mt-1.5 text-[11.5px] text-tertiary">
-            {t(
-              "The value is written to a file on the agent's runtime and never appears in this conversation.",
-            )}
-          </div>
-        )}
+        <SecretBlocked state={ctx?.saveSecret ? state : 'notOwner'} />
+        <div className="mt-1.5 text-[11.5px] text-tertiary">
+          {t(
+            "The value is written to a file on the agent's runtime and never appears in this conversation.",
+          )}
+        </div>
       </div>
+    </div>
+  )
+}
+
+/** A saved or closed request: one line, no field. */
+function SecretDone({
+  toolCallId,
+  name,
+  saved,
+}: {
+  toolCallId: string
+  name: string
+  saved: boolean
+}) {
+  return (
+    <div
+      data-tool-call-id={toolCallId}
+      className="flex items-center gap-1.5 text-[12px] text-tertiary"
+    >
+      <Lock className="size-3.5 shrink-0" aria-hidden />
+      <span className="font-mono">{name}</span>
+      <span>
+        {saved
+          ? t("Saved on the agent's runtime.")
+          : t('This request is closed. Ask the agent to request the secret again.')}
+      </span>
     </div>
   )
 }
@@ -115,7 +145,8 @@ function SecretBlocked({ state }: { state: CardAnswerState | 'notOwner' }) {
       "The agent's runtime isn't reachable. Wake or reconnect the computer it runs on to send this.",
     ),
     busy: t('The agent is working. You can send this when its turn ends.'),
-    closed: t('This request is closed. Ask the agent to request the secret again.'),
+    // A closed request shows as one line instead.
+    closed: null,
   }[state]
 
   return why && <div className="mt-1.5 text-[11.5px] text-tertiary">{why}</div>
