@@ -13,6 +13,7 @@ import { parseMessageMetadata } from '../agent/panel/messageMetadata'
 import { Avatar } from '../Avatar'
 
 import { ChannelFiles } from './ChannelFiles'
+import { speaksInChannel } from './channelSpeakers'
 import { exactTime, startsTimeGap, timeGapLabel } from './chatTime'
 import { channelFiles } from './postFiles'
 import { Typing } from './ChannelTyping'
@@ -77,7 +78,8 @@ function ChannelMessage({
   const text = textOf(message)
   const posted = channelFiles(message)
 
-  if (!metadata || (!text && !posted.any)) return null
+  // A channel shows people and agents only; any other sender is not a post.
+  if (!metadata || !speaksInChannel(metadata.sender) || (!text && !posted.any)) return null
   const { sender } = metadata
   const agentId = sender.type === 'agent' ? (metadata.sourceSessionId ?? sender.id) : null
   const open = agentId && ownAgent ? () => onOpenSession(agentId) : null
