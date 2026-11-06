@@ -3,6 +3,7 @@ import { app, BrowserWindow, webContents } from 'electron'
 import { ElectronChromeExtensions } from 'electron-chrome-extensions'
 
 import { browserSession, checkForUpdates, confirm, loadInstalled, notifyChanged } from './manage.ts'
+import { manifestDirs, nativeMessaging } from './native-messaging.ts'
 import { addedAccess } from './warnings.ts'
 
 import type { ExtensionManifest } from './warnings.ts'
@@ -21,6 +22,7 @@ const GATED: Record<string, string | undefined> = {
 
 type Router = {
   handlers: Map<string, { permission?: string }>
+  handle: (name: string, callback: unknown, options: { permission: string }) => void
   addListener: (listener: unknown, extensionId: string, eventName: string) => unknown
 }
 export type BrowserActionApi = {
@@ -57,6 +59,7 @@ function internals(extensions: ElectronChromeExtensions) {
 
   if (
     !(router?.handlers instanceof Map) ||
+    typeof router.handle !== 'function' ||
     typeof router.addListener !== 'function' ||
     typeof action?.getState !== 'function' ||
     typeof action.activateClick !== 'function' ||
@@ -77,7 +80,7 @@ function hasPermission(extensionId: string, name: string) {
 
 /**
  * Chrome requires a permission for these namespaces; the package does not
- * check it. Its native messaging is removed: Nuphos does not run native hosts.
+ * check it. Its native messaging is replaced by ./native-messaging.ts.
  */
 function gateApis(router: Router) {
   for (const [name, handler] of router.handlers) {
@@ -165,6 +168,18 @@ export async function initBrowserExtensions(): Promise<void> {
 
   host = { extensions, action }
   gateApis(router)
+  // Only allow-listed password managers reach their own desktop app.
+  const native = nativeMessaging(manifestDirs())
+
+  router.handle('runtime.connectNative', native.connectNative, { permission: 'nativeMessaging' })
+  router.handle('runtime.disconnectNative', native.disconnectNative, {
+    permission: 'nativeMessaging',
+  })
+  router.handle('runtime.sendNativeMessage', native.sendNativeMessage, {
+    permission: 'nativeMessaging',
+  })
+  browser.extensions.on('extension-unloaded', (_event, extension) => native.closeAll(extension.id))
+  app.on('will-quit', () => native.closeAll())
   // The package tells observers when a badge or title changes.
   action.observers.add({ isDestroyed: () => false, send: notifyChanged })
 
