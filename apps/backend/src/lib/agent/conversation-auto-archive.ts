@@ -11,15 +11,18 @@ const WARMUP_DELAY_MS = 60 * 1000
 
 /** Unarchived Tasks whose last activity — and last manual restore, if any —
  *  both fall before the idle cutoff. A Bot (a conversation with an `avatar`)
- *  is persistent and never archives itself. */
+ *  is persistent and never archives itself, unless nobody ever wrote to it:
+ *  a "New Bot" made with "+" and left empty files away like a Task. */
 export function idleConversationFilter(now: Date, idleDays: number): Filter<AgentConversation> {
   const cutoff = new Date(now.getTime() - idleDays * 24 * 60 * 60 * 1000)
 
   return {
     archivedAt: { $exists: false },
-    avatar: { $exists: false },
     lastActiveAt: { $lt: cutoff },
-    $or: [{ archiveRestoredAt: { $exists: false } }, { archiveRestoredAt: { $lt: cutoff } }],
+    $and: [
+      { $or: [{ avatar: { $exists: false } }, { messageCount: 0 }] },
+      { $or: [{ archiveRestoredAt: { $exists: false } }, { archiveRestoredAt: { $lt: cutoff } }] },
+    ],
   }
 }
 
