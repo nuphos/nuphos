@@ -50,7 +50,7 @@ type SidebarNavItemProps = {
   comfortable?: boolean
   /** Comfortable chat rows: the newest message, up to two lines under the label. */
   preview?: string
-  /** Comfortable chat rows: when that message came, at the label's right. */
+  /** Comfortable chat rows: when the chat was last active, at the label's right. */
   time?: string
   /** Wait for the click when a press may start a drag instead. */
   navigateOnRelease?: boolean

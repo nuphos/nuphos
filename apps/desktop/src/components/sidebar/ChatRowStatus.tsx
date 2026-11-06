@@ -13,7 +13,7 @@ const DOTS = {
   waiting: { label: t('Needs your input'), color: 'bg-zViolet-500' },
 } as const
 
-/** The row's status at its right edge; the left icon only ever names the agent. */
+/** The row's status: at its right edge, or left of the face in comfortable density. The icon only ever names the agent. */
 export function ChatRowStatus({
   runtimeState: state,
   dot,
