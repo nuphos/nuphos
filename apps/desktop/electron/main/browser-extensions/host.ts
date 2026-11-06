@@ -3,7 +3,7 @@ import { app, BrowserWindow, webContents } from 'electron'
 import { ElectronChromeExtensions } from 'electron-chrome-extensions'
 
 import { browserSession, checkForUpdates, confirm, loadInstalled, notifyChanged } from './manage.ts'
-import { manifestDirs, nativeMessaging } from './native-messaging.ts'
+import { builtInHosts, manifestDirs, nativeMessaging } from './native-messaging.ts'
 import { addedAccess } from './warnings.ts'
 
 import type { ExtensionManifest } from './warnings.ts'
@@ -169,7 +169,7 @@ export async function initBrowserExtensions(): Promise<void> {
   host = { extensions, action }
   gateApis(router)
   // Only allow-listed password managers reach their own desktop app.
-  const native = nativeMessaging(manifestDirs())
+  const native = nativeMessaging(manifestDirs(), builtInHosts())
 
   router.handle('runtime.connectNative', native.connectNative, { permission: 'nativeMessaging' })
   router.handle('runtime.disconnectNative', native.disconnectNative, {
