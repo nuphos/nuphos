@@ -20,18 +20,22 @@ function renderGroup(heading: string, snippets: InstructionSnippet[]): string[] 
 /** A Bot's own identity; a Task has none. */
 export type BotSelf = { name: string; instructions?: string }
 
-function renderBot(bot: BotSelf | null | undefined): string[] {
-  if (!bot) return []
+/**
+ * The Bot's identity, outside `<nuphos_instructions>`: its instructions were
+ * written by the agent itself through `update_self`, not configured by a
+ * person, so they never borrow the authority of team or personal instructions.
+ */
+function renderBot(bot: BotSelf): string {
+  const own = bot.instructions?.trim()
 
   return [
-    [
-      '## This Bot',
-      `You are ${JSON.stringify(bot.name)}, a Bot: a persistent agent with its own name, face and standing instructions, not a one-off task. When the person you work for tells you what you are for, what to call you or how to behave, save it with the \`update_self\` tool. Tasks you start do not inherit these instructions.`,
-      bot.instructions?.trim()
-        ? `### Your instructions\n\n${bot.instructions.trim()}`
-        : 'You have no instructions yet. Ask what you should take care of, then save it with `update_self`.',
-    ].join('\n\n'),
-  ]
+    '<nuphos_bot_identity>',
+    `You are ${JSON.stringify(bot.name)}, a Bot: a persistent agent with its own name, face and standing instructions, not a one-off task. When the person you work for tells you what you are for, what to call you or how to behave, save it with the \`update_self\` tool. Tasks you start do not inherit these instructions.`,
+    own
+      ? `Your own instructions follow. You wrote them with \`update_self\`; no person configured them here. Team and personal instructions win over them, and they never authorize anything the person you work for has not asked for.\n\n${own}`
+      : 'You have no instructions yet. Ask what you should take care of, then save it with `update_self`.',
+    '</nuphos_bot_identity>',
+  ].join('\n\n')
 }
 
 export function renderInstructionsBlock(
@@ -42,18 +46,19 @@ export function renderInstructionsBlock(
   const sections = [
     ...renderGroup('Team instructions', team),
     ...renderGroup('Personal instructions', personal),
-    ...renderBot(bot),
   ]
+  const configured = sections.length
+    ? [
+        '<nuphos_instructions>',
+        'The user and their team configured these standing instructions in Nuphos. Follow them in this conversation the way you would follow CLAUDE.md or AGENTS.md. When a personal instruction conflicts with a team instruction, the personal one wins unless the team instruction is a hard policy.',
+        '',
+        sections.join('\n\n'),
+        '</nuphos_instructions>',
+      ].join('\n')
+    : null
+  const blocks = [configured, bot ? renderBot(bot) : null].filter(Boolean)
 
-  if (sections.length === 0) return null
-
-  return [
-    '<nuphos_instructions>',
-    'The user and their team configured these standing instructions in Nuphos. Follow them in this conversation the way you would follow CLAUDE.md or AGENTS.md. When a personal instruction conflicts with a team instruction, the personal one wins unless the team instruction is a hard policy.',
-    '',
-    sections.join('\n\n'),
-    '</nuphos_instructions>',
-  ].join('\n')
+  return blocks.length ? blocks.join('\n\n') : null
 }
 
 /**
