@@ -101,3 +101,21 @@ export function cardReplyId(
 ): string {
   return (questions && matchInputRequest(card, questions)?.id) ?? card.toolCallId
 }
+
+/**
+ * Whether a decision card takes an answer, and if not, why. A question still open
+ * in the record stays answerable after later messages and while a turn runs. Without
+ * the record, or once it is closed, only the latest idle reply can act.
+ */
+export type CardAnswerState = 'open' | 'closed' | 'busy' | 'offline'
+
+export function cardAnswerState(
+  card: DecisionCardRef,
+  openQuestions: readonly ReplyQuestion[] | undefined,
+  { latestIdle, canReply }: { latestIdle: boolean; canReply: boolean },
+): CardAnswerState {
+  if (!canReply) return 'offline'
+  if (latestIdle || (openQuestions && matchInputRequest(card, openQuestions))) return 'open'
+
+  return openQuestions ? 'closed' : 'busy'
+}

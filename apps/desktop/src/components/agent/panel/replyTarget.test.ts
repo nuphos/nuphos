@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import {
+  cardAnswerState,
   cardReplyId,
   conversationQuestions,
   matchInputRequest,
@@ -132,4 +133,17 @@ test('every open request of a conversation is a question, oldest first; settled 
       { id: 'late', question: 'late?' },
     ],
   )
+})
+
+test('an open question stays answerable after later messages and during a turn', () => {
+  const card = { toolCallId: 'call-1', question: 'API key for the fixture service' }
+  const open = [{ id: 'call-1', question: card.question, secret: true as const }]
+  const busy = { latestIdle: false, canReply: true }
+
+  assert.equal(cardAnswerState(card, open, busy), 'open')
+  assert.equal(cardAnswerState({ ...card, toolCallId: 'native-1' }, open, busy), 'open')
+  assert.equal(cardAnswerState(card, [], busy), 'closed')
+  assert.equal(cardAnswerState(card, undefined, busy), 'busy')
+  assert.equal(cardAnswerState(card, undefined, { latestIdle: true, canReply: true }), 'open')
+  assert.equal(cardAnswerState(card, open, { latestIdle: true, canReply: false }), 'offline')
 })

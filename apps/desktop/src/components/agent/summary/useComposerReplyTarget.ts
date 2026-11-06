@@ -15,7 +15,7 @@ export function useComposerReplyTarget(
   sessionId: string | null,
   teamId: string | undefined,
   { requests, loaded }: { requests: readonly SessionInputRequest[]; loaded: boolean },
-): { replyTarget?: ComposerReplyTarget; openQuestions: ReplyQuestion[] } {
+): { replyTarget?: ComposerReplyTarget; openQuestions?: ReplyQuestion[] } {
   const openQuestions = useMemo(
     () =>
       requests.flatMap(({ sessionId: asker, inputRequest }) =>
@@ -62,7 +62,10 @@ export function useComposerReplyTarget(
     [key, questions, sessionId],
   )
 
-  if (!sessionId || questions.length === 0) return { openQuestions }
+  // Undefined until listed, so a card doesn't read "not listed yet" as answered.
+  const listed = loaded ? openQuestions : undefined
+
+  if (!sessionId || questions.length === 0) return { openQuestions: listed }
 
   return {
     replyTarget: {
@@ -71,6 +74,6 @@ export function useComposerReplyTarget(
       chosen: replyChoice(sessionId, questions, pick, cleared),
       onChoose,
     },
-    openQuestions,
+    openQuestions: listed,
   }
 }

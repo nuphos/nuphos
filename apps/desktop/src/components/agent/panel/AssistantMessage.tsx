@@ -181,6 +181,7 @@ export const AssistantMessage = memo(
           onOpen: onOpenNuphosLink,
           now,
           canAct: isLatestReply && !streaming && canActOnPlans,
+          canReply: canActOnPlans,
           canApprove: isTeamAdmin && canActOnPlans,
         })
 

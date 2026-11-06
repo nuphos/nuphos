@@ -1,7 +1,7 @@
 import { createContext } from 'react'
 
 import type { CredentialSelectorControl } from './credentialSections'
-import type { DecisionCardRef } from './replyTarget'
+import type { DecisionCardRef, ReplyQuestion } from './replyTarget'
 
 export type ConnectCardContextValue = {
   // The conversation's credential picker; absent where the viewer cannot change it.
@@ -13,6 +13,8 @@ export type ConnectCardContextValue = {
   send: (text: string, card?: DecisionCardRef) => void
   // Writes a secret to a file on the agent's runtime and returns its path; absent when read-only.
   saveSecret?: (name: string, value: string) => Promise<string>
+  // The conversation's open questions once listed: a card asking one can still be answered.
+  openQuestions?: readonly ReplyQuestion[]
 }
 
 export const ConnectCardContext = createContext<ConnectCardContextValue | null>(null)

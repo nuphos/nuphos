@@ -71,6 +71,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   const { runtimeControl: conversationControl } = useConversationRuntimeControl(c)
   const { runtimeControl, queuedApproval } = useQueuedShareApproval(conversationControl, activeTab)
   const readOnlyNotice = useViewOnlyNotice(c)
+  const questions = c.openQuestions ?? c.replyTarget?.questions
   // The fork needs the chat stored on the server; each message is then gated on its author.
   const editableSessionId =
     activeTab && !activeTab.readOnly && !activeTab.unsaved ? activeTab.sessionId : undefined
@@ -174,12 +175,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     ? undefined
                     : visibleConversationCredentialSelector,
                   send: (text, card) =>
-                    void sendInActive(
-                      text,
-                      [],
-                      undefined,
-                      card && cardReplyId(card, c.openQuestions ?? c.replyTarget?.questions),
-                    ),
+                    void sendInActive(text, [], undefined, card && cardReplyId(card, questions)),
                   // Only the owner provides a secret; it lands on their runtime.
                   saveSecret:
                     activeTab.readOnly || activeTab.foreign
@@ -187,6 +183,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                       : async (name, value) =>
                           (await api.agentSaveSecret(activeTab.sessionId, name, value, teamId))
                             .path,
+                  openQuestions: c.openQuestions,
                 }}
               >
                 <Conversation

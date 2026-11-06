@@ -6,6 +6,8 @@ import { Button } from '../../ui/button'
 import { ConnectCardContext } from './connectCardContext'
 import { AgentQuote } from './ConnectCardRows'
 
+import type { CardAnswerState } from './replyTarget'
+
 /**
  * A secret the agent asked for: the value goes straight to a file on its
  * runtime, and only the file's path is sent as the reply.
@@ -14,18 +16,18 @@ export function SecretCard({
   toolCallId,
   name,
   reason,
-  canAct,
+  state,
 }: {
   toolCallId: string
   name: string
   reason: string
-  /** The latest reply and no turn running: only then can the value be sent. */
-  canAct: boolean
+  /** Whether the value can be sent now, and if not, why. */
+  state: CardAnswerState
 }) {
   const ctx = useContext(ConnectCardContext)
   const [value, setValue] = useState('')
   const [phase, setPhase] = useState<'idle' | 'saving' | 'sent' | 'error'>('idle')
-  const interactive = Boolean(ctx?.saveSecret) && canAct && phase !== 'sent'
+  const interactive = Boolean(ctx?.saveSecret) && state === 'open' && phase !== 'sent'
   const submit = async () => {
     if (!ctx?.saveSecret || !value) return
     setPhase('saving')
@@ -84,11 +86,7 @@ export function SecretCard({
             {t("Could not save it on the agent's runtime. Try again.")}
           </div>
         )}
-        {!ctx?.saveSecret && canAct && (
-          <div className="mt-1.5 text-[11.5px] text-tertiary">
-            {t('Only the owner of this conversation can provide this secret.')}
-          </div>
-        )}
+        {phase !== 'sent' && <SecretBlocked state={ctx?.saveSecret ? state : 'notOwner'} />}
         {phase !== 'sent' && (
           <div className="mt-1.5 text-[11.5px] text-tertiary">
             {t(
@@ -99,4 +97,19 @@ export function SecretCard({
       </div>
     </div>
   )
+}
+
+/** Why the value can't be sent right now, and what makes it possible. */
+function SecretBlocked({ state }: { state: CardAnswerState | 'notOwner' }) {
+  const why = {
+    open: null,
+    notOwner: t('Only the owner of this conversation can provide this secret.'),
+    offline: t(
+      "The agent's runtime isn't reachable. Wake or reconnect the computer it runs on to send this.",
+    ),
+    busy: t('The agent is working. You can send this when its turn ends.'),
+    closed: t('This request is closed. Ask the agent to request the secret again.'),
+  }[state]
+
+  return why && <div className="mt-1.5 text-[11.5px] text-tertiary">{why}</div>
 }
