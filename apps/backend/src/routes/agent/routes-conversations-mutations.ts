@@ -1,6 +1,5 @@
 import { z } from 'zod'
 
-import { config } from '@/config'
 import {
   getConversationBySessionId,
   getReadableConversation,
@@ -241,7 +240,6 @@ agent.put('/conversations/:sessionId/transcript', async (c) => {
     firstMessage,
     messages,
     locale,
-    provider: config.agent.modelProvider,
     agentRuntime: instance?.provider ?? body.agentRuntime,
     runtimeId: instance?.id,
     runtimeLabel: instance?.label,

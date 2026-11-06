@@ -19,14 +19,6 @@ export function completedTurnOutput(parts: UIMessage['parts'], segments: UIMessa
       ? { ...message, parts: withoutEmptyTurnSentinel(message.parts) }
       : message,
   )
-  const answer = [
-    ...steered
-      .filter((message) => message.role === 'assistant')
-      .flatMap((message) => message.parts),
-    ...cleanParts,
-  ]
-    .flatMap((part) => (part.type === 'text' ? [part.text] : []))
-    .join('\n\n')
 
-  return { parts: cleanParts, steered, answer }
+  return { parts: cleanParts, steered }
 }

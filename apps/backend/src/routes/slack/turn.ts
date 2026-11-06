@@ -210,8 +210,8 @@ export async function executeSlackAgentTurn(args: SlackAgentTurnArgs): Promise<v
       // user message resumes it — without this note the thread goes quiet.
       await sink.say(
         pausedTurnKind(outcome.pauseReason) === 'budget-exhausted'
-          ? '_This task was too long to finish in one turn. Reply in this thread and I will pick up where I left off._'
-          : '_This turn stopped responding before finishing. Reply in this thread to pick it back up._',
+          ? '_This task was too long to finish in one turn. Mention me in this thread and I will pick up where I left off._'
+          : '_This turn stopped responding before finishing. Mention me in this thread to pick it back up._',
       )
     } else if (sink.terminal() === 'error') {
       // The run ended on an error frame without runAgentForTrigger throwing

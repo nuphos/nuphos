@@ -1271,7 +1271,7 @@ describe('a report that opens its own reply thread', () => {
     ])
     expect(postedMessages[1]?.text).toContain('Full breakdown per instance…')
     // The invitation is the server's, not the model's.
-    expect(postedMessages[1]?.text).toContain('Reply in this thread')
+    expect(postedMessages[1]?.text).toContain('Mention me in this thread')
     // The root is seeded by bindThread's rootText; the reply under it must be
     // appended separately or the fork's judge never sees the bot's own report.
     expect(transcriptAppends).toEqual([

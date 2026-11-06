@@ -8,7 +8,6 @@ import { describe, expect, test } from 'bun:test'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAgentPlans } from '@/lib/test/doubles/agent-plans'
-import { useTitleGenerator } from '@/lib/test/doubles/title-generator'
 
 import type { AgentRun } from './types'
 import type { UIMessage } from 'ai'
@@ -16,7 +15,6 @@ import type { UIMessage } from 'ai'
 const persisted: { messages: { id: string; role: string; parts: unknown[] }[] }[] = []
 const storedAt = new Date('2026-10-09T04:00:00.000Z')
 let createdPlans: unknown[] = []
-let titleGate: Promise<void> = Promise.resolve()
 
 useAgentDb({
   appendTranscriptMessages: (args) => {
@@ -30,14 +28,6 @@ useAgentDb({
       messageId: message.id,
       createdAt: message.id === 'old-answer' ? new Date('2026-10-08T04:00:00.000Z') : storedAt,
     })),
-  getConversation: async () => {
-    await titleGate
-
-    return { title: 'kept' }
-  },
-})
-useTitleGenerator({
-  generateConversationTitle: () => Promise.resolve('t'),
 })
 useAgentPlans({
   listPlansCreatedForConversation: async () => createdPlans,
@@ -66,7 +56,6 @@ describe('finishPreviewTurn with steering segments', () => {
       requestId: 'r1',
       startedAt: 0,
       text: 'answer 2',
-      answer: 'answer 1\n\nanswer 2',
       reasoning: '',
       toolSteps: [],
       finalStepStart: 0,
@@ -114,7 +103,6 @@ describe('finishPreviewTurn with steering segments', () => {
       requestId: 'r2',
       startedAt: 1,
       text: 'Review the risk before approval.',
-      answer: 'Review the risk before approval.',
       reasoning: '',
       toolSteps: [],
       finalStepStart: 0,
@@ -128,51 +116,6 @@ describe('finishPreviewTurn with steering segments', () => {
     expect(final).toContain('plan_create')
     expect(final).toContain('404')
   })
-})
-
-test('title enrichment cannot keep a completed runtime turn open', async () => {
-  let release!: () => void
-
-  titleGate = new Promise<void>((resolve) => {
-    release = resolve
-  })
-  const events: string[] = []
-  const finishing = finishPreviewTurn({
-    run: { trace: undefined } as unknown as AgentRun,
-    sessionId: 'slow-title',
-    teamId: 'team',
-    userId: 'owner',
-    messages: [],
-    firstMessage: 'start',
-    locale: 'en-US',
-    provider: 'test',
-    requestId: 'request',
-    startedAt: 0,
-    text: 'Done',
-    answer: 'Done',
-    reasoning: '',
-    toolSteps: [],
-    finalStepStart: 0,
-    steered: [],
-    memory: null,
-    emit: (frame) => {
-      events.push(String(frame.type))
-    },
-    onRuntimeComplete: () => {
-      events.push('runtime-complete')
-    },
-  })
-  let finished = false
-
-  void finishing.then(() => {
-    finished = true
-  })
-  await Bun.sleep(0)
-  expect(events).toEqual(['atlas-transcript-tail', 'runtime-complete'])
-  expect(finished).toBe(false)
-  release()
-  await finishing
-  titleGate = Promise.resolve()
 })
 
 for (const interrupted of [false, true]) {
@@ -201,7 +144,6 @@ for (const interrupted of [false, true]) {
       requestId: 'request',
       startedAt: 0,
       text: 'New files',
-      answer: 'New files',
       reasoning: '',
       toolSteps: [],
       finalStepStart: 0,
@@ -250,7 +192,6 @@ for (const interrupted of [false, true]) {
       requestId: 'request',
       startedAt: 0,
       text: 'partial answer',
-      answer: 'partial answer',
       reasoning: '',
       toolSteps: [],
       finalStepStart: 0,
@@ -293,7 +234,6 @@ test('a completed turn without text or tools preserves its assistant completion 
     requestId: 'empty-run',
     startedAt: 0,
     text: '',
-    answer: '',
     reasoning: '',
     orderedParts: [],
     toolSteps: [],
@@ -329,7 +269,6 @@ describe('successful empty completion', () => {
         requestId: 'silent',
         startedAt: 0,
         text,
-        answer: text,
         reasoning: '',
         orderedParts: text ? [{ type: 'text', text }] : [],
         toolSteps: [],

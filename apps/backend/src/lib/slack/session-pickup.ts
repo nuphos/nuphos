@@ -83,7 +83,7 @@ function pickupRootText(title: string): string {
   return [
     `**Picked up from Nuphos: ${title}**`,
     '',
-    'Reply in this thread to continue the conversation. Turns driven from here run in the cloud sandbox — tools that execute on your computer (local shell, port forwards) are unavailable until you continue from the desktop app again.',
+    'Mention me in this thread to continue the conversation. Turns driven from here run in the cloud sandbox — tools that execute on your computer (local shell, port forwards) are unavailable until you continue from the desktop app again.',
   ].join('\n')
 }
 

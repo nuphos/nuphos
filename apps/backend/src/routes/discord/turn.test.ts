@@ -26,7 +26,7 @@ const message = {
 } as unknown as UIMessage
 
 function setup(options: { bound?: boolean; connected?: boolean } = {}) {
-  const calls = { posts: [] as string[][], recorded: [] as unknown[], synced: [] as unknown[][] }
+  const calls = { posts: [] as string[][], synced: [] as unknown[][] }
   const deps = {
     discordAgentThreads: () => ({
       findOne: async (filter: unknown) => {
@@ -38,9 +38,6 @@ function setup(options: { bound?: boolean; connected?: boolean } = {}) {
     isDiscordThreadConnected: async () => options.connected !== false,
     sendDiscordMessage: async (...args: string[]) => {
       calls.posts.push(args)
-    },
-    recordDiscordThreadMessage: async (_session: string, entry: unknown) => {
-      calls.recorded.push(entry)
     },
     syncDiscordThread: async (...args: unknown[]) => {
       calls.synced.push(args)
@@ -58,9 +55,6 @@ test('an app turn in a bound session posts the sender to the thread and syncs wh
   )
 
   expect(calls.posts).toEqual([['thread', '**Alice** (from Nuphos):\nship it?']])
-  expect(calls.recorded).toEqual([
-    { id: expect.any(String), authorName: 'Alice', text: 'ship it?' },
-  ])
   await mirror?.finish()
   expect(calls.synced).toEqual([[thread, 'owner']])
 })

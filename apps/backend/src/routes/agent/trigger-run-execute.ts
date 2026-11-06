@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto'
 
 import { initializeSessionBypass } from '@/lib/agent/auto-mode/store'
 import { getConversationBySessionId } from '@/lib/agent/db'
-import { regionLabel } from '@/lib/agent/model-provider'
 import { startTraceSpan } from '@/lib/agent/tracing'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
 import { fallBackBeforeTurn } from '@/lib/claude-code-preview/runtime-fallback'
@@ -117,7 +116,6 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       locale,
       provider: runtimeProvider,
       modelId: runtimeModelId,
-      region: regionLabel(),
       isNewConversation: isPotentialNewConversation,
       messageCount: messages.length,
     },

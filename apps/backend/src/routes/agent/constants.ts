@@ -10,7 +10,6 @@ export const MODEL_OUTPUT_BUDGET_TOKENS = Math.min(
 
 if (config.agent.modelOutputBudgetTokens > MAX_OUTPUT_TOKENS) {
   logEvent('warn', 'agent.config.output_budget_clamped', {
-    model_id: config.agent.agentModelId,
     max_output_tokens: MAX_OUTPUT_TOKENS,
     requested_model_output_budget_tokens: config.agent.modelOutputBudgetTokens,
     model_output_budget_tokens: MODEL_OUTPUT_BUDGET_TOKENS,

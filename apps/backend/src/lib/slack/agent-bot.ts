@@ -1,6 +1,5 @@
 export {
   SLACK_THREAD_WINDOW,
-  slackAddressingVerdicts,
   slackAgentThreads,
   slackAssistantThreadContexts,
   slackChannelMappings,
@@ -8,7 +7,6 @@ export {
   slackReplyFeedback,
   slackUserMappings,
 } from '@/lib/slack/agent-bot/collections'
-export { recordSlackAddressingVerdict } from '@/lib/slack/agent-bot/addressing-verdicts'
 export {
   claimSlackEvent,
   getSlackAssistantThreadContext,
@@ -44,7 +42,6 @@ export {
 } from '@/lib/slack/agent-bot/threads'
 
 export type {
-  SlackAddressingVerdict,
   SlackAgentThread,
   SlackAgentThreadSummary,
   SlackAssistantThreadContext,

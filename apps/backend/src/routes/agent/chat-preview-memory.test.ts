@@ -7,10 +7,8 @@ import '@/routes/agent'
 import { createTurnMemoryAccumulator } from '@/lib/agent/memory-slots/turn-accumulator'
 import { useChatPrep } from '@/lib/test/doubles/chat-prep'
 import { useAttributionCapture } from '@/lib/test/doubles/memory-attribution-capture'
-import { useAttributionJudge } from '@/lib/test/doubles/memory-attribution-judge'
 
 import type { TurnMemoryResult } from '@/routes/agent/chat-prep'
-import type { UIMessage } from 'ai'
 
 const turnMemory = {
   resolution: { kind: 'active', providerId: 'native', provider: {} },
@@ -22,7 +20,6 @@ useChatPrep({
 })
 
 const captured: unknown[] = []
-const judged: unknown[] = []
 
 useAttributionCapture({
   captureTurnAttribution: (input) => {
@@ -31,19 +28,8 @@ useAttributionCapture({
     return Promise.resolve()
   },
 })
-useAttributionJudge({
-  runAttributionJudge: (input) => {
-    judged.push(input)
-
-    return Promise.resolve()
-  },
-})
 
 const { finishPreviewTurnMemory, resolvePreviewTurnMemory } = await import('./chat-preview-memory')
-
-const messages = [
-  { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'which cluster is prod?' }] },
-] as unknown as UIMessage[]
 
 const accumulator = () =>
   createTurnMemoryAccumulator({
@@ -58,26 +44,23 @@ const accumulator = () =>
 
 beforeEach(() => {
   captured.length = 0
-  judged.length = 0
 })
 
 describe('resolvePreviewTurnMemory', () => {
-  test('resolves the provider and keeps the raw query for the judge', async () => {
+  test('resolves the provider', async () => {
     const memory = await resolvePreviewTurnMemory({
       sessionId: 's1',
       userId: 'u1',
       teamId: 't1',
       requestId: 'r1',
-      messages,
     })
 
     expect(memory.turnMemory).toBe(turnMemory)
-    expect(memory.memoryQuery).toBe('which cluster is prod?')
   })
 })
 
 describe('finishPreviewTurnMemory', () => {
-  test('feeds what the agent fetched to the provenance frame, attribution, and the judge', async () => {
+  test('feeds what the agent fetched to the provenance frame and attribution', async () => {
     const emitted: Record<string, unknown>[] = []
     const acc = accumulator()
 
@@ -87,8 +70,7 @@ describe('finishPreviewTurnMemory', () => {
       userId: 'u1',
       teamId: 't1',
       requestId: 'r1',
-      memory: { turnMemory: { ...turnMemory, accumulator: acc }, memoryQuery: 'which is prod?' },
-      answer: 'prod-a',
+      memory: { turnMemory: { ...turnMemory, accumulator: acc } },
       emitFrame: (frame) => emitted.push(frame),
     })
 
@@ -109,12 +91,6 @@ describe('finishPreviewTurnMemory', () => {
       turnKey: 'r1',
       fetchedPersonalIds: ['m2'],
     })
-    expect(judged[0]).toMatchObject({
-      query: 'which is prod?',
-      answer: 'prod-a',
-      fetchedLabels: new Map([['m2', 'prod-a uses m7i-flex']]),
-      fetchedPersonalIds: ['m2'],
-    })
   })
 
   test('a turn that fetched nothing emits no frame but still records the turn', async () => {
@@ -125,8 +101,7 @@ describe('finishPreviewTurnMemory', () => {
       userId: 'u1',
       teamId: 't1',
       requestId: 'r2',
-      memory: { turnMemory: { ...turnMemory, accumulator: accumulator() }, memoryQuery: 'hi' },
-      answer: 'hello',
+      memory: { turnMemory: { ...turnMemory, accumulator: accumulator() } },
       emitFrame: (frame) => emitted.push(frame),
     })
 
@@ -140,11 +115,9 @@ describe('finishPreviewTurnMemory', () => {
       userId: 'u1',
       teamId: 't1',
       requestId: 'r3',
-      memory: { turnMemory, memoryQuery: 'hi' },
-      answer: 'hello',
+      memory: { turnMemory },
     })
 
     expect(captured).toHaveLength(0)
-    expect(judged).toHaveLength(0)
   })
 })

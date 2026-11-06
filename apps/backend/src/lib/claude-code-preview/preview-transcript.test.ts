@@ -8,43 +8,24 @@ import {
   interruptToolSteps,
 } from './preview-transcript'
 
-import type { AgentConversation } from '@/lib/agent/db'
 import type { UIMessage } from 'ai'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
-import { useTitleGenerator } from '@/lib/test/doubles/title-generator'
 
-let storedTitle = ''
 const SENDER = {
   version: 1 as const,
   sender: { type: 'user' as const, id: 'u-ada', displayName: 'Ada' },
   source: 'nuphos' as const,
   sentAt: '2026-09-29T00:00:00.000Z',
 }
-const titleUpdates: string[] = []
-const generated: string[] = []
 
 useAgentDb({
-  getConversation: () => Promise.resolve({ title: storedTitle } as unknown as AgentConversation),
-  updateConversationTitle: (_sessionId, _userId, title) => {
-    titleUpdates.push(title)
-
-    return Promise.resolve(null)
-  },
   getCompactionSummary: () =>
     Promise.resolve({ summary: 'Earlier: set up the cluster.', messageCount: 8 }),
-})
-useTitleGenerator({
-  generateConversationTitle: (userMessage) => {
-    generated.push(userMessage)
-
-    return Promise.resolve('Generated title')
-  },
 })
 
 const {
   createPreviewAssistantPartAccumulator,
-  ensurePreviewTitle,
   previewAssistantMessageParts,
   previewCompactionSummary,
 } = await import('./preview-transcript')
@@ -226,36 +207,6 @@ describe('previewHistoryPreamble', () => {
 
   test('previewCompactionSummary reads the stored summary text', async () => {
     expect(await previewCompactionSummary('s', 'u')).toBe('Earlier: set up the cluster.')
-  })
-})
-
-describe('ensurePreviewTitle', () => {
-  const args = {
-    sessionId: 's1',
-    userId: 'u1',
-    teamId: 't1',
-    firstMessage: 'How many LKE clusters do I have?',
-    assistantResponse: 'You have 9.',
-    locale: 'zh-TW',
-  }
-
-  test('generates a title while the conversation still carries the fallback', async () => {
-    storedTitle = 'How many LKE clusters do I have?'
-    titleUpdates.length = 0
-    await ensurePreviewTitle(args)
-
-    expect(generated).toEqual(['How many LKE clusters do I have?'])
-    expect(titleUpdates).toEqual(['Generated title'])
-  })
-
-  test('leaves a real title alone', async () => {
-    storedTitle = 'LKE cluster inventory'
-    titleUpdates.length = 0
-    generated.length = 0
-    await ensurePreviewTitle(args)
-
-    expect(generated).toEqual([])
-    expect(titleUpdates).toEqual([])
   })
 })
 

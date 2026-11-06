@@ -94,7 +94,6 @@ export function createTeamMemoryTools(ctx: {
       getActivePlanId,
     }),
     memory_get: createMemoryGetTool({
-      conversationId,
       userId,
       teamId,
       onMemoryFetched,

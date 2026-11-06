@@ -76,7 +76,7 @@ export async function resumeApprovedPlanTurn(args: {
         token: runtime.botToken,
         channel: args.thread.slackChannelId,
         threadTs: args.thread.slackThreadTs,
-        text: 'The previous turn is still running, so I couldn\'t start the approved plan automatically. Reply here (e.g. "run the approved plan") once it finishes and I\'ll execute it.',
+        text: 'The previous turn is still running, so I couldn\'t start the approved plan automatically. Mention me here (e.g. "run the approved plan") once it finishes and I\'ll execute it.',
       })
 
       return

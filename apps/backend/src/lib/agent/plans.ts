@@ -16,7 +16,6 @@ export {
   findProposedPlanNumberForConversation,
   getPlan,
   getPlanDocument,
-  hasPlanAwaitingApprovalForConversation,
   listActivePlansForConversation,
   listPlansCreatedForConversation,
   listMongoDatabasePlanDocuments,

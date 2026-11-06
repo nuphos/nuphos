@@ -38,7 +38,6 @@ function setup(
     enabled?: boolean
     linked?: boolean
     registered?: boolean
-    addressed?: boolean | null
     teamId?: string
     generation?: number
   } = {},
@@ -46,8 +45,6 @@ function setup(
   const calls = {
     posts: [] as string[],
     turns: [] as Record<string, unknown>[],
-    judged: 0,
-    recorded: 0,
     userLookups: 0,
     context: [] as {
       messageId: string
@@ -73,7 +70,6 @@ function setup(
           text: event.content ?? '',
         })
     },
-    discordDecisions: () => ({ findOne: async () => null }),
     discordAgentThreads: () => ({
       findOne: async () => (options.registered === false ? null : thread),
     }),
@@ -102,19 +98,6 @@ function setup(
       calls.posts.push(text)
     },
     getOrCreateDiscordThread: async () => thread,
-    getDiscordThreadHistory: async () => [
-      { id: 'prior', authorName: 'Nuphos', text: 'Production is healthy.', fromBot: true },
-    ],
-    recordDiscordThreadMessage: async () => {
-      calls.recorded++
-    },
-    judgeThreadAddressing: async () => {
-      calls.judged++
-
-      return {
-        verdict: options.addressed === null ? null : { addressed: options.addressed !== false },
-      }
-    },
     createMessageMetadata: async (userId: string, source: string) => ({
       version: 1,
       sender: { type: 'user', id: userId, displayName: 'Actor' },
@@ -160,18 +143,17 @@ describe('Discord conversation admission', () => {
     expect(calls.turns).toEqual([])
     expect(calls.userLookups).toBe(0)
   })
-  test('follow-ups do not require a mention and run as the sender, not the owner', async () => {
+  test('a mention in a thread runs as the sender, not the owner', async () => {
+    const { calls, dependencies } = setup()
+
+    await handleDiscordMention(message(), 'bot', false, dependencies)
+    expect(calls.turns[0]).toMatchObject({ actorUserId: 'actor', ownerUserId: 'owner' })
+  })
+  test('an unmentioned thread message is remembered but does not trigger a reply', async () => {
     const { calls, dependencies } = setup()
 
     await handleDiscordMention(message(false), 'bot', false, dependencies)
-    expect(calls.judged).toBe(1)
-    expect(calls.turns[0]).toMatchObject({ actorUserId: 'actor', ownerUserId: 'owner' })
-  })
-  test('human chatter is remembered but does not trigger a reply', async () => {
-    const { calls, dependencies } = setup({ addressed: false })
-
-    await handleDiscordMention(message(false), 'bot', false, dependencies)
-    expect(calls.recorded).toBe(1)
+    expect(calls.context).toHaveLength(1)
     expect(calls.turns).toEqual([])
     expect(calls.posts).toEqual([])
     // It still reaches the session the moment it arrives.
@@ -207,19 +189,6 @@ describe('Discord conversation admission', () => {
     })
     expect(discordReplyQuote({ content: '' })).toBeUndefined()
   })
-  test('direct mentions bypass the addressing judge', async () => {
-    const { calls, dependencies } = setup({ addressed: false })
-
-    await handleDiscordMention(message(), 'bot', false, dependencies)
-    expect(calls.judged).toBe(0)
-    expect(calls.turns).toHaveLength(1)
-  })
-  test('judge failures keep follow-ups responsive', async () => {
-    const { calls, dependencies } = setup({ addressed: null })
-
-    await handleDiscordMention(message(false), 'bot', false, dependencies)
-    expect(calls.turns).toHaveLength(1)
-  })
   test('a message sent during a busy turn runs once that turn ends, with no follow-up', async () => {
     const { calls, dependencies } = setup()
     const busy = createAgentRun('owner', 'session', 'stream-busy', {
@@ -254,28 +223,8 @@ describe('Discord conversation admission', () => {
 })
 
 describe('Discord collaborative follow-ups', () => {
-  test('passes collaborative context to the judge even when a teammate is mentioned', async () => {
-    const { calls, dependencies } = setup()
-    const originalJudge = dependencies.judgeThreadAddressing
-
-    dependencies.judgeThreadAddressing = async (input) => {
-      expect(input.participation).toBe('collaborative')
-      expect(input.incoming.text).toContain('SUP-17431')
-      expect(input.history).toHaveLength(1)
-
-      return await originalJudge(input)
-    }
-    await handleDiscordMention(
-      { ...message(false), content: '<@colleague> 他在處理 SUP-17431 好像需要操作 DNS' },
-      'bot',
-      false,
-      dependencies,
-    )
-    expect(calls.turns).toHaveLength(1)
-  })
-
   test('ignored messages accumulate as session context and a later mention does not replay them', async () => {
-    const { calls, dependencies } = setup({ addressed: false })
+    const { calls, dependencies } = setup()
 
     await handleDiscordMention(
       { ...message(false), id: 'first', content: 'Alice is checking DNS.' },

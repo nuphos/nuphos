@@ -1,12 +1,9 @@
-import { generateText, Output } from 'ai'
-import { MockLanguageModelV3 } from 'ai/test'
 import { afterEach, beforeEach, expect, test } from 'bun:test'
-import { z } from 'zod'
 
 import { config } from '@/config'
 import { useDb } from '@/lib/test/doubles/db'
 
-import { aiTelemetry, startTraceSpan, traced, wrapAI } from '../tracing'
+import { startTraceSpan, traced } from '../tracing'
 
 import { MongoTraceSpan, traceParent } from './span'
 import { flushTraceWrites, serializeTracePayload } from './store'
@@ -120,87 +117,6 @@ test('errors keep stack and cause; unrecognized parents are ignored', async () =
     a: shared,
     b: shared,
   })
-})
-
-const model = () =>
-  new MockLanguageModelV3({
-    doGenerate: async () => ({
-      content: [{ type: 'text' as const, text: '{"answer":"yes"}' }],
-      finishReason: { unified: 'stop' as const, raw: 'stop' },
-      usage: {
-        inputTokens: { total: 3, noCache: 3, cacheRead: 0, cacheWrite: 0 },
-        outputTokens: { total: 4, text: 4, reasoning: 0 },
-      },
-      warnings: [],
-      providerMetadata: { test: { marker: 'retained' } },
-      response: {
-        id: 'response-1',
-        timestamp: new Date('2026-01-01T00:00:00.000Z'),
-        modelId: 'test',
-        headers: { secret: 'excluded' },
-      },
-    }),
-  })
-
-test('real AI SDK records resolved provider prompt, structured output, usage and response metadata', async () => {
-  const wrapped = wrapAI({ generateText })
-  const result = await wrapped.generateText({
-    model: model(),
-    system: 'system instructions',
-    prompt: 'question',
-    output: Output.object({ schema: z.object({ answer: z.string() }) }),
-    experimental_telemetry: aiTelemetry({
-      sessionId: 'sdk-session',
-      teamId: 'sdk-team',
-      userId: 'sdk-user',
-    }),
-  })
-
-  expect(result.output).toEqual({ answer: 'yes' })
-  await flushTraceWrites()
-  const rows = events()
-
-  expect(rows.find((row) => row.name === 'ai.doGenerate' && row.kind === 'start')?.sessionId).toBe(
-    'sdk-session',
-  )
-  const input = payload(
-    rows.find((row) => row.name === 'ai.doGenerate' && row.kind === 'start')!,
-  ).input
-
-  expect(JSON.stringify(input)).toContain('system instructions')
-  const output = payload(
-    rows.find((row) => row.name === 'generateText' && row.kind === 'log' && payload(row).output)!,
-  ).output
-
-  expect(output).toMatchObject({
-    text: '{"answer":"yes"}',
-    output: { answer: 'yes' },
-    response: { id: 'response-1' },
-    totalUsage: { inputTokens: 3, outputTokens: 4 },
-  })
-  expect(JSON.stringify(rows)).not.toContain('excluded')
-})
-
-// Captured from the removed vendor SDK 3.9.0 using this mock provider.
-// Keep the fixture as a content-parity contract without retaining the dependency.
-test('Mongo preserves the pre-removal generation output contract', async () => {
-  const { default: expected } = await import('./fixtures/generate-text.json')
-
-  await wrapAI({ generateText }).generateText({
-    model: model(),
-    system: 'parity system',
-    prompt: 'parity input',
-  })
-  await flushTraceWrites()
-  const nativeCall = events().find(
-    (row) => row.name === 'generateText' && row.kind === 'log' && payload(row).output,
-  )
-
-  expect(payload(nativeCall!).output).toMatchObject(expected)
-  const all = JSON.stringify(events().map(payload))
-
-  for (const marker of ['parity system', 'parity input', 'response-1', 'retained', 'answer'])
-    expect(all).toContain(marker)
 })
 
 test('native exports preserve ids and ownership across later spans', async () => {

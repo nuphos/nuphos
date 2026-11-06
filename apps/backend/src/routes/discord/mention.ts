@@ -1,5 +1,5 @@
 import { buildPendingUserMessage } from '@/lib/agent/pending-messages'
-import { logError, logEvent } from '@/lib/observability'
+import { logError } from '@/lib/observability'
 
 import { defaultDependencies } from './message-dependencies'
 import { ingestDiscordAttachments } from './attachments'
@@ -24,7 +24,6 @@ export async function handleDiscordMention(
 ): Promise<void> {
   const {
     recordDiscordSessionMessage,
-    discordDecisions,
     claimDiscordEvent,
     discordAgentThreads,
     discordChannelMappings,
@@ -38,9 +37,6 @@ export async function handleDiscordMention(
     createDiscordThread,
     getDiscordChannel,
     sendDiscordMessage,
-    getDiscordThreadHistory,
-    recordDiscordThreadMessage,
-    judgeThreadAddressing,
     buildMessagesForDiscordTurn,
     syncDiscordThread,
     createMessageMetadata,
@@ -49,8 +45,8 @@ export async function handleDiscordMention(
   } = dependencies
 
   if (!event.guild_id || !event.author || event.author.id === botUserId) return
-  const canTrigger = !event.author.bot && !event.webhook_id
-  const mentioned = canTrigger && isDirectDiscordMention(event, botUserId)
+  const mentioned =
+    !event.author.bot && !event.webhook_id && isDirectDiscordMention(event, botUserId)
   const registeredThread = await discordAgentThreads().findOne({
     guildId: event.guild_id,
     threadChannelId: event.channel_id,
@@ -101,7 +97,9 @@ export async function handleDiscordMention(
     ) {
       await recordDiscordSessionMessage(registeredThread, event, senderName)
     }
-    if (!canTrigger) {
+    // Nuphos answers only when mentioned; other thread messages are kept as
+    // session context above.
+    if (!mentioned) {
       await markDiscordEvent(event.id, 'ignored')
 
       return
@@ -118,20 +116,18 @@ export async function handleDiscordMention(
       : null
 
     if (!userMapping || !membership) {
-      if (mentioned)
-        await sendDiscordMessage(
-          event.channel_id,
-          'Link your Discord account first: in Nuphos, open Connectors → Add connector → Discord.',
-        ).catch(() => {})
+      await sendDiscordMessage(
+        event.channel_id,
+        'Link your Discord account first: in Nuphos, open Connectors → Add connector → Discord.',
+      ).catch(() => {})
       await markDiscordEvent(event.id, 'completed')
 
       return
     }
-    const text = discordMessageText(event, botUserId, mentioned && registeredThread !== null)
+    const text = discordMessageText(event, botUserId, registeredThread !== null)
 
     if (!text) {
-      if (mentioned)
-        await sendDiscordMessage(event.channel_id, 'What would you like Nuphos to look into?')
+      await sendDiscordMessage(event.channel_id, 'What would you like Nuphos to look into?')
       await markDiscordEvent(event.id, 'completed')
 
       return
@@ -168,51 +164,6 @@ export async function handleDiscordMention(
       return
     }
     if (!registeredThread) await recordDiscordSessionMessage(thread, event, senderName)
-    const history = (await getDiscordThreadHistory(thread.sessionId)).filter(
-      (entry) => entry.id !== event.id,
-    )
-
-    let ignoredByAgent = false
-
-    if (!mentioned) {
-      const pendingDecision = Boolean(
-        await discordDecisions().findOne({
-          sessionId: thread.sessionId,
-          status: 'pending',
-          expiresAt: { $gt: new Date() },
-        }),
-      )
-      const judgement = await judgeThreadAddressing({
-        botName: 'Nuphos',
-        participation: 'collaborative',
-        history,
-        pendingDecision,
-        incoming: { authorName: senderName, text },
-        context: { userId: thread.agentUserId, sessionId: thread.sessionId, teamId: thread.teamId },
-      })
-
-      logEvent('info', 'discord.agent.thread_addressing', {
-        team_id: thread.teamId,
-        session_id: thread.sessionId,
-        discord_thread_id: thread.threadChannelId,
-        addressed: judgement.verdict?.addressed ?? true,
-        fail_open: judgement.verdict === null,
-        reason: judgement.verdict?.reason,
-      })
-      ignoredByAgent = judgement.verdict?.addressed === false
-    }
-    await recordDiscordThreadMessage(thread.sessionId, {
-      id: event.id,
-      authorName: senderName,
-      authorDiscordUserId: event.author.id,
-      recordedAt: new Date(),
-      text,
-    })
-    if (ignoredByAgent) {
-      await markDiscordEvent(event.id, 'ignored')
-
-      return
-    }
     const attached = await ingestDiscordAttachments({
       attachments: event.attachments,
       teamId: thread.teamId,

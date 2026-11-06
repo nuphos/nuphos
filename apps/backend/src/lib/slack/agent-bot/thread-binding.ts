@@ -1,4 +1,4 @@
-import { clipTranscriptText } from '@/lib/agent/thread-addressing-core'
+import { clipTranscriptText } from '@/lib/agent/thread-transcript'
 import { slackAgentThreads } from '@/lib/slack/agent-bot/collections'
 
 import type { SlackAgentThread } from '@/lib/slack/agent-bot/collections'

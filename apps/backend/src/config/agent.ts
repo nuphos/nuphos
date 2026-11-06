@@ -1,67 +1,11 @@
-import { bool, boundedFloat, boundedInt, optional } from './env'
-import { MODEL_PROVIDER, SMALL_MODEL_DEFAULT, modelId } from './model'
+import { bool, boundedInt, optional } from './env'
 
-// Claude Opus 4.7 on Bedrock supports up to 128K output tokens. This is only
-// the configurable envelope; deployments should keep ATLAS_AGENT_MAX_OUTPUT_TOKENS
-// at or below the actual model selected by AGENT_MODEL_ID.
+// The configurable output-token envelope; deployments should keep
+// ATLAS_AGENT_MAX_OUTPUT_TOKENS at or below what the runtime's model supports.
 const AGENT_OUTPUT_TOKEN_CONFIG_MAX = 128_000
 
 export function agentConfig() {
   return {
-    // Which hosted-Claude backend serves every model call. The two providers
-    // reach the same Anthropic models but NOT with the same wire options —
-    // prompt caching, extended thinking and the token-usage provider label all
-    // differ in shape, so the switch is explicit here and consumed through
-    // lib/agent/model-provider.ts, never inferred from the model id.
-    //   'bedrock' (default) -> AWS Bedrock, `us.anthropic.claude-*` ids
-    //   'vertex'            -> GCP Vertex AI Model Garden, bare `claude-*` ids
-    modelProvider: MODEL_PROVIDER,
-    bedrockRegion: process.env.AWS_BEDROCK_REGION ?? 'us-east-1',
-    bedrockAccessKeyId: optional('AWS_BEDROCK_ACCESS_KEY_ID'),
-    bedrockSecretAccessKey: optional('AWS_BEDROCK_SECRET_ACCESS_KEY'),
-    // Vertex: GCP project + region. Auth is Application Default Credentials
-    // (gcloud auth application-default login, or a workload identity on the
-    // pod) — there is no key pair to configure. 'global' routes to the
-    // multi-region endpoint and is what Model Garden recommends for Claude.
-    vertexProject: optional('GOOGLE_VERTEX_PROJECT'),
-    vertexLocation: process.env.GOOGLE_VERTEX_LOCATION ?? 'global',
-    agentModelId: modelId('AGENT_MODEL_ID', SMALL_MODEL_DEFAULT),
-    // Optional model to switch to when a turn-loop round exhausts its retries
-    // on a retryable provider error (throttling / 5xx). Unset = keep retrying
-    // the primary model only.
-    fallbackModelId: modelId('AGENT_FALLBACK_MODEL_ID'),
-    // Sticky per-conversation fallback: once any turn is refused by the model's
-    // safety filter (finishReason 'content-filter'), every later turn in that
-    // conversation runs on this model instead of the primary. Defaults to Opus
-    // 4.8 on Vertex (prod). Bedrock has no safe bare default here — a
-    // Vertex-form id would fail the provider assertion at boot — so it reuses
-    // the primary model unless AGENT_CONTENT_FILTER_FALLBACK_MODEL_ID is set to
-    // a Bedrock inference profile.
-    contentFilterFallbackModelId:
-      MODEL_PROVIDER === 'vertex'
-        ? modelId('AGENT_CONTENT_FILTER_FALLBACK_MODEL_ID', 'claude-opus-4-8')
-        : modelId(
-            'AGENT_CONTENT_FILTER_FALLBACK_MODEL_ID',
-            modelId('AGENT_MODEL_ID', SMALL_MODEL_DEFAULT),
-          ),
-    compactionModelId: modelId('AGENT_COMPACTION_MODEL_ID', SMALL_MODEL_DEFAULT),
-    // ADR-0008 rung 1.5, built-ahead behind a flag (default off): rerank the
-    // top-k lexical candidates of a memory_get search with a small model.
-    // Turn on when fetch-through degrades vs the G1 baseline.
-    memoryRerankEnabled: process.env.MEMORY_RERANK_ENABLED === 'true',
-    // Track A attribution judge: post-hoc LLM verdict (applied/considered/
-    // not_applicable) over the memories a turn fetched. Fail-open,
-    // fire-and-forget; rows floor honestly at fetched when off or failing. Model falls back to the compaction model when unset.
-    memoryAttributionJudge: process.env.MEMORY_ATTRIBUTION_JUDGE === 'true',
-    memoryAttributionJudgeModel: modelId('MEMORY_ATTRIBUTION_JUDGE_MODEL'),
-    // Cost knob for the judge: the fraction of turns it actually runs on when
-    // enabled (one LLM call per sampled turn). Sampling is deterministic per
-    // turnKey; sampled-out turns record 'skipped_sampled' so coverage stays
-    // measurable and distinct from flag-off. 1 = every turn (prior behavior).
-    memoryAttributionJudgeSampleRate: boundedFloat('MEMORY_ATTRIBUTION_JUDGE_SAMPLE_RATE', 1, {
-      min: 0,
-      max: 1,
-    }),
     // Track B SPI: memory backend id — must name a registered provider (boot
     // assertion in memory-slots/index.ts fails the deploy on a typo, never a
     // turn). External-residency ids are rejected as the global default (A1:
@@ -76,57 +20,6 @@ export function agentConfig() {
       min: 1,
       max: AGENT_OUTPUT_TOKEN_CONFIG_MAX,
     }),
-    // Extended thinking. The MODE explicitly declares which wire interface to
-    // send — deliberately NO model-name guessing: the outage that forced this
-    // came from assuming the deployed model matched the code default.
-    // NOTE: the deployed model comes from AGENT_MODEL_ID in the cluster
-    // Secret — the fallback below is NOT what prod runs. Verify the actual
-    // value (and run scripts/thinking-smoke.ts against it) before enabling.
-    //   ''         -> disabled (default)
-    //   'adaptive' -> thinking.type=adaptive + output_config.effort
-    //                 (Opus 4.8+ generation models)
-    //   'budget'   -> thinking.type=enabled + budget_tokens
-    //                 (Haiku 4.5 / earlier generation models)
-    thinkingMode: (() => {
-      const raw = (optional('AGENT_THINKING_MODE') ?? '').trim().toLowerCase()
-
-      if (raw !== '' && raw !== 'adaptive' && raw !== 'budget') {
-        throw new Error(
-          `AGENT_THINKING_MODE must be '', 'adaptive', or 'budget' (got: ${JSON.stringify(raw)})`,
-        )
-      }
-
-      return raw
-    })(),
-    thinkingEffort: (() => {
-      const raw = (optional('AGENT_THINKING_EFFORT') ?? 'medium').trim().toLowerCase()
-      const allowed = ['low', 'medium', 'high', 'xhigh', 'max'] as const
-
-      if (!(allowed as readonly string[]).includes(raw)) {
-        throw new Error(
-          `AGENT_THINKING_EFFORT must be one of ${allowed.join('/')} (got: ${JSON.stringify(raw)})`,
-        )
-      }
-
-      return raw as (typeof allowed)[number]
-    })(),
-    // Only used by thinkingMode='budget'. Bedrock rejects budgets under 1024,
-    // so misconfiguration fails loudly at startup, not per-request.
-    thinkingBudgetTokens: (() => {
-      const value = boundedInt('AGENT_THINKING_BUDGET_TOKENS', 0, {
-        min: 0,
-        max: 16_000,
-      })
-      const mode = (optional('AGENT_THINKING_MODE') ?? '').trim().toLowerCase()
-
-      if (mode === 'budget' && value < 1024) {
-        throw new Error(
-          `AGENT_THINKING_MODE=budget requires AGENT_THINKING_BUDGET_TOKENS >= 1024 (got: ${String(value)})`,
-        )
-      }
-
-      return value
-    })(),
     modelOutputBudgetTokens: boundedInt('ATLAS_AGENT_MODEL_OUTPUT_BUDGET_TOKENS', 30_000, {
       min: 1,
       max: AGENT_OUTPUT_TOKEN_CONFIG_MAX,

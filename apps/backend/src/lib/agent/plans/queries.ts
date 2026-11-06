@@ -63,29 +63,6 @@ export async function findActivePlanForConversation(
   return row ? { planNumber: row.number, approvedBy: row.approvedBy } : null
 }
 
-/**
- * Is this conversation waiting on a human to approve a plan? Same scope rule as
- * every other lookup here. Used on the Slack inbound path, where a thread reply
- * that could BE that approval must not be judged as teammate chatter — so this
- * is a projection-only existence check, cheap enough to run before the
- * addressing judge on every un-mentioned reply.
- */
-export async function hasPlanAwaitingApprovalForConversation(
-  sessionId: string,
-  scope: PlanScope,
-): Promise<boolean> {
-  const base: Filter<Plan> = {
-    sourceConversationId: sessionId,
-    status: 'proposed' satisfies PlanLifecycleStatus,
-  }
-  const query = scope.teamId
-    ? { ...base, teamId: scope.teamId }
-    : { ...base, createdBy: scope.userId }
-  const row = await plans().findOne(query, { projection: { _id: 1 } })
-
-  return Boolean(row)
-}
-
 /** The newest plan this conversation proposed since `since` that still awaits approval. */
 export async function findProposedPlanNumberForConversation(
   sessionId: string,

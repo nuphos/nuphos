@@ -17,24 +17,16 @@ useDb({
 // dropped without a trace).
 import { beforeEach, describe, expect, mock, test } from 'bun:test'
 
-import { THREAD_ADDRESSING_PROMPT_VERSION } from '@/lib/agent/thread-addressing-core'
 import { drainPendingUserMessages, hasPendingUserMessages } from '@/lib/agent/pending-messages'
 import { useTurnRunner } from '@/lib/agent/turn-runner-testing'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
-import { useAgentPlans } from '@/lib/test/doubles/agent-plans'
 import { useFileTransferService } from '@/lib/test/doubles/file-transfer-service'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useSlackAgentBot } from '@/lib/test/doubles/slack-agent-bot'
 import { useSlackApi } from '@/lib/test/doubles/slack-api'
 import { useSlackInstallations } from '@/lib/test/doubles/slack-installations'
-import { useThreadAddressing } from '@/lib/test/doubles/thread-addressing'
 
-import type {
-  SlackAddressingVerdict,
-  SlackAgentThread,
-  SlackChannelMapping,
-  SlackUserMapping,
-} from '@/lib/slack/agent-bot'
+import type { SlackAgentThread, SlackChannelMapping, SlackUserMapping } from '@/lib/slack/agent-bot'
 
 const WORKSPACE = 'T1'
 const CHANNEL = 'C1'
@@ -52,7 +44,6 @@ const state: {
   thread: SlackAgentThread | null
   installTeamId: string
   userEmail: string | null
-  planAwaitingApproval: boolean
   threadReplies: Record<string, unknown>[]
 } = {
   channelMapping: null,
@@ -60,22 +51,8 @@ const state: {
   thread: null,
   installTeamId: TEAM,
   userEmail: null,
-  planAwaitingApproval: false,
   threadReplies: [],
 }
-
-// null = the judge failed (fail-open); the handler must run the turn anyway.
-let addressingVerdict: { addressed: boolean; reason: string } | null = {
-  addressed: true,
-  reason: 'test',
-}
-const addressingCalls: {
-  historySize: number
-  incoming: string
-  pendingDecision?: boolean
-}[] = []
-
-const verdictWrites: Omit<SlackAddressingVerdict, '_id'>[] = []
 
 let teamMember = true
 const posted: PostedMessage[] = []
@@ -156,9 +133,6 @@ useSlackAgentBot({
   markSlackEvent: async (eventId: string, status: string) => {
     eventMarks.push({ eventId, status })
   },
-  recordSlackAddressingVerdict: async (verdict: Omit<SlackAddressingVerdict, '_id'>) => {
-    verdictWrites.push(verdict)
-  },
 })
 
 const statusCalls: { status: string }[] = []
@@ -221,29 +195,6 @@ useFileTransferService({
   listSessionDownloadsSince: async () => [],
 })
 
-useThreadAddressing({
-  judgeThreadAddressing: async (input: {
-    history: unknown[]
-    incoming: { text: string }
-    pendingDecision?: boolean
-  }) => {
-    addressingCalls.push({
-      historySize: input.history.length,
-      incoming: input.incoming.text,
-      pendingDecision: input.pendingDecision,
-    })
-
-    return {
-      verdict: addressingVerdict,
-      prompt: `judge prompt for: ${input.incoming.text}`,
-      rawText: addressingVerdict ? JSON.stringify(addressingVerdict) : null,
-      modelId: 'judge-model',
-    }
-  },
-})
-
-useAgentPlans({ hasPlanAwaitingApprovalForConversation: async () => state.planAwaitingApproval })
-
 useTurnRunner({
   admitChannelTurn: async (args, timing) => {
     claimActors.push(args.actorUserId)
@@ -300,13 +251,25 @@ function threadReplyEnvelope(text: string, threadTs = '100.1') {
   }
 }
 
+// Nuphos answers a thread reply only when it is mentioned. In a notification
+// thread the mention arrives here as a plain message event; in a thread the
+// bot's own mention started, it arrives as app_mention (threadMentionEnvelope).
+function mentionReplyEnvelope(text: string, threadTs = '100.1') {
+  return threadReplyEnvelope(`<@${BOT_USER}> ${text}`, threadTs)
+}
+
+function threadMentionEnvelope(text: string) {
+  const envelope = mentionEnvelope(text)
+
+  return { ...envelope, event: { ...envelope.event, ts: '100.5', thread_ts: '100.1' } }
+}
+
 beforeEach(() => {
   state.channelMapping = makeMapping()
   state.userMapping = makeUserMapping()
   state.thread = null
   state.installTeamId = TEAM
   state.userEmail = null
-  state.planAwaitingApproval = false
   state.threadReplies = []
   posted.length = 0
   teamMember = true
@@ -315,10 +278,7 @@ beforeEach(() => {
   threadUpserts.length = 0
   agentRuns.length = 0
   claimActors.length = 0
-  addressingVerdict = { addressed: true, reason: 'test' }
-  addressingCalls.length = 0
   statusCalls.length = 0
-  verdictWrites.length = 0
 })
 
 describe('bare mention', () => {
@@ -331,9 +291,8 @@ describe('bare mention', () => {
     expect(posted[0]!.text).toContain('What would you like Nuphos to look into?')
     expect(eventMarks).toEqual([{ eventId: 'Ev-mention', status: 'completed' }])
 
-    // The exact incident: a plain reply in the hint thread must now run a turn
-    // instead of being silently ignored.
-    await handleThreadMessage(threadReplyEnvelope('which team are you bound to?'))
+    // The next mention in the hint thread runs a turn in the same conversation.
+    await handleAppMention(threadMentionEnvelope(`<@${BOT_USER}> which team are you bound to?`))
     expect(agentRuns).toHaveLength(1)
     expect(agentRuns[0]!.firstMessage).toBe('which team are you bound to?')
     expect(agentRuns[0]!.teamId).toBe(TEAM)
@@ -381,7 +340,7 @@ describe('thread replies never fail silently', () => {
   })
 
   test('a teammate message arriving during finalization starts the successor turn', async () => {
-    state.thread = makeThread()
+    state.thread = makeThread({ origin: 'agent_notification' })
     state.userMapping = { ...makeUserMapping(), nuphosUserId: OTHER_NUPHOS_USER }
     const {
       agentRuns: liveRuns,
@@ -399,7 +358,7 @@ describe('thread replies never fail silently', () => {
 
     registerAgentRun(run)
     try {
-      const handling = handleThreadMessage(threadReplyEnvelope('what about GCP?'))
+      const handling = handleThreadMessage(mentionReplyEnvelope('what about GCP?'))
 
       for (let attempt = 0; attempt < 50; attempt++) {
         if (await hasPendingUserMessages(NUPHOS_USER, state.thread.sessionId)) break
@@ -466,7 +425,7 @@ describe('thread replies never fail silently', () => {
     state.thread = makeThread({ origin: 'agent_notification' })
     state.installTeamId = 'someOtherTeam'
 
-    await handleThreadMessage(threadReplyEnvelope('status?'))
+    await handleThreadMessage(mentionReplyEnvelope('status?'))
 
     expect(posted).toHaveLength(0)
     expect(agentRuns).toHaveLength(1)
@@ -476,37 +435,48 @@ describe('thread replies never fail silently', () => {
 
 // The counterweight to the block above: a registered thread keeps delivering
 // every reply forever, so "never fail silently" must not mean "always answer".
-// Teammates talking to each other in the thread get silence, and only silence —
-// not even the fail-closed notices, which were themselves the noise.
-describe('addressing judge decides who the reply is for', () => {
-  test('a reply judged not addressed to the bot runs nothing and says nothing', async () => {
+// An unmentioned reply gets silence, and only silence — not even the
+// fail-closed notices, which were themselves the noise.
+describe('only a mention gets an answer', () => {
+  test('an unmentioned reply runs nothing and says nothing', async () => {
     state.thread = makeThread()
-    addressingVerdict = { addressed: false, reason: 'asking a colleague' }
 
-    await handleThreadMessage(threadReplyEnvelope('@Alice 你看一下這個'))
+    await handleThreadMessage(threadReplyEnvelope('那 staging 呢?'))
+
+    expect(agentRuns).toHaveLength(0)
+    expect(posted).toHaveLength(0)
+    // The typing/loading indicator is as visible as a message.
+    expect(statusCalls).toHaveLength(0)
+    expect(eventMarks).toEqual([{ eventId: 'Ev-reply', status: 'ignored' }])
+  })
+
+  test('an unmentioned reply in a notification thread is ignored too', async () => {
+    state.thread = makeThread({ origin: 'agent_notification' })
+
+    await handleThreadMessage(threadReplyEnvelope('我先看 dashboard'))
 
     expect(agentRuns).toHaveLength(0)
     expect(posted).toHaveLength(0)
     expect(eventMarks).toEqual([{ eventId: 'Ev-reply', status: 'ignored' }])
   })
 
-  test('an unlinked sender is not told to link their account unless they addressed the bot', async () => {
+  test('an unlinked sender is not told to link their account unless they mention the bot', async () => {
     state.thread = makeThread()
     state.userMapping = null
     state.userEmail = 'stranger@example.com'
-    addressingVerdict = { addressed: false, reason: 'teammates talking' }
 
     await handleThreadMessage(threadReplyEnvelope('好我等下看'))
 
     expect(posted).toHaveLength(0)
+    expect(ephemerals).toHaveLength(0)
     expect(eventMarks).toEqual([{ eventId: 'Ev-reply', status: 'ignored' }])
   })
 
-  test('an unlinked sender who addressed the bot is told privately, not in the thread', async () => {
-    state.thread = makeThread()
+  test('an unlinked sender who mentions the bot is told privately, not in the thread', async () => {
+    state.thread = makeThread({ origin: 'agent_notification' })
     state.userMapping = null
 
-    await handleThreadMessage(threadReplyEnvelope('can you check prod?'))
+    await handleThreadMessage(mentionReplyEnvelope('can you check prod?'))
 
     expect(agentRuns).toHaveLength(0)
     expect(posted).toHaveLength(0)
@@ -524,7 +494,7 @@ describe('addressing judge decides who the reply is for', () => {
     state.thread = makeThread({ origin: 'agent_notification' })
     teamMember = false
 
-    await handleThreadMessage(threadReplyEnvelope('what caused it?'))
+    await handleThreadMessage(mentionReplyEnvelope('what caused it?'))
 
     expect(agentRuns).toHaveLength(0)
     expect(posted).toHaveLength(0)
@@ -536,171 +506,14 @@ describe('addressing judge decides who the reply is for', () => {
     ])
   })
 
-  test('a reply judged addressed to the bot still runs its turn', async () => {
-    state.thread = makeThread()
-    addressingVerdict = { addressed: true, reason: 'follow-up to the agent' }
-
-    await handleThreadMessage(threadReplyEnvelope('那 staging 呢?'))
-
-    expect(agentRuns).toHaveLength(1)
-    expect(addressingCalls).toHaveLength(1)
-    expect(addressingCalls[0]!.incoming).toBe('那 staging 呢?')
-  })
-
-  test('a broken judge fails open: the reply is answered, not swallowed', async () => {
-    state.thread = makeThread()
-    addressingVerdict = null
-
-    await handleThreadMessage(threadReplyEnvelope('status?'))
-
-    expect(agentRuns).toHaveLength(1)
-  })
-
-  test('the judge sees the thread history recorded so far', async () => {
-    state.thread = makeThread({
-      recentMessages: [
-        { ts: '100.1', authorName: 'Yuan', text: 'check prod' },
-        { ts: '100.15', authorName: 'Nuphos', text: 'all healthy', fromBot: true },
-      ],
-    })
-
-    await handleThreadMessage(threadReplyEnvelope('and staging?'))
-
-    expect(addressingCalls[0]!.historySize).toBe(2)
-  })
-
-  test('a notification thread reply is judged too — alert triage is not a question for the bot', async () => {
+  test('a mentioned reply runs its turn and lights the status line', async () => {
     state.thread = makeThread({ origin: 'agent_notification' })
-    addressingVerdict = { addressed: false, reason: 'humans triaging together' }
 
-    await handleThreadMessage(threadReplyEnvelope('我先看 dashboard'))
+    await handleThreadMessage(mentionReplyEnvelope('那 staging 呢?'))
 
-    expect(agentRuns).toHaveLength(0)
-    expect(posted).toHaveLength(0)
-    expect(eventMarks).toEqual([{ eventId: 'Ev-reply', status: 'ignored' }])
-  })
-
-  test('a reply that is not for the bot leaves no trace at all — not even a status line', async () => {
-    state.thread = makeThread()
-    addressingVerdict = { addressed: false, reason: 'asking a colleague' }
-
-    await handleThreadMessage(threadReplyEnvelope('@Alice 你看一下這個'))
-
-    expect(agentRuns).toHaveLength(0)
-    expect(posted).toHaveLength(0)
-    // The typing/loading indicator is as visible as a message: showing it would
-    // still be the bot reacting to something that was never for it.
-    expect(statusCalls).toHaveLength(0)
-  })
-
-  test('a reply that IS for the bot lights the status line', async () => {
-    state.thread = makeThread()
-    addressingVerdict = { addressed: true, reason: 'follow-up' }
-
-    await handleThreadMessage(threadReplyEnvelope('那 staging 呢?'))
-
+    expect(agentRuns).toHaveLength(1)
+    expect(agentRuns[0]!.firstMessage).toBe('那 staging 呢?')
     expect(statusCalls.length).toBeGreaterThan(0)
-  })
-})
-
-// Every judgement leaves an audit row: which reply, what the judge saw (the
-// full prompt), and what it decided — the raw material for reviewing misjudged
-// replies and iterating on the prompt.
-describe('every judgement is persisted', () => {
-  test('an addressed reply writes a live verdict row keyed by the event', async () => {
-    state.thread = makeThread()
-    addressingVerdict = { addressed: true, reason: 'follow-up to the agent' }
-
-    await handleThreadMessage(threadReplyEnvelope('那 staging 呢?'))
-
-    expect(verdictWrites).toHaveLength(1)
-    expect(verdictWrites[0]).toMatchObject({
-      dedupeKey: 'live:Ev-reply',
-      source: 'live',
-      eventId: 'Ev-reply',
-      slackWorkspaceId: WORKSPACE,
-      slackChannelId: CHANNEL,
-      slackThreadTs: '100.1',
-      sessionId: 'slack-mention-session-1',
-      teamId: TEAM,
-      addressed: true,
-      failOpen: false,
-      reason: 'follow-up to the agent',
-      pendingDecision: false,
-      alertThread: false,
-      incomingText: '那 staging 呢?',
-      prompt: 'judge prompt for: 那 staging 呢?',
-      modelId: 'judge-model',
-      promptVersion: THREAD_ADDRESSING_PROMPT_VERSION,
-    })
-  })
-
-  test('a not-addressed reply is persisted even though nothing else happens', async () => {
-    state.thread = makeThread()
-    addressingVerdict = { addressed: false, reason: 'asking a colleague' }
-
-    await handleThreadMessage(threadReplyEnvelope('@Alice 你看一下這個'))
-
-    expect(agentRuns).toHaveLength(0)
-    expect(verdictWrites).toHaveLength(1)
-    expect(verdictWrites[0]).toMatchObject({
-      addressed: false,
-      failOpen: false,
-      reason: 'asking a colleague',
-    })
-  })
-
-  test('a broken judge persists a fail-open row with no verdict', async () => {
-    state.thread = makeThread()
-    addressingVerdict = null
-
-    await handleThreadMessage(threadReplyEnvelope('status?'))
-
-    expect(agentRuns).toHaveLength(1)
-    expect(verdictWrites).toHaveLength(1)
-    expect(verdictWrites[0]).toMatchObject({ addressed: null, failOpen: true })
-    expect(verdictWrites[0]!.rawOutput).toBeUndefined()
-  })
-
-  test('an alert-thread reply with a pending decision records both flags', async () => {
-    state.thread = makeThread({ origin: 'agent_notification' })
-    state.planAwaitingApproval = true
-
-    await handleThreadMessage(threadReplyEnvelope('可以'))
-
-    expect(verdictWrites[0]).toMatchObject({ alertThread: true, pendingDecision: true })
-  })
-})
-
-// A bare "可以" reads exactly like teammate agreement, and the judge is told to
-// stay quiet when unsure — so when the agent left a plan waiting for approval
-// it must be told, or the person who just approved gets total silence and the
-// plan sits in `proposed` forever.
-describe('a pending approval is visible to the judge', () => {
-  test('a plan waiting for approval in this session is flagged', async () => {
-    state.thread = makeThread()
-    state.planAwaitingApproval = true
-
-    await handleThreadMessage(threadReplyEnvelope('可以'))
-
-    expect(addressingCalls[0]!.pendingDecision).toBe(true)
-  })
-
-  test('no plan waiting means no flag — the judge keeps its normal bias', async () => {
-    state.thread = makeThread()
-
-    await handleThreadMessage(threadReplyEnvelope('可以'))
-
-    expect(addressingCalls[0]!.pendingDecision).toBe(false)
-  })
-
-  test('flagged in alert threads too, where the judge is biased hardest to silence', async () => {
-    state.thread = makeThread({ origin: 'agent_notification' })
-    state.planAwaitingApproval = true
-
-    await handleThreadMessage(threadReplyEnvelope('好 你做吧'))
-
-    expect(addressingCalls[0]!.pendingDecision).toBe(true)
   })
 })
 
@@ -769,7 +582,7 @@ describe('a thread forked off a proactive post', () => {
       recentMessages: [{ ts: '100.1', authorName: 'Nuphos', text: REPORT, fromBot: true }],
     })
 
-    await handleThreadMessage(threadReplyEnvelope('why is it half the bill?'))
+    await handleThreadMessage(mentionReplyEnvelope('why is it half the bill?'))
 
     expect(agentRuns).toHaveLength(1)
     expect(agentRuns[0]!.sessionId).toBe('slack-mention-fork-session-1')
@@ -789,7 +602,7 @@ describe('a thread forked off a proactive post', () => {
       ],
     })
 
-    await handleThreadMessage(threadReplyEnvelope('and last month?', '100.1'))
+    await handleThreadMessage(mentionReplyEnvelope('and last month?', '100.1'))
 
     expect(agentRuns).toHaveLength(1)
     expect(agentRuns[0]!.renderedTurn).not.toContain(REPORT)
@@ -800,12 +613,6 @@ describe('a thread forked off a proactive post', () => {
 // said there without mentioning it — otherwise "can you see what Tony said
 // above?" is answered from half the conversation.
 describe('a mention in a thread the agent already follows', () => {
-  function threadMentionEnvelope(text: string) {
-    const envelope = mentionEnvelope(text)
-
-    return { ...envelope, event: { ...envelope.event, ts: '100.5', thread_ts: '100.1' } }
-  }
-
   test('carries the replies posted since the agent last spoke', async () => {
     state.thread = makeThread({
       recentMessages: [

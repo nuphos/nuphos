@@ -23,9 +23,6 @@
     "test:e2e:webhook-routing": "bun run scripts/webhook-routing-e2e/run.ts"
   },
   "dependencies": {
-    "@ai-sdk/amazon-bedrock": "^4.0.11",
-    "@ai-sdk/google-vertex": "4.0.173",
-    "@ai-sdk/provider": "3.0.14",
     "@alicloud/cs20151215": "^7.0.1",
     "@alicloud/ecs20140526": "^7.8.6",
     "@alicloud/openapi-client": "^0.4.15",

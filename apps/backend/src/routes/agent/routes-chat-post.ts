@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
 import { initializeSessionBypass } from '@/lib/agent/auto-mode/store'
-import { regionLabel } from '@/lib/agent/model-provider'
 import { startTraceSpan } from '@/lib/agent/tracing'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
 import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
@@ -185,7 +184,6 @@ agent.post('/chat', async (c) => {
         locale,
         provider: runtimeProvider,
         modelId: runtimeModelId,
-        region: regionLabel(),
         isNewConversation: isPotentialNewConversation,
         messageCount: messages.length,
       },
@@ -216,7 +214,6 @@ agent.post('/chat', async (c) => {
       stream_id: streamId,
       provider: runtimeProvider,
       model_id: runtimeModelId,
-      region: regionLabel(),
       locale,
       message_count: messages.length,
       is_new_conversation: isPotentialNewConversation,
