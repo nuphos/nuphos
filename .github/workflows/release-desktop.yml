@@ -218,8 +218,14 @@ jobs:
           # x64 first, so the legacy top-level path and sha512 stay on the x64 zip.
           yq '.files += load("latest-mac-arm64/latest-mac.yml").files' latest-mac-x64/latest-mac.yml > latest-mac.yml
           # electron-updater compares os.release(): macOS 12 is Darwin 21.
-          yq -i '.minimumSystemVersion //= "21.0.0"' latest-mac.yml
+          yq -i '.minimumSystemVersion = (.minimumSystemVersion // "21.0.0")' latest-mac.yml
           cat latest-mac.yml
+          # Fail closed, keeping the previous manifest live, unless it lists
+          # exactly one zip and one dmg per arch for this version.
+          v=$(yq '.version' latest-mac.yml)
+          want=$(for f in arm64.dmg arm64.zip x64.dmg x64.zip; do echo "Nuphos-$v-$f"; done)
+          got=$(yq '.files[].url' latest-mac.yml | LC_ALL=C sort)
+          [ "$got" = "$want" ] || { echo "::error::latest-mac.yml must list exactly: $want"; exit 1; }
           aws s3 cp latest-mac.yml s3://nuphos-releases/desktop/latest-mac.yml --content-type text/yaml
 
   announce:
