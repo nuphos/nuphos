@@ -50,7 +50,7 @@ function TooltipContent({
   if (!active || !payload || payload.length === 0) return null
 
   return (
-    <div className="rounded-md border border-line-control bg-state-selected px-2.5 py-1.5 text-[12px] shadow-lg">
+    <div className="rounded-md border border-line-control bg-surface-raised px-2.5 py-1.5 text-[12px] shadow-lg">
       {label !== undefined && <div className="mb-1 font-medium text-main">{String(label)}</div>}
       <div className="space-y-0.5">
         {payload.map((p, i) => (

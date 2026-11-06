@@ -89,7 +89,7 @@ function CrashPage({
           </div>
         </header>
 
-        <div className="rounded-lg border border-line-control bg-state-selected shadow-2xl shadow-black/20">
+        <div className="rounded-lg border border-line-control bg-surface-raised shadow-2xl shadow-black/20">
           <div className="flex items-start gap-4 border-b border-line-control px-5 py-5">
             <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border border-error/35 bg-error/10 text-error">
               <AlertTriangle className="h-5 w-5" strokeWidth={2} />

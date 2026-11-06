@@ -129,7 +129,7 @@ const STEP_KEYS: Record<string, number> = {
   ArrowDown: 1,
 }
 const NAV_BUTTON =
-  'absolute top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-state-selected text-secondary shadow-lg hover:text-main'
+  'absolute top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-surface-raised text-secondary shadow-lg hover:text-main'
 
 // Full-size preview of one group of images; arrow keys step through it (Base
 // UI Dialog: backdrop/Esc dismiss and focus trap for free). Open it by setting
