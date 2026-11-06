@@ -186,6 +186,8 @@ test('only an API key or a sign-out replaces the device sign-in', () => {
   assert.deepEqual(loginChoice(`${API_KEY}\n`), { apiKey: API_KEY })
   assert.deepEqual(loginChoice('sign-out'), { signOut: true })
   assert.equal(loginChoice('sk-short'), null)
+  // An Anthropic key is for Claude Code, not Codex.
+  assert.equal(loginChoice('sk-ant-api03-not-an-openai-key-0123456789'), null)
   assert.equal(loginChoice(`echo ${API_KEY}`), null)
 })
 

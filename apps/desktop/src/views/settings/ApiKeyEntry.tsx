@@ -78,7 +78,7 @@ export function ApiKeyEntry({
       </label>
       <p className="text-xs leading-5 text-tertiary">
         {t(
-          'The key is saved only on the runtime, in the CLI’s own settings. Nuphos does not keep a copy, and the key is not shown again.',
+          'The key is saved only on the runtime, in the CLI’s own settings. Nuphos only relays it, encrypted, and never shows it again.',
         )}
       </p>
       <div className="flex gap-2">

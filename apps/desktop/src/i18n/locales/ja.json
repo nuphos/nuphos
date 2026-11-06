@@ -5747,7 +5747,7 @@
   "Use an API key instead": "代わりに API キーを使う",
   "Could not use the API key": "API キーを使用できませんでした",
   "{vendor} API key": "{vendor} API キー",
-  "The key is saved only on the runtime, in the CLI’s own settings. Nuphos does not keep a copy, and the key is not shown again.": "キーはランタイム上の CLI 自身の設定にのみ保存されます。Nuphos はコピーを保持せず、キーが再表示されることもありません。",
+  "The key is saved only on the runtime, in the CLI’s own settings. Nuphos only relays it, encrypted, and never shows it again.": "キーはランタイム上の CLI 自身の設定にのみ保存されます。Nuphos は暗号化して受け渡すだけで、キーが再表示されることはありません。",
   "Use API key": "API キーを使う",
   "Signed in with an API key.": "API キーでサインインしています。",
   "API key removed": "API キーを削除しました",

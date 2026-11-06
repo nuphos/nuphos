@@ -7,7 +7,7 @@ export const API_KEY: Record<
   ApiKeyProvider,
   { vendor: string; pattern: RegExp; placeholder: string }
 > = {
-  codex: { vendor: 'OpenAI', pattern: /^sk-[\w-]{20,400}$/u, placeholder: 'sk-…' },
+  codex: { vendor: 'OpenAI', pattern: /^sk-(?!ant-)[\w-]{20,400}$/u, placeholder: 'sk-…' },
   'claude-code': {
     vendor: 'Anthropic',
     pattern: /^sk-ant-[\w-]{20,400}$/u,

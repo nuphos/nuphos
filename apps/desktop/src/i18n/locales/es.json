@@ -5747,7 +5747,7 @@
   "Use an API key instead": "Usar una clave de API",
   "Could not use the API key": "No se pudo usar la clave de API",
   "{vendor} API key": "Clave de API de {vendor}",
-  "The key is saved only on the runtime, in the CLI’s own settings. Nuphos does not keep a copy, and the key is not shown again.": "La clave se guarda solo en el entorno de ejecución, en la configuración propia de la CLI. Nuphos no guarda una copia y la clave no se vuelve a mostrar.",
+  "The key is saved only on the runtime, in the CLI’s own settings. Nuphos only relays it, encrypted, and never shows it again.": "La clave se guarda solo en el entorno de ejecución, en la configuración propia de la CLI. Nuphos solo la transmite cifrada y no la vuelve a mostrar.",
   "Use API key": "Usar clave de API",
   "Signed in with an API key.": "Sesión iniciada con una clave de API.",
   "API key removed": "Clave de API eliminada",

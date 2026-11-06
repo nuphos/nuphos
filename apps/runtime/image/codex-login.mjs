@@ -33,7 +33,7 @@ export function deviceCodePrompt(output) {
  */
 export function loginChoice(line) {
   const text = String(line).trim()
-  if (/^sk-[\w-]{20,400}$/u.test(text)) return { apiKey: text }
+  if (/^sk-(?!ant-)[\w-]{20,400}$/u.test(text)) return { apiKey: text }
   if (text === 'sign-out') return { signOut: true }
   return null
 }
