@@ -21,7 +21,7 @@ struct HomeView: View {
     @State private var openChat: AgentPage.OpenChat?
     /// A desktop shows beside the open conversation, with the list put away meanwhile.
     @State private var desktopOpen = false
-    private var columns: Binding<NavigationSplitViewVisibility> { .home(desktopOpen: desktopOpen) }
+    private var columns: Binding<NavigationSplitViewVisibility> { NavigationSplitViewVisibility.home(desktopOpen: desktopOpen) }
     private var desktopBeside: ((Bool) -> Void)? {
         guard sizeClass == .regular else { return nil }
         return { open in desktopOpen = open }

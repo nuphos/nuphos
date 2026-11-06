@@ -64,7 +64,7 @@ private struct PreviewDesktop: View {
     private static func make() -> DesktopSession { DesktopSession(teamId: "preview", sessionId: "preview", token: "preview") }
 
     var body: some View {
-        NavigationSplitView(columnVisibility: .home(desktopOpen: desktopOpen), preferredCompactColumn: .constant(.detail)) {
+        NavigationSplitView(columnVisibility: NavigationSplitViewVisibility.home(desktopOpen: desktopOpen), preferredCompactColumn: .constant(.detail)) {
             List { Text("Preview agent") }.navigationTitle("Agents").toolbar(removing: .sidebarToggle)
         } detail: {
             VStack(spacing: 12) {
