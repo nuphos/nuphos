@@ -485,7 +485,7 @@ class AgentStore(
             writeEnded()
             reload()
             var refreshFailed = phaseError != null
-            for (session in affected.filter { !it.browsingOnly }) {
+            for (session in affected) {
                 if (!current()) return
                 try { session.refreshWatching() } catch (e: kotlinx.coroutines.CancellationException) { throw e
                 } catch (_: Exception) { if (session.loaded) refreshFailed = true }

@@ -13,7 +13,7 @@ class ConversationWatchingTest {
     // Keep permission lookups synchronous: real IO can resume after resetMain between tests.
     @Before fun setup() { Dispatchers.setMain(UnconfinedTestDispatcher()) }
     @After fun cleanup() { Dispatchers.resetMain() }
-    @Test fun sharedReadOnlyReaderCanWatchButOldServerAndBrowsingCannot() = runTest {
+    @Test fun sharedReadOnlyReaderCanWatchButOldServerCannot() = runTest {
         for (watching in listOf(null, false, true)) {
             val session = ChatSession("fixture", "A", readBypass = { _, _ -> false }, aiAllowed = { true }, readDetail = { _, _, _ ->
                 AgentConversationDetail(watching = watching, isOwner = false, readOnly = true)
@@ -25,11 +25,6 @@ class ConversationWatchingTest {
             session.disposeForConsent()
             assertFalse(session.canWatch)
         }
-        val browsing = ChatSession("fixture", "A", readBypass = { _, _ -> false }, browsingOnly = true, aiAllowed = { true },
-            readDetail = { _, _, _ -> AgentConversationDetail(watching = true) })
-        browsing.load()
-        assertFalse(browsing.canWatch)
-        browsing.disposeForConsent()
     }
     @Test fun aLateLoadCannotOverwriteAnAppliedChange() = runTest {
         val response = CompletableDeferred<AgentConversationDetail>()
