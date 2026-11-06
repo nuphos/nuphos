@@ -316,7 +316,7 @@ enum ChatRowTests {
 
         let message = ChatMessage(id: "m", role: .assistant, parts: [tool("a"), tool("b"), .tool(secret), text("Use the card below.")])
         let rows = ChatRow.assistantRows(message, live: false, lastApprovalCallId: nil)
-        precondition(shape(rows) == ["work[run:tool.a run:tool.b]", "tool.ask", "text:Use the card below."], "\(shape(rows))")
+        precondition(shape(rows) == ["work[run:tool.a,tool.b]", "tool.ask", "text:Use the card below."], "\(shape(rows))")
     }
 
     private static func rendersReasoningMarkdown() {
