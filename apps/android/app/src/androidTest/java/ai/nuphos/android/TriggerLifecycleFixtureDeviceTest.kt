@@ -12,6 +12,13 @@ import ai.nuphos.android.model.AgentConversationDetail
 import ai.nuphos.android.model.ChatMessage
 import ai.nuphos.android.model.ChatPart
 import ai.nuphos.android.session.AuthSession
+import androidx.activity.compose.setContent
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Response
@@ -23,26 +30,24 @@ import org.junit.rules.ExternalResource
 import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
-/** Full installed app navigation. Every shared HTTP call terminates in this interceptor. */
+/**
+ * No trigger page is wired any more, and nothing in the app opens the compatibility route, so
+ * these tests open what that route shows directly. Every shared HTTP call ends in this interceptor.
+ */
 @RunWith(AndroidJUnit4::class)
 class TriggerLifecycleFixtureDeviceTest {
     private val compose = createAndroidComposeRule<MainActivity>()
     private val team = "cccccccccccccccccccccccc"
-    private val trigger = "0123456789abcdef01234567"
+    private val otherTeam = "dddddddddddddddddddddddd"
     private val run = "lifecycle-fixture-run"
     private val answer = "Saved lifecycle fixture answer"
     private data class Read(val method: String, val path: String)
     private val requests = CopyOnWriteArrayList<Read>()
     private val unexpected = CopyOnWriteArrayList<Read>()
     private val originals = mutableMapOf<String, OkHttpClient>()
-    @Volatile private var recreating = false
-    @Volatile private var outcome = "valid"
-    private val teamsEntered = CountDownLatch(1)
-    private val releaseTeams = CountDownLatch(1)
-    private val teamsReturned = CountDownLatch(1)
+    @Volatile private var teams = "valid"
+    private var backs = 0
     private lateinit var app: NuphosApplication
     private lateinit var originalState: AuthSession.State
     private var originalMemoryToken: String? = null
@@ -66,28 +71,20 @@ class TriggerLifecycleFixtureDeviceTest {
                     request.method != "GET" -> { unexpected += recorded; code = 599; "{}" }
                     path == "/auth/ai-consent" -> """{"version":"2026-09-28","accepted":true}"""
                     path == "/auth/me" -> """{"id":"lifecycle-fixture-user","name":"Fixture user","avatarURL":""}"""
-                    path == "/teams" -> {
-                        if (recreating) {
-                            teamsEntered.countDown()
-                            check(releaseTeams.await(15, TimeUnit.SECONDS)) { "Fixture team response was not released" }
-                        }
-                        if (recreating && outcome == "denied") { code = 403; "{}" }
-                        else {
-                            val selected = if (recreating && outcome == "mismatch") "dddddddddddddddddddddddd" else team
-                            """{"teams":[{"id":"$selected","name":"Fixture team"}]}"""
-                        }
+                    path == "/teams" -> when (teams) {
+                        "denied" -> { code = 403; "{}" }
+                        "other" -> """{"teams":[{"id":"$otherTeam","name":"Other team"}]}"""
+                        else -> """{"teams":[{"id":"$team","name":"Fixture team"},{"id":"$otherTeam","name":"Other team"}]}"""
                     }
-                    path == "/teams/$team/agent-triggers" -> """[{"id":"$trigger","name":"Lifecycle fixture trigger","triggerType":"cron","enabled":true}]"""
-                    path == "/teams/dddddddddddddddddddddddd/agent-triggers" -> "[]"
-                    path == "/teams/dddddddddddddddddddddddd/agent-triggers/scheduler-status" -> """{"cronEnabled":true}"""
-                    path == "/teams/$team/agent-triggers/scheduler-status" -> """{"cronEnabled":true}"""
-                    path == "/agent/conversations" -> if (request.url.queryParameter("triggerId") == trigger)
-                        """{"conversations":[{"sessionId":"$run","teamId":"$team","title":"Lifecycle fixture run","messageCount":1}]}""" else """{"conversations":[]}"""
+                    path == "/agent/conversations" -> """{"conversations":[]}"""
+                    path == "/agent/conversations/$run/resources" -> """{"resources":[]}"""
                     path == "/agent/conversations/$run" -> {
                         if (request.url.queryParameter("teamId") != team) unexpected += recorded
                         Http.json.encodeToString(AgentConversationDetail.serializer(), detail())
                     }
                     path == "/agent/plans" -> """{"plans":[]}"""
+                    path == "/agent/devices" -> """{"devices":[]}"""
+                    path.endsWith("/agent-runtimes/quota") -> """{"quotas":{}}"""
                     path.endsWith("/members") -> """{"members":[]}"""
                     path == "/agent/plan-approval-policy" -> """{"minimumOtherApprovals":0}"""
                     path == "/agent/credential-options" -> """{"options":[]}"""
@@ -95,7 +92,6 @@ class TriggerLifecycleFixtureDeviceTest {
                     path.endsWith("/connectors") -> """{"connectors":[]}"""
                     else -> { unexpected += recorded; code = 599; "{}" }
                 }
-                if (recreating && path == "/teams") teamsReturned.countDown()
                 Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(code)
                     .message("local fixture").body(body.toResponseBody(Http.jsonMedia)).build()
             }.build()
@@ -109,7 +105,6 @@ class TriggerLifecycleFixtureDeviceTest {
         }
 
         override fun after() {
-            releaseTeams.countDown()
             // The inner Activity rule has already closed the Activity.
             InstrumentationRegistry.getInstrumentation().runOnMainSync {
                 setAuthState(originalState)
@@ -121,8 +116,16 @@ class TriggerLifecycleFixtureDeviceTest {
                 Http::class.java.getDeclaredField(name).also { it.isAccessible = true }.set(null, client)
             }
             assertTrue("Installed token changed (values withheld)", savedToken == app.tokenStore.read())
-            assertTrue("Installed preferences changed (values withheld)", preferences ==
-                app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).all)
+            // Loading the fixture's teams and chats makes the app remember both.
+            app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).edit().apply {
+                val previousTeam = preferences["nuphos.workspace.lastTeamId"] as String?
+                if (previousTeam == null) remove("nuphos.workspace.lastTeamId") else putString("nuphos.workspace.lastTeamId", previousTeam)
+                val previousChats = preferences["nuphos.home.hasChats"] as Boolean?
+                if (previousChats == null) remove("nuphos.home.hasChats") else putBoolean("nuphos.home.hasChats", previousChats)
+            }.commit()
+            val installed = app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).all
+            val changedKeys = (preferences.keys + installed.keys).filter { preferences[it] != installed[it] }
+            assertTrue("Installed preferences changed (values withheld): $changedKeys", changedKeys.isEmpty())
             assertTrue("Unexpected local requests: $unexpected", unexpected.isEmpty())
             assertTrue("Browsing made a mutation: $requests", requests.all { it.method == "GET" })
         }
@@ -147,22 +150,39 @@ class TriggerLifecycleFixtureDeviceTest {
         compose.waitUntil(8_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
     }
 
-    private fun awaitNavigation() {
-        compose.waitUntil(8_000) {
-            compose.onAllNodesWithContentDescription("Triggers").fetchSemanticsNodes().isNotEmpty()
+    /** Opens the read-only run for [team], the way the compatibility route does. */
+    private fun openRun(): ai.nuphos.android.session.AgentStore {
+        compose.waitUntil(8_000) { app.authSession.aiAllowed }
+        val token = requireNotNull(app.authSession.token)
+        lateinit var agent: ai.nuphos.android.session.AgentStore
+        compose.runOnIdle { agent = ai.nuphos.android.session.AgentStore(token, app) }
+        runBlocking(Dispatchers.Main) { agent.loadTeams() }
+        compose.runOnIdle {
+            compose.activity.setContent {
+                ai.nuphos.android.ui.theme.NuphosTheme {
+                    CompositionLocalProvider(
+                        ai.nuphos.android.ui.LocalAuthSession provides app.authSession,
+                        ai.nuphos.android.ui.LocalAgentStore provides agent,
+                    ) {
+                        val nav = rememberNavController()
+                        NavHost(nav, startDestination = "run") {
+                            composable("run") {
+                                ai.nuphos.android.ui.chat.ConversationScreen(
+                                    sessionId = run, fresh = false, onBack = { backs++ }, nav = nav,
+                                    browsingOnly = true, browsingTeamId = team,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
+        return agent
     }
 
-    private fun openRun() {
-        awaitNavigation()
-        compose.onNodeWithContentDescription("Triggers").performClick()
-        awaitText("Lifecycle fixture trigger")
-        compose.onNodeWithText("Lifecycle fixture trigger").performScrollTo().performClick()
-        compose.onNodeWithText("Existing runs").performScrollTo().performClick()
-        awaitText("Lifecycle fixture run")
-        compose.onNodeWithText("Lifecycle fixture run").performScrollTo().performClick()
-        awaitText(answer)
-        assertReadOnly()
+    private fun assertClosedUnread() {
+        compose.waitUntil(8_000) { backs > 0 }
+        compose.onNodeWithText(answer).assertDoesNotExist()
     }
 
     private fun assertReadOnly() {
@@ -179,42 +199,33 @@ class TriggerLifecycleFixtureDeviceTest {
 
     private fun detailReads() = requests.count { it.path.startsWith("/agent/conversations/$run?") }
 
-    private fun recreateWithTeams(result: String): Int {
-        val reads = detailReads()
-        outcome = result
-        recreating = true
-        compose.activityRule.scenario.recreate()
-        compose.waitUntil(8_000) { teamsEntered.count == 0L }
-        compose.onNodeWithText(answer).assertDoesNotExist()
-        assertEquals("Transcript was requested before team loading completed", reads, detailReads())
-        return reads
-    }
-
-    @Test fun restoredRunWaitsForTeamsAndBackReturnsToItsHistory() {
+    @Test fun aRunShowsItsTranscriptWithoutActionsAndBackLeaves() {
         openRun()
-        val reads = recreateWithTeams("valid")
-        releaseTeams.countDown()
         awaitText(answer)
         assertReadOnly()
-        assertTrue("Restored route did not read its transcript", detailReads() > reads)
+        assertTrue("The run did not read its transcript", detailReads() > 0)
         compose.onNodeWithContentDescription("Back").performClick()
-        awaitText("Existing runs")
-        compose.onNodeWithText("Lifecycle fixture trigger").assertIsDisplayed()
-        compose.onNodeWithText("Lifecycle fixture run").assertIsDisplayed()
-        compose.onNodeWithText("Back to trigger").assertIsDisplayed()
+        compose.waitUntil(8_000) { backs == 1 }
     }
 
-    @Test fun deniedRestoredTeamDoesNotReadTranscript() = deniedRecreation("denied")
-    @Test fun mismatchedRestoredTeamDoesNotReadTranscript() = deniedRecreation("mismatch")
-
-    private fun deniedRecreation(result: String) {
+    @Test fun aRunFromATeamTheAccountCannotSeeIsNotRead() {
+        teams = "other"
         openRun()
-        val reads = recreateWithTeams(result)
-        releaseTeams.countDown()
-        compose.waitUntil(8_000) { teamsReturned.count == 0L }
-        awaitNavigation()
-        compose.waitForIdle()
-        compose.onNodeWithText(answer).assertDoesNotExist()
-        assertEquals("Denied or mismatched team read the saved transcript", reads, detailReads())
+        assertClosedUnread()
+        assertEquals("Another team's run read its transcript", 0, detailReads())
+    }
+
+    @Test fun aRunIsNotReadWhenTeamsAreDenied() {
+        teams = "denied"
+        openRun()
+        assertClosedUnread()
+        assertEquals("A denied team read the transcript", 0, detailReads())
+    }
+
+    @Test fun switchingTeamClosesAnOpenRun() {
+        val agent = openRun()
+        awaitText(answer)
+        compose.runOnIdle { agent.select(agent.teams.single { it.id == otherTeam }) }
+        compose.waitUntil(8_000) { backs > 0 }
     }
 }
