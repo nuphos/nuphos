@@ -9,13 +9,15 @@ import type { Filter } from 'mongodb'
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000
 const WARMUP_DELAY_MS = 60 * 1000
 
-/** Unarchived conversations whose last activity — and last manual restore, if
- *  any — both fall before the idle cutoff. */
+/** Unarchived Tasks whose last activity — and last manual restore, if any —
+ *  both fall before the idle cutoff. A Bot (a conversation with an `avatar`)
+ *  is persistent and never archives itself. */
 export function idleConversationFilter(now: Date, idleDays: number): Filter<AgentConversation> {
   const cutoff = new Date(now.getTime() - idleDays * 24 * 60 * 60 * 1000)
 
   return {
     archivedAt: { $exists: false },
+    avatar: { $exists: false },
     lastActiveAt: { $lt: cutoff },
     $or: [{ archiveRestoredAt: { $exists: false } }, { archiveRestoredAt: { $lt: cutoff } }],
   }
