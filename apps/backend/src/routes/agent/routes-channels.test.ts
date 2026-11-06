@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
+import { derivedAvatar } from '@/lib/agent/bot-avatars'
 import { errorHandler } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useDb } from '@/lib/test/doubles/db'
@@ -143,7 +144,14 @@ describe('agents in a channel', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({
       agents: [
-        { sessionId: 'agent-a', title: 'agent-a title', ownerId: OWNER, provider: 'claude-code' },
+        {
+          sessionId: 'agent-a',
+          title: 'agent-a title',
+          ownerId: OWNER,
+          provider: 'claude-code',
+          // Being in a channel makes it a Bot, with the face its id derives.
+          avatar: derivedAvatar('agent-a'),
+        },
       ],
     })
   })

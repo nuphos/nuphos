@@ -1,6 +1,7 @@
 import { runtimeProvider } from '@/lib/claude-code-preview/runtime-provider'
 import { AppError } from '@/lib/errors'
 
+import { derivedAvatar } from '../bot-avatars'
 import { resolveConversationAccessList } from '../devices/conversation-computer'
 import { parseMessageMetadata } from '../message-metadata'
 import { fenceUntrusted } from '../untrusted-content'
@@ -45,15 +46,27 @@ export function assertNotChannel(conversation: ChannelFields | null | undefined)
     throw new AppError(409, 'channel_conversation', 'A channel has no agent of its own to run')
 }
 
+/**
+ * An agent in a channel is a Bot: it gets the face its id derives, stored, so
+ * every client shows the same face. A face it already has is kept.
+ */
 export async function addChannelAgent(
   channelId: string,
   agentSessionId: string,
 ): Promise<AgentConversation | null> {
-  return await agentConversations().findOneAndUpdate(
+  const channel = await agentConversations().findOneAndUpdate(
     { sessionId: channelId, kind: 'channel' },
     { $addToSet: { agentSessionIds: agentSessionId } },
     { returnDocument: 'after' },
   )
+
+  if (channel)
+    await agentConversations().updateOne(
+      { sessionId: agentSessionId, kind: { $ne: 'channel' }, avatar: { $exists: false } },
+      { $set: { avatar: derivedAvatar(agentSessionId) } },
+    )
+
+  return channel
 }
 
 /**
