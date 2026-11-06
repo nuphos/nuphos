@@ -553,6 +553,22 @@ describe('conversation-scoped thread tools', () => {
     expect(shells[1]?.credentialAccess).toBe(access)
   })
 
+  test('a conversation with no selection can still create threads, within its own reach', async () => {
+    source = { ...source, credentialAccess: undefined }
+    const list = (sessionId: string) =>
+      listSessionCredentials({ userId: 'owner', sessionId }, 'team').then(
+        ({ selected }) => selected,
+      )
+    const inherited = await createAgentThread(actor, 'Work', 'Task')
+    const none = await createAgentThread(actor, 'Work', 'Task', { credentials: [] })
+
+    for (const shell of shells) selections.set(shell.sessionId, shell.credentialAccess as never)
+    // Unset is the parent's own selection, so the thread lists exactly what the parent does.
+    expect(shells[0]?.credentialAccess).toBeUndefined()
+    expect(await list(inherited.threadId)).toEqual(await list('source'))
+    expect(await list(none.threadId)).toEqual([])
+  })
+
   test("create_thread refuses anything outside the parent's selection, before any write", async () => {
     selections.set('source', { awsRoleIds: ['role-1'], deviceIds: ['mac-1'] })
     for (const ref of [
