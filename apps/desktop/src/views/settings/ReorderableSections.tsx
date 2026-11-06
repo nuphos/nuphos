@@ -199,7 +199,7 @@ function DropLine({ edge }: { edge: 'top' | 'bottom' }) {
     <div
       aria-hidden="true"
       className={clsx(
-        'pointer-events-none absolute inset-x-0 z-10 h-0.5 rounded-full bg-zViolet-500',
+        'pointer-events-none absolute inset-x-0 z-10 h-0.5 rounded-full bg-action-primary',
         edge === 'top' ? '-top-[13px]' : '-bottom-[13px]',
       )}
     />

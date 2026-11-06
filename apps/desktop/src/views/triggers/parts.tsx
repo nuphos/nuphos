@@ -42,7 +42,7 @@ export function ExecutionPrincipalBanner({
         'rounded-md border px-3 py-2 text-[11.5px]',
         status === 'invalid'
           ? 'border-error/40 bg-error/10 text-error'
-          : 'border-zGray-800 bg-zGray-950 text-tertiary',
+          : 'border-line-control bg-surface-canvas text-tertiary',
       )}
     >
       <div className="flex items-center justify-between gap-3">
@@ -56,7 +56,7 @@ export function ExecutionPrincipalBanner({
             value=""
             placeholder={transferring ? t('Transferring…') : t('Transfer')}
             disabled={transferring}
-            triggerClassName="h-7 w-[150px] flex-shrink-0 border-zGray-800 px-2 text-[11.5px]"
+            triggerClassName="h-7 w-[150px] flex-shrink-0 border-line-control px-2 text-[11.5px]"
             options={eligible.map((member) => ({
               value: member.id,
               label: member.name || member.email || member.id,
@@ -126,8 +126,8 @@ export function TypePill({
       className={clsx(
         'flex items-center gap-1.5 h-8 px-3 rounded-md border text-[12.5px] transition-colors',
         active
-          ? 'border-zViolet-500 bg-zViolet-500/10 text-main'
-          : 'border-zGray-800 text-secondary hover:text-main hover:border-zGray-700',
+          ? 'border-action-primary bg-state-selected text-main'
+          : 'border-line-control text-secondary hover:text-main hover:border-line-control',
         disabled && 'opacity-60 cursor-not-allowed',
       )}
     >
@@ -156,7 +156,7 @@ export function CopyableRow({
     <div>
       <div className="text-[11.5px] text-tertiary mb-1">{label}</div>
       <div className="flex items-center gap-1">
-        <code className="flex-1 truncate font-mono text-[11.5px] text-main bg-zGray-900 border border-zGray-800 rounded px-2 py-1">
+        <code className="flex-1 truncate font-mono text-[11.5px] text-main bg-surface-sheet border border-line-control rounded px-2 py-1">
           {hidden ? '•'.repeat(Math.min(value.length, 32)) : value}
         </code>
         {rightAction}

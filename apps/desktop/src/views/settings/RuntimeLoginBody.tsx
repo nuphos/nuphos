@@ -38,7 +38,7 @@ function DeviceCode({
             () => toast.error(t('Could not copy code')),
           )
         }}
-        className="flex w-full items-center justify-between gap-4 rounded-lg border border-zGray-700 bg-zGray-800/40 px-4 py-4 text-main hover:bg-zGray-800/70"
+        className="flex w-full items-center justify-between gap-4 rounded-lg border border-line-control bg-state-selected px-4 py-4 text-main hover:bg-state-hover"
       >
         <code className="text-2xl font-semibold tracking-widest">{login.userCode}</code>
         <span className="flex items-center gap-1.5 text-xs text-secondary">

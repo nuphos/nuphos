@@ -39,7 +39,7 @@ export function RuntimeUsageBar({ quota }: { quota?: RuntimeQuota }) {
         aria-valuenow={left}
         aria-valuetext={quotaSummary(quota) ?? undefined}
         // A spent window has no fill left to colour, so its track carries the red.
-        className={`h-1.5 w-10 shrink-0 overflow-hidden rounded-full ${tone === 'exhausted' ? 'bg-error/30' : 'bg-zGray-800'}`}
+        className={`h-1.5 w-10 shrink-0 overflow-hidden rounded-full ${tone === 'exhausted' ? 'bg-error/30' : 'bg-surface-sunken'}`}
       >
         <span
           className={`block h-full rounded-full ${QUOTA_FILL_CLASS[tone]}`}

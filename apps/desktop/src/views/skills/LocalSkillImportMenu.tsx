@@ -80,7 +80,7 @@ export function LocalSkillImportMenu({
     >
       <MenuTrigger
         disabled={disabled}
-        className="h-7 px-2 flex items-center gap-1.5 rounded-md text-[12px] text-secondary hover:text-main hover:bg-zGray-800/60 data-[popup-open]:bg-zGray-800/60 disabled:text-tertiary"
+        className="h-7 px-2 flex items-center gap-1.5 rounded-md text-[12px] text-secondary hover:text-main hover:bg-state-hover data-[popup-open]:bg-state-selected disabled:text-tertiary"
         title={t('Import a skill from this computer')}
       >
         <Laptop className="w-3.5 h-3.5" strokeWidth={2} />

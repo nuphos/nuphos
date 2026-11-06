@@ -107,7 +107,7 @@ export function ConnectAgentDialog({
       closeOnBackdrop={false}
     >
       <div className="space-y-4 p-5">
-        <div className="rounded-lg border border-zGray-800 bg-zGray-800/30 px-4 py-3">
+        <div className="rounded-lg border border-line-control bg-state-selected px-4 py-3">
           <p className="text-[15px] font-semibold text-main">{agentHost(link.url)}</p>
           <p className="mt-0.5 break-all font-mono text-[12px] text-tertiary">{link.url}</p>
         </div>
@@ -158,7 +158,7 @@ export function ConnectAgentDialog({
           </>
         )}
         {duplicateId && team && (
-          <p className="rounded-lg bg-zGray-800/40 p-3 text-[13px] leading-5 text-secondary">
+          <p className="rounded-lg bg-state-selected p-3 text-[13px] leading-5 text-secondary">
             {t(
               'This agent is already connected to {team}. Updating the existing connection gives it a new key and keeps its agents.',
               { team: team.name },
@@ -198,7 +198,7 @@ export function ConnectAgentDialog({
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="rounded-md px-3 py-1.5 text-[12.5px] text-secondary hover:bg-zGray-800/60"
+            className="rounded-md px-3 py-1.5 text-[12.5px] text-secondary hover:bg-state-hover"
           >
             {t('Cancel')}
           </button>

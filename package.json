@@ -12,7 +12,7 @@
     "dev:login": "bun scripts/dev-stack-cli.ts login",
     "dev:runtime-password": "bun scripts/dev-stack-cli.ts runtime-password",
     "dev:instances": "bun scripts/dev-stack-cli.ts instances",
-    "test": "node --test --experimental-strip-types scripts/*.test.mjs scripts/*.test.ts eslint-rules/*.test.mjs",
+    "test": "node --test --experimental-strip-types scripts/*.test.mjs scripts/*.test.ts eslint-rules/*.test.mjs packages/*/src/*.test.mjs",
     "lint": "eslint scripts eslint-rules",
     "check:cycles": "node scripts/check-import-cycles.mjs",
     "format": "prettier --experimental-cli --write .",

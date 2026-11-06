@@ -14,7 +14,7 @@ import { t } from '../../i18n'
 import type { FormEvent, ReactNode } from 'react'
 
 const inputClasses =
-  'w-full h-9 rounded-md border border-zGray-800 bg-surface px-3 text-[13px] text-main outline-none transition-colors focus:border-zViolet-500/70 placeholder:text-tertiary'
+  'w-full h-9 rounded-md border border-line-control bg-surface px-3 text-[13px] text-main outline-none transition-colors focus:border-line-focus placeholder:text-tertiary'
 
 function InstallButton({
   oauthAvailable,
@@ -77,9 +77,9 @@ export function LinkChannelPanel({
   }
 
   return (
-    <div className="divide-y divide-zGray-800/60 border-t border-zGray-800/60">
+    <div className="divide-y divide-line-control/60 border-t border-line-control/60">
       <div className="flex items-start gap-3 px-4 py-3.5">
-        <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-zGray-850">
+        <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-surface-sunken">
           <FontAwesomeIcon icon={faHashtag} className="h-3.5 w-3.5 text-secondary" />
         </span>
         <div className="min-w-0 flex-1">
@@ -102,7 +102,7 @@ export function LinkChannelPanel({
       </div>
 
       <div className="flex items-start gap-3 px-4 py-3.5">
-        <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-zGray-850">
+        <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-surface-sunken">
           <FontAwesomeIcon icon={faComments} className="h-3.5 w-3.5 text-secondary" />
         </span>
         <div className="min-w-0 flex-1">
@@ -115,7 +115,7 @@ export function LinkChannelPanel({
           <button
             type="button"
             onClick={() => window.open(botDmLink, '_blank')}
-            className="mt-1 inline-flex h-7 flex-shrink-0 items-center gap-1.5 rounded-md border border-zGray-800 px-2 text-[11.5px] text-secondary transition-colors hover:border-zGray-700 hover:text-main"
+            className="mt-1 inline-flex h-7 flex-shrink-0 items-center gap-1.5 rounded-md border border-line-control px-2 text-[11.5px] text-secondary transition-colors hover:border-line-control hover:text-main"
           >
             <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-2.5 w-2.5" />
             {t('Open DM')}
@@ -127,13 +127,13 @@ export function LinkChannelPanel({
       </div>
 
       <div className="flex items-start gap-3 px-4 py-3.5">
-        <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-zGray-850">
+        <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-surface-sunken">
           <FontAwesomeIcon icon={faLink} className="h-3.5 w-3.5 text-secondary" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-[12.5px] font-medium text-main">
             {t('Link by ID')}
-            <span className="ml-2 rounded border border-zGray-700 px-1.5 py-0.5 text-[11px] font-normal text-tertiary">
+            <span className="ml-2 rounded border border-line-control px-1.5 py-0.5 text-[11px] font-normal text-tertiary">
               {t('admins')}
             </span>
           </div>

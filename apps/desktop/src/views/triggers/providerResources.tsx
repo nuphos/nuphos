@@ -67,20 +67,20 @@ export function ManagedProviderResourcesSection({
     <section
       className={clsx(
         'overflow-hidden',
-        !embedded && 'rounded-lg border border-zGray-800 bg-zGray-950',
+        !embedded && 'rounded-lg border border-line-control bg-surface-canvas',
       )}
     >
       {!embedded && (
-        <div className="flex items-center justify-between gap-3 border-b border-zGray-800 px-3 py-2.5">
+        <div className="flex items-center justify-between gap-3 border-b border-line-control px-3 py-2.5">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-zGray-900">
+            <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-surface-sheet">
               {PROVIDERS_WITH_LOGOS.has(plan.provider) ? (
                 <CloudLogo
                   provider={plan.provider as 'grafana' | 'gcp' | 'betterstack' | 'aws'}
                   size={15}
                 />
               ) : (
-                <Webhook className="h-[15px] w-[15px] text-zViolet-accent" strokeWidth={1.8} />
+                <Webhook className="h-[15px] w-[15px] text-primary" strokeWidth={1.8} />
               )}
             </span>
             <div className="min-w-0">
@@ -104,10 +104,10 @@ export function ManagedProviderResourcesSection({
       <div>
         {providerResourceGroups(plan).map((group) => (
           <div key={group.label}>
-            <div className="border-b border-zGray-800/80 bg-zGray-900/45 px-3 py-1.5 text-[9.5px] font-medium uppercase tracking-[0.08em] text-tertiary">
+            <div className="border-b border-line-control/80 bg-state-selected px-3 py-1.5 text-[9.5px] font-medium uppercase tracking-[0.08em] text-tertiary">
               {group.label}
             </div>
-            <div className="divide-y divide-zGray-800/80">
+            <div className="divide-y divide-line-control/80">
               {group.resources.map((resource) => {
                 const copyKey = `${copyKeyPrefix}-${resource.kind}-${resource.id}`
 
@@ -121,16 +121,16 @@ export function ManagedProviderResourcesSection({
                             className={clsx(
                               'rounded-full border px-1.5 py-0.5 text-[9.5px] font-medium',
                               resource.ownership === 'created' &&
-                                'border-zViolet-500/35 bg-zViolet-500/10 text-zViolet-accent',
+                                'border-action-primary/35 bg-state-selected text-primary',
                               resource.ownership === 'modified' &&
                                 'border-warning/35 bg-warning/10 text-warning',
                               resource.ownership === 'referenced' &&
-                                'border-zGray-700 bg-zGray-900 text-secondary',
+                                'border-line-control bg-surface-sheet text-secondary',
                             )}
                           >
                             {OWNERSHIP_LABELS[resource.ownership]}
                           </span>
-                          <span className="rounded-full border border-zGray-800 px-1.5 py-0.5 text-[9.5px] text-tertiary">
+                          <span className="rounded-full border border-line-control px-1.5 py-0.5 text-[9.5px] text-tertiary">
                             {CLEANUP_LABELS[resource.cleanupAction]}
                           </span>
                         </div>

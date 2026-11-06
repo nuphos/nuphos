@@ -114,7 +114,7 @@ export function CronBuilder({
                   key="n"
                   value={String(mode.n)}
                   onValueChange={(nextValue) => apply({ ...mode, n: Number(nextValue) })}
-                  triggerClassName="h-7 w-[64px] border-zGray-800 px-2 text-[12.5px]"
+                  triggerClassName="h-7 w-[64px] border-line-control px-2 text-[12.5px]"
                   options={EVERY_N_HOURS_OPTIONS.map((n) => ({
                     value: String(n),
                     label: n,
@@ -132,7 +132,7 @@ export function CronBuilder({
 
                     apply({ ...mode, minute: v })
                   }}
-                  className="w-14 h-7 px-2 rounded-md bg-surface border border-zGray-800 text-main text-[12.5px] focus:outline-none focus:border-zViolet-500"
+                  className="w-14 h-7 px-2 rounded-md bg-surface border border-line-control text-main text-[12.5px] focus:outline-none focus:border-line-focus"
                 />
               ) : (
                 part.trim() && <span key={i}>{part.trim()}</span>
@@ -155,7 +155,7 @@ export function CronBuilder({
 
                 apply({ ...mode, hour: v })
               }}
-              className="w-14 h-7 px-2 rounded-md bg-surface border border-zGray-800 text-main text-[12.5px] text-center focus:outline-none focus:border-zViolet-500"
+              className="w-14 h-7 px-2 rounded-md bg-surface border border-line-control text-main text-[12.5px] text-center focus:outline-none focus:border-line-focus"
             />
             <span>:</span>
             <input
@@ -168,7 +168,7 @@ export function CronBuilder({
 
                 apply({ ...mode, minute: v })
               }}
-              className="w-14 h-7 px-2 rounded-md bg-surface border border-zGray-800 text-main text-[12.5px] text-center focus:outline-none focus:border-zViolet-500"
+              className="w-14 h-7 px-2 rounded-md bg-surface border border-line-control text-main text-[12.5px] text-center focus:outline-none focus:border-line-focus"
             />
             <span className="text-tertiary text-[11.5px]">{t('(24-hour, UTC)')}</span>
           </div>
@@ -191,8 +191,8 @@ export function CronBuilder({
                   className={clsx(
                     'h-7 min-w-[40px] px-2 rounded-md border text-[11.5px] transition-colors',
                     on
-                      ? 'border-zViolet-500 bg-zViolet-500/15 text-main'
-                      : 'border-zGray-800 text-tertiary hover:text-main hover:border-zGray-700',
+                      ? 'border-action-primary bg-state-selected text-main'
+                      : 'border-line-control text-tertiary hover:text-main hover:border-line-control',
                   )}
                 >
                   {d.short}
@@ -225,13 +225,13 @@ export function CronBuilder({
           onChange={(e) => apply({ kind: 'custom', expr: e.target.value })}
           placeholder="0 9 * * 1-5"
           spellCheck={false}
-          className="w-full h-8 px-2.5 rounded-md bg-surface border border-zGray-800 font-mono text-[12.5px] text-main focus:outline-none focus:border-zViolet-500"
+          className="w-full h-8 px-2.5 rounded-md bg-surface border border-line-control font-mono text-[12.5px] text-main focus:outline-none focus:border-line-focus"
         />
       )}
 
       <div className="text-[11px] text-tertiary">
         {t('Cron (UTC):')}{' '}
-        <code className="font-mono text-[11px] text-secondary bg-zGray-900 border border-zGray-800 rounded px-1.5 py-0.5">
+        <code className="font-mono text-[11px] text-secondary bg-surface-sheet border border-line-control rounded px-1.5 py-0.5">
           {preview || '—'}
         </code>
       </div>
@@ -269,8 +269,8 @@ function ModeTab({
       className={clsx(
         'h-7 px-3 rounded-md text-[12px] border transition-colors',
         active
-          ? 'border-zViolet-500 bg-zViolet-500/10 text-main'
-          : 'border-zGray-800 text-secondary hover:text-main hover:border-zGray-700',
+          ? 'border-action-primary bg-state-selected text-main'
+          : 'border-line-control text-secondary hover:text-main hover:border-line-control',
       )}
     >
       {label}

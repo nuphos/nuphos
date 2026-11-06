@@ -13,9 +13,9 @@ type Choice = ReturnType<typeof boxSizeChoices>[number]
 type Tone = 'selected' | 'idle' | 'locked'
 
 const SLAB_FILL: Record<Tone, string> = {
-  selected: 'fill-zViolet-500',
-  idle: 'fill-zViolet-400/70',
-  locked: 'fill-zGray-600',
+  selected: 'fill-action-primary',
+  idle: 'fill-action-primary/70',
+  locked: 'fill-current',
 }
 
 /** Three stacked slabs, filled from the bottom by tier: one for Small, two for Medium, three for Large. */
@@ -35,7 +35,7 @@ function SizeGlyph({ tier, tone }: { tier: number; tone: Tone }) {
             rx={2}
             className={clsx(
               'transition-colors',
-              filled ? SLAB_FILL[tone] : 'fill-transparent stroke-zGray-700',
+              filled ? SLAB_FILL[tone] : 'fill-transparent stroke-current',
             )}
             strokeWidth={filled ? 0 : 1.25}
           />
@@ -113,10 +113,10 @@ export function BoxSizePicker({
                 aria-label={`${choice.name}, ${choice.spec}`}
                 className={clsx(
                   CARD,
-                  'focus-visible:ring-zViolet-accent',
+                  'focus-visible:ring-line-focus',
                   selected
-                    ? 'border-zViolet-accent bg-zViolet-accent/10'
-                    : 'border-zGray-800 bg-zGray-900 hover:border-zGray-700',
+                    ? 'border-action-primary bg-state-selected'
+                    : 'border-line-control bg-surface-sheet hover:border-line-control',
                 )}
               >
                 <SizeGlyph tier={choice.tier} tone={selected ? 'selected' : 'idle'} />
@@ -125,7 +125,7 @@ export function BoxSizePicker({
                   keepMounted
                   className={clsx(
                     'absolute right-2.5 top-2.5 flex h-4 w-4 items-center justify-center rounded-full',
-                    selected ? 'bg-zViolet-accent text-white' : 'border border-zGray-700',
+                    selected ? 'bg-action-primary text-inverse' : 'border border-line-control',
                   )}
                 >
                   {selected && <Check className="h-2.5 w-2.5" strokeWidth={3.5} />}
@@ -146,7 +146,7 @@ export function BoxSizePicker({
           onClick={() => onUpgrade(choice)}
           className={clsx(
             CARD,
-            'group border-dashed border-zGray-700 bg-transparent hover:border-amber-500/60 focus-visible:ring-amber-500/60',
+            'group border-dashed border-line-control bg-transparent hover:border-amber-500/60 focus-visible:ring-amber-500/60',
           )}
         >
           <span className="flex flex-col items-start gap-2 opacity-55">

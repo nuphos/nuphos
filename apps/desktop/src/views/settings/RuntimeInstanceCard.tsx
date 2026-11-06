@@ -121,7 +121,7 @@ export function RuntimeInstanceCard({
     <section aria-label={instance.label} className="mx-auto w-full max-w-5xl">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-5">
         <div className="flex min-w-0 flex-1 basis-52 items-center gap-3.5">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-zGray-800/70 bg-main shadow-sm">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-line-control/70 bg-main shadow-sm">
             <AgentProviderIcon provider={instance.provider} className="h-5 w-5 text-secondary" />
           </div>
           <div className="min-w-0">
@@ -145,12 +145,12 @@ export function RuntimeInstanceCard({
               </h3>
               {runtimeUpdate &&
                 ['available', 'waiting', 'updating', 'failed'].includes(runtimeUpdate.state) && (
-                  <span className="shrink-0 rounded border border-zViolet-500/30 bg-zViolet-500/10 px-1.5 py-0.5 text-[10px] text-zViolet-400">
+                  <span className="shrink-0 rounded border border-action-primary/30 bg-state-selected px-1.5 py-0.5 text-[10px] text-secondary">
                     {runtimeUpdatePresentation(runtimeUpdate, updatable, canEdit, enabled).title}
                   </span>
                 )}
               {kindTag && (
-                <span className="shrink-0 rounded border border-zGray-800 px-1.5 text-[10px] uppercase tracking-wide text-tertiary">
+                <span className="shrink-0 rounded border border-line-control px-1.5 text-[10px] uppercase tracking-wide text-tertiary">
                   {kindTag}
                 </span>
               )}
@@ -221,7 +221,7 @@ export function RuntimeInstanceCard({
           setUpdateRevision((value) => value + 1)
         }}
       />
-      <div className="divide-y divide-zGray-800/60 border-t border-zGray-800/60">
+      <div className="divide-y divide-line-control/60 border-t border-line-control/60">
         {instance.deletion ? (
           <p className="px-4 py-3 text-xs leading-relaxed text-secondary" role="status">
             {instance.deletion.error ??

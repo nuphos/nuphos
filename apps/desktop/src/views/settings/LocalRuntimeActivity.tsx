@@ -14,7 +14,7 @@ import type { LocalRuntimeActivityEntry, LocalRuntimeActivityPage } from '../../
 import type { ReactNode } from 'react'
 
 const EMPTY_CLASSES =
-  'rounded-lg border border-zGray-800/60 bg-surface p-4 text-[13px] text-tertiary'
+  'rounded-lg border border-line-control/60 bg-surface p-4 text-[13px] text-tertiary'
 
 function ActivityRow({
   entry,
@@ -28,7 +28,7 @@ function ActivityRow({
   const title = entry.conversationTitle ?? t('Untitled agent')
 
   return (
-    <div className="border-t border-zGray-800/60 bg-surface px-4 py-2.5 first:border-t-0">
+    <div className="border-t border-line-control/60 bg-surface px-4 py-2.5 first:border-t-0">
       <div className="flex items-center gap-2 text-[11px] text-tertiary">
         <span title={new Date(entry.lastServedAt).toLocaleString()}>
           {formatActivityTime(entry.lastServedAt)}
@@ -117,7 +117,7 @@ export function LocalRuntimeActivity({
   else
     body = (
       <>
-        <div className="overflow-hidden rounded-lg border border-zGray-800/60">
+        <div className="overflow-hidden rounded-lg border border-line-control/60">
           {entries.map((entry) => (
             <ActivityRow
               key={entry.id}

@@ -154,8 +154,8 @@ export function PersonalCredentialsSection({
           ready={Boolean(credentials)}
           skeleton={
             <div aria-busy="true" className="space-y-3">
-              <div className="h-[72px] rounded-lg bg-zGray-800/40" />
-              <div className="h-[72px] rounded-lg bg-zGray-800/40" />
+              <div className="h-[72px] rounded-lg bg-state-selected" />
+              <div className="h-[72px] rounded-lg bg-state-selected" />
             </div>
           }
         >
@@ -167,7 +167,7 @@ export function PersonalCredentialsSection({
               return (
                 <div
                   key={provider}
-                  className="flex items-center gap-4 rounded-lg border border-zGray-800/70 bg-surface px-4 py-3.5"
+                  className="flex items-center gap-4 rounded-lg border border-line-control/70 bg-surface px-4 py-3.5"
                 >
                   <CloudLogo provider={provider} size={22} />
                   <div className="min-w-0 flex-1">
@@ -185,7 +185,7 @@ export function PersonalCredentialsSection({
                           : t('Needs a Google OAuth client in Team settings.')}{' '}
                         <button
                           type="button"
-                          className="text-zViolet-accent hover:underline"
+                          className="text-primary hover:underline"
                           onClick={() => void api.appOpenExternal(GOOGLE_CLIENT_GUIDE_URL)}
                         >
                           {t('Setup guide')}
@@ -196,7 +196,7 @@ export function PersonalCredentialsSection({
                             {' · '}
                             <button
                               type="button"
-                              className="text-zViolet-accent hover:underline"
+                              className="text-primary hover:underline"
                               onClick={() => onOpenSection(TEAM_SETTINGS_DEFAULT_SECTION)}
                             >
                               {t('Open Team settings')}

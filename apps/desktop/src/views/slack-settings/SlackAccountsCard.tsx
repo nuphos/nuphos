@@ -19,8 +19,8 @@ export function SlackAccountsCard({
   canManage: boolean
 }) {
   return (
-    <div className="mb-8 overflow-hidden rounded-lg border border-zGray-800/70 bg-surface">
-      <div className="border-b border-zGray-800/60 px-4 py-3">
+    <div className="mb-8 overflow-hidden rounded-lg border border-line-control/70 bg-surface">
+      <div className="border-b border-line-control/60 px-4 py-3">
         <div className="text-[13px] font-medium text-main">{t('Slack accounts')}</div>
         <div className="mt-0.5 text-[12px] text-tertiary">
           {t(
@@ -29,7 +29,7 @@ export function SlackAccountsCard({
         </div>
       </div>
       {!loading && !myMapping && (
-        <div className="border-b border-zGray-800/60 px-4 py-3 text-[12.5px] text-tertiary">
+        <div className="border-b border-line-control/60 px-4 py-3 text-[12.5px] text-tertiary">
           {t(
             'Your Slack account is not linked yet — it links automatically when your Slack email matches your Nuphos account email.',
           )}
@@ -44,7 +44,7 @@ export function SlackAccountsCard({
           </div>
         ) : null
       ) : (
-        <div className="divide-y divide-zGray-800/60">
+        <div className="divide-y divide-line-control/60">
           {linkedAccountRows.map((mapping) => {
             const member = memberById.get(mapping.nuphosUserId)
             const isSelf = mapping.nuphosUserId === currentUserId
@@ -63,7 +63,7 @@ export function SlackAccountsCard({
                       {member ? member.name || member.email : mapping.nuphosUserId}
                     </span>
                     {isSelf && (
-                      <span className="flex-shrink-0 rounded border border-zGray-700 px-1.5 py-0.5 text-[11px] text-tertiary">
+                      <span className="flex-shrink-0 rounded border border-line-control px-1.5 py-0.5 text-[11px] text-tertiary">
                         {t('you')}
                       </span>
                     )}

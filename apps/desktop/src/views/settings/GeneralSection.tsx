@@ -48,7 +48,7 @@ function CopyableTeamId({ id }: { id: string }) {
         icon={copied ? faCheck : faCopy}
         className={clsx(
           'w-3 h-3 flex-shrink-0',
-          copied ? 'text-zViolet-accent' : 'opacity-0 group-hover:opacity-100 transition-opacity',
+          copied ? 'text-primary' : 'opacity-0 group-hover:opacity-100 transition-opacity',
         )}
       />
     </button>

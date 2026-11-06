@@ -69,7 +69,7 @@ export function EventPopover({ selected, trigger, onClose, onOpenTrigger }: Prop
           <Popover.Popup
             className={(state) =>
               clsx(
-                't-dropdown w-72 rounded-lg border border-zGray-800/60 bg-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none',
+                't-dropdown w-72 rounded-lg border border-line-control/60 bg-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none',
                 state.open && 'is-open',
                 state.transitionStatus === 'ending' && 'is-closing',
               )
@@ -122,7 +122,7 @@ export function EventPopover({ selected, trigger, onClose, onOpenTrigger }: Prop
                     {scheduleSummary(trigger, timeZone)}
                   </div>
                   {expression && (
-                    <code className="mt-1 inline-block rounded bg-zGray-800/60 px-1.5 py-0.5 font-mono text-[11px] text-secondary">
+                    <code className="mt-1 inline-block rounded bg-state-selected px-1.5 py-0.5 font-mono text-[11px] text-secondary">
                       {expression}
                     </code>
                   )}

@@ -11,13 +11,13 @@ import {
 
 import { t } from '../../i18n'
 
-/** Shared with the Agents heatmap and usage bars so every usage chart is one violet. */
-export const ACCENT_RGB = '164, 105, 255'
+/** Shared with the Agents heatmap and usage bars so every usage chart is the data color. */
+export const ACCENT_RGB = 'var(--color-data-1)'
 export const ACCENT = `rgb(${ACCENT_RGB})`
-export const CAPACITY = 'rgb(118, 124, 140)'
+export const CAPACITY = 'rgb(var(--color-text-tertiary))'
 
 /** The faint band behind a stretch with no reading; legends reuse it. */
-export const GAP_FILL = 'rgba(118, 124, 140, 0.08)'
+export const GAP_FILL = 'rgba(var(--color-text-tertiary), 0.08)'
 
 export type MetricPoint = { at: number; value: number | null; capacity?: number | null }
 
@@ -85,14 +85,14 @@ export function MetricChart({
               />
             ))}
             <Tooltip
-              cursor={{ stroke: 'rgba(164, 105, 255, 0.4)' }}
+              cursor={{ stroke: 'rgba(var(--color-data-1), 0.4)' }}
               content={({ active, payload }) => {
                 const point = payload?.[0]?.payload as MetricPoint | undefined
 
                 if (!active || !point) return null
 
                 return (
-                  <div className="rounded-md border border-zGray-800 bg-zGray-950/95 px-2 py-1 text-[11px] shadow-lg">
+                  <div className="rounded-md border border-line-control bg-state-selected px-2 py-1 text-[11px] shadow-lg">
                     <div className="text-tertiary">{timeLabel(point.at)}</div>
                     <div className="font-mono text-main">
                       {point.value === null ? t('No reading') : format(point.value)}
@@ -158,7 +158,7 @@ export function RangeSwitch<Value extends string | number>({
 }) {
   return (
     <div
-      className="flex gap-0.5 rounded-md border border-zGray-800/70 p-0.5"
+      className="flex gap-0.5 rounded-md border border-line-control/70 p-0.5"
       role="radiogroup"
       aria-label={label}
     >
@@ -172,8 +172,8 @@ export function RangeSwitch<Value extends string | number>({
           className={clsx(
             'rounded px-1.5 py-0.5 text-[11px]',
             value === option.value
-              ? 'bg-zGray-800/80 text-main'
-              : 'text-tertiary hover:bg-zGray-800/40 hover:text-main',
+              ? 'bg-state-selected text-main'
+              : 'text-tertiary hover:bg-state-hover hover:text-main',
           )}
         >
           {option.label}

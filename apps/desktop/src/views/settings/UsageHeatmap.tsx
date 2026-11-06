@@ -102,7 +102,7 @@ export function UsageHeatmap({
   return (
     <div
       ref={setCard}
-      className="relative mb-4 rounded-xl border border-zGray-800/60 bg-surface/40 px-4 pb-3 pt-3"
+      className="relative mb-4 rounded-xl border border-line-control/60 bg-surface/40 px-4 pb-3 pt-3"
     >
       <div className="mb-3 flex items-center gap-1.5 text-[11px] text-tertiary">
         <span className="mr-auto text-[13px] font-medium text-main">
@@ -133,7 +133,7 @@ export function UsageHeatmap({
             // The table below covers keyboard access; one tab stop per agent is enough.
             tabIndex={-1}
             onClick={() => onSelect(row.instance.id)}
-            className="group flex w-full items-center gap-3 rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-zViolet-500/60"
+            className="group flex w-full items-center gap-3 rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-line-focus"
           >
             <span className="flex w-28 shrink-0 items-center gap-2 text-[11.5px] text-secondary group-hover:text-main @3xl:w-40">
               <AgentProviderIcon provider={row.instance.provider} className="h-3 w-3 shrink-0" />
@@ -172,7 +172,7 @@ export function UsageHeatmap({
           style={{ left: hover.x, top: hover.y }}
           className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full pb-1.5"
         >
-          <div className="whitespace-nowrap rounded-md border border-zGray-800 bg-zGray-950/95 px-2 py-1 text-[11px] shadow-lg">
+          <div className="whitespace-nowrap rounded-md border border-line-control bg-state-selected px-2 py-1 text-[11px] shadow-lg">
             <div className="text-tertiary">
               {hover.agent} · {timeLabel(hover.point.at)}
             </div>

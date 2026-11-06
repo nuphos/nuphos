@@ -205,9 +205,9 @@ export function TriggersListPage({
         createPortal(
           <div className="flex items-center gap-1">
             <FilterTabs tabs={TYPE_TABS} value={typeFilter} onChange={setTypeFilter} />
-            <div className="mx-1 h-4 w-px bg-zGray-800" />
+            <div className="mx-1 h-4 w-px bg-surface-sunken" />
             <FilterTabs tabs={STATUS_TABS} value={statusFilter} onChange={setStatusFilter} />
-            <div className="mx-1 h-4 w-px bg-zGray-800" />
+            <div className="mx-1 h-4 w-px bg-surface-sunken" />
             <PrincipalFilter
               members={members}
               principalIds={principalIds}

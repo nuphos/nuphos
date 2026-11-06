@@ -31,7 +31,7 @@ export function TriggerWebhookPanel({
   ).split('{header}')
 
   return (
-    <div className="rounded-lg border border-zGray-800 bg-zGray-950 p-3 space-y-2.5">
+    <div className="rounded-lg border border-line-control bg-surface-canvas p-3 space-y-2.5">
       {webhookUrl && (
         <CopyableRow
           label={t('Webhook URL')}
@@ -125,7 +125,7 @@ export function TriggerFormFooter({
   onSubmit: () => void
 }) {
   return (
-    <div className="px-5 py-3 border-t border-zGray-800 flex items-center justify-between">
+    <div className="px-5 py-3 border-t border-line-control flex items-center justify-between">
       <div>
         {mode === 'edit' && canDelete && (
           <Button

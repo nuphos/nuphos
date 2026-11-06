@@ -20,7 +20,7 @@ export function PanelHeading({
         <h4 id={id} className="text-[11px] font-semibold uppercase tracking-wide text-tertiary">
           {title}
         </h4>
-        {hint && <p className="mt-0.5 text-xs text-tertiary/80">{hint}</p>}
+        {hint && <p className="mt-0.5 text-xs text-tertiary">{hint}</p>}
       </div>
       {right && <div className="shrink-0">{right}</div>}
     </div>

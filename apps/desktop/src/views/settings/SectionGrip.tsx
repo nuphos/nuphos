@@ -77,7 +77,7 @@ export const SectionGrip = forwardRef<
         onDragEnd={onDragEnd}
         className={clsx(
           className ?? GUTTER,
-          'flex cursor-grab items-center justify-center rounded text-tertiary opacity-0 outline-none transition-opacity hover:bg-zGray-800/60 hover:text-main focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-zViolet-500/60 active:cursor-grabbing group-hover/section:opacity-100 data-[popup-open]:opacity-100 motion-reduce:transition-none',
+          'flex cursor-grab items-center justify-center rounded text-tertiary opacity-0 outline-none transition-opacity hover:bg-state-hover hover:text-main focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-line-focus active:cursor-grabbing group-hover/section:opacity-100 data-[popup-open]:opacity-100 motion-reduce:transition-none',
         )}
       >
         <GripVertical aria-hidden="true" className="h-4 w-4" />

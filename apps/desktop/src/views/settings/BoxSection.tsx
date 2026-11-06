@@ -128,10 +128,10 @@ export function BoxSection({
         ) : (
           <div className="t-skel-skeleton is-pulsing" aria-hidden="true">
             <div className="flex w-[300px] flex-col">
-              <div className="mx-[10px] mb-[42px] mt-[44px] h-[184px] rounded-xl bg-zGray-800/40" />
-              <div className="h-px bg-zGray-800/70" />
-              <div className="mt-3 h-4 w-40 rounded bg-zGray-800/40" />
-              <div className="mt-2 h-3 w-52 rounded bg-zGray-800/30" />
+              <div className="mx-[10px] mb-[42px] mt-[44px] h-[184px] rounded-xl bg-state-selected" />
+              <div className="h-px bg-state-selected" />
+              <div className="mt-3 h-4 w-40 rounded bg-state-selected" />
+              <div className="mt-2 h-3 w-52 rounded bg-state-selected" />
             </div>
           </div>
         )}

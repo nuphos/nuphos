@@ -17,7 +17,7 @@ import { STATUS_DOT } from './runtimePresentation'
 import type { RuntimeStatusTone } from './runtimePresentation'
 import type { AgentCliStatus, CliLoginProvider, DevBundleHint, LocalAgentState } from '../../api'
 
-export const LOCAL_AGENT_CARD = 'rounded-lg border border-zGray-800/70 bg-surface'
+export const LOCAL_AGENT_CARD = 'rounded-lg border border-line-control/70 bg-surface'
 
 const AGENT: Record<
   CliLoginProvider,
@@ -208,13 +208,13 @@ export function LocalAgentCard({
           </div>
         </div>
       </div>
-      <div className="flex items-center gap-2 border-t border-zGray-800/60 px-4 py-2.5 text-[12px] text-secondary">
+      <div className="flex items-center gap-2 border-t border-line-control/60 px-4 py-2.5 text-[12px] text-secondary">
         <span className={clsx('h-1.5 w-1.5 shrink-0 rounded-full', STATUS_DOT[status.tone])} />
         <span ref={labelRef} className="t-text-swap min-w-0 truncate" title={status.label}>
           {labelText}
         </span>
       </div>
-      <div className="flex items-start justify-between gap-4 border-t border-zGray-800/60 px-4 py-3">
+      <div className="flex items-start justify-between gap-4 border-t border-line-control/60 px-4 py-3">
         <div className="min-w-0">
           <CliStatus provider={provider} cli={agent.cli} />
         </div>

@@ -34,7 +34,7 @@ export function ScheduleHeader({ title, mode, onChangeMode, onToday, onShift }: 
       <div className="flex items-center gap-1.5">
         <Menu>
           <MenuTrigger
-            className="flex h-7 items-center gap-1 rounded-md border border-main bg-surface px-2.5 text-[12.5px] font-medium text-main transition-colors hover:bg-zGray-800 data-[popup-open]:bg-zGray-800"
+            className="flex h-7 items-center gap-1 rounded-md border border-main bg-surface px-2.5 text-[12.5px] font-medium text-main transition-colors hover:bg-state-hover data-[popup-open]:bg-state-selected"
             aria-label={t('Schedule view')}
           >
             {currentLabel}

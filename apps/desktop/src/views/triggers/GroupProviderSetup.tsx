@@ -70,17 +70,17 @@ export function GroupProviderSetup({
           return (
             <section
               key={partition.key}
-              className="overflow-hidden rounded-lg border border-zGray-800 bg-zGray-950"
+              className="overflow-hidden rounded-lg border border-line-control bg-surface-canvas"
             >
-              <div className="flex items-center gap-3 border-b border-zGray-800 px-3 py-2.5">
-                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-zGray-900">
+              <div className="flex items-center gap-3 border-b border-line-control px-3 py-2.5">
+                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-surface-sheet">
                   {PROVIDERS_WITH_LOGOS.has(partition.provider) ? (
                     <CloudLogo
                       provider={partition.provider as 'grafana' | 'gcp' | 'betterstack' | 'aws'}
                       size={15}
                     />
                   ) : (
-                    <Webhook className="h-[15px] w-[15px] text-zViolet-accent" strokeWidth={1.8} />
+                    <Webhook className="h-[15px] w-[15px] text-primary" strokeWidth={1.8} />
                   )}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -93,7 +93,7 @@ export function GroupProviderSetup({
                           ? 'border-error/35 text-error'
                           : ready
                             ? 'border-zGreen-500/35 text-zGreen-300'
-                            : 'border-zViolet-500/35 text-zViolet-accent',
+                            : 'border-action-primary/35 text-primary',
                       )}
                     >
                       {loadedDetails?.error
@@ -137,7 +137,7 @@ export function GroupProviderSetup({
                 </div>
               ) : (
                 <>
-                  <div className="space-y-2.5 border-b border-zGray-800 px-3 py-3">
+                  <div className="space-y-2.5 border-b border-line-control px-3 py-3">
                     <div className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">
                       {t('Webhook ingress')}
                     </div>

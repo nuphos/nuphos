@@ -19,7 +19,7 @@ const STATE_POLL_MS = 3_000
 const PROVIDERS: CliLoginProvider[] = ['claude-code', 'codex']
 
 function Bar({ className }: { className: string }) {
-  return <div className={clsx('h-3 rounded bg-zGray-800/60', className)} />
+  return <div className={clsx('h-3 rounded bg-state-selected', className)} />
 }
 
 function AgentCardSkeleton() {
@@ -30,10 +30,10 @@ function AgentCardSkeleton() {
         <Bar className="w-full" />
         <Bar className="w-2/3" />
       </div>
-      <div className="border-t border-zGray-800/60 px-4 py-3">
+      <div className="border-t border-line-control/60 px-4 py-3">
         <Bar className="w-48" />
       </div>
-      <div className="space-y-2 border-t border-zGray-800/60 px-4 py-3">
+      <div className="space-y-2 border-t border-line-control/60 px-4 py-3">
         <Bar className="w-40" />
         <Bar className="w-72" />
       </div>
