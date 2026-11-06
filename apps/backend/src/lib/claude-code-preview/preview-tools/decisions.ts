@@ -187,6 +187,9 @@ function passthroughHandler(
       question,
       ...(body ? { body } : {}),
       ...(choices ? { options: choices } : {}),
+      ...(category === 'credential' && typeof input.secretName === 'string'
+        ? { secretName: input.secretName }
+        : {}),
       askedAt: new Date(),
     }).catch((err: unknown) => {
       // The card is already in the transcript; only the Inbox misses it.

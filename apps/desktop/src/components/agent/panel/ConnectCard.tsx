@@ -8,6 +8,7 @@ import { ConnectCardContext } from './connectCardContext'
 import {
   CONNECT_SELECTION_KEY,
   connectRowStatus,
+  decisionRequestId,
   newConnectIds,
   parseChoiceRequest,
   parseConnectRequest,
@@ -24,6 +25,7 @@ import { isDecisionFailed } from './toolRuns'
 import type { ConnectPhase, ConnectProvider, ConnectRowStatus } from './connectCardModel'
 import type { CredentialSelectorControl } from './credentialSections'
 import type { ToolPart } from './parts'
+import type { DecisionCardRef } from './replyTarget'
 import type { AgentCredentialOptions, AgentCredentialSelection } from '../../../api'
 import type { TeamHomeBindFlowHandle } from '../../../views/cloud/team-home-bind-flow'
 
@@ -210,8 +212,9 @@ export function DecisionToolPart({
   const connect = failed ? null : parseConnectRequest(part.input)
   const secret = failed || connect ? null : parseSecretRequest(part.input)
   const choice = failed || connect || secret ? null : parseChoiceRequest(part.input)
-  const state = (question: string, options?: string[]) =>
-    cardAnswerState({ toolCallId: part.toolCallId, question, options }, openQuestions, {
+  const requestId = decisionRequestId(part.output)
+  const state = (card: Omit<DecisionCardRef, 'toolCallId' | 'requestId'>) =>
+    cardAnswerState({ toolCallId: part.toolCallId, requestId, ...card }, openQuestions, {
       latestIdle: canAct,
       canReply,
     })
@@ -223,19 +226,26 @@ export function DecisionToolPart({
         teamId={teamId}
         providers={connect.providers}
         reason={connect.reason}
-        canAct={state(connect.reason) === 'open'}
+        canAct={state({ question: connect.reason }) === 'open'}
       />
     )
   }
   if (secret) {
-    return <SecretCard {...secret} toolCallId={part.toolCallId} state={state(secret.reason)} />
+    return (
+      <SecretCard
+        {...secret}
+        toolCallId={part.toolCallId}
+        requestId={requestId}
+        state={state({ question: secret.reason, secretName: secret.name })}
+      />
+    )
   }
   if (choice) {
     return (
       <ChoiceCard
         {...choice}
         toolCallId={part.toolCallId}
-        canAct={state(choice.question, choice.options) === 'open'}
+        canAct={state({ question: choice.question, options: choice.options }) === 'open'}
       />
     )
   }

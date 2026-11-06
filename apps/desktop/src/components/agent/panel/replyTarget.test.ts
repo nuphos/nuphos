@@ -147,3 +147,32 @@ test('an open question stays answerable after later messages and during a turn',
   assert.equal(cardAnswerState(card, undefined, { latestIdle: true, canReply: true }), 'open')
   assert.equal(cardAnswerState(card, open, { latestIdle: true, canReply: false }), 'offline')
 })
+
+test('a secret matches its request by id, else by secret name and text, and a tie matches none', () => {
+  const reason = 'Paste the fixture key.'
+  const login = { id: 'r1', question: reason, secret: true as const, secretName: 'FIXTURE_LOGIN' }
+  const password = {
+    id: 'r2',
+    question: reason,
+    secret: true as const,
+    secretName: 'FIXTURE_PASSWORD',
+  }
+  const card = { toolCallId: 'native-9', question: reason, secretName: 'FIXTURE_PASSWORD' }
+
+  // Two open requests share the reason: the name picks the right one.
+  assert.equal(matchInputRequest(card, [login, password])?.id, 'r2')
+  // The id the tool result names wins over text.
+  assert.equal(matchInputRequest({ ...card, requestId: 'r1' }, [login, password])?.id, 'r1')
+  // Answered already: the sibling with the same reason doesn't stand in for it.
+  assert.equal(matchInputRequest(card, [login]), undefined)
+  // Requests stored before names were kept: same text twice is a tie, so neither.
+  const unnamed = [
+    { id: 'r1', question: reason, secret: true as const },
+    { id: 'r2', question: reason, secret: true as const },
+  ]
+
+  assert.equal(matchInputRequest(card, unnamed), undefined)
+  assert.equal(matchInputRequest(card, unnamed.slice(0, 1))?.id, 'r1')
+  // A tie leaves the card disabled instead of answering the wrong request.
+  assert.equal(cardAnswerState(card, unnamed, { latestIdle: false, canReply: true }), 'closed')
+})

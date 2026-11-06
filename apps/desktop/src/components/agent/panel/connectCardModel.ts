@@ -149,3 +149,10 @@ export function withConnectIds(
 
   return { ...selection, [key]: [...new Set([...selection[key], ...ids])] }
 }
+
+/** The open request a decision's tool result names as `requestId`, also inside a text result. */
+export function decisionRequestId(output: unknown): string | undefined {
+  const text = typeof output === 'string' ? output : JSON.stringify(output ?? null)
+
+  return /\\?"requestId\\?"\s*:\s*\\?"([^"\\]+)/.exec(text)?.[1]
+}
