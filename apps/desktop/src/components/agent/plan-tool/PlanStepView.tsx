@@ -21,7 +21,7 @@ export function PlanStepsList({
   floating?: boolean
 }) {
   return (
-    <ol className="divide-y divide-zGray-800/60">
+    <ol className="divide-y divide-line-control/60">
       {(() => {
         // Walk the steps and pass each its slice of `progress` so the
         // command-level icons land on the right rows. Statuses are resolved
@@ -86,13 +86,12 @@ function PlanStepView({
             'mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border text-[11px] font-medium',
             status === 'done' && 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400',
             status === 'failed' && 'border-error/40 bg-error/10 text-error',
-            status === 'running' && 'border-zViolet-500/50 bg-zViolet-500/15 text-zViolet-accent',
+            status === 'running' && 'border-action-primary/50 bg-state-selected text-primary',
             // Started but idle: tinted like the running state so the step still
             // reads as underway, without the spinner that claims it is active.
-            status === 'partial' &&
-              'border-zViolet-500/30 bg-zViolet-500/10 text-zViolet-accent/80',
+            status === 'partial' && 'border-action-primary/30 bg-state-selected text-primary',
             (status === 'pending' || status === null) &&
-              'border-zGray-700 bg-zGray-900 text-secondary',
+              'border-line-control bg-surface-sheet text-secondary',
           )}
         >
           {status === 'done' ? (
@@ -187,14 +186,14 @@ function PlanJobView({ job, progress }: { job: PlanJob; progress?: CommandStatus
   const totalCommands = job.commands?.length ?? 0
 
   return (
-    <li className="rounded-md border border-zGray-800/70 bg-zGray-950/40">
+    <li className="rounded-md border border-line-control/70 bg-state-selected">
       <button
         type="button"
         onClick={() => hasCommands && setOverride((v) => (v === null ? !open : !v))}
         disabled={!hasCommands}
         className={clsx(
           'flex w-full items-start gap-2 px-2.5 py-1.5 text-left',
-          hasCommands && 'hover:bg-zGray-800/40',
+          hasCommands && 'hover:bg-state-hover',
           !hasCommands && 'cursor-default',
         )}
       >
@@ -220,7 +219,7 @@ function PlanJobView({ job, progress }: { job: PlanJob; progress?: CommandStatus
           <div
             className={clsx(
               'text-[13px] leading-relaxed',
-              status === 'done' ? 'text-secondary line-through decoration-zGray-600' : 'text-main',
+              status === 'done' ? 'text-secondary line-through decoration-tertiary' : 'text-main',
               status === 'failed' && 'text-main',
             )}
           >
@@ -233,7 +232,7 @@ function PlanJobView({ job, progress }: { job: PlanJob; progress?: CommandStatus
           )}
         </div>
         {hasCommands && (
-          <span className="ml-2 mt-0.5 inline-flex items-center gap-1 rounded-md bg-zGray-800/60 px-1.5 py-0.5 text-[11px] text-tertiary">
+          <span className="ml-2 mt-0.5 inline-flex items-center gap-1 rounded-md bg-state-selected px-1.5 py-0.5 text-[11px] text-tertiary">
             <Terminal className="h-2.5 w-2.5" strokeWidth={2} />
             {progress ? `${String(doneCount)}/${String(totalCommands)}` : totalCommands}
           </span>
@@ -242,7 +241,7 @@ function PlanJobView({ job, progress }: { job: PlanJob; progress?: CommandStatus
       {hasCommands && (
         <div className="t-collapse" data-open={open}>
           <div className="t-collapse-inner">
-            <div className="border-t border-zGray-800/60 px-2.5 py-2 space-y-1.5">
+            <div className="border-t border-line-control/60 px-2.5 py-2 space-y-1.5">
               {job.commands!.map((cmd, i) => (
                 <PlanCommandView key={i} command={cmd} status={progress?.[i]} />
               ))}

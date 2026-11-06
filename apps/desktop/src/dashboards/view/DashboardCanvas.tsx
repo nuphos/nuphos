@@ -59,7 +59,7 @@ export function DashboardCanvas({
             <div className="flex gap-2">
               <button
                 type="button"
-                className="rounded-md border border-zGray-800 px-2.5 py-1.5 hover:bg-zGray-800 hover:text-main"
+                className="rounded-md border border-line-control px-2.5 py-1.5 hover:bg-state-hover hover:text-main"
                 onClick={() => onDashboardOpened?.(null)}
               >
                 {t('Back to dashboards')}

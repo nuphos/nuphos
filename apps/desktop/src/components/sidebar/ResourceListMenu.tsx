@@ -105,7 +105,7 @@ export function ResourceListMenu({
           return (
             <div
               key={resource.id}
-              className="border-t border-zGray-800/60 px-2.5 py-2 first:border-t-0"
+              className="border-t border-line-control/60 px-2.5 py-2 first:border-t-0"
             >
               <div className="flex min-w-0 items-center gap-1.5 text-xs leading-4 text-tertiary">
                 <span className={`inline-flex shrink-0 ${color}`}>{icon}</span>

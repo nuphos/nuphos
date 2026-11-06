@@ -1,6 +1,6 @@
 import { Button as BaseButton } from '@base-ui/react/button'
 import clsx from 'clsx'
-import { useId } from 'react'
+import { useEffect, useId } from 'react'
 
 import { useHoverMarquee } from '../hooks/useHoverMarquee'
 import { useTextSwap } from '../hooks/useTextSwap'
@@ -10,9 +10,10 @@ import type React from 'react'
 import type { ReactNode } from 'react'
 
 export const SIDEBAR_PANEL_PADDING_CLASS = 'px-2.5 pb-5'
-export const SIDEBAR_ROW_CLASS = 'h-[30px] px-2 gap-2.5 rounded-lg text-[14px] font-[450]'
+// One row height for the whole sidebar (design system: 36px rows, 4px apart).
+export const SIDEBAR_ROW_CLASS = 'h-9 px-2 gap-2.5 rounded-lg text-[14px] font-[450]'
 export const SIDEBAR_GROUP_GAP_CLASS = 'mb-5'
-export const SIDEBAR_GROUP_ITEMS_CLASS = 'space-y-0.5'
+export const SIDEBAR_GROUP_ITEMS_CLASS = 'space-y-1'
 export const SIDEBAR_GROUP_TITLE_CLASS = 'px-2 pt-1.5 pb-1 text-[13px] text-tertiary font-medium'
 
 export function SidebarNavIcon({ icon: Icon }: { icon: LucideIcon }) {
@@ -24,8 +25,9 @@ type SidebarNavItemProps = {
    * Icon element sized by the caller (e.g. `w-3.5 h-3.5`). Its color follows the
    * active/hover state via `currentColor` — pass no color class to inherit it,
    * or set an explicit color class to opt out (e.g. always-tertiary badges).
+   * `null` leaves the row without a leading mark (a task is its title).
    */
-  icon: ReactNode
+  icon: ReactNode | null
   label: string
   active: boolean
   sharedBackground?: boolean
@@ -52,6 +54,11 @@ type SidebarNavItemProps = {
   navigateOnRelease?: boolean
   /** Cross-fade the label when it changes in place (e.g. a renamed chat). */
   animateLabel?: boolean
+  /**
+   * The row has a detail line below it (see SessionRowSurface). The label lifts
+   * to make room while the row is hovered or focused; the row keeps its height.
+   */
+  revealDetail?: boolean
 }
 
 function SwapLabel({ label }: { label: string }) {
@@ -84,16 +91,37 @@ export function SidebarNavItem({
   navigateOnRelease = false,
   comfortable = false,
   animateLabel = false,
+  revealDetail = false,
 }: SidebarNavItemProps) {
   const { containerRef, start, stop } = useHoverMarquee<HTMLSpanElement>(label)
+
+  // A row that owns more than this button (a detail line, its own actions) is
+  // the hover target as a whole: the title scrolls wherever the pointer rests.
+  useEffect(() => {
+    const row = containerRef.current?.closest<HTMLElement>('[data-sidebar-row]')
+
+    if (!row) return
+    row.addEventListener('pointerenter', start)
+    row.addEventListener('pointerleave', stop)
+
+    return () => {
+      row.removeEventListener('pointerenter', start)
+      row.removeEventListener('pointerleave', stop)
+    }
+  }, [containerRef, start, stop])
   const id = useId()
   const badgeShown = badge !== undefined && badge > 0
 
   return (
     <BaseButton
       disabled={disabled}
-      onPointerEnter={start}
-      onPointerLeave={stop}
+      // Inside a sidebar row the row starts the scroll; restarting here would reset it.
+      onPointerEnter={(event) => {
+        if (!event.currentTarget.closest('[data-sidebar-row]')) start()
+      }}
+      onPointerLeave={(event) => {
+        if (!event.currentTarget.closest('[data-sidebar-row]')) stop()
+      }}
       // Keyboard focus reveals the label too; a click's focus does not.
       onFocus={(event) => {
         if (event.currentTarget.matches(':focus-visible')) start()
@@ -137,73 +165,105 @@ export function SidebarNavItem({
           : disabled
             ? 'text-tertiary opacity-40 cursor-not-allowed'
             : sharedBackground
-              ? 'text-secondary'
+              ? // A conversation's title is its identity; it reads at full strength.
+                'text-primary'
               : 'text-secondary hover:bg-[var(--sidebar-overlay-hover)]',
       )}
     >
+      {icon !== null && (
+        <span
+          className={clsx(
+            'flex-shrink-0 flex items-center transition-colors [&>svg]:size-4',
+            active ? 'text-main' : 'text-tertiary group-hover:text-main',
+          )}
+        >
+          {icon}
+        </span>
+      )}
       <span
+        id={`${id}-label`}
+        ref={containerRef}
         className={clsx(
-          'flex-shrink-0 flex items-center transition-colors [&>svg]:size-4',
-          active ? 'text-main' : 'text-tertiary group-hover:text-main',
+          't-marquee flex-1 min-w-0 text-left leading-4',
+          revealDetail &&
+            'transition-transform duration-[280ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none',
         )}
+        // Lifted in index.css only when the row's detail line has content.
+        data-row-title={revealDetail || undefined}
       >
-        {icon}
-      </span>
-      <span id={`${id}-label`} ref={containerRef} className="t-marquee flex-1 min-w-0 text-left">
         {animateLabel ? <SwapLabel label={label} /> : label}
       </span>
       {note != null && (
-        <span id={`${id}-note`} className="flex-shrink-0 flex items-center">
+        // A note that renders nothing (no phone viewing) takes no space or gap.
+        <span id={`${id}-note`} className="flex flex-shrink-0 items-center empty:hidden">
           {note}
         </span>
       )}
       {badgeShown && (
         <span
           id={`${id}-badge`}
-          className="flex-shrink-0 inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-zViolet-500 text-white text-[11px] font-medium leading-none"
+          className="flex-shrink-0 inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-status-attention text-inverse text-[11px] font-medium leading-none"
         >
           {badge > 99 ? '99+' : badge}
         </span>
       )}
-      {/* One trailing slot: the row's state at rest, its actions on hover or
-          focus — never both. Only the showing one takes space, so at rest the
-          title runs up to the indicator, and on hover its clip edge (and fade)
-          moves in to make room for the actions, as Codex does. Presses here
-          must not navigate the row: activation happens at pointerdown, so they
-          are fenced off. */}
+      {/* Presses here must not navigate the row: activation happens at
+          pointerdown, so they are fenced off. */}
       <Fenced>
-        {hoverActions == null ? (
-          trailing
-        ) : (
-          <span className="relative flex flex-shrink-0 items-center">
-            <span
-              id={`${id}-trailing`}
-              className={clsx(
-                'flex items-center gap-1.5 group-hover:hidden group-focus-visible:hidden',
-                'group-has-[:focus-visible]/row:hidden group-has-[[aria-expanded=true]]/row:hidden',
-              )}
-            >
-              {trailing}
-            </span>
-            {/* At rest the actions are transparent and out of flow rather than
-                hidden, so Tab can still reach them; focusing one reveals them. */}
-            <span
-              className={clsx(
-                'pointer-events-none absolute right-0 flex items-center gap-1 opacity-0',
-                'group-hover:pointer-events-auto group-hover:static group-hover:opacity-100',
-                'group-focus-visible:pointer-events-auto group-focus-visible:static group-focus-visible:opacity-100',
-                'group-has-[:focus-visible]/row:pointer-events-auto group-has-[:focus-visible]/row:static group-has-[:focus-visible]/row:opacity-100',
-                // An action whose menu is open stays put as the menu's anchor.
-                'group-has-[[aria-expanded=true]]/row:pointer-events-auto group-has-[[aria-expanded=true]]/row:static group-has-[[aria-expanded=true]]/row:opacity-100',
-              )}
-            >
-              {hoverActions}
-            </span>
-          </span>
-        )}
+        <TrailingSlot id={id} trailing={trailing} hoverActions={hoverActions} />
       </Fenced>
       <Fenced>{edge}</Fenced>
     </BaseButton>
+  )
+}
+
+/**
+ * One trailing slot: the row's state at rest, its actions on hover or focus,
+ * never both. Only the showing one takes space, so at rest the title runs up to
+ * the indicator, and on hover its clip edge moves in to make room for the actions.
+ */
+function TrailingSlot({
+  id,
+  trailing,
+  hoverActions,
+}: {
+  id: string
+  trailing?: ReactNode
+  hoverActions?: ReactNode
+}) {
+  return hoverActions == null ? (
+    trailing
+  ) : (
+    // The slot gives back the row's gap and carries its own leading space only
+    // while it shows something, so an idle row's title runs to the edge.
+    <span className="relative -ml-2.5 flex flex-shrink-0 items-center">
+      <span
+        id={`${id}-trailing`}
+        className={clsx(
+          'sidebar-swap-in flex items-center gap-1.5 group-hover:hidden group-focus-visible:hidden',
+          'empty:hidden [&:not(:empty)]:pl-2.5',
+          'group-has-[:focus-visible]/row:hidden group-has-[[aria-expanded=true]]/row:hidden',
+        )}
+      >
+        {trailing}
+      </span>
+      {/* At rest the actions are transparent and out of flow rather than
+            hidden, so Tab can still reach them; focusing one reveals them. */}
+      <span
+        className={clsx(
+          // Always mounted (Tab must reach it), so the slide plays on hover, not on mount.
+          'pointer-events-none absolute right-0 flex items-center gap-1 pl-2.5 opacity-0',
+          'group-hover:animate-[sidebar-swap-in_200ms_cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:animate-none',
+          'group-hover:pointer-events-auto group-hover:static group-hover:opacity-100',
+          'group-focus-visible:pointer-events-auto group-focus-visible:static group-focus-visible:opacity-100',
+          'group-has-[:focus-visible]/row:pointer-events-auto group-has-[:focus-visible]/row:static group-has-[:focus-visible]/row:opacity-100',
+          // An action whose menu is open stays put as the menu's anchor.
+          'group-has-[[aria-expanded=true]]/row:pointer-events-auto group-has-[[aria-expanded=true]]/row:static group-has-[[aria-expanded=true]]/row:opacity-100',
+        )}
+      >
+        {hoverActions}
+      </span>
+    </span>
   )
 }
 

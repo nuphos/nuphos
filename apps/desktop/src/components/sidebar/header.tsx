@@ -52,7 +52,7 @@ export function SidebarHeaderBar({
   chatOf?: ChatLookup
 }) {
   return (
-    <div className="titlebar-drag h-[44px] flex-shrink-0 flex items-center justify-between px-3.5">
+    <div className="titlebar-drag desk-titlebar-row flex-shrink-0 flex items-center justify-between px-3.5">
       {/* On macOS the leading padding clears the traffic lights; elsewhere
         (Windows/Linux) there are none, so the toggle sits flush left. */}
       <div className="titlebar-no-drag flex items-center titlebar-lead-pad">
@@ -77,8 +77,8 @@ function SidebarTeamSwitcherSkeleton() {
   return (
     <div className="px-2.5 pb-1.5">
       <div className="h-9 flex items-center gap-2.5 px-2">
-        <div className="h-5 w-5 flex-shrink-0 rounded-md bg-zGray-800/80" />
-        <div className="h-3.5 w-28 rounded bg-zGray-800/65" />
+        <div className="h-5 w-5 flex-shrink-0 rounded-md bg-state-selected" />
+        <div className="h-3.5 w-28 rounded bg-state-selected" />
       </div>
     </div>
   )
@@ -120,7 +120,7 @@ function TeamSwitcherMenu({
       >
         <MenuTrigger className="w-full h-9 flex items-center gap-2.5 px-2 rounded-md text-[13.5px] transition-colors outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:bg-[var(--sidebar-overlay-focus)] hover:bg-[var(--sidebar-overlay-hover)] text-main data-[popup-open]:bg-[var(--sidebar-overlay-active)]">
           {teamSegment.loading ? (
-            <Loader2 className="w-3.5 h-3.5 flex-shrink-0 animate-spin text-zViolet-accent" />
+            <Loader2 className="w-3.5 h-3.5 flex-shrink-0 animate-spin text-primary" />
           ) : (
             <span className="flex items-center flex-shrink-0 [&>*]:!h-5 [&>*]:!w-5 [&>svg]:!h-5 [&>svg]:!w-5">
               {teamSegment.icon}

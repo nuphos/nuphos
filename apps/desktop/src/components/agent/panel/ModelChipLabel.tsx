@@ -30,14 +30,14 @@ export function ModelChipLabel({
       size={13}
       strokeWidth={1.8}
       fill="currentColor"
-      className="shrink-0 text-zOrangered-400"
+      className="shrink-0 text-status-attention"
     />
   )
 
   return loading ? (
     <span
       aria-label={t('Loading model')}
-      className="h-3 w-24 animate-pulse rounded bg-zGray-700/60 motion-reduce:animate-none"
+      className="h-3 w-24 animate-pulse rounded bg-state-selected motion-reduce:animate-none"
     />
   ) : (
     // The label, "Select effort" and an invisible copy of the label at

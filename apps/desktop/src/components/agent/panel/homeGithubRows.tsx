@@ -31,7 +31,7 @@ function HomeRow({
   return (
     <BaseButton
       onClick={onOpen}
-      className="group flex w-full items-center gap-2 rounded-md px-1 py-1.5 text-left outline-none transition-colors hover:bg-zGray-800/60 focus-visible:bg-zGray-800/60"
+      className="group flex w-full items-center gap-2 rounded-md px-1 py-1.5 text-left outline-none transition-colors hover:bg-state-hover focus-visible:bg-state-hover"
     >
       <span className="flex-shrink-0">{icon}</span>
       <span className="min-w-0 flex-1 truncate text-[13px] text-secondary group-hover:text-main">

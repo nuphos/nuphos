@@ -62,7 +62,7 @@ function CommandRow({ shell }: { shell: ShellEntry }) {
         <KindNote />
       </Collapsible.Trigger>
       <Collapsible.Panel className="t-acc-collapsible">
-        <div className="mb-1 ml-2 mt-1 max-h-56 overflow-auto whitespace-pre-wrap break-words border-l-2 border-zGray-800 pl-3 font-mono text-[12px] leading-[1.55] text-secondary scrollbar-thin selectable">
+        <div className="mb-1 ml-2 mt-1 max-h-56 overflow-auto whitespace-pre-wrap break-words border-l-2 border-line-control pl-3 font-mono text-[12px] leading-[1.55] text-secondary scrollbar-thin selectable">
           {output || t('No output yet.')}
         </div>
       </Collapsible.Panel>

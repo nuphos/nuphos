@@ -28,7 +28,7 @@ export function PersonFace({
   return (
     <span
       className={clsx(
-        'relative inline-flex shrink-0 items-center justify-center rounded-full bg-zGray-800',
+        'relative inline-flex shrink-0 items-center justify-center rounded-full bg-surface-sunken',
         className,
       )}
       style={{ width: size, height: size }}

@@ -44,7 +44,7 @@ export function SecretCard({
     <div
       data-tool-call-id={toolCallId}
       data-decision-question={reason || undefined}
-      className="overflow-hidden rounded-xl border border-zGray-800 bg-zGray-875"
+      className="overflow-hidden rounded-xl border border-line-control bg-surface-sunken"
     >
       <div className="px-4 pb-2.5 pt-3.5">
         <div className="text-[13.5px] font-medium text-main">
@@ -52,7 +52,7 @@ export function SecretCard({
         </div>
         {reason && <AgentQuote text={reason} />}
       </div>
-      <div className="border-t border-zGray-800/60 px-4 py-2.5">
+      <div className="border-t border-line-control/60 px-4 py-2.5">
         {phase === 'sent' ? (
           <div className="text-[12px] text-tertiary">{t("Saved on the agent's runtime.")}</div>
         ) : (
@@ -72,7 +72,7 @@ export function SecretCard({
               value={value}
               disabled={!interactive || phase === 'saving'}
               onChange={(event) => setValue(event.target.value)}
-              className="min-w-0 flex-1 rounded-md border border-zGray-800 bg-surface px-2.5 py-1.5 font-mono text-[12.5px] text-main outline-none focus:border-zViolet-accent"
+              className="min-w-0 flex-1 rounded-md border border-line-control bg-surface px-2.5 py-1.5 font-mono text-[12.5px] text-main outline-none focus:border-line-focus"
             />
             <Button type="submit" size="sm" disabled={!interactive || !value || phase === 'saving'}>
               {phase === 'saving' ? t('Saving…') : t('Send securely')}

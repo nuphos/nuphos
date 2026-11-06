@@ -42,7 +42,7 @@ export function NewTabOptionRow({
       onMouseMove={() => onHover(index)}
       className={clsx(
         'group flex min-w-0 items-center rounded-md transition-colors',
-        active && 'bg-zGray-800/50',
+        active && 'bg-state-selected',
       )}
     >
       <button
@@ -64,7 +64,7 @@ export function NewTabOptionRow({
           type="button"
           tabIndex={-1}
           onClick={() => onRemoveFavorite(item)}
-          className="mr-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-warning/80 opacity-0 transition-all hover:bg-zGray-700/45 hover:text-warning group-hover:opacity-100"
+          className="mr-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-warning/80 opacity-0 transition-all hover:bg-state-hover hover:text-warning group-hover:opacity-100"
           title={t('Remove {title} from Favorites', { title: option.label })}
           aria-label={t('Remove {title} from Favorites', { title: option.label })}
         >

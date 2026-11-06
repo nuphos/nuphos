@@ -49,16 +49,12 @@ function PanelSample() {
   ).join(' ')
 
   return (
-    <section className="flex h-full min-w-0 flex-col rounded-lg border border-zGray-800/60 p-3">
+    <section className="flex h-full min-w-0 flex-col rounded-lg border border-line-control/60 p-3">
       <div className="mb-2 flex items-center gap-1.5 px-1 text-[12px] text-secondary">
         <LayoutDashboard className="h-3.5 w-3.5" strokeWidth={1.8} />
         <span>{t('Requests per minute')}</span>
       </div>
-      <svg
-        viewBox="0 0 100 42"
-        preserveAspectRatio="none"
-        className="min-h-0 flex-1 text-zViolet-accent"
-      >
+      <svg viewBox="0 0 100 42" preserveAspectRatio="none" className="min-h-0 flex-1 text-primary">
         <polyline
           points={`0,42 ${points} 100,42`}
           className="fill-current opacity-10"
@@ -196,7 +192,7 @@ export function SampleTag() {
   return (
     <span
       aria-hidden
-      className="absolute right-2 top-2 rounded bg-zGray-800/70 px-1.5 py-px text-[10.5px] text-tertiary"
+      className="absolute right-2 top-2 rounded bg-state-selected px-1.5 py-px text-[10.5px] text-tertiary"
     >
       {t('Sample')}
     </span>

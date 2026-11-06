@@ -153,7 +153,7 @@ export function ConnectCard({
     <div
       data-tool-call-id={toolCallId}
       data-decision-question={reason || undefined}
-      className="overflow-hidden rounded-xl border border-zGray-800 bg-zGray-875"
+      className="overflow-hidden rounded-xl border border-line-control bg-surface-sunken"
     >
       <ConnectHeader providers={providers} reason={reason} />
       <ul>

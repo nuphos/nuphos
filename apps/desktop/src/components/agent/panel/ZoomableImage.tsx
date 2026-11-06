@@ -187,7 +187,7 @@ export function ZoomableImage({
         role="region"
         aria-label={t('Image viewport')}
         tabIndex={0}
-        className="h-full w-full overflow-auto overscroll-contain outline-none focus-visible:ring-2 focus-visible:ring-zViolet-accent"
+        className="h-full w-full overflow-auto overscroll-contain outline-none focus-visible:ring-2 focus-visible:ring-line-focus"
         style={{ touchAction: 'none', cursor: enlarged ? 'grab' : 'zoom-in' }}
         onDoubleClick={() => changeZoom(enlarged ? null : 1)}
         onPointerDown={(event) => {

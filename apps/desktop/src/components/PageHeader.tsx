@@ -10,7 +10,7 @@ type Props = {
 
 export function PageHeader({ title, subtitle, actions, leading }: Props) {
   return (
-    <div className="flex items-center justify-between px-6 py-3 border-b border-zGray-800/60 flex-shrink-0 gap-4">
+    <div className="flex items-center justify-between px-6 py-3 border-b border-line-control/60 flex-shrink-0 gap-4">
       <div className="flex items-center gap-3 min-w-0">
         {leading && <div className="flex-shrink-0">{leading}</div>}
         <div className="min-w-0">

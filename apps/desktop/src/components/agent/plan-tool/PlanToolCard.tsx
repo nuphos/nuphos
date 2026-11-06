@@ -168,7 +168,7 @@ export const PlanTool = memo(function PlanTool({
       {stepsOl}
 
       {(payload.cost || payload.risk) && (
-        <div className="border-t border-zGray-800/70 divide-y divide-zGray-800/60">
+        <div className="border-t border-line-control/70 divide-y divide-line-control/60">
           {payload.cost && <PlanCostView cost={payload.cost} />}
           {payload.risk && <PlanRiskView risk={payload.risk} />}
         </div>
@@ -197,7 +197,7 @@ export const PlanTool = memo(function PlanTool({
     // Linear-style cards: solid surface (one rung brighter than the page),
     // generous radius, a hairline border plus a faint shadow for lift.
     const cardClass =
-      'rounded-lg border border-zGray-800/60 bg-zGray-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden'
+      'rounded-lg border border-line-control/60 bg-surface-sheet shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden'
 
     return (
       <div className="flex h-full min-h-0 flex-col">
@@ -253,7 +253,7 @@ export const PlanTool = memo(function PlanTool({
         'overflow-hidden',
         embedded
           ? 'flex h-full min-h-0 flex-col'
-          : 'my-2 rounded-lg border border-zGray-800 bg-zGray-900/40',
+          : 'my-2 rounded-lg border border-line-control bg-state-selected',
       )}
     >
       {header}

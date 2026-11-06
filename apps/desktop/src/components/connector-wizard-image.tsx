@@ -65,7 +65,7 @@ export function WizardExampleImage({
         type="button"
         onClick={openLightbox}
         title={t('Click to enlarge')}
-        className="relative min-h-[220px] flex-1 cursor-zoom-in overflow-hidden rounded-md border border-zGray-800 transition-colors hover:border-zGray-600"
+        className="relative min-h-[220px] flex-1 cursor-zoom-in overflow-hidden rounded-md border border-line-control transition-colors hover:border-line-control"
       >
         {/* Cropped to fill the box, anchored at objectPosition (default
             top-left, where these screenshots keep their subject). */}

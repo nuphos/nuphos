@@ -155,7 +155,7 @@ export function AuthorizationChip({ authorization }: { authorization: unknown })
   if (auth.kind === 'agent-initiated') {
     return (
       <span
-        className="inline-flex flex-shrink-0 items-center rounded border border-zGray-700 bg-zGray-800/60 px-1 py-px text-[9px] uppercase tracking-wider text-tertiary"
+        className="inline-flex flex-shrink-0 items-center rounded border border-line-control bg-state-selected px-1 py-px text-[9px] uppercase tracking-wider text-tertiary"
         title={t(
           'The agent decided to run this on its own — no plan or per-command approval was in effect',
         )}

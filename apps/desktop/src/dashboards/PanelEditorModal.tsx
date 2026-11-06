@@ -98,13 +98,13 @@ export function PanelEditorModal({ teamId, panel, saving, onCancel, onSave }: Pr
             so every click lands on the backdrop (= outside press). */}
         <Dialog.Backdrop className="fixed inset-0 z-[1000] bg-black/50" />
         <Dialog.Viewport className="fixed inset-0 z-[1001] flex items-center justify-center p-6">
-          <Dialog.Popup className="relative flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-zGray-800 bg-zGray-950 shadow-2xl outline-none">
-            <div className="flex items-center justify-between border-b border-zGray-800 px-4 py-3">
+          <Dialog.Popup className="relative flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-line-control bg-surface-canvas shadow-2xl outline-none">
+            <div className="flex items-center justify-between border-b border-line-control px-4 py-3">
               <Dialog.Title className="text-[14px] font-medium text-main">
                 {editing ? t('Edit panel') : t('New panel')}
               </Dialog.Title>
               <Dialog.Close
-                className="rounded p-1 text-tertiary hover:bg-zGray-800 hover:text-main"
+                className="rounded p-1 text-tertiary hover:bg-state-hover hover:text-main"
                 aria-label={t('Close panel editor')}
               >
                 <X className="h-4 w-4" />
@@ -148,7 +148,7 @@ export function PanelEditorModal({ teamId, panel, saving, onCancel, onSave }: Pr
                   {t('Script (JavaScript)')}
                 </span>
                 <textarea
-                  className="min-h-[280px] flex-1 resize-none rounded-md border border-zGray-800 bg-zGray-900 px-3 py-2 font-mono text-[12.5px] leading-relaxed text-main outline-none focus:border-zViolet-500"
+                  className="min-h-[280px] flex-1 resize-none rounded-md border border-line-control bg-surface-sheet px-3 py-2 font-mono text-[12.5px] leading-relaxed text-main outline-none focus:border-line-focus"
                   value={code}
                   spellCheck={false}
                   onChange={(e) => setCode(e.target.value)}
@@ -181,8 +181,8 @@ export function PanelEditorModal({ teamId, panel, saving, onCancel, onSave }: Pr
                   ))}
               </p>
             </div>
-            <div className="flex justify-end gap-2 border-t border-zGray-800 px-4 py-3">
-              <Dialog.Close className="rounded-md px-3 py-1.5 text-[13px] text-secondary hover:bg-zGray-800">
+            <div className="flex justify-end gap-2 border-t border-line-control px-4 py-3">
+              <Dialog.Close className="rounded-md px-3 py-1.5 text-[13px] text-secondary hover:bg-state-hover">
                 {t('Cancel')}
               </Dialog.Close>
               <Button

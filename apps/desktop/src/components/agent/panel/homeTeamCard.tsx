@@ -54,7 +54,7 @@ function CellTooltip({
           <TooltipPrimitive.Popup
             onMouseEnter={onKeep}
             onMouseLeave={onLeave}
-            className="max-w-[300px] rounded-lg border border-zGray-800/60 bg-main px-1.5 py-1.5 text-[11.5px] leading-snug text-secondary shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none"
+            className="max-w-[300px] rounded-lg border border-line-control/60 bg-main px-1.5 py-1.5 text-[11.5px] leading-snug text-secondary shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none"
           >
             {hover && (
               <>
@@ -68,7 +68,7 @@ function CellTooltip({
                       <BaseButton
                         key={s.id}
                         onClick={() => onOpenSession?.(s.id, s.title)}
-                        className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left outline-none transition-colors hover:bg-zGray-800/60 hover:text-main focus-visible:bg-zGray-800/60"
+                        className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left outline-none transition-colors hover:bg-state-hover hover:text-main focus-visible:bg-state-hover"
                       >
                         <AgentAvatar agentId={s.id} provider={s.runtime} size={14} />
                         <span className="truncate">{s.title || t('Untitled agent')}</span>
@@ -129,7 +129,7 @@ export function TeamActivityView({
     : []
 
   return (
-    <section className="flex h-full min-w-0 flex-col rounded-lg border border-zGray-800/60 p-3">
+    <section className="flex h-full min-w-0 flex-col rounded-lg border border-line-control/60 p-3">
       <div className="home-card-drag cursor-grab active:cursor-grabbing mb-3 flex items-center gap-1.5 px-1 text-[12px] text-secondary">
         <Users className="h-3.5 w-3.5" strokeWidth={1.8} />
         <span>{t('Team activity')}</span>
@@ -202,7 +202,7 @@ export function TeamActivityView({
           />
         </div>
       ) : (
-        <div className="min-h-0 flex-1 rounded-md bg-zGray-800/40 animate-pulse" />
+        <div className="min-h-0 flex-1 rounded-md bg-state-selected animate-pulse" />
       )}
     </section>
   )

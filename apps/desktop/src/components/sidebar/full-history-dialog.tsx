@@ -109,7 +109,7 @@ export function FullHistoryDialog({
                   onClick={() => jump(row.index)}
                   className={clsx(
                     'flex h-9 cursor-pointer items-center gap-2.5 rounded-md px-2',
-                    position === selectedIndex ? 'bg-zGray-750' : 'hover:bg-zGray-800',
+                    position === selectedIndex ? 'bg-line-control' : 'hover:bg-state-hover',
                   )}
                 >
                   {'icon' in row ? (
@@ -131,7 +131,7 @@ export function FullHistoryDialog({
                     {row.label}
                   </span>
                   {row.current ? (
-                    <span className="shrink-0 rounded bg-zViolet-500/15 px-1.5 py-0.5 text-[11px] text-main">
+                    <span className="shrink-0 rounded bg-state-selected px-1.5 py-0.5 text-[11px] text-main">
                       {t('You are here')}
                     </span>
                   ) : (

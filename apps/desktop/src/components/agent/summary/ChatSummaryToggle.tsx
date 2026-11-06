@@ -102,7 +102,7 @@ export function ChatSummaryToggle({
         aria-label={t('Toggle agent summary')}
         aria-pressed={open}
         onClick={() => toggleChatSummary(paneId)}
-        className="titlebar-no-drag relative ml-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-secondary transition-colors hover:bg-zGray-800/60 hover:text-main aria-pressed:bg-zGray-800/60 aria-pressed:text-main motion-reduce:transition-none"
+        className="titlebar-no-drag relative ml-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-secondary transition-colors hover:bg-state-hover hover:text-main aria-pressed:bg-state-selected aria-pressed:text-main motion-reduce:transition-none"
       >
         {/* While open it reads as the panel's own close, not the pane's X beside it. */}
         {open ? (
@@ -117,7 +117,7 @@ export function ChatSummaryToggle({
                 ? t('1 pending question')
                 : t('{count} pending questions', { count: pendingCount })
             }
-            className="absolute -right-1.5 -top-1 flex min-w-4 items-center justify-center rounded-full bg-warning px-1 text-[9px] font-semibold leading-4 text-zGray-950"
+            className="absolute -right-1.5 -top-1 flex min-w-4 items-center justify-center rounded-full bg-warning px-1 text-[9px] font-semibold leading-4 text-tertiary"
           >
             {pendingCount > 99 ? '99+' : pendingCount}
           </span>

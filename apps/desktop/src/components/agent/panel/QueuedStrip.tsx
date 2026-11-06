@@ -58,7 +58,7 @@ export function QueuedStrip({
           return (
             <div
               key={item.id}
-              className="group flex items-center gap-2 rounded-lg border border-zGray-800/80 bg-zGray-900/60 px-2.5 py-1.5"
+              className="group flex items-center gap-2 rounded-lg border border-line-control/80 bg-state-selected px-2.5 py-1.5"
               title={label}
             >
               <ListPlus className="h-3.5 w-3.5 flex-shrink-0 text-tertiary" strokeWidth={2} />
@@ -80,7 +80,7 @@ export function QueuedStrip({
                 type="button"
                 onClick={() => onSteer(item.id)}
                 disabled={item.steering || !canSteer}
-                className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-tertiary transition-colors enabled:hover:bg-zGray-800 enabled:hover:text-main disabled:opacity-40"
+                className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-tertiary transition-colors enabled:hover:bg-state-hover enabled:hover:text-main disabled:opacity-40"
                 title={t('Send into the running turn')}
                 aria-label={t('Send into the running turn')}
               >
@@ -93,7 +93,7 @@ export function QueuedStrip({
               <button
                 type="button"
                 onClick={() => onRemove(item.id)}
-                className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-tertiary transition-colors hover:bg-zGray-800 hover:text-main"
+                className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-tertiary transition-colors hover:bg-state-hover hover:text-main"
                 title={t('Take back')}
                 aria-label={t('Take back')}
               >

@@ -149,7 +149,7 @@ function FindBar({
   }, [query, rootRef, search])
 
   const buttonClass =
-    'flex h-6 w-6 items-center justify-center rounded text-tertiary transition-colors hover:bg-zGray-800/70 hover:text-main disabled:opacity-40'
+    'flex h-6 w-6 items-center justify-center rounded text-tertiary transition-colors hover:bg-state-hover hover:text-main disabled:opacity-40'
 
   return (
     <InputGroup className="surface-raised absolute right-4 top-[52px] z-30 rounded-lg bg-agentCanvas py-1 pl-2.5 pr-1 text-[12px]">

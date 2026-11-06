@@ -42,7 +42,7 @@ export function SidebarIdentitySelector({
       >
         <MenuTrigger className="w-full h-9 flex items-center gap-2.5 px-2.5 rounded-md text-[13px] transition-colors outline-none ring-0 focus-visible:bg-[var(--sidebar-overlay-focus)] hover:bg-[var(--sidebar-overlay-hover)] text-main data-[popup-open]:bg-[var(--sidebar-overlay-active)]">
           {segment.loading ? (
-            <Loader2 className="w-3.5 h-3.5 flex-shrink-0 animate-spin text-zViolet-accent" />
+            <Loader2 className="w-3.5 h-3.5 flex-shrink-0 animate-spin text-primary" />
           ) : (
             <span className="flex items-center flex-shrink-0 [&>*]:!h-[18px] [&>*]:!w-[18px] [&>svg]:!h-[18px] [&>svg]:!w-[18px]">
               {segment.icon}
@@ -101,7 +101,7 @@ export function SidebarInvitations({
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger
-        className="titlebar-no-drag relative flex h-7 w-7 items-center justify-center rounded-full border border-zGray-800/60 bg-main/50 text-tertiary outline-none backdrop-blur-md transition-colors hover:bg-main/70 hover:text-secondary data-[popup-open]:bg-main/70 data-[popup-open]:text-secondary"
+        className="titlebar-no-drag relative flex h-7 w-7 items-center justify-center rounded-full border border-line-control/60 bg-main/50 text-tertiary outline-none backdrop-blur-md transition-colors hover:bg-main/70 hover:text-secondary data-[popup-open]:bg-main/70 data-[popup-open]:text-secondary"
         aria-label={count === 1 ? t('1 team invitation') : t('{count} team invitations', { count })}
         title={count === 1 ? t('1 team invitation') : t('{count} team invitations', { count })}
       >
@@ -115,7 +115,7 @@ export function SidebarInvitations({
           <Popover.Popup
             className={(state) =>
               clsx(
-                't-dropdown w-[264px] overflow-hidden rounded-lg border border-zGray-800/60 bg-main shadow-[0_8px_24px_-8px_rgba(0,0,0,0.45)] outline-none',
+                't-dropdown w-[264px] overflow-hidden rounded-lg border border-line-control/60 bg-main shadow-[0_8px_24px_-8px_rgba(0,0,0,0.45)] outline-none',
                 state.open && 'is-open',
                 state.transitionStatus === 'ending' && 'is-closing',
               )
@@ -130,7 +130,7 @@ export function SidebarInvitations({
             </div>
             <div className="max-h-[320px] space-y-1 overflow-y-auto scrollbar-thin p-0.5">
               {invitations.map((invitation) => (
-                <div key={invitation.id} className="rounded-md bg-zGray-850 px-2.5 py-2">
+                <div key={invitation.id} className="rounded-md bg-surface-sunken px-2.5 py-2">
                   <div className="truncate text-[12.5px] text-main">
                     {invitation.team?.name ?? t('Team invitation')}
                   </div>
@@ -141,7 +141,7 @@ export function SidebarInvitations({
                     <BaseButton
                       disabled={actingId !== null}
                       onClick={() => void act(invitation.id, onAccept)}
-                      className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-md bg-zViolet-500 px-2 text-[12px] font-medium text-white outline-none transition-colors hover:bg-zViolet-400 data-[disabled]:cursor-default data-[disabled]:opacity-60"
+                      className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-md bg-action-primary px-2 text-[12px] font-medium text-inverse outline-none transition-colors hover:bg-action-primary/90 data-[disabled]:cursor-default data-[disabled]:opacity-60"
                     >
                       <Check className="h-3 w-3" />
                       {t('Accept')}
@@ -149,7 +149,7 @@ export function SidebarInvitations({
                     <BaseButton
                       disabled={actingId !== null}
                       onClick={() => void act(invitation.id, onReject)}
-                      className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-md border border-zGray-700 px-2 text-[12px] font-medium text-secondary outline-none transition-colors hover:bg-zGray-800/70 hover:text-main data-[disabled]:cursor-default data-[disabled]:opacity-60"
+                      className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-md border border-line-control px-2 text-[12px] font-medium text-secondary outline-none transition-colors hover:bg-state-hover hover:text-main data-[disabled]:cursor-default data-[disabled]:opacity-60"
                     >
                       <X className="h-3 w-3" />
                       {t('Reject')}
@@ -170,8 +170,8 @@ export function SidebarSectionSkeleton() {
     <div className="space-y-1 px-2.5 py-1">
       {[0, 1, 2].map((item) => (
         <div key={item} className="h-8 flex items-center gap-3">
-          <div className="h-4 w-4 flex-shrink-0 rounded bg-zGray-800/80 animate-pulse" />
-          <div className="h-3 flex-1 rounded bg-zGray-800/65 animate-pulse" />
+          <div className="h-4 w-4 flex-shrink-0 rounded bg-state-selected animate-pulse" />
+          <div className="h-3 flex-1 rounded bg-state-selected animate-pulse" />
         </div>
       ))}
     </div>

@@ -21,7 +21,7 @@ export type ArtifactViewMode = 'preview' | 'source'
 export type { ToolbarDensity } from './toolbarDensity'
 
 const SEGMENT =
-  'inline-flex h-[26px] w-8 items-center justify-center text-secondary outline-none transition-colors hover:text-main focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zViolet-accent data-[pressed]:bg-zGray-800 data-[pressed]:text-main'
+  'inline-flex h-[26px] w-8 items-center justify-center text-secondary outline-none transition-colors hover:text-main focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-line-focus data-[pressed]:bg-state-selected data-[pressed]:text-main'
 
 export type ArtifactToolbarProps = {
   active: boolean
@@ -140,7 +140,7 @@ function ViewToggle({
         if (chosen) onView(chosen)
       }}
       aria-label={t('Show')}
-      className="mr-1 inline-flex shrink-0 divide-x divide-zGray-800 overflow-hidden rounded-md border border-zGray-800"
+      className="mr-1 inline-flex shrink-0 divide-x divide-line-control overflow-hidden rounded-md border border-line-control"
     >
       <Tooltip content={t('Preview')}>
         <Toggle value="preview" aria-label={t('Preview')} className={SEGMENT}>

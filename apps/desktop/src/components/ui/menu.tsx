@@ -100,7 +100,7 @@ export const MenuContent = React.forwardRef<HTMLDivElement, MenuContentProps>(fu
           finalFocus={finalFocus}
           className={(state) =>
             clsx(
-              't-dropdown min-w-[180px] max-h-[var(--available-height)] overflow-auto scrollbar-thin rounded-lg border border-zGray-800/60 bg-main p-1 shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none',
+              't-dropdown min-w-[180px] max-h-[var(--available-height)] overflow-auto scrollbar-thin rounded-lg border border-line-control/60 bg-main p-1 shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none',
               state.open && 'is-open',
               state.transitionStatus === 'ending' && 'is-closing',
               className,
@@ -158,7 +158,7 @@ export const MenuItem = React.forwardRef<HTMLDivElement, MenuItemProps>(function
         clsx(
           'flex min-h-8 cursor-default select-none items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] outline-none transition-colors',
           destructive ? 'text-error' : 'text-main',
-          state.highlighted && (destructive ? 'bg-error/10' : 'bg-zGray-800/80'),
+          state.highlighted && (destructive ? 'bg-error/10' : 'bg-state-selected'),
           state.disabled && 'pointer-events-none opacity-50',
           className,
         )

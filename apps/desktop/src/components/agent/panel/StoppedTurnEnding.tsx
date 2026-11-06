@@ -9,7 +9,7 @@ export function StoppedTurnEnding({ calls }: { calls: number }) {
       <Square className="h-2.5 w-2.5" strokeWidth={2} fill="currentColor" aria-hidden="true" />
       {t('Stopped by you')}
       {calls > 0 && (
-        <span className="text-tertiary/70">
+        <span className="text-tertiary">
           · {calls === 1 ? t('1 call') : t('{n} calls', { n: String(calls) })}
         </span>
       )}

@@ -98,7 +98,7 @@ export function ChannelPopover({
           <Popover.Popup
             className={(state) =>
               clsx(
-                't-dropdown w-[320px] rounded-xl border border-zGray-800/60 bg-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none',
+                't-dropdown w-[320px] rounded-xl border border-line-control/60 bg-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none',
                 state.open && 'is-open',
                 state.transitionStatus === 'ending' && 'is-closing',
               )
@@ -111,7 +111,7 @@ export function ChannelPopover({
                   {title}
                 </Popover.Title>
                 <Popover.Close
-                  className="rounded p-0.5 text-tertiary hover:bg-zGray-800/60 hover:text-main"
+                  className="rounded p-0.5 text-tertiary hover:bg-state-hover hover:text-main"
                   aria-label={t('Close')}
                 >
                   <X className="h-3.5 w-3.5" strokeWidth={2} />

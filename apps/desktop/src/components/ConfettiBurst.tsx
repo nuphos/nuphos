@@ -7,14 +7,7 @@ import { cssTripletToHex, landingBurstShots } from '../lib/confetti'
 // Theme-aware palette: `index.css` defines these as "R, G, B" triplets (the
 // tailwind `withOpacity` convention), and the light theme overrides them, so
 // reading the computed values at mount keeps the burst on-brand in both themes.
-const PALETTE_VARS = [
-  '--color-zViolet-accent',
-  '--color-zViolet-300',
-  '--color-zViolet-400',
-  '--color-zBlue-400',
-  '--color-zBlue-accent',
-  '--color-zOrangered-400',
-]
+const PALETTE_VARS = ['--color-data-1', '--color-status-attention', '--color-status-success']
 
 /**
  * One-shot, full-screen celebration burst. Mount it to play; it calls `onDone`

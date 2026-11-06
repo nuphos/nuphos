@@ -71,13 +71,13 @@ export function AlertModal({ teamId, dashboardId, panel, onClose }: Props) {
             anything under 999 gets swallowed by Base UI's internal backdrop. */}
         <Dialog.Backdrop className="fixed inset-0 z-[1000] bg-black/50" />
         <Dialog.Viewport className="fixed inset-0 z-[1001] flex items-center justify-center p-6">
-          <Dialog.Popup className="relative flex w-full max-w-md flex-col overflow-hidden rounded-xl border border-zGray-800 bg-zGray-950 shadow-2xl outline-none">
-            <div className="flex items-center justify-between border-b border-zGray-800 px-4 py-3">
+          <Dialog.Popup className="relative flex w-full max-w-md flex-col overflow-hidden rounded-xl border border-line-control bg-surface-canvas shadow-2xl outline-none">
+            <div className="flex items-center justify-between border-b border-line-control px-4 py-3">
               <Dialog.Title className="text-[14px] font-medium text-main">
                 {t('Alert · {title}', { title: panel.title })}
               </Dialog.Title>
               <Dialog.Close
-                className="rounded p-1 text-tertiary hover:bg-zGray-800 hover:text-main"
+                className="rounded p-1 text-tertiary hover:bg-state-hover hover:text-main"
                 aria-label={t('Close alert editor')}
               >
                 <X className="h-4 w-4" />
@@ -178,17 +178,17 @@ export function AlertModal({ teamId, dashboardId, panel, onClose }: Props) {
                 </div>
               </div>
             )}
-            <div className="flex justify-between border-t border-zGray-800 px-4 py-3">
+            <div className="flex justify-between border-t border-line-control px-4 py-3">
               <button
                 type="button"
-                className="rounded-md px-3 py-1.5 text-[13px] text-orange-400 hover:bg-zGray-800 disabled:opacity-50"
+                className="rounded-md px-3 py-1.5 text-[13px] text-orange-400 hover:bg-state-hover disabled:opacity-50"
                 onClick={() => setConfirmingRemove(true)}
                 disabled={saving || loadFailed || !hasAlert}
               >
                 {t('Remove')}
               </button>
               <div className="flex gap-2">
-                <Dialog.Close className="rounded-md px-3 py-1.5 text-[13px] text-secondary hover:bg-zGray-800">
+                <Dialog.Close className="rounded-md px-3 py-1.5 text-[13px] text-secondary hover:bg-state-hover">
                   {t('Cancel')}
                 </Dialog.Close>
                 <Button

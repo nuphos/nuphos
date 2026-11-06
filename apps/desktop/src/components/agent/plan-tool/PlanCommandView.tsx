@@ -25,16 +25,11 @@ export function StatusIcon({ status }: { status: PlanStepStatus | null }) {
   }
   if (status === 'running') {
     return (
-      <Loader2
-        className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-zViolet-accent"
-        strokeWidth={2.4}
-      />
+      <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-primary" strokeWidth={2.4} />
     )
   }
   if (status === 'partial') {
-    return (
-      <CircleDot className="h-3.5 w-3.5 flex-shrink-0 text-zViolet-accent/70" strokeWidth={1.8} />
-    )
+    return <CircleDot className="h-3.5 w-3.5 flex-shrink-0 text-primary" strokeWidth={1.8} />
   }
   if (status === 'pending') {
     return <CircleDashed className="h-3.5 w-3.5 flex-shrink-0 text-tertiary" strokeWidth={1.8} />
@@ -70,8 +65,8 @@ export function PlanCommandView({
           : status === 'failed'
             ? 'bg-error/[0.05] ring-error/30'
             : status === 'running'
-              ? 'bg-zViolet-500/[0.05] ring-zViolet-500/30'
-              : 'bg-zGray-950/70 ring-zGray-800/60',
+              ? 'bg-action-primary/[0.05] ring-line-focus'
+              : 'bg-state-selected ring-line-control/60',
       )}
     >
       <div className="flex items-start gap-1.5">
@@ -97,7 +92,7 @@ export function PlanCommandView({
         </div>
       )}
       {hasOutput && (
-        <div className="mt-2 space-y-1 border-t border-zGray-800/70 pt-2">
+        <div className="mt-2 space-y-1 border-t border-line-control/70 pt-2">
           <div className="flex items-center gap-2 pl-3 font-sans text-[11px] leading-relaxed text-tertiary">
             {command.executedBy && (
               <span>{t('Executed by {name}', { name: command.executedBy })}</span>
@@ -107,7 +102,7 @@ export function PlanCommandView({
             )}
           </div>
           {command.stdout && (
-            <pre className="max-h-36 overflow-auto whitespace-pre-wrap break-words rounded bg-zGray-950 px-2 py-1.5 text-[11.5px] leading-relaxed text-secondary scrollbar-thin">
+            <pre className="max-h-36 overflow-auto whitespace-pre-wrap break-words rounded bg-surface-canvas px-2 py-1.5 text-[11.5px] leading-relaxed text-secondary scrollbar-thin">
               {command.stdout}
             </pre>
           )}

@@ -45,7 +45,7 @@ export function LeafDetailPanel({ open, onClose, title, subtitle, fields, raw }:
             </summary>
             {/* No inner scroll: wrap long lines and let the block grow so the
                 modal's own outer scrollbar handles it (single scrollbar). */}
-            <pre className="mt-2 rounded-md bg-zGray-950 border border-zGray-800 p-3 text-[11.5px] font-mono text-secondary whitespace-pre-wrap break-words">
+            <pre className="mt-2 rounded-md bg-surface-canvas border border-line-control p-3 text-[11.5px] font-mono text-secondary whitespace-pre-wrap break-words">
               {JSON.stringify(raw, null, 2)}
             </pre>
           </details>

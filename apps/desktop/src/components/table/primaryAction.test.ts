@@ -40,6 +40,6 @@ test('never chooses the blank row-actions column', () => {
 })
 
 test('every navigable table value has a visible violet text affordance', () => {
-  assert.match(TABLE_CELL_ACTION_CLASS, /(?:^|\s)text-zViolet-accent(?:\s|$)/)
+  assert.match(TABLE_CELL_ACTION_CLASS, /(?:^|\s)text-primary(?:\s|$)/)
   assert.match(TABLE_CELL_ACTION_CLASS, /\[&_\*\]:!text-inherit/)
 })

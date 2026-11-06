@@ -56,7 +56,7 @@ export function ScriptErrorModal({ open, panel, snapshot, onClose }: Props) {
                   )
                 })
             }}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zGray-800 px-3 text-[12.5px] text-secondary hover:bg-zGray-800 hover:text-main"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line-control px-3 text-[12.5px] text-secondary hover:bg-state-hover hover:text-main"
           >
             <Clipboard className="h-3.5 w-3.5" /> {copied ? t('Copied') : t('Copy log')}
           </button>
@@ -88,7 +88,7 @@ export function ScriptErrorModal({ open, panel, snapshot, onClose }: Props) {
             {t('Error')}
           </div>
           <pre
-            className="max-h-[50vh] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-zGray-800 bg-zGray-950 p-3 font-mono text-[12px] leading-5 text-error scrollbar-thin"
+            className="max-h-[50vh] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-line-control bg-surface-canvas p-3 font-mono text-[12px] leading-5 text-error scrollbar-thin"
             data-ph-mask
           >
             {message}

@@ -23,9 +23,9 @@ const STATUS: Record<ThreadStatus, { label: string; icon?: LucideIcon; tone: str
 }
 
 const BADGE =
-  'group/thread inline-flex max-w-full items-center gap-2 rounded-lg border border-zGray-800 bg-zGray-900/60 px-2 py-1.5 text-[13px] text-main no-underline transition-colors duration-150 motion-reduce:transition-none'
+  'group/thread inline-flex max-w-full items-center gap-2 rounded-lg border border-line-control bg-state-selected px-2 py-1.5 text-[13px] text-main no-underline transition-colors duration-150 motion-reduce:transition-none'
 const LINKED =
-  'hover:border-zGray-700 hover:bg-zGray-850 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zViolet-accent'
+  'hover:border-line-control hover:bg-state-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-line-focus'
 
 function StatusLabel({ status, pending }: { status: ThreadStatus; pending: boolean }) {
   const {
@@ -35,7 +35,7 @@ function StatusLabel({ status, pending }: { status: ThreadStatus; pending: boole
   } = pending ? { label: t('Starting'), icon: Loader2, tone: 'text-secondary' } : STATUS[status]
   const spinning = Icon === Loader2
 
-  if (!label) return <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-zGray-700" />
+  if (!label) return <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-line-control" />
 
   return (
     <span className={clsx('inline-flex shrink-0 items-center gap-1 text-[12px]', tone)}>

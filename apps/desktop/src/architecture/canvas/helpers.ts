@@ -28,9 +28,9 @@ export function subtitleFromUrl(url?: string): string | undefined {
 
   return t.type.replace(/-/g, ' · ')
 }
-// App primary (zViolet-500) for selection/active accents — matches the rest of
-// the UI rather than an off-brand blue.
-export const PRIMARY = 'rgb(var(--color-zViolet-500))'
+// The app's primary action color for selection/active accents, so the canvas
+// matches the rest of the UI.
+export const PRIMARY = 'rgb(var(--color-action-primary))'
 export const COLOR_SWATCHES = ['', '#6300FF', '#1D9E75', '#7F77DD', '#D85A30', '#BA7517']
 
 export function genId(): string {

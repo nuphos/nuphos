@@ -17,7 +17,7 @@ import type { Column, SortState, StickyLayout, StickyPin } from './support'
  * group is `position: sticky` — a header backed only by `thead` turns
  * see-through the moment it sticks.
  */
-const HEADER_RULE = 'bg-main border-b border-zGray-800'
+const HEADER_RULE = 'bg-main border-b border-line-control'
 
 type Props<T> = {
   columns: Column<T>[]
@@ -215,13 +215,10 @@ export function HeaderCell<T>({
       <div className="flex items-center gap-1 overflow-hidden">
         <span className="truncate">{col.header}</span>
         {sortDir === 'asc' && (
-          <ChevronUp className="w-3.5 h-3.5 text-zViolet-accent flex-shrink-0" strokeWidth={2.4} />
+          <ChevronUp className="w-3.5 h-3.5 text-primary flex-shrink-0" strokeWidth={2.4} />
         )}
         {sortDir === 'desc' && (
-          <ChevronDown
-            className="w-3.5 h-3.5 text-zViolet-accent flex-shrink-0"
-            strokeWidth={2.4}
-          />
+          <ChevronDown className="w-3.5 h-3.5 text-primary flex-shrink-0" strokeWidth={2.4} />
         )}
       </div>
       {/* No handle on the column flush with the trailing edge: its right edge
@@ -243,7 +240,7 @@ export function HeaderCell<T>({
           style={{ touchAction: 'none', pointerEvents: 'auto' }}
           className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-30 group flex items-stretch justify-end"
         >
-          <div className="table-col-divider w-px group-hover:w-0.5 bg-zGray-800 group-hover:bg-zViolet-accent transition-all pointer-events-none" />
+          <div className="table-col-divider w-px group-hover:w-0.5 bg-surface-sunken group-hover:bg-action-primary transition-all pointer-events-none" />
         </div>
       )}
     </th>

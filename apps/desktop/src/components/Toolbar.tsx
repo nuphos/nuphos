@@ -117,28 +117,14 @@ export function Toolbar({
   if (!showHeaderRow && !showControlsRow) return null
 
   return (
-    <div
-      className={clsx(
-        'workspace-page-toolbar titlebar-drag flex flex-col border-b border-zGray-800/60 bg-main',
-        showHeaderRow && showControlsRow ? 'h-[84px]' : 'h-[42px]',
-      )}
-    >
+    <div className="workspace-page-toolbar titlebar-drag flex flex-shrink-0 flex-col bg-main">
       {showHeaderRow && (
-        // The inner border separates this row from the controls row below it.
-        // Without a controls row it would stack on the wrapper's own border-b
-        // and read as one 2px-thick divider, so it only draws when needed.
-        <div
-          className={clsx(
-            'h-[42px] flex items-center px-3 gap-1',
-            showControlsRow && 'border-b border-zGray-800/60',
-            headerClassName,
-          )}
-        >
+        <div className={clsx('sheet-titlebar-row flex items-center px-3 gap-1', headerClassName)}>
           {leading}
           <Breadcrumb segments={segments} />
 
           <div className="flex-1 titlebar-drag" />
-          {switching && <Loader2 className="w-3.5 h-3.5 mx-1 text-zViolet-accent animate-spin" />}
+          {switching && <Loader2 className="w-3.5 h-3.5 mx-1 text-primary animate-spin" />}
           {/* flex-shrink-0: an uncapped trailing crumb shrinks the drag spacer
               to nothing before it truncates, and these must not be next. */}
           <div className="titlebar-no-drag flex flex-shrink-0 items-center gap-1">
@@ -150,12 +136,12 @@ export function Toolbar({
             <button
               onClick={() => void copyCurrentPageUrl()}
               disabled={!currentPageUrl}
-              className="w-7 h-7 rounded-md hover:bg-zGray-800/60 disabled:hover:bg-transparent text-secondary hover:text-main disabled:text-tertiary disabled:opacity-50 flex items-center justify-center"
+              className="w-7 h-7 rounded-md hover:bg-state-hover disabled:hover:bg-transparent text-secondary hover:text-main disabled:text-tertiary disabled:opacity-50 flex items-center justify-center"
               title={copiedPageUrl ? t('Copied') : t('Copy page URL')}
               aria-label={copiedPageUrl ? t('Copied page URL') : t('Copy page URL')}
             >
               {copiedPageUrl ? (
-                <Check className="w-3.5 h-3.5 text-zViolet-accent" strokeWidth={2} />
+                <Check className="w-3.5 h-3.5 text-primary" strokeWidth={2} />
               ) : (
                 <Copy className="w-3.5 h-3.5" strokeWidth={2} />
               )}
@@ -167,8 +153,8 @@ export function Toolbar({
                 className={clsx(
                   'w-7 h-7 rounded-md flex items-center justify-center transition-colors',
                   agentSidebarOpen
-                    ? 'bg-zGray-800/60 text-main'
-                    : 'text-secondary hover:text-main hover:bg-zGray-800/60',
+                    ? 'bg-state-selected text-main'
+                    : 'text-secondary hover:text-main hover:bg-state-hover',
                 )}
                 title={agentSidebarOpen ? t('Close agent chat') : t('Open agent chat')}
                 aria-label={agentSidebarOpen ? t('Close agent chat') : t('Open agent chat')}
@@ -184,7 +170,13 @@ export function Toolbar({
       )}
 
       {showControlsRow && (
-        <div className="h-[42px] flex items-center px-3 gap-2">
+        // The first row sits on the traffic lights' line; a second row keeps its height.
+        <div
+          className={clsx(
+            showHeaderRow ? 'h-[42px]' : 'sheet-titlebar-row',
+            'flex items-center px-3 gap-2',
+          )}
+        >
           {/* Sized by its content, not `flex-1`. With `flex-1` this shared a
               basis-0 split with the drag spacer below, so it only ever got half
               the row — and since the filter controls are shrink-proof, the

@@ -165,7 +165,7 @@ export function TurnRail({
               onClick={() => jump(turn.id)}
               onPointerEnter={(e) => point(i, e.currentTarget, false)}
               onFocus={(e) => point(i, e.currentTarget, true)}
-              className="flex h-2.5 w-7 shrink-0 items-center justify-end rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-zViolet-accent"
+              className="flex h-2.5 w-7 shrink-0 items-center justify-end rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
             >
               <span
                 style={{ transform: `scaleX(${String(tickScale(i, focus))})` }}

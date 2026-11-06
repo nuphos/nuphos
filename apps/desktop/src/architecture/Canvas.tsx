@@ -246,12 +246,12 @@ export function DiagramCanvas({ teamId, initial, onRename, onOpenUrl }: Props) {
                 onPaneClick={() => setSelectedNodeId(null)}
                 defaultEdgeOptions={{
                   type: 'floating',
-                  style: { stroke: 'rgb(var(--color-zGray-500))' },
+                  style: { stroke: 'rgb(var(--color-text-tertiary))' },
                   markerEnd: {
                     type: MarkerType.ArrowClosed,
                     width: 14,
                     height: 14,
-                    color: 'rgb(var(--color-zGray-500))',
+                    color: 'rgb(var(--color-text-tertiary))',
                   },
                 }}
                 connectionMode={ConnectionMode.Loose}

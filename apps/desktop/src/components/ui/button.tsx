@@ -13,34 +13,44 @@ export type ButtonProps = Omit<BaseButton.Props, 'className'> & {
   className?: string
 }
 
+// Every button looks pressable and answers a press: pointer cursor, a short
+// color transition and a slight scale-down while held.
 const baseClasses =
-  'inline-flex items-center justify-center gap-2 rounded-md font-medium whitespace-nowrap ' +
-  'transition-colors outline-none ' +
-  'disabled:cursor-not-allowed disabled:opacity-50 ' +
-  'data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50'
+  'inline-flex cursor-pointer items-center justify-center gap-2 font-medium whitespace-nowrap ' +
+  'transition-[background-color,color,opacity,transform,box-shadow] duration-150 ease-out outline-none ' +
+  'enabled:active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-line-focus focus-visible:ring-offset-1 ' +
+  'focus-visible:ring-offset-surface-sheet ' +
+  'disabled:cursor-not-allowed data-[disabled]:cursor-not-allowed'
 
 const sizeClasses: Record<ButtonSize, string> = {
-  'icon-sm': 'h-6 w-6 p-0 text-[13px]',
-  sm: 'h-8 px-2.5 text-[13px]',
-  md: 'h-9 px-[10px] text-[14px]',
-  lg: 'px-[12px] py-[10px] text-[16px]',
+  'icon-sm': 'h-6 w-6 rounded-md p-0 text-[13px]',
+  sm: 'h-8 rounded-lg px-2.5 text-[13px]',
+  md: 'h-9 rounded-[10px] px-3 text-[14px]',
+  lg: 'rounded-[10px] px-3.5 py-2.5 text-[16px]',
 }
 
+// Filled variants go quiet when disabled (the sunken surface) instead of fading,
+// so a disabled primary never reads as a washed-out version of itself.
+const FILLED_DISABLED =
+  'disabled:bg-surface-sunken disabled:text-tertiary disabled:shadow-none ' +
+  'data-[disabled]:bg-surface-sunken data-[disabled]:text-tertiary data-[disabled]:shadow-none'
+
+const primary = `bg-action-primary text-inverse shadow-[0_1px_2px_rgba(0,0,0,0.12)] enabled:hover:opacity-90 ${FILLED_DISABLED}`
+
 const variantClasses: Record<ButtonVariant, string> = {
-  primary:
-    'bg-zViolet-500 text-white shadow-[inset_0_0_0_1px_rgba(0,0,0,0.15)] ' +
-    'hover:bg-zViolet-400 active:bg-zViolet-600 focus-visible:ring-2 focus-visible:ring-zViolet-accent',
-  neutral:
-    'bg-[rgb(var(--color-text-base))] text-[rgb(var(--color-background-base))] hover:opacity-90 focus-visible:ring-2 focus-visible:ring-zViolet-accent',
-  // Shares inputs' and selects' surface, border and focus: a violet border, no ring.
+  // The one primary action in a view: ink, not a brand color.
+  primary,
+  // Kept as a name for existing call sites; it is the same ink fill as primary.
+  neutral: primary,
+  // Paper: a raised surface with a hairline, for secondary actions.
   secondary:
-    'border border-main bg-surface text-main hover:bg-zGray-800 ' +
-    'focus-visible:border-zViolet-500 focus-visible:shadow-none',
+    'bg-surface-raised text-primary shadow-[0_0_0_1px_rgb(var(--color-line-control)),0_1px_2px_rgba(0,0,0,0.04)] ' +
+    'enabled:hover:bg-surface-sheet disabled:opacity-50 data-[disabled]:opacity-50',
+  // Quiet: no fill until hovered, for escape hatches and toolbars.
   ghost:
-    'text-secondary hover:bg-zGray-800 hover:text-main focus-visible:ring-2 focus-visible:ring-zViolet-accent',
-  destructive:
-    'bg-error text-white shadow-[inset_0_0_0_1px_rgba(0,0,0,0.15)] ' +
-    'hover:bg-error/85 active:bg-error/75 focus-visible:ring-2 focus-visible:ring-error',
+    'text-secondary enabled:hover:bg-state-hover enabled:hover:text-primary ' +
+    'disabled:opacity-50 data-[disabled]:opacity-50',
+  destructive: `bg-status-danger text-inverse shadow-[0_1px_2px_rgba(0,0,0,0.12)] enabled:hover:opacity-90 ${FILLED_DISABLED}`,
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(

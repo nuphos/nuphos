@@ -21,7 +21,7 @@ export function TriBox({ state }: { state: 'all' | 'some' | 'none' }) {
 // side submenu of its individual roles. A single-role account is a plain
 // checkbox row (no submenu needed). Keeps the menu compact with many bindings.
 const newBadge = (
-  <span className="flex-shrink-0 rounded-full bg-zViolet-accent/15 px-1.5 py-px text-[10px] font-medium leading-tight text-zViolet-accent">
+  <span className="flex-shrink-0 rounded-full bg-state-selected px-1.5 py-px text-[10px] font-medium leading-tight text-primary">
     {t('New')}
   </span>
 )

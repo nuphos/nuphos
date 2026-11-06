@@ -47,7 +47,7 @@ export function PanelContent({ c, homePage, conversationPage }: ContentProps) {
           {showingConversationPage && (
             <button
               onClick={startNewChat}
-              className="w-7 h-7 rounded-md hover:bg-zGray-800/60 text-secondary hover:text-main flex items-center justify-center transition-colors"
+              className="w-7 h-7 rounded-md hover:bg-state-hover text-secondary hover:text-main flex items-center justify-center transition-colors"
               title={t('New agent')}
               aria-label={t('New agent')}
             >
@@ -57,7 +57,7 @@ export function PanelContent({ c, homePage, conversationPage }: ContentProps) {
           {onExpandToPage && (
             <button
               onClick={(event) => expandCurrentSession({ newTab: event.metaKey || event.ctrlKey })}
-              className="w-7 h-7 rounded-md hover:bg-zGray-800/60 text-secondary hover:text-main flex items-center justify-center transition-colors"
+              className="w-7 h-7 rounded-md hover:bg-state-hover text-secondary hover:text-main flex items-center justify-center transition-colors"
               title={t('Open in tab')}
               aria-label={t('Open agent chat in a tab')}
             >
@@ -130,7 +130,7 @@ export function PanelSidebarLayout({ c, content }: { c: PanelViewCtx; content: R
           <div
             className={clsx(
               'h-full w-1 transition-colors',
-              dragging ? 'bg-zViolet-500/30' : 'group-hover:bg-zGray-800/60',
+              dragging ? 'bg-action-primary/30' : 'group-hover:bg-state-hover',
             )}
           />
         </div>

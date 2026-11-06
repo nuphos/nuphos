@@ -101,7 +101,7 @@ export function ToolPartView({
         <Collapsible.Panel className="t-acc-collapsible">
           <div className="pt-2.5 space-y-1.5">
             {part.authorization?.decision === 'allow' && part.authorization.triggeredBy && (
-              <div className="flex items-start gap-1.5 rounded-md border border-zGray-800/70 bg-zGray-950/40 px-2.5 py-1.5 text-[11.5px] leading-4 italic text-tertiary">
+              <div className="flex items-start gap-1.5 rounded-md border border-line-control/70 bg-state-selected px-2.5 py-1.5 text-[11.5px] leading-4 italic text-tertiary">
                 <span className="flex h-4 flex-shrink-0 items-center">
                   <ShieldCheck className="h-3 w-3" strokeWidth={2} />
                 </span>
@@ -109,7 +109,7 @@ export function ToolPartView({
               </div>
             )}
             {(part.approval?.approved !== undefined || part.authorization?.resolved) && (
-              <div className="flex items-start gap-1.5 rounded-md border border-zGray-800/70 bg-zGray-950/40 px-2.5 py-1.5 text-[11.5px] leading-4 italic text-tertiary">
+              <div className="flex items-start gap-1.5 rounded-md border border-line-control/70 bg-state-selected px-2.5 py-1.5 text-[11.5px] leading-4 italic text-tertiary">
                 <span className="flex h-4 flex-shrink-0 items-center">
                   <ShieldCheck className="h-3 w-3" strokeWidth={2} />
                 </span>

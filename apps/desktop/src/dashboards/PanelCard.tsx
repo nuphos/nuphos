@@ -102,8 +102,8 @@ export const PanelCard = memo(
     )
 
     return (
-      <div className="flex flex-col overflow-hidden rounded-lg border border-zGray-800 bg-zGray-900/40">
-        <div className="flex items-center gap-2 border-b border-zGray-800 px-3 py-2">
+      <div className="flex flex-col overflow-hidden rounded-lg border border-line-control bg-state-selected">
+        <div className="flex items-center gap-2 border-b border-line-control px-3 py-2">
           {dragHandleProps && (
             <button
               type="button"
@@ -126,7 +126,7 @@ export const PanelCard = memo(
                   type="button"
                   title={t('Panel actions')}
                   aria-label={t('Actions for {title}', { title: panel.title })}
-                  className="rounded p-1 text-tertiary outline-none hover:bg-zGray-800 hover:text-main focus:bg-zGray-800 focus:text-main"
+                  className="rounded p-1 text-tertiary outline-none hover:bg-state-hover hover:text-main focus:bg-state-hover focus:text-main"
                 >
                   <MoreHorizontal className="h-4 w-4" />
                 </button>
@@ -176,7 +176,7 @@ export const PanelCard = memo(
             </button>
           )}
           {snapshotLoading && (
-            <div className="h-3 w-3 animate-spin rounded-full border-2 border-zGray-700 border-t-zViolet-accent" />
+            <div className="h-3 w-3 animate-spin rounded-full border-2 border-line-control border-t-action-primary" />
           )}
         </div>
         <div

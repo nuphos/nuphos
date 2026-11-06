@@ -50,7 +50,7 @@ export function GalleryRail({
     <div className="flex shrink-0 flex-col gap-2 border-b border-main p-3 @2xl:w-[196px] @2xl:border-b-0 @2xl:border-r">
       <InputGroup
         render={<label />}
-        className="flex h-8 items-center gap-2 rounded-md border border-main bg-surface px-2 text-[13px] focus-within:border-zViolet-500"
+        className="flex h-8 items-center gap-2 rounded-md border border-main bg-surface px-2 text-[13px] focus-within:border-line-focus"
       >
         <Search className="h-3.5 w-3.5 flex-none text-tertiary" strokeWidth={1.8} />
         <InputGroupInput
@@ -96,10 +96,10 @@ export function GalleryRail({
                 document.getElementById(`${tabsId}-${String(next)}`)?.focus()
               }}
               className={clsx(
-                'flex h-8 flex-none items-center gap-2 rounded-md px-2.5 text-left text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-zViolet-accent',
+                'flex h-8 flex-none items-center gap-2 rounded-md px-2.5 text-left text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-line-focus',
                 selected
-                  ? 'bg-zGray-800 text-main'
-                  : 'text-secondary hover:bg-zGray-800/60 hover:text-main',
+                  ? 'bg-surface-sunken text-main'
+                  : 'text-secondary hover:bg-state-hover hover:text-main',
               )}
             >
               <span className="flex-1 whitespace-nowrap">{c.label}</span>
@@ -224,7 +224,7 @@ export function AddCardButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-zGray-800 text-[12px] text-tertiary outline-none transition-colors hover:border-zGray-700 hover:text-main focus-visible:ring-2 focus-visible:ring-zViolet-accent motion-reduce:transition-none"
+      className="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-line-control text-[12px] text-tertiary outline-none transition-colors hover:border-line-control hover:text-main focus-visible:ring-2 focus-visible:ring-line-focus motion-reduce:transition-none"
     >
       <Plus className="h-3.5 w-3.5" strokeWidth={1.8} />
       {t('Add card')}
@@ -247,7 +247,7 @@ export function GalleryHeader({ said }: { said: string }) {
       </div>
       <Dialog.Close
         aria-label={t('Close')}
-        className="-mr-1.5 rounded-md p-1 text-tertiary outline-none transition-colors hover:bg-zGray-800 hover:text-main focus-visible:ring-2 focus-visible:ring-zViolet-accent"
+        className="-mr-1.5 rounded-md p-1 text-tertiary outline-none transition-colors hover:bg-state-hover hover:text-main focus-visible:ring-2 focus-visible:ring-line-focus"
       >
         <X className="h-4 w-4" strokeWidth={1.8} />
       </Dialog.Close>

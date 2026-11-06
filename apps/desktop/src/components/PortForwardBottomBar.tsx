@@ -134,7 +134,7 @@ export function PortForwardBottomBar({ onActiveChange }: Props) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="h-8 w-full flex-shrink-0 titlebar-no-drag bg-zViolet-500 text-white shadow-[0_-10px_30px_rgba(0,0,0,0.25)] hover:bg-zViolet-400 transition-colors"
+        className="h-8 w-full flex-shrink-0 titlebar-no-drag bg-action-primary text-inverse shadow-[0_-10px_30px_rgba(0,0,0,0.25)] hover:bg-action-primary/90 transition-colors"
         title={t('Show current port forwards')}
       >
         <span className="mx-auto flex h-full max-w-5xl items-center justify-center gap-2 px-4 text-[12.5px]">
@@ -152,10 +152,10 @@ export function PortForwardBottomBar({ onActiveChange }: Props) {
         description={t('Current local tunnels')}
         width={620}
       >
-        <div className="flex flex-col divide-y divide-zGray-800">
+        <div className="flex flex-col divide-y divide-line-control">
           {forwards.map((forward) => (
             <div key={forward.id} className="flex items-center gap-3 px-5 py-3">
-              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-zViolet-500/15 text-zViolet-accent">
+              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-state-selected text-primary">
                 <ArrowLeftRight className="h-4 w-4" strokeWidth={1.9} />
               </div>
               <div className="min-w-0 flex-1">
@@ -184,7 +184,7 @@ export function PortForwardBottomBar({ onActiveChange }: Props) {
               <button
                 type="button"
                 onClick={() => void handleCopy(forward.id, forward.localPort)}
-                className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-zGray-800 hover:text-main"
+                className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-state-hover hover:text-main"
                 title={t('Copy local address')}
               >
                 {copiedId === forward.id ? (
@@ -196,7 +196,7 @@ export function PortForwardBottomBar({ onActiveChange }: Props) {
               <button
                 type="button"
                 onClick={() => void handleOpen(forward.localPort)}
-                className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-zGray-800 hover:text-main"
+                className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-state-hover hover:text-main"
                 title={t('Open in browser')}
               >
                 <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} />

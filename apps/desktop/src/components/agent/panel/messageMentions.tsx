@@ -78,14 +78,14 @@ export function MemberMention({
   return (
     <Popover.Root>
       <Popover.Trigger
-        className="inline rounded px-0.5 font-medium text-zViolet-accent bg-zViolet-accent/15 hover:bg-zViolet-accent/25 cursor-pointer"
+        className="inline rounded px-0.5 font-medium text-primary bg-state-selected hover:bg-state-selected cursor-pointer"
         data-mention-user-id={userId}
       >
         {children}
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner sideOffset={6} collisionPadding={12} className="z-[1000]">
-          <Popover.Popup className="w-[260px] rounded-xl border border-zGray-800/60 bg-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none">
+          <Popover.Popup className="w-[260px] rounded-xl border border-line-control/60 bg-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none">
             <MemberCard teamId={teamId} userId={userId} label={label} />
           </Popover.Popup>
         </Popover.Positioner>

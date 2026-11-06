@@ -41,7 +41,7 @@ export function PlanHeader({
       <button
         type="button"
         onClick={onToggleFold}
-        className="flex h-6 w-6 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800/60 hover:text-main"
+        className="flex h-6 w-6 items-center justify-center rounded-md text-tertiary hover:bg-state-hover hover:text-main"
         title={folded ? t('Expand plan') : t('Collapse plan')}
         aria-label={folded ? t('Expand plan') : t('Collapse plan')}
         aria-expanded={!folded}
@@ -61,7 +61,7 @@ export function PlanHeader({
   const headerInner = (
     <>
       <div className="flex items-start gap-2">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 text-[12px] font-medium leading-relaxed text-zViolet-accent">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 text-[12px] font-medium leading-relaxed text-primary">
           <span className="whitespace-nowrap">
             {typeof payload.number === 'number'
               ? t('Plan #{number}', { number: String(payload.number) })
@@ -111,10 +111,10 @@ export function PlanHeader({
     <div
       className={clsx(
         'flex items-start gap-2.5 px-3.5 py-2.5',
-        !folded && 'border-b border-zGray-800/70',
+        !folded && 'border-b border-line-control/70',
       )}
     >
-      <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md bg-zViolet-500/15 text-zViolet-accent">
+      <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md bg-state-selected text-primary">
         <ClipboardList className="h-3.5 w-3.5" strokeWidth={2} />
       </div>
       <div className="min-w-0 flex-1">{headerInner}</div>

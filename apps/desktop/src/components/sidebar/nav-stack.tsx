@@ -193,7 +193,7 @@ export function SidebarBackControl({
                 {i > 0 && (
                   <span
                     aria-hidden
-                    className="pointer-events-none absolute rounded-bl-[6px] border-b border-l border-zGray-700"
+                    className="pointer-events-none absolute rounded-bl-[6px] border-b border-l border-line-control"
                     style={{
                       left: (i - 1) * BACK_TREE_INDENT + 9,
                       width: BACK_TREE_INDENT - 9,

@@ -26,7 +26,7 @@ import type { AgentTrigger } from '../../../api/agent-trigger-types'
 import type { KeyboardEvent } from 'react'
 
 const CARD =
-  't-chat-card-in w-full max-w-[520px] overflow-hidden rounded-xl border border-zGray-800 bg-zGray-900/60'
+  't-chat-card-in w-full max-w-[520px] overflow-hidden rounded-xl border border-line-control bg-state-selected'
 
 function scheduleLine(trigger: AgentTrigger): string {
   if (trigger.triggerType !== 'cron') return scheduleSummary(trigger)
@@ -37,7 +37,7 @@ function scheduleLine(trigger: AgentTrigger): string {
 function Placeholder({ missing }: { missing: boolean }) {
   return (
     <div className={clsx(CARD, 'flex items-center gap-3 px-3.5 py-3')} aria-busy={!missing}>
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-zGray-800 text-tertiary">
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-tertiary">
         <AlarmClock aria-hidden className="size-4" strokeWidth={1.75} />
       </span>
       {missing ? (
@@ -46,8 +46,8 @@ function Placeholder({ missing }: { missing: boolean }) {
         </span>
       ) : (
         <span className="flex flex-1 flex-col gap-1.5">
-          <span className="h-3 w-40 animate-pulse rounded bg-zGray-800 motion-reduce:animate-none" />
-          <span className="h-2.5 w-64 animate-pulse rounded bg-zGray-800 motion-reduce:animate-none" />
+          <span className="h-3 w-40 animate-pulse rounded bg-surface-sunken motion-reduce:animate-none" />
+          <span className="h-2.5 w-64 animate-pulse rounded bg-surface-sunken motion-reduce:animate-none" />
         </span>
       )}
     </div>
@@ -116,9 +116,7 @@ export function TriggerCard({
         <span
           className={clsx(
             'flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 motion-reduce:transition-none',
-            trigger.enabled
-              ? 'bg-zViolet-accent/10 text-zViolet-accent'
-              : 'bg-zGray-800 text-tertiary',
+            trigger.enabled ? 'bg-state-selected text-primary' : 'bg-surface-sunken text-tertiary',
           )}
         >
           <AlarmClock aria-hidden className="size-4" strokeWidth={1.75} />
@@ -161,14 +159,14 @@ export function TriggerCard({
         }}
         onClose={() => setSwitching(null)}
       />
-      <div className="border-t border-zGray-800 px-3.5 py-2.5">
+      <div className="border-t border-line-control px-3.5 py-2.5">
         {editing ? (
           <ScheduleEditor value={draft} onChange={setDraft} />
         ) : (
           <NextRuns trigger={trigger} />
         )}
       </div>
-      <footer className="flex items-center justify-end gap-1 border-t border-zGray-800 px-2 py-1.5">
+      <footer className="flex items-center justify-end gap-1 border-t border-line-control px-2 py-1.5">
         {editing ? (
           <>
             <Button variant="ghost" size="sm" disabled={busy} onClick={() => setDraft(null)}>
@@ -187,7 +185,7 @@ export function TriggerCard({
               <ChatLink
                 link={`/teams/${teamId}/triggers`}
                 onLinkClick={onOpen}
-                className="inline-flex h-8 items-center gap-1 rounded-md px-2.5 text-[13px] font-medium text-secondary no-underline transition-colors hover:bg-zGray-800 hover:text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zViolet-accent"
+                className="inline-flex h-8 items-center gap-1 rounded-md px-2.5 text-[13px] font-medium text-secondary no-underline transition-colors hover:bg-state-hover hover:text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-line-focus"
               >
                 {t('All triggers')}
                 <ArrowUpRight aria-hidden className="size-3.5" />

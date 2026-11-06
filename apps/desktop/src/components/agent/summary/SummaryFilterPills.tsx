@@ -64,8 +64,8 @@ export function FilterPills<F extends string>({
             className={clsx(
               'flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-[12px] transition-colors motion-reduce:transition-none',
               checked
-                ? 'bg-zGray-800 text-main'
-                : 'text-tertiary hover:bg-zGray-800/50 hover:text-main',
+                ? 'bg-surface-sunken text-main'
+                : 'text-tertiary hover:bg-state-hover hover:text-main',
               focusRingClass,
             )}
           >

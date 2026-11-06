@@ -44,7 +44,7 @@ export function MoreMenu({
       <MenuTrigger
         aria-label={t('More')}
         title={t('More')}
-        className="relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-secondary outline-none transition-colors hover:bg-zGray-800 hover:text-main focus-visible:ring-2 focus-visible:ring-zViolet-accent data-[popup-open]:bg-zGray-800 data-[popup-open]:text-main"
+        className="relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-secondary outline-none transition-colors hover:bg-state-hover hover:text-main focus-visible:ring-2 focus-visible:ring-line-focus data-[popup-open]:bg-state-selected data-[popup-open]:text-main"
       >
         <MoreHorizontal className="h-3.5 w-3.5" />
         {tiny && errors.length > 0 && (

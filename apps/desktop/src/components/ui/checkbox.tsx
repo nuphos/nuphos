@@ -20,8 +20,8 @@ export const Checkbox = forwardRef<HTMLElement, CheckboxProps>(function Checkbox
     <CheckboxPrimitive.Root
       ref={ref}
       className={clsx(
-        'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border border-zGray-700 bg-zGray-900 text-white outline-none transition-colors',
-        'hover:border-zGray-600 focus-visible:ring-2 focus-visible:ring-zViolet-accent',
+        'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border border-line-control bg-surface-sheet text-white outline-none transition-colors',
+        'hover:border-line-control focus-visible:ring-2 focus-visible:ring-line-focus',
         'data-[checked]:border-[#fc6d26] data-[checked]:bg-[#fc6d26]',
         'data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
         className,

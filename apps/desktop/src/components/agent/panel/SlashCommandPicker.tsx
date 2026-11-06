@@ -20,7 +20,7 @@ function OptionRow({ option }: { option: SlashOption }) {
         <span className="truncate font-mono text-[12px] leading-4 text-main">{name}</span>
         {nuphos && (
           // Nuphos actions run when picked, so they never pass for something the agent runs.
-          <span className="shrink-0 rounded bg-zGray-800/60 px-1 text-[10px] leading-4 text-tertiary">
+          <span className="shrink-0 rounded bg-state-selected px-1 text-[10px] leading-4 text-tertiary">
             Nuphos
           </span>
         )}

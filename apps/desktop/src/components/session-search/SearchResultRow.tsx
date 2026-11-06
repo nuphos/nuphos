@@ -15,7 +15,7 @@ export function Highlight({ text, query }: { text: string; query: string }) {
   return (
     <>
       {text.slice(0, match.start)}
-      <mark className="rounded-sm bg-zViolet-500/25 text-main">
+      <mark className="rounded-sm bg-state-selected text-main">
         {text.slice(match.start, match.end)}
       </mark>
       {text.slice(match.end)}
@@ -61,7 +61,7 @@ export function SearchResultRow({
       }}
       className={clsx(
         'flex min-h-[52px] cursor-pointer items-center gap-2.5 rounded-md px-2 py-2',
-        selected ? 'bg-zGray-750' : 'hover:bg-zGray-800',
+        selected ? 'bg-line-control' : 'hover:bg-state-hover',
       )}
     >
       {avatar}

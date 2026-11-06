@@ -113,7 +113,7 @@ export function AgentEventMessage({
               aria-expanded={open}
               aria-controls={contentId}
               onClick={() => setOpen((value) => !value)}
-              className="flex size-6 shrink-0 items-center justify-center rounded text-tertiary hover:bg-zGray-800/50 hover:text-secondary"
+              className="flex size-6 shrink-0 items-center justify-center rounded text-tertiary hover:bg-state-hover hover:text-secondary"
             >
               <ChevronRight
                 className={`size-3.5 transition-transform ${open ? 'rotate-90' : ''}`}

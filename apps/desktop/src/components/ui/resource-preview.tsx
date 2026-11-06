@@ -45,7 +45,7 @@ export function ResourcePreview({
           <PreviewCard.Popup
             className={(popup) =>
               clsx(
-                't-dropdown w-80 max-w-[calc(100vw-24px)] rounded-lg border border-zGray-800/60 bg-main p-3 text-main shadow-lg outline-none',
+                't-dropdown w-80 max-w-[calc(100vw-24px)] rounded-lg border border-line-control/60 bg-main p-3 text-main shadow-lg outline-none',
                 popup.open && 'is-open',
                 popup.transitionStatus === 'ending' && 'is-closing',
               )
@@ -65,13 +65,13 @@ export function ResourcePreview({
               </div>
             )}
             {(actionable || actions) && (
-              <div className="mt-3 flex items-center justify-between gap-3 border-t border-zGray-800/60 pt-2 text-[11px] text-tertiary">
+              <div className="mt-3 flex items-center justify-between gap-3 border-t border-line-control/60 pt-2 text-[11px] text-tertiary">
                 {actionable &&
                   (onOpen ? (
                     <button
                       type="button"
                       onClick={onOpen}
-                      className="-ml-1.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors hover:bg-zGray-800/80 hover:text-main focus-visible:outline focus-visible:outline-1 focus-visible:outline-current"
+                      className="-ml-1.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors hover:bg-state-hover hover:text-main focus-visible:outline focus-visible:outline-1 focus-visible:outline-current"
                     >
                       <ExternalLink className="size-3" />
                       {t('Open in browser tab')}

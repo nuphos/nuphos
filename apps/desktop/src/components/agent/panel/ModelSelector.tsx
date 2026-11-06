@@ -179,7 +179,7 @@ export function ModelSelector({
             // A filled pill at rest, so opening it changes nothing but the text.
             className={clsx(
               hero ? 'h-8' : 'h-7',
-              'flex min-w-0 max-w-64 items-center gap-1 rounded-full px-2 text-[13px] text-main outline-none transition-colors hover:bg-zGray-800 focus-visible:bg-zGray-800',
+              'flex min-w-0 max-w-64 items-center gap-1 rounded-full px-2 text-[13px] text-main outline-none transition-colors hover:bg-state-hover focus-visible:bg-state-hover',
             )}
           >
             {saving && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
@@ -204,7 +204,7 @@ export function ModelSelector({
               finalFocus={finalFocus}
               className={(state) =>
                 clsx(
-                  't-dropdown w-72 rounded-xl border border-zGray-800/60 bg-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none',
+                  't-dropdown w-72 rounded-xl border border-line-control/60 bg-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none',
                   state.open && 'is-open',
                   state.transitionStatus === 'ending' && 'is-closing',
                 )

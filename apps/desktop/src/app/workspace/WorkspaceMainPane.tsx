@@ -10,6 +10,7 @@ import { reportPaneRender } from '../../lib/tabSwitchLog'
 import { usePaneOrder } from './usePaneOrder'
 import { WorkspacePageToolbar } from './WorkspacePageToolbar'
 import { useWorkspacePane } from './WorkspacePaneContext'
+import { HeaderEdge } from '../../components/ui/header-edge'
 
 import type { WorkspaceController } from './useWorkspaceController'
 import type { UserInfo } from '../../types'
@@ -117,7 +118,7 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
       <div className="flex flex-1 min-h-0">
         <div className="flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden workspace-content-surface">
           <WorkspacePageToolbar ws={ws} />
-          <div className="flex-1 flex flex-col min-h-0">
+          <HeaderEdge className="flex-1 flex flex-col min-h-0">
             {error && (
               <div className="px-6 py-2 bg-error/15 text-error text-[12.5px] border-b border-error/30">
                 {error}
@@ -197,7 +198,7 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
                 </ToolbarSlotsContext.Provider>
               </ToolbarPrimaryActionContext.Provider>
             </PageAsideContext.Provider>
-          </div>
+          </HeaderEdge>
         </div>
         <div ref={setPageAsideEl} className="flex min-h-0 shrink-0 empty:hidden" />
       </div>

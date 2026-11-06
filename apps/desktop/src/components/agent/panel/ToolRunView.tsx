@@ -92,7 +92,7 @@ export function ToolRunView({
           <ToolElapsedBadge part={latest} now={now} />
         </span>
         {count > 1 && (
-          <span className="flex-shrink-0 text-tertiary/70">
+          <span className="flex-shrink-0 text-tertiary">
             · {t('{n} calls', { n: String(count) })}
           </span>
         )}
@@ -106,7 +106,7 @@ export function ToolRunView({
       </button>
       <div
         className={clsx(
-          'ml-1.5 mt-2 space-y-2 border-l-2 border-zGray-800 pl-3',
+          'ml-1.5 mt-2 space-y-2 border-l-2 border-line-control pl-3',
           !open && 'hidden',
         )}
         inert={!open}

@@ -80,7 +80,7 @@ function SelectionButton({
     >
       <MenuTrigger
         className={clsx(
-          'relative flex flex-shrink-0 items-center justify-center gap-1.5 transition-colors text-secondary hover:text-main hover:bg-zGray-800/60 data-[popup-open]:bg-zGray-800/60 data-[popup-open]:text-main',
+          'relative flex flex-shrink-0 items-center justify-center gap-1.5 transition-colors text-secondary hover:text-main hover:bg-state-hover data-[popup-open]:bg-state-selected data-[popup-open]:text-main',
           hero ? 'w-8 h-8 rounded-full' : 'w-7 h-7 rounded-md',
         )}
         title={
@@ -103,7 +103,7 @@ function SelectionButton({
         {totalCount > 0 && (
           <span
             key={selectedCount}
-            className="absolute -right-1 -top-1 flex min-w-3.5 h-3.5 items-center justify-center rounded-full bg-zViolet-accent px-0.5 text-[9.5px] text-white font-medium leading-none transition-[transform,opacity,background-color] duration-150 ease-out"
+            className="absolute -right-1 -top-1 flex min-w-3.5 h-3.5 items-center justify-center rounded-full bg-action-primary px-0.5 text-[9.5px] text-inverse font-medium leading-none transition-[transform,opacity,background-color] duration-150 ease-out"
           >
             {selectedCount}
           </span>
@@ -111,7 +111,7 @@ function SelectionButton({
         {hasNew && (
           <span
             aria-hidden
-            className="absolute -left-0.5 -top-0.5 h-2 w-2 rounded-full bg-zViolet-accent"
+            className="absolute -left-0.5 -top-0.5 h-2 w-2 rounded-full bg-action-primary"
           />
         )}
       </MenuTrigger>
@@ -121,7 +121,7 @@ function SelectionButton({
         className="w-[340px]"
         positionerClassName={positionerClassName}
       >
-        <div className="px-2 pt-1 pb-2 flex items-center gap-2 border-b border-zGray-800/60 mb-1.5">
+        <div className="px-2 pt-1 pb-2 flex items-center gap-2 border-b border-line-control/60 mb-1.5">
           <Icon className={clsx(iconSize, 'text-tertiary')} strokeWidth={devices ? 1.575 : 1.8} />
           <div className="min-w-0 flex-1">
             <div className="text-[12.5px] text-main">{title}</div>
@@ -138,7 +138,7 @@ function SelectionButton({
           <button
             type="button"
             onClick={() => setMenuOpen(false)}
-            className="h-6 w-6 rounded-md text-tertiary hover:text-main hover:bg-zGray-800 flex items-center justify-center"
+            className="h-6 w-6 rounded-md text-tertiary hover:text-main hover:bg-state-hover flex items-center justify-center"
             title={t('Close')}
           >
             <X className="h-3.5 w-3.5" strokeWidth={1.8} />
@@ -152,12 +152,12 @@ function SelectionButton({
           </div>
         )}
         {totalCount > 0 && (
-          <div className="px-2 pb-1.5 mb-1 flex items-center gap-2 border-b border-zGray-800/60">
+          <div className="px-2 pb-1.5 mb-1 flex items-center gap-2 border-b border-line-control/60">
             <button
               type="button"
               onClick={() => changeAll(true)}
               disabled={selectedCount === totalCount}
-              className="text-[11.5px] text-zViolet-accent hover:underline disabled:text-tertiary disabled:no-underline disabled:cursor-default"
+              className="text-[11.5px] text-primary hover:underline disabled:text-tertiary disabled:no-underline disabled:cursor-default"
             >
               {t('Select all')}
             </button>
@@ -216,7 +216,7 @@ function DeviceOptions({
               <span className="block text-[11.5px] text-tertiary">{device.sublabel}</span>
             </span>
             {unseen?.deviceIds.includes(device.id) && (
-              <span className="text-[10px] text-zViolet-accent">{t('New')}</span>
+              <span className="text-[10px] text-primary">{t('New')}</span>
             )}
           </MenuCheckboxItem>
         ))}

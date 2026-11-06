@@ -114,9 +114,9 @@ export function BindingAccessSection({
   }
 
   return (
-    <section className="px-6 py-4 border-t border-zGray-800/60">
+    <section className="px-6 py-4 border-t border-line-control/60">
       <div className="flex items-center gap-2 mb-3">
-        <KeyRound className="w-4 h-4 text-zViolet-accent" strokeWidth={1.8} />
+        <KeyRound className="w-4 h-4 text-primary" strokeWidth={1.8} />
         <h2 className="text-[13.5px] font-semibold text-main">{t('Access List')}</h2>
         {principal && <span className="ml-auto text-[11.5px] text-tertiary">{principal}</span>}
       </div>
@@ -131,12 +131,12 @@ export function BindingAccessSection({
             })}
       </p>
       {loading ? (
-        <div className="rounded-md border border-zGray-800 bg-zGray-950 px-3 py-6 text-center text-[12.5px] text-tertiary">
+        <div className="rounded-md border border-line-control bg-surface-canvas px-3 py-6 text-center text-[12.5px] text-tertiary">
           {t('Loading access...')}
         </div>
       ) : !loadedAccess ? null : (
         <>
-          <div className="border-y border-zGray-800/60 divide-y divide-zGray-800/60">
+          <div className="border-y border-line-control/60 divide-y divide-line-control/60">
             <AllowListSelect
               title={t('Access')}
               subtitle={t(

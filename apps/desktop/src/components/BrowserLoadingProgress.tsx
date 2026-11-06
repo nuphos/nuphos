@@ -45,7 +45,7 @@ export function BrowserLoadingProgress({ loading, failed }: { loading: boolean; 
       style={{ opacity: visible ? 1 : 0 }}
     >
       <div
-        className="h-full w-full origin-left bg-zViolet-500 transition-transform duration-300 ease-out motion-reduce:transition-none"
+        className="h-full w-full origin-left bg-action-primary transition-transform duration-300 ease-out motion-reduce:transition-none"
         style={{ transform: `scaleX(${String(progress)})` }}
       />
     </div>

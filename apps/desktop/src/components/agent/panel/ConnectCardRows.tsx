@@ -16,7 +16,7 @@ const ACTION_LABEL: Partial<Record<ConnectRowStatus, string>> = {
 
 function ProviderLogo({ provider }: { provider: ConnectProvider }) {
   return (
-    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-zGray-900">
+    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-surface-sheet">
       {provider === 'linear' ? (
         <LinearMark size={18} />
       ) : (
@@ -92,7 +92,7 @@ export function ConnectRow({
   const item = CONNECT_ITEMS.get(provider)
 
   return (
-    <li className="flex items-center gap-3 border-t border-zGray-800/60 px-4 py-2.5">
+    <li className="flex items-center gap-3 border-t border-line-control/60 px-4 py-2.5">
       <ProviderLogo provider={provider} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px] font-medium text-main">{item?.name ?? provider}</div>
@@ -111,7 +111,7 @@ export function ConnectRow({
 
 export function ContinueFooter({ onContinue }: { onContinue: () => void }) {
   return (
-    <div className="t-share-in flex justify-end border-t border-zGray-800/60 px-4 py-2.5">
+    <div className="t-share-in flex justify-end border-t border-line-control/60 px-4 py-2.5">
       <Button size="sm" className="h-7 px-3 text-[12.5px]" onClick={onContinue}>
         {t('Continue')}
       </Button>
@@ -141,7 +141,7 @@ export function ConnectHeader({
 // The agent wrote this; quote it so it can't pass for an app message.
 export function AgentQuote({ text }: { text: string }) {
   return (
-    <blockquote className="mt-1.5 whitespace-pre-wrap border-l-2 border-zGray-700 pl-2 text-[12.5px] leading-snug text-secondary">
+    <blockquote className="mt-1.5 whitespace-pre-wrap border-l-2 border-line-control pl-2 text-[12.5px] leading-snug text-secondary">
       <span className="text-tertiary">{t('Agent:')} </span>
       {text}
     </blockquote>

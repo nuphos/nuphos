@@ -75,8 +75,8 @@ export function AgentAvatarGrid({
             onPointerEnter={() => onPreview(file)}
             onClick={() => onChange(file)}
             className={clsx(
-              'group/tile flex size-10 items-center justify-center rounded-lg outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-zViolet-500',
-              selected ? 'bg-zViolet-500/15 ring-1 ring-zViolet-500/70' : 'hover:bg-zGray-800/70',
+              'group/tile flex size-10 items-center justify-center rounded-lg outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-line-focus',
+              selected ? 'bg-state-selected ring-1 ring-line-focus' : 'hover:bg-state-hover',
             )}
           >
             <BotAvatarImage

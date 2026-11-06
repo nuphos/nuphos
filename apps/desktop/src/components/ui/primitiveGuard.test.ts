@@ -84,7 +84,7 @@ const rawSwitches = (src: string) =>
 
 // A rounded button with a solid brand or error fill is Button's primary or
 // destructive variant; a full-bleed bar or one half of a split button is not.
-const FILLED = /\bbg-(zViolet-(500|600|accent)|zBlue-500|error)(?![\w/-])/
+const FILLED = /\bbg-(action-primary|error|status-danger)(?![\w/-])/
 const ROUNDED = /(^|\s)rounded(-md|-lg)?(\s|$)/
 
 function filledButtons(src: string): number[] {
@@ -129,13 +129,16 @@ test('the guards flag the right shapes', () => {
   assert.deepEqual(chromelessControls('<input className="border bg-transparent" />'), [])
   assert.deepEqual(chromelessControls('<InputGroupInput className="bg-transparent" />'), [])
   assert.deepEqual(unfocusedControls('<input className="border" />'), [1])
-  assert.deepEqual(unfocusedControls('<input className="border focus:border-zViolet-500" />'), [])
+  assert.deepEqual(unfocusedControls('<input className="border focus:border-line-focus" />'), [])
   assert.deepEqual(unfocusedControls('<input type="checkbox" className="h-4" />'), [])
   assert.deepEqual(nativeSelects('<div>\n<select value={v}>'), [2])
   assert.deepEqual(rawSwitches('<button role="switch" aria-checked={on} />'), [1])
-  assert.deepEqual(filledButtons('<button className="h-8 rounded-md bg-zViolet-500 px-3" />'), [1])
+  assert.deepEqual(
+    filledButtons('<button className="h-8 rounded-md bg-action-primary px-3" />'),
+    [1],
+  )
   assert.deepEqual(filledButtons('<button className="rounded bg-error text-white" />'), [1])
-  assert.deepEqual(filledButtons('<button className="rounded-l-md bg-zViolet-500" />'), [])
-  assert.deepEqual(filledButtons('<button className="h-8 w-full bg-zViolet-500" />'), [])
-  assert.deepEqual(filledButtons('<button className="rounded-md bg-zViolet-500/10" />'), [])
+  assert.deepEqual(filledButtons('<button className="rounded-l-md bg-action-primary" />'), [])
+  assert.deepEqual(filledButtons('<button className="h-8 w-full bg-action-primary" />'), [])
+  assert.deepEqual(filledButtons('<button className="rounded-md bg-state-selected" />'), [])
 })

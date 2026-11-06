@@ -100,7 +100,7 @@ export function JournalSidePanel({
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      <div className="flex items-center gap-2 border-b border-zGray-800 px-4 py-3">
+      <div className="flex items-center gap-2 border-b border-line-control px-4 py-3">
         <ShieldCheck className="h-4 w-4 text-tertiary" strokeWidth={1.8} />
         <span className="text-sm font-medium text-main">{t('Audit journal')}</span>
         {integrity && <JournalIntegrityBadge level={integrity.level} />}
@@ -109,7 +109,7 @@ export function JournalSidePanel({
           type="button"
           onClick={refresh}
           disabled={loading}
-          className="flex h-6 w-6 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800/60 hover:text-main disabled:opacity-50"
+          className="flex h-6 w-6 items-center justify-center rounded-md text-tertiary hover:bg-state-hover hover:text-main disabled:opacity-50"
           title={t('Refresh')}
           aria-label={t('Refresh journal')}
         >
@@ -118,7 +118,7 @@ export function JournalSidePanel({
         <button
           type="button"
           onClick={onClose}
-          className="flex h-6 w-6 items-center justify-center rounded-md text-tertiary hover:bg-zGray-800/60 hover:text-main"
+          className="flex h-6 w-6 items-center justify-center rounded-md text-tertiary hover:bg-state-hover hover:text-main"
           title={t('Close')}
           aria-label={t('Close journal panel')}
         >
@@ -181,7 +181,7 @@ export function JournalSidePanel({
       </div>
 
       {integrity && (
-        <div className="border-t border-zGray-800 px-4 py-2 text-[10px] leading-4 text-tertiary">
+        <div className="border-t border-line-control px-4 py-2 text-[10px] leading-4 text-tertiary">
           {t('{n} events · chain head', { n: integrity.eventCount })}{' '}
           <span className="font-mono">{integrity.headHash?.slice(0, 12) ?? '—'}</span>
           {integrity.lastAnchorAt

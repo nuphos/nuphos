@@ -67,11 +67,11 @@ export function BulkActionBar({
         }}
         onClose={() => setConfirming(null)}
       />
-      <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 flex items-center gap-1 rounded-lg border border-zGray-700 bg-zGray-900 px-2.5 py-1.5 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.5)]">
+      <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 flex items-center gap-1 rounded-lg border border-line-control bg-surface-sheet px-2.5 py-1.5 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.5)]">
         <span className="px-1.5 text-[12.5px] text-secondary tabular-nums whitespace-nowrap">
           {t('{count} selected', { count })}
         </span>
-        <div className="mx-1 h-4 w-px bg-zGray-700" />
+        <div className="mx-1 h-4 w-px bg-line-control" />
         {actions.map((action) => (
           <button
             key={action.key}
@@ -83,19 +83,21 @@ export function BulkActionBar({
             }}
             className={clsx(
               'flex items-center gap-1.5 rounded px-2 py-1 text-[12.5px] whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-              action.destructive ? 'text-error hover:bg-zGray-800' : 'text-main hover:bg-zGray-800',
+              action.destructive
+                ? 'text-error hover:bg-state-hover'
+                : 'text-main hover:bg-state-hover',
             )}
           >
             {action.icon && <FontAwesomeIcon icon={action.icon} className="h-3 w-3" />}
             {action.label}
           </button>
         ))}
-        <div className="mx-1 h-4 w-px bg-zGray-700" />
+        <div className="mx-1 h-4 w-px bg-line-control" />
         <button
           type="button"
           onClick={onClear}
           aria-label={t('Clear selection')}
-          className="rounded p-1.5 text-tertiary transition-colors hover:bg-zGray-800 hover:text-secondary"
+          className="rounded p-1.5 text-tertiary transition-colors hover:bg-state-hover hover:text-secondary"
         >
           <FontAwesomeIcon icon={faXmark} className="h-3 w-3" />
         </button>

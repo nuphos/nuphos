@@ -32,7 +32,7 @@ export function PhoneViewingBadge({ sessionId }: { sessionId: string }) {
           stop(event)
           for (const tab of tabs) api.stopDockTabWatch(tab)
         }}
-        className="titlebar-no-drag flex-shrink-0 w-[18px] h-[18px] rounded flex items-center justify-center text-zViolet-400 hover:bg-zGray-800/70 hover:text-zViolet-300 outline-none focus-visible:outline-none"
+        className="titlebar-no-drag flex-shrink-0 w-[18px] h-[18px] rounded flex items-center justify-center text-secondary hover:bg-state-hover hover:text-primary outline-none focus-visible:outline-none"
         aria-label={t('Stop viewing from iPhone')}
         data-testid="chat-viewed-from-phone"
       >

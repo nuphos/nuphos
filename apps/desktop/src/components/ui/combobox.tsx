@@ -22,7 +22,7 @@ export const ComboboxTrigger = React.forwardRef<
       ref={ref}
       className={(state) =>
         clsx(
-          'inline-flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-zGray-700 bg-surface px-2.5 text-left text-[13px] text-main outline-none transition-colors hover:border-zGray-600 focus:border-zGray-500 disabled:cursor-not-allowed disabled:opacity-50',
+          'inline-flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-line-control bg-surface px-2.5 text-left text-[13px] text-main outline-none transition-colors hover:border-line-control focus:border-line-control disabled:cursor-not-allowed disabled:opacity-50',
           state.placeholder && 'text-tertiary',
           typeof className === 'function' ? className(state) : className,
         )
@@ -66,7 +66,7 @@ export const ComboboxInput = React.forwardRef<
         !hasExplicitHeight && 'h-8',
         variant === 'ghost'
           ? 'border-0 bg-transparent shadow-none'
-          : 'border border-zGray-800 bg-surface focus-within:border-zGray-500',
+          : 'border border-line-control bg-surface focus-within:border-line-control',
         disabled && 'cursor-not-allowed opacity-50',
         typeof className === 'string' && className,
       )}
@@ -88,7 +88,7 @@ export const ComboboxInput = React.forwardRef<
       {showTrigger && (
         <ComboboxPrimitive.Trigger
           disabled={disabled}
-          className="flex h-full w-7 flex-shrink-0 items-center justify-center rounded-r-md text-tertiary outline-none transition-colors hover:bg-zGray-800/60 hover:text-main disabled:cursor-not-allowed"
+          className="flex h-full w-7 flex-shrink-0 items-center justify-center rounded-r-md text-tertiary outline-none transition-colors hover:bg-state-hover hover:text-main disabled:cursor-not-allowed"
         >
           <ChevronDown className="h-3.5 w-3.5" strokeWidth={2} />
         </ComboboxPrimitive.Trigger>
@@ -129,7 +129,7 @@ export const ComboboxContent = React.forwardRef<HTMLDivElement, ComboboxContentP
             ref={ref}
             className={(state) =>
               clsx(
-                'titlebar-no-drag t-dropdown max-h-72 min-w-[var(--anchor-width)] overflow-hidden rounded-lg border border-zGray-800/60 bg-main p-0 shadow-[0_4px_6px_-5px_rgba(0,0,0,0.2)]',
+                'titlebar-no-drag t-dropdown max-h-72 min-w-[var(--anchor-width)] overflow-hidden rounded-lg border border-line-control/60 bg-main p-0 shadow-[0_4px_6px_-5px_rgba(0,0,0,0.2)]',
                 state.open && 'is-open',
                 state.transitionStatus === 'ending' && 'is-closing',
                 typeof className === 'function' ? className(state) : className,
@@ -195,7 +195,7 @@ export const ComboboxItem = React.forwardRef<
       className={(state) =>
         clsx(
           'flex min-h-7 cursor-default select-none items-center gap-2 px-2 py-1.5 text-[13px] text-main outline-none transition-colors',
-          state.highlighted && 'bg-zGray-800/80',
+          state.highlighted && 'bg-state-selected',
           state.disabled && 'pointer-events-none opacity-50',
           typeof className === 'function' ? className(state) : className,
         )

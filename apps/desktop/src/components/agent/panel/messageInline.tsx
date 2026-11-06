@@ -75,7 +75,7 @@ export function ImageAttachmentThumb({
   return (
     // Outer wrapper is not clipped so the remove badge can straddle the corner.
     <div className={clsx('relative flex-shrink-0', THUMB_SIZE[size])} title={fileName}>
-      <div className="h-full w-full overflow-hidden rounded-lg border border-zGray-800 bg-zGray-900">
+      <div className="h-full w-full overflow-hidden rounded-lg border border-line-control bg-surface-sheet">
         {url ? (
           <button
             type="button"
@@ -96,7 +96,7 @@ export function ImageAttachmentThumb({
         )}
       </div>
       {badge && (
-        <span className="pointer-events-none absolute bottom-1 left-1 rounded bg-zGray-900/80 px-1 text-[10px] font-medium leading-4 text-main tabular-nums">
+        <span className="pointer-events-none absolute bottom-1 left-1 rounded bg-state-selected px-1 text-[10px] font-medium leading-4 text-main tabular-nums">
           {badge}
         </span>
       )}
@@ -129,7 +129,7 @@ const STEP_KEYS: Record<string, number> = {
   ArrowDown: 1,
 }
 const NAV_BUTTON =
-  'absolute top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-zGray-900/80 text-secondary shadow-lg hover:text-main'
+  'absolute top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-state-selected text-secondary shadow-lg hover:text-main'
 
 // Full-size preview of one group of images; arrow keys step through it (Base
 // UI Dialog: backdrop/Esc dismiss and focus trap for free). Open it by setting
@@ -241,7 +241,7 @@ export function ImageLightbox({
             </>
           )}
           <Dialog.Close
-            className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-zGray-900 text-secondary shadow-lg hover:text-main"
+            className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-surface-sheet text-secondary shadow-lg hover:text-main"
             aria-label={t('Close preview')}
           >
             <X className="h-3.5 w-3.5" strokeWidth={2.2} />
@@ -255,7 +255,7 @@ export function ImageLightbox({
 export function LocalFileChip({ path }: { path: string }) {
   return (
     <div
-      className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-zGray-800 bg-zGray-900/70 px-2 py-1 text-[12.5px] text-secondary"
+      className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-line-control bg-state-selected px-2 py-1 text-[12.5px] text-secondary"
       title={path}
     >
       <FileSearch className="w-3 h-3 flex-shrink-0 text-tertiary" strokeWidth={2} />

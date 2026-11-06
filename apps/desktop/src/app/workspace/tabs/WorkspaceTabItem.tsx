@@ -171,8 +171,8 @@ export function WorkspaceTabItem({
                 : 'px-2.5',
             'rounded-[9px]',
             selected
-              ? 'bg-zGray-800/60 text-main'
-              : 'bg-transparent text-tertiary hover:bg-zGray-800/45 hover:text-main focus-visible:bg-zGray-800/45',
+              ? 'bg-state-selected text-main'
+              : 'bg-transparent text-tertiary hover:bg-state-hover hover:text-main focus-visible:bg-state-hover',
           )}
         >
           <span
@@ -208,7 +208,7 @@ export function WorkspaceTabItem({
                 api.stopDockTabWatch(tab.id)
               }}
               className={clsx(
-                'titlebar-no-drag t-workspace-tab-action absolute top-1/2 z-10 -translate-y-1/2 w-[18px] h-[18px] rounded flex items-center justify-center text-zViolet-400 hover:bg-zGray-800/70 hover:text-zViolet-300 outline-none focus-visible:outline-none',
+                'titlebar-no-drag t-workspace-tab-action absolute top-1/2 z-10 -translate-y-1/2 w-[18px] h-[18px] rounded flex items-center justify-center text-secondary hover:bg-state-hover hover:text-primary outline-none focus-visible:outline-none',
                 showClose ? 'right-6' : 'right-1',
               )}
               aria-label={t('Stop viewing from iPhone')}
@@ -232,7 +232,7 @@ export function WorkspaceTabItem({
               toggleFavorite(tab.scope.teamId, meta.location.href, meta.title)
             }}
             className={clsx(
-              'titlebar-no-drag t-workspace-tab-action absolute top-1/2 z-10 -translate-y-1/2 w-[18px] h-[18px] rounded flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 outline-none focus-visible:outline-none hover:bg-zGray-800/70',
+              'titlebar-no-drag t-workspace-tab-action absolute top-1/2 z-10 -translate-y-1/2 w-[18px] h-[18px] rounded flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 outline-none focus-visible:outline-none hover:bg-state-hover',
               showClose ? 'right-6' : 'right-1',
               favorited ? 'text-warning hover:text-warning/70' : 'text-tertiary hover:text-main',
             )}
@@ -272,7 +272,7 @@ export function WorkspaceTabItem({
               handleClose(tab.id)
             }}
             className={clsx(
-              'titlebar-no-drag t-workspace-tab-action absolute right-1 top-1/2 z-10 -translate-y-1/2 w-[18px] h-[18px] rounded flex items-center justify-center text-tertiary hover:bg-zGray-800/70 hover:text-main group-hover:opacity-100 focus:opacity-100 outline-none focus-visible:outline-none',
+              'titlebar-no-drag t-workspace-tab-action absolute right-1 top-1/2 z-10 -translate-y-1/2 w-[18px] h-[18px] rounded flex items-center justify-center text-tertiary hover:bg-state-hover hover:text-main group-hover:opacity-100 focus:opacity-100 outline-none focus-visible:outline-none',
               selected ? 'opacity-100' : 'opacity-0',
             )}
             aria-label={t('Close tab {title}', { title: meta.title })}

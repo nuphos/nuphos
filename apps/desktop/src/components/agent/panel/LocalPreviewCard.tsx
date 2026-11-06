@@ -12,7 +12,7 @@ import type { OpenLink } from './LocalUrlChip'
 import type { LocalUrl } from './localUrls'
 
 const CARD =
-  'group/local block w-full max-w-[520px] overflow-hidden rounded-xl border border-zGray-800 bg-main text-main no-underline transition-colors duration-150 hover:border-zGray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zViolet-accent motion-reduce:transition-none'
+  'group/local block w-full max-w-[520px] overflow-hidden rounded-xl border border-line-control bg-main text-main no-underline transition-colors duration-150 hover:border-line-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-line-focus motion-reduce:transition-none'
 
 /** A captured page above a quiet footer; unopened URLs keep just the footer. */
 export function LocalPreviewCard({
@@ -47,7 +47,7 @@ export function LocalPreviewCard({
         <img
           src={snapshot.image}
           alt={t('Page preview: {title}', { title })}
-          className="m-0 block aspect-[16/7] w-full border-b border-zGray-800 object-cover object-top"
+          className="m-0 block aspect-[16/7] w-full border-b border-line-control object-cover object-top"
         />
       )}
       <span className="flex items-center gap-4 px-4 py-3.5">
@@ -57,7 +57,7 @@ export function LocalPreviewCard({
           </span>
           <span className="truncate text-[12.5px] leading-5 text-secondary">{url.label}</span>
         </span>
-        <span className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-zGray-800 px-2 text-[12px] leading-none text-secondary transition-colors duration-150 group-hover/local:bg-zGray-800/40 group-hover/local:text-main group-active/local:bg-zGray-800/60 motion-reduce:transition-none">
+        <span className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-line-control px-2 text-[12px] leading-none text-secondary transition-colors duration-150 group-hover/local:bg-state-hover group-hover/local:text-main group-active/local:bg-state-hover motion-reduce:transition-none">
           {t('Open')}
           <ArrowUpRight aria-hidden className="size-3" strokeWidth={1.75} />
         </span>

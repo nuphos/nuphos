@@ -41,14 +41,14 @@ export function ConnectorStrip({
       <div className="flex flex-shrink-0 items-center gap-1">
         <BaseButton
           onClick={onAction}
-          className="flex h-6 items-center gap-1.5 rounded-md px-2 text-[12px] font-medium text-zViolet-accent outline-none transition-colors hover:bg-zViolet-accent/15 focus-visible:bg-zViolet-accent/15"
+          className="flex h-6 items-center gap-1.5 rounded-md px-2 text-[12px] font-medium text-primary outline-none transition-colors hover:bg-state-selected focus-visible:bg-state-selected"
         >
           {action}
         </BaseButton>
         <BaseButton
           onClick={onDismiss}
           aria-label={t('Dismiss')}
-          className="flex h-6 w-6 items-center justify-center rounded-md text-tertiary outline-none transition-colors hover:bg-zGray-800/60 hover:text-main"
+          className="flex h-6 w-6 items-center justify-center rounded-md text-tertiary outline-none transition-colors hover:bg-state-hover hover:text-main"
         >
           <X className="h-3.5 w-3.5" strokeWidth={2} />
         </BaseButton>

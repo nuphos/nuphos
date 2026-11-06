@@ -8,7 +8,7 @@ import type { AgentUpdate } from '../../../hooks/useAgentUpdates'
 
 const CHIP =
   'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded border px-1.5 py-px text-[10.5px] font-medium leading-4'
-const BADGE = clsx(CHIP, 'border-zViolet-500/30 bg-zViolet-500/10 text-zViolet-400')
+const BADGE = clsx(CHIP, 'border-action-primary/30 bg-state-selected text-secondary')
 
 /** An agent's pending update. `actionable` turns it into the button that starts it,
  *  for places where clicking it does not also mean something else. */
@@ -60,7 +60,7 @@ export function AgentUpdateBadge({
           'cursor-pointer transition-colors',
           failed
             ? 'hover:bg-error/20'
-            : 'hover:border-zViolet-400/60 hover:bg-zViolet-500/20 hover:text-zViolet-300',
+            : 'hover:border-action-primary/60 hover:bg-state-selected hover:text-primary',
         )}
         // Inside a menu item: starting the update neither picks this agent nor closes the menu.
         onPointerDown={(event) => event.stopPropagation()}

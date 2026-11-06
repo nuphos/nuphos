@@ -95,7 +95,7 @@ export function DashboardToolbar({
   }
 
   return (
-    <div className="flex h-[42px] items-center gap-2 border-b border-zGray-800/60 px-3">
+    <div className="flex h-[42px] items-center gap-2 border-b border-line-control/60 px-3">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {dashboard && (
           <>
@@ -104,7 +104,7 @@ export function DashboardToolbar({
                 render={
                   <button
                     type="button"
-                    className="flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-zGray-800 bg-zGray-900 px-2.5 text-[12.5px] text-main outline-none hover:bg-zGray-800 focus:border-zViolet-500"
+                    className="flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-line-control bg-surface-sheet px-2.5 text-[12.5px] text-main outline-none hover:bg-state-hover focus:border-line-focus"
                   >
                     <Calendar className="h-3.5 w-3.5 text-tertiary" />
                     {dashboard.rangePreset
@@ -157,7 +157,7 @@ export function DashboardToolbar({
                   name="dashboard-range-start"
                   aria-label={t('Start date')}
                   autoComplete="off"
-                  className="h-8 rounded-md border border-zGray-800 bg-zGray-900 px-2 text-[12.5px] text-main outline-none focus:border-zViolet-500"
+                  className="h-8 rounded-md border border-line-control bg-surface-sheet px-2 text-[12.5px] text-main outline-none focus:border-line-focus"
                   value={customRange.periodStart.slice(0, 10)}
                   max={customRange.periodEnd.slice(0, 10)}
                   onChange={(e) => {
@@ -177,7 +177,7 @@ export function DashboardToolbar({
                   name="dashboard-range-end"
                   aria-label={t('End date')}
                   autoComplete="off"
-                  className="h-8 rounded-md border border-zGray-800 bg-zGray-900 px-2 text-[12.5px] text-main outline-none focus:border-zViolet-500"
+                  className="h-8 rounded-md border border-line-control bg-surface-sheet px-2 text-[12.5px] text-main outline-none focus:border-line-focus"
                   value={customRange.periodEnd.slice(0, 10)}
                   min={customRange.periodStart.slice(0, 10)}
                   onChange={(e) => {
@@ -211,7 +211,7 @@ export function DashboardToolbar({
           <button
             type="button"
             aria-label={editingLayout ? t('Done') : t('Edit layout')}
-            className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-[13px] outline-none ${editingLayout ? 'border-zViolet-500/50 bg-zViolet-500/10 text-zViolet-accent' : 'border-zGray-800 text-secondary hover:bg-zGray-800 hover:text-main focus:bg-zGray-800'}`}
+            className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-[13px] outline-none ${editingLayout ? 'border-action-primary/50 bg-state-selected text-primary' : 'border-line-control text-secondary hover:bg-state-hover hover:text-main focus:bg-state-hover'}`}
             onClick={() => setEditingLayout((editing) => !editing)}
           >
             <LayoutGrid className="h-3.5 w-3.5" />
@@ -225,7 +225,7 @@ export function DashboardToolbar({
             <button
               type="button"
               aria-label={t('Add Panel')}
-              className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-l-md bg-zViolet-500 px-2.5 text-[13px] font-medium text-white outline-none hover:bg-zViolet-400 focus:bg-zViolet-400"
+              className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-l-md bg-action-primary px-2.5 text-[13px] font-medium text-inverse outline-none hover:bg-action-primary/90 focus:bg-action-primary/90"
               onClick={openPanelAssistant}
             >
               <Plus className="h-3.5 w-3.5" />
@@ -238,7 +238,7 @@ export function DashboardToolbar({
                     type="button"
                     title={t('More ways to add')}
                     aria-label={t('More ways to add a panel')}
-                    className="flex h-8 items-center rounded-r-md border-l border-zViolet-400/60 bg-zViolet-500 px-1.5 text-white outline-none hover:bg-zViolet-400 focus:bg-zViolet-400"
+                    className="flex h-8 items-center rounded-r-md border-l border-action-primary/60 bg-action-primary px-1.5 text-inverse outline-none hover:bg-action-primary/90 focus:bg-action-primary/90"
                   >
                     <ChevronDown className="h-3.5 w-3.5" />
                   </button>

@@ -81,13 +81,13 @@ export function AllowListSelect({
             <div className="text-[12px] text-tertiary mt-0.5">{subtitle}</div>
           </div>
           <div className="flex flex-col items-end gap-1.5 whitespace-nowrap">
-            <div className="inline-flex rounded-md border border-zGray-800 bg-zGray-900 p-0.5">
+            <div className="inline-flex rounded-md border border-line-control bg-surface-sheet p-0.5">
               <button
                 type="button"
                 onClick={() => onChange([...ALL_ALLOW_LIST])}
                 className={clsx(
                   'px-2.5 h-6 rounded text-[11.5px] font-medium transition-colors',
-                  all ? 'bg-zViolet-500 text-white' : 'text-tertiary hover:text-main',
+                  all ? 'bg-action-primary text-inverse' : 'text-tertiary hover:text-main',
                 )}
               >
                 {t('All members')}
@@ -101,7 +101,7 @@ export function AllowListSelect({
                 }}
                 className={clsx(
                   'px-2.5 h-6 rounded text-[11.5px] font-medium transition-colors',
-                  all ? 'text-tertiary hover:text-main' : 'bg-zGray-800 text-main',
+                  all ? 'text-tertiary hover:text-main' : 'bg-surface-sunken text-main',
                 )}
               >
                 {t('Specific')}
@@ -121,16 +121,16 @@ export function AllowListSelect({
               onChange={(event) => setQuery(event.target.value)}
               disabled={all}
               placeholder={all ? t('All members are allowed') : t('Search members to add')}
-              className="w-full h-8 rounded-md bg-surface border border-zGray-800 pl-8 pr-2 text-[12.5px] text-main placeholder:text-tertiary outline-none focus:border-zViolet-500/60 disabled:opacity-50"
+              className="w-full h-8 rounded-md bg-surface border border-line-control pl-8 pr-2 text-[12.5px] text-main placeholder:text-tertiary outline-none focus:border-line-focus disabled:opacity-50"
             />
             {searchResults.length > 0 && (
-              <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-md border border-zGray-800 bg-zGray-850 shadow-2xl shadow-black/40 py-1">
+              <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-md border border-line-control bg-surface-sunken shadow-2xl shadow-black/40 py-1">
                 {searchResults.map((member) => (
                   <button
                     key={member.id}
                     type="button"
                     onClick={() => addMember(member)}
-                    className="w-full px-2.5 py-2 flex items-center gap-2 hover:bg-zGray-800 text-left"
+                    className="w-full px-2.5 py-2 flex items-center gap-2 hover:bg-state-hover text-left"
                   >
                     <Avatar
                       src={member.avatarURL}
@@ -151,7 +151,7 @@ export function AllowListSelect({
           </div>
         </div>
       </div>
-      <div className="mt-3 border-t border-zGray-850 divide-y divide-zGray-850">
+      <div className="mt-3 border-t border-line-control divide-y divide-line-control">
         {selectedMembers.length === 0 ? (
           <div className="py-4 text-[12.5px] text-tertiary">{t('No selected members.')}</div>
         ) : (
@@ -165,7 +165,7 @@ export function AllowListSelect({
                   className="rounded-[6px] !shadow-none"
                 />
               ) : (
-                <div className="w-7 h-7 rounded-md bg-zGray-850 flex items-center justify-center text-[11px] text-tertiary">
+                <div className="w-7 h-7 rounded-md bg-surface-sunken flex items-center justify-center text-[11px] text-tertiary">
                   ?
                 </div>
               )}
@@ -180,7 +180,7 @@ export function AllowListSelect({
               <button
                 type="button"
                 onClick={() => removeMember(id)}
-                className="w-7 h-7 rounded-md text-tertiary hover:text-main hover:bg-zGray-800 flex items-center justify-center"
+                className="w-7 h-7 rounded-md text-tertiary hover:text-main hover:bg-state-hover flex items-center justify-center"
                 title={t('Remove')}
               >
                 <X className="w-3.5 h-3.5" strokeWidth={1.8} />

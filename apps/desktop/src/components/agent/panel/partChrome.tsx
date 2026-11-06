@@ -12,7 +12,7 @@ import type { ToolPart } from './parts'
 import type { ReactNode } from 'react'
 
 export const disclosureControlClass =
-  '-mx-1.5 rounded-md px-1.5 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zViolet-accent/60'
+  '-mx-1.5 rounded-md px-1.5 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-line-focus'
 
 /**
  * Extended thinking: a shimmer line while the model is mid-
@@ -43,7 +43,7 @@ export function ThinkingPartView({ text, live }: { text: string; live: boolean }
         {t('Thinking')}
       </Collapsible.Trigger>
       <Collapsible.Panel className="t-acc-collapsible">
-        <div className="mt-1 whitespace-pre-wrap break-words border-l-2 border-zGray-800 pl-2.5 text-[12px] italic leading-5 text-main/60">
+        <div className="mt-1 whitespace-pre-wrap break-words border-l-2 border-line-control pl-2.5 text-[12px] italic leading-5 text-main/60">
           {text}
         </div>
       </Collapsible.Panel>
@@ -117,7 +117,7 @@ export function CollapsedWorkView({
             strokeWidth={2}
           />
         </button>
-        <div className="h-px flex-1 bg-zGray-800" aria-hidden="true" />
+        <div className="h-px flex-1 bg-surface-sunken" aria-hidden="true" />
       </div>
       <div className={clsx('t-turn-fold', open && 'is-open')} inert={!open} aria-hidden={!open}>
         <div>
@@ -162,7 +162,7 @@ export function ToolElapsedBadge({ part, now }: { part: ToolPart; now: number })
 
   return (
     <span
-      className="font-mono text-[11.5px] text-tertiary/80 tabular-nums flex-shrink-0"
+      className="font-mono text-[11.5px] text-tertiary tabular-nums flex-shrink-0"
       style={{ transform: 'translateY(0.5px)' }}
     >
       {String(seconds)}s

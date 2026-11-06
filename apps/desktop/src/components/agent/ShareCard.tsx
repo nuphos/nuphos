@@ -59,7 +59,7 @@ export function AvatarStack({
         <span
           className={clsx(
             AVATAR_CHROME,
-            'flex items-center justify-center bg-zGray-800 text-[10px] text-secondary',
+            'flex items-center justify-center bg-surface-sunken text-[10px] text-secondary',
           )}
           style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
         >
@@ -129,7 +129,7 @@ export function ShareLink({ url, children }: { url: string; children: React.Reac
   }
 
   return (
-    <div className="flex flex-col rounded-lg border border-zGray-800/60">
+    <div className="flex flex-col rounded-lg border border-line-control/60">
       <div className="flex items-center gap-2 py-1 pl-2.5 pr-1">
         <Link2 className="h-3.5 w-3.5 shrink-0 text-tertiary" strokeWidth={2} />
         <span className="min-w-0 flex-1 truncate text-[12px] text-secondary">
@@ -139,7 +139,7 @@ export function ShareLink({ url, children }: { url: string; children: React.Reac
           type="button"
           onClick={onCopy}
           className={clsx(
-            'flex h-6 shrink-0 items-center gap-1 rounded-md px-2 text-[12px] font-medium transition-colors hover:bg-zGray-800/60',
+            'flex h-6 shrink-0 items-center gap-1 rounded-md px-2 text-[12px] font-medium transition-colors hover:bg-state-hover',
             copied ? 'text-success' : 'text-secondary hover:text-main',
           )}
         >
@@ -151,7 +151,7 @@ export function ShareLink({ url, children }: { url: string; children: React.Reac
           {copied ? t('Copied') : t('Copy')}
         </button>
       </div>
-      <div className="border-t border-zGray-800/60">{children}</div>
+      <div className="border-t border-line-control/60">{children}</div>
     </div>
   )
 }
@@ -187,7 +187,7 @@ export function ParticipantList({
         return (
           <div
             key={participant.id}
-            className="flex h-7 items-center gap-2 rounded-md px-1 text-[13px] hover:bg-zGray-800/40"
+            className="flex h-7 items-center gap-2 rounded-md px-1 text-[13px] hover:bg-state-hover"
           >
             <PersonFace
               person={participant}

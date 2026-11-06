@@ -19,7 +19,7 @@ import type { ReactNode } from 'react'
 const TONES = {
   error: { icon: faCircleExclamation, className: 'text-error' },
   success: { icon: faCircleCheck, className: 'text-success' },
-  info: { icon: faCircleInfo, className: 'text-zBlue-accent' },
+  info: { icon: faCircleInfo, className: 'text-secondary' },
 } as const
 
 function ToastList() {

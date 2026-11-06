@@ -47,7 +47,7 @@ type InvitationListProps = {
 
 function JoinedChip() {
   return (
-    <span className="inline-flex h-8 items-center gap-1 rounded-md border border-zViolet-500/35 bg-zViolet-500/10 px-2.5 text-[12.5px] font-medium text-zViolet-300">
+    <span className="inline-flex h-8 items-center gap-1 rounded-md border border-action-primary/35 bg-state-selected px-2.5 text-[12.5px] font-medium text-secondary">
       <Check className="h-3 w-3" />
       {t('Joined')}
     </span>
@@ -73,8 +73,8 @@ function SelectToggle({
       onClick={onToggle}
       className={
         selected
-          ? 'titlebar-no-drag inline-flex h-8 items-center gap-1 rounded-md border border-zViolet-500/35 bg-zViolet-500/10 px-2.5 text-[12.5px] font-medium text-zViolet-300 transition-colors hover:bg-zViolet-500/20 disabled:cursor-default disabled:opacity-60'
-          : 'titlebar-no-drag inline-flex h-8 items-center gap-1 rounded-md bg-zViolet-500 px-2.5 text-[12.5px] font-medium text-white transition-colors hover:bg-zViolet-400 disabled:cursor-default disabled:opacity-60'
+          ? 'titlebar-no-drag inline-flex h-8 items-center gap-1 rounded-md border border-action-primary/35 bg-state-selected px-2.5 text-[12.5px] font-medium text-secondary transition-colors hover:bg-state-selected disabled:cursor-default disabled:opacity-60'
+          : 'titlebar-no-drag inline-flex h-8 items-center gap-1 rounded-md bg-action-primary px-2.5 text-[12.5px] font-medium text-inverse transition-colors hover:bg-action-primary/90 disabled:cursor-default disabled:opacity-60'
       }
     >
       {pending ? (
@@ -105,8 +105,8 @@ export function InvitationList({
   const showSectionLabels = invitations.length > 0 && discoverableTeams.length > 0
   const cardClass =
     variant === 'modal'
-      ? 'flex items-center gap-3 rounded-lg border border-zGray-800 bg-zGray-850 px-3 py-2.5'
-      : 'flex items-center gap-3 rounded-2xl border border-zGray-800/80 bg-zGray-900/60 px-4 py-3 backdrop-blur'
+      ? 'flex items-center gap-3 rounded-lg border border-line-control bg-surface-sunken px-3 py-2.5'
+      : 'flex items-center gap-3 rounded-2xl border border-line-control/80 bg-state-selected px-4 py-3 backdrop-blur'
 
   return (
     <>
@@ -147,7 +147,7 @@ export function InvitationList({
                   type="button"
                   disabled={busy}
                   onClick={() => onRejectInvitation?.(invitation.id)}
-                  className="titlebar-no-drag inline-flex h-8 items-center gap-1 rounded-md border border-zGray-700 px-2.5 text-[12.5px] font-medium text-secondary transition-colors hover:bg-zGray-800/70 hover:text-main disabled:cursor-default disabled:opacity-60"
+                  className="titlebar-no-drag inline-flex h-8 items-center gap-1 rounded-md border border-line-control px-2.5 text-[12.5px] font-medium text-secondary transition-colors hover:bg-state-hover hover:text-main disabled:cursor-default disabled:opacity-60"
                 >
                   <X className="h-3 w-3" />
                   {t('Reject')}

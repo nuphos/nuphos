@@ -45,7 +45,7 @@ export function PaletteCommandRows({
             onClick={() => onRun(command)}
             className={clsx(
               'flex h-9 cursor-pointer items-center gap-2.5 rounded-md px-2',
-              index === selectedIndex ? 'bg-zGray-750' : 'hover:bg-zGray-800',
+              index === selectedIndex ? 'bg-line-control' : 'hover:bg-state-hover',
             )}
           >
             <command.icon size={16} className="shrink-0 text-secondary" />

@@ -13,9 +13,9 @@ const KIND_COLOR: Record<string, string> = {
   abstract: '#888780',
 }
 
-// App primary (zViolet-500). Used for selection/active accents so the feature
-// matches the rest of the UI instead of an off-brand blue.
-const PRIMARY = 'rgb(var(--color-zViolet-500))'
+// The app's primary action color, for selection/active accents, so the feature
+// matches the rest of the UI.
+const PRIMARY = 'rgb(var(--color-action-primary))'
 
 export type ArchFlowNodeData = {
   label: string
@@ -44,7 +44,7 @@ export function ArchFlowNode({ data, selected, isConnectable }: NodeProps) {
     width: 7,
     height: 7,
     border: 'none',
-    background: 'rgb(var(--color-zGray-500))',
+    background: 'rgb(var(--color-text-tertiary))',
     opacity: hover && isConnectable ? 1 : 0,
     transition: 'opacity 120ms ease',
   }
@@ -68,7 +68,7 @@ export function ArchFlowNode({ data, selected, isConnectable }: NodeProps) {
         border: selected
           ? `2px solid ${PRIMARY}`
           : clickable && hover
-            ? '1px solid rgb(var(--color-zViolet-accent))'
+            ? '1px solid rgb(var(--color-text-primary))'
             : '1px solid rgb(var(--color-border))',
         boxShadow: selected
           ? 'none'
@@ -180,12 +180,10 @@ export function ArchGroupNode({ data, selected }: NodeProps) {
         width: '100%',
         height: '100%',
         borderRadius: 10,
-        // zViolet-accent (lighter) instead of -500 so the boundary + label read
-        // on both the light and dark canvas.
         border: selected
           ? `2px solid ${PRIMARY}`
-          : '1.5px dashed rgba(var(--color-zViolet-accent), 0.5)',
-        background: 'rgba(var(--color-zViolet-accent), 0.06)',
+          : '1.5px dashed rgba(var(--color-text-primary), 0.5)',
+        background: 'rgba(var(--color-text-primary), 0.06)',
         boxSizing: 'border-box',
         userSelect: 'none',
       }}
@@ -211,7 +209,7 @@ export function ArchGroupNode({ data, selected }: NodeProps) {
           padding: '7px 12px',
           fontSize: 12.5,
           fontWeight: 500,
-          color: 'rgb(var(--color-zViolet-accent))',
+          color: 'rgb(var(--color-text-primary))',
           alignItems: 'baseline',
           gap: 8,
           cursor: 'grab',
@@ -222,7 +220,7 @@ export function ArchGroupNode({ data, selected }: NodeProps) {
           <span
             style={{
               fontSize: 11,
-              color: 'rgba(var(--color-zViolet-accent), 0.8)',
+              color: 'rgba(var(--color-text-primary), 0.8)',
               fontWeight: 400,
             }}
           >

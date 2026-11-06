@@ -1,9 +1,7 @@
 import { clsx } from 'clsx'
-import { Maximize2, Minimize2, PanelRight } from 'lucide-react'
+import { PanelRight } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
-import { Kbd } from '../../components/ui/kbd'
-import { Tooltip } from '../../components/ui/tooltip'
 import { t } from '../../i18n'
 import { comboText } from '../../lib/platform'
 
@@ -104,6 +102,11 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
     ws.chatShortcutsLive,
   ])
 
+  // The dock column is a sheet; its margins come off the width it is given. Beside the
+  // session it shares the gap (half an inset); expanded, it has the desk to itself.
+  const contentWidth = contentFollowsAside ? '100%' : `${String(widthVw)}cqw`
+  const insets = workspaceDockExpanded ? 2 : 1.5
+
   return (
     <>
       {scope?.teamId && (
@@ -120,8 +123,7 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
             width: dockOpen ? (workspaceDockExpanded ? '100%' : `${String(widthVw)}cqw`) : 0,
           }}
           className={clsx(
-            'relative flex min-h-0 flex-shrink-0 flex-col overflow-hidden sidebar-surface',
-            dockOpen && !workspaceDockExpanded && 'border-l border-zGray-800/60',
+            'relative flex min-h-0 flex-shrink-0 flex-col overflow-hidden',
             !dragging && 'transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
           )}
         >
@@ -133,61 +135,30 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
               <div
                 className={clsx(
                   'h-full w-1 transition-colors',
-                  dragging ? 'bg-zViolet-500/30' : 'group-hover:bg-zGray-800/60',
+                  dragging ? 'bg-action-primary/30' : 'group-hover:bg-state-hover',
                 )}
               />
             </div>
           )}
           <div
-            style={{ width: contentFollowsAside ? '100%' : `${String(widthVw)}cqw` }}
-            className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden"
+            style={{ width: `calc(${contentWidth} - ${String(insets)} * var(--sheet-inset))` }}
+            className={clsx(
+              'workspace-content-surface flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden',
+              !workspaceDockExpanded && 'workspace-content-surface--trailing',
+            )}
           >
             <WorkspaceTabStrip ws={ws} userId={user.id} />
             <WorkspaceMainPane ws={ws} user={user} />
           </div>
         </aside>
       )}
-      {scope?.teamId && dockOpen && (
-        // The span carries the fixed titlebar position so the tooltip anchors to
-        // the button rather than to where the button would sit in the flow.
-        <span className="workspace-dock-expand titlebar-no-drag">
-          <Tooltip
-            side="bottom"
-            content={
-              <span className="flex items-center gap-2">
-                {workspaceDockExpanded ? t('Restore workspace panel') : t('Expand workspace panel')}
-                <Kbd combo="mod+shift+enter" />
-              </span>
-            }
-          >
-            <button
-              type="button"
-              onClick={() => setWorkspaceDockExpanded((expanded) => !expanded)}
-              className={clsx(
-                'flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-zGray-800/60 hover:text-main',
-                workspaceDockExpanded ? 'bg-zGray-800/60 text-main' : 'text-secondary',
-              )}
-              aria-label={
-                workspaceDockExpanded ? t('Restore workspace panel') : t('Expand workspace panel')
-              }
-              aria-pressed={workspaceDockExpanded}
-            >
-              {workspaceDockExpanded ? (
-                <Minimize2 className="h-4 w-4" strokeWidth={1.7} />
-              ) : (
-                <Maximize2 className="h-4 w-4" strokeWidth={1.7} />
-              )}
-            </button>
-          </Tooltip>
-        </span>
-      )}
       {scope?.teamId && (
         <button
           type="button"
           onClick={() => workspaceActions.toggleDock()}
           className={clsx(
-            'workspace-dock-toggle titlebar-no-drag flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-zGray-800/60 hover:text-main',
-            dockOpen ? 'bg-zGray-800/60 text-main' : 'text-secondary',
+            'workspace-dock-toggle titlebar-no-drag flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-state-hover hover:text-main',
+            dockOpen ? 'bg-state-selected text-main' : 'text-secondary',
           )}
           title={`${dockOpen ? t('Close workspace panel') : t('Open workspace panel')} (${comboText('mod+j')})`}
           aria-label={dockOpen ? t('Close workspace panel') : t('Open workspace panel')}

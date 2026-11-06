@@ -41,7 +41,7 @@ export function ComposerPicker({
             finalFocus={false}
             style={{ transformOrigin: 'var(--transform-origin)' }}
             className={clsx(
-              't-dropdown is-open max-h-[var(--available-height)] overflow-auto rounded-lg border border-zGray-800/60 bg-main p-1 shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none',
+              't-dropdown is-open max-h-[var(--available-height)] overflow-auto rounded-lg border border-line-control/60 bg-main p-1 shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none',
               className,
             )}
           >
@@ -79,7 +79,7 @@ export function ComposerPickerRow({
       className={clsx(
         'flex cursor-pointer items-center gap-2 rounded-md px-2 text-[13px]',
         compact ? 'py-1' : 'py-1.5',
-        selected && 'bg-zGray-800/60',
+        selected && 'bg-state-selected',
       )}
       onMouseDown={(e) => {
         e.preventDefault()

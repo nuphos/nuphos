@@ -208,7 +208,7 @@ export function MemoryProvenancePartView({
               return (
                 <div
                   key={e.id}
-                  className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 -ml-2 transition-colors hover:bg-zGray-900/60"
+                  className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 -ml-2 transition-colors hover:bg-state-hover"
                 >
                   <span
                     className={clsx(

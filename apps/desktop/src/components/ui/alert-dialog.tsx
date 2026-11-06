@@ -72,12 +72,12 @@ export function AppAlertDialog({
     >
       <AlertDialogPrimitive.Portal>
         <AlertDialogPrimitive.Backdrop className="fixed inset-0 z-[1000] bg-black/40 backdrop-blur-sm opacity-100 transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
-        <AlertDialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-[1001] flex w-[420px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-zGray-800 bg-zGray-900 shadow-2xl shadow-black/50 outline-none transition-[opacity,transform] duration-150 data-[ending-style]:-translate-y-[48%] data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:-translate-y-[48%] data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+        <AlertDialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-[1001] flex w-[420px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-line-control bg-surface-sheet shadow-2xl shadow-black/50 outline-none transition-[opacity,transform] duration-150 data-[ending-style]:-translate-y-[48%] data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:-translate-y-[48%] data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
           <div className="flex items-start gap-3 px-5 py-4">
             <div
               className={clsx(
                 'mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md',
-                destructive ? 'bg-error/10 text-error' : 'bg-zViolet-500/15 text-zViolet-accent',
+                destructive ? 'bg-error/10 text-error' : 'bg-state-selected text-primary',
               )}
             >
               <AlertTriangle className="h-4 w-4" strokeWidth={2} />
@@ -96,7 +96,7 @@ export function AppAlertDialog({
               )}
             </div>
           </div>
-          <div className="flex items-center justify-end gap-2 border-t border-zGray-800 bg-zGray-900/60 px-5 py-3">
+          <div className="flex items-center justify-end gap-2 border-t border-line-control bg-state-selected px-5 py-3">
             <AlertDialogPrimitive.Close
               render={<Button type="button" variant="secondary" size="sm" />}
               disabled={pending}

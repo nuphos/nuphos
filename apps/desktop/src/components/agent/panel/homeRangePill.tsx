@@ -14,7 +14,9 @@ export function RangePill<T extends string>({
   className?: string
 }) {
   return (
-    <div className={clsx('flex items-center gap-0.5 rounded-md bg-zGray-800/40 p-0.5', className)}>
+    <div
+      className={clsx('flex items-center gap-0.5 rounded-md bg-state-selected p-0.5', className)}
+    >
       {options.map((r) => (
         <BaseButton
           key={r.value}
@@ -22,7 +24,7 @@ export function RangePill<T extends string>({
           onClick={() => onChange(r.value)}
           className={clsx(
             'rounded px-2 py-0.5 text-[11px] outline-none transition-colors',
-            r.value === value ? 'bg-zGray-700 text-main' : 'text-tertiary hover:text-main',
+            r.value === value ? 'bg-line-control text-main' : 'text-tertiary hover:text-main',
           )}
         >
           {r.label}

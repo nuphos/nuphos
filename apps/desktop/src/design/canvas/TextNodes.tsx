@@ -27,7 +27,7 @@ export function TextNode({ data, selected }: NodeProps) {
 
   return (
     <div
-      className={clsx('h-full w-full', selected && !editing && 'ring-1 ring-zViolet-500')}
+      className={clsx('h-full w-full', selected && !editing && 'ring-1 ring-line-focus')}
       onDoubleClick={(e) => {
         e.stopPropagation()
         canvas.startEditing(text.id)
@@ -75,7 +75,7 @@ export function NoteNode({ data, selected }: NodeProps) {
     <div
       className={clsx(
         'h-full w-full rounded-sm p-3 shadow-[2px_3px_8px_rgba(0,0,0,0.18)]',
-        selected && 'ring-2 ring-zViolet-500',
+        selected && 'ring-2 ring-line-focus',
       )}
       style={{ background: note.color || DEFAULT_NOTE }}
       onDoubleClick={(e) => {

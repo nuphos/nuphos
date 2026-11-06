@@ -205,7 +205,7 @@ export function WorkspaceSplits({
       <div className="flex shrink-0">
         <SidebarSlotHost slot={sidebar} />
       </div>
-      <div className="relative min-w-0 flex-1 bg-main">
+      <div className="workspace-desk relative min-w-0 flex-1">
         {/* Flat keyed leaves stay mounted even when the split tree changes shape. */}
         {rects.map((rect) => {
           let registerStore = registrations.get(rect.id)
@@ -255,7 +255,7 @@ export function WorkspaceSplits({
                 data-split-multiple={multiple ? 'true' : undefined}
                 className={clsx(
                   'group/pane absolute flex min-h-0 min-w-0 flex-col overflow-hidden',
-                  multiple && 'border border-zGray-800/60',
+                  multiple && 'border border-line-control/60',
                   activeId !== rect.id && 'opacity-50',
                   // Panes slide over the split area's own background, so crossing panes leave no gaps.
                   gliding && [

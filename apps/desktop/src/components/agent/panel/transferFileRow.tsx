@@ -39,14 +39,14 @@ export function FileRow({
   return (
     <div
       className={clsx(
-        'flex items-center gap-3 px-3 py-2.5 [&+&]:border-t [&+&]:border-zGray-850',
+        'flex items-center gap-3 px-3 py-2.5 [&+&]:border-t [&+&]:border-line-control',
         expired && 'opacity-50',
       )}
     >
       <span
         className={clsx(
           'flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg',
-          failed ? 'bg-error/10' : 'bg-zGray-850',
+          failed ? 'bg-error/10' : 'bg-surface-sunken',
           color,
         )}
       >
