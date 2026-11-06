@@ -38,6 +38,10 @@ async function post(
 }
 
 describe('lastMessage', () => {
+  beforeEach(() => {
+    memory = portabilityDb()
+  })
+
   test('skips a system wake-up and shows what was last said', async () => {
     await agentMessages().insertOne({
       ...chat,
@@ -56,10 +60,6 @@ describe('lastMessage', () => {
     } as never)
 
     expect(await lastMessage(chat, 'me')).toEqual({ text: 'Hello there' })
-  })
-
-  beforeEach(() => {
-    memory = portabilityDb()
   })
 
   test('an empty chat has none', async () => {

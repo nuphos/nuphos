@@ -64,7 +64,13 @@ export function TrailingSlot({
 }
 
 /** Keeps presses inside from reaching the row's pointerdown navigation. */
-export function Fenced({ className = 'contents', children }: { className?: string; children: ReactNode }) {
+export function Fenced({
+  className = 'contents',
+  children,
+}: {
+  className?: string
+  children: ReactNode
+}) {
   if (children == null) return null
 
   return (

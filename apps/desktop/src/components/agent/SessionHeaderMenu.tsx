@@ -110,7 +110,8 @@ export function SessionHeaderMenu({
   const closePaneOnClose = useRef(false)
 
   function copy(value: string, what: 'Link' | 'ID') {
-    const copied = what === 'Link' ? t('Link copied') : isBot ? t('Bot ID copied') : t('Task ID copied')
+    const copied =
+      what === 'Link' ? t('Link copied') : isBot ? t('Bot ID copied') : t('Task ID copied')
 
     void copyLinkWithFeedback(value, (text) => navigator.clipboard.writeText(text), {
       onSuccess: () =>
@@ -237,10 +238,7 @@ export function SessionHeaderMenu({
             >
               {t('Link')}
             </MenuItem>
-            <MenuItem
-              icon={<Hash className="h-3.5 w-3.5" />}
-              onClick={() => copy(sessionId, 'ID')}
-            >
+            <MenuItem icon={<Hash className="h-3.5 w-3.5" />} onClick={() => copy(sessionId, 'ID')}>
               {isBot ? t('Bot ID') : t('Task ID')}
             </MenuItem>
           </MenuContent>
