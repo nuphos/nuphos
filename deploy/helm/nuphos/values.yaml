@@ -16,11 +16,12 @@ backend:
   tolerations: []
   affinity: {}
 
-# Production sign-in sends the email code through Resend.
+# Optional. With both set, sign-in codes are emailed through Resend. Without
+# them, email sign-in is off and an operator issues codes with
+# `kubectl exec deploy/<release>-backend -- nuphos-admin sign-in-code --email <email>`.
 email:
-  # Required unless secrets.existingSecret holds it.
-  resendApiKey: '' # RESEND_API_KEY
-  from: '' # required, a sender on a verified domain, e.g. Nuphos <noreply@example.com>
+  resendApiKey: '' # RESEND_API_KEY, or put it in secrets.existingSecret
+  from: '' # a sender on a verified domain, e.g. Nuphos <noreply@example.com>
 
 # Left empty, each value is generated on first install and kept on upgrade.
 # Tools that render without cluster access (helm template, Argo CD) regenerate

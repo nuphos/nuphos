@@ -71,10 +71,10 @@ test('runtime is a separate project with only runtime variables and a home volum
 })
 
 test('missing deployment inputs fail before contacting Railway', async () => {
-  const saved = process.env.RESEND_API_KEY
-  delete process.env.RESEND_API_KEY
-  assert.throws(() => dataTemplate(context, project), /RESEND_API_KEY/)
-  process.env.RESEND_API_KEY = saved
+  const saved = process.env.JWT_SECRET
+  delete process.env.JWT_SECRET
+  assert.throws(() => dataTemplate(context, project), /JWT_SECRET/)
+  process.env.JWT_SECRET = saved
 })
 
 test('the backend gets the Resend key', async () => {
@@ -82,4 +82,15 @@ test('the backend gets the Resend key', async () => {
     (r) => r.name === 'backend',
   )
   assert.equal(variables.RESEND_API_KEY.value, 're_test')
+})
+
+test('without a Resend key the backend runs with email sign-in off', async () => {
+  const saved = process.env.RESEND_API_KEY
+  delete process.env.RESEND_API_KEY
+  const { variables } = (await dataTemplate(context, project)).resources.find(
+    (r) => r.name === 'backend',
+  )
+  process.env.RESEND_API_KEY = saved
+  assert.equal(variables.RESEND_API_KEY, undefined)
+  assert.equal(variables.NUPHOS_EMAIL_FROM, undefined)
 })

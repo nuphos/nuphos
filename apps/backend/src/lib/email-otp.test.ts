@@ -27,6 +27,12 @@ function duplicateKeyError() {
   return new MongoServerError({ code: 11000, errmsg: 'duplicate key' })
 }
 const collection = {
+  findOne(filter: { email: string; expiresAt: { $gt: Date } }) {
+    const doc = otps.get(filter.email)
+    const live = doc !== undefined && (doc.expiresAt as Date) > filter.expiresAt.$gt
+
+    return Promise.resolve(live ? doc : null)
+  },
   updateOne(filter: { email: string }, update: { $set: Doc }) {
     if (cooldownActive) return Promise.reject(duplicateKeyError())
     otps.set(filter.email, { email: filter.email, ...update.$set })
@@ -88,7 +94,7 @@ useDownloadHandoffRateLimit({
   },
 })
 
-const { requestEmailOtp, verifyEmailOtp } = await import('@/lib/email-otp')
+const { issueEmailOtpCode, requestEmailOtp, verifyEmailOtp } = await import('@/lib/email-otp')
 
 afterEach(() => {
   quota = 'unavailable'
@@ -101,6 +107,20 @@ afterEach(() => {
 describe('email OTP dev log', () => {
   test('without delivery configured, sign-in stays unavailable by default', async () => {
     await expect(requestEmailOtp('dev@example.com')).rejects.toMatchObject({
+      code: 'email_not_configured',
+    })
+  })
+
+  test('without delivery configured, an operator-issued code can still be entered', async () => {
+    const code = await issueEmailOtpCode('Ops@Example.com')
+    const sent = sentMail.length
+
+    await requestEmailOtp('ops@example.com')
+    expect(sentMail).toHaveLength(sent)
+    expect(await verifyEmailOtp('ops@example.com', code)).toMatchObject({
+      email: 'ops@example.com',
+    })
+    await expect(requestEmailOtp('ops@example.com')).rejects.toMatchObject({
       code: 'email_not_configured',
     })
   })

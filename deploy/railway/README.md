@@ -16,7 +16,11 @@ These are source templates. Only the runtime has a published marketplace templat
 
 Prerequisites: Node 22.18+, the current Railway CLI with `railway config` support,
 a Railway account with volume capacity, two custom domains whose DNS you control,
-and a Resend API key with a verified sender. The default data volumes are
+and optionally a Resend API key with a verified sender. Without one, email
+sign-in is off: create the first user and team with
+`railway ssh --service backend -- nuphos-admin bootstrap --email <email> --team <name>`,
+which also prints their sign-in code (see the
+[Helm README](../helm/README.md#first-user-and-team) for the other commands). The default data volumes are
 10 GiB each in `us-west2`; services are explicitly placed in the same region.
 Keep service and volume regions aligned when customizing; changing an existing
 volume region can require a destructive replacement. Review capacity and pricing before applying.

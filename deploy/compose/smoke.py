@@ -71,6 +71,19 @@ root = f'/teams/{team_id}'
 assert api(root + '/agent-triggers/scheduler-status')['cronEnabled'] is False
 print('PASS: email sign-in and team creation; cron is disabled', flush=True)
 
+admin_email = f'compose-admin-{time.time_ns()}@example.com'
+out = compose('exec', '-T', 'backend', 'nuphos-admin', 'bootstrap',
+              '--email', admin_email, '--team', 'Compose admin')
+admin_team = re.search(r'ATLAS_ADMIN_TEAM_ID=([0-9a-f]{24})', out).group(1)
+admin_code = re.search(r'\): (\d{6})$', out, re.M).group(1)
+user_token, token = token, None
+token = api('/auth/email/verify-code', {'email': admin_email, 'code': admin_code})['token']
+assert admin_team in [team['id'] for team in api('/teams')['teams']]
+token = user_token
+join = compose('exec', '-T', 'backend', 'nuphos-admin', 'join-token', '--team', admin_team)
+assert re.search(r'nbj_[A-Za-z0-9_-]{20,}', join), 'No join token printed'
+print('PASS: nuphos-admin bootstrap signs in to its team and issues a join token', flush=True)
+
 password = compose('exec', '-T', 'runtime', 'cat', '/home/node/.nuphos-runtime/auth-key').strip()
 runtime = api(root + '/agent-runtimes/external', {
     'url': 'ws://runtime:8080/acp', 'authKey': password, 'label': 'Compose smoke runtime',

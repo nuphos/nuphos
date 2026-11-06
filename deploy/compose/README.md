@@ -50,6 +50,34 @@ There is no mail service locally. The backend runs with `NUPHOS_DEV_EMAIL_OTP_LO
 
 3. Enter the 6-digit `sign_in_code`. The first sign-in creates the user; then create a team when prompted.
 
+Or create the user and team from the backend container, which works the same on
+a production stack with no mail service:
+
+```sh
+docker compose exec backend nuphos-admin bootstrap --email me@example.com --team Local
+```
+
+It prints the team id, a sign-in code valid for 10 minutes, and an
+`ATLAS_ADMIN_TEAM_ID=<id>` line. Running it again reuses the same user and team.
+Add the line to `.env` and run `docker compose up -d backend` to turn on `/admin`
+for that team. `nuphos-admin sign-in-code --email <email>` prints a code for
+anyone else: on a backend without Resend (`RESEND_API_KEY` and
+`NUPHOS_EMAIL_FROM` unset) email sign-in is otherwise off, and **Continue with
+email** goes through only while such a code is waiting.
+
+## Join a server as a computer
+
+A server nobody signs in on joins with a one-time token, without a browser or
+`nuphos login --device`:
+
+```sh
+docker compose exec backend nuphos-admin join-token --team <team-id> --label build-vm
+```
+
+It joins as the team owner's computer. On the server, run the command it prints
+(`NUPHOS_API_URL=<backend-url> nuphos agent --join -`) and paste the token; see
+[the CLI README](../../apps/cli/README.md#on-a-server) for running it under systemd.
+
 ## Point Nuphos Desktop at the stack
 
 Desktop accepts plain http on localhost, so no TLS or self-signed CA is needed.
@@ -166,5 +194,6 @@ rm .env                       # start over with new secrets too
 
 - No Redis: cron scheduling, background thread queues and audit journal sealing are disabled. Both Compose and `bun run dev` use single-replica in-memory mode.
 - No Bedrock keys: the backend's own model calls (conversation titles, starter suggestions) are unavailable. Chat on the runtime is unaffected.
-- `/admin` is not configured.
+- `/admin` is off until `ATLAS_ADMIN_TEAM_ID` is set in `.env` (see First sign-in).
 - This is a development stack: `NODE_ENV=development`, secrets in a local `.env`, and every port bound to `127.0.0.1` only. Do not expose it publicly.
+- The backend reads its secrets only from environment variables. On a server, fill `.env` from your secrets manager before `docker compose up` (for example a boot script that calls a VPC-private endpoint and writes the file with mode 600); the backend never calls a secrets manager itself.

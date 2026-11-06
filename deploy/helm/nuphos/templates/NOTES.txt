@@ -3,11 +3,15 @@ Nuphos backend: {{ include "nuphos.backendUrl" . }}
 1. Wait for the backend to become ready:
      kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "nuphos.fullname" . }}-backend
 
-2. In Nuphos Desktop, choose "Self-hosted? Set API endpoint", enter the URL
+2. Create the first user and team (it also prints their sign-in code and the
+   ATLAS_ADMIN_TEAM_ID line for backend.extraEnv):
+     kubectl -n {{ .Release.Namespace }} exec deploy/{{ include "nuphos.fullname" . }}-backend -- nuphos-admin bootstrap --email <you@example.com> --team <name>
+
+   In Nuphos Desktop, choose "Self-hosted? Set API endpoint", enter the URL
 
    {{ include "nuphos.backendUrl" . }}
 
-   sign in with your email and the emailed code and create a team.
+   then "Continue with email" with that address and the printed code.
 {{- if .Values.runtime.enabled }}
 
 3. Print the runtime console password:
