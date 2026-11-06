@@ -14,14 +14,20 @@ export async function createChannel(teamId: string): Promise<{ sessionId: string
 }
 
 /** Where a new Bot runs: the runtime a new chat would start on. */
-export type NewBotRuntime = { runtimeId?: string; agentRuntime?: string; runtimeLabel?: string }
+export type NewBot = {
+  title?: string
+  avatar?: string
+  runtimeId?: string
+  agentRuntime?: string
+  runtimeLabel?: string
+}
 
 /** "+" on Bots: a Bot with a name and a face, before anyone types. */
 export async function createBot(
   teamId: string,
-  runtime: NewBotRuntime = {},
+  bot: NewBot = {},
 ): Promise<{ sessionId: string; title: string; avatar: string }> {
-  return callJsonForRenderer('POST', `/agent/bots${teamQuery(teamId)}`, runtime)
+  return callJsonForRenderer('POST', `/agent/bots${teamQuery(teamId)}`, bot)
 }
 
 /** "Make this a Bot": the Task gets its face and is asked to name itself. */

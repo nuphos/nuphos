@@ -7,71 +7,71 @@ import type { Item, Section } from './types'
 
 const row = (
   key: string,
-  { parentKey, bot }: { parentKey?: string; bot?: boolean } = {},
+  {
+    parentKey,
+    bot,
+    channel,
+    botChannelOf,
+  }: { parentKey?: string; bot?: boolean; channel?: boolean; botChannelOf?: string } = {},
 ): Item => ({
   key,
   label: key,
   enabled: true,
   ...(parentKey ? { parentKey } : {}),
   ...(bot ? { bot } : {}),
+  ...(channel ? { channel } : {}),
+  ...(botChannelOf ? { botChannelOf } : {}),
 })
 const layout = (sections: Section[]) =>
   Object.fromEntries(
     sections.map((section) => [section.title ?? '', section.items.map((item) => item.key)]),
   )
-const build = (chats: Item[]) =>
-  layout(
-    withChatSections([
-      { items: [] },
-      { title: 'Channels', items: [] },
-      { title: 'Agents', items: chats },
-    ]),
-  )
+const build = (agents: Item[]) =>
+  layout(withChatSections([{ items: [] }, { title: 'Agents', items: agents }]))
 
-test('a conversation with an avatar is a Bot; everything else is a Task', () => {
-  assert.deepEqual(build([row('task'), row('helper', { bot: true })]), {
-    '': [],
-    Channels: [],
-    Bots: ['helper'],
-    Tasks: ['task'],
-  })
-})
-
-test('Bots are ordered by name, Tasks keep newest first', () => {
-  const chats = [
+test('Bots holds group chats and Bots in the list order; Tasks holds every session', () => {
+  const agents = [
     row('newest-task'),
     row('zeta', { bot: true }),
+    row('group', { channel: true }),
     row('older-task'),
     row('alpha', { bot: true }),
   ]
 
-  assert.deepEqual(build(chats), {
+  assert.deepEqual(build(agents), {
     '': [],
-    Channels: [],
-    Bots: ['alpha', 'zeta'],
-    Tasks: ['newest-task', 'older-task'],
+    Channels: ['zeta', 'group', 'alpha'],
+    Tasks: ['newest-task', 'zeta', 'older-task', 'alpha'],
   })
 })
 
-test('a Bot keeps the Tasks it started, and a Bot thread takes its own along', () => {
-  const chats = [
-    row('task-of-bot', { parentKey: 'bot' }),
-    row('grandchild', { parentKey: 'task-of-bot' }),
-    row('bot', { bot: true }),
-    row('parent'),
-    row('bot-thread', { parentKey: 'parent', bot: true }),
-    row('its-task', { parentKey: 'bot-thread' }),
+test('a Bot with its chat is listed as that chat; its Tasks are under Tasks', () => {
+  const agents = [
+    row('agent-session:dm', { channel: true, botChannelOf: 'ada' }),
+    row('agent-session:ada', { bot: true }),
+    row('task-of-ada', { parentKey: 'agent-session:ada' }),
+    row('agent-session:new', { bot: true }),
   ]
 
-  assert.deepEqual(build(chats), {
+  assert.deepEqual(build(agents), {
     '': [],
-    Channels: [],
-    Bots: ['bot', 'bot-thread', 'task-of-bot', 'grandchild', 'its-task'],
-    Tasks: ['parent'],
+    Channels: ['agent-session:dm', 'agent-session:new'],
+    Tasks: ['agent-session:ada', 'task-of-ada', 'agent-session:new'],
   })
 })
 
-test('a Bot drops its linked-work line; a Task keeps it', () => {
+test('opening a Bot without its chat makes the chat', () => {
+  const opened: string[] = []
+  const [, chats] = withChatSections(
+    [{ items: [] }, { title: 'Agents', items: [row('agent-session:new', { bot: true })] }],
+    (botId) => opened.push(botId),
+  )
+
+  chats?.items[0]?.onActivate?.(false)
+  assert.deepEqual(opened, ['new'])
+})
+
+test('a chat drops its linked-work line; a Task keeps it', () => {
   const sections = withChatSections([
     {
       title: 'Agents',
@@ -84,7 +84,7 @@ test('a Bot drops its linked-work line; a Task keeps it', () => {
 
   assert.deepEqual(
     sections.map((section) => section.items.map((item) => item.description)),
-    [[undefined], ['PR']],
+    [[undefined], ['PR', 'PR']],
   )
 })
 
@@ -92,16 +92,10 @@ test('a parent cycle does not loop', () => {
   assert.deepEqual(build([row('a', { parentKey: 'b' }), row('b', { parentKey: 'a' })]), {
     '': [],
     Channels: [],
-    Bots: [],
     Tasks: ['a', 'b'],
   })
 })
 
-test('Bots shows even with no agents at all, so its "+" can make the first', () => {
-  // With no agents there is no Agents section to split.
-  assert.deepEqual(layout(withChatSections([{ items: [] }, { title: 'Channels', items: [] }])), {
-    '': [],
-    Channels: [],
-    Bots: [],
-  })
+test('Chats shows even with no agents at all, so its "+" can make the first', () => {
+  assert.deepEqual(build([]), { '': [], Channels: [] })
 })

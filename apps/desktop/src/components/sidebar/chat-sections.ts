@@ -2,54 +2,53 @@ import type { Item, Section } from './types'
 import type { ReactNode } from 'react'
 
 /**
- * The agent groups in team view: Bots, then Tasks. A Bot is a conversation
- * with an avatar; everything else is a Task. A thread goes wherever the row it
- * nests under goes, so a Bot keeps the Tasks it started, and a Bot started as a
- * thread takes its own threads to Bots. Bots are ordered by name, a stable
- * list that needs no stored order; Tasks keep the list's newest-first order.
- * Bots always shows, so its "+" is there; an empty Tasks adds no section.
+ * The agent groups in team view, iMessage-style. Bots holds chats: group
+ * channels and each Bot's 1:1 channel, newest message first (the list's own
+ * order); a Bot without its chat yet is listed there until opened, which makes
+ * it. Tasks holds every agent session, a Bot's own included, as on main.
  */
-const byBotName = (a: Item, b: Item) => (a.bot && b.bot ? a.label.localeCompare(b.label) : 0)
+export function withChatSections(
+  sections: Section[],
+  openBot?: (botId: string) => void,
+): Section[] {
+  const agents = sections.find((section) => section.title === 'Agents')
 
-export function withChatSections(sections: Section[]): Section[] {
-  const chatItems = sections.find((section) => section.title === 'Agents')?.items ?? []
-  const byKey = new Map(chatItems.map((item) => [item.key, item]))
-  const inBots = (item: Item, seen = new Set<string>()): boolean => {
-    if (item.bot) return true
-    const parent = item.parentKey ? byKey.get(item.parentKey) : undefined
+  if (!agents) return [...sections]
+  const chatted = new Set(agents.items.flatMap((item) => item.botChannelOf ?? []))
+  const sessionOf = (item: Item) => item.key.replace('agent-session:', '')
+  const isChat = (item: Item) => item.channel || (item.bot && !chatted.has(sessionOf(item)))
+  const chats = agents.items.filter(isChat).map((item) => ({
+    ...item,
+    description: undefined,
+    // Bots shows faces: a Bot not yet in its chat wears its own, as its chat will.
+    ...(item.bot && {
+      iconNode: item.face,
+      ...(openBot && { onActivate: () => openBot(sessionOf(item)) }),
+    }),
+  }))
+  // A Task is one line: its runtime icon and title, no latest message.
+  const tasks = agents.items
+    .filter((item) => !item.channel)
+    .map(({ preview: _preview, time: _time, ...item }) => ({ ...item, task: true }))
 
-    return Boolean(parent && !seen.has(item.key) && inBots(parent, seen.add(item.key)))
-  }
-  // A Bot is who it is: its name and face. Its work stays in its Tasks.
-  const bots = chatItems
-    .filter((item) => inBots(item))
-    .map((item) => (item.bot ? { ...item, description: undefined } : item))
-    // Bots by name; their Tasks keep their order and nest back under them.
-    .sort((a, b) => Number(Boolean(b.bot)) - Number(Boolean(a.bot)) || byBotName(a, b))
-  const tasks = chatItems.filter((item) => !inBots(item))
-
-  // Bots is always there, like Chats, so its "+" can make the first one.
-  const result = sections.filter((section) => section.title !== 'Agents')
-  const chats = result.findIndex((section) => section.title === 'Channels')
-
-  result.splice(
-    chats === -1 ? 1 : chats + 1,
-    0,
-    { title: 'Bots', items: bots },
-    ...(tasks.length > 0 ? [{ title: 'Tasks', items: tasks }] : []),
+  return sections.flatMap((section) =>
+    section === agents
+      ? [
+          { title: 'Channels', items: chats },
+          ...(tasks.length > 0 ? [{ title: 'Tasks', items: tasks }] : []),
+        ]
+      : [section],
   )
-
-  return result
 }
 
-const CHAT_SECTIONS = new Set<string | undefined>(['Channels', 'Agents', 'Bots', 'Tasks'])
+const CHAT_SECTIONS = new Set<string | undefined>(['Channels', 'Agents', 'Tasks'])
 
 /** The sections that hold chats, the only ones a split sidebar keeps. */
 export function isChatSection(section: Section): boolean {
   return CHAT_SECTIONS.has(section.title)
 }
 
-/** Chats and Bots carry their "+" beside the title. */
+/** Chats carries its "+" beside the title. */
 export function withSectionActions(
   sections: Section[],
   actions: Partial<Record<string, ReactNode>>,

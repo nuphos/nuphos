@@ -2,7 +2,6 @@ import clsx from 'clsx'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 
 import { t } from '../../i18n'
-import { useAgentAppearance } from '../../lib/agentAppearance'
 import { favoriteSessionId } from '../../lib/sidebarPinnedChats'
 import { SIDEBAR_ITEM_SHORTCUTS } from '../../lib/teamOverviewNav'
 import {
@@ -69,7 +68,6 @@ export function SidebarSectionList({
 }: SectionListProps) {
   // The Inbox row carries how many conversations wait on the viewer.
   const shown = useInboxBadge(scope.teamId, sections)
-  const { density } = useAgentAppearance()
   const pinned = usePinnedDrag(shown.find((s) => s.title === 'Pinned')?.items ?? [], movePinned)
 
   return (
@@ -143,6 +141,8 @@ export function SidebarSectionList({
                       const shortcut = SIDEBAR_ITEM_SHORTCUTS[item.key]
                       const favorited = Boolean(favoriteMatch(item))
                       const chatRow = favoriteSessionId({ key: item.key, href: item.href }) !== null
+                      // Bots read as a chat list (name over latest message); Tasks as on main.
+                      const twoLine = chatRow && !item.task
                       const favoriteToggle = canFavorite(item) ? (
                         <FavoriteToggle
                           chatRow={chatRow}
@@ -200,7 +200,7 @@ export function SidebarSectionList({
                         >
                           <SidebarNavItem
                             active={isActive}
-                            comfortable={chatRow && density === 'comfortable'}
+                            twoLine={twoLine}
                             sharedBackground={Boolean(item.description)}
                             disabled={!item.enabled}
                             navigateOnRelease={Boolean(rowSessionId)}
@@ -215,6 +215,8 @@ export function SidebarSectionList({
                               else onSelect(item.key)
                             }}
                             label={item.label}
+                            preview={twoLine ? item.preview : undefined}
+                            time={twoLine ? item.time : undefined}
                             animateLabel={chatRow}
                             note={rowNote(item, done)}
                             badge={item.badge}
@@ -263,11 +265,7 @@ export function SidebarSectionList({
                           {inPinned && pinned.dropIndex === pinned.heads.indexOf(item.key) && (
                             <DropLine edge="top" />
                           )}
-                          <NestedRowBody
-                            trail={trail}
-                            expanded={hasChildren && !folded}
-                            comfortable={density === 'comfortable'}
-                          >
+                          <NestedRowBody trail={trail} expanded={hasChildren && !folded}>
                             {row}
                           </NestedRowBody>
                         </div>

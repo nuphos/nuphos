@@ -7,7 +7,7 @@ import { openChatSummarySubAgents } from '../../lib/chatSummaryPanel'
 import type { Item } from './types'
 import type { ReactNode } from 'react'
 
-// Tree lines follow the icon centre in either sidebar density.
+// Tree lines follow the icon centre of a 36px Tasks row.
 const NEST_INDENT = 16
 const LINE = 'pointer-events-none absolute border-line-control/60'
 // -bottom-0.5 spans the 2px gap between rows so the next row's line joins on.
@@ -20,20 +20,18 @@ const DOWN = `${LINE} -bottom-0.5 border-l`
 export function NestedRowBody({
   trail,
   expanded,
-  comfortable = false,
   children,
 }: {
   /** From nestItems: per ancestor level, whether that branch continues below. */
   trail: boolean[]
   /** This row's own children are showing, so a line drops from its icon. */
   expanded: boolean
-  comfortable?: boolean
   children: ReactNode
 }) {
   const own = trail.length - 1
-  const x = (level: number) => ({ left: level * NEST_INDENT + (comfortable ? 23 : 19) })
-  const centerY = comfortable ? 21 : 15
-  const bottomY = comfortable ? 37 : 27
+  const x = (level: number) => ({ left: level * NEST_INDENT + 19 })
+  const centerY = 15
+  const bottomY = 27
 
   return (
     <>

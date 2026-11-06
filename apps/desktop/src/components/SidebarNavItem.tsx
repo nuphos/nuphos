@@ -4,6 +4,8 @@ import { useEffect, useId } from 'react'
 
 import { useHoverMarquee } from '../hooks/useHoverMarquee'
 import { useTextSwap } from '../hooks/useTextSwap'
+import { t } from '../i18n'
+import { Fenced, TrailingSlot } from './SidebarRowParts'
 import { CountBadge } from './ui/count-badge'
 
 import type { LucideIcon } from 'lucide-react'
@@ -49,8 +51,12 @@ type SidebarNavItemProps = {
   /** Controls that take the trailing slot's place while the row is hovered or
    *  focused: at rest the slot shows `trailing`, on hover these instead. */
   hoverActions?: ReactNode
-  /** Larger Agent row; other navigation keeps its compact height. */
-  comfortable?: boolean
+  /** A chat-list row (Bots): name over its latest message, with the time. */
+  twoLine?: boolean
+  /** Comfortable chat rows: the newest message, one line under the label. */
+  preview?: string
+  /** Comfortable chat rows: when the chat was last active, at the label's right. */
+  time?: string
   /** Wait for the click when a press may start a drag instead. */
   navigateOnRelease?: boolean
   /** Cross-fade the label when it changes in place (e.g. a renamed chat). */
@@ -90,7 +96,9 @@ export function SidebarNavItem({
   edge,
   hoverActions,
   navigateOnRelease = false,
-  comfortable = false,
+  twoLine = false,
+  preview,
+  time,
   animateLabel = false,
   revealDetail = false,
 }: SidebarNavItemProps) {
@@ -112,6 +120,65 @@ export function SidebarNavItem({
   }, [containerRef, start, stop])
   const id = useId()
   const badgeShown = badge !== undefined && badge > 0
+  // A chat-list row shows its state on the preview line instead, and its time here.
+  const rest = twoLine
+    ? time && (
+        <span className="text-[11px] font-normal tabular-nums text-tertiary opacity-75">
+          {time}
+        </span>
+      )
+    : trailing
+  const iconBox = icon !== null && (
+    <span
+      className={clsx(
+        'flex-shrink-0 flex items-center transition-colors [&>svg]:size-4',
+        active ? 'text-main' : 'text-tertiary group-hover:text-main',
+      )}
+    >
+      {icon}
+    </span>
+  )
+  const labelBox = (
+    <span
+      id={`${id}-label`}
+      ref={containerRef}
+      className={clsx(
+        twoLine ? 'truncate' : 't-marquee',
+        'flex-1 min-w-0 text-left leading-4',
+        // The animated label is an inline-block; it carries the ellipsis itself.
+        twoLine &&
+          'font-medium [&>.t-text-swap]:max-w-full [&>.t-text-swap]:truncate [&>.t-text-swap]:align-top',
+        revealDetail &&
+          'transition-transform duration-[280ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none',
+      )}
+      // Lifted in index.css only when the row's detail line has content.
+      data-row-title={revealDetail || undefined}
+    >
+      {animateLabel ? <SwapLabel label={label} /> : label}
+    </span>
+  )
+  const tail = (
+    <>
+      {note != null && (
+        // A note that renders nothing (no phone viewing) takes no space or gap.
+        <span id={`${id}-note`} className="flex flex-shrink-0 items-center empty:hidden">
+          {note}
+        </span>
+      )}
+      {badgeShown && <CountBadge id={`${id}-badge`} count={badge} />}
+      {/* Presses here must not navigate the row: activation happens at
+          pointerdown, so they are fenced off. */}
+      <Fenced>
+        <TrailingSlot
+          trailingId={twoLine ? undefined : `${id}-trailing`}
+          trailing={rest}
+          hoverActions={hoverActions}
+          overlay={twoLine}
+        />
+      </Fenced>
+      <Fenced>{edge}</Fenced>
+    </>
+  )
 
   return (
     <BaseButton
@@ -156,7 +223,7 @@ export function SidebarNavItem({
       }}
       className={clsx(
         SIDEBAR_ROW_CLASS,
-        comfortable && '!h-[42px]',
+        twoLine && '!h-[60px] !gap-3 !rounded-xl',
         'group group/row w-full flex items-center transition-colors outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0',
         !sharedBackground && 'focus-visible:bg-[var(--sidebar-overlay-focus)]',
         active
@@ -171,103 +238,37 @@ export function SidebarNavItem({
               : 'text-secondary hover:bg-[var(--sidebar-overlay-hover)]',
       )}
     >
-      {icon !== null && (
-        <span
-          className={clsx(
-            'flex-shrink-0 flex items-center transition-colors [&>svg]:size-4',
-            active ? 'text-main' : 'text-tertiary group-hover:text-main',
-          )}
-        >
-          {icon}
-        </span>
+      {twoLine ? (
+        <>
+          {iconBox}
+          <span className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+            <span className="flex items-center gap-2 text-main">
+              {labelBox}
+              {tail}
+            </span>
+            {/* The row's state ends the preview line, as the iOS list's dot does. */}
+            <span className="flex min-h-4 items-center gap-2">
+              <span
+                className={clsx(
+                  'flex-1 min-w-0 truncate text-left text-[13px] leading-4 font-normal',
+                  preview ? 'text-secondary' : 'text-tertiary',
+                )}
+              >
+                {preview || t('No messages yet')}
+              </span>
+              <span id={`${id}-trailing`} className="flex-shrink-0 flex items-center">
+                {trailing}
+              </span>
+            </span>
+          </span>
+        </>
+      ) : (
+        <>
+          {iconBox}
+          {labelBox}
+          {tail}
+        </>
       )}
-      <span
-        id={`${id}-label`}
-        ref={containerRef}
-        className={clsx(
-          't-marquee flex-1 min-w-0 text-left leading-4',
-          revealDetail &&
-            'transition-transform duration-[280ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none',
-        )}
-        // Lifted in index.css only when the row's detail line has content.
-        data-row-title={revealDetail || undefined}
-      >
-        {animateLabel ? <SwapLabel label={label} /> : label}
-      </span>
-      {note != null && (
-        // A note that renders nothing (no phone viewing) takes no space or gap.
-        <span id={`${id}-note`} className="flex flex-shrink-0 items-center empty:hidden">
-          {note}
-        </span>
-      )}
-      {badgeShown && <CountBadge id={`${id}-badge`} count={badge} />}
-      {/* Presses here must not navigate the row: activation happens at
-          pointerdown, so they are fenced off. */}
-      <Fenced>
-        <TrailingSlot id={id} trailing={trailing} hoverActions={hoverActions} />
-      </Fenced>
-      <Fenced>{edge}</Fenced>
     </BaseButton>
-  )
-}
-
-/**
- * One trailing slot: the row's state at rest, its actions on hover or focus,
- * never both. Only the showing one takes space, so at rest the title runs up to
- * the indicator, and on hover its clip edge moves in to make room for the actions.
- */
-function TrailingSlot({
-  id,
-  trailing,
-  hoverActions,
-}: {
-  id: string
-  trailing?: ReactNode
-  hoverActions?: ReactNode
-}) {
-  return hoverActions == null ? (
-    trailing
-  ) : (
-    // The slot gives back the row's gap and carries its own leading space only
-    // while it shows something, so an idle row's title runs to the edge.
-    <span className="relative -ml-2.5 flex flex-shrink-0 items-center">
-      <span
-        id={`${id}-trailing`}
-        className={clsx(
-          'sidebar-swap-in flex items-center gap-1.5 group-hover:hidden group-focus-visible:hidden',
-          'empty:hidden [&:not(:empty)]:pl-2.5',
-          'group-has-[:focus-visible]/row:hidden group-has-[[aria-expanded=true]]/row:hidden',
-        )}
-      >
-        {trailing}
-      </span>
-      {/* At rest the actions are transparent and out of flow rather than
-            hidden, so Tab can still reach them; focusing one reveals them. */}
-      <span
-        className={clsx(
-          // Always mounted (Tab must reach it), so the slide plays on hover, not on mount.
-          'pointer-events-none absolute right-0 flex items-center gap-1 pl-2.5 opacity-0',
-          'group-hover:animate-[sidebar-swap-in_200ms_cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:animate-none',
-          'group-hover:pointer-events-auto group-hover:static group-hover:opacity-100',
-          'group-focus-visible:pointer-events-auto group-focus-visible:static group-focus-visible:opacity-100',
-          'group-has-[:focus-visible]/row:pointer-events-auto group-has-[:focus-visible]/row:static group-has-[:focus-visible]/row:opacity-100',
-          // An action whose menu is open stays put as the menu's anchor.
-          'group-has-[[aria-expanded=true]]/row:pointer-events-auto group-has-[[aria-expanded=true]]/row:static group-has-[[aria-expanded=true]]/row:opacity-100',
-        )}
-      >
-        {hoverActions}
-      </span>
-    </span>
-  )
-}
-
-/** Keeps presses inside from reaching the row's pointerdown navigation. */
-function Fenced({ className = 'contents', children }: { className?: string; children: ReactNode }) {
-  if (children == null) return null
-
-  return (
-    <span className={className} onPointerDown={(event) => event.stopPropagation()}>
-      {children}
-    </span>
   )
 }

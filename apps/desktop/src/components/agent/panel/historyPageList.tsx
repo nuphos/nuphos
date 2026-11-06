@@ -20,12 +20,17 @@ type RowMenuState = {
   conversation: AgentConversation
 }
 
-function ArchiveButton({ onClick }: { onClick: () => void }) {
+/** A Bot is archived as a Bot, anything else as a Task. */
+function archiveLabel(conversation: AgentConversation): string {
+  return conversation.avatar ? t('Archive Bot') : t('Archive Task')
+}
+
+function ArchiveButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       type="button"
-      aria-label={t('Archive agent')}
-      title={t('Archive agent')}
+      aria-label={label}
+      title={label}
       onClick={onClick}
       className="mr-2 hidden h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary outline-none transition-colors hover:bg-state-hover hover:text-main focus-visible:inline-flex focus-visible:bg-state-hover group-hover:inline-flex"
     >
@@ -130,7 +135,10 @@ export function HistoryPageList({
           }
           trailing={
             canArchive(conversation) ? (
-              <ArchiveButton onClick={() => void onArchive(conversation)} />
+              <ArchiveButton
+                label={archiveLabel(conversation)}
+                onClick={() => void onArchive(conversation)}
+              />
             ) : undefined
           }
         />
@@ -172,7 +180,7 @@ export function HistoryPageList({
               : []),
             {
               key: 'archive',
-              label: t('Archive agent'),
+              label: archiveLabel(rowMenu.conversation),
               icon: Archive,
               onSelect: () => onArchive(rowMenu.conversation),
             },

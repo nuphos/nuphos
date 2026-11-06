@@ -150,9 +150,18 @@ export function SidebarItemContextMenu({
           ? [
               {
                 key: 'archive',
-                label: channel ? t('Archive chat') : t('Archive agent'),
+                label:
+                  menu.item.bot || menu.item.botChannelOf
+                    ? t('Archive Bot')
+                    : channel
+                      ? t('Archive chat')
+                      : t('Archive Task'),
                 icon: Archive,
-                onSelect: () => archiveChat(menu.item.key.slice('agent-session:'.length)),
+                onSelect: () => {
+                  void archiveChat(menu.item.key.slice('agent-session:'.length))
+                  // A Bot goes with its chat, so neither brings the other back.
+                  if (menu.item.botChannelOf) void archiveChat(menu.item.botChannelOf)
+                },
               },
             ]
           : []),

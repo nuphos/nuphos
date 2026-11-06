@@ -16,10 +16,16 @@ export type Item = {
   key: string
   label: string
   description?: ReactNode
+  /** A chat's newest message, shown under its name in Bots. */
+  preview?: string
+  /** When the chat was last active, beside its name in Bots. */
+  time?: string
   icon?: LucideIcon
   iconNode?: ReactNode
   /** A Bot (a conversation with an avatar), listed under Bots; every other agent row is a Task. */
   bot?: boolean
+  /** Listed as a Task: one line, without the latest-message preview. */
+  task?: boolean
   enabled: boolean
   active?: boolean
   /** Optional count to render as a small badge to the right of the label. */
@@ -49,6 +55,10 @@ export type Item = {
   finished?: boolean
   /** A channel: listed under Channels rather than Agents. */
   channel?: boolean
+  /** A Bot's face, shown where Bots are listed; elsewhere its row shows its Runtime. */
+  face?: ReactNode
+  /** A Bot's chat (a channel with only the Bot in it): the Bot's session id. */
+  botChannelOf?: string
   /** An agent the viewer does not own: no rename or unlink, which are the owner's. */
   readOnlyChat?: boolean
   /** Such an agent the viewer manages, so they may archive it for everyone. */

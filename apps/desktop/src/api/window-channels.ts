@@ -5,7 +5,13 @@ export type WindowChannelsApi = {
   agentCreateChannel(teamId: string): Promise<{ sessionId: string }>
   agentCreateBot(
     teamId: string,
-    runtime?: { runtimeId?: string; agentRuntime?: string; runtimeLabel?: string },
+    bot?: {
+      title?: string
+      avatar?: string
+      runtimeId?: string
+      agentRuntime?: string
+      runtimeLabel?: string
+    },
   ): Promise<{ sessionId: string; title: string; avatar: string }>
   agentMakeBot(sessionId: string, teamId: string): Promise<{ avatar: string }>
   agentListChannelMentions(teamId: string): Promise<{ mentions: ChannelMention[] }>

@@ -4,8 +4,14 @@ export const channelsApi = {
   agentCreateChannel: (teamId: string) => ipcRenderer.invoke('agent:createChannel', teamId),
   agentCreateBot: (
     teamId: string,
-    runtime?: { runtimeId?: string; agentRuntime?: string; runtimeLabel?: string },
-  ) => ipcRenderer.invoke('agent:createBot', teamId, runtime),
+    bot?: {
+      title?: string
+      avatar?: string
+      runtimeId?: string
+      agentRuntime?: string
+      runtimeLabel?: string
+    },
+  ) => ipcRenderer.invoke('agent:createBot', teamId, bot),
   agentMakeBot: (sessionId: string, teamId: string) =>
     ipcRenderer.invoke('agent:makeBot', sessionId, teamId),
   agentListChannelMentions: (teamId: string) =>

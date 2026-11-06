@@ -34,6 +34,7 @@ import {
 import { ShortcutHint } from '../ui/shortcut-hint'
 import { toast } from '../ui/toast'
 import { Tooltip } from '../ui/tooltip'
+import { openNewBotChat } from '../channels/botChannel'
 
 import { agentSessionUrl } from './sessionUrl'
 import { SummaryIcon } from './summary/ChatSummaryToggle'
@@ -100,7 +101,10 @@ export function SessionHeaderMenu({
       bot
         ? api.agentMakeBot(sessionId, teamId)
         : api.agentSetConversationAvatar(sessionId, null, teamId),
-    ).catch((err: unknown) => toast.apiError(t('Could not change avatar'), err))
+    )
+      // A Bot is talked to in its own chat, as one made with "+".
+      .then(() => (bot ? openNewBotChat(teamId, sessionId) : undefined))
+      .catch((err: unknown) => toast.apiError(t('Could not change avatar'), err))
   }
   // Rename waits for the popup to finish closing; otherwise focus returning to
   // the trigger blurs the title input, and blur saves and closes it.
@@ -246,7 +250,7 @@ export function SessionHeaderMenu({
               disabled={archiving}
               onClick={() => void archive()}
             >
-              {archiving ? t('Archiving…') : t('Archive agent')}
+              {archiving ? t('Archiving…') : isBot ? t('Archive Bot') : t('Archive Task')}
             </MenuItem>
           </>
         )}

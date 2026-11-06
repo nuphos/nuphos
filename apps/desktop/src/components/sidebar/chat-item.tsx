@@ -2,6 +2,10 @@ import { t } from '../../i18n'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { rowDot } from '../../lib/subAgentState'
 
+import { botOfChannel } from '../channels/botChannel'
+import { ChatIcon } from '../channels/channelParts'
+
+import { chatPreview, chatTime } from './chat-preview'
 import { chatRowAccess } from './chat-row-access'
 import { chatRowIcon } from './chat-row-icon'
 import { ChatRowStatus } from './ChatRowStatus'
@@ -37,6 +41,8 @@ export function chatSidebarItem({
     key: `agent-session:${conversation.sessionId}`,
     label: conversation.title || conversation.firstMessage || t('Untitled agent'),
     ...chatRowIcon(conversation),
+    preview: chatPreview(conversation.lastMessage),
+    time: chatTime(conversation.lastActiveAt),
     description: (
       <SessionResources
         sessionId={conversation.sessionId}
@@ -46,9 +52,20 @@ export function chatSidebarItem({
     ),
     enabled: true,
     active,
-    ...(conversation.kind === 'channel' ? { channel: true } : {}),
+    ...(conversation.kind === 'channel'
+      ? { channel: true, botChannelOf: botOfChannel(conversation.faces) }
+      : {}),
     ...((picked === undefined ? conversation.avatar : picked) && conversation.kind !== 'channel'
-      ? { bot: true }
+      ? {
+          bot: true,
+          face: (
+            <ChatIcon
+              faces={[{ id: conversation.sessionId, name: conversation.title, agent: {} }]}
+              title={conversation.title}
+              sidebar
+            />
+          ),
+        }
       : {}),
     ...chatRowAccess(conversation),
     ...(conversation.watching !== undefined ? { watching: conversation.watching } : {}),

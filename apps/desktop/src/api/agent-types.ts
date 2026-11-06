@@ -108,6 +108,9 @@ export type AgentConversation = {
   inputRequests?: AgentInputRequest[]
   /** Someone asked who can sign this conversation's agent in; their message waits for it. */
   signInRequest?: AgentSignInRequest
+  /** The newest message, for the row's preview: raw markdown cut short, empty for files only.
+   *  `from` names its sender in a group chat, unless it was the viewer. */
+  lastMessage?: { text: string; from?: string }
 }
 
 export type AgentSignInRequest = {

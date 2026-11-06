@@ -3,6 +3,7 @@ import { memo, useState } from 'react'
 
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
 import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor'
+import { openBotChannel } from '../channels/botChannel'
 import { SidebarSearchButton } from '../session-search/SidebarSearchButton'
 import { SIDEBAR_PANEL_PADDING_CLASS } from '../SidebarNavItem'
 
@@ -123,7 +124,9 @@ export const Sidebar = memo(function Sidebar({
 
   const [itemMenu, setItemMenu] = useState<ItemMenuRequest | null>(null)
 
-  const renderSections = teamView ? withChatSections(sections) : [...sections]
+  const renderSections = withChatSections(sections, (botId) =>
+    openBotChannel(teamId, botId, onSelect),
+  )
 
   if (dynamicNavigation && teamView && favoriteItems.length > 0) {
     renderSections.splice(1, 0, { title: 'Favorites', items: favoriteItems })
