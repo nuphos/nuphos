@@ -2,7 +2,9 @@ import { cssValue, cssVariable, isTranslucent, themes } from './tokens.mjs'
 
 /**
  * Tailwind colors for every token, nested by group:
- * `surface.canvas` → `bg-surface-canvas`, `text.primary` → `text-text-primary`.
+ * `surface.canvas` → `bg-surface-canvas`. Apps should move the `text` group to
+ * Tailwind's `textColor` so text tokens read `text-primary`; left in `colors` they
+ * would generate `text-text-primary`.
  * Opaque tokens accept opacity modifiers (`bg-data-1/40`); translucent ones don't.
  */
 export function tokenColors() {

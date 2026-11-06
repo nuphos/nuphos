@@ -28,9 +28,13 @@ There is no divider token on purpose: areas are separated by surfaces, not lines
 ## Desktop
 
 ```tsx
-<div className="bg-surface-sheet text-text-secondary hover:bg-state-hover" />
+<div className="bg-surface-sheet text-secondary hover:bg-state-hover" />
 <span className="bg-data-1/40" />
 ```
+
+The `text` group is registered under `textColor`, not `colors` (see `apps/desktop/tailwind.config.js`), so
+text tokens are `text-primary`, `text-secondary`, `text-tertiary` and `text-inverse`. `text-text-*` generates
+nothing.
 
 Translucent tokens (`state.*`) carry their own alpha and don't take opacity modifiers.
 
