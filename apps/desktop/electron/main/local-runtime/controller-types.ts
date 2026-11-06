@@ -172,7 +172,11 @@ export function tunnelStatusOf(
 
     if (!agent.runtime || !agent.cli?.installed) continue
     agents[provider] = {
-      cli: { installed: true, loggedIn: agent.cli.loggedIn },
+      cli: {
+        installed: true,
+        loggedIn: agent.cli.loggedIn,
+        ...(agent.cli.apiKey ? { apiKey: true } : {}),
+      },
       ...(agent.usage !== undefined && agent.usageAt
         ? { usage: agent.usage, usageAt: agent.usageAt }
         : {}),

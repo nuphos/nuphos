@@ -105,6 +105,8 @@ export function loginFrameReader(
         onFrame({ type: 'authorize', url: frame.url })
       } else if (frame.type === 'authenticated' && frame.authJson === undefined) {
         onFrame({ type: 'authenticated' })
+      } else if (frame.type === 'signedOut') {
+        onFrame({ type: 'signedOut' })
       } else if (frame.type === 'error') {
         onFrame({
           type: 'error',

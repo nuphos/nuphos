@@ -108,6 +108,56 @@ export function isAuthorizationCode(line) {
   return CODE_LINE.test(line)
 }
 
+/**
+ * What a line on stdin asks for while the account sign-in waits: an Anthropic API key to sign
+ * in with instead, or removing the key this runtime uses.
+ */
+export function loginChoice(line) {
+  const text = String(line).trim()
+  if (/^sk-ant-[\w-]{20,400}$/u.test(text)) return { apiKey: text }
+  if (text === 'sign-out') return { signOut: true }
+  return null
+}
+
+/**
+ * An API key lives where Claude Code itself reads one: `env.ANTHROPIC_API_KEY` in the user
+ * settings of this runtime's own CLAUDE_CONFIG_DIR. It outranks an account sign-in.
+ */
+function updateSettings(configDir, change) {
+  const file = join(configDir, 'settings.json')
+  let settings = {}
+
+  try {
+    settings = JSON.parse(readFileSync(file, 'utf8'))
+  } catch (error) {
+    // Never replace settings this cannot read; only a missing file starts empty.
+    if (error.code !== 'ENOENT') throw error
+  }
+  const env = { ...settings.env }
+
+  if (!change(env)) return
+  const next = { ...settings, env }
+
+  if (Object.keys(env).length === 0) delete next.env
+  const temporary = `${file}.${process.pid}.tmp`
+
+  mkdirSync(configDir, { recursive: true, mode: 0o700 })
+  writeFileSync(temporary, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600 })
+  chmodSync(temporary, 0o600)
+  renameSync(temporary, file)
+}
+
+export function storeApiKey(configDir, key) {
+  updateSettings(configDir, (env) => {
+    env.ANTHROPIC_API_KEY = key
+    return true
+  })
+}
+
+export function removeApiKey(configDir) {
+  updateSettings(configDir, (env) => delete env.ANTHROPIC_API_KEY && true)
+}
+
 /** Claude's own answer to whether this environment is signed in. */
 function signedIn(executable, args, env) {
   return new Promise((resolve) => {
@@ -182,6 +232,7 @@ export async function runClaudeLogin({
   let output = ''
   let announced = false
   let failure
+  let choice
 
   const stop = (reason) => {
     failure ??= new LoginError(reason)
@@ -211,10 +262,21 @@ export async function runClaudeLogin({
 
     // A terminal submits on carriage return.
     if (isAuthorizationCode(code)) child.stdin.write(`${code}${longLived ? '\r' : '\n'}`)
+    else if (!choice && (choice = loginChoice(code) ?? undefined)) {
+      // A key or a sign-out replaces the account sign-in that is waiting.
+      try {
+        process.kill(-child.pid, 'SIGKILL')
+      } catch {
+        /* Already gone. */
+      }
+    }
   })
   // A gateway that cannot relay input hands this process /dev/null, which ends at once;
   // the code the user pastes could then never arrive.
-  lines.on('close', () => stop('input_unavailable'))
+  lines.on('close', () => {
+    // A key or a sign-out may be the last line it sends.
+    if (!choice) stop('input_unavailable')
+  })
 
   try {
     const code = await new Promise((resolve) => {
@@ -229,7 +291,22 @@ export async function runClaudeLogin({
     })
 
     if (failure) throw failure
+    if (choice?.signOut) {
+      removeApiKey(configDir)
+      emit({ type: 'signedOut' })
+
+      return
+    }
+    if (choice?.apiKey) {
+      storeApiKey(configDir, choice.apiKey)
+      if (!(await signedIn(executable, args, env))) throw new LoginError('failed')
+      emit({ type: 'authenticated' })
+
+      return
+    }
     if (code !== 0) throw new LoginError('failed')
+    // The account just signed in replaces a key, which would otherwise outrank it.
+    removeApiKey(configDir)
     let checkEnv = env
 
     if (longLived) {
@@ -263,17 +340,39 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 
   for (const event of ['SIGTERM', 'SIGINT']) process.once(event, () => controller.abort())
   process.stdout.on('error', () => controller.abort())
+  // The Desktop's own sign-in for this computer: the key on stdin, or a sign-out.
+  const configDir =
+    process.env.CLAUDE_CONFIG_DIR || join(process.env.HOME ?? '/home/node', '.claude')
+
   try {
-    // The only place the environment is read: the runtime's own home and config dir.
-    await runClaudeLogin({
-      executable: process.env.CLAUDE_CODE_EXECUTABLE || 'claude',
-      home: process.env.HOME ?? '/home/node',
-      configDir: process.env.CLAUDE_CONFIG_DIR || undefined,
-      secureStorageConfigDir: process.env.CLAUDE_SECURESTORAGE_CONFIG_DIR,
-      user: process.env.USER || process.env.LOGNAME,
-      signal: controller.signal,
-      longLived: process.argv.includes('--long-lived'),
-    })
+    if (process.argv.includes('--sign-out')) {
+      removeApiKey(configDir)
+      process.stdout.write(`${JSON.stringify({ type: 'signedOut' })}\n`)
+    } else if (process.argv.includes('--api-key')) {
+      const line = await new Promise((resolve) => {
+        const lines = createInterface({ input: process.stdin })
+        lines.once('line', (value) => {
+          resolve(value)
+          lines.close()
+        })
+        lines.once('close', () => resolve(''))
+      })
+      const key = loginChoice(line)?.apiKey
+
+      if (!key) throw new LoginError('failed')
+      storeApiKey(configDir, key)
+      process.stdout.write(`${JSON.stringify({ type: 'authenticated' })}\n`)
+    } else
+      // The only place the environment is read: the runtime's own home and config dir.
+      await runClaudeLogin({
+        executable: process.env.CLAUDE_CODE_EXECUTABLE || 'claude',
+        home: process.env.HOME ?? '/home/node',
+        configDir: process.env.CLAUDE_CONFIG_DIR || undefined,
+        secureStorageConfigDir: process.env.CLAUDE_SECURESTORAGE_CONFIG_DIR,
+        user: process.env.USER || process.env.LOGNAME,
+        signal: controller.signal,
+        longLived: process.argv.includes('--long-lived'),
+      })
   } catch (error) {
     // Provider output can contain sensitive values; report only a fixed reason.
     const reason = error instanceof LoginError ? error.reason : 'failed'

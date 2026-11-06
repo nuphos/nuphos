@@ -5743,5 +5743,15 @@
   "Pin to toolbar": "固定到工具栏",
   "Remove from Nuphos…": "从 Nuphos 移除…",
   "Today {time}": "今天 {time}",
-  "Yesterday {time}": "昨天 {time}"
+  "Yesterday {time}": "昨天 {time}",
+  "Use an API key instead": "改用 API 密钥",
+  "Could not use the API key": "无法使用此 API 密钥",
+  "{vendor} API key": "{vendor} API 密钥",
+  "The key is saved only on the runtime, in the CLI’s own settings. Nuphos only relays it, encrypted, and never shows it again.": "密钥只保存在运行环境上，位于 CLI 自己的设置中。Nuphos 只会加密转交，且不会再次显示。",
+  "Use API key": "使用 API 密钥",
+  "Signed in with an API key.": "已使用 API 密钥登录。",
+  "API key removed": "已移除 API 密钥",
+  "Could not remove the API key": "无法移除 API 密钥",
+  "Remove API key": "移除 API 密钥",
+  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "运行环境没有接收此密钥。请更新运行它的电脑上的 Nuphos，然后重试。"
 }

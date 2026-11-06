@@ -6,6 +6,7 @@ import { useStableCallback } from '../../hooks/useStableCallback'
 import { t } from '../../i18n'
 import { isMac } from '../../lib/platform'
 
+import { ApiKeyEntry, ApiKeyLink } from './ApiKeyEntry'
 import { ClaudeSignInCode } from './ClaudeSignInCode'
 import { useLocalAgentLogin } from './useLocalAgentLogin'
 
@@ -24,10 +25,9 @@ export function LocalAgentSignIn({
   onClosed?: (connected: boolean) => void
 }) {
   const [open, setOpen] = useState(initiallyOpen)
-  const { name, codex, login, busy, retry, connected, start, cancel, resume } = useLocalAgentLogin(
-    provider,
-    open,
-  )
+  const [keyEntry, setKeyEntry] = useState(false)
+  const { name, codex, login, busy, retry, connected, start, applyApiKey, cancel, resume } =
+    useLocalAgentLogin(provider, open)
 
   const closeFromEscape = useStableCallback(close)
 
@@ -50,6 +50,7 @@ export function LocalAgentSignIn({
   async function close() {
     if (!(await cancel())) return
     setOpen(false)
+    setKeyEntry(false)
     onClosed?.(connected)
   }
 
@@ -74,66 +75,80 @@ export function LocalAgentSignIn({
           closeOnBackdrop={false}
         >
           <div className="space-y-4 p-5" role="status" aria-live="polite">
-            <p className="text-[13px] text-secondary">
-              {connected
-                ? t('{name} is connected. Your local runtime is ready.', { name })
-                : login?.state === 'checking'
-                  ? t('Verifying your sign-in…')
-                  : busy
-                    ? t('Finish signing in in your browser. This updates on its own.')
-                    : retry
-                      ? t('Sign-in did not finish. Try again.')
-                      : codex
-                        ? t(
-                            'Sign in with ChatGPT using the one-time code. Device-code login must be enabled in ChatGPT security settings. This updates your terminal Codex login and restarts your local Codex runtime.',
-                          )
-                        : isMac
-                          ? t(
-                              'Nuphos uses the Claude sign-in from your terminal. Signing in updates that shared login, restarts your local Claude runtime and stops its running agents.',
-                            )
-                          : t(
-                              'Nuphos keeps its own Claude sign-in on this computer, separate from Claude in your terminal. Signing in restarts your local Claude runtime and stops its running agents.',
-                            )}
-            </p>
-            {busy && login?.userCode && (
-              <div className="space-y-2">
-                <p className="text-sm text-secondary">
-                  {t('Enter this one-time code on the sign-in page:')}
+            {keyEntry && !connected && !busy ? (
+              <ApiKeyEntry
+                provider={provider}
+                onBack={() => setKeyEntry(false)}
+                onSubmit={async (key) => {
+                  await applyApiKey(key)
+                  setKeyEntry(false)
+                }}
+              />
+            ) : (
+              <>
+                <p className="text-[13px] text-secondary">
+                  {connected
+                    ? t('{name} is connected. Your local runtime is ready.', { name })
+                    : login?.state === 'checking'
+                      ? t('Verifying your sign-in…')
+                      : busy
+                        ? t('Finish signing in in your browser. This updates on its own.')
+                        : retry
+                          ? t('Sign-in did not finish. Try again.')
+                          : codex
+                            ? t(
+                                'Sign in with ChatGPT using the one-time code. Device-code login must be enabled in ChatGPT security settings. This updates your terminal Codex login and restarts your local Codex runtime.',
+                              )
+                            : isMac
+                              ? t(
+                                  'Nuphos uses the Claude sign-in from your terminal. Signing in updates that shared login, restarts your local Claude runtime and stops its running agents.',
+                                )
+                              : t(
+                                  'Nuphos keeps its own Claude sign-in on this computer, separate from Claude in your terminal. Signing in restarts your local Claude runtime and stops its running agents.',
+                                )}
                 </p>
-                <code className="block select-all text-xl font-semibold">{login.userCode}</code>
-              </div>
+                {busy && login?.userCode && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-secondary">
+                      {t('Enter this one-time code on the sign-in page:')}
+                    </p>
+                    <code className="block select-all text-xl font-semibold">{login.userCode}</code>
+                  </div>
+                )}
+                {busy && login?.url && (
+                  <a
+                    href={login.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-[13px] text-secondary underline"
+                  >
+                    {t('Open the sign-in page')}
+                  </a>
+                )}
+                {busy && !codex && login?.url && <ClaudeSignInCode key={login.url} />}
+                <div className="flex gap-2">
+                  {connected ? (
+                    <Button size="sm" onClick={() => void close()}>
+                      {t('Done')}
+                    </Button>
+                  ) : busy ? (
+                    <Button size="sm" variant="ghost" onClick={() => void close()}>
+                      {t('Cancel sign-in')}
+                    </Button>
+                  ) : (
+                    <>
+                      <Button size="sm" onClick={() => void start()}>
+                        {retry ? t('Try again') : t('Sign in with {name}', { name })}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => void close()}>
+                        {t('Cancel')}
+                      </Button>
+                    </>
+                  )}
+                </div>
+                {!connected && !busy && <ApiKeyLink onClick={() => setKeyEntry(true)} />}
+              </>
             )}
-            {busy && login?.url && (
-              <a
-                href={login.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block text-[13px] text-secondary underline"
-              >
-                {t('Open the sign-in page')}
-              </a>
-            )}
-            {busy && !codex && login?.url && <ClaudeSignInCode key={login.url} />}
-            <div className="flex gap-2">
-              {connected ? (
-                <Button size="sm" onClick={() => void close()}>
-                  {t('Done')}
-                </Button>
-              ) : busy ? (
-                <Button size="sm" variant="ghost" onClick={() => void close()}>
-                  {t('Cancel sign-in')}
-                </Button>
-              ) : (
-                <>
-                  <Button size="sm" onClick={() => void start()}>
-                    {retry ? t('Try again') : t('Sign in with {name}', { name })}
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => void close()}>
-                    {t('Cancel')}
-                  </Button>
-                </>
-              )}
-            </div>
           </div>
         </Modal>
       )}

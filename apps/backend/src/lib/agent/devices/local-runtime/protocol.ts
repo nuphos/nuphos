@@ -95,7 +95,12 @@ const localUsageSchema = z.object({
 
 /** One agent the computer is running right now; absent from `agents` when it is not. */
 const localAgentStatusSchema = z.object({
-  cli: z.object({ installed: z.boolean(), loggedIn: z.boolean().nullable() }),
+  cli: z.object({
+    installed: z.boolean(),
+    loggedIn: z.boolean().nullable(),
+    /** Signed in with an API key rather than an account; never the key itself. */
+    apiKey: z.boolean().optional().catch(undefined),
+  }),
   version: z.string().max(200).optional(),
   // Never fatal, like usage: a catalog over its bounds costs the model picker,
   // not the computer's presence (which `localExec` in this same frame decides).

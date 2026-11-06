@@ -207,3 +207,36 @@ test('a code is written only to the active Claude child stdin', () => {
   login.cancel()
   assert.throws(() => login.submitCode(code), /Start Claude/)
 })
+
+test('an API key goes only to the login wrapper’s stdin, and a sign-out sends none', async () => {
+  const { login, children, calls } = harness(async () => true, 'codex')
+  const run = { command: '/bin/node', args: ['/bundle/codex-login.mjs', '--install'], env: {} }
+  const key = 'sk-proj-not-a-real-key-0123456789'
+  let sent = ''
+
+  const applied = login.applyApiKey(run, key)
+
+  children[0]?.stdin.on('data', (chunk: Buffer) => {
+    sent += chunk.toString()
+  })
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(calls[0]?.[1], ['/bundle/codex-login.mjs', '--install', '--api-key'])
+  assert.equal(JSON.stringify(calls[0]).includes(key), false)
+  children[0]?.stdout.write('{"type":"authenticated"}\n')
+  children[0]?.emit('close', 0)
+  await applied
+  assert.equal(sent, `${key}\n`)
+  assert.deepEqual(login.state(), { state: 'connected' })
+
+  const removed = login.applyApiKey(run, null)
+
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal((calls[1]?.[1] as string[] | undefined)?.at(-1), '--sign-out')
+  children[1]?.stdout.write('{"type":"signedOut"}\n')
+  children[1]?.emit('close', 0)
+  await removed
+  assert.deepEqual(login.state(), { state: 'idle' })
+
+  await assert.rejects(login.applyApiKey(run, 'not a key'), /whole API key/u)
+  assert.equal(calls.length, 2)
+})

@@ -5743,5 +5743,15 @@
   "Pin to toolbar": "ปักหมุดไว้ที่แถบเครื่องมือ",
   "Remove from Nuphos…": "นำออกจาก Nuphos…",
   "Today {time}": "วันนี้ {time}",
-  "Yesterday {time}": "เมื่อวาน {time}"
+  "Yesterday {time}": "เมื่อวาน {time}",
+  "Use an API key instead": "ใช้คีย์ API แทน",
+  "Could not use the API key": "ใช้คีย์ API ไม่ได้",
+  "{vendor} API key": "คีย์ API ของ {vendor}",
+  "The key is saved only on the runtime, in the CLI’s own settings. Nuphos only relays it, encrypted, and never shows it again.": "คีย์จะถูกบันทึกไว้บนรันไทม์เท่านั้น ในการตั้งค่าของ CLI เอง Nuphos เพียงส่งต่อคีย์แบบเข้ารหัส และจะไม่แสดงคีย์อีก",
+  "Use API key": "ใช้คีย์ API",
+  "Signed in with an API key.": "ลงชื่อเข้าใช้ด้วยคีย์ API แล้ว",
+  "API key removed": "ลบคีย์ API แล้ว",
+  "Could not remove the API key": "ลบคีย์ API ไม่ได้",
+  "Remove API key": "ลบคีย์ API",
+  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "รันไทม์ไม่ได้รับคีย์ โปรดอัปเดต Nuphos บนคอมพิวเตอร์ที่รันไทม์ทำงานอยู่ แล้วลองอีกครั้ง"
 }

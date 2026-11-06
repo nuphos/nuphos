@@ -5743,5 +5743,15 @@
   "Pin to toolbar": "도구 모음에 고정",
   "Remove from Nuphos…": "Nuphos에서 삭제…",
   "Today {time}": "오늘 {time}",
-  "Yesterday {time}": "어제 {time}"
+  "Yesterday {time}": "어제 {time}",
+  "Use an API key instead": "대신 API 키 사용",
+  "Could not use the API key": "API 키를 사용할 수 없습니다",
+  "{vendor} API key": "{vendor} API 키",
+  "The key is saved only on the runtime, in the CLI’s own settings. Nuphos only relays it, encrypted, and never shows it again.": "키는 런타임의 CLI 자체 설정에만 저장됩니다. Nuphos는 키를 암호화해 전달만 하며 다시 표시하지 않습니다.",
+  "Use API key": "API 키 사용",
+  "Signed in with an API key.": "API 키로 로그인되어 있습니다.",
+  "API key removed": "API 키를 제거했습니다",
+  "Could not remove the API key": "API 키를 제거할 수 없습니다",
+  "Remove API key": "API 키 제거",
+  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "런타임이 키를 받지 않았습니다. 런타임이 실행되는 컴퓨터의 Nuphos를 업데이트한 후 다시 시도하세요."
 }

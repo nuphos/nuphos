@@ -15,7 +15,8 @@ import type { RuntimeLoginStep } from './runtime-login-step'
 
 export type RuntimeLoginStatus = {
   attemptId: string
-  state: 'starting' | 'awaiting_authorization' | 'connected' | 'failed' | 'cancelled'
+  /** `signed_out`: the runtime removed the API key it was signed in with, as asked. */
+  state: 'starting' | 'awaiting_authorization' | 'connected' | 'signed_out' | 'failed' | 'cancelled'
   verificationUri?: string
   userCode?: string
   /** A browser flow that ends in a code the user pastes back into the app. */
@@ -89,7 +90,7 @@ export function runtimeLoginKey(teamId: string, runtimeId: string): string {
 export function publicLogin(doc: RuntimeLoginDoc): RuntimeLoginStatus {
   const expired =
     doc.expiresAt.getTime() < Date.now() &&
-    !['connected', 'failed', 'cancelled'].includes(doc.state)
+    !['connected', 'signed_out', 'failed', 'cancelled'].includes(doc.state)
 
   return {
     attemptId: doc.attemptId,
@@ -107,7 +108,11 @@ export function publicLogin(doc: RuntimeLoginDoc): RuntimeLoginStatus {
                     authorizationUrl: doc.authorizationUrl,
                     ...(doc.codeSubmitted ? { codeSubmitted: true } : {}),
                   }
-                : { verificationUri: doc.verificationUri, userCode: doc.userCode }
+                : {
+                    verificationUri: doc.verificationUri,
+                    userCode: doc.userCode,
+                    ...(doc.codeSubmitted ? { codeSubmitted: true } : {}),
+                  }
             : {}),
         }),
   }
@@ -137,6 +142,8 @@ export async function submitLoginCode(
       state: 'awaiting_authorization',
       $or: [
         { authorizationUrl: { $exists: true } },
+        // A device sign-in takes an answer only in its place: an API key, or a sign-out.
+        { verificationUri: { $exists: true } },
         { 'step.kind': { $in: ['choose', 'input'] } },
         { 'step.paste': { $exists: true } },
       ],

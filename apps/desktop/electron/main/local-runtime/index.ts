@@ -15,17 +15,17 @@ import { readDeviceIdentity } from '../device-identity.ts'
 import { readDeviceMetrics } from '../device-metrics.ts'
 import { isDev } from '../env.ts'
 
-import { LOCAL_AGENT_PROVIDERS, findAgentCli, probeAgentCli, readAgentUsage } from './agent-cli.ts'
+import { LOCAL_AGENT_PROVIDERS, probeAgentCli, readAgentUsage } from './agent-cli.ts'
 import { prepareAgentHome } from './agent-home.ts'
-import { LocalAgentLogin } from './agent-login.ts'
 import { localFileConnectors } from './attachment-stream.ts'
 import { browserStreams } from './browser-streams.ts'
 import { readCliCache, writeCliCache } from './cli-cache.ts'
-import { agentCliEnv, agentEnv, readBundle } from './config.ts'
+import { agentEnv, readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { localToolStreams } from './cua-stream.ts'
 import { devBundleHint, watchDevBundle } from './dev-bundle.ts'
 import { tunnelUrlFor } from './device-credential.ts'
+import { localLogins } from './local-logins.ts'
 import { macScreenApp } from './mac-screen-app.ts'
 import { probeLocalModels } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
@@ -154,65 +154,23 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   log: logLocalTool,
 })
 
-/** This app's own sign-in, for the agents it can run a CLI login for; others sign in from Nuphos. */
-type CliLoginProvider = 'claude-code' | 'codex'
+const logins = localLogins({
+  changed: broadcastState,
+  refresh: (provider) => controller.refresh(true, [provider]),
+  userId: () => controller.state().userId,
+  userEnv,
+  userDir: (userId) => path.join(dataDir(), 'users', userId),
+  ownerHome: () => app.getPath('home'),
+  bundleRoot,
+})
 
-const logins = Object.fromEntries(
-  (['claude-code', 'codex'] as const).map((provider) => [
-    provider,
-    new LocalAgentLogin({
-      provider,
-      changed: broadcastState,
-      connected: async () => {
-        const state = await controller.refresh(true, [provider])
-        const cli = state.agents[provider].cli
-
-        return cli?.installed === true && cli.loggedIn === true
-      },
-    }),
-  ]),
-) as Record<CliLoginProvider, LocalAgentLogin>
-
-let loginRequest = 0
-
-async function startLocalLogin(provider: CliLoginProvider) {
-  const userId = controller.state().userId
-
-  if (!userId) throw new Error('Sign in to Nuphos first.')
-  const request = ++loginRequest
-  const env = await userEnv()
-  const login = logins[provider]
-
-  if (request !== loginRequest) return login.state()
-  if (controller.state().userId !== userId) throw new Error('Nuphos account changed. Try again.')
-  const cliPath = findAgentCli(provider, env)
-  const userDir = path.join(dataDir(), 'users', userId)
-  const agentHome =
-    provider === 'codex'
-      ? (env.CODEX_HOME ?? path.join(env.HOME ?? app.getPath('home'), '.codex'))
-      : prepareAgentHome(provider, userDir, path.join(userDir, 'workspace'))
-
-  if (!cliPath || !agentHome) throw new Error('Install the runtime on this computer first.')
-
-  mkdirSync(agentHome, { recursive: true, mode: 0o700 })
-
-  return login.start(cliPath, agentCliEnv({ provider, env, cliPath, agentHome }))
-}
-
-export const submitLocalClaudeLoginCode = (code: unknown) => logins['claude-code'].submitCode(code)
-
-export const startLocalClaudeLogin = () => startLocalLogin('claude-code')
-export const startLocalCodexLogin = () => startLocalLogin('codex')
-
-export function cancelLocalClaudeLogin(): void {
-  loginRequest += 1
-  logins['claude-code'].cancel()
-}
-
-export function cancelLocalCodexLogin(): void {
-  loginRequest += 1
-  logins.codex.cancel()
-}
+export const submitLocalClaudeLoginCode = (code: unknown) => logins.submitClaudeCode(code)
+export const applyLocalApiKey = (provider: unknown, key: unknown) =>
+  logins.applyApiKey(provider, key)
+export const startLocalClaudeLogin = () => logins.start('claude-code')
+export const startLocalCodexLogin = () => logins.start('codex')
+export const cancelLocalClaudeLogin = () => logins.cancel('claude-code')
+export const cancelLocalCodexLogin = () => logins.cancel('codex')
 
 /** The runtime follows the signed-in account: any change of session stops it first. */
 export function initLocalRuntime(): void {
@@ -262,8 +220,8 @@ export function getLocalRuntimeState(): LocalRuntimeViewState {
     ...controller.state(),
     detectionDisabled: !deviceRegistrationAllowed(isDev),
     sleepPrevention: sleep.sleepState(),
-    claudeLogin: logins['claude-code'].state(),
-    codexLogin: logins.codex.state(),
+    claudeLogin: logins.state('claude-code'),
+    codexLogin: logins.state('codex'),
     deviceId: readDeviceIdentity().deviceId,
     ...(devBundle ? { devBundle } : {}),
   }

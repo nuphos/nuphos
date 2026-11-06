@@ -5743,5 +5743,15 @@
   "Pin to toolbar": "Fijar en la barra de herramientas",
   "Remove from Nuphos…": "Quitar de Nuphos…",
   "Today {time}": "Hoy {time}",
-  "Yesterday {time}": "Ayer {time}"
+  "Yesterday {time}": "Ayer {time}",
+  "Use an API key instead": "Usar una clave de API",
+  "Could not use the API key": "No se pudo usar la clave de API",
+  "{vendor} API key": "Clave de API de {vendor}",
+  "The key is saved only on the runtime, in the CLI’s own settings. Nuphos only relays it, encrypted, and never shows it again.": "La clave se guarda solo en el entorno de ejecución, en la configuración propia de la CLI. Nuphos solo la transmite cifrada y no la vuelve a mostrar.",
+  "Use API key": "Usar clave de API",
+  "Signed in with an API key.": "Sesión iniciada con una clave de API.",
+  "API key removed": "Clave de API eliminada",
+  "Could not remove the API key": "No se pudo eliminar la clave de API",
+  "Remove API key": "Eliminar clave de API",
+  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "El entorno de ejecución no aceptó la clave. Actualiza Nuphos en el equipo donde se ejecuta y vuelve a intentarlo."
 }

@@ -129,6 +129,8 @@ export type OpenAbRuntimeStatus = {
   authenticated?: boolean
   /** When a sign-in that lapses on its own (a one-year token) does; absent for one that refreshes. */
   credentialExpiresAt?: string
+  /** Signed in with an API key rather than an account. */
+  apiKey?: true
   /** The agent's owner revoked this team's pairing; only a new pairing code restores it. */
   credentialRevoked?: boolean
 }

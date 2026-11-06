@@ -5743,5 +5743,15 @@
   "Pin to toolbar": "ツールバーに固定",
   "Remove from Nuphos…": "Nuphos から削除…",
   "Today {time}": "今日 {time}",
-  "Yesterday {time}": "昨日 {time}"
+  "Yesterday {time}": "昨日 {time}",
+  "Use an API key instead": "代わりに API キーを使う",
+  "Could not use the API key": "API キーを使用できませんでした",
+  "{vendor} API key": "{vendor} API キー",
+  "The key is saved only on the runtime, in the CLI’s own settings. Nuphos only relays it, encrypted, and never shows it again.": "キーはランタイム上の CLI 自身の設定にのみ保存されます。Nuphos は暗号化して受け渡すだけで、キーが再表示されることはありません。",
+  "Use API key": "API キーを使う",
+  "Signed in with an API key.": "API キーでサインインしています。",
+  "API key removed": "API キーを削除しました",
+  "Could not remove the API key": "API キーを削除できませんでした",
+  "Remove API key": "API キーを削除",
+  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "ランタイムがキーを受け取りませんでした。実行しているコンピューターの Nuphos を更新してから、もう一度お試しください。"
 }

@@ -509,6 +509,11 @@ test('swaps a new bundle in without ever exposing a missing tree', async () => {
     assert.equal(readFileSync(join(skills, 'kept/SKILL.md'), 'utf8'), '# One')
     assert.equal(readFileSync(join(claude, 'settings.json'), 'utf8'), '{"model":"old"}')
     assert.equal(readFileSync(join(claude, '.skills-revision'), 'utf8'), 'rev-1')
+    // The runtime was signed in with an API key since (claude-login.mjs).
+    writeFileSync(
+      join(claude, 'settings.json'),
+      '{"model":"old","env":{"ANTHROPIC_API_KEY":"sk-ant-test-key"}}',
+    )
 
     await run()
 
@@ -517,7 +522,12 @@ test('swaps a new bundle in without ever exposing a missing tree', async () => {
     assert.equal(readFileSync(join(skills, 'added/scripts/run.sh'), 'utf8'), '#!/bin/sh\n')
     assert.notEqual(statSync(join(skills, 'added/scripts/run.sh')).mode & 0o111, 0)
     assert.equal(existsSync(join(skills, 'dropped/SKILL.md')), false)
-    assert.equal(readFileSync(join(claude, 'settings.json'), 'utf8'), '{"model":"new"}')
+    // The team's settings replace the old ones, and the runtime's key stays.
+    assert.deepEqual(JSON.parse(readFileSync(join(claude, 'settings.json'), 'utf8')), {
+      model: 'new',
+      env: { ANTHROPIC_API_KEY: 'sk-ant-test-key' },
+    })
+    assert.equal(statSync(join(claude, 'settings.json')).mode & 0o777, 0o600)
     assert.equal(readFileSync(join(claude, '.skills-revision'), 'utf8'), 'rev-2')
     assert.deepEqual(
       readdirSync(claude).filter((entry) => entry.startsWith('skills.')),

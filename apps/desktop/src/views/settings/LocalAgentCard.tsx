@@ -154,11 +154,15 @@ function CliStatus({ provider, cli }: { provider: CliLoginProvider; cli: AgentCl
   return (
     <div className="space-y-2 text-[12px] text-tertiary">
       <p>
-        {cli.loggedIn === true
-          ? t('Signed in to {name}.', { name: agent.name })
-          : cli.loggedIn === null
-            ? t('Could not read the {name} sign-in. Check again or sign in.', { name: agent.name })
-            : t('Connect {name} to run your agents on this computer.', { name: agent.name })}
+        {cli.loggedIn === true && cli.apiKey
+          ? t('Signed in with an API key.')
+          : cli.loggedIn === true
+            ? t('Signed in to {name}.', { name: agent.name })
+            : cli.loggedIn === null
+              ? t('Could not read the {name} sign-in. Check again or sign in.', {
+                  name: agent.name,
+                })
+              : t('Connect {name} to run your agents on this computer.', { name: agent.name })}
         {cli.loggedIn && cli.account && <span> {cli.account}</span>}
         {cli.plan && <span> · {cli.plan}</span>}
         {cli.version && <span> · v{cli.version}</span>}
@@ -172,9 +176,35 @@ function CliStatus({ provider, cli }: { provider: CliLoginProvider; cli: AgentCl
               : t('Sign in with {name}', { name: agent.name })
           }
         />
+        {cli.loggedIn === true && cli.apiKey && <RemoveApiKey provider={provider} />}
         <UpdateButton provider={provider} />
       </div>
     </div>
+  )
+}
+
+/** Signs this computer's agent out of its API key; an account sign-in it still has takes over. */
+function RemoveApiKey({ provider }: { provider: CliLoginProvider }) {
+  const [busy, setBusy] = useState(false)
+
+  return (
+    <Button
+      size="sm"
+      variant="secondary"
+      disabled={busy}
+      onClick={() => {
+        setBusy(true)
+        api
+          .localRuntimeApplyApiKey(provider, null)
+          .then(
+            () => toast.success(t('API key removed')),
+            (cause: unknown) => toast.apiError(t('Could not remove the API key'), cause),
+          )
+          .finally(() => setBusy(false))
+      }}
+    >
+      {t('Remove API key')}
+    </Button>
   )
 }
 

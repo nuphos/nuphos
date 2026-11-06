@@ -22,6 +22,8 @@ export function useRuntimeLogin(
   instance: RuntimeInstance | null,
   onConnected: () => void,
   immediate = false,
+  /** The runtime removed its API key, as asked. */
+  onSignedOut?: () => void,
 ) {
   const [login, setLogin] = useState<RuntimeLoginStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -31,9 +33,10 @@ export function useRuntimeLogin(
   // Reuse the start request across StrictMode's effect replay: every start replaces the
   // agent's previous sign-in.
   const request = useRef<Promise<RuntimeLoginStatus> | null>(null)
-  const complete = useStableCallback(() => {
+  const complete = useStableCallback((signedOut: boolean) => {
     window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
-    onConnected()
+    if (signedOut) onSignedOut?.()
+    else onConnected()
   })
 
   const id = instance?.id
@@ -48,9 +51,9 @@ export function useRuntimeLogin(
       if (stopped) return
       setLogin(status)
       setError(null)
-      if (status.state === 'connected') {
+      if (status.state === 'connected' || status.state === 'signed_out') {
         stopped = true
-        complete()
+        complete(status.state === 'signed_out')
       } else if (activeStates.has(status.state)) timer = setTimeout(poll, 2_000)
     }
     const poll = () => {

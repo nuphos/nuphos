@@ -171,6 +171,27 @@ test('the prepared home holds only Nuphos’s own settings, readable by the owne
   if (process.platform !== 'win32') assert.equal(statSync(home).mode & 0o777, 0o700)
 })
 
+test('rewriting the prepared home keeps the API key the agent signed in with, and only that', (t) => {
+  const userDir = mkdtempSync(path.join(os.tmpdir(), 'claude-home-'))
+
+  t.after(() => {
+    rmSync(userDir, { recursive: true, force: true })
+  })
+  const workspace = path.join(userDir, 'workspace')
+  const home = prepareClaudeHome(userDir, workspace)
+
+  assert.ok(home)
+  writeFileSync(
+    path.join(home, 'settings.json'),
+    JSON.stringify({ hooks: {}, env: { ANTHROPIC_API_KEY: 'sk-ant-kept', OTHER: 'dropped' } }),
+  )
+  prepareClaudeHome(userDir, workspace)
+  assert.deepEqual(JSON.parse(readFileSync(path.join(home, 'settings.json'), 'utf8')), {
+    ...claudeHomeSettings(workspace),
+    env: { ANTHROPIC_API_KEY: 'sk-ant-kept' },
+  })
+})
+
 test('the runtime links the same custom CODEX_HOME used by local login', (t) => {
   const f = codexFixture(t)
   const home = prepareAgentHome('codex', f.dir, path.join(f.dir, 'workspace'), f.env)

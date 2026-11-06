@@ -364,3 +364,70 @@ test('an added agent is kept before its sign-in reads connected, and a failed ke
   await performRuntimeLogin(retry, deps)
   expect(docs[0]?.state).toBe('failed')
 })
+
+test('an API key replaces the device sign-in, sealed until the runtime takes it', async () => {
+  const { acceptsAnswer } = await import('./runtime-login')
+  const doc = await claimRuntimeLogin('team', 'runtime', 'admin')
+  const { deps } = dependencies()
+  const key = 'sk-proj-not-a-real-key-0123456789'
+  const delivered: string[] = []
+  const answered = Promise.withResolvers<void>()
+
+  deps.exec = async (_target, emit) => {
+    emit(device)
+    await answered.promise
+    emit({ type: 'authenticated' })
+  }
+  deps.input = (_target, _attempt, text) => {
+    delivered.push(text)
+    answered.resolve()
+
+    return Promise.resolve()
+  }
+  const login = performRuntimeLogin(doc, deps)
+
+  while (docs[0]?.state !== 'awaiting_authorization') await Bun.sleep(5)
+  expect(acceptsAnswer(docs[0]!, 'sk-short')).toBe(false)
+  expect(acceptsAnswer(docs[0]!, `${key} extra`)).toBe(false)
+  await submitLoginCode(docs[0]!, key)
+  expect(JSON.stringify(docs[0])).not.toContain(key)
+  await login
+
+  expect(delivered).toEqual([key])
+  expect(docs[0]?.state as string).toBe('connected')
+  expect(JSON.stringify(docs[0])).not.toContain(key)
+})
+
+test('removing an API key ends as signed out, not connected', async () => {
+  const { acceptsAnswer } = await import('./runtime-login')
+  const doc = await claimRuntimeLogin('team', 'runtime', 'admin')
+  const { deps } = dependencies()
+  let committed = false
+  const answered = Promise.withResolvers<void>()
+
+  deps.commit = () => {
+    committed = true
+
+    return Promise.resolve()
+  }
+  deps.exec = async (_target, emit) => {
+    emit(device)
+    await answered.promise
+    emit({ type: 'signedOut' })
+  }
+  deps.input = () => {
+    answered.resolve()
+
+    return Promise.resolve()
+  }
+  const login = performRuntimeLogin(doc, deps)
+
+  while (docs[0]?.state !== 'awaiting_authorization') await Bun.sleep(5)
+  expect(acceptsAnswer(docs[0]!, 'sign-out')).toBe(true)
+  await submitLoginCode(docs[0]!, 'sign-out')
+  await login
+
+  expect(docs[0]?.state as string).toBe('signed_out')
+  expect(publicLogin(docs[0]!).userCode).toBeUndefined()
+  expect(committed).toBe(false)
+})

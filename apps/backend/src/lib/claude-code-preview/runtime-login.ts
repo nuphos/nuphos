@@ -132,14 +132,15 @@ export async function performRuntimeLogin<Target>(
     target = await deps.prepare(doc.teamId, doc.runtimeId, doc.userId)
 
     if (controller.signal.aborted) throw new Error('Sign-in cancelled')
-    let authenticated = false
+    // `signedOut`: the runtime removed its API key, as asked.
+    let finished: 'authenticated' | 'signedOut' | undefined
     let updates = Promise.resolve()
     let updateFailed = false
 
     await deps.exec(
       target,
       (frame) => {
-        if (frame.type === 'authenticated') authenticated = true
+        if (frame.type === 'authenticated' || frame.type === 'signedOut') finished = frame.type
         else if (frame.type === 'error')
           throw new AppError(422, 'runtime_login_failed', frame.message)
         else {
@@ -176,10 +177,12 @@ export async function performRuntimeLogin<Target>(
       doc,
     )
     await updates
-    if (!authenticated || updateFailed || controller.signal.aborted)
+    if (!finished || updateFailed || controller.signal.aborted)
       throw new Error('Sign-in did not complete')
-    // Connected means the agent is kept: clients list it as soon as they see this.
-    await (deps.commit ?? commitAddedAgent)(doc)
+    const signedOut = finished === 'signedOut'
+
+    // Connected keeps the agent, listed at once; a removed API key keeps and runs nothing.
+    if (!signedOut) await (deps.commit ?? commitAddedAgent)(doc)
     // The runtime installed the credential itself, so it is already in use.
     const connected = await runtimeLogins().updateOne(
       {
@@ -187,11 +190,11 @@ export async function performRuntimeLogin<Target>(
         state: { $in: ['starting', 'awaiting_authorization'] },
         expiresAt: { $gt: new Date() },
       },
-      { $set: { state: 'connected' }, $unset: AUTHORIZATION_FIELDS },
+      { $set: { state: signedOut ? 'signed_out' : 'connected' }, $unset: AUTHORIZATION_FIELDS },
     )
 
     // Whoever asked for this sign-in gets their held message run.
-    if (connected.matchedCount) await settleSignInRequests(doc.teamId, doc.runtimeId)
+    if (connected.matchedCount && !signedOut) await settleSignInRequests(doc.teamId, doc.runtimeId)
   } catch (error) {
     await runtimeLogins().updateOne(
       { ...filter, state: { $in: ['starting', 'awaiting_authorization'] } },
@@ -257,13 +260,15 @@ export async function cancelRuntimeLogin(
  */
 export const AUTHORIZATION_CODE =
   /^(?:[\w.~-]{1,2048}#[\w.~-]{1,512}|http:\/\/(?:127\.0\.0\.1|localhost):\d{1,5}\/\?[\w.~%&=/+:-]{1,4096})$/u
+/** In place of the account sign-in: an API key for the runtime's CLI, or removing it. */
+export const API_KEY_ANSWER = /^(?:sk-[\w-]{20,400}|sign-out)$/u
 const LOOPBACK_ADDRESS = /^http:\/\/(?:127\.0\.0\.1|localhost):\d{1,5}\/\S*$/u
 
 /** Whether `answer` is what the sign-in is waiting for; the runtime checks it again. */
 export function acceptsAnswer(doc: RuntimeLoginDoc, answer: string): boolean {
   const { step } = doc
 
-  if (!step) return AUTHORIZATION_CODE.test(answer)
+  if (!step) return AUTHORIZATION_CODE.test(answer) || API_KEY_ANSWER.test(answer)
   if (step.kind === 'choose') return step.options.some((option) => option.value === answer)
   if (step.kind === 'browser' && step.paste === 'address') return LOOPBACK_ADDRESS.test(answer)
 

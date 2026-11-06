@@ -26,6 +26,8 @@ export type AgentCliStatus =
       loggedIn: boolean | null
       /** The signed-in account as the CLI names it: an email, or e.g. "ChatGPT". */
       account?: string
+      /** Signed in with an API key rather than an account. The key itself never leaves the CLI. */
+      apiKey?: true
       plan?: string
       /** Kept by a desktop app (Claude, ChatGPT), which updates it, even when reached through a symlink. */
       bundled?: true
@@ -56,10 +58,12 @@ function run(file: string, args: string[], env: NodeJS.ProcessEnv): Promise<stri
 /** `codex login status` prints "Logged in using ChatGPT" (or "… an API key") or "Not logged in". */
 export function parseCodexLoginStatus(
   output: string,
-): Pick<Extract<AgentCliStatus, { installed: true }>, 'loggedIn' | 'account'> {
+): Pick<Extract<AgentCliStatus, { installed: true }>, 'loggedIn' | 'account' | 'apiKey'> {
   const text = output.trim()
   const loggedIn = /^Logged in using (.+)$/imu.exec(text)
 
+  // It goes on to print part of the key, which is not shown anywhere.
+  if (/^Logged in using an API key/imu.test(text)) return { loggedIn: true, apiKey: true }
   if (loggedIn?.[1]) return { loggedIn: true, account: loggedIn[1].trim() }
   if (/not logged in/iu.test(text)) return { loggedIn: false }
 
@@ -102,6 +106,13 @@ async function claudeLogin(
     ? await readJson(path.join(env.CLAUDE_CONFIG_DIR, '.claude.json'))
     : null
   const email = (config?.oauthAccount as { emailAddress?: unknown } | undefined)?.emailAddress
+  // A key in its own settings outranks the account sign-in (claude-login.mjs puts it there).
+  const settings = env.CLAUDE_CONFIG_DIR
+    ? await readJson(path.join(env.CLAUDE_CONFIG_DIR, 'settings.json'))
+    : null
+  const key = (settings?.env as { ANTHROPIC_API_KEY?: unknown } | undefined)?.ANTHROPIC_API_KEY
+
+  if (typeof key === 'string' && key) return { loggedIn: true, apiKey: true }
 
   return {
     loggedIn: Boolean(oauth?.accessToken || oauth?.refreshToken),

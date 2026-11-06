@@ -32,6 +32,56 @@ export function claudeLoginUrl(output: string): string | undefined {
   }
 }
 
+/** What a person pastes as an API key; the provider's CLI decides whether it works. */
+export function isApiKey(provider: 'claude-code' | 'codex', value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    (provider === 'codex' ? /^sk-(?!ant-)[\w-]{20,400}$/u : /^sk-ant-[\w-]{20,400}$/u).test(
+      value.trim(),
+    )
+  )
+}
+
+/**
+ * The bundled login wrapper, once: `--api-key` reads the key from stdin, `--sign-out` removes
+ * it. The key goes only to its stdin; its output is read for the final frame type and dropped.
+ */
+export function runLoginWrapper(
+  run: { command: string; args: string[]; env: NodeJS.ProcessEnv },
+  key: string | null,
+  spawnProcess: typeof spawn = spawn,
+): Promise<'authenticated' | 'signedOut'> {
+  return new Promise((resolve, reject) => {
+    const child = spawnProcess(run.command, [...run.args, key ? '--api-key' : '--sign-out'], {
+      env: run.env,
+      stdio: ['pipe', 'pipe', 'ignore'],
+    })
+    let output = ''
+    const timer = setTimeout(() => child.kill(), 60_000)
+
+    child.stdout?.on('data', (chunk: Buffer) => {
+      output = (output + chunk.toString()).slice(-4096)
+    })
+    child.stdin?.on('error', () => {})
+    child.stdin?.end(key ? `${key.trim()}\n` : '\n')
+    child.once('error', () => reject(new Error('Could not start sign-in. Please try again.')))
+    child.once('close', (code) => {
+      clearTimeout(timer)
+      const last = output.trim().split('\n').at(-1) ?? ''
+      let type: unknown
+
+      try {
+        type = (JSON.parse(last) as { type?: unknown }).type
+      } catch {
+        type = undefined
+      }
+      if (code === 0 && (type === 'authenticated' || type === 'signedOut')) resolve(type)
+      else
+        reject(new Error(key ? 'The API key was not accepted.' : 'Could not remove the API key.'))
+    })
+  })
+}
+
 export class LocalAgentLogin {
   private child: ChildProcess | undefined
   private timer: ReturnType<typeof setTimeout> | undefined
@@ -42,6 +92,8 @@ export class LocalAgentLogin {
     provider?: 'claude-code' | 'codex'
     changed: () => void
     connected: () => Promise<boolean>
+    /** After an account sign-in: an API key would still outrank it, so it is removed. */
+    accountSignedIn?: () => Promise<void>
     spawn?: typeof spawn
   }
 
@@ -64,6 +116,34 @@ export class LocalAgentLogin {
     this.child?.kill()
     this.child = undefined
     this.update({ state: 'cancelled' })
+  }
+
+  /** Signs in with an API key, or with null removes it. A running sign-in stops first. */
+  async applyApiKey(
+    run: { command: string; args: string[]; env: NodeJS.ProcessEnv },
+    key: string | null,
+  ): Promise<void> {
+    if (key !== null && !isApiKey(this.deps.provider ?? 'claude-code', key))
+      throw new Error('Paste the whole API key.')
+    this.generation += 1
+    clearTimeout(this.timer)
+    this.child?.kill()
+    this.child = undefined
+    const generation = this.generation
+
+    this.update({ state: 'checking' })
+    try {
+      await runLoginWrapper(run, key, this.deps.spawn)
+      const ready = await this.deps.connected()
+
+      if (generation !== this.generation) return
+      if (key && !ready) throw new Error('The API key was saved, but the runtime is not ready yet.')
+      this.update({ state: key ? 'connected' : 'idle' })
+    } catch (error) {
+      if (generation === this.generation)
+        this.update({ state: 'failed', error: (error as Error).message })
+      throw error
+    }
   }
 
   /** Authorization codes go only to the current CLI's stdin, never state or logs. */
@@ -148,23 +228,25 @@ export class LocalAgentLogin {
       clearTimeout(this.timer)
       this.child = undefined
       this.update({ state: 'checking' })
-      void this.deps.connected().then(
-        (ready) => {
-          if (current())
-            this.update(
-              ready
-                ? { state: 'connected' }
-                : {
-                    state: 'failed',
-                    error: `Sign-in finished, but ${name} is not ready yet. Please try again.`,
-                  },
-            )
-        },
-        () => {
-          if (current())
-            this.update({ state: 'failed', error: 'Could not verify sign-in. Please try again.' })
-        },
-      )
+      void (this.deps.accountSignedIn?.() ?? Promise.resolve())
+        .then(() => this.deps.connected())
+        .then(
+          (ready) => {
+            if (current())
+              this.update(
+                ready
+                  ? { state: 'connected' }
+                  : {
+                      state: 'failed',
+                      error: `Sign-in finished, but ${name} is not ready yet. Please try again.`,
+                    },
+              )
+          },
+          () => {
+            if (current())
+              this.update({ state: 'failed', error: 'Could not verify sign-in. Please try again.' })
+          },
+        )
     })
     this.timer = setTimeout(() => fail('Sign-in timed out. Please try again.'), 5 * 60_000)
 

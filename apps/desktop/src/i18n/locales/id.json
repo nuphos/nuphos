@@ -5743,5 +5743,15 @@
   "Pin to toolbar": "Sematkan ke toolbar",
   "Remove from Nuphos…": "Hapus dari Nuphos…",
   "Today {time}": "Hari ini {time}",
-  "Yesterday {time}": "Kemarin {time}"
+  "Yesterday {time}": "Kemarin {time}",
+  "Use an API key instead": "Gunakan kunci API",
+  "Could not use the API key": "Tidak dapat menggunakan kunci API",
+  "{vendor} API key": "Kunci API {vendor}",
+  "The key is saved only on the runtime, in the CLI’s own settings. Nuphos only relays it, encrypted, and never shows it again.": "Kunci hanya disimpan di runtime, dalam pengaturan CLI itu sendiri. Nuphos hanya meneruskannya secara terenkripsi dan tidak pernah menampilkannya lagi.",
+  "Use API key": "Gunakan kunci API",
+  "Signed in with an API key.": "Masuk dengan kunci API.",
+  "API key removed": "Kunci API dihapus",
+  "Could not remove the API key": "Tidak dapat menghapus kunci API",
+  "Remove API key": "Hapus kunci API",
+  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "Runtime tidak menerima kunci. Perbarui Nuphos di komputer tempat runtime berjalan, lalu coba lagi."
 }

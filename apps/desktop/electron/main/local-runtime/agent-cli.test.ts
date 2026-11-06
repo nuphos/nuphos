@@ -6,7 +6,7 @@ import path from 'node:path'
 import { test } from 'node:test'
 
 import { updateAgentCli } from './agent-cli-update.ts'
-import { probeAgentCli } from './agent-cli.ts'
+import { parseCodexLoginStatus, probeAgentCli } from './agent-cli.ts'
 
 // Real child processes make sure the status command sees the runtime environment,
 // rather than merely checking the object we intended to pass to execFile.
@@ -224,3 +224,14 @@ test(
     })
   },
 )
+
+test('a Codex API key login says so without the part of the key Codex prints', () => {
+  assert.deepEqual(parseCodexLoginStatus('Logged in using an API key - sk-proj-***67890\n'), {
+    loggedIn: true,
+    apiKey: true,
+  })
+  assert.deepEqual(parseCodexLoginStatus('Logged in using ChatGPT'), {
+    loggedIn: true,
+    account: 'ChatGPT',
+  })
+})

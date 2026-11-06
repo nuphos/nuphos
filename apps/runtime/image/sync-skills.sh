@@ -203,6 +203,18 @@ mv -T "$tmp_dir/skills.link" "$claude_dir/skills"
 # Only the team bundle reaches this point, so a personal skill cannot become agent settings.
 if [[ -r $installed/_runtime/settings.json ]]; then
   cp "$installed/_runtime/settings.json" "$claude_dir/.settings.json.incoming"
+  # An API key the runtime signed in with (claude-login.mjs) is the runtime's, not the team's.
+  if grep -q ANTHROPIC_API_KEY "$claude_dir/settings.json" 2>/dev/null; then
+    node -e '
+      const fs = require("node:fs")
+      const [current, incoming] = process.argv.slice(1)
+      const key = JSON.parse(fs.readFileSync(current, "utf8")).env?.ANTHROPIC_API_KEY
+      const next = JSON.parse(fs.readFileSync(incoming, "utf8"))
+      if (key) next.env = { ...next.env, ANTHROPIC_API_KEY: key }
+      fs.writeFileSync(incoming, JSON.stringify(next, null, 2) + "\n", { mode: 0o600 })
+    ' "$claude_dir/settings.json" "$claude_dir/.settings.json.incoming"
+    chmod 600 "$claude_dir/.settings.json.incoming"
+  fi
   mv -f "$claude_dir/.settings.json.incoming" "$claude_dir/settings.json"
 fi
 

@@ -155,7 +155,8 @@ export type RuntimeLoginStep =
 
 export type RuntimeLoginStatus = {
   attemptId: string
-  state: 'starting' | 'awaiting_authorization' | 'connected' | 'failed' | 'cancelled'
+  /** `signed_out`: the runtime removed the API key it was signed in with, as asked. */
+  state: 'starting' | 'awaiting_authorization' | 'connected' | 'signed_out' | 'failed' | 'cancelled'
   verificationUri?: string
   userCode?: string
   authorizationUrl?: string

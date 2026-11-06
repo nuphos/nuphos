@@ -56,7 +56,7 @@ const boundaries: Record<string, Record<string, unknown>> = {
     readAgentUsage: noop,
   },
   './agent-home.ts': { prepareAgentHome: noop },
-  './agent-login.ts': { LocalAgentLogin: class {} },
+  './agent-login.ts': { LocalAgentLogin: class {}, runLoginWrapper: async () => 'signedOut' },
   './attachment-stream.ts': { localFileConnectors: () => ({}) },
   './browser-streams.ts': { browserStreams: {} },
   './cli-cache.ts': { readCliCache: noop, writeCliCache: noop },
