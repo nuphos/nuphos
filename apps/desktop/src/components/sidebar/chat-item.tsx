@@ -2,6 +2,7 @@ import { t } from '../../i18n'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { rowDot } from '../../lib/subAgentState'
 
+import { chatPreview } from './chat-preview'
 import { chatRowAccess } from './chat-row-access'
 import { chatRowIcon } from './chat-row-icon'
 import { ChatRowStatus } from './ChatRowStatus'
@@ -34,6 +35,7 @@ export function chatSidebarItem({
     key: `agent-session:${conversation.sessionId}`,
     label: conversation.title || conversation.firstMessage || t('Untitled agent'),
     ...chatRowIcon(conversation),
+    preview: chatPreview(conversation.lastMessage),
     description: (
       <SessionResources
         sessionId={conversation.sessionId}

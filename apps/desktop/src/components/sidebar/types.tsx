@@ -16,6 +16,8 @@ export type Item = {
   key: string
   label: string
   description?: ReactNode
+  /** A chat's newest message, shown under its name in comfortable density. */
+  preview?: string
   icon?: LucideIcon
   iconNode?: ReactNode
   enabled: boolean

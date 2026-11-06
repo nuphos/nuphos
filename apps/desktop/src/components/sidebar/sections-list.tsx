@@ -212,6 +212,7 @@ export function SidebarSectionList({
                               else onSelect(item.key)
                             }}
                             label={item.label}
+                            preview={density === 'comfortable' ? item.preview : undefined}
                             animateLabel={chatRow}
                             note={rowNote(item, done)}
                             badge={item.badge}

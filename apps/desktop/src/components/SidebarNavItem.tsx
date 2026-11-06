@@ -48,6 +48,8 @@ type SidebarNavItemProps = {
   hoverActions?: ReactNode
   /** Larger Agent row; other navigation keeps its compact height. */
   comfortable?: boolean
+  /** A quiet line under the label, cut to fit (a chat's newest message). */
+  preview?: string
   /** Wait for the click when a press may start a drag instead. */
   navigateOnRelease?: boolean
   /** Cross-fade the label when it changes in place (e.g. a renamed chat). */
@@ -83,6 +85,7 @@ export function SidebarNavItem({
   hoverActions,
   navigateOnRelease = false,
   comfortable = false,
+  preview,
   animateLabel = false,
 }: SidebarNavItemProps) {
   const { containerRef, start, stop } = useHoverMarquee<HTMLSpanElement>(label)
@@ -149,8 +152,13 @@ export function SidebarNavItem({
       >
         {icon}
       </span>
-      <span id={`${id}-label`} ref={containerRef} className="t-marquee flex-1 min-w-0 text-left">
-        {animateLabel ? <SwapLabel label={label} /> : label}
+      <span className="flex-1 min-w-0 flex flex-col text-left">
+        <span id={`${id}-label`} ref={containerRef} className="t-marquee">
+          {animateLabel ? <SwapLabel label={label} /> : label}
+        </span>
+        {preview && (
+          <span className="t-marquee text-[12px] leading-4 font-normal text-tertiary">{preview}</span>
+        )}
       </span>
       {note != null && (
         <span id={`${id}-note`} className="flex-shrink-0 flex items-center">
