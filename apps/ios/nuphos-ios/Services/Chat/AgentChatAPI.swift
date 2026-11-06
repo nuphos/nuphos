@@ -158,17 +158,28 @@ enum AgentChatAPI {
         )
     }
 
-    /// `POST /agent/bots` — a Bot with a name and a face, before anyone types,
-    /// on the runtime a new chat would use (#1691).
-    static func createBot(token: String, teamId: String, runtime: RuntimeInstance?) async throws -> String {
-        struct Body: Encodable { let runtimeId: String?; let agentRuntime: String?; let runtimeLabel: String? }
-        struct Created: Decodable { let sessionId: String }
+    /// `POST /agent/bots` — a Bot with the picked name and face, on the
+    /// runtime a new chat would use (#1691).
+    static func createBot(token: String, teamId: String, title: String, avatar: String, runtime: RuntimeInstance?) async throws -> String {
+        struct Body: Encodable { let title: String; let avatar: String; let runtimeId: String?; let agentRuntime: String?; let runtimeLabel: String? }
         let data = try await send(
             "POST", "agent/bots", query: [URLQueryItem(name: "teamId", value: teamId)], token: token,
-            body: Body(runtimeId: runtime?.id, agentRuntime: runtime?.provider.rawValue, runtimeLabel: runtime?.label)
+            body: Body(title: title, avatar: avatar, runtimeId: runtime?.id, agentRuntime: runtime?.provider.rawValue, runtimeLabel: runtime?.label)
         )
         return try JSONDecoder().decode(Created.self, from: data).sessionId
     }
+
+    /// A Bot's 1:1 chat: `POST /agent/channels`, unnamed so it is called by the
+    /// Bot, then `POST …/agents` to bring the Bot in.
+    static func createBotChannel(token: String, teamId: String, botId: String) async throws -> String {
+        let query = [URLQueryItem(name: "teamId", value: teamId)]
+        let data = try await send("POST", "agent/channels", query: query, token: token, body: [String: String]())
+        let channelId = try JSONDecoder().decode(Created.self, from: data).sessionId
+        _ = try await send("POST", "agent/conversations/\(channelId)/agents", query: query, token: token, body: ["sessionId": botId])
+        return channelId
+    }
+
+    private struct Created: Decodable { let sessionId: String }
 
     /// `POST /agent/conversations/:id/bot` makes a Task a Bot and asks it to
     /// name itself; `PATCH …/avatar` with null turns a Bot back into a Task.

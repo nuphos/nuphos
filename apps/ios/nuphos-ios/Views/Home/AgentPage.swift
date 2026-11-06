@@ -18,6 +18,7 @@ struct AgentPage: View {
     @State private var ownsKeyboard = false
     @State private var showWorkspaceSetup = false
     @State private var showAgentSetup = false
+    @State private var showNewBot = false
     @State private var renaming: AgentConversation?
     @State private var renamedTitle = ""
     @State private var refreshing = false
@@ -59,6 +60,11 @@ struct AgentPage: View {
             }
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
             .sheet(isPresented: $showAgentSetup) { if let team = store.selectedTeam { AgentSetupSheet(team: team) } }
+            .sheet(isPresented: $showNewBot) {
+                NewBotSheet { title, avatar in
+                    if let channel = await store.createBot(title: title, avatar: avatar) { openChat = OpenChat(channel: channel) }
+                }
+            }
             .alert(
                 LocalizedStringKey(store.rowActionFailure?.title ?? ""),
                 isPresented: Binding(get: { store.rowActionFailure != nil && !refreshing }, set: { if !$0 { store.rowActionFailure = nil } }),
@@ -205,7 +211,8 @@ struct AgentPage: View {
     @ViewBuilder
     private var content: some View {
         switch store.phase {
-        case .loaded where page == .chats ? !store.channels.isEmpty : !store.listedConversations.isEmpty:
+        // Bots always lists, so its "+" can make the first one.
+        case .loaded where page == .chats ? store.channelsLoaded && store.selectedTeam != nil && !(store.runtimesLoaded && store.runtimes.isEmpty) : !store.listedConversations.isEmpty:
             list
         default:
             // A scroll view even for the non-list states: with plain
@@ -259,24 +266,18 @@ struct AgentPage: View {
             ProgressView("Loading chats…")
                 .tint(Theme.muted)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case .loaded where page == .chats:
-            ContentUnavailableView {
-                Label(store.search.isEmpty ? "No chats yet" : "No matches", systemImage: "bubble.left.and.bubble.right")
-            } description: {
-                Text(store.search.isEmpty ? "Chats where people and agents talk together show up here." : "No chats match your search.")
-            }
         case .loaded where store.listedConversations.isEmpty:
             ContentUnavailableView {
-                Label(store.search.isEmpty ? "No agents yet" : "No matches", systemImage: "message")
+                Label(store.search.isEmpty ? "No tasks yet" : "No matches", systemImage: "message")
             } description: {
-                Text(store.search.isEmpty ? "Start an agent from the bar below." : "No agents match your search.")
+                Text(store.search.isEmpty ? "Start a task from the bar below." : "No tasks match your search.")
             }
         case .loaded:
             EmptyView()
         }
     }
 
-    /// One agent row; Bots and Tasks render alike, a Bot wearing its face.
+    /// One Task row, with the threads it opened under it.
     @ViewBuilder
     private func agentRow(_ item: NestedConversation) -> some View {
                 let conversation = item.conversation
@@ -344,7 +345,9 @@ struct AgentPage: View {
         .tint(.orange) }
         if conversation.ownsChat, !conversation.isChannel {
             Button {
-                Task { await store.setBot(!conversation.isBot, conversation: conversation) }
+                Task {
+                    if let channel = await store.setBot(!conversation.isBot, conversation: conversation) { openChat = OpenChat(channel: channel) }
+                }
             } label: {
                 Label(conversation.isBot ? "Turn into a Task" : "Make this a Bot", systemImage: conversation.isBot ? "person.crop.circle.badge.minus" : "person.crop.circle.badge.plus")
             }
@@ -389,6 +392,11 @@ struct AgentPage: View {
                 openChat = OpenChat(channel: store.channel(for: channel))
                 return
             }
+            // A Bot opens in its 1:1 chat, made on the first tap.
+            if page == .chats, let id {
+                Task { if let channel = await store.botChannel(botId: id) { openChat = OpenChat(channel: channel) } }
+                return
+            }
             openChat = store.listedConversations.first { $0.sessionId == id }.map { OpenChat(session: store.session(for: $0)) }
         }
     }
@@ -397,28 +405,17 @@ struct AgentPage: View {
         List(selection: selection) {
             if page == .chats {
                 Section {
-                    ForEach(store.channels) { channel in
-                        NavigationLink(value: channel.sessionId) {
-                            ChannelRow(channel: channel).padding(.vertical, 12)
+                    ForEach(store.botsList) { row in
+                        NavigationLink(value: row.sessionId) {
+                            ChannelRow(channel: row).padding(.vertical, 12)
                         }
-                        .listRowBackground(openChat?.id == channel.sessionId ? Theme.muted.opacity(0.12) : Color.clear)
+                        .listRowBackground(openChat?.id == row.sessionId ? Theme.muted.opacity(0.12) : Color.clear)
                         .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 16))
                         .listSectionSeparator(.hidden, edges: .top)
                     }
-                }
-            } else {
-                let rows = store.botAndTaskRows
-                Section {
-                    ForEach(rows.bots) { item in agentRow(item) }
                 } header: {
                     sectionHeader("Bots") {
-                        Button {
-                            Task {
-                                if let id = await store.createBot() {
-                                    openChat = OpenChat(session: store.session(sessionId: id, title: "New Bot"))
-                                }
-                            }
-                        } label: {
+                        Button { showNewBot = true } label: {
                             // A 44pt hit area without making the header taller.
                             Image(systemName: "plus")
                                 .padding(14)
@@ -429,8 +426,9 @@ struct AgentPage: View {
                         .accessibilityLabel("New Bot")
                     }
                 }
+            } else {
                 Section {
-                    ForEach(rows.tasks) { item in agentRow(item) }
+                    ForEach(store.nestedConversations) { item in agentRow(item) }
 
                     if store.hasMore {
                         HStack {
@@ -441,8 +439,6 @@ struct AgentPage: View {
                         .listRowBackground(Color.clear)
                         .task { await store.loadMore() }
                     }
-                } header: {
-                    if !rows.tasks.isEmpty { sectionHeader("Tasks") }
                 }
             }
         }
@@ -508,7 +504,8 @@ struct HomeTabs: View {
     }
 }
 
-/// A chat in the list: its mark, its title, and when it last moved.
+/// A row under Bots: a chat, or a Bot with no chat yet, by its face. A chat
+/// shows its newest post and when it last moved.
 struct ChannelRow: View {
     let channel: AgentConversation
     @Environment(AgentStore.self) private var store
@@ -516,18 +513,30 @@ struct ChannelRow: View {
     var body: some View {
         let team = channel.teamId ?? store.selectedTeam?.id ?? ""
         HStack(spacing: 12) {
-            ChatIcon(faces: channel.faces ?? [], title: channel.displayTitle, size: 36)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(channel.displayTitle)
-                    .font(Theme.Text.body.weight(.medium))
-                    .foregroundStyle(Theme.heading)
-                    .lineLimit(1)
-                Text(HistoryTime.format(channel.lastActiveAt))
-                    .font(Theme.Text.label)
-                    .foregroundStyle(Theme.muted)
-                    .lineLimit(1)
+            if channel.isChannel {
+                ChatIcon(faces: channel.faces ?? [], title: channel.displayTitle, size: 36)
+            } else {
+                AgentAvatar(agentId: channel.sessionId, runtime: channel.agentRuntime, size: 36)
             }
-            Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(channel.displayTitle)
+                        .font(Theme.Text.body.weight(.medium))
+                        .foregroundStyle(Theme.heading)
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    Text(HistoryTime.format(channel.lastActiveAt))
+                        .font(Theme.Text.label)
+                        .foregroundStyle(Theme.muted)
+                        .lineLimit(1)
+                }
+                if let preview = store.channelPreviews[channel.sessionId] {
+                    Text(preview)
+                        .font(Theme.Text.label)
+                        .foregroundStyle(Theme.muted)
+                        .lineLimit(1)
+                }
+            }
             if ConversationUnread.shared.contains(team: team, session: channel.sessionId) {
                 Circle().fill(Theme.unread).frame(width: 7, height: 7).accessibilityLabel("Unread posts")
             }

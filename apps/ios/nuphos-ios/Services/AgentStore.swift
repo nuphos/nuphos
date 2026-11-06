@@ -61,8 +61,34 @@ final class AgentStore {
         }
         guard team.id == selectedTeam?.id, query == search, !Task.isCancelled else { return }
         channels = rows.sorted { $0.lastActiveAt > $1.lastActiveAt }
-        if query.isEmpty { HomePage.hasChats = !channels.isEmpty }
+        if query.isEmpty { HomePage.hasChats = !botsList.isEmpty }
         channelsLoaded = true
+        await loadPreviews(team: team.id)
+    }
+
+    /// Each chat's newest post, for its row under Bots.
+    private(set) var channelPreviews: [String: String] = [:]
+    /// The activity each preview was read at, so a quiet chat is not read again.
+    private var previewedAt: [String: Date] = [:]
+
+    private func loadPreviews(team: String) async {
+        let stale = channels.filter { previewedAt[$0.sessionId] != $0.lastActiveAt }
+        let read = await withTaskGroup(of: (String, Date, String?)?.self) { group in
+            for chat in stale {
+                group.addTask { [token = self.token] in
+                    guard let detail = try? await NuphosAPI.conversationDetail(
+                        token: token, teamId: team, sessionId: chat.sessionId, tail: 10, displayed: false
+                    ) else { return nil }
+                    return (chat.sessionId, chat.lastActiveAt, ChannelPost.preview(detail.messages))
+                }
+            }
+            return await group.reduce(into: []) { if let row = $1 { $0.append(row) } }
+        }
+        guard team == selectedTeam?.id else { return }
+        for (id, at, preview) in read {
+            previewedAt[id] = at
+            channelPreviews[id] = preview
+        }
     }
 
     func channel(for conversation: AgentConversation) -> ChannelSession {
@@ -114,14 +140,17 @@ final class AgentStore {
         return channel
     }
 
-    /// What the Agent page lists, as the desktop sidebar does: Bots by name,
-    /// then Tasks by latest activity (#1691).
+    /// What Tasks lists: every agent, Bots too, by latest activity (#1691).
     var listedConversations: [AgentConversation] {
-        let rows = conversations.sorted { $0.lastActiveAt > $1.lastActiveAt }
-        let bots = rows.filter(\.isBot).sorted {
-            $0.displayTitle.localizedStandardCompare($1.displayTitle) == .orderedAscending
-        }
-        return bots + rows.filter { !$0.isBot }
+        conversations.sorted { $0.lastActiveAt > $1.lastActiveAt }
+    }
+
+    /// What Bots lists, newest first: every chat, and each Bot that has no
+    /// 1:1 chat yet, by its face.
+    var botsList: [AgentConversation] {
+        let chatted = Set(channels.compactMap(\.botId))
+        let unchatted = conversations.filter { $0.isBot && !chatted.contains($0.sessionId) }
+        return (channels + unchatted).sorted { $0.lastActiveAt > $1.lastActiveAt }
     }
 
     // MARK: - Archive
@@ -186,26 +215,9 @@ final class AgentStore {
         (UserDefaults.standard.dictionary(forKey: AgentStore.foldedThreadsKey) as? [String: [String]] ?? [:])
             .mapValues(Set.init)
 
-    /// The Agent page's rows: agent-opened threads under the conversation
-    /// that opened them. A Bot keeps the Tasks it started; a Bot opened as a
-    /// thread takes its own threads to Bots.
+    /// The Tasks rows: agent-opened threads under the conversation that opened them.
     var nestedConversations: [NestedConversation] {
-        ConversationNesting.nest(
-            listedConversations,
-            folded: foldedThreads[selectedTeam?.id ?? ""] ?? [],
-            bots: Set(conversations.filter(\.isBot).map(\.sessionId))
-        )
-    }
-
-    /// The rows under Bots and under Tasks: a top-level row and everything below it.
-    var botAndTaskRows: (bots: [NestedConversation], tasks: [NestedConversation]) {
-        var bots: [NestedConversation] = [], tasks: [NestedConversation] = []
-        var inBots = false
-        for row in nestedConversations {
-            if row.depth == 0 { inBots = row.conversation.isBot }
-            if inBots { bots.append(row) } else { tasks.append(row) }
-        }
-        return (bots, tasks)
+        ConversationNesting.nest(listedConversations, folded: foldedThreads[selectedTeam?.id ?? ""] ?? [])
     }
 
     func isFolded(_ sessionId: String) -> Bool { foldedThreads[selectedTeam?.id ?? ""]?.contains(sessionId) == true }
@@ -230,37 +242,59 @@ final class AgentStore {
         }
     }
 
-    /// While "+" on Bots waits for the server, so a second tap makes no second Bot.
+    /// While "+" on Bots or a Bot's first chat waits for the server, so a
+    /// second tap makes no second one.
     private(set) var creatingBot = false
 
-    /// "+" on Bots: the new Bot's id, listed once the page reloads.
-    func createBot() async -> String? {
+    /// A Bot's 1:1 chat, made the first time it is opened (#1691).
+    func botChannel(botId: String) async -> ChannelSession? {
+        if let chat = channels.first(where: { $0.botId == botId }) { return channel(for: chat) }
         guard let teamId = selectedTeam?.id, !creatingBot else { return nil }
         creatingBot = true
         defer { creatingBot = false }
         let scope = workspaceScope
         do {
-            let id = try await AgentChatAPI.createBot(token: token, teamId: teamId, runtime: newConversationRuntime)
+            let id = try await AgentChatAPI.createBotChannel(token: token, teamId: teamId, botId: botId)
             guard scope == workspaceScope else { return nil }
-            await reload(afterChange: true)
-            return id
+            await loadChannels()
+            let title = conversations.first { $0.sessionId == botId }?.displayTitle ?? ""
+            return channel(sessionId: id, title: channels.first { $0.sessionId == id }?.displayTitle ?? title, teamId: teamId)
         } catch {
-            rowActionFailed(error, scope: scope) { [weak self] in _ = await self?.createBot() }
+            rowActionFailed(error, scope: scope) { [weak self] in _ = await self?.botChannel(botId: botId) }
             return nil
         }
     }
 
-    /// "Make this a Bot" / "Turn into a Task". The face and the row change
-    /// when the list reloads right after.
-    func setBot(_ bot: Bool, conversation: AgentConversation) async {
-        guard conversation.ownsChat, let teamId = conversation.teamId ?? selectedTeam?.id else { return }
+    /// "+" on Bots: makes the Bot with the picked name and face, then its 1:1 chat.
+    func createBot(title: String, avatar: String) async -> ChannelSession? {
+        guard let teamId = selectedTeam?.id, !creatingBot else { return nil }
+        creatingBot = true
+        let scope = workspaceScope
+        do {
+            let id = try await AgentChatAPI.createBot(token: token, teamId: teamId, title: title, avatar: avatar, runtime: newConversationRuntime)
+            creatingBot = false
+            guard scope == workspaceScope else { return nil }
+            await reload(afterChange: true)
+            return await botChannel(botId: id)
+        } catch {
+            creatingBot = false
+            rowActionFailed(error, scope: scope) { [weak self] in _ = await self?.createBot(title: title, avatar: avatar) }
+            return nil
+        }
+    }
+
+    /// "Make this a Bot", which then opens its 1:1 chat, or "Turn into a Task".
+    func setBot(_ bot: Bool, conversation: AgentConversation) async -> ChannelSession? {
+        guard conversation.ownsChat, let teamId = conversation.teamId ?? selectedTeam?.id else { return nil }
         let scope = workspaceScope
         do {
             try await AgentChatAPI.setBot(bot, token: token, teamId: teamId, sessionId: conversation.sessionId)
-            guard scope == workspaceScope else { return }
+            guard scope == workspaceScope else { return nil }
             await reload(afterChange: true)
+            return bot ? await botChannel(botId: conversation.sessionId) : nil
         } catch {
-            rowActionFailed(error, scope: scope) { [weak self] in await self?.setBot(bot, conversation: conversation) }
+            rowActionFailed(error, scope: scope) { [weak self] in _ = await self?.setBot(bot, conversation: conversation) }
+            return nil
         }
     }
 
@@ -420,6 +454,8 @@ final class AgentStore {
         newModelPick = [:]
         credentials.reset()
         channels = []
+        channelPreviews = [:]
+        previewedAt = [:]
         runtimes = []
         agentDevices = []
         agentDevicesError = false

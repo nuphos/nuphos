@@ -145,6 +145,14 @@ enum ChatRowTests {
         precondition(!owner.isBot)
         let chat = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"c","kind":"channel","avatar":"07-ada"}"#.utf8))
         precondition(!chat.isBot)
+        // A chat whose one other member is an agent with a face is that Bot's 1:1.
+        let face = #"{"id":"b","name":"Ada","agent":{"avatar":"07-ada"}}"#
+        let oneToOne = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"c","kind":"channel","faces":[\#(face)]}"#.utf8))
+        precondition(oneToOne.botId == "b")
+        let group = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"g","kind":"channel","faces":[\#(face),{"id":"u","name":"Kim"}]}"#.utf8))
+        precondition(group.botId == nil)
+        let task = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"t","kind":"channel","faces":[{"id":"a","name":"Task","agent":{}}]}"#.utf8))
+        precondition(task.botId == nil)
     }
 
     private static func repeatsNoFailureTheTranscriptShows() {

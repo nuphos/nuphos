@@ -227,7 +227,7 @@ struct HomeView: View {
         // Never after the viewer picked a page, nor under a chat already open.
         .onChange(of: store?.channelsLoaded) { _, loaded in
             guard loaded == true, let store, !pageChosen, openChat == nil, page.isHomeList else { return }
-            let tab: HomePage = store.channels.isEmpty ? .agent : .chats
+            let tab: HomePage = store.botsList.isEmpty ? .agent : .chats
             if tab != page { autoPage = true; page = tab }
         }
         .onChange(of: PushNotifications.shared.pendingConversations, initial: true) { _, show in

@@ -4,7 +4,6 @@ import SwiftUI
 /// dot-separated meta line.
 struct ConversationRow: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @AppStorage(BotAvatars.enabledKey, store: BotAvatars.defaults) private var botAvatars = true
     let conversation: AgentConversation
     /// Threads a folded parent hides; the row shows the most pressing of their states.
     var hidden: [AgentConversation] = []
@@ -25,7 +24,9 @@ struct ConversationRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AgentAvatar(agentId: conversation.sessionId, runtime: conversation.agentRuntime, size: 36)
+            // A Task row, Bot or not, leads with its runtime, never a face (#1691).
+            RuntimeMark(runtime: conversation.agentRuntime, size: 20)
+                .frame(width: 36, height: 36)
                 .opacity(conversation.owner?.deactivated == true ? 0.5 : 1)
 
             VStack(alignment: .leading, spacing: 3) {
@@ -34,14 +35,11 @@ struct ConversationRow: View {
                     .foregroundStyle(Theme.heading)
                     .lineLimit(1)
 
-                HStack(spacing: 5) {
-                    if botAvatars && conversation.isBot { RuntimeMark(runtime: conversation.agentRuntime) }
-                    Text(meta)
-                        .font(Theme.Text.label)
-                        .foregroundStyle(Theme.muted)
-                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                Text(meta)
+                    .font(Theme.Text.label)
+                    .foregroundStyle(Theme.muted)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer(minLength: 0)

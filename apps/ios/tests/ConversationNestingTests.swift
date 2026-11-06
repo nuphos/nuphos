@@ -4,7 +4,7 @@ enum ConversationNestingTests {
     static func run() {
         nestsThreadsUnderTheirParent()
         foldingHidesTheSubtree()
-        anUnlistedOrPinnedParentLeavesTheRowTopLevel()
+        anUnlistedParentLeavesTheRowTopLevel()
         aRefreshKeepsLaterRowsInPlace()
         aThreadNestsUnderAParentFromALaterPage()
         print("Conversation nesting passed")
@@ -35,16 +35,10 @@ enum ConversationNestingTests {
         precondition(rows[0].hidden.map(\.sessionId) == ["child-b", "child-a", "grandchild"])
     }
 
-    private static func anUnlistedOrPinnedParentLeavesTheRowTopLevel() {
+    private static func anUnlistedParentLeavesTheRowTopLevel() {
         precondition(ConversationNesting.nest([row("thread", parent: "gone")]).map(\.depth) == [0])
-        let pinned = ConversationNesting.nest([row("pinned", parent: "parent"), row("parent")], bots: ["pinned"])
-        precondition(pinned.map(\.id) == ["pinned", "parent"] && pinned.allSatisfy { $0.depth == 0 })
-        let bothPinned = ConversationNesting.nest(
-            [row("pinned", parent: "parent"), row("parent")], bots: ["pinned", "parent"]
-        )
-        precondition(bothPinned.map(\.id) == ["parent", "pinned"] && bothPinned.map(\.depth) == [0, 1])
-        let pinnedParent = ConversationNesting.nest([row("thread", parent: "parent"), row("parent")], bots: ["parent"])
-        precondition(pinnedParent.map(\.id) == ["parent", "thread"] && pinnedParent.map(\.depth) == [0, 1])
+        let listed = ConversationNesting.nest([row("thread", parent: "parent"), row("parent")])
+        precondition(listed.map(\.id) == ["parent", "thread"] && listed.map(\.depth) == [0, 1])
     }
 
     /// Returning from a chat refreshes the list by merge, not by reload: page

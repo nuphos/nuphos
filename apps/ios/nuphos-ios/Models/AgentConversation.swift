@@ -89,8 +89,14 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
 
     var isChannel: Bool { kind == "channel" }
 
-    /// A persistent agent with a face, listed under Bots; every other agent is a Task.
+    /// An agent with a face: a Bot, talked to in its 1:1 chat (#1691).
     var isBot: Bool { avatar != nil && !isChannel }
+
+    /// The Bot this chat is the 1:1 of: its one other member is an agent with a face.
+    var botId: String? {
+        guard isChannel, let faces, faces.count == 1, faces[0].agent?.avatar != nil else { return nil }
+        return faces[0].id
+    }
 
     var isNativeRuntime: Bool { agentRuntime != nil && agentRuntime != "nuphos" }
 
