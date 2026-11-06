@@ -19,6 +19,7 @@ import { holderChannel } from '@/lib/agent/devices/local-runtime/protocol'
 import { isDevicePresent, waitForPresence } from '@/lib/agent/devices/presence'
 import {
   deleteAgentDevice,
+  getAgentDevice,
   listTeamBoxes,
   revokeAgentDeviceCredential,
 } from '@/lib/agent/devices/store'
@@ -140,7 +141,8 @@ export function boxToolModule(
           const joined = await waitForPresence(ctx.userId, device.deviceId, JOIN_WAIT_MS)
 
           return {
-            ...(await view(device)),
+            // Re-read: the machine id is recorded once it was ordered.
+            ...(await view((await getAgentDevice(device.userId, device.deviceId)) ?? device)),
             joined,
             ...(joined ? {} : { note: 'Not joined yet; check list_boxes again shortly.' }),
           }
