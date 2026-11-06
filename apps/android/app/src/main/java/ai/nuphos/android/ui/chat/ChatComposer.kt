@@ -191,6 +191,7 @@ fun ChatComposer(
     // Reading the projection revision makes restored/committed text observable without any disk access.
     @Suppress("UNUSED_VARIABLE") val observedShareRevision = shareRevision
     val effectiveDraftingEnabled = draftingEnabled && shareReady && (draft == null || incomingShares.isBound(draft.key.accountId))
+    val offersQueue = effectiveDraftingEnabled && (isStreaming || sendQueues)
     var savingSend by remember { mutableStateOf(false) }
     val latestSendAllowed by rememberUpdatedState(effectiveDraftingEnabled && canSubmit)
     val latestSendKey by rememberUpdatedState(draft?.key)
@@ -769,7 +770,7 @@ fun ChatComposer(
                             if (state.isFocused) collapsedByUser = false
                         }
                         .semantics {
-                            contentDescription = if (effectiveDraftingEnabled && (isStreaming || sendQueues)) "Queue a message" else placeholder ?: "Ask Nuphos anything"
+                            contentDescription = if (offersQueue) "Queue a message" else placeholder ?: "Ask Nuphos anything"
                         },
                     textStyle = fieldStyle,
                     cursorBrush = SolidColor(colors.primary),
@@ -784,7 +785,7 @@ fun ChatComposer(
                         Box(contentAlignment = Alignment.CenterStart) {
                             if (text.isEmpty()) {
                                 Text(
-                                    if (effectiveDraftingEnabled && (isStreaming || sendQueues)) "Queue a message…" else placeholder ?: "Ask Nuphos anything…",
+                                    if (offersQueue) "Queue a message…" else placeholder ?: "Ask Nuphos anything…",
                                     style = MaterialTheme.typography.bodyLarge,
                                     maxLines = if (expanded) 8 else 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -798,7 +799,7 @@ fun ChatComposer(
                 if (!expanded) {
                     VoiceMic(enabled = effectiveDraftingEnabled && !picking && !voice.active, onClick = ::startVoice)
                     TrailingButton(isStreaming = isStreaming || (stopsRuntimeTurn && onStop != null), hasPayload = hasPayload && canSubmit && !picking && !voice.active,
-                        onStop = onStop, onSend = ::send, sendQueues = sendQueues && effectiveDraftingEnabled)
+                        onStop = onStop, onSend = ::send, sendQueues = sendQueues && effectiveDraftingEnabled, offersQueue = offersQueue)
                 }
             }
 
@@ -869,6 +870,7 @@ fun ChatComposer(
                         onStop = if (hasPayload) null else onStop,
                         onSend = ::send,
                         sendQueues = sendQueues && effectiveDraftingEnabled,
+                        offersQueue = offersQueue,
                     )
             }
         }
@@ -989,6 +991,7 @@ private fun TrailingButton(
     onStop: (() -> Unit)?,
     onSend: () -> Unit,
     sendQueues: Boolean = false,
+    offersQueue: Boolean = false,
 ) {
     if (isStreaming && onStop != null) {
         FilledIconButton(
@@ -1010,7 +1013,7 @@ private fun TrailingButton(
                 disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
             ),
         ) {
-            Icon(if (sendQueues) Icons.Outlined.PlaylistAdd else Icons.Rounded.ArrowUpward, contentDescription = if (isStreaming || sendQueues) "Queue message" else "Send", modifier = Modifier.size(18.dp))
+            Icon(if (sendQueues) Icons.Outlined.PlaylistAdd else Icons.Rounded.ArrowUpward, contentDescription = if (offersQueue) "Queue message" else "Send", modifier = Modifier.size(18.dp))
         }
     }
 }
