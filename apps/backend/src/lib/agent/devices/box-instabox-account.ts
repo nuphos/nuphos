@@ -8,12 +8,12 @@ import { ObjectId } from 'mongodb'
 import { config } from '@/config'
 import { decryptInstaboxSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
-import { teamByosBindings } from '@/models'
+import { teamByosBindings } from '@/models/team'
 
 import { QUICK_TIMEOUT_MS, REQUEST_TIMEOUT_MS, connection } from './box-instabox-client'
 
 import type { AgentDeviceBox } from './store'
-import type { InstaboxAccountBinding } from '@/models'
+import type { InstaboxAccountBinding } from '@/models/bindings-integrations'
 
 /** A size a Box can be started with. */
 export type BoxSize = { vcpus: number; memMiB: number }
