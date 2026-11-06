@@ -18,6 +18,8 @@ export type InputRequestStatus = 'open' | 'answered' | 'dismissed'
  */
 export type InputRequest = ExplicitUserDecision & {
   id: string
+  /** The secret a `credential` request asks for, so its secure card finds it. */
+  secretName?: string
   askedAt: Date
   status: InputRequestStatus
   resolvedAt?: Date
@@ -38,7 +40,7 @@ const MAX_INPUT_REQUESTS = 100
 export async function addInputRequest(
   sessionId: string,
   userId: string,
-  request: ExplicitUserDecision & { id: string; askedAt: Date },
+  request: ExplicitUserDecision & { id: string; secretName?: string; askedAt: Date },
 ): Promise<void> {
   const entry: InputRequest = { ...request, status: 'open' }
 

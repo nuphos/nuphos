@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import {
+  decisionRequestId,
   CONNECT_SELECTION_KEY,
   connectRowStatus,
   newConnectIds,
@@ -109,4 +110,15 @@ test('parseSecretRequest reads a credential decision that names a secret', () =>
   assert.equal(parseChoiceRequest(input), null)
   assert.equal(parseSecretRequest({ ...input, category: 'approval' }), null)
   assert.equal(parseSecretRequest({ ...input, secretName: '../etc/passwd' }), null)
+})
+
+test('decisionRequestId reads the request a tool result names, also from text', () => {
+  assert.equal(decisionRequestId({ ok: true, requestId: 'req-1' }), 'req-1')
+  assert.equal(
+    decisionRequestId({ content: [{ type: 'text', text: '{"ok":true,"requestId":"req-2"}' }] }),
+    'req-2',
+  )
+  assert.equal(decisionRequestId('{"requestId": "req-3"}'), 'req-3')
+  assert.equal(decisionRequestId({ ok: true }), undefined)
+  assert.equal(decisionRequestId(undefined), undefined)
 })

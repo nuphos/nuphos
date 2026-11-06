@@ -6,10 +6,24 @@ import type { AgentConversation, AgentInputRequest } from '../../../api/agent-ty
  * An open question a message can answer. A `secret` one (category `credential`)
  * is answered in its secure card, never by typing in the chat.
  */
-export type ReplyQuestion = { id: string; question: string; options?: string[]; secret?: true }
+export type ReplyQuestion = {
+  id: string
+  question: string
+  options?: string[]
+  secret?: true
+  secretName?: string
+}
 
 /** A question card as the transcript shows it. */
-export type DecisionCardRef = { toolCallId: string; question?: string; options?: string[] }
+export type DecisionCardRef = {
+  toolCallId: string
+  /** The request id the tool result names, when it differs from the call id. */
+  requestId?: string
+  question?: string
+  options?: string[]
+  /** A secure input card's secret. */
+  secretName?: string
+}
 
 /** One open request as a question; a `credential` one is a secret. */
 export function requestQuestion({
@@ -17,12 +31,17 @@ export function requestQuestion({
   question,
   options,
   category,
-}: Pick<AgentInputRequest, 'id' | 'question' | 'options' | 'category'>): ReplyQuestion {
+  secretName,
+}: Pick<
+  AgentInputRequest,
+  'id' | 'question' | 'options' | 'category' | 'secretName'
+>): ReplyQuestion {
   return {
     id,
     question,
     ...(options && { options }),
     ...(category === 'credential' && { secret: true as const }),
+    ...(secretName && { secretName }),
   }
 }
 
@@ -78,20 +97,25 @@ const sameOptions = (a?: readonly string[], b?: readonly string[]) =>
 /**
  * The open request a question card asked: the one with the card's call id, else (a
  * native runtime's transcript keeps its own id) the oldest asking the same question
- * with the same options. The chat, side panel, Inbox and jump to question all use it.
+ * with the same options. A secret also needs the same secret name where the request
+ * keeps one, and two open requests it could be is a tie that matches neither, so a
+ * value never goes to the wrong one. The chat, side panel, Inbox and jump to question all use it.
  */
 export function matchInputRequest(
   card: DecisionCardRef,
   questions: readonly ReplyQuestion[],
 ): ReplyQuestion | undefined {
-  return (
-    questions.find((open) => open.id === card.toolCallId) ??
-    (card.question === undefined
-      ? undefined
-      : questions.find(
-          (open) => open.question === card.question && sameOptions(open.options, card.options),
-        ))
+  const byId = questions.find((open) => open.id === card.toolCallId || open.id === card.requestId)
+
+  if (byId || card.question === undefined) return byId
+  const same = questions.filter(
+    (open) => open.question === card.question && sameOptions(open.options, card.options),
   )
+
+  if (card.secretName === undefined) return same[0]
+  const named = same.filter((open) => !open.secretName || open.secretName === card.secretName)
+
+  return named.length === 1 ? named[0] : undefined
 }
 
 /** What a card's answer names as decisionReplyTo: its request, else its own call id. */

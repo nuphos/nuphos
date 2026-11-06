@@ -14,11 +14,13 @@ import type { CardAnswerState } from './replyTarget'
  */
 export function SecretCard({
   toolCallId,
+  requestId,
   name,
   reason,
   state,
 }: {
   toolCallId: string
+  requestId?: string
   name: string
   reason: string
   /** Whether the value can be sent now, and if not, why. */
@@ -36,7 +38,12 @@ export function SecretCard({
 
       setValue('')
       setPhase('sent')
-      ctx.send(`🔒 ${name} saved to ${path}`, { toolCallId, question: reason })
+      ctx.send(`🔒 ${name} saved to ${path}`, {
+        toolCallId,
+        requestId,
+        question: reason,
+        secretName: name,
+      })
     } catch {
       setPhase('error')
     }

@@ -1,6 +1,6 @@
 import type { AgentCredentialAccess } from './agent-credential-types.ts'
-import type { SessionResource } from './session-resource-types'
 import type { AgentMessageMention } from './mention-types.ts'
+import type { SessionResource } from './session-resource-types'
 import type { AgentProvider } from '../types/runtime.ts'
 
 export type { AgentMessageMention, ChannelMention } from './mention-types.ts'
@@ -135,6 +135,8 @@ export type AgentInputRequest = {
   /** Markdown the agent wrote so the question can be decided without the chat. */
   body?: string
   options?: string[]
+  /** The secret a `credential` request asks for; absent on requests stored before it was kept. */
+  secretName?: string
   askedAt: string
   status: 'open' | 'answered' | 'dismissed'
 }

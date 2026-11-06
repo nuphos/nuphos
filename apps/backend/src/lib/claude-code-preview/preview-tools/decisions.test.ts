@@ -125,6 +125,20 @@ describe('decision tool module', () => {
     expect(await listPendingPreviewWaits(ctx.userId, ctx.sessionId)).toEqual([])
   })
 
+  test("request_user_decision keeps a credential request's secretName for its secure card", async () => {
+    await decisionToolModule({ publish: () => Promise.resolve() }).handlers(ctx)
+      .request_user_decision!({
+      label: 'Ask for the fixture key',
+      category: 'credential',
+      question: 'Paste the fixture key.',
+      secretName: 'FIXTURE_KEY',
+    })
+
+    expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
+      $push: { inputRequests: { $each: [{ category: 'credential', secretName: 'FIXTURE_KEY' }] } },
+    })
+  })
+
   test('request_user_decision keeps its body for the Inbox and returns the requestId', async () => {
     const result = await decisionToolModule({ publish: async () => {} }).handlers(ctx)
       .request_user_decision!({
