@@ -222,6 +222,22 @@ enum AgentChatAPI {
         return ConversationUnread.Marker(activity: state.activitySeq, read: state.readSeq)
     }
 
+    /// `POST /agent/conversations/:id/secrets` — the secure input card: the
+    /// value goes to a file on the agent's runtime, and only its path comes back.
+    static func saveSecret(token: String, teamId: String, sessionId: String, name: String, value: String) async throws -> String {
+        struct Body: Encodable { var name: String; var value: String }
+        struct Saved: Decodable { let path: String }
+        let data = try await send("POST", "agent/conversations/\(sessionId)/secrets",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Body(name: name, value: value))
+        return try JSONDecoder().decode(Saved.self, from: data).path
+    }
+
+    /// `POST /agent/conversations/:id/decisions/:requestId/resolve` — marks a question answered.
+    static func resolveDecision(token: String, teamId: String, sessionId: String, requestId: String) async throws {
+        _ = try await send("POST", "agent/conversations/\(sessionId)/decisions/\(requestId)/resolve",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: ["resolution": "answered"])
+    }
+
     /// `POST /agent/conversations/:id/steer` — hands a message to the turn
     /// already running, without opening a second stream.
     /// `queuedId` names one of the sender's messages waiting in the session

@@ -404,6 +404,22 @@ final class ChatSession {
         send(ComposerSubmission(text: text, attachments: []))
     }
 
+    /// The secure input card's answer, as on the desktop: the value goes
+    /// straight to a file on the agent's runtime, and the reply names only
+    /// the file's path. The value is never kept, logged or put in the transcript.
+    func provideSecret(_ value: String, for part: ChatPart.ToolPart) async throws {
+        guard let name = part.secretRequest?.name else { return }
+        let path = try await AgentChatAPI.saveSecret(token: token, teamId: teamId, sessionId: sessionId, name: name, value: value)
+        try? await AgentChatAPI.resolveDecision(token: token, teamId: teamId, sessionId: sessionId, requestId: part.decisionRequestId)
+        send("🔒 \(name) saved to \(path)")
+    }
+
+    /// Whether someone already replied after the message that asked.
+    func hasReply(after messageId: String) -> Bool {
+        guard let i = messages.lastIndex(where: { $0.id == messageId }) else { return false }
+        return messages[(i + 1)...].contains { $0.role == .user }
+    }
+
     /// Sends text plus attachments. Runtime agents get every attachment from
     /// the transfer store, so the chat request stays small. The built-in agent
     /// still reads photos inline for vision; its files upload first.

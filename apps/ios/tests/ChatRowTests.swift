@@ -12,6 +12,7 @@ enum ChatRowTests {
         streamsCodexThinkingIntoOneRun()
         foldsFinishedWorkUnderOneHeader()
         liftsThreadBadgesOutOfTheFold()
+        keepsSecretRequestsOutOfTheFold()
         rendersReasoningMarkdown()
         keepsNarrationBetweenToolCalls()
         followsTheNewestRun()
@@ -290,6 +291,32 @@ enum ChatRowTests {
             "tool.msg1", "tool.msg2",
             "text:Done.",
         ], "\(shape(rows))")
+    }
+
+    /// A secret request is its secure input card, never a folded tool row,
+    /// even when the runtime names the call by its display title.
+    private static func keepsSecretRequestsOutOfTheFold() {
+        func ask(_ input: [String: JSONValue], output: JSONValue? = nil) -> ChatPart.ToolPart {
+            var part = ChatPart.ToolPart(
+                toolCallId: "ask", toolName: "Open a secure input for the OpenAI key", isDynamic: false, state: .outputAvailable,
+                input: .object(input)
+            )
+            part.output = output
+            return part
+        }
+        let secret = ask(["category": .string("credential"), "secretName": .string("OPENAI_API_KEY"), "question": .string("Paste your key")],
+                         output: .object(["requestId": .string("req-1")]))
+        precondition(secret.secretRequest?.name == "OPENAI_API_KEY")
+        precondition(secret.secretRequest?.reason == "Paste your key")
+        precondition(secret.decisionRequestId == "req-1")
+        precondition(secret.kind == .question)
+        precondition(ask(["category": .string("credential"), "secretName": .string("1BAD")]).secretRequest == nil)
+        precondition(ask(["category": .string("approval"), "secretName": .string("KEY")]).secretRequest == nil)
+        precondition(ask(["category": .string("credential"), "secretName": .string("KEY")]).decisionRequestId == "ask")
+
+        let message = ChatMessage(id: "m", role: .assistant, parts: [tool("a"), tool("b"), .tool(secret), text("Use the card below.")])
+        let rows = ChatRow.assistantRows(message, live: false, lastApprovalCallId: nil)
+        precondition(shape(rows) == ["work[run:tool.a run:tool.b]", "tool.ask", "text:Use the card below."], "\(shape(rows))")
     }
 
     private static func rendersReasoningMarkdown() {

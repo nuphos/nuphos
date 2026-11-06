@@ -436,8 +436,10 @@ struct ConversationView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         case .reasoning(_, let part):
             ReasoningTile(part: part)
-        case .tool(_, _, let part, let canDecide):
-            if let reference = ThreadReference(part) {
+        case .tool(_, let messageId, let part, let canDecide):
+            if part.secretRequest != nil {
+                SecretCard(part: part, answered: session.hasReply(after: messageId), session: session)
+            } else if let reference = ThreadReference(part) {
                 AgentThreadBadge(reference: reference, teamId: session.teamId, agents: referencedAgents, onLink: open(link:))
             } else {
                 ToolCallRow(
