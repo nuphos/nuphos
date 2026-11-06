@@ -32,7 +32,6 @@ import type {
   AgentCredentialSelection,
   AgentPersistedMessage,
   AgentSlackThread,
-  AgentStarterSuggestion,
 } from './agent-types.ts'
 import type { LocalSessionImportResult, LocalSessionSource } from './app-types.ts'
 import type { Plan, PlanApprovalRequirement, PlanUpdatePatch, PlansPage } from './plan-types.ts'
@@ -168,11 +167,6 @@ export type WindowAgentApi = AgentDecisionApi & {
   agentListJournalEvents(args: AgentAuditListArgs): Promise<AgentAuditEventsPage>
   agentExportJournal(args: AgentAuditListArgs): Promise<AgentComplianceExportResult>
   agentGetCredentialOptions(teamId?: string): Promise<AgentCredentialOptions>
-  agentGetStarterSuggestions(args: {
-    teamId?: string
-    resources: string[]
-    locale?: string
-  }): Promise<{ suggestions: AgentStarterSuggestion[] }>
   agentUpdateConversationCredentials(args: {
     sessionId: string
     teamId?: string

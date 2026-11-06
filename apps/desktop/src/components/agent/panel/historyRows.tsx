@@ -1,6 +1,5 @@
 import clsx from 'clsx'
 import { Loader2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
 
 import { t } from '../../../i18n'
 import { openInputRequests, openQuestionCount } from '../../../lib/agentInputRequests'
@@ -19,31 +18,6 @@ function historyTime(value: string): string {
   const time = formatHistoryTime(value)
 
   return time === 'now' ? t('now') : time
-}
-
-export function RevealedHistoryBlock({
-  children,
-  className,
-}: {
-  children: ReactNode
-  className?: string
-}) {
-  const [open, setOpen] = useState(false)
-
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => setOpen(true))
-
-    return () => cancelAnimationFrame(frame)
-  }, [])
-
-  return (
-    <div
-      className={clsx('t-panel-slide t-agent-history-reveal', className)}
-      data-open={open ? 'true' : 'false'}
-    >
-      {children}
-    </div>
-  )
 }
 
 function titleTone({ unread, selected }: { unread: boolean; selected: boolean }): string {

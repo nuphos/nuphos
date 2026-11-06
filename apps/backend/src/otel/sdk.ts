@@ -40,11 +40,8 @@ import {
 
 import { config } from '@/config'
 import { errorMessage } from '@/lib/observability'
-import { GenAIMetricsSpanProcessor } from '@/otel/instrumentation/genai'
 import { buildResource } from '@/otel/resource'
 import { logJson, TolerantMetricExporter, TolerantSpanExporter } from '@/otel/sdk-exporters'
-
-import type { SpanProcessor } from '@opentelemetry/sdk-trace-base'
 
 export type TelemetryShutdown = () => Promise<void>
 
@@ -127,51 +124,33 @@ function startTelemetryInner(): { shutdown: TelemetryShutdown } {
   const resource = buildResource()
 
   // ── Traces ───────────────────────────────────────────────────────────────
-  // We register a tracer provider whenever EITHER traces OR metrics are on:
-  //   - Traces on → we need the BatchSpanProcessor + OTLP exporter.
-  //   - Metrics on (traces off) → we still need the GenAIMetricsSpanProcessor
-  //     attached to a real provider so AI SDK spans translate into the
-  //     gen_ai.* metrics. Without a real provider the global tracer is a
-  //     no-op and every AI SDK call produces an unrecorded span.
   let tracerProvider: BasicTracerProvider | undefined
 
-  if (o.traces.enabled || o.metrics.enabled) {
+  if (o.traces.enabled) {
     const sampler = new ParentBasedSampler({
       // Parent-based + ratio sampler: honor upstream's sampling decision when
       // a trace is already in-flight (so the trace is either fully sampled or
       // fully dropped across services), and fall back to ratio at the root.
-      // In metrics-only mode the sampler value doesn't really matter — no
-      // exporter is attached — but we keep it correct for completeness.
       root: new TraceIdRatioBasedSampler(o.traces.samplerRatio),
     })
-    const spanProcessors: SpanProcessor[] = []
+    const exporter = new TolerantSpanExporter(
+      new OTLPTraceExporter({
+        url: o.exporter.tracesEndpoint,
+        headers: o.exporter.tracesHeaders,
+      }),
+    )
 
-    // GenAI metrics MUST come before the batch exporter so it sees every
-    // onEnd; the batch processor doesn't pass the span on.
-    if (o.metrics.enabled) {
-      spanProcessors.push(new GenAIMetricsSpanProcessor())
-    }
-    if (o.traces.enabled) {
-      const exporter = new TolerantSpanExporter(
-        new OTLPTraceExporter({
-          url: o.exporter.tracesEndpoint,
-          headers: o.exporter.tracesHeaders,
-        }),
-      )
-
-      spanProcessors.push(
+    tracerProvider = new BasicTracerProvider({
+      resource,
+      sampler,
+      spanProcessors: [
         new BatchSpanProcessor(exporter, {
           maxQueueSize: 4_096,
           maxExportBatchSize: 512,
           scheduledDelayMillis: 5_000,
           exportTimeoutMillis: 30_000,
         }),
-      )
-    }
-    tracerProvider = new BasicTracerProvider({
-      resource,
-      sampler,
-      spanProcessors,
+      ],
     })
     trace.setGlobalTracerProvider(tracerProvider)
   }

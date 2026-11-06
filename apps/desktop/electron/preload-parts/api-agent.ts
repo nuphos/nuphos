@@ -86,8 +86,6 @@ export const agentApi = {
   }) => ipcRenderer.invoke('agent:exportJournal', args),
   agentGetCredentialOptions: (teamId?: string) =>
     ipcRenderer.invoke('agent:getCredentialOptions', teamId),
-  agentGetStarterSuggestions: (args: { teamId?: string; resources: string[]; locale?: string }) =>
-    ipcRenderer.invoke('agent:getStarterSuggestions', args),
   agentUpdateConversationCredentials: (args: {
     sessionId: string
     teamId?: string

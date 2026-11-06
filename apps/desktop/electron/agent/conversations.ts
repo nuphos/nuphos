@@ -117,20 +117,6 @@ export async function getCredentialOptions(teamId?: string): Promise<AgentCreden
   return callJson<AgentCredentialOptions>('GET', `/agent/credential-options${teamQuery(teamId)}`)
 }
 
-export type AgentStarterSuggestion = { title: string; prompt: string }
-
-export async function getStarterSuggestions(args: {
-  teamId?: string
-  resources: string[]
-  locale?: string
-}): Promise<{ suggestions: AgentStarterSuggestion[] }> {
-  return callJson<{ suggestions: AgentStarterSuggestion[] }>(
-    'POST',
-    `/agent/starter-suggestions${teamQuery(args.teamId)}`,
-    { resources: args.resources, locale: args.locale },
-  )
-}
-
 export async function updateConversationCredentials(args: {
   sessionId: string
   teamId?: string

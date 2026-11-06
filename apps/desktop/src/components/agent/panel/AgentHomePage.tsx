@@ -3,11 +3,9 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { Composer } from './Composer'
 import { successfulTurns } from './endEventEffects'
 import { StarStrip } from './hero'
-import { RevealedHistoryBlock } from './historyRows'
 import { AgentHomeAnimation, COMPOSER_REVEAL_MS, DelayedPanelReveal } from './homeAnimation'
 import { HomeGithubButton } from './HomeGithubButton'
 import { HomeWidgets } from './HomeWidgets'
-import { StarterSuggestionsBlock } from './starterSuggestions'
 import { homeGreeting } from './textUtils'
 import { useEntranceCount } from './useEntranceCount'
 
@@ -15,7 +13,7 @@ import type { ComposerSend } from './composerMentionChips'
 import type { CredentialSelectorControl } from './credentialSections'
 import type { AgentPromptSeed } from './model'
 import type { RuntimeControl } from './RuntimeSelector'
-import type { AgentConversation, AgentStarterSuggestion, LocalAgentSessionInfo } from '../../../api'
+import type { LocalAgentSessionInfo } from '../../../api'
 import type { ReactNode } from 'react'
 
 // "Not now" has to stick, or a nudge becomes nagging.
@@ -42,8 +40,6 @@ function useStickyDismiss(key: string | null) {
 }
 
 export function AgentHomePage({
-  conversations,
-  loading,
   onSend,
   onStop,
   credentialSelector,
@@ -54,11 +50,8 @@ export function AgentHomePage({
   onSeedConsumed,
   autoFocusComposer = false,
   dropRegisterRef,
-  unbound = false,
   teamId,
   draftKey,
-  starterSuggestions = [],
-  starterSuggestionsLoading = false,
   shown = true,
   newChatRequest = 0,
   userName,
@@ -67,10 +60,6 @@ export function AgentHomePage({
   onOpenConversation,
   onOpenNuphosLink,
 }: {
-  /** Only used to decide whether the starter suggestions are worth showing:
-   *  they are for a team that has not started a conversation yet. */
-  conversations: AgentConversation[]
-  loading: boolean
   onSend: ComposerSend
   onStop: () => void
   credentialSelector?: CredentialSelectorControl
@@ -83,12 +72,6 @@ export function AgentHomePage({
   onSeedConsumed?: () => void
   autoFocusComposer?: boolean
   dropRegisterRef?: { current: ((dt: DataTransfer) => void) | null }
-  // Both undefined when scope filter doesn't apply (personal feed, no teamId).
-  // Both defined together when in a team workspace.
-  // Non-null when the team has no bound integrations: the composer is replaced
-  // with a step-by-step connect guide and the Recent list is hidden.
-  /** No integrations bound yet — starter suggestions stay off, nothing else. */
-  unbound?: boolean
   /** Whether the page is in view; each time it comes back, the entrance replays. */
   shown?: boolean
   newChatRequest?: number
@@ -96,10 +79,6 @@ export function AgentHomePage({
   teamId?: string
   /** Where the composer's unsent text is kept; see newChatDraftKey. */
   draftKey?: string
-  // LLM-generated starter questions tailored to the team's connected resources.
-  // Empty (and not loading) → the block is hidden.
-  starterSuggestions?: AgentStarterSuggestion[]
-  starterSuggestionsLoading?: boolean
   /** The signed-in user's display name, greeted by its first word. */
   userName?: string
   /** Continue a local Claude Code / Codex session on the selected agent. */
@@ -179,26 +158,12 @@ export function AgentHomePage({
             </div>
           </DelayedPanelReveal>
         </div>
-        <div className="mx-auto w-full max-w-[820px]">
+        <div className="mx-auto w-full max-w-[820px] pb-3">
           <DelayedPanelReveal replayKey={entranceKey}>
             {teamId && isTeamAdmin && !onConnectAgent && !runtimeControl?.loading && (
               <HomeGithubButton teamId={teamId} />
             )}
           </DelayedPanelReveal>
-          <div className="pt-3">
-            {!unbound &&
-              !loading &&
-              conversations.length === 0 &&
-              (starterSuggestionsLoading || starterSuggestions.length > 0) && (
-                <RevealedHistoryBlock key={entranceKey}>
-                  <StarterSuggestionsBlock
-                    loading={starterSuggestionsLoading}
-                    suggestions={starterSuggestions}
-                    onPick={(prompt) => (onConnectAgent ? onConnectAgent() : onSend(prompt, []))}
-                  />
-                </RevealedHistoryBlock>
-              )}
-          </div>
         </div>
         {teamId && (
           <div className="mx-auto mt-6 w-full max-w-[820px]">

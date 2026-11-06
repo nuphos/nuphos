@@ -54,8 +54,6 @@ type Props = {
    *  the page beside it changes. The latest value is read only when needed. */
   runtimeUrlRef?: MutableRefObject<string | undefined>
   teamId?: string
-  /** False for the skippable Free console; prevents unpaid background LLM suggestions. */
-  paid?: boolean
   /** Page variant: replace the team.agent page with a global right-side sidebar. */
   onDockToSidebar?: (snapshot: Tab | null) => void
   /** Panel variant: re-open the team.agent page (and close the sidebar). */
@@ -129,25 +127,8 @@ type Props = {
   runtimeKubeContextRef?: MutableRefObject<string | null | undefined>
   /** Viewer is a team administrator — gates approving permission-grant proposals. */
   isTeamAdmin?: boolean
-  /**
-   * Page-mode integration gate. Non-null when the team hasn't bound ANY
-   * integration yet: the home page swaps its composer for a step-by-step
-   * connect guide and every composer is disabled, since the agent has nothing
-   * to act on until the first connector is bound. `onConnect` opens the
-   * Whether this team has no integrations bound yet. Chatting is allowed
-   * either way — this only withholds what needs bound resources to mean
-   * anything (starter suggestions, auto-mode). Left undefined in panel mode,
-   * which never had the gate.
-   */
+  /** No integrations bound yet. Only changes the page background. */
   unbound?: boolean
-  /**
-   * Human labels for the integrations the team has bound (e.g. ['AWS',
-   * 'Slack', 'GitHub']). Used on the page-mode home screen to fetch a set of
-   * LLM-generated starter questions tailored to the connected resources. Empty
-   * or omitted → no suggestions are fetched. Ignored while `unbound` is
-   * set (nothing connected) and in panel mode.
-   */
-  connectedResources?: string[]
 }
 
 export const AgentPanel = memo(function AgentPanel({
@@ -158,7 +139,6 @@ export const AgentPanel = memo(function AgentPanel({
   url,
   runtimeUrlRef,
   teamId,
-  paid = false,
   onDockToSidebar,
   onExpandToPage,
   pendingImport,
@@ -188,7 +168,6 @@ export const AgentPanel = memo(function AgentPanel({
   runtimeKubeContextRef,
   isTeamAdmin = false,
   unbound = false,
-  connectedResources,
 }: Props) {
   // Without a host's id, the new-chat draft lives only as long as this panel.
   const [ownNewChatDraftId] = useState(() => crypto.randomUUID())
@@ -198,7 +177,6 @@ export const AgentPanel = memo(function AgentPanel({
     onOpenChange,
     userName,
     teamId,
-    paid,
     url,
     runtimeUrlRef,
     unbound,
@@ -228,7 +206,6 @@ export const AgentPanel = memo(function AgentPanel({
     openQuestions,
     kubeContext,
     runtimeKubeContextRef,
-    connectedResources,
     onDockToSidebar,
     onExpandToPage,
   }

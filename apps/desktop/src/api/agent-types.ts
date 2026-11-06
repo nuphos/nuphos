@@ -194,10 +194,6 @@ export type AgentSlackThread = {
   url: string | null
 }
 
-// One LLM-generated starter question shown on the agent home page after the
-// team connects its first integration.
-export type AgentStarterSuggestion = { title: string; prompt: string }
-
 export type {
   AgentConversationCredentialsResponse,
   AgentCredentialAccess,

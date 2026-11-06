@@ -16,10 +16,8 @@ type PaneAgentPageProps = {
   user: UserInfo
   active: boolean
   isTeamAdmin: boolean
-  agentPaid: boolean
   pageHref: string
   agentUnbound: boolean
-  agentConnectedResources: string[]
   pendingPageImport: { tabId: string; snapshot: AgentSessionSnapshot } | null
   pendingChatPrompt: AgentPromptSeed | null
   onDockAgentToSidebar: (snapshot: AgentSessionSnapshot | null) => void
@@ -37,10 +35,8 @@ export function PaneAgentPage({
   user,
   active,
   isTeamAdmin,
-  agentPaid,
   pageHref,
   agentUnbound,
-  agentConnectedResources,
   pendingPageImport,
   pendingChatPrompt,
   onDockAgentToSidebar,
@@ -81,11 +77,9 @@ export function PaneAgentPage({
           userName={user.name}
           url={pageHref}
           teamId={tab.scope.teamId}
-          paid={agentPaid}
           isTeamAdmin={isTeamAdmin}
           kubeContext={tab.kubeconfigContext}
           unbound={agentUnbound}
-          connectedResources={agentConnectedResources}
           onDockToSidebar={onDockAgentToSidebar}
           newChatDraftId={`tab:${tab.id}`}
           sessionId={tab.agentSessionId}

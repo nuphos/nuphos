@@ -28,13 +28,6 @@ type Registry = {
   httpClientRequestDuration: Histogram
   httpClientErrors: Counter
 
-  // AI
-  aiGenerationDuration: Histogram
-  aiTokensInput: Counter
-  aiTokensOutput: Counter
-  aiTokensReasoning: Counter
-  aiToolCalls: Counter
-
   // Runtime (filled by observable callbacks in runtime.ts)
   runtimeEventLoopLag: ObservableGauge
   runtimeMemoryRss: ObservableGauge
@@ -102,26 +95,6 @@ export function metricsRegistry(): Registry {
     }),
     httpClientErrors: m.createCounter('http.client.errors', {
       description: 'Outbound HTTP errors (transport + 5xx)',
-    }),
-
-    aiGenerationDuration: m.createHistogram('gen_ai.client.operation.duration', {
-      description: 'Duration of GenAI client operations',
-      unit: 's',
-    }),
-    aiTokensInput: m.createCounter('gen_ai.client.token.usage.input', {
-      description: 'Input tokens consumed',
-      unit: '{token}',
-    }),
-    aiTokensOutput: m.createCounter('gen_ai.client.token.usage.output', {
-      description: 'Output tokens emitted',
-      unit: '{token}',
-    }),
-    aiTokensReasoning: m.createCounter('gen_ai.client.token.usage.reasoning', {
-      description: 'Reasoning tokens consumed',
-      unit: '{token}',
-    }),
-    aiToolCalls: m.createCounter('gen_ai.client.tool_calls', {
-      description: 'Tool calls issued by the model',
     }),
 
     runtimeEventLoopLag: m.createObservableGauge('process.runtime.event_loop.lag', {

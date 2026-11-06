@@ -1805,11 +1805,6 @@
 .t-message-send[data-open='false'] {
   transition: none;
 }
-.t-agent-history-reveal {
-  --panel-translate-y: 10px;
-  --panel-open-dur: 260ms;
-  --panel-close-dur: 150ms;
-}
 .t-agent-memory-event {
   --panel-translate-y: 6px;
   --panel-open-dur: 220ms;
