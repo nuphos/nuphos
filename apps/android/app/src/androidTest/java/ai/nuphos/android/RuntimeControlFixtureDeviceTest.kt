@@ -116,6 +116,13 @@ class RuntimeControlFixtureDeviceTest {
         transfers: AttachmentTransfers = AttachmentTransfers(),
         steer: suspend (String, String, String, String) -> String = RuntimeApi::steer,
         retained: ComposerSubmission? = null) {
+        // Drafts are saved per conversation, so one test's text would otherwise reach the next.
+        val shares = (compose.activity.application as NuphosApplication).incomingShares
+        kotlinx.coroutines.runBlocking {
+            shares.identityReset()
+            shares.awaitIdle()
+            shares.bindAccount("runtime-fixture")
+        }
         val store = AgentStore("synthetic-no-credentials", compose.activity)
         session = ChatSession("synthetic-no-credentials", "ui-team", "fixture", transfers = transfers, steerRuntime = steer)
         compose.runOnIdle {
@@ -137,7 +144,8 @@ class RuntimeControlFixtureDeviceTest {
             AuthSession::class.java.getDeclaredField("token").also { it.isAccessible = true }.set(auth, fixtureToken)
             state(auth, "state", AuthSession.State.SignedIn(NuphosUser("runtime-fixture", "runtime@example.invalid", "Runtime fixture")))
             // The composer only accepts drafts once incoming shares are bound to the signed-in account.
-            compose.activity.lifecycleScope.launch { app.incomingShares.bindAccount("runtime-fixture") }
+            auth.composerDrafts.onIdentity("runtime-fixture")
+            auth.composerDrafts.clear()
             compose.activity.setContent {
                 NuphosTheme {
                     CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {

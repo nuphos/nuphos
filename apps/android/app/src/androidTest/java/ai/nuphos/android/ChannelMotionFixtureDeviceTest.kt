@@ -135,7 +135,7 @@ class ChannelMotionFixtureDeviceTest {
     private fun waitFor(text: String) = compose.waitUntil(12_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
     private fun top(text: String) = compose.onNodeWithText(text).fetchSemanticsNode().boundsInRoot.top
     private fun bottom(text: String) = compose.onNodeWithText(text).fetchSemanticsNode().boundsInRoot.bottom
-    private val composerTop get() = compose.onNodeWithContentDescription("Message #chat-a").fetchSemanticsNode().boundsInRoot.top
+    private val composerTop get() = compose.onNodeWithContentDescription("Message chat-a").fetchSemanticsNode().boundsInRoot.top
     private val jump get() = compose.onNodeWithContentDescription("Scroll to latest")
     private fun settle() { Thread.sleep(800); compose.waitForIdle() }
     private fun readOlder() {
