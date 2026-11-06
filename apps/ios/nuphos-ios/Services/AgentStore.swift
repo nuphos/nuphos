@@ -73,7 +73,8 @@ final class AgentStore {
 
     private func loadPreviews(team: String) async {
         let stale = channels.filter { previewedAt[$0.sessionId] != $0.lastActiveAt }
-        let read = await withTaskGroup(of: (String, Date, String?)?.self) { group in
+        typealias Read = (id: String, at: Date, preview: String?)
+        let read: [Read] = await withTaskGroup(of: Read?.self) { group in
             for chat in stale {
                 group.addTask { [token = self.token] in
                     guard let detail = try? await NuphosAPI.conversationDetail(
@@ -82,12 +83,14 @@ final class AgentStore {
                     return (chat.sessionId, chat.lastActiveAt, ChannelPost.preview(detail.messages))
                 }
             }
-            return await group.reduce(into: []) { if let row = $1 { $0.append(row) } }
+            var rows: [Read] = []
+            for await row in group { if let row { rows.append(row) } }
+            return rows
         }
         guard team == selectedTeam?.id else { return }
-        for (id, at, preview) in read {
-            previewedAt[id] = at
-            channelPreviews[id] = preview
+        for row in read {
+            previewedAt[row.id] = row.at
+            channelPreviews[row.id] = row.preview
         }
     }
 

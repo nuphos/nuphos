@@ -8,8 +8,9 @@ struct HomeView: View {
     let user: NuphosUser
 
     @State private var page: HomePage = Self.initialPage
-    /// The viewer picked a page, so the default tab no longer applies.
-    @State private var pageChosen = false
+    /// The viewer picked a page, so the default tab no longer applies. A
+    /// DEBUG `-page` launch argument is a pick too.
+    @State private var pageChosen = CommandLine.arguments.contains("-page")
     /// The next page change is the default tab, not the viewer's pick.
     @State private var autoPage = false
     @State private var showProfile = false
