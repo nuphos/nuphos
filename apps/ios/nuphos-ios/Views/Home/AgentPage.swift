@@ -96,9 +96,6 @@ struct AgentPage: View {
             }
             #endif
             .safeAreaInset(edge: .top, spacing: 0) {
-                HomeTabs(page: $page)
-            }
-            .safeAreaInset(edge: .top, spacing: 0) {
                 if isSearching {
                     SearchBar(text: $store.search) {
                         store.search = ""
@@ -454,56 +451,6 @@ struct AgentPage: View {
         .scrollContentBackground(.hidden)
         .background(Theme.canvas)
         .scrollDismissesKeyboard(.interactively)
-    }
-}
-
-/// Chats and Agents, side by side under the bar. Chats counts the ones
-/// with unread posts.
-struct HomeTabs: View {
-    @Binding var page: HomePage
-    @Environment(AgentStore.self) private var store
-
-    private var unread: Int {
-        store.channels.filter {
-            ConversationUnread.shared.contains(team: $0.teamId ?? store.selectedTeam?.id ?? "", session: $0.sessionId)
-        }.count
-    }
-
-    var body: some View {
-        HStack(spacing: 8) {
-            tab(.chats, badge: unread)
-            tab(.agent, badge: 0)
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 6)
-    }
-
-    private func tab(_ tab: HomePage, badge: Int) -> some View {
-        let selected = page == tab
-        return Button { page = tab } label: {
-            HStack(spacing: 6) {
-                Text(tab.title)
-                if badge > 0 {
-                    Text(verbatim: "\(badge)")
-                        .font(.caption2.weight(.bold))
-                        .monospacedDigit()
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 6)
-                        .frame(minWidth: 18, minHeight: 18)
-                        .background(Capsule().fill(Theme.unread))
-                }
-            }
-            .font(Theme.Text.label.weight(.semibold))
-            .foregroundStyle(selected ? Theme.canvas : Theme.heading)
-            .padding(.horizontal, 14)
-            .frame(height: 34)
-            .background(Capsule().fill(selected ? Theme.heading : Theme.muted.opacity(0.12)))
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityValue(badge > 0 ? Text("\(badge) unread") : Text(""))
     }
 }
 

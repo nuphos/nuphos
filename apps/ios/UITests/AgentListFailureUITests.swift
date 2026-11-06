@@ -86,12 +86,10 @@ final class AgentListFailureUITests: XCTestCase {
         let original = try originalList()
         responses[list] = ["status": 200, "body": ["conversations": [], "hasMore": false]]
         launch(page: false)
-        openAgents()
-        XCTAssertTrue(app.staticTexts["No agents yet"].waitForExistence(timeout: 10), "The empty list did not load")
+        XCTAssertTrue(app.staticTexts["No tasks yet"].waitForExistence(timeout: 10), "The empty list did not load")
 
         try respond(list, status: 500, body: ["error": ["message": "First failure"]])
         launch(page: false)
-        openAgents()
         XCTAssertTrue(app.staticTexts["Couldn't load agents"].waitForExistence(timeout: 10), "The first read should fail")
         XCTAssertTrue(app.staticTexts["First failure"].exists)
 
@@ -163,17 +161,11 @@ final class AgentListFailureUITests: XCTestCase {
     private func launch(page: Bool = true) {
         try? write()
         app = XCUIApplication()
-        app.launchArguments = ["-preview-home", "-preview-no-push"]
+        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "agent"]
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
         app.launch()
         guard page else { return }
-        openAgents()
         XCTAssertTrue(row("Release ops").waitForExistence(timeout: 10), "The list did not load")
-    }
-
-    private func openAgents() {
-        let agents = app.buttons["Agents"].firstMatch
-        if agents.waitForExistence(timeout: 10) { agents.tap() }
     }
 
     private func row(_ title: String) -> XCUIElement {
