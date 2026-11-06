@@ -30,7 +30,7 @@ export function ChatIcon({
   className?: string
 }) {
   const { density } = useAgentAppearance()
-  const size = sidebar ? (density === 'compact' ? 22 : 30) : given
+  const size = sidebar ? (density === 'compact' ? 22 : 40) : given
   const [front, back] = faces ?? []
 
   if (!front) return <Avatar name={title} size={size} className={clsx('rounded-full', className)} />

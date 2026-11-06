@@ -30,7 +30,7 @@ export function AgentAvatar({
   const { botAvatars, density } = useAgentAppearance()
   const seen = useAgentAvatarPick(agentId)
   const running = runtimeTurnActive(useAgentRuntimeStates().get(agentId))
-  const sidebarSize = density === 'compact' ? 22 : 30
+  const sidebarSize = density === 'compact' ? 22 : 40
   const box = sidebar ? sidebarSize : size
   const badge = box <= 24 ? 9 : 12
   const runtime = (

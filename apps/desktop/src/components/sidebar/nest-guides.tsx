@@ -7,8 +7,11 @@ import { openChatSummarySubAgents } from '../../lib/chatSummaryPanel'
 import type { Item } from './types'
 import type { ReactNode } from 'react'
 
-// Tree lines follow the icon centre in either sidebar density.
+// Tree lines follow the icon centre in either sidebar density. A comfortable
+// row's face sits right of its status dot, so a thread indents further there
+// and the turn runs through the dot to the face.
 const NEST_INDENT = 16
+const COMFORTABLE_INDENT = 38
 const LINE = 'pointer-events-none absolute border-zGray-800/60'
 // -bottom-0.5 spans the 2px gap between rows so the next row's line joins on.
 const DOWN = `${LINE} -bottom-0.5 border-l`
@@ -31,15 +34,16 @@ export function NestedRowBody({
   children: ReactNode
 }) {
   const own = trail.length - 1
-  const x = (level: number) => ({ left: level * NEST_INDENT + (comfortable ? 23 : 19) })
-  const centerY = comfortable ? 21 : 15
-  const bottomY = comfortable ? 37 : 27
+  const indent = comfortable ? COMFORTABLE_INDENT : NEST_INDENT
+  const x = (level: number) => ({ left: level * indent + (comfortable ? 44 : 19) })
+  const centerY = comfortable ? 34 : 15
+  const bottomY = comfortable ? 54 : 27
 
   return (
     <>
       <div
         className="t-collapse-inner t-stagger-line"
-        style={trail.length ? { paddingLeft: trail.length * NEST_INDENT } : undefined}
+        style={trail.length ? { paddingLeft: trail.length * indent } : undefined}
       >
         {children}
       </div>
@@ -50,8 +54,8 @@ export function NestedRowBody({
             // The turn into this row's icon.
             <span
               aria-hidden
-              className={`${LINE} top-0 w-[6px] rounded-bl-[6px] border-b border-l`}
-              style={{ ...x(level), height: centerY }}
+              className={`${LINE} top-0 rounded-bl-[6px] border-b border-l`}
+              style={{ ...x(level), height: centerY, width: comfortable ? 18 : 6 }}
             />
           )}
         </Fragment>

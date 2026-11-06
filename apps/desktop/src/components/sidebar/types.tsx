@@ -18,6 +18,8 @@ export type Item = {
   description?: ReactNode
   /** A chat's newest message, shown under its name in comfortable density. */
   preview?: string
+  /** When the chat was last active, beside its name in comfortable density. */
+  time?: string
   icon?: LucideIcon
   iconNode?: ReactNode
   enabled: boolean

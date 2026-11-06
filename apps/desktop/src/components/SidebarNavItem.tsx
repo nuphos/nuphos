@@ -48,8 +48,10 @@ type SidebarNavItemProps = {
   hoverActions?: ReactNode
   /** Larger Agent row; other navigation keeps its compact height. */
   comfortable?: boolean
-  /** A quiet line under the label, cut to fit (a chat's newest message). */
+  /** Comfortable chat rows: the newest message, up to two lines under the label. */
   preview?: string
+  /** Comfortable chat rows: when that message came, at the label's right. */
+  time?: string
   /** Wait for the click when a press may start a drag instead. */
   navigateOnRelease?: boolean
   /** Cross-fade the label when it changes in place (e.g. a renamed chat). */
@@ -86,11 +88,88 @@ export function SidebarNavItem({
   navigateOnRelease = false,
   comfortable = false,
   preview,
+  time,
   animateLabel = false,
 }: SidebarNavItemProps) {
   const { containerRef, start, stop } = useHoverMarquee<HTMLSpanElement>(label)
   const id = useId()
   const badgeShown = badge !== undefined && badge > 0
+  // A comfortable row shows its state beside the face instead, leaving this slot to the actions.
+  const rest = comfortable ? null : trailing
+  const iconBox = (
+    <span
+      className={clsx(
+        'flex-shrink-0 flex items-center transition-colors [&>svg]:size-4',
+        active ? 'text-main' : 'text-tertiary group-hover:text-main',
+      )}
+    >
+      {icon}
+    </span>
+  )
+  const labelBox = (
+    <span
+      id={`${id}-label`}
+      ref={containerRef}
+      className={clsx('t-marquee flex-1 min-w-0 text-left', comfortable && 'font-medium')}
+    >
+      {animateLabel ? <SwapLabel label={label} /> : label}
+    </span>
+  )
+  const tail = (
+    <>
+      {note != null && (
+        <span id={`${id}-note`} className="flex-shrink-0 flex items-center">
+          {note}
+        </span>
+      )}
+      {badgeShown && (
+        <span
+          id={`${id}-badge`}
+          className="flex-shrink-0 inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-zViolet-500 text-white text-[11px] font-medium leading-none"
+        >
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
+      {/* One trailing slot: the row's state at rest, its actions on hover or
+          focus — never both. Only the showing one takes space, so at rest the
+          title runs up to the indicator, and on hover its clip edge (and fade)
+          moves in to make room for the actions, as Codex does. Presses here
+          must not navigate the row: activation happens at pointerdown, so they
+          are fenced off. */}
+      <Fenced>
+        {hoverActions == null ? (
+          rest
+        ) : (
+          <span className="relative flex flex-shrink-0 items-center">
+            <span
+              id={comfortable ? undefined : `${id}-trailing`}
+              className={clsx(
+                'flex items-center gap-1.5 group-hover:hidden group-focus-visible:hidden',
+                'group-has-[:focus-visible]/row:hidden group-has-[[aria-expanded=true]]/row:hidden',
+              )}
+            >
+              {rest}
+            </span>
+            {/* At rest the actions are transparent and out of flow rather than
+                hidden, so Tab can still reach them; focusing one reveals them. */}
+            <span
+              className={clsx(
+                'pointer-events-none absolute right-0 flex items-center gap-1 opacity-0',
+                'group-hover:pointer-events-auto group-hover:static group-hover:opacity-100',
+                'group-focus-visible:pointer-events-auto group-focus-visible:static group-focus-visible:opacity-100',
+                'group-has-[:focus-visible]/row:pointer-events-auto group-has-[:focus-visible]/row:static group-has-[:focus-visible]/row:opacity-100',
+                // An action whose menu is open stays put as the menu's anchor.
+                'group-has-[[aria-expanded=true]]/row:pointer-events-auto group-has-[[aria-expanded=true]]/row:static group-has-[[aria-expanded=true]]/row:opacity-100',
+              )}
+            >
+              {hoverActions}
+            </span>
+          </span>
+        )}
+      </Fenced>
+      <Fenced>{edge}</Fenced>
+    </>
+  )
 
   return (
     <BaseButton
@@ -130,7 +209,7 @@ export function SidebarNavItem({
       }}
       className={clsx(
         SIDEBAR_ROW_CLASS,
-        comfortable && '!h-[42px]',
+        comfortable && '!h-[68px] !rounded-xl',
         'group group/row w-full flex items-center transition-colors outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0',
         !sharedBackground && 'focus-visible:bg-[var(--sidebar-overlay-focus)]',
         active
@@ -144,75 +223,44 @@ export function SidebarNavItem({
               : 'text-secondary hover:bg-[var(--sidebar-overlay-hover)]',
       )}
     >
-      <span
-        className={clsx(
-          'flex-shrink-0 flex items-center transition-colors [&>svg]:size-4',
-          active ? 'text-main' : 'text-tertiary group-hover:text-main',
-        )}
-      >
-        {icon}
-      </span>
-      <span className="flex-1 min-w-0 flex flex-col text-left">
-        <span id={`${id}-label`} ref={containerRef} className="t-marquee">
-          {animateLabel ? <SwapLabel label={label} /> : label}
-        </span>
-        {preview && (
-          <span className="t-marquee text-[12px] leading-4 font-normal text-tertiary">
-            {preview}
-          </span>
-        )}
-      </span>
-      {note != null && (
-        <span id={`${id}-note`} className="flex-shrink-0 flex items-center">
-          {note}
-        </span>
-      )}
-      {badgeShown && (
-        <span
-          id={`${id}-badge`}
-          className="flex-shrink-0 inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-zViolet-500 text-white text-[11px] font-medium leading-none"
-        >
-          {badge > 99 ? '99+' : badge}
-        </span>
-      )}
-      {/* One trailing slot: the row's state at rest, its actions on hover or
-          focus — never both. Only the showing one takes space, so at rest the
-          title runs up to the indicator, and on hover its clip edge (and fade)
-          moves in to make room for the actions, as Codex does. Presses here
-          must not navigate the row: activation happens at pointerdown, so they
-          are fenced off. */}
-      <Fenced>
-        {hoverActions == null ? (
-          trailing
-        ) : (
-          <span className="relative flex flex-shrink-0 items-center">
-            <span
-              id={`${id}-trailing`}
-              className={clsx(
-                'flex items-center gap-1.5 group-hover:hidden group-focus-visible:hidden',
-                'group-has-[:focus-visible]/row:hidden group-has-[[aria-expanded=true]]/row:hidden',
-              )}
-            >
+      {comfortable ? (
+        <>
+          {/* The row's state sits left of the face, as iMessage's unread dot does. */}
+          <span className="flex-shrink-0 flex items-center gap-0.5">
+            <span id={`${id}-trailing`} className="w-3.5 flex items-center justify-center">
               {trailing}
             </span>
-            {/* At rest the actions are transparent and out of flow rather than
-                hidden, so Tab can still reach them; focusing one reveals them. */}
-            <span
-              className={clsx(
-                'pointer-events-none absolute right-0 flex items-center gap-1 opacity-0',
-                'group-hover:pointer-events-auto group-hover:static group-hover:opacity-100',
-                'group-focus-visible:pointer-events-auto group-focus-visible:static group-focus-visible:opacity-100',
-                'group-has-[:focus-visible]/row:pointer-events-auto group-has-[:focus-visible]/row:static group-has-[:focus-visible]/row:opacity-100',
-                // An action whose menu is open stays put as the menu's anchor.
-                'group-has-[[aria-expanded=true]]/row:pointer-events-auto group-has-[[aria-expanded=true]]/row:static group-has-[[aria-expanded=true]]/row:opacity-100',
-              )}
-            >
-              {hoverActions}
-            </span>
+            {iconBox}
           </span>
-        )}
-      </Fenced>
-      <Fenced>{edge}</Fenced>
+          <span
+            className={clsx(
+              'flex-1 min-w-0 self-stretch flex flex-col',
+              preview ? 'pt-2' : 'justify-center',
+            )}
+          >
+            <span className="flex items-center gap-2 text-main">
+              {labelBox}
+              {time && (
+                <span className="flex-shrink-0 text-[12px] font-normal tabular-nums text-tertiary">
+                  {time}
+                </span>
+              )}
+              {tail}
+            </span>
+            {preview && (
+              <span className="line-clamp-2 break-words text-left text-[13px] leading-[17px] font-normal text-secondary">
+                {preview}
+              </span>
+            )}
+          </span>
+        </>
+      ) : (
+        <>
+          {iconBox}
+          {labelBox}
+          {tail}
+        </>
+      )}
     </BaseButton>
   )
 }

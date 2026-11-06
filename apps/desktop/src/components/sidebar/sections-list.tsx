@@ -213,6 +213,7 @@ export function SidebarSectionList({
                             }}
                             label={item.label}
                             preview={density === 'comfortable' ? item.preview : undefined}
+                            time={density === 'comfortable' ? item.time : undefined}
                             animateLabel={chatRow}
                             note={rowNote(item, done)}
                             badge={item.badge}
