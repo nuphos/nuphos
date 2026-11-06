@@ -74,6 +74,8 @@ export type AgentConversation = ConversationInputRequests & {
   title: string
   /** Bot avatar picked by the owner or a manager, e.g. `05-rembrandt`. Absent = derived from sessionId. */
   avatar?: string
+  /** A Bot's own standing instructions, written by the Bot through `update_self`. */
+  instructions?: string
   firstMessage: string
   messageCount: number
   transcriptUpdatedAt?: Date

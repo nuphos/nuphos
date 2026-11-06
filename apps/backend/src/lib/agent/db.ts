@@ -50,6 +50,8 @@ export {
   renameConversation,
   setConversationAvatar,
   setConversationParent,
+  updateBotSelf,
+  claimBotAvatar,
 } from './db/maintenance'
 export { addInputRequest, clearPendingDecision, resolveInputRequest } from './db/pending-decision'
 export {

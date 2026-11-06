@@ -142,7 +142,7 @@ export function BoxUsageChart({
                     const atLimit = point.limit !== null && point.used >= point.limit
 
                     return (
-                      <div className="rounded-md border border-line-control bg-state-selected px-2 py-1 text-[11px] shadow-lg">
+                      <div className="rounded-md border border-line-control bg-surface-raised px-2 py-1 text-[11px] shadow-lg">
                         <div className="text-tertiary">{timeLabel(point.at, range)}</div>
                         <div className={atLimit ? 'font-mono text-warning' : 'font-mono text-main'}>
                           {point.used}

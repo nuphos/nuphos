@@ -43,7 +43,6 @@ export async function authorizeThreadActor(actor: ThreadActor): Promise<AgentCon
   ) {
     throw new Error('Thread tools require your own conversation in a team you still belong to.')
   }
-  if (!source.credentialAccess) throw new Error('Select credentials for this conversation first.')
 
   return source
 }

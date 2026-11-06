@@ -57,6 +57,40 @@ export async function setConversationAvatar(
   return result.matchedCount > 0
 }
 
+// "Make this a Bot": the face is set only while there is none, so of two
+// requests racing, exactly one wins and the other sees it already done.
+export async function claimBotAvatar(sessionId: string, avatar: string): Promise<boolean> {
+  const result = await agentConversations().updateOne(
+    { sessionId, avatar: { $exists: false } },
+    { $set: { avatar } },
+  )
+
+  return result.modifiedCount > 0
+}
+
+export type BotSelfUpdate = { title?: string; avatar?: string; instructions?: string }
+
+// A Bot (a conversation with an avatar) edits its own name, face and
+// instructions. A Task has no avatar, so this never turns a Task into a Bot.
+export async function updateBotSelf(
+  sessionId: string,
+  userId: string,
+  teamId: string | undefined,
+  update: BotSelfUpdate,
+): Promise<boolean> {
+  const result = await agentConversations().updateOne(
+    withTeamScope({ sessionId, userId, avatar: { $exists: true } }, teamId),
+    {
+      $set: {
+        ...update,
+        ...(update.title === undefined ? {} : { titleManuallySet: true }),
+      },
+    },
+  )
+
+  return result.matchedCount > 0
+}
+
 // Nests a conversation under another one, or stops nesting it when
 // `parentSessionId` is null.
 export async function setConversationParent(

@@ -1,7 +1,21 @@
+import { randomUUID } from 'node:crypto'
+
 import { z } from 'zod'
 
-import { getReadableConversation, setConversationAvatar } from '@/lib/agent/db'
+import { derivedAvatar } from '@/lib/agent/bot-avatars'
+import { startConversationTurn } from '@/lib/agent/conversation-turn'
+import {
+  claimBotAvatar,
+  getReadableConversation,
+  setConversationAvatar,
+  upsertConversationShell,
+} from '@/lib/agent/db'
+import {
+  validateRequestedAgentRuntime,
+  validateRequestedRuntimeId,
+} from '@/lib/claude-code-preview/runtime-routing'
 import { AppError } from '@/lib/errors'
+import { logError } from '@/lib/observability'
 
 import { agent } from './router'
 import { readTeamIdCandidate, resolveVerifiedTeamId } from './team-scope'
@@ -37,4 +51,95 @@ agent.patch('/conversations/:sessionId/avatar', async (c) => {
   }
 
   return c.json({ avatar: body.data.avatar })
+})
+
+// "+" on Bots: a Bot exists, with a name and a face, before anyone types. It
+// is placed on the runtime the client would start a new chat on, so its
+// composer shows that runtime and its first turn runs there.
+const createBotBody = z
+  .object({
+    teamId: z.string().optional(),
+    runtimeId: z.unknown().optional(),
+    agentRuntime: z.unknown().optional(),
+    runtimeLabel: z.string().max(200).optional(),
+  })
+  .strict()
+
+agent.post('/bots', async (c) => {
+  const body = createBotBody.safeParse(await c.req.json().catch(() => ({})))
+
+  if (!body.success) throw new AppError(400, 'invalid_request', 'Invalid Bot request')
+  const { runtimeId, agentRuntime, runtimeLabel } = body.data
+
+  validateRequestedRuntimeId(runtimeId)
+  validateRequestedAgentRuntime(agentRuntime)
+  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.data.teamId))
+
+  if (!teamId) throw new AppError(403, 'forbidden', 'Workspace membership is required')
+  const sessionId = randomUUID()
+  const avatar = derivedAvatar(sessionId)
+  const title = 'New Bot'
+
+  await upsertConversationShell({
+    sessionId,
+    userId: c.get('userId'),
+    teamId,
+    title,
+    firstMessage: '',
+    avatar,
+    ...(agentRuntime ? { agentRuntime } : {}),
+    ...(runtimeId ? { runtimeId, ...(runtimeLabel ? { runtimeLabel } : {}) } : {}),
+  })
+
+  return c.json({ sessionId, title, avatar }, 201)
+})
+
+const MAKE_BOT_PROMPT =
+  'This conversation is now a Bot: a persistent agent with its own name, face and standing instructions. ' +
+  'From the conversation so far, choose a short name for yourself and write the instructions you should keep following, ' +
+  'then save both with the `update_self` tool. Reply with one line saying who you are now.'
+
+// "Make this a Bot": the Task gets the face its id derives, so it is a Bot at
+// once, and is asked to name and describe itself with `update_self`.
+agent.post('/conversations/:sessionId/bot', async (c) => {
+  const userId = c.get('userId')
+  const sessionId = c.req.param('sessionId')
+  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c))
+  const conversation = await getReadableConversation(sessionId, userId, teamId)
+
+  if (!conversation || conversation.userId !== userId || conversation.kind === 'channel' || !teamId)
+    throw new AppError(404, 'not_found', 'Conversation not found')
+  if (conversation.avatar) return c.json({ avatar: conversation.avatar })
+  const avatar = derivedAvatar(sessionId)
+
+  // A second click that lost the race finds the face set: nothing more to do.
+  if (!(await claimBotAvatar(sessionId, avatar))) {
+    const current = await getReadableConversation(sessionId, userId, teamId)
+
+    return c.json({ avatar: current?.avatar ?? avatar })
+  }
+  // Runs or queues as its own turn; the reply streams to whoever watches. Both
+  // the hand-off and the turn itself report a failure here, not as unhandled.
+  void startConversationTurn(
+    {
+      userId,
+      teamId,
+      targetSessionId: sessionId,
+      messageId: randomUUID(),
+      locale: conversation.metadata?.locale ?? 'en-US',
+    },
+    { ...conversation, avatar },
+    MAKE_BOT_PROMPT,
+    'agent.resource',
+    {
+      version: 1,
+      sender: { type: 'system', id: 'nuphos:make-bot', displayName: 'Nuphos' },
+      source: 'agent.resource',
+      sentAt: new Date().toISOString(),
+    },
+  )
+    .then(({ run }) => run)
+    .catch((error: unknown) => logError('agent.make_bot.turn_failed', error))
+
+  return c.json({ avatar })
 })

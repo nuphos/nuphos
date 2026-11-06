@@ -92,7 +92,7 @@ export function MetricChart({
                 if (!active || !point) return null
 
                 return (
-                  <div className="rounded-md border border-line-control bg-state-selected px-2 py-1 text-[11px] shadow-lg">
+                  <div className="rounded-md border border-line-control bg-surface-raised px-2 py-1 text-[11px] shadow-lg">
                     <div className="text-tertiary">{timeLabel(point.at)}</div>
                     <div className="font-mono text-main">
                       {point.value === null ? t('No reading') : format(point.value)}

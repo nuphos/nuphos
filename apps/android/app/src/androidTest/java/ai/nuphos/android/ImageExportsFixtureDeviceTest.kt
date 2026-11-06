@@ -187,11 +187,17 @@ class ImageExportsFixtureDeviceTest {
         val scope = kotlinx.coroutines.CoroutineScope(parent + caller)
         try {
             repeat(25) {
+                // The IO work waits until the caller has suspended, or it could finish first and return without a dispatch.
+                val callerSuspended = java.util.concurrent.CountDownLatch(1)
                 val job = scope.launch {
-                    ImageExports.prepare(context, "synthetic") { _, file -> file.writeBytes(bytes()); "synthetic" }
+                    ImageExports.prepare(context, "synthetic") { _, file ->
+                        check(callerSuspended.await(10, java.util.concurrent.TimeUnit.SECONDS))
+                        file.writeBytes(bytes()); "synthetic"
+                    }
                     fail("A cancelled caller must never receive the export")
                 }
                 requireNotNull(queue.poll(10, java.util.concurrent.TimeUnit.SECONDS)).run()
+                callerSuspended.countDown()
                 val delivery = requireNotNull(queue.poll(10, java.util.concurrent.TimeUnit.SECONDS))
                 val created = directory.listFiles().orEmpty().filter { it.name !in before }
                 assertEquals(1, created.size)
