@@ -51,7 +51,7 @@ async function bootstrap(): Promise<string> {
   const name = need('team')
   const user = await signInWithVerifiedEmail(email)
   const team =
-    (await getMyTeams(user.id)).find((t) => t.name === name) ??
+    (await getMyTeams(user.id)).find((t) => t.name === name && t.role === 'ADMINISTRATOR') ??
     (await createTeamForUser(user.id, name))
   const admin =
     config.admin.teamId === team.id

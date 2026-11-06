@@ -73,7 +73,8 @@ Other commands:
 - `nuphos-admin sign-in-code --email <email>` prints a code for anyone else.
   Without Resend, this is how people sign in. Run it just before they press
   **Continue with email**; the backend accepts the request because a code is
-  already waiting, and sends nothing.
+  already waiting, and sends nothing. After five wrong tries a code is locked;
+  issue a new one.
 - `nuphos-admin join-token --team <id> [--label <name>]` prints a one-time token
   that joins a server as the team owner's computer, with
   `NUPHOS_API_URL=<backend-url> nuphos agent --join -` on that server. It is the
