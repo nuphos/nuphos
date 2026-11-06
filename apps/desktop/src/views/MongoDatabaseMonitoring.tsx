@@ -78,7 +78,7 @@ export function MongoDatabaseMonitoring({ teamId, connection }: Props) {
       />
 
       {loading && !history ? (
-        <div className="flex min-h-64 items-center justify-center rounded-xl border border-zGray-800 text-[12px] text-tertiary">
+        <div className="flex min-h-64 items-center justify-center rounded-xl border border-line-control text-[12px] text-tertiary">
           <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
           {t('Collecting the first sample…')}
         </div>

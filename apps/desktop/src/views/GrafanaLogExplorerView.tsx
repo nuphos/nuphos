@@ -62,7 +62,7 @@ export function GrafanaLogExplorerView({ target, datasource, onBack, onOpenAgent
         }
       />
 
-      <div className="border-b border-zGray-800/60 p-4 space-y-3">
+      <div className="border-b border-line-control/60 p-4 space-y-3">
         <div className="flex items-center gap-2 flex-wrap">
           {filters.map((f) => (
             <div key={f.id} className="flex items-center gap-1.5">
@@ -74,7 +74,7 @@ export function GrafanaLogExplorerView({ target, datasource, onBack, onOpenAgent
                   labels === null ? t('Loading…') : noLabels ? t('No labels') : t('Label')
                 }
                 disabled={labels === null || noLabels}
-                triggerClassName="h-8 min-w-[120px] border-zGray-800 bg-zGray-900 px-2 text-[12.5px]"
+                triggerClassName="h-8 min-w-[120px] border-line-control bg-surface-sheet px-2 text-[12.5px]"
                 options={(labels ?? [])
                   .filter((name) => name === f.name || !usedNames.has(name))
                   .map((name) => ({ value: name, label: name }))}
@@ -92,7 +92,7 @@ export function GrafanaLogExplorerView({ target, datasource, onBack, onOpenAgent
                       : t('Value')
                 }
                 disabled={!f.name || !labelValues[f.name]?.length}
-                triggerClassName="h-8 min-w-[160px] border-zGray-800 bg-zGray-900 px-2 text-[12.5px] font-mono"
+                triggerClassName="h-8 min-w-[160px] border-line-control bg-surface-sheet px-2 text-[12.5px] font-mono"
                 options={(labelValues[f.name] ?? []).map((v) => ({ value: v, label: v }))}
               />
               {filters.length > 1 && (
@@ -129,7 +129,7 @@ export function GrafanaLogExplorerView({ target, datasource, onBack, onOpenAgent
         </div>
 
         <div className="flex items-center gap-2">
-          <InputGroup className="flex-1 flex items-center gap-2 h-8 px-2.5 rounded-md bg-zGray-900 border border-zGray-800 transition-colors min-w-0">
+          <InputGroup className="flex-1 flex items-center gap-2 h-8 px-2.5 rounded-md bg-surface-sheet border border-line-control transition-colors min-w-0">
             <Search className="w-3.5 h-3.5 text-tertiary flex-shrink-0" strokeWidth={1.8} />
             <InputGroupInput
               value={keyword}
@@ -149,7 +149,7 @@ export function GrafanaLogExplorerView({ target, datasource, onBack, onOpenAgent
             value={String(rangeMs)}
             onValueChange={(nextValue) => setRangeMs(Number(nextValue))}
             ariaLabel={t('Log search range')}
-            triggerClassName="h-8 w-[72px] border-zGray-800 bg-zGray-900 px-2 text-[12.5px]"
+            triggerClassName="h-8 w-[72px] border-line-control bg-surface-sheet px-2 text-[12.5px]"
             options={RANGE_OPTIONS.map((option) => ({
               value: String(option.ms),
               label: option.label,
@@ -163,7 +163,7 @@ export function GrafanaLogExplorerView({ target, datasource, onBack, onOpenAgent
             onChange={(e) =>
               setMaxLines(Math.max(10, Math.min(1000, Number(e.target.value) || 10)))
             }
-            className="h-8 w-16 bg-zGray-900 border border-zGray-800 rounded-md px-2 text-[12.5px] text-main outline-none focus:border-zViolet-500"
+            className="h-8 w-16 bg-surface-sheet border border-line-control rounded-md px-2 text-[12.5px] text-main outline-none focus:border-line-focus"
             aria-label={t('Max log lines')}
           />
           <Button
@@ -171,7 +171,7 @@ export function GrafanaLogExplorerView({ target, datasource, onBack, onOpenAgent
             size="sm"
             onClick={() => setLive((cur) => !cur)}
             className={
-              live ? 'border-zViolet-500/60 bg-zViolet-500/15 text-zViolet-300' : undefined
+              live ? 'border-action-primary/60 bg-state-selected text-secondary' : undefined
             }
             title={t('Re-run the query every few seconds')}
           >

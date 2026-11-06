@@ -79,7 +79,9 @@ export function EventsView({ namespace, filter, refreshKey, onCount, onLoading }
             <span
               className={clsx(
                 'px-1.5 py-0.5 rounded text-[11px]',
-                e.type_ === 'Warning' ? 'bg-error/15 text-error' : 'bg-zGray-800 text-secondary',
+                e.type_ === 'Warning'
+                  ? 'bg-error/15 text-error'
+                  : 'bg-surface-sunken text-secondary',
               )}
             >
               {e.type_ || 'Normal'}
@@ -102,7 +104,7 @@ export function EventsView({ namespace, filter, refreshKey, onCount, onLoading }
             <span className="text-secondary">
               <span className="text-tertiary">{e.kind}</span>
               <span className="opacity-60 mx-1">·</span>
-              <span className="text-zViolet-accent">{e.name}</span>
+              <span className="text-primary">{e.name}</span>
             </span>
           ),
         },

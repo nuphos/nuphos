@@ -4,64 +4,20 @@
 
 @layer base {
   :root {
-    --color-zGray-50: 245, 244, 245;
-    --color-zGray-100: 234, 233, 236;
-    --color-zGray-150: 221, 220, 224;
-    --color-zGray-200: 208, 206, 212;
-    --color-zGray-250: 196, 193, 199;
-    --color-zGray-300: 183, 180, 187;
-    --color-zGray-400: 152, 149, 157;
-    --color-zGray-500: 126, 122, 133;
-    --color-zGray-600: 101, 97, 107;
-    --color-zGray-700: 76, 72, 81;
-    --color-zGray-750: 63, 60, 68;
-    --color-zGray-800: 50, 47, 55;
-    --color-zGray-850: 33, 32, 35;
-    --color-zGray-900: 25, 24, 27;
-    --color-zGray-950: 15, 14, 17;
-
-    --color-zViolet-50: 243, 244, 255;
-    --color-zViolet-100: 203, 203, 255;
-    --color-zViolet-200: 203, 203, 255;
-    --color-zViolet-300: 159, 155, 246;
-    --color-zViolet-400: 116, 93, 243;
-    --color-zViolet-500: 99, 0, 255;
-    --color-zViolet-600: 80, 30, 203;
-    --color-zViolet-700: 62, 20, 162;
-    --color-zViolet-800: 49, 17, 131;
-    --color-zViolet-900: 41, 18, 113;
-    --color-zViolet-950: 17, 2, 58;
-    /* Interactive violet stays above 4.5:1 on the dark canvas, including when
-       it sits on its own translucent selection/status tint. */
-    --color-zViolet-accent: 176, 125, 255;
-
-    --color-zOrangered-400: 244, 119, 89;
-    --color-zOrangered-500: 238, 67, 14;
-    --color-zOrangered-600: 201, 50, 0;
-    --color-zOrangered-700: 175, 47, 9;
-
-    /*
-     * zBlue — primary button color sampled from the Figma "Agent" design.
-     * 500 is the resting fill (#3b73ff); 400 lightens for hover, 600 darkens
-     * for the pressed state, and accent drives the focus ring. The same scale
-     * is used in both themes since the saturated blue reads on light and dark.
-     */
-    --color-zBlue-400: 99, 144, 255;
-    --color-zBlue-500: 59, 115, 255;
-    --color-zBlue-600: 42, 95, 224;
-    --color-zBlue-700: 32, 78, 190;
-    --color-zBlue-accent: 124, 160, 255;
-
-    /* Status colors — the defaults are tuned for dark backgrounds. Error is
-       deliberately brighter than the old coral so small labels remain AA on
-       both the canvas and a 10% error tint. */
-    --color-success: 34, 209, 128;
-    --color-error: 239, 98, 82;
-    --color-warning: 245, 166, 35;
+    /* Legacy status names, aliases of the semantic status tokens (#1632). */
+    --color-success: var(--color-status-success);
+    --color-error: var(--color-status-danger);
+    --color-warning: var(--color-status-warning);
     /* Slack badge text — the brand's light aubergine reads on the dark canvas. */
     --color-slack-text: 215, 154, 221;
     /* Composer mention chip. Brand violet keeps the accent text above 4.5:1 here. */
-    --mention-chip-bg: rgba(var(--color-zViolet-500), 0.18);
+    /* The workspace sheet: inset from the desk, its corner, and its lift. */
+    --sheet-inset: 8px;
+    --sheet-radius: 14px;
+    --sheet-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.05), 0 1px 2px rgba(0, 0, 0, 0.2),
+      0 3px 8px -3px rgba(0, 0, 0, 0.5);
+    --mention-chip-bg: rgba(var(--color-text-primary), 0.18);
 
     /* transitions-dev: Text states swap */
     --text-swap-dur: 150ms;
@@ -82,60 +38,49 @@
     --tabs-text-muted: rgb(var(--color-text-tertiary));
     --tabs-text-active: rgb(var(--color-text-base));
     --tabs-bar-bg: transparent;
-    --tabs-pill-bg: rgba(var(--color-zGray-800), 0.48);
+    --tabs-pill-bg: rgba(var(--color-line-control), 0.48);
   }
 
   html {
     color-scheme: dark;
-    --color-text-base: 255, 255, 255;
-    --color-text-secondary: var(--color-zGray-300);
-    /* zGray-500 was only 4.02:1 here, which made the many 10–11px metadata
-       labels introduced by compact layouts too faint. */
-    --color-text-tertiary: var(--color-zGray-400);
-    --color-border: var(--color-zGray-800);
-    /* Content surface (bg-main) — night mode #1C1D1F, just above the sidebar
-       canvas (--color-appBg #191A1C). */
-    --color-background-base: 28, 29, 31;
-    --color-background-surface: var(--color-zGray-900);
-    --color-background-elevated: var(--color-zGray-850);
+    /* Legacy names, now aliases of the semantic tokens in packages/design-tokens
+       (#1632). Text secondary/tertiary are defined there under the same names. */
+    --color-text-base: var(--color-text-primary);
+    --color-border: var(--color-line-control);
+    --color-background-base: var(--color-surface-sheet);
+    --color-background-surface: var(--color-surface-sheet);
+    --color-background-elevated: var(--color-surface-raised);
     /* App canvas background / sidebar — night mode #0E0F11, deeper than the
        content surface (#1C1D1F). */
-    --color-appBg: 14, 15, 17;
+    --color-appBg: var(--color-surface-canvas);
     /*
      * The agent page shares the workspace content canvas in both themes. Keep
      * the semantic token so agent-specific overlays can track that surface
      * without introducing a second page background.
      */
     --color-agent-canvas: var(--color-background-base);
-    --color-composer-surface: 38, 39, 43;
+    --color-composer-surface: var(--color-surface-raised);
     /*
-     * Team Activity heatmap: empty, then four activity levels. Each level
-     * steps up in lightness (OKLCH hue 290) so neighbours stay apart; alpha
-     * steps of zViolet-500 all sat in the dark end and were hard to tell apart.
+     * Team Activity heatmap: empty, then four steps of the data color mixed
+     * into the sheet, so busier cells read as stronger without a second hue.
      */
-    --color-heatmap-0: 50, 47, 55;
-    --color-heatmap-1: 73, 56, 131;
-    --color-heatmap-2: 105, 75, 196;
-    --color-heatmap-3: 139, 110, 242;
-    --color-heatmap-4: 189, 176, 255;
+    --color-heatmap-0: 39, 38, 36;
+    --color-heatmap-1: 48, 54, 63;
+    --color-heatmap-2: 67, 80, 99;
+    --color-heatmap-3: 91, 111, 142;
+    --color-heatmap-4: 124, 156, 203;
     --scrollbar-thumb: rgba(255, 255, 255, 0.18);
     --scrollbar-thumb-hover: rgba(255, 255, 255, 0.28);
     /*
      * Primary-button interaction shades. On dark surfaces hover lightens the
      * fill and press darkens it. These flip in light mode (see html.light).
      */
-    --color-zBlue-hover: var(--color-zBlue-400);
-    --color-zBlue-active: var(--color-zBlue-600);
+    /* Sidebar item interaction overlays use the shared state tints. */
+    --sidebar-overlay-hover: var(--color-state-hover);
+    --sidebar-overlay-active: var(--color-state-selected);
+    --sidebar-overlay-focus: var(--color-state-hover);
     /*
-     * Sidebar item interaction overlays — deliberately neutral (white alpha)
-     * so hover/active/focus don't inherit the cool-violet tint baked into the
-     * zGray neutral scale (zGray-800 = rgb 50,47,55, hue ≈262°).
-     */
-    --sidebar-overlay-hover: rgba(255, 255, 255, 0.05);
-    --sidebar-overlay-active: rgba(255, 255, 255, 0.08);
-    --sidebar-overlay-focus: rgba(255, 255, 255, 0.07);
-    /*
-     * Raised-surface edge. Alpha rather than a zGray rung so the same value
+     * Raised-surface edge. Alpha rather than a fixed color so the same value
      * works over any backdrop, and so depth comes from the shadow instead of
      * from a high-contrast line.
      */
@@ -179,7 +124,7 @@
     [tabindex]:not([tabindex='-1'], input, textarea)
   ):focus-visible {
     outline: none;
-    box-shadow: inset 0 0 0 2px rgb(var(--color-zViolet-accent));
+    box-shadow: inset 0 0 0 2px rgb(var(--color-line-focus));
   }
 
   /* Text-entry controls show focus themselves (a bordered field's focus: border,
@@ -197,101 +142,32 @@
   }
 
   /*
-   * Light theme inverts the zGray scale so components that hardcode
-   * `bg-zGray-900` (intended as "deep background" in dark) automatically
-   * become a light background. Mid-grey (500) is the pivot and stays.
-   * Brand colors (zViolet, zOrangered) are unchanged.
+   * Light theme. Semantic colors switch in packages/design-tokens; this block
+   * keeps only the light values still local to Desktop.
    */
   html.light {
     color-scheme: light;
-    /*
-     * The "background-tier" rungs (900-950) collapse to near-white. zGray-950 is
-     * the deepest tier — the Agent conversation page and other "page canvas"
-     * surfaces use it, so it's held at #FCFCFD as the general app background.
-     * zGray-900 stays pure white so cards/menus/dialogs sitting on top read a
-     * touch brighter than the page. zGray-850 is held just barely off-white
-     * because many tables and panels use it for row dividers and hover
-     * backgrounds — pure white would erase them. zGray-800 and below keep more
-     * grey for stronger borders and hover states.
-     */
-    --color-zGray-50: 15, 14, 17;
-    --color-zGray-100: 25, 24, 27;
-    --color-zGray-150: 33, 32, 35;
-    --color-zGray-200: 50, 47, 55;
-    --color-zGray-250: 63, 60, 68;
-    --color-zGray-300: 76, 72, 81;
-    --color-zGray-400: 101, 97, 107;
-    --color-zGray-500: 126, 122, 133;
-    --color-zGray-600: 158, 155, 163;
-    --color-zGray-700: 188, 185, 192;
-    --color-zGray-750: 213, 211, 217;
-    --color-zGray-800: 224, 222, 228;
-    --color-zGray-850: 240, 239, 243;
-    --color-zGray-900: 255, 255, 255;
-    /* #FCFCFD — general app / Agent conversation page background. */
-    --color-zGray-950: 252, 252, 253;
-
-    --color-text-base: 36, 35, 38;
-    --color-text-secondary: var(--color-zGray-300);
-    --color-text-tertiary: var(--color-zGray-400);
-    --color-border: var(--color-zGray-800);
-    /* Content area background — #FCFCFD, matching the general app / Agent
-     * conversation page so surfaces read as one continuous canvas. */
-    --color-background-base: 252, 252, 253;
-    --color-background-surface: 255, 255, 255;
-    --color-background-elevated: 255, 255, 255;
-    /* App canvas background — light mode #F3F3F4. */
-    --color-appBg: 243, 243, 244;
-    /* Agent canvas inherits --color-background-base from the shared theme token. */
-    --color-composer-surface: 255, 255, 255;
-    /* Heatmap levels darken instead, so busier still means higher contrast. */
-    --color-heatmap-0: 224, 222, 228;
-    --color-heatmap-1: 192, 183, 248;
-    --color-heatmap-2: 152, 134, 237;
-    --color-heatmap-3: 117, 79, 224;
-    --color-heatmap-4: 79, 38, 167;
+    /* Heatmap: the same data steps over the light sheet. */
+    --color-heatmap-0: 238, 236, 232;
+    --color-heatmap-1: 207, 213, 222;
+    --color-heatmap-2: 166, 179, 198;
+    --color-heatmap-3: 117, 137, 168;
+    --color-heatmap-4: 47, 79, 127;
     --scrollbar-thumb: rgba(36, 35, 38, 0.16);
     --scrollbar-thumb-hover: rgba(36, 35, 38, 0.26);
     /*
      * On a light canvas a lighter hover would wash the button out, so both
      * hover and press darken the fill (press goes one rung deeper).
      */
-    --color-zBlue-hover: var(--color-zBlue-600);
-    --color-zBlue-active: var(--color-zBlue-700);
 
-    /*
-     * The default zViolet-accent (164,105,255) is too light for white
-     * backgrounds — pull it toward the brand zViolet-500 so accented text
-     * and focus rings stay readable.
-     */
-    --color-zViolet-accent: 99, 0, 255;
-
-    /*
-     * Status colors at their dark-mode brightness sit around 2–3:1 against
-     * white. Pull them toward AA-compliant shades, with enough margin to stay
-     * above 4.5:1 on their own 10% badge and diff tints.
-     */
-    --color-success: 18, 112, 53;
-    --color-error: 185, 28, 28;
-    --color-warning: 160, 70, 6;
     /* The dark-mode Slack pink is 1.7:1 on its own light tint; use the brand
        aubergine instead. */
     --color-slack-text: 97, 31, 105;
-    /* Brand violet at 18% is a saturated block on white; match the @member chip. */
-    --mention-chip-bg: rgba(var(--color-zViolet-accent), 0.1);
-
-    /*
-     * A handful of zViolet/zOrangered shades are used as text (log levels,
-     * inline links). Their default light values fail AA on white, so the
-     * light theme borrows the darker rungs from the same palette.
-     */
-    --color-zViolet-300: 80, 30, 203;
-    --color-zOrangered-400: 175, 47, 9;
-
-    /* Neutral sidebar item overlays — black alpha on the light canvas. */
-    --sidebar-overlay-hover: rgba(0, 0, 0, 0.04);
-    --sidebar-overlay-active: rgba(0, 0, 0, 0.06);
-    --sidebar-overlay-focus: rgba(0, 0, 0, 0.05);
+    --sheet-shadow:
+      0 0 0 1px rgba(28, 26, 23, 0.05), 0 1px 2px rgba(0, 0, 0, 0.04),
+      0 3px 8px -3px rgba(0, 0, 0, 0.1);
+    /* A light ink tint, matching the @member chip. */
+    --mention-chip-bg: rgba(var(--color-text-primary), 0.1);
 
     /* Black alpha on the light canvas; shadows tinted cool rather than neutral. */
     --surface-hairline: rgba(0, 0, 0, 0.07);
@@ -506,7 +382,6 @@
   .user-message-bubble {
     --color-text-base: 255, 255, 255;
     /* Both bubble fills are dark, even when the surrounding app is light. */
-    --color-zViolet-accent: 196, 181, 253;
     color: #ffffff;
     background-color: #2e2e2e;
   }
@@ -516,7 +391,7 @@
   }
 
   .resource-meter {
-    --resource-meter-fill: rgb(var(--color-zViolet-accent));
+    --resource-meter-fill: rgb(var(--color-data-1));
     --resource-meter-warning: rgb(var(--color-warning));
   }
 
@@ -525,7 +400,7 @@
   }
 
   .resource-meter-reserved {
-    background: rgba(var(--color-zViolet-accent), 0.13);
+    background: rgba(var(--color-text-primary), 0.13);
   }
 
   .resource-meter-request {
@@ -553,7 +428,7 @@
     margin: 0 1px;
     border-radius: 0.375rem;
     background-color: var(--mention-chip-bg);
-    color: rgba(var(--color-zViolet-accent), 1);
+    color: rgba(var(--color-text-primary), 1);
     font-size: 12.5px;
     line-height: 1.35;
     vertical-align: baseline;
@@ -581,7 +456,7 @@
   }
   .atlas-mention:focus-visible {
     outline: none;
-    box-shadow: inset 0 0 0 2px rgb(var(--color-zViolet-accent));
+    box-shadow: inset 0 0 0 2px rgb(var(--color-line-focus));
   }
   /* A long paste: click it to read it, × takes it out. */
   .atlas-mention[data-pasted-text],
@@ -601,7 +476,7 @@
   }
   .atlas-mention-remove:hover {
     opacity: 1;
-    background-color: rgba(var(--color-zViolet-accent), 0.15);
+    background-color: rgba(var(--color-text-primary), 0.15);
   }
 
   .user-message-bubble .atlas-mention {
@@ -609,8 +484,8 @@
     padding: 0.1rem 0.5rem;
     margin: 0 0.15rem;
     border-radius: 0.5rem;
-    background-color: rgba(var(--color-zViolet-accent), 0.1);
-    box-shadow: inset 0 0 0 1px rgba(var(--color-zViolet-accent), 0.18);
+    background-color: rgba(var(--color-text-primary), 0.1);
+    box-shadow: inset 0 0 0 1px rgba(var(--color-text-primary), 0.18);
     font-size: 0.9em;
     line-height: 1.4;
     vertical-align: -0.075em;
@@ -626,18 +501,18 @@
   }
 
   .user-message-bubble .atlas-mention[role='link']:hover {
-    background-color: rgba(var(--color-zViolet-accent), 0.18);
-    box-shadow: inset 0 0 0 1px rgba(var(--color-zViolet-accent), 0.3);
+    background-color: rgba(var(--color-text-primary), 0.18);
+    box-shadow: inset 0 0 0 1px rgba(var(--color-text-primary), 0.3);
   }
 
   .user-message-bubble .atlas-mention:focus-visible {
-    outline: 2px solid rgb(var(--color-zViolet-accent));
+    outline: 2px solid rgb(var(--color-text-primary));
     outline-offset: 2px;
   }
 
   @keyframes cell-flash {
     0% {
-      background-color: rgba(var(--color-zViolet-400), 0.22);
+      background-color: rgba(var(--color-text-primary), 0.22);
     }
     100% {
       background-color: transparent;
@@ -659,7 +534,7 @@
     background-color: var(--row-tint, transparent);
   }
   tr.table-row-tint:hover {
-    --row-tint: rgb(var(--color-zGray-850));
+    --row-tint: rgb(var(--color-surface-sunken));
   }
 
   /*
@@ -754,17 +629,17 @@
   /*
    * Table row/header checkboxes — custom-drawn instead of native so the
    * border and fill track the theme palette: the native rendering is too
-   * dark in light mode and too bright in dark mode. zGray flips with the
-   * theme, so one rule reads right in both.
+   * dark in light mode and too bright in dark mode. Semantic tokens switch
+   * with the theme, so one rule reads right in both.
    */
   .table-checkbox {
     appearance: none;
     -webkit-appearance: none;
     /* appearance: none leaves the UA's I-beam cursor on inputs. */
     cursor: default;
-    /* zGray-700 reads as a dim gray on dark and a light gray on light;
+    /* The control line reads as a dim gray on dark and a light gray on light;
        hovering steps one notch toward the text color in both themes. */
-    border: 1px solid rgb(var(--color-zGray-700));
+    border: 1px solid rgb(var(--color-line-control));
     border-radius: 3px;
     background-color: transparent;
   }
@@ -772,19 +647,19 @@
      included) shows the checkbox's hover state. */
   .table-checkbox:hover,
   .table-checkbox-cell:hover .table-checkbox {
-    border-color: rgb(var(--color-zGray-600));
+    border-color: rgb(var(--color-text-tertiary));
   }
   /* appearance: none also drops the native focus ring — restore one for
      keyboard users (and force visibility past the hover-only opacity). */
   .table-checkbox:focus-visible {
-    outline: 2px solid rgb(var(--color-zViolet-accent));
+    outline: 2px solid rgb(var(--color-text-primary));
     outline-offset: 2px;
     opacity: 1;
   }
   .table-checkbox:checked,
   .table-checkbox:indeterminate {
-    border-color: rgb(var(--color-zViolet-500));
-    background-color: rgb(var(--color-zViolet-500));
+    border-color: rgb(var(--color-text-primary));
+    background-color: rgb(var(--color-text-primary));
     background-repeat: no-repeat;
     background-position: center;
   }
@@ -813,11 +688,11 @@
     color: transparent;
     background-image: linear-gradient(
       90deg,
-      rgb(var(--color-zGray-500)) 0%,
-      rgb(var(--color-zGray-500)) 35%,
-      rgb(var(--color-zGray-100)) 50%,
-      rgb(var(--color-zGray-500)) 65%,
-      rgb(var(--color-zGray-500)) 100%
+      rgb(var(--color-text-tertiary)) 0%,
+      rgb(var(--color-text-tertiary)) 35%,
+      rgb(var(--color-text-primary)) 50%,
+      rgb(var(--color-text-tertiary)) 65%,
+      rgb(var(--color-text-tertiary)) 100%
     );
     background-size: 220% 100%;
     background-clip: text;
@@ -879,7 +754,7 @@
     height: 1.05em;
     margin-left: 0.12em;
     border-radius: 999px;
-    background: rgb(var(--color-zGray-300));
+    background: rgb(var(--color-text-secondary));
     vertical-align: -0.16em;
     animation: atlas-stream-caret 1s steps(2, end) infinite;
   }
@@ -887,11 +762,11 @@
   /* Streamdown's fenced code block (card > header, copy action, highlighted body),
      restyled to match the message surface. */
   .message-response [data-streamdown='code-block'] {
-    @apply my-2 gap-0 rounded-md border-0 bg-zGray-900/50 p-0 ring-1 ring-zGray-800/50;
+    @apply my-2 gap-0 rounded-md border-0 bg-surface-sunken/50 p-0 ring-1 ring-line-control/50;
   }
 
   .message-response [data-streamdown='code-block-header'] {
-    @apply h-7 border-b border-zGray-800/40 px-2.5 font-mono text-[11px] uppercase tracking-wider text-tertiary;
+    @apply h-7 border-b border-line-control/40 px-2.5 font-mono text-[11px] uppercase tracking-wider text-tertiary;
   }
 
   .message-response [data-streamdown='code-block-header'] > span {
@@ -938,7 +813,7 @@
 
   @media (prefers-reduced-motion: reduce) {
     .codex-shimmer-text {
-      color: rgb(var(--color-zGray-300));
+      color: rgb(var(--color-text-secondary));
       background-image: none;
       animation: none;
     }
@@ -1131,34 +1006,24 @@
   }
 
   /* The workspace-dock toggle is viewport-anchored so opening the dock never
-     pushes it left. Keep both the tab strip and native caption controls clear
-     of the same fixed trailing slot. */
+     pushes it left. The tab strip stops 4px short of it, so the dock's own
+     trailing controls sit beside it. */
   .workspace-dock-toggle {
     position: fixed;
     z-index: 40;
-    top: 8px;
-    right: 0.75rem;
-  }
-  .workspace-dock-expand {
-    position: fixed;
-    z-index: 40;
-    top: 8px;
-    right: 3rem;
+    top: calc(8px + var(--sheet-inset));
+    right: calc(0.75rem + var(--sheet-inset));
   }
   .workspace-dock-toggle-pad {
-    padding-right: 5.25rem;
+    padding-right: calc(2.5rem + 4px);
   }
   html.platform-windows .workspace-dock-toggle,
   html.platform-linux .workspace-dock-toggle {
-    right: calc(138px / var(--zoom-factor, 1) + 0.75rem);
-  }
-  html.platform-windows .workspace-dock-expand,
-  html.platform-linux .workspace-dock-expand {
-    right: calc(138px / var(--zoom-factor, 1) + 3rem);
+    right: calc(138px / var(--zoom-factor, 1) + 0.75rem + var(--sheet-inset));
   }
   html.platform-windows .workspace-dock-toggle-pad,
   html.platform-linux .workspace-dock-toggle-pad {
-    padding-right: calc(138px / var(--zoom-factor, 1) + 5.25rem);
+    padding-right: calc(138px / var(--zoom-factor, 1) + 2.5rem + 4px);
   }
 
   [data-base-ui-inert] {
@@ -1283,8 +1148,8 @@
 
   /* transitions.dev shimmer text, in the theme's own grays. */
   .t-shimmer {
-    --shimmer-base: rgb(var(--color-zGray-500));
-    --shimmer-highlight: rgb(var(--color-zGray-100));
+    --shimmer-base: rgb(var(--color-text-tertiary));
+    --shimmer-highlight: rgb(var(--color-text-primary));
     position: relative;
     display: inline-block;
     color: var(--shimmer-base);
@@ -1363,7 +1228,7 @@
   .sketch-line-h {
     background-image: radial-gradient(
       circle,
-      rgba(var(--color-zGray-600), 0.35) 0.85px,
+      rgba(var(--color-text-tertiary), 0.35) 0.85px,
       transparent 1.3px
     );
     background-size: 7px 1px;
@@ -1373,7 +1238,7 @@
   .sketch-line-v {
     background-image: radial-gradient(
       circle,
-      rgba(var(--color-zGray-600), 0.35) 0.85px,
+      rgba(var(--color-text-tertiary), 0.35) 0.85px,
       transparent 1.3px
     );
     background-size: 1px 7px;
@@ -1383,7 +1248,7 @@
   .sketch-divider-bottom {
     background-image: radial-gradient(
       circle,
-      rgba(var(--color-zGray-600), 0.35) 0.85px,
+      rgba(var(--color-text-tertiary), 0.35) 0.85px,
       transparent 1.3px
     );
     background-size: 7px 1px;
@@ -1680,7 +1545,8 @@
    clipped on instead of ending in an ellipsis. Same scroll-driven technique as
    .t-scroll-fade on the inline axis: no fade when the label fits, and as
    useHoverMarquee scrolls it in place the fade moves from the end to the start.
-   The fade widens while the row is hovered or focused. */
+   The fade widens a little while the row is hovered or focused; it stays short
+   so a title runs nearly to the row's edge unless something needs the space. */
 @property --t-marquee-fade-start {
   syntax: '<length>';
   inherits: false;
@@ -1692,7 +1558,7 @@
   initial-value: 0px;
 }
 .t-marquee {
-  --t-marquee-fade-size: 1.25rem;
+  --t-marquee-fade-size: 0.75rem;
 
   overflow: hidden;
   white-space: nowrap;
@@ -1713,19 +1579,19 @@
 }
 .group:hover .t-marquee,
 .group:focus-visible .t-marquee {
-  --t-marquee-fade-size: 2rem;
+  --t-marquee-fade-size: 1rem;
 }
 @keyframes t-marquee-fade-in-start {
   from {
     --t-marquee-fade-start: 0px;
   }
   to {
-    --t-marquee-fade-start: var(--t-marquee-fade-size, 1.25rem);
+    --t-marquee-fade-start: var(--t-marquee-fade-size, 0.75rem);
   }
 }
 @keyframes t-marquee-fade-out-end {
   from {
-    --t-marquee-fade-end: var(--t-marquee-fade-size, 1.25rem);
+    --t-marquee-fade-end: var(--t-marquee-fade-size, 0.75rem);
   }
   to {
     --t-marquee-fade-end: 0px;
@@ -2164,7 +2030,7 @@
   top: 8px;
   bottom: 8px;
   width: 1px;
-  background: rgba(var(--color-zGray-800), 0.85);
+  background: rgba(var(--color-line-control), 0.85);
 }
 .t-tab[data-dragging='true'] {
   opacity: 0.95;
@@ -2263,11 +2129,7 @@
 /* Split PoC: anchor dock controls to each pane, not the app viewport. */
 [data-workspace-split-pane] .workspace-dock-toggle {
   position: absolute;
-  right: 0.75rem;
-}
-[data-workspace-split-pane] .workspace-dock-expand {
-  position: absolute;
-  right: 3rem;
+  right: calc(0.75rem + var(--sheet-inset));
 }
 
 /* Inactive headers receive clicks to select their pane. The active pane keeps
@@ -2288,9 +2150,9 @@ html.platform-darwin:not(.window-fullscreen) .workspace-corner-titlebar {
    where it lands. The extra .home-grid outranks the library's stylesheet,
    which loads after this one. */
 .home-grid .react-grid-item.react-grid-placeholder {
-  border: 1.5px dashed rgba(var(--color-zViolet-500), 0.7);
+  border: 1.5px dashed rgba(var(--color-text-primary), 0.7);
   border-radius: 0.5rem;
-  background: rgba(var(--color-zViolet-500), 0.08);
+  background: rgba(var(--color-text-primary), 0.08);
   opacity: 1;
 }
 
@@ -2419,21 +2281,21 @@ html.platform-darwin:not(.window-fullscreen) .workspace-corner-titlebar {
 
 /* Small resource labels need theme-specific contrast, including hover fills. */
 :root {
-  --resource-linear: #a4adff;
+  --resource-linear: rgb(var(--color-text-secondary));
   --resource-started: #f2c94c;
   --resource-triage: #fc7840;
   --resource-open: #66d98c;
-  --resource-merged: #c4a2ff;
+  --resource-merged: rgb(var(--color-text-tertiary));
   --resource-closed: #ff9aa3;
   --resource-failing: #ff9aa3;
   --resource-pending: #f2c94c;
 }
 html.light {
-  --resource-linear: #505fc4;
+  --resource-linear: rgb(var(--color-text-secondary));
   --resource-started: #9a6700;
   --resource-triage: #c2410c;
   --resource-open: #16713a;
-  --resource-merged: #7541b1;
+  --resource-merged: rgb(var(--color-text-tertiary));
   --resource-closed: #b42332;
   --resource-failing: #b42332;
   --resource-pending: #9a6700;
@@ -2470,9 +2332,103 @@ html.light {
   color: var(--resource-closed);
 }
 
-/* Let a trace of the native backdrop through page canvases, not their controls. */
+/* A sidebar row lifts its title for the detail line only when that line has
+   something to show; rows without one just change their background on hover. */
+[data-sidebar-row]:has([data-row-detail]:not(:empty)):is(:hover, :focus-within) [data-row-title] {
+  transform: translateY(-7px);
+}
+
+/* Under a fixed header, scrolled content fades out over 12px (see HeaderEdge). */
+@property --header-edge-fade {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+.header-edge {
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--header-edge-fade));
+  transition: --header-edge-fade 200ms ease-out;
+}
+.header-edge[data-scrolled] {
+  --header-edge-fade: 12px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .header-edge {
+    transition: none;
+  }
+}
+
+/* A row's resting state and its hover actions trade places with a short slide. */
+@keyframes sidebar-swap-in {
+  from {
+    opacity: 0;
+    transform: translateX(4px);
+  }
+}
+.sidebar-swap-in {
+  animation: sidebar-swap-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-swap-in {
+    animation: none;
+  }
+}
+
+/*
+ * The workspace is a sheet on a desk: the sidebar and window chrome sit on the
+ * canvas, and each working area is one raised sheet, separated by its edge and
+ * elevation instead of dividers. A sheet inside a sheet (a dock tab's page
+ * inside the dock) stays flat.
+ */
 .workspace-content-surface {
-  background-color: rgba(var(--color-background-base), 0.9);
+  margin: var(--sheet-inset);
+  border-radius: var(--sheet-radius);
+  background-color: rgb(var(--color-surface-sheet));
+  box-shadow: var(--sheet-shadow);
+}
+/*
+ * The 44px title-bar row starts one sheet inset below the window edge, so the
+ * traffic lights (trafficLightPositionFor, TITLEBAR_TOP_INSET), a sheet's top
+ * row and the sidebar's header share one centre line, and a 28px control in
+ * either row keeps space above and below it. All are CSS px, so they stay
+ * aligned at every zoom level.
+ */
+.sheet-titlebar-row {
+  height: 44px;
+}
+.desk-titlebar-row {
+  height: calc(44px + var(--sheet-inset));
+  padding-top: var(--sheet-inset);
+}
+/* Two sheets side by side share one desk gap instead of doubling it. */
+.workspace-content-surface--leading {
+  margin-right: calc(var(--sheet-inset) / 2);
+}
+/* Beside the dock the session keeps its width as the dock slides over it, less
+   the sheet's own margins, or its title bar would run past the sheet's edge. */
+.workspace-content-surface--leading > .workspace-session-body {
+  min-width: calc(100cqw - var(--workspace-dock-width) - 1.5 * var(--sheet-inset));
+}
+.workspace-content-surface--trailing {
+  margin-left: calc(var(--sheet-inset) / 2);
+}
+/* A sheet squeezed to nothing while the dock is expanded leaves no margin or
+   edge behind, so the expanded dock gets the whole desk. */
+.workspace-content-surface--collapsed {
+  margin: 0;
+  box-shadow: none;
+}
+.workspace-content-surface .workspace-content-surface {
+  margin: 0;
+  border-radius: 0;
+  background-color: transparent;
+  box-shadow: none;
+}
+/* The desk behind the sheets matches the sidebar it continues. */
+.workspace-desk {
+  background-color: rgb(var(--color-surface-canvas));
+}
+html.light .workspace-desk {
+  background-color: rgba(var(--color-surface-canvas), 0.65);
 }
 .workspace-content-surface .agent-page-layout,
 .workspace-content-surface .workspace-page-toolbar {
@@ -2480,11 +2436,11 @@ html.light {
 }
 
 /* The Connectors list and a connector's detail page use a quiet neutral focus outline instead of
-   the app's violet inset ring. zGray-500 is the theme pivot, so it keeps contrast in both themes. */
+   the app's inset focus ring, so it keeps contrast in both themes. */
 .connector-quiet-focus
   :where(button, a[href], summary, [role='button'], [tabindex]:not([tabindex='-1'])):focus-visible {
   box-shadow: none;
-  outline: 1px solid rgb(var(--color-zGray-500));
+  outline: 1px solid rgb(var(--color-text-tertiary));
   outline-offset: -1px;
 }
 

@@ -117,7 +117,7 @@ export function SecretsView({
             header: t('Name'),
             width: 260,
             sortAccessor: (r) => r.name,
-            render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
+            render: (r) => <span className="text-primary">{r.name}</span>,
           },
           {
             key: 'type',
@@ -158,9 +158,9 @@ type SummaryItem = {
 
 function ResourceSummary({ items }: { items: SummaryItem[] }) {
   return (
-    <div className="grid grid-cols-4 border-b border-zGray-800/70 bg-zGray-950">
+    <div className="grid grid-cols-4 border-b border-line-control/70 bg-surface-canvas">
       {items.map(({ label, value, icon: Icon }) => (
-        <div key={label} className="min-w-0 border-r border-zGray-850 px-4 py-3 last:border-r-0">
+        <div key={label} className="min-w-0 border-r border-line-control px-4 py-3 last:border-r-0">
           <div className="flex items-center gap-2 text-[11.5px] uppercase tracking-wider text-tertiary">
             <Icon className="w-3.5 h-3.5" strokeWidth={1.8} />
             <span className="truncate">{label}</span>
@@ -177,7 +177,7 @@ function SecretType({ type }: { type: string }) {
 
   return (
     <span className="inline-flex max-w-full items-center gap-1.5">
-      <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-zViolet-accent" />
+      <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-action-primary" />
       <span className="truncate font-mono text-[12px] text-secondary" title={type}>
         {label}
       </span>
@@ -194,7 +194,7 @@ function KeyChips({ keys, count }: { keys: string[]; count: number }) {
       {visible.map((key) => (
         <span
           key={key}
-          className="min-w-0 truncate rounded bg-zGray-850 px-1.5 py-0.5 font-mono text-[11.5px] text-secondary"
+          className="min-w-0 truncate rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[11.5px] text-secondary"
           title={key}
         >
           {key}

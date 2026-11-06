@@ -115,7 +115,8 @@ export function GrafanaDashboardListView({ target, filter, onSelect, onCount }: 
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {menu}
-      <div className="flex-1 overflow-auto scrollbar-thin">
+      {/* Folders are quiet group titles and rows are 36px with no dividers, like the sidebar. */}
+      <div className="flex-1 overflow-auto scrollbar-thin px-3 pb-4">
         {grouped.length === 0 && (
           <div className="text-tertiary text-[12.5px] text-center pt-12">
             {t('No dashboards match "{filter}"', { filter: effectiveFilter })}
@@ -123,10 +124,10 @@ export function GrafanaDashboardListView({ target, filter, onSelect, onCount }: 
         )}
         {grouped.map((g) => (
           <section key={g.folder}>
-            <div className="px-6 py-2 text-[11.5px] uppercase tracking-wider text-tertiary border-b border-t border-zGray-800/60 bg-zGray-950/40 first:border-t-0">
+            <div className="px-3 pt-5 pb-1.5 text-[12.5px] font-medium text-tertiary">
               {g.folder}
             </div>
-            <div>
+            <div className="space-y-1">
               {g.rows.map((d) => (
                 <button
                   key={d.uid}
@@ -143,10 +144,10 @@ export function GrafanaDashboardListView({ target, filter, onSelect, onCount }: 
                     e.preventDefault()
                     onRowContextMenu(d, e)
                   }}
-                  className="w-full text-left flex items-center gap-3 px-6 py-2.5 border-b border-zGray-800/40 hover:bg-zGray-850 transition-colors"
+                  className="flex h-9 w-full cursor-pointer items-center gap-3 rounded-lg px-3 text-left transition-colors hover:bg-state-hover focus-visible:bg-state-hover"
                 >
                   <LayoutDashboard
-                    className="w-4 h-4 text-zViolet-accent flex-shrink-0"
+                    className="w-4 h-4 text-tertiary flex-shrink-0"
                     strokeWidth={1.8}
                   />
                   <div className="text-[13px] text-main truncate flex-1 min-w-0">{d.title}</div>
@@ -155,7 +156,7 @@ export function GrafanaDashboardListView({ target, filter, onSelect, onCount }: 
                       {d.tags.slice(0, 4).map((tag) => (
                         <span
                           key={tag}
-                          className="px-1.5 py-px text-[10.5px] rounded bg-zGray-800/60 text-tertiary"
+                          className="px-1.5 py-px text-[10.5px] rounded bg-state-selected text-tertiary"
                         >
                           {tag}
                         </span>

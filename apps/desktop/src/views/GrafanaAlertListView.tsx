@@ -186,7 +186,7 @@ export function GrafanaAlertListView({ target, filter, onCount }: Props) {
     <div className="flex-1 flex flex-col min-h-0">
       {menu}
       {hasActive && (
-        <div className="flex items-center gap-3 px-4 h-9 border-b border-zGray-800/60 text-[12px]">
+        <div className="flex items-center gap-3 px-4 h-9 border-b border-line-control/60 text-[12px]">
           {summary.firing > 0 && (
             <span className="inline-flex items-center gap-1.5 text-error">
               <AlertTriangle className="w-3.5 h-3.5" strokeWidth={2} />
@@ -194,7 +194,7 @@ export function GrafanaAlertListView({ target, filter, onCount }: Props) {
             </span>
           )}
           {summary.pending > 0 && (
-            <span className="inline-flex items-center gap-1.5 text-zViolet-accent">
+            <span className="inline-flex items-center gap-1.5 text-primary">
               <Clock className="w-3.5 h-3.5" strokeWidth={2} />
               {t('{count} pending', { count: summary.pending })}
             </span>
@@ -264,13 +264,13 @@ function stateBadgeConfig(state: AlertState): {
       return {
         label: t('Pending'),
         icon: Clock,
-        className: 'bg-zViolet-500/15 text-zViolet-accent',
+        className: 'bg-state-selected text-primary',
       }
     case 'nodata':
       return {
         label: t('No data'),
         icon: CircleSlash,
-        className: 'bg-zGray-800/60 text-tertiary',
+        className: 'bg-state-selected text-tertiary',
       }
     case 'error':
       return {
@@ -283,7 +283,7 @@ function stateBadgeConfig(state: AlertState): {
       return {
         label: t('Normal'),
         icon: CircleCheck,
-        className: 'bg-zGray-800/60 text-secondary',
+        className: 'bg-state-selected text-secondary',
       }
   }
 }

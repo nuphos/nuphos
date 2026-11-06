@@ -133,7 +133,7 @@ export function ObservabilityHomeView({ teamId, filter, refreshKey, onCount, onP
             e.stopPropagation()
             setUnbindTarget(x)
           }}
-          className="p-1 rounded text-tertiary hover:text-error hover:bg-zGray-800"
+          className="p-1 rounded text-tertiary hover:text-error hover:bg-state-hover"
           title={t('Unbind')}
         >
           <Trash2 className="w-3.5 h-3.5" strokeWidth={1.8} />

@@ -61,7 +61,7 @@ export function GcpWizardStepContent({
           value={saEmail}
           onChange={(e) => onSaEmailChange(e.target.value)}
           placeholder={spec.saEmail.replace('PROJECT_ID', 'my-project')}
-          className="w-full h-9 px-2.5 rounded-md bg-zGray-850 border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface-sunken border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       <Field label={t('Project ID')}>
@@ -70,7 +70,7 @@ export function GcpWizardStepContent({
           value={projectId}
           onChange={(e) => onProjectIdChange(e.target.value)}
           placeholder="my-project"
-          className="w-full h-9 px-2.5 rounded-md bg-zGray-850 border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface-sunken border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
     </div>

@@ -84,7 +84,7 @@ export function BindSlackDialog({ open, teamId, onClose, onBound, mode = 'instal
       <div className="px-5 py-5 selectable">
         {phase === 'idle' && (
           <div className="flex flex-col items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zGray-850">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-sunken">
               <FontAwesomeIcon icon={faSlack} className="h-[22px] w-[22px] text-main" />
             </div>
             <div className="max-w-[400px] text-center text-[12.5px] leading-relaxed text-secondary">
@@ -100,18 +100,18 @@ export function BindSlackDialog({ open, teamId, onClose, onBound, mode = 'instal
         )}
         {phase === 'waiting' && (
           <div className="flex flex-col items-center gap-3 py-2">
-            <FontAwesomeIcon icon={faSpinner} className="h-5 w-5 animate-spin text-zViolet-400" />
+            <FontAwesomeIcon icon={faSpinner} className="h-5 w-5 animate-spin text-secondary" />
             <div className="text-center text-[12.5px] text-secondary">
               {t('Waiting for Slack approval…')}
             </div>
           </div>
         )}
       </div>
-      <div className="flex justify-end gap-2 border-t border-zGray-800/60 px-5 py-4">
+      <div className="flex justify-end gap-2 border-t border-line-control/60 px-5 py-4">
         <button
           type="button"
           onClick={close}
-          className="h-9 rounded-md border border-zGray-800 px-3 text-[12.5px] font-medium text-secondary transition-colors hover:border-zGray-700 hover:text-main"
+          className="h-9 rounded-md border border-line-control px-3 text-[12.5px] font-medium text-secondary transition-colors hover:border-line-control hover:text-main"
         >
           {t('Cancel')}
         </button>

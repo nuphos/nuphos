@@ -34,7 +34,7 @@ export function DesktopFrame({
   return (
     <PageMeta pageKey="team.desktop" title={title} icon={<Monitor className="h-3.5 w-3.5" />}>
       <div className="flex h-full min-h-0 flex-col">
-        <div className="flex items-center gap-2 border-b border-zGray-800 px-3 py-1.5 text-xs text-tertiary">
+        <div className="flex items-center gap-2 border-b border-line-control px-3 py-1.5 text-xs text-tertiary">
           <span className="max-w-[40%] shrink-0 truncate font-medium text-main" title={title}>
             {title}
           </span>
@@ -47,14 +47,14 @@ export function DesktopFrame({
           {(overlay || phase.kind === 'stopped') && (
             <div
               role="status"
-              className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-zGray-950/80 text-sm text-secondary"
+              className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-state-selected text-sm text-secondary"
             >
               {phase.kind === 'stopped' ? phase.message : overlay}
               {phase.kind === 'stopped' && (
                 <button
                   type="button"
                   onClick={onRetry}
-                  className="rounded border border-zGray-700 px-2 py-0.5 text-xs text-main hover:bg-zGray-800"
+                  className="rounded border border-line-control px-2 py-0.5 text-xs text-main hover:bg-state-hover"
                 >
                   {phase.reason === 'offline' ? t('Resume') : t('Try again')}
                 </button>

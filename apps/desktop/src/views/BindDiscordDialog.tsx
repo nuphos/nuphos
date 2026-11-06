@@ -71,7 +71,7 @@ export function BindDiscordDialog({
       width={460}
     >
       <div className="flex flex-col items-center gap-3 px-5 py-6 selectable">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zGray-850">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-sunken">
           <FontAwesomeIcon icon={faDiscord} className="h-[22px] w-[22px] text-main" />
         </div>
         <p className="max-w-[390px] text-center text-[12.5px] leading-relaxed text-secondary">
@@ -84,11 +84,11 @@ export function BindDiscordDialog({
               )}
         </p>
       </div>
-      <div className="flex justify-end gap-2 border-t border-zGray-800/60 px-5 py-4">
+      <div className="flex justify-end gap-2 border-t border-line-control/60 px-5 py-4">
         <button
           type="button"
           onClick={onClose}
-          className="h-9 rounded-md border border-zGray-800 px-3 text-[12.5px] font-medium text-secondary hover:text-main"
+          className="h-9 rounded-md border border-line-control px-3 text-[12.5px] font-medium text-secondary hover:text-main"
         >
           {t('Cancel')}
         </button>

@@ -69,7 +69,7 @@ export function BindGithubDialog({ open, teamId, onClose, onBound }: Props) {
       <div className="px-5 py-5 selectable">
         {phase.kind === 'idle' && (
           <div className="flex flex-col items-center gap-4 py-2">
-            <div className="w-12 h-12 rounded-full bg-zGray-850 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-surface-sunken flex items-center justify-center">
               <GithubMark size={26} className="text-main" />
             </div>
             <div className="text-[12.5px] text-secondary leading-relaxed text-center max-w-[340px]">
@@ -82,7 +82,7 @@ export function BindGithubDialog({ open, teamId, onClose, onBound }: Props) {
 
         {phase.kind === 'waiting' && (
           <div className="flex flex-col items-center gap-4 py-3">
-            <Loader2 className="w-6 h-6 text-zViolet-accent animate-spin" strokeWidth={1.8} />
+            <Loader2 className="w-6 h-6 text-primary animate-spin" strokeWidth={1.8} />
             <div className="text-[12.5px] text-secondary text-center">
               {t('Waiting for GitHub… complete the installation in your browser.')}
             </div>
@@ -104,10 +104,10 @@ export function BindGithubDialog({ open, teamId, onClose, onBound }: Props) {
         )}
       </div>
 
-      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-zGray-800 bg-zGray-900/60">
+      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-line-control bg-state-selected">
         <button
           onClick={close}
-          className="h-8 px-3 rounded-md text-[12.5px] text-secondary hover:text-main hover:bg-zGray-800"
+          className="h-8 px-3 rounded-md text-[12.5px] text-secondary hover:text-main hover:bg-state-hover"
         >
           {phase.kind === 'waiting' ? t('Cancel') : t('Close')}
         </button>

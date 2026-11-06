@@ -63,12 +63,12 @@ export function CopyableValue({ value, label }: { value: string; label?: string 
       type="button"
       onClick={() => void copy()}
       title={t('Copy')}
-      className="inline-flex items-center gap-1.5 max-w-full px-1.5 py-0.5 rounded bg-zGray-850 border border-zGray-800 hover:border-zGray-700 font-mono text-[11.5px] text-main transition-colors align-middle"
+      className="inline-flex items-center gap-1.5 max-w-full px-1.5 py-0.5 rounded bg-surface-sunken border border-line-control hover:border-line-control font-mono text-[11.5px] text-main transition-colors align-middle"
     >
       <span className="truncate">{copied && label ? t('Copied') : (label ?? value)}</span>
       <FontAwesomeIcon
         icon={copied ? faCheck : faCopy}
-        className={clsx('w-3 h-3 flex-shrink-0', copied ? 'text-zViolet-accent' : 'text-tertiary')}
+        className={clsx('w-3 h-3 flex-shrink-0', copied ? 'text-primary' : 'text-tertiary')}
       />
     </button>
   )
@@ -80,7 +80,7 @@ export function ConsoleLink({ href, children }: { href: string; children: React.
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="h-7 px-2.5 rounded-md bg-zGray-800 hover:bg-zGray-700 text-main text-[12px] font-medium inline-flex items-center gap-1.5 no-underline align-middle"
+      className="h-7 px-2.5 rounded-md bg-surface-sunken hover:bg-state-hover text-main text-[12px] font-medium inline-flex items-center gap-1.5 no-underline align-middle"
     >
       {children}
       <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="w-3.5 h-3.5 flex-shrink-0" />
@@ -124,13 +124,13 @@ export function CopyIconButton({ value, className }: { value: string; className?
       onClick={() => void copy()}
       title={t('Copy')}
       className={clsx(
-        'flex h-6 w-6 items-center justify-center rounded bg-zGray-850 border border-zGray-800 hover:border-zGray-700 transition-colors',
+        'flex h-6 w-6 items-center justify-center rounded bg-surface-sunken border border-line-control hover:border-line-control transition-colors',
         className,
       )}
     >
       <FontAwesomeIcon
         icon={copied ? faCheck : faCopy}
-        className={clsx('w-3 h-3', copied ? 'text-zViolet-accent' : 'text-tertiary')}
+        className={clsx('w-3 h-3', copied ? 'text-primary' : 'text-tertiary')}
       />
     </button>
   )
@@ -140,7 +140,7 @@ export function CopyIconButton({ value, className }: { value: string; className?
 export function CommandBlock({ command }: { command: string }) {
   return (
     <div className="relative mt-1.5">
-      <pre className="border border-zGray-800 bg-zGray-950 rounded-md py-2 pl-2.5 pr-9 text-[11px] font-mono text-secondary overflow-x-auto whitespace-pre">
+      <pre className="border border-line-control bg-surface-canvas rounded-md py-2 pl-2.5 pr-9 text-[11px] font-mono text-secondary overflow-x-auto whitespace-pre">
         {command}
       </pre>
       <CopyIconButton value={command} className="absolute right-1.5 top-1.5" />

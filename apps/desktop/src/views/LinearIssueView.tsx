@@ -33,11 +33,11 @@ function LabelChip({ name, color }: { name: string; color: string }) {
 
   return (
     <span
-      className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-zGray-800/60 px-2 py-0.5 text-[11.5px] font-medium text-main"
+      className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-state-selected px-2 py-0.5 text-[11.5px] font-medium text-main"
       style={hex ? { backgroundColor: `${hex}26` } : undefined}
     >
       <span
-        className="h-2 w-2 shrink-0 rounded-full bg-zGray-500"
+        className="h-2 w-2 shrink-0 rounded-full bg-line-control"
         style={hex ? { backgroundColor: hex } : undefined}
       />
       <span className="truncate">{name}</span>
@@ -61,7 +61,7 @@ function MetaItem({ children }: { children: ReactNode }) {
 function LinearIssueContent({ issue }: { issue: LinearIssueDetail }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="shrink-0 border-b border-zGray-800/70">
+      <header className="shrink-0 border-b border-line-control/70">
         <div className="mx-auto max-w-3xl space-y-3 px-4 py-3 @xl:px-6 @xl:py-4">
           <div className="min-w-0">
             <div className="text-[11.5px] font-medium text-tertiary">{issue.identifier}</div>
@@ -124,7 +124,7 @@ function LinearIssueContent({ issue }: { issue: LinearIssueDetail }) {
               {issue.comments.map((comment) => (
                 <div
                   key={comment.id}
-                  className="space-y-2 rounded-lg border border-zGray-800/40 bg-appBg/60 px-4 py-3"
+                  className="space-y-2 rounded-lg border border-line-control/40 bg-appBg/60 px-4 py-3"
                 >
                   <div className="flex items-center gap-2 text-[12px] text-tertiary">
                     <Avatar

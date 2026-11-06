@@ -48,7 +48,7 @@ export function GitlabView({
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {nav.view !== 'bindings' && (
-        <div className="px-3 py-2 border-b border-zGray-800 text-[12px] text-tertiary flex items-center gap-2 flex-shrink-0">
+        <div className="px-3 py-2 border-b border-line-control text-[12px] text-tertiary flex items-center gap-2 flex-shrink-0">
           <button onClick={() => setNav({ view: 'bindings' })} className="hover:text-secondary">
             GitLab accounts
           </button>

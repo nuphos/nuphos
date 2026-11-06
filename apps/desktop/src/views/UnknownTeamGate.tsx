@@ -34,7 +34,7 @@ export function UnknownTeamGate({
   return (
     <div className="flex h-full flex-col text-main overflow-hidden bg-main">
       {/* Draggable window strip (also clears the macOS traffic lights). */}
-      <div className="titlebar-drag h-[44px] flex-shrink-0 border-b border-zGray-800/60" />
+      <div className="titlebar-drag h-[44px] flex-shrink-0 border-b border-line-control/60" />
       <div className="flex-1 overflow-auto flex flex-col items-center px-4">
         <div className="my-auto flex w-full max-w-[420px] flex-col items-center gap-5 py-10">
           <TriangleAlert className="h-6 w-6 text-error" strokeWidth={1.8} />
@@ -56,7 +56,7 @@ export function UnknownTeamGate({
                   key={team.id}
                   type="button"
                   onClick={() => onSwitchTeam(team.id)}
-                  className="sketch-divider-bottom flex w-full items-center gap-2.5 px-3 py-2.5 text-left outline-none transition-colors hover:bg-zGray-800/60 focus-visible:bg-zGray-800/60"
+                  className="sketch-divider-bottom flex w-full items-center gap-2.5 px-3 py-2.5 text-left outline-none transition-colors hover:bg-state-hover focus-visible:bg-state-hover"
                 >
                   <Avatar
                     src={team.avatarUrl}

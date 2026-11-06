@@ -172,7 +172,7 @@ function PlansListView({
       <div
         className={clsx(
           'flex flex-col min-h-0',
-          selectedRow ? 'flex-1 min-w-0 border-r border-zGray-800/60' : 'flex-1 min-w-0',
+          selectedRow ? 'flex-1 min-w-0 border-r border-line-control/60' : 'flex-1 min-w-0',
         )}
       >
         {dismissedSlot &&
@@ -180,7 +180,7 @@ function PlansListView({
             <button
               type="button"
               onClick={() => setShowDismissed((v) => !v)}
-              className="inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] text-tertiary transition-colors hover:bg-zGray-800/60 hover:text-secondary"
+              className="inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] text-tertiary transition-colors hover:bg-state-hover hover:text-secondary"
             >
               <Ban className="h-3.5 w-3.5" strokeWidth={1.8} />
               {showDismissed ? t('Hide dismissed') : t('Show dismissed')}
@@ -195,8 +195,8 @@ function PlansListView({
             </Button>,
             configureSlot,
           )}
-        <div className="flex flex-shrink-0 items-center gap-2 border-b border-zGray-800/60 px-6 py-2">
-          <ShieldCheck className="h-3.5 w-3.5 text-zViolet-accent" strokeWidth={1.8} />
+        <div className="flex flex-shrink-0 items-center gap-2 border-b border-line-control/60 px-6 py-2">
+          <ShieldCheck className="h-3.5 w-3.5 text-primary" strokeWidth={1.8} />
           <span className="text-[12px] text-secondary">{t('Plan approval')}</span>
           <span className="text-[11.5px] text-tertiary">
             {approvalPolicy
@@ -249,12 +249,12 @@ function PlansListView({
           />
         )}
         {hasMore && (
-          <div className="px-6 py-3 border-t border-zGray-800/60 flex-shrink-0">
+          <div className="px-6 py-3 border-t border-line-control/60 flex-shrink-0">
             <button
               type="button"
               onClick={() => void loadMore()}
               disabled={loadingMore}
-              className="w-full px-3 py-2 text-[12px] text-secondary hover:text-main rounded border border-zGray-800/60 hover:border-zGray-700/60 disabled:opacity-50"
+              className="w-full px-3 py-2 text-[12px] text-secondary hover:text-main rounded border border-line-control/60 hover:border-line-control/60 disabled:opacity-50"
             >
               {loadingMore ? t('Loading…') : t('Load more')}
             </button>
@@ -264,7 +264,7 @@ function PlansListView({
       {selectedRow?.kind === 'permission' && (
         <DetailSidebarTransition
           onClose={() => setSelectedId(null)}
-          className="flex-shrink-0 w-[44%] min-w-[380px] max-w-[680px] flex flex-col bg-zGray-950 min-h-0 overflow-hidden"
+          className="flex-shrink-0 w-[44%] min-w-[380px] max-w-[680px] flex flex-col bg-surface-canvas min-h-0 overflow-hidden"
         >
           {(requestClose) => (
             <PermissionRequestDetail

@@ -171,7 +171,7 @@ export function MongoSchemaExplorer({ teamId, connection }: Props) {
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-zGray-800 bg-zGray-900/20">
+    <div className="overflow-hidden rounded-xl border border-line-control bg-state-selected">
       <div className="flex h-[560px] min-h-0">
         <DatabasesSidebar
           catalog={catalog}
@@ -181,14 +181,14 @@ export function MongoSchemaExplorer({ teamId, connection }: Props) {
         />
 
         <main className="min-w-0 flex-1 overflow-hidden">
-          <div className="flex h-12 items-center gap-2 border-b border-zGray-800 px-4">
+          <div className="flex h-12 items-center gap-2 border-b border-line-control px-4">
             {selectedCollection ? (
               <button
                 onClick={() => {
                   setSelectedCollection(null)
                   setDetail(null)
                 }}
-                className="mr-1 rounded p-1 text-tertiary hover:bg-zGray-800 hover:text-main"
+                className="mr-1 rounded p-1 text-tertiary hover:bg-state-hover hover:text-main"
                 title={t('Back to collections')}
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -208,7 +208,7 @@ export function MongoSchemaExplorer({ teamId, connection }: Props) {
             {!selectedCollection && (
               <InputGroup
                 render={<label />}
-                className="flex w-56 items-center gap-1.5 rounded-md border border-zGray-800 bg-surface px-2 py-1 text-tertiary"
+                className="flex w-56 items-center gap-1.5 rounded-md border border-line-control bg-surface px-2 py-1 text-tertiary"
               >
                 <Search className="h-3.5 w-3.5" />
                 <InputGroupInput
@@ -221,7 +221,7 @@ export function MongoSchemaExplorer({ teamId, connection }: Props) {
             )}
             <button
               onClick={() => void refresh()}
-              className="rounded p-1.5 text-tertiary hover:bg-zGray-800 hover:text-main"
+              className="rounded p-1.5 text-tertiary hover:bg-state-hover hover:text-main"
               title={t('Refresh metadata')}
             >
               <RefreshCw

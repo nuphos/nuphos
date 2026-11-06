@@ -111,9 +111,9 @@ export function GrafanaDatasourceListView({
             // icon CDN) — same approach as vanta/secureframe.
             <img src="/loki.svg" alt="" className="w-3.5 h-3.5 flex-shrink-0" />
           ) : isTempoDatasource(x) ? (
-            <Route className="w-3.5 h-3.5 text-zViolet-accent flex-shrink-0" strokeWidth={1.8} />
+            <Route className="w-3.5 h-3.5 text-primary flex-shrink-0" strokeWidth={1.8} />
           ) : (
-            <Database className="w-3.5 h-3.5 text-zViolet-accent flex-shrink-0" strokeWidth={1.8} />
+            <Database className="w-3.5 h-3.5 text-primary flex-shrink-0" strokeWidth={1.8} />
           )}
           <span className="truncate">{x.name}</span>
         </span>

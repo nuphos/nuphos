@@ -14,12 +14,12 @@ export function LoadMore({
   if (!visible) return null
 
   return (
-    <div className="flex-shrink-0 border-t border-zGray-800/60 px-6 py-3">
+    <div className="flex-shrink-0 border-t border-line-control/60 px-6 py-3">
       <button
         type="button"
         onClick={onClick}
         disabled={loading}
-        className="w-full rounded border border-zGray-800/60 px-3 py-2 text-[12px] text-secondary hover:border-zGray-700/60 hover:text-main disabled:opacity-50"
+        className="w-full rounded border border-line-control/60 px-3 py-2 text-[12px] text-secondary hover:border-line-control/60 hover:text-main disabled:opacity-50"
       >
         {loading ? t('Loading…') : t('Load more')}
       </button>

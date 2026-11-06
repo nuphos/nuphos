@@ -43,7 +43,7 @@ export function VolcengineBindWizard({
               key={title}
               className={clsx(
                 'h-1 flex-1 rounded-full transition-colors',
-                i <= step ? 'bg-zViolet-500' : 'bg-zGray-800',
+                i <= step ? 'bg-action-primary' : 'bg-surface-sunken',
               )}
             />
           ))}
@@ -111,7 +111,7 @@ export function VolcengineBindWizard({
                   </li>
                 </StepList>
                 {oidc && !oidc.configured && (
-                  <div className="text-[11.5px] text-zOrangered-400">
+                  <div className="text-[11.5px] text-status-attention">
                     {t(
                       "Nuphos's OIDC connector isn't configured on this backend yet — binding will fail until it is.",
                     )}
@@ -220,7 +220,7 @@ export function VolcengineBindWizard({
                     value={label}
                     onChange={(e) => onLabelChange(e.target.value)}
                     placeholder="Acme Volcengine"
-                    className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+                    className="w-full h-9 px-2.5 rounded-md bg-surface border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
                   />
                 </Field>
                 <Field label={t('Role TRN')} hint={t('The TRN of the role you created in step 2.')}>
@@ -229,7 +229,7 @@ export function VolcengineBindWizard({
                     value={roleTrn}
                     onChange={(e) => onRoleTrnChange(e.target.value)}
                     placeholder="trn:iam::2100000000:role/Zeabur"
-                    className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+                    className="w-full h-9 px-2.5 rounded-md bg-surface border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
                   />
                 </Field>
                 <div className="text-[11.5px] text-tertiary">

@@ -75,9 +75,9 @@ export function CloudCliSetupChoice({
         </p>
       </div>
 
-      <div className="mb-6 overflow-hidden rounded-xl border border-zGray-800/70 bg-zGray-950/40">
+      <div className="mb-6 overflow-hidden rounded-xl border border-line-control/70 bg-state-selected">
         <div className="flex items-center gap-3 px-3.5 py-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zGray-800/70 bg-surface">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-line-control/70 bg-surface">
             <CloudLogo provider={provider} size={24} />
           </div>
           <div className="min-w-0 flex-1">
@@ -92,7 +92,7 @@ export function CloudCliSetupChoice({
             </div>
           </div>
           <div
-            className="flex shrink-0 items-center gap-1.5 rounded-full bg-zGray-800/60 px-2 py-1 text-[10px] font-medium text-secondary"
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-state-selected px-2 py-1 text-[10px] font-medium text-secondary"
             role="status"
           >
             {check.checking ? (
@@ -107,7 +107,7 @@ export function CloudCliSetupChoice({
           </div>
         </div>
         {!check.checking && check.result?.installed && (
-          <dl className="space-y-2 border-t border-zGray-800/60 px-3.5 py-3 text-[11px]">
+          <dl className="space-y-2 border-t border-line-control/60 px-3.5 py-3 text-[11px]">
             <div className="flex items-baseline gap-3">
               <dt className="w-12 shrink-0 text-tertiary">{t('Path')}</dt>
               <dd className="min-w-0 select-text break-all font-mono leading-relaxed text-secondary">
@@ -136,7 +136,7 @@ export function CloudCliSetupChoice({
                             command: check.result.command ?? 'CLI',
                           })
                     }
-                    className={`${check.versionRequested ? 'ml-2 ' : ''}font-sans text-zViolet-accent hover:underline`}
+                    className={`${check.versionRequested ? 'ml-2 ' : ''}font-sans text-primary hover:underline`}
                   >
                     {check.versionRequested ? t('Retry') : t('Read version')}
                   </button>
@@ -154,12 +154,12 @@ export function CloudCliSetupChoice({
               {index < steps.length - 1 && (
                 <div
                   aria-hidden="true"
-                  className="absolute bottom-0 left-[11px] top-6 w-px bg-zGray-800"
+                  className="absolute bottom-0 left-[11px] top-6 w-px bg-surface-sunken"
                 />
               )}
               <span
                 aria-hidden="true"
-                className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-zGray-800 bg-surface text-[10px] font-medium tabular-nums text-tertiary"
+                className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-line-control bg-surface text-[10px] font-medium tabular-nums text-tertiary"
               >
                 {index + 1}
               </span>
@@ -198,12 +198,12 @@ export function CloudCliSetupChoice({
         </div>
       )}
 
-      <div className="mt-5 border-t border-zGray-800/60 pt-3">
+      <div className="mt-5 border-t border-line-control/60 pt-3">
         <button
           type="button"
           onClick={check.continueManually}
           disabled={starting}
-          className="flex min-h-8 w-full items-center justify-between gap-3 rounded-md px-1 text-left text-[12px] text-secondary hover:text-main focus-visible:outline focus-visible:outline-2 focus-visible:outline-zViolet-accent disabled:opacity-50"
+          className="flex min-h-8 w-full items-center justify-between gap-3 rounded-md px-1 text-left text-[12px] text-secondary hover:text-main focus-visible:outline focus-visible:outline-2 focus-visible:outline-line-focus disabled:opacity-50"
         >
           <span>
             {check.checking ? t('Continue with manual setup') : t('Set up manually instead')}

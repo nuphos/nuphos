@@ -81,8 +81,8 @@ export function GithubView({
                 className={clsx(
                   'h-7 px-2.5 rounded-md text-[12px] transition-colors',
                   nav.prState === state
-                    ? 'bg-zGray-800 text-main'
-                    : 'text-tertiary hover:text-secondary hover:bg-zGray-800/50',
+                    ? 'bg-surface-sunken text-main'
+                    : 'text-tertiary hover:text-secondary hover:bg-state-hover',
                 )}
                 onClick={() => {
                   onNavChange({ ...nav, prState: state })

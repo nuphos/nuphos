@@ -52,11 +52,11 @@ function CatalogSection({
             type="button"
             onClick={() => onPick(item.key)}
             className={clsx(
-              'text-left p-3 rounded-lg border border-zGray-800 bg-zGray-850 transition-colors flex items-start gap-3',
-              'hover:border-zViolet-500/50 hover:bg-zGray-800',
+              'text-left p-3 rounded-lg border border-line-control bg-surface-sunken transition-colors flex items-start gap-3',
+              'hover:border-action-primary/50 hover:bg-state-hover',
             )}
           >
-            <div className="w-8 h-8 rounded-md bg-zGray-900 flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 rounded-md bg-surface-sheet flex items-center justify-center flex-shrink-0">
               <ItemLogo k={item.key} />
             </div>
             <div className="min-w-0">
@@ -113,7 +113,7 @@ export function AddIntegrationModal({
           )}{' '}
           <button
             type="button"
-            className="inline-flex items-center gap-1 rounded-sm text-secondary underline decoration-zGray-700 underline-offset-2 transition-colors hover:text-main focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zViolet-500"
+            className="inline-flex items-center gap-1 rounded-sm text-secondary underline decoration-tertiary underline-offset-2 transition-colors hover:text-main focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
             onClick={() => {
               void api.appOpenExternal(CONNECTOR_CAPABILITIES_URL).catch((err: unknown) => {
                 toast.apiError(t('Could not open connector capabilities'), err)
@@ -137,7 +137,7 @@ export function AddIntegrationModal({
         {/* Sticky rather than pinned above the body: `Modal` has no slot between
             its header and the scroll area, and the filter should stay reachable
             while a long catalog scrolls under it. */}
-        <div className="sticky top-0 z-10 border-b border-zGray-800 bg-zGray-900 px-5 py-3">
+        <div className="sticky top-0 z-10 border-b border-line-control bg-surface-sheet px-5 py-3">
           <SearchBox
             filter={query}
             onFilterChange={setQuery}

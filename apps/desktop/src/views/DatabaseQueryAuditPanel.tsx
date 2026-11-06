@@ -44,8 +44,8 @@ export function DatabaseQueryAuditPanel({
   }, [load])
 
   return (
-    <div className="overflow-hidden rounded-xl border border-zGray-800">
-      <div className="flex items-center justify-between border-b border-zGray-800 px-4 py-3">
+    <div className="overflow-hidden rounded-xl border border-line-control">
+      <div className="flex items-center justify-between border-b border-line-control px-4 py-3">
         <div>
           <div className="text-[13px] font-medium text-main">{t('Query audit')}</div>
           <div className="mt-0.5 text-[10.5px] text-tertiary">
@@ -59,7 +59,7 @@ export function DatabaseQueryAuditPanel({
             setError(null)
             load()
           }}
-          className="rounded p-1.5 text-tertiary hover:bg-zGray-800 hover:text-main"
+          className="rounded p-1.5 text-tertiary hover:bg-state-hover hover:text-main"
         >
           <RefreshCw className="h-3.5 w-3.5" />
         </button>
@@ -80,7 +80,7 @@ export function DatabaseQueryAuditPanel({
       ) : (
         <div className="overflow-auto">
           <table className="w-full text-left text-[11px]">
-            <thead className="bg-zGray-900 text-tertiary">
+            <thead className="bg-surface-sheet text-tertiary">
               <tr>
                 <th className="px-3 py-2 font-medium">{t('Time')}</th>
                 <th className="px-3 py-2 font-medium">{t('Operation')}</th>
@@ -98,7 +98,7 @@ export function DatabaseQueryAuditPanel({
 
                 return (
                   <Fragment key={event.id}>
-                    <tr className="border-t border-zGray-800/70 text-secondary">
+                    <tr className="border-t border-line-control/70 text-secondary">
                       <td className="whitespace-nowrap px-3 py-2 text-tertiary">
                         {new Date(event.createdAt).toLocaleString()}
                       </td>
@@ -162,7 +162,7 @@ export function DatabaseQueryAuditPanel({
                       </td>
                     </tr>
                     {expanded && event.queryStatement && (
-                      <tr className="border-t border-zGray-800/50 bg-zGray-950/40">
+                      <tr className="border-t border-line-control/50 bg-state-selected">
                         <td colSpan={8} className="px-3 py-3">
                           <div className="mb-2 flex items-center gap-2 text-[10px] text-tertiary">
                             {t('Sanitized statement')}
@@ -179,7 +179,7 @@ export function DatabaseQueryAuditPanel({
                               </span>
                             )}
                           </div>
-                          <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md border border-zGray-800 bg-zGray-950 px-3 py-2 font-mono text-[11px] leading-5 text-secondary">
+                          <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md border border-line-control bg-surface-canvas px-3 py-2 font-mono text-[11px] leading-5 text-secondary">
                             {event.queryStatement}
                           </pre>
                         </td>

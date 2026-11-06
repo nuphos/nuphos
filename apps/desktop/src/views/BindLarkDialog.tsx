@@ -201,13 +201,13 @@ export function BindLarkDialog({ open, teamId, onClose, onBound, mode = 'install
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-2 border-t border-zGray-800/60 px-5 py-4">
+      <div className="flex items-center justify-between gap-2 border-t border-line-control/60 px-5 py-4">
         <div>
           {!webhookUrl && (
             <button
               type="button"
               onClick={onClose}
-              className="h-9 rounded-md border border-zGray-800 px-3 text-[12.5px] font-medium text-secondary transition-colors hover:border-zGray-700 hover:text-main"
+              className="h-9 rounded-md border border-line-control px-3 text-[12.5px] font-medium text-secondary transition-colors hover:border-line-control hover:text-main"
             >
               {t('Cancel')}
             </button>
@@ -257,7 +257,7 @@ export function BindLarkDialog({ open, teamId, onClose, onBound, mode = 'install
             <button
               type="button"
               onClick={onClose}
-              className="h-9 rounded-md border border-zGray-800 px-3 text-[12.5px] font-medium text-secondary transition-colors hover:border-zGray-700 hover:text-main"
+              className="h-9 rounded-md border border-line-control px-3 text-[12.5px] font-medium text-secondary transition-colors hover:border-line-control hover:text-main"
             >
               {t('Done')}
             </button>

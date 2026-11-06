@@ -121,7 +121,7 @@ export function BindOnpremClusterDialog({ teamId, onClose, onBound }: Props) {
         )}
       </div>
 
-      <div className="flex items-center justify-end gap-2 border-t border-zGray-850 px-5 py-3">
+      <div className="flex items-center justify-end gap-2 border-t border-line-control px-5 py-3">
         <button
           type="button"
           onClick={close}

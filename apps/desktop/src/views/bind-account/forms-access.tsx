@@ -40,7 +40,7 @@ export function TailscaleForm({ st, teamId }: { st: BindState; teamId: string })
           value={tailscaleLabel}
           onChange={(e) => setTailscaleLabel(e.target.value)}
           placeholder="Production tailnet"
-          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       <Field
@@ -68,8 +68,8 @@ export function TailscaleForm({ st, teamId }: { st: BindState; teamId: string })
               onClick={() => setTailscaleFederated(federated)}
               className={`flex-1 h-9 rounded-md border text-[12.5px] font-medium ${
                 tailscaleFederated === federated
-                  ? 'border-zViolet-500 bg-zViolet-500/10 text-main'
-                  : 'border-zGray-800 bg-surface text-secondary hover:text-main'
+                  ? 'border-action-primary bg-state-selected text-main'
+                  : 'border-line-control bg-surface text-secondary hover:text-main'
               }`}
             >
               {text}
@@ -78,7 +78,7 @@ export function TailscaleForm({ st, teamId }: { st: BindState; teamId: string })
         </div>
       </Field>
       {tailscaleFederated && (
-        <div className="mb-1 rounded-md border border-zGray-800 bg-zGray-850/50 px-3 py-2.5">
+        <div className="mb-1 rounded-md border border-line-control bg-state-selected px-3 py-2.5">
           <div className="text-[12px] font-medium text-main mb-1.5">
             {t('Create the trust credential in Tailscale first')}
           </div>
@@ -105,7 +105,7 @@ export function TailscaleForm({ st, teamId }: { st: BindState; teamId: string })
           value={tailscaleClientId}
           onChange={(e) => setTailscaleClientId(e.target.value)}
           placeholder={t('Tailscale OAuth client ID')}
-          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       {!tailscaleFederated && (
@@ -118,7 +118,7 @@ export function TailscaleForm({ st, teamId }: { st: BindState; teamId: string })
             value={tailscaleClientSecret}
             onChange={(e) => setTailscaleClientSecret(e.target.value)}
             placeholder={t('Tailscale OAuth client secret')}
-            className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+            className="w-full h-9 px-2.5 rounded-md bg-surface border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
           />
         </Field>
       )}
@@ -138,7 +138,7 @@ export function VantaForm({ st }: { st: BindState }) {
 
   return (
     <>
-      <div className="mb-1 rounded-md border border-zGray-800 bg-zGray-850/50 px-3 py-2.5">
+      <div className="mb-1 rounded-md border border-line-control bg-state-selected px-3 py-2.5">
         <div className="text-[12px] font-medium text-main mb-1.5">
           {t('How to get your Vanta Client ID & Secret')}
         </div>
@@ -170,7 +170,7 @@ export function VantaForm({ st }: { st: BindState }) {
           value={vantaLabel}
           onChange={(e) => setVantaLabel(e.target.value)}
           placeholder="Acme Vanta"
-          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       <Field
@@ -184,7 +184,7 @@ export function VantaForm({ st }: { st: BindState }) {
           value={vantaClientId}
           onChange={(e) => setVantaClientId(e.target.value)}
           placeholder="vci_…"
-          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       <Field
@@ -198,7 +198,7 @@ export function VantaForm({ st }: { st: BindState }) {
           value={vantaClientSecret}
           onChange={(e) => setVantaClientSecret(e.target.value)}
           placeholder="vcs_…"
-          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
     </>
@@ -219,7 +219,7 @@ export function SecureframeForm({ st }: { st: BindState }) {
 
   return (
     <>
-      <div className="mb-1 rounded-md border border-zGray-800 bg-zGray-850/50 px-3 py-2.5">
+      <div className="mb-1 rounded-md border border-line-control bg-state-selected px-3 py-2.5">
         <div className="text-[12px] font-medium text-main mb-1.5">
           {t('How to get your Secureframe API Key & Secret')}
         </div>
@@ -255,7 +255,7 @@ export function SecureframeForm({ st }: { st: BindState }) {
           value={secureframeLabel}
           onChange={(e) => setSecureframeLabel(e.target.value)}
           placeholder="Acme Secureframe"
-          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       <Field
@@ -280,7 +280,7 @@ export function SecureframeForm({ st }: { st: BindState }) {
           value={secureframeApiKey}
           onChange={(e) => setSecureframeApiKey(e.target.value)}
           placeholder={t('Secureframe API key')}
-          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       <Field
@@ -292,7 +292,7 @@ export function SecureframeForm({ st }: { st: BindState }) {
           value={secureframeApiSecret}
           onChange={(e) => setSecureframeApiSecret(e.target.value)}
           placeholder={t('Secureframe API secret')}
-          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
     </>

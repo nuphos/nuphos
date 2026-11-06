@@ -50,15 +50,15 @@ export function DatabaseBackupRestorePreview({ connection }: Props) {
         />
         <StatusPreview label={t('Artifacts')} value="0" detail={t('Encrypted inventory')} />
       </div>
-      <section className="mt-4 overflow-hidden rounded-xl border border-zGray-800 bg-zGray-950/35">
-        <div className="grid grid-cols-[minmax(0,1.4fr)_1fr_1fr_1fr] border-b border-zGray-800 px-4 py-2.5 text-[10px] font-medium uppercase tracking-wide text-tertiary">
+      <section className="mt-4 overflow-hidden rounded-xl border border-line-control bg-state-selected">
+        <div className="grid grid-cols-[minmax(0,1.4fr)_1fr_1fr_1fr] border-b border-line-control px-4 py-2.5 text-[10px] font-medium uppercase tracking-wide text-tertiary">
           <span>{t('Backup')}</span>
           <span>{t('Scope')}</span>
           <span>{t('Size')}</span>
           <span>{t('Status')}</span>
         </div>
         <div className="flex min-h-40 flex-col items-center justify-center px-6 text-center">
-          <ArchiveRestore className="h-7 w-7 text-zGray-600" />
+          <ArchiveRestore className="h-7 w-7 text-tertiary" />
           <div className="mt-3 text-[12.5px] text-secondary">
             {t('No backup workflow is connected yet')}
           </div>
@@ -95,9 +95,9 @@ export function DatabaseParametersPreview({ connection }: Props) {
         </Button>
       }
     >
-      <div className="rounded-xl border border-zViolet-500/25 bg-zViolet-500/5 p-3.5">
+      <div className="rounded-xl border border-action-primary/25 bg-state-selected p-3.5">
         <div className="flex items-start gap-2.5">
-          <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-zViolet-accent" />
+          <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
           <div>
             <div className="text-[12px] font-medium text-main">
               {t('Approval is mandatory for parameter writes')}
@@ -110,23 +110,23 @@ export function DatabaseParametersPreview({ connection }: Props) {
           </div>
         </div>
       </div>
-      <section className="mt-4 overflow-hidden rounded-xl border border-zGray-800 bg-zGray-950/35">
-        <div className="flex items-center justify-between gap-3 border-b border-zGray-800 px-4 py-3">
-          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-zGray-800 bg-zGray-900 px-2.5 py-1.5 text-tertiary">
+      <section className="mt-4 overflow-hidden rounded-xl border border-line-control bg-state-selected">
+        <div className="flex items-center justify-between gap-3 border-b border-line-control px-4 py-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-line-control bg-surface-sheet px-2.5 py-1.5 text-tertiary">
             <Search className="h-3.5 w-3.5" />
             <span className="text-[10.5px]">{t('Search parameters')}</span>
           </div>
-          <span className="whitespace-nowrap rounded border border-zGray-700 px-2 py-1 text-[10px] text-tertiary">
+          <span className="whitespace-nowrap rounded border border-line-control px-2 py-1 text-[10px] text-tertiary">
             {t('Catalog not connected')}
           </span>
         </div>
-        <div className="grid grid-cols-[minmax(0,1.5fr)_1fr_1fr_1fr] border-b border-zGray-800 px-4 py-2.5 text-[10px] font-medium uppercase tracking-wide text-tertiary">
+        <div className="grid grid-cols-[minmax(0,1.5fr)_1fr_1fr_1fr] border-b border-line-control px-4 py-2.5 text-[10px] font-medium uppercase tracking-wide text-tertiary">
           <span>{t('Parameter')}</span>
           <span>{t('Effective value')}</span>
           <span>{t('Scope')}</span>
           <span>{t('Mutability')}</span>
         </div>
-        <div className="divide-y divide-zGray-800/70">
+        <div className="divide-y divide-line-control/70">
           {[0, 1, 2].map((row) => (
             <div
               key={row}
@@ -166,9 +166,9 @@ function PreviewShell({
 }) {
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-4 rounded-xl border border-zGray-800 bg-zGray-900/30 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-4 rounded-xl border border-line-control bg-state-selected p-4">
         <div className="flex min-w-0 items-start gap-3">
-          <div className="rounded-lg border border-zGray-700 bg-zGray-900 p-2 text-zViolet-accent">
+          <div className="rounded-lg border border-line-control bg-surface-sheet p-2 text-primary">
             {icon}
           </div>
           <div>
@@ -184,17 +184,17 @@ function PreviewShell({
         </div>
         {action}
       </div>
-      <div className="rounded-xl border border-zGray-800 bg-zGray-900/20 p-4">{children}</div>
+      <div className="rounded-xl border border-line-control bg-state-selected p-4">{children}</div>
     </div>
   )
 }
 
 function StatusPreview({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <div className="rounded-xl border border-zGray-800 bg-zGray-950/35 p-3.5">
+    <div className="rounded-xl border border-line-control bg-state-selected p-3.5">
       <div className="text-[10px] uppercase tracking-wide text-tertiary">{label}</div>
       <div className="mt-2 flex items-center gap-1.5 text-[12px] text-secondary">
-        <Clock3 className="h-3.5 w-3.5 text-zGray-600" />
+        <Clock3 className="h-3.5 w-3.5 text-tertiary" />
         {value}
       </div>
       <div className="mt-1 text-[9.5px] text-tertiary">{detail}</div>
@@ -204,7 +204,7 @@ function StatusPreview({ label, value, detail }: { label: string; value: string;
 
 function PreviewFootnote({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
-    <div className="mt-4 flex items-start gap-2 rounded-lg border border-zGray-800 bg-zGray-900/45 px-3 py-2.5 text-[10.5px] leading-4 text-tertiary">
+    <div className="mt-4 flex items-start gap-2 rounded-lg border border-line-control bg-state-selected px-3 py-2.5 text-[10.5px] leading-4 text-tertiary">
       <span className="mt-0.5 shrink-0 text-success">{icon}</span>
       <span>{children}</span>
     </div>
@@ -212,5 +212,5 @@ function PreviewFootnote({ icon, children }: { icon: ReactNode; children: ReactN
 }
 
 function SkeletonLine({ width }: { width: string }) {
-  return <span className={`block h-2 rounded-full bg-zGray-700/65 ${width}`} />
+  return <span className={`block h-2 rounded-full bg-state-selected ${width}`} />
 }

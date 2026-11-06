@@ -12,7 +12,7 @@ const HUAWEI_CREATE_AGENCY_URL = 'https://console.huaweicloud.com/iam5/#/agencie
 const HUAWEI_MY_CREDENTIAL_URL = 'https://console.huaweicloud.com/iam/#/myCredential'
 
 const inputClass =
-  'w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main'
+  'w-full h-9 px-2.5 rounded-md bg-surface border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main'
 
 export function HuaweiBindWizard({
   step,
@@ -53,7 +53,7 @@ export function HuaweiBindWizard({
               key={title}
               className={clsx(
                 'h-1 flex-1 rounded-full transition-colors',
-                i <= step ? 'bg-zViolet-500' : 'bg-zGray-800',
+                i <= step ? 'bg-action-primary' : 'bg-surface-sunken',
               )}
             />
           ))}
@@ -127,7 +127,7 @@ export function HuaweiBindWizard({
                   </li>
                 </StepList>
                 {oidc && !oidc.configured && (
-                  <div className="text-[11.5px] text-zOrangered-400">
+                  <div className="text-[11.5px] text-status-attention">
                     {t(
                       "Nuphos's OIDC connector isn't configured on this backend yet — binding will fail until it is.",
                     )}

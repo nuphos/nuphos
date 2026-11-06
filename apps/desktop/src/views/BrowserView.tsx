@@ -173,13 +173,13 @@ export function BrowserView({
   }, [url])
 
   const buttonClass =
-    'flex h-7 w-7 shrink-0 items-center justify-center rounded text-secondary hover:bg-zGray-800 hover:text-main disabled:opacity-30'
+    'flex h-7 w-7 shrink-0 items-center justify-center rounded text-secondary hover:bg-state-hover hover:text-main disabled:opacity-30'
 
   return (
     <PageMeta pageKey="team.browser" title={title} icon={<Globe className="h-3.5 w-3.5" />}>
       <div className="flex h-full min-h-0 w-full flex-col">
         <form
-          className="relative flex items-center gap-1 border-b border-zGray-800 px-2 py-1.5"
+          className="relative flex items-center gap-1 border-b border-line-control px-2 py-1.5"
           onSubmit={(event) => {
             event.preventDefault()
             const url = normalizeBrowserUrl(address)
@@ -225,7 +225,7 @@ export function BrowserView({
             onChange={(event) => setAddress(event.target.value)}
             onFocus={(event) => event.target.select()}
             spellCheck={false}
-            className="ml-1 h-7 min-w-0 flex-1 rounded-md bg-zGray-900 px-2.5 text-xs text-main outline-none focus:ring-1 focus:ring-zGray-600"
+            className="ml-1 h-7 min-w-0 flex-1 rounded-md bg-surface-sheet px-2.5 text-xs text-main outline-none focus:ring-1 focus:ring-line-control"
             placeholder={t('Search or enter URL')}
           />
           <BrowserExtensions
@@ -240,9 +240,9 @@ export function BrowserView({
               type="button"
               className={clsx(
                 buttonClass,
-                'ml-1 outline-none focus-visible:ring-2 focus-visible:ring-zViolet-accent',
+                'ml-1 outline-none focus-visible:ring-2 focus-visible:ring-line-focus',
                 comments.active &&
-                  '!bg-zViolet-accent/15 !text-zViolet-accent ring-1 ring-inset ring-zViolet-accent/40 hover:!bg-zViolet-accent/25',
+                  '!bg-state-selected !text-primary ring-1 ring-inset ring-line-focus hover:!bg-state-selected',
               )}
               disabled={!ready}
               onClick={comments.toggle}

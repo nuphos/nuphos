@@ -51,7 +51,7 @@ export function BindGrafanaDialog({ teamId, onClose, onBound }: Props) {
             onChange={(e) => setName(e.target.value)}
             placeholder="prod"
             autoFocus
-            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent"
+            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-line-control text-main outline-none focus:border-line-focus"
           />
         </Field>
         <Field
@@ -62,7 +62,7 @@ export function BindGrafanaDialog({ teamId, onClose, onBound }: Props) {
             value={grafanaUrl}
             onChange={(e) => setGrafanaUrl(e.target.value)}
             placeholder="https://grafana.example.com"
-            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
+            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-line-control text-main outline-none focus:border-line-focus font-mono text-[12.5px]"
           />
         </Field>
         <Field
@@ -76,12 +76,12 @@ export function BindGrafanaDialog({ teamId, onClose, onBound }: Props) {
             onChange={(e) => setSaToken(e.target.value)}
             placeholder="glsa_..."
             type="password"
-            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
+            className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-line-control text-main outline-none focus:border-line-focus font-mono text-[12.5px]"
           />
         </Field>
         {error && <div className="text-error text-[12px] whitespace-pre-wrap">{error}</div>}
       </div>
-      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-zGray-800">
+      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-line-control">
         <button
           onClick={close}
           disabled={submitting}

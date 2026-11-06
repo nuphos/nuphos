@@ -45,7 +45,7 @@ export function NameStep({
           }}
           placeholder="acme-dc1"
           autoFocus
-          className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[12.5px]"
+          className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-line-control text-main outline-none focus:border-line-focus font-mono text-[12.5px]"
         />
         <div className="text-[11px] text-tertiary mt-1">
           {splice(t('Becomes the kubectl context the agent uses — {context}.'), {
@@ -122,11 +122,11 @@ export function InstallStep({
         className={`flex items-center gap-2 rounded-md border px-3 py-2 text-[12.5px] ${
           connected
             ? 'border-emerald-900/60 bg-emerald-950/30 text-emerald-300'
-            : 'border-zGray-800 bg-zGray-900 text-secondary'
+            : 'border-line-control bg-surface-sheet text-secondary'
         }`}
       >
         <span
-          className={`h-2 w-2 rounded-full ${connected ? 'bg-emerald-400' : 'animate-pulse bg-zGray-600'}`}
+          className={`h-2 w-2 rounded-full ${connected ? 'bg-emerald-400' : 'animate-pulse bg-line-control'}`}
         />
         {connected ? (
           <span>
@@ -186,7 +186,7 @@ export function AccessStep({
           onChange={(event) => onChange(event.target.value)}
           rows={8}
           placeholder={`apiVersion: v1\nkind: Config\nclusters:\n  - name: ${namespace}\n    cluster:\n      server: https://10.0.0.1:6443\n      certificate-authority-data: …`}
-          className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent font-mono text-[11.5px]"
+          className="w-full px-2.5 py-1.5 rounded-md bg-surface border border-line-control text-main outline-none focus:border-line-focus font-mono text-[11.5px]"
         />
         <div className="text-[11px] text-tertiary mt-1">
           {splice(

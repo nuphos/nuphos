@@ -15,7 +15,7 @@ export const nodeColumns: Column<NodeItem>[] = [
     header: t('Name'),
     width: 280,
     sortAccessor: (r) => r.name,
-    render: (r) => <span className="text-zViolet-accent">{r.name}</span>,
+    render: (r) => <span className="text-primary">{r.name}</span>,
   },
   {
     key: 'status',

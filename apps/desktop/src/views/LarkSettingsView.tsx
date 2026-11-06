@@ -116,8 +116,8 @@ export function LarkSettingsView({
         />
       )}
       {canManage && installed && webhookUrl && (
-        <div className="mb-6 overflow-hidden rounded-lg border border-zGray-800/70 bg-surface">
-          <div className="border-b border-zGray-800/60 px-4 py-3">
+        <div className="mb-6 overflow-hidden rounded-lg border border-line-control/70 bg-surface">
+          <div className="border-b border-line-control/60 px-4 py-3">
             <div className="text-[13px] font-medium text-main">{t('Event request URL')}</div>
             <div className="mt-0.5 text-[12px] text-tertiary">
               {t(
@@ -126,19 +126,19 @@ export function LarkSettingsView({
             </div>
           </div>
           <div className="flex items-center gap-2 px-4 py-3">
-            <code className="min-w-0 flex-1 truncate rounded-md border border-zGray-800 bg-zGray-900 px-2.5 py-2 font-mono text-[12px] text-main">
+            <code className="min-w-0 flex-1 truncate rounded-md border border-line-control bg-surface-sheet px-2.5 py-2 font-mono text-[12px] text-main">
               {webhookUrl}
             </code>
             <button
               type="button"
               onClick={() => void copyWebhook()}
-              className="inline-flex h-9 flex-shrink-0 items-center gap-1.5 rounded-md border border-zGray-800 px-3 text-[12.5px] font-medium text-secondary transition-colors hover:border-zGray-700 hover:text-main"
+              className="inline-flex h-9 flex-shrink-0 items-center gap-1.5 rounded-md border border-line-control px-3 text-[12.5px] font-medium text-secondary transition-colors hover:border-line-control hover:text-main"
             >
               <FontAwesomeIcon icon={webhookCopied ? faCheck : faCopy} className="h-3 w-3" />
               {webhookCopied ? t('Copied') : t('Copy')}
             </button>
           </div>
-          <div className="border-t border-zGray-800/60 px-4 py-3">
+          <div className="border-t border-line-control/60 px-4 py-3">
             <div className="text-[12px] leading-relaxed text-tertiary">
               <Fill
                 text={t(
@@ -174,8 +174,8 @@ export function LarkSettingsView({
         />
       )}
 
-      <div className="mb-8 overflow-hidden rounded-lg border border-zGray-800/70 bg-surface">
-        <div className="border-b border-zGray-800/60 px-4 py-3">
+      <div className="mb-8 overflow-hidden rounded-lg border border-line-control/70 bg-surface">
+        <div className="border-b border-line-control/60 px-4 py-3">
           <div className="text-[13px] font-medium text-main">{t('Groups')}</div>
           <div className="mt-0.5 text-[12px] text-tertiary">
             {t(
@@ -238,7 +238,7 @@ export function LarkSettingsView({
             </div>
           </div>
         ) : (
-          <div className="divide-y divide-zGray-800/60">
+          <div className="divide-y divide-line-control/60">
             {availableChats.map((chat) => (
               <div key={chat.chatId} className="flex items-center gap-3 px-4 py-3">
                 <div className="min-w-0 flex-1">

@@ -46,14 +46,14 @@ export function CloudflareConnect({
         {CLOUDFLARE_SCOPE_CATEGORIES.map((r) => (
           <div
             key={r.key}
-            className="flex items-center gap-2.5 rounded-lg border border-zGray-800 bg-zGray-850/40 px-3 py-2"
+            className="flex items-center gap-2.5 rounded-lg border border-line-control bg-state-selected px-3 py-2"
           >
             <FontAwesomeIcon icon={r.icon} className="h-3.5 w-3.5 text-[#f38020]" />
             <div className="min-w-0 flex-1">
               <div className="text-[12.5px] leading-none text-main">{r.label}</div>
               <div className="mt-1 text-[10.5px] text-tertiary">{r.hint}</div>
             </div>
-            <div className="flex items-center gap-0.5 rounded-md bg-zGray-900 p-0.5">
+            <div className="flex items-center gap-0.5 rounded-md bg-surface-sheet p-0.5">
               {(['off', 'read', 'write'] as const).map((level) => (
                 <button
                   key={level}

@@ -9,7 +9,7 @@ export function NotionForm({ st }: { st: BindState }) {
 
   return (
     <>
-      <div className="mb-1 rounded-md border border-zGray-800 bg-zGray-850/50 px-3 py-2.5">
+      <div className="mb-1 rounded-md border border-line-control bg-state-selected px-3 py-2.5">
         <div className="text-[12px] font-medium text-main mb-1.5">
           {t('How to get your Notion integration token')}
         </div>
@@ -57,7 +57,7 @@ export function NotionForm({ st }: { st: BindState }) {
           value={notionLabel}
           onChange={(e) => setNotionLabel(e.target.value)}
           placeholder="Acme Notion"
-          className="w-full h-9 px-2.5 rounded-md bg-zGray-850 border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface-sunken border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       <Field
@@ -71,7 +71,7 @@ export function NotionForm({ st }: { st: BindState }) {
           value={notionToken}
           onChange={(e) => setNotionToken(e.target.value)}
           placeholder={t('ntn_…')}
-          className="w-full h-9 px-2.5 rounded-md bg-zGray-850 border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface-sunken border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
     </>
@@ -90,7 +90,7 @@ export function UpstashForm({ st }: { st: BindState }) {
 
   return (
     <>
-      <div className="mb-1 rounded-md border border-zGray-800 bg-zGray-850/50 px-3 py-2.5">
+      <div className="mb-1 rounded-md border border-line-control bg-state-selected px-3 py-2.5">
         <div className="text-[12px] font-medium text-main mb-1.5">
           {t('How to get your Upstash Management API key')}
         </div>
@@ -134,7 +134,7 @@ export function UpstashForm({ st }: { st: BindState }) {
           value={upstashLabel}
           onChange={(e) => setUpstashLabel(e.target.value)}
           placeholder="Acme Upstash"
-          className="w-full h-9 px-2.5 rounded-md bg-zGray-850 border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface-sunken border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       <Field
@@ -146,7 +146,7 @@ export function UpstashForm({ st }: { st: BindState }) {
           value={upstashEmail}
           onChange={(e) => setUpstashEmail(e.target.value)}
           placeholder={t('ops@acme.com')}
-          className="w-full h-9 px-2.5 rounded-md bg-zGray-850 border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface-sunken border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       <Field
@@ -158,7 +158,7 @@ export function UpstashForm({ st }: { st: BindState }) {
           value={upstashApiKey}
           onChange={(e) => setUpstashApiKey(e.target.value)}
           placeholder={t('Upstash API key')}
-          className="w-full h-9 px-2.5 rounded-md bg-zGray-850 border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface-sunken border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
     </>
@@ -170,7 +170,7 @@ export function ResendForm({ st }: { st: BindState }) {
 
   return (
     <>
-      <div className="mb-1 rounded-md border border-zGray-800 bg-zGray-850/50 px-3 py-2.5">
+      <div className="mb-1 rounded-md border border-line-control bg-state-selected px-3 py-2.5">
         <div className="text-[12px] font-medium text-main mb-1.5">
           {t('How to get your Resend API key')}
         </div>
@@ -214,7 +214,7 @@ export function ResendForm({ st }: { st: BindState }) {
           value={resendLabel}
           onChange={(e) => setResendLabel(e.target.value)}
           placeholder="Acme Resend"
-          className="w-full h-9 px-2.5 rounded-md bg-zGray-850 border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface-sunken border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
       <Field
@@ -228,7 +228,7 @@ export function ResendForm({ st }: { st: BindState }) {
           value={resendApiKey}
           onChange={(e) => setResendApiKey(e.target.value)}
           placeholder={t('re_…')}
-          className="w-full h-9 px-2.5 rounded-md bg-zGray-850 border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+          className="w-full h-9 px-2.5 rounded-md bg-surface-sunken border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
         />
       </Field>
     </>
@@ -248,7 +248,7 @@ export function ZeaburForm({ st }: { st: BindState }) {
         value={zeaburToken}
         onChange={(e) => setZeaburToken(e.target.value)}
         placeholder={t('Zeabur API token')}
-        className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+        className="w-full h-9 px-2.5 rounded-md bg-surface border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
       />
     </Field>
   )

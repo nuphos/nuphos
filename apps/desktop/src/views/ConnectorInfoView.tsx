@@ -39,26 +39,26 @@ function ConnectorInfoSkeleton() {
       aria-label={t('Loading connector')}
       aria-busy="true"
     >
-      <div className="h-14 w-14 rounded-[14px] bg-zGray-850" />
-      <div className="mt-5 h-6 w-32 rounded-md bg-zGray-850" />
-      <div className="mt-2.5 h-3.5 w-80 max-w-full rounded bg-zGray-850/80" />
+      <div className="h-14 w-14 rounded-[14px] bg-surface-sunken" />
+      <div className="mt-5 h-6 w-32 rounded-md bg-surface-sunken" />
+      <div className="mt-2.5 h-3.5 w-80 max-w-full rounded bg-state-selected" />
 
-      <div className="mt-10 flex items-center justify-between border-b border-zGray-800/55 pb-2.5">
-        <div className="h-4 w-24 rounded bg-zGray-850" />
-        <div className="h-3 w-16 rounded bg-zGray-850/80" />
+      <div className="mt-10 flex items-center justify-between border-b border-line-control/55 pb-2.5">
+        <div className="h-4 w-24 rounded bg-surface-sunken" />
+        <div className="h-3 w-16 rounded bg-state-selected" />
       </div>
       <div className="mt-3 space-y-2">
         {[0, 1, 2].map((item) => (
           <div
             key={item}
-            className="flex items-center gap-3 rounded-xl border border-zGray-800/35 px-3 py-3.5"
+            className="flex items-center gap-3 rounded-xl border border-line-control/35 px-3 py-3.5"
           >
-            <div className="h-9 w-9 flex-none rounded-[10px] bg-zGray-850" />
+            <div className="h-9 w-9 flex-none rounded-[10px] bg-surface-sunken" />
             <div className="min-w-0 flex-1">
-              <div className="h-3.5 w-36 rounded bg-zGray-850" />
-              <div className="mt-2 h-3 w-24 rounded bg-zGray-850/70" />
+              <div className="h-3.5 w-36 rounded bg-surface-sunken" />
+              <div className="mt-2 h-3 w-24 rounded bg-state-selected" />
             </div>
-            <div className="h-7 w-20 rounded-full bg-zGray-850/80" />
+            <div className="h-7 w-20 rounded-full bg-state-selected" />
           </div>
         ))}
       </div>

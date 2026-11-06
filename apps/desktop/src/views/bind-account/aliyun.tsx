@@ -52,7 +52,7 @@ export function AliyunBindWizard({
               key={title}
               className={clsx(
                 'h-1 flex-1 rounded-full transition-colors',
-                i <= step ? 'bg-zViolet-500' : 'bg-zGray-800',
+                i <= step ? 'bg-action-primary' : 'bg-surface-sunken',
               )}
             />
           ))}
@@ -132,7 +132,7 @@ export function AliyunBindWizard({
                   </li>
                 </StepList>
                 {oidc && !oidc.configured && (
-                  <div className="text-[11.5px] text-zOrangered-400">
+                  <div className="text-[11.5px] text-status-attention">
                     {t(
                       "Nuphos's OIDC connector isn't configured on this backend yet — binding will fail until it is.",
                     )}
@@ -204,7 +204,7 @@ export function AliyunBindWizard({
                     value={label}
                     onChange={(e) => onLabelChange(e.target.value)}
                     placeholder="Acme Alibaba Cloud"
-                    className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+                    className="w-full h-9 px-2.5 rounded-md bg-surface border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
                   />
                 </Field>
                 <Field
@@ -216,7 +216,7 @@ export function AliyunBindWizard({
                     value={roleArn}
                     onChange={(e) => onRoleArnChange(e.target.value)}
                     placeholder="acs:ram::123456789012345:role/NuphosConnector"
-                    className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+                    className="w-full h-9 px-2.5 rounded-md bg-surface border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
                   />
                 </Field>
                 <Field
@@ -228,7 +228,7 @@ export function AliyunBindWizard({
                     value={oidcProviderArn}
                     onChange={(e) => onOidcProviderArnChange(e.target.value)}
                     placeholder="acs:ram::123456789012345:oidc-provider/nuphos"
-                    className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 focus:border-zViolet-500 outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
+                    className="w-full h-9 px-2.5 rounded-md bg-surface border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main"
                   />
                 </Field>
               </div>

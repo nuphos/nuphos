@@ -44,7 +44,7 @@ export function BrowserCommentBox({
   return (
     <InputGroup
       render={<form ref={ref} />}
-      className="absolute z-10 w-72 rounded-lg border border-zGray-700 bg-zGray-900 p-2 shadow-lg"
+      className="absolute z-10 w-72 rounded-lg border border-line-control bg-surface-sheet p-2 shadow-lg"
       style={position}
       onSubmit={(event) => {
         event.preventDefault()
@@ -71,14 +71,14 @@ export function BrowserCommentBox({
         <button
           type="button"
           onClick={onCancel}
-          className="h-6 rounded px-2 text-xs text-secondary hover:bg-zGray-800 hover:text-main"
+          className="h-6 rounded px-2 text-xs text-secondary hover:bg-state-hover hover:text-main"
         >
           {t('Cancel')}
         </button>
         <button
           type="submit"
           disabled={!note.trim()}
-          className="h-6 rounded bg-zGray-100 px-2 text-xs font-medium text-zGray-900 disabled:opacity-40"
+          className="h-6 rounded bg-line-control px-2 text-xs font-medium text-tertiary disabled:opacity-40"
         >
           {t('Comment')}
         </button>

@@ -22,7 +22,7 @@ export function ComplianceTestDetail({
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">
-      <div className="flex items-start gap-2 px-4 py-3 border-b border-zGray-800/60">
+      <div className="flex items-start gap-2 px-4 py-3 border-b border-line-control/60">
         <div className="min-w-0 flex-1">
           <div className="text-[11px] uppercase tracking-wider text-tertiary">
             {t('{provider} test', { provider: providerLabel })}
@@ -73,7 +73,7 @@ export function ComplianceTestDetail({
           </div>
         )}
       </div>
-      <div className="flex-shrink-0 border-t border-zGray-800/60 p-3">
+      <div className="flex-shrink-0 border-t border-line-control/60 p-3">
         <Button size="sm" className="w-full" type="button" onClick={onOpenInChat}>
           <MessageSquare className="h-3.5 w-3.5" strokeWidth={2} />
           {t('Open in agent')}

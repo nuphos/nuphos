@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
+import { cssValue, cssVariable, themes } from '../../../../packages/design-tokens/src/tokens.mjs'
+
 type Rgb = readonly [number, number, number]
 
 const css = readFileSync(new URL('../index.css', import.meta.url), 'utf8')
@@ -104,9 +106,24 @@ function tint(foreground: Rgb, background: Rgb, alpha: number): Rgb {
   return [channel(0), channel(1), channel(2)]
 }
 
+// Semantic tokens come from packages/design-tokens; index.css aliases legacy names to them.
+const designTokens = (theme: keyof typeof themes) =>
+  new Map(
+    Object.entries(themes[theme]).map(([name, value]) => [cssVariable(name), cssValue(value)]),
+  )
 const rootTokens = declarations(cssBlock(':root'))
-const darkTokens = new Map([...rootTokens, ...declarations(cssBlock('html {'))])
-const lightTokens = new Map([...darkTokens, ...declarations(cssBlock('html.light'))])
+const darkTokens = new Map([
+  ...rootTokens,
+  ...designTokens('dark'),
+  ...declarations(cssBlock('html {')),
+])
+const lightTokens = new Map([
+  ...darkTokens,
+  ...designTokens('light'),
+  // `html.light {`, not `html.light`: a comment earlier in the file mentions
+  // html.light, and matching it silently tested the dark values twice.
+  ...declarations(cssBlock('html.light {')),
+])
 
 for (const [theme, tokens] of [
   ['dark', darkTokens],
@@ -121,7 +138,7 @@ for (const [theme, tokens] of [
       '--color-success',
       '--color-error',
       '--color-warning',
-      '--color-zViolet-accent',
+      '--color-status-attention',
       '--color-slack-text',
     ]
 
@@ -138,7 +155,7 @@ for (const [theme, tokens] of [
       '--color-success',
       '--color-error',
       '--color-warning',
-      '--color-zViolet-accent',
+      '--color-status-attention',
     ]
 
     for (const name of foregrounds) {

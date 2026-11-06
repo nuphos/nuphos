@@ -75,14 +75,14 @@ export function FormStep({
         />
       )}
       {kind === 'connect' && duplicate && (
-        <div className="flex items-start gap-2 rounded-md border border-zGray-800 bg-zGray-900/40 px-3 py-2 text-[12px] text-secondary">
-          <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-zViolet-accent" />
+        <div className="flex items-start gap-2 rounded-md border border-line-control bg-state-selected px-3 py-2 text-[12px] text-secondary">
+          <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-primary" />
           <div className="min-w-0 flex-1">
             {duplicateNotice(duplicate)}{' '}
             <button
               type="button"
               onClick={() => onEditDuplicate(duplicate)}
-              className="text-zViolet-accent hover:underline"
+              className="text-primary hover:underline"
             >
               {t('Edit its permissions instead')}
             </button>
@@ -122,7 +122,7 @@ function LabelAndRegion({
           onChange={(event) => onLabelChange(event.target.value)}
           placeholder="production-analytics"
           autoFocus
-          className="w-full h-9 px-2.5 rounded-md bg-surface border border-zGray-800 text-main outline-none focus:border-zViolet-accent"
+          className="w-full h-9 px-2.5 rounded-md bg-surface border border-line-control text-main outline-none focus:border-line-focus"
         />
       </label>
       <div>

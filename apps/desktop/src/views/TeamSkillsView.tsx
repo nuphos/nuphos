@@ -149,7 +149,7 @@ export function TeamSkillsView({
               'The skills store is not configured. Set {name} and related S3 credentials on the backend to enable team-shared agent skills.',
             ),
             '{name}',
-            <code className="px-1 py-0.5 bg-zGray-900/60 rounded">ATLAS_SKILLS_BUCKET</code>,
+            <code className="px-1 py-0.5 bg-state-selected rounded">ATLAS_SKILLS_BUCKET</code>,
           )}
         />
       )
@@ -168,7 +168,7 @@ export function TeamSkillsView({
       {importSlot &&
         createPortal(
           <>
-            <div className="flex items-center rounded-md bg-zGray-900/60 p-0.5">
+            <div className="flex items-center rounded-md bg-state-selected p-0.5">
               {SCOPES.map((option) => (
                 <button
                   key={option.scope}
@@ -179,7 +179,7 @@ export function TeamSkillsView({
                   className={clsx(
                     'h-6 px-2 rounded text-[12px]',
                     scope === option.scope
-                      ? 'bg-zGray-800 text-main'
+                      ? 'bg-surface-sunken text-main'
                       : 'text-secondary hover:text-main',
                   )}
                 >
@@ -204,7 +204,7 @@ export function TeamSkillsView({
       <div
         className={clsx(
           'flex flex-col min-h-0',
-          selectedSkill ? 'flex-1 min-w-0 border-r border-zGray-800/60' : 'flex-1 min-w-0',
+          selectedSkill ? 'flex-1 min-w-0 border-r border-line-control/60' : 'flex-1 min-w-0',
         )}
       >
         {state.kind === 'ready' && rows.length === 0 && !filter.trim() ? (
@@ -221,7 +221,7 @@ export function TeamSkillsView({
                       'Skills are reusable instructions that teach the agent how your team works. Ask the agent to create one, or upload skill directories under {path} to your team bucket.',
                     ),
                     '{path}',
-                    <code className="px-1 py-0.5 bg-zGray-900/60 rounded">
+                    <code className="px-1 py-0.5 bg-state-selected rounded">
                       skills/&lt;name&gt;/
                     </code>,
                   )

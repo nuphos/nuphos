@@ -36,8 +36,8 @@ type Props = {
 }
 
 const inputClasses =
-  'w-full px-3 py-2 rounded-md bg-surface border border-zGray-800 text-main text-[14px] ' +
-  'outline-none focus:border-zViolet-accent placeholder:text-secondary titlebar-no-drag t-input'
+  'w-full px-3 py-2 rounded-md bg-surface border border-line-control text-main text-[14px] ' +
+  'outline-none focus:border-line-focus placeholder:text-secondary titlebar-no-drag t-input'
 
 export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
   const [step, setStep] = useState<'start' | 'code'>('start')
@@ -161,9 +161,9 @@ export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
               <LoginSocialButtons key={serverChanges} onLogin={onLogin} />
 
               <div className="w-full flex items-center gap-3 my-5">
-                <div className="h-px flex-1 bg-zGray-800" />
+                <div className="h-px flex-1 bg-surface-sunken" />
                 <span className="text-[12px] text-secondary">{t('or')}</span>
-                <div className="h-px flex-1 bg-zGray-800" />
+                <div className="h-px flex-1 bg-surface-sunken" />
               </div>
 
               <form

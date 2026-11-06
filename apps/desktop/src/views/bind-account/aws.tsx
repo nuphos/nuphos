@@ -35,7 +35,7 @@ export function AwsBindWizard({
               key={title}
               className={clsx(
                 'h-1 flex-1 rounded-full transition-colors',
-                i <= step ? 'bg-zViolet-500' : 'bg-zGray-800',
+                i <= step ? 'bg-action-primary' : 'bg-surface-sunken',
               )}
             />
           ))}

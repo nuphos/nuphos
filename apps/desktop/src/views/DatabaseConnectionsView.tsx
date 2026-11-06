@@ -217,7 +217,7 @@ function DatabaseDetail({
           />
         )}
         {active === 'database.audit' && (
-          <div className="border-t border-zGray-800/60 px-6 py-4">
+          <div className="border-t border-line-control/60 px-6 py-4">
             <DatabaseQueryAuditPanel teamId={teamId} connectionId={connection.id} />
           </div>
         )}

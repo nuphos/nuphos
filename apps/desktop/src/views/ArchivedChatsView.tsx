@@ -112,7 +112,7 @@ export function ArchivedChatsView({
           ))}
           {hasMore && (
             <div ref={sentinelRef} className="flex items-center justify-center py-3">
-              {loadingMore && <Loader2 className="h-4 w-4 animate-spin text-zViolet-accent" />}
+              {loadingMore && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
             </div>
           )}
         </div>
