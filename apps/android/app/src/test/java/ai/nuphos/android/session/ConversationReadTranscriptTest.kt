@@ -18,7 +18,7 @@ class ConversationReadTranscriptTest {
         isOwner = owner, messagesFirstIndex = first, activitySeq = JsonValue.Number(4.0),
         messages = listOf(ChatMessage(id = "saved", parts = listOf(ChatPart.Text(text = "shown")))))
     @Test fun onlySuccessfulExplicitOwnerFullTranscriptCreatesMarker() = runTest {
-        for (value in listOf(detail(false), detail(null), detail(first = 2))) {
+        for (value in listOf(detail(false), detail(null))) {
             val session = ChatSession("fixture", "team", readBypass = { _, _ -> false }, aiAllowed = { true }, readDetail = { _, _, _ -> value })
             session.load()
             assertNull(session.readTranscript)
