@@ -113,6 +113,8 @@ services:
       NUPHOS_LOCAL_STACK: 'true'
       # Printed by `nuphos-admin bootstrap`; set it in .env to turn on /admin.
       ATLAS_ADMIN_TEAM_ID: ${ATLAS_ADMIN_TEAM_ID:-}
+      # Opt-in health reports to Nuphos; unset sends nothing (see README).
+      NUPHOS_TELEMETRY_KEY: ${NUPHOS_TELEMETRY_KEY:-}
       ATLAS_REDIS_ENABLED: 'false'
       NUPHOS_BACKEND_URL: http://backend:3000
       NUPHOS_FILE_TRANSFER_S3_BUCKET: nuphos-file-transfers

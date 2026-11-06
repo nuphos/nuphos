@@ -8,6 +8,7 @@ import { requireAdmin } from '@/routes/admin/auth'
 import { registerAdminDirectoryRoutes } from '@/routes/admin/directory'
 import { registerAdminFinopsRoutes } from '@/routes/admin/finops'
 import { registerAdminOverviewRoutes } from '@/routes/admin/overview'
+import { registerAdminTelemetryRoutes } from '@/routes/admin/telemetry'
 import { adminSkillsRoutes } from '@/routes/admin-skills'
 
 export const adminRoutes = new Hono<{ Variables: AdminVars }>()
@@ -38,3 +39,4 @@ registerAdminAgentRoutes(adminRoutes)
 registerAdminDirectoryRoutes(adminRoutes)
 registerAdminFinopsRoutes(adminRoutes)
 registerAdminOverviewRoutes(adminRoutes)
+registerAdminTelemetryRoutes(adminRoutes)

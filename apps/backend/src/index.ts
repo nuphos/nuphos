@@ -5,8 +5,6 @@
 // were never exported while this sat below '@/index-app'.
 import '@/otel/bootstrap'
 
-import { existsSync } from 'node:fs'
-
 import { config } from '@/config'
 import { app, websocket } from '@/index-app'
 import { conversationAutoArchive } from '@/lib/agent/conversation-auto-archive'
@@ -36,6 +34,7 @@ import { recoverDashboardPanelExecutions } from '@/lib/dashboards/exec-service'
 import { dashboardRefreshScheduler } from '@/lib/dashboards/refresh-schedule'
 import { connectDb, closeDb } from '@/lib/db'
 import { watchDevLauncher } from '@/lib/dev-launcher-watchdog'
+import { devTlsOptions } from '@/lib/dev-tls'
 import { initDiscordGateway, shutdownDiscordGateway } from '@/lib/discord/gateway'
 import { backfillPersonalTokenExpiry } from '@/lib/identity/cli-tokens'
 import { initInternalTokens } from '@/lib/internal-token'
@@ -45,6 +44,7 @@ import { setupMcpOAuthIndexes } from '@/lib/oauth/store'
 import { logError, logEvent } from '@/lib/observability'
 import { shutdownPostHog } from '@/lib/posthog'
 import { closeRedis } from '@/lib/redis'
+import { startHealthTelemetry } from '@/lib/telemetry/report'
 import {
   setupIndexes,
   tolerateIndexConflict,
@@ -131,11 +131,12 @@ startAgentRunStallSweeper()
 const stopRuntimeHandoffAdoption = startRuntimeHandoffAdoption()
 
 if (await initDiscordGateway()) logEvent('info', 'backend.discord_gateway.ready')
+startHealthTelemetry()
 
 // Bun only prints these; log them so the next one names its request and time.
 process.on('unhandledRejection', (error) => logError('backend.unhandled_rejection', error))
 
-const tls = getTlsOptions()
+const tls = devTlsOptions()
 
 const server = Bun.serve({
   port: config.port,
@@ -281,20 +282,4 @@ async function shutdown(sig: string) {
 
 for (const sig of ['SIGINT', 'SIGTERM'] as const) {
   process.on(sig, () => void shutdown(sig))
-}
-
-function getTlsOptions(): Bun.TLSOptions | undefined {
-  const { tlsCertPath, tlsKeyPath } = config.server
-
-  if (!tlsCertPath && !tlsKeyPath) return undefined
-  if (!tlsCertPath || !tlsKeyPath) {
-    throw new Error('Both ATLAS_DEV_TLS_CERT and ATLAS_DEV_TLS_KEY are required to enable HTTPS')
-  }
-  if (!existsSync(tlsCertPath)) throw new Error(`ATLAS_DEV_TLS_CERT not found: ${tlsCertPath}`)
-  if (!existsSync(tlsKeyPath)) throw new Error(`ATLAS_DEV_TLS_KEY not found: ${tlsKeyPath}`)
-
-  return {
-    cert: Bun.file(tlsCertPath),
-    key: Bun.file(tlsKeyPath),
-  }
 }

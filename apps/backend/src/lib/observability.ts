@@ -1,4 +1,5 @@
 import { normalizeError, sanitizeProperties } from '@/lib/observability-sanitize'
+import { recordTelemetryEvent } from '@/lib/telemetry/window'
 
 import type { ObservabilityProperties, Primitive } from '@/lib/observability-sanitize'
 import type { Context } from 'hono'
@@ -48,6 +49,8 @@ export function logEvent(
     ...sanitizeProperties(properties),
   }
   const line = JSON.stringify(payload)
+
+  recordTelemetryEvent(event, properties)
 
   if (level === 'error') console.error(line)
   else if (level === 'warn') console.warn(line)

@@ -20,6 +20,13 @@ export const TUNNEL_CLOSE_SUPERSEDED = 4000
 export const TUNNEL_CLOSE_IDLE = 4001
 export const TUNNEL_CLOSE_REVOKED = 4003
 
+let openTunnels = 0
+
+/** Computers whose tunnel this replica holds right now. */
+export function connectedComputerCount(): number {
+  return openTunnels
+}
+
 /**
  * Holds one desktop's reverse tunnel on this replica. Streams opened from any
  * replica arrive on the device's holder channel; frames for a stream go back on
@@ -44,6 +51,7 @@ export async function attachRuntimeTunnel(
   let lastEchoAt = lastFrameAt
   let presenceAt = 0
   let ended = false
+  let counted = false
   let heartbeat: ReturnType<typeof setInterval> | undefined
   let unsubscribe = () => {}
 
@@ -74,6 +82,7 @@ export async function attachRuntimeTunnel(
   const end = () => {
     if (ended) return
     ended = true
+    if (counted) openTunnels--
     clearInterval(heartbeat)
     heartbeat = undefined
     unsubscribe()
@@ -201,6 +210,10 @@ export async function attachRuntimeTunnel(
     throw error
   }
   logEvent('info', 'agent.local_runtime.tunnel_opened', { user_id: userId, device_id: deviceId })
+  if (!ended) {
+    openTunnels++
+    counted = true
+  }
   deps.connectionChanged?.(userId, deviceId)
 
   return {

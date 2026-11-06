@@ -97,5 +97,11 @@ export function platformConfig() {
       // Empty in normal in-cluster runs.
       natMap: optionalList('ATLAS_REDIS_NAT_MAP'),
     },
+    telemetry: {
+      // Opt-in health reports to Nuphos (lib/telemetry), issued per instance and
+      // revocable. Unset = nothing is collected or sent.
+      key: optional('NUPHOS_TELEMETRY_KEY'),
+      url: 'https://telemetry.nuphos.ai/v1/reports',
+    },
   }
 }
