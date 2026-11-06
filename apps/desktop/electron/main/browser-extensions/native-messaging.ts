@@ -19,7 +19,7 @@ export const ALLOWED_HOSTS: Readonly<Record<string, readonly string[]>> = {
 /** Chrome's cap on one message from a host. */
 const MAX_FROM_HOST = 1024 * 1024
 
-/** Where Chrome and Chromium read host manifests, system-wide first. */
+/** Chrome's and Chromium's host manifest folders, system-wide first so a user-level file can't shadow an installed host. */
 export function manifestDirs(platform = process.platform, home = os.homedir()): string[] {
   if (platform === 'darwin')
     return [
@@ -183,7 +183,8 @@ export function nativeMessaging(dirs: string[]) {
     })
     child.stdin?.on('error', close)
     child.on('error', close)
-    child.on('exit', close)
+    // 'close', not 'exit': it fires once the host's output has been read.
+    child.on('close', close)
   }
 
   const disconnectNative = (event: Event, connectionId: unknown) => {
@@ -215,7 +216,7 @@ export function nativeMessaging(dirs: string[]) {
       })
       child.stdin?.on('error', () => done())
       child.on('error', () => done())
-      child.on('exit', () => done())
+      child.on('close', () => done())
       child.stdin?.write(encode(message))
     })
   }

@@ -137,6 +137,37 @@ test('a port runs the host with the origin, relays both ways and stops it on dis
   })
 })
 
+test('a host that replies and exits at once still delivers its reply', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'native-host-'))
+  const program = path.join(dir, 'reply-and-exit')
+
+  await writeFile(
+    program,
+    `#!${process.execPath}
+const body = Buffer.from(JSON.stringify({ done: true }))
+const head = Buffer.alloc(4)
+head.writeUInt32LE(body.length)
+process.stdout.write(Buffer.concat([head, body]), () => process.exit(0))
+`,
+  )
+  await chmod(program, 0o755)
+  const native = nativeMessaging([
+    await hostDir({
+      name: HOST,
+      type: 'stdio',
+      path: program,
+      allowed_origins: [`chrome-extension://${EXTENSION_ID}/`],
+    }),
+  ])
+  const { sender } = worker(EXTENSION_ID)
+
+  for (let i = 0; i < 5; i++)
+    assert.deepEqual(
+      await native.sendNativeMessage({ sender, extension: { id: EXTENSION_ID } }, HOST, {}),
+      { done: true },
+    )
+})
+
 test('an extension cannot claim to be another one', async () => {
   const native = nativeMessaging([await echoHost()])
   const { sender } = worker(OTHER)
