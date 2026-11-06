@@ -29,10 +29,11 @@ let saved: (string | null)[] = []
 let stillThere = true
 let shells: Record<string, unknown>[] = []
 let currentAvatar: string | undefined
+let member = true
 
 useIdentity({
   authenticateToken: async () => ({ user: { id: caller } }),
-  getTeamMembership: async () => ({ role: 'MEMBER' }),
+  getTeamMembership: async () => (member ? { role: 'MEMBER' } : null),
 })
 useAgentDb({
   getReadableConversation: async (_session, _user, team) =>
@@ -69,6 +70,7 @@ beforeEach(() => {
   stillThere = true
   shells = []
   currentAvatar = undefined
+  member = true
   turns.length = 0
 })
 const pick = (avatar: unknown, team = teamId) =>
@@ -182,5 +184,11 @@ test('"+" on Bots places the Bot on the runtime a new chat would use', async () 
 test('"+" on Bots rejects a runtime that is not one', async () => {
   expect((await createBot({ agentRuntime: 'not-a-runtime' })).status).toBe(400)
   expect((await createBot({ runtimeId: '../x' })).status).toBe(400)
+  expect(shells).toEqual([])
+})
+
+test('"+" on Bots needs membership in the team', async () => {
+  member = false
+  expect((await createBot()).status).toBe(403)
   expect(shells).toEqual([])
 })
