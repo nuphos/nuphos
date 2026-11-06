@@ -809,6 +809,13 @@
                           "minLength": 1
                         }
                       },
+                      "instaboxAccountIds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{24}$"
+                        }
+                      },
                       "teamIdentity": {
                         "type": "array",
                         "items": {
@@ -1017,6 +1024,13 @@
                           "items": {
                             "type": "string",
                             "minLength": 1
+                          }
+                        },
+                        "instaboxAccountIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{24}$"
                           }
                         },
                         "teamIdentity": {
