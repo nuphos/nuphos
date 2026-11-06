@@ -125,6 +125,7 @@ export async function setupIndexes(): Promise<void> {
     ['agent-device-share-trusts', setupShareTrustIndexes],
     // Idempotent backfill, not an index: share rows left by a delete from before it
     // forgot them, which a machine registering under the same id would inherit.
+    // Remove once every deployment has run it.
     ['agent-device-share-orphans', dropOrphanedShareState],
     ['agent-device-join-tokens', setupDeviceJoinTokenIndexes],
     ['agent-device-exec-audit', setupDeviceExecAuditIndexes],
