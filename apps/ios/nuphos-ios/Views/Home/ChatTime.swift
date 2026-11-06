@@ -49,6 +49,6 @@ enum ChatTime {
     static func showsTimestamp(_ date: Date?, after previous: Date?, calendar: Calendar = .current) -> Bool {
         guard let date else { return false }
         guard let previous else { return true }
-        return date.timeIntervalSince(previous) > separatorInterval || !calendar.isDate(date, inSameDayAs: previous)
+        return date.timeIntervalSince(previous) > separatorInterval || calendar.startOfDay(for: date) > calendar.startOfDay(for: previous)
     }
 }

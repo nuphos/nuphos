@@ -12,6 +12,8 @@ test('a time shows above the first post, after 15 quiet minutes, and on a new da
   assert.equal(startsTimeGap(at(6, 13, 16), at(6, 13)), true)
   assert.equal(startsTimeGap(at(7, 0, 1), at(6, 23, 59)), true)
   assert.equal(startsTimeGap(0, at(6, 13)), false)
+  // A clock behind the previous post's is no new day.
+  assert.equal(startsTimeGap(at(5, 23), at(6, 0, 1)), false)
 })
 
 test('the label reads like iMessage', () => {

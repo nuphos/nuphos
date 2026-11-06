@@ -10,7 +10,7 @@ export function startsTimeGap(at: number, previous: number | undefined): boolean
   if (!at) return false
   if (!previous) return true
 
-  return at - previous > GAP_MS || startOfDay(at) !== startOfDay(previous)
+  return at - previous > GAP_MS || startOfDay(at) > startOfDay(previous)
 }
 
 /** "Today 13:05", "Yesterday 09:12", the weekday within a week, otherwise the date. */

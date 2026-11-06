@@ -227,7 +227,7 @@ object ChatTime {
         // After a pause or on a new day, as in iMessage.
         val zone = java.time.ZoneId.systemDefault()
         return date.epochSecond - previous.epochSecond > SEPARATOR_SECONDS ||
-            date.atZone(zone).toLocalDate() != previous.atZone(zone).toLocalDate()
+            date.atZone(zone).toLocalDate() > previous.atZone(zone).toLocalDate()
     }
 }
 
