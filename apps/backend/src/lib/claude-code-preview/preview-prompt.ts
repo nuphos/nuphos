@@ -137,7 +137,7 @@ export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise
       permissionWall: '',
     })),
     urlContextSection(args.currentUrl),
-    loadInstructionsBlock(args.teamId, args.userId),
+    loadInstructionsBlock(args.teamId, args.userId, args.sessionId),
     runtimeWhere(args.runtimeId).catch(() => 'inside the team sandbox'),
   ])
   const userFacingLanguage = inferUserFacingLanguage(args.userTexts ?? [], args.locale)

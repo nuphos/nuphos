@@ -1,5 +1,6 @@
 import { ObjectId } from 'mongodb'
 
+import { getConversationBySessionId } from '@/lib/agent/db'
 import { findScopeInstructions } from '@/lib/instructions/service'
 import { logEvent } from '@/lib/observability'
 
@@ -16,13 +17,32 @@ function renderGroup(heading: string, snippets: InstructionSnippet[]): string[] 
   ]
 }
 
+/** A Bot's own identity; a Task has none. */
+export type BotSelf = { name: string; instructions?: string }
+
+function renderBot(bot: BotSelf | null | undefined): string[] {
+  if (!bot) return []
+
+  return [
+    [
+      '## This Bot',
+      `You are ${JSON.stringify(bot.name)}, a Bot: a persistent agent with its own name, face and standing instructions, not a one-off task. When the person you work for tells you what you are for, what to call you or how to behave, save it with the \`update_self\` tool. Tasks you start do not inherit these instructions.`,
+      bot.instructions?.trim()
+        ? `### Your instructions\n\n${bot.instructions.trim()}`
+        : 'You have no instructions yet. Ask what you should take care of, then save it with `update_self`.',
+    ].join('\n\n'),
+  ]
+}
+
 export function renderInstructionsBlock(
   team: InstructionSnippet[],
   personal: InstructionSnippet[],
+  bot?: BotSelf | null,
 ): string | null {
   const sections = [
     ...renderGroup('Team instructions', team),
     ...renderGroup('Personal instructions', personal),
+    ...renderBot(bot),
   ]
 
   if (sections.length === 0) return null
@@ -37,25 +57,31 @@ export function renderInstructionsBlock(
 }
 
 /**
- * Enabled team and personal instructions for one member, rendered as a system
- * context block. Returns null when there are none, and fails soft so a store
+ * Enabled team and personal instructions for one member, plus the Bot's own
+ * when this conversation is a Bot, rendered as a system context block. Returns null when there are none, and fails soft so a store
  * outage never blocks a conversation from starting.
  */
 export async function loadInstructionsBlock(
   teamId: string,
   userId: string | null | undefined,
+  sessionId?: string,
 ): Promise<string | null> {
   if (!ObjectId.isValid(teamId)) return null
   try {
     const teamOid = new ObjectId(teamId)
-    const [team, personal] = await Promise.all([
+    const [team, personal, conversation] = await Promise.all([
       findScopeInstructions(teamOid, 'team', ''),
       userId ? findScopeInstructions(teamOid, 'personal', userId) : Promise.resolve([]),
+      // Losing the Bot section must never cost the team and personal ones.
+      sessionId ? getConversationBySessionId(sessionId).catch(() => null) : Promise.resolve(null),
     ])
 
     return renderInstructionsBlock(
       team.filter((doc) => doc.enabled),
       personal.filter((doc) => doc.enabled),
+      conversation?.avatar
+        ? { name: conversation.title, instructions: conversation.instructions }
+        : null,
     )
   } catch (error) {
     logEvent('warn', 'agent.instructions.load_failed', {
