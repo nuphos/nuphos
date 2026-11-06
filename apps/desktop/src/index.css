@@ -292,21 +292,10 @@
   [role='button']:not([aria-disabled='true']) * {
     user-select: none;
     -webkit-user-select: none;
-    /* Base UI applies its own pointer selector to navigation buttons. Keep the
-       desktop-arrow convention authoritative on both the control and nested
-       icons/text; disabled, resize, and drag controls retain their own cursor. */
-    cursor: default !important;
-  }
-
-  /*
-   * This is a desktop app: clickable controls keep the native arrow and use
-   * hover/focus styling to communicate interactivity. Keep a global override
-   * for Tailwind's `cursor-pointer` so a future use cannot reintroduce the
-   * split cursor where the button is a hand but its nested logo (covered by
-   * `button *` above) is an arrow.
-   */
-  .cursor-pointer {
-    cursor: default !important;
+    /* Every enabled control shows the pointer, on the control and on its nested
+       icons and text alike, so the cursor never splits between hand and arrow
+       inside one button. Disabled controls fall back to their own cursor. */
+    cursor: pointer !important;
   }
 }
 
