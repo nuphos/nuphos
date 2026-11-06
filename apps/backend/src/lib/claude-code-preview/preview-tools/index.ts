@@ -15,6 +15,7 @@ import { createChartTool } from '@/lib/agent/tools-skilled/chart-tool'
 import { publishPreviewFrame } from '../run-frame-bridge'
 
 import { toolModuleFromAiSdkTools } from './ai-sdk-adapter'
+import { boxToolModule } from './boxes'
 import { connectorToolModule } from './connectors'
 import { decisionToolModule } from './decisions'
 import { channelToolModule } from './channels'
@@ -168,6 +169,7 @@ const EXTRA_MODULES: ModuleFactory[] = [
   () => Promise.resolve(threadToolModule()),
   () => Promise.resolve(channelToolModule()),
   (ctx) => Promise.resolve(connectorToolModule(ctx)),
+  (ctx) => Promise.resolve(boxToolModule(ctx)),
   () => Promise.resolve(decisionToolModule()),
   () => Promise.resolve(kubeconfigToolModule()),
   slackPreviewToolModule,
