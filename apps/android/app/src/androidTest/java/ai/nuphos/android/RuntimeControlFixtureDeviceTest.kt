@@ -37,6 +37,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 @RunWith(AndroidJUnit4::class)
 class RuntimeControlFixtureDeviceTest {
     @Volatile private var failCancel = false
+    @Volatile private var chatRefused = false
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private val originals = mutableMapOf<String, OkHttpClient>()
     private data class Recorded(val method: String, val path: String, val body: JsonValue)
@@ -64,6 +65,7 @@ class RuntimeControlFixtureDeviceTest {
             val cancel = request.url.encodedPath.endsWith("/cancel-runtime")
             val media = if (chat) "text/event-stream".toMediaType() else Http.jsonMedia
             val text = when {
+                chat && chatRefused -> "{\"error\":{\"code\":\"conversation_read_only\",\"message\":\"This conversation is read-only.\"}}"
                 chat -> listOf(
                     "{\"type\":\"start\",\"messageId\":\"ui-response\"}",
                     "{\"type\":\"atlas-turn-complete\"}",
@@ -73,7 +75,7 @@ class RuntimeControlFixtureDeviceTest {
                 else -> "{\"error\":{\"message\":\"Fixture polling unavailable\"}}"
             }
             // Failed synthetic reads keep the explicitly seeded status from being refreshed by polling.
-            Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(if (cancel && failCancel) 503 else if (chat || cancel) 200 else 503)
+            Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(if (chat && chatRefused) 403 else if (cancel && failCancel) 503 else if (chat || cancel) 200 else 503)
                 .message("fixture").header("Content-Type", media.toString()).body(text.toResponseBody(media)).build()
         }.build()
         for (name in listOf("client", "chatClient")) {
@@ -202,8 +204,11 @@ class RuntimeControlFixtureDeviceTest {
         compose.onNodeWithText("Running fixture").assertIsDisplayed()
         compose.onNodeWithText("Read-only agent").assertIsDisplayed()
         // Read-only conversations disable drafting entirely (checkpoint behavior), so nothing can be typed or sent.
-        compose.onNodeWithContentDescription("Queue a message").assertIsNotEnabled()
-        sendButton().assertIsNotEnabled()
+        // Nothing can be queued here, so nothing says it can.
+        compose.onNodeWithContentDescription("Ask Nuphos anything").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Queue a message").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Queue message").assertDoesNotExist()
         compose.onNodeWithContentDescription("Stop").assertDoesNotExist()
         assertNoMutations()
     }
@@ -440,5 +445,29 @@ class RuntimeControlFixtureDeviceTest {
         val stop = compose.onNodeWithContentDescription("Stop").fetchSemanticsNode().boundsInRoot
         val send = compose.onNodeWithContentDescription("Send").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         Assert.assertTrue("Stop is on the left, as on iOS", stop.right <= send.left)
+    }
+    /** A running turn accepts messages into the queue, but the server can still refuse one. */
+    @Test fun aRefusedQueuedMessageSaysSoAndKeepsTheDraft() {
+        render(snapshot(cancel = true))
+        chatRefused = true
+        compose.onNodeWithContentDescription("Queue a message").performTextInput("Keep this refused draft")
+        compose.onNodeWithContentDescription("Queue message").performClick()
+        compose.waitUntil(10_000) { chats.isNotEmpty() && !session.isStreaming && session.error != null }
+        compose.waitForIdle()
+        compose.onNodeWithText("This conversation is read-only.", substring = true).assertExists()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Keep this refused draft").fetchSemanticsNodes().isNotEmpty() }
+        Assert.assertEquals("It wasn't queued", 0, session.queuedSends)
+        Assert.assertTrue(session.queued.isEmpty())
+    }
+    @Test fun aDraftComesBackAfterTheComposerIsDisabled() {
+        render(snapshot(send = true))
+        compose.onNodeWithContentDescription("Ask Nuphos anything").performTextInput("Keep me across read-only")
+        compose.waitForIdle()
+        compose.runOnIdle { metadata(snapshot(send = true), readOnly = true) }
+        compose.onNodeWithContentDescription("Ask Nuphos anything").assertIsNotEnabled()
+        compose.runOnIdle { metadata(snapshot(send = true), readOnly = false) }
+        compose.onNodeWithContentDescription("Ask Nuphos anything").assertIsEnabled()
+        compose.onNodeWithText("Keep me across read-only").assertExists()
+        Assert.assertTrue(chats.isEmpty())
     }
 }

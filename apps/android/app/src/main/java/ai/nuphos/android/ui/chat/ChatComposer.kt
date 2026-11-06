@@ -769,7 +769,7 @@ fun ChatComposer(
                             if (state.isFocused) collapsedByUser = false
                         }
                         .semantics {
-                            contentDescription = if (isStreaming || sendQueues) "Queue a message" else placeholder ?: "Ask Nuphos anything"
+                            contentDescription = if (effectiveDraftingEnabled && (isStreaming || sendQueues)) "Queue a message" else placeholder ?: "Ask Nuphos anything"
                         },
                     textStyle = fieldStyle,
                     cursorBrush = SolidColor(colors.primary),
@@ -784,7 +784,7 @@ fun ChatComposer(
                         Box(contentAlignment = Alignment.CenterStart) {
                             if (text.isEmpty()) {
                                 Text(
-                                    if (isStreaming || sendQueues) "Queue a message…" else placeholder ?: "Ask Nuphos anything…",
+                                    if (effectiveDraftingEnabled && (isStreaming || sendQueues)) "Queue a message…" else placeholder ?: "Ask Nuphos anything…",
                                     style = MaterialTheme.typography.bodyLarge,
                                     maxLines = if (expanded) 8 else 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -798,7 +798,7 @@ fun ChatComposer(
                 if (!expanded) {
                     VoiceMic(enabled = effectiveDraftingEnabled && !picking && !voice.active, onClick = ::startVoice)
                     TrailingButton(isStreaming = isStreaming || (stopsRuntimeTurn && onStop != null), hasPayload = hasPayload && canSubmit && !picking && !voice.active,
-                        onStop = onStop, onSend = ::send, sendQueues = sendQueues)
+                        onStop = onStop, onSend = ::send, sendQueues = sendQueues && effectiveDraftingEnabled)
                 }
             }
 
@@ -868,7 +868,7 @@ fun ChatComposer(
                         hasPayload = hasPayload && canSubmit && !picking && !voice.active,
                         onStop = if (hasPayload) null else onStop,
                         onSend = ::send,
-                        sendQueues = sendQueues,
+                        sendQueues = sendQueues && effectiveDraftingEnabled,
                     )
             }
         }
