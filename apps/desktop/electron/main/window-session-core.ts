@@ -106,15 +106,17 @@ export function parseWindowSurface(value: unknown): WindowSurface | null {
   }
   const leaves: string[] = []
   const layout = parseLayout(value.layout, leaves)
-  const panes: Record<string, PaneSurface> = {}
+  const saved = value.panes
 
-  if (!layout || !isRecord(value.panes)) return null
-  for (const id of leaves) {
-    const pane = parsePaneSurface(value.panes[id])
+  if (!layout || !isRecord(saved)) return null
+  // Own keys only, and defined rather than assigned, so an id like `__proto__` stays plain data.
+  const entries = leaves.map((id) => [
+    id,
+    Object.hasOwn(saved, id) ? parsePaneSurface(saved[id]) : null,
+  ])
 
-    if (!pane) return null
-    panes[id] = pane
-  }
+  if (entries.some(([, pane]) => !pane)) return null
+  const panes = Object.fromEntries(entries) as Record<string, PaneSurface>
   const activeId = leaves.find((id) => id === value.activeId) ?? leaves[0]
 
   return { layout, activeId, panes }

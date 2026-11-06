@@ -68,7 +68,6 @@ export function WorkspaceSplits({
   const [stores] = useState(() => new Map<string, WorkspaceStore>())
   const [seeds] = useState(() => new Map<string, WorkspaceState>())
   const [registrations] = useState(() => new Map<string, (store: WorkspaceStore) => () => void>())
-  const restore = useWindowRestore({ layout, setLayout, activeId, setActiveId, stores, seeds })
   const focusSession = useCallback(
     (sessionId: string, teamId?: string) => {
       // Prefer the focused pane if an older layout already contains duplicates.
@@ -192,6 +191,8 @@ export function WorkspaceSplits({
     registrations.delete(id)
   }
 
+  const win = useWindowRestore({ layout, setLayout, activeId, setActiveId, stores, seeds, close })
+
   const handleLogout = useCallback(async () => {
     // Other panes stay mounted until logout completes; release their terminals too.
     for (const store of stores.values()) {
@@ -213,7 +214,7 @@ export function WorkspaceSplits({
           let registerStore = registrations.get(rect.id)
 
           if (!registerStore) {
-            registerStore = (store) => restore.register(rect.id, store)
+            registerStore = (store) => win.register(rect.id, store)
             registrations.set(rect.id, registerStore)
           }
 
@@ -230,11 +231,7 @@ export function WorkspaceSplits({
                 focusSession,
                 openSessionBeside: (sessionId, teamId) =>
                   openSessionBeside(rect.id, sessionId, teamId),
-                sessionUnshown: (sessionId) => {
-                  markBesideUnshown(beside.current, sessionId)
-                  // A restored pane whose conversation is gone is not reopened empty.
-                  if (restore.unshown(rect.id, sessionId) && multiple) close(rect.id)
-                },
+                sessionUnshown: (sessionId) => markBesideUnshown(beside.current, sessionId),
                 sidebarCollapsed,
                 toggleSidebarCollapsed,
                 cornerPane,
