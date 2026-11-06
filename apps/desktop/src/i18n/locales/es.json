@@ -5753,5 +5753,19 @@
   "API key removed": "Clave de API eliminada",
   "Could not remove the API key": "No se pudo eliminar la clave de API",
   "Remove API key": "Eliminar clave de API",
-  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "El entorno de ejecución no aceptó la clave. Actualiza Nuphos en el equipo donde se ejecuta y vuelve a intentarlo."
+  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "El entorno de ejecución no aceptó la clave. Actualiza Nuphos en el equipo donde se ejecuta y vuelve a intentarlo.",
+  "A computer on your instabox account is billed by instabox, outside your plan.": "Un ordenador en tu cuenta de instabox lo factura instabox, fuera de tu plan.",
+  "A friendly name to identify this instabox account.": "Un nombre para identificar esta cuenta de instabox.",
+  "A label and an instabox API key are required.": "Se necesitan una etiqueta y una clave de API de instabox.",
+  "Billed to": "Facturado a",
+  "Cloud computers for your agents, billed to your instabox account.": "Ordenadores en la nube para tus agentes, facturados a tu cuenta de instabox.",
+  "Computers made on this account are billed to it by instabox, not to your Nuphos plan.": "Los ordenadores creados en esta cuenta los factura instabox a esta cuenta, no a tu plan de Nuphos.",
+  "Computers on it are billed by instabox.": "Sus ordenadores los factura instabox.",
+  "Copy the key (starts with {prefix}).": "Copia la clave (empieza por {prefix}).",
+  "Encrypted before storage; agents never see it.": "Se cifra antes de guardarla; los agentes nunca la ven.",
+  "How to get your instabox API key": "Cómo obtener tu clave de API de instabox",
+  "Open the instabox dashboard and go to {page}, or run {command}.": "Abre el panel de instabox y ve a {page}, o ejecuta {command}.",
+  "Your Nuphos plan": "Tu plan de Nuphos",
+  "instabox account": "Cuenta de instabox",
+  "instabox: {label}": "instabox: {label}"
 }

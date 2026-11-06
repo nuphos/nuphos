@@ -4,6 +4,7 @@ import { AzureBindWizard } from './azure'
 import { CloudflareConnect } from './cloudflare'
 import { SecureframeForm, TailscaleForm, VantaForm } from './forms-access'
 import { BetterStackForm, HetznerForm, LinodeForm, UptimeKumaForm } from './forms-hosting'
+import { InstaboxForm } from './forms-instabox'
 import { NotionForm, ResendForm, UpstashForm, ZeaburForm } from './forms-saas'
 import { GcpBindWizard } from './gcp'
 import { HuaweiBindWizard } from './huawei'
@@ -65,6 +66,8 @@ export function BindDialogBody({
         <UpstashForm st={st} />
       ) : provider === 'resend' ? (
         <ResendForm st={st} />
+      ) : provider === 'instabox' ? (
+        <InstaboxForm st={st} />
       ) : provider === 'tencent' ? (
         <TencentBindWizard
           step={st.tencentStep}

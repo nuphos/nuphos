@@ -5753,5 +5753,19 @@
   "API key removed": "API キーを削除しました",
   "Could not remove the API key": "API キーを削除できませんでした",
   "Remove API key": "API キーを削除",
-  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "ランタイムがキーを受け取りませんでした。実行しているコンピューターの Nuphos を更新してから、もう一度お試しください。"
+  "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "ランタイムがキーを受け取りませんでした。実行しているコンピューターの Nuphos を更新してから、もう一度お試しください。",
+  "A computer on your instabox account is billed by instabox, outside your plan.": "instabox アカウント上のコンピューターは instabox が課金し、プランには含まれません。",
+  "A friendly name to identify this instabox account.": "この instabox アカウントを識別するための名前。",
+  "A label and an instabox API key are required.": "ラベルと instabox API キーが必要です。",
+  "Billed to": "請求先",
+  "Cloud computers for your agents, billed to your instabox account.": "エージェント用のクラウドコンピューター。instabox アカウントに課金されます。",
+  "Computers made on this account are billed to it by instabox, not to your Nuphos plan.": "このアカウントで作成したコンピューターは instabox がこのアカウントに課金し、Nuphos のプランには含まれません。",
+  "Computers on it are billed by instabox.": "このアカウント上のコンピューターは instabox が課金します。",
+  "Copy the key (starts with {prefix}).": "キー（{prefix} で始まる）をコピーします。",
+  "Encrypted before storage; agents never see it.": "保存前に暗号化され、エージェントからは見えません。",
+  "How to get your instabox API key": "instabox API キーの取得方法",
+  "Open the instabox dashboard and go to {page}, or run {command}.": "instabox のダッシュボードで {page} を開くか、{command} を実行します。",
+  "Your Nuphos plan": "Nuphos のプラン",
+  "instabox account": "instabox アカウント",
+  "instabox: {label}": "instabox：{label}"
 }

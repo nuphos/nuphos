@@ -17,6 +17,7 @@ import {
 import {
   submitNotion,
   submitResend,
+  submitInstabox,
   submitSecureframe,
   submitUpstash,
   submitVanta,
@@ -54,6 +55,8 @@ export async function submitBind(st: BindState, env: SubmitEnv) {
     await submitUpstash(st, env)
   } else if (st.provider === 'resend') {
     await submitResend(st, env)
+  } else if (st.provider === 'instabox') {
+    await submitInstabox(st, env)
   } else if (st.provider === 'tencent') {
     await submitTencent(st, env)
   } else if (st.provider === 'aliyun') {

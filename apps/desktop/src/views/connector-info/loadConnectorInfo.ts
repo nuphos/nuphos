@@ -189,6 +189,9 @@ async function listConnectorIds(
   if (provider === 'plaud') {
     return (await api.atlasListPlaudAccounts(teamId)).map((item) => item.id)
   }
+  if (provider === 'instabox') {
+    return (await api.instaboxAccounts(teamId)).map((item) => item.id)
+  }
   if (provider === 'posthog') {
     return (await api.atlasListPosthogIntegrations(teamId)).map((item) => item.id)
   }

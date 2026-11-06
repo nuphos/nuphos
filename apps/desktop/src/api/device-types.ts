@@ -223,7 +223,13 @@ export type AgentDeviceList = {
   devices: AgentDevice[]
   /** False or missing when this backend cannot create Boxes. */
   boxAvailable?: boolean
+  /** Whether the viewer may create a Box in the team asked about: only its administrators. */
+  canCreateBox?: boolean
 }
+
+export type BoxSize = { vcpus: number; memMiB: number }
+
+export type { InstaboxAccount } from '../types/provider-accounts.ts'
 
 /** The team's Box vCPU limit and use, from the backend. */
 export type BoxUsage = {
@@ -235,7 +241,7 @@ export type BoxUsage = {
   /** A new Box's default size: the smallest of `sizes`. */
   boxVcpus: number | null
   /** The sizes a new Box can have, smallest first; absent from older backends. */
-  sizes?: { vcpus: number; memMiB: number }[]
+  sizes?: BoxSize[]
   /** Every Box of the team with its own size; `running` ones count against the limit. */
   boxes?: { sandboxId: string; vcpus: number; running: boolean }[]
   /** The billing service; null when this deployment has none. */

@@ -6,6 +6,7 @@ import type {
   AliyunAccount,
   AzureAccount,
   HuaweiAccount,
+  InstaboxAccount,
   NotionIntegration,
   ResendIntegration,
   SecureframeIntegration,
@@ -24,6 +25,7 @@ export function buildSaasConnectorRows({
   notionIntegrations,
   upstashAccounts,
   resendIntegrations,
+  instaboxAccounts,
   tencentAccounts,
   aliyunAccounts,
   volcengineAccounts,
@@ -38,6 +40,7 @@ export function buildSaasConnectorRows({
   notionIntegrations: NotionIntegration[]
   upstashAccounts: UpstashAccount[]
   resendIntegrations: ResendIntegration[]
+  instaboxAccounts: InstaboxAccount[]
   tencentAccounts: TencentAccount[]
   aliyunAccounts: AliyunAccount[]
   volcengineAccounts: VolcengineAccount[]
@@ -147,6 +150,17 @@ export function buildSaasConnectorRows({
           name: integration.label,
         }),
       onDelete: () => api.atlasUnbindResendIntegration(teamId, integration.id),
+    })),
+    // Unbinding is refused by the backend while computers still live on the account.
+    ...instaboxAccounts.map((account) => ({
+      key: `instabox:${account.id}`,
+      provider: 'instabox' as const,
+      account: account.label,
+      principal: t('API key'),
+      status: t('instabox account'),
+      onAction: () =>
+        onOpenConnectorInfo({ provider: 'instabox', connectorId: account.id, name: account.label }),
+      onDelete: () => api.unbindInstaboxAccount(teamId, account.id),
     })),
     ...tencentAccounts.map((account) => ({
       key: `tencent:${account.id}`,
