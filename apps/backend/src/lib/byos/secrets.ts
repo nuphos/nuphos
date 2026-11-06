@@ -60,6 +60,12 @@ export const sealers = {
     keyId: () => config.byos.hetzner.encryptionKeyId,
     recovery: 'Re-bind the Hetzner account.',
   }),
+  instabox: createSealer({
+    subject: 'instabox credentials',
+    keyEnvs: [LINODE, CLOUDFLARE],
+    keyId: () => config.byos.instabox.encryptionKeyId,
+    recovery: 'Re-bind the instabox account.',
+  }),
   jira: createSealer({
     subject: 'Jira credentials',
     keyEnvs: ['JIRA_TOKEN_ENCRYPTION_KEY'],
@@ -180,6 +186,7 @@ export const { seal: encryptGithubSecret, open: decryptGithubSecret } = sealers.
 export const { seal: encryptGitlabSecret, open: decryptGitlabSecret } = sealers.gitlab
 export const { seal: encryptGrafanaSecret, open: decryptGrafanaSecret } = sealers.grafana
 export const { seal: encryptHetznerToken, open: decryptHetznerToken } = sealers.hetzner
+export const { seal: encryptInstaboxSecret, open: decryptInstaboxSecret } = sealers.instabox
 export const { seal: encryptJiraSecret, open: decryptJiraSecret } = sealers.jira
 export const { seal: encryptLarkSecret, open: decryptLarkSecret } = sealers.lark
 export const { seal: encryptLinearSecret, open: decryptLinearSecret } = sealers.linear

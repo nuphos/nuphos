@@ -22,6 +22,7 @@ import { publicView as gitlabBindingView } from '@/routes/gitlab-bindings'
 import { publicView as grafanaInstanceView } from '@/routes/grafana-instances'
 import { publicView as hetznerAccountView } from '@/routes/hetzner-accounts'
 import { huaweiAccountsView } from '@/routes/huawei-accounts'
+import { publicView as instaboxAccountView } from '@/routes/instabox-accounts'
 import { publicView as jiraSiteView } from '@/routes/jira-sites'
 import { publicView as linearWorkspaceView } from '@/routes/linear-workspaces'
 import { publicView as linodeAccountView } from '@/routes/linode-accounts'
@@ -120,6 +121,7 @@ teamConnectorsRoutes.get('/', async (c) => {
     resend: connectorViews('resend', doc?.resendIntegrations, resendIntegrationView),
     posthog: connectorViews('posthog', doc?.posthogIntegrations, posthogPublicView),
     plaud: connectorViews('plaud', doc?.plaudAccounts, plaudAccountView),
+    instabox: connectorViews('instabox', doc?.instaboxAccounts, instaboxAccountView),
     betterstack: connectorViews(
       'betterstack',
       doc?.betterStackIntegrations,

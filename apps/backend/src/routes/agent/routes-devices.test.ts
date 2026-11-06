@@ -382,14 +382,14 @@ describe('agent device routes', () => {
 
   function fakeBox(calls: string[]): BoxDeps {
     return {
-      create: async (userId, teamId, label, _vcpus, shared) => {
+      create: async (userId, teamId, label, options) => {
         calls.push(`create ${teamId} ${label}`)
         const device = boxDevice(userId, 'b1')
 
         devices[key(userId, 'b1')] = {
           ...device,
           label,
-          access: [{ teamId, everyone: false, userIds: [], managerIds: [], ...shared }],
+          access: [{ teamId, everyone: false, userIds: [], managerIds: [], ...options?.shared }],
         }
 
         return devices[key(userId, 'b1')]!

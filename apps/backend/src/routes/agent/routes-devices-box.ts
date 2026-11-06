@@ -35,6 +35,7 @@ const boxCreateSchema = z.object({
   vcpus: z.number().int().min(1).max(1024).optional(),
   /** Whom it is shared with besides its creator and the admins; no one when left out. */
   access: boxAccessSchema.optional(),
+  instaboxAccountId: z.string().trim().min(1).max(64).optional(),
 })
 
 /** Unnamed Boxes count up: "Computer 1", "Computer 2", … after the highest the caller has. */
@@ -47,8 +48,7 @@ export function nextBoxLabel(labels: string[]): string {
   return `Computer ${String(Math.max(0, ...taken) + 1)}`
 }
 
-/** What a client sees of a device: never the credential hash. */
-/** Null when the Box's machine no longer exists; the row is dropped with it. */
+/** A device as a client sees it, never its credential hash; null once its Box's machine is gone. */
 async function deviceView(
   deps: AgentDeviceRouteDependencies,
   device: AgentDevice,
@@ -87,6 +87,7 @@ async function deviceView(
             provider: device.box.provider,
             ...(level !== 'use' ? { access: teamUse(device, device.box.teamId) } : {}),
             ...(device.box.sandboxId ? { sandboxId: device.box.sandboxId } : {}),
+            ...(device.box.accountId ? { instaboxAccountId: device.box.accountId } : {}),
             state,
             // Its host restarting for an update: offline on purpose, and back on its own.
             ...(updating ? { updateStartedAt: updating.toISOString() } : {}),
@@ -159,7 +160,8 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
     })
   })
 
-  // A Box: a cloud machine made for this user, joined with its own one-time token.
+  // A Box: a cloud machine made for this user, joined with its own one-time token. With
+  // `instaboxAccountId` it is on that team account, which instabox bills, not the deployment's.
   routes.post('/devices/boxes', zv('json', boxCreateSchema), async (c) => {
     const box = requireBoxes()
     const { label, teamId: requestedTeamId, vcpus, access: requested } = c.req.valid('json')
@@ -174,8 +176,7 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
       c.get('userId'),
       teamId,
       label ?? nextBoxLabel((await deps.listDevices(c.get('userId'))).map((d) => d.label)),
-      vcpus,
-      shared,
+      { vcpus, shared, accountId: c.req.valid('json').instaboxAccountId },
     )
 
     return c.json(await viewOrGone(device), 201)
@@ -245,7 +246,6 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
     return c.json(await viewOrGone(device))
   })
 
-  // Deletes the machine, revokes its credential and forgets the device.
   // Who may use a Box: its owner and managers decide. Whoever loses access has their open
   // terminal, CUA and chat streams on it closed; a one-shot exec already sent finishes.
   routes.put(

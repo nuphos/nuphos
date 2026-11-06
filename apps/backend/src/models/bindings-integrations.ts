@@ -202,6 +202,15 @@ export type ResendIntegrationBinding = {
   access?: BindingAccess
 }
 
+// A team's own instabox account, for Boxes billed to it instead of the deployment's
+// account. The API key is static (no expiry or refresh), so only it is stored.
+export type InstaboxAccountBinding = {
+  id: ObjectId
+  label: string
+  encryptedApiKey: EncryptedEnvelope
+  createdAt: Date
+}
+
 export type PosthogRegion = 'us' | 'eu'
 
 export type PosthogProjectRef = {

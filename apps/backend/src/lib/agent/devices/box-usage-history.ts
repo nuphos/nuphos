@@ -2,14 +2,15 @@
 // instabox keeps no history, so every Box change the backend sees records the
 // team's whole current use: a missed change is corrected by the next one, and
 // the chart is a step function with no timer behind it.
-import { db } from '@/lib/db'
+import { config } from '@/config'
 import { QUOTA_HISTORY_RANGES } from '@/lib/claude-code-preview/runtime-quota-history'
+import { db } from '@/lib/db'
 import { logError } from '@/lib/observability'
 
 import { teamBoxUsage, teamVcpuLimit } from './box-instabox-limit'
 
-import type { QuotaHistoryRange } from '@/lib/claude-code-preview/runtime-quota-history'
 import type { AgentDevice } from './store'
+import type { QuotaHistoryRange } from '@/lib/claude-code-preview/runtime-quota-history'
 import type { Collection } from 'mongodb'
 
 const RETENTION_SECONDS = 31 * 24 * 3600
@@ -50,6 +51,7 @@ async function readBoxUsage(teamId: string): Promise<BoxUsageReading> {
 
 /** Records the team's current use; never fails its caller. */
 export function noteBoxUsage(teamId: string): void {
+  if (!config.box.instabox) return // only the deployment's account is metered
   const at = new Date()
 
   void readBoxUsage(teamId)
@@ -60,9 +62,9 @@ export function noteBoxUsage(teamId: string): void {
         { upsert: true },
       ),
     )
-    .catch((error: unknown) =>
-      logError('agent.box.usage_sample_failed', error, { team_id: teamId }),
-    )
+    .catch((error: unknown) => {
+      logError('agent.box.usage_sample_failed', error, { team_id: teamId })
+    })
 }
 
 /**
@@ -78,9 +80,9 @@ export function noteBoxPresence(
 ): Promise<void> {
   return getDevice(userId, deviceId).then(
     (device) => {
-      if (device?.box?.provider === 'instabox') note(device.box.teamId)
+      if (device?.box?.provider === 'instabox' && !device.box.accountId) note(device.box.teamId)
     },
-    () => undefined,
+    () => {},
   )
 }
 

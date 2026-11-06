@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 
+import type { EncryptedSecret } from '@/lib/byos/secrets/shared'
 import type {
   AliyunAccountBinding,
   AwsRoleBinding,
@@ -26,6 +27,7 @@ import type {
 } from '@/models/bindings-devtools'
 import type {
   BetterStackIntegrationBinding,
+  InstaboxAccountBinding,
   LarkAppBinding,
   NotionIntegrationBinding,
   PlaudAccountBinding,
@@ -38,7 +40,6 @@ import type {
   VantaIntegrationBinding,
   ZeaburProviderBinding,
 } from '@/models/bindings-integrations'
-import type { EncryptedSecret } from '@/lib/byos/secrets/shared'
 import type { Collection, ObjectId } from 'mongodb'
 
 export type TeamByosBindings = {
@@ -108,6 +109,7 @@ export type TeamByosBindings = {
   resendIntegrations?: ResendIntegrationBinding[]
   posthogIntegrations?: PosthogIntegrationBinding[]
   plaudAccounts?: PlaudAccountBinding[]
+  instaboxAccounts?: InstaboxAccountBinding[]
   updatedAt: Date
 }
 

@@ -18,7 +18,8 @@ export async function wakeOfflineBox(runtimeId: string | undefined): Promise<boo
   const box = (await getAgentDevice(ref.userId, ref.deviceId))?.box
 
   if (!box?.sandboxId) return false
-  await assertCanResume(box.teamId, box.sandboxId)
+  // Only the deployment's account has a vCPU limit; a team's own account bills it.
+  if (!box.accountId) await assertCanResume(box.teamId, box.sandboxId)
   healBox(ref.userId, ref.deviceId)
 
   return true

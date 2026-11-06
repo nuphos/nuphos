@@ -1,58 +1,43 @@
 // A Box: a cloud machine Nuphos orders on instabox for a person, which joins as
 // that person's device with a one-time token and then behaves like any other
-// computer of theirs. One partner key for the deployment; every machine is
-// created with `vault: false`, so none of the account's secrets reach it.
+// computer of theirs. The machine is on the deployment's instabox account or on one
+// the team bound; it is created with `vault: false`, so none of the account's
+// secrets reach it.
 //
 // The row stores only which machine it is. Its state comes from instabox and
 // from the device's presence, so a machine that instabox paused on its own is
 // seen, and woken, like one Nuphos paused.
 
-import { randomUUID } from 'node:crypto'
-
 import { Sandbox } from '@insforge/instabox-sdk'
 
-import { config } from '@/config'
 import { AppError } from '@/lib/errors'
-import { logError, logEvent } from '@/lib/observability'
+import { logError } from '@/lib/observability'
 
+import { boxConnection } from './box-instabox-account'
 import {
   AGENT_COMMAND,
-  BOX_INSTALL_COMMAND,
-  BOX_TEMPLATE,
-  CREATE_TIMEOUT_MS,
-  INSTALL_TIMEOUT_MS,
   QUICK_TIMEOUT_MS,
-  boxBackendUrl,
-  connection,
+  downloadEnv,
   killBoxMachine,
+  requireBackendUrl,
   unavailable,
 } from './box-instabox-client'
-import { boxSize, startWithinLimit } from './box-instabox-limit'
-import { noteBoxUsage } from './box-usage-history'
+import { startBox } from './box-instabox-start'
 import { boxUpdatingSince, clearBoxUpdateStarted } from './box-updating'
-
-import { deleteDeviceJoinTokens, issueDeviceJoinToken } from './join-tokens'
+import { noteBoxUsage } from './box-usage-history'
+import { deleteDeviceJoinTokens } from './join-tokens'
 import { isDevicePresent, waitForPresence } from './presence'
-import {
-  deleteAgentDevice,
-  getAgentDevice,
-  insertBoxAgentDevice,
-  setAgentDeviceBoxSandbox,
-} from './store'
+import { getAgentDevice } from './store'
 
-import type { BoxSize } from './box-instabox-limit'
 import type { AgentDevice, AgentDeviceBox } from './store'
 
-export { boxBackendUrl, boxesAvailable, boxesEnabled } from './box-instabox-client'
+export { boxBackendUrl, boxesAvailable } from './box-instabox-client'
+export { createBox } from './box-instabox-create'
 export { boxState } from './box-instabox-state'
 export type { BoxState } from './box-instabox-state'
 
-/** The machine joins within this; a token left unused expires with it. */
-const JOIN_TOKEN_TTL_SEC = 60 * 60
 /** How long a resume may take before the tunnel is back. */
 const WAKE_TIMEOUT_MS = 60_000
-/** How long a fresh machine may take to join after its host was started. */
-const JOIN_TIMEOUT_MS = 3 * 60_000
 
 type BoxDevice = AgentDevice & { box: AgentDeviceBox }
 
@@ -68,116 +53,6 @@ function requireMachine(device: BoxDevice): string {
   return device.box.sandboxId
 }
 
-/** The CLI and its runtime bundle come from the release, or from a mirror in development. */
-function downloadEnv(): Record<string, string> {
-  return config.box.downloadUrl ? { NUPHOS_DOWNLOAD_URL: config.box.downloadUrl } : {}
-}
-
-function backendUrl(): string {
-  const url = boxBackendUrl()
-
-  if (!url)
-    throw new AppError(
-      503,
-      'box_unavailable',
-      'This deployment has no public URL for a Box to reach',
-    )
-
-  return url
-}
-
-/**
- * Registers the device row at once and returns; ordering, installing and
- * joining run in the background. The row shows `creating` until the host joins.
- * If any step fails, the machine, the row and its token are removed again.
- * `shared` is whom it is shared with besides its creator, already limited to the team's members.
- */
-export async function createBox(
-  userId: string,
-  teamId: string,
-  label: string,
-  vcpus?: number,
-  shared?: { everyone: boolean; userIds: string[] },
-): Promise<AgentDevice> {
-  const url = backendUrl()
-  const size = await boxSize(vcpus)
-  const deviceId = randomUUID()
-  const registration = {
-    deviceId,
-    label,
-    platform: 'linux',
-    allowLocalExec: true,
-    box: { provider: 'instabox' as const, teamId, createdBy: userId, vcpus: size.vcpus },
-  }
-
-  const created = await startWithinLimit(teamId, { vcpus: size.vcpus }, () =>
-    insertBoxAgentDevice(userId, registration, shared),
-  )
-
-  void order(userId, url, registration, size)
-
-  return created
-}
-
-async function order(
-  userId: string,
-  url: string,
-  { deviceId, label, box: { teamId } }: Pick<BoxDevice, 'deviceId' | 'label' | 'box'>,
-  size: BoxSize,
-): Promise<void> {
-  let sandbox: Sandbox | undefined
-
-  try {
-    sandbox = await Sandbox.create(config.box.template ?? BOX_TEMPLATE, {
-      ...connection(CREATE_TIMEOUT_MS),
-      name: `nuphos-${deviceId.slice(0, 8)}`,
-      metadata: { teamId, deviceId, createdBy: userId },
-      vault: false,
-      autoSuspendMs: 0, // stays on until paused; instabox's default pauses after 30 idle minutes
-      ...size,
-    })
-    // Deleted while it was being ordered: the machine must not outlive the row.
-    if (!(await setAgentDeviceBoxSandbox(userId, deviceId, sandbox.sandboxId)))
-      throw new Error('The Box was deleted while it was being created')
-    const { token } = await issueDeviceJoinToken(userId, {
-      label,
-      deviceId,
-      expiresInSec: JOIN_TOKEN_TTL_SEC,
-    })
-
-    // A configured template or snapshot already carries node, the agents and nuphos.
-    // The install is one long exec request, so it runs on a connection without the
-    // per-request cap: the exec request then waits as long as the command may run.
-    if (!config.box.template)
-      await (
-        await Sandbox.connect(sandbox.sandboxId, {
-          ...connection(INSTALL_TIMEOUT_MS),
-          requestTimeoutMs: undefined,
-          resume: false,
-        })
-      ).commands.run(BOX_INSTALL_COMMAND, { envs: downloadEnv(), timeoutMs: INSTALL_TIMEOUT_MS })
-    await sandbox.commands.run(AGENT_COMMAND, {
-      envs: { ...downloadEnv(), NUPHOS_JOIN_TOKEN: token, NUPHOS_API_URL: url },
-      background: true,
-    })
-    // Setup is done when the machine is actually here, not when its commands returned.
-    if (!(await waitForPresence(userId, deviceId, JOIN_TIMEOUT_MS)))
-      throw new Error('The machine did not join within the time allowed')
-    logEvent('info', 'agent.box.provisioned', { user_id: userId, device_id: deviceId })
-  } catch (error) {
-    logError('agent.box.provision_failed', error, { user_id: userId, device_id: deviceId })
-    // Nothing half-made stays: no machine to bill, no row to confuse, no token to find.
-    // A create that timed out on our side may still have produced a machine: it is
-    // found by the device id in its metadata.
-    await killBoxMachine(connection(QUICK_TIMEOUT_MS), sandbox?.sandboxId, deviceId).catch(
-      () => undefined,
-    )
-    await deleteDeviceJoinTokens(deviceId).catch(() => undefined)
-    await deleteAgentDevice(userId, deviceId).catch(() => undefined)
-    noteBoxUsage(teamId)
-  }
-}
-
 /**
  * A link to watch and use the Box's desktop (VNC in the browser). The link is a
  * bearer credential for the whole Box, so it is short-lived and never logged.
@@ -187,8 +62,11 @@ export async function boxDesktopUrl(userId: string, deviceId: string): Promise<s
   const sandboxId = requireMachine(device)
 
   try {
-    const sandbox = await startWithinLimit(device.box.teamId, { sandboxId }, () =>
-      Sandbox.connect(sandboxId, { ...connection(QUICK_TIMEOUT_MS), resume: true }),
+    const sandbox = await startBox(device.box, { sandboxId }, async () =>
+      Sandbox.connect(sandboxId, {
+        ...(await boxConnection(device.box, QUICK_TIMEOUT_MS)),
+        resume: true,
+      }),
     )
 
     await sandbox.desktop.start()
@@ -220,7 +98,7 @@ export async function pauseBox(userId: string, deviceId: string): Promise<AgentD
 
   try {
     const sandbox = await Sandbox.connect(sandboxId, {
-      ...connection(QUICK_TIMEOUT_MS),
+      ...(await boxConnection(device.box, QUICK_TIMEOUT_MS)),
       resume: false,
     })
 
@@ -244,12 +122,15 @@ export async function resumeBox(userId: string, deviceId: string, command = AGEN
   // Starting the host mid-update would run the old CLI while the new one installs.
   if (command === AGENT_COMMAND && boxUpdatingSince(device))
     throw new AppError(409, 'box_updating', 'The Box is updating and starts again on its own.')
-  const url = backendUrl()
+  const url = requireBackendUrl()
 
   try {
     // Resume, wake and heal all start a machine, so they count against the team's limit.
-    const sandbox = await startWithinLimit(device.box.teamId, { sandboxId }, () =>
-      Sandbox.connect(sandboxId, { ...connection(QUICK_TIMEOUT_MS), resume: true }),
+    const sandbox = await startBox(device.box, { sandboxId }, async () =>
+      Sandbox.connect(sandboxId, {
+        ...(await boxConnection(device.box, QUICK_TIMEOUT_MS)),
+        resume: true,
+      }),
     )
 
     await sandbox.commands.run(command, {
@@ -275,7 +156,9 @@ export async function destroyBox(userId: string, deviceId: string): Promise<void
 
   await deleteDeviceJoinTokens(deviceId)
   try {
-    await killBoxMachine(connection(QUICK_TIMEOUT_MS), device.box.sandboxId, deviceId)
+    const conn = await boxConnection(device.box, QUICK_TIMEOUT_MS)
+
+    await killBoxMachine(conn, device.box.sandboxId, deviceId)
   } catch (error) {
     logError('agent.box.kill_failed', error, { user_id: userId, device_id: deviceId })
     throw unavailable('Could not delete the Box', error)

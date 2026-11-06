@@ -16,6 +16,7 @@ export const BINDING_SEALERS: Partial<Record<string, SealerName>> = {
   googleOAuthClient: 'linear',
   grafanaInstances: 'grafana',
   hetznerAccounts: 'hetzner',
+  instaboxAccounts: 'instabox',
   jiraSites: 'jira',
   larkApps: 'lark',
   linearWorkspaces: 'linear',

@@ -4,19 +4,21 @@
 
 import { randomUUID } from 'node:crypto'
 
-import { DEFAULT_API_URL, Sandbox } from '@insforge/instabox-sdk'
+import { Sandbox } from '@insforge/instabox-sdk'
 import { ObjectId } from 'mongodb'
 
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
 import { teams } from '@/lib/identity/shared'
 
+import { accountSizes, boxConnection } from './box-instabox-account'
 import { QUICK_TIMEOUT_MS, connection, unavailable } from './box-instabox-client'
 import { assertWithinLimit, isRunning, runningVcpus } from './box-vcpu'
 import { teamOrderingVcpus } from './store'
 
-/** A size a Box can be started with. */
-export type BoxSize = { vcpus: number; memMiB: number }
+import type { BoxAccountRef, BoxSize } from './box-instabox-account'
+
+export type { BoxSize } from './box-instabox-account'
 
 /** The team's limit and whether its own document sets it; undefined limit is unlimited. */
 export async function teamVcpuLimit(teamId: string) {
@@ -44,33 +46,21 @@ async function teamMachines(teamId: string) {
   }
 }
 
-/** The sizes instabox lets this deployment's account start, smallest first: its `allowedSpecs`. */
-export async function boxSizes(): Promise<BoxSize[]> {
-  const { apiKey, apiUrl = DEFAULT_API_URL } = connection(QUICK_TIMEOUT_MS)
-
+/** The sizes the Box's account offers, the deployment's when unset, smallest first. */
+export async function boxSizes(box?: BoxAccountRef): Promise<BoxSize[]> {
   try {
-    const response = await fetch(`${apiUrl}/v1/me`, {
-      headers: { 'X-API-Key': apiKey },
-      signal: AbortSignal.timeout(QUICK_TIMEOUT_MS),
-    })
-
-    if (!response.ok) throw new Error(`HTTP ${String(response.status)}`)
-    const { allowedSpecs = [] } = (await response.json()) as { allowedSpecs?: BoxSize[] }
-    const sizes = allowedSpecs
-      .map(({ vcpus, memMiB }) => ({ vcpus, memMiB }))
-      .sort((a, b) => a.vcpus - b.vcpus)
-
-    if (sizes.length === 0) throw new Error('the account allows no size')
-
-    return sizes
+    return await accountSizes(
+      box ? await boxConnection(box, QUICK_TIMEOUT_MS) : connection(QUICK_TIMEOUT_MS),
+    )
   } catch (error) {
+    if (error instanceof AppError) throw error
     throw unavailable('Could not read the Box sizes', error)
   }
 }
 
-/** The size of `vcpus`, the smallest when unset; one instabox does not offer is refused. */
-export async function boxSize(vcpus?: number): Promise<BoxSize> {
-  const sizes = await boxSizes()
+/** The size of `vcpus`, the smallest when unset; one the account does not offer is refused. */
+export async function boxSize(vcpus?: number, box?: BoxAccountRef): Promise<BoxSize> {
+  const sizes = await boxSizes(box)
   const size = vcpus === undefined ? sizes[0] : sizes.find((s) => s.vcpus === vcpus)
 
   if (!size)

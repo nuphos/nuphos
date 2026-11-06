@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
 
 import { agentConversations } from '@/lib/agent/db/shared'
-import { QUICK_TIMEOUT_MS, connection } from '@/lib/agent/devices/box-instabox-client'
+import { boxConnection } from '@/lib/agent/devices/box-instabox-account'
+import { QUICK_TIMEOUT_MS } from '@/lib/agent/devices/box-instabox-client'
 import { runOnRunningMachine } from '@/lib/agent/devices/instabox-machines'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { getAgentDevice } from '@/lib/agent/devices/store'
@@ -221,11 +222,12 @@ export async function reclaimSessionHome(sessionId: string, now = new Date()): P
 
 /** A Box is a machine we run, so its homes go too; one that is not running is retried later. */
 async function reclaimBoxSessionHome({ userId, deviceId }: LocalRuntimeRef, sessionId: string) {
-  const sandboxId = (await getAgentDevice(userId, deviceId))?.box?.sandboxId
+  const box = (await getAgentDevice(userId, deviceId))?.box
+  const sandboxId = box?.sandboxId
 
-  if (!sandboxId) return true
+  if (!box || !sandboxId) return true
   const stdout = await runOnRunningMachine(
-    connection(QUICK_TIMEOUT_MS),
+    await boxConnection(box, QUICK_TIMEOUT_MS),
     sandboxId,
     BOX_RECLAIM_COMMAND,
     { RECLAIM_RUNNER: RECLAIM_SESSION_HOME_PROGRAM, RECLAIM_PARAMS: JSON.stringify({ sessionId }) },
