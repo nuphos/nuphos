@@ -369,10 +369,26 @@
   }
 
   .user-message-bubble {
+    /* Both bubble fills are dark, even when the surrounding app is light, so
+       the text tokens are pinned to light values: links and chips inside use
+       text-primary, which is ink in the light theme and vanishes on the fill. */
     --color-text-base: 255, 255, 255;
-    /* Both bubble fills are dark, even when the surrounding app is light. */
+    --color-text-primary: 255, 255, 255;
+    --color-text-secondary: 184, 180, 173;
+    --color-text-tertiary: 160, 156, 149;
     color: #ffffff;
     background-color: #2e2e2e;
+  }
+
+  /* A link is the same white as the text around it; the underline marks it. */
+  .user-message-bubble a:not(.atlas-mention) {
+    text-decoration-line: underline;
+    text-decoration-color: rgba(255, 255, 255, 0.45);
+    text-underline-offset: 2px;
+  }
+
+  .user-message-bubble a:not(.atlas-mention):hover {
+    text-decoration-color: currentColor;
   }
 
   html.light .user-message-bubble {
