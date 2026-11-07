@@ -34,6 +34,7 @@ const options = {
   vantaIntegrations: [],
   secureframeIntegrations: [],
   resendIntegrations: [],
+  personalCredentials: [],
   devices: [{ deviceId: 'mac', label: 'Mac', platform: 'darwin', available: false }],
   ...emptyConnectorCredentialOptions(),
 } as AgentCredentialOptions

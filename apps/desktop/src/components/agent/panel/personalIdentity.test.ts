@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 
-import { personalIdentityRow, setPersonalIdentity } from './personalIdentity.ts'
+import {
+  personalIdentityRow,
+  personalOnlyCredentials,
+  setPersonalIdentity,
+  setPersonalOnly,
+  teamIdentityOf,
+} from './personalIdentity.ts'
+
+import type { AgentCredentialOptions } from '../../../api'
 
 import type { AgentCredentialSelection } from '../../../api'
 
@@ -37,5 +45,43 @@ describe('personal identity row', () => {
 
   test('a provider the member has not connected has no row', () => {
     assert.equal(personalIdentityRow('linear', [github], emptyCredentialAccess()), null)
+  })
+})
+
+describe('own credential without a team binding', () => {
+  const own = [
+    { provider: 'github' as const, login: 'fong' },
+    { provider: 'linear' as const, login: 'fong' },
+  ]
+  const options = (github: number, linear: number) =>
+    ({
+      personalCredentials: own,
+      githubInstallations: Array.from({ length: github }, () => ({})),
+      linearWorkspaces: Array.from({ length: linear }, () => ({})),
+    }) as unknown as AgentCredentialOptions
+
+  test('offered only for a provider the team has no binding of', () => {
+    assert.deepEqual(personalOnlyCredentials(options(0, 0)), own)
+    assert.deepEqual(personalOnlyCredentials(options(1, 0)), [own[1]])
+    assert.deepEqual(personalOnlyCredentials(options(1, 1)), [])
+  })
+
+  test('ticking adds the provider and unticking removes only it', () => {
+    const ticked = setPersonalOnly(
+      setPersonalOnly(emptyCredentialAccess(), 'github', true),
+      'linear',
+      true,
+    )
+
+    assert.deepEqual(ticked.personalCredentialIds, ['github', 'linear'])
+    assert.deepEqual(setPersonalOnly(ticked, 'github', false).personalCredentialIds, ['linear'])
+    assert.deepEqual(ticked.githubInstallationIds, ['i1'])
+  })
+
+  test('carried through normalize and prune like teamIdentity', () => {
+    assert.deepEqual(teamIdentityOf({ personalCredentialIds: ['linear'] }), {
+      personalCredentialIds: ['linear'],
+    })
+    assert.deepEqual(teamIdentityOf({ personalCredentialIds: [] }), {})
   })
 })

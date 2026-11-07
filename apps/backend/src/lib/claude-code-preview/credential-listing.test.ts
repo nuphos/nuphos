@@ -38,6 +38,7 @@ function emptyOptions(): AgentCredentialOptions {
     vantaIntegrations: [],
     secureframeIntegrations: [],
     resendIntegrations: [],
+    personalCredentials: [],
     devices: [],
     ...emptyConnectorCredentialOptions(),
   }
@@ -89,6 +90,7 @@ function oneOfEach(): AgentCredentialOptions {
     plaudAccounts: [{ bindingId: ID, label }],
     cloudflareAccounts: [{ accountId: ID, accountName: label }],
     instaboxAccounts: [{ accountId: ID, label }],
+    personalCredentials: [{ provider: 'github', login: label }],
     devices: [{ deviceId: ID, label, platform: 'darwin', available: true }],
   }
 }
@@ -121,10 +123,12 @@ describe('list_credentials coverage', () => {
 
   test.each(selectableKeys)('a selected %s is listed with a way to use it', (key) => {
     const nothingElse = Object.fromEntries(selectableKeys.map((k) => [k, [] as string[]]))
-    const entries = flattenSelectedCredentials({ ...nothingElse, [key]: [ID] }, oneOfEach())
+    // A Personal Credential is selected by its provider.
+    const id = key === 'personalCredentialIds' ? 'github' : ID
+    const entries = flattenSelectedCredentials({ ...nothingElse, [key]: [id] }, oneOfEach())
 
     expect(entries).toHaveLength(1)
-    expect(entries[0]?.id).toBe(ID)
+    expect(entries[0]?.id).toBe(id)
     expect(Boolean(entries[0]?.credentialPath)).not.toBe(Boolean(entries[0]?.usage))
     if (entries[0]?.hint) expect(entries[0].credentialPath).toBeDefined()
   })
@@ -142,6 +146,20 @@ describe('list_credentials coverage', () => {
 })
 
 describe('usage notes', () => {
+  test('a selected Personal Credential names the personal setup and its handout', () => {
+    const entry = flattenSelectedCredentials(
+      { personalCredentialIds: ['github'] },
+      oneOfEach(),
+    ).find((e) => e.provider === 'personal')
+
+    expect(entry).toMatchObject({
+      provider: 'personal',
+      id: 'github',
+      credentialPath: 'personal-credentials/github/token',
+    })
+    expect(entry?.hint).toContain('skills/github/scripts/setup-credentials.sh $TEAM personal')
+  })
+
   test('tell the agent how to use a Huawei account without guessing', () => {
     const [entry] = flattenSelectedCredentials({ huaweiAccountIds: [ID] }, oneOfEach())
 

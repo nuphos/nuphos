@@ -10,6 +10,7 @@ import { buildDeviceCredentialSections, selectAllDevices, shownDevices } from '.
 import { countSelectedCredentials, countTotalCredentials } from './credentialSelectorButtonCounts'
 import { useCredentialSections, usePersonalCredentials } from './credentialSelectorButtonHooks'
 import { CredentialSelectorSectionList } from './credentialSelectorButtonSections'
+import { personalOnlyCredentials } from './personalIdentity'
 
 import type { CredentialSelectorControl } from './credentialSections'
 
@@ -44,8 +45,13 @@ function SelectionButton({
   const [menuOpen, setMenuOpen] = useState(false)
   const personal = usePersonalCredentials(Boolean(personalIdentity) && !devices && menuOpen)
   const listedDevices = shownDevices(options.devices, value.deviceIds)
-  const selectedCount = devices ? value.deviceIds.length : countSelectedCredentials(value)
-  const totalCount = devices ? listedDevices.length : countTotalCredentials(options)
+  // The member's own credentials where the team has no binding, only where identity rows show.
+  const own = personalIdentity && !devices ? personalOnlyCredentials(options) : []
+  const ownSelected = own.filter((c) => value.personalCredentialIds?.includes(c.provider)).length
+  const selectedCount = devices
+    ? value.deviceIds.length
+    : countSelectedCredentials(value) + ownSelected
+  const totalCount = devices ? listedDevices.length : countTotalCredentials(options) + own.length
   const sections = useCredentialSections(options)
   const hasNew =
     unseen !== undefined &&
@@ -66,6 +72,11 @@ function SelectionButton({
             ...next,
             deviceIds: value.deviceIds,
             ...(!select && value.teamIdentity ? { teamIdentity: value.teamIdentity } : {}),
+            personalCredentialIds: personalIdentity
+              ? select
+                ? own.map((c) => c.provider)
+                : []
+              : value.personalCredentialIds,
           },
     )
   }
@@ -180,6 +191,7 @@ function SelectionButton({
             value={value}
             unseen={unseen}
             personal={personalIdentity && menuOpen ? personal : null}
+            ownCredentials={own}
             onChange={onChange}
           />
         )}

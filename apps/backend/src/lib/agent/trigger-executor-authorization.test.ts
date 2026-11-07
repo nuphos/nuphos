@@ -31,6 +31,7 @@ const EMPTY_OPTIONS: AgentCredentialOptions = {
   vantaIntegrations: [],
   secureframeIntegrations: [],
   resendIntegrations: [],
+  personalCredentials: [],
   devices: [],
   githubInstallations: [],
   gitlabBindings: [],

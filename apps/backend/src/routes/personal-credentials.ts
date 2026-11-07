@@ -1,8 +1,10 @@
 import { Hono } from 'hono'
 
+import { getConversationBySessionId } from '@/lib/agent/db'
 import { verifyPreviewMcpToken } from '@/lib/claude-code-preview/mcp-token'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
+import { getNuphosUserById } from '@/lib/identity'
 import { isTokenRevoked } from '@/lib/internal-token/revocation'
 import { logError } from '@/lib/observability'
 import {
@@ -11,6 +13,7 @@ import {
   listPersonalCredentials,
   PERSONAL_CREDENTIAL_PROVIDERS,
   personalGoogleToken,
+  personalOwnToken,
   stagePersonalCredentialOAuth,
   startPersonalCredentialOAuth,
 } from '@/lib/personal-credentials'
@@ -102,20 +105,16 @@ personalCredentialRoutes.get('/:provider/callback', async (c) => {
   }
 })
 
-// Mounted under /teams/:teamId for conversation tokens: the agent's Gmail /
-// Google Drive handout. It is always the session owner's own grant, issued by
-// this team's OAuth client, and a teammate's message in that session gets none:
-// a shared session may run on someone else's runtime, so mail and files never
-// leave their owner's sessions. There is no team token to fall back to.
+// Mounted under /teams/:teamId for conversation tokens: the agent's handout of a
+// member's own grant. It is always the session owner's own, and a teammate's
+// message in that session gets none: a shared session may run on someone else's
+// runtime, so the grant never leaves its owner's sessions. Gmail and Google Drive
+// are issued by this team's OAuth client; GitHub and Linear need no team binding,
+// only the conversation's own selection of them (personalCredentialIds).
 export const personalCredentialTokenRoutes = new Hono()
 
-personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
-  const provider = c.req.param('provider')
-
-  if (!isGoogleProvider(provider)) {
-    throw new AppError(404, 'not_found', 'Unknown Personal Credential provider')
-  }
-  const authorization = c.req.header('Authorization') ?? ''
+/** The conversation token's claims, when its owner is the one asking. */
+async function ownerClaims(authorization: string, what: string) {
   const claims = authorization.startsWith('Bearer ')
     ? verifyPreviewMcpToken(authorization.slice('Bearer '.length))
     : null
@@ -123,7 +122,7 @@ personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
   if (!claims || (await isTokenRevoked(claims))) {
     throw new AppError(403, 'forbidden', 'Only an agent conversation can use this handout')
   }
-  // An exchanged token vends only the credentials it names; mail and files are not among them.
+  // An exchanged token vends only the credentials it names; a member's own grants are not among them.
   if (claims.lim) {
     throw new AppError(403, 'forbidden', 'This token is limited to other credentials')
   }
@@ -131,9 +130,64 @@ personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
     throw new AppError(
       403,
       'personal_credential_owner_only',
-      'Gmail and Google Drive are only available in conversations you own',
+      `${what} is only available in conversations you own`,
     )
   }
+
+  return claims
+}
+
+const notConnected = (name: string) =>
+  new AppError(
+    404,
+    'personal_credential_not_connected',
+    `This member has not connected ${name}. They can connect it in Settings → Personal Credentials.`,
+  )
+
+const handedOut = (personal: { token: string; expiresAt: Date | null; login: string }) => ({
+  token: personal.token,
+  expiresAt: personal.expiresAt?.toISOString() ?? null,
+  login: personal.login,
+})
+
+personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
+  const provider = c.req.param('provider')
+  const authorization = c.req.header('Authorization') ?? ''
+
+  if (provider === 'github' || provider === 'linear') {
+    const name = provider === 'github' ? 'GitHub' : 'Linear'
+    const claims = await ownerClaims(authorization, `Your own ${name} credential`)
+    const conversation = await getConversationBySessionId(claims.sid)
+
+    if (
+      conversation?.userId !== claims.own ||
+      !conversation.credentialAccess?.personalCredentialIds?.includes(provider)
+    ) {
+      throw new AppError(
+        403,
+        'personal_credential_not_selected',
+        `Your own ${name} credential is not selected for this conversation`,
+      )
+    }
+    const personal = await personalOwnToken(claims.own, provider)
+
+    if (!personal) throw notConnected(name)
+    // In the shape each skill's setup script already reads for the team handout.
+    if (provider === 'linear')
+      return c.json({ ...handedOut(personal), accessToken: personal.token })
+    const owner = await getNuphosUserById(claims.own)
+
+    return c.json({
+      ...handedOut(personal),
+      accountLogin: personal.login,
+      actor: { kind: 'personal', login: personal.login },
+      commitCoAuthor: owner ? { name: owner.name, email: owner.email } : null,
+    })
+  }
+  if (!isGoogleProvider(provider)) {
+    throw new AppError(404, 'not_found', 'Unknown Personal Credential provider')
+  }
+  const claims = await ownerClaims(authorization, 'Gmail and Google Drive')
   // The conversation token is only valid under its own /teams/:teamId.
   const teamId = claims.tid
 
@@ -146,17 +200,7 @@ personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
   }
   const personal = await personalGoogleToken(claims.own, provider, teamId)
 
-  if (!personal) {
-    throw new AppError(
-      404,
-      'personal_credential_not_connected',
-      `This member has not connected ${provider === 'gmail' ? 'Gmail' : 'Google Drive'}. They can connect it in Settings → Personal Credentials.`,
-    )
-  }
+  if (!personal) throw notConnected(provider === 'gmail' ? 'Gmail' : 'Google Drive')
 
-  return c.json({
-    token: personal.token,
-    expiresAt: personal.expiresAt?.toISOString() ?? null,
-    login: personal.login,
-  })
+  return c.json(handedOut(personal))
 })

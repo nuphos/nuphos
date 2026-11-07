@@ -33,6 +33,7 @@ const options: AgentCredentialOptions = {
   vantaIntegrations: [],
   secureframeIntegrations: [],
   resendIntegrations: [{ integrationId: 'mail', label: 'Mail', permission: 'full_access' }],
+  personalCredentials: [],
   devices: [
     { deviceId: 'mac', label: 'Mac', platform: 'darwin', available: true },
     { deviceId: 'old-mac', label: 'Mac', platform: 'darwin', available: false },

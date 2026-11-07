@@ -219,6 +219,7 @@ function normalizeCredentialAccess(
     upstashAccountIds: access?.upstashAccountIds,
     cloudflareAccountIds: access?.cloudflareAccountIds,
     instaboxAccountIds: access?.instaboxAccountIds,
+    personalCredentialIds: access?.personalCredentialIds ?? [],
     deviceIds: access?.deviceIds ?? [],
   }
 }

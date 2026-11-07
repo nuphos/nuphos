@@ -7,11 +7,13 @@ fi
 
 usage() {
   cat >&2 <<EOF
-Usage: setup-credentials.sh <teamId> <installationId> [--for-commit] [--team]
+Usage: setup-credentials.sh <teamId> <installationId|personal> [--for-commit] [--team]
 
   teamId          Nuphos team id (24-char hex)
   installationId  Numeric GitHub App installation id (from
-                  GET /teams/<teamId>/github-installations)
+                  GET /teams/<teamId>/github-installations), or \`personal\` for the
+                  conversation owner's own GitHub account when this conversation
+                  selected it (no team installation needed)
 
   --for-commit    Require and print the current Nuphos participant co-author trailer.
   --team          Use the team's App identity even when the turn's member connected
@@ -51,7 +53,11 @@ if ! [[ "$team_id" =~ ^[0-9a-fA-F]{24}$ ]]; then
   exit 1
 fi
 
-if ! [[ "$installation_id" =~ ^[1-9][0-9]*$ ]]; then
+if [ "$installation_id" = personal ]; then
+  token_path="personal-credentials/github/token"
+elif [[ "$installation_id" =~ ^[1-9][0-9]*$ ]]; then
+  token_path="github-installations/$installation_id/token$identity_query"
+else
   echo "invalid installationId: expected a numeric GitHub App installation id, got '$installation_id'" >&2
   exit 1
 fi
@@ -82,7 +88,7 @@ token_response="$(curl -fsSL \
   --retry-delay 1 \
   --retry-all-errors \
   -H @<(printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN") \
-  "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}/teams/$team_id/github-installations/$installation_id/token$identity_query")"
+  "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}/teams/$team_id/$token_path")"
 
 token="$(printf '%s' "$token_response" | python3 -c '
 import json, sys

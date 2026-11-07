@@ -103,6 +103,7 @@ export const EMPTY_CREDENTIAL_OPTIONS: AgentCredentialOptions = {
   upstashAccounts: [],
   cloudflareAccounts: [],
   instaboxAccounts: [],
+  personalCredentials: [],
   devices: [],
 }
 

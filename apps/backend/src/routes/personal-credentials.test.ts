@@ -5,6 +5,7 @@ import { ObjectId } from 'mongodb'
 import { config } from '@/config'
 import { mintPreviewMcpToken } from '@/lib/claude-code-preview/mcp-token'
 import { AppError } from '@/lib/errors'
+import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAuthMiddleware } from '@/lib/test/doubles/auth-middleware'
 import { useByosSecrets } from '@/lib/test/doubles/byos-secrets'
 import { useIdentity } from '@/lib/test/doubles/identity'
@@ -467,6 +468,109 @@ describe('Google token handout', () => {
 
   test('only conversation tokens, and only Google providers', async () => {
     expect((await fetchToken('gmail')).status).toBe(403)
-    expect((await fetchToken('github', await turn('owner', true))).status).toBe(404)
+    expect((await fetchToken('dropbox', await turn('owner', true))).status).toBe(404)
+  })
+})
+
+// conv-1's selection, as the conversation document stores it.
+let conversation: { userId: string; credentialAccess?: Doc } | null = null
+
+useAgentDb({ getConversationBySessionId: (async () => conversation) as never })
+
+describe('GitHub and Linear handout without a team binding', () => {
+  const handout = new Hono()
+
+  handout.onError((error, c) =>
+    error instanceof AppError
+      ? c.json({ code: error.code }, error.status as 400)
+      : c.json({ code: 'internal' }, 500),
+  )
+  handout.route('/personal-credentials', personalCredentialTokenRoutes)
+
+  const fetchToken = (provider: string, token: string) =>
+    handout.request(`/personal-credentials/${provider}/token`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  const grant = (userId: string, provider: string, token: string): Doc => ({
+    userId,
+    provider,
+    login: `${userId}-${provider}`,
+    encryptedAccessToken: fakeSeal(token),
+    accessTokenExpiresAt: new Date(Date.now() + 60 * 60_000),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  })
+
+  beforeEach(() => {
+    saved.push(
+      grant('owner', 'github', 'owner-gh'),
+      grant('owner', 'linear', 'owner-lin'),
+      grant('teammate', 'github', 'teammate-gh'),
+    )
+    conversation = {
+      userId: 'owner',
+      credentialAccess: { personalCredentialIds: ['github', 'linear'] },
+    }
+  })
+
+  test('the owner gets their own token once the conversation selected it', async () => {
+    for (const [provider, token] of [
+      ['github', 'owner-gh'],
+      ['linear', 'owner-lin'],
+    ] as const) {
+      const res = await fetchToken(provider, await turn('owner', true))
+
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ token, login: `owner-${provider}` })
+    }
+  })
+
+  test('a teammate’s message in the owner’s conversation gets nothing, not even their own', async () => {
+    const res = await fetchToken('github', await turn('teammate', true))
+
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({ code: 'personal_credential_owner_only' })
+  })
+
+  test('an automated turn uses the owner’s grant, never the actor’s', async () => {
+    const res = await fetchToken('github', await turn('teammate', false))
+
+    expect(await res.json()).toMatchObject({ token: 'owner-gh' })
+  })
+
+  test('nothing without the conversation’s selection', async () => {
+    conversation = { userId: 'owner', credentialAccess: { personalCredentialIds: ['linear'] } }
+    expect((await fetchToken('github', await turn('owner', true))).status).toBe(403)
+    conversation = { userId: 'owner' }
+    expect((await fetchToken('linear', await turn('owner', true))).status).toBe(403)
+  })
+
+  test('a conversation owned by someone else never hands out the token’s owner grant', async () => {
+    conversation = { userId: 'teammate', credentialAccess: { personalCredentialIds: ['github'] } }
+    const res = await fetchToken('github', await turn('owner', true))
+
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({ code: 'personal_credential_not_selected' })
+  })
+
+  test('an exchanged token gets none', async () => {
+    const limited = await mintPreviewMcpToken({
+      userId: 'owner',
+      conversationOwnerUserId: 'owner',
+      sessionId: 'conv-1',
+      teamId: TEAM,
+      humanTurn: true,
+      credentialLimit: { github: ['1'] },
+    })
+
+    expect((await fetchToken('github', limited)).status).toBe(403)
+  })
+
+  test('404 when the owner has not connected that provider', async () => {
+    saved.splice(0, saved.length, grant('owner', 'linear', 'owner-lin'))
+    const res = await fetchToken('github', await turn('owner', true))
+
+    expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ code: 'personal_credential_not_connected' })
   })
 })

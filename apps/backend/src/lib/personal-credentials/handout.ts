@@ -140,6 +140,28 @@ export async function personalGithubToken(
   return current
 }
 
+/** The member's own GitHub or Linear token, for a conversation with no team binding to go through. */
+export async function personalOwnToken(
+  userId: string,
+  provider: 'github' | 'linear',
+): Promise<PersonalToken | null> {
+  const doc = await personalCredentials().findOne({ userId, provider })
+
+  return doc ? currentToken(doc) : null
+}
+
+/** The member's own GitHub and Linear Personal Credentials, as the selector offers them. */
+export async function ownPersonalCredentialOptions(userId: string) {
+  const docs = await personalCredentials()
+    .find(
+      { userId, provider: { $in: ['github', 'linear'] } },
+      { projection: { provider: 1, login: 1 } },
+    )
+    .toArray()
+
+  return docs.map((doc) => ({ provider: doc.provider as 'github' | 'linear', login: doc.login }))
+}
+
 /** The sender's Linear token, when they connected the same workspace as this binding. */
 export async function personalLinearToken(
   userId: string,

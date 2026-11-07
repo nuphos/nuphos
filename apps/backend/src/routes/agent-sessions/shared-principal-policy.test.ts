@@ -35,6 +35,7 @@ function optionsForActor(): AgentCredentialOptions {
     vantaIntegrations: [],
     secureframeIntegrations: [],
     resendIntegrations: [],
+    personalCredentials: [],
     devices: [],
     ...emptyConnectorCredentialOptions(),
   }

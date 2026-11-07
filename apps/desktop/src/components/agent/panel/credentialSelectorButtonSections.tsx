@@ -1,8 +1,9 @@
+import { t } from '../../../i18n/index.ts'
 import { CloudLogo } from '../../CloudLogo'
 import { MenuCheckboxItem } from '../../ui/menu'
 
 import { CredentialSectionGroup } from './CredentialSectionGroup'
-import { personalIdentityRow, setPersonalIdentity } from './personalIdentity'
+import { personalIdentityRow, setPersonalIdentity, setPersonalOnly } from './personalIdentity'
 
 import type { CredentialSection, CredentialSelectorControl } from './credentialSections'
 import type { useCredentialSections } from './credentialSelectorButtonHooks'
@@ -13,6 +14,7 @@ export function CredentialSelectorSectionList({
   value,
   unseen,
   personal,
+  ownCredentials,
   onChange,
 }: {
   sections: ReturnType<typeof useCredentialSections>
@@ -20,20 +22,38 @@ export function CredentialSelectorSectionList({
   unseen: CredentialSelectorControl['unseen']
   /** The member's Personal Credentials; null hides the identity rows. */
   personal: PersonalCredential[] | null
+  /** The member's own credentials for providers the team has no binding of. */
+  ownCredentials: { provider: 'github' | 'linear'; login: string }[]
   onChange: CredentialSelectorControl['onChange']
 }) {
-  const identityRow = (
-    provider: PersonalCredentialProvider,
-    providerSections: CredentialSection[],
-  ) =>
-    personal && providerSections.length > 0 ? (
-      <PersonalIdentityItem
-        provider={provider}
-        personal={personal}
-        value={value}
-        onChange={onChange}
-      />
+  const identityRow = (provider: 'github' | 'linear', providerSections: CredentialSection[]) => {
+    if (!personal) return null
+    if (providerSections.length > 0)
+      return (
+        <PersonalIdentityItem
+          provider={provider}
+          personal={personal}
+          value={value}
+          onChange={onChange}
+        />
+      )
+    const own = ownCredentials.find((credential) => credential.provider === provider)
+
+    // No team binding: the member's own credential is itself what the agent may use.
+    return own ? (
+      <MenuCheckboxItem
+        checked={(value.personalCredentialIds ?? []).includes(provider)}
+        onCheckedChange={(checked) => onChange(setPersonalOnly(value, provider, checked))}
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <CloudLogo provider={provider} size={14} />
+          <span className="min-w-0 flex-1 truncate text-[12.5px] text-main">
+            {t('You ({login}) · Personal', { login: own.login })}
+          </span>
+        </span>
+      </MenuCheckboxItem>
     ) : null
+  }
 
   return (
     <>

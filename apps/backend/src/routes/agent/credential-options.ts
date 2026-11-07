@@ -5,6 +5,7 @@ import { canUseAllowList } from '@/lib/byos/access'
 import { extractAwsAccountId } from '@/lib/byos/account'
 import { cachedAwsAccountAlias } from '@/lib/byos/aws'
 import { publicZeaburProviders } from '@/lib/byos/zeabur-provider-view'
+import { ownPersonalCredentialOptions } from '@/lib/personal-credentials/handout'
 import { parseObjectId } from '@/lib/objectid'
 import { teamByosBindings } from '@/models'
 
@@ -65,6 +66,7 @@ export async function getAgentCredentialOptions(
       vantaIntegrations: [],
       secureframeIntegrations: [],
       resendIntegrations: [],
+      personalCredentials: [],
       devices: [],
       ...emptyConnectorCredentialOptions(),
     }
@@ -258,7 +260,10 @@ export async function getAgentCredentialOptions(
       label: binding.label,
       permission: binding.permission,
     }))
-  const devices = await resolveDeviceOptions(userId, teamId)
+  const [devices, personalCredentials] = await Promise.all([
+    resolveDeviceOptions(userId, teamId),
+    ownPersonalCredentialOptions(userId),
+  ])
 
   return {
     awsRoles,
@@ -282,6 +287,7 @@ export async function getAgentCredentialOptions(
     vantaIntegrations,
     secureframeIntegrations,
     resendIntegrations,
+    personalCredentials,
     devices,
     ...connectorCredentialOptions(doc, userId),
   }
