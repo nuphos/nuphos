@@ -8,6 +8,7 @@ enum ChatRowTests {
         preservesVerifiedSender()
         foldsDeliveredMessagesIntoEventLines()
         decodesSharedConversationPermissions()
+        skipsMessagesThatDoNotDecode()
         groupsThinkingButNotNarration()
         streamsCodexThinkingIntoOneRun()
         foldsFinishedWorkUnderOneHeader()
@@ -127,6 +128,13 @@ enum ChatRowTests {
             "onBehalfOf": .object(["id": .string("u1"), "displayName": .string("Yuanlin Lin")])
         ])])
         precondition(canonical.sender?.name == "Grok Bot · via Yuanlin Lin" && canonical.event == nil)
+    }
+
+    private static func skipsMessagesThatDoNotDecode() {
+        // #1150: a message without an id, or with a role the app does not know, drops out; the rest still load.
+        let json = #"{"messages":[{"id":"a","role":"user","parts":[]},{"role":"user","parts":[]},{"id":"c","role":"tool","parts":[]},"oops",{"id":"d","role":"assistant","parts":[]}]}"#
+        let detail = try! JSONDecoder().decode(AgentConversationDetail.self, from: Data(json.utf8))
+        precondition(detail.messages.map(\.id) == ["a", "d"])
     }
 
     private static func decodesSharedConversationPermissions() {
