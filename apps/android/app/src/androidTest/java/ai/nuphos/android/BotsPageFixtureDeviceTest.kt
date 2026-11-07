@@ -48,6 +48,8 @@ class BotsPageFixtureDeviceTest {
     @Volatile private var chats = ""
     @Volatile private var history = ""
     @Volatile private var failAddingBot = false
+    @Volatile private var failCreatingBot = false
+    private val created = CopyOnWriteArrayList<Pair<String, String>>()
     @Volatile private var channelHeld: CountDownLatch? = null
     private val channelEntered = CountDownLatch(1)
 
@@ -71,6 +73,13 @@ class BotsPageFixtureDeviceTest {
             val path = request.url.encodedPath
             if (request.method != "GET") writes += "${request.method} $path"
             val body = when {
+                request.method == "POST" && path == "/agent/bots" -> {
+                    if (failCreatingBot) return@addInterceptor Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
+                        .code(500).message("fixture").body("""{"error":{"message":"Synthetic failure"}}""".toResponseBody(Http.jsonMedia)).build()
+                    val sent = ai.nuphos.android.data.JsonValue.parse(okio.Buffer().also { request.body?.writeTo(it) }.readUtf8())
+                    created += sent?.get("title")?.stringValue.orEmpty() to sent?.get("avatar")?.stringValue.orEmpty()
+                    """{"sessionId":"bot-new","title":"Grace","avatar":"07-ada"}"""
+                }
                 request.method == "POST" && path == "/agent/channels" -> {
                     channelEntered.countDown()
                     channelHeld?.let { check(it.await(10, TimeUnit.SECONDS)) }
@@ -117,8 +126,10 @@ class BotsPageFixtureDeviceTest {
     }
 
     private fun render() {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
+        val auth = ai.nuphos.android.session.AuthSession(app, app.tokenStore)
         compose.setContent {
-            NuphosTheme { CompositionLocalProvider(LocalAgentStore provides store) {
+            NuphosTheme { CompositionLocalProvider(LocalAgentStore provides store, ai.nuphos.android.ui.LocalAuthSession provides auth) {
                 val nav = rememberNavController()
                 NavHost(nav, startDestination = "list") {
                     composable("list") { ChatsPage(nav) }
@@ -227,9 +238,91 @@ class BotsPageFixtureDeviceTest {
         assertEquals("The Bot wasn't added after the team changed", 0, posts("/agents"))
     }
 
-    @Test fun nothingListedExplainsThePage() {
+    @Test fun anEmptyPageStillOffersPlus() {
         render()
-        waitText("No bots yet")
-        compose.onNodeWithText("Bots and chats with people show up here.").assertExists()
+        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription("New Bot").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("New Bot").assertIsEnabled()
+    }
+
+    private fun openSheet() {
+        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription("New Bot").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("New Bot").performClick()
+        waitText("Create")
+    }
+    private fun nameField() = compose.onNodeWithTag("new-bot-name")
+    private fun create() = compose.onNodeWithText("Create")
+
+    @Test fun createNeedsAValidNameAndSaysWhatTheBotGets() {
+        render()
+        openSheet()
+        compose.onNodeWithText("A new Bot starts with full access, so it can act without asking first.").assertExists()
+        create().assertIsNotEnabled()
+        nameField().performTextInput("   ")
+        create().assertIsNotEnabled()
+        nameField().performTextReplacement("x".repeat(121))
+        create().assertIsNotEnabled()
+        nameField().performTextReplacement("  " + "x".repeat(120) + "  ")
+        create().assertIsEnabled()
+        assertEquals(0, posts("/agent/bots"))
+    }
+
+    @Test fun aNewBotSendsItsNameAndFaceAndOpensItsChat() {
+        render()
+        openSheet()
+        nameField().performTextInput("  Grace  ")
+        compose.onNodeWithTag("new-bot-face:07-ada").performScrollTo().performClick()
+        create().performClick()
+        waitText("Opened chat-new")
+        assertEquals(1, posts("/agent/bots"))
+        assertEquals(listOf("Grace" to "07-ada"), created.toList())
+        assertEquals(listOf("bot-new"), added.toList())
+        compose.onNodeWithTag("new-bot-sheet").assertDoesNotExist()
+    }
+
+    @Test fun aRefusedBotKeepsTheSheetAndTryingAgainOpensTheChat() {
+        render()
+        openSheet()
+        nameField().performTextInput("Grace")
+        compose.onNodeWithTag("new-bot-face:07-ada").performScrollTo().performClick()
+        failCreatingBot = true
+        create().performClick()
+        waitText("Couldn't create this Bot. Try again.")
+        // What was picked is still there, and the list didn't change underneath.
+        nameField().assertTextContains("Grace")
+        compose.onNodeWithTag("new-bot-face:07-ada").assertIsSelected()
+        failCreatingBot = false
+        create().performClick()
+        waitText("Opened chat-new")
+        assertEquals(listOf("Grace" to "07-ada"), created.toList())
+    }
+
+    @Test fun aChatThatFailsAfterTheBotExistsDoesNotMakeASecondBot() {
+        render()
+        openSheet()
+        nameField().performTextInput("Grace")
+        failAddingBot = true
+        create().performClick()
+        waitText("The Bot was created, but its chat didn't open. Try again.")
+        nameField().assertIsNotEnabled()
+        failAddingBot = false
+        create().performClick()
+        waitText("Opened chat-new")
+        assertEquals("One Bot", 1, posts("/agent/bots"))
+        assertEquals("One chat", 1, posts("/agent/channels"))
+    }
+
+    @Test fun switchingTeamWhileABotIsMadeOpensNothing() {
+        val release = CountDownLatch(1)
+        channelHeld = release
+        render()
+        openSheet()
+        nameField().performTextInput("Grace")
+        create().performClick()
+        assertTrue(channelEntered.await(5, TimeUnit.SECONDS))
+        compose.runOnIdle { store.select(teamB) }
+        compose.runOnIdle { release.countDown() }
+        Thread.sleep(800); compose.waitForIdle()
+        compose.onNodeWithText("Opened chat-new").assertDoesNotExist()
+        assertEquals(0, posts("/agents"))
     }
 }

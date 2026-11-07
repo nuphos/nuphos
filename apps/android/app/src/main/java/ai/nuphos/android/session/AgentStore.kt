@@ -152,11 +152,23 @@ class AgentStore(
     /** Chats made for a Bot that didn't get added, so trying again doesn't leave another empty chat. */
     private val unfinishedBotChats = mutableMapOf<String, String>()
 
+    /** Makes a Bot's chat, or finishes one that didn't get the Bot added. Null if the workspace moved on. */
+    private suspend fun makeBotChat(team: String, botId: String, current: () -> Boolean): String? {
+        val chat = unfinishedBotChats[botId] ?: BotActions.createChannel(token, team)
+        if (!current()) return null
+        unfinishedBotChats[botId] = chat
+        BotActions.addBot(token, team, chat, botId)
+        if (!current()) return null
+        unfinishedBotChats.remove(botId)
+        loadChannels()
+        return chat.takeIf { current() }
+    }
+
     /** A Bot's 1:1 chat, made the first time. Null when it couldn't be made or the workspace moved on. */
     suspend fun openBotChat(botId: String): String? {
         channels.firstOrNull { it.botId == botId }?.let { return it.sessionId }
         val team = selectedTeam?.id ?: return null
-        if (disposed || !hasAiAccess() || openingBotId != null) return null
+        if (disposed || !hasAiAccess() || openingBotId != null || creatingBot) return null
         val workspace = workspaceRevision
         val consent = AiAccess.revision
         fun current() = !disposed && hasAiAccess() && AiAccess.revision == consent &&
@@ -164,14 +176,7 @@ class AgentStore(
         openingBotId = botId
         clearBotChatError()
         try {
-            val chat = unfinishedBotChats[botId] ?: BotActions.createChannel(token, team)
-            if (!current()) return null
-            unfinishedBotChats[botId] = chat
-            BotActions.addBot(token, team, chat, botId)
-            if (!current()) return null
-            unfinishedBotChats.remove(botId)
-            loadChannels()
-            return chat.takeIf { current() }
+            return makeBotChat(team, botId, ::current)
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -179,6 +184,48 @@ class AgentStore(
             return null
         } finally {
             if (workspaceRevision == workspace) openingBotId = null
+        }
+    }
+
+    var creatingBot by mutableStateOf(false)
+        private set
+    var newBotError by mutableStateOf<String?>(null)
+        private set
+    /** A new Bot whose chat couldn't be made, so trying again doesn't make a second Bot. */
+    var newBotWaitingForChat by mutableStateOf<String?>(null)
+        private set
+    /** The New Bot sheet was closed: anything it left waiting is now just a Bot on the list. */
+    fun forgetNewBot() { newBotError = null; newBotWaitingForChat = null }
+
+    /** "+" on Bots: the Bot with the picked name and face, then its 1:1 chat. Null if either didn't happen. */
+    suspend fun createBot(title: String, avatar: String, runtime: ai.nuphos.android.data.RuntimeBinding? = null): String? {
+        val team = selectedTeam?.id ?: return null
+        if (disposed || !hasAiAccess() || creatingBot || openingBotId != null) return null
+        val workspace = workspaceRevision
+        val consent = AiAccess.revision
+        fun current() = !disposed && hasAiAccess() && AiAccess.revision == consent &&
+            selectedTeam?.id == team && workspaceRevision == workspace
+        creatingBot = true
+        newBotError = null
+        try {
+            val bot = newBotWaitingForChat ?: BotActions.create(token, team, title, avatar,
+                runtime?.runtimeId, runtime?.agentRuntime, runtime?.displayLabel)
+            if (!current()) return null
+            newBotWaitingForChat = bot
+            BotFaces.learn(bot, avatar)
+            reload()
+            if (!current()) return null
+            val chat = makeBotChat(team, bot, ::current) ?: return null
+            newBotWaitingForChat = null
+            return chat
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            if (current()) newBotError = if (newBotWaitingForChat != null) "The Bot was created, but its chat didn't open. Try again."
+                else "Couldn't create this Bot. Try again."
+            return null
+        } finally {
+            if (workspaceRevision == workspace) creatingBot = false
         }
     }
 
@@ -289,6 +336,8 @@ class AgentStore(
         unfinishedBotChats.clear()
         openingBotId = null
         clearBotChatError()
+        creatingBot = false
+        forgetNewBot()
         channelSessions.clear()
         channelReads.clear()
         agentTurns = emptyMap()
