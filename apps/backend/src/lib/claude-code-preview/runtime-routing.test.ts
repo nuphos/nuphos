@@ -337,24 +337,32 @@ describe('defaultConversationRuntimeId', () => {
     ).toBe('listed')
   })
 
-  test('a usable fallback-list agent wins over a more recently used own agent', () => {
-    const instances = [box('recent'), registered('team')]
+  test('falls back to an online Box only when the team registers no agent', () => {
+    const boxes = [box('laptop', { box: undefined }), box('asleep', { online: false }), box('box')]
 
+    expect(defaultConversationRuntimeId(boxes, ME)).toBe('box')
+    expect(defaultConversationRuntimeId([registered('team'), ...boxes], ME)).toBeUndefined()
+  })
+
+  test("a teammate's Box still defaults, as before", () => {
+    expect(defaultConversationRuntimeId([box('theirs', { ownerUserId: 'teammate' })], ME)).toBe(
+      'theirs',
+    )
+  })
+
+  test('the existing defaults win over the own agent on a shared computer', () => {
+    const mine = shared('mine', ME)
+
+    expect(defaultConversationRuntimeId([mine, box('box')], ME, { recentIds: ['mine'] })).toBe(
+      'box',
+    )
+    expect(defaultConversationRuntimeId([registered('team'), mine], ME)).toBeUndefined()
     expect(
-      defaultConversationRuntimeId(instances, ME, { fallbackIds: ['team'], recentIds: ['recent'] }),
+      defaultConversationRuntimeId([mine, registered('team')], ME, { fallbackIds: ['team'] }),
     ).toBe('team')
   })
 
-  test('a ready team agent wins over an own local agent', () => {
-    const team = registered('team')
-    const mine = shared('mine', ME)
-
-    expect(defaultConversationRuntimeId([team, mine], ME, { recentIds: ['mine'] })).toBeUndefined()
-    expect(defaultConversationRuntimeId([{ ...team, notReady: true }, mine], ME)).toBe('mine')
-    expect(defaultConversationRuntimeId([{ ...team, status: 'disabled' }, mine], ME)).toBe('mine')
-  })
-
-  test('without a list or team agent, takes the own signed-in agent on a shared computer', () => {
+  test('with nothing else to run on, takes the own signed-in agent on a shared computer', () => {
     const mine = shared('mine', ME)
 
     expect(defaultConversationRuntimeId([mine], ME)).toBe('mine')
@@ -362,31 +370,27 @@ describe('defaultConversationRuntimeId', () => {
     expect(
       defaultConversationRuntimeId([shared('asleep', ME, { online: false })], ME),
     ).toBeUndefined()
+    expect(
+      defaultConversationRuntimeId([shared('signed-out', ME, { signedIn: false })], ME),
+    ).toBeUndefined()
   })
 
   test('ranks own agents by most recent use, on any computer', () => {
-    const instances = [box('laptop', { box: undefined }), shared('mine', ME), box('box')]
+    const instances = [box('laptop', { box: undefined }), shared('mine', ME)]
 
     expect(defaultConversationRuntimeId(instances, ME)).toBe('laptop')
-    expect(
-      defaultConversationRuntimeId(instances, ME, { recentIds: ['other', 'mine', 'box'] }),
-    ).toBe('mine')
+    expect(defaultConversationRuntimeId(instances, ME, { recentIds: ['other', 'mine'] })).toBe(
+      'mine',
+    )
   })
 
-  test("never picks another member's agent or another provider", () => {
+  test("never picks another member's agent on a shared computer, or another provider", () => {
     const theirs = [shared('owner-default'), shared('added-by-teammate', 'teammate')]
-    const addedToMine = box('added-by-teammate-on-mine', {
-      addedBy: { userId: 'teammate', at: '2026-11-01T00:00:00.000Z' },
-    })
     const codex = { ...box('codex'), provider: 'codex' } as RuntimeInstance
-    const all = [...theirs, addedToMine]
+    const ids = theirs.map(({ id }) => id)
 
-    expect(
-      defaultConversationRuntimeId(all, ME, { fallbackIds: all.map(({ id }) => id) }),
-    ).toBeUndefined()
-    expect(
-      defaultConversationRuntimeId(all, ME, { recentIds: all.map(({ id }) => id) }),
-    ).toBeUndefined()
+    expect(defaultConversationRuntimeId(theirs, ME, { fallbackIds: ids })).toBeUndefined()
+    expect(defaultConversationRuntimeId(theirs, ME, { recentIds: ids })).toBeUndefined()
     expect(
       defaultConversationRuntimeId([codex], ME, {
         fallbackIds: ['codex'],

@@ -30,16 +30,13 @@ export function assertClaudeCodeSetupConfigured(
 
 /**
  * The agent a conversation nothing pins runs on: the first usable agent in its owner's
- * fallback list, else a ready team agent, else the owner's own signed-in agent on any computer
- * they may use, shared ones included, most recently used first: signing in to it is the choice.
- * A local agent belongs to whoever added it, else to the computer's owner, so another member's
- * never runs.
+ * fallback list, else, when the team registers no agent, the owner's first online Box agent,
+ * else the owner's own signed-in agent on any computer they may use, shared ones included, most
+ * recently used first. Only that last step reaches a teammate's shared computer: an agent there
+ * is the owner's when they added it, so another member's is never chosen.
  */
 export function defaultConversationRuntimeId(
-  instances: readonly Pick<
-    RuntimeInstance,
-    'id' | 'provider' | 'status' | 'kind' | 'local' | 'notReady'
-  >[],
+  instances: readonly Pick<RuntimeInstance, 'id' | 'provider' | 'status' | 'kind' | 'local'>[],
   userId: string,
   {
     fallbackIds = [],
@@ -57,27 +54,30 @@ export function defaultConversationRuntimeId(
     (!provider || instance.provider === provider) &&
     (instance.kind !== 'local' ||
       Boolean(
-        instance.local?.online &&
-        instance.local.signedIn !== false &&
-        (instance.local.addedBy?.userId ?? instance.local.ownerUserId) === userId,
+        instance.local?.online && !instance.local.shared && instance.local.signedIn !== false,
       ))
   const listed = fallbackIds
     .map((id) => instances.find((instance) => instance.id === id))
     .find((instance) => instance && usable(instance))
 
   if (listed) return listed.id
-  // A ready team agent runs it: the caller resolves the team's own.
-  if (
-    instances.some(
-      (instance) => instance.kind !== 'local' && !instance.notReady && usable(instance),
-    )
-  )
+  if (instances.some((instance) => instance.kind !== 'local' && instance.status === 'active'))
     return undefined
+  const box = instances.find((instance) => instance.local?.box && usable(instance))
+
+  if (box) return box.id
+  // Nothing else could run it: the owner signing in to an agent is the choice.
+  const own = (instance: (typeof instances)[number]) =>
+    instance.status === 'active' &&
+    (!provider || instance.provider === provider) &&
+    Boolean(
+      instance.local?.online &&
+      instance.local.signedIn !== false &&
+      (instance.local.addedBy?.userId ?? instance.local.ownerUserId) === userId,
+    )
   const rank = (id: string) => (recentIds.includes(id) ? recentIds.indexOf(id) : Infinity)
 
-  return instances
-    .filter((instance) => instance.kind === 'local' && usable(instance))
-    .sort((a, b) => rank(a.id) - rank(b.id))[0]?.id
+  return instances.filter(own).sort((a, b) => rank(a.id) - rank(b.id))[0]?.id
 }
 
 export function validateRequestedAgentRuntime(
