@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
 import { AppError } from '@/lib/errors'
-import { logError } from '@/lib/observability'
 
 import { getConversationBySessionId } from './db'
 import { CHANNEL_SENDER_PREFIX, markChannelRead, readChannelMessages } from './db/channels'
@@ -171,7 +170,6 @@ export async function noteReplyFailed(channelId: string, agentId: string, error:
         }),
       },
     )
-    .catch((noteError: unknown) => {
-      logError('agent.channel.reply_failed_note_failed', noteError, { channel_id: channelId })
-    })
+    // The failure itself is already logged; a lost notice must not fail the post.
+    .catch(() => undefined)
 }
