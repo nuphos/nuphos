@@ -40,6 +40,7 @@ const loads: { session: string; servers: unknown }[] = []
 const persisted: { sessionId: string; userId: string; parts: unknown[] }[] = []
 let replay: OpenAbSessionUpdate[] = []
 let hasAttachment = true
+let attachedRuntimeUrl = endpoint.url
 let activeStream: string | null = null
 let restoredOwner = false
 let emit: (update: OpenAbSessionUpdate) => void = noop
@@ -93,7 +94,9 @@ useAgentDb({
     sessionId,
     teamId: 'team',
     userId: 'owner',
-    claudeCodePreview: hasAttachment ? attachment : undefined,
+    claudeCodePreview: hasAttachment
+      ? { ...attachment, runtimeUrl: attachedRuntimeUrl }
+      : undefined,
   }),
   getConversationPreviewAttachment: async () => attachment,
   appendAutonomousConversationTurn: async (data: {
@@ -125,6 +128,7 @@ beforeEach(() => {
   stored.clear()
   replay = []
   hasAttachment = true
+  attachedRuntimeUrl = endpoint.url
   activeStream = null
   restoredOwner = false
   loads.length = 0
@@ -224,6 +228,7 @@ test('a handoff for an offline computer waits for it, however long, and is adopt
     tries.push(claimed.conversationId)
   }
 
+  attachedRuntimeUrl = localRuntimeUrl(computer, 'team')
   stored.set(
     'team:conv',
     JSON.stringify({
@@ -248,6 +253,27 @@ test('a handoff for an offline computer waits for it, however long, and is adopt
   }
 
   expect(tries).toEqual(['conv'])
+  expect(stored.size).toBe(0)
+})
+
+test('a handoff for an offline computer is dropped once the conversation has moved off it', async () => {
+  // Keyed on a computer the conversation no longer uses, it would otherwise
+  // wait for that computer forever.
+  const computer = { userId: 'owner', deviceId: 'laptop', provider: 'claude-code' as const }
+  const tries: string[] = []
+
+  stored.set(
+    'team:conv',
+    JSON.stringify({
+      ...handoff(Date.now() - HANDOFF_SETTLE_MS),
+      runtimeUrl: localRuntimeUrl(computer, 'team'),
+    }),
+  )
+  await adoptRuntimeHandoffs(async (claimed) => {
+    tries.push(claimed.conversationId)
+  })
+
+  expect(tries).toEqual([])
   expect(stored.size).toBe(0)
 })
 
