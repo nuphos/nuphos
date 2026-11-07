@@ -141,6 +141,7 @@ data class AgentConversationsPage(
 
 @Serializable
 data class AgentConversationDetail(
+    @Serializable(with = ReadableChatMessagesSerializer::class)
     val messages: List<ChatMessage> = emptyList(),
     val messagesFirstIndex: Int? = null,
     val activeRun: ActiveRun? = null,
