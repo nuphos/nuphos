@@ -5,7 +5,8 @@ import type { ReactNode } from 'react'
  * The agent groups in team view, iMessage-style. Bots holds chats: group
  * channels and each Bot's 1:1 channel, newest message first (the list's own
  * order); a Bot without its chat yet is listed there until opened, which makes
- * it. Tasks holds every agent session, a Bot's own included, as on main.
+ * it. Only its owner can bring a Bot into a chat, so a teammate's Bot without
+ * one stays a Task. Tasks holds every agent session, a Bot's own included.
  */
 export function withChatSections(
   sections: Section[],
@@ -16,7 +17,8 @@ export function withChatSections(
   if (!agents) return [...sections]
   const chatted = new Set(agents.items.flatMap((item) => item.botChannelOf ?? []))
   const sessionOf = (item: Item) => item.key.replace('agent-session:', '')
-  const isChat = (item: Item) => item.channel || (item.bot && !chatted.has(sessionOf(item)))
+  const isChat = (item: Item) =>
+    item.channel || (item.bot && !item.readOnlyChat && !chatted.has(sessionOf(item)))
   const chats = agents.items.filter(isChat).map((item) => ({
     ...item,
     description: undefined,

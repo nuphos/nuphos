@@ -12,7 +12,14 @@ const row = (
     bot,
     channel,
     botChannelOf,
-  }: { parentKey?: string; bot?: boolean; channel?: boolean; botChannelOf?: string } = {},
+    readOnlyChat,
+  }: {
+    parentKey?: string
+    bot?: boolean
+    channel?: boolean
+    botChannelOf?: string
+    readOnlyChat?: boolean
+  } = {},
 ): Item => ({
   key,
   label: key,
@@ -21,6 +28,7 @@ const row = (
   ...(bot ? { bot } : {}),
   ...(channel ? { channel } : {}),
   ...(botChannelOf ? { botChannelOf } : {}),
+  ...(readOnlyChat ? { readOnlyChat } : {}),
 })
 const layout = (sections: Section[]) =>
   Object.fromEntries(
@@ -57,6 +65,19 @@ test('a Bot with its chat is listed as that chat; its Tasks are under Tasks', ()
     '': [],
     Channels: ['agent-session:dm', 'agent-session:new'],
     Tasks: ['agent-session:ada', 'task-of-ada', 'agent-session:new'],
+  })
+})
+
+test("a teammate's Bot without a chat stays a Task: only its owner can bring it into one", () => {
+  const agents = [
+    row('agent-session:mine', { bot: true }),
+    row('agent-session:theirs', { bot: true, readOnlyChat: true }),
+  ]
+
+  assert.deepEqual(build(agents), {
+    '': [],
+    Channels: ['agent-session:mine'],
+    Tasks: ['agent-session:mine', 'agent-session:theirs'],
   })
 })
 
