@@ -71,6 +71,7 @@ export function handleSseControlFrame(
     return true
   }
   if (sse.type === 'atlas-autonomous-turn-start') {
+    ctx.flushTextBuffer(streamId)
     const messageId =
       typeof sse.messageId === 'string' && sse.messageId.length > 0
         ? sse.messageId
