@@ -16,6 +16,9 @@ object BotAvatars {
     /** Only the first 28 are derived from an ID, so appending a character never changes an Agent's face. */
     const val DEFAULT_COUNT = 28
 
+    /** A named face this build ships, or null for one it doesn't. */
+    fun named(avatar: String): String? = "$avatar.svg".takeIf { it in files }
+
     fun file(id: String): String {
         var hash = 2166136261u
         var i = 0

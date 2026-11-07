@@ -21,13 +21,14 @@ object BotActions {
         return sessionId(request("POST", "agent/bots", token, listOf("teamId" to team), JsonValue.obj(*fields.toTypedArray())))
     }
 
-    /** A Bot's 1:1 chat: an unnamed chat, so it's called by the Bot, and then the Bot in it. */
-    suspend fun createChannel(token: String, team: String, botId: String, request: Request = AgentChatApi::send): String {
-        val query = listOf("teamId" to team)
-        val channel = sessionId(request("POST", "agent/channels", token, query, JsonValue.obj()))
-        request("POST", "agent/conversations/${ConversationActions.segment(channel)}/agents", token, query,
-            JsonValue.obj("sessionId" to JsonValue.Str(botId)))
-        return channel
+    /** The start of a Bot's 1:1 chat: an unnamed chat, so it's called by the Bot. */
+    suspend fun createChannel(token: String, team: String, request: Request = AgentChatApi::send): String =
+        sessionId(request("POST", "agent/channels", token, listOf("teamId" to team), JsonValue.obj()))
+
+    /** The rest of it: the Bot in the chat. A retry adds to the same chat instead of making another. */
+    suspend fun addBot(token: String, team: String, channel: String, botId: String, request: Request = AgentChatApi::send) {
+        request("POST", "agent/conversations/${ConversationActions.segment(channel)}/agents", token,
+            listOf("teamId" to team), JsonValue.obj("sessionId" to JsonValue.Str(botId)))
     }
 
     /** Make a Task a Bot, which also asks it to name itself, or take the face away to turn it back. */

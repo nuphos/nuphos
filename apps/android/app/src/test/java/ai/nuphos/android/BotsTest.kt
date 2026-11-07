@@ -5,6 +5,8 @@ import ai.nuphos.android.data.Http
 import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.model.AgentConversation
+import ai.nuphos.android.model.BotAvatars
+import ai.nuphos.android.model.BotFaces
 import ai.nuphos.android.model.ChatFace
 import ai.nuphos.android.model.botsList
 import kotlinx.coroutines.runBlocking
@@ -95,26 +97,22 @@ class BotsTest {
             runBlocking { BotActions.create("synthetic", "team", "Ada", "07-ada") { _, _, _, _, _ -> "{}" } }
         }
     }
-    @Test fun aBotsChatIsMadeAndThenTheBotAdded() = runBlocking {
+    @Test fun aBotsChatIsMadeAndThenTheBotAddedToIt() = runBlocking {
         val calls = mutableListOf<Pair<String, JsonValue?>>()
-        val id = BotActions.createChannel("synthetic", "team", "bot /") { method, path, _, query, body ->
+        val chat = BotActions.createChannel("synthetic", "team") { method, path, _, query, body ->
             assertEquals("POST", method); assertEquals(listOf("teamId" to "team"), query)
             calls += path to body
-            if (path == "agent/channels") """{"sessionId":"chat /"}""" else "{}"
+            """{"sessionId":"chat /"}"""
         }
-        assertEquals("chat /", id)
+        BotActions.addBot("synthetic", "team", chat, "bot /") { method, path, _, query, body ->
+            assertEquals("POST", method); assertEquals(listOf("teamId" to "team"), query)
+            calls += path to body
+            "{}"
+        }
+        assertEquals("chat /", chat)
         assertEquals(listOf("agent/channels", "agent/conversations/chat%20%2F/agents"), calls.map { it.first })
         assertEquals(JsonValue.obj(), calls[0].second)
         assertEquals(JsonValue.obj("sessionId" to JsonValue.Str("bot /")), calls[1].second)
-    }
-    @Test fun aFailureAddingTheBotIsNotReportedAsAChat() {
-        assertThrows(IllegalStateException::class.java) {
-            runBlocking {
-                BotActions.createChannel("synthetic", "team", "bot") { _, path, _, _, _ ->
-                    if (path == "agent/channels") """{"sessionId":"chat"}""" else error("Synthetic failure")
-                }
-            }
-        }
     }
     @Test fun makingABotAndTurningItBackUseTheirRoutes() = runBlocking {
         BotActions.setBot("synthetic", "team", "s /", true) { method, path, _, query, body ->
@@ -126,5 +124,19 @@ class BotsTest {
             assertEquals(listOf("teamId" to "team"), query)
             assertEquals(JsonValue.obj("avatar" to JsonValue.Null), body); "{}"
         }
+    }
+    @Test fun facesAreLearnedFromListsAndForgottenWhenABotTurnsBack() {
+        BotFaces.learn(listOf(session("bot", "05-rembrandt"), session("task"), channel("chat", agent("member", "07-ada"))))
+        assertEquals("05-rembrandt", BotFaces.face("bot"))
+        assertEquals("07-ada", BotFaces.face("member"))
+        assertNull(BotFaces.face("task"))
+        assertNull("A chat isn't a Bot", BotFaces.face("chat"))
+        BotFaces.learn(listOf(session("bot")))
+        assertNull(BotFaces.face("bot"))
+        BotFaces.learn("member", null)
+    }
+    @Test fun aFaceThisBuildDoesNotShipIsNotNamed() {
+        assertEquals("05-rembrandt.svg", BotAvatars.named("05-rembrandt"))
+        assertNull(BotAvatars.named("99-unknown"))
     }
 }

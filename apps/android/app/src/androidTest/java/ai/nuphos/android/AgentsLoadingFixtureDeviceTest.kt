@@ -209,17 +209,17 @@ class AgentsLoadingFixtureDeviceTest {
     @Test fun emptyHistoryWaitsForHeldPinsBeforeClaimingEmpty() {
         emptyHistory = true; holdFavorites = true; render()
         compose.waitUntil(5_000) { favoritesHeld.count == 0L && store.phase == AgentStore.Phase.Loaded }
-        compose.onNodeWithText("No agents yet").assertDoesNotExist()
+        compose.onNodeWithText("No tasks yet").assertDoesNotExist()
         compose.onNodeWithText("Loading pinned agents…").assertDoesNotExist()
         favoritesRelease.countDown()
-        waitText("No agents yet")
+        waitText("No tasks yet")
     }
     @Test fun coldHistoryHasLoadingButNoFakeRowsOrEmptyMessage() {
         holdNextList = true; render()
         compose.waitUntil(5_000) { listHeld.count == 0L }
         waitText("Loading agents…")
         compose.onNodeWithText("Loading agents…").assertIsDisplayed()
-        compose.onNodeWithText("No agents yet").assertDoesNotExist()
+        compose.onNodeWithText("No tasks yet").assertDoesNotExist()
         compose.onNodeWithText("History fixture").assertDoesNotExist()
         listRelease.countDown(); waitText("History fixture")
     }
@@ -238,7 +238,7 @@ class AgentsLoadingFixtureDeviceTest {
     }
     @Test fun initialFailureRemainsVisibleAndRetryRecovers() {
         failList = true; render(); waitText("Couldn't load agents")
-        compose.onNodeWithText("No agents yet").assertDoesNotExist()
+        compose.onNodeWithText("No tasks yet").assertDoesNotExist()
         failList = false; compose.onNodeWithText("Try again").performClick()
         waitText("History fixture")
     }

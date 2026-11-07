@@ -314,11 +314,11 @@ class PullRefreshFixtureDeviceTest {
 
     @Test fun emptyAndSearchStillAcceptGestureAndKeepSearch() {
         emptyHistory = true; entries = "[]"; render()
-        waitText("No agents yet"); assertCentered("No agents yet"); shot("empty-light")
+        waitText("No tasks yet"); assertCentered("No tasks yet"); shot("empty-light")
         var reads = historyReads()
         pull(); compose.waitUntil(5_000) { historyReads() > reads }; settled()
         compose.runOnIdle { searching.value = true }
-        compose.onNodeWithText("Search agents").performTextInput("needle")
+        compose.onNodeWithText("Search tasks").performTextInput("needle")
         hideKeyboard()
         waitText("No matches")
         // Let the debounced search finish before measuring a manual refresh.

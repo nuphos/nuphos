@@ -8,11 +8,14 @@ import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import ai.nuphos.android.data.BotActions
 import ai.nuphos.android.data.ConversationReadApi
 import ai.nuphos.android.data.ConversationActions
 import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.model.AgentConversation
+import ai.nuphos.android.model.BotFaces
+import ai.nuphos.android.model.botsList
 import ai.nuphos.android.model.ConversationScope
 import ai.nuphos.android.model.CredentialCatalog
 import ai.nuphos.android.model.CredentialSelection
@@ -135,7 +138,52 @@ class AgentStore(
         private set
     private var channelGeneration = 0
 
-    /** Whether the last listing had a chat, so launch can open on Chats before it loads. */
+    /** The Bots page: every chat, and each Bot without one yet. */
+    val botsList: List<AgentConversation> get() = botsList(channels, conversations)
+
+    var openingBotId by mutableStateOf<String?>(null)
+        private set
+    var botChatError by mutableStateOf<String?>(null)
+        private set
+    fun clearBotChatError() { botChatError = null }
+    /** Chats made for a Bot that didn't get added, so trying again doesn't leave another empty chat. */
+    private val unfinishedBotChats = mutableMapOf<String, String>()
+
+    /** A Bot's 1:1 chat, made the first time. Null when it couldn't be made or the workspace moved on. */
+    suspend fun openBotChat(botId: String): String? {
+        channels.firstOrNull { it.botId == botId }?.let { return it.sessionId }
+        val team = selectedTeam?.id ?: return null
+        if (disposed || !hasAiAccess() || openingBotId != null) return null
+        val workspace = workspaceRevision
+        val consent = AiAccess.revision
+        fun current() = !disposed && hasAiAccess() && AiAccess.revision == consent &&
+            selectedTeam?.id == team && workspaceRevision == workspace
+        openingBotId = botId
+        botChatError = null
+        try {
+            val chat = unfinishedBotChats[botId] ?: BotActions.createChannel(token, team)
+            if (!current()) return null
+            unfinishedBotChats[botId] = chat
+            BotActions.addBot(token, team, chat, botId)
+            if (!current()) return null
+            unfinishedBotChats.remove(botId)
+            loadChannels()
+            return chat.takeIf { current() }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            if (current()) botChatError = "Couldn't open this Bot. Try again."
+            return null
+        } finally {
+            if (workspaceRevision == workspace) openingBotId = null
+        }
+    }
+
+    private fun rememberHasChats() {
+        if (search.isEmpty()) prefs.edit().putBoolean(HAS_CHATS_KEY, botsList.isNotEmpty()).apply()
+    }
+
+    /** Whether the last listing had a chat or a Bot, so launch can open on Bots before it loads. */
     val rememberedHasChats: Boolean get() = prefs.getBoolean(HAS_CHATS_KEY, false)
 
     suspend fun loadChannels() {
@@ -157,8 +205,10 @@ class AgentStore(
             // A listing only ever shows chats; an agent row from an older server is left out.
             channels = rows.filter { it.isChannel && (it.teamId ?: team.id) == team.id }
                 .distinctBy { it.sessionId }.sortedByDescending { it.lastActiveAt }.map(::withLocalRead)
+            BotFaces.learn(channels)
             channelsLoaded = true
-            if (query.isEmpty()) prefs.edit().putBoolean(HAS_CHATS_KEY, channels.isNotEmpty()).apply()
+            // The Bots without a chat come from the history, so its absence says nothing yet.
+            if (phase == Phase.Loaded) rememberHasChats()
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -233,6 +283,9 @@ class AgentStore(
         channelGeneration++
         channels = emptyList()
         channelsLoaded = false
+        unfinishedBotChats.clear()
+        openingBotId = null
+        botChatError = null
         channelSessions.clear()
         channelReads.clear()
         agentTurns = emptyMap()
@@ -757,9 +810,11 @@ class AgentStore(
             if (generation != loadGeneration || selectedTeam?.id != team.id || workspace != workspaceRevision || disposed || !hasAiAccess()) return
             observeHistory(page.rows, team.id, observedAt)
             conversations = mergeHistory(page.rows, team.id).distinctBy { it.sessionId }
+            BotFaces.learn(conversations)
             nextCursor = page.nextCursor
             hasMore = page.hasMore
             phase = Phase.Loaded
+            if (channelsLoaded) rememberHasChats()
             phaseError = null
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
@@ -806,6 +861,7 @@ class AgentStore(
             conversations = conversations.map { current ->
                 merged.firstOrNull { it.sessionId == current.sessionId && (it.teamId ?: team.id) == (current.teamId ?: team.id) } ?: current
             } + merged.filter { it.sessionId !in seen }
+            BotFaces.learn(merged)
             nextCursor = page.nextCursor
             hasMore = page.hasMore
         } catch (e: kotlinx.coroutines.CancellationException) {
