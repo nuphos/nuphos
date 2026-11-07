@@ -14,6 +14,7 @@ import {
 } from '@/routes/agent/routes-device-runtime'
 
 import type { AuthVariables } from '@/middleware/auth'
+import type { LocalRuntimePresence } from '@/lib/agent/devices/local-runtime/presence'
 import type { DeviceRuntimeRouteDependencies } from '@/routes/agent/routes-device-runtime'
 import type { Server } from 'bun'
 import type { WSContext } from 'hono/ws'
@@ -167,6 +168,32 @@ describe('device runtime tunnel route', () => {
     socket.send('ping')
     expect(await reply).toBe('pong:ping')
     socket.close()
+    desktop.close()
+  })
+
+  test('the app holding a tunnel is recorded on its presence, for an old one to be told apart', async () => {
+    const host = serve('owner')
+    const desktop = new WebSocket(`ws://${host}/agent/devices/d1/runtime-tunnel`, {
+      headers: { 'x-atlas-client': 'nuphos-desktop/0.94.0' },
+    } as unknown as string[])
+
+    await waitFor<void>((resolve) => {
+      desktop.addEventListener('open', () => {
+        resolve()
+      })
+    })
+    desktop.send(JSON.stringify({ t: 'status', status: { agents: {}, localAttachments: true } }))
+    const found = await waitFor<LocalRuntimePresence>((resolve) => {
+      const poll = () =>
+        void presence.get('owner', 'd1').then((presence) => {
+          if (presence?.status) resolve(presence)
+          else setTimeout(poll, 5)
+        })
+
+      poll()
+    })
+
+    expect(found.client).toBe('nuphos-desktop/0.94.0')
     desktop.close()
   })
 

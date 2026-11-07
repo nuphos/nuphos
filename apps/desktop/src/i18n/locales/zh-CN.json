@@ -4533,6 +4533,7 @@
   "The computer could not start. Delete it on the Runtimes page and try again.": "电脑无法启动。请在“运行环境”页面中将其删除后重试。",
   "The computer has not started after 5 minutes. Delete it on the Runtimes page and try again.": "电脑在 5 分钟后仍未启动。请在“运行环境”页面中将其删除后重试。",
   "The computer itself keeps running, but all of its runtimes are unavailable until the host reconnects. The host starts again even if the install fails. The update does not start while any agent on it is replying.": "电脑本身会继续运行，但在主机重新连接之前，其所有运行环境都不可用。即使安装失败，主机也会重新启动。只要其上有 Agent 正在回复，更新就不会开始。",
+  "The computer running this agent needs a newer Nuphos Desktop to save a secret. Update Nuphos Desktop there, then ask the agent again.": "运行此 Agent 的计算机需要更新的 Nuphos Desktop 才能保存密钥。请在该计算机上更新 Nuphos Desktop,然后再次向 Agent 发出请求。",
   "The condition pins this role to your team — without it, any Nuphos team could assume the role.": "该条件将此角色限定于你的团队；没有它，任何 Nuphos 团队都能扮演此角色。",
   "The credential was issued successfully, but requests to the Kubernetes API get no response — so the endpoint is unreachable from this machine rather than rejecting us.": "凭据已成功签发，但对 Kubernetes API 的请求没有任何响应，说明此机器无法访问该端点，而不是被其拒绝。",
   "The cron scheduler is offline (Redis not configured on the backend). You can save this trigger, but it won't fire automatically until the scheduler is enabled. Test fire from the edit view still works.": "Cron 调度器已离线（后端未配置 Redis）。你可以保存此触发器，但在启用调度器之前它不会自动触发。在编辑视图中测试触发仍然可用。",

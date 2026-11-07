@@ -72,7 +72,13 @@ const activityQuery = z.object({
     .optional(),
 })
 
-export function runtimeTunnelEvents(userId: string, deviceId: string, deps: TunnelHolderDeps) {
+export function runtimeTunnelEvents(
+  userId: string,
+  deviceId: string,
+  deps: TunnelHolderDeps,
+  /** The app opening this tunnel, from `x-atlas-client`; recorded on its presence. */
+  client?: string,
+) {
   let tunnel: Promise<RuntimeTunnel | undefined> | undefined
 
   return {
@@ -89,6 +95,7 @@ export function runtimeTunnelEvents(userId: string, deviceId: string, deps: Tunn
           },
         },
         deps,
+        client,
       ).catch((error: unknown): undefined => {
         logError('agent.local_runtime.tunnel_open_failed', error, {
           user_id: userId,
@@ -146,16 +153,23 @@ export function createDeviceRuntimeRoutes(
 
     const from = requestOrigin((name) => c.req.header(name))
     const { recordAgents } = deps.holder
+    // Bounded: it is the caller's own text, kept only to tell one app version from another.
+    const client = c.req.header('x-atlas-client')?.trim().slice(0, 80)
 
     return upgradeWebSocket(
       c as unknown as Context,
-      runtimeTunnelEvents(userId, deviceId, {
-        ...deps.holder,
-        // Seen from where this connection came from.
-        ...(recordAgents
-          ? { recordAgents: (owner, id, status) => recordAgents(owner, id, status, from) }
-          : {}),
-      }),
+      runtimeTunnelEvents(
+        userId,
+        deviceId,
+        {
+          ...deps.holder,
+          // Seen from where this connection came from.
+          ...(recordAgents
+            ? { recordAgents: (owner, id, status) => recordAgents(owner, id, status, from) }
+            : {}),
+        },
+        client,
+      ),
     )
   })
 

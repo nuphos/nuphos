@@ -7,6 +7,7 @@ import { ConnectCardContext } from './connectCardContext'
 import { AgentQuote } from './ConnectCardRows'
 
 import type { CardAnswerState } from './replyTarget'
+import { secretSaveFailure } from './secretCardModel'
 
 /**
  * A secret the agent asked for: the value goes straight to a file on its
@@ -28,7 +29,7 @@ export function SecretCard({
 }) {
   const ctx = useContext(ConnectCardContext)
   const [value, setValue] = useState('')
-  const [phase, setPhase] = useState<'idle' | 'saving' | 'sent' | 'error'>('idle')
+  const [phase, setPhase] = useState<'idle' | 'saving' | 'sent' | 'outdated' | 'error'>('idle')
   const interactive = Boolean(ctx?.saveSecret) && state === 'open' && phase !== 'sent'
   const submit = async () => {
     if (!ctx?.saveSecret || !value) return
@@ -44,10 +45,13 @@ export function SecretCard({
         question: reason,
         secretName: name,
       })
-    } catch {
-      setPhase('error')
+    } catch (error) {
+      setPhase(secretSaveFailure(error))
     }
   }
+  // A runtime too old for an inline value refuses it by design: the card names
+  // the update instead of a retry that would fail the same way.
+  const settled = phase === 'sent' || phase === 'outdated'
 
   return (
     <div
@@ -62,9 +66,17 @@ export function SecretCard({
         {reason && <AgentQuote text={reason} />}
       </div>
       <div className="border-t border-line-control/60 px-4 py-2.5">
-        {phase === 'sent' ? (
+        {phase === 'sent' && (
           <div className="text-[12px] text-tertiary">{t("Saved on the agent's runtime.")}</div>
-        ) : (
+        )}
+        {phase === 'outdated' && (
+          <div className="mt-1.5 text-[12px] text-status-warning">
+            {t(
+              'The computer running this agent needs a newer Nuphos Desktop to save a secret. Update Nuphos Desktop there, then ask the agent again.',
+            )}
+          </div>
+        )}
+        {!settled && (
           <form
             className="flex items-center gap-2"
             onSubmit={(event) => {
@@ -93,8 +105,8 @@ export function SecretCard({
             {t("Could not save it on the agent's runtime. Try again.")}
           </div>
         )}
-        {phase !== 'sent' && <SecretBlocked state={ctx?.saveSecret ? state : 'notOwner'} />}
-        {phase !== 'sent' && (
+        {!settled && <SecretBlocked state={ctx?.saveSecret ? state : 'notOwner'} />}
+        {!settled && (
           <div className="mt-1.5 text-[11.5px] text-tertiary">
             {t(
               "The value is written to a file on the agent's runtime and never appears in this conversation.",
