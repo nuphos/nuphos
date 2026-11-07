@@ -137,6 +137,37 @@ describe('local_browser', () => {
     expect(targets).toEqual(['mac', 'box'])
   })
 
+  test('opens the tab in the channel that woke the turn, only when exactly one did', async () => {
+    const docks: unknown[] = []
+
+    for (const asked of [['channel-1'], [], ['channel-1', 'channel-2']]) {
+      const fake = device(null)
+
+      await createLocalBrowserHandler(
+        ctx,
+        deps({ connect: fake.connect }),
+        async () => asked,
+      )({
+        action: 'open',
+        url: 'https://example.com',
+      })
+      docks.push(fake.opened[0]?.sent[0]?.dock)
+    }
+    expect(docks).toEqual(['channel-1', undefined, undefined])
+  })
+
+  test('looks up the asking channel only for open', async () => {
+    let lookups = 0
+    const handler = createLocalBrowserHandler(ctx, deps({}), async () => {
+      lookups += 1
+
+      return ['channel-1']
+    })
+
+    await handler({ action: 'tabs' })
+    expect(lookups).toBe(0)
+  })
+
   test('tells the agent to open a named site and sign-in pages itself', () => {
     const description = String(
       (localBrowserToolModule.definitions[0] as { description?: string }).description,

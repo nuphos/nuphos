@@ -61,7 +61,10 @@ export type DeviceTool = {
   /** Why the arguments cannot make a call, if they cannot. */
   invalid: (args: Record<string, unknown>) => string | undefined
   /** The call frame's fields beyond session and turn. */
-  frame: (args: Record<string, unknown>, ctx: PreviewToolContext) => Record<string, unknown>
+  frame: (
+    args: Record<string, unknown>,
+    ctx: PreviewToolContext,
+  ) => Record<string, unknown> | Promise<Record<string, unknown>>
   /** What the device audit log records as the command. */
   audit: (args: Record<string, unknown>) => string
   errorReason: string
@@ -237,7 +240,7 @@ export function createDeviceToolHandler(
 
     await deps.audit({ ...intent, outcome: 'unknown', finishedAt: null })
     const socket = deps.connect(ctx, deviceId, ownerUserId, tool.purpose)
-    const { status, result } = await dispatch(ctx, socket, tool.frame(args, ctx), deps)
+    const { status, result } = await dispatch(ctx, socket, await tool.frame(args, ctx), deps)
 
     await deps.audit({
       ...intent,

@@ -2,6 +2,9 @@
 // workspace. It rides the same device tunnel and checks as `local_cua`; Desktop
 // runs each action on the tab's own webContents, so no debugging port is opened
 // and nothing outside those tabs is reachable.
+import { getLocalActiveAgentRun, runChannels } from '@/lib/agent/run-admission'
+import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
+
 import { createDeviceToolHandler } from './device-tool'
 
 import type { PreviewToolContext, PreviewToolModule } from '../preview-tool-context'
@@ -25,7 +28,17 @@ type Args = {
   device?: string
 }
 
-const browserTool: DeviceTool = {
+/** The channels the conversation's running turn answers. */
+async function turnChannels(ctx: PreviewToolContext): Promise<string[]> {
+  const userId = ctx.conversationOwnerUserId ?? ctx.userId
+  const run =
+    getLocalActiveAgentRun(userId, ctx.sessionId) ??
+    (await getActiveAgentRunForSession(userId, ctx.sessionId))
+
+  return run ? runChannels({ userId, sessionId: ctx.sessionId, streamId: run.streamId }) : []
+}
+
+const browserTool = (channels: typeof turnChannels): DeviceTool => ({
   name: 'local_browser',
   label: 'local_browser',
   purpose: 'browser',
@@ -42,11 +55,14 @@ const browserTool: DeviceTool = {
       ? 'tab is required; list the open tabs with action "tabs".'
       : undefined
   },
-  frame: (raw, ctx) => {
+  frame: async (raw, ctx) => {
     const args = raw as Args
+    // A tab opens where it was asked for: the channel that woke this turn, when exactly one did.
+    const asked = args.action === 'open' ? await channels(ctx) : []
 
     return {
       action: args.action,
+      ...(asked.length === 1 ? { dock: asked[0] } : {}),
       team: ctx.teamId,
       ...(args.tab !== undefined ? { tab: args.tab } : {}),
       ...(args.url ? { url: args.url } : {}),
@@ -65,7 +81,7 @@ const browserTool: DeviceTool = {
     'No local device is usable in this conversation. Either none is selected in its credential selector, or the selected one is offline: Nuphos Desktop must be open and signed in on it, with local exec allowed. list_credentials shows which.',
   unsupported:
     'The device disconnected or its Nuphos Desktop does not support local_browser yet (update Nuphos Desktop).',
-}
+})
 
 const definition = {
   name: 'local_browser',
@@ -73,7 +89,7 @@ const definition = {
     'The Nuphos browser: use it whenever the user asks to open a browser, a page or a website, also on a computer with its own desktop. ' +
     'A site or app named by the user ("open up TikTok") means its official URL (https://www.tiktok.com); search the web if unsure, then open it in the same turn, never an empty tab. ' +
     'When a task needs the user to sign in or sign up somewhere, open that login or sign-up page here yourself, sub-agents included, and say what to do on it; the user types their own password and passes human checks, never you. ' +
-    "Operate this conversation's browser tabs inside the user's Nuphos Desktop workspace (the in-app browser, not Chrome or Safari): open a page in a new tab in this conversation's dock, list the tabs this conversation opened, navigate, run JavaScript in a page, or take a screenshot. " +
+    "Operate this conversation's browser tabs inside the user's Nuphos Desktop workspace (the in-app browser, not Chrome or Safari): open a page in a new tab in the dock of the chat that asked for it (the channel, when a channel's message started this turn; otherwise this conversation's), list the tabs this conversation opened, navigate, run JavaScript in a page, or take a screenshot. " +
     'Pages keep the logins the user made in the in-app browser. Start with action "open" (or "tabs"), then pass the returned tab id. ' +
     'eval runs `script` in the page as a user gesture and returns its JSON-serializable value (an awaited Promise for async code): read the DOM, click, fill inputs (dispatch input events for frameworks). ' +
     'screenshot only works while the tab is on screen. ' +
@@ -101,8 +117,12 @@ const definition = {
   },
 }
 
-export function createLocalBrowserHandler(ctx: PreviewToolContext, deps?: DeviceToolDeps) {
-  return createDeviceToolHandler(ctx, browserTool, deps)
+export function createLocalBrowserHandler(
+  ctx: PreviewToolContext,
+  deps?: DeviceToolDeps,
+  channels = turnChannels,
+) {
+  return createDeviceToolHandler(ctx, browserTool(channels), deps)
 }
 
 export const localBrowserToolModule: PreviewToolModule = {

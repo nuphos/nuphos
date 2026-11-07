@@ -170,7 +170,7 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
     const path = `/teams/${encodeURIComponent(call.team)}/browser?url=${encodeURIComponent(call.url)}`
 
     handleDeepLink(
-      `nuphos://open?path=${encodeURIComponent(path)}&session=${encodeURIComponent(call.session)}`,
+      `nuphos://open?path=${encodeURIComponent(path)}&session=${encodeURIComponent(call.dock ?? call.session)}`,
     )
     const contents = await opened
 

@@ -193,6 +193,26 @@ const listed = (session: string) =>
     (JSON.parse(textOf(result)) as { tab: number }[]).map((tab) => tab.tab),
   )
 
+test('open shows the tab in the dock of the channel that asked for it, and the agent still owns it', async () => {
+  let link = ''
+
+  onDeepLink = (url) => {
+    link = url
+    new Guest().attach().navigate('https://example.com/asked').finish()
+  }
+  const result = await runBrowserCall({
+    action: 'open',
+    team: 't1',
+    session: 'agent-1',
+    dock: 'channel-1',
+    url: 'https://example.com/asked',
+  })
+
+  assert.equal(new URL(link).searchParams.get('session'), 'channel-1')
+  assert.deepEqual(await listed('agent-1'), [tabOf(result)])
+  assert.deepEqual(await listed('channel-1'), [])
+})
+
 test('a conversation sees and drives only the tabs it opened', async () => {
   const mine = await opened('own-a', 'https://example.com/mine')
   const theirs = await opened('own-b', 'https://example.com/theirs')

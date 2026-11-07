@@ -23,6 +23,8 @@ export type BrowserCall = {
   team: string
   /** The conversation calling; it sees and drives only the tabs it opened. */
   session: string
+  /** For `open`: the channel whose dock the tab opens in, when one asked for it; else `session`'s. */
+  dock?: string
   tab?: number
   /** A dock tab's workspace id, for `focus` and `close` from the iPhone's Dock panel. */
   dockTab?: string
