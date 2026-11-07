@@ -218,7 +218,7 @@ class PinnedHistoryFixtureDeviceTest {
 
     @Test fun emptyHistoryStillShowsPinsAndDeniedPinIsNeverRemoved() {
         emptyHistory = true; render()
-        compose.onNodeWithText("No agents yet").assertDoesNotExist()
+        compose.onNodeWithText("No tasks yet").assertDoesNotExist()
         compose.onNodeWithText("Stale pin").performClick()
         compose.waitUntil(5_000) { requests.any { it.url.encodedPath == "/agent/conversations/denied" } }
         compose.waitForIdle()

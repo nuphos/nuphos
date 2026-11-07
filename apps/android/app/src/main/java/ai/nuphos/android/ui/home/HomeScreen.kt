@@ -32,8 +32,6 @@ import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Assignment
 import androidx.compose.material.icons.rounded.Forum
-import androidx.compose.material3.Badge
-import androidx.compose.material3.FilterChip
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.FilterList
@@ -313,10 +311,12 @@ fun HomeScreen(
     var page by rememberSaveable { mutableStateOf(HomePage.launch(store.rememberedHasChats).route) }
     // Once chats load, the launch page is corrected unless the viewer already picked one or opened something.
     var pagePicked by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(store.channelsLoaded, store.channels.isEmpty(), store.workspaceRevision) {
-        if (!store.channelsLoaded || pagePicked || selectedSessionId != null || store.search.isNotEmpty()) return@LaunchedEffect
+    // The Bots without a chat come from the history, so wait for both before choosing.
+    val historySettled = store.phase == AgentStore.Phase.Loaded || store.phase == AgentStore.Phase.Failed
+    LaunchedEffect(store.channelsLoaded, historySettled, store.botsList.isEmpty(), store.workspaceRevision) {
+        if (!store.channelsLoaded || !historySettled || pagePicked || selectedSessionId != null || store.search.isNotEmpty()) return@LaunchedEffect
         val current = HomePage.fromRoute(page)
-        if (current == HomePage.Chats || current == HomePage.Agent) page = HomePage.launch(store.channels.isNotEmpty()).route
+        if (current == HomePage.Chats || current == HomePage.Agent) page = HomePage.launch(store.botsList.isNotEmpty()).route
         pagePicked = true
     }
     val shares = (LocalContext.current.applicationContext as ai.nuphos.android.NuphosApplication).incomingShares
@@ -384,7 +384,7 @@ fun HomeScreen(
                         IconButton(onClick = { searching = !searching }, modifier = Modifier.testTag("home-search")) {
                             Icon(Icons.Outlined.Search, contentDescription = "Search")
                         }
-                        // Like iOS, Agents has search only; Plans keeps its filter.
+                        // Like iOS, Tasks has search only; Plans keeps its filter.
                         if (current == HomePage.Plans) PlansFilterButton()
                     }
                     FilledIconButton(
@@ -416,12 +416,9 @@ fun HomeScreen(
             } else if (unavailablePage) {
                 Column(Modifier.weight(1f).fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.Center) {
                     Text("This page is no longer available in the mobile app.", style = MaterialTheme.typography.titleMedium)
-                    Button(onClick = { page = HomePage.Agent.route; searching = false }, modifier = Modifier.padding(top = 16.dp)) { Text("Back to Agents") }
+                    Button(onClick = { page = HomePage.Agent.route; searching = false }, modifier = Modifier.padding(top = 16.dp)) { Text("Back to Tasks") }
                 }
             } else {
-            if (current == HomePage.Chats || current == HomePage.Agent) HomeListTabs(current) { tab ->
-                if (tab != current) { pagePicked = true; store.updateSearch(""); searching = false; page = tab.route }
-            }
             AnimatedContent(current, modifier = Modifier.weight(1f), label = "page") { dest ->
                 when (dest) {
                     HomePage.Chats -> ai.nuphos.android.ui.chats.ChatsPage(nav, selectedSessionId, searching, { searching = it }, active = listVisible)
@@ -497,29 +494,6 @@ internal fun PageSwitcher(
                     onClick = { dismiss(); onSelect(page) },
                 )
             }
-        }
-    }
-}
-
-/** Chats and Agents, side by side under the bar. Chats counts the ones with unread posts. */
-@Composable
-private fun HomeListTabs(selected: HomePage, onSelect: (HomePage) -> Unit) {
-    val store = LocalAgentStore.current
-    val unread = store.channels.count { with(ai.nuphos.android.ui.chats.Unread) { it.unread() } }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).testTag("home-list-tabs"),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        listOf(HomePage.Chats to unread, HomePage.Agent to 0).forEach { (tab, badge) ->
-            FilterChip(
-                selected = selected == tab,
-                onClick = { onSelect(tab) },
-                label = { Text(tab.title) },
-                trailingIcon = if (badge > 0) ({
-                    Badge { Text("$badge") }
-                }) else null,
-                modifier = Modifier.testTag("home-tab-${tab.route}").semantics {
-                    stateDescription = if (badge > 0) "$badge unread" else ""
-                },
-            )
         }
     }
 }

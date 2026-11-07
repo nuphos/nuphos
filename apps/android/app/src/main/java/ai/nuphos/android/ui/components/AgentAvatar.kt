@@ -35,12 +35,14 @@ private object AgentImages {
 @Composable
 private fun agentImageLoader(): ImageLoader = AgentImages.get(LocalContext.current)
 
-/** Stable identity. An enabled illustration never carries a second provider badge. */
+/** A Bot wears its face; a Task, or a Bot not seen yet, shows its runtime mark. */
 @Composable
 fun AgentAvatar(sessionId: String, runtime: String?, size: Dp = 36.dp) {
     val loader = agentImageLoader()
+    val face = ai.nuphos.android.model.BotFaces.face(sessionId).takeIf { botAvatarsEnabled() }
     Box(Modifier.size(size).testTag("agent-identity-avatar"), contentAlignment = Alignment.Center) {
-        if (botAvatarsEnabled()) AsyncImage(model = "file:///android_asset/bot-avatars/${BotAvatars.file(sessionId)}",
+        // A face this build doesn't ship falls back to the one the ID derives, as on iOS and Desktop.
+        if (face != null) AsyncImage(model = "file:///android_asset/bot-avatars/${BotAvatars.named(face) ?: BotAvatars.file(sessionId)}",
             imageLoader = loader, contentDescription = null, contentScale = ContentScale.Fit,
             modifier = Modifier.size(size))
         else RuntimeMark(runtime, 20.dp, loader)

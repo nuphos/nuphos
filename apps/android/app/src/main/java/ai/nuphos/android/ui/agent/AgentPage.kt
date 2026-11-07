@@ -129,7 +129,7 @@ fun AgentPage(
         AlertDialog(onDismissRequest = { if (!busy) { archiveTarget = null; store.clearRowActionError() } },
             title = { Text(if (target.isArchived) "Restore agent?" else "Archive agent?") },
             text = { Column {
-                Text(if (target.isArchived) "Move this agent to Active." else "It leaves the Agents list. Open it again to restore it.")
+                Text(if (target.isArchived) "Move this agent to Active." else "It leaves the Tasks list. Open it again to restore it.")
                 store.rowActionError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             } },
             confirmButton = { TextButton(enabled = !busy, onClick = { scope.launch {
@@ -218,7 +218,7 @@ fun AgentPage(
             SearchField(
                 value = store.search,
                 onValueChange = store::updateSearch,
-                placeholder = "Search agents",
+                placeholder = "Search tasks",
                 onCancel = {
                     store.updateSearch("")
                     onSearchingChange(false)
@@ -267,10 +267,10 @@ fun AgentPage(
                     (store.search.isNotEmpty() || store.selectedTeam == null || store.favorites != null) -> {
                     RefreshableHistoryState { EmptyState(
                         icon = Icons.Outlined.ChatBubbleOutline,
-                        title = if (store.search.isNotEmpty()) "No matches" else "No agents yet",
-                        body = if (store.search.isNotEmpty()) "No agents match your search."
-                            else if (showComposer) "Start an agent from the bar below."
-                            else "Start an agent in the pane beside this list.",
+                        title = if (store.search.isNotEmpty()) "No matches" else "No tasks yet",
+                        body = if (store.search.isNotEmpty()) "No tasks match your search."
+                            else if (showComposer) "Start a task from the bar below."
+                            else "Start a task in the pane beside this list.",
                     ) }
                 }
                 else -> {
@@ -288,7 +288,7 @@ fun AgentPage(
                                         nav.navigate("conversation/${android.net.Uri.encode(pin.sessionId)}") { popUpTo("home"); launchSingleTop = true }
                                     }) {
                                         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                            PinnedAvatar(true) { AgentAvatar(pin.sessionId, null, size = 36.dp) }
+                                            PinnedAvatar(true) { TaskMark(null) }
                                             Text(pin.title, Modifier.padding(start = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
                                     }
@@ -398,13 +398,11 @@ internal fun ConversationRow(conversation: AgentConversation, pinned: Boolean, s
                 Modifier.padding(horizontal = 4.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                PinnedAvatar(pinned) {
-                    AgentAvatar(conversation.sessionId, conversation.agentRuntime, size = 36.dp)
-                }
+                // A Task row, Bot or not, leads with its runtime, never a face.
+                PinnedAvatar(pinned) { TaskMark(conversation.agentRuntime) }
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
                     Text(conversation.displayTitle, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        if (ai.nuphos.android.ui.components.botAvatarsEnabled()) RuntimeMark(conversation.agentRuntime)
                         Text(meta(conversation, status?.takeUnless { it == "Unread" }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = if (androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f) Int.MAX_VALUE else 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
@@ -563,6 +561,11 @@ fun NewChatComposer(nav: NavHostController) {
 }
 
 /** An overlay reserves no title width and only marks an explicit favorite. */
+@Composable
+private fun TaskMark(runtime: String?) {
+    Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { RuntimeMark(runtime, 20.dp) }
+}
+
 @Composable
 private fun PinnedAvatar(pinned: Boolean, content: @Composable () -> Unit) {
     Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {

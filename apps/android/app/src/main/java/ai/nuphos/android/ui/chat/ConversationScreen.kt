@@ -258,7 +258,7 @@ fun ConversationScreen(
                             val label = session.runtimeDeviceLabel
                             if (session.agentRuntime != null || label != null) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    if (ai.nuphos.android.ui.components.botAvatarsEnabled()) ai.nuphos.android.ui.components.RuntimeMark(session.agentRuntime)
+                                    if (ai.nuphos.android.ui.components.botAvatarsEnabled() && ai.nuphos.android.model.BotFaces.face(session.sessionId) != null) ai.nuphos.android.ui.components.RuntimeMark(session.agentRuntime)
                                     Text(ai.nuphos.android.model.RuntimeIdentity.detail(session.agentRuntime, label), style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,

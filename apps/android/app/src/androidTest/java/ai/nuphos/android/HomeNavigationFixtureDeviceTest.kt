@@ -293,7 +293,7 @@ class HomeNavigationFixtureDeviceTest {
     @Test fun searchResetAndTeamSwitchKeepTheFixedListSelectors() {
         render(); waitText("Synthetic active conversation")
         compose.onNodeWithTag("home-search").performClick()
-        compose.onNodeWithText("Search agents").performTextInput("needle")
+        compose.onNodeWithText("Search tasks").performTextInput("needle")
         compose.waitUntil(5_000) { requests.any { it.url.encodedPath == "/agent/conversations" && it.url.queryParameter("search") == "needle" } }
         select("plans"); compose.runOnIdle { assertEquals("", agent.search) }
         select("agent"); compose.runOnIdle { agent.select(b) }

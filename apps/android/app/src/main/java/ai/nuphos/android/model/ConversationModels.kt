@@ -271,8 +271,6 @@ object PlanLink {
     }
 }
 
-/** The two history orders exposed by the native clients. */
-
 /**
  * What the Bots page lists: every chat, and each Bot that has no 1:1 chat yet, newest first.
  * Only Bots in [conversations] can appear, so one on a page not loaded yet waits until it is.

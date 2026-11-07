@@ -32,6 +32,7 @@ import ai.nuphos.android.model.HistoryTime
 import ai.nuphos.android.ui.LocalAgentStore
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /** Whether a chat row has posts the viewer has not read, from the same read state as agents. */
 internal object Unread {
@@ -45,12 +46,13 @@ internal object Unread {
 
 internal fun AgentConversation.hasUnreadPosts(): Boolean = with(Unread) { unread() }
 
-/** Chats where people and agents talk, as on iOS and Desktop. */
+/** Chats where people and agents talk, and each Bot without a chat yet, as on iOS and Desktop. */
 @Composable
 internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null, searching: Boolean = false,
     onSearchingChange: (Boolean) -> Unit = {}, active: Boolean = true) {
     val store = LocalAgentStore.current
     val team = store.selectedTeam?.id
+    val scope = rememberCoroutineScope()
     // Refreshed with the list while it is on screen, like the iOS list poll. Only while the
     // screen is resumed: a backgrounded app or a page left behind must not keep reading.
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
@@ -63,31 +65,51 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
             }
         }
     }
-    val chats = store.channels
+    val rows = store.botsList
+    // A Bot's chat is made on the first tap. The list stays up meanwhile, so a failure has a place to show.
+    fun openBot(botId: String) {
+        scope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) {
+            val chat = store.openBotChat(botId) ?: return@launch
+            nav.navigate("channel/${android.net.Uri.encode(chat)}") { launchSingleTop = true }
+        }
+    }
+    store.botChatError?.let { message ->
+        AlertDialog(
+            onDismissRequest = { store.clearBotChatError() },
+            text = { Text(message) },
+            dismissButton = { TextButton(onClick = { store.clearBotChatError() }) { Text("OK") } },
+            confirmButton = { TextButton(onClick = {
+                val botId = store.botChatFailedId
+                store.clearBotChatError()
+                botId?.let(::openBot)
+            }) { Text("Try again") } },
+        )
+    }
     Column(Modifier.fillMaxSize()) {
     if (searching) ai.nuphos.android.ui.components.SearchField(
         value = store.search,
         onValueChange = store::updateSearch,
-        placeholder = "Search chats",
+        placeholder = "Search bots",
         onCancel = { store.updateSearch(""); onSearchingChange(false) },
     )
     when {
-        !store.channelsLoaded && chats.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        !store.channelsLoaded && rows.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
-        chats.isEmpty() -> Column(Modifier.fillMaxSize().padding(32.dp).testTag("chats-empty"),
+        rows.isEmpty() -> Column(Modifier.fillMaxSize().padding(32.dp).testTag("chats-empty"),
             verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Outlined.Forum, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(if (store.search.isEmpty()) "No chats yet" else "No matches", style = MaterialTheme.typography.titleLarge,
+            Text(if (store.search.isEmpty()) "No bots yet" else "No matches", style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 16.dp))
-            Text(if (store.search.isEmpty()) "Chats where people and agents talk together show up here." else "No chats match your search.",
+            Text(if (store.search.isEmpty()) "Bots and chats with people show up here." else "No bots or chats match your search.",
                 style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
         }
         else -> LazyColumn(Modifier.fillMaxSize().testTag("chats-list")) {
-            items(chats, key = { it.sessionId }) { chat ->
-                ChatRow(chat, selected = chat.sessionId == selectedSessionId) {
-                    nav.navigate("channel/${android.net.Uri.encode(chat.sessionId)}") { launchSingleTop = true }
+            items(rows, key = { it.sessionId }) { row ->
+                ChatRow(row, selected = row.sessionId == selectedSessionId, opening = store.openingBotId == row.sessionId) {
+                    if (row.isChannel) nav.navigate("channel/${android.net.Uri.encode(row.sessionId)}") { launchSingleTop = true }
+                    else openBot(row.sessionId)
                 }
             }
         }
@@ -96,26 +118,36 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
 }
 
 @Composable
-private fun ChatRow(chat: AgentConversation, selected: Boolean, onOpen: () -> Unit) {
-    val unread = chat.hasUnreadPosts()
+private fun ChatRow(chat: AgentConversation, selected: Boolean, opening: Boolean, onOpen: () -> Unit) {
+    val unread = chat.isChannel && chat.hasUnreadPosts()
+    val title = if (chat.isChannel) chat.displayTitleForChat else chat.displayTitle
+    val preview = chat.previewLine
     ListItem(
-        modifier = Modifier.clickable(onClick = onOpen).semantics {
-            contentDescription = chat.displayTitle + if (unread) ", unread posts" else ""
+        modifier = Modifier.clickable(enabled = !opening, onClick = onOpen).testTag("chat-row:${chat.sessionId}").semantics {
+            contentDescription = listOfNotNull(title, preview, "unread posts".takeIf { unread }, "opening".takeIf { opening }).joinToString(", ")
         },
         colors = ListItemDefaults.colors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background),
-        leadingContent = { ChatIcon(chat.faces.orEmpty(), chat.displayTitleForChat, 40.dp) },
-        headlineContent = { Text(chat.displayTitleForChat, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        supportingContent = { Text(HistoryTime.format(chat.lastActiveAt), color = MaterialTheme.colorScheme.onSurfaceVariant) },
+        leadingContent = {
+            if (chat.isChannel) ChatIcon(chat.faces.orEmpty(), title, 40.dp)
+            else AgentAvatar(chat.sessionId, chat.agentRuntime, 40.dp)
+        },
+        headlineContent = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        supportingContent = preview?.let { { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
         trailingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(HistoryTime.format(chat.lastActiveAt), style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 if (unread) Box(Modifier.size(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary).testTag("chat-unread"))
-                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.outline)
+                if (opening) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                else Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.outline)
             }
         },
     )
 }
 
-internal val AgentConversation.displayTitleForChat: String get() = title.ifBlank { "Untitled chat" }
+/** An unnamed chat is called by its one other member, which is how a Bot's 1:1 chat gets its name. */
+internal val AgentConversation.displayTitleForChat: String
+    get() = title.ifBlank { faces?.singleOrNull()?.name?.takeIf { it.isNotBlank() } ?: "Untitled chat" }
 
 /**
  * A chat's icon, as iMessage draws one: the one other member's face, or two overlapping, whoever spoke
