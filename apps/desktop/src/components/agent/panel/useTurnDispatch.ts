@@ -1,26 +1,27 @@
 import { useCallback } from 'react'
 
-import { api } from '../../../api'
-import { useCurrentUser } from '../../../hooks/useCurrentUser'
+import { api } from '../../../api.ts'
+import { useCurrentUser } from '../../../hooks/useCurrentUser.ts'
 import { t } from '../../../i18n/index.ts'
-import { runtimeAllows, runtimeStateLabel } from '../../../lib/runtimeExecution'
-import { toast } from '../../ui/toast'
+import { runtimeAllows, runtimeStateLabel } from '../../../lib/runtimeExecution.ts'
+import { toast } from '../../ui/toast.ts'
 
-import { makeAttachmentTurn } from './attachments'
-import { awaitListedAgent } from './awaitListedAgent'
-import { runDispatchTurn } from './dispatchTurn'
-import { HOME_TAB_ID } from './model'
-import { runtimeMayAcceptLater } from './queuedAutoSend'
-import { routeSend } from './sendRouting'
-import { runStartChatWith } from './startChat'
-import { fileNameFromPath } from './textUtils'
-import { useQueueActions } from './useQueueActions'
-import { useSteering } from './useSteering'
+import { makeAttachmentTurn } from './attachments.ts'
+import { awaitListedAgent } from './awaitListedAgent.ts'
+import { runDispatchTurn } from './dispatchTurn.ts'
+import { HOME_TAB_ID } from './model.ts'
+import { runtimeMayAcceptLater } from './queuedAutoSend.ts'
+import { routeSend } from './sendRouting.ts'
+import { runStartChatWith } from './startChat.ts'
+import { fileNameFromPath } from './textUtils.ts'
+import { useQueueActions } from './useQueueActions.ts'
+import { useSteering } from './useSteering.ts'
 
-import type { PanelCtx } from './ctx'
-import type { Message } from './model'
-import type { TransferUploadPart } from './parts'
-import type { AgentMessageMention } from '../../../api/agent-types'
+import type { SendResult } from './composerSend.ts'
+import type { PanelCtx } from './ctx.ts'
+import type { Message } from './model.ts'
+import type { TransferUploadPart } from './parts.ts'
+import type { AgentMessageMention } from '../../../api/agent-types.ts'
 
 type Acc = Pick<
   PanelCtx,
@@ -86,7 +87,7 @@ export function useTurnDispatch(acc: Acc) {
         messageId: string
         run: (sessionId: string | undefined) => Promise<TransferUploadPart>
       },
-    ) => {
+    ): SendResult => {
       const start = (runtime: typeof newConversationRuntime) =>
         runStartChatWith(
           {
@@ -113,19 +114,21 @@ export function useTurnDispatch(acc: Acc) {
         )
 
       if (!newConversationRuntime?.starting || !teamId) {
-        start(newConversationRuntime)
-
-        return
+        return Promise.resolve(start(newConversationRuntime))
       }
-      void awaitListedAgent(newConversationRuntime.id, () =>
+
+      // A just-started local runtime is not in the team catalog yet: hold the
+      // send until it is, then report what the chat did with the draft.
+      return awaitListedAgent(newConversationRuntime.id, () =>
         api.atlasListRuntimeInstances(teamId),
       ).then((listed) => {
-        if (listed) start(listed)
-        else
-          toast.error(
-            t('The local runtime is still starting'),
-            t('Try again in a moment, or check User settings › This computer › Local runtime.'),
-          )
+        if (listed) return start(listed)
+        toast.error(
+          t('The local runtime is still starting'),
+          t('Try again in a moment, or check User settings › This computer › Local runtime.'),
+        )
+
+        return false
       })
     },
     [
@@ -212,6 +215,9 @@ export function useTurnDispatch(acc: Acc) {
     fallback: dispatchTurn,
   })
 
+  // Reports whether the send took the draft (see SendResult). Every refusal
+  // below happens before a message or queued entry exists, so the composer
+  // keeps the draft.
   const sendInActive = useCallback(
     async (
       text: string,
@@ -219,14 +225,14 @@ export function useTurnDispatch(acc: Acc) {
       turnKind?: Message['turnKind'],
       questionId?: string,
       mentions?: AgentMessageMention[],
-    ) => {
+    ): SendResult => {
       const trimmed = text.trim()
 
-      if (!trimmed && filePaths.length === 0) return
+      if (!trimmed && filePaths.length === 0) return false
       if (filePaths.length > 0 && !teamId) {
         toast.error(t('No team selected'), t('Select a team before attaching files.'))
 
-        return
+        return false
       }
       if (activeId === HOME_TAB_ID) {
         const title = trimmed || filePaths.map(fileNameFromPath).join(', ')
@@ -240,42 +246,54 @@ export function useTurnDispatch(acc: Acc) {
           { turnKind, currentUser, mentions },
         )
 
-        startChatWith(
+        return startChatWith(
           title,
           buildUserMsg(filePaths.length > 0 ? optimisticPart() : null),
           filePaths.length > 0 ? { messageId, run: runUpload } : undefined,
         )
-
-        return
       }
       const tab = tabsRef.current.find((t) => t.id === activeId)
 
-      if (!tab) return
-      if (tab.readOnly) return
+      if (!tab || tab.readOnly) return false
       const route = routeSend(tab.runtimeState, turnKind, questionId, answering)
 
-      // The backend decides whose turn it is: a refused steer is sent as a
-      // message and waits its turn in the server queue.
+      // The backend decides whose turn it is: a refused steer goes out as a
+      // message and waits in the server queue. Either way the draft is a queued
+      // entry from the first step on, so it is taken here, without awaiting
+      // delivery — the composer should not wait on that to clear.
       if (route.steer) {
-        await sendSteering(activeId, trimmed, filePaths)
+        // A steer belongs to the session it steers. With none registered yet
+        // sendSteering would drop it in silence, so refuse it instead.
+        if (!tab.sessionId) {
+          toast.error(
+            t("The runtime isn't ready yet"),
+            t('Your message was not sent. Send it again.'),
+          )
 
-        return
+          return false
+        }
+        void sendSteering(activeId, trimmed, filePaths)
+
+        return true
       }
       if (!runtimeAllows(tab.runtimeState, 'reply') && !runtimeMayAcceptLater(tab.runtimeState)) {
         toast.error(runtimeStateLabel(tab.runtimeState))
 
-        return
+        return false
       }
       if (uploadingTabsRef.current.has(activeId)) {
         toast.error(t('Attachment upload is still in progress'))
 
-        return
+        return false
       }
+      // Past the checks above, dispatchTurn renders the message or queues it
+      // before anything it awaits; a later failure shows in the conversation.
       void dispatchTurn(activeId, trimmed, filePaths, turnKind, route.decisionReplyTo, mentions)
+
+      return true
     },
     [activeId, answering, startChatWith, dispatchTurn, sendSteering, teamId, currentUser],
   )
-
   const { steerQueued, removeQueued } = useQueueActions({ tabsRef, setTabs, teamId, sendSteering })
 
   return { startChatWith, dispatchTurn, sendInActive, steerQueued, removeQueued }
