@@ -85,8 +85,9 @@ export const SLASH_VISIBLE_ROWS = 5
  * The row plain Enter picks, or null when Enter should send. A row the arrows
  * picked always counts. Otherwise Enter only completes an agent command (the
  * highlighted one, else the first): it just fills in text, so it is safe without
- * the arrows. A Nuphos action runs, so it still needs the arrows, and a command
- * typed out in full is sent as it is, even when another row is highlighted.
+ * the arrows. A Nuphos action runs, so it needs the arrows or its full name
+ * (`/fork`). An agent command typed out in full is sent as it is, even when
+ * another row is highlighted.
  */
 export function slashEnterTarget(
   options: readonly SlashOption[],
@@ -101,6 +102,10 @@ export function slashEnterTarget(
   if (options.some((o) => o.kind === 'agent' && o.command.name.toLowerCase() === typed)) {
     return null
   }
+  // A Nuphos action typed out in full runs, as picking it does.
+  const action = options.find((o) => o.kind === 'nuphos' && o.action.id === typed)
+
+  if (action) return action
   const candidate = options[pick.active >= 0 ? pick.active : 0]
 
   return candidate.kind === 'agent' ? candidate : null
