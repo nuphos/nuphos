@@ -134,6 +134,22 @@ object AgentChatApi {
         send("POST", "agent/conversations/$sessionId/messages/$messageId/feedback", token, listOf("teamId" to teamId), payload)
     }
 
+    /**
+     * `POST /agent/conversations/:id/secrets`: the value goes to a file on the
+     * agent's runtime, and only its path comes back.
+     */
+    suspend fun saveSecret(token: String, teamId: String, sessionId: String, name: String, value: String): String {
+        val data = send("POST", "agent/conversations/$sessionId/secrets", token, listOf("teamId" to teamId),
+            JsonValue.obj("name" to JsonValue.Str(name), "value" to JsonValue.Str(value)))
+        return JsonValue.parse(data)?.get("path")?.stringValue ?: throw NuphosApi.Failure.InvalidResponse
+    }
+
+    /** `POST /agent/conversations/:id/decisions/:requestId/resolve`: marks a question answered. */
+    suspend fun resolveDecision(token: String, teamId: String, sessionId: String, requestId: String) {
+        send("POST", "agent/conversations/$sessionId/decisions/$requestId/resolve", token, listOf("teamId" to teamId),
+            JsonValue.obj("resolution" to JsonValue.Str("answered")))
+    }
+
     suspend fun approveForSession(token: String, sessionId: String, command: String) {
         send("POST", "agent/auto-mode/session-approvals", token, body = JsonValue.obj(
             "sessionId" to JsonValue.Str(sessionId),
