@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { config } from '@/config'
 
@@ -106,21 +106,31 @@ describe('isAllowedRemoteOpenAbUrl', () => {
   })
 })
 
-// The suite runs off-cluster with NUPHOS_PUBLIC_BACKEND_URL seeded and
-// NUPHOS_BACKEND_URL unset, so a managed session has no reachable base at all
-// and an external one has exactly the public base.
+// The suite runs off-cluster with NUPHOS_PUBLIC_BACKEND_URL seeded and the
+// backend url cleared, so a managed session has no reachable base at all and an
+// external one has exactly the public base.
 describe('what a self-hosted session is handed', () => {
-  const managed = previewSessionAccess('conv-1', 'team-1', 'user-1')
-  const external = previewSessionAccess('conv-1', 'team-1', 'user-1', 'user-1', {
-    external: true,
+  const backendUrl = config.agent.backendUrl
+
+  beforeEach(() => {
+    config.agent.backendUrl = undefined
+  })
+
+  afterEach(() => {
+    config.agent.backendUrl = backendUrl
   })
 
   test('MCP mounts resolve to the public base', async () => {
-    expect((await managed).mcpServers).toEqual([])
-    expect((await external).mcpServers.map((server) => server.url)).toEqual([
+    const managed = await previewSessionAccess('conv-1', 'team-1', 'user-1')
+    const external = await previewSessionAccess('conv-1', 'team-1', 'user-1', 'user-1', {
+      external: true,
+    })
+
+    expect(managed.mcpServers).toEqual([])
+    expect(external.mcpServers.map((server) => server.url)).toEqual([
       'https://unit-test.invalid/agent-sessions/conv-1/teams/team-1/mcp',
       'https://unit-test.invalid/agent-sessions/conv-1/teams/team-1/mcp-tools',
     ])
-    expect((await external).runtimeEnv?.NUPHOS_BACKEND_URL).toBe('https://unit-test.invalid')
+    expect(external.runtimeEnv?.NUPHOS_BACKEND_URL).toBe('https://unit-test.invalid')
   })
 })

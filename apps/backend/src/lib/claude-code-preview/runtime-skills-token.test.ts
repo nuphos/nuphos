@@ -1,4 +1,6 @@
-import { describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+
+import { config } from '@/config'
 
 import { previewSessionAccess } from './credentials-mcp'
 import { mintRuntimeSkillsToken, verifyRuntimeSkillsToken } from './runtime-skills-token'
@@ -35,9 +37,19 @@ describe('runtime skills token', () => {
   })
 })
 
-// The suite runs off-cluster with NUPHOS_PUBLIC_BACKEND_URL seeded, so an
-// external session resolves to exactly that base.
+// The suite runs off-cluster with NUPHOS_PUBLIC_BACKEND_URL seeded and the
+// backend url cleared, so an external session resolves to exactly that base.
 describe('skill bundle delivery over the session', () => {
+  const backendUrl = config.agent.backendUrl
+
+  beforeEach(() => {
+    config.agent.backendUrl = undefined
+  })
+
+  afterEach(() => {
+    config.agent.backendUrl = backendUrl
+  })
+
   test('only a self-hosted runtime is told where to fetch its bundle', async () => {
     const managed = await previewSessionAccess('conv-1', 'team-1', 'user-1')
     const external = await previewSessionAccess('conv-1', 'team-1', 'user-1', 'user-1', {
