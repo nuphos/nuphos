@@ -6,7 +6,7 @@ import { appendTurnInterruptedPart } from './turnInterrupted.ts'
 
 import type { Tab } from './model.ts'
 
-test('autonomous start opens a distinct assistant turn and replay is idempotent', () => {
+test('autonomous start opens a distinct assistant turn, and a replay rebuilds it once', () => {
   const tab: Tab = {
     id: 'tab-1',
     sessionId: 'session-1',
@@ -60,11 +60,18 @@ test('autonomous start opens a distinct assistant turn and replay is idempotent'
     ),
   }
 
-  assert.equal(startAutonomousTurn(streaming, 'stream-1', 'autonomous-1'), streaming)
+  // A replay from frame zero resends the run's text, so what the first pass
+  // built is cleared rather than kept and appended to.
+  const replayed = startAutonomousTurn(streaming, 'stream-1', 'autonomous-1')
+
+  assert.equal(replayed.messages.length, 3)
+  assert.deepEqual(replayed.messages.at(-1)?.parts, [])
+  assert.deepEqual(replayed.messages.slice(0, 2), streaming.messages.slice(0, 2))
+
   const next = startAutonomousTurn(streaming, 'stream-1', 'autonomous-2')
 
   assert.equal(next.messages.length, 4)
-  assert.equal(startAutonomousTurn(next, 'stream-1', 'autonomous-1'), next)
+  assert.equal(startAutonomousTurn(tab, 'stream-2', 'autonomous-1'), tab)
 })
 
 test('turn-interrupted attaches to the current answer and replaces the same id', () => {
