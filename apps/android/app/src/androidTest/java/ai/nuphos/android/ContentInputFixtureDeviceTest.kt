@@ -36,6 +36,7 @@ class ContentInputFixtureDeviceTest {
     private val lease = mutableStateOf<ComposerDrafts.Lease?>(null)
     private val sendAllowed = mutableStateOf(true)
     private val editAllowed = mutableStateOf(true)
+    private val focusRequest = mutableStateOf(0)
     private var filesRequest: Int? = null
     private val pickerRegistry = object : androidx.activity.result.ActivityResultRegistry() {
         override fun <I, O> onLaunch(requestCode: Int, contract: androidx.activity.result.contract.ActivityResultContract<I, O>,
@@ -73,7 +74,7 @@ class ContentInputFixtureDeviceTest {
             NuphosTheme { CompositionLocalProvider(LocalAgentStore provides store, ai.nuphos.android.ui.LocalAuthSession provides (androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as ai.nuphos.android.NuphosApplication).authSession) {
                 val composer = @androidx.compose.runtime.Composable {
                     ChatComposer(isStreaming = streaming, onStop = if (stoppable) ({ }) else null, draft = lease.value, canSubmit = sendAllowed.value,
-                        draftingEnabled = editAllowed.value, onSend = { sendCount++; sent = it; true })
+                        draftingEnabled = editAllowed.value, onSend = { sendCount++; sent = it; true }, focusRequest = focusRequest.value)
                 }
                 if (controlledPicker) CompositionLocalProvider(
                     androidx.activity.compose.LocalActivityResultRegistryOwner provides pickerOwner, content = composer)
@@ -104,6 +105,15 @@ class ContentInputFixtureDeviceTest {
                 name?.let { android.content.Intent().setData(uri(it)) })
         }
     }
+    @Test fun aReplyRequestFocusesOnlyWhenItChanges() {
+        // A chat reopened after earlier replies: its session's count is already above zero.
+        focusRequest.value = 2
+        render()
+        compose.onNodeWithContentDescription(inputDescription).assertIsNotFocused()
+        focusRequest.value = 3
+        compose.onNodeWithContentDescription(inputDescription).assertIsFocused()
+    }
+
     @Test fun filesResultSurvivesTemporarySendUnavailabilityAndSubmitsOnceAfterRecovery() {
         render(controlledPicker = true)
         openFiles()

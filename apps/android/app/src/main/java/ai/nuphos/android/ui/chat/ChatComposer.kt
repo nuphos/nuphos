@@ -301,8 +301,10 @@ fun ChatComposer(
     var handleDrag by remember { mutableFloatStateOf(0f) }
     val focusManager = LocalFocusManager.current
     val fieldFocus = remember { FocusRequester() }
+    // Only a new request focuses: a chat reopened after a reply starts with a nonzero one.
+    val firstFocusRequest = remember { focusRequest }
     // Not attached while dictating; then there is nothing to focus.
-    LaunchedEffect(focusRequest) { if (focusRequest > 0) runCatching { fieldFocus.requestFocus() } }
+    LaunchedEffect(focusRequest) { if (focusRequest != firstFocusRequest) runCatching { fieldFocus.requestFocus() } }
     val keyboard = LocalSoftwareKeyboardController.current
     val injectedVoice = LocalVoiceServices.current
     val voiceServices = remember(context, injectedVoice) { injectedVoice ?: deviceVoiceServices(context) }
