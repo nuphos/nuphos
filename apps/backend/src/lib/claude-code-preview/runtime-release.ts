@@ -31,6 +31,11 @@ export function newerRuntimeVersion(candidate: string, current: string): boolean
   return false
 }
 
+/** Whether a stable version is at least `floor`, in the order `newerRuntimeVersion` reads them. */
+export function runtimeVersionAtLeast(candidate: string, floor: string): boolean {
+  return candidate === floor || newerRuntimeVersion(candidate, floor)
+}
+
 export type RuntimeRelease = { version: string; url: string; body: string }
 let cached: { expires: number; result: Promise<Map<OpenAbProvider, RuntimeRelease>> } | undefined
 /**

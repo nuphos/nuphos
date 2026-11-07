@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { newerRuntimeVersion, stableRuntimeVersion } from './runtime-release'
+import { newerRuntimeVersion, runtimeVersionAtLeast, stableRuntimeVersion } from './runtime-release'
 
 type FetchInput = string | URL | Request
 
@@ -12,6 +12,16 @@ test('release comparisons use numeric semver and never offer downgrades or prere
   expect(newerRuntimeVersion('0.1.5-beta.1', '0.1.4')).toBe(false)
   expect(stableRuntimeVersion('latest')).toBe(false)
   expect(stableRuntimeVersion(undefined)).toBe(false)
+})
+
+test('a floor is met by its own version and everything newer, and by nothing else', () => {
+  expect(runtimeVersionAtLeast('0.95.0', '0.95.0')).toBe(true)
+  expect(runtimeVersionAtLeast('0.94.9', '0.95.0')).toBe(false)
+  expect(runtimeVersionAtLeast('0.100.0', '0.95.0')).toBe(true)
+  expect(runtimeVersionAtLeast('1.0.0', '0.95.0')).toBe(true)
+  // Never guessed at: a prerelease or an unparseable value is no version at all.
+  expect(runtimeVersionAtLeast('0.95.0-beta.1', '0.95.0')).toBe(false)
+  expect(runtimeVersionAtLeast('dev', '0.95.0')).toBe(false)
 })
 
 test('runtime discovery skips other components, follows pages and preserves the pre-cutover fallback', async () => {
