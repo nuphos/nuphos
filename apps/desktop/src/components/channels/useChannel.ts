@@ -4,6 +4,8 @@ import { api } from '../../api'
 import { pollSnapshot, refreshPoll, subscribePoll } from '../../hooks/sharedPoll'
 import { WorkspaceTabContext } from '../../hooks/useWorkspaceTab'
 
+import { channelRevision } from './channelRevision'
+
 import type { AgentConversationDetail, ChannelAgent } from '../../api'
 
 // Like an open conversation: new posts from people and agents show within a few seconds.
@@ -40,7 +42,7 @@ export function useChannel(teamId: string, channelId: string) {
         messages: 'omit',
         runtimeState: 'omit',
       })
-      const next = `${probe.transcriptUpdatedAt ?? ''}:${String(probe.messageCount)}:${(probe.agentSessionIds ?? []).join(',')}`
+      const next = channelRevision(probe)
 
       if (next !== s.revision || !s.last) {
         const [detail, listed] = await Promise.all([
