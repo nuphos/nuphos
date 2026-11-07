@@ -122,3 +122,33 @@ test('a failed load keeps the last value and says it failed', async () => {
     mock.restoreAll()
   }
 })
+
+test('a load that returns the same value keeps the same snapshot', async () => {
+  mock.method(globalThis, 'setInterval', () => 1 as unknown as ReturnType<typeof setInterval>)
+  mock.method(globalThis, 'clearInterval', () => {})
+  const same = { messages: ['hi'] }
+  let value: object = same
+  const stop = subscribePoll(
+    'steady',
+    async () => value,
+    10_000,
+    () => {},
+  )
+
+  try {
+    await settle()
+    const first = pollSnapshot('steady')
+
+    refreshPoll('steady')
+    await settle()
+    assert.equal(pollSnapshot('steady'), first, 'an unchanged poll must not re-render watchers')
+    value = { messages: ['hi', 'there'] }
+    refreshPoll('steady')
+    await settle()
+    assert.notEqual(pollSnapshot('steady'), first)
+    assert.equal(pollSnapshot<object>('steady').value, value)
+  } finally {
+    stop()
+    mock.restoreAll()
+  }
+})

@@ -35,7 +35,12 @@ export function refreshPoll(key: string): void {
     .load()
     .then(
       (value) => {
-        entry.snapshot = { value, failed: false, settled: true }
+        const { settled, failed, value: last } = entry.snapshot
+
+        // A load that brings back the same value keeps the snapshot, so its
+        // watchers do not re-render for nothing.
+        if (!settled || failed || last !== value)
+          entry.snapshot = { value, failed: false, settled: true }
       },
       () => {
         entry.snapshot = { ...entry.snapshot, failed: true, settled: true }

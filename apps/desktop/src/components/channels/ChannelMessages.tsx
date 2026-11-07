@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { Pause } from 'lucide-react'
-import { Fragment, useState } from 'react'
+import { Fragment, useCallback, useState } from 'react'
 
 import { t } from '../../i18n'
 import { trustedAvatarURL } from '../../lib/avatarUrl'
@@ -87,9 +87,7 @@ function ChannelMessage({
     <MessageResponse
       teamId={teamId}
       className="[&_p]:whitespace-pre-wrap"
-      renderLink={(href, children) =>
-        renderMemberMentionLink(href, children, teamId) ?? links.renderLink(href, children)
-      }
+      renderLink={links.renderLink}
       onLinkClick={links.onLinkClick}
     >
       {linkMentions(text, metadata.mentions)}
@@ -235,11 +233,15 @@ export function ChannelMessages({
   onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
   channelId: string
 }) {
-  const links = {
-    channelId,
-    renderLink: useAgentLinks(teamId, onOpenNuphosLink),
-    onLinkClick: onOpenNuphosLink,
-  }
+  const renderAgentLink = useAgentLinks(teamId, onOpenNuphosLink)
+  // One function across renders: a new one makes every post rebuild its text,
+  // which drops a selection the reader is dragging.
+  const renderLink = useCallback(
+    (href: string, children: ReactNode) =>
+      renderMemberMentionLink(href, children, teamId) ?? renderAgentLink(href, children),
+    [teamId, renderAgentLink],
+  )
+  const links = { channelId, renderLink, onLinkClick: onOpenNuphosLink }
   // What was here on opening stays put; only posts that arrive later spring in.
   const owned = new Set(
     agents.filter((agent) => agent.ownerId === viewerId).map((agent) => agent.sessionId),
