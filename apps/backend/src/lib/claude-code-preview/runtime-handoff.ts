@@ -134,9 +134,18 @@ export async function claimRuntimeHandoffs(now = Date.now()): Promise<RuntimeHan
     const handoff = parse(raw)
 
     if (handoff && now - handoff.at < HANDOFF_SETTLE_MS) continue
+    let moved = false
+
     // An offline computer is waited for, not tried: the handoff stays as it is,
     // spends no attempt and logs nothing, and is adopted once the computer is back.
-    if (typeof handoff?.runtimeUrl === 'string' && !(await isOnline(handoff.runtimeUrl))) continue
+    // A conversation that has since moved off it never needs it back, so its
+    // handoff is removed instead of waiting forever.
+    if (typeof handoff?.runtimeUrl === 'string' && !(await isOnline(handoff.runtimeUrl))) {
+      const conversation = await getConversationBySessionId(handoff.conversationId)
+
+      if (sameRuntimeUrl(liveAttachment(conversation)?.runtimeUrl, handoff.runtimeUrl)) continue
+      moved = true
+    }
     const removed = await withRedis((redis) =>
       redis.eval(
         `if redis.call('HGET', KEYS[1], ARGV[1]) == ARGV[2] then
@@ -150,7 +159,7 @@ export async function claimRuntimeHandoffs(now = Date.now()): Promise<RuntimeHan
       ),
     )
 
-    if (removed === 1 && handoff) claimed.push(handoff)
+    if (removed === 1 && handoff && !moved) claimed.push(handoff)
   }
 
   return claimed
