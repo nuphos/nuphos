@@ -19,8 +19,6 @@ import type { UIMessage } from 'ai'
  * so a long conversation still ends with the part that matters.
  */
 const HISTORY_BUDGET_CHARS = 120_000
-/** Per message, so one enormous turn cannot consume the whole budget. */
-const HISTORY_PART_CHARS = 8_000
 
 function partText(part: unknown): string | null {
   if (!part || typeof part !== 'object') return null
@@ -62,6 +60,7 @@ export function previewHistoryPreamble(
   if (prior.length === 0 && !compactionSummary) return null
   const lines: string[] = []
   let budget = HISTORY_BUDGET_CHARS
+  let omitted = false
 
   // Newest first, then reversed: the tail is what the agent needs most, so it is
   // the part that survives a conversation too long to carry whole.
@@ -73,10 +72,18 @@ export function previewHistoryPreamble(
       .map(partText)
       .filter((value): value is string => value !== null && value.trim() !== '')
       .join('\n')
-      .slice(0, HISTORY_PART_CHARS)
-    const line = `${message.role === 'user' ? 'User' : 'Assistant'}: ${renderAttributedMessage(message.id, text, message.metadata)}`
+    const render = (body: string) =>
+      `${message.role === 'user' ? 'User' : 'Assistant'}: ${renderAttributedMessage(message.id, body, message.metadata)}`
+    let line = render(text)
 
-    if (line.length > budget) break
+    // Only the newest message is ever cut, and from its start: its end is the
+    // latest correction or answer, the part an agent most needs.
+    if (line.length > budget && lines.length === 0)
+      line = render(`…${text.slice(line.length - budget + 1)}`)
+    if (line.length > budget) {
+      omitted = true
+      break
+    }
     budget -= line.length
     lines.unshift(line)
   }
@@ -85,6 +92,7 @@ export function previewHistoryPreamble(
     'This conversation continues from earlier turns your session no longer holds. Treat the following as your own prior context — do not summarize it back to the user.',
     backgroundWorkNotice(uncertain),
     ...(compactionSummary ? [`Summary of earlier turns:\n${compactionSummary}`] : []),
+    ...(omitted ? ['Earlier turns are omitted: they did not fit.'] : []),
     ...(lines.length > 0 ? [`Recent turns:\n${lines.join('\n\n')}`] : []),
   ].join('\n\n')
 }

@@ -191,8 +191,8 @@ describe('previewHistoryPreamble', () => {
   })
 
   test('drops the oldest turns once the budget is spent, never the newest', () => {
-    // Each turn is capped at 8 KB, so 30 of them overrun the 120 KB budget and
-    // only the newest fit. The last message is the current input, not history.
+    // 30 turns of 40 KB overrun the 120 KB budget, so only the newest fit. The
+    // last message is the current input, not history.
     const heavy = Array.from({ length: 30 }, (_, index) => ({
       id: `h${String(index)}`,
       role: index % 2 === 0 ? 'user' : 'assistant',
@@ -203,6 +203,45 @@ describe('previewHistoryPreamble', () => {
     expect(preamble).toContain('mark28')
     expect(preamble).not.toContain('mark0 ')
     expect(preamble?.length).toBeLessThan(130_000)
+  })
+
+  test('keeps the end of a long turn: its late correction and final answer', () => {
+    const preamble = previewHistoryPreamble([
+      { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'Fix the deploy.' }] },
+      {
+        id: 'a1',
+        role: 'assistant',
+        parts: [
+          { type: 'text', text: `progress ${'x'.repeat(20_000)}` },
+          { type: 'data-steering', data: { text: 'Use staging, not prod.' } },
+          { type: 'text', text: 'Done: staging is deployed.' },
+        ],
+      },
+      { id: 'u2', role: 'user', parts: [{ type: 'text', text: 'Thanks' }] },
+    ] as unknown as UIMessage[])
+
+    expect(preamble).toContain('Fix the deploy.')
+    expect(preamble).toContain('Use staging, not prod.')
+    expect(preamble).toContain('Done: staging is deployed.')
+    expect(preamble).not.toContain('Earlier turns are omitted')
+  })
+
+  test('cuts a single turn larger than the whole budget from its start, and says so', () => {
+    const preamble = previewHistoryPreamble([
+      { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'first question' }] },
+      {
+        id: 'a1',
+        role: 'assistant',
+        parts: [{ type: 'text', text: `early ${'x'.repeat(200_000)} final answer` }],
+      },
+      { id: 'u2', role: 'user', parts: [{ type: 'text', text: 'next' }] },
+    ] as unknown as UIMessage[])
+
+    expect(preamble).toContain('final answer')
+    expect(preamble).not.toContain('early ')
+    expect(preamble).not.toContain('first question')
+    expect(preamble).toContain('Earlier turns are omitted')
+    expect(preamble?.length).toBeLessThan(125_000)
   })
 
   test('previewCompactionSummary reads the stored summary text', async () => {
