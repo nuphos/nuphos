@@ -1,5 +1,1 @@
-Bots and Tasks: the Bots page lists your chats, a Bot's 1:1 chat and group chats, newest first with each chat's latest message. Tasks list every agent session.
-
-Create a chat without a name; an unnamed chat shows its members. Chats show iMessage-style time separators.
-
-Fixes: a lone image is sized to its own shape, an opened attachment reopens from disk without a spinner, and the agent list stays after switching apps on the unfolded iPhone Duo.
+Fixes: a conversation no longer fails to load because of one message the app can't read, and your place in it is kept. The secure input card appears when an agent asks for a secret, and an open Bot chat refreshes when the Bot is renamed. A Bot that can't run is shown as unable to reply instead of failing silently.
