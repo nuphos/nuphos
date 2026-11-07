@@ -81,7 +81,7 @@ enum ChannelItem: Equatable, Sendable {
     case post(ChannelPost, first: Bool)
     /// A centered time above a post that follows a pause.
     case time(Date)
-    /// The loop guard stopped agents answering agents.
+    /// A line from the chat itself: its loop guard paused agents, or an agent could not reply.
     case paused(String)
     /// Agents in a turn right now.
     case typing([ChannelAgent])
@@ -109,7 +109,7 @@ extension ChannelPost {
             let first = timed || index == 0 || posts[index - 1].senderId != post.senderId
             rows.append((at: at, id: "post.\(post.id)", item: ChannelItem.post(post, first: first)))
         }
-        for event in events where event.kind == "agents_paused" {
+        for event in events where ["agents_paused", "agent_reply_failed"].contains(event.kind) {
             rows.append((at: event.at, id: "paused.\(event.at.timeIntervalSince1970)", item: ChannelItem.paused(event.text)))
         }
         // Stable: posts keep their order where their times tie.

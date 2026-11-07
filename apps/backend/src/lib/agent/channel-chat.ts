@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
+import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 
@@ -130,12 +131,9 @@ async function wakeChannelAgents(
     )
   await Promise.all(
     recipients.map((sessionId) =>
-      notifyAgent(channel, sessionId, authorSessionId !== undefined).catch((error: unknown) => {
-        logError('agent.channel.wake_failed', error, {
-          channel_id: channel.sessionId,
-          session_id: sessionId,
-        })
-      }),
+      notifyAgent(channel, sessionId, authorSessionId !== undefined).catch((error: unknown) =>
+        noteReplyFailed(channel.sessionId, sessionId, error, 'agent.channel.wake_failed'),
+      ),
     ),
   )
 }
@@ -265,10 +263,30 @@ async function notifyAgent(
     metadata,
   )
 
-  run.catch((error: unknown) => {
-    logError('agent.channel.turn_failed', error, {
-      channel_id: channel.sessionId,
-      session_id: sessionId,
+  run.catch((error: unknown) =>
+    noteReplyFailed(channel.sessionId, sessionId, error, 'agent.channel.turn_failed'),
+  )
+}
+
+/** An agent a post woke could not reply: the channel says so, not just the log. */
+async function noteReplyFailed(channelId: string, agentId: string, error: unknown, event: string) {
+  logError(event, error, { channel_id: channelId, session_id: agentId })
+  const agent = await getConversationBySessionId(agentId).catch(() => null)
+
+  await agentConversations()
+    .updateOne(
+      { sessionId: channelId },
+      {
+        $push: pushTimelineEvent({
+          kind: 'agent_reply_failed',
+          at: new Date(),
+          actorId: 'system',
+          agentName: agent?.title || 'Nuphos agent',
+          ...(error instanceof AppError ? { reason: error.message } : {}),
+        }),
+      },
+    )
+    .catch((noteError: unknown) => {
+      logError('agent.channel.reply_failed_note_failed', noteError, { channel_id: channelId })
     })
-  })
 }

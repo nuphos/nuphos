@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
+import { AppError } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
 import { useDb } from '@/lib/test/doubles/db'
@@ -237,6 +238,35 @@ describe('waking a channel’s agents', () => {
     expect(runs[0]).toMatchObject({ source: 'agent.resource', origin: 'trigger' })
     // The turn answers this channel, so the channel shows it typing.
     expect(runs.map((run) => run.channelIds)).toEqual([['channel'], ['channel']])
+  })
+
+  test('an agent that cannot start a reply says so in the channel', async () => {
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new AppError(409, 'claude_code_setup_required', 'Claude Code is not set up.')
+        if (sessionId === 'agent-b') throw new Error('internal detail')
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    const failed = (await channel()).timelineEvents?.filter(
+      (event) => event.kind === 'agent_reply_failed',
+    )
+
+    expect(failed?.map((event) => ('agentName' in event ? event.agentName : '')).sort()).toEqual([
+      'agent-a title',
+      'agent-b title',
+    ])
+    // Only an error meant for people is shown; an internal one stays in the log.
+    expect(failed?.find((event) => 'reason' in event && event.reason)).toMatchObject({
+      actorId: 'system',
+      agentName: 'agent-a title',
+      reason: 'Claude Code is not set up.',
+    })
   })
 
   test('posts at the same moment leave one notice per agent', async () => {

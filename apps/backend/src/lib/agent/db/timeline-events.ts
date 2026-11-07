@@ -21,6 +21,13 @@ export type ConversationTimelineEvent = { at: Date; actorId: string } & (
       turns: number
     }
   | {
+      /** A channel post woke an agent that could not reply; actorId is 'system'. */
+      kind: 'agent_reply_failed'
+      agentName: string
+      /** The error's user-facing message, when it had one. */
+      reason?: string
+    }
+  | {
       kind: 'runtime_fallback_stopped'
       /** Each agent in the fallback list that was passed over, and why. */
       skipped: { label: string; reason: string }[]

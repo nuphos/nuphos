@@ -43,6 +43,14 @@ export function serializeTimelineEvents(
         turns: event.turns,
         text: `Agents paused after ${String(event.turns)} replies to each other. They pick up again when someone posts.`,
       }
+    if (event.kind === 'agent_reply_failed')
+      return {
+        kind: event.kind,
+        at,
+        text: event.reason
+          ? `${event.agentName} couldn’t reply: ${event.reason}`
+          : `${event.agentName} couldn’t reply.`,
+      }
     const actor = person(event.actorId)
 
     if (event.kind === 'runtime_moved') {

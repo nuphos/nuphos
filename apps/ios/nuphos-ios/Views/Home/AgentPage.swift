@@ -422,7 +422,7 @@ struct AgentPage: View {
                                 .contentShape(Rectangle())
                                 .padding(-14)
                         }
-                        .disabled(store.creatingBot)
+                        .disabled(store.creatingBot || !store.runtimesLoaded)
                         .accessibilityLabel("New Bot")
                     }
                 }

@@ -92,7 +92,7 @@ data class ChannelPost(
                 val first = timed || index == 0 || posts[index - 1].senderId != post.senderId
                 rows += Timed(at, rows.size, ChannelItem.Post(post, first))
             }
-            events.filter { it.kind == "agents_paused" }.forEach { event ->
+            events.filter { it.kind == "agents_paused" || it.kind == "agent_reply_failed" }.forEach { event ->
                 rows += Timed(event.at, rows.size, ChannelItem.Paused("paused.${event.at.toEpochMilli()}", event.text))
             }
             val sorted = rows.sortedWith(compareBy<Timed>({ it.at }, { it.order })).map { it.item }
@@ -108,7 +108,7 @@ sealed class ChannelItem {
     data class Post(val post: ChannelPost, val first: Boolean) : ChannelItem() { override val key get() = "post.${post.id}" }
     /** A centered time above a post that follows a pause. */
     data class Time(override val key: String, val at: Instant) : ChannelItem()
-    /** The loop guard stopped agents answering agents. */
+    /** A line from the chat itself: its loop guard paused agents, or an agent could not reply. */
     data class Paused(override val key: String, val text: String) : ChannelItem()
     /** Agents in a turn right now. */
     data class Typing(val agents: List<ChannelAgent>) : ChannelItem() { override val key get() = "typing" }

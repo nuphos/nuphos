@@ -57,14 +57,16 @@ class ChannelTest {
         val c = ChannelPost.from(message(upload))!!
         val paused = AgentConversationDetail.TimelineEvent(Instant.parse("2026-11-03T09:25:00Z"), "Agents paused", "agents_paused")
         val other = AgentConversationDetail.TimelineEvent(Instant.parse("2026-11-03T09:26:00Z"), "Ignored", "other")
+        val failed = AgentConversationDetail.TimelineEvent(Instant.parse("2026-11-03T09:25:30Z"), "Ops couldn’t reply.", "agent_reply_failed")
         val sending = c.copy(id = "local", sentAt = Instant.EPOCH, sending = true)
-        val items = ChannelPost.items(listOf(a, b, c, sending), listOf(paused, other), listOf(ChannelAgent("agent-ops", "Release ops")))
-        assertEquals(listOf("time.m1", "post.m1", "post.m2", items[3].key, "time.m3", "post.m3", "post.local", "typing"), items.map { it.key })
+        val items = ChannelPost.items(listOf(a, b, c, sending), listOf(paused, other, failed), listOf(ChannelAgent("agent-ops", "Release ops")))
+        assertEquals(listOf("time.m1", "post.m1", "post.m2", items[3].key, items[4].key, "time.m3", "post.m3", "post.local", "typing"), items.map { it.key })
         assertTrue(items[3] is ChannelItem.Paused)
+        assertEquals("Ops couldn’t reply.", (items[4] as ChannelItem.Paused).text)
         assertEquals("The first post is timed", a.sentAt, (items[0] as ChannelItem.Time).at)
         assertTrue((items[1] as ChannelItem.Post).first); assertTrue((items[2] as ChannelItem.Post).first)
-        assertTrue("A post after a pause starts a run", (items[5] as ChannelItem.Post).first)
-        assertFalse("Same sender continues the run", (items[6] as ChannelItem.Post).first)
+        assertTrue("A post after a pause starts a run", (items[6] as ChannelItem.Post).first)
+        assertFalse("Same sender continues the run", (items[7] as ChannelItem.Post).first)
         assertEquals(listOf("m1"), ChannelPost.stillSending(listOf(b), listOf(a, b)).map { it.id })
     }
 
