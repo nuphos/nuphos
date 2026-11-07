@@ -8,7 +8,6 @@ import type {
 import type { JournalChatTarget } from '../JournalPanel'
 import type { ActivePlan } from './applyEvent'
 import type { ComposerRecall } from './composerRecall'
-import type { SendResult } from './composerSend'
 import type { CredentialSelectorControl } from './credentialSections'
 import type { AgentPromptSeed, Message, MessageRating, Tab } from './model'
 import type { AuthorizationDecisionAction, ToolPart, TransferUploadPart } from './parts'
@@ -198,6 +197,7 @@ export type PanelCtx = {
     comment?: string,
   ) => void
   handleEndEvent: (streamId: string) => void
+  /** False when no conversation was opened, so the composer keeps the draft. */
   startChatWith: (
     prompt: string,
     initialMessage?: Message,
@@ -205,7 +205,7 @@ export type PanelCtx = {
       messageId: string
       run: (sessionId: string | undefined) => Promise<TransferUploadPart>
     },
-  ) => SendResult
+  ) => boolean
   dispatchTurn: (
     tabId: string,
     text: string,
@@ -213,13 +213,14 @@ export type PanelCtx = {
     turnKind?: Message['turnKind'],
     decisionReplyTo?: string,
   ) => Promise<void>
+  /** True once a message, queued entry or dispatch owns the draft. */
   sendInActive: (
     text: string,
     filePaths?: string[],
     turnKind?: Message['turnKind'],
     decisionReplyTo?: string,
     mentions?: AgentMessageMention[],
-  ) => SendResult
+  ) => boolean
   steerQueued: (tabId: string, queuedId: string) => Promise<void>
   handleRejectPlan: (
     planId: string,

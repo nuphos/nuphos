@@ -119,12 +119,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
   ) : (
     <>
       {addAgent.dialog}
-      <Welcome
-        onPick={(prompt) => {
-          if (onConnectAgent) onConnectAgent()
-          else void startChatWith(prompt)
-        }}
-      />
+      <Welcome onPick={(prompt) => (onConnectAgent ? onConnectAgent() : startChatWith(prompt))} />
       <Composer
         newChat
         onSend={(text, filePaths, mentions) =>

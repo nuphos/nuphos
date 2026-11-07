@@ -1,8 +1,5 @@
 import { useEffect } from 'react'
 
-import { settleSend } from './composerSend.ts'
-
-import type { SendResult } from './composerSend.ts'
 import type { AgentPromptSeed } from './model'
 import type { ComposerState } from './useComposerState'
 
@@ -26,7 +23,7 @@ export function useComposerSeed(
     sendBlocked: boolean
     streaming: boolean
     pendingSeed?: AgentPromptSeed | null
-    onSend: (text: string, filePaths: string[]) => SendResult
+    onSend: (text: string, filePaths: string[]) => boolean
     onSeedConsumed?: () => void
     clearDraft: () => void
     insertText: InsertInto
@@ -49,13 +46,11 @@ export function useComposerSeed(
       if (pendingSeed.autoSend) {
         // A refused auto-send lands in the editor instead, for the user to send
         // once whatever refused it is ready — it is never retried on its own.
-        settleSend(onSend(pendingSeed.text, seedFiles), {
-          accepted: clearDraft,
-          refused: () => {
-            addSeedFiles()
-            insertText(pendingSeed.text, { appendToEnd: true })
-          },
-        })
+        if (onSend(pendingSeed.text, seedFiles)) clearDraft()
+        else {
+          addSeedFiles()
+          insertText(pendingSeed.text, { appendToEnd: true })
+        }
         onSeedConsumed?.()
 
         return

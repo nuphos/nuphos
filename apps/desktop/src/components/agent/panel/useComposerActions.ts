@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect } from 'react'
 
 import { api } from '../../../api'
 import { useStableCallback } from '../../../hooks/useStableCallback'
@@ -13,12 +13,10 @@ import {
   dropAttachmentPaths,
   saveClipboardAttachments,
 } from './composerSerialize'
-import { isSendEnter, submitDraft } from './composerSend'
 import { useComposerRecall } from './useComposerRecall'
 import { useComposerSeed } from './useComposerSeed'
 
 import type { ComposerRecall } from './composerRecall'
-import type { SendResult } from './composerSend'
 import type { AgentPromptSeed } from './model'
 import type { ComposerState } from './useComposerState'
 import type { LocalAgentSessionInfo, LocalSessionSource } from '../../../api'
@@ -39,7 +37,7 @@ export function useComposerActions(
     readOnly: boolean
     sendBlocked?: boolean
     streaming: boolean
-    onSend: (text: string, filePaths: string[]) => SendResult
+    onSend: (text: string, filePaths: string[]) => boolean
     pendingSeed?: AgentPromptSeed | null
     onSeedConsumed?: () => void
     dropRegisterRef?: { current: ((dt: DataTransfer) => void) | null }
@@ -47,14 +45,6 @@ export function useComposerActions(
   },
 ) {
   const recalls = useComposerRecall(state, readOnly, recall)
-  // A send whose acceptance is still unknown; further submits wait for it.
-  const sendPendingRef = useRef(false)
-  // The latest attachments, so a late acceptance compares against what is there now.
-  const filePathsRef = useRef(state.filePaths)
-
-  useEffect(() => {
-    filePathsRef.current = state.filePaths
-  }, [state.filePaths])
 
   function clearDraft() {
     state.clearEditor()
@@ -105,13 +95,10 @@ export function useComposerActions(
     const v = state.readText().trim()
 
     if (!v && state.filePaths.length === 0) return
-    const sentPaths = state.filePaths
-
-    submitDraft(() => onSend(v, sentPaths), {
-      pending: sendPendingRef,
-      clear: clearDraft,
-      unchanged: () => state.readText().trim() === v && filePathsRef.current === sentPaths,
-    })
+    // A send that reports false refused the draft before it went anywhere, so
+    // the text, its attachments and its folder chips stay for another try.
+    if (!onSend(v, state.filePaths)) return
+    clearDraft()
   }
 
   async function selectFile() {
@@ -197,15 +184,12 @@ export function useComposerActions(
       return
     }
     if (
-      isSendEnter(
-        {
-          key: e.key,
-          shiftKey: e.shiftKey,
-          isComposing: native.isComposing,
-          keyCode: native.keyCode,
-        },
-        { composing: state.composingRef.current, readOnly },
-      )
+      e.key === 'Enter' &&
+      !e.shiftKey &&
+      !readOnly &&
+      !state.composingRef.current &&
+      !native.isComposing &&
+      native.keyCode !== 229
     ) {
       // While streaming this queues the message (handled by the parent's
       // onSend); when idle it sends immediately.

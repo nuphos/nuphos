@@ -8,8 +8,14 @@ import type { TeamMember } from '../../../types'
 
 export const MENTION_ATTR = 'data-mention-user-id'
 
-// A send reports whether it took the draft; see composerSend.
-export type { ComposerSend } from './composerSend'
+/** What a send carries besides its text: the teammates its chips mention.
+ *  It answers whether it took the draft: false is a refusal, and the composer
+ *  keeps the text, attachments and folder chips for another try. */
+export type ComposerSend = (
+  text: string,
+  filePaths: string[],
+  mentions?: AgentMessageMention[],
+) => boolean
 
 /** The teammates the editor's chips mention, once each, named as the chip shows them. */
 export function mentionedMembers(el: HTMLElement | null): AgentMessageMention[] {

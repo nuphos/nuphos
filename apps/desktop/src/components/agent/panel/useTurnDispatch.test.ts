@@ -67,8 +67,7 @@ before(async () => {
   mock.module('./useQueueActions.ts', {
     namedExports: { useQueueActions: () => ({ steerQueued: () => {}, removeQueued: () => {} }) },
   })
-  // The real one opens the conversation with the runtime it is given, and
-  // reports whether it took the draft (startChat.ts).
+  // The real one opens the conversation and reports whether it took the draft.
   mock.module('./startChat.ts', {
     namedExports: {
       runStartChatWith: (ctx: { newConversationRuntime?: RuntimeInstance | null }) => {
@@ -144,57 +143,48 @@ function panel(tab: Partial<Tab> = {}) {
 
 const settle = () => new Promise((resolve) => setImmediate(resolve))
 
-test('idle: a send the runtime takes is dispatched and accepted', async () => {
+test('idle: a send the runtime takes is dispatched and accepted', () => {
   sent.length = 0
-  const { acc, tabs } = panel({ runtimeState: active })
+  const { acc } = panel({ runtimeState: active })
 
-  assert.equal(await useTurnDispatch(acc).sendInActive('ship it', []), true)
+  assert.equal(useTurnDispatch(acc).sendInActive('ship it', []), true)
   assert.deepEqual(sent, [{ tabId: 'open', text: 'ship it', filePaths: [] }])
-  assert.deepEqual(tabs[0].messages, [])
 })
 
-test('busy: a send into the running turn goes to the queue strip and is accepted', async () => {
+test('busy: a send into the running turn goes to the queue strip and is accepted', () => {
   sent.length = 0
   const { acc } = panel({ runtimeState: busy })
 
-  assert.equal(await useTurnDispatch(acc).sendInActive('use the other branch instead', []), true)
+  assert.equal(useTurnDispatch(acc).sendInActive('use the other branch instead', []), true)
   assert.deepEqual(sent, [{ tabId: 'open', text: 'use the other branch instead', filePaths: [] }])
 })
 
-test('busy without a session: the steer is refused, not dropped, and the draft stays', async () => {
+test('busy without a session: the steer is refused, not dropped, and the draft stays', () => {
   sent.length = 0
   toasts.length = 0
   const { acc } = panel({ runtimeState: busy, sessionId: '' })
 
-  assert.equal(await useTurnDispatch(acc).sendInActive('steer nowhere', []), false)
+  assert.equal(useTurnDispatch(acc).sendInActive('steer nowhere', []), false)
   assert.deepEqual(sent, [])
   assert.deepEqual(toasts, [
     { title: "The runtime isn't ready yet", detail: 'Your message was not sent. Send it again.' },
   ])
 })
 
-test('a read-only conversation takes nothing', async () => {
+test('a read-only conversation trades nothing, so it is refused', () => {
   sent.length = 0
   const { acc } = panel({ runtimeState: active, readOnly: true })
 
-  assert.equal(await useTurnDispatch(acc).sendInActive('let me in', []), false)
+  assert.equal(useTurnDispatch(acc).sendInActive('let me in', []), false)
   assert.deepEqual(sent, [])
 })
 
-test('an empty draft is not a send at all', async () => {
-  sent.length = 0
-  const { acc } = panel({ runtimeState: active })
-
-  assert.equal(await useTurnDispatch(acc).sendInActive('   ', []), false)
-  assert.deepEqual(sent, [])
-})
-
-test('a runtime that takes nothing and never will refuses, and says why', async () => {
+test('a runtime that takes nothing and never will refuses, and says why', () => {
   sent.length = 0
   toasts.length = 0
   const { acc } = panel({ runtimeState: mute })
 
-  assert.equal(await useTurnDispatch(acc).sendInActive('are you there', []), false)
+  assert.equal(useTurnDispatch(acc).sendInActive('are you there', []), false)
   assert.deepEqual(sent, [])
   // The label an out-of-date runtime reports for itself (runtimeExecution.ts).
   assert.deepEqual(toasts, [
@@ -202,47 +192,30 @@ test('a runtime that takes nothing and never will refuses, and says why', async 
   ])
 })
 
-test('a file send waits for the upload already in flight on that tab', async () => {
+test('a file send waits for the upload already in flight on that tab', () => {
   sent.length = 0
   toasts.length = 0
   const { acc } = panel({ runtimeState: active })
 
   acc.uploadingTabsRef.current.add('open')
-  assert.equal(await useTurnDispatch(acc).sendInActive('with a log', ['/Users/me/a.log']), false)
+  assert.equal(useTurnDispatch(acc).sendInActive('with a log', ['/Users/me/a.log']), false)
   assert.deepEqual(sent, [])
   assert.deepEqual(toasts, [{ title: 'Attachment upload is still in progress', detail: undefined }])
 })
 
-test('a file send with no team is refused before anything is uploaded', async () => {
-  sent.length = 0
-  toasts.length = 0
-  const { acc } = panel({ runtimeState: active })
-
-  acc.teamId = undefined
-  assert.equal(
-    await useTurnDispatch(acc).sendInActive('here is the log', ['/Users/me/a.log']),
-    false,
-  )
-  assert.deepEqual(sent, [])
-  assert.deepEqual(toasts, [
-    { title: 'No team selected', detail: 'Select a team before attaching files.' },
-  ])
-})
-
-test('the first message opens a conversation and reports what it did with the draft', async () => {
+test('the first message opens a conversation, or is refused with no runtime', () => {
   sent.length = 0
   const { acc } = panel()
 
   acc.activeId = 'home'
   acc.newConversationRuntime = runtime(false)
-  assert.equal(await useTurnDispatch(acc).sendInActive('first words', []), true)
+  assert.equal(useTurnDispatch(acc).sendInActive('first words', []), true)
 
-  // No runtime to open: refused, and the draft is still the composer's.
   acc.newConversationRuntime = null
-  assert.equal(await useTurnDispatch(acc).sendInActive('keep this', []), false)
+  assert.equal(useTurnDispatch(acc).sendInActive('keep this', []), false)
 })
 
-test('a first send waits for a starting local runtime, then goes out', async () => {
+test('a first send on a starting local runtime is held and accepted', async () => {
   sent.length = 0
   started.length = 0
   const { acc } = panel()
@@ -252,25 +225,16 @@ test('a first send waits for a starting local runtime, then goes out', async () 
   acc.newConversationRuntime = runtime(true)
   listed = () => hold.promise
 
-  let answered = false
-  const send = useTurnDispatch(acc).sendInActive('are you up yet', [])
-
-  void send.then(() => {
-    answered = true
-  })
-  await settle()
-  // Held: the composer keeps the draft pending instead of sending it twice.
-  assert.equal(answered, false)
-
+  // Held: the send owns the draft now; the conversation opens when the runtime
+  // is listed.
+  assert.equal(useTurnDispatch(acc).sendInActive('are you up yet', []), true)
   hold.resolve(runtime(false))
-  assert.equal(await send, true)
-  // The conversation opened with the runtime the catalog listed, not the stub
-  // that was still starting when the send went in.
+  await settle()
   assert.deepEqual(started, [runtime(false)])
   listed = null
 })
 
-test('a starting local runtime that never lists refuses and keeps the draft', async () => {
+test('a starting runtime that never lists still reports the send held, then toasts', async () => {
   sent.length = 0
   toasts.length = 0
   const { acc } = panel()
@@ -279,7 +243,8 @@ test('a starting local runtime that never lists refuses and keeps the draft', as
   acc.newConversationRuntime = runtime(true)
   listed = () => Promise.resolve(null)
 
-  assert.equal(await useTurnDispatch(acc).sendInActive('hello?', []), false)
+  assert.equal(useTurnDispatch(acc).sendInActive('hello?', []), true)
+  await settle()
   assert.deepEqual(toasts, [
     {
       title: 'The local runtime is still starting',

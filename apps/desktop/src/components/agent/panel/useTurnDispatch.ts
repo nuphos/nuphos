@@ -17,11 +17,10 @@ import { fileNameFromPath } from './textUtils.ts'
 import { useQueueActions } from './useQueueActions.ts'
 import { useSteering } from './useSteering.ts'
 
-import type { SendResult } from './composerSend.ts'
-import type { PanelCtx } from './ctx.ts'
-import type { Message } from './model.ts'
-import type { TransferUploadPart } from './parts.ts'
-import type { AgentMessageMention } from '../../../api/agent-types.ts'
+import type { PanelCtx } from './ctx'
+import type { Message } from './model'
+import type { TransferUploadPart } from './parts'
+import type { AgentMessageMention } from '../../../api/agent-types'
 
 type Acc = Pick<
   PanelCtx,
@@ -87,7 +86,7 @@ export function useTurnDispatch(acc: Acc) {
         messageId: string
         run: (sessionId: string | undefined) => Promise<TransferUploadPart>
       },
-    ): SendResult => {
+    ): boolean => {
       const start = (runtime: typeof newConversationRuntime) =>
         runStartChatWith(
           {
@@ -113,23 +112,24 @@ export function useTurnDispatch(acc: Acc) {
           deferredUpload,
         )
 
-      if (!newConversationRuntime?.starting || !teamId) {
-        return Promise.resolve(start(newConversationRuntime))
-      }
+      if (!newConversationRuntime?.starting || !teamId) return start(newConversationRuntime)
 
-      // A just-started local runtime is not in the team catalog yet: hold the
-      // send until it is, then report what the chat did with the draft.
-      return awaitListedAgent(newConversationRuntime.id, () =>
+      // A just-started local runtime is not in the team catalog yet: the send
+      // is held until it is, and goes out then. If it never lists, the existing
+      // toast says so.
+      void awaitListedAgent(newConversationRuntime.id, () =>
         api.atlasListRuntimeInstances(teamId),
       ).then((listed) => {
-        if (listed) return start(listed)
-        toast.error(
-          t('The local runtime is still starting'),
-          t('Try again in a moment, or check User settings › This computer › Local runtime.'),
-        )
-
-        return false
+        if (listed) start(listed)
+        else
+          toast.error(
+            t('The local runtime is still starting'),
+            t('Try again in a moment, or check User settings › This computer › Local runtime.'),
+          )
       })
+
+      // Held: the conversation this opens owns the draft once it can start.
+      return true
     },
     [
       currentUser,
@@ -215,17 +215,16 @@ export function useTurnDispatch(acc: Acc) {
     fallback: dispatchTurn,
   })
 
-  // Reports whether the send took the draft (see SendResult). Every refusal
-  // below happens before a message or queued entry exists, so the composer
-  // keeps the draft.
+  // Reports whether the send took the draft. Every refusal below happens before
+  // a message or queued entry exists, so the composer keeps the draft.
   const sendInActive = useCallback(
-    async (
+    (
       text: string,
       filePaths: string[] = [],
       turnKind?: Message['turnKind'],
       questionId?: string,
       mentions?: AgentMessageMention[],
-    ): SendResult => {
+    ): boolean => {
       const trimmed = text.trim()
 
       if (!trimmed && filePaths.length === 0) return false
@@ -294,6 +293,7 @@ export function useTurnDispatch(acc: Acc) {
     },
     [activeId, answering, startChatWith, dispatchTurn, sendSteering, teamId, currentUser],
   )
+
   const { steerQueued, removeQueued } = useQueueActions({ tabsRef, setTabs, teamId, sendSteering })
 
   return { startChatWith, dispatchTurn, sendInActive, steerQueued, removeQueued }

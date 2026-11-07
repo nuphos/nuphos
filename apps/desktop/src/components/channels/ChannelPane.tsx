@@ -22,7 +22,6 @@ import { HeaderEdge } from '../ui/header-edge'
 
 import type { AgentMessageMention, AgentMessageReply, AgentPersistedMessage } from '../../api'
 import type { UserInfo } from '../../types'
-import type { SendResult } from '../agent/panel/composerSend'
 import type { AgentPromptSeed } from '../agent/panel/model'
 import type { ReactNode } from 'react'
 
@@ -79,14 +78,10 @@ export function ChannelPane({
   // (in `postDraft` below), so acceptance is reported at once rather than after
   // the round trip. A failure restores the draft through `setRestore`, which is
   // this pane's own path — hence `true` either way.
-  const send = (
-    text: string,
-    filePaths: string[],
-    mentions?: AgentMessageMention[],
-  ): SendResult => {
+  const send = (text: string, filePaths: string[], mentions?: AgentMessageMention[]): boolean => {
     void postDraft(text, filePaths, mentions)
 
-    return Promise.resolve(true)
+    return true
   }
 
   async function postDraft(text: string, filePaths: string[], mentions?: AgentMessageMention[]) {
