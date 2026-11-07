@@ -83,10 +83,13 @@ useModels({
       },
     }) as never,
 })
+// Members removed while their authorization was in flight.
+const removed = new Set<string>()
+
 useIdentity({
   getTeamMembership: ((userId: string, teamId: string) =>
     Promise.resolve(
-      (teamId === TEAM || teamId === TEAM_B) && userId !== 'outsider'
+      (teamId === TEAM || teamId === TEAM_B) && userId !== 'outsider' && !removed.has(userId)
         ? { role: 'MEMBER', team: { id: teamId, name: teamId === TEAM ? 'Acme' : 'Beta' } }
         : null,
     )) as never,
@@ -233,6 +236,7 @@ beforeEach(() => {
   pending.length = 0
   saved.length = 0
   revoked.length = 0
+  removed.clear()
   googleTokenRequest = null
   teamClient = {
     clientId: 'team.apps.googleusercontent.com',
@@ -321,6 +325,18 @@ describe('Google Personal Credentials', () => {
     expect(saved).toMatchObject([
       { userId: 'alice', provider: 'gmail', teamId: TEAM, workspaceName: 'Acme' },
     ])
+  })
+
+  test('a member removed before approving is refused, and nothing is stored', async () => {
+    const state = await start('gmail', 'alice')
+
+    removed.add('alice')
+    const link = await callback('gmail', state)
+
+    expect(link.searchParams.get('error')).toBe('forbidden')
+    // Refused before the exchange, so the code was never traded for a grant.
+    expect(googleTokenRequest).toBeNull()
+    expect(saved).toHaveLength(0)
   })
 
   test('connecting needs a team the member belongs to, with a client', async () => {
