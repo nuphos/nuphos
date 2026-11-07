@@ -11,6 +11,11 @@ struct ChannelView: View {
     @State private var draft = ""
     /// The agents typing: those in a turn, as of the last read of this chat. See `inTurn`.
     @State private var typing: [ChannelAgent] = []
+    /// Raises the keyboard when a reply is chosen.
+    @State private var replyFocus = 0
+    /// The post a quote was tapped for: scrolled to and flashed.
+    @State private var jump: TranscriptJump?
+    @State private var flashed: String?
 
     private var rows: [ChatRow] {
         ChannelPost.items(posts: channel.posts, events: channel.events, typing: typing)
@@ -103,15 +108,57 @@ struct ChannelView: View {
     }
 
     private var composer: some View {
-        ChatComposerBar(
-            text: $draft,
-            canSend: channel.loaded && !channel.readOnly,
-            editRequest: $channel.unsent,
-            voiceTeamId: channel.teamId,
-            recipient: channel.title,
-            onSend: { channel.send($0) },
-            controls: { EmptyView() }
-        )
+        VStack(spacing: 6) {
+            if let reply = channel.replying { replyChip(reply) }
+            ChatComposerBar(
+                text: $draft,
+                canSend: channel.loaded && !channel.readOnly,
+                editRequest: $channel.unsent,
+                voiceTeamId: channel.teamId,
+                recipient: channel.title,
+                focusRequest: replyFocus,
+                onSend: { channel.send($0) },
+                controls: { EmptyView() }
+            )
+        }
+    }
+
+    /// The post the next one answers, above the composer; × cancels.
+    private func replyChip(_ reply: ChannelReply) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrowshape.turn.up.left.fill").font(.system(size: 12)).foregroundStyle(Theme.muted)
+            (Text("Replying to \(reply.authorName) ").foregroundStyle(Theme.body).fontWeight(.medium)
+                + Text(reply.text).foregroundStyle(Theme.muted))
+                .font(Theme.Text.caption)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button { channel.replying = nil } label: {
+                Image(systemName: "xmark.circle.fill").font(.system(size: 17)).foregroundStyle(Theme.muted)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Cancel reply")
+        }
+        .padding(.leading, 12)
+        .padding(.trailing, 8)
+        .padding(.vertical, 8)
+        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 16)
+    }
+
+    private func reply(to post: ChannelPost) {
+        channel.replying = post.asReply
+        replyFocus += 1
+    }
+
+    /// Scrolls to a quoted post, if it is loaded, and flashes it.
+    private func show(_ reply: ChannelReply) {
+        guard let id = reply.id, channel.posts.contains(where: { $0.id == id }) else { return }
+        jump = TranscriptJump(rowID: "post.\(id)")
+        flashed = id
+        Task {
+            try? await Task.sleep(for: .milliseconds(900))
+            if flashed == id { flashed = nil }
+        }
     }
 
     @ViewBuilder
@@ -120,7 +167,7 @@ struct ChannelView: View {
         TranscriptList(rows: channel.loaded && channel.loadError == nil ? rows : [], submittedRowID: channel.lastSubmittedRowID,
                        sessionID: channel.channelId,
                        composer: AnyView(composer.environment(store).readableWidth()), placeholder: AnyView(placeholder),
-                       animatesArrivals: true) { row in
+                       animatesArrivals: true, jump: jump) { row in
             AnyView(rowView(row)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
@@ -146,7 +193,10 @@ struct ChannelView: View {
             case .post(let post, let first):
                 ChannelPostRow(post: post, first: first, mine: post.isMine(viewerId: channel.viewerId),
                                attachments: channel.sendingAttachments[post.id] ?? [], files: channel.files,
-                               resolve: channel.transferGroup, onLink: open(link:))
+                               resolve: channel.transferGroup, onLink: open(link:),
+                               flashed: flashed == post.id,
+                               onReply: channel.readOnly || post.sending ? nil : { reply(to: post) },
+                               onQuote: show)
             case .paused(let text):
                 PausedLine(text: text)
             case .typing(let agents):
@@ -159,6 +209,12 @@ struct ChannelView: View {
     private func open(link url: URL) {
         if !PushNotifications.shared.open(url) { openURL(url) }
     }
+}
+
+/// A row to bring to the middle of the transcript, once per request.
+struct TranscriptJump: Equatable {
+    let rowID: String
+    var nonce = UUID()
 }
 
 /// A chat's icon, as iMessage draws one: the one other member's face, or two
@@ -216,8 +272,16 @@ private struct ChannelPostRow: View {
     let files: [String: [TransferDownloadGroup.File]]
     let resolve: (String) async throws -> TransferDownloadGroup
     let onLink: (URL) -> Void
+    /// Briefly highlighted: a quote of it was tapped.
+    var flashed = false
+    /// Swiping right, or the long-press menu, replies; nil where the viewer cannot post.
+    var onReply: (() -> Void)?
+    var onQuote: (ChannelReply) -> Void = { _ in }
 
     private static let avatar: CGFloat = 20
+    /// How far a swipe must pull the post for it to reply, as in Messages.
+    private static let replyPull: CGFloat = 60
+    @State private var pull: CGFloat = 0
 
     /// The groups' files when the chat has read them all; else the card reads them.
     private func read(_ groupIds: [String]) -> [TransferDownloadGroup.File]? {
@@ -230,6 +294,7 @@ private struct ChannelPostRow: View {
             if mine { Spacer(minLength: 48) }
             VStack(alignment: mine ? .trailing : .leading, spacing: 4) {
                 if first, !mine { header }
+                if let reply = post.replyTo { quote(reply) }
                 if !post.uploads.isEmpty {
                     TransferCard(groupIds: post.uploads.map(\.groupId), fromUser: mine,
                                  names: post.uploads.flatMap { $0.files.map(\.fileName) },
@@ -244,7 +309,62 @@ private struct ChannelPostRow: View {
             if !mine { Spacer(minLength: 48) }
         }
         .frame(maxWidth: .infinity, alignment: mine ? .trailing : .leading)
+        .offset(x: pull)
+        .background(alignment: .leading) {
+            // The reply arrow comes out from under the post as it is pulled.
+            Image(systemName: "arrowshape.turn.up.left.circle.fill")
+                .font(.system(size: 24))
+                .foregroundStyle(pull >= Self.replyPull ? Theme.brand : Theme.muted)
+                .opacity(Double(min(pull / Self.replyPull, 1)))
+                .offset(x: min(pull, Self.replyPull) - 40)
+        }
+        .simultaneousGesture(swipe, including: onReply == nil ? .subviews : .all)
+        .sensoryFeedback(.impact(weight: .light), trigger: pull >= Self.replyPull) { _, reached in reached }
+        .contextMenu {
+            if let onReply {
+                Button("Reply", systemImage: "arrowshape.turn.up.left", action: onReply)
+            }
+            #if canImport(UIKit)
+            if !post.text.isEmpty {
+                Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = post.text }
+            }
+            #endif
+        }
         .accessibilityElement(children: .contain)
+        .accessibilityActions {
+            if let onReply { Button("Reply", action: onReply) }
+        }
+    }
+
+    /// A rightward pull that leaves vertical scrolling and the edge's back swipe alone.
+    private var swipe: some Gesture {
+        DragGesture(minimumDistance: 16)
+            .onChanged { value in
+                let dx = value.translation.width
+                guard value.startLocation.x > 24, dx > 0, dx > abs(value.translation.height) * 1.5 else { return }
+                // Resists past the point it replies at.
+                pull = dx < Self.replyPull ? dx : Self.replyPull + (dx - Self.replyPull) * 0.25
+            }
+            .onEnded { _ in
+                if pull >= Self.replyPull { onReply?() }
+                withAnimation(.spring(duration: 0.3, bounce: 0.2)) { pull = 0 }
+            }
+    }
+
+    /// The post this one answers; tapping it goes there.
+    private func quote(_ reply: ChannelReply) -> some View {
+        Button { onQuote(reply) } label: {
+            (Text(reply.authorName).fontWeight(.medium).foregroundStyle(Theme.body)
+                + Text(" " + reply.text).foregroundStyle(Theme.muted))
+                .font(Theme.Text.caption)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .padding(.leading, 8)
+                .overlay(alignment: .leading) { Capsule().fill(Theme.hairline).frame(width: 2) }
+                .padding(.horizontal, 4)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Replying to \(reply.authorName): \(reply.text)")
     }
 
     private var header: some View {
@@ -272,7 +392,7 @@ private struct ChannelPostRow: View {
         AssistantMarkdown(text: post.text, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, onLink: onLink)
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
-            .background(mine ? Theme.brand.opacity(0.14) : Theme.chatSurface,
+            .background(flashed ? Theme.brand.opacity(0.3) : mine ? Theme.brand.opacity(0.14) : Theme.chatSurface,
                         in: UnevenRoundedRectangle(cornerRadii: .init(
                             topLeading: !mine && first ? 6 : 18, bottomLeading: 18,
                             bottomTrailing: 18, topTrailing: mine && first ? 6 : 18), style: .continuous))
