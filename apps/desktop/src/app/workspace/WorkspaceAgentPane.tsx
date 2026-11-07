@@ -88,10 +88,9 @@ export function WorkspaceAgentPane({
   const handleSessionChange = useCallback(
     (sessionId: string | null, unshown?: string) => {
       if (!unshown) return workspaceActions.selectSession(sessionId, { keepMainPage: true })
-      pane?.sessionUnshown(unshown)
       workspaceActions.forgetSession(unshown)
     },
-    [pane, workspaceActions],
+    [workspaceActions],
   )
   const openDockTab = useCallback(
     (tabId: string) => {

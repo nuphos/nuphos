@@ -193,33 +193,23 @@ export function isSplitShortcut(
   )
 }
 
-/** The pane a ⌘-click filled, and the chat it asked that pane to show. */
-export type BesidePane = { pane: string; sessionId: string; unshown?: true }
-
 /**
- * The pane a ⌘-click reuses: the one the last ⌘-click filled, as long as it
- * still shows that chat — or was left blank because that chat would not open —
- * and is not the pane the click came from. `shownIn` reports a chat, `null` for
- * a blank pane, and `undefined` for one that is gone or showing the main page.
+ * The first pane in `order` (the focused one first) already showing `sessionId`.
+ * `shownIn` reports a pane's chat and team, nothing for one gone or on its main page.
  */
-export function reusableBesidePane(
-  last: BesidePane | null,
-  source: string,
-  shownIn: (pane: string) => string | null | undefined,
+export function paneShowingSession(
+  order: string[],
+  shownIn: (pane: string) => { sessionId: string | null; teamId?: string } | undefined,
+  sessionId: string,
+  teamId?: string,
 ): string | null {
-  if (!last || last.pane === source) return null
-  const shown = shownIn(last.pane)
+  return (
+    order.find((pane) => {
+      const shown = shownIn(pane)
 
-  if (shown === last.sessionId) return last.pane
-
-  // The open never landed, so this pane sits blank exactly where that click put
-  // it: fill it again rather than stacking another empty pane beside it.
-  return last.unshown && shown === null ? last.pane : null
-}
-
-/** Records that the pane `last` filled was left blank instead of showing `sessionId`. */
-export function markBesideUnshown(last: BesidePane | null, sessionId: string): void {
-  if (last?.sessionId === sessionId) last.unshown = true
+      return shown?.sessionId === sessionId && (!teamId || shown.teamId === teamId)
+    }) ?? null
+  )
 }
 
 /** A window's search belongs to its current focus, never to a hidden pane. */
