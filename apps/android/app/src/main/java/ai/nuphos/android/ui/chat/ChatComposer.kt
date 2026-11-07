@@ -98,6 +98,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
@@ -180,6 +182,8 @@ fun ChatComposer(
     modifier: Modifier = Modifier,
     /** Who the message goes to, e.g. "Message #release-planning" in a chat. */
     placeholder: String? = null,
+    /** Each change raises the keyboard, as choosing to reply does. */
+    focusRequest: Int = 0,
 ) {
     val store = LocalAgentStore.current
     val context = LocalContext.current
@@ -296,6 +300,9 @@ fun ChatComposer(
     var collapsedByUser by remember { mutableStateOf(false) }
     var handleDrag by remember { mutableFloatStateOf(0f) }
     val focusManager = LocalFocusManager.current
+    val fieldFocus = remember { FocusRequester() }
+    // Not attached while dictating; then there is nothing to focus.
+    LaunchedEffect(focusRequest) { if (focusRequest > 0) runCatching { fieldFocus.requestFocus() } }
     val keyboard = LocalSoftwareKeyboardController.current
     val injectedVoice = LocalVoiceServices.current
     val voiceServices = remember(context, injectedVoice) { injectedVoice ?: deviceVoiceServices(context) }
@@ -765,6 +772,7 @@ fun ChatComposer(
                         .contentReceiver(receiveContent)
                         .then(if (expanded) Modifier.heightIn(max = 192.dp) else Modifier)
                         .padding(vertical = if (expanded) 4.dp else 8.dp)
+                        .focusRequester(fieldFocus)
                         .onFocusChanged { state ->
                             focused = state.isFocused
                             if (state.isFocused) collapsedByUser = false
