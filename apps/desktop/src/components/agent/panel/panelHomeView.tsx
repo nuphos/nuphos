@@ -100,7 +100,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
         shown={c.homeShown}
         userName={c.userName}
         onSend={(text, filePaths, mentions) =>
-          void sendInActive(text, filePaths, undefined, undefined, mentions)
+          sendInActive(text, filePaths, undefined, undefined, mentions)
         }
         onStop={stopActive}
         credentialSelector={visibleHomeCredentialSelector}
@@ -123,7 +123,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
       <Composer
         newChat
         onSend={(text, filePaths, mentions) =>
-          void sendInActive(text, filePaths, undefined, undefined, mentions)
+          sendInActive(text, filePaths, undefined, undefined, mentions)
         }
         onStop={stopActive}
         credentialSelector={visibleHomeCredentialSelector}

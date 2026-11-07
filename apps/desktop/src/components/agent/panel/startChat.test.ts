@@ -89,7 +89,8 @@ test('each new conversation sends its chosen runtime and stamps the first transc
   for (const runtime of AGENT_PROVIDERS) {
     const state = context(runtime)
 
-    runStartChatWith(state.ctx, 'hello')
+    // Accepted: the conversation holds the message, so the composer is clear.
+    assert.equal(runStartChatWith(state.ctx, 'hello'), true)
     assert.equal(state.tabs()[0].agentRuntime, runtime)
     assert.equal(state.synced[0].agentRuntime, runtime)
     assert.equal(state.synced[0].runtimeId, `instance-${runtime}`)
@@ -107,10 +108,14 @@ test('an upload retains the runtime captured at send time even when the next dra
   const state = context('codex')
   const upload = Promise.withResolvers<TransferUploadPart>()
 
-  runStartChatWith(state.ctx, 'inspect attachment', undefined, {
-    messageId: 'upload',
-    run: () => upload.promise,
-  })
+  // Accepted with the loading card: the chat owns the draft, the upload follows.
+  assert.equal(
+    runStartChatWith(state.ctx, 'inspect attachment', undefined, {
+      messageId: 'upload',
+      run: () => upload.promise,
+    }),
+    true,
+  )
   assert.equal(requests.length, 0)
   assert.equal(state.synced[0].agentRuntime, 'codex')
   state.ctx.newConversationRuntime = {
@@ -152,7 +157,8 @@ test('an unavailable runtime does not create a conversation or send a prompt', (
   const state = context('codex')
 
   state.ctx.newConversationRuntime = null
-  runStartChatWith(state.ctx, 'keep this draft')
+  // Refused: the draft is still the composer's to keep.
+  assert.equal(runStartChatWith(state.ctx, 'keep this draft'), false)
   assert.equal(requests.length, 0)
   assert.equal(state.synced.length, 0)
   assert.equal(state.tabs().length, 0)

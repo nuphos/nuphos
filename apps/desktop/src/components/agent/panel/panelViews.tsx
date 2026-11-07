@@ -103,7 +103,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
         // resume in the bound thread — sending a proceed turn here too
         // would race it and could run the plan twice.
         if (updated.status === 'approved' && !activeTab?.slackThread) {
-          void sendInActive(
+          sendInActive(
             `Approved plan #${planId} — please proceed with plan #${planId}.`,
             [],
             'plan-approval',
@@ -175,7 +175,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     ? undefined
                     : visibleConversationCredentialSelector,
                   send: (text, card) =>
-                    void sendInActive(text, [], undefined, card && cardReplyId(card, questions)),
+                    sendInActive(text, [], undefined, card && cardReplyId(card, questions)),
                   // Only the owner provides a secret; it lands on their runtime.
                   saveSecret:
                     activeTab.readOnly || activeTab.foreign
@@ -224,7 +224,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                 <DelayedPanelReveal>
                   <Composer
                     onSend={(text, filePaths, mentions) =>
-                      void sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions)
+                      sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions)
                     }
                     onStop={stopActive}
                     autoFocus={focusComposerOnOpen}
@@ -254,7 +254,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   )}
                   <Composer
                     onSend={(text, filePaths, mentions) =>
-                      void sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions)
+                      sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions)
                     }
                     onStop={stopActive}
                     promptSuggestion={

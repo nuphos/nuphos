@@ -47,7 +47,7 @@ export function runStartChatWith(
     messageId: string
     run: (sessionId: string | undefined) => Promise<TransferUploadPart>
   },
-) {
+): boolean {
   const {
     currentUser,
     credentialAccessRef,
@@ -76,7 +76,8 @@ export function runStartChatWith(
         : undefined,
     )
 
-    return
+    // Refused: no conversation was opened, so the draft stays with the caller.
+    return false
   }
   const id = uid()
   const sessionId = uid()
@@ -277,8 +278,13 @@ export function runStartChatWith(
         toast.apiError(t('Upload failed'), err)
       })
 
-    return
+    // The chat is open with the user's message; the upload reports its own
+    // failure on the card, so the draft is no longer the composer's.
+    return true
   }
 
   launch([userMsg], streamId)
+
+  // The conversation opened and holds `userMsg`: the draft has been taken.
+  return true
 }

@@ -14,6 +14,7 @@ import {
   saveClipboardAttachments,
 } from './composerSerialize'
 import { useComposerRecall } from './useComposerRecall'
+import { useComposerSeed } from './useComposerSeed'
 
 import type { ComposerRecall } from './composerRecall'
 import type { AgentPromptSeed } from './model'
@@ -36,7 +37,7 @@ export function useComposerActions(
     readOnly: boolean
     sendBlocked?: boolean
     streaming: boolean
-    onSend: (text: string, filePaths: string[]) => void
+    onSend: (text: string, filePaths: string[]) => boolean
     pendingSeed?: AgentPromptSeed | null
     onSeedConsumed?: () => void
     dropRegisterRef?: { current: ((dt: DataTransfer) => void) | null }
@@ -44,6 +45,12 @@ export function useComposerActions(
   },
 ) {
   const recalls = useComposerRecall(state, readOnly, recall)
+
+  function clearDraft() {
+    state.clearEditor()
+    state.setFilePaths([])
+    state.setFolderPaths(new Set())
+  }
 
   function insertMention(url: string, opts?: { appendToEnd?: boolean }) {
     const el = state.ref.current
@@ -70,43 +77,17 @@ export function useComposerActions(
     state.syncEmpty()
   }
 
-  // ------------------------------------------------------------------------
-  // Effects: seed the editor when a row link is "Open in chat"'d.
-  // ------------------------------------------------------------------------
-  useEffect(() => {
-    if (!pendingSeed) return
-    if (readOnly) return
-    if (pendingSeed.autoSend && (streaming || sendBlocked)) return
-    if (state.seedAlreadySeen(pendingSeed.nonce)) return
-    requestAnimationFrame(() => {
-      const seedFiles = pendingSeed.filePaths ?? []
-
-      if (pendingSeed.autoSend) {
-        onSend(pendingSeed.text, seedFiles)
-        state.clearEditor()
-        state.setFilePaths([])
-        state.setFolderPaths(new Set())
-        onSeedConsumed?.()
-
-        return
-      }
-      if (pendingSeed.replace) {
-        state.clearEditor()
-      }
-      if (seedFiles.length > 0) {
-        state.setFilePaths((prev) => Array.from(new Set([...prev, ...seedFiles])))
-      }
-      if (pendingSeed.text) {
-        if (pendingSeed.mode === 'mention') {
-          insertMention(pendingSeed.text, { appendToEnd: true })
-        } else {
-          insertText(pendingSeed.text, { appendToEnd: true })
-        }
-      }
-      onSeedConsumed?.()
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingSeed, readOnly, streaming, sendBlocked])
+  useComposerSeed(state, {
+    readOnly,
+    sendBlocked,
+    streaming,
+    pendingSeed,
+    onSend,
+    onSeedConsumed,
+    clearDraft,
+    insertText,
+    insertMention,
+  })
 
   function submit() {
     if (readOnly || sendBlocked) return
@@ -114,10 +95,10 @@ export function useComposerActions(
     const v = state.readText().trim()
 
     if (!v && state.filePaths.length === 0) return
-    onSend(v, state.filePaths)
-    state.clearEditor()
-    state.setFilePaths([])
-    state.setFolderPaths(new Set())
+    // A send that reports false refused the draft before it went anywhere, so
+    // the text, its attachments and its folder chips stay for another try.
+    if (!onSend(v, state.filePaths)) return
+    clearDraft()
   }
 
   async function selectFile() {

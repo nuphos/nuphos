@@ -68,14 +68,14 @@ export function useAuthorizationFlows(acc: Acc) {
           return
         }
         // A reject never carries a reason — it's a direct discard.
-        void sendInActive(`Rejected ${label} — discard it and stop.`, [])
+        sendInActive(`Rejected ${label} — discard it and stop.`, [])
       } else {
         // `has_reason` rather than the reason itself: plan feedback is free text
         // about a customer's infrastructure and must not leave the app.
         track('agent_plan_changes_requested', { plan_id: planId, has_reason: trimmed.length > 0 })
         // Request changes — leave the plan `proposed` so the agent can revise
         // it in place; just send the feedback.
-        void sendInActive(
+        sendInActive(
           trimmed
             ? `Requested changes to ${label}. ${trimmed}`
             : `Requested changes to ${label} — please revise the approach.`,

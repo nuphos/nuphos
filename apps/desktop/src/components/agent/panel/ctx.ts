@@ -197,6 +197,7 @@ export type PanelCtx = {
     comment?: string,
   ) => void
   handleEndEvent: (streamId: string) => void
+  /** False when no conversation was opened, so the composer keeps the draft. */
   startChatWith: (
     prompt: string,
     initialMessage?: Message,
@@ -204,7 +205,7 @@ export type PanelCtx = {
       messageId: string
       run: (sessionId: string | undefined) => Promise<TransferUploadPart>
     },
-  ) => void
+  ) => boolean
   dispatchTurn: (
     tabId: string,
     text: string,
@@ -212,13 +213,14 @@ export type PanelCtx = {
     turnKind?: Message['turnKind'],
     decisionReplyTo?: string,
   ) => Promise<void>
+  /** True once a message, queued entry or dispatch owns the draft. */
   sendInActive: (
     text: string,
     filePaths?: string[],
     turnKind?: Message['turnKind'],
     decisionReplyTo?: string,
     mentions?: AgentMessageMention[],
-  ) => Promise<void>
+  ) => boolean
   steerQueued: (tabId: string, queuedId: string) => Promise<void>
   handleRejectPlan: (
     planId: string,

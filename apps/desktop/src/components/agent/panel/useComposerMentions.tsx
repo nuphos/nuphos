@@ -203,12 +203,14 @@ export function useComposerMentions(
     return (text, filePaths) => {
       const mentions = mentionedMembers(editorRef.current)
       const ids = mentions.map((mention) => mention.id)
+      const accepted = send(text, filePaths, mentions)
 
-      send(text, filePaths, mentions)
       setQuery(null)
-      // A brand-new conversation may not exist server-side yet; then there is
-      // simply no one to offer.
-      offerInvites(ids).catch(() => setUninvited([]))
+      // Only a message that went out addresses anyone; a refused send leaves
+      // the chips in the composer and nobody uninvited.
+      if (accepted) offerInvites(ids).catch(() => setUninvited([]))
+
+      return accepted
     }
   }
 
