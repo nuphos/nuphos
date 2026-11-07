@@ -22,7 +22,13 @@ export function createBotChannel(teamId: string, botId: string): Promise<string>
     making.get(botId) ??
     api.agentCreateChannel(teamId).then(async ({ sessionId }) => {
       markChannel(sessionId)
-      await api.agentAddChannelAgent(sessionId, teamId, botId)
+      try {
+        await api.agentAddChannelAgent(sessionId, teamId, botId)
+      } catch (error) {
+        // A chat the Bot could not join is an empty channel: file it away again.
+        await api.agentSetConversationArchived(sessionId, true, teamId).catch(() => null)
+        throw error
+      }
 
       return sessionId
     })
