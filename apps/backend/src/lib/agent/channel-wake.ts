@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto'
 
+import { AppError } from '@/lib/errors'
+import { logError } from '@/lib/observability'
+
+import { getConversationBySessionId } from './db'
 import { CHANNEL_SENDER_PREFIX, markChannelRead, readChannelMessages } from './db/channels'
+import { pushTimelineEvent } from './db/participants'
 import { agentConversations } from './db/shared'
 
 import type { AgentConversation } from './db'
@@ -147,4 +152,26 @@ function channelPage(page: Awaited<ReturnType<typeof readChannelMessages>>): str
     null,
     2,
   )
+}
+
+/** An agent a post woke could not reply: the channel says so, not just the log. */
+export async function noteReplyFailed(channelId: string, agentId: string, error: unknown) {
+  const agent = await getConversationBySessionId(agentId).catch(() => null)
+
+  await agentConversations()
+    .updateOne(
+      { sessionId: channelId },
+      {
+        $push: pushTimelineEvent({
+          kind: 'agent_reply_failed',
+          at: new Date(),
+          actorId: 'system',
+          agentName: agent?.title || 'Nuphos agent',
+          ...(error instanceof AppError ? { reason: error.message } : {}),
+        }),
+      },
+    )
+    .catch((noteError: unknown) => {
+      logError('agent.channel.reply_failed_note_failed', noteError, { channel_id: channelId })
+    })
 }
