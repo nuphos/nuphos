@@ -107,7 +107,9 @@ export function LambdaTestPanel({
             <div className="flex items-center gap-3 text-[12px]">
               <span
                 className={`px-2 py-0.5 rounded font-medium ${
-                  result.functionError ? 'bg-error/15 text-error' : 'bg-[#73bf69]/15 text-[#73bf69]'
+                  result.functionError
+                    ? 'bg-error/15 text-error'
+                    : 'bg-status-success/15 text-status-success'
                 }`}
               >
                 {result.functionError

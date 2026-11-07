@@ -119,11 +119,11 @@ export function CloudFormationView({
               let cls = 'text-secondary'
 
               if (s.endsWith('_COMPLETE') && !s.includes('ROLLBACK') && s !== 'DELETE_COMPLETE') {
-                cls = 'text-[#73bf69]'
+                cls = 'text-status-success'
               } else if (s.endsWith('_FAILED') || s.includes('ROLLBACK')) {
                 cls = 'text-error'
               } else if (s.endsWith('_IN_PROGRESS')) {
-                cls = 'text-amber-400'
+                cls = 'text-status-warning'
               }
 
               return <span className={cls}>{s}</span>
@@ -235,7 +235,7 @@ function CloudFormationStat({
     tone === 'success'
       ? 'text-success'
       : tone === 'warning'
-        ? 'text-amber-400'
+        ? 'text-status-warning'
         : tone === 'error'
           ? 'text-error'
           : 'text-tertiary'

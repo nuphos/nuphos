@@ -13,7 +13,7 @@ const MAX_CELLS = 32
 const CELL_CLASS: Record<QuotaCell, string> = {
   used: 'bg-action-primary',
   adding: 'bg-action-primary/35 ring-1 ring-inset ring-line-focus',
-  over: 'bg-amber-500',
+  over: 'bg-status-warning',
   free: 'bg-surface-sunken',
 }
 
@@ -84,7 +84,7 @@ export function BoxQuotaMeter({
                 {t('{n} left after the new computer', { n: quota.left - adding })}
               </span>
             ) : (
-              <span className="block font-medium text-amber-500">
+              <span className="block font-medium text-status-warning">
                 {t('{n} vCPU over your plan', { n: adding - quota.left })}
               </span>
             ))}

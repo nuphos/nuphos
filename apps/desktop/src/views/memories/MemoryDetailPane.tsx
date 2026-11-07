@@ -61,7 +61,7 @@ export function MemoryDetailPane({
                 <button
                   type="button"
                   onClick={onDelete}
-                  className="h-7 px-2 rounded-md text-[12px] text-tertiary hover:text-red-400 hover:bg-state-hover flex items-center gap-1.5"
+                  className="h-7 px-2 rounded-md text-[12px] text-tertiary hover:text-status-danger hover:bg-state-hover flex items-center gap-1.5"
                   title={t('Remove this memory')}
                 >
                   <Trash2 className="h-3.5 w-3.5" strokeWidth={1.8} />

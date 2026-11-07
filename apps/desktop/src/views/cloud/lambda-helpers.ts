@@ -5,9 +5,9 @@ export function lambdaConsoleUrl(fn: AwsLambdaFunction): string {
 }
 
 export function lambdaStateClass(state: string | null): string {
-  if (state === 'Active') return 'text-[#73bf69]'
+  if (state === 'Active') return 'text-status-success'
   if (state === 'Failed') return 'text-error'
-  if (state === 'Pending' || state === 'Inactive') return 'text-amber-400'
+  if (state === 'Pending' || state === 'Inactive') return 'text-status-warning'
 
   return 'text-secondary'
 }

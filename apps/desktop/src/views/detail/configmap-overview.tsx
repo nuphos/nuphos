@@ -113,7 +113,11 @@ export function ConfigMapOverview({
         <Field
           label={t('Mode')}
           value={
-            doc.immutable ? <span className="text-amber-300">{t('Immutable')}</span> : t('Mutable')
+            doc.immutable ? (
+              <span className="text-status-warning">{t('Immutable')}</span>
+            ) : (
+              t('Mutable')
+            )
           }
         />
         <Field

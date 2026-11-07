@@ -96,7 +96,7 @@ export function SkillDetailPane({
 
           <div className="flex-1 min-h-0 overflow-auto scrollbar-thin p-4 space-y-4">
             {!skill.hasSkillMd && (
-              <div className="flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">
+              <div className="flex items-start gap-2 rounded-md border border-status-danger/30 bg-status-danger/10 px-3 py-2 text-[12px] text-status-danger">
                 <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" strokeWidth={1.8} />
                 <span>
                   {noSkillMdPre}
@@ -221,7 +221,7 @@ export function SkillDetailPane({
                 {canDelete && files.length > 0 && (
                   <Button
                     variant="secondary"
-                    className="h-8 w-full text-[12px] text-red-400 hover:text-red-300"
+                    className="h-8 w-full text-[12px] text-status-danger hover:text-status-danger"
                     onClick={onDeleteSkill}
                   >
                     {t('Delete entire skill')}

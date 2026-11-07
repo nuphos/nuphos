@@ -71,7 +71,7 @@ export function PlanActionBar({
         floating
           ? 'rounded-lg surface-raised bg-surface-raised py-3'
           : 'border-t border-line-control/70 bg-state-selected py-3',
-        decision === 'approved' && 'bg-emerald-500/5',
+        decision === 'approved' && 'bg-status-success/5',
         decision === 'chatting' && 'bg-state-selected',
       )}
     >
@@ -247,7 +247,7 @@ export function PlanActionBar({
             )}
           </div>
         ) : decision === 'approved' ? (
-          <span className="inline-flex items-center gap-1.5 text-[12.5px] text-emerald-400">
+          <span className="inline-flex items-center gap-1.5 text-[12.5px] text-status-success">
             <Check className="h-3.5 w-3.5" strokeWidth={2.4} />
             {t('Plan approved — ready to proceed.')}
           </span>

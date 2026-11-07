@@ -104,9 +104,10 @@ export function AliyunSwasInstancesView({
           const s = r.status
           let cls = 'text-secondary'
 
-          if (s === 'Running') cls = 'text-[#73bf69]'
+          if (s === 'Running') cls = 'text-status-success'
           else if (s === 'Stopped') cls = 'text-error'
-          else if (/Pending|Starting|Stopping|Resetting|Upgrading/.test(s)) cls = 'text-amber-400'
+          else if (/Pending|Starting|Stopping|Resetting|Upgrading/.test(s))
+            cls = 'text-status-warning'
 
           return <span className={cls}>{s}</span>
         },

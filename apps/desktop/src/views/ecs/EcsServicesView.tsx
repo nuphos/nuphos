@@ -79,7 +79,9 @@ export function EcsServicesView({
           width: 80,
           sortAccessor: (r) => r.runningCount,
           render: (r) => (
-            <span className={r.runningCount < r.desiredCount ? 'text-amber-400' : 'text-secondary'}>
+            <span
+              className={r.runningCount < r.desiredCount ? 'text-status-warning' : 'text-secondary'}
+            >
               {r.runningCount}
             </span>
           ),

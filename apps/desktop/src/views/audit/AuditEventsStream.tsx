@@ -152,7 +152,7 @@ function RuntimeImageAuditRow({
 }) {
   return (
     <li className="flex gap-3 rounded-md px-2 py-2">
-      <Container className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-sky-300" strokeWidth={1.8} />
+      <Container className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-tertiary" strokeWidth={1.8} />
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
           <span className="text-[10px] text-tertiary">
@@ -193,9 +193,9 @@ function SkillAuditRow({
 }) {
   const statusClass =
     event.mutation.status === 'applied'
-      ? 'text-emerald-400'
+      ? 'text-status-success'
       : event.mutation.status === 'failed' || event.mutation.status === 'partial'
-        ? 'text-red-400'
+        ? 'text-status-danger'
         : 'text-tertiary'
 
   return (
@@ -207,7 +207,7 @@ function SkillAuditRow({
         onOpen && 'transition-colors hover:bg-state-hover',
       )}
     >
-      <FileClock className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-violet-300" strokeWidth={1.8} />
+      <FileClock className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-tertiary" strokeWidth={1.8} />
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
           <span className="text-[10px] text-tertiary">
@@ -238,7 +238,10 @@ function SkillAuditRow({
           </div>
         )}
         {event.mutation.error && (
-          <div className="mt-1 line-clamp-2 text-[11px] text-red-300" title={event.mutation.error}>
+          <div
+            className="mt-1 line-clamp-2 text-[11px] text-status-danger"
+            title={event.mutation.error}
+          >
             <VisibleErrorReporter
               message={event.mutation.error}
               surface="skill_audit_mutation_error"

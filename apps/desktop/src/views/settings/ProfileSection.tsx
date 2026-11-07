@@ -93,7 +93,7 @@ export function ProfileSection({
           </Field>
         </fieldset>
         {error && (
-          <p role="alert" className="text-sm text-red-400">
+          <p role="alert" className="text-sm text-status-danger">
             {error}
           </p>
         )}

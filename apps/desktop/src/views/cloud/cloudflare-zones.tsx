@@ -83,7 +83,8 @@ export function CloudflareZonesView({
             header: t('Paused'),
             width: 90,
             sortAccessor: (r) => (r.paused ? 1 : 0),
-            render: (r) => (r.paused ? <span className="text-amber-400">{t('Yes')}</span> : '-'),
+            render: (r) =>
+              r.paused ? <span className="text-status-warning">{t('Yes')}</span> : '-',
           },
           {
             key: 'nameservers',

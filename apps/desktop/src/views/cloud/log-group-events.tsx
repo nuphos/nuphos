@@ -203,13 +203,13 @@ export function LogGroupEventsView({
             onClick={() => setLive((v) => !v)}
             className={`h-6 px-2 rounded text-[11.5px] font-medium inline-flex items-center gap-1.5 shrink-0 ${
               live
-                ? 'bg-[#73bf69]/15 text-[#73bf69]'
+                ? 'bg-status-success/15 text-status-success'
                 : 'text-tertiary hover:text-main hover:bg-state-hover'
             }`}
             title={live ? t('Stop live tail') : t('Poll for new events every few seconds')}
           >
             <span
-              className={`w-1.5 h-1.5 rounded-full ${live ? 'bg-[#73bf69] animate-pulse' : 'bg-line-control'}`}
+              className={`w-1.5 h-1.5 rounded-full ${live ? 'bg-status-success animate-pulse' : 'bg-line-control'}`}
             />
             {t('Live')}
           </button>

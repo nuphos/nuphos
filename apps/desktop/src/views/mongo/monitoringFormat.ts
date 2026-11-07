@@ -31,7 +31,13 @@ export const RANGE_OPTIONS = [
 export const INTERVAL_OPTIONS = [15, 30, 60] as const
 
 // The first series takes the data color (design tokens); the rest stay distinct hues.
-export const CHART_COLORS = ['rgb(var(--color-data-1))', '#43d9ad', '#f1b84b', '#5da9ff']
+// One data hue stepped down in strength, then a text tone, as ChartPlot does.
+export const CHART_COLORS = [
+  'rgb(var(--color-data-1))',
+  'rgba(var(--color-data-1), 0.6)',
+  'rgba(var(--color-data-1), 0.35)',
+  'rgb(var(--color-text-tertiary))',
+]
 
 export function toChartRow(sample: MongoMonitoringSample): ChartRow {
   const metrics = sample.metrics

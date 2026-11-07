@@ -156,7 +156,7 @@ export function AvatarPicker({
         />
       </div>
       {photoError && (
-        <p role="alert" className="text-sm text-red-400">
+        <p role="alert" className="text-sm text-status-danger">
           {photoError}
         </p>
       )}

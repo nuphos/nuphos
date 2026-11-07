@@ -106,9 +106,9 @@ export function TencentCvmInstancesView({
               const s = r.state
               let cls = 'text-secondary'
 
-              if (s === 'RUNNING') cls = 'text-[#73bf69]'
+              if (s === 'RUNNING') cls = 'text-status-success'
               else if (s === 'STOPPED') cls = 'text-error'
-              else if (/PENDING|STARTING|STOPPING|REBOOTING/.test(s)) cls = 'text-amber-400'
+              else if (/PENDING|STARTING|STOPPING|REBOOTING/.test(s)) cls = 'text-status-warning'
 
               return <span className={cls}>{s}</span>
             },

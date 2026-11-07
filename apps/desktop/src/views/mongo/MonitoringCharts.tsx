@@ -50,23 +50,23 @@ export function MetricChart({
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2a2730" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--color-line-control))" />
               <XAxis
                 dataKey="timestamp"
-                tick={{ fill: '#8a8194', fontSize: 10 }}
+                tick={{ fill: 'rgb(var(--color-text-tertiary))', fontSize: 10 }}
                 tickFormatter={(value) => formatTick(String(value))}
                 minTickGap={38}
               />
               <YAxis
-                tick={{ fill: '#8a8194', fontSize: 10 }}
+                tick={{ fill: 'rgb(var(--color-text-tertiary))', fontSize: 10 }}
                 width={44}
                 tickFormatter={(value: number) => compact(value)}
                 domain={[0, 'auto']}
               />
               <Tooltip
                 contentStyle={{
-                  background: '#16141a',
-                  border: '1px solid #2a2730',
+                  background: 'rgb(var(--color-surface-raised))',
+                  border: '1px solid rgb(var(--color-line-control))',
                   borderRadius: 6,
                   fontSize: 11,
                 }}

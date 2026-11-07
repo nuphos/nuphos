@@ -76,7 +76,7 @@ function ClampedCode({
             e.stopPropagation()
             setExpanded((v) => !v)
           }}
-          className="text-[10px] text-violet-300/90 hover:text-violet-200"
+          className="text-[10px] text-secondary hover:text-primary"
         >
           {expanded ? t('less') : t('more')}
         </button>

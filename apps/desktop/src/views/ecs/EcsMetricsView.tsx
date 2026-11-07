@@ -144,23 +144,23 @@ export function EcsMetricsView({
                         <stop offset="100%" stopColor="rgb(var(--color-data-1))" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#2a2730" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--color-line-control))" />
                     <XAxis
                       dataKey="timestamp"
-                      tick={{ fill: '#8a8194', fontSize: 11 }}
+                      tick={{ fill: 'rgb(var(--color-text-tertiary))', fontSize: 11 }}
                       tickFormatter={(ts) => formatTime(String(ts))}
                       minTickGap={40}
                     />
                     <YAxis
-                      tick={{ fill: '#8a8194', fontSize: 11 }}
+                      tick={{ fill: 'rgb(var(--color-text-tertiary))', fontSize: 11 }}
                       width={36}
                       domain={[0, 100]}
                       tickFormatter={(v) => `${String(v)}%`}
                     />
                     <Tooltip
                       contentStyle={{
-                        background: '#16141a',
-                        border: '1px solid #2a2730',
+                        background: 'rgb(var(--color-surface-raised))',
+                        border: '1px solid rgb(var(--color-line-control))',
                         borderRadius: 6,
                         fontSize: 12,
                       }}

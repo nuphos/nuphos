@@ -181,7 +181,7 @@ export function AlertModal({ teamId, dashboardId, panel, onClose }: Props) {
             <div className="flex justify-between border-t border-line-control px-4 py-3">
               <button
                 type="button"
-                className="rounded-md px-3 py-1.5 text-[13px] text-orange-400 hover:bg-state-hover disabled:opacity-50"
+                className="rounded-md px-3 py-1.5 text-[13px] text-status-danger hover:bg-state-hover disabled:opacity-50"
                 onClick={() => setConfirmingRemove(true)}
                 disabled={saving || loadFailed || !hasAlert}
               >

@@ -84,7 +84,8 @@ function PlanStepView({
         <div
           className={clsx(
             'mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border text-[11px] font-medium',
-            status === 'done' && 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400',
+            status === 'done' &&
+              'border-status-success/40 bg-status-success/10 text-status-success',
             status === 'failed' && 'border-error/40 bg-error/10 text-error',
             status === 'running' && 'border-action-primary/50 bg-state-selected text-primary',
             // Started but idle: tinted like the running state so the step still

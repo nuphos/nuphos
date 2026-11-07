@@ -6,9 +6,9 @@ import { t } from '../../i18n'
 
 const LEVEL_TONE: Record<string, string> = {
   violated: 'text-error bg-error/10 border-error/30',
-  live: 'text-sky-400 bg-sky-500/10 border-sky-500/30',
-  sealed: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
-  anchored: 'text-violet-300 bg-violet-500/10 border-violet-500/30',
+  live: 'text-data-1 bg-data-1/10 border-data-1/30',
+  sealed: 'text-status-success bg-status-success/10 border-status-success/30',
+  anchored: 'text-secondary bg-state-selected border-line-control',
 }
 
 const LEVEL_LABEL: Record<string, string> = {
@@ -44,7 +44,7 @@ export function VerifiedMark({ verified }: { verified: boolean | null | undefine
   if (verified === true) {
     return (
       <span
-        className="inline-flex items-center gap-0.5 text-[9px] uppercase tracking-wider text-emerald-500/90"
+        className="inline-flex items-center gap-0.5 text-[9px] uppercase tracking-wider text-status-success/90"
         title={t('Content matches its chained hash')}
       >
         <ShieldCheck className="h-2.5 w-2.5" strokeWidth={2} /> {t('verified')}
@@ -92,7 +92,7 @@ export function ClampedText({
             e.stopPropagation()
             setExpanded((v) => !v)
           }}
-          className="ml-1 text-[10px] text-violet-300/90 hover:text-violet-200"
+          className="ml-1 text-[10px] text-secondary hover:text-primary"
         >
           {expanded ? t('less') : t('more')}
         </button>
@@ -107,7 +107,7 @@ export function RedactionChip({ count }: { count: unknown }) {
 
   return (
     <span
-      className="inline-flex flex-shrink-0 items-center rounded border border-amber-500/30 bg-amber-500/10 px-1 py-px text-[9px] uppercase tracking-wider text-amber-400/90"
+      className="inline-flex flex-shrink-0 items-center rounded border border-status-warning/30 bg-status-warning/10 px-1 py-px text-[9px] uppercase tracking-wider text-status-warning/90"
       title={t(
         'Secrets were redacted from the journaled copy; an HMAC fingerprint allows equality checks without storing them',
       )}
@@ -129,7 +129,7 @@ export function AuthorizationChip({ authorization }: { authorization: unknown })
   if (auth.kind === 'plan-approved') {
     return (
       <span
-        className="inline-flex flex-shrink-0 items-center rounded border border-violet-500/30 bg-violet-500/10 px-1 py-px text-[9px] uppercase tracking-wider text-violet-300/90"
+        className="inline-flex flex-shrink-0 items-center rounded border border-line-control bg-state-selected px-1 py-px text-[9px] uppercase tracking-wider text-secondary"
         title={t(
           'An approved plan was active for this agent when the call was journaled — per-command plan binding is not claimed',
         )}
@@ -143,7 +143,7 @@ export function AuthorizationChip({ authorization }: { authorization: unknown })
   if (auth.kind === 'user-approved') {
     return (
       <span
-        className="inline-flex flex-shrink-0 items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1 py-px text-[9px] uppercase tracking-wider text-emerald-400/90"
+        className="inline-flex flex-shrink-0 items-center rounded border border-status-success/30 bg-status-success/10 px-1 py-px text-[9px] uppercase tracking-wider text-status-success/90"
         title={t(
           'The user approved this execution (per-command approval or a standing allow rule)',
         )}
@@ -172,7 +172,7 @@ export function AuthorizationChip({ authorization }: { authorization: unknown })
 export function ClientTrustChip() {
   return (
     <span
-      className="inline-flex flex-shrink-0 items-center rounded border border-amber-500/30 bg-amber-500/10 px-1 py-px text-[9px] uppercase tracking-wider text-amber-400/90"
+      className="inline-flex flex-shrink-0 items-center rounded border border-status-warning/30 bg-status-warning/10 px-1 py-px text-[9px] uppercase tracking-wider text-status-warning/90"
       title={t('Executed on the desktop and self-reported — not attested by the server')}
     >
       {t('client-reported')}

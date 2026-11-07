@@ -141,7 +141,7 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
 
             <div className="space-y-1.5">
               <div className="flex items-center gap-2.5 rounded-lg border border-line-control bg-state-selected px-3 py-2">
-                <Search className="h-3.5 w-3.5 text-[#fc6d26]" strokeWidth={1.8} />
+                <Search className="h-3.5 w-3.5 text-tertiary" strokeWidth={1.8} />
                 <div className="min-w-0 flex-1">
                   <div className="text-[12.5px] leading-none text-main">{t('Read projects')}</div>
                   <div className="mt-1 text-[10.5px] text-tertiary">
@@ -154,7 +154,7 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
               </div>
 
               <label className="flex items-center gap-2.5 rounded-lg border border-line-control bg-state-selected px-3 py-2">
-                <GitBranch className="h-3.5 w-3.5 text-[#fc6d26]" strokeWidth={1.8} />
+                <GitBranch className="h-3.5 w-3.5 text-tertiary" strokeWidth={1.8} />
                 <div className="min-w-0 flex-1">
                   <div className="text-[12.5px] leading-none text-main">{t('Push branches')}</div>
                   <div className="mt-1 text-[10.5px] text-tertiary">
@@ -171,7 +171,7 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
               </label>
 
               <label className="flex items-center gap-2.5 rounded-lg border border-line-control bg-state-selected px-3 py-2">
-                <GitPullRequest className="h-3.5 w-3.5 text-[#fc6d26]" strokeWidth={1.8} />
+                <GitPullRequest className="h-3.5 w-3.5 text-tertiary" strokeWidth={1.8} />
                 <div className="min-w-0 flex-1">
                   <div className="text-[12.5px] leading-none text-main">
                     {t('Manage merge requests')}

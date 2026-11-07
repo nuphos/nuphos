@@ -125,9 +125,9 @@ export function PlanDatabaseActionView({
       floating={floating}
       Icon={Database}
       title={t('Database change · {kind}', { kind: action.kind.toUpperCase() })}
-      titleClassName="text-sky-300"
-      iconBoxClassName="bg-sky-500/15 text-sky-300"
-      sectionClassName="border-b border-line-control/70 bg-sky-500/[0.025] px-3.5 py-2.5"
+      titleClassName="text-data-1"
+      iconBoxClassName="bg-data-1/15 text-data-1"
+      sectionClassName="border-b border-line-control/70 bg-data-1/[0.025] px-3.5 py-2.5"
     >
       <dl className="mt-1.5 grid grid-cols-[7rem_minmax(0,1fr)] gap-x-2 gap-y-1 text-[12px] leading-relaxed">
         <dt className="text-tertiary">{t('Namespace')}</dt>
@@ -152,7 +152,7 @@ export function PlanDatabaseActionView({
       <div className="mt-2 text-[11.5px] font-medium leading-relaxed text-tertiary">
         {t('Approved statement preview')}
       </div>
-      <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md border border-sky-500/20 bg-state-selected px-2.5 py-2 font-mono text-[12px] leading-relaxed text-sky-100 scrollbar-thin">
+      <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md border border-data-1/20 bg-state-selected px-2.5 py-2 font-mono text-[12px] leading-relaxed text-primary scrollbar-thin">
         {action.statementPreview}
       </pre>
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] leading-relaxed text-tertiary">
@@ -183,8 +183,8 @@ export function PlanCostView({ cost, floating }: { cost: PlanCost; floating?: bo
       floating={floating}
       Icon={DollarSign}
       title={t('Cost')}
-      titleClassName="text-emerald-400/90"
-      iconBoxClassName="bg-emerald-500/15 text-emerald-400"
+      titleClassName="text-status-success/90"
+      iconBoxClassName="bg-status-success/15 text-status-success"
       sectionClassName="px-3.5 py-2.5"
     >
       <div className="mt-0.5 text-[13px] text-main leading-relaxed">{cost.summary}</div>
@@ -196,7 +196,7 @@ export function PlanCostView({ cost, floating }: { cost: PlanCost; floating?: bo
               <span
                 className={clsx(
                   'min-w-0 flex-1 break-words',
-                  line.tone === 'savings' ? 'text-emerald-400' : 'text-secondary',
+                  line.tone === 'savings' ? 'text-status-success' : 'text-secondary',
                 )}
               >
                 {line.value}
@@ -237,7 +237,7 @@ export function PlanRiskView({ risk, floating }: { risk: PlanRisk; floating?: bo
                 className="flex items-start gap-1.5 text-[12.5px] leading-relaxed text-secondary"
               >
                 <Check
-                  className="mt-1 h-2.5 w-2.5 flex-shrink-0 text-emerald-400"
+                  className="mt-1 h-2.5 w-2.5 flex-shrink-0 text-status-success"
                   strokeWidth={3}
                 />
                 <span className="min-w-0 flex-1 break-words">{m}</span>

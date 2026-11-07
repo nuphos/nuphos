@@ -156,7 +156,7 @@ export function TeamSkillsView({
     }
 
     return (
-      <div className="px-6 py-8 flex items-start gap-2 text-[12px] text-red-400">
+      <div className="px-6 py-8 flex items-start gap-2 text-[12px] text-status-danger">
         <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" strokeWidth={1.8} />
         <span>{t('Failed to load skills: {message}', { message: state.message })}</span>
       </div>

@@ -58,7 +58,7 @@ export function AuthorizationApprovalActions({
           type="button"
           title={t('Deny ({shortcut})', { shortcut: comboText('mod+backspace') })}
           onClick={() => act(() => decide('deny'))}
-          className="inline-flex h-8 items-center rounded-md px-3 text-[12px] font-medium text-tertiary transition-colors hover:text-red-400"
+          className="inline-flex h-8 items-center rounded-md px-3 text-[12px] font-medium text-tertiary transition-colors hover:text-status-danger"
         >
           {t('Deny')}
         </button>

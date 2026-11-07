@@ -63,7 +63,7 @@ export function PullRows({
         pr.draft ? (
           <GitPullRequestDraft className="h-3.5 w-3.5 text-tertiary" strokeWidth={1.8} />
         ) : (
-          <GitPullRequest className="h-3.5 w-3.5 text-[#73bf69]" strokeWidth={1.8} />
+          <GitPullRequest className="h-3.5 w-3.5 text-status-success" strokeWidth={1.8} />
         )
       }
       title={pr.title}

@@ -109,7 +109,7 @@ export function JournalTimeline({
             </div>
             <div className="min-w-0 flex-1 space-y-1">
               {sealed && (
-                <span className="float-right text-[9px] uppercase tracking-wider text-emerald-500/80">
+                <span className="float-right text-[9px] uppercase tracking-wider text-status-success/80">
                   {t('sealed')}
                 </span>
               )}

@@ -78,7 +78,9 @@ export function AuditFilterControls({
         }}
         className={clsx(
           'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] transition-colors',
-          mutationsOnly ? 'bg-amber-500/15 text-amber-300' : 'text-tertiary hover:text-secondary',
+          mutationsOnly
+            ? 'bg-status-warning/15 text-status-warning'
+            : 'text-tertiary hover:text-secondary',
         )}
         title={t('Only mutations (skill changes, bash, outbound messages)')}
       >
