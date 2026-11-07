@@ -337,11 +337,20 @@ describe('defaultConversationRuntimeId', () => {
     ).toBe('listed')
   })
 
-  test('falls back to an online Box only when the team registers no agent', () => {
+  test('falls back to an online Box only when no team agent is ready', () => {
     const boxes = [box('laptop', { box: undefined }), box('asleep', { online: false }), box('box')]
 
     expect(defaultConversationRuntimeId(boxes, ME)).toBe('box')
     expect(defaultConversationRuntimeId([registered('team'), ...boxes], ME)).toBeUndefined()
+  })
+
+  test('a registered team agent that is not ready, plus an own agent on a shared computer, runs on the own agent', () => {
+    const notReady = { ...registered('team'), notReady: true } as RuntimeInstance
+    const disabled = { ...registered('off'), status: 'disabled' } as RuntimeInstance
+
+    expect(defaultConversationRuntimeId([notReady, shared('mine', ME)], ME)).toBe('mine')
+    expect(defaultConversationRuntimeId([disabled, shared('mine', ME)], ME)).toBe('mine')
+    expect(defaultConversationRuntimeId([notReady, box('box'), shared('mine', ME)], ME)).toBe('box')
   })
 
   test("a teammate's Box still defaults, as before", () => {

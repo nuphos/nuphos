@@ -30,13 +30,16 @@ export function assertClaudeCodeSetupConfigured(
 
 /**
  * The agent a conversation nothing pins runs on: the first usable agent in its owner's
- * fallback list, else, when the team registers no agent, the owner's first online Box agent,
+ * fallback list, else a ready team agent, else the owner's first online Box agent,
  * else the owner's own signed-in agent on any computer they may use, shared ones included, most
  * recently used first. Only that last step reaches a teammate's shared computer: an agent there
  * is the owner's when they added it, so another member's is never chosen.
  */
 export function defaultConversationRuntimeId(
-  instances: readonly Pick<RuntimeInstance, 'id' | 'provider' | 'status' | 'kind' | 'local'>[],
+  instances: readonly Pick<
+    RuntimeInstance,
+    'id' | 'provider' | 'status' | 'kind' | 'local' | 'notReady'
+  >[],
   userId: string,
   {
     fallbackIds = [],
@@ -61,7 +64,12 @@ export function defaultConversationRuntimeId(
     .find((instance) => instance && usable(instance))
 
   if (listed) return listed.id
-  if (instances.some((instance) => instance.kind !== 'local' && instance.status === 'active'))
+  // A ready team agent runs it: the caller resolves the team's own.
+  if (
+    instances.some(
+      (instance) => instance.kind !== 'local' && !instance.notReady && usable(instance),
+    )
+  )
     return undefined
   const box = instances.find((instance) => instance.local?.box && usable(instance))
 
