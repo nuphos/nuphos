@@ -128,7 +128,12 @@ test('a load that returns the same value keeps the same snapshot', async () => {
   mock.method(globalThis, 'clearInterval', () => {})
   const same = { messages: ['hi'] }
   let value: object = same
-  const stop = subscribePoll('steady', async () => value, 10_000, () => {})
+  const stop = subscribePoll(
+    'steady',
+    async () => value,
+    10_000,
+    () => {},
+  )
 
   try {
     await settle()
