@@ -37,7 +37,7 @@ final class ChannelSession {
     var me: ChatMessage.Sender?
 
     private let token: String
-    private var revision = ""
+    private var revision: AgentConversationDetail.ChannelRevision?
     /// A resend of the same post reuses its id, so a post that did land is not doubled.
     private var retry: (key: String, id: String)?
 
@@ -67,7 +67,7 @@ final class ChannelSession {
                 // The probe reads the newest post, so an open chat is read up to it: a
                 // post's activity can land after the transcript change the probe compares.
                 let probe = try await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: 1)
-                guard stamp(of: probe) != revision else { return }
+                guard probe.channelRevision != revision else { return }
             }
             async let detail = NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: Self.tail)
             async let listed = Self.listAgents(token: token, teamId: teamId, channelId: channelId)
@@ -79,10 +79,6 @@ final class ChannelSession {
         }
     }
 
-    private func stamp(of detail: AgentConversationDetail) -> String {
-        "\(detail.transcriptUpdatedAt ?? ""):\(detail.messageCount ?? 0)"
-    }
-
     private func apply(_ detail: AgentConversationDetail, agents listed: [ChannelAgent]) {
         stored = detail.messages.compactMap(ChannelPost.init)
         sending = ChannelPost.stillSending(stored: stored, sending: sending)
@@ -92,7 +88,7 @@ final class ChannelSession {
         readOnly = detail.readOnly ?? false
         if let title = detail.title, !title.isEmpty { self.title = title }
         faces = detail.faces
-        revision = stamp(of: detail)
+        revision = detail.channelRevision
         loadError = nil
         loaded = true
     }

@@ -9,6 +9,7 @@ enum ChannelPostTests {
         keepsSendingPostsUntilTheChatReturnsThem()
         placesPausedLinesAndTypingInOrder()
         decodesChatsFromTheList()
+        renamingTheBotChangesTheRevision()
         print("Chat posts, runs, sending and timeline passed")
     }
 
@@ -117,5 +118,17 @@ enum ChannelPostTests {
         let detail = try! JSONDecoder().decode(AgentConversationDetail.self, from: Data(
             #"{"kind":"channel","messageCount":4,"transcriptUpdatedAt":"t"}"#.utf8))
         precondition(detail.isChannel && detail.messageCount == 4 && detail.transcriptUpdatedAt == "t")
+    }
+
+    private static func renamingTheBotChangesTheRevision() {
+        func probe(title: String, avatar: String = "05", count: Int = 3) -> AgentConversationDetail {
+            let json = #"{"kind":"channel","title":"\#(title)","transcriptUpdatedAt":"t1","messageCount":\#(count),"messages":[],"faces":[{"id":"bot-1","name":"\#(title)","agent":{"avatar":"\#(avatar)"}}]}"#
+            return try! JSONDecoder().decode(AgentConversationDetail.self, from: Data(json.utf8))
+        }
+        let helper = probe(title: "Helper")
+        precondition(probe(title: "Helper").channelRevision == helper.channelRevision, "an unchanged chat keeps its revision")
+        precondition(probe(title: "Scout").channelRevision != helper.channelRevision, "renaming the Bot changes it without a post")
+        precondition(probe(title: "Helper", avatar: "07").channelRevision != helper.channelRevision, "a new face changes it")
+        precondition(probe(title: "Helper", count: 4).channelRevision != helper.channelRevision, "a new post still changes it")
     }
 }
