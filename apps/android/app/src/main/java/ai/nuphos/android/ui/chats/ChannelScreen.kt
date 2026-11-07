@@ -251,7 +251,7 @@ private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, 
             horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 if (canReply) DropdownMenuItem(text = { Text("Reply") }, leadingIcon = { Icon(Icons.AutoMirrored.Outlined.Reply, null) },
-                    onClick = { menu = false; session.replying = post.asReply() })
+                    onClick = { menu = false; session.reply(post) })
                 if (post.text.isNotEmpty()) DropdownMenuItem(text = { Text("Copy") }, leadingIcon = { Icon(Icons.Outlined.ContentCopy, null) },
                     onClick = { menu = false; clipboard.setText(AnnotatedString(post.text)) })
             }
@@ -393,9 +393,6 @@ private fun TypingDots() {
 /** The conversation composer, posting to the chat: photos, files, paste and dictation work as there. */
 @Composable
 private fun ChannelComposer(session: ChannelSession) {
-    // Choosing to reply raises the keyboard.
-    var focusRequest by remember { mutableStateOf(0) }
-    LaunchedEffect(session.replying) { if (session.replying != null) focusRequest++ }
     val store = LocalAgentStore.current
     val auth = LocalAuthSession.current
     val scope = rememberCoroutineScope()
@@ -431,7 +428,8 @@ private fun ChannelComposer(session: ChannelSession) {
         rejectedSubmission = session.unsent,
         onRejectedRestored = { session.unsent = null },
         placeholder = "Message ${session.title}",
-        focusRequest = focusRequest,
+        // Choosing to reply raises the keyboard.
+        focusRequest = session.replyRequests,
     )
 }
 
