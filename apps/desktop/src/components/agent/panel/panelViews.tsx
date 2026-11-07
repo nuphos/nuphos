@@ -224,7 +224,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                 <DelayedPanelReveal>
                   <Composer
                     onSend={(text, filePaths, mentions) =>
-                      void sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions)
+                      sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions)
                     }
                     onStop={stopActive}
                     autoFocus={focusComposerOnOpen}
@@ -254,7 +254,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   )}
                   <Composer
                     onSend={(text, filePaths, mentions) =>
-                      void sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions)
+                      sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions)
                     }
                     onStop={stopActive}
                     promptSuggestion={

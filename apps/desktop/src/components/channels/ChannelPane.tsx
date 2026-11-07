@@ -22,6 +22,7 @@ import { HeaderEdge } from '../ui/header-edge'
 
 import type { AgentMessageMention, AgentMessageReply, AgentPersistedMessage } from '../../api'
 import type { UserInfo } from '../../types'
+import type { SendResult } from '../agent/panel/composerSend'
 import type { AgentPromptSeed } from '../agent/panel/model'
 import type { ReactNode } from 'react'
 
@@ -74,7 +75,21 @@ export function ChannelPane({
   // Open at the latest post, and follow new ones and the typing bubble.
   const stickToBottom = useStickToBottom(scrollRef)
 
-  const send = async (text: string, filePaths: string[], mentions?: AgentMessageMention[]) => {
+  // A channel post takes the draft the moment its optimistic card is rendered
+  // (in `postDraft` below), so acceptance is reported at once rather than after
+  // the round trip. A failure restores the draft through `setRestore`, which is
+  // this pane's own path — hence `true` either way.
+  const send = (
+    text: string,
+    filePaths: string[],
+    mentions?: AgentMessageMention[],
+  ): SendResult => {
+    void postDraft(text, filePaths, mentions)
+
+    return Promise.resolve(true)
+  }
+
+  async function postDraft(text: string, filePaths: string[], mentions?: AgentMessageMention[]) {
     if (!text.trim() && filePaths.length === 0) return
     const reply = replying ?? undefined
     const key = [reply?.id, text, ...filePaths].join('\n')
@@ -215,7 +230,7 @@ export function ChannelPane({
           </div>
         )}
         <Composer
-          onSend={(text, filePaths, mentions) => void send(text, filePaths, mentions)}
+          onSend={(text, filePaths, mentions) => send(text, filePaths, mentions)}
           onStop={() => {}}
           readOnly={detail?.readOnly === true}
           pendingSeed={restore}
