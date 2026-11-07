@@ -1,3 +1,6 @@
+// Must stay first: it sets userData before any other module reads it.
+// eslint-disable-next-line import-x/order -- the order is the point
+import { userDataDir } from './main/app-paths'
 import path from 'node:path'
 
 import { app, BrowserWindow, ipcMain, nativeTheme, net } from 'electron'
@@ -50,7 +53,7 @@ import {
   initDeepLinkWindowHooks,
 } from './main/deep-links'
 import { startDevBackendHealthProbe } from './main/dev-backend-health'
-import { APP_NAME, devSuffix, isDev } from './main/env'
+import { devSuffix, isDev } from './main/env'
 import { prepareFirstLaunch } from './main/first-launch'
 import './main/account-leave'
 import { initLocalRuntime, stopLocalRuntime } from './main/local-runtime'
@@ -100,10 +103,6 @@ for (const stream of [process.stdout, process.stderr]) {
   })
 }
 
-app.setName(APP_NAME)
-if (isDev) {
-  app.setPath('userData', path.join(app.getPath('appData'), APP_NAME))
-}
 watchCrashes()
 
 if (process.platform === 'darwin' && process.env.ATLAS_WT_BADGE) {
@@ -133,7 +132,7 @@ if (!isDev) {
 // Single-instance lock: required so deep-link relaunches on Windows / Linux are
 // delivered to the running window via `second-instance` instead of starting a
 // duplicate process.
-const claimIntro = prepareFirstLaunch(app.getPath('userData'))
+const claimIntro = prepareFirstLaunch(userDataDir)
 const gotInstanceLock = app.requestSingleInstanceLock()
 
 if (!gotInstanceLock) {
