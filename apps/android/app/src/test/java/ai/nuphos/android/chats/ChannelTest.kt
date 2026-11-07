@@ -84,6 +84,7 @@ class ChannelTest {
         }
         var details = mutableListOf<Int>()
         var stamp = "t1"; var count = 1
+        var title = "release-planning"; var avatar = "05"
         var activity: Int? = null
         var failDetail = false
         var agentsCalls = 0
@@ -95,7 +96,8 @@ class ChannelTest {
             val mine = landed?.let { ",{\"id\":\"$it\",\"role\":\"user\",\"metadata\":{\"version\":1,\"sender\":{\"type\":\"user\",\"id\":\"me\",\"displayName\":\"Me\"},\"sentAt\":\"2026-11-03T09:40:00Z\"},\"parts\":[{\"type\":\"text\",\"text\":\"Posted\"}]}" }.orEmpty()
             val post = if (tail == 1) "" else POST + mine
             return Http.json.decodeFromString(
-                "{\"kind\":\"channel\",\"title\":\"release-planning\",\"transcriptUpdatedAt\":\"" + stamp +
+                "{\"kind\":\"channel\",\"title\":\"" + title + "\",\"faces\":[{\"id\":\"bot-1\",\"name\":\"" + title +
+                    "\",\"agent\":{\"avatar\":\"" + avatar + "\"}}],\"transcriptUpdatedAt\":\"" + stamp +
                     "\",\"messageCount\":" + count + ",\"activitySeq\":" + (activity ?: count) + ",\"messages\":[" + post + "]}")
         }
         override suspend fun agents(): List<ChannelAgent> { agentsCalls++; return listOf(ChannelAgent("agent-ops", "Release ops")) }
@@ -132,6 +134,21 @@ class ChannelTest {
         session.refresh()
         assertEquals(listOf(ChannelSession.TAIL, 1, 1, ChannelSession.TAIL), transport.details)
         assertEquals(2, transport.agentsCalls); assertEquals(2L, session.activitySeq)
+    }
+
+    @Test fun renamingTheBotReadsTheChatAgainWithoutAPost() = runTest {
+        val transport = FakeTransport()
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        session.refresh(force = true)
+        transport.title = "Scout"
+        session.refresh()
+        assertEquals(listOf(ChannelSession.TAIL, 1, ChannelSession.TAIL), transport.details)
+        assertEquals("Scout", session.title); assertEquals("Scout", session.faces.single().name)
+        transport.avatar = "07"
+        session.refresh()
+        assertEquals("A new face reads it again too", listOf(ChannelSession.TAIL, 1, ChannelSession.TAIL, 1, ChannelSession.TAIL), transport.details)
+        session.refresh()
+        assertEquals("Then it is unchanged", 6, transport.details.size)
     }
 
     @Test fun returningEndsOnlyWithThePollsOwnGoodRead() = runTest {
