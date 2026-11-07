@@ -66,24 +66,23 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
         }
     }
     val rows = store.botsList
-    fun open(row: AgentConversation) {
-        if (row.isChannel) {
-            nav.navigate("channel/${android.net.Uri.encode(row.sessionId)}") { launchSingleTop = true }
-            return
-        }
-        // A Bot's chat is made on the first tap. The list stays up meanwhile, so a failure has a place to show.
+    // A Bot's chat is made on the first tap. The list stays up meanwhile, so a failure has a place to show.
+    fun openBot(botId: String) {
         scope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) {
-            val chat = store.openBotChat(row.sessionId) ?: return@launch
+            val chat = store.openBotChat(botId) ?: return@launch
             nav.navigate("channel/${android.net.Uri.encode(chat)}") { launchSingleTop = true }
         }
     }
-    var failed by remember { mutableStateOf<AgentConversation?>(null) }
     store.botChatError?.let { message ->
         AlertDialog(
             onDismissRequest = { store.clearBotChatError() },
             text = { Text(message) },
             dismissButton = { TextButton(onClick = { store.clearBotChatError() }) { Text("OK") } },
-            confirmButton = { TextButton(onClick = { store.clearBotChatError(); failed?.let(::open) }) { Text("Try again") } },
+            confirmButton = { TextButton(onClick = {
+                val botId = store.botChatFailedId
+                store.clearBotChatError()
+                botId?.let(::openBot)
+            }) { Text("Try again") } },
         )
     }
     Column(Modifier.fillMaxSize()) {
@@ -109,8 +108,8 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
         else -> LazyColumn(Modifier.fillMaxSize().testTag("chats-list")) {
             items(rows, key = { it.sessionId }) { row ->
                 ChatRow(row, selected = row.sessionId == selectedSessionId, opening = store.openingBotId == row.sessionId) {
-                    failed = row
-                    open(row)
+                    if (row.isChannel) nav.navigate("channel/${android.net.Uri.encode(row.sessionId)}") { launchSingleTop = true }
+                    else openBot(row.sessionId)
                 }
             }
         }

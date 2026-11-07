@@ -41,6 +41,7 @@ class BotsPageFixtureDeviceTest {
     private val teamA = Team("aaaaaaaaaaaaaaaaaaaaaaaa", "Fixture A")
     private val teamB = Team("bbbbbbbbbbbbbbbbbbbbbbbb", "Fixture B")
     private val writes = CopyOnWriteArrayList<String>()
+    private val added = CopyOnWriteArrayList<String>()
     private val originals = mutableMapOf<String, OkHttpClient>()
     private lateinit var store: AgentStore
     private var savedAccess: Any? = null
@@ -76,6 +77,8 @@ class BotsPageFixtureDeviceTest {
                     """{"sessionId":"chat-new"}"""
                 }
                 request.method == "POST" && path.endsWith("/agents") -> {
+                    val sent = okio.Buffer().also { request.body?.writeTo(it) }.readUtf8()
+                    added += ai.nuphos.android.data.JsonValue.parse(sent)?.get("sessionId")?.stringValue.orEmpty()
                     if (failAddingBot) return@addInterceptor Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
                         .code(500).message("fixture").body("""{"error":{"message":"Synthetic failure"}}""".toResponseBody(Http.jsonMedia)).build()
                     chats = """{"sessionId":"chat-new","title":"Grace","kind":"channel","lastActiveAt":"2026-11-03T13:00:00Z",""" +
@@ -185,6 +188,28 @@ class BotsPageFixtureDeviceTest {
         waitText("Opened chat-new")
         assertEquals("One chat", 1, posts("/agent/channels"))
         assertEquals("Added twice to it", 2, posts("/agents"))
+    }
+
+    @Test fun tryingAgainMeansTheBotThatFailedNotTheLastRowTapped() {
+        history = bot("bot-waiting", "Grace", "2026-11-03T12:15:00Z") + "," + bot("bot-other", "Hopper", "2026-11-03T12:10:00Z")
+        val release = CountDownLatch(1)
+        channelHeld = release
+        failAddingBot = true
+        render()
+        waitRow("bot-waiting")
+        waitRow("bot-other")
+        row("bot-waiting").performClick()
+        assertTrue(channelEntered.await(5, TimeUnit.SECONDS))
+        // Tapped while the first is still being made: this one mustn't take over the failure.
+        row("bot-other").performClick()
+        compose.runOnIdle { release.countDown() }
+        waitText("Couldn't open this Bot. Try again.")
+        assertEquals(listOf("bot-waiting"), added.toList())
+        failAddingBot = false
+        compose.onNodeWithText("Try again").performClick()
+        waitText("Opened chat-new")
+        assertEquals(listOf("bot-waiting", "bot-waiting"), added.toList())
+        assertEquals("One chat", 1, posts("/agent/channels"))
     }
 
     @Test fun switchingTeamWhileAChatIsMadeOpensNothing() {

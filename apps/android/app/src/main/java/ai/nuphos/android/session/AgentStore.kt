@@ -145,7 +145,10 @@ class AgentStore(
         private set
     var botChatError by mutableStateOf<String?>(null)
         private set
-    fun clearBotChatError() { botChatError = null }
+    /** The Bot [botChatError] is about, so trying again means that Bot and not the last row tapped. */
+    var botChatFailedId by mutableStateOf<String?>(null)
+        private set
+    fun clearBotChatError() { botChatError = null; botChatFailedId = null }
     /** Chats made for a Bot that didn't get added, so trying again doesn't leave another empty chat. */
     private val unfinishedBotChats = mutableMapOf<String, String>()
 
@@ -159,7 +162,7 @@ class AgentStore(
         fun current() = !disposed && hasAiAccess() && AiAccess.revision == consent &&
             selectedTeam?.id == team && workspaceRevision == workspace
         openingBotId = botId
-        botChatError = null
+        clearBotChatError()
         try {
             val chat = unfinishedBotChats[botId] ?: BotActions.createChannel(token, team)
             if (!current()) return null
@@ -172,7 +175,7 @@ class AgentStore(
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (_: Exception) {
-            if (current()) botChatError = "Couldn't open this Bot. Try again."
+            if (current()) { botChatError = "Couldn't open this Bot. Try again."; botChatFailedId = botId }
             return null
         } finally {
             if (workspaceRevision == workspace) openingBotId = null
@@ -285,7 +288,7 @@ class AgentStore(
         channelsLoaded = false
         unfinishedBotChats.clear()
         openingBotId = null
-        botChatError = null
+        clearBotChatError()
         channelSessions.clear()
         channelReads.clear()
         agentTurns = emptyMap()
