@@ -8,7 +8,8 @@ enum ChatRowTests {
         preservesVerifiedSender()
         foldsDeliveredMessagesIntoEventLines()
         decodesSharedConversationPermissions()
-        skipsMessagesThatDoNotDecode()
+        keepsThePlaceOfMessagesThatDoNotDecode()
+        windowStartsAfterUnreadableMessages()
         groupsThinkingButNotNarration()
         streamsCodexThinkingIntoOneRun()
         foldsFinishedWorkUnderOneHeader()
@@ -131,11 +132,40 @@ enum ChatRowTests {
         precondition(canonical.sender?.name == "Grok Bot · via Yuanlin Lin" && canonical.event == nil)
     }
 
-    private static func skipsMessagesThatDoNotDecode() {
-        // #1150: a message without an id, or with a role the app does not know, drops out; the rest still load.
-        let json = #"{"messages":[{"id":"a","role":"user","parts":[]},{"role":"user","parts":[]},{"id":"c","role":"tool","parts":[]},"oops",{"id":"d","role":"assistant","parts":[]}]}"#
+    private static func keepsThePlaceOfMessagesThatDoNotDecode() {
+        // #1150: a message without an id, or with a role the app does not know, doesn't fail the rest.
+        // #1762: it keeps its place, so list index + messagesFirstIndex is still the server position.
+        let json = #"{"messagesFirstIndex":10,"messages":[{"id":"a","role":"user","parts":[]},{"role":"user","parts":[]},{"id":"c","role":"tool","parts":[]},"oops",{"id":"d","role":"assistant","parts":[]}]}"#
         let detail = try! JSONDecoder().decode(AgentConversationDetail.self, from: Data(json.utf8))
-        precondition(detail.messages.map(\.id) == ["a", "d"])
+        precondition(detail.messages.map(\.id) == ["a", "unreadable-message-11", "unreadable-message-12", "unreadable-message-13", "d"])
+        precondition(detail.messages.map(\.isUnreadable) == [false, true, true, true, false])
+        precondition(detail.messages.filter(\.isUnreadable).allSatisfy { $0.role == .system && $0.parts.isEmpty })
+    }
+
+    private static func windowStartsAfterUnreadableMessages() {
+        func user(_ id: String) -> ChatMessage { ChatMessage(id: id, role: .user, parts: []) }
+        func reply(_ id: String) -> ChatMessage { ChatMessage(id: id, role: .assistant, parts: []) }
+        func ids(_ window: (messages: [ChatMessage], baseIndex: Int)) -> [String] { window.messages.map(\.id) }
+
+        // Nothing unreadable: the window is what it always was.
+        let plain = [user("a"), reply("b"), user("c"), reply("d")]
+        precondition(ids(ChatMessage.transcriptWindow(plain, base: 10, full: false)) == ["c", "d"])
+        precondition(ChatMessage.transcriptWindow(plain, base: 10, full: false).baseIndex == 12)
+        precondition(ids(ChatMessage.transcriptWindow(plain, base: 10, full: true)) == ["a", "b", "c", "d"])
+        precondition(ChatMessage.transcriptWindow(plain, base: 10, full: true).baseIndex == 10)
+
+        // Before the last user message: the window starts at that message, at its server position.
+        let before = [user("a"), .unreadable(at: 11), reply("b"), user("c")]
+        precondition(ids(ChatMessage.transcriptWindow(before, base: 10, full: false)) == ["c"])
+        precondition(ChatMessage.transcriptWindow(before, base: 10, full: false).baseIndex == 13)
+        // A full resend still leaves out the placeholder and what the server keeps before it.
+        precondition(ids(ChatMessage.transcriptWindow(before, base: 10, full: true)) == ["b", "c"])
+        precondition(ChatMessage.transcriptWindow(before, base: 10, full: true).baseIndex == 12)
+
+        // After the last user message: the window starts after the placeholder.
+        let after = [user("a"), .unreadable(at: 11), reply("b")]
+        precondition(ids(ChatMessage.transcriptWindow(after, base: 10, full: false)) == ["b"])
+        precondition(ChatMessage.transcriptWindow(after, base: 10, full: false).baseIndex == 12)
     }
 
     private static func decodesSharedConversationPermissions() {

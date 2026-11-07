@@ -238,7 +238,7 @@ private struct LossyMessage: Decodable {
             message = try ChatMessage(from: decoder)
         } catch {
             message = nil
-            Logger(subsystem: "ai.nuphos.ios", category: "chat").error("skipped undecodable message: \(String(describing: error), privacy: .public)")
+            Logger(subsystem: "ai.nuphos.ios", category: "chat").error("hid undecodable message: \(String(describing: error), privacy: .public)")
         }
     }
 }
@@ -297,8 +297,13 @@ struct AgentConversationDetail: Decodable, Sendable {
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        messages = try c.decodeIfPresent([LossyMessage].self, forKey: .messages)?.compactMap(\.message) ?? []
         messagesFirstIndex = try c.decodeIfPresent(Int.self, forKey: .messagesFirstIndex)
+        // Positions in this list are positions on the server, so a message that
+        // can't be decoded keeps its place as a hidden placeholder.
+        let first = messagesFirstIndex ?? 0
+        messages = (try c.decodeIfPresent([LossyMessage].self, forKey: .messages) ?? []).enumerated().map { index, entry in
+            entry.message ?? .unreadable(at: first + index)
+        }
         activeRun = try? c.decodeIfPresent(ActiveRun.self, forKey: .activeRun)
         runtimeState = try c.decodeIfPresent(JSONValue.self, forKey: .runtimeState)
         isOwner = try c.decodeIfPresent(Bool.self, forKey: .isOwner)

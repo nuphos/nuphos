@@ -17,7 +17,7 @@ extension ChatRow {
 
         for (index, message) in messages.enumerated() {
             rows.append(contentsOf: (timeline.before[index] ?? []).map(timelineRow))
-            let previous = index > 0 ? messages[index - 1].createdAt : nil
+            let previous = messages[..<index].last(where: { !$0.isUnreadable })?.createdAt
             switch message.role {
             case .user:
                 if let event = message.event {
