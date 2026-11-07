@@ -208,6 +208,12 @@ class AgentStore(
         creatingBot = true
         newBotError = null
         try {
+            // A Bot with no runtime to run on would take posts and never answer, without saying why.
+            if (newBotWaitingForChat == null && runtime == null &&
+                ai.nuphos.android.data.AgentRuntimeApi(token, team).catalog().isEmpty()) {
+                if (current()) newBotError = "This workspace has no runtime yet. Add one on the Runtimes page, then create your Bot."
+                return null
+            }
             val bot = newBotWaitingForChat ?: BotActions.create(token, team, title, avatar,
                 runtime?.runtimeId, runtime?.agentRuntime, runtime?.displayLabel)
             if (!current()) return null

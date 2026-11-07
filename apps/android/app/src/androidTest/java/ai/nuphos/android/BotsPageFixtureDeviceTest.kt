@@ -49,6 +49,7 @@ class BotsPageFixtureDeviceTest {
     @Volatile private var history = ""
     @Volatile private var failAddingBot = false
     @Volatile private var failCreatingBot = false
+    @Volatile private var noRuntimes = false
     private val created = CopyOnWriteArrayList<Pair<String, String>>()
     @Volatile private var channelHeld: CountDownLatch? = null
     private val channelEntered = CountDownLatch(1)
@@ -73,6 +74,9 @@ class BotsPageFixtureDeviceTest {
             val path = request.url.encodedPath
             if (request.method != "GET") writes += "${request.method} $path"
             val body = when {
+                request.method == "GET" && path.endsWith("/agent-runtimes") ->
+                    if (noRuntimes) """{"runtimes":[]}"""
+                    else """{"runtimes":[{"id":"r1","provider":"codex","label":"Synthetic runtime","status":"active","kind":"managed"}]}"""
                 request.method == "POST" && path == "/agent/bots" -> {
                     if (failCreatingBot) return@addInterceptor Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
                         .code(500).message("fixture").body("""{"error":{"message":"Synthetic failure"}}""".toResponseBody(Http.jsonMedia)).build()
@@ -264,6 +268,23 @@ class BotsPageFixtureDeviceTest {
         nameField().performTextReplacement("  " + "x".repeat(120) + "  ")
         create().assertIsEnabled()
         assertEquals(0, posts("/agent/bots"))
+    }
+
+    @Test fun aWorkspaceWithNoRuntimeMakesNoBotAndSaysWhy() {
+        noRuntimes = true
+        render()
+        openSheet()
+        nameField().performTextInput("Grace")
+        create().performClick()
+        waitText("This workspace has no runtime yet. Add one on the Runtimes page, then create your Bot.")
+        assertEquals("No Bot", 0, posts("/agent/bots"))
+        assertEquals("No chat", 0, posts("/agent/channels"))
+        nameField().assertTextContains("Grace")
+        // Once there's a runtime, the same sheet works.
+        noRuntimes = false
+        create().performClick()
+        waitText("Opened chat-new")
+        assertEquals(1, posts("/agent/bots"))
     }
 
     @Test fun aNewBotSendsItsNameAndFaceAndOpensItsChat() {
