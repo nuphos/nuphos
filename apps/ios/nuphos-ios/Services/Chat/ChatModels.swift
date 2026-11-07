@@ -269,8 +269,23 @@ enum ChatPart: Equatable, Sendable {
             case terminal, read, write, edit, search, fetch, todos, question, task, plan, skill, memory, chart, generic
         }
 
+        /// A `request_user_decision` asking for a secret (category
+        /// `credential` with a `secretName`): the secure input card.
+        var secretRequest: (name: String, reason: String)? {
+            guard input?["category"]?.stringValue == "credential",
+                  let name = input?["secretName"]?.stringValue,
+                  name.range(of: #"^[A-Za-z][A-Za-z0-9_]{0,63}$"#, options: .regularExpression) != nil else { return nil }
+            return (name, input?["question"]?.stringValue ?? "")
+        }
+
+        /// The request id the decision's result names; the call id otherwise.
+        var decisionRequestId: String {
+            output?["requestId"]?.stringValue ?? toolCallId
+        }
+
         var kind: Kind {
             let lower = toolName.lowercased()
+            if secretRequest != nil { return .question }
             if ["plan_create", "database_change_propose"].contains(lower) { return .plan }
             if lower == "save_memory" || lower == "memory_get" { return .memory }
             if lower == "render_chart" { return .chart }
