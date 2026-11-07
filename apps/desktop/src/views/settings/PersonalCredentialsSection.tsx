@@ -185,7 +185,7 @@ export function PersonalCredentialsSection({
                           : t('Needs a Google OAuth client in Team settings.')}{' '}
                         <button
                           type="button"
-                          className="text-primary hover:underline"
+                          className="text-link hover:underline"
                           onClick={() => void api.appOpenExternal(GOOGLE_CLIENT_GUIDE_URL)}
                         >
                           {t('Setup guide')}
@@ -196,7 +196,7 @@ export function PersonalCredentialsSection({
                             {' · '}
                             <button
                               type="button"
-                              className="text-primary hover:underline"
+                              className="text-link hover:underline"
                               onClick={() => onOpenSection(TEAM_SETTINGS_DEFAULT_SECTION)}
                             >
                               {t('Open Team settings')}

@@ -46,7 +46,7 @@ function contrast(a, b) {
 test('every text level stays readable on every opaque surface (WCAG AA, 4.5:1)', () => {
   for (const [themeName, theme] of Object.entries(themes)) {
     for (const surface of ['surface.canvas', 'surface.sheet', 'surface.raised', 'surface.sunken']) {
-      for (const text of ['text.primary', 'text.secondary', 'text.tertiary']) {
+      for (const text of ['text.primary', 'text.secondary', 'text.tertiary', 'text.link']) {
         const ratio = contrast(theme[text], theme[surface])
 
         assert.ok(ratio >= 4.5, `${themeName}: ${text} on ${surface} is ${ratio.toFixed(2)}:1`)
@@ -70,7 +70,7 @@ test('text stays readable on hovered and selected rows of the canvas and sheet',
       for (const state of ['state.hover', 'state.selected']) {
         const background = over(theme[state], theme[surface])
 
-        for (const text of ['text.primary', 'text.secondary', 'text.tertiary']) {
+        for (const text of ['text.primary', 'text.secondary', 'text.tertiary', 'text.link']) {
           const ratio = contrast(theme[text], background)
 
           assert.ok(

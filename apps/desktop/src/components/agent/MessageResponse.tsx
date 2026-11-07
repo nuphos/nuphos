@@ -52,7 +52,7 @@ function extractText(node: ReactNode): string {
 export function ChatLink({
   link,
   onLinkClick,
-  className = 'text-primary hover:underline',
+  className = 'text-link hover:underline',
   title,
   'aria-label': ariaLabel,
   children,

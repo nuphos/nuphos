@@ -37,7 +37,7 @@ function StorageNavValue({ label, onClick }: { label: string; onClick?: () => vo
     <button
       type="button"
       onClick={onClick}
-      className="text-left text-primary hover:underline break-all"
+      className="text-left text-link hover:underline break-all"
     >
       {label}
     </button>

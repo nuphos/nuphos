@@ -13,15 +13,15 @@ change never means renaming code.
 
 ## Groups
 
-| Group     | Tokens                                        | Use                                              |
-| --------- | --------------------------------------------- | ------------------------------------------------ |
-| `surface` | `canvas`, `sheet`, `raised`, `sunken`         | Backgrounds, from the desk up                    |
-| `state`   | `hover`, `selected`                           | Translucent tints over any surface               |
-| `text`    | `primary`, `secondary`, `tertiary`, `inverse` | Text and icons                                   |
-| `line`    | `control`, `focus`                            | Control borders and focus rings only             |
-| `action`  | `primary`                                     | The one primary action in a view                 |
-| `status`  | `success`, `warning`, `danger`, `attention`   | Meaningful states; `attention` is "needs you"    |
-| `data`    | `1`                                           | Charts and heatmaps; vary intensity with opacity |
+| Group     | Tokens                                                | Use                                                |
+| --------- | ----------------------------------------------------- | -------------------------------------------------- |
+| `surface` | `canvas`, `sheet`, `raised`, `sunken`                 | Backgrounds, from the desk up                      |
+| `state`   | `hover`, `selected`                                   | Translucent tints over any surface                 |
+| `text`    | `primary`, `secondary`, `tertiary`, `inverse`, `link` | Text and icons; `link` marks links in running text |
+| `line`    | `control`, `focus`                                    | Control borders and focus rings only               |
+| `action`  | `primary`                                             | The one primary action in a view                   |
+| `status`  | `success`, `warning`, `danger`, `attention`           | Meaningful states; `attention` is "needs you"      |
+| `data`    | `1`                                                   | Charts and heatmaps; vary intensity with opacity   |
 
 There is no divider token on purpose: areas are separated by surfaces, not lines.
 

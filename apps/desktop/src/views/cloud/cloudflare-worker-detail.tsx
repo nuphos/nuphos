@@ -127,7 +127,7 @@ export function CloudflareWorkerDetailView({
               <span className="text-[12px] font-medium text-main">{t('Cron triggers')}</span>
               <button
                 onClick={() => setEditingCron(true)}
-                className="text-[12px] text-primary hover:underline flex items-center gap-1"
+                className="text-[12px] text-link hover:underline flex items-center gap-1"
               >
                 <FontAwesomeIcon icon={faPencil} className="w-3 h-3" /> {t('Edit')}
               </button>

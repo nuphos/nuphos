@@ -55,7 +55,7 @@ export function PagesDomainsSection({
         <span className="text-[12px] font-medium text-main">{t('Custom domains')}</span>
         <button
           onClick={() => setAdding((v) => !v)}
-          className="text-[12px] text-primary hover:underline flex items-center gap-1"
+          className="text-[12px] text-link hover:underline flex items-center gap-1"
         >
           <FontAwesomeIcon icon={faPlus} className="w-3 h-3" /> {t('Add')}
         </button>

@@ -232,7 +232,7 @@ export function S3ObjectPreviewPanel({
               type="button"
               onClick={onDownload}
               disabled={!getDownloadUrl}
-              className="inline-flex items-center gap-1 text-[12px] text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+              className="inline-flex items-center gap-1 text-[12px] text-link hover:underline disabled:opacity-50 disabled:no-underline"
               title={t('Download via presigned URL')}
             >
               <Download className="w-3.5 h-3.5" strokeWidth={1.8} />

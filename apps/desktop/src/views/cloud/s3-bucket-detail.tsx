@@ -226,7 +226,7 @@ export function S3BucketDetailView({
                   type="button"
                   onClick={loadMore}
                   disabled={paging || !nextToken}
-                  className="text-[12px] text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                  className="text-[12px] text-link hover:underline disabled:opacity-50 disabled:no-underline"
                 >
                   {paging ? t('Loading…') : t('Load more')}
                 </button>

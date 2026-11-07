@@ -77,7 +77,7 @@ function CheckRow({ check }: { check: GithubPRCheck }) {
       {detailsUrl && (
         <button
           type="button"
-          className="shrink-0 rounded text-primary hover:underline"
+          className="shrink-0 rounded text-link hover:underline"
           onClick={() => openOnGithub(detailsUrl)}
         >
           Details

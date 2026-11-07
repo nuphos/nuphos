@@ -245,7 +245,7 @@ export function CloudRunServicesView({
                   href={r.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-mono text-[12px] text-primary hover:underline truncate block max-w-full"
+                  className="font-mono text-[12px] text-link hover:underline truncate block max-w-full"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {r.url}
