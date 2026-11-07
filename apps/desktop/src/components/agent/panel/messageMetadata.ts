@@ -12,7 +12,11 @@ function parseReplyTo(value: unknown): AgentMessageMetadata['replyTo'] {
   const r = value as Partial<NonNullable<AgentMessageMetadata['replyTo']>> | undefined
 
   return typeof r?.authorName === 'string' && r.authorName && typeof r.text === 'string' && r.text
-    ? { authorName: r.authorName, text: r.text }
+    ? {
+        ...(typeof r.id === 'string' && r.id ? { id: r.id } : {}),
+        authorName: r.authorName,
+        text: r.text,
+      }
     : undefined
 }
 

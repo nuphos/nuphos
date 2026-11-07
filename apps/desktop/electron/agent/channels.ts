@@ -66,7 +66,8 @@ export async function removeChannelAgent(
 
 /**
  * `id` makes a resend the same message; `upload` is a finished upload's group;
- * `mentions` are the user ids of the composer's mention chips.
+ * `mentions` are the user ids of the composer's mention chips; `replyTo` is the
+ * id of the post it answers.
  */
 export async function postChannelMessage(
   channelId: string,
@@ -75,12 +76,14 @@ export async function postChannelMessage(
   id: string,
   upload?: string,
   mentions?: string[],
+  replyTo?: string,
 ): Promise<{ id: string }> {
   return callJsonForRenderer('POST', `${at(channelId)}/channel-messages${teamQuery(teamId)}`, {
     text,
     id,
     ...(upload ? { upload } : {}),
     ...(mentions?.length ? { mentions } : {}),
+    ...(replyTo ? { replyTo } : {}),
   })
 }
 

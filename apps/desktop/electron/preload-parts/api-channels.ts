@@ -36,6 +36,16 @@ export const channelsApi = {
     id: string,
     upload?: string,
     mentions?: string[],
+    replyTo?: string,
   ) =>
-    ipcRenderer.invoke('agent:postChannelMessage', channelId, teamId, text, id, upload, mentions),
+    ipcRenderer.invoke(
+      'agent:postChannelMessage',
+      channelId,
+      teamId,
+      text,
+      id,
+      upload,
+      mentions,
+      replyTo,
+    ),
 }

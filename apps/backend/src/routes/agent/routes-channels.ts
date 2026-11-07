@@ -18,7 +18,7 @@ import {
 import { addConversationParticipants } from '@/lib/agent/db/participants'
 import { channelUploadPart, resolveChannelFiles } from '@/lib/agent/channel-attachments'
 import { channelFacesField } from '@/lib/agent/channel-faces'
-import { postChannelMessage } from '@/lib/agent/channel-chat'
+import { postChannelMessage, replyQuote } from '@/lib/agent/channel-chat'
 import { resolveMentions } from '@/lib/agent/mentions'
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { AppError } from '@/lib/errors'
@@ -223,6 +223,10 @@ channelRoutes.post('/conversations/:sessionId/channel-messages', async (c) => {
   ])
 
   if (mentions.length > 0) metadata.mentions = mentions
+  // A reply quotes what it answers, as the server read it; an unknown id is no reply.
+  const replyTo = await replyQuote(channel, body.replyTo)
+
+  if (replyTo) metadata.replyTo = replyTo
   await postChannelMessage(channel, { id, text, metadata, files: upload ? [upload] : [] })
   // Speaking in a channel is joining it, as it is anywhere else.
   if (userId !== channel.userId) await addConversationParticipants(channel.sessionId, [userId])

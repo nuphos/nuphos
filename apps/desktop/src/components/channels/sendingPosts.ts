@@ -1,6 +1,10 @@
 import { optimisticSenderMetadata } from '../agent/panel/optimisticSender.ts'
 
-import type { AgentMessageMention, AgentPersistedMessage } from '../../api/agent-types'
+import type {
+  AgentMessageMention,
+  AgentMessageReply,
+  AgentPersistedMessage,
+} from '../../api/agent-types'
 import type { UserInfo } from '../../types'
 
 /**
@@ -13,9 +17,14 @@ export function sendingPost(
   user: UserInfo,
   upload?: object,
   mentions?: AgentMessageMention[],
+  replyTo?: AgentMessageReply,
 ): AgentPersistedMessage {
   const sender = optimisticSenderMetadata(user, Date.now())
-  const metadata = sender && mentions?.length ? { ...sender, mentions } : sender
+  const metadata = sender && {
+    ...sender,
+    ...(mentions?.length ? { mentions } : {}),
+    ...(replyTo ? { replyTo } : {}),
+  }
 
   return {
     id,

@@ -1,4 +1,5 @@
 import { clsx } from 'clsx'
+import { CornerUpLeft, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 
 import { api } from '../../api'
@@ -9,6 +10,7 @@ import { composerDraftKey } from '../agent/panel/composerDrafts'
 import { FileDropZone } from '../agent/panel/FileDropZone'
 import { useConversationRead } from '../agent/panel/useConversationRead'
 import { SessionParticipants } from '../agent/SessionParticipants'
+import { IconButton } from '../ui/icon-button'
 import { toast } from '../ui/toast'
 
 import { ChannelMessages } from './ChannelMessages'
@@ -18,7 +20,7 @@ import { useChannel } from './useChannel'
 import { useStickToBottom } from './useStickToBottom'
 import { HeaderEdge } from '../ui/header-edge'
 
-import type { AgentMessageMention, AgentPersistedMessage } from '../../api'
+import type { AgentMessageMention, AgentMessageReply, AgentPersistedMessage } from '../../api'
 import type { UserInfo } from '../../types'
 import type { AgentPromptSeed } from '../agent/panel/model'
 import type { ReactNode } from 'react'
@@ -55,6 +57,9 @@ export function ChannelPane({
   const unsent = useRef<{ key: string; id: string } | null>(null)
   // Posts shown at once, until the channel returns them under the same id.
   const [sending, setSending] = useState<AgentPersistedMessage[]>([])
+  // The post the next one answers, quoted above the composer.
+  const [replying, setReplying] = useState<AgentMessageReply | null>(null)
+  const composerRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   // Files dropped anywhere on the chat go to its composer, as in a conversation.
   const dropRef = useRef<((dt: DataTransfer) => void) | null>(null)
@@ -71,16 +76,18 @@ export function ChannelPane({
 
   const send = async (text: string, filePaths: string[], mentions?: AgentMessageMention[]) => {
     if (!text.trim() && filePaths.length === 0) return
-    const key = [text, ...filePaths].join('\n')
+    const reply = replying ?? undefined
+    const key = [reply?.id, text, ...filePaths].join('\n')
     const id = unsent.current?.key === key ? unsent.current.id : crypto.randomUUID()
     // Files take the conversation's upload path: shown at once, uploaded, then posted.
     const files = filePaths.length > 0 ? makeAttachmentTurn(text, filePaths, teamId) : null
 
     unsent.current = { key, id }
     stickToBottom()
+    setReplying(null)
     setSending((posts) => [
       ...posts,
-      sendingPost(id, text, user, files?.optimisticPart(), mentions),
+      sendingPost(id, text, user, files?.optimisticPart(), mentions, reply),
     ])
     try {
       const upload = files ? (await files.runUpload(undefined)).groupId : undefined
@@ -92,11 +99,13 @@ export function ChannelPane({
         id,
         upload,
         mentions?.map((mention) => mention.id),
+        reply?.id,
       )
     } catch (error) {
       setSending((posts) => posts.filter((post) => post.id !== id))
       toast.apiError(t('Could not send the message'), error)
       setRestore({ text, filePaths, nonce: Date.now() })
+      setReplying(reply ?? null)
 
       return
     }
@@ -163,11 +172,48 @@ export function ChannelPane({
               onOpenSession={onOpenSession}
               onOpenNuphosLink={onOpenNuphosLink}
               channelId={channelId}
+              onReply={
+                detail.readOnly
+                  ? undefined
+                  : (reply) => {
+                      setReplying(reply)
+                      // After the menu hands focus back to where it was opened.
+                      requestAnimationFrame(() =>
+                        composerRef.current
+                          ?.querySelector<HTMLElement>('[contenteditable="true"]')
+                          ?.focus(),
+                      )
+                    }
+              }
             />
           )}
         </div>
       </HeaderEdge>
-      <div className="mx-auto w-full max-w-[760px] px-3 pb-3">
+      <div
+        ref={composerRef}
+        className="mx-auto w-full max-w-[760px] px-3 pb-3"
+        onKeyDown={(event) => {
+          if (event.key === 'Escape' && replying && !event.defaultPrevented) setReplying(null)
+        }}
+      >
+        {replying && (
+          <div className="mx-3 mb-1.5 flex items-center gap-2 rounded-xl bg-state-hover py-1 pl-3 pr-1 text-xs leading-4">
+            <CornerUpLeft className="h-3.5 w-3.5 shrink-0 text-tertiary" strokeWidth={2.2} />
+            <div className="min-w-0 flex-1 truncate text-tertiary">
+              <span className="font-medium text-secondary">
+                {t('Replying to {name}', { name: replying.authorName })}
+              </span>{' '}
+              {replying.text}
+            </div>
+            <IconButton
+              size="sm"
+              label={t('Cancel reply')}
+              shortcut="Esc"
+              icon={<X />}
+              onClick={() => setReplying(null)}
+            />
+          </div>
+        )}
         <Composer
           onSend={(text, filePaths, mentions) => void send(text, filePaths, mentions)}
           onStop={() => {}}

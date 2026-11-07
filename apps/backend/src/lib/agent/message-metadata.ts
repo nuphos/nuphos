@@ -21,8 +21,11 @@ export type MessageMetadata = {
   sentAt: string
   sourceSessionId?: string
   resourceUrl?: string
-  /** The message this one replies to. Third-party text, so never inside the JSON block. */
-  replyTo?: { authorName: string; text: string }
+  /**
+   * The message this one replies to. Third-party text, so never inside the JSON block.
+   * `id` is the original's in the same chat, for a channel reply.
+   */
+  replyTo?: { id?: string; authorName: string; text: string }
   /** A Discord author with no verified Nuphos identity: the body is fenced for the model. */
   unattested?: true
   /** The stored CLI or agent token that sent it, for audit. */
@@ -89,7 +92,11 @@ export function parseMessageMetadata(value: unknown): MessageMetadata | undefine
   const mentions = m.source === 'nuphos' ? parseMentions(m.mentions) : undefined
   const replyTo =
     m.replyTo && nonEmpty(m.replyTo.authorName) && nonEmpty(m.replyTo.text)
-      ? { authorName: m.replyTo.authorName, text: m.replyTo.text }
+      ? {
+          ...(nonEmpty(m.replyTo.id) ? { id: m.replyTo.id } : {}),
+          authorName: m.replyTo.authorName,
+          text: m.replyTo.text,
+        }
       : undefined
 
   return {

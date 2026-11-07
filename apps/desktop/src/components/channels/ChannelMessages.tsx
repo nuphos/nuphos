@@ -1,194 +1,30 @@
-import clsx from 'clsx'
-import { Pause } from 'lucide-react'
+import { CornerUpLeft, Pause } from 'lucide-react'
 import { Fragment, useCallback, useState } from 'react'
 
 import { t } from '../../i18n'
-import { trustedAvatarURL } from '../../lib/avatarUrl'
-import { AgentAvatar } from '../agent/AgentAvatar'
-import { MessageResponse } from '../agent/MessageResponse'
 import { useAgentLinks } from '../agent/panel/useAgentLinks'
 import { renderMemberMentionLink } from '../agent/panel/messageInlineLinks'
-import { linkMentions } from '../agent/panel/messageMentionText'
 import { parseMessageMetadata } from '../agent/panel/messageMetadata'
-import { Avatar } from '../Avatar'
+import { ContextMenu } from '../ContextMenu'
 
-import { ChannelFiles } from './ChannelFiles'
-import { speaksInChannel } from './channelSpeakers'
-import { exactTime, startsTimeGap, timeGapLabel } from './chatTime'
-import { channelFiles } from './postFiles'
+import { replyTo } from './channelReply'
+import { ChannelMessage } from './ChannelPost'
+import { startsTimeGap, timeGapLabel } from './chatTime'
 import { Typing } from './ChannelTyping'
 
-import type { AgentPersistedMessage, AgentTimelineEvent, ChannelAgent } from '../../api'
+import type {
+  AgentMessageReply,
+  AgentPersistedMessage,
+  AgentTimelineEvent,
+  ChannelAgent,
+} from '../../api'
 import type { ReactNode } from 'react'
-
-type Links = {
-  renderLink: (href: string, children: ReactNode) => ReactNode
-  onLinkClick?: (href: string, beside?: boolean) => boolean
-  /** The chat: its files load through it, so every member sees them. */
-  channelId: string
-}
-
-function textOf(message: AgentPersistedMessage): string {
-  return message.parts
-    .flatMap((part) => {
-      const { type, text } = part as { type?: unknown; text?: unknown }
-
-      return type === 'text' && typeof text === 'string' ? [text] : []
-    })
-    .join('\n')
-}
 
 /** Who posted: the sender's id, so consecutive posts from one sender form a run. */
 function senderOf(message: AgentPersistedMessage): string | undefined {
   const metadata = parseMessageMetadata(message.metadata)
 
   return metadata ? (metadata.sourceSessionId ?? metadata.sender.id) : undefined
-}
-
-/**
- * One post: yours on the right, everyone else's in a bubble on the left. The
- * first post of a run carries the avatar and name; an agent's open its session.
- */
-function ChannelMessage({
-  message,
-  at,
-  first,
-  fresh,
-  ownAgent,
-  viewerId,
-  teamId,
-  links,
-  onOpenSession,
-}: {
-  message: AgentPersistedMessage
-  /** When it was posted: the exact time shows on hover. */
-  at: number
-  first: boolean
-  /** Arrived while the channel was open: it springs in. */
-  fresh: boolean
-  /** The viewer's own agent: its face and name open its session. */
-  ownAgent: boolean
-  viewerId: string
-  teamId: string
-  /** The same link handling as a conversation's messages: Nuphos links open in the app. */
-  links: Links
-  onOpenSession: (sessionId: string) => void
-}) {
-  const metadata = parseMessageMetadata(message.metadata)
-  const text = textOf(message)
-  const posted = channelFiles(message)
-
-  // A channel shows people and agents only; any other sender is not a post.
-  if (!metadata || !speaksInChannel(metadata.sender) || (!text && !posted.any)) return null
-  const { sender } = metadata
-  const agentId = sender.type === 'agent' ? (metadata.sourceSessionId ?? sender.id) : null
-  const open = agentId && ownAgent ? () => onOpenSession(agentId) : null
-  const body = (
-    <MessageResponse
-      teamId={teamId}
-      className="[&_p]:whitespace-pre-wrap"
-      renderLink={links.renderLink}
-      onLinkClick={links.onLinkClick}
-    >
-      {linkMentions(text, metadata.mentions)}
-    </MessageResponse>
-  )
-
-  const mine = !agentId && sender.id === viewerId
-  // A person's files show above their words and an agent's below, as in a conversation.
-  const shown = (files: typeof posted) => (
-    <ChannelFiles files={files} teamId={teamId} channelId={links.channelId} mine={mine} />
-  )
-  const files = shown({ ...posted, downloads: [] })
-
-  if (mine)
-    return (
-      <div className="flex w-full items-start justify-end gap-2.5">
-        <div title={exactTime(at)} className="flex min-w-0 max-w-[85%] flex-col items-end gap-1">
-          {files}
-          {text && (
-            <div
-              className={clsx(
-                'user-message-bubble max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words',
-                fresh && 't-bubble-in-mine',
-              )}
-            >
-              {body}
-            </div>
-          )}
-        </div>
-        <div className="w-7 shrink-0">
-          {first && (
-            <Avatar
-              src={trustedAvatarURL(sender.avatarURL)}
-              name={sender.displayName}
-              size={28}
-              className="rounded-full ring-1 ring-black/5 dark:ring-white/10"
-            />
-          )}
-        </div>
-      </div>
-    )
-
-  return (
-    <div className="flex w-full items-start gap-2.5">
-      <div className="w-7 shrink-0">
-        {first &&
-          (agentId ? (
-            // Your own agent's face and name open its session.
-            open ? (
-              <button type="button" tabIndex={-1} onClick={open} className="rounded-full">
-                <AgentAvatar agentId={agentId} provider={sender.agentRuntime} size={28} />
-              </button>
-            ) : (
-              <AgentAvatar agentId={agentId} provider={sender.agentRuntime} size={28} />
-            )
-          ) : (
-            <Avatar
-              src={trustedAvatarURL(sender.avatarURL)}
-              name={sender.displayName}
-              size={28}
-              className="rounded-full ring-1 ring-black/5 dark:ring-white/10"
-            />
-          ))}
-      </div>
-      <div title={exactTime(at)} className="flex min-w-0 max-w-[85%] flex-col items-start gap-1">
-        {first && (
-          <div className="flex max-w-full items-center gap-2 px-1 text-xs leading-4">
-            {open ? (
-              <button
-                type="button"
-                title={t('Open session')}
-                onClick={open}
-                className="truncate font-medium text-secondary hover:underline"
-              >
-                {sender.displayName}
-              </button>
-            ) : (
-              <span className="truncate font-medium text-secondary">{sender.displayName}</span>
-            )}
-            {agentId && (
-              <span className="shrink-0 rounded bg-surface-hover px-1.5 py-0.5 text-[10px] text-tertiary">
-                {t('Agent')}
-              </span>
-            )}
-          </div>
-        )}
-        {files}
-        {text && (
-          <div
-            className={clsx(
-              'max-w-full rounded-2xl rounded-tl-md bg-state-selected px-3.5 py-2 break-words',
-              fresh && 't-bubble-in',
-            )}
-          >
-            {body}
-          </div>
-        )}
-        {shown({ ...posted, uploads: [] })}
-      </div>
-    </div>
-  )
 }
 
 /** The loop guard stopped agents answering agents: a line on the timeline. */
@@ -223,6 +59,7 @@ export function ChannelMessages({
   onOpenSession,
   onOpenNuphosLink,
   channelId,
+  onReply,
 }: {
   messages: AgentPersistedMessage[]
   events: AgentTimelineEvent[]
@@ -232,6 +69,8 @@ export function ChannelMessages({
   onOpenSession: (sessionId: string) => void
   onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
   channelId: string
+  /** Replies to a post; absent where the viewer cannot post. */
+  onReply?: (reply: AgentMessageReply) => void
 }) {
   const renderAgentLink = useAgentLinks(teamId, onOpenNuphosLink)
   // One function across renders: a new one makes every post rebuild its text,
@@ -247,6 +86,7 @@ export function ChannelMessages({
     agents.filter((agent) => agent.ownerId === viewerId).map((agent) => agent.sessionId),
   )
   const [initial] = useState(() => new Set(messages.map((message) => message.id)))
+  const [menu, setMenu] = useState<{ reply: AgentMessageReply; x: number; y: number } | null>(null)
   // Posts and timeline lines in the order they happened.
   const rows = [
     ...messages.map((message, i) => {
@@ -274,6 +114,14 @@ export function ChannelMessages({
               teamId={teamId}
               links={links}
               onOpenSession={onOpenSession}
+              onMenu={
+                onReply &&
+                ((event) => {
+                  const reply = replyTo(message)
+
+                  if (reply) setMenu({ reply, x: event.clientX, y: event.clientY })
+                })
+              }
             />
           </>
         ),
@@ -294,6 +142,21 @@ export function ChannelMessages({
         <Fragment key={row.key}>{row.node}</Fragment>
       ))}
       <Typing agents={agents} channelId={channelId} />
+      {menu && onReply && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            {
+              key: 'reply',
+              label: t('Reply'),
+              icon: CornerUpLeft,
+              onSelect: () => onReply(menu.reply),
+            },
+          ]}
+        />
+      )}
     </div>
   )
 }

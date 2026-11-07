@@ -14,6 +14,7 @@ import {
   CHANNEL_AGENT_TURN_BUDGET,
   postAsAgent,
   postChannelMessage,
+  replyQuote,
   wakeAfterTurn,
 } from './channel-chat'
 import { resolveMentions } from './mentions'
@@ -511,6 +512,24 @@ describe('reading a channel', () => {
     )
 
     expect(read.note).toContain('You are the only agent in this channel')
+  })
+
+  test('a reply quotes a capped snapshot of its original, which agents read', async () => {
+    await say(`deploy ${'x'.repeat(300)}`)
+    const quote = await replyQuote(await channel(), 'm1')
+
+    expect(quote).toEqual({ id: 'm1', authorName: 'Owner', text: `deploy ${'x'.repeat(193)}` })
+    expect(await replyQuote(await channel(), 'nope')).toBeUndefined()
+    await say('on it', { ...person, replyTo: quote })
+    // The original going leaves the quote as it was.
+    await agentMessages().deleteOne({ sessionId: 'channel', messageId: 'm1' })
+    const read = await readChannelMessages(await channel(), 'agent-a', 'agent-a-owner')
+
+    expect(read.messages.at(-1)).toMatchObject({
+      text: '<channel-message>\non it\n</channel-message>',
+      replyTo: `<channel-message>\nOwner: deploy ${'x'.repeat(193)}\n</channel-message>`,
+    })
+    expect(read.note).toContain('replyTo')
   })
 
   test('starts at the latest page, then returns only what is new', async () => {

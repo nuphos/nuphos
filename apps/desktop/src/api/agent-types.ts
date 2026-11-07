@@ -5,6 +5,9 @@ import type { AgentProvider } from '../types/runtime.ts'
 
 export type { AgentMessageMention, ChannelMention } from './mention-types.ts'
 
+/** The message a message replies to, e.g. a Discord reply; `id` is a channel post's. */
+export type AgentMessageReply = { id?: string; authorName: string; text: string }
+
 /** Someone on a conversation: its owner, or a teammate who joined it. */
 export type AgentConversationPerson = {
   id: string
@@ -226,8 +229,8 @@ export type AgentMessageMetadata = {
   sentAt: string
   /** The session an agent.thread message came from. */
   sourceSessionId?: string
-  /** The message this one replies to, e.g. a Discord reply. */
-  replyTo?: { authorName: string; text: string }
+  /** The message this one replies to. */
+  replyTo?: AgentMessageReply
   /** A Discord author with no verified Nuphos identity; the name is theirs to choose. */
   unattested?: true
   /** Teammates it @mentions, as the server resolved them. */
