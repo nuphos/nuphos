@@ -39,14 +39,16 @@ export async function steerConversation(
 }
 
 // The secure input card: the value goes straight to a file on the agent's
-// runtime and only that file's path comes back.
+// runtime and only that file's path comes back. Its failure carries the
+// backend's code, which the card reads to tell an outdated runtime — a retry
+// that can never work — from a failure worth trying again.
 export async function saveConversationSecret(
   sessionId: string,
   name: string,
   value: string,
   teamId?: string,
 ): Promise<{ ok: boolean; path: string }> {
-  return callJson<{ ok: boolean; path: string }>(
+  return callJsonForRenderer<{ ok: boolean; path: string }>(
     'POST',
     `/agent/conversations/${encodeURIComponent(sessionId)}/secrets${teamQuery(teamId)}`,
     { name, value },
