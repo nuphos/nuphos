@@ -44,6 +44,9 @@ export function coreConfig() {
         // key never enters this process. Wins over the local key.
         kmsKeyId: optional('NUPHOS_INTERNAL_TOKEN_KMS_KEY_ID'),
         kmsRegion: optional('NUPHOS_INTERNAL_TOKEN_KMS_REGION'),
+        // Or a Cloud KMS EC_SIGN_P256_SHA256 key version (full resource name),
+        // called with Application Default Credentials. Set only one KMS.
+        gcpKmsKeyVersion: optional('NUPHOS_INTERNAL_TOKEN_GCP_KMS_KEY_VERSION'),
         // Self-hosted / dev: a PKCS#8 P-256 private key PEM, base64-encoded.
         privateKeyBase64: optional('NUPHOS_INTERNAL_TOKEN_PRIVATE_KEY_BASE64'),
         // Public key PEMs (base64, comma-separated) still served and accepted

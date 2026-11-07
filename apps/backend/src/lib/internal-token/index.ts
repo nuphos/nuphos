@@ -8,7 +8,14 @@ import { createPublicKey, verify } from 'node:crypto'
 
 import { config } from '@/config'
 
-import { assertP256, awsKmsSigner, keyIdOf, localSigner } from './signer'
+import {
+  assertP256,
+  awsKmsSigner,
+  gcpKmsSigner,
+  googleKmsCall,
+  keyIdOf,
+  localSigner,
+} from './signer'
 
 import type { InternalTokenSigner } from './signer'
 import type { KeyObject } from 'node:crypto'
@@ -24,9 +31,13 @@ export function internalTokenIssuer(): string {
 }
 
 function configuredSigner(): InternalTokenSigner | null {
-  const { kmsKeyId, kmsRegion, privateKeyBase64 } = config.auth.internalTokens
+  const { kmsKeyId, kmsRegion, gcpKmsKeyVersion, privateKeyBase64 } = config.auth.internalTokens
 
+  if (kmsKeyId && gcpKmsKeyVersion) {
+    throw new Error('Set only one of NUPHOS_INTERNAL_TOKEN_KMS_KEY_ID and _GCP_KMS_KEY_VERSION')
+  }
   if (kmsKeyId) return awsKmsSigner(kmsKeyId, kmsRegion)
+  if (gcpKmsKeyVersion) return gcpKmsSigner(gcpKmsKeyVersion, googleKmsCall())
   if (privateKeyBase64) return localSigner(Buffer.from(privateKeyBase64, 'base64').toString('utf8'))
 
   return null

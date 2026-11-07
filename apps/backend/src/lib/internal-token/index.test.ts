@@ -12,7 +12,7 @@ import {
 } from '@/lib/claude-code-preview/mcp-token'
 import { internalWellKnownRoutes, wellKnownRoutes } from '@/routes/well-known'
 
-import { derToJoseEs256, keyIdOf, kmsSigner, localSigner } from './signer'
+import { derToJoseEs256, gcpKmsSigner, keyIdOf, kmsSigner, localSigner } from './signer'
 
 import {
   internalJwks,
@@ -243,5 +243,65 @@ describe('issuer separation', () => {
 
   test('the internal issuer is not the cloud federation issuer', () => {
     expect(internalTokenIssuer()).not.toBe(config.byos.aws.oidc.issuer ?? config.auth.publicBaseUrl)
+  })
+})
+
+describe('internal tokens with a GCP Cloud KMS key', () => {
+  const version = 'projects/p/locations/global/keyRings/r/cryptoKeys/k/cryptoKeyVersions/3'
+
+  test('signs a SHA-256 digest and converts the DER signature', async () => {
+    const { privateKey, publicKey } = ec()
+    const signingInput = 'header.payload'
+    const calls: { path: string; body?: unknown }[] = []
+    const signer = gcpKmsSigner(version, (path, body) => {
+      calls.push({ path, body })
+      if (body === undefined) {
+        return Promise.resolve({
+          pem: publicKey.export({ type: 'spki', format: 'pem' }),
+          algorithm: 'EC_SIGN_P256_SHA256',
+        })
+      }
+
+      // Cloud KMS signs the digest; the test key signs the same input.
+      return Promise.resolve({
+        signature: sign('sha256', Buffer.from(signingInput), privateKey).toString('base64'),
+      })
+    })
+
+    expect(keyIdOf(await signer.publicKey())).toBe(keyIdOf(publicKey))
+    const signature = await signer.sign(signingInput)
+
+    expect(
+      verify(
+        'sha256',
+        Buffer.from(signingInput),
+        { key: publicKey, dsaEncoding: 'ieee-p1363' },
+        signature,
+      ),
+    ).toBe(true)
+    expect(calls).toEqual([
+      { path: `${version}/publicKey`, body: undefined },
+      {
+        path: `${version}:asymmetricSign`,
+        body: { digest: { sha256: createHash('sha256').update(signingInput).digest('base64') } },
+      },
+    ])
+  })
+
+  test('rejects a key that is not EC_SIGN_P256_SHA256, and a name that is not a version', async () => {
+    const rsa = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    const signer = gcpKmsSigner(version, () =>
+      Promise.resolve({
+        pem: rsa.publicKey.export({ type: 'spki', format: 'pem' }),
+        algorithm: 'RSA_SIGN_PKCS1_2048_SHA256',
+      }),
+    )
+
+    await expect(signer.publicKey()).rejects.toThrow('EC_SIGN_P256_SHA256')
+    expect(() =>
+      gcpKmsSigner('projects/p/locations/global/keyRings/r/cryptoKeys/k', () =>
+        Promise.resolve({}),
+      ),
+    ).toThrow('full key version name')
   })
 })

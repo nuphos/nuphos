@@ -1,6 +1,7 @@
 import { createHash, createPrivateKey, createPublicKey, sign } from 'node:crypto'
 
 import { GetPublicKeyCommand, KMSClient, SignCommand } from '@aws-sdk/client-kms'
+import { GoogleAuth } from 'google-auth-library'
 
 import type { KeyObject } from 'node:crypto'
 
@@ -133,4 +134,83 @@ export function kmsSigner(keyId: string, client: KmsLike): InternalTokenSigner {
 export function awsKmsSigner(keyId: string, region: string | undefined): InternalTokenSigner {
   // Credentials come from the default chain (the pod's IAM role in production).
   return kmsSigner(keyId, new KMSClient(region ? { region } : {}))
+}
+
+/** A Cloud KMS REST call: GET when `body` is absent, POST otherwise. */
+export type GcpKmsCall = (path: string, body?: unknown) => Promise<unknown>
+
+const GCP_KEY_VERSION =
+  /^projects\/[^/]+\/locations\/[^/]+\/keyRings\/[^/]+\/cryptoKeys\/[^/]+\/cryptoKeyVersions\/\d+$/u
+
+/**
+ * Signs with a Cloud KMS `EC_SIGN_P256_SHA256` key version. A version is
+ * immutable, so the key it signs with is always the one whose kid it publishes.
+ */
+export function gcpKmsSigner(keyVersion: string, call: GcpKmsCall): InternalTokenSigner {
+  if (!GCP_KEY_VERSION.test(keyVersion)) {
+    throw new Error(
+      'NUPHOS_INTERNAL_TOKEN_GCP_KMS_KEY_VERSION must be a full key version name ' +
+        '(projects/…/locations/…/keyRings/…/cryptoKeys/…/cryptoKeyVersions/N)',
+    )
+  }
+  let resolved: Promise<KeyObject> | undefined
+
+  return {
+    sign: async (signingInput) => {
+      const digest = createHash('sha256').update(signingInput).digest('base64')
+      const response = (await call(`${keyVersion}:asymmetricSign`, {
+        digest: { sha256: digest },
+      })) as { signature?: string }
+
+      if (!response.signature) throw new Error('Cloud KMS asymmetricSign returned no signature')
+
+      return derToJoseEs256(Buffer.from(response.signature, 'base64'))
+    },
+    publicKey: () => {
+      resolved ??= (
+        call(`${keyVersion}/publicKey`) as Promise<{ pem?: string; algorithm?: string }>
+      )
+        .then(({ pem, algorithm }) => {
+          if (!pem) throw new Error('Cloud KMS getPublicKey returned no key')
+          if (algorithm !== 'EC_SIGN_P256_SHA256') {
+            throw new Error(
+              `NUPHOS_INTERNAL_TOKEN_GCP_KMS_KEY_VERSION must be an EC_SIGN_P256_SHA256 key, got ${String(algorithm)}`,
+            )
+          }
+          const publicKey = createPublicKey(pem)
+
+          assertP256(publicKey, 'NUPHOS_INTERNAL_TOKEN_GCP_KMS_KEY_VERSION')
+
+          return publicKey
+        })
+        .catch((error: unknown) => {
+          resolved = undefined
+          throw error
+        })
+
+      return resolved
+    },
+  }
+}
+
+/** Calls Cloud KMS with Application Default Credentials (the pod's Workload Identity on GKE). */
+export function googleKmsCall(): GcpKmsCall {
+  const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/cloudkms'] })
+
+  return async (path, body) => {
+    const token = await auth.getAccessToken()
+    const response = await fetch(`https://cloudkms.googleapis.com/v1/${path}`, {
+      method: body === undefined ? 'GET' : 'POST',
+      headers: {
+        Authorization: `Bearer ${String(token)}`,
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    })
+
+    if (!response.ok)
+      throw new Error(`Cloud KMS ${path} failed with HTTP ${String(response.status)}`)
+
+    return response.json()
+  }
 }
