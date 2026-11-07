@@ -53,12 +53,13 @@ export function useSessionConfig(session: ModelSession | undefined, streaming: b
     refresh: () => void sync.refresh(),
     /** Cmd+N starts from the chat a message was last sent in. */
     wrapSend:
-      <A extends unknown[]>(send: (...args: A) => void) =>
-      (...args: A) => {
+      <A extends unknown[], R>(send: (...args: A) => R) =>
+      (...args: A): R => {
         const choice = sentChatChoice(runtimeId, state.data)
 
         if (choice) saveNewChatChoice(newChatChoiceKey(teamId), choice)
-        send(...args)
+
+        return send(...args)
       },
   }
 }

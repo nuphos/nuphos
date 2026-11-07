@@ -8,6 +8,7 @@ import type {
 import type { JournalChatTarget } from '../JournalPanel'
 import type { ActivePlan } from './applyEvent'
 import type { ComposerRecall } from './composerRecall'
+import type { SendResult } from './composerSend'
 import type { CredentialSelectorControl } from './credentialSections'
 import type { AgentPromptSeed, Message, MessageRating, Tab } from './model'
 import type { AuthorizationDecisionAction, ToolPart, TransferUploadPart } from './parts'
@@ -204,7 +205,7 @@ export type PanelCtx = {
       messageId: string
       run: (sessionId: string | undefined) => Promise<TransferUploadPart>
     },
-  ) => void
+  ) => SendResult
   dispatchTurn: (
     tabId: string,
     text: string,
@@ -218,7 +219,7 @@ export type PanelCtx = {
     turnKind?: Message['turnKind'],
     decisionReplyTo?: string,
     mentions?: AgentMessageMention[],
-  ) => Promise<void>
+  ) => SendResult
   steerQueued: (tabId: string, queuedId: string) => Promise<void>
   handleRejectPlan: (
     planId: string,
