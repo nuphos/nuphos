@@ -99,6 +99,14 @@ class ChannelSession(
     var unsent by mutableStateOf<ComposerSubmission?>(null)
     /** The post the next one answers, quoted above the composer. */
     var replying by mutableStateOf<ChannelReply?>(null)
+    /** Bumped by each Reply, so choosing the same post again still raises the keyboard. */
+    var replyRequests by mutableStateOf(0)
+        private set
+
+    fun reply(to: ChannelPost) {
+        replying = to.asReply()
+        replyRequests++
+    }
     var sendError by mutableStateOf<String?>(null)
     /** The latest send, so the transcript returns to the end for it. */
     var lastSubmittedKey by mutableStateOf<String?>(null)

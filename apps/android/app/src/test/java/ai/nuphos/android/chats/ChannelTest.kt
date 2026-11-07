@@ -335,7 +335,10 @@ class ChannelTest {
         session.refresh(force = true)
         val original = session.posts.first()
         assertEquals(original.id, original.asReply().id)
-        session.replying = original.asReply()
+        session.reply(original)
+        // Choosing the same post again still asks for the keyboard.
+        session.reply(original)
+        assertEquals(2, session.replyRequests)
         session.send(ComposerSubmission("On it"), "me", "Me", null, this) { "client-1" }
         // Shown with its quote at once, and the chip is cleared.
         assertEquals(original.asReply(), session.sending.single().replyTo)
