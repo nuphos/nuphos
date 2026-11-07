@@ -66,6 +66,8 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
     }
     val rows = store.botsList
     var showNewBot by rememberSaveable { mutableStateOf(false) }
+    var settingUpRuntime by rememberSaveable(team) { mutableStateOf(false) }
+    if (settingUpRuntime) ai.nuphos.android.ui.agent.FirstRuntimeSetup { settingUpRuntime = false }
     // A Bot's chat is made on the first tap. The list stays up meanwhile, so a failure has a place to show.
     fun openBot(botId: String) {
         scope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) {
@@ -92,7 +94,10 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
         placeholder = "Search bots",
         onCancel = { store.updateSearch(""); onSearchingChange(false) },
     )
-    if (!store.channelsLoaded && rows.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    if (store.hasRuntimes == false) ai.nuphos.android.ui.agent.FirstRuntimePrompt(
+        if (store.selectedTeam?.isAdministrator == true) ({ settingUpRuntime = true }) else null)
+    // Like iOS, no "+" either: a Bot would have nothing to run on.
+    else if (!store.channelsLoaded && rows.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator()
     // Bots always lists, so its "+" can make the first one.
     } else LazyColumn(Modifier.fillMaxSize().testTag("chats-list")) {

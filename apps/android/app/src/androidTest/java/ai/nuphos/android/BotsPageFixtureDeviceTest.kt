@@ -19,6 +19,7 @@ import ai.nuphos.android.session.AiAccess
 import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.chats.ChatsPage
 import ai.nuphos.android.ui.theme.NuphosTheme
+import kotlinx.coroutines.cancel
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Response
@@ -44,6 +45,7 @@ class BotsPageFixtureDeviceTest {
     private val added = CopyOnWriteArrayList<String>()
     private val originals = mutableMapOf<String, OkHttpClient>()
     private lateinit var store: AgentStore
+    private var auth: ai.nuphos.android.session.AuthSession? = null
     private var savedAccess: Any? = null
     @Volatile private var chats = ""
     @Volatile private var history = ""
@@ -129,6 +131,8 @@ class BotsPageFixtureDeviceTest {
 
     @After fun after() {
         channelHeld?.countDown()
+        auth?.let { (ai.nuphos.android.session.AuthSession::class.java.getDeclaredField("scope").also { f -> f.isAccessible = true }
+            .get(it) as kotlinx.coroutines.CoroutineScope).cancel() }
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
             if (::store.isInitialized) store.disposeForConsent()
             access().value = savedAccess
@@ -136,14 +140,19 @@ class BotsPageFixtureDeviceTest {
         originals.forEach { (name, client) -> Http::class.java.getDeclaredField(name).also { it.isAccessible = true }.set(null, client) }
     }
 
-    private fun render() {
+    private fun render(page: @androidx.compose.runtime.Composable (androidx.navigation.NavHostController) -> Unit = { ChatsPage(it) }) {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
-        val auth = ai.nuphos.android.session.AuthSession(app, app.tokenStore)
+        val auth = ai.nuphos.android.session.AuthSession(app, app.tokenStore).also { auth = it }
+        // Signed in, as the runtime setup needs an account.
+        ai.nuphos.android.session.AuthSession::class.java.getDeclaredField("token").also { it.isAccessible = true }.set(auth, token)
+        @Suppress("UNCHECKED_CAST") (ai.nuphos.android.session.AuthSession::class.java.getDeclaredField("state\$delegate")
+            .also { it.isAccessible = true }.get(auth) as MutableState<Any>).value =
+            ai.nuphos.android.session.AuthSession.State.SignedIn(ai.nuphos.android.model.NuphosUser.preview)
         compose.setContent {
             NuphosTheme { CompositionLocalProvider(LocalAgentStore provides store, ai.nuphos.android.ui.LocalAuthSession provides auth) {
                 val nav = rememberNavController()
                 NavHost(nav, startDestination = "list") {
-                    composable("list") { ChatsPage(nav) }
+                    composable("list") { page(nav) }
                     composable("channel/{id}") { entry -> Text("Opened ${entry.arguments?.getString("id")}") }
                 }
             } }
@@ -278,9 +287,10 @@ class BotsPageFixtureDeviceTest {
     }
 
     @Test fun aWorkspaceWithNoRuntimeMakesNoBotAndSaysWhy() {
-        noRuntimes = true
         render()
         openSheet()
+        // The last runtime went away after the page listed them.
+        noRuntimes = true
         nameField().performTextInput("Grace")
         create().performClick()
         waitText("This workspace has no runtime yet. Add one on the Runtimes page, then create your Bot.")
@@ -312,9 +322,9 @@ class BotsPageFixtureDeviceTest {
 
     private fun changeWhileTheListLoads(change: () -> Unit) {
         val release = CountDownLatch(1)
-        runtimesHeld = release
         render()
         openSheet()
+        runtimesHeld = release
         nameField().performTextInput("Grace")
         create().performClick()
         assertTrue(runtimesEntered.await(5, TimeUnit.SECONDS))
@@ -328,6 +338,122 @@ class BotsPageFixtureDeviceTest {
     }
     @Test fun switchingTeamWhileTheRuntimeListLoadsMakesNothing() = changeWhileTheListLoads { store.select(teamB) }
     @Test fun withdrawingConsentWhileTheRuntimeListLoadsMakesNothing() = changeWhileTheListLoads { AiAccess.revoke() }
+
+    // MARK: No runtime yet: the first-runtime prompt, as on iOS.
+    private val prompt = "Connect your first runtime"
+    private val adminWords = "Create a cloud runtime and sign in with your AI provider."
+    private val memberWords = "Ask a workspace administrator to connect a cloud runtime, or open Nuphos on your computer to connect your own local runtime."
+    private fun asAdministrator() = InstrumentationRegistry.getInstrumentation().runOnMainSync {
+        store.acceptMemberships(listOf(teamA.copy(role = "ADMINISTRATOR"), teamB), teamA.id)
+    }
+    private fun gone(text: String) = compose.onNodeWithText(text).assertDoesNotExist()
+    private fun noPlus() = compose.onNodeWithContentDescription("New Bot").assertDoesNotExist()
+
+    @Test fun anAdministratorWithNoRuntimeIsOfferedSetupInsteadOfBots() {
+        noRuntimes = true
+        chats = oneOnOne
+        asAdministrator()
+        render()
+        waitText(prompt)
+        compose.onNodeWithText(adminWords).assertExists()
+        // Like iOS: no "+" and no list, even with a chat.
+        noPlus()
+        row("chat-bot").assertDoesNotExist()
+        compose.onNodeWithText("Set up runtime").performClick()
+        waitText("New Runtime")
+        compose.onNodeWithText("Provider").assertExists()
+        assertTrue("Opening the setup writes nothing: $writes", writes.isEmpty())
+    }
+
+    @Test fun aMemberWithNoRuntimeIsToldWhoCanSetOneUp() {
+        noRuntimes = true
+        render()
+        waitText(prompt)
+        compose.onNodeWithText(memberWords).assertExists()
+        gone("Set up runtime")
+        noPlus()
+    }
+
+    @Test fun runtimesNotListedYetOrFailingAreNotAnEmptyWorkspace() {
+        val release = CountDownLatch(1)
+        runtimesHeld = release
+        noRuntimes = true
+        render()
+        assertTrue(runtimesEntered.await(5, TimeUnit.SECONDS))
+        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription("New Bot").fetchSemanticsNodes().isNotEmpty() }
+        gone(prompt)
+        release.countDown()
+        waitText(prompt)
+        runtimesHeld = null
+        // A failed listing keeps the last answer instead of guessing.
+        runtimesFail = true
+        compose.runOnIdle { store.refresh() }
+        Thread.sleep(800); compose.waitForIdle()
+        compose.onNodeWithText(prompt).assertExists()
+    }
+
+    @Test fun aFailingListingShowsTheBotsAsBefore() {
+        runtimesFail = true
+        chats = oneOnOne
+        render()
+        waitRow("chat-bot")
+        compose.onNodeWithContentDescription("New Bot").assertIsEnabled()
+        gone(prompt)
+    }
+
+    @Test fun aRuntimeAddedElsewhereReplacesThePromptOnRefresh() {
+        noRuntimes = true
+        render()
+        waitText(prompt)
+        noRuntimes = false
+        compose.runOnIdle { store.refresh() }
+        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription("New Bot").fetchSemanticsNodes().isNotEmpty() }
+        gone(prompt)
+    }
+
+    @Test fun anotherWorkspaceAsksAgain() {
+        noRuntimes = true
+        render()
+        waitText(prompt)
+        noRuntimes = false
+        compose.runOnIdle { store.select(teamB) }
+        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription("New Bot").fetchSemanticsNodes().isNotEmpty() }
+        gone(prompt)
+    }
+
+    private fun tasks() = render { nav ->
+        ai.nuphos.android.ui.agent.AgentPage(searching = false, onSearchingChange = {}, nav = nav,
+            newChatComposer = { Text("Synthetic composer") })
+    }
+    @Test fun tasksWithNoneAndNoRuntimeShowThePromptAboveTheComposer() {
+        noRuntimes = true
+        asAdministrator()
+        tasks()
+        waitText(prompt)
+        compose.onNodeWithText(adminWords).assertExists()
+        compose.onNodeWithText("Synthetic composer").assertExists()
+        gone("No tasks yet")
+    }
+    @Test fun tasksStayListedWithNoRuntime() {
+        noRuntimes = true
+        history = """{"sessionId":"task-1","title":"Fix the build","agentRuntime":"codex","lastActiveAt":"2026-11-03T12:00:00Z"}"""
+        tasks()
+        waitText("Fix the build")
+        Thread.sleep(800); compose.waitForIdle()
+        gone(prompt)
+    }
+    @Test fun closingTheSetupListsRuntimesAgain() {
+        noRuntimes = true
+        asAdministrator()
+        tasks()
+        waitText(prompt)
+        compose.onNodeWithText("Set up runtime").performClick()
+        waitText("New Runtime")
+        noRuntimes = false
+        compose.onNodeWithContentDescription("Close runtime picker").performClick()
+        compose.waitUntil(8_000) { compose.onAllNodesWithText(prompt).fetchSemanticsNodes().isEmpty() }
+        assertTrue("Nothing written: $writes", writes.isEmpty())
+    }
 
     @Test fun aNewBotSendsItsNameAndFaceAndOpensItsChat() {
         render()
