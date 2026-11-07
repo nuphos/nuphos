@@ -1,9 +1,10 @@
 import { execFile } from 'node:child_process'
 import { readFile, statfs } from 'node:fs/promises'
-import { cpus, freemem, homedir, totalmem } from 'node:os'
+import { cpus, freemem, homedir, tmpdir, totalmem } from 'node:os'
 import { promisify } from 'node:util'
 
 import type { DeviceMetrics } from '../../src/api/device-types.ts'
+import type { StatsFs } from 'node:fs'
 
 function cpuTimes() {
   return cpus().reduce(
@@ -13,6 +14,19 @@ function cpuTimes() {
     }),
     { idle: 0, total: 0 },
   )
+}
+
+/** The fullest filesystem, so a full root disk is not hidden behind a roomy data disk. */
+export function fullestDisk(filesystems: Pick<StatsFs, 'blocks' | 'bfree' | 'bsize'>[]) {
+  const fullest = filesystems
+    .map((fs) => ({ used: (fs.blocks - fs.bfree) * fs.bsize, total: fs.blocks * fs.bsize }))
+    .filter((disk) => disk.total > 0)
+    .toSorted((a, b) => b.used / b.total - a.used / a.total)
+    .at(0)
+
+  if (!fullest) throw new Error('No filesystem could be read')
+
+  return fullest
 }
 
 let sample: { at: number; value: Promise<DeviceMetrics | null>; pending: boolean } | undefined
@@ -49,15 +63,14 @@ export function readDeviceMetrics(): Promise<DeviceMetrics | null> {
       if (pageSize > 0)
         available = (pages('free') + pages('inactive') + pages('speculative')) * pageSize
     }
-    const disk = await statfs(process.platform === 'linux' ? '/data' : homedir()).catch(() =>
-      statfs(homedir()),
-    )
+    const paths = [...(process.platform === 'win32' ? [] : ['/']), homedir(), tmpdir()]
+    const filesystems = await Promise.all(paths.map((path) => statfs(path).catch(() => null)))
 
     return {
       sampledAt: new Date().toISOString(),
       cpuPercent: Math.max(0, Math.min(100, (1 - (after.idle - before.idle) / delta) * 100)),
       memory: { used: Math.max(0, Math.min(total, total - available)), total },
-      disk: { used: (disk.blocks - disk.bfree) * disk.bsize, total: disk.blocks * disk.bsize },
+      disk: fullestDisk(filesystems.filter((fs) => fs !== null)),
     }
   })().catch(() => null)
 
