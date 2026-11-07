@@ -1203,6 +1203,8 @@ class ChatSession(
                 if (pendingSubmission != null && !accepted && err.code >= 500) return TurnResult.Failed("Message delivery is unconfirmed. Resume the original connection.")
                 val conflict = AgentChatApi.conflict(err.code, err.rawBody ?: err.body)
                 when {
+                    // The runtime refused the start and the server put the message back in its queue: it wasn't refused.
+                    (conflict as? AgentChatApi.Conflict.Other)?.code == "message_queued" -> return TurnResult.Queued
                     !isNative && pendingSubmission == null && conflict is AgentChatApi.Conflict.StreamNotResumable && shouldResume && resumeFrom == 0 && !options.explicitResume && !usedFreshFallback -> {
                         usedFreshFallback = true
                         forceFresh = true
@@ -1222,7 +1224,7 @@ class ChatSession(
                         }
                         continue
                     }
-                    else -> return TurnResult.Failed(conflict.message ?: conflict.toString(), RuntimeApi.definitelyRejected(conflict) && !accepted && !shouldResume)
+                    else -> return TurnResult.Failed(conflict.message ?: conflict.toString(), err.code in 400..499 && err.code != 408 && !accepted && !shouldResume)
                 }
             }
             if (err is SseClient.Failure.IdleTimeout) {
