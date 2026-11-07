@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
@@ -23,6 +23,11 @@ test('release notes read the tagged runtime subtree and exclude unrelated monore
     mkdirSync(join(cwd, 'image/claude-agent-acp'), { recursive: true })
     mkdirSync(join(cwd, 'image/codex-acp'), { recursive: true })
     mkdirSync(join(cwd, 'image/tools'), { recursive: true })
+    mkdirSync(join(cwd, 'image/pi-acp'), { recursive: true })
+    copyFileSync(
+      new URL('../image/pi-acp/package.json', import.meta.url),
+      join(cwd, 'image/pi-acp/package.json'),
+    )
     writeFileSync(
       join(cwd, 'image/tools/manifest.json'),
       JSON.stringify({
@@ -71,6 +76,8 @@ test('release notes read the tagged runtime subtree and exclude unrelated monore
     assert.match(notes, /ghcr\.io\/nuphos\/runtime:0\.1\.1-antigravity/)
     assert.match(notes, /ghcr\.io\/nuphos\/runtime:0\.1\.1-opencode/)
     assert.match(notes, /\| OpenCode \| 1\.18\.35 \|/)
+    assert.match(notes, /ghcr\.io\/nuphos\/runtime:0\.1\.1-pi/)
+    assert.match(notes, /\| Pi ACP adapter \| 0\.0\.34 \|/)
     assert.match(notes, /\| Grok Build CLI \| 1\.0\.46 \|/)
     assert.match(notes, /nuphos\/nuphos\/compare\/runtime-v0\.1\.0\.\.\.runtime-v0\.1\.1/)
     assert.throws(() =>

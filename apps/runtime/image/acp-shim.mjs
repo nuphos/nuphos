@@ -20,6 +20,7 @@ import { pathToFileURL } from 'node:url'
 import { nuphosBridgeMcpServers } from './mcp-bridge-config.mjs'
 import { nuphosApplyRuntimeDefaults, nuphosSyncRuntimeSkills } from './runtime-defaults.mjs'
 import { nuphosSessionHomeEnv } from './session-home.mjs'
+import { preparePiSession } from './pi-session.mjs'
 
 export const SESSION_META = 'ai.nuphos/session'
 
@@ -45,6 +46,12 @@ const SESSION_ENV = new Set([
 ])
 
 export const PROVIDERS = {
+  pi: {
+    command: ['pi-acp'],
+    home: (runtimeHome) => ({ PI_CODING_AGENT_DIR: join(runtimeHome, '.pi', 'agent') }),
+    instruct: null,
+    serialPrompts: true,
+  },
   grok: {
     // --no-leader keeps tools in this process, so they run with this session's env
     // rather than in a leader shared by every conversation.
@@ -319,7 +326,10 @@ export function runShim({
 
   const openSession = async (message) => {
     const context = sessionContext(message.params)
-    const env = context?.env ? agentEnv(provider, context, runtimeEnv) : undefined
+    let env = context?.env ? agentEnv(provider, context, runtimeEnv) : undefined
+    const mcpServers = nuphosBridgeMcpServers(message.params?.mcpServers ?? [], runtimeEnv)
+    if (provider === 'pi')
+      env = preparePiSession({ ...message.params, mcpServers }, env ?? runtimeEnv, runtimeEnv)
     if (env && (env.NUPHOS_SESSION_HOME ?? '') !== boundHome) {
       // The agent runs under the runtime's own env, or the previous actor's when
       // a teammate now acts in the conversation; restart it under this one's
@@ -335,7 +345,7 @@ export function runShim({
     const params = {
       ...message.params,
       _meta: meta,
-      mcpServers: nuphosBridgeMcpServers(message.params?.mcpServers ?? [], runtimeEnv),
+      mcpServers,
     }
     if (params.sessionId) opening.add(params.sessionId)
     transforms.set(message.id, async (reply) => {

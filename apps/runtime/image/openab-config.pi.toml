@@ -1,0 +1,7 @@
+[agent]
+# OpenAB 清空环境后，仅显式继承 Pi 配置目录和 Node.js CA 配置。
+inherit_env = ["NUPHOS_PI_CONFIG_DIR", "NODE_EXTRA_CA_CERTS"]
+working_dir = "/workspace"
+
+[agent.env]
+BASH_ENV = "/opt/nuphos-runtime/runtime-guard.sh"

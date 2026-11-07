@@ -45,7 +45,7 @@ RUN chmod -R a+rX /opt/nuphos-runtime \
 COPY --chmod=755 sync-skills.sh /usr/local/bin/nuphos-sync-skills
 COPY --chmod=755 seed-codex-auth.sh /usr/local/bin/nuphos-seed-codex-auth
 COPY reply-image-stream.mjs reply-images.mjs runtime-defaults.mjs mcp-bridge-config.mjs session-home.mjs \
-     process-death.mjs acp-shim.mjs native-question.mjs /opt/
+     process-death.mjs acp-shim.mjs native-question.mjs pi-session.mjs /opt/
 # Sourced via BASH_ENV, so it is read, never executed.
 COPY --chmod=644 runtime-guard.sh /opt/nuphos-runtime/runtime-guard.sh
 COPY codex-login.mjs claude-login.mjs mcp-http-bridge.mjs panel-job.mjs /opt/nuphos-runtime/
@@ -122,6 +122,15 @@ ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs opencode" \
     OPENAB_AGENT_AUTH_COMMAND="opencode providers login" \
     OPENAB_ADAPTER_VERSION="opencode@1.18.35" \
     NUPHOS_RUNTIME_PREINSTALL=opencode
+
+FROM common AS pi
+COPY pi-acp/package.json pi-acp/package-lock.json /opt/nuphos-pi-acp/
+RUN cd /opt/nuphos-pi-acp \
+ && npm ci --omit=dev --ignore-scripts --cache /opt/npm-cache \
+ && rm -rf /opt/npm-cache
+ENV PATH="/opt/nuphos-pi-acp/node_modules/.bin:${PATH}" \
+    OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs pi" \
+    OPENAB_ADAPTER_VERSION="pi-acp@0.0.34"
 
 FROM ${RUNTIME_PROVIDER}
 ARG RUNTIME_PROVIDER
@@ -201,7 +210,7 @@ ENV OPENAB_RUNTIME_LABEL="${RUNTIME_LABEL}" \
 # and a bare `docker run` needs no volume. A mount at /etc/openab/config.toml
 # replaces this file; openab reads that single path and merges nothing.
 COPY openab-config.claude-code.toml openab-config.codex.toml openab-config.grok.toml \
-     openab-config.antigravity.toml openab-config.opencode.toml /tmp/nuphos-config/
+     openab-config.antigravity.toml openab-config.opencode.toml openab-config.pi.toml /tmp/nuphos-config/
 RUN install -d -m 755 /etc/openab \
  && install -m 644 "/tmp/nuphos-config/openab-config.${RUNTIME_PROVIDER}.toml" \
       /etc/openab/config.toml \

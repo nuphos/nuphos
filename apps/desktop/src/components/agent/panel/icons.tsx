@@ -52,12 +52,24 @@ export function OpenCodeIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function PiIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+      <path
+        fillRule="evenodd"
+        d="M3 5h18v2H3V5Zm4 2h2v12H7V7Zm3 2h5a4 4 0 0 1 0 8h-2v-2h2a2 2 0 0 0 0-4h-5V9Zm7 10h2v2h-2v-2Z"
+      />
+    </svg>
+  )
+}
+
 const PROVIDER_ICON: Record<AgentProvider, (props: SVGProps<SVGSVGElement>) => ReactElement> = {
   'claude-code': ClaudeIcon,
   codex: CodexIcon,
   grok: GrokIcon,
   antigravity: AntigravityIcon,
   opencode: OpenCodeIcon,
+  pi: PiIcon,
 }
 
 /** The agent's mark; Claude Code's when the provider is unknown, as for legacy records. */

@@ -215,7 +215,7 @@ test('the image carries one agent CLI and reports the adapter it actually runs',
   for (const install of dockerfile.matchAll(/npm ci [^\n]*/gu))
     assert.match(
       install[0],
-      /--cache \/tmp\/npm-cache/u,
+      /--cache \/(?:tmp|opt)\/npm-cache/u,
       'npm must not leave its cache in /home/node',
     )
 })

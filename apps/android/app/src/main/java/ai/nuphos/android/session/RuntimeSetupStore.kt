@@ -111,7 +111,7 @@ class RuntimeSetupStore(
     }
     fun create(provider: String, label: String?) {
         val trimmed = label?.trim()
-        if (provider !in setOf("claude-code", "codex", "grok", "antigravity", "opencode") || (trimmed != null && trimmed.length !in 1..120)) {
+        if (provider !in setOf("claude-code", "codex", "grok", "antigravity", "opencode", "pi") || (trimmed != null && trimmed.length !in 1..120)) {
             state = state.copy(error = "Use a supported provider and a label with 1–120 characters."); return
         }
         if (selection.createReview) return

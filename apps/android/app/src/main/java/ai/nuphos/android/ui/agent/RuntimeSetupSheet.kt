@@ -115,7 +115,7 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
                     if (store.canAdminister && initialSignInRuntimeId == null && (!inventoryMode || newRuntimeOnly && store.signInRuntime == null)) {
                         HorizontalDivider(Modifier.padding(vertical = 8.dp))
                         Text("Provider", style = MaterialTheme.typography.titleMedium)
-                        listOf("claude-code", "codex", "grok", "antigravity", "opencode").forEach { choice ->
+                        listOf("claude-code", "codex", "grok", "antigravity", "opencode", "pi").forEach { choice ->
                             Surface(onClick = { provider = choice }, enabled = !state.busy && !selection.createReview,
                                 color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth().semantics {
                                     role = Role.RadioButton; selected = provider == choice

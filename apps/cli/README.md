@@ -58,7 +58,7 @@ nuphos agents claude-code --create    # add a Nuphos-managed Cloud runtime and s
 nuphos agents "Claude Code" --login   # sign a Cloud runtime in again
 ```
 
-`--create` takes `claude-code`, `codex`, `grok`, `antigravity` or `opencode`. Signing in
+`--create` takes `claude-code`, `codex`, `grok`, `antigravity`, `opencode` or `pi`. Signing in
 opens the provider's page; paste the code it shows back into the terminal.
 
 Every TUI action is also a command that needs no terminal, for scripts and

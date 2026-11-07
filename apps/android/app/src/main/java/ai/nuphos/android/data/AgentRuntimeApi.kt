@@ -11,7 +11,7 @@ import java.util.UUID
 
 /** Only catalog identity and admission fields are retained, never connection defaults. */
 data class AgentRuntime(val id: String, val provider: String, val label: String, val status: String, val kind: String, val deleting: Boolean = false, val signedIn: Boolean? = null, val local: RuntimeHost? = null) {
-    val selectable get() = id.matches(Regex("[A-Za-z0-9_-]{1,200}")) && provider in setOf("claude-code", "codex", "grok", "antigravity", "opencode") &&
+    val selectable get() = id.matches(Regex("[A-Za-z0-9_-]{1,200}")) && provider in setOf("claude-code", "codex", "grok", "antigravity", "opencode", "pi") &&
         signedIn != false && status == "active" && kind in setOf("managed", "external", "development", "local") && !deleting
 }
 
@@ -72,7 +72,7 @@ class AgentRuntimeApi internal constructor(private val token: String, teamId: St
     suspend fun quotas(): Map<String, RuntimeQuota> = decodeRuntimeQuotas(execute("$path/quota", "GET", expected = 200))
     suspend fun devices(): List<RuntimeDevice> = decodeRuntimeDevices(execute("agent/devices?teamId=${path.split("/")[1]}&metrics=true", "GET", expected = 200))
     override suspend fun create(provider: String, label: String?): AgentRuntime {
-        require(provider in setOf("claude-code", "codex", "grok", "antigravity", "opencode"))
+        require(provider in setOf("claude-code", "codex", "grok", "antigravity", "opencode", "pi"))
         val trimmed = label?.trim(); require(trimmed == null || trimmed.length in 1..120)
         return decodeRuntime(execute(path, "POST", buildJsonObject {
             put("provider", provider); trimmed?.let { put("label", it) }

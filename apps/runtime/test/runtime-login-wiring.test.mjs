@@ -40,7 +40,11 @@ test('each published image signs itself in and reports its own credential file',
   assert.ok(build.includes(`AUTH_FILE='${ANTIGRAVITY_AUTH_FILE}'`))
   assert.ok(build.includes(`LOGIN_COMMAND='${OPENCODE_LOGIN_COMMAND}'`))
   assert.ok(build.includes(`AUTH_FILE='${OPENCODE_AUTH_FILE}'`))
-  assert.ok(!build.includes("AUTH_FILE=''"))
+  assert.match(
+    build,
+    /elif \[\[ "\$VARIANT" == "pi" \]\]; then\s+LOGIN_COMMAND=''\s+AUTH_FILE=''\s+LABEL='Pi'/u,
+  )
+  assert.equal(build.match(/AUTH_FILE=''/gu)?.length, 1)
   assert.ok(build.includes('RUNTIME_LOGIN_COMMAND=${{ steps.tags.outputs.login_command }}'))
   assert.ok(build.includes('RUNTIME_AUTH_FILE=${{ steps.tags.outputs.auth_file }}'))
 })
@@ -61,7 +65,7 @@ test('every agent runs in the workspace the image creates, never one without the
   // defaults to $HOME — where no skill ever lands. The two halves are coupled: a
   // `working_dir` the image does not create fails every spawn with ENOENT, so a
   // runtime that sets one without the other cannot start an agent at all.
-  for (const provider of ['claude-code', 'codex', 'grok', 'antigravity', 'opencode']) {
+  for (const provider of ['claude-code', 'codex', 'grok', 'antigravity', 'opencode', 'pi']) {
     const config = readFileSync(
       new URL(`../image/openab-config.${provider}.toml`, import.meta.url),
       'utf8',
