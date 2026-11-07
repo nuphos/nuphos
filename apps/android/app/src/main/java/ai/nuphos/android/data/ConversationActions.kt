@@ -32,7 +32,7 @@ object ConversationActions {
     fun shareUrl(teamId: String, sessionId: String): String? =
         if (teamId.isEmpty() || sessionId.isEmpty()) null else "https://nuphos.ai/teams/${segment(teamId)}/agent/${segment(sessionId)}"
 
-    private fun segment(value: String): String = buildString {
+    internal fun segment(value: String): String = buildString {
         for (byte in value.toByteArray(StandardCharsets.UTF_8)) {
             val c = (byte.toInt() and 255).toChar()
             if (c in 'a'..'z' || c in 'A'..'Z' || c in '0'..'9' || c in "-_.!~*'()") append(c)

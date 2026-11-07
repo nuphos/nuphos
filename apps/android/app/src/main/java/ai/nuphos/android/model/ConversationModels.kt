@@ -62,6 +62,10 @@ data class AgentConversation(
     val kind: String? = null,
     /** A chat's icon: up to two members other than the viewer, whoever spoke last first. */
     val faces: List<ChatFace>? = null,
+    /** A Bot's face, e.g. `05-rembrandt`; null for a Task. */
+    val avatar: String? = null,
+    /** A chat's newest post. Read through [lastPost], so a bad value only costs the preview. */
+    val lastMessage: JsonValue? = null,
 ) {
     @Transient
     val id: String get() = sessionId
@@ -72,6 +76,22 @@ data class AgentConversation(
     val isArchived: Boolean get() = archivedAt != null
 
     val isChannel: Boolean get() = kind == "channel"
+
+    /** An agent with a face: a Bot, talked to in its 1:1 chat. */
+    val isBot: Boolean get() = avatar != null && !isChannel
+
+    /** The Bot this chat is the 1:1 of: its one other member is an agent with a face. */
+    val botId: String? get() = faces?.singleOrNull()?.takeIf { isChannel && it.agent?.avatar != null }?.id
+
+    val lastPost: LastPost? get() = lastMessage?.get("text")?.stringValue?.let { LastPost(it, lastMessage["from"]?.stringValue) }
+
+    /** The list's preview line. A group names who posted; a post with only files says so. */
+    val previewLine: String? get() = lastPost?.let { post ->
+        val text = post.text.ifBlank { "Attachment" }
+        if (botId == null && post.from != null) "${post.from}: $text" else text
+    }
+
+    data class LastPost(val text: String, val from: String?)
 
     @Serializable
     data class Owner(
@@ -251,3 +271,13 @@ object PlanLink {
 }
 
 /** The two history orders exposed by the native clients. */
+
+/**
+ * What the Bots page lists: every chat, and each Bot that has no 1:1 chat yet, newest first.
+ * Only Bots in [conversations] can appear, so one on a page not loaded yet waits until it is.
+ */
+fun botsList(channels: List<AgentConversation>, conversations: List<AgentConversation>): List<AgentConversation> {
+    val chatted = channels.mapNotNull { it.botId }.toSet()
+    val unchatted = conversations.filter { it.isBot && !it.isArchived && it.sessionId !in chatted }
+    return (channels + unchatted).sortedByDescending { it.lastActiveAt }
+}
