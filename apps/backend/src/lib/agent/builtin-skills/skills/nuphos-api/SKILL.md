@@ -9,6 +9,8 @@ Nuphos backend exposes a REST API that wraps most BYOC and BYOS operations the a
 
 The OpenAPI document is the source of truth for documented routes. Do not rely on a copied route list in this skill; fetch the current schema before choosing an endpoint or request shape. If a needed legacy BYOS route is not in OpenAPI yet, do not probe guessed paths. Use the exact setup script or documented route in the provider skill (`aws`, `gcloud`, `kubectl`, `cloudflare`) instead.
 
+Team skills have no agent REST route: create or revise one with the `nuphos-tools` MCP tools `skill_create` and `skill_upsert`. A refused write returns the reason (for example a VIEWER role).
+
 ## Nuphos GUI links
 
 When writing a final answer that mentions a concrete Nuphos resource and the user would benefit from opening it in the desktop UI, search the GUI route catalog instead of guessing the URL:

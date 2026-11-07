@@ -167,7 +167,7 @@ async function execTool(
   return (await tool.execute(input, { toolCallId: 'e2e-call-1' })) as Record<string, unknown>
 }
 
-function requireTeamSkillTools(tools: Awaited<ReturnType<typeof createTeamSkillTools>>): {
+function requireTeamSkillTools(tools: ReturnType<typeof createTeamSkillTools>): {
   skill_create: ExecutableTool
   skill_upsert: ExecutableTool
 } {
@@ -194,9 +194,7 @@ afterEach(rmTeamSkillArtifacts)
 
 describe('team skill tools E2E', () => {
   test('skill_create → manifest → merged cache simulates next-turn skill() load', async () => {
-    const { skill_create } = requireTeamSkillTools(
-      await createTeamSkillTools(EDITOR_USER, TEAM_ID, 'user'),
-    )
+    const { skill_create } = requireTeamSkillTools(createTeamSkillTools(EDITOR_USER, TEAM_ID))
 
     const created = await execTool(skill_create, {
       label: 'Create deploy checklist',
@@ -244,7 +242,7 @@ describe('team skill tools E2E', () => {
 
   test('skill_upsert revises an existing team skill for the next turn', async () => {
     const { skill_create, skill_upsert } = requireTeamSkillTools(
-      await createTeamSkillTools(EDITOR_USER, TEAM_ID, 'user'),
+      createTeamSkillTools(EDITOR_USER, TEAM_ID),
     )
 
     await execTool(skill_create, {
@@ -289,19 +287,44 @@ description: Updated on-call playbook
     expect(skillMd).toContain('Acknowledge in Slack')
   })
 
-  test('VIEWER does not receive team skill tools', async () => {
+  test('a VIEWER is offered the tools and told why a write is refused', async () => {
     membershipRole = 'VIEWER'
-    expect(await createTeamSkillTools(VIEWER_USER, TEAM_ID, 'user')).toEqual({})
+    const tools = requireTeamSkillTools(createTeamSkillTools(VIEWER_USER, TEAM_ID))
+    const created = await execTool(tools.skill_create, {
+      label: 'Create skill',
+      name: 'viewer-skill',
+      description: 'Not allowed',
+      body: '# No',
+    })
+    const upserted = await execTool(tools.skill_upsert, {
+      label: 'Update skill',
+      files: [{ key: 'skills/viewer-skill/SKILL.md', content: '# No' }],
+    })
+
+    expect(created).toEqual({
+      ok: false,
+      error: 'forbidden: VIEWER role cannot create or update team skills',
+    })
+    expect(upserted).toEqual(created)
+    expect(s3Store.size).toBe(0)
   })
 
-  test('trigger sessions do not receive team skill tools', async () => {
-    expect(await createTeamSkillTools(EDITOR_USER, TEAM_ID, 'trigger')).toEqual({})
+  test('a non-member is offered the tools and told why a write is refused', async () => {
+    membershipRole = null
+    const tools = requireTeamSkillTools(createTeamSkillTools(EDITOR_USER, TEAM_ID))
+    const created = await execTool(tools.skill_create, {
+      label: 'Create skill',
+      name: 'outsider-skill',
+      description: 'Not allowed',
+      body: '# No',
+    })
+
+    expect(created).toEqual({ ok: false, error: 'forbidden: you are not a member of this team' })
+    expect(s3Store.size).toBe(0)
   })
 
   test('skill_create rejects duplicates and embedded secrets', async () => {
-    const { skill_create } = requireTeamSkillTools(
-      await createTeamSkillTools(EDITOR_USER, TEAM_ID, 'user'),
-    )
+    const { skill_create } = requireTeamSkillTools(createTeamSkillTools(EDITOR_USER, TEAM_ID))
 
     await execTool(skill_create, {
       label: 'Create once',
@@ -332,9 +355,7 @@ description: Updated on-call playbook
   })
 
   test('skill_create rolls back SKILL.md when a later S3 write fails', async () => {
-    const { skill_create } = requireTeamSkillTools(
-      await createTeamSkillTools(EDITOR_USER, TEAM_ID, 'user'),
-    )
+    const { skill_create } = requireTeamSkillTools(createTeamSkillTools(EDITOR_USER, TEAM_ID))
 
     let putCount = 0
     const originalPut = fakeS3Client.putObject.bind(fakeS3Client)
@@ -370,7 +391,7 @@ description: Updated on-call playbook
 
   test('skill_upsert restores pre-existing files on partial S3 failure', async () => {
     const { skill_create, skill_upsert } = requireTeamSkillTools(
-      await createTeamSkillTools(EDITOR_USER, TEAM_ID, 'user'),
+      createTeamSkillTools(EDITOR_USER, TEAM_ID),
     )
 
     await execTool(skill_create, {
@@ -418,9 +439,7 @@ description: Updated on-call playbook
   })
 
   test('skill_create rejects builtin skill names', async () => {
-    const { skill_create } = requireTeamSkillTools(
-      await createTeamSkillTools(EDITOR_USER, TEAM_ID, 'user'),
-    )
+    const { skill_create } = requireTeamSkillTools(createTeamSkillTools(EDITOR_USER, TEAM_ID))
 
     const blocked = await execTool(skill_create, {
       label: 'Overlay aws',
@@ -438,9 +457,7 @@ description: Updated on-call playbook
   })
 
   test('skill_create does not persist a partial skill when a later file fails validation', async () => {
-    const { skill_create } = requireTeamSkillTools(
-      await createTeamSkillTools(EDITOR_USER, TEAM_ID, 'user'),
-    )
+    const { skill_create } = requireTeamSkillTools(createTeamSkillTools(EDITOR_USER, TEAM_ID))
 
     const failed = await execTool(skill_create, {
       label: 'Partial write guard',
@@ -468,11 +485,6 @@ description: Updated on-call playbook
     })
 
     expect(retry.ok).toBe(true)
-  })
-
-  test('tools are omitted without a team id', async () => {
-    expect(await createTeamSkillTools(EDITOR_USER, null, 'user')).toEqual({})
-    expect(await createTeamSkillTools(EDITOR_USER, undefined, 'user')).toEqual({})
   })
 })
 

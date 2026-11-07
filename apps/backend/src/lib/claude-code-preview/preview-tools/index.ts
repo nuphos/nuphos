@@ -11,6 +11,7 @@ import { listActivePlansForConversation } from '@/lib/agent/plans'
 import { createSessionTools } from '@/lib/agent/tools-sessions'
 import { createArtifactTool } from '@/lib/agent/tools-skilled/artifact-tool'
 import { createChartTool } from '@/lib/agent/tools-skilled/chart-tool'
+import { createTeamSkillTools } from '@/lib/agent/tools-team-skills'
 
 import { publishPreviewFrame } from '../run-frame-bridge'
 
@@ -23,7 +24,6 @@ import { kubeconfigToolModule } from './kubeconfig'
 import { localBrowserToolModule } from './local-browser'
 import { localCuaToolModule } from './local-cua'
 import { localExecToolModule } from './local-exec'
-import { skillToolSet } from './skills'
 import { slackPreviewToolModule } from './slack'
 import { sessionResourceToolModule } from './session-resources'
 import { threadToolModule } from './threads'
@@ -149,11 +149,10 @@ function flushMemoryActivity(tool: MemoryTool, pending: Set<Promise<void>>): Mem
 export async function previewAiSdkToolSets(
   ctx: PreviewToolContext,
 ): Promise<Record<string, Record<string, unknown>>> {
-  const [memory, skills] = await Promise.all([memoryTools(ctx), skillToolSet(ctx)])
-
   return {
-    memory,
-    skills,
+    memory: await memoryTools(ctx),
+    // Skill authoring stays a Nuphos tool; discovery and loading are native skills.
+    skills: createTeamSkillTools(ctx.userId, ctx.teamId, { conversationId: ctx.sessionId }),
     chart: { render_chart: createChartTool() },
     artifact: { render_artifact: createArtifactTool() },
     sessions: createSessionTools(ctx.userId, ctx.sessionId, ctx.teamId),

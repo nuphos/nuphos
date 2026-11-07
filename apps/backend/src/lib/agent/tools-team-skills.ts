@@ -17,8 +17,6 @@ import {
   validateSkillRelativePath,
 } from './skill-store/service'
 
-import type { AgentSessionOrigin } from './tools-triggers'
-
 const label = z
   .string()
   .min(1)
@@ -44,10 +42,15 @@ async function run<T>(fn: () => Promise<T>): Promise<T | { ok: false; error: str
   }
 }
 
-async function requireEditorAccess(
+// Checked on every call rather than by hiding the tools: an agent without the
+// tools cannot tell "not allowed" from "not supported" and reports neither.
+async function requireWriteAccess(
   userId: string,
   teamId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!isSkillsStoreConfigured()) {
+    return { ok: false, error: 'unavailable: this Nuphos server has no team skills store' }
+  }
   const membership = await getTeamMembership(userId, teamId)
 
   if (!membership) {
@@ -74,22 +77,12 @@ function looksLikeEmbeddedSecret(text: string): string | null {
   return null
 }
 
-export async function createTeamSkillTools(
+/** Team skill authoring, offered to every team conversation; each call checks access. */
+export function createTeamSkillTools(
   userId: string,
-  teamId: string | null | undefined,
-  origin: AgentSessionOrigin,
+  teamId: string,
   auditContext?: { conversationId?: string | null; requestId?: string | null },
 ) {
-  if (!teamId || !isSkillsStoreConfigured() || origin === 'trigger') {
-    return {}
-  }
-
-  const membership = await getTeamMembership(userId, teamId)
-
-  if (!membership || membership.role === 'VIEWER') {
-    return {}
-  }
-
   const scope = teamSkillsScope(teamId)
 
   const mutationContext = (toolCallId: string) => ({
@@ -139,7 +132,7 @@ export async function createTeamSkillTools(
     }),
     execute: async (input, { toolCallId }) =>
       run(async () => {
-        const access = await requireEditorAccess(userId, teamId)
+        const access = await requireWriteAccess(userId, teamId)
 
         if (!access.ok) return access
 
@@ -228,7 +221,7 @@ export async function createTeamSkillTools(
     }),
     execute: async (input, { toolCallId }) =>
       run(async () => {
-        const access = await requireEditorAccess(userId, teamId)
+        const access = await requireWriteAccess(userId, teamId)
 
         if (!access.ok) return access
 
