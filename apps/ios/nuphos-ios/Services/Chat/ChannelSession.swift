@@ -31,6 +31,8 @@ final class ChannelSession {
     private(set) var lastSubmittedRowID: String?
     /// A post that could not be sent goes back into the composer.
     var unsent: ComposerSubmission?
+    /// The post the next one answers, quoted above the composer.
+    var replying: ChannelReply?
     var sendError: String?
     /// The signed-in person: whose posts sit on the right.
     var viewerId: String?
@@ -123,17 +125,20 @@ final class ChannelSession {
     func send(_ submission: ComposerSubmission) {
         let text = submission.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty || !submission.attachments.isEmpty else { return }
-        let key = ([text] + submission.attachments.map(\.name)).joined(separator: "\n")
+        let reply = replying
+        replying = nil
+        let key = ([reply?.id ?? "", text] + submission.attachments.map(\.name)).joined(separator: "\n")
         let id = retry?.key == key ? retry!.id : UUID().uuidString.lowercased()
         retry = (key, id)
         sending.append(ChannelPost(
             id: id, senderId: viewerId ?? "", isAgent: false, name: me?.name ?? "You", avatar: me?.avatar,
-            text: text, sentAt: .now, sending: true))
+            text: text, sentAt: .now, replyTo: reply, sending: true))
         if !submission.attachments.isEmpty { sendingAttachments[id] = submission.attachments }
         lastSubmittedRowID = "post.\(id)"
         Task {
             do {
                 var body: [String: JSONValue] = ["text": .string(text), "id": .string(id)]
+                if let replyId = reply?.id { body["replyTo"] = .string(replyId) }
                 if !submission.attachments.isEmpty {
                     let upload = try await WorkspaceAPI.upload(
                         token: token, team: teamId, attachments: submission.attachments, progress: Progress())
@@ -149,6 +154,7 @@ final class ChannelSession {
                 sendingAttachments[id] = nil
                 sendError = error.localizedDescription
                 unsent = submission
+                replying = reply
             }
         }
     }

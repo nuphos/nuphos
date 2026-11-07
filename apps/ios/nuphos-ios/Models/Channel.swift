@@ -8,6 +8,14 @@ struct ChannelAgent: Decodable, Equatable, Identifiable, Sendable {
     var id: String { sessionId }
 }
 
+/// The post a reply answers, as the server quoted it when the reply was sent.
+struct ChannelReply: Equatable, Sendable {
+    /// The original's id in this chat; it may since be gone.
+    let id: String?
+    let authorName: String
+    let text: String
+}
+
 /// One post in a chat, read from the stored message as the desktop's
 /// `ChannelMessage` reads it: who sent it, its words, and its files.
 struct ChannelPost: Equatable, Identifiable, Sendable {
@@ -24,11 +32,14 @@ struct ChannelPost: Equatable, Identifiable, Sendable {
     /// An agent's pushed files, as their transfer groups.
     let downloads: [String]
     let sentAt: Date?
+    /// The post this one replies to.
+    let replyTo: ChannelReply?
     /// Shown at once, before the chat returns it.
     var sending = false
 
     init(id: String, senderId: String, isAgent: Bool, name: String, avatar: URL? = nil, runtime: String? = nil,
-         text: String, uploads: [TransferUpload] = [], downloads: [String] = [], sentAt: Date?, sending: Bool = false) {
+         text: String, uploads: [TransferUpload] = [], downloads: [String] = [], sentAt: Date?,
+         replyTo: ChannelReply? = nil, sending: Bool = false) {
         self.id = id
         self.senderId = senderId
         self.isAgent = isAgent
@@ -39,6 +50,7 @@ struct ChannelPost: Equatable, Identifiable, Sendable {
         self.uploads = uploads
         self.downloads = downloads
         self.sentAt = sentAt
+        self.replyTo = replyTo
         self.sending = sending
     }
 
@@ -61,9 +73,19 @@ struct ChannelPost: Equatable, Identifiable, Sendable {
         }.joined(separator: "\n")
         guard !text.isEmpty || !uploads.isEmpty || !downloads.isEmpty else { return nil }
         let sentAt = metadata?["sentAt"]?.stringValue.flatMap(Self.parseDate) ?? message.createdAt
+        let reply = metadata?["replyTo"]
+        let replyTo = reply?["authorName"]?.stringValue.flatMap { name in
+            reply?["text"]?.stringValue.map { ChannelReply(id: reply?["id"]?.stringValue, authorName: name, text: $0) }
+        }
         self.init(id: message.id, senderId: senderId, isAgent: type == "agent", name: attributed.name,
                   avatar: attributed.avatar, runtime: sender["agentRuntime"]?.stringValue,
-                  text: text, uploads: uploads, downloads: downloads, sentAt: sentAt)
+                  text: text, uploads: uploads, downloads: downloads, sentAt: sentAt, replyTo: replyTo)
+    }
+
+    /// What a reply to this post quotes until the chat stores its own snapshot.
+    var asReply: ChannelReply {
+        let words = String(text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(200))
+        return ChannelReply(id: id, authorName: name, text: words.isEmpty ? String(localized: "File") : words)
     }
 
     func isMine(viewerId: String?) -> Bool { !isAgent && senderId == viewerId }
