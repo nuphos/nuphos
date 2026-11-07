@@ -4193,6 +4193,7 @@
   "Sign in as the {who} — only they can grant in-cluster RBAC": "Masuk sebagai {who} — hanya mereka yang dapat memberikan RBAC di dalam kluster",
   "Sign in on the computer hosting this runtime, in User settings → Local runtime, then retry your message.": "Masuk di komputer yang menjalankan runtime ini, di Pengaturan pengguna → Runtime lokal, lalu coba kirim ulang pesan Anda.",
   "Sign in required": "Perlu masuk",
+  "Sign in to another agent…": "Masuk ke agen lain…",
   "Sign in to connect this runtime": "Masuk untuk menghubungkan runtime ini",
   "Sign in to use your subscription": "Masuk untuk menggunakan langganan Anda",
   "Sign in to {name} again.": "Masuk lagi sebagai {name}.",

@@ -4193,6 +4193,7 @@
   "Sign in as the {who} — only they can grant in-cluster RBAC": "Inicia sesión como {who}: solo esa cuenta puede conceder RBAC dentro del clúster",
   "Sign in on the computer hosting this runtime, in User settings → Local runtime, then retry your message.": "Inicia sesión en la computadora que aloja este entorno de ejecución, en Configuración de usuario → Entorno de ejecución local, y vuelve a enviar tu mensaje.",
   "Sign in required": "Se requiere iniciar sesión",
+  "Sign in to another agent…": "Iniciar sesión en otro agente…",
   "Sign in to connect this runtime": "Inicia sesión para conectar este entorno de ejecución",
   "Sign in to use your subscription": "Inicia sesión para usar tu suscripción",
   "Sign in to {name} again.": "Vuelve a iniciar sesión como {name}.",

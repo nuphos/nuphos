@@ -30,16 +30,18 @@ export function withReport(
   return { ...known, ...rest }
 }
 
-/** What one status report says about each agent, pending sign-ins excluded. */
+/** What one status report says about each agent, pending sign-ins and missing CLIs excluded. */
 export function reportedAgents(status: LocalRuntimeStatus | undefined): RegisteredAgent[] {
   if (!status) return []
 
   return [
     ...Object.entries(status.agents).flatMap(([provider, agent]) =>
-      agent ? [{ provider: provider as LocalAgentProvider, signedIn: agent.cli.loggedIn }] : [],
+      agent?.cli.installed
+        ? [{ provider: provider as LocalAgentProvider, signedIn: agent.cli.loggedIn }]
+        : [],
     ),
     ...(status.instances ?? [])
-      .filter((instance) => instance.state !== 'pending')
+      .filter((instance) => instance.state !== 'pending' && instance.cli.installed)
       .map(({ provider, instanceId, label, cli }) => ({
         provider,
         instanceId,

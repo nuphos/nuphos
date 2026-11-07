@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { boxAgentName, selectorBoxes, selectorMetrics, sharedBoxOwner } from './selectorBoxes.ts'
+import {
+  boxAgentName,
+  selectorBoxes,
+  selectorMetrics,
+  sharedBoxOwner,
+  signInChoices,
+} from './selectorBoxes.ts'
 
 import type { AgentDevice } from '../../../api/device-types'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
@@ -60,7 +66,7 @@ test('agents group by device id in first-seen order; Cloud agents share one grou
   )
 })
 
-test('signed-out runtimes stay listed after the ready ones; an offline computer is one row, last', () => {
+test('runtimes group per computer in listed order; an offline computer is one row, last', () => {
   const local = (deviceId: string, signedIn: boolean, online = true) => ({
     ownerUserId: 'u1',
     deviceId,
@@ -76,8 +82,8 @@ test('signed-out runtimes stay listed after the ready ones; an offline computer 
   } as RuntimeQuota
   const groups = selectorBoxes(
     [
-      agent('ready', 'box'),
       agent('signed-out', 'box', { local: local('box', false) }),
+      agent('ready', 'box'),
       agent('disabled', 'box', { status: 'disabled' }),
       agent('not-ready', 'box', { notReady: true }),
       agent('away', 'mac', { local: local('mac', true, false) }),
@@ -88,19 +94,35 @@ test('signed-out runtimes stay listed after the ready ones; an offline computer 
       agent('cloud-out'),
     ],
     [],
-    new Map([['cloud-out', signedOutQuota]]),
   )
 
   assert.deepEqual(
     groups.map((group) => [group.id, group.unavailable, group.agents.map((item) => item.id)]),
     [
-      ['device:box', null, ['ready', 'signed-out']],
+      ['device:box', null, ['signed-out', 'ready']],
       ['device:pc', null, ['only-signed-out']],
       ['cloud', null, ['cloud-ok', 'cloud-out']],
       ['device:mac', 'Offline', ['away']],
       ['device:old', 'Offline', ['away-signed-out']],
     ],
   )
+
+  const quotas = new Map([['cloud-out', signedOutQuota]])
+  const ids = ({ listed, signIn }: ReturnType<typeof signInChoices>) => [
+    listed.map((item) => item.id),
+    signIn.map((item) => item.id),
+  ]
+  const [box, pc, cloud] = groups.map((group) => group.agents)
+
+  // Only runnable agents are listed; the signed-out ones wait behind one sign-in entry.
+  assert.deepEqual(ids(signInChoices(box ?? [])), [['ready'], ['signed-out']])
+  assert.deepEqual(ids(signInChoices(pc ?? [])), [[], ['only-signed-out']])
+  assert.deepEqual(ids(signInChoices(cloud ?? [], quotas)), [['cloud-ok'], ['cloud-out']])
+  // The selected agent stays listed even when signed out, so its check shows.
+  assert.deepEqual(ids(signInChoices(box ?? [], quotas, 'signed-out')), [
+    ['signed-out', 'ready'],
+    [],
+  ])
 })
 
 test('metrics are a live, sane reading or nothing', () => {

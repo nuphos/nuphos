@@ -112,7 +112,7 @@ export function RuntimeSelector({
     enabled: open && Boolean(teamId),
     teamId,
   })
-  const groups = selectorBoxes(options, devices.list?.devices, quotas)
+  const groups = selectorBoxes(options, devices.list?.devices)
   const label = value
     ? agentName(selected ?? { ...(value.id ? { id: value.id } : {}), label: value.label }, owner)
     : loading

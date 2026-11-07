@@ -1,5 +1,5 @@
 import { t } from '../../../i18n/index.ts'
-import { listedAgents, unavailable } from '../../../lib/agentName.ts'
+import { listedAgents } from '../../../lib/agentName.ts'
 import { quotaSignedOut } from '../../../lib/runtimeQuota.ts'
 import { AGENT_PROVIDER } from '../../../types/runtime.ts'
 import { computerOwner, ownerName } from '../../../views/settings/computerOwner.ts'
@@ -18,13 +18,12 @@ export type SelectorBox = {
 }
 
 /**
- * Listed runtimes, grouped by device id (never display name). A signed-out runtime stays listed so
- * it can be signed in from here; a computer that is offline is one row and goes last.
+ * Listed runtimes, grouped by device id (never display name); a computer that is offline is one
+ * row and goes last. `signInChoices` folds each computer's signed-out ones away.
  */
 export function selectorBoxes(
   agents: RuntimeInstance[],
   devices: AgentDevice[] = [],
-  quotas?: ReadonlyMap<string, RuntimeQuota>,
 ): SelectorBox[] {
   const groups = new Map<string, SelectorBox>()
   const listed = listedAgents(agents)
@@ -55,8 +54,6 @@ export function selectorBoxes(
   }
 
   for (const group of groups.values()) {
-    // Ready ones first, then the ones the picker can sign in.
-    group.agents.sort((a, b) => Number(signedOut(a, quotas)) - Number(signedOut(b, quotas)))
     // Its agents' state, not unavailable()'s text: that is translated.
     if (group.agents.every((agent) => agent.local?.online === false)) group.unavailable = 'Offline'
   }
@@ -66,8 +63,23 @@ export function selectorBoxes(
   )
 }
 
-function signedOut(agent: RuntimeInstance, quotas?: ReadonlyMap<string, RuntimeQuota>) {
-  return unavailable(agent) !== null || quotaSignedOut(quotas?.get(agent.id))
+/**
+ * A computer's menu offers the agents that can run now; the signed-out ones are sign-in choices
+ * behind one entry. The selected agent stays listed, so its check stays visible.
+ */
+export function signInChoices(
+  agents: readonly RuntimeInstance[],
+  quotas?: ReadonlyMap<string, RuntimeQuota>,
+  selectedId?: string,
+) {
+  const signedOut = (agent: RuntimeInstance) =>
+    agent.id !== selectedId &&
+    (agent.local?.signedIn === false || quotaSignedOut(quotas?.get(agent.id)))
+
+  return {
+    listed: agents.filter((agent) => !signedOut(agent)),
+    signIn: agents.filter(signedOut),
+  }
 }
 
 export type SelectorMetrics = NonNullable<ReturnType<typeof selectorMetrics>>

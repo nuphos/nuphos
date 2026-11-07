@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Box, Check, ChevronRight, Laptop } from 'lucide-react'
+import { Box, Check, ChevronRight, Laptop, LogIn } from 'lucide-react'
 
 import { t } from '../../../i18n'
 import { SHARED_COMPUTER_PRIVACY } from '../../../lib/sharedComputerDisclosure'
@@ -18,13 +18,14 @@ import {
   selectorMetrics,
   sharedBoxOwner,
   showSharedComputerDisclosure,
+  signInChoices,
 } from './selectorBoxes'
 
 import type { SelectorBox, SelectorMetrics } from './selectorBoxes'
 import type { PickerFixes } from './usePickerFixes'
 import type { AgentDevice } from '../../../api/device-types'
 import type { AgentUpdate } from '../../../hooks/useAgentUpdates'
-import type { RuntimeQuota } from '../../../types/runtime'
+import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 
 /** Amber from 80%, red from 95%. */
 function meterTone(value: number) {
@@ -81,6 +82,78 @@ function SharedBy({ text }: { text: string | null }) {
   return text && <span className="block truncate text-[11px] text-tertiary">{text}</span>
 }
 
+/** One agent: picks it, or starts its fix when it cannot take a turn. */
+function AgentRow({
+  instance,
+  selectedId,
+  access,
+  quotas,
+  updates,
+  fixes,
+  selectDisabled,
+  onSelect,
+}: {
+  instance: RuntimeInstance
+  selectedId?: string
+  access?: AgentDevice['access']
+  quotas?: ReadonlyMap<string, RuntimeQuota>
+  updates: ReadonlyMap<string, AgentUpdate>
+  fixes: PickerFixes
+  selectDisabled?: boolean
+  onSelect?: (runtimeId: string, access?: AgentDevice['access']) => void
+}) {
+  const update = updates.get(instance.id)
+  const problem = agentProblem(instance, quotas?.get(instance.id), fixes.viewer)
+  const pickable = Boolean(onSelect) && (!problem || problem.pickable)
+  const name = boxAgentName(instance)
+  const admin = instance.kind === 'managed' && adminName(fixes.viewer.members)
+  const askToUpdate = admin && t('Ask {name} to update', { name: admin })
+  const provider = AGENT_PROVIDER[instance.provider].label
+
+  return (
+    <MenuItem
+      selected={instance.id === selectedId}
+      disabled={Boolean(selectDisabled) || Boolean(instance.deletion)}
+      icon={<AgentProviderIcon provider={instance.provider} className="h-3.5 w-3.5" />}
+      // A row that cannot take a turn starts its fix instead.
+      closeOnClick={pickable}
+      onClick={() => {
+        if (pickable) onSelect?.(instance.id, access)
+        else if (problem) fixes.run(problem.fix)
+      }}
+    >
+      <span className="flex min-w-0 flex-col py-1">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className={clsx('truncate', problem && !problem.pickable && 'text-secondary')}>
+            {name}
+          </span>
+          {problem ? (
+            <AgentFixChip fix={problem.fix} fixes={fixes} />
+          ) : (
+            update && <AgentUpdateBadge update={update} actionable />
+          )}
+        </span>
+        <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-tertiary">
+          {/* One line: a long name truncates with the rest instead of wrapping mid-name. */}
+          <span className="min-w-0 truncate">
+            {[
+              name !== provider && provider,
+              problem?.reason,
+              problem?.fix.kind === 'ask' && agentAskText(problem.fix),
+              !problem && update?.state === 'available' && !update.start && askToUpdate,
+              instance.deletion && t('Being removed'),
+              instance.starting && t('Starting…'),
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </span>
+          <RuntimeUsageBar quota={quotas?.get(instance.id)} />
+        </span>
+      </span>
+    </MenuItem>
+  )
+}
+
 /** One computer: its load in the trigger, its runtimes in the submenu. */
 export function SelectorBoxMenu({
   group,
@@ -106,6 +179,16 @@ export function SelectorBoxMenu({
   const metrics = metricsUnavailable ? null : selectorMetrics(group.device)
   const BoxIcon = group.device?.box || !group.agents[0]?.local ? Box : Laptop
   const sharedBy = sharedBoxOwner(group, fixes.viewer.members)
+  const { listed, signIn } = signInChoices(group.agents, quotas, selectedId)
+  const rowProps = {
+    selectedId,
+    access: group.device?.access,
+    quotas,
+    updates,
+    fixes,
+    selectDisabled,
+    onSelect,
+  }
 
   if (group.unavailable) {
     const problem = group.agents[0] && agentProblem(group.agents[0], undefined, fixes.viewer)
@@ -155,61 +238,24 @@ export function SelectorBoxMenu({
             {SHARED_COMPUTER_PRIVACY} <SharedComputerLearnMore />
           </p>
         )}
-        {group.agents.map((instance) => {
-          const update = updates.get(instance.id)
-          const problem = agentProblem(instance, quotas?.get(instance.id), fixes.viewer)
-          const pickable = Boolean(onSelect) && (!problem || problem.pickable)
-          const name = boxAgentName(instance)
-          const admin = instance.kind === 'managed' && adminName(fixes.viewer.members)
-          const askToUpdate = admin && t('Ask {name} to update', { name: admin })
-          const provider = AGENT_PROVIDER[instance.provider].label
-
-          return (
-            <MenuItem
-              key={instance.id}
-              selected={instance.id === selectedId}
-              disabled={Boolean(selectDisabled) || Boolean(instance.deletion)}
-              icon={<AgentProviderIcon provider={instance.provider} className="h-3.5 w-3.5" />}
-              // A row that cannot take a turn starts its fix instead.
-              closeOnClick={pickable}
-              onClick={() => {
-                if (pickable) onSelect?.(instance.id, group.device?.access)
-                else if (problem) fixes.run(problem.fix)
-              }}
-            >
-              <span className="flex min-w-0 flex-col py-1">
-                <span className="flex min-w-0 items-center gap-1.5">
-                  <span
-                    className={clsx('truncate', problem && !problem.pickable && 'text-secondary')}
-                  >
-                    {name}
-                  </span>
-                  {problem ? (
-                    <AgentFixChip fix={problem.fix} fixes={fixes} />
-                  ) : (
-                    update && <AgentUpdateBadge update={update} actionable />
-                  )}
-                </span>
-                <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-tertiary">
-                  {/* One line: a long name truncates with the rest instead of wrapping mid-name. */}
-                  <span className="min-w-0 truncate">
-                    {[
-                      name !== provider && provider,
-                      problem?.reason,
-                      problem?.fix.kind === 'ask' && agentAskText(problem.fix),
-                      !problem && update?.state === 'available' && !update.start && askToUpdate,
-                      instance.deletion && t('Being removed'),
-                      instance.starting && t('Starting…'),
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </span>
-                  <RuntimeUsageBar quota={quotas?.get(instance.id)} />
-                </span>
+        {listed.map((instance) => (
+          <AgentRow key={instance.id} instance={instance} {...rowProps} />
+        ))}
+        {signIn.length > 0 && (
+          <MenuSubmenu>
+            <MenuSubmenuTrigger chevron={<ChevronRight className="h-3 w-3" />}>
+              <span className="flex items-center gap-2 text-secondary">
+                <LogIn className="h-3.5 w-3.5" />
+                {t('Sign in to another agent…')}
               </span>
-            </MenuItem>
-          )
-        })}
+            </MenuSubmenuTrigger>
+            <MenuContent className="w-72">
+              {signIn.map((instance) => (
+                <AgentRow key={instance.id} instance={instance} {...rowProps} />
+              ))}
+            </MenuContent>
+          </MenuSubmenu>
+        )}
       </MenuContent>
     </MenuSubmenu>
   )

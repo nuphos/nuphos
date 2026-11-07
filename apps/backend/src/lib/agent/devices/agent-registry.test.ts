@@ -30,6 +30,16 @@ test('only agents seen signed in join, pending sign-ins never do', () => {
   ])
 })
 
+test('an agent whose CLI is not installed is not reported', () => {
+  const missing = { cli: { installed: false, loggedIn: false } }
+  const report = {
+    agents: { grok: missing },
+    instances: [{ instanceId: orphan, provider: 'opencode', label: 'OpenCode', ...missing }],
+  } as LocalRuntimeStatus
+
+  expect(reportedAgents(report)).toEqual([])
+})
+
 test('a registered agent keeps its place and name and takes the latest report, even signed out', () => {
   const registered = mergeAgentRegistry([], reportedAgents(status))!
   const later = {

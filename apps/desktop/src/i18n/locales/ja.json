@@ -4193,6 +4193,7 @@
   "Sign in as the {who} — only they can grant in-cluster RBAC": "{who}としてサインインします。クラスター内の RBAC を付与できるのはこのアカウントだけです",
   "Sign in on the computer hosting this runtime, in User settings → Local runtime, then retry your message.": "このランタイムをホストしているコンピュータの［ユーザー設定］→［ローカルランタイム］でサインインしてから、メッセージを再送信してください。",
   "Sign in required": "サインインが必要",
+  "Sign in to another agent…": "別のエージェントにサインイン…",
   "Sign in to connect this runtime": "サインインしてこのランタイムを接続",
   "Sign in to use your subscription": "ログインしてサブスクリプションを利用",
   "Sign in to {name} again.": "{name} にもう一度サインインしてください。",
