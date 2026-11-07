@@ -10,7 +10,7 @@ import { buildDeviceCredentialSections, selectAllDevices, shownDevices } from '.
 import { countSelectedCredentials, countTotalCredentials } from './credentialSelectorButtonCounts'
 import { useCredentialSections, usePersonalCredentials } from './credentialSelectorButtonHooks'
 import { CredentialSelectorSectionList } from './credentialSelectorButtonSections'
-import { personalOnlyCredentials } from './personalIdentity'
+import { personalRows, setAllPersonal } from './personalIdentity'
 
 import type { CredentialSelectorControl } from './credentialSections'
 
@@ -45,13 +45,12 @@ function SelectionButton({
   const [menuOpen, setMenuOpen] = useState(false)
   const personal = usePersonalCredentials(Boolean(personalIdentity) && !devices && menuOpen)
   const listedDevices = shownDevices(options.devices, value.deviceIds)
-  // The member's own credentials where the team has no binding, only where identity rows show.
-  const own = personalIdentity && !devices ? personalOnlyCredentials(options) : []
-  const ownSelected = own.filter((c) => value.personalCredentialIds?.includes(c.provider)).length
+  // The member's own GitHub / Linear rows count like the credentials beside them.
+  const rows = personalIdentity && !devices ? personalRows(options, value) : []
   const selectedCount = devices
     ? value.deviceIds.length
-    : countSelectedCredentials(value) + ownSelected
-  const totalCount = devices ? listedDevices.length : countTotalCredentials(options) + own.length
+    : countSelectedCredentials(value) + rows.filter((row) => row.checked).length
+  const totalCount = devices ? listedDevices.length : countTotalCredentials(options) + rows.length
   const sections = useCredentialSections(options)
   const hasNew =
     unseen !== undefined &&
@@ -67,16 +66,16 @@ function SelectionButton({
     onChange(
       devices
         ? { ...value, deviceIds: select ? selectAllDevices(value.deviceIds, options.devices) : [] }
-        : // Select all also restores the member's own identity; Clear all leaves it be.
-          {
+        : {
             ...next,
             deviceIds: value.deviceIds,
-            ...(!select && value.teamIdentity ? { teamIdentity: value.teamIdentity } : {}),
-            personalCredentialIds: personalIdentity
-              ? select
-                ? own.map((c) => c.provider)
-                : []
-              : value.personalCredentialIds,
+            // Where own rows show, they follow Select all / Clear all like every other row.
+            ...(personalIdentity
+              ? setAllPersonal(value, rows, select)
+              : {
+                  ...(!select && value.teamIdentity ? { teamIdentity: value.teamIdentity } : {}),
+                  personalCredentialIds: value.personalCredentialIds,
+                }),
           },
     )
   }
@@ -191,7 +190,7 @@ function SelectionButton({
             value={value}
             unseen={unseen}
             personal={personalIdentity && menuOpen ? personal : null}
-            ownCredentials={own}
+            ownCredentials={rows.filter((row) => !row.bound)}
             onChange={onChange}
           />
         )}

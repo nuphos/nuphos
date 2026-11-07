@@ -247,8 +247,8 @@ export function CredentialSelectorSectionList({
   )
 }
 
-// Whether the agent acts as the member or as the team on this provider. Not a
-// credential, so it sits under the provider's bindings and is never counted.
+// Whether the agent acts as the member or as the team on this provider. It sits under
+// the provider's bindings and counts like them.
 function PersonalIdentityItem({
   provider,
   personal,

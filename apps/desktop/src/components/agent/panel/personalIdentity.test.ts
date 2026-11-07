@@ -3,7 +3,8 @@ import { describe, test } from 'node:test'
 
 import {
   personalIdentityRow,
-  personalOnlyCredentials,
+  personalRows,
+  setAllPersonal,
   setPersonalIdentity,
   setPersonalOnly,
   teamIdentityOf,
@@ -60,10 +61,34 @@ describe('own credential without a team binding', () => {
       linearWorkspaces: Array.from({ length: linear }, () => ({})),
     }) as unknown as AgentCredentialOptions
 
-  test('offered only for a provider the team has no binding of', () => {
-    assert.deepEqual(personalOnlyCredentials(options(0, 0)), own)
-    assert.deepEqual(personalOnlyCredentials(options(1, 0)), [own[1]])
-    assert.deepEqual(personalOnlyCredentials(options(1, 1)), [])
+  test('one counted row per own credential: identity under a binding, the credential without', () => {
+    const rows = personalRows(options(1, 0), {
+      ...emptyCredentialAccess(),
+      personalCredentialIds: ['linear'],
+    })
+
+    assert.deepEqual(rows, [
+      { provider: 'github', login: 'fong', bound: true, checked: true },
+      { provider: 'linear', login: 'fong', bound: false, checked: true },
+    ])
+    assert.deepEqual(
+      personalRows(options(1, 0), { ...emptyCredentialAccess(), teamIdentity: ['github'] }).map(
+        (row) => row.checked,
+      ),
+      [false, false],
+    )
+  })
+
+  test('Select all ticks every own row and Clear all unticks them', () => {
+    const rows = personalRows(options(1, 0), emptyCredentialAccess())
+
+    assert.deepEqual(setAllPersonal(emptyCredentialAccess(), rows, true), {
+      personalCredentialIds: ['linear'],
+    })
+    assert.deepEqual(setAllPersonal(emptyCredentialAccess(), rows, false), {
+      teamIdentity: ['github'],
+      personalCredentialIds: [],
+    })
   })
 
   test('ticking adds the provider and unticking removes only it', () => {

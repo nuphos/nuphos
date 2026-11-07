@@ -3,9 +3,8 @@ import { t } from '../../../i18n/index.ts'
 import type { AgentCredentialOptions, AgentCredentialSelection } from '../../../api'
 import type { PersonalCredential, PersonalCredentialProvider } from '../../../types'
 
-// The member's own GitHub / Linear identity for this conversation. It is not a
-// credential the agent gets access to — it decides who the agent acts as on
-// the team's binding — so it never counts toward the picker's N/M badge.
+// The member's own GitHub / Linear identity for this conversation: who the agent
+// acts as on the team's binding. Like every row, it counts toward the N/M badge.
 export type PersonalIdentityRow = {
   provider: PersonalCredentialProvider
   label: string
@@ -62,13 +61,40 @@ export function keepTeamIdentity(
   return { ...pruned, ...teamIdentityOf(from) }
 }
 
-/** The member's own GitHub / Linear credentials for a provider the team has no binding of. */
-export function personalOnlyCredentials(options: AgentCredentialOptions) {
-  return (options.personalCredentials ?? []).filter((credential) =>
-    credential.provider === 'github'
-      ? options.githubInstallations.length === 0
-      : options.linearWorkspaces.length === 0,
-  )
+/**
+ * The member's own GitHub / Linear rows, each counted like a credential: under a team binding
+ * it is the identity row (ticked = act as the member), without one the credential itself.
+ */
+export function personalRows(options: AgentCredentialOptions, value: AgentCredentialSelection) {
+  return (options.personalCredentials ?? []).map(({ provider, login }) => {
+    const bound =
+      provider === 'github'
+        ? options.githubInstallations.length > 0
+        : options.linearWorkspaces.length > 0
+    const checked = bound
+      ? !(value.teamIdentity ?? []).includes(provider)
+      : (value.personalCredentialIds ?? []).includes(provider)
+
+    return { provider, login, bound, checked }
+  })
+}
+
+/** Select all ticks every own row, Clear all unticks them; other providers' identity is kept. */
+export function setAllPersonal(
+  value: AgentCredentialSelection,
+  rows: ReturnType<typeof personalRows>,
+  select: boolean,
+): Pick<AgentCredentialSelection, 'teamIdentity' | 'personalCredentialIds'> {
+  const bound = rows.filter((row) => row.bound).map((row) => row.provider)
+  const others = (value.teamIdentity ?? []).filter((p) => !bound.includes(p as 'github'))
+  const teamIdentity = select ? others : [...others, ...bound]
+
+  return {
+    ...(teamIdentity.length ? { teamIdentity } : {}),
+    personalCredentialIds: select
+      ? rows.filter((row) => !row.bound).map((row) => row.provider)
+      : [],
+  }
 }
 
 /** Ticked = this conversation may use the member's own credential of `provider`. */
