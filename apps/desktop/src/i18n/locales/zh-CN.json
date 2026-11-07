@@ -4596,6 +4596,7 @@
   "The update will start when agents finish replying.": "更新将在 Agent 回复完成后开始。",
   "The user approved this execution (per-command approval or a standing allow rule)": "用户已批准此次执行（单条命令批准或长期允许规则）",
   "The validator was truncated by the metadata safety budget.": "验证器因元数据安全预算而被截断。",
+  "The computer running this agent needs a newer Nuphos Desktop to save a secret. Update Nuphos Desktop there, then ask the agent again.": "运行此 Agent 的计算机需要更新的 Nuphos Desktop 才能保存密钥。请在该计算机上更新 Nuphos Desktop,然后再次向 Agent 发出请求。",
   "The value is written to a file on the agent's runtime and never appears in this conversation.": "该值会写入 Agent 运行环境上的文件，不会出现在此对话中。",
   "The whole team": "整个团队",
   "The working files could not come along.": "工作文件未能一并迁移。",

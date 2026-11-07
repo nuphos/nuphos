@@ -4596,6 +4596,7 @@
   "The update will start when agents finish replying.": "エージェントの返信が終わるとアップデートが開始されます。",
   "The user approved this execution (per-command approval or a standing allow rule)": "ユーザーがこの実行を承認しました（コマンド単位の承認、または常時許可ルール）",
   "The validator was truncated by the metadata safety budget.": "バリデータはメタデータの安全上限により切り捨てられました。",
+  "The computer running this agent needs a newer Nuphos Desktop to save a secret. Update Nuphos Desktop there, then ask the agent again.": "このエージェントを実行しているコンピューターでは、シークレットを保存するには新しい Nuphos Desktop が必要です。そのコンピューターで Nuphos Desktop をアップデートしてから、もう一度エージェントに依頼してください。",
   "The value is written to a file on the agent's runtime and never appears in this conversation.": "値はエージェントのランタイム上のファイルに書き込まれ、この会話には表示されません。",
   "The whole team": "チーム全体",
   "The working files could not come along.": "作業ファイルは移動できませんでした。",

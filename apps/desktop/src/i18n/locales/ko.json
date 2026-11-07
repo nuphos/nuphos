@@ -4596,6 +4596,7 @@
   "The update will start when agents finish replying.": "에이전트의 답장이 끝나면 업데이트가 시작됩니다.",
   "The user approved this execution (per-command approval or a standing allow rule)": "사용자가 이 실행을 승인했습니다(명령별 승인 또는 상시 허용 규칙)",
   "The validator was truncated by the metadata safety budget.": "유효성 검사기가 메타데이터 안전 한도로 인해 잘렸습니다.",
+  "The computer running this agent needs a newer Nuphos Desktop to save a secret. Update Nuphos Desktop there, then ask the agent again.": "이 에이전트를 실행하는 컴퓨터에서 시크릿을 저장하려면 더 새로운 Nuphos Desktop이 필요합니다. 그 컴퓨터에서 Nuphos Desktop을 업데이트한 후 에이전트에게 다시 요청하세요.",
   "The value is written to a file on the agent's runtime and never appears in this conversation.": "값은 에이전트 런타임의 파일에 기록되며 이 대화에는 표시되지 않습니다.",
   "The whole team": "팀 전체",
   "The working files could not come along.": "작업 파일은 함께 옮기지 못했습니다.",

@@ -4596,6 +4596,7 @@
   "The update will start when agents finish replying.": "Pembaruan akan dimulai setelah agen selesai membalas.",
   "The user approved this execution (per-command approval or a standing allow rule)": "Pengguna menyetujui eksekusi ini (persetujuan per perintah atau aturan izin tetap)",
   "The validator was truncated by the metadata safety budget.": "Validator terpotong oleh batas aman metadata.",
+  "The computer running this agent needs a newer Nuphos Desktop to save a secret. Update Nuphos Desktop there, then ask the agent again.": "Komputer yang menjalankan agen ini memerlukan Nuphos Desktop yang lebih baru untuk menyimpan rahasia. Perbarui Nuphos Desktop di sana, lalu minta agen lagi.",
   "The value is written to a file on the agent's runtime and never appears in this conversation.": "Nilai ini ditulis ke file di runtime agen dan tidak pernah muncul di percakapan ini.",
   "The whole team": "Seluruh tim",
   "The working files could not come along.": "File kerja tidak dapat ikut dipindahkan.",

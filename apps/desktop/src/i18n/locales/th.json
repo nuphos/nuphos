@@ -4596,6 +4596,7 @@
   "The update will start when agents finish replying.": "การอัปเดตจะเริ่มเมื่อเอเจนต์ตอบกลับเสร็จ",
   "The user approved this execution (per-command approval or a standing allow rule)": "ผู้ใช้อนุมัติการรันนี้ (อนุมัติรายคำสั่งหรือตามกฎอนุญาตที่ตั้งไว้)",
   "The validator was truncated by the metadata safety budget.": "ตัวตรวจสอบความถูกต้องถูกตัดทอนเนื่องจากขีดจำกัดความปลอดภัยของเมตาดาต้า",
+  "The computer running this agent needs a newer Nuphos Desktop to save a secret. Update Nuphos Desktop there, then ask the agent again.": "คอมพิวเตอร์ที่รันเอเจนต์นี้ต้องใช้ Nuphos Desktop เวอร์ชันใหม่กว่าเพื่อบันทึกข้อมูลลับ อัปเดต Nuphos Desktop บนคอมพิวเตอร์นั้น แล้วขอให้เอเจนต์อีกครั้ง",
   "The value is written to a file on the agent's runtime and never appears in this conversation.": "ค่านี้จะถูกเขียนลงไฟล์บนรันไทม์ของเอเจนต์ และจะไม่ปรากฏในบทสนทนานี้",
   "The whole team": "ทั้งทีม",
   "The working files could not come along.": "ไม่สามารถย้ายไฟล์งานไปด้วยได้",

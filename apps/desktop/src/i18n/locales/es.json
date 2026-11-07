@@ -4596,6 +4596,7 @@
   "The update will start when agents finish replying.": "La actualización empezará cuando los agentes terminen de responder.",
   "The user approved this execution (per-command approval or a standing allow rule)": "El usuario aprobó esta ejecución (aprobación por comando o una regla de permiso vigente)",
   "The validator was truncated by the metadata safety budget.": "El validador se truncó por el límite de seguridad de metadatos.",
+  "The computer running this agent needs a newer Nuphos Desktop to save a secret. Update Nuphos Desktop there, then ask the agent again.": "La computadora que ejecuta este agente necesita un Nuphos Desktop más reciente para guardar un secreto. Actualiza Nuphos Desktop allí y vuelve a pedírselo al agente.",
   "The value is written to a file on the agent's runtime and never appears in this conversation.": "El valor se escribe en un archivo del entorno de ejecución del agente y nunca aparece en esta conversación.",
   "The whole team": "Todo el equipo",
   "The working files could not come along.": "No se pudieron trasladar los archivos de trabajo.",
