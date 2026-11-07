@@ -2,6 +2,8 @@ package ai.nuphos.android.ui.chats
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -66,6 +68,9 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
     }
     val rows = store.botsList
     var showNewBot by rememberSaveable { mutableStateOf(false) }
+    var botArchiveTarget by remember(team, store.workspaceRevision) { mutableStateOf<String?>(null) }
+    botArchiveTarget?.let { ai.nuphos.android.ui.agent.ArchiveBotDialog(store, it) { botArchiveTarget = null } }
+    ai.nuphos.android.ui.agent.BotArchiveIssueDialog(store)
     var settingUpRuntime by rememberSaveable(team) { mutableStateOf(false) }
     if (settingUpRuntime) ai.nuphos.android.ui.agent.FirstRuntimeSetup { settingUpRuntime = false }
     // A Bot's chat is made on the first tap. The list stays up meanwhile, so a failure has a place to show.
@@ -111,7 +116,9 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
             }
         }
         items(rows, key = { it.sessionId }) { row ->
-            ChatRow(row, selected = row.sessionId == selectedSessionId, opening = store.openingBotId == row.sessionId) {
+            val botId = if (row.isChannel) row.botId else row.sessionId
+            ChatRow(row, selected = row.sessionId == selectedSessionId, opening = store.openingBotId == row.sessionId,
+                onArchiveBot = botId?.takeIf { store.canArchiveBot(it) }?.let { { botArchiveTarget = it } }) {
                 if (row.isChannel) nav.navigate("channel/${android.net.Uri.encode(row.sessionId)}") { launchSingleTop = true }
                 else openBot(row.sessionId)
             }
@@ -137,12 +144,21 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
 }
 
 @Composable
-private fun ChatRow(chat: AgentConversation, selected: Boolean, opening: Boolean, onOpen: () -> Unit) {
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+private fun ChatRow(chat: AgentConversation, selected: Boolean, opening: Boolean, onArchiveBot: (() -> Unit)? = null, onOpen: () -> Unit) {
     val unread = chat.isChannel && chat.hasUnreadPosts()
     val title = if (chat.isChannel) chat.displayTitleForChat else chat.displayTitle
     val preview = chat.previewLine
+    var menu by remember { mutableStateOf(false) }
+    // A long press offers Archive Bot, as Desktop's sidebar does for a Bot and its chat.
+    Box { DropdownMenu(expanded = menu && onArchiveBot != null, onDismissRequest = { menu = false }) {
+        DropdownMenuItem(text = { Text("Archive Bot") }, leadingIcon = { Icon(Icons.Outlined.Archive, null) },
+            onClick = { menu = false; onArchiveBot?.invoke() })
+    }
     ListItem(
-        modifier = Modifier.clickable(enabled = !opening, onClick = onOpen).testTag("chat-row:${chat.sessionId}").semantics {
+        modifier = Modifier.combinedClickable(enabled = !opening, onClick = onOpen,
+            onLongClick = onArchiveBot?.let { { menu = true } }, onLongClickLabel = onArchiveBot?.let { "More actions" })
+            .testTag("chat-row:${chat.sessionId}").semantics {
             contentDescription = listOfNotNull(title, preview, "unread posts".takeIf { unread }, "opening".takeIf { opening }).joinToString(", ")
         },
         colors = ListItemDefaults.colors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background),
@@ -162,6 +178,7 @@ private fun ChatRow(chat: AgentConversation, selected: Boolean, opening: Boolean
             }
         },
     )
+    }
 }
 
 /** An unnamed chat is called by its one other member, which is how a Bot's 1:1 chat gets its name. */
