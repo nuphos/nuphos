@@ -345,10 +345,19 @@ describe('defaultConversationRuntimeId', () => {
     ).toBe('team')
   })
 
-  test('without a usable list, takes the own signed-in agent on a shared computer', () => {
+  test('a ready team agent wins over an own local agent', () => {
+    const team = registered('team')
     const mine = shared('mine', ME)
 
-    expect(defaultConversationRuntimeId([registered('team'), mine], ME)).toBe('mine')
+    expect(defaultConversationRuntimeId([team, mine], ME, { recentIds: ['mine'] })).toBeUndefined()
+    expect(defaultConversationRuntimeId([{ ...team, notReady: true }, mine], ME)).toBe('mine')
+    expect(defaultConversationRuntimeId([{ ...team, status: 'disabled' }, mine], ME)).toBe('mine')
+  })
+
+  test('without a list or team agent, takes the own signed-in agent on a shared computer', () => {
+    const mine = shared('mine', ME)
+
+    expect(defaultConversationRuntimeId([mine], ME)).toBe('mine')
     expect(defaultConversationRuntimeId([mine], ME, { fallbackIds: ['gone'] })).toBe('mine')
     expect(
       defaultConversationRuntimeId([shared('asleep', ME, { online: false })], ME),
