@@ -162,10 +162,23 @@ export async function stagePersonalCredentialOAuth(
     )
   }
   const redirectUri = callbackUrl(provider)
+  const teamId = pending.teamId
+  // Membership can end between starting the flow and approving it. Checked
+  // before the code is exchanged, so a departed member's approval grants
+  // nothing and stages nothing.
+  const membership = teamId ? await getTeamMembership(pending.userId, teamId) : null
+
+  if (teamId && !membership) {
+    throw new AppError(
+      403,
+      'forbidden',
+      'You are no longer a member of this team, so its Google credentials cannot be connected',
+    )
+  }
   let tokens: ProviderTokens
   let identity: Identity
 
-  const flow = await pkceFlow(provider, pending.teamId)
+  const flow = await pkceFlow(provider, teamId)
 
   if (flow) {
     if (!flow.client || !redirectUri || !pending.encryptedCodeVerifier) {
@@ -180,10 +193,9 @@ export async function stagePersonalCredentialOAuth(
     const user = await flow.user(tokens.accessToken)
 
     identity = { providerUserId: user.id, login: user.login }
-    if (pending.teamId) {
-      const membership = await getTeamMembership(pending.userId, pending.teamId)
-
-      identity = { ...identity, teamId: pending.teamId, workspaceName: membership?.team.name }
+    // `membership` is non-null here: a departed member was refused above.
+    if (teamId && membership) {
+      identity = { ...identity, teamId, workspaceName: membership.team.name }
     }
   } else {
     const client = getDefaultClientCredentials()
