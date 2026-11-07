@@ -11,9 +11,10 @@ import org.junit.Test
 class UnreadableMessagesTest {
     private val first = """{"id":"first","role":"user","parts":[{"type":"text","text":"Hello"}]}"""
     private val last = """{"id":"last","role":"assistant","parts":[{"type":"text","text":"Hi"}]}"""
-    private fun ids(json: String) = Http.json.decodeFromString<AgentConversationDetail>(json).messages.map { it.id }
+    private fun messages(json: String) = Http.json.decodeFromString<AgentConversationDetail>(json).messages
+    private fun ids(json: String) = messages(json).map { it.id }
 
-    @Test fun anUnreadableMessageIsSkippedAndTheRestKeepTheirOrder() {
+    @Test fun anUnreadableMessageKeepsItsPlaceHiddenAndTheRestKeepTheirOrder() {
         for (bad in listOf(
             """{"role":"user","parts":[]}""",
             """{"id":"","role":"user","parts":[]}""",
@@ -22,7 +23,19 @@ class UnreadableMessagesTest {
             """{"id":"x","parts":[]}""",
             """{"id":"x","role":{},"parts":[]}""",
             "\"text\"", "3", "null", "[]",
-        )) assertEquals(bad, listOf("first", "last"), ids("""{"messages":[$first,$bad,$last]}"""))
+        )) {
+            val decoded = messages("""{"messages":[$first,$bad,$last]}""")
+            assertEquals(bad, 3, decoded.size)
+            assertEquals(bad, listOf("first", "last"), decoded.filterNot { it.isUnreadable }.map { it.id })
+            val hidden = decoded[1]
+            assertTrue(bad, hidden.isUnreadable)
+            assertEquals("It isn't drawn", ChatMessage.Role.System, hidden.role)
+            assertTrue("Its content is gone", hidden.parts.isEmpty())
+        }
+    }
+    @Test fun anUnreadableMessageGetsTheSameIdEveryLoad() {
+        val json = """{"messages":[$first,"oops",$last]}"""
+        assertEquals(ids(json), ids(json))
     }
     @Test fun everyKnownRoleIsKept() {
         val messages = Http.json.decodeFromString<AgentConversationDetail>("""{"messages":[
