@@ -189,7 +189,6 @@
   "backend.trigger_scheduler.ready",
   "backend.unhandled_rejection",
   "claude_code.dev_forward.opened",
-  "claude_code.preview_tools.skills_unavailable",
   "claude_code.provisioner.not_in_cluster",
   "connectors.view_failed",
   "dashboard.alert.notify_failed",
