@@ -4,7 +4,12 @@ import { getTeamMembership } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 
 import { agentMessages, appendConversationMessages, getConversationBySessionId } from './db'
-import { channelNotice, channelNoticeSender, steerRunningTurn } from './channel-wake'
+import {
+  channelNotice,
+  channelNoticeSender,
+  noteReplyFailed,
+  steerRunningTurn,
+} from './channel-wake'
 import { isChannel, postText } from './db/channels'
 import { bumpConversationActivity } from './db/read-state'
 import { pushTimelineEvent } from './db/participants'
@@ -135,6 +140,8 @@ async function wakeChannelAgents(
           channel_id: channel.sessionId,
           session_id: sessionId,
         })
+
+        return noteReplyFailed(channel.sessionId, sessionId, error)
       }),
     ),
   )
@@ -270,5 +277,7 @@ async function notifyAgent(
       channel_id: channel.sessionId,
       session_id: sessionId,
     })
+
+    return noteReplyFailed(channel.sessionId, sessionId, error)
   })
 }

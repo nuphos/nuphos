@@ -40,6 +40,18 @@ describe('session timeline events', () => {
     })
   })
 
+  test('an agent that could not reply reads as the chat’s own line', () => {
+    const failed: ConversationTimelineEvent[] = [
+      { kind: 'agent_reply_failed', at, actorId: 'system', agentName: 'Ops', reason: 'No agent.' },
+      { kind: 'agent_reply_failed', at, actorId: 'system', agentName: 'Ops' },
+    ]
+
+    expect(serializeTimelineEvents(failed, people)).toEqual([
+      { kind: 'agent_reply_failed', at: at.toISOString(), text: 'Ops couldn’t reply: No agent.' },
+      { kind: 'agent_reply_failed', at: at.toISOString(), text: 'Ops couldn’t reply.' },
+    ])
+  })
+
   test('collect every person an event names, for one member lookup', () => {
     expect(timelineEventUserIds(events)).toEqual([
       'alice',

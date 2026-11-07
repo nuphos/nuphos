@@ -76,17 +76,36 @@ async function ownerDefaultRuntimeId(
   })
 }
 
-/** Resolve every conversation onto the supported OpenAB runtime and placement. */
+type RoutedConversation =
+  | (Pick<
+      AgentConversation,
+      'sessionId' | 'userId' | 'agentRuntime' | 'claudeCodePreview' | 'runtimeId'
+    > &
+      Partial<Pick<AgentConversation, 'metadata'>>)
+  | null
+
+/**
+ * Resolve every conversation onto the supported OpenAB runtime and placement.
+ * The runtime is stamped only once one resolved: a conversation that found none
+ * stays unpinned, so it can still take its owner's default once one exists.
+ */
 export async function resolveConversationChatRuntime(
   teamId: string | undefined,
-  conversation:
-    | (Pick<
-        AgentConversation,
-        'sessionId' | 'userId' | 'agentRuntime' | 'claudeCodePreview' | 'runtimeId'
-      > &
-        Partial<Pick<AgentConversation, 'metadata'>>)
-    | null,
+  conversation: RoutedConversation,
   request: ConversationChatRequest = {},
+): Promise<ConversationChatRuntime> {
+  const resolved = await resolveChatRuntime(teamId, conversation, request)
+
+  if (conversation && !conversation.agentRuntime)
+    await stampConversationAgentRuntime(conversation.sessionId, resolved.runtime)
+
+  return resolved
+}
+
+async function resolveChatRuntime(
+  teamId: string | undefined,
+  conversation: RoutedConversation,
+  request: ConversationChatRequest,
 ): Promise<ConversationChatRuntime> {
   const { runtime: requestedRuntime, purpose = 'transport' } = request
   const pinned = Boolean(conversation?.agentRuntime || conversation?.claudeCodePreview)
@@ -120,9 +139,6 @@ export async function resolveConversationChatRuntime(
     instance?.provider ??
     resolveConversationAgentRuntime(conversation, teamDefault, requestedRuntime)
 
-  if (conversation && !conversation.agentRuntime) {
-    await stampConversationAgentRuntime(conversation.sessionId, runtime)
-  }
   if (!teamId) throw new Error('OpenAB conversation is missing its Team scope.')
   if (instance?.kind === 'local' && localAgentUser) {
     const endpoint = await resolveLocalRuntimeEndpoint(teamId, instance.id, localAgentUser, purpose)

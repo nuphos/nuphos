@@ -1,4 +1,4 @@
-import { CornerUpLeft, Pause } from 'lucide-react'
+import { CircleAlert, CornerUpLeft, Pause } from 'lucide-react'
 import { Fragment, useCallback, useState } from 'react'
 
 import { t } from '../../i18n'
@@ -27,19 +27,22 @@ function senderOf(message: AgentPersistedMessage): string | undefined {
   return metadata ? (metadata.sourceSessionId ?? metadata.sender.id) : undefined
 }
 
-/** The loop guard stopped agents answering agents: a line on the timeline. */
-function Paused({ turns }: { turns: number }) {
+/** A line from the chat itself: its loop guard paused agents, or an agent could not reply. */
+function Notice({ event }: { event: AgentTimelineEvent }) {
+  const paused = event.kind === 'agents_paused'
+  const Icon = paused ? Pause : CircleAlert
+
   return (
     <div className="flex items-center gap-3 py-1">
       <span className="h-px flex-1 bg-surface-sunken" />
       <span className="flex items-center gap-1.5 rounded-full border border-line-control/60 bg-main px-3 py-1 text-[12px] text-secondary">
-        <Pause className="h-3 w-3 text-warning" strokeWidth={2.5} />
-        {t(
-          'Agents paused after {count} replies to each other. They pick up again when someone posts.',
-          {
-            count: turns,
-          },
-        )}
+        <Icon className="h-3 w-3 shrink-0 text-warning" strokeWidth={2.5} />
+        {paused
+          ? t(
+              'Agents paused after {count} replies to each other. They pick up again when someone posts.',
+              { count: event.turns ?? 10 },
+            )
+          : event.text}
       </span>
       <span className="h-px flex-1 bg-surface-sunken" />
     </div>
@@ -128,11 +131,11 @@ export function ChannelMessages({
       }
     }),
     ...events
-      .filter((event) => event.kind === 'agents_paused')
+      .filter((event) => event.kind === 'agents_paused' || event.kind === 'agent_reply_failed')
       .map((event) => ({
         at: stamp(event.at),
-        key: `event-${event.at}`,
-        node: <Paused turns={event.turns ?? 10} />,
+        key: `event-${event.kind}-${event.at}`,
+        node: <Notice event={event} />,
       })),
   ].sort((a, b) => a.at - b.at)
 

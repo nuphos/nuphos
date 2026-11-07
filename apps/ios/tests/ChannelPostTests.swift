@@ -101,10 +101,12 @@ enum ChannelPostTests {
     private static func placesPausedLinesAndTypingInOrder() {
         let paused = AgentConversationDetail.TimelineEvent(at: Date(timeIntervalSince1970: 2.5), text: "Agents paused", kind: "agents_paused")
         let joined = AgentConversationDetail.TimelineEvent(at: Date(timeIntervalSince1970: 1.5), text: "Clark joined")
+        let failed = AgentConversationDetail.TimelineEvent(at: Date(timeIntervalSince1970: 3.5), text: "Ops couldn’t reply.", kind: "agent_reply_failed")
         let typing = [ChannelAgent(sessionId: "agent-1", title: "Ops", ownerId: "me")]
         let items = ChannelPost.items(posts: [post("a", "x", at: 1), post("b", "x", at: 2), post("c", "x", at: 3)],
-                                      events: [paused, joined], typing: typing)
-        precondition(items.map(\.id) == ["time.a", "post.a", "post.b", "paused.2.5", "post.c", "typing"])
+                                      events: [paused, joined, failed], typing: typing)
+        precondition(items.map(\.id) == ["time.a", "post.a", "post.b", "paused.2.5", "post.c", "paused.3.5", "typing"])
+        precondition(items[5].item == .paused("Ops couldn’t reply."))
         precondition(items.last?.item == .typing(typing))
         // The line between two posts does not split their sender's run.
         precondition(firsts(items) == ["a"])
