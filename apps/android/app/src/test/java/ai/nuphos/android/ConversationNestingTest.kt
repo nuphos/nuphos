@@ -21,21 +21,12 @@ class ConversationNestingTest {
         assertEquals(2, open.first().threads)
         assertEquals(listOf("root", "other"), ConversationNesting.nest(input, folded = setOf("root")).rows.map { it.conversation.sessionId })
     }
-    @Test fun pinnedSubtreesAndIndependentPinnedChildAreUnique() {
-        val rows = listOf(row("root"), row("child", "root"), row("leaf", "child"))
-        val result = ConversationNesting.nest(rows, pinned = setOf("child"))
-        assertEquals(listOf("child", "leaf", "root"), result.rows.map { it.conversation.sessionId })
-        assertEquals(listOf(0, 1, 0), result.rows.map { it.depth })
-        assertEquals(ConversationNesting.Section.Pinned, result.rows[1].section)
-        assertEquals(listOf("root"), ConversationNesting.nest(rows, pinned = setOf("root"), folded = setOf("root")).rows.map { it.conversation.sessionId })
-    }
-    @Test fun sharedAndMineRemainSeparateButPinnedParentKeepsAuthorizedChildren() {
+    @Test fun sharedAndMineRemainSeparate() {
         val rows = listOf(row("mine"), row("shared", "mine", false), row("shared-child", "shared", false))
         val tree = ConversationNesting.nest(rows).rows
         assertEquals(listOf(0, 0, 1), tree.map { it.depth })
         assertEquals(0, tree.first().threads)
         assertEquals(1, tree[1].threads)
-        assertTrue(ConversationNesting.nest(rows, pinned = setOf("mine")).rows.all { it.section == ConversationNesting.Section.Pinned })
     }
     @Test fun missingParentsSearchPagesCyclesAndCrossTeamAreSafe() {
         val child = row("child", "later")

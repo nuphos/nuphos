@@ -170,27 +170,5 @@ class ConversationNestingFixtureDeviceTest {
         assertTrue(requests.none { it.method != "GET" })
     }
 
-    @Test fun syntheticIndependentPinAndCrossSectionParents() {
-        render()
-        compose.runOnIdle {
-            state(store, "favorites").value = ConversationActions.Favorites(listOf(
-                JsonValue.obj("key" to JsonValue.Str("agent-session:child"), "label" to JsonValue.Str("Synthetic child"))
-            ), 2)
-        }
-        compose.onNodeWithText("Synthetic parent").assertExists()
-        compose.onNodeWithContentDescription("Hide 1 sub-agents").assertExists()
-        shot("independent-pin")
-        compose.runOnIdle {
-            state(store, "favorites").value = ConversationActions.Favorites(emptyList(), 3)
-            state(store, "conversations").value = listOf(
-                AgentConversation("S1", "A", "Synthetic recent shared child", parentSessionId = "M2", isOwner = false),
-                AgentConversation("S2", "A", "Synthetic older shared chat", isOwner = false),
-                AgentConversation("M2", "A", "Synthetic own parent", isOwner = true))
-        }
-        compose.onNodeWithText("Synthetic recent shared child").assertExists()
-        compose.onNodeWithText("Shared").assertDoesNotExist()
-        shot("shared-parent")
-        assertTrue(requests.none { it.method != "GET" })
-    }
 
 }

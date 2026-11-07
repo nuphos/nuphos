@@ -220,7 +220,11 @@ class ConversationUnlinkFixtureDeviceTest {
             compose.runOnIdle { state(store, "conversations").value = listOf(row) }
             compose.onNodeWithTag("conversation-row:child").performTouchInput { longClick() }
             compose.onNodeWithTag("menu-unlink:child").assertDoesNotExist()
-            androidx.test.espresso.Espresso.pressBack()
+            // A row with nothing to offer opens no menu; only close one that opened.
+            val menuOpen = SemanticsMatcher("an open row menu") {
+                androidx.compose.ui.semantics.SemanticsProperties.TestTag in it.config && it.config[androidx.compose.ui.semantics.SemanticsProperties.TestTag].startsWith("menu-")
+            }
+            if (compose.onAllNodes(menuOpen).fetchSemanticsNodes().isNotEmpty()) androidx.test.espresso.Espresso.pressBack()
             runBlocking(Dispatchers.Main) { store.unlinkParent(row) }
         }
         assertEquals(0, deletes())
@@ -309,15 +313,6 @@ class ConversationUnlinkFixtureDeviceTest {
         assertTrue(requests.none { it.url.encodedPath.contains("stream") || it.url.encodedPath.contains("bypass") })
     }
 
-    @Test fun deniedDetailPreventsPinWriteAndRetainsRetry() {
-        render()
-        compose.waitUntil(5_000) { store.favorites != null }
-        detailCode = 403
-        runBlocking(Dispatchers.Main) { store.pin(child(), true) }
-        assertNotNull(store.rowActionError)
-        assertTrue(requests.none { it.method == "PUT" })
-        assertNull(store.rowActionSessionId)
-    }
 
     @Test fun archiveConfirmationCancelAndFullSwipeDoNotWrite() {
         render()
@@ -332,28 +327,13 @@ class ConversationUnlinkFixtureDeviceTest {
         assertTrue(requests.none { it.method in setOf("PUT", "PATCH", "DELETE") })
     }
 
-    @Test fun rowPinReadsMetadataAndRejectsDuplicateWhilePending() {
-        render()
-        compose.waitUntil(5_000) { store.favorites != null && !store.favoritesLoading }
-        detailEntered = java.util.concurrent.CountDownLatch(1)
-        detailRelease = java.util.concurrent.CountDownLatch(1)
-        val target = child()
-        val job = CoroutineScope(Dispatchers.Main).launch { store.pin(target, true) }
-        assertTrue(detailEntered!!.await(5, java.util.concurrent.TimeUnit.SECONDS))
-        runBlocking(Dispatchers.Main) { store.pin(target, true); store.archive(target, true) }
-        assertEquals(1, requests.count { it.url.encodedPath == "/agent/conversations/child" })
-        detailRelease!!.countDown()
-        runBlocking { job.join() }
-        assertEquals(1, requests.count { it.method == "PUT" })
-        assertTrue(requests.none { it.method == "PATCH" || it.url.encodedPath.contains("stream") })
-    }
 
     @Test fun rowMetadataReadCannotWriteAfterWorkspaceRoundTrip() {
         render()
-        compose.waitUntil(5_000) { store.favorites != null && !store.favoritesLoading }
+        compose.waitUntil(5_000) { store.canArchive(child()) }
         detailEntered = java.util.concurrent.CountDownLatch(1)
         detailRelease = java.util.concurrent.CountDownLatch(1)
-        val job = CoroutineScope(Dispatchers.Main).launch { store.pin(child(), true) }
+        val job = CoroutineScope(Dispatchers.Main).launch { store.archive(child(), true) }
         assertTrue(detailEntered!!.await(5, java.util.concurrent.TimeUnit.SECONDS))
         compose.runOnIdle {
             store.select(Team("bbbbbbbbbbbbbbbbbbbbbbbb", "Fixture B"))

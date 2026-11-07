@@ -184,7 +184,7 @@ class PullRefreshFixtureDeviceTest {
                 } }
             }
         }
-        compose.waitUntil(5_000) { !store.favoritesLoading && !store.isRefreshing }
+        compose.waitUntil(5_000) { !store.isRefreshing }
         compose.waitUntil(5_000) {
             try { compose.onAllNodesWithTag("chat-history-refresh").fetchSemanticsNodes().isNotEmpty() }
             catch (_: IllegalStateException) { false }
@@ -245,14 +245,13 @@ class PullRefreshFixtureDeviceTest {
         compose.onNodeWithText("Loading agents…").assertDoesNotExist()
     }
 
-    @Test fun resumeReadsNewRemoteHistoryAndPinsWithoutRelaunch() {
+    @Test fun resumeReadsNewRemoteHistoryWithoutRelaunch() {
         render()
         val reads = historyReads()
         compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.STARTED)
         historyTitle = "Created on another client"
-        entries = entries.replace("Beyond first page", "Remote pinned chat")
         compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
-        waitText("Created on another client"); waitText("Remote pinned chat"); settled()
+        waitText("Created on another client"); settled()
         assertEquals(reads + 1, historyReads())
         shot("resume-remote-light")
     }
@@ -292,24 +291,23 @@ class PullRefreshFixtureDeviceTest {
         shot("return-search-light")
     }
 
-    @Test fun actualGestureRefreshesHistoryAndPinsAndFailureCanRetry() {
+    @Test fun actualGestureRefreshesHistoryAndFailureCanRetry() {
         render()
         shot("before-light")
         if (InstrumentationRegistry.getArguments().getString("refreshVideo") == "true") Thread.sleep(5000)
-        val reads = historyReads(); val pins = pinReads()
+        val reads = historyReads()
         historyTitle = "Fresh history"
-        entries = entries.replace("Beyond first page", "Refreshed pin")
         pull(); waitText("Fresh history"); settled(); shot("success-light")
-        assertEquals(reads + 1, historyReads()); assertEquals(pins + 1, pinReads())
-        failHistory = true; failFavorites = true
+        assertEquals(reads + 1, historyReads())
+        assertEquals("Pins are gone, so favorites are never read", 0, pinReads())
+        failHistory = true
         pull(); waitText("Could not refresh agents. Showing last loaded history."); settled()
         shot("failed-retains-light")
         compose.onNodeWithText("Fresh history").assertExists()
-        compose.onNodeWithText("Refreshed pin").assertExists()
-        failHistory = false; failFavorites = false; historyTitle = "Recovered history"
+        failHistory = false; historyTitle = "Recovered history"
         pull(); waitText("Recovered history"); settled(); shot("retry-light")
         if (InstrumentationRegistry.getArguments().getString("refreshVideo") == "true") Thread.sleep(3000)
-        assertNull(store.phaseError); assertNull(store.favoritesError)
+        assertNull(store.phaseError)
     }
 
     @Test fun emptyAndSearchStillAcceptGestureAndKeepSearch() {
@@ -431,7 +429,6 @@ class PullRefreshFixtureDeviceTest {
         val reads = requests.filter { it.url.encodedPath == "/agent/conversations" }
         assertTrue(reads.isNotEmpty())
         assertTrue(reads.all { it.url.queryParameter("sort") == "activity" && it.url.queryParameter("scope") == "mine" && it.url.queryParameter("archived") == "exclude" })
-        compose.onNodeWithText("Beyond first page").assertExists()
         shot("activity-order-light")
         compose.runOnIdle { state(store, "hasMore").value = true }
         runBlocking(Dispatchers.Main) { store.loadMore() }

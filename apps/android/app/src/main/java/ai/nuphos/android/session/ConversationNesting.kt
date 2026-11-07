@@ -4,7 +4,7 @@ import ai.nuphos.android.model.AgentConversation
 
 /** A bounded, iterative forest over the authorized, loaded page only. No detail fetches. */
 object ConversationNesting {
-    enum class Section(val title: String) { Pinned("Pinned"), Mine("My agents"), Shared("Shared") }
+    enum class Section(val title: String) { Mine("My agents"), Shared("Shared") }
     data class Row(
         val conversation: AgentConversation,
         val section: Section,
@@ -14,10 +14,10 @@ object ConversationNesting {
         val hidden: List<AgentConversation> = emptyList(),
         val trail: List<Boolean> = emptyList(),
     )
-    data class Result(val rows: List<Row>, val loadedPinnedIds: Set<String>)
+    data class Result(val rows: List<Row>)
 
     fun nest(
-        conversations: List<AgentConversation>, pinned: Set<String> = emptySet(),
+        conversations: List<AgentConversation>,
         folded: Set<String> = emptySet(), accountId: String? = null, groupSections: Boolean = true,
     ): Result {
         val rows = conversations.distinctBy { it.sessionId }
@@ -25,8 +25,7 @@ object ConversationNesting {
         val parent = rows.associate { row ->
             val candidate = row.parentSessionId?.let(byId::get)
             row.sessionId to candidate?.takeIf {
-                it.sessionId != row.sessionId && it.teamId == row.teamId &&
-                    (row.sessionId !in pinned || it.sessionId in pinned)
+                it.sessionId != row.sessionId && it.teamId == row.teamId
             }?.sessionId
         }.toMutableMap()
         // Break one edge per cycle. Each node is visited at most once, including deep chains.
@@ -50,7 +49,6 @@ object ConversationNesting {
             val row = stack.removeLast()
             val p = parent[row.sessionId]
             sections[row.sessionId] = when {
-                row.sessionId in pinned || p?.let { sections[it] } == Section.Pinned -> Section.Pinned
                 row.isOwner == true || (row.isOwner == null && (row.owner == null || row.owner.id == accountId)) -> Section.Mine
                 else -> Section.Shared
             }
@@ -91,8 +89,7 @@ object ConversationNesting {
             visible += Row(row, sections.getValue(id), depths.getValue(id), counts[id] ?: 0, id in folded, trail = trails[id].orEmpty())
         }
         val displayed = if (groupSections) Section.entries.flatMap { section -> visible.filter { it.section == section } } else visible
-        return Result(displayed.map { it.copy(hidden = hiddenChildren[it.conversation.sessionId].orEmpty()) },
-            rows.filter { it.sessionId in pinned }.mapTo(mutableSetOf()) { it.sessionId })
+        return Result(displayed.map { it.copy(hidden = hiddenChildren[it.conversation.sessionId].orEmpty()) })
     }
     /** Only visible folded roots retain hidden rows, so total retained descendants stays O(n). */
     fun status(row: Row, label: (AgentConversation) -> String?): String? =

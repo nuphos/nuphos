@@ -88,24 +88,6 @@ class AgentStore(
     var search by mutableStateOf("")
         private set
 
-    var favorites by mutableStateOf<ConversationActions.Favorites?>(null)
-        private set
-    var favoritesError by mutableStateOf<String?>(null)
-        private set
-
-    private val favoritesRequests = PinnedHistory.Requests()
-    var favoritesLoading by mutableStateOf(false)
-        private set
-    val pinnedShortcuts: List<PinnedHistory.Shortcut>
-        get() = if (hasAiAccess()) PinnedHistory.shortcuts(favorites, search) else emptyList()
-
-    private fun clearFavorites() {
-        favoritesRequests.invalidate()
-        favorites = null
-        favoritesError = null
-        favoritesLoading = false
-    }
-
     private val refreshRequests = HistoryRefresh()
     val isRefreshing get() = refreshRequests.running
     private var isReloading = false
@@ -120,7 +102,6 @@ class AgentStore(
             if (selectedTeam == null) loadTeams()
             else kotlinx.coroutines.coroutineScope {
                 launch { reload() }
-                launch { loadFavorites() }
                 launch { loadChannels() }
             }
         }
@@ -407,68 +388,6 @@ class AgentStore(
         if (accountId == null || teamId == null || selectedTeam?.id != teamId || !hasAiAccess()) return
         prefs.edit().putStringSet("agent.folded.$accountId.$teamId", ids.toSet()).apply()
     }
-    private class PinnedHistoryOwner(val teamId: String, val generation: Int, val workspace: Long)
-    private var pinnedHistoryOwner by mutableStateOf<PinnedHistoryOwner?>(null)
-    val loadingPinnedHistory: Boolean
-        get() = pinnedHistoryOwner?.let {
-            it.teamId == selectedTeam?.id && it.generation == loadGeneration && it.workspace == workspaceRevision
-        } == true
-    private suspend fun loadMissingPinnedHistory() {
-
-        if (loadingPinnedHistory || phase != Phase.Loaded || isReloading || search.isNotEmpty()) return
-        val teamId = selectedTeam?.id ?: return
-        val generation = loadGeneration
-        val workspace = workspaceRevision
-        val owner = PinnedHistoryOwner(teamId, generation, workspace)
-        pinnedHistoryOwner = owner
-        try {
-            // Pins can predate hundreds of rows. Stop on resolved pins or server
-            // exhaustion, not an arbitrary page count; reject repeated cursors.
-            val visitedCursors = mutableSetOf<String>()
-            while (true) {
-                if (disposed || !hasAiAccess() || selectedTeam?.id != teamId || generation != loadGeneration || workspace != workspaceRevision || search.isNotEmpty() || !hasMore || isLoadingMore) return
-                val loaded = conversations.map { it.sessionId }.toSet()
-                if (pinnedShortcuts.all { it.sessionId in loaded }) return
-                val before = nextCursor ?: return
-                if (!visitedCursors.add(before)) return
-                kotlinx.coroutines.currentCoroutineContext().ensureActive()
-                loadMore(allowDuringRefresh = true)
-
-                if (nextCursor == before) return
-            }
-        } finally {
-            // A held request from an earlier scope must not clear the latest owner.
-            if (pinnedHistoryOwner === owner) pinnedHistoryOwner = null
-        }
-    }
-
-    suspend fun loadFavorites() {
-        val team = selectedTeam ?: return
-        if (!hasAiAccess()) return
-        val ticket = favoritesRequests.begin(team.id)
-        favoritesLoading = true
-        try {
-            val loaded = ConversationActions.favorites(token, team.id)
-            if (!favoritesRequests.accepts(ticket, selectedTeam?.id, hasAiAccess())) return
-            favorites = loaded
-            favoritesError = null
-            loadMissingPinnedHistory()
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            if (favoritesRequests.accepts(ticket, selectedTeam?.id, hasAiAccess()))
-                favoritesError = e.message ?: "Could not load pinned agents."
-        } finally {
-            if (favoritesRequests.accepts(ticket, selectedTeam?.id, hasAiAccess())) favoritesLoading = false
-        }
-    }
-    suspend fun pin(session: ChatSession, pinned: Boolean) {
-        require(hasAiAccess() && selectedTeam?.id == session.teamId && session.loaded && session.loadError == null)
-        val ticket = favoritesRequests.begin(session.teamId)
-        favoritesLoading = false
-        val saved = ConversationActions.pin(token, session.teamId, session.sessionId, session.title, pinned)
-        if (favoritesRequests.accepts(ticket, selectedTeam?.id, hasAiAccess())) { favorites = saved; favoritesError = null }
-    }
     suspend fun rename(session: ChatSession, title: String) {
         require(session.canManage) { "Only the owner can rename this agent." }
         ConversationActions.rename(token, session.teamId, session.sessionId, title)
@@ -487,7 +406,6 @@ class AgentStore(
     var rowActionError: String? by mutableStateOf(null)
         private set
     fun clearRowActionError() { rowActionError = null }
-    fun canPin(row: AgentConversation) = currentActionRow(row) != null && favorites != null && !favoritesLoading
     fun canArchive(row: AgentConversation) = currentActionRow(row)?.let {
         (it.canManage ?: (it.isOwner == true)) && it.readOnly != true
     } == true
@@ -534,11 +452,10 @@ class AgentStore(
     }
 
     /** Read fresh server metadata without opening a chat or resuming its active turn. */
-    private suspend fun rowAction(row: AgentConversation, archive: Boolean?, pinned: Boolean?) {
+    private suspend fun rowAction(row: AgentConversation, archive: Boolean) {
         val current = currentActionRow(row) ?: return
         val team = selectedTeam?.id ?: return
-        if (rowActionSessionId != null || (pinned != null && !canPin(current)) ||
-            (archive != null && (!canArchive(current) || current.isArchived != row.isArchived))) return
+        if (rowActionSessionId != null || !canArchive(current) || current.isArchived != row.isArchived) return
         val revision = workspaceRevision
         fun valid() = !disposed && hasAiAccess() && selectedTeam?.id == team && workspaceRevision == revision && currentActionRow(row) != null
         rowActionSessionId = current.sessionId
@@ -546,21 +463,11 @@ class AgentStore(
         try {
             val detail = NuphosApi.conversationDetail(token, team, current.sessionId)
             if (!valid()) return
-            if (archive != null) {
-                require(detail.readOnly != true && (detail.canManage ?: (detail.isOwner == true)))
-                // A retained confirmation must not invert a concurrently changed archive state.
-                require((detail.archivedAt != null) == row.isArchived)
-                ConversationActions.archive(token, team, current.sessionId, archive)
-                if (valid()) reload()
-            } else if (pinned != null) {
-                if (!canPin(current)) return
-                val ticket = favoritesRequests.begin(team)
-                val saved = ConversationActions.pin(token, team, current.sessionId, detail.title ?: current.displayTitle, pinned)
-                if (valid() && favoritesRequests.accepts(ticket, selectedTeam?.id, hasAiAccess())) {
-                    favorites = saved
-                    favoritesError = null
-                }
-            }
+            require(detail.readOnly != true && (detail.canManage ?: (detail.isOwner == true)))
+            // A retained confirmation must not invert a concurrently changed archive state.
+            require((detail.archivedAt != null) == row.isArchived)
+            ConversationActions.archive(token, team, current.sessionId, archive)
+            if (valid()) reload()
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -569,8 +476,7 @@ class AgentStore(
             if (workspaceRevision == revision) rowActionSessionId = null
         }
     }
-    suspend fun pin(row: AgentConversation, pinned: Boolean) = rowAction(row, archive = null, pinned = pinned)
-    suspend fun archive(row: AgentConversation, archived: Boolean) = rowAction(row, archive = archived, pinned = null)
+    suspend fun archive(row: AgentConversation, archived: Boolean) = rowAction(row, archived)
 
     // MARK: Make this a Bot, Turn into a Task, Archive Bot (iOS #1708; Archive Bot as on Desktop)
     /** Only the owner turns their own Task into a Bot or back, as on iOS. */
@@ -871,7 +777,6 @@ class AgentStore(
                 unlinkError = null
                 selectedTeam = pick
                 resetHistory()
-                clearFavorites()
                 credentials = credentials.reset()
                 reload()
             } else if (phase == Phase.Idle) {
@@ -906,7 +811,6 @@ class AgentStore(
                 unlinkError = null
                 selectedTeam = null
                 resetHistory()
-                clearFavorites()
                 credentials = credentials.reset()
             } else {
                 if (refreshed != old) {
@@ -940,7 +844,6 @@ class AgentStore(
         membershipRequest++
         selectedTeam = verified
         resetHistory()
-        clearFavorites()
         prefs.edit().putString(LAST_TEAM_KEY, team.id).apply()
         credentials = credentials.reset()
         storeScope.launch { reload() }
@@ -1014,7 +917,6 @@ class AgentStore(
                 }
             }
         }
-        loadMissingPinnedHistory()
     }
 
     suspend fun loadMore() = loadMore(allowDuringRefresh = false)
@@ -1124,7 +1026,6 @@ class AgentStore(
         unlinkingSessionId = null
         unlinkError = null
         resetHistory()
-        clearFavorites()
         storeScope.coroutineContext[Job]?.cancel()
         sessions.values.forEach { it.disposeForConsent() }
         sessions.clear()

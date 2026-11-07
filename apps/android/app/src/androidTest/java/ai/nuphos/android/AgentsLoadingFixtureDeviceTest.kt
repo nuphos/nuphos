@@ -206,14 +206,6 @@ class AgentsLoadingFixtureDeviceTest {
     }
     private fun waitText(text: String) { compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() } }
     private fun readCount() = requests.count { it.url.encodedPath.endsWith("/read") }
-    @Test fun emptyHistoryWaitsForHeldPinsBeforeClaimingEmpty() {
-        emptyHistory = true; holdFavorites = true; render()
-        compose.waitUntil(5_000) { favoritesHeld.count == 0L && store.phase == AgentStore.Phase.Loaded }
-        compose.onNodeWithText("No tasks yet").assertDoesNotExist()
-        compose.onNodeWithText("Loading pinned agents…").assertDoesNotExist()
-        favoritesRelease.countDown()
-        waitText("No tasks yet")
-    }
     @Test fun coldHistoryHasLoadingButNoFakeRowsOrEmptyMessage() {
         holdNextList = true; render()
         compose.waitUntil(5_000) { listHeld.count == 0L }
@@ -265,58 +257,6 @@ class AgentsLoadingFixtureDeviceTest {
         compose.onNodeWithText("No matches").assertDoesNotExist()
     }
 
-    @Test fun refreshKeepsFullPinnedRowWhileItsPageIsHeld() {
-        pinFavorite = true; render(); waitText("History fixture")
-        compose.waitUntil(5_000) { !store.favoritesLoading && !store.isRefreshing }
-        compose.onNodeWithTag("conversation-row:saved").assertIsDisplayed()
-        pinnedPage = true
-        compose.runOnIdle { store.refresh() }
-        compose.waitUntil(5_000) { pinPageHeld.count == 0L }
-        compose.onNodeWithTag("conversation-row:saved").assertIsDisplayed()
-        pinPageRelease.countDown()
-        compose.waitUntil(5_000) { !store.isRefreshing }
-        compose.onNodeWithTag("conversation-row:saved").assertIsDisplayed()
-    }
-    @Test fun coldPinnedPageDoesNotPaintShortcutBeforeFullRow() {
-        pinFavorite = true; pinnedPage = true; render()
-        compose.waitUntil(5_000) { pinPageHeld.count == 0L }
-        compose.onNodeWithText("History fixture").assertDoesNotExist()
-        compose.onNodeWithText("Loading agents…").assertIsDisplayed()
-        pinPageRelease.countDown()
-        waitText("History fixture")
-        compose.onNodeWithTag("conversation-row:saved").assertIsDisplayed()
-    }
 
-    @Test fun failedHistoryShowsRetryEvenWhileInitialFavoritesIsHeld() {
-        failList = true; holdFavorites = true; render()
-        compose.waitUntil(5_000) { favoritesHeld.count == 0L && store.phase == AgentStore.Phase.Failed }
-        compose.onNodeWithText("Couldn't load agents").assertIsDisplayed()
-        compose.onNodeWithText("Try again").assertIsDisplayed()
-        compose.onNodeWithText("Loading agents…").assertDoesNotExist()
-        failList = false; compose.onNodeWithText("Try again").performClick()
-        compose.waitUntil(5_000) { store.phase == AgentStore.Phase.Loaded }
-        favoritesRelease.countDown(); waitText("History fixture")
-    }
-    @Test fun newWorkspaceHydratesWithoutWaitingForOldOwnerAndOldFinallyCannotClearIt() = hydrationAcrossWorkspace(cancelOld = false)
-    @Test fun cancellingOldWorkspaceOwnerCannotClearNewOwner() = hydrationAcrossWorkspace(cancelOld = true)
-    private fun hydrationAcrossWorkspace(cancelOld: Boolean) {
-        crossTeamPins = true; render(showHistory = false)
-        lateinit var a: Job
-        compose.runOnIdle { a = work.launch { store.reload(); store.loadFavorites() } }
-        compose.waitUntil(5_000) { teamAPageHeld.count == 0L }
-        compose.runOnIdle { store.select(Team("B", "Fixture B")); work.launch { store.loadFavorites() } }
-        compose.waitUntil(5_000) { teamBPageHeld.count == 0L }
-        if (cancelOld) a.cancel()
-        teamAPageRelease.countDown()
-        compose.waitUntil(5_000) { a.isCompleted }
-        compose.runOnIdle {
-            assertTrue(store.loadingPinnedHistory)
-            assertEquals("B", store.selectedTeam?.id)
-            assertTrue(store.conversations.none { it.teamId == "A" })
-        }
-        teamBPageRelease.countDown()
-        compose.waitUntil(5_000) { store.conversations.any { it.sessionId == "pin-B" } && !store.loadingPinnedHistory }
-        compose.runOnIdle { assertTrue(store.conversations.none { it.teamId == "A" }) }
-    }
 
 }

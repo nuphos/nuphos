@@ -30,7 +30,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.NotificationsOff
@@ -78,7 +77,6 @@ import ai.nuphos.android.model.HistoryTime
 import ai.nuphos.android.model.NuphosUser
 import ai.nuphos.android.session.HistoryStatus
 import ai.nuphos.android.session.RuntimeObservation
-import ai.nuphos.android.session.PinnedHistory
 import ai.nuphos.android.session.AgentStore
 import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.chat.ChatComposer
@@ -129,7 +127,7 @@ fun AgentPage(
     if (store.rowActionError != null && archiveTarget == null && renameTarget == null) AlertDialog(
         onDismissRequest = { store.clearRowActionError() }, title = { Text("Action failed") },
         text = { Text(store.rowActionError.orEmpty()) },
-        confirmButton = { TextButton(onClick = { store.clearRowActionError(); scope.launch { store.reload(); store.loadFavorites() } }) { Text("Refresh") } },
+        confirmButton = { TextButton(onClick = { store.clearRowActionError(); scope.launch { store.reload() } }) { Text("Refresh") } },
     )
     archiveTarget?.takeIf { store.canArchive(it) }?.let { target ->
         val busy = store.rowActionSessionId != null
@@ -183,38 +181,17 @@ fun AgentPage(
         val expiry = store.conversations.mapNotNull { store.historyObservation(it)?.runtime?.observedAt?.plus(12.0) }.filter { it > now }.minOrNull()
         if (expiry != null) { delay(((expiry - now) * 1000).toLong() + 1); statusClock = RuntimeObservation.now() }
     }
-    val pins = store.pinnedShortcuts
     var foldedIds by rememberSaveable(account, team?.id) { mutableStateOf(store.foldedThreadIds(account, team?.id).toList()) }
-    val missingPins = pins.any { pin -> store.conversations.none { it.sessionId == pin.sessionId } }
-    val resolvingPins = store.search.isEmpty() && team != null &&
-        ((store.favorites == null && store.favoritesError == null) ||
-            (missingPins && (store.favoritesLoading || store.loadingPinnedHistory || store.isLoadingMore || store.isRefreshing)))
-    // A new first page can temporarily omit an already displayed pin. Keep the
-    // last complete snapshot until hydration settles instead of painting a shortcut.
-    // Scope keys prevent displaying another workspace/account/query's old rows.
-    var settledRows by remember(store, account, team?.id, revision, store.search) {
-        mutableStateOf<List<AgentConversation>?>(null)
+    val showInitialLoading = store.phase == AgentStore.Phase.Loading || store.phase == AgentStore.Phase.Idle
+    val tree = remember(store.conversations, foldedIds, account) {
+        ConversationNesting.nest(store.conversations, foldedIds.toSet(), account, groupSections = false)
     }
-    SideEffect {
-        if (store.phase == AgentStore.Phase.Loaded && !resolvingPins) settledRows = store.conversations
-    }
-    val showInitialLoading = store.phase == AgentStore.Phase.Loading || store.phase == AgentStore.Phase.Idle ||
-        (store.phase == AgentStore.Phase.Loaded && resolvingPins && settledRows.isNullOrEmpty()) ||
-        (store.phase == AgentStore.Phase.Loaded && store.conversations.isEmpty() && pins.isEmpty() &&
-            store.selectedTeam != null && store.search.isEmpty() &&
-            store.favorites == null && store.favoritesError == null)
-    val displayedRows = if (resolvingPins) settledRows.orEmpty() else store.conversations
-    val tree = remember(displayedRows, pins, foldedIds, account) {
-        PinnedHistory.nest(displayedRows, pins, foldedIds.toSet(), account)
-    }
-    val historyItems = remember(tree, pins) { PinnedHistory.items(tree, pins) }
     LaunchedEffect(tree.rows.map { Triple(it.conversation.sessionId, it.depth, it.section) }) { rowInteractions.dismiss() }
-    LaunchedEffect(store, store.selectedTeam?.id) { store.loadFavorites() }
     LaunchedEffect(listState, store.hasMore, store.conversations) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.map { it.key } }
             .collect { keys ->
                 // Source tail IDs may be folded or move in tree order; the explicit footer remains available.
-                if (store.hasMore && PinnedHistory.shouldLoadMore(keys, store.conversations.map { it.sessionId })) {
+                if (store.hasMore && shouldLoadMore(keys, store.conversations.map { it.sessionId })) {
                     store.loadMore()
                 }
             }
@@ -231,14 +208,6 @@ fun AgentPage(
                     onSearchingChange(false)
                 },
             )
-        }
-        if (store.search.isEmpty()) {
-            store.favoritesError?.let {
-                Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Could not refresh pinned agents.", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                    Button(onClick = { scope.launch { store.loadFavorites() } }) { Text("Retry pins") }
-                }
-            }
         }
         if (store.phase == AgentStore.Phase.Loaded && store.phaseError != null) {
             Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -266,17 +235,15 @@ fun AgentPage(
                         title = "Couldn't load agents",
                         body = store.phaseError.orEmpty(),
                         action = "Try again",
-                        // A held favorites refresh must not block retrying failed history.
                         onAction = { scope.launch { store.reload() } },
                     ) }
                 }
                 // With any task, the list stays, as on iOS.
-                store.hasRuntimes == false && store.conversations.isEmpty() && pins.isEmpty() && store.search.isEmpty() -> {
+                store.hasRuntimes == false && store.conversations.isEmpty() && store.search.isEmpty() -> {
                     RefreshableHistoryState { FirstRuntimePrompt(
                         if (store.selectedTeam?.isAdministrator == true) ({ settingUpRuntime = true }) else null) }
                 }
-                store.conversations.isEmpty() && pins.isEmpty() &&
-                    (store.search.isNotEmpty() || store.selectedTeam == null || store.favorites != null) -> {
+                store.conversations.isEmpty() -> {
                     RefreshableHistoryState { EmptyState(
                         icon = Icons.Outlined.ChatBubbleOutline,
                         title = if (store.search.isNotEmpty()) "No matches" else "No tasks yet",
@@ -292,30 +259,14 @@ fun AgentPage(
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(0.dp),
                     ) {
-                        items(historyItems, key = { it.key }) { item ->
-                            when (item) {
-                                is PinnedHistory.Item.Missing -> {
-                                    val pin = item.shortcut
-                                    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxWidth().clickable {
-                                        nav.navigate("conversation/${android.net.Uri.encode(pin.sessionId)}") { popUpTo("home"); launchSingleTop = true }
-                                    }) {
-                                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                            PinnedAvatar(true) { TaskMark(null) }
-                                            Text(pin.title, Modifier.padding(start = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        }
-                                    }
-                                }
-                                is PinnedHistory.Item.Loaded -> {
-                                    val row = item.row
-                                    ConversationTreeRow(row, store.favorites?.contains(row.conversation.sessionId) == true,
+                        items(tree.rows, key = { "history:${it.conversation.sessionId}" }) { row ->
+                                    ConversationTreeRow(row,
                                         ConversationNesting.status(row) { store.historyObservation(it)?.label(maxOf(statusClock, RuntimeObservation.now())) },
                                         onWatch = if (store.canWatch(row.conversation)) ({ scope.launch { store.setWatching(row.conversation) } }) else null,
                                         watchBusy = store.isChangingWatch(row.conversation.sessionId),
                                         onUnlink = if (store.canUnlink(row.conversation)) ({ store.clearUnlinkError(); unlinkTarget = row.conversation }) else null,
                                         unlinking = store.unlinkingSessionId == row.conversation.sessionId,
                                         interactions = rowInteractions,
-                                        onPin = { scope.launch { store.pin(row.conversation, store.favorites?.contains(row.conversation.sessionId) != true) } },
-                                        pinEnabled = store.canPin(row.conversation),
                                         // A Bot goes with its chats, as on Desktop.
                                         onArchive = if (store.canArchiveBot(row.conversation.sessionId)) ({ store.clearRowActionError(); botArchiveTarget = row.conversation.sessionId })
                                             else if (store.canArchive(row.conversation)) ({ store.clearRowActionError(); archiveTarget = row.conversation }) else null,
@@ -334,8 +285,6 @@ fun AgentPage(
                                         },
                                         onClick = { nav.navigate("conversation/${android.net.Uri.encode(row.conversation.sessionId)}") { popUpTo("home"); launchSingleTop = true } },
                                         selected = row.conversation.sessionId == selectedSessionId)
-                                }
-                            }
                         }
                         if (store.hasMore) {
                             item(key = "history:more") {
@@ -364,7 +313,7 @@ private fun RefreshableHistoryState(content: @Composable () -> Unit) {
 
 /** Cap visual indentation so malformed/deep trees cannot squeeze the title off-screen. */
 @Composable
-internal fun ConversationTreeRow(row: ConversationNesting.Row, pinned: Boolean, status: String?, onToggle: () -> Unit, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onPin: (() -> Unit)? = null, pinEnabled: Boolean = true, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false, onRename: (() -> Unit)? = null, onSetBot: (() -> Unit)? = null) {
+internal fun ConversationTreeRow(row: ConversationNesting.Row, status: String?, onToggle: () -> Unit, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false, onRename: (() -> Unit)? = null, onSetBot: (() -> Unit)? = null) {
     val depth = row.depth.coerceAtMost(4)
     val line = MaterialTheme.colorScheme.outlineVariant
     Box(Modifier.fillMaxWidth().drawWithContent {
@@ -394,18 +343,17 @@ internal fun ConversationTreeRow(row: ConversationNesting.Row, pinned: Boolean, 
     }.padding(start = (depth * 32).dp).semantics {
         stateDescription = "Sub-agent level ${row.depth}"; this.selected = selected
     }) {
-        ConversationRow(row.conversation, pinned, status, row.threads, row.folded, onToggle, onClick, onUnlink, unlinking, onWatch, watchBusy, selected, interactions, onPin, pinEnabled, onArchive, actionBusy, onRename, onSetBot)
+        ConversationRow(row.conversation, status, row.threads, row.folded, onToggle, onClick, onUnlink, unlinking, onWatch, watchBusy, selected, interactions, onArchive, actionBusy, onRename, onSetBot)
     }
 }
 
 @Composable
-internal fun ConversationRow(conversation: AgentConversation, pinned: Boolean, status: String?, threads: Int = 0, folded: Boolean = false, onToggle: () -> Unit = {}, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onPin: (() -> Unit)? = null, pinEnabled: Boolean = true, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false, onRename: (() -> Unit)? = null, onSetBot: (() -> Unit)? = null) {
+internal fun ConversationRow(conversation: AgentConversation, status: String?, threads: Int = 0, folded: Boolean = false, onToggle: () -> Unit = {}, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false, onRename: (() -> Unit)? = null, onSetBot: (() -> Unit)? = null) {
     val actions = buildList {
         if (onRename != null) add(ConversationRowAction("rename", "Rename", Icons.Outlined.Edit, !actionBusy, onRename))
         if (onWatch != null) add(ConversationRowAction("watch", if (conversation.watching == true) "Unwatch" else "Watch",
             if (conversation.watching == true) Icons.Outlined.NotificationsOff else Icons.Outlined.Notifications, !watchBusy && !actionBusy, onWatch))
         if (onUnlink != null) add(ConversationRowAction("unlink", if (unlinking) "Unlinking…" else "Unlink", Icons.Outlined.LinkOff, !unlinking && !actionBusy, onUnlink))
-        if (onPin != null) add(ConversationRowAction("pin", if (pinned) "Unpin" else "Pin", Icons.Outlined.PushPin, pinEnabled && !actionBusy, onPin))
         // iOS's "Make this a Bot" and "Turn into a Task", beside Archive as there.
         if (onSetBot != null) add(ConversationRowAction("bot", if (conversation.isBot) "Turn into a Task" else "Make this a Bot",
             if (conversation.isBot) Icons.Outlined.PersonRemove else Icons.Outlined.SmartToy, !actionBusy, onSetBot))
@@ -423,7 +371,7 @@ internal fun ConversationRow(conversation: AgentConversation, pinned: Boolean, s
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // A Task row, Bot or not, leads with its runtime, never a face.
-                PinnedAvatar(pinned) { TaskMark(conversation.agentRuntime) }
+                Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) { TaskMark(conversation.agentRuntime) }
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
                     Text(conversation.displayTitle, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -584,20 +532,13 @@ fun NewChatComposer(nav: NavHostController) {
     )
 }
 
-/** An overlay reserves no title width and only marks an explicit favorite. */
 @Composable
 private fun TaskMark(runtime: String?) {
     Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { RuntimeMark(runtime, 20.dp) }
 }
 
-@Composable
-private fun PinnedAvatar(pinned: Boolean, content: @Composable () -> Unit) {
-    Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-        content()
-        if (pinned) Box(Modifier.align(Alignment.TopEnd).size(15.dp)
-            .background(MaterialTheme.colorScheme.primary, CircleShape), contentAlignment = Alignment.Center) {
-            Icon(Icons.Outlined.PushPin, contentDescription = "Pinned agent",
-                tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(9.dp))
-        }
-    }
+/** Loads the next page once one of the last few loaded rows is on screen. */
+internal fun shouldLoadMore(visibleKeys: List<Any>, sessionIds: List<String>): Boolean {
+    if (sessionIds.isEmpty()) return false
+    return sessionIds.takeLast(3).any { "history:$it" in visibleKeys }
 }

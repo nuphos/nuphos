@@ -120,7 +120,7 @@ fun ConversationScreen(
     val conversation = store.conversations.firstOrNull { it.sessionId == sessionId && (it.teamId == null || it.teamId == selectedTeamId) }
     val session = remember(store, sessionId, selectedTeamId) {
         if (fresh) store.session(sessionId, "New agent")
-        else conversation?.let { store.session(it) } ?: store.session(sessionId, store.pinnedShortcuts.firstOrNull { it.sessionId == sessionId }?.title ?: "Agent")
+        else conversation?.let { store.session(it) } ?: store.session(sessionId, "Agent")
     }
     // A chat named by a link before the list knew it: show it as a chat once its detail says so.
     if (session.isChannel) {
@@ -258,7 +258,7 @@ fun ConversationScreen(
                             val label = session.runtimeDeviceLabel
                             if (session.agentRuntime != null || label != null) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    if (ai.nuphos.android.ui.components.botAvatarsEnabled() && ai.nuphos.android.model.BotFaces.face(session.sessionId) != null) ai.nuphos.android.ui.components.RuntimeMark(session.agentRuntime)
+                                    if (ai.nuphos.android.model.BotFaces.face(session.sessionId) != null) ai.nuphos.android.ui.components.RuntimeMark(session.agentRuntime)
                                     Text(ai.nuphos.android.model.RuntimeIdentity.detail(session.agentRuntime, label), style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
