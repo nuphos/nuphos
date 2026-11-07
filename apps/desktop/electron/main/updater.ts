@@ -10,31 +10,22 @@ import {
   createUpdaterErrorDedupe,
   updaterTelemetryError,
 } from './updater-error'
+import { acceptsUpdaterState } from './updater-state'
 import { markAppQuitting } from './window-session'
+
+import type { UpdaterState } from './updater-state'
 
 export const { autoUpdater } = electronUpdater
 
-export type UpdaterState =
-  | { kind: 'idle' }
-  | { kind: 'checking' }
-  | { kind: 'up-to-date' }
-  | {
-      kind: 'downloading'
-      version: string
-      transferred: number
-      total: number
-      bytesPerSecond: number
-    }
-  | { kind: 'ready'; version: string }
-  | { kind: 'error' }
+export type { UpdaterState } from './updater-state'
 
 let updaterState: UpdaterState = { kind: 'idle' }
 let updaterCheckTimer: ReturnType<typeof setInterval> | null = null
 let lastProgressAt = 0
 
 function setUpdaterState(next: UpdaterState) {
-  // A downloaded update stays ready until the restart installs it.
-  if (updaterState.kind === 'ready') return
+  // A downloaded update stays ready until the restart installs it or a newer one replaces it.
+  if (!acceptsUpdaterState(updaterState, next)) return
   updaterState = next
   for (const win of BrowserWindow.getAllWindows()) {
     win.webContents.send('updater:status', next)
@@ -45,11 +36,13 @@ export function getUpdaterState(): UpdaterState {
   return updaterState
 }
 
-/** A check while downloading or ready would only re-stage the same update.
- * electron-updater joins overlapping checks and skips unpacked builds; a failed
- * check also emits 'error', which sets the state and reports telemetry. */
+/** A check while downloading would only restart the same download. Once an update
+ * is ready, checks keep running: a release published since then downloads in the
+ * background and becomes the one the restart installs, so the app never has to
+ * update twice in a row. electron-updater joins overlapping checks and skips
+ * unpacked builds; a failed check also emits 'error', which reports telemetry. */
 export function checkForUpdates() {
-  if (updaterState.kind === 'downloading' || updaterState.kind === 'ready') return
+  if (updaterState.kind === 'downloading') return
   autoUpdater.checkForUpdates().catch(() => null)
 }
 
@@ -103,8 +96,7 @@ export function initAutoUpdaterEvents() {
     })
   })
   autoUpdater.on('update-downloaded', (info) => {
-    stopUpdatePolling()
-    if (updaterState.kind === 'ready') return
+    if (updaterState.kind === 'ready' && updaterState.version === info.version) return
     captureMain('update_downloaded', { version: info.version })
     setUpdaterState({ kind: 'ready', version: info.version })
   })
