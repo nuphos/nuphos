@@ -188,6 +188,34 @@ test('/model + Enter never runs a Nuphos action unless the arrows picked it', ()
   assert.equal(label(slashEnterTarget(options, 'mo', { active: 0, armed: true })), 'nuphos:model')
 })
 
+test('/fork + Enter runs the Fork action instead of sending "/fork" to the agent', () => {
+  const skills = [{ name: 'forklift', description: '' }]
+
+  assert.equal(
+    label(
+      slashEnterTarget(matchSlashOptions([], commands, 'fork'), 'fork', {
+        active: -1,
+        armed: false,
+      }),
+    ),
+    'nuphos:fork',
+  )
+  // Typed in full, it wins over a longer agent command sorted first.
+  assert.equal(
+    label(
+      slashEnterTarget(matchSlashOptions(skills, commands, 'fork'), 'fork', {
+        active: -1,
+        armed: false,
+      }),
+    ),
+    'nuphos:fork',
+  )
+  // An agent command with the same name is still the agent's.
+  const same = matchSlashOptions([{ name: 'fork', description: '' }], commands, 'fork')
+
+  assert.equal(slashEnterTarget(same, 'fork', { active: -1, armed: false }), null)
+})
+
 test('the most used commands come first, then A to Z', () => {
   const skills = [
     { name: 'review', description: '' },
