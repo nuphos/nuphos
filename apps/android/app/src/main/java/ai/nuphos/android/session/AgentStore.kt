@@ -114,6 +114,8 @@ class AgentStore(
     fun refresh() {
         if (disposed || !hasAiAccess() || isRefreshing) return
         searchJob?.cancel()
+        // Unlike a list poll, a refresh reads runtimes again: one added elsewhere replaces the prompt.
+        if (selectedTeam != null) refreshRuntimes()
         refreshRequests.start(storeScope) {
             if (selectedTeam == null) loadTeams()
             else kotlinx.coroutines.coroutineScope {
@@ -129,6 +131,30 @@ class AgentStore(
         // A read started before leaving may predate changes made on another client.
         refreshRequests.invalidate()
         refresh()
+    }
+
+    // MARK: Runtimes: whether the workspace has any, for the first-runtime prompt.
+    /** Null until a listing for this workspace answers. A failed one says nothing, so the last answer stays. */
+    var hasRuntimes by mutableStateOf<Boolean?>(null)
+        private set
+    private var runtimesGeneration = 0
+    private var runtimesListedFor: Long? = null
+
+    fun refreshRuntimes() = listRuntimes(force = true)
+    private fun listRuntimes(force: Boolean) {
+        if (disposed || !hasAiAccess()) return
+        val team = selectedTeam ?: return
+        if (!force && runtimesListedFor == workspaceRevision) return
+        runtimesListedFor = workspaceRevision
+        val generation = ++runtimesGeneration
+        val workspace = workspaceRevision
+        val consent = AiAccess.revision
+        storeScope.launch {
+            val any = try { ai.nuphos.android.data.AgentRuntimeApi(token, team.id).catalog().isNotEmpty() }
+                catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { null }
+            if (any != null && !disposed && hasAiAccess() && AiAccess.revision == consent && selectedTeam?.id == team.id &&
+                workspaceRevision == workspace && generation == runtimesGeneration) hasRuntimes = any
+        }
     }
 
     // MARK: Chats (channels): their own listing, as on iOS and Desktop.
@@ -341,6 +367,9 @@ class AgentStore(
     }
 
     private fun resetHistory() {
+        runtimesGeneration++
+        runtimesListedFor = null
+        hasRuntimes = null
         channelGeneration++
         channels = emptyList()
         channelsLoaded = false
@@ -853,6 +882,7 @@ class AgentStore(
             if (teamsPhase == Phase.Loaded) phase = Phase.Loaded
             return
         }
+        listRuntimes(force = false)
         loadGeneration += 1
         isLoadingMore = false
         val generation = loadGeneration

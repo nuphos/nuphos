@@ -160,6 +160,9 @@ class AccountParityFixtureDeviceTest {
                     draftNavigation && request.method == "GET" && path == "/teams/bbbbbbbbbbbbbbbbbbbbbbbb/members" -> """{"members":[]}"""
                     draftNavigation && request.method == "GET" && path == "/agent/plan-approval-policy" && request.url.queryParameter("teamId") == "bbbbbbbbbbbbbbbbbbbbbbbb" -> """{"requesterApprovalRequired":true,"minimumOtherApprovals":0}"""
                     request.method == "GET" && path.matches(Regex("/teams/[a-f0-9]{24}/agent-runtimes/quota")) -> """{"quotas":[]}"""
+                    // The workspace has a runtime, so the pages list as before rather than asking to set one up.
+                    request.method == "GET" && path.matches(Regex("/teams/[a-f0-9]{24}/agent-runtimes")) ->
+                        """{"runtimes":[{"id":"r1","provider":"codex","label":"Synthetic runtime","status":"active","kind":"managed"}]}"""
                     // Background reads the composer and transcript make. Writes stay unexpected.
                     request.method == "GET" && path == "/agent/credential-options" -> """{"options":{}}"""
                     request.method == "GET" && path == "/agent/devices" -> """{"devices":[]}"""

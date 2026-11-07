@@ -94,7 +94,9 @@ class WorkspaceSetupFixtureDeviceTest {
                 val policy = request.method == "GET" && path == "/agent/plan-approval-policy" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
                 // Background reads the home composer makes. Writes stay unexpected.
                 val backgroundRead = request.method == "GET" && (path == "/agent/credential-options" || path == "/agent/devices" || path.endsWith("/agent-runtimes/quota"))
-                if (!create && !join && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !policy && !backgroundRead) unexpected += request
+                // What the pages read to know whether the workspace has a runtime yet.
+                val runtimes = request.method == "GET" && path.matches(Regex("/teams/[a-f0-9]{24}/agent-runtimes"))
+                if (!create && !join && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !policy && !backgroundRead && !runtimes) unexpected += request
                 var code = 200
                 val body = when {
                     create || join -> {
@@ -115,6 +117,7 @@ class WorkspaceSetupFixtureDeviceTest {
                     plans -> """{"plans":[],"hasMore":false}"""
                     members -> """{"members":[]}"""
                     policy -> """{"requesterApprovalRequired":true,"minimumOtherApprovals":0}"""
+                    runtimes -> """{"runtimes":[{"id":"r1","provider":"codex","label":"Synthetic runtime","status":"active","kind":"managed"}]}"""
                     else -> { code = 500; "{}" }
                 }
                 Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(code).message("fixture")

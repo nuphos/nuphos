@@ -99,6 +99,8 @@ fun AgentPage(
     val store = LocalAgentStore.current
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+    var settingUpRuntime by androidx.compose.runtime.saveable.rememberSaveable(store.selectedTeam?.id) { mutableStateOf(false) }
+    if (settingUpRuntime) FirstRuntimeSetup { settingUpRuntime = false }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(store, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
@@ -262,6 +264,11 @@ fun AgentPage(
                         // A held favorites refresh must not block retrying failed history.
                         onAction = { scope.launch { store.reload() } },
                     ) }
+                }
+                // With any task, the list stays, as on iOS.
+                store.hasRuntimes == false && store.conversations.isEmpty() && pins.isEmpty() && store.search.isEmpty() -> {
+                    RefreshableHistoryState { FirstRuntimePrompt(
+                        if (store.selectedTeam?.isAdministrator == true) ({ settingUpRuntime = true }) else null) }
                 }
                 store.conversations.isEmpty() && pins.isEmpty() &&
                     (store.search.isNotEmpty() || store.selectedTeam == null || store.favorites != null) -> {
