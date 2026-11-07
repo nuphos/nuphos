@@ -8,6 +8,7 @@ import { needsComputerUse } from '../computerUse'
 
 import { matchDevices, matchMembers, mentionQuery } from './composerMention'
 import { mentionedMembers, optionChip } from './composerMentionChips'
+import { sendWithMentionInvites } from './composerSend'
 import { MentionPicker } from './composerMentionOptions'
 import { announceTimelineChange } from './timelineEvents'
 
@@ -202,13 +203,19 @@ export function useComposerMentions(
   function wrapSend(send: ComposerSend): ComposerSend {
     return (text, filePaths) => {
       const mentions = mentionedMembers(editorRef.current)
-      const ids = mentions.map((mention) => mention.id)
-
-      send(text, filePaths, mentions)
-      setQuery(null)
       // A brand-new conversation may not exist server-side yet; then there is
       // simply no one to offer.
-      offerInvites(ids).catch(() => setUninvited([]))
+      const result = sendWithMentionInvites(
+        send,
+        text,
+        filePaths,
+        mentions,
+        (ids) => void offerInvites(ids).catch(() => setUninvited([])),
+      )
+
+      setQuery(null)
+
+      return result
     }
   }
 

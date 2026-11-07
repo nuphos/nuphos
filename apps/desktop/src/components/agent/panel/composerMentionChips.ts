@@ -8,12 +8,8 @@ import type { TeamMember } from '../../../types'
 
 export const MENTION_ATTR = 'data-mention-user-id'
 
-/** What a send carries besides its text: the teammates its chips mention. */
-export type ComposerSend = (
-  text: string,
-  filePaths: string[],
-  mentions?: AgentMessageMention[],
-) => void
+// A send reports whether it took the draft; see composerSend.
+export type { ComposerSend } from './composerSend'
 
 /** The teammates the editor's chips mention, once each, named as the chip shows them. */
 export function mentionedMembers(el: HTMLElement | null): AgentMessageMention[] {
