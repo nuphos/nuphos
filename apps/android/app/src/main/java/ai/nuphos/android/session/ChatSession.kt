@@ -1407,10 +1407,12 @@ class ChatSession(
 
     private fun transcriptWindow(full: Boolean, rebase: Int?): Window {
         val base = rebase ?: baseIndex
-        if (full) return Window(messages, base)
         val lastUser = messages.indexOfLast { it.role == ChatMessage.Role.User }
-        if (lastUser <= 0) return Window(messages, base)
-        return Window(messages.drop(lastUser), base + lastUser)
+        val from = if (full || lastUser <= 0) 0 else lastUser
+        // The server keeps its first `baseIndex` messages and replaces the rest with what's sent. Starting
+        // after any message this app can't read is what keeps that message there.
+        val start = maxOf(from, messages.indexOfLast { it.isUnreadable } + 1)
+        return Window(messages.drop(start), base + start)
     }
 
     private fun signature(): Int {
@@ -1435,6 +1437,8 @@ class ChatSession(
 
     suspend fun syncTranscriptNow() {
         if (!canManage || isNative || serverOwnedTranscript || messages.isEmpty()) return
+        // Writing this list back would replace messages on the server that this app can't read.
+        if (messages.any { it.isUnreadable }) return
         val sig = signature()
         if (sig == lastSyncedSignature) return
         val wire = messages.map { it.forWire }
