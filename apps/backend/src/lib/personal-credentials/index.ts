@@ -265,8 +265,10 @@ function sha256(value: string): string {
 
 export { deleteAllPersonalCredentials, deletePersonalCredential } from './revoke'
 export {
+  ownPersonalCredentialOptions,
   personalCredentialSubjectFor,
   personalGithubToken,
+  personalOwnToken,
   personalGoogleToken,
   personalLinearToken,
 } from './handout'

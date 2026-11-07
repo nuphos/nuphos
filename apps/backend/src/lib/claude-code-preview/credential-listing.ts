@@ -226,6 +226,19 @@ export const CREDENTIAL_LISTERS: Record<SelectionKey, Lister> = {
     }),
     unsetMeansAll: true,
   }),
+  personalCredentialIds: lister({
+    provider: 'personal',
+    available: (o) => o.personalCredentials,
+    idOf: (c) => c.provider,
+    details: (c, id) => ({
+      label: `${c.login} (your own ${id === 'github' ? 'GitHub' : 'Linear'})`,
+      credentialPath: `personal-credentials/${id}/token`,
+      hint:
+        id === 'github'
+          ? setupHint('github', 'personal')
+          : setupHint('linear', 'personal', { after: 'source ~/.linear/nuphos.env' }),
+    }),
+  }),
   deviceIds: (selectedIds, options) => {
     const listed = deviceLister(selectedIds, options)
     const usable = new Set(options.devices.filter((d) => d.available).map((d) => d.deviceId))

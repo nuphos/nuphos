@@ -35,6 +35,7 @@ function credentialOptions(): AgentCredentialOptions {
     vantaIntegrations: [],
     secureframeIntegrations: [],
     resendIntegrations: [],
+    personalCredentials: [],
     devices: [],
     githubInstallations: [],
     gitlabBindings: [],

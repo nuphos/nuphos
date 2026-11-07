@@ -34,6 +34,8 @@ bash skills/linear/scripts/setup-credentials.sh <teamId> <bindingId>
 
 Identity: when the turn's member connected a Personal Credential for this workspace, Linear calls are authored by their own account. That member is the sender of a member's message, or the session owner for automated turns. Otherwise they are authored by the team's Linear app. Add `--team` as a third argument to use the app identity on purpose.
 
+Without a team workspace binding: when `list_credentials` lists a selected `personal` / `linear` entry, the conversation owner chose their own Linear account for this conversation. Load it with `bash skills/linear/scripts/setup-credentials.sh <teamId> personal`.
+
 Only if no Linear workspace appears in the session credential context, tell the
 user to enable one for this session or have an administrator connect it under
 Cloud → Integrations → Add → Linear. Do not try to discover or bind an unlisted

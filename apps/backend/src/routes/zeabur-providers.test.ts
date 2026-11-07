@@ -49,6 +49,8 @@ useModels({
       return { modifiedCount: 1 }
     },
   }),
+  // The member's own Personal Credentials are listed with the options; none here.
+  personalCredentials: (() => ({ find: () => ({ toArray: async () => [] }) })) as never,
 })
 useByosAccount({
   listZeaburProviderBindings: () => bindings,

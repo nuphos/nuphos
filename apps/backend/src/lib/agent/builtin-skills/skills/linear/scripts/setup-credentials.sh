@@ -4,7 +4,7 @@ set -euo pipefail
 # --team uses the workspace's team (app) identity even when the turn's member
 # connected a Personal Credential; their own Linear account is the default.
 if [ "$#" -lt 2 ] || [ "$#" -gt 3 ] || { [ "$#" -eq 3 ] && [ "$3" != "--team" ]; }; then
-  echo "Usage: setup-credentials.sh <teamId> <bindingId> [--team]" >&2
+  echo "Usage: setup-credentials.sh <teamId> <bindingId|personal> [--team]" >&2
   exit 2
 fi
 
@@ -27,7 +27,12 @@ auth_token="$(nuphos_token)" || exit 1
 
 team_enc="$(urlencode "$team_id")"
 binding_enc="$(urlencode "$binding_id")"
-path="/teams/${team_enc}/linear-workspaces/${binding_enc}/credentials${3:+?identity=team}"
+# `personal`: the conversation owner's own Linear account, when this conversation selected it.
+if [ "$binding_id" = personal ]; then
+  path="/teams/${team_enc}/personal-credentials/linear/token"
+else
+  path="/teams/${team_enc}/linear-workspaces/${binding_enc}/credentials${3:+?identity=team}"
+fi
 
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT

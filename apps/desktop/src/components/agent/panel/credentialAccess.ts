@@ -6,7 +6,7 @@ import { keepTeamIdentity, teamIdentityOf } from './personalIdentity'
 
 import type { AgentCredentialOptions, AgentCredentialSelection } from '../../../api'
 
-type AccessKey = Exclude<keyof AgentCredentialSelection, 'teamIdentity'>
+type AccessKey = Exclude<keyof AgentCredentialSelection, 'teamIdentity' | 'personalCredentialIds'>
 
 export function normalizeCredentialAccess(
   value: Partial<AgentCredentialSelection> | null | undefined,
@@ -83,6 +83,7 @@ export function normalizeCredentialOptions(
     upstashAccounts: value?.upstashAccounts ?? [],
     cloudflareAccounts: value?.cloudflareAccounts ?? [],
     instaboxAccounts: value?.instaboxAccounts ?? [],
+    personalCredentials: value?.personalCredentials ?? [],
     devices: value?.devices ?? [],
   }
 }
@@ -126,6 +127,7 @@ export function credentialSelectionSignature(value: AgentCredentialSelection): s
     instaboxAccountIds: sortedIds(value.instaboxAccountIds),
     deviceIds: sortedIds(value.deviceIds),
     teamIdentity: sortedIds(value.teamIdentity ?? []),
+    personalCredentialIds: sortedIds(value.personalCredentialIds ?? []),
   })
 }
 

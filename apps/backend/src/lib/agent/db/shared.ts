@@ -188,8 +188,7 @@ export type AgentCredentialAccess = {
   volcengineAccountIds?: string[]
   azureAccountIds?: string[]
   huaweiAccountIds?: string[]
-  // Optional for docs written before on-prem relay clusters existed.
-  onpremClusterIds?: string[]
+  onpremClusterIds?: string[] // optional: older docs predate on-prem relay clusters
   betterStackIntegrationIds: string[]
   uptimeKumaInstanceIds: string[]
   // Optional for docs written before Linear joined the session-isolation tier.
@@ -218,6 +217,7 @@ export type AgentCredentialAccess = {
   // Optional for docs older than device selection; devices are user-owned, never team-shared.
   deviceIds?: string[]
   teamIdentity?: ('github' | 'linear')[] // act as the team, not a member's Personal Credential
+  personalCredentialIds?: ('github' | 'linear')[] // the owner's own, with no team binding
   updatedAt: Date
   updatedBy: string
 }

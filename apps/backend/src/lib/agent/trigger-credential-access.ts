@@ -40,6 +40,7 @@ const CREDENTIAL_ARRAY_KEYS = [
   'upstashAccountIds',
   'cloudflareAccountIds',
   'instaboxAccountIds',
+  'personalCredentialIds',
 ] as const satisfies readonly CredentialArrayKey[]
 
 export type TriggerCredentialMode = 'all' | 'selected'

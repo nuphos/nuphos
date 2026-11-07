@@ -28,6 +28,7 @@ function options(): AgentCredentialOptions {
     vantaIntegrations: [],
     secureframeIntegrations: [],
     resendIntegrations: [],
+    personalCredentials: [],
     devices: [],
     ...emptyConnectorCredentialOptions(),
     githubInstallations: [

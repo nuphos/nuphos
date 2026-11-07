@@ -32,6 +32,8 @@ export type AgentCredentialSelection = {
   instaboxAccountIds?: string[]
   deviceIds?: string[]
   teamIdentity?: ('github' | 'linear')[]
+  /** The owner's own GitHub / Linear Personal Credential, usable without a team binding. */
+  personalCredentialIds?: ('github' | 'linear')[]
 }
 
 export type AgentCredentialOptions = {
@@ -151,6 +153,11 @@ export type AgentCredentialOptions = {
   plaudAccounts: {
     bindingId: string
     label: string
+  }[]
+  /** The requesting member's own GitHub / Linear Personal Credentials; nobody else's. */
+  personalCredentials: {
+    provider: 'github' | 'linear'
+    login: string
   }[]
   githubInstallations: {
     // Route key for /teams/:teamId/github-installations/:installationId, and

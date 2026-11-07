@@ -32,6 +32,7 @@ const options: AgentCredentialOptions = {
   vantaIntegrations: [],
   secureframeIntegrations: [],
   resendIntegrations: [],
+  personalCredentials: [],
   devices: [
     { deviceId: 'mac', label: 'MacBook', platform: 'darwin', available: true },
     { deviceId: 'pc', label: 'Desktop PC', platform: 'win32', available: true },

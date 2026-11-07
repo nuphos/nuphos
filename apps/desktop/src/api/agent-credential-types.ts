@@ -37,6 +37,8 @@ export type AgentCredentialSelection = {
   deviceIds: string[]
   /** Providers this conversation acts as the team on, despite the member's Personal Credential. */
   teamIdentity?: PersonalCredentialProvider[]
+  /** The member's own GitHub / Linear credential, used where the team has no binding of it. */
+  personalCredentialIds?: ('github' | 'linear')[]
 }
 
 export type AgentCredentialAccess = AgentCredentialSelection & {
@@ -199,6 +201,11 @@ export type AgentCredentialOptions = {
   instaboxAccounts: {
     accountId: string
     label: string
+  }[]
+  /** The requesting member's own GitHub / Linear Personal Credentials. */
+  personalCredentials: {
+    provider: 'github' | 'linear'
+    login: string
   }[]
   devices: {
     deviceId: string

@@ -58,6 +58,7 @@ function credentialOptions(): AgentCredentialOptions {
     vantaIntegrations: [],
     secureframeIntegrations: [],
     resendIntegrations: [],
+    personalCredentials: [],
     devices: [
       { deviceId: 'device-1', label: 'MacBook', platform: 'darwin', available: true },
       { deviceId: 'device-asleep', label: 'Asleep', platform: 'darwin', available: false },

@@ -826,6 +826,16 @@
                           ]
                         }
                       },
+                      "personalCredentialIds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "github",
+                            "linear"
+                          ]
+                        }
+                      },
                       "deviceIds": {
                         "type": "array",
                         "items": {
@@ -1034,6 +1044,16 @@
                           }
                         },
                         "teamIdentity": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "github",
+                              "linear"
+                            ]
+                          }
+                        },
+                        "personalCredentialIds": {
                           "type": "array",
                           "items": {
                             "type": "string",
