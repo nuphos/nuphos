@@ -39,7 +39,7 @@ private fun agentImageLoader(): ImageLoader = AgentImages.get(LocalContext.curre
 @Composable
 fun AgentAvatar(sessionId: String, runtime: String?, size: Dp = 36.dp) {
     val loader = agentImageLoader()
-    val face = ai.nuphos.android.model.BotFaces.face(sessionId).takeIf { botAvatarsEnabled() }
+    val face = ai.nuphos.android.model.BotFaces.face(sessionId)
     Box(Modifier.size(size).testTag("agent-identity-avatar"), contentAlignment = Alignment.Center) {
         // A face this build doesn't ship falls back to the one the ID derives, as on iOS and Desktop.
         if (face != null) AsyncImage(model = "file:///android_asset/bot-avatars/${BotAvatars.named(face) ?: BotAvatars.file(sessionId)}",
@@ -66,11 +66,4 @@ fun RuntimeMark(runtime: String?, size: Dp = 14.dp, loader: ImageLoader = agentI
         contentDescription = null,
         colorFilter = if (RuntimeIdentity.originalColor(runtime)) null else ColorFilter.tint(MaterialTheme.colorScheme.onSurfaceVariant),
         modifier = Modifier.size(size).testTag("runtime-provider-mark"))
-}
-
-/** Read the same observable preference as Account > Appearance. */
-@Composable
-fun botAvatarsEnabled(): Boolean {
-    val context = LocalContext.current
-    return androidx.compose.runtime.remember(context) { ai.nuphos.android.model.BotAvatarPreferences.get(context) }.enabled
 }

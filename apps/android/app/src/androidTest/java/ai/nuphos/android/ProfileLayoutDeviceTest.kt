@@ -30,7 +30,6 @@ class ProfileLayoutDeviceTest {
         compose.setContent {
             NuphosTheme(darkTheme = InstrumentationRegistry.getArguments().getString("fixtureDark") == "true") {
                 val currentDensity = LocalDensity.current
-                var avatars by remember { mutableStateOf(true) }
                 CompositionLocalProvider(LocalDensity provides Density(currentDensity.density, if (large) 2f else currentDensity.fontScale)) {
                 Surface(Modifier.fillMaxSize()) {
                     Column(Modifier.systemBarsPadding()) {
@@ -42,7 +41,6 @@ class ProfileLayoutDeviceTest {
                             onWithdraw = { calls += "withdraw" }, onDeletion = { calls += "delete" },
                             onSignOut = { calls += "signout" },
                             onCopyUserId = { calls += "copy-id" },
-                            botAvatarsEnabled = avatars, onBotAvatarsChange = { avatars = it; calls += "avatars:$it" },
                             voiceSettings = {
                                 Text("Voice input", style = MaterialTheme.typography.titleSmall)
                                 Text("Synthetic settings · no stored key")
@@ -105,27 +103,11 @@ class ProfileLayoutDeviceTest {
         }
         assertTrue(calls.isEmpty())
     }
-    @Test fun appearanceToggleChangesStateOnceWithoutAccountActions() {
-        render()
-        compose.onNodeWithContentDescription("Bot avatars").performScrollTo().assertIsOn().performClick().assertIsOff()
-        assertEquals(listOf("avatars:false"), calls)
-    }
-    @Test fun largeTextKeepsAppearanceAndPrivacyReachable() {
+    @Test fun largeTextKeepsPrivacyReachable() {
         render(large = true)
         compose.onNodeWithText("EMAIL").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithContentDescription("Bot avatars").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Sign out").performScrollTo().assertIsDisplayed()
         assertTrue(calls.isEmpty())
-    }
-    @Test fun appearancePreferencePersistsInIsolatedPackage() {
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val appearance = ai.nuphos.android.model.BotAvatarPreferences.get(context)
-        val original = appearance.enabled
-        try {
-            appearance.update(!original)
-            assertEquals(!original, appearance.enabled)
-            assertEquals(!original, context.getSharedPreferences("appearance", android.content.Context.MODE_PRIVATE).getBoolean("bot_avatars", original))
-        } finally { appearance.update(original) }
     }
     @Test fun longPressIdentityCopiesOnlyOnExplicitAction() {
         render()

@@ -62,9 +62,9 @@ class ConversationRowActionsFixtureDeviceTest {
                                             watching = true, isOwner = true, parentSessionId = if (id == "child") "parent" else null),
                                             ConversationNesting.Section.Mine, if (id == "child") 1 else 0,
                                             if (id == "parent") 1 else 0, false),
-                                        pinned = false, status = "Synthetic data only", selected = id == "child",
+                                        status = "Synthetic data only", selected = id == "child",
                                         onToggle = { expands++ }, onClick = { opens++ },
-                                        onWatch = { writes++ }, onUnlink = { writes++ }, onPin = { writes++ }, onArchive = { writes++ },
+                                        onWatch = { writes++ }, onUnlink = { writes++ }, onArchive = { writes++ },
                                         watchBusy = busy.value, unlinking = busy.value, actionBusy = busy.value,
                                         interactions = interactions,
                                     )
@@ -146,7 +146,7 @@ class ConversationRowActionsFixtureDeviceTest {
         compose.runOnIdle { assertEquals(0, writes) }
         Espresso.pressBack()
         openMenu()
-        for (action in listOf("watch", "unlink", "pin", "archive")) {
+        for (action in listOf("watch", "unlink", "archive")) {
             compose.onNodeWithTag("menu-$action:child").assertIsDisplayed()
         }
         shot("rtl-large-text")

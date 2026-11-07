@@ -59,7 +59,6 @@ fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (
     val injectedVoice = ai.nuphos.android.voice.LocalVoiceServices.current
     val voiceServices = remember(voiceContext, injectedVoice) { injectedVoice ?: ai.nuphos.android.voice.deviceVoiceServices(voiceContext) }
     val auth = LocalAuthSession.current
-    val appearance = remember(voiceContext) { ai.nuphos.android.model.BotAvatarPreferences.get(voiceContext) }
     var choosingWorkspace by remember(auth.generation) { mutableStateOf(false) }
     var confirm by remember { mutableStateOf(false) }
     var edit by remember(user.id) { mutableStateOf(false) }
@@ -85,8 +84,6 @@ fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (
             onDeletion = { deletion = true },
             onSignOut = { confirm = true },
             onCopyUserId = { clipboard.setText(AnnotatedString((auth.user ?: user).id)) },
-            botAvatarsEnabled = appearance.enabled,
-            onBotAvatarsChange = appearance::update,
             voiceSettings = { ai.nuphos.android.voice.VoiceSettingsSection(voiceServices) },
             workspaceSettings = if (onWorkspace != null || workspacePicker != null) ({
                 ProfileAction("Workspace", subtitle = workspaceName, disclosure = true,
@@ -142,8 +139,6 @@ internal fun ProfileContent(
     onDeletion: () -> Unit,
     onSignOut: () -> Unit,
     onCopyUserId: () -> Unit = {},
-    botAvatarsEnabled: Boolean = true,
-    onBotAvatarsChange: (Boolean) -> Unit = {},
     voiceSettings: @Composable () -> Unit,
     workspaceSettings: (@Composable () -> Unit)? = null,
 ) {
@@ -195,14 +190,6 @@ internal fun ProfileContent(
                 ) {
                     voiceSettings()
                 }
-            }
-            ProfileGroup("Appearance") {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Bot avatars", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                    androidx.compose.material3.Switch(checked = botAvatarsEnabled, onCheckedChange = onBotAvatarsChange,
-                        modifier = Modifier.semantics { contentDescription = "Bot avatars" })
-                }
-                Text("Give Agents a character avatar. Turn off to show Runtime icons.", modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             ProfileGroup("App icon") { AppIconPicker() }
             ProfileGroup("Privacy") {

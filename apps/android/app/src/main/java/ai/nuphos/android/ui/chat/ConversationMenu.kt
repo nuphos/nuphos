@@ -28,7 +28,6 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
     var title by remember(session, store.workspaceRevision) { mutableStateOf(session.title) }
     var busy by remember(session, store.workspaceRevision) { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(session.teamId) { store.loadFavorites() }
     fun perform(block: suspend () -> Unit) {
         if (busy) return
         busy = true
@@ -50,11 +49,6 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
             share = true
         })
         if (session.canOpenDesktop) DropdownMenuItem(text = { Text("Desktop") }, leadingIcon = { Icon(Icons.Outlined.DesktopWindows, null) }, onClick = { open = false; desktop = true })
-        val pinned = store.favorites?.contains(session.sessionId) == true
-        DropdownMenuItem(text = { Text(if (pinned) "Unpin" else "Pin") }, leadingIcon = { Icon(Icons.Outlined.PushPin, null) }, enabled = !busy && store.favorites != null && session.loaded && session.loadError == null, onClick = {
-            open = false; perform { store.pin(session, !pinned) }
-        })
-        if (store.favorites == null) DropdownMenuItem(text = { Text("Retry favorites") }, onClick = { perform { store.loadFavorites(); error = store.favoritesError } })
         if (session.canWatch) DropdownMenuItem(
             text = { Text(if (session.watching == true) "Unwatch" else "Watch") },
             leadingIcon = { Icon(if (session.watching == true) Icons.Outlined.NotificationsOff else Icons.Outlined.Notifications, null) },
