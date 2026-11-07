@@ -2,7 +2,10 @@ package ai.nuphos.android.model
 
 import ai.nuphos.android.data.Instants
 import ai.nuphos.android.data.JsonValue
+import android.util.Log
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import kotlinx.serialization.descriptors.SerialDescriptor
@@ -106,8 +109,10 @@ object ChatMessageSerializer : KSerializer<ChatMessage> {
         encoder.encodeSerializableValue(JsonValue.serializer(), JsonValue.Obj(o))
     }
 
-    override fun deserialize(decoder: Decoder): ChatMessage {
-        val json = decoder.decodeSerializableValue(JsonValue.serializer())
+    override fun deserialize(decoder: Decoder): ChatMessage =
+        from(decoder.decodeSerializableValue(JsonValue.serializer()))
+
+    internal fun from(json: JsonValue): ChatMessage {
         val role = ChatMessage.Role.from(json["role"]?.stringValue)
         return ChatMessage(
             id = json["id"]?.stringValue ?: UUID.randomUUID().toString().lowercase(),
@@ -397,6 +402,28 @@ sealed class ChatPart {
                 completedAt = json["completedAt"]?.numberValue,
             )
         }
+    }
+}
+
+/**
+ * A conversation's messages from the server. One that can't be read is skipped and logged, without its
+ * content, so the rest of the conversation still loads and it isn't shown as something it isn't.
+ */
+object ReadableChatMessagesSerializer : KSerializer<List<ChatMessage>> {
+    private val list = ListSerializer(ChatMessageSerializer)
+    override val descriptor: SerialDescriptor = list.descriptor
+    override fun serialize(encoder: Encoder, value: List<ChatMessage>) = encoder.encodeSerializableValue(list, value)
+
+    override fun deserialize(decoder: Decoder): List<ChatMessage> {
+        val entries = decoder.decodeSerializableValue(JsonValue.serializer()).arrayValue
+            ?: throw SerializationException("messages must be an array")
+        val readable = entries.filter { entry ->
+            !entry["id"]?.stringValue.isNullOrEmpty() && ChatMessage.Role.entries.any { it.raw == entry["role"]?.stringValue }
+        }
+        val skipped = entries.size - readable.size
+        // This model also runs in plain JVM tests, which have no Log.
+        if (skipped > 0) runCatching { Log.w("nuphos.chat", "Skipped $skipped unreadable messages of ${entries.size}") }
+        return readable.map(ChatMessageSerializer::from)
     }
 }
 
