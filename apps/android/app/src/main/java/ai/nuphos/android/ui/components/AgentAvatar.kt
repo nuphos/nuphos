@@ -49,6 +49,13 @@ fun AgentAvatar(sessionId: String, runtime: String?, size: Dp = 36.dp) {
     }
 }
 
+/** One of the faces a Bot can wear, by its catalog file name. */
+@Composable
+fun BotFace(file: String, size: Dp, modifier: Modifier = Modifier) {
+    AsyncImage(model = "file:///android_asset/bot-avatars/$file", imageLoader = agentImageLoader(), contentDescription = null,
+        contentScale = ContentScale.Fit, modifier = modifier.size(size))
+}
+
 /** Decorative mark; the adjacent runtime text supplies the accessible name once. */
 @Composable
 fun RuntimeMark(runtime: String?, size: Dp = 14.dp, loader: ImageLoader = agentImageLoader()) {

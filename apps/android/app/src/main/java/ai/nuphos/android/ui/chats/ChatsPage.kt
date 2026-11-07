@@ -8,17 +8,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.Forum
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -66,6 +65,7 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
         }
     }
     val rows = store.botsList
+    var showNewBot by rememberSaveable { mutableStateOf(false) }
     // A Bot's chat is made on the first tap. The list stays up meanwhile, so a failure has a place to show.
     fun openBot(botId: String) {
         scope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) {
@@ -92,28 +92,42 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
         placeholder = "Search bots",
         onCancel = { store.updateSearch(""); onSearchingChange(false) },
     )
-    when {
-        !store.channelsLoaded && rows.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
-        rows.isEmpty() -> Column(Modifier.fillMaxSize().padding(32.dp).testTag("chats-empty"),
-            verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Outlined.Forum, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(if (store.search.isEmpty()) "No bots yet" else "No matches", style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 16.dp))
-            Text(if (store.search.isEmpty()) "Bots and chats with people show up here." else "No bots or chats match your search.",
-                style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
-        }
-        else -> LazyColumn(Modifier.fillMaxSize().testTag("chats-list")) {
-            items(rows, key = { it.sessionId }) { row ->
-                ChatRow(row, selected = row.sessionId == selectedSessionId, opening = store.openingBotId == row.sessionId) {
-                    if (row.isChannel) nav.navigate("channel/${android.net.Uri.encode(row.sessionId)}") { launchSingleTop = true }
-                    else openBot(row.sessionId)
+    if (!store.channelsLoaded && rows.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator()
+    // Bots always lists, so its "+" can make the first one.
+    } else LazyColumn(Modifier.fillMaxSize().testTag("chats-list")) {
+        item(key = "bots-header") {
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Bots", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                IconButton(onClick = { showNewBot = true }, enabled = !store.creatingBot) {
+                    Icon(Icons.Outlined.Add, "New Bot")
                 }
             }
         }
+        items(rows, key = { it.sessionId }) { row ->
+            ChatRow(row, selected = row.sessionId == selectedSessionId, opening = store.openingBotId == row.sessionId) {
+                if (row.isChannel) nav.navigate("channel/${android.net.Uri.encode(row.sessionId)}") { launchSingleTop = true }
+                else openBot(row.sessionId)
+            }
+        }
     }
+    }
+    if (showNewBot) {
+        val auth = ai.nuphos.android.ui.LocalAuthSession.current
+        val account = auth.user?.id
+        NewBotSheet(store.creatingBot, store.newBotError, store.newBotWaitingForChat != null,
+            onCreate = { title, avatar ->
+                // On the runtime a new chat would use, so the Bot's composer shows it.
+                val runtime = if (account != null && team != null) auth.runtimeSelections.bind(account, team).binding else null
+                scope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) {
+                    val chat = store.createBot(title, avatar, runtime) ?: return@launch
+                    showNewBot = false
+                    nav.navigate("channel/${android.net.Uri.encode(chat)}") { launchSingleTop = true }
+                }
+            },
+            onDismiss = { store.forgetNewBot(); showNewBot = false },
+        )
     }
 }
 
