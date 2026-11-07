@@ -30,31 +30,43 @@ export function assertClaudeCodeSetupConfigured(
 
 /**
  * The agent a conversation nothing pins runs on: the first usable agent in its owner's
- * fallback list, else, when the team registers no agent, the owner's first online Box agent.
- * `instances` are listed for the owner, so local agents are theirs; a teammate's shared
- * computer is never chosen without a person choosing it.
+ * fallback list, else the owner's own signed-in agent on any computer they may use, shared
+ * ones included, most recently used first: signing in to it is the choice. A local agent
+ * belongs to whoever added it, else to the computer's owner, so another member's never runs.
  */
 export function defaultConversationRuntimeId(
   instances: readonly Pick<RuntimeInstance, 'id' | 'provider' | 'status' | 'kind' | 'local'>[],
-  fallbackIds: readonly string[],
-  provider?: OpenAbProvider,
+  userId: string,
+  {
+    fallbackIds = [],
+    recentIds = [],
+    provider,
+  }: {
+    fallbackIds?: readonly string[]
+    /** The agents of the owner's latest conversations, most recent first. */
+    recentIds?: readonly string[]
+    provider?: OpenAbProvider
+  } = {},
 ): string | undefined {
   const usable = (instance: (typeof instances)[number]) =>
     instance.status === 'active' &&
     (!provider || instance.provider === provider) &&
     (instance.kind !== 'local' ||
       Boolean(
-        instance.local?.online && !instance.local.shared && instance.local.signedIn !== false,
+        instance.local?.online &&
+        instance.local.signedIn !== false &&
+        (instance.local.addedBy?.userId ?? instance.local.ownerUserId) === userId,
       ))
   const listed = fallbackIds
     .map((id) => instances.find((instance) => instance.id === id))
     .find((instance) => instance && usable(instance))
 
   if (listed) return listed.id
-  if (instances.some((instance) => instance.kind !== 'local' && instance.status === 'active'))
-    return undefined
+  const rank = (id: string) => (recentIds.includes(id) ? recentIds.indexOf(id) : Infinity)
 
-  return instances.find((instance) => instance.local?.box && usable(instance))?.id
+  return instances
+    .filter((instance) => instance.kind === 'local' && usable(instance))
+    .sort((a, b) => rank(a.id) - rank(b.id))[0]?.id
 }
 
 export function validateRequestedAgentRuntime(

@@ -17,9 +17,8 @@ export function slackAgentErrorNotice(err: unknown): string {
 
   if (err.code === 'claude_code_setup_required') {
     return (
-      '*Claude Code is not connected to this workspace, so this message was not run.* ' +
-      'Ask a workspace administrator to run `claude setup-token`, then bind the OAuth token in Nuphos Settings → Agent. ' +
-      'Retry after Runtime status shows Online.'
+      '*You have no agent to run this message on, so it was not run.* ' +
+      'Sign in to an agent on a computer you can use in Nuphos, or pick one in Settings → Agent, then retry.'
     )
   }
   if (err.code === 'claude_code_runtime_starting') {
