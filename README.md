@@ -11,6 +11,11 @@ terminal, for one person. Nuphos is where a team runs them instead — across
 people, across machines, and without the session ending when someone closes
 their lid.
 
+Looking for an open source alternative to xAI's Grok Bot? Nuphos gives you
+always-on agents that run on the Claude Code or Codex subscription you already
+pay for, on a managed cloud runtime or a machine you own, in sessions your
+whole team can join. Nuphos is not affiliated with xAI.
+
 ## Features
 
 - **Use your existing agent.** Claude Code and Codex ship today, each behind an
