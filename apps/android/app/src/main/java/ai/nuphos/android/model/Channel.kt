@@ -11,6 +11,9 @@ data class ChannelAgent(val sessionId: String, val title: String = "", val owner
 @Serializable
 data class ChannelAgentsEnvelope(val agents: List<ChannelAgent> = emptyList())
 
+/** The post a reply answers, as the server quoted it when the reply was sent. Its `id` may since be gone. */
+data class ChannelReply(val id: String?, val authorName: String, val text: String)
+
 /**
  * One post in a chat, read from the stored message as Desktop and iOS read it:
  * who sent it, its words and its files. The chat's transcript is written by the
@@ -31,8 +34,13 @@ data class ChannelPost(
     val sentAt: Instant?,
     /** Shown at once, before the chat returns it. */
     val sending: Boolean = false,
+    /** The post this one replies to. */
+    val replyTo: ChannelReply? = null,
 ) {
     fun isMine(viewerId: String?): Boolean = !isAgent && viewerId != null && senderId == viewerId
+
+    /** What a reply to this post quotes until the chat stores its own snapshot. */
+    fun asReply(): ChannelReply = ChannelReply(id, name, text.trim().take(200).ifEmpty { "File" })
     val groups: List<String> get() = uploads.map { it.groupId } + downloads
 
     companion object {
@@ -53,8 +61,12 @@ data class ChannelPost(
             val text = display.text.trim()
             if (text.isEmpty() && display.uploads.isEmpty() && downloads.isEmpty()) return null
             val sentAt = metadata["sentAt"]?.stringValue?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: message.createdAt
+            val reply = metadata["replyTo"]
+            val replyTo = reply?.get("authorName")?.stringValue?.takeIf { it.isNotEmpty() }?.let { author ->
+                reply["text"]?.stringValue?.takeIf { it.isNotEmpty() }?.let { ChannelReply(reply["id"]?.stringValue, author, it) }
+            }
             return ChannelPost(message.id, senderId, type == "agent", name,
-                SenderAvatar.trusted(sender["avatarURL"]?.stringValue), text, display.uploads, downloads, sentAt)
+                SenderAvatar.trusted(sender["avatarURL"]?.stringValue), text, display.uploads, downloads, sentAt, replyTo = replyTo)
         }
 
         /** The posts still on their way: the chat has not returned them yet. */

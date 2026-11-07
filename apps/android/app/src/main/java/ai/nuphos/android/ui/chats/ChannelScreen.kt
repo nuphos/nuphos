@@ -18,6 +18,9 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -28,14 +31,26 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.automirrored.outlined.Reply
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -50,6 +65,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ChannelItem
 import ai.nuphos.android.model.ChannelPost
+import ai.nuphos.android.model.ChannelReply
 import ai.nuphos.android.model.ChatTime
 import ai.nuphos.android.model.TransferUpload
 import ai.nuphos.android.data.TransferDownloads
@@ -142,7 +158,10 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
         }
         // Keyed by session: a new workspace, account or consent gets a new composer scope, and the
         // old one's in-flight upload is cancelled with it.
-        if (session.loaded && session.loadError == null && !session.readOnly) key(session) { ChannelComposer(session) }
+        if (session.loaded && session.loadError == null && !session.readOnly) key(session) {
+            session.replying?.let { ReplyChip(it) { session.replying = null } }
+            ChannelComposer(session)
+        }
         }
     }
 }
@@ -174,6 +193,18 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
             returning = value
         }
     }
+    // A tapped quote brings its post to view and flashes it, if it is loaded.
+    var flashed by remember { mutableStateOf<String?>(null) }
+    val jump: (ChannelReply) -> Unit = { reply ->
+        val index = reversed.indexOfFirst { (it as? ChannelItem.Post)?.post?.id == reply.id }
+        if (reply.id != null && index >= 0) scope.launch {
+            // The typing slot is the list's first item.
+            state.animateScrollToItem(index + 1)
+            flashed = reply.id
+            delay(900)
+            if (flashed == reply.id) flashed = null
+        }
+    }
     // Your own send returns the transcript to the end.
     LaunchedEffect(session.lastSubmittedKey) { if (session.lastSubmittedKey != null && reversed.isNotEmpty()) state.scrollToItem(0) }
     Box(Modifier.fillMaxSize()) {
@@ -187,7 +218,8 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                 val motion = if (returning) Modifier.animateItem(fadeInSpec = snap(), placementSpec = snap(), fadeOutSpec = snap()) else Modifier.animateItem()
                 Box(motion.arrival(item.key in arrivals && !returning)) {
                     when (item) {
-                        is ChannelItem.Post -> PostRow(session, item.post, item.first, item.post.isMine(viewerId), onLink, allowed, downloads)
+                        is ChannelItem.Post -> PostRow(session, item.post, item.first, item.post.isMine(viewerId), onLink, allowed, downloads,
+                            flashed = flashed == item.post.id, onQuote = jump)
                         is ChannelItem.Time -> TimeDivider(item.at)
                         is ChannelItem.Paused -> PausedLine(item.text)
                         is ChannelItem.Typing -> Unit
@@ -203,12 +235,26 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
 }
 
 /** Yours on the right; everyone else's on the left under their avatar and name, once per run. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, mine: Boolean, onLink: (String) -> Unit, allowed: () -> Boolean,
-                    downloads: TransferDownloads) {
+                    downloads: TransferDownloads, flashed: Boolean = false, onQuote: (ChannelReply) -> Unit = {}) {
+    // Long-press opens the post's menu: Reply where the viewer can post, and Copy.
+    var menu by remember { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
+    val clipboard = LocalClipboardManager.current
+    val canReply = !session.readOnly && !post.sending
     Row(Modifier.fillMaxWidth().padding(top = if (first) 12.dp else 4.dp)) {
         if (mine) Spacer(Modifier.weight(1f).widthIn(min = 48.dp))
-        Column(Modifier.widthIn(max = 300.dp), horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
+        Column(Modifier.widthIn(max = 300.dp).combinedClickable(interactionSource = null, indication = null, onClick = {},
+            onLongClickLabel = "Post actions", onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); menu = true }),
+            horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                if (canReply) DropdownMenuItem(text = { Text("Reply") }, leadingIcon = { Icon(Icons.AutoMirrored.Outlined.Reply, null) },
+                    onClick = { menu = false; session.replying = post.asReply() })
+                if (post.text.isNotEmpty()) DropdownMenuItem(text = { Text("Copy") }, leadingIcon = { Icon(Icons.Outlined.ContentCopy, null) },
+                    onClick = { menu = false; clipboard.setText(AnnotatedString(post.text)) })
+            }
             if (first && !mine) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp)) {
                 Box(Modifier.testTag("channel-avatar")) { SenderAvatar(post) }
@@ -216,6 +262,14 @@ private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, 
                 if (post.isAgent) Text("Agent", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
                         .padding(horizontal = 6.dp, vertical = 2.dp))
+            }
+            // The post this one answers; tapping it goes there.
+            post.replyTo?.let { reply ->
+                Text(quoted(reply.authorName, reply.text), maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp).clip(RoundedCornerShape(4.dp))
+                        .clickable { onQuote(reply) }.testTag("channel-reply-quote")
+                        .drawQuoteBar(MaterialTheme.colorScheme.outlineVariant).padding(start = 10.dp))
             }
             // A person's files show above their words, as on iOS.
             if (post.uploads.isNotEmpty()) Box(Modifier.padding(bottom = 6.dp)) {
@@ -229,7 +283,11 @@ private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, 
             }
             // A bubble is as wide as its words, up to the column's width.
             if (post.text.isNotEmpty()) Surface(modifier = Modifier.width(IntrinsicSize.Max), shape = RoundedCornerShape(18.dp),
-                color = if (mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh) {
+                color = when {
+                    flashed -> MaterialTheme.colorScheme.tertiaryContainer
+                    mine -> MaterialTheme.colorScheme.primaryContainer
+                    else -> MaterialTheme.colorScheme.surfaceContainerHigh
+                }) {
                 Box(Modifier.padding(horizontal = 14.dp, vertical = 9.dp)) { MarkdownText(post.text, onLink = onLink, compact = true) }
             }
             // An agent's files show below its words, every group in one grid.
@@ -239,6 +297,11 @@ private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, 
         }
         if (!mine) Spacer(Modifier.weight(1f).widthIn(min = 48.dp))
     }
+}
+
+/** A thin bar down the leading edge, as a quote has. */
+private fun Modifier.drawQuoteBar(color: androidx.compose.ui.graphics.Color): Modifier = drawBehind {
+    drawRect(color, size = androidx.compose.ui.geometry.Size(2.dp.toPx(), size.height))
 }
 
 /** A centered time above a post that follows a pause of more than 15 minutes or starts a new day. */
@@ -330,6 +393,9 @@ private fun TypingDots() {
 /** The conversation composer, posting to the chat: photos, files, paste and dictation work as there. */
 @Composable
 private fun ChannelComposer(session: ChannelSession) {
+    // Choosing to reply raises the keyboard.
+    var focusRequest by remember { mutableStateOf(0) }
+    LaunchedEffect(session.replying) { if (session.replying != null) focusRequest++ }
     val store = LocalAgentStore.current
     val auth = LocalAuthSession.current
     val scope = rememberCoroutineScope()
@@ -365,5 +431,27 @@ private fun ChannelComposer(session: ChannelSession) {
         rejectedSubmission = session.unsent,
         onRejectedRestored = { session.unsent = null },
         placeholder = "Message ${session.title}",
+        focusRequest = focusRequest,
     )
+}
+
+/** The post the next one answers, above the composer; × cancels. */
+@Composable
+private fun ReplyChip(reply: ChannelReply, onCancel: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 6.dp).clip(RoundedCornerShape(14.dp))
+        .background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(start = 12.dp).testTag("channel-reply-chip"),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Icon(Icons.AutoMirrored.Outlined.Reply, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(quoted("Replying to ${reply.authorName}", reply.text), Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        IconButton(onClick = onCancel) { Icon(Icons.Outlined.Close, "Cancel reply", Modifier.size(18.dp)) }
+    }
+}
+
+/** "Name words": the name stands out, the words follow. */
+@Composable
+private fun quoted(name: String, text: String): AnnotatedString = buildAnnotatedString {
+    withStyle(SpanStyle(fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)) { append(name) }
+    append(" ")
+    append(text)
 }

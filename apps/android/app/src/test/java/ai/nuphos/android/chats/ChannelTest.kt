@@ -38,6 +38,13 @@ class ChannelTest {
         assertEquals(listOf("64b5f1c2e4b0a1d2c3e4f5a7"), c.groups)
     }
 
+    @Test fun aReplyReadsTheQuoteTheServerStored() {
+        val reply = ChannelPost.from(message("""{"id":"r","role":"user","metadata":{"sender":{"type":"user","id":"d","displayName":"D"},""" +
+            """"replyTo":{"id":"m1","authorName":"Ops","text":"Deploy?"}},"parts":[{"type":"text","text":"On it"}]}"""))!!
+        assertEquals(ai.nuphos.android.model.ChannelReply("m1", "Ops", "Deploy?"), reply.replyTo)
+        assertNull(ChannelPost.from(message(person))!!.replyTo)
+    }
+
     @Test fun messagesWithoutSenderOrContentAreDropped() {
         assertNull(ChannelPost.from(message("""{"id":"x","role":"user","parts":[{"type":"text","text":"no sender"}]}""")))
         assertNull(ChannelPost.from(message("""{"id":"x","role":"user","metadata":{"sender":{"type":"system","id":"s","displayName":"S"}},"parts":[{"type":"text","text":"x"}]}""")))
@@ -114,8 +121,10 @@ class ChannelTest {
         override suspend fun upload(attachments: List<ComposerAttachment>): String {
             uploads += attachments.map { it.name }; heldUpload?.await(); return "64b5f1c2e4b0a1d2c3e4f5a9"
         }
-        override suspend fun post(text: String, id: String, upload: String?) {
+        val replies = mutableListOf<String?>()
+        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?) {
             posts += Triple(text, id, upload)
+            replies += replyTo
             if (failPost) throw NuphosApi.Failure.Http(500, "Synthetic post failure")
             landed = id
         }
@@ -318,6 +327,23 @@ class ChannelTest {
         testScheduler.advanceUntilIdle()
         assertTrue(transport.posts.isEmpty())
         assertTrue(session.sending.isEmpty()); assertNull(session.unsent); assertNull(session.sendError)
+    }
+
+    @Test fun aReplyQuotesItsPostIsSentAndComesBackAfterAFailure() = runTest {
+        val transport = FakeTransport().apply { failPost = true }
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        session.refresh(force = true)
+        val original = session.posts.first()
+        assertEquals(original.id, original.asReply().id)
+        session.replying = original.asReply()
+        session.send(ComposerSubmission("On it"), "me", "Me", null, this) { "client-1" }
+        // Shown with its quote at once, and the chip is cleared.
+        assertEquals(original.asReply(), session.sending.single().replyTo)
+        assertEquals(null, session.replying)
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf<String?>(original.id), transport.replies)
+        // A failed send puts the chip back with the text.
+        assertEquals(original.asReply(), session.replying)
     }
 
     @Test fun aRetryMatchesTheSameFilesNotTheSameNames() = runTest {
