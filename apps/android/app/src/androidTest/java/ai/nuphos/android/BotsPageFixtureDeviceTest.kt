@@ -50,6 +50,9 @@ class BotsPageFixtureDeviceTest {
     @Volatile private var failAddingBot = false
     @Volatile private var failCreatingBot = false
     @Volatile private var noRuntimes = false
+    @Volatile private var runtimesFail = false
+    @Volatile private var runtimesHeld: CountDownLatch? = null
+    private val runtimesEntered = CountDownLatch(1)
     private val created = CopyOnWriteArrayList<Pair<String, String>>()
     @Volatile private var channelHeld: CountDownLatch? = null
     private val channelEntered = CountDownLatch(1)
@@ -74,9 +77,13 @@ class BotsPageFixtureDeviceTest {
             val path = request.url.encodedPath
             if (request.method != "GET") writes += "${request.method} $path"
             val body = when {
-                request.method == "GET" && path.endsWith("/agent-runtimes") ->
+                request.method == "GET" && path.endsWith("/agent-runtimes") -> {
+                    runtimesHeld?.let { runtimesEntered.countDown(); check(it.await(10, TimeUnit.SECONDS)) }
+                    if (runtimesFail) return@addInterceptor Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
+                        .code(500).message("fixture").body("""{"error":{"message":"Synthetic failure"}}""".toResponseBody(Http.jsonMedia)).build()
                     if (noRuntimes) """{"runtimes":[]}"""
                     else """{"runtimes":[{"id":"r1","provider":"codex","label":"Synthetic runtime","status":"active","kind":"managed"}]}"""
+                }
                 request.method == "POST" && path == "/agent/bots" -> {
                     if (failCreatingBot) return@addInterceptor Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
                         .code(500).message("fixture").body("""{"error":{"message":"Synthetic failure"}}""".toResponseBody(Http.jsonMedia)).build()
@@ -286,6 +293,41 @@ class BotsPageFixtureDeviceTest {
         waitText("Opened chat-new")
         assertEquals(1, posts("/agent/bots"))
     }
+
+    @Test fun aRuntimeListThatFailsMakesNoBotAndCanBeRetried() {
+        runtimesFail = true
+        render()
+        openSheet()
+        nameField().performTextInput("Grace")
+        create().performClick()
+        waitText("Couldn't create this Bot. Try again.")
+        // A list that didn't load says nothing about whether there are runtimes.
+        compose.onNodeWithText("This workspace has no runtime yet. Add one on the Runtimes page, then create your Bot.").assertDoesNotExist()
+        assertEquals(0, posts("/agent/bots"))
+        runtimesFail = false
+        create().performClick()
+        waitText("Opened chat-new")
+        assertEquals(1, posts("/agent/bots"))
+    }
+
+    private fun changeWhileTheListLoads(change: () -> Unit) {
+        val release = CountDownLatch(1)
+        runtimesHeld = release
+        render()
+        openSheet()
+        nameField().performTextInput("Grace")
+        create().performClick()
+        assertTrue(runtimesEntered.await(5, TimeUnit.SECONDS))
+        compose.runOnIdle(change)
+        compose.runOnIdle { release.countDown() }
+        Thread.sleep(800); compose.waitForIdle()
+        assertEquals("No Bot for the old workspace", 0, posts("/agent/bots"))
+        assertEquals("No chat for the old workspace", 0, posts("/agent/channels"))
+        assertNull("No error left from the old workspace", store.newBotError)
+        compose.onNodeWithText("Opened chat-new").assertDoesNotExist()
+    }
+    @Test fun switchingTeamWhileTheRuntimeListLoadsMakesNothing() = changeWhileTheListLoads { store.select(teamB) }
+    @Test fun withdrawingConsentWhileTheRuntimeListLoadsMakesNothing() = changeWhileTheListLoads { AiAccess.revoke() }
 
     @Test fun aNewBotSendsItsNameAndFaceAndOpensItsChat() {
         render()
