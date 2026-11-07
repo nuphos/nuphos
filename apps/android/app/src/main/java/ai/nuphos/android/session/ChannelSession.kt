@@ -85,7 +85,7 @@ class ChannelSession(
         private set
     private var markedSeq: Long? = null
         private set
-    private var revision = ""
+    private var revision: List<Any?>? = null
 
     /** Posts shown at once, until the chat returns them under the same id. */
     var sending by mutableStateOf<List<ChannelPost>>(emptyList())
@@ -219,7 +219,12 @@ class ChannelSession(
         activitySeq = maxOf(activitySeq ?: seq, seq)
     }
 
-    private fun stamp(detail: AgentConversationDetail) = "${detail.transcriptUpdatedAt.orEmpty()}:${detail.messageCount ?: detail.messages.size}"
+    /**
+     * What an open chat shows, as its probe reports it: a change means a full read. Its name and faces
+     * count too: an untitled Bot chat is named after the Bot, so renaming the Bot changes them without a post.
+     */
+    private fun stamp(detail: AgentConversationDetail): List<Any?> =
+        listOf(detail.transcriptUpdatedAt, detail.messageCount ?: detail.messages.size, detail.title, detail.faces)
 
     private fun apply(detail: AgentConversationDetail, listed: List<ChannelAgent>) {
         stored = detail.messages.mapNotNull(ChannelPost::from)
