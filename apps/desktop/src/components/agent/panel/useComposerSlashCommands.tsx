@@ -198,7 +198,8 @@ export function useComposerSlashCommands(
       const used = slashCommandsIn(text, new Set(agentCommands.map((command) => command.name)))
 
       if (used.length > 0) setUsage(recordSlashUse(used))
-      send(text, filePaths, mentions)
+
+      return send(text, filePaths, mentions)
     }
   }
 
