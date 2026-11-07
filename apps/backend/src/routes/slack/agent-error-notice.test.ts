@@ -5,15 +5,15 @@ import { AppError } from '@/lib/errors'
 import { slackAgentErrorNotice } from './agent-error-notice'
 
 describe('slackAgentErrorNotice', () => {
-  test('guides an unconfigured workspace through token setup', () => {
+  test('without an agent, names signing in to one or picking one, not a setup token', () => {
     const notice = slackAgentErrorNotice(
       new AppError(409, 'claude_code_setup_required', 'internal setup message'),
     )
 
-    expect(notice).toContain('this message was not run')
-    expect(notice).toContain('claude setup-token')
-    expect(notice).toContain('Settings → Agent')
-    expect(notice).toContain('Online')
+    expect(notice).toContain('was not run')
+    expect(notice).toContain('Sign in to an agent on a computer')
+    expect(notice).toContain('pick one in Settings → Agent')
+    expect(notice).not.toContain('setup-token')
   })
 
   test('guides a workspace whose runtime is still starting', () => {

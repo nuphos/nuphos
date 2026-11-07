@@ -295,42 +295,117 @@ test('Agents behind the ACP shim get one shim-facing shape with the instructions
     })
 })
 
+const ME = 'me'
 const box = (id: string, local: Partial<NonNullable<RuntimeInstance['local']>> = {}) =>
   ({
     id,
     provider: 'claude-code',
     status: 'active',
     kind: 'local',
-    local: { online: true, signedIn: true, box: { provider: 'instabox' }, ...local },
+    local: {
+      ownerUserId: ME,
+      online: true,
+      signedIn: true,
+      box: { provider: 'instabox' },
+      ...local,
+    },
   }) as RuntimeInstance
 const registered = (id: string): RuntimeInstance =>
   ({ id, provider: 'claude-code', status: 'active', kind: 'managed' }) as RuntimeInstance
+// A teammate's computer shared with the team, with an agent on it.
+const shared = (
+  id: string,
+  addedBy?: string,
+  local: Partial<NonNullable<RuntimeInstance['local']>> = {},
+) =>
+  box(id, {
+    box: undefined,
+    ownerUserId: 'teammate',
+    shared: { level: 'full' },
+    ...(addedBy ? { addedBy: { userId: addedBy, at: '2026-11-01T00:00:00.000Z' } } : {}),
+    ...local,
+  })
 
 describe('defaultConversationRuntimeId', () => {
   test("takes the first usable agent in the owner's fallback list", () => {
     const instances = [box('offline', { online: false }), box('signed-out', { signedIn: false })]
 
     expect(
-      defaultConversationRuntimeId(
-        [...instances, registered('team'), box('listed')],
-        ['gone', 'offline', 'signed-out', 'listed', 'team'],
-      ),
+      defaultConversationRuntimeId([...instances, registered('team'), box('listed')], ME, {
+        fallbackIds: ['gone', 'offline', 'signed-out', 'listed', 'team'],
+      }),
     ).toBe('listed')
   })
 
-  test('falls back to an online Box only when the team registers no agent', () => {
+  test('falls back to an online Box only when no team agent is ready', () => {
     const boxes = [box('laptop', { box: undefined }), box('asleep', { online: false }), box('box')]
 
-    expect(defaultConversationRuntimeId(boxes, [])).toBe('box')
-    expect(defaultConversationRuntimeId([registered('team'), ...boxes], [])).toBeUndefined()
+    expect(defaultConversationRuntimeId(boxes, ME)).toBe('box')
+    expect(defaultConversationRuntimeId([registered('team'), ...boxes], ME)).toBeUndefined()
   })
 
-  test("never picks a teammate's shared computer or another provider", () => {
-    const shared = box('shared', { shared: { level: 'full' } })
-    const codex = { ...box('codex'), provider: 'codex' } as RuntimeInstance
+  test('a registered team agent that is not ready, plus an own agent on a shared computer, runs on the own agent', () => {
+    const notReady = { ...registered('team'), notReady: true } as RuntimeInstance
+    const disabled = { ...registered('off'), status: 'disabled' } as RuntimeInstance
 
-    expect(defaultConversationRuntimeId([shared], ['shared'])).toBeUndefined()
-    expect(defaultConversationRuntimeId([codex], ['codex'], 'claude-code')).toBeUndefined()
-    expect(defaultConversationRuntimeId([codex], [], 'codex')).toBe('codex')
+    expect(defaultConversationRuntimeId([notReady, shared('mine', ME)], ME)).toBe('mine')
+    expect(defaultConversationRuntimeId([disabled, shared('mine', ME)], ME)).toBe('mine')
+    expect(defaultConversationRuntimeId([notReady, box('box'), shared('mine', ME)], ME)).toBe('box')
+  })
+
+  test("a teammate's Box still defaults, as before", () => {
+    expect(defaultConversationRuntimeId([box('theirs', { ownerUserId: 'teammate' })], ME)).toBe(
+      'theirs',
+    )
+  })
+
+  test('the existing defaults win over the own agent on a shared computer', () => {
+    const mine = shared('mine', ME)
+
+    expect(defaultConversationRuntimeId([mine, box('box')], ME, { recentIds: ['mine'] })).toBe(
+      'box',
+    )
+    expect(defaultConversationRuntimeId([registered('team'), mine], ME)).toBeUndefined()
+    expect(
+      defaultConversationRuntimeId([mine, registered('team')], ME, { fallbackIds: ['team'] }),
+    ).toBe('team')
+  })
+
+  test('with nothing else to run on, takes the own signed-in agent on a shared computer', () => {
+    const mine = shared('mine', ME)
+
+    expect(defaultConversationRuntimeId([mine], ME)).toBe('mine')
+    expect(defaultConversationRuntimeId([mine], ME, { fallbackIds: ['gone'] })).toBe('mine')
+    expect(
+      defaultConversationRuntimeId([shared('asleep', ME, { online: false })], ME),
+    ).toBeUndefined()
+    expect(
+      defaultConversationRuntimeId([shared('signed-out', ME, { signedIn: false })], ME),
+    ).toBeUndefined()
+  })
+
+  test('ranks own agents by most recent use, on any computer', () => {
+    const instances = [box('laptop', { box: undefined }), shared('mine', ME)]
+
+    expect(defaultConversationRuntimeId(instances, ME)).toBe('laptop')
+    expect(defaultConversationRuntimeId(instances, ME, { recentIds: ['other', 'mine'] })).toBe(
+      'mine',
+    )
+  })
+
+  test("never picks another member's agent on a shared computer, or another provider", () => {
+    const theirs = [shared('owner-default'), shared('added-by-teammate', 'teammate')]
+    const codex = { ...box('codex'), provider: 'codex' } as RuntimeInstance
+    const ids = theirs.map(({ id }) => id)
+
+    expect(defaultConversationRuntimeId(theirs, ME, { fallbackIds: ids })).toBeUndefined()
+    expect(defaultConversationRuntimeId(theirs, ME, { recentIds: ids })).toBeUndefined()
+    expect(
+      defaultConversationRuntimeId([codex], ME, {
+        fallbackIds: ['codex'],
+        provider: 'claude-code',
+      }),
+    ).toBeUndefined()
+    expect(defaultConversationRuntimeId([codex], ME, { provider: 'codex' })).toBe('codex')
   })
 })

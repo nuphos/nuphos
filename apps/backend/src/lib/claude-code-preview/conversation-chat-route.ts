@@ -1,6 +1,10 @@
 import { ObjectId } from 'mongodb'
 
-import { stampConversationAgentRuntime, stampConversationRuntimeInstance } from '@/lib/agent/db'
+import {
+  agentConversations,
+  stampConversationAgentRuntime,
+  stampConversationRuntimeInstance,
+} from '@/lib/agent/db'
 import { AppError } from '@/lib/errors'
 import { getTeamAgentRuntime } from '@/lib/identity'
 import { userTeamRuntimeFallbacks } from '@/models'
@@ -52,12 +56,24 @@ async function ownerDefaultRuntimeId(
   ownerId: string,
   provider: OpenAbProvider | undefined,
 ): Promise<string | undefined> {
-  const [instances, fallbacks] = await Promise.all([
+  const [instances, fallbacks, recent] = await Promise.all([
     listRuntimeInstances(teamId, ownerId),
     userTeamRuntimeFallbacks().findOne({ teamId: new ObjectId(teamId), userId: ownerId }),
+    agentConversations()
+      .find(
+        { userId: ownerId, teamId, runtimeId: { $exists: true } },
+        { projection: { runtimeId: 1 } },
+      )
+      .sort({ lastActiveAt: -1 })
+      .limit(20)
+      .toArray(),
   ])
 
-  return defaultConversationRuntimeId(instances, fallbacks?.runtimeIds ?? [], provider)
+  return defaultConversationRuntimeId(instances, ownerId, {
+    fallbackIds: fallbacks?.runtimeIds ?? [],
+    recentIds: recent.flatMap((conversation) => conversation.runtimeId ?? []),
+    provider,
+  })
 }
 
 /** Resolve every conversation onto the supported OpenAB runtime and placement. */
