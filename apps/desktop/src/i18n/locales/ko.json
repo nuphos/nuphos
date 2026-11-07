@@ -4193,6 +4193,7 @@
   "Sign in as the {who} — only they can grant in-cluster RBAC": "{who}(으)로 로그인하세요 — 클러스터 내 RBAC는 이 계정만 부여할 수 있습니다",
   "Sign in on the computer hosting this runtime, in User settings → Local runtime, then retry your message.": "이 런타임을 호스팅하는 컴퓨터의 사용자 설정 → 로컬 런타임에서 로그인한 후 메시지를 다시 보내세요.",
   "Sign in required": "로그인 필요",
+  "Sign in to another agent…": "다른 에이전트에 로그인…",
   "Sign in to connect this runtime": "이 런타임을 연결하려면 로그인하세요",
   "Sign in to use your subscription": "구독을 사용하려면 로그인하세요",
   "Sign in to {name} again.": "{name}(으)로 다시 로그인하세요.",

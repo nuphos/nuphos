@@ -4193,6 +4193,7 @@
   "Sign in as the {who} — only they can grant in-cluster RBAC": "ลงชื่อเข้าใช้ในฐานะ{who} — มีเพียงบัญชีนี้ที่ให้สิทธิ์ RBAC ภายในคลัสเตอร์ได้",
   "Sign in on the computer hosting this runtime, in User settings → Local runtime, then retry your message.": "ลงชื่อเข้าใช้บนคอมพิวเตอร์ที่โฮสต์รันไทม์นี้ ที่การตั้งค่าผู้ใช้ → รันไทม์ในเครื่อง แล้วส่งข้อความอีกครั้ง",
   "Sign in required": "ต้องลงชื่อเข้าใช้",
+  "Sign in to another agent…": "ลงชื่อเข้าใช้เอเจนต์อื่น…",
   "Sign in to connect this runtime": "ลงชื่อเข้าใช้เพื่อเชื่อมต่อรันไทม์นี้",
   "Sign in to use your subscription": "ลงชื่อเข้าใช้เพื่อใช้การสมัครสมาชิกของคุณ",
   "Sign in to {name} again.": "ลงชื่อเข้าใช้ {name} อีกครั้ง",

@@ -4193,6 +4193,7 @@
   "Sign in as the {who} — only they can grant in-cluster RBAC": "以{who}身份登录，只有他们能授予集群内的 RBAC 权限",
   "Sign in on the computer hosting this runtime, in User settings → Local runtime, then retry your message.": "请在托管此运行环境的电脑上，前往“用户设置 → 本地运行环境”登录，然后重新发送消息。",
   "Sign in required": "需要登录",
+  "Sign in to another agent…": "登录另一个代理…",
   "Sign in to connect this runtime": "登录以连接此运行环境",
   "Sign in to use your subscription": "登录以使用你的订阅",
   "Sign in to {name} again.": "请重新登录 {name}。",
