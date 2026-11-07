@@ -652,11 +652,12 @@ class AgentStore(
             allowed = ::allowed,
         )
         archivingBotId = botId
+        val signInEpoch = BotArchiveIssues.epoch
         BotArchiveIssues.clear(signedIn)
         BotArchiveIssues.scope.launch {
             val result = try { action(archive) } finally { if (archivingBotId == botId) archivingBotId = null }
             val quiet = result == BotArchive.Result.Archived || (result is BotArchive.Result.NotChanged && result.reason == null)
-            if (!quiet) BotArchiveIssues.put(signedIn, BotArchiveIssues.Issue(team, botId, botTitle, result))
+            if (!quiet) BotArchiveIssues.put(signedIn, BotArchiveIssues.Issue(team, botId, botTitle, result), signInEpoch)
             if (allowed()) storeScope.launch { reload(); loadChannels() }
         }
     }

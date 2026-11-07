@@ -137,6 +137,37 @@ class BotArchiveTest {
         assertEquals(Result.Partial(mapOf("one" to State.Unknown), State.NotArchived, BotArchive.NOT_RESTORED), restoreLost.archive().run(bot))
     }
 
+    @Test fun aRestoreWhoseAnswerIsLostMakesThatChatUnknown() = runBlocking {
+        // Archived for sure, then the restore may have happened: it can no longer be reported as archived.
+        val server = Server(page(chat("one"), chat("two")))
+        server.answers["bot" to true] = refused(500)
+        server.answers["two" to false] = lost
+        val result = server.archive().run(bot)
+        assertEquals(listOf("PATCH one true", "PATCH two true", "PATCH bot true", "PATCH two false"), server.writes)
+        assertEquals(Result.Partial(mapOf("one" to State.Archived, "two" to State.Unknown), State.NotArchived, BotArchive.NOT_RESTORED), result)
+    }
+
+    @Test fun aBotRestoreWhoseAnswerIsLostLeavesTheBotUnknownAndTheChatsAsTheyAre() = runBlocking {
+        val server = Server(page(chat("one")))
+        server.answers["bot" to true] = lost
+        server.answers["bot" to false] = lost
+        val result = server.archive().run(bot)
+        assertEquals(listOf("PATCH one true", "PATCH bot true", "PATCH bot false"), server.writes)
+        assertEquals(Result.Partial(mapOf("one" to State.Archived), State.Unknown, BotArchive.NOT_RESTORED), result)
+    }
+
+    @Test fun aReportFromBeforeASignOutIsNotKept() {
+        ai.nuphos.android.session.BotArchiveIssues.clearAll()
+        val issue = ai.nuphos.android.session.BotArchiveIssues.Issue("team", bot, "Grace", Result.NotChanged(BotArchive.FAILED))
+        val started = ai.nuphos.android.session.BotArchiveIssues.epoch
+        ai.nuphos.android.session.BotArchiveIssues.put("token", issue, started)
+        assertEquals("Same sign-in: kept", issue, ai.nuphos.android.session.BotArchiveIssues.of("token"))
+        ai.nuphos.android.session.BotArchiveIssues.clearAll()
+        ai.nuphos.android.session.BotArchiveIssues.put("token", issue, started)
+        assertNull("Finished after a sign-out: dropped", ai.nuphos.android.session.BotArchiveIssues.of("token"))
+        ai.nuphos.android.session.BotArchiveIssues.clearAll()
+    }
+
     @Test fun refusedForAccessSendsNothingMoreNotEvenARestore() = runBlocking {
         for (status in listOf(401, 403)) {
             val server = Server(page(chat("one"), chat("two")))

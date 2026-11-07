@@ -328,6 +328,20 @@ class BotActionsFixtureDeviceTest {
         assertEquals("Still nothing more sent", 1, archiveWrites().size)
     }
 
+    @Test fun signingOutWhileAWriteIsHeldLeavesNoReportAndSendsNothingMore() {
+        val release = hold("chat-bot1 true")
+        render()
+        archiveFromTasks()
+        assertTrue(entered.getValue("chat-bot1 true").await(5, TimeUnit.SECONDS))
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
+        // Signing out clears identity state, then the account's store goes away.
+        compose.runOnIdle { app.authSession.onIdentityReset(); store.disposeForConsent() }
+        release.countDown()
+        settle()
+        assertEquals("Nothing after the held write", listOf("PATCH /agent/conversations/chat-bot1/archive"), archiveWrites())
+        assertNull("The old sign-in's report doesn't come back", BotArchiveIssues.of(token))
+    }
+
     @Test fun switchingTeamAfterTheFirstWriteStopsAndReportsOnlyBackInThatTeam() {
         val release = hold("chat-bot1 true")
         render()

@@ -125,7 +125,8 @@ class BotArchive(
             when (val outcome = write(botId, false)) {
                 Write.Done -> bot = State.NotArchived
                 is Write.Refused -> return Result.Partial(touched, bot, if (outcome.stop) STOPPED else NOT_RESTORED)
-                Write.Unknown -> return Result.Partial(touched, bot, NOT_RESTORED)
+                // The restore may have happened: whatever was known about the Bot no longer is.
+                Write.Unknown -> return Result.Partial(touched, State.Unknown, NOT_RESTORED)
             }
         }
         for (chat in touched.keys.reversed()) {
@@ -133,7 +134,7 @@ class BotArchive(
             when (val outcome = write(chat, false)) {
                 Write.Done -> touched[chat] = State.NotArchived
                 is Write.Refused -> return Result.Partial(touched, bot, if (outcome.stop) STOPPED else NOT_RESTORED)
-                Write.Unknown -> return Result.Partial(touched, bot, NOT_RESTORED)
+                Write.Unknown -> { touched[chat] = State.Unknown; return Result.Partial(touched, bot, NOT_RESTORED) }
             }
         }
         return Result.NotChanged(FAILED)
@@ -172,14 +173,18 @@ class BotArchive(
 /** What Archive Bot left unfinished, per signed-in session, so it outlives a page or consent change but not the account. */
 object BotArchiveIssues {
     /** Not a store's: one going away mid-archive must not drop what was already written. */
-    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main.immediate)
+    val scope by lazy { kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main.immediate) }
     data class Issue(val teamId: String, val botId: String, val botTitle: String, val result: BotArchive.Result) {
         val chats: Map<String, BotArchive.State> get() = (result as? BotArchive.Result.Partial)?.chats.orEmpty()
     }
     private val issues = mutableStateMapOf<String, Issue>()
+    /** Moves on at every sign-out, so an archive still running then can't publish its report afterwards. */
+    @Volatile var epoch = 0L
+        private set
     fun of(token: String): Issue? = issues[token]
-    fun put(token: String, issue: Issue) { issues[token] = issue }
+    /** Kept only if no sign-out happened since [startedIn]. A consent change in the same sign-in still reports. */
+    fun put(token: String, issue: Issue, startedIn: Long) { if (startedIn == epoch) issues[token] = issue }
     fun clear(token: String) { issues.remove(token) }
     /** Signing out: no account sees another's. */
-    fun clearAll() = issues.clear()
+    fun clearAll() { epoch++; issues.clear() }
 }
