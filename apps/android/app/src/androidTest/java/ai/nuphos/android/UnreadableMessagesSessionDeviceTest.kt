@@ -32,6 +32,7 @@ class UnreadableMessagesSessionDeviceTest {
     @Volatile private var entries = ""
     @Volatile private var first = 10
     @Volatile private var outOfSync = false
+    private val conflictsLeft = java.util.concurrent.atomic.AtomicInteger(0)
 
     @Suppress("UNCHECKED_CAST") private fun access() = AiAccess::class.java.getDeclaredField("state")
         .also { it.isAccessible = true }.get(AiAccess) as MutableState<Any?>
@@ -43,19 +44,20 @@ class UnreadableMessagesSessionDeviceTest {
             val sent = okio.Buffer().also { request.body?.writeTo(it) }.readUtf8()
             val path = request.url.encodedPath
             val response = when {
-                path == "/agent/chat" && outOfSync -> {
+                path == "/agent/chat" && (outOfSync || conflictsLeft.getAndDecrement() > 0) -> {
                     posted += JsonValue.parse(sent)!!
                     return@addInterceptor Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(409).message("fixture")
-                        .body("""{"error":{"code":"transcript_out_of_sync","message":"Synthetic conflict","storedMessageCount":2}}""".toResponseBody(Http.jsonMedia)).build()
+                        .body("""{"error":{"code":"transcript_out_of_sync","message":"Synthetic conflict","details":{"storedMessageCount":2}}}""".toResponseBody(Http.jsonMedia)).build()
                 }
-                path == "/agent/chat" -> { posted += JsonValue.parse(sent)!!; "data: {\"type\":\"finish\"}\n\n" }
+                path == "/agent/chat" -> { posted += JsonValue.parse(sent)!!; listOf("{\"type\":\"start\",\"messageId\":\"reply\"}", "{\"type\":\"text-start\",\"id\":\"t\"}", "{\"type\":\"text-delta\",\"id\":\"t\",\"delta\":\"Reply\"}", "{\"type\":\"text-end\",\"id\":\"t\"}", "{\"type\":\"atlas-turn-complete\"}", "{\"type\":\"atlas-stream-done\"}").joinToString("") { "data: $it\n\n" } }
                 path.endsWith("/transcript") -> { puts += JsonValue.parse(sent)!!; "{}" }
                 path == "/agent/conversations/fixture" ->
-                    """{"title":"Fixture","isOwner":true,"canManage":true,"messagesFirstIndex":$first,"messageCount":${first + 3},"messages":[$entries]}"""
+                    """{"title":"Fixture","isOwner":true,"canManage":true,"messagesFirstIndex":$first,"messageCount":${first + (JsonValue.parse("[$entries]")?.arrayValue?.size ?: 0)},"messages":[$entries]}"""
                 else -> "{}"
             }
             val media = if (path == "/agent/chat") "text/event-stream".toMediaType() else Http.jsonMedia
-            Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("fixture").body(response.toResponseBody(media)).build()
+            Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("fixture")
+                .header("Content-Type", media.toString()).body(response.toResponseBody(media)).build()
         }.build()
         for (name in listOf("client", "chatClient")) {
             val field = Http::class.java.getDeclaredField(name).also { it.isAccessible = true }
@@ -68,12 +70,14 @@ class UnreadableMessagesSessionDeviceTest {
         }
     }
     @After fun after() {
-        runBlocking(Dispatchers.Main) { access().value = savedAccess }
+        // A session still reconnecting would keep using the shared client in the next test.
+        runBlocking(Dispatchers.Main) { sessions.forEach { it.stop() }; AiAccess.revoke(); access().value = savedAccess }
         originals.forEach { (name, client) -> Http::class.java.getDeclaredField(name).also { it.isAccessible = true }.set(null, client) }
     }
 
+    private val sessions = mutableListOf<ChatSession>()
     private fun loaded() = runBlocking(Dispatchers.Main) {
-        ChatSession(token, "fixture-team", "fixture").also { it.load() }
+        ChatSession(token, "fixture-team", "fixture").also { it.load(); sessions += it }
     }
     private fun shown(session: ChatSession) = runBlocking(Dispatchers.Main) {
         ChatRow.rows(session).filterIsInstance<ChatRow.User>().map { it.text } +
@@ -141,9 +145,45 @@ class UnreadableMessagesSessionDeviceTest {
         val until = System.currentTimeMillis() + 15_000
         while (session.isStreaming && System.currentTimeMillis() < until) Thread.sleep(100)
         assertFalse("The retries end", session.isStreaming)
-        assertTrue("Bounded: ${posted.size}", posted.size <= 4)
+        // The first try, then the rebase, then the full resend.
+        assertEquals("Bounded", 3, posted.size)
+        assertEquals("The rebase used the stored count", JsonValue.Number(5.0), posted[1]["baseIndex"])
         assertTrue(posted.flatMap { ids(it) }.none { it.orEmpty().startsWith("unreadable") })
         assertNotNull("The failure shows", session.error)
+    }
+    private fun sendAfterOneConflict(): ChatSession {
+        conflictsLeft.set(1)
+        val session = loaded()
+        runBlocking(Dispatchers.Main) { assertTrue(session.send("Next")) }
+        val until = System.currentTimeMillis() + 15_000
+        while ((posted.size < 2 || session.isStreaming) && System.currentTimeMillis() < until) Thread.sleep(50)
+        assertFalse("The turn ends: posts=${posted.size} error=${session.error} phase=${session.phaseLabel}", session.isStreaming)
+        return session
+    }
+    /** The server took the retry, as it would once it had grown past the position sent. */
+    @Test fun aRetryThatIsAcceptedSendsOnlyTheNewMessageAndSavesNothing() {
+        entries = text("one", "user", "Question") + ",\"oops\"," + text("two", "assistant", "Answer")
+        val session = sendAfterOneConflict()
+        assertEquals("One conflict, then the accepted retry", 2, posted.size)
+        assertNull(session.error)
+        posted.forEach { body ->
+            assertEquals(1, ids(body).size)
+            assertTrue(ids(body).none { it.orEmpty().startsWith("unreadable") })
+        }
+        assertEquals("The same message both times", ids(posted[0]), ids(posted[1]))
+        // The rebase uses the count the server reported, plus where the window starts.
+        assertEquals(JsonValue.Number(13.0), posted[0]["baseIndex"])
+        assertEquals(JsonValue.Number(5.0), posted[1]["baseIndex"])
+        assertTrue("With a placeholder nothing is saved at any point: $puts", puts.isEmpty())
+        assertTrue("Its place is still kept", session.messages.any { it.isUnreadable })
+    }
+    /** Without a placeholder, the same flow behaves the same on the wire, and it does save. */
+    @Test fun aRetryWithNothingUnreadableStillSaves() {
+        entries = text("one", "user", "Question") + "," + text("two", "assistant", "Answer")
+        val session = sendAfterOneConflict()
+        assertEquals(2, posted.size)
+        assertNull(session.error)
+        assertFalse("The control saves before sending", puts.isEmpty())
     }
     private fun sendAndSave(): ChatSession {
         val session = loaded()

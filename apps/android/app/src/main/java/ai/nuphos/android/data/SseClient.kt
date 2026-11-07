@@ -18,7 +18,8 @@ data class SseEvent(val event: String? = null, val data: String, val id: String?
 
 object SseClient {
     sealed class Failure : Exception() {
-        data class BadStatus(val code: Int, val body: String?) : Failure() {
+        /** [body] is the message to show; [rawBody] is the response, which carries the error code. */
+        data class BadStatus(val code: Int, val body: String?, val rawBody: String? = null) : Failure() {
             override val message = body ?: "Nuphos returned status $code."
         }
         data class NotEventStream(val type: String?) : Failure() {
@@ -88,7 +89,7 @@ object SseClient {
                     if (!res.isSuccessful) {
                         val body = res.body.string().take(4_000)
                         closed.set(true)
-                        close(Failure.BadStatus(res.code, errorMessage(body)))
+                        close(Failure.BadStatus(res.code, errorMessage(body), body))
                         return
                     }
                     val contentType = res.header("Content-Type").orEmpty()
