@@ -291,6 +291,19 @@ struct AgentConversationDetail: Decodable, Sendable {
 
     var isChannel: Bool { kind == "channel" }
 
+    /// What an open chat shows, as its probe reports it: a change means a full read. Its name and
+    /// faces count too: an untitled Bot chat is named after the Bot, so renaming the Bot changes them without a post.
+    struct ChannelRevision: Equatable {
+        let transcriptUpdatedAt: String?
+        let messageCount: Int?
+        let title: String?
+        let faces: [ChatFace]
+    }
+
+    var channelRevision: ChannelRevision {
+        ChannelRevision(transcriptUpdatedAt: transcriptUpdatedAt, messageCount: messageCount, title: title, faces: faces)
+    }
+
     private enum CodingKeys: String, CodingKey {
         case faces, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, promptSuggestion
     }
