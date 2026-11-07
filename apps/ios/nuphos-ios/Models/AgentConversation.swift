@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// A member a chat's icon shows: a person, or an agent by its session
 /// (`ChannelFace` in the desktop's `api/agent-types.ts`).
@@ -227,6 +228,21 @@ struct AgentConversationsPage: Codable, Sendable {
     }
 }
 
+/// A transcript message, or nil when it does not decode: one bad message
+/// is skipped instead of failing the whole conversation (#1150).
+private struct LossyMessage: Decodable {
+    let message: ChatMessage?
+
+    init(from decoder: Decoder) {
+        do {
+            message = try ChatMessage(from: decoder)
+        } catch {
+            message = nil
+            Logger(subsystem: "ai.nuphos.ios", category: "chat").error("skipped undecodable message: \(String(describing: error), privacy: .public)")
+        }
+    }
+}
+
 /// `GET /agent/conversations/:id?tail=` — the transcript tail plus what a
 /// client needs to attach to a reply still in flight.
 struct AgentConversationDetail: Decodable, Sendable {
@@ -281,7 +297,7 @@ struct AgentConversationDetail: Decodable, Sendable {
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        messages = try c.decodeIfPresent([ChatMessage].self, forKey: .messages) ?? []
+        messages = try c.decodeIfPresent([LossyMessage].self, forKey: .messages)?.compactMap(\.message) ?? []
         messagesFirstIndex = try c.decodeIfPresent(Int.self, forKey: .messagesFirstIndex)
         activeRun = try? c.decodeIfPresent(ActiveRun.self, forKey: .activeRun)
         runtimeState = try c.decodeIfPresent(JSONValue.self, forKey: .runtimeState)
