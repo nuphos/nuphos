@@ -103,8 +103,9 @@ export function SidebarItemContextMenu({
                       key: 'rename',
                       label: RENAME[noun](),
                       icon: Pencil,
+                      // A Bot's chat is named after the Bot, so its Rename names the Bot.
                       onSelect: () =>
-                        renameChat(menu.item.key.slice('agent-session:'.length), menu.item.label),
+                        renameChat(menu.item.botChannelOf ?? sessionId, menu.item.label),
                     },
                   ]),
               ...(menu.item.parentKey && !menu.item.readOnlyChat
