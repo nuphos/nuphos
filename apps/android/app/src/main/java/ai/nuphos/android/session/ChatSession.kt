@@ -423,6 +423,26 @@ class ChatSession(
     private var preparedTransfer: AttachmentTransfers.Pending? = null
 
     fun send(text: String) = send(ComposerSubmission(text))
+
+    /**
+     * The secure input card's answer, as on the desktop and iOS: the value goes
+     * straight to a file on the agent's runtime, and the reply names only the
+     * file's path. The value is never kept, logged or put in the transcript.
+     */
+    suspend fun provideSecret(value: String, part: ChatPart.Tool) {
+        val name = part.secretRequest?.name ?: return
+        val path = AgentChatApi.saveSecret(token, teamId, sessionId, name, value)
+        runCatching { AgentChatApi.resolveDecision(token, teamId, sessionId, part.decisionRequestId) }
+        send(ChatPart.Tool.SecretRequest.savedReply(name) + path)
+    }
+
+    /** The first reply after the message that asked, if anyone replied yet. */
+    fun reply(after: String): String? {
+        val i = messages.indexOfLast { it.id == after }
+        if (i < 0) return null
+        val reply = messages.drop(i + 1).firstOrNull { it.role == ChatMessage.Role.User } ?: return null
+        return reply.parts.filterIsInstance<ChatPart.Text>().joinToString("") { it.text }
+    }
     /** A chat posts through its own route; this session never sends to `/agent/chat` for it. */
     var isChannel by mutableStateOf(false)
         private set

@@ -610,7 +610,8 @@ private fun ChatRowView(
         is ChatRow.Reasoning -> ReasoningTile(row.part)
         is ChatRow.Tool -> {
             val reference = ai.nuphos.android.model.ThreadReference.from(row.part)
-            if (reference == null) ToolCallRow(row.part, row.canDecide, session, onOpenTool, onAlwaysAllow)
+            if (row.part.secretRequest != null) SecretCard(row.part, session.reply(after = row.messageId), session)
+            else if (reference == null) ToolCallRow(row.part, row.canDecide, session, onOpenTool, onAlwaysAllow)
             else {
                 val target = LocalAgentStore.current.conversations.firstOrNull { it.sessionId == reference.id }
                 Surface(onClick = { onLink(SessionMention.link(session.teamId, reference.id)) },

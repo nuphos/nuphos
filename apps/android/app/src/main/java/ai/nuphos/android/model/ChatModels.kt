@@ -210,10 +210,26 @@ sealed class ChatPart {
                 return toolName
             }
 
+        /**
+         * A `request_user_decision` asking for a secret (category `credential`
+         * with a `secretName`): the secure input card. Matched by input, since
+         * some runtimes name the call by its display title.
+         */
+        val secretRequest: SecretRequest?
+            get() {
+                if (input?.get("category")?.stringValue != "credential") return null
+                val name = input["secretName"]?.stringValue?.takeIf { SECRET_NAME.matches(it) } ?: return null
+                return SecretRequest(name, input["question"]?.stringValue.orEmpty())
+            }
+
+        /** The request id the decision's result names; the call id otherwise. */
+        val decisionRequestId: String get() = output?.get("requestId")?.stringValue ?: toolCallId
+
         @Transient
         val kind: Kind
             get() {
                 val lower = toolName.lowercase()
+                if (secretRequest != null) return Kind.Question
                 if (lower in setOf("plan_create", "database_change_propose")) return Kind.Plan
                 if (lower == "save_memory" || lower == "memory_get") return Kind.Memory
                 if (lower == "render_chart") return Kind.Chart
@@ -260,7 +276,16 @@ sealed class ChatPart {
         val isFinished: Boolean
             get() = state in setOf(State.OutputAvailable, State.OutputError, State.OutputDenied)
 
+        data class SecretRequest(val name: String, val reason: String) {
+            companion object {
+                /** The reply that answers the request, before the file's path; the desktop's text. */
+                fun savedReply(name: String) = "🔒 $name saved to "
+            }
+        }
+
         companion object {
+            /** The backend takes ASCII names only. */
+            private val SECRET_NAME = Regex("^[A-Za-z][A-Za-z0-9_]{0,63}$")
             val CLIENT_ONLY = setOf(
                 "local_exec", "port_forward_start", "port_forward_stop", "port_forward_list", "upload_attachment",
             )
