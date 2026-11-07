@@ -38,6 +38,8 @@ class NuphosApplication : Application() {
         ai.nuphos.android.session.AiAccess.onRevoked = { pushNotifications.reset(clearPending = false); incomingShares.identityReset() }
         authSession.onIdentityReset = {
             pushNotifications.reset()
+            // An unfinished Archive Bot is the account's own business.
+            ai.nuphos.android.session.BotArchiveIssues.clearAll()
             incomingShares.identityReset()
             // Downloaded attachments must not outlive the account that could read them.
             cacheDir.listFiles { file -> file.name.startsWith("transfer-") }?.forEach { it.deleteRecursively() }

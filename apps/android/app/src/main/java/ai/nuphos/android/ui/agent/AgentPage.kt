@@ -37,6 +37,8 @@ import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.LinkOff
 import androidx.compose.material.icons.outlined.Unarchive
+import androidx.compose.material.icons.outlined.PersonRemove
+import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.OutlinedTextField
@@ -121,6 +123,9 @@ fun AgentPage(
     LaunchedEffect(listState.isScrollInProgress) { if (listState.isScrollInProgress) rowInteractions.dismiss() }
     var archiveTarget by remember(store, revision, consentRevision, authGeneration) { mutableStateOf<AgentConversation?>(null) }
     var renameTarget by remember(store, revision, consentRevision, authGeneration) { mutableStateOf<AgentConversation?>(null) }
+    var botArchiveTarget by remember(store, revision, consentRevision, authGeneration) { mutableStateOf<String?>(null) }
+    botArchiveTarget?.let { ArchiveBotDialog(store, it) { botArchiveTarget = null } }
+    BotArchiveIssueDialog(store)
     if (store.rowActionError != null && archiveTarget == null && renameTarget == null) AlertDialog(
         onDismissRequest = { store.clearRowActionError() }, title = { Text("Action failed") },
         text = { Text(store.rowActionError.orEmpty()) },
@@ -311,7 +316,16 @@ fun AgentPage(
                                         interactions = rowInteractions,
                                         onPin = { scope.launch { store.pin(row.conversation, store.favorites?.contains(row.conversation.sessionId) != true) } },
                                         pinEnabled = store.canPin(row.conversation),
-                                        onArchive = if (store.canArchive(row.conversation)) ({ store.clearRowActionError(); archiveTarget = row.conversation }) else null,
+                                        // A Bot goes with its chats, as on Desktop.
+                                        onArchive = if (store.canArchiveBot(row.conversation.sessionId)) ({ store.clearRowActionError(); botArchiveTarget = row.conversation.sessionId })
+                                            else if (store.canArchive(row.conversation)) ({ store.clearRowActionError(); archiveTarget = row.conversation }) else null,
+                                        onSetBot = if (store.canSetBot(row.conversation)) ({
+                                            val target = row.conversation
+                                            scope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) {
+                                                val chat = store.setBot(target, !target.isBot) ?: return@launch
+                                                nav.navigate("channel/${android.net.Uri.encode(chat)}") { launchSingleTop = true }
+                                            }
+                                        }) else null,
                                         onRename = if (store.canRename(row.conversation)) ({ store.clearRowActionError(); renameTarget = row.conversation }) else null,
                                         actionBusy = store.rowActionSessionId != null,
                                         onToggle = {
@@ -350,7 +364,7 @@ private fun RefreshableHistoryState(content: @Composable () -> Unit) {
 
 /** Cap visual indentation so malformed/deep trees cannot squeeze the title off-screen. */
 @Composable
-internal fun ConversationTreeRow(row: ConversationNesting.Row, pinned: Boolean, status: String?, onToggle: () -> Unit, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onPin: (() -> Unit)? = null, pinEnabled: Boolean = true, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false, onRename: (() -> Unit)? = null) {
+internal fun ConversationTreeRow(row: ConversationNesting.Row, pinned: Boolean, status: String?, onToggle: () -> Unit, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onPin: (() -> Unit)? = null, pinEnabled: Boolean = true, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false, onRename: (() -> Unit)? = null, onSetBot: (() -> Unit)? = null) {
     val depth = row.depth.coerceAtMost(4)
     val line = MaterialTheme.colorScheme.outlineVariant
     Box(Modifier.fillMaxWidth().drawWithContent {
@@ -380,19 +394,22 @@ internal fun ConversationTreeRow(row: ConversationNesting.Row, pinned: Boolean, 
     }.padding(start = (depth * 32).dp).semantics {
         stateDescription = "Sub-agent level ${row.depth}"; this.selected = selected
     }) {
-        ConversationRow(row.conversation, pinned, status, row.threads, row.folded, onToggle, onClick, onUnlink, unlinking, onWatch, watchBusy, selected, interactions, onPin, pinEnabled, onArchive, actionBusy, onRename)
+        ConversationRow(row.conversation, pinned, status, row.threads, row.folded, onToggle, onClick, onUnlink, unlinking, onWatch, watchBusy, selected, interactions, onPin, pinEnabled, onArchive, actionBusy, onRename, onSetBot)
     }
 }
 
 @Composable
-internal fun ConversationRow(conversation: AgentConversation, pinned: Boolean, status: String?, threads: Int = 0, folded: Boolean = false, onToggle: () -> Unit = {}, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onPin: (() -> Unit)? = null, pinEnabled: Boolean = true, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false, onRename: (() -> Unit)? = null) {
+internal fun ConversationRow(conversation: AgentConversation, pinned: Boolean, status: String?, threads: Int = 0, folded: Boolean = false, onToggle: () -> Unit = {}, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onPin: (() -> Unit)? = null, pinEnabled: Boolean = true, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false, onRename: (() -> Unit)? = null, onSetBot: (() -> Unit)? = null) {
     val actions = buildList {
         if (onRename != null) add(ConversationRowAction("rename", "Rename", Icons.Outlined.Edit, !actionBusy, onRename))
         if (onWatch != null) add(ConversationRowAction("watch", if (conversation.watching == true) "Unwatch" else "Watch",
             if (conversation.watching == true) Icons.Outlined.NotificationsOff else Icons.Outlined.Notifications, !watchBusy && !actionBusy, onWatch))
         if (onUnlink != null) add(ConversationRowAction("unlink", if (unlinking) "Unlinking…" else "Unlink", Icons.Outlined.LinkOff, !unlinking && !actionBusy, onUnlink))
         if (onPin != null) add(ConversationRowAction("pin", if (pinned) "Unpin" else "Pin", Icons.Outlined.PushPin, pinEnabled && !actionBusy, onPin))
-        if (onArchive != null) add(ConversationRowAction("archive", if (conversation.isArchived) "Restore" else "Archive",
+        // iOS's "Make this a Bot" and "Turn into a Task", beside Archive as there.
+        if (onSetBot != null) add(ConversationRowAction("bot", if (conversation.isBot) "Turn into a Task" else "Make this a Bot",
+            if (conversation.isBot) Icons.Outlined.PersonRemove else Icons.Outlined.SmartToy, !actionBusy, onSetBot))
+        if (onArchive != null) add(ConversationRowAction("archive", if (conversation.isArchived) "Restore" else if (conversation.isBot) "Archive Bot" else "Archive",
             if (conversation.isArchived) Icons.Outlined.Unarchive else Icons.Outlined.Archive, !actionBusy, onArchive))
     }
     ConversationRowActions(conversation.sessionId, actions, interactions, onClick) { surface, more ->

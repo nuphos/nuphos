@@ -572,6 +572,96 @@ class AgentStore(
     suspend fun pin(row: AgentConversation, pinned: Boolean) = rowAction(row, archive = null, pinned = pinned)
     suspend fun archive(row: AgentConversation, archived: Boolean) = rowAction(row, archive = archived, pinned = null)
 
+    // MARK: Make this a Bot, Turn into a Task, Archive Bot (iOS #1708; Archive Bot as on Desktop)
+    /** Only the owner turns their own Task into a Bot or back, as on iOS. */
+    fun canSetBot(row: AgentConversation) = currentActionRow(row)?.let {
+        it.isOwner == true && it.readOnly != true && !it.isChannel && !it.isArchived
+    } == true
+
+    /** "Make this a Bot" gives back its 1:1 chat to open. "Turn into a Task" gives back null. */
+    suspend fun setBot(row: AgentConversation, bot: Boolean): String? {
+        val current = currentActionRow(row) ?: return null
+        val team = selectedTeam?.id ?: return null
+        if (!canSetBot(current) || current.isBot == bot || rowActionSessionId != null || archivingBotId != null) return null
+        val workspace = workspaceRevision
+        val consent = AiAccess.revision
+        fun valid() = !disposed && hasAiAccess() && AiAccess.revision == consent && selectedTeam?.id == team && workspaceRevision == workspace
+        rowActionSessionId = current.sessionId
+        rowActionError = null
+        try {
+            BotActions.setBot(token, team, current.sessionId, bot)
+            if (!valid()) return null
+            reload()
+            if (!valid()) return null
+            loadChannels()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            if (valid()) rowActionError = if (bot) "Couldn't make this a Bot. Try again." else "Couldn't turn this into a Task. Try again."
+            return null
+        } finally {
+            if (workspaceRevision == workspace) rowActionSessionId = null
+        }
+        if (!bot || !valid()) return null
+        // The Bot exists now. Its chat is a step of its own, which Bots can try again.
+        val chat = openBotChat(current.sessionId)
+        if (chat == null && botChatError != null && valid()) {
+            clearBotChatError()
+            rowActionError = "This is a Bot now, but its chat couldn't be opened. Open it from Bots to try again."
+        }
+        return chat?.takeIf { valid() }
+    }
+
+    var archivingBotId by mutableStateOf<String?>(null)
+        private set
+    /** What the last Archive Bot left to say, shown only in the workspace it was in. */
+    val botArchiveIssue: BotArchiveIssues.Issue?
+        get() = BotArchiveIssues.of(token)?.takeIf { !disposed && it.teamId == selectedTeam?.id }
+    fun dismissBotArchiveIssue() = BotArchiveIssues.clear(token)
+
+    /** The owner's own Bot, listed and not archived. Its chats go with it. */
+    fun canArchiveBot(botId: String) = conversations.firstOrNull { it.sessionId == botId }?.let { bot ->
+        currentActionRow(bot) != null && bot.isBot && !bot.isArchived && bot.isOwner == true && bot.readOnly != true
+    } == true && !disposed && hasAiAccess()
+
+    fun archiveBot(botId: String) = runBotArchive(botId) { it.run(botId) }
+
+    /** After a partial result: puts back the chats it reports as archived, after reading where they are now. */
+    fun restoreBotChats() {
+        val issue = botArchiveIssue ?: return
+        val ids = issue.chats.filterValues { it != BotArchive.State.NotArchived }.keys
+        if (ids.isEmpty()) return
+        runBotArchive(issue.botId, issue.botTitle, requireListed = false) { it.restoreChats(issue.botId, ids) }
+    }
+
+    private fun runBotArchive(botId: String, title: String? = null, requireListed: Boolean = true,
+        action: suspend (BotArchive) -> BotArchive.Result) {
+        val team = selectedTeam?.id ?: return
+        if (disposed || !hasAiAccess() || archivingBotId != null || rowActionSessionId != null) return
+        if (requireListed && !canArchiveBot(botId)) return
+        val botTitle = title ?: conversations.first { it.sessionId == botId }.displayTitle
+        val workspace = workspaceRevision
+        val consent = AiAccess.revision
+        val signedIn = token
+        // Checked before every request: access, the session and the workspace as they were when it began.
+        fun allowed() = !disposed && hasAiAccess() && AiAccess.revision == consent && selectedTeam?.id == team && workspaceRevision == workspace
+        val archive = BotArchive(
+            listChats = { cursor -> NuphosApi.conversations(signedIn, team, cursor = cursor, limit = 100,
+                scope = ConversationScope.Mine, includeArchived = true, channels = true) },
+            setArchived = { id, archived -> ai.nuphos.android.data.ConversationActions.archive(signedIn, team, id, archived) },
+            allowed = ::allowed,
+        )
+        archivingBotId = botId
+        val signInEpoch = BotArchiveIssues.epoch
+        BotArchiveIssues.clear(signedIn)
+        BotArchiveIssues.scope.launch {
+            val result = try { action(archive) } finally { if (archivingBotId == botId) archivingBotId = null }
+            val quiet = result == BotArchive.Result.Archived || (result is BotArchive.Result.NotChanged && result.reason == null)
+            if (!quiet) BotArchiveIssues.put(signedIn, BotArchiveIssues.Issue(team, botId, botTitle, result), signInEpoch)
+            if (allowed()) storeScope.launch { reload(); loadChannels() }
+        }
+    }
+
     private var watchingSessionIds by mutableStateOf(emptySet<String>())
     /** Only the conversation being changed waits: every other one stays available. */
     fun isChangingWatch(sessionId: String) = sessionId in watchingSessionIds
