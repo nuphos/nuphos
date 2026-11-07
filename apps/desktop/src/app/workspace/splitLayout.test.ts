@@ -5,12 +5,11 @@ import {
   dropPane,
   dropZone,
   focusPaneState,
-  markBesideUnshown,
   PREVIEW_PANE,
   paneRects,
+  paneShowingSession,
   previewDrop,
   removePane,
-  reusableBesidePane,
   splitPane,
 } from './splitLayout.ts'
 
@@ -67,41 +66,31 @@ test('closing the original pane leaves a stable first leaf to take over persiste
   assert.equal(paneRects(expanded)[0].id, 'surviving-pane')
 })
 
-const shown = (map: Record<string, string | null | undefined>) => (pane: string) => map[pane]
+type Shown = { sessionId: string | null; teamId?: string }
+const shown = (map: Record<string, Shown>) => (pane: string) => map[pane]
 
-test('a Cmd-click reuses the last beside pane only while it still shows that chat', () => {
-  const last = { pane: 'b', sessionId: 's1' }
+test('a chat already open in some pane is found there, the focused pane first', () => {
+  const panes = shown({ a: { sessionId: 'x' }, b: { sessionId: 'y' }, c: { sessionId: 'y' } })
 
-  assert.equal(reusableBesidePane(null, 'a', shown({})), null)
-  assert.equal(reusableBesidePane(last, 'a', shown({ b: 's1' })), 'b')
-  // The click came from the beside pane itself: never replace its own chat.
-  assert.equal(reusableBesidePane(last, 'b', shown({ b: 's1' })), null)
-  // The user opened another chat there, or closed the pane.
-  assert.equal(reusableBesidePane(last, 'a', shown({ b: 's2' })), null)
-  assert.equal(reusableBesidePane(last, 'a', shown({})), null)
+  assert.equal(paneShowingSession(['a', 'b', 'c'], panes, 'y'), 'b')
+  assert.equal(paneShowingSession(['c', 'a', 'b'], panes, 'y'), 'c')
 })
 
-test('a Cmd-click reuses the pane whose unopenable chat left it blank', () => {
-  // While the open is settling the pane still reports the chat, as it does when
-  // the backend's refusal becomes the pane's own "you can't open this".
-  assert.equal(reusableBesidePane({ pane: 'b', sessionId: 'gone' }, 'a', shown({ b: 'gone' })), 'b')
+test('a chat open nowhere finds no pane, so a background pane is never retargeted', () => {
+  // Pane b holds the chat a previous Cmd-click opened beside a; opening z must not reuse it.
+  const panes = shown({ a: { sessionId: 'x' }, b: { sessionId: 'y' } })
 
-  // A failed open clears the pane's chat. That pane is the one this click
-  // filled, so it is reused rather than a second empty pane split off beside it.
-  const failed = { pane: 'b', sessionId: 'gone' }
+  assert.equal(paneShowingSession(['a', 'b'], panes, 'z'), null)
+  // A pane that is gone or on its main page shows no chat.
+  assert.equal(paneShowingSession(['a', 'gone'], panes, 'gone'), null)
+})
 
-  markBesideUnshown(failed, 'gone')
-  assert.equal(reusableBesidePane(failed, 'a', shown({ b: null })), 'b')
-  // Never the pane the click came from, and never one now holding another chat
-  // — nor a pane that is gone, which reports nothing at all.
-  assert.equal(reusableBesidePane(failed, 'b', shown({ b: null })), null)
-  assert.equal(reusableBesidePane(failed, 'a', shown({ b: 's2' })), null)
-  assert.equal(reusableBesidePane(failed, 'a', shown({})), null)
-  // A chat that failed somewhere else marks nothing here.
-  const clean = { pane: 'b', sessionId: 'gone' }
+test('a chat open in another team is not the one asked for', () => {
+  const panes = shown({ a: { sessionId: 'x', teamId: 't1' } })
 
-  markBesideUnshown(clean, 'other')
-  assert.equal(reusableBesidePane(clean, 'a', shown({ b: null })), null)
+  assert.equal(paneShowingSession(['a'], panes, 'x', 't2'), null)
+  assert.equal(paneShowingSession(['a'], panes, 'x', 't1'), 'a')
+  assert.equal(paneShowingSession(['a'], panes, 'x'), 'a')
 })
 
 test('changing panes closes search permanently while focusing the current pane preserves it', () => {

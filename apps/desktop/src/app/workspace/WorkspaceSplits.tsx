@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { isMac } from '../../lib/platform'
 import { readLocalStorage, writeLocalStorage } from '../localStorage'
@@ -12,10 +12,9 @@ import {
   dropPane,
   focusPaneState,
   isSplitShortcut,
-  markBesideUnshown,
   paneRects,
+  paneShowingSession,
   removePane,
-  reusableBesidePane,
 } from './splitLayout'
 import {
   createWorkspaceState,
@@ -28,7 +27,7 @@ import { usePaneFocusTracking } from './usePaneFocusTracking'
 import { useWindowRestore } from './useWindowRestore'
 import { WorkspacePaneContext } from './WorkspacePaneContext'
 
-import type { BesidePane, DropZone, SplitLayout } from './splitLayout'
+import type { DropZone, SplitLayout } from './splitLayout'
 import type { WorkspaceState } from './store/workspaceState'
 import type { WorkspaceStore } from './store/workspaceStore'
 import type { WorkspaceProps } from './workspaceProps'
@@ -70,23 +69,24 @@ export function WorkspaceSplits({
   const [registrations] = useState(() => new Map<string, (store: WorkspaceStore) => () => void>())
   const focusSession = useCallback(
     (sessionId: string, teamId?: string) => {
-      // Prefer the focused pane if an older layout already contains duplicates.
-      const candidates = [activeId, ...stores.keys()].filter(
-        (id, index, ids) => ids.indexOf(id) === index,
+      const id = paneShowingSession(
+        [activeId, ...stores.keys()],
+        (pane) => {
+          const state = stores.get(pane)?.getState()
+
+          if (!state || state.mainPageOpen) return
+
+          return { sessionId: state.sessionId, teamId: selectScope(state)?.teamId }
+        },
+        sessionId,
+        teamId,
       )
 
-      for (const id of candidates) {
-        const state = stores.get(id)?.getState()
+      if (!id) return false
+      focusSurfaces.set(id, 'session')
+      setActiveId(id)
 
-        if (!state || state.mainPageOpen || state.sessionId !== sessionId) continue
-        if (teamId && selectScope(state)?.teamId !== teamId) continue
-        focusSurfaces.set(id, 'session')
-        setActiveId(id)
-
-        return true
-      }
-
-      return false
+      return true
     },
     [activeId, focusSurfaces, stores, setActiveId],
   )
@@ -118,29 +118,19 @@ export function WorkspaceSplits({
     },
     [activeId, seeds, stores, setActiveId],
   )
-  // ⌘-click on a session link: focus it where it is already open, else show it
-  // in the pane the last ⌘-click filled, else split one off to the right.
-  const beside = useRef<BesidePane | null>(null)
+  // ⌘-click on a session link: focus it where it is already open, else split it
+  // off beside the pane the click came from. Never retarget another pane.
   const openSessionBeside = useCallback(
     (source: string, sessionId: string, teamId?: string) => {
       if (focusSession(sessionId, teamId)) return true
-      let pane = reusableBesidePane(beside.current, source, (id) => {
-        const state = stores.get(id)?.getState()
+      const pane = split('right', source, { sessionId, teamId })
 
-        // A pane that is gone or on the main page reports nothing, not a blank chat.
-        return state?.mainPageOpen ? undefined : state?.sessionId
-      })
-
-      if (pane) stores.get(pane)?.actions.selectSession(sessionId, { teamId })
-      else pane = split('right', source, { sessionId, teamId })
       if (!pane) return false
       focusSurfaces.set(pane, 'session')
-      setActiveId(pane)
-      beside.current = { pane, sessionId }
 
       return true
     },
-    [focusSession, focusSurfaces, split, stores, setActiveId],
+    [focusSession, focusSurfaces, split],
   )
 
   useEffect(() => {
@@ -233,7 +223,6 @@ export function WorkspaceSplits({
                 focusSession,
                 openSessionBeside: (sessionId, teamId) =>
                   openSessionBeside(rect.id, sessionId, teamId),
-                sessionUnshown: (sessionId) => markBesideUnshown(beside.current, sessionId),
                 sidebarCollapsed,
                 toggleSidebarCollapsed,
                 cornerPane,
