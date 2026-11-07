@@ -129,7 +129,7 @@ fun AgentPage(
         AlertDialog(onDismissRequest = { if (!busy) { archiveTarget = null; store.clearRowActionError() } },
             title = { Text(if (target.isArchived) "Restore agent?" else "Archive agent?") },
             text = { Column {
-                Text(if (target.isArchived) "Move this agent to Active." else "It leaves the Agents list. Open it again to restore it.")
+                Text(if (target.isArchived) "Move this agent to Active." else "It leaves the Tasks list. Open it again to restore it.")
                 store.rowActionError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             } },
             confirmButton = { TextButton(enabled = !busy, onClick = { scope.launch {

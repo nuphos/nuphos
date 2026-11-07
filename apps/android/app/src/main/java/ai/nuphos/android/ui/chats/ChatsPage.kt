@@ -126,7 +126,7 @@ private fun ChatRow(chat: AgentConversation, selected: Boolean, opening: Boolean
         modifier = Modifier.clickable(enabled = !opening, onClick = onOpen).testTag("chat-row:${chat.sessionId}").semantics {
             contentDescription = listOfNotNull(title, preview, "unread posts".takeIf { unread }, "opening".takeIf { opening }).joinToString(", ")
         },
-        colors = ListItemDefaults.colors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface),
+        colors = ListItemDefaults.colors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background),
         leadingContent = {
             if (chat.isChannel) ChatIcon(chat.faces.orEmpty(), title, 40.dp)
             else AgentAvatar(chat.sessionId, chat.agentRuntime, 40.dp)

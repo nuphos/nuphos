@@ -384,7 +384,7 @@ fun HomeScreen(
                         IconButton(onClick = { searching = !searching }, modifier = Modifier.testTag("home-search")) {
                             Icon(Icons.Outlined.Search, contentDescription = "Search")
                         }
-                        // Like iOS, Agents has search only; Plans keeps its filter.
+                        // Like iOS, Tasks has search only; Plans keeps its filter.
                         if (current == HomePage.Plans) PlansFilterButton()
                     }
                     FilledIconButton(
@@ -416,7 +416,7 @@ fun HomeScreen(
             } else if (unavailablePage) {
                 Column(Modifier.weight(1f).fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.Center) {
                     Text("This page is no longer available in the mobile app.", style = MaterialTheme.typography.titleMedium)
-                    Button(onClick = { page = HomePage.Agent.route; searching = false }, modifier = Modifier.padding(top = 16.dp)) { Text("Back to Agents") }
+                    Button(onClick = { page = HomePage.Agent.route; searching = false }, modifier = Modifier.padding(top = 16.dp)) { Text("Back to Tasks") }
                 }
             } else {
             AnimatedContent(current, modifier = Modifier.weight(1f), label = "page") { dest ->

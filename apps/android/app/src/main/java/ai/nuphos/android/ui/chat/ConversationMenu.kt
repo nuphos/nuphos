@@ -79,7 +79,7 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
         confirmButton = { TextButton(enabled = !busy && ConversationActions.validTitle(title) != null, onClick = { perform { store.rename(session, title); rename = false } }) { Text("Save") } },
         dismissButton = { TextButton(enabled = !busy, onClick = { rename = false }) { Text("Cancel") } })
     if (archive) AlertDialog(onDismissRequest = { if (!busy) archive = false }, title = { Text(if (session.isArchived) "Restore agent?" else "Archive agent?") },
-        text = { Text(if (session.isArchived) "Move this agent to Active." else "It leaves the Agents list. Open it again to restore it.") },
+        text = { Text(if (session.isArchived) "Move this agent to Active." else "It leaves the Tasks list. Open it again to restore it.") },
         confirmButton = { TextButton(enabled = !busy, onClick = { perform { val restore = session.isArchived; store.archive(session, !restore); archive = false; if (!restore) onArchived() } }) { Text(if (session.isArchived) "Restore" else "Archive") } },
         dismissButton = { TextButton(enabled = !busy, onClick = { archive = false }) { Text("Cancel") } })
     if (error != null) AlertDialog(onDismissRequest = { error = null }, title = { Text("Action failed") }, text = { Text(error.orEmpty()) }, confirmButton = { TextButton(onClick = { error = null }) { Text("OK") } })
