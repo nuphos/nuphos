@@ -1160,7 +1160,7 @@ final class ChatSession {
             let shouldResume = !forceFresh && ResumeFallback.resumes(explicit: options.explicitResume, reconnects: reconnects, framesReceived: resumeFrom)
             forceFresh = false
 
-            let window = transcriptWindow(full: sendFullTranscript, rebase: rebaseTo)
+            let window = ChatMessage.transcriptWindow(messages, base: rebaseTo ?? baseIndex, full: sendFullTranscript)
             let firstPost = resumeFrom == 0 && !accepted
             let body = AgentChatAPI.ChatRequest(
                 id: sessionId,
@@ -1365,9 +1365,9 @@ final class ChatSession {
             // conversation index `messagesFirstIndex`. Earlier history stays.
             guard let raw = frame["messages"]?.arrayValue,
                   let first = frame["messagesFirstIndex"]?.numberValue else { return }
-            let decoded = raw.compactMap { value -> ChatMessage? in
-                guard let data = try? JSONEncoder().encode(value) else { return nil }
-                return try? Self.snapshotDecoder.decode(ChatMessage.self, from: data)
+            let decoded = raw.enumerated().map { index, value in
+                (try? JSONEncoder().encode(value)).flatMap { try? Self.snapshotDecoder.decode(ChatMessage.self, from: $0) }
+                    ?? .unreadable(at: Int(first) + index)
             }
             // A tail that does not meet the loaded history waits for the next refresh.
             let kept = Int(first) - baseIndex
@@ -1497,19 +1497,6 @@ final class ChatSession {
         if ok { messages[i].parts.append(.other(frame)) }
     }
 
-    // MARK: - Transcript window
-
-    /// The suffix from the last user message on, with `baseIndex` pointing at
-    /// it — the desktop's `windowTranscript`.
-    private func transcriptWindow(full: Bool, rebase: Int?) -> (messages: [ChatMessage], baseIndex: Int) {
-        let base = rebase ?? baseIndex
-        if full { return (messages, base) }
-        guard let lastUser = messages.lastIndex(where: { $0.role == .user }), lastUser > 0 else {
-            return (messages, base)
-        }
-        return (Array(messages[lastUser...]), base + lastUser)
-    }
-
     // MARK: - Transcript sync
 
     private func signature() -> Int {
@@ -1536,6 +1523,9 @@ final class ChatSession {
 
     func syncTranscriptNow() async {
         guard ownsChat, !messages.isEmpty, !transcriptOwnedByServer else { return }
+        // The server keeps its first `baseIndex` messages and makes the rest what's
+        // sent, so writing this list back would delete a message this app can't read.
+        guard !messages.contains(where: \.isUnreadable) else { return }
         let sig = signature()
         guard sig != lastSyncedSignature else { return }
         let wire = messages.map(\.forWire)

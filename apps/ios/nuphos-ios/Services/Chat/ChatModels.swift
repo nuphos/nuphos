@@ -23,12 +23,31 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
     var turnOrigin: String?
     var stoppedByUser: Bool?
     var feedback: String?
+    /// Holds the place of a message that couldn't be decoded. It's never shown or sent, and never comes from the wire.
+    var isUnreadable = false
 
     init(id: String = UUID().uuidString.lowercased(), role: Role, parts: [ChatPart], createdAt: Date? = .now) {
         self.id = id
         self.role = role
         self.parts = parts
         self.createdAt = createdAt
+    }
+
+    /// The placeholder for an undecodable message at server position `position`.
+    static func unreadable(at position: Int) -> ChatMessage {
+        var message = ChatMessage(id: "unreadable-message-\(position)", role: .system, parts: [], createdAt: nil)
+        message.isUnreadable = true
+        return message
+    }
+
+    /// The suffix from the last user message on, with `baseIndex` pointing at
+    /// it — the desktop's `windowTranscript`. It always starts after the last
+    /// placeholder, so a message this app can't read is never sent.
+    static func transcriptWindow(_ messages: [ChatMessage], base: Int, full: Bool) -> (messages: [ChatMessage], baseIndex: Int) {
+        let lastUser = messages.lastIndex(where: { $0.role == .user }) ?? 0
+        let from = full ? 0 : lastUser
+        let start = max(from, (messages.lastIndex(where: \.isUnreadable) ?? -1) + 1)
+        return (Array(messages[start...]), base + start)
     }
 
     struct Sender: Equatable, Sendable {
