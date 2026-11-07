@@ -1,10 +1,15 @@
 import { createContext } from 'react'
 
-import { parseChoiceRequest, parseConnectRequest, parseSecretRequest } from './connectCardModel.ts'
+import {
+  parseChoiceRequest,
+  parseConnectRequest,
+  parseSecretRequest,
+  secretSavedReply,
+} from './connectCardModel.ts'
 
 import type { Message } from './model'
 
-/** The option a choice card was answered with, from the reply stored in the transcript. */
+/** The option a choice card was answered with, or a secret card's saved reply, from the reply stored in the transcript. */
 export type DecisionAnswer = {
   option: string
   /** Who replied; absent for a reply this device has not had attributed yet, which is the viewer's. */
@@ -13,32 +18,37 @@ export type DecisionAnswer = {
   at?: number
 }
 
-/** Each conversation's choice-card answers, keyed by the card's tool call id. */
+/** Each conversation's choice and secret card answers, keyed by the card's tool call id. */
 export const DecisionAnswersContext = createContext<ReadonlyMap<string, DecisionAnswer>>(new Map())
 
-function choiceOptions(input: unknown): string[] {
-  if (parseConnectRequest(input) || parseSecretRequest(input)) return []
+/** Which replies answer a card: one of a choice card's options, or a secret card's saved reply. */
+function answeredBy(input: unknown): ((text: string) => boolean) | null {
+  if (parseConnectRequest(input)) return null
+  const secret = parseSecretRequest(input)
 
-  return parseChoiceRequest(input)?.options ?? []
+  if (secret) return (text) => text.startsWith(secretSavedReply(secret.name))
+  const options = parseChoiceRequest(input)?.options ?? []
+
+  return options.length > 0 ? (text) => options.includes(text) : null
 }
 
 /**
  * A card's answer is the first later reply that is one of its options, as
- * choosing one sends it. When several open cards offer it, the newest is the
+ * choosing one sends it, or for a secret card the reply its saved value sends. When several open cards offer it, the newest is the
  * one answered, the same default the reply chip uses. A reply typed in other
  * words answers nothing here, so no option shows chosen.
  */
 export function decisionAnswers(messages: readonly Message[]): Map<string, DecisionAnswer> {
   const answers = new Map<string, DecisionAnswer>()
-  const open: { id: string; options: string[] }[] = []
+  const open: { id: string; matches: (text: string) => boolean }[] = []
 
   for (const message of messages) {
     if (message.role === 'assistant') {
       for (const part of message.parts) {
         if (part.type !== 'tool' || part.toolName !== 'request_user_decision') continue
-        const options = choiceOptions(part.input)
+        const matches = answeredBy(part.input)
 
-        if (options.length > 0) open.push({ id: part.toolCallId, options })
+        if (matches) open.push({ id: part.toolCallId, matches })
       }
       continue
     }
@@ -46,7 +56,7 @@ export function decisionAnswers(messages: readonly Message[]): Map<string, Decis
       .map((part) => (part.type === 'text' ? part.text : ''))
       .join('')
       .trim()
-    const index = open.findLastIndex((entry) => entry.options.includes(text))
+    const index = open.findLastIndex((entry) => entry.matches(text))
 
     if (index < 0) continue
     // Answered once: a later reply goes to another card.

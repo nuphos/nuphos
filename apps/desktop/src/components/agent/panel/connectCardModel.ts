@@ -85,6 +85,11 @@ export function parseSecretRequest(value: unknown): { name: string; reason: stri
   return { name: secretName, reason: typeof question === 'string' ? question : '' }
 }
 
+/** The reply a secret card sends once its value is saved, before the file's path. */
+export function secretSavedReply(name: string): string {
+  return `🔒 ${name} saved to `
+}
+
 /** Any other `request_user_decision`: its question card, with the options as replies. */
 export function parseChoiceRequest(
   value: unknown,
