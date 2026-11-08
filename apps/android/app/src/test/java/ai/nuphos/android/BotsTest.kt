@@ -8,6 +8,7 @@ import ai.nuphos.android.model.AgentConversation
 import ai.nuphos.android.model.BotAvatars
 import ai.nuphos.android.model.BotFaces
 import ai.nuphos.android.model.ChatFace
+import ai.nuphos.android.model.botFace
 import ai.nuphos.android.model.botsList
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
@@ -46,6 +47,10 @@ class BotsTest {
         assertNull("An agent without a face", channel("c", agent("task", avatar = null)).botId)
         assertNull("Not a chat", AgentConversation("s", faces = listOf(agent("bot"))).botId)
         assertNull("No members", channel("c").botId)
+        // A chat screen reads the same rule off its live faces.
+        assertEquals("bot", listOf(agent("bot")).botFace?.id)
+        assertNull(listOf(agent("bot"), agent("other")).botFace)
+        assertNull(listOf(agent("task", avatar = null)).botFace)
     }
     @Test fun aGroupsPreviewNamesWhoPostedAndABotsDoesNot() {
         val post = """{"text":"Hello","from":"Diana"}"""

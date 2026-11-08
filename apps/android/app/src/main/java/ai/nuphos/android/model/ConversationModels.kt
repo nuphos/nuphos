@@ -81,7 +81,7 @@ data class AgentConversation(
     val isBot: Boolean get() = avatar != null && !isChannel
 
     /** The Bot this chat is the 1:1 of: its one other member is an agent with a face. */
-    val botId: String? get() = faces?.singleOrNull()?.takeIf { isChannel && it.agent?.avatar != null }?.id
+    val botId: String? get() = faces?.takeIf { isChannel }?.botFace?.id
 
     val lastPost: LastPost? get() = lastMessage?.get("text")?.stringValue?.let { LastPost(it, lastMessage["from"]?.stringValue) }
 
@@ -126,6 +126,9 @@ data class ChatFace(
     @Serializable
     data class Agent(val avatar: String? = null, val provider: String? = null)
 }
+
+/** The Bot a chat with these faces is the 1:1 of: its one other member is an agent with a face. */
+val List<ChatFace>.botFace: ChatFace? get() = singleOrNull()?.takeIf { it.agent?.avatar != null }
 
 @Serializable
 data class AgentConversationsPage(

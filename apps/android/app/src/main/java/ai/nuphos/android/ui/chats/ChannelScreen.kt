@@ -34,6 +34,7 @@ import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.automirrored.outlined.Reply
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.DesktopWindows
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -67,6 +68,7 @@ import ai.nuphos.android.model.ChannelItem
 import ai.nuphos.android.model.ChannelPost
 import ai.nuphos.android.model.ChannelReply
 import ai.nuphos.android.model.ChatTime
+import ai.nuphos.android.model.botFace
 import ai.nuphos.android.model.TransferUpload
 import ai.nuphos.android.data.TransferDownloads
 import ai.nuphos.android.session.AiAccess
@@ -121,6 +123,16 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
             }
         }
     }
+    // A Bot's chat opens the Bot's desktop: its session, read and gated as on its Task screen.
+    val botFace = session.faces.botFace
+    val bot = remember(store, botFace?.id) { botFace?.let { store.session(it.id, it.name) } }
+    LaunchedEffect(bot, lifecycle) {
+        if (bot == null) return@LaunchedEffect
+        if (!bot.loaded) bot.load()
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { bot.pollWhileIdle() }
+    }
+    var desktop by remember(bot, store.workspaceRevision) { mutableStateOf(false) }
+    if (desktop && bot != null) ai.nuphos.android.desktop.DesktopScreen(bot, store) { desktop = false }
     val items = ChannelPost.items(session.posts, session.events, typing)
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -133,6 +145,9 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
                     }
                 },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } },
+                actions = {
+                    if (bot?.canOpenDesktop == true) IconButton(onClick = { desktop = true }) { Icon(Icons.Outlined.DesktopWindows, "Desktop") }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
