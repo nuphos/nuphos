@@ -14,6 +14,7 @@ import { AssistantMessage } from './AssistantMessage'
 import { toolAnchorIds } from './chatTarget'
 import { DecisionAnswersContext, decisionAnswers } from './decisionAnswers'
 import { AgentHomeAnimation } from './homeAnimation'
+import { OpenQuestionCards } from './OpenQuestionCards'
 import { CollapsedWorkView, LoadingText } from './partChrome'
 import { collapseRepeatedFailures } from './repeatedFailures'
 import { DEFERRED_MESSAGE_STYLE } from './status'
@@ -250,6 +251,7 @@ function MessageList({
           reveal={Date.parse(event.at) > openedAt}
         />
       ))}
+      <OpenQuestionCards tab={tab} now={now} />
       {tab.movingTo && <MovingSessionLine label={tab.movingTo} />}
       {statusLabel && !tab.agentSetupRequired && (
         <div className="text-[13.5px] flex items-center gap-2">
