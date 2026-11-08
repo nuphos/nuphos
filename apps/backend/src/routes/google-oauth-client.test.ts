@@ -159,7 +159,7 @@ describe('team Google OAuth client', () => {
     const read = await app.request('/', { headers: { 'x-test-role': 'MEMBER' } })
     const text = await read.text()
 
-    expect(JSON.parse(text)).toEqual({ clientId: CLIENT.clientId })
+    expect(JSON.parse(text)).toEqual({ clientId: CLIENT.clientId, composio: false })
     expect(text).not.toContain(CLIENT.clientSecret)
   })
 
@@ -179,7 +179,7 @@ describe('team Google OAuth client', () => {
     const res = await remove()
 
     expect(res.status).toBe(204)
-    expect(await (await app.request('/')).json()).toEqual({ clientId: null })
+    expect(await (await app.request('/')).json()).toEqual({ clientId: null, composio: false })
   })
 
   test('a different client revokes the team’s grants once per member, and drops them', async () => {

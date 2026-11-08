@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { z } from 'zod'
 
 import { getConversationBySessionId } from '@/lib/agent/db'
 import { verifyPreviewMcpToken } from '@/lib/claude-code-preview/mcp-token'
@@ -17,9 +18,18 @@ import {
   stagePersonalCredentialOAuth,
   startPersonalCredentialOAuth,
 } from '@/lib/personal-credentials'
+import {
+  composioAuthConfig,
+  composioToolProvider,
+  composioUserId,
+  executeComposioTool,
+} from '@/lib/personal-credentials/composio'
 import { isGoogleProvider, teamGoogleClient } from '@/lib/personal-credentials/google'
+import { zv } from '@/lib/validate'
 import { requireAuth } from '@/middleware/auth'
+import { personalCredentials } from '@/models'
 
+import type { GoogleProvider } from '@/lib/personal-credentials/google'
 import type { AuthVariables } from '@/middleware/auth'
 import type { PersonalCredentialProvider } from '@/models'
 
@@ -92,10 +102,15 @@ personalCredentialRoutes.get('/:provider/callback', async (c) => {
   const provider = providerParam(c.req.param('provider'))
   const state = c.req.query('state') ?? ''
   const code = c.req.query('code') ?? ''
+  // Composio returns with status and connected_account_id instead of a code.
+  const composio = c.req.query('status')
+  const error = c.req.query('error') ?? (composio === 'failed' ? 'access_denied' : undefined)
   const back = (params: Record<string, string>) =>
     desktopCallbackResponse(c, DESKTOP_RETURN, params)
 
-  if (!state || !code) return back({ provider, error: c.req.query('error') ?? 'missing_code' })
+  if (!state || error || (!code && composio !== 'success')) {
+    return back({ provider, error: error ?? 'missing_code' })
+  }
   try {
     return back({ provider, ...(await stagePersonalCredentialOAuth(provider, state, code)) })
   } catch (error) {
@@ -191,11 +206,18 @@ personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
   // The conversation token is only valid under its own /teams/:teamId.
   const teamId = claims.tid
 
-  if (!(await teamGoogleClient(teamId))) {
+  if (!composioAuthConfig(provider) && !(await teamGoogleClient(teamId))) {
     throw new AppError(
       409,
       'google_oauth_client_not_configured',
       'This team has not added a Google OAuth client. An administrator can add one in Team settings.',
+    )
+  }
+  if (await composioCredential(claims.own, provider, teamId)) {
+    throw new AppError(
+      409,
+      'personal_credential_via_composio',
+      'This member connected through Composio: run Gmail and Google Drive tools with POST /teams/:teamId/composio/execute',
     )
   }
   const personal = await personalGoogleToken(claims.own, provider, teamId)
@@ -203,4 +225,49 @@ personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
   if (!personal) throw notConnected(provider === 'gmail' ? 'Gmail' : 'Google Drive')
 
   return c.json(handedOut(personal))
+})
+
+const composioCredential = (userId: string, provider: GoogleProvider, teamId: string) =>
+  personalCredentials().findOne({
+    userId,
+    provider,
+    teamId,
+    composioAccountId: { $exists: true },
+  })
+
+// Mounted under /teams/:teamId for conversation tokens: runs one Gmail or
+// Google Drive tool through the session owner's own Composio connection in
+// this team. The Composio API key never leaves the backend.
+export const composioRoutes = new Hono()
+
+const executeSchema = z
+  .object({ tool: z.string().max(100), arguments: z.record(z.string(), z.unknown()).default({}) })
+  .strict()
+
+composioRoutes.post('/execute', zv('json', executeSchema), async (c) => {
+  const { tool, arguments: args } = c.req.valid('json')
+  const provider = composioToolProvider(tool)
+
+  if (!provider) {
+    throw new AppError(
+      400,
+      'tool_not_allowed',
+      'Only Gmail and Google Drive tools, other than permanent mail deletion, can run here',
+    )
+  }
+  const claims = await ownerClaims(c.req.header('Authorization') ?? '', 'Gmail and Google Drive')
+  const credential = await composioCredential(claims.own, provider, claims.tid)
+
+  if (!credential?.composioAccountId) {
+    throw notConnected(provider === 'gmail' ? 'Gmail' : 'Google Drive')
+  }
+
+  return c.json(
+    await executeComposioTool({
+      tool,
+      connectedAccountId: credential.composioAccountId,
+      composioUserId: composioUserId(claims.tid, claims.own),
+      arguments: args,
+    }),
+  )
 })

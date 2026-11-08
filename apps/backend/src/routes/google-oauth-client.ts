@@ -3,6 +3,7 @@ import { z } from 'zod'
 
 import { encryptLinearSecret } from '@/lib/byos/secrets'
 import { parseObjectId } from '@/lib/objectid'
+import { composioAuthConfig } from '@/lib/personal-credentials/composio'
 import { GOOGLE_PROVIDERS } from '@/lib/personal-credentials/google'
 import { revokeQuietly } from '@/lib/personal-credentials/revoke'
 import { zv } from '@/lib/validate'
@@ -53,7 +54,11 @@ googleOAuthClientRoutes.get('/', async (c) => {
     { projection: { 'googleOAuthClient.clientId': 1 } },
   )
 
-  return c.json({ clientId: doc?.googleOAuthClient?.clientId ?? null })
+  // Without a client of its own, members can still connect through Composio when it is configured.
+  return c.json({
+    clientId: doc?.googleOAuthClient?.clientId ?? null,
+    composio: Boolean(composioAuthConfig('gmail') ?? composioAuthConfig('google-drive')),
+  })
 })
 
 googleOAuthClientRoutes.put(

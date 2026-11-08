@@ -947,6 +947,7 @@
   "Connections and queues": "연결 및 대기열",
   "Connector ID": "커넥터 ID",
   "Connectors": "커넥터",
+  "Connects through Composio, which handles this data for Nuphos.": "Composio를 통해 연결되며, Composio가 Nuphos를 대신해 이 데이터를 처리합니다.",
   "Connects via {host}": "{host}을(를) 통해 연결",
   "Container": "컨테이너",
   "Container settings used when this workload creates Pods": "이 워크로드가 Pod를 생성할 때 사용하는 컨테이너 설정",

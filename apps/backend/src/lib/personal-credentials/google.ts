@@ -8,6 +8,8 @@ import { getGoogleProfile } from '@/lib/identity/google'
 import { parseObjectId } from '@/lib/objectid'
 import { teamByosBindings } from '@/models'
 
+import { composioAuthConfig } from './composio'
+
 import type { ProviderTokens } from './github'
 
 export type GoogleProvider = 'gmail' | 'google-drive'
@@ -42,12 +44,19 @@ export async function teamGoogleClient(teamId: string): Promise<GoogleClient | n
     : null
 }
 
-/** Gmail / Google Drive connect through a team the member belongs to, with that team's client. */
-export async function googleTeamFor(userId: string, teamId: string | undefined): Promise<string> {
+/**
+ * Gmail / Google Drive connect through a team the member belongs to, with that
+ * team's client or, when it has none, Composio.
+ */
+export async function googleTeamFor(
+  userId: string,
+  provider: GoogleProvider,
+  teamId: string | undefined,
+): Promise<string> {
   if (!teamId || !(await getTeamMembership(userId, teamId))) {
     throw new AppError(403, 'forbidden', 'Connect Gmail or Google Drive from a team you belong to')
   }
-  if (!(await teamGoogleClient(teamId))) {
+  if (!composioAuthConfig(provider) && !(await teamGoogleClient(teamId))) {
     throw new AppError(
       409,
       'google_oauth_client_not_configured',

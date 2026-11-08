@@ -38,6 +38,24 @@ Settings → Personal Credentials, then retry. A 409
 yet: a team administrator adds one in Team settings (guide:
 https://docs.nuphos.ai/connectors/google-workspace). There is no team fallback.
 
+A 409 `personal_credential_via_composio` means the member connected through
+Composio instead: there is no token, so skip the curl recipes below and run
+Composio's Gmail / Google Drive tools (https://docs.composio.dev/toolkits/gmail,
+https://docs.composio.dev/toolkits/googledrive) through Nuphos:
+
+```bash
+bash skills/google-workspace/scripts/composio.sh <teamId> GMAIL_FETCH_EMAILS '{"query":"is:unread newer_than:2d","max_results":20}'
+bash skills/google-workspace/scripts/composio.sh <teamId> GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID '{"message_id":"<id>"}'
+bash skills/google-workspace/scripts/composio.sh <teamId> GMAIL_CREATE_EMAIL_DRAFT '{"recipient_email":"…","subject":"…","body":"…"}'
+bash skills/google-workspace/scripts/composio.sh <teamId> GMAIL_ADD_LABEL_TO_EMAIL '{"message_id":"<id>","remove_label_ids":["UNREAD"]}'
+bash skills/google-workspace/scripts/composio.sh <teamId> GOOGLEDRIVE_FIND_FILE '{"q":"name contains '"'"'roadmap'"'"' and trashed = false"}'
+```
+
+Each prints `{"successful":…,"data":…,"error":…}`. Only `GMAIL_*` and
+`GOOGLEDRIVE_*` tools run, and permanent mail deletion is refused (trash
+instead). The same rules apply: prefer a draft (`GMAIL_CREATE_EMAIL_DRAFT`) over
+`GMAIL_SEND_EMAIL` unless the member asked to send.
+
 ## Gmail
 
 Scope: `gmail.modify` — read, label, archive, trash, draft and send. Permanent

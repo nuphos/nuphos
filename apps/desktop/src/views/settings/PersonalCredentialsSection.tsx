@@ -20,7 +20,12 @@ import { TEAM_SETTINGS_DEFAULT_SECTION } from './settingsNav'
 import { SectionHeader } from './shared'
 import { useAdminName } from './useAdminName'
 
-import type { AtlasTeam, PersonalCredential, PersonalCredentialProvider } from '../../types'
+import type {
+  AtlasTeam,
+  PersonalCredential,
+  PersonalCredentialProvider,
+  TeamGoogleClient,
+} from '../../types'
 
 const PROVIDERS: { provider: PersonalCredentialProvider; name: string; description: string }[] = [
   {
@@ -60,9 +65,9 @@ export function PersonalCredentialsSection({
   onOpenSection?: (section: string) => void
 }) {
   const [credentials, setCredentials] = useState<PersonalCredential[] | null>(null)
-  // Gmail / Google Drive go through the current team's own OAuth client.
+  // Gmail / Google Drive go through the current team's own OAuth client, else Nuphos's Composio.
   // Null while unknown, or when it could not be read: Connect stays available and says why if it fails.
-  const [teamHasGoogleClient, setTeamHasGoogleClient] = useState<boolean | null>(null)
+  const [googleClient, setGoogleClient] = useState<TeamGoogleClient | null>(null)
   const admin = useAdminName(team?.id, Boolean(team && team.role !== 'ADMINISTRATOR'))
   const [loadFailed, setLoadFailed] = useState(false)
   const [busy, setBusy] = useState<PersonalCredentialProvider | null>(null)
@@ -82,8 +87,8 @@ export function PersonalCredentialsSection({
     if (team) {
       void api
         .atlasGetTeamGoogleClient(team.id)
-        .then((clientId) => setTeamHasGoogleClient(Boolean(clientId)))
-        .catch(() => setTeamHasGoogleClient(null))
+        .then(setGoogleClient)
+        .catch(() => setGoogleClient(null))
     }
   }, [team])
 
@@ -162,7 +167,9 @@ export function PersonalCredentialsSection({
           <div className="space-y-3">
             {PROVIDERS.map(({ provider, name, description }) => {
               const credential = credentialFor(credentials, provider, team?.id)
-              const needsTeamClient = isGoogle(provider) && teamHasGoogleClient === false
+              const noTeamClient = isGoogle(provider) && googleClient?.clientId === null
+              const needsTeamClient = noTeamClient && !googleClient.composio
+              const viaComposio = noTeamClient && googleClient.composio
 
               return (
                 <div
@@ -173,6 +180,11 @@ export function PersonalCredentialsSection({
                   <div className="min-w-0 flex-1">
                     <div className="text-[13.5px] font-medium text-main">{name}</div>
                     <p className="mt-0.5 text-[12.5px] text-tertiary">{description}</p>
+                    {!credential && viaComposio && (
+                      <p className="mt-1.5 text-[12.5px] text-secondary">
+                        {t('Connects through Composio, which handles this data for Nuphos.')}
+                      </p>
+                    )}
                     {!credential && needsTeamClient && (
                       <p className="mt-1.5 text-[12.5px] text-secondary">
                         {admin

@@ -44,7 +44,7 @@ import { monitoringRoutes } from '@/routes/monitoring'
 import { notionIntegrationsRoutes } from '@/routes/notion-integrations'
 import { onpremClustersRoutes } from '@/routes/onprem-clusters'
 import { permissionGrantProposalsRoutes } from '@/routes/permission-grant-proposals'
-import { personalCredentialTokenRoutes } from '@/routes/personal-credentials'
+import { composioRoutes, personalCredentialTokenRoutes } from '@/routes/personal-credentials'
 import { plaudAccountsRoutes } from '@/routes/plaud-accounts'
 import { posthogIntegrationsRoutes } from '@/routes/posthog-integrations'
 import { resendIntegrationsRoutes } from '@/routes/resend-integrations'
@@ -192,6 +192,7 @@ teamScoped.route('/instabox-accounts', instaboxAccountsRoutes)
 teamScoped.route('/posthog-integrations', posthogIntegrationsRoutes)
 teamScoped.route('/plaud-accounts', plaudAccountsRoutes)
 teamScoped.route('/personal-credentials', personalCredentialTokenRoutes)
+teamScoped.route('/composio', composioRoutes)
 teamScoped.route('/google-oauth-client', googleOAuthClientRoutes)
 teamScoped.route('/connectors', teamConnectorsRoutes)
 teamScoped.route('/connector-oauth', connectorOAuthRoutes)
