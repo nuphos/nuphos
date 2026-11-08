@@ -109,6 +109,11 @@ class BotDesktopFixtureDeviceTest {
             savedAccess = access().value
             // Signed in as the Bot's owner, through the app's own restore, since the viewer needs a user.
             auth = AuthSession(app, tokens); auth.restore()
+        }
+        var ready = false
+        repeat(100) { if (!ready) { inst.runOnMainSync { ready = auth.user != null && auth.aiAllowed }; Thread.sleep(50) } }
+        assertTrue("The synthetic sign-in did not finish", ready)
+        inst.runOnMainSync {
             store = AgentStore(token, context)
             store.acceptMemberships(listOf(team), team.id)
         }
@@ -125,7 +130,6 @@ class BotDesktopFixtureDeviceTest {
     }
 
     private fun render(chatId: String) {
-        compose.waitUntil(5_000) { auth.user != null && auth.aiAllowed }
         compose.setContent {
             NuphosTheme(darkTheme = false) {
                 CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
