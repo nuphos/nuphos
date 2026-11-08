@@ -1,7 +1,7 @@
 import { t } from '../../../i18n/index.ts'
 import { subAgentState } from '../../../lib/subAgentState.ts'
 import { changeStatus } from '../../sidebar/sessionResourcePresentation.ts'
-import { EMPTY_CREDENTIAL_ACCESS } from '../panel/constants.ts'
+import { normalizeCredentialAccess } from '../panel/credentialAccess.ts'
 import { countSelectedCredentials } from '../panel/credentialSelectorButtonCounts.ts'
 
 import type { AgentConversation } from '../../../api/agent-types.ts'
@@ -251,9 +251,10 @@ export function splitFileName(fileName: string): [string, string] {
   return dot > 0 ? [fileName.slice(0, dot), fileName.slice(dot)] : [fileName, '']
 }
 
-// A stored selection can predate newer credential kinds, so missing kinds count as none.
+// A stored selection can predate newer credential kinds or carry null for an
+// unset one, so it goes through the same normalizer as the credential selector.
 function credentialAccessOf(conversation: AgentConversation | undefined) {
-  return { ...EMPTY_CREDENTIAL_ACCESS, ...conversation?.credentialAccess }
+  return normalizeCredentialAccess(conversation?.credentialAccess)
 }
 
 /** Connectors ticked for this chat, devices aside: those are shown with the runtime. */

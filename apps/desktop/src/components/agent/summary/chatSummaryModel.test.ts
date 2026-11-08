@@ -169,6 +169,19 @@ test('connectors count leaves devices out', () => {
   assert.equal(connectorCount(undefined), 0)
 })
 
+test('a stored selection with null for an unset kind counts it as none', () => {
+  // The database stores an unset optional list as null, and the summary used to read its length.
+  const credentialAccess = {
+    awsRoleIds: ['r'],
+    instaboxAccountIds: null,
+    deviceIds: null,
+  } as unknown as AgentConversation['credentialAccess']
+  const conversation = chat('a', { credentialAccess })
+
+  assert.equal(connectorCount(conversation), 1)
+  assert.equal(deviceCount(conversation), 0)
+})
+
 test('⌘I toggles on macOS and Ctrl+I elsewhere, nothing with extra modifiers', () => {
   const key = {
     metaKey: false,
