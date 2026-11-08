@@ -369,16 +369,16 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     /// Rows come into view at their estimated height and are measured by the
     /// next layout pass. Measure them now, then take the position again, so
     /// it is never committed, or clamped, at a size the content will not keep.
-    /// A shrink can start UIKit's own animated clamp; left running, it would
-    /// pull the reader off the position after this returns.
+    /// A shrink, even one measured here, starts UIKit's own animated clamp;
+    /// stopped last, it cannot pull the reader off the position afterwards.
     private func hold(_ position: () -> Void) {
-        collection.setContentOffset(collection.contentOffset, animated: false)
         for _ in 0..<3 {
             position()
             let before = layout.collectionViewContentSize.height
             collection.layoutIfNeeded()
             if layout.collectionViewContentSize.height == before { break }
         }
+        collection.setContentOffset(collection.contentOffset, animated: false)
     }
 
     /// The first row on screen that the update keeps. When a turn ends, the
@@ -707,6 +707,35 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
             await pause()
             eventProbe.stop()
             check(name, down < 1 && nearBottom, "maxDownward=\(down) frames=\(frames) nearBottom=\(nearBottom)")
+        }
+        // Rows that arrive while the reader is two pages up keep the 100 pt
+        // estimate until Scroll to latest measures them. A shorter row must not
+        // leave UIKit clamping the offset back up after the tap.
+        let latecomers: [(String, [ChatRow])] = [
+            ("latest_after_arrival", [.user(id: "user.latecomer", messageId: "latecomer", text: "A short post", images: [])]),
+            ("latest_after_error_row", [.activity(text: "Running tools…", live: true),
+                                        .hint(id: "event.stop-failed", text: "Could not stop the turn", isError: true)]),
+        ]
+        for (name, latecomer) in latecomers {
+            fixture = fixture0
+            apply()
+            showLatest()
+            await pause()
+            collection.contentOffset.y -= 2 * collection.bounds.height
+            touch()
+            await pause()
+            fixture += latecomer
+            apply()
+            await pause()
+            let shownBefore = !latestButton.isHidden
+            showLatest()
+            let tapped = collection.contentOffset.y
+            await pause()
+            let newestBottom = layout.layoutAttributesForItem(at: IndexPath(item: rows.count - 1, section: 0))?.frame.maxY ?? .infinity
+            let composerTop = composer.view.convert(CGPoint.zero, to: collection).y
+            check(name, shownBefore && atEnd && newestBottom <= composerTop && latestButton.isHidden,
+                  "gap=\(distanceToEnd) tapped=\(tapped) after=\(collection.contentOffset.y) newestBottom=\(newestBottom) " +
+                  "composerTop=\(composerTop) buttonBefore=\(shownBefore) buttonAfter=\(!latestButton.isHidden)")
         }
         // A rotation must move rows straight to their new layout. Animated,
         // each row cross-fades between two cells and its text stretches, so
