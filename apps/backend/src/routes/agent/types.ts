@@ -36,6 +36,8 @@ export type AgentChatBody = {
   runtimeId?: string
   /** Model settings picked before the conversation had a session; applied when one starts. */
   initialSessionConfig?: RuntimeDefaults
+  /** The folder a new task works in, on the runtime it starts on. Honoured only on the owner's first turn. */
+  workspace?: { kind: 'folder'; path: string }
   /** The open question this message answers; it is resolved when the turn is admitted. */
   decisionReplyTo?: string
   clientCapabilities?: {

@@ -2,6 +2,7 @@ import { previewSessionAccess } from './credentials-mcp'
 import { sessionMeta } from './openab-acp-session'
 import { runtimeProvider } from './runtime-provider'
 import { storedPick } from './session-config-options'
+import { workspaceDirectory } from './session-context'
 import { previewRuntimeCwd } from './team-openab-runtime'
 
 import type { AgentConversation } from '@/lib/agent/db'
@@ -45,6 +46,7 @@ export async function sessionConfigRestoreContext(
       provider,
       env: access.runtimeEnv,
       defaults: storedPick(conversation.claudeCodePreview),
+      workingDirectory: workspaceDirectory(conversation, conversation.runtimeId),
     }),
   }
 }

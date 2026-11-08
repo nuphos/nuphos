@@ -107,6 +107,7 @@ export async function createAgentThread(
     runtimeLabel: source.runtimeLabel,
     parentSessionId: actor.sessionId,
     parentGrants: source,
+    workspace: source.workspace,
   })
   // A thread runs in its parent's permission mode, as a hand-opened chat in the user's pick.
   await initializeSessionBypass(

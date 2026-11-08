@@ -59,6 +59,7 @@ export async function upsertConversationShell(data: {
   kind?: 'channel'
   /** Created as a Bot: its face, and a name the title generator leaves alone. */
   avatar?: string
+  workspace?: NonNullable<AgentConversation['workspace']>
 }): Promise<{ isNew: boolean }> {
   const now = new Date()
   // MongoDB rejects the same field appearing in both $setOnInsert and $set
@@ -82,6 +83,7 @@ export async function upsertConversationShell(data: {
     ...(data.parentSessionId ? { parentSessionId: data.parentSessionId } : {}),
     ...(data.kind ? { kind: data.kind } : {}),
     ...(data.avatar ? { avatar: data.avatar, titleManuallySet: true } : {}),
+    ...(data.workspace ? { workspace: data.workspace } : {}),
     metadata: {
       locale: data.locale,
       provider: data.provider,

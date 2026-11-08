@@ -1,5 +1,5 @@
 import type { ConversationOwner } from './conversation-view'
-import type { ConversationTimelineEvent } from '@/lib/agent/db/shared'
+import type { ConversationTimelineEvent } from '@/lib/agent/db/timeline-events'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 
 type Person = { id: string; name: string; avatarURL: string }

@@ -64,7 +64,11 @@ export async function openConversationSession(
   const creation = (async () => {
     const client = await registry.acquire(teamId, endpoint)
     let session: TeamSession | undefined
-    const observe = (openabSessionId: string, defaults: RuntimeDefaults) => {
+    const observe = (
+      openabSessionId: string,
+      defaults: RuntimeDefaults,
+      workingDirectory?: string,
+    ) => {
       session = {
         teamId,
         conversationId,
@@ -76,7 +80,7 @@ export async function openConversationSession(
         endpoint,
         mcpServers,
         ...(systemPrompt ? { systemPrompt } : {}),
-        runtime: { ...runtime, defaults },
+        runtime: { ...runtime, defaults, ...(workingDirectory && { workingDirectory }) },
         contextDeliveredAt: Date.now(),
       }
       observeSession(session)
@@ -84,7 +88,7 @@ export async function openConversationSession(
     }
 
     try {
-      const { openabSessionId, fresh, defaults } = await attachOpenAbSession(
+      const { openabSessionId, fresh, defaults, workingDirectory } = await attachOpenAbSession(
         client,
         teamId,
         conversationId,
@@ -96,7 +100,7 @@ export async function openConversationSession(
       )
 
       if (fresh) onFreshSession?.()
-      if (!session) observe(openabSessionId, defaults)
+      if (!session) observe(openabSessionId, defaults, workingDirectory)
     } catch (error) {
       session?.stopObserving?.()
       if (sessionsByConversation.get(key) === session) sessionsByConversation.delete(key)

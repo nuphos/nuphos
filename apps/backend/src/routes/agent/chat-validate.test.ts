@@ -47,6 +47,17 @@ test('a first-turn model pick is trimmed, and anything else is refused', () => {
     ).toThrow('initialSessionConfig')
 })
 
+test('a task folder must be an absolute path', () => {
+  for (const path of ['/Users/me/infra', 'C:\\code\\infra'])
+    expect(() =>
+      validateChatBody({ id: 'c', messages: [], workspace: { kind: 'folder', path } } as never),
+    ).not.toThrow()
+  for (const workspace of [{ kind: 'folder', path: 'infra' }, { kind: 'repo', path: '/x' }, '/x'])
+    expect(() => validateChatBody({ id: 'c', messages: [], workspace } as never)).toThrow(
+      'workspace',
+    )
+})
+
 test('accepts a per-conversation runtime or an omitted preference', () => {
   for (const agentRuntime of [undefined, 'claude-code', 'codex'] as const) {
     expect(() => validateChatBody({ id: 'new-chat', messages: [], agentRuntime })).not.toThrow()

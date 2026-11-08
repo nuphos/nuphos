@@ -163,6 +163,18 @@ export function launchAcceptedChatTurn(args: {
           { sessionId, teamId, claudeCodePreview: { $exists: false } },
           { $set: { initialSessionConfig: kept } },
         )
+      // The task's folder is fixed before its first session exists, by its owner only.
+      if (body.workspace && runtimeId && chatCtx.userId === run.userId && isFirstTurn(body, null))
+        await agentConversations().updateOne(
+          {
+            sessionId,
+            teamId,
+            userId: run.userId,
+            workspace: { $exists: false },
+            claudeCodePreview: { $exists: false },
+          },
+          { $set: { workspace: { kind: 'folder', path: body.workspace.path, runtimeId } } },
+        )
       await runClaudeCodePreviewChatTurn({
         run,
         sessionId,

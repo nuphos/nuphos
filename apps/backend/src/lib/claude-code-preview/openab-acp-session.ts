@@ -74,6 +74,7 @@ export type OpenAbSessionRuntime = {
   defaults?: RuntimeDefaults
   provider?: OpenAbProvider
   env?: Record<string, string>
+  workingDirectory?: string
 }
 
 export type OpenAbPermissionOption = {
@@ -140,10 +141,12 @@ export function sessionCredentials(env: Record<string, string> = {}) {
   return Object.fromEntries(REFRESHED_CREDENTIALS.filter((key) => env[key]).map((k) => [k, env[k]]))
 }
 
-function runtimeCredentials(env: Record<string, string> | undefined) {
+// What OpenAB reads itself: credentials to refresh, and the folder it spawns the agent in.
+function openabMeta({ env, workingDirectory: dir }: OpenAbSessionRuntime = {}) {
   const credentials = sessionCredentials(env)
+  const meta = Object.keys(credentials).length > 0 ? { 'dev.openab/credentials': credentials } : {}
 
-  return Object.keys(credentials).length > 0 ? { 'dev.openab/credentials': credentials } : {}
+  return dir ? { ...meta, 'dev.openab/workingDir': dir } : meta
 }
 
 // claude-agent-acp reads `_meta.systemPrompt` on session/new and session/load:
@@ -164,7 +167,7 @@ export function sessionMeta(
       _meta: {
         'dev.openab/permissionPolicy': 'relay',
         'ai.nuphos/runtimeAuthority': 2,
-        ...runtimeCredentials(runtime.env),
+        ...openabMeta(runtime),
         ...(runtime.defaults ? { 'ai.nuphos/runtimeDefaults': runtime.defaults } : {}),
         'ai.nuphos/codex': {
           ...(systemPrompt ? { developerInstructions: systemPrompt } : {}),
@@ -180,7 +183,7 @@ export function sessionMeta(
       _meta: {
         'dev.openab/permissionPolicy': 'relay',
         'ai.nuphos/runtimeAuthority': 2,
-        ...runtimeCredentials(runtime.env),
+        ...openabMeta(runtime),
         ...(runtime.defaults ? { 'ai.nuphos/runtimeDefaults': runtime.defaults } : {}),
         'ai.nuphos/session': {
           ...(systemPrompt ? { systemPrompt } : {}),
@@ -192,7 +195,7 @@ export function sessionMeta(
   const meta = {
     'dev.openab/permissionPolicy': 'relay',
     'ai.nuphos/runtimeAuthority': 2,
-    ...runtimeCredentials(runtime?.env),
+    ...openabMeta(runtime),
     ...(runtime?.defaults ? { 'ai.nuphos/runtimeDefaults': runtime.defaults } : {}),
     ...(systemPrompt ? { systemPrompt: { append: systemPrompt } } : {}),
     ...claudeCodeOptions(runtime),

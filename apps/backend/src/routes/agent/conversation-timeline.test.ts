@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import { serializeTimelineEvents, timelineEventUserIds } from './conversation-timeline'
 
-import type { ConversationTimelineEvent } from '@/lib/agent/db/shared'
+import type { ConversationTimelineEvent } from '@/lib/agent/db/timeline-events'
 
 const at = new Date('2026-10-05T00:00:00Z')
 const people = new Map(
