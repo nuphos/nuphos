@@ -14,7 +14,7 @@ import { SidebarHelpMenu } from './help-menu'
 import { SidebarItemContextMenu } from './item-context-menu'
 import { SidebarBackControl, SidebarNavStack } from './nav-stack'
 import { SidebarIdentitySelector, SidebarInvitations } from './parts'
-import { chatSectionActions } from './section-actions'
+import { chatSectionActions, useProjectRows } from './section-actions'
 import { SidebarSectionList } from './sections-list'
 import { teamSections } from './sections-services'
 import { settingsBackTarget } from './types'
@@ -123,9 +123,9 @@ export const Sidebar = memo(function Sidebar({
 
   const [itemMenu, setItemMenu] = useState<ItemMenuRequest | null>(null)
   const archiveBot = useArchiveBotConfirm(archiveChat)
-  const renderSections = withChatSections(sections, (botId) =>
-    openBotChannel(teamId, botId, onSelect),
-  )
+  const projects = useProjectRows(teamId, onSelect, chrome.toggleGroup)
+  const openBot = (botId: string) => openBotChannel(teamId, botId, onSelect)
+  const renderSections = withChatSections(sections, openBot, projects.rows)
 
   if (dynamicNavigation && teamView && favoriteItems.length > 0) {
     renderSections.splice(1, 0, { title: 'Favorites', items: favoriteItems })
@@ -238,7 +238,7 @@ export const Sidebar = memo(function Sidebar({
               canFavorite={canFavorite}
               toggleFavorite={toggleFavorite}
               onItemMenu={setItemMenu}
-              onSelect={onSelect}
+              onSelect={projects.select}
               onOpenKey={onOpenKey}
             />
           </SidebarNavStack>

@@ -93,6 +93,7 @@ export type AgentConversation = {
   archivedAt?: string
   /** The conversation that opened this one as a thread; the sidebar nests it there. */
   parentSessionId?: string
+  workspace?: { kind: 'folder'; path: string; runtimeId: string } // Its project folder
   /** This viewer gets its push notifications. Absent from a backend that predates watching. */
   watching?: boolean
   /** This conversation is backed by a long-lived Claude Code runtime session. */

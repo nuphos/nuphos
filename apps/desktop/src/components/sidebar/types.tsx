@@ -64,6 +64,10 @@ export type Item = {
   managedChat?: boolean
   /** Why the row carries its dot, for attention navigation. */
   dot?: RowDot
+  /** A task's project folder. */
+  projectPath?: string
+  /** A project's row, which folds its tasks. */
+  project?: boolean
 }
 
 /** A right-click or More button asking for a row's menu, where it should open. */

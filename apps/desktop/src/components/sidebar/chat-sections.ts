@@ -11,6 +11,8 @@ import type { ReactNode } from 'react'
 export function withChatSections(
   sections: Section[],
   openBot?: (botId: string) => void,
+  // Groups Tasks under their projects.
+  projects: (tasks: Item[]) => Item[] = (tasks) => tasks,
 ): Section[] {
   const agents = sections.find((section) => section.title === 'Agents')
 
@@ -29,9 +31,11 @@ export function withChatSections(
     }),
   }))
   // A Task is one line: its runtime icon and title, no latest message.
-  const tasks = agents.items
-    .filter((item) => !item.channel)
-    .map(({ preview: _preview, time: _time, ...item }) => ({ ...item, task: true }))
+  const tasks = projects(
+    agents.items
+      .filter((item) => !item.channel)
+      .map(({ preview: _preview, time: _time, ...item }) => ({ ...item, task: true })),
+  )
 
   return sections.flatMap((section) =>
     section === agents

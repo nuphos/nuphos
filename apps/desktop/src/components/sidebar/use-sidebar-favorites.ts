@@ -93,6 +93,7 @@ export function useSidebarFavorites({
     (item: Item) =>
       teamView &&
       item.enabled &&
+      !item.project &&
       favoriteSessionId({ key: item.key, href: item.href }) === null &&
       (!teamOverviewNavItemFor(item.key) || Boolean(favoriteMatch(item))),
     [favoriteMatch, teamView],
