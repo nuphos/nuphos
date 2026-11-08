@@ -1,19 +1,77 @@
 import { revokeSessionTokens } from '@/lib/internal-token/revocation'
 
+import { conversationParticipantIds } from './participants'
 import { agentConversations } from './shared'
+
+import type { AgentConversation } from './shared'
 
 const restore = () => ({
   $unset: { archivedAt: '' as const },
   $set: { archiveRestoredAt: new Date() },
 })
 
+type Archivable = Pick<
+  AgentConversation,
+  'sessionId' | 'userId' | 'teamId' | 'kind' | 'avatar' | 'agentSessionIds' | 'participantIds'
+>
+
+const ARCHIVABLE = {
+  sessionId: 1,
+  userId: 1,
+  teamId: 1,
+  kind: 1,
+  avatar: 1,
+  agentSessionIds: 1,
+  participantIds: 1,
+} as const
+
+/** A Bot's 1:1 chat: a channel whose only other member is one agent. */
+const isBotChat = (channel: Archivable) =>
+  channel.kind === 'channel' &&
+  channel.agentSessionIds?.length === 1 &&
+  conversationParticipantIds(channel).length === 1
+
 /**
- * Who may archive is the route's to check. Archiving also archives the owner's
- * threads nested below it, stamped with the same `archivedAt`; restoring brings
- * back exactly the descendants carrying that stamp, so a thread archived
- * earlier on its own stays archived.
+ * A Bot is one thing: its session and its owner's 1:1 chats with it. Archiving
+ * or restoring any of them moves all of them, so no chat outlives its Bot.
+ */
+async function botUnit(conversation: Archivable): Promise<string[]> {
+  const chatOf = isBotChat(conversation) ? conversation.agentSessionIds?.[0] : undefined
+  const botId =
+    conversation.kind === 'channel' ? chatOf : conversation.avatar && conversation.sessionId
+
+  if (!botId) return [conversation.sessionId]
+  const scope = { userId: conversation.userId, teamId: conversation.teamId ?? { $exists: false } }
+  const [bot, chats] = await Promise.all([
+    agentConversations().findOne(
+      { ...scope, sessionId: botId, kind: { $exists: false }, avatar: { $exists: true } },
+      { projection: { sessionId: 1 } },
+    ),
+    agentConversations()
+      .find({ ...scope, kind: 'channel', agentSessionIds: botId }, { projection: ARCHIVABLE })
+      .toArray(),
+  ])
+
+  if (!bot) return [conversation.sessionId]
+
+  return [botId, ...chats.filter(isBotChat).map((chat) => chat.sessionId)]
+}
+
+/**
+ * Who may archive is the route's to check. A Bot goes with its chats (see
+ * `botUnit`). Archiving also archives the owner's threads nested below it,
+ * stamped with the same `archivedAt`; restoring brings back exactly the
+ * descendants carrying that stamp, so a thread archived earlier on its own
+ * stays archived.
  */
 export async function setConversationArchived(sessionId: string, archived: boolean): Promise<void> {
+  const conversation = await agentConversations().findOne({ sessionId }, { projection: ARCHIVABLE })
+
+  if (!conversation) return
+  for (const id of await botUnit(conversation)) await setTreeArchived(id, archived)
+}
+
+async function setTreeArchived(sessionId: string, archived: boolean): Promise<void> {
   const conversation = await agentConversations().findOne(
     { sessionId },
     { projection: { sessionId: 1, userId: 1, teamId: 1, archivedAt: 1 } },
@@ -68,12 +126,23 @@ export async function descendantSessionIds(
   return [...seen]
 }
 
-/** Any new human turn brings an archived conversation back, whoever sends it. */
+/** Any new human turn brings an archived conversation back, whoever sends it; a Bot with its chats. */
 export async function restoreArchivedConversation(sessionId: string): Promise<boolean> {
   const result = await agentConversations().updateOne(
     { sessionId, archivedAt: { $exists: true } },
-    { $unset: { archivedAt: '' }, $set: { archiveRestoredAt: new Date() } },
+    restore(),
   )
 
-  return result.modifiedCount > 0
+  if (result.modifiedCount === 0) return false
+  const conversation = await agentConversations().findOne({ sessionId }, { projection: ARCHIVABLE })
+
+  for (const id of conversation ? await botUnit(conversation) : []) {
+    if (id !== sessionId)
+      await agentConversations().updateOne(
+        { sessionId: id, archivedAt: { $exists: true } },
+        restore(),
+      )
+  }
+
+  return true
 }

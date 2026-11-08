@@ -136,6 +136,8 @@ final class AgentStore {
             try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: sessionId, archived: true)
             guard scope == workspaceScope else { return }
             removeFromList(sessionId)
+            // A Bot goes with its chat on the server, so the chats list drops it too.
+            await loadChannels()
         } catch {
             rowActionFailed(error, scope: scope) { [weak self] in await self?.archive(sessionId: sessionId, teamId: teamId) }
         }

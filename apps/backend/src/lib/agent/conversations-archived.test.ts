@@ -24,6 +24,7 @@ const collection = {
       },
     }
   },
+  findOne: () => Promise.resolve(null),
   updateOne(filter: unknown, update: unknown) {
     lastUpdate = { filter, update }
 

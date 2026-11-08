@@ -30,6 +30,7 @@ export function SidebarItemContextMenu({
   favoriteMatch,
   toggleFavorite,
   archiveChat,
+  confirmArchiveBot,
   unlinkChat,
   renameChat,
 }: {
@@ -41,6 +42,7 @@ export function SidebarItemContextMenu({
   toggleFavorite: (item: Item) => void
   renameChat: (sessionId: string, title: string) => void
   archiveChat: (sessionId: string) => Promise<void>
+  confirmArchiveBot: (sessionId: string) => void
   unlinkChat: (sessionId: string) => Promise<void>
 }) {
   // A channel's row: its own nouns, and no pin or watch, which are an agent's.
@@ -156,11 +158,12 @@ export function SidebarItemContextMenu({
                 key: 'archive',
                 label: ARCHIVE[noun](),
                 icon: Archive,
-                onSelect: () => {
-                  void archiveChat(menu.item.key.slice('agent-session:'.length))
-                  // A Bot goes with its chat, so neither brings the other back.
-                  if (menu.item.botChannelOf) void archiveChat(menu.item.botChannelOf)
-                },
+                // A Bot goes with its chat; the server archives both. Its Task row
+                // reads as a Task, so it asks first.
+                onSelect: () =>
+                  menu.item.task && menu.item.bot
+                    ? confirmArchiveBot(sessionId)
+                    : void archiveChat(sessionId),
               },
             ]
           : []),
