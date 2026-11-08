@@ -8,6 +8,7 @@ import {
   channelNotice,
   channelNoticeSender,
   noteReplyFailed,
+  steerQueuedNotice,
   steerRunningTurn,
 } from './channel-wake'
 import { isChannel, postText } from './db/channels'
@@ -220,9 +221,9 @@ async function notePause(channelId: string) {
 
 /**
  * Tells an agent its channel has news. A person's post reaches a running turn
- * at once, steered in like a follow-up typed in the conversation; otherwise an
- * idle agent starts a turn now and a busy one finds the notice in its queue when
- * that turn ends. One notice per agent and channel waits at a time, and the
+ * at once, steered in like a follow-up typed in the conversation, or as soon as
+ * a starting turn can take it; otherwise an idle agent starts a turn now and a
+ * busy one finds the notice in its queue when that turn ends. One notice per agent and channel waits at a time, and the
  * agent then reads all of it, so a second notice is dropped here and costs
  * nothing.
  */
@@ -247,22 +248,36 @@ async function notifyAgent(
 
   // An agent's posts still wait for the turn to end: one wake per turn (#1458).
   if (!fromAgent && (await steerRunningTurn(agent, channel.sessionId, metadata))) return
-  const waiting = await listPendingUserMessages(agent.userId, sessionId)
+  const waiting = (await listPendingUserMessages(agent.userId, sessionId)).find(
+    (message) => message.metadata?.sender?.id === metadata.sender.id,
+  )
+  const queued = waiting?.id ?? (await startNotice(channel, agent, metadata, fromAgent))
 
-  if (waiting.some((message) => message.metadata?.sender?.id === metadata.sender.id)) return
+  // A turn still starting refused the steer above: the post must not wait for its end.
+  if (queued && !fromAgent) steerQueuedNotice(agent, channel.sessionId, metadata, queued)
+}
+
+/** Starts the notice's turn, or queues it: the id of a queued notice. */
+async function startNotice(
+  channel: AgentConversation & { teamId: string },
+  agent: AgentConversation,
+  metadata: MessageMetadata,
+  fromAgent: boolean,
+): Promise<string | undefined> {
   if (fromAgent && !(await spendTurn(channel.sessionId))) {
     await notePause(channel.sessionId)
 
-    return
+    return undefined
   }
+  const messageId = randomUUID()
   // Lazy so importing this does not pull in the route graph.
   const { startConversationTurn } = await import('./conversation-turn')
-  const { run } = await startConversationTurn(
+  const { status, run } = await startConversationTurn(
     {
       userId: agent.userId,
-      teamId: agent.teamId,
-      targetSessionId: sessionId,
-      messageId: randomUUID(),
+      teamId: channel.teamId, // The agent's too: only the channel's team wakes.
+      targetSessionId: agent.sessionId,
+      messageId,
       locale: agent.metadata?.locale ?? 'en-US',
     },
     agent,
@@ -275,9 +290,11 @@ async function notifyAgent(
   run.catch((error: unknown) => {
     logError('agent.channel.turn_failed', error, {
       channel_id: channel.sessionId,
-      session_id: sessionId,
+      session_id: agent.sessionId,
     })
 
-    return noteReplyFailed(channel.sessionId, sessionId, error)
+    return noteReplyFailed(channel.sessionId, agent.sessionId, error)
   })
+
+  return status === 'queued' ? messageId : undefined
 }

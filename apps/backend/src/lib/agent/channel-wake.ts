@@ -1,11 +1,18 @@
 import { randomUUID } from 'node:crypto'
 
 import { AppError } from '@/lib/errors'
+import { logError } from '@/lib/observability'
 
 import { getConversationBySessionId } from './db'
 import { CHANNEL_SENDER_PREFIX, markChannelRead, readChannelMessages } from './db/channels'
 import { pushTimelineEvent } from './db/participants'
 import { agentConversations } from './db/shared'
+import {
+  listPendingUserMessages,
+  requeuePendingAtHead,
+  takePendingUserMessages,
+} from './pending-queue'
+import { sessionReleased } from './session-released'
 
 import type { AgentConversation } from './db'
 import type { MessageMetadata } from './message-metadata'
@@ -79,6 +86,55 @@ export async function steerRunningTurn(
   await markRead()
 
   return true
+}
+
+/** How long a queued notice keeps trying to reach the turn it waits behind. */
+export const QUEUED_NOTICE_STEER = { attempts: 15, delayMs: 2_000 }
+
+/**
+ * A person's post whose notice queued behind a turn that could not take a
+ * steer yet (it was still starting) must not wait for that whole turn to end.
+ * Like a waiting message the composer steers, the notice leaves the queue,
+ * steers, and goes back to the front if the turn still refuses it. Once no turn
+ * runs, the queue starts it as its own turn.
+ */
+export function steerQueuedNotice(
+  agent: AgentConversation,
+  channelId: string,
+  metadata: MessageMetadata,
+  noticeId: string,
+) {
+  // The notice stays queued, so a failure here only leaves it to the turn's end.
+  retrySteer(agent, channelId, metadata, noticeId).catch((error: unknown) => {
+    logError('agent.channel.steer_failed', error, {
+      channel_id: channelId,
+      session_id: agent.sessionId,
+    })
+  })
+}
+
+async function retrySteer(
+  agent: AgentConversation,
+  channelId: string,
+  metadata: MessageMetadata,
+  noticeId: string,
+) {
+  const { userId, sessionId } = agent
+
+  for (let attempt = 0; attempt < QUEUED_NOTICE_STEER.attempts; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, QUEUED_NOTICE_STEER.delayMs))
+    const waiting = (await listPendingUserMessages(userId, sessionId)).find(
+      (message) => message.id === noticeId,
+    )
+    // A turn took it, or another attempt holds it.
+    const [notice] = waiting ? await takePendingUserMessages(userId, sessionId, [waiting]) : []
+
+    if (!notice) return
+    if (await steerRunningTurn(agent, channelId, metadata)) return
+    await requeuePendingAtHead(userId, sessionId, [notice])
+    // The turn may have ended while the notice was off the queue.
+    sessionReleased(userId, sessionId)
+  }
 }
 
 /** The channel a message is the wake notice of, if it is one. */

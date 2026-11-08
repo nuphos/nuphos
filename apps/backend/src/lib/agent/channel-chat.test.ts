@@ -9,7 +9,7 @@ import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-s
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { agentConversations, agentMessages } from './db'
-import { steeredNoticeSender, withChannelPosts } from './channel-wake'
+import { QUEUED_NOTICE_STEER, steeredNoticeSender, withChannelPosts } from './channel-wake'
 import { listChannelMentions, readChannelMessages } from './db/channels'
 import {
   CHANNEL_AGENT_TURN_BUDGET,
@@ -18,6 +18,7 @@ import {
   replyQuote,
   wakeAfterTurn,
 } from './channel-chat'
+import { startConversationTurn } from './conversation-turn'
 import { resolveMentions } from './mentions'
 import { renderAttributedMessage } from './message-metadata'
 import { clearPendingUserMessages, enqueuePendingUserMessage } from './pending-messages'
@@ -175,6 +176,8 @@ beforeEach(async () => {
   steers.length = 0
   runChannels.length = 0
   departed = new Set()
+  // A refused steer stays queued unless a test lets it try again.
+  QUEUED_NOTICE_STEER.attempts = 0
   // Every agent is busy, so its notice waits in its queue, as the real claim does.
   installTurnRunner({
     claimAgentRunOrEnqueue: async (args) => {
@@ -516,6 +519,85 @@ describe('a person posting while an agent’s turn runs', () => {
     expect(steers).toEqual([])
     expect(wokenSessions()).toEqual(['agent-b'])
     expect((await channel()).agentTurns).toBe(1)
+  })
+
+  test('a post while another conversation’s wake-up is still starting reaches that turn', async () => {
+    QUEUED_NOTICE_STEER.attempts = 50
+    QUEUED_NOTICE_STEER.delayMs = 2
+    await agentConversations().updateOne(
+      { sessionId: 'channel' },
+      { $set: { agentSessionIds: ['agent-a'] } },
+    )
+    let finish = () => {}
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async (args) => {
+        wakes.push(args)
+        if (running.has(args.sessionId)) {
+          await enqueuePendingUserMessage(args.userId, args.sessionId, args.message)
+
+          return { mode: 'queued' }
+        }
+        running.set(args.sessionId, args.userId)
+
+        return { mode: 'run', carried: [], release: () => running.delete(args.sessionId) }
+      },
+      runAgentForTrigger: () =>
+        new Promise((resolve) => {
+          finish = () => {
+            resolve({ status: 'completed' })
+          }
+        }),
+    })
+    // Another conversation's message wakes agent-a. Its runtime takes no steer
+    // until the turn is under way.
+    steerable = false
+    const { status, run } = await startConversationTurn(
+      {
+        userId: 'agent-a-owner',
+        teamId: TEAM,
+        targetSessionId: 'agent-a',
+        messageId: 'thread-message',
+        locale: 'en-US',
+      },
+      (await agentConversations().findOne({ sessionId: 'agent-a' }))!,
+      'Please look at this.',
+      'agent.thread',
+      agentSpeaker('agent-c'),
+    )
+
+    expect(status).toBe('started')
+    // A moment later its owner posts in the channel: the steer is refused.
+    await say('are you there?', { ...person, sender: { ...person.sender, id: 'agent-a-owner' } })
+    expect(steers).toEqual([])
+    expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toHaveLength(1)
+    // The turn gets under way: the post reaches it without waiting for it to end.
+    steerable = true
+    for (let tick = 0; tick < 100 && steers.length === 0; tick++)
+      await new Promise((resolve) => setTimeout(resolve, 2))
+    expect(steers).toHaveLength(1)
+    expect(steers[0]!.text).toContain('are you there?')
+    expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toEqual([])
+    expect(
+      (await readChannelMessages(await channel(), 'agent-a', 'agent-a-owner', true)).messages,
+    ).toEqual([])
+    finish()
+    await run
+  })
+
+  test('a notice still refused when its turn ends runs as the next turn', async () => {
+    QUEUED_NOTICE_STEER.attempts = 3
+    QUEUED_NOTICE_STEER.delayMs = 2
+    running.set('agent-a', 'agent-a-owner')
+    steerable = false
+    await say('go ahead', { ...person, sender: { ...person.sender, id: 'agent-a-owner' } })
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    // Every attempt put it back: it still waits, with its post unread.
+    expect(steers).toEqual([])
+    expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toHaveLength(1)
+    expect(
+      (await readChannelMessages(await channel(), 'agent-a', 'agent-a-owner', true)).messages,
+    ).toHaveLength(1)
   })
 
   test('a runtime that cannot steer, or another person’s turn, gets the notice queued', async () => {
