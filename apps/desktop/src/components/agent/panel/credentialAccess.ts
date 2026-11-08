@@ -1,8 +1,8 @@
-import { pruneSelectionToAvailable } from '../../../lib/credentialSelection'
+import { pruneSelectionToAvailable } from '../../../lib/credentialSelection.ts'
 
-import { EMPTY_CREDENTIAL_ACCESS, EMPTY_CREDENTIAL_OPTIONS } from './constants'
-import { usableDeviceIds } from './credentialSections'
-import { keepTeamIdentity, teamIdentityOf } from './personalIdentity'
+import { EMPTY_CREDENTIAL_ACCESS, EMPTY_CREDENTIAL_OPTIONS } from './constants.ts'
+import { usableDeviceIds } from './credentialSections.ts'
+import { keepTeamIdentity, teamIdentityOf } from './personalIdentity.ts'
 
 import type { AgentCredentialOptions, AgentCredentialSelection } from '../../../api'
 
