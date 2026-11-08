@@ -450,13 +450,17 @@ pub trait ChatAdapter: Send + Sync + 'static {
     }
 
     /// Finish a failed ACP turn without reporting a successful prompt response.
-    /// Other adapters keep the historical text-only error presentation.
+    /// `error_data` carries the adapter's original `{code, message}` so the ACP
+    /// gateway can relay it as JSON-RPC `error.data`. Other adapters keep the
+    /// historical text-only error presentation.
     async fn fail_agent_turn(
         &self,
         channel: &ChannelRef,
         partial: &str,
         error: &str,
+        error_data: Option<serde_json::Value>,
     ) -> Result<()> {
+        let _ = error_data;
         self.send_message(channel, &format!("{partial}\n\n⚠️ {error}"))
             .await?;
         Ok(())
@@ -1091,6 +1095,9 @@ impl AdapterRouter {
                     // turn may run indefinitely while it keeps producing ACP
                     // updates; duration by itself is not a failure signal.
                     let mut response_error: Option<String> = None;
+                    // The adapter's original `{code, message}`, kept alongside the
+                    // display text so the ACP gateway can relay it as `error.data`.
+                    let mut response_error_data: Option<serde_json::Value> = None;
                     let mut turn_result = TurnResult::default();
                     let mut last_activity = tokio::time::Instant::now();
                     let prompt_activity = conn.activity_handle();
@@ -1239,6 +1246,7 @@ impl AdapterRouter {
                             }
                             if let Some(ref err) = notification.error {
                                 response_error = Some(format_coded_error(err.code, &err.message, err.data_message()));
+                                response_error_data = Some(err.relay_data());
                             }
                             if let Some(ref result) = notification.result {
                                 turn_result = parse_turn_result(result);
@@ -1590,6 +1598,11 @@ impl AdapterRouter {
                     } else {
                         None
                     };
+                    let acp_error_data = if platform_is_acp {
+                        response_error_data
+                    } else {
+                        None
+                    };
                     let (directives, text_buf) =
                         split_delivery(&text_buf, answer_start, keep_full_text);
                     // The session-reset notice lives at the head of the buffer; a
@@ -1641,7 +1654,7 @@ impl AdapterRouter {
                         let _ = adapter.set_status(&thread_channel, "").await;
                     }
                     if let Some(ref error) = acp_error {
-                        if let Err(e) = adapter.fail_agent_turn(&thread_channel, &acp_streamed, error).await {
+                        if let Err(e) = adapter.fail_agent_turn(&thread_channel, &acp_streamed, error, acp_error_data).await {
                             tracing::warn!(error = ?e, "acp terminal error send failed");
                             delivery_failed = true;
                         }

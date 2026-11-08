@@ -702,8 +702,9 @@ pub enum ReplyChunk {
     /// Raw agent-side `session/update` payload (thought chunk, tool_call, …)
     /// relayed verbatim to the ACP client.
     Update(serde_json::Value),
-    /// Agent failed (runtime error, process exit, or hard timeout).
-    Error(String),
+    /// Agent failed (runtime error, process exit, or hard timeout). The optional
+    /// second field is the adapter's original `{code, message}`, if it had one.
+    Error(String, Option<Value>),
     /// Agent finished responding, with the inner runtime's terminal reason.
     Done(Option<crate::adapters::acp_schema::StopReason>),
 }
@@ -911,6 +912,10 @@ struct JsonRpcResponse {
 struct JsonRpcError {
     code: i32,
     message: String,
+    /// The adapter's original `{code, message}` when the failure came from one,
+    /// so a client need not parse the display text for the numeric code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    data: Option<Value>,
 }
 
 #[derive(Debug, Serialize)]
@@ -985,6 +990,15 @@ impl JsonRpcResponse {
     }
 
     fn error(id: Value, code: i32, message: impl Into<String>) -> Self {
+        Self::error_with_data(id, code, message, None)
+    }
+
+    fn error_with_data(
+        id: Value,
+        code: i32,
+        message: impl Into<String>,
+        data: Option<Value>,
+    ) -> Self {
         Self {
             jsonrpc: "2.0",
             id,
@@ -992,6 +1006,7 @@ impl JsonRpcResponse {
             error: Some(JsonRpcError {
                 code,
                 message: message.into(),
+                data,
             }),
         }
     }
@@ -4087,7 +4102,7 @@ async fn handle_session_prompt(
     // Typed StopReason (T2.1) so the final PromptResponse is constructed from acp_schema.
     let mut stop_reason = crate::adapters::acp_schema::StopReason::EndTurn;
     let mut timed_out = false;
-    let mut agent_error = None;
+    let mut agent_error: Option<(String, Option<Value>)> = None;
 
     loop {
         tokio::select! {
@@ -4142,8 +4157,8 @@ async fn handle_session_prompt(
                         };
                         let _ = out_tx.send(serde_json::to_string(&notification).unwrap());
                     }
-                    Ok(Some(ReplyChunk::Error(error))) => {
-                        agent_error = Some(error);
+                    Ok(Some(ReplyChunk::Error(error, data))) => {
+                        agent_error = Some((error, data));
                         break;
                     }
                     Ok(Some(ReplyChunk::Done(runtime_stop_reason))) => {
@@ -4153,7 +4168,10 @@ async fn handle_session_prompt(
                         break;
                     }
                     Ok(None) => {
-                        agent_error = Some("Agent reply stream closed before completion".into());
+                        agent_error = Some((
+                            "Agent reply stream closed before completion".into(),
+                            None,
+                        ));
                         break;
                     }
                     Err(_) => {
@@ -4195,8 +4213,8 @@ async fn handle_session_prompt(
 
     // Final response. A backend timeout has no ACP stopReason, so it is an error;
     // otherwise return the turn's PromptResponse { stopReason }.
-    let resp = if let Some(error) = agent_error {
-        JsonRpcResponse::error(id, -32603, &error)
+    let resp = if let Some((error, data)) = agent_error {
+        JsonRpcResponse::error_with_data(id, -32603, &error, data)
     } else if timed_out {
         JsonRpcResponse::error(id, -32603, "Timed out waiting for agent backend")
     } else {
@@ -4299,6 +4317,16 @@ pub async fn handle_reply(
     reply: &GatewayReply,
     registry: &AcpReplyRegistry,
 ) -> Option<AcceptedReply> {
+    handle_reply_with_error(reply, registry, None).await
+}
+
+/// Like [`handle_reply`], but an `agent_error` reply also carries the adapter's
+/// original `{code, message}` through to the prompt response's `error.data`.
+pub async fn handle_reply_with_error(
+    reply: &GatewayReply,
+    registry: &AcpReplyRegistry,
+    error_data: Option<Value>,
+) -> Option<AcceptedReply> {
     let key = reply.channel.id.as_str();
     if !key.starts_with("acp_") {
         return None;
@@ -4377,7 +4405,7 @@ pub async fn handle_reply(
         Destination::Turn { tx, turn_id } => {
             match reply.command.as_deref() {
                 Some("agent_error") => {
-                    let _ = tx.send(ReplyChunk::Error(full_text));
+                    let _ = tx.send(ReplyChunk::Error(full_text, error_data));
                     remove_reply_sink_if_owner(registry, key, &turn_id);
                     return None;
                 }
@@ -6671,6 +6699,8 @@ mod acp_review_fixes {
                 if fail {
                     assert_eq!(result["error"]["message"], json!(cause));
                     assert!(result.get("result").is_none());
+                    // No adapter error, so there is no structured code to relay.
+                    assert!(result["error"].get("data").is_none());
                 } else {
                     assert_eq!(result["result"]["stopReason"], json!("end_turn"));
                 }
@@ -6679,6 +6709,68 @@ mod acp_review_fixes {
                 assert!(map[&sid].cancel.is_none());
             }
         }
+    }
+
+    // #1050 — the adapter's original code reaches the client in `error.data`; the
+    // generic `-32603` and the formatted display message stay as they were.
+    #[tokio::test]
+    async fn agent_failure_relays_the_adapter_code_in_error_data() {
+        let (event_tx, mut event_rx) = tokio::sync::broadcast::channel::<String>(16);
+        let mut st = crate::AppState::test_default(event_tx);
+        let registry = new_reply_registry();
+        st.acp_reply_registry = Some(registry.clone());
+        let state = Arc::new(st);
+        let sessions = sessions_map();
+        let (created, _) = handle_session_new(&sessions, json!(1), Vec::new(), None).await;
+        let sid = serde_json::to_value(created).unwrap()["result"]["sessionId"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let channel = derive_channel_id(&sid).unwrap();
+        let cancel = Arc::new(tokio::sync::Notify::new());
+        {
+            let mut map = sessions.lock().await;
+            let session = map.get_mut(&sid).unwrap();
+            session.busy = true;
+            session.cancel = Some(cancel.clone());
+        }
+        let (out_tx, mut out_rx) = mpsc::unbounded_channel::<String>();
+        let params = json!({"sessionId": sid, "prompt": [{"type":"text","text":"work"}]});
+        let formatted = "**Unauthorized** (code: 401)\ninvalid token";
+        let drive = async {
+            let event: Value = serde_json::from_str(&event_rx.recv().await.unwrap()).unwrap();
+            let origin = event["event_id"].as_str().unwrap();
+            handle_reply_with_error(
+                &reply(&channel, origin, formatted, Some("agent_error")),
+                &registry,
+                Some(json!({"code": 401, "message": "invalid token"})),
+            )
+            .await;
+        };
+        tokio::join!(
+            handle_session_prompt(
+                &state,
+                &sessions,
+                json!(7),
+                Some(&params),
+                &out_tx,
+                sid.clone(),
+                cancel,
+                "conn-test",
+                0
+            ),
+            drive,
+        );
+
+        let result: Value = serde_json::from_str(&out_rx.try_recv().unwrap()).unwrap();
+        // The generic gateway code and the formatted message are unchanged ...
+        assert_eq!(result["error"]["code"], json!(-32603));
+        assert_eq!(result["error"]["message"], json!(formatted));
+        // ... and the adapter's own code is available without parsing the text.
+        assert_eq!(
+            result["error"]["data"],
+            json!({"code": 401, "message": "invalid token"})
+        );
     }
 
     // M2 — a late reply carrying a superseded turn's event id is dropped, not delivered

@@ -26,6 +26,17 @@ impl UnifiedGatewayAdapter {
 
     /// Dispatch a GatewayReply to the correct platform adapter.
     async fn dispatch_reply(&self, reply: &GatewayReply) {
+        self.dispatch_reply_with_error(reply, None).await;
+    }
+
+    /// Dispatch a reply that may carry the adapter's original `{code, message}`,
+    /// relayed only on the ACP path as the prompt response's `error.data`.
+    #[cfg_attr(not(feature = "acp"), allow(unused_variables))]
+    async fn dispatch_reply_with_error(
+        &self,
+        reply: &GatewayReply,
+        error_data: Option<serde_json::Value>,
+    ) {
         let client = &self.gw_state.client;
         match reply.platform.as_str() {
             #[cfg(feature = "telegram")]
@@ -114,7 +125,12 @@ impl UnifiedGatewayAdapter {
                     )
                     .await;
                     if let Some(accepted) =
-                        openab_gateway::adapters::acp_server::handle_reply(reply, registry).await
+                        openab_gateway::adapters::acp_server::handle_reply_with_error(
+                            reply,
+                            registry,
+                            error_data,
+                        )
+                        .await
                     {
                         openab_gateway::adapters::acp_server::observe_runtime_reply(
                             &self.gw_state,
@@ -235,11 +251,12 @@ impl ChatAdapter for UnifiedGatewayAdapter {
         channel: &ChannelRef,
         partial: &str,
         error: &str,
+        error_data: Option<serde_json::Value>,
     ) -> Result<()> {
         let snapshot = self.build_reply(channel, partial, Some("edit_message"), None);
         self.dispatch_reply(&snapshot).await;
         let failure = self.build_reply(channel, error, Some("agent_error"), None);
-        self.dispatch_reply(&failure).await;
+        self.dispatch_reply_with_error(&failure, error_data).await;
         Ok(())
     }
 
