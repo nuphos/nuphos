@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useContext } from 'react'
 
 import { t } from '../../../i18n'
 import { normalizeRecallFirstOrder, recallLeadCount } from '../../../lib/agentMessagePartOrder'
@@ -8,10 +8,12 @@ import { isPlanProposalToolName } from '../planReference'
 import { liveActivityIndices } from './activity'
 import { toolAnchorIds } from './chatTarget'
 import { renderCardToolPart } from './cardToolParts'
+import { ConnectCardContext } from './connectCardContext'
 import { MemoryIngestPartView } from './MemoryIngestPartView'
 import { MemoryProvenancePartView } from './MemoryProvenancePartView'
 import { AssistantMessageActions } from './messageActions'
 import { DownloadGroups } from './DownloadGroups'
+import { withoutQuestionRows } from './openQuestionParts'
 import { CollapsedWorkView, PlanBookkeepingPart, ThinkingPartView } from './partChrome'
 import { isHiddenMemoryIngestPart } from './parts'
 import { renderPartRange, renderSelectedParts } from './renderPartRange'
@@ -95,7 +97,8 @@ export const AssistantMessage = memo(
     const stoppedCalls = streaming ? null : stoppedTurnCalls(orderedParts, message.stoppedByUser)
     const recallLead = recallLeadCount(orderedParts)
     const streamingTailIndex = streaming ? lastVisiblePartIndex(orderedParts) : -1
-    const displayParts = turnDisplayParts(orderedParts, streaming)
+    const open = useContext(ConnectCardContext)?.openQuestions
+    const displayParts = withoutQuestionRows(turnDisplayParts(orderedParts, streaming), open)
     const keyCounts: Record<string, number> = {}
     // Copy the answer text, including narration kept in the activity log.
     const copyableText = orderedParts
