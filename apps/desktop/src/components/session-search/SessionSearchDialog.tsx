@@ -1,6 +1,6 @@
 import { Dialog } from '@base-ui/react/dialog'
 import clsx from 'clsx'
-import { MessageSquare, Search, UserRound, Users, X } from 'lucide-react'
+import { Search, UserRound, Users, X } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
 
 import { api } from '../../api'
@@ -8,8 +8,6 @@ import { useDialogPresence } from '../../hooks/useDialogPresence'
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
 import { t } from '../../i18n'
 import { useDebouncedValue } from '../agent/panel/historyPageHooks'
-import { InputGroup, InputGroupInput } from '../ui/input-group'
-import { Kbd } from '../ui/kbd'
 
 import { SearchResults } from './SearchResults'
 
@@ -64,11 +62,11 @@ export function SessionSearchDialog({
   return (
     <Dialog.Root {...presence}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-[1000] bg-black/50 transition-opacity duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:opacity-0 motion-reduce:transition-none" />
+        <Dialog.Backdrop className="fixed inset-0 z-[1000] bg-black/25 transition-opacity duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:opacity-0 motion-reduce:transition-none" />
         <Dialog.Viewport className="titlebar-no-drag fixed inset-0 z-[1001] flex items-start justify-center px-4 pt-[min(15vh,138px)] pb-6">
           <Dialog.Popup
             initialFocus={inputRef}
-            className="flex max-h-full w-full max-w-[640px] flex-col overflow-hidden rounded-xl border border-main bg-elevated text-main shadow-[0_18px_50px_#00000066] outline-none transition-[opacity,transform] duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:scale-[var(--modal-scale-close)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:scale-[var(--modal-scale)] data-[starting-style]:opacity-0 motion-reduce:transition-none"
+            className="flex max-h-full w-full max-w-[640px] flex-col overflow-hidden rounded-[var(--sheet-radius)] bg-elevated text-main shadow-[var(--sheet-shadow),0_24px_48px_-16px_rgba(0,0,0,0.28)] outline-none transition-[opacity,transform] duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:scale-[var(--modal-scale-close)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:scale-[var(--modal-scale)] data-[starting-style]:opacity-0 motion-reduce:transition-none"
             onKeyDownCapture={(event) => {
               if (event.key === 'Escape' && mode === 'people' && !event.nativeEvent.isComposing) {
                 event.preventDefault()
@@ -80,57 +78,23 @@ export function SessionSearchDialog({
             }}
           >
             <Dialog.Title className="sr-only">{t('Search agents and people')}</Dialog.Title>
-            <div className="flex h-14 shrink-0 items-center gap-2 border-b border-main px-4">
-              <InputGroup className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-2">
-                <Search size={18} className="shrink-0 text-secondary" />
-                <InputGroupInput
-                  ref={inputRef}
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  maxLength={200}
-                  role="combobox"
-                  aria-expanded
-                  aria-autocomplete="list"
-                  aria-label={mode === 'people' ? t('Search people') : t('Search agents')}
-                  placeholder={
-                    mode === 'people' ? t('Search people…') : t('Search agents, people or pages…')
-                  }
-                  className="text-base text-main placeholder:text-secondary"
-                />
-              </InputGroup>
-              <Dialog.Close
-                aria-label={t('Close search')}
-                className="rounded focus-visible:outline focus-visible:outline-2"
-              >
-                <Kbd combo="esc" />
-              </Dialog.Close>
-            </div>
-            <div className="flex h-10 shrink-0 items-center gap-1 border-b border-main px-3">
-              {(['sessions', 'people'] as const).map((value) => {
-                const Icon = value === 'people' ? Users : MessageSquare
-
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    aria-pressed={mode === value}
-                    onClick={() => {
-                      setMode(value)
-                      inputRef.current?.focus()
-                    }}
-                    className={clsx(
-                      'flex items-center gap-1.5 rounded-md px-2 py-1 text-xs focus-visible:outline focus-visible:outline-2',
-                      mode === value
-                        ? 'bg-line-control font-medium text-main'
-                        : 'text-secondary hover:bg-state-hover',
-                    )}
-                  >
-                    <Icon size={15} />
-                    {value === 'people' ? t('People') : t('Agents')}
-                  </button>
-                )
-              })}
-              <span className="flex-1" />
+            {/* One line of text to type in: no box inside the sheet, one hairline under it. */}
+            <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-line-control px-4">
+              <Search size={17} className="shrink-0 text-tertiary" />
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                maxLength={200}
+                role="combobox"
+                aria-expanded
+                aria-autocomplete="list"
+                aria-label={mode === 'people' ? t('Search people') : t('Search agents')}
+                placeholder={
+                  mode === 'people' ? t('Search people…') : t('Search agents, people or pages…')
+                }
+                className="min-w-0 flex-1 bg-transparent text-[15px] text-main outline-none placeholder:text-tertiary"
+              />
               {owner && mode === 'sessions' ? (
                 <button
                   aria-label={t('Clear person filter: {name}', {
@@ -140,14 +104,31 @@ export function SessionSearchDialog({
                     setOwner(null)
                     inputRef.current?.focus()
                   }}
-                  className="flex max-w-[45%] items-center gap-1.5 rounded-md bg-state-selected px-2 py-1 text-xs text-main"
+                  className="flex max-w-[40%] shrink-0 items-center gap-1.5 rounded-md bg-state-selected px-2 py-1 text-xs text-main"
                 >
                   <UserRound size={14} className="shrink-0" />
                   <span className="truncate">{owner.name || owner.email}</span>
                   <X size={12} className="shrink-0" />
                 </button>
               ) : (
-                <span className="truncate text-xs text-secondary">{teamName}</span>
+                <button
+                  type="button"
+                  aria-pressed={mode === 'people'}
+                  onClick={() => {
+                    setMode(mode === 'people' ? 'sessions' : 'people')
+                    setQuery('')
+                    inputRef.current?.focus()
+                  }}
+                  className={clsx(
+                    'flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs focus-visible:outline focus-visible:outline-2',
+                    mode === 'people'
+                      ? 'bg-state-selected text-main'
+                      : 'text-tertiary hover:bg-state-hover hover:text-main',
+                  )}
+                >
+                  <Users size={14} />
+                  {t('People')}
+                </button>
               )}
             </div>
             <SearchResults
@@ -166,18 +147,6 @@ export function SessionSearchDialog({
               onOpen={onOpen}
               onCommand={onCommand}
             />
-            <div className="flex h-8 shrink-0 items-center gap-2 border-t border-main px-4 text-[11px] text-secondary">
-              <span>{t('Navigate')}</span>
-              <Kbd combo="up" />
-              <Kbd combo="down" />
-              <span className="ml-2">{t('Select')}</span>
-              <Kbd combo="enter" />
-              <span className="flex-1" />
-              <span className="hidden sm:inline">
-                {mode === 'people' ? t('Back to agents') : t('Open beside')}
-              </span>
-              <Kbd combo={mode === 'people' ? 'esc' : 'mod+enter'} />
-            </div>
           </Dialog.Popup>
         </Dialog.Viewport>
       </Dialog.Portal>

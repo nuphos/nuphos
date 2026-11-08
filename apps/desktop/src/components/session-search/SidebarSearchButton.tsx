@@ -1,19 +1,22 @@
 import { Search } from 'lucide-react'
 
 import { t } from '../../i18n'
-import { Kbd } from '../ui/kbd'
+import { comboText } from '../../lib/platform'
+import { SIDEBAR_PANEL_PADDING_CLASS, SidebarNavIcon, SidebarNavItem } from '../SidebarNavItem'
 
+/** A sidebar row like the ones under it; ⌘K is the one shortcut shown at rest, as plain text. */
 export function SidebarSearchButton({ onSearch }: { onSearch?: () => void }) {
   if (!onSearch) return null
 
   return (
-    <button
-      onClick={onSearch}
-      className="titlebar-no-drag mx-2.5 mb-1 flex items-center gap-2.5 rounded-md px-2 py-2 text-[13px] text-secondary hover:bg-state-hover hover:text-main"
-    >
-      <Search size={16} />
-      <span className="flex-1 text-left">{t('Search')}</span>
-      <Kbd combo="mod+k" />
-    </button>
+    <div className={`titlebar-no-drag ${SIDEBAR_PANEL_PADDING_CLASS} !pb-1`}>
+      <SidebarNavItem
+        active={false}
+        icon={<SidebarNavIcon icon={Search} />}
+        label={t('Search')}
+        onClick={onSearch}
+        trailing={<span className="text-[12px] text-tertiary">{comboText('mod+k')}</span>}
+      />
+    </div>
   )
 }
