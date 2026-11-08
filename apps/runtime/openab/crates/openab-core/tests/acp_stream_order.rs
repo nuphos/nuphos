@@ -121,7 +121,13 @@ impl ChatAdapter for RecordingAdapter {
         self.calls.lock().unwrap().push(Call::Update(kind));
         Ok(())
     }
-    async fn fail_agent_turn(&self, _: &ChannelRef, partial: &str, error: &str) -> Result<()> {
+    async fn fail_agent_turn(
+        &self,
+        _: &ChannelRef,
+        partial: &str,
+        error: &str,
+        _data: Option<serde_json::Value>,
+    ) -> Result<()> {
         self.calls.lock().unwrap().push(Call::Failure {
             partial: partial.into(),
             error: error.into(),

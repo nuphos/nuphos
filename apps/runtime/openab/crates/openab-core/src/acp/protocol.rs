@@ -72,6 +72,12 @@ impl JsonRpcError {
             .and_then(|d| d.get("message"))
             .and_then(|m| m.as_str())
     }
+
+    /// The adapter's original `{code, message}`, relayed as the gateway's
+    /// JSON-RPC `error.data` so consumers need not parse the display text.
+    pub fn relay_data(&self) -> Value {
+        serde_json::json!({ "code": self.code, "message": self.message })
+    }
 }
 
 impl std::fmt::Display for JsonRpcError {
@@ -421,6 +427,22 @@ pub fn classify_notification(msg: &JsonRpcMessage) -> Option<AcpEvent> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn relay_data_preserves_the_adapter_code_and_message() {
+        let error = JsonRpcError {
+            code: 401,
+            message: "invalid token".into(),
+            data: Some(json!({"message": "token expired"})),
+        };
+
+        // The adapter's own fields are relayed unchanged; the display wrapper is
+        // built separately. `data.message` is only the optional detail.
+        assert_eq!(
+            error.relay_data(),
+            json!({"code": 401, "message": "invalid token"})
+        );
+    }
 
     #[test]
     fn parse_standard_config_options() {
