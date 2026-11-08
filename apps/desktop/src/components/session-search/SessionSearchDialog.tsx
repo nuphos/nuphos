@@ -49,6 +49,18 @@ export function SessionSearchDialog({
   const debouncedQuery = useDebouncedValue(query, 200)
   const searchQuery = query.trim() ? debouncedQuery : ''
   const inputRef = useRef<HTMLInputElement>(null)
+  // Closing hands focus back to where it was, but not to the Search button
+  // (its ring and tooltip would light up) and not once a result took the user elsewhere.
+  const [focusedBefore] = useState(() =>
+    document.activeElement instanceof HTMLElement ? document.activeElement : null,
+  )
+  const navigated = useRef(false)
+  const finalFocus = () =>
+    !navigated.current &&
+    focusedBefore?.isConnected === true &&
+    !focusedBefore.closest('[data-search-trigger]')
+      ? focusedBefore
+      : false
   // Open one frame after mount so the opening transition plays.
   const [ready, setReady] = useState(false)
 
@@ -104,6 +116,7 @@ export function SessionSearchDialog({
         <Dialog.Viewport className="titlebar-no-drag fixed inset-0 z-[1001] flex items-start justify-center px-4 pt-[min(15vh,138px)] pb-6">
           <Dialog.Popup
             initialFocus={inputRef}
+            finalFocus={finalFocus}
             className="flex h-[min(520px,100%)] w-full max-w-[640px] flex-col overflow-hidden rounded-[var(--sheet-radius)] bg-elevated text-main shadow-[var(--sheet-shadow),0_24px_48px_-16px_rgba(0,0,0,0.28)] outline-none transition-[opacity,transform] duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:scale-[var(--modal-scale-close)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:scale-[var(--modal-scale)] data-[starting-style]:opacity-0 motion-reduce:transition-none"
             onKeyDownCapture={(event) => {
               // Tab switches between agents and people, so the keyboard reaches both.
@@ -203,8 +216,14 @@ export function SessionSearchDialog({
               inputRef={inputRef}
               pending={query.trim() !== searchQuery}
               onChoosePerson={choosePerson}
-              onOpen={onOpen}
-              onCommand={onCommand}
+              onOpen={(sessionId, beside) => {
+                navigated.current = true
+                onOpen(sessionId, beside)
+              }}
+              onCommand={(id) => {
+                navigated.current = true
+                onCommand(id)
+              }}
             />
           </Dialog.Popup>
         </Dialog.Viewport>

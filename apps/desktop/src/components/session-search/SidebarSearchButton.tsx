@@ -24,6 +24,7 @@ export function SidebarSearchButton({ onSearch }: { onSearch: () => void }) {
         }}
         className="titlebar-no-drag w-8 h-8 rounded-md flex items-center justify-center text-tertiary transition-colors hover:text-secondary hover:bg-[var(--sidebar-overlay-hover)]"
         aria-label={t('Search')}
+        data-search-trigger
       >
         <Search className="w-[15px] h-[15px]" strokeWidth={1.5} />
       </button>
