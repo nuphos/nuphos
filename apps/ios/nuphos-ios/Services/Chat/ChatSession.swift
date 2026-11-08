@@ -99,11 +99,7 @@ final class ChatSession {
     var isStreaming: Bool { isNativeRuntime ? runtimeObservation?.executing == true : transportStreaming }
     /// The owner can open this conversation's desktop: its runtime is a Box or a
     /// Mac, and says it can show one or already does.
-    var canOpenDesktop: Bool {
-        guard ownsChat, let snapshot = runtimeObservation?.snapshot else { return false }
-        return snapshot["canOpenDesktop"]?.boolValue == true
-            || snapshot["tools"]?.arrayValue?.contains { $0["kind"]?.stringValue == "desktop" } == true
-    }
+    var canOpenDesktop: Bool { ownsChat && runtimeObservation?.canOpenDesktop == true }
     func makeDesktop() -> DesktopSession { DesktopSession(teamId: teamId, sessionId: sessionId, token: token) }
     /// This conversation's whole dock on its owner's computer, mirrored for the phone.
     func dock() async throws -> DockState {

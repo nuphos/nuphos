@@ -15,6 +15,11 @@ struct ChatFace: Codable, Equatable, Hashable, Sendable {
     let agent: Agent?
 }
 
+extension [ChatFace] {
+    /// The Bot a chat with these faces is the 1:1 of: its one other member is an agent with a face.
+    var botId: String? { count == 1 && self[0].agent?.avatar != nil ? self[0].id : nil }
+}
+
 /// One row of `GET /agent/conversations` (`AgentConversation` in the
 /// desktop's `api/agent-types.ts`). Fields the list and detail screens read;
 /// the backend passes through more and we ignore it.
@@ -102,10 +107,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var isBot: Bool { avatar != nil && !isChannel }
 
     /// The Bot this chat is the 1:1 of: its one other member is an agent with a face.
-    var botId: String? {
-        guard isChannel, let faces, faces.count == 1, faces[0].agent?.avatar != nil else { return nil }
-        return faces[0].id
-    }
+    var botId: String? { isChannel ? faces?.botId : nil }
 
     var isNativeRuntime: Bool { agentRuntime != nil && agentRuntime != "nuphos" }
 

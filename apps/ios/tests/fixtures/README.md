@@ -52,3 +52,10 @@ fixture never returns that post, so it stays in its sending state.
 A fixture key may end in `?name=value` to answer only requests with that query
 item. `$FIXTURE_DIR` in a body is replaced with the fixture's folder, so transfer
 links can point at local images (`file://$FIXTURE_DIR/…`).
+
+# Bot desktop fixture
+
+`bot-desktop-responses.json` serves two Bots and their 1:1 chats. "Sign-in helper"
+runs where its runtime reports `canOpenDesktop`, so its chat header has the desktop
+button; "Release notes" has none. `BotDesktopUITests` taps the button and expects the
+desktop viewer, which cannot connect offline and shows its error with Close.
