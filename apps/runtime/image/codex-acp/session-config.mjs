@@ -50,6 +50,13 @@ export function nuphosCodexSessionConfig(config, meta, processEnv = process.env)
     ...config,
     developer_instructions:
       typeof context.developerInstructions === 'string' ? context.developerInstructions : '',
+    // Codex sizes the available-skills catalog at 2% of the model's context window by
+    // default — 5,440 tokens at 272k — and truncates descriptions to fit, which cuts most
+    // of a team's skills in half. Nuphos pays for the catalog on every turn either way, so
+    // a session asks for Codex's own ceiling instead; a catalog past it is still shared
+    // fairly, and every name and locator is kept. Thread config outranks the account's
+    // config.toml, and unlike a baked one it survives the home volume.
+    skills: { ...config.skills, max_context_tokens: 10_000 },
     shell_environment_policy: {
       inherit: 'none',
       set: { ...baseline, ...env, ...nuphosSessionHomeEnv(env, processEnv) },
