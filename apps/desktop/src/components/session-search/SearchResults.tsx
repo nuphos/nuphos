@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useState } from 'react'
 
 import { t } from '../../i18n'
+import { track } from '../../lib/analytics'
 import { isMac } from '../../lib/platform'
 import { searchKeyAction } from '../../lib/searchKeyboard'
 import { searchMatch } from '../../lib/searchMatch'
@@ -19,6 +20,21 @@ import type { TeamMember } from '../../types'
 import type { RefObject } from 'react'
 
 /** When it was opened, and whose it is when it isn't yours. */
+type OpenedKind = 'bot' | 'task' | 'person' | 'command'
+
+/** What a search led to, and whether by mouse or keyboard: keys aren't autocaptured. */
+function trackOpened(
+  kind: OpenedKind,
+  position: number,
+  method: 'mouse' | 'keyboard',
+  query: string,
+) {
+  track('search_result_opened', { kind, position, method, query_length: query.length })
+}
+
+const kindOf = ({ conversation }: SessionResult): OpenedKind =>
+  conversation.kind === 'channel' ? 'bot' : 'task'
+
 function metaFor({ conversation, openedAt }: SessionResult, userId: string) {
   const time = relativeTimeFromNow(
     openedAt ? new Date(openedAt).toISOString() : conversation.lastActiveAt,
@@ -105,10 +121,17 @@ export function SearchResults({
       event.preventDefault()
       if (action === 'next' || action === 'previous') {
         setSelected((previous) => (previous + (action === 'next' ? 1 : -1) + count) % count)
-      } else if (selectedIndex < commands.length) onCommand(commands[selectedIndex].id)
-      else if (mode === 'people') onChoosePerson(results.people[selectedIndex])
-      else {
-        const { conversation } = sessions.ordered[selectedIndex - commands.length]
+      } else if (selectedIndex < commands.length) {
+        trackOpened('command', selectedIndex, 'keyboard', query)
+        onCommand(commands[selectedIndex].id)
+      } else if (mode === 'people') {
+        trackOpened('person', selectedIndex, 'keyboard', query)
+        onChoosePerson(results.people[selectedIndex])
+      } else {
+        const result = sessions.ordered[selectedIndex - commands.length]
+
+        trackOpened(kindOf(result), selectedIndex, 'keyboard', query)
+        const { conversation } = result
 
         onOpen(conversation.sessionId, action === 'beside')
       }
@@ -130,6 +153,7 @@ export function SearchResults({
     onChoosePerson,
     onCommand,
     onOpen,
+    query,
     results.people,
     sessions.ordered,
     selectedIndex,
@@ -177,7 +201,10 @@ export function SearchResults({
         }
         action={t('Open')}
         onSelect={() => setSelected(at)}
-        onOpen={(beside) => onOpen(conversation.sessionId, beside)}
+        onOpen={(beside) => {
+          trackOpened(kindOf(result), at, 'mouse', query)
+          onOpen(conversation.sessionId, beside)
+        }}
       />
     )
   }
@@ -191,7 +218,10 @@ export function SearchResults({
           query={query}
           selectedIndex={selectedIndex}
           onSelect={setSelected}
-          onRun={(command) => onCommand(command.id)}
+          onRun={(command) => {
+            trackOpened('command', commands.indexOf(command), 'mouse', query)
+            onCommand(command.id)
+          }}
         />
       )}
       <div
@@ -222,7 +252,10 @@ export function SearchResults({
               }
               action={t('View agents')}
               onSelect={() => setSelected(index)}
-              onOpen={() => onChoosePerson(person)}
+              onOpen={() => {
+                trackOpened('person', index, 'mouse', query)
+                onChoosePerson(person)
+              }}
             />
           ))}
         {!busy && mode === 'sessions' && owner && sessions.ordered.map(sessionRow)}
@@ -238,8 +271,19 @@ export function SearchResults({
           !owner &&
           sessions.tasks.map((result, index) => sessionRow(result, sessions.chats.length + index))}
       </div>
+      {/* Placeholder rows hold the list's shape while it loads, so nothing jumps. */}
+      {busy && (
+        <div aria-hidden className="space-y-0.5 px-2 pt-3">
+          {[64, 48, 72, 56, 40].map((width) => (
+            <div key={width} className="flex h-10 items-center gap-2.5 px-2.5">
+              <span className="size-6 shrink-0 rounded-md bg-state-hover" />
+              <span className="h-3 rounded bg-state-hover" style={{ width: `${String(width)}%` }} />
+            </div>
+          ))}
+        </div>
+      )}
       <div role="status" className="px-4 text-sm text-secondary">
-        {busy && <p className="py-5">{t('Searching…')}</p>}
+        {busy && <span className="sr-only">{t('Searching…')}</span>}
         {!busy && !results.error && resultCount === 0 && (
           <p className="py-5">
             {results.recent

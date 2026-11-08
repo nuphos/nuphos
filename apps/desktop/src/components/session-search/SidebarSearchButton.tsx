@@ -1,24 +1,32 @@
 import { Search } from 'lucide-react'
 
 import { t } from '../../i18n'
-import { comboText } from '../../lib/platform'
-import { SIDEBAR_PANEL_PADDING_CLASS, SidebarNavIcon, SidebarNavItem } from '../SidebarNavItem'
+import { Kbd } from '../ui/kbd'
+import { Tooltip } from '../ui/tooltip'
 
-/** A sidebar row like the ones under it; ⌘K is the one shortcut shown at rest, as plain text. */
-export function SidebarSearchButton({ onSearch }: { onSearch?: () => void }) {
-  if (!onSearch) return null
+import { noteSearchSource } from './searchSource'
 
+/** ⌘K's button in the titlebar, beside the sidebar toggle and styled like it. */
+export function SidebarSearchButton({ onSearch }: { onSearch: () => void }) {
   return (
-    <div className={`titlebar-no-drag ${SIDEBAR_PANEL_PADDING_CLASS} !pb-1`}>
-      <SidebarNavItem
-        active={false}
-        icon={<SidebarNavIcon icon={Search} />}
-        label={t('Search')}
-        onClick={onSearch}
-        // Rows navigate on press; a dialog opened on press is closed by its own release.
-        navigateOnRelease
-        trailing={<span className="text-[12px] text-tertiary">{comboText('mod+k')}</span>}
-      />
-    </div>
+    <Tooltip
+      content={
+        <span className="inline-flex items-center gap-1.5">
+          {t('Search')} <Kbd combo="mod+k" />
+        </span>
+      }
+    >
+      <button
+        type="button"
+        onClick={() => {
+          noteSearchSource('button')
+          onSearch()
+        }}
+        className="titlebar-no-drag w-8 h-8 rounded-md flex items-center justify-center text-tertiary transition-colors hover:text-secondary hover:bg-[var(--sidebar-overlay-hover)]"
+        aria-label={t('Search')}
+      >
+        <Search className="w-[15px] h-[15px]" strokeWidth={1.5} />
+      </button>
+    </Tooltip>
   )
 }

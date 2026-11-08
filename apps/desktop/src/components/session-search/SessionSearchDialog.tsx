@@ -1,15 +1,16 @@
 import { Dialog } from '@base-ui/react/dialog'
 import clsx from 'clsx'
 import { Search, UserRound, Users, X } from 'lucide-react'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
-import { useDialogPresence } from '../../hooks/useDialogPresence'
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
 import { t } from '../../i18n'
+import { track } from '../../lib/analytics'
 import { useDebouncedValue } from '../agent/panel/historyPageHooks'
 
 import { SearchResults } from './SearchResults'
+import { takeSearchSource } from './searchSource'
 
 import type { TeamMember } from '../../types'
 
@@ -18,7 +19,12 @@ type Props = {
   teamName: string
   otherTeams?: { id: string; name: string }[]
   userId: string
+  /** The parent's open state; when it turns false the dialog plays its closing transition first. */
+  open: boolean
+  /** Asks the parent to close (Escape, a click outside). */
   onClose: () => void
+  /** The closing transition has finished; the parent can unmount now. */
+  onExited: () => void
   onOpen: (sessionId: string, beside: boolean) => void
   onCommand: (id: string) => void
 }
@@ -29,7 +35,9 @@ export function SessionSearchDialog({
   teamName,
   otherTeams,
   userId,
+  open,
   onClose,
+  onExited,
   onOpen,
   onCommand,
 }: Props) {
@@ -39,7 +47,21 @@ export function SessionSearchDialog({
   const debouncedQuery = useDebouncedValue(query, 200)
   const searchQuery = query.trim() ? debouncedQuery : ''
   const inputRef = useRef<HTMLInputElement>(null)
-  const presence = useDialogPresence(onClose)
+  // Open one frame after mount so the opening transition plays.
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setReady(true))
+
+    return () => cancelAnimationFrame(raf)
+  }, [])
+  useEffect(() => {
+    if (open) track('search_opened', { source: takeSearchSource() })
+  }, [open])
+  // Closed again before it ever opened: there is no transition to wait for.
+  useEffect(() => {
+    if (!open && !ready) onExited()
+  }, [open, ready, onExited])
   const members = useRef<Promise<TeamMember[]> | null>(null)
   const loadPeople = useCallback(() => {
     members.current ??= api.atlasListTeamMembers(teamId).catch((error: unknown) => {
@@ -60,13 +82,21 @@ export function SessionSearchDialog({
   }
 
   return (
-    <Dialog.Root {...presence}>
+    <Dialog.Root
+      open={ready && open}
+      onOpenChange={(next) => {
+        if (!next) onClose()
+      }}
+      onOpenChangeComplete={(next) => {
+        if (!next) onExited()
+      }}
+    >
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-[1000] bg-black/25 transition-opacity duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:opacity-0 motion-reduce:transition-none" />
         <Dialog.Viewport className="titlebar-no-drag fixed inset-0 z-[1001] flex items-start justify-center px-4 pt-[min(15vh,138px)] pb-6">
           <Dialog.Popup
             initialFocus={inputRef}
-            className="flex max-h-full w-full max-w-[640px] flex-col overflow-hidden rounded-[var(--sheet-radius)] bg-elevated text-main shadow-[var(--sheet-shadow),0_24px_48px_-16px_rgba(0,0,0,0.28)] outline-none transition-[opacity,transform] duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:scale-[var(--modal-scale-close)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:scale-[var(--modal-scale)] data-[starting-style]:opacity-0 motion-reduce:transition-none"
+            className="flex h-[min(520px,100%)] w-full max-w-[640px] flex-col overflow-hidden rounded-[var(--sheet-radius)] bg-elevated text-main shadow-[var(--sheet-shadow),0_24px_48px_-16px_rgba(0,0,0,0.28)] outline-none transition-[opacity,transform] duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:scale-[var(--modal-scale-close)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:scale-[var(--modal-scale)] data-[starting-style]:opacity-0 motion-reduce:transition-none"
             onKeyDownCapture={(event) => {
               if (event.key === 'Escape' && mode === 'people' && !event.nativeEvent.isComposing) {
                 event.preventDefault()

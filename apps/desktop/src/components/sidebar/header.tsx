@@ -18,6 +18,7 @@ import {
   MenuSubmenuTrigger,
   MenuTrigger,
 } from '../ui/menu'
+import { SidebarSearchButton } from '../session-search/SidebarSearchButton'
 import { renderWorkspaceMenuOptions } from '../WorkspaceMenuOptions'
 
 import { SidebarAccountItems } from './account-items'
@@ -41,6 +42,7 @@ export function SidebarHeaderBar({
   onForward,
   history,
   chatOf,
+  onSearch,
 }: {
   collapsed: boolean
   onToggleCollapse?: () => void
@@ -50,6 +52,8 @@ export function SidebarHeaderBar({
   onForward?: () => void
   history?: HistoryTimeline
   chatOf?: ChatLookup
+  /** Opens ⌘K. */
+  onSearch?: () => void
 }) {
   return (
     <div className="titlebar-drag desk-titlebar-row flex-shrink-0 flex items-center justify-between px-3.5">
@@ -59,6 +63,7 @@ export function SidebarHeaderBar({
         {onToggleCollapse && (
           <SidebarToggleButton collapsed={collapsed} onClick={onToggleCollapse} />
         )}
+        {onSearch && <SidebarSearchButton onSearch={onSearch} />}
       </div>
       <SidebarHistoryButtons
         canGoBack={canGoBack}

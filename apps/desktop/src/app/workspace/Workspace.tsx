@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import { useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { ChatLinkMenuContext } from '../../components/agent/chatLinkMenuContext'
 import { ConfettiBurst } from '../../components/ConfettiBurst'
@@ -94,6 +94,20 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
   useEffect(() => {
     if ((pane?.active ?? true) && searchBlocked) setSessionSearchOpen(false)
   }, [pane?.active, searchBlocked, setSessionSearchOpen])
+
+  // ⌘K stays mounted while it closes, so its closing transition plays like its opening one.
+  const searchShown =
+    ws.sessionSearchOpen &&
+    !settingsOpen &&
+    !createOrJoinOpen &&
+    !invitationTakeoverOpen &&
+    (pane?.active ?? true)
+  const [searchMounted, setSearchMounted] = useState(false)
+
+  useEffect(() => {
+    if (searchShown) setSearchMounted(true)
+  }, [searchShown])
+  const onSearchExited = useCallback(() => setSearchMounted(false), [])
 
   // Full-screen "Create or join team" page (workspace picker). Rendered in the
   // no-scope shell too, where the picker's entry is also reachable.
@@ -270,26 +284,24 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
           onOpenAuditConversation={openAuditConversation}
         />
       )}
-      {ws.sessionSearchOpen &&
-        !settingsOpen &&
-        !createOrJoinOpen &&
-        !invitationTakeoverOpen &&
-        (pane?.active ?? true) && (
-          <SessionSearchDialog
-            key={scope.teamId}
-            teamId={scope.teamId}
-            teamName={ws.currentTeam?.name ?? t('Workspace')}
-            otherTeams={ws.teams.filter((team) => team.id !== scope.teamId)}
-            userId={user.id}
-            onClose={() => ws.setSessionSearchOpen(false)}
-            onCommand={runPaletteCommand}
-            onOpen={(sessionId, beside) => {
-              ws.setSessionSearchOpen(false)
-              if (beside && pane?.openSessionBeside(sessionId, scope.teamId)) return
-              ws.workspaceActions.selectSession(sessionId, { teamId: scope.teamId })
-            }}
-          />
-        )}
+      {searchMounted && (
+        <SessionSearchDialog
+          key={scope.teamId}
+          open={searchShown}
+          onExited={onSearchExited}
+          teamId={scope.teamId}
+          teamName={ws.currentTeam?.name ?? t('Workspace')}
+          otherTeams={ws.teams.filter((team) => team.id !== scope.teamId)}
+          userId={user.id}
+          onClose={() => ws.setSessionSearchOpen(false)}
+          onCommand={runPaletteCommand}
+          onOpen={(sessionId, beside) => {
+            ws.setSessionSearchOpen(false)
+            if (beside && pane?.openSessionBeside(sessionId, scope.teamId)) return
+            ws.workspaceActions.selectSession(sessionId, { teamId: scope.teamId })
+          }}
+        />
+      )}
       <ShortcutsHelpModal open={shortcutsHelpOpen} onClose={() => setShortcutsHelpOpen(false)} />
       {createOrJoinOverlay}
       {invitationTakeover}

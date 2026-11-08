@@ -4,7 +4,6 @@ import { memo, useState } from 'react'
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
 import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor'
 import { openBotChannel } from '../channels/botChannel'
-import { SidebarSearchButton } from '../session-search/SidebarSearchButton'
 import { SIDEBAR_PANEL_PADDING_CLASS } from '../SidebarNavItem'
 
 import { useArchiveBotConfirm } from './archive-bot-confirm'
@@ -202,6 +201,7 @@ export const Sidebar = memo(function Sidebar({
           onForward={onForward}
           history={history}
           chatOf={(id) => agentSessions.find((chat) => chat.sessionId === id)}
+          onSearch={onSearch}
         />
 
         <SidebarTeamSwitcher
@@ -212,7 +212,6 @@ export const Sidebar = memo(function Sidebar({
           onCreateTeam={onCreateTeam}
         />
 
-        <SidebarSearchButton onSearch={onSearch} />
         <nav
           onScroll={chrome.handleNavScroll}
           className={clsx(
