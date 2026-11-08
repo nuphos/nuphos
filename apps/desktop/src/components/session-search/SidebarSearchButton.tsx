@@ -15,6 +15,8 @@ export function SidebarSearchButton({ onSearch }: { onSearch?: () => void }) {
         icon={<SidebarNavIcon icon={Search} />}
         label={t('Search')}
         onClick={onSearch}
+        // Rows navigate on press; a dialog opened on press is closed by its own release.
+        navigateOnRelease
         trailing={<span className="text-[12px] text-tertiary">{comboText('mod+k')}</span>}
       />
     </div>
