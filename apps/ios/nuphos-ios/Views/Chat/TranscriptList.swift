@@ -16,6 +16,8 @@ struct TranscriptList: UIViewControllerRepresentable {
     /// New rows slide in, rows that leave fade, and the rows on screen glide
     /// to make room, as in Messages. Off, only a sent row comes in this way.
     var animatesArrivals = false
+    /// Scrolls to a row, such as the post a reply quotes.
+    var jump: TranscriptJump? = nil
     let rowContent: (ChatRow) -> AnyView
 
     func makeUIViewController(context: Context) -> TranscriptController {
@@ -27,6 +29,7 @@ struct TranscriptList: UIViewControllerRepresentable {
         controller.placeholder.rootView = placeholder
         controller.update(rows: rows, submittedRowID: submittedRowID,
                           sessionID: sessionID, animatesArrivals: animatesArrivals, content: rowContent)
+        controller.scroll(to: jump)
     }
 }
 
@@ -206,6 +209,18 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
             restore(id: anchor.id, offset: anchor.offset)
         }
         animateArrivals(moved: moves ? slide(from: before, leaving: leaving) : 0)
+    }
+
+    private var lastJump: TranscriptJump?
+
+    /// Brings a loaded row to the middle; the reader is no longer at the end.
+    func scroll(to jump: TranscriptJump?) {
+        guard let jump, jump != lastJump else { return }
+        lastJump = jump
+        guard let path = dataSource.indexPath(for: jump.rowID) else { return }
+        following = false
+        layout.keepContentOffsetAtBottomOnBatchUpdates = false
+        collection.scrollToItem(at: path, at: .centeredVertically, animated: true)
     }
 
     /// A draft lives in the page's state, so every keystroke arrives here.

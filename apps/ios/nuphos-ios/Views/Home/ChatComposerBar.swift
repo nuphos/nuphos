@@ -26,6 +26,8 @@ struct ChatComposerBar<Controls: View>: View {
     var temporaryDirectory: URL = FileManager.default.temporaryDirectory
     /// Who a message goes to, such as a chat's `#name`; nil asks Nuphos.
     var recipient: String? = nil
+    /// Each change raises the keyboard, as choosing to reply does.
+    var focusRequest = 0
     var onSend: (ComposerSubmission) -> Void
     var onStop: (() -> Void)? = nil
     /// Shown above the input while expanded (Credentials picker, permission mode).
@@ -260,6 +262,7 @@ struct ChatComposerBar<Controls: View>: View {
                 }
             }
             #endif
+            .onChange(of: focusRequest) { focused = true }
             .onChange(of: editRequest.wrappedValue != nil, initial: true) { _, requested in
                 guard requested, let submission = editRequest.wrappedValue else { return }
                 text = [submission.text, text].filter { !$0.isEmpty }.joined(separator: "\n\n")

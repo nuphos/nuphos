@@ -10,6 +10,7 @@ enum ChannelPostTests {
         placesPausedLinesAndTypingInOrder()
         decodesChatsFromTheList()
         renamingTheBotChangesTheRevision()
+        readsAndQuotesReplies()
         print("Chat posts, runs, sending and timeline passed")
     }
 
@@ -31,6 +32,18 @@ enum ChannelPostTests {
     ]
 
     private static func text(_ value: String) -> JSONValue { .object(["type": .string("text"), "text": .string(value)]) }
+
+    private static func readsAndQuotesReplies() {
+        var reply = message("m2", sender: person("me", "Bruce"), parts: [text("On it")])
+        if case .object(var metadata) = reply.metadata {
+            metadata["replyTo"] = .object(["id": .string("m1"), "authorName": .string("Ops"), "text": .string("Deploy?")])
+            reply.metadata = .object(metadata)
+        }
+        precondition(ChannelPost(reply)?.replyTo == ChannelReply(id: "m1", authorName: "Ops", text: "Deploy?"))
+        let original = ChannelPost(message("m1", sender: agent, parts: [text(String(repeating: "x", count: 250))]))!
+        precondition(original.replyTo == nil)
+        precondition(original.asReply == ChannelReply(id: "m1", authorName: "Ops", text: String(repeating: "x", count: 200)))
+    }
 
     private static func readsPeopleAgentsAndFiles() {
         let upload: JSONValue = .object([
