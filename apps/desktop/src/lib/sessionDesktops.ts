@@ -5,17 +5,21 @@
 
 /** `title` names the machine and the display, e.g. "Box 1 · :3"; `deviceId` is that machine. */
 export type SessionDesktop = { display: number; title: string; deviceId?: string }
-/** `canOpen`: the owner may open one by hand, its Box running a desktop pool or the session holding one. */
-export type SessionDesktops = { teamId: string; desktops: SessionDesktop[]; canOpen?: boolean }
+/**
+ * `canOpen`: the owner may open one by hand, its Box running a desktop pool or the session holding one.
+ * `dock`: the session whose dock shows these desktops' tabs, if not this one's: a Bot's chat.
+ */
+export type SessionDesktops = {
+  teamId: string
+  desktops: SessionDesktop[]
+  canOpen?: boolean
+  dock?: string
+}
 
 const DESKTOP_PAGE = 'team.desktop'
 const bySession = new Map<string, SessionDesktops>()
 const listeners = new Set<() => void>()
-
-/** `dock`: the session whose dock gets the tab; a Bot's chat shows the Bot's desktop in its own. */
-type DesktopFocus = { sessionId: string; display: number; dock: string }
-
-let focus: DesktopFocus | null = null
+let focus: { sessionId: string; display: number } | null = null
 
 export function desktopTabId(sessionId: string, display: number): string {
   return `desktop:${sessionId}:${String(display)}`
@@ -32,7 +36,8 @@ export function publishSessionDesktops(sessionId: string, desktops: SessionDeskt
   const same = desktops
     ? before?.teamId === desktops.teamId &&
       JSON.stringify(before.desktops) === JSON.stringify(desktops.desktops) &&
-      before.canOpen === desktops.canOpen
+      before.canOpen === desktops.canOpen &&
+      before.dock === desktops.dock
     : !before
 
   if (same) return
@@ -41,15 +46,21 @@ export function publishSessionDesktops(sessionId: string, desktops: SessionDeskt
   for (const notify of listeners) notify()
 }
 
+/** Forgets what `dock` published, leaving another view's publication of the same session alone. */
+export function forgetSessionDesktops(sessionId: string, dock = sessionId): void {
+  if ((bySession.get(sessionId)?.dock ?? sessionId) === dock)
+    publishSessionDesktops(sessionId, null)
+}
+
 /** Brings a session's desktop tab to the front, in whichever workspace holds it. */
-export function focusSessionDesktop(sessionId: string, display: number, dock = sessionId): void {
-  focus = { sessionId, display, dock }
+export function focusSessionDesktop(sessionId: string, display: number): void {
+  focus = { sessionId, display }
   for (const notify of listeners) notify()
   focus = null
 }
 
 /** The tab a `focusSessionDesktop` call is bringing forward, only while it notifies. */
-export function readDesktopFocus(): DesktopFocus | null {
+export function readDesktopFocus(): { sessionId: string; display: number } | null {
   return focus
 }
 
@@ -83,12 +94,12 @@ export type DesktopTabPlan = {
 export function planDesktopTabs(
   sessions: ReadonlyMap<string, SessionDesktops>,
   tabsOf: (sessionId: string) => readonly { id: string; active: string }[],
-  asked: DesktopFocus | null,
+  asked: { sessionId: string; display: number } | null,
 ): DesktopTabPlan {
   const plan: DesktopTabPlan = { open: [], close: [] }
 
-  for (const [sessionId, { desktops }] of sessions) {
-    const tabs = tabsOf(sessionId)
+  for (const [sessionId, { desktops, dock = sessionId }] of sessions) {
+    const tabs = tabsOf(dock)
     const displays = desktops.map((desktop) => desktop.display)
     const wanted = new Set(displays.map((display) => desktopTabId(sessionId, display)))
 
@@ -102,12 +113,13 @@ export function planDesktopTabs(
     }
   }
   if (asked) {
-    const { sessionId, display, dock } = asked
-    const teamId = sessions.get(sessionId)?.teamId
+    const { sessionId, display } = asked
+    const known = sessions.get(sessionId)
+    const dock = known?.dock ?? sessionId
     const id = desktopTabId(sessionId, display)
 
-    if (teamId && !tabsOf(dock).some((tab) => tab.id === id))
-      plan.open.push({ sessionId, teamId, display, dock })
+    if (known && !tabsOf(dock).some((tab) => tab.id === id))
+      plan.open.push({ sessionId, teamId: known.teamId, display, dock })
   }
 
   return plan

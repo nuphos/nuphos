@@ -6,7 +6,7 @@ import { api } from '../../api'
 import { openSessionDesktop } from '../../app/workspace/openSessionDesktop'
 import { t } from '../../i18n'
 import { runtimeStateOf, subscribeRuntimeStates } from '../../lib/agentRuntimeStates'
-import { publishSessionDesktops } from '../../lib/sessionDesktops'
+import { forgetSessionDesktops, publishSessionDesktops } from '../../lib/sessionDesktops'
 import { makeAttachmentTurn } from '../agent/panel/attachments'
 import { Composer } from '../agent/panel/Composer'
 import { composerDraftKey } from '../agent/panel/composerDrafts'
@@ -83,16 +83,16 @@ export function ChannelPane({
     bot !== undefined &&
     sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !botOwned }).canOpen
 
-  // Published as the Bot's Task page publishes it, so its desktop tab can open here.
+  // Published as the Bot's Task page publishes it, with this chat's dock holding its tabs.
   useEffect(() => {
     if (!bot) return
-    publishSessionDesktops(
-      bot,
-      sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !botOwned }),
-    )
+    publishSessionDesktops(bot, {
+      ...sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !botOwned }),
+      dock: channelId,
+    })
 
-    return () => publishSessionDesktops(bot, null)
-  }, [bot, teamId, botState, botOwned])
+    return () => forgetSessionDesktops(bot, channelId)
+  }, [bot, teamId, botState, botOwned, channelId])
   const stored = detail?.messages ?? []
   const pending = stillSending(stored, sending)
 
@@ -171,8 +171,8 @@ export function ChannelPane({
             label={t('Desktop')}
             icon={<Monitor />}
             onClick={() => {
-              openSessionDesktop(teamId, bot, api.openSessionDesktop, channelId).catch(
-                (error: unknown) => toast.apiError(t('Could not open the desktop'), error),
+              openSessionDesktop(teamId, bot, api.openSessionDesktop).catch((error: unknown) =>
+                toast.apiError(t('Could not open the desktop'), error),
               )
             }}
           />

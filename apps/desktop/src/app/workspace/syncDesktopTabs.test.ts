@@ -3,6 +3,7 @@ import { test } from 'node:test'
 
 import {
   canOpenSessionDesktop,
+  forgetSessionDesktops,
   publishSessionDesktops,
   subscribeSessionDesktops,
 } from '../../lib/sessionDesktops.ts'
@@ -118,21 +119,43 @@ test('opening a desktop by hand claims one display, and a second click focuses i
   publishSessionDesktops('plain', null)
 })
 
-test("a Bot's chat opens the Bot's desktop in the chat's own dock", async () => {
+/** The Bot's desktops as its chat publishes them: shown in the chat's own dock. */
+const chat = (displays: number[]) =>
+  publishSessionDesktops('bot', {
+    teamId: 'team-a',
+    desktops: displays.map((display) => ({ display, title: `:${String(display)}` })),
+    canOpen: true,
+    dock: 'bot-chat',
+  })
+
+test("a Bot's chat shows the Bot's desktop in its own dock, and closes it when the desktop goes", async () => {
   const store = createWorkspaceStore(createWorkspaceState())
   const unsubscribe = subscribeSessionDesktops(() => syncDesktopTabs(store))
+  const tabs = (dock: string) => selectBucket(store.getState(), dock).tabs.map((tab) => tab.id)
 
   store.actions.retainTeams(['team-a'], 'team-a')
-  publishSessionDesktops('bot', { teamId: 'team-a', desktops: [], canOpen: true })
-
-  await openSessionDesktop('team-a', 'bot', () => Promise.resolve({ display: 6 }), 'bot-chat')
-  const dock = selectBucket(store.getState(), 'bot-chat')
+  chat([])
+  await openSessionDesktop('team-a', 'bot', () => Promise.resolve({ display: 6 }))
 
   // The tab's id names the Bot, so the viewer streams the Bot's desktop.
-  assert.equal(dock.dockOpen, true)
-  assert.equal(dock.activeTabId, 'desktop:bot:6')
-  assert.deepEqual(selectBucket(store.getState(), 'bot').tabs, [])
+  assert.equal(selectBucket(store.getState(), 'bot-chat').dockOpen, true)
+  assert.equal(selectBucket(store.getState(), 'bot-chat').activeTabId, 'desktop:bot:6')
+  assert.deepEqual(tabs('bot'), [])
+  chat([6])
+  assert.deepEqual(tabs('bot-chat'), ['desktop:bot:6'])
+  // The Bot's runtime no longer holds the display: its tab in the chat's dock goes.
+  chat([])
+  assert.deepEqual(tabs('bot-chat'), [])
 
   unsubscribe()
-  publishSessionDesktops('bot', null)
+  forgetSessionDesktops('bot', 'bot-chat')
+})
+
+test("leaving a Bot's chat keeps its Task page's publication of the Bot", () => {
+  publishSessionDesktops('bot', { teamId: 'team-a', desktops: [], canOpen: true })
+  // The chat had been published over by the Task page; leaving the chat forgets nothing.
+  forgetSessionDesktops('bot', 'bot-chat')
+  assert.equal(canOpenSessionDesktop('bot'), true)
+  forgetSessionDesktops('bot')
+  assert.equal(canOpenSessionDesktop('bot'), false)
 })

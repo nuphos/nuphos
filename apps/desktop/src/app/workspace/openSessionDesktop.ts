@@ -8,14 +8,12 @@ import {
  * Opens the conversation's desktop by hand: the Box claims one through the pool
  * the agent's desktop tool uses, unless the session already holds one, and
  * syncDesktopTabs opens and focuses its tab. Publishing the answered display
- * keeps that tab open until the next runtime snapshot carries it. `dock` is the
- * conversation whose dock gets the tab, if not this one's: a Bot's chat.
+ * keeps that tab open until the next runtime snapshot carries it.
  */
 export async function openSessionDesktop(
   teamId: string,
   sessionId: string,
   request: (teamId: string, sessionId: string) => Promise<{ display: number }>,
-  dock = sessionId,
 ): Promise<void> {
   let display = readSessionDesktops().get(sessionId)?.desktops[0]?.display
 
@@ -29,5 +27,5 @@ export async function openSessionDesktop(
         desktops: [...known.desktops, { display, title: `:${String(display)}` }],
       })
   }
-  focusSessionDesktop(sessionId, display, dock)
+  focusSessionDesktop(sessionId, display)
 }

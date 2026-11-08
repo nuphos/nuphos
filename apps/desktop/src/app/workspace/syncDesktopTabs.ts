@@ -43,7 +43,7 @@ export function syncDesktopTabs(store: WorkspaceStore): void {
   if (focus)
     store.dispatch({
       type: 'activateTab',
-      sessionKey: focus.dock,
+      sessionKey: readSessionDesktops().get(focus.sessionId)?.dock ?? focus.sessionId,
       tabId: desktopTabId(focus.sessionId, focus.display),
     })
 }
