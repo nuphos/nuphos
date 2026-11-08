@@ -20,7 +20,6 @@ struct ChatComposerBar<Controls: View>: View {
     var mentions: MentionSource? = nil
     /// The team voice input transcribes for; nil hides the microphone.
     var voiceTeamId: String? = nil
-    var voiceToken: String? = nil
     /// Content received by another entry point, imported once without submitting.
     var initialAttachments: [ComposerAttachment] = []
     var temporaryDirectory: URL = FileManager.default.temporaryDirectory
@@ -31,6 +30,7 @@ struct ChatComposerBar<Controls: View>: View {
     /// Shown above the input while expanded (Credentials picker, permission mode).
     @ViewBuilder var controls: () -> Controls
 
+    @Environment(AuthSession.self) private var auth
     @FocusState private var focused: Bool
     /// From focus until the keyboard it raised has finished hiding, so the
     /// page lowers this composer along with its own keyboard.
@@ -410,7 +410,7 @@ struct ChatComposerBar<Controls: View>: View {
     }
 
     private func finishDictation(thenSend: Bool) {
-        guard let take = dictation, let token = voiceToken, let teamId = voiceTeamId else { return }
+        guard let take = dictation, let token = auth.token, let teamId = voiceTeamId else { return }
         transcription = Task {
             do {
                 let words = try await take.finish(token: token, teamId: teamId)
@@ -678,6 +678,7 @@ struct BrandLogo: View {
             ComposerChip(title: "Auto Mode")
         }
     }
+    .environment(AuthSession())
 }
 
 #if canImport(UIKit)

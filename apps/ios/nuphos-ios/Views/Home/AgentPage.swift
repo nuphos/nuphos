@@ -554,7 +554,6 @@ struct SearchBar: View {
 /// The composer that starts a new chat for the selected team: under the list
 /// when compact, in the empty detail column when wide.
 struct NewChatComposer: View {
-    @Environment(AuthSession.self) private var auth
     @Environment(AgentStore.self) private var store
     @Binding var openChat: AgentPage.OpenChat?
     var initialContent: ComposerSubmission? = nil
@@ -579,7 +578,7 @@ struct NewChatComposer: View {
                 await store.loadCredentialOptions()
                 return await store.mentionableSessions(teamId: draftTeam, excluding: nil, matching: query)
             }
-        ), voiceTeamId: draftTeam.isEmpty ? nil : draftTeam, voiceToken: auth.token, initialAttachments: initialContent?.attachments ?? [], temporaryDirectory: temporaryDirectory, onSend: { submission in
+        ), voiceTeamId: draftTeam.isEmpty ? nil : draftTeam, initialAttachments: initialContent?.attachments ?? [], temporaryDirectory: temporaryDirectory, onSend: { submission in
             do {
                 try admissionCheck?()
                 guard let session = store.newSession() else { throw SharedShareSession.Failure.workspace }

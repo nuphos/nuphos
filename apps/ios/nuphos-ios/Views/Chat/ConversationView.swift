@@ -10,7 +10,6 @@ struct ConversationView: View {
     /// Top-level page that presented this chat, used by navigation diagnostics.
     var sourcePage = HomePage.agent.rawValue
 
-    @Environment(AuthSession.self) private var auth
     @State private var draft = ""
     @State private var toolDetail: ChatPart.ToolPart?
     /// A plan link tapped in the transcript.
@@ -346,7 +345,6 @@ struct ConversationView: View {
                     }
                 ),
                 voiceTeamId: session.teamId,
-                voiceToken: auth.token,
                 temporaryDirectory: temporaryDirectory,
                 onSend: { session.send($0) },
                 onStop: { session.stop() }
