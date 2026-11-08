@@ -28,7 +28,7 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
   useEffect(() => {
     void api
       .atlasGetTeamGoogleClient(team.id)
-      .then((id) => {
+      .then(({ clientId: id }) => {
         setSavedClientId(id)
         setClientId(id ?? '')
         setFailed(false)

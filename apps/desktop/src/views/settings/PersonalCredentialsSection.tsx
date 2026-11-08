@@ -60,7 +60,7 @@ export function PersonalCredentialsSection({
   onOpenSection?: (section: string) => void
 }) {
   const [credentials, setCredentials] = useState<PersonalCredential[] | null>(null)
-  // Gmail / Google Drive go through the current team's own OAuth client.
+  // Gmail / Google Drive go through the current team's own OAuth client, or the server's default.
   // Null while unknown, or when it could not be read: Connect stays available and says why if it fails.
   const [teamHasGoogleClient, setTeamHasGoogleClient] = useState<boolean | null>(null)
   const admin = useAdminName(team?.id, Boolean(team && team.role !== 'ADMINISTRATOR'))
@@ -82,7 +82,9 @@ export function PersonalCredentialsSection({
     if (team) {
       void api
         .atlasGetTeamGoogleClient(team.id)
-        .then((clientId) => setTeamHasGoogleClient(Boolean(clientId)))
+        .then(({ clientId, defaultClient }) =>
+          setTeamHasGoogleClient(Boolean(clientId) || defaultClient),
+        )
         .catch(() => setTeamHasGoogleClient(null))
     }
   }, [team])

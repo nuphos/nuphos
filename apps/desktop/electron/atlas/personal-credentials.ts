@@ -19,10 +19,16 @@ export function startPersonalCredential(
   })
 }
 
-export async function getTeamGoogleClient(teamId: string): Promise<string | null> {
-  const res = await call<{ clientId: string | null }>('GET', `/teams/${teamId}/google-oauth-client`)
+export type TeamGoogleClient = { clientId: string | null; defaultClient: boolean }
 
-  return res.clientId
+export async function getTeamGoogleClient(teamId: string): Promise<TeamGoogleClient> {
+  const res = await call<{ clientId: string | null; defaultClient?: boolean }>(
+    'GET',
+    `/teams/${teamId}/google-oauth-client`,
+  )
+
+  // Older servers have no default client.
+  return { clientId: res.clientId, defaultClient: res.defaultClient ?? false }
 }
 
 export async function setTeamGoogleClient(

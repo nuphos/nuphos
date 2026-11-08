@@ -203,6 +203,13 @@ export function byosIntegrationsConfig() {
     // client confirms the binding (complete-oauth) with the callback's one-time
     // code. Off until Desktop, iOS and Android builds that confirm have shipped.
     connectorOAuthDeferredBind: bool('CONNECTOR_OAUTH_DEFERRED_BIND', false),
+    googleWorkspace: {
+      // Default OAuth client for the Gmail and Google Drive Personal
+      // Credentials, used by teams that have not added their own. Unset on
+      // self-hosted, where each team brings its own client.
+      clientId: optional('GOOGLE_WORKSPACE_OAUTH_CLIENT_ID'),
+      clientSecret: optional('GOOGLE_WORKSPACE_OAUTH_CLIENT_SECRET'),
+    },
     linear: {
       // OAuth2 app the team authorises against. Linear has a single hosted
       // instance, so unlike GitLab there are no per-binding client overrides.

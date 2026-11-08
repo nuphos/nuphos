@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, spyOn, test } from 'bun:test'
 import { ObjectId } from 'mongodb'
 
+import { config } from '@/config'
 import { GithubApiError } from '@/lib/byos/github-http'
 import { useByosSecrets } from '@/lib/test/doubles/byos-secrets'
 import { useModels } from '@/lib/test/doubles/models'
@@ -205,6 +206,24 @@ describe('personalGoogleToken', () => {
     expect(requested?.get('client_id')).toBe('team.apps.googleusercontent.com')
     expect(requested?.get('client_secret')).toBe('team-secret')
     expect(rows[0]?.encryptedRefreshToken).toEqual(sealed('ghr_refresh'))
+  })
+
+  test('without a team client, refreshes with the server default client', async () => {
+    teamClient = null
+    Object.assign(config.byos.googleWorkspace, {
+      clientId: 'nuphos.apps.googleusercontent.com',
+      clientSecret: 'default-secret',
+    })
+    rows = [expired('g-4')]
+    answer = () => Promise.resolve(Response.json({ access_token: 'ya29_def', expires_in: 3599 }))
+
+    try {
+      expect(await personalGoogleToken('g-4', 'gmail', TEAM)).toMatchObject({ token: 'ya29_def' })
+      expect(requested?.get('client_id')).toBe('nuphos.apps.googleusercontent.com')
+      expect(requested?.get('client_secret')).toBe('default-secret')
+    } finally {
+      Object.assign(config.byos.googleWorkspace, { clientId: undefined, clientSecret: undefined })
+    }
   })
 
   test('drops the grant when Google answers invalid_grant', async () => {

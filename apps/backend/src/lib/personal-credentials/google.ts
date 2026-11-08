@@ -1,6 +1,8 @@
-// Google OAuth for the Gmail and Google Drive Personal Credentials. Each team
-// brings its own OAuth client (Team settings); each provider is its own grant
-// with one scope, issued by the team's client.
+// Google OAuth for the Gmail and Google Drive Personal Credentials. A team may
+// bring its own OAuth client (Team settings); otherwise the server's default
+// client, when one is configured, is used. Each provider is its own grant with
+// one scope, issued by the team's effective client.
+import { config } from '@/config'
 import { decryptLinearSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
@@ -14,6 +16,8 @@ export type GoogleProvider = 'gmail' | 'google-drive'
 
 export const GOOGLE_PROVIDERS: readonly GoogleProvider[] = ['gmail', 'google-drive']
 
+// gmail.modify is the one scope that reads, searches, sends and labels mail;
+// gmail.readonly cannot send or label, and gmail.labels cannot label messages.
 const SCOPES: Record<GoogleProvider, string> = {
   gmail: 'https://www.googleapis.com/auth/gmail.modify',
   'google-drive': 'https://www.googleapis.com/auth/drive',
@@ -29,7 +33,14 @@ export function isGoogleProvider(provider: string): provider is GoogleProvider {
 
 export type GoogleClient = { clientId: string; clientSecret: string }
 
-/** The team's own OAuth client, or null when its admins have not added one. */
+/** The server's default client, configured on Nuphos Cloud and unset on self-hosted. */
+export function defaultGoogleClient(): GoogleClient | null {
+  const { clientId, clientSecret } = config.byos.googleWorkspace
+
+  return clientId && clientSecret ? { clientId, clientSecret } : null
+}
+
+/** The team's own OAuth client, else the server default, else null. */
 export async function teamGoogleClient(teamId: string): Promise<GoogleClient | null> {
   const doc = await teamByosBindings().findOne(
     { _id: parseObjectId(teamId, 'teamId') },
@@ -39,7 +50,7 @@ export async function teamGoogleClient(teamId: string): Promise<GoogleClient | n
 
   return stored
     ? { clientId: stored.clientId, clientSecret: decryptLinearSecret(stored.encryptedClientSecret) }
-    : null
+    : defaultGoogleClient()
 }
 
 /** Gmail / Google Drive connect through a team the member belongs to, with that team's client. */

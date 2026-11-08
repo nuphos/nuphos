@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, spyOn, test } from 'bun:test'
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
+import { config } from '@/config'
 import { AppError } from '@/lib/errors'
 import { useByosSecrets } from '@/lib/test/doubles/byos-secrets'
 import { useModels } from '@/lib/test/doubles/models'
@@ -131,7 +132,13 @@ function grant(
 
 const remaining = () => grants.map((g) => `${g.userId}:${g.provider}`)
 
+const DEFAULT = { clientId: 'nuphos.apps.googleusercontent.com', clientSecret: 'GOCSPX-default' }
+const noDefault = () =>
+  Object.assign(config.byos.googleWorkspace, { clientId: undefined, clientSecret: undefined })
+
+afterAll(noDefault)
 beforeEach(() => {
+  noDefault()
   doc = null
   failDelete = false
   failRevoke = false
@@ -159,7 +166,7 @@ describe('team Google OAuth client', () => {
     const read = await app.request('/', { headers: { 'x-test-role': 'MEMBER' } })
     const text = await read.text()
 
-    expect(JSON.parse(text)).toEqual({ clientId: CLIENT.clientId })
+    expect(JSON.parse(text)).toEqual({ clientId: CLIENT.clientId, defaultClient: false })
     expect(text).not.toContain(CLIENT.clientSecret)
   })
 
@@ -179,7 +186,7 @@ describe('team Google OAuth client', () => {
     const res = await remove()
 
     expect(res.status).toBe(204)
-    expect(await (await app.request('/')).json()).toEqual({ clientId: null })
+    expect(await (await app.request('/')).json()).toEqual({ clientId: null, defaultClient: false })
   })
 
   test('a different client revokes the team’s grants once per member, and drops them', async () => {
@@ -252,6 +259,22 @@ describe('team Google OAuth client', () => {
 
     expect(res.status).toBe(200)
     // Given up on at Google, but no stored token outlives the client either.
+    expect(remaining()).toEqual(['alice:github', 'carol:gmail'])
+  })
+
+  test('reads report a server default client without exposing it', async () => {
+    Object.assign(config.byos.googleWorkspace, DEFAULT)
+    const text = await (await app.request('/')).text()
+
+    expect(JSON.parse(text)).toEqual({ clientId: null, defaultClient: true })
+    expect(text).not.toContain(DEFAULT.clientId)
+  })
+
+  test('a team client replacing the default ends the grants the default issued', async () => {
+    Object.assign(config.byos.googleWorkspace, DEFAULT)
+    await put('ADMINISTRATOR', CLIENT)
+
+    expect([...revoked].sort((a, b) => a.localeCompare(b))).toEqual(['alice-gmail', 'bob-gmail'])
     expect(remaining()).toEqual(['alice:github', 'carol:gmail'])
   })
 })

@@ -356,6 +356,29 @@ describe('Google Personal Credentials', () => {
     expect(pending).toHaveLength(0)
   })
 
+  test('without a team client, connects and exchanges through the server default', async () => {
+    teamClient = null
+    Object.assign(config.byos.googleWorkspace, {
+      clientId: 'nuphos.apps.googleusercontent.com',
+      clientSecret: 'default-secret',
+    })
+    try {
+      const res = await requestStart('gmail', 'alice')
+      const { state, authorizeUrl } = (await res.json()) as { state: string; authorizeUrl: string }
+      const url = new URL(authorizeUrl)
+
+      expect(url.searchParams.get('client_id')).toBe('nuphos.apps.googleusercontent.com')
+      expect(url.searchParams.get('scope')).toBe(
+        'openid email https://www.googleapis.com/auth/gmail.modify',
+      )
+      await callback('gmail', state)
+      expect(googleTokenRequest?.get('client_id')).toBe('nuphos.apps.googleusercontent.com')
+      expect(googleTokenRequest?.get('client_secret')).toBe('default-secret')
+    } finally {
+      Object.assign(config.byos.googleWorkspace, { clientId: undefined, clientSecret: undefined })
+    }
+  })
+
   test('a member of two teams keeps a grant per team, each from that team’s client', async () => {
     for (const [teamId, clientId] of [
       [TEAM, 'team.apps.googleusercontent.com'],

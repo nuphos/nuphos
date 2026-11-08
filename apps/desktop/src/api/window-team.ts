@@ -49,7 +49,9 @@ import type {
 } from '../types/team.ts'
 
 export type WindowTeamApi = {
-  atlasGetTeamGoogleClient(teamId: string): Promise<string | null>
+  atlasGetTeamGoogleClient(
+    teamId: string,
+  ): Promise<{ clientId: string | null; defaultClient: boolean }>
   atlasSetTeamGoogleClient(teamId: string, clientId: string, clientSecret: string): Promise<void>
   atlasDeleteTeamGoogleClient(teamId: string): Promise<void>
   atlasStartRuntimeLogin(teamId: string, runtimeId: string): Promise<RuntimeLoginStatus>

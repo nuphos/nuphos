@@ -3,7 +3,7 @@ import { z } from 'zod'
 
 import { encryptLinearSecret } from '@/lib/byos/secrets'
 import { parseObjectId } from '@/lib/objectid'
-import { GOOGLE_PROVIDERS } from '@/lib/personal-credentials/google'
+import { defaultGoogleClient, GOOGLE_PROVIDERS } from '@/lib/personal-credentials/google'
 import { revokeQuietly } from '@/lib/personal-credentials/revoke'
 import { zv } from '@/lib/validate'
 import { requireTeamRole } from '@/middleware/auth'
@@ -12,8 +12,9 @@ import { personalCredentials, teamByosBindings } from '@/models'
 import type { TeamAuthVariables } from '@/middleware/auth'
 
 // The team's own Google OAuth client, which its members' Gmail and Google
-// Drive Personal Credentials connect and refresh through. Members can see
-// whether one is set; only admins change it, and the secret is never returned.
+// Drive Personal Credentials connect and refresh through instead of the
+// server's default client. Members can see whether one is set and whether a
+// default exists; only admins change it, and the secret is never returned.
 // Refresh tokens belong to the client that issued them, so members' grants
 // end with the client: revoked at Google first, then forgotten here, so no
 // stored token outlives the client it could never be refreshed through.
@@ -53,7 +54,10 @@ googleOAuthClientRoutes.get('/', async (c) => {
     { projection: { 'googleOAuthClient.clientId': 1 } },
   )
 
-  return c.json({ clientId: doc?.googleOAuthClient?.clientId ?? null })
+  return c.json({
+    clientId: doc?.googleOAuthClient?.clientId ?? null,
+    defaultClient: Boolean(defaultGoogleClient()),
+  })
 })
 
 googleOAuthClientRoutes.put(
@@ -70,10 +74,13 @@ googleOAuthClientRoutes.put(
     )
     const now = new Date()
 
-    // A new secret for the same client keeps the grants; a different client
-    // cannot refresh them. Ended before the write, so a failure leaves the team
-    // exactly as it was and saving again retries the whole change.
-    if (before?.googleOAuthClient && before.googleOAuthClient.clientId !== clientId) {
+    // A new secret for the same client keeps the grants; a different client,
+    // including one replacing the default, cannot refresh them. Ended before
+    // the write, so a failure leaves the team exactly as it was and saving
+    // again retries the whole change.
+    const previous = before?.googleOAuthClient?.clientId ?? defaultGoogleClient()?.clientId
+
+    if (previous && previous !== clientId) {
       await clearTeamGrants(teamId)
     }
 
@@ -109,7 +116,8 @@ googleOAuthClientRoutes.put(
 googleOAuthClientRoutes.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
   const teamId = c.get('teamId')
 
-  // Before the removal, for the same reason as a replacement.
+  // Before the removal, for the same reason as a replacement: the default
+  // client, if any, cannot refresh grants the team's client issued.
   await clearTeamGrants(teamId)
   await teamByosBindings().updateOne(
     { _id: parseObjectId(teamId, 'teamId') },
