@@ -25,9 +25,7 @@ export function PaletteCommandRows({
 }) {
   return (
     <>
-      <div className="px-4 pt-3 pb-1 text-[12.5px] text-tertiary">
-        {t('Pages and actions')}
-      </div>
+      <div className="px-4 pt-3 pb-1 text-[12.5px] text-tertiary">{t('Pages and actions')}</div>
       <div
         id={`${listId}-commands`}
         role="listbox"

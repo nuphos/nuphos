@@ -30,6 +30,15 @@ function metaFor({ conversation, openedAt }: SessionResult, userId: string) {
   return `${owner.name || owner.email} · ${time}`
 }
 
+/** A group's name over its rows, as the sidebar titles its groups. */
+function GroupLabel({ text }: { text: string }) {
+  return (
+    <div className="px-2.5 pt-3 pb-1 text-[12.5px] text-tertiary" role="presentation">
+      {text}
+    </div>
+  )
+}
+
 export function SearchResults({
   teamId,
   userId,
@@ -132,11 +141,6 @@ export function SearchResults({
       : owner
         ? t('Agents by {name}', { name: owner.name || owner.email })
         : t('Agents')
-  const label = (text: string) => (
-    <div className="px-2.5 pt-3 pb-1 text-[12.5px] text-tertiary" role="presentation">
-      {text}
-    </div>
-  )
   const sessionRow = (result: SessionResult, index: number) => {
     const { conversation } = result
     const at = commands.length + index
@@ -144,7 +148,7 @@ export function SearchResults({
     return (
       <SearchResultRow
         key={conversation.sessionId}
-        id={`${listId}-${at}`}
+        id={`${listId}-${String(at)}`}
         preview={
           conversation.title &&
           !searchMatch(conversation.title, query) &&
@@ -197,7 +201,7 @@ export function SearchResults({
         aria-busy={busy}
         className="space-y-0.5 px-2 pb-2"
       >
-        {!busy && (mode === 'people' || owner) && resultCount > 0 && label(heading)}
+        {!busy && (mode === 'people' || owner) && resultCount > 0 && <GroupLabel text={heading} />}
         {!busy &&
           mode === 'people' &&
           results.people.map((person, index) => (
@@ -222,9 +226,13 @@ export function SearchResults({
             />
           ))}
         {!busy && mode === 'sessions' && owner && sessions.ordered.map(sessionRow)}
-        {!busy && mode === 'sessions' && !owner && sessions.chats.length > 0 && label(t('Bots'))}
+        {!busy && mode === 'sessions' && !owner && sessions.chats.length > 0 && (
+          <GroupLabel text={t('Bots')} />
+        )}
         {!busy && mode === 'sessions' && !owner && sessions.chats.map(sessionRow)}
-        {!busy && mode === 'sessions' && !owner && sessions.tasks.length > 0 && label(t('Tasks'))}
+        {!busy && mode === 'sessions' && !owner && sessions.tasks.length > 0 && (
+          <GroupLabel text={t('Tasks')} />
+        )}
         {!busy &&
           mode === 'sessions' &&
           !owner &&
