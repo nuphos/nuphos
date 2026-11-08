@@ -22,6 +22,7 @@ import {
   selectScope,
   teamScopeOf,
 } from './store/workspaceState'
+import { useTaskBecameBot } from './taskBecameBot'
 import { GLIDE, usePaneDropPreview } from './usePaneDropPreview'
 import { usePaneFocusTracking } from './usePaneFocusTracking'
 import { useWindowRestore } from './useWindowRestore'
@@ -146,6 +147,7 @@ export function WorkspaceSplits({
     return () => window.removeEventListener('keydown', onKeyDown, true)
   }, [split])
 
+  useTaskBecameBot(stores)
   usePaneFocusTracking(focusSurfaces, setActiveId)
 
   const rects = paneRects(layout)
