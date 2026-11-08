@@ -11,7 +11,9 @@ import { nuphosReplyImages, nuphosUploadReplyImages } from './reply-images.mjs'
 // Never fatal. A runtime with no bundle, an unreachable backend or a wedged fetch must
 // still hold a conversation — skills are an enrichment, not a precondition. The script
 // allows itself two minutes, which is far longer than a session/new may block, so the
-// timeout here is the real budget and the kill is what enforces it.
+// timeout here is the real budget and the kill is what enforces it. A tree that is
+// already on disk is waited for only briefly, so a slow fetch cannot hold the first
+// turn of a conversation whose skills have not changed.
 export async function nuphosSyncRuntimeSkills(params, run) {
   const env =
     params?._meta?.claudeCode?.options?.env ??
@@ -24,6 +26,8 @@ export async function nuphosSyncRuntimeSkills(params, run) {
   // Both or nothing: a managed pod carries neither and must not be touched.
   if (typeof url !== 'string' || typeof token !== 'string' || !url || !token) return false
   const { spawn } = await import('node:child_process')
+  const path = await import('node:path')
+  const fs = await import('node:fs/promises')
   const sync = (extra, timeoutMs = run?.timeoutMs ?? 20_000) =>
     new Promise((resolve) => {
       const child = spawn(run?.script ?? '/usr/local/bin/nuphos-sync-skills', {
@@ -68,6 +72,42 @@ export async function nuphosSyncRuntimeSkills(params, run) {
         resolve(code === 0)
       })
     })
+
+  // A bundle already on disk is a usable tree exactly as it is: the sync answering
+  // "unchanged" (304) has nothing to install. So it is held up only long enough for a
+  // real change to arrive — one still running past that keeps going and installs for
+  // the next session. With no tree at all the session waits for the whole budget,
+  // because that fetch is the only thing that will install one. `/workspace` is the
+  // image's own workspace: the fetch is handed none at all, so this is the only tree
+  // it can write to, and no session can choose it.
+  const claude = path.join(run?.env?.NUPHOS_RUNTIME_WORKSPACE ?? '/workspace', '.claude')
+  const present = (target) =>
+    fs.access(target).then(
+      () => true,
+      () => false,
+    )
+  const hasBundle =
+    (await present(path.join(claude, 'skills'))) &&
+    (await present(path.join(claude, '.skills-revision')))
+  // A backend answering in its usual 130–370 ms still lands inside this; one that
+  // stalls must not spend the session budget doing nothing.
+  const graceMs = run?.graceMs ?? 2_000
+  const teamSync = sync()
+  const settleTeam = async () => {
+    const team = hasBundle
+      ? await Promise.race([
+          teamSync,
+          new Promise((resolve) => setTimeout(() => resolve(undefined), graceMs).unref?.()),
+        ])
+      : await teamSync
+    // Past the grace the session has moved on, so nothing else would see a failure.
+    if (team === undefined)
+      void teamSync.then((ok) => {
+        if (!ok) process.stderr.write('runtime skills sync failed after the session started\n')
+      })
+
+    return team
+  }
   // The owner's personal skills go to this conversation's own home and are offered to
   // Claude Code as an additional directory, so no other conversation on the runtime
   // loads them. The home is derived from the conversation id, never taken from the
@@ -78,9 +118,7 @@ export async function nuphosSyncRuntimeSkills(params, run) {
     : (run?.sessionHome ??
       (typeof nuphosSessionHomeEnv === 'function' ? nuphosSessionHomeEnv(env).HOME : undefined))
 
-  if (!home) return sync()
-  const path = await import('node:path')
-  const fs = await import('node:fs/promises')
+  if (!home) return settleTeam()
   const personal = path.join(home, 'personal-skills')
   const skills = path.join(personal, '.claude', 'skills')
   // Whose personal skills, if anyone's, can change between the turns of a live session.
@@ -174,7 +212,9 @@ export async function nuphosSyncRuntimeSkills(params, run) {
         await agent.setSessionConfigOption({ sessionId: id, configId, value }).catch(() => {})
     }
   }
-  const [team] = await Promise.all([sync(), syncPersonal()])
+  const personalSync = syncPersonal()
+  const team = await settleTeam()
+  await personalSync
 
   // Present even when empty, so a skill synced for a later turn is picked up.
   await fs.mkdir(skills, { recursive: true })
