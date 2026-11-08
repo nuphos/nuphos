@@ -2,9 +2,9 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { parseSecretRequest } from './connectCardModel.ts'
-import { openQuestionParts } from './openQuestionParts.ts'
+import { openQuestionParts, withoutQuestionRows } from './openQuestionParts.ts'
 import { INTERRUPTED_TOOL_MESSAGE } from './toolInterruption.ts'
-import { isDecisionCardPart } from './toolRuns.ts'
+import { isDecisionCardPart, isPlainToolPart } from './toolRuns.ts'
 
 import type { Message } from './model.ts'
 import type { Part } from './parts.ts'
@@ -24,6 +24,19 @@ function stored(toolCallId: string, input?: Record<string, unknown>): Message {
 }
 
 const shipIt: ReplyQuestion = { id: 'q1', question: 'Ship it?', options: ['Ship', 'Wait'] }
+
+/** A question the turn ended before answering, as the transcript kept it: a row. */
+function interrupted(toolCallId: string, errorText = INTERRUPTED_TOOL_MESSAGE): Message {
+  const part: Part = {
+    type: 'tool',
+    toolName: 'request_user_decision',
+    toolCallId,
+    state: 'output-error',
+    errorText,
+  }
+
+  return { id: 'm2', role: 'assistant', parts: [part] }
+}
 
 test('an open question the transcript kept no card for is drawn as its own card', () => {
   // The stored call kept no readable input, so the transcript can only show it
@@ -75,19 +88,34 @@ test('only the open questions its transcript cannot draw are added', () => {
   assert.deepEqual(openQuestionParts([drawn], []), [])
   // So does a call the turn cut short before it was answered, once the record
   // no longer holds it open: its interrupted row is left as it is.
-  const cutShort: Message = {
-    id: 'm2',
-    role: 'assistant',
-    parts: [
-      {
-        type: 'tool',
-        toolName: 'request_user_decision',
-        toolCallId: 'q3',
-        state: 'output-error',
-        errorText: INTERRUPTED_TOOL_MESSAGE,
-      },
-    ],
-  }
+  assert.deepEqual(openQuestionParts([interrupted('q3')], []), [])
+})
 
-  assert.deepEqual(openQuestionParts([cutShort], []), [])
+test('an interrupted question row is hidden while its card is shown', () => {
+  const message = interrupted('q1')
+
+  // The record still holds the question, so the card says it ...
+  assert.equal(openQuestionParts([message], [shipIt]).length, 1)
+  // ... and the interrupted row beside it is no longer drawn as a tool row.
+  assert.equal(withoutQuestionRows(message.parts, [shipIt]).some(isPlainToolPart), false)
+})
+
+test('an interrupted row with no open question stays', () => {
+  const [noRecord] = withoutQuestionRows(interrupted('q1').parts, [])
+
+  assert.equal(isPlainToolPart(noRecord), true)
+  // An open question it does not ask does not hide it either.
+  const [other] = withoutQuestionRows(interrupted('q1').parts, [
+    { id: 'q2', question: 'Which branch?', options: ['main'] },
+  ])
+
+  assert.equal(isPlainToolPart(other), true)
+})
+
+test('a genuinely failed call keeps its row', () => {
+  const failed = interrupted('q1', 'Invalid input')
+  const [part] = withoutQuestionRows(failed.parts, [shipIt])
+
+  assert.equal(part, failed.parts[0])
+  assert.equal(isPlainToolPart(part), true)
 })

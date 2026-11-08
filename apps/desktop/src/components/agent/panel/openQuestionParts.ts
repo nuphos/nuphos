@@ -5,10 +5,10 @@ import {
   parseSecretRequest,
 } from './connectCardModel.ts'
 import { matchInputRequest } from './replyTarget.ts'
-import { isDecisionCardPart } from './toolRuns.ts'
+import { isDecisionCardPart, isDecisionFailed } from './toolRuns.ts'
 
 import type { Message } from './model.ts'
-import type { ToolPart } from './parts.ts'
+import type { Part, ToolPart } from './parts.ts'
 import type { DecisionCardRef, ReplyQuestion } from './replyTarget.ts'
 
 /** The card a stored call shows, to find the open request it already answers. */
@@ -69,4 +69,36 @@ export function openQuestionParts(
     .filter((question) => !shown.has(question.id))
     .map(questionPart)
     .filter(isDecisionCardPart)
+}
+
+/**
+ * The interrupted row a drawn card makes redundant: a question call the turn
+ * ended before answering, whose input the transcript could not read, so it would
+ * only say "interrupted" beside the card. A readable call is a card already, and
+ * a real failure is no open question — both keep whatever they render today.
+ */
+function isRedundantQuestionRow(part: Part, open: readonly ReplyQuestion[]): boolean {
+  if (part.type !== 'tool' || part.toolName !== 'request_user_decision') return false
+  if (part.state !== 'output-error' || isDecisionCardPart(part) || isDecisionFailed(part)) {
+    return false
+  }
+
+  return matchInputRequest(cardRef(part), open) !== undefined
+}
+
+/**
+ * The message's parts without the interrupted question rows a drawn card makes
+ * redundant, so a question has one UI. A hidden row becomes a step boundary —
+ * the transcript's own no-op part — so every index stays as it was for the fold,
+ * the recall lead and the tool anchors.
+ */
+export function withoutQuestionRows(
+  parts: Part[],
+  open: readonly ReplyQuestion[] | undefined,
+): Part[] {
+  if (!open || open.length === 0) return parts
+
+  return parts.map((part): Part =>
+    isRedundantQuestionRow(part, open) ? { type: 'step-start' } : part,
+  )
 }
