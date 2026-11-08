@@ -39,8 +39,9 @@ final class VoiceInputUITests: XCTestCase {
 
         startRecording(app, mic: mic, stop: send)
         send.tap()
-        let posted = app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Ship it Ship it'")).firstMatch
-        XCTAssertTrue(posted.waitForExistence(timeout: 10), "Send did not post the transcription")
+        // Sent, the take ends and the draft it was added to is gone.
+        XCTAssertTrue(mic.waitForExistence(timeout: 10), "Send did not end voice input")
+        XCTAssertFalse(input.exists, "Send left the transcription in the input")
     }
 
     /// Taps the microphone and waits until `ready` takes taps; the first
