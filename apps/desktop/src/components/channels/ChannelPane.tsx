@@ -35,6 +35,8 @@ export function ChannelPane({
   user,
   dockOpen,
   grip,
+  titlebarLeading,
+  titlebarClassName,
   onOpenSession,
   onOpenNuphosLink,
 }: {
@@ -43,6 +45,10 @@ export function ChannelPane({
   user: UserInfo
   dockOpen: boolean
   grip?: ReactNode
+  /** Leads the header; the sidebar's toggle once this pane holds the window's corner. */
+  titlebarLeading?: ReactNode
+  /** Extra header classes, such as the corner clearance for the traffic lights. */
+  titlebarClassName?: string
   onOpenSession: (sessionId: string) => void
   /** Opens a Nuphos link in the app, as a conversation's messages do. */
   onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
@@ -128,9 +134,11 @@ export function ChannelPane({
       <div
         className={clsx(
           'workspace-agent-titlebar sheet-titlebar-row relative flex flex-shrink-0 items-center gap-2 pl-3',
+          titlebarClassName,
           dockOpen ? 'pr-3' : 'pr-12',
         )}
       >
+        {titlebarLeading}
         <div className="titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 overflow-hidden text-[13px] font-medium text-secondary">
           <ChatIcon faces={detail?.faces} title={title} size={22} />
           <span className="truncate text-main">{title}</span>
