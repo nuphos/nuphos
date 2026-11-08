@@ -25,6 +25,11 @@ struct RuntimeObservationTests {
         precondition(answering.typing(in: "chat-a"))
         precondition(!answering.typing(in: "chat-b"))
         precondition(!snapshot(#"{"schemaVersion":2,"epoch":"a","revision":5,"state":"active","phase":"working","channelIds":[]}"#, at: 100).typing(in: "chat-a"))
+        // A desktop opens where the runtime says it can, or already shows one; not otherwise.
+        precondition(snapshot(#"{"schemaVersion":2,"state":"idle","canOpenDesktop":true}"#, at: 100).canOpenDesktop)
+        precondition(snapshot(#"{"schemaVersion":2,"state":"idle","tools":[{"kind":"desktop"}]}"#, at: 100).canOpenDesktop)
+        precondition(!snapshot(#"{"schemaVersion":2,"state":"idle","tools":[{"kind":"browser"}]}"#, at: 100).canOpenDesktop)
+        precondition(!working.canOpenDesktop)
         // A backend that names no chats: no dots rather than false ones.
         precondition(!working.typing(in: "chat-a"))
         precondition(!snapshot(#"{"schemaVersion":2,"epoch":"a","revision":6,"state":"idle","phase":"idle","channelIds":["chat-a"]}"#, at: 100).typing(in: "chat-a"))

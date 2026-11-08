@@ -16,6 +16,11 @@ struct RuntimeObservation: Equatable, Sendable {
         snapshot["schemaVersion"]?.numberValue == 2 && snapshot["actions"]?[action]?.boolValue == true
     }
     var executing: Bool { snapshot["state"]?.stringValue == "active" }
+    /// The runtime is a Box or a Mac that says it can show its desktop, or already shows one.
+    var canOpenDesktop: Bool {
+        snapshot["canOpenDesktop"]?.boolValue == true
+            || snapshot["tools"]?.arrayValue?.contains { $0["kind"]?.stringValue == "desktop" } == true
+    }
     /// A user-visible turn, including a queued or running automatic continuation.
     var turnActive: Bool { executing && phase != "resume_disconnected" }
     /// Desktop's `runtimeTypingIn`: the turn answers this chat, because the chat's

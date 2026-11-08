@@ -16,6 +16,16 @@ struct ChannelView: View {
     /// The post a quote was tapped for: scrolled to and flashed.
     @State private var jump: TranscriptJump?
     @State private var flashed: String?
+    /// The Bot's desktop, opened from the header as its Task page opens it.
+    @State private var desktop: DesktopSession?
+
+    /// The Bot this is the 1:1 chat of, when its owner can open its desktop now.
+    private var desktopBot: String? {
+        guard let bot = channel.faces.botId,
+              store.conversations.first(where: { $0.sessionId == bot })?.ownsChat == true,
+              RuntimeObservations.shared.value(team: channel.teamId, session: bot)?.canOpenDesktop == true else { return nil }
+        return bot
+    }
 
     private var rows: [ChatRow] {
         ChannelPost.items(posts: channel.posts, events: channel.events, typing: typing)
@@ -56,7 +66,19 @@ struct ChannelView: View {
                             .lineLimit(1)
                     }
                 }
+                if let bot = desktopBot {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            desktop = DesktopSession(teamId: channel.teamId, sessionId: bot, token: store.token)
+                        } label: {
+                            Image(systemName: "display")
+                        }
+                        .accessibilityLabel("Desktop")
+                        .accessibilityIdentifier("chat.desktop")
+                    }
+                }
             }
+            .desktop($desktop)
             .onAppear {
                 Analytics.shared.screen("channel", teamID: channel.teamId)
                 if draft.isEmpty { draft = ComposerDrafts.text(team: channel.teamId, session: channel.channelId) }
