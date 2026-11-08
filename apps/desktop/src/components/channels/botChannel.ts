@@ -1,13 +1,14 @@
 import { api } from '../../api'
+import { TASK_BECAME_BOT } from '../../app/workspace/taskBecameBot'
 import { t } from '../../i18n'
 import { pickAgentAvatar } from '../../lib/agentAvatarChoices'
-import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { botAvatarName, derivedBotAvatar } from '../../lib/botAvatars'
 import { toast } from '../ui/toast'
 
 import { markChannel } from './channelKind'
 
 import type { ChannelFace } from '../../api'
+import type { TaskBecameBot } from '../../app/workspace/taskBecameBot'
 
 /** A Bot's chat is a channel whose one other member is the Bot: its face and name. */
 export function botOfChannel(faces: ChannelFace[] | undefined): string | undefined {
@@ -47,14 +48,12 @@ export function openBotChannel(teamId: string, botId: string, open: (key: string
   )
 }
 
-/** "Make this a Bot": the Bot gets its chat at once, opened like "+" opens a new one. */
-export async function openNewBotChat(teamId: string, botId: string) {
-  const channelId = await createBotChannel(teamId, botId)
-  const { href } = pageLocationForNavigation(
-    emptyNavigation({ kind: 'team', teamId }, 'team.agent', { agentSessionId: channelId }),
-  )
+/** "Make this a Bot": the Bot gets its chat at once, in the panes that showed the Task. */
+async function openNewBotChat(teamId: string, botId: string) {
+  const chatId = await createBotChannel(teamId, botId)
+  const detail: TaskBecameBot = { taskId: botId, chatId, teamId }
 
-  window.dispatchEvent(new CustomEvent('nuphos:open-in-app', { detail: href }))
+  window.dispatchEvent(new CustomEvent(TASK_BECAME_BOT, { detail }))
 }
 
 /**
