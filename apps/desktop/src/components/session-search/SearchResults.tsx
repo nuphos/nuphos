@@ -9,8 +9,9 @@ import { Avatar } from '../Avatar'
 import { ChatIcon } from '../channels/channelParts'
 
 import { PaletteCommandRows } from './PaletteCommandRows'
-import { GroupLabel, kindOf, metaFor, ResultSkeleton, trackOpened } from './searchResultParts'
 import { matchPaletteCommands } from './paletteCommands'
+import { kindOf, metaFor, trackOpened } from './searchResultMeta'
+import { GroupLabel, ResultSkeleton } from './searchResultParts'
 import { SearchResultRow } from './SearchResultRow'
 import { useSearchResults } from './useSearchResults'
 
