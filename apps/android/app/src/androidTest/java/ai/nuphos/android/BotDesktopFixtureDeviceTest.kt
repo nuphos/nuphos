@@ -89,6 +89,8 @@ class BotDesktopFixtureDeviceTest {
                 ofBot != null -> bot(ofBot)
                 path.endsWith("/agents") -> bots.entries.first { path.contains("/${it.key}/") }.value
                     .let { """{"agents":[{"sessionId":"${it.id}","title":"${it.title}","ownerId":"viewer"}]}""" }
+                path.endsWith("/ai-consent") -> """{"version":"${ai.nuphos.android.data.AccountApi.AI_CONSENT_VERSION}","accepted":true}"""
+                path.endsWith("/auth/me") -> """{"id":"viewer","email":"viewer@example.com","name":"Preview User"}"""
                 path.endsWith("/agent/conversations") -> """{"conversations":[],"hasMore":false}"""
                 path.endsWith("/read") -> """{"activitySeq":2,"readSeq":2,"unread":false}"""
                 else -> "{}"
@@ -102,10 +104,11 @@ class BotDesktopFixtureDeviceTest {
             override fun getSharedPreferences(name: String, mode: Int) = super.getSharedPreferences("bot_desktop_fixture_$name", mode)
         }
         tokens = TokenStore(authContext)
+        tokens.write(token)
         inst.runOnMainSync {
             savedAccess = access().value
-            auth = AuthSession(app, tokens); auth.signOut()
-            AiAccess.activate(token); AiAccess.grant(token)
+            // Signed in as the Bot's owner, through the app's own restore, since the viewer needs a user.
+            auth = AuthSession(app, tokens); auth.restore()
             store = AgentStore(token, context)
             store.acceptMemberships(listOf(team), team.id)
         }
@@ -122,6 +125,7 @@ class BotDesktopFixtureDeviceTest {
     }
 
     private fun render(chatId: String) {
+        compose.waitUntil(5_000) { auth.user != null && auth.aiAllowed }
         compose.setContent {
             NuphosTheme(darkTheme = false) {
                 CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
