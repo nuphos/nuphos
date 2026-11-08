@@ -102,9 +102,15 @@ export async function nuphosSyncRuntimeSkills(params, run) {
       : await teamSync
     // Past the grace the session has moved on, so nothing else would see a failure.
     if (team === undefined)
-      void teamSync.then((ok) => {
-        if (!ok) process.stderr.write('runtime skills sync failed after the session started\n')
-      })
+      void teamSync
+        .then((ok) => {
+          if (!ok) process.stderr.write('runtime skills sync failed after the session started\n')
+        })
+        .catch((error) => {
+          process.stderr.write(
+            `runtime skills sync failed after the session started: ${error?.message ?? error}\n`,
+          )
+        })
 
     return team
   }
@@ -212,9 +218,7 @@ export async function nuphosSyncRuntimeSkills(params, run) {
         await agent.setSessionConfigOption({ sessionId: id, configId, value }).catch(() => {})
     }
   }
-  const personalSync = syncPersonal()
-  const team = await settleTeam()
-  await personalSync
+  const [team] = await Promise.all([settleTeam(), syncPersonal()])
 
   // Present even when empty, so a skill synced for a later turn is picked up.
   await fs.mkdir(skills, { recursive: true })
