@@ -22,7 +22,9 @@ const PROFILE: Record<GoogleProvider, { tool: string; email: (data: unknown) => 
   },
 }
 
-// Permanent mail deletion, which the team-client grant's gmail.modify scope cannot do either.
+// The same reach as a team-client grant. Its gmail.modify scope cannot permanently delete
+// mail, so those tools are refused. Its Drive scope is full `drive`, which can delete files
+// and empty the trash, so Drive keeps those tools.
 const BLOCKED = new Set([
   'GMAIL_DELETE_MESSAGE',
   'GMAIL_DELETE_THREAD',

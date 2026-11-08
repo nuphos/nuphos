@@ -756,6 +756,7 @@
   "POST /teams/:teamId/cloudflare-accounts/:accountId/zones/:zoneId/dns-records": "admin",
   "POST /teams/:teamId/cloudflare-accounts/start-oauth": "admin",
   "POST /teams/:teamId/codex-runtimes": "admin",
+  "POST /teams/:teamId/composio/execute": "member",
   "POST /teams/:teamId/connector-oauth/:state/complete": "member",
   "POST /teams/:teamId/cost-dashboards": "editor",
   "POST /teams/:teamId/cost-dashboards/:dashboardId/panels": "editor",
