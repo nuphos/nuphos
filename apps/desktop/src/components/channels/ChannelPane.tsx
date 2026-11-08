@@ -1,18 +1,23 @@
 import { clsx } from 'clsx'
-import { CornerUpLeft, X } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { CornerUpLeft, Monitor, X } from 'lucide-react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { api } from '../../api'
+import { openSessionDesktop } from '../../app/workspace/openSessionDesktop'
 import { t } from '../../i18n'
+import { runtimeStateOf, subscribeRuntimeStates } from '../../lib/agentRuntimeStates'
+import { forgetSessionDesktops, publishSessionDesktops } from '../../lib/sessionDesktops'
 import { makeAttachmentTurn } from '../agent/panel/attachments'
 import { Composer } from '../agent/panel/Composer'
 import { composerDraftKey } from '../agent/panel/composerDrafts'
 import { FileDropZone } from '../agent/panel/FileDropZone'
+import { sessionDesktopsOf } from '../agent/panel/shells'
 import { useConversationRead } from '../agent/panel/useConversationRead'
 import { SessionParticipants } from '../agent/SessionParticipants'
 import { IconButton } from '../ui/icon-button'
 import { toast } from '../ui/toast'
 
+import { botOfChannel } from './botChannel'
 import { ChannelMessages } from './ChannelMessages'
 import { ChatIcon } from './channelParts'
 import { sendingPost, stillSending } from './sendingPosts'
@@ -70,6 +75,24 @@ export function ChannelPane({
   // Files dropped anywhere on the chat go to its composer, as in a conversation.
   const dropRef = useRef<((dt: DataTransfer) => void) | null>(null)
   const title = detail?.title ?? ''
+  // A Bot's chat opens the Bot's desktop in this chat's dock, as its Task page's dock does.
+  const bot = botOfChannel(detail?.faces)
+  const botState = useSyncExternalStore(subscribeRuntimeStates, () => runtimeStateOf(bot))
+  const botOwned = agents.some((agent) => agent.sessionId === bot && agent.ownerId === user.id)
+  const canOpenBotDesktop =
+    bot !== undefined &&
+    sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !botOwned }).canOpen
+
+  // Published as the Bot's Task page publishes it, with this chat's dock holding its tabs.
+  useEffect(() => {
+    if (!bot) return
+    publishSessionDesktops(bot, {
+      ...sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !botOwned }),
+      dock: channelId,
+    })
+
+    return () => forgetSessionDesktops(bot, channelId)
+  }, [bot, teamId, botState, botOwned, channelId])
   const stored = detail?.messages ?? []
   const pending = stillSending(stored, sending)
 
@@ -143,6 +166,17 @@ export function ChannelPane({
           <ChatIcon faces={detail?.faces} title={title} size={22} />
           <span className="truncate text-main">{title}</span>
         </div>
+        {bot && canOpenBotDesktop && (
+          <IconButton
+            label={t('Desktop')}
+            icon={<Monitor />}
+            onClick={() => {
+              openSessionDesktop(teamId, bot, api.openSessionDesktop).catch((error: unknown) =>
+                toast.apiError(t('Could not open the desktop'), error),
+              )
+            }}
+          />
+        )}
         <SessionParticipants
           key={channelId}
           sessionId={channelId}

@@ -37,7 +37,7 @@ test('opens a tab for the desktop asked for when it has none, and closes the one
   )
 
   assert.deepEqual(plan, {
-    open: [{ sessionId: 's1', teamId: 't', display: 4 }],
+    open: [{ sessionId: 's1', teamId: 't', display: 4, dock: 's1' }],
     close: [desktopTabId('s1', 3), desktopTabId('s2', 2)],
   })
   // One whose session is not published has no team to open it in.

@@ -25,14 +25,14 @@ export function syncDesktopTabs(store: WorkspaceStore): void {
   )
 
   for (const tabId of plan.close) store.actions.closeTab(tabId)
-  for (const { sessionId, teamId, display } of plan.open) {
+  for (const { sessionId, teamId, display, dock } of plan.open) {
     const navigation = emptyNavigation({ kind: 'team', teamId }, 'team.desktop', {
       filter: String(display),
     })
 
     store.dispatch({
       type: 'openTab',
-      sessionKey: sessionId,
+      sessionKey: dock,
       tab: {
         ...createWorkspaceTabFromNavigation(navigation),
         id: desktopTabId(sessionId, display),
@@ -43,7 +43,7 @@ export function syncDesktopTabs(store: WorkspaceStore): void {
   if (focus)
     store.dispatch({
       type: 'activateTab',
-      sessionKey: focus.sessionId,
+      sessionKey: readSessionDesktops().get(focus.sessionId)?.dock ?? focus.sessionId,
       tabId: desktopTabId(focus.sessionId, focus.display),
     })
 }

@@ -5,8 +5,16 @@
 
 /** `title` names the machine and the display, e.g. "Box 1 · :3"; `deviceId` is that machine. */
 export type SessionDesktop = { display: number; title: string; deviceId?: string }
-/** `canOpen`: the owner may open one by hand, its Box running a desktop pool or the session holding one. */
-export type SessionDesktops = { teamId: string; desktops: SessionDesktop[]; canOpen?: boolean }
+/**
+ * `canOpen`: the owner may open one by hand, its Box running a desktop pool or the session holding one.
+ * `dock`: the session whose dock shows these desktops' tabs, if not this one's: a Bot's chat.
+ */
+export type SessionDesktops = {
+  teamId: string
+  desktops: SessionDesktop[]
+  canOpen?: boolean
+  dock?: string
+}
 
 const DESKTOP_PAGE = 'team.desktop'
 const bySession = new Map<string, SessionDesktops>()
@@ -28,13 +36,20 @@ export function publishSessionDesktops(sessionId: string, desktops: SessionDeskt
   const same = desktops
     ? before?.teamId === desktops.teamId &&
       JSON.stringify(before.desktops) === JSON.stringify(desktops.desktops) &&
-      before.canOpen === desktops.canOpen
+      before.canOpen === desktops.canOpen &&
+      before.dock === desktops.dock
     : !before
 
   if (same) return
   if (desktops) bySession.set(sessionId, desktops)
   else bySession.delete(sessionId)
   for (const notify of listeners) notify()
+}
+
+/** Forgets what `dock` published, leaving another view's publication of the same session alone. */
+export function forgetSessionDesktops(sessionId: string, dock = sessionId): void {
+  if ((bySession.get(sessionId)?.dock ?? sessionId) === dock)
+    publishSessionDesktops(sessionId, null)
 }
 
 /** Brings a session's desktop tab to the front, in whichever workspace holds it. */
@@ -71,7 +86,7 @@ export function sessionDesktopTitle(sessionId: string, display: number): string 
 }
 
 export type DesktopTabPlan = {
-  open: { sessionId: string; teamId: string; display: number }[]
+  open: { sessionId: string; teamId: string; display: number; dock: string }[]
   close: string[]
 }
 
@@ -83,8 +98,8 @@ export function planDesktopTabs(
 ): DesktopTabPlan {
   const plan: DesktopTabPlan = { open: [], close: [] }
 
-  for (const [sessionId, { desktops }] of sessions) {
-    const tabs = tabsOf(sessionId)
+  for (const [sessionId, { desktops, dock = sessionId }] of sessions) {
+    const tabs = tabsOf(dock)
     const displays = desktops.map((desktop) => desktop.display)
     const wanted = new Set(displays.map((display) => desktopTabId(sessionId, display)))
 
@@ -99,11 +114,12 @@ export function planDesktopTabs(
   }
   if (asked) {
     const { sessionId, display } = asked
-    const teamId = sessions.get(sessionId)?.teamId
+    const known = sessions.get(sessionId)
+    const dock = known?.dock ?? sessionId
     const id = desktopTabId(sessionId, display)
 
-    if (teamId && !tabsOf(sessionId).some((tab) => tab.id === id))
-      plan.open.push({ sessionId, teamId, display })
+    if (known && !tabsOf(dock).some((tab) => tab.id === id))
+      plan.open.push({ sessionId, teamId: known.teamId, display, dock })
   }
 
   return plan

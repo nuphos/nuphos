@@ -1,6 +1,10 @@
 import { useEffect } from 'react'
 
-import { focusSessionDesktop, publishSessionDesktops } from '../../../lib/sessionDesktops.ts'
+import {
+  focusSessionDesktop,
+  forgetSessionDesktops,
+  publishSessionDesktops,
+} from '../../../lib/sessionDesktops.ts'
 
 import { desktopsFromRuntimeState, sessionDesktopsOf } from './shells.ts'
 
@@ -46,7 +50,7 @@ export function useSessionDesktops(tab: Tab, teamId: string | undefined): void {
     if (teamId)
       publishSessionDesktops(sessionId, sessionDesktopsOf(teamId, { runtimeState, foreign }))
   }, [sessionId, teamId, runtimeState, foreign])
-  useEffect(() => () => publishSessionDesktops(sessionId, null), [sessionId])
+  useEffect(() => () => forgetSessionDesktops(sessionId), [sessionId])
   useEffect(() => {
     surfaceAgentDesktop({ sessionId, messages, streaming, runtimeState, foreign })
   }, [sessionId, messages, streaming, runtimeState, foreign])
