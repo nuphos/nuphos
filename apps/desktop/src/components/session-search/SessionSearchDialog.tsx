@@ -52,7 +52,9 @@ export function SessionSearchDialog({
   // Closing hands focus back to where it was, but not to the Search button
   // (its ring and tooltip would light up) and not once a result took the user elsewhere.
   const [focusedBefore] = useState(() =>
-    document.activeElement instanceof HTMLElement ? document.activeElement : null,
+    document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+      ? document.activeElement
+      : null,
   )
   const navigated = useRef(false)
   const finalFocus = () =>
