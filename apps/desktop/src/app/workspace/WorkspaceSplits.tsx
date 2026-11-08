@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { isMac } from '../../lib/platform'
 import { readLocalStorage, writeLocalStorage } from '../localStorage'
 
+import { useOpenInApp } from './openInApp'
 import { closeOtherPanes, handOverPane } from './paneClose'
 import { createSidebarSlot } from './sidebarSlot'
 import { SidebarSlotHost } from './SidebarSlotHost'
@@ -22,7 +23,6 @@ import {
   selectScope,
   teamScopeOf,
 } from './store/workspaceState'
-import { useTaskBecameBot } from './taskBecameBot'
 import { GLIDE, usePaneDropPreview } from './usePaneDropPreview'
 import { usePaneFocusTracking } from './usePaneFocusTracking'
 import { useWindowRestore } from './useWindowRestore'
@@ -147,7 +147,8 @@ export function WorkspaceSplits({
     return () => window.removeEventListener('keydown', onKeyDown, true)
   }, [split])
 
-  useTaskBecameBot(stores)
+  const registerLinkOpener = useOpenInApp(activeId)
+
   usePaneFocusTracking(focusSurfaces, setActiveId)
 
   const rects = paneRects(layout)
@@ -238,6 +239,7 @@ export function WorkspaceSplits({
                 sidebar,
                 initialState: seeds.get(rect.id),
                 registerStore,
+                registerLinkOpener,
               }}
             >
               <section
