@@ -12,6 +12,7 @@ import {
   assertRuntimeNotDeleting,
 } from './runtime-portability-store'
 import { storedPick } from './session-config-options'
+import { workspaceDirectory } from './session-context'
 import { previewRuntimeCwd } from './team-openab-runtime'
 
 import type { AcpHttpMcpServer } from './openab-acp-client'
@@ -33,8 +34,13 @@ export async function attachOpenAbSession(
   mcpServers: AcpHttpMcpServer[],
   systemPrompt: string | undefined,
   runtime: OpenAbSessionRuntime | undefined,
-  onResume?: (sessionId: string, defaults: RuntimeDefaults) => void,
-): Promise<{ openabSessionId: string; fresh: boolean; defaults: RuntimeDefaults }> {
+  onResume?: (sessionId: string, defaults: RuntimeDefaults, workingDirectory?: string) => void,
+): Promise<{
+  openabSessionId: string
+  fresh: boolean
+  defaults: RuntimeDefaults
+  workingDirectory?: string
+}> {
   await assertConversationRuntimeAvailable(conversationId)
   await assertRuntimeNotDeleting(teamId, endpoint.runtimeId, endpoint.url)
   const cwd = previewRuntimeCwd(conversationId)
@@ -42,20 +48,17 @@ export async function attachOpenAbSession(
 
   // The settings a session starts with are fixed with its attachment, so any
   // backend replica recreating it later applies the same ones.
-  const defaults =
-    (stored
-      ? storedPick(stored)
-      : (
-          await agentConversations().findOne(
-            { sessionId: conversationId, teamId },
-            { projection: { initialSessionConfig: 1 } },
-          )
-        )?.initialSessionConfig) ?? {}
-  const sessionRuntime = { ...runtime, defaults }
+  const conversation = await agentConversations().findOne(
+    { sessionId: conversationId, teamId },
+    { projection: { initialSessionConfig: 1, workspace: 1 } },
+  )
+  const defaults = (stored ? storedPick(stored) : conversation?.initialSessionConfig) ?? {}
+  const workingDirectory = workspaceDirectory(conversation, endpoint.runtimeId)
+  const sessionRuntime = { ...runtime, defaults, ...(workingDirectory && { workingDirectory }) }
 
   if (stored && sameRuntimeUrl(stored.runtimeUrl, endpoint.url)) {
     // Resuming may immediately replay output, before the RPC response.
-    onResume?.(stored.openabSessionId, defaults)
+    onResume?.(stored.openabSessionId, defaults, workingDirectory)
     const { alive } = await client.loadSession(
       stored.openabSessionId,
       cwd,
@@ -77,7 +80,7 @@ export async function attachOpenAbSession(
       await markConversationWorkLost(conversationId, teamId, 'session_lost')
     }
 
-    return { openabSessionId: stored.openabSessionId, fresh: !alive, defaults }
+    return { openabSessionId: stored.openabSessionId, fresh: !alive, defaults, workingDirectory }
   }
   const openabSessionId = await client.createSession(cwd, mcpServers, systemPrompt, sessionRuntime)
 
@@ -91,5 +94,5 @@ export async function attachOpenAbSession(
     runtimeDefaults: defaults,
   })
 
-  return { openabSessionId, fresh: true, defaults }
+  return { openabSessionId, fresh: true, defaults, workingDirectory }
 }

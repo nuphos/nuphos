@@ -12,6 +12,19 @@ import {
 import { sessionConfigPickSchema } from '@/lib/claude-code-preview/session-config-options'
 import { AppError } from '@/lib/errors'
 
+// POSIX or Windows absolute; the runtime checks the folder itself when it spawns.
+function isFolderWorkspace(value: unknown): value is { kind: 'folder'; path: string } {
+  const { kind, path } = (value ?? {}) as Record<string, unknown>
+
+  return (
+    kind === 'folder' &&
+    typeof path === 'string' &&
+    path.length <= 4096 &&
+    !path.includes('\0') &&
+    /^(\/|[A-Za-z]:[\\/])/.test(path)
+  )
+}
+
 export function validateChatBody(body: AgentChatBody): void {
   // `id` reaches Mongo filters as-is; anything but a string could be an operator.
   if (
@@ -34,6 +47,13 @@ export function validateChatBody(body: AgentChatBody): void {
         'initialSessionConfig holds only model, effort, fast',
       )
     body.initialSessionConfig = pick.data
+  }
+  if (body.workspace !== undefined && !isFolderWorkspace(body.workspace)) {
+    throw new AppError(
+      400,
+      'invalid_request',
+      'workspace must be { kind: "folder", path } with an absolute path',
+    )
   }
   const baseIndex = body.baseIndex ?? 0
 

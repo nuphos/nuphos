@@ -3,6 +3,7 @@
 import { storedPick } from './session-config-options'
 
 import type { TeamSession } from './team-openab-runtime'
+import type { AgentConversation } from '@/lib/agent/db'
 
 // Half the conversation token's TTL: a runtime that ignores per-prompt context
 // still gets a fresh credential through session/resume before the old one expires.
@@ -31,6 +32,16 @@ export function previewSessionPrincipalChanged(
 
 // A turn hands the runtime the conversation's settings as stored now, so a change
 // confirmed after this session opened still reaches a session the runtime recreates.
+/** The task's folder, when it is on the runtime this session runs on. */
+export function workspaceDirectory(
+  conversation: Pick<AgentConversation, 'workspace'> | null | undefined,
+  runtimeId: string | undefined,
+): string | undefined {
+  const workspace = conversation?.workspace
+
+  return workspace && workspace.runtimeId === runtimeId ? workspace.path : undefined
+}
+
 export function turnDefaults(
   session: Pick<TeamSession, 'runtime'>,
   attachment: Parameters<typeof storedPick>[0] | null,

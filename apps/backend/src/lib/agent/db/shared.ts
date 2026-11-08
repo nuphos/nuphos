@@ -62,8 +62,6 @@ export type ConversationPreviewContext = {
   promptSuggestion?: string
 }
 
-export type { ConversationTimelineEvent }
-
 export type AgentConversation = ConversationInputRequests & {
   _id?: ObjectId
   sessionId: string // Frontend-generated UUID
@@ -133,6 +131,8 @@ export type AgentConversation = ConversationInputRequests & {
   /** Model settings picked before a session exists; the runtime applies them
    *  when it creates one. Cleared by a move, since choices are per agent. */
   initialSessionConfig?: RuntimeDefaults
+  /** The project: a folder on this runtime's computer, picked when the task starts and never changed. */
+  workspace?: { kind: 'folder'; path: string; runtimeId: string }
   claudeCodePreviewContext?: ConversationPreviewContext
   // What became of whatever the inner agent process left running — background
   // tasks, monitors, watchers. `session_lost` is a resume answering that the

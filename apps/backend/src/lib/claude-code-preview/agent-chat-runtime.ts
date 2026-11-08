@@ -171,6 +171,8 @@ export async function runClaudeCodePreviewPrompt(args: {
     runtime: {
       ...(args.runtime || principalChanged ? args.runtime : session.runtime),
       defaults: turnDefaults(session, currentAttachment),
+      // Fixed when the session opened; a turn's own runtime context never carries it.
+      workingDirectory: session.runtime?.workingDirectory,
     },
     userId: args.userId,
     conversationOwnerUserId: args.conversationOwnerUserId ?? args.userId,

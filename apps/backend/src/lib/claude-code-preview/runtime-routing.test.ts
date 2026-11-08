@@ -185,6 +185,20 @@ test('Codex ACP metadata carries session context without Claude-specific fields'
   })
 })
 
+test('every agent kind is told the folder its task works in', async () => {
+  const { sessionMeta } = await import('./openab-acp-session')
+
+  for (const provider of ['claude-code', 'codex', 'opencode'] as const)
+    expect(
+      sessionMeta(undefined, { provider, workingDirectory: '/Users/me/infra' })._meta,
+    ).toMatchObject({
+      'dev.openab/workingDir': '/Users/me/infra',
+    })
+  expect(sessionMeta(undefined, { provider: 'codex' })._meta).not.toHaveProperty(
+    'dev.openab/workingDir',
+  )
+})
+
 describe('runtime instance selection', () => {
   test('separate conversations can choose two accounts of the same provider', () => {
     expect(resolveConversationRuntimeId(null, 'codex-a')).toBe('codex-a')

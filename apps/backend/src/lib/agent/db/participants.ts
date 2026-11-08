@@ -1,7 +1,8 @@
 import { agentConversations } from './shared'
 
 import type { GeneralAccess } from './access'
-import type { AgentConversation, ConversationTimelineEvent } from './shared'
+import type { AgentConversation } from './shared'
+import type { ConversationTimelineEvent } from './timeline-events'
 
 /**
  * Append teammates to a conversation's participant list and answer with the
