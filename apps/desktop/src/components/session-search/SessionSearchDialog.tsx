@@ -8,6 +8,8 @@ import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
 import { t } from '../../i18n'
 import { track } from '../../lib/analytics'
 import { useDebouncedValue } from '../agent/panel/historyPageHooks'
+import { Kbd } from '../ui/kbd'
+import { Tooltip } from '../ui/tooltip'
 
 import { SearchResults } from './SearchResults'
 import { takeSearchSource } from './searchSource'
@@ -74,6 +76,12 @@ export function SessionSearchDialog({
 
   useSuspendTitlebarDrag(true)
 
+  function switchMode(next: 'sessions' | 'people') {
+    setMode(next)
+    setQuery('')
+    inputRef.current?.focus()
+  }
+
   function choosePerson(person: TeamMember) {
     setOwner(person)
     setMode('sessions')
@@ -98,6 +106,21 @@ export function SessionSearchDialog({
             initialFocus={inputRef}
             className="flex h-[min(520px,100%)] w-full max-w-[640px] flex-col overflow-hidden rounded-[var(--sheet-radius)] bg-elevated text-main shadow-[var(--sheet-shadow),0_24px_48px_-16px_rgba(0,0,0,0.28)] outline-none transition-[opacity,transform] duration-[var(--modal-open-dur)] ease-[var(--modal-ease)] data-[ending-style]:scale-[var(--modal-scale-close)] data-[ending-style]:opacity-0 data-[ending-style]:duration-[var(--modal-close-dur)] data-[starting-style]:scale-[var(--modal-scale)] data-[starting-style]:opacity-0 motion-reduce:transition-none"
             onKeyDownCapture={(event) => {
+              // Tab switches between agents and people, so the keyboard reaches both.
+              if (event.key === 'Tab' && !event.nativeEvent.isComposing) {
+                event.preventDefault()
+                event.stopPropagation()
+                switchMode(mode === 'people' ? 'sessions' : 'people')
+
+                return
+              }
+              // Backspace in an empty query drops the person filter, as a chip in a search field does.
+              if (event.key === 'Backspace' && !query && owner && mode === 'sessions') {
+                event.preventDefault()
+                setOwner(null)
+
+                return
+              }
               if (event.key === 'Escape' && mode === 'people' && !event.nativeEvent.isComposing) {
                 event.preventDefault()
                 event.stopPropagation()
@@ -141,24 +164,30 @@ export function SessionSearchDialog({
                   <X size={12} className="shrink-0" />
                 </button>
               ) : (
-                <button
-                  type="button"
-                  aria-pressed={mode === 'people'}
-                  onClick={() => {
-                    setMode(mode === 'people' ? 'sessions' : 'people')
-                    setQuery('')
-                    inputRef.current?.focus()
-                  }}
-                  className={clsx(
-                    'flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs focus-visible:outline focus-visible:outline-2',
-                    mode === 'people'
-                      ? 'bg-state-selected text-main'
-                      : 'text-tertiary hover:bg-state-hover hover:text-main',
-                  )}
+                <Tooltip
+                  content={
+                    <span className="inline-flex items-center gap-1.5">
+                      {mode === 'people' ? t('Back to agents') : t('Search people')}{' '}
+                      <Kbd combo="tab" />
+                    </span>
+                  }
                 >
-                  <Users size={14} />
-                  {t('People')}
-                </button>
+                  <button
+                    type="button"
+                    aria-pressed={mode === 'people'}
+                    aria-keyshortcuts="Tab"
+                    onClick={() => switchMode(mode === 'people' ? 'sessions' : 'people')}
+                    className={clsx(
+                      'flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs focus-visible:outline focus-visible:outline-2',
+                      mode === 'people'
+                        ? 'bg-state-selected text-main'
+                        : 'text-tertiary hover:bg-state-hover hover:text-main',
+                    )}
+                  >
+                    <Users size={14} />
+                    {t('People')}
+                  </button>
+                </Tooltip>
               )}
             </div>
             <SearchResults
