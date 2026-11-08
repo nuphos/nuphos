@@ -28,6 +28,8 @@ export type WorkspacePaneValue = {
   sidebar: SidebarSlot
   initialState?: WorkspaceState
   registerStore: (store: WorkspaceStore) => () => void
+  /** How this pane opens a Nuphos link someone outside it asked for; only the focused pane is asked. */
+  registerLinkOpener: (paneId: string, open: (href: string) => unknown) => () => void
 }
 
 export const WorkspacePaneContext = createContext<WorkspacePaneValue | null>(null)

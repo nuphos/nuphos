@@ -75,7 +75,10 @@ export function useWorkspaceLinkOpeners(a: Args) {
     openSettingsSection,
     teams,
   } = a
-  const openSessionBeside = useWorkspacePane()?.openSessionBeside
+  const pane = useWorkspacePane()
+  const openSessionBeside = pane?.openSessionBeside
+  const paneId = pane?.paneId
+  const registerLinkOpener = pane?.registerLinkOpener
 
   const newTab = useCallback(() => {
     const teamId = selectScope(workspaceStore.getState())?.teamId
@@ -193,19 +196,13 @@ export function useWorkspaceLinkOpeners(a: Args) {
       workspaceActions,
       workspaceStore,
     ],
-  ) // Views outside the workspace (Settings) ask for an in-app tab with this event.
+  )
 
-  useEffect(() => {
-    const open = (event: Event) => {
-      const href = (event as CustomEvent<string>).detail
-
-      if (typeof href === 'string') openNuphosLinkInNewTab(href)
-    }
-
-    window.addEventListener('nuphos:open-in-app', open)
-
-    return () => window.removeEventListener('nuphos:open-in-app', open)
-  }, [openNuphosLinkInNewTab])
+  // The window asks only the focused pane to open a link from outside the workspace.
+  useEffect(
+    () => (paneId ? registerLinkOpener?.(paneId, openNuphosLinkInNewTab) : undefined),
+    [openNuphosLinkInNewTab, paneId, registerLinkOpener],
+  )
 
   const openAppOpenDeepLink = useCallback(
     (payload: AppOpenDeepLinkPayload) => {
