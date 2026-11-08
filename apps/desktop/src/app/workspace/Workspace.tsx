@@ -1,10 +1,9 @@
 import { clsx } from 'clsx'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
 import { ChatLinkMenuContext } from '../../components/agent/chatLinkMenuContext'
 import { ConfettiBurst } from '../../components/ConfettiBurst'
 import { PortForwardBottomBar } from '../../components/PortForwardBottomBar'
-import { SessionSearchDialog } from '../../components/session-search/SessionSearchDialog'
 import { ShortcutsHelpModal } from '../../components/ShortcutsHelpModal'
 import { Sidebar } from '../../components/Sidebar'
 import { TeamInvitationsTakeover } from '../../components/TeamInvitationsPanel'
@@ -23,6 +22,7 @@ import { WorkspaceBindDialogs } from './WorkspaceBindDialogs'
 import { WorkspaceDockPanels } from './WorkspaceDockPanels'
 import { WorkspaceMainPane } from './WorkspaceMainPane'
 import { useWorkspacePane } from './WorkspacePaneContext'
+import { WorkspaceSearch } from './WorkspaceSearch'
 import { WorkspaceSessionPane } from './WorkspaceSessionPane'
 import { WorkspaceSplits } from './WorkspaceSplits'
 
@@ -95,19 +95,12 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
     if ((pane?.active ?? true) && searchBlocked) setSessionSearchOpen(false)
   }, [pane?.active, searchBlocked, setSessionSearchOpen])
 
-  // ⌘K stays mounted while it closes, so its closing transition plays like its opening one.
   const searchShown =
     ws.sessionSearchOpen &&
     !settingsOpen &&
     !createOrJoinOpen &&
     !invitationTakeoverOpen &&
     (pane?.active ?? true)
-  const [searchMounted, setSearchMounted] = useState(false)
-
-  useEffect(() => {
-    if (searchShown) setSearchMounted(true)
-  }, [searchShown])
-  const onSearchExited = useCallback(() => setSearchMounted(false), [])
 
   // Full-screen "Create or join team" page (workspace picker). Rendered in the
   // no-scope shell too, where the picker's entry is also reachable.
@@ -284,24 +277,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
           onOpenAuditConversation={openAuditConversation}
         />
       )}
-      {searchMounted && (
-        <SessionSearchDialog
-          key={scope.teamId}
-          open={searchShown}
-          onExited={onSearchExited}
-          teamId={scope.teamId}
-          teamName={ws.currentTeam?.name ?? t('Workspace')}
-          otherTeams={ws.teams.filter((team) => team.id !== scope.teamId)}
-          userId={user.id}
-          onClose={() => ws.setSessionSearchOpen(false)}
-          onCommand={runPaletteCommand}
-          onOpen={(sessionId, beside) => {
-            ws.setSessionSearchOpen(false)
-            if (beside && pane?.openSessionBeside(sessionId, scope.teamId)) return
-            ws.workspaceActions.selectSession(sessionId, { teamId: scope.teamId })
-          }}
-        />
-      )}
+      <WorkspaceSearch ws={ws} userId={user.id} shown={searchShown} onCommand={runPaletteCommand} />
       <ShortcutsHelpModal open={shortcutsHelpOpen} onClose={() => setShortcutsHelpOpen(false)} />
       {createOrJoinOverlay}
       {invitationTakeover}

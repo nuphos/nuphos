@@ -1,16 +1,15 @@
 import { useEffect, useId, useMemo, useState } from 'react'
 
 import { t } from '../../i18n'
-import { track } from '../../lib/analytics'
 import { isMac } from '../../lib/platform'
 import { searchKeyAction } from '../../lib/searchKeyboard'
 import { searchMatch } from '../../lib/searchMatch'
 import { AgentAvatar } from '../agent/AgentAvatar'
-import { relativeTimeFromNow } from '../agent/panel/textUtils'
 import { Avatar } from '../Avatar'
 import { ChatIcon } from '../channels/channelParts'
 
 import { PaletteCommandRows } from './PaletteCommandRows'
+import { GroupLabel, kindOf, metaFor, ResultSkeleton, trackOpened } from './searchResultParts'
 import { matchPaletteCommands } from './paletteCommands'
 import { SearchResultRow } from './SearchResultRow'
 import { useSearchResults } from './useSearchResults'
@@ -20,41 +19,6 @@ import type { TeamMember } from '../../types'
 import type { RefObject } from 'react'
 
 /** When it was opened, and whose it is when it isn't yours. */
-type OpenedKind = 'bot' | 'task' | 'person' | 'command'
-
-/** What a search led to, and whether by mouse or keyboard: keys aren't autocaptured. */
-function trackOpened(
-  kind: OpenedKind,
-  position: number,
-  method: 'mouse' | 'keyboard',
-  query: string,
-) {
-  track('search_result_opened', { kind, position, method, query_length: query.length })
-}
-
-const kindOf = ({ conversation }: SessionResult): OpenedKind =>
-  conversation.kind === 'channel' ? 'bot' : 'task'
-
-function metaFor({ conversation, openedAt }: SessionResult, userId: string) {
-  const time = relativeTimeFromNow(
-    openedAt ? new Date(openedAt).toISOString() : conversation.lastActiveAt,
-  )
-  const owner = conversation.owner
-
-  if (!owner || owner.id === userId) return time
-
-  return `${owner.name || owner.email} · ${time}`
-}
-
-/** A group's name over its rows, as the sidebar titles its groups. */
-function GroupLabel({ text }: { text: string }) {
-  return (
-    <div className="px-2.5 pt-3 pb-1 text-[12.5px] text-tertiary" role="presentation">
-      {text}
-    </div>
-  )
-}
-
 export function SearchResults({
   teamId,
   userId,
@@ -271,17 +235,7 @@ export function SearchResults({
           !owner &&
           sessions.tasks.map((result, index) => sessionRow(result, sessions.chats.length + index))}
       </div>
-      {/* Placeholder rows hold the list's shape while it loads, so nothing jumps. */}
-      {busy && (
-        <div aria-hidden className="space-y-0.5 px-2 pt-3">
-          {[64, 48, 72, 56, 40].map((width) => (
-            <div key={width} className="flex h-10 items-center gap-2.5 px-2.5">
-              <span className="size-6 shrink-0 rounded-md bg-state-hover" />
-              <span className="h-3 rounded bg-state-hover" style={{ width: `${String(width)}%` }} />
-            </div>
-          ))}
-        </div>
-      )}
+      {busy && <ResultSkeleton />}
       <div role="status" className="px-4 text-sm text-secondary">
         {busy && <span className="sr-only">{t('Searching…')}</span>}
         {!busy && !results.error && resultCount === 0 && (

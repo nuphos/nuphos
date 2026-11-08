@@ -6,6 +6,7 @@ import { waitingAccounts } from '../../app/accounts'
 import { signOutLocally } from '../../app/signOutLocally'
 import { t } from '../../i18n'
 import { Avatar } from '../Avatar'
+import { SidebarSearchButton } from '../session-search/SidebarSearchButton'
 import { SkeletonReveal } from '../SkeletonReveal'
 import { Kbd } from '../ui/kbd'
 import { toast } from '../ui/toast'
@@ -18,7 +19,6 @@ import {
   MenuSubmenuTrigger,
   MenuTrigger,
 } from '../ui/menu'
-import { SidebarSearchButton } from '../session-search/SidebarSearchButton'
 import { renderWorkspaceMenuOptions } from '../WorkspaceMenuOptions'
 
 import { SidebarAccountItems } from './account-items'
