@@ -11,7 +11,11 @@ export type SessionDesktops = { teamId: string; desktops: SessionDesktop[]; canO
 const DESKTOP_PAGE = 'team.desktop'
 const bySession = new Map<string, SessionDesktops>()
 const listeners = new Set<() => void>()
-let focus: { sessionId: string; display: number } | null = null
+
+/** `dock`: the session whose dock gets the tab; a Bot's chat shows the Bot's desktop in its own. */
+type DesktopFocus = { sessionId: string; display: number; dock: string }
+
+let focus: DesktopFocus | null = null
 
 export function desktopTabId(sessionId: string, display: number): string {
   return `desktop:${sessionId}:${String(display)}`
@@ -38,14 +42,14 @@ export function publishSessionDesktops(sessionId: string, desktops: SessionDeskt
 }
 
 /** Brings a session's desktop tab to the front, in whichever workspace holds it. */
-export function focusSessionDesktop(sessionId: string, display: number): void {
-  focus = { sessionId, display }
+export function focusSessionDesktop(sessionId: string, display: number, dock = sessionId): void {
+  focus = { sessionId, display, dock }
   for (const notify of listeners) notify()
   focus = null
 }
 
 /** The tab a `focusSessionDesktop` call is bringing forward, only while it notifies. */
-export function readDesktopFocus(): { sessionId: string; display: number } | null {
+export function readDesktopFocus(): DesktopFocus | null {
   return focus
 }
 
@@ -71,7 +75,7 @@ export function sessionDesktopTitle(sessionId: string, display: number): string 
 }
 
 export type DesktopTabPlan = {
-  open: { sessionId: string; teamId: string; display: number }[]
+  open: { sessionId: string; teamId: string; display: number; dock: string }[]
   close: string[]
 }
 
@@ -79,7 +83,7 @@ export type DesktopTabPlan = {
 export function planDesktopTabs(
   sessions: ReadonlyMap<string, SessionDesktops>,
   tabsOf: (sessionId: string) => readonly { id: string; active: string }[],
-  asked: { sessionId: string; display: number } | null,
+  asked: DesktopFocus | null,
 ): DesktopTabPlan {
   const plan: DesktopTabPlan = { open: [], close: [] }
 
@@ -98,12 +102,12 @@ export function planDesktopTabs(
     }
   }
   if (asked) {
-    const { sessionId, display } = asked
+    const { sessionId, display, dock } = asked
     const teamId = sessions.get(sessionId)?.teamId
     const id = desktopTabId(sessionId, display)
 
-    if (teamId && !tabsOf(sessionId).some((tab) => tab.id === id))
-      plan.open.push({ sessionId, teamId, display })
+    if (teamId && !tabsOf(dock).some((tab) => tab.id === id))
+      plan.open.push({ sessionId, teamId, display, dock })
   }
 
   return plan

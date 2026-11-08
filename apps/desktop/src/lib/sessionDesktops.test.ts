@@ -33,15 +33,18 @@ test('opens a tab for the desktop asked for when it has none, and closes the one
       // Not published (its chat is off screen): untouched even though it has a desktop tab.
       s3: [{ id: desktopTabId('s3', 2), active: 'team.desktop' }],
     }),
-    { sessionId: 's1', display: 4 },
+    { sessionId: 's1', display: 4, dock: 's1' },
   )
 
   assert.deepEqual(plan, {
-    open: [{ sessionId: 's1', teamId: 't', display: 4 }],
+    open: [{ sessionId: 's1', teamId: 't', display: 4, dock: 's1' }],
     close: [desktopTabId('s1', 3), desktopTabId('s2', 2)],
   })
   // One whose session is not published has no team to open it in.
-  assert.deepEqual(planDesktopTabs(sessions, tabsOf({}), { sessionId: 's3', display: 7 }).open, [])
+  assert.deepEqual(
+    planDesktopTabs(sessions, tabsOf({}), { sessionId: 's3', display: 7, dock: 's3' }).open,
+    [],
+  )
 })
 
 test('a desktop is labelled with its Box and display from the snapshot', () => {

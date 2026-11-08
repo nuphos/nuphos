@@ -117,3 +117,22 @@ test('opening a desktop by hand claims one display, and a second click focuses i
   publishSessionDesktops('chat', null)
   publishSessionDesktops('plain', null)
 })
+
+test("a Bot's chat opens the Bot's desktop in the chat's own dock", async () => {
+  const store = createWorkspaceStore(createWorkspaceState())
+  const unsubscribe = subscribeSessionDesktops(() => syncDesktopTabs(store))
+
+  store.actions.retainTeams(['team-a'], 'team-a')
+  publishSessionDesktops('bot', { teamId: 'team-a', desktops: [], canOpen: true })
+
+  await openSessionDesktop('team-a', 'bot', () => Promise.resolve({ display: 6 }), 'bot-chat')
+  const dock = selectBucket(store.getState(), 'bot-chat')
+
+  // The tab's id names the Bot, so the viewer streams the Bot's desktop.
+  assert.equal(dock.dockOpen, true)
+  assert.equal(dock.activeTabId, 'desktop:bot:6')
+  assert.deepEqual(selectBucket(store.getState(), 'bot').tabs, [])
+
+  unsubscribe()
+  publishSessionDesktops('bot', null)
+})
