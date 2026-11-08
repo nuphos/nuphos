@@ -7,6 +7,7 @@ import { openBotChannel } from '../channels/botChannel'
 import { SidebarSearchButton } from '../session-search/SidebarSearchButton'
 import { SIDEBAR_PANEL_PADDING_CLASS } from '../SidebarNavItem'
 
+import { useArchiveBotConfirm } from './archive-bot-confirm'
 import { isChatSection, withChatSections, withSectionActions } from './chat-sections'
 import { SidebarHeaderBar, SidebarTeamSwitcher, SidebarUserEntry } from './header'
 import { SidebarHelpMenu } from './help-menu'
@@ -121,7 +122,7 @@ export const Sidebar = memo(function Sidebar({
   })
 
   const [itemMenu, setItemMenu] = useState<ItemMenuRequest | null>(null)
-
+  const archiveBot = useArchiveBotConfirm(archiveChat)
   const renderSections = withChatSections(sections, (botId) =>
     openBotChannel(teamId, botId, onSelect),
   )
@@ -279,6 +280,7 @@ export const Sidebar = memo(function Sidebar({
           onClose={() => setRenameTarget(null)}
         />
       )}
+      {archiveBot.dialog}
       {itemMenu && (
         <SidebarItemContextMenu
           menu={itemMenu}
@@ -288,6 +290,7 @@ export const Sidebar = memo(function Sidebar({
           favoriteMatch={favoriteMatch}
           toggleFavorite={toggleFavorite}
           archiveChat={archiveChat}
+          confirmArchiveBot={archiveBot.confirm}
           unlinkChat={unlinkChat}
           renameChat={(sessionId, title) => setRenameTarget({ sessionId, title })}
         />

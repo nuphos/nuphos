@@ -15,7 +15,7 @@ let updateOne: () => Promise<{ modifiedCount: number }> = () => {
 
 useDb({
   db: (() => ({
-    collection: () => ({ updateOne: () => updateOne() }),
+    collection: () => ({ updateOne: () => updateOne(), findOne: () => Promise.resolve(null) }),
   })) as unknown as typeof dbActual.db,
 })
 

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { useDb } from '@/lib/test/doubles/db'
 import { useTokenRevocation } from '@/lib/test/doubles/token-revocation'
 
-import { setConversationArchived } from './archive'
+import { restoreArchivedConversation, setConversationArchived } from './archive'
 
 import type * as dbActual from '@/lib/db'
 
@@ -30,7 +30,8 @@ function matches(doc: Doc, filter: Doc): boolean {
       if (op.$exists !== undefined) return (actual !== null) === op.$exists
     }
 
-    return actual === value
+    // A scalar matches an array holding it, as in Mongo.
+    return Array.isArray(actual) ? actual.includes(value) : actual === value
   })
 }
 
@@ -59,6 +60,8 @@ class FakeConversations {
     const doc = this.docs.find((d) => matches(d, filter))
 
     if (doc) this.apply(doc, update)
+
+    return { modifiedCount: doc ? 1 : 0 }
   }
   async updateMany(filter: Doc, update: { $set?: Doc; $unset?: Doc }) {
     this.failIf('updateMany')
@@ -127,5 +130,94 @@ describe('setConversationArchived', () => {
     expect(['root', 'child', 'grandchild'].map(archived)).toEqual([true, true, true])
     await setConversationArchived('child', false)
     expect(['root', 'child', 'grandchild'].map(archived)).toEqual([false, false, false])
+  })
+})
+
+describe('a Bot is archived and restored as one thing with its chat', () => {
+  beforeEach(() => {
+    conversations.docs.push(
+      { sessionId: 'bot', userId: 'u', teamId: 't', avatar: '05-rembrandt' },
+      {
+        sessionId: 'bot-chat',
+        userId: 'u',
+        teamId: 't',
+        kind: 'channel',
+        agentSessionIds: ['bot'],
+      },
+      {
+        sessionId: 'group',
+        userId: 'u',
+        teamId: 't',
+        kind: 'channel',
+        agentSessionIds: ['bot'],
+        participantIds: ['u', 'v'],
+      },
+      {
+        sessionId: 'two-agents',
+        userId: 'u',
+        teamId: 't',
+        kind: 'channel',
+        agentSessionIds: ['bot', 'root'],
+      },
+      {
+        sessionId: 'task-chat',
+        userId: 'u',
+        teamId: 't',
+        kind: 'channel',
+        agentSessionIds: ['root'],
+      },
+    )
+  })
+
+  test('archiving the Bot from Tasks archives its chat too, and nothing else', async () => {
+    await setConversationArchived('bot', true)
+
+    expect(['bot', 'bot-chat'].map(archived)).toEqual([true, true])
+    // A group chat is not the Bot: it stays, as do chats with several agents.
+    expect(['group', 'two-agents'].map(archived)).toEqual([false, false])
+  })
+
+  test('archiving its chat archives the Bot', async () => {
+    await setConversationArchived('bot-chat', true)
+
+    expect(['bot', 'bot-chat'].map(archived)).toEqual([true, true])
+  })
+
+  test('restoring either one restores both', async () => {
+    for (const id of ['bot', 'bot-chat']) {
+      await setConversationArchived('bot', true)
+      await setConversationArchived(id, false)
+
+      expect(['bot', 'bot-chat'].map(archived)).toEqual([false, false])
+    }
+  })
+
+  test('restoring a Bot left half archived brings its chat back too', async () => {
+    // Before Bots were one thing, its chat could be archived on its own.
+    conversations.docs.find((doc) => doc.sessionId === 'bot-chat')!.archivedAt = new Date(0)
+    await setConversationArchived('bot', false)
+
+    expect(archived('bot-chat')).toBe(false)
+  })
+
+  test('a turn that brings the Bot back brings its chat back', async () => {
+    await setConversationArchived('bot', true)
+
+    expect(await restoreArchivedConversation('bot')).toBe(true)
+    expect(['bot', 'bot-chat'].map(archived)).toEqual([false, false])
+    expect(await restoreArchivedConversation('bot')).toBe(false)
+  })
+
+  test("a Task's chat is just a chat", async () => {
+    await setConversationArchived('task-chat', true)
+
+    expect(archived('root')).toBe(false)
+  })
+
+  test("another person's Bot is not reached", async () => {
+    conversations.docs.find((doc) => doc.sessionId === 'bot')!.userId = 'v'
+    await setConversationArchived('bot-chat', true)
+
+    expect(archived('bot')).toBe(false)
   })
 })

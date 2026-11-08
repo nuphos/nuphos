@@ -20,6 +20,7 @@ struct AgentPage: View {
     @State private var showAgentSetup = false
     @State private var showNewBot = false
     @State private var renaming: AgentConversation?
+    @State private var archivingBot: AgentConversation?
     @State private var renamedTitle = ""
     @State private var refreshing = false
     #if DEBUG
@@ -76,6 +77,13 @@ struct AgentPage: View {
                 Button("Try again") { Task { await failure.retry() } }
             } message: { failure in
                 Text(failure.message)
+            }
+            // A Bot's Task row reads as a Task, but archiving it archives the Bot and its chat.
+            .alert("This is a Bot. Archive the Bot?", isPresented: Binding(get: { archivingBot != nil }, set: { if !$0 { archivingBot = nil } }), presenting: archivingBot) { conversation in
+                Button("Cancel", role: .cancel) {}
+                Button("Archive Bot", role: .destructive) { Task { await store.archive(sessionId: conversation.sessionId, teamId: conversation.teamId) } }
+            } message: { _ in
+                Text("Its chat is archived with it. Unarchive either one to bring both back.")
             }
             .alert("Rename agent", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } }), presenting: renaming) { conversation in
                 let title = renamedTitle.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -338,6 +346,7 @@ struct AgentPage: View {
     @ViewBuilder
     private func rowActions(_ conversation: AgentConversation) -> some View {
         if conversation.canManage { Button {
+            if conversation.isBot { archivingBot = conversation; return }
             Task { await store.archive(sessionId: conversation.sessionId, teamId: conversation.teamId) }
         } label: {
             Label("Archive", systemImage: "archivebox")
