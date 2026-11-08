@@ -947,6 +947,7 @@
   "Connections and queues": "Koneksi dan antrean",
   "Connector ID": "ID Konektor",
   "Connectors": "Konektor",
+  "Connects through Composio, which handles this data for Nuphos.": "Terhubung melalui Composio, yang menangani data ini untuk Nuphos.",
   "Connects via {host}": "Terhubung melalui {host}",
   "Container": "Kontainer",
   "Container settings used when this workload creates Pods": "Pengaturan kontainer yang digunakan saat workload ini membuat Pod",

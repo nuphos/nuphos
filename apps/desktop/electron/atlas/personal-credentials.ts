@@ -19,10 +19,16 @@ export function startPersonalCredential(
   })
 }
 
-export async function getTeamGoogleClient(teamId: string): Promise<string | null> {
-  const res = await call<{ clientId: string | null }>('GET', `/teams/${teamId}/google-oauth-client`)
+/** The team's own client, and whether members can connect through Composio without one. */
+export async function getTeamGoogleClient(
+  teamId: string,
+): Promise<{ clientId: string | null; composio: boolean }> {
+  const res = await call<{ clientId: string | null; composio?: boolean }>(
+    'GET',
+    `/teams/${teamId}/google-oauth-client`,
+  )
 
-  return res.clientId
+  return { clientId: res.clientId, composio: res.composio ?? false }
 }
 
 export async function setTeamGoogleClient(

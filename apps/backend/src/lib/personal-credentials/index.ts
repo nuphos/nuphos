@@ -5,49 +5,29 @@ import { createHash, randomBytes } from 'node:crypto'
 import { ObjectId } from 'mongodb'
 
 import { config } from '@/config'
-import { getDefaultClientCredentials, getViewer } from '@/lib/byos/linear'
-import { buildAuthorizeUrl, exchangeCodeForTokens } from '@/lib/byos/linear-oauth'
-import { publicBackendUrl } from '@/lib/claude-code-preview/runtime-backend-url'
+import { getDefaultClientCredentials } from '@/lib/byos/linear'
+import { buildAuthorizeUrl } from '@/lib/byos/linear-oauth'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { personalCredentialPendingOAuth, personalCredentials } from '@/models'
 
+import { stagedComposioConnection, startComposioConnection } from './composio'
+import { callbackUrl, exchangeGrant, notConfigured } from './exchange'
 import { GOOGLE_PROVIDERS, googleTeamFor, isGoogleProvider } from './google'
 import { pkceFlow } from './pkce'
 import { revokeQuietly } from './revoke'
-import { open, seal } from './seal'
+import { seal } from './seal'
 
-import type { ProviderTokens } from './github'
-import type { PersonalCredential, PersonalCredentialProvider } from '@/models'
+import type {
+  PersonalCredential,
+  PersonalCredentialPendingOAuth,
+  PersonalCredentialProvider,
+} from '@/models'
 
 const PENDING_TTL_MS = 10 * 60 * 1000
 const LINEAR_SCOPE = 'read,write'
 
 export const PERSONAL_CREDENTIAL_PROVIDERS = ['github', 'linear', ...GOOGLE_PROVIDERS] as const
-
-const NAMES: Record<PersonalCredentialProvider, string> = {
-  github: 'GitHub',
-  linear: 'Linear',
-  gmail: 'Gmail',
-  'google-drive': 'Google Drive',
-}
-
-/** The callback is on the backend's public origin (NUPHOS_PUBLIC_BACKEND_URL). */
-function callbackUrl(provider: PersonalCredentialProvider): string | null {
-  const base = publicBackendUrl()
-
-  return base?.startsWith('https://')
-    ? `${base.replace(/\/$/u, '')}/personal-credentials/${provider}/callback`
-    : null
-}
-
-function notConfigured(provider: PersonalCredentialProvider): AppError {
-  return new AppError(
-    503,
-    'personal_credential_not_configured',
-    `Personal Credentials for ${NAMES[provider]} are not configured on this server`,
-  )
-}
 
 export type PersonalCredentialSummary = {
   provider: PersonalCredentialProvider
@@ -86,10 +66,17 @@ export async function startPersonalCredentialOAuth(
   const state = randomBytes(24).toString('base64url')
   const expiresAt = new Date(Date.now() + PENDING_TTL_MS)
   const teamId = isGoogleProvider(provider)
-    ? await googleTeamFor(userId, requestedTeamId)
+    ? await googleTeamFor(userId, provider, requestedTeamId)
     : undefined
   const flow = await pkceFlow(provider, teamId)
 
+  // A team without its own Google client connects through Composio, which
+  // googleTeamFor has checked is configured.
+  if (isGoogleProvider(provider) && teamId && flow && !flow.client) {
+    if (!redirectUri) throw notConfigured(provider)
+
+    return startComposioConnection({ provider, userId, teamId, state, redirectUri, expiresAt })
+  }
   if (flow) {
     if (!flow.client || !redirectUri || !flow.key) throw notConfigured(provider)
     const verifier = randomBytes(32).toString('base64url')
@@ -131,11 +118,6 @@ export async function startPersonalCredentialOAuth(
   }
 }
 
-type Identity = Pick<
-  PersonalCredential,
-  'providerUserId' | 'login' | 'workspaceId' | 'workspaceName' | 'teamId'
->
-
 /**
  * The browser callback: exchanges the code and stages the grant. Saving it
  * straight away would trust whoever approved at the provider, so it waits for
@@ -161,7 +143,6 @@ export async function stagePersonalCredentialOAuth(
       'This authorization request expired or was already used',
     )
   }
-  const redirectUri = callbackUrl(provider)
   const teamId = pending.teamId
   // Membership can end between starting the flow and approving it. Checked
   // before the code is exchanged, so a departed member's approval grants
@@ -175,42 +156,15 @@ export async function stagePersonalCredentialOAuth(
       'You are no longer a member of this team, so its Google credentials cannot be connected',
     )
   }
-  let tokens: ProviderTokens
-  let identity: Identity
-
-  const flow = await pkceFlow(provider, teamId)
-
-  if (flow) {
-    if (!flow.client || !redirectUri || !pending.encryptedCodeVerifier) {
-      throw notConfigured(provider)
-    }
-    tokens = await flow.exchange({
-      ...flow.client,
-      code,
-      redirectUri,
-      codeVerifier: open(provider, pending.encryptedCodeVerifier),
-    })
-    const user = await flow.user(tokens.accessToken)
-
-    identity = { providerUserId: user.id, login: user.login }
-    // `membership` is non-null here: a departed member was refused above.
-    if (teamId && membership) {
-      identity = { ...identity, teamId, workspaceName: membership.team.name }
-    }
-  } else {
-    const client = getDefaultClientCredentials()
-
-    if (!client || !redirectUri) throw notConfigured(provider)
-    tokens = await exchangeCodeForTokens(client.clientId, client.clientSecret, code, redirectUri)
-    const viewer = await getViewer(tokens.accessToken)
-
-    identity = {
-      providerUserId: viewer.user.id,
-      login: viewer.user.name ?? viewer.user.id,
-      workspaceId: viewer.organization.id,
-      workspaceName: viewer.organization.name,
-    }
-  }
+  const staged =
+    pending.composioAccountId && teamId && membership && isGoogleProvider(provider)
+      ? await stagedComposioConnection(
+          provider,
+          pending.composioAccountId,
+          { userId: pending.userId, teamId },
+          membership.team.name,
+        )
+      : await exchangeGrant(provider, pending, code, membership)
   const claimCode = randomBytes(24).toString('base64url')
 
   await personalCredentialPendingOAuth().insertOne({
@@ -218,12 +172,7 @@ export async function stagePersonalCredentialOAuth(
     userId: pending.userId,
     provider,
     codeHash: sha256(claimCode),
-    staged: {
-      ...identity,
-      encryptedAccessToken: seal(provider, tokens.accessToken),
-      encryptedRefreshToken: tokens.refreshToken ? seal(provider, tokens.refreshToken) : null,
-      accessTokenExpiresAt: tokens.expiresAt,
-    },
+    staged,
     expiresAt: new Date(Date.now() + PENDING_TTL_MS),
   })
 
@@ -249,18 +198,27 @@ export async function claimPersonalCredential(
     throw new AppError(404, 'oauth_not_ready', 'No approved connection is waiting for this request')
   }
   const now = new Date()
+  // Switching between a team-client grant and a Composio connection drops the other's fields.
+  const other: Record<string, ''> = ready.staged.composioAccountId
+    ? { encryptedAccessToken: '' }
+    : { composioAccountId: '' }
   const previous = await personalCredentials().findOneAndUpdate(
     { userId, provider, ...(ready.staged.teamId ? { teamId: ready.staged.teamId } : {}) },
     {
       $set: { ...ready.staged, updatedAt: now },
+      $unset: other,
       $setOnInsert: { _id: new ObjectId(), createdAt: now },
     },
     { upsert: true, returnDocument: 'before' },
   )
 
   // Google revokes a member's whole grant to one client, so a replaced Google
-  // grant (always the same team's client) is left alone: revoking it would end the new one.
-  if (previous && !isGoogleProvider(provider)) void revokeQuietly(previous)
+  // grant (always the same team's client) is left alone: revoking it would end
+  // the new one. A replaced Composio connection is its own and is deleted.
+  const replacedConnection =
+    previous?.composioAccountId && previous.composioAccountId !== ready.staged.composioAccountId
+
+  if (previous && (!isGoogleProvider(provider) || replacedConnection)) void revokeQuietly(previous)
 
   return {
     provider,

@@ -947,6 +947,7 @@
   "Connections and queues": "การเชื่อมต่อและคิว",
   "Connector ID": "ID ตัวเชื่อมต่อ",
   "Connectors": "ตัวเชื่อมต่อ",
+  "Connects through Composio, which handles this data for Nuphos.": "เชื่อมต่อผ่าน Composio ซึ่งจัดการข้อมูลนี้แทน Nuphos",
   "Connects via {host}": "เชื่อมต่อผ่าน {host}",
   "Container": "คอนเทนเนอร์",
   "Container settings used when this workload creates Pods": "การตั้งค่าคอนเทนเนอร์ที่ใช้เมื่อเวิร์กโหลดนี้สร้าง Pod",

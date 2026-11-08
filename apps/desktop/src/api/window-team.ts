@@ -31,6 +31,7 @@ import type {
   UpdateRuntimeInput,
 } from '../types/runtime'
 import type {
+  TeamGoogleClient,
   AtlasTeam,
   OpenAbRuntimeStatus,
   DiscoverableTeam,
@@ -49,7 +50,7 @@ import type {
 } from '../types/team.ts'
 
 export type WindowTeamApi = {
-  atlasGetTeamGoogleClient(teamId: string): Promise<string | null>
+  atlasGetTeamGoogleClient(teamId: string): Promise<TeamGoogleClient>
   atlasSetTeamGoogleClient(teamId: string, clientId: string, clientSecret: string): Promise<void>
   atlasDeleteTeamGoogleClient(teamId: string): Promise<void>
   atlasStartRuntimeLogin(teamId: string, runtimeId: string): Promise<RuntimeLoginStatus>

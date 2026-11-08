@@ -947,6 +947,7 @@
   "Connections and queues": "连接与队列",
   "Connector ID": "连接器 ID",
   "Connectors": "连接器",
+  "Connects through Composio, which handles this data for Nuphos.": "通过 Composio 连接，Composio 会代 Nuphos 处理这些数据。",
   "Connects via {host}": "通过 {host} 连接",
   "Container": "容器",
   "Container settings used when this workload creates Pods": "此工作负载创建 Pod 时使用的容器设置",

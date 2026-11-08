@@ -21,9 +21,14 @@ export type PersonalCredential = {
   workspaceId?: string
   /** Linear: the organization's name. Gmail / Google Drive: the Nuphos team's name. */
   workspaceName?: string
-  /** Gmail / Google Drive only: the team whose OAuth client issued this grant. */
+  /** Gmail / Google Drive only: the team whose OAuth client (or Composio) issued this grant. */
   teamId?: string
-  encryptedAccessToken: EncryptedSecret
+  /**
+   * Gmail / Google Drive through Composio: its connected account, which holds
+   * the Google grant. Such a credential has no tokens of its own.
+   */
+  composioAccountId?: string
+  encryptedAccessToken?: EncryptedSecret
   encryptedRefreshToken: EncryptedSecret | null
   accessTokenExpiresAt: Date | null
   createdAt: Date
@@ -40,6 +45,8 @@ export type PersonalCredentialPendingOAuth = {
   provider: PersonalCredentialProvider
   /** Gmail / Google Drive only: the team whose OAuth client this flow uses. */
   teamId?: string
+  /** Composio: the connected account its Connect Link creates, known from the start. */
+  composioAccountId?: string
   /** GitHub / Google PKCE verifier, sealed with the provider's key. */
   encryptedCodeVerifier?: EncryptedSecret
   /** After the callback: the exchanged grant, waiting for its starter to claim it with the code. */

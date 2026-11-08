@@ -63,7 +63,11 @@ async function refresh(doc: PersonalCredential): Promise<PersonalToken | null> {
     // Another replica may have rotated the refresh token first.
     const latest = await personalCredentials().findOne({ _id: doc._id })
 
-    if (latest && stillFresh(latest.accessTokenExpiresAt) && latest.updatedAt > doc.updatedAt) {
+    if (
+      latest?.encryptedAccessToken &&
+      stillFresh(latest.accessTokenExpiresAt) &&
+      latest.updatedAt > doc.updatedAt
+    ) {
       return {
         token: open(latest.provider, latest.encryptedAccessToken),
         expiresAt: latest.accessTokenExpiresAt,
@@ -96,6 +100,8 @@ async function refresh(doc: PersonalCredential): Promise<PersonalToken | null> {
 }
 
 async function currentToken(doc: PersonalCredential): Promise<PersonalToken | null> {
+  // A Composio connection keeps its Google grant at Composio: there is no token to hand out.
+  if (!doc.encryptedAccessToken) return null
   if (stillFresh(doc.accessTokenExpiresAt)) {
     return {
       token: open(doc.provider, doc.encryptedAccessToken),

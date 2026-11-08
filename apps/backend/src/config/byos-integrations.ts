@@ -203,6 +203,14 @@ export function byosIntegrationsConfig() {
     // client confirms the binding (complete-oauth) with the callback's one-time
     // code. Off until Desktop, iOS and Android builds that confirm have shipped.
     connectorOAuthDeferredBind: bool('CONNECTOR_OAUTH_DEFERRED_BIND', false),
+    composio: {
+      // Nuphos's own Composio project. When the key and a toolkit's auth config
+      // are set, members of teams without their own Google OAuth client connect
+      // Gmail / Google Drive through Composio-managed auth. Unset on self-hosted.
+      apiKey: optional('NUPHOS_COMPOSIO_API_KEY'),
+      gmailAuthConfigId: optional('NUPHOS_COMPOSIO_GMAIL_AUTH_CONFIG_ID'),
+      googleDriveAuthConfigId: optional('NUPHOS_COMPOSIO_GOOGLE_DRIVE_AUTH_CONFIG_ID'),
+    },
     linear: {
       // OAuth2 app the team authorises against. Linear has a single hosted
       // instance, so unlike GitLab there are no per-binding client overrides.

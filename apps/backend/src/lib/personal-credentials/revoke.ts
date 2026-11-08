@@ -1,6 +1,7 @@
 import { logError } from '@/lib/observability'
 import { personalCredentials } from '@/models'
 
+import { deleteComposioAccount } from './composio'
 import { revokeGithubToken } from './github'
 import { GOOGLE_PROVIDERS, isGoogleProvider, revokeGoogleToken } from './google'
 import { open } from './seal'
@@ -10,6 +11,8 @@ import type { PersonalCredential, PersonalCredentialProvider } from '@/models'
 const LINEAR_REVOKE_URL = 'https://api.linear.app/oauth/revoke'
 
 async function revokeAtProvider(doc: PersonalCredential): Promise<void> {
+  if (doc.composioAccountId) return deleteComposioAccount(doc.composioAccountId)
+  if (!doc.encryptedAccessToken) return
   const token = open(doc.provider, doc.encryptedAccessToken)
 
   if (doc.provider === 'github') return revokeGithubToken(token)
@@ -41,8 +44,10 @@ export async function deletePersonalCredential(
   })
 
   if (!doc) return
-  // One Google revoke ends both grants from that team's client, so keep it while another remains.
+  // One Google revoke ends both grants from that team's client, so keep it while another
+  // remains. Each Composio connection is its own and always goes.
   if (
+    !doc.composioAccountId &&
     isGoogleProvider(provider) &&
     (await personalCredentials().countDocuments({
       userId,

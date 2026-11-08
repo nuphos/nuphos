@@ -85,6 +85,9 @@ export type ChangelogState = { kind: 'unavailable' } | { kind: 'ready'; entries:
 /** Compatibility with older servers; never used to restrict access. */
 export type TeamBillingSummary = { activated: boolean; active: boolean }
 
+/** The team's own Google OAuth client, and whether members can connect through Composio without one. */
+export type TeamGoogleClient = { clientId: string | null; composio: boolean }
+
 export type AtlasTeam = {
   id: string
   name: string

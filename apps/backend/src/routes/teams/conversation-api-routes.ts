@@ -54,6 +54,7 @@ const CONNECTOR_DEEP_READ_PATHS = [
 const CANONICAL_ROUTES: { method: string; path: RegExp }[] = [
   { method: 'GET', path: /^\/members(?:\/[^/]+)?$/u },
   { method: 'GET', path: /^\/personal-credentials\/[^/]+\/token$/u },
+  { method: 'POST', path: /^\/composio\/execute$/u },
   { method: '*', path: /^\/(?:cost-)?dashboards(?:\/|$)/u },
   { method: '*', path: /^\/architecture-diagrams(?:\/|$)/u },
   { method: '*', path: /^\/designs(?:\/|$)/u },

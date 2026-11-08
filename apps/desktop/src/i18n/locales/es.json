@@ -947,6 +947,7 @@
   "Connections and queues": "Conexiones y colas",
   "Connector ID": "ID del conector",
   "Connectors": "Conectores",
+  "Connects through Composio, which handles this data for Nuphos.": "Se conecta a través de Composio, que gestiona estos datos para Nuphos.",
   "Connects via {host}": "Se conecta mediante {host}",
   "Container": "Contenedor",
   "Container settings used when this workload creates Pods": "Configuración de contenedores que se usa cuando esta carga de trabajo crea pods",
