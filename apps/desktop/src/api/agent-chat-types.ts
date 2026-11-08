@@ -24,6 +24,8 @@ export type AgentStartArgs = {
   runtimeId?: string
   /** Model settings picked before this conversation existed. */
   initialSessionConfig?: SessionConfigPick
+  /** The project folder a new task works in. */
+  workspace?: { kind: 'folder'; path: string }
 }
 
 export type AgentDecisionApi = {

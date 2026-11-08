@@ -1,3 +1,8 @@
+import { useEffect } from 'react'
+
+import { useThisComputer } from '../../../hooks/useThisComputer'
+import { agentTier } from '../../../lib/agentName'
+import { useNextTaskProject } from '../../../lib/taskProjects'
 import { openAgentSetup } from '../../../views/onboarding/setup/agentSetupStore'
 
 import { AgentHomePage } from './AgentHomePage'
@@ -11,6 +16,7 @@ import { useAddAgent } from './useAddAgent'
 import { useRuntimeModelConfig } from './useRuntimeModelConfig'
 
 import type { PanelViewCtx } from './ctx'
+import type { RuntimeInstance } from '../../../types/runtime'
 
 export function PanelHomePage({ c }: { c: PanelViewCtx }) {
   const {
@@ -39,6 +45,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
     visibleHomeCredentialSelector,
   } = c
   const draftKey = newChatDraftKey(teamId, c.newChatDraftId)
+  const project = useTaskProject(c)
   const addAgent = useAddAgent(teamId, isTeamAdmin, selectConversationRuntime)
   const { importSession } = useLocalSessionImport({
     teamId,
@@ -99,6 +106,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
         newChatRequest={c.newChatRequest}
         shown={c.homeShown}
         userName={c.userName}
+        project={project}
         onSend={(text, filePaths, mentions) =>
           sendInActive(text, filePaths, undefined, undefined, mentions)
         }
@@ -140,4 +148,24 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
       />
     </>
   )
+}
+
+/** A task started from a project runs on this computer, where its folder is. */
+function useTaskProject(c: PanelViewCtx): string | null {
+  const { teamId, newConversationRuntime, runtimeInstances, selectConversationRuntime } = c
+  const project = useNextTaskProject(teamId)
+  const owner = useThisComputer()
+
+  useEffect(() => {
+    const here = (agent: RuntimeInstance) => agentTier(agent, owner) === 'local'
+
+    if (!project || (newConversationRuntime && here(newConversationRuntime))) return
+    const agent = runtimeInstances.find(
+      (instance) => instance.status === 'active' && here(instance),
+    )
+
+    if (agent) selectConversationRuntime(agent.id)
+  }, [project, newConversationRuntime, runtimeInstances, owner, selectConversationRuntime])
+
+  return project
 }

@@ -87,6 +87,7 @@ export type StartChatArgs = {
   agentRuntime?: AgentProvider
   runtimeId?: string
   initialSessionConfig?: SessionConfigPick
+  workspace?: { kind: 'folder'; path: string }
 }
 
 export type ChatStreamState = {

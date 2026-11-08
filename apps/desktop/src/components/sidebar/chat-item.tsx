@@ -84,5 +84,6 @@ export function chatSidebarItem({
     foldedStatus: status,
     finished: threadFoldsAway({ conversation, runtimeState, open: active }),
     dot,
+    ...(conversation.workspace && { projectPath: conversation.workspace.path }),
   }
 }

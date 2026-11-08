@@ -46,6 +46,12 @@ type SectionListProps = {
   onOpenKey?: (key: string, favoriteLabel: string | null, newTab: boolean) => void
 }
 
+function foldLabel(item: Item, folded: boolean): string {
+  if (item.project) return folded ? t('Expand') : t('Collapse')
+
+  return folded ? t('Show sub-agents') : t('Hide sub-agents')
+}
+
 export function SidebarSectionList({
   sections,
   scope,
@@ -148,8 +154,8 @@ export function SidebarSectionList({
                       const foldToggle = hasChildren ? (
                         <span
                           role="button"
-                          aria-label={folded ? t('Show sub-agents') : t('Hide sub-agents')}
-                          title={folded ? t('Show sub-agents') : t('Hide sub-agents')}
+                          aria-label={foldLabel(item, folded)}
+                          title={foldLabel(item, folded)}
                           onClick={(e) => {
                             e.stopPropagation()
                             toggleGroup({ title: item.key })

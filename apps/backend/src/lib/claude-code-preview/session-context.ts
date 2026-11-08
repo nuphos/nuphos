@@ -30,8 +30,6 @@ export function previewSessionPrincipalChanged(
   )
 }
 
-// A turn hands the runtime the conversation's settings as stored now, so a change
-// confirmed after this session opened still reaches a session the runtime recreates.
 /** The task's folder, when it is on the runtime this session runs on. */
 export function workspaceDirectory(
   conversation: Pick<AgentConversation, 'workspace'> | null | undefined,
@@ -42,6 +40,8 @@ export function workspaceDirectory(
   return workspace && workspace.runtimeId === runtimeId ? workspace.path : undefined
 }
 
+// A turn hands the runtime the conversation's settings as stored now, so a change
+// confirmed after this session opened still reaches a session the runtime recreates.
 export function turnDefaults(
   session: Pick<TeamSession, 'runtime'>,
   attachment: Parameters<typeof storedPick>[0] | null,

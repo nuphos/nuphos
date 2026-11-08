@@ -1,5 +1,8 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 
+import { t } from '../../../i18n'
+import { projectName } from '../../../lib/taskProjects'
+
 import { Composer } from './Composer'
 import { successfulTurns } from './endEventEffects'
 import { StarStrip } from './hero'
@@ -55,6 +58,7 @@ export function AgentHomePage({
   shown = true,
   newChatRequest = 0,
   userName,
+  project,
   onImportSession,
   isTeamAdmin = false,
   onOpenConversation,
@@ -81,6 +85,8 @@ export function AgentHomePage({
   draftKey?: string
   /** The signed-in user's display name, greeted by its first word. */
   userName?: string
+  /** The project the task starts in, named instead of the greeting. */
+  project?: string | null
   /** Continue a local Claude Code / Codex session on the selected agent. */
   onImportSession?: (session: LocalAgentSessionInfo) => void
   /** Administrators can make their home layout the team default. */
@@ -113,7 +119,14 @@ export function AgentHomePage({
             bottom edge sits on the page's middle, and everything else hangs
             below it and scrolls. */}
         <div className="mx-auto flex min-h-[50cqh] w-full max-w-[820px] flex-col justify-end">
-          <AgentHomeAnimation key={entranceKey} title={homeGreeting(userName)} />
+          <AgentHomeAnimation
+            key={`${entranceKey}:${project ?? ''}`}
+            title={
+              project
+                ? t('New task in {name}', { name: projectName(project) })
+                : homeGreeting(userName)
+            }
+          />
           <DelayedPanelReveal replayKey={entranceKey}>
             {/* The composer is untouched — the tray is a sibling painted
                 behind it, same width, with its square top tucked under the

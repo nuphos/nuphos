@@ -1,6 +1,7 @@
 import { getActiveDiagramId } from '../../../architecture/activeDiagram.ts'
 import { t } from '../../../i18n/index.ts'
 import { track, trackError } from '../../../lib/analytics.ts'
+import { takeNextTaskWorkspace } from '../../../lib/taskProjects.ts'
 import { toast } from '../../ui/toast.ts'
 
 import { credentialSelectionSignature } from './credentialAccess.ts'
@@ -81,6 +82,7 @@ export function runStartChatWith(
   }
   const id = uid()
   const sessionId = uid()
+  const workspace = takeNextTaskWorkspace(teamId, newConversationRuntime)
 
   // Preserve the selected mode immediately. Transcript sync can create the
   // conversation before /chat initializes its permissions, so the permissions
@@ -162,6 +164,7 @@ export function runStartChatWith(
         permissionMode: defaultPermissionMode,
         agentRuntime: newConversationRuntime.provider,
         runtimeId: newConversationRuntime.id,
+        workspace,
         ...(Object.keys(newConversationSessionConfig).length
           ? { initialSessionConfig: newConversationSessionConfig }
           : {}),
