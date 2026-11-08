@@ -792,6 +792,7 @@ impl SessionPool {
         session_meta: Option<&serde_json::Value>,
         restore_only: bool,
     ) -> Result<bool> {
+        let working_dir_override = working_dir_override.or_else(|| meta_working_dir(session_meta));
         let create_gate = {
             let mut state = self.state.write().await;
             if restore_only
@@ -1605,13 +1606,25 @@ impl SessionPool {
     }
 }
 
+/// `_meta` key a client uses to choose the folder a session runs in. Like a
+/// `[[ws:...]]` directive it applies only when the session is first spawned, and
+/// the stored workdir keeps it fixed afterwards.
+const WORKING_DIR_META_KEY: &str = "dev.openab/workingDir";
+
+fn meta_working_dir(meta: Option<&serde_json::Value>) -> Option<&str> {
+    meta?
+        .get(WORKING_DIR_META_KEY)?
+        .as_str()
+        .filter(|dir| Path::new(dir).is_absolute())
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         better_candidate, candidate_awaiting_permission, candidate_in_flight, candidate_relaying,
         classify_hung, classify_idle, get_or_insert_gate, mcp_declaration_changed,
-        purge_session_entries, relay_is_streaming, remove_if_same_handle, PoolState,
-        AGENT_RELAY_GRACE_SECS,
+        meta_working_dir, purge_session_entries, relay_is_streaming, remove_if_same_handle,
+        PoolState, AGENT_RELAY_GRACE_SECS,
     };
     use crate::acp::connection::SessionActivity;
     use std::collections::HashMap;
@@ -2221,5 +2234,18 @@ mod tests {
             roundtrip.get("suspended-thread"),
             Some(&"session-suspended".to_string())
         );
+    }
+
+    #[test]
+    fn meta_working_dir_takes_only_an_absolute_path() {
+        let meta = |dir: serde_json::Value| serde_json::json!({ "dev.openab/workingDir": dir });
+        assert_eq!(
+            meta_working_dir(Some(&meta("/home/me/infra".into()))),
+            Some("/home/me/infra")
+        );
+        assert_eq!(meta_working_dir(Some(&meta("infra".into()))), None);
+        assert_eq!(meta_working_dir(Some(&meta(1.into()))), None);
+        assert_eq!(meta_working_dir(Some(&serde_json::json!({}))), None);
+        assert_eq!(meta_working_dir(None), None);
     }
 }
