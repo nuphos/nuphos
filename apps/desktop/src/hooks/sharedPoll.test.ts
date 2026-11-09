@@ -100,6 +100,32 @@ test('ticks are skipped while the window is hidden', async () => {
   }
 })
 
+test('a poll that notifies keeps ticking while the window is hidden', async () => {
+  let tick: (() => void) | undefined
+
+  mock.method(globalThis, 'setInterval', (fn: () => void) => {
+    tick = fn
+
+    return 1 as unknown as ReturnType<typeof setInterval>
+  })
+  mock.method(globalThis, 'clearInterval', () => {})
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: { hidden: true } })
+  const loads = deferredLoads()
+
+  try {
+    const stop = subscribePoll('notifies', loads.load, 10_000, () => {}, true)
+
+    loads.resolveNext(1)
+    await settle()
+    tick?.()
+    assert.equal(loads.calls(), 2)
+    stop()
+  } finally {
+    mock.restoreAll()
+    Reflect.deleteProperty(globalThis, 'document')
+  }
+})
+
 test('a failed load keeps the last value and says it failed', async () => {
   mock.method(globalThis, 'setInterval', () => 1 as unknown as ReturnType<typeof setInterval>)
   mock.method(globalThis, 'clearInterval', () => {})

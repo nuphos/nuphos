@@ -18,7 +18,7 @@ export function getApiUrl(): string {
 // a large fleet) pass a longer timeoutMs — the backend bounds itself below it.
 const DEFAULT_TIMEOUT_MS = 15_000
 
-/** Fetches `route` on the account's backend, retrying failures until the account changes. */
+/** Fetches `route` on the account's backend, retrying quick failures until the account changes. */
 export async function fetchWithRetry(
   account: SignedIn,
   route: string,
@@ -41,7 +41,10 @@ export async function fetchWithRetry(
       return res
     } catch (e) {
       lastErr = accountFailure(account, e)
-      if (account.signal.aborted) break
+      // A quick failure (a dropped or changed connection) is worth another try.
+      // One that used up the whole timeout would most likely wait on the same
+      // dead connection again, so it fails now and the caller's next poll retries.
+      if (account.signal.aborted || (e instanceof Error && e.name === 'TimeoutError')) break
       if (i < attempts - 1) await new Promise((r) => setTimeout(r, backoffMs[i]))
     }
   }
