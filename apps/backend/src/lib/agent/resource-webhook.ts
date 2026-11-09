@@ -262,7 +262,10 @@ export async function routeResourceWebhook(event: string, payload: unknown, deli
     for await (const conversation of conversations) {
       const resource = conversation.linkedResources?.find((entry) => entry.key === routed.key)
 
-      if (!resource || !(await resourceCredentialAllowed(conversation, resource))) continue
+      if (!resource) continue
+      // A merged or closed PR hears the event that ended it, not late CI or redeliveries after.
+      if (resource.state !== 'open' && pullState?.key !== routed.key) continue
+      if (!(await resourceCredentialAllowed(conversation, resource))) continue
       // Only people who can push may wake a session; checked once, after a linked PR matches.
       if (routed.actor) {
         actorAllowed ??= canPush(routed.installationId, routed.actor.repository, routed.actor.login)
