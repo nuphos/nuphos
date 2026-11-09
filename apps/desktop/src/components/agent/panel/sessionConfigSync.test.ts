@@ -64,7 +64,7 @@ test('menu/focus refreshes join the same pending read; timeout exits loading and
   assert.equal(sync.getSnapshot().data?.options[0].currentValue, 'fresh')
 })
 
-test('background failure preserves the acknowledged model, blocks writes, then recovers automatically', async (t) => {
+test('background failure preserves the acknowledged model, still takes a pick, then recovers automatically', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
   let fail = false
   let writes = 0
@@ -89,11 +89,14 @@ test('background failure preserves the acknowledged model, blocks writes, then r
   assert.equal(sync.getSnapshot().loading, false)
   assert.equal(sync.getSnapshot().data?.options[0].currentValue, 'actual')
   await reading
+  assert.match(sync.getSnapshot().error!, /connect/)
+  // A write is confirmed by its own answer, so a failed read never holds it back.
   await sync.select({ configId: 'model', value: 'changed' })
-  assert.equal(writes, 0)
-  assert.equal(sync.getSnapshot().data?.options[0].currentValue, 'actual')
+  assert.equal(writes, 1)
+  await flush()
+  assert.equal(sync.getSnapshot().data?.options[0].currentValue, 'changed')
   fail = false
-  t.mock.timers.tick(20_000)
+  t.mock.timers.tick(60_000)
   await flush()
   assert.equal(sync.getSnapshot().error, undefined)
 })
