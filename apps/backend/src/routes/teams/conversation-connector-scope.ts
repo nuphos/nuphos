@@ -8,6 +8,9 @@ export type ConnectorSelectionKey =
   | 'notionIntegrationIds'
   | 'upstashAccountIds'
   | 'cloudflareAccountIds'
+  | 'tencentAccountIds'
+  | 'aliyunAccountIds'
+  | 'volcengineAccountIds'
 
 const SELECTION_SCOPED_CONNECTORS = new Map<string, ConnectorSelectionKey>([
   ['github-installations', 'githubInstallationIds'],
@@ -17,6 +20,9 @@ const SELECTION_SCOPED_CONNECTORS = new Map<string, ConnectorSelectionKey>([
   ['notion-integrations', 'notionIntegrationIds'],
   ['upstash-accounts', 'upstashAccountIds'],
   ['cloudflare-accounts', 'cloudflareAccountIds'],
+  ['tencent-accounts', 'tencentAccountIds'],
+  ['aliyun-accounts', 'aliyunAccountIds'],
+  ['volcengine-accounts', 'volcengineAccountIds'],
 ])
 
 export type ConnectorSelection = Partial<Record<ConnectorSelectionKey, string[]>>

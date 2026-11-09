@@ -45,6 +45,12 @@ const CONNECTOR_DEEP_READ_PATHS = [
   /^upstash-accounts\/[^/]+\/(?:credentials|databases)$/u,
   /^vanta-integrations\/[^/]+\/tests$/u,
   /^secureframe-integrations\/[^/]+\/tests$/u,
+  // Read-only instance and cluster lists for the cloud accounts whose skills
+  // and prompt tell the agent to prefer them over the provider CLI. Exactly
+  // these GETs: binding management and `/clusters/<id>/kubeconfig` stay denied.
+  /^tencent-accounts\/[^/]+\/(?:clusters|cvm-instances)$/u,
+  /^aliyun-accounts\/[^/]+\/(?:clusters|ecs-instances|swas-instances)$/u,
+  /^volcengine-accounts\/[^/]+\/(?:clusters|ecs-instances)$/u,
 ]
 
 // Domain resources use their canonical team REST handlers. Unlike the

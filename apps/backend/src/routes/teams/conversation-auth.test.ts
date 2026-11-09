@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  appendAliyunAccountLines,
+  appendTencentAccountLines,
+  appendVolcengineAccountLines,
+} from '@/routes/agent/credential-prompt-sections'
+
+import {
   conversationCanonicalTeamApiPathAllowed,
   conversationTeamApiPathAllowed,
   conversationTeamApiRoute,
@@ -12,7 +18,7 @@ import {
 } from './conversation-connector-scope'
 import { conversationDenialMessage } from './conversation-denial'
 
-import type { ScopedConnectorBinding } from './conversation-connector-scope'
+import type { ConnectorSelection, ScopedConnectorBinding } from './conversation-connector-scope'
 
 describe('conversation team API capabilities', () => {
   test('accepts the ordinary provider paths backed by selected-credential handlers', () => {
@@ -121,6 +127,100 @@ describe('conversation team API capabilities', () => {
     ).toBe(true)
   })
 
+  test('allows the read-only cloud instance and cluster lists', () => {
+    const paths = [
+      '/tencent-accounts/tencent-1/clusters',
+      '/tencent-accounts/tencent-1/cvm-instances',
+      '/aliyun-accounts/aliyun-1/clusters',
+      '/aliyun-accounts/aliyun-1/ecs-instances',
+      '/aliyun-accounts/aliyun-1/swas-instances',
+      '/volcengine-accounts/volcengine-1/clusters',
+      '/volcengine-accounts/volcengine-1/ecs-instances',
+    ]
+
+    for (const path of paths) {
+      expect(conversationTeamApiRoute('GET', path), path).toBe('canonical')
+    }
+  })
+
+  test('keeps cloud binding writes, kubeconfigs and unlisted sub-resources denied', () => {
+    const denied: [string, string][] = [
+      ['POST', '/tencent-accounts'],
+      ['DELETE', '/tencent-accounts/tencent-1'],
+      ['POST', '/tencent-accounts/tencent-1/cvm-instances'],
+      ['PUT', '/aliyun-accounts/aliyun-1/ecs-instances'],
+      ['DELETE', '/aliyun-accounts/aliyun-1/swas-instances'],
+      ['PATCH', '/volcengine-accounts/volcengine-1/clusters'],
+      ['GET', '/tencent-accounts/tencent-1/clusters/cluster-1/kubeconfig'],
+      ['GET', '/aliyun-accounts/aliyun-1/cvm-instances'],
+      ['GET', '/volcengine-accounts/volcengine-1/swas-instances'],
+    ]
+
+    for (const [method, path] of denied) {
+      expect(conversationTeamApiRoute(method, path), `${method} ${path}`).toBeNull()
+    }
+  })
+
+  test('leaves every other connector rule as it was', () => {
+    for (const path of [
+      '/gitlab-bindings/gitlab-1/projects',
+      '/sonarqube-integrations/sonar-1/issues',
+      '/upstash-accounts/upstash-1/databases',
+      '/vanta-integrations/vanta-1/tests',
+      '/secureframe-integrations/secureframe-1/tests',
+    ]) {
+      expect(conversationTeamApiRoute('GET', path), path).toBe('canonical')
+    }
+    for (const path of [
+      '/sentry-accounts/sentry-1/issues',
+      '/asana-accounts/asana-1/workspaces',
+      '/linear-workspaces/linear-1/teams',
+    ]) {
+      expect(conversationTeamApiRoute('GET', path), path).toBeNull()
+    }
+  })
+
+  // The boundary has to match what the agent is told: an endpoint the prompt
+  // advertises and the allow-list denies reads to the model as a permission
+  // the user withheld. These lines are the ones built for these providers.
+  test('allows every endpoint the prompt advertises for Tencent, Aliyun and Volcengine', () => {
+    const teamId = 'team-1'
+    const lines: string[] = []
+
+    appendTencentAccountLines(
+      lines,
+      [{ accountId: 'tencent-1', label: 'Tencent', roleArn: 'arn:aws:iam::1:role/r' }],
+      teamId,
+    )
+    appendAliyunAccountLines(
+      lines,
+      [{ accountId: 'aliyun-1', label: 'Aliyun', roleArn: 'acs:ram::1:role/r' }],
+      teamId,
+    )
+    appendVolcengineAccountLines(
+      lines,
+      [{ accountId: 'volcengine-1', label: 'Volcengine', roleTrn: 'trn:iam::1:role/r' }],
+      teamId,
+    )
+
+    const endpoints = lines
+      .flatMap((line) => [...line.matchAll(/\b\w*[Ee]ndpoint="([^"]+)"/gu)])
+      .map((match) => match[1]!)
+
+    // Seven today; a new one belongs in the allow-list in the same change.
+    expect(endpoints).toHaveLength(7)
+    expect(new Set(endpoints.map((endpoint) => endpoint.split('/')[3]))).toEqual(
+      new Set(['tencent-accounts', 'aliyun-accounts', 'volcengine-accounts']),
+    )
+    for (const endpoint of endpoints) {
+      expect(endpoint.startsWith(`/teams/${teamId}/`), endpoint).toBe(true)
+      expect(
+        conversationTeamApiRoute('GET', endpoint.slice(`/teams/${teamId}`.length)),
+        endpoint,
+      ).toBe('canonical')
+    }
+  })
+
   test('keeps selected credential routes on the conversation-isolated handlers', () => {
     const selectedCredentialPaths = [
       '/aws-accounts/123456789012/credentials',
@@ -211,6 +311,9 @@ describe('conversation connector selection scope', () => {
       ['/notion-integrations/notion-1/credentials', 'notionIntegrationIds'],
       ['/upstash-accounts/upstash-1/databases', 'upstashAccountIds'],
       ['/cloudflare-accounts/cf-1/credentials', 'cloudflareAccountIds'],
+      ['/tencent-accounts/tencent-1/clusters', 'tencentAccountIds'],
+      ['/aliyun-accounts/aliyun-1/ecs-instances', 'aliyunAccountIds'],
+      ['/volcengine-accounts/volcengine-1/ecs-instances', 'volcengineAccountIds'],
     ]
 
     for (const [path, key] of cases) {
@@ -239,6 +342,33 @@ describe('conversation connector selection scope', () => {
     expect(() => assertConnectorSelectionAllowed({ grafanaInstanceIds: [] }, scoped)).toThrow(
       /not selected for the current conversation/u,
     )
+  })
+
+  test('scopes cloud instance reads to the account the conversation selected', () => {
+    // getAgentCredentialAccess normalizes these three to [] rather than leaving
+    // them undefined, so a conversation that selected no account reaches none.
+    const cases: [string, ConnectorSelection, ConnectorSelection][] = [
+      [
+        '/tencent-accounts/tencent-1/clusters',
+        { tencentAccountIds: ['tencent-1'] },
+        { tencentAccountIds: [] },
+      ],
+      [
+        '/aliyun-accounts/aliyun-1/ecs-instances',
+        { aliyunAccountIds: ['aliyun-1'] },
+        { aliyunAccountIds: [] },
+      ],
+      [
+        '/volcengine-accounts/volcengine-1/ecs-instances',
+        { volcengineAccountIds: ['volcengine-1'] },
+        { volcengineAccountIds: [] },
+      ],
+    ]
+
+    for (const [path, selected, unselected] of cases) {
+      expect(connectorSelectionAllows(selected, scopedOf(path)), path).toBe(true)
+      expect(connectorSelectionAllows(unselected, scopedOf(path)), path).toBe(false)
+    }
   })
 
   test('keeps conversations without a stored selection on team-wide reach', () => {

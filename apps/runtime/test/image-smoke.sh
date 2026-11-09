@@ -53,6 +53,11 @@ hcloud version | grep -qx 'hcloud [0-9.]*' || fail 'hcloud stdout carries instal
 step 'Debian package tool'
 timed psql --version
 
+# The Tencent skill's CLI: a first-use pip install from the manifest's
+# hash-locked requirements, which is what the agent's `tccli` resolves to.
+step 'Tencent Cloud CLI'
+timed tccli --version
+
 step 'C toolchain'
 timed cc --version >/dev/null
 work=$(mktemp -d)
