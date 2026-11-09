@@ -2,9 +2,11 @@ import { useEffect, useSyncExternalStore } from 'react'
 
 import type { ChangeStatus } from '../components/sidebar/sessionResourcePresentation'
 
-// One value per window: each Electron window has its own sessionStorage,
-// which also survives a reload of that window.
-const OPEN_KEY = 'nuphos.chatSummaryOpen'
+// Per window: each Electron window has its own sessionStorage, which also
+// survives a reload of that window. It holds the chats whose panel is open.
+const OPEN_KEY = 'nuphos.chatSummaryOpenChats'
+/** Enough open chats for a long day; the oldest are forgotten first. */
+const OPEN_LIMIT = 200
 
 const listeners = new Set<() => void>()
 
@@ -29,13 +31,32 @@ const inWindow = typeof window !== 'undefined'
 /** The id the first pane starts with: its open state is the one restored after a reload. */
 export const PRIMARY_PANE_ID = 'primary'
 
-// The pane whose open state survives a reload; it follows the workspace's `primary` flag.
-let persistedPaneId = PRIMARY_PANE_ID
+function storedOpenChats(): string[] {
+  try {
+    const parsed: unknown = JSON.parse(read(OPEN_KEY) ?? '[]')
 
-// Panes whose summary panel is open. A newly split pane is not in it, so it starts closed.
-const openPanes = new Set<string>(inWindow && read(OPEN_KEY) === '1' ? [PRIMARY_PANE_ID] : [])
+    return Array.isArray(parsed) ? parsed.filter((id) => typeof id === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+// Each chat remembers its own panel: open in one chat, it stays closed in the
+// next until opened there, and is open again on coming back. A pane showing no
+// chat (a new one) keeps its own entry, `pane:<id>`, which is not persisted.
+const openKeys = new Set<string>(inWindow ? storedOpenChats() : [])
 // The chat each pane is showing, so a badge can open the panel only where its chat is.
 const paneSessions = new Map<string, string>()
+
+function keyOf(paneId: string): string {
+  return paneSessions.get(paneId) ?? `pane:${paneId}`
+}
+
+function persist() {
+  const chats = [...openKeys].filter((key) => !key.startsWith('pane:'))
+
+  write(OPEN_KEY, JSON.stringify(chats.slice(-OPEN_LIMIT)))
+}
 // An open asked for a chat no pane shows yet ("before switching to that chat").
 let pendingOpenFor: string | null = null
 let pendingOpenAt = 0
@@ -60,63 +81,59 @@ function notify() {
   for (const listener of listeners) listener()
 }
 
+/** Opens or closes the panel for the chat this pane shows. */
 export function setChatSummaryOpen(paneId: string, next: boolean): void {
+  const key = keyOf(paneId)
+
+  // Re-adding moves the chat to the end, so the limit forgets the oldest first.
+  openKeys.delete(key)
   if (next) {
-    openPanes.add(paneId)
-  } else {
-    openPanes.delete(paneId)
+    openKeys.add(key)
+  } else if (revealFor !== null && paneSessions.get(paneId) === revealFor) {
     // Closing drops a reveal this pane never made, so a later open stays put.
-    if (revealFor !== null && paneSessions.get(paneId) === revealFor) revealFor = null
+    revealFor = null
   }
-  if (paneId === persistedPaneId) write(OPEN_KEY, next ? '1' : '0')
+  persist()
   notify()
 }
 
 export function toggleChatSummary(paneId: string): void {
-  setChatSummaryOpen(paneId, !openPanes.has(paneId))
+  setChatSummaryOpen(paneId, !openKeys.has(keyOf(paneId)))
 }
 
-/** Whether the pane's summary panel is open, for code outside React. */
+/** Whether the panel is open for the chat this pane shows, for code outside React. */
 export function isChatSummaryOpen(paneId: string): boolean {
-  return openPanes.has(paneId)
+  return openKeys.has(keyOf(paneId))
 }
 
 /** Records which chat a pane shows; a pending badge open for that chat lands here. */
 export function setPaneSession(paneId: string, sessionId: string | null, now = Date.now()): void {
   if (sessionId === null) {
     paneSessions.delete(paneId)
+    notify()
 
     return
   }
   paneSessions.set(paneId, sessionId)
+  notify()
   if (pendingOpenFor === sessionId && now - pendingOpenAt <= REVEAL_LIFETIME_MS) {
     pendingOpenFor = null
     setChatSummaryOpen(paneId, true)
   }
 }
 
-/** Records which chat a pane shows; `primary` marks the pane that owns persistence. */
-export function useRegisterPaneSession(
-  paneId: string,
-  sessionId: string | null,
-  primary = false,
-): void {
-  useEffect(() => {
-    if (!primary) return
-    persistedPaneId = paneId
-    write(OPEN_KEY, openPanes.has(paneId) ? '1' : '0')
-  }, [paneId, primary])
-
+/** Records which chat a pane shows, so the pane reads that chat's panel. */
+export function useRegisterPaneSession(paneId: string, sessionId: string | null): void {
   useEffect(() => {
     setPaneSession(paneId, sessionId)
 
     return () => setPaneSession(paneId, null)
   }, [paneId, sessionId])
 
-  // A closed pane leaves no open state behind; the persisted pane keeps its own.
+  // A closed pane leaves no state for a chat-less view behind; chats keep theirs.
   useEffect(
     () => () => {
-      if (paneId !== persistedPaneId) openPanes.delete(paneId)
+      openKeys.delete(`pane:${paneId}`)
     },
     [paneId],
   )
@@ -237,7 +254,7 @@ function subscribe(listener: () => void) {
 export function useChatSummaryOpen(paneId: string): boolean {
   return useSyncExternalStore(
     subscribe,
-    () => openPanes.has(paneId),
+    () => openKeys.has(keyOf(paneId)),
     () => false,
   )
 }

@@ -138,3 +138,31 @@ test('a pending open not taken in time is dropped', () => {
 
   setPaneSession('pane-1', null)
 })
+
+test('each chat remembers its own panel as a pane switches between them', () => {
+  setPaneSession('pane-1', 'chat-a')
+  setChatSummaryOpen('pane-1', true)
+  assert.equal(isChatSummaryOpen('pane-1'), true)
+
+  setPaneSession('pane-1', 'chat-b') // a chat never opened starts closed
+  assert.equal(isChatSummaryOpen('pane-1'), false)
+
+  setPaneSession('pane-1', 'chat-a') // coming back finds it open again
+  assert.equal(isChatSummaryOpen('pane-1'), true)
+
+  setChatSummaryOpen('pane-1', false)
+  setPaneSession('pane-1', null)
+})
+
+test('two panes on the same chat share its panel; other chats are untouched', () => {
+  setPaneSession('pane-1', 'chat-c')
+  setPaneSession('pane-2', 'chat-c')
+  setPaneSession('pane-3', 'chat-d')
+
+  toggleChatSummary('pane-1')
+  assert.equal(isChatSummaryOpen('pane-2'), true)
+  assert.equal(isChatSummaryOpen('pane-3'), false)
+
+  setChatSummaryOpen('pane-2', false)
+  for (const pane of ['pane-1', 'pane-2', 'pane-3']) setPaneSession(pane, null)
+})
