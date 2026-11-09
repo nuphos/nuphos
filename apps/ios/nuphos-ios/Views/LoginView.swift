@@ -73,6 +73,9 @@ struct LoginView: View {
                                 .multilineTextAlignment(.center)
                         }
                     }.padding(.top, 24)
+                    if !session.savedAccounts.accounts.isEmpty || session.addingAccount || session.savedAccounts.error != nil {
+                        SavedAccountsView()
+                    }
                     Spacer(minLength: 24)
                     VStack(spacing: 16) {
                         VStack(alignment: .leading, spacing: 8) {
@@ -244,7 +247,12 @@ struct LoginView: View {
             }
             .allowsHitTesting(false).accessibilityHidden(true)
         }
-        .onChange(of: credential) { if error != nil { clearFeedback() } }
+        .onChange(of: credential) {
+            if error != nil { clearFeedback() }
+            guard path.last == .code, validCode, !signingIn else { return }
+            codeFocused = false
+            Task { await signIn(password: false) }
+        }
         .task {
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled, path.last == .code else { return }

@@ -18,7 +18,7 @@ final class ReferencedAgents {
             let detail = try await NuphosAPI.conversationDetail(token: token, teamId: team, sessionId: id, tail: 1, displayed: false)
             details[key] = detail
             unavailable.remove(key)
-            RuntimeObservations.shared.receive(detail.runtimeState, team: team, session: id, observedAt: now)
+            RuntimeObservations.forAccount(token).receive(detail.runtimeState, team: team, session: id, observedAt: now)
         } catch {
             if details[key] == nil { unavailable.insert(key) }
         }
@@ -30,12 +30,13 @@ struct AgentThreadBadge: View {
     let teamId: String
     let agents: ReferencedAgents
     let onLink: (URL) -> Void
+    @Environment(AgentStore.self) private var store
     @Environment(AuthSession.self) private var auth
     @Environment(\.scenePhase) private var scenePhase
 
     private var key: String { "\(teamId)/\(reference.id)" }
     private var detail: AgentConversationDetail? { agents.details[key] }
-    private var observation: RuntimeObservation? { RuntimeObservations.shared.value(team: teamId, session: reference.id) }
+    private var observation: RuntimeObservation? { store.observations.value(team: teamId, session: reference.id) }
     private var status: String {
         guard detail != nil else { return agents.unavailable.contains(key) ? "Unavailable" : "" }
         guard let observation, !observation.unavailable else { return "Unavailable" }

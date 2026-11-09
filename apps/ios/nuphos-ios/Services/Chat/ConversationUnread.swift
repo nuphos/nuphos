@@ -12,6 +12,16 @@ final class ConversationUnread {
     typealias Probe = @MainActor (_ team: String, _ session: String) async -> Void
 
     static let shared = ConversationUnread()
+    private final class Weak { weak var value: ConversationUnread?; init(_ value: ConversationUnread) { self.value = value } }
+    private static var accounts: [String: Weak] = [:]
+
+    static func forAccount(_ token: String) -> ConversationUnread {
+        if let existing = accounts[token]?.value { return existing }
+        accounts = accounts.filter { $0.value.value != nil }
+        let value = ConversationUnread()
+        accounts[token] = Weak(value)
+        return value
+    }
     private(set) var markers: [String: Marker] = [:]
     private var displayed: [String: Int] = [:]
     private var pending: [String: Int] = [:]

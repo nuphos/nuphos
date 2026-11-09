@@ -36,6 +36,15 @@ final class AuthSession {
     private(set) var aiConsentVersion: String?
     private(set) var aiConsentError: String?
 
+    let savedAccounts = SavedAccounts()
+    private(set) var generation = 0
+    private(set) var accountError: String?
+    private(set) var addingAccount = false
+    private var returnAccountID: String?
+    private var identityOrigin = NuphosAPI.baseURL.absoluteString
+    private var pushActivation: Task<Void, Never>?
+    private var pushCleanup: Task<Void, Never>?
+
     static let tokenKey = "session-token"
     private let presentationContext = WebAuthPresentationContext()
     private var webSession: ASWebAuthenticationSession?
@@ -49,6 +58,7 @@ final class AuthSession {
         try SharedShareSession.validate(lease)
         guard ["https", "http"].contains(lease.backend.scheme?.lowercased() ?? ""),
               lease.backend.host != nil, lease.backend.user == nil, lease.backend.password == nil else { throw SharedShareSession.Failure.identity }
+        guard NuphosAPI.rememberOrigin(lease.backend.absoluteString, token: lease.token) else { throw SharedShareSession.Failure.identity }
         NuphosAPI.sharedSessionBaseURL = lease.backend
         let user = try await NuphosAPI.currentUser(token: lease.token)
         try SharedShareSession.validate(lease)
@@ -96,11 +106,16 @@ final class AuthSession {
         }
         #endif
 
-        guard let saved = Keychain.read(Self.tokenKey) else {
+        if let active = savedAccounts.active, active.token != nil {
+            await selectAccount(active.id)
+            return
+        }
+        guard !savedAccounts.hasRegistry, savedAccounts.error == nil, let saved = Keychain.read(Self.tokenKey) else {
             state = .signedOut(error: nil)
             return
         }
 
+        let expected = generation
         token = saved
         if let cached = LaunchCache.read(LaunchCache.User.self), cached.aiConsentVersion == AccountAPI.aiConsentVersion {
             aiConsentAccepted = true
@@ -109,17 +124,21 @@ final class AuthSession {
         }
         do {
             let user = try await NuphosAPI.currentUser(token: saved)
+            guard generation == expected, token == saved else { return }
+            try savedAccounts.save(user: user, token: saved, origin: identityOrigin)
+            Keychain.delete(Self.tokenKey)
             await loadAIConsent()
-            // A newer sign-out or sign-in wins over this restore response.
-            guard token == saved else { return }
-            sharingLoginID = try? SharedShareSession.publishLogin(token: saved, accountID: user.id, backend: NuphosAPI.baseURL)
+            // Home may already be open from the cache, so the user can sign
+            // out, or in again, before this answers. That session wins.
+            guard generation == expected, token == saved else { return }
+            sharingLoginID = try? SharedShareSession.publishLogin(token: saved, accountID: user.id, backend: NuphosAPI.baseURL(for: saved))
             state = .signedIn(user)
         } catch NuphosAPI.Failure.unauthorized {
-            guard token == saved else { return }
+            guard generation == expected, token == saved else { return }
             clearToken()
             state = .signedOut(error: nil)
         } catch {
-            guard token == saved else { return }
+            guard generation == expected, token == saved else { return }
             if self.user == nil {
                 state = .signedOut(error: "We could not reach Nuphos. Check your connection and try again.")
             }
@@ -134,6 +153,8 @@ final class AuthSession {
 
     func signIn(provider: NuphosWeb.Provider) async {
         guard state != .signingIn else { return }
+        let expected = generation
+        let origin = NuphosAPI.baseURL.absoluteString
         state = .signingIn
 
         do {
@@ -144,37 +165,148 @@ final class AuthSession {
                 "redirectUri": "nuphos://google-callback", "codeChallenge": NuphosWeb.challenge(verifier),
                 "codeChallengeMethod": "S256", "clientState": clientState
             ])
+            guard generation == expected, NuphosAPI.baseURL.absoluteString == origin else { return }
             let callback = try await authenticate(url: NuphosWeb.loginURL(baseURL: NuphosAPI.baseURL, handle: registration.handle, provider: provider))
+            guard generation == expected, NuphosAPI.baseURL.absoluteString == origin else { return }
             switch NuphosWeb.parseCallback(callback, expectedState: clientState) {
             case .code(let code):
                 let result: AccountAPI.SignIn = try await AccountAPI.request("native/session/redeem", method: "POST", body: [
                     "handle": registration.handle, "codeVerifier": verifier, "code": code
                 ])
-                await complete(token: result.token)
+                await complete(token: result.token, expected: expected, origin: origin)
             case .failure(let message): state = .signedOut(error: message)
             case nil: state = .signedOut(error: "Unexpected sign-in response. Please try again.")
             }
         } catch let error as ASWebAuthenticationSessionError where error.code == .canceledLogin {
-            state = .signedOut(error: nil)
+            if generation == expected { state = .signedOut(error: nil) }
         } catch {
-            state = .signedOut(error: error.localizedDescription)
+            if generation == expected { state = .signedOut(error: error.localizedDescription) }
         }
     }
 
     /// Exchanges a fresh token for the user, and only then persists it: a
     /// token that cannot fetch its own user is not a session worth keeping.
-    private func complete(token: String) async {
+    private func complete(token: String, expected: Int, origin: String) async {
         do {
+            guard generation == expected, NuphosAPI.baseURL.absoluteString == origin else { return }
+            guard NuphosAPI.rememberOrigin(origin, token: token) else { throw NuphosAPI.Failure.unauthorized }
             let user = try await NuphosAPI.currentUser(token: token)
-            try Keychain.write(token, for: Self.tokenKey)
+            guard generation == expected, NuphosAPI.baseURL.absoluteString == origin else { return }
+            await pushCleanup?.value
+            guard generation == expected, NuphosAPI.baseURL.absoluteString == origin else { return }
+            try savedAccounts.save(user: user, token: token, origin: origin)
+            Keychain.delete(Self.tokenKey)
             self.token = token
+            identityOrigin = origin
+            addingAccount = false
+            returnAccountID = nil
             await loadAIConsent()
-            sharingLoginID = try? SharedShareSession.publishLogin(token: token, accountID: user.id, backend: NuphosAPI.baseURL)
+            guard generation == expected, self.token == token else { return }
+            sharingLoginID = try? SharedShareSession.publishLogin(token: token, accountID: user.id, backend: NuphosAPI.baseURL(for: token))
             state = .signedIn(user)
             Analytics.shared.track("login")
         } catch {
-            state = .signedOut(error: error.localizedDescription)
+            if generation == expected { state = .signedOut(error: error.localizedDescription) }
         }
+    }
+
+    func addAccount() {
+        returnAccountID = savedAccounts.active?.id
+        addingAccount = true
+        resetIdentity()
+        state = .signedOut(error: nil)
+    }
+
+    func cancelAddAccount() async {
+        let previous = returnAccountID
+        addingAccount = false
+        returnAccountID = nil
+        if let previous { await selectAccount(previous) }
+        else { resetIdentity(); state = .signedOut(error: nil) }
+    }
+
+    func selectAccount(_ id: String) async {
+        guard let account = savedAccounts.accounts.first(where: { $0.id == id }) else { return }
+        if account.token == nil {
+            addAccount()
+            UserDefaults.standard.set(account.origin, forKey: NuphosAPI.baseURLKey)
+            return
+        }
+        guard let saved = account.token else { return }
+        if savedAccounts.active?.id == id, token == saved, user?.id == account.user.id { return }
+        do { try savedAccounts.select(id) }
+        catch { accountError = "We could not save the account selection. Try again."; return }
+        resetIdentity()
+        addingAccount = false
+        returnAccountID = nil
+        let expected = generation
+        state = .restoring
+        await pushCleanup?.value
+        guard generation == expected else { return }
+        UserDefaults.standard.set(account.origin, forKey: NuphosAPI.baseURLKey)
+        identityOrigin = account.origin
+        token = saved
+        do {
+            let user = try await NuphosAPI.currentUser(token: saved)
+            guard generation == expected else { return }
+            guard user.id == account.user.id else { throw NuphosAPI.Failure.unauthorized }
+            try savedAccounts.save(user: user, token: saved, origin: account.origin)
+            await loadAIConsent()
+            guard generation == expected else { return }
+            sharingLoginID = try? SharedShareSession.publishLogin(token: saved, accountID: user.id, backend: NuphosAPI.baseURL(for: saved))
+            state = .signedIn(user)
+        } catch NuphosAPI.Failure.unauthorized {
+            guard generation == expected else { return }
+            do { try savedAccounts.invalidate(id) }
+            catch { state = .signedOut(error: "We could not remove the expired session. Try again."); return }
+            token = nil
+            state = .signedOut(error: "This account's session expired. Sign in again.")
+        } catch {
+            guard generation == expected else { return }
+            token = nil
+            state = .signedOut(error: "We could not open this account. Check your connection and try again.")
+        }
+    }
+
+    func removeAccount(_ id: String) {
+        guard let account = savedAccounts.accounts.first(where: { $0.id == id }) else { return }
+        if savedAccounts.active?.id == id, token != nil { signOut(); return }
+        do { try savedAccounts.remove(id) }
+        catch { accountError = "We could not remove this saved account. Try again."; return }
+        let cleanup = pushCleanup
+        if let token = account.token { Task { await cleanup?.value; await AccountAPI.endSession(token: token) } }
+    }
+
+    private func resetIdentity() {
+        accountError = nil
+        sharingLoginID = nil
+        SharedShareSession.revoke()
+        PushNotifications.shared.invalidateRouting()
+        generation += 1
+        webSession?.cancel()
+        webSession = nil
+        let previous = pushCleanup
+        let activation = pushActivation
+        pushCleanup = Task { await previous?.value; await activation?.value; await PushNotifications.shared.deactivate() }
+        token = nil
+        aiConsentAccepted = false
+        aiConsentVersion = nil
+        aiConsentError = nil
+        ComposerDrafts.clear()
+        LaunchCache.clear()
+        TransferFiles.clear()
+    }
+
+    func activatePush() async {
+        let expected = generation
+        await pushCleanup?.value
+        guard expected == generation, let token, user != nil else { return }
+        let task = Task {
+            guard self.generation == expected, self.token == token else { return }
+            await PushNotifications.shared.activate(authToken: token)
+        }
+        pushActivation = task
+        await task.value
     }
 
     private func authenticate(url: URL) async throws -> URL {
@@ -208,18 +340,22 @@ final class AuthSession {
     func loadAIConsent() async {
         aiConsentError = nil
         guard let token else { return }
+        let expected = generation
         do {
             let result: AccountAPI.Consent = try await AccountAPI.request("ai-consent", token: token)
+            guard generation == expected, self.token == token else { return }
             aiConsentVersion = result.version
             aiConsentAccepted = result.accepted && result.version == AccountAPI.aiConsentVersion
-        } catch { aiConsentError = error.localizedDescription }
+        } catch { if generation == expected { aiConsentError = error.localizedDescription } }
     }
 
     func setAIConsent(accepted: Bool) async throws {
         guard let token, let version = aiConsentVersion, version == AccountAPI.aiConsentVersion else {
             throw NuphosAPI.Failure.http(409, message: "Please update Nuphos to read the latest AI notice.")
         }
+        let expected = generation
         let result: AccountAPI.Consent = try await AccountAPI.request("ai-consent", method: "PUT", token: token, body: ["version": version, "accepted": accepted])
+        guard generation == expected, self.token == token else { return }
         aiConsentAccepted = result.accepted
         if !accepted {
             ComposerDrafts.clear()
@@ -229,6 +365,8 @@ final class AuthSession {
 
     func emailSignIn(email: String, credential: String, password: Bool, newPassword: String? = nil) async throws {
         guard state != .signingIn else { return }
+        let expected = generation
+        let origin = NuphosAPI.baseURL.absoluteString
         state = .signingIn
         do {
             var body = ["email": email]
@@ -236,9 +374,9 @@ final class AuthSession {
             if let newPassword { body["password"] = newPassword }
             let path = newPassword != nil ? "password/set" : password ? "password/sign-in" : "email/verify-code"
             let result: AccountAPI.SignIn = try await AccountAPI.request(path, method: "POST", body: body)
-            await complete(token: result.token)
+            await complete(token: result.token, expected: expected, origin: origin)
         } catch {
-            state = .signedOut(error: error.localizedDescription)
+            if generation == expected { state = .signedOut(error: error.localizedDescription) }
             throw error
         }
     }
@@ -248,22 +386,33 @@ final class AuthSession {
     /// Re-fetches the user, e.g. on pull-to-refresh. A 401 signs out.
     func updateProfile(name: String, username: String, avatarURL: String) async throws {
         guard let token else { throw NuphosAPI.Failure.unauthorized }
+        let expected = generation
         let user: NuphosUser = try await AccountAPI.request("me", method: "PATCH", token: token, body: ["name": name, "username": username, "avatarURL": avatarURL])
+        guard generation == expected, self.token == token else { return }
+        try savedAccounts.save(user: user, token: token, origin: identityOrigin)
         state = .signedIn(user)
     }
 
     /// Uploads a profile photo, or removes it with `nil`.
     func setAvatar(_ image: Data?) async throws {
         guard let token else { throw NuphosAPI.Failure.unauthorized }
+        let expected = generation
         let user: NuphosUser = try await AccountAPI.request("me/avatar", method: image == nil ? "DELETE" : "PUT", token: token, upload: image)
+        guard generation == expected, self.token == token else { return }
+        try savedAccounts.save(user: user, token: token, origin: identityOrigin)
         state = .signedIn(user)
     }
 
     func refreshUser() async {
         guard let token, case .signedIn = state else { return }
+        let expected = generation
         do {
-            state = .signedIn(try await NuphosAPI.currentUser(token: token))
+            let user = try await NuphosAPI.currentUser(token: token)
+            guard generation == expected, self.token == token else { return }
+            try savedAccounts.save(user: user, token: token, origin: identityOrigin)
+            state = .signedIn(user)
         } catch NuphosAPI.Failure.unauthorized {
+            guard generation == expected, self.token == token else { return }
             signOut(error: NuphosAPI.Failure.unauthorized.localizedDescription)
         } catch {
             // Keep showing what we have; transient failures are not a reason
@@ -272,19 +421,22 @@ final class AuthSession {
     }
 
     func signOut(error: String? = nil) {
-        Analytics.shared.track("logout")
-        let token = token
-        // Push unregisters with the token, so the session ends after it.
-        Task {
-            await PushNotifications.shared.deactivate()
-            if let token { await AccountAPI.endSession(token: token) }
+        let ended = token
+        if let id = savedAccounts.active?.id {
+            do { try savedAccounts.remove(id) }
+            catch { accountError = "We could not sign out. Try again."; return }
         }
-        webSession?.cancel()
-        webSession = nil
-        clearToken()
-        ComposerDrafts.clear()
-        // An OpenAI key saved by builds from before voice input moved to Nuphos.
+        Analytics.shared.track("logout")
+        resetIdentity()
+        addingAccount = false
+        returnAccountID = nil
+        Keychain.delete(Self.tokenKey)
         Keychain.delete("openai-api-key")
+        let cleanup = pushCleanup
+        Task {
+            await cleanup?.value
+            if let ended { await AccountAPI.endSession(token: ended) }
+        }
         state = .signedOut(error: error)
     }
 

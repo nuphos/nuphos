@@ -94,7 +94,7 @@ final class ChatSession {
         runtimeLabel ?? runtime?.label ?? agentRuntime.map { RuntimeInstance.Provider.name($0) }
     }
 
-    private let observations = RuntimeObservations.shared
+    private let observations: RuntimeObservations
     var runtimeObservation: RuntimeObservation? { observations.value(team: teamId, session: sessionId) }
     var isStreaming: Bool { isNativeRuntime ? runtimeObservation?.executing == true : transportStreaming }
     /// The owner can open this conversation's desktop: its runtime is a Box or a
@@ -309,6 +309,7 @@ final class ChatSession {
         runtimeLabel: String? = nil
     ) {
         self.token = token
+        observations = RuntimeObservations.forAccount(token)
         self.teamId = teamId
         self.sessionId = sessionId
         self.title = title
@@ -1352,7 +1353,7 @@ final class ChatSession {
         case "atlas-turn-complete", "atlas-turn-paused":
             awaitingAdmission = false
             if let turn = frame["turnKey"]?.stringValue ?? currentStreamId {
-                ConversationUnread.shared.observe(team: teamId, session: sessionId, turn: turn)
+                ConversationUnread.forAccount(token).observe(team: teamId, session: sessionId, turn: turn)
             }
             phaseLabel = nil
             return
