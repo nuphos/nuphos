@@ -9,6 +9,7 @@ import {
   updateBotSelf,
 } from './db'
 import { BOT_AVATARS } from './bot-avatars'
+import { createBot } from './bots'
 import { getLiveTurn } from './live-turn'
 import { withLabel } from './tools-skilled/labeling'
 
@@ -35,6 +36,12 @@ const UPDATE_SELF_DESCRIPTION =
   'People see the new name and face in the sidebar and titlebar; the instructions apply from your next turn. ' +
   'Use it when the person you work for tells you what you are for, what to call you, how to behave, or asks you to change any of that — draft the instructions from the conversation, in the second person, and send the whole new text. ' +
   'Pass only the fields that change. Only the owner of a Bot can change it, and a Task (a conversation without a face) cannot use it.'
+
+const CREATE_BOT_DESCRIPTION =
+  'Create a new Bot: a persistent agent with its own name, face and standing instructions, as "+ New Bot" does. ' +
+  'Use it only when the person you work for explicitly asks for a new Bot; to delegate or background work, use create_thread instead. ' +
+  'The Bot belongs to that person and is their 1:1 chat with it; it starts idle on their default agent, in full access. ' +
+  'Pass instructions in the second person, drafted from what they asked for. Returns its session_id.'
 
 function conversationSummary(
   c: {
@@ -248,5 +255,41 @@ export function createSessionTools(
     updateSelfShape,
   )
 
-  return { list_recent_conversations, read_conversation, rename_conversation, update_self }
+  const createBotShape = {
+    name: z.string().trim().min(1).max(120).describe('Its name, 1–120 characters.'),
+    avatar: z.enum(BOT_AVATARS).optional().describe('Its face, by name; one is picked otherwise.'),
+    instructions: z
+      .string()
+      .trim()
+      .max(8000)
+      .optional()
+      .describe('Its standing instructions, in the second person.'),
+  }
+  const create_bot = withLabel(
+    tool({
+      description: CREATE_BOT_DESCRIPTION,
+      inputSchema: z.object(createBotShape),
+      execute: async ({ name, avatar, instructions }) => {
+        const bot = await createBot(userId, teamId, { title: name, avatar })
+
+        if (instructions) await updateBotSelf(bot.sessionId, userId, teamId, { instructions })
+
+        return {
+          session_id: bot.sessionId,
+          name: bot.title,
+          avatar: bot.avatar,
+          _links: { web: `/teams/${teamId}/agent/${bot.sessionId}` },
+        }
+      },
+    }),
+    createBotShape,
+  )
+
+  return {
+    list_recent_conversations,
+    read_conversation,
+    rename_conversation,
+    update_self,
+    create_bot,
+  }
 }

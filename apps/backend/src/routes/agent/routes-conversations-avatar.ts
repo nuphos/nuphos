@@ -2,15 +2,10 @@ import { randomUUID } from 'node:crypto'
 
 import { z } from 'zod'
 
-import { initializeSessionBypass } from '@/lib/agent/auto-mode/store'
 import { BOT_AVATARS, derivedAvatar } from '@/lib/agent/bot-avatars'
+import { createBot } from '@/lib/agent/bots'
 import { startConversationTurn } from '@/lib/agent/conversation-turn'
-import {
-  claimBotAvatar,
-  getReadableConversation,
-  setConversationAvatar,
-  upsertConversationShell,
-} from '@/lib/agent/db'
+import { claimBotAvatar, getReadableConversation, setConversationAvatar } from '@/lib/agent/db'
 import {
   validateRequestedAgentRuntime,
   validateRequestedRuntimeId,
@@ -54,8 +49,7 @@ agent.patch('/conversations/:sessionId/avatar', async (c) => {
   return c.json({ avatar: body.data.avatar })
 })
 
-// "+" on Bots: a Bot exists, with the name and face its maker chose, before
-// anyone types. It is placed on the runtime the client would start a new chat on, so its
+// "+" on Bots. It is placed on the runtime the client would start a new chat on, so its
 // composer shows that runtime and its first turn runs there.
 const createBotBody = z
   .object({
@@ -79,24 +73,17 @@ agent.post('/bots', async (c) => {
   const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.data.teamId))
 
   if (!teamId) throw new AppError(403, 'forbidden', 'Workspace membership is required')
-  const sessionId = randomUUID()
-  const avatar = body.data.avatar ?? derivedAvatar(sessionId)
-  const title = body.data.title ?? 'New Bot'
 
-  await upsertConversationShell({
-    sessionId,
-    userId: c.get('userId'),
-    teamId,
-    title,
-    firstMessage: '',
-    avatar,
-    ...(agentRuntime ? { agentRuntime } : {}),
-    ...(runtimeId ? { runtimeId, ...(runtimeLabel ? { runtimeLabel } : {}) } : {}),
-  })
-  // A Bot works on its own, so it starts in full access, as a new chat would set it.
-  await initializeSessionBypass(sessionId, c.get('userId'), true)
-
-  return c.json({ sessionId, title, avatar }, 201)
+  return c.json(
+    await createBot(c.get('userId'), teamId, {
+      title: body.data.title,
+      avatar: body.data.avatar,
+      agentRuntime,
+      runtimeId,
+      runtimeLabel,
+    }),
+    201,
+  )
 })
 
 const MAKE_BOT_PROMPT =

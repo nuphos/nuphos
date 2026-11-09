@@ -3,6 +3,7 @@ import { expect, test } from 'bun:test'
 import { agentRuns } from '@/lib/agent/run-admission'
 import { byCodeUnit } from '@/lib/agent/sort-order'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useDb } from '@/lib/test/doubles/db'
 
 import { createSessionTools } from './tools-sessions'
 
@@ -11,6 +12,7 @@ import type { AgentRun } from '@/routes/agent/types'
 
 test('exposes the past-conversation tools in a team', () => {
   expect(Object.keys(createSessionTools('u', 'c', 'team')).sort(byCodeUnit)).toEqual([
+    'create_bot',
     'list_recent_conversations',
     'read_conversation',
     'rename_conversation',
@@ -27,6 +29,24 @@ const diagnostics = [{ message_index: 7, outcome: 'interrupted', reason: 'timeou
 
 let listOptions: unknown
 const selfUpdates: unknown[] = []
+const shells: Record<string, unknown>[] = []
+// Full-access grants a new Bot starts with: `${userId}:${conversationId}` → bypass.
+const bypass = new Map<string, unknown>()
+
+useDb({
+  db: () => ({
+    collection: () => ({
+      updateOne: (
+        filter: { conversationId: string; userId: string },
+        update: { $setOnInsert?: { bypass?: unknown } },
+      ) => {
+        bypass.set(`${filter.userId}:${filter.conversationId}`, update.$setOnInsert?.bypass)
+
+        return Promise.resolve()
+      },
+    }),
+  }),
+})
 
 useAgentDb({
   getConversations: async (viewer, options) => {
@@ -52,7 +72,16 @@ useAgentDb({
   updateBotSelf: async (sessionId, userId, teamId, update) => {
     selfUpdates.push(update)
 
-    return sessionId === 'c' && userId === 'u' && teamId === 'team'
+    return (
+      (sessionId === 'c' || shells.some((shell) => shell.sessionId === sessionId)) &&
+      userId === 'u' &&
+      teamId === 'team'
+    )
+  },
+  upsertConversationShell: async (data) => {
+    shells.push(data)
+
+    return { isNew: true }
   },
   renameConversation: async (sessionId, userId, teamId, title) =>
     sessionId === 'c' && userId === 'u' && teamId === 'team' && title === 'Incident review',
@@ -217,4 +246,41 @@ test('update_self refuses an empty change and a conversation that is not a Bot',
 
   expect(empty).toHaveProperty('error')
   expect(task).toHaveProperty('error')
+})
+
+test('create_bot makes a Bot owned by the person the agent works for, as "+ New Bot" does', async () => {
+  const result = (await createSessionTools('u', 'c', 'team').create_bot!.execute!(
+    { label: 'New Bot', name: 'Release Helper', avatar: '07-ada', instructions: 'Watch releases.' },
+    { toolCallId: 'bot', messages: [] },
+  )) as { session_id: string; [field: string]: unknown }
+  const shell = shells.at(-1)
+
+  // The person's own 1:1 Bot, on their default agent, never nested under the caller.
+  expect(shell).toEqual({
+    sessionId: result.session_id,
+    userId: 'u',
+    teamId: 'team',
+    title: 'Release Helper',
+    firstMessage: '',
+    avatar: '07-ada',
+  })
+  expect(result).toEqual({
+    session_id: result.session_id,
+    name: 'Release Helper',
+    avatar: '07-ada',
+    _links: { web: `/teams/team/agent/${result.session_id}` },
+  })
+  expect(bypass.get(`u:${result.session_id}`)).toBe(true)
+  expect(selfUpdates.at(-1)).toEqual({ instructions: 'Watch releases.' })
+})
+
+test('create_bot picks a face when none is given and writes no empty instructions', async () => {
+  const updates = selfUpdates.length
+  const result = (await createSessionTools('u', 'c', 'team').create_bot!.execute!(
+    { label: 'New Bot', name: 'Helper' },
+    { toolCallId: 'bot', messages: [] },
+  )) as { avatar: string }
+
+  expect(result.avatar).toMatch(/^\d{2}-[a-z-]+$/)
+  expect(selfUpdates).toHaveLength(updates)
 })
