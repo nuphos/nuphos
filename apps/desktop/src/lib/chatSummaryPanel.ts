@@ -1,50 +1,18 @@
 import { useEffect, useSyncExternalStore } from 'react'
 
-import type { ChangeStatus } from '../components/sidebar/sessionResourcePresentation'
+import { inWindow, loadOpenChats, read, saveOpenChats, write } from './chatSummaryStorage.ts'
 
-// Per window: each Electron window has its own sessionStorage, which also
-// survives a reload of that window. It holds the chats whose panel is open.
-const OPEN_KEY = 'nuphos.chatSummaryOpenChats'
-/** Enough open chats for a long day; the oldest are forgotten first. */
-const OPEN_LIMIT = 200
+import type { ChangeStatus } from '../components/sidebar/sessionResourcePresentation'
 
 const listeners = new Set<() => void>()
 
-function read(key: string): string | null {
-  try {
-    return window.sessionStorage.getItem(key)
-  } catch {
-    return null
-  }
-}
-
-function write(key: string, value: string) {
-  try {
-    window.sessionStorage.setItem(key, value)
-  } catch {
-    // Without storage the state still holds for this page's life.
-  }
-}
-
-const inWindow = typeof window !== 'undefined'
-
-/** The id the first pane starts with: its open state is the one restored after a reload. */
+/** The id the first pane starts with. */
 export const PRIMARY_PANE_ID = 'primary'
-
-function storedOpenChats(): string[] {
-  try {
-    const parsed: unknown = JSON.parse(read(OPEN_KEY) ?? '[]')
-
-    return Array.isArray(parsed) ? parsed.filter((id) => typeof id === 'string') : []
-  } catch {
-    return []
-  }
-}
 
 // Each chat remembers its own panel: open in one chat, it stays closed in the
 // next until opened there, and is open again on coming back. A pane showing no
 // chat (a new one) keeps its own entry, `pane:<id>`, which is not persisted.
-const openKeys = new Set<string>(inWindow ? storedOpenChats() : [])
+const openKeys = new Set<string>(inWindow ? loadOpenChats() : [])
 // The chat each pane is showing, so a badge can open the panel only where its chat is.
 const paneSessions = new Map<string, string>()
 
@@ -53,10 +21,9 @@ function keyOf(paneId: string): string {
 }
 
 function persist() {
-  const chats = [...openKeys].filter((key) => !key.startsWith('pane:'))
-
-  write(OPEN_KEY, JSON.stringify(chats.slice(-OPEN_LIMIT)))
+  saveOpenChats([...openKeys].filter((key) => !key.startsWith('pane:')))
 }
+
 // An open asked for a chat no pane shows yet ("before switching to that chat").
 let pendingOpenFor: string | null = null
 let pendingOpenAt = 0
