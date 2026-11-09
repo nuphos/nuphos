@@ -32,10 +32,17 @@ const selfUpdates: unknown[] = []
 const shells: Record<string, unknown>[] = []
 // Full-access grants a new Bot starts with: `${userId}:${conversationId}` → bypass.
 const bypass = new Map<string, unknown>()
+// The calling conversation's own permission mode.
+let callerBypass = true
+let instructionsSaved = true
 
 useDb({
   db: () => ({
     collection: () => ({
+      findOne: (filter: { conversationId: string; userId: string }) =>
+        Promise.resolve(
+          filter.conversationId === 'c' && filter.userId === 'u' ? { bypass: callerBypass } : null,
+        ),
       updateOne: (
         filter: { conversationId: string; userId: string },
         update: { $setOnInsert?: { bypass?: unknown } },
@@ -73,7 +80,8 @@ useAgentDb({
     selfUpdates.push(update)
 
     return (
-      (sessionId === 'c' || shells.some((shell) => shell.sessionId === sessionId)) &&
+      (sessionId === 'c' ||
+        (instructionsSaved && shells.some((shell) => shell.sessionId === sessionId))) &&
       userId === 'u' &&
       teamId === 'team'
     )
@@ -268,8 +276,10 @@ test('create_bot makes a Bot owned by the person the agent works for, as "+ New 
     session_id: result.session_id,
     name: 'Release Helper',
     avatar: '07-ada',
+    full_access: true,
     _links: { web: `/teams/team/agent/${result.session_id}` },
   })
+  // A caller in full access makes a Bot in full access.
   expect(bypass.get(`u:${result.session_id}`)).toBe(true)
   expect(selfUpdates.at(-1)).toEqual({ instructions: 'Watch releases.' })
 })
@@ -283,4 +293,34 @@ test('create_bot picks a face when none is given and writes no empty instruction
 
   expect(result.avatar).toMatch(/^\d{2}-[a-z-]+$/)
   expect(selfUpdates).toHaveLength(updates)
+})
+
+test('create_bot gives a caller that needs approvals a Bot that needs them too', async () => {
+  callerBypass = false
+  try {
+    const result = (await createSessionTools('u', 'c', 'team').create_bot!.execute!(
+      { label: 'New Bot', name: 'Helper' },
+      { toolCallId: 'bot', messages: [] },
+    )) as { session_id: string; full_access: boolean }
+
+    expect(result.full_access).toBe(false)
+    expect(bypass.get(`u:${result.session_id}`)).toBe(false)
+  } finally {
+    callerBypass = true
+  }
+})
+
+test('create_bot says so when the instructions were not saved', async () => {
+  instructionsSaved = false
+  try {
+    const result = await createSessionTools('u', 'c', 'team').create_bot!.execute!(
+      { label: 'New Bot', name: 'Helper', instructions: 'Watch releases.' },
+      { toolCallId: 'bot', messages: [] },
+    )
+
+    expect(result).toHaveProperty('session_id')
+    expect(result).toHaveProperty('error')
+  } finally {
+    instructionsSaved = true
+  }
 })

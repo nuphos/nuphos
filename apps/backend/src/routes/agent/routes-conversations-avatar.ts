@@ -75,7 +75,8 @@ agent.post('/bots', async (c) => {
   if (!teamId) throw new AppError(403, 'forbidden', 'Workspace membership is required')
 
   return c.json(
-    await createBot(c.get('userId'), teamId, {
+    // A Bot works on its own, so it starts in full access, as a new chat would set it.
+    await createBot(c.get('userId'), teamId, true, {
       title: body.data.title,
       avatar: body.data.avatar,
       agentRuntime,

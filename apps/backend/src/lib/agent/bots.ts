@@ -18,8 +18,10 @@ export type NewBot = {
 /**
  * A Bot exists, with the name and face its maker chose, before anyone types:
  * "+" on Bots and the create_bot tool. `userId` owns it, so it is their 1:1 chat.
+ * `bypass` is its permission mode: full access when a person chose it, the
+ * caller's own mode when an agent made it.
  */
-export async function createBot(userId: string, teamId: string, bot: NewBot = {}) {
+export async function createBot(userId: string, teamId: string, bypass: boolean, bot: NewBot = {}) {
   const sessionId = randomUUID()
   const avatar = bot.avatar ?? derivedAvatar(sessionId)
   const title = bot.title ?? 'New Bot'
@@ -35,8 +37,7 @@ export async function createBot(userId: string, teamId: string, bot: NewBot = {}
     ...(agentRuntime ? { agentRuntime } : {}),
     ...(runtimeId ? { runtimeId, ...(runtimeLabel ? { runtimeLabel } : {}) } : {}),
   })
-  // A Bot works on its own, so it starts in full access, as a new chat would set it.
-  await initializeSessionBypass(sessionId, userId, true)
+  await initializeSessionBypass(sessionId, userId, bypass)
 
   return { sessionId, title, avatar }
 }
