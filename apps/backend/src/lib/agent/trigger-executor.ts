@@ -18,7 +18,7 @@ import {
   resolveMessageTemplate,
 } from './trigger-executor-context'
 
-import type { ConversationTriggerRunKind } from './conversation-trigger-run'
+import type { ConversationTriggerRun, ConversationTriggerRunKind } from './conversation-trigger-run'
 import type { AgentConversation } from './db'
 import type { MessageMetadata } from './message-metadata'
 import type { AgentTrigger } from './trigger-db'
@@ -56,6 +56,14 @@ export async function executeTrigger(
   const { principalUserId, credentialAccess, target } = await resolveExecutionAuthorization(trigger)
   const reportedStatus = readReportedStatus(webhookPayload)
   const context = templateContext(trigger, triggerId, webhookPayload, options, reportedStatus)
+  // The same stamp a new conversation is filed under. A bound session is not
+  // re-stamped, so the turn itself has to carry it for usage attribution.
+  const runStamp = buildTriggerRunStamp({
+    triggerId,
+    runKind: options.runKind,
+    ...(options.groupMember ? { groupMember: options.groupMember } : {}),
+    ...(options.fireId ? { fireId: options.fireId } : {}),
+  })
 
   // Exclusive with routing and incident mode, so nothing below applies to it.
   if (target) {
@@ -63,7 +71,7 @@ export async function executeTrigger(
       trigger,
       target,
       resolveMessageTemplate(trigger.messageTemplate, context),
-      options.fireId,
+      { fireId: options.fireId, trigger: runStamp },
     )
 
     return target.sessionId
@@ -140,11 +148,7 @@ export async function executeTrigger(
       origin: 'trigger',
       credentialAccess,
       // Files this conversation under its trigger rather than in Chats.
-      trigger: buildTriggerRunStamp({
-        triggerId,
-        runKind: options.runKind,
-        ...(options.groupMember ? { groupMember: options.groupMember } : {}),
-      }),
+      trigger: runStamp,
       ...(trigger.incidentMode && trigger.slackDestination
         ? {
             triggerNotification: {
@@ -189,7 +193,7 @@ async function deliverToTargetSession(
   trigger: AgentTrigger,
   target: AgentConversation,
   text: string,
-  fireId: string | undefined,
+  delivery: { fireId?: string; trigger: ConversationTriggerRun },
 ): Promise<void> {
   const triggerId = trigger._id!.toHexString()
   const { sessionId } = target
@@ -200,10 +204,11 @@ async function deliverToTargetSession(
       // resolveExecutionAuthorization paused the Trigger unless this is its team.
       teamId: target.teamId!,
       targetSessionId: sessionId,
-      messageId: fireId
-        ? createHash('sha256').update(`${triggerId}:${fireId}`).digest('hex')
+      messageId: delivery.fireId
+        ? createHash('sha256').update(`${triggerId}:${delivery.fireId}`).digest('hex')
         : randomUUID(),
       locale: target.metadata?.locale ?? 'en-US',
+      trigger: delivery.trigger,
     },
     target,
     text,
