@@ -41,7 +41,8 @@ extension NuphosAPI {
         limit: Int = 30,
         search: String? = nil,
         scope: String = "mine",
-        channels: Bool = false
+        channels: Bool = false,
+        pendingDecision: Bool = false
     ) async throws -> AgentConversationsPage {
         var query = [
             URLQueryItem(name: "teamId", value: teamId),
@@ -54,6 +55,8 @@ extension NuphosAPI {
         if let search, !search.isEmpty { query.append(URLQueryItem(name: "search", value: search)) }
         // Chats are their own listing: the server never mixes them with agents.
         if channels { query.append(URLQueryItem(name: "kind", value: "channel")) }
+        // Only conversations with an open question, each with every parent above it.
+        if pendingDecision { query.append(URLQueryItem(name: "pendingDecision", value: "true")) }
         let observedAt = ProcessInfo.processInfo.systemUptime
         let page: AgentConversationsPage = try await get("agent/conversations", query: query, token: token, timeout: 20)
         for row in page.rows {

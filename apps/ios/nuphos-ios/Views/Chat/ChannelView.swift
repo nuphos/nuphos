@@ -28,7 +28,8 @@ struct ChannelView: View {
     }
 
     private var rows: [ChatRow] {
-        ChannelPost.items(posts: channel.posts, events: channel.events, typing: typing)
+        (ChannelPost.items(posts: channel.posts, events: channel.events, typing: typing)
+            + channel.questions.map { (id: "question.\($0.id)", item: ChannelItem.question($0)) })
             .map { ChatRow.channel(id: $0.id, item: $0.item) }
     }
 
@@ -223,6 +224,11 @@ struct ChannelView: View {
                 PausedLine(text: text)
             case .typing(let agents):
                 TypingRow(agents: agents)
+            case .question(let question):
+                BotQuestionCard(
+                    question: question,
+                    onOpen: { open(link: question.link(team: channel.teamId)) },
+                    onAnswer: { channel.answer(question, with: $0) })
             }
         }
     }

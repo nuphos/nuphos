@@ -107,6 +107,8 @@ enum ChannelItem: Equatable, Sendable {
     case paused(String)
     /// Agents in a turn right now.
     case typing([ChannelAgent])
+    /// In a Bot's chat: a question the Bot or an agent under it waits on (#1848).
+    case question(BotQuestion)
 }
 
 extension ChannelPost {
