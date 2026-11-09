@@ -204,8 +204,10 @@ instanceScoped.all('/proxy/*', requireGrafanaWriteRole(), async (c) => {
       signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
     })
   } catch (e) {
+    // The team's configured Grafana URL is refused or does not resolve: a
+    // setting to fix, not a backend failure, so it stays out of 5xx reporting.
     if (e instanceof OutboundBlockedError) {
-      throw new AppError(e.status, 'grafana_host_refused', `Grafana host refused: ${e.message}`)
+      throw new AppError(400, 'grafana_host_refused', `Grafana host refused: ${e.message}`)
     }
     throw new AppError(
       502,
