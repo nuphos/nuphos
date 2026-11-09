@@ -213,8 +213,8 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
     val jump: (ChannelReply) -> Unit = { reply ->
         val index = reversed.indexOfFirst { (it as? ChannelItem.Post)?.post?.id == reply.id }
         if (reply.id != null && index >= 0) scope.launch {
-            // The typing slot is the list's first item.
-            state.animateScrollToItem(index + 1)
+            // The typing slot and a Bot's questions come first in the list.
+            state.animateScrollToItem(index + 1 + session.questions.size)
             flashed = reply.id
             delay(900)
             if (flashed == reply.id) flashed = null
@@ -226,6 +226,11 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
         LazyColumn(Modifier.fillMaxSize().testTag("channel-transcript"), state = state, reverseLayout = true,
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
             item(key = "typing") { TypingSlot(typing) }
+            // A Bot's chat: what the Bot and the agents under it wait on, under the newest post.
+            items(session.questions.asReversed(), key = { "question.${it.id}" }) { question ->
+                BotQuestionCard(question, onOpen = { onLink(question.link(session.teamId)) },
+                    onAnswer = { option -> if (allowed()) session.answer(question, option, scope) })
+            }
             items(reversed, key = { it.key }) { item ->
                 // New rows fade in and rise a little as the rows on screen slide up to make room.
                 // The list keeps a reader's place by key, so someone reading older posts sees nothing move.
