@@ -234,8 +234,6 @@ export function WorkspaceSplits({
                 closeOtherPanes: () => keepOnly(rect.id),
                 split: multiple,
                 active: activeId === rect.id,
-                // The first surviving leaf owns persistence, even after the original closes.
-                primary: rect.id === rects[0].id,
                 sidebar,
                 initialState: seeds.get(rect.id),
                 registerStore,
