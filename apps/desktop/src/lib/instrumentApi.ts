@@ -42,10 +42,12 @@ export function instrumentApi<T extends Record<string, unknown>>(
             throw error
           }
           if (!isPromiseLike(result)) return result
-          const startedAt = Date.now()
+          // Not Date.now(): on macOS and Linux this clock stops while the machine
+          // sleeps, so a call spanning a sleep is not reported as a stall.
+          const startedAt = performance.now()
           const { stallAfterMs, observeStall } = options
           const settled = (error?: unknown) => {
-            const elapsedMs = Date.now() - startedAt
+            const elapsedMs = performance.now() - startedAt
 
             if (stallAfterMs !== undefined && elapsedMs >= stallAfterMs) {
               observeStall?.(operation, elapsedMs, error)
