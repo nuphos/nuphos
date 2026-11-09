@@ -1,5 +1,6 @@
 import { app, BrowserWindow, session } from 'electron'
 
+import { guardBrowserDownloads } from './browser-downloads.ts'
 import { CHANGELOG_PAGE_PREFIX } from './changelog-feed.ts'
 import { openExternal } from './open-external.ts'
 
@@ -44,6 +45,7 @@ export function initWebviewGuard() {
   browserSession.setPermissionCheckHandler(() => false)
   browserSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
   browserSession.setDevicePermissionHandler(() => false)
+  guardBrowserDownloads(browserSession)
   // Sites that remember a trusted browser (Apple ID) bind it to the user agent, so drop the
   // app and Electron tokens that change with every release and present plain Chrome.
   browserSession.setUserAgent(
