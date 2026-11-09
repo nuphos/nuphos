@@ -74,7 +74,6 @@ export function ModelSelector({
     disabled ||
     saving ||
     Boolean(error) ||
-    slow ||
     (status !== 'ready' && status !== 'dormant' && status !== 'busy')
   const hint = modelHint(status, Boolean(model), busy)
 

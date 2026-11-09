@@ -296,3 +296,31 @@ test('a dormant session that listed its choices is not polled; one that listed n
   await flush()
   assert.equal(reads, 3)
 })
+
+test('a slow background read never marks the settings slow, and a choice made during it is written', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const slowRead = deferred<SessionConfigState>()
+  let reads = 0
+  let saved = 'before'
+  const writes: string[] = []
+  const sync = new SessionConfigSync({
+    read: () => (++reads === 2 ? slowRead.promise : Promise.resolve(ready(saved))),
+    write: async (selection) => {
+      writes.push(selection.value)
+      saved = selection.value
+
+      return ready(saved)
+    },
+  })
+
+  t.after(sync.start())
+  await flush()
+  void sync.refresh()
+  t.mock.timers.tick(5_000)
+  assert.equal(sync.getSnapshot().slow, false)
+  await sync.select({ configId: 'model', value: 'after' })
+  assert.deepEqual(writes, ['after'])
+  slowRead.resolve(ready('before'))
+  await flush()
+  assert.equal(sync.getSnapshot().data?.options[0].currentValue, 'after')
+})
