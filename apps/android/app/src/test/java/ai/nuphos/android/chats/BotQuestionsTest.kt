@@ -63,8 +63,9 @@ class BotQuestionsTest {
         var pending = listOf<AgentConversation>()
         val answers = mutableListOf<Triple<String, String, String>>()
         var failAnswer = false
-        override suspend fun detail(tail: Int): AgentConversationDetail = Http.json.decodeFromString(
-            """{"kind":"channel","title":"Release Lead","faces":[{"id":"bot-1","name":"Release Lead","agent":{"avatar":"05"}}],"messages":[]}""")
+        var faces = """[{"id":"bot-1","name":"Release Lead","agent":{"avatar":"05"}}]"""
+        override suspend fun detail(tail: Int): AgentConversationDetail =
+            Http.json.decodeFromString("""{"kind":"channel","title":"Release Lead","faces":$faces,"messages":[]}""")
         override suspend fun agents() = emptyList<ChannelAgent>()
         override suspend fun attachment(groupId: String) = TransferDownloadGroup(groupId, "2099-01-01T00:00:00Z", emptyList())
         override suspend fun upload(attachments: List<ComposerAttachment>) = "group"
@@ -107,9 +108,10 @@ class BotQuestionsTest {
     }
 
     @Test fun aChatThatIsNotABotsHasNoQuestions() = runTest {
-        val transport = object : ChannelSession.Transport by FakeTransport().apply { pending = listing } {
-            override suspend fun detail(tail: Int): AgentConversationDetail = Http.json.decodeFromString(
-                """{"kind":"channel","title":"Group","faces":[{"id":"u2","name":"Sam"},{"id":"u3","name":"Kim"}],"messages":[]}""")
+        // A group chat: two people, no Bot.
+        val transport = FakeTransport().apply {
+            pending = listing
+            faces = """[{"id":"u2","name":"Sam"},{"id":"u3","name":"Kim"}]"""
         }
         val session = ChannelSession("team", "chat-group", "Group", transport)
         session.refresh(force = true)
