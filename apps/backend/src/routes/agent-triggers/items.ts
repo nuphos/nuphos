@@ -12,6 +12,7 @@ import {
   transferTriggerExecutionPrincipal,
   updateTrigger,
 } from '@/lib/agent/trigger-service'
+import { getTriggerUsage } from '@/lib/agent/trigger-usage'
 import { CRON_TIME_ZONE, nextCronRuns } from '@/lib/cron'
 import { AppError } from '@/lib/errors'
 import { jsonObjectBody, parseSlackDestination, triggerActor } from '@/routes/agent-triggers/shared'
@@ -27,6 +28,18 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
     const { triggerId } = c.req.param()
 
     return c.json(await getTrigger(triggerId, await triggerActor(c, c.req.query('teamId'))))
+  })
+
+  // What this trigger's fires spent over the last seven days. Reading it needs
+  // no more than reading the trigger itself; a runtime that reported nothing
+  // leaves the totals at zero rather than an estimate.
+  agentTriggersRoutes.get('/:triggerId/usage', async (c) => {
+    const { triggerId } = c.req.param()
+    const actor = await triggerActor(c, c.req.query('teamId'))
+
+    await getTrigger(triggerId, actor)
+
+    return c.json(await getTriggerUsage(triggerId, actor.teamId))
   })
 
   // Create trigger
