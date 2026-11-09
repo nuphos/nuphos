@@ -79,11 +79,13 @@ export class SessionConfigSync {
     this.pending = true
     const version = ++this.version
 
-    // Background reads keep the last acknowledgement visible and do not flash a spinner.
+    // Background reads keep the last acknowledgement visible and selectable: a
+    // write supersedes them, so only a first read can be slow.
     this.publish({ loading: !this.snapshot.data && !this.snapshot.error, slow: false })
-    this.slowTimer = setTimeout(() => {
-      if (this.active && version === this.version) this.publish({ slow: true })
-    }, 2_000)
+    if (!this.snapshot.data)
+      this.slowTimer = setTimeout(() => {
+        if (this.active && version === this.version) this.publish({ slow: true })
+      }, 2_000)
     try {
       // The backend already falls back to the session's last confirmed options;
       // an empty list means this session has none, e.g. after moving agents.
