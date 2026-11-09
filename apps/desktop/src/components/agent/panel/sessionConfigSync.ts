@@ -61,12 +61,15 @@ export class SessionConfigSync {
 
   private schedule() {
     clearTimeout(this.poll)
-    // A dormant session's choices change only when a message starts it, the
-    // menu opens or the window regains focus, which all refresh; polling would
-    // only re-probe the runtime. Keep polling until it has listed some.
-    const dormant = this.snapshot.data?.status === 'dormant' && this.snapshot.data.options.length
+    // Listed choices change only when someone picks one, and a pick, a reply
+    // ending, the menu opening and the window regaining focus all refresh;
+    // polling would only re-run the runtime's model probe. Keep polling until
+    // the session is idle and has listed some, or a failed read has recovered.
+    const { data, error } = this.snapshot
+    const settled =
+      !error && (data?.status === 'ready' || data?.status === 'dormant') && data.options.length
 
-    if (this.active && !dormant)
+    if (this.active && !settled)
       this.poll = setTimeout(
         () => void this.refresh(),
         Math.min(10_000 * 2 ** this.failures, 60_000),
