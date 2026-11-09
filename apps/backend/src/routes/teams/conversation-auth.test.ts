@@ -18,7 +18,7 @@ import {
 } from './conversation-connector-scope'
 import { conversationDenialMessage } from './conversation-denial'
 
-import type { ScopedConnectorBinding } from './conversation-connector-scope'
+import type { ConnectorSelection, ScopedConnectorBinding } from './conversation-connector-scope'
 
 describe('conversation team API capabilities', () => {
   test('accepts the ordinary provider paths backed by selected-credential handlers', () => {
@@ -311,6 +311,9 @@ describe('conversation connector selection scope', () => {
       ['/notion-integrations/notion-1/credentials', 'notionIntegrationIds'],
       ['/upstash-accounts/upstash-1/databases', 'upstashAccountIds'],
       ['/cloudflare-accounts/cf-1/credentials', 'cloudflareAccountIds'],
+      ['/tencent-accounts/tencent-1/clusters', 'tencentAccountIds'],
+      ['/aliyun-accounts/aliyun-1/ecs-instances', 'aliyunAccountIds'],
+      ['/volcengine-accounts/volcengine-1/ecs-instances', 'volcengineAccountIds'],
     ]
 
     for (const [path, key] of cases) {
@@ -339,6 +342,33 @@ describe('conversation connector selection scope', () => {
     expect(() => assertConnectorSelectionAllowed({ grafanaInstanceIds: [] }, scoped)).toThrow(
       /not selected for the current conversation/u,
     )
+  })
+
+  test('scopes cloud instance reads to the account the conversation selected', () => {
+    // getAgentCredentialAccess normalizes these three to [] rather than leaving
+    // them undefined, so a conversation that selected no account reaches none.
+    const cases: [string, ConnectorSelection, ConnectorSelection][] = [
+      [
+        '/tencent-accounts/tencent-1/clusters',
+        { tencentAccountIds: ['tencent-1'] },
+        { tencentAccountIds: [] },
+      ],
+      [
+        '/aliyun-accounts/aliyun-1/ecs-instances',
+        { aliyunAccountIds: ['aliyun-1'] },
+        { aliyunAccountIds: [] },
+      ],
+      [
+        '/volcengine-accounts/volcengine-1/ecs-instances',
+        { volcengineAccountIds: ['volcengine-1'] },
+        { volcengineAccountIds: [] },
+      ],
+    ]
+
+    for (const [path, selected, unselected] of cases) {
+      expect(connectorSelectionAllows(selected, scopedOf(path)), path).toBe(true)
+      expect(connectorSelectionAllows(unselected, scopedOf(path)), path).toBe(false)
+    }
   })
 
   test('keeps conversations without a stored selection on team-wide reach', () => {

@@ -20,7 +20,7 @@ useAgentsIdentity({
   }),
 })
 // The selection as the request sees it once a limit to aws/role-1 is applied.
-useAgentSessionsShared({
+const install = useAgentSessionsShared({
   getAgentCredentialAccess: async () => ({ awsRoleIds: ['role-1'], githubInstallationIds: [] }),
 })
 
@@ -61,5 +61,42 @@ describe('a limited token on the /teams mount', () => {
 
   test('an unlimited token still reaches the canonical routes', async () => {
     expect(await get('/teams/team-1/agent-triggers/t1', false)).toBe('200 reached')
+  })
+})
+
+// One read-only instance list per provider; the remaining four share the shape.
+const cloudReads = [
+  '/teams/team-1/tencent-accounts/tencent-1/clusters',
+  '/teams/team-1/aliyun-accounts/aliyun-1/ecs-instances',
+  '/teams/team-1/volcengine-accounts/volcengine-1/ecs-instances',
+]
+
+describe('cloud instance reads on the /teams mount', () => {
+  test('refuses an account the conversation did not select', async () => {
+    install({
+      getAgentCredentialAccess: async () => ({
+        tencentAccountIds: [],
+        aliyunAccountIds: [],
+        volcengineAccountIds: [],
+      }),
+    })
+
+    for (const path of cloudReads) {
+      expect(await get(path), path).toContain('conversation_api_forbidden')
+    }
+  })
+
+  test('reaches the account the conversation selected', async () => {
+    install({
+      getAgentCredentialAccess: async () => ({
+        tencentAccountIds: ['tencent-1'],
+        aliyunAccountIds: ['aliyun-1'],
+        volcengineAccountIds: ['volcengine-1'],
+      }),
+    })
+
+    for (const path of cloudReads) {
+      expect(await get(path, false), path).toBe('200 reached')
+    }
   })
 })
