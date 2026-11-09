@@ -71,10 +71,7 @@ export function ModelSelector({
     ...new Set([level, ...effortStops(effort?.options ?? []).map((choice) => effortLabel(choice))]),
   ].filter(Boolean)
   const blocked =
-    disabled ||
-    saving ||
-    Boolean(error) ||
-    (status !== 'ready' && status !== 'dormant' && status !== 'busy')
+    disabled || saving || (status !== 'ready' && status !== 'dormant' && status !== 'busy')
   const hint = modelHint(status, Boolean(model), busy)
 
   const setOpen = control.setOpen

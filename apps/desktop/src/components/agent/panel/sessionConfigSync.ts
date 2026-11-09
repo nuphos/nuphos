@@ -152,7 +152,6 @@ export class SessionConfigSync {
     if (
       !this.active ||
       this.snapshot.saving ||
-      this.snapshot.error ||
       (this.snapshot.data?.status !== 'ready' && this.snapshot.data?.status !== 'dormant')
     )
       return
@@ -175,7 +174,7 @@ export class SessionConfigSync {
     } finally {
       if (this.active && version === this.version) {
         this.publish({ saving: false })
-        // Readback after a failed/lost acknowledgement must precede another write.
+        // Read back what the runtime holds, e.g. after a failed or lost acknowledgement.
         void this.refresh()
       }
     }
