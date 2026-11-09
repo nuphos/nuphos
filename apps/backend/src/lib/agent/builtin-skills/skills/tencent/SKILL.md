@@ -37,9 +37,12 @@ tccli cvm DescribeRegions --region ap-guangzhou \
   --SecretId AKID... --SecretKey ...
 ```
 
-`tccli` is pre-installed in the sandbox runtime. If it is missing, the sandbox
-is running an outdated image; report that runtime mismatch instead of doing an
-unpinned package install during the task.
+`tccli` is provided by the runtime image's tool manifest, not baked into it:
+the first call installs the pinned build from its hash-locked requirements and
+can take a while, so let it finish rather than interrupt it. `nuphos-tools list`
+shows the tool and its state. If the command is missing entirely, or that
+install keeps failing, report the runtime mismatch instead of doing an unpinned
+package install during the task.
 
 Nuphos uses OIDC web-identity federation here (like AWS): the customer registers Nuphos as a CAM OIDC identity provider and creates a CAM role trusting it, then Nuphos calls `sts:AssumeRoleWithWebIdentity` to get short-lived credentials — no long-lived keys are stored. `setup-credentials.sh` calls `GET /teams/:teamId/tencent-accounts/:accountId/credentials` on the Nuphos backend with the user's `NUPHOS_TOKEN` and writes a `token`-type tccli profile (SecretId/SecretKey + token). These expire (assumed-role session), so re-run the script to refresh. The credentials carry exactly the role's permissions.
 
