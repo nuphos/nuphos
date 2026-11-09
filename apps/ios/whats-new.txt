@@ -1,1 +1,1 @@
-Fixes: a conversation no longer fails to load because of one message the app can't read, and your place in it is kept. The secure input card appears when an agent asks for a secret, and an open Bot chat refreshes when the Bot is renamed. A Bot that can't run is shown as unable to reply instead of failing silently.
+New: swipe a chat post to reply to it, and open a Bot's desktop from its chat header. Fixes: Scroll to latest reaches the newest message on the first tap, and Stop and Send work during voice input in Chats.
