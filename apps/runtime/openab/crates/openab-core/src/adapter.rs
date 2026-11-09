@@ -1099,6 +1099,8 @@ impl AdapterRouter {
                     // display text so the ACP gateway can relay it as `error.data`.
                     let mut response_error_data: Option<serde_json::Value> = None;
                     let mut turn_result = TurnResult::default();
+                    // The provider's own usage object, forwarded verbatim at turn end.
+                    let mut turn_usage: Option<serde_json::Value> = None;
                     let mut last_activity = tokio::time::Instant::now();
                     let prompt_activity = conn.activity_handle();
                     // Stall visibility (see #43/prod incident): once a turn has been
@@ -1250,6 +1252,7 @@ impl AdapterRouter {
                             }
                             if let Some(ref result) = notification.result {
                                 turn_result = parse_turn_result(result);
+                                turn_usage = result.get("usage").cloned();
                             }
                             // The provider's prompt response is the turn boundary.
                             // Background tools may outlive it (or never emit another
@@ -1716,6 +1719,26 @@ impl AdapterRouter {
                             }
                         }
                     } else if platform_is_acp {
+                        // Hand the provider's reported usage to the ACP client as one
+                        // turn-scoped update, before the terminal message closes the
+                        // turn. `turn_usage` is not part of the ACP schema: the relay
+                        // forwards session updates verbatim, clients that do not know
+                        // the kind ignore it, and a runtime with no usage sends
+                        // nothing at all.
+                        if let Some(usage) = turn_usage.as_ref() {
+                            if let Err(e) = adapter
+                                .forward_agent_update(
+                                    &thread_channel,
+                                    serde_json::json!({
+                                        "sessionUpdate": "turn_usage",
+                                        "usage": usage,
+                                    }),
+                                )
+                                .await
+                            {
+                                tracing::warn!(error = ?e, platform = %thread_channel.platform, "acp turn usage send failed");
+                            }
+                        }
                         // Terminal delivery closes the turn at the gateway (Done →
                         // session/prompt response) in both streaming and default
                         // send-once modes. In streaming mode, repeating the exact
