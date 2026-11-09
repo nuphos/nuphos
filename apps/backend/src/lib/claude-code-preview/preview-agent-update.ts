@@ -23,6 +23,14 @@ export type PreviewAgentUpdate =
       /** Force the card into the stream even if it was hidden before. */
       revealed?: boolean
       /**
+       * The Agent/Task call this step ran inside. Claude Code stamps this on
+       * every tool notification a sub-agent produces; absent on main-session
+       * steps and on runtimes that never send it.
+       */
+      parentToolUseId?: string
+      /** This call spawned a sub-agent (Claude Code's Agent/Task tool). */
+      subagent?: true
+      /**
        * From a `ToolCallContent::Terminal` embed (`{type: 'terminal', terminalId}`)
        * on the raw ACP content array — correlates this chat-stream tool card with
        * its shells-panel entry. Live output/status/exit for that terminal ride the
@@ -131,6 +139,16 @@ function asClaudeCodeMcpCall(payload: Record<string, unknown>): Record<string, u
   return { ...payload, title: `mcp__${server}__${tool}`, rawInput: args ?? {} }
 }
 
+/** Claude Code's own `_meta` namespace; other providers carry none. */
+function claudeCodeMeta(payload: Record<string, unknown>): Record<string, unknown> {
+  const meta = payload._meta
+
+  if (!meta || typeof meta !== 'object') return {}
+  const claudeCode = (meta as Record<string, unknown>).claudeCode
+
+  return claudeCode && typeof claudeCode === 'object' ? (claudeCode as Record<string, unknown>) : {}
+}
+
 export function parseToolUpdate(
   toolCallId: string,
   codexOrClaudeUpdate: Record<string, unknown>,
@@ -139,6 +157,11 @@ export function parseToolUpdate(
   const contentText = extractToolContentText(updatePayload.content)
   const terminalId = extractTerminalId(updatePayload.content)
   const rawTitle = typeof updatePayload.title === 'string' ? updatePayload.title : ''
+  const meta = claudeCodeMeta(updatePayload)
+  const parentToolUseId =
+    typeof meta.parentToolUseId === 'string' && meta.parentToolUseId
+      ? meta.parentToolUseId
+      : undefined
 
   return {
     kind: 'tool',
@@ -150,5 +173,7 @@ export function parseToolUpdate(
     ...(updatePayload.rawOutput === undefined ? {} : { rawOutput: updatePayload.rawOutput }),
     ...(contentText ? { contentText } : {}),
     ...(terminalId ? { terminalId } : {}),
+    ...(parentToolUseId ? { parentToolUseId } : {}),
+    ...(meta.subagent === true ? { subagent: true as const } : {}),
   }
 }

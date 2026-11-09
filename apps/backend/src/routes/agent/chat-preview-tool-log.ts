@@ -1,4 +1,7 @@
-import type { PreviewToolStep } from '@/lib/claude-code-preview/preview-transcript'
+import type {
+  PreviewToolAttribution,
+  PreviewToolStep,
+} from '@/lib/claude-code-preview/preview-transcript'
 
 type ToolState = {
   name: string
@@ -6,7 +9,7 @@ type ToolState = {
   input?: unknown
   hidden: boolean
   mcpToolName?: string
-}
+} & PreviewToolAttribution
 
 /**
  * Tool steps for the durable transcript, keyed by ACP tool-call id. Nuphos
@@ -29,6 +32,15 @@ export function createPreviewToolLog() {
         input,
         startedAt: existing?.startedAt ?? Date.now(),
       })
+    },
+    /** Attribution can arrive on a later update than the one that recorded the step. */
+    attribute(toolCallId: string, attribution: PreviewToolAttribution) {
+      const state = states.get(toolCallId)
+
+      if (state) states.set(toolCallId, { ...state, ...attribution })
+      const step = steps.get(toolCallId)
+
+      if (step) steps.set(toolCallId, { ...step, ...attribution })
     },
     complete(toolCallId: string, output: unknown) {
       const step = steps.get(toolCallId)

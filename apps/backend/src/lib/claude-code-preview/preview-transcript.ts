@@ -17,6 +17,14 @@ import type { PreviewTextMetadata } from './preview-agent-update'
 import type { SteeringAttribution, SteeringEntry, SteeringReceipt } from './steering-receipt'
 import type { UIMessage } from 'ai'
 
+/** How a tool step sits inside a Claude Code sub-agent run. */
+export type PreviewToolAttribution = {
+  /** The Agent/Task call this step ran inside, when the runtime says so. */
+  parentToolUseId?: string
+  /** This call spawned a sub-agent (Claude Code's Agent/Task tool). */
+  subagent?: true
+}
+
 export type PreviewToolStep = {
   toolCallId: string
   toolName: string
@@ -25,7 +33,7 @@ export type PreviewToolStep = {
   completedAt?: number
   output?: unknown
   errorText?: string
-}
+} & PreviewToolAttribution
 
 export type PreviewTurnInterruption = {
   reason: 'cancelled' | 'timeout' | 'error'
@@ -115,7 +123,7 @@ type ToolPart = {
   completedAt?: number
   output?: unknown
   errorText?: string
-}
+} & PreviewToolAttribution
 
 function previewToolPart(step: PreviewToolStep): ToolPart {
   return {
@@ -132,6 +140,8 @@ function previewToolPart(step: PreviewToolStep): ToolPart {
     ...(step.completedAt !== undefined ? { completedAt: step.completedAt } : {}),
     ...(step.output !== undefined ? { output: step.output } : {}),
     ...(step.errorText !== undefined ? { errorText: step.errorText } : {}),
+    ...(step.parentToolUseId ? { parentToolUseId: step.parentToolUseId } : {}),
+    ...(step.subagent ? { subagent: true } : {}),
   }
 }
 

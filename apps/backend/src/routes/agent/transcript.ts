@@ -170,6 +170,12 @@ function normalizeUiMessagePartForTranscript(part: unknown): unknown {
     ...(typeof value.errorText === 'string' ? { errorText: value.errorText } : {}),
     ...(typeof value.startedAt === 'number' ? { startedAt: value.startedAt } : {}),
     ...(typeof value.completedAt === 'number' ? { completedAt: value.completedAt } : {}),
+    // Sub-agent attribution is a runtime-authored display hint, like the
+    // timings above: owner-scoped and never used for routing or authorization.
+    ...(typeof value.parentToolUseId === 'string' && value.parentToolUseId
+      ? { parentToolUseId: value.parentToolUseId }
+      : {}),
+    ...(value.subagent === true ? { subagent: true as const } : {}),
   }
 }
 

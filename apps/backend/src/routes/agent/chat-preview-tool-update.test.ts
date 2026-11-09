@@ -6,6 +6,7 @@ import {
   oneLineTitle,
   openToolCalls,
 } from './chat-preview-tool-update'
+import { createPreviewToolLog as createRealToolLog } from './chat-preview-tool-log'
 import { parseToolUpdate } from '@/lib/claude-code-preview/preview-agent-update'
 import { INTERRUPTED_TOOL_ERROR } from '@/lib/claude-code-preview/preview-transcript'
 
@@ -21,6 +22,7 @@ function toolLog(): ToolLog {
   return {
     states,
     record: () => {},
+    attribute: () => {},
     complete: () => {},
     fail: (_id, error) => error,
     list: () => [],
@@ -127,6 +129,74 @@ describe('handlePreviewToolUpdate', () => {
       toolCallId: 'toolu_1',
       output: { ok: true },
     })
+  })
+  test('a sub-agent step keeps its spawning call id on the step and live frame', () => {
+    const frames: Record<string, unknown>[] = []
+    const emit = (frame: Record<string, unknown>) => frames.push(frame)
+    const log = createRealToolLog()
+
+    handlePreviewToolUpdate(emit, log, {
+      kind: 'tool',
+      toolCallId: 'task-1',
+      title: 'find the flag',
+      status: 'pending',
+      subagent: true,
+    })
+    handlePreviewToolUpdate(emit, log, {
+      kind: 'tool',
+      toolCallId: 'child-1',
+      title: 'Read',
+      status: 'in_progress',
+      rawInput: { path: 'flag.ts' },
+      parentToolUseId: 'task-1',
+    })
+
+    expect(frames).toEqual([
+      {
+        type: 'tool-input-available',
+        toolCallId: 'task-1',
+        toolName: 'find the flag',
+        input: {},
+        subagent: true,
+      },
+      {
+        type: 'tool-input-available',
+        toolCallId: 'child-1',
+        toolName: 'Read',
+        input: { path: 'flag.ts' },
+        parentToolUseId: 'task-1',
+      },
+    ])
+    expect(
+      log.list().map((step) => [step.toolCallId, step.parentToolUseId, step.subagent]),
+    ).toEqual([
+      ['task-1', undefined, true],
+      ['child-1', 'task-1', undefined],
+    ])
+  })
+  test('attribution stamped on a later update still lands on the recorded step', () => {
+    const frames: Record<string, unknown>[] = []
+    const emit = (frame: Record<string, unknown>) => frames.push(frame)
+    const log = createRealToolLog()
+
+    handlePreviewToolUpdate(emit, log, {
+      kind: 'tool',
+      toolCallId: 'child-1',
+      title: 'Read',
+      status: 'in_progress',
+      rawInput: { path: 'flag.ts' },
+    })
+    handlePreviewToolUpdate(emit, log, {
+      kind: 'tool',
+      toolCallId: 'child-1',
+      title: 'Read',
+      status: 'in_progress',
+      parentToolUseId: 'task-1',
+    })
+
+    expect(log.list()).toEqual([
+      expect.objectContaining({ toolCallId: 'child-1', parentToolUseId: 'task-1' }),
+    ])
   })
 })
 

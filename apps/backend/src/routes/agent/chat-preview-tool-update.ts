@@ -9,6 +9,7 @@ import { INTERRUPTED_TOOL_ERROR } from '@/lib/claude-code-preview/preview-transc
 
 import type { createPreviewToolLog } from './chat-preview-tool-log'
 import type { PreviewAgentUpdate } from '@/lib/claude-code-preview/preview-agent-update'
+import type { PreviewToolAttribution } from '@/lib/claude-code-preview/preview-transcript'
 
 const runtimeOwners = new WeakMap<object, Set<string>>()
 
@@ -73,6 +74,11 @@ export function handlePreviewToolUpdate(
   // Undefined until the call's input arrives; a steer can cut a call off before.
   const input = update.rawInput ?? known?.input
   const revealing = known?.hidden === true && !hidden
+  const parentToolUseId = update.parentToolUseId ?? known?.parentToolUseId
+  const attribution: PreviewToolAttribution = {
+    ...(parentToolUseId ? { parentToolUseId } : {}),
+    ...(update.subagent === true || known?.subagent === true ? { subagent: true as const } : {}),
+  }
 
   if (!known || revealing || update.rawInput !== undefined || name !== known.name) {
     log.states.set(update.toolCallId, {
@@ -81,6 +87,7 @@ export function handlePreviewToolUpdate(
       input,
       hidden,
       ...(classic ? { mcpToolName: classic } : {}),
+      ...attribution,
     })
     if (!isToolSearchTitle(name)) log.record(update.toolCallId, classic ?? name, input ?? {})
     if (!hidden) {
@@ -89,9 +96,14 @@ export function handlePreviewToolUpdate(
         toolCallId: update.toolCallId,
         toolName: displayName,
         input: input ?? {},
+        ...attribution,
       })
     }
   }
+  // A runtime can stamp the spawning call on a later update than the one that
+  // recorded the step, so attribution is merged even when the fields above are
+  // unchanged.
+  if (update.parentToolUseId || update.subagent) log.attribute(update.toolCallId, attribution)
   if (update.status === 'completed') {
     const output = result
       ? runtimeToolOutput(result)
