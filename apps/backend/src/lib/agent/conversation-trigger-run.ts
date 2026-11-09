@@ -19,6 +19,12 @@ export type ConversationTriggerRun = {
   id: string
   kind?: ConversationTriggerRunKind
   memberKey?: string
+  /**
+   * The single fire this turn belongs to (the queue job id), when the caller
+   * has one. A bound conversation accumulates turns from many fires, so the
+   * Trigger id alone cannot attribute usage to one of them.
+   */
+  fireId?: string
 }
 
 /**
@@ -33,11 +39,13 @@ export function buildTriggerRunStamp(args: {
   triggerId: string
   runKind: ConversationTriggerRunKind
   groupMember?: { key: string }
+  fireId?: string
 }): ConversationTriggerRun {
   return {
     id: args.triggerId,
     kind: args.runKind,
     ...(args.groupMember?.key ? { memberKey: args.groupMember.key } : {}),
+    ...(args.fireId ? { fireId: args.fireId } : {}),
   }
 }
 
@@ -55,7 +63,7 @@ export function normalizeConversationTriggerRun(
   const stamp = metadata?.trigger
 
   if (!stamp || typeof stamp !== 'object' || Array.isArray(stamp)) return null
-  const { id, kind, memberKey } = stamp as Record<string, unknown>
+  const { id, kind, memberKey, fireId } = stamp as Record<string, unknown>
 
   if (typeof id !== 'string' || !id) return null
 
@@ -65,5 +73,6 @@ export function normalizeConversationTriggerRun(
       ? { kind: kind as ConversationTriggerRunKind }
       : {}),
     ...(typeof memberKey === 'string' && memberKey ? { memberKey } : {}),
+    ...(typeof fireId === 'string' && fireId ? { fireId } : {}),
   }
 }
