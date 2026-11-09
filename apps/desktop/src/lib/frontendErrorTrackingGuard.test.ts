@@ -88,11 +88,6 @@ test('agent stream failure events reach the shared exception funnel', () => {
     /if \(sse\.type === 'error'\)[\s\S]*?trackError\(\{[\s\S]*?phase: 'sse_error_frame'/,
     'SSE agent error frames can reach the error UI without entering PostHog Error Tracking',
   )
-  assert.match(
-    streamEvents,
-    /sse\.type === 'tool-output-error'[\s\S]*?trackError\(\{[\s\S]*?phase: 'tool_output_error'/,
-    'Agent tool failures can render an error card without entering PostHog Error Tracking',
-  )
 })
 
 test('successful transport responses with failure payloads are reported', () => {

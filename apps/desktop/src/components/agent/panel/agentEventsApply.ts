@@ -218,19 +218,6 @@ export function applyStreamEvent(
       const msgs = updateCurrentAssistantParts(t.messages, uid, (parts) => applyEvent(parts, sse))
       const partsChanged = msgs !== t.messages
 
-      if (sse.type === 'tool-output-error') {
-        trackError({
-          source: 'agent_tool',
-          phase: 'tool_output_error',
-          message: normalizeAgentError(
-            typeof sse.errorText === 'string' ? sse.errorText : 'Agent tool failed.',
-          ),
-          streamId,
-          sessionId: t.sessionId,
-          toolName: typeof sse.toolName === 'string' ? sse.toolName : undefined,
-        })
-      }
-
       const nextTab = {
         ...t,
         connected: true,
