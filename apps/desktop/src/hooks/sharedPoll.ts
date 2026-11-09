@@ -56,12 +56,16 @@ export function refreshPoll(key: string): void {
     })
 }
 
-/** Watch `key`; the first watcher starts the poll, the last one stops it. */
+/**
+ * Watch `key`; the first watcher starts the poll, the last one stops it.
+ * `whileHidden` keeps ticking in the background, for a poll that notifies.
+ */
 export function subscribePoll(
   key: string,
   load: () => Promise<unknown>,
   everyMs: number,
   listener: () => void,
+  whileHidden = false,
 ): () => void {
   let entry = entries.get(key)
 
@@ -75,7 +79,7 @@ export function subscribePoll(
   if (watched.listeners.size === 1) {
     watched.load = load
     watched.timer = setInterval(() => {
-      if (!(typeof document !== 'undefined' && document.hidden)) refreshPoll(key)
+      if (whileHidden || !(typeof document !== 'undefined' && document.hidden)) refreshPoll(key)
     }, everyMs)
     refreshPoll(key)
   }
