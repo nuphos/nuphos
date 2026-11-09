@@ -1966,6 +1966,7 @@
   "From": "開始",
   "From console.upstash.com → Account → Management API. Encrypted before storage.": "console.upstash.com → Account → Management API から取得します。保存前に暗号化されます。",
   "From resend.com/api-keys. Encrypted before storage. Sending is disabled in new agents until you enable this account for them.": "resend.com/api-keys から取得します。保存前に暗号化されます。新しいエージェントでこのアカウントを有効にするまで、そのエージェントからは送信できません。",
+  "From {name}": "{name} から",
   "Full": "フル",
   "Full Access": "フルアクセス",
   "Full access": "フルアクセス",

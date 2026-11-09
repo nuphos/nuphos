@@ -18,6 +18,7 @@ import { IconButton } from '../ui/icon-button'
 import { toast } from '../ui/toast'
 
 import { botOfChannel } from './botChannel'
+import { BotChatQuestions } from './BotChatQuestions'
 import { ChannelMessages } from './ChannelMessages'
 import { ChatIcon } from './channelParts'
 import { sendingPost, stillSending } from './sendingPosts'
@@ -238,6 +239,10 @@ export function ChannelPane({
                     }
               }
             />
+          )}
+          {/* What the Bot and the agents under it wait on, answerable here. */}
+          {detail && bot && (
+            <BotChatQuestions teamId={teamId} botId={bot} onOpenSession={onOpenSession} />
           )}
         </div>
       </HeaderEdge>

@@ -1966,6 +1966,7 @@
   "From": "ตั้งแต่",
   "From console.upstash.com → Account → Management API. Encrypted before storage.": "รับได้จาก console.upstash.com → Account → Management API ระบบจะเข้ารหัสก่อนจัดเก็บ",
   "From resend.com/api-keys. Encrypted before storage. Sending is disabled in new agents until you enable this account for them.": "รับได้จาก resend.com/api-keys ระบบจะเข้ารหัสก่อนจัดเก็บ เอเจนต์ใหม่จะส่งอีเมลไม่ได้จนกว่าคุณจะเปิดใช้บัญชีนี้ให้กับเอเจนต์เหล่านั้น",
+  "From {name}": "จาก {name}",
   "Full": "เต็ม",
   "Full Access": "สิทธิ์เต็ม",
   "Full access": "สิทธิ์เต็ม",

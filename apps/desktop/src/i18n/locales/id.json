@@ -1966,6 +1966,7 @@
   "From": "Dari",
   "From console.upstash.com → Account → Management API. Encrypted before storage.": "Dari console.upstash.com → Account → Management API. Dienkripsi sebelum disimpan.",
   "From resend.com/api-keys. Encrypted before storage. Sending is disabled in new agents until you enable this account for them.": "Dari resend.com/api-keys. Dienkripsi sebelum disimpan. Pengiriman dinonaktifkan di agen baru sampai Anda mengaktifkan akun ini untuk agen tersebut.",
+  "From {name}": "Dari {name}",
   "Full": "Penuh",
   "Full Access": "Akses Penuh",
   "Full access": "Akses penuh",

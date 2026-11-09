@@ -1966,6 +1966,7 @@
   "From": "Desde",
   "From console.upstash.com → Account → Management API. Encrypted before storage.": "Desde console.upstash.com → Account → Management API. Se cifra antes de guardarse.",
   "From resend.com/api-keys. Encrypted before storage. Sending is disabled in new agents until you enable this account for them.": "Desde resend.com/api-keys. Se cifra antes de guardarse. El envío está desactivado en los agentes nuevos hasta que habilites esta cuenta para ellos.",
+  "From {name}": "De {name}",
   "Full": "Total",
   "Full Access": "Acceso total",
   "Full access": "Acceso total",

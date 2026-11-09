@@ -1966,6 +1966,7 @@
   "From": "从",
   "From console.upstash.com → Account → Management API. Encrypted before storage.": "来自 console.upstash.com → Account → Management API。存储前会先加密。",
   "From resend.com/api-keys. Encrypted before storage. Sending is disabled in new agents until you enable this account for them.": "来自 resend.com/api-keys。存储前会先加密。在你为新 Agent 启用此账号之前，新 Agent 无法用它发送邮件。",
+  "From {name}": "来自 {name}",
   "Full": "完全",
   "Full Access": "完全访问",
   "Full access": "完全访问",
