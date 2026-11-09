@@ -16,17 +16,21 @@ import { autonomous } from '@/routes/agent/chat-preview-autonomous-runs'
 import { registry, sessionsByConversation } from './agent-chat-registry'
 import { setClaudeCodeAutonomousUpdateHandler } from './agent-chat-runtime'
 import {
-  HANDOFF_SETTLE_MS,
   adoptRuntimeHandoff,
   adoptRuntimeHandoffs,
-  claimRuntimeHandoffs,
   publishRuntimeHandoffs,
   queueRuntimeHandoff,
 } from './runtime-handoff'
+import {
+  HANDOFF_MAX_AGE_MS,
+  HANDOFF_SETTLE_MS,
+  claimRuntimeHandoffs,
+} from './runtime-handoff-claim'
 
 import type { OpenAbSessionUpdate } from './openab-acp-client'
 import type { RuntimeHandoff } from './runtime-handoff'
 import type { TeamPreviewClient, TeamSession } from './team-openab-runtime'
+import type { BackgroundWorkLoss } from '@/lib/agent/db/shared'
 
 const endpoint = {
   url: 'wss://runtime.invalid/acp',
@@ -38,6 +42,7 @@ const noop = () => {}
 const stored = new Map<string, string>()
 const loads: { session: string; servers: unknown }[] = []
 const persisted: { sessionId: string; userId: string; parts: unknown[] }[] = []
+const workLost: { sessionId: string; reason: BackgroundWorkLoss }[] = []
 let replay: OpenAbSessionUpdate[] = []
 let hasAttachment = true
 let attachedRuntimeUrl = endpoint.url
@@ -106,6 +111,13 @@ useAgentDb({
   }) => {
     persisted.push({ sessionId: data.sessionId, userId: data.userId, parts: data.message.parts })
   },
+  markConversationWorkLost: async (
+    sessionId: string,
+    _teamId: string,
+    reason: BackgroundWorkLoss,
+  ) => {
+    workLost.push({ sessionId, reason })
+  },
 })
 useConversationChatRoute({
   resolveConversationChatRuntime: async () => ({ endpoint }),
@@ -133,6 +145,7 @@ beforeEach(() => {
   restoredOwner = false
   loads.length = 0
   persisted.length = 0
+  workLost.length = 0
   emit = noop
   setClaudeCodeAutonomousUpdateHandler(autonomous.update)
   acquire = spyOn(registry, 'acquire').mockResolvedValue(client)
@@ -204,6 +217,15 @@ test('each claimed handoff is adopted once', async () => {
   expect(adopted).toEqual(['conv'])
 })
 
+test('a handoff inside the window is still adopted, and its turn resumes', async () => {
+  stored.set('team:conv', JSON.stringify(handoff(Date.now() - 60_000)))
+
+  await adoptRuntimeHandoffs()
+
+  expect(loads).toEqual([{ session: 'sess_live', servers: expect.any(Array) }])
+  expect(workLost).toEqual([])
+})
+
 test('a failed adoption is retried a bounded number of times, never dropped silently', async () => {
   let tries = 0
 
@@ -219,9 +241,10 @@ test('a failed adoption is retried a bounded number of times, never dropped sile
   expect(stored.size).toBe(0)
 })
 
-test('a handoff for an offline computer waits for it, however long, and is adopted once it is back', async () => {
+test('a handoff for an offline computer waits for it inside the window, and is adopted once it is back', async () => {
   // Each 2 s tick used to spend an attempt on a computer that could not answer,
-  // so a computer offline at deploy time lost its session for good.
+  // so a computer offline at deploy time lost its session for good. It is still
+  // waited for, but only while the handed-off turn is still current.
   const computer = { userId: 'owner', deviceId: 'laptop', provider: 'claude-code' as const }
   const tries: string[] = []
   const adopt = async (claimed: RuntimeHandoff) => {
@@ -232,7 +255,7 @@ test('a handoff for an offline computer waits for it, however long, and is adopt
   stored.set(
     'team:conv',
     JSON.stringify({
-      ...handoff(Date.now() - HANDOFF_SETTLE_MS - 60 * 60_000),
+      ...handoff(Date.now() - HANDOFF_MAX_AGE_MS + 60_000),
       runtimeUrl: localRuntimeUrl(computer, 'team'),
     }),
   )
@@ -254,6 +277,64 @@ test('a handoff for an offline computer waits for it, however long, and is adopt
 
   expect(tries).toEqual(['conv'])
   expect(stored.size).toBe(0)
+})
+
+test('a handoff older than the window is refused when its computer comes back, and the turn is not run', async () => {
+  // The issue's scenario: a deploy hands off a teammate's turn while their
+  // computer is offline, and it comes back hours later. Resuming it then would
+  // run that turn again unattended, as the teammate, with nobody watching.
+  const computer = { userId: 'owner', deviceId: 'laptop', provider: 'claude-code' as const }
+
+  attachedRuntimeUrl = localRuntimeUrl(computer, 'team')
+  stored.set(
+    'team:conv',
+    JSON.stringify({
+      ...handoff(Date.now() - HANDOFF_MAX_AGE_MS - 60 * 60_000),
+      runtimeUrl: localRuntimeUrl(computer, 'team'),
+    }),
+  )
+  await adoptRuntimeHandoffs()
+
+  // Removed at the first sweep, not kept waiting for the computer.
+  expect(stored.size).toBe(0)
+
+  await runtimePresenceStore().claim(computer.userId, computer.deviceId, 'tunnel')
+  await runtimePresenceStore().put(computer.userId, computer.deviceId, {
+    conn: 'tunnel',
+    seenAt: Date.now(),
+  })
+  try {
+    await adoptRuntimeHandoffs()
+  } finally {
+    await runtimePresenceStore().clear(computer.userId, computer.deviceId, 'tunnel')
+  }
+
+  expect(loads).toEqual([])
+  expect(workLost).toEqual([{ sessionId: 'conv', reason: 'unreachable' }])
+})
+
+test('claims a handoff up to the window and refuses it at the window', async () => {
+  const now = Date.now()
+  const inside = handoff(now - HANDOFF_MAX_AGE_MS + 1)
+
+  stored.set('team:conv', JSON.stringify(inside))
+  expect(await claimRuntimeHandoffs(now)).toEqual([inside])
+  expect(workLost).toEqual([])
+
+  stored.set('team:conv', JSON.stringify(handoff(now - HANDOFF_MAX_AGE_MS)))
+  expect(await claimRuntimeHandoffs(now)).toEqual([])
+  expect(workLost).toEqual([{ sessionId: 'conv', reason: 'unreachable' }])
+})
+
+test('a stale handoff is refused once, even when two replicas sweep it together', async () => {
+  const now = Date.now()
+
+  stored.set('team:conv', JSON.stringify(handoff(now - HANDOFF_MAX_AGE_MS)))
+
+  const [first, second] = await Promise.all([claimRuntimeHandoffs(now), claimRuntimeHandoffs(now)])
+
+  expect([...first, ...second]).toEqual([])
+  expect(workLost).toEqual([{ sessionId: 'conv', reason: 'unreachable' }])
 })
 
 test('a handoff for an offline computer is dropped once the conversation has moved off it', async () => {
