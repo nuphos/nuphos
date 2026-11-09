@@ -97,9 +97,7 @@ export async function getConversations(
   // else's id, limited like every scope to what the viewer may read.
   if (scope === 'team' && options.ownerId) query.userId = options.ownerId
   if (options.parentSessionId) query.parentSessionId = options.parentSessionId
-  if (options.pendingDecision)
-    inboxFilter(query, viewerUserId, scope === 'team' ? options.ownerId : undefined)
-  else
+  if (!options.pendingDecision)
     query['metadata.trigger.id'] = options.triggerIds
       ? { $in: options.triggerIds }
       : { $exists: false }
@@ -118,7 +116,12 @@ export async function getConversations(
 
     query.$or = [{ title: pattern }, { firstMessage: pattern }]
   }
-  const filters = { ...query }
+  // A row's parents are listed whether or not they wait on anything: a question
+  // nests under every conversation above it, as a thread does.
+  const filters = { ...query, $and: [...(query.$and as unknown[])] }
+
+  if (options.pendingDecision)
+    inboxFilter(query, viewerUserId, scope === 'team' ? options.ownerId : undefined)
 
   if (options.cursor) {
     query[sortField] = {
