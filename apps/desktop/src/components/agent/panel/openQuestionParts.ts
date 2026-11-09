@@ -27,7 +27,7 @@ function cardRef(part: ToolPart): DecisionCardRef {
 }
 
 /** The open request as the card its own conversation shows it with. */
-function questionPart(question: ReplyQuestion): ToolPart {
+export function questionPart(question: ReplyQuestion): ToolPart {
   return {
     type: 'tool',
     toolName: 'request_user_decision',

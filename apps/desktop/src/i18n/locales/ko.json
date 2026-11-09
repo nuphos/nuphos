@@ -1966,6 +1966,7 @@
   "From": "시작",
   "From console.upstash.com → Account → Management API. Encrypted before storage.": "console.upstash.com → Account → Management API에서 확인할 수 있습니다. 저장 전에 암호화됩니다.",
   "From resend.com/api-keys. Encrypted before storage. Sending is disabled in new agents until you enable this account for them.": "resend.com/api-keys에서 확인할 수 있습니다. 저장 전에 암호화됩니다. 새 에이전트에서 이 계정을 활성화하기 전까지는 해당 에이전트에서 메일을 보낼 수 없습니다.",
+  "From {name}": "{name}에서",
   "Full": "전체",
   "Full Access": "전체 권한",
   "Full access": "전체 권한",
