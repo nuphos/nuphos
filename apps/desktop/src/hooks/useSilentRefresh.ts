@@ -1,7 +1,5 @@
 import { useEffect, useInsertionEffect, useRef } from 'react'
 
-import { reportFrontendError } from '../lib/frontendErrorReporter'
-
 /**
  * Re-run `loader` silently every time `tick` actually changes value. Pair
  * with the view's existing initial-load `useEffect` to add background
@@ -72,12 +70,9 @@ export function useSilentRefresh<T>(
           if (!cancelled) onResultRef.current(res)
         },
         (e: unknown) => {
-          if (!cancelled) {
-            const message = String(e instanceof Error ? e.message : e)
-
-            reportFrontendError({ source: 'silent_refresh', phase: 'refresh_failed', message }, e)
-            onErrorRef.current(message)
-          }
+          // The loader's API call already reported the failure (see
+          // instrumentApi), so only hand it to the view.
+          if (!cancelled) onErrorRef.current(String(e instanceof Error ? e.message : e))
         },
       )
       .finally(() => {
