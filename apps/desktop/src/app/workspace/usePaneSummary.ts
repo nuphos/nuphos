@@ -4,9 +4,9 @@ import {
   useRegisterPaneSession,
 } from '../../lib/chatSummaryPanel'
 
-import { usePaneId, useWorkspacePane } from './WorkspacePaneContext'
+import { usePaneId } from './WorkspacePaneContext'
 
-/** This pane's summary panel: whether it is open, and a toggle that leaves other panes alone. */
+/** The summary panel for the chat this pane shows: whether it is open, and a toggle for that chat alone. */
 export function usePaneSummary() {
   const paneId = usePaneId()
   const open = useChatSummaryOpen(paneId)
@@ -16,10 +16,9 @@ export function usePaneSummary() {
 
 /** As usePaneSummary, and tells the store which chat the pane shows. Call it once per pane. */
 export function useOwnPaneSummary(sessionId: string | null | undefined) {
-  const pane = useWorkspacePane()
   const paneId = usePaneId()
 
-  useRegisterPaneSession(paneId, sessionId ?? null, pane?.primary ?? true)
+  useRegisterPaneSession(paneId, sessionId ?? null)
 
   return usePaneSummary()
 }
