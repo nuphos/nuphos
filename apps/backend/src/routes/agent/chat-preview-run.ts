@@ -56,6 +56,8 @@ export type PreviewChatTurnArgs = {
   /** Started from the session queue: a refusal puts this message back at its head. */
   queued?: PendingUserMessage
   onRunHandoff?: (next: AgentRun) => void
+  /** The usage the runtime reported for this turn, for per-turn accounting. */
+  onTurnUsage?: (usage: unknown) => void
 }
 
 /** Set when the runtime connection dropped mid-turn and the turn was left to it. */

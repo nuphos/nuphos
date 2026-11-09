@@ -11,6 +11,7 @@ import {
 } from '@/lib/claude-code-preview/agent-chat-runtime'
 import { withoutEmptyTurnSentinel } from '@/lib/claude-code-preview/codex-turn-failure'
 import { handleOpenAbPermissionRequest } from '@/lib/claude-code-preview/openab-permission-bridge'
+import { consumeTurnUsage } from '@/lib/claude-code-preview/preview-agent-update'
 import {
   createPreviewAssistantPartAccumulator,
   interruptToolSteps,
@@ -166,6 +167,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
 
           return
         }
+        if (!consumeTurnUsage(update, args.onTurnUsage)) return
         steer.observe(update)
         if (update.kind === 'steering') {
           const sender = steeredNoticeSender(teamId, update.text) ?? steeringAttribution()

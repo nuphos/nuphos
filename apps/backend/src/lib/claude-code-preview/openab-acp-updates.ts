@@ -1,5 +1,5 @@
 import { chunkUpdate } from './openab-text-updates'
-import { parseToolUpdate } from './preview-agent-update'
+import { parseToolUpdate, parseTurnUsageUpdate } from './preview-agent-update'
 import { parseSessionExecutionState } from './runtime-execution-snapshot'
 
 import type { PreviewAgentUpdate, PreviewTextMetadata } from './preview-agent-update'
@@ -190,6 +190,7 @@ function normalizeUpdate(payload: Record<string, unknown>): OpenAbSessionUpdate 
 
     return status ? { kind: 'status', status } : null
   }
+  if (kind === 'turn_usage') return parseTurnUsageUpdate(payload)
   if (kind !== 'usage_update') return null
   // Claude emits ordinary usage snapshots while an autonomous cycle is still
   // streaming (including between tool start and tool completion). Only the

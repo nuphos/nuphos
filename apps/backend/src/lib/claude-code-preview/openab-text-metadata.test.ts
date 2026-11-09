@@ -65,3 +65,42 @@ test('a phase change starts a new part and a following legacy chunk resets metad
   expect(values.map((part) => part.phase)).toEqual(['commentary', 'final_answer', undefined])
   expect(values.map((part) => part.text)).toEqual(['Checking', 'Answer', 'Legacy continuation'])
 })
+
+test('a turn_usage update reaches the prompt sink as one agent update', () => {
+  const updates: unknown[] = []
+  const usage = { inputTokens: 1000, outputTokens: 200 }
+
+  deliverOpenAbSessionUpdate({
+    cancelledSessions: new Set(),
+    pending: [
+      {
+        onAgentUpdate: (update) => {
+          updates.push(update)
+        },
+      },
+    ],
+    notify: () => {},
+    params: { sessionId: 'session', update: { sessionUpdate: 'turn_usage', usage } },
+  })
+
+  expect(updates).toEqual([{ kind: 'turn-usage', usage }])
+})
+
+test('a turn_usage update with no usage object is ignored', () => {
+  const updates: unknown[] = []
+
+  deliverOpenAbSessionUpdate({
+    cancelledSessions: new Set(),
+    pending: [
+      {
+        onAgentUpdate: (update) => {
+          updates.push(update)
+        },
+      },
+    ],
+    notify: () => {},
+    params: { sessionId: 'session', update: { sessionUpdate: 'turn_usage' } },
+  })
+
+  expect(updates).toEqual([])
+})

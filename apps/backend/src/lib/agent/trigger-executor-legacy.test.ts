@@ -211,7 +211,13 @@ describe('a Trigger bound to an existing session', () => {
     }
     expect(runs).toHaveLength(1)
     expect(runs[0]?.sessionId).toBe(sessionId)
-    expect(runs[0]?.trigger).toBeUndefined()
+    // Carried on the turn so its usage is attributed to this fire; the bound
+    // conversation's own metadata is never re-stamped.
+    expect(runs[0]?.trigger).toEqual({
+      id: bound._id!.toHexString(),
+      kind: 'scheduled',
+      fireId: 'f1',
+    })
     expect(runs[0]?.source).toBe('agent.resource')
     expect(runs[0]?.messages[0]?.id).toBe('prior')
     expect(runs[0]?.messages.at(-1)?.metadata).toMatchObject({

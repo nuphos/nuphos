@@ -6,6 +6,7 @@
 
 import { agentConversations } from '@/lib/agent/db'
 import { trackAgentProducer } from '@/lib/agent/producer-drain'
+import { recordRuntimeTurnUsage } from '@/lib/agent/turn-usage-record'
 import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
 import { offeredSessionConfig } from '@/lib/claude-code-preview/session-config-catalog'
 import { mirrorAppTurnToDiscord } from '@/routes/discord/turn'
@@ -191,6 +192,15 @@ export function launchAcceptedChatTurn(args: {
         onRunHandoff: (next) => {
           if (slackDelivery) attachFrameSink(next, slackDelivery.frameSink)
           if (discordSink) attachFrameSink(next, discordSink.frameSink)
+        },
+        onTurnUsage: (usage) => {
+          recordRuntimeTurnUsage({
+            sessionId,
+            userId: run.userId,
+            teamId,
+            provider: chatRuntime.endpoint.provider ?? 'claude-code',
+            usage,
+          })
         },
         localToolsEnabled: chatCtx.localToolsEnabled,
         explicitDecisionReplies: body.clientCapabilities?.decisionReplies === true,

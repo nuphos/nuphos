@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { initializeSessionBypass } from '@/lib/agent/auto-mode/store'
 import { getConversationBySessionId } from '@/lib/agent/db'
 import { startTraceSpan } from '@/lib/agent/tracing'
+import { recordRuntimeTurnUsage } from '@/lib/agent/turn-usage-record'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
 import { fallBackBeforeTurn } from '@/lib/claude-code-preview/runtime-fallback'
 import { logError, logEvent } from '@/lib/observability'
@@ -219,6 +220,16 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       locale,
       endpoint: chatRuntime.endpoint,
       onRunHandoff: attachFrameSink,
+      onTurnUsage: (usage) => {
+        recordRuntimeTurnUsage({
+          sessionId,
+          userId: conversationOwnerUserId,
+          teamId,
+          provider: chatRuntime.endpoint.provider ?? 'claude-code',
+          usage,
+          ...(params.trigger ? { trigger: params.trigger } : {}),
+        })
+      },
       ...(channelDefaults || source === 'lark.agent' ? { channelTurn: true } : {}),
       ...(params.turnContext ? { turnContext: params.turnContext } : {}),
       ...(params.clientResendsRefusal ? { clientResendsRefusal: true } : {}),

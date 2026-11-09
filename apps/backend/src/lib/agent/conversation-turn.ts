@@ -14,6 +14,7 @@ import { turnRunner } from './turn-runner'
 import { keepUndeliveredSend } from './undelivered-send'
 
 import type { AgentConversation } from './db'
+import type { ConversationTriggerRun } from './conversation-trigger-run'
 import type { MessageMetadata } from './message-metadata'
 import type { PendingUserMessage } from './pending-messages'
 import type { UIMessage } from 'ai'
@@ -24,6 +25,8 @@ type ConversationTurn = {
   targetSessionId: string
   messageId: string
   locale: string
+  /** The Trigger fire this turn answers, when it came from one. */
+  trigger?: ConversationTriggerRun
 }
 
 type TurnArgs = [
@@ -100,7 +103,7 @@ type DeliveredTo = Pick<ConversationTurn, 'userId' | 'teamId' | 'targetSessionId
  * thread message it takes and cannot run is reported to its sender.
  */
 export async function runTurn(
-  data: DeliveredTo,
+  data: DeliveredTo & Pick<ConversationTurn, 'trigger'>,
   target: AgentConversation,
   source: string,
   pending: PendingUserMessage[],
@@ -157,6 +160,7 @@ export async function runTurn(
         channelIds: fresh.flatMap((message) => channelIdOf(message) ?? []),
         // Not recorded as interrupted: the messages go back on the queue below.
         clientResendsRefusal: true,
+        ...(data.trigger ? { trigger: data.trigger } : {}),
       })
       .catch(async (error: unknown) => {
         // The runtime took another turn after the check. Back to the front, retried

@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { logError } from '@/lib/observability'
 
+import type { ConversationTriggerRunKind } from './conversation-trigger-run'
 import type { Collection } from 'mongodb'
 
 export type AgentTokenUsageKind =
@@ -50,9 +51,15 @@ export type AgentTokenUsageRecord = {
   requestId?: string
   streamId?: string
   operation: string
-  source: 'ai-sdk' | 'google-genai'
+  source: 'ai-sdk' | 'google-genai' | 'agent-runtime'
   kind: AgentTokenUsageKind
   accounting: AgentTokenUsageAccounting
+  // Set when a Trigger's fire produced the turn, so usage can be totalled per
+  // Trigger and per fire. Absent on a person's own turn, and on rows written
+  // before runtime turn usage was recorded.
+  triggerId?: string
+  triggerKind?: ConversationTriggerRunKind
+  triggerFireId?: string
   // Absent on rows written before pool accounting shipped.
   billing?: UsageBillingClass
   // Frozen when the call is recorded so exact cycle-boundary accounting does
