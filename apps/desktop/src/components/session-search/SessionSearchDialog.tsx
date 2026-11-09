@@ -6,8 +6,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../../api'
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
 import { t } from '../../i18n'
-import { track } from '../../lib/analytics'
+import { trackSearch } from '../../lib/searchAnalytics'
 import { useDebouncedValue } from '../agent/panel/historyPageHooks'
+import { InputGroup, InputGroupInput } from '../ui/input-group'
 import { Kbd } from '../ui/kbd'
 import { Tooltip } from '../ui/tooltip'
 
@@ -72,7 +73,7 @@ export function SessionSearchDialog({
     return () => cancelAnimationFrame(raf)
   }, [])
   useEffect(() => {
-    if (open) track('search_opened', { source: takeSearchSource() })
+    if (open) trackSearch('search_opened', { source: takeSearchSource() })
   }, [open])
   // Closed again before it ever opened: there is no transition to wait for.
   useEffect(() => {
@@ -147,9 +148,10 @@ export function SessionSearchDialog({
           >
             <Dialog.Title className="sr-only">{t('Search agents and people')}</Dialog.Title>
             {/* One line of text to type in: no box inside the sheet, one hairline under it. */}
-            <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-line-control px-4">
+            {/* Focus shows as the hairline darkening, not as a box around the query. */}
+            <InputGroup className="flex h-14 shrink-0 items-center gap-2.5 border-b border-line-control px-4 focus-within:!ring-0 focus-within:border-line-focus">
               <Search size={17} className="shrink-0 text-tertiary" />
-              <input
+              <InputGroupInput
                 ref={inputRef}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
@@ -161,7 +163,7 @@ export function SessionSearchDialog({
                 placeholder={
                   mode === 'people' ? t('Search people…') : t('Search agents, people or pages…')
                 }
-                className="min-w-0 flex-1 bg-transparent text-[15px] text-main outline-none placeholder:text-tertiary"
+                className="text-[15px] text-main placeholder:text-tertiary"
               />
               {owner && mode === 'sessions' ? (
                 <button
@@ -204,7 +206,7 @@ export function SessionSearchDialog({
                   </button>
                 </Tooltip>
               )}
-            </div>
+            </InputGroup>
             <SearchResults
               key={JSON.stringify([teamId, mode, owner?.id, searchQuery])}
               teamId={teamId}

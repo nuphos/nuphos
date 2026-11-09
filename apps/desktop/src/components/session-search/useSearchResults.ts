@@ -25,11 +25,10 @@ export function useSearchResults(
 ) {
   const recent = mode === 'sessions' && !query && !ownerId
   const cacheKey = `${userId}:${teamId}`
-  const [sessions, setSessions] = useState<SessionResult[]>(
-    () => (recent ? recentCache.get(cacheKey) : undefined) ?? [],
-  )
+  const cached = recent ? recentCache.get(cacheKey) : undefined
+  const [sessions, setSessions] = useState<SessionResult[]>(cached ?? [])
   const [people, setPeople] = useState<TeamMember[]>([])
-  const [loading, setLoading] = useState(() => !(recent && recentCache.has(cacheKey)))
+  const [loading, setLoading] = useState(!cached)
   const [error, setError] = useState(false)
   const [cursor, setCursor] = useState<string | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)

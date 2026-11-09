@@ -71,8 +71,6 @@ export type AnalyticsEvent =
   | 'agent_memories_opened'
   | 'agent_star_strip_clicked'
   | 'agent_star_strip_dismissed'
-  | 'search_opened'
-  | 'search_result_opened'
   | 'pod_deleted'
   | 'deployment_restarted'
   | 'node_cordoned'

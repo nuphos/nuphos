@@ -1,4 +1,4 @@
-import { track } from '../../lib/analytics'
+import { trackSearch } from '../../lib/searchAnalytics'
 import { relativeTimeFromNow } from '../agent/panel/textUtils'
 
 import type { SessionResult } from './useSearchResults'
@@ -12,7 +12,7 @@ export function trackOpened(
   method: 'mouse' | 'keyboard',
   query: string,
 ) {
-  track('search_result_opened', { kind, position, method, query_length: query.length })
+  trackSearch('search_result_opened', { kind, position, method, query_length: query.length })
 }
 
 export const kindOf = ({ conversation }: SessionResult): OpenedKind =>
