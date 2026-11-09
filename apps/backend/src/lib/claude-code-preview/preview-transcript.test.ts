@@ -99,6 +99,46 @@ describe('previewAssistantMessageParts', () => {
     ])
   })
 
+  test('persists sub-agent attribution on the step that carries it', () => {
+    const parts = previewAssistantMessageParts({
+      reasoning: '',
+      text: '',
+      toolSteps: [
+        {
+          toolCallId: 'task-1',
+          toolName: 'Agent',
+          input: { description: 'find the flag' },
+          subagent: true,
+        },
+        {
+          toolCallId: 'child-1',
+          toolName: 'Read',
+          input: { path: 'flag.ts' },
+          parentToolUseId: 'task-1',
+        },
+        { toolCallId: 'child-2', toolName: 'Grep', input: { q: 'flag' } },
+      ],
+    })
+
+    expect(parts as unknown).toEqual([
+      {
+        type: 'tool-Agent',
+        toolCallId: 'task-1',
+        state: 'input-available',
+        input: { description: 'find the flag' },
+        subagent: true,
+      },
+      {
+        type: 'tool-Read',
+        toolCallId: 'child-1',
+        state: 'input-available',
+        input: { path: 'flag.ts' },
+        parentToolUseId: 'task-1',
+      },
+      { type: 'tool-Grep', toolCallId: 'child-2', state: 'input-available', input: { q: 'flag' } },
+    ])
+  })
+
   test('omits empty reasoning and text', () => {
     expect(previewAssistantMessageParts({ reasoning: '', text: '', toolSteps: [] })).toEqual([])
   })
