@@ -28,7 +28,13 @@ const conversation = {
   teamId: new ObjectId().toHexString(),
   credentialAccess: { githubInstallationIds: ['12'] },
   linkedResources: [
-    { id: 'binding', key: 'github/12/34/56', provider: 'github', integrationId: '12' },
+    {
+      id: 'binding',
+      key: 'github/12/34/56',
+      provider: 'github',
+      integrationId: '12',
+      state: 'open',
+    },
   ],
 }
 let conversations = [conversation]
@@ -112,6 +118,32 @@ test('queue failure is not acknowledged as delivery', async () => {
 test('missing delivery IDs cannot route a matching event', async () => {
   await expect(routeResourceWebhook('pull_request', payload, '')).rejects.toThrow('delivery ID')
   expect(queued).toHaveLength(0)
+})
+
+test('a merged PR wakes on the event that closed it, not on late CI or redeliveries', async () => {
+  conversations = [
+    {
+      ...conversation,
+      linkedResources: [{ ...conversation.linkedResources[0]!, state: 'merged' }],
+    },
+  ]
+  await routeResourceWebhook('pull_request', { ...payload, action: 'opened' }, 'replayed')
+  await routeResourceWebhook(
+    'check_suite',
+    {
+      ...payload,
+      action: 'completed',
+      check_suite: { pull_requests: [{ number: 56 }], status: 'completed', conclusion: 'success' },
+    },
+    'late-ci',
+  )
+  expect(queued).toHaveLength(0)
+  await routeResourceWebhook(
+    'pull_request',
+    { ...payload, action: 'closed', pull_request: { number: 56, state: 'closed', merged: true } },
+    'merge',
+  )
+  expect(queued.map((turn) => turn.summary)).toEqual(['GitHub pull_request.closed.'])
 })
 
 test('a merge records when it happened on every linked tag', async () => {
