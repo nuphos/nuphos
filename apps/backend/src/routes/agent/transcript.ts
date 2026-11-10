@@ -1,5 +1,5 @@
 import { appendTranscriptMessages } from '@/lib/agent/db'
-import { legacyPendingDecision, openInputRequests } from '@/lib/agent/db/pending-decision'
+import { openInputRequests } from '@/lib/agent/db/pending-decision'
 import { persistedImagePart } from '@/lib/agent/image-parts'
 import { stripInlineFileData } from '@/lib/agent/inbound-files'
 import { parseMessageMetadata } from '@/lib/agent/message-metadata'
@@ -267,17 +267,15 @@ export function serializeConversationDoc(
     timelineEvents: _timelineEvents,
     // Sent per viewer as `watching` (conversation-view.ts).
     watcherIds: _watcherIds,
-    // Sent as the open requests only, with the oldest as pendingDecision for older clients.
+    // Sent as the open requests only. pendingDecision is the field documents
+    // kept before inputRequests; it is no longer read or sent.
     pendingDecision: _pendingDecision,
     inputRequests: _inputRequests,
     ...rest
   } = conversation
   const open = openInputRequests(conversation as ConversationInputRequests, answering)
 
-  if (open.length > 0) {
-    rest.pendingDecision = legacyPendingDecision(open)
-    rest.inputRequests = open
-  }
+  if (open.length > 0) rest.inputRequests = open
 
   if (rest.tokenUsage && typeof rest.tokenUsage === 'object') {
     rest.tokenUsage = withCostUsd(rest.tokenUsage as AgentTokenUsageSummary)

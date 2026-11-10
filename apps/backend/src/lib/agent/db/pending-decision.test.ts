@@ -6,7 +6,6 @@ import { getConversations } from './conversations-list'
 import {
   addInputRequest,
   clearPendingDecision,
-  legacyPendingDecision,
   openInputRequests,
   resolveInputRequest,
 } from './pending-decision'
@@ -31,11 +30,7 @@ const elementOf = (doc: Doc, filter: Doc) => {
 }
 const matches = (doc: Doc, filter: Doc) =>
   Object.entries(filter).every(([key, value]) =>
-    key === 'pendingDecision.toolCallId'
-      ? (doc.pendingDecision as Doc | undefined)?.toolCallId === value
-      : key === 'inputRequests'
-        ? elementOf(doc, filter) !== undefined
-        : doc[key] === value,
+    key === 'inputRequests' ? elementOf(doc, filter) !== undefined : doc[key] === value,
   )
 
 const collection = {
@@ -44,7 +39,6 @@ const collection = {
     if (!stored) return { matchedCount: 1 }
     const doc = stored.find((candidate) => matches(candidate, filter))
 
-    if (doc && '$unset' in update) delete doc.pendingDecision
     const element = doc && elementOf(doc, filter)
     const status = (update.$set as Doc | undefined)?.['inputRequests.$.status']
 
@@ -89,7 +83,7 @@ describe('input requests', () => {
     ])
   })
 
-  test('resolving marks only the exact open request, or a legacy question with that id', async () => {
+  test('resolving marks only the exact open request', async () => {
     expect(await resolveInputRequest('s1', 'owner', 'nuphos-1', 'dismissed')).toBe(true)
 
     expect(updates).toEqual([
@@ -105,10 +99,6 @@ describe('input requests', () => {
             'inputRequests.$.resolvedAt': expect.any(Date),
           },
         },
-      },
-      {
-        filter: { sessionId: 's1', userId: 'owner', 'pendingDecision.toolCallId': 'nuphos-1' },
-        update: { $unset: { pendingDecision: '' } },
       },
     ])
   })
@@ -135,33 +125,18 @@ describe('input requests', () => {
         'inputRequests.$[open].resolvedAt': expect.any(Date),
       },
     })
-    expect(updates[1]).toEqual({
-      filter: { sessionId: 's1', userId: 'owner', pendingDecision: { $exists: true } },
-      update: { $unset: { pendingDecision: '' } },
-    })
+    expect(updates).toHaveLength(1)
   })
 
-  test('open requests include a legacy question once, oldest first', () => {
+  test('open requests are the open ones, oldest first', () => {
     const newer = { ...request, id: 'nuphos-2', askedAt: new Date('2026-10-20T00:00:00Z') }
+    const older = { ...request, id: 'nuphos-1' }
     const answered = { ...request, id: 'nuphos-0', status: 'answered' as const }
     const open = openInputRequests({
-      inputRequests: [{ ...newer, status: 'open' }, answered],
-      pendingDecision: {
-        category: 'approval',
-        question: 'Merge #468?',
-        toolCallId: 'nuphos-1',
-        askedAt: request.askedAt,
-      },
+      inputRequests: [{ ...newer, status: 'open' }, answered, { ...older, status: 'open' }],
     })
 
     expect(open.map((entry) => entry.id)).toEqual(['nuphos-1', 'nuphos-2'])
-    expect(legacyPendingDecision(open)).toEqual({
-      category: 'approval',
-      question: 'Merge #468?',
-      toolCallId: 'nuphos-1',
-      askedAt: request.askedAt,
-    })
-    expect(legacyPendingDecision([])).toBeUndefined()
   })
 
   test('the Inbox lists conversations with any open request, trigger runs included', async () => {
@@ -178,7 +153,7 @@ describe('input requests', () => {
     expect((lastQuery as { $and: unknown[] }).$and).toContainEqual({
       $or: [
         {
-          $or: [{ 'inputRequests.status': 'open' }, { pendingDecision: { $exists: true } }],
+          'inputRequests.status': 'open',
           userId: '642802f4c38340345aa2384d',
         },
         {
@@ -202,7 +177,7 @@ describe('input requests', () => {
     expect(and[0]).toHaveProperty('$or')
     expect(and[1]).toEqual({
       $or: [
-        { $or: [{ 'inputRequests.status': 'open' }, { pendingDecision: { $exists: true } }] },
+        { 'inputRequests.status': 'open' },
         {
           'signInRequest.askedUserIds': '642802f4c38340345aa2384d',
           'signInRequest.askedAt': { $gt: expect.any(Date) },
@@ -224,7 +199,7 @@ describe('input requests', () => {
     expect(and[1]).toMatchObject({
       $or: [
         {
-          $or: [{ 'inputRequests.status': 'open' }, { pendingDecision: { $exists: true } }],
+          'inputRequests.status': 'open',
           userId: 'member-1',
         },
         { userId: 'member-1', 'signInRequest.askedUserIds': '642802f4c38340345aa2384d' },
