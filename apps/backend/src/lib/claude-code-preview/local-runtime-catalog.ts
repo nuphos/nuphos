@@ -209,7 +209,9 @@ export async function resolveLocalRuntimeEndpoint(
     // Anyone who may use the computer may sign in its agents, as they may add them.
     const device = await requireDeviceAccess(userId, teamId, ref.deviceId, 'use', deps.access)
 
-    if (device.userId !== ref.userId) throw notAvailable()
+    // One removed while its computer was offline is gone, not waiting for the computer.
+    if (device.userId !== ref.userId || isPendingRemoval(ref, device.removedAgents ?? []))
+      throw notAvailable()
     deviceLabel = device.label
   } catch (error) {
     if (error instanceof AppError && error.status === 404) throw notAvailable()
