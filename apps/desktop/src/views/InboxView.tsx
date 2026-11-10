@@ -2,29 +2,27 @@ import clsx from 'clsx'
 import { Inbox } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { api } from '../api'
-import { AgentHistoryPage, AgentPanel } from '../components/agent/AgentPanel'
+import { AgentPanel } from '../components/agent/AgentPanel'
 import { conversationQuestions } from '../components/agent/panel/replyTarget'
 import { EmptyState } from '../components/EmptyState'
 import { useElementSize } from '../grafana/useElementSize'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
-import { openInputRequests } from '../lib/agentInputRequests'
-import { onInputRequestsRefresh } from '../lib/inputRequestRefresh'
 
 import { ChannelMentions } from './inbox/ChannelMentions'
-import { DecisionCards } from './inbox/DecisionCards'
-import { inboxReader, nextSelection, replyTarget } from './inbox/inboxItems'
+import { DecisionCard } from './inbox/DecisionCard'
+import { inboxQuestions, openQuestion } from './inbox/inboxItems'
+import { QuestionRail } from './inbox/QuestionRail'
 import { ShareApprovalRequests } from './inbox/ShareApprovalRequests'
 import { useChannelMentions } from './inbox/useChannelMentions'
-import { publishInboxListing, useAnsweredOnDevice } from './inbox/useInbox'
+import { useAnsweredOnDevice, useInboxListing } from './inbox/useInbox'
 import { useShareApprovals } from './inbox/useShareApprovals'
 
-import type { AgentConversation } from '../api'
+import type { InboxQuestion } from './inbox/inboxItems'
 import type { AgentPromptSeed } from '../components/agent/panel/model'
 import type { JournalChatTarget } from '../lib/journalEvent'
 
-// The rail refetches on this beat, so an answered conversation leaves and the next one opens.
+// The list reloads on this beat while the page is open, so the next question comes in.
 const INBOX_REFRESH_MS = 5_000
 // Below this the page shows the list alone, and a row opens its conversation.
 const TWO_PANE_MIN_WIDTH = 720
@@ -41,11 +39,11 @@ type Props = {
 
 /**
  * Teammates asking to use the viewer's own computer and channel @mentions,
- * above every conversation waiting on the viewer. The reader shows that
- * conversation's open questions as cards: a choice, or a short reply typed on
- * the selected card, answers its own question. The conversation, with its full
- * composer, stays hidden until asked for; only delivery or dismissal clears a
- * question.
+ * above every open question waiting on the viewer, one row each, the same rows
+ * the sidebar badge counts. The reader shows the selected question as a card:
+ * a choice, or a short reply typed on the card, answers it. Its conversation,
+ * with the full composer, stays hidden until asked for; only delivery or
+ * dismissal clears a question.
  */
 export function InboxView({
   teamId,
@@ -58,94 +56,53 @@ export function InboxView({
   const { isActive } = useWorkspaceTab()
   const { ref, width } = useElementSize<HTMLDivElement>()
   const twoPane = width === 0 || width >= TWO_PANE_MIN_WIDTH
-  const [items, setItems] = useState<AgentConversation[] | null>(null)
-  const [selected, setSelected] = useState<{ sessionId: string; index: number } | null>(null)
-  const [tick, setTick] = useState(0)
-  // Which of the open conversation's questions the next reply answers.
-  const [chosenRequest, setChosenRequest] = useState<string | null>(null)
-  // The reader shows the questions; the transcript only when asked for, at the question.
+  const listing = useInboxListing(teamId, INBOX_REFRESH_MS, refreshKey)
+  const [selected, setSelected] = useState<{ id: string; index: number } | null>(null)
+  // The reader shows the question; the transcript only when asked for, at the question.
   const [showConversation, setShowConversation] = useState(false)
   const [locate, setLocate] = useState<{ sessionId: string; target: JournalChatTarget } | null>(
     null,
   )
-  // A choice from a card, sent through the conversation's own composer.
+  // A choice from the card, sent through the conversation's own composer.
   const [answer, setAnswer] = useState<AgentPromptSeed | null>(null)
-  // Another team's list and open conversation are no answer for this one.
+  // Another team's selection is no answer for this one.
   const [shownTeamId, setShownTeamId] = useState(teamId)
 
   if (shownTeamId !== teamId) {
     setShownTeamId(teamId)
-    setItems(null)
     setSelected(null)
   }
   const shareApprovals = useShareApprovals(teamId)
   const mentions = useChannelMentions(teamId) ?? []
   const railRef = useRef<HTMLDivElement>(null)
   const readerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const reload = () => setTick((n) => n + 1)
-    const interval = setInterval(reload, INBOX_REFRESH_MS)
-    const stopRefresh = onInputRequestsRefresh(reload)
-
-    return () => {
-      clearInterval(interval)
-      stopRefresh()
-    }
-  }, [])
-  // A question answered here leaves the Inbox and the badge at once, as the listing does.
+  // A question answered here leaves the Inbox and the badge at once, before the listing does.
   const answered = useAnsweredOnDevice()
-  const { waiting, openId, hiddenSessionIds } = inboxReader(items, selected, answered)
+  const all = listing ? inboxQuestions(listing, answered) : null
+  const needle = query.trim().toLowerCase()
+  const rows = all?.filter(
+    ({ conversation, request }) =>
+      !needle ||
+      [request.question, request.body, conversation.title].some((text) =>
+        text?.toLowerCase().includes(needle),
+      ),
+  )
+  const open = rows ? openQuestion(rows, selected) : undefined
 
-  useEffect(() => onLoading?.(items === null), [items, onLoading])
-  useEffect(() => onCount?.(waiting?.length ?? 0), [waiting?.length, onCount])
+  useEffect(() => onLoading?.(listing === null), [listing, onLoading])
+  useEffect(() => onCount?.(all?.length ?? 0), [all?.length, onCount])
 
-  const select = useCallback((sessionId: string | null, list: AgentConversation[]) => {
-    setChosenRequest(null)
+  const select = useCallback((row: InboxQuestion | undefined, list: readonly InboxQuestion[]) => {
     setShowConversation(false)
     setLocate(null)
     setAnswer(null)
-    setSelected(
-      sessionId
-        ? { sessionId, index: list.findIndex((item) => item.sessionId === sessionId) }
-        : null,
-    )
+    setSelected(row ? { id: row.request.id, index: list.indexOf(row) } : null)
   }, [])
   const consumeLocate = useCallback(() => setLocate(null), [])
   const consumeAnswer = useCallback(() => setAnswer(null), [])
-  const selectedRef = useRef(selected)
 
-  useEffect(() => {
-    selectedRef.current = selected
-  }, [selected])
-  const onListLoaded = useCallback(
-    (list: AgentConversation[]) => {
-      setItems(list)
-      // Unfiltered, this is the listing the sidebar badge counts.
-      if (!query) publishInboxListing(teamId, list)
-      const open = selectedRef.current
-      const settle = (stillWaits: boolean) => {
-        // The reader moved meanwhile: that choice stands.
-        if (selectedRef.current !== open) return
-        const next = nextSelection(open, list, stillWaits)
-
-        setSelected(
-          next ? { sessionId: next, index: list.findIndex((i) => i.sessionId === next) } : null,
-        )
-      }
-
-      if (!open || list.some((item) => item.sessionId === open.sessionId)) return settle(false)
-      // Not listed is not proof it was answered (a longer list can push it out): ask its own record.
-      void api.agentGetConversation(open.sessionId, teamId, { tail: 1, runtimeState: 'omit' }).then(
-        (detail) => settle(Boolean(detail.pendingDecision ?? detail.signInRequest)),
-        () => settle(true),
-      )
-    },
-    [teamId, query],
-  )
-
-  // Enter or → moves from the list into the selected card's reply field, or the
-  // conversation's composer when it is shown; Esc comes back.
+  // Enter or → moves from the list into the card's reply field,
+  // or the conversation's composer when it is shown; Esc comes back.
   useEffect(() => {
     if (!isActive || !twoPane) return
     const onKeyDown = (event: KeyboardEvent) => {
@@ -154,15 +111,15 @@ export function InboxView({
       const typing =
         Boolean(target?.isContentEditable) ||
         Boolean(target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
+      const inRail = !target || target === document.body || railRef.current?.contains(target)
 
       if (event.key === 'Escape' && typing && readerRef.current?.contains(target)) {
         event.preventDefault()
-        railRef.current?.querySelector<HTMLElement>('[aria-current="true"] button')?.focus()
+        railRef.current?.querySelector<HTMLElement>('[aria-current="true"]')?.focus()
 
         return
       }
-      if ((event.key === 'Enter' || event.key === 'ArrowRight') && !typing) {
-        if (target && target !== document.body && !railRef.current?.contains(target)) return
+      if ((event.key === 'Enter' || event.key === 'ArrowRight') && !typing && inRail) {
         // The first match can be a hidden copy; the field is the one that takes focus.
         const composers = readerRef.current?.querySelectorAll<HTMLElement>(
           '[data-inbox-reply], [aria-label="Message"]',
@@ -184,27 +141,22 @@ export function InboxView({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [isActive, twoPane])
 
-  const empty = waiting !== null && waiting.length === 0 && !query
-  const selectedItem = openId ? items?.find((item) => item.sessionId === openId) : undefined
-  const selectedRequests = selectedItem
-    ? openInputRequests(selectedItem).filter((request) => !answered.has(request.id))
-    : []
-  const replyTo = replyTarget(selectedRequests, chosenRequest)
-  const replyRequest = selectedRequests.find((request) => request.id === replyTo)
+  const empty = all !== null && all.length === 0
+  const caughtUp = empty && shareApprovals.approvals.length === 0 && mentions.length === 0
+  const sessionId = open?.conversation.sessionId
 
   const openTranscript = () => {
     setShowConversation(true)
-    if (selectedItem && replyRequest)
+    if (open)
       setLocate({
-        sessionId: selectedItem.sessionId,
+        sessionId: open.conversation.sessionId,
         target: {
-          toolCallId: replyRequest.id,
-          question: replyRequest.question,
-          options: replyRequest.options,
+          toolCallId: open.request.id,
+          question: open.request.question,
+          options: open.request.options,
         },
       })
   }
-  const caughtUp = empty && shareApprovals.approvals.length === 0 && mentions.length === 0
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -220,78 +172,67 @@ export function InboxView({
             )}
           />
         )}
-        {/* Mounted while empty too: its refetch is what brings the next question in. */}
-        <div
-          ref={railRef}
-          className={clsx(
-            'flex h-full min-h-0 flex-col',
-            empty && 'hidden',
-            twoPane ? 'flex-shrink-0' : 'min-w-0 flex-1',
-          )}
-          style={twoPane ? { width: RAIL_WIDTH } : undefined}
-        >
-          <AgentHistoryPage
-            teamId={teamId}
-            refreshKey={refreshKey + tick}
-            query={query}
-            openingSessionId={null}
-            selectedSessionId={twoPane ? openId : null}
-            layout="rail"
-            pendingDecision
-            historyScope="mine"
-            onOpenConversation={(sessionId) =>
-              twoPane ? select(sessionId, items ?? []) : onOpenConversation(sessionId)
-            }
-            onListLoaded={onListLoaded}
-            hiddenSessionIds={hiddenSessionIds}
-            keyboardNavigation={isActive && twoPane}
-          />
-        </div>
-        {twoPane && !empty && (
+        {rows && !empty && (
+          <div
+            ref={railRef}
+            className={clsx(
+              'flex h-full min-h-0 flex-col',
+              twoPane ? 'flex-shrink-0' : 'min-w-0 flex-1',
+            )}
+            style={twoPane ? { width: RAIL_WIDTH } : undefined}
+          >
+            <QuestionRail
+              rows={rows}
+              openId={twoPane ? open?.request.id : undefined}
+              keyboardNavigation={isActive && twoPane}
+              onSelect={(row) =>
+                twoPane ? select(row, rows) : onOpenConversation(row.conversation.sessionId)
+              }
+            />
+          </div>
+        )}
+        {twoPane && open && sessionId && (
           <div ref={readerRef} className="flex min-w-0 flex-1 flex-col">
-            {openId && (
-              <DecisionCards
+            <DecisionCard
+              key={open.request.id}
+              teamId={teamId}
+              sessionId={sessionId}
+              title={open.conversation.title}
+              request={open.request}
+              showingConversation={showConversation}
+              onAnswer={(text) => {
+                if (answer) return // One answer per question: a repeated click sends nothing.
+                setAnswer({ text, nonce: Date.now(), autoSend: true, replace: true })
+              }}
+              onShowConversation={openTranscript}
+              onHideConversation={() => setShowConversation(false)}
+              onOpenConversation={() => onOpenConversation(sessionId)}
+            />
+            {/* Hidden until the conversation is asked for: the Inbox answers with
+                the card, but stays mounted, since the card's answer is sent through it. */}
+            <div className={clsx('min-h-0 flex-1 flex-col', showConversation ? 'flex' : 'hidden')}>
+              <AgentPanel
+                key="inbox"
+                variant="page"
+                open
+                focusComposerOnOpen={false}
                 teamId={teamId}
-                sessionId={openId}
-                title={selectedItem?.title}
-                requests={selectedRequests}
-                replyTo={replyTo}
-                showingConversation={showConversation}
-                onChoose={setChosenRequest}
-                onAnswer={(requestId, text) => {
-                  if (answer) return // One answer per question: a repeated click sends nothing.
-                  setChosenRequest(requestId)
-                  setAnswer({ text, nonce: Date.now(), autoSend: true, replace: true })
-                }}
-                onShowConversation={openTranscript}
-                onHideConversation={() => setShowConversation(false)}
-                onOpenConversation={() => onOpenConversation(openId)}
+                sessionId={sessionId}
+                decisionReplyTo={open.request.id}
+                hideTranscript={!showConversation}
+                pendingPrompt={answer}
+                onPromptConsumed={consumeAnswer}
+                openQuestions={conversationQuestions(open.conversation)}
+                pendingLocate={locate}
+                onLocateConsumed={consumeLocate}
+                onSessionChange={(id) =>
+                  select(
+                    rows?.find((row) => row.conversation.sessionId === id),
+                    rows ?? [],
+                  )
+                }
               />
-            )}
-            {openId && (
-              // Hidden until the conversation is asked for: the Inbox answers with
-              // the cards, but stays mounted, since a card's answer is sent through it.
-              <div
-                className={clsx('min-h-0 flex-1 flex-col', showConversation ? 'flex' : 'hidden')}
-              >
-                <AgentPanel
-                  key="inbox"
-                  variant="page"
-                  open
-                  focusComposerOnOpen={false}
-                  teamId={teamId}
-                  sessionId={openId}
-                  decisionReplyTo={replyTo}
-                  hideTranscript={!showConversation}
-                  pendingPrompt={answer}
-                  onPromptConsumed={consumeAnswer}
-                  openQuestions={selectedItem ? conversationQuestions(selectedItem) : undefined}
-                  pendingLocate={locate}
-                  onLocateConsumed={consumeLocate}
-                  onSessionChange={(sessionId) => select(sessionId, items ?? [])}
-                />
-              </div>
-            )}
+            </div>
           </div>
         )}
       </div>

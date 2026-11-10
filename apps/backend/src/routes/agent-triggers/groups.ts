@@ -8,7 +8,7 @@ import {
   updateTriggerGroup,
 } from '@/lib/agent/trigger-group-service'
 import { AppError } from '@/lib/errors'
-import { jsonObjectBody, parseSlackDestination, triggerActor } from '@/routes/agent-triggers/shared'
+import { jsonObjectBody, triggerActor } from '@/routes/agent-triggers/shared'
 
 import type { AuthVariables } from '@/middleware/auth'
 import type { Hono } from 'hono'
@@ -42,7 +42,9 @@ export function registerTriggerGroupRoutes(
     ) {
       throw new AppError(400, 'invalid_request', 'memberKeys must be an array of strings')
     }
-    const slackDestination = parseSlackDestination(body.slackDestination)
+    if (typeof body.targetSessionId !== 'string') {
+      throw new AppError(400, 'invalid_request', 'targetSessionId is required')
+    }
 
     const created = await createTriggerGroup(
       {
@@ -52,7 +54,7 @@ export function registerTriggerGroupRoutes(
         ...(typeof body.minIntervalSeconds === 'number'
           ? { minIntervalSeconds: body.minIntervalSeconds }
           : {}),
-        ...(slackDestination ? { slackDestination } : {}),
+        targetSessionId: body.targetSessionId,
       },
       await triggerActor(c, body.teamId),
     )
@@ -85,6 +87,9 @@ export function registerTriggerGroupRoutes(
             ? { messageTemplate: body.messageTemplate }
             : {}),
           ...(typeof body.enabled === 'boolean' ? { enabled: body.enabled } : {}),
+          ...(typeof body.targetSessionId === 'string'
+            ? { targetSessionId: body.targetSessionId }
+            : {}),
         },
       ),
     )

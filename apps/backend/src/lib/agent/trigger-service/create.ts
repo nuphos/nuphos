@@ -1,16 +1,13 @@
 import { ObjectId } from 'mongodb'
 
-import { findGithubInstallation } from '@/lib/byos/account'
 import { isValidCronExpression } from '@/lib/cron'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
 import { legacyMonitoringWatchDedupeKey, monitoringWatchDedupeKey } from '../monitoring-workflow'
-import { sessionRoutingSchema } from '../session-routing'
 import { assertTeamTriggerRole } from '../trigger-access'
 import { agentTriggers, generateWebhookSecret } from '../trigger-db'
 import { scheduleCronTrigger } from '../trigger-scheduler'
-import { assertTriggerSlackDestinationAuthorized } from '../trigger-slack-authorization'
 
 import { validateCreateTriggerShape } from './create-validation'
 import { assertTriggerCreationQuota, resolveTriggerCredentialSelection } from './quota'
@@ -18,12 +15,12 @@ import {
   assertBindableSession,
   serializeTrigger,
   isDuplicateKeyError,
-  validateIncidentConfiguration,
   validateMinInterval,
 } from './shared'
 import {
   assertDedupeCompatible,
   backfillMonitoringIdentity,
+  bindLegacyWatch,
   findExistingWatch,
 } from './watch-dedupe'
 
@@ -49,42 +46,7 @@ export async function createTrigger(
   if (!name) throw new AppError(400, 'invalid_request', 'name is required')
 
   validateCreateTriggerShape(input)
-  if (input.sessionRouting) {
-    sessionRoutingSchema.parse(input.sessionRouting)
-    if (
-      !ctx.teamId ||
-      input.triggerType !== 'webhook' ||
-      input.incidentMode ||
-      input.watchGroup ||
-      input.dedupeKey ||
-      input.monitoringIdentity
-    ) {
-      throw new AppError(
-        400,
-        'invalid_routing',
-        'Session routing requires a standalone team webhook',
-      )
-    }
-    const github = input.sessionRouting.github
-
-    if (
-      github &&
-      !(await findGithubInstallation(new ObjectId(ctx.teamId), github.installationId))
-    ) {
-      throw new AppError(400, 'invalid_routing', 'GitHub installation is not bound to this team')
-    }
-  }
-
-  if (input.targetSessionId !== undefined) {
-    if (input.sessionRouting || input.watchGroup || input.incidentMode) {
-      throw new AppError(
-        400,
-        'invalid_target_session',
-        'targetSessionId cannot be combined with session routing, a Watch Group or incident mode',
-      )
-    }
-    await assertBindableSession(input.targetSessionId, ctx.teamId, ctx.userId)
-  }
+  await assertBindableSession(input.targetSessionId, ctx.teamId, ctx.userId)
 
   const messageTemplate = input.messageTemplate.trim()
 
@@ -114,10 +76,6 @@ export async function createTrigger(
   }
   if (input.minIntervalSeconds !== undefined)
     validateMinInterval(input.triggerType, input.minIntervalSeconds)
-  validateIncidentConfiguration(input)
-  if (input.incidentMode === true && input.slackDestination) {
-    await assertTriggerSlackDestinationAuthorized(input.slackDestination, ctx)
-  }
 
   const dedupeKey = input.monitoringIdentity
     ? monitoringWatchDedupeKey(ctx.userId, ctx.teamId, input.monitoringIdentity)
@@ -143,7 +101,11 @@ export async function createTrigger(
       assertDedupeCompatible(existing, input, ctx, acceptedDedupeKeys)
 
       return serializeTrigger(
-        await backfillMonitoringIdentity(existing, input.monitoringIdentity),
+        await bindLegacyWatch(
+          await backfillMonitoringIdentity(existing, input.monitoringIdentity),
+          input.targetSessionId,
+          ctx,
+        ),
         true,
       )
     }
@@ -170,8 +132,7 @@ export async function createTrigger(
     triggerType: input.triggerType,
     ...(cronExpression ? { cronExpression } : {}),
     ...(webhookSecret ? { webhookSecret } : {}),
-    ...(input.sessionRouting ? { sessionRouting: input.sessionRouting } : {}),
-    ...(input.targetSessionId ? { targetSessionId: input.targetSessionId } : {}),
+    targetSessionId: input.targetSessionId,
     messageTemplate,
     enabled: input.enabled ?? true,
     ...(ctx.source !== 'user' ? { source: ctx.source } : {}),
@@ -192,8 +153,6 @@ export async function createTrigger(
     ...(input.minIntervalSeconds !== undefined
       ? { minIntervalSeconds: input.minIntervalSeconds }
       : {}),
-    ...(input.incidentMode !== undefined ? { incidentMode: input.incidentMode } : {}),
-    ...(input.slackDestination ? { slackDestination: input.slackDestination } : {}),
     configRevision: 1,
     createdAt: now,
     updatedAt: now,
@@ -219,7 +178,11 @@ export async function createTrigger(
         assertDedupeCompatible(existing, input, ctx, acceptedDedupeKeys)
 
         return serializeTrigger(
-          await backfillMonitoringIdentity(existing, input.monitoringIdentity),
+          await bindLegacyWatch(
+            await backfillMonitoringIdentity(existing, input.monitoringIdentity),
+            input.targetSessionId,
+            ctx,
+          ),
           true,
         )
       }

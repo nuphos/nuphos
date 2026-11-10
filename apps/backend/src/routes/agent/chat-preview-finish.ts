@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto'
 
 import { appendTranscriptMessages, getConversationMessagesHead } from '@/lib/agent/db'
 import { mergePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity-store'
+import { askPlanDecisions } from '@/lib/agent/plan-decision'
 import { listPlansCreatedForConversation } from '@/lib/agent/plans'
 import { partsWithoutFailureNotice } from '@/lib/claude-code-preview/codex-turn-failure'
 import { completedTurnOutput } from '@/lib/claude-code-preview/empty-turn'
@@ -86,6 +87,8 @@ export async function finishPreviewTurn(args: {
       input: { title: plan.title, overview: plan.overview },
       output: { planId: plan.id, status: plan.status },
     }))
+
+  await askPlanDecisions(sessionId, userId, nativePlans, nativePlanSteps)
   const nativePlanParts = previewAssistantMessageParts({
     reasoning: '',
     text: '',

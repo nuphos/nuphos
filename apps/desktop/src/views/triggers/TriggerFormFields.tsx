@@ -207,18 +207,16 @@ export function TriggerFormFields({
 
 /**
  * A bound fire runs with the session's own credentials, so only the trigger's
- * principal may pick one, and never on a routed, grouped or incident trigger.
+ * principal may pick one. A Watch Group ingress moves with its Group.
  */
 function canBind(mode: 'create' | 'edit', loaded: AgentTrigger | null, viewerId?: string) {
   if (mode === 'create') return true
-  if (!loaded || loaded.watchGroupId || loaded.incidentMode || loaded.sessionRouting) return false
+  if (!loaded || loaded.watchGroupId) return false
 
   return (loaded.executionPrincipalUserId ?? loaded.createdByUserId ?? loaded.userId) === viewerId
 }
 
-const NEW_CONVERSATION = { value: '', label: t('A new agent each fire') }
-
-/** Where a fire lands: a fresh run, or one of the viewer's own sessions. */
+/** Where a fire lands: one of the viewer's own sessions. */
 function DeliverToField({
   teamId,
   value,
@@ -253,7 +251,7 @@ function DeliverToField({
     }
   }, [teamId])
 
-  const options = [NEW_CONVERSATION, ...sessions]
+  const options = [...sessions]
 
   // A bound session older than the first page still has to read as itself.
   if (value && !sessions.some((s) => s.value === value))
@@ -263,13 +261,9 @@ function DeliverToField({
     <Field
       label={t('Deliver to')}
       htmlFor="trigger-deliver-to"
-      hint={
-        value
-          ? t(
-              'Each fire is posted into this agent as an event. While it is busy, fires wait and run once after the current turn.',
-            )
-          : t('Each fire starts its own agent, listed under this trigger.')
-      }
+      hint={t(
+        'Each fire is posted into this agent as an event. While it is busy, fires wait and run once after the current turn.',
+      )}
     >
       <AppSelect
         id="trigger-deliver-to"

@@ -108,7 +108,7 @@ Do **not** replace it with AWS Chatbot, Amazon Q Developer in chat applications,
 
 Before any mutating setup for a Slack destination, call `slack_list_destinations`.
 
-- If it succeeds, use only the exact DM/channel the user selected and persist it in `trigger_create.slackDestination`.
+- If it succeeds, use only the exact DM/channel the user selected and name it in the messageTemplate.
 - If it returns `slack_not_connected`, explain that the Nuphos Slack App must be connected to this team, preserve the intended CloudWatch -> Nuphos -> Slack plan, and STOP. Never ask for a Slack webhook URL and never claim Nuphos cannot proactively post to Slack.
 - If the user chose Nuphos-only delivery, do not call Slack tools or create Slack-side resources.
 
@@ -130,7 +130,6 @@ The workflow is not live when only the trigger exists. Finish every step, read i
 
    - `triggerType: "webhook"`
    - `monitoringIdentity: {provider:"aws", integrationId:"<operational role binding ObjectId>", resourceId:"<full alarm ARN>"}`
-   - for Slack, `incidentMode: true` and the exact approved `slackDestination`
    - a retry-burst `minIntervalSeconds` such as 60
 
    Use this normalized payload contract in `messageTemplate`:
@@ -140,8 +139,8 @@ The workflow is not live when only the trigger exists. Finish every step, read i
    Status: {{payload.status}}; alarm: {{payload.alarm.name}}; state: {{payload.alarm.newState}}
    Reason: {{payload.alarm.reason}}; changed at: {{payload.alarm.stateChangedAt}}
    If payload contains "test": true or "drill": true, reply "test delivery received" and STOP — no investigation and no Slack post.
-   For Slack, handle it the way an on-call engineer would. Call incident_history first to see whether this alert has gone off before and in which thread, and slack_read_channel if you want to know what is already in the channel. Post something quickly so whoever is watching knows it is being looked at, then investigate and follow up in the same thread when you know more.
-   Pass replyToThread with a threadTs from incident_history when this firing is the same problem still going or coming back; omit it to start a new thread when it is genuinely different. There is no message type to declare. When it has recovered, say so in its thread and stop — nothing needs to be closed. Pass the exact destination object stored on the trigger, including slackWorkspaceId when it is present — reconstructing it as only {"type":"channel","channelId":"..."} can be refused or aimed at the wrong workspace. For a new Watch, persist that same exact object in trigger_create.slackDestination: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM.
+   For Slack, handle it the way an on-call engineer would. First check the earlier firings in this conversation to see whether this alert has gone off before and in which thread, and slack_read_channel if you want to know what is already in the channel. Post something quickly so whoever is watching knows it is being looked at, then investigate and follow up in the same thread when you know more.
+   Pass replyToThread with that earlier threadTs when this firing is the same problem still going or coming back; omit it to start a new thread when it is genuinely different. There is no message type to declare. When it has recovered, say so in its thread and stop — nothing needs to be closed. Post to the exact destination the user approved, as written in the messageTemplate, including slackWorkspaceId when it is known: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM.
    For Nuphos-only delivery, keep the findings here and do not call slack_post.
    ```
 

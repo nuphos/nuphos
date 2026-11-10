@@ -7,7 +7,7 @@ import { useShareApprovals } from '../../views/inbox/useShareApprovals'
 import type { Section } from './types'
 
 /**
- * Badges the Inbox row with how many of the viewer's conversations wait on them,
+ * Badges the Inbox row with how many questions wait on the viewer,
  * how many teammates ask to use their computer, telling the owner about each new ask,
  * and the chats and agents that @mention them, announcing each new one.
  */

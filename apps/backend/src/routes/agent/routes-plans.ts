@@ -1,5 +1,5 @@
-import { isPlanReadyForApproval } from '@/lib/agent/plan-readiness'
 import { journalPlanDecision } from '@/lib/agent/journal-capture'
+import { approvePlanForCaller } from '@/lib/agent/plan-decision'
 import { resumeSlackThreadForApprovedPlan } from '@/lib/agent/plan-slack-resume'
 import {
   assertPlanAccess,
@@ -7,7 +7,6 @@ import {
   getPlan,
   getTeamPlanApprovalRequirement,
   listPlans,
-  recordPlanApproval,
   retryPlan,
   updatePlan,
   updateTeamPlanApprovalRequirement,
@@ -26,10 +25,10 @@ import {
 import { AppError } from '@/lib/errors'
 import { getTeamMembers, getTeamMembership } from '@/lib/identity'
 import { logError } from '@/lib/observability'
+import { unreadableSessionIds } from '@/routes/agent-journal/shared'
 
 import { defineAgentApiRoute, parseWithSchema } from './api-route'
 import { agent } from './router'
-import { unreadableSessionIds } from '@/routes/agent-journal/shared'
 import { readTeamIdCandidate, resolveVerifiedTeamId } from './team-scope'
 
 import type { PlanDTO, UpdatePlanPatch } from '@/lib/agent/plans'
@@ -79,39 +78,15 @@ defineAgentApiRoute(planGetOperation, async (c, { path }) => {
   return c.json(plan)
 })
 
-async function approvePlanForCaller(input: {
+/** Records an approval; a vote that completes the gate resumes a Slack-bound plan. */
+async function approveAndResume(input: {
   planId: string
   teamId?: string
   userId: string
 }): Promise<{ plan: PlanDTO; thresholdReached: boolean }> {
-  const current = await getPlan(input.planId, { teamId: input.teamId, userId: input.userId })
+  const result = await approvePlanForCaller(input)
 
-  if (!current) throw new AppError(404, 'not_found', 'Plan not found')
-  await assertPlanAccess(current, input.userId, 'reply')
-  if (current.status !== 'proposed') {
-    throw new AppError(409, 'plan_not_proposed', 'Only proposed plans can be approved')
-  }
-  if (!isPlanReadyForApproval(current)) {
-    throw new AppError(
-      409,
-      'plan_incomplete',
-      'Plan must include steps, cost, and risk before approval',
-    )
-  }
-
-  const result = await recordPlanApproval(
-    input.planId,
-    { teamId: input.teamId, userId: input.userId },
-    input.userId,
-  )
-
-  if (!result.plan) throw new AppError(404, 'not_found', 'Plan not found')
   if (result.thresholdReached) {
-    await journalPlanDecision(
-      result.plan,
-      { userId: input.userId, teamId: input.teamId ?? null },
-      'approved',
-    )
     // If this plan's conversation is a Slack thread, that thread is the only
     // place it can execute — approving here and stopping would leave it at
     // `approved` forever (lib/agent/plan-slack-resume.ts). Detached on purpose:
@@ -136,13 +111,13 @@ async function approvePlanForCaller(input: {
     }
   }
 
-  return { plan: result.plan, thresholdReached: result.thresholdReached }
+  return result
 }
 
 defineAgentApiRoute(planApproveOperation, async (c, { path, body }) => {
   const userId = c.get('userId')
   const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.teamId))
-  const { plan } = await approvePlanForCaller({ planId: path.planId, teamId, userId })
+  const { plan } = await approveAndResume({ planId: path.planId, teamId, userId })
 
   return c.json(plan)
 })
@@ -211,7 +186,7 @@ defineAgentApiRoute(planUpdateOperation, async (c, { path, body: parsed }) => {
     if (Object.keys(parsedPatch).some((key) => key !== 'status')) {
       throw new AppError(400, 'invalid_body', 'Approval cannot be combined with other plan changes')
     }
-    const { plan } = await approvePlanForCaller({ planId: path.planId, teamId, userId })
+    const { plan } = await approveAndResume({ planId: path.planId, teamId, userId })
 
     return c.json(plan)
   }

@@ -53,11 +53,12 @@ export type AgentTrigger = {
   triggerType: TriggerType
   cronExpression?: string
   webhookSecret?: string
-  /** Immutable routing identity; create a new trigger to change it. */
+  /** Legacy: only on rows created before binding was required. Binding clears it. */
   sessionRouting?: SessionRouting
   /**
-   * Deliver every fire into this existing conversation instead of opening a
-   * new one. It must belong to the execution principal in the same team.
+   * The existing conversation every fire is delivered into. It must belong to
+   * the execution principal in the same team. Required on every new Trigger;
+   * absent only on legacy rows created before that.
    */
   targetSessionId?: string
   messageTemplate: string
@@ -87,13 +88,9 @@ export type AgentTrigger = {
    * user-initiated, so only webhook deliveries consult this.
    */
   minIntervalSeconds?: number
-  /**
-   * Treat Slack delivery as one stateful incident: one root, material updates
-   * in-thread, one resolution. Explicit opt-in so generic webhooks and cron
-   * notifications keep their independent-message semantics.
-   */
+  /** Legacy unbound incident delivery; no longer writable. Binding clears it. */
   incidentMode?: boolean
-  /** Exact Slack destination approved when this incident workflow was created. */
+  /** Legacy approved Slack destination for incidentMode. Binding clears it. */
   slackDestination?: SlackOutboundDestination
   /**
    * Optimistic fence for execution-affecting edits. Legacy rows without this

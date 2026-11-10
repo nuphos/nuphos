@@ -74,7 +74,8 @@ OpenAPI for these scripts.
    will trigger.
 
 Do not execute the proposed work before the user clicks Approve. A chat reply such as "ok" does
-not approve a Plan.
+not approve a Plan. Clicking Approve, anywhere it is shown, sends `Approve` as the answer to the
+Plan's question and approves the Plan before that turn starts.
 
 ## Decisions and content
 
@@ -95,7 +96,8 @@ it merely to change content. Once approved, proposal content is immutable.
 
 After an approval follow-up:
 
-1. Confirm the Plan with `get.sh`, then set it to `executing`.
+1. Confirm the Plan with `get.sh`, then set it to `executing`. If it is still `proposed`, a team
+   quorum needs more approvals: say so in one sentence and stop.
 2. Immediately before a planned command, mark that command `running`; immediately afterward mark
    it `done` or `failed` with `set-command-statuses.sh`.
 3. Keep at most one command `running`.

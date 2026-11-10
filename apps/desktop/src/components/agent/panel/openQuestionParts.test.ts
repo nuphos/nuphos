@@ -75,6 +75,29 @@ test('a question the transcript already draws is never drawn again', () => {
   assert.deepEqual(openQuestionParts([stored('exec-1', drawn)], [shipIt]), [])
 })
 
+test("a plan's question is its plan card, so it is not drawn twice", () => {
+  const plan: Message = {
+    id: 'm3',
+    role: 'assistant',
+    parts: [
+      {
+        type: 'tool',
+        toolName: 'plan_create',
+        toolCallId: 'nuphos-plan-7-1',
+        output: { planId: '7', status: 'proposed' },
+        state: 'output-available',
+      },
+    ],
+  }
+  const asked: ReplyQuestion = {
+    id: 'nuphos-plan-7-1',
+    question: 'Approve plan #7?',
+    options: ['Approve', 'Reject'],
+  }
+
+  assert.deepEqual(openQuestionParts([plan], [asked]), [])
+})
+
 test('only the open questions its transcript cannot draw are added', () => {
   const which: ReplyQuestion = { id: 'q2', question: 'Which branch?', options: ['main'] }
   const drawn = stored('q1', { question: 'Ship it?', options: ['Ship', 'Wait'] })

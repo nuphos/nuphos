@@ -5,11 +5,9 @@
 import { wakeAfterTurn } from '@/lib/agent/channel-chat'
 import {
   clearConversationPreviewLocalTools,
-  clearPendingDecision,
   clearConversationPreviewTurn,
   getConversationBySessionId,
   openConversationPromptSuggestion,
-  resolveInputRequest,
   setConversationPreviewContext,
 } from '@/lib/agent/db'
 import { promptImages } from '@/lib/agent/image-parts'
@@ -20,6 +18,7 @@ import {
 } from '@/lib/agent/message-metadata'
 import { renderInjectedUserMessages } from '@/lib/agent/pending-messages'
 import { takeTurnQueue } from '@/lib/agent/pending-queue'
+import { answerHumanTurn } from '@/lib/agent/plan-decision'
 import { markCarried } from '@/lib/agent/retract-marks'
 import { nuphosToolsVersion } from '@/lib/claude-code-preview/nuphos-tools-mcp'
 import { previewHistoryPreamble } from '@/lib/claude-code-preview/preview-history-preamble'
@@ -134,12 +133,7 @@ export async function persistPreviewTurnContext(
   args: PreviewChatTurnArgs,
   requestId: string,
 ): Promise<void> {
-  // A person speaking answers what the session waited on: the question an
-  // updated client names, or for older clients and channel integrations, any.
-  if (args.humanTurn && args.decisionReplyTo)
-    await resolveInputRequest(args.sessionId, args.userId, args.decisionReplyTo, 'answered')
-  else if (args.humanTurn && !args.explicitDecisionReplies)
-    await clearPendingDecision(args.sessionId, args.userId)
+  if (args.humanTurn) await answerHumanTurn(args)
   try {
     await setConversationPreviewContext(args.sessionId, args.teamId, {
       activeTurnKey: requestId,

@@ -88,7 +88,7 @@ export function parseSecretRequest(value: unknown): { name: string; reason: stri
 /** Any other `request_user_decision`: its question card, with the options as replies. */
 export function parseChoiceRequest(
   value: unknown,
-): { category: string; question: string; options: string[] } | null {
+): { category: string; question: string; body?: string; options: string[] } | null {
   if (
     !value ||
     typeof value !== 'object' ||
@@ -96,9 +96,10 @@ export function parseChoiceRequest(
     parseSecretRequest(value)
   )
     return null
-  const { category, question, options } = value as {
+  const { category, question, body, options } = value as {
     category?: unknown
     question?: unknown
+    body?: unknown
     options?: unknown
   }
 
@@ -107,6 +108,7 @@ export function parseChoiceRequest(
   return {
     category: typeof category === 'string' ? category : '',
     question: question.trim(),
+    ...(typeof body === 'string' && body.trim() ? { body: body.trim() } : {}),
     options: Array.isArray(options)
       ? options.filter((o): o is string => typeof o === 'string' && o.trim() !== '')
       : [],

@@ -54,7 +54,20 @@ async function readStoredFingerprint(outDir: string): Promise<string | null> {
   }
 }
 
-async function builtinRevision(): Promise<string> {
+// Builtin skills ship inside the image and never change while it runs, so one
+// read per process is enough.
+let builtin: Promise<string> | undefined
+
+function builtinRevision(): Promise<string> {
+  builtin ??= hashBuiltinSkills().catch((err: unknown) => {
+    builtin = undefined
+    throw err
+  })
+
+  return builtin
+}
+
+async function hashBuiltinSkills(): Promise<string> {
   const files = await collectSkillFiles(getBuiltinSkillsDirectory())
   const hash = createHash('sha256')
 
@@ -79,6 +92,11 @@ async function buildFingerprint(teamId: string | null | undefined): Promise<Merg
 
 function serializeFingerprint(fp: MergeFingerprint): string {
   return JSON.stringify(fp)
+}
+
+/** Changes whenever the merged tree for `teamId` would change. Cheap: no skill file is read. */
+export async function mergedSkillsFingerprint(teamId?: string | null): Promise<string> {
+  return serializeFingerprint(await buildFingerprint(teamId))
 }
 
 async function listCachedSkillNames(scopeDir: string): Promise<string[]> {

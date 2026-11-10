@@ -1,11 +1,12 @@
 import clsx from 'clsx'
 import { Check } from 'lucide-react'
-import { useContext, useRef, useState } from 'react'
+import { useContext, useLayoutEffect, useRef, useState } from 'react'
 
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { t } from '../../../i18n'
 import { comboText } from '../../../lib/platform'
 import { Button } from '../../ui/button'
+import { MessageResponse } from '../MessageResponse'
 
 import { ConnectCardContext } from './connectCardContext'
 import { AgentQuote } from './ConnectCardRows'
@@ -29,12 +30,15 @@ export function ChoiceCard({
   toolCallId,
   category,
   question,
+  body,
   options,
   canAct,
 }: {
   toolCallId: string
   category: string
   question: string
+  /** What the agent wrote to decide from: context, findings, links, risks. */
+  body?: string
   options: string[]
   /** The latest reply and no turn running: only then can an option be sent. */
   canAct: boolean
@@ -74,6 +78,7 @@ export function ChoiceCard({
           {TITLE[category] ?? t('Decision needed')}
         </div>
         <AgentQuote text={question} />
+        <DecisionBody text={body} />
       </div>
       {options.length > 0 ? (
         <div className="flex flex-wrap gap-2 border-t border-line-control/60 px-4 py-2.5">
@@ -115,6 +120,40 @@ export function ChoiceCard({
             {t('Reply below to answer.')}
           </div>
         )
+      )}
+    </div>
+  )
+}
+
+/** The question's markdown body, a few lines at first; "Show more" reveals the rest. */
+function DecisionBody({ text }: { text: string | undefined }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [overflows, setOverflows] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+
+  useLayoutEffect(() => {
+    const el = ref.current
+
+    if (el && !expanded) setOverflows(el.scrollHeight > el.clientHeight + 1)
+  }, [text, expanded])
+
+  if (!text) return null
+
+  return (
+    <div className="mt-2">
+      <div ref={ref} className={clsx('overflow-hidden', !expanded && 'max-h-[4.5em]')}>
+        <MessageResponse className="selectable text-[12.5px] text-secondary" streaming={false}>
+          {text}
+        </MessageResponse>
+      </div>
+      {(overflows || expanded) && (
+        <button
+          type="button"
+          onClick={() => setExpanded((open) => !open)}
+          className="mt-1 text-[12px] text-tertiary hover:text-main"
+        >
+          {expanded ? t('Show less') : t('Show more')}
+        </button>
       )}
     </div>
   )

@@ -85,17 +85,3 @@ export async function withTencentRateLimitRetry<T>(fn: () => Promise<T>, attempt
   }
   throw lastErr
 }
-
-/** Run async work over items with a bounded concurrency (rate-limit friendly). */
-export async function mapLimit<T>(
-  items: T[],
-  limit: number,
-  fn: (item: T) => Promise<void>,
-): Promise<void> {
-  if (!Number.isInteger(limit) || limit < 1) {
-    throw new Error('mapLimit limit must be a positive integer')
-  }
-  for (let i = 0; i < items.length; i += limit) {
-    await Promise.all(items.slice(i, i + limit).map(fn))
-  }
-}

@@ -4,7 +4,7 @@ import { ObjectId } from 'mongodb'
 
 import { AppError } from '@/lib/errors'
 
-import { assertTeamTriggerRole } from '../trigger-access'
+import { assertTeamTriggerRole, triggerExecutionPrincipalId } from '../trigger-access'
 import { resolveTriggerGroupCredentialMode } from '../trigger-credential-access'
 import { agentTriggers } from '../trigger-db'
 import { agentTriggerGroups, isSharedIngressTriggerGroup } from '../trigger-group-db'
@@ -14,7 +14,7 @@ import {
   resolveTriggerCredentialSelection,
   serializeTrigger,
 } from '../trigger-service'
-import { assertTriggerSlackDestinationAuthorized } from '../trigger-slack-authorization'
+import { assertBindableSession } from '../trigger-service/shared'
 
 import { findExistingTriggerGroup, triggerGroupDedupeKey } from './dedupe'
 import {
@@ -23,6 +23,7 @@ import {
   partitionMembers,
   serializeTriggerGroup,
 } from './shared'
+import { updateTriggerGroup } from './update'
 
 import type { TriggerActorContext } from '../trigger-access'
 import type { AgentTriggerGroup, TriggerGroupPartition } from '../trigger-group-db'
@@ -58,16 +59,14 @@ export async function createTriggerGroup(
   }
   const members = normalizeMembers(input.memberKeys)
 
-  if (input.slackDestination) {
-    await assertTriggerSlackDestinationAuthorized(input.slackDestination, context)
-  }
+  await assertBindableSession(input.targetSessionId, context.teamId, context.userId)
   // A Watch Group is a team resource, so its identity excludes the creator:
   // two colleagues selecting the same monitoring items converge on one Group
   // rather than provisioning two sets of provider ingresses.
   const groupIdentity = {
     teamId: context.teamId,
     memberKeys: members.map((member) => member.key),
-    ...(input.slackDestination ? { slackDestination: input.slackDestination } : {}),
+    targetSessionId: input.targetSessionId,
   }
   const dedupeKey = triggerGroupDedupeKey(groupIdentity)
   const legacyDedupeKey = triggerGroupDedupeKey({
@@ -95,7 +94,7 @@ export async function createTriggerGroup(
     ...(input.minIntervalSeconds !== undefined
       ? { minIntervalSeconds: input.minIntervalSeconds }
       : {}),
-    ...(input.slackDestination ? { slackDestination: input.slackDestination } : {}),
+    targetSessionId: input.targetSessionId,
     enabled: true,
     createdAt: now,
     updatedAt: now,
@@ -105,7 +104,7 @@ export async function createTriggerGroup(
     legacyDedupeKey,
     teamId: context.teamId,
     memberKeys: groupIdentity.memberKeys,
-    ...(input.slackDestination ? { slackDestination: input.slackDestination } : {}),
+    targetSessionId: input.targetSessionId,
   })
 
   if (!group) {
@@ -122,7 +121,7 @@ export async function createTriggerGroup(
         legacyDedupeKey,
         teamId: context.teamId,
         memberKeys: groupIdentity.memberKeys,
-        ...(input.slackDestination ? { slackDestination: input.slackDestination } : {}),
+        targetSessionId: input.targetSessionId,
       })
       if (!group) throw error
     }
@@ -191,9 +190,7 @@ export async function createTriggerGroup(
           ...(group.minIntervalSeconds !== undefined
             ? { minIntervalSeconds: group.minIntervalSeconds }
             : {}),
-          ...(group.slackDestination
-            ? { incidentMode: true, slackDestination: group.slackDestination }
-            : {}),
+          targetSessionId: input.targetSessionId,
           watchGroup: {
             groupId: group._id.toString(),
             partitionKey: partition.key,
@@ -230,6 +227,14 @@ export async function createTriggerGroup(
     { $set: { partitions, updatedAt } },
   )
   const completedGroup: AgentTriggerGroup = { ...group, partitions, updatedAt }
+
+  // A legacy unbound Group is bound to the requested conversation by the one it runs as.
+  if (!group.targetSessionId && triggerExecutionPrincipalId(group) === context.userId) {
+    await updateTriggerGroup(group._id.toString(), context, {
+      targetSessionId: input.targetSessionId,
+    })
+    completedGroup.targetSessionId = input.targetSessionId
+  }
   const triggers = await loadPartitionTriggers(completedGroup)
 
   return {

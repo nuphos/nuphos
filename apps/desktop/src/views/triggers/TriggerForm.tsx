@@ -108,6 +108,7 @@ export function TriggerForm({
     form.name.trim().length > 0 &&
     form.messageTemplate.trim().length > 0 &&
     (form.triggerType === 'webhook' || form.cronExpression.trim().length > 0) &&
+    (mode === 'edit' || form.targetSessionId.length > 0) &&
     canManage &&
     hasChanges
   const principalLabel = loaded ? triggerPrincipalLabel(members, loaded) : null

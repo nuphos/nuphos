@@ -67,7 +67,7 @@ export const UserMessage = memo(
     message: Message
     /** Lets uploaded images and videos preview inline. */
     teamId?: string
-    onApprovePlan?: (planId: string) => void
+    onApprovePlan?: (planId: string, toolCallId?: string) => void
     onRejectPlan?: (planId: string, reason: string, mode: 'revise' | 'delete') => void
     /** Whether a referenced `proposed` plan can be acted on (not streaming/read-only).
      *  This is what lets a historical plan be pulled into chat and executed. */

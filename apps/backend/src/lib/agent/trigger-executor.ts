@@ -65,7 +65,7 @@ export async function executeTrigger(
     ...(options.fireId ? { fireId: options.fireId } : {}),
   })
 
-  // Exclusive with routing and incident mode, so nothing below applies to it.
+  // Every new Trigger is bound and ends here.
   if (target) {
     await deliverToTargetSession(
       trigger,
@@ -77,6 +77,8 @@ export async function executeTrigger(
     return target.sessionId
   }
 
+  // Legacy: Triggers created before binding was required still open a fresh
+  // session per fire until they are migrated. Delete this path afterwards.
   if (trigger.incidentMode && !trigger.slackDestination) {
     throw new Error(
       `Incident trigger ${triggerId} has no stored Slack destination; refusing an unscoped outbound run`,
