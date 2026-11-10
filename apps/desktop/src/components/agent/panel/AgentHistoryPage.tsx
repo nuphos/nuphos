@@ -41,9 +41,7 @@ export function AgentHistoryPage({
   historyScope,
   ownerId = null,
   triggerIds = null,
-  pendingDecision = false,
   onListLoaded,
-  hiddenSessionIds,
   keyboardNavigation = false,
 }: {
   teamId: string
@@ -70,16 +68,12 @@ export function AgentHistoryPage({
    * disjoint: Chats excludes trigger runs, and this shows only them.
    */
   triggerIds?: string[] | null
-  /** The Inbox: only conversations waiting on the viewer's decision. */
-  pendingDecision?: boolean
   /**
    * The first page of a list-replacing fetch, so a reader beside this list can
    * open something without waiting to be told. Not fired for load-more: those
    * append below what the reader already chose.
    */
   onListLoaded?: (items: AgentConversation[]) => void
-  /** Rows to leave out until the next listing, e.g. the Inbox's questions answered on this device. */
-  hiddenSessionIds?: ReadonlySet<string>
   /** Let Up/Down walk the list. Off for a background tab, whose rows would
    *  otherwise race the visible page for the same keystrokes. */
   keyboardNavigation?: boolean
@@ -117,23 +111,19 @@ export function AgentHistoryPage({
   // Every new query starts in the loading state; adjusting during render keeps
   // the previous query's rows from lingering as if they answered this one.
   const triggerKey = triggerIds ? triggerIds.join(',') : ''
-  const listKey = `${teamId}|${historyScope}|${ownerId ?? ''}|${triggerKey}|${String(pendingDecision)}|${debouncedQuery}`
+  const listKey = `${teamId}|${historyScope}|${ownerId ?? ''}|${triggerKey}|${debouncedQuery}`
   const [loadingListKey, setLoadingListKey] = useState(listKey)
 
   if (listKey !== loadingListKey) {
     setLoadingListKey(listKey)
     setLoading(true)
   }
-  // The Inbox fits in one page (the backend's most), so a reader beside it always
-  // sees whether its open conversation still waits.
-  const pageSize = pendingDecision ? 100 : HISTORY_PAGE_SIZE
   // Everything here is also in listKey, which stands in for it in the effects below.
   const listOptions = {
     scope: historyScope,
     archived: triggerIds ? undefined : ('exclude' as const),
     ownerId: ownerId ?? undefined,
     triggerIds: triggerIds ?? undefined,
-    pendingDecision: pendingDecision || undefined,
     search: debouncedQuery || undefined,
   }
 
@@ -144,7 +134,7 @@ export function AgentHistoryPage({
 
     void api
       .agentListConversations(teamId, {
-        limit: pageSize,
+        limit: HISTORY_PAGE_SIZE,
         ...listOptions,
       })
       .then((page) => {
@@ -175,7 +165,7 @@ export function AgentHistoryPage({
     try {
       const page = await api.agentListConversations(teamId, {
         cursor: nextPage.cursor,
-        limit: pageSize,
+        limit: HISTORY_PAGE_SIZE,
         ...listOptions,
       })
 
@@ -232,12 +222,9 @@ export function AgentHistoryPage({
     })
   }
 
-  const shown = hiddenSessionIds?.size
-    ? items.filter((item) => !hiddenSessionIds.has(item.sessionId))
-    : items
   const selectedRowRef = useHistoryKeyboardNavigation({
     keyboardNavigation,
-    items: shown,
+    items,
     selectedSessionId,
     onOpenConversation,
   })
@@ -267,11 +254,11 @@ export function AgentHistoryPage({
               layout === 'page' && 'sketch-line-h pt-px',
               // Same treatment as the Recent list — dim + blur the stale
               // rows while a replacing fetch is in flight.
-              loading && shown.length > 0 && 'opacity-50 blur-[1.5px] pointer-events-none',
+              loading && items.length > 0 && 'opacity-50 blur-[1.5px] pointer-events-none',
             )}
           >
             <HistoryPageList
-              items={shown}
+              items={items}
               loading={loading}
               debouncedQuery={debouncedQuery}
               ownerId={ownerId}

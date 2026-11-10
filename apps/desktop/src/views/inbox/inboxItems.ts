@@ -3,27 +3,31 @@ import { openInputRequests } from '../../lib/agentInputRequests.ts'
 
 import type { AgentConversation, AgentInputRequest } from '../../api/agent-types'
 
-/** Conversations still waiting once the questions answered on this device are set aside. */
-export function waitingConversations<T extends AgentConversation>(
-  conversations: readonly T[],
-  answered: ReadonlyMap<string, number>,
-): T[] {
-  return conversations.filter((conversation) =>
-    openInputRequests(conversation).some((request) => !answered.has(request.id)),
-  )
-}
+/** One row of the Inbox: an open question and the conversation that asked it. */
+export type InboxQuestion = { conversation: AgentConversation; request: AgentInputRequest }
 
 /**
- * How many questions wait on the viewer once those answered on this device are
- * set aside: one per card, as a Bot's chat draws them and an Inbox row counts them.
+ * The Inbox's rows: every open question waiting on the viewer, newest first,
+ * once those answered on this device are set aside. The badge counts these.
  */
+export function inboxQuestions(
+  conversations: readonly AgentConversation[],
+  answered: ReadonlyMap<string, number>,
+): InboxQuestion[] {
+  return conversations
+    .flatMap((conversation) =>
+      openInputRequests(conversation).map((request) => ({ conversation, request })),
+    )
+    .filter(({ request }) => !answered.has(request.id))
+    .sort((a, b) => b.request.askedAt.localeCompare(a.request.askedAt))
+}
+
+/** How many rows {@link inboxQuestions} has. */
 export function inboxCount(
   conversations: readonly AgentConversation[],
   answered: ReadonlyMap<string, number>,
 ): number {
-  return conversations
-    .flatMap((conversation) => openInputRequests(conversation))
-    .filter((request) => !answered.has(request.id)).length
+  return inboxQuestions(conversations, answered).length
 }
 
 /**
@@ -43,62 +47,18 @@ export function answeredIn(
 }
 
 /**
- * The conversation the Inbox shows after a listing. The open one stays open
- * while it still waits — listed, or confirmed by its own record when the list
- * no longer shows it. Once answered, the row that took its place opens, the
- * way a mail reader moves on. `index` only picks that next row.
+ * The row the Inbox opens: the selected one while it is listed. Once answered,
+ * the row that took its place opens, the way a mail reader moves on.
  */
-export function nextSelection(
-  selected: { sessionId: string; index: number } | null,
-  items: AgentConversation[],
-  selectedStillWaits = false,
-): string | null {
-  if (selected && (selectedStillWaits || items.some((i) => i.sessionId === selected.sessionId))) {
-    return selected.sessionId
-  }
-  if (items.length === 0) return null
+export function openQuestion(
+  rows: readonly InboxQuestion[],
+  selected: { id: string; index: number } | null,
+): InboxQuestion | undefined {
+  const kept = selected && rows.find((row) => row.request.id === selected.id)
 
-  // An off-page selection has index -1: the next row is then the first.
-  const index = Math.max(0, Math.min(selected?.index ?? 0, items.length - 1))
+  if (kept) return kept
 
-  return items[index]!.sessionId
-}
-
-/**
- * What the Inbox shows once the questions answered on this device are set
- * aside: the conversations still waiting, the rows to hide until the listing
- * catches up, and the one to open. When every question of the open one was
- * answered here, the next row opens, as it will once the listing agrees.
- */
-export function inboxReader<T extends AgentConversation>(
-  items: readonly T[] | null,
-  selected: { sessionId: string; index: number } | null,
-  answered: ReadonlyMap<string, number>,
-): { waiting: T[] | null; openId: string | null; hiddenSessionIds: Set<string> } {
-  if (!items)
-    return { waiting: null, openId: selected?.sessionId ?? null, hiddenSessionIds: new Set() }
-  const waiting = waitingConversations(items, answered)
-  const kept = new Set(waiting.map((item) => item.sessionId))
-  const hiddenSessionIds = new Set(
-    items.map((item) => item.sessionId).filter((sessionId) => !kept.has(sessionId)),
-  )
-  const openId =
-    selected && hiddenSessionIds.has(selected.sessionId)
-      ? nextSelection(selected, waiting)
-      : (selected?.sessionId ?? null)
-
-  return { waiting, openId, hiddenSessionIds }
-}
-
-/**
- * The open question a reply from the Inbox answers: the one the reader chose
- * while it is still open, else the newest, the same default as the chat's chip.
- */
-export function replyTarget(
-  open: readonly AgentInputRequest[],
-  chosen: string | null,
-): string | undefined {
-  return open.find((request) => request.id === chosen)?.id ?? open.at(-1)?.id
+  return rows[Math.max(0, Math.min(selected?.index ?? 0, rows.length - 1))]
 }
 
 /** Connect and secure-input cards live in the transcript; only there can these be answered. */

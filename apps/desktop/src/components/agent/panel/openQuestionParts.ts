@@ -32,10 +32,11 @@ export function questionPart(question: ReplyQuestion): ToolPart {
     type: 'tool',
     toolName: 'request_user_decision',
     toolCallId: question.id,
-    // What the record kept of the call: its question, its choices, its secret.
+    // What the record kept of the call: its question, body, choices and secret.
     input: {
       ...(question.secret ? { category: 'credential' } : {}),
       question: question.question,
+      ...(question.body ? { body: question.body } : {}),
       ...(question.options ? { options: question.options } : {}),
       ...(question.secretName ? { secretName: question.secretName } : {}),
     },

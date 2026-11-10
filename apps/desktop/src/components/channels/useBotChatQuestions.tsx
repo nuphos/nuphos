@@ -1,12 +1,20 @@
 import { useState } from 'react'
 
+import { useSwrCache } from '../../lib/swrCache'
+import { useAnsweredOnDevice, useInboxListing } from '../../views/inbox/useInbox'
 import { AgentPanel } from '../agent/AgentPanel'
-import { inputRequestKey } from '../agent/summary/sessionInputRequests'
-import { useSessionInputRequests } from '../agent/summary/useSessionInputRequests'
+import {
+  botQuestions,
+  inputRequestKey,
+  relatedSessionIds,
+} from '../agent/summary/sessionInputRequests'
+import { useRefreshOnRuntimeChange } from '../agent/summary/useSessionInputRequests'
+import { agentSessionsCacheKey } from '../sidebar/state'
 
 import { BotChatQuestion } from './BotChatQuestions'
 
 import type { TimelineRow } from './ChannelMessages'
+import type { AgentConversation } from '../../api/agent-types'
 import type { AgentPromptSeed } from '../agent/panel/model'
 import type { ReactNode } from 'react'
 
@@ -25,33 +33,39 @@ export function useBotChatQuestions(
   botId: string | undefined,
   onOpenSession: (sessionId: string) => void,
 ): { rows: TimelineRow[]; panels: ReactNode } {
-  const { requests } = useSessionInputRequests(botId ?? null, teamId)
+  // The Inbox's own listing, shared by every chat: a chat opening draws what is
+  // listed now, never a cached row's old questions, and never another Bot's.
+  const pending = useInboxListing(teamId)
+  const known = useSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId))
+  const answered = useAnsweredOnDevice()
   const [answers, setAnswers] = useState<Record<string, Answer>>({})
-  // As in the Inbox, a question waits on its conversation's owner alone.
-  const rows = requests
-    .filter((request) => request.isOwner)
-    .map((request) => ({
-      at: Date.parse(request.inputRequest.askedAt) || 0,
-      key: `question-${inputRequestKey(request)}`,
-      node: (
-        <BotChatQuestion
-          request={request}
-          teamId={teamId}
-          // The Bot's own questions are this chat's; only an agent under it is named.
-          onOpenSession={request.sessionId === botId ? undefined : onOpenSession}
-          onAnswer={(text, replyTo) =>
-            setAnswers((current) => ({
-              ...current,
-              [request.sessionId]: {
-                draftId: `bot-chat:${inputRequestKey(request)}`,
-                replyTo,
-                seed: { text, nonce: Date.now(), autoSend: true, replace: true },
-              },
-            }))
-          }
-        />
-      ),
-    }))
+  const requests = botId && pending ? botQuestions(botId, pending, known ?? [], answered) : []
+  const under = botId ? relatedSessionIds(botId, [...(known ?? []), ...(pending ?? [])]) : []
+
+  // A sub-agent under the Bot starting, stopping or waiting is when it asks.
+  useRefreshOnRuntimeChange([...under].sort((a, b) => a.localeCompare(b)).join(','))
+  const rows = requests.map((request) => ({
+    at: Date.parse(request.inputRequest.askedAt) || 0,
+    key: `question-${inputRequestKey(request)}`,
+    node: (
+      <BotChatQuestion
+        request={request}
+        teamId={teamId}
+        // The Bot's own questions are this chat's; only an agent under it is named.
+        onOpenSession={request.sessionId === botId ? undefined : onOpenSession}
+        onAnswer={(text, replyTo) =>
+          setAnswers((current) => ({
+            ...current,
+            [request.sessionId]: {
+              draftId: `bot-chat:${inputRequestKey(request)}`,
+              replyTo,
+              seed: { text, nonce: Date.now(), autoSend: true, replace: true },
+            },
+          }))
+        }
+      />
+    ),
+  }))
   const panels = Object.entries(answers).map(([sessionId, answer]) => (
     <div key={sessionId} className="hidden">
       <AgentPanel

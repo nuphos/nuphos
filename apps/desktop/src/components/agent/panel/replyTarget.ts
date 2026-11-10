@@ -9,6 +9,8 @@ import type { AgentConversation, AgentInputRequest } from '../../../api/agent-ty
 export type ReplyQuestion = {
   id: string
   question: string
+  /** The markdown the agent wrote to decide from. */
+  body?: string
   options?: string[]
   secret?: true
   secretName?: string
@@ -29,16 +31,18 @@ export type DecisionCardRef = {
 export function requestQuestion({
   id,
   question,
+  body,
   options,
   category,
   secretName,
 }: Pick<
   AgentInputRequest,
-  'id' | 'question' | 'options' | 'category' | 'secretName'
+  'id' | 'question' | 'body' | 'options' | 'category' | 'secretName'
 >): ReplyQuestion {
   return {
     id,
     question,
+    ...(body && { body }),
     ...(options && { options }),
     ...(category === 'credential' && { secret: true as const }),
     ...(secretName && { secretName }),

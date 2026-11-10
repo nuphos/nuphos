@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { inputRequestKey, sessionInputRequests } from './sessionInputRequests.ts'
+import { botQuestions, inputRequestKey, sessionInputRequests } from './sessionInputRequests.ts'
 
 import type { AgentConversation } from '../../../api/agent-types.ts'
 
@@ -100,4 +100,30 @@ test('every open question of one agent is listed, each with its own identity', (
 
 test('cyclic ancestry terminates', () => {
   assert.deepEqual(sessionInputRequests('parent', [chat('a', 'b', 'A'), chat('b', 'a', 'B')]), [])
+})
+
+test("switching Bot chats draws only the new Bot's listed questions, never a cached or foreign one", () => {
+  // The sidebar cache still holds questions answered long ago, and says who sits under whom.
+  const known = [
+    chat('bot-a', undefined, 'A, answered long ago'),
+    chat('a-mid', 'bot-a'),
+    chat('bot-b', undefined, 'B, answered long ago'),
+    chat('b-mid', 'bot-b'),
+  ]
+  // The pending listing every chat shares: what is open now.
+  const pending = [
+    chat('bot-a', undefined, 'A asks'),
+    chat('a-leaf', 'a-mid', 'A grandchild asks'),
+    chat('b-leaf', 'b-mid', 'B grandchild asks'),
+  ]
+  const shown = (botId: string) =>
+    botQuestions(botId, pending, known, new Map()).map((r) => r.inputRequest.question)
+
+  assert.deepEqual(shown('bot-a').sort(), ['A asks', 'A grandchild asks'])
+  // Switched to B: nothing of A's, and not B's stale cached question.
+  assert.deepEqual(shown('bot-b'), ['B grandchild asks'])
+  // Before the listing loads, the chat draws nothing rather than the cache.
+  assert.deepEqual(botQuestions('bot-b', [], known, new Map()), [])
+  // A question answered on this device leaves at once.
+  assert.deepEqual(botQuestions('bot-b', pending, known, new Map([['question-b-leaf', 1]])), [])
 })

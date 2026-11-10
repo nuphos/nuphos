@@ -42,12 +42,16 @@ export function sessionInputRequests(
 ): SessionInputRequest[] {
   const related = relatedSessionIds(sessionId, conversations)
 
+  return openRequestsOf(conversations.filter((c) => related.has(c.sessionId)))
+}
+
+/** The open requests of these conversations, each once, oldest first. */
+function openRequestsOf(conversations: readonly AgentConversation[]): SessionInputRequest[] {
   return [
     ...new Map(
       conversations.map((conversation) => [conversation.sessionId, conversation]),
     ).values(),
   ]
-    .filter((conversation) => related.has(conversation.sessionId))
     .flatMap((conversation) =>
       openInputRequests(conversation).map((inputRequest) => ({ ...conversation, inputRequest })),
     )
@@ -57,4 +61,22 @@ export function sessionInputRequests(
         a.sessionId.localeCompare(b.sessionId) ||
         a.inputRequest.id.localeCompare(b.inputRequest.id),
     )
+}
+
+/**
+ * The open questions of one Bot and the agents under it, drawn from the pending
+ * listing alone: a cached row may still hold a question answered long ago. Other
+ * rows only say who sits under whom. Questions answered on this device are left out.
+ */
+export function botQuestions(
+  botId: string,
+  pending: readonly AgentConversation[],
+  known: readonly AgentConversation[],
+  answered: ReadonlyMap<string, number>,
+): SessionInputRequest[] {
+  const related = relatedSessionIds(botId, [...known, ...pending])
+
+  return openRequestsOf(pending.filter((c) => related.has(c.sessionId))).filter(
+    (request) => !answered.has(request.inputRequest.id),
+  )
 }
