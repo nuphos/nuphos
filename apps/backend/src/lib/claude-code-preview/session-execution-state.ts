@@ -285,6 +285,7 @@ export async function steerConversationRuntime(
         409,
         'runtime_steering_unavailable',
         'The turn already ended. Your message was not sent; send it as a new turn.',
+        { outcome: result.outcome, reason: result.reason },
       )
 
     return text

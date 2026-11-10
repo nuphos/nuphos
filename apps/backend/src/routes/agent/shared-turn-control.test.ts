@@ -1,6 +1,6 @@
 import '@/routes/agent'
 
-import { beforeEach, expect, test } from 'bun:test'
+import { beforeEach, expect, spyOn, test } from 'bun:test'
 import { Hono } from 'hono'
 
 import { agent } from './router'
@@ -52,7 +52,12 @@ useAgentRunStore({
   },
 })
 useSessionExecutionState({
-  conversationExecutionState: async () => ({ schemaVersion: 2, actions: { steer: true } }),
+  conversationExecutionState: async () => ({
+    state: steerable ? 'active' : 'idle',
+    schemaVersion: 2,
+    phase: steerable ? 'running_tools' : 'resuming',
+    actions: { steer: steerable },
+  }),
   cancelConversationRuntime: async () => {
     if (unreachable) throw new Error('The agent could not be reached')
     cancelled++
@@ -68,12 +73,17 @@ useSessionExecutionState({
     queuedWhileSteering = (await listPendingUserMessages('owner', 'shared-control')).map(
       (message) => message.id,
     )
-    if (refuse) throw new AppError(409, 'runtime_steering_unavailable', 'The turn already ended.')
+    if (refuse)
+      throw new AppError(409, 'runtime_steering_unavailable', 'The turn already ended.', {
+        outcome: 'promptRequired',
+        reason: 'noRunningTurn',
+      })
 
     return 'receipt'
   },
 })
 let refuse = false
+let steerable = true
 let unreachable = false
 let stoppedRuns: string[] = []
 let queueStarts: string[] = []
@@ -90,6 +100,7 @@ beforeEach(async () => {
   cancelled = 0
   steered = 0
   refuse = false
+  steerable = true
   unreachable = false
   stoppedRuns = []
   queueStarts = []
@@ -254,4 +265,43 @@ test('Stop with nothing held and no runtime to reach reports the failure', async
 
   expect((await request('cancel-runtime')).status).toBe(500)
   expect(stoppedRuns).toEqual([])
+})
+
+const steerRefusals = async (send: () => Promise<Response>) => {
+  const log = spyOn(console, 'log').mockImplementation(() => {})
+
+  try {
+    expect((await send()).status).toBe(409)
+
+    return log.mock.calls
+      .map(([line]) => JSON.parse(String(line)) as Record<string, unknown>)
+      .filter((entry) => entry.event === 'agent.steer.refused')
+  } finally {
+    log.mockRestore()
+  }
+}
+
+test('a steer the runtime snapshot refuses is logged with the phase that refused it', async () => {
+  steerable = false
+
+  expect(await steerRefusals(() => request('steer'))).toEqual([
+    expect.objectContaining({
+      reason: 'runtime_actions',
+      session_id: 'shared-control',
+      phase: 'resuming',
+      runtime_state: 'idle',
+    }),
+  ])
+})
+
+test('a steer the runtime did not inject is logged with its outcome', async () => {
+  refuse = true
+
+  expect(await steerRefusals(() => request('steer'))).toEqual([
+    expect.objectContaining({
+      reason: 'not_injected',
+      outcome: 'promptRequired',
+      outcome_reason: 'noRunningTurn',
+    }),
+  ])
 })
