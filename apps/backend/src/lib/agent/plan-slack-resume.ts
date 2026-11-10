@@ -28,10 +28,10 @@ export async function resumeSlackThreadForApprovedPlan(
   // every suite in the process, and the Slack route's own tests import the real
   // export.
   resume?: ResumeThreadTurn,
-): Promise<void> {
+): Promise<boolean> {
   const thread = await getSlackAgentThreadBySessionId(args.sessionId)
 
-  if (!thread) return
+  if (!thread) return false
   const resumeApprovedPlanTurnFromNuphos =
     resume ?? (await import('@/routes/slack')).resumeApprovedPlanTurnFromNuphos
 
@@ -41,4 +41,6 @@ export async function resumeSlackThreadForApprovedPlan(
     planTitle: args.planTitle,
     approverNuphosUserId: args.approverNuphosUserId,
   })
+
+  return true
 }

@@ -97,7 +97,8 @@ it merely to change content. Once approved, proposal content is immutable.
 After an approval follow-up:
 
 1. Confirm the Plan with `get.sh`, then set it to `executing`. If it is still `proposed`, a team
-   quorum needs more approvals: say so in one sentence and stop.
+   quorum needs more approvals: say so in one sentence and stop. If it is already `executing`,
+   `completed` or `failed`, another turn is running it: do not run it again.
 2. Immediately before a planned command, mark that command `running`; immediately afterward mark
    it `done` or `failed` with `set-command-statuses.sh`.
 3. Keep at most one command `running`.

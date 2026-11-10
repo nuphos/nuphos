@@ -1,6 +1,6 @@
 import { journalPlanDecision } from '@/lib/agent/journal-capture'
 import { approvePlanForCaller } from '@/lib/agent/plan-decision'
-import { resumeSlackThreadForApprovedPlan } from '@/lib/agent/plan-slack-resume'
+import { wakeForPlanDecision } from '@/lib/agent/plan-wake'
 import {
   assertPlanAccess,
   createPlan,
@@ -78,38 +78,25 @@ defineAgentApiRoute(planGetOperation, async (c, { path }) => {
   return c.json(plan)
 })
 
-/** Records an approval; a vote that completes the gate resumes a Slack-bound plan. */
-async function approveAndResume(input: {
+/**
+ * A plan decided here, not by answering its question in a turn, wakes its
+ * conversation. Detached: starting a turn must not fail the decision that landed.
+ */
+function wake(plan: PlanDTO, decision: 'approved' | 'rejected', userId: string): void {
+  void wakeForPlanDecision(plan, decision, userId).catch((err: unknown) => {
+    logError('agent.plan.wake_failed', err, { plan_id: String(plan.number), user_id: userId })
+  })
+}
+
+/** Records an approval; the vote that completes the gate wakes the plan's conversation. */
+async function approveAndWake(input: {
   planId: string
   teamId?: string
   userId: string
 }): Promise<{ plan: PlanDTO; thresholdReached: boolean }> {
   const result = await approvePlanForCaller(input)
 
-  if (result.thresholdReached) {
-    // If this plan's conversation is a Slack thread, that thread is the only
-    // place it can execute — approving here and stopping would leave it at
-    // `approved` forever (lib/agent/plan-slack-resume.ts). Detached on purpose:
-    // starting a turn is not this request's job, and it must not be able to
-    // fail the approval that already landed.
-    const sessionId = result.plan.sourceConversationId
-    const planNumber = String(result.plan.number)
-
-    if (sessionId) {
-      void resumeSlackThreadForApprovedPlan({
-        sessionId,
-        planId: planNumber,
-        planTitle: result.plan.title || 'plan',
-        approverNuphosUserId: input.userId,
-      }).catch((err: unknown) => {
-        logError('agent.plan.slack_resume_failed', err, {
-          plan_id: planNumber,
-          session_id: sessionId,
-          user_id: input.userId,
-        })
-      })
-    }
-  }
+  if (result.thresholdReached) wake(result.plan, 'approved', input.userId)
 
   return result
 }
@@ -117,7 +104,7 @@ async function approveAndResume(input: {
 defineAgentApiRoute(planApproveOperation, async (c, { path, body }) => {
   const userId = c.get('userId')
   const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.teamId))
-  const { plan } = await approveAndResume({ planId: path.planId, teamId, userId })
+  const { plan } = await approveAndWake({ planId: path.planId, teamId, userId })
 
   return c.json(plan)
 })
@@ -186,7 +173,7 @@ defineAgentApiRoute(planUpdateOperation, async (c, { path, body: parsed }) => {
     if (Object.keys(parsedPatch).some((key) => key !== 'status')) {
       throw new AppError(400, 'invalid_body', 'Approval cannot be combined with other plan changes')
     }
-    const { plan } = await approveAndResume({ planId: path.planId, teamId, userId })
+    const { plan } = await approveAndWake({ planId: path.planId, teamId, userId })
 
     return c.json(plan)
   }
@@ -212,6 +199,7 @@ defineAgentApiRoute(planUpdateOperation, async (c, { path, body: parsed }) => {
   // trust root that a tool intent's plan-approved attribution points back at.
   if (patch.status === 'rejected') {
     await journalPlanDecision(plan, { userId, teamId: teamId ?? null }, patch.status)
+    wake(plan, 'rejected', userId)
   }
 
   return c.json(plan)
