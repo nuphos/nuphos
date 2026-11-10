@@ -52,7 +52,10 @@ let runtimeSend = true
 let released = 0
 const runs: Parameters<TurnRunner['runAgentForTrigger']>[0][] = []
 const launched: PendingUserMessage[] = []
-const kept: { sessionId: string; messages: { id: string; role: string; parts: unknown[] }[] }[] = []
+const kept: {
+  sessionId: string
+  messages: { id: string; role: string; parts: unknown[]; metadata?: unknown }[]
+}[] = []
 
 let member = true
 let boxOffline = false
@@ -320,7 +323,12 @@ test("a sender who left the conversation's team is not spoken for, and the send 
   expect(await waiting()).toEqual([])
   expect(kept).toHaveLength(1)
   expect(kept[0]?.sessionId).toBe(SESSION)
-  expect(kept[0]?.messages.map((message) => message.role)).toEqual(['user', 'assistant'])
+  // The reason is Nuphos's own message, never the agent's reply.
+  expect(kept[0]?.messages.map((message) => message.role)).toEqual(['user', 'user'])
+  expect(kept[0]?.messages[1]?.metadata).toMatchObject({
+    source: 'agent.resource',
+    sender: { type: 'system', id: 'nuphos' },
+  })
   expect(kept[0]?.messages[0]?.id).toBe('ui-gone')
   expect(JSON.stringify(kept[0]?.messages[1]?.parts)).toContain('can no longer reply')
 })

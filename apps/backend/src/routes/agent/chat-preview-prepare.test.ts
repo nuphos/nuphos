@@ -143,7 +143,7 @@ test("the user's own words are the prompt's text; their header ends the lead", (
   const { lead, text } = turnPrompt({
     resume: null,
     inputs: [attributed('m1', '/goal tests pass', 'alice')],
-    carried: 'Someone sent this while you were still working: <bob>',
+    carried: '<bob>',
   })
 
   expect(text).toBe('/goal tests pass')

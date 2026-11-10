@@ -8,6 +8,7 @@ import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
 import { agentMessages, getConversationBySessionId, getConversationWithMessages } from './db'
 import { channelIdOf, withChannelPosts } from './channel-wake'
+import { systemSender } from './message-metadata'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
 import { requeueTurnQueue } from './session-released'
 import { turnRunner } from './turn-runner'
@@ -190,8 +191,6 @@ export async function runTurn(
   }
 }
 
-/** Marks a notice so it is never reported back: two threads cannot ping-pong. */
-export const UNDELIVERED_NOTICE = '[Nuphos notice, not written by the agent]'
 const LOST_TURN =
   'was cut off: the runtime restarted during that turn, which may have stopped partway or finished just before.'
 
@@ -225,10 +224,10 @@ export async function reportUndelivered(
   for (const message of messages) {
     const senderId = message.metadata?.sourceSessionId
 
-    if (message.chat)
-      await keepUndeliveredSend(data, message, `${UNDELIVERED_NOTICE} This message ${reason}`)
+    if (message.chat) await keepUndeliveredSend(data, message, `This message ${reason}`)
+    // Only an agent's message is answered. The answer is Nuphos's own notice,
+    // never an agent's, so it is never reported back: threads cannot ping-pong.
     if (message.source !== 'agent.thread' || !senderId) continue
-    if (message.renderedText.startsWith(UNDELIVERED_NOTICE)) continue
     const failed = (error: unknown) => {
       logError('agent.thread.undelivered_report_failed', error, {
         session_id: data.targetSessionId,
@@ -248,7 +247,7 @@ export async function reportUndelivered(
       )
         continue
       const excerpt = message.renderedText.slice(0, 200)
-      const notice = `${UNDELIVERED_NOTICE} Your message to thread ${data.targetSessionId} ${reason} It began: "${excerpt}". Check that thread before resending anything, since work may be partly done. If its agent is unavailable, move it to a running agent (update_thread runtimeId) first.`
+      const notice = `Your message to thread ${data.targetSessionId} ${reason} It began: "${excerpt}". Check that thread before resending anything, since work may be partly done. If its agent is unavailable, move it to a running agent (update_thread runtimeId) first.`
       // Not awaited: this turn still holds its own target, and the sender may be busy.
       const { run } = await startConversationTurn(
         {
@@ -260,14 +259,8 @@ export async function reportUndelivered(
         },
         sender,
         notice,
-        'agent.thread',
-        {
-          version: 1,
-          sender: { type: 'agent', id: 'nuphos', displayName: 'Nuphos' },
-          source: 'agent.thread',
-          sourceSessionId: data.targetSessionId,
-          sentAt: new Date().toISOString(),
-        },
+        'agent.resource',
+        systemSender('nuphos', 'Nuphos', `/teams/${sender.teamId}/agent/${data.targetSessionId}`),
       )
 
       run.catch(failed)
