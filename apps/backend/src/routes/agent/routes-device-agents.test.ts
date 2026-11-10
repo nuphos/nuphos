@@ -246,9 +246,9 @@ test("an offline computer's agent is removed now and deleted by the computer lat
   const { remove, calls } = app({ getPresence: async () => null })
   const response = await remove(id, '&force=true')
 
-  expect(response.status).toBe(202)
+  expect(response.status).toBe(204)
+  // Marked before it is forgotten, so a report in between cannot register it again.
   expect(calls).toEqual([
-    { forgot: ['owner', 'box', { instanceId: id }] },
     {
       pending: [
         'owner',
@@ -262,6 +262,7 @@ test("an offline computer's agent is removed now and deleted by the computer lat
         },
       ],
     },
+    { forgot: ['owner', 'box', { instanceId: id }] },
   ])
 })
 

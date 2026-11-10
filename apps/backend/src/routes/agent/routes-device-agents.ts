@@ -244,7 +244,7 @@ export function createDeviceAgentRoutes(
         'device_online',
         'This computer is online, so remove the agent from it directly.',
       )
-    await deps.forgetAgent(device.userId, deviceId, agent)
+    // Marked first: a report that lands between the two writes cannot register it again.
     await deps.recordRemoval(device.userId, deviceId, {
       id: randomUUID(),
       agent,
@@ -252,8 +252,9 @@ export function createDeviceAgentRoutes(
       teamId,
       at: new Date(),
     })
+    await deps.forgetAgent(device.userId, deviceId, agent)
 
-    return c.body(null, 202)
+    return c.body(null, 204)
   }
 
   // `:agent` as for rename. A person's own computer keeps its defaults: their logins are

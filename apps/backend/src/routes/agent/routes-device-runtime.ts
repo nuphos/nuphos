@@ -53,8 +53,8 @@ function defaultDependencies(): DeviceRuntimeRouteDependencies {
       isMember: isActiveTeamMember,
       recordAgents: async (userId, deviceId, status, from) => {
         await recordDeviceAgents(userId, deviceId, status, from)
-        // Back online: it deletes what was removed while it was away.
-        void settlePendingRemovals(userId, deviceId, status)
+        // Back online: it deletes what was removed while it was away (settling never throws).
+        void settlePendingRemovals(userId, deviceId, status).catch(() => undefined)
       },
       connectionChanged: (userId, deviceId) => {
         void noteBoxPresence(userId, deviceId, getAgentDevice)

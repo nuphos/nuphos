@@ -106,13 +106,22 @@ export async function removeDeviceAgent(
   )
 }
 
-/** Notes an agent removed while its computer was offline, for the computer to delete later. */
+/** Notes an agent removed while its computer was offline, for the computer to delete later.
+ *  A repeat removal of the same agent (a double click, a retry) adds nothing. */
 export async function recordAgentRemoval(
   userId: string,
   deviceId: string,
   removal: PendingRemoval,
 ): Promise<void> {
-  await agentDevices().updateOne({ userId, deviceId }, { $push: { removedAgents: removal } })
+  const same =
+    'instanceId' in removal.agent
+      ? { 'agent.instanceId': removal.agent.instanceId }
+      : { 'agent.provider': removal.agent.provider, 'agent.instanceId': { $exists: false } }
+
+  await agentDevices().updateOne(
+    { userId, deviceId, removedAgents: { $not: { $elemMatch: same } } },
+    { $push: { removedAgents: removal } },
+  )
 }
 
 /** Forgets a pending removal the computer has carried out. */
