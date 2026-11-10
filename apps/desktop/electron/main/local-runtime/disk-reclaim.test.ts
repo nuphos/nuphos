@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   utimesSync,
@@ -229,6 +230,87 @@ test('a removal that fails is logged, and the pass carries on', async (t) => {
 
   assert.deepEqual(removed, [])
   assert.equal(logged.length, 1)
+})
+
+test('a directory that gained a file before the delete is kept, and the file survives', async (t) => {
+  const root = tempRoot(t)
+  const dir = sessionWorkspace(root)
+  const marker = path.join(dir, SESSION_WORKSPACE_MARKER)
+  const arrived = path.join(dir, 'late.txt')
+  const logged: { message: string; data?: Record<string, unknown> }[] = []
+
+  // The probe is the last thing asked before the plan, so this is a file arriving
+  // inside the window a recursive delete would have swept up with the marker.
+  const removed = await reclaimSessionWorkspaces(root, {
+    inUse: () => {
+      writeFileSync(arrived, 'a session is writing here')
+
+      return false
+    },
+    log: (message, data) => logged.push({ message, data }),
+  })
+
+  assert.deepEqual(removed, [])
+  assert.equal(readFileSync(arrived, 'utf8'), 'a session is writing here')
+  // The marker goes back, so the directory is still ours on a later pass.
+  assert.equal(existsSync(marker), true)
+  assert.deepEqual(logged, [
+    {
+      message: 'local runtime: a session workspace was kept',
+      data: { path: dir, reason: 'gained-content' },
+    },
+  ])
+})
+
+test('a directory holding only the marker is removed completely', async (t) => {
+  const root = tempRoot(t)
+  const dir = sessionWorkspace(root)
+  const removed = await reclaimSessionWorkspaces(root, { inUse: () => false })
+
+  assert.deepEqual(removed, [dir])
+  assert.equal(existsSync(dir), false)
+})
+
+test('a marker that goes before it can be removed is not an error', async (t) => {
+  const root = tempRoot(t)
+  const dir = sessionWorkspace(root)
+  const logged: string[] = []
+
+  const removed = await reclaimSessionWorkspaces(root, {
+    inUse: () => {
+      rmSync(path.join(dir, SESSION_WORKSPACE_MARKER))
+
+      return false
+    },
+    log: (message) => logged.push(message),
+  })
+
+  // Nothing was left but an empty directory, so it goes without a word.
+  assert.deepEqual(removed, [dir])
+  assert.equal(existsSync(dir), false)
+  assert.deepEqual(logged, [])
+})
+
+test('a marker that cannot be removed is logged, and does not throw', async (t) => {
+  const root = tempRoot(t)
+  const dir = sessionWorkspace(root)
+  const marker = path.join(dir, SESSION_WORKSPACE_MARKER)
+  const logged: string[] = []
+
+  const removed = await reclaimSessionWorkspaces(root, {
+    inUse: () => {
+      // A directory where the marker file was: `unlink` refuses it on every platform.
+      rmSync(marker)
+      mkdirSync(marker)
+
+      return false
+    },
+    log: (message) => logged.push(message),
+  })
+
+  assert.deepEqual(removed, [])
+  assert.equal(existsSync(dir), true)
+  assert.deepEqual(logged, ['local runtime: a session workspace was not reclaimed'])
 })
 
 test('a workspace root that cannot be read is not an error', async () => {

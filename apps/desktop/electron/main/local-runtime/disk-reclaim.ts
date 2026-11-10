@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { lstat, readdir, readFile, realpath, rm } from 'node:fs/promises'
+import { lstat, readdir, readFile, realpath, rmdir, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 /**
@@ -119,8 +119,14 @@ export async function reclaimSessionWorkspaces(
   for (const decision of planReclaim(entries)) {
     if (!decision.delete) continue
     try {
-      await removeEntry(root, decision.path)
-      removed.push(decision.path)
+      const kept = await removeEntry(root, decision.path)
+
+      if (kept === null) removed.push(decision.path)
+      else
+        options.log?.('local runtime: a session workspace was kept', {
+          path: decision.path,
+          reason: kept,
+        })
     } catch (error) {
       options.log?.('local runtime: a session workspace was not reclaimed', {
         path: decision.path,
@@ -132,8 +138,14 @@ export async function reclaimSessionWorkspaces(
   return removed
 }
 
-/** Deletes one entry, on a path resolved again: what is deleted is checked, not assumed. */
-async function removeEntry(root: string, dir: string): Promise<void> {
+/**
+ * Deletes one entry, on a path resolved again, and can only ever delete its marker: the
+ * marker file goes first, and the directory then only if that left it empty. A directory
+ * that gained anything between the decision and here is kept however small that window
+ * was, because `rmdir` refuses a directory that is not empty. Returns why it is still
+ * there, or null when it is gone.
+ */
+async function removeEntry(root: string, dir: string): Promise<'gained-content' | null> {
   const [real, realRoot] = await Promise.all([
     realpath(dir).catch(() => null),
     realpath(root).catch(() => null),
@@ -142,7 +154,39 @@ async function removeEntry(root: string, dir: string): Promise<void> {
   if (real === null || realRoot === null || !insideRoot(realRoot, real))
     throw new Error(`${dir} does not resolve inside the workspace root`)
 
-  await rm(dir, { recursive: true, force: true })
+  const marker = path.join(dir, SESSION_WORKSPACE_MARKER)
+  const text = await readFile(marker, 'utf8').catch(() => null)
+
+  // Gone already, by another pass or by hand, is the outcome this step wanted anyway.
+  await unlink(marker).catch((error: unknown) => {
+    if (!isMissing(error)) throw error
+  })
+  try {
+    await rmdir(dir)
+  } catch (error) {
+    // Not empty, or held open: something arrived between the decision and here, and it
+    // is not ours to delete. The marker is written back, so the directory stays ours and
+    // is asked for again once it has been quiet for the idle window, as any directory
+    // that just changed is. With no text to write back (the marker was already gone), it
+    // is left unmarked, which is a leak rather than a loss.
+    if (text !== null) await writeFile(marker, text).catch(() => null)
+    if (!isOccupied(error)) throw error
+
+    return 'gained-content'
+  }
+
+  return null
+}
+
+function isMissing(error: unknown): boolean {
+  return (error as NodeJS.ErrnoException).code === 'ENOENT'
+}
+
+/** What a directory gives when it is not empty, or when Windows has it open. */
+function isOccupied(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException).code
+
+  return code === 'ENOTEMPTY' || code === 'EEXIST' || code === 'EPERM' || code === 'EBUSY'
 }
 
 async function entryOf(
