@@ -1,21 +1,13 @@
 import { useState } from 'react'
 
-import { useSwrCache } from '../../lib/swrCache'
-import { useAnsweredOnDevice, useInboxListing } from '../../views/inbox/useInbox'
 import { AgentPanel } from '../agent/AgentPanel'
-import {
-  botQuestions,
-  inputRequestKey,
-  relatedSessionIds,
-} from '../agent/summary/sessionInputRequests'
-import { useRefreshOnRuntimeChange } from '../agent/summary/useSessionInputRequests'
-import { agentSessionsCacheKey } from '../sidebar/state'
+import { inputRequestKey } from '../agent/summary/sessionInputRequests'
+import { useSessionInputRequests } from '../agent/summary/useSessionInputRequests'
 
 import { BotChatQuestion } from './BotChatQuestions'
 import { useBotCredentials } from './useBotCredentials'
 
 import type { TimelineRow } from './ChannelMessages'
-import type { AgentConversation } from '../../api/agent-types'
 import type { CredentialSelectorControl } from '../agent/panel/credentialSections'
 import type { AgentPromptSeed } from '../agent/panel/model'
 import type { ReactNode } from 'react'
@@ -38,17 +30,10 @@ export function useBotChatQuestions(
   onOpenSession: (sessionId: string) => void,
 ): { rows: TimelineRow[]; panels: ReactNode; credentials?: CredentialSelectorControl } {
   const botCredentials = useBotCredentials(teamId, botOwned ? botId : undefined)
-  // The Inbox's own listing, shared by every chat: a chat opening draws what is
-  // listed now, never a cached row's old questions, and never another Bot's.
-  const pending = useInboxListing(teamId)
-  const known = useSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId))
-  const answered = useAnsweredOnDevice()
+  // The Task page's own reader: a chat opening draws what the Inbox lists now,
+  // never a cached row's old questions, and never another Bot's.
+  const { requests } = useSessionInputRequests(botId ?? null, teamId)
   const [answers, setAnswers] = useState<Record<string, Answer>>({})
-  const requests = botId && pending ? botQuestions(botId, pending, known ?? [], answered) : []
-  const under = botId ? relatedSessionIds(botId, [...(known ?? []), ...(pending ?? [])]) : []
-
-  // A sub-agent under the Bot starting, stopping or waiting is when it asks.
-  useRefreshOnRuntimeChange([...under].sort((a, b) => a.localeCompare(b)).join(','))
   const rows = requests.map((request) => ({
     at: Date.parse(request.inputRequest.askedAt) || 0,
     key: `question-${inputRequestKey(request)}`,

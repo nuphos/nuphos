@@ -9,6 +9,7 @@ import type { AgentConversation } from '../../api/agent-types.ts'
 const waiting = (sessionId: string, ...ids: string[]) =>
   ({
     sessionId,
+    isOwner: true,
     inputRequests: ids.map((id) => ({
       id,
       category: 'approval',
@@ -25,6 +26,15 @@ test('the count is the open questions, each leaving it once answered here', () =
   assert.equal(inboxCount(listing, new Map()), 3)
   assert.equal(inboxCount(listing, new Map([['q1', Infinity]])), 2)
   assert.equal(inboxCount(listing, new Map([['q2', Infinity]])), 2)
+})
+
+test("the Inbox lists only the viewer's own conversations' questions", () => {
+  const shared = { ...waiting('b', 'q9'), isOwner: false }
+
+  assert.deepEqual(
+    inboxQuestions([waiting('a', 'q1'), shared], new Map()).map((row) => row.request.id),
+    ['q1'],
+  )
 })
 
 test('the Inbox lists every open question, newest first, without those answered here', () => {

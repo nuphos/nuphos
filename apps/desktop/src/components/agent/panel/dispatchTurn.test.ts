@@ -193,7 +193,11 @@ test('an explicit answer carries the question id to the agent turn', async () =>
 
 test('an answer leaves the Inbox badge as it is sent, and comes back if the send fails', async () => {
   const request = { id: 'q', category: 'approval', question: '?', askedAt: '', status: 'open' }
-  const waiting = { sessionId: 'fork', inputRequests: [request] } as AgentConversation
+  const waiting = {
+    sessionId: 'fork',
+    isOwner: true,
+    inputRequests: [request],
+  } as AgentConversation
 
   // The failing send first, so later tests start with a gate that opens.
   for (const fails of [true, false]) {
@@ -228,7 +232,7 @@ test('an answer to a busy agent leaves the badge at once and says it is queued',
   toasts.length = 0
   startGate = Promise.resolve()
   inbox.publishInboxListing('team', [
-    { sessionId: 'fork', inputRequests: [request] } as AgentConversation,
+    { sessionId: 'fork', isOwner: true, inputRequests: [request] } as AgentConversation,
   ])
   const state = context({
     unsaved: false,

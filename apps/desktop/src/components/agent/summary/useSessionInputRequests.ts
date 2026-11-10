@@ -1,130 +1,55 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect } from 'react'
 
-import { api } from '../../../api.ts'
 import { getRuntimeStates, subscribeRuntimeStates } from '../../../lib/agentRuntimeStates.ts'
-import {
-  onInputRequestsRefresh,
-  refreshInputRequests,
-  runtimeStatesKey,
-} from '../../../lib/inputRequestRefresh.ts'
-import { useOpenedConversation } from '../../../lib/openedConversation.ts'
+import { refreshInputRequests, runtimeStatesKey } from '../../../lib/inputRequestRefresh.ts'
 import { useSwrCache } from '../../../lib/swrCache.ts'
+import {
+  useAnsweredOnDevice,
+  useInboxListing,
+  useInboxListingFailed,
+} from '../../../views/inbox/useInbox.ts'
 import { agentSessionsCacheKey } from '../../sidebar/state.ts'
 
-import { relatedSessionIds, sessionInputRequests } from './sessionInputRequests.ts'
+import { openQuestionsUnder, relatedSessionIds } from './sessionInputRequests.ts'
 
 import type { AgentConversation } from '../../../api/agent-types'
 
-type Listing = { teamId: string; conversations: AgentConversation[] }
 // The fallback: streams, replies, dismissals, focus and runtime changes reload at once.
 const POLL_MS = 5_000
 
 /**
- * The pending listing includes requests whose chats are beyond the sidebar's
- * first page. It reloads whenever a question may have changed, and polls.
+ * The open questions of a session and every agent under it that the viewer may
+ * answer, as a Task page and a Bot's chat show them: read from the shared
+ * pending listing alone, so they never draw a cached row's old question. Cached
+ * rows only say who sits under whom.
  */
 export function useSessionInputRequests(sessionId: string | null, teamId: string | undefined) {
+  // Opening another session shows the last listing at once, and reloads it.
+  const pending = useInboxListing(teamId ?? '', POLL_MS, sessionId)
+  const failed = useInboxListingFailed(teamId ?? '')
   const known = useSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId ?? ''))
-  const opened = useOpenedConversation(sessionId ?? '')
-  const [listing, setListing] = useState<Listing | null>(null)
-  const [failed, setFailed] = useState(false)
+  const answered = useAnsweredOnDevice()
+  const rows = [...(known ?? []), ...(pending ?? [])]
+  // Shared sessions: whoever may reply in a conversation may answer its questions.
+  const replyable = pending?.filter((conversation) => !conversation.readOnly)
+  const requests =
+    sessionId && replyable ? openQuestionsUnder(sessionId, replyable, known ?? [], answered) : []
 
-  useEffect(() => {
-    if (!teamId || !sessionId) return
-    const requestTeamId = teamId
-    let live = true
-    let timer: number | undefined
-    let loading = false
-    let again = false
+  // A sub-agent starting, stopping or waiting is when it asks or takes an answer.
+  useRefreshOnRuntimeChange(
+    sessionId
+      ? [...relatedSessionIds(sessionId, rows)].sort((a, b) => a.localeCompare(b)).join(',')
+      : '',
+  )
 
-    async function load() {
-      loading = true
-      window.clearTimeout(timer)
-      try {
-        const conversations: AgentConversation[] = []
-        const cursors = new Set<string>()
-        let cursor: string | undefined
-
-        do {
-          const page = await api.agentListConversations(requestTeamId, {
-            scope: 'team',
-            pendingDecision: true,
-            archived: 'exclude',
-            limit: 100,
-            cursor,
-          })
-
-          if (!live) return
-          conversations.push(...page.conversations)
-          cursor = page.nextCursor ?? undefined
-          if (cursor && cursors.has(cursor)) throw new Error('Repeated input request page')
-          if (cursor) cursors.add(cursor)
-        } while (cursor)
-        setListing({ teamId: requestTeamId, conversations })
-        setFailed(false)
-      } catch {
-        if (live) setFailed(true)
-      } finally {
-        loading = false
-        if (live && again) {
-          again = false
-          void load()
-        } else if (live) timer = window.setTimeout(() => void load(), POLL_MS)
-      }
-    }
-    // A signal during a load may postdate what that load read: load once more after it.
-    const refresh = () => {
-      if (loading) again = true
-      else void load()
-    }
-    const stopRefresh = onInputRequestsRefresh(refresh)
-
-    window.addEventListener('focus', refresh)
-    void load()
-
-    return () => {
-      live = false
-      window.clearTimeout(timer)
-      stopRefresh()
-      window.removeEventListener('focus', refresh)
-    }
-  }, [sessionId, teamId])
-
-  const { requests, watched } = useMemo(() => {
-    if (!sessionId) return { requests: [], watched: '' }
-    const rows = new Map(
-      (known ?? []).map((conversation) => [conversation.sessionId, conversation]),
-    )
-
-    if (opened && opened.teamId === teamId) rows.set(opened.sessionId, opened)
-    if (listing && listing.teamId === teamId) {
-      // The pending listing is authoritative, including a request that was answered.
-      for (const [id, conversation] of rows)
-        rows.set(id, { ...conversation, pendingDecision: undefined, inputRequests: undefined })
-      for (const conversation of listing.conversations)
-        rows.set(conversation.sessionId, conversation)
-    }
-
-    const conversations = [...rows.values()]
-
-    return {
-      requests: sessionInputRequests(sessionId, conversations),
-      watched: [...relatedSessionIds(sessionId, conversations)]
-        .sort((a, b) => a.localeCompare(b))
-        .join(','),
-    }
-  }, [known, listing, opened, sessionId, teamId])
-
-  useRefreshOnRuntimeChange(watched)
-
-  return { requests, failed, loaded: listing?.teamId === teamId }
+  return { requests, failed, loaded: pending !== null }
 }
 
 /**
  * Reloads the open questions when one of these sessions (comma-joined, sorted)
  * starts, stops or waits: when a sub-agent asks or takes an answer.
  */
-export function useRefreshOnRuntimeChange(watched: string) {
+function useRefreshOnRuntimeChange(watched: string) {
   useEffect(() => {
     if (!watched) return
     const ids = watched.split(',')

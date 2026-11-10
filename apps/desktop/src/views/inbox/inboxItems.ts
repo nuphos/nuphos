@@ -7,14 +7,16 @@ import type { AgentConversation, AgentInputRequest } from '../../api/agent-types
 export type InboxQuestion = { conversation: AgentConversation; request: AgentInputRequest }
 
 /**
- * The Inbox's rows: every open question waiting on the viewer, newest first,
- * once those answered on this device are set aside. The badge counts these.
+ * The Inbox's rows: every open question waiting on the viewer as its
+ * conversation's owner, newest first, once those answered on this device are
+ * set aside. The badge counts these.
  */
 export function inboxQuestions(
   conversations: readonly AgentConversation[],
   answered: ReadonlyMap<string, number>,
 ): InboxQuestion[] {
   return conversations
+    .filter((conversation) => conversation.isOwner)
     .flatMap((conversation) =>
       openInputRequests(conversation).map((request) => ({ conversation, request })),
     )
