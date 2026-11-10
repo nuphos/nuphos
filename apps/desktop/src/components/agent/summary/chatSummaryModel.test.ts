@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { isChatSummaryShortcut } from '../../../lib/chatSummaryPanel.ts'
+import { isChatSummaryShortcut } from '../../../lib/chatSummaryShortcut.ts'
 import { EMPTY_CREDENTIAL_ACCESS } from '../panel/constants.ts'
 
 import {
