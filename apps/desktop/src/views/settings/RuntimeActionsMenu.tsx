@@ -59,8 +59,8 @@ export function RuntimeActionsMenu({
             {enabled ? t('Disable runtime') : t('Enable runtime')}
           </MenuItem>
         )}
-        {/* A person's computer keeps its default agents; a Box can remove any of its agents.
-            An offline computer deletes the agent when it is back. */}
+        {/* A Box can remove any of its agents, and an offline computer deletes one when it is
+            back; a person's own default agent is only forgotten, while its computer is offline. */}
         {(instance.kind !== 'local' || localRemovalId(instance)) && (
           <MenuItem
             destructive

@@ -37,3 +37,23 @@ test('removing an online computer’s agent keeps the immediate wording', () => 
     )
   }
 })
+
+test("removing a person's own default agent says only Nuphos forgets it", () => {
+  const own: RuntimeInstance = {
+    ...added(false),
+    id: 'local_owner_box_codex',
+    label: 'Codex',
+    local: {
+      deviceId: 'box',
+      deviceLabel: 'MacBook Air',
+      ownerUserId: 'owner',
+      signedIn: false,
+      online: false,
+    },
+  }
+
+  assert.equal(
+    runtimeRemovalDescription(own),
+    'This removes Codex from Nuphos. Its CLI sign-in on MacBook Air is yours and stays; while it is signed in there, Codex is listed again.',
+  )
+})

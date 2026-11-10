@@ -4677,6 +4677,7 @@
   "This removes the computer and its runtimes from Nuphos. Opening Nuphos on it registers it again. Your agent history stays in Nuphos.": "此操作将从 Nuphos 中移除该电脑及其运行环境。在该电脑上打开 Nuphos 会重新注册。你的 Agent 历史记录会保留在 Nuphos 中。",
   "This removes the encrypted credential and Nuphos resource metadata. It never drops or modifies the underlying database.": "这会移除加密的凭据和 Nuphos 资源元数据，绝不会删除或修改底层数据库。",
   "This removes the provider binding reference and Nuphos resource metadata. It never drops or modifies the underlying database.": "这会移除提供方绑定引用和 Nuphos 资源元数据，绝不会删除或修改底层数据库。",
+  "This removes {name} from Nuphos. Its CLI sign-in on {device} is yours and stays; while it is signed in there, {name} is listed again.": "此操作会将 {name} 从 Nuphos 移除。它在 {device} 上的 CLI 登录属于你，会保留不变；只要那里仍处于登录状态，{name} 就会再次出现在列表中。",
   "This request is closed. Ask the agent to request the secret again.": "此请求已关闭。请让代理重新请求这个密钥。",
   "This request is no longer pending.": "这个问题已不再等待回复。",
   "This restarts the runtime host on {boxLabel} to install the latest version available now (expected v{version}).": "此操作将重启 {boxLabel} 上的运行环境主机，以安装当前可用的最新版本（预计为 v{version}）。",

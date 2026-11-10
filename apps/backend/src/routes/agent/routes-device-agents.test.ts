@@ -176,7 +176,7 @@ test('remove is managed, reaches the transport owner, and refuses a default agen
   expect(calls).toHaveLength(2)
 })
 
-test("a Box removes its default agent; a person's computer refuses to", async () => {
+test("a Box removes its default agent; a person's computer only forgets its own", async () => {
   const box = { ...device, box: {} as never }
   const onBox = app({ requireAccess: async () => box })
 
@@ -187,8 +187,9 @@ test("a Box removes its default agent; a person's computer refuses to", async ()
   ])
   const computer = app()
 
-  expect((await computer.remove('claude-code')).status).toBe(400)
-  expect(computer.calls).toEqual([])
+  // Its CLI login is the person's: the computer is never asked to remove it.
+  expect((await computer.remove('claude-code')).status).toBe(204)
+  expect(computer.calls).toEqual([{ forgot: ['owner', 'box', { provider: 'claude-code' }] }])
 })
 
 test('remove without access or on an older host never reaches the host', async () => {
@@ -274,12 +275,12 @@ test('removing anyway is refused while the computer is online, and never reaches
   expect(calls).toEqual([])
 })
 
-test("removing anyway keeps a person's computer's default agents", async () => {
+test("an offline person's computer's default agent is only forgotten, never queued", async () => {
   const { remove, calls } = app({ getPresence: async () => null })
   const response = await remove('claude-code', '&force=true')
 
-  expect(response.status).toBe(400)
-  expect(calls).toEqual([])
+  expect(response.status).toBe(204)
+  expect(calls).toEqual([{ forgot: ['owner', 'box', { provider: 'claude-code' }] }])
 })
 
 test("removing anyway is for the computer's managers only", async () => {

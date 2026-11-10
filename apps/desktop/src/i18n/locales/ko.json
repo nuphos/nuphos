@@ -4677,6 +4677,7 @@
   "This removes the computer and its runtimes from Nuphos. Opening Nuphos on it registers it again. Your agent history stays in Nuphos.": "Nuphos에서 컴퓨터와 런타임이 제거됩니다. 해당 컴퓨터에서 Nuphos를 열면 다시 등록됩니다. 에이전트 기록은 Nuphos에 유지됩니다.",
   "This removes the encrypted credential and Nuphos resource metadata. It never drops or modifies the underlying database.": "암호화된 자격 증명과 Nuphos 리소스 메타데이터를 제거합니다. 기본 데이터베이스는 삭제하거나 수정하지 않습니다.",
   "This removes the provider binding reference and Nuphos resource metadata. It never drops or modifies the underlying database.": "공급자 바인딩 참조와 Nuphos 리소스 메타데이터를 제거합니다. 기본 데이터베이스는 삭제하거나 수정하지 않습니다.",
+  "This removes {name} from Nuphos. Its CLI sign-in on {device} is yours and stays; while it is signed in there, {name} is listed again.": "Nuphos에서 {name}을(를) 제거합니다. {device} 기기의 CLI 로그인은 사용자 본인의 것이므로 그대로 유지되며, 그곳에서 로그인되어 있는 동안 {name}이(가) 다시 표시됩니다.",
   "This request is closed. Ask the agent to request the secret again.": "이 요청은 종료되었습니다. 에이전트에게 시크릿을 다시 요청하도록 하세요.",
   "This request is no longer pending.": "이 질문은 더 이상 대기 중이 아닙니다.",
   "This restarts the runtime host on {boxLabel} to install the latest version available now (expected v{version}).": "{boxLabel} 컴퓨터의 런타임 호스트를 다시 시작하여 현재 사용 가능한 최신 버전(v{version} 예정)을 설치합니다.",

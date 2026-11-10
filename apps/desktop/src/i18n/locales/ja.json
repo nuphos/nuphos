@@ -4677,6 +4677,7 @@
   "This removes the computer and its runtimes from Nuphos. Opening Nuphos on it registers it again. Your agent history stays in Nuphos.": "コンピュータとそのランタイムを Nuphos から登録解除します。そのコンピュータで Nuphos を開くと再登録されます。エージェント履歴は Nuphos に残ります。",
   "This removes the encrypted credential and Nuphos resource metadata. It never drops or modifies the underlying database.": "暗号化された認証情報と Nuphos のリソースメタデータを削除します。基盤となるデータベースを削除したり変更したりすることはありません。",
   "This removes the provider binding reference and Nuphos resource metadata. It never drops or modifies the underlying database.": "プロバイダーのバインド参照と Nuphos のリソースメタデータを削除します。基盤となるデータベースを削除したり変更したりすることはありません。",
+  "This removes {name} from Nuphos. Its CLI sign-in on {device} is yours and stays; while it is signed in there, {name} is listed again.": "{name} を Nuphos から削除します。{device} の CLI のサインイン情報はあなたのもので、そのまま残ります。そこでサインインしている間は、{name} は再び表示されます。",
   "This request is closed. Ask the agent to request the secret again.": "このリクエストは終了しています。エージェントにシークレットをもう一度リクエストするよう依頼してください。",
   "This request is no longer pending.": "この質問はもう回答待ちではありません。",
   "This restarts the runtime host on {boxLabel} to install the latest version available now (expected v{version}).": "{boxLabel} のランタイムホストを再起動し、現在利用可能な最新バージョン（v{version} の予定）をインストールします。",

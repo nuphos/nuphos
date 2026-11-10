@@ -4677,6 +4677,7 @@
   "This removes the computer and its runtimes from Nuphos. Opening Nuphos on it registers it again. Your agent history stays in Nuphos.": "การดำเนินการนี้จะนำคอมพิวเตอร์และรันไทม์ของเครื่องออกจาก Nuphos การเปิด Nuphos บนเครื่องนั้นจะลงทะเบียนใหม่อีกครั้ง ประวัติเอเจนต์ของคุณยังคงอยู่ใน Nuphos",
   "This removes the encrypted credential and Nuphos resource metadata. It never drops or modifies the underlying database.": "การดำเนินการนี้จะนำข้อมูลรับรองที่เข้ารหัสและเมตาดาต้าทรัพยากรของ Nuphos ออก โดยจะไม่ลบหรือแก้ไขฐานข้อมูลจริง",
   "This removes the provider binding reference and Nuphos resource metadata. It never drops or modifies the underlying database.": "การดำเนินการนี้จะนำการอ้างอิงการผูกผู้ให้บริการและเมตาดาต้าทรัพยากรของ Nuphos ออก โดยจะไม่ลบหรือแก้ไขฐานข้อมูลจริง",
+  "This removes {name} from Nuphos. Its CLI sign-in on {device} is yours and stays; while it is signed in there, {name} is listed again.": "การดำเนินการนี้จะนำ {name} ออกจาก Nuphos การลงชื่อเข้าใช้ CLI บน {device} เป็นของคุณและจะยังคงอยู่ ขณะที่ยังลงชื่อเข้าใช้อยู่ที่นั่น {name} จะแสดงอีกครั้ง",
   "This request is closed. Ask the agent to request the secret again.": "คำขอนี้ปิดแล้ว ขอให้เอเจนต์ขอข้อมูลลับนี้อีกครั้ง",
   "This request is no longer pending.": "คำถามนี้ไม่ได้รอคำตอบแล้ว",
   "This restarts the runtime host on {boxLabel} to install the latest version available now (expected v{version}).": "การดำเนินการนี้จะรีสตาร์ทโฮสต์รันไทม์บน {boxLabel} เพื่อติดตั้งเวอร์ชันล่าสุดที่มีอยู่ในขณะนี้ (คาดว่าเป็น v{version})",

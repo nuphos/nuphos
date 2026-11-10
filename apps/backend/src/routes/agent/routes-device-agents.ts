@@ -90,16 +90,6 @@ function ownPendingAgent({ device, presence, target }: HostDevice, instanceId: s
   )
 }
 
-/** A person's own computer keeps its default agents: their logins are that person's CLI logins. */
-function assertRemovable(agent: RemovableAgent, device: AgentDevice): void {
-  if ('provider' in agent && !device.box)
-    throw new AppError(
-      400,
-      'agent_not_removable',
-      "Only a Box's default agents can be removed; this computer's stay with its CLIs.",
-    )
-}
-
 const isNotFound = (error: unknown) =>
   error instanceof Error && 'status' in error && error.status === 404
 
@@ -237,7 +227,6 @@ export function createDeviceAgentRoutes(
   ) => {
     const { userId, deviceId, teamId, device } = await authorized(c, 'manage')
 
-    assertRemovable(agent, device)
     if (await deps.getPresence(device.userId, deviceId))
       throw new AppError(
         409,
@@ -257,8 +246,7 @@ export function createDeviceAgentRoutes(
     return c.body(null, 204)
   }
 
-  // `:agent` as for rename. A person's own computer keeps its defaults: their logins are
-  // that person's CLI logins.
+  // `:agent` as for rename.
   routes.delete('/devices/:deviceId/agents/:agent', async (c) => {
     const id = c.req.param('agent')
     const provider = z.enum(LOCAL_AGENT_PROVIDERS).safeParse(id)
@@ -269,10 +257,20 @@ export function createDeviceAgentRoutes(
         : undefined
 
     if (!agent) throw new AppError(400, 'agent_not_removable', 'This agent cannot be removed.')
-    if (c.req.query('force') === 'true') return removeWhileOffline(c, agent)
-    const { target, device } = await removableBy(c, agent)
+    if ('provider' in agent) {
+      const { device, deviceId } = await authorized(c, 'manage')
 
-    assertRemovable(agent, device)
+      // A person's own computer's default agent is their CLI login: Nuphos only forgets it,
+      // online or not, and it is listed again while that CLI is signed in.
+      if (!device.box) {
+        await deps.forgetAgent(device.userId, deviceId, agent)
+
+        return c.body(null, 204)
+      }
+    }
+    if (c.req.query('force') === 'true') return removeWhileOffline(c, agent)
+    const { target } = await removableBy(c, agent)
+
     await deps.removeInstance(target, agent)
     // Removing is the only way an agent leaves the list once it has been signed in.
     await deps.forgetAgent(target.userId, target.deviceId, agent)
