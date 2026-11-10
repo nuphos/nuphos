@@ -190,6 +190,9 @@ function passthroughHandler(
       ...(category === 'credential' && typeof input.secretName === 'string'
         ? { secretName: input.secretName }
         : {}),
+      ...(category === 'integration' && Array.isArray(input.providers)
+        ? { providers: input.providers as string[] }
+        : {}),
       askedAt: new Date(),
     }).catch((err: unknown) => {
       // The card is already in the transcript; only the Inbox misses it.

@@ -142,8 +142,9 @@ export type AgentInputRequest = {
   /** Markdown the agent wrote so the question can be decided without the chat. */
   body?: string
   options?: string[]
-  /** The secret a `credential` request asks for; absent on requests stored before it was kept. */
+  /** The secret a `credential` request asks for, or the providers an `integration` one connects. */
   secretName?: string
+  providers?: string[]
   askedAt: string
   status: 'open' | 'answered' | 'dismissed'
 }
@@ -275,9 +276,8 @@ export type AgentTimelineEvent = {
 
 export type AgentConversationDetail = AgentConversation & {
   messages: AgentPersistedMessage[]
-  /** Absolute transcript index of messages[0]; > 0 when fetched with `tail`
-   *  and earlier messages exist (page backwards with
-   *  agentGetConversationMessages). */
+  /** Absolute transcript index of messages[0]; > 0 when fetched with `tail` and earlier
+   *  messages exist (page backwards with agentGetConversationMessages). */
   messagesFirstIndex?: number
   runtimeState?: import('../lib/runtimeExecution').RuntimeExecution
   transcriptUpdatedAt?: string | null

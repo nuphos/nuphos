@@ -51,3 +51,21 @@ test('a free-form question is shown but answered in its own conversation', () =>
   // A credential without a secret name has no secure card to answer it with.
   assert.equal(botChatQuestion(request({ category: 'credential' })).answerable, false)
 })
+
+test('a connection is answered from its Connect card where the chat can select credentials', () => {
+  const connect = request({
+    category: 'integration',
+    question: 'Connect Linear',
+    providers: ['linear'],
+  })
+  const question = botChatQuestion(connect, true)
+
+  assert.deepEqual(question.part.input, {
+    category: 'integration',
+    providers: ['linear'],
+    question: 'Connect Linear',
+  })
+  assert.equal(question.answerable, true)
+  // Without the asking conversation's picker, the card is only shown.
+  assert.equal(botChatQuestion(connect).answerable, false)
+})

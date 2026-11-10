@@ -1887,6 +1887,7 @@
   "Failed to trigger CronJob.": "No se pudo ejecutar el CronJob.",
   "Failed to trigger deployment": "No se pudo iniciar el despliegue",
   "Failed to undo": "No se pudo deshacer",
+  "Failed to update credentials": "No se pudieron actualizar las credenciales",
   "Failed to update cron triggers": "No se pudieron actualizar los disparadores cron",
   "Failed to upload object": "No se pudo subir el objeto",
   "Failed: {error}": "Error: {error}",

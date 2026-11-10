@@ -1887,6 +1887,7 @@
   "Failed to trigger CronJob.": "สั่งรัน CronJob ไม่สำเร็จ",
   "Failed to trigger deployment": "ทริกเกอร์การดีพลอยไม่สำเร็จ",
   "Failed to undo": "เลิกทำไม่สำเร็จ",
+  "Failed to update credentials": "อัปเดตข้อมูลรับรองไม่สำเร็จ",
   "Failed to update cron triggers": "อัปเดตทริกเกอร์ cron ไม่สำเร็จ",
   "Failed to upload object": "อัปโหลดออบเจ็กต์ไม่สำเร็จ",
   "Failed: {error}": "ไม่สำเร็จ: {error}",

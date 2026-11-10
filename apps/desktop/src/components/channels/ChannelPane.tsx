@@ -95,7 +95,7 @@ export function ChannelPane({
 
     return () => forgetSessionDesktops(bot, channelId)
   }, [bot, teamId, botState, botOwned, channelId])
-  const questions = useBotChatQuestions(teamId, bot, onOpenSession)
+  const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession)
   const stored = detail?.messages ?? []
   const pending = stillSending(stored, sending)
 
@@ -292,6 +292,7 @@ export function ChannelPane({
             only: { agentIds: agents.map((agent) => agent.sessionId), selfId: user.id },
           }}
           placeholder={t('Message {name}', { name: title })}
+          credentialSelector={questions.credentials}
         />
       </div>
     </FileDropZone>

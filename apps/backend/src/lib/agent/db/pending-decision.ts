@@ -22,6 +22,8 @@ export type InputRequest = ExplicitUserDecision & {
   secretName?: string
   /** The plan (#N) a plan's approval question decides. */
   planId?: string
+  /** The providers an `integration` request asks to connect, so its Connect card lists them. */
+  providers?: string[]
   askedAt: Date
   status: InputRequestStatus
   resolvedAt?: Date
@@ -42,12 +44,7 @@ const MAX_INPUT_REQUESTS = 100
 export async function addInputRequest(
   sessionId: string,
   userId: string,
-  request: ExplicitUserDecision & {
-    id: string
-    secretName?: string
-    planId?: string
-    askedAt: Date
-  },
+  request: Omit<InputRequest, 'status' | 'resolvedAt'>,
 ): Promise<void> {
   const entry: InputRequest = { ...request, status: 'open' }
 
