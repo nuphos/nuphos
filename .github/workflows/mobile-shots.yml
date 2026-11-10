@@ -31,9 +31,16 @@ jobs:
           xcrun simctl ui "$udid" appearance light
           mkdir -p "$RUNNER_TEMP/shots"
           xcodebuild test -project nuphos-ios.xcodeproj -scheme nuphos-ios -destination "id=$udid" \
-            $(printf -- '-only-testing:%s ' $IOS_ONLY_TESTING) CODE_SIGNING_ALLOWED=NO \
+            $(printf -- '-only-testing:%s ' $IOS_ONLY_TESTING) -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO \
             -resultBundlePath "$RUNNER_TEMP/UITests.xcresult" \
-            TEST_RUNNER_NUPHOS_SHOTS="$RUNNER_TEMP/shots" -quiet
+            -quiet
+      - name: Export the screenshots from the result bundle
+        if: always()
+        run: |
+          [ -d "$RUNNER_TEMP/UITests.xcresult" ] || exit 0
+          # Each shot() is a named XCTAttachment; a test runner on the simulator cannot write NUPHOS_SHOTS on the host.
+          xcrun xcresulttool export attachments --path "$RUNNER_TEMP/UITests.xcresult" --output-path "$RUNNER_TEMP/shots"
+          ls -l "$RUNNER_TEMP/shots"
       - if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
