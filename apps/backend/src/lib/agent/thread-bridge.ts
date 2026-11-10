@@ -149,8 +149,8 @@ export async function listThreadRuntimes(actor: ThreadActor) {
 }
 
 /**
- * The parent's own controls for a thread nested under it: its permission mode and
- * credentials, never more access than the parent has, and the agent it runs on.
+ * Controls for another conversation the actor owns: its permission mode and
+ * credentials, never more access than this conversation has, and the agent it runs on.
  */
 export async function updateThread(
   actor: ThreadActor,
@@ -164,11 +164,6 @@ export async function updateThread(
 ) {
   const { target } = await authorizeThreadDelivery({ ...actor, targetSessionId: threadId })
 
-  // A thread is this conversation's to manage while nested under it, whether
-  // create_thread opened it or set_thread_parent adopted one of the owner's own.
-  if (target.parentSessionId !== actor.sessionId) {
-    throw new Error('Only a thread nested under this conversation can be changed.')
-  }
   if (change.fullAccess && !(await getSessionBypass(actor.sessionId, actor.userId))) {
     throw new Error('Only a conversation in Full Access can give a thread Full Access.')
   }

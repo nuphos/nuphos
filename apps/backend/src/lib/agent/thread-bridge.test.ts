@@ -394,27 +394,17 @@ describe('conversation-scoped thread tools', () => {
     expect(await getSessionBypass(threadId, 'owner')).toBe(false)
   })
 
-  test('only a thread nested under this conversation can be switched', async () => {
-    await setSessionBypass('source', 'owner', true)
-    await expect(updateThread(actor, 'target', { fullAccess: true })).rejects.toThrow(
-      'nested under',
-    )
-    await expect(updateThread(actor, 'source', { fullAccess: true })).rejects.toThrow()
-    expect(await getSessionBypass('target', 'owner')).toBe(false)
-    expect(events).toHaveLength(0)
-  })
-
-  test('a conversation adopted as a child is managed like one created here', async () => {
+  test('changes any other conversation the owner has in this team, nested or not', async () => {
     await setSessionBypass('source', 'owner', true)
     selections.set('source', { deviceIds: ['mac-1'] })
     selections.set('target', {})
-    target = { ...target, parentSessionId: 'source' }
     await updateThread(actor, 'target', {
       fullAccess: true,
       grant: [{ provider: 'device', id: 'mac-1' }],
     })
     expect(await getSessionBypass('target', 'owner')).toBe(true)
     expect(selections.get('target')?.deviceIds).toEqual(['mac-1'])
+    await expect(updateThread(actor, 'source', { fullAccess: true })).rejects.toThrow()
   })
 
   test('a parent grants its thread what it has selected itself, and nothing else', async () => {
@@ -670,14 +660,10 @@ describe('conversation-scoped thread tools', () => {
     expect(selections.get(threadId)).toEqual({ awsRoleIds: ['role-1'] })
   })
 
-  test("only a thread nested here gets a grant, never another owner's", async () => {
+  test("never grants to another owner's conversation, even one nested here", async () => {
     selections.set('source', { deviceIds: ['mac-1'] })
     const grant = [{ provider: 'device', id: 'mac-1' }]
 
-    // Another conversation's thread, even one this conversation created before.
-    target = { ...target, parentSessionId: 'elsewhere' }
-    await expect(updateThread(actor, 'target', { grant })).rejects.toThrow('nested under')
-    // Nested here, but owned by someone else.
     target = { ...target, parentSessionId: 'source', userId: 'other' }
     await expect(updateThread(actor, 'target', { grant })).rejects.toThrow('you own')
     expect(writes).toHaveLength(0)
@@ -701,10 +687,14 @@ describe('conversation-scoped thread tools', () => {
       { sessionId: threadId, runtimeId: 'runtime-2', mode: 'history', userId: 'owner' },
     ])
     expect(result.runtime?.runtimeId).toBe('runtime-2')
-    await expect(updateThread(actor, 'target', { runtimeId: 'runtime-2' })).rejects.toThrow(
-      'nested under',
-    )
-    expect(moves).toHaveLength(1)
+  })
+
+  test('moves an owned conversation that is not nested here, e.g. one past its usage limit', async () => {
+    await updateThread(actor, 'target', { runtimeId: 'runtime-2' })
+
+    expect(moves).toEqual([
+      { sessionId: 'target', runtimeId: 'runtime-2', mode: 'history', userId: 'owner' },
+    ])
   })
 
   test("lists the team's agents and the owner's Boxes, never a computer", async () => {
