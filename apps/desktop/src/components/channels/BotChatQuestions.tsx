@@ -2,6 +2,8 @@ import { ArrowUpRight } from 'lucide-react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
+import { AnswerFailure } from '../../views/inbox/AnswerFailure'
+import { useAnswerFailure } from '../../views/inbox/useInbox'
 import { DecisionToolPart } from '../agent/panel/ConnectCard'
 import { ConnectCardContext } from '../agent/panel/connectCardContext'
 
@@ -30,6 +32,7 @@ export function BotChatQuestion({
     request.inputRequest,
     credentials !== undefined,
   )
+  const failure = useAnswerFailure(request.inputRequest.id)
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -61,6 +64,7 @@ export function BotChatQuestion({
           canReply={answerable}
         />
       </ConnectCardContext.Provider>
+      {failure && <AnswerFailure message={failure} />}
     </div>
   )
 }

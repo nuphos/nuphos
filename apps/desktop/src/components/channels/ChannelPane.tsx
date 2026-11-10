@@ -95,7 +95,6 @@ export function ChannelPane({
 
     return () => forgetSessionDesktops(bot, channelId)
   }, [bot, teamId, botState, botOwned, channelId])
-  const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession)
   const stored = detail?.messages ?? []
   const pending = stillSending(stored, sending)
 
@@ -105,6 +104,8 @@ export function ChannelPane({
 
   // Open at the latest post, and follow new ones and the typing bubble.
   const stickToBottom = useStickToBottom(scrollRef)
+  const chat = { channelId, user, setSending, stickToBottom, refresh }
+  const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession, chat)
 
   // A channel post takes the draft the moment its optimistic card is rendered
   // (in `postDraft` below), so acceptance is reported at once rather than after
@@ -250,7 +251,6 @@ export function ChannelPane({
               }
             />
           )}
-          {questions.panels}
         </div>
       </HeaderEdge>
       <div

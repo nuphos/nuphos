@@ -79,7 +79,8 @@ export async function wakeChannelAgent(
 /**
  * `id` makes a resend the same message; `upload` is a finished upload's group;
  * `mentions` are the user ids of the composer's mention chips; `replyTo` is the
- * id of the post it answers.
+ * id of the post it answers; `decisionReplyTo` the question of an agent in the
+ * channel it answers.
  */
 export async function postChannelMessage(
   channelId: string,
@@ -89,6 +90,7 @@ export async function postChannelMessage(
   upload?: string,
   mentions?: string[],
   replyTo?: string,
+  decisionReplyTo?: string,
 ): Promise<{ id: string }> {
   return callJsonForRenderer('POST', `${at(channelId)}/channel-messages${teamQuery(teamId)}`, {
     text,
@@ -96,6 +98,7 @@ export async function postChannelMessage(
     ...(upload ? { upload } : {}),
     ...(mentions?.length ? { mentions } : {}),
     ...(replyTo ? { replyTo } : {}),
+    ...(decisionReplyTo ? { decisionReplyTo } : {}),
   })
 }
 

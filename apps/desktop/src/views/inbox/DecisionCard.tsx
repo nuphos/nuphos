@@ -9,7 +9,9 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import { refreshInputRequests } from '../../lib/inputRequestRefresh'
 
+import { AnswerFailure } from './AnswerFailure'
 import { cardReplies } from './inboxItems'
+import { useAnswerFailure } from './useInbox'
 
 import type { AgentInputRequest } from '../../api/agent-types'
 
@@ -46,6 +48,7 @@ export function DecisionCard({
   const [dismissing, setDismissing] = useState(false)
   const replies = cardReplies(request)
   const secret = parseSecretRequest(request) !== null
+  const failure = useAnswerFailure(request.id)
 
   async function dismiss() {
     setDismissing(true)
@@ -130,6 +133,12 @@ export function DecisionCard({
           </button>
         </div>
         {replies && <ReplyField onSend={onAnswer} />}
+        {/* A secret's card shows its own failure. */}
+        {failure && !secret && (
+          <div className="mt-3">
+            <AnswerFailure message={failure} />
+          </div>
+        )}
       </section>
     </div>
   )
