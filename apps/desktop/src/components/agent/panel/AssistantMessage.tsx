@@ -168,9 +168,7 @@ export const AssistantMessage = memo(
         )
       }
       if (p.type === 'turn-interrupted') {
-        return (
-          <TurnInterruptedPartView key={partKey} part={p} latest={isLatestReply && !streaming} />
-        )
+        return <TurnInterruptedPartView key={partKey} part={p} />
       }
       // `plan_update` / `plan_get` are agent bookkeeping — the inline card
       // reflects their effects via DB state, so we don't render them as tool

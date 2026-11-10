@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { failedTurnPrompt } from './turnRetry.ts'
+import { failedTurn } from './turnRetry.ts'
 
 import type { Message } from './model.ts'
 import type { TurnInterruptedPart } from './parts.ts'
@@ -20,24 +20,38 @@ const failed = (reason: TurnInterruptedPart['reason']): Message => ({
   ],
 })
 
-test('a failed or timed-out latest turn offers its prompt again', () => {
-  assert.equal(failedTurnPrompt([asked('fix it'), failed('error')], undefined, false), 'fix it')
-  assert.equal(failedTurnPrompt([asked('fix it'), failed('timeout')], undefined, false), 'fix it')
+test('a failed or timed-out latest turn offers its prompt again, on its own line', () => {
+  for (const reason of ['error', 'timeout'] as const) {
+    assert.deepEqual(failedTurn([asked('fix it'), failed(reason)], undefined, false), {
+      partId: 'i',
+      prompt: 'fix it',
+    })
+  }
 })
 
 test('a stopped, finished or earlier turn offers nothing', () => {
   const answered: Message = { id: 'a', role: 'assistant', parts: [{ type: 'text', text: 'done' }] }
 
+  assert.equal(failedTurn([asked('fix it'), failed('cancelled')], undefined, false), undefined)
+  assert.equal(failedTurn([asked('fix it'), answered], undefined, false), undefined)
   assert.equal(
-    failedTurnPrompt([asked('fix it'), failed('cancelled')], undefined, false),
+    failedTurn([asked('one'), failed('error'), asked('two'), answered], undefined, false),
     undefined,
   )
-  assert.equal(failedTurnPrompt([asked('fix it'), answered], undefined, false), undefined)
-  assert.equal(
-    failedTurnPrompt([asked('one'), failed('error'), asked('two'), answered], undefined, false),
-    undefined,
-  )
-  assert.equal(failedTurnPrompt([asked('pending')], undefined, false), undefined)
+  assert.equal(failedTurn([asked('pending')], undefined, false), undefined)
+})
+
+test('a prompt with an attachment is not resent as text alone', () => {
+  const withFile: Message = {
+    id: 'u',
+    role: 'user',
+    parts: [
+      { type: 'text', text: 'summarize the attached report' },
+      { type: 'local-file', path: '/tmp/report.pdf' },
+    ],
+  }
+
+  assert.equal(failedTurn([withFile, failed('error')], undefined, false), undefined)
 })
 
 test('someone else’s prompt in a shared chat is not resent by the viewer', () => {
@@ -51,6 +65,6 @@ test('someone else’s prompt in a shared chat is not resent by the viewer', () 
     } as Message['metadata'],
   }
 
-  assert.equal(failedTurnPrompt([theirs, failed('error')], 'me', true), undefined)
-  assert.equal(failedTurnPrompt([theirs, failed('error')], 'teammate', true), 'their prompt')
+  assert.equal(failedTurn([theirs, failed('error')], 'me', true), undefined)
+  assert.equal(failedTurn([theirs, failed('error')], 'teammate', true)?.prompt, 'their prompt')
 })

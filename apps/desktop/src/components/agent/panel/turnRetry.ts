@@ -3,15 +3,19 @@ import { sentHistory } from './composerRecall.ts'
 import type { Message } from './model.ts'
 import type { TurnInterruptedPart } from './parts.ts'
 
+/** The latest turn's failure line and the prompt Retry would resend. */
+export type FailedTurn = { partId: string; prompt: string }
+
 /**
  * The viewer's own prompt behind the conversation's latest turn when that turn
- * failed or timed out, or undefined. A turn the person stopped is not offered.
+ * failed or timed out, or undefined. A turn the person stopped is not offered,
+ * nor a prompt with attachments: resending only its text would ask something else.
  */
-export function failedTurnPrompt(
+export function failedTurn(
   messages: Pick<Message, 'role' | 'parts' | 'metadata' | 'turnKind'>[],
   currentUserId: string | undefined,
   foreignChat: boolean,
-): string | undefined {
+): FailedTurn | undefined {
   const reply = messages.at(-1)
 
   if (reply?.role !== 'assistant') return undefined
@@ -20,7 +24,10 @@ export function failedTurnPrompt(
   )
 
   if (!interrupted || interrupted.reason === 'cancelled') return undefined
-  const prompt = messages.at(-2)
+  const asked = messages.at(-2)
 
-  return prompt ? sentHistory([prompt], currentUserId, foreignChat)[0] : undefined
+  if (!asked || asked.parts.some((part) => part.type !== 'text')) return undefined
+  const prompt = sentHistory([asked], currentUserId, foreignChat)[0]
+
+  return prompt ? { partId: interrupted.id, prompt } : undefined
 }

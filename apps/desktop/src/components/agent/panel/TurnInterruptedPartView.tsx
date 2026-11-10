@@ -15,17 +15,11 @@ const HEADLINE: Record<TurnInterruptedPart['reason'], string> = {
   error: t('Turn failed.'),
 }
 
-export function TurnInterruptedPartView({
-  part,
-  latest = false,
-}: {
-  part: TurnInterruptedPart
-  /** The conversation's latest, settled turn: the only one Retry may resend. */
-  latest?: boolean
-}) {
+export function TurnInterruptedPartView({ part }: { part: TurnInterruptedPart }) {
   const detail = normalizeAgentError(part.message)
-  const retry = useContext(TurnRetryContext)
-  const canRetry = latest && part.reason !== 'cancelled' && retry
+  // Offered only on the conversation's latest failure line, which the provider names.
+  const turnRetry = useContext(TurnRetryContext)
+  const retry = turnRetry?.partId === part.id ? turnRetry.retry : undefined
   const copyText = [HEADLINE[part.reason], part.message, part.createdAt].filter(Boolean).join('\n')
 
   return (
@@ -38,7 +32,7 @@ export function TurnInterruptedPartView({
       </span>
       {part.reason !== 'cancelled' && (
         <span className="-my-1.5 flex shrink-0 items-center gap-0.5">
-          {canRetry && (
+          {retry && (
             <button
               type="button"
               onClick={retry}
