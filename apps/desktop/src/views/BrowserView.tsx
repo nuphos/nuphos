@@ -22,7 +22,7 @@ import { BROWSER_HOME_URL, normalizeBrowserUrl } from '../lib/browserUrl'
 
 import { BrowserCommentBox } from './browser/BrowserCommentBox'
 import { BrowserExtensions } from './browser/BrowserExtensions'
-import { registerBrowserView } from '../app/workspace/watchedDockTabs'
+import { registerBrowserView, useAgentFit } from '../app/workspace/watchedDockTabs'
 import { localPreviewRecorder } from './browser/localPreviewRecorder'
 import { focusOpenedPage } from './browser/pageFocus'
 import { useBrowserComments } from './browser/useBrowserComments'
@@ -49,9 +49,9 @@ export function BrowserView({
   useEffect(() => {
     onNavigateRef.current = onNavigate
   }, [onNavigate])
-  const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<WebviewTag | null>(null)
   const { isActive, tabId } = useWorkspaceTab()
+  const { hostRef, hostClass, viewStyle, place } = useAgentFit(tabId, viewRef)
   const activeRef = useRef(isActive)
 
   useEffect(() => {
@@ -80,7 +80,7 @@ export function BrowserView({
     view.setAttribute('partition', 'persist:browser')
     view.setAttribute('allowpopups', '')
     view.setAttribute('webpreferences', 'sandbox=yes,contextIsolation=yes')
-    view.style.cssText = 'width:100%;height:100%;display:flex'
+    view.style.cssText = viewStyle()
     const preview = localPreviewRecorder(view, userId ? { userId, teamId } : undefined)
 
     previewRef.current = preview
@@ -158,7 +158,7 @@ export function BrowserView({
       view.remove()
       viewRef.current = null
     }
-  }, [initialUrl, resetComments, tabId, teamId, userId])
+  }, [hostRef, initialUrl, resetComments, tabId, teamId, userId, viewStyle])
 
   useEffect(() => {
     if (isActive && ready && !loading && !error) void previewRef.current?.capture()
@@ -284,11 +284,11 @@ export function BrowserView({
           </div>
         )}
         <div className="relative min-h-0 flex-1">
-          <div ref={hostRef} className="h-full" />
+          <div ref={hostRef} className={hostClass} />
           {comments.draft && (
             <BrowserCommentBox
               key={comments.draft.selector}
-              rect={comments.draft.rect}
+              rect={place(comments.draft.rect)}
               onSave={(note) => void comments.save(note)}
               onCancel={comments.cancel}
             />

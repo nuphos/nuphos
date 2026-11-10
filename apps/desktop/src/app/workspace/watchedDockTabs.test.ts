@@ -122,3 +122,20 @@ test('a watched tab off screen stays laid out invisibly; any other pane is as be
       pointerEvents: 'none',
     })
 })
+
+test("an agent's tab off screen stays laid out invisibly at the window's size", () => {
+  assert.equal(paneLayout(true, true, undefined, true).style, undefined)
+  for (const [active, dockVisible] of [
+    [false, true],
+    [true, false],
+  ] as const)
+    assert.deepEqual(paneLayout(active, dockVisible, undefined, true).style, {
+      position: 'fixed',
+      left: 0,
+      top: 0,
+      width: '100vw',
+      height: '100vh',
+      opacity: 0,
+      pointerEvents: 'none',
+    })
+})

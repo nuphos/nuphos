@@ -22,6 +22,7 @@ import { ATLAS_WEB_BASE_URL, toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
 import { settingsLinkTarget, settingsSectionForPage } from '../../views/settings/settingsNav'
 
 import { selectActiveTab, selectCurrentBucket, selectScope } from './store/workspaceState'
+import { markAgentTab } from './watchedDockTabs'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
 import type { WorkspaceAccountsResult } from './useWorkspaceAccounts'
@@ -210,10 +211,10 @@ export function useWorkspaceLinkOpeners(a: Args) {
       const sessionNavigation = payload.session ? navigationFromAppPath(payload.path) : null
 
       if (payload.session && sessionNavigation) {
-        workspaceActions.openTabInSession(
-          payload.session,
-          createWorkspaceTabFromNavigation(sessionNavigation),
-        )
+        const tab = createWorkspaceTabFromNavigation(sessionNavigation)
+
+        markAgentTab(tab.id)
+        workspaceActions.openTabInSession(payload.session, tab)
 
         return
       }

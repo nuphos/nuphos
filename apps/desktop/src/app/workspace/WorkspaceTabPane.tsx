@@ -18,7 +18,7 @@ import { useTabConnectorActions } from './useTabConnectorActions'
 import { useTabDetailSetters } from './useTabDetailSetters'
 import { useTabPageMeta } from './useTabPageMeta'
 import { useTabViewSetters } from './useTabViewSetters'
-import { paneLayout, useWatchedDockTab } from './watchedDockTabs'
+import { isAgentTab, paneLayout, useWatchedDockTab } from './watchedDockTabs'
 import { WorkspaceNewTabPage } from './WorkspaceNewTabPage'
 
 import type { WorkspaceTabPaneProps } from './paneTypes'
@@ -75,7 +75,7 @@ export const WorkspaceTabPane = memo(
     dockVisible = true,
   }: WorkspaceTabPaneProps) => {
     const tabId = tab.id
-    const layout = paneLayout(active, dockVisible, useWatchedDockTab(tabId))
+    const layout = paneLayout(active, dockVisible, useWatchedDockTab(tabId), isAgentTab(tabId))
     const onBrowserNavigate = useCallback(
       (url: string) => {
         updateTab(
