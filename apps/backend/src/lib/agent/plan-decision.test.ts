@@ -6,7 +6,7 @@ import { useJournalCapture } from '@/lib/test/doubles/journal-capture'
 
 import { answerHumanTurn, askPlanDecisions } from './plan-decision'
 
-import type { InputRequest } from '@/lib/agent/db'
+import type { InputRequest } from '@/lib/agent/db/pending-decision'
 import type { UIMessage } from 'ai'
 
 const plan = {
