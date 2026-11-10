@@ -70,7 +70,8 @@ export async function findExistingTriggerGroup(input: {
         // unable to create this Group.
         isSharedIngressTriggerGroup(candidate) &&
         candidate.members.length === input.memberKeys.length &&
-        candidate.targetSessionId === input.targetSessionId,
+        // A legacy Group has no conversation yet; match it on its members alone.
+        (candidate.targetSessionId ?? input.targetSessionId) === input.targetSessionId,
     ) ?? null
   )
 }

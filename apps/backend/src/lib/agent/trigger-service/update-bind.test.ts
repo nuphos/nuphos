@@ -28,6 +28,14 @@ const legacyTrigger = {
 const rows: Record<string, unknown> = {
   agent_conversations: { sessionId: 'bound-session', userId: OWNER, teamId: TEAM },
   agent_triggers: legacyTrigger,
+  teams: {
+    _id: new ObjectId(TEAM),
+    name: 'Team',
+    ownerID: new ObjectId(OWNER),
+    contactEmails: [],
+    createdAt: new Date(),
+    members: [{ userId: new ObjectId(OWNER), role: 'ADMINISTRATOR', joinedAt: new Date() }],
+  },
 }
 
 function collection(name: string) {
@@ -48,6 +56,7 @@ function collection(name: string) {
 useDb({ db: () => ({ collection }) as never })
 
 const { updateTrigger } = await import('./update')
+const { assertDedupeCompatible, bindLegacyWatch } = await import('./watch-dedupe')
 
 afterEach(() => {
   writes.length = 0
@@ -67,5 +76,47 @@ describe('binding a legacy unbound Trigger', () => {
 
     expect(write?.update.$set?.targetSessionId).toBe('bound-session')
     expect(write?.update.$unset).toEqual({ incidentMode: true, slackDestination: true })
+  })
+})
+
+describe('re-creating a Watch stored before binding was required', () => {
+  const input = {
+    name: 'CPU alert',
+    triggerType: 'webhook' as const,
+    messageTemplate: 'Investigate the alert',
+    targetSessionId: 'bound-session',
+  }
+  const ctx = { userId: OWNER, teamId: TEAM, source: 'agent' as const }
+
+  test('adopts the unbound row and binds it for its owner', async () => {
+    expect(() => {
+      assertDedupeCompatible(legacyTrigger as never, input, ctx, [])
+    }).not.toThrow()
+
+    await bindLegacyWatch(legacyTrigger as never, 'bound-session', ctx)
+
+    const write = writes.find((entry) => entry.collection === 'agent_triggers')
+
+    expect(write?.update.$set?.targetSessionId).toBe('bound-session')
+  })
+
+  test('leaves the row alone for someone it does not run as', async () => {
+    await bindLegacyWatch(legacyTrigger as never, 'bound-session', {
+      ...ctx,
+      userId: new ObjectId().toHexString(),
+    })
+
+    expect(writes).toHaveLength(0)
+  })
+
+  test('refuses a Watch already bound to another conversation', () => {
+    expect(() => {
+      assertDedupeCompatible(
+        { ...legacyTrigger, targetSessionId: 'other-session' } as never,
+        input,
+        ctx,
+        [],
+      )
+    }).toThrow('another conversation')
   })
 })

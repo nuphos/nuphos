@@ -20,6 +20,7 @@ import {
 import {
   assertDedupeCompatible,
   backfillMonitoringIdentity,
+  bindLegacyWatch,
   findExistingWatch,
 } from './watch-dedupe'
 
@@ -100,7 +101,11 @@ export async function createTrigger(
       assertDedupeCompatible(existing, input, ctx, acceptedDedupeKeys)
 
       return serializeTrigger(
-        await backfillMonitoringIdentity(existing, input.monitoringIdentity),
+        await bindLegacyWatch(
+          await backfillMonitoringIdentity(existing, input.monitoringIdentity),
+          input.targetSessionId,
+          ctx,
+        ),
         true,
       )
     }
@@ -173,7 +178,11 @@ export async function createTrigger(
         assertDedupeCompatible(existing, input, ctx, acceptedDedupeKeys)
 
         return serializeTrigger(
-          await backfillMonitoringIdentity(existing, input.monitoringIdentity),
+          await bindLegacyWatch(
+            await backfillMonitoringIdentity(existing, input.monitoringIdentity),
+            input.targetSessionId,
+            ctx,
+          ),
           true,
         )
       }

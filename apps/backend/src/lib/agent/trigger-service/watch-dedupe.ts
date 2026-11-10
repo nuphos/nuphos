@@ -2,7 +2,10 @@ import { isDeepStrictEqual } from 'node:util'
 
 import { AppError } from '@/lib/errors'
 
+import { triggerExecutionPrincipalId } from '../trigger-access'
 import { agentTriggers } from '../trigger-db'
+
+import { updateTrigger } from './update'
 
 import type { MonitoringIdentity } from '../monitoring-workflow'
 import type { AgentTrigger } from '../trigger-db'
@@ -60,7 +63,15 @@ export function assertDedupeCompatible(
     ? existing.teamId === ctx.teamId
     : existing.userId === ctx.userId && existing.teamId === undefined
   const sameType = existing.triggerType === input.triggerType
-  const sameTargetSession = existing.targetSessionId === input.targetSessionId
+
+  // A legacy unbound Watch is adopted below; only a different binding conflicts.
+  if (existing.targetSessionId && existing.targetSessionId !== input.targetSessionId) {
+    throw new AppError(
+      409,
+      'trigger_bound_elsewhere',
+      'This Watch already delivers into another conversation; move it with PATCH instead',
+    )
+  }
   // Rows created by the first monitoring-Watch implementation only persisted
   // the derived hash. Equality with the newly derived hash securely proves the
   // same identity and lets us backfill it below.
@@ -74,19 +85,30 @@ export function assertDedupeCompatible(
     existing.watchGroupId?.toString() === input.watchGroup?.groupId &&
     existing.watchGroupPartitionKey === input.watchGroup?.partitionKey
 
-  if (
-    !sameOwner ||
-    !sameType ||
-    !sameTargetSession ||
-    !sameMonitoringIdentity ||
-    !sameGroupBoundary
-  ) {
+  if (!sameOwner || !sameType || !sameMonitoringIdentity || !sameGroupBoundary) {
     throw new AppError(
       409,
       'trigger_dedupe_conflict',
       'That trigger idempotency key is already attached to a different workflow',
     )
   }
+}
+
+/**
+ * Re-creating a Watch stored before binding was required binds it to the
+ * requested conversation, when the caller is the one it runs as. Otherwise it
+ * stays as it is until its owner binds it.
+ */
+export async function bindLegacyWatch(
+  existing: AgentTrigger,
+  targetSessionId: string,
+  ctx: TriggerCallerContext,
+): Promise<AgentTrigger> {
+  if (existing.targetSessionId || !existing._id) return existing
+  if (triggerExecutionPrincipalId(existing) !== ctx.userId) return existing
+  await updateTrigger(existing._id.toHexString(), ctx, { targetSessionId })
+
+  return (await agentTriggers().findOne({ _id: existing._id })) ?? existing
 }
 
 export async function backfillMonitoringIdentity(

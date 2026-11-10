@@ -4,7 +4,7 @@ import { ObjectId } from 'mongodb'
 
 import { AppError } from '@/lib/errors'
 
-import { assertTeamTriggerRole } from '../trigger-access'
+import { assertTeamTriggerRole, triggerExecutionPrincipalId } from '../trigger-access'
 import { resolveTriggerGroupCredentialMode } from '../trigger-credential-access'
 import { agentTriggers } from '../trigger-db'
 import { agentTriggerGroups, isSharedIngressTriggerGroup } from '../trigger-group-db'
@@ -23,6 +23,7 @@ import {
   partitionMembers,
   serializeTriggerGroup,
 } from './shared'
+import { updateTriggerGroup } from './update'
 
 import type { TriggerActorContext } from '../trigger-access'
 import type { AgentTriggerGroup, TriggerGroupPartition } from '../trigger-group-db'
@@ -226,6 +227,14 @@ export async function createTriggerGroup(
     { $set: { partitions, updatedAt } },
   )
   const completedGroup: AgentTriggerGroup = { ...group, partitions, updatedAt }
+
+  // A legacy unbound Group is bound to the requested conversation by the one it runs as.
+  if (!group.targetSessionId && triggerExecutionPrincipalId(group) === context.userId) {
+    await updateTriggerGroup(group._id.toString(), context, {
+      targetSessionId: input.targetSessionId,
+    })
+    completedGroup.targetSessionId = input.targetSessionId
+  }
   const triggers = await loadPartitionTriggers(completedGroup)
 
   return {
