@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { api } from '../../api'
 import { MessageResponse } from '../../components/agent/MessageResponse'
 import { parseSecretRequest } from '../../components/agent/panel/connectCardModel'
+import { botChatQuestion } from '../../components/channels/botChatQuestion'
 import { BotChatQuestion } from '../../components/channels/BotChatQuestions'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
@@ -17,10 +18,10 @@ import type { AgentInputRequest } from '../../api/agent-types'
 
 /**
  * One open question, with what the agent wrote to decide it from. A choice, or
- * "Done." for a to-do, is sent as the reply to this question, as is a short
- * reply typed in its own field. A secret is the secure card the conversation
- * and a Bot's chat draw, which sends only where the value was saved. The full
- * composer only comes with the conversation.
+ * "Done." for a to-do, is sent as the reply to this question. A secret is the
+ * secure card the conversation and a Bot's chat draw, which sends only where the
+ * value was saved. "Other…" types the answer in the conversation's composer,
+ * which only comes with the conversation.
  */
 export function DecisionCard({
   teamId,
@@ -30,6 +31,7 @@ export function DecisionCard({
   showingConversation,
   onAnswer,
   onShowConversation,
+  onReply,
   onHideConversation,
   onOpenConversation,
 }: {
@@ -41,6 +43,8 @@ export function DecisionCard({
   showingConversation: boolean
   onAnswer: (text: string) => void
   onShowConversation: () => void
+  /** Opens the conversation with its composer answering this question. */
+  onReply: () => void
   onHideConversation: () => void
   onOpenConversation: () => void
 }) {
@@ -123,6 +127,12 @@ export function DecisionCard({
               {t('Answer in the conversation')}
             </button>
           )}
+          {/* A typed answer, in the conversation's composer; a plan is only approved or rejected. */}
+          {replies && botChatQuestion(request).typed && (
+            <button type="button" onClick={onReply} className={secondaryButton}>
+              {request.options?.length ? t('Other…') : t('Reply…')}
+            </button>
+          )}
           <button
             type="button"
             disabled={dismissing}
@@ -132,7 +142,6 @@ export function DecisionCard({
             {dismissing ? t('Dismissing...') : t('Dismiss question')}
           </button>
         </div>
-        {replies && <ReplyField onSend={onAnswer} />}
         {/* A secret's card shows its own failure. */}
         {failure && !secret && (
           <div className="mt-3">
@@ -144,39 +153,8 @@ export function DecisionCard({
   )
 }
 
-/** A short typed answer for a question none of the choices fits. */
-function ReplyField({ onSend }: { onSend: (text: string) => void }) {
-  const [text, setText] = useState('')
-  const send = () => {
-    const reply = text.trim()
-
-    if (!reply) return
-    onSend(reply)
-    setText('')
-  }
-
-  return (
-    <form
-      className="mt-3 flex items-center gap-2"
-      onSubmit={(event) => {
-        event.preventDefault()
-        send()
-      }}
-    >
-      <input
-        data-inbox-reply=""
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        placeholder={t('Or type a different answer')}
-        aria-label={t('Reply to this question')}
-        className="min-w-0 flex-1 rounded-md border border-line-control bg-transparent px-2.5 py-1.5 text-[12px] text-main outline-none placeholder:text-tertiary focus-visible:ring-1 focus-visible:ring-line-focus"
-      />
-      <button type="submit" disabled={!text.trim()} className={primaryButton}>
-        {t('Send')}
-      </button>
-    </form>
-  )
-}
-
 const primaryButton =
   'rounded-md border border-line-control px-3 py-1.5 text-[12px] text-main outline-none hover:bg-state-hover focus-visible:ring-1 focus-visible:ring-line-focus disabled:opacity-50'
+
+const secondaryButton =
+  'rounded-md px-3 py-1.5 text-[12px] text-secondary outline-none hover:bg-state-hover hover:text-main focus-visible:ring-1 focus-visible:ring-line-focus'

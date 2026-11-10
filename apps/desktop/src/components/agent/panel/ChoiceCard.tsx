@@ -11,6 +11,8 @@ import { AgentQuote } from './ConnectCardRows'
 import { DecisionAnswersContext } from './decisionAnswers'
 import { useDecisionKeys } from './useDecisionKeys'
 
+import type { ConnectCardContextValue } from './connectCardContext'
+
 const TITLE: Record<string, string> = {
   approval: t('Approval needed'),
   preference: t('Your choice'),
@@ -21,8 +23,9 @@ const TITLE: Record<string, string> = {
 
 /**
  * A user decision other than a Connect card: the question, with each option sent
- * as the reply, like quick-reply chips. Once answered, the options go: the answer
- * is the reply bubble that follows.
+ * as the reply, like quick-reply chips, and "Other…" to type an answer in the
+ * composer instead. Once answered, the options go: the answer is the reply
+ * bubble that follows.
  */
 export function ChoiceCard({
   toolCallId,
@@ -47,6 +50,7 @@ export function ChoiceCard({
   const chosen = answer?.option ?? sent
   const interactive = Boolean(ctx) && canAct && !chosen
   const live = interactive && options.length > 0
+  const reply = typedReply(ctx, interactive, category)
   const cardRef = useRef<HTMLDivElement | null>(null)
   const choose = (option: string) => {
     setSent(option)
@@ -78,7 +82,7 @@ export function ChoiceCard({
         <DecisionBody text={body} />
       </div>
       {!chosen &&
-        (options.length > 0 ? (
+        (options.length > 0 || reply ? (
           <div className="flex flex-wrap gap-2 border-t border-line-control/60 px-4 py-2.5">
             {options.map((option, index) => (
               <Button
@@ -93,6 +97,16 @@ export function ChoiceCard({
                 {option}
               </Button>
             ))}
+            {reply && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto min-h-7 px-2.5 py-1 text-[12.5px] text-secondary"
+                onClick={() => reply({ toolCallId, question, options })}
+              >
+                {options.length > 0 ? t('Other…') : t('Reply…')}
+              </Button>
+            )}
           </div>
         ) : (
           canAct && (
@@ -103,6 +117,11 @@ export function ChoiceCard({
         ))}
     </div>
   )
+}
+
+/** "Other…": a typed answer in the composer while the card is live; never a credential's value, which must not become a message. */
+function typedReply(ctx: ConnectCardContextValue | null, interactive: boolean, category: string) {
+  return interactive && category !== 'credential' ? ctx?.reply : undefined
 }
 
 /** The question's markdown body, a few lines at first; "Show more" reveals the rest. */

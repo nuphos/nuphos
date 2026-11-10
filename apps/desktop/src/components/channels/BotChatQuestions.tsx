@@ -19,6 +19,7 @@ export function BotChatQuestion({
   credentials,
   onOpenSession,
   onAnswer,
+  onReply,
 }: {
   request: Pick<SessionInputRequest, 'sessionId' | 'title' | 'inputRequest'>
   teamId: string
@@ -27,8 +28,10 @@ export function BotChatQuestion({
   /** Absent for the Bot's own questions, which need no "From" line. */
   onOpenSession?: (sessionId: string) => void
   onAnswer: (text: string, replyTo: string) => void
+  /** Starts a typed answer to the question in the chat's composer. */
+  onReply?: (replyTo: string) => void
 }) {
-  const { part, questions, answerable, replyTo } = botChatQuestion(
+  const { part, questions, answerable, typed, replyTo } = botChatQuestion(
     request.inputRequest,
     credentials !== undefined,
   )
@@ -54,6 +57,7 @@ export function BotChatQuestion({
           saveSecret: async (name, value) =>
             (await api.agentSaveSecret(request.sessionId, name, value, teamId)).path,
           openQuestions: questions,
+          reply: onReply && typed ? (card) => onReply(replyTo(card)) : undefined,
         }}
       >
         <DecisionToolPart
