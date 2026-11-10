@@ -2,8 +2,8 @@ apiVersion: v2
 name: nuphos
 description: Self-hosted Nuphos backend with MongoDB, RustFS and an optional Claude Code runtime.
 type: application
-version: 0.3.8
-appVersion: '0.122.0'
+version: 0.3.9
+appVersion: '0.123.0'
 home: https://github.com/nuphos/nuphos
 sources:
   - https://github.com/nuphos/nuphos
