@@ -108,6 +108,10 @@ import ai.nuphos.android.session.ConnectorIntents
 import ai.nuphos.android.ui.LocalConnectorsStore
 import ai.nuphos.android.ui.connectors.ConnectorsPage
 import kotlinx.coroutines.delay
+import androidx.compose.material3.Badge
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material.icons.rounded.Inbox
 import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.LocalAuthSession
 import ai.nuphos.android.ui.LocalPlansStore
@@ -361,6 +365,18 @@ fun HomeScreen(
     LaunchedEffect(store.selectedTeam?.id) {
         plans.use(store.selectedTeam?.id)
     }
+    // The workspace's open questions, polled while in the foreground as Desktop's badge is.
+    val inbox = remember(store, store.selectedTeam?.id, store.workspaceRevision, AiAccess.revision) { store.openQuestions() }
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(inbox, lifecycle) {
+        if (inbox == null) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+            while (true) {
+                inbox.refresh()
+                delay(15_000)
+            }
+        }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -368,7 +384,7 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    if (unavailablePage) Text("Page unavailable") else PageSwitcher(selected = current, onSelect = {
+                    if (unavailablePage) Text("Page unavailable") else PageSwitcher(selected = current, inboxCount = inbox?.list?.size ?: 0, onSelect = {
                         if (it != current) {
                             pagePicked = true
                             if (current == HomePage.Agent || current == HomePage.Chats) store.updateSearch("")
@@ -423,6 +439,13 @@ fun HomeScreen(
                 when (dest) {
                     HomePage.Chats -> ai.nuphos.android.ui.chats.ChatsPage(nav, selectedSessionId, searching, { searching = it }, active = listVisible)
                     HomePage.Agent -> AgentPage(searching = searching, onSearchingChange = { searching = it }, nav = nav, showComposer = showComposer, selectedSessionId = selectedSessionId, newChatComposer = newChatComposer)
+                    HomePage.Inbox -> {
+                        val consent = AiAccess.revision
+                        val team = store.selectedTeam?.id
+                        ai.nuphos.android.ui.inbox.InboxPage(inbox, nav, allowed = {
+                            AiAccess.revision == consent && store.selectedTeam?.id == team && auth.aiAllowed
+                        })
+                    }
                     HomePage.Runtimes -> ai.nuphos.android.ui.agent.RuntimesPage()
                     HomePage.Plans -> PlansPage(searching = searching, onSearchingChange = { searching = it }, nav = nav)
                     HomePage.Connectors -> ConnectorsPage()
@@ -458,6 +481,8 @@ internal fun PageSwitcher(
     selected: HomePage,
     onSelect: (HomePage) -> Unit,
     modifier: Modifier = Modifier,
+    /** Open questions waiting in the Inbox, badged like Desktop's sidebar. */
+    inboxCount: Int = 0,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val anchorFocus = remember { FocusRequester() }
@@ -481,11 +506,16 @@ internal fun PageSwitcher(
                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
             Spacer(Modifier.width(4.dp))
             Icon(Icons.Outlined.ExpandMore, contentDescription = null)
+            if (inboxCount > 0 && selected != HomePage.Inbox) {
+                Spacer(Modifier.width(4.dp))
+                Badge(Modifier.testTag("inbox-badge").semantics { contentDescription = "$inboxCount in Inbox" }) { Text("$inboxCount") }
+            }
         }
         DropdownMenu(expanded, onDismissRequest = ::dismiss, modifier = Modifier.testTag("home-page-menu")) {
             HomePage.entries.forEach { page ->
                 DropdownMenuItem(
                     text = { Text(page.title) },
+                    trailingIcon = if (page == HomePage.Inbox && inboxCount > 0) { { Badge { Text("$inboxCount") } } } else null,
                     modifier = Modifier.testTag("home-page-${page.route}").semantics { this.selected = selected == page },
                     leadingIcon = {
                         if (selected == page) Icon(Icons.Outlined.Check, contentDescription = null)
@@ -501,6 +531,7 @@ internal fun PageSwitcher(
 private fun HomePage.icon(selected: Boolean): ImageVector = when (this) {
     HomePage.Chats -> if (selected) Icons.Rounded.Forum else Icons.Outlined.Forum
     HomePage.Agent -> if (selected) Icons.Rounded.AutoAwesome else Icons.Outlined.AutoAwesome
+    HomePage.Inbox -> if (selected) Icons.Rounded.Inbox else Icons.Outlined.Inbox
     HomePage.Runtimes -> Icons.Outlined.Computer
     HomePage.Plans -> if (selected) Icons.Rounded.Assignment else Icons.Outlined.Assignment
     HomePage.Connectors -> if (selected) Icons.Rounded.Link else Icons.Outlined.Link

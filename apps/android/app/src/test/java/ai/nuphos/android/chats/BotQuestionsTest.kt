@@ -11,6 +11,7 @@ import ai.nuphos.android.model.ComposerAttachment
 import ai.nuphos.android.model.InputRequest
 import ai.nuphos.android.session.BotQuestions
 import ai.nuphos.android.session.ChannelSession
+import ai.nuphos.android.session.OpenQuestions
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Test
@@ -117,5 +118,28 @@ class BotQuestionsTest {
         session.refresh(force = true)
         session.refreshQuestions()
         assertTrue(session.questions.isEmpty())
+    }
+
+    @Test fun theInboxListsEveryOwnQuestionOnceAndAnswersIt() = runTest {
+        val rows = listOf(
+            row("deploy", "bot-1", true, "q-2" to "2026-11-09T03:02:00Z", "q-1" to "2026-11-09T03:01:00Z"),
+            row("bot-1", null, true, "q-3" to "2026-11-09T03:03:00Z"),
+            // Also listed as a parent: read once.
+            row("deploy", "bot-1", true, "q-2" to "2026-11-09T03:02:00Z"),
+            row("theirs", null, false, "q-4" to "2026-11-09T03:04:00Z"),
+        )
+        assertEquals(listOf("q-1", "q-2", "q-3"), BotQuestions.open(rows).map { it.request.id })
+
+        val transport = FakeTransport().apply { pending = rows }
+        val inbox = OpenQuestions(transport)
+        inbox.refresh()
+        assertTrue(inbox.loaded)
+        val first = inbox.list.first()
+        var error: Exception? = null
+        inbox.answer(first, "Ship it", this) { error = it }
+        assertFalse(inbox.list.any { it.id == first.id })
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf(Triple("deploy", "Ship it", "q-1")), transport.answers)
+        assertNull(error)
     }
 }
