@@ -459,13 +459,15 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
     func gestureRecognizerShouldBegin(_ gesture: UIGestureRecognizer) -> Bool {
         guard gesture === swipe else { return true }
         let velocity = swipe.velocity(in: collection)
-        // Clear of the edge, where the system's back swipe begins.
-        guard velocity.x > abs(velocity.y) * 1.5, swipe.location(in: view).x > 24,
+        // Started clear of the edge, where the system's back swipe begins.
+        guard velocity.x > abs(velocity.y) * 1.5,
+              swipe.location(in: view).x - swipe.translation(in: view).x > 24,
               let path = collection.indexPathForItem(at: swipe.location(in: collection)),
               let cell = collection.cellForItem(at: path) as? TranscriptCell,
               let id = dataSource.itemIdentifier(for: path), let row = byID[id],
               let action = swipeAction?(row) else { return false }
         swiping = (cell, action)
+        swipeFeedback.prepare()
         return true
     }
 
@@ -930,7 +932,8 @@ private final class TranscriptCell: UICollectionViewCell {
 
     func setPull(_ pull: CGFloat, reached: Bool) {
         self.pull = pull
-        contentView.transform = CGAffineTransform(translationX: pull, y: 0)
+        // Auto Layout places the host by center and bounds, so a layout mid-swipe keeps the transform.
+        host.view.transform = CGAffineTransform(translationX: pull, y: 0)
         arrow.tintColor = UIColor(reached ? Theme.brand : Theme.muted)
         arrow.alpha = min(pull / 60, 1)
         arrow.center = CGPoint(x: 16 + min(pull, 60) - 28, y: bounds.midY)
