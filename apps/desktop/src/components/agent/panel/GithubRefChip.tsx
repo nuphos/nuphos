@@ -24,7 +24,7 @@ import type { MouseEvent, ReactNode } from 'react'
 const STATE: Record<GithubRefState, { label: string; tone: string }> = {
   open: { label: t('Open|state'), tone: 'text-success' },
   draft: { label: t('Draft'), tone: 'text-tertiary' },
-  merged: { label: t('Merged'), tone: 'text-primary' },
+  merged: { label: t('Merged'), tone: 'session-resource-merged' },
   closed: { label: t('Closed'), tone: 'text-error' },
   completed: { label: t('Closed'), tone: 'text-primary' },
   not_planned: { label: t('Not planned'), tone: 'text-tertiary' },
