@@ -195,10 +195,7 @@ test('personal skills follow the turn’s credential and never land in the works
     return [...calls]
   }
 
-  assert.equal(
-    await sync(opened, { workspace, sessionHome, credentialsDir }),
-    true,
-  )
+  assert.equal(await sync(opened, { workspace, sessionHome, credentialsDir }), true)
   assert.deepEqual(readdirSync(skills).sort(), ['_runtime', 'owner'])
   assert.deepEqual(readdirSync(join(workspace, '.claude', 'skills')), ['team'])
   // In place, so a running session keeps watching it; and no agent settings from it.
