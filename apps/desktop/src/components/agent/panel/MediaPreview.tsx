@@ -111,6 +111,7 @@ function PdfPreview({
         if (!active) return
         if (!bytes) {
           fail()
+
           return
         }
         made = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
