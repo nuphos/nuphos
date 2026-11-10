@@ -16,12 +16,18 @@ import kotlinx.coroutines.withContext
  * Open questions read from the pending listing, as Desktop's Inbox reads them, and answered from
  * their cards. The Inbox shows them all; a Bot's chat only those under the Bot.
  */
-class OpenQuestions(private val source: Source) {
+class OpenQuestions(
+    private val source: Source,
+    /** A Bot's own chat, if it has one: a Bot's own question is answered there, where it shows. */
+    private val chatOf: (botId: String) -> String? = { null },
+) {
     interface Source {
         /** Every page of the viewer's conversations with an open question, with their parents. */
         suspend fun pending(): List<AgentConversation> = emptyList()
         /** The owner's reply to [sessionId], naming the question it answers. */
         suspend fun answer(sessionId: String, text: String, requestId: String) {}
+        /** A post in the Bot's chat [chatId], naming its question it answers. */
+        suspend fun answerInChat(chatId: String, text: String, requestId: String) {}
     }
 
     class Api(private val token: String, private val teamId: String) : Source {
@@ -45,11 +51,19 @@ class OpenQuestions(private val source: Source) {
             }
             if (!sent) throw NuphosApi.Failure.InvalidResponse
         }
+
+        override suspend fun answerInChat(chatId: String, text: String, requestId: String) {
+            ChannelSession.Api(token, teamId, chatId)
+                .post(text, java.util.UUID.randomUUID().toString().lowercase(), null, null, decisionReplyTo = requestId)
+        }
     }
 
     private var listed by mutableStateOf<List<BotQuestion>>(emptyList())
     /** Answered here; hidden until the listing no longer has them open. */
     private var answered by mutableStateOf(emptySet<String>())
+    /** Why the last answer to a question failed, by [BotQuestion.id], until it is answered again. */
+    var failures by mutableStateOf(emptyMap<String, String>())
+        private set
     /** False until the first listing lands. */
     var loaded by mutableStateOf(false)
         private set
@@ -71,18 +85,25 @@ class OpenQuestions(private val source: Source) {
 
     /**
      * The owner's own reply to the conversation that asked, naming the question, so it resolves
-     * that one request wherever it is shown. Hidden at once; shown again if it could not be sent.
+     * that one request wherever it is shown: a card's quick reply. Hidden at once; if it could not
+     * be sent, the card comes back with why. [send] is how the answer goes out.
      */
-    fun answer(question: BotQuestion, text: String, scope: CoroutineScope, onError: (Exception) -> Unit) {
+    fun answer(question: BotQuestion, text: String, scope: CoroutineScope,
+               send: suspend () -> Unit = {
+                   val chat = chatOf(question.sessionId)
+                   if (chat != null) source.answerInChat(chat, text, question.request.id)
+                   else source.answer(question.sessionId, text, question.request.id)
+               }) {
         answered = answered + question.id
+        failures = failures - question.id
         scope.launch {
             try {
-                source.answer(question.sessionId, text, question.request.id)
+                send()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 answered = answered - question.id
-                onError(e)
+                failures = failures + (question.id to ChannelSession.postFailureMessage(e))
             }
         }
     }

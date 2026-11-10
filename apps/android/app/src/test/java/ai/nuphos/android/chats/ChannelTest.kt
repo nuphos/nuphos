@@ -127,7 +127,7 @@ class ChannelTest {
             uploads += attachments.map { it.name }; heldUpload?.await(); return "64b5f1c2e4b0a1d2c3e4f5a9"
         }
         val replies = mutableListOf<String?>()
-        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?) {
+        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?, decisionReplyTo: String?) {
             posts += Triple(text, id, upload)
             replies += replyTo
             if (failPost) throw NuphosApi.Failure.Http(500, "Synthetic post failure")

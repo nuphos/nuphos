@@ -7,7 +7,6 @@ struct InboxPage: View {
     @Environment(AgentStore.self) private var store
     let inbox: OpenQuestions?
 
-    @State private var sendError: String?
     @State private var opened: AgentPage.OpenChat?
 
     var body: some View {
@@ -22,12 +21,6 @@ struct InboxPage: View {
                         // An answer given there leaves the Inbox on return.
                         .onDisappear { Task { await inbox?.refresh() } }
                 }
-            }
-            .alert("Couldn't send the message", isPresented: Binding(
-                get: { sendError != nil }, set: { if !$0 { sendError = nil } })) {
-                Button("OK") { sendError = nil }
-            } message: {
-                Text(sendError ?? "")
             }
     }
 
@@ -49,13 +42,8 @@ struct InboxPage: View {
                                     opened = AgentPage.OpenChat(session: store.session(
                                         sessionId: question.sessionId, title: question.title, teamId: inbox.teamId))
                                 },
-                                onAnswer: { text in
-                                    Task {
-                                        do { try await inbox.answer(question, with: text) } catch {
-                                            sendError = error.localizedDescription
-                                        }
-                                    }
-                                })
+                                onAnswer: { text in Task { await inbox.answer(question, with: text) } },
+                                failure: inbox.failures[question.id])
                         }
                     }
                     .padding(.horizontal, 16)

@@ -223,7 +223,11 @@ struct HomeView: View {
         // Polled while the app is active, as the desktop's badge is, so the count stays current on every page.
         .task(id: scenePhase == .active ? store?.selectedTeam?.id : nil) {
             guard scenePhase == .active, let store, let team = store.selectedTeam?.id else { return }
-            if inbox?.teamId != team { inbox = OpenQuestions(token: store.token, teamId: team) }
+            if inbox?.teamId != team {
+                inbox = OpenQuestions(token: store.token, teamId: team) { bot in
+                    store.conversations.first { $0.botId == bot }?.sessionId
+                }
+            }
             while !Task.isCancelled {
                 await inbox?.refresh()
                 try? await Task.sleep(for: .seconds(15))

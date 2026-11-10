@@ -1,6 +1,5 @@
 package ai.nuphos.android.ui.inbox
 
-import ai.nuphos.android.session.ChannelSession
 import ai.nuphos.android.session.OpenQuestions
 import ai.nuphos.android.ui.chats.BotQuestionCard
 import androidx.compose.foundation.layout.Arrangement
@@ -11,17 +10,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -36,7 +29,6 @@ import androidx.navigation.NavHostController
 @Composable
 fun InboxPage(inbox: OpenQuestions?, nav: NavHostController, allowed: () -> Boolean) {
     val scope = rememberCoroutineScope()
-    var sendError by remember { mutableStateOf<String?>(null) }
     Box(Modifier.fillMaxSize().testTag("inbox")) {
         when {
             inbox == null || !inbox.loaded -> CircularProgressIndicator(Modifier.align(Alignment.Center))
@@ -51,15 +43,10 @@ fun InboxPage(inbox: OpenQuestions?, nav: NavHostController, allowed: () -> Bool
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(inbox.list.asReversed(), key = { it.id }) { question ->
                     BotQuestionCard(question, onOpen = { nav.navigate("conversation/${question.sessionId}") },
-                        onAnswer = { text ->
-                            if (allowed()) inbox.answer(question, text, scope) { sendError = ChannelSession.postFailureMessage(it) }
-                        })
+                        onAnswer = { text -> if (allowed()) inbox.answer(question, text, scope) },
+                        failure = inbox.failures[question.id])
                 }
             }
         }
-    }
-    sendError?.let { message ->
-        AlertDialog(onDismissRequest = { sendError = null }, title = { Text("Couldn't send the message") },
-            text = { Text(message) }, confirmButton = { TextButton(onClick = { sendError = null }) { Text("OK") } })
     }
 }
