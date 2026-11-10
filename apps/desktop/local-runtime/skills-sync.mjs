@@ -1,5 +1,9 @@
 // Serialized into the adapter with `.toString()`, so it must stay self-contained:
 // no top-level imports and no references outside its own body.
+//
+// Never holds a session open on the network. It returns once the session's own
+// directories are set up; the fetch runs on as `synced` and lands for the next
+// session. A first session on a fresh machine therefore starts without skills.
 export async function nuphosLocalSyncSkills(params, options = {}) {
   const env =
     params?._meta?.claudeCode?.options?.env ??
@@ -10,9 +14,11 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
   const token = env.NUPHOS_RUNTIME_SKILLS_TOKEN
   const workspace = options.workspace ?? process.env.NUPHOS_RUNTIME_WORKSPACE
 
+  const none = { synced: Promise.resolve(false) }
+
   if (typeof url !== 'string' || typeof token !== 'string' || !url || !token || !workspace)
-    return false
-  if (!/^https?:\/\//u.test(url) || /[\u0000-\u001f"\\]/u.test(url + token)) return false
+    return none
+  if (!/^https?:\/\//u.test(url) || /[\u0000-\u001f"\\]/u.test(url + token)) return none
   const fs = await import('node:fs/promises')
   const path = await import('node:path')
   const { randomUUID } = await import('node:crypto')
@@ -170,7 +176,7 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
     }
   }
 
-  if (!personal) return install(path.join(workspace, '.claude'), url, true)
+  if (!personal) return { synced: install(path.join(workspace, '.claude'), url, true) }
   const personalClaude = path.join(personal, '.claude')
   const personalSkills = path.join(personalClaude, 'skills')
   // Whose personal skills, if anyone's, can change between the turns of a live session.
@@ -263,10 +269,10 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
         await agent.setSessionConfigOption({ sessionId: id, configId, value }).catch(() => {})
     }
   }
-  const [team] = await Promise.all([
+  const synced = Promise.all([
     install(path.join(workspace, '.claude'), url, true),
-    syncPersonal(),
-  ])
+    syncPersonal().catch(() => false),
+  ]).then(([team]) => team)
 
   // Present even when empty, so a skill synced for a later turn is picked up.
   await fs.mkdir(personalSkills, { recursive: true })
@@ -275,5 +281,5 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
     personal,
   ]
 
-  return team
+  return { synced }
 }
