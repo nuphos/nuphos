@@ -165,29 +165,63 @@ const STDERR_TAIL_BYTES: usize = 2_000;
 /// One runaway line (a minified stack, a JSON dump) must not evict the whole tail.
 const STDERR_LINE_CHARS: usize = 500;
 
-/// A line that may carry a credential is withheld whole: a partial mask can leak
-/// the part it did not recognise.
-static CREDENTIAL_LIKE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+/// Only lines that read like a failure are kept: that is what the person needs, and it
+/// leaves out ordinary output (and the body of anything multi-line, such as a PEM key).
+static ERROR_LIKE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
     regex::Regex::new(
-        r"(?i)api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|secret|passw(or)?d|authorization|bearer\s|cookie|\bsk-[a-z0-9]|\bgh[pousr]_|\bxox[abpr]-|-----BEGIN",
+        r"(?i)\b(error|errno|exception|fail(s|ed|ure)?|fatal|panic(ked)?|denied|refused|forbidden|unauthori[sz]ed|timed? ?out|timeout|not found|no such|cannot|unable|invalid|abort(ed)?|killed|signal|out of memory|exit(ed)? (with )?(code|status))\b|(?-i:\bE[A-Z]{3,}\b)|^\s*at\s|Traceback|\.(rs|js|mjs|cjs|ts|py):\d+",
     )
+    .expect("valid error pattern")
+});
+
+/// A line that may carry a credential is withheld whole: a partial mask can leak the
+/// part it did not recognise. Named secrets, credential-shaped values and URLs with a
+/// password all count.
+static CREDENTIAL_LIKE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new(concat!(
+        r"(?i)api[_-]?key|(token|key|secret|credential)s?\W{0,3}\s*[=:]|_token\b|access[_-]?token|refresh[_-]?token|id[_-]?token",
+        r"|secret|passw(or)?d|passphrase|credential|authorization|\bbearer\s|\bbasic\s+[a-z0-9+/=]{8,}|cookie|private[_-]?key|-----(begin|end)",
+        r"|\bsk[-_](live_|test_|proj-|ant-)?[a-z0-9]|\brk_(live|test)_|\bgh[pousr]_|\bgithub_pat_|\bglpat-|\bnpm_[a-z0-9]{20,}|\bxox[abprs]-",
+        r"|\baiza[0-9a-z_-]{20,}|\b(akia|asia)[0-9a-z]{16}\b|\beyj[a-z0-9_-]{6,}\.[a-z0-9_-]{6,}\.|[a-z][a-z0-9+.-]*://[^/\s:@]+:[^/\s@]+@",
+    ))
     .expect("valid credential pattern")
 });
 
-fn redact_stderr_line(line: &str) -> String {
+/// A long opaque run (a hash, a key) is masked in place: it never explains a failure.
+static OPAQUE_RUN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new(r"[A-Za-z0-9+/_=-]{32,}").expect("valid opaque pattern")
+});
+
+/// The line as it may be shown, or `None` when it is not worth keeping.
+fn redact_stderr_line(line: &str) -> Option<String> {
     if CREDENTIAL_LIKE.is_match(line) {
-        return "[line withheld: it may contain a credential]".to_string();
+        return Some("[line withheld: it may contain a credential]".to_string());
+    }
+    if !ERROR_LIKE.is_match(line) {
+        return None;
     }
     let line: String = if line.chars().count() > STDERR_LINE_CHARS {
         format!("{}…", line.chars().take(STDERR_LINE_CHARS).collect::<String>())
     } else {
         line.to_string()
     };
-    line.split(' ')
-        .map(crate::redact::redact_session_ids)
-        .collect::<Vec<_>>()
-        .join(" ")
-        .replace("```", "'''")
+    let line = OPAQUE_RUN.replace_all(&line, |run: &regex::Captures| {
+        let run = &run[0];
+        let digits = run.chars().any(|c| c.is_ascii_digit());
+        let letters = run.chars().any(|c| c.is_ascii_alphabetic());
+        if digits && letters {
+            "[redacted]".to_string()
+        } else {
+            run.to_string()
+        }
+    });
+    Some(
+        line.split(' ')
+            .map(crate::redact::redact_session_ids)
+            .collect::<Vec<_>>()
+            .join(" ")
+            .replace("```", "'''"),
+    )
 }
 
 /// An internal error (-32603) that carries no detail gets the agent's recent
@@ -257,8 +291,11 @@ impl SessionActivity {
             *self.process_death.lock().unwrap_or_else(|e| e.into_inner()) =
                 Some(message.to_string());
         }
+        let Some(line) = redact_stderr_line(line) else {
+            return;
+        };
         let mut tail = self.stderr_tail.lock().unwrap_or_else(|e| e.into_inner());
-        tail.push_back(redact_stderr_line(line));
+        tail.push_back(line);
         while tail.len() > STDERR_TAIL_LINES
             || tail.iter().map(|l| l.len() + 1).sum::<usize>() > STDERR_TAIL_BYTES
         {
@@ -2077,28 +2114,75 @@ mod reader_loop_tests {
         let activity = SessionActivity::new();
         assert_eq!(activity.stderr_tail(), None);
         for i in 0..30 {
-            activity.note_stderr(&format!("line {i}"));
+            activity.note_stderr(&format!("Error: step {i} failed"));
         }
         let tail = activity.stderr_tail().unwrap();
         assert_eq!(tail.lines().count(), STDERR_TAIL_LINES);
-        assert!(tail.starts_with("line 10") && tail.ends_with("line 29"));
+        assert!(tail.starts_with("Error: step 10") && tail.ends_with("step 29 failed"));
 
         activity.note_stderr("Authorization: Bearer abc123");
-        activity.note_stderr("resuming sess_0f8c2b9e-0000-4000-8000-000000000000 now");
-        activity.note_stderr("```injected fence");
+        activity.note_stderr("Error: cannot resume sess_0f8c2b9e-0000-4000-8000-000000000000");
+        activity.note_stderr("Error: ```injected fence");
         let tail = activity.stderr_tail().unwrap();
         assert!(!tail.contains("abc123"));
         assert!(tail.contains("[line withheld: it may contain a credential]"));
         assert!(!tail.contains("sess_0f8c2b9e"));
         assert!(!tail.contains("```"));
 
-        activity.note_stderr(&"x".repeat(3_000));
+        activity.note_stderr(&format!("Error: {}", "x".repeat(3_000)));
         let tail = activity.stderr_tail().unwrap();
         assert!(tail.len() <= STDERR_TAIL_BYTES);
         assert!(tail.ends_with('…'), "a long line is cut, not dropped");
 
         activity.set_in_flight(true);
         assert_eq!(activity.stderr_tail(), None);
+    }
+
+    #[test]
+    fn stderr_tail_keeps_failures_and_never_a_credential() {
+        let leaks = [
+            "NUPHOS_TOKEN=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.c2lnbmF0dXJl failed",
+            "Error: request failed with eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.c2ln",
+            "Error: AWS AKIAIOSFODNN7EXAMPLE was denied",
+            "Error: connect postgres://admin:hunter2@db.internal:5432/app refused",
+            "Error: fetch https://user:pw@example.com/x failed",
+            "Error: invalid key AIzaSyA1234567890abcdefghijklmnopqrstu",
+            "Error: glpat-abcdefghijklmnopqrst rejected",
+            "Error: npm_abcdefghijklmnopqrstuvwxyz0123 unauthorized",
+            "Error: sk_live_abcdef123456 declined",
+            "Error: header Basic dXNlcjpwYXNzd29yZA== refused",
+            "Error: GITHUB_PAT: github_pat_11ABCDEFG denied",
+        ];
+        for leak in leaks {
+            assert_eq!(
+                redact_stderr_line(leak).as_deref(),
+                Some("[line withheld: it may contain a credential]"),
+                "{leak}"
+            );
+        }
+
+        // A multi-line private key: its body and END line are not failures, so none of it is kept.
+        let activity = SessionActivity::new();
+        for line in [
+            "-----BEGIN EC PRIVATE KEY-----",
+            "MHcCAQEEIBkg4LVWM9nuwNSk3yByxZpYRTBnVJk5oa8+3yZx2EwJoAoGCCqGSM49",
+            "AwEHoUQDQgAE7zLHXl9C9KzJSlp0Pa0yA+0zSAJUKsXTv2VtzOdQzv6L4a8pAbJ1",
+            "-----END EC PRIVATE KEY-----",
+            "listening on port 8080",
+        ] {
+            activity.note_stderr(line);
+        }
+        let tail = activity.stderr_tail().unwrap_or_default();
+        assert!(!tail.contains("MHcCAQEE") && !tail.contains("AwEHoUQ"), "{tail}");
+        assert!(!tail.contains("listening on port"));
+
+        // The cause survives; the opaque session-home hash in its path does not.
+        let enospc = redact_stderr_line(
+            "Error: ENOSPC: no space left on device, mkdir '/home/node/.nuphos/session-homes/3f9a2b7c1d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4f5061728394a5b6c7d8e'",
+        )
+        .unwrap();
+        assert!(enospc.contains("ENOSPC: no space left on device"));
+        assert!(enospc.contains("[redacted]") && !enospc.contains("3f9a2b7c1d4e"));
     }
 
     #[test]
