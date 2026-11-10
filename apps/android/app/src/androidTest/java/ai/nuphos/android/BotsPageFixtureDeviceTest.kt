@@ -48,6 +48,8 @@ class BotsPageFixtureDeviceTest {
     private var auth: ai.nuphos.android.session.AuthSession? = null
     private var savedAccess: Any? = null
     @Volatile private var chats = ""
+    /** The 1:1 Bot's runtime state, as its conversation detail reports it. */
+    @Volatile private var botTurn = """{"state":"idle"}"""
     @Volatile private var history = ""
     @Volatile private var failAddingBot = false
     @Volatile private var failCreatingBot = false
@@ -111,6 +113,7 @@ class BotsPageFixtureDeviceTest {
                     if (request.url.queryParameter("scope") == "mine") """{"conversations":[$chats],"hasMore":false}"""
                     else """{"conversations":[],"hasMore":false}"""
                 path == "/agent/conversations" -> """{"conversations":[$history],"hasMore":false}"""
+                path == "/agent/conversations/bot-chatted" -> """{"sessionId":"bot-chatted","runtimeState":$botTurn}"""
                 else -> "{}"
             }
             Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("fixture")
@@ -178,6 +181,18 @@ class BotsPageFixtureDeviceTest {
         row("a-task").assertDoesNotExist()
         compose.onNodeWithText("Ready when you are").assertExists()
         compose.onNodeWithText("Diana: Shipping today").assertExists()
+    }
+
+    @Test fun aBotsRowShowsItsChatsDotsWhileItAnswersThenItsReply() {
+        chats = oneOnOne
+        botTurn = """{"state":"active","phase":"working","channelIds":["chat-bot"]}"""
+        render()
+        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription("Ada is typing", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Ready when you are").assertDoesNotExist()
+        chats = oneOnOne.replace("Ready when you are", "Here is the plan")
+        botTurn = """{"state":"idle","phase":"idle","channelIds":["chat-bot"]}"""
+        waitText("Here is the plan")
+        compose.onAllNodesWithContentDescription("Ada is typing", substring = true).assertCountEquals(0)
     }
 
     @Test fun aChatOpensWithoutWritingAnything() {
