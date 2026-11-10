@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { botQuestions, inputRequestKey, sessionInputRequests } from './sessionInputRequests.ts'
+import { inputRequestKey, openQuestionsUnder } from './sessionInputRequests.ts'
 
 import type { AgentConversation } from '../../../api/agent-types.ts'
+
+const under = (id: string, rows: AgentConversation[]) => openQuestionsUnder(id, rows, [], new Map())
 
 function chat(id: string, parentSessionId?: string, question?: string): AgentConversation {
   return {
@@ -38,7 +40,7 @@ test('lists explicit questions from seven children, the parent and nested agents
     chat('unrelated', 'other-parent', 'Another team task'),
     chat('idle', 'parent'),
   ]
-  const requests = sessionInputRequests('parent', conversations)
+  const requests = under('parent', conversations)
 
   assert.equal(requests.length, 9)
   assert.equal(
@@ -61,9 +63,7 @@ test('new arrivals append without activity changes reordering the current questi
   second.pendingDecision.askedAt = '2026-10-27T02:00:00Z'
   arriving.pendingDecision.askedAt = '2026-10-27T03:00:00Z'
   first.lastActiveAt = '2026-10-27T05:00:00Z'
-  const ids = sessionInputRequests('parent', [arriving, second, first]).map(
-    (request) => request.sessionId,
-  )
+  const ids = under('parent', [arriving, second, first]).map((request) => request.sessionId)
 
   assert.deepEqual(ids, ['first', 'second', 'arriving'])
 })
@@ -72,7 +72,7 @@ test('a fresh answered listing removes the pending record instead of duplicating
   const old = chat('agent', 'parent', 'Question')
   const answered = chat('agent', 'parent')
 
-  assert.deepEqual(sessionInputRequests('parent', [old, answered]), [])
+  assert.deepEqual(under('parent', [old, answered]), [])
 })
 
 test('every open question of one agent is listed, each with its own identity', () => {
@@ -89,7 +89,7 @@ test('every open question of one agent is listed, each with its own identity', (
     ask('later', '2026-10-27T03:00:00Z'),
     ask('earlier', '2026-10-27T02:00:00Z'),
   ]
-  const requests = sessionInputRequests('parent', [agent, chat('other', 'parent', 'Other')])
+  const requests = under('parent', [agent, chat('other', 'parent', 'Other')])
 
   assert.deepEqual(
     requests.map((request) => request.inputRequest.id),
@@ -99,7 +99,7 @@ test('every open question of one agent is listed, each with its own identity', (
 })
 
 test('cyclic ancestry terminates', () => {
-  assert.deepEqual(sessionInputRequests('parent', [chat('a', 'b', 'A'), chat('b', 'a', 'B')]), [])
+  assert.deepEqual(under('parent', [chat('a', 'b', 'A'), chat('b', 'a', 'B')]), [])
 })
 
 test("switching Bot chats draws only the new Bot's listed questions, never a cached or foreign one", () => {
@@ -117,13 +117,16 @@ test("switching Bot chats draws only the new Bot's listed questions, never a cac
     chat('b-leaf', 'b-mid', 'B grandchild asks'),
   ]
   const shown = (botId: string) =>
-    botQuestions(botId, pending, known, new Map()).map((r) => r.inputRequest.question)
+    openQuestionsUnder(botId, pending, known, new Map()).map((r) => r.inputRequest.question)
 
   assert.deepEqual(shown('bot-a').sort(), ['A asks', 'A grandchild asks'])
   // Switched to B: nothing of A's, and not B's stale cached question.
   assert.deepEqual(shown('bot-b'), ['B grandchild asks'])
   // Before the listing loads, the chat draws nothing rather than the cache.
-  assert.deepEqual(botQuestions('bot-b', [], known, new Map()), [])
+  assert.deepEqual(openQuestionsUnder('bot-b', [], known, new Map()), [])
   // A question answered on this device leaves at once.
-  assert.deepEqual(botQuestions('bot-b', pending, known, new Map([['question-b-leaf', 1]])), [])
+  assert.deepEqual(
+    openQuestionsUnder('bot-b', pending, known, new Map([['question-b-leaf', 1]])),
+    [],
+  )
 })

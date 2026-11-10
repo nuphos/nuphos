@@ -17,7 +17,7 @@ let loads = 0
 let runtimeStates = new Map<string, { state: string }>()
 const runtimeListeners = new Set<() => void>()
 const windowListeners = new Map<string, Set<() => void>>()
-const known = [
+let known = [
   { sessionId: 'first', teamId: 'team' },
   { sessionId: 'second', teamId: 'team' },
 ] as AgentConversation[]
@@ -54,9 +54,7 @@ mock.module('../../../lib/agentRuntimeStates.ts', {
     },
   },
 })
-mock.module('../../../lib/openedConversation.ts', {
-  namedExports: { useOpenedConversation: () => null },
-})
+mock.module('../../ui/toast.ts', { namedExports: { toast: { info: () => {} } } })
 mock.module('../../../lib/swrCache.ts', { namedExports: { useSwrCache: () => known } })
 mock.module('../../sidebar/state.ts', { namedExports: { agentSessionsCacheKey: () => 'team' } })
 mock.module('react', {
@@ -74,6 +72,7 @@ mock.module('react', {
       ]
     },
     useMemo: (calculate: () => unknown) => calculate(),
+    useSyncExternalStore: (_subscribe: unknown, snapshot: () => unknown) => snapshot(),
     useEffect: (next: Effect, deps: unknown[]) => {
       effects[effectCursor] ??= {}
       const slot = effects[effectCursor++]!
@@ -202,4 +201,34 @@ test('unmounting stops listening for refreshes', async () => {
   await settle()
   assert.equal(loads, 0)
   assert.equal(windowListeners.get('focus')?.size ?? 0, 0)
+})
+
+test("the queue draws only what the pending listing holds, never a cached row's old question", async () => {
+  // The sidebar cache still says "first" asks something, answered long ago.
+  const cached = known
+
+  known = [{ ...cached[0]!, pendingDecision: { ...question.pendingDecision! } }, cached[1]!]
+  pending = []
+  render('first')
+  await settle()
+  assert.deepEqual(render('first').requests, [])
+  // Another session's question under "second" is never drawn in "first".
+  pending = [{ ...question, parentSessionId: 'second' }]
+  refreshInputRequests()
+  await settle()
+  assert.deepEqual(render('first').requests, [])
+  assert.equal(render('second').requests[0]?.inputRequest.id, 'question-1')
+  known = cached
+})
+
+test("a teammate who may reply sees a shared Task's questions; a read-only viewer does not", async () => {
+  // Someone else's conversation, shared with the viewer.
+  pending = [{ ...question, isOwner: false, readOnly: false }]
+  render('first')
+  await settle()
+  assert.equal(render('first').requests[0]?.inputRequest.id, 'question-1')
+  pending = [{ ...question, isOwner: false, readOnly: true }]
+  refreshInputRequests()
+  await settle()
+  assert.deepEqual(render('first').requests, [])
 })
