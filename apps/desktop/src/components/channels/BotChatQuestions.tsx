@@ -18,7 +18,7 @@ export function BotChatQuestion({
   onOpenSession,
   onAnswer,
 }: {
-  request: SessionInputRequest
+  request: Pick<SessionInputRequest, 'sessionId' | 'title' | 'inputRequest'>
   teamId: string
   /** The asking conversation's credential picker, for its Connect card; absent where it cannot be changed here. */
   credentials?: CredentialSelectorControl

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
+import { parseChoiceRequest, parseSecretRequest } from '../agent/panel/connectCardModel.ts'
+
 import { botChatQuestion } from './botChatQuestion.ts'
 
 import type { AgentInputRequest } from '../../api/agent-types.ts'
@@ -43,6 +45,24 @@ test('a secret is answered from its secure card', () => {
   assert.deepEqual(question.questions, [
     { id: 'req-1', question: 'Paste the key', secret: true, secretName: 'API_KEY' },
   ])
+})
+
+test('a secret record draws the masked secure card in a Bot chat and the Inbox', () => {
+  const secret = request({
+    category: 'credential',
+    question: 'Paste the client secret',
+    secretName: 'CLIENT_SECRET',
+  })
+  const { part } = botChatQuestion(secret)
+
+  // The Inbox keys on the record itself and draws this same card.
+  assert.notEqual(parseSecretRequest(secret), null)
+  // The card's input is the secure card's, never a question card's.
+  assert.deepEqual(parseSecretRequest(part.input), {
+    name: 'CLIENT_SECRET',
+    reason: 'Paste the client secret',
+  })
+  assert.equal(parseChoiceRequest(part.input), null)
 })
 
 test('a free-form question is shown but answered in its own conversation', () => {

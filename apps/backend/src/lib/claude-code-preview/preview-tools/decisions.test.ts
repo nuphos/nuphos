@@ -351,6 +351,13 @@ describe('decision tool module', () => {
 
     expect(result.structuredContent).not.toHaveProperty('secretName')
     expect((result.structuredContent as { instruction: string }).instruction).not.toContain('card')
+    // A sub-agent's turn has no Desktop session, yet its owner answers it from the
+    // Inbox or a Bot's chat, which draw the secure card from the record.
+    expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
+      $push: {
+        inputRequests: { $each: [{ category: 'credential', secretName: 'OPENAI_API_KEY' }] },
+      },
+    })
   })
 
   test('client-side tools publish only the input card and return what the desktop ran', async () => {
