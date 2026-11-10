@@ -13,6 +13,8 @@ import ai.nuphos.android.model.ComposerAttachment
 import ai.nuphos.android.model.ComposerSubmission
 import ai.nuphos.android.model.ConversationScope
 import ai.nuphos.android.model.HomePage
+import ai.nuphos.android.model.InputRequest
+import ai.nuphos.android.session.BotQuestion
 import ai.nuphos.android.session.ChannelSession
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -88,6 +90,15 @@ class ChannelTest {
             (items.first { it.key == "time.local" } as ChannelItem.Time).at)
         assertEquals("The chat returning it adds no row", items.map { it.key },
             ChannelPost.items(posts.map { it.copy(sending = false) }, emptyList(), emptyList()).map { it.key })
+    }
+
+    @Test fun aQuestionSitsWhereItWasAsked() {
+        val a = ChannelPost.from(message(person))!!
+        fun at(id: String, time: String) = a.copy(id = id, sentAt = Instant.parse(time))
+        fun ask(id: String, time: String) = BotQuestion("bot", "Bot", InputRequest(id, "approval", "Ship?", listOf("Yes"), time))
+        val items = ChannelPost.items(listOf(at("m1", "2026-11-03T09:00:00Z"), at("m2", "2026-11-03T09:10:00Z")), emptyList(), emptyList(),
+            listOf(ask("q2", "2026-11-03T09:05:00.000Z"), ask("q3", "2026-11-03T09:20:00Z")))
+        assertEquals(listOf("time.m1", "post.m1", "question.bot:q2", "post.m2", "question.bot:q3"), items.map { it.key })
     }
 
     private class FakeTransport : ChannelSession.Transport {
