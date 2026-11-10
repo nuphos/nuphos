@@ -6,10 +6,8 @@ import { getConversationBySessionId } from '../db'
 import { agentTriggers, isRetiredTriggerShape } from '../trigger-db'
 
 import type { MonitoringIdentity } from '../monitoring-workflow'
-import type { SessionRouting } from '../session-routing'
 import type { TriggerActorContext } from '../trigger-access'
 import type { AgentTrigger, TriggerSource, TriggerSourceContext, TriggerType } from '../trigger-db'
-import type { SlackOutboundDestination } from '@/lib/slack/destinations'
 
 /** Who is performing a trigger mutation, and on whose behalf. */
 export type TriggerCallerContext = {
@@ -21,9 +19,8 @@ export type CreateTriggerInput = {
   name: string
   triggerType: TriggerType
   cronExpression?: string
-  sessionRouting?: SessionRouting
-  /** Existing conversation every fire is delivered into. */
-  targetSessionId?: string
+  /** Existing conversation every fire is delivered into. Every Trigger has one. */
+  targetSessionId: string
   messageTemplate: string
   /** Auto-disable after this time (hourly expiry sweep). */
   expiresAt?: Date
@@ -41,10 +38,6 @@ export type CreateTriggerInput = {
   enabled?: boolean
   /** Webhook flood guard: min seconds between runs (default from config; 0 disables). */
   minIntervalSeconds?: number
-  /** Stateful anti-spam delivery for monitoring webhooks that post to Slack. */
-  incidentMode?: boolean
-  /** Required with incidentMode; enforced again when slack_post executes. */
-  slackDestination?: SlackOutboundDestination
 }
 
 export type UpdateTriggerPatch = {
@@ -52,59 +45,9 @@ export type UpdateTriggerPatch = {
   messageTemplate?: string
   enabled?: boolean
   cronExpression?: string
-  /** Bind to an existing conversation, or null to open a new one per fire again. */
-  targetSessionId?: string | null
+  /** Move delivery to another existing conversation. A Trigger cannot be unbound. */
+  targetSessionId?: string
   minIntervalSeconds?: number
-  incidentMode?: boolean
-  /** Set a new exact destination, or null to clear it when disabling incident mode. */
-  slackDestination?: SlackOutboundDestination | null
-}
-
-export function validateSlackDestination(destination: SlackOutboundDestination): void {
-  if (destination.type === 'dm_self') return
-  if (!destination.channelId.trim() || destination.channelId.length > 32) {
-    throw new AppError(400, 'invalid_slack_destination', 'slackDestination.channelId is invalid')
-  }
-}
-
-export function validateIncidentConfiguration(input: {
-  triggerType: TriggerType
-  incidentMode?: boolean
-  slackDestination?: SlackOutboundDestination | null
-}): void {
-  if (input.triggerType !== 'webhook') {
-    if (input.incidentMode !== undefined) {
-      throw new AppError(
-        400,
-        'invalid_incident_mode',
-        'incidentMode is only valid for webhook triggers',
-      )
-    }
-    if (input.slackDestination !== undefined) {
-      throw new AppError(
-        400,
-        'invalid_slack_destination',
-        'slackDestination is only valid for webhook triggers',
-      )
-    }
-
-    return
-  }
-  if (input.slackDestination) validateSlackDestination(input.slackDestination)
-  if (input.incidentMode === true && !input.slackDestination) {
-    throw new AppError(
-      400,
-      'missing_slack_destination',
-      'incidentMode requires an explicit slackDestination',
-    )
-  }
-  if (input.slackDestination && input.incidentMode !== true) {
-    throw new AppError(
-      400,
-      'invalid_slack_destination',
-      'slackDestination requires incidentMode=true',
-    )
-  }
 }
 
 /** A Trigger may only wake a conversation its execution principal owns. */

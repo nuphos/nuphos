@@ -19,13 +19,16 @@ export type CreateTriggerGroupInput = {
   memberKeys: string[]
   messageTemplate: string
   minIntervalSeconds?: number
-  slackDestination?: SlackOutboundDestination
+  /** Existing conversation every member fire is delivered into. */
+  targetSessionId: string
 }
 
 export type UpdateTriggerGroupInput = {
   name?: string
   messageTemplate?: string
   enabled?: boolean
+  /** Move every ingress to another existing conversation. */
+  targetSessionId?: string
 }
 
 export type SerializedTriggerGroup = ReturnType<typeof serializeTriggerGroup>
@@ -196,6 +199,7 @@ export function serializeTriggerGroup(
       ...partition,
       triggerId: partition.triggerId.toString(),
     })),
+    ...(group.targetSessionId ? { targetSessionId: group.targetSessionId } : {}),
     ...(group.slackDestination ? { slackDestination: group.slackDestination } : {}),
     enabled: group.enabled,
     state,

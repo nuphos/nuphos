@@ -2,7 +2,6 @@ import { AppError } from '@/lib/errors'
 import { resolveVerifiedTeamId } from '@/routes/agent'
 
 import type { TriggerActorContext } from '@/lib/agent/trigger-access'
-import type { SlackOutboundDestination } from '@/lib/slack/destinations'
 
 /**
  * The actor every trigger service call is authorized against. Mutating
@@ -72,16 +71,4 @@ export async function jsonObjectBody(c: {
   }
 
   return parsed as Record<string, unknown>
-}
-
-export function parseSlackDestination(value: unknown): SlackOutboundDestination | undefined {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
-  const candidate = value as Record<string, unknown>
-
-  if (candidate.type === 'dm_self') return { type: 'dm_self' }
-  if (candidate.type === 'channel' && typeof candidate.channelId === 'string') {
-    return { type: 'channel', channelId: candidate.channelId }
-  }
-
-  return undefined
 }

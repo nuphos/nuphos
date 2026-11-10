@@ -59,8 +59,6 @@ export async function transferTriggerExecutionPrincipal(
     {
       $set: executionPrincipalAssignment(targetUserId),
       $unset: {
-        // The new principal does not own the bound session; they can bind one of theirs.
-        targetSessionId: true,
         executionCredentialAccess: true,
         executionAuthorizationCheckedAt: true,
         executionAuthorizationError: true,

@@ -1,4 +1,3 @@
-import { sessionRoutingSchema } from '@/lib/agent/session-routing'
 import { monitoringIdentitySchema, webhookUrlFor } from '@/lib/agent/tools-triggers-shared'
 import { finalizeTriggerGroupIngress } from '@/lib/agent/trigger-group-service'
 import { monitoringProviderWiringSchema } from '@/lib/agent/trigger-provider-wiring'
@@ -15,7 +14,7 @@ import {
 import { getTriggerUsage } from '@/lib/agent/trigger-usage'
 import { CRON_TIME_ZONE, nextCronRuns } from '@/lib/cron'
 import { AppError } from '@/lib/errors'
-import { jsonObjectBody, parseSlackDestination, triggerActor } from '@/routes/agent-triggers/shared'
+import { jsonObjectBody, triggerActor } from '@/routes/agent-triggers/shared'
 
 import type { TriggerType } from '@/lib/agent/trigger-db'
 import type { AuthVariables } from '@/middleware/auth'
@@ -52,24 +51,19 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
       throw new AppError(400, 'invalid_request', 'messageTemplate is required')
     }
 
+    if (typeof body.targetSessionId !== 'string') {
+      throw new AppError(400, 'invalid_request', 'targetSessionId is required')
+    }
+
     const actor = await triggerActor(c, body.teamId)
-    const slackDestination = parseSlackDestination(body.slackDestination)
     const monitoringIdentity = monitoringIdentitySchema.safeParse(body.monitoringIdentity)
 
     if (body.monitoringIdentity !== undefined && !monitoringIdentity.success) {
       throw new AppError(400, 'invalid_request', 'monitoringIdentity is invalid')
     }
-    const routing = sessionRoutingSchema.safeParse(body.sessionRouting)
-
-    if (body.sessionRouting !== undefined && !routing.success) {
-      throw new AppError(400, 'invalid_request', 'sessionRouting is invalid')
-    }
     const created = await createTrigger(
       {
-        ...(routing.success ? { sessionRouting: routing.data } : {}),
-        ...(typeof body.targetSessionId === 'string'
-          ? { targetSessionId: body.targetSessionId }
-          : {}),
+        targetSessionId: body.targetSessionId,
         name: body.name,
         triggerType: body.triggerType as TriggerType,
         ...(typeof body.cronExpression === 'string' ? { cronExpression: body.cronExpression } : {}),
@@ -80,8 +74,6 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
         ...(typeof body.minIntervalSeconds === 'number'
           ? { minIntervalSeconds: body.minIntervalSeconds }
           : {}),
-        ...(typeof body.incidentMode === 'boolean' ? { incidentMode: body.incidentMode } : {}),
-        ...(slackDestination ? { slackDestination } : {}),
       },
       {
         ...actor,
@@ -109,11 +101,9 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
     const { triggerId } = c.req.param()
     const body = await jsonObjectBody(c)
     const actor = await triggerActor(c, body.teamId ?? c.req.query('teamId'))
-    const slackDestination =
-      body.slackDestination === null ? null : parseSlackDestination(body.slackDestination)
 
-    if (body.sessionRouting !== undefined) {
-      throw new AppError(400, 'immutable_routing', 'Create a new trigger to change session routing')
+    if (body.targetSessionId === null) {
+      throw new AppError(400, 'invalid_target_session', 'A Trigger must stay bound to a session')
     }
     const updated = await updateTrigger(triggerId, actor, {
       ...(typeof body.name === 'string' ? { name: body.name } : {}),
@@ -122,14 +112,12 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
         : {}),
       ...(typeof body.enabled === 'boolean' ? { enabled: body.enabled } : {}),
       ...(typeof body.cronExpression === 'string' ? { cronExpression: body.cronExpression } : {}),
-      ...(typeof body.targetSessionId === 'string' || body.targetSessionId === null
+      ...(typeof body.targetSessionId === 'string'
         ? { targetSessionId: body.targetSessionId }
         : {}),
       ...(typeof body.minIntervalSeconds === 'number'
         ? { minIntervalSeconds: body.minIntervalSeconds }
         : {}),
-      ...(typeof body.incidentMode === 'boolean' ? { incidentMode: body.incidentMode } : {}),
-      ...(body.slackDestination === null || slackDestination ? { slackDestination } : {}),
     })
 
     return c.json(updated)

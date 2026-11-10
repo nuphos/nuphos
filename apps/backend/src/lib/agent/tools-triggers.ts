@@ -8,13 +8,7 @@ import {
   pendingWebhookProviderWiring,
 } from './monitoring-workflow'
 import { createTriggerGroupTools } from './tools-triggers-group'
-import {
-  label,
-  monitoringIdentitySchema,
-  run,
-  slackDestinationSchema,
-  webhookUrlFor,
-} from './tools-triggers-shared'
+import { label, monitoringIdentitySchema, run, webhookUrlFor } from './tools-triggers-shared'
 import {
   createTrigger,
   deleteTrigger,
@@ -39,14 +33,14 @@ export function createTriggerTools(
 
   const trigger_create = tool({
     description:
-      'Create an agent trigger that fires a NEW agent conversation on a schedule (cron) or when an external system calls a webhook. ' +
+      'Create an agent trigger that delivers a message into one existing conversation on a schedule (cron) or when an external system calls a webhook. Every trigger is bound to a conversation: this one unless the user names another of theirs via targetSessionId. ' +
       'Use when the user asks for recurring work ("every weekday at 9 summarize open PRs") or alert-driven follow-ups (Grafana/Linear/Vercel webhooks). ' +
       'Translate natural-language schedules into a 5-field cron expression yourself; cron expressions are ALWAYS evaluated in UTC, so convert the local time the user means into UTC when writing one (ask for their timezone if unknown). Confirm the schedule with the user in plain words, stating both the UTC time and their local time, before creating; afterwards restate the returned nextRuns (UTC instants) in their timezone. ' +
       'For webhook triggers the result includes webhookUrl and webhookSecret (sender passes it as the X-Webhook-Secret header, or appended to the URL as ?secret=... for senders that cannot set custom headers). This is the ONLY time the secret is returned — relay it once or use it directly to configure the sending system; never re-paste it later. ' +
       `${MONITORING_WORKFLOW_TOOL_GUIDANCE} ` +
       'Do not poll unless the provider cannot send webhooks; then fall back to a cron trigger whose template checks the provider and acts only when something is firing. ' +
-      'SLACK DESTINATIONS: Before creating a Slack trigger, call slack_list_destinations. Set incidentMode=true AND persist the user-approved exact choice in slackDestination; this server-owned field is the authorization boundary used by slack_post, while messageTemplate only describes the action. Use dm_self only when explicitly chosen and available; for a channel use its stable channelId. Never guess. If the user chose Nuphos, omit both fields and do not call slack_post. ' +
-      'The messageTemplate is sent to an agent session on each fire; incidentMode reuses the open incident conversation. {{trigger.id}} / {{trigger.name}} / {{trigger.firedAt}} / {{trigger.lifecycle}} / {{trigger.hasOpenIncident}} are available, plus {{payload.*}} for webhook bodies. ' +
+      'SLACK: if the user wants fires reported to Slack, call slack_list_destinations, confirm the exact destination with them, and write it into messageTemplate; the bound conversation posts with slack_post under the normal rules. ' +
+      'The messageTemplate is delivered into the bound conversation on each fire, so later fires see earlier ones. {{trigger.id}} / {{trigger.name}} / {{trigger.firedAt}} are available, plus {{payload.*}} for webhook bodies. ' +
       'DUPLICATES: before creating, call trigger_list and check whether the user already has a trigger that is essentially the SAME recurring task (it may differ in schedule, wording, or name). If one does, do not silently add a near-duplicate — tell the user it exists and ask whether to modify that one (trigger_update) or add a separate new one, then act on their answer. If nothing similar exists, or the user already asked for a separate/new one, just create it — do not ask again. Do not mention this check to the user; speak only in plain terms about their triggers.',
     inputSchema: z.object({
       label,
@@ -60,7 +54,14 @@ export function createTriggerTools(
         .string()
         .min(1)
         .describe(
-          'Instruction sent to the agent on each fire. Write it self-contained; incidentMode can continue the open incident conversation, but the first delivery has no prior context.',
+          'Instruction delivered into the bound conversation on each fire. Write it so it still makes sense when read days later between other messages.',
+        ),
+      targetSessionId: z
+        .string()
+        .min(1)
+        .optional()
+        .describe(
+          'Existing conversation every fire is delivered into. Defaults to this conversation; set it only when the user names another conversation of theirs.',
         ),
       expiresAt: z
         .string()
@@ -89,17 +90,6 @@ export function createTriggerTools(
         .optional()
         .describe(
           'Webhook triggers only — flood guard: minimum seconds between runs; deliveries inside the window are acknowledged but not executed. Defaults to a server-side cooldown (60s) when unset; set higher when the user wants "at most every N minutes", 0 only if they explicitly want every delivery to run.',
-        ),
-      incidentMode: z
-        .boolean()
-        .optional()
-        .describe(
-          'Set true only for a monitoring webhook whose action posts to Slack. Keeps one open incident root, routes material updates into its thread, suppresses repeats, and closes it once on recovery.',
-        ),
-      slackDestination: slackDestinationSchema
-        .optional()
-        .describe(
-          'Required with incidentMode=true: the exact Slack DM or stable channel ID the user approved. The server rejects every other slack_post destination.',
         ),
     }),
     execute: async (input) =>
@@ -135,8 +125,7 @@ export function createTriggerTools(
             ...(input.minIntervalSeconds !== undefined
               ? { minIntervalSeconds: input.minIntervalSeconds }
               : {}),
-            ...(input.incidentMode !== undefined ? { incidentMode: input.incidentMode } : {}),
-            ...(input.slackDestination ? { slackDestination: input.slackDestination } : {}),
+            targetSessionId: input.targetSessionId ?? sessionId,
           },
           {
             ...scope,
@@ -172,7 +161,7 @@ export function createTriggerTools(
 
   const trigger_update = tool({
     description:
-      'Update an existing trigger: rename, enable/disable, change the cron schedule, or rewrite the message template. Applies immediately. ' +
+      'Update an existing trigger: rename, enable/disable, change the cron schedule, rewrite the message template, or move it to another conversation of the trigger owner (targetSessionId). A trigger cannot be unbound. Applies immediately. ' +
       'When the user directly asks to change a specific trigger (e.g. "change my PR digest to 10am", "just modify the existing one"), their message IS the confirmation — do it right away, do not ask again. ' +
       'The ONE case to pause on: if the user asked you to set up NEW recurring work and you notice an existing trigger that already covers it, do not silently repurpose it — tell them it exists and ask whether to modify that one or add a separate new one. (Near-duplicate detection on brand-new trigger creation is handled by trigger_create; this pause applies specifically when you were about to reuse/repurpose an existing trigger via trigger_update.)',
     inputSchema: z.object({
@@ -194,14 +183,11 @@ export function createTriggerTools(
         .describe(
           'Webhook triggers only — flood guard: minimum seconds between runs (deliveries inside the window are acknowledged but not executed). 0 disables the guard.',
         ),
-      incidentMode: z
-        .boolean()
+      targetSessionId: z
+        .string()
+        .min(1)
         .optional()
-        .describe('Enable/disable stateful Slack incident delivery for a monitoring webhook.'),
-      slackDestination: slackDestinationSchema
-        .nullable()
-        .optional()
-        .describe('Replace the approved Slack destination, or null when disabling incident mode.'),
+        .describe('Move delivery to this existing conversation of the trigger owner.'),
     }),
     execute: async (input) =>
       run(async () => {
@@ -215,9 +201,8 @@ export function createTriggerTools(
           ...(input.minIntervalSeconds !== undefined
             ? { minIntervalSeconds: input.minIntervalSeconds }
             : {}),
-          ...(input.incidentMode !== undefined ? { incidentMode: input.incidentMode } : {}),
-          ...(input.slackDestination !== undefined
-            ? { slackDestination: input.slackDestination }
+          ...(input.targetSessionId !== undefined
+            ? { targetSessionId: input.targetSessionId }
             : {}),
         })
 
@@ -248,7 +233,7 @@ export function createTriggerTools(
 
   const trigger_test_fire = tool({
     description:
-      'Fire a trigger once, now, for verification. Fire-and-forget: success means the run was kicked off in a background agent session, not that it finished. Optional payload substitutes the webhook body for {{payload.*}} templates.',
+      'Fire a trigger once, now, for verification. Fire-and-forget: success means the message was queued for its bound conversation, not that the run finished. Optional payload substitutes the webhook body for {{payload.*}} templates.',
     inputSchema: z.object({
       label,
       triggerId: z.string().min(1),

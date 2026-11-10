@@ -51,6 +51,9 @@ export type AgentTriggerGroup = {
   dedupeKey: string
   /** Retained so a provisioning retry recreates every ingress with the same guard. */
   minIntervalSeconds?: number
+  /** Existing conversation every member fire is delivered into. Absent on legacy Groups. */
+  targetSessionId?: string
+  /** Legacy incident destination; new Groups deliver into targetSessionId instead. */
   slackDestination?: SlackOutboundDestination
   enabled: boolean
   createdAt: Date

@@ -20,14 +20,6 @@ export const label = z
   .max(160)
   .describe('Short human-readable description of this single action, shown to the user as a step.')
 
-export const slackDestinationSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('dm_self') }),
-  z.object({
-    type: z.literal('channel'),
-    channelId: z.string().min(1).max(32),
-  }),
-])
-
 export const monitoringIdentitySchema = z
   .object({
     provider: z
