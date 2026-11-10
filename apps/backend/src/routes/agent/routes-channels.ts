@@ -18,7 +18,7 @@ import {
 import { addConversationParticipants } from '@/lib/agent/db/participants'
 import { channelUploadPart, resolveChannelFiles } from '@/lib/agent/channel-attachments'
 import { channelFacesField } from '@/lib/agent/channel-faces'
-import { postChannelMessage, replyQuote } from '@/lib/agent/channel-chat'
+import { postChannelMessage, replyQuote, wakeChannelAgents } from '@/lib/agent/channel-chat'
 import { resolveMentions } from '@/lib/agent/mentions'
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { AppError } from '@/lib/errors'
@@ -181,6 +181,22 @@ channelRoutes.delete('/conversations/:sessionId/agents/:agentSessionId', async (
   await removeChannelAgent(channelId, agentSessionId)
 
   // Nothing back: the agent's owner may not be allowed to see who else is here.
+  return c.body(null, 204)
+})
+
+// Retry after an agent could not reply: it reads again what it has not read yet.
+channelRoutes.post('/conversations/:sessionId/agents/:agentSessionId/wake', async (c) => {
+  const teamId = await requireTeam(c)
+  const channel = channelOrNotFound(
+    await assertConversationSendable(c.req.param('sessionId'), c.get('userId'), teamId),
+  )
+  const agentSessionId = c.req.param('agentSessionId')
+
+  if (!channel.agentSessionIds?.includes(agentSessionId))
+    throw new AppError(404, 'not_found', 'This agent is not in the channel')
+  // A person's wake, as their post would be, but for this agent alone.
+  await wakeChannelAgents({ ...channel, teamId, agentSessionIds: [agentSessionId] }, undefined)
+
   return c.body(null, 204)
 })
 

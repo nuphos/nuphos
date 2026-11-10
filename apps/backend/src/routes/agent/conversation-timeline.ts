@@ -50,6 +50,10 @@ export function serializeTimelineEvents(
         text: event.reason
           ? `${event.agentName} couldn’t reply: ${event.reason}`
           : `${event.agentName} couldn’t reply.`,
+        // What a client needs to offer the fix: Retry, Switch agent, and when usage returns.
+        ...(event.agentId ? { agentId: event.agentId } : {}),
+        cause: event.cause ?? 'other',
+        ...(event.resetsAt ? { resetsAt: event.resetsAt } : {}),
       }
     const actor = person(event.actorId)
 

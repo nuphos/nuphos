@@ -306,6 +306,20 @@ describe('posting to a channel', () => {
   })
 })
 
+describe('retrying an agent that could not reply', () => {
+  test('wakes an agent of the channel for someone who can post', async () => {
+    const channelId = await createChannel()
+
+    // Archived, so the wake is accepted and then left alone.
+    await seedAgent('agent-a', OWNER, { archivedAt: new Date() })
+    await send('POST', `/conversations/${channelId}/agents`, { sessionId: 'agent-a' })
+    expect((await send('POST', `/conversations/${channelId}/agents/agent-a/wake`)).status).toBe(204)
+    expect((await send('POST', `/conversations/${channelId}/agents/agent-b/wake`)).status).toBe(404)
+    viewer = TEAMMATE
+    expect((await send('POST', `/conversations/${channelId}/agents/agent-a/wake`)).status).toBe(403)
+  })
+})
+
 describe('a channel never runs a turn', () => {
   test('send_message_to_thread refuses a channel target', async () => {
     const channelId = await createChannel()

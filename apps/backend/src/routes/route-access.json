@@ -642,6 +642,7 @@
   "POST /agent/chat/:streamId/abort": "user",
   "POST /agent/chat/:streamId/report-failure": "user",
   "POST /agent/conversations/:sessionId/agents": "user",
+  "POST /agent/conversations/:sessionId/agents/:agentSessionId/wake": "user",
   "POST /agent/conversations/:sessionId/bot": "user",
   "POST /agent/conversations/:sessionId/cancel-runtime": "user",
   "POST /agent/conversations/:sessionId/channel-messages": "user",

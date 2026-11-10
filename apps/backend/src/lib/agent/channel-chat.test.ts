@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
+import { OpenAbRpcError } from '@/lib/claude-code-preview/openab-acp-errors'
 import { AppError } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
@@ -269,6 +270,31 @@ describe('waking a channel’s agents', () => {
       actorId: 'system',
       agentName: 'agent-a title',
       reason: 'Claude Code is not set up.',
+    })
+  })
+
+  test('an agent out of usage says why, so the chat can offer the fix', async () => {
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(
+            "**Internal Error** (code: -32603)\nInternal error: You've hit your weekly limit · resets 4pm (UTC)",
+            -32603,
+          )
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({
+      agentId: 'agent-a',
+      cause: 'usage_limit',
+      reason: "its account hit its usage limit (You've hit your weekly limit · resets 4pm (UTC)).",
     })
   })
 
