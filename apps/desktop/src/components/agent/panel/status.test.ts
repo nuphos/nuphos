@@ -46,6 +46,20 @@ test('optimistic first message does not imply a lost runtime connection', () => 
   assert.equal(computeStatus(current, message)?.label, 'Connecting…')
 })
 
+test('a fork waiting for its first message is not connecting; sending it is', () => {
+  // As forkConversation builds it: the source's history, no stored session yet.
+  const fork = {
+    sessionId: 'fork',
+    unsaved: true,
+    connected: true,
+    streaming: false,
+    messages: [{ role: 'user', parts: [] }, message],
+  } as unknown as Tab
+
+  assert.equal(computeStatus(fork, message), null)
+  assert.equal(computeStatus({ ...fork, streaming: true }, message)?.label, 'Connecting…')
+})
+
 test('an opened conversation awaiting its first runtime read shows no status', () => {
   const current = tab('unused')
 
