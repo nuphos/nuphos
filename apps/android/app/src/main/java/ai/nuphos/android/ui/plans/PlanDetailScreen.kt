@@ -86,8 +86,7 @@ fun PlanDetailScreen(
                         if (showsChatActions && target != null) {
                             DropdownMenuItem(text = { Text(target.buttonTitle) }, onClick = {
                                 menu = false
-                                val session = store.session(target.sessionId, target.title)
-                                session.sendAfterLoad = target.proceedMessage
+                                store.session(target.sessionId, target.title)
                                 nav.navigate("conversation/${target.sessionId}")
                             })
                         }
@@ -200,8 +199,7 @@ private fun ActionBar(plan: Plan, showsChatActions: Boolean, nav: NavHostControl
                 FilledTonalButton(
                     enabled = !busy,
                     onClick = {
-                        val session = store.session(chat.sessionId, chat.title)
-                        session.sendAfterLoad = chat.proceedMessage
+                        store.session(chat.sessionId, chat.title)
                         nav.navigate("conversation/${chat.sessionId}")
                     },
                     modifier = Modifier.weight(1f),
