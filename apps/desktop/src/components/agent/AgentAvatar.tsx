@@ -20,6 +20,7 @@ export function AgentAvatar({
   sidebar = false,
   animated = false,
   face = true,
+  bare = false,
 }: {
   agentId: string
   /** The picked avatar as last fetched; a newer pick seen anywhere in the app wins. */
@@ -31,12 +32,14 @@ export function AgentAvatar({
   animated?: boolean
   /** False: only the Runtime icon, in main's sidebar box (a Tasks row). */
   face?: boolean
+  /** The face alone, at any size: no runtime badge, as a sidebar row shows it. */
+  bare?: boolean
 }) {
   const seen = useAgentAvatarPick(agentId)
   const picked = face ? (seen === undefined ? avatar : seen) : undefined
   const running = runtimeTurnActive(useAgentRuntimeStates().get(agentId))
   // A sidebar row shows one clean face, as the iOS list does: no runtime badge.
-  const clean = sidebar
+  const clean = sidebar || bare
   // A face takes the Bots list's 36px; a Runtime icon a Tasks row's 22px.
   const sidebarSize = face ? 36 : 22
   const box = sidebar ? sidebarSize : size

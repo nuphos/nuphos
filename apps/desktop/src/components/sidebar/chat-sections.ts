@@ -1,6 +1,9 @@
 import type { Item, Section } from './types'
 import type { ReactNode } from 'react'
 
+/** The internal title of the Bots group (chats); the sidebar labels it Bots. */
+export const BOTS_SECTION = 'Channels'
+
 /**
  * The agent groups in team view, iMessage-style. Bots holds chats: group
  * channels and each Bot's 1:1 channel, newest message first (the list's own
@@ -32,24 +35,44 @@ export function withChatSections(
       ...(openBot && { onActivate: () => openBot(sessionOf(item)) }),
     }),
   }))
+  // A Bot's Task links to its chat, so the two rows read as one agent.
+  const botChatOf = (item: Item): Item['botChat'] => {
+    if (!item.bot) return undefined
+    const botId = sessionOf(item)
+    // Its own chat first; once teammates are invited that chat is a group with the Bot in it.
+    const chat =
+      agents.items.find((other) => other.botChannelOf === botId) ??
+      agents.items.find((other) => other.channelAgentIds?.includes(botId))
+
+    if (chat) return { botId, name: chat.label, key: chat.key }
+
+    // Only its owner can bring a Bot into a chat, so a teammate's Bot without one has no link.
+    return openBot && !item.readOnlyChat
+      ? { botId, name: item.label, open: () => openBot(botId) }
+      : undefined
+  }
   // A Task is one line: its runtime icon and title, no latest message.
   const tasks = projects(
     agents.items
       .filter((item) => !item.channel)
-      .map(({ preview: _preview, time: _time, ...item }) => ({ ...item, task: true })),
+      .map(({ preview: _preview, time: _time, ...item }) => {
+        const botChat = botChatOf(item)
+
+        return { ...item, task: true, ...(botChat && { botChat }) }
+      }),
   )
 
   return sections.flatMap((section) =>
     section === agents
       ? [
-          { title: 'Channels', items: chats },
+          { title: BOTS_SECTION, items: chats },
           ...(tasks.length > 0 ? [{ title: 'Tasks', items: tasks }] : []),
         ]
       : [section],
   )
 }
 
-const CHAT_SECTIONS = new Set<string | undefined>(['Channels', 'Agents', 'Tasks'])
+const CHAT_SECTIONS = new Set<string | undefined>([BOTS_SECTION, 'Agents', 'Tasks'])
 
 /** The sections that hold chats, the only ones a split sidebar keeps. */
 export function isChatSection(section: Section): boolean {

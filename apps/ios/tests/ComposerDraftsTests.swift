@@ -2,11 +2,19 @@ import Foundation
 
 enum ComposerDraftsTests {
     static func run() {
+        isolatesLateWritesFromAnotherAccount()
         restoresEachConversationsDraft()
         textTypedBeforeTheTeamResolvesSurvives()
         switchingBetweenTeamsSwapsDrafts()
         signOutDropsEverything()
         print("Composer drafts passed")
+    }
+
+    private static func isolatesLateWritesFromAnotherAccount() {
+        ComposerDrafts.clear()
+        ComposerDrafts.set("late old account draft", team: "shared-team", session: "shared-session", identity: "old-synthetic-token")
+        precondition(ComposerDrafts.text(team: "shared-team", session: "shared-session", identity: "new-synthetic-token").isEmpty)
+        precondition(ComposerDrafts.text(team: "shared-team", session: "shared-session", identity: "old-synthetic-token") == "late old account draft")
     }
 
     private static func restoresEachConversationsDraft() {

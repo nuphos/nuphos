@@ -8,7 +8,7 @@ struct ConversationRow: View {
     /// Threads a folded parent hides; the row shows the most pressing of their states.
     var hidden: [AgentConversation] = []
     @Environment(AgentStore.self) private var store
-    private let observations = RuntimeObservations.shared
+    private var observations: RuntimeObservations { store.observations }
     private var team: String { conversation.teamId ?? store.selectedTeam?.id ?? "" }
     private var observation: RuntimeObservation? { observations.value(team: team, session: conversation.sessionId) }
     private var indicator: ConversationIndicator { indicator(for: conversation) }
@@ -17,7 +17,7 @@ struct ConversationRow: View {
     }
 
     private func indicator(for row: AgentConversation) -> ConversationIndicator {
-        let unread = ConversationUnread.shared.contains(team: team, session: row.sessionId)
+        let unread = store.unread.contains(team: team, session: row.sessionId)
         guard row.isNativeRuntime else { return row.activeRun != nil ? .turn : unread ? .unread : .none }
         return ConversationIndicator(observations.value(team: team, session: row.sessionId), unread: unread)
     }

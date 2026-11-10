@@ -497,7 +497,7 @@ struct ChannelRow: View {
                         .lineLimit(1)
                 }
             }
-            if ConversationUnread.shared.contains(team: team, session: channel.sessionId) {
+            if store.unread.contains(team: team, session: channel.sessionId) {
                 Circle().fill(Theme.unread).frame(width: 7, height: 7).accessibilityLabel("Unread posts")
             }
         }
@@ -605,13 +605,13 @@ struct NewChatComposer: View {
             if let initialContent, !importedContent {
                 importedContent = true
                 draft = initialContent.text
-            } else if initialContent == nil, draft.isEmpty { draft = ComposerDrafts.text(team: draftTeam, session: "new") }
+            } else if initialContent == nil, draft.isEmpty { draft = ComposerDrafts.text(team: draftTeam, session: "new", identity: store.token) }
         }
         .onChange(of: store.selectedTeam?.id) { old, new in
-            if initialContent == nil { draft = ComposerDrafts.switchTeam(visible: draft, session: "new", from: old ?? "", to: new ?? "") }
+            if initialContent == nil { draft = ComposerDrafts.switchTeam(visible: draft, session: "new", from: old ?? "", to: new ?? "", identity: store.token) }
         }
         .onChange(of: draft) { _, text in
-            if initialContent == nil { ComposerDrafts.set(text, team: draftTeam, session: "new") }
+            if initialContent == nil { ComposerDrafts.set(text, team: draftTeam, session: "new", identity: store.token) }
         }
         .alert("Couldn't send", isPresented: Binding(get: { admissionError != nil }, set: { if !$0 { admissionError = nil } })) {
             Button("OK", role: .cancel) { admissionError = nil }

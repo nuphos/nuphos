@@ -17,21 +17,19 @@ import { previewSessionAccess } from './credentials-mcp'
 import { nuphosToolsVersion } from './nuphos-tools-mcp'
 import { openConversationSession } from './open-conversation-session'
 import { parseSessionExecutionState } from './runtime-execution-snapshot'
+import { claimRuntimeHandoffs } from './runtime-handoff-claim'
 import {
   RUNTIME_HANDOFFS_KEY as HANDOFFS_KEY,
   advertiseRuntimeHandoffs,
   runtimeHandoffField as field,
   sessionHandoff,
 } from './runtime-handoff-store'
-import { isOnline } from './session-reattach'
 
 import type { RuntimeHandoff } from './runtime-handoff-store'
 import type { TeamPreviewClient } from './team-openab-runtime'
 
 export type { RuntimeHandoff } from './runtime-handoff-store'
 
-/** The gateway ignores a resume while the old connection still owns the turn's output. */
-export const HANDOFF_SETTLE_MS = 1_000
 const ADOPT_INTERVAL_MS = 2_000
 const MAX_ADOPT_ATTEMPTS = 5
 /** Shutdown has seconds to spare; a runtime that cannot answer by then is not waited for. */
@@ -106,63 +104,6 @@ export async function publishRuntimeHandoffs(): Promise<number> {
   await advertiseRuntimeHandoffs(handoffs)
 
   return handoffs.length
-}
-
-function parse(raw: string): RuntimeHandoff | null {
-  try {
-    const value = JSON.parse(raw) as Partial<RuntimeHandoff>
-
-    return typeof value.teamId === 'string' &&
-      typeof value.conversationId === 'string' &&
-      typeof value.ownerUserId === 'string' &&
-      typeof value.actorUserId === 'string' &&
-      typeof value.locale === 'string' &&
-      typeof value.at === 'number'
-      ? (value as RuntimeHandoff)
-      : null
-  } catch {
-    return null
-  }
-}
-
-/** Each handoff is claimed by exactly one replica: the one whose HDEL removed it. */
-export async function claimRuntimeHandoffs(now = Date.now()): Promise<RuntimeHandoff[]> {
-  const all = await withRedis((redis) => redis.hgetall(HANDOFFS_KEY))
-  const claimed: RuntimeHandoff[] = []
-
-  for (const [key, raw] of Object.entries(all ?? {})) {
-    const handoff = parse(raw)
-
-    if (handoff && now - handoff.at < HANDOFF_SETTLE_MS) continue
-    let moved = false
-
-    // An offline computer is waited for, not tried: the handoff stays as it is,
-    // spends no attempt and logs nothing, and is adopted once the computer is back.
-    // A conversation that has since moved off it never needs it back, so its
-    // handoff is removed instead of waiting forever.
-    if (typeof handoff?.runtimeUrl === 'string' && !(await isOnline(handoff.runtimeUrl))) {
-      const conversation = await getConversationBySessionId(handoff.conversationId)
-
-      if (sameRuntimeUrl(liveAttachment(conversation)?.runtimeUrl, handoff.runtimeUrl)) continue
-      moved = true
-    }
-    const removed = await withRedis((redis) =>
-      redis.eval(
-        `if redis.call('HGET', KEYS[1], ARGV[1]) == ARGV[2] then
-           return redis.call('HDEL', KEYS[1], ARGV[1])
-         end
-         return 0`,
-        1,
-        HANDOFFS_KEY,
-        key,
-        raw,
-      ),
-    )
-
-    if (removed === 1 && handoff && !moved) claimed.push(handoff)
-  }
-
-  return claimed
 }
 
 /**

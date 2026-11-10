@@ -239,7 +239,7 @@ private struct FollowWhileShown: ViewModifier {
 
     private func update() {
         let open = ShareFollowState(shown: shown, active: scenePhase == .active, permitted: permitted).isOpen
-        ConversationUnread.shared.setReading(open, reader: reader, team: session.teamId, session: session.sessionId)
+        store.unread.setReading(open, reader: reader, team: session.teamId, session: session.sessionId)
         if open { store.follow(session) } else { store.unfollow(session) }
     }
 }

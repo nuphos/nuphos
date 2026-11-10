@@ -114,9 +114,19 @@ export function SidebarHelpMenu({ onOpenShortcutsHelp }: { onOpenShortcutsHelp?:
         <MenuContent side="top" align="end" sideOffset={8} className="w-[300px]">
           {update && (
             <>
-              <MenuItem icon={<ArrowDown className="h-3.5 w-3.5" />} onClick={update.install}>
-                {t('Restart to update to {version}', { version: update.version })}
-              </MenuItem>
+              {update.percent === null ? (
+                <MenuItem icon={<ArrowDown className="h-3.5 w-3.5" />} onClick={update.install}>
+                  {t('Restart to update to {version}', { version: update.version })}
+                </MenuItem>
+              ) : (
+                <MenuItem
+                  icon={<ArrowDown className="h-3.5 w-3.5" />}
+                  hint={<span className="tabular-nums">{update.percent}%</span>}
+                  disabled
+                >
+                  {t('Downloading Nuphos {version}…', { version: update.version })}
+                </MenuItem>
+              )}
               <MenuSeparator />
             </>
           )}
