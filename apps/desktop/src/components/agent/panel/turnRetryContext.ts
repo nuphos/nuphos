@@ -14,7 +14,7 @@ export const TurnRetryContext = createContext<TurnRetry | null>(null)
 
 /** Retry for the active tab's latest failed turn, while the viewer may send and nothing runs. */
 export function useFailedTurnRetry(
-  tab: Tab | undefined,
+  tab: Tab | null | undefined,
   currentUserId: string | undefined,
   foreignChat: boolean,
   send: (text: string, attachments: string[]) => void,
