@@ -16,14 +16,20 @@ const removal = (id: string, agent: PendingRemoval['agent']): PendingRemoval => 
 const online: LocalRuntimeStatus = { agents: {}, agentInstances: true }
 const target = { userId: 'owner', actorId: 'manager', deviceId: 'box', teamId: 'team' }
 
-function deps(pending: PendingRemoval[] | Error, fail: string[] = []) {
+function deps(
+  pending: PendingRemoval[] | Error,
+  fail: string[] = [],
+  members = ['manager', 'owner'],
+) {
   const calls: unknown[] = []
   const retries: number[] = []
+  const forgotten = new Set<string>()
   const injected: PendingRemovalDeps = {
     pending: async () => {
       if (pending instanceof Error) throw pending
 
-      return pending
+      // As the store: a removal the computer carried out is gone.
+      return pending.filter((entry) => !forgotten.has(entry.id))
     },
     remove: async (to, agent) => {
       calls.push({ removed: [to, agent] })
@@ -33,8 +39,10 @@ function deps(pending: PendingRemoval[] | Error, fail: string[] = []) {
       calls.push({ unregistered: agent })
     },
     forget: async (_userId, _deviceId, removalId) => {
+      forgotten.add(removalId)
       calls.push({ forgot: removalId })
     },
+    isMember: async (userId) => members.includes(userId),
     later: (_retry, ms) => {
       retries.push(ms)
     },
@@ -127,4 +135,50 @@ test('a host that cannot remove agents is left alone', async () => {
   await settlePendingRemovals('owner', 'box', { agents: {} }, injected)
 
   expect(calls).toEqual([])
+})
+
+test('a remover who left the team is replaced by the computer owner', async () => {
+  const { injected, calls } = deps([removal('r1', { instanceId: 'agent-1' })], [], ['owner'])
+
+  await settlePendingRemovals('owner', 'box', online, injected)
+
+  expect(calls[0]).toEqual({
+    removed: [{ ...target, actorId: 'owner' }, { instanceId: 'agent-1' }],
+  })
+})
+
+test('with no one left in the team to remove it, the agent stops being hidden', async () => {
+  const warn = quiet()
+  const { injected, calls, retries } = deps([removal('r1', { instanceId: 'agent-1' })], [], [])
+
+  await settlePendingRemovals('owner', 'box', online, injected)
+  warn.mockRestore()
+
+  expect(calls).toEqual([{ forgot: 'r1' }])
+  expect(retries).toEqual([])
+})
+
+test('a settle asked for while one runs runs again after it', async () => {
+  let release = () => {}
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  let reads = 0
+  const { injected } = deps([])
+  const slow: PendingRemovalDeps = {
+    ...injected,
+    pending: async () => {
+      reads++
+      if (reads === 1) await gate
+
+      return []
+    },
+  }
+  const first = settlePendingRemovals('owner', 'box2', online, slow)
+
+  await settlePendingRemovals('owner', 'box2', online, slow)
+  release()
+  await first
+
+  expect(reads).toBe(2)
 })

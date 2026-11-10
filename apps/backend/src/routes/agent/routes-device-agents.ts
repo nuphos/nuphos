@@ -10,6 +10,7 @@ import {
   removeLocalAgentInstance,
 } from '@/lib/agent/devices/local-runtime/instances'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
+import { settleIfConnected } from '@/lib/agent/devices/pending-removals'
 import { LOCAL_AGENT_PROVIDERS } from '@/lib/agent/devices/local-runtime/protocol'
 import {
   forgetAgentAddition,
@@ -58,6 +59,7 @@ export type DeviceAgentRouteDeps = {
   recordAddition: typeof recordAgentAddition
   forgetAddition: typeof forgetAgentAddition
   recordRemoval: typeof recordAgentRemoval
+  settle: typeof settleIfConnected
 }
 
 type HostDevice = {
@@ -105,6 +107,7 @@ export function createDeviceAgentRoutes(
     recordAddition: recordAgentAddition,
     forgetAddition: forgetAgentAddition,
     recordRemoval: recordAgentRemoval,
+    settle: settleIfConnected,
   },
 ) {
   const routes = new Hono<{ Variables: AuthVariables }>()
@@ -242,6 +245,8 @@ export function createDeviceAgentRoutes(
       at: new Date(),
     })
     await deps.forgetAgent(device.userId, deviceId, agent)
+    // It may have reconnected meanwhile, after its report already came and went.
+    void deps.settle(device.userId, deviceId).catch(() => undefined)
 
     return c.body(null, 204)
   }

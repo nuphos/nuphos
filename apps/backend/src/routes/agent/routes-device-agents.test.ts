@@ -48,6 +48,9 @@ function app(overrides: Partial<DeviceAgentRouteDeps> = {}) {
     recordRemoval: async (userId, deviceId, removal) => {
       calls.push({ pending: [userId, deviceId, removal] })
     },
+    settle: async (userId, deviceId) => {
+      calls.push({ settle: [userId, deviceId] })
+    },
     ...overrides,
   }
   const server = new Hono<{ Variables: AuthVariables }>()
@@ -264,6 +267,8 @@ test("an offline computer's agent is removed now and deleted by the computer lat
       ],
     },
     { forgot: ['owner', 'box', { instanceId: id }] },
+    // In case it reconnected while the removal was being saved.
+    { settle: ['owner', 'box'] },
   ])
 })
 

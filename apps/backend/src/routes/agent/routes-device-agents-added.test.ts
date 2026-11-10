@@ -62,6 +62,7 @@ function app(
       return Promise.resolve()
     },
     recordRemoval: () => Promise.resolve(),
+    settle: () => Promise.resolve(),
     ...overrides,
   }
   const server = new Hono<{ Variables: AuthVariables }>()
