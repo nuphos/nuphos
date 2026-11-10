@@ -1,11 +1,11 @@
 import { tke } from 'tencentcloud-sdk-nodejs-tke'
 
+import { mapLimit } from '@/lib/concurrency'
 import { AppError } from '@/lib/errors'
 import { errorMessage } from '@/lib/observability'
 
 import {
   isTencentAuthError,
-  mapLimit,
   REGION_SCAN_CONCURRENCY,
   tencentBootstrapRegion,
   tencentEndpoint,
@@ -19,10 +19,10 @@ import type { ClusterResult, TencentSite } from './types'
 
 export type { TencentSite }
 export type { TencentHandle, TkeListError } from './tencent-core'
+export { mapLimit } from '@/lib/concurrency'
 export {
   isTencentAuthError,
   isTencentRateLimit,
-  mapLimit,
   REGION_SCAN_CONCURRENCY,
   tencentBootstrapRegion,
   tencentEndpoint,

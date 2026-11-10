@@ -1,3 +1,4 @@
+import { mapPool } from '@/lib/concurrency'
 import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
 
@@ -70,23 +71,6 @@ export function accountSegments(bindings: { id: ObjectId; label: string }[]): Ma
       ]
     }),
   )
-}
-
-async function mapPool<T>(
-  items: T[],
-  limit: number,
-  fn: (item: T) => Promise<void>,
-): Promise<void> {
-  let cursor = 0
-  const worker = async () => {
-    while (cursor < items.length) {
-      const item = items[cursor++]
-
-      if (item !== undefined) await fn(item)
-    }
-  }
-
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
 }
 
 /** How many provider kubeconfigs to fetch at once, per account. */
