@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import { CornerUpLeft } from 'lucide-react'
 
 import { t } from '../../i18n'
 import { trustedAvatarURL } from '../../lib/avatarUrl'
@@ -24,15 +25,18 @@ export type Links = {
   channelId: string
 }
 
-/** The post a reply answers, above the reply: clicking it goes there. */
+/** The post a reply answers, one line just above the reply: clicking it goes there. */
 function ReplyQuote({ reply }: { reply: AgentMessageReply }) {
   return (
     <button
       type="button"
+      title={reply.text}
       onClick={() => reply.id && jumpTo(reply.id)}
-      className="max-w-full border-l-2 border-line-control pl-2 pr-1 text-left text-xs leading-4 text-tertiary line-clamp-2 whitespace-pre-wrap break-words hover:text-secondary"
+      className="flex max-w-[min(100%,20rem)] items-center gap-1 px-1 text-[11px] leading-4 text-tertiary hover:text-secondary"
     >
-      <span className="font-medium text-secondary">{reply.authorName}</span> {reply.text}
+      <CornerUpLeft size={11} className="shrink-0" aria-hidden />
+      <span className="shrink-0 font-medium">{reply.authorName}</span>
+      <span className="truncate">{reply.text}</span>
     </button>
   )
 }
@@ -108,30 +112,33 @@ export function ChannelMessage({
 
   if (mine)
     return (
-      <div className="flex w-full items-start justify-end gap-2.5">
-        <div {...post} className="flex min-w-0 max-w-[85%] flex-col items-end gap-1 rounded-2xl">
-          {quote}
-          {files}
-          {text && (
-            <div
-              className={clsx(
-                'user-message-bubble max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words',
-                fresh && 't-bubble-in-mine',
-              )}
-            >
-              {body}
-            </div>
-          )}
-        </div>
-        <div className="w-7 shrink-0">
-          {first && (
-            <Avatar
-              src={trustedAvatarURL(sender.avatarURL)}
-              name={sender.displayName}
-              size={28}
-              className="rounded-full ring-1 ring-black/5 dark:ring-white/10"
-            />
-          )}
+      // The quote sits above the row, so your face stays level with your words.
+      <div className="flex w-full flex-col items-end gap-1">
+        {quote && <div className="flex max-w-[85%] justify-end pr-[2.375rem]">{quote}</div>}
+        <div className="flex w-full items-start justify-end gap-2.5">
+          <div {...post} className="flex min-w-0 max-w-[85%] flex-col items-end gap-1 rounded-2xl">
+            {files}
+            {text && (
+              <div
+                className={clsx(
+                  'user-message-bubble max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words',
+                  fresh && 't-bubble-in-mine',
+                )}
+              >
+                {body}
+              </div>
+            )}
+          </div>
+          <div className="w-7 shrink-0">
+            {first && (
+              <Avatar
+                src={trustedAvatarURL(sender.avatarURL)}
+                name={sender.displayName}
+                size={28}
+                className="rounded-full ring-1 ring-black/5 dark:ring-white/10"
+              />
+            )}
+          </div>
         </div>
       </div>
     )
