@@ -13,7 +13,7 @@ export type FormState = {
   triggerType: AgentTriggerType
   cronExpression: string
   messageTemplate: string
-  /** '' opens a new conversation per fire. */
+  /** Required on create; '' only while nothing is picked yet. */
   targetSessionId: string
 }
 

@@ -95,7 +95,7 @@ export type CreateAgentTriggerInput = {
   triggerType: AgentTriggerType
   messageTemplate: string
   cronExpression?: string
-  targetSessionId?: string
+  targetSessionId: string
   teamId?: string
 }
 
@@ -103,7 +103,7 @@ export type UpdateAgentTriggerInput = {
   name?: string
   messageTemplate?: string
   cronExpression?: string
-  targetSessionId?: string | null
+  targetSessionId?: string
   enabled?: boolean
 }
 
