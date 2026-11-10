@@ -1,10 +1,23 @@
 import { Hono } from 'hono'
 
 import { nativeSkillBundle, personalSkillBundle } from '@/lib/claude-code-preview/native-skills'
+import type { SkillBundle } from '@/lib/claude-code-preview/native-skills'
 import { verifyRuntimeSkillsToken } from '@/lib/claude-code-preview/runtime-skills-token'
 import { AppError } from '@/lib/errors'
 
 export const claudeCodeRuntimeSkills = new Hono()
+
+function skillBundle(teamId: string, personal: boolean, userId?: string): Promise<SkillBundle> {
+  if (!personal) return nativeSkillBundle(teamId)
+  // Automation actors are not members and have no personal scope.
+  if (!userId || !/^[a-f0-9]{24}$/u.test(userId)) {
+    const none = { revision: 'none', files: [] }
+
+    return Promise.resolve({ revision: none.revision, read: () => Promise.resolve(none) })
+  }
+
+  return personalSkillBundle(teamId, userId)
+}
 
 claudeCodeRuntimeSkills.get('/:teamId', async (c) => {
   const authorization = c.req.header('Authorization') ?? ''
@@ -20,22 +33,19 @@ claudeCodeRuntimeSkills.get('/:teamId', async (c) => {
   // names. `scope` in the body lets a runtime tell this answer from the team
   // bundle an older backend would send for the same request.
   const personal = c.req.query('scope') === 'personal'
-  const bundle = !personal
-    ? await nativeSkillBundle(teamId)
-    : {
-        scope: 'personal',
-        // Automation actors are not members and have no personal scope.
-        ...(claims.userId && /^[a-f0-9]{24}$/u.test(claims.userId)
-          ? await personalSkillBundle(teamId, claims.userId)
-          : { revision: 'none', files: [] }),
-      }
-  const etag = `"${bundle.revision}"`
+  const bundle = await skillBundle(teamId, personal, claims.userId)
 
   c.header('Cache-Control', 'no-store')
-  c.header('ETag', etag)
   // A runtime that re-syncs per session already holds the bundle almost every
-  // time. Let it say so and skip the body.
-  if (c.req.header('If-None-Match') === etag) return c.body(null, 304)
+  // time. Let it say so and skip reading the bundle at all.
+  if (c.req.header('If-None-Match') === `"${bundle.revision}"`) {
+    c.header('ETag', `"${bundle.revision}"`)
 
-  return c.json(bundle)
+    return c.body(null, 304)
+  }
+  const body = await bundle.read()
+
+  c.header('ETag', `"${body.revision}"`)
+
+  return c.json(personal ? { scope: 'personal', ...body } : body)
 })
