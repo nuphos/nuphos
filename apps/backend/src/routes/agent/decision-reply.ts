@@ -11,7 +11,7 @@ export function decisionReplyOf(body: Pick<AgentChatBody, 'decisionReplyTo'>): s
   return typeof id === 'string' && id.length > 0 && id.length <= 200 ? id : undefined
 }
 
-type Asked = Pick<AgentConversation, 'userId' | 'sessionId' | 'inputRequests' | 'pendingDecision'>
+type Asked = Pick<AgentConversation, 'userId' | 'sessionId' | 'inputRequests'>
 
 /**
  * The open questions a queued message already answers. They wait on no one,
@@ -20,9 +20,7 @@ type Asked = Pick<AgentConversation, 'userId' | 'sessionId' | 'inputRequests' | 
  * leaves its question open again.
  */
 export async function answeringIds(conversation: Asked): Promise<ReadonlySet<string>> {
-  const asks =
-    Boolean(conversation.pendingDecision) ||
-    Boolean(conversation.inputRequests?.some((request) => request.status === 'open'))
+  const asks = Boolean(conversation.inputRequests?.some((request) => request.status === 'open'))
 
   if (!asks) return new Set()
 

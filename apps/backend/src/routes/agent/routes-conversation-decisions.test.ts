@@ -96,21 +96,6 @@ test('a newer question never hides an older open one', async () => {
   expect(statusOf('question-1')).toBe('open')
 })
 
-test('a question stored before request lists still resolves by its id', async () => {
-  delete conversation.inputRequests
-  conversation.pendingDecision = {
-    category: 'preference',
-    question: 'Which direction?',
-    toolCallId: 'question-1',
-    askedAt: new Date(),
-  }
-
-  expect(await (await resolve('question-2')).json()).toEqual({ ok: true, resolved: false })
-  expect(conversation.pendingDecision).toBeDefined()
-  expect(await (await resolve()).json()).toEqual({ ok: true, resolved: true })
-  expect(conversation.pendingDecision).toBeUndefined()
-})
-
 test('a participant can dismiss the owner’s question', async () => {
   viewer = TEAMMATE
 

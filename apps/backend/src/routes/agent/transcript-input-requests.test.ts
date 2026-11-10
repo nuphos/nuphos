@@ -4,7 +4,7 @@ import { serializeConversationDoc } from './transcript'
 
 const askedAt = (hour: number) => new Date(`2026-10-27T0${String(hour)}:00:00Z`)
 
-test('responses carry every open request, and the oldest as pendingDecision', () => {
+test('responses carry every open request, oldest first', () => {
   const body = serializeConversationDoc({
     sessionId: 's1',
     inputRequests: [
@@ -30,15 +30,10 @@ test('responses carry every open request, and the oldest as pendingDecision', ()
     'q1',
     'q2',
   ])
-  expect(body.pendingDecision).toEqual({
-    category: 'approval',
-    question: 'Merge?',
-    toolCallId: 'q1',
-    askedAt: askedAt(1),
-  })
+  expect(body).not.toHaveProperty('pendingDecision')
 })
 
-test('a legacy single question is listed too, and nothing open sends neither field', () => {
+test('the field kept before request lists is never sent, and nothing open sends no requests', () => {
   const legacy = serializeConversationDoc({
     sessionId: 's1',
     pendingDecision: {
@@ -49,10 +44,8 @@ test('a legacy single question is listed too, and nothing open sends neither fie
     },
   })
 
-  expect(legacy.inputRequests).toEqual([
-    { id: 'q1', category: 'approval', question: 'Merge?', askedAt: askedAt(1), status: 'open' },
-  ])
-  expect(legacy.pendingDecision).toMatchObject({ toolCallId: 'q1' })
+  expect(legacy).not.toHaveProperty('inputRequests')
+  expect(legacy).not.toHaveProperty('pendingDecision')
 
   const resolved = serializeConversationDoc({
     sessionId: 's1',

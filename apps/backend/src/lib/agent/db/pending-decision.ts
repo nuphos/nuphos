@@ -2,13 +2,6 @@ import { agentConversations } from './shared'
 
 import type { ExplicitUserDecision } from '@/lib/agent/tools-skilled/types'
 
-/**
- * The single question a session waited on before requests became a list. Still
- * read from older documents, and still sent (the oldest open request) so older
- * Desktop builds keep working.
- */
-export type PendingDecision = ExplicitUserDecision & { toolCallId: string; askedAt: Date }
-
 export type InputRequestStatus = 'open' | 'answered' | 'dismissed'
 
 /**
@@ -31,8 +24,6 @@ export type InputRequest = ExplicitUserDecision & {
 
 /** The questions a conversation document keeps for its owner. */
 export type ConversationInputRequests = {
-  /** Read only: the one question documents kept before inputRequests. */
-  pendingDecision?: PendingDecision
   /** Questions asked through request_user_decision, open and resolved. */
   inputRequests?: InputRequest[]
 }
@@ -96,13 +87,8 @@ export async function resolveInputRequest(
     { sessionId, userId, inputRequests: { $elemMatch: { id, status: 'open' } } },
     { $set: { 'inputRequests.$.status': resolution, 'inputRequests.$.resolvedAt': new Date() } },
   )
-  // A document from before the list keeps its one question here.
-  const legacy = await agentConversations().updateOne(
-    { sessionId, userId, 'pendingDecision.toolCallId': id },
-    { $unset: { pendingDecision: '' } },
-  )
 
-  return listed.matchedCount > 0 || legacy.matchedCount > 0
+  return listed.matchedCount > 0
 }
 
 /** A plan decided anywhere (its card, the Plans page, Slack) is no longer asked about. */
@@ -131,48 +117,20 @@ export async function clearPendingDecision(sessionId: string, userId: string): P
     },
     { arrayFilters: [{ 'open.status': 'open' }] },
   )
-  await agentConversations().updateOne(
-    { sessionId, userId, pendingDecision: { $exists: true } },
-    { $unset: { pendingDecision: '' } },
-  )
 }
 
-/** Matches a conversation with any open request, listed or legacy. */
-export const OPEN_INPUT_REQUEST_FILTER = {
-  $or: [{ 'inputRequests.status': 'open' }, { pendingDecision: { $exists: true } }],
-}
+/** Matches a conversation with any open request. */
+export const OPEN_INPUT_REQUEST_FILTER = { 'inputRequests.status': 'open' }
 
 /**
- * Every open request, the legacy one included, oldest first. A request a
- * queued message answers (`answering`, from the session queue) waits on no one.
+ * Every open request, oldest first. A request a queued message answers
+ * (`answering`, from the session queue) waits on no one.
  */
 export function openInputRequests(
   conversation: ConversationInputRequests,
   answering: ReadonlySet<string> = new Set(),
 ): InputRequest[] {
-  const listed = conversation.inputRequests ?? []
-  const open = listed.filter((request) => request.status === 'open' && !answering.has(request.id))
-  const legacy = conversation.pendingDecision
-
-  if (
-    legacy &&
-    !answering.has(legacy.toolCallId) &&
-    !listed.some((request) => request.id === legacy.toolCallId)
-  ) {
-    const { toolCallId, ...rest } = legacy
-
-    open.push({ ...rest, id: toolCallId, status: 'open' })
-  }
-
-  return open.sort((a, b) => new Date(a.askedAt).getTime() - new Date(b.askedAt).getTime())
-}
-
-/** The oldest open request in the single-question shape older clients read. */
-export function legacyPendingDecision(open: InputRequest[]): PendingDecision | undefined {
-  const oldest = open[0]
-
-  if (!oldest) return undefined
-  const { id, status: _status, resolvedAt: _resolvedAt, ...rest } = oldest
-
-  return { ...rest, toolCallId: id }
+  return (conversation.inputRequests ?? [])
+    .filter((request) => request.status === 'open' && !answering.has(request.id))
+    .sort((a, b) => new Date(a.askedAt).getTime() - new Date(b.askedAt).getTime())
 }

@@ -218,7 +218,7 @@ describe('decision tool module', () => {
     const result = await tools.withdraw_user_decision!({ label: 'Withdraw', requestId: 'nuphos-1' })
 
     expect(result.structuredContent).toMatchObject({ status: 'withdrawn' })
-    expect(conversationUpdates.at(-2)).toEqual([
+    expect(conversationUpdates.at(-1)).toEqual([
       {
         sessionId: 'conv-1',
         userId: 'u1',
