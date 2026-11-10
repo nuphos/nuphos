@@ -5,6 +5,7 @@ import { ObjectId } from 'mongodb'
 import { startConversationTurn } from '@/lib/agent/conversation-turn'
 import { agentConversations, getConversationBySessionId } from '@/lib/agent/db'
 import { pushTimelineEvent } from '@/lib/agent/db/participants'
+import { systemSender } from '@/lib/agent/message-metadata'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 import { userTeamRuntimeFallbacks } from '@/models'
@@ -262,12 +263,7 @@ function continueOn(conversation: Conversation, moved: AgentConversation): void 
     moved,
     'The agent this conversation ran on stopped before finishing, so it moved to you. Check what was already done, then continue the task from where it stopped.',
     'agent.resource',
-    {
-      version: 1,
-      sender: { type: 'system', id: 'nuphos', displayName: 'Nuphos' },
-      source: 'agent.resource',
-      sentAt: new Date().toISOString(),
-    },
+    systemSender('nuphos', 'Nuphos'),
   )
     .then(({ run }) => run)
     .catch((error: unknown) => {

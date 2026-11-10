@@ -20,6 +20,8 @@ import {
 
 import type { ConversationTriggerRun, ConversationTriggerRunKind } from './conversation-trigger-run'
 import type { AgentConversation } from './db'
+import { systemSender } from './message-metadata'
+
 import type { MessageMetadata } from './message-metadata'
 import type { AgentTrigger } from './trigger-db'
 import type { TriggerGroupMember } from './trigger-group-db'
@@ -178,13 +180,11 @@ export async function executeTrigger(
 function triggerMetadata(trigger: AgentTrigger): MessageMetadata {
   const triggerId = trigger._id!.toHexString()
 
-  return {
-    version: 1,
-    sender: { type: 'system', id: `trigger:${triggerId}`, displayName: trigger.name },
-    source: 'agent.resource',
-    resourceUrl: `/teams/${trigger.teamId}/triggers/${triggerId}`,
-    sentAt: new Date().toISOString(),
-  }
+  return systemSender(
+    `trigger:${triggerId}`,
+    trigger.name,
+    `/teams/${trigger.teamId}/triggers/${triggerId}`,
+  )
 }
 
 /**

@@ -3,16 +3,10 @@
 // send a "please proceed" turn. Answering the plan's question is already a
 // turn, so that path never comes here.
 import { getConversationBySessionId } from '@/lib/agent/db'
+import { systemSender } from '@/lib/agent/message-metadata'
 import { resumeSlackThreadForApprovedPlan } from '@/lib/agent/plan-slack-resume'
 
-import type { MessageMetadata } from '@/lib/agent/message-metadata'
 import type { PlanDTO } from '@/lib/agent/plans'
-
-const SENDER: MessageMetadata['sender'] = {
-  type: 'system',
-  id: 'nuphos:plans',
-  displayName: 'Nuphos',
-}
 
 export async function wakeForPlanDecision(
   plan: Pick<
@@ -60,7 +54,7 @@ export async function wakeForPlanDecision(
       ? `Plan #${planId} (${title}) was approved. Confirm it with get.sh, then execute it.`
       : `Plan #${planId} (${title}) was rejected. Discard it and stop.`,
     'agent.resource',
-    { version: 1, sender: SENDER, source: 'agent.resource', sentAt: new Date().toISOString() },
+    systemSender('nuphos:plans', 'Nuphos'),
   )
 
   await run

@@ -1,4 +1,5 @@
 import { executeConversationTurn } from './conversation-turn'
+import { systemSender } from './message-metadata'
 import { authorizedResourceTurn } from './resource-webhook'
 import { refreshSessionResource } from './session-resources'
 
@@ -22,12 +23,6 @@ export async function executeResourceTurn(data: ResourceTurn) {
     conversation,
     data.summary,
     'agent.resource',
-    {
-      version: 1,
-      sender: { type: 'system', id: 'github', displayName: 'GitHub' },
-      source: 'agent.resource',
-      resourceUrl: resource.url,
-      sentAt: new Date().toISOString(),
-    },
+    systemSender('github', 'GitHub', resource.url),
   )
 }

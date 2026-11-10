@@ -65,6 +65,20 @@ enum ChatRow: Identifiable, Equatable {
 }
 
 extension ChatRow {
+    /// A user-role message's row, a steering receipt's too: an agent's or a
+    /// system's is an event line, a person's a bubble.
+    static func userRow(_ message: ChatMessage, id: String, messageId: String, fallback: ChatMessage.Sender? = nil) -> ChatRow? {
+        if let event = message.event { return .event(id: id, event: event) }
+        let text = message.displayText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let images = message.parts.compactMap { part -> String? in
+            if case .file(let f) = part, f.mediaType.hasPrefix("image/") { return f.url }
+            return nil
+        }
+        let transfers = message.parts.compactMap(TransferUpload.init)
+        guard !text.isEmpty || !images.isEmpty || !transfers.isEmpty else { return nil }
+        return .user(id: id, messageId: messageId, text: text, images: images, sender: message.sender ?? fallback, transfers: transfers)
+    }
+
     static func assistantRows(_ message: ChatMessage, live: Bool, lastApprovalCallId: String?) -> [ChatRow] {
         var body: [ChatRow] = []
 
@@ -104,7 +118,9 @@ extension ChatRow {
                 }
             case .data(let receipt) where receipt.name == "steering":
                 if let id = receipt.data["id"]?.stringValue, let text = receipt.data["text"]?.stringValue {
-                    body.append(.user(id: "steering.\(id)", messageId: message.id, text: text, images: [], sender: ChatMessage.Sender(metadata: receipt.data["metadata"])))
+                    var steer = ChatMessage.user(text)
+                    steer.metadata = receipt.data["metadata"]
+                    if let row = userRow(steer, id: "steering.\(id)", messageId: message.id) { body.append(row) }
                 }
             case .turnInterrupted(let p):
                 body.append(.hint(id: "interrupted.\(message.id).\(p.id)", text: p.reason == .cancelled ? "Stopped." : p.message, isError: p.reason != .cancelled))
@@ -119,7 +135,7 @@ extension ChatRow {
 
         // Once the turn is over, fold the work (narration, thinking, tools)
         // that came before the final answer into one collapsible header.
-        guard !body.contains(where: { if case .user = $0 { return true }; return false }), !live,
+        guard !body.contains(where: { $0.id.hasPrefix("steering.") }), !live,
               let foldEnd = foldEnd(body, stopped: message.stoppedByUser == true) else {
             return body
         }

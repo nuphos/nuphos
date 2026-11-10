@@ -7,11 +7,11 @@ import { logError, logEvent } from '@/lib/observability'
 
 import { getConversationBySessionId } from './db'
 import { openInputRequests, resolveInputRequest } from './db/pending-decision'
+import { systemSender } from './message-metadata'
 import { CONNECTABLE_PROVIDERS, isConnectableProvider } from './tools-skilled/decision-tools'
 
 import type { AgentCredentialAccess } from './db'
 import type { InputRequest } from './db/pending-decision'
-import type { MessageMetadata } from './message-metadata'
 import type { SelectionKey } from '@/lib/claude-code-preview/credential-lister'
 
 export type AddedCredentialIds = Partial<Record<SelectionKey, string[]>>
@@ -41,12 +41,6 @@ export function selectedProviders(request: InputRequest, added: AddedCredentialI
 
     return Boolean((key && added[key]?.length) || added.personalCredentialIds?.includes(provider))
   })
-}
-
-const SENDER: MessageMetadata['sender'] = {
-  type: 'system',
-  id: 'nuphos:credentials',
-  displayName: 'Nuphos',
 }
 
 /**
@@ -94,7 +88,7 @@ export async function answerCredentialAsks(sessionId: string, added: AddedCreden
         `so your question is answered (requestId ${answered.join(', ')}). ` +
         'Call list_credentials to see them, then continue the task.',
       'agent.resource',
-      { version: 1, sender: SENDER, source: 'agent.resource', sentAt: new Date().toISOString() },
+      systemSender('nuphos:credentials', 'Nuphos'),
     )
 
     await run
