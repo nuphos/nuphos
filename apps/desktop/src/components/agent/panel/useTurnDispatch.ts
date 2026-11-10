@@ -224,6 +224,7 @@ export function useTurnDispatch(acc: Acc) {
       turnKind?: Message['turnKind'],
       questionId?: string,
       mentions?: AgentMessageMention[],
+      mode?: 'queue',
     ): boolean => {
       const trimmed = text.trim()
 
@@ -254,12 +255,9 @@ export function useTurnDispatch(acc: Acc) {
       const tab = tabsRef.current.find((t) => t.id === activeId)
 
       if (!tab || tab.readOnly) return false
-      const route = routeSend(tab.runtimeState, turnKind, questionId, answering)
+      const route = routeSend(tab.runtimeState, turnKind, questionId, answering, mode)
 
-      // The backend decides whose turn it is: a refused steer goes out as a
-      // message and waits in the server queue. Either way the draft is a queued
-      // entry from the first step on, so it is taken here, without awaiting
-      // delivery — the composer should not wait on that to clear.
+      // A refused steer falls back to the same server queue as an explicit queued send.
       if (route.steer) {
         // A steer belongs to the session it steers. With none registered yet
         // sendSteering would drop it in silence, so refuse it instead.

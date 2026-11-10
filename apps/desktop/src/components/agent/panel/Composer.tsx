@@ -278,6 +278,9 @@ export function Composer({
             )}
             <ComposerSendControls
               runtimeCanCancel={runtimeCanCancel}
+              canSteer={
+                runtimeAllows(runtimeState, 'steer') && !runtimeAllows(runtimeState, 'reply')
+              }
               executing={executing}
               hero={hero}
               readOnly={readOnly}
@@ -286,7 +289,8 @@ export function Composer({
               sendDisabled={sendDisabled}
               sendBlockedReason={agentSendBlock ?? runtimeSendBlock}
               onConnectAgent={runtimeControl?.onConnectAgent}
-              onSubmit={actions.submit}
+              onSubmit={() => actions.submit()}
+              onQueue={() => actions.submit('queue')}
               onStop={onStop}
             />
           </div>

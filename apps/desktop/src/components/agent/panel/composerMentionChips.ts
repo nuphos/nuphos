@@ -15,6 +15,7 @@ export type ComposerSend = (
   text: string,
   filePaths: string[],
   mentions?: AgentMessageMention[],
+  mode?: 'queue',
 ) => boolean
 
 /** The teammates the editor's chips mention, once each, named as the chip shows them. */
