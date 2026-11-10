@@ -20,7 +20,8 @@ import { toast } from '../ui/toast'
 import { botOfChannel } from './botChannel'
 import { BotChatQuestions } from './BotChatQuestions'
 import { ChannelMessages } from './ChannelMessages'
-import { ChatIcon } from './channelParts'
+import { ChannelTitle } from './ChannelTitle'
+import { ChatHeaderIcon, ChatIcon } from './channelParts'
 import { sendingPost, stillSending } from './sendingPosts'
 import { useChannel } from './useChannel'
 import { useStickToBottom } from './useStickToBottom'
@@ -164,8 +165,14 @@ export function ChannelPane({
       >
         {titlebarLeading}
         <div className="titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 overflow-hidden text-[13px] font-medium text-secondary">
-          <ChatIcon faces={detail?.faces} title={title} size={22} />
-          <span className="truncate text-main">{title}</span>
+          <ChatHeaderIcon faces={detail?.faces} title={title} loading={!detail} />
+          <ChannelTitle
+            bot={bot}
+            title={title}
+            teamId={teamId}
+            canRename={agents.some((agent) => agent.sessionId === bot && agent.ownerId === user.id)}
+            onRenamed={refresh}
+          />
         </div>
         {bot && canOpenBotDesktop && (
           <IconButton
