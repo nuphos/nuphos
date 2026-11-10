@@ -139,15 +139,55 @@ test('a pending open not taken in time is dropped', () => {
   setPaneSession('pane-1', null)
 })
 
-test('each chat remembers its own panel as a pane switches between them', () => {
+test('every chat starts closed as a pane switches between them', () => {
   setPaneSession('pane-1', 'chat-a')
   setChatSummaryOpen('pane-1', true)
   assert.equal(isChatSummaryOpen('pane-1'), true)
 
-  setPaneSession('pane-1', 'chat-b') // a chat never opened starts closed
+  setPaneSession('pane-1', null) // the view unmounts on a chat switch
+  setPaneSession('pane-1', 'chat-b')
   assert.equal(isChatSummaryOpen('pane-1'), false)
 
-  setPaneSession('pane-1', 'chat-a') // coming back finds it open again
+  setPaneSession('pane-1', null)
+  setPaneSession('pane-1', 'chat-a') // coming back starts closed too
+  assert.equal(isChatSummaryOpen('pane-1'), false)
+
+  setPaneSession('pane-1', null)
+})
+
+test('a pane remounting on the same chat keeps its panel open', () => {
+  setPaneSession('pane-1', 'chat-e')
+  setChatSummaryOpen('pane-1', true)
+
+  setPaneSession('pane-1', null)
+  setPaneSession('pane-1', 'chat-e')
+  assert.equal(isChatSummaryOpen('pane-1'), true)
+
+  setChatSummaryOpen('pane-1', false)
+  setPaneSession('pane-1', null)
+})
+
+test('switching a split to a chat another split shows open keeps it open there', () => {
+  setPaneSession('pane-1', 'chat-f')
+  setPaneSession('pane-2', 'chat-g')
+  setChatSummaryOpen('pane-1', true)
+
+  setPaneSession('pane-2', 'chat-f')
+  assert.equal(isChatSummaryOpen('pane-1'), true)
+  assert.equal(isChatSummaryOpen('pane-2'), true)
+
+  setPaneSession('pane-2', 'chat-g') // the split that leaves does not close it for the other
+  assert.equal(isChatSummaryOpen('pane-1'), true)
+  assert.equal(isChatSummaryOpen('pane-2'), false)
+
+  setChatSummaryOpen('pane-1', false)
+  for (const pane of ['pane-1', 'pane-2']) setPaneSession(pane, null)
+})
+
+test('a badge open for a chat still lands when a pane switches to it', () => {
+  setPaneSession('pane-1', 'chat-h')
+  openChatSummaryChanges('all', 'chat-i')
+  setPaneSession('pane-1', 'chat-i')
   assert.equal(isChatSummaryOpen('pane-1'), true)
 
   setChatSummaryOpen('pane-1', false)

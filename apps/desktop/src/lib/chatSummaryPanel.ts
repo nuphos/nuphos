@@ -1,6 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react'
 
-import { inWindow, loadOpenChats, read, saveOpenChats, write } from './chatSummaryStorage.ts'
+import { inWindow, read, write } from './chatSummaryStorage.ts'
 
 import type { ChangeStatus } from '../components/sidebar/sessionResourcePresentation'
 
@@ -9,19 +9,23 @@ const listeners = new Set<() => void>()
 /** The id the first pane starts with. */
 export const PRIMARY_PANE_ID = 'primary'
 
-// Each chat remembers its own panel: open in one chat, it stays closed in the
-// next until opened there, and is open again on coming back. A pane showing no
-// chat (a new one) keeps its own entry, `pane:<id>`, which is not persisted.
-const openKeys = new Set<string>(inWindow ? loadOpenChats() : [])
+// Keyed by chat, so panes on the same chat share its panel; a pane showing no
+// chat (a new one) keeps its own entry, `pane:<id>`. A chat starts closed each
+// time a pane switches to it, and nothing outlives a reload.
+const openKeys = new Set<string>()
 // The chat each pane is showing, so a badge can open the panel only where its chat is.
 const paneSessions = new Map<string, string>()
+// The chat each pane showed last, kept while it unmounts: a remount is not a switch.
+const paneLastSessions = new Map<string, string>()
 
 function keyOf(paneId: string): string {
   return paneSessions.get(paneId) ?? `pane:${paneId}`
 }
 
-function persist() {
-  saveOpenChats([...openKeys].filter((key) => !key.startsWith('pane:')))
+function shownElsewhere(paneId: string, sessionId: string): boolean {
+  for (const [id, shown] of paneSessions) if (id !== paneId && shown === sessionId) return true
+
+  return false
 }
 
 // An open asked for a chat no pane shows yet ("before switching to that chat").
@@ -60,7 +64,6 @@ export function setChatSummaryOpen(paneId: string, next: boolean): void {
     // Closing drops a reveal this pane never made, so a later open stays put.
     revealFor = null
   }
-  persist()
   notify()
 }
 
@@ -81,6 +84,10 @@ export function setPaneSession(paneId: string, sessionId: string | null, now = D
 
     return
   }
+  // Switching to a chat starts it closed, unless another pane shows it open now.
+  if (paneLastSessions.get(paneId) !== sessionId && !shownElsewhere(paneId, sessionId))
+    openKeys.delete(sessionId)
+  paneLastSessions.set(paneId, sessionId)
   paneSessions.set(paneId, sessionId)
   notify()
   if (pendingOpenFor === sessionId && now - pendingOpenAt <= REVEAL_LIFETIME_MS) {
