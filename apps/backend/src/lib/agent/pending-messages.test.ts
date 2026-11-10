@@ -142,34 +142,12 @@ describe('pending user messages', () => {
 })
 
 describe('renderInjectedUserMessages', () => {
-  test('carries no synthetic-continuation prefix — this is a real user turn', () => {
-    const rendered = renderInjectedUserMessages([
-      buildPendingUserMessage({ renderedText: 'actually, staging', source: 'slack' }),
-    ])
-
-    expect(rendered).not.toContain('[automatic continuation')
-    expect(rendered).toContain('actually, staging')
-    expect(rendered).toContain('while you were still working')
-  })
-
-  test('offers all three responses instead of dictating one', () => {
-    const rendered = renderInjectedUserMessages([
-      buildPendingUserMessage({ renderedText: 'wait', source: 'slack' }),
-    ])
-
-    expect(rendered).toContain('carry on')
-    expect(rendered).toContain('redirect or cancel')
-    expect(rendered).toContain('Do not restart from scratch')
-  })
-
-  test('keeps several messages distinguishable', () => {
+  test('keeps each waiting message, separated, with no framing about who sent it', () => {
     const rendered = renderInjectedUserMessages([
       buildPendingUserMessage({ renderedText: 'one', source: 'slack' }),
       buildPendingUserMessage({ renderedText: 'two', source: 'slack' }),
     ])
 
-    expect(rendered).toContain('these messages')
-    expect(rendered).toContain('one')
-    expect(rendered).toContain('two')
+    expect(rendered).toBe('one\n\n---\n\ntwo')
   })
 })

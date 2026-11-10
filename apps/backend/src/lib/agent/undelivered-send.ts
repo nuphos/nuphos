@@ -3,6 +3,7 @@
 import { logError } from '@/lib/observability'
 
 import { appendConversationMessages } from './db'
+import { systemSender } from './message-metadata'
 
 import type { PendingUserMessage } from './pending-messages'
 
@@ -24,10 +25,12 @@ export async function keepUndeliveredSend(
         parts: message.chat.message.parts,
         ...(message.metadata ? { metadata: message.metadata } : {}),
       },
+      // Nuphos's notice, shown as its event line, never as the agent's reply.
       {
         id: `${message.id}-undelivered`,
-        role: 'assistant',
+        role: 'user',
         parts: [{ type: 'text', text: notice }],
+        metadata: systemSender('nuphos', 'Nuphos'),
       },
     ],
   }).catch((error: unknown) => {
