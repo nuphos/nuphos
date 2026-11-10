@@ -254,6 +254,10 @@ test('a Nuphos notice with no resource keeps its attribution and is not a GitHub
   expect(parsed).not.toHaveProperty('resourceUrl')
   expect(envelope.sender.type).toBe('system')
   expect(envelope.instructions).not.toContain('GitHub')
+  // Any other system sender keeps the cautious untrusted-content default.
+  const other = renderAttributedMessage('x', 'hi', systemSender('linear', 'Linear')).split('\n')[1]!
+
+  expect((JSON.parse(other) as { instructions: string }).instructions).toContain('untrusted')
 })
 
 test('an agent-token message keeps its bot sender, the user it acts for, and the token', () => {
