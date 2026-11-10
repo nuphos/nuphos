@@ -32,9 +32,8 @@ export {
   verifyAliyunRole,
 } from './aliyun-sts'
 export type { AliyunHandle } from './aliyun-sts'
+export { mapLimit, mapPool } from '@/lib/concurrency'
 export {
-  mapLimit,
-  mapPool,
   PAGE_SCAN_CONCURRENCY,
   REGION_SCAN_CONCURRENCY,
   REGION_SWEEP_DEADLINE_MS,

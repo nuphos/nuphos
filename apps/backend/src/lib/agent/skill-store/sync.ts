@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 
 import { config } from '@/config'
+import { mapPool } from '@/lib/concurrency'
 import { AppError } from '@/lib/errors'
 
 import { safeJoinUnder } from './safe-path'
@@ -150,6 +151,12 @@ export async function pruneInvalidCachedSkillDirs(scopeDir: string): Promise<num
   return pruned
 }
 
+/** How many skill objects a sync fetches at once. One at a time, a cold cache took 15–30s. */
+const DOWNLOAD_CONCURRENCY = 16
+
+/** One sync per scope at a time: concurrent requests on a cold pod share it. */
+const syncing = new Map<string, Promise<SkillSyncResult>>()
+
 export async function syncScope(scope: string): Promise<SkillSyncResult> {
   if (!isSkillsStoreConfigured()) {
     throw new AppError(
@@ -160,6 +167,17 @@ export async function syncScope(scope: string): Promise<SkillSyncResult> {
   }
 
   const normalized = normalizeSkillScope(scope)
+  let running = syncing.get(normalized)
+
+  if (!running) {
+    running = runSync(normalized).finally(() => syncing.delete(normalized))
+    syncing.set(normalized, running)
+  }
+
+  return running
+}
+
+async function runSync(normalized: string): Promise<SkillSyncResult> {
   const scopeDir = getScopeCacheDir(normalized)
   const s3 = getSkillsStore({ scope: normalized })
   const prefix = skillScopeS3Prefix(normalized)
@@ -171,6 +189,8 @@ export async function syncScope(scope: string): Promise<SkillSyncResult> {
   let skipped = 0
   let totalBytes = 0
   const nextObjects: Record<string, ManifestEntry> = {}
+
+  const toFetch: { obj: SkillS3Object; relPath: string }[] = []
 
   for (const obj of remoteObjects) {
     const relPath = s3KeyToCacheRelativePath(normalized, obj.key)
@@ -186,7 +206,10 @@ export async function syncScope(scope: string): Promise<SkillSyncResult> {
       totalBytes += obj.size
       continue
     }
+    toFetch.push({ obj, relPath })
+  }
 
+  await mapPool(toFetch, DOWNLOAD_CONCURRENCY, async ({ obj, relPath }) => {
     const body = await s3.getObjectBody(obj.key)
     const dest = safeJoinUnder(scopeDir, relPath)
 
@@ -197,7 +220,7 @@ export async function syncScope(scope: string): Promise<SkillSyncResult> {
     await fs.rename(tmp, dest)
     downloaded += 1
     totalBytes += body.byteLength
-  }
+  })
 
   let deleted = 0
   const remoteRelPaths = new Set(
