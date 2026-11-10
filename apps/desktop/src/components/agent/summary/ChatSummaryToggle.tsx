@@ -10,11 +10,14 @@ import {
   useChatSummaryOpen,
 } from '../../../lib/chatSummaryPanel'
 import { isMac } from '../../../lib/platform'
+import { useSessionTerminalProcesses } from '../../../lib/sessionTerminalProcesses'
 import { Kbd } from '../../ui/kbd'
 import { Tooltip } from '../../ui/tooltip'
 import { shellsFromRuntimeState } from '../panel/shells'
 import { CountBadge } from '../../ui/count-badge'
 import { StatusDot } from '../../ui/status-dot'
+
+import { backgroundLabel } from './backgroundLabel'
 
 export function SummaryIcon() {
   return (
@@ -60,15 +63,15 @@ export function ChatSummaryToggle({
   active: boolean
   hidden?: boolean
   pendingCount?: number
-  /** Its background tasks earn a dot in the sidebar row's background color. */
+  /** Its background tasks and busy dock terminals earn a dot in the sidebar row's background color. */
   sessionId?: string
 }) {
   const paneId = usePaneId()
   const open = useChatSummaryOpen(paneId)
   const runtimeStates = useAgentRuntimeStates()
-  const backgroundCount = sessionId
-    ? shellsFromRuntimeState(runtimeStates.get(sessionId)).length
-    : 0
+  const taskCount = sessionId ? shellsFromRuntimeState(runtimeStates.get(sessionId)).length : 0
+  const terminalCount = useSessionTerminalProcesses(sessionId ?? '').length
+  const backgroundCount = taskCount + terminalCount
 
   useEffect(() => {
     if (!active) return
@@ -84,10 +87,7 @@ export function ChatSummaryToggle({
   }, [active, paneId])
 
   if (hidden) return null
-  const background =
-    backgroundCount === 1
-      ? t('1 background task running')
-      : t('{count} background tasks running', { count: backgroundCount })
+  const background = backgroundLabel(taskCount, terminalCount)
 
   return (
     <Tooltip
