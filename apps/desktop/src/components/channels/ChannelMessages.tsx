@@ -158,7 +158,7 @@ export function ChannelMessages({
   ].sort((a, b) => a.at - b.at)
 
   return (
-    <div className="mx-auto flex w-full max-w-[760px] flex-col gap-3 px-3">
+    <div className="flex flex-col gap-3">
       {rows.map((row) => (
         <Fragment key={row.key}>{row.node}</Fragment>
       ))}
