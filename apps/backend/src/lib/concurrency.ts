@@ -29,15 +29,25 @@ export async function mapPool<T>(
     throw new Error('mapPool limit must be a positive integer')
   }
   let next = 0
+  let failed = false
   const worker = async () => {
-    while (next < items.length) {
+    while (!failed && next < items.length) {
       const idx = next++
       const item = items[idx]
 
       if (item === undefined) continue
-      await fn(item)
+      await fn(item).catch((err: unknown) => {
+        failed = true
+        throw err
+      })
     }
   }
+  // After a failure no worker takes another item, and the pool rejects only once
+  // the ones in flight have finished, so nothing it started outlives it.
+  const settled = await Promise.allSettled(
+    Array.from({ length: Math.min(limit, items.length) }, worker),
+  )
+  const rejected = settled.find((result) => result.status === 'rejected')
 
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  if (rejected) throw rejected.reason
 }

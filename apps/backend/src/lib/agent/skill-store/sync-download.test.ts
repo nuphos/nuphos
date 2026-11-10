@@ -15,19 +15,25 @@ let lists = 0
 let fetching = 0
 let peak = 0
 let fetched = 0
+let failing: string | undefined
 
 await mock.module('./skills-s3', () => ({
   isSkillsS3Configured: () => true,
   getSkillsStore: () => ({
-    listUnderPrefix: async () => {
+    listUnderPrefix: async (prefix: string) => {
       lists += 1
       await sleep(20)
 
-      return objects
+      return objects.map((object) => ({
+        ...object,
+        key: object.key.replace(`${scope}/`, prefix.replace(/skills\/$/u, '')),
+      }))
     },
-    getObjectBody: async () => {
-      fetching += 1
+    getObjectBody: async (key: string) => {
       fetched += 1
+      // Fails at once, while the others are still mid-download.
+      if (key === failing) throw new Error('store unavailable')
+      fetching += 1
       peak = Math.max(peak, fetching)
       await sleep(10)
       fetching -= 1
@@ -56,4 +62,17 @@ test('a cold cache is filled with bounded parallel fetches, once per scope', asy
   expect((await syncScope(scope)).downloaded).toBe(0)
   expect(lists).toBe(2)
   expect(fetched).toBe(objects.length)
+})
+
+test('a failed download stops the sync before it answers', async () => {
+  const failed = `${scope}-failing`
+
+  failing = `${failed}/skills/s0/SKILL.md`
+  fetched = 0
+
+  await expect(syncScope(failed)).rejects.toThrow('store unavailable')
+  // Nothing it started is still writing, and nothing was taken after the failure.
+  expect(fetching).toBe(0)
+  expect(fetched).toBeLessThanOrEqual(16)
+  failing = undefined
 })
