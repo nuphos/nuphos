@@ -267,9 +267,6 @@ struct PlanChatTarget: Identifiable, Hashable {
     let planId: String
     let sessionId: String
     let title: String
-    /// Sent once the conversation has loaded — for a plan whose approval
-    /// gate is met but that the agent has not started yet.
-    let proceedMessage: String?
     let buttonTitle: LocalizedStringKey
 
     var id: String { planId + sessionId }
@@ -279,20 +276,10 @@ struct PlanChatTarget: Identifiable, Hashable {
         planId = plan.id
         self.sessionId = sessionId
         title = plan.title
-        switch plan.status {
-        case "proposed":
-            proceedMessage = nil
-            buttonTitle = "Continue in agent"
-        case "approved":
-            proceedMessage = "Approved plan #\(plan.id) — please proceed with plan #\(plan.id)."
-            buttonTitle = "Continue in agent"
-        default:
-            proceedMessage = nil
-            buttonTitle = "Open agent"
-        }
+        buttonTitle = plan.status == "proposed" || plan.status == "approved" ? "Continue in agent" : "Open agent"
     }
 
-    static func == (a: PlanChatTarget, b: PlanChatTarget) -> Bool { a.id == b.id && a.proceedMessage == b.proceedMessage }
+    static func == (a: PlanChatTarget, b: PlanChatTarget) -> Bool { a.id == b.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
 
@@ -315,7 +302,6 @@ struct PlanConversationView: View {
         .onAppear {
             guard session == nil else { return }
             let s = store.session(sessionId: target.sessionId, title: target.title)
-            s.sendAfterLoad = target.proceedMessage
             session = s
         }
         .onDisappear { Task { await plans.silentRefresh() } }

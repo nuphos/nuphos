@@ -42,9 +42,6 @@ final class ChatSession {
     private(set) var permissionMode: PermissionMode = .auto
     /// Sent with each turn; nil keeps the conversation's stored choice.
     var credentialAccess: CredentialSelection?
-    /// Sent as soon as `load()` finishes on a writable, idle conversation —
-    /// how the Plans page tells the agent to proceed with an approved plan.
-    var sendAfterLoad: String?
     /// New conversation: the runtime it starts on (nil lets the team default
     /// decide). Sent on the first PUT/POST only.
     var runtime: RuntimeInstance?
@@ -384,10 +381,6 @@ final class ChatSession {
             lastSyncedSignature = signature()
             Task { await refreshResourcesAndDownloads() }
             if isNativeRuntime, !transportStreaming { Task { await refreshSessionConfig() } }
-            if let text = sendAfterLoad {
-                sendAfterLoad = nil
-                if !readOnly, !transportStreaming { send(text) }
-            }
         } catch {
             loadError = error.localizedDescription
             loaded = true
@@ -783,20 +776,16 @@ final class ChatSession {
         try await AgentChatAPI.plan(token: token, teamId: teamId, planId: planId)
     }
 
-    /// Approve → if the quorum is met, tell the agent to proceed.
+    /// The backend wakes the agent once the approval completes the plan's gate.
     func approvePlan(_ planId: String) async throws -> Plan {
         let updated = try await AgentChatAPI.updatePlan(token: token, teamId: teamId, planId: planId, status: "approved")
         Analytics.shared.track("agent_plan_approved", teamID: teamId, properties: ["plan_id": planId])
-        if updated.status == "approved" {
-            send("Approved plan #\(planId) — please proceed with plan #\(planId).")
-        }
         return updated
     }
 
     func rejectPlan(_ planId: String) async throws -> Plan {
         let updated = try await AgentChatAPI.updatePlan(token: token, teamId: teamId, planId: planId, status: "rejected")
         Analytics.shared.track("agent_plan_rejected", teamID: teamId, properties: ["plan_id": planId])
-        send("Rejected the plan — discard it and stop.")
         return updated
     }
 
