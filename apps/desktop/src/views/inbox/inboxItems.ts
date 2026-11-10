@@ -13,12 +13,17 @@ export function waitingConversations<T extends AgentConversation>(
   )
 }
 
-/** How many conversations {@link waitingConversations} keeps. */
+/**
+ * How many questions wait on the viewer once those answered on this device are
+ * set aside: one per card, as a Bot's chat draws them and an Inbox row counts them.
+ */
 export function inboxCount(
   conversations: readonly AgentConversation[],
   answered: ReadonlyMap<string, number>,
 ): number {
-  return waitingConversations(conversations, answered).length
+  return conversations
+    .flatMap((conversation) => openInputRequests(conversation))
+    .filter((request) => !answered.has(request.id)).length
 }
 
 /**

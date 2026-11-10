@@ -18,10 +18,10 @@ import { IconButton } from '../ui/icon-button'
 import { toast } from '../ui/toast'
 
 import { botOfChannel } from './botChannel'
-import { BotChatQuestions } from './BotChatQuestions'
 import { ChannelMessages } from './ChannelMessages'
 import { ChatIcon } from './channelParts'
 import { sendingPost, stillSending } from './sendingPosts'
+import { useBotChatQuestions } from './useBotChatQuestions'
 import { useChannel } from './useChannel'
 import { useStickToBottom } from './useStickToBottom'
 import { HeaderEdge } from '../ui/header-edge'
@@ -94,6 +94,7 @@ export function ChannelPane({
 
     return () => forgetSessionDesktops(bot, channelId)
   }, [bot, teamId, botState, botOwned, channelId])
+  const questions = useBotChatQuestions(teamId, bot, onOpenSession)
   const stored = detail?.messages ?? []
   const pending = stillSending(stored, sending)
 
@@ -225,6 +226,7 @@ export function ChannelPane({
               onOpenSession={onOpenSession}
               onOpenNuphosLink={onOpenNuphosLink}
               channelId={channelId}
+              extraRows={questions.rows}
               onReply={
                 detail.readOnly
                   ? undefined
@@ -240,10 +242,7 @@ export function ChannelPane({
               }
             />
           )}
-          {/* What the Bot and the agents under it wait on, answerable here. */}
-          {detail && bot && (
-            <BotChatQuestions teamId={teamId} botId={bot} onOpenSession={onOpenSession} />
-          )}
+          {questions.panels}
         </div>
       </HeaderEdge>
       <div

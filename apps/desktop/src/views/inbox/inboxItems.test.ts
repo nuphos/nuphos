@@ -53,12 +53,12 @@ const waiting = (sessionId: string, ...ids: string[]) =>
     })),
   }) as AgentConversation
 
-test('a conversation leaves the count once every question in it is answered here', () => {
+test('the count is the open questions, each leaving it once answered here', () => {
   const listing = [waiting('a', 'q1'), waiting('b', 'q2', 'q3')]
 
-  assert.equal(inboxCount(listing, new Map()), 2)
-  assert.equal(inboxCount(listing, new Map([['q1', Infinity]])), 1)
-  // One of two questions answered: the conversation still waits.
+  // Three cards in two conversations count three, as a Bot's chat draws them.
+  assert.equal(inboxCount(listing, new Map()), 3)
+  assert.equal(inboxCount(listing, new Map([['q1', Infinity]])), 2)
   assert.equal(inboxCount(listing, new Map([['q2', Infinity]])), 2)
 })
 

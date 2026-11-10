@@ -74,7 +74,7 @@ export function answeringInbox<T>(
   return send
 }
 
-/** How many of the viewer's conversations wait on them in this team; `null` until known. */
+/** How many questions wait on the viewer in this team; `null` until known. */
 export function inboxCountFor(teamId: string): number | null {
   return listing?.teamId === teamId ? inboxCount(listing.conversations, answered) : null
 }
