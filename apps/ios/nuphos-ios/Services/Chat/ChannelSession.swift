@@ -35,9 +35,7 @@ final class ChannelSession {
     var replying: ChannelReply?
     var sendError: String?
     /// In a Bot's chat: the open questions of the Bot and of every agent under it.
-    private(set) var questions: [BotQuestion] = []
-    /// Answered here; hidden until the listing no longer has them open.
-    private var answered: Set<String> = []
+    let questions: OpenQuestions
     /// The signed-in person: whose posts sit on the right.
     var viewerId: String?
     var me: ChatMessage.Sender?
@@ -52,6 +50,7 @@ final class ChannelSession {
         self.teamId = teamId
         self.channelId = channelId
         self.title = title
+        questions = OpenQuestions(token: token, teamId: teamId)
     }
 
     var posts: [ChannelPost] { stored + ChannelPost.stillSending(stored: stored, sending: sending) }
@@ -129,39 +128,12 @@ final class ChannelSession {
     /// A Bot's chat reads the pending listing, as the desktop's does; any other chat has none.
     func refreshQuestions() async {
         guard let bot = faces.botId else { return }
-        do {
-            var rows: [AgentConversation] = []
-            var cursor: String?
-            // Bounded like the desktop's: a cursor never repeats a page.
-            for _ in 0..<10 {
-                let page = try await NuphosAPI.conversations(
-                    token: token, teamId: teamId, cursor: cursor, limit: 100, pendingDecision: true)
-                rows += page.rows
-                guard page.hasMore, let next = page.nextCursor, next != cursor else { break }
-                cursor = next
-            }
-            let open = BotQuestions.under(bot: bot, rows: rows)
-            answered.formIntersection(open.map(\.id))
-            questions = open.filter { !answered.contains($0.id) }
-        } catch {
-            // Kept as they were; the next poll tries again.
-        }
+        await questions.refresh { BotQuestions.under(bot: bot, rows: $0) }
     }
 
-    /// The owner's own reply to the conversation that asked, naming the question,
-    /// so it resolves that one request wherever it is shown.
-    func answer(_ question: BotQuestion, with option: String) {
-        answered.insert(question.id)
-        questions.removeAll { $0.id == question.id }
+    func answer(_ question: BotQuestion, with text: String) {
         Task {
-            do {
-                try await AgentChatAPI.reply(token: token, teamId: teamId, sessionId: question.sessionId,
-                                             text: option, decisionReplyTo: question.request.id)
-            } catch {
-                answered.remove(question.id)
-                sendError = error.localizedDescription
-                await refreshQuestions()
-            }
+            do { try await questions.answer(question, with: text) } catch { sendError = error.localizedDescription }
         }
     }
 

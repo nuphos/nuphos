@@ -5,6 +5,7 @@ enum BotQuestionsTests {
         listsTheBotsQuestionsAtAnyDepth()
         leavesOutOtherBotsAndTeammates()
         decodesTheOpenRequestsOfAListRow()
+        theInboxListsEveryOwnQuestionOnce()
         print("Bot questions passed")
     }
 
@@ -54,5 +55,16 @@ enum BotQuestionsTests {
         let decoded = try! decoder.decode(AgentConversation.self, from: Data(json.utf8))
         precondition(decoded.inputRequests?.first?.options == ["Yes"])
         precondition(BotQuestions.under(bot: "rollout", rows: [decoded]).map(\.id) == ["canary:q-canary"])
+    }
+
+    private static func theInboxListsEveryOwnQuestionOnce() {
+        // A row also listed as another row's parent is read once; a teammate's row is not the viewer's.
+        let rows = [
+            row("deploy", parent: "bot", asks: [("q-2", "2026-11-09T03:02:00Z"), ("q-1", "2026-11-09T03:01:00Z")]),
+            row("bot", asks: [("q-3", "2026-11-09T03:03:00Z")]),
+            row("deploy", parent: "bot", asks: [("q-2", "2026-11-09T03:02:00Z")]),
+            row("theirs", owner: false, asks: [("q-4", "2026-11-09T03:04:00Z")]),
+        ]
+        precondition(BotQuestions.open(rows: rows).map(\.request.id) == ["q-1", "q-2", "q-3"])
     }
 }

@@ -19,6 +19,8 @@ struct HomeView: View {
     @State private var store: AgentStore?
     @State private var plans: PlansStore?
     @State private var connectors: ConnectorsStore?
+    /// The selected team's open questions: the Inbox page and its badge.
+    @State private var inbox: OpenQuestions?
     @State private var openChat: AgentPage.OpenChat?
     /// A desktop shows beside the open conversation, with the list put away meanwhile.
     @State private var desktopOpen = false
@@ -66,7 +68,7 @@ struct HomeView: View {
             .toolbar(removing: .sidebarToggle)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    PageTitleMenu(selection: $page, style: .bar)
+                    PageTitleMenu(selection: $page, style: .bar, inboxCount: inbox?.list.count ?? 0)
                 }
                 .sharedBackgroundVisibility(.hidden)
 
@@ -218,6 +220,15 @@ struct HomeView: View {
             UIEventLog.pageTransition(from: oldPage.rawValue, to: newPage.rawValue)
             Analytics.shared.screen(newPage.rawValue, teamID: store?.selectedTeam?.id)
         }
+        // Polled while the app is active, as the desktop's badge is, so the count stays current on every page.
+        .task(id: scenePhase == .active ? store?.selectedTeam?.id : nil) {
+            guard scenePhase == .active, let store, let team = store.selectedTeam?.id else { return }
+            if inbox?.teamId != team { inbox = OpenQuestions(token: store.token, teamId: team) }
+            while !Task.isCancelled {
+                await inbox?.refresh()
+                try? await Task.sleep(for: .seconds(15))
+            }
+        }
         .onChange(of: store?.selectedTeam?.id) { _, teamID in
             Analytics.shared.screen(page.rawValue, teamID: teamID)
         }
@@ -266,6 +277,9 @@ struct HomeView: View {
         switch page {
         case .chats, .agent:
             AgentPage(page: $page, isSearching: $isSearching, titleCollapsed: $titleCollapsed, openChat: $openChat, showsComposer: sizeClass != .regular)
+        case .inbox:
+            InboxPage(inbox: inbox)
+                .onAppear { titleCollapsed = false }
         case .plans:
             PlansPage(page: $page, isSearching: $isSearching, titleCollapsed: $titleCollapsed)
         case .connectors:
