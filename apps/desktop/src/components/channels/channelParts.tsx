@@ -53,6 +53,23 @@ export function ChatIcon({
   )
 }
 
+/** A chat's face in its header; until the chat loads, a quiet circle holds its place, not a "?". */
+export function ChatHeaderIcon({
+  faces,
+  title,
+  loading,
+}: {
+  faces?: ChannelFace[]
+  title: string
+  loading: boolean
+}) {
+  if (loading)
+    return <span aria-hidden="true" className="size-[22px] shrink-0 rounded-full bg-state-hover" />
+
+  return <ChatIcon faces={faces} title={title} size={22} />
+}
+
+// A chat shows who is in it, so a Bot wears its bare face: no runtime badge.
 function Face({ face, size, sidebar }: { face: ChannelFace; size: number; sidebar?: boolean }) {
   return face.agent ? (
     <AgentAvatar
@@ -61,6 +78,7 @@ function Face({ face, size, sidebar }: { face: ChannelFace; size: number; sideba
       provider={face.agent.provider}
       size={size}
       sidebar={sidebar}
+      bare
     />
   ) : (
     <Avatar src={face.avatarURL} name={face.name} size={size} className="rounded-full" />

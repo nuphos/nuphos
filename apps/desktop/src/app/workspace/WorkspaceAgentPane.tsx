@@ -153,7 +153,13 @@ export function WorkspaceAgentPane({
             className="t-session-heading titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 overflow-hidden text-[13px] font-medium text-secondary"
           >
             {selectedSessionId && (
-              <AgentAvatar agentId={selectedSessionId} provider={currentHeading.runtime} animated />
+              // A Task is its runtime here, even a Bot's: the face belongs to its chat.
+              <AgentAvatar
+                agentId={selectedSessionId}
+                provider={currentHeading.runtime}
+                face={false}
+                animated
+              />
             )}
             <EditableConversationTitle
               key={`title-${selectedSessionId ?? 'home'}`}

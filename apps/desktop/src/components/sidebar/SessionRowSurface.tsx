@@ -2,6 +2,9 @@ import clsx from 'clsx'
 
 import { SESSION_DRAG_TYPE } from '../../app/workspace/splitLayout'
 
+import { MAKE_BOT_DRAG_TYPE } from './bot-drop'
+import { setRowDragImage } from './rowDragImage'
+
 import type { Item } from './types'
 import type { HTMLAttributes, MouseEvent } from 'react'
 
@@ -43,8 +46,13 @@ export function SessionRowSurface({
       draggable={Boolean(sessionId)}
       onDragStart={(event) => {
         if (!sessionId) return
-        event.dataTransfer.effectAllowed = 'move'
+        // Moving opens it in a split; copying onto Bots makes it a Bot and keeps the Task.
+        event.dataTransfer.effectAllowed = 'copyMove'
+        setRowDragImage(event, event.currentTarget, item.label)
         event.dataTransfer.setData(SESSION_DRAG_TYPE, JSON.stringify({ sessionId, teamId }))
+        // A Task can also be dropped on Bots to become one, as its menu's "Make this a Bot".
+        if (item.task && !item.bot && !item.readOnlyChat)
+          event.dataTransfer.setData(MAKE_BOT_DRAG_TYPE, sessionId)
       }}
       data-sidebar-row
       className={clsx(
