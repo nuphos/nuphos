@@ -68,3 +68,20 @@ test('someone else’s prompt in a shared chat is not resent by the viewer', () 
   assert.equal(failedTurn([theirs, failed('error')], 'me', true), undefined)
   assert.equal(failedTurn([theirs, failed('error')], 'teammate', true)?.prompt, 'their prompt')
 })
+
+test('a resend keeps the teammates the prompt mentioned', () => {
+  const mentions = [{ id: 'alex-chen', displayName: 'Alex Chen' }]
+  const mentioned: Message = {
+    ...asked('@Alex Chen please check'),
+    metadata: {
+      version: 1,
+      sender: { type: 'user', id: 'me', displayName: 'Me' },
+      source: 'nuphos',
+      sentAt: '',
+      mentions,
+    } as Message['metadata'],
+  }
+
+  assert.deepEqual(failedTurn([mentioned, failed('error')], 'me', false)?.mentions, mentions)
+  assert.equal(failedTurn([asked('plain'), failed('error')], 'me', false)?.mentions, undefined)
+})

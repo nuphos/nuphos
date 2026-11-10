@@ -1,10 +1,16 @@
 import { sentHistory } from './composerRecall.ts'
 
 import type { Message } from './model.ts'
+import type { AgentMessageMention } from '../../../api/agent-types.ts'
 import type { TurnInterruptedPart } from './parts.ts'
 
 /** The latest turn's failure line and the prompt Retry would resend. */
-export type FailedTurn = { partId: string; prompt: string }
+export type FailedTurn = {
+  partId: string
+  prompt: string
+  /** The teammates the prompt @mentioned, so a resend notifies the same people. */
+  mentions?: AgentMessageMention[]
+}
 
 /**
  * The viewer's own prompt behind the conversation's latest turn when that turn
@@ -29,5 +35,8 @@ export function failedTurn(
   if (!asked || asked.parts.some((part) => part.type !== 'text')) return undefined
   const prompt = sentHistory([asked], currentUserId, foreignChat)[0]
 
-  return prompt ? { partId: interrupted.id, prompt } : undefined
+  if (!prompt) return undefined
+  const mentions = asked.metadata?.mentions
+
+  return { partId: interrupted.id, prompt, ...(mentions?.length ? { mentions } : {}) }
 }
