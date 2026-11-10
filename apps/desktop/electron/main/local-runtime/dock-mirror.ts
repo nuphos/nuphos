@@ -4,6 +4,7 @@
 import { BrowserWindow } from 'electron'
 
 import { raiseWindow } from '../../window-raise.ts'
+import { browserSession } from '../browser-extensions/manage.ts'
 
 import { failed } from './cua-host.ts'
 
@@ -43,7 +44,11 @@ async function ask<T>(window: BrowserWindow, fn: string, ...args: unknown[]): Pr
   }
 }
 
-const windows = () => BrowserWindow.getAllWindows().filter((window) => !window.isDestroyed())
+// An agent's tab and an extension's page are windows on the browser session; only the app's own answer.
+const windows = () =>
+  BrowserWindow.getAllWindows().filter(
+    (window) => !window.isDestroyed() && window.webContents.session !== browserSession(),
+  )
 
 /** Each window's view of the conversation's dock, with the window it came from. */
 async function mirrors(call: BrowserCall) {

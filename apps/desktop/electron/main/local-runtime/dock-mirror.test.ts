@@ -77,7 +77,8 @@ before(async () => {
       webContents: { getAllWebContents: () => [] },
     },
   })
-  mock.module('../deep-links.ts', { namedExports: { handleDeepLink: () => {} } })
+  mock.module('../browser-extensions/host.ts', { namedExports: { extensionHost: () => null } })
+  mock.module('../browser-extensions/manage.ts', { namedExports: { browserSession: () => ({}) } })
   ;({ runBrowserCall } = await import('./browser-tabs.ts'))
 })
 

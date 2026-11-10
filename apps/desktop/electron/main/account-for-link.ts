@@ -16,8 +16,7 @@ import type { AccountSummary } from '../auth/accounts.ts'
 
 // A switch reloads every window; past this, the link opens anyway.
 const RELOAD_WAIT_MS = 10_000
-// Per backend, asked in parallel: lookup and reload stay well inside the 35 s
-// a `local_browser` open waits for its tab (local-runtime/browser-tabs.ts).
+// Per backend, asked in parallel.
 const LOOKUP_MS = 5_000
 // After a switch, how long the turn waits for its link to reach the workspace.
 const DELIVERY_WAIT_MS = 15_000
