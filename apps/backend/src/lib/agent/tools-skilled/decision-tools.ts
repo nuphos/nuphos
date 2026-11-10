@@ -4,42 +4,55 @@ import { z } from 'zod'
 import { labelField, withLabel } from './labeling'
 
 import type { ExplicitUserDecision } from './types'
+import type { SelectionKey } from '@/lib/claude-code-preview/credential-lister'
 import type { AgentSessionOrigin } from '../tools-triggers'
 
 // Connectors the desktop's in-chat Connect card can bind and then select for the
-// conversation. Each maps to a field of the conversation's credential selection.
-export const CONNECTABLE_PROVIDERS = [
-  'github',
-  'gitlab',
-  'linear',
-  'jira',
-  'asana',
-  'sentry',
-  'posthog',
-  'plaud',
-  'grafana',
-  'sonarqube',
-  'notion',
-  'upstash',
-  'resend',
-  'cloudflare',
-  'betterstack',
-  'uptime-kuma',
-  'tailscale',
-  'zeabur',
-  'vanta',
-  'secureframe',
-  'aws',
-  'gcp',
-  'azure',
-  'linode',
-  'hetzner',
-  'tencent',
-  'aliyun',
-  'volcengine',
-  'huawei',
-  'onprem-k8s',
-] as const
+// conversation, each with the field of the conversation's credential selection
+// its bindings land in. Selecting one there answers the question that asked for it.
+export const CONNECTABLE_PROVIDERS = {
+  github: 'githubInstallationIds',
+  gitlab: 'gitlabBindingIds',
+  linear: 'linearWorkspaceIds',
+  jira: 'jiraSiteIds',
+  asana: 'asanaAccountIds',
+  sentry: 'sentryAccountIds',
+  posthog: 'posthogIntegrationIds',
+  plaud: 'plaudAccountIds',
+  grafana: 'grafanaInstanceIds',
+  sonarqube: 'sonarqubeIntegrationIds',
+  notion: 'notionIntegrationIds',
+  upstash: 'upstashAccountIds',
+  resend: 'resendIntegrationIds',
+  cloudflare: 'cloudflareAccountIds',
+  betterstack: 'betterStackIntegrationIds',
+  'uptime-kuma': 'uptimeKumaInstanceIds',
+  tailscale: 'tailscaleClientIds',
+  zeabur: 'zeaburIds',
+  vanta: 'vantaIntegrationIds',
+  secureframe: 'secureframeIntegrationIds',
+  aws: 'awsRoleIds',
+  gcp: 'gcpServiceAccountIds',
+  azure: 'azureAccountIds',
+  linode: 'linodeAccountIds',
+  hetzner: 'hetznerAccountIds',
+  tencent: 'tencentAccountIds',
+  aliyun: 'aliyunAccountIds',
+  volcengine: 'volcengineAccountIds',
+  huawei: 'huaweiAccountIds',
+  'onprem-k8s': 'onpremClusterIds',
+} as const satisfies Record<string, SelectionKey>
+
+export type ConnectableProvider = keyof typeof CONNECTABLE_PROVIDERS
+
+const PROVIDER_NAMES = Object.keys(CONNECTABLE_PROVIDERS) as [
+  ConnectableProvider,
+  ...ConnectableProvider[],
+]
+
+export function isConnectableProvider(name: unknown): name is ConnectableProvider {
+  return typeof name === 'string' && Object.hasOwn(CONNECTABLE_PROVIDERS, name)
+}
 
 /** A secret's name: also the file name it is written to on the runtime. */
 export const SECRET_NAME = /^[A-Za-z]\w{0,63}$/
@@ -111,6 +124,8 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
         'Use this ONLY for a real preference, approval for a risky/costly/irreversible action, a credential or secret the tools cannot obtain, an integration the user must connect, or a material risk tradeoff. ' +
         'Do not use it for facts you can inspect, safe read-only work, optional follow-ups, or to avoid finishing the task. ' +
         'For an integration or cloud account the task needs that is not connected to the team, or connected but not selected for this conversation, use category `integration` and list it in `providers`: in the Desktop app the user then gets a Connect card for it. ' +
+        'This includes a personal credential list_credentials shows under `notSelected` (provider `personal`): name its id, `github` or `linear`, in `providers`. ' +
+        'Never ask in a free-text question to tick a credential in the picker: only a question with `providers` resolves itself, and resumes you, once that credential is selected, by the user or by a parent agent. ' +
         'Name only providers the task actually needs. Do not use `providers` when the credential is already selected and a call fails with AccessDenied or 403 (connecting another account does not fix missing permissions), or for MCP servers. ' +
         'For an API key, password or other secret only the user can type, use category `credential` with `secretName`: in the Desktop app the user then gets a masked input that writes the value to a file on this runtime, never into the conversation. Never ask the user to paste a secret into chat. ' +
         'Ask exactly one question per call, and put its choices in `options`, never in the question text: the user answers with one button per option. ' +
@@ -124,7 +139,7 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
         body: bodyField.optional(),
         options: optionsField.optional(),
         providers: z
-          .array(z.enum(CONNECTABLE_PROVIDERS))
+          .array(z.enum(PROVIDER_NAMES))
           .min(1)
           .max(6)
           .optional()
@@ -160,7 +175,7 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
           ...(providers ? { providers } : {}),
           ...(secretName ? { secretName } : {}),
           instruction: providers
-            ? 'The user sees a Connect card for these below your message. End the turn with one short sentence that refers to "the card below" (never "above") and wait; once connected, the credential is selected for this conversation and they will ask you to continue.'
+            ? 'The user sees a Connect card for these below your message. End the turn with one short sentence that refers to "the card below" (never "above") and wait; once one is selected for this conversation, you are told so in a new message and continue from there.'
             : secretName
               ? 'The user sees a secure input card below your message. End the turn with one short sentence that refers to "the card below" (never "above") and wait. Their next message gives the path of a file holding the value: read it only inside the command that needs it, e.g. "$(cat <path>)", and never print, echo or copy its contents.'
               : 'End the turn now with this question and wait for the user. Do not continue the task or choose on their behalf.',

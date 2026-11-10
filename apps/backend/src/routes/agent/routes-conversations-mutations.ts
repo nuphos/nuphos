@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { addedCredentialIds, answerCredentialAsks } from '@/lib/agent/credential-asks'
+
 import {
   getConversationBySessionId,
   getReadableConversation,
@@ -108,6 +110,7 @@ agent.patch('/conversations/:sessionId/credentials', async (c) => {
   if (!conversation) {
     throw new AppError(404, 'not_found', 'Conversation not found')
   }
+  void answerCredentialAsks(sessionId, addedCredentialIds(stored?.credentialAccess, access))
 
   return c.json({ credentialAccess: credentialAccessResponse(access), options })
 })

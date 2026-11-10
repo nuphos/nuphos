@@ -1,3 +1,5 @@
+import { isConnectableProvider } from '@/lib/agent/tools-skilled/decision-tools'
+
 import { vendedAccountHint } from './credential-hints'
 
 import type { AgentCredentialOptions, AgentCredentialSelection } from '@/routes/agent/types'
@@ -67,15 +69,28 @@ export function lister<T>(spec: ListerSpec<T>): Lister {
   }
 }
 
+// The name request_user_decision's `providers` takes for an entry, when it takes one.
+function requestableAs(provider: string, id: string): string | undefined {
+  const name = provider === 'personal' ? id : provider === 'onprem' ? 'onprem-k8s' : provider
+
+  return isConnectableProvider(name) ? name : undefined
+}
+
 function unselectedEntry(provider: string, id: string, label: string): UnselectedCredentialEntry {
+  const requestable = requestableAs(provider, id)
+
   return {
     provider,
     id,
     label,
     selected: false,
-    hint:
-      `Not enabled for this conversation. Ask the user to tick "${label}" (${provider}) in ` +
-      "this conversation's credential picker, then call list_credentials again.",
+    hint: requestable
+      ? 'Not enabled for this conversation. When the task needs it, call request_user_decision ' +
+        `with category "integration" and providers ["${requestable}"], naming "${label}" in the ` +
+        'question. Never ask for it in a free-text question: selecting it answers this one and ' +
+        'resumes you.'
+      : `Not enabled for this conversation. Ask the user to tick "${label}" (${provider}) in ` +
+        "this conversation's credential picker, then call list_credentials again.",
   }
 }
 
