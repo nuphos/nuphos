@@ -22,7 +22,7 @@ final class OpenQuestions {
     /// What the cards show: the listing, less what was answered here.
     var list: [BotQuestion] { listed.filter { !answered.contains($0.id) } }
 
-    func refresh(pick: ([AgentConversation]) -> [BotQuestion] = BotQuestions.open) async {
+    func refresh(pick: @MainActor ([AgentConversation]) -> [BotQuestion] = BotQuestions.open) async {
         do {
             var rows: [AgentConversation] = []
             var cursor: String?

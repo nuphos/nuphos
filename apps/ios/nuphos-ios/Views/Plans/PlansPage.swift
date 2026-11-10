@@ -357,6 +357,7 @@ private struct ReadWhileShown: ViewModifier {
     }
 }
 
-private extension View {
+extension View {
+    /// Read and followed while on screen and the app active: a conversation pushed from a page.
     func readWhileShown(_ session: ChatSession) -> some View { modifier(ReadWhileShown(session: session)) }
 }

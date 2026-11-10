@@ -46,7 +46,7 @@ struct PageTitleMenu: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Switch page")
-        .accessibilityValue(Text(selection.title) + Text(inboxCount > 0 ? ", \(inboxCount) in Inbox" : ""))
+        .accessibilityValue(Text("\(Text(selection.title))\(inboxCount > 0 ? ", \(inboxCount) in Inbox" : "")"))
     }
 
     private var font: Font {
