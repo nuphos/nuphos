@@ -1,0 +1,106 @@
+# Temporary: PR screenshots from fixture UI tests, on a throwaway `tmp/mobile-shots-*` branch that is
+# deleted after the run; never merged. `.github/mobile-shots.env` on that branch picks the tests:
+#   IOS_ONLY_TESTING=nuphos-iosUITests/InboxUITests   (xcodebuild -only-testing values, space-separated)
+#   ANDROID_TEST_CLASS=ai.nuphos.android.SomeFixtureDeviceTest   (am instrument -e class)
+#   ANDROID_FILES_DIR=review-1234   (the folder the test saves PNGs to under the app's external files)
+# An empty value skips that platform.
+name: Mobile screenshots
+on:
+  push:
+    branches: ['tmp/mobile-shots-*']
+permissions:
+  contents: read
+jobs:
+  ios:
+    runs-on: xcode-27
+    timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: UI tests on a simulator
+        working-directory: apps/ios
+        run: |
+          set -euo pipefail
+          source ../../.github/mobile-shots.env
+          [ -n "${IOS_ONLY_TESTING:-}" ] || { echo 'No iOS tests asked for'; exit 0; }
+          udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for k,v in d.items() if "iOS" in k for x in v if x["name"].startswith("iPhone")))')
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl ui "$udid" appearance light
+          mkdir -p "$RUNNER_TEMP/shots"
+          xcodebuild test -project nuphos-ios.xcodeproj -scheme nuphos-ios -destination "id=$udid" \
+            $(printf -- '-only-testing:%s ' $IOS_ONLY_TESTING) CODE_SIGNING_ALLOWED=NO \
+            -resultBundlePath "$RUNNER_TEMP/UITests.xcresult" \
+            TEST_RUNNER_NUPHOS_SHOTS="$RUNNER_TEMP/shots" -quiet
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ios-shots
+          path: |
+            ${{ runner.temp }}/shots
+            ${{ runner.temp }}/UITests.xcresult
+          retention-days: 3
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: pick
+        run: |
+          source .github/mobile-shots.env
+          echo "class=${ANDROID_TEST_CLASS:-}" >> "$GITHUB_OUTPUT"
+          echo "dir=${ANDROID_FILES_DIR:-}" >> "$GITHUB_OUTPUT"
+      - if: steps.pick.outputs.class != ''
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: SDK, KVM and an emulator
+        if: steps.pick.outputs.class != ''
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          sdk="$ANDROID_HOME/cmdline-tools/latest/bin"
+          img='system-images;android-35;google_apis;x86_64'
+          (yes || true) | "$sdk/sdkmanager" --licenses > /dev/null
+          "$sdk/sdkmanager" "platforms;android-37.0" platform-tools emulator "$img" > /dev/null
+          echo no | "$sdk/avdmanager" create avd -n shots -k "$img" -d pixel_6
+          nohup "$ANDROID_HOME/emulator/emulator" -avd shots -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect > "$RUNNER_TEMP/emu.log" 2>&1 &
+      - name: Build the app and its device tests
+        if: steps.pick.outputs.class != ''
+        working-directory: apps/android
+        run: ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Device test
+        if: steps.pick.outputs.class != ''
+        working-directory: apps/android
+        env:
+          CLASS: ${{ steps.pick.outputs.class }}
+          FILES: ${{ steps.pick.outputs.dir }}
+        run: |
+          set -euo pipefail
+          adb="$ANDROID_HOME/platform-tools/adb"
+          timeout 600 "$adb" wait-for-device shell 'while [ "$(getprop sys.boot_completed)" != 1 ]; do sleep 2; done'
+          "$adb" shell settings put global window_animation_scale 0
+          "$adb" shell settings put global transition_animation_scale 0
+          "$adb" shell settings put global animator_duration_scale 0
+          "$adb" shell cmd uimode night no
+          "$adb" install -r app/build/outputs/apk/debug/app-debug.apk
+          "$adb" install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          "$adb" shell am instrument -w -e class "$CLASS" \
+            ai.nuphos.android.test/androidx.test.runner.AndroidJUnitRunner | tee "$RUNNER_TEMP/instrument.txt"
+          grep -q '^OK (' "$RUNNER_TEMP/instrument.txt"
+          mkdir -p "$RUNNER_TEMP/shots"
+          "$adb" pull "/sdcard/Android/data/ai.nuphos.android/files/$FILES/." "$RUNNER_TEMP/shots/"
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: android-shots
+          path: |
+            ${{ runner.temp }}/shots
+            ${{ runner.temp }}/instrument.txt
+          retention-days: 3
