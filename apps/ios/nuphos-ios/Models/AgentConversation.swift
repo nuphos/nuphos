@@ -68,6 +68,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         let options: [String]?
         /// ISO time it was asked.
         let askedAt: String?
+        /// Markdown the agent wrote to decide from: context, findings, links, risks.
+        var body: String? = nil
     }
 
     let sessionId: String

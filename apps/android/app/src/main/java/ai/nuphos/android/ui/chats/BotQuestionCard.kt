@@ -33,19 +33,29 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ai.nuphos.android.session.BotQuestion
+import ai.nuphos.android.ui.components.MarkdownText
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.draw.clipToBounds
 
 /**
  * An open question, in a Bot's chat or the Inbox, like Desktop's decision card: which agent asked,
- * the question, each option as the reply, and a short typed answer. A connect or secure-input
- * question is answered in the conversation that asked, which the link opens.
+ * the question and what the agent wrote to decide it from, each option as the reply, and a short
+ * typed answer. A connect or secure-input question is answered in the conversation that asked,
+ * which the link opens. [showsFrom] is off for the Bot's own questions in its own chat.
  */
 @Composable
-internal fun BotQuestionCard(question: BotQuestion, onOpen: () -> Unit, onAnswer: (String) -> Unit) {
+internal fun BotQuestionCard(
+    question: BotQuestion,
+    onOpen: () -> Unit,
+    onAnswer: (String) -> Unit,
+    showsFrom: Boolean = true,
+    onLink: ((String) -> Unit)? = null,
+) {
     val replies = cardReplies(question.request)
     var draft by rememberSaveable(question.id) { mutableStateOf("") }
     val send = { draft.trim().takeIf { it.isNotEmpty() }?.let { draft = ""; onAnswer(it) }; Unit }
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp).testTag("bot-question"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(Modifier.clickable(onClick = onOpen).testTag("bot-question-from"), verticalAlignment = Alignment.CenterVertically,
+        if (showsFrom) Row(Modifier.clickable(onClick = onOpen).testTag("bot-question-from"), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("From ${question.title}", style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -56,6 +66,7 @@ internal fun BotQuestionCard(question: BotQuestion, onOpen: () -> Unit, onAnswer
                 Text(heading(question.request.category), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
                 Text(question.request.question, style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+                question.request.body?.takeIf { it.isNotBlank() }?.let { QuestionBody(question.id, it, onLink) }
                 if (replies == null) {
                     OutlinedButton(onClick = onOpen) { Text("Answer in the conversation") }
                 } else {
@@ -77,6 +88,21 @@ internal fun BotQuestionCard(question: BotQuestion, onOpen: () -> Unit, onAnswer
         }
     }
 }
+
+/** The question's markdown body: a few lines at first, "Show more" for the rest, as on Desktop. */
+@Composable
+private fun QuestionBody(id: String, text: String, onLink: ((String) -> Unit)?) {
+    val long = isLongBody(text)
+    var expanded by rememberSaveable(id) { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        val clip = if (long && !expanded) Modifier.heightIn(max = 64.dp).clipToBounds() else Modifier
+        MarkdownText(text, clip.testTag("bot-question-body"), onLink = onLink, compact = true)
+        if (long) TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "Show less" else "Show more") }
+    }
+}
+
+/** More than about three lines of text: shown collapsed until asked for. */
+internal fun isLongBody(text: String): Boolean = text.trim().lines().size > 3 || text.length > 240
 
 /**
  * Desktop's `cardReplies`: one (label, reply) per option, or "Done." for a to-do; null when only

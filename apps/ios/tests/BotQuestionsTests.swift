@@ -6,6 +6,7 @@ enum BotQuestionsTests {
         leavesOutOtherBotsAndTeammates()
         decodesTheOpenRequestsOfAListRow()
         theInboxListsEveryOwnQuestionOnce()
+        keepsTheBodyTheAgentWroteToDecideFrom()
         print("Bot questions passed")
     }
 
@@ -66,5 +67,18 @@ enum BotQuestionsTests {
             row("theirs", owner: false, asks: [("q-4", "2026-11-09T03:04:00Z")]),
         ]
         precondition(BotQuestions.open(rows: rows).map(\.request.id) == ["q-1", "q-2", "q-3"])
+    }
+
+    private static func keepsTheBodyTheAgentWroteToDecideFrom() {
+        let decoder = JSONDecoder()
+        let withBody = #"{"id":"q","question":"Direction OK?","body":"**Why:** see [#412](https://example.com/412)"}"#
+        let request = try! decoder.decode(AgentConversation.InputRequest.self, from: Data(withBody.utf8))
+        precondition(request.body == "**Why:** see [#412](https://example.com/412)")
+        let plain = try! decoder.decode(AgentConversation.InputRequest.self, from: Data(#"{"id":"q","question":"Ship?"}"#.utf8))
+        precondition(plain.body == nil)
+        // Up to three short lines show whole; more collapses behind "Show more".
+        precondition(!BotQuestion.isLongBody("One finding.\nA second.\nA third."))
+        precondition(BotQuestion.isLongBody("1\n2\n3\n4"))
+        precondition(BotQuestion.isLongBody(String(repeating: "x", count: 241)))
     }
 }

@@ -1,15 +1,21 @@
 import SwiftUI
 
 /// An open question, in a Bot's chat or the Inbox, like the desktop's decision
-/// card: which agent asked, the question, each option as the reply, and a short
-/// typed answer. A connect or secure-input question is answered in the
-/// conversation that asked, which the link opens.
+/// card: which agent asked, the question and what the agent wrote to decide it
+/// from, each option as the reply, and a short typed answer. A connect or
+/// secure-input question is answered in the conversation that asked, which the
+/// link opens. `showsFrom` is off for the Bot's own questions in its own chat.
 struct BotQuestionCard: View {
     let question: BotQuestion
+    var showsFrom = true
     let onOpen: () -> Void
     let onAnswer: (String) -> Void
+    /// A tapped link in the body. Absent, the system opens it.
+    var onLink: ((URL) -> Void)?
 
     @State private var draft = ""
+    @State private var expanded = false
+    @Environment(\.openURL) private var openURL
 
     /// The desktop's `cardReplies`: one per option, or "Done." for a to-do; nil
     /// when only the conversation can answer it.
@@ -33,19 +39,24 @@ struct BotQuestionCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Button(action: onOpen) {
-                HStack(spacing: 3) {
-                    Text("From \(question.title)").lineLimit(1)
-                    Image(systemName: "arrow.up.right")
+            if showsFrom {
+                Button(action: onOpen) {
+                    HStack(spacing: 3) {
+                        Text("From \(question.title)").lineLimit(1)
+                        Image(systemName: "arrow.up.right")
+                    }
+                    .font(Theme.Text.caption)
+                    .foregroundStyle(Theme.muted)
                 }
-                .font(Theme.Text.caption)
-                .foregroundStyle(Theme.muted)
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("botQuestion.from")
             }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("botQuestion.from")
             VStack(alignment: .leading, spacing: 10) {
                 Text(heading).font(Theme.Text.secondary.weight(.medium)).foregroundStyle(Theme.heading)
                 Text(question.request.question).font(Theme.Text.label).foregroundStyle(Theme.body)
+                if let body = question.request.body?.trimmingCharacters(in: .whitespacesAndNewlines), !body.isEmpty {
+                    questionBody(body)
+                }
                 if let replies {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(replies, id: \.reply) { reply in
@@ -80,6 +91,23 @@ struct BotQuestionCard: View {
             .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .accessibilityIdentifier("botQuestion.card")
+    }
+
+    /// The question's markdown body: a few lines at first, "Show more" for the rest, as on the desktop.
+    @ViewBuilder private func questionBody(_ text: String) -> some View {
+        let long = BotQuestion.isLongBody(text)
+        VStack(alignment: .leading, spacing: 4) {
+            AssistantMarkdown(text: text, theme: AssistantMarkdown.bubbleTheme, onLink: { onLink?($0) ?? openURL($0) })
+                .frame(maxHeight: long && !expanded ? 64 : nil, alignment: .top)
+                .clipped()
+                .accessibilityIdentifier("botQuestion.body")
+            if long {
+                Button(expanded ? "Show less" : "Show more") { expanded.toggle() }
+                    .font(Theme.Text.caption)
+                    .foregroundStyle(Theme.muted)
+                    .buttonStyle(.plain)
+            }
+        }
     }
 
     private func send() {
