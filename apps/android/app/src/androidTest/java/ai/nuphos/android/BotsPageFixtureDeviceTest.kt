@@ -42,14 +42,13 @@ class BotsPageFixtureDeviceTest {
     private val teamA = Team("aaaaaaaaaaaaaaaaaaaaaaaa", "Fixture A")
     private val teamB = Team("bbbbbbbbbbbbbbbbbbbbbbbb", "Fixture B")
     private val writes = CopyOnWriteArrayList<String>()
+    private val reads = CopyOnWriteArrayList<String>()
     private val added = CopyOnWriteArrayList<String>()
     private val originals = mutableMapOf<String, OkHttpClient>()
     private lateinit var store: AgentStore
     private var auth: ai.nuphos.android.session.AuthSession? = null
     private var savedAccess: Any? = null
     @Volatile private var chats = ""
-    /** The 1:1 Bot's runtime state, as its conversation detail reports it. */
-    @Volatile private var botTurn = """{"state":"idle"}"""
     @Volatile private var history = ""
     @Volatile private var failAddingBot = false
     @Volatile private var failCreatingBot = false
@@ -79,7 +78,7 @@ class BotsPageFixtureDeviceTest {
         val client = OkHttpClient.Builder().addInterceptor { chain ->
             val request = chain.request()
             val path = request.url.encodedPath
-            if (request.method != "GET") writes += "${request.method} $path"
+            if (request.method != "GET") writes += "${request.method} $path" else reads += path
             val body = when {
                 request.method == "GET" && path.endsWith("/agent-runtimes") -> {
                     runtimesHeld?.let { runtimesEntered.countDown(); check(it.await(10, TimeUnit.SECONDS)) }
@@ -113,7 +112,6 @@ class BotsPageFixtureDeviceTest {
                     if (request.url.queryParameter("scope") == "mine") """{"conversations":[$chats],"hasMore":false}"""
                     else """{"conversations":[],"hasMore":false}"""
                 path == "/agent/conversations" -> """{"conversations":[$history],"hasMore":false}"""
-                path == "/agent/conversations/bot-chatted" -> """{"sessionId":"bot-chatted","runtimeState":$botTurn}"""
                 else -> "{}"
             }
             Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("fixture")
@@ -184,15 +182,18 @@ class BotsPageFixtureDeviceTest {
     }
 
     @Test fun aBotsRowShowsItsChatsDotsWhileItAnswersThenItsReply() {
+        fun ada(state: String) = """{"sessionId":"bot-chatted","title":"Ada","avatar":"07-ada","lastActiveAt":"2026-11-03T13:30:00Z",""" +
+            """"runtimeState":{"state":"$state","channelIds":["chat-bot"]}}"""
         chats = oneOnOne
-        botTurn = """{"state":"active","phase":"working","channelIds":["chat-bot"]}"""
+        history = ada("active")
         render()
         compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription("Ada is typing", substring = true).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Ready when you are").assertDoesNotExist()
         chats = oneOnOne.replace("Ready when you are", "Here is the plan")
-        botTurn = """{"state":"idle","phase":"idle","channelIds":["chat-bot"]}"""
+        history = ada("idle")
         waitText("Here is the plan")
         compose.onAllNodesWithContentDescription("Ada is typing", substring = true).assertCountEquals(0)
+        assertTrue("The row reads the agent list, not each Bot", reads.none { it.startsWith("/agent/conversations/") })
     }
 
     @Test fun aChatOpensWithoutWritingAnything() {

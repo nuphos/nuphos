@@ -62,8 +62,8 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
         lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
             while (true) {
                 store.loadChannels()
-                // The Bots' turns, as their chats check them, so a row shows the dots its chat shows.
-                store.loadAgentTurns(store.botsList.mapNotNull { it.botId })
+                // The agent list too, as iOS polls it: its runtime states are what a Bot's row reads for its dots.
+                store.reload()
                 delay(3_000)
             }
         }
