@@ -15,7 +15,10 @@ const SENDER: MessageMetadata['sender'] = {
 }
 
 export async function wakeForPlanDecision(
-  plan: Pick<PlanDTO, 'number' | 'title' | 'sourceConversationId'>,
+  plan: Pick<
+    PlanDTO,
+    'number' | 'title' | 'sourceConversationId' | 'approvedAt' | 'rejectedAt' | 'updatedAt'
+  >,
   decision: 'approved' | 'rejected',
   deciderUserId: string,
 ): Promise<void> {
@@ -36,6 +39,7 @@ export async function wakeForPlanDecision(
     }))
   )
     return
+  const decidedAt = (decision === 'approved' ? plan.approvedAt : plan.rejectedAt) ?? plan.updatedAt
   const conversation = await getConversationBySessionId(sessionId)
 
   if (!conversation) return
@@ -46,8 +50,9 @@ export async function wakeForPlanDecision(
       userId: conversation.userId,
       teamId: conversation.teamId ?? '',
       targetSessionId: sessionId,
-      // One wake per plan and decision, however often the decision is reported.
-      messageId: `plan-${planId}-${decision}`,
+      // One wake per decision, however often it is reported. A retried plan
+      // decided again gets a new time, so it wakes again.
+      messageId: `plan-${planId}-${decision}-${String(Date.parse(decidedAt))}`,
       locale: conversation.metadata?.locale ?? 'en-US',
     },
     conversation,
