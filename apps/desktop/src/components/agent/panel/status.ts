@@ -96,7 +96,9 @@ function failedTurnExplainedInline(
 }
 
 export function computeStatus(tab: Tab, lastMsg: Message | undefined): AgentStatus | null {
-  if (!tab.sessionId || (!tab.claudeCodeRuntimeAttached && tab.messages.length === 0)) return null
+  // Only a sent turn waits on the runtime. An unsaved fork shows copied history
+  // and has nothing to connect to until its first message.
+  if (!tab.sessionId || (!tab.claudeCodeRuntimeAttached && !tab.streaming)) return null
 
   if (!tab.claudeCodeRuntimeAttached && !tab.runtimeState) return { label: t('Connecting…') }
   const snapshot = tab.runtimeState
