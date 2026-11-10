@@ -12,6 +12,8 @@ struct BotQuestionCard: View {
     let onAnswer: (String) -> Void
     /// A tapped link in the body. Absent, the system opens it.
     var onLink: ((URL) -> Void)?
+    /// Why the last answer could not be sent; the question is still open.
+    var failure: String?
 
     @State private var draft = ""
     @State private var expanded = false
@@ -89,6 +91,12 @@ struct BotQuestionCard: View {
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            if let failure {
+                Label("Couldn't send the message · \(failure)", systemImage: "exclamationmark.circle")
+                    .font(Theme.Text.caption)
+                    .foregroundStyle(.red)
+                    .accessibilityIdentifier("botQuestion.failure")
+            }
         }
         .accessibilityIdentifier("botQuestion.card")
     }

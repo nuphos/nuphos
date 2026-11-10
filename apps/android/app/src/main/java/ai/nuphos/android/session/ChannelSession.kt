@@ -41,8 +41,11 @@ class ChannelSession(
         suspend fun attachment(groupId: String): TransferDownloadGroup
         /** Uploads a post's files to the transfer store and returns their group. */
         suspend fun upload(attachments: List<ComposerAttachment>): String
-        /** `POST …/channel-messages` with `{text, id, upload, replyTo}`; a repeated id is not posted twice. */
-        suspend fun post(text: String, id: String, upload: String?, replyTo: String?)
+        /**
+         * `POST …/channel-messages` with `{text, id, upload, replyTo, decisionReplyTo}`; a repeated id is not
+         * posted twice. `decisionReplyTo` names the chat's agent's question the post answers.
+         */
+        suspend fun post(text: String, id: String, upload: String?, replyTo: String?, decisionReplyTo: String? = null)
         /** Retry after an agent could not reply: it reads again what it has not read yet. */
         suspend fun wake(agentId: String) {}
     }
@@ -56,11 +59,12 @@ class ChannelSession(
             val pending = transfers.retain(attachments)
             return transfers.prepare(token, teamId, pending, allowed = { AiAccess.bind(token)() }).groupId
         }
-        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?) {
+        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?, decisionReplyTo: String?) {
             val body = buildList {
                 add("text" to JsonValue.Str(text)); add("id" to JsonValue.Str(id))
                 if (upload != null) add("upload" to JsonValue.Str(upload))
                 if (replyTo != null) add("replyTo" to JsonValue.Str(replyTo))
+                if (decisionReplyTo != null) add("decisionReplyTo" to JsonValue.Str(decisionReplyTo))
             }
             AgentChatApi.send("POST", "agent/conversations/${android.net.Uri.encode(channelId)}/channel-messages", token,
                 query = listOf("teamId" to teamId), body = JsonValue.obj(*body.toTypedArray()))
@@ -137,8 +141,27 @@ class ChannelSession(
         open.refresh { BotQuestions.under(bot, it) }
     }
 
-    fun answer(question: BotQuestion, text: String, scope: kotlinx.coroutines.CoroutineScope) {
-        open.answer(question, text, scope) { sendError = postFailureMessage(it) }
+    /**
+     * The Bot's own question is answered by a post here, shown at once as any post is, so the answer
+     * is the viewer's message in this chat. An agent under the Bot takes it in its own conversation.
+     */
+    fun answer(question: BotQuestion, text: String, scope: kotlinx.coroutines.CoroutineScope,
+               viewerId: String? = null, viewerName: String? = null, viewerAvatar: String? = null,
+               newId: () -> String = { java.util.UUID.randomUUID().toString().lowercase() }) {
+        if (question.sessionId != faces.botFace?.id) return open.answer(question, text, scope)
+        val id = newId()
+        sending = sending + ChannelPost(id, viewerId.orEmpty(), isAgent = false, name = viewerName ?: "You",
+            avatarURL = viewerAvatar, text = text, sentAt = java.time.Instant.now(), sending = true)
+        lastSubmittedKey = "post.$id"
+        open.answer(question, text, scope) {
+            try {
+                transport.post(text, id, null, null, decisionReplyTo = question.request.id)
+            } catch (e: Exception) {
+                sending = sending.filter { it.id != id }
+                throw e
+            }
+            refresh(force = true)
+        }
     }
 
     fun retry(agentId: String, scope: kotlinx.coroutines.CoroutineScope) {
@@ -148,6 +171,9 @@ class ChannelSession(
             catch (e: Exception) { sendError = postFailureMessage(e) }
         }
     }
+
+    /** Why the last answer to [question] failed, shown on its card. */
+    fun answerFailure(question: BotQuestion): String? = open.failures[question.id]
 
     /** Shown at once; files upload first, then the post goes out with their group. */
     fun send(submission: ComposerSubmission, viewerId: String?, viewerName: String?, viewerAvatar: String?,

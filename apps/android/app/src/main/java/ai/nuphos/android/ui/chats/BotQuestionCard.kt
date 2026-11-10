@@ -50,6 +50,8 @@ internal fun BotQuestionCard(
     onAnswer: (String) -> Unit,
     showsFrom: Boolean = true,
     onLink: ((String) -> Unit)? = null,
+    /** Why the last answer could not be sent; the question is still open. */
+    failure: String? = null,
 ) {
     val replies = cardReplies(question.request)
     var draft by rememberSaveable(question.id) { mutableStateOf("") }
@@ -86,6 +88,8 @@ internal fun BotQuestionCard(
                 }
             }
         }
+        if (failure != null) Text("Couldn't send the message · $failure", Modifier.testTag("bot-question-failure"),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
     }
 }
 

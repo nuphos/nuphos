@@ -82,11 +82,20 @@ class BotQuestionsTest {
         override suspend fun agents() = emptyList<ChannelAgent>()
         override suspend fun attachment(groupId: String) = TransferDownloadGroup(groupId, "2099-01-01T00:00:00Z", emptyList())
         override suspend fun upload(attachments: List<ComposerAttachment>) = "group"
-        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?) {}
+        val posted = mutableListOf<Pair<String, String?>>()
+        var failPost = false
+        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?, decisionReplyTo: String?) {
+            posted += text to decisionReplyTo
+            if (failPost) throw NuphosApi.Failure.Http(500, "Synthetic post failure")
+        }
         override suspend fun pending() = pending
         override suspend fun answer(sessionId: String, text: String, requestId: String) {
             answers += Triple(sessionId, text, requestId)
             if (failAnswer) throw NuphosApi.Failure.Http(500, "Synthetic answer failure")
+        }
+        val chatAnswers = mutableListOf<Triple<String, String, String>>()
+        override suspend fun answerInChat(chatId: String, text: String, requestId: String) {
+            chatAnswers += Triple(chatId, text, requestId)
         }
     }
 
@@ -108,6 +117,29 @@ class BotQuestionsTest {
         assertEquals(listOf("q-docs", "q-bot"), session.questions.map { it.request.id })
     }
 
+    @Test fun theBotsOwnQuestionIsAnsweredByAPostInItsChat() = runTest {
+        val transport = FakeTransport().apply { pending = listing }
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        session.refresh(force = true)
+        session.refreshQuestions()
+        val own = session.questions.single { it.sessionId == "bot-1" }
+        session.answer(own, "Yes", this, viewerId = "me", newId = { "answer-1" })
+        // The card leaves and the answer is the viewer's post at once.
+        assertFalse(session.questions.any { it.id == own.id })
+        assertEquals("Yes", session.posts.single { it.id == "answer-1" }.text)
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("Yes" to "q-bot"), transport.posted)
+        assertTrue(transport.answers.isEmpty())
+        // A post that fails takes its bubble away and brings the card back.
+        val again = ChannelSession("team", "chat-release", "Chat", transport.apply { failPost = true; pending = listing })
+        again.refresh(force = true)
+        again.refreshQuestions()
+        again.answer(again.questions.single { it.sessionId == "bot-1" }, "Yes", this, newId = { "answer-2" })
+        testScheduler.advanceUntilIdle()
+        assertTrue(again.questions.any { it.sessionId == "bot-1" })
+        assertTrue(again.posts.none { it.id == "answer-2" })
+    }
+
     @Test fun aFailedAnswerBringsTheCardBack() = runTest {
         val transport = FakeTransport().apply { pending = listing; failAnswer = true }
         val session = ChannelSession("team", "chat-release", "Chat", transport)
@@ -117,7 +149,13 @@ class BotQuestionsTest {
         session.answer(docs, "No", this)
         testScheduler.advanceUntilIdle()
         assertTrue(session.questions.any { it.id == docs.id })
-        assertNotNull(session.sendError)
+        // Shown on the card, not as a dialog.
+        assertNotNull(session.answerFailure(docs))
+        assertNull(session.sendError)
+        // Answering again clears it.
+        transport.failAnswer = false
+        session.answer(docs, "Yes", this)
+        assertNull(session.answerFailure(docs))
     }
 
     @Test fun aChatThatIsNotABotsHasNoQuestions() = runTest {
@@ -147,11 +185,20 @@ class BotQuestionsTest {
         inbox.refresh()
         assertTrue(inbox.loaded)
         val first = inbox.list.first()
-        var error: Exception? = null
-        inbox.answer(first, "Ship it", this) { error = it }
+        inbox.answer(first, "Ship it", this)
         assertFalse(inbox.list.any { it.id == first.id })
         testScheduler.advanceUntilIdle()
         assertEquals(listOf(Triple("deploy", "Ship it", "q-1")), transport.answers)
-        assertNull(error)
+        assertTrue(inbox.failures.isEmpty())
+    }
+
+    @Test fun theInboxAnswersABotsOwnQuestionInItsChat() = runTest {
+        val transport = FakeTransport().apply { pending = listOf(row("bot-1", null, true, "q-3" to "2026-11-09T03:03:00Z")) }
+        val inbox = OpenQuestions(transport) { bot -> "chat-$bot" }
+        inbox.refresh()
+        inbox.answer(inbox.list.single(), "Ship it", this)
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf(Triple("chat-bot-1", "Ship it", "q-3")), transport.chatAnswers)
+        assertTrue(transport.answers.isEmpty())
     }
 }
