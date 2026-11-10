@@ -44,11 +44,39 @@ describe('session timeline events', () => {
     const failed: ConversationTimelineEvent[] = [
       { kind: 'agent_reply_failed', at, actorId: 'system', agentName: 'Ops', reason: 'No agent.' },
       { kind: 'agent_reply_failed', at, actorId: 'system', agentName: 'Ops' },
+      {
+        kind: 'agent_reply_failed',
+        at,
+        actorId: 'system',
+        agentId: 'ops',
+        agentName: 'Ops',
+        cause: 'usage_limit',
+        reason: 'its Claude Code account hit its usage limit.',
+        resetsAt: '2026-11-10T16:00:00.000Z',
+      },
     ]
 
     expect(serializeTimelineEvents(failed, people)).toEqual([
-      { kind: 'agent_reply_failed', at: at.toISOString(), text: 'Ops couldn’t reply: No agent.' },
-      { kind: 'agent_reply_failed', at: at.toISOString(), text: 'Ops couldn’t reply.' },
+      {
+        kind: 'agent_reply_failed',
+        at: at.toISOString(),
+        text: 'Ops couldn’t reply: No agent.',
+        cause: 'other',
+      },
+      {
+        kind: 'agent_reply_failed',
+        at: at.toISOString(),
+        text: 'Ops couldn’t reply.',
+        cause: 'other',
+      },
+      {
+        kind: 'agent_reply_failed',
+        at: at.toISOString(),
+        text: 'Ops couldn’t reply: its Claude Code account hit its usage limit.',
+        agentId: 'ops',
+        cause: 'usage_limit',
+        resetsAt: '2026-11-10T16:00:00.000Z',
+      },
     ])
   })
 

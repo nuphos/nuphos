@@ -12,6 +12,8 @@ export const channelsApi = {
     window.api.agentAddChannelAgent(channelId, teamId, agentSessionId),
   agentRemoveChannelAgent: (channelId: string, teamId: string, agentSessionId: string) =>
     window.api.agentRemoveChannelAgent(channelId, teamId, agentSessionId),
+  agentWakeChannelAgent: (channelId: string, teamId: string, agentSessionId: string) =>
+    window.api.agentWakeChannelAgent(channelId, teamId, agentSessionId),
   agentPostChannelMessage: (
     channelId: string,
     teamId: string,

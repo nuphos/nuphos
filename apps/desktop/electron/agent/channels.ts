@@ -64,6 +64,18 @@ export async function removeChannelAgent(
   )
 }
 
+/** Retry after an agent could not reply: it reads again what it has not read yet. */
+export async function wakeChannelAgent(
+  channelId: string,
+  teamId: string,
+  agentSessionId: string,
+): Promise<void> {
+  await callJsonForRenderer(
+    'POST',
+    `${at(channelId)}/agents/${encodeURIComponent(agentSessionId)}/wake${teamQuery(teamId)}`,
+  )
+}
+
 /**
  * `id` makes a resend the same message; `upload` is a finished upload's group;
  * `mentions` are the user ids of the composer's mention chips; `replyTo` is the

@@ -22,6 +22,8 @@ export const agentChannelChannels = {
     agent.addChannelAgent(channelId, teamId, agentId),
   'agent:removeChannelAgent': (_e: unknown, channelId: string, teamId: string, agentId: string) =>
     agent.removeChannelAgent(channelId, teamId, agentId),
+  'agent:wakeChannelAgent': (_e: unknown, channelId: string, teamId: string, agentId: string) =>
+    agent.wakeChannelAgent(channelId, teamId, agentId),
   'agent:postChannelMessage': (
     _e: unknown,
     channelId: string,
