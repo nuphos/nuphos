@@ -947,7 +947,7 @@ impl AcpConnection {
     async fn send_request(&self, method: &str, params: Option<Value>) -> Result<JsonRpcMessage> {
         let resp = self.send_request_response(method, params).await?;
         if let Some(err) = &resp.error {
-            return Err(anyhow!("{err}"));
+            return Err(anyhow::Error::new(err.clone()));
         }
         Ok(resp)
     }
