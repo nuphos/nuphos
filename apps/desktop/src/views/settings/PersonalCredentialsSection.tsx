@@ -6,6 +6,7 @@ import { CloudLogo } from '../../components/CloudLogo'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { SkeletonReveal } from '../../components/SkeletonReveal'
 import { Button } from '../../components/ui/button'
+import { INLINE_LINK } from '../../components/ui/inline-link'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
@@ -197,7 +198,7 @@ export function PersonalCredentialsSection({
                           : t('Needs a Google OAuth client in Team settings.')}{' '}
                         <button
                           type="button"
-                          className="text-link hover:underline"
+                          className={INLINE_LINK}
                           onClick={() => void api.appOpenExternal(GOOGLE_CLIENT_GUIDE_URL)}
                         >
                           {t('Setup guide')}
@@ -208,7 +209,7 @@ export function PersonalCredentialsSection({
                             {' · '}
                             <button
                               type="button"
-                              className="text-link hover:underline"
+                              className={INLINE_LINK}
                               onClick={() => onOpenSection(TEAM_SETTINGS_DEFAULT_SECTION)}
                             >
                               {t('Open Team settings')}

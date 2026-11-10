@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 
 import { t } from '../../../i18n'
+import { INLINE_LINK } from '../../ui/inline-link'
 import { ResourcePreview } from '../../ui/resource-preview'
 import { ChatLink } from '../MessageResponse'
 
@@ -153,7 +154,7 @@ export function GithubRefLink({
       <ChatLink
         link={ref.href}
         onLinkClick={onOpen}
-        className="text-link hover:underline"
+        className={INLINE_LINK}
         aria-label={describe(ref, summary)}
       >
         <span className="mr-0.5 inline-flex align-[-0.15em]">
