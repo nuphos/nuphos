@@ -120,3 +120,56 @@ describe('channelFacesField', () => {
     expect(await channelFacesField({ ...channel, kind: undefined }, 'me', people)).toEqual({})
   })
 })
+
+describe('a single Bot keeps its chat identity when people reply', () => {
+  beforeEach(async () => {
+    memory = portabilityDb()
+    await agentConversations().insertOne({
+      sessionId: 'a1',
+      userId: 'me',
+      teamId: 'team',
+      title: 'Writer',
+      avatar: 'a1-pick',
+      agentRuntime: 'codex',
+    } as never)
+  })
+
+  test('keeps the Bot first even when two humans spoke more recently', async () => {
+    await post(2, 'user', 'bob')
+    await post(1, 'user', 'ann')
+    await post(0, 'agent', 'a1')
+    const shared = { ...channel, agentSessionIds: ['a1'] }
+
+    expect((await channelFacesField(shared, 'me', people)).faces).toEqual([
+      { id: 'a1', name: 'Writer', agent: { avatar: 'a1-pick', provider: 'codex' } },
+      { id: 'bob', name: 'Bob' },
+    ])
+    expect((await channelFacesField({ ...shared, title: '' }, 'me', people)).title).toBe(
+      'Ann, Bob, Writer',
+    )
+  })
+
+  test('the collaborator also sees the Bot first when its owner replies', async () => {
+    await post(1, 'user', 'me')
+    await post(0, 'agent', 'a1')
+
+    expect(
+      (await channelFacesField({ ...channel, agentSessionIds: ['a1'] }, 'ann', people)).faces,
+    ).toEqual([
+      { id: 'a1', name: 'Writer', agent: { avatar: 'a1-pick', provider: 'codex' } },
+      { id: 'me', name: 'Me', avatarURL: 'https://a/me.png' },
+    ])
+  })
+
+  test('human-only groups still put the most recent speaker first', async () => {
+    await post(1, 'user', 'bob')
+    await post(0, 'user', 'ann')
+
+    expect(
+      (await channelFacesField({ ...channel, agentSessionIds: [] }, 'me', people)).faces,
+    ).toEqual([
+      { id: 'bob', name: 'Bob' },
+      { id: 'ann', name: 'Ann', avatarURL: 'https://a/ann.png' },
+    ])
+  })
+})
