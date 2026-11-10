@@ -116,21 +116,17 @@ export type CreateAgentTriggerInput = {
   triggerType: AgentTriggerType
   messageTemplate: string
   cronExpression?: string
-  targetSessionId?: string
+  targetSessionId: string
   teamId?: string
-  incidentMode?: boolean
-  slackDestination?: AgentTriggerSlackDestination
 }
 
 export type UpdateAgentTriggerInput = {
   name?: string
   messageTemplate?: string
   cronExpression?: string
-  /** null goes back to a new conversation per fire. */
-  targetSessionId?: string | null
+  /** Moves delivery to another conversation; a Trigger cannot be unbound. */
+  targetSessionId?: string
   enabled?: boolean
-  incidentMode?: boolean
-  slackDestination?: AgentTriggerSlackDestination | null
 }
 
 export type UpdateAgentTriggerGroupInput = {

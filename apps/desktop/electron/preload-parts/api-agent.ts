@@ -210,6 +210,7 @@ export const agentApi = {
     triggerType: 'cron' | 'webhook'
     messageTemplate: string
     cronExpression?: string
+    targetSessionId: string
     teamId?: string
   }) => ipcRenderer.invoke('agent:createTrigger', input),
   agentUpdateTrigger: (
@@ -218,6 +219,7 @@ export const agentApi = {
       name?: string
       messageTemplate?: string
       cronExpression?: string
+      targetSessionId?: string
       enabled?: boolean
     },
     teamId?: string,
