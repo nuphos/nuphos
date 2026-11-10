@@ -208,18 +208,13 @@ data class PlanChatTarget(
     val planId: String,
     val sessionId: String,
     val title: String,
-    val proceedMessage: String?,
     val buttonTitle: String,
 ) {
     companion object {
         fun from(plan: Plan): PlanChatTarget? {
             val sessionId = plan.sourceConversationId?.takeIf { it.isNotEmpty() } ?: return null
-            val (proceed, button) = when (plan.status) {
-                "proposed" -> null to "Continue in agent"
-                "approved" -> "Approved plan #${plan.id} — please proceed with plan #${plan.id}." to "Continue in agent"
-                else -> null to "Open agent"
-            }
-            return PlanChatTarget(plan.id, sessionId, plan.title, proceed, button)
+            val button = if (plan.status == "proposed" || plan.status == "approved") "Continue in agent" else "Open agent"
+            return PlanChatTarget(plan.id, sessionId, plan.title, button)
         }
     }
 }

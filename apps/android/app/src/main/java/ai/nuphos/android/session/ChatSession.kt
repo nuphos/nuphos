@@ -184,7 +184,6 @@ class ChatSession(
     var permissionMode by mutableStateOf(PermissionMode.Auto)
         private set
     var credentialAccess by mutableStateOf<CredentialSelection?>(null)
-    var sendAfterLoad: String? = null
 
     var isArchived by mutableStateOf(false)
         private set
@@ -396,11 +395,6 @@ class ChatSession(
             loadError = null
             recordReadTranscript(detail)
             lastSyncedSignature = signature()
-            val text = sendAfterLoad
-            if (text != null) {
-                sendAfterLoad = null
-                if (!readOnly && !isStreaming) send(text)
-            }
         } catch (e: Exception) {
             if (!hasAiAccess || detailGeneration != detailLoadGeneration) return
             draftAccessInvalidated = e is NuphosApi.Failure.Unauthorized || (e is NuphosApi.Failure.Http && e.code in setOf(403, 404))
@@ -642,18 +636,15 @@ class ChatSession(
         return AgentChatApi.plan(token, teamId, planId)
     }
 
+    /** The backend wakes the agent once the approval completes the plan's gate. */
     suspend fun approvePlan(planId: String): Plan {
         check(permissions.writable) { "This agent is read-only." }
-        val updated = AgentChatApi.updatePlan(token, teamId, planId, "approved")
-        if (updated.status == "approved") send("Approved plan #$planId — please proceed with plan #$planId.")
-        return updated
+        return AgentChatApi.updatePlan(token, teamId, planId, "approved")
     }
 
     suspend fun rejectPlan(planId: String): Plan {
         check(permissions.writable) { "This agent is read-only." }
-        val updated = AgentChatApi.updatePlan(token, teamId, planId, "rejected")
-        send("Rejected the plan — discard it and stop.")
-        return updated
+        return AgentChatApi.updatePlan(token, teamId, planId, "rejected")
     }
 
     fun requestPlanChanges(reason: String) {
@@ -1540,7 +1531,6 @@ class ChatSession(
         retainedTransfer = null
         preparedTransfer = null
         queued = emptyList()
-        sendAfterLoad = null
         uploadBusy = false
         uploadProgress = null
         uploadError = null

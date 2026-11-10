@@ -66,13 +66,11 @@ class AiAccessTest {
         } finally { Dispatchers.resetMain() }
     }
 
-    @Test fun disposalClearsDeferredDraftWithoutRestoringPermission() {
+    @Test fun disposalDoesNotRestorePermission() {
         AiAccess.activate("account")
         AiAccess.grant("account")
         val session = ChatSession.fresh("account", "team")
-        session.sendAfterLoad = "private draft"
         session.disposeForConsent()
-        assertNull(session.sendAfterLoad)
         assertFalse(session.canSubmit)
         assertTrue(session.messages.isEmpty())
         assertFalse(session.send("another draft"))
