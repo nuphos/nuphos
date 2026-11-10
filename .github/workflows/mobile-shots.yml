@@ -65,12 +65,16 @@ jobs:
           set -euo pipefail
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
           sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          # avdmanager and the emulator otherwise look in different folders.
+          export ANDROID_AVD_HOME="$HOME/.android/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
           sdk="$ANDROID_HOME/cmdline-tools/latest/bin"
           img='system-images;android-35;google_apis;x86_64'
           (yes || true) | "$sdk/sdkmanager" --licenses > /dev/null
           "$sdk/sdkmanager" "platforms;android-37.0" platform-tools emulator "$img" > /dev/null
           echo no | "$sdk/avdmanager" create avd -n shots -k "$img" -d pixel_6
-          nohup "$ANDROID_HOME/emulator/emulator" -avd shots -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect > "$RUNNER_TEMP/emu.log" 2>&1 &
+          nohup "$ANDROID_HOME/emulator/emulator" -avd shots -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -camera-back none > "$RUNNER_TEMP/emu.log" 2>&1 &
       - name: Build the app and its device tests
         if: steps.pick.outputs.class != ''
         working-directory: apps/android
@@ -84,7 +88,9 @@ jobs:
         run: |
           set -euo pipefail
           adb="$ANDROID_HOME/platform-tools/adb"
-          timeout 600 "$adb" wait-for-device shell 'while [ "$(getprop sys.boot_completed)" != 1 ]; do sleep 2; done'
+          booted() { [ "$("$adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; }
+          for i in $(seq 1 120); do booted && break; sleep 5; done
+          booted || { echo 'The emulator did not boot:'; tail -60 "$RUNNER_TEMP/emu.log"; exit 1; }
           "$adb" shell settings put global window_animation_scale 0
           "$adb" shell settings put global transition_animation_scale 0
           "$adb" shell settings put global animator_duration_scale 0
