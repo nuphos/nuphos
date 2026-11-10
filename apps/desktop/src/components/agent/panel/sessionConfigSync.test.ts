@@ -328,3 +328,62 @@ test('a slow background read never marks the settings slow, and a choice made du
   await flush()
   assert.equal(sync.getSnapshot().data?.options[0].currentValue, 'after')
 })
+
+// The main process re-encodes a backend failure under this sentinel so its code
+// and message survive IPC; parseAtlasError recovers them in the renderer.
+const backendRefusal = (code: string, message: string) =>
+  new Error(`__ATLAS_API_ERROR__${JSON.stringify({ code, message })}`)
+
+test('a refused change keeps the backend’s reason through the read-back, and the next pick clears it', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  let fail = true
+  const sync = new SessionConfigSync({
+    read: async () => ready('actual'),
+    write: async () => {
+      if (fail)
+        throw backendRefusal(
+          'runtime_config_unavailable',
+          'The agent session could not be restored. Refresh and try again.',
+        )
+
+      return ready('high')
+    },
+  })
+
+  t.after(sync.start())
+  await flush()
+  await sync.select({ configId: 'effort', value: 'high' })
+  await flush()
+  // The read-back lands on the runtime's own value without dropping the reason.
+  assert.equal(sync.getSnapshot().data?.options[0].currentValue, 'actual')
+  assert.equal(
+    sync.getSnapshot().writeError,
+    'The agent session could not be restored. Refresh and try again.',
+  )
+  await sync.refresh()
+  assert.equal(
+    sync.getSnapshot().writeError,
+    'The agent session could not be restored. Refresh and try again.',
+  )
+  fail = false
+  await sync.select({ configId: 'effort', value: 'high' })
+  assert.equal(sync.getSnapshot().writeError, undefined)
+  assert.equal(sync.getSnapshot().data?.options[0].currentValue, 'high')
+})
+
+test('a change that fails without a backend reason keeps the generic note', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const sync = new SessionConfigSync({
+    read: async () => ready('actual'),
+    write: async () => {
+      // A write that times out never reaches the backend: no reason to report.
+      throw new Error('Error invoking remote method: The operation was aborted due to timeout')
+    },
+  })
+
+  t.after(sync.start())
+  await flush()
+  await sync.select({ configId: 'effort', value: 'high' })
+  await flush()
+  assert.match(sync.getSnapshot().writeError!, /not confirmed/)
+})
