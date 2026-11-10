@@ -1246,6 +1246,8 @@ impl AdapterRouter {
                                 // repro against a live agent (see #732 PR description).
                                 continue;
                             }
+                            let notification =
+                                crate::acp::connection::with_recent_stderr(notification, &prompt_activity);
                             if let Some(ref err) = notification.error {
                                 response_error = Some(format_coded_error(err.code, &err.message, err.data_message()));
                                 response_error_data = Some(err.relay_data());

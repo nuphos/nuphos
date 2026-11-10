@@ -155,6 +155,63 @@ pub struct SessionActivity {
     /// Why the agent's CLI died, as the adapter announced it on stderr
     /// (see [`PROCESS_DEATH_PREFIX`]). Lets an interruption name its cause.
     process_death: std::sync::Mutex<Option<String>>,
+    /// The agent's most recent stderr lines (redacted, bounded), so an internal
+    /// error that carries no detail can still show what the agent last said.
+    stderr_tail: std::sync::Mutex<std::collections::VecDeque<String>>,
+}
+
+const STDERR_TAIL_LINES: usize = 20;
+const STDERR_TAIL_BYTES: usize = 2_000;
+/// One runaway line (a minified stack, a JSON dump) must not evict the whole tail.
+const STDERR_LINE_CHARS: usize = 500;
+
+/// A line that may carry a credential is withheld whole: a partial mask can leak
+/// the part it did not recognise.
+static CREDENTIAL_LIKE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new(
+        r"(?i)api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|secret|passw(or)?d|authorization|bearer\s|cookie|\bsk-[a-z0-9]|\bgh[pousr]_|\bxox[abpr]-|-----BEGIN",
+    )
+    .expect("valid credential pattern")
+});
+
+fn redact_stderr_line(line: &str) -> String {
+    if CREDENTIAL_LIKE.is_match(line) {
+        return "[line withheld: it may contain a credential]".to_string();
+    }
+    let line: String = if line.chars().count() > STDERR_LINE_CHARS {
+        format!("{}…", line.chars().take(STDERR_LINE_CHARS).collect::<String>())
+    } else {
+        line.to_string()
+    };
+    line.split(' ')
+        .map(crate::redact::redact_session_ids)
+        .collect::<Vec<_>>()
+        .join(" ")
+        .replace("```", "'''")
+}
+
+/// An internal error (-32603) that carries no detail gets the agent's recent
+/// stderr as its `data.message`, so the person sees the likely cause, not a bare
+/// "Internal error". Any other response is returned unchanged.
+pub fn with_recent_stderr(mut msg: JsonRpcMessage, activity: &SessionActivity) -> JsonRpcMessage {
+    let Some(err) = msg.error.as_mut() else {
+        return msg;
+    };
+    if err.code != -32603 || err.data_message().is_some_and(|d| !d.trim().is_empty()) {
+        return msg;
+    }
+    let Some(tail) = activity.stderr_tail() else {
+        return msg;
+    };
+    let detail =
+        format!("The agent gave no error details. Its last output on stderr:\n```\n{tail}\n```");
+    match err.data.as_mut().and_then(Value::as_object_mut) {
+        Some(map) => {
+            map.insert("message".into(), Value::String(detail));
+        }
+        None => err.data = Some(json!({ "message": detail })),
+    }
+    msg
 }
 
 /// Stderr line prefix the Nuphos adapter patches (apps/runtime/image/process-death.mjs)
@@ -178,6 +235,7 @@ impl SessionActivity {
             agent_relay_ms: AtomicU64::new(0),
             agent_permission_wait_ms: AtomicU64::new(0),
             process_death: Default::default(),
+            stderr_tail: Default::default(),
         }
     }
 
@@ -199,6 +257,19 @@ impl SessionActivity {
             *self.process_death.lock().unwrap_or_else(|e| e.into_inner()) =
                 Some(message.to_string());
         }
+        let mut tail = self.stderr_tail.lock().unwrap_or_else(|e| e.into_inner());
+        tail.push_back(redact_stderr_line(line));
+        while tail.len() > STDERR_TAIL_LINES
+            || tail.iter().map(|l| l.len() + 1).sum::<usize>() > STDERR_TAIL_BYTES
+        {
+            tail.pop_front();
+        }
+    }
+
+    /// The agent's recent stderr, oldest line first, or `None` when it said nothing.
+    pub fn stderr_tail(&self) -> Option<String> {
+        let tail = self.stderr_tail.lock().unwrap_or_else(|e| e.into_inner());
+        (!tail.is_empty()).then(|| tail.iter().cloned().collect::<Vec<_>>().join("\n"))
     }
 
     fn mark_connection_ended(&self) {
@@ -222,6 +293,13 @@ impl SessionActivity {
     }
 
     pub fn set_in_flight(&self, in_flight: bool) {
+        if in_flight {
+            // A new prompt's failure should show that prompt's output, not an earlier one's.
+            self.stderr_tail
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clear();
+        }
         self.prompt_in_flight.store(in_flight, Ordering::Release);
         self.execution
             .operation(if in_flight { "prompt" } else { "none" });
@@ -978,7 +1056,7 @@ impl AcpConnection {
         if resp.id.is_none() {
             return Err(anyhow!("connection closed waiting for {method}"));
         }
-        Ok(resp)
+        Ok(with_recent_stderr(resp, &self.activity))
     }
 
     pub async fn initialize(&mut self) -> Result<()> {
@@ -1992,6 +2070,85 @@ mod reader_loop_tests {
             activity.process_death().as_deref(),
             Some("Claude Code ran out of memory.")
         );
+    }
+
+    #[test]
+    fn stderr_tail_is_bounded_redacted_and_reset_per_prompt() {
+        let activity = SessionActivity::new();
+        assert_eq!(activity.stderr_tail(), None);
+        for i in 0..30 {
+            activity.note_stderr(&format!("line {i}"));
+        }
+        let tail = activity.stderr_tail().unwrap();
+        assert_eq!(tail.lines().count(), STDERR_TAIL_LINES);
+        assert!(tail.starts_with("line 10") && tail.ends_with("line 29"));
+
+        activity.note_stderr("Authorization: Bearer abc123");
+        activity.note_stderr("resuming sess_0f8c2b9e-0000-4000-8000-000000000000 now");
+        activity.note_stderr("```injected fence");
+        let tail = activity.stderr_tail().unwrap();
+        assert!(!tail.contains("abc123"));
+        assert!(tail.contains("[line withheld: it may contain a credential]"));
+        assert!(!tail.contains("sess_0f8c2b9e"));
+        assert!(!tail.contains("```"));
+
+        activity.note_stderr(&"x".repeat(3_000));
+        let tail = activity.stderr_tail().unwrap();
+        assert!(tail.len() <= STDERR_TAIL_BYTES);
+        assert!(tail.ends_with('…'), "a long line is cut, not dropped");
+
+        activity.set_in_flight(true);
+        assert_eq!(activity.stderr_tail(), None);
+    }
+
+    #[test]
+    fn a_bare_internal_error_gains_the_recent_stderr() {
+        let activity = SessionActivity::new();
+        activity.note_stderr("Error: ENOSPC: no space left on device, mkdir '/home/node/x'");
+        let bare = JsonRpcMessage {
+            id: Some(7),
+            method: None,
+            result: None,
+            error: Some(crate::acp::protocol::JsonRpcError {
+                code: -32603,
+                message: "Internal error".into(),
+                data: Some(json!({})),
+            }),
+            params: None,
+        };
+
+        let enriched = with_recent_stderr(bare, &activity);
+        let detail = enriched.error.unwrap().data_message().unwrap().to_string();
+        assert!(detail.starts_with("The agent gave no error details."));
+        assert!(detail.contains("ENOSPC: no space left on device"));
+    }
+
+    #[test]
+    fn an_error_with_its_own_detail_or_another_code_is_left_alone() {
+        let activity = SessionActivity::new();
+        activity.note_stderr("unrelated noise");
+        let error = |code, data| JsonRpcMessage {
+            id: Some(7),
+            method: None,
+            result: None,
+            error: Some(crate::acp::protocol::JsonRpcError {
+                code,
+                message: "Internal error".into(),
+                data,
+            }),
+            params: None,
+        };
+
+        let detailed = with_recent_stderr(
+            error(-32603, Some(json!({"message": "model not found"}))),
+            &activity,
+        );
+        assert_eq!(
+            detailed.error.unwrap().data_message().as_deref(),
+            Some("model not found")
+        );
+        let auth = with_recent_stderr(error(-32000, None), &activity);
+        assert_eq!(auth.error.unwrap().data, None);
     }
 
     #[test]
