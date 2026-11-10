@@ -177,7 +177,10 @@ describe('a Bot is archived and restored as one thing with its chat', () => {
     expect(['group', 'two-agents'].map(archived)).toEqual([false, false])
   })
 
-  test('archiving its chat archives the Bot', async () => {
+  test('archiving its only chat archives the Bot', async () => {
+    conversations.docs = conversations.docs.filter(
+      (doc) => doc.sessionId !== 'group' && doc.sessionId !== 'two-agents',
+    )
     await setConversationArchived('bot-chat', true)
 
     expect(['bot', 'bot-chat'].map(archived)).toEqual([true, true])
@@ -219,5 +222,41 @@ describe('a Bot is archived and restored as one thing with its chat', () => {
     await setConversationArchived('bot-chat', true)
 
     expect(archived('bot')).toBe(false)
+  })
+})
+
+describe('archiving a redundant Bot chat', () => {
+  beforeEach(() => {
+    conversations.docs.push(
+      { sessionId: 'bot', userId: 'u', teamId: 't', avatar: '05-rembrandt' },
+      { sessionId: 'empty', userId: 'u', teamId: 't', kind: 'channel', agentSessionIds: ['bot'] },
+      {
+        sessionId: 'shared',
+        userId: 'u',
+        teamId: 't',
+        kind: 'channel',
+        agentSessionIds: ['bot'],
+        participantIds: ['u', 'v'],
+      },
+      { sessionId: 'work', userId: 'u', teamId: 't', parentSessionId: 'bot' },
+    )
+  })
+
+  test('keeps the Bot, its work and the shared chat active', async () => {
+    await setConversationArchived('empty', true)
+    expect(['empty', 'bot', 'shared', 'work'].map(archived)).toEqual([true, false, false, false])
+    expect(revokedSessions.at(-1)).toEqual(['empty'])
+  })
+
+  test('also protects a Bot with another one-to-one chat', async () => {
+    delete conversations.docs.find((doc) => doc.sessionId === 'shared')!.participantIds
+    await setConversationArchived('empty', true)
+    expect(['empty', 'bot', 'shared'].map(archived)).toEqual([true, false, false])
+  })
+
+  test('an archived alternative does not keep the Bot alive', async () => {
+    conversations.docs.find((doc) => doc.sessionId === 'shared')!.archivedAt = new Date(0)
+    await setConversationArchived('empty', true)
+    expect(['empty', 'bot', 'work'].map(archived)).toEqual([true, true, true])
   })
 })

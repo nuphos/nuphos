@@ -12,7 +12,14 @@ const restore = () => ({
 
 type Archivable = Pick<
   AgentConversation,
-  'sessionId' | 'userId' | 'teamId' | 'kind' | 'avatar' | 'agentSessionIds' | 'participantIds'
+  | 'sessionId'
+  | 'userId'
+  | 'teamId'
+  | 'kind'
+  | 'avatar'
+  | 'agentSessionIds'
+  | 'participantIds'
+  | 'archivedAt'
 >
 
 const ARCHIVABLE = {
@@ -23,6 +30,7 @@ const ARCHIVABLE = {
   avatar: 1,
   agentSessionIds: 1,
   participantIds: 1,
+  archivedAt: 1,
 } as const
 
 /** A Bot's 1:1 chat: a channel whose only other member is one agent. */
@@ -35,7 +43,7 @@ const isBotChat = (channel: Archivable) =>
  * A Bot is one thing: its session and its owner's 1:1 chats with it. Archiving
  * or restoring any of them moves all of them, so no chat outlives its Bot.
  */
-async function botUnit(conversation: Archivable): Promise<string[]> {
+async function botUnit(conversation: Archivable, archiving = false): Promise<string[]> {
   const chatOf = isBotChat(conversation) ? conversation.agentSessionIds?.[0] : undefined
   const botId =
     conversation.kind === 'channel' ? chatOf : conversation.avatar && conversation.sessionId
@@ -53,6 +61,13 @@ async function botUnit(conversation: Archivable): Promise<string[]> {
   ])
 
   if (!bot) return [conversation.sessionId]
+  // Removing a redundant chat must not archive the agent still used elsewhere.
+  if (
+    archiving &&
+    chatOf &&
+    chats.some((chat) => chat.sessionId !== conversation.sessionId && !chat.archivedAt)
+  )
+    return [conversation.sessionId]
 
   return [botId, ...chats.filter(isBotChat).map((chat) => chat.sessionId)]
 }
@@ -68,7 +83,7 @@ export async function setConversationArchived(sessionId: string, archived: boole
   const conversation = await agentConversations().findOne({ sessionId }, { projection: ARCHIVABLE })
 
   if (!conversation) return
-  for (const id of await botUnit(conversation)) await setTreeArchived(id, archived)
+  for (const id of await botUnit(conversation, archived)) await setTreeArchived(id, archived)
 }
 
 async function setTreeArchived(sessionId: string, archived: boolean): Promise<void> {

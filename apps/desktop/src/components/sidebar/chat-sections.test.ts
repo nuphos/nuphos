@@ -120,3 +120,31 @@ test('a parent cycle does not loop', () => {
 test('Chats shows even with no agents at all, so its "+" can make the first', () => {
   assert.deepEqual(build([]), { '': [], Channels: [] })
 })
+
+test('inviting a human into a Bot chat does not expose the fallback Bot row', () => {
+  const group = { ...row('group', { channel: true }), channelAgentIds: ['ada'] }
+
+  assert.deepEqual(build([group, row('agent-session:ada', { bot: true })]), {
+    '': [],
+    Channels: ['group'],
+    Tasks: ['agent-session:ada'],
+  })
+})
+
+test('a group with several agents suppresses each fallback without hiding other Bots', () => {
+  const group = { ...row('group', { channel: true }), channelAgentIds: ['ada', 'venus'] }
+
+  assert.deepEqual(
+    build([
+      group,
+      row('agent-session:ada', { bot: true }),
+      row('agent-session:venus', { bot: true }),
+      row('agent-session:new', { bot: true }),
+    ]),
+    {
+      '': [],
+      Channels: ['group', 'agent-session:new'],
+      Tasks: ['agent-session:ada', 'agent-session:venus', 'agent-session:new'],
+    },
+  )
+})
