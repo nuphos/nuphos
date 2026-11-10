@@ -190,7 +190,7 @@ struct ChannelView: View {
         TranscriptList(rows: channel.loaded && channel.loadError == nil ? rows : [], submittedRowID: channel.lastSubmittedRowID,
                        sessionID: channel.channelId,
                        composer: AnyView(composer.environment(store).readableWidth()), placeholder: AnyView(placeholder),
-                       animatesArrivals: true, jump: jump) { row in
+                       animatesArrivals: true, jump: jump, swipeAction: replyAction) { row in
             AnyView(rowView(row)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
@@ -205,6 +205,12 @@ struct ChannelView: View {
         .defaultScrollAnchor(.bottom)
         .safeAreaInset(edge: .bottom) { composer }
         #endif
+    }
+
+    /// Swiping a post right replies to it, where the viewer can post.
+    private func replyAction(_ row: ChatRow) -> (() -> Void)? {
+        guard case .channel(_, .post(let post, _)) = row, !channel.readOnly, !post.sending else { return nil }
+        return { reply(to: post) }
     }
 
     @ViewBuilder
@@ -302,14 +308,11 @@ private struct ChannelPostRow: View {
     let onLink: (URL) -> Void
     /// Briefly highlighted: a quote of it was tapped.
     var flashed = false
-    /// Swiping right, or the long-press menu, replies; nil where the viewer cannot post.
+    /// The long-press menu and VoiceOver reply with it; nil where the viewer cannot post.
     var onReply: (() -> Void)?
     var onQuote: (ChannelReply) -> Void = { _ in }
 
     private static let avatar: CGFloat = 20
-    /// How far a swipe must pull the post for it to reply, as in Messages.
-    private static let replyPull: CGFloat = 60
-    @State private var pull: CGFloat = 0
 
     /// The groups' files when the chat has read them all; else the card reads them.
     private func read(_ groupIds: [String]) -> [TransferDownloadGroup.File]? {
@@ -337,17 +340,6 @@ private struct ChannelPostRow: View {
             if !mine { Spacer(minLength: 48) }
         }
         .frame(maxWidth: .infinity, alignment: mine ? .trailing : .leading)
-        .offset(x: pull)
-        .background(alignment: .leading) {
-            // The reply arrow comes out from under the post as it is pulled.
-            Image(systemName: "arrowshape.turn.up.left.circle.fill")
-                .font(.system(size: 24))
-                .foregroundStyle(pull >= Self.replyPull ? Theme.brand : Theme.muted)
-                .opacity(Double(min(pull / Self.replyPull, 1)))
-                .offset(x: min(pull, Self.replyPull) - 40)
-        }
-        .simultaneousGesture(swipe, including: onReply == nil ? .subviews : .all)
-        .sensoryFeedback(.impact(weight: .light), trigger: pull >= Self.replyPull) { _, reached in reached }
         .contextMenu {
             if let onReply {
                 Button("Reply", systemImage: "arrowshape.turn.up.left", action: onReply)
@@ -362,21 +354,6 @@ private struct ChannelPostRow: View {
         .accessibilityActions {
             if let onReply { Button("Reply", action: onReply) }
         }
-    }
-
-    /// A rightward pull that leaves vertical scrolling and the edge's back swipe alone.
-    private var swipe: some Gesture {
-        DragGesture(minimumDistance: 16)
-            .onChanged { value in
-                let dx = value.translation.width
-                guard value.startLocation.x > 24, dx > 0, dx > abs(value.translation.height) * 1.5 else { return }
-                // Resists past the point it replies at.
-                pull = dx < Self.replyPull ? dx : Self.replyPull + (dx - Self.replyPull) * 0.25
-            }
-            .onEnded { _ in
-                if pull >= Self.replyPull { onReply?() }
-                withAnimation(.spring(duration: 0.3, bounce: 0.2)) { pull = 0 }
-            }
     }
 
     /// The post this one answers; tapping it goes there.
