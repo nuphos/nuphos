@@ -122,7 +122,7 @@ extension ChannelPost {
 
     /// Posts, the loop guard's lines and the typing bubble, as rows.
     static func items(posts: [ChannelPost], events: [AgentConversationDetail.TimelineEvent],
-                      typing: [ChannelAgent]) -> [(id: String, item: ChannelItem)] {
+                      typing: [ChannelAgent], questions: [BotQuestion] = []) -> [(id: String, item: ChannelItem)] {
         var rows: [(at: Date, id: String, item: ChannelItem)] = []
         var previous: Date?
         for (index, post) in posts.enumerated() {
@@ -144,6 +144,11 @@ extension ChannelPost {
                 let actionable = event == events.last && event.at >= lastPost
                 rows.append((at: event.at, id: id, item: ChannelItem.replyFailed(event, actionable: actionable)))
             }
+        }
+        // A question sits where it was asked, as on the desktop.
+        for question in questions {
+            let at = question.request.askedAt.flatMap(parseDate) ?? .distantPast
+            rows.append((at: at, id: "question.\(question.id)", item: ChannelItem.question(question)))
         }
         // Stable: posts keep their order where their times tie.
         var sorted: [(id: String, item: ChannelItem)] = rows.enumerated().sorted { a, b in

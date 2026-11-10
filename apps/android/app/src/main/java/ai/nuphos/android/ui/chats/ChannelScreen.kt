@@ -134,7 +134,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
     }
     var desktop by remember(bot, store.workspaceRevision) { mutableStateOf(false) }
     if (desktop && bot != null) ai.nuphos.android.desktop.DesktopScreen(bot, store) { desktop = false }
-    val items = ChannelPost.items(session.posts, session.events, typing)
+    val items = ChannelPost.items(session.posts, session.events, typing, session.questions)
     // After the Bot could not reply: its own agent list, as on its Task screen.
     var switching by remember(bot) { mutableStateOf(false) }
     val quotas = ai.nuphos.android.ui.agent.rememberRuntimeQuotas(auth.token, session.teamId)
@@ -236,14 +236,6 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
         LazyColumn(Modifier.fillMaxSize().testTag("channel-transcript"), state = state, reverseLayout = true,
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
             item(key = "typing") { TypingSlot(typing) }
-            // A Bot's chat: what the Bot and the agents under it wait on, under the newest post.
-            items(session.questions.asReversed(), key = { "question.${it.id}" }) { question ->
-                BotQuestionCard(question, onOpen = { onLink(question.link(session.teamId)) },
-                    onAnswer = { option -> if (allowed()) session.answer(question, option, scope, viewerId) },
-                    // The Bot's own questions are this chat's; only an agent under it is named.
-                    showsFrom = question.sessionId != session.faces.botFace?.id, onLink = onLink,
-                    failure = session.answerFailure(question))
-            }
             items(reversed, key = { it.key }) { item ->
                 // New rows fade in and rise a little as the rows on screen slide up to make room.
                 // The list keeps a reader's place by key, so someone reading older posts sees nothing move.
@@ -265,6 +257,14 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                                 onRetry = agentId?.takeIf { item.actionable && allowed() }?.let { id -> { session.retry(id, scope) } })
                         }
                         is ChannelItem.Typing -> Unit
+                        // A Bot's chat: what the Bot and the agents under it wait on, where it was asked.
+                        is ChannelItem.Question -> item.question.let { question ->
+                            BotQuestionCard(question, onOpen = { onLink(question.link(session.teamId)) },
+                                onAnswer = { option -> if (allowed()) session.answer(question, option, scope, viewerId) },
+                                // The Bot's own questions are this chat's; only an agent under it is named.
+                                showsFrom = question.sessionId != session.faces.botFace?.id, onLink = onLink,
+                                failure = session.answerFailure(question))
+                        }
                     }
                 }
             }
