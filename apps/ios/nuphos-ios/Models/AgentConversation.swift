@@ -124,6 +124,21 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     /// The Bot this chat is the 1:1 of: its one other member is an agent with a face.
     var botId: String? { isChannel ? faces?.botId : nil }
 
+    /// The list's preview line. Only a chat with more than one other member
+    /// names who posted: in a 1:1 the row already is the sender.
+    var previewLine: String? {
+        guard let last = lastMessage else { return nil }
+        guard let from = last.from, (faces?.count ?? 0) > 1 else { return last.text }
+        return "\(from): \(last.text)"
+    }
+
+    /// The Bot of this 1:1 chat is in a turn that answers it: the chat's typing
+    /// dots, which its list row shows in place of the newest post.
+    func botTyping(in observations: RuntimeObservations, team: String) -> Bool {
+        guard let botId else { return false }
+        return observations.value(team: team, session: botId)?.typing(in: sessionId) == true
+    }
+
     var isNativeRuntime: Bool { agentRuntime != nil && agentRuntime != "nuphos" }
 
     /// `title || firstMessage || 'Untitled chat'` — titles are often empty on
@@ -275,6 +290,12 @@ struct AgentConversationDetail: Decodable, Sendable {
         let text: String
         /// `agents_paused` when a chat's loop guard stopped its agents.
         var kind: String? = nil
+        /// `agent_reply_failed`: the agent that could not reply, for Retry and Switch agent.
+        var agentId: String? = nil
+        /// `agent_reply_failed`: `usage_limit`, `auth` or `offline` when the agent itself was the cause, else `other`.
+        var cause: String? = nil
+        /// `agent_reply_failed`: when an agent out of usage gets it back.
+        var resetsAt: Date? = nil
     }
 
     let messages: [ChatMessage]

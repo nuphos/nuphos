@@ -20,7 +20,8 @@ use tracing::{debug, error, info, info_span, warn};
 use crate::acp::ContentBlock;
 use crate::adapter::{AdapterRouter, ChannelRef, ChatAdapter, MessageRef};
 use crate::config::ReactionsConfig;
-use crate::error_display::format_user_error;
+use crate::acp::protocol::JsonRpcError;
+use crate::error_display::{format_coded_error, format_user_error};
 use crate::reactions::StatusReactionController;
 
 // ---------------------------------------------------------------------------
@@ -638,6 +639,27 @@ async fn consumer_loop(
 // dispatch_batch
 // ---------------------------------------------------------------------------
 
+/// A session that could not start fails the turn. An ACP host gets a turn error
+/// carrying the adapter's code and `data`, so it can tell a sign-out from a crash;
+/// chat platforms keep the readable notice.
+async fn report_session_failure(adapter: &Arc<dyn ChatAdapter>, channel: &ChannelRef, e: &anyhow::Error) {
+    if channel.platform != "acp" {
+        let user_msg = format_user_error(&e.to_string());
+        let _ = adapter.send_message(channel, &format!("⚠️ {user_msg}")).await;
+        return;
+    }
+    let (error, data) = match e.downcast_ref::<JsonRpcError>() {
+        Some(err) => (
+            format_coded_error(err.code, &err.message, err.data_message()),
+            Some(err.relay_data()),
+        ),
+        None => (format_user_error(&e.to_string()), None),
+    };
+    if let Err(send_err) = adapter.fail_agent_turn(channel, "", &error, data).await {
+        warn!(error = %send_err, "failed to report session start failure");
+    }
+}
+
 async fn dispatch_batch(
     thread_key: &str,
     thread_channel: &ChannelRef,
@@ -743,11 +765,8 @@ async fn dispatch_batch(
     {
         Ok(created) => created,
         Err(e) => {
-            let user_msg = format_user_error(&e.to_string());
-            let _ = adapter
-                .send_message(&dispatch_channel, &format!("⚠️ {user_msg}"))
-                .await;
             error!("pool error in dispatch_batch: {e}");
+            report_session_failure(adapter, &dispatch_channel, &e).await;
             return;
         }
     };
@@ -1427,6 +1446,8 @@ mod tests {
         calls: Mutex<Vec<RecordedDispatch>>,
         /// If set, `ensure_session` returns this error once.
         ensure_err: Mutex<Option<String>>,
+        /// If set, `ensure_session` returns this adapter error once.
+        ensure_rpc_err: Mutex<Option<JsonRpcError>>,
         /// If set, `stream_prompt_blocks` returns this error once.
         stream_err: Mutex<Option<String>>,
     }
@@ -1437,6 +1458,7 @@ mod tests {
                 reactions: ReactionsConfig::default(),
                 calls: Mutex::new(Vec::new()),
                 ensure_err: Mutex::new(None),
+                ensure_rpc_err: Mutex::new(None),
                 stream_err: Mutex::new(None),
             }
         }
@@ -1469,6 +1491,9 @@ mod tests {
         ) -> Result<bool> {
             if let Some(msg) = self.ensure_err.lock().unwrap().take() {
                 return Err(anyhow::anyhow!(msg));
+            }
+            if let Some(err) = self.ensure_rpc_err.lock().unwrap().take() {
+                return Err(anyhow::Error::new(err));
             }
             Ok(true)
         }
@@ -1536,6 +1561,139 @@ mod tests {
         fn use_streaming(&self, _other_bot_present: bool) -> bool {
             false
         }
+    }
+
+    /// Records the two ways a turn can report a failure.
+    #[derive(Default)]
+    struct RecordingAdapter {
+        sent: Mutex<Vec<String>>,
+        failed: Mutex<Vec<(String, Option<serde_json::Value>)>>,
+    }
+
+    #[async_trait]
+    impl ChatAdapter for RecordingAdapter {
+        fn platform(&self) -> &'static str {
+            "acp"
+        }
+        fn message_limit(&self) -> usize {
+            2000
+        }
+        async fn send_message(&self, channel: &ChannelRef, content: &str) -> Result<MessageRef> {
+            self.sent.lock().unwrap().push(content.into());
+            Ok(MessageRef {
+                channel: channel.clone(),
+                message_id: "rec-msg".into(),
+            })
+        }
+        async fn fail_agent_turn(
+            &self,
+            _channel: &ChannelRef,
+            _partial: &str,
+            error: &str,
+            error_data: Option<serde_json::Value>,
+        ) -> Result<()> {
+            self.failed.lock().unwrap().push((error.into(), error_data));
+            Ok(())
+        }
+        async fn create_thread(
+            &self,
+            channel: &ChannelRef,
+            _trigger_msg: &MessageRef,
+            _title: &str,
+        ) -> Result<ChannelRef> {
+            Ok(channel.clone())
+        }
+        async fn add_reaction(&self, _msg: &MessageRef, _emoji: &str) -> Result<()> {
+            Ok(())
+        }
+        async fn remove_reaction(&self, _msg: &MessageRef, _emoji: &str) -> Result<()> {
+            Ok(())
+        }
+        fn use_streaming(&self, _other_bot_present: bool) -> bool {
+            false
+        }
+    }
+
+    /// Runs one message through a consumer whose session fails to start.
+    async fn run_failed_session_start(
+        platform: &str,
+        mock: Arc<MockDispatchTarget>,
+    ) -> Arc<RecordingAdapter> {
+        let recorder = Arc::new(RecordingAdapter::default());
+        let adapter: Arc<dyn ChatAdapter> = recorder.clone();
+        let target: Arc<dyn DispatchTarget> = mock;
+        let (tx, rx) = tokio::sync::mpsc::channel::<BufferedMessage>(1);
+        tx.send(make_msg("hi", 10)).await.unwrap();
+        drop(tx);
+        let channel = ChannelRef {
+            platform: platform.into(),
+            ..make_channel("T")
+        };
+        consumer_loop(
+            "acp:T".into(),
+            channel,
+            rx,
+            target,
+            adapter,
+            10,
+            24_000,
+            Duration::from_secs(60),
+        )
+        .await;
+        recorder
+    }
+
+    #[tokio::test]
+    async fn acp_session_start_failure_fails_the_turn_with_the_adapter_code() {
+        let mock = Arc::new(MockDispatchTarget::new());
+        *mock.ensure_rpc_err.lock().unwrap() = Some(JsonRpcError {
+            code: -32000,
+            message: "Authentication required".into(),
+            data: None,
+        });
+
+        let recorder = run_failed_session_start("acp", mock.clone()).await;
+
+        let failed = recorder.failed.lock().unwrap();
+        assert_eq!(failed.len(), 1);
+        assert!(failed[0].0.starts_with("**Server Error** (code: -32000)\nAuthentication required"));
+        assert_eq!(
+            failed[0].1,
+            Some(serde_json::json!({"code": -32000, "message": "Authentication required"}))
+        );
+        assert!(recorder.sent.lock().unwrap().is_empty(), "no text notice on ACP");
+        assert!(mock.calls().is_empty(), "the prompt never runs");
+    }
+
+    #[tokio::test]
+    async fn acp_session_start_failure_without_a_code_still_fails_the_turn() {
+        let mock = Arc::new(MockDispatchTarget::new());
+        *mock.ensure_err.lock().unwrap() = Some("timeout waiting for session/new response".into());
+
+        let recorder = run_failed_session_start("acp", mock).await;
+
+        let failed = recorder.failed.lock().unwrap();
+        assert_eq!(failed.len(), 1);
+        assert!(failed[0].0.contains("Request Timeout"));
+        assert_eq!(failed[0].1, None);
+    }
+
+    #[tokio::test]
+    async fn chat_platform_session_start_failure_keeps_the_text_notice() {
+        let mock = Arc::new(MockDispatchTarget::new());
+        *mock.ensure_rpc_err.lock().unwrap() = Some(JsonRpcError {
+            code: -32603,
+            message: "Internal error".into(),
+            data: None,
+        });
+
+        let recorder = run_failed_session_start("discord", mock).await;
+
+        assert!(recorder.failed.lock().unwrap().is_empty());
+        let sent = recorder.sent.lock().unwrap();
+        assert_eq!(sent.len(), 1);
+        assert!(sent[0].starts_with("⚠️ "));
+        assert!(sent[0].contains("JSON-RPC error -32603: Internal error"));
     }
 
     fn make_channel(thread: &str) -> ChannelRef {

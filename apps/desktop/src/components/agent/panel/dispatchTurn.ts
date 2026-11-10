@@ -1,7 +1,6 @@
 import { getActiveDiagramId } from '../../../architecture/activeDiagram.ts'
 import { t } from '../../../i18n/index.ts'
 import { track, trackError } from '../../../lib/analytics.ts'
-import { runtimeIsExecuting } from '../../../lib/runtimeExecution.ts'
 import { answeringInbox } from '../../../views/inbox/useInbox.ts'
 import { toast } from '../../ui/toast.ts'
 
@@ -173,7 +172,6 @@ export async function runDispatchTurn(
         diagramId: getActiveDiagramId() ?? undefined,
         credentialAccess,
       }),
-      current.streaming || runtimeIsExecuting(current.runtimeState),
     )
 
   // Import a fork's copied history before sending its first new message.

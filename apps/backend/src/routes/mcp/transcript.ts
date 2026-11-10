@@ -1,4 +1,5 @@
 import { getConversationWithMessages } from '@/lib/agent/db'
+import { parseMessageMetadata } from '@/lib/agent/message-metadata'
 
 import type { UIMessage } from 'ai'
 
@@ -54,13 +55,21 @@ export function persistedMessageToUiMessage(message: {
   messageId: string
   role: string
   parts: unknown[]
+  metadata?: unknown
 }): UIMessage | null {
   if (message.role !== 'user' && message.role !== 'assistant') return null
   const parts = message.parts.flatMap(persistedPartToUiMessagePart)
 
   if (parts.length === 0) return null
+  // Kept so a history rebuilt from storage still says who sent each message.
+  const metadata = parseMessageMetadata(message.metadata)
 
-  return { id: message.messageId, role: message.role, parts } as UIMessage
+  return {
+    id: message.messageId,
+    role: message.role,
+    parts,
+    ...(metadata ? { metadata } : {}),
+  } as UIMessage
 }
 
 export async function readLatestAnswer(

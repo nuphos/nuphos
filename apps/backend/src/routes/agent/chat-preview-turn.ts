@@ -2,9 +2,9 @@ import { randomUUID } from 'node:crypto'
 
 import './chat-preview-autonomous-runs'
 
-import { steeredNoticeSender } from '@/lib/agent/channel-wake'
 import { recordLocalRuntimeTurn } from '@/lib/agent/devices/local-runtime/activity'
 import { requeueTurnQueue } from '@/lib/agent/session-released'
+import { takeSteerSender } from '@/lib/agent/steer-senders'
 import {
   previewRuntimeObservability,
   runClaudeCodePreviewPrompt,
@@ -19,10 +19,7 @@ import {
 import { watchPreviewTurnPauses } from '@/lib/claude-code-preview/preview-turn-pause'
 import { fallBackAfterFailure } from '@/lib/claude-code-preview/runtime-fallback'
 import { isRuntimeRefusal, queuedRefusal } from '@/lib/claude-code-preview/runtime-refusal'
-import {
-  createSteeringAttribution,
-  steeringReceipt,
-} from '@/lib/claude-code-preview/steering-receipt'
+import { steeringReceipt } from '@/lib/claude-code-preview/steering-receipt'
 import { createTurnDiagnostics } from '@/lib/claude-code-preview/turn-diagnostics'
 import { RunHandoff } from '@/lib/lifecycle'
 
@@ -60,8 +57,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
   const requestId = run.trace?.requestId ?? randomUUID()
   const startedAt = Date.now()
   const acc = { text: '', reasoning: '' }
-  const steeringAttribution = createSteeringAttribution(actorUserId)
-  const orderedParts = createPreviewAssistantPartAccumulator(steeringAttribution)
+  const orderedParts = createPreviewAssistantPartAccumulator()
   const toolLog = createPreviewToolLog()
   const state = createPreviewRunState({ run, userId, sessionId })
   const tracking = turnSnapshots(run, { sessionId, runtimeId: args.endpoint.runtimeId })
@@ -170,11 +166,16 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
         if (!consumeTurnUsage(update, args.onTurnUsage)) return
         steer.observe(update)
         if (update.kind === 'steering') {
-          const sender = steeredNoticeSender(teamId, update.text) ?? steeringAttribution()
-          const receipt = steeringReceipt(update.id, update.text, sender)
+          // Placed in order now, attributed once its sender is read back by id.
+          const placed = steeringReceipt(update.id, update.text)
 
-          orderedParts.appendSteering(receipt)
-          state.emit({ type: 'data-steering', data: receipt })
+          orderedParts.appendSteering(placed)
+          void takeSteerSender(sessionId, update.id).then((metadata) => {
+            const receipt = { ...placed, ...(metadata ? { metadata } : {}) }
+
+            orderedParts.appendSteering(receipt)
+            state.emit({ type: 'data-steering', data: receipt })
+          })
 
           return
         }

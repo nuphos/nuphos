@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
+import { claudeNotice, turnFailureCause } from '@/lib/claude-code-preview/openab-acp-errors'
+import { runtimeLabel } from '@/lib/claude-code-preview/runtime-provider'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
@@ -15,7 +17,10 @@ import {
 import { sessionReleased } from './session-released'
 
 import type { AgentConversation } from './db'
+import { systemSender } from './message-metadata'
+
 import type { MessageMetadata } from './message-metadata'
+import type { TurnFailureCause } from '@/lib/claude-code-preview/openab-acp-errors'
 
 /** A channel's wake notice as queued: fixed per channel, so the queue keeps one. */
 export const channelNotice = (channelId: string) =>
@@ -26,26 +31,12 @@ export const channelNoticeSender = (
   teamId: string,
   channelId: string,
   displayName: string,
-): MessageMetadata => ({
-  version: 1,
-  sender: { type: 'system', id: `${CHANNEL_SENDER_PREFIX}${channelId}`, displayName },
-  source: 'agent.resource',
-  resourceUrl: `/teams/${teamId}/agent/${channelId}`,
-  sentAt: new Date().toISOString(),
-})
-
-const STEERED_NOTICE = /^New messages in a Nuphos channel \(channelId ([^)\s]+)\)\./u
-
-/**
- * A notice steered into a running turn comes back as a receipt with only its
- * text. It carries what others posted, so it is the channel's, not the turn
- * actor's. Text that merely looks like one only loses its typist's authority.
- */
-export function steeredNoticeSender(teamId: string, text: string): MessageMetadata | undefined {
-  const channelId = STEERED_NOTICE.exec(text)?.[1]
-
-  return channelId ? channelNoticeSender(teamId, channelId, 'Nuphos channel') : undefined
-}
+): MessageMetadata =>
+  systemSender(
+    `${CHANNEL_SENDER_PREFIX}${channelId}`,
+    displayName,
+    `/teams/${teamId}/agent/${channelId}`,
+  )
 
 /**
  * Steers the agent's running turn with the notice and the posts it has not
@@ -209,9 +200,44 @@ function channelPage(page: Awaited<ReturnType<typeof readChannelMessages>>): str
   )
 }
 
-/** An agent a post woke could not reply: the channel says so, not just the log. */
+/** Why an agent could not reply, in words fit for the chat; undefined for an internal error. */
+function replyFailedReason(
+  agent: AgentConversation | null,
+  cause: TurnFailureCause,
+  error: unknown,
+  resetsAt: string | undefined,
+): string | undefined {
+  const label = agent?.agentRuntime ? `${runtimeLabel(agent.agentRuntime)} ` : ''
+  // Claude Code's own notice names the window and its reset in UTC: kept when no reading says when.
+  const notice = resetsAt ? undefined : claudeNotice(error)
+
+  if (cause === 'usage_limit')
+    return notice
+      ? `its ${label}account hit its usage limit (${notice}).`
+      : `its ${label}account hit its usage limit.`
+  if (cause === 'auth') return `its ${label}sign-in is no longer valid.`
+  if (cause === 'offline') return `its ${label}runtime could not be reached.`
+
+  return error instanceof AppError ? error.message : undefined
+}
+
+async function usageResetsAtOf(agent: AgentConversation): Promise<string | undefined> {
+  if (!agent.teamId || !agent.runtimeId) return undefined
+  // Lazy so importing this does not pull in the runtime graph.
+  const { usageResetsAt } = await import('@/lib/claude-code-preview/runtime-catalog')
+
+  return usageResetsAt(agent.teamId, agent.userId, agent.runtimeId)
+}
+
+/** An agent a post woke could not reply: the channel says what happened and why, not just the log. */
 export async function noteReplyFailed(channelId: string, agentId: string, error: unknown) {
   const agent = await getConversationBySessionId(agentId).catch(() => null)
+  const cause = turnFailureCause(error)
+  const resetsAt =
+    cause === 'usage_limit' && agent
+      ? await usageResetsAtOf(agent).catch(() => undefined)
+      : undefined
+  const reason = replyFailedReason(agent, cause, error, resetsAt)
 
   await agentConversations()
     .updateOne(
@@ -221,8 +247,11 @@ export async function noteReplyFailed(channelId: string, agentId: string, error:
           kind: 'agent_reply_failed',
           at: new Date(),
           actorId: 'system',
+          agentId,
           agentName: agent?.title || 'Nuphos agent',
-          ...(error instanceof AppError ? { reason: error.message } : {}),
+          cause,
+          ...(reason ? { reason } : {}),
+          ...(resetsAt ? { resetsAt } : {}),
         }),
       },
     )

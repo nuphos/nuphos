@@ -43,6 +43,8 @@ class ChannelSession(
         suspend fun upload(attachments: List<ComposerAttachment>): String
         /** `POST …/channel-messages` with `{text, id, upload, replyTo}`; a repeated id is not posted twice. */
         suspend fun post(text: String, id: String, upload: String?, replyTo: String?)
+        /** Retry after an agent could not reply: it reads again what it has not read yet. */
+        suspend fun wake(agentId: String) {}
     }
 
     class Api(private val token: String, private val teamId: String, private val channelId: String) : Transport {
@@ -62,6 +64,10 @@ class ChannelSession(
             }
             AgentChatApi.send("POST", "agent/conversations/${android.net.Uri.encode(channelId)}/channel-messages", token,
                 query = listOf("teamId" to teamId), body = JsonValue.obj(*body.toTypedArray()))
+        }
+        override suspend fun wake(agentId: String) {
+            AgentChatApi.send("POST", "agent/conversations/${android.net.Uri.encode(channelId)}/agents/${android.net.Uri.encode(agentId)}/wake",
+                token, query = listOf("teamId" to teamId))
         }
         private val questions = OpenQuestions.Api(token, teamId)
         override suspend fun pending() = questions.pending()
@@ -133,6 +139,14 @@ class ChannelSession(
 
     fun answer(question: BotQuestion, text: String, scope: kotlinx.coroutines.CoroutineScope) {
         open.answer(question, text, scope) { sendError = postFailureMessage(it) }
+    }
+
+    fun retry(agentId: String, scope: kotlinx.coroutines.CoroutineScope) {
+        scope.launch {
+            try { transport.wake(agentId); refresh(force = true) }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { sendError = postFailureMessage(e) }
+        }
     }
 
     /** Shown at once; files upload first, then the post goes out with their group. */

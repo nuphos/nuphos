@@ -3,6 +3,7 @@ import { useState } from 'react'
 
 import { runtimeAllows } from '../../../lib/runtimeExecution'
 
+import { clearAgentMenuRequest, useAgentMenuRequested } from './agentMenuRequest'
 import { AttachmentChips } from './composerAttachments'
 import { ComposerEditor, ComposerSendControls, ComposerTools } from './composerControls'
 import { BypassControlMenu, ComposerAttachmentMenu } from './composerMenus'
@@ -114,6 +115,7 @@ export function Composer({
   const hero = variant === 'hero'
   const agentSendBlock = runtimeControlSendBlock(runtimeControl)
   const [agentMenuOpen, setAgentMenuOpen] = useState(false) // the banner can open it
+  const agentMenuRequested = useAgentMenuRequested(runtimeControl?.sessionId)
   const switchAgent =
     newChat || runtimeGone(runtimeControl) ? () => setAgentMenuOpen(true) : undefined
   const sendBlocked = Boolean(runtimeSendBlock ?? agentSendBlock) || modelControl.saving
@@ -260,8 +262,11 @@ export function Composer({
               {runtimeControl && (
                 <RuntimeSelector
                   {...runtimeControl}
-                  menuOpen={agentMenuOpen}
-                  onMenuOpenChange={setAgentMenuOpen}
+                  menuOpen={agentMenuOpen || agentMenuRequested}
+                  onMenuOpenChange={(open) => {
+                    setAgentMenuOpen(open)
+                    if (!open) clearAgentMenuRequest()
+                  }}
                   hero={hero}
                 />
               )}

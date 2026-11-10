@@ -22,6 +22,8 @@ export const channelsApi = {
     ipcRenderer.invoke('agent:addChannelAgent', channelId, teamId, agentSessionId),
   agentRemoveChannelAgent: (channelId: string, teamId: string, agentSessionId: string) =>
     ipcRenderer.invoke('agent:removeChannelAgent', channelId, teamId, agentSessionId),
+  agentWakeChannelAgent: (channelId: string, teamId: string, agentSessionId: string) =>
+    ipcRenderer.invoke('agent:wakeChannelAgent', channelId, teamId, agentSessionId),
   agentNotifyMention: (args: {
     messageId: string
     title: string
@@ -37,6 +39,7 @@ export const channelsApi = {
     upload?: string,
     mentions?: string[],
     replyTo?: string,
+    decisionReplyTo?: string,
   ) =>
     ipcRenderer.invoke(
       'agent:postChannelMessage',
@@ -47,5 +50,6 @@ export const channelsApi = {
       upload,
       mentions,
       replyTo,
+      decisionReplyTo,
     ),
 }

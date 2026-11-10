@@ -37,23 +37,14 @@ const reply = (text: string, sender?: { id: string; displayName: string }): Mess
 
 const SAM = { id: 'u-sam', displayName: 'Sam Rivera' }
 
-test('the reply after a card is its answer, with who sent it and when', () => {
+test('the reply after a card is its answer, whoever sent it', () => {
   const answers = decisionAnswers([card('q1'), reply('Started the download', SAM)])
 
-  assert.deepEqual(answers.get('q1'), {
-    option: 'Started the download',
-    sender: SAM,
-    at: Date.parse('2026-10-30T06:00:00Z'),
+  assert.deepEqual(answers.get('q1'), { option: 'Started the download' })
+  // A reply not yet attributed, sent from this device, answers it too.
+  assert.deepEqual(decisionAnswers([card('q1'), reply('Done, Xcode is installed')]).get('q1'), {
+    option: 'Done, Xcode is installed',
   })
-})
-
-test('a reply not yet attributed is still the answer, sent from this device', () => {
-  const answers = decisionAnswers([
-    card('q1'),
-    { ...reply('Done, Xcode is installed'), createdAt: 5 },
-  ])
-
-  assert.deepEqual(answers.get('q1'), { option: 'Done, Xcode is installed', at: 5 })
 })
 
 test('an open card has no answer, nor one answered in other words', () => {
@@ -73,8 +64,8 @@ test('the newest open card offering the reply takes it, and each card one answer
     reply('Started the download'),
   ])
 
-  assert.equal(answers.get('q2')?.sender?.id, 'u-sam')
-  assert.equal(answers.get('q1')?.sender, undefined)
+  assert.equal(answers.get('q2')?.option, 'Started the download')
+  assert.equal(answers.get('q1')?.option, 'Started the download')
 })
 
 test('connect and secure-input cards are not choices', () => {

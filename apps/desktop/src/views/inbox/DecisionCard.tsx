@@ -3,18 +3,24 @@ import { useState } from 'react'
 
 import { api } from '../../api'
 import { MessageResponse } from '../../components/agent/MessageResponse'
+import { parseSecretRequest } from '../../components/agent/panel/connectCardModel'
+import { BotChatQuestion } from '../../components/channels/BotChatQuestions'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import { refreshInputRequests } from '../../lib/inputRequestRefresh'
 
+import { AnswerFailure } from './AnswerFailure'
 import { cardReplies } from './inboxItems'
+import { useAnswerFailure } from './useInbox'
 
 import type { AgentInputRequest } from '../../api/agent-types'
 
 /**
  * One open question, with what the agent wrote to decide it from. A choice, or
  * "Done." for a to-do, is sent as the reply to this question, as is a short
- * reply typed in its own field. The full composer only comes with the conversation.
+ * reply typed in its own field. A secret is the secure card the conversation
+ * and a Bot's chat draw, which sends only where the value was saved. The full
+ * composer only comes with the conversation.
  */
 export function DecisionCard({
   teamId,
@@ -41,6 +47,8 @@ export function DecisionCard({
   // Answers go through the conversation; the card itself only dismisses.
   const [dismissing, setDismissing] = useState(false)
   const replies = cardReplies(request)
+  const secret = parseSecretRequest(request) !== null
+  const failure = useAnswerFailure(request.id)
 
   async function dismiss() {
     setDismissing(true)
@@ -74,28 +82,43 @@ export function DecisionCard({
           {t('Open agent conversation')}
         </button>
       </div>
-      <section className="surface-raised rounded-lg bg-surface-raised px-4 py-3.5">
-        <h2 className="selectable text-[15px] font-medium leading-6 text-main">
-          {request.question}
-        </h2>
-        {request.body && (
-          <MessageResponse className="selectable mt-2 text-[13px] text-secondary" streaming={false}>
-            {request.body}
-          </MessageResponse>
+      {/* A secret's card is its own surface. */}
+      <section
+        className={clsx(!secret && 'surface-raised rounded-lg bg-surface-raised px-4 py-3.5')}
+      >
+        {secret ? (
+          <BotChatQuestion
+            request={{ sessionId, title: title ?? '', inputRequest: request }}
+            teamId={teamId}
+            onAnswer={onAnswer}
+          />
+        ) : (
+          <>
+            <h2 className="selectable text-[15px] font-medium leading-6 text-main">
+              {request.question}
+            </h2>
+            {request.body && (
+              <MessageResponse
+                className="selectable mt-2 text-[13px] text-secondary"
+                streaming={false}
+              >
+                {request.body}
+              </MessageResponse>
+            )}
+          </>
         )}
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          {replies ? (
-            replies.map(({ label, reply }) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => onAnswer(reply)}
-                className={primaryButton}
-              >
-                {label}
-              </button>
-            ))
-          ) : (
+          {replies?.map(({ label, reply }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => onAnswer(reply)}
+              className={primaryButton}
+            >
+              {label}
+            </button>
+          ))}
+          {!replies && !secret && (
             <button type="button" onClick={onShowConversation} className={primaryButton}>
               {t('Answer in the conversation')}
             </button>
@@ -110,6 +133,12 @@ export function DecisionCard({
           </button>
         </div>
         {replies && <ReplyField onSend={onAnswer} />}
+        {/* A secret's card shows its own failure. */}
+        {failure && !secret && (
+          <div className="mt-3">
+            <AnswerFailure message={failure} />
+          </div>
+        )}
       </section>
     </div>
   )

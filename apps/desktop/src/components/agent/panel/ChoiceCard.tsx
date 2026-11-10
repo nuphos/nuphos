@@ -1,8 +1,6 @@
 import clsx from 'clsx'
-import { Check } from 'lucide-react'
 import { useContext, useLayoutEffect, useRef, useState } from 'react'
 
-import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { t } from '../../../i18n'
 import { comboText } from '../../../lib/platform'
 import { Button } from '../../ui/button'
@@ -11,7 +9,6 @@ import { MessageResponse } from '../MessageResponse'
 import { ConnectCardContext } from './connectCardContext'
 import { AgentQuote } from './ConnectCardRows'
 import { DecisionAnswersContext } from './decisionAnswers'
-import { formatMessageTimestamp } from './streamText'
 import { useDecisionKeys } from './useDecisionKeys'
 
 const TITLE: Record<string, string> = {
@@ -24,7 +21,8 @@ const TITLE: Record<string, string> = {
 
 /**
  * A user decision other than a Connect card: the question, with each option sent
- * as the reply. Once answered, the chosen option stays marked, with who chose it.
+ * as the reply, like quick-reply chips. Once answered, the options go: the answer
+ * is the reply bubble that follows.
  */
 export function ChoiceCard({
   toolCallId,
@@ -45,7 +43,6 @@ export function ChoiceCard({
 }) {
   const ctx = useContext(ConnectCardContext)
   const answer = useContext(DecisionAnswersContext).get(toolCallId)
-  const viewer = useCurrentUser()
   const [sent, setSent] = useState<string | null>(null)
   const chosen = answer?.option ?? sent
   const interactive = Boolean(ctx) && canAct && !chosen
@@ -80,47 +77,30 @@ export function ChoiceCard({
         <AgentQuote text={question} />
         <DecisionBody text={body} />
       </div>
-      {options.length > 0 ? (
-        <div className="flex flex-wrap gap-2 border-t border-line-control/60 px-4 py-2.5">
-          {options.map((option, index) => (
-            <Button
-              key={option}
-              variant="secondary"
-              size="sm"
-              className={clsx(
-                'h-auto min-h-7 gap-1.5 whitespace-normal px-2.5 py-1 text-left text-[12.5px]',
-                // Important: the disabled fade's order among variants is not fixed.
-                option === chosen && '!opacity-100 border-action-primary/60 bg-state-selected',
-              )}
-              disabled={!interactive}
-              aria-pressed={chosen ? option === chosen : undefined}
-              title={index < 9 ? comboText(`mod+alt+${String(index + 1)}`) : undefined}
-              onClick={() => act(() => choose(option))}
-            >
-              {option === chosen && (
-                <Check className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2.25} />
-              )}
-              {option}
-            </Button>
-          ))}
-          {answer?.at !== undefined && (
-            <div className="basis-full text-[11.5px] text-tertiary">
-              {answer.sender && answer.sender.id !== viewer?.id
-                ? t('Answered by {name} · {time}', {
-                    name: answer.sender.displayName,
-                    time: formatMessageTimestamp(answer.at),
-                  })
-                : t('You answered · {time}', { time: formatMessageTimestamp(answer.at) })}
-            </div>
-          )}
-        </div>
-      ) : (
-        canAct && (
-          <div className="border-t border-line-control/60 px-4 py-2.5 text-[12px] text-tertiary">
-            {t('Reply below to answer.')}
+      {!chosen &&
+        (options.length > 0 ? (
+          <div className="flex flex-wrap gap-2 border-t border-line-control/60 px-4 py-2.5">
+            {options.map((option, index) => (
+              <Button
+                key={option}
+                variant="secondary"
+                size="sm"
+                className="h-auto min-h-7 whitespace-normal px-2.5 py-1 text-left text-[12.5px]"
+                disabled={!interactive}
+                title={index < 9 ? comboText(`mod+alt+${String(index + 1)}`) : undefined}
+                onClick={() => act(() => choose(option))}
+              >
+                {option}
+              </Button>
+            ))}
           </div>
-        )
-      )}
+        ) : (
+          canAct && (
+            <div className="border-t border-line-control/60 px-4 py-2.5 text-[12px] text-tertiary">
+              {t('Reply below to answer.')}
+            </div>
+          )
+        ))}
     </div>
   )
 }

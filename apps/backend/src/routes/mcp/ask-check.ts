@@ -118,20 +118,20 @@ export async function nuphosAsk(
   }
   const release = claim.release
 
+  // Each waiting message stays its own, with its own sender, ahead of the caller's.
   const messages: UIMessage[] = [
     ...(prior ?? []),
+    ...claim.carried.map((message): UIMessage => ({
+      id: message.id,
+      role: 'user',
+      metadata: message.metadata,
+      parts: [{ type: 'text', text: message.renderedText }],
+    })),
     {
       id: randomUUID(),
       role: 'user',
       metadata: attribution,
-      parts: [
-        {
-          type: 'text',
-          text: [...claim.carried.map((message) => message.renderedText), renderedText].join(
-            '\n\n',
-          ),
-        },
-      ],
+      parts: [{ type: 'text', text: renderedText }],
     },
   ]
 

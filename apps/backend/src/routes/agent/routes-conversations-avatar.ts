@@ -6,6 +6,7 @@ import { BOT_AVATARS, derivedAvatar } from '@/lib/agent/bot-avatars'
 import { createBot } from '@/lib/agent/bots'
 import { startConversationTurn } from '@/lib/agent/conversation-turn'
 import { claimBotAvatar, getReadableConversation, setConversationAvatar } from '@/lib/agent/db'
+import { systemSender } from '@/lib/agent/message-metadata'
 import {
   validateRequestedAgentRuntime,
   validateRequestedRuntimeId,
@@ -124,12 +125,7 @@ agent.post('/conversations/:sessionId/bot', async (c) => {
     { ...conversation, avatar },
     MAKE_BOT_PROMPT,
     'agent.resource',
-    {
-      version: 1,
-      sender: { type: 'system', id: 'nuphos:make-bot', displayName: 'Nuphos' },
-      source: 'agent.resource',
-      sentAt: new Date().toISOString(),
-    },
+    systemSender('nuphos:make-bot', 'Nuphos'),
   )
     .then(({ run }) => run)
     .catch((error: unknown) => logError('agent.make_bot.turn_failed', error))

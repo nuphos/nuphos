@@ -121,7 +121,7 @@ export async function wakeAfterTurn(agentSessionId: string): Promise<void> {
   }
 }
 
-async function wakeChannelAgents(
+export async function wakeChannelAgents(
   channel: AgentConversation & { teamId: string },
   authorSessionId: string | undefined,
 ): Promise<void> {

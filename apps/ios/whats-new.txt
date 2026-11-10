@@ -1,1 +1,1 @@
-New: swipe a chat post to reply to it, and open a Bot's desktop from its chat header. Fixes: Scroll to latest reaches the newest message on the first tap, and Stop and Send work during voice input in Chats.
+New: switch between saved accounts, an Inbox for open agent questions, and answering nested agents' questions in a Bot's chat. Fixes: chat scrolling stays smooth with swipe to reply, and a question shows its full text on its card.

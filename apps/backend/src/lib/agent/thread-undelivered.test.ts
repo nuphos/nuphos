@@ -6,8 +6,8 @@ import { useBoxWake } from '@/lib/test/doubles/box-wake'
 import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
-import { UNDELIVERED_NOTICE } from './conversation-turn'
-import { parseMessageMetadata } from './message-metadata'
+import { startConversationTurn } from './conversation-turn'
+import { parseMessageMetadata, systemSender } from './message-metadata'
 import {
   buildPendingUserMessage,
   clearPendingUserMessages,
@@ -182,13 +182,12 @@ test('a started turn that fails tells its sender, once', async () => {
   await settle()
   expect(notices()).toHaveLength(1)
   expect(notices()[0]?.messages.at(-1)?.metadata).toMatchObject({
-    source: 'agent.thread',
-    sourceSessionId: 'target',
-    sender: { type: 'agent' },
+    source: 'agent.resource',
+    resourceUrl: '/teams/team/agent/target',
+    sender: { type: 'system', id: 'nuphos' },
   })
   // An attribution the parser rejects renders as the owner's own message.
   expect(parseMessageMetadata(notices()[0]?.messages.at(-1)?.metadata)).toBeDefined()
-  expect(noticeText()).toContain(UNDELIVERED_NOTICE)
   expect(noticeText()).toContain('did not run: Runtime went away mid-turn.')
   expect(noticeText()).toContain('Handed back: PR is green')
 })
@@ -231,7 +230,8 @@ test('an archived sender is still told, and its notice turn restores it', async 
   await expect(startQueuedTurn('owner', 'target')).rejects.toThrow('Thread run failed')
   await settle()
   expect(notices()).toHaveLength(1)
-  expect(notices()[0]?.origin).toBe('user')
+  // Nuphos's notice runs like any system notice: no trigger tools, no Full Access default.
+  expect(notices()[0]?.origin).toBe('trigger')
   expect(noticeText()).toContain('did not run: Thread run failed')
 })
 
@@ -286,7 +286,14 @@ test('a notice that does not run is not reported back', async () => {
     },
   })
 
-  const { run } = await startThreadTurn({ ...data, prompt: `${UNDELIVERED_NOTICE} earlier` })
+  // A failed notice is Nuphos's, not an agent's message: nobody is told about it.
+  const { run } = await startConversationTurn(
+    { ...data, messageId: 'notice' },
+    { ...base, sessionId: 'target' },
+    'Your message to thread other did not run.',
+    'agent.resource',
+    systemSender('nuphos', 'Nuphos'),
+  )
 
   await expect(run).rejects.toThrow('Thread run failed')
   await settle()

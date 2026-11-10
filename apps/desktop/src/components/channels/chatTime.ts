@@ -39,3 +39,9 @@ export function timeGapLabel(at: number, now = Date.now()): string {
 /** The exact time, for a post's hover tooltip. */
 export const exactTime = (at: number) =>
   at ? new Date(at).toLocaleString([], { dateStyle: 'full', timeStyle: 'short' }) : undefined
+
+/**
+ * Only a post sent after the chat opened springs in. Whatever the opening read
+ * brings, even one that lands after a stale copy showed, was already there.
+ */
+export const sentSinceOpening = (at: number, openedAt: number) => at > openedAt

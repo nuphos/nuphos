@@ -170,3 +170,21 @@ export async function listRuntimeQuotas(
     ),
   )
 }
+
+/** When an agent that ran out of usage gets it back: the latest reset among its used-up windows. */
+export async function usageResetsAt(
+  teamId: string,
+  userId: string,
+  runtimeId: string,
+): Promise<string | undefined> {
+  const instance = (await listRuntimeInstances(teamId, userId)).find(
+    (entry) => entry.id === runtimeId,
+  )
+  const [quota] = instance ? await listRuntimeQuotas(teamId, [instance]) : []
+  const resets = (quota?.windows ?? []).flatMap((window) =>
+    window.usedPercent >= 100 && window.resetsAt ? [Date.parse(window.resetsAt)] : [],
+  )
+  const latest = Math.max(...resets.filter(Number.isFinite))
+
+  return Number.isFinite(latest) ? new Date(latest).toISOString() : undefined
+}

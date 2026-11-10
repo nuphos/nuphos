@@ -5,13 +5,14 @@ import { ObjectId } from 'mongodb'
 import { startConversationTurn } from '@/lib/agent/conversation-turn'
 import { agentConversations, getConversationBySessionId } from '@/lib/agent/db'
 import { pushTimelineEvent } from '@/lib/agent/db/participants'
+import { systemSender } from '@/lib/agent/message-metadata'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 import { userTeamRuntimeFallbacks } from '@/models'
 
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { moveConversationRuntime } from './conversation-runtime-move'
-import { isRuntimeAuthRequired, runtimeUsageExhaustedMessage } from './openab-acp-errors'
+import { turnFailureCause } from './openab-acp-errors'
 import { listRuntimeInstances, listRuntimeQuotas } from './runtime-catalog'
 
 import type { RuntimeInstance } from './runtime-instances'
@@ -24,11 +25,6 @@ const LOW_PERCENT_LEFT = 10
 const RESET_GRACE_MS = 30 * 60_000
 /** An agent a turn failed on is not tried again for this long, so a fallback never loops. */
 const FAILED_FOR_MS = 60 * 60_000
-/**
- * The runtime itself cannot take the turn, as opposed to the conversation being
- * busy. A runtime still starting is left to finish rather than moved away from.
- */
-const UNAVAILABLE = /(?:^|_)runtime_(?:offline|unreachable|unavailable|login_required)$/u
 /** The move is refused for the conversation, not the destination: trying others is pointless. */
 const CONVERSATION_REFUSALS = new Set([
   'conversation_busy',
@@ -41,15 +37,9 @@ const CONVERSATION_REFUSALS = new Set([
 
 type Conversation = AgentConversation & { teamId: string; runtimeId: string }
 
-const unreachable = (error: unknown) => error instanceof AppError && UNAVAILABLE.test(error.code)
-
 /** The turn failed because of the agent: out of usage, signed out, or unreachable. */
 export function runtimeFailed(error: unknown): boolean {
-  return (
-    Boolean(runtimeUsageExhaustedMessage(error)) ||
-    isRuntimeAuthRequired(error) ||
-    unreachable(error)
-  )
+  return turnFailureCause(error) !== 'other'
 }
 
 /**
@@ -227,7 +217,11 @@ export async function fallBackAfterFailure(
     if (!placed(conversation)) return
     const list = await fallbackList(conversation)
 
-    if (!list.length || (unreachable(error) && (await onBox(conversation)))) return
+    const cause = turnFailureCause(error)
+    // The runtime itself refused the turn (offline, signed out), not the provider.
+    const unreachable = error instanceof AppError && (cause === 'offline' || cause === 'auth')
+
+    if (!list.length || (unreachable && (await onBox(conversation)))) return
     const runtimeFallback = {
       failed: [...new Set([...recentlyFailed(conversation), conversation.runtimeId])],
       at: new Date(),
@@ -262,12 +256,7 @@ function continueOn(conversation: Conversation, moved: AgentConversation): void 
     moved,
     'The agent this conversation ran on stopped before finishing, so it moved to you. Check what was already done, then continue the task from where it stopped.',
     'agent.resource',
-    {
-      version: 1,
-      sender: { type: 'system', id: 'nuphos', displayName: 'Nuphos' },
-      source: 'agent.resource',
-      sentAt: new Date().toISOString(),
-    },
+    systemSender('nuphos', 'Nuphos'),
   )
     .then(({ run }) => run)
     .catch((error: unknown) => {

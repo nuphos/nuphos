@@ -62,6 +62,8 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
         lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
             while (true) {
                 store.loadChannels()
+                // The agent list too, as iOS polls it: its runtime states are what a Bot's row reads for its dots.
+                store.reload()
                 delay(3_000)
             }
         }
@@ -117,7 +119,7 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
         }
         items(rows, key = { it.sessionId }) { row ->
             val botId = if (row.isChannel) row.botId else row.sessionId
-            ChatRow(row, selected = row.sessionId == selectedSessionId, opening = store.openingBotId == row.sessionId,
+            ChatRow(row, typing = row.botTyping(store::typingIn), selected = row.sessionId == selectedSessionId, opening = store.openingBotId == row.sessionId,
                 onArchiveBot = botId?.takeIf { store.canArchiveBot(it) }?.let { { botArchiveTarget = it } }) {
                 if (row.isChannel) nav.navigate("channel/${android.net.Uri.encode(row.sessionId)}") { launchSingleTop = true }
                 else openBot(row.sessionId)
@@ -145,7 +147,7 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
 
 @Composable
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-private fun ChatRow(chat: AgentConversation, selected: Boolean, opening: Boolean, onArchiveBot: (() -> Unit)? = null, onOpen: () -> Unit) {
+private fun ChatRow(chat: AgentConversation, typing: Boolean, selected: Boolean, opening: Boolean, onArchiveBot: (() -> Unit)? = null, onOpen: () -> Unit) {
     val unread = chat.isChannel && chat.hasUnreadPosts()
     val title = if (chat.isChannel) chat.displayTitleForChat else chat.displayTitle
     val preview = chat.previewLine
@@ -159,7 +161,7 @@ private fun ChatRow(chat: AgentConversation, selected: Boolean, opening: Boolean
         modifier = Modifier.combinedClickable(enabled = !opening, onClick = onOpen,
             onLongClick = onArchiveBot?.let { { menu = true } }, onLongClickLabel = onArchiveBot?.let { "More actions" })
             .testTag("chat-row:${chat.sessionId}").semantics {
-            contentDescription = listOfNotNull(title, preview, "unread posts".takeIf { unread }, "opening".takeIf { opening }).joinToString(", ")
+            contentDescription = listOfNotNull(title, if (typing) "$title is typing" else preview, "unread posts".takeIf { unread }, "opening".takeIf { opening }).joinToString(", ")
         },
         colors = ListItemDefaults.colors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background),
         leadingContent = {
@@ -167,7 +169,9 @@ private fun ChatRow(chat: AgentConversation, selected: Boolean, opening: Boolean
             else AgentAvatar(chat.sessionId, chat.agentRuntime, 40.dp)
         },
         headlineContent = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        supportingContent = preview?.let { { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
+        // As iMessage does: the dots stand in for the newest post until the reply lands.
+        supportingContent = if (typing) ({ TypingDots(Modifier.padding(vertical = 7.dp)) })
+            else preview?.let { { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(HistoryTime.format(chat.lastActiveAt), style = MaterialTheme.typography.labelMedium,

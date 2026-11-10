@@ -1,4 +1,4 @@
-import { CircleAlert, CornerUpLeft, Pause } from 'lucide-react'
+import { CornerUpLeft, Pause } from 'lucide-react'
 import { Fragment, useCallback, useState } from 'react'
 
 import { t } from '../../i18n'
@@ -8,8 +8,9 @@ import { parseMessageMetadata } from '../agent/panel/messageMetadata'
 import { ContextMenu } from '../ContextMenu'
 
 import { replyTo } from './channelReply'
+import { ChannelReplyFailed } from './ChannelReplyFailed'
 import { ChannelMessage } from './ChannelPost'
-import { startsTimeGap, timeGapLabel } from './chatTime'
+import { sentSinceOpening, startsTimeGap, timeGapLabel } from './chatTime'
 import { Typing } from './ChannelTyping'
 
 import type {
@@ -27,22 +28,17 @@ function senderOf(message: AgentPersistedMessage): string | undefined {
   return metadata ? (metadata.sourceSessionId ?? metadata.sender.id) : undefined
 }
 
-/** A line from the chat itself: its loop guard paused agents, or an agent could not reply. */
+/** A line from the chat itself: its loop guard paused agents. */
 function Notice({ event }: { event: AgentTimelineEvent }) {
-  const paused = event.kind === 'agents_paused'
-  const Icon = paused ? Pause : CircleAlert
-
   return (
     <div className="flex items-center gap-3 py-1">
       <span className="h-px flex-1 bg-surface-sunken" />
       <span className="flex items-center gap-1.5 rounded-full border border-line-control/60 bg-main px-3 py-1 text-[12px] text-secondary">
-        <Icon className="h-3 w-3 shrink-0 text-warning" strokeWidth={2.5} />
-        {paused
-          ? t(
-              'Agents paused after {count} replies to each other. They pick up again when someone posts.',
-              { count: event.turns ?? 10 },
-            )
-          : event.text}
+        <Pause className="h-3 w-3 shrink-0 text-warning" strokeWidth={2.5} />
+        {t(
+          'Agents paused after {count} replies to each other. They pick up again when someone posts.',
+          { count: event.turns ?? 10 },
+        )}
       </span>
       <span className="h-px flex-1 bg-surface-sunken" />
     </div>
@@ -94,8 +90,10 @@ export function ChannelMessages({
   const owned = new Set(
     agents.filter((agent) => agent.ownerId === viewerId).map((agent) => agent.sessionId),
   )
-  const [initial] = useState(() => new Set(messages.map((message) => message.id)))
+  const [openedAt] = useState(Date.now)
   const [menu, setMenu] = useState<{ reply: AgentMessageReply; x: number; y: number } | null>(null)
+  const lastEvent = events.at(-1)
+  const lastPostAt = Math.max(0, ...messages.map(postedAt))
   // Posts and timeline lines in the order they happened.
   const rows: TimelineRow[] = [
     ...messages.map((message, i) => {
@@ -117,7 +115,7 @@ export function ChannelMessages({
               message={message}
               at={at}
               first={gap || i === 0 || senderOf(messages[i - 1]!) !== senderOf(message)}
-              fresh={!initial.has(message.id)}
+              fresh={sentSinceOpening(at, openedAt)}
               ownAgent={owned.has(senderOf(message) ?? '')}
               viewerId={viewerId}
               teamId={teamId}
@@ -141,13 +139,26 @@ export function ChannelMessages({
       .map((event) => ({
         at: stamp(event.at),
         key: `event-${event.kind}-${event.at}`,
-        node: <Notice event={event} />,
+        node:
+          event.kind === 'agents_paused' ? (
+            <Notice event={event} />
+          ) : (
+            <ChannelReplyFailed
+              event={event}
+              channelId={channelId}
+              teamId={teamId}
+              // Only the newest line: anything after it, a post or a reply, moved past it.
+              actionable={event === lastEvent && stamp(event.at) >= lastPostAt}
+              ownedAgents={owned}
+              onOpenSession={onOpenSession}
+            />
+          ),
       })),
     ...extraRows,
   ].sort((a, b) => a.at - b.at)
 
   return (
-    <div className="mx-auto flex w-full max-w-[760px] flex-col gap-3 px-3">
+    <div className="flex flex-col gap-3">
       {rows.map((row) => (
         <Fragment key={row.key}>{row.node}</Fragment>
       ))}

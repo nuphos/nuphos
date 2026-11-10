@@ -14,13 +14,26 @@ test('markdown and mention links read as plain text', () => {
   )
 })
 
+const group = [
+  { id: 'ann', name: 'Ann' },
+  { id: 'bo', name: 'Bo' },
+]
+
 test('a group chat names the sender', () => {
-  assert.equal(chatPreview({ text: 'hi', from: 'Ann' }), 'Ann: hi')
+  assert.equal(chatPreview({ text: 'hi', from: 'Ann' }, group), 'Ann: hi')
+})
+
+test('a 1:1 chat does not, as the row already is the sender', () => {
+  assert.equal(
+    chatPreview({ text: 'hi', from: 'Ada' }, [{ id: 'ada', name: 'Ada', agent: {} }]),
+    'hi',
+  )
+  assert.equal(chatPreview({ text: 'hi', from: 'Ann' }, [{ id: 'ann', name: 'Ann' }]), 'hi')
 })
 
 test('a file-only message reads Attachment', () => {
   assert.equal(chatPreview({ text: '' }), 'Attachment')
-  assert.equal(chatPreview({ text: '', from: 'Ann' }), 'Ann: Attachment')
+  assert.equal(chatPreview({ text: '', from: 'Ann' }, group), 'Ann: Attachment')
 })
 
 test('a chat time reads like iMessage: time, Yesterday, weekday, then date', () => {

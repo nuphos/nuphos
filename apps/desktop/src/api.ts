@@ -131,6 +131,10 @@ export const api = instrumentApi(
     }
     const parsed = parseAtlasError(error)
 
+    // A file transfer is deleted a day after upload, so every view of an older
+    // message resolves a group that is gone; its callers show it as expired.
+    if (parsed.code === 'transfer_not_found' || parsed.code === 'transfer_expired') return
+
     reportFrontendError(
       {
         source: 'api',

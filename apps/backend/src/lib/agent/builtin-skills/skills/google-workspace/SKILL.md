@@ -49,7 +49,14 @@ bash skills/google-workspace/scripts/composio.sh <teamId> GMAIL_FETCH_MESSAGE_BY
 bash skills/google-workspace/scripts/composio.sh <teamId> GMAIL_CREATE_EMAIL_DRAFT '{"recipient_email":"…","subject":"…","body":"…"}'
 bash skills/google-workspace/scripts/composio.sh <teamId> GMAIL_ADD_LABEL_TO_EMAIL '{"message_id":"<id>","remove_label_ids":["UNREAD"]}'
 bash skills/google-workspace/scripts/composio.sh <teamId> GOOGLEDRIVE_FIND_FILE '{"q":"name contains '"'"'roadmap'"'"' and trashed = false"}'
+bash skills/google-workspace/scripts/composio.sh <teamId> GOOGLEDRIVE_DOWNLOAD_FILE '{"fileId":"<id>","mime_type":"text/plain"}'
 ```
+
+`GOOGLEDRIVE_DOWNLOAD_FILE` also exports Google Docs and Sheets; `mime_type`
+(`text/plain`, `text/csv`, `text/markdown`, …) picks the format and is ignored
+for regular files. Composio's tool names and arguments do not match the REST
+paths below, so take any other tool's exact slug and arguments from the toolkit
+pages above rather than guessing; an unknown one fails with `Tool … not found`.
 
 Each prints `{"successful":…,"data":…,"error":…}`. Only `GMAIL_*` and
 `GOOGLEDRIVE_*` tools run, and permanent mail deletion is refused (trash

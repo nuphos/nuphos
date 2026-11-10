@@ -22,6 +22,7 @@ export type WindowChannelsApi = {
     agentSessionId: string,
   ): Promise<{ agents: ChannelAgent[] }>
   agentRemoveChannelAgent(channelId: string, teamId: string, agentSessionId: string): Promise<void>
+  agentWakeChannelAgent(channelId: string, teamId: string, agentSessionId: string): Promise<void>
   agentNotifyMention(args: {
     messageId: string
     title: string
@@ -37,5 +38,6 @@ export type WindowChannelsApi = {
     upload?: string,
     mentions?: string[],
     replyTo?: string,
+    decisionReplyTo?: string,
   ): Promise<{ id: string }>
 }

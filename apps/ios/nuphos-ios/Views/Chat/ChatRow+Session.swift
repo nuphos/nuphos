@@ -20,22 +20,11 @@ extension ChatRow {
             let previous = messages[..<index].last(where: { !$0.isUnreadable })?.createdAt
             switch message.role {
             case .user:
-                if let event = message.event {
-                    rows.append(.event(id: "user.\(message.id)", event: event))
-                    continue
-                }
-                if ChatTime.showsTimestamp(message.createdAt, after: previous), let date = message.createdAt {
+                if message.event == nil, ChatTime.showsTimestamp(message.createdAt, after: previous), let date = message.createdAt {
                     rows.append(.timestamp(id: "time.\(message.id)", date: date))
                 }
-                let text = message.displayText.trimmingCharacters(in: .whitespacesAndNewlines)
-                let images = message.parts.compactMap { part -> String? in
-                    if case .file(let f) = part, f.mediaType.hasPrefix("image/") { return f.url }
-                    return nil
-                }
-                let transfers = message.parts.compactMap(TransferUpload.init)
-                if !text.isEmpty || !images.isEmpty || !transfers.isEmpty {
-                    rows.append(.user(id: "user.\(message.id)", messageId: message.id, text: text, images: images, sender: message.sender ?? (session.sentHere.contains(message.id) ? session.me : nil), transfers: transfers))
-                }
+                let me = session.sentHere.contains(message.id) ? session.me : nil
+                if let row = userRow(message, id: "user.\(message.id)", messageId: message.id, fallback: me) { rows.append(row) }
             case .assistant:
                 let isLive = session.isStreaming && index == messages.count - 1
                 rows.append(contentsOf: assistantRows(message, live: isLive, lastApprovalCallId: lastApprovalCallId))

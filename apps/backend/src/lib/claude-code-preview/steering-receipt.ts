@@ -2,9 +2,6 @@ import { randomBytes, randomUUID } from 'node:crypto'
 
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 
-import { createMessageMetadata } from '@/lib/agent/message-attribution'
-import { logError } from '@/lib/observability'
-
 export { steeringHistoryText } from '@/lib/agent/steering-history'
 
 /** The desktop's `transfer-upload` part, so a receipt shows its files like any user message. */
@@ -22,51 +19,7 @@ export type SteeringReceipt = {
   upload?: SteeringUpload
   metadata?: MessageMetadata
 }
-export type SteeringEntry = { type: 'data-steering'; data: SteeringReceipt; receivedAt: string }
-export type SteeringAttribution = (sentAt?: string) => MessageMetadata | undefined
-
-/**
- * The runtime's steering receipt carries only an id and text. Native steering
- * is admitted for the turn's actor alone (`POST /conversations/:id/steer`
- * rejects everyone else), so every receipt in this turn belongs to that actor.
- * A failed lookup is retried on the next receipt, and `attributeReceipt`
- * backfills receipts that arrived before the lookup resolved.
- */
-export function createSteeringAttribution(
-  actorUserId: string,
-  lookup: typeof createMessageMetadata = createMessageMetadata,
-): SteeringAttribution {
-  let sender: MessageMetadata | undefined
-  let inFlight: Promise<void> | null = null
-  const resolve = () => {
-    inFlight ??= lookup(actorUserId, 'nuphos').then(
-      (metadata) => {
-        sender = metadata
-      },
-      (error: unknown) => {
-        inFlight = null
-        logError('agent.steering.attribution_failed', error, { actor_user_id: actorUserId })
-      },
-    )
-  }
-
-  resolve()
-
-  return (sentAt = new Date().toISOString()) => {
-    if (!sender) resolve()
-
-    return sender ? { ...sender, sentAt } : undefined
-  }
-}
-
-export function attributeReceipt(
-  entry: SteeringEntry,
-  attribute?: SteeringAttribution,
-): { type: 'data-steering'; data: SteeringReceipt } {
-  const metadata = entry.data.metadata ?? attribute?.(entry.receivedAt)
-
-  return { type: 'data-steering', data: { ...entry.data, ...(metadata ? { metadata } : {}) } }
-}
+export type SteeringEntry = { type: 'data-steering'; data: SteeringReceipt }
 
 const ATTACHED = (name: string) => `[Attached: ${name}]`
 const ATTACHED_LINE = /^\[Attached: (.+)\]$/
@@ -110,12 +63,8 @@ function uploadGroupId(id: string): string | undefined {
  * its upload group in its id (`steeringMessageId`) and each file on a line of
  * the text's last paragraph (`steeringText`), so the receipt can show them again.
  */
-export function steeringReceipt(
-  id: string,
-  text: string,
-  metadata?: MessageMetadata,
-): SteeringReceipt {
-  const receipt = { id, text: text.replace(ECHOED_HEADER, ''), ...(metadata ? { metadata } : {}) }
+export function steeringReceipt(id: string, text: string): SteeringReceipt {
+  const receipt = { id, text: text.replace(ECHOED_HEADER, '') }
   const groupId = uploadGroupId(id)
   const names = (text.split('\n\n').at(-1) ?? '')
     .split('\n')

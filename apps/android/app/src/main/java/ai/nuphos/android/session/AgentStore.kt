@@ -907,6 +907,8 @@ class AgentStore(
             if (generation != loadGeneration || selectedTeam?.id != team.id || workspace != workspaceRevision || disposed || !hasAiAccess()) return
             observeHistory(page.rows, team.id, observedAt)
             conversations = mergeHistory(page.rows, team.id).distinctBy { it.sessionId }
+            // The listing is the newer read of these agents' turns than a chat closed since.
+            agentTurns = agentTurns - page.rows.map { it.sessionId }.toSet()
             BotFaces.learn(conversations)
             nextCursor = page.nextCursor
             hasMore = page.hasMore

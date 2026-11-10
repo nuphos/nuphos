@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
+import { OpenAbRpcError } from '@/lib/claude-code-preview/openab-acp-errors'
 import { AppError } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
@@ -9,7 +10,7 @@ import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-s
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { agentConversations, agentMessages } from './db'
-import { QUEUED_NOTICE_STEER, steeredNoticeSender, withChannelPosts } from './channel-wake'
+import { QUEUED_NOTICE_STEER, withChannelPosts } from './channel-wake'
 import { listChannelMentions, readChannelMessages } from './db/channels'
 import {
   CHANNEL_AGENT_TURN_BUDGET,
@@ -272,6 +273,31 @@ describe('waking a channel’s agents', () => {
     })
   })
 
+  test('an agent out of usage says why, so the chat can offer the fix', async () => {
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(
+            "**Internal Error** (code: -32603)\nInternal error: You've hit your weekly limit · resets 4pm (UTC)",
+            -32603,
+          )
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({
+      agentId: 'agent-a',
+      cause: 'usage_limit',
+      reason: "its account hit its usage limit (You've hit your weekly limit · resets 4pm (UTC)).",
+    })
+  })
+
   test('posts at the same moment leave one notice per agent', async () => {
     await Promise.all([say('one'), say('two'), say('three')])
     expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toHaveLength(1)
@@ -495,16 +521,6 @@ describe('a person posting while an agent’s turn runs', () => {
     await say('go ahead', { ...person, sender: { ...person.sender, id: 'agent-a-owner' } })
     expect(runChannels).toEqual([])
     expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toHaveLength(1)
-  })
-
-  test('the steer’s receipt is the channel’s, not the turn actor’s', async () => {
-    running.set('agent-a', 'agent-a-owner')
-    await say('hello')
-    expect(steeredNoticeSender(TEAM, steers[0]!.text)?.sender).toMatchObject({
-      type: 'system',
-      id: 'channel:channel',
-    })
-    expect(steeredNoticeSender(TEAM, 'please look at the channel')).toBeUndefined()
   })
 
   test('with no running turn, a post wakes the agents', async () => {

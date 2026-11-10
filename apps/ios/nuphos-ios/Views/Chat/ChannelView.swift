@@ -18,6 +18,14 @@ struct ChannelView: View {
     @State private var flashed: String?
     /// The Bot's desktop, opened from the header as its Task page opens it.
     @State private var desktop: DesktopSession?
+    /// The Bot whose agent is being switched, after it could not reply.
+    @State private var switchingBot: ChatSession?
+    @State private var switchError: String?
+
+    /// Only an agent's owner can move it to another agent.
+    private func owns(_ agentId: String?) -> Bool {
+        channel.agents.contains { $0.sessionId == agentId && $0.ownerId == channel.viewerId }
+    }
 
     /// The Bot this is the 1:1 chat of, when its owner can open its desktop now.
     private var desktopBot: String? {
@@ -80,6 +88,21 @@ struct ChannelView: View {
                 }
             }
             .desktop($desktop)
+            .sheet(isPresented: Binding(get: { switchingBot != nil }, set: { if !$0 { switchingBot = nil } })) {
+                RuntimePickerSheet(session: switchingBot) { runtime in
+                    guard let bot = switchingBot else { return }
+                    Task {
+                        do { try await bot.move(to: runtime); switchingBot = nil; await store.reload() }
+                        catch { switchError = error.localizedDescription }
+                    }
+                }
+            }
+            .alert("Couldn't switch agent", isPresented: Binding(
+                get: { switchError != nil }, set: { if !$0 { switchError = nil } })) {
+                Button("OK") { switchError = nil }
+            } message: {
+                Text(switchError ?? "")
+            }
             .onAppear {
                 Analytics.shared.screen("channel", teamID: channel.teamId)
                 if draft.isEmpty { draft = ComposerDrafts.text(team: channel.teamId, session: channel.channelId, identity: store.token) }
@@ -228,6 +251,13 @@ struct ChannelView: View {
                                onQuote: show)
             case .paused(let text):
                 PausedLine(text: text)
+            case .replyFailed(let event, let actionable):
+                ReplyFailedLine(
+                    event: event,
+                    onSwitch: actionable && owns(event.agentId) && ["usage_limit", "auth", "offline"].contains(event.cause ?? "")
+                        ? { if let id = event.agentId { switchingBot = store.session(sessionId: id, title: channel.title, teamId: channel.teamId) } }
+                        : nil,
+                    onRetry: actionable ? event.agentId.map { id in { channel.wake(agent: id) } } : nil)
             case .typing(let agents):
                 TypingRow(agents: agents)
             case .question(let question):
@@ -434,6 +464,44 @@ private struct PausedLine: View {
     }
 }
 
+/// An agent could not reply: what happened and why, when its usage returns, and the fix.
+private struct ReplyFailedLine: View {
+    let event: AgentConversationDetail.TimelineEvent
+    var onSwitch: (() -> Void)?
+    var onRetry: (() -> Void)?
+
+    private var resets: String? {
+        guard event.cause == "usage_limit", let date = event.resetsAt, date > .now else { return nil }
+        return "Usage returns " + date.formatted(.dateTime.weekday(.abbreviated).hour().minute()) + "."
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: "exclamationmark.circle").font(.system(size: 11)).foregroundStyle(Theme.warning)
+                Text([event.text, resets].compactMap(\.self).joined(separator: " "))
+                    .font(Theme.Text.caption).foregroundStyle(Theme.body)
+            }
+            if onSwitch != nil || onRetry != nil {
+                HStack(spacing: 8) {
+                    if let onSwitch {
+                        Button("Switch agent", action: onSwitch).buttonStyle(.bordered).accessibilityIdentifier("chat.switchAgent")
+                    }
+                    if let onRetry {
+                        Button("Retry", action: onRetry).buttonStyle(.borderless).accessibilityIdentifier("chat.retryReply")
+                    }
+                }
+                .font(Theme.Text.caption)
+                .padding(.leading, 17)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.hairline))
+        .frame(maxWidth: .infinity)
+    }
+}
+
 /// iMessage-style dots for each agent in a turn.
 private struct TypingRow: View {
     let agents: [ChannelAgent]
@@ -464,19 +532,20 @@ private struct TypingRow: View {
 
 /// Three dots that brighten in a continuous wave, every frame. Read from the
 /// clock, so a row drawn again picks the wave up where it is.
-private struct TypingDots: View {
+struct TypingDots: View {
+    var size: CGFloat = 7
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         TimelineView(.animation(paused: reduceMotion)) { context in
             let time = context.date.timeIntervalSinceReferenceDate
-            HStack(spacing: 5) {
+            HStack(spacing: size * 5 / 7) {
                 ForEach(0..<3) { index in
                     // 0 to 1 and back, each dot a sixth of the 1.2 s cycle after the last.
                     let level = reduceMotion ? 0.5 : max(0, sin(2 * .pi * (time / 1.2 - Double(index) / 6)))
                     Circle()
                         .fill(Theme.muted)
-                        .frame(width: 7, height: 7)
+                        .frame(width: size, height: size)
                         .opacity(0.35 + 0.65 * level)
                         .scaleEffect(0.85 + 0.15 * level)
                 }

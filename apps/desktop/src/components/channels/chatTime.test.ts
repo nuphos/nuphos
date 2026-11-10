@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { startsTimeGap, timeGapLabel } from './chatTime.ts'
+import { sentSinceOpening, startsTimeGap, timeGapLabel } from './chatTime.ts'
 
 const at = (day: number, hour: number, minute = 0) =>
   new Date(2026, 10, day, hour, minute).getTime()
@@ -27,4 +27,14 @@ test('the label reads like iMessage', () => {
 
   assert.ok(timeGapLabel(at(3, 9), now).startsWith(`${weekday} `))
   assert.ok(timeGapLabel(new Date(2026, 9, 21, 9).getTime(), now).includes(month))
+})
+
+test('opening a chat shows its posts at once; only posts sent after it spring in', () => {
+  const openedAt = at(6, 13)
+
+  // Cached when the chat opens, and the catch-up read that lands a moment later.
+  assert.equal(sentSinceOpening(at(6, 12, 50), openedAt), false)
+  assert.equal(sentSinceOpening(at(6, 12, 59), openedAt), false)
+  // Posted while it is open.
+  assert.equal(sentSinceOpening(at(6, 13, 1), openedAt), true)
 })

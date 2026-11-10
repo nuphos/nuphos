@@ -103,8 +103,10 @@ enum ChannelItem: Equatable, Sendable {
     case post(ChannelPost, first: Bool)
     /// A centered time above a post that follows a pause.
     case time(Date)
-    /// A line from the chat itself: its loop guard paused agents, or an agent could not reply.
+    /// A line from the chat itself: its loop guard paused agents.
     case paused(String)
+    /// An agent could not reply: why, and, on the newest line, the fix.
+    case replyFailed(AgentConversationDetail.TimelineEvent, actionable: Bool)
     /// Agents in a turn right now.
     case typing([ChannelAgent])
     /// In a Bot's chat: a question the Bot or an agent under it waits on (#1848).
@@ -133,8 +135,15 @@ extension ChannelPost {
             let first = timed || index == 0 || posts[index - 1].senderId != post.senderId
             rows.append((at: at, id: "post.\(post.id)", item: ChannelItem.post(post, first: first)))
         }
-        for event in events where ["agents_paused", "agent_reply_failed"].contains(event.kind) {
-            rows.append((at: event.at, id: "paused.\(event.at.timeIntervalSince1970)", item: ChannelItem.paused(event.text)))
+        let lastPost = posts.compactMap(\.sentAt).max() ?? .distantPast
+        for event in events {
+            let id = "paused.\(event.at.timeIntervalSince1970)"
+            if event.kind == "agents_paused" { rows.append((at: event.at, id: id, item: ChannelItem.paused(event.text))) }
+            // Only the newest line offers the fix: anything after it moved past it.
+            if event.kind == "agent_reply_failed" {
+                let actionable = event == events.last && event.at >= lastPost
+                rows.append((at: event.at, id: id, item: ChannelItem.replyFailed(event, actionable: actionable)))
+            }
         }
         // Stable: posts keep their order where their times tie.
         var sorted: [(id: String, item: ChannelItem)] = rows.enumerated().sorted { a, b in

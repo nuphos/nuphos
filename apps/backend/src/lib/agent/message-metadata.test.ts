@@ -4,6 +4,7 @@ import {
   parseMessageMetadata,
   renderAttributedMessage,
   restoreAppMessageMetadata,
+  systemSender,
 } from './message-metadata'
 import { renderInjectedUserMessages } from './pending-message-render'
 
@@ -242,6 +243,21 @@ test("a Trigger fire reads as its owner's instruction, not a GitHub event", () =
 
   expect(instructions).toContain('carry it out')
   expect(instructions).not.toContain('GitHub')
+})
+
+test('a Nuphos notice with no resource keeps its attribution and is not a GitHub event', () => {
+  const parsed = parseMessageMetadata(systemSender('nuphos:plans', 'Nuphos'))
+  const json = renderAttributedMessage('wake', 'Plan #3 was approved.', parsed).split('\n')[1]!
+  const envelope = JSON.parse(json) as { sender: { type: string }; instructions: string }
+
+  expect(parsed).toMatchObject({ source: 'agent.resource', sender: { type: 'system' } })
+  expect(parsed).not.toHaveProperty('resourceUrl')
+  expect(envelope.sender.type).toBe('system')
+  expect(envelope.instructions).not.toContain('GitHub')
+  // Any other system sender keeps the cautious untrusted-content default.
+  const other = renderAttributedMessage('x', 'hi', systemSender('linear', 'Linear')).split('\n')[1]!
+
+  expect((JSON.parse(other) as { instructions: string }).instructions).toContain('untrusted')
 })
 
 test('an agent-token message keeps its bot sender, the user it acts for, and the token', () => {

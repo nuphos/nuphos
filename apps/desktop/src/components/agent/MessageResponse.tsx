@@ -13,6 +13,7 @@ import { isSynthesizedAutolink } from '../../lib/markdownAutolink'
 import { messageRehypePlugins } from '../../lib/messageRehypePlugins'
 import { isMac } from '../../lib/platform'
 import { ContextMenu } from '../ContextMenu'
+import { INLINE_LINK } from '../ui/inline-link'
 
 import { ChatLinkMenuContext, isChatMenuLink } from './chatLinkMenuContext'
 import { standaloneLocalLink } from './localPreviewLink'
@@ -52,7 +53,7 @@ function extractText(node: ReactNode): string {
 export function ChatLink({
   link,
   onLinkClick,
-  className = 'text-link hover:underline',
+  className = INLINE_LINK,
   title,
   'aria-label': ariaLabel,
   children,

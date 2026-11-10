@@ -4,10 +4,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { AgentPanel } from '../components/agent/AgentPanel'
 import { conversationQuestions } from '../components/agent/panel/replyTarget'
+import { chatOfBot } from '../components/channels/botChannel'
 import { EmptyState } from '../components/EmptyState'
+import { agentSessionsCacheKey } from '../components/sidebar/state'
 import { useElementSize } from '../grafana/useElementSize'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
+import { useSwrCache } from '../lib/swrCache'
 
 import { ChannelMentions } from './inbox/ChannelMentions'
 import { DecisionCard } from './inbox/DecisionCard'
@@ -15,11 +18,16 @@ import { inboxQuestions, openQuestion } from './inbox/inboxItems'
 import { QuestionRail } from './inbox/QuestionRail'
 import { ShareApprovalRequests } from './inbox/ShareApprovalRequests'
 import { useChannelMentions } from './inbox/useChannelMentions'
-import { useAnsweredOnDevice, useInboxListing } from './inbox/useInbox'
+import {
+  answerInChat,
+  answerQuestion,
+  useAnsweredOnDevice,
+  useInboxListing,
+} from './inbox/useInbox'
 import { useShareApprovals } from './inbox/useShareApprovals'
 
 import type { InboxQuestion } from './inbox/inboxItems'
-import type { AgentPromptSeed } from '../components/agent/panel/model'
+import type { AgentConversation } from '../api/agent-types'
 import type { JournalChatTarget } from '../lib/journalEvent'
 
 // The list reloads on this beat while the page is open, so the next question comes in.
@@ -57,14 +65,14 @@ export function InboxView({
   const { ref, width } = useElementSize<HTMLDivElement>()
   const twoPane = width === 0 || width >= TWO_PANE_MIN_WIDTH
   const listing = useInboxListing(teamId, INBOX_REFRESH_MS, refreshKey)
+  // The sidebar's conversations: where a Bot's chat is.
+  const known = useSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId))
   const [selected, setSelected] = useState<{ id: string; index: number } | null>(null)
   // The reader shows the question; the transcript only when asked for, at the question.
   const [showConversation, setShowConversation] = useState(false)
   const [locate, setLocate] = useState<{ sessionId: string; target: JournalChatTarget } | null>(
     null,
   )
-  // A choice from the card, sent through the conversation's own composer.
-  const [answer, setAnswer] = useState<AgentPromptSeed | null>(null)
   // Another team's selection is no answer for this one.
   const [shownTeamId, setShownTeamId] = useState(teamId)
 
@@ -95,11 +103,9 @@ export function InboxView({
   const select = useCallback((row: InboxQuestion | undefined, list: readonly InboxQuestion[]) => {
     setShowConversation(false)
     setLocate(null)
-    setAnswer(null)
     setSelected(row ? { id: row.request.id, index: list.indexOf(row) } : null)
   }, [])
   const consumeLocate = useCallback(() => setLocate(null), [])
-  const consumeAnswer = useCallback(() => setAnswer(null), [])
 
   // Enter or → moves from the list into the card's reply field,
   // or the conversation's composer when it is shown; Esc comes back.
@@ -201,38 +207,40 @@ export function InboxView({
               request={open.request}
               showingConversation={showConversation}
               onAnswer={(text) => {
-                if (answer) return // One answer per question: a repeated click sends nothing.
-                setAnswer({ text, nonce: Date.now(), autoSend: true, replace: true })
+                // A Bot's own question is answered in its chat, where the answer shows.
+                const chat = chatOfBot(known, sessionId)
+
+                void (chat
+                  ? answerInChat(teamId, chat, open.request.id, text)
+                  : answerQuestion(teamId, sessionId, open.request.id, text))
               }}
               onShowConversation={openTranscript}
               onHideConversation={() => setShowConversation(false)}
               onOpenConversation={() => onOpenConversation(sessionId)}
             />
-            {/* Hidden until the conversation is asked for: the Inbox answers with
-                the card, but stays mounted, since the card's answer is sent through it. */}
-            <div className={clsx('min-h-0 flex-1 flex-col', showConversation ? 'flex' : 'hidden')}>
-              <AgentPanel
-                key="inbox"
-                variant="page"
-                open
-                focusComposerOnOpen={false}
-                teamId={teamId}
-                sessionId={sessionId}
-                decisionReplyTo={open.request.id}
-                hideTranscript={!showConversation}
-                pendingPrompt={answer}
-                onPromptConsumed={consumeAnswer}
-                openQuestions={conversationQuestions(open.conversation)}
-                pendingLocate={locate}
-                onLocateConsumed={consumeLocate}
-                onSessionChange={(id) =>
-                  select(
-                    rows?.find((row) => row.conversation.sessionId === id),
-                    rows ?? [],
-                  )
-                }
-              />
-            </div>
+            {/* The conversation, with its full composer, once asked for. */}
+            {showConversation && (
+              <div className="flex min-h-0 flex-1 flex-col">
+                <AgentPanel
+                  key="inbox"
+                  variant="page"
+                  open
+                  focusComposerOnOpen={false}
+                  teamId={teamId}
+                  sessionId={sessionId}
+                  decisionReplyTo={open.request.id}
+                  openQuestions={conversationQuestions(open.conversation)}
+                  pendingLocate={locate}
+                  onLocateConsumed={consumeLocate}
+                  onSessionChange={(id) =>
+                    select(
+                      rows?.find((row) => row.conversation.sessionId === id),
+                      rows ?? [],
+                    )
+                  }
+                />
+              </div>
+            )}
           </div>
         )}
       </div>

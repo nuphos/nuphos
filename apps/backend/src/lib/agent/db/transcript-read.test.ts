@@ -67,7 +67,8 @@ test('stored history includes the user correction between the surrounding assist
     ],
   })
 
-  expect(line).toContain(`Ada (during this turn): ${correction.data.text}`)
+  expect(line).toContain('"displayName":"Ada"')
+  expect(line).toContain(`</nuphos_message_metadata>\n\n${correction.data.text}`)
   const positions = [
     'I will inspect the changes.',
     correction.data.text,
@@ -94,13 +95,14 @@ test('live history preserves a correction before continuing assistant text', () 
     parts: parts ?? [],
   })
 
-  expect(line).toContain(`Ada (during this turn): ${correction.data.text}`)
+  expect(line).toContain('"displayName":"Ada"')
+  expect(line).toContain(`</nuphos_message_metadata>\n\n${correction.data.text}`)
   expect(line.indexOf(correction.data.text)).toBeLessThan(
     line.indexOf('The local change is ready.'),
   )
 })
 
-test('malformed steering is ignored and legacy receipts retain a user label', () => {
+test('malformed steering is ignored and an unattributed receipt names no sender', () => {
   const line = compactTranscriptLine({
     index: 2,
     role: 'assistant',
@@ -111,6 +113,6 @@ test('malformed steering is ignored and legacy receipts retain a user label', ()
     ],
   })
 
-  expect(line).toContain('User (during this turn): Check the narrow layout too.')
+  expect(line).toContain('Sent during this turn:\nCheck the narrow layout too.')
   expect(line).not.toContain('123')
 })
