@@ -1,6 +1,8 @@
-import { app, session, webContents } from 'electron'
+import { app, BrowserWindow } from 'electron'
 
-import { handleDeepLink } from '../deep-links.ts'
+import { extensionHost } from '../browser-extensions/host.ts'
+import { browserSession } from '../browser-extensions/manage.ts'
+import { raiseWindow } from '../../window-raise.ts'
 
 import { startRecording, stopRecording } from './browser-recording.ts'
 import { failed } from './cua-host.ts'
@@ -11,8 +13,7 @@ import type { BrowserCall } from './browser-stream.ts'
 import type { CuaToolResult } from './cua-host.ts'
 import type { WebContents } from 'electron'
 
-/** How long Desktop may take to attach the tab and start its page. */
-const OPEN_TIMEOUT_MS = 15_000
+/** How long a page may take to load before a call returns it as it is. */
 const LOAD_TIMEOUT_MS = 20_000
 /** The longest one call into a tab's page may run. */
 const CALL_TIMEOUT_MS = 30_000
@@ -29,14 +30,91 @@ const text = (value: unknown): CuaToolResult => ({
   ],
 })
 
-/** The conversation whose `open` created each tab. */
-const openers = new WeakMap<WebContents, string>()
+/**
+ * The page size of an agent's tab, whatever the user's screen or dock: sites lay
+ * out for a desktop, and the page is captured in full.
+ */
+const VIEWPORT = { width: 1440, height: 900 }
 
-/** The browser tabs this conversation opened, so one conversation never drives another's. */
+/**
+ * Each tab an agent's `open` created, with its conversation, so one
+ * conversation never drives another's; and its window, hidden unless the user
+ * is shown it (`show`). The page is the window's own: a hidden window paints it
+ * for a capture, where a view inside one has nothing to capture.
+ */
+const tabs = new Map<WebContents, { conversation: string; window: BrowserWindow }>()
+
+let quitting = false
+
+app.on('before-quit', () => {
+  quitting = true
+})
+
+/** The browser tabs this conversation opened. */
 function browserTabs(conversation: string): WebContents[] {
-  return webContents
-    .getAllWebContents()
-    .filter((c) => !c.isDestroyed() && openers.get(c) === conversation)
+  return [...tabs].flatMap(([contents, tab]) =>
+    tab.conversation === conversation ? [contents] : [],
+  )
+}
+
+/** A hidden window on the user's browser session, so its pages keep the user's sign-ins. */
+function openTab(url: string, conversation: string): WebContents {
+  const window = new BrowserWindow({
+    ...VIEWPORT,
+    useContentSize: true,
+    enableLargerThanScreen: true,
+    resizable: false,
+    show: false,
+    opacity: 0,
+    webPreferences: {
+      session: browserSession(),
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+  const contents = window.webContents
+
+  tabs.set(contents, { conversation, window })
+  // Shown once, unseen, the page paints and can be captured; hidden again, it sleeps
+  // like a background tab, so an idle tab costs no battery.
+  window.once('ready-to-show', () => {
+    if (!window.isVisible()) {
+      window.showInactive()
+      window.hide()
+    }
+    window.setOpacity(1)
+  })
+  extensionHost()?.extensions.addTab(contents, window)
+  // Closing a shown tab hides it again, as the conversation still drives it.
+  window.on('close', (event) => {
+    if (quitting) return
+    event.preventDefault()
+    window.hide()
+  })
+  window.on('closed', () => tabs.delete(contents))
+  contents.loadURL(url).catch(() => {
+    // A failed load leaves the tab on its error page, which `describe` reports.
+  })
+
+  return contents
+}
+
+/** Ends every agent tab, for when the app's last window closes where that quits it. */
+export function closeBrowserTabs(): void {
+  for (const { window } of tabs.values()) window.destroy()
+}
+
+/** `work` on a tab whose page runs at full speed meanwhile, as an on-screen page would. */
+async function unthrottled<T>(contents: WebContents, work: () => Promise<T>): Promise<T> {
+  const throttled = contents.getBackgroundThrottling()
+
+  contents.setBackgroundThrottling(false)
+  try {
+    return await work()
+  } finally {
+    if (!contents.isDestroyed()) contents.setBackgroundThrottling(throttled)
+  }
 }
 
 function describe(contents: WebContents) {
@@ -106,54 +184,6 @@ function onPage<T>(
   })
 }
 
-const sameUrl = (a: string, b: string) => URL.canParse(a) && new URL(a).href === new URL(b).href
-
-/**
- * The tab an `open` created: a browser guest attached after the request whose
- * main frame starts loading `url`, returned once that load stops (finished or
- * failed). Null if none does in time; a claimed tab still loading at the
- * deadline is returned as it is.
- */
-function openedTab(url: string, conversation: string): Promise<WebContents | null> {
-  const browser = session.fromPartition('persist:browser')
-
-  return new Promise((resolve) => {
-    const candidates = new Map<
-      WebContents,
-      (details: { url: string; isMainFrame: boolean }) => void
-    >()
-    let tab: WebContents | null = null
-    const stopWatching = () => {
-      app.off('web-contents-created', onCreated)
-      for (const [contents, onNavigation] of candidates)
-        contents.off('did-start-navigation', onNavigation)
-      candidates.clear()
-    }
-    const finish = () => {
-      clearTimeout(timer)
-      stopWatching()
-      resolve(tab)
-    }
-    const onCreated = (_event: Electron.Event, contents: WebContents) => {
-      if (contents.getType() !== 'webview' || contents.session !== browser) return
-      const onNavigation = (details: { url: string; isMainFrame: boolean }) => {
-        // A tab another open already took stays theirs, so overlapping opens never share one.
-        if (!details.isMainFrame || !sameUrl(details.url, url) || openers.has(contents)) return
-        openers.set(contents, conversation)
-        tab = contents
-        stopWatching()
-        contents.once('did-stop-loading', finish)
-      }
-
-      candidates.set(contents, onNavigation)
-      contents.on('did-start-navigation', onNavigation)
-    }
-    const timer = setTimeout(finish, OPEN_TIMEOUT_MS + LOAD_TIMEOUT_MS)
-
-    app.on('web-contents-created', onCreated)
-  })
-}
-
 /** Runs one `local_browser` action against the workspace's browser tabs. */
 export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> {
   // Without a conversation, tabs nobody opened (the app's own renderer included) would match.
@@ -161,23 +191,15 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
   if (call.action === 'tabs') return text(browserTabs(call.session).map(describe))
   if (call.action === 'dock') return dockMirrorOf(call)
   if (call.action === 'focus') return focusDockTab(call)
-  if (call.action === 'close') return closeDockTab(call)
+  // The iPhone closes a dock tab by its workspace id; an agent closes its own tab.
+  if (call.action === 'close' && call.dockTab !== undefined) return closeDockTab(call)
   if (call.action === 'dock_open') return openDockTab(call)
   if (call.action === 'fetch') return proxyFetch(call)
   if (call.action === 'open') {
     if (!isHttp(call.url)) return failed('url must be an http(s) URL.')
-    const opened = openedTab(call.url, call.session)
-    const path = `/teams/${encodeURIComponent(call.team)}/browser?url=${encodeURIComponent(call.url)}`
+    const contents = openTab(call.url, call.session)
 
-    handleDeepLink(
-      `nuphos://open?path=${encodeURIComponent(path)}&session=${encodeURIComponent(call.dock ?? call.session)}`,
-    )
-    const contents = await opened
-
-    if (!contents)
-      return failed(
-        'No browser tab opened. Nuphos Desktop needs an open window signed in to this team.',
-      )
+    await loaded(contents)
 
     return text(describe(contents))
   }
@@ -188,33 +210,60 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
       `Tab ${String(call.tab)} is not one this conversation opened; list its tabs with action "tabs".`,
     )
   if (call.action === 'navigate') {
-    if (!isHttp(call.url)) return failed('url must be an http(s) URL.')
+    const { url } = call
+
+    if (!isHttp(url)) return failed('url must be an http(s) URL.')
     // A failed load still leaves the tab on its error page, which `describe` reports.
-    await onPage(contents, contents.loadURL(call.url), { ms: LOAD_TIMEOUT_MS }).catch(() => {})
+    await unthrottled(contents, () =>
+      onPage(contents, contents.loadURL(url), { ms: LOAD_TIMEOUT_MS }),
+    ).catch(() => {})
 
     return text(describe(contents))
   }
   if (call.action === 'eval') {
     if (!call.script) return failed('script is required.')
     // A user gesture lets the script click through what only a real click may open.
-    const value: unknown = await onPage(contents, contents.executeJavaScript(call.script, true), {
-      untilNavigation: true,
-    })
+    const { script } = call
+    const value: unknown = await unthrottled(contents, async () => {
+      const result: unknown = await onPage(contents, contents.executeJavaScript(script, true), {
+        untilNavigation: true,
+      })
 
-    await loaded(contents)
+      await loaded(contents)
+
+      return result
+    })
 
     return text(value === undefined ? 'undefined' : value)
   }
+  const window = tabs.get(contents)?.window
+
+  if (call.action === 'show') {
+    raiseWindow(window)
+
+    return text(`Tab ${String(contents.id)} is on screen; closing its window hides it again.`)
+  }
+  if (call.action === 'close') {
+    window?.destroy()
+
+    return text(`Closed tab ${String(contents.id)}.`)
+  }
   if (call.action === 'record_start') {
+    // A recorded page keeps running at full speed until record_stop.
+    contents.setBackgroundThrottling(false)
     await startRecording(contents)
 
     return text(`Recording tab ${String(contents.id)}. Use the page, then call record_stop.`)
   }
-  if (call.action === 'record_stop') return text(await stopRecording(contents))
-  const image = await onPage(contents, contents.capturePage())
+  if (call.action === 'record_stop') {
+    contents.setBackgroundThrottling(true)
+
+    return text(await stopRecording(contents))
+  }
+  const image = await unthrottled(contents, () => onPage(contents, contents.capturePage()))
 
   if (image.isEmpty())
-    return failed('The tab is not on screen, so it cannot be captured. eval still reads its page.')
+    return failed('The tab painted nothing to capture. eval still reads its page.')
 
   return {
     content: [

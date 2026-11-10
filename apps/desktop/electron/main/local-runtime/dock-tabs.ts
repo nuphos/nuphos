@@ -2,6 +2,8 @@
 // dock's listing and the phone's changes to it are in dock-mirror.ts.
 import { BrowserWindow, ipcMain, webContents } from 'electron'
 
+import { browserSession } from '../browser-extensions/manage.ts'
+
 import type { WatchTab } from './browser-view.ts'
 
 /** After Stop on the Mac, that tab turns phones away this long, so the viewer's retries end. */
@@ -34,7 +36,8 @@ export const watchDockTab: WatchTab = async (session, tab, width, height, end) =
     return { refused: 'Viewing was stopped on the Mac. Try again in a moment.' }
   if (viewing.has(tab)) return { refused: 'This tab is already open on another phone.' }
   for (const window of BrowserWindow.getAllWindows()) {
-    if (window.isDestroyed()) continue
+    // An agent's tab and an extension's page are windows on the browser session; only the app's own answer.
+    if (window.isDestroyed() || window.webContents.session === browserSession()) continue
     const call = `window.nuphosWatchDockTab?.(${[session, tab, width, height].map((v) => JSON.stringify(v)).join(', ')}) ?? null`
     const unwatch = () => {
       if (!window.isDestroyed())

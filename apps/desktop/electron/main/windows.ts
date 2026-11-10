@@ -11,6 +11,7 @@ import { raiseWindow } from '../window-raise'
 
 import { flushPendingDeepLinks } from './deep-links'
 import { APP_NAME, isDev } from './env'
+import { closeBrowserTabs } from './local-runtime/browser-tabs'
 import { openExternal } from './open-external'
 import { liveSessionShortcut } from './session-shortcuts'
 import { lastClosedWindow, placementFor, readSavedWindows, trackWindow } from './window-session'
@@ -188,6 +189,8 @@ export function createWindow(restore: SavedWindow | null = lastClosedWindow()): 
       k8s.stopAllPortForwards()
       terminal.closeAllSshSessions()
       podExec.closeAllPodExecSessions()
+      // Where the last window quits the app, an agent's hidden tab would keep it running.
+      if (process.platform !== 'darwin') closeBrowserTabs()
     }
   })
 

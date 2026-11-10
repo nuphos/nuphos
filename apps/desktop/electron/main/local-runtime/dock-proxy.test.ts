@@ -112,6 +112,7 @@ before(async () => {
       session: { fromPartition: () => ({}) },
     },
   })
+  mock.module('../browser-extensions/manage.ts', { namedExports: { browserSession: () => ({}) } })
   ;({ proxyFetch, isLocalHost } = await import('./dock-proxy.ts'))
 })
 

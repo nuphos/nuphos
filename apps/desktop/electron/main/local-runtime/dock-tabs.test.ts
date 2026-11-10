@@ -21,18 +21,34 @@ const window = {
     },
   },
 }
+const browserSession = {}
+/** A site's page in a window of its own (an agent's tab), which answers anything it is asked. */
+const site = {
+  isDestroyed: () => false,
+  webContents: {
+    session: browserSession,
+    executeJavaScript: async () => {
+      asked.push('site')
+
+      return page.id
+    },
+  },
+}
 let watchDockTab: typeof WatchDockTab
 let stopDockTabWatch: typeof StopDockTabWatch
 
 before(async () => {
   mock.module('electron', {
     namedExports: {
-      BrowserWindow: { getAllWindows: () => [window] },
+      BrowserWindow: { getAllWindows: () => [site, window] },
       ipcMain: {
         on: (channel: string, listener: (...args: unknown[]) => void) => ipc.on(channel, listener),
       },
       webContents: { fromId: (id: number) => (id === page.id ? page : undefined) },
     },
+  })
+  mock.module('../browser-extensions/manage.ts', {
+    namedExports: { browserSession: () => browserSession },
   })
   ;({ watchDockTab, stopDockTabWatch } = await import('./dock-tabs.ts'))
 })
@@ -49,6 +65,7 @@ test("one phone per tab, and the Mac's Stop ends it and turns phones away for a 
   ipc.emit('dock:stopWatch', {}, 'tab-1')
   assert.equal(ended, 1)
   first.stop()
+  // A site's page is never asked, so it cannot hand the phone some other page.
   assert.deepEqual(asked, ['watch', 'unwatch'])
   assert.deepEqual(await watchDockTab('s', 'tab-1', 390, 700, () => {}), {
     refused: 'Viewing was stopped on the Mac. Try again in a moment.',
