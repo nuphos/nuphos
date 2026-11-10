@@ -113,6 +113,7 @@ test('two reports from one computer never settle the same removals at once', asy
   }
 
   const first = settlePendingRemovals('owner', 'box', online, slow)
+
   await settlePendingRemovals('owner', 'box', online, slow)
   release()
   await first
