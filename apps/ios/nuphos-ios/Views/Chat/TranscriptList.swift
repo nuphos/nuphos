@@ -18,6 +18,8 @@ struct TranscriptList: UIViewControllerRepresentable {
     var animatesArrivals = false
     /// Scrolls to a row, such as the post a reply quotes.
     var jump: TranscriptJump? = nil
+    /// What swiping a row right does, as replying in Messages; nil for a row that can't be swiped.
+    var swipeAction: ((ChatRow) -> (() -> Void)?)? = nil
     let rowContent: (ChatRow) -> AnyView
 
     func makeUIViewController(context: Context) -> TranscriptController {
@@ -26,6 +28,7 @@ struct TranscriptList: UIViewControllerRepresentable {
 
     func updateUIViewController(_ controller: TranscriptController, context: Context) {
         controller.setComposer(composer)
+        controller.swipeAction = swipeAction
         controller.placeholder.rootView = placeholder
         controller.update(rows: rows, submittedRowID: submittedRowID,
                           sessionID: sessionID, animatesArrivals: animatesArrivals, content: rowContent)
@@ -33,7 +36,7 @@ struct TranscriptList: UIViewControllerRepresentable {
     }
 }
 
-final class TranscriptController: UIViewController, UICollectionViewDelegate, ChatLayoutDelegate {
+final class TranscriptController: UIViewController, UICollectionViewDelegate, UIGestureRecognizerDelegate, ChatLayoutDelegate {
     private let layout = CollectionViewChatLayout()
     private lazy var collection = TranscriptCollectionView(frame: .zero, collectionViewLayout: layout)
     private var dataSource: ChatLayoutDiffableDataSource<Int, String>!
@@ -56,6 +59,14 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     let placeholder = UIHostingController(rootView: AnyView(EmptyView()))
     private lazy var composerHeight = composer.view.heightAnchor.constraint(equalToConstant: 0)
     private let latestButton = UIButton(type: .system)
+    var swipeAction: ((ChatRow) -> (() -> Void)?)? {
+        didSet { swipe.isEnabled = swipeAction != nil }
+    }
+    /// One pan for every row, which only begins on a rightward pull: a
+    /// vertical drag fails it at once and the transcript scrolls untouched.
+    private lazy var swipe = UIPanGestureRecognizer(target: self, action: #selector(swiped(_:)))
+    private var swiping: (cell: TranscriptCell, action: () -> Void)?
+    private let swipeFeedback = UIImpactFeedbackGenerator(style: .light)
 
     private let root = RotationLayoutView()
     override func loadView() { view = root }
@@ -83,6 +94,11 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
         collection.delegate = self
         collection.accessibilityIdentifier = "chat.transcript"
         collection.register(TranscriptCell.self, forCellWithReuseIdentifier: "row")
+        swipe.delegate = self
+        swipe.isEnabled = false
+        collection.addGestureRecognizer(swipe)
+        // Decided on the same touch as the scroll's own pan, so it adds no delay.
+        collection.panGestureRecognizer.require(toFail: swipe)
         collection.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(collection)
         // The composer rides the keyboard layout guide and the collection runs
@@ -436,6 +452,40 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, Ch
     private var atEnd: Bool { distanceToEnd < 1 }
 
     private func updateLatestButton() { latestButton.isHidden = nearBottom }
+
+    /// How far a swipe must pull a row for it to act, as in Messages.
+    private static let swipePull: CGFloat = 60
+
+    func gestureRecognizerShouldBegin(_ gesture: UIGestureRecognizer) -> Bool {
+        guard gesture === swipe else { return true }
+        let velocity = swipe.velocity(in: collection)
+        // Clear of the edge, where the system's back swipe begins.
+        guard velocity.x > abs(velocity.y) * 1.5, swipe.location(in: view).x > 24,
+              let path = collection.indexPathForItem(at: swipe.location(in: collection)),
+              let cell = collection.cellForItem(at: path) as? TranscriptCell,
+              let id = dataSource.itemIdentifier(for: path), let row = byID[id],
+              let action = swipeAction?(row) else { return false }
+        swiping = (cell, action)
+        return true
+    }
+
+    @objc private func swiped(_ gesture: UIPanGestureRecognizer) {
+        guard let cell = swiping?.cell else { return }
+        let dx = max(gesture.translation(in: collection).x, 0)
+        // Resists past the point it acts at.
+        let pull = dx < Self.swipePull ? dx : Self.swipePull + (dx - Self.swipePull) * 0.25
+        switch gesture.state {
+        case .changed:
+            if pull >= Self.swipePull, cell.pull < Self.swipePull { swipeFeedback.impactOccurred() }
+            cell.setPull(pull, reached: pull >= Self.swipePull)
+        case .ended, .cancelled, .failed:
+            if gesture.state == .ended, cell.pull >= Self.swipePull { swiping?.action() }
+            swiping = nil
+            UIView.animate(springDuration: 0.3, bounce: 0.2) { cell.setPull(0, reached: false) }
+        default:
+            break
+        }
+    }
 
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
         layout.keepContentOffsetAtBottomOnBatchUpdates = false
@@ -856,6 +906,10 @@ private final class RotationLayoutView: UIView {
 /// let a long answer draw over the next cell.
 private final class TranscriptCell: UICollectionViewCell {
     private let host = UIHostingController(rootView: AnyView(EmptyView()))
+    /// Comes out from under the row as a swipe pulls it.
+    private let arrow = UIImageView(image: UIImage(systemName: "arrowshape.turn.up.left.circle.fill",
+                                                   withConfiguration: UIImage.SymbolConfiguration(pointSize: 24)))
+    private(set) var pull: CGFloat = 0
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -870,6 +924,16 @@ private final class TranscriptCell: UICollectionViewCell {
             host.view.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
         ])
         host.sizingOptions = .intrinsicContentSize
+        arrow.alpha = 0
+        insertSubview(arrow, belowSubview: contentView)
+    }
+
+    func setPull(_ pull: CGFloat, reached: Bool) {
+        self.pull = pull
+        contentView.transform = CGAffineTransform(translationX: pull, y: 0)
+        arrow.tintColor = UIColor(reached ? Theme.brand : Theme.muted)
+        arrow.alpha = min(pull / 60, 1)
+        arrow.center = CGPoint(x: 16 + min(pull, 60) - 28, y: bounds.midY)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -877,6 +941,7 @@ private final class TranscriptCell: UICollectionViewCell {
     override func prepareForReuse() {
         super.prepareForReuse()
         layer.removeAllAnimations()
+        setPull(0, reached: false)
     }
 
     func configure(_ content: AnyView, parent: UIViewController) {
