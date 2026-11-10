@@ -650,7 +650,7 @@ async fn report_session_failure(adapter: &Arc<dyn ChatAdapter>, channel: &Channe
     }
     let (error, data) = match e.downcast_ref::<JsonRpcError>() {
         Some(err) => (
-            format_coded_error(err.code, &err.message, err.data_message().as_deref()),
+            format_coded_error(err.code, &err.message, err.data_message()),
             Some(err.relay_data()),
         ),
         None => (format_user_error(&e.to_string()), None),
