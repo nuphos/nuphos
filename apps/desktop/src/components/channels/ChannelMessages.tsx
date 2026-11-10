@@ -9,7 +9,7 @@ import { ContextMenu } from '../ContextMenu'
 
 import { replyTo } from './channelReply'
 import { ChannelMessage } from './ChannelPost'
-import { startsTimeGap, timeGapLabel } from './chatTime'
+import { sentSinceOpening, startsTimeGap, timeGapLabel } from './chatTime'
 import { Typing } from './ChannelTyping'
 
 import type {
@@ -94,7 +94,7 @@ export function ChannelMessages({
   const owned = new Set(
     agents.filter((agent) => agent.ownerId === viewerId).map((agent) => agent.sessionId),
   )
-  const [initial] = useState(() => new Set(messages.map((message) => message.id)))
+  const [openedAt] = useState(Date.now)
   const [menu, setMenu] = useState<{ reply: AgentMessageReply; x: number; y: number } | null>(null)
   // Posts and timeline lines in the order they happened.
   const rows: TimelineRow[] = [
@@ -117,7 +117,7 @@ export function ChannelMessages({
               message={message}
               at={at}
               first={gap || i === 0 || senderOf(messages[i - 1]!) !== senderOf(message)}
-              fresh={!initial.has(message.id)}
+              fresh={sentSinceOpening(at, openedAt)}
               ownAgent={owned.has(senderOf(message) ?? '')}
               viewerId={viewerId}
               teamId={teamId}
