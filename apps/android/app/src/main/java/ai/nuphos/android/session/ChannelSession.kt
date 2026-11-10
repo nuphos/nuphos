@@ -7,16 +7,20 @@ import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.data.TransferDownloadGroup
 import ai.nuphos.android.model.AgentConversationDetail
 import ai.nuphos.android.model.ChannelAgent
+import ai.nuphos.android.model.AgentConversation
 import ai.nuphos.android.model.ChatFace
+import ai.nuphos.android.model.botFace
 import ai.nuphos.android.model.ChannelPost
 import ai.nuphos.android.model.ChannelReply
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import ai.nuphos.android.data.AgentChatApi
 import ai.nuphos.android.data.AttachmentTransfers
 import ai.nuphos.android.data.JsonValue
@@ -42,6 +46,10 @@ class ChannelSession(
         suspend fun upload(attachments: List<ComposerAttachment>): String
         /** `POST …/channel-messages` with `{text, id, upload, replyTo}`; a repeated id is not posted twice. */
         suspend fun post(text: String, id: String, upload: String?, replyTo: String?)
+        /** Every page of the viewer's conversations with an open question, with their parents. */
+        suspend fun pending(): List<AgentConversation> = emptyList()
+        /** The owner's reply to [sessionId], naming the question it answers. */
+        suspend fun answer(sessionId: String, text: String, requestId: String) {}
     }
 
     class Api(private val token: String, private val teamId: String, private val channelId: String) : Transport {
@@ -61,6 +69,25 @@ class ChannelSession(
             }
             AgentChatApi.send("POST", "agent/conversations/${android.net.Uri.encode(channelId)}/channel-messages", token,
                 query = listOf("teamId" to teamId), body = JsonValue.obj(*body.toTypedArray()))
+        }
+        override suspend fun pending(): List<AgentConversation> {
+            val rows = mutableListOf<AgentConversation>()
+            var cursor: String? = null
+            // Bounded like Desktop's: a cursor never repeats a page.
+            repeat(10) {
+                val page = NuphosApi.conversations(token, teamId, cursor = cursor, limit = 100, pendingDecision = true)
+                rows += page.rows
+                val next = page.nextCursor
+                if (!page.hasMore || next == null || next == cursor) return rows
+                cursor = next
+            }
+            return rows
+        }
+        override suspend fun answer(sessionId: String, text: String, requestId: String) {
+            val sent = withContext(Dispatchers.IO) {
+                AgentChatApi.reply(token, teamId, sessionId, text, decisionReplyTo = requestId)
+            }
+            if (!sent) throw NuphosApi.Failure.InvalidResponse
         }
     }
 
@@ -115,6 +142,46 @@ class ChannelSession(
     private var retry: Pair<String, String>? = null
 
     val posts: List<ChannelPost> get() = stored + ChannelPost.stillSending(stored, sending)
+
+    /** In a Bot's chat: the open questions of the Bot and of every agent under it. */
+    var questions by mutableStateOf<List<BotQuestion>>(emptyList())
+        private set
+    /** Answered here; hidden until the listing no longer has them open. */
+    private var answered = emptySet<String>()
+
+    /** A Bot's chat reads the pending listing, as Desktop's does; any other chat has none. */
+    suspend fun refreshQuestions() {
+        val bot = faces.botFace?.id ?: return
+        try {
+            val open = BotQuestions.under(bot, transport.pending())
+            answered = answered intersect open.map { it.id }.toSet()
+            questions = open.filter { it.id !in answered }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // Kept as they were; the next poll tries again.
+        }
+    }
+
+    /**
+     * The owner's own reply to the conversation that asked, naming the question, so it resolves
+     * that one request wherever it is shown. Hidden at once; shown again if it could not be sent.
+     */
+    fun answer(question: BotQuestion, option: String, scope: kotlinx.coroutines.CoroutineScope) {
+        answered = answered + question.id
+        questions = questions.filter { it.id != question.id }
+        scope.launch {
+            try {
+                transport.answer(question.sessionId, option, question.request.id)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                answered = answered - question.id
+                sendError = postFailureMessage(e)
+                refreshQuestions()
+            }
+        }
+    }
 
     /** Shown at once; files upload first, then the post goes out with their group. */
     fun send(submission: ComposerSubmission, viewerId: String?, viewerName: String?, viewerAvatar: String?,
@@ -217,9 +284,11 @@ class ChannelSession(
     suspend fun poll() {
         try {
             if (refresh(force = !loaded)) returning = false
+            refreshQuestions()
             while (true) {
                 delay(POLL_MS)
                 if (refresh()) returning = false
+                refreshQuestions()
             }
         } finally {
             returning = true

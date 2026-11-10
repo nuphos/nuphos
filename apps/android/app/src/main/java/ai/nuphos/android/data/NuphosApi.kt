@@ -58,8 +58,9 @@ object NuphosApi {
         search: String? = null,
         includeArchived: Boolean = false,
         channels: Boolean = false,
+        pendingDecision: Boolean = false,
     ): AgentConversationsPage {
-        val query = conversationQuery(teamId, cursor, limit, scope, search, includeArchived, channels)
+        val query = conversationQuery(teamId, cursor, limit, scope, search, includeArchived, channels, pendingDecision)
         return get("agent/conversations", token, query, timeoutSeconds = 20)
     }
 
@@ -71,6 +72,7 @@ object NuphosApi {
         search: String? = null,
         includeArchived: Boolean = false,
         channels: Boolean = false,
+        pendingDecision: Boolean = false,
     ): List<Pair<String, String>> {
         return buildList {
             add("teamId" to teamId)
@@ -83,6 +85,8 @@ object NuphosApi {
             if (!includeArchived) add("archived" to "exclude")
             // Chats are their own listing: the server never mixes them with agents.
             if (channels) add("kind" to "channel")
+            // Only conversations with an open question, each with every parent above it.
+            if (pendingDecision) add("pendingDecision" to "true")
         }
     }
 

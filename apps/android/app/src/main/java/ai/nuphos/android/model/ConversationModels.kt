@@ -66,6 +66,8 @@ data class AgentConversation(
     val avatar: String? = null,
     /** A chat's newest post. Read through [lastPost], so a bad value only costs the preview. */
     val lastMessage: JsonValue? = null,
+    /** Open `request_user_decision` questions, oldest first; list rows carry only the open ones. */
+    val inputRequests: List<InputRequest>? = null,
 ) {
     @Transient
     val id: String get() = sessionId
@@ -126,6 +128,17 @@ data class ChatFace(
     @Serializable
     data class Agent(val avatar: String? = null, val provider: String? = null)
 }
+
+/** A question still waiting on the conversation's owner. */
+@Serializable
+data class InputRequest(
+    val id: String,
+    val category: String? = null,
+    val question: String = "",
+    val options: List<String>? = null,
+    /** ISO time it was asked. */
+    val askedAt: String? = null,
+)
 
 /** The Bot a chat with these faces is the 1:1 of: its one other member is an agent with a face. */
 val List<ChatFace>.botFace: ChatFace? get() = singleOrNull()?.takeIf { it.agent?.avatar != null }
