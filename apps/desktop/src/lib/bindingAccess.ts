@@ -26,6 +26,8 @@ export function useTeamMemberList(teamId: string): TeamMember[] | null {
   const [members, setMembers] = useState<TeamMember[] | null>(null)
 
   useEffect(() => {
+    // The no-team workspace shell renders the sidebar with an empty team id.
+    if (!teamId) return
     let alive = true
 
     api
