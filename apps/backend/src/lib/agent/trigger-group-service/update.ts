@@ -67,8 +67,7 @@ export async function updateTriggerGroup(
   // promotes a Group to its editor's permissions.
   const nextTargetSessionId = patch.targetSessionId ?? group.targetSessionId
   const substantiveChanged =
-    nextMessageTemplate !== currentMessageTemplate ||
-    nextTargetSessionId !== group.targetSessionId
+    nextMessageTemplate !== currentMessageTemplate || nextTargetSessionId !== group.targetSessionId
 
   if (substantiveChanged) {
     await assertTriggerExecutionMutationAccess(group, context)

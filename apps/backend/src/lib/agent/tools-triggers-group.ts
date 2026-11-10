@@ -1,12 +1,7 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 
-import {
-  chunkGroupMembers,
-  groupWebhookUrl,
-  label,
-  run,
-} from './tools-triggers-shared'
+import { chunkGroupMembers, groupWebhookUrl, label, run } from './tools-triggers-shared'
 import {
   createTriggerGroup,
   finalizeTriggerGroupIngress,
@@ -47,7 +42,9 @@ export function createTriggerGroupTools(deps: {
         .string()
         .min(1)
         .optional()
-        .describe('Existing conversation every member fire is delivered into. Defaults to this one.'),
+        .describe(
+          'Existing conversation every member fire is delivered into. Defaults to this one.',
+        ),
     }),
     execute: async (input) =>
       run(async () => {

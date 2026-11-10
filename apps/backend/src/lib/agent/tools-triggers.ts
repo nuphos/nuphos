@@ -8,12 +8,7 @@ import {
   pendingWebhookProviderWiring,
 } from './monitoring-workflow'
 import { createTriggerGroupTools } from './tools-triggers-group'
-import {
-  label,
-  monitoringIdentitySchema,
-  run,
-  webhookUrlFor,
-} from './tools-triggers-shared'
+import { label, monitoringIdentitySchema, run, webhookUrlFor } from './tools-triggers-shared'
 import {
   createTrigger,
   deleteTrigger,
