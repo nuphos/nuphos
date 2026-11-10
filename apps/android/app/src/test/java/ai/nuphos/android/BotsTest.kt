@@ -61,6 +61,14 @@ class BotsTest {
         val mine = decode("""{"sessionId":"g","kind":"channel","lastMessage":{"text":"Mine"}}""")
         assertEquals("Mine", mine.previewLine)
     }
+    @Test fun aBotsRowShowsTheDotsItsChatShows() {
+        val turns = mapOf("bot" to JsonValue.parse("""{"state":"active","channelIds":["chat-a"]}"""))
+        val typingIn = { bot: String, chat: String -> ai.nuphos.android.session.RuntimeObservation.typingIn(turns[bot], chat) }
+        assertTrue(channel("chat-a", agent("bot")).botTyping(typingIn))
+        assertFalse("Its turn answers another chat", channel("chat-b", agent("bot")).botTyping(typingIn))
+        assertFalse("A group", channel("chat-a", agent("bot"), agent("other")).botTyping(typingIn))
+        assertFalse("A Bot with no chat yet", session("bot", avatar = "05-rembrandt").botTyping(typingIn))
+    }
     @Test fun aPostWithOnlyFilesSaysAttachment() {
         val row = decode("""{"sessionId":"g","kind":"channel","lastMessage":{"text":"","from":"Diana"}}""")
         assertEquals("Diana: Attachment", row.previewLine)

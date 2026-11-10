@@ -464,7 +464,8 @@ struct AgentPage: View {
 }
 
 /// A row under Bots: a chat, or a Bot with no chat yet, by its face. A chat
-/// shows its newest post (`lastMessage`) and when it last moved.
+/// shows its newest post (`lastMessage`), or the chat's typing dots while its
+/// Bot answers it, and when it last moved.
 struct ChannelRow: View {
     let channel: AgentConversation
     @Environment(AgentStore.self) private var store
@@ -489,7 +490,12 @@ struct ChannelRow: View {
                         .foregroundStyle(Theme.muted)
                         .lineLimit(1)
                 }
-                if let last = channel.lastMessage {
+                if channel.botTyping(in: store.observations, team: team) {
+                    // As iMessage does: the dots stand in for the newest post until the reply lands.
+                    TypingDots(size: 5)
+                        .frame(height: 16)
+                        .accessibilityLabel("\(channel.displayTitle) is thinking")
+                } else if let last = channel.lastMessage {
                     // A group names who posted; a Bot's 1:1 chat needs no name.
                     Text(channel.botId == nil && last.from != nil ? "\(last.from!): \(last.text)" : last.text)
                         .font(Theme.Text.label)

@@ -124,6 +124,13 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     /// The Bot this chat is the 1:1 of: its one other member is an agent with a face.
     var botId: String? { isChannel ? faces?.botId : nil }
 
+    /// The Bot of this 1:1 chat is in a turn that answers it: the chat's typing
+    /// dots, which its list row shows in place of the newest post.
+    func botTyping(in observations: RuntimeObservations, team: String) -> Bool {
+        guard let botId else { return false }
+        return observations.value(team: team, session: botId)?.typing(in: sessionId) == true
+    }
+
     var isNativeRuntime: Bool { agentRuntime != nil && agentRuntime != "nuphos" }
 
     /// `title || firstMessage || 'Untitled chat'` — titles are often empty on
