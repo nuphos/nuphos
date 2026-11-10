@@ -1,8 +1,8 @@
 import { sentHistory } from './composerRecall.ts'
 
 import type { Message } from './model.ts'
-import type { AgentMessageMention } from '../../../api/agent-types.ts'
 import type { TurnInterruptedPart } from './parts.ts'
+import type { AgentMessageMention } from '../../../api/agent-types.ts'
 
 /** The latest turn's failure line and the prompt Retry would resend. */
 export type FailedTurn = {
