@@ -2,7 +2,7 @@ import { liveAttachment } from '@/lib/agent/db/shared'
 import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { attributionHeader } from '@/lib/agent/message-metadata'
-import { recordSteerSender } from '@/lib/agent/steer-senders'
+import { recordSteerSender, takeSteerSender } from '@/lib/agent/steer-senders'
 import { AppError } from '@/lib/errors'
 
 import { resolveConversationChatRuntime } from './conversation-chat-route'
@@ -259,18 +259,17 @@ export async function steerConversationRuntime(
     steer.text,
     files.map((file) => file.name),
   )
-  const client = await OpenAbAcpClient.connect({
-    ...(await reachableRuntimeEndpoint(endpoint)),
-    connectTimeoutMs: 3_000,
-    callTimeoutMs: 15_000,
-  })
-
   // The same attribution a prompt carries: without it the agent cannot tell
   // a mid-turn instruction or approval from its sender's from anyone else's.
   // The receipt comes back with only id and text, so it is put on record too.
   const metadata =
     steer.metadata ??
     (await createMessageMetadata(steer.userId, 'nuphos', steer.deviceId, steer.cliToken))
+  const client = await OpenAbAcpClient.connect({
+    ...(await reachableRuntimeEndpoint(endpoint)),
+    connectTimeoutMs: 3_000,
+    callTimeoutMs: 15_000,
+  })
 
   await recordSteerSender(conversation.sessionId, messageId, metadata)
   try {
@@ -291,6 +290,10 @@ export async function steerConversationRuntime(
       )
 
     return text
+  } catch (error) {
+    // A refused steer has no receipt to read its sender back.
+    await takeSteerSender(conversation.sessionId, messageId)
+    throw error
   } finally {
     client.close()
   }
