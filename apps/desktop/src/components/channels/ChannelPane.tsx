@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import { CornerUpLeft, Monitor, X } from 'lucide-react'
+import { Monitor } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { api } from '../../api'
@@ -20,7 +20,7 @@ import { toast } from '../ui/toast'
 import { botOfChannel } from './botChannel'
 import { ChannelMessages } from './ChannelMessages'
 import { ChannelTitle } from './ChannelTitle'
-import { ChatHeaderIcon, ChatIcon } from './channelParts'
+import { ChatHeaderIcon, ChatIcon, ReplyingBanner } from './channelParts'
 import { sendingPost, stillSending } from './sendingPosts'
 import { useBotChatQuestions } from './useBotChatQuestions'
 import { useChannel } from './useChannel'
@@ -210,10 +210,11 @@ export function ChannelPane({
         ref={scrollRef}
         className="min-h-0 flex-1 overflow-y-auto scrollbar-thin px-3 pt-5 pb-4 selectable"
       >
-        {/* One box, so its height says when anything below grows. */}
-        <div>
+        {/* The column: one box, so its height says when anything below grows, and
+            the one width every row takes, the composer's own (px-3, 760px). */}
+        <div className="mx-auto w-full max-w-[760px]">
           {detail && messages.length === 0 && (
-            <div className="mx-auto flex w-full max-w-[760px] flex-col items-start gap-3 px-3 pt-10">
+            <div className="flex flex-col items-start gap-3 pt-10">
               <ChatIcon faces={detail.faces} title={title} size={44} />
               <div className="text-lg font-semibold leading-snug text-main">{title}</div>
               <div className="max-w-[560px] text-[13px] leading-relaxed text-secondary">
@@ -254,29 +255,11 @@ export function ChannelPane({
       </HeaderEdge>
       <div
         ref={composerRef}
-        className="mx-auto w-full max-w-[760px] px-3 pb-3"
         onKeyDown={(event) => {
           if (event.key === 'Escape' && replying && !event.defaultPrevented) setReplying(null)
         }}
       >
-        {replying && (
-          <div className="mx-3 mb-1.5 flex items-center gap-2 rounded-xl bg-state-hover py-1 pl-3 pr-1 text-xs leading-4">
-            <CornerUpLeft className="h-3.5 w-3.5 shrink-0 text-tertiary" strokeWidth={2.2} />
-            <div className="min-w-0 flex-1 truncate text-tertiary">
-              <span className="font-medium text-secondary">
-                {t('Replying to {name}', { name: replying.authorName })}
-              </span>{' '}
-              {replying.text}
-            </div>
-            <IconButton
-              size="sm"
-              label={t('Cancel reply')}
-              shortcut="Esc"
-              icon={<X />}
-              onClick={() => setReplying(null)}
-            />
-          </div>
-        )}
+        {replying && <ReplyingBanner reply={replying} onCancel={() => setReplying(null)} />}
         <Composer
           onSend={(text, filePaths, mentions) => send(text, filePaths, mentions)}
           onStop={() => {}}
