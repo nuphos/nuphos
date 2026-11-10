@@ -1887,6 +1887,7 @@
   "Failed to trigger CronJob.": "CronJob を手動実行できませんでした。",
   "Failed to trigger deployment": "デプロイをトリガーできませんでした",
   "Failed to undo": "元に戻せませんでした",
+  "Failed to update credentials": "認証情報を更新できませんでした",
   "Failed to update cron triggers": "Cron トリガーを更新できませんでした",
   "Failed to upload object": "オブジェクトをアップロードできませんでした",
   "Failed: {error}": "失敗しました：{error}",

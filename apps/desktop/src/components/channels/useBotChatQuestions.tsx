@@ -12,9 +12,11 @@ import { useRefreshOnRuntimeChange } from '../agent/summary/useSessionInputReque
 import { agentSessionsCacheKey } from '../sidebar/state'
 
 import { BotChatQuestion } from './BotChatQuestions'
+import { useBotCredentials } from './useBotCredentials'
 
 import type { TimelineRow } from './ChannelMessages'
 import type { AgentConversation } from '../../api/agent-types'
+import type { CredentialSelectorControl } from '../agent/panel/credentialSections'
 import type { AgentPromptSeed } from '../agent/panel/model'
 import type { ReactNode } from 'react'
 
@@ -26,13 +28,16 @@ type Answer = { draftId: string; replyTo: string; seed: AgentPromptSeed | null }
  * so answering here answers there. An answer is the viewer's own turn in the
  * conversation that asked, sent through that conversation's panel, kept hidden
  * as the Inbox keeps it; one per conversation, so a second answer elsewhere
- * never drops the first.
+ * never drops the first. The Bot's own Connect cards select through the Bot's
+ * credential picker, which its owner also gets in the chat's composer.
  */
 export function useBotChatQuestions(
   teamId: string,
   botId: string | undefined,
+  botOwned: boolean,
   onOpenSession: (sessionId: string) => void,
-): { rows: TimelineRow[]; panels: ReactNode } {
+): { rows: TimelineRow[]; panels: ReactNode; credentials?: CredentialSelectorControl } {
+  const botCredentials = useBotCredentials(teamId, botOwned ? botId : undefined)
   // The Inbox's own listing, shared by every chat: a chat opening draws what is
   // listed now, never a cached row's old questions, and never another Bot's.
   const pending = useInboxListing(teamId)
@@ -51,6 +56,7 @@ export function useBotChatQuestions(
       <BotChatQuestion
         request={request}
         teamId={teamId}
+        credentials={request.sessionId === botId ? botCredentials : undefined}
         // The Bot's own questions are this chat's; only an agent under it is named.
         onOpenSession={request.sessionId === botId ? undefined : onOpenSession}
         onAnswer={(text, replyTo) =>
@@ -87,5 +93,5 @@ export function useBotChatQuestions(
     </div>
   ))
 
-  return { rows, panels }
+  return { rows, panels, credentials: botCredentials }
 }

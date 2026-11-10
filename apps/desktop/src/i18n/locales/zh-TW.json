@@ -1887,6 +1887,7 @@
   "Failed to trigger CronJob.": "無法觸發 CronJob。",
   "Failed to trigger deployment": "無法觸發部署",
   "Failed to undo": "無法復原",
+  "Failed to update credentials": "無法更新憑證",
   "Failed to update cron triggers": "無法更新 Cron 觸發條件",
   "Failed to upload object": "無法上傳物件",
   "Failed: {error}": "失敗：{error}",

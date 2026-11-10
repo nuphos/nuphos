@@ -1887,6 +1887,7 @@
   "Failed to trigger CronJob.": "Tidak dapat menjalankan CronJob.",
   "Failed to trigger deployment": "Tidak dapat memicu deployment",
   "Failed to undo": "Tidak dapat mengurungkan",
+  "Failed to update credentials": "Tidak dapat memperbarui kredensial",
   "Failed to update cron triggers": "Gagal memperbarui pemicu cron",
   "Failed to upload object": "Tidak dapat mengunggah objek",
   "Failed: {error}": "Gagal: {error}",

@@ -7,22 +7,29 @@ import { ConnectCardContext } from '../agent/panel/connectCardContext'
 
 import { botChatQuestion } from './botChatQuestion'
 
+import type { CredentialSelectorControl } from '../agent/panel/credentialSections'
 import type { SessionInputRequest } from '../agent/summary/sessionInputRequests'
 
 /** One open question in a Bot's chat, answerable where the card itself can send the answer. */
 export function BotChatQuestion({
   request,
   teamId,
+  credentials,
   onOpenSession,
   onAnswer,
 }: {
   request: SessionInputRequest
   teamId: string
+  /** The asking conversation's credential picker, for its Connect card; absent where it cannot be changed here. */
+  credentials?: CredentialSelectorControl
   /** Absent for the Bot's own questions, which need no "From" line. */
   onOpenSession?: (sessionId: string) => void
   onAnswer: (text: string, replyTo: string) => void
 }) {
-  const { part, questions, answerable, replyTo } = botChatQuestion(request.inputRequest)
+  const { part, questions, answerable, replyTo } = botChatQuestion(
+    request.inputRequest,
+    credentials !== undefined,
+  )
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -38,6 +45,7 @@ export function BotChatQuestion({
       )}
       <ConnectCardContext.Provider
         value={{
+          credentials,
           send: (text, card) => onAnswer(text, replyTo(card)),
           // Written on the asking agent's runtime, as its own secure card writes it.
           saveSecret: async (name, value) =>

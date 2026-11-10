@@ -1887,6 +1887,7 @@
   "Failed to trigger CronJob.": "CronJob을 수동 실행하지 못했습니다.",
   "Failed to trigger deployment": "배포를 트리거하지 못했습니다",
   "Failed to undo": "실행 취소하지 못했습니다",
+  "Failed to update credentials": "자격 증명을 업데이트하지 못했습니다",
   "Failed to update cron triggers": "크론 트리거를 업데이트하지 못했습니다",
   "Failed to upload object": "오브젝트를 업로드하지 못했습니다",
   "Failed: {error}": "실패: {error}",
