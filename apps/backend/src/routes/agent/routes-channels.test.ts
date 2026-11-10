@@ -320,6 +320,64 @@ describe('retrying an agent that could not reply', () => {
   })
 })
 
+describe('answering in a chat', () => {
+  const ask = (status: string) => ({
+    inputRequests: [
+      {
+        id: 'q1',
+        category: 'approval',
+        question: 'Ship?',
+        options: ['Yes'],
+        status,
+        askedAt: new Date(),
+      },
+    ],
+    // Archived, so the post records and answers without waking a turn here.
+    archivedAt: new Date(),
+  })
+
+  test("a post naming the Bot's open question is its answer", async () => {
+    const channelId = await createChannel()
+
+    await seedAgent('bot', OWNER, ask('open'))
+    await agentConversations().updateOne(
+      { sessionId: channelId },
+      { $set: { agentSessionIds: ['bot'] } },
+    )
+    const response = await send('POST', `/conversations/${channelId}/channel-messages`, {
+      id: 'm1',
+      text: 'Yes',
+      decisionReplyTo: 'q1',
+    })
+
+    expect(response.status).toBe(201)
+    expect(appended[0]?.messages[0]).toMatchObject({ parts: [{ type: 'text', text: 'Yes' }] })
+    expect(
+      (await agentConversations().findOne({ sessionId: 'bot' }))?.inputRequests?.[0]?.status,
+    ).toBe('answered')
+  })
+
+  test('refuses a question already answered, or one no agent in the chat asked', async () => {
+    const channelId = await createChannel()
+
+    await seedAgent('bot', OWNER, ask('answered'))
+    await seedAgent('elsewhere', OWNER, {
+      ...ask('open'),
+      inputRequests: [{ ...ask('open').inputRequests[0], id: 'q2' }],
+    })
+    await agentConversations().updateOne(
+      { sessionId: channelId },
+      { $set: { agentSessionIds: ['bot'] } },
+    )
+    const post = (decisionReplyTo: string) =>
+      send('POST', `/conversations/${channelId}/channel-messages`, { text: 'Yes', decisionReplyTo })
+
+    expect((await post('q1')).status).toBe(409)
+    expect((await post('q2')).status).toBe(404)
+    expect(appended).toHaveLength(0)
+  })
+})
+
 describe('a channel never runs a turn', () => {
   test('send_message_to_thread refuses a channel target', async () => {
     const channelId = await createChannel()

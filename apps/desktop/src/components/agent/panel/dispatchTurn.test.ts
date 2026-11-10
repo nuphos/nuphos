@@ -220,7 +220,7 @@ test('an answer leaves the Inbox badge as it is sent, and comes back if the send
   }
 })
 
-test('an answer to a busy agent leaves the badge at once and says it is queued', async () => {
+test('an answer to a busy agent leaves the badge at once, without a toast', async () => {
   const request = {
     id: 'busy-q',
     category: 'preference',
@@ -243,7 +243,7 @@ test('an answer to a busy agent leaves the badge at once and says it is queued',
   await runDispatchTurn(state.ctx, 'tab', 'Keep it public', [])
   await settle()
   assert.equal(inbox.inboxCountFor('team'), 0)
-  assert.deepEqual(toasts, ['Answer queued'])
+  assert.deepEqual(toasts, [])
   // The server holds the question for the queued answer, so its listing agrees.
   inbox.publishInboxListing('team', [{ sessionId: 'fork' } as AgentConversation])
   assert.equal(inbox.inboxCountFor('team'), 0)

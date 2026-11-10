@@ -38,5 +38,6 @@ export type WindowChannelsApi = {
     upload?: string,
     mentions?: string[],
     replyTo?: string,
+    decisionReplyTo?: string,
   ): Promise<{ id: string }>
 }

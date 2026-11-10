@@ -9,10 +9,21 @@ import { toast } from '../ui/toast'
 import { markChannel } from './channelKind'
 
 import type { ChannelFace } from '../../api'
+import type { AgentConversation } from '../../api/agent-types'
 
 /** A Bot's chat is a channel whose one other member is the Bot: its face and name. */
 export function botOfChannel(faces: ChannelFace[] | undefined): string | undefined {
   return faces?.length === 1 && faces[0]?.agent ? faces[0].id : undefined
+}
+
+/** A Bot's own chat among these conversations, if it has one. */
+export function chatOfBot(
+  conversations: readonly AgentConversation[] | null | undefined,
+  botId: string,
+): string | undefined {
+  return conversations?.find(
+    (conversation) => conversation.kind === 'channel' && botOfChannel(conversation.faces) === botId,
+  )?.sessionId
 }
 
 const making = new Map<string, Promise<string>>()
