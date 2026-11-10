@@ -14,21 +14,22 @@ import { FileDropZone } from '../agent/panel/FileDropZone'
 import { sessionDesktopsOf } from '../agent/panel/shells'
 import { useConversationRead } from '../agent/panel/useConversationRead'
 import { SessionParticipants } from '../agent/SessionParticipants'
+import { HeaderEdge } from '../ui/header-edge'
 import { IconButton } from '../ui/icon-button'
 import { toast } from '../ui/toast'
 
 import { botOfChannel } from './botChannel'
 import { ChannelMessages } from './ChannelMessages'
-import { ChannelTitle } from './ChannelTitle'
 import { ChatHeaderIcon, ChatIcon, ReplyingBanner } from './channelParts'
+import { ChannelTitle } from './ChannelTitle'
 import { sendingPost, stillSending } from './sendingPosts'
 import { useBotChatQuestions } from './useBotChatQuestions'
 import { useChannel } from './useChannel'
 import { useStickToBottom } from './useStickToBottom'
-import { HeaderEdge } from '../ui/header-edge'
 
-import type { AgentMessageMention, AgentMessageReply, AgentPersistedMessage } from '../../api'
+import type { AgentMessageReply, AgentPersistedMessage } from '../../api'
 import type { UserInfo } from '../../types'
+import type { ComposerSend } from '../agent/panel/composerMentionChips'
 import type { AgentPromptSeed } from '../agent/panel/model'
 import type { ReactNode } from 'react'
 
@@ -117,11 +118,11 @@ export function ChannelPane({
   // (in `postDraft` below), so acceptance is reported at once rather than after
   // the round trip. A failure restores the draft through `setRestore`, which is
   // this pane's own path — hence `true` either way.
-  const send = (text: string, filePaths: string[], mentions?: AgentMessageMention[]): boolean => {
+  const send: ComposerSend = (text, filePaths, mentions, previews) => {
     if (replying?.answer && filePaths.length === 0 && text.trim()) {
       setReplying(null)
       replying.answer(text)
-    } else void postDraft(text, filePaths, mentions)
+    } else void postDraft(text, filePaths, mentions, previews)
 
     return true
   }
@@ -138,13 +139,13 @@ export function ChannelPane({
     )
   }
 
-  async function postDraft(text: string, filePaths: string[], mentions?: AgentMessageMention[]) {
-    if (!text.trim() && filePaths.length === 0) return
+  async function postDraft(...[text, paths, mentions, previews]: Parameters<ComposerSend>) {
+    if (!text.trim() && paths.length === 0) return
     const reply = quoted ?? undefined
-    const key = [reply?.id, text, ...filePaths].join('\n')
+    const key = [reply?.id, text, ...paths].join('\n')
     const id = unsent.current?.key === key ? unsent.current.id : crypto.randomUUID()
     // Files take the conversation's upload path: shown at once, uploaded, then posted.
-    const files = filePaths.length > 0 ? makeAttachmentTurn(text, filePaths, teamId) : null
+    const files = paths.length ? makeAttachmentTurn(text, paths, teamId, { previews }) : null
 
     unsent.current = { key, id }
     stickToBottom()
@@ -168,7 +169,7 @@ export function ChannelPane({
     } catch (error) {
       setSending((posts) => posts.filter((post) => post.id !== id))
       toast.apiError(t('Could not send the message'), error)
-      setRestore({ text, filePaths, nonce: Date.now() })
+      setRestore({ text, filePaths: paths, nonce: Date.now() })
       setReplying(reply ?? null)
 
       return
@@ -277,7 +278,7 @@ export function ChannelPane({
       >
         {replying && <ReplyingBanner reply={replying} onCancel={() => setReplying(null)} />}
         <Composer
-          onSend={(text, filePaths, mentions) => send(text, filePaths, mentions)}
+          onSend={send}
           onStop={() => {}}
           readOnly={detail?.readOnly === true}
           pendingSeed={restore}

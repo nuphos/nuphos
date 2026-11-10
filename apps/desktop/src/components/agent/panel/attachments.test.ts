@@ -65,3 +65,16 @@ test('optimistic attribution uses the same name fallback and avatar restrictions
   assert.equal(message.metadata?.sender.avatarURL, undefined)
   assert.equal(makeAttachmentTurn('hi', [], 'team').buildUserMsg(null).metadata, undefined)
 })
+
+test('a chat keeps the selected image preview when the composer hands off its draft', async () => {
+  const { channelFiles } = await import('../../channels/postFiles.ts')
+  const previewUrl = 'data:image/png;base64,aGVsbG8='
+  const turn = makeAttachmentTurn('photo', ['/files/shot.png', '/files/log.txt'], 'team', {
+    previews: { '/files/shot.png': previewUrl, '/files/not-selected.png': previewUrl },
+  })
+  const { uploads } = channelFiles({ id: 'post', role: 'user', parts: [turn.optimisticPart()] })
+
+  assert.equal(uploads[0].files[0].previewUrl, previewUrl)
+  assert.equal(uploads[0].files[1].previewUrl, undefined)
+  assert.equal(uploads[0].files.length, 2)
+})
