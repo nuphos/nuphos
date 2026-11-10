@@ -27,6 +27,7 @@ import { QueuedStrip } from './QueuedStrip'
 import { cardReplyId } from './replyTarget'
 import { ReplyTargetChip } from './ReplyTargetChip'
 import { serverHasConversation } from './sessionActions'
+import { TurnRetryContext, useFailedTurnRetry } from './turnRetryContext'
 import { useViewOnlyNotice } from './useViewOnlyNotice'
 
 import type { PanelViewCtx } from './ctx'
@@ -89,6 +90,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     [activeMessages, currentUserId, foreignChat],
   )
   const shownTab = useMemo(() => activeTab && hidingRetracted(activeTab), [activeTab])
+  const turnRetry = useFailedTurnRetry(activeTab, currentUserId, foreignChat, sendInActive)
   // Every message in the transcript receives these handlers. Stable identities
   // keep the messages memoized when this page renders again — opening the dock,
   // a background refresh — instead of rendering the whole transcript each time.
@@ -181,27 +183,29 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     : undefined,
                 }}
               >
-                <Conversation
-                  tab={shownTab ?? activeTab}
-                  visible={c.visible && c.showingConversationPage}
-                  teamId={teamId}
-                  isTeamAdmin={isTeamAdmin}
-                  currentUrl={url}
-                  sidebar={isSidebarMode}
-                  onLoadEarlier={() => void loadEarlierMessages(activeTab.id)}
-                  onMessageFeedback={handleMessageFeedback}
-                  // Only show docking where a sidebar host exists.
-                  onDockToSidebar={
-                    variant === 'page' && onDockToSidebar ? dockCurrentSession : undefined
-                  }
-                  onStop={stopActive}
-                  onApprovePlan={approvePlan}
-                  onRejectPlan={rejectPlan}
-                  activePlanCanAct={activePlanCanAct}
-                  onOpenNuphosLink={onOpenNuphosLink}
-                  onOpenAgentSettings={onOpenAgentSettings}
-                  onEditMessage={editMessage}
-                />
+                <TurnRetryContext.Provider value={turnRetry}>
+                  <Conversation
+                    tab={shownTab ?? activeTab}
+                    visible={c.visible && c.showingConversationPage}
+                    teamId={teamId}
+                    isTeamAdmin={isTeamAdmin}
+                    currentUrl={url}
+                    sidebar={isSidebarMode}
+                    onLoadEarlier={() => void loadEarlierMessages(activeTab.id)}
+                    onMessageFeedback={handleMessageFeedback}
+                    // Only show docking where a sidebar host exists.
+                    onDockToSidebar={
+                      variant === 'page' && onDockToSidebar ? dockCurrentSession : undefined
+                    }
+                    onStop={stopActive}
+                    onApprovePlan={approvePlan}
+                    onRejectPlan={rejectPlan}
+                    activePlanCanAct={activePlanCanAct}
+                    onOpenNuphosLink={onOpenNuphosLink}
+                    onOpenAgentSettings={onOpenAgentSettings}
+                    onEditMessage={editMessage}
+                  />
+                </TurnRetryContext.Provider>
               </ConnectCardContext.Provider>
             </div>
             <div ref={composerRef} className="col-start-1 row-start-2 z-10">
