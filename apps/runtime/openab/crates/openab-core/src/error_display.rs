@@ -9,6 +9,21 @@
 pub fn format_user_error(message: &str) -> String {
     let msg_lower = message.to_lowercase();
 
+    // `ENOSPC` is an errno, not prose, so it names a fix reliably; the raw cause stays quoted.
+    if msg_lower.contains("enospc") || msg_lower.contains("no space left on device") {
+        return format!(
+            "**Disk Full**\nThe machine running the agent is out of disk space, so the agent \
+             could not start. Free up disk space there or switch to another runtime, then try \
+             again.\n> {message}"
+        );
+    }
+    if message.trim() == "JSON-RPC error -32603: Internal error" {
+        return "**Internal Error** (code: -32603)\nThe agent failed without reporting a reason. \
+                Try again; if it keeps happening, check the agent's logs or switch to another \
+                runtime."
+            .to_string();
+    }
+
     // Startup / connection errors (code == 0 from anyhow)
     if msg_lower.contains("timeout waiting for") {
         // Use msg_lower for extraction to stay case-insistent with the match above.
@@ -36,8 +51,12 @@ pub fn format_user_error(message: &str) -> String {
         return "**Service Busy**\nAll agent sessions are in use, please try again shortly."
             .to_string();
     }
-    if msg_lower.contains("invalid api key") || msg_lower.contains("unauthorized") {
-        return "**Unauthorized**\nPlease check your API key configuration.".to_string();
+    if is_sign_in_failure(&msg_lower) {
+        return format!(
+            "**Sign-in Required**\nThe agent's sign-in with its model provider is missing or no \
+             longer valid, so it could not start. Sign the agent in again (or update its API \
+             key), then try again.\n> {message}"
+        );
     }
 
     // Unknown error — pass through as-is
@@ -46,6 +65,17 @@ pub fn format_user_error(message: &str) -> String {
     } else {
         format!("**Error**\n{}", message)
     }
+}
+
+/// ACP `auth_required` (-32000), Claude Code's own sign-in notices, and the plain 401s
+/// this branch always covered. Free-text guesses (e.g. "token expired") stay unmatched.
+fn is_sign_in_failure(msg_lower: &str) -> bool {
+    let acp_auth_required =
+        msg_lower.contains("-32000") && msg_lower.contains("authentication required");
+    acp_auth_required
+        || ["failed to authenticate", "please run /login", "invalid api key", "unauthorized"]
+            .iter()
+            .any(|needle| msg_lower.contains(needle))
 }
 
 /// Format coded error from ACP agent for display in Discord.
@@ -144,13 +174,38 @@ mod tests {
     #[test]
     fn format_user_error_invalid_api_key() {
         let result = format_user_error("invalid api key");
-        assert!(result.contains("Unauthorized"));
+        assert!(result.contains("Sign-in Required"));
     }
 
     #[test]
     fn format_user_error_unauthorized() {
         let result = format_user_error("unauthorized: token rejected");
-        assert!(result.contains("Unauthorized"));
+        assert!(result.contains("Sign-in Required"));
+    }
+
+    #[test]
+    fn format_user_error_signed_out_agent_says_to_sign_in_again() {
+        for raw in [
+            "JSON-RPC error -32000: Authentication required",
+            "JSON-RPC error -32603: Internal error — Invalid API key · Please run /login",
+            "Internal error: Failed to authenticate. API Error: 401 OAuth token has expired",
+        ] {
+            let result = format_user_error(raw);
+            assert!(result.starts_with("**Sign-in Required**"), "{raw}");
+            assert!(result.contains("Sign the agent in again"), "{raw}");
+            assert!(result.ends_with(&format!("> {raw}")), "{raw}");
+        }
+    }
+
+    #[test]
+    fn format_user_error_free_text_is_not_guessed_as_a_sign_in_failure() {
+        for raw in [
+            "prompt is too long: 210000 tokens > 200000 maximum",
+            "refresh token was revoked",
+            "Authentication required for MCP server github",
+        ] {
+            assert!(format_user_error(raw).starts_with("**Error**"), "{raw}");
+        }
     }
 
     #[test]
@@ -172,6 +227,38 @@ mod tests {
         assert!(format_user_error("TIMEOUT WAITING FOR foo").contains("Timeout"));
         assert!(format_user_error("CONNECTION CLOSED").contains("Connection"));
         assert!(format_user_error("POOL EXHAUSTED").contains("Busy"));
+    }
+
+    #[test]
+    fn format_user_error_disk_full_names_the_fix_and_keeps_the_cause() {
+        let raw =
+            "JSON-RPC error -32603: Internal error — ENOSPC: no space left on device, mkdir '/x'";
+        let result = format_user_error(raw);
+        assert!(result.starts_with("**Disk Full**"));
+        assert!(result.contains("Free up disk space"));
+        assert!(result.ends_with(&format!("> {raw}")));
+    }
+
+    #[test]
+    fn format_user_error_keeps_the_adapters_own_process_death_notice() {
+        let raw = "JSON-RPC error -32603: Internal error — Claude Code ran out of memory: this \
+                   computer's agents reached their memory limit (3.6 GB) and the system stopped \
+                   it. Send a message to continue.";
+        assert_eq!(format_user_error(raw), format!("**Error**\n{raw}"));
+    }
+
+    #[test]
+    fn format_user_error_bare_internal_error_says_what_to_do() {
+        let result = format_user_error("JSON-RPC error -32603: Internal error");
+        assert!(result.starts_with("**Internal Error** (code: -32603)"));
+        assert!(result.contains("without reporting a reason"));
+        assert!(!result.contains("JSON-RPC error"));
+    }
+
+    #[test]
+    fn format_user_error_internal_error_with_detail_passes_it_through() {
+        let raw = "JSON-RPC error -32603: Internal error — model not found";
+        assert_eq!(format_user_error(raw), format!("**Error**\n{raw}"));
     }
 
     #[test]

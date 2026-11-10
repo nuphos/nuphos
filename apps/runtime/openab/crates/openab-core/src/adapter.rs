@@ -1249,7 +1249,7 @@ impl AdapterRouter {
                             let notification =
                                 crate::acp::connection::with_recent_stderr(notification, &prompt_activity);
                             if let Some(ref err) = notification.error {
-                                response_error = Some(format_coded_error(err.code, &err.message, err.data_message()));
+                                response_error = Some(format_coded_error(err.code, &err.message, err.data_message().as_deref()));
                                 response_error_data = Some(err.relay_data());
                             }
                             if let Some(ref result) = notification.result {

@@ -294,7 +294,8 @@ describe('interrupted preview turns', () => {
     for (const error of ['ENOSPC: write failed', 'No space left on device']) {
       expect(classifyPreviewInterruption(new Error(error), false)).toEqual({
         reason: 'error',
-        message: 'The agent ran out of disk space. Free space before retrying.',
+        message:
+          'The agent’s runtime is out of disk space, so it could not run this turn. Free up disk space on the runtime or switch this conversation to another runtime, then resend your message.',
       })
       expect(classifyPreviewInterruption(new Error(error), true).reason).toBe('cancelled')
     }

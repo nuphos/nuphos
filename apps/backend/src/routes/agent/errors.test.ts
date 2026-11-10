@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 
+import { CodexTurnFailedError } from '@/lib/claude-code-preview/codex-turn-failure'
 import { OpenAbRpcError } from '@/lib/claude-code-preview/openab-acp-errors'
 
 import { agentStreamErrorFrame } from './errors'
@@ -50,6 +51,38 @@ test('other ACP refusals keep their diagnostics and stay uncoded', () => {
 
   expect(frame.errorCode).toBeUndefined()
   expect(frame.errorText).toBe('Runtime is busy')
+})
+
+test('a runtime out of disk space names the fix and keeps the raw cause in details', () => {
+  const raw =
+    "**Internal Error** (code: -32603)\nInternal error\n> ENOSPC: no space left on device, mkdir '/home/node/x'"
+  const frame = agentStreamErrorFrame(new OpenAbRpcError(raw, -32603), undefined)
+
+  expect(frame.errorCode).toBe('runtime_disk_full')
+  expect(frame.details).toMatchObject({ acp_error_code: -32603 })
+  expect(frame.errorText).toContain('out of disk space')
+  expect(frame.errorText).not.toContain('-32603')
+  expect(JSON.stringify(frame.details)).toContain('ENOSPC')
+})
+
+test('an internal error with no cause says what to try instead of the JSON-RPC wrapper', () => {
+  for (const message of [
+    'JSON-RPC error -32603: Internal error',
+    "**Internal Error** (code: -32603)\nInternal error\n\n_The agent did not return any error details. Please check the agent's own logs for more information._",
+  ]) {
+    const frame = agentStreamErrorFrame(new OpenAbRpcError(message, -32603), undefined)
+
+    expect(frame.errorCode).toBe('runtime_internal_error')
+    expect(frame.errorText).toContain('failed without saying why')
+  }
+})
+
+test('an internal error that names its cause keeps that cause', () => {
+  const message = '**Internal Error** (code: -32603)\nInternal error\n> model not found'
+  const frame = agentStreamErrorFrame(new OpenAbRpcError(message, -32603), undefined)
+
+  expect(frame.errorCode).toBeUndefined()
+  expect(frame.errorText).toBe(message)
 })
 
 test('the implementation-defined -32000 bucket alone does not mean signed out', () => {
@@ -103,4 +136,27 @@ test('a Claude sign-in that expired reaches clients as a sign-out, not the gatew
 
   expect(frame.errorCode).toBe('runtime_auth_required')
   expect(frame.errorText).toContain('Sign the agent in again')
+})
+
+test('Claude Code asking for /login reaches clients as a sign-out', () => {
+  const frame = agentStreamErrorFrame(
+    new OpenAbRpcError(
+      '**Internal Error** (code: -32603)\nInternal error: Invalid API key · Please run /login',
+      -32603,
+    ),
+    undefined,
+  )
+
+  expect(frame.errorCode).toBe('runtime_auth_required')
+  expect(frame.errorText).toContain('Sign the agent in again')
+})
+
+test('a provider-failed turn keeps its own notice even when it names a disk error', () => {
+  const frame = agentStreamErrorFrame(
+    new CodexTurnFailedError('upstream ENOSPC while caching the response'),
+    undefined,
+  )
+
+  expect(frame.errorCode).not.toBe('runtime_disk_full')
+  expect(frame.errorText).toContain('upstream ENOSPC')
 })

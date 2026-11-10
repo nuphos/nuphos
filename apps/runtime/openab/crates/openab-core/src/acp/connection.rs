@@ -2228,7 +2228,7 @@ mod reader_loop_tests {
             &activity,
         );
         assert_eq!(
-            detailed.error.unwrap().data_message(),
+            detailed.error.unwrap().data_message().as_deref(),
             Some("model not found")
         );
         let auth = with_recent_stderr(error(-32000, None), &activity);
