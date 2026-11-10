@@ -34,19 +34,6 @@ export const channelNoticeSender = (
   sentAt: new Date().toISOString(),
 })
 
-const STEERED_NOTICE = /^New messages in a Nuphos channel \(channelId ([^)\s]+)\)\./u
-
-/**
- * A notice steered into a running turn comes back as a receipt with only its
- * text. It carries what others posted, so it is the channel's, not the turn
- * actor's. Text that merely looks like one only loses its typist's authority.
- */
-export function steeredNoticeSender(teamId: string, text: string): MessageMetadata | undefined {
-  const channelId = STEERED_NOTICE.exec(text)?.[1]
-
-  return channelId ? channelNoticeSender(teamId, channelId, 'Nuphos channel') : undefined
-}
-
 /**
  * Steers the agent's running turn with the notice and the posts it has not
  * read, through the composer's steer. Only a turn its owner runs takes it, as

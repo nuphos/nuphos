@@ -122,6 +122,7 @@ export function registerAdminAgentRoutes(adminRoutes: Hono<{ Variables: AdminVar
           messageId: message.messageId,
           role: message.role,
           parts: message.parts,
+          metadata: message.metadata,
         }),
       )
       .filter((message): message is UIMessage => message !== null)

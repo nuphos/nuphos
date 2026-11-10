@@ -355,8 +355,8 @@ describe('interrupted preview turns', () => {
   })
 })
 
-test('native steering survives persistence while unfinished tools keep their final output', () => {
-  const parts = createPreviewAssistantPartAccumulator((sentAt) => ({ ...SENDER, sentAt: sentAt! }))
+test('native steering keeps its place, takes its sender later, and unfinished tools keep their final output', () => {
+  const parts = createPreviewAssistantPartAccumulator()
 
   parts.appendText('Working')
   parts.appendTool('running')
@@ -370,15 +370,8 @@ test('native steering survives persistence while unfinished tools keep their fin
   expect(result.map((p) => p.type)).toEqual(['text', 'tool-bash', 'data-steering', 'text'])
   expect(result[2]).toMatchObject({
     type: 'data-steering',
-    data: {
-      id: 'receipt',
-      text: 'Focus on tests',
-      metadata: { ...SENDER, sentAt: expect.any(String) },
-    },
+    data: { id: 'receipt', text: 'Focus on tests', metadata: SENDER },
   })
-  expect((result[2] as { data: { metadata: { sentAt: string } } }).data.metadata.sentAt).not.toBe(
-    SENDER.sentAt,
-  )
   expect(result[1]).toMatchObject({ output: 'done' })
 })
 
@@ -401,8 +394,10 @@ test('fresh runtime history retains accepted mid-turn user instructions', () => 
   ] as UIMessage[]
   const history = previewHistoryPreamble(messages)
 
-  expect(history).toContain('User (during this turn): Only inspect staging')
-  expect(history).toContain('Ada (during this turn): And skip the cache')
+  expect(history).toContain('Sent during this turn:\nOnly inspect staging')
+  expect(history).toMatch(
+    /Sent during this turn:\n<nuphos_message_metadata>\n.*"displayName":"Ada".*\n<\/nuphos_message_metadata>\n\nAnd skip the cache/u,
+  )
   expect(history).toContain('Assistant continues:')
 })
 

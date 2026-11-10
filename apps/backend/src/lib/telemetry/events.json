@@ -117,7 +117,6 @@
   "agent.share_approval.settle_failed",
   "agent.sign_in_request.settle_failed",
   "agent.sign_in_request.settled",
-  "agent.steering.attribution_failed",
   "agent.stuck_turn.detected",
   "agent.stuck_turn.probe_completed",
   "agent.stuck_turn.probe_failed",

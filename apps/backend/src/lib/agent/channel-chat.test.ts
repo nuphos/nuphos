@@ -9,7 +9,7 @@ import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-s
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { agentConversations, agentMessages } from './db'
-import { QUEUED_NOTICE_STEER, steeredNoticeSender, withChannelPosts } from './channel-wake'
+import { QUEUED_NOTICE_STEER, withChannelPosts } from './channel-wake'
 import { listChannelMentions, readChannelMessages } from './db/channels'
 import {
   CHANNEL_AGENT_TURN_BUDGET,
@@ -495,16 +495,6 @@ describe('a person posting while an agent’s turn runs', () => {
     await say('go ahead', { ...person, sender: { ...person.sender, id: 'agent-a-owner' } })
     expect(runChannels).toEqual([])
     expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toHaveLength(1)
-  })
-
-  test('the steer’s receipt is the channel’s, not the turn actor’s', async () => {
-    running.set('agent-a', 'agent-a-owner')
-    await say('hello')
-    expect(steeredNoticeSender(TEAM, steers[0]!.text)?.sender).toMatchObject({
-      type: 'system',
-      id: 'channel:channel',
-    })
-    expect(steeredNoticeSender(TEAM, 'please look at the channel')).toBeUndefined()
   })
 
   test('with no running turn, a post wakes the agents', async () => {
