@@ -20,6 +20,7 @@ function deps(
   pending: PendingRemoval[] | Error,
   fail: string[] = [],
   members = ['manager', 'owner'],
+  owner = 'owner',
 ) {
   const calls: unknown[] = []
   const retries: number[] = []
@@ -29,7 +30,7 @@ function deps(
       if (pending instanceof Error) throw pending
 
       // As the store: a removal the computer carried out is gone.
-      return pending.filter((entry) => !forgotten.has(entry.id))
+      return { removals: pending.filter((entry) => !forgotten.has(entry.id)), owner }
     },
     remove: async (to, agent) => {
       calls.push({ removed: [to, agent] })
@@ -147,6 +148,21 @@ test('a remover who left the team is replaced by the computer owner', async () =
   })
 })
 
+test('a Box passed to a new owner falls back to that owner, not its transport user', async () => {
+  const { injected, calls } = deps(
+    [removal('r1', { instanceId: 'agent-1' })],
+    [],
+    ['new-owner'],
+    'new-owner',
+  )
+
+  await settlePendingRemovals('owner', 'box', online, injected)
+
+  expect(calls[0]).toEqual({
+    removed: [{ ...target, actorId: 'new-owner' }, { instanceId: 'agent-1' }],
+  })
+})
+
 test('with no one left in the team to remove it, the agent stops being hidden', async () => {
   const warn = quiet()
   const { injected, calls, retries } = deps([removal('r1', { instanceId: 'agent-1' })], [], [])
@@ -171,7 +187,7 @@ test('a settle asked for while one runs runs again after it', async () => {
       reads++
       if (reads === 1) await gate
 
-      return []
+      return { removals: [], owner: 'owner' }
     },
   }
   const first = settlePendingRemovals('owner', 'box2', online, slow)

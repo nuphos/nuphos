@@ -272,12 +272,16 @@ test("an offline computer's agent is removed now and deleted by the computer lat
   ])
 })
 
-test('removing anyway is refused while the computer is online, and never reaches it', async () => {
+test('removing anyway while the computer is online removes the agent from it now', async () => {
   const { remove, calls } = app()
   const response = await remove(id, '&force=true')
 
-  expect(response.status).toBe(409)
-  expect(calls).toEqual([])
+  // An agent missing from a connected computer's report: nothing is queued.
+  expect(response.status).toBe(204)
+  expect(calls).toMatchObject([
+    { target: { userId: 'owner', deviceId: 'box' }, removed: { instanceId: id } },
+    { forgot: ['owner', 'box', { instanceId: id }] },
+  ])
 })
 
 test("an offline person's computer's default agent is only forgotten, never queued", async () => {

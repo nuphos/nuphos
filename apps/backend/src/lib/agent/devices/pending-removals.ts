@@ -1,6 +1,7 @@
 import { logEvent } from '@/lib/observability'
 
 import { forgetAgentRemoval, removeDeviceAgent } from './agent-registry-store'
+import { deviceOwner } from './box-access'
 import { removeLocalAgentInstance } from './local-runtime/instances'
 import { runtimePresenceStore } from './local-runtime/presence'
 import { agentDevices, isActiveTeamMember } from './store'
@@ -8,8 +9,11 @@ import { agentDevices, isActiveTeamMember } from './store'
 import type { PendingRemoval } from './agent-registry'
 import type { LocalRuntimeStatus } from './local-runtime/protocol'
 
+/** A computer's pending removals and its current owner, who is not always its transport user. */
+type PendingOnDevice = { removals: PendingRemoval[]; owner: string }
+
 export type PendingRemovalDeps = {
-  pending: (userId: string, deviceId: string) => Promise<PendingRemoval[] | undefined>
+  pending: (userId: string, deviceId: string) => Promise<PendingOnDevice | undefined>
   remove: typeof removeLocalAgentInstance
   forgetAgent: typeof removeDeviceAgent
   forget: typeof forgetAgentRemoval
@@ -19,9 +23,14 @@ export type PendingRemovalDeps = {
 }
 
 const defaultDeps: PendingRemovalDeps = {
-  pending: async (userId, deviceId) =>
-    (await agentDevices().findOne({ userId, deviceId }, { projection: { removedAgents: 1 } }))
-      ?.removedAgents,
+  pending: async (userId, deviceId) => {
+    const device = await agentDevices().findOne(
+      { userId, deviceId },
+      { projection: { userId: 1, box: 1, removedAgents: 1 } },
+    )
+
+    return device ? { removals: device.removedAgents ?? [], owner: deviceOwner(device) } : undefined
+  },
   remove: removeLocalAgentInstance,
   forgetAgent: removeDeviceAgent,
   forget: forgetAgentRemoval,
@@ -77,9 +86,15 @@ export async function settlePendingRemovals(
   let failed = false
 
   try {
-    for (const removal of (await deps.pending(userId, deviceId)) ?? []) {
+    const { removals, owner } = (await deps.pending(userId, deviceId)) ?? {
+      removals: [],
+      owner: userId,
+    }
+
+    for (const removal of removals) {
       try {
-        const actorId = await removalActor(removal, userId, deps)
+        // A Box passed to a new owner keeps its transport user, so the owner is read from it.
+        const actorId = await removalActor(removal, owner, deps)
 
         if (!actorId) {
           // No one left may delete it, so it stops hiding the agent instead of hiding it forever.

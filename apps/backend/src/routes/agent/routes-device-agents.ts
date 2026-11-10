@@ -223,6 +223,8 @@ export function createDeviceAgentRoutes(
   /**
    * A computer that is offline cannot delete its agent now, so the agent leaves the workspace
    * at once and the computer deletes it when it next reports in (see pending-removals).
+   * Undefined when the computer is connected: an agent missing from its report is removed
+   * from it directly, as without `force`.
    */
   const removeWhileOffline = async (
     c: Context<{ Variables: AuthVariables }>,
@@ -230,12 +232,7 @@ export function createDeviceAgentRoutes(
   ) => {
     const { userId, deviceId, teamId, device } = await authorized(c, 'manage')
 
-    if (await deps.getPresence(device.userId, deviceId))
-      throw new AppError(
-        409,
-        'device_online',
-        'This computer is online, so remove the agent from it directly.',
-      )
+    if (await deps.getPresence(device.userId, deviceId)) return undefined
     // Marked first: a report that lands between the two writes cannot register it again.
     await deps.recordRemoval(device.userId, deviceId, {
       id: randomUUID(),
@@ -273,7 +270,9 @@ export function createDeviceAgentRoutes(
         return c.body(null, 204)
       }
     }
-    if (c.req.query('force') === 'true') return removeWhileOffline(c, agent)
+    const queued = c.req.query('force') === 'true' && (await removeWhileOffline(c, agent))
+
+    if (queued) return queued
     const { target } = await removableBy(c, agent)
 
     await deps.removeInstance(target, agent)
