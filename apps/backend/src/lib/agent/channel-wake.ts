@@ -15,6 +15,8 @@ import {
 import { sessionReleased } from './session-released'
 
 import type { AgentConversation } from './db'
+import { systemSender } from './message-metadata'
+
 import type { MessageMetadata } from './message-metadata'
 
 /** A channel's wake notice as queued: fixed per channel, so the queue keeps one. */
@@ -26,13 +28,12 @@ export const channelNoticeSender = (
   teamId: string,
   channelId: string,
   displayName: string,
-): MessageMetadata => ({
-  version: 1,
-  sender: { type: 'system', id: `${CHANNEL_SENDER_PREFIX}${channelId}`, displayName },
-  source: 'agent.resource',
-  resourceUrl: `/teams/${teamId}/agent/${channelId}`,
-  sentAt: new Date().toISOString(),
-})
+): MessageMetadata =>
+  systemSender(
+    `${CHANNEL_SENDER_PREFIX}${channelId}`,
+    displayName,
+    `/teams/${teamId}/agent/${channelId}`,
+  )
 
 /**
  * Steers the agent's running turn with the notice and the posts it has not

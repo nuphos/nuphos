@@ -7,6 +7,7 @@ enum ChatRowTests {
         readsSentAndPersistedTransferUploads()
         preservesVerifiedSender()
         foldsDeliveredMessagesIntoEventLines()
+        showsSteeredNoticesAsEventLines()
         decodesSharedConversationPermissions()
         keepsThePlaceOfMessagesThatDoNotDecode()
         windowStartsAfterUnreadableMessages()
@@ -97,6 +98,25 @@ enum ChatRowTests {
         precondition(message("agent.resource", "system", "trigger:1", "Hourly scan").event?.logo == nil)
         precondition(message("agent.resource", "user", "github", "GitHub").event == nil)
         precondition(message("slack", "user", "u1", "Teammate").event == nil)
+    }
+
+    /// A channel's notice steered into a running turn is the channel's event
+    /// line, as when it starts its own turn; a person's steer stays a bubble.
+    private static func showsSteeredNoticesAsEventLines() {
+        func receipt(_ id: String, _ text: String, source: String, type: String, name: String) -> ChatPart {
+            let sender: JSONValue = .object(["type": .string(type), "id": .string("s-\(id)"), "displayName": .string(name)])
+            let metadata: JSONValue = .object(["version": .number(1), "source": .string(source), "sender": sender])
+            return .data(.init(name: "steering", data: .object(["id": .string(id), "text": .string(text), "metadata": metadata])))
+        }
+        let message = ChatMessage(id: "m", role: .assistant, parts: [
+            receipt("c", "New messages in a Nuphos channel.", source: "agent.resource", type: "system", name: "Nuphos channel"),
+            receipt("p", "Stop there", source: "nuphos", type: "user", name: "Yuanlin"),
+        ])
+        let rows = ChatRow.assistantRows(message, live: false, lastApprovalCallId: nil)
+        guard rows.count == 2, case .event("steering.c", let event) = rows[0], case .user("steering.p", "m", "Stop there", _, let sender, _) = rows[1] else {
+            preconditionFailure("\(rows)")
+        }
+        precondition(event.name == "Nuphos channel" && sender?.name == "Yuanlin")
     }
 
     private static func preservesVerifiedSender() {
