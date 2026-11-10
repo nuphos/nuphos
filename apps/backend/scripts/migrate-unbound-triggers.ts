@@ -58,15 +58,41 @@ function previous(trigger: AgentTrigger) {
   }
 }
 
+/**
+ * Where a Trigger can deliver: its newest run that is not archived, then the
+ * conversation that created it. Archived conversations are skipped because a
+ * delivery does not restore them. The first candidate the principal owns in
+ * the same team wins; every rejected candidate is recorded as the reason.
+ */
 async function plan(trigger: AgentTrigger) {
   const triggerId = trigger._id!.toHexString()
   const principalUserId = triggerExecutionPrincipalId(trigger)
-  const last = await agentConversations().findOne(
-    { teamId: trigger.teamId, 'metadata.trigger.id': triggerId },
-    { sort: { createdAt: -1 }, projection: { sessionId: 1, userId: 1, teamId: 1, archivedAt: 1 } },
+  const projection = { sessionId: 1, userId: 1, teamId: 1 }
+  const lastRun = await agentConversations().findOne(
+    { teamId: trigger.teamId, 'metadata.trigger.id': triggerId, archivedAt: { $exists: false } },
+    { sort: { createdAt: -1 }, projection },
   )
-  const bindable =
-    last?.sessionId && last.teamId === trigger.teamId && last.userId === principalUserId
+  const creator = trigger.sourceContext?.sessionId
+    ? await agentConversations().findOne(
+        { sessionId: trigger.sourceContext.sessionId, archivedAt: { $exists: false } },
+        { projection },
+      )
+    : null
+  const rejected: string[] = []
+  let target: string | undefined
+
+  for (const [label, candidate] of [
+    ['last run', lastRun],
+    ['creating conversation', creator],
+  ] as const) {
+    if (!candidate) rejected.push(`no unarchived ${label}`)
+    else if (candidate.teamId !== trigger.teamId || candidate.userId !== principalUserId)
+      rejected.push(`${label} belongs to someone else`)
+    else {
+      target = candidate.sessionId
+      break
+    }
+  }
 
   return {
     triggerId,
@@ -74,14 +100,9 @@ async function plan(trigger: AgentTrigger) {
     name: trigger.name,
     triggerType: trigger.triggerType,
     principalUserId,
-    action: bindable ? ('bind' as const) : ('disable' as const),
-    targetSessionId: bindable ? last.sessionId : undefined,
-    targetArchived: bindable ? Boolean(last.archivedAt) : undefined,
-    reason: bindable
-      ? undefined
-      : last
-        ? 'last conversation belongs to someone else'
-        : 'no conversation found',
+    action: target ? ('bind' as const) : ('disable' as const),
+    targetSessionId: target,
+    reason: target ? undefined : rejected.join('; '),
     before: previous(trigger),
   }
 }
@@ -96,12 +117,22 @@ async function main(): Promise<void> {
         targetSessionId: { $exists: false },
         enabled: true,
         cleanupStatus: { $exists: false },
+        // A Watch Group ingress moves with its Group; those are reported, not changed.
+        watchGroupId: { $exists: false },
         ...(args.teamId ? { teamId: args.teamId } : {}),
       })
       .sort({ teamId: 1, _id: 1 })
       .toArray()
+    const groupIngresses = await agentTriggers().countDocuments({
+      targetSessionId: { $exists: false },
+      enabled: true,
+      watchGroupId: { $exists: true },
+      ...(args.teamId ? { teamId: args.teamId } : {}),
+    })
+    const summary = new Map<string, number>()
 
     console.log(`${args.apply ? 'APPLY' : 'DRY RUN'}: ${String(triggers.length)} enabled unbound`)
+    console.log(`skipped Watch Group ingresses: ${String(groupIngresses)}`)
 
     for (const trigger of triggers) {
       const change = await plan(trigger)
@@ -135,6 +166,9 @@ async function main(): Promise<void> {
       const line = { ...change, applied, at: new Date().toISOString() }
 
       appendFileSync(args.log, `${JSON.stringify(line)}\n`)
+      const key = change.action === 'bind' ? 'bind' : `disable: ${String(change.reason)}`
+
+      summary.set(key, (summary.get(key) ?? 0) + 1)
       const detail = change.targetSessionId
         ? '-> ' + change.targetSessionId
         : '(' + String(change.reason) + ')'
@@ -146,6 +180,8 @@ async function main(): Promise<void> {
         ) + (args.apply ? outcome : ''),
       )
     }
+    console.log('summary:')
+    for (const [key, count] of summary) console.log(`  ${String(count).padStart(4)}  ${key}`)
   } finally {
     await closeDb()
   }
