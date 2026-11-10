@@ -1,6 +1,7 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, spyOn, test } from 'bun:test'
 import { Hono } from 'hono'
 
+import * as inject from '@/lib/agent/skill-store/inject'
 import { mintRuntimeSkillsToken } from '@/lib/claude-code-preview/runtime-skills-token'
 import { errorHandler } from '@/lib/errors'
 
@@ -47,6 +48,31 @@ describe('Claude runtime skills route', () => {
     expect(etag).not.toBe('')
     expect(again.status).toBe(304)
     expect(await again.text()).toBe('')
+  })
+
+  test('a held bundle is confirmed without reading a skill file', async () => {
+    const headers = { Authorization: `Bearer ${mintRuntimeSkillsToken('team-1')}` }
+    const etag = (await app.request('/skills/team-1', { headers })).headers.get('ETag') ?? ''
+    const reads = spyOn(inject, 'collectSkillFiles')
+
+    try {
+      const held = await app.request('/skills/team-1', {
+        headers: { ...headers, 'If-None-Match': etag },
+      })
+
+      expect(held.status).toBe(304)
+      expect(reads).not.toHaveBeenCalled()
+
+      const stale = await app.request('/skills/team-1', {
+        headers: { ...headers, 'If-None-Match': '"older"' },
+      })
+
+      expect(stale.status).toBe(200)
+      expect(stale.headers.get('ETag')).toBe(etag)
+      expect(((await stale.json()) as { revision: string }).revision).toBe(etag.slice(1, -1))
+    } finally {
+      reads.mockRestore()
+    }
   })
 
   test('personal scope answers only for the member the credential names', async () => {

@@ -1,10 +1,15 @@
 import { createHash } from 'node:crypto'
 
 import { collectSkillFiles } from '@/lib/agent/skill-store/inject'
-import { resolveSkillsDirectory } from '@/lib/agent/skill-store/merge'
+import { mergedSkillsFingerprint, resolveSkillsDirectory } from '@/lib/agent/skill-store/merge'
 import { safeJoinUnder } from '@/lib/agent/skill-store/safe-path'
 import { personalSkillsScope } from '@/lib/agent/skill-store/service'
-import { getScopeCacheDir, isSkillsStoreConfigured, syncScope } from '@/lib/agent/skill-store/sync'
+import {
+  getScopeCacheDir,
+  getScopeSyncRevision,
+  isSkillsStoreConfigured,
+  syncScope,
+} from '@/lib/agent/skill-store/sync'
 import { byCodeUnit } from '@/lib/agent/sort-order'
 import { AppError } from '@/lib/errors'
 
@@ -55,21 +60,51 @@ function revisionOf(files: NativeSkillFile[]): string {
   return hash.digest('hex')
 }
 
+export type NativeSkillBundle = { revision: string; files: NativeSkillFile[] }
+
+/**
+ * A bundle's revision, and its contents on demand. Reading and hashing a tree
+ * takes seconds while a runtime already holds it almost every time, so the
+ * revision is remembered against the sync state of the tree's inputs and a
+ * runtime that holds it is answered without reading a file.
+ */
+export type SkillBundle = { revision: string; read: () => Promise<NativeSkillBundle> }
+
+const revisions = new Map<string, { inputs: string; revision: string }>()
+
+async function bundleOf(key: string, inputs: string, directory: string): Promise<SkillBundle> {
+  const read = async () => {
+    const files = nativeSkillFiles(await collectSkillFiles(directory)).toSorted((a, b) =>
+      byCodeUnit(a.path, b.path),
+    )
+    const bundle = { revision: revisionOf(files), files }
+
+    revisions.set(key, { inputs, revision: bundle.revision })
+
+    return bundle
+  }
+  const known = revisions.get(key)
+
+  if (known?.inputs === inputs) return { revision: known.revision, read }
+  const bundle = await read()
+
+  return { revision: bundle.revision, read: () => Promise.resolve(bundle) }
+}
+
 /**
  * The complete merged builtin/global/team skill tree for Claude Code's native
  * discovery. The classic `plan` skill is intentionally omitted: Claude Code
  * reserves that name for its /plan UI command. `nuphos-plan` is the native,
  * script-backed equivalent.
  */
-export async function nativeSkillBundle(
-  teamId: string,
-): Promise<{ revision: string; files: NativeSkillFile[] }> {
+export async function nativeSkillBundle(teamId: string): Promise<SkillBundle> {
+  // Taken before the tree is resolved, so a remembered revision can only be keyed by
+  // inputs as old as the tree it was read from, never newer: a concurrent sync that
+  // lands in between makes the next request read again instead of freezing old content.
+  const inputs = await mergedSkillsFingerprint(teamId)
   const directory = await resolveSkillsDirectory(teamId)
-  const files = nativeSkillFiles(await collectSkillFiles(directory)).toSorted((a, b) =>
-    byCodeUnit(a.path, b.path),
-  )
 
-  return { revision: revisionOf(files), files }
+  return bundleOf(`team:${teamId}`, inputs, directory)
 }
 
 /**
@@ -77,10 +112,7 @@ export async function nativeSkillBundle(
  * them in the conversation's directory, beside the shared team tree rather than
  * in it, so they reach only the turns that member starts.
  */
-export async function personalSkillBundle(
-  teamId: string,
-  userId: string,
-): Promise<{ revision: string; files: NativeSkillFile[] }> {
+export async function personalSkillBundle(teamId: string, userId: string): Promise<SkillBundle> {
   const scope = personalSkillsScope(teamId, userId)
 
   if (isSkillsStoreConfigured()) {
@@ -90,10 +122,10 @@ export async function personalSkillBundle(
       // Serve the last cached revision when the store is transiently unavailable.
     }
   }
-  const directory = safeJoinUnder(getScopeCacheDir(scope), 'skills')
-  const files = nativeSkillFiles(await collectSkillFiles(directory)).toSorted((a, b) =>
-    byCodeUnit(a.path, b.path),
-  )
 
-  return { revision: revisionOf(files), files }
+  return bundleOf(
+    `personal:${scope}`,
+    String(await getScopeSyncRevision(scope)),
+    safeJoinUnder(getScopeCacheDir(scope), 'skills'),
+  )
 }
