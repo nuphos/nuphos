@@ -59,6 +59,17 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         let from: String?
     }
 
+    /// A `request_user_decision` still waiting on the owner. List rows carry
+    /// only the open ones.
+    struct InputRequest: Codable, Equatable, Hashable, Sendable {
+        let id: String
+        let category: String?
+        let question: String
+        let options: [String]?
+        /// ISO time it was asked.
+        let askedAt: String?
+    }
+
     let sessionId: String
     let teamId: String?
     let title: String
@@ -98,6 +109,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var avatar: String?
     /// Absent when the chat has no post yet, or from an older backend.
     var lastMessage: LastMessage?
+    /// Open questions, oldest first; absent when there are none.
+    var inputRequests: [InputRequest]?
 
     var id: String { sessionId }
 
@@ -149,6 +162,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         faces = try? c.decodeIfPresent([ChatFace].self, forKey: .faces)
         avatar = try? c.decodeIfPresent(String.self, forKey: .avatar)
         lastMessage = try? c.decodeIfPresent(LastMessage.self, forKey: .lastMessage)
+        inputRequests = try? c.decodeIfPresent([InputRequest].self, forKey: .inputRequests)
     }
 
     init(

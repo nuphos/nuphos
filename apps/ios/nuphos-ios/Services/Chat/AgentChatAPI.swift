@@ -21,6 +21,8 @@ enum AgentChatAPI {
         var runtimeId: String?
         var initialSessionConfig: [String: String]?
         var clientCapabilities: [String: Bool]?
+        /// The open question this message answers: the server resolves that request.
+        var decisionReplyTo: String?
     }
 
     /// The `POST /agent/chat` request. `accept-encoding: identity` is
@@ -49,10 +51,12 @@ enum AgentChatAPI {
     /// Sends one message from outside the chat screen: a notification reply.
     /// The server reads the history itself, queues behind a running turn, and
     /// keeps the turn going after this returns, so only the headers are awaited.
-    static func reply(token: String, teamId: String, sessionId: String, text: String) async throws {
+    /// `decisionReplyTo` names the question it answers, as a decision card's reply does.
+    static func reply(token: String, teamId: String, sessionId: String, text: String, decisionReplyTo: String? = nil) async throws {
         let message = ChatMessage(role: .user, parts: [.text(.init(text: text, state: .done))])
         let request = try chatRequest(token: token, body: .init(
-            id: sessionId, teamId: teamId, messages: [message], streamId: UUID().uuidString.lowercased()))
+            id: sessionId, teamId: teamId, messages: [message], streamId: UUID().uuidString.lowercased(),
+            decisionReplyTo: decisionReplyTo))
         let (bytes, response) = try await URLSession.shared.bytes(for: request)
         bytes.task.cancel()
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {

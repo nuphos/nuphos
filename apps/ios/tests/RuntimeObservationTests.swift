@@ -208,6 +208,7 @@ struct RuntimeObservationTests {
         SidebarFavoritesTests.run()
         LaunchCacheTests.run()
         ConversationNestingTests.run()
+        BotQuestionsTests.run()
         ComposerDraftsTests.run()
         CredentialScopeTests.run()
         StreamBacklogTests.run()
