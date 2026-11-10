@@ -24,7 +24,7 @@ export type ConversationProps = {
   onStop?: () => void
   /** Approve callback for an inline plan card. PATCHes the plan to `approved`
    *  and sends the synthetic resume message. */
-  onApprovePlan?: (planId: string, toolCallId?: string) => void
+  onApprovePlan?: (planId: string) => void
   onRejectPlan?: (planId: string, reason: string, mode: 'revise' | 'delete') => void
   /** Plan-level gating for the latest plan. Drives the Approve / Chat
    *  visibility on that plan's inline card instead of message-level recency. */

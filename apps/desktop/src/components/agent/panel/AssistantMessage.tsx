@@ -79,7 +79,7 @@ export const AssistantMessage = memo(
      *  the transcript can be approved/rejected, not only the latest. */
     canActOnPlans?: boolean
     onStop?: () => void
-    onApprovePlan?: (planId: string, toolCallId?: string) => void
+    onApprovePlan?: (planId: string) => void
     onRejectPlan?: (planId: string, reason: string, mode: 'revise' | 'delete') => void
     activePlanCanAct?: ActivePlanCanAct | null
     onOpenNuphosLink?: (href: string, beside?: boolean) => boolean

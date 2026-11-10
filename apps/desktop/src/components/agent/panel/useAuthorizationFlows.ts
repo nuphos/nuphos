@@ -55,20 +55,11 @@ export function useAuthorizationFlows(acc: Acc) {
 
       if (mode === 'delete') {
         track('agent_plan_rejected', { mode, plan_id: planId })
-        // Hard reject — drop the plan from the library (soft-remove via status
-        // today; a true DELETE endpoint is a follow-up). Land the status change
-        // before telling the agent to discard, so a failed PATCH doesn't leave
-        // a still-`proposed` plan the agent has abandoned.
-        try {
-          await api.agentUpdatePlan(planId, { status: 'rejected' }, teamId)
-        } catch (err) {
+        // Hard reject: the backend tells the agent to discard the plan.
+        await api.agentUpdatePlan(planId, { status: 'rejected' }, teamId).catch((err: unknown) => {
           console.warn('[plan] failed to mark rejected', err)
           toast.apiError(t('Could not reject plan'), err)
-
-          return
-        }
-        // A reject never carries a reason — it's a direct discard.
-        sendInActive(`Rejected ${label} — discard it and stop.`, [])
+        })
       } else {
         // `has_reason` rather than the reason itself: plan feedback is free text
         // about a customer's infrastructure and must not leave the app.
