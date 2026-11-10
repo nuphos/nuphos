@@ -179,10 +179,7 @@ export function Composer({
         <div
           className={clsx(
             'relative',
-            // Both variants share the same self-contained input-box look; the in-conversation
-            // (compact) composer is just a tighter version of the hero box instead of a full-width
-            // bottom strip. Opaque, not a translucent tint: the composer only reads as a surface if
-            // it holds its own value against the canvas.
+            // Both variants use an opaque input surface; compact keeps the in-conversation spacing.
             'surface-raised composer-surface bg-composer',
             hero
               ? 'rounded-[24px] px-5 pt-4 pb-3'
