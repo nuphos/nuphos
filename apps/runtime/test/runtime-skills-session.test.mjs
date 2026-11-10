@@ -10,6 +10,9 @@ import {
   patchRuntimeDefaults,
 } from '../image/runtime-defaults.mjs'
 
+/** Waits for the fetch the session itself never waits for. */
+const synced = async (params, run) => (await nuphosSyncRuntimeSkills(params, run)).synced
+
 /** Stand in for /usr/local/bin/nuphos-sync-skills by recording what it was handed. */
 async function withFakeScript(body, run) {
   const directory = await mkdtemp(join(tmpdir(), 'nuphos-skills-test-'))
@@ -61,8 +64,7 @@ async function waitFor(predicate, timeoutMs = 10_000) {
 
 test('a session carrying a bundle credential syncs, and one without it does not', async () => {
   await withFakeScript('printenv > "$NUPHOS_TEST_RECORD"', async ({ record, script }) => {
-    const sync = (params) =>
-      nuphosSyncRuntimeSkills(params, { script, env: { NUPHOS_TEST_RECORD: record } })
+    const sync = (params) => synced(params, { script, env: { NUPHOS_TEST_RECORD: record } })
 
     // Managed pods carry neither variable and must not be touched at all.
     assert.equal(await sync({}), false)
@@ -105,7 +107,7 @@ test('a session cannot choose the workspace the sync writes to', async () => {
       // trees beneath it. A session-chosen value would be a write primitive aimed
       // wherever the caller liked, so it must not survive into the child at all.
       assert.equal(
-        await nuphosSyncRuntimeSkills(
+        await synced(
           meta({
             NUPHOS_RUNTIME_SKILLS_URL: 'https://bundle',
             NUPHOS_RUNTIME_SKILLS_TOKEN: 'tok',
@@ -178,7 +180,7 @@ test('personal skills follow the turn’s credential, and the session is rebuilt
 
     // Opening the session may use the credential it came with.
     await mkdir(credentialsDir)
-    assert.equal(await nuphosSyncRuntimeSkills(params, run), true)
+    assert.equal(await synced(params, run), true)
     assert.deepEqual(params._meta.claudeCode.options.additionalDirectories, [personal])
     assert.deepEqual(await readdir(skills), ['owner'])
 
@@ -225,10 +227,48 @@ test('personal skills follow the turn’s credential, and the session is rebuilt
       NUPHOS_RUNTIME_SKILLS_TOKEN: 'p.none.10.sig',
     })
 
-    await nuphosSyncRuntimeSkills(reopened, run)
+    await synced(reopened, run)
     assert.deepEqual(await readdir(skills), [])
   })
   delete globalThis.nuphosRefreshPersonalSkills
+})
+
+test('a reopened session never starts on another member’s personal skills', async () => {
+  // The fetch answers late and installs nothing: what the session starts on was on disk.
+  await withFakeScript('sleep 1', async ({ script, directory }) => {
+    const claude = join(directory, 'personal-skills/.claude')
+    const credentialsDir = join(directory, 'credentials')
+    const leave = async (who) => {
+      await mkdir(join(claude, 'skills', who), { recursive: true })
+      await writeFile(join(claude, '.skills-revision'), who)
+      await writeFile(join(claude, '.skills-holder'), who)
+    }
+    const open = async (who) => {
+      await writeFile(join(credentialsDir, 'NUPHOS_RUNTIME_SKILLS_TOKEN'), `p.${who}.1.sig\n`)
+      const opened = meta({
+        NUPHOS_RUNTIME_SKILLS_URL: 'https://bundle',
+        NUPHOS_RUNTIME_SKILLS_TOKEN: `p.${who}.1.sig`,
+      })
+      const { synced: fetch } = await nuphosSyncRuntimeSkills(opened, {
+        script,
+        sessionHome: directory,
+        credentialsDir,
+      })
+      const onDisk = await readdir(join(claude, 'skills'))
+
+      await fetch
+      delete globalThis.nuphosRefreshPersonalSkills
+
+      return onDisk
+    }
+
+    await mkdir(credentialsDir)
+    await leave('owner')
+    assert.deepEqual(await open('guest'), [])
+    // The member whose skills they are keeps them.
+    await leave('owner')
+    assert.deepEqual(await open('owner'), ['owner'])
+  })
 })
 
 test('only the Claude adapter re-syncs personal skills before a prompt', () => {
@@ -244,7 +284,7 @@ test('only the Claude adapter re-syncs personal skills before a prompt', () => {
 test('the Codex session shape is read too', async () => {
   await withFakeScript('printenv > "$NUPHOS_TEST_RECORD"', async ({ record, script }) => {
     assert.equal(
-      await nuphosSyncRuntimeSkills(
+      await synced(
         meta(
           { NUPHOS_RUNTIME_SKILLS_URL: 'https://codex', NUPHOS_RUNTIME_SKILLS_TOKEN: 'ct' },
           'codex',
@@ -264,122 +304,58 @@ test('a failing or hanging sync never stops the conversation', async () => {
   })
 
   await withFakeScript('exit 7', async ({ script }) => {
-    assert.equal(await nuphosSyncRuntimeSkills(carrying, { script }), false)
+    assert.equal(await synced(carrying, { script }), false)
   })
   // The script allows itself two minutes; session/new must not wait that long. The
   // fetch is a child of the script, so the whole group has to go.
   await withFakeScript('sleep 120 & wait', async ({ script }) => {
     const started = Date.now()
 
-    assert.equal(await nuphosSyncRuntimeSkills(carrying, { script, timeoutMs: 300 }), false)
+    assert.equal(await synced(carrying, { script, timeoutMs: 300 }), false)
     assert.ok(Date.now() - started < 10_000)
   })
   // A missing script is the ordinary case on an image that ships no sync at all.
-  assert.equal(
-    await nuphosSyncRuntimeSkills(carrying, { script: '/nonexistent/nuphos-sync-skills' }),
-    false,
-  )
+  assert.equal(await synced(carrying, { script: '/nonexistent/nuphos-sync-skills' }), false)
 })
 
-test('an installed bundle is not waited on for a fetch that has not answered', async () => {
-  await withInstalledBundle(async (workspace) => {
-    // The fetch is still open long after the grace: a 304 would leave the tree that
-    // is already there as it is, so the session has no reason to wait for it.
-    const body = ['printf x >> "$NUPHOS_TEST_RECORD"', 'sleep 2', 'exit 0'].join('\n')
-
-    await withFakeScript(body, async ({ record, script }) => {
-      const started = Date.now()
-      const synced = await nuphosSyncRuntimeSkills(bundleSession, {
-        script,
-        graceMs: 300,
-        env: { NUPHOS_TEST_RECORD: record, NUPHOS_RUNTIME_WORKSPACE: workspace },
-      })
-
-      // Handed back on the grace rather than on the answer ...
-      assert.equal(synced, undefined)
-      assert.ok(Date.now() - started < 1_500, 'the session waited for the fetch')
-      // ... with the installed tree untouched, and one fetch — nothing retried.
-      assert.equal(await readFile(join(workspace, '.claude/skills/kept/SKILL.md'), 'utf8'), '# One')
-      assert.equal(await readFile(join(workspace, '.claude/.skills-revision'), 'utf8'), 'rev-1')
-      assert.equal(await readFile(record, 'utf8'), 'x')
-    })
-  })
-})
-
-test('a fetch that carries a new bundle installs it, before the session or behind it', async () => {
+test('a session never waits for the fetch, which still installs for the next one', async () => {
   await withInstalledBundle(async (workspace) => {
     const body = [
-      'sleep "$NUPHOS_TEST_DELAY"',
+      'sleep 1',
       'printf %s rev-2 > "$NUPHOS_RUNTIME_WORKSPACE/.claude/.skills-revision"',
       'printf %s "# Two" > "$NUPHOS_RUNTIME_WORKSPACE/.claude/skills/kept/SKILL.md"',
     ].join('\n')
 
-    await withFakeScript(body, async ({ record, script }) => {
-      const sync = (graceMs, delay) =>
-        nuphosSyncRuntimeSkills(bundleSession, {
-          script,
-          graceMs,
-          env: {
-            NUPHOS_TEST_RECORD: record,
-            NUPHOS_TEST_DELAY: delay,
-            NUPHOS_RUNTIME_WORKSPACE: workspace,
-          },
-        })
+    await withFakeScript(body, async ({ script }) => {
+      const started = Date.now()
+      const { synced: fetch } = await nuphosSyncRuntimeSkills(bundleSession, {
+        script,
+        env: { NUPHOS_RUNTIME_WORKSPACE: workspace },
+      })
 
-      // An answer inside the grace is the session's: it starts on the new tree.
-      assert.equal(await sync(5_000, '0'), true)
+      // Handed back before the fetch answers, on the tree that is already there ...
+      assert.ok(Date.now() - started < 500, 'the session waited for the fetch')
+      assert.equal(await readFile(join(workspace, '.claude/.skills-revision'), 'utf8'), 'rev-1')
+      // ... and the fetch still finishes and installs.
+      assert.equal(await fetch, true)
       assert.equal(await readFile(join(workspace, '.claude/.skills-revision'), 'utf8'), 'rev-2')
-      assert.equal(await readFile(join(workspace, '.claude/skills/kept/SKILL.md'), 'utf8'), '# Two')
-
-      // An answer past it is the next session's: the fetch still finishes and installs.
-      await writeFile(join(workspace, '.claude/.skills-revision'), 'rev-1')
-      assert.equal(await sync(100, '1'), undefined)
-      await waitFor(
-        async () =>
-          (await readFile(join(workspace, '.claude/.skills-revision'), 'utf8').catch(() => '')) ===
-          'rev-2',
-      )
       assert.equal(await readFile(join(workspace, '.claude/skills/kept/SKILL.md'), 'utf8'), '# Two')
     })
   })
 })
 
-test('a real failure still surfaces, in the answer or on the log', async (t) => {
-  // Inside the grace the caller still gets it, as it always has.
-  await withInstalledBundle(async (workspace) => {
-    await withFakeScript('exit 7', async ({ script }) => {
-      assert.equal(
-        await nuphosSyncRuntimeSkills(bundleSession, {
-          script,
-          env: { NUPHOS_RUNTIME_WORKSPACE: workspace },
-        }),
-        false,
+test('a failed fetch nobody waits for is still logged', async (t) => {
+  await withFakeScript('exit 7', async ({ script }) => {
+    const written = t.mock.method(process.stderr, 'write', () => true)
+
+    try {
+      assert.equal(await synced(bundleSession, { script }), false)
+      assert.ok(
+        written.mock.calls.some((call) => /skills sync failed/u.test(String(call.arguments[0]))),
       )
-    })
-  })
-
-  // Past the grace there is no caller left to hold it, so it must not disappear with
-  // the promise.
-  await withInstalledBundle(async (workspace) => {
-    await withFakeScript(['sleep 1', 'exit 7'].join('\n'), async ({ script }) => {
-      const written = t.mock.method(process.stderr, 'write', () => true)
-
-      try {
-        assert.equal(
-          await nuphosSyncRuntimeSkills(bundleSession, {
-            script,
-            graceMs: 100,
-            env: { NUPHOS_RUNTIME_WORKSPACE: workspace },
-          }),
-          undefined,
-        )
-        await waitFor(() =>
-          written.mock.calls.some((call) => /skills sync failed/u.test(String(call.arguments[0]))),
-        )
-      } finally {
-        written.mock.restore()
-      }
-    })
+    } finally {
+      written.mock.restore()
+    }
   })
 })
 
@@ -429,9 +405,14 @@ class Agent {
     // A reopen without a credential, as on a managed pod, stays untouched.
     assert.equal(await agent.loadSession({ sessionId: 'a' }), 'loaded')
 
-    assert.deepEqual((await readFile(record, 'utf8')).split('\n').filter(Boolean), [
-      'https://new',
+    // The fetches run behind the sessions, so they are waited for here.
+    const fetched = async () =>
+      (await readFile(record, 'utf8').catch(() => '')).split('\n').filter(Boolean)
+
+    await waitFor(async () => (await fetched()).length === 3)
+    assert.deepEqual((await fetched()).toSorted(), [
       'https://load',
+      'https://new',
       'https://resume',
     ])
   })

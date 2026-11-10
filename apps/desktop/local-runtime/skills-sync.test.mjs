@@ -1,5 +1,13 @@
 import assert from 'node:assert/strict'
-import { lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -20,6 +28,9 @@ const params = {
     },
   },
 }
+
+// Waits for the fetch the session itself never waits for.
+const sync = async (...args) => (await nuphosLocalSyncSkills(...args)).synced
 
 function bundle(revision, files) {
   return new Response(JSON.stringify({ revision, files }), { status: 200 })
@@ -43,15 +54,48 @@ test('installs the team bundle into the workspace and skips an unchanged revisio
     )
   })
 
-  assert.equal(await nuphosLocalSyncSkills(params, { workspace }), true)
+  assert.equal(await sync(params, { workspace }), true)
   assert.equal(
     readFileSync(join(workspace, '.claude', 'skills', 'deploy', 'SKILL.md'), 'utf8'),
     '# Deploy',
   )
   assert.equal(readFileSync(join(workspace, '.claude', 'settings.json'), 'utf8'), '{}')
-  assert.equal(await nuphosLocalSyncSkills(params, { workspace }), true)
+  assert.equal(await sync(params, { workspace }), true)
   assert.equal(requests[1]['if-none-match'], '"r1"')
   assert.equal(requests[0].authorization, 'Bearer token')
+})
+
+test('a session never waits for the fetch', async (t) => {
+  const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
+  const sessionHome = mkdtempSync(join(tmpdir(), 'home-'))
+  const opened = structuredClone(params)
+
+  let asked = 0
+  let bothAsked
+  const both = new Promise((resolve) => {
+    bothAsked = resolve
+  })
+
+  // Neither the team nor the personal fetch ever answers.
+  t.mock.method(globalThis, 'fetch', () => {
+    asked += 1
+    if (asked === 2) bothAsked()
+
+    return new Promise(() => {})
+  })
+  const { synced } = await nuphosLocalSyncSkills(opened, { workspace, sessionHome })
+  let settled = false
+
+  void synced.then(() => {
+    settled = true
+  })
+  await both
+  assert.equal(settled, false)
+  // The session's own directory is offered before any fetch answers.
+  assert.deepEqual(opened._meta.claudeCode.options.additionalDirectories, [
+    join(sessionHome, 'personal-skills'),
+  ])
+  delete globalThis.nuphosRefreshPersonalSkills
 })
 
 test('a newer revision replaces the old tree', async (t) => {
@@ -63,8 +107,8 @@ test('a newer revision replaces the old tree', async (t) => {
 
     return Promise.resolve(bundle(`r${String(revision)}`, [file(`s${String(revision)}.md`, 'x')]))
   })
-  await nuphosLocalSyncSkills(params, { workspace })
-  await nuphosLocalSyncSkills(params, { workspace })
+  await sync(params, { workspace })
+  await sync(params, { workspace })
 
   assert.deepEqual(readdirSync(join(workspace, '.claude', 'skills')), ['s2.md'])
   assert.equal(
@@ -78,12 +122,12 @@ test('refuses paths that escape the skills tree', async (t) => {
 
   t.mock.method(globalThis, 'fetch', () => Promise.resolve(bundle('r1', [file('../evil', 'x')])))
 
-  assert.equal(await nuphosLocalSyncSkills(params, { workspace }), false)
+  assert.equal(await sync(params, { workspace }), false)
   assert.deepEqual(readdirSync(workspace).includes('evil'), false)
 })
 
 test('does nothing without a skills credential', async () => {
-  assert.equal(await nuphosLocalSyncSkills({}, { workspace: tmpdir() }), false)
+  assert.equal(await sync({}, { workspace: tmpdir() }), false)
 })
 
 test('the adapter patch points the bridge and skills sync at the desktop bundle', () => {
@@ -159,10 +203,7 @@ test('personal skills follow the turn’s credential and never land in the works
     return [...calls]
   }
 
-  assert.equal(
-    await nuphosLocalSyncSkills(opened, { workspace, sessionHome, credentialsDir }),
-    true,
-  )
+  assert.equal(await sync(opened, { workspace, sessionHome, credentialsDir }), true)
   assert.deepEqual(readdirSync(skills).sort(), ['_runtime', 'owner'])
   assert.deepEqual(readdirSync(join(workspace, '.claude', 'skills')), ['team'])
   // In place, so a running session keeps watching it; and no agent settings from it.
@@ -202,9 +243,41 @@ test('personal skills follow the turn’s credential and never land in the works
   const reopened = structuredClone(opened)
 
   reopened._meta.claudeCode.options.env.NUPHOS_RUNTIME_SKILLS_TOKEN = 'p.none.10.sig'
-  await nuphosLocalSyncSkills(reopened, { workspace, sessionHome, credentialsDir })
+  await sync(reopened, { workspace, sessionHome, credentialsDir })
   assert.deepEqual(readdirSync(skills), [])
   delete globalThis.nuphosRefreshPersonalSkills
+})
+
+test('a reopened session never starts on another member’s personal skills', async (t) => {
+  const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
+  const sessionHome = mkdtempSync(join(tmpdir(), 'skills-home-'))
+  const credentialsDir = mkdtempSync(join(tmpdir(), 'skills-credentials-'))
+  const claude = join(sessionHome, 'personal-skills', '.claude')
+  const leave = (who) => {
+    mkdirSync(join(claude, 'skills', who), { recursive: true })
+    writeFileSync(join(claude, '.skills-revision'), who)
+    writeFileSync(join(claude, '.skills-holder'), who)
+  }
+  const open = async (who) => {
+    const reopened = structuredClone(params)
+
+    reopened._meta.claudeCode.options.env.NUPHOS_RUNTIME_SKILLS_TOKEN = `p.${who}.1.sig`
+    writeFileSync(join(credentialsDir, 'NUPHOS_RUNTIME_SKILLS_TOKEN'), `p.${who}.1.sig\n`)
+    await nuphosLocalSyncSkills(reopened, { workspace, sessionHome, credentialsDir })
+    delete globalThis.nuphosRefreshPersonalSkills
+  }
+
+  // No fetch ever answers: whatever the session starts on is what was left on disk.
+  t.mock.method(globalThis, 'fetch', () => new Promise(() => {}))
+
+  leave('owner')
+  await open('guest')
+  assert.deepEqual(readdirSync(join(claude, 'skills')), [])
+
+  // The member whose skills they are keeps them.
+  leave('owner')
+  await open('owner')
+  assert.deepEqual(readdirSync(join(claude, 'skills')), ['owner'])
 })
 
 test('the staged ACP shim keeps its #! line first and syncs skills through the desktop', () => {

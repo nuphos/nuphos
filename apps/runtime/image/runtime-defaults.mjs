@@ -1,19 +1,18 @@
 import { nuphosStreamReplyImages } from './reply-image-stream.mjs'
 import { nuphosReplyImages, nuphosUploadReplyImages } from './reply-images.mjs'
 
-// Pull the team's skill bundle into the workspace before the session is handed back,
-// and the owner's personal skills into the conversation's own home.
+// Pull the team's skill bundle into the workspace, and the owner's personal skills into
+// the conversation's own home.
 //
 // A provisioned pod gets its skills pushed by the reconciler, which nothing can do for
 // a container Nuphos never created. The backend instead delivers a one-conversation URL
 // and token in the session's own environment, so the runtime fetches its own bundle.
 //
-// Never fatal. A runtime with no bundle, an unreachable backend or a wedged fetch must
-// still hold a conversation — skills are an enrichment, not a precondition. The script
-// allows itself two minutes, which is far longer than a session/new may block, so the
-// timeout here is the real budget and the kill is what enforces it. A tree that is
-// already on disk is waited for only briefly, so a slow fetch cannot hold the first
-// turn of a conversation whose skills have not changed.
+// Never holds a session open on the network: it returns once the session's own
+// directories are set up, and the fetch runs on as `synced` and lands for the next
+// session. Never fatal either — skills are an enrichment, not a precondition. The
+// script allows itself two minutes, so the timeout here is the real budget and the
+// kill is what enforces it.
 export async function nuphosSyncRuntimeSkills(params, run) {
   const env =
     params?._meta?.claudeCode?.options?.env ??
@@ -24,7 +23,8 @@ export async function nuphosSyncRuntimeSkills(params, run) {
   const token = env.NUPHOS_RUNTIME_SKILLS_TOKEN
 
   // Both or nothing: a managed pod carries neither and must not be touched.
-  if (typeof url !== 'string' || typeof token !== 'string' || !url || !token) return false
+  if (typeof url !== 'string' || typeof token !== 'string' || !url || !token)
+    return { synced: Promise.resolve(false) }
   const { spawn } = await import('node:child_process')
   const path = await import('node:path')
   const fs = await import('node:fs/promises')
@@ -73,47 +73,12 @@ export async function nuphosSyncRuntimeSkills(params, run) {
       })
     })
 
-  // A bundle already on disk is a usable tree exactly as it is: the sync answering
-  // "unchanged" (304) has nothing to install. So it is held up only long enough for a
-  // real change to arrive — one still running past that keeps going and installs for
-  // the next session. With no tree at all the session waits for the whole budget,
-  // because that fetch is the only thing that will install one. `/workspace` is the
-  // image's own workspace: the fetch is handed none at all, so this is the only tree
-  // it can write to, and no session can choose it.
-  const claude = path.join(run?.env?.NUPHOS_RUNTIME_WORKSPACE ?? '/workspace', '.claude')
-  const present = (target) =>
-    fs.access(target).then(
-      () => true,
-      () => false,
-    )
-  const hasBundle =
-    (await present(path.join(claude, 'skills'))) &&
-    (await present(path.join(claude, '.skills-revision')))
-  // A backend answering in its usual 130–370 ms still lands inside this; one that
-  // stalls must not spend the session budget doing nothing.
-  const graceMs = run?.graceMs ?? 2_000
-  const teamSync = sync()
-  const settleTeam = async () => {
-    const team = hasBundle
-      ? await Promise.race([
-          teamSync,
-          new Promise((resolve) => setTimeout(() => resolve(undefined), graceMs).unref?.()),
-        ])
-      : await teamSync
-    // Past the grace the session has moved on, so nothing else would see a failure.
-    if (team === undefined)
-      void teamSync
-        .then((ok) => {
-          if (!ok) process.stderr.write('runtime skills sync failed after the session started\n')
-        })
-        .catch((error) => {
-          process.stderr.write(
-            `runtime skills sync failed after the session started: ${error?.message ?? error}\n`,
-          )
-        })
+  // Nobody waits for this, so a failure would otherwise vanish with the promise.
+  const teamSync = sync().then((ok) => {
+    if (!ok) process.stderr.write('runtime skills sync failed\n')
 
-    return team
-  }
+    return ok
+  })
   // The owner's personal skills go to this conversation's own home and are offered to
   // Claude Code as an additional directory, so no other conversation on the runtime
   // loads them. The home is derived from the conversation id, never taken from the
@@ -124,7 +89,7 @@ export async function nuphosSyncRuntimeSkills(params, run) {
     : (run?.sessionHome ??
       (typeof nuphosSessionHomeEnv === 'function' ? nuphosSessionHomeEnv(env).HOME : undefined))
 
-  if (!home) return settleTeam()
+  if (!home) return { synced: teamSync }
   const personal = path.join(home, 'personal-skills')
   const skills = path.join(personal, '.claude', 'skills')
   // Whose personal skills, if anyone's, can change between the turns of a live session.
@@ -132,10 +97,14 @@ export async function nuphosSyncRuntimeSkills(params, run) {
   // runs again before every prompt and leaves the skills that credential allows, or
   // none. It reports whether the skills on disk changed.
   const revisionFile = path.join(path.join(personal, '.claude'), '.skills-revision')
+  // Whose skills are on disk. Kept beside them rather than in this process, because a
+  // reopened session finds whatever an earlier process left in this home.
+  const holderFile = path.join(path.join(personal, '.claude'), '.skills-holder')
   const empty = async () => {
     for (const entry of await fs.readdir(skills).catch(() => []))
       await fs.rm(path.join(skills, entry), { recursive: true, force: true }).catch(() => {})
     await fs.rm(revisionFile, { force: true }).catch(() => {})
+    await fs.rm(holderFile, { force: true }).catch(() => {})
   }
   // No personal skills is one state, whoever the credential names.
   const installed = async () =>
@@ -144,11 +113,8 @@ export async function nuphosSyncRuntimeSkills(params, run) {
       : await fs.readFile(revisionFile, 'utf8').catch(() => '')
   // The part of the credential that says whose it is; the rest changes on every mint.
   const holder = (credential) => credential.split('.')[1] ?? ''
-  // Unknown until a sync here succeeds: a reopened session finds whatever an earlier
-  // process left in this home, so the first failed sync empties it.
-  let syncedFor
-  const syncPersonal = async (timeoutMs, atPrompt) => {
-    const before = await installed()
+  const owner = () => fs.readFile(holderFile, 'utf8').catch(() => '')
+  const credentialFor = async (atPrompt) => {
     const credentials = run?.credentialsDir ?? process.env.OPENAB_CREDENTIALS_DIR
     const refreshed = !credentials
       ? ''
@@ -157,28 +123,30 @@ export async function nuphosSyncRuntimeSkills(params, run) {
           () => '',
         )
     const usable = refreshed && !/[\u0000-\u001f"\\]/u.test(refreshed)
+
     // Opening a session may use the credential the session came with. A prompt may
     // not: without this turn's own credential, nobody's personal skills are installed.
     // (With no credentials directory at all there is no per-turn credential to prefer;
     // OpenAB sets it for every session it runs.)
-    const credential = usable ? refreshed : atPrompt && credentials ? '' : token
+    return usable ? refreshed : atPrompt && credentials ? '' : token
+  }
+  const syncPersonal = async (timeoutMs, atPrompt) => {
+    const before = await installed()
+    const credential = await credentialFor(atPrompt)
 
-    if (!credential) {
-      await empty()
-      syncedFor = ''
-    } else if (
+    if (!credential) await empty()
+    else if (
       await sync(
         { NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR: personal, NUPHOS_RUNTIME_SKILLS_TOKEN: credential },
         timeoutMs,
       )
     ) {
-      syncedFor = holder(credential)
-    } else if (holder(credential) !== syncedFor) {
-      // A failed sync must not leave another member's skills in place. For the same
-      // member it changes nothing: what is installed stays.
-      await empty()
-      syncedFor = holder(credential)
+      await fs.mkdir(path.dirname(holderFile), { recursive: true })
+      await fs.writeFile(holderFile, holder(credential))
     }
+    // A failed sync must not leave another member's skills in place. For the same
+    // member it changes nothing: what is installed stays.
+    else if (holder(credential) !== (await owner())) await empty()
 
     return (await installed()) !== before
   }
@@ -218,7 +186,12 @@ export async function nuphosSyncRuntimeSkills(params, run) {
         await agent.setSessionConfigOption({ sessionId: id, configId, value }).catch(() => {})
     }
   }
-  const [team] = await Promise.all([settleTeam(), syncPersonal()])
+  // A session reads its skills when it starts, and the fetch runs behind it. So skills
+  // left here for anyone but the member opening it are cleared first; that is local.
+  const opener = holder(await credentialFor(false))
+
+  if (!opener || opener !== (await owner())) await empty()
+  const synced = Promise.all([teamSync, syncPersonal().catch(() => false)]).then(([team]) => team)
 
   // Present even when empty, so a skill synced for a later turn is picked up.
   await fs.mkdir(skills, { recursive: true })
@@ -227,7 +200,7 @@ export async function nuphosSyncRuntimeSkills(params, run) {
     personal,
   ]
 
-  return team
+  return { synced }
 }
 
 // Run inside the native adapter once a session has discovered its controls,
