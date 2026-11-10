@@ -47,7 +47,7 @@ test('a prompt with an attachment is not resent as text alone', () => {
     role: 'user',
     parts: [
       { type: 'text', text: 'summarize the attached report' },
-      { type: 'local-file', path: '/tmp/report.pdf' },
+      { type: 'local-file', path: '/Users/me/Documents/report.pdf' },
     ],
   }
 
