@@ -83,12 +83,23 @@ describe('own credential without a team binding', () => {
     const rows = personalRows(options(1, 0), emptyCredentialAccess())
 
     assert.deepEqual(setAllPersonal(emptyCredentialAccess(), rows, true), {
+      teamIdentity: [],
       personalCredentialIds: ['linear'],
     })
     assert.deepEqual(setAllPersonal(emptyCredentialAccess(), rows, false), {
       teamIdentity: ['github'],
       personalCredentialIds: [],
     })
+  })
+
+  // The backend keeps the stored value for any key a selection omits, so an
+  // emptied teamIdentity must be sent as [] or "act as me" never takes effect.
+  test('Select all sends an empty teamIdentity instead of omitting it', () => {
+    const value = { ...emptyCredentialAccess(), teamIdentity: ['github' as const] }
+    const selected = setAllPersonal(value, personalRows(options(1, 0), value), true)
+
+    assert.deepEqual(selected.teamIdentity, [])
+    assert.deepEqual(teamIdentityOf(selected).teamIdentity, [])
   })
 
   test('ticking adds the provider and unticking removes only it', () => {
@@ -107,6 +118,6 @@ describe('own credential without a team binding', () => {
     assert.deepEqual(teamIdentityOf({ personalCredentialIds: ['linear'] }), {
       personalCredentialIds: ['linear'],
     })
-    assert.deepEqual(teamIdentityOf({ personalCredentialIds: [] }), {})
+    assert.deepEqual(teamIdentityOf({ personalCredentialIds: [] }), { personalCredentialIds: [] })
   })
 })

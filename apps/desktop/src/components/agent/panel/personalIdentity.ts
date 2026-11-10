@@ -40,14 +40,14 @@ export function setPersonalIdentity(
   return { ...value, teamIdentity }
 }
 
-// Identity, not access: carried through normalize/prune untouched, and only
-// present when non-empty so selections without it keep their old shape.
+// Identity, not access: carried through normalize/prune untouched. An empty list
+// is kept, not dropped: the backend reads a missing key as "keep what is stored".
 export function teamIdentityOf(
   value: Partial<AgentCredentialSelection> | null | undefined,
 ): Pick<AgentCredentialSelection, 'teamIdentity' | 'personalCredentialIds'> {
   return {
-    ...(value?.teamIdentity?.length ? { teamIdentity: [...value.teamIdentity] } : {}),
-    ...(value?.personalCredentialIds?.length
+    ...(value?.teamIdentity ? { teamIdentity: [...value.teamIdentity] } : {}),
+    ...(value?.personalCredentialIds
       ? { personalCredentialIds: [...value.personalCredentialIds] }
       : {}),
   }
@@ -90,7 +90,7 @@ export function setAllPersonal(
   const teamIdentity = select ? others : [...others, ...bound]
 
   return {
-    ...(teamIdentity.length ? { teamIdentity } : {}),
+    teamIdentity,
     personalCredentialIds: select
       ? rows.filter((row) => !row.bound).map((row) => row.provider)
       : [],
