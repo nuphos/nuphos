@@ -85,6 +85,17 @@ test('a signed-out agent is named with its computer, not as the computer', () =>
   )
   assert.equal(selectedAgentName(control(undefined)), 'Claude Code')
   assert.equal(selectedAgentName({ value: null }), 'The runtime')
+  // On a computer with two accounts the account is shown, unless a person named the agent.
+  const account = { accountLabel: 'Claude Code · sam@example.com' }
+
+  assert.equal(
+    selectedAgentName(control({ signedIn: false, ...account, agentLabel: 'Reviewer' })),
+    'Reviewer on Box 1',
+  )
+  assert.equal(
+    selectedAgentName(control({ signedIn: false, ...account, agentLabel: 'Claude Code 2' })),
+    'Claude Code · sam@example.com on Box 1',
+  )
 })
 
 const agent = (over: Partial<RuntimeInstance> = {}): RuntimeInstance => ({
