@@ -4,6 +4,7 @@ export type BrowserExtensionItem = {
   name: string
   /** Its toolbar icon as a data URL. */
   icon: string | null
+  pinned: boolean
   /** Its badge on the tab the list was asked for. */
   badge: { text: string; color: string | null } | null
   /** Why it is not loaded: its files differ from the Chrome Web Store's. */

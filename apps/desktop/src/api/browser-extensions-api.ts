@@ -4,6 +4,7 @@ export const browserExtensionsApi = {
   browserExtensions: (tabId: number) => window.api.browserExtensions(tabId),
   browserExtensionAdd: (id: string) => window.api.browserExtensionAdd(id),
   browserExtensionRemove: (id: string) => window.api.browserExtensionRemove(id),
+  browserExtensionPin: (id: string, pinned: boolean) => window.api.browserExtensionPin(id, pinned),
   browserExtensionActivate: (id: string, tabId: number, anchor: AnchorRect) =>
     window.api.browserExtensionActivate(id, tabId, anchor),
   browserExtensionSelectTab: (tabId: number) => window.api.browserExtensionSelectTab(tabId),
