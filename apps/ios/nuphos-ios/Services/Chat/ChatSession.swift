@@ -783,10 +783,12 @@ final class ChatSession {
         try await AgentChatAPI.plan(token: token, teamId: teamId, planId: planId)
     }
 
-    /// Approve → if the quorum is met, tell the agent to proceed.
+    /// Approve by answering the plan's question, which wakes the agent. A plan
+    /// from before plans asked is approved here, then told to proceed.
     func approvePlan(_ planId: String) async throws -> Plan {
-        let updated = try await AgentChatAPI.updatePlan(token: token, teamId: teamId, planId: planId, status: "approved")
         Analytics.shared.track("agent_plan_approved", teamID: teamId, properties: ["plan_id": planId])
+        if await answerPlan(PlanAnswer.approve, planId) { return try await plan(planId) }
+        let updated = try await AgentChatAPI.updatePlan(token: token, teamId: teamId, planId: planId, status: "approved")
         if updated.status == "approved" {
             send("Approved plan #\(planId) — please proceed with plan #\(planId).")
         }
@@ -794,10 +796,15 @@ final class ChatSession {
     }
 
     func rejectPlan(_ planId: String) async throws -> Plan {
-        let updated = try await AgentChatAPI.updatePlan(token: token, teamId: teamId, planId: planId, status: "rejected")
         Analytics.shared.track("agent_plan_rejected", teamID: teamId, properties: ["plan_id": planId])
+        if await answerPlan(PlanAnswer.reject, planId) { return try await plan(planId) }
+        let updated = try await AgentChatAPI.updatePlan(token: token, teamId: teamId, planId: planId, status: "rejected")
         send("Rejected the plan — discard it and stop.")
         return updated
+    }
+
+    private func answerPlan(_ choice: String, _ planId: String) async -> Bool {
+        (try? await PlanAnswer.send(choice, planId: planId, sessionId: sessionId, token: token, teamId: teamId)) == true
     }
 
     func requestPlanChanges(_ reason: String) {

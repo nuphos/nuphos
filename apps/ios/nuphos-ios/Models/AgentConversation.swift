@@ -68,6 +68,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         let options: [String]?
         /// ISO time it was asked.
         let askedAt: String?
+        /// The plan (#N) a plan's approval question decides.
+        var planId: String? = nil
     }
 
     let sessionId: String
@@ -304,6 +306,8 @@ struct AgentConversationDetail: Decodable, Sendable {
 
     /// A chat's icon, as the list row carries it.
     let faces: [ChatFace]
+    /// The questions still waiting on the owner.
+    let inputRequests: [AgentConversation.InputRequest]
 
     var isChannel: Bool { kind == "channel" }
 
@@ -321,7 +325,7 @@ struct AgentConversationDetail: Decodable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case faces, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, promptSuggestion
+        case faces, inputRequests, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, promptSuggestion
     }
 
     init(from decoder: Decoder) throws {
@@ -353,5 +357,6 @@ struct AgentConversationDetail: Decodable, Sendable {
         messageCount = try? c.decodeIfPresent(Int.self, forKey: .messageCount)
         faces = (try? c.decodeIfPresent([ChatFace].self, forKey: .faces)) ?? []
         transcriptUpdatedAt = try? c.decodeIfPresent(String.self, forKey: .transcriptUpdatedAt)
+        inputRequests = (try? c.decodeIfPresent([AgentConversation.InputRequest].self, forKey: .inputRequests)) ?? []
     }
 }

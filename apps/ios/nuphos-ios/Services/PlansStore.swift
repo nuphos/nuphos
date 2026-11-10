@@ -154,10 +154,16 @@ final class PlansStore {
     /// Records one approval against the policy snapshot. The response stays
     /// `proposed` until the quorum is met.
     @discardableResult
+    /// Answers the plan's question when it has one, which wakes its agent;
+    /// otherwise (an older plan, or no access to its conversation) records the vote.
     func approve(_ plan: Plan) async throws -> Plan {
         guard let teamId = plan.teamId ?? teamId else { throw NuphosAPI.Failure.invalidResponse }
-        let updated = try await AgentChatAPI.updatePlan(token: token, teamId: teamId, planId: plan.id, status: "approved")
         Analytics.shared.track("agent_plan_approved", teamID: teamId, properties: ["plan_id": plan.id])
+        let answered = (try? await PlanAnswer.send(PlanAnswer.approve, planId: plan.id, sessionId: plan.sourceConversationId,
+                                                   token: token, teamId: teamId)) == true
+        let updated = answered
+            ? try await AgentChatAPI.plan(token: token, teamId: teamId, planId: plan.id)
+            : try await AgentChatAPI.updatePlan(token: token, teamId: teamId, planId: plan.id, status: "approved")
         apply(updated)
         return updated
     }

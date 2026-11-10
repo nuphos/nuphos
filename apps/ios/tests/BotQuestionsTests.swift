@@ -5,6 +5,7 @@ enum BotQuestionsTests {
         listsTheBotsQuestionsAtAnyDepth()
         leavesOutOtherBotsAndTeammates()
         decodesTheOpenRequestsOfAListRow()
+        aConversationKnowsWhichQuestionDecidesAPlan()
         theInboxListsEveryOwnQuestionOnce()
         print("Bot questions passed")
     }
@@ -55,6 +56,20 @@ enum BotQuestionsTests {
         let decoded = try! decoder.decode(AgentConversation.self, from: Data(json.utf8))
         precondition(decoded.inputRequests?.first?.options == ["Yes"])
         precondition(BotQuestions.under(bot: "rollout", rows: [decoded]).map(\.id) == ["canary:q-canary"])
+    }
+
+    private static func aConversationKnowsWhichQuestionDecidesAPlan() {
+        // What PlanAnswer looks up: the open question that names the plan.
+        let json = """
+        {"messages":[],"inputRequests":[
+         {"id":"q-1","question":"Ship?","options":["Yes"]},
+         {"id":"nuphos-plan-7-1","category":"approval","question":"Approve plan #7?",
+          "options":["Approve","Reject"],"planId":"7","status":"open"}]}
+        """
+        let detail = try! JSONDecoder().decode(AgentConversationDetail.self, from: Data(json.utf8))
+        precondition(detail.inputRequests.first(where: { $0.planId == "7" })?.id == "nuphos-plan-7-1")
+        let bare = try! JSONDecoder().decode(AgentConversationDetail.self, from: Data(#"{"messages":[]}"#.utf8))
+        precondition(bare.inputRequests.isEmpty)
     }
 
     private static func theInboxListsEveryOwnQuestionOnce() {
