@@ -1,5 +1,3 @@
-import { isDeepStrictEqual } from 'node:util'
-
 import { isValidCronExpression } from '@/lib/cron'
 import { AppError } from '@/lib/errors'
 import { clearSlackNotificationIncidentsForTrigger } from '@/lib/slack/incident-notifications'
@@ -11,16 +9,13 @@ import {
 } from '../trigger-access'
 import { agentTriggers, triggerConfigRevisionFilter } from '../trigger-db'
 import { scheduleCronTrigger, unscheduleCronTrigger } from '../trigger-scheduler'
-import { assertTriggerSlackDestinationAuthorized } from '../trigger-slack-authorization'
 
 import {
   assertBindableSession,
   findManagedTrigger,
   parseTriggerId,
   serializeTrigger,
-  validateIncidentConfiguration,
   validateMinInterval,
-  validateSlackDestination,
 } from './shared'
 import { assertTriggerCreationQuota } from './quota'
 import { rollbackTriggerUpdate } from './update-rollback'
@@ -72,53 +67,12 @@ export async function updateTrigger(
     })
   }
 
-  if (trigger.sessionRouting && patch.incidentMode === true) {
-    throw new AppError(400, 'invalid_routing', 'Routed sessions cannot enable incident mode')
-  }
-  const nextTargetSessionId =
-    patch.targetSessionId === undefined
-      ? trigger.targetSessionId
-      : (patch.targetSessionId ?? undefined)
+  const nextTargetSessionId = patch.targetSessionId ?? trigger.targetSessionId
   const targetSessionChanged = nextTargetSessionId !== trigger.targetSessionId
 
-  if (nextTargetSessionId && (trigger.sessionRouting || trigger.watchGroupId)) {
-    throw new AppError(
-      400,
-      'invalid_target_session',
-      'targetSessionId cannot be combined with session routing or a Watch Group',
-    )
-  }
   if (patch.minIntervalSeconds !== undefined) {
     validateMinInterval(trigger.triggerType, patch.minIntervalSeconds)
   }
-  if (patch.incidentMode !== undefined) {
-    if (trigger.triggerType !== 'webhook') {
-      throw new AppError(
-        400,
-        'invalid_incident_mode',
-        'incidentMode is only valid for webhook triggers',
-      )
-    }
-  }
-  if (patch.slackDestination) {
-    validateSlackDestination(patch.slackDestination)
-  }
-
-  const nextIncidentMode = patch.incidentMode ?? trigger.incidentMode
-
-  if (nextTargetSessionId && nextIncidentMode) {
-    throw new AppError(400, 'invalid_target_session', 'A bound session cannot use incident mode')
-  }
-  const nextSlackDestination =
-    patch.incidentMode === false || patch.slackDestination === null
-      ? undefined
-      : (patch.slackDestination ?? trigger.slackDestination)
-
-  validateIncidentConfiguration({
-    triggerType: trigger.triggerType,
-    ...(nextIncidentMode !== undefined ? { incidentMode: nextIncidentMode } : {}),
-    ...(nextSlackDestination ? { slackDestination: nextSlackDestination } : {}),
-  })
   let nextCronExpression = trigger.cronExpression
 
   if (trigger.triggerType === 'cron' && typeof patch.cronExpression === 'string') {
@@ -134,16 +88,9 @@ export async function updateTrigger(
   const minIntervalChanged =
     patch.minIntervalSeconds !== undefined &&
     patch.minIntervalSeconds !== trigger.minIntervalSeconds
-  const slackDestinationChanged = !isDeepStrictEqual(nextSlackDestination, trigger.slackDestination)
   const enabledChanged = nextEnabled !== trigger.enabled
-  const incidentModeChanged = nextIncidentMode !== trigger.incidentMode
   const substantiveChanged =
-    messageTemplateChanged ||
-    cronChanged ||
-    minIntervalChanged ||
-    incidentModeChanged ||
-    slackDestinationChanged ||
-    targetSessionChanged
+    messageTemplateChanged || cronChanged || minIntervalChanged || targetSessionChanged
 
   // An edit changes what the Trigger does, never who it runs as. Editing is
   // still gated on outranking the principal, because until the identity moves
@@ -168,17 +115,6 @@ export async function updateTrigger(
     await assertBindableSession(nextTargetSessionId, trigger.teamId, principalUserId)
   }
 
-  if (
-    nextIncidentMode === true &&
-    nextSlackDestination &&
-    (slackDestinationChanged || incidentModeChanged || enabledChanged || substantiveChanged)
-  ) {
-    await assertTriggerSlackDestinationAuthorized(nextSlackDestination, {
-      teamId: trigger.teamId,
-      userId: principalUserId,
-    })
-  }
-
   if (!nameChanged && !enabledChanged && !substantiveChanged) {
     return serializeTrigger(trigger)
   }
@@ -190,13 +126,7 @@ export async function updateTrigger(
     ...(enabledChanged ? { enabled: nextEnabled } : {}),
     ...(cronChanged && nextCronExpression ? { cronExpression: nextCronExpression } : {}),
     ...(minIntervalChanged ? { minIntervalSeconds: patch.minIntervalSeconds } : {}),
-    ...(incidentModeChanged ? { incidentMode: nextIncidentMode } : {}),
-    ...(targetSessionChanged && nextTargetSessionId
-      ? { targetSessionId: nextTargetSessionId }
-      : {}),
-    ...(slackDestinationChanged && nextSlackDestination
-      ? { slackDestination: nextSlackDestination }
-      : {}),
+    ...(targetSessionChanged ? { targetSessionId: nextTargetSessionId } : {}),
   }
   const currentConfigRevision = trigger.configRevision ?? 0
   const updated: AgentTrigger = {
@@ -205,27 +135,27 @@ export async function updateTrigger(
     configRevision: currentConfigRevision + 1,
   }
 
-  if (patch.incidentMode === false || patch.slackDestination === null) {
-    delete updated.slackDestination
-  }
-  if (!nextTargetSessionId) delete updated.targetSessionId
+  // A legacy Trigger created before binding was required leaves its
+  // fresh-session modes behind the first time it is bound.
+  const legacyModes =
+    targetSessionChanged && !trigger.targetSessionId
+      ? (['incidentMode', 'slackDestination', 'sessionRouting'] as const).filter(
+          (field) => trigger[field] !== undefined,
+        )
+      : []
+
+  for (const field of legacyModes) delete updated[field]
 
   const resetIncidentLifecycle =
     trigger.incidentMode === true &&
-    (patch.enabled === false ||
-      patch.incidentMode === false ||
-      messageTemplateChanged ||
-      slackDestinationChanged)
+    (patch.enabled === false || messageTemplateChanged || legacyModes.length > 0)
 
   // Re-assert ownership, revision, and cleanup state in the same write. This
   // prevents an update that raced a deletion claim from mutating the Watch.
   const update: UpdateFilter<AgentTrigger> = { $set }
   const $unset: Record<string, true> = {}
 
-  if (patch.incidentMode === false || patch.slackDestination === null) {
-    $unset.slackDestination = true
-  }
-  if (targetSessionChanged && !nextTargetSessionId) $unset.targetSessionId = true
+  for (const field of legacyModes) $unset[field] = true
   if (Object.keys($unset).length > 0) {
     update.$unset = $unset
   }

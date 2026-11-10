@@ -1,19 +1,17 @@
 import { createHash } from 'node:crypto'
-import { isDeepStrictEqual } from 'node:util'
 
 import { byCodeUnit } from '@/lib/agent/sort-order'
 
 import { agentTriggerGroups, isSharedIngressTriggerGroup } from '../trigger-group-db'
 
 import type { AgentTriggerGroup } from '../trigger-group-db'
-import type { SlackOutboundDestination } from '@/lib/slack/destinations'
 
 export function triggerGroupDedupeKey(input: {
   /** Omitted for the team-scoped identity; supplied only to rebuild the legacy key. */
   userId?: string
   teamId: string
   memberKeys: string[]
-  slackDestination?: SlackOutboundDestination
+  targetSessionId: string
 }): string {
   // v1 belonged to the earlier "many standalone triggers" prototype. Keep a
   // versioned boundary so its retained metadata cannot collide with a new
@@ -24,7 +22,7 @@ export function triggerGroupDedupeKey(input: {
         input.userId ?? 'team',
         input.teamId,
         [...input.memberKeys].sort(byCodeUnit),
-        input.slackDestination ?? null,
+        input.targetSessionId,
       ]),
     )
     .digest('hex')}`
@@ -35,7 +33,7 @@ export function triggerGroupDedupeKey(input: {
  *
  * The pre-team-ownership key is derived from its creator, so a colleague
  * cannot compute the key of a Group somebody else created. Falling back to the
- * selection itself — same team, same exact member set, same destination — is
+ * selection itself — same team, same exact member set, same conversation — is
  * what actually converges an existing team Group onto one row.
  */
 export async function findExistingTriggerGroup(input: {
@@ -43,7 +41,7 @@ export async function findExistingTriggerGroup(input: {
   legacyDedupeKey: string
   teamId: string
   memberKeys: string[]
-  slackDestination?: SlackOutboundDestination
+  targetSessionId: string
 }): Promise<AgentTriggerGroup | null> {
   const byKey = await agentTriggerGroups().findOne({
     dedupeKey: { $in: [input.dedupeKey, input.legacyDedupeKey] },
@@ -72,7 +70,7 @@ export async function findExistingTriggerGroup(input: {
         // unable to create this Group.
         isSharedIngressTriggerGroup(candidate) &&
         candidate.members.length === input.memberKeys.length &&
-        isDeepStrictEqual(candidate.slackDestination, input.slackDestination),
+        candidate.targetSessionId === input.targetSessionId,
     ) ?? null
   )
 }

@@ -160,26 +160,26 @@ ac "/teams/$TEAM/grafana-instances/$GI/proxy/api/datasources/proxy/uid/$DS_UID/a
 
 ## Wiring a Grafana alert to a Nuphos agent trigger
 
-Use this when the user says "watch this alert / when X fires, do Y" (post to Slack, investigate, scale something…). The pattern: Grafana keeps the condition (the alert rule), Nuphos receives the notification (a webhook trigger), and an agent session performs Y. Slack incident delivery reuses the open incident conversation.
+Use this when the user says "watch this alert / when X fires, do Y" (post to Slack, investigate, scale something…). The pattern: Grafana keeps the condition (the alert rule), Nuphos receives the notification (a webhook trigger), and the conversation the trigger is bound to performs Y. Every firing lands in that same conversation.
 
 **Completion contract:** creating the Nuphos trigger is only step 1 and NEVER means the Watch is live. Finish the contact point, exact-rule routing, read-back, and drill in the same turn. A generated Watch prompt explicitly authorizes additive wiring scoped to that exact rule, so do not ask for a second confirmation. Preserve every existing notification receiver by default; only ask when the provider cannot preserve it without a genuine tradeoff. Never hand the user the webhook URL or Grafana setup instructions when this authenticated proxy can perform the writes.
 
-If the requested destination is Slack, call `slack_list_destinations` before creating the trigger. The destination must come from the user's explicit Watch choice: `dm_self`, or one exact joined channel. Persist that exact choice in `trigger_create.slackDestination` as well as naming it in the messageTemplate; the structured field is the server-enforced authorization boundary. If the user chose Nuphos, keep the result in the fresh Nuphos conversation and do not add Slack delivery.
+If the requested destination is Slack, call `slack_list_destinations` before creating the trigger. The destination must come from the user's explicit Watch choice: `dm_self`, or one exact joined channel. Name that exact choice in the messageTemplate. If the user chose Nuphos, keep the result in the bound Nuphos conversation and do not add Slack delivery.
 
-1. **Create the webhook trigger** with `trigger_create` (`triggerType: "webhook"`; set `monitoringIdentity` to `{provider:"grafana", integrationId:"<connected Grafana integration ID>", resourceId:"<exact alert-rule UID>"}` so retries reuse one trigger; when Slack is the action, also set `incidentMode: true` and `slackDestination` to the exact approved DM/channel). Write the messageTemplate as the ACTION, branching on the Grafana payload — a webhook notification body has `status` ("firing" | "resolved"), `title`, `message`, and `alerts[]` with `labels`/`annotations`:
+1. **Create the webhook trigger** with `trigger_create` (`triggerType: "webhook"`; set `monitoringIdentity` to `{provider:"grafana", integrationId:"<connected Grafana integration ID>", resourceId:"<exact alert-rule UID>"}` so retries reuse one trigger). Write the messageTemplate as the ACTION, branching on the Grafana payload — a webhook notification body has `status` ("firing" | "resolved"), `title`, `message`, and `alerts[]` with `labels`/`annotations`:
 
    ```text
    Grafana alert notification received (status: {{payload.status}}).
    Title: {{payload.title}}
    If the payload contains "test": true or "drill": true, or clearly identifies Grafana's contact-point test notification, reply "test delivery received" and STOP — no investigation.
-   For Slack, handle it the way an on-call engineer would. Call incident_history first to see whether this alert has gone off before and in which thread, and slack_read_channel if you want to know what is already in the channel. Post something quickly so whoever is watching knows it is being looked at, then investigate and follow up in the same thread when you know more.
-   Pass replyToThread with a threadTs from incident_history when this firing is the same problem still going or coming back; omit it to start a new thread when it is genuinely different. There is no message type to declare. When it has recovered, say so in its thread and stop — nothing needs to be closed. Pass the exact destination object stored on the trigger, including slackWorkspaceId when it is present — reconstructing it as only {"type":"channel","channelId":"..."} can be refused or aimed at the wrong workspace. For a new Watch, persist that same exact object in trigger_create.slackDestination: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM.
+   For Slack, handle it the way an on-call engineer would. First check the earlier firings in this conversation to see whether this alert has gone off before and in which thread, and slack_read_channel if you want to know what is already in the channel. Post something quickly so whoever is watching knows it is being looked at, then investigate and follow up in the same thread when you know more.
+   Pass replyToThread with that earlier threadTs when this firing is the same problem still going or coming back; omit it to start a new thread when it is genuinely different. There is no message type to declare. When it has recovered, say so in its thread and stop — nothing needs to be closed. Post to the exact destination the user approved, as written in the messageTemplate, including slackWorkspaceId when it is known: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM.
    For Nuphos-only delivery, keep the findings here and do not call slack_post.
    ```
 
    Always include the drill line: delivery tests then cost one short reply instead of a full investigation session — send `{"test": true, "status": "firing"}` when verifying.
 
-   A Slack firing notification uses one root message for one incident conversation, followed by one investigation-result reply. Later meaningful changes and recovery also stay in that thread. Mention in the root that the user can reply there to continue with Nuphos.
+   A Slack firing notification uses one root message per problem, followed by one investigation-result reply. Later meaningful changes and recovery also stay in that thread. Mention in the root that the user can reply there to continue with Nuphos.
 
    The result gives you `webhookUrl` and `webhookSecret` (returned only once).
 
@@ -212,7 +212,7 @@ If the requested destination is Slack, call `slack_list_destinations` before cre
 
    Do not append the webhook integration to a shared receiver: that would send every alert using the receiver to Nuphos. If the user explicitly asks to replace existing notifications or enable Agent for a whole shared receiver, explain the blast radius and confirm that broader change separately.
 
-4. **Control noise at every layer.** Grafana re-sends on `repeat_interval` while an alert stays firing. Set a long `repeat_interval` (e.g. `4h`) and a sensible `group_wait` so the trigger fires mostly on transitions; set `minIntervalSeconds` for retry bursts. For Slack, `incidentMode` reuses one open Nuphos conversation and enforces one root, material updates in its thread no more than once per 15 minutes / three per hour, and one resolution. The Agent still makes the semantic SRE judgment: repeated timestamps, minor metric movement, and unchanged evidence are not material and should not call `slack_post`.
+4. **Control noise at every layer.** Grafana re-sends on `repeat_interval` while an alert stays firing. Set a long `repeat_interval` (e.g. `4h`) and a sensible `group_wait` so the trigger fires mostly on transitions; set `minIntervalSeconds` for retry bursts. For Slack, keep one root per problem, material updates in its thread no more than once per 15 minutes / three per hour, and one resolution. The Agent makes the semantic SRE judgment: repeated timestamps, minor metric movement, and unchanged evidence are not material and should not call `slack_post`.
 
 5. **Verify end-to-end before saying live**:
    - GET the contact points and verify the new Nuphos receiver exists and targets this trigger.

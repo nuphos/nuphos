@@ -5,8 +5,8 @@ description: Manage Nuphos cron and webhook triggers and Watch Groups through th
 
 # Nuphos Triggers API
 
-Each cron or webhook fire opens a new agent conversation, unless the trigger
-is bound to an existing one with `targetSessionId`. Triggers are not one-shot
+Every trigger is bound to one existing conversation (`targetSessionId`), and
+each cron or webhook fire is delivered into it. Triggers are not one-shot
 reminders. Use the canonical API through the bundled script; do
 not call `trigger_*` bound tools.
 
@@ -46,30 +46,31 @@ Create body:
   "name": "Weekday PR digest",
   "triggerType": "cron",
   "cronExpression": "0 9 * * 1-5",
-  "messageTemplate": "Review open PRs and summarize blockers."
+  "messageTemplate": "Review open PRs and summarize blockers.",
+  "targetSessionId": "<sessionId>"
 }
 ```
 
 For a webhook Watch, `triggerType` is `webhook`. Optional fields are
-`expiresAt`, `dedupeKey`, `monitoringIdentity`, `minIntervalSeconds`,
-`incidentMode`, and `slackDestination`. The create response returns the only
+`expiresAt`, `dedupeKey`, `monitoringIdentity`, and `minIntervalSeconds`. The
+create response returns the only
 copy of `webhookSecret`, the external `webhookUrl`, and `secretHeader`.
 Never print or persist the secret in a skill, receipt, log, or final answer.
 
-Any trigger type also accepts `targetSessionId`, which delivers every fire into
-that existing conversation instead of opening a new one:
+`targetSessionId` is required on every create, including `POST /groups`:
 
 - The session must be in the same team and owned by the
-  trigger's execution principal. It cannot be combined with `sessionRouting`,
-  a Watch Group, or `incidentMode`.
+  trigger's execution principal.
 - If the session is mid-turn, the fire queues and runs when that turn ends.
   A fire into an archived session restores it; deleting it pauses the
   trigger.
 - The session id is the last segment of its `/agent/<sessionId>` link; for the
   current conversation use `$NUPHOS_SESSION_ID`.
-- PATCH `{ "targetSessionId": null }` returns to a new conversation per fire.
+- A trigger cannot be unbound. To report to Slack, say the exact destination
+  in `messageTemplate`; the bound conversation posts with `slack_post`.
 
-Bind an existing trigger with `PATCH /{triggerId}`:
+Move a trigger to another conversation with `PATCH /{triggerId}` (or a Watch
+Group with `PATCH /groups/{groupId}`):
 
 ```json
 { "targetSessionId": "<sessionId>" }
@@ -99,7 +100,7 @@ rollback rules.
   and restate `nextRuns` (UTC instants) in their timezone after creation.
 - A conversation fired by a trigger must not create another trigger.
 - Confirm before DELETE; prefer PATCH `{ "enabled": false }` when reversible.
-- `test-fire` only proves the run was started, not that it completed
-  successfully.
+- `test-fire` only proves the message was queued for the bound conversation,
+  not that the run completed successfully.
 - Team mutations require EDITOR/ADMINISTRATOR; deletion and execution-principal
   transfer have stricter server-side checks.

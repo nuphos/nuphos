@@ -65,7 +65,10 @@ export async function updateTriggerGroup(
   // editor's instructions run with that principal's authority. The identity
   // itself only moves through the explicit Admin transfer, so editing never
   // promotes a Group to its editor's permissions.
-  const substantiveChanged = nextMessageTemplate !== currentMessageTemplate
+  const nextTargetSessionId = patch.targetSessionId ?? group.targetSessionId
+  const substantiveChanged =
+    nextMessageTemplate !== currentMessageTemplate ||
+    nextTargetSessionId !== group.targetSessionId
 
   if (substantiveChanged) {
     await assertTriggerExecutionMutationAccess(group, context)
@@ -81,6 +84,7 @@ export async function updateTriggerGroup(
     name: string
     messageTemplate: string
     enabled: boolean
+    targetSessionId?: string
   }[] = []
 
   try {
@@ -102,7 +106,8 @@ export async function updateTriggerGroup(
       if (
         trigger.name === nextTriggerName &&
         trigger.messageTemplate === nextMessageTemplate &&
-        trigger.enabled === nextTriggerEnabled
+        trigger.enabled === nextTriggerEnabled &&
+        trigger.targetSessionId === nextTargetSessionId
       ) {
         continue
       }
@@ -110,12 +115,14 @@ export async function updateTriggerGroup(
         name: nextTriggerName,
         messageTemplate: nextMessageTemplate,
         ...(typeof patch.enabled === 'boolean' ? { enabled: nextTriggerEnabled } : {}),
+        ...(nextTargetSessionId ? { targetSessionId: nextTargetSessionId } : {}),
       })
       changedTriggers.push({
         id,
         name: trigger.name,
         messageTemplate: trigger.messageTemplate,
         enabled: trigger.enabled,
+        ...(trigger.targetSessionId ? { targetSessionId: trigger.targetSessionId } : {}),
       })
     }
 
@@ -130,6 +137,7 @@ export async function updateTriggerGroup(
           name: nextName,
           messageTemplate: nextMessageTemplate,
           enabled: nextEnabled,
+          ...(nextTargetSessionId ? { targetSessionId: nextTargetSessionId } : {}),
           updatedAt: now,
         },
       },
@@ -143,6 +151,7 @@ export async function updateTriggerGroup(
       name: nextName,
       messageTemplate: nextMessageTemplate,
       enabled: nextEnabled,
+      ...(nextTargetSessionId ? { targetSessionId: nextTargetSessionId } : {}),
       updatedAt: now,
     }
     const synchronizedTriggers = triggers.map((trigger) => {
@@ -158,6 +167,7 @@ export async function updateTriggerGroup(
             : trigger.name,
         messageTemplate: nextMessageTemplate,
         enabled: typeof patch.enabled === 'boolean' ? nextEnabled : trigger.enabled,
+        ...(nextTargetSessionId ? { targetSessionId: nextTargetSessionId } : {}),
       }
     })
 
@@ -171,6 +181,7 @@ export async function updateTriggerGroup(
           name: trigger.name,
           messageTemplate: trigger.messageTemplate,
           enabled: trigger.enabled,
+          ...(trigger.targetSessionId ? { targetSessionId: trigger.targetSessionId } : {}),
         }),
       ),
     )

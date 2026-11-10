@@ -25,7 +25,7 @@ describe('monitoring workflow completion contract', () => {
     )
     expect(MONITORING_WORKFLOW_TOOL_GUIDANCE).toContain('STOP and end the turn')
     expect(MONITORING_WORKFLOW_TOOL_GUIDANCE).toContain('Only a later explicit user acceptance')
-    expect(MONITORING_WORKFLOW_TOOL_GUIDANCE).toContain('first-party slack_post')
+    expect(MONITORING_WORKFLOW_TOOL_GUIDANCE).toContain('delivers its firings into one existing conversation')
     expect(MONITORING_WORKFLOW_TOOL_GUIDANCE).toContain('slack_not_connected')
     expect(MONITORING_WORKFLOW_TOOL_GUIDANCE).toContain('Never replace Nuphos Slack delivery')
   })

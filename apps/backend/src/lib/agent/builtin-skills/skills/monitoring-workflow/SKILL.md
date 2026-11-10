@@ -1,6 +1,6 @@
 ---
 name: monitoring-workflow
-description: Build an end-to-end monitoring Watch from any provider to a Nuphos trigger and first-party Slack incident thread. Use for creating or wiring alerts, including providers without a dedicated Nuphos skill; discover their authenticated API or CLI dynamically instead of substituting provider-native Slack integrations.
+description: Build an end-to-end monitoring Watch from any provider to a Nuphos trigger bound to one conversation, with optional first-party Slack updates. Use for creating or wiring alerts, including providers without a dedicated Nuphos skill; discover their authenticated API or CLI dynamically instead of substituting provider-native Slack integrations.
 ---
 
 # Generic monitoring workflow
@@ -14,11 +14,13 @@ The target architecture is always:
 ```text
 provider-native condition
   -> provider webhook / notification destination
-  -> Nuphos webhook trigger
-  -> immediate first-party slack_post initial
-  -> investigation
-  -> investigation_result / material_update / resolved in the same thread
+  -> Nuphos webhook trigger, bound to one existing conversation
+  -> that conversation investigates every firing
+  -> optional first-party slack_post updates, in one thread per problem
 ```
+
+Every Trigger and Watch Group needs `targetSessionId`. Use the current
+conversation (`$NUPHOS_SESSION_ID`) unless the user names another of theirs.
 
 Load the `triggers` skill and use its `trigger-api.sh` wrapper for every Nuphos
 Trigger or Watch Group operation below. Trigger bound tools are not available
@@ -61,9 +63,11 @@ signature protocol are real blockers.
 - Preserve every pre-existing notification destination unless the user
   explicitly authorizes replacing one.
 
-For Slack, call `slack_list_destinations` before creating the trigger:
+If the user wants Slack updates, call `slack_list_destinations` before creating
+the trigger:
 
-- If connected, use the exact DM or channel the user selected.
+- If connected, use the exact DM or channel the user selected and write it
+  into the message template.
 - If it returns `slack_not_connected`, ask the user to connect the Nuphos Slack
   App and stop. Preserve the requested provider, condition, and destination in
   the explanation so the workflow can resume without redesign.
@@ -73,8 +77,8 @@ For Slack, call `slack_list_destinations` before creating the trigger:
 
 For a user-approved Watch Group, first `GET /groups` to check for a
 partially provisioned group, then `POST /groups` once with all
-exact member keys, a self-contained group message template, and the single
-approved destination. The tool returns one disabled ingress for each distinct
+exact member keys, a self-contained group message template, and
+`targetSessionId`. The tool returns one disabled ingress for each distinct
 provider/integration partition — never create individual triggers for
 members. For each ingress, prefer the provider's shared primitive:
 
@@ -106,24 +110,25 @@ Create the trigger with `POST /teams/{teamId}/agent-triggers` using:
 - `monitoringIdentity.integrationId`: the exact connected account, project, or
   integration identity used by the API/CLI;
 - `monitoringIdentity.resourceId`: the exact alert/rule/policy identity;
-- `incidentMode: true` and the exact approved `slackDestination`;
+- `targetSessionId`: the conversation that handles every firing;
 - a flood guard appropriate for the provider.
 
-The message template must be self-contained and operate on the provider's real
-payload:
+The message template is delivered into the bound conversation on every firing,
+so it must make sense between earlier firings and operate on the provider's
+real payload:
 
 1. A provider test/drill payload must STOP without investigating or posting.
-2. A real firing calls `incident_history` first — has this alert gone off
-   before, and in which thread?
-3. Then post, quickly, from known payload facts, so whoever is watching knows
-   it is being looked at. Pass `replyToThread` with a threadTs from the history
-   when this is the same problem still going or coming back; omit it to start a
-   new thread when it is genuinely different.
+2. A real firing first checks the earlier firings in this conversation — has
+   this alert gone off before, and in which Slack thread was it reported?
+3. If the user wants Slack updates, post quickly to the exact approved
+   destination from known payload facts, so whoever is watching knows it is
+   being looked at. Pass `replyToThread` with that earlier thread when this is
+   the same problem still going or coming back; omit it to start a new thread
+   when it is genuinely different.
 4. Then investigate, and follow up in that same thread when there is something
    worth saying. Judge that the way an on-call who respects their team would —
    nothing enforces it.
 5. When it recovers, say so in its thread and stop. Nothing needs closing.
-6. Use `bindConversation: true` so replies continue the same Nuphos incident.
 
 Use explicit documented payload fields when available. If the schema is not
 documented, require the provider's test delivery, inspect its exact payload,

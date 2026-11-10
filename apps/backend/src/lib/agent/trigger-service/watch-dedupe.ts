@@ -60,9 +60,7 @@ export function assertDedupeCompatible(
     ? existing.teamId === ctx.teamId
     : existing.userId === ctx.userId && existing.teamId === undefined
   const sameType = existing.triggerType === input.triggerType
-  const sameIncidentBoundary =
-    existing.incidentMode === input.incidentMode &&
-    isDeepStrictEqual(existing.slackDestination, input.slackDestination)
+  const sameTargetSession = existing.targetSessionId === input.targetSessionId
   // Rows created by the first monitoring-Watch implementation only persisted
   // the derived hash. Equality with the newly derived hash securely proves the
   // same identity and lets us backfill it below.
@@ -79,7 +77,7 @@ export function assertDedupeCompatible(
   if (
     !sameOwner ||
     !sameType ||
-    !sameIncidentBoundary ||
+    !sameTargetSession ||
     !sameMonitoringIdentity ||
     !sameGroupBoundary
   ) {
