@@ -233,6 +233,44 @@ test('personal skills follow the turn’s credential, and the session is rebuilt
   delete globalThis.nuphosRefreshPersonalSkills
 })
 
+test('a reopened session never starts on another member’s personal skills', async () => {
+  // The fetch answers late and installs nothing: what the session starts on was on disk.
+  await withFakeScript('sleep 1', async ({ script, directory }) => {
+    const claude = join(directory, 'personal-skills/.claude')
+    const credentialsDir = join(directory, 'credentials')
+    const leave = async (who) => {
+      await mkdir(join(claude, 'skills', who), { recursive: true })
+      await writeFile(join(claude, '.skills-revision'), who)
+      await writeFile(join(claude, '.skills-holder'), who)
+    }
+    const open = async (who) => {
+      await writeFile(join(credentialsDir, 'NUPHOS_RUNTIME_SKILLS_TOKEN'), `p.${who}.1.sig\n`)
+      const opened = meta({
+        NUPHOS_RUNTIME_SKILLS_URL: 'https://bundle',
+        NUPHOS_RUNTIME_SKILLS_TOKEN: `p.${who}.1.sig`,
+      })
+      const { synced: fetch } = await nuphosSyncRuntimeSkills(opened, {
+        script,
+        sessionHome: directory,
+        credentialsDir,
+      })
+      const onDisk = await readdir(join(claude, 'skills'))
+
+      await fetch
+      delete globalThis.nuphosRefreshPersonalSkills
+
+      return onDisk
+    }
+
+    await mkdir(credentialsDir)
+    await leave('owner')
+    assert.deepEqual(await open('guest'), [])
+    // The member whose skills they are keeps them.
+    await leave('owner')
+    assert.deepEqual(await open('owner'), ['owner'])
+  })
+})
+
 test('only the Claude adapter re-syncs personal skills before a prompt', () => {
   const patched = patchPersonalSkillsRefresh('class A {\n    async prompt(params) {\n    }\n}')
 

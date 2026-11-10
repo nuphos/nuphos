@@ -1,5 +1,13 @@
 import assert from 'node:assert/strict'
-import { lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -238,6 +246,38 @@ test('personal skills follow the turn’s credential and never land in the works
   await sync(reopened, { workspace, sessionHome, credentialsDir })
   assert.deepEqual(readdirSync(skills), [])
   delete globalThis.nuphosRefreshPersonalSkills
+})
+
+test('a reopened session never starts on another member’s personal skills', async (t) => {
+  const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
+  const sessionHome = mkdtempSync(join(tmpdir(), 'skills-home-'))
+  const credentialsDir = mkdtempSync(join(tmpdir(), 'skills-credentials-'))
+  const claude = join(sessionHome, 'personal-skills', '.claude')
+  const leave = (who) => {
+    mkdirSync(join(claude, 'skills', who), { recursive: true })
+    writeFileSync(join(claude, '.skills-revision'), who)
+    writeFileSync(join(claude, '.skills-holder'), who)
+  }
+  const open = async (who) => {
+    const reopened = structuredClone(params)
+
+    reopened._meta.claudeCode.options.env.NUPHOS_RUNTIME_SKILLS_TOKEN = `p.${who}.1.sig`
+    writeFileSync(join(credentialsDir, 'NUPHOS_RUNTIME_SKILLS_TOKEN'), `p.${who}.1.sig\n`)
+    await nuphosLocalSyncSkills(reopened, { workspace, sessionHome, credentialsDir })
+    delete globalThis.nuphosRefreshPersonalSkills
+  }
+
+  // No fetch ever answers: whatever the session starts on is what was left on disk.
+  t.mock.method(globalThis, 'fetch', () => new Promise(() => {}))
+
+  leave('owner')
+  await open('guest')
+  assert.deepEqual(readdirSync(join(claude, 'skills')), [])
+
+  // The member whose skills they are keeps them.
+  leave('owner')
+  await open('owner')
+  assert.deepEqual(readdirSync(join(claude, 'skills')), ['owner'])
 })
 
 test('the staged ACP shim keeps its #! line first and syncs skills through the desktop', () => {

@@ -184,12 +184,16 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
   // runs again before every prompt and leaves the skills that credential allows, or
   // none. It reports whether the skills on disk changed.
   const revisionFile = path.join(personalClaude, '.skills-revision')
+  // Whose skills are on disk. Kept beside them rather than in this process, because a
+  // reopened session finds whatever an earlier process left in this home.
+  const holderFile = path.join(personalClaude, '.skills-holder')
   const empty = async () => {
     for (const entry of await fs.readdir(personalSkills).catch(() => []))
       await fs
         .rm(path.join(personalSkills, entry), { recursive: true, force: true })
         .catch(() => {})
     await fs.rm(revisionFile, { force: true }).catch(() => {})
+    await fs.rm(holderFile, { force: true }).catch(() => {})
   }
   // No personal skills is one state, whoever the credential names.
   const installed = async () =>
@@ -198,11 +202,8 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
       : await fs.readFile(revisionFile, 'utf8').catch(() => '')
   // The part of the credential that says whose it is; the rest changes on every mint.
   const holder = (credential) => credential.split('.')[1] ?? ''
-  // Unknown until a sync here succeeds: a reopened session finds whatever an earlier
-  // process left in this home, so the first failed sync empties it.
-  let syncedFor
-  const syncPersonal = async (timeoutMs, atPrompt) => {
-    const before = await installed()
+  const owner = () => fs.readFile(holderFile, 'utf8').catch(() => '')
+  const credentialFor = async (atPrompt) => {
     const credentials = options?.credentialsDir ?? process.env.OPENAB_CREDENTIALS_DIR
     const refreshed = !credentials
       ? ''
@@ -211,25 +212,23 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
           () => '',
         )
     const usable = refreshed && !/[\u0000-\u001f"\\]/u.test(refreshed)
+
     // Opening a session may use the credential the session came with. A prompt may
     // not: without this turn's own credential, nobody's personal skills are installed.
     // (With no credentials directory at all there is no per-turn credential to prefer;
     // OpenAB sets it for every session it runs.)
-    const credential = usable ? refreshed : atPrompt && credentials ? '' : token
+    return usable ? refreshed : atPrompt && credentials ? '' : token
+  }
+  const syncPersonal = async (timeoutMs, atPrompt) => {
+    const before = await installed()
+    const credential = await credentialFor(atPrompt)
 
-    if (!credential) {
-      await empty()
-      syncedFor = ''
-    } else if (
-      await install(personalClaude, `${url}?scope=personal`, false, credential, timeoutMs)
-    ) {
-      syncedFor = holder(credential)
-    } else if (holder(credential) !== syncedFor) {
-      // A failed sync must not leave another member's skills in place. For the same
-      // member it changes nothing: what is installed stays.
-      await empty()
-      syncedFor = holder(credential)
-    }
+    if (!credential) await empty()
+    else if (await install(personalClaude, `${url}?scope=personal`, false, credential, timeoutMs))
+      await fs.writeFile(holderFile, holder(credential))
+    // A failed sync must not leave another member's skills in place. For the same
+    // member it changes nothing: what is installed stays.
+    else if (holder(credential) !== (await owner())) await empty()
 
     return (await installed()) !== before
   }
@@ -269,6 +268,11 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
         await agent.setSessionConfigOption({ sessionId: id, configId, value }).catch(() => {})
     }
   }
+  // A session reads its skills when it starts, and the fetch runs behind it. So skills
+  // left here for anyone but the member opening it are cleared first; that is local.
+  const opener = holder(await credentialFor(false))
+
+  if (!opener || opener !== (await owner())) await empty()
   const synced = Promise.all([
     install(path.join(workspace, '.claude'), url, true),
     syncPersonal().catch(() => false),
