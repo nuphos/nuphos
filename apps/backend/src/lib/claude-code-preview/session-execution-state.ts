@@ -2,6 +2,7 @@ import { liveAttachment } from '@/lib/agent/db/shared'
 import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { attributionHeader } from '@/lib/agent/message-metadata'
+import { recordSteerSender } from '@/lib/agent/steer-senders'
 import { AppError } from '@/lib/errors'
 
 import { resolveConversationChatRuntime } from './conversation-chat-route'
@@ -264,20 +265,22 @@ export async function steerConversationRuntime(
     callTimeoutMs: 15_000,
   })
 
+  // The same attribution a prompt carries: without it the agent cannot tell
+  // a mid-turn instruction or approval from its sender's from anyone else's.
+  // The receipt comes back with only id and text, so it is put on record too.
+  const metadata =
+    steer.metadata ??
+    (await createMessageMetadata(steer.userId, 'nuphos', steer.deviceId, steer.cliToken))
+
+  await recordSteerSender(conversation.sessionId, messageId, metadata)
   try {
     await client.initialize()
-    // The same attribution a prompt carries: without it the agent cannot tell
-    // a mid-turn instruction or approval from its sender's from anyone else's.
     const result = await client.steerSession(
       attachment.openabSessionId,
       text,
       messageId,
       attachments,
-      attributionHeader(
-        messageId,
-        steer.metadata ??
-          (await createMessageMetadata(steer.userId, 'nuphos', steer.deviceId, steer.cliToken)),
-      ),
+      attributionHeader(messageId, metadata),
     )
 
     if (result.outcome !== 'injected')

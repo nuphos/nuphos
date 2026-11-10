@@ -10,11 +10,10 @@ import {
   claudeNotice,
   runtimeProductStateMessage,
 } from './openab-acp-errors'
-import { attributeReceipt } from './steering-receipt'
 import { RuntimeStateProbeError } from './turn-diagnostics'
 
 import type { PreviewTextMetadata } from './preview-agent-update'
-import type { SteeringAttribution, SteeringEntry, SteeringReceipt } from './steering-receipt'
+import type { SteeringEntry, SteeringReceipt } from './steering-receipt'
 import type { UIMessage } from 'ai'
 
 /** How a tool step sits inside a Claude Code sub-agent run. */
@@ -157,7 +156,7 @@ type PreviewPartOrderEntry =
  * turn completion resolves each tool id to its final state without moving it
  * past the commentary that followed it.
  */
-export function createPreviewAssistantPartAccumulator(attribute?: SteeringAttribution) {
+export function createPreviewAssistantPartAccumulator() {
   const entries: PreviewPartOrderEntry[] = []
   const toolIds = new Set<string>()
   const appendTextLike = (
@@ -195,12 +194,15 @@ export function createPreviewAssistantPartAccumulator(attribute?: SteeringAttrib
   }
 
   return {
+    /** A receipt seen again, now with its sender, keeps its place and takes the sender. */
     appendSteering: (receipt: SteeringReceipt) => {
-      if (entries.some((entry) => entry.type === 'data-steering' && entry.data.id === receipt.id))
-        return
-      const receivedAt = new Date().toISOString()
+      const placed = entries.find(
+        (entry): entry is SteeringEntry =>
+          entry.type === 'data-steering' && entry.data.id === receipt.id,
+      )
 
-      entries.push({ type: 'data-steering', data: { ...receipt }, receivedAt })
+      if (!placed) entries.push({ type: 'data-steering', data: { ...receipt } })
+      else if (receipt.metadata) placed.data.metadata ??= receipt.metadata
     },
     appendText: (text: string, metadata?: PreviewTextMetadata) => {
       return appendTextLike('text', text, metadata)
@@ -217,7 +219,8 @@ export function createPreviewAssistantPartAccumulator(attribute?: SteeringAttrib
       const tools = new Map(toolSteps.map((step) => [step.toolCallId, step]))
 
       return entries.flatMap((entry) => {
-        if (entry.type === 'data-steering') return [attributeReceipt(entry, attribute)]
+        if (entry.type === 'data-steering')
+          return [{ type: 'data-steering', data: { ...entry.data } }]
         if (entry.type !== 'tool') return [{ ...entry }]
         const step = tools.get(entry.toolCallId)
 
