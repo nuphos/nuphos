@@ -53,7 +53,11 @@ export function chatSidebarItem({
     enabled: true,
     active,
     ...(conversation.kind === 'channel'
-      ? { channel: true, botChannelOf: botOfChannel(conversation.faces) }
+      ? {
+          channel: true,
+          botChannelOf: botOfChannel(conversation.faces),
+          channelAgentIds: conversation.agentSessionIds,
+        }
       : {}),
     ...((picked === undefined ? conversation.avatar : picked) && conversation.kind !== 'channel'
       ? {

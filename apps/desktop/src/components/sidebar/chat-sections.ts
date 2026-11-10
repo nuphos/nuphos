@@ -17,7 +17,9 @@ export function withChatSections(
   const agents = sections.find((section) => section.title === 'Agents')
 
   if (!agents) return [...sections]
-  const chatted = new Set(agents.items.flatMap((item) => item.botChannelOf ?? []))
+  const chatted = new Set(
+    agents.items.flatMap((item) => item.channelAgentIds ?? item.botChannelOf ?? []),
+  )
   const sessionOf = (item: Item) => item.key.replace('agent-session:', '')
   const isChat = (item: Item) =>
     item.channel || (item.bot && !item.readOnlyChat && !chatted.has(sessionOf(item)))
