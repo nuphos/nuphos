@@ -129,9 +129,7 @@ export function InboxView({
       }
       if ((event.key === 'Enter' || event.key === 'ArrowRight') && !typing && inRail) {
         // The first match can be a hidden copy; the field is the one that takes focus.
-        const composers = readerRef.current?.querySelectorAll<HTMLElement>(
-          '[data-inbox-reply], [aria-label="Message"]',
-        )
+        const composers = readerRef.current?.querySelectorAll<HTMLElement>('[aria-label="Message"]')
 
         for (const composer of composers ?? []) {
           composer.focus()
