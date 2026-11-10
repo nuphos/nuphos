@@ -4,6 +4,7 @@ import path from 'node:path'
 import { nativeImage, webContents } from 'electron'
 
 import { extensionHost } from './host.ts'
+import { logError } from './log.ts'
 import { browserSession, failed, install, pinned, remove, setPinned } from './manage.ts'
 import { isExtensionId } from './store.ts'
 
@@ -110,13 +111,25 @@ export const browserExtensionChannels = {
     const host = extensionHost()
     const { x, y, width, height } = (anchor ?? {}) as Record<string, unknown>
 
-    if (!tab || !host) return
+    if (!tab || !host) {
+      logError(
+        `${String(id)} not opened:`,
+        host ? 'the tab is not a Dock tab' : 'no extension host',
+      )
+
+      return
+    }
     host.extensions.selectTab(tab)
-    host.action.activateClick({
-      extensionId: extensionId(id),
-      tabId: tab.id,
-      anchorRect: { x: finite(x), y: finite(y), width: finite(width), height: finite(height) },
-    })
+    try {
+      host.action.activateClick({
+        extensionId: extensionId(id),
+        tabId: tab.id,
+        anchorRect: { x: finite(x), y: finite(y), width: finite(width), height: finite(height) },
+      })
+    } catch (error) {
+      logError(`${String(id)} not opened:`, error)
+      throw error
+    }
   },
   /** The tab the user is looking at, so extensions see the right active tab. */
   'browser-extensions:select-tab': (_event: IpcMainInvokeEvent, tabId: unknown) => {

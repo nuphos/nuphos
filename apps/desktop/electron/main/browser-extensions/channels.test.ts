@@ -12,6 +12,7 @@ before(async () => {
     },
   })
   mock.module('./host.ts', { namedExports: { extensionHost: () => null } })
+  mock.module('./log.ts', { namedExports: { logError: () => null } })
   mock.module('./manage.ts', {
     namedExports: {
       browserSession: () => ({}),

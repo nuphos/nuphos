@@ -2,6 +2,7 @@
 import { app, BrowserWindow, webContents } from 'electron'
 import { ElectronChromeExtensions } from 'electron-chrome-extensions'
 
+import { logError, uncaughtException } from './log.ts'
 import { browserSession, checkForUpdates, confirm, loadInstalled, notifyChanged } from './manage.ts'
 import { builtInHosts, manifestDirs, nativeMessaging } from './native-messaging.ts'
 import { addedAccess } from './warnings.ts'
@@ -180,6 +181,12 @@ export async function initBrowserExtensions(): Promise<void> {
   })
   browser.extensions.on('extension-unloaded', (_event, extension) => native.closeAll(extension.id))
   app.on('will-quit', () => native.closeAll())
+  // A background script that throws stops the whole extension, with nothing else to show for it.
+  browser.serviceWorkers.on('console-message', (_event, { message, sourceUrl, lineNumber }) => {
+    const uncaught = uncaughtException(message, sourceUrl, lineNumber)
+
+    if (uncaught) logError(uncaught)
+  })
   // The package tells observers when a badge or title changes.
   action.observers.add({ isDestroyed: () => false, send: notifyChanged })
 

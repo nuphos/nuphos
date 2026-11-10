@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { ChevronRight, Pin, PinOff, Puzzle, Store, Trash2 } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
@@ -10,6 +10,7 @@ import { toast } from '../../components/ui/toast'
 import { Tooltip } from '../../components/ui/tooltip'
 import { t } from '../../i18n'
 
+import { runExtension } from './runExtension'
 import { WEB_STORE_URL, addableExtensionId } from './webStore'
 
 import type { BrowserExtensionItem } from '../../api/browser-extension-types'
@@ -26,8 +27,9 @@ function ExtensionIcon({ item, className }: { item: BrowserExtensionItem; classN
 
 /**
  * The browser toolbar's extensions: an "Add to Nuphos" button on a Web Store
- * item page, pinned buttons that open each popup, and a menu to pin and remove. Shows nothing for a tab outside the user's
- * browser session (an agent's), which has no extensions.
+ * item page, pinned buttons that open each popup, and a menu whose rows open any extension,
+ * as in Chrome, with Pin and Remove in each row's submenu (hover or arrow key). Shows nothing
+ * for a tab outside the user's browser session (an agent's), which has no extensions.
  */
 export function BrowserExtensions({
   tabId,
@@ -45,6 +47,8 @@ export function BrowserExtensions({
 }) {
   const [items, setItems] = useState<BrowserExtensionItem[] | null>(null)
   const [adding, setAdding] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuButton = useRef<HTMLButtonElement>(null)
 
   const refresh = useCallback(() => {
     if (tabId === null) return
@@ -76,6 +80,8 @@ export function BrowserExtensions({
       .catch((error: unknown) => toast.apiError(t('Could not add the extension'), error))
       .finally(() => setAdding(false))
   }
+  const run = (item: BrowserExtensionItem, anchor: Element) =>
+    runExtension(api.browserExtensionActivate, item, tabId, anchor)
   const remove = (id: string) => {
     api
       .browserExtensionRemove(id)
@@ -103,11 +109,7 @@ export function BrowserExtensions({
               type="button"
               className={clsx(buttonClass, 'relative')}
               aria-label={item.name}
-              onClick={(event) => {
-                const { x, y, width, height } = event.currentTarget.getBoundingClientRect()
-
-                void api.browserExtensionActivate(item.id, tabId, { x, y, width, height })
-              }}
+              onClick={(event) => run(item, event.currentTarget)}
             >
               <ExtensionIcon item={item} className="h-4 w-4" />
               {item.badge && (
@@ -121,10 +123,11 @@ export function BrowserExtensions({
             </button>
           </Tooltip>
         ))}
-      <Menu>
+      <Menu open={menuOpen} onOpenChange={setMenuOpen}>
         <MenuTrigger
           render={
             <button
+              ref={menuButton}
               type="button"
               className={buttonClass}
               title={t('Extensions')}
@@ -150,6 +153,11 @@ export function BrowserExtensions({
                 icon={<ExtensionIcon item={item} className="h-4 w-4" />}
                 chevron={<ChevronRight className="h-3 w-3" />}
                 title={item.error ?? undefined}
+                onClick={(event) => {
+                  if (!run(item, menuButton.current ?? event.currentTarget)) return
+                  event.preventDefault()
+                  setMenuOpen(false)
+                }}
               >
                 {item.error ? t('{name} (turned off)', { name: item.name }) : item.name}
               </MenuSubmenuTrigger>

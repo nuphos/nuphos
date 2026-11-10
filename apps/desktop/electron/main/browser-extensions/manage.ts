@@ -7,6 +7,7 @@ import { BrowserWindow, session } from 'electron'
 
 import { showAppDialog } from '../../app-dialog.ts'
 
+import { logError } from './log.ts'
 import {
   checkInstalled,
   compareVersions,
@@ -98,7 +99,7 @@ export async function loadInstalled() {
       }
     }
     if (error) {
-      console.error(`[browser-extensions] ${id} not loaded:`, error)
+      logError(`${id} not loaded:`, error)
       failed.set(id, { name: await installedName(id, versions[0]), error })
     }
   }
@@ -182,7 +183,7 @@ export async function checkForUpdates() {
       if (allowed) await writeExtension(download)
       else declinedUpdates.add(`${extension.id}@${download.version}`)
     } catch (error) {
-      console.error(`[browser-extensions] update of ${extension.id} failed:`, error)
+      logError(`update of ${extension.id} failed:`, error)
     }
   }
 }
