@@ -12,14 +12,13 @@ before(async () => {
     },
   })
   mock.module('./host.ts', { namedExports: { extensionHost: () => null } })
+  mock.module('./log.ts', { namedExports: { logError: () => undefined } })
   mock.module('./manage.ts', {
     namedExports: {
       browserSession: () => ({}),
       failed: new Map(),
       install,
-      pinned: new Set(),
       remove: async () => true,
-      setPinned: async () => {},
     },
   })
   ;({ browserExtensionChannels: channels } = await import('./channels.ts'))

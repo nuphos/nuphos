@@ -1,19 +1,19 @@
 // Installing, loading, updating and removing the user's extensions, each step
 // that adds access or deletes data asked first.
-import { readFile, writeFile } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import { BrowserWindow, session } from 'electron'
 
 import { showAppDialog } from '../../app-dialog.ts'
 
+import { logError } from './log.ts'
 import {
   checkInstalled,
   compareVersions,
   downloadExtension,
   extensionsRoot,
   installedVersions,
-  isExtensionId,
   latestVersion,
   pruneVersions,
   writeExtension,
@@ -28,10 +28,7 @@ export const browserSession = () => session.fromPartition(BROWSER_PARTITION)
 
 /** Extensions not loaded because their files differ from the Web Store's, with the reason. */
 export const failed = new Map<string, { name: string; error: string }>()
-export const pinned = new Set<string>()
 const declinedUpdates = new Set<string>()
-
-const pinsFile = () => path.join(extensionsRoot(), 'pinned.json')
 
 /** Tells the app's windows (not extension windows) to reload the toolbar. */
 export function notifyChanged() {
@@ -53,15 +50,6 @@ export function confirm(title: string, message: string, lines: string[], confirm
   )
 }
 
-export async function setPinned(id: string, pin: boolean) {
-  if (pin) pinned.add(id)
-  else pinned.delete(id)
-  await writeFile(pinsFile(), JSON.stringify([...pinned])).catch(() => {
-    // Pins are a preference; the toolbar still shows the change until restart.
-  })
-  notifyChanged()
-}
-
 async function installedName(id: string, version: string) {
   try {
     const record = JSON.parse(
@@ -77,13 +65,8 @@ async function installedName(id: string, version: string) {
   }
 }
 
-/** Loads the newest version of each extension that passes its check, and the pins. */
+/** Loads the newest version of each extension that passes its check. */
 export async function loadInstalled() {
-  const saved = await readFile(pinsFile(), 'utf8')
-    .then((text) => (JSON.parse(text) as unknown[]).filter(isExtensionId))
-    .catch((): string[] => [])
-
-  for (const id of saved) pinned.add(id)
   for (const [id, versions] of await installedVersions()) {
     let error = ''
 
@@ -98,7 +81,7 @@ export async function loadInstalled() {
       }
     }
     if (error) {
-      console.error(`[browser-extensions] ${id} not loaded:`, error)
+      logError(`${id} not loaded:`, error)
       failed.set(id, { name: await installedName(id, versions[0]), error })
     }
   }
@@ -149,7 +132,6 @@ export async function remove(id: string): Promise<boolean> {
   if (extensions.getExtension(id)) extensions.removeExtension(id)
   failed.delete(id)
   await pruneVersions(id)
-  await setPinned(id, false)
 
   return true
 }
@@ -182,7 +164,7 @@ export async function checkForUpdates() {
       if (allowed) await writeExtension(download)
       else declinedUpdates.add(`${extension.id}@${download.version}`)
     } catch (error) {
-      console.error(`[browser-extensions] update of ${extension.id} failed:`, error)
+      logError(`update of ${extension.id} failed:`, error)
     }
   }
 }

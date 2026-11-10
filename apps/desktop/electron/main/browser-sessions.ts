@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 
 import { browserExtensionChannels } from './browser-extensions/channels.ts'
 import { initBrowserExtensions } from './browser-extensions/host.ts'
+import { logError } from './browser-extensions/log.ts'
 import { initWebviewGuard } from './webview-guard.ts'
 
 /**
@@ -13,7 +14,5 @@ export function initBrowserSessions() {
   initWebviewGuard()
   for (const [name, handler] of Object.entries(browserExtensionChannels))
     ipcMain.handle(name, handler as never)
-  initBrowserExtensions().catch((error: unknown) => {
-    console.error('[browser-extensions] failed to start:', error)
-  })
+  initBrowserExtensions().catch((error: unknown) => logError('failed to start:', error))
 }

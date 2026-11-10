@@ -11,8 +11,6 @@ export const browserExtensionsApi = {
     ipcRenderer.invoke('browser-extensions:add', id),
   browserExtensionRemove: (id: string): Promise<boolean> =>
     ipcRenderer.invoke('browser-extensions:remove', id),
-  browserExtensionPin: (id: string, pinned: boolean): Promise<void> =>
-    ipcRenderer.invoke('browser-extensions:pin', id, pinned),
   browserExtensionActivate: (id: string, tabId: number, anchor: AnchorRect): Promise<void> =>
     ipcRenderer.invoke('browser-extensions:activate', id, tabId, anchor),
   browserExtensionSelectTab: (tabId: number): Promise<void> =>

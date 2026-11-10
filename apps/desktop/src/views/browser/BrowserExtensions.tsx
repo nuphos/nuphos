@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { ChevronRight, Pin, PinOff, Puzzle, Store, Trash2 } from 'lucide-react'
+import { ChevronRight, Puzzle, Store, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 import { api } from '../../api'
@@ -26,8 +26,8 @@ function ExtensionIcon({ item, className }: { item: BrowserExtensionItem; classN
 
 /**
  * The browser toolbar's extensions: an "Add to Nuphos" button on a Web Store
- * item page, pinned buttons that open each popup, and a menu to pin and remove. Shows nothing for a tab outside the user's
- * browser session (an agent's), which has no extensions.
+ * item page, a button per extension that opens its popup, and a menu to remove one. Shows
+ * nothing for a tab outside the user's browser session (an agent's), which has no extensions.
  */
 export function BrowserExtensions({
   tabId,
@@ -96,7 +96,7 @@ export function BrowserExtensions({
         </Button>
       )}
       {items
-        .filter((item) => item.pinned && !item.error)
+        .filter((item) => !item.error)
         .map((item) => (
           <Tooltip key={item.id} content={item.name} side="bottom">
             <button
@@ -154,20 +154,6 @@ export function BrowserExtensions({
                 {item.error ? t('{name} (turned off)', { name: item.name }) : item.name}
               </MenuSubmenuTrigger>
               <MenuContent align="start" className="w-[200px]">
-                {!item.error && (
-                  <MenuItem
-                    icon={
-                      item.pinned ? (
-                        <PinOff className="h-3.5 w-3.5" />
-                      ) : (
-                        <Pin className="h-3.5 w-3.5" />
-                      )
-                    }
-                    onClick={() => void api.browserExtensionPin(item.id, !item.pinned)}
-                  >
-                    {item.pinned ? t('Unpin from toolbar') : t('Pin to toolbar')}
-                  </MenuItem>
-                )}
                 <MenuItem
                   icon={<Trash2 className="h-3.5 w-3.5" />}
                   destructive

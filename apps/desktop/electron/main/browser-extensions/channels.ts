@@ -4,7 +4,8 @@ import path from 'node:path'
 import { nativeImage, webContents } from 'electron'
 
 import { extensionHost } from './host.ts'
-import { browserSession, failed, install, pinned, remove, setPinned } from './manage.ts'
+import { logError } from './log.ts'
+import { browserSession, failed, install, remove } from './manage.ts'
 import { isExtensionId } from './store.ts'
 
 import type { BrowserExtensionItem } from '../../../src/api/browser-extension-types.ts'
@@ -51,7 +52,6 @@ function list(tabId: number): BrowserExtensionItem[] {
         id: extension.id,
         name: extension.name,
         icon: iconOf(extension),
-        pinned: pinned.has(extension.id),
         badge: text ? { text, color: forTab?.color ?? action?.color ?? null } : null,
         error: null,
       }
@@ -60,7 +60,6 @@ function list(tabId: number): BrowserExtensionItem[] {
     id,
     name,
     icon: null,
-    pinned: false,
     badge: null,
     error,
   }))
@@ -97,8 +96,6 @@ export const browserExtensionChannels = {
     return install(extensionId(id))
   },
   'browser-extensions:remove': (_event: IpcMainInvokeEvent, id: unknown) => remove(extensionId(id)),
-  'browser-extensions:pin': (_event: IpcMainInvokeEvent, id: unknown, pin: unknown) =>
-    setPinned(extensionId(id), pin === true),
   /** Opens the extension's popup under its toolbar button, or sends it the click. */
   'browser-extensions:activate': (
     _event: IpcMainInvokeEvent,
@@ -112,11 +109,16 @@ export const browserExtensionChannels = {
 
     if (!tab || !host) return
     host.extensions.selectTab(tab)
-    host.action.activateClick({
-      extensionId: extensionId(id),
-      tabId: tab.id,
-      anchorRect: { x: finite(x), y: finite(y), width: finite(width), height: finite(height) },
-    })
+    try {
+      host.action.activateClick({
+        extensionId: extensionId(id),
+        tabId: tab.id,
+        anchorRect: { x: finite(x), y: finite(y), width: finite(width), height: finite(height) },
+      })
+    } catch (error) {
+      logError(`${String(id)} did not open:`, error)
+      throw error
+    }
   },
   /** The tab the user is looking at, so extensions see the right active tab. */
   'browser-extensions:select-tab': (_event: IpcMainInvokeEvent, tabId: unknown) => {
