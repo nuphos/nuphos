@@ -60,8 +60,8 @@ extension NuphosAPI {
         let observedAt = ProcessInfo.processInfo.systemUptime
         let page: AgentConversationsPage = try await get("agent/conversations", query: query, token: token, timeout: 20)
         for row in page.rows {
-            RuntimeObservations.shared.receive(row.runtimeState, team: row.teamId ?? teamId, session: row.sessionId, observedAt: observedAt)
-            ConversationUnread.shared.receive(team: row.teamId ?? teamId, session: row.sessionId, activity: row.activitySeq, read: row.readSeq, displayed: false)
+            RuntimeObservations.forAccount(token).receive(row.runtimeState, team: row.teamId ?? teamId, session: row.sessionId, observedAt: observedAt)
+            ConversationUnread.forAccount(token).receive(team: row.teamId ?? teamId, session: row.sessionId, activity: row.activitySeq, read: row.readSeq, displayed: false)
         }
         return page
     }
@@ -81,7 +81,7 @@ extension NuphosAPI {
             token: token,
             timeout: 20
         )
-        ConversationUnread.shared.receive(team: teamId, session: sessionId, activity: detail.activitySeq, read: detail.readSeq, displayed: displayed)
+        ConversationUnread.forAccount(token).receive(team: teamId, session: sessionId, activity: detail.activitySeq, read: detail.readSeq, displayed: displayed)
         return detail
     }
 
@@ -151,7 +151,7 @@ extension NuphosAPI {
     private static func get<T: Decodable>(
         _ path: String, query: [URLQueryItem] = [], token: String, timeout: TimeInterval
     ) async throws -> T {
-        var components = URLComponents(url: baseURL.appending(path: path), resolvingAgainstBaseURL: false)!
+        var components = URLComponents(url: NuphosAPI.baseURL(for: token).appending(path: path), resolvingAgainstBaseURL: false)!
         if !query.isEmpty { components.queryItems = query }
 
         var request = URLRequest(url: components.url!)

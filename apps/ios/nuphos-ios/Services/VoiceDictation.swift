@@ -104,7 +104,7 @@ enum Whisper {
 
     static func transcribe(_ file: URL, token: String, teamId: String) async throws -> String {
         let boundary = UUID().uuidString
-        var request = URLRequest(url: NuphosAPI.baseURL.appending(path: "teams/\(teamId)/voice-transcriptions"))
+        var request = URLRequest(url: NuphosAPI.baseURL(for: token).appending(path: "teams/\(teamId)/voice-transcriptions"))
         request.httpMethod = "POST"
         request.timeoutInterval = 90
         request.setValue("Bearer \(token)", forHTTPHeaderField: "authorization")

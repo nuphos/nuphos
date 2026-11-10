@@ -199,13 +199,13 @@ struct HomeView: View {
         // While a chat is open and the app active, it is read up to its newest
         // post, and it alone polls; becoming active again reads it at once.
         .onChange(of: scenePhase == .active ? openChat?.channel?.channelId : nil, initial: true) { _, id in
-            ConversationUnread.shared.setReading(id != nil, reader: chatReader,
+            store?.unread.setReading(id != nil, reader: chatReader,
                                                  team: openChat?.channel?.teamId ?? "", session: id ?? "")
             store?.poll(id == nil ? nil : openChat?.channel)
         }
         // An agent's conversation the same way: read and polled while it is open and the app active.
         .onChange(of: scenePhase == .active ? openChat?.session?.sessionId : nil, initial: true) { _, id in
-            ConversationUnread.shared.setReading(id != nil, reader: conversationReader,
+            store?.unread.setReading(id != nil, reader: conversationReader,
                                                  team: openChat?.session?.teamId ?? "", session: id ?? "")
             store?.follow(id == nil ? nil : openChat?.session)
         }

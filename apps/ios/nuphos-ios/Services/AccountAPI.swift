@@ -12,7 +12,7 @@ enum AccountAPI {
 
     /// `body` is sent as JSON; `upload` as raw bytes, such as an avatar image.
     static func request<T: Decodable>(_ path: String, method: String = "GET", token: String? = nil, body: [String: Any]? = nil, upload: Data? = nil) async throws -> T {
-        var request = URLRequest(url: NuphosAPI.baseURL.appending(path: "auth/\(path)"))
+        var request = URLRequest(url: NuphosAPI.baseURL(for: token).appending(path: "auth/\(path)"))
         request.httpMethod = method
         request.timeoutInterval = 30
         request.setValue(upload == nil ? "application/json" : "application/octet-stream", forHTTPHeaderField: "Content-Type")
@@ -52,7 +52,7 @@ enum AccountAPI {
 
     /// Ends this device's session on the server. Best effort: sign-out never waits on it.
     static func endSession(token: String) async {
-        var request = URLRequest(url: NuphosAPI.baseURL.appending(path: "auth/sessions/current"))
+        var request = URLRequest(url: NuphosAPI.baseURL(for: token).appending(path: "auth/sessions/current"))
         request.httpMethod = "DELETE"
         request.timeoutInterval = 10
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")

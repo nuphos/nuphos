@@ -15,6 +15,11 @@ enum TurnLiveActivity {
         Activity<TurnActivityAttributes>.activities.first { $0.activityState == .active }
     }
 
+    static func reset() async {
+        registered.removeAll()
+        for activity in Activity<TurnActivityAttributes>.activities { await activity.end(nil, dismissalPolicy: .immediate) }
+    }
+
     /// At launch: keeps one card, and sends the backend the token that starts
     /// a card and the token of every card, including ones started later.
     static func observe() {
@@ -42,6 +47,7 @@ enum TurnLiveActivity {
         guard followed.insert(activity.id).inserted else { return }
         Task {
             for await data in activity.pushTokenUpdates {
+                guard activity.activityState == .active else { break }
                 for session in activity.content.state.sessions where session.phase.isActive {
                     register(session, token: hex(data))
                 }
@@ -53,7 +59,7 @@ enum TurnLiveActivity {
     /// Keychain: a card started over APNs wakes the app in the background.
     private static func register(_ session: TurnActivityAttributes.Session, token: String) {
         let key = token + session.id
-        guard let authToken = Keychain.read(AuthSession.tokenKey), registered.insert(key).inserted else { return }
+        guard PushNotifications.shared.canRoute, let authToken = SavedAccounts().active?.token, registered.insert(key).inserted else { return }
         Task {
             do {
                 try await AgentChatAPI.registerLiveActivity(

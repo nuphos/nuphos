@@ -17,14 +17,18 @@ enum Keychain {
         ]
     }
 
-    static func read(_ key: String) -> String? {
+    static func read(_ key: String) -> String? { try? load(key) }
+
+    static func load(_ key: String) throws -> String? {
         var query = baseQuery(key)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
 
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
-        guard status == errSecSuccess, let data = item as? Data else { return nil }
+        if status == errSecItemNotFound { return nil }
+        guard status == errSecSuccess else { throw Failure.unhandled(status) }
+        guard let data = item as? Data else { throw Failure.unhandled(errSecDecode) }
         return String(data: data, encoding: .utf8)
     }
 
