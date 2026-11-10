@@ -2,6 +2,11 @@ import Foundation
 
 /// An open question a Bot's chat shows: one request and the conversation that asked it.
 struct BotQuestion: Identifiable, Equatable, Sendable {
+    /// A question body of more than about three lines: its card shows it collapsed until asked for.
+    static func isLongBody(_ text: String) -> Bool {
+        text.split(separator: "\n", omittingEmptySubsequences: false).count > 3 || text.count > 240
+    }
+
     let sessionId: String
     let title: String
     let request: AgentConversation.InputRequest

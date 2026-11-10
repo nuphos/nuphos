@@ -77,8 +77,8 @@ enum BotQuestionsTests {
         let plain = try! decoder.decode(AgentConversation.InputRequest.self, from: Data(#"{"id":"q","question":"Ship?"}"#.utf8))
         precondition(plain.body == nil)
         // Up to three short lines show whole; more collapses behind "Show more".
-        precondition(!BotQuestionCard.isLongBody("One finding.\nA second.\nA third."))
-        precondition(BotQuestionCard.isLongBody("1\n2\n3\n4"))
-        precondition(BotQuestionCard.isLongBody(String(repeating: "x", count: 241)))
+        precondition(!BotQuestion.isLongBody("One finding.\nA second.\nA third."))
+        precondition(BotQuestion.isLongBody("1\n2\n3\n4"))
+        precondition(BotQuestion.isLongBody(String(repeating: "x", count: 241)))
     }
 }

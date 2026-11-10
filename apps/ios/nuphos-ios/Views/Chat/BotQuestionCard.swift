@@ -95,7 +95,7 @@ struct BotQuestionCard: View {
 
     /// The question's markdown body: a few lines at first, "Show more" for the rest, as on the desktop.
     @ViewBuilder private func questionBody(_ text: String) -> some View {
-        let long = Self.isLongBody(text)
+        let long = BotQuestion.isLongBody(text)
         VStack(alignment: .leading, spacing: 4) {
             AssistantMarkdown(text: text, theme: AssistantMarkdown.bubbleTheme, onLink: { onLink?($0) ?? openURL($0) })
                 .frame(maxHeight: long && !expanded ? 64 : nil, alignment: .top)
@@ -108,11 +108,6 @@ struct BotQuestionCard: View {
                     .buttonStyle(.plain)
             }
         }
-    }
-
-    /// More than about three lines of text: shown collapsed until asked for.
-    static func isLongBody(_ text: String) -> Bool {
-        text.split(separator: "\n", omittingEmptySubsequences: false).count > 3 || text.count > 240
     }
 
     private func send() {
