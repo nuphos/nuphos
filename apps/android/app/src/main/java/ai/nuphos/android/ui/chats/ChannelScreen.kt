@@ -229,7 +229,9 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
             // A Bot's chat: what the Bot and the agents under it wait on, under the newest post.
             items(session.questions.asReversed(), key = { "question.${it.id}" }) { question ->
                 BotQuestionCard(question, onOpen = { onLink(question.link(session.teamId)) },
-                    onAnswer = { option -> if (allowed()) session.answer(question, option, scope) })
+                    onAnswer = { option -> if (allowed()) session.answer(question, option, scope) },
+                    // The Bot's own questions are this chat's; only an agent under it is named.
+                    showsFrom = question.sessionId != session.faces.botFace?.id, onLink = onLink)
             }
             items(reversed, key = { it.key }) { item ->
                 // New rows fade in and rise a little as the rows on screen slide up to make room.

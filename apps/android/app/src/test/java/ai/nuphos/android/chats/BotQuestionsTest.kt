@@ -12,6 +12,7 @@ import ai.nuphos.android.model.InputRequest
 import ai.nuphos.android.session.BotQuestions
 import ai.nuphos.android.session.ChannelSession
 import ai.nuphos.android.session.OpenQuestions
+import ai.nuphos.android.ui.chats.isLongBody
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Test
@@ -45,6 +46,17 @@ class BotQuestionsTest {
             row("loop-a", "loop-b", true, "q-4" to "d"), row("loop-b", "loop-a"),
         )
         assertTrue(BotQuestions.under("bot-1", rows).isEmpty())
+    }
+
+    @Test fun keepsTheBodyTheAgentWroteToDecideFrom() {
+        val request = Http.json.decodeFromString(InputRequest.serializer(),
+            """{"id":"q","question":"Direction OK?","body":"**Why:** see [#412](https://example.com/412)","status":"open"}""")
+        assertEquals("**Why:** see [#412](https://example.com/412)", request.body)
+        assertNull(Http.json.decodeFromString(InputRequest.serializer(), """{"id":"q","question":"Ship?"}""").body)
+        // Up to three short lines show whole; more collapses behind "Show more".
+        assertFalse(isLongBody("One finding.\nA second.\nA third."))
+        assertTrue(isLongBody("1\n2\n3\n4"))
+        assertTrue(isLongBody("x".repeat(241)))
     }
 
     @Test fun decodesTheOpenRequestsOfAListRowAndAsksForThem() {

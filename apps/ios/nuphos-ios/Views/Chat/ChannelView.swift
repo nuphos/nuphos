@@ -233,8 +233,11 @@ struct ChannelView: View {
             case .question(let question):
                 BotQuestionCard(
                     question: question,
+                    // The Bot's own questions are this chat's; only an agent under it is named.
+                    showsFrom: question.sessionId != channel.faces.botId,
                     onOpen: { open(link: question.link(team: channel.teamId)) },
-                    onAnswer: { channel.answer(question, with: $0) })
+                    onAnswer: { channel.answer(question, with: $0) },
+                    onLink: open(link:))
             }
         }
     }
