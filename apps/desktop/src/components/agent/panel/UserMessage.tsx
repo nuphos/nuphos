@@ -17,6 +17,7 @@ import { renderAtlasMentionLink, renderMemberMentionLink } from './messageInline
 import { linkMentions } from './messageMentionText'
 import { senderLabel } from './messageMetadata'
 import { PastedTextDialog } from './PastedTextDialog'
+import { ReplyQuote } from './ReplyQuote'
 import { formatMessageTimestamp } from './streamText'
 import { UploadedFilesCard } from './transferCards'
 import { useSentMessageMotion } from './useSentMessageMotion'
@@ -121,44 +122,37 @@ export const UserMessage = memo(
 
     return (
       <div ref={sendMotionRef} className="group/message flex flex-col items-end gap-2">
+        {message.metadata && (
+          // Name and quote sit above the row, so the face stays level with the words.
+          <div className="flex max-w-[85%] flex-col items-end gap-2 pr-[2.375rem]">
+            <div className="flex max-w-full items-center gap-2 px-1 text-xs leading-4">
+              <span
+                className="truncate font-medium text-secondary"
+                title={senderLabel(message.metadata.sender)}
+              >
+                {senderLabel(message.metadata.sender)}
+              </span>
+              {message.metadata.source === 'slack' && (
+                <span className="shrink-0 rounded bg-surface-hover px-1.5 py-0.5 text-[10px] text-tertiary">
+                  Slack
+                </span>
+              )}
+              {message.metadata.unattested && (
+                <span
+                  className="shrink-0 rounded bg-surface-hover px-1.5 py-0.5 text-[10px] text-tertiary"
+                  title={t(
+                    'Posted in Discord by someone with no linked Nuphos account. The name is the one they chose.',
+                  )}
+                >
+                  {t('Discord · unverified')}
+                </span>
+              )}
+            </div>
+            {message.metadata.replyTo && <ReplyQuote reply={message.metadata.replyTo} />}
+          </div>
+        )}
         <div className="flex w-full items-start justify-end gap-2.5">
           <div className="flex min-w-0 max-w-[85%] flex-col items-end gap-2">
-            {message.metadata && (
-              <div className="flex max-w-full items-center gap-2 px-1 text-xs leading-4">
-                <span
-                  className="truncate font-medium text-secondary"
-                  title={senderLabel(message.metadata.sender)}
-                >
-                  {senderLabel(message.metadata.sender)}
-                </span>
-                {message.metadata.source === 'slack' && (
-                  <span className="shrink-0 rounded bg-surface-hover px-1.5 py-0.5 text-[10px] text-tertiary">
-                    Slack
-                  </span>
-                )}
-                {message.metadata.unattested && (
-                  <span
-                    className="shrink-0 rounded bg-surface-hover px-1.5 py-0.5 text-[10px] text-tertiary"
-                    title={t(
-                      'Posted in Discord by someone with no linked Nuphos account. The name is the one they chose.',
-                    )}
-                  >
-                    {t('Discord · unverified')}
-                  </span>
-                )}
-              </div>
-            )}
-            {message.metadata?.replyTo && (
-              <div
-                className="max-w-full border-l-2 border-line-control pl-2 pr-1 text-xs leading-4 text-tertiary line-clamp-2 whitespace-pre-wrap break-words"
-                title={message.metadata.replyTo.text}
-              >
-                <span className="font-medium text-secondary">
-                  {message.metadata.replyTo.authorName}
-                </span>{' '}
-                {message.metadata.replyTo.text}
-              </div>
-            )}
             {images.length > 0 && (
               <div className="max-w-full flex flex-wrap justify-end gap-1.5 pr-1">
                 {images.map((p, i) => (
@@ -241,7 +235,7 @@ export const UserMessage = memo(
             )}
           </div>
           {message.metadata && (
-            <div className="mt-6 shrink-0" aria-hidden="true">
+            <div className="shrink-0" aria-hidden="true">
               <Avatar
                 src={trustedAvatarURL(message.metadata.sender.avatarURL)}
                 name={message.metadata.sender.displayName}
