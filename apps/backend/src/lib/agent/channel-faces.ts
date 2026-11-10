@@ -78,8 +78,13 @@ export async function channelFacesField(
   if (conversation.kind !== 'channel') return {}
   const members = await channelMembers(conversation, viewerId, people)
 
+  const agents = members.filter((member) => member.agent)
+  // A single Bot identifies the chat even after its human collaborators reply.
+  const faces =
+    agents.length === 1 ? [...agents, ...members.filter((member) => !member.agent)] : members
+
   return {
-    faces: members.slice(0, FACES),
+    faces: faces.slice(0, FACES),
     ...(conversation.title
       ? {}
       : {
