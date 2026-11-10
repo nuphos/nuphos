@@ -145,6 +145,29 @@ test('a listed agent goes by its account where its computer has one; its name is
   assert.equal(agentName(labelled), 'Claude Code 2')
 })
 
+test('a name a person gave an agent is kept when its computer holds more than one account', () => {
+  const summary = {
+    ownerUserId: 'u',
+    deviceId: 'mac',
+    deviceLabel: 'Mac',
+    signedIn: true,
+    accountLabel: 'Claude Code · sam@example.com',
+  }
+  const shown = (agentLabel: string) =>
+    agentDisplayName({
+      kind: 'local',
+      provider: 'claude-code',
+      label: `${agentLabel} in Mac`,
+      local: { ...summary, agentLabel },
+    } as RuntimeInstance)
+
+  assert.equal(shown('Reviewer'), 'Reviewer')
+  // Its provider's own name, and the number its computer adds to a second agent, are not the
+  // person's: those give way to the account.
+  assert.equal(shown('Claude Code'), 'Claude Code · sam@example.com')
+  assert.equal(shown('Claude Code 2'), 'Claude Code · sam@example.com')
+})
+
 test("an away computer's signed-in agent stays visible and reads Offline", () => {
   const away = {
     id: 'a',

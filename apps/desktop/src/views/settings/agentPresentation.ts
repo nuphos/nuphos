@@ -46,12 +46,46 @@ export function agentName(instance: RuntimeInstance): string {
     : instance.label
 }
 
+/** The number in the name a computer gives a later agent: the 2 of "Claude Code 2". */
+const NUMBERED_DEFAULT = /^[2-9]\d*$/u
+
+/**
+ * A name a person gave the agent; undefined while it goes by the one its computer gave it —
+ * its provider's, or that provider's name numbered, as `defaultAgentName` makes it. Rename can
+ * write any name, so a name the computer gave is told from a chosen one by its shape alone.
+ */
+function agentNameOfPerson(agent: Pick<RuntimeInstance, 'provider' | 'local'>): string | undefined {
+  const label = agent.local?.agentLabel
+
+  if (!label) return undefined
+  const base = AGENT_PROVIDER[agent.provider].label
+
+  if (label === base) return undefined
+  if (label.startsWith(`${base} `) && NUMBERED_DEFAULT.test(label.slice(base.length + 1)))
+    return undefined
+
+  return label
+}
+
 /**
  * What a list calls an agent: its name, or — on a computer holding more than one account for
  * its provider, where a name alone would not tell two of them apart — that and the account.
+ * The account is only for an agent with no name of its own: the number its computer gave it is
+ * not a person's choice, so it gives way to the account.
  */
-export function agentDisplayName(instance: RuntimeInstance): string {
-  return instance.local?.accountLabel ?? agentName(instance)
+export function agentDisplayName(
+  instance: Pick<RuntimeInstance, 'label' | 'provider' | 'local'>,
+): string {
+  const local = instance.local
+
+  if (!local) return instance.label
+
+  return (
+    agentNameOfPerson(instance) ??
+    local.accountLabel ??
+    local.agentLabel ??
+    AGENT_PROVIDER[instance.provider].label
+  )
 }
 
 /**
