@@ -14,6 +14,7 @@ import { LOCAL_AGENT_PROVIDERS } from '@/lib/agent/devices/local-runtime/protoco
 import {
   forgetAgentAddition,
   recordAgentAddition,
+  recordAgentRemoval,
   removeDeviceAgent,
   renameDeviceAgent,
 } from '@/lib/agent/devices/agent-registry-store'
@@ -56,6 +57,7 @@ export type DeviceAgentRouteDeps = {
   renameAgent: typeof renameDeviceAgent
   recordAddition: typeof recordAgentAddition
   forgetAddition: typeof forgetAgentAddition
+  recordRemoval: typeof recordAgentRemoval
 }
 
 type HostDevice = {
@@ -88,6 +90,16 @@ function ownPendingAgent({ device, presence, target }: HostDevice, instanceId: s
   )
 }
 
+/** A person's own computer keeps its default agents: their logins are that person's CLI logins. */
+function assertRemovable(agent: RemovableAgent, device: AgentDevice): void {
+  if ('provider' in agent && !device.box)
+    throw new AppError(
+      400,
+      'agent_not_removable',
+      "Only a Box's default agents can be removed; this computer's stay with its CLIs.",
+    )
+}
+
 const isNotFound = (error: unknown) =>
   error instanceof Error && 'status' in error && error.status === 404
 
@@ -102,6 +114,7 @@ export function createDeviceAgentRoutes(
     renameAgent: renameDeviceAgent,
     recordAddition: recordAgentAddition,
     forgetAddition: forgetAgentAddition,
+    recordRemoval: recordAgentRemoval,
   },
 ) {
   const routes = new Hono<{ Variables: AuthVariables }>()
@@ -214,6 +227,35 @@ export function createDeviceAgentRoutes(
     }
   }
 
+  /**
+   * A computer that is offline cannot delete its agent now, so the agent leaves the workspace
+   * at once and the computer deletes it when it next reports in (see pending-removals).
+   */
+  const removeWhileOffline = async (
+    c: Context<{ Variables: AuthVariables }>,
+    agent: RemovableAgent,
+  ) => {
+    const { userId, deviceId, teamId, device } = await authorized(c, 'manage')
+
+    assertRemovable(agent, device)
+    if (await deps.getPresence(device.userId, deviceId))
+      throw new AppError(
+        409,
+        'device_online',
+        'This computer is online, so remove the agent from it directly.',
+      )
+    await deps.forgetAgent(device.userId, deviceId, agent)
+    await deps.recordRemoval(device.userId, deviceId, {
+      id: randomUUID(),
+      agent,
+      actorId: userId,
+      teamId,
+      at: new Date(),
+    })
+
+    return c.body(null, 202)
+  }
+
   // `:agent` as for rename. A person's own computer keeps its defaults: their logins are
   // that person's CLI logins.
   routes.delete('/devices/:deviceId/agents/:agent', async (c) => {
@@ -226,14 +268,10 @@ export function createDeviceAgentRoutes(
         : undefined
 
     if (!agent) throw new AppError(400, 'agent_not_removable', 'This agent cannot be removed.')
+    if (c.req.query('force') === 'true') return removeWhileOffline(c, agent)
     const { target, device } = await removableBy(c, agent)
 
-    if ('provider' in agent && !device.box)
-      throw new AppError(
-        400,
-        'agent_not_removable',
-        "Only a Box's default agents can be removed; this computer's stay with its CLIs.",
-      )
+    assertRemovable(agent, device)
     await deps.removeInstance(target, agent)
     // Removing is the only way an agent leaves the list once it has been signed in.
     await deps.forgetAgent(target.userId, target.deviceId, agent)

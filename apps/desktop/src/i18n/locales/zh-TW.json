@@ -5515,6 +5515,7 @@
   "{days} at {time}": "{days} {time}",
   "{days} at {time} your time ({utc})": "{days} {time}（你的時區，{utc}）",
   "{days}d {hours}h": "{days} 天 {hours} 小時",
+  "{device} is offline. The agent leaves this workspace now, and {device} deletes it and its sign-in the next time it connects.": "{device} 目前離線。此 Agent 會立即從這個工作區移除，{device} 下次連線時會刪除它及其登入資訊。",
   "{done}/{total} steps": "{done}/{total} 個步驟",
   "{engine} connection": "{engine} 連線",
   "{error} (This has failed {count} times in a row — retrying the same way won't help. If it persists, reopen this agent or continue in a new one.)": "{error}（已連續失敗 {count} 次，以相同方式重試也無濟於事。若問題持續發生，請重新開啟此 Agent，或在新的 Agent 中繼續。）",

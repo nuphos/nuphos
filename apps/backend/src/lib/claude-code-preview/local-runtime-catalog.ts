@@ -1,4 +1,9 @@
-import { registryKey, reportedAgents, withReport } from '@/lib/agent/devices/agent-registry'
+import {
+  isPendingRemoval,
+  registryKey,
+  reportedAgents,
+  withReport,
+} from '@/lib/agent/devices/agent-registry'
 import {
   deviceAccessDeps,
   deviceOwner,
@@ -115,8 +120,12 @@ export async function listOwnLocalRuntimes(
       // added agent appears once signed in; until then only its sign-in reaches it).
       const known = new Map<string, RegisteredAgent>()
       const registered = new Set((device.agents ?? []).map(registryKey))
+      // One removed while the computer was offline stays gone until the computer deletes it.
+      const seen = [...(device.agents ?? []), ...reportedAgents(presence?.status)].filter(
+        (agent) => !isPendingRemoval(agent, device.removedAgents ?? []),
+      )
 
-      for (const agent of [...(device.agents ?? []), ...reportedAgents(presence?.status)])
+      for (const agent of seen)
         known.set(registryKey(agent), withReport(known.get(registryKey(agent)), agent))
       const running = [...known.values()]
 

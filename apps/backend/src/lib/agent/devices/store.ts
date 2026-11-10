@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 
-import type { AgentAddition, RegisteredAgent } from './agent-registry'
+import type { DeviceAgentRecords } from './agent-registry'
 import type { RequestOrigin } from '@/lib/request-origin'
 import type { Collection } from 'mongodb'
 
@@ -35,7 +35,7 @@ export type DeviceGrant = {
   managerIds: string[]
 }
 
-export type AgentDevice = {
+export type AgentDevice = DeviceAgentRecords & {
   userId: string
   deviceId: string
   label: string
@@ -46,10 +46,6 @@ export type AgentDevice = {
   box?: AgentDeviceBox
   /** Who besides its owner may use or manage it, one grant per team; see box-access. */
   access?: DeviceGrant[]
-  /** Agents this computer has ever had signed in; see agent-registry. */
-  agents?: RegisteredAgent[]
-  /** Who added each of its added agents; absent for agents added before this was recorded. */
-  addedAgents?: AgentAddition[]
   /** sha256 of the credential a join token issued; absent for devices signed in as their owner. */
   credentialHash?: string
   credentialIssuedAt?: Date

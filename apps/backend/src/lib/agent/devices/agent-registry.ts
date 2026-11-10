@@ -1,4 +1,8 @@
-import type { LocalAgentProvider, LocalRuntimeStatus } from './local-runtime/protocol'
+import type {
+  LocalAgentProvider,
+  LocalRuntimeStatus,
+  RemovableAgent,
+} from './local-runtime/protocol'
 
 /** An agent a computer once reported signed in. It stays listed, online or not,
  *  until it is removed; presence only says whether it is reachable right now. */
@@ -17,6 +21,41 @@ export type AgentAddition = { instanceId: string; userId: string; at: Date }
 
 export const registryKey = (agent: Pick<RegisteredAgent, 'provider' | 'instanceId'>) =>
   agent.instanceId ?? agent.provider
+
+/**
+ * An agent removed while its computer was offline. It leaves the workspace at once; the
+ * computer deletes it, and this entry goes, the next time it reports in.
+ */
+export type PendingRemoval = {
+  id: string
+  agent: RemovableAgent
+  /** Who removed it, and in which team: the removal the computer runs later is theirs. */
+  actorId: string
+  teamId: string
+  at: Date
+}
+
+/** What a computer's record keeps about its agents. */
+export type DeviceAgentRecords = {
+  /** Agents this computer has ever had signed in. */
+  agents?: RegisteredAgent[]
+  /** Who added each of its added agents; absent for agents added before this was recorded. */
+  addedAgents?: AgentAddition[]
+  /** Agents removed while it was offline, until it deletes them. */
+  removedAgents?: PendingRemoval[]
+}
+
+/** Whether a report's agent is one that was removed while its computer was offline. */
+export function isPendingRemoval(
+  agent: Pick<RegisteredAgent, 'provider' | 'instanceId'>,
+  removals: PendingRemoval[],
+): boolean {
+  return removals.some(({ agent: removed }) =>
+    'instanceId' in removed
+      ? removed.instanceId === agent.instanceId
+      : !agent.instanceId && removed.provider === agent.provider,
+  )
+}
 
 /** An agent as a report shows it now. Once registered, its name is the registry's alone:
  *  a report names only an agent that joins, so a cleared name stays cleared. */

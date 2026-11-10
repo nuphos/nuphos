@@ -45,6 +45,9 @@ function app(overrides: Partial<DeviceAgentRouteDeps> = {}) {
     },
     recordAddition: () => Promise.resolve(),
     forgetAddition: () => Promise.resolve(),
+    recordRemoval: async (userId, deviceId, removal) => {
+      calls.push({ pending: [userId, deviceId, removal] })
+    },
     ...overrides,
   }
   const server = new Hono<{ Variables: AuthVariables }>()
@@ -64,8 +67,8 @@ function app(overrides: Partial<DeviceAgentRouteDeps> = {}) {
       body: JSON.stringify({ teamId: '69e989027ab63e8d6a0ffcb6', ...(body as object) }),
     })
 
-  const remove = (instanceId: string) =>
-    server.request(`/devices/box/agents/${instanceId}?teamId=69e989027ab63e8d6a0ffcb6`, {
+  const remove = (instanceId: string, query = '') =>
+    server.request(`/devices/box/agents/${instanceId}?teamId=69e989027ab63e8d6a0ffcb6${query}`, {
       method: 'DELETE',
     })
 
@@ -236,5 +239,59 @@ test('a member who may only use the Box cannot rename its agents', async () => {
   })
 
   expect((await rename(id, 'Mine')).status).toBe(404)
+  expect(calls).toEqual([])
+})
+
+test("an offline computer's agent is removed now and deleted by the computer later", async () => {
+  const { remove, calls } = app({ getPresence: async () => null })
+  const response = await remove(id, '&force=true')
+
+  expect(response.status).toBe(202)
+  expect(calls).toEqual([
+    { forgot: ['owner', 'box', { instanceId: id }] },
+    {
+      pending: [
+        'owner',
+        'box',
+        {
+          id: expect.any(String),
+          agent: { instanceId: id },
+          actorId: 'owner',
+          teamId: '69e989027ab63e8d6a0ffcb6',
+          at: expect.any(Date),
+        },
+      ],
+    },
+  ])
+})
+
+test('removing anyway is refused while the computer is online, and never reaches it', async () => {
+  const { remove, calls } = app()
+  const response = await remove(id, '&force=true')
+
+  expect(response.status).toBe(409)
+  expect(calls).toEqual([])
+})
+
+test("removing anyway keeps a person's computer's default agents", async () => {
+  const { remove, calls } = app({ getPresence: async () => null })
+  const response = await remove('claude-code', '&force=true')
+
+  expect(response.status).toBe(400)
+  expect(calls).toEqual([])
+})
+
+test("removing anyway is for the computer's managers only", async () => {
+  const { remove, calls } = app({
+    getPresence: async () => null,
+    requireAccess: async (_user, _team, _device, level) => {
+      if (level === 'manage') throw Object.assign(new Error('Unavailable'), { status: 404 })
+
+      return device
+    },
+  })
+  const response = await remove(id, '&force=true')
+
+  expect(response.status).toBe(404)
   expect(calls).toEqual([])
 })

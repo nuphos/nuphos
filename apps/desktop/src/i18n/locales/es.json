@@ -5515,6 +5515,7 @@
   "{days} at {time}": "{days} a las {time}",
   "{days} at {time} your time ({utc})": "{days} a las {time}, tu hora ({utc})",
   "{days}d {hours}h": "{days} d {hours} h",
+  "{device} is offline. The agent leaves this workspace now, and {device} deletes it and its sign-in the next time it connects.": "{device} está sin conexión. El agente sale de este espacio de trabajo ahora, y {device} lo eliminará junto con su inicio de sesión la próxima vez que se conecte.",
   "{done}/{total} steps": "{done}/{total} pasos",
   "{engine} connection": "Conexión de {engine}",
   "{error} (This has failed {count} times in a row — retrying the same way won't help. If it persists, reopen this agent or continue in a new one.)": "{error} (Falló {count} veces seguidas; reintentar de la misma forma no servirá. Si persiste, vuelve a abrir este agente o continúa en uno nuevo.)",

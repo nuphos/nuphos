@@ -5515,6 +5515,7 @@
   "{days} at {time}": "{days} {time}",
   "{days} at {time} your time ({utc})": "{days} {time}, 내 시간대 기준({utc})",
   "{days}d {hours}h": "{days}일 {hours}시간",
+  "{device} is offline. The agent leaves this workspace now, and {device} deletes it and its sign-in the next time it connects.": "{device} 기기가 오프라인 상태입니다. 에이전트는 지금 이 워크스페이스에서 제거되며, {device} 기기가 다음에 연결될 때 에이전트와 로그인 정보가 삭제됩니다.",
   "{done}/{total} steps": "{done}/{total}단계",
   "{engine} connection": "{engine} 연결",
   "{error} (This has failed {count} times in a row — retrying the same way won't help. If it persists, reopen this agent or continue in a new one.)": "{error} (연속 {count}회 실패했습니다. 같은 방식으로 다시 시도해도 해결되지 않습니다. 문제가 계속되면 이 에이전트를 다시 열거나 새 에이전트에서 계속하세요.)",

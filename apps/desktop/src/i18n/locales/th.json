@@ -5515,6 +5515,7 @@
   "{days} at {time}": "{days} เวลา {time}",
   "{days} at {time} your time ({utc})": "{days} เวลา {time} ตามเวลาของคุณ ({utc})",
   "{days}d {hours}h": "{days} วัน {hours} ชม.",
+  "{device} is offline. The agent leaves this workspace now, and {device} deletes it and its sign-in the next time it connects.": "{device} ออฟไลน์อยู่ เอเจนต์จะถูกนำออกจากพื้นที่ทำงานนี้ทันที และ {device} จะลบเอเจนต์และการลงชื่อเข้าใช้ในครั้งถัดไปที่เชื่อมต่อ",
   "{done}/{total} steps": "{done}/{total} ขั้นตอน",
   "{engine} connection": "การเชื่อมต่อ {engine}",
   "{error} (This has failed {count} times in a row — retrying the same way won't help. If it persists, reopen this agent or continue in a new one.)": "{error} (ล้มเหลวติดต่อกัน {count} ครั้งแล้ว — การลองซ้ำด้วยวิธีเดิมจะไม่ช่วย หากยังเกิดขึ้นอีก ให้เปิดเอเจนต์นี้ใหม่หรือทำต่อในเอเจนต์ใหม่)",
