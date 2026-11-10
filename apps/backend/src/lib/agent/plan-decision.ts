@@ -61,7 +61,9 @@ export async function approvePlanForCaller(input: {
   if (!current) throw new AppError(404, 'not_found', 'Plan not found')
   await assertPlanAccess(current, input.userId, 'reply')
   if (current.status !== 'proposed') {
-    throw new AppError(409, 'plan_not_proposed', 'Only proposed plans can be approved')
+    throw new AppError(409, 'plan_not_proposed', `This plan is already ${current.status}.`, {
+      status: current.status,
+    })
   }
   if (!isPlanReadyForApproval(current)) {
     throw new AppError(
@@ -77,7 +79,14 @@ export async function approvePlanForCaller(input: {
     input.userId,
   )
 
-  if (!result.plan) throw new AppError(404, 'not_found', 'Plan not found')
+  // Another approval moved the plan on between the read above and this vote.
+  if (!result.plan) {
+    throw new AppError(
+      409,
+      'approval_race_lost',
+      'This plan was just approved — no need to approve it again.',
+    )
+  }
   if (result.thresholdReached) {
     if (result.plan.sourceConversationId)
       await resolvePlanInputRequests(result.plan.sourceConversationId, result.plan.id)

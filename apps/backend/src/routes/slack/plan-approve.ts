@@ -21,18 +21,20 @@ import { resumeApprovedPlanTurn } from '@/routes/slack/plan-resume'
 // window closes. That dropped-body path is exactly why the Approve button used
 // to linger and the plan's task_cards spun on `pending` forever even though
 // execution had already started.
-// Why the in-app approval refused, as this card's reply says it.
-const REFUSALS: Record<string, [reason: string, message: string]> = {
+// Why the in-app approval refused, as this card's reply says it. A code without
+// its own message says what the in-app approval said.
+const REFUSALS: Record<string, [reason: string, message?: string]> = {
   not_found: ['plan_not_found', 'Plan not found — it may have been deleted.'],
   forbidden: [
     'plan_access_denied',
     "You don't have reply access to this plan's conversation, so you can't approve it.",
   ],
-  plan_not_proposed: ['plan_not_proposed', 'This plan is no longer waiting for approval.'],
+  plan_not_proposed: ['plan_not_proposed'],
   plan_incomplete: [
     'plan_incomplete',
     'This plan is missing required sections (steps, cost, or risk) and cannot be approved yet — open it in Nuphos.',
   ],
+  approval_race_lost: ['approval_race_lost'],
 }
 
 export async function handlePlanApproveInteraction(args: {
@@ -163,11 +165,14 @@ export async function handlePlanApproveInteraction(args: {
   } catch (err) {
     const refused = err instanceof AppError ? REFUSALS[err.code] : undefined
 
-    if (!refused) throw err
-    await reject(refused[0], refused[1], {
+    if (!refused || !(err instanceof AppError)) throw err
+    const status = (err.details as { status?: string } | undefined)?.status
+
+    await reject(refused[0], refused[1] ?? err.message, {
       plan_id: planId,
       session_id: sessionId,
       team_id: teamId,
+      ...(status ? { plan_status: status } : {}),
     })
 
     return
