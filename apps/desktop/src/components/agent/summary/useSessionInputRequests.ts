@@ -115,7 +115,16 @@ export function useSessionInputRequests(sessionId: string | null, teamId: string
     }
   }, [known, listing, opened, sessionId, teamId])
 
-  // A sub-agent starting, stopping or waiting is when it asks or takes an answer.
+  useRefreshOnRuntimeChange(watched)
+
+  return { requests, failed, loaded: listing?.teamId === teamId }
+}
+
+/**
+ * Reloads the open questions when one of these sessions (comma-joined, sorted)
+ * starts, stops or waits: when a sub-agent asks or takes an answer.
+ */
+export function useRefreshOnRuntimeChange(watched: string) {
   useEffect(() => {
     if (!watched) return
     const ids = watched.split(',')
@@ -129,6 +138,4 @@ export function useSessionInputRequests(sessionId: string | null, teamId: string
       refreshInputRequests()
     })
   }, [watched])
-
-  return { requests, failed, loaded: listing?.teamId === teamId }
 }

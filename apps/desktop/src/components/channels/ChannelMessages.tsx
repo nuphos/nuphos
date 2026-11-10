@@ -49,6 +49,9 @@ function Notice({ event }: { event: AgentTimelineEvent }) {
   )
 }
 
+/** A line placed in the chat by its time, beside the posts. */
+export type TimelineRow = { at: number; key: string; node: ReactNode }
+
 const stamp = (value: string | undefined) => Date.parse(value ?? '') || 0
 const postedAt = (message: AgentPersistedMessage) =>
   stamp(parseMessageMetadata(message.metadata)?.sentAt ?? message.createdAt)
@@ -63,6 +66,7 @@ export function ChannelMessages({
   onOpenNuphosLink,
   channelId,
   onReply,
+  extraRows = [],
 }: {
   messages: AgentPersistedMessage[]
   events: AgentTimelineEvent[]
@@ -74,6 +78,8 @@ export function ChannelMessages({
   channelId: string
   /** Replies to a post; absent where the viewer cannot post. */
   onReply?: (reply: AgentMessageReply) => void
+  /** Other lines in the timeline, such as the questions a Bot's chat waits on. */
+  extraRows?: TimelineRow[]
 }) {
   const renderAgentLink = useAgentLinks(teamId, onOpenNuphosLink)
   // One function across renders: a new one makes every post rebuild its text,
@@ -91,7 +97,7 @@ export function ChannelMessages({
   const [initial] = useState(() => new Set(messages.map((message) => message.id)))
   const [menu, setMenu] = useState<{ reply: AgentMessageReply; x: number; y: number } | null>(null)
   // Posts and timeline lines in the order they happened.
-  const rows = [
+  const rows: TimelineRow[] = [
     ...messages.map((message, i) => {
       const at = postedAt(message)
       // A time above the post starts a new run, as in iMessage.
@@ -137,6 +143,7 @@ export function ChannelMessages({
         key: `event-${event.kind}-${event.at}`,
         node: <Notice event={event} />,
       })),
+    ...extraRows,
   ].sort((a, b) => a.at - b.at)
 
   return (

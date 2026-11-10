@@ -14,8 +14,8 @@ export const INBOX_POLL_MS = 15_000
 // stops hiding its question after this, so the badge falls back to the server.
 const ANSWER_HOLD_MS = 60_000
 
-// The one listing of conversations waiting on the viewer: the badge counts it,
-// and the Inbox page publishes the list it shows into it, so the two agree.
+// The one listing of conversations waiting on the viewer: the badge counts its
+// questions and the Inbox page lists them, so the two agree.
 let listing: { teamId: string; conversations: AgentConversation[] } | null = null
 // Questions answered on this device, hidden until a listing no longer has them
 // open. Infinity while the reply is being sent; a deadline once it was.
@@ -74,13 +74,21 @@ export function answeringInbox<T>(
   return send
 }
 
-/** How many of the viewer's conversations wait on them in this team; `null` until known. */
+/** How many questions wait on the viewer in this team; `null` until known. */
 export function inboxCountFor(teamId: string): number | null {
   return listing?.teamId === teamId ? inboxCount(listing.conversations, answered) : null
 }
 
-/** {@link inboxCountFor}, kept current by polling and by every answer or question. */
-export function useInboxCount(teamId: string): number | null {
+/**
+ * The team's waiting conversations, `null` until listed: the one listing the
+ * badge counts and the Inbox lists, kept current by polling every `pollMs` and
+ * by every answer or question. A new `reloadKey` reloads it at once.
+ */
+export function useInboxListing(
+  teamId: string,
+  pollMs = INBOX_POLL_MS,
+  reloadKey = 0,
+): AgentConversation[] | null {
   useEffect(() => {
     if (!teamId) return
     let live = true
@@ -105,7 +113,7 @@ export function useInboxCount(teamId: string): number | null {
     }
 
     load()
-    const interval = setInterval(load, INBOX_POLL_MS)
+    const interval = setInterval(load, pollMs)
     // The same moments the Inbox page reloads on: a question asked, answered or dismissed.
     const stopRefresh = onInputRequestsRefresh(load)
 
@@ -114,7 +122,16 @@ export function useInboxCount(teamId: string): number | null {
       clearInterval(interval)
       stopRefresh()
     }
-  }, [teamId])
+  }, [teamId, pollMs, reloadKey])
+
+  return useSyncExternalStore(subscribe, () =>
+    listing?.teamId === teamId ? listing.conversations : null,
+  )
+}
+
+/** {@link inboxCountFor}, kept current by {@link useInboxListing}. */
+export function useInboxCount(teamId: string): number | null {
+  useInboxListing(teamId)
 
   return useSyncExternalStore(subscribe, () => inboxCountFor(teamId))
 }
