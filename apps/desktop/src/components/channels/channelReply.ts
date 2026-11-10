@@ -26,13 +26,3 @@ export function replyTo(message: AgentPersistedMessage): AgentMessageReply | nul
       }
     : null
 }
-
-/** Scrolls to a post and flashes it, if it is loaded; a removed one stays put. */
-export function jumpTo(id: string) {
-  const post = document.querySelector<HTMLElement>(`[data-post-id="${CSS.escape(id)}"]`)
-
-  if (!post) return
-  post.scrollIntoView({ block: 'center', behavior: 'smooth' })
-  post.classList.remove('cell-flash')
-  requestAnimationFrame(() => post.classList.add('cell-flash'))
-}

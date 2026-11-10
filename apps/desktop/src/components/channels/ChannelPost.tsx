@@ -1,5 +1,4 @@
 import clsx from 'clsx'
-import { CornerUpLeft } from 'lucide-react'
 
 import { t } from '../../i18n'
 import { trustedAvatarURL } from '../../lib/avatarUrl'
@@ -7,15 +6,16 @@ import { AgentAvatar } from '../agent/AgentAvatar'
 import { MessageResponse } from '../agent/MessageResponse'
 import { linkMentions } from '../agent/panel/messageMentionText'
 import { parseMessageMetadata } from '../agent/panel/messageMetadata'
+import { ReplyQuote } from '../agent/panel/ReplyQuote'
 import { Avatar } from '../Avatar'
 
 import { ChannelFiles } from './ChannelFiles'
 import { speaksInChannel } from './channelSpeakers'
-import { jumpTo, textOf } from './channelReply'
+import { textOf } from './channelReply'
 import { exactTime } from './chatTime'
 import { channelFiles } from './postFiles'
 
-import type { AgentMessageReply, AgentPersistedMessage } from '../../api'
+import type { AgentPersistedMessage } from '../../api'
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 
 export type Links = {
@@ -23,22 +23,6 @@ export type Links = {
   onLinkClick?: (href: string, beside?: boolean) => boolean
   /** The chat: its files load through it, so every member sees them. */
   channelId: string
-}
-
-/** The post a reply answers, one line just above the reply: clicking it goes there. */
-function ReplyQuote({ reply }: { reply: AgentMessageReply }) {
-  return (
-    <button
-      type="button"
-      title={reply.text}
-      onClick={() => reply.id && jumpTo(reply.id)}
-      className="flex max-w-[min(100%,20rem)] items-center gap-1 px-1 text-[11px] leading-4 text-tertiary hover:text-secondary"
-    >
-      <CornerUpLeft size={11} className="shrink-0" aria-hidden />
-      <span className="shrink-0 font-medium">{reply.authorName}</span>
-      <span className="truncate">{reply.text}</span>
-    </button>
-  )
 }
 
 /**
