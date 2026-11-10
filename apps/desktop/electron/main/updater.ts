@@ -1,4 +1,6 @@
-import { app, BrowserWindow } from 'electron'
+import { once } from 'node:events'
+
+import { app, autoUpdater as nativeUpdater, BrowserWindow } from 'electron'
 import electronUpdater from 'electron-updater'
 
 import { captureMain, captureMainException } from '../analytics'
@@ -10,7 +12,7 @@ import {
   createUpdaterErrorDedupe,
   updaterTelemetryError,
 } from './updater-error'
-import { acceptsUpdaterState } from './updater-state'
+import { awaitLatestStaged } from './updater-install'
 import { markAppQuitting } from './window-session'
 
 import type { UpdaterState } from './updater-state'
@@ -24,8 +26,6 @@ let updaterCheckTimer: ReturnType<typeof setInterval> | null = null
 let lastProgressAt = 0
 
 function setUpdaterState(next: UpdaterState) {
-  // A downloaded update stays ready until the restart installs it or a newer one replaces it.
-  if (!acceptsUpdaterState(updaterState, next)) return
   updaterState = next
   for (const win of BrowserWindow.getAllWindows()) {
     win.webContents.send('updater:status', next)
@@ -36,18 +36,32 @@ export function getUpdaterState(): UpdaterState {
   return updaterState
 }
 
-/** A check while downloading would only restart the same download. Once an update
- * is ready, checks keep running: a release published since then downloads in the
- * background and becomes the one the restart installs, so the app never has to
- * update twice in a row. electron-updater joins overlapping checks and skips
- * unpacked builds; a failed check also emits 'error', which reports telemetry. */
+/** A check while downloading would only restart the same download, and one while
+ * an update is ready would only download it again: the restart checks for itself.
+ * electron-updater skips unpacked builds; a failed check also emits 'error',
+ * which reports telemetry. */
 export function checkForUpdates() {
-  if (updaterState.kind === 'downloading') return
+  if (updaterState.kind === 'downloading' || updaterState.kind === 'ready') return
   autoUpdater.checkForUpdates().catch(() => null)
 }
 
-export function installUpdate() {
+/** Squirrel.Mac takes the download from electron-updater, so it holds it a moment later. */
+function stagedByOs() {
+  return process.platform === 'darwin'
+    ? once(nativeUpdater, 'update-downloaded')
+    : Promise.resolve()
+}
+
+/** Restarts into the newest release. Releases ship several times a day, so one
+ * may be out since the ready update downloaded; it downloads first, with its
+ * progress showing, or the app would restart only to offer the next update. */
+export async function installUpdate() {
   if (updaterState.kind !== 'ready') return
+  const staged = updaterState.version
+  const check = await autoUpdater.checkForUpdates().catch(() => null)
+
+  // A failed download shows as an error; the next check tries again.
+  if (!(await awaitLatestStaged(check, staged, stagedByOs))) return
   // quitAndInstall closes every window before before-quit fires.
   markAppQuitting()
   autoUpdater.quitAndInstall()
@@ -96,7 +110,6 @@ export function initAutoUpdaterEvents() {
     })
   })
   autoUpdater.on('update-downloaded', (info) => {
-    if (updaterState.kind === 'ready' && updaterState.version === info.version) return
     captureMain('update_downloaded', { version: info.version })
     setUpdaterState({ kind: 'ready', version: info.version })
   })
