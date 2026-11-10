@@ -36,6 +36,9 @@ import type { ReactNode } from 'react'
  * A channel: people and agents talking. It runs no agent of its own; each
  * agent here answers from its own session, which "Open session" shows.
  */
+/** The post a reply quotes, or an agent's question it answers through `answer`. */
+type Replying = AgentMessageReply & { answer?: (text: string) => void }
+
 export function ChannelPane({
   teamId,
   channelId,
@@ -70,8 +73,8 @@ export function ChannelPane({
   const unsent = useRef<{ key: string; id: string } | null>(null)
   // Posts shown at once, until the channel returns them under the same id.
   const [sending, setSending] = useState<AgentPersistedMessage[]>([])
-  // The post the next one answers, quoted above the composer.
-  const [replying, setReplying] = useState<AgentMessageReply | null>(null)
+  // The post the next one answers, quoted above the composer; for a question, sent as its answer.
+  const [replying, setReplying] = useState<Replying | null>(null)
   const composerRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   // Files dropped anywhere on the chat go to its composer, as in a conversation.
@@ -104,22 +107,40 @@ export function ChannelPane({
 
   // Open at the latest post, and follow new ones and the typing bubble.
   const stickToBottom = useStickToBottom(scrollRef)
-  const chat = { channelId, user, setSending, stickToBottom, refresh }
+  const chat = { channelId, user, setSending, stickToBottom, refresh, reply: replyToQuestion }
   const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession, chat)
+
+  // A question's answer is its words alone; a post with files is a message quoting nothing.
+  const quoted = replying?.answer ? null : replying
 
   // A channel post takes the draft the moment its optimistic card is rendered
   // (in `postDraft` below), so acceptance is reported at once rather than after
   // the round trip. A failure restores the draft through `setRestore`, which is
   // this pane's own path — hence `true` either way.
   const send = (text: string, filePaths: string[], mentions?: AgentMessageMention[]): boolean => {
-    void postDraft(text, filePaths, mentions)
+    if (replying?.answer && filePaths.length === 0 && text.trim()) {
+      setReplying(null)
+      replying.answer(text)
+    } else void postDraft(text, filePaths, mentions)
 
     return true
   }
 
+  function replyToQuestion(quote: AgentMessageReply, answer: (text: string) => void) {
+    setReplying({ ...quote, answer })
+    focusComposer()
+  }
+
+  // After a menu or card hands focus back to where it was opened.
+  function focusComposer() {
+    requestAnimationFrame(() =>
+      composerRef.current?.querySelector<HTMLElement>('[contenteditable="true"]')?.focus(),
+    )
+  }
+
   async function postDraft(text: string, filePaths: string[], mentions?: AgentMessageMention[]) {
     if (!text.trim() && filePaths.length === 0) return
-    const reply = replying ?? undefined
+    const reply = quoted ?? undefined
     const key = [reply?.id, text, ...filePaths].join('\n')
     const id = unsent.current?.key === key ? unsent.current.id : crypto.randomUUID()
     // Files take the conversation's upload path: shown at once, uploaded, then posted.
@@ -241,12 +262,7 @@ export function ChannelPane({
                   ? undefined
                   : (reply) => {
                       setReplying(reply)
-                      // After the menu hands focus back to where it was opened.
-                      requestAnimationFrame(() =>
-                        composerRef.current
-                          ?.querySelector<HTMLElement>('[contenteditable="true"]')
-                          ?.focus(),
-                      )
+                      focusComposer()
                     }
               }
             />

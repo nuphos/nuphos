@@ -15,6 +15,8 @@ export type ConnectCardContextValue = {
   saveSecret?: (name: string, value: string) => Promise<string>
   // The conversation's open questions once listed: a card asking one can still be answered.
   openQuestions?: readonly ReplyQuestion[]
+  // Starts a typed answer to the card's question in the composer; absent where none answers it.
+  reply?: (card: DecisionCardRef) => void
 }
 
 export const ConnectCardContext = createContext<ConnectCardContextValue | null>(null)

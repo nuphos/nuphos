@@ -70,6 +70,8 @@ export function InboxView({
   const [selected, setSelected] = useState<{ id: string; index: number } | null>(null)
   // The reader shows the question; the transcript only when asked for, at the question.
   const [showConversation, setShowConversation] = useState(false)
+  // "Other…" opens the conversation to type the answer in its composer.
+  const [typeAnswer, setTypeAnswer] = useState(false)
   const [locate, setLocate] = useState<{ sessionId: string; target: JournalChatTarget } | null>(
     null,
   )
@@ -214,7 +216,16 @@ export function InboxView({
                   ? answerInChat(teamId, chat, open.request.id, text)
                   : answerQuestion(teamId, sessionId, open.request.id, text))
               }}
-              onShowConversation={openTranscript}
+              onShowConversation={() => {
+                setTypeAnswer(false)
+                openTranscript()
+              }}
+              onReply={() => {
+                setTypeAnswer(true)
+                if (!showConversation) openTranscript()
+                else
+                  readerRef.current?.querySelector<HTMLElement>('[contenteditable="true"]')?.focus()
+              }}
               onHideConversation={() => setShowConversation(false)}
               onOpenConversation={() => onOpenConversation(sessionId)}
             />
@@ -225,7 +236,7 @@ export function InboxView({
                   key="inbox"
                   variant="page"
                   open
-                  focusComposerOnOpen={false}
+                  focusComposerOnOpen={typeAnswer}
                   teamId={teamId}
                   sessionId={sessionId}
                   decisionReplyTo={open.request.id}

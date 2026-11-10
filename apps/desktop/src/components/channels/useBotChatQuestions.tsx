@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { answerInChat, answerQuestion } from '../../views/inbox/useInbox'
 import { inputRequestKey } from '../agent/summary/sessionInputRequests'
 import { useSessionInputRequests } from '../agent/summary/useSessionInputRequests'
@@ -7,7 +8,7 @@ import { sendingPost } from './sendingPosts'
 import { useBotCredentials } from './useBotCredentials'
 
 import type { TimelineRow } from './ChannelMessages'
-import type { AgentPersistedMessage } from '../../api'
+import type { AgentMessageReply, AgentPersistedMessage } from '../../api'
 import type { UserInfo } from '../../types'
 import type { CredentialSelectorControl } from '../agent/panel/credentialSections'
 import type { Dispatch, SetStateAction } from 'react'
@@ -19,6 +20,8 @@ type ChatPosting = {
   setSending: Dispatch<SetStateAction<AgentPersistedMessage[]>>
   stickToBottom: () => void
   refresh: () => void
+  /** Quotes a question above the composer; what is sent next is `answer`ed instead of posted. */
+  reply: (quote: AgentMessageReply, answer: (text: string) => void) => void
 }
 
 /**
@@ -53,24 +56,37 @@ export function useBotChatQuestions(
     )
   }
 
-  const rows = requests.map((request) => ({
-    at: Date.parse(request.inputRequest.askedAt) || 0,
-    key: `question-${inputRequestKey(request)}`,
-    node: (
-      <BotChatQuestion
-        request={request}
-        teamId={teamId}
-        credentials={request.sessionId === botId ? botCredentials : undefined}
-        // The Bot's own questions are this chat's; only an agent under it is named.
-        onOpenSession={request.sessionId === botId ? undefined : onOpenSession}
-        onAnswer={(text, replyTo) =>
-          request.sessionId === botId
-            ? answerHere(text, replyTo)
-            : void answerQuestion(teamId, request.sessionId, replyTo, text)
-        }
-      />
-    ),
-  }))
+  const rows = requests.map((request) => {
+    const answer = (text: string, replyTo: string) =>
+      request.sessionId === botId
+        ? answerHere(text, replyTo)
+        : void answerQuestion(teamId, request.sessionId, replyTo, text)
+
+    return {
+      at: Date.parse(request.inputRequest.askedAt) || 0,
+      key: `question-${inputRequestKey(request)}`,
+      node: (
+        <BotChatQuestion
+          request={request}
+          teamId={teamId}
+          credentials={request.sessionId === botId ? botCredentials : undefined}
+          // The Bot's own questions are this chat's; only an agent under it is named.
+          onOpenSession={request.sessionId === botId ? undefined : onOpenSession}
+          onAnswer={answer}
+          onReply={(replyTo) =>
+            chat.reply(
+              {
+                id: replyTo,
+                authorName: request.title || t('Untitled agent'),
+                text: request.inputRequest.question,
+              },
+              (text) => answer(text, replyTo),
+            )
+          }
+        />
+      ),
+    }
+  })
 
   return { rows, credentials: botCredentials }
 }

@@ -142,9 +142,10 @@ export type AgentInputRequest = {
   /** Markdown the agent wrote so the question can be decided without the chat. */
   body?: string
   options?: string[]
-  /** The secret a `credential` request asks for, or the providers an `integration` one connects. */
+  /** The secret a `credential` request asks for, the providers an `integration` one connects, or the plan it approves. */
   secretName?: string
   providers?: string[]
+  planId?: string
   askedAt: string
   status: 'open' | 'answered' | 'dismissed'
 }
@@ -161,8 +162,7 @@ export type AgentTriggerRunKind = 'scheduled' | 'webhook' | 'manual'
 export type AgentConversationTriggerRun = {
   id: string
   kind?: AgentTriggerRunKind
-  /** Watch group runs only: which monitored item fired behind the shared
-   *  ingress that one partition trigger serves. */
+  /** Watch group runs only: the monitored item that fired behind the shared partition ingress. */
   memberKey?: string
 }
 

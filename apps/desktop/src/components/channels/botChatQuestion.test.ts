@@ -65,11 +65,23 @@ test('a secret record draws the masked secure card in a Bot chat and the Inbox',
   assert.equal(parseChoiceRequest(part.input), null)
 })
 
-test('a free-form question is shown but answered in its own conversation', () => {
-  assert.equal(botChatQuestion(request({ category: 'preference' })).answerable, false)
-  assert.equal(botChatQuestion(request({ options: [] })).answerable, false)
-  // A credential without a secret name has no secure card to answer it with.
-  assert.equal(botChatQuestion(request({ category: 'credential' })).answerable, false)
+test('a free-form question is answered by typing, never a credential or a plan', () => {
+  for (const fields of [{ category: 'preference' }, { options: [] }, { options: ['A', 'B'] }]) {
+    const question = botChatQuestion(request(fields))
+
+    assert.equal(question.answerable, true)
+    assert.equal(question.typed, true)
+  }
+  // A credential without a secret name has no secure card, and its value is never typed into a chat.
+  const credential = botChatQuestion(request({ category: 'credential' }))
+
+  assert.equal(credential.answerable, false)
+  assert.equal(credential.typed, false)
+  // A plan keeps its Approve and Reject; a typed reply is only a message.
+  const plan = botChatQuestion(request({ options: ['Approve', 'Reject'], planId: '42' }))
+
+  assert.equal(plan.answerable, true)
+  assert.equal(plan.typed, false)
 })
 
 test('a connection is answered from its Connect card where the chat can select credentials', () => {

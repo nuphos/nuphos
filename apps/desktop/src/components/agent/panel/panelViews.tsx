@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 
 import { api } from '../../../api'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
@@ -72,6 +72,12 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   const { runtimeControl, queuedApproval } = useQueuedShareApproval(conversationControl, activeTab)
   const readOnlyNotice = useViewOnlyNotice(c)
   const questions = c.openQuestions ?? c.replyTarget?.questions
+  const composerRef = useRef<HTMLDivElement>(null)
+  // The composer answers a question where it names one: the "Replying to" chip, or a fixed one.
+  const canReply =
+    activeTab !== null &&
+    !activeTab.readOnly &&
+    (c.replyTarget?.sessionId === activeTab.sessionId || c.decisionReplyTo !== undefined)
   // The fork needs the chat stored on the server; each message is then gated on its author.
   const editableSessionId =
     activeTab && !activeTab.readOnly && !activeTab.unsaved ? activeTab.sessionId : undefined
@@ -165,6 +171,14 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                           (await api.agentSaveSecret(activeTab.sessionId, name, value, teamId))
                             .path,
                   openQuestions: c.openQuestions,
+                  reply: canReply
+                    ? (card) => {
+                        c.replyTarget?.onChoose(cardReplyId(card, questions))
+                        composerRef.current
+                          ?.querySelector<HTMLElement>('[contenteditable="true"]')
+                          ?.focus()
+                      }
+                    : undefined,
                 }}
               >
                 <Conversation
@@ -190,7 +204,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                 />
               </ConnectCardContext.Provider>
             </div>
-            <div className="col-start-1 row-start-2 z-10">
+            <div ref={composerRef} className="col-start-1 row-start-2 z-10">
               {waitingMessages(activeTab).length > 0 && (
                 <QueuedStrip
                   items={waitingMessages(activeTab)}
