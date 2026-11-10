@@ -43,6 +43,12 @@ struct RuntimeObservationTests {
         precondition(botChat("chat-a").botTyping(in: listed, team: "t"))
         precondition(!botChat("chat-a").botTyping(in: listed, team: "other"))
         precondition(!botChat("chat-b").botTyping(in: listed, team: "t")) // Its turn answers another chat.
+        // Only a chat with more than one other member names who posted.
+        var post = botChat("chat-a")
+        post.lastMessage = .init(text: "Hello", from: "Bot")
+        precondition(post.previewLine == "Hello")
+        post.faces?.append(ChatFace(id: "ann", name: "Ann", avatarURL: nil, agent: nil))
+        precondition(post.previewLine == "Bot: Hello")
         // A desktop opens where the runtime says it can, or already shows one; not otherwise.
         precondition(snapshot(#"{"schemaVersion":2,"state":"idle","canOpenDesktop":true}"#, at: 100).canOpenDesktop)
         precondition(snapshot(#"{"schemaVersion":2,"state":"idle","tools":[{"kind":"desktop"}]}"#, at: 100).canOpenDesktop)

@@ -124,6 +124,14 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     /// The Bot this chat is the 1:1 of: its one other member is an agent with a face.
     var botId: String? { isChannel ? faces?.botId : nil }
 
+    /// The list's preview line. Only a chat with more than one other member
+    /// names who posted: in a 1:1 the row already is the sender.
+    var previewLine: String? {
+        guard let last = lastMessage else { return nil }
+        guard let from = last.from, (faces?.count ?? 0) > 1 else { return last.text }
+        return "\(from): \(last.text)"
+    }
+
     /// The Bot of this 1:1 chat is in a turn that answers it: the chat's typing
     /// dots, which its list row shows in place of the newest post.
     func botTyping(in observations: RuntimeObservations, team: String) -> Bool {

@@ -90,10 +90,13 @@ data class AgentConversation(
 
     val lastPost: LastPost? get() = lastMessage?.get("text")?.stringValue?.let { LastPost(it, lastMessage["from"]?.stringValue) }
 
-    /** The list's preview line. A group names who posted; a post with only files says so. */
+    /**
+     * The list's preview line; a post with only files says so. Only a chat with more than one other
+     * member names who posted: in a 1:1 the row already is the sender.
+     */
     val previewLine: String? get() = lastPost?.let { post ->
         val text = post.text.ifBlank { "Attachment" }
-        if (botId == null && post.from != null) "${post.from}: $text" else text
+        if (post.from != null && (faces?.size ?: 0) > 1) "${post.from}: $text" else text
     }
 
     data class LastPost(val text: String, val from: String?)

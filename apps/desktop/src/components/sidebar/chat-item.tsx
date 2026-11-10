@@ -41,7 +41,7 @@ export function chatSidebarItem({
     key: `agent-session:${conversation.sessionId}`,
     label: conversation.title || conversation.firstMessage || t('Untitled agent'),
     ...chatRowIcon(conversation),
-    preview: chatPreview(conversation.lastMessage),
+    preview: chatPreview(conversation.lastMessage, conversation.faces),
     time: chatTime(conversation.lastActiveAt),
     description: (
       <SessionResources

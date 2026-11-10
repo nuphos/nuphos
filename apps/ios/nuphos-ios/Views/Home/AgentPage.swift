@@ -495,9 +495,8 @@ struct ChannelRow: View {
                     TypingDots(size: 5)
                         .frame(height: 16)
                         .accessibilityLabel("\(channel.displayTitle) is thinking")
-                } else if let last = channel.lastMessage {
-                    // A group names who posted; a Bot's 1:1 chat needs no name.
-                    Text(channel.botId == nil && last.from != nil ? "\(last.from!): \(last.text)" : last.text)
+                } else if let preview = channel.previewLine {
+                    Text(preview)
                         .font(Theme.Text.label)
                         .foregroundStyle(Theme.muted)
                         .lineLimit(1)
