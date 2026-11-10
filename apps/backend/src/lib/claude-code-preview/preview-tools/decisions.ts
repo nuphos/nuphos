@@ -188,10 +188,11 @@ function passthroughHandler(
       question,
       ...(body ? { body } : {}),
       ...(choices ? { options: choices } : {}),
-      ...(category === 'credential' && typeof input.secretName === 'string'
-        ? { secretName: input.secretName }
+      // From args, as a channel turn's card drops them: the Inbox and a Bot's chat
+      // still draw the secure input or Connect card from the record.
+      ...(category === 'credential' && typeof args.secretName === 'string'
+        ? { secretName: args.secretName }
         : {}),
-      // From args: a channel turn's card drops them, yet selecting one still answers it.
       ...(category === 'integration' && Array.isArray(args.providers)
         ? { providers: args.providers.filter(isConnectableProvider) }
         : {}),
