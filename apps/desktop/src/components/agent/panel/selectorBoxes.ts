@@ -129,7 +129,7 @@ function formatCapacity(value: { used: number; total: number }) {
 export function boxAgentName(agent: Pick<RuntimeInstance, 'label' | 'local' | 'provider'>): string {
   if (!agent.local) return agent.label
 
-  return agent.local.agentLabel ?? AGENT_PROVIDER[agent.provider].label
+  return agent.local.accountLabel ?? agent.local.agentLabel ?? AGENT_PROVIDER[agent.provider].label
 }
 
 /** Explicit grants win; older catalogs identify a teammate's computer with shared. */
