@@ -27,6 +27,9 @@ app.setPath('userData', choice.dir)
 /** Where this build keeps its data, for the modules that would otherwise read the path. */
 export const userDataDir = choice.dir
 
+/** A directory holding a profile this build deliberately does not use. Reported, never deleted. */
+export const leftAloneDir = choice.leftAlone
+
 // Once per launch: which directory this build uses, and a profile it found beside it and
 // deliberately left alone, so a question about an install's data has an answer.
 if (choice.leftAlone)
