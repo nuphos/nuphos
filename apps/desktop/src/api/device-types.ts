@@ -72,6 +72,14 @@ export type LocalAgentState = {
   cli: AgentCliStatus | null
 }
 
+/** One added agent of a provider on this computer, as its host reports it. */
+export type LocalAgentInstance = {
+  instanceId: string
+  provider: LocalAgentProvider
+  label: string
+  workspace: string | null
+} & LocalAgentState
+
 /** Only for an unpackaged app with no local agent bundle: what `bun run dev` is doing about it. */
 export type DevBundleHint =
   { state: 'preparing' } | { state: 'failed'; reason: string } | { state: 'missing' }
@@ -96,6 +104,8 @@ export type LocalRuntimeState = {
   claudeLogin?: LocalAgentLoginState
   codexLogin?: LocalAgentLoginState
   agents: Record<LocalAgentProvider, LocalAgentState>
+  /** The added agents of this computer, in the order its host keeps them. */
+  instances?: LocalAgentInstance[]
   workspace: string | null
   userId: string | null
   deviceId?: string
