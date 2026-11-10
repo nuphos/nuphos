@@ -267,7 +267,7 @@ test('Stop with nothing held and no runtime to reach reports the failure', async
   expect(stoppedRuns).toEqual([])
 })
 
-const steerRefusals = async (send: () => Promise<Response>) => {
+const steerRefusals = async (send: () => Response | Promise<Response>) => {
   const log = spyOn(console, 'log').mockImplementation(() => {})
 
   try {
