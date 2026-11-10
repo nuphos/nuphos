@@ -59,6 +59,8 @@ export function openQuestionParts(
 
   for (const message of messages)
     for (const part of message.parts) {
+      // A plan's question is its plan card, under the same id.
+      if (part.type === 'tool' && part.toolName === 'plan_create') shown.add(part.toolCallId)
       if (part.type !== 'tool' || !isDecisionCardPart(part)) continue
       const matched = matchInputRequest(cardRef(part), open)
 

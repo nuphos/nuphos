@@ -27,6 +27,8 @@ useAgentDb({
   clearPendingDecision: async (sessionId) => {
     answered.push(sessionId)
   },
+  // An ordinary question, not a plan's.
+  findInputRequest: async () => undefined,
   resolveInputRequest: async (sessionId, userId, toolCallId) => {
     resolved.push([sessionId, userId, toolCallId])
 
@@ -51,6 +53,7 @@ const turn = (
     userId: 'u1',
     origin: 'user',
     localToolsEnabled,
+    messages: [],
     run: {},
   }) as unknown as PreviewChatTurnArgs
 

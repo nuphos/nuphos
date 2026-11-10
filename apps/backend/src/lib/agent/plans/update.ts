@@ -1,3 +1,5 @@
+import { resolvePlanInputRequests } from '@/lib/agent/db'
+
 import { plans } from './collections'
 import { parsePlanNumber, scopedNumberFilter } from './scope'
 import { serializePlan } from './serialize'
@@ -214,6 +216,9 @@ export async function updatePlan(
   }
   if (!finalResult) return null
   const serialized = serializePlan(finalResult)
+
+  if (patch.status && patch.status !== 'proposed' && serialized.sourceConversationId)
+    await resolvePlanInputRequests(serialized.sourceConversationId, serialized.id)
 
   // No automatic memory writes: completed plans are no longer auto-distilled; a
   // plan worth remembering goes through an explicit save_memory (scope personal

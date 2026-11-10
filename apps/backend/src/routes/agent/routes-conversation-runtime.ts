@@ -1,13 +1,10 @@
-import { takeOwnQueued } from './routes-conversation-queue'
-import { agent } from './router'
-import { cancelSessionRun } from './run-cancel'
-import { resolveVerifiedTeamId, readTeamIdCandidate } from './team-scope'
-
-import { getReadableConversation, resolveInputRequest } from '@/lib/agent/db'
-import { requeuePendingAtHead } from '@/lib/agent/pending-queue'
-import { sessionReleased } from '@/lib/agent/session-released'
-import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
+import { getReadableConversation } from '@/lib/agent/db'
 import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
+import { requeuePendingAtHead } from '@/lib/agent/pending-queue'
+import { answerInputRequest } from '@/lib/agent/plan-decision'
+import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
+import { sessionReleased } from '@/lib/agent/session-released'
+import { SECRET_NAME } from '@/lib/agent/tools-skilled/decision-tools'
 import {
   cancelConversationRuntime,
   conversationExecutionState,
@@ -15,9 +12,13 @@ import {
   steerConversationRuntime,
 } from '@/lib/claude-code-preview/session-execution-state'
 import { steeringMessageId, steeringReceipt } from '@/lib/claude-code-preview/steering-receipt'
-import { SECRET_NAME } from '@/lib/agent/tools-skilled/decision-tools'
 import { AppError } from '@/lib/errors'
 import { logEvent } from '@/lib/observability'
+
+import { agent } from './router'
+import { takeOwnQueued } from './routes-conversation-queue'
+import { cancelSessionRun } from './run-cancel'
+import { resolveVerifiedTeamId, readTeamIdCandidate } from './team-scope'
 
 agent.post('/conversations/:sessionId/cancel-runtime', async (c) => {
   const userId = c.get('userId')
@@ -107,7 +108,14 @@ agent.post('/conversations/:sessionId/steer', async (c) => {
 
   // A waiting answer steered in has reached the agent: no turn of its own will resolve it.
   if (claimed && answers)
-    await resolveInputRequest(sessionId, conversation.userId, answers, 'answered')
+    await answerInputRequest({
+      sessionId,
+      userId: conversation.userId,
+      requestId: answers,
+      answer: text,
+      actorUserId: userId,
+      teamId: conversation.teamId,
+    })
 
   return c.json({
     ok: true,
