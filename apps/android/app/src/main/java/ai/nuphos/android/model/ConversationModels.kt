@@ -196,6 +196,12 @@ data class AgentConversationDetail(
         @Serializable(with = InstantAsStringSerializer::class) val at: Instant,
         val text: String,
         val kind: String? = null,
+        /** `agent_reply_failed`: the agent that could not reply, for Retry and Switch agent. */
+        val agentId: String? = null,
+        /** `agent_reply_failed`: `usage_limit`, `auth` or `offline` when the agent itself was the cause, else `other`. */
+        val cause: String? = null,
+        /** `agent_reply_failed`: when an agent out of usage gets it back. */
+        @Serializable(with = InstantAsStringSerializer::class) val resetsAt: Instant? = null,
     )
     @Serializable
     data class ActiveRun(

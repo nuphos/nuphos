@@ -176,4 +176,18 @@ final class ChannelSession {
             }
         }
     }
+
+    /// Retry after an agent could not reply: it reads again what it has not read yet.
+    func wake(agent agentId: String) {
+        Task {
+            do {
+                _ = try await AgentChatAPI.send(
+                    "POST", "agent/conversations/\(channelId)/agents/\(agentId)/wake",
+                    query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: JSONValue?.none)
+                await refresh(force: true)
+            } catch {
+                sendError = error.localizedDescription
+            }
+        }
+    }
 }

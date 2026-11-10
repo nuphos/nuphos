@@ -30,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.automirrored.outlined.Reply
 import androidx.compose.material.icons.outlined.Close
@@ -134,6 +135,15 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
     var desktop by remember(bot, store.workspaceRevision) { mutableStateOf(false) }
     if (desktop && bot != null) ai.nuphos.android.desktop.DesktopScreen(bot, store) { desktop = false }
     val items = ChannelPost.items(session.posts, session.events, typing)
+    // After the Bot could not reply: its own agent list, as on its Task screen.
+    var switching by remember(bot) { mutableStateOf(false) }
+    val quotas = ai.nuphos.android.ui.agent.rememberRuntimeQuotas(auth.token, session.teamId)
+    if (switching && bot != null && auth.token != null && auth.aiAllowed) {
+        val workspaceRevision = store.workspaceRevision
+        ai.nuphos.android.ui.chat.ConversationAgentSheet(bot, auth.token!!, quotas,
+            isCurrent = { auth.aiAllowed && store.workspaceRevision == workspaceRevision && store.selectedTeam?.id == session.teamId },
+            onDismiss = { switching = false })
+    }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -167,7 +177,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
                     val consent = AiAccess.revision
                     ChannelTranscript(session, items, viewerId, onLink, allowed = {
                         AiAccess.revision == consent && store.selectedTeam?.id == session.teamId && auth.aiAllowed
-                    })
+                    }, onSwitchAgent = { id -> if (id == bot?.sessionId) switching = true })
                 }
             }
         }
@@ -184,7 +194,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
 /** Newest at the bottom; the list opens there and keeps the reader's place while reading older posts. */
 @Composable
 internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>, viewerId: String?, onLink: (String) -> Unit, allowed: () -> Boolean = { true },
-                                downloads: TransferDownloads = remember { TransferDownloads() }) {
+                                downloads: TransferDownloads = remember { TransferDownloads() }, onSwitchAgent: ((String) -> Unit)? = null) {
     val state = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val typing = (items.lastOrNull() as? ChannelItem.Typing)?.agents.orEmpty()
@@ -244,6 +254,15 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                             flashed = flashed == item.post.id, onQuote = jump)
                         is ChannelItem.Time -> TimeDivider(item.at)
                         is ChannelItem.Paused -> PausedLine(item.text)
+                        is ChannelItem.ReplyFailed -> {
+                            val agentId = item.event.agentId
+                            // Only an agent's owner can move it, and only when the agent itself was the cause.
+                            val owned = session.agents.any { it.sessionId == agentId && it.ownerId == viewerId }
+                            ReplyFailedLine(item.event,
+                                onSwitch = onSwitchAgent?.takeIf { item.actionable && owned && item.event.cause in AGENT_CAUSES && agentId != null }
+                                    ?.let { switch -> { switch(agentId!!) } },
+                                onRetry = agentId?.takeIf { item.actionable && allowed() }?.let { id -> { session.retry(id, scope) } })
+                        }
                         is ChannelItem.Typing -> Unit
                     }
                 }
@@ -353,6 +372,28 @@ private fun PausedLine(text: String) {
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Icon(Icons.Outlined.Pause, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.tertiary)
         Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+private val AGENT_CAUSES = setOf("usage_limit", "auth", "offline")
+
+/** An agent could not reply: what happened and why, when its usage returns, and the fix. */
+@Composable
+private fun ReplyFailedLine(event: ai.nuphos.android.model.AgentConversationDetail.TimelineEvent, onSwitch: (() -> Unit)?, onRetry: (() -> Unit)?) {
+    val resets = event.resetsAt?.takeIf { event.cause == "usage_limit" && it.isAfter(java.time.Instant.now()) }?.let {
+        "Usage returns " + java.time.format.DateTimeFormatter.ofPattern("EEE h:mm a").withZone(java.time.ZoneId.systemDefault()).format(it) + "."
+    }
+    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
+        .padding(horizontal = 14.dp, vertical = 10.dp).testTag("channel-reply-failed"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Icons.Outlined.ErrorOutline, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.tertiary)
+            Text(listOfNotNull(event.text, resets).joinToString(" "), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (onSwitch != null || onRetry != null) Row(Modifier.padding(start = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            onSwitch?.let { OutlinedButton(onClick = it) { Text("Switch agent") } }
+            onRetry?.let { TextButton(onClick = it) { Text("Retry") } }
+        }
     }
 }
 

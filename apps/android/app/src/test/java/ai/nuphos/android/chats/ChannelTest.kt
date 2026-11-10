@@ -62,7 +62,10 @@ class ChannelTest {
         val items = ChannelPost.items(listOf(a, b, c, sending), listOf(paused, other, failed), listOf(ChannelAgent("agent-ops", "Release ops")))
         assertEquals(listOf("time.m1", "post.m1", "post.m2", items[3].key, items[4].key, "time.m3", "post.m3", "post.local", "typing"), items.map { it.key })
         assertTrue(items[3] is ChannelItem.Paused)
-        assertEquals("Ops couldn’t reply.", (items[4] as ChannelItem.Paused).text)
+        // A post came after it, so the line no longer offers the fix.
+        assertEquals(ChannelItem.ReplyFailed(items[4].key, failed, actionable = false), items[4])
+        val newest = ChannelPost.items(listOf(a), listOf(failed), emptyList()).last() as ChannelItem.ReplyFailed
+        assertTrue("The newest line, after the last post, offers it", newest.actionable)
         assertEquals("The first post is timed", a.sentAt, (items[0] as ChannelItem.Time).at)
         assertTrue((items[1] as ChannelItem.Post).first); assertTrue((items[2] as ChannelItem.Post).first)
         assertTrue("A post after a pause starts a run", (items[6] as ChannelItem.Post).first)

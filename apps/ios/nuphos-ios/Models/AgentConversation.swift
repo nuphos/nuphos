@@ -275,6 +275,12 @@ struct AgentConversationDetail: Decodable, Sendable {
         let text: String
         /// `agents_paused` when a chat's loop guard stopped its agents.
         var kind: String? = nil
+        /// `agent_reply_failed`: the agent that could not reply, for Retry and Switch agent.
+        var agentId: String? = nil
+        /// `agent_reply_failed`: `usage_limit`, `auth` or `offline` when the agent itself was the cause, else `other`.
+        var cause: String? = nil
+        /// `agent_reply_failed`: when an agent out of usage gets it back.
+        var resetsAt: Date? = nil
     }
 
     let messages: [ChatMessage]
