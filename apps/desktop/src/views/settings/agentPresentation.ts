@@ -36,11 +36,22 @@ const RUNS_ON: Record<RuntimeInstance['kind'], string> = {
   local: t('Computer'),
 }
 
-/** A computer's agent goes by its own name, else its provider's; Runs on says which computer. */
+/**
+ * A computer's agent goes by its own name, else its provider's; Runs on says which computer.
+ * This is the name it is stored under, which Rename edits; lists show `agentDisplayName`.
+ */
 export function agentName(instance: RuntimeInstance): string {
   return instance.kind === 'local'
     ? (instance.local?.agentLabel ?? AGENT_PROVIDER[instance.provider].label)
     : instance.label
+}
+
+/**
+ * What a list calls an agent: its name, or — on a computer holding more than one account for
+ * its provider, where a name alone would not tell two of them apart — that and the account.
+ */
+export function agentDisplayName(instance: RuntimeInstance): string {
+  return instance.local?.accountLabel ?? agentName(instance)
 }
 
 /**
