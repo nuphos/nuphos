@@ -31,11 +31,21 @@ const SESSION_ID = 'sess-1'
 const state: {
   thread: SlackAgentThread | null
   planExists: boolean
+  planStatus: 'proposed' | 'executing'
+  /** Another approval moved the plan on before this vote landed. */
+  raceLost: boolean
   /** Whether the in-Nuphos approver has a Slack identity in this workspace. */
   approverHasSlackMapping: boolean
   /** A turn is mid-flight for the plan's session. */
   turnAlreadyRunning: boolean
-} = { thread: null, planExists: true, approverHasSlackMapping: true, turnAlreadyRunning: false }
+} = {
+  thread: null,
+  planExists: true,
+  planStatus: 'proposed',
+  raceLost: false,
+  approverHasSlackMapping: true,
+  turnAlreadyRunning: false,
+}
 
 const userMappingLookups: string[] = []
 const recordPlanApprovalCalls: {
@@ -153,13 +163,16 @@ useAgentPlans({
   // Conversation access is covered in routes/slack/plan-approve-access.test.ts.
   assertPlanAccess: async () => {},
   getPlan: async (_id: string, scope: { teamId?: string }) =>
-    state.planExists && scope.teamId === THREAD_TEAM ? approvablePlan : null,
+    state.planExists && scope.teamId === THREAD_TEAM
+      ? { ...approvablePlan, status: state.planStatus }
+      : null,
   recordPlanApproval: async (
     id: string,
     scope: { teamId?: string; userId: string },
     userId: string,
   ) => {
     recordPlanApprovalCalls.push({ id, scope, userId })
+    if (state.raceLost) return { plan: null, recorded: false, thresholdReached: false }
 
     return {
       plan: { ...approvablePlan, status: 'approved', approvedBy: scope.userId },
@@ -188,7 +201,11 @@ useObservability({
   },
 })
 
-useAgentDb({ getConversationWithMessages: async () => null })
+useAgentDb({
+  getConversationWithMessages: async () => null,
+  // The approval closes the plan's question.
+  resolvePlanInputRequests: async () => {},
+})
 
 useTurnRunner({
   claimAgentRunForSession: async () => () => {},
@@ -238,6 +255,8 @@ async function click(value = buttonValue) {
 beforeEach(() => {
   state.thread = makeThread()
   state.planExists = true
+  state.planStatus = 'proposed'
+  state.raceLost = false
   state.approverHasSlackMapping = true
   state.turnAlreadyRunning = false
   turnTexts.length = 0
@@ -277,6 +296,29 @@ describe('handlePlanApproveInteraction', () => {
     // assertion otherwise.
     await waitFor(() => agentRuns.length > 0)
     expect(agentRuns).toEqual([{ sessionId: SESSION_ID, teamId: THREAD_TEAM }])
+  })
+
+  test('a plan no longer proposed says what it is now', async () => {
+    state.planStatus = 'executing'
+    await click()
+
+    expect(recordPlanApprovalCalls).toEqual([])
+    expect(ephemerals.map((e) => e.text)).toEqual(['This plan is already executing.'])
+    const rejection = loggedEvents.find((e) => e.event === 'slack.plan.approve_rejected')
+
+    expect(rejection?.data).toMatchObject({ reason: 'plan_not_proposed', plan_status: 'executing' })
+  })
+
+  test('a vote that lost the race to another approval says so, not that the plan is gone', async () => {
+    state.raceLost = true
+    await click()
+
+    expect(ephemerals.map((e) => e.text)).toEqual([
+      'This plan was just approved — no need to approve it again.',
+    ])
+    const rejection = loggedEvents.find((e) => e.event === 'slack.plan.approve_rejected')
+
+    expect(rejection?.data?.reason).toBe('approval_race_lost')
   })
 
   test('missing plan rejects with an IN-THREAD ephemeral AND logs the rejection', async () => {
