@@ -347,6 +347,16 @@ class AgentStore(
         }
     }
 
+    private var inbox: Pair<String, OpenQuestions>? = null
+
+    /** The workspace's open questions: the Inbox page and its badge, dropped with the workspace. */
+    fun openQuestions(): OpenQuestions? {
+        val team = selectedTeam ?: return null
+        if (disposed || !hasAiAccess()) return null
+        inbox?.takeIf { it.first == team.id }?.let { return it.second }
+        return OpenQuestions(OpenQuestions.Api(token, team.id)).also { inbox = team.id to it }
+    }
+
     private fun resetHistory() {
         runtimesGeneration++
         runtimesListedFor = null
@@ -360,6 +370,7 @@ class AgentStore(
         creatingBot = false
         forgetNewBot()
         channelSessions.clear()
+        inbox = null
         channelReads.clear()
         agentTurns = emptyMap()
         searchJob?.cancel()

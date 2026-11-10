@@ -12,9 +12,9 @@ data class BotQuestion(val sessionId: String, val title: String, val request: In
 }
 
 /**
- * Desktop's `sessionInputRequests` for a Bot's chat (#1848): the open questions of the Bot and
- * of every conversation under it, at any depth, from the pending listing, whose rows come with
- * every parent above them.
+ * The open questions in the pending listing, whose rows come with every parent above them: all of
+ * them for the Inbox, or, as Desktop's `sessionInputRequests` for a Bot's chat (#1848), those of
+ * the Bot and of every conversation under it, at any depth.
  */
 object BotQuestions {
     /** The viewer's own questions under [bot], oldest first. */
@@ -29,8 +29,13 @@ object BotQuestions {
             }
             return false
         }
+        return open(rows.filter { isUnder(it.sessionId) })
+    }
+
+    /** The viewer's own open questions in [rows], oldest first: the Inbox's list. */
+    fun open(rows: List<AgentConversation>): List<BotQuestion> {
         return rows.distinctBy { it.sessionId }
-            .filter { it.isOwner == true && isUnder(it.sessionId) }
+            .filter { it.isOwner == true }
             .flatMap { row -> row.inputRequests.orEmpty().map { BotQuestion(row.sessionId, row.displayTitle, it) } }
             .sortedWith(compareBy({ it.request.askedAt.orEmpty() }, { it.id }))
     }
