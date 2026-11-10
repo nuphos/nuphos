@@ -20,6 +20,8 @@ export type InputRequest = ExplicitUserDecision & {
   id: string
   /** The secret a `credential` request asks for, so its secure card finds it. */
   secretName?: string
+  /** The plan (#N) a plan's approval question decides. */
+  planId?: string
   askedAt: Date
   status: InputRequestStatus
   resolvedAt?: Date
@@ -40,7 +42,12 @@ const MAX_INPUT_REQUESTS = 100
 export async function addInputRequest(
   sessionId: string,
   userId: string,
-  request: ExplicitUserDecision & { id: string; secretName?: string; askedAt: Date },
+  request: ExplicitUserDecision & {
+    id: string
+    secretName?: string
+    planId?: string
+    askedAt: Date
+  },
 ): Promise<void> {
   const entry: InputRequest = { ...request, status: 'open' }
 
@@ -68,6 +75,20 @@ export async function updateInputRequest(
   return result.matchedCount > 0
 }
 
+/** One request, open or resolved, by its id. */
+export async function findInputRequest(
+  sessionId: string,
+  userId: string,
+  id: string,
+): Promise<InputRequest | undefined> {
+  const conversation = await agentConversations().findOne(
+    { sessionId, userId, 'inputRequests.id': id },
+    { projection: { 'inputRequests.$': 1 } },
+  )
+
+  return conversation?.inputRequests?.[0]
+}
+
 export async function resolveInputRequest(
   sessionId: string,
   userId: string,
@@ -85,6 +106,20 @@ export async function resolveInputRequest(
   )
 
   return listed.matchedCount > 0 || legacy.matchedCount > 0
+}
+
+/** A plan decided anywhere (its card, the Plans page, Slack) is no longer asked about. */
+export async function resolvePlanInputRequests(sessionId: string, planId: string): Promise<void> {
+  await agentConversations().updateOne(
+    { sessionId, inputRequests: { $elemMatch: { planId, status: 'open' } } },
+    {
+      $set: {
+        'inputRequests.$[plan].status': 'answered',
+        'inputRequests.$[plan].resolvedAt': new Date(),
+      },
+    },
+    { arrayFilters: [{ 'plan.planId': planId, 'plan.status': 'open' }] },
+  )
 }
 
 /** Legacy non-Desktop channels answer every open question with their next human turn. */

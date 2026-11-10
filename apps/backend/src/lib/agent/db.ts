@@ -53,7 +53,13 @@ export {
   updateBotSelf,
   claimBotAvatar,
 } from './db/maintenance'
-export { addInputRequest, clearPendingDecision, resolveInputRequest } from './db/pending-decision'
+export {
+  addInputRequest,
+  clearPendingDecision,
+  findInputRequest,
+  resolveInputRequest,
+  resolvePlanInputRequests,
+} from './db/pending-decision'
 export {
   bumpConversationActivity,
   conversationReadState,

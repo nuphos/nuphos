@@ -87,21 +87,21 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   // keep the messages memoized when this page renders again — opening the dock,
   // a background refresh — instead of rendering the whole transcript each time.
   const fork = useStableCallback(forkConversation)
-  const approvePlan = useStableCallback((planId: string) => {
+  const approvePlan = useStableCallback((planId: string, toolCallId?: string) => {
     if (activeTab?.readOnly) return
-    track('agent_plan_approved', {
-      plan_id: planId,
-      surface: 'inline_card',
-    })
-    // Persist approval; the usePlan poll reflects the new status.
+    track('agent_plan_approved', { plan_id: planId, surface: 'inline_card' })
+    // Answering the plan's question approves it and wakes the agent, as the Inbox does.
+    if (toolCallId && questions?.some((question) => question.id === toolCallId)) {
+      sendInActive('Approve', [], undefined, toolCallId)
+
+      return
+    }
+    // A plan from before plans asked: approve, then tell the agent to proceed.
     void api
       .agentUpdatePlan(planId, { status: 'approved' }, teamId)
       .then((updated) => {
-        // A vote may leave the plan proposed under a team quorum. Only
-        // the request that completes the gate resumes Agent execution.
-        // Slack-bound conversations execute through the backend's plan
-        // resume in the bound thread — sending a proceed turn here too
-        // would race it and could run the plan twice.
+        // Only the vote that completes a quorum resumes; a Slack-bound plan
+        // resumes in its thread, so a proceed turn here could run it twice.
         if (updated.status === 'approved' && !activeTab?.slackThread) {
           sendInActive(
             `Approved plan #${planId} — please proceed with plan #${planId}.`,
