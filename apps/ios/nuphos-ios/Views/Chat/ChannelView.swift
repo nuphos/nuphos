@@ -532,19 +532,20 @@ private struct TypingRow: View {
 
 /// Three dots that brighten in a continuous wave, every frame. Read from the
 /// clock, so a row drawn again picks the wave up where it is.
-private struct TypingDots: View {
+struct TypingDots: View {
+    var size: CGFloat = 7
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         TimelineView(.animation(paused: reduceMotion)) { context in
             let time = context.date.timeIntervalSinceReferenceDate
-            HStack(spacing: 5) {
+            HStack(spacing: size * 5 / 7) {
                 ForEach(0..<3) { index in
                     // 0 to 1 and back, each dot a sixth of the 1.2 s cycle after the last.
                     let level = reduceMotion ? 0.5 : max(0, sin(2 * .pi * (time / 1.2 - Double(index) / 6)))
                     Circle()
                         .fill(Theme.muted)
-                        .frame(width: 7, height: 7)
+                        .frame(width: size, height: size)
                         .opacity(0.35 + 0.65 * level)
                         .scaleEffect(0.85 + 0.15 * level)
                 }

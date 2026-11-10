@@ -42,6 +42,7 @@ class BotsPageFixtureDeviceTest {
     private val teamA = Team("aaaaaaaaaaaaaaaaaaaaaaaa", "Fixture A")
     private val teamB = Team("bbbbbbbbbbbbbbbbbbbbbbbb", "Fixture B")
     private val writes = CopyOnWriteArrayList<String>()
+    private val reads = CopyOnWriteArrayList<String>()
     private val added = CopyOnWriteArrayList<String>()
     private val originals = mutableMapOf<String, OkHttpClient>()
     private lateinit var store: AgentStore
@@ -77,7 +78,7 @@ class BotsPageFixtureDeviceTest {
         val client = OkHttpClient.Builder().addInterceptor { chain ->
             val request = chain.request()
             val path = request.url.encodedPath
-            if (request.method != "GET") writes += "${request.method} $path"
+            if (request.method != "GET") writes += "${request.method} $path" else reads += path
             val body = when {
                 request.method == "GET" && path.endsWith("/agent-runtimes") -> {
                     runtimesHeld?.let { runtimesEntered.countDown(); check(it.await(10, TimeUnit.SECONDS)) }
@@ -178,6 +179,21 @@ class BotsPageFixtureDeviceTest {
         row("a-task").assertDoesNotExist()
         compose.onNodeWithText("Ready when you are").assertExists()
         compose.onNodeWithText("Diana: Shipping today").assertExists()
+    }
+
+    @Test fun aBotsRowShowsItsChatsDotsWhileItAnswersThenItsReply() {
+        fun ada(state: String) = """{"sessionId":"bot-chatted","title":"Ada","avatar":"07-ada","lastActiveAt":"2026-11-03T13:30:00Z",""" +
+            """"runtimeState":{"state":"$state","channelIds":["chat-bot"]}}"""
+        chats = oneOnOne
+        history = ada("active")
+        render()
+        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription("Ada is typing", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Ready when you are").assertDoesNotExist()
+        chats = oneOnOne.replace("Ready when you are", "Here is the plan")
+        history = ada("idle")
+        waitText("Here is the plan")
+        compose.onAllNodesWithContentDescription("Ada is typing", substring = true).assertCountEquals(0)
+        assertTrue("The row reads the agent list, not each Bot", reads.none { it.startsWith("/agent/conversations/") })
     }
 
     @Test fun aChatOpensWithoutWritingAnything() {

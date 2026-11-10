@@ -30,6 +30,25 @@ struct RuntimeObservationTests {
         precondition(answering.typing(in: "chat-a"))
         precondition(!answering.typing(in: "chat-b"))
         precondition(!snapshot(#"{"schemaVersion":2,"epoch":"a","revision":5,"state":"active","phase":"working","channelIds":[]}"#, at: 100).typing(in: "chat-a"))
+        // A Bot's row in the chats list shows the dots its chat shows, from the same observation.
+        func botChat(_ id: String) -> AgentConversation {
+            var chat = AgentConversation(sessionId: id, title: "", messageCount: 1, createdAt: .now, lastActiveAt: .now)
+            chat.kind = "channel"
+            chat.faces = [ChatFace(id: "bot", name: "Bot", avatarURL: nil, agent: .init(avatar: "05-rembrandt", provider: nil))]
+            return chat
+        }
+        let listed = RuntimeObservations.forAccount("list-synthetic-token")
+        precondition(!botChat("chat-a").botTyping(in: listed, team: "t"))
+        listed.receive(answering.snapshot, team: "t", session: "bot", observedAt: 100)
+        precondition(botChat("chat-a").botTyping(in: listed, team: "t"))
+        precondition(!botChat("chat-a").botTyping(in: listed, team: "other"))
+        precondition(!botChat("chat-b").botTyping(in: listed, team: "t")) // Its turn answers another chat.
+        // Only a chat with more than one other member names who posted.
+        var post = botChat("chat-a")
+        post.lastMessage = .init(text: "Hello", from: "Bot")
+        precondition(post.previewLine == "Hello")
+        post.faces?.append(ChatFace(id: "ann", name: "Ann", avatarURL: nil, agent: nil))
+        precondition(post.previewLine == "Bot: Hello")
         // A desktop opens where the runtime says it can, or already shows one; not otherwise.
         precondition(snapshot(#"{"schemaVersion":2,"state":"idle","canOpenDesktop":true}"#, at: 100).canOpenDesktop)
         precondition(snapshot(#"{"schemaVersion":2,"state":"idle","tools":[{"kind":"desktop"}]}"#, at: 100).canOpenDesktop)

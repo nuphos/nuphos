@@ -85,12 +85,18 @@ data class AgentConversation(
     /** The Bot this chat is the 1:1 of: its one other member is an agent with a face. */
     val botId: String? get() = faces?.takeIf { isChannel }?.botFace?.id
 
+    /** The Bot of this 1:1 chat is in a turn that answers it: the chat's dots, which its row shows in place of [previewLine]. */
+    fun botTyping(typingIn: (botId: String, chatId: String) -> Boolean): Boolean = botId?.let { typingIn(it, sessionId) } == true
+
     val lastPost: LastPost? get() = lastMessage?.get("text")?.stringValue?.let { LastPost(it, lastMessage["from"]?.stringValue) }
 
-    /** The list's preview line. A group names who posted; a post with only files says so. */
+    /**
+     * The list's preview line; a post with only files says so. Only a chat with more than one other
+     * member names who posted: in a 1:1 the row already is the sender.
+     */
     val previewLine: String? get() = lastPost?.let { post ->
         val text = post.text.ifBlank { "Attachment" }
-        if (botId == null && post.from != null) "${post.from}: $text" else text
+        if (post.from != null && (faces?.size ?: 0) > 1) "${post.from}: $text" else text
     }
 
     data class LastPost(val text: String, val from: String?)

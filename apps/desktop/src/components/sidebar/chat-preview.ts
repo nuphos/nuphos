@@ -3,12 +3,19 @@ import { stripMarkdown } from '../../lib/agentStopNotification.ts'
 
 import type { AgentConversation } from '../../api/agent-types'
 
-/** A chat row's one-line preview, iMessage style: `Ann: text`, or `Attachment` for files only. */
-export function chatPreview(lastMessage: AgentConversation['lastMessage']): string | undefined {
+/**
+ * A chat row's one-line preview, iMessage style, or `Attachment` for files only.
+ * Only a chat with more than one other member names who posted (`Ann: text`):
+ * in a 1:1 the row already is the sender.
+ */
+export function chatPreview(
+  lastMessage: AgentConversation['lastMessage'],
+  faces?: AgentConversation['faces'],
+): string | undefined {
   if (!lastMessage) return undefined
   const text = stripMarkdown(lastMessage.text) || t('Attachment')
 
-  return lastMessage.from ? `${lastMessage.from}: ${text}` : text
+  return lastMessage.from && (faces?.length ?? 0) > 1 ? `${lastMessage.from}: ${text}` : text
 }
 
 const DAY_MS = 86_400_000

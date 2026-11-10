@@ -60,9 +60,20 @@ class BotsTest {
         assertEquals("Hello", bot.previewLine)
         val mine = decode("""{"sessionId":"g","kind":"channel","lastMessage":{"text":"Mine"}}""")
         assertEquals("Mine", mine.previewLine)
+        // A 1:1 with a person is the sender too, as in iMessage.
+        val person = decode("""{"sessionId":"p","kind":"channel","lastMessage":$post,"faces":[{"id":"d","name":"Diana"}]}""")
+        assertEquals("Hello", person.previewLine)
+    }
+    @Test fun aBotsRowShowsTheDotsItsChatShows() {
+        val turns = mapOf("bot" to JsonValue.parse("""{"state":"active","channelIds":["chat-a"]}"""))
+        val typingIn = { bot: String, chat: String -> ai.nuphos.android.session.RuntimeObservation.typingIn(turns[bot], chat) }
+        assertTrue(channel("chat-a", agent("bot")).botTyping(typingIn))
+        assertFalse("Its turn answers another chat", channel("chat-b", agent("bot")).botTyping(typingIn))
+        assertFalse("A group", channel("chat-a", agent("bot"), agent("other")).botTyping(typingIn))
+        assertFalse("A Bot with no chat yet", session("bot", avatar = "05-rembrandt").botTyping(typingIn))
     }
     @Test fun aPostWithOnlyFilesSaysAttachment() {
-        val row = decode("""{"sessionId":"g","kind":"channel","lastMessage":{"text":"","from":"Diana"}}""")
+        val row = decode("""{"sessionId":"g","kind":"channel","lastMessage":{"text":"","from":"Diana"},"faces":[{"id":"a","name":"A"},{"id":"b","name":"B"}]}""")
         assertEquals("Diana: Attachment", row.previewLine)
     }
     @Test fun theListHasChatsAndBotsWithoutOneNewestFirst() {

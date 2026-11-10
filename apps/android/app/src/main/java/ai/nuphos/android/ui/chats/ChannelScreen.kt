@@ -430,7 +430,9 @@ private fun TypingRow(agents: List<ChannelAgent>) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.semantics { contentDescription = "${agent.title.ifBlank { "Agent" }} is typing" }) {
                 AgentAvatar(agent.sessionId, runtime = null, size = 36.dp)
-                Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) { TypingDots() }
+                Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                    TypingDots(Modifier.padding(horizontal = 16.dp, vertical = 14.dp))
+                }
             }
         }
     }
@@ -438,11 +440,11 @@ private fun TypingRow(agents: List<ChannelAgent>) {
 
 /** Three dots that brighten in a wave. With system animations off, the transition holds them still. */
 @Composable
-private fun TypingDots() {
+internal fun TypingDots(modifier: Modifier = Modifier) {
     val wave = rememberInfiniteTransition(label = "typing").animateFloat(0f, 1f,
         infiniteRepeatable(tween(durationMillis = 1_200, easing = LinearEasing)), label = "wave")
     val color = MaterialTheme.colorScheme.onSurfaceVariant
-    Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
         repeat(3) { index ->
             // Read while drawing, so the wave never recomposes the row.
             Box(Modifier.size(6.dp).graphicsLayer {
