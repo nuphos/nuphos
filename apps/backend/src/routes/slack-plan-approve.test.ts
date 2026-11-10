@@ -188,7 +188,11 @@ useObservability({
   },
 })
 
-useAgentDb({ getConversationWithMessages: async () => null })
+useAgentDb({
+  getConversationWithMessages: async () => null,
+  // The approval closes the plan's question.
+  resolvePlanInputRequests: async () => {},
+})
 
 useTurnRunner({
   claimAgentRunForSession: async () => () => {},

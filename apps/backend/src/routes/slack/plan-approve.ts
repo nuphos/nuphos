@@ -1,12 +1,10 @@
-import { journalPlanDecision } from '@/lib/agent/journal-capture'
-import { assertPlanAccess, getPlan, recordPlanApproval } from '@/lib/agent/plans'
+import { approvePlanForCaller } from '@/lib/agent/plan-decision'
 import { getTeamMembership } from '@/lib/identity'
 import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
 import { getSlackAgentThreadBySessionId } from '@/lib/slack/agent-bot'
 import { resolveSlackBotForWorkspace } from '@/lib/slack/installations'
 import { escapeSlackMrkdwn } from '@/lib/slack/mrkdwn'
-import { isPlanReadyForApproval } from '@/routes/agent'
 import { resolveSlackUserMapping } from '@/routes/slack/identity'
 import { createInteractionRepliers } from '@/routes/slack/interaction-replies'
 import { resumeApprovedPlanTurn } from '@/routes/slack/plan-resume'
@@ -23,6 +21,20 @@ import { resumeApprovedPlanTurn } from '@/routes/slack/plan-resume'
 // window closes. That dropped-body path is exactly why the Approve button used
 // to linger and the plan's task_cards spun on `pending` forever even though
 // execution had already started.
+// Why the in-app approval refused, as this card's reply says it.
+const REFUSALS: Record<string, [reason: string, message: string]> = {
+  not_found: ['plan_not_found', 'Plan not found — it may have been deleted.'],
+  forbidden: [
+    'plan_access_denied',
+    "You don't have reply access to this plan's conversation, so you can't approve it.",
+  ],
+  plan_not_proposed: ['plan_not_proposed', 'This plan is no longer waiting for approval.'],
+  plan_incomplete: [
+    'plan_incomplete',
+    'This plan is missing required sections (steps, cost, or risk) and cannot be approved yet — open it in Nuphos.',
+  ],
+}
+
 export async function handlePlanApproveInteraction(args: {
   slackWorkspaceId: string
   slackUserId: string
@@ -142,74 +154,26 @@ export async function handlePlanApproveInteraction(args: {
 
     return
   }
-  const plan = await getPlan(planId, { teamId, userId: mapping.nuphosUserId })
+  // The in-app approval itself: the same access, status, readiness and quorum
+  // gates, the trust-root journal, and the plan's question closed once it is approved.
+  let approval: Awaited<ReturnType<typeof approvePlanForCaller>>
 
-  if (!plan) {
-    await reject('plan_not_found', 'Plan not found — it may have been deleted.', {
-      plan_id: planId,
-      session_id: sessionId,
-      team_id: teamId,
-    })
-
-    return
-  }
-  // Same conversation gate as the in-app endpoint: approving needs reply
-  // access to the conversation the plan came from.
   try {
-    await assertPlanAccess(plan, mapping.nuphosUserId, 'reply')
+    approval = await approvePlanForCaller({ planId, teamId, userId: mapping.nuphosUserId })
   } catch (err) {
-    if (!(err instanceof AppError)) throw err
-    await reject(
-      'plan_access_denied',
-      "You don't have reply access to this plan's conversation, so you can't approve it.",
-      { plan_id: planId, session_id: sessionId, team_id: teamId },
-    )
+    const refused = err instanceof AppError ? REFUSALS[err.code] : undefined
 
-    return
-  }
-  if (plan.status !== 'proposed') {
-    await reject('plan_not_proposed', `This plan is already ${plan.status}.`, {
+    if (!refused) throw err
+    await reject(refused[0], refused[1], {
       plan_id: planId,
       session_id: sessionId,
       team_id: teamId,
-      plan_status: plan.status,
     })
 
     return
   }
-  if (!isPlanReadyForApproval(plan)) {
-    await reject(
-      'plan_incomplete',
-      'This plan is missing required sections (steps, cost, or risk) and cannot be approved yet — open it in Nuphos.',
-      { plan_id: planId, session_id: sessionId, team_id: teamId },
-    )
-
-    return
-  }
-
-  // Same quorum path as the in-app endpoint: the mapped human contributes one
-  // vote, and only the request that completes the policy snapshot may resume
-  // execution. A double click is deduplicated by user and policy version.
-  const approval = await recordPlanApproval(
-    planId,
-    { teamId, userId: mapping.nuphosUserId },
-    mapping.nuphosUserId,
-  )
   const updated = approval.plan
 
-  if (!updated) {
-    await reject(
-      'approval_race_lost',
-      'This plan was just approved — no need to approve it again.',
-      {
-        plan_id: planId,
-        session_id: sessionId,
-        team_id: teamId,
-      },
-    )
-
-    return
-  }
   if (!approval.thresholdReached) {
     if (!approval.recorded) {
       await ephemeral('Your approval is already recorded for this plan.')
@@ -229,13 +193,6 @@ export async function handlePlanApproveInteraction(args: {
 
     return
   }
-  // Same trust-root record as the in-app approval: a Slack "Approve & run" is a
-  // production approval path and must land on the chain.
-  await journalPlanDecision(
-    updated,
-    { userId: mapping.nuphosUserId, teamId: teamId ?? null },
-    'approved',
-  )
   logEvent('info', 'slack.plan.approved', {
     plan_id: planId,
     session_id: sessionId,

@@ -55,7 +55,7 @@ export async function approvePlanForCaller(input: {
   planId: string
   teamId?: string
   userId: string
-}): Promise<{ plan: PlanDTO; thresholdReached: boolean }> {
+}): Promise<{ plan: PlanDTO; recorded: boolean; thresholdReached: boolean }> {
   const current = await getPlan(input.planId, { teamId: input.teamId, userId: input.userId })
 
   if (!current) throw new AppError(404, 'not_found', 'Plan not found')
@@ -88,7 +88,7 @@ export async function approvePlanForCaller(input: {
     )
   }
 
-  return { plan: result.plan, thresholdReached: result.thresholdReached }
+  return { plan: result.plan, recorded: result.recorded, thresholdReached: result.thresholdReached }
 }
 
 async function rejectPlanForCaller(input: { planId: string; teamId?: string; userId: string }) {
