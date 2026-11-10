@@ -1,3 +1,4 @@
+import { addedCredentialIds, answerCredentialAsks } from '@/lib/agent/credential-asks'
 import { getConversationBySessionId, setConversationCredentialFields } from '@/lib/agent/db'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
@@ -149,16 +150,13 @@ export async function nuphosUpdateCredentials(
     })
     // Write only what this tool names; the rest of the selection is not read
     // back and rewritten, so an edit made meanwhile in the picker survives.
-    const updated = await setConversationCredentialFields(
-      sessionId,
-      ctx.userId,
-      teamId,
-      Object.fromEntries(
-        Object.keys(NAMED_CATEGORIES).map((key) => [key, access[key as keyof typeof access]]),
-      ),
+    const fields = Object.fromEntries(
+      Object.keys(NAMED_CATEGORIES).map((key) => [key, access[key as keyof typeof access]]),
     )
+    const updated = await setConversationCredentialFields(sessionId, ctx.userId, teamId, fields)
 
     if (!updated?.credentialAccess) return toolError(`Session not found: ${sessionId}`)
+    void answerCredentialAsks(sessionId, addedCredentialIds(conversation.credentialAccess, fields))
 
     return toolResult({
       session_id: sessionId,

@@ -311,6 +311,10 @@ describe('decision tool module', () => {
     expect(result.structuredContent).not.toHaveProperty('providers')
     expect((result.structuredContent as { instruction: string }).instruction).not.toContain('card')
     expect(frames[0]).not.toMatchObject({ input: { providers: ['linear'] } })
+    // The question still records them, so selecting Linear in the picker answers it.
+    expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
+      $push: { inputRequests: { $each: [{ providers: ['linear'] }] } },
+    })
   })
 
   test('a credential decision with a secretName asks for the Desktop secure input card', async () => {

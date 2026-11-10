@@ -209,10 +209,9 @@ export const CREDENTIALS_MCP_SURFACE: McpSurface = {
         'note have no value for get_credential; follow the note instead. ' +
         '`notSelected` lists credentials the user may use that are bound to ' +
         'the team but not enabled for this conversation (`selected: false`); ' +
-        'get_credential refuses them. When the task needs one, tell the user ' +
-        'the exact label to tick in the credential picker instead of saying ' +
-        'no credential exists. The selection is live — the user can change it ' +
-        'mid-conversation.',
+        'get_credential refuses them. When the task needs one, follow its ' +
+        '`hint` to ask for it instead of saying no credential exists. The ' +
+        'selection is live — the user can change it mid-conversation.',
       inputSchema: { type: 'object', properties: { description: DESCRIPTION_PROPERTY } },
     },
     {

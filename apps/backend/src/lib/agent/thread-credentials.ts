@@ -3,6 +3,7 @@ import { logEvent } from '@/lib/observability'
 import { getAgentCredentialOptions } from '@/routes/agent/credential-options'
 import { getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
 
+import { answerCredentialAsks } from './credential-asks'
 import { addConversationCredentialIds, removeConversationCredentialIds } from './db'
 
 import type { AgentConversation, AgentCredentialAccess } from './db'
@@ -172,6 +173,8 @@ async function addToThread(
 
   if (!(await addConversationCredentialIds(threadId, actor.userId, actor.teamId, fields, existing)))
     throw changedMeanwhile()
+  // Only ids the thread did not have reach here, so each is newly selected.
+  void answerCredentialAsks(threadId, fields)
   logEvent('info', 'agent.thread.credentials_granted', {
     session_id: threadId,
     source_session_id: actor.sessionId,

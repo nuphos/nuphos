@@ -109,16 +109,6 @@ export function ConnectRow({
   )
 }
 
-export function ContinueFooter({ onContinue }: { onContinue: () => void }) {
-  return (
-    <div className="t-share-in flex justify-end border-t border-line-control/60 px-4 py-2.5">
-      <Button size="sm" className="h-7 px-3 text-[12.5px]" onClick={onContinue}>
-        {t('Continue')}
-      </Button>
-    </div>
-  )
-}
-
 export function ConnectHeader({
   providers,
   reason,

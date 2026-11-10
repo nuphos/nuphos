@@ -392,7 +392,16 @@ describe('device listing', () => {
 })
 
 describe('partitionCredentials', () => {
-  test('lists usable but unselected credentials with a tick hint and no way to fetch them', () => {
+  test('an unselected personal credential is requested by its provider, not by a tick', () => {
+    const options = emptyOptions()
+
+    options.personalCredentials = [{ provider: 'github', login: 'octo' }]
+    const { unselected } = partitionCredentials({ personalCredentialIds: [] }, options)
+
+    expect(unselected[0]?.hint).toContain('providers ["github"]')
+  })
+
+  test('lists usable but unselected credentials with a request hint and no way to fetch them', () => {
     const options = emptyOptions()
 
     options.gcpServiceAccounts = [
@@ -412,7 +421,7 @@ describe('partitionCredentials', () => {
         id: 'sa-2',
         label: 'p2 (b@p2.iam)',
         selected: false,
-        hint: 'Not enabled for this conversation. Ask the user to tick "p2 (b@p2.iam)" (gcp) in this conversation\'s credential picker, then call list_credentials again.',
+        hint: 'Not enabled for this conversation. When the task needs it, call request_user_decision with category "integration" and providers ["gcp"], naming "p2 (b@p2.iam)" in the question. Never ask for it in a free-text question: selecting it answers this one and resumes you.',
       },
     ])
   })

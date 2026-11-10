@@ -11,6 +11,7 @@ import { addInputRequest } from '@/lib/agent/db/pending-decision'
 import {
   createUserDecisionTools,
   decisionQuestionProblem,
+  isConnectableProvider,
 } from '@/lib/agent/tools-skilled/decision-tools'
 import { createLocalTools } from '@/lib/agent/tools-skilled/local-tools'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
@@ -190,8 +191,9 @@ function passthroughHandler(
       ...(category === 'credential' && typeof input.secretName === 'string'
         ? { secretName: input.secretName }
         : {}),
-      ...(category === 'integration' && Array.isArray(input.providers)
-        ? { providers: input.providers as string[] }
+      // From args: a channel turn's card drops them, yet selecting one still answers it.
+      ...(category === 'integration' && Array.isArray(args.providers)
+        ? { providers: args.providers.filter(isConnectableProvider) }
         : {}),
       askedAt: new Date(),
     }).catch((err: unknown) => {

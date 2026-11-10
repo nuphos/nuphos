@@ -15,7 +15,7 @@ import {
   parseSecretRequest,
   withConnectIds,
 } from './connectCardModel'
-import { ConnectHeader, ConnectRow, ContinueFooter } from './ConnectCardRows'
+import { ConnectHeader, ConnectRow } from './ConnectCardRows'
 import { allCredentialAccess, normalizeCredentialOptions } from './credentialAccess'
 import { cardAnswerState } from './replyTarget'
 import { SecretCard } from './SecretCard'
@@ -85,7 +85,7 @@ export function ConnectCard({
   teamId?: string
   providers: ConnectProvider[]
   reason: string
-  /** The latest reply and no turn running: only then can the card act or resume. */
+  /** The latest reply and no turn running: only then can the card act. */
   canAct: boolean
 }) {
   const ctx = useContext(ConnectCardContext)
@@ -93,7 +93,6 @@ export function ConnectCard({
   const [phases, setPhases] = useState<Partial<Record<ConnectProvider, ConnectPhase>>>({})
   // Options fetched right after a bind, used until the panel's own copy refreshes.
   const [fresh, setFresh] = useState<Fresh | null>(null)
-  const [continued, setContinued] = useState(false)
   const bindFlowRef = useRef<TeamHomeBindFlowHandle>(null)
   const activeRef = useRef<{ provider: ConnectProvider; before: AgentCredentialSelection } | null>(
     null,
@@ -107,7 +106,6 @@ export function ConnectCard({
     credentials && available
       ? connectRowStatus(provider, phases[provider] ?? 'idle', credentials.value, available)
       : 'idle'
-  const anyConnected = providers.some((provider) => statusOf(provider) === 'connected')
 
   function connect(provider: ConnectProvider) {
     if (!credentials || !available) return
@@ -171,14 +169,6 @@ export function ConnectCard({
           />
         ))}
       </ul>
-      {interactive && anyConnected && !continued && (
-        <ContinueFooter
-          onContinue={() => {
-            setContinued(true)
-            ctx?.send('continue', { toolCallId, question: reason })
-          }}
-        />
-      )}
       {interactive && teamId && (
         <TeamHomeBindFlow
           ref={bindFlowRef}
