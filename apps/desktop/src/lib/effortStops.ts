@@ -1,9 +1,16 @@
 type Choice = { value: string; name: string }
 
-/** The levels the effort slider shows, in the runtime's order. A runtime's
- *  "default" level is where reset goes, not a stop of its own. */
+const RANK = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra']
+
+/** The levels the effort slider shows, lowest first. Runtimes list them in
+ *  either direction (Grok Build lists xhigh → low), so a list whose known
+ *  levels run high to low is flipped. A runtime's "default" level is where
+ *  reset goes, not a stop of its own. */
 export function effortStops<T extends Choice>(choices: T[]): T[] {
-  return choices.filter((choice) => choice.value !== 'default')
+  const stops = choices.filter((choice) => choice.value !== 'default')
+  const ranks = stops.map((stop) => RANK.indexOf(stop.value)).filter((rank) => rank >= 0)
+
+  return ranks.length > 1 && ranks[0] > ranks[ranks.length - 1] ? stops.reverse() : stops
 }
 
 /** The level a session runs at. Claude's "default" names its level in its
