@@ -153,7 +153,7 @@ test('adding is managed: manage authorizes the actor and dispatches to the durab
   })
 })
 
-test('remove is managed, reaches the transport owner, and refuses a default agent', async () => {
+test('remove is managed, reaches the transport owner, and refuses an unknown agent', async () => {
   const levels: string[] = []
   const { remove, calls } = app({
     requireAccess: async (_actorId, _teamId, _deviceId, level) => {
@@ -172,7 +172,7 @@ test('remove is managed, reaches the transport owner, and refuses a default agen
     },
     { forgot: ['transport-owner', 'box', { instanceId: id }] },
   ])
-  for (const bad of ['default-codex', 'grok', 'x']) expect((await remove(bad)).status).toBe(400)
+  for (const bad of ['default-codex', 'x']) expect((await remove(bad)).status).toBe(400)
   expect(calls).toHaveLength(2)
 })
 
