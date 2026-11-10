@@ -1,3 +1,4 @@
+import { parseAtlasError } from '../../../api/errors.ts'
 import { t } from '../../../i18n/index.ts'
 
 import type { SessionConfigSelection, SessionConfigState } from '../../../api/session-config-types'
@@ -13,6 +14,8 @@ export type ConfigSnapshot = {
   slow: boolean
   saving: boolean
   error?: string
+  /** Why the last change was refused: held until the next pick or a dismissal. */
+  writeError?: string
 }
 const INITIAL: ConfigSnapshot = { loading: true, slow: false, saving: false }
 
@@ -120,6 +123,11 @@ export class SessionConfigSync {
     if (!streaming) void this.refresh()
   }
 
+  /** Drop a refused change's reason, e.g. once the picker that showed it closes. */
+  dismissWriteError() {
+    if (this.snapshot.writeError !== undefined) this.publish({ writeError: undefined })
+  }
+
   private applyQueued() {
     const queued = this.snapshot.queued
 
@@ -148,6 +156,7 @@ export class SessionConfigSync {
           ),
           selection,
         ],
+        writeError: undefined,
       })
 
       return
@@ -163,17 +172,15 @@ export class SessionConfigSync {
     clearTimeout(this.poll)
     clearTimeout(this.slowTimer)
     this.pending = false
-    this.publish({ saving: true, slow: false, error: undefined })
+    // A fresh pick retires the last refusal's reason alongside the connection note.
+    this.publish({ saving: true, slow: false, error: undefined, writeError: undefined })
     try {
       const data = await bounded(this.transport.write(selection), 40_000)
 
       if (this.active && version === this.version) this.publish({ data, loading: false })
-    } catch {
+    } catch (error) {
       if (this.active && version === this.version)
-        this.publish({
-          queued: undefined,
-          error: t('The change was not confirmed. Checking the current settings.'),
-        })
+        this.publish({ queued: undefined, writeError: writeFailure(error) })
     } finally {
       if (this.active && version === this.version) {
         this.publish({ saving: false })
@@ -193,4 +200,19 @@ function bounded<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
       timer = setTimeout(() => reject(new Error('Runtime request timed out')), timeoutMs)
     }),
   ]).finally(() => clearTimeout(timer))
+}
+
+/**
+ * What a refused change reports: the reason the backend authored, else the
+ * generic line. A transport failure — a timeout, a dropped connection — carries
+ * no code and reads as IPC noise, so it keeps the generic text. The same gate
+ * `decideErrorToast` applies before a toast shows a failure.
+ */
+function writeFailure(error: unknown): string {
+  const parsed = parseAtlasError(error)
+
+  if (parsed.code === undefined)
+    return t('The change was not confirmed. Checking the current settings.')
+
+  return parsed.message
 }
