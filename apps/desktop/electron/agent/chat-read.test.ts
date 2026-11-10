@@ -274,6 +274,30 @@ test('a provider out of usage stops at once instead of resending the turn', asyn
   )
 })
 
+test('a runtime out of disk space stops at once instead of resending the turn', async () => {
+  const { ctx, emitted } = retryContext()
+  const read = await consumeChatStream(
+    ctx,
+    sse(
+      { ...interruption, message: 'The agent’s runtime is out of disk space.' },
+      {
+        type: 'error',
+        errorCode: 'runtime_disk_full',
+        errorText: 'The agent’s runtime is out of disk space.',
+      },
+      { type: 'atlas-stream-done' },
+    ),
+    false,
+  )
+
+  if (read.kind !== 'read') throw new Error('expected read')
+  assert.equal(await resolveStreamOutcome(ctx, read, false, Date.now(), true), 'stop')
+  assert.equal(
+    emitted.some((e) => e.type === 'reset-partial'),
+    false,
+  )
+})
+
 test('a turn that failed after streaming text ends there instead of running again', async () => {
   // The agent's process died mid-answer: the backend ends the turn with an
   // error frame. Restarting from message zero would answer the prompt again

@@ -61,16 +61,40 @@ pub struct JsonRpcError {
 }
 
 impl JsonRpcError {
-    /// Extract a human-readable detail from `error.data.message` if present.
+    /// A human-readable detail from `error.data`, whose shape the ACP spec leaves to the agent.
     ///
-    /// The `"message"` key is a convention used by codex-acp and aligns with
-    /// common JSON-RPC practice, but is NOT mandated by the ACP spec.
-    /// Other agents may use `"detail"`, `"reason"`, etc. — extend here if needed.
-    pub fn data_message(&self) -> Option<&str> {
-        self.data
-            .as_ref()
-            .and_then(|d| d.get("message"))
-            .and_then(|m| m.as_str())
+    /// Known string keys first: `"message"` (codex-acp), `"details"` (what
+    /// `@agentclientprotocol/sdk` sends for an uncaught adapter exception, e.g. an
+    /// `ENOSPC`) and `"error"`. Any other non-empty `data` — the SDK may forward a
+    /// parsed upstream error body — is shown as compact JSON, as Zed does, so a
+    /// cause is never silently dropped.
+    pub fn data_message(&self) -> Option<String> {
+        const MAX_CHARS: usize = 500;
+        let data = self.data.as_ref()?;
+        if let Some(text) = data.as_str() {
+            return Some(text.to_string()).filter(|t| !t.trim().is_empty());
+        }
+        let known = ["message", "details", "error"]
+            .iter()
+            .filter_map(|key| data.get(key).and_then(Value::as_str))
+            .find(|detail| !detail.trim().is_empty());
+        if let Some(detail) = known {
+            return Some(detail.to_string());
+        }
+        let empty = match data {
+            Value::Object(map) => map.is_empty(),
+            Value::Array(items) => items.is_empty(),
+            _ => true,
+        };
+        if empty {
+            return None;
+        }
+        let json = data.to_string();
+        Some(if json.chars().count() > MAX_CHARS {
+            format!("{}…", json.chars().take(MAX_CHARS).collect::<String>())
+        } else {
+            json
+        })
     }
 
     /// The adapter's original `{code, message}`, relayed as the gateway's
@@ -446,6 +470,67 @@ mod tests {
             error.relay_data(),
             json!({"code": 401, "message": "invalid token"})
         );
+    }
+
+    #[test]
+    fn data_message_reads_the_acp_sdk_details_key() {
+        let error = JsonRpcError {
+            code: -32603,
+            message: "Internal error".into(),
+            data: Some(json!({"details": "ENOSPC: no space left on device, mkdir '/x'"})),
+        };
+
+        assert_eq!(
+            error.data_message().as_deref(),
+            Some("ENOSPC: no space left on device, mkdir '/x'")
+        );
+        assert_eq!(
+            error.to_string(),
+            "JSON-RPC error -32603: Internal error — ENOSPC: no space left on device, mkdir '/x'"
+        );
+    }
+
+    #[test]
+    fn data_message_prefers_message_and_skips_blank_values() {
+        let both = JsonRpcError {
+            code: -32603,
+            message: "Internal error".into(),
+            data: Some(json!({"message": "model not found", "details": "stack"})),
+        };
+        let blank = JsonRpcError {
+            code: -32603,
+            message: "Internal error".into(),
+            data: Some(json!({"message": " ", "details": "disk full"})),
+        };
+        let empty = JsonRpcError {
+            code: -32603,
+            message: "Internal error".into(),
+            data: Some(json!({})),
+        };
+
+        assert_eq!(both.data_message().as_deref(), Some("model not found"));
+        assert_eq!(blank.data_message().as_deref(), Some("disk full"));
+        assert_eq!(empty.data_message(), None);
+    }
+
+    #[test]
+    fn data_message_shows_an_unrecognised_shape_as_compact_json() {
+        let upstream = JsonRpcError {
+            code: -32603,
+            message: "Internal error".into(),
+            data: Some(json!({"type": "error", "error": {"type": "overloaded_error"}})),
+        };
+        let long = JsonRpcError {
+            code: -32603,
+            message: "Internal error".into(),
+            data: Some(json!({"blob": "x".repeat(2_000)})),
+        };
+
+        let shown: Value = serde_json::from_str(&upstream.data_message().unwrap()).unwrap();
+        assert_eq!(shown, json!({"type": "error", "error": {"type": "overloaded_error"}}));
+        let truncated = long.data_message().unwrap();
+        assert!(truncated.ends_with('…'));
+        assert_eq!(truncated.chars().count(), 501);
     }
 
     #[test]
