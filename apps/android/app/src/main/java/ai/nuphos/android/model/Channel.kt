@@ -92,8 +92,13 @@ data class ChannelPost(
                 val first = timed || index == 0 || posts[index - 1].senderId != post.senderId
                 rows += Timed(at, rows.size, ChannelItem.Post(post, first))
             }
-            events.filter { it.kind == "agents_paused" || it.kind == "agent_reply_failed" }.forEach { event ->
-                rows += Timed(event.at, rows.size, ChannelItem.Paused("paused.${event.at.toEpochMilli()}", event.text))
+            val lastPost = posts.mapNotNull { it.sentAt }.maxOrNull() ?: Instant.MIN
+            events.forEach { event ->
+                val key = "paused.${event.at.toEpochMilli()}"
+                if (event.kind == "agents_paused") rows += Timed(event.at, rows.size, ChannelItem.Paused(key, event.text))
+                // Only the newest line offers the fix: anything after it moved past it.
+                if (event.kind == "agent_reply_failed")
+                    rows += Timed(event.at, rows.size, ChannelItem.ReplyFailed(key, event, event == events.last() && event.at >= lastPost))
             }
             val sorted = rows.sortedWith(compareBy<Timed>({ it.at }, { it.order })).map { it.item }
             return if (typing.isEmpty()) sorted else sorted + ChannelItem.Typing(typing)
@@ -108,8 +113,10 @@ sealed class ChannelItem {
     data class Post(val post: ChannelPost, val first: Boolean) : ChannelItem() { override val key get() = "post.${post.id}" }
     /** A centered time above a post that follows a pause. */
     data class Time(override val key: String, val at: Instant) : ChannelItem()
-    /** A line from the chat itself: its loop guard paused agents, or an agent could not reply. */
+    /** A line from the chat itself: its loop guard paused agents. */
     data class Paused(override val key: String, val text: String) : ChannelItem()
+    /** An agent could not reply: why, and, on the newest line, the fix. */
+    data class ReplyFailed(override val key: String, val event: AgentConversationDetail.TimelineEvent, val actionable: Boolean) : ChannelItem()
     /** Agents in a turn right now. */
     data class Typing(val agents: List<ChannelAgent>) : ChannelItem() { override val key get() = "typing" }
 }
