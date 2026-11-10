@@ -87,35 +87,16 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   // keep the messages memoized when this page renders again — opening the dock,
   // a background refresh — instead of rendering the whole transcript each time.
   const fork = useStableCallback(forkConversation)
-  const approvePlan = useStableCallback((planId: string, toolCallId?: string) => {
+  // The backend wakes the agent once the approval completes the plan's gate.
+  const approvePlan = useStableCallback((planId: string) => {
     if (activeTab?.readOnly) return
     track('agent_plan_approved', { plan_id: planId, surface: 'inline_card' })
-    // Answering the plan's question approves it and wakes the agent, as the Inbox does.
-    if (toolCallId && questions?.some((question) => question.id === toolCallId)) {
-      sendInActive('Approve', [], undefined, toolCallId)
-
-      return
-    }
-    // A plan from before plans asked: approve, then tell the agent to proceed.
-    void api
-      .agentUpdatePlan(planId, { status: 'approved' }, teamId)
-      .then((updated) => {
-        // Only the vote that completes a quorum resumes; a Slack-bound plan
-        // resumes in its thread, so a proceed turn here could run it twice.
-        if (updated.status === 'approved' && !activeTab?.slackThread) {
-          sendInActive(
-            `Approved plan #${planId} — please proceed with plan #${planId}.`,
-            [],
-            'plan-approval',
-          )
-        }
+    void api.agentUpdatePlan(planId, { status: 'approved' }, teamId).catch((err: unknown) => {
+      console.warn('[plan] failed to mark approved', err)
+      toast.apiError(t('Could not approve plan'), err, {
+        fallback: t('The plan was not approved. Please try again.'),
       })
-      .catch((err: unknown) => {
-        console.warn('[plan] failed to mark approved', err)
-        toast.apiError(t('Could not approve plan'), err, {
-          fallback: t('The plan was not approved. Please try again.'),
-        })
-      })
+    })
   })
   const rejectPlan = useStableCallback(
     (planId: string, reason: string, mode: 'revise' | 'delete') => {

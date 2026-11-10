@@ -28,7 +28,7 @@ export function PlanToolPart({
   canChat: boolean
   keepPolling?: boolean
   onChat?: () => void
-  onApprovePlan?: (planId: string, toolCallId?: string) => void
+  onApprovePlan?: (planId: string) => void
   onRejectPlan?: (planId: string, reason: string, mode: 'revise' | 'delete') => void
 }) {
   const label = getToolLabel(part)
@@ -81,7 +81,7 @@ export function PlanToolPart({
       canChat={canChat}
       keepPolling={keepPolling}
       onChat={onChat}
-      onApprove={onApprovePlan ? () => onApprovePlan(planId, part.toolCallId) : undefined}
+      onApprove={onApprovePlan ? () => onApprovePlan(planId) : undefined}
       onReject={onRejectPlan ? (reason, mode) => onRejectPlan(planId, reason, mode) : undefined}
       foldable
       fallback={
@@ -119,7 +119,7 @@ export function AssistantPlanPart({
   canActOnPlans: boolean
   activePlanCanAct?: ActivePlanCanAct | null
   onStop?: () => void
-  onApprovePlan?: (planId: string, toolCallId?: string) => void
+  onApprovePlan?: (planId: string) => void
   onRejectPlan?: (planId: string, reason: string, mode: 'revise' | 'delete') => void
 }) {
   const active = activePlanCanAct?.toolCallId === part.toolCallId ? activePlanCanAct : null
