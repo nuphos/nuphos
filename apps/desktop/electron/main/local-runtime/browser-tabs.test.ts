@@ -64,6 +64,7 @@ class Window extends EventEmitter {
     this.options = options
     this.webContents = new Page(options.webPreferences.session)
     this.visible = options.show !== false
+    if (typeof options.opacity === 'number') this.opacity = options.opacity
     windows.push(this)
   }
   setTitle() {}
@@ -78,6 +79,14 @@ class Window extends EventEmitter {
     this.visible = false
   }
   focus() {}
+  opacity = 1
+  setOpacity(opacity: number) {
+    this.opacity = opacity
+  }
+  showInactive() {
+    this.shownOnce = true
+  }
+  shownOnce = false
   /** The user's close button: the window decides whether it goes. */
   close() {
     let prevented = false
@@ -160,6 +169,10 @@ test("open loads the page in a hidden desktop-sized window on the user's browser
   assert.deepEqual([window.options.width, window.options.height], [1440, 900])
   assert.equal(window.webContents.session, browserSession)
   assert.equal(window.webContents.url, 'https://example.com')
+  // Its first paint shows it once, unseen, then hides it, so the page can be captured yet sleeps.
+  assert.equal(window.opacity, 0)
+  window.emit('ready-to-show')
+  assert.deepEqual([window.shownOnce, window.visible, window.opacity], [true, false, 1])
   await tick()
   assert.equal(done, false, 'the page is still loading')
 

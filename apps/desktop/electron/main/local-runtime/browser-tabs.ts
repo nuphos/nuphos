@@ -65,6 +65,7 @@ function openTab(url: string, conversation: string): WebContents {
     enableLargerThanScreen: true,
     resizable: false,
     show: false,
+    opacity: 0,
     webPreferences: {
       session: browserSession(),
       sandbox: true,
@@ -75,6 +76,15 @@ function openTab(url: string, conversation: string): WebContents {
   const contents = window.webContents
 
   tabs.set(contents, { conversation, window })
+  // Shown once, unseen, the page paints and can be captured; hidden again, it sleeps
+  // like a background tab, so an idle tab costs no battery.
+  window.once('ready-to-show', () => {
+    if (!window.isVisible()) {
+      window.showInactive()
+      window.hide()
+    }
+    window.setOpacity(1)
+  })
   extensionHost()?.extensions.addTab(contents, window)
   // Closing a shown tab hides it again, as the conversation still drives it.
   window.on('close', (event) => {
@@ -95,7 +105,7 @@ export function closeBrowserTabs(): void {
   for (const { window } of tabs.values()) window.destroy()
 }
 
-/** `work` on a tab whose page keeps painting meanwhile, though its window is hidden. */
+/** `work` on a tab whose page runs at full speed meanwhile, as an on-screen page would. */
 async function unthrottled<T>(contents: WebContents, work: () => Promise<T>): Promise<T> {
   const throttled = contents.getBackgroundThrottling()
 
@@ -200,20 +210,29 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
       `Tab ${String(call.tab)} is not one this conversation opened; list its tabs with action "tabs".`,
     )
   if (call.action === 'navigate') {
-    if (!isHttp(call.url)) return failed('url must be an http(s) URL.')
+    const { url } = call
+
+    if (!isHttp(url)) return failed('url must be an http(s) URL.')
     // A failed load still leaves the tab on its error page, which `describe` reports.
-    await onPage(contents, contents.loadURL(call.url), { ms: LOAD_TIMEOUT_MS }).catch(() => {})
+    await unthrottled(contents, () =>
+      onPage(contents, contents.loadURL(url), { ms: LOAD_TIMEOUT_MS }),
+    ).catch(() => {})
 
     return text(describe(contents))
   }
   if (call.action === 'eval') {
     if (!call.script) return failed('script is required.')
     // A user gesture lets the script click through what only a real click may open.
-    const value: unknown = await onPage(contents, contents.executeJavaScript(call.script, true), {
-      untilNavigation: true,
-    })
+    const { script } = call
+    const value: unknown = await unthrottled(contents, async () => {
+      const result: unknown = await onPage(contents, contents.executeJavaScript(script, true), {
+        untilNavigation: true,
+      })
 
-    await loaded(contents)
+      await loaded(contents)
+
+      return result
+    })
 
     return text(value === undefined ? 'undefined' : value)
   }
