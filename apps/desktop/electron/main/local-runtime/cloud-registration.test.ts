@@ -24,6 +24,7 @@ mock.module('electron', {
   },
 })
 mock.module('../env.ts', { namedExports: { isDev: true } })
+mock.module('../app-paths.ts', { namedExports: { leftAloneDir: null } })
 mock.module('../device-identity.ts', {
   namedExports: {
     readDeviceIdentity: () => ({ deviceId: 'dev-device', label: 'M5', createdAt: '' }),

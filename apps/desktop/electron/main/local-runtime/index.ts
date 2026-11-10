@@ -10,6 +10,7 @@ import { apiUrl, deviceRegistrationAllowed } from '../../api-endpoint.ts'
 import { authSession } from '../../auth-session.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../../client-version.ts'
 import { resolveShellEnv } from '../../shell-env.ts'
+import { leftAloneDir } from '../app-paths.ts'
 import { syncDeviceRegistration } from '../device-controller.ts'
 import { readDeviceIdentity } from '../device-identity.ts'
 import { readDeviceMetrics } from '../device-metrics.ts'
@@ -25,6 +26,7 @@ import { LocalRuntimeController } from './controller.ts'
 import { localToolStreams } from './cua-stream.ts'
 import { devBundleHint, watchDevBundle } from './dev-bundle.ts'
 import { tunnelUrlFor } from './device-credential.ts'
+import { startDiskMaintenance } from './disk-usage.ts'
 import { localLogins } from './local-logins.ts'
 import { macScreenApp } from './mac-screen-app.ts'
 import { probeLocalModels } from './model-probe.ts'
@@ -175,6 +177,26 @@ export const cancelLocalCodexLogin = () => logins.cancel('codex')
 /** The runtime follows the signed-in account: any change of session stops it first. */
 export function initLocalRuntime(): void {
   sleep.initSleepPrevention(broadcastState)
+  // One pass on its own, well after launch: a finished session's workspace and the size
+  // of what is left are worth knowing, and neither is worth slowing a start for.
+  startDiskMaintenance({
+    workspaces: () => {
+      const state = controller.state()
+
+      return [
+        ...(state.workspace ? [state.workspace] : []),
+        ...(state.instances ?? []).flatMap((instance) =>
+          instance.workspace ? [instance.workspace] : [],
+        ),
+      ]
+    },
+    // This computer's agents share a workspace, so while any of them is up, a workspace
+    // may be the one a live session is in, and it is kept. Only the backend can name a
+    // live session exactly; until then this is the safe side of that answer.
+    inUse: () => Object.values(controller.state().agents).some((agent) => agent.online),
+    leftAlone: leftAloneDir,
+    log: logLocalTool,
+  })
   // A new backend always comes with a new session, so this one subscription
   // also follows the endpoint.
   const follow = (account: Pick<AccountContext, 'token' | 'userId'>) => {

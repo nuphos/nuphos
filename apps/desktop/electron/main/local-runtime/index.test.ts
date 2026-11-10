@@ -39,6 +39,7 @@ const boundaries: Record<string, Record<string, unknown>> = {
   '../../auth-status.ts': { unverifiedTokenSubject: noop },
   '../../client-version.ts': { CLIENT_VERSION_HEADER: 'x-test', CLIENT_VERSION_VALUE: 'test' },
   '../../shell-env.ts': { resolveShellEnv: noop },
+  '../app-paths.ts': { leftAloneDir: null },
   '../device-controller.ts': { syncDeviceRegistration: noop },
   '../device-identity.ts': { readDeviceIdentity: () => ({ deviceId: 'test-device' }) },
   '../device-metrics.ts': {
