@@ -9,9 +9,10 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
     var id: String { "\(sessionId):\(request.id)" }
 }
 
-/// The desktop's `sessionInputRequests` for a Bot's chat (#1848): the open
-/// questions of the Bot and of every conversation under it, at any depth,
-/// from the pending listing, whose rows come with every parent above them.
+/// The open questions in the pending listing, whose rows come with every
+/// parent above them: all of them for the Inbox, or, as the desktop's
+/// `sessionInputRequests` for a Bot's chat (#1848), those of the Bot and of
+/// every conversation under it, at any depth.
 enum BotQuestions {
     /// The viewer's own questions under `bot`, oldest first.
     static func under(bot: String, rows: [AgentConversation]) -> [BotQuestion] {
@@ -25,9 +26,14 @@ enum BotQuestions {
             }
             return false
         }
+        return open(rows: rows.filter { isUnder($0.sessionId) })
+    }
+
+    /// The viewer's own open questions in `rows`, oldest first: the Inbox's list.
+    static func open(rows: [AgentConversation]) -> [BotQuestion] {
         var listed = Set<String>()
         return rows
-            .filter { $0.isOwner == true && listed.insert($0.sessionId).inserted && isUnder($0.sessionId) }
+            .filter { $0.isOwner == true && listed.insert($0.sessionId).inserted }
             .flatMap { row in
                 (row.inputRequests ?? []).map { BotQuestion(sessionId: row.sessionId, title: row.displayTitle, request: $0) }
             }

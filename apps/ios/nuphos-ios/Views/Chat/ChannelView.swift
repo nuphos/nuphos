@@ -29,7 +29,7 @@ struct ChannelView: View {
 
     private var rows: [ChatRow] {
         (ChannelPost.items(posts: channel.posts, events: channel.events, typing: typing)
-            + channel.questions.map { (id: "question.\($0.id)", item: ChannelItem.question($0)) })
+            + channel.questions.list.map { (id: "question.\($0.id)", item: ChannelItem.question($0)) })
             .map { ChatRow.channel(id: $0.id, item: $0.item) }
     }
 

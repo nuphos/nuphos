@@ -6,6 +6,8 @@ import SwiftUI
 struct PageTitleMenu: View {
     @Binding var selection: HomePage
     var style: Style = .large
+    /// Open questions waiting in the Inbox, badged on the menu like the desktop's sidebar.
+    var inboxCount = 0
 
     enum Style { case large, inline, bar }
 
@@ -13,7 +15,9 @@ struct PageTitleMenu: View {
         Menu {
             Picker("Page", selection: $selection) {
                 ForEach(HomePage.allCases) { page in
-                    Label(page.title, systemImage: page.systemImage).tag(page)
+                    Label(page.title, systemImage: page.systemImage)
+                        .badge(page == .inbox ? inboxCount : 0)
+                        .tag(page)
                 }
             }
             .pickerStyle(.inline)
@@ -27,6 +31,14 @@ struct PageTitleMenu: View {
                     // Optically centre on the cap height rather than the
                     // full line box, which sits a touch low.
                     .offset(y: style == .large ? 2 : 1)
+                if inboxCount > 0, selection != .inbox {
+                    Text(inboxCount, format: .number)
+                        .font(.caption.weight(.bold).monospacedDigit())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .frame(minWidth: 20, minHeight: 20)
+                        .background(.red, in: Capsule())
+                }
             }
             .foregroundStyle(Theme.heading)
             .contentTransition(.numericText())
@@ -34,7 +46,7 @@ struct PageTitleMenu: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Switch page")
-        .accessibilityValue(Text(selection.title))
+        .accessibilityValue(Text(selection.title) + Text(inboxCount > 0 ? ", \(inboxCount) in Inbox" : ""))
     }
 
     private var font: Font {
