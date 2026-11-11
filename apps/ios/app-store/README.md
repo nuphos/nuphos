@@ -31,7 +31,17 @@ sit outside the app UI. All conversation data is fictional.
 The `compose.mjs`, `ui.js`, `data.js`, `symbols.swift`, `hero.mjs` and `faces/` files in this
 directory remain the earlier dark-appearance renderer. They do not reproduce the new iPhone
 set; use the dated source archive above for that set. The existing iPad images remain under
-`https://cdn.zeabur.com/nuphos/app-store/ios/en-US/ipad/`.
+`https://cdn.zeabur.com/nuphos/app-store/ios/en-US/ipad/`, except the first one.
+
+The first iPad image was re-rendered on November 11, 2026 with the headline and description of
+the approved iPhone set ("Your team. In your pocket."), and lives under
+`https://cdn.zeabur.com/nuphos/app-store/ios/en-US/ipad-2026-11-11/`. Its layout and app content
+are unchanged.
+
+`hero.mjs` captures the background from the shader hero that nuphos.ai had in October. The site
+no longer has it, so `setup.sh` stops at that step. For the November 11 image the background
+frame came from a local run of the October website; put such a frame at
+`build/hero-ipad-<n>.png` and run the remaining `setup.sh` steps by hand.
 
 On macOS with Google Chrome:
 
