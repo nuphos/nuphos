@@ -370,6 +370,8 @@
   "Another runtime on this computer already has this name.": "มีรันไทม์อื่นบนคอมพิวเตอร์นี้ใช้ชื่อนี้แล้ว",
   "Answer in the conversation": "ตอบในการสนทนา",
   "Answer in the secure card below. Never paste a secret in a message.": "ตอบในการ์ดที่ปลอดภัยด้านล่าง อย่าวางข้อมูลลับลงในข้อความ",
+  "Antigravity shares Google sign-in with other Antigravity apps under the same OS account. Signing in or using the CLI to sign out may affect them. Separate runtime accounts are not supported.": "Antigravity ใช้การลงชื่อเข้าใช้ Google ร่วมกับแอป Antigravity อื่นภายใต้บัญชี OS เดียวกัน การลงชื่อเข้าใช้หรือออกจากระบบผ่าน CLI อาจส่งผลต่อแอปเหล่านั้น ไม่รองรับบัญชีแยกสำหรับแต่ละรันไทม์",
+  "Antigravity uses this computer’s shared sign-in": "Antigravity ใช้การลงชื่อเข้าใช้ร่วมกันของคอมพิวเตอร์นี้",
   "Any": "ใดก็ได้",
   "Anyone": "ทุกคน",
   "App": "แอป",
