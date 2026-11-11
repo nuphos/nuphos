@@ -14,7 +14,7 @@ import {
   listMemoryItems,
   restoreMemoryItem,
 } from '../memory-native/records-api'
-import { setupTeamMemoryIndexes } from '../memory-native/store'
+import { createMemoryRecord, setupTeamMemoryIndexes } from '../memory-native/store'
 import { createTeamMemoryTools } from '../memory-native/tools'
 
 import { MEMORY_SPI_VERSION } from './types'
@@ -158,6 +158,22 @@ export const nativeMemoryProvider: MemoryProvider = {
   },
 
   records: {
+    importFacts: async ({ userId, teamId, conversationId, facts }) => {
+      for (const text of facts) {
+        const result = await createMemoryRecord({
+          scope: 'personal',
+          ownerUserId: userId,
+          teamId,
+          type: 'fact',
+          text,
+          source: 'save_memory',
+          conversationId,
+          restrictedToSessionId: conversationId,
+        })
+
+        if (!result.ok) throw new Error('Could not import a memory')
+      }
+    },
     cursorTier: 'strict',
     list: async (input) => {
       const page = await listMemoryItems(input.viewer.userId, {

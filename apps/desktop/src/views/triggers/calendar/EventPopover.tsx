@@ -51,8 +51,8 @@ export function EventPopover({ selected, trigger, onClose, onOpenTrigger }: Prop
   const timeZone = viewerTimeZone()
   const expression = trigger?.cronExpression?.trim()
   const upcoming = useMemo(
-    () => (expression ? nextOccurrencesAfter(expression, event.start, 3) : []),
-    [expression, event.start],
+    () => (expression ? nextOccurrencesAfter(expression, event.start, 3, trigger?.timeZone) : []),
+    [expression, event.start, trigger?.timeZone],
   )
 
   return (

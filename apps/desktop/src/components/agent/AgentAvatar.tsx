@@ -1,5 +1,6 @@
 import { useAgentAvatarPick } from '../../lib/agentAvatarChoices'
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
+import { trustedAvatarURL } from '../../lib/avatarUrl'
 import { botAvatarFile } from '../../lib/botAvatars'
 import { runtimeTurnActive } from '../../lib/runtimeExecution'
 
@@ -38,6 +39,7 @@ export function AgentAvatar({
   const seen = useAgentAvatarPick(agentId)
   const picked = face ? (seen === undefined ? avatar : seen) : undefined
   const running = runtimeTurnActive(useAgentRuntimeStates().get(agentId))
+  const uploaded = trustedAvatarURL(picked)
   // A face takes the Bots list's 36px; a Runtime icon a Tasks row's 22px.
   const sidebarSize = face ? 36 : 22
   const box = sidebar ? sidebarSize : size
@@ -53,12 +55,21 @@ export function AgentAvatar({
     >
       {picked ? (
         <>
-          <BotAvatarImage
-            file={botAvatarFile(agentId, picked)}
-            looping={animated && running}
-            className="absolute left-0 top-0 object-contain"
-            style={{ width: box, height: box }}
-          />
+          {uploaded ? (
+            <img
+              src={uploaded}
+              alt=""
+              className="absolute left-0 top-0 rounded-full object-cover"
+              style={{ width: box, height: box }}
+            />
+          ) : (
+            <BotAvatarImage
+              file={botAvatarFile(agentId, picked)}
+              looping={animated && running}
+              className="absolute left-0 top-0 object-contain"
+              style={{ width: box, height: box }}
+            />
+          )}
           {showBadge && <AgentRuntimeBadge provider={provider} size={box <= 24 ? 9 : 12} />}
         </>
       ) : (

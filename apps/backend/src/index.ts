@@ -7,14 +7,15 @@ import '@/otel/bootstrap'
 
 import { config } from '@/config'
 import { app, websocket } from '@/index-app'
+import { startBotImportCleanup } from '@/lib/agent/bot-import/cleanup'
 import { conversationAutoArchive } from '@/lib/agent/conversation-auto-archive'
-import { startQueuedTurn } from '@/lib/agent/queued-turn'
 import { assertRegistryInvariants } from '@/lib/agent/memory-slots'
 import {
   initMemoryRetentionRollup,
   shutdownMemoryRetentionRollup,
 } from '@/lib/agent/memory-slots/attribution-store'
 import { drainHttpAndAgentProducers } from '@/lib/agent/producer-drain'
+import { startQueuedTurn } from '@/lib/agent/queued-turn'
 import { flushGuardWrites } from '@/lib/agent/run-store'
 import { installQueuedTurnStarter } from '@/lib/agent/session-released'
 import { initStuckTurnProbe, shutdownStuckTurnProbe } from '@/lib/agent/stuck-turn-probe'
@@ -128,13 +129,16 @@ if (initClaudeCodeRuntimeProvisioner()) {
   logEvent('info', 'backend.claude_code_runtime_provisioner.ready')
 }
 startAgentRunStallSweeper()
+startBotImportCleanup()
 const stopRuntimeHandoffAdoption = startRuntimeHandoffAdoption()
 
 if (await initDiscordGateway()) logEvent('info', 'backend.discord_gateway.ready')
 startHealthTelemetry()
 
 // Bun only prints these; log them so the next one names its request and time.
-process.on('unhandledRejection', (error) => logError('backend.unhandled_rejection', error))
+process.on('unhandledRejection', (error) => {
+  logError('backend.unhandled_rejection', error)
+})
 
 const tls = devTlsOptions()
 

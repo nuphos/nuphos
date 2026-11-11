@@ -6,6 +6,7 @@ import { describe, expect, test } from 'bun:test'
 import { ObjectId } from 'mongodb'
 
 import { useCredentialOptions } from '@/lib/test/doubles/credential-options'
+import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useTriggerRunExecute } from '@/lib/test/doubles/trigger-run-execute'
@@ -57,7 +58,18 @@ let conversation: {
   teamId: string
   userId: string
   archivedAt?: Date
+  kind?: 'channel'
+  agentSessionIds?: string[]
 } | null = null
+const channelPosts: { sessionId: string; messages: { id: string }[] }[] = []
+
+useAgentDb({
+  appendConversationMessages: async (data) => {
+    channelPosts.push(data)
+
+    return true
+  },
+})
 const history = [
   { messageId: 'prior', role: 'assistant', parts: [{ type: 'text', text: 'Prior finding' }] },
 ]
@@ -67,7 +79,17 @@ useDb({
     collection: (name: string) => ({
       updateOne: () => Promise.resolve({}),
       updateMany: () => Promise.resolve({}),
-      findOne: () => Promise.resolve(name === 'agent_conversations' ? conversation : null),
+      findOne: (filter: { messageId?: string }) =>
+        Promise.resolve(
+          name === 'agent_conversations'
+            ? conversation
+            : name === 'agent_messages' &&
+                channelPosts.some((post) =>
+                  post.messages.some((message) => message.id === filter.messageId),
+                )
+              ? {}
+              : null,
+        ),
       find: () => ({ sort: () => ({ toArray: () => Promise.resolve(history) }) }),
     }),
   }),
@@ -225,4 +247,30 @@ describe('a Trigger bound to an existing session', () => {
     )
     expect(runs).toHaveLength(0)
   })
+})
+
+test('a bound channel Trigger posts once to the shared chat instead of running the channel as an agent', async () => {
+  channelPosts.length = 0
+  runs.length = 0
+  const sessionId = 'imported-shared-chat'
+
+  conversation = {
+    sessionId,
+    userId: PRINCIPAL_ID,
+    teamId: 'team-1',
+    kind: 'channel',
+    agentSessionIds: [],
+  }
+  try {
+    const trigger = { ...legacyTrigger, targetSessionId: sessionId }
+
+    await executeTrigger(trigger, undefined, { runKind: 'scheduled', fireId: 'same-fire' })
+    await executeTrigger(trigger, undefined, { runKind: 'scheduled', fireId: 'same-fire' })
+    expect(channelPosts).toHaveLength(1)
+    expect(channelPosts[0]?.sessionId).toBe(sessionId)
+    expect(runs).toHaveLength(0)
+  } finally {
+    conversation = null
+    channelPosts.length = 0
+  }
 })

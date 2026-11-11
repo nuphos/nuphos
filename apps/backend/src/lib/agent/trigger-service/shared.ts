@@ -19,6 +19,7 @@ export type CreateTriggerInput = {
   name: string
   triggerType: TriggerType
   cronExpression?: string
+  timeZone?: string
   /** Existing conversation every fire is delivered into. Every Trigger has one. */
   targetSessionId: string
   messageTemplate: string
@@ -45,6 +46,7 @@ export type UpdateTriggerPatch = {
   messageTemplate?: string
   enabled?: boolean
   cronExpression?: string
+  timeZone?: string
   /** Move delivery to another existing conversation. A Trigger cannot be unbound. */
   targetSessionId?: string
   minIntervalSeconds?: number

@@ -52,6 +52,7 @@ export type AgentTrigger = {
   name: string
   triggerType: TriggerType
   cronExpression?: string
+  timeZone?: string
   webhookSecret?: string
   /** Legacy: only on rows created before binding was required. Binding clears it. */
   sessionRouting?: SessionRouting

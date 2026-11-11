@@ -122,6 +122,7 @@ export class RuntimeTunnelClient {
         localBrowser: Boolean(this.deps.connectBrowser),
         localBrowserView: Boolean(this.deps.connectBrowserView),
         localAttachments: Boolean(this.deps.connectAttachments),
+        fileImport: Boolean(this.deps.connectFile),
       },
     })
   }

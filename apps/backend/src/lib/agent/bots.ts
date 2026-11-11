@@ -21,8 +21,13 @@ export type NewBot = {
  * `bypass` is its permission mode: full access when a person chose it, the
  * caller's own mode when an agent made it.
  */
-export async function createBot(userId: string, teamId: string, bypass: boolean, bot: NewBot = {}) {
-  const sessionId = randomUUID()
+export async function createBot(
+  userId: string,
+  teamId: string,
+  bypass: boolean,
+  bot: NewBot = {},
+  sessionId: string = randomUUID(),
+) {
   const avatar = bot.avatar ?? derivedAvatar(sessionId)
   const title = bot.title ?? 'New Bot'
   const { agentRuntime, runtimeId, runtimeLabel } = bot

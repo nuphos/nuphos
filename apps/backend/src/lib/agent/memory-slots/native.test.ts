@@ -93,6 +93,7 @@ function matchesCond(value: unknown, cond: unknown): boolean {
 function matchesFilter(doc: FakeDoc, filter: FakeDoc): boolean {
   return Object.entries(filter).every(([key, cond]) => {
     if (key === '$or') return (cond as FakeDoc[]).some((f) => matchesFilter(doc, f))
+    if (key === '$and') return (cond as FakeDoc[]).every((f) => matchesFilter(doc, f))
     if (key === '$text') {
       const q = ((cond as { $search: string }).$search ?? '').toLowerCase().split(/\s+/)[0] ?? ''
 
@@ -663,4 +664,34 @@ describe('records delegation', () => {
       await nativeMemoryProvider.records!.delete!(playbookId.toHexString(), viewer('team')),
     ).toBe(false)
   })
+})
+
+test('reviewed imported facts cross the provider boundary but remain private to their Bot', async () => {
+  await nativeMemoryProvider.records!.importFacts!({
+    userId: USER,
+    teamId: TEAM,
+    conversationId: CONV,
+    facts: ['Imported reports use EUR.'],
+  })
+  const { observer } = makeObserver()
+  const toolsFor = (conversationId: string) =>
+    nativeMemoryProvider.tools!.create({
+      ...toolCtx(observer),
+      conversationId,
+    }) as unknown as Record<string, { execute(input: unknown): Promise<{ results?: unknown[] }> }>
+  const own = await toolsFor(CONV).memory_get!.execute({ label: 'search', query: 'Imported' })
+  const other = await toolsFor('another-bot').memory_get!.execute({
+    label: 'search',
+    query: 'Imported',
+  })
+  const global = await nativeMemoryProvider.records!.list({
+    viewer: viewer('personal'),
+    limit: 20,
+    cursor: null,
+    state: 'live',
+  })
+
+  expect(own.results).toHaveLength(1)
+  expect(other.results).toHaveLength(0)
+  expect(global.items).toHaveLength(0)
 })

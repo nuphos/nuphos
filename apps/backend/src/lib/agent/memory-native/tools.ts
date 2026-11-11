@@ -96,6 +96,7 @@ export function createTeamMemoryTools(ctx: {
     memory_get: createMemoryGetTool({
       userId,
       teamId,
+      conversationId,
       onMemoryFetched,
       onMemorySearched,
     }),

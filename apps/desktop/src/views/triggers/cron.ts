@@ -132,6 +132,7 @@ export function scheduleSummary(
   trigger: {
     triggerType?: 'cron' | 'webhook'
     cronExpression?: string
+    timeZone?: string
   },
   timeZone: string = viewerTimeZone(),
   now: Date = new Date(),
@@ -140,6 +141,8 @@ export function scheduleSummary(
   const expression = trigger.cronExpression?.trim()
 
   if (!expression) return t('No schedule set')
+  if (trigger.timeZone && trigger.timeZone !== 'UTC')
+    return t('Runs on schedule {expression} ({zone})', { expression, zone: trigger.timeZone })
   const mode = parseCron(expression)
 
   if (mode.kind === 'every-n-hours') {

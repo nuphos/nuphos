@@ -62,6 +62,12 @@ export function playbookContentHash(playbook: Playbook): string {
 // Every read path filters tombstones; deleteMemoryItem sets them.
 export const LIVE_RECORD_FILTER = { disabledAt: { $exists: false } } as const
 
+export function memorySessionAccessFilter(sessionId?: string): Record<string, unknown> {
+  return sessionId
+    ? { $or: [{ restrictedToSessionId: { $exists: false } }, { restrictedToSessionId: sessionId }] }
+    : { restrictedToSessionId: { $exists: false } }
+}
+
 // One walk serves two callers: the fail-closed write gate (kinds only) and
 // auto-ingest's redact-and-save fallback (which needs the masked copy too).
 // Redact each RAW string, never a JSON encoding: stringify escapes quotes and
