@@ -8,7 +8,9 @@ import ai.nuphos.android.model.AgentConversationDetail
 import ai.nuphos.android.model.AgentConversationsPage
 import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ComposerAttachment
+import ai.nuphos.android.model.ComposerSubmission
 import ai.nuphos.android.model.InputRequest
+import ai.nuphos.android.session.BotQuestion
 import ai.nuphos.android.session.BotQuestions
 import ai.nuphos.android.session.ChannelSession
 import ai.nuphos.android.session.OpenQuestions
@@ -115,6 +117,38 @@ class BotQuestionsTest {
         transport.pending = listing.filter { it.sessionId != "canary" }
         session.refreshQuestions()
         assertEquals(listOf("q-docs", "q-bot"), session.questions.map { it.request.id })
+    }
+
+    @Test fun wordsUnderAQuotedQuestionAnswerIt() = runTest {
+        val transport = FakeTransport().apply { pending = listing }
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        session.refresh(force = true)
+        session.refreshQuestions()
+        val own = session.questions.single { it.sessionId == "bot-1" }
+        session.reply(own)
+        assertEquals(own.quote, session.replying)
+        assertTrue(session.send(ComposerSubmission("Ship it on Monday"), "me", "Me", null, this, newId = { "answer-1" }))
+        testScheduler.advanceUntilIdle()
+        // Answered as its options answer it, not posted quoting it.
+        assertEquals(listOf("Ship it on Monday" to "q-bot"), transport.posted)
+        assertNull(session.replying)
+        // With the quote cancelled, the words are an ordinary post.
+        session.reply(session.questions.single { it.sessionId == "canary" })
+        session.replying = null
+        session.send(ComposerSubmission("Hello"), "me", "Me", null, this, newId = { "post-2" })
+        testScheduler.advanceUntilIdle()
+        assertEquals("Hello" to null, transport.posted.last())
+        assertTrue(transport.answers.isEmpty())
+    }
+
+    @Test fun aPlanOrASecretIsNeverAnsweredInWords() {
+        fun ask(category: String, planId: String? = null) =
+            BotQuestion("s", "Agent", InputRequest("r", category, "Go?", listOf("Approve", "Reject"), planId = planId))
+        assertTrue(ask("preference").typed)
+        assertFalse(ask("approval", planId = "p1").typed)
+        assertFalse(ask("credential").typed)
+        assertFalse(ask("integration").typed)
+        assertEquals("p1", Http.json.decodeFromString<InputRequest>("""{"id":"r","question":"Approve?","planId":"p1"}""").planId)
     }
 
     @Test fun theBotsOwnQuestionIsAnsweredByAPostInItsChat() = runTest {

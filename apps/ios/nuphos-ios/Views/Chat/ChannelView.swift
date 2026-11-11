@@ -155,7 +155,7 @@ struct ChannelView: View {
 
     private var composer: some View {
         VStack(spacing: 6) {
-            if let reply = channel.replying { replyChip(reply) }
+            if let reply = channel.replying { ReplyChip(reply: reply) { channel.replying = nil } }
             ChatComposerBar(
                 text: $draft,
                 canSend: channel.loaded && !channel.readOnly,
@@ -167,28 +167,6 @@ struct ChannelView: View {
                 controls: { EmptyView() }
             )
         }
-    }
-
-    /// The post the next one answers, above the composer; × cancels.
-    private func replyChip(_ reply: ChannelReply) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "arrowshape.turn.up.left.fill").font(.system(size: 12)).foregroundStyle(Theme.muted)
-            (Text("Replying to \(reply.authorName) ").foregroundStyle(Theme.body).fontWeight(.medium)
-                + Text(reply.text).foregroundStyle(Theme.muted))
-                .font(Theme.Text.caption)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Button { channel.replying = nil } label: {
-                Image(systemName: "xmark.circle.fill").font(.system(size: 17)).foregroundStyle(Theme.muted)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Cancel reply")
-        }
-        .padding(.leading, 12)
-        .padding(.trailing, 8)
-        .padding(.vertical, 8)
-        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .padding(.horizontal, 16)
     }
 
     private func reply(to post: ChannelPost) {
@@ -268,7 +246,11 @@ struct ChannelView: View {
                     onOpen: { open(link: question.link(team: channel.teamId)) },
                     onAnswer: { channel.answer(question, with: $0) },
                     onLink: open(link:),
-                    failure: channel.questions.failures[question.id])
+                    failure: channel.questions.failures[question.id],
+                    onReply: {
+                        channel.reply(to: question)
+                        replyFocus += 1
+                    })
             }
         }
     }
@@ -552,5 +534,32 @@ struct TypingDots: View {
                 }
             }
         }
+    }
+}
+
+/// What the next message answers, above the composer; × cancels.
+struct ReplyChip: View {
+    let reply: ChannelReply
+    let onCancel: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrowshape.turn.up.left.fill").font(.system(size: 12)).foregroundStyle(Theme.muted)
+            (Text("Replying to \(reply.authorName) ").foregroundStyle(Theme.body).fontWeight(.medium)
+                + Text(reply.text).foregroundStyle(Theme.muted))
+                .font(Theme.Text.caption)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button(action: onCancel) {
+                Image(systemName: "xmark.circle.fill").font(.system(size: 17)).foregroundStyle(Theme.muted)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Cancel reply")
+        }
+        .padding(.leading, 12)
+        .padding(.trailing, 8)
+        .padding(.vertical, 8)
+        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 16)
     }
 }

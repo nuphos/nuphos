@@ -12,6 +12,14 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
     let request: AgentConversation.InputRequest
 
     var id: String { "\(sessionId):\(request.id)" }
+
+    /// Answered in words, "Other…": never a plan, approved or rejected, nor a credential or connection.
+    var typed: Bool {
+        !["credential", "integration"].contains(request.category) && request.planId == nil
+    }
+
+    /// The question quoted above a composer whose next message answers it.
+    var quote: ChannelReply { ChannelReply(id: nil, authorName: title, text: request.question) }
 }
 
 /// The open questions in the pending listing, whose rows come with every

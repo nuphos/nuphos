@@ -146,6 +146,8 @@ data class InputRequest(
     val askedAt: String? = null,
     /** Markdown the agent wrote to decide from: context, findings, links, risks. */
     val body: String? = null,
+    /** The plan an approval decides: answered with its Approve or Reject, never in words. */
+    val planId: String? = null,
 )
 
 /** The Bot a chat with these faces is the 1:1 of: its one other member is an agent with a face. */

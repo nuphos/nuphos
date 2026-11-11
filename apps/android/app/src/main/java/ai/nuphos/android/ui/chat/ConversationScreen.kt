@@ -482,6 +482,7 @@ fun ConversationScreen(
                     var recalledFiles by remember(session, queueGeneration, queueWorkspace, queueConsent) {
                         mutableStateOf(emptyList<ai.nuphos.android.model.ComposerAttachment>())
                     }
+                    session.answering?.let { ai.nuphos.android.ui.chats.ReplyChip(it.quote) { session.answering = null } }
                     ServerQueuedMessages(session.serverQueue, writable = !session.readOnly && !session.isArchived,
                         canSteer = session.canSteer, onRecall = { recalled ->
                             if (draft == null) false else runCatching {

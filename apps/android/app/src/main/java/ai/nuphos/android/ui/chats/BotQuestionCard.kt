@@ -14,16 +14,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.text.input.ImeAction
 import ai.nuphos.android.model.InputRequest
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -39,9 +35,9 @@ import androidx.compose.ui.draw.clipToBounds
 
 /**
  * An open question, in a Bot's chat or the Inbox, like Desktop's decision card: which agent asked,
- * the question and what the agent wrote to decide it from, each option as the reply, and a short
- * typed answer. A connect or secure-input question is answered in the conversation that asked,
- * which the link opens. [showsFrom] is off for the Bot's own questions in its own chat.
+ * the question and what the agent wrote to decide it from, each option as the reply, and "Other…" to
+ * answer in words in the composer, quoting it. A connect or secure-input question is answered in the
+ * conversation that asked, which the link opens. [showsFrom] is off for the Bot's own questions in its own chat.
  */
 @Composable
 internal fun BotQuestionCard(
@@ -52,10 +48,10 @@ internal fun BotQuestionCard(
     onLink: ((String) -> Unit)? = null,
     /** Why the last answer could not be sent; the question is still open. */
     failure: String? = null,
+    /** Starts an answer in words in the composer, quoting the question; absent where none answers it. */
+    onReply: (() -> Unit)? = null,
 ) {
     val replies = cardReplies(question.request)
-    var draft by rememberSaveable(question.id) { mutableStateOf("") }
-    val send = { draft.trim().takeIf { it.isNotEmpty() }?.let { draft = ""; onAnswer(it) }; Unit }
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp).testTag("bot-question"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         if (showsFrom) Row(Modifier.clickable(onClick = onOpen).testTag("bot-question-from"), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -77,13 +73,8 @@ internal fun BotQuestionCard(
                             OutlinedButton(onClick = { onAnswer(reply) }, modifier = Modifier.testTag("bot-question-option")) { Text(label) }
                         }
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(draft, { draft = it }, Modifier.weight(1f).testTag("bot-question-reply"),
-                            placeholder = { Text("Or type a different answer") }, singleLine = true,
-                            textStyle = MaterialTheme.typography.bodyMedium,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                            keyboardActions = KeyboardActions(onSend = { send() }))
-                        TextButton(onClick = send, enabled = draft.isNotBlank()) { Text("Send") }
+                    if (onReply != null && question.typed) TextButton(onClick = onReply, Modifier.testTag("bot-question-other")) {
+                        Text(if (question.request.options.orEmpty().any { it.isNotBlank() }) "Other…" else "Reply…")
                     }
                 }
             }

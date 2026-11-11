@@ -33,6 +33,13 @@ final class ChannelSession {
     var unsent: ComposerSubmission?
     /// The post the next one answers, quoted above the composer.
     var replying: ChannelReply?
+    /// The question the next post answers instead, quoted as `replying`: its card's "Other…".
+    private var answering: BotQuestion?
+
+    func reply(to question: BotQuestion) {
+        answering = question
+        replying = question.quote
+    }
     var sendError: String?
     /// In a Bot's chat: the open questions of the Bot and of every agent under it.
     let questions: OpenQuestions
@@ -174,7 +181,15 @@ final class ChannelSession {
     func send(_ submission: ComposerSubmission) {
         let text = submission.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty || !submission.attachments.isEmpty else { return }
-        let reply = replying
+        // Words under a quoted question are its answer, as its options are; with files, a post quoting nothing.
+        let question = answering.flatMap { replying == $0.quote ? $0 : nil }
+        answering = nil
+        if let question, submission.attachments.isEmpty {
+            replying = nil
+            answer(question, with: text)
+            return
+        }
+        let reply = question == nil ? replying : nil
         replying = nil
         let key = ([reply?.id ?? "", text] + submission.attachments.map(\.name)).joined(separator: "\n")
         let id = retry?.key == key ? retry!.id : UUID().uuidString.lowercased()

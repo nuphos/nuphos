@@ -1,6 +1,7 @@
 package ai.nuphos.android.ui.inbox
 
 import ai.nuphos.android.session.OpenQuestions
+import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.chats.BotQuestionCard
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,6 +30,7 @@ import androidx.navigation.NavHostController
 @Composable
 fun InboxPage(inbox: OpenQuestions?, nav: NavHostController, allowed: () -> Boolean) {
     val scope = rememberCoroutineScope()
+    val store = LocalAgentStore.current
     Box(Modifier.fillMaxSize().testTag("inbox")) {
         when {
             inbox == null || !inbox.loaded -> CircularProgressIndicator(Modifier.align(Alignment.Center))
@@ -44,7 +46,12 @@ fun InboxPage(inbox: OpenQuestions?, nav: NavHostController, allowed: () -> Bool
                 items(inbox.list.asReversed(), key = { it.id }) { question ->
                     BotQuestionCard(question, onOpen = { nav.navigate("conversation/${question.sessionId}") },
                         onAnswer = { text -> if (allowed()) inbox.answer(question, text, scope) },
-                        failure = inbox.failures[question.id])
+                        failure = inbox.failures[question.id],
+                        // Opens the conversation, its composer answering this question.
+                        onReply = {
+                            store.session(question.sessionId, question.title).answering = question
+                            nav.navigate("conversation/${question.sessionId}")
+                        })
                 }
             }
         }

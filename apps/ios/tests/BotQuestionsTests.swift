@@ -7,6 +7,7 @@ enum BotQuestionsTests {
         decodesTheOpenRequestsOfAListRow()
         theInboxListsEveryOwnQuestionOnce()
         keepsTheBodyTheAgentWroteToDecideFrom()
+        aPlanOrASecretIsNeverAnsweredInWords()
         print("Bot questions passed")
     }
 
@@ -80,5 +81,21 @@ enum BotQuestionsTests {
         precondition(!BotQuestion.isLongBody("One finding.\nA second.\nA third."))
         precondition(BotQuestion.isLongBody("1\n2\n3\n4"))
         precondition(BotQuestion.isLongBody(String(repeating: "x", count: 241)))
+    }
+
+    private static func aPlanOrASecretIsNeverAnsweredInWords() {
+        func ask(_ category: String, planId: String? = nil) -> BotQuestion {
+            BotQuestion(sessionId: "s", title: "Agent", request: .init(
+                id: "r", category: category, question: "Go?", options: ["Approve", "Reject"], askedAt: nil, planId: planId))
+        }
+        precondition(ask("preference").typed)
+        precondition(!ask("approval", planId: "p1").typed)
+        precondition(!ask("credential").typed)
+        precondition(!ask("integration").typed)
+        let plan = try! JSONDecoder().decode(
+            AgentConversation.InputRequest.self, from: Data(#"{"id":"r","question":"Approve?","planId":"p1"}"#.utf8))
+        precondition(plan.planId == "p1")
+        // "Other…" quotes the question above the composer, a quote no post in the chat has.
+        precondition(ask("preference").quote == ChannelReply(id: nil, authorName: "Agent", text: "Go?"))
     }
 }

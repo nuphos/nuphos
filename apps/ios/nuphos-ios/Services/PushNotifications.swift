@@ -10,12 +10,15 @@ struct PushTarget: Equatable, Hashable, Identifiable {
     let teamId: String
     let sessionId: String
     let title: String
+    /// The open question the conversation's composer answers once open: an Inbox card's "Other…".
+    var answering: AgentConversation.InputRequest?
     var id: String { "\(teamId)/\(sessionId)" }
 
-    init(teamId: String, sessionId: String, title: String = "Agent") {
+    init(teamId: String, sessionId: String, title: String = "Agent", answering: AgentConversation.InputRequest? = nil) {
         self.teamId = teamId
         self.sessionId = sessionId
         self.title = title
+        self.answering = answering
     }
 
     nonisolated init?(userInfo: [AnyHashable: Any]) {
