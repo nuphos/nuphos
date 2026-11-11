@@ -1,17 +1,38 @@
-# Bot task mode evidence
+# Bot task mode — real Desktop evidence
 
-These images use synthetic data only. They render the production `BotTaskButton`
-and `BotTaskMode` components with the production stylesheet in an isolated Vite
-harness. The transcript is a synthetic stand-in for `AgentPanel`; the sidebar is
-an illustrative fixture using `withChatSections`, not a full Desktop screenshot.
+Captured on macOS in Electron 44.10.0, light theme. These replace the earlier
+component-only previews. The complete `src/main.tsx` application, sidebar,
+channel conversation, Task transcript and composer are the real Desktop
+components; none are replaced with illustrative markup or stand-ins.
 
-The full Desktop integration was separately exercised locally: open the Bot's
-Task, verify the real transcript and composer, return to the same Bot chat, and
-reopen. The mode has no workspace tabs, breadcrumb, or half-width toggle.
+Only API/IPC responses are deterministic synthetic fixtures: Pied Piper, Alex
+Chen, an owned Code assistant with a 1:1 chat, a teammate's Research assistant
+without a chat, and an ordinary Update documentation task. All network access
+outside the local Vite server is blocked. No production accounts, messages,
+credentials or customer information are included.
 
-The harness also sampled transform matrices during opening and closing and
-verified that the task unmounts after closing.
+Before uses the original production source at
+`f8f5eab12c89f73a5f0555b9df3115950d13e4ef`; after uses the product code at
+`f52f01d9255f423ab4aa56b4d545725f36c67f81`. The same fixture responses drive both.
+Playwright launches Electron and captures its actual window content. The GIF
+records opening Task, Back to conversation, reopening Task and Back again.
 
-![Bot chat with Task entry](bot-chat.png)
+## Before
 
-![Temporary full-width Task mode](task-mode.png)
+![Original sidebar with duplicated Bot task](before.png)
+
+## After and Task entry
+
+![Real Desktop Bot chat with Task button](bot-chat.png)
+
+## Temporary Task mode
+
+![Real Desktop Task transcript and composer](task-mode.png)
+
+## After Back
+
+![Real Desktop returned to Bot chat](back-to-chat.png)
+
+## Open, Back and reopen
+
+![Real Electron opening and closing Task mode](open-back-reopen.gif)
