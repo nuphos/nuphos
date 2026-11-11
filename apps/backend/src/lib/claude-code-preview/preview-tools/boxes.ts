@@ -14,6 +14,7 @@ import {
   pauseBox,
   resumeBox,
 } from '@/lib/agent/devices/box-instabox'
+import { MAX_BOX_DISK_GIB, boxSizeView, resizeBox } from '@/lib/agent/devices/box-instabox-resize'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { holderChannel } from '@/lib/agent/devices/local-runtime/protocol'
 import { isDevicePresent, waitForPresence } from '@/lib/agent/devices/presence'
@@ -175,17 +176,29 @@ export function boxToolModule(
       }),
       update_box: tool({
         description:
-          'Stop, start or delete a Box on one of the team’s instabox accounts. stop pauses the machine ' +
+          'Stop, start, resize or delete a Box on one of the team’s instabox accounts. stop pauses the machine ' +
           '(its disk stays; a later local_exec or start wakes it); delete removes the machine, its ' +
-          'disk and the computer from Nuphos, and cannot be undone. Delete needs the Box’s owner.',
+          'disk and the computer from Nuphos, and cannot be undone. Delete needs the Box’s owner. ' +
+          'resize gives it another size (vcpus, one its account offers) and/or a bigger /data disk ' +
+          '(diskGiB, grow only); a running Box restarts for it, ending every process and agent turn on ' +
+          'it, and comes back on its own in a minute or two. Call resize without either to see the ' +
+          'current size and the sizes offered.',
         inputSchema: z
           .object({
             label,
             deviceId: z.string().min(1).describe('From list_boxes.'),
-            action: z.enum(['stop', 'start', 'delete']),
+            action: z.enum(['stop', 'start', 'resize', 'delete']),
+            vcpus: z.number().int().min(1).optional().describe('resize: the new size.'),
+            diskGiB: z
+              .number()
+              .int()
+              .min(1)
+              .max(MAX_BOX_DISK_GIB)
+              .optional()
+              .describe('resize: the new /data size in GB; it only grows.'),
           })
           .strict(),
-        execute: async ({ deviceId, action }) => {
+        execute: async ({ deviceId, action, vcpus, diskGiB }) => {
           const device = await requireAgentBox(
             ctx,
             deviceId,
@@ -195,6 +208,13 @@ export function boxToolModule(
 
           if (action === 'stop') await pauseBox(userId, deviceId)
           if (action === 'start') await resumeBox(userId, deviceId)
+          if (action === 'resize' && vcpus === undefined && diskGiB === undefined)
+            return { deviceId, action, ...(await boxSizeView(userId, deviceId)) }
+          if (action === 'resize') {
+            await resizeBox(userId, deviceId, { vcpus, diskGiB })
+
+            return { deviceId, action, started: true, note: 'list_boxes shows it running again.' }
+          }
           if (action !== 'delete') return { deviceId, action, done: true }
           // As the Box delete route: close its tunnel cleanly before the machine goes.
           if (await revokeAgentDeviceCredential(userId, deviceId))

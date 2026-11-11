@@ -1,6 +1,7 @@
 import type {
   AgentDeviceListOptions,
   BoxAccess,
+  BoxResize,
   LocalAgentProvider,
   LocalRuntimeState,
   LocalShareInput,
@@ -51,6 +52,9 @@ export const deviceApi = {
   instaboxSizes: (teamId: string, accountId: string) => window.api.instaboxSizes(teamId, accountId),
   boxPause: (deviceId: string, teamId: string) => window.api.boxPause(deviceId, teamId),
   boxResume: (deviceId: string, teamId: string) => window.api.boxResume(deviceId, teamId),
+  boxSize: (deviceId: string, teamId: string) => window.api.boxSize(deviceId, teamId),
+  boxResize: (deviceId: string, teamId: string, resize: BoxResize) =>
+    window.api.boxResize(deviceId, teamId, resize),
   boxDelete: (deviceId: string, teamId: string) => window.api.boxDelete(deviceId, teamId),
   deviceRemove: (deviceId: string, teamId: string) => window.api.deviceRemove(deviceId, teamId),
   boxDesktop: (deviceId: string, teamId: string) => window.api.boxDesktop(deviceId, teamId),

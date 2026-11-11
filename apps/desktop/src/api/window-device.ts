@@ -4,7 +4,9 @@ import type {
   AgentDeviceListOptions,
   BillingSummary,
   BoxAccess,
+  BoxResize,
   BoxSize,
+  BoxSizeInfo,
   BoxStatus,
   BoxUsage,
   BoxUsageHistory,
@@ -65,6 +67,8 @@ export type WindowDeviceApi = {
   instaboxSizes(teamId: string, accountId: string): Promise<BoxSize[]>
   boxPause(deviceId: string, teamId: string): Promise<{ box: BoxStatus }>
   boxResume(deviceId: string, teamId: string): Promise<{ box: BoxStatus }>
+  boxSize(deviceId: string, teamId: string): Promise<BoxSizeInfo>
+  boxResize(deviceId: string, teamId: string, resize: BoxResize): Promise<{ box: BoxStatus }>
   boxDelete(deviceId: string, teamId: string): Promise<{ ok: true }>
   deviceRemove(deviceId: string, teamId: string): Promise<{ ok: true }>
   boxCreateAgent(

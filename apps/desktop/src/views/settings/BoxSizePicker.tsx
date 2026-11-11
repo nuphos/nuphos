@@ -87,7 +87,8 @@ export function BoxSizePicker({
   left: number | null
   disabled: boolean
   onChange: (vcpus: number) => void
-  onUpgrade: (choice: Choice) => void
+  /** Needed only when `left` can lock a size. */
+  onUpgrade?: (choice: Choice) => void
 }) {
   const locked = (choice: Choice) => left !== null && choice.vcpus > left
 
@@ -143,7 +144,7 @@ export function BoxSizePicker({
             name: choice.name,
             spec: choice.spec,
           })}
-          onClick={() => onUpgrade(choice)}
+          onClick={() => onUpgrade?.(choice)}
           className={clsx(
             CARD,
             'group border-dashed border-line-control bg-transparent hover:border-status-warning/60 focus-visible:ring-status-warning/60',

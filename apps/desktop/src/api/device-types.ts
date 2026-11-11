@@ -181,6 +181,10 @@ export type BoxStatus = {
   state: BoxState
   /** While an update restarts its host: when it began. Absent from older backends. */
   updateStartedAt?: string
+  /** While it is being resized: when that began. */
+  resizeStartedAt?: string
+  /** Why its last resize failed; only for those who manage the Box. */
+  resizeError?: string
 }
 
 /** One of the signed-in user's devices; `box` is set when Nuphos hosts it. */
@@ -228,6 +232,16 @@ export type AgentDeviceList = {
 }
 
 export type BoxSize = { vcpus: number; memMiB: number }
+
+/** A Box's size and `/data` disk, the sizes its account offers, and whether a resize restarts it. */
+export type BoxSizeInfo = BoxSize & {
+  diskGiB: number
+  running: boolean
+  sizes: BoxSize[]
+  maxDiskGiB: number
+}
+/** A resize: another size, a bigger disk, or both. */
+export type BoxResize = { vcpus?: number; diskGiB?: number }
 
 export type { InstaboxAccount } from '../types/provider-accounts.ts'
 

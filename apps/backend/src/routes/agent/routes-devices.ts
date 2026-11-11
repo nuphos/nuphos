@@ -11,17 +11,7 @@ import {
   requireDeviceAccess,
   revokeBoxStreams,
 } from '@/lib/agent/devices/box-access'
-import {
-  boxBackendUrl,
-  boxDesktopUrl,
-  boxState,
-  boxesAvailable,
-  createBox,
-  destroyBox,
-  healBox,
-  pauseBox,
-  resumeBox,
-} from '@/lib/agent/devices/box-instabox'
+import { boxBackendUrl } from '@/lib/agent/devices/box-instabox'
 import { readBoxMetrics } from '@/lib/agent/devices/box-metrics'
 import { setTeamUse } from '@/lib/agent/devices/device-grants'
 import {
@@ -49,10 +39,12 @@ import { zv } from '@/lib/validate'
 import { agent } from './router'
 import { createDeviceAgentRoutes } from './routes-device-agents'
 import { createAgentDeviceBoxRoutes } from './routes-devices-box'
+import { instaboxProvider } from './routes-devices-box-provider'
+import { createAgentDeviceBoxResizeRoutes } from './routes-devices-box-resize'
 import { readTeamIdCandidate } from './team-scope'
 
+import type { BoxProvider } from './routes-devices-box-provider'
 import type { DeviceAccessDeps } from '@/lib/agent/devices/box-access'
-import type { BoxState } from '@/lib/agent/devices/box-instabox'
 import type { HolderMessage } from '@/lib/agent/devices/local-runtime/protocol'
 import type { AgentDevice, AgentDeviceRegistration } from '@/lib/agent/devices/store'
 import type { AuthVariables } from '@/middleware/auth'
@@ -108,19 +100,7 @@ export type AgentDeviceRouteDependencies = {
   /** Where a joining machine dials: this deployment's public URL, if it has one. */
   publicUrl: () => string | undefined
   /** Null only in tests that have no Box provider. */
-  box: {
-    create: typeof createBox
-    pause: (userId: string, deviceId: string) => Promise<AgentDevice>
-    resume: (userId: string, deviceId: string) => Promise<AgentDevice>
-    destroy: (userId: string, deviceId: string) => Promise<void>
-    /** A link to the Box's desktop, to watch and take over what its agents do. */
-    desktop: (userId: string, deviceId: string) => Promise<string>
-    /** Starts the host again on a running machine whose host dropped; rate-limited. */
-    heal: (userId: string, deviceId: string) => void
-    /** Whether Boxes can be ordered here: a provider and a public URL for the machine to dial. */
-    available: () => boolean
-    state: (device: AgentDevice, online: boolean) => Promise<BoxState | 'gone'>
-  } | null
+  box: BoxProvider | null
 }
 
 const defaultDependencies: AgentDeviceRouteDependencies = {
@@ -149,22 +129,14 @@ const defaultDependencies: AgentDeviceRouteDependencies = {
   renameDevice: renameAgentDevice,
   publicUrl: boxBackendUrl,
   // Always on: a team may bring its own instabox account when the deployment has none.
-  box: {
-    create: createBox,
-    pause: pauseBox,
-    resume: resumeBox,
-    destroy: destroyBox,
-    desktop: boxDesktopUrl,
-    heal: healBox,
-    available: boxesAvailable,
-    state: boxState,
-  },
+  box: instaboxProvider,
 }
 
 export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = defaultDependencies) {
   const routes = new Hono<{ Variables: AuthVariables }>()
 
   routes.route('/', createAgentDeviceBoxRoutes(deps))
+  routes.route('/', createAgentDeviceBoxResizeRoutes(deps))
   routes.route('/', createDeviceAgentRoutes())
 
   // A computer registers itself; a Box's row is written only by the Box routes.

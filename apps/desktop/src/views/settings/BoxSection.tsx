@@ -81,7 +81,7 @@ export function BoxSection({
         t('{name} could not start and was removed.', { name: device.label }),
       )
     for (const { device, kind, outcome } of boxRestarts.settle(list.devices, teamId)) {
-      const notice = device && boxRestartEnded(kind, outcome, device.label)
+      const notice = device && boxRestartEnded(kind, outcome, device.label, device.box?.resizeError)
 
       if (notice?.tone === 'error') toast.error(notice.title, notice.description)
       else if (notice) toast.success(notice.title, notice.description)

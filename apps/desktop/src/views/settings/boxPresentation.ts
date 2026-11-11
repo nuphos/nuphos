@@ -117,8 +117,15 @@ export function boxPollMs(devices: AgentDevice[], signingIn: boolean): number {
 
   if ([...states].some((state) => setupStates.has(state))) return BOX_CREATING_POLL_MS
   if (signingIn) return 1_500
-  // A host restarting for an update comes back without the user acting.
-  if (devices.some((device) => device.online || device.box?.updateStartedAt))
+  // A host restarting for an update or a resize comes back without the user acting.
+  if (
+    devices.some(
+      (device) =>
+        device.online ||
+        device.box?.updateStartedAt !== undefined ||
+        device.box?.resizeStartedAt !== undefined,
+    )
+  )
     return BOX_METRICS_POLL_MS
 
   return states.has('hostOffline') ? BOX_OFFLINE_POLL_MS : 0

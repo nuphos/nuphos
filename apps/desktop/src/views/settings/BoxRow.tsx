@@ -28,6 +28,7 @@ import { boxRestarts, useBoxRestart } from './boxRestartStore'
 import { LocalAgentShareDialog } from './LocalAgentShareDialog'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { useBoxHostUpdate } from './useBoxHostUpdate'
+import { useBoxResize } from './useBoxResize'
 import { useComputerOwner } from './useComputerOwner'
 
 import type { AgentDevice } from '../../api'
@@ -126,6 +127,7 @@ export function BoxRow({
     })
 
   const model = deskModel(device)
+  const resize = useBoxResize(device, teamId, changed)
 
   return (
     <li className="flex w-[300px] shrink-0 flex-col">
@@ -193,6 +195,7 @@ export function BoxRow({
               <MenuItem onClick={() => setRenaming(true)}>{t('Rename')}</MenuItem>
               <MenuItem onClick={() => void copyUid(device)}>{t('Copy UID')}</MenuItem>
               <MenuItem onClick={() => setSharing(true)}>{t('Manage access…')}</MenuItem>
+              {resize.item}
               {actions.resume && (
                 <MenuItem onClick={() => void resume()}>
                   {state === 'error' ? t('Retry') : t('Resume')}
@@ -269,6 +272,7 @@ export function BoxRow({
           }}
         />
       )}
+      {resize.dialog}
       {sharing && (
         <AccessDialog
           teamId={teamId}

@@ -21,6 +21,8 @@ import {
   listAgentDevices,
   pauseBox,
   resumeBox,
+  boxSize,
+  resizeBox,
 } from '../atlas/boxes.ts'
 import {
   askRuntimeSignIn,
@@ -39,6 +41,7 @@ import { LOCAL_AGENT_PROVIDERS } from './local-runtime/providers.ts'
 import type {
   AgentDeviceListOptions,
   BoxAccess,
+  BoxResize,
   LocalAgentProvider,
   LocalShareInput,
 } from '../../src/api/device-types.ts'
@@ -66,6 +69,19 @@ function boxAccess(value: unknown): BoxAccess {
     throw new TypeError('Expected a computer access list')
 
   return { everyone: access.everyone, userIds: access.userIds }
+}
+
+function boxResize(value: unknown): BoxResize {
+  const resize = value as BoxResize | null
+  const whole = (n: unknown) => n === undefined || Number.isInteger(n)
+
+  if (!resize || !whole(resize.vcpus) || !whole(resize.diskGiB))
+    throw new TypeError('Expected a computer size')
+
+  return {
+    ...(resize.vcpus === undefined ? {} : { vcpus: resize.vcpus }),
+    ...(resize.diskGiB === undefined ? {} : { diskGiB: resize.diskGiB }),
+  }
 }
 
 function historyRange(value: unknown): '1d' | '7d' | '30d' {
@@ -154,6 +170,10 @@ export const boxChannels = {
     pauseBox(string(deviceId), string(teamId)),
   'box:resume': (_e: unknown, deviceId: unknown, teamId: unknown) =>
     resumeBox(string(deviceId), string(teamId)),
+  'box:size': (_e: unknown, deviceId: unknown, teamId: unknown) =>
+    boxSize(string(deviceId), string(teamId)),
+  'box:resize': (_e: unknown, deviceId: unknown, teamId: unknown, resize: unknown) =>
+    resizeBox(string(deviceId), string(teamId), boxResize(resize)),
   'box:delete': (_e: unknown, deviceId: unknown, teamId: unknown) =>
     deleteBox(string(deviceId), string(teamId)),
   'box:removeDevice': (_e: unknown, deviceId: unknown, teamId: unknown) =>

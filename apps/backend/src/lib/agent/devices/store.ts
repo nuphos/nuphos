@@ -6,11 +6,9 @@ import type { Collection } from 'mongodb'
 
 export { isActiveTeamMember } from './team-membership'
 
-/**
- * A machine Nuphos created for this device; absent for a person's own computer. Its state is
- * never stored: instabox and presence know it. A `k8s` Box is the pod of a managed runtime,
- * which the team reaches through that runtime, so it is never listed as one of the team's Boxes.
- */
+/** A machine Nuphos created for this device; absent for a person's own computer. Its state comes
+ * from instabox and presence. A `k8s` Box is a managed runtime's pod, which the team reaches
+ * through that runtime, so it is never listed as one of the team's Boxes. */
 export type AgentDeviceBox = {
   provider: 'instabox' | 'k8s'
   /** Set once the machine is ordered; a row without one is still being created. */
@@ -25,6 +23,8 @@ export type AgentDeviceBox = {
   createdBy?: string
   /** When an update last restarted its host; see box-updating. */
   updateStartedAt?: Date
+  /** A resize underway, or why the last one failed; see box-resizing. */
+  resize?: { startedAt?: Date; error?: string }
 }
 
 /** In one team: who may use a computer and who may also manage it. */

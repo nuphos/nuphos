@@ -9,6 +9,7 @@ import {
   memberAccess,
   requireDeviceAccess,
 } from '@/lib/agent/devices/box-access'
+import { boxResizeView } from '@/lib/agent/devices/box-resizing'
 import { boxUpdatingSince } from '@/lib/agent/devices/box-updating'
 import { teamUse } from '@/lib/agent/devices/device-grants'
 import { AppError } from '@/lib/errors'
@@ -49,7 +50,7 @@ export function nextBoxLabel(labels: string[]): string {
 }
 
 /** A device as a client sees it, never its credential hash; null once its Box's machine is gone. */
-async function deviceView(
+export async function deviceView(
   deps: AgentDeviceRouteDependencies,
   device: AgentDevice,
   /** What the viewer may do with it; a manager also sees who may use it. */
@@ -91,6 +92,7 @@ async function deviceView(
             state,
             // Its host restarting for an update: offline on purpose, and back on its own.
             ...(updating ? { updateStartedAt: updating.toISOString() } : {}),
+            ...boxResizeView(device, level !== 'use'),
           },
         }
       : {}),

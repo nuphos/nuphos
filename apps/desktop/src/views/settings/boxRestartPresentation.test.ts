@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import { BOX_METRICS_POLL_MS, BOX_OFFLINE_POLL_MS, boxPollMs } from './boxPresentation.ts'
 import {
+  BOX_RESIZE_TIMEOUT_MS,
   BOX_RESTART_MISSED_MS,
   BOX_RESTART_TIMEOUT_MS,
   boxRestartEnded,
@@ -132,4 +133,54 @@ test("another team's list neither ends nor moves a restart", () => {
 test('a Box updating for any viewer is polled like a live one, not left for 30 s', () => {
   assert.equal(boxPollMs([device(false, '2026-10-21T08:00:00.000Z')], false), BOX_METRICS_POLL_MS)
   assert.equal(boxPollMs([device(false)], false), BOX_OFFLINE_POLL_MS)
+})
+
+const resized = (online: boolean, box: Partial<NonNullable<AgentDevice['box']>> = {}) => ({
+  ...device(online),
+  box: { provider: 'instabox' as const, sandboxId: 'sb', state: 'running' as const, ...box },
+})
+const resize = { kind: 'resize' as const, startedAt: 0, sawOffline: false }
+
+test('a resize ends once the backend is done and the host is back, with the backend’s window', () => {
+  const since = new Date(0).toISOString()
+  const away = boxRestartStep(resize, resized(false, { resizeStartedAt: since }), 5_000)
+
+  assert.equal(away.outcome, 'restarting')
+  // Online again but the backend still resizing: not yet.
+  assert.equal(
+    boxRestartStep(away.restart, resized(true, { resizeStartedAt: since }), 30_000).outcome,
+    'restarting',
+  )
+  assert.equal(boxRestartStep(away.restart, resized(true), 60_000).outcome, 'back')
+  assert.equal(
+    boxRestartStep(resize, resized(false), BOX_RESTART_TIMEOUT_MS + 1).outcome,
+    'restarting',
+  )
+  assert.equal(boxRestartStep(resize, resized(false), BOX_RESIZE_TIMEOUT_MS + 1).outcome, 'timeout')
+})
+
+test('a failed resize ends at once and says why', () => {
+  const failed = resized(false, { resizeError: 'Could not resize the Box: no room' })
+  const step = boxRestartStep({ ...resize, sawOffline: true }, failed, 30_000)
+
+  assert.equal(step.outcome, 'back')
+  assert.deepEqual(boxRestartEnded('resize', 'back', 'Build box', failed.box.resizeError), {
+    tone: 'error',
+    title: 'Could not resize Build box',
+    description: 'Could not resize the Box: no room',
+  })
+  assert.equal(boxRestartEnded('resize', 'back', 'Build box')?.tone, 'success')
+})
+
+test('every viewer sees a Box the backend is resizing, polled like a live one', () => {
+  const since = '2026-11-11T08:00:00.000Z'
+  const resizing = resized(false, { resizeStartedAt: since })
+
+  assert.deepEqual(boxRestartOf(undefined, resizing), {
+    kind: 'resize',
+    startedAt: Date.parse(since),
+    sawOffline: false,
+  })
+  assert.equal(boxRestartLabel('resize'), 'Resizing, restarting…')
+  assert.equal(boxPollMs([resizing], false), BOX_METRICS_POLL_MS)
 })

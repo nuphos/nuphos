@@ -495,6 +495,19 @@ describe('agent device routes', () => {
       destroy: async (_userId, deviceId) => {
         calls.push(`destroy ${deviceId}`)
       },
+      size: async (_userId, deviceId) => {
+        calls.push(`size ${deviceId}`)
+
+        return { vcpus: 2, memMiB: 4096, diskGiB: 20, running: true, sizes: [], maxDiskGiB: 1024 }
+      },
+      resize: async (userId, deviceId, requested) => {
+        calls.push(`resize ${deviceId} ${JSON.stringify(requested)}`)
+        const device = devices[key(userId, deviceId)]!
+
+        device.box = { ...device.box!, resize: { startedAt: new Date() } }
+
+        return device
+      },
       desktop: async (_userId, deviceId) => `https://desktop.example/${deviceId}`,
       heal: (_userId, deviceId) => {
         calls.push(`heal ${deviceId}`)
@@ -653,6 +666,71 @@ describe('agent device routes', () => {
     expect(calls).toEqual(['pause b1', 'resume b1', 'destroy b1'])
     expect(disconnected).toEqual([key('user-1', 'b1')])
     expect(devices[key('user-1', 'b1')]).toBeUndefined()
+  })
+
+  test('a Box’s manager reads its size and resizes it; the view says it is resizing', async () => {
+    const calls: string[] = []
+    const app = buildApp(fakeBox(calls))
+    const post = (body: unknown) =>
+      app.request('/agent/devices/b1/box/resize?teamId=team-1', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+
+    devices[key('host-owner', 'b1')] = boxDevice('host-owner', 'b1', { managerIds: ['user-1'] })
+    role = 'EDITOR'
+    const size = await app.request('/agent/devices/b1/box/size?teamId=team-1')
+
+    expect(await size.json()).toMatchObject({ vcpus: 2, diskGiB: 20 })
+    expect((await post({})).status).toBe(400)
+    expect((await post({ diskGiB: 4096 })).status).toBe(400)
+    const resized = await post({ vcpus: 4, diskGiB: 50 })
+
+    expect(resized.status).toBe(202)
+    expect(await resized.json()).toMatchObject({ box: { resizeStartedAt: expect.any(String) } })
+    expect(calls).toEqual(['size b1', 'resize b1 {"vcpus":4,"diskGiB":50}'])
+  })
+
+  test('someone who may only use a Box can neither read its size nor resize it', async () => {
+    const calls: string[] = []
+    const app = buildApp(fakeBox(calls))
+
+    devices[key('host-owner', 'b1')] = boxDevice('host-owner', 'b1', {
+      userIds: ['user-1'],
+      managerIds: [],
+    })
+    role = 'EDITOR'
+    expect((await app.request('/agent/devices/b1/box/size?teamId=team-1')).status).toBe(404)
+    const resized = await app.request('/agent/devices/b1/box/resize?teamId=team-1', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ diskGiB: 50 }),
+    })
+
+    expect(resized.status).toBe(404)
+    expect(calls).toEqual([])
+  })
+
+  test('why a resize failed is shown to those who manage the Box, not to those who use it', async () => {
+    const base = boxDevice('host-owner', 'b1', { everyone: true, managerIds: [] })
+
+    devices[key('host-owner', 'b1')] = {
+      ...base,
+      box: { ...base.box, resize: { error: 'Could not resize the Box: no room' } },
+    }
+    const app = buildApp(fakeBox([]))
+    const box = async () =>
+      (
+        (await (await app.request('/agent/devices?teamId=team-1')).json()) as {
+          devices: { box?: Record<string, unknown> }[]
+        }
+      ).devices[0]?.box
+
+    role = 'EDITOR'
+    expect((await box())?.resizeError).toBeUndefined()
+    devices[key('host-owner', 'b1')]!.access![0]!.managerIds = ['user-1']
+    expect(await box()).toMatchObject({ resizeError: 'Could not resize the Box: no room' })
   })
 
   test('DELETE closes the Box tunnel before its machine goes, and keeps the row if the kill fails', async () => {

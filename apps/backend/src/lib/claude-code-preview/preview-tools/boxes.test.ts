@@ -6,6 +6,7 @@ import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAgentDevicePresence } from '@/lib/test/doubles/agent-devices-presence'
 import { useAgentDeviceStore } from '@/lib/test/doubles/agent-devices-store'
 import { useBoxInstabox } from '@/lib/test/doubles/box-instabox'
+import { useBoxInstaboxResize } from '@/lib/test/doubles/box-instabox-resize'
 import { useModels } from '@/lib/test/doubles/models'
 
 import { boxToolModule } from './boxes'
@@ -72,6 +73,19 @@ useBoxInstabox({
   },
   pauseBox: (_u: string, id: string) => {
     calls.push(['pause', id])
+
+    return Promise.resolve(box(id))
+  },
+})
+
+useBoxInstaboxResize({
+  boxSizeView: (_u: string, id: string) => {
+    calls.push(['size', id])
+
+    return Promise.resolve({ vcpus: 2, diskGiB: 20 })
+  },
+  resizeBox: (_u: string, id: string, requested: unknown) => {
+    calls.push(['resize', id, requested])
 
     return Promise.resolve(box(id))
   },
@@ -156,4 +170,19 @@ test('a conversation that selected instabox accounts reaches only those', async 
   selection = [accountId]
   await handlers().update_box!({ label: 'Stop', deviceId: 'team-box', action: 'stop' })
   expect(calls).toEqual([['pause', 'team-box']])
+})
+
+test('resize shows the size without a new one, and passes one on to the Box', async () => {
+  const resize = (args: Record<string, unknown>) =>
+    handlers().update_box!({ label: 'Resize', deviceId: 'team-box', action: 'resize', ...args })
+
+  expect((await resize({})).structuredContent).toMatchObject({ vcpus: 2, diskGiB: 20 })
+  expect((await resize({ vcpus: 4, diskGiB: 50 })).structuredContent).toMatchObject({
+    started: true,
+  })
+  expect((await resize({ diskGiB: 5000 })).isError).toBe(true)
+  expect(calls).toEqual([
+    ['size', 'team-box'],
+    ['resize', 'team-box', { vcpus: 4, diskGiB: 50 }],
+  ])
 })

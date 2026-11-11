@@ -66,6 +66,28 @@ test('a plain resume is refused while an update restarts the host', async () => 
   expect(checked).toEqual([])
 })
 
+test('resume, pause and wake leave a Box alone while it is being resized', async () => {
+  const resizing = {
+    ...paused,
+    box: { ...paused.box, resize: { startedAt: new Date() } },
+  } as AgentDevice
+
+  installStore({ getAgentDevice: () => Promise.resolve(resizing) })
+  await expect(resumeBox('u1', 'd1')).rejects.toMatchObject({ status: 409, code: 'box_resizing' })
+  await expect(pauseBox('u1', 'd1')).rejects.toMatchObject({ status: 409, code: 'box_resizing' })
+  expect(checked).toEqual([])
+})
+
+test('a resize mark that outlived its window no longer holds the Box', async () => {
+  const stale = {
+    ...paused,
+    box: { ...paused.box, resize: { startedAt: new Date(Date.now() - 11 * 60_000) } },
+  } as AgentDevice
+
+  installStore({ getAgentDevice: () => Promise.resolve(stale) })
+  await expect(resumeBox('u1', 'd1')).rejects.toMatchObject({ code: 'box_vcpu_limit' })
+})
+
 test('pausing an updating Box ends its update, so a resume starts the host again', async () => {
   const writes: unknown[] = []
   const savedBox = config.box.instabox

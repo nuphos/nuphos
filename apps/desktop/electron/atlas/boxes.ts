@@ -10,7 +10,9 @@ import type {
   AgentDeviceListOptions,
   BillingSummary,
   BoxAccess,
+  BoxResize,
   BoxSize,
+  BoxSizeInfo,
   BoxUsage,
   BoxUsageHistory,
   DeviceAgentInstance,
@@ -138,6 +140,17 @@ export function pauseBox(deviceId: string, teamId: string): Promise<AgentDevice>
 }
 export function resumeBox(deviceId: string, teamId: string): Promise<AgentDevice> {
   return call('POST', box(deviceId, '/resume', teamId), undefined, { retry: false })
+}
+export function boxSize(deviceId: string, teamId: string): Promise<BoxSizeInfo> {
+  return call('GET', box(deviceId, '/size', teamId))
+}
+/** Starts the resize and returns the Box marked as resizing; a running one restarts. */
+export function resizeBox(
+  deviceId: string,
+  teamId: string,
+  resize: BoxResize,
+): Promise<AgentDevice> {
+  return call('POST', box(deviceId, '/resize', teamId), resize, { retry: false })
 }
 /** `agent` is an added agent's instance id, or the provider for the computer's own. An
  *  empty label gives it back its default name. */

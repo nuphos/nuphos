@@ -7,7 +7,7 @@ import { t } from '../../i18n/index.ts'
 
 import type { AgentDevice } from '../../api/device-types'
 
-export type BoxRestartKind = 'update' | 'resume'
+export type BoxRestartKind = 'update' | 'resume' | 'resize'
 
 export type BoxRestart = {
   kind: BoxRestartKind
@@ -23,6 +23,19 @@ export const BOX_RESTART_TIMEOUT_MS = 5 * 60_000
 // The update waits up to 30 s for the host to stop; one still online well after that
 // restarted between two readings.
 export const BOX_RESTART_MISSED_MS = 90_000
+// A resize stops the machine before it starts again, so it gets the backend's longer window.
+export const BOX_RESIZE_TIMEOUT_MS = 10 * 60_000
+
+/** Whether the Box is back from the restart; an update or resize once the backend is done too. */
+function restartDone(kind: BoxRestartKind, device: AgentDevice, left: boolean): boolean {
+  const online = device.online === true
+
+  if (kind === 'resume') return online
+  if (kind === 'update') return online && left && !device.box?.updateStartedAt
+
+  // A failed resize is over as well; the toast says why.
+  return left && !device.box?.resizeStartedAt && (online || Boolean(device.box?.resizeError))
+}
 
 /** Where a restart stands after a fresh list: back once its host is online again. */
 export function boxRestartStep(
@@ -31,33 +44,40 @@ export function boxRestartStep(
   now = Date.now(),
 ): { restart: BoxRestart; outcome: BoxRestartOutcome } {
   if (!device) return { restart, outcome: 'gone' }
-  const online = device.online === true
-  const next = { ...restart, sawOffline: restart.sawOffline || !online }
+  const next = { ...restart, sawOffline: restart.sawOffline || device.online !== true }
   const elapsed = now - restart.startedAt
-  // An update is back once the host left and returned; the backend says so when it knows.
-  const updated =
-    !device.box?.updateStartedAt && (next.sawOffline || elapsed > BOX_RESTART_MISSED_MS)
+  // The host left and returned, or one still online well after the request restarted unseen.
+  const left = next.sawOffline || elapsed > BOX_RESTART_MISSED_MS
+  const timeout = restart.kind === 'resize' ? BOX_RESIZE_TIMEOUT_MS : BOX_RESTART_TIMEOUT_MS
 
-  if (online && (restart.kind === 'resume' || updated)) return { restart: next, outcome: 'back' }
+  if (restartDone(restart.kind, device, left)) return { restart: next, outcome: 'back' }
 
-  return { restart: next, outcome: elapsed > BOX_RESTART_TIMEOUT_MS ? 'timeout' : 'restarting' }
+  return { restart: next, outcome: elapsed > timeout ? 'timeout' : 'restarting' }
 }
 
-/** The restart a card shows: this window's own, else an update the backend reports. */
+/** The restart a card shows: this window's own, else an update or resize the backend reports. */
 export function boxRestartOf(
   own: BoxRestart | undefined,
   device: AgentDevice,
 ): BoxRestart | undefined {
-  const since = device.box?.updateStartedAt
+  const update = device.box?.updateStartedAt
+  const resize = device.box?.resizeStartedAt
 
-  return (
-    own ?? (since ? { kind: 'update', startedAt: Date.parse(since), sawOffline: false } : undefined)
-  )
+  if (own) return own
+  if (update) return { kind: 'update', startedAt: Date.parse(update), sawOffline: false }
+
+  return resize ? { kind: 'resize', startedAt: Date.parse(resize), sawOffline: false } : undefined
+}
+
+const RESTART_LABEL: Record<BoxRestartKind, () => string> = {
+  update: () => t('Updating, restarting…'),
+  resume: () => t('Resuming…'),
+  resize: () => t('Resizing, restarting…'),
 }
 
 /** The card's status while its host restarts. */
 export function boxRestartLabel(kind: BoxRestartKind): string {
-  return kind === 'update' ? t('Updating, restarting…') : t('Resuming…')
+  return RESTART_LABEL[kind]()
 }
 
 /** What a restart that ended tells the user; null when the card says enough. */
@@ -65,7 +85,9 @@ export function boxRestartEnded(
   kind: BoxRestartKind,
   outcome: BoxRestartOutcome,
   label: string,
+  resizeError?: string,
 ): { tone: 'success' | 'error'; title: string; description: string } | null {
+  if (kind === 'resize') return boxResizeEnded(outcome, label, resizeError)
   if (outcome === 'timeout')
     return {
       tone: 'error',
@@ -82,6 +104,29 @@ export function boxRestartEnded(
       tone: 'success',
       title: t('{label} is back', { label }),
       description: t('Its runtimes are available again.'),
+    }
+
+  return null
+}
+
+function boxResizeEnded(outcome: BoxRestartOutcome, label: string, error: string | undefined) {
+  if (outcome === 'back' && error)
+    return {
+      tone: 'error' as const,
+      title: t('Could not resize {label}', { label }),
+      description: error,
+    }
+  if (outcome === 'back')
+    return {
+      tone: 'success' as const,
+      title: t('{label} was resized', { label }),
+      description: t('It runs at its new size.'),
+    }
+  if (outcome === 'timeout')
+    return {
+      tone: 'error' as const,
+      title: t('{label} did not come back', { label }),
+      description: t('It has not reconnected 10 minutes after the resize started. Try Resume.'),
     }
 
   return null

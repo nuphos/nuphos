@@ -23,6 +23,7 @@ import {
   unavailable,
 } from './box-instabox-client'
 import { startBox } from './box-instabox-start'
+import { boxResizingSince } from './box-resizing'
 import { boxUpdatingSince, clearBoxUpdateStarted } from './box-updating'
 import { noteBoxUsage } from './box-usage-history'
 import { deleteDeviceJoinTokens } from './join-tokens'
@@ -87,14 +88,22 @@ export function healBox(userId: string, deviceId: string): void {
   if (now - (lastHeal.get(deviceId) ?? 0) < 60_000) return
   lastHeal.set(deviceId, now)
   void resumeBox(userId, deviceId).catch((error: unknown) => {
-    if (error instanceof AppError && error.code === 'box_updating') return // starts on its own
+    // Both start the host on their own.
+    if (error instanceof AppError && ['box_updating', 'box_resizing'].includes(error.code)) return
     logError('agent.box.heal_failed', error, { user_id: userId, device_id: deviceId })
   })
+}
+
+function refuseWhileResizing(device: AgentDevice): void {
+  if (boxResizingSince(device))
+    throw new AppError(409, 'box_resizing', 'The Box is being resized and starts again on its own.')
 }
 
 export async function pauseBox(userId: string, deviceId: string): Promise<AgentDevice> {
   const device = requireBox(await getAgentDevice(userId, deviceId), deviceId)
   const sandboxId = requireMachine(device)
+
+  refuseWhileResizing(device)
 
   try {
     const sandbox = await Sandbox.connect(sandboxId, {
@@ -122,6 +131,7 @@ export async function resumeBox(userId: string, deviceId: string, command = AGEN
   // Starting the host mid-update would run the old CLI while the new one installs.
   if (command === AGENT_COMMAND && boxUpdatingSince(device))
     throw new AppError(409, 'box_updating', 'The Box is updating and starts again on its own.')
+  refuseWhileResizing(device)
   const url = requireBackendUrl()
 
   try {
@@ -177,7 +187,7 @@ export async function wakeBox(userId: string, deviceId: string): Promise<boolean
   const device = await getAgentDevice(userId, deviceId)
 
   if (!device?.box?.sandboxId) return false
-  if (!boxUpdatingSince(device)) await resumeBox(userId, deviceId)
+  if (!boxUpdatingSince(device) && !boxResizingSince(device)) await resumeBox(userId, deviceId)
 
   return waitForPresence(userId, deviceId, WAKE_TIMEOUT_MS)
 }

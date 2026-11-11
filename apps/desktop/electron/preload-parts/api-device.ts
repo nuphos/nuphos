@@ -3,6 +3,7 @@ import { ipcRenderer } from 'electron'
 import type {
   AgentDeviceListOptions,
   BoxAccess,
+  BoxResize,
   LocalAgentProvider,
 } from '../../src/api/device-types.ts'
 
@@ -65,6 +66,9 @@ export const deviceApi = {
   boxPause: (deviceId: string, teamId: string) => ipcRenderer.invoke('box:pause', deviceId, teamId),
   boxResume: (deviceId: string, teamId: string) =>
     ipcRenderer.invoke('box:resume', deviceId, teamId),
+  boxSize: (deviceId: string, teamId: string) => ipcRenderer.invoke('box:size', deviceId, teamId),
+  boxResize: (deviceId: string, teamId: string, resize: BoxResize) =>
+    ipcRenderer.invoke('box:resize', deviceId, teamId, resize),
   boxDelete: (deviceId: string, teamId: string) =>
     ipcRenderer.invoke('box:delete', deviceId, teamId),
   deviceRemove: (deviceId: string, teamId: string) =>
