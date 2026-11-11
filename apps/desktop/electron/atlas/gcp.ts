@@ -209,3 +209,24 @@ export async function getGcpClusterKubeconfig(
     `/teams/${teamId}/gcp-projects/${projectId}/clusters/${clusterName}/kubeconfig${q}`,
   )
 }
+
+export type FirebaseProject = {
+  projectId: string
+  projectNumber: string
+  displayName?: string
+  state: string
+}
+
+export function getFirebaseProject(
+  teamId: string,
+  projectId: string,
+  serviceAccountId: string,
+): Promise<FirebaseProject> {
+  return call(
+    'GET',
+    withGcpServiceAccount(
+      `/teams/${teamId}/gcp-projects/${projectId}/firebase/project`,
+      serviceAccountId,
+    ),
+  )
+}

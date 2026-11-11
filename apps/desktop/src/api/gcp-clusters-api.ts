@@ -1,6 +1,8 @@
 import type { GcpMetricTimeSeriesQuery, GcpMonitoringDashboardWidgetQuery } from '../types/gcp.ts'
 
 export const gcpClustersApi = {
+  atlasGetFirebaseProject: (teamId: string, projectId: string, serviceAccountId: string) =>
+    window.api.atlasGetFirebaseProject(teamId, projectId, serviceAccountId),
   atlasListAwsLightsailInstances: (
     teamId: string,
     accountId: string,

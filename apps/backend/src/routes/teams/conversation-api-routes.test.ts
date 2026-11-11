@@ -2,6 +2,20 @@ import { describe, expect, test } from 'bun:test'
 
 import { conversationTeamApiRoute, dashboardPanelTeamApiRoute } from './conversation-api-routes'
 
+test('Firebase reads use selected-session handlers without allowing binding or resource writes', () => {
+  for (const resource of ['project', 'apps']) {
+    expect(conversationTeamApiRoute('GET', `/gcp-projects/project-1/firebase/${resource}`)).toBe(
+      'session',
+    )
+    for (const method of ['POST', 'PUT', 'DELETE']) {
+      expect(
+        conversationTeamApiRoute(method, `/gcp-projects/project-1/firebase/${resource}`),
+      ).toBeNull()
+    }
+  }
+  expect(conversationTeamApiRoute('GET', '/gcp-projects/project-1/firebase/users')).toBeNull()
+})
+
 describe('conversation member reads', () => {
   test('routes member list and ID reads to canonical handlers', () => {
     expect(conversationTeamApiRoute('GET', '/members')).toBe('canonical')

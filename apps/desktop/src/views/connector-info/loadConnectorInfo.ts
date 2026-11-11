@@ -272,11 +272,14 @@ export async function loadConnectorInfos(
   if (provider === 'gcp') {
     const projects = await api.atlasListGcpProjects(teamId)
 
-    return unique(projects.map((item) => item.projectId)).flatMap((id) => {
-      const info = gcpConnectorInfo(projects, id)
+    const loaded = await Promise.all(
+      unique(projects.map((item) => item.projectId)).map(async (id) => ({
+        id,
+        info: await gcpConnectorInfo(teamId, projects, id),
+      })),
+    )
 
-      return info ? [{ id, info }] : []
-    })
+    return loaded.filter((item): item is LoadedConnectorInfo => item.info !== null)
   }
 
   const ids = await listConnectorIds(teamId, provider)

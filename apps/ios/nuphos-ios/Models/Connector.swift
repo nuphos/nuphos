@@ -91,7 +91,7 @@ extension Connector {
             note: "The role must already trust the Nuphos connector — Nuphos assumes it before saving the binding.",
             labelKeys: ["alias", "accountId"], detailKeys: ["roleArn"]
         ),
-        .init(key: "gcp", title: "Google Cloud", logo: "logo-gcp", category: .infrastructure, bind: .desktopOnly,
+        .init(key: "gcp", title: "Google Cloud / Firebase", logo: "logo-gcp", category: .infrastructure, bind: .desktopOnly,
               labelKeys: ["projectId"], detailKeys: ["serviceAccountEmail"]),
         .init(
             key: "azure", title: "Azure", logo: "logo-azure", category: .infrastructure,
