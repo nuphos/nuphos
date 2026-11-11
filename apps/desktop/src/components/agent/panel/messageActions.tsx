@@ -86,8 +86,8 @@ export function EditMessageButton({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       className="flex h-7 w-7 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-state-hover hover:text-main outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-line-focus"
-      title={t('Edit')}
-      aria-label={t('Edit message')}
+      title={t('Edit and run in a new task')}
+      aria-label={t('Edit and run in a new task')}
     >
       <Pencil className="h-3.5 w-3.5" strokeWidth={1.8} />
     </button>

@@ -1,6 +1,7 @@
 import { Fragment } from 'react'
 
 import { t } from '../../../i18n'
+import { toAbsoluteAtlasUrl } from '../../../lib/webBaseUrl'
 import { Avatar } from '../../Avatar'
 import { PlanRevealSection } from '../plan-tool/reveal'
 
@@ -54,21 +55,56 @@ export function Rule({ children, title }: { children: ReactNode; title?: string 
 export function TimelineEventLine({
   event,
   reveal = false,
+  teamId,
+  onOpenNuphosLink,
 }: {
   event: AgentTimelineEvent
   reveal?: boolean
+  teamId?: string
+  onOpenNuphosLink?: (href: string) => boolean
 }) {
-  const line = <EventLine event={event} />
+  const line = <EventLine event={event} teamId={teamId} onOpenNuphosLink={onOpenNuphosLink} />
 
   return reveal ? <PlanRevealSection revealKey={event.at}>{line}</PlanRevealSection> : line
 }
 
-function EventLine({ event }: { event: AgentTimelineEvent }) {
+function EventLine({
+  event,
+  teamId,
+  onOpenNuphosLink,
+}: {
+  event: AgentTimelineEvent
+  teamId?: string
+  onOpenNuphosLink?: (href: string) => boolean
+}) {
   const title = new Date(event.at).toLocaleString()
   const { actor, target, from, to } = event
 
   // An event from an older backend carries only its sentence.
   if (!actor) return <Rule title={title}>{event.text}</Rule>
+  if (event.kind === 'message_edited') {
+    const forkUrl =
+      teamId && event.forkSessionId
+        ? toAbsoluteAtlasUrl(`/teams/${teamId}/agent/${event.forkSessionId}`)
+        : null
+
+    return (
+      <Rule title={title}>
+        {fill(t('{actor} edited a message and ran it in a new task'), {
+          actor: <Person person={actor} />,
+        })}
+        {forkUrl && onOpenNuphosLink && (
+          <button
+            type="button"
+            onClick={() => onOpenNuphosLink(forkUrl)}
+            className="shrink-0 font-medium text-secondary hover:underline"
+          >
+            {t('Open')}
+          </button>
+        )}
+      </Rule>
+    )
+  }
   if (event.kind === 'runtime_fallback_stopped')
     return (
       <Rule title={event.text}>

@@ -80,6 +80,22 @@ describe('session timeline events', () => {
     ])
   })
 
+  test('an edit run in a fork links to the fork', () => {
+    const edited: ConversationTimelineEvent[] = [
+      { kind: 'message_edited', at, actorId: 'alice', forkSessionId: 'fork-1' },
+    ]
+
+    expect(serializeTimelineEvents(edited, people)).toEqual([
+      {
+        kind: 'message_edited',
+        at: at.toISOString(),
+        text: 'Alice edited a message and ran it in a new session',
+        actor: { id: 'alice', name: 'Alice', avatarURL: '' },
+        forkSessionId: 'fork-1',
+      },
+    ])
+  })
+
   test('collect every person an event names, for one member lookup', () => {
     expect(timelineEventUserIds(events)).toEqual([
       'alice',

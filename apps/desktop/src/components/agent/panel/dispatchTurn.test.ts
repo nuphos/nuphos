@@ -11,6 +11,7 @@ type SyncArgs = Parameters<WindowAgentApi['agentSyncConversationTranscript']>[0]
 type StartArgs = Parameters<WindowAgentApi['agentStart']>[0]
 
 let runDispatchTurn: typeof import('./dispatchTurn.ts').runDispatchTurn
+let forkStored: typeof import('./forkStored.ts').forkStored
 let inbox: typeof import('../../../views/inbox/useInbox.ts')
 const calls: (['sync', SyncArgs] | ['start', StartArgs])[] = []
 let failImport = false
@@ -92,6 +93,7 @@ before(async () => {
     },
   })
   ;({ runDispatchTurn } = await import('./dispatchTurn.ts'))
+  ;({ forkStored } = await import('./forkStored.ts'))
   inbox = await import('../../../views/inbox/useInbox.ts')
 })
 
@@ -335,4 +337,73 @@ test("a send during a fork's failed import is not sent with the first prompt as 
   )
   assert.equal(state.tabs()[0].error, 'import failed')
   assert.equal(state.tabs()[0].unsaved, true)
+})
+
+test("an edit's fork is stored once its copied history is imported", async () => {
+  calls.length = 0
+  failImport = false
+  let finishImport = () => {}
+
+  importGate = new Promise((resolve) => {
+    finishImport = () => resolve()
+  })
+  const state = context({ unsaved: true })
+  let stored = false
+
+  await runDispatchTurn(state.ctx, 'tab', 'edited', [])
+  const settled = forkStored('tab').then(() => {
+    stored = true
+  })
+
+  await settle()
+  assert.equal(stored, false, 'not before the server has the history')
+  finishImport()
+  importGate = null
+  await settled
+  assert.equal(stored, true)
+})
+
+test("an edit's fork with a failed import is never reported stored", async () => {
+  calls.length = 0
+  failImport = true
+  const state = context({ unsaved: true })
+
+  await runDispatchTurn(state.ctx, 'tab', 'edited', [])
+  await assert.rejects(forkStored('tab'), /import failed/)
+  failImport = false
+})
+
+test('an edit of the first message is stored by its first turn, even a failed one', async () => {
+  for (const fails of [false, true]) {
+    calls.length = 0
+    const gate = Promise.withResolvers<undefined>()
+
+    startGate = gate.promise
+    const state = context({ unsaved: true, messages: [] })
+    let stored = false
+
+    await runDispatchTurn(state.ctx, 'tab', 'edited', [])
+    const settled = forkStored('tab').then(() => {
+      stored = true
+    })
+
+    await settle()
+    assert.deepEqual(
+      calls.map(([kind]) => kind),
+      ['start'],
+    )
+    assert.equal(stored, false, 'not before the turn has run')
+    if (fails) gate.reject(new Error('offline'))
+    else gate.resolve(undefined)
+    await settled
+    assert.equal(stored, true)
+  }
+  startGate = Promise.resolve()
+})
+
+test('a saved chat has no fork to wait for', async () => {
+  const state = context({ unsaved: false })
+
+  await runDispatchTurn(state.ctx, 'tab', 'follow-up', [])
+  assert.equal(await forkStored('tab'), undefined)
 })

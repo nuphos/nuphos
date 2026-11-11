@@ -4,7 +4,7 @@ import { t } from '../../../i18n'
 import { Button } from '../../ui/button'
 import { InputGroup, InputGroupInput } from '../../ui/input-group'
 
-/** Inline editor for a sent message. Sending forks the chat, so this one stays as it was. */
+/** Inline editor for a sent message. Sending runs it in a new task, so this one stays as it was. */
 export function EditMessageForm({
   text,
   onCancel,
@@ -44,13 +44,13 @@ export function EditMessageForm({
       />
       <div className="flex items-center justify-end gap-1.5">
         <span className="mr-auto pl-1.5 text-[11.5px] text-tertiary">
-          {t('Sends in a new agent')}
+          {t('Runs in a new task. This one stays as it is.')}
         </span>
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
           {t('Cancel')}
         </Button>
         <Button type="submit" size="sm" disabled={!trimmed}>
-          {t('Send')}
+          {t('Send in new task')}
         </Button>
       </div>
     </InputGroup>

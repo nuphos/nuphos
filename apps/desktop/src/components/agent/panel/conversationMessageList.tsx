@@ -221,6 +221,8 @@ function MessageList({
                   key={`${event.at}-${event.text}`}
                   event={event}
                   reveal={Date.parse(event.at) > openedAt}
+                  teamId={teamId}
+                  onOpenNuphosLink={onOpenNuphosLink}
                 />
               ))}
               {activity.before.has(m.id) && (
@@ -249,6 +251,8 @@ function MessageList({
           key={`${event.at}-${event.text}`}
           event={event}
           reveal={Date.parse(event.at) > openedAt}
+          teamId={teamId}
+          onOpenNuphosLink={onOpenNuphosLink}
         />
       ))}
       <OpenQuestionCards tab={tab} now={now} />
