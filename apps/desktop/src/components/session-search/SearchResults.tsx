@@ -3,11 +3,11 @@ import { useEffect, useId, useMemo, useState } from 'react'
 import { t } from '../../i18n'
 import { isMac } from '../../lib/platform'
 import { searchKeyAction } from '../../lib/searchKeyboard'
-import { searchMatch } from '../../lib/searchMatch'
 import { AgentAvatar } from '../agent/AgentAvatar'
 import { Avatar } from '../Avatar'
 import { ChatIcon } from '../channels/channelParts'
 
+import { searchPreview } from './matchedResource'
 import { PaletteCommandRows } from './PaletteCommandRows'
 import { matchPaletteCommands } from './paletteCommands'
 import { kindOf, metaFor, trackOpened } from './searchResultMeta'
@@ -138,13 +138,7 @@ export function SearchResults({
       <SearchResultRow
         key={conversation.sessionId}
         id={`${listId}-${String(at)}`}
-        preview={
-          conversation.title &&
-          !searchMatch(conversation.title, query) &&
-          searchMatch(conversation.firstMessage, query)
-            ? conversation.firstMessage
-            : undefined
-        }
+        preview={searchPreview(conversation, query)}
         title={conversation.title || conversation.firstMessage || t('Untitled agent')}
         meta={metaFor(result, userId)}
         query={query}
