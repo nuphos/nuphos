@@ -8,6 +8,7 @@ import * as gitlabInstall from '../gitlab-install'
 import * as jiraInstall from '../jira-install'
 import * as linearInstall from '../linear-install'
 import * as sentryInstall from '../sentry-install'
+import * as trelloInstall from '../trello-install'
 
 import type {
   GithubMergeMethod,
@@ -153,7 +154,9 @@ export const gitChannels = {
     atlas.unbindJira(teamId, bindingId),
   'atlas:listAsanaAccounts': (_e: unknown, teamId: string) => atlas.listAsanaAccounts(teamId),
   'atlas:startAsanaOAuth': (_e: unknown, teamId: string) => asanaInstall.startInstall(teamId),
+  'atlas:startTrelloOAuth': (_e: unknown, teamId: string) => trelloInstall.startInstall(teamId),
   'atlas:cancelAsanaOAuth': (_e: unknown, teamId: string) => asanaInstall.cancelPending(teamId),
+  'atlas:cancelTrelloOAuth': (_e: unknown, teamId: string) => trelloInstall.cancelPending(teamId),
   'atlas:unbindAsana': (_e: unknown, teamId: string, bindingId: string) =>
     atlas.unbindAsana(teamId, bindingId),
   'atlas:listSentryAccounts': (_e: unknown, teamId: string) => atlas.listSentryAccounts(teamId),

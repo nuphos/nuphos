@@ -136,6 +136,12 @@ export function CredentialSelectorSectionList({
         onChangeIds={(ids) => onChange({ ...value, resendIntegrationIds: ids })}
       />
       <CredentialSectionGroup
+        sections={sections.trelloSections}
+        selectedIds={value.trelloIntegrationIds}
+        newIds={unseen?.trelloIntegrationIds}
+        onChangeIds={(ids) => onChange({ ...value, trelloIntegrationIds: ids })}
+      />
+      <CredentialSectionGroup
         sections={sections.betterStackSections}
         selectedIds={value.betterStackIntegrationIds}
         newIds={unseen?.betterStackIntegrationIds}

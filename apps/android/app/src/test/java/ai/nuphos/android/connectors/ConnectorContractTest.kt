@@ -37,7 +37,7 @@ class ConnectorContractTest {
     }
     @Test fun formsHaveExactlyFifteenSupportedProviders() {
         assertEquals(15, ConnectorCatalog.all.count { it.fields.isNotEmpty() })
-        assertEquals(5, ConnectorCatalog.all.count { it.oauth })
+        assertEquals(6, ConnectorCatalog.all.count { it.oauth })
         assertEquals(7, ConnectorCatalog.all.count { it.key in setOf("gcp","cloudflare","tencent","aliyun","volcengine","onprem","gitlab") && !it.canAdd })
     }
     @Test fun optionalTokensAndRawPasswordFollowServerContract() {

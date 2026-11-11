@@ -29,6 +29,7 @@ import type {
   LinodeAccount,
   NotionIntegration,
   ResendIntegration,
+  TrelloIntegration,
   SecureframeIntegration,
   SonarqubeIntegration,
   TencentAccount,
@@ -117,6 +118,7 @@ export type TeamConnectorsBundle = {
   onprem: OnpremCluster[]
   upstash: UpstashAccount[]
   resend: ResendIntegration[]
+  trello: TrelloIntegration[]
   instabox?: InstaboxAccount[]
   betterstack: BetterStackIntegration[]
   uptimeKuma: UptimeKumaInstance[]

@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
 
 import { api } from '../../api'
-import { t } from '../../i18n'
 import { toast } from '../../components/ui/toast'
+import { t } from '../../i18n'
 import { mergeIfChanged } from '../../lib/mergeIfChanged'
 
 import type { WorkspaceActiveTabResult } from './useWorkspaceActiveTab'
@@ -84,6 +84,7 @@ export function useWorkspaceTeamResources(a: Args) {
             onprem: bundle.onprem ?? [],
             upstash: bundle.upstash ?? [],
             resend: bundle.resend ?? [],
+            trello: bundle.trello ?? [],
             instabox: bundle.instabox ?? [],
             tencent: bundle.tencent ?? [],
             aliyun: bundle.aliyun ?? [],

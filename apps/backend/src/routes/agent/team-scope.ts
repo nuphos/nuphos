@@ -43,10 +43,7 @@ function teamIdFromCurrentUrl(currentUrl: string | null): string | undefined {
 export function sanitizeKubeContextHeader(raw: string | undefined): string | undefined {
   if (!raw) return undefined
   if (raw.length > 200) return undefined
-  // Kubernetes context names per kubectl docs are DNS-style; in practice
-  // EKS/GKE-generated names also include `:` `/` `.` `@`. Whitelist that
-  // superset; reject anything else (notably quotes, backticks, newlines,
-  // angle brackets — all the prompt-injection enablers).
+  // Permit the DNS-style names and punctuation used by EKS/GKE, excluding prompt delimiters.
   if (!/^[A-Za-z0-9._:/@-]+$/.test(raw)) return undefined
 
   return raw
@@ -177,6 +174,7 @@ export function normalizeCredentialSelection(input: unknown): AgentCredentialSel
       vantaIntegrationIds: [],
       secureframeIntegrationIds: [],
       resendIntegrationIds: [],
+      trelloIntegrationIds: [],
       posthogIntegrationIds: [],
       plaudAccountIds: [],
       deviceIds: [],
@@ -215,6 +213,7 @@ export function normalizeCredentialSelection(input: unknown): AgentCredentialSel
       'secureframeIntegrationIds',
     ),
     resendIntegrationIds: normalizeObjectIdList(raw.resendIntegrationIds, 'resendIntegrationIds'),
+    trelloIntegrationIds: normalizeObjectIdList(raw.trelloIntegrationIds, 'trelloIntegrationIds'),
     posthogIntegrationIds: normalizeObjectIdList(
       raw.posthogIntegrationIds,
       'posthogIntegrationIds',

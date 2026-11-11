@@ -25,6 +25,7 @@ export function countSelectedCredentials(value: CredentialSelectorControl['value
     value.vantaIntegrationIds.length +
     value.secureframeIntegrationIds.length +
     value.resendIntegrationIds.length +
+    value.trelloIntegrationIds.length +
     value.githubInstallationIds.length +
     value.gitlabBindingIds.length +
     value.grafanaInstanceIds.length +
@@ -60,6 +61,7 @@ export function countTotalCredentials(options: CredentialSelectorControl['option
     options.vantaIntegrations.length +
     options.secureframeIntegrations.length +
     options.resendIntegrations.length +
+    options.trelloIntegrations.length +
     options.githubInstallations.length +
     options.gitlabBindings.length +
     options.grafanaInstances.length +

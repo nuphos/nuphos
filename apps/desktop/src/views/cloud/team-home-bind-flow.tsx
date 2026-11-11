@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 
 import { AddIntegrationModal } from '../AddIntegrationModal'
 import { BindPlaudDialog } from '../BindPlaudDialog'
+import { BindTrelloDialog } from '../BindTrelloDialog'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { isBindDialogKey } from './team-home-bind'
@@ -51,6 +52,7 @@ export const TeamHomeBindFlow = forwardRef<
   const [bindLinearOpen, setBindLinearOpen] = useState(false)
   const [bindJiraOpen, setBindJiraOpen] = useState(false)
   const [bindAsanaOpen, setBindAsanaOpen] = useState(false)
+  const [bindTrelloOpen, setBindTrelloOpen] = useState(false)
   const [bindSentryOpen, setBindSentryOpen] = useState(false)
   const [bindPosthogOpen, setBindPosthogOpen] = useState(false)
   const [bindPlaudOpen, setBindPlaudOpen] = useState(false)
@@ -73,6 +75,7 @@ export const TeamHomeBindFlow = forwardRef<
     onSlackBindHandled?.()
   }, [slackBindRequested, onSlackBindHandled])
   // Linear/Jira/Asana/Slack arrive with the aggregated connectors bundle,
+  // Linear/Jira/Trello/Slack arrive with the aggregated connectors bundle,
   // threaded from App like every other provider — no local fetches here.
   // The "Add integration" marketplace modal. Prefer the URL-driven prop when the
   // parent supplies it; otherwise keep purely local state.
@@ -112,6 +115,9 @@ export const TeamHomeBindFlow = forwardRef<
         break
       case 'asana':
         setBindAsanaOpen(true)
+        break
+      case 'trello':
+        setBindTrelloOpen(true)
         break
       case 'plaud':
         setBindPlaudOpen(true)
@@ -186,6 +192,15 @@ export const TeamHomeBindFlow = forwardRef<
         bindLarkOpen={bindLarkOpen}
         setBindLarkOpen={setBindLarkOpen}
         bindMode={bindMode}
+      />
+      <BindTrelloDialog
+        open={bindTrelloOpen}
+        teamId={teamId}
+        onClose={() => setBindTrelloOpen(false)}
+        onBound={() => {
+          setBindTrelloOpen(false)
+          onChanged()
+        }}
       />
       <BindPlaudDialog
         open={bindPlaudOpen}

@@ -59,6 +59,7 @@ struct CredentialCatalog: Equatable, Sendable {
         .init(optionsKey: "posthogIntegrations", selectionKey: "posthogIntegrationIds", title: "PostHog", logo: "logo-posthog", idKey: "integrationId", labelKeys: ["label"], detailKeys: ["apiBaseUrl"]),
         .init(optionsKey: "linearWorkspaces", selectionKey: "linearWorkspaceIds", title: "Linear", logo: "logo-linear", idKey: "workspaceId", labelKeys: ["label", "workspaceName"], detailKeys: ["workspaceName"]),
         .init(optionsKey: "jiraSites", selectionKey: "jiraSiteIds", title: "Jira", logo: "logo-jira", idKey: "siteId", labelKeys: ["label"], detailKeys: ["siteUrl"]),
+        .init(optionsKey: "trelloIntegrations", selectionKey: "trelloIntegrationIds", title: "Trello", logo: "logo-trello", idKey: "integrationId", labelKeys: ["label"], detailKeys: ["username"]),
         .init(optionsKey: "asanaAccounts", selectionKey: "asanaAccountIds", title: "Asana", logo: "logo-asana", idKey: "accountId", labelKeys: ["label"], detailKeys: ["accountEmail"]),
         .init(optionsKey: "plaudAccounts", selectionKey: "plaudAccountIds", title: "Plaud", logo: "logo-plaud", idKey: "bindingId", labelKeys: ["label"], detailKeys: []),
         .init(optionsKey: "vantaIntegrations", selectionKey: "vantaIntegrationIds", title: "Vanta", logo: "logo-vanta", idKey: "integrationId", labelKeys: ["label"], detailKeys: []),
@@ -165,6 +166,7 @@ struct CredentialSelection: Equatable, Sendable {
     mutating func selectDefaults(in catalog: CredentialCatalog) {
         selectAll(in: catalog)
         ids["resendIntegrationIds"] = []
+        ids["trelloIntegrationIds"] = []
     }
 
     func containsAll(in catalog: CredentialCatalog) -> Bool {

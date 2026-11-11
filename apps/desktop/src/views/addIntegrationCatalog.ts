@@ -43,6 +43,7 @@ export type AddIntegrationKey =
   | 'linear'
   | 'jira'
   | 'asana'
+  | 'trello'
   | 'plaud'
   | 'notion'
   | 'upstash'
@@ -95,6 +96,7 @@ const ITEM_META: Record<AddIntegrationKey, { name: string; description: string }
   gitlab: { name: 'GitLab', description: t('Repositories & merge requests.') },
   linear: { name: 'Linear', description: t('Issues & projects.') },
   jira: { name: 'Jira', description: t('Issues & projects.') },
+  trello: { name: 'Trello', description: t('Boards, lists, cards and comments.') },
   asana: { name: 'Asana', description: t('Tasks & projects.') },
   plaud: { name: 'Plaud', description: t('Recordings, transcripts & summaries.') },
   notion: { name: 'Notion', description: t('Pages, databases & docs.') },
@@ -135,6 +137,7 @@ const ALIASES: Partial<Record<AddIntegrationKey, string>> = {
   gitlab: 'git',
   jira: 'atlassian',
   resend: 'smtp',
+  trello: 'smtp',
   lark: '飛書 飞书',
 }
 

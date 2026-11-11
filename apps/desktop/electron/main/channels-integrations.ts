@@ -127,12 +127,24 @@ export const integrationsChannels = {
     integrationId: string,
     access: Pick<atlas.BindingAccess, 'memberAllowList'>,
   ) => atlas.updateBetterStackIntegrationAccess(teamId, integrationId, access),
+  'atlas:getTrelloAccess': (_e: unknown, teamId: string, id: string) =>
+    atlas.getTrelloAccess(teamId, id),
+  'atlas:updateTrelloAccess': (
+    _e: unknown,
+    teamId: string,
+    id: string,
+    input: Pick<atlas.BindingAccess, 'memberAllowList'>,
+  ) => atlas.updateTrelloAccess(teamId, id, input),
   'atlas:listResendIntegrations': (_e: unknown, teamId: string) =>
     atlas.listResendIntegrations(teamId),
+  'atlas:listTrelloIntegrations': (_e: unknown, teamId: string) =>
+    atlas.listTrelloIntegrations(teamId),
   'atlas:bindResendIntegration': (_e: unknown, teamId: string, label: string, apiKey: string) =>
     atlas.bindResendIntegration(teamId, label, apiKey),
   'atlas:unbindResendIntegration': (_e: unknown, teamId: string, integrationId: string) =>
     atlas.unbindResendIntegration(teamId, integrationId),
+  'atlas:unbindTrelloIntegration': (_e: unknown, teamId: string, integrationId: string) =>
+    atlas.unbindTrelloIntegration(teamId, integrationId),
   'atlas:listVantaTests': (
     _e: unknown,
     teamId: string,

@@ -203,6 +203,7 @@ export type AgentCredentialAccess = {
   secureframeIntegrationIds: string[]
   // Optional for docs written before Resend joined the session-isolation tier.
   resendIntegrationIds?: string[]
+  trelloIntegrationIds?: string[]
   posthogIntegrationIds?: string[]
   plaudAccountIds?: string[]
   // Optional for docs written before these left self-discovery for selection.
@@ -281,8 +282,7 @@ export const agentMessages = (): Collection<AgentMessage> =>
 export const agentEvents = (): Collection<AgentEventDoc> =>
   db().collection<AgentEventDoc>(EVENT_COLLECTION_NAME)
 
-// Scope by teamId when given, keeping pre-migration conversations (no `teamId` yet) reachable.
-// An agent token gets its own team only: never another team, never team-less rows.
+// Keep legacy user rows reachable, but scope conversation tokens strictly to their own team.
 export function withTeamScope(
   base: Record<string, unknown>,
   teamId: string | undefined,

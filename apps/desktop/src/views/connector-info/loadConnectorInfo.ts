@@ -186,6 +186,8 @@ async function listConnectorIds(
   teamId: string,
   provider: ConnectorInfoProvider,
 ): Promise<string[]> {
+  if (provider === 'trello')
+    return (await api.atlasListTrelloIntegrations(teamId)).map((item) => item.id)
   if (provider === 'plaud') {
     return (await api.atlasListPlaudAccounts(teamId)).map((item) => item.id)
   }

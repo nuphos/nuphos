@@ -220,6 +220,8 @@ extension Connector {
               bind: .oauth(path: "linear-workspaces", callbackHost: "linear-callback"), labelKeys: ["label", "workspaceName"], detailKeys: ["workspaceName"]),
         .init(key: "jira", title: "Jira", logo: "logo-jira", category: .projectManagement,
               bind: .oauth(path: "jira-sites", callbackHost: "jira-callback"), detailKeys: ["siteUrl"]),
+        .init(key: "trello", title: "Trello", logo: "logo-trello", category: .projectManagement,
+              bind: .oauth(path: "trello-integrations", callbackHost: "trello-callback"), detailKeys: ["username"]),
         .init(key: "asana", title: "Asana", logo: "logo-asana", category: .projectManagement,
               bind: .oauth(path: "asana-accounts", callbackHost: "asana-callback"), detailKeys: ["accountEmail"]),
         .init(key: "plaud", title: "Plaud", logo: "logo-plaud", category: .document,

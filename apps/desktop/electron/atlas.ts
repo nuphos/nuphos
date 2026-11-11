@@ -52,3 +52,5 @@ export * from './atlas/claude-code'
 export * from './atlas/uptime-kuma'
 
 export * from './atlas/runtime-instances'
+
+export * from './atlas/trello'

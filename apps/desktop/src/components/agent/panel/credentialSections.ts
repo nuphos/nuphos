@@ -31,6 +31,7 @@ export type CredentialSection = {
     | 'linear'
     | 'jira'
     | 'asana'
+    | 'trello'
     | 'sentry'
     | 'posthog'
     | 'plaud'

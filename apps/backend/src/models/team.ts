@@ -33,6 +33,7 @@ import type {
   PlaudAccountBinding,
   PosthogIntegrationBinding,
   ResendIntegrationBinding,
+  TrelloIntegrationBinding,
   SecureframeIntegrationBinding,
   SlackWorkspaceBinding,
   TailscaleOAuthClientBinding,
@@ -107,6 +108,7 @@ export type TeamByosBindings = {
   upstashAccounts?: UpstashAccountBinding[]
   // Optional for the same reason; readers use `doc.resendIntegrations ?? []`.
   resendIntegrations?: ResendIntegrationBinding[]
+  trelloIntegrations?: TrelloIntegrationBinding[]
   posthogIntegrations?: PosthogIntegrationBinding[]
   plaudAccounts?: PlaudAccountBinding[]
   instaboxAccounts?: InstaboxAccountBinding[]
