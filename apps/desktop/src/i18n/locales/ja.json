@@ -5342,6 +5342,7 @@
   "manually linked": "手動でリンク",
   "matched by account email": "アカウントのメールで照合",
   "matched by email": "メールで照合",
+  "memories": "メモリ",
   "mentioned you in {title}": "が {title} であなたをメンションしました",
   "merged": "件マージ",
   "merged {count} commit into": "{count} 件のコミットを次にマージ:",

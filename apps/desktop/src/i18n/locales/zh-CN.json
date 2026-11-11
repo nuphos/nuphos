@@ -5342,6 +5342,7 @@
   "manually linked": "手动关联",
   "matched by account email": "按账号邮箱匹配",
   "matched by email": "按邮箱匹配",
+  "memories": "记忆",
   "mentioned you in {title}": "在 {title} 提到了你",
   "merged": "已合并",
   "merged {count} commit into": "已将 {count} 个提交合并到",
