@@ -1,7 +1,10 @@
 package ai.nuphos.android.ui.inbox
 
+import ai.nuphos.android.model.CredentialSelection
+import ai.nuphos.android.session.BotQuestion
 import ai.nuphos.android.session.OpenQuestions
 import ai.nuphos.android.ui.LocalAgentStore
+import ai.nuphos.android.ui.chat.CredentialPickerSheet
 import ai.nuphos.android.ui.chats.BotQuestionCard
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +18,10 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,15 +29,30 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import kotlinx.coroutines.launch
 
 /**
  * Desktop's Inbox ("Needs your input"): every open question across the viewer's conversations,
- * newest first, each answered from its card. "From …" opens the conversation that asked.
+ * newest first, each answered from its card. "From …" opens the conversation that asked. An
+ * integration question is answered here, in the asking conversation's credential picker.
  */
 @Composable
 fun InboxPage(inbox: OpenQuestions?, nav: NavHostController, allowed: () -> Boolean) {
     val scope = rememberCoroutineScope()
     val store = LocalAgentStore.current
+    // The integration question whose conversation's credentials are being chosen, with that
+    // conversation's selection as stored and as edited in the picker.
+    var connecting by remember { mutableStateOf<BotQuestion?>(null) }
+    var stored by remember { mutableStateOf(CredentialSelection()) }
+    var selection by remember { mutableStateOf(CredentialSelection()) }
+    connecting?.let { question ->
+        // Cancel or a swipe leaves the conversation as it was; Done saves a changed selection, and
+        // the server answers the question it covers.
+        CredentialPickerSheet(selection, onSelectionChange = { selection = it }, onDismiss = { connecting = null }, onConfirm = {
+            connecting = null
+            if (inbox != null && selection != stored && allowed()) scope.launch { inbox.select(selection, question) }
+        })
+    }
     Box(Modifier.fillMaxSize().testTag("inbox")) {
         when {
             inbox == null || !inbox.loaded -> CircularProgressIndicator(Modifier.align(Alignment.Center))
@@ -51,6 +73,18 @@ fun InboxPage(inbox: OpenQuestions?, nav: NavHostController, allowed: () -> Bool
                         onReply = {
                             store.session(question.sessionId, question.title).answering = question
                             nav.navigate("conversation/${question.sessionId}")
+                        },
+                        onConnect = {
+                            scope.launch {
+                                // The member's own credential: added as named, with no picker and no team connection in its place.
+                                val own = question.personalCredentials
+                                if (own != null) {
+                                    store.loadCredentialOptions()
+                                    val connected = store.credentialCatalog?.allItems.orEmpty()
+                                        .filter { it.provider.selectionKey == "personalCredentialIds" }.map { it.id }.toSet()
+                                    if (allowed()) inbox.useOwn(own, question, connected)
+                                } else inbox.storedSelection(question)?.let { stored = it; selection = it; connecting = question }
+                            }
                         })
                 }
             }

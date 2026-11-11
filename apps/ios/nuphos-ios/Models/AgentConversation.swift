@@ -72,6 +72,15 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         var body: String? = nil
         /// The plan an approval decides: answered with its Approve or Reject, never in words.
         var planId: String? = nil
+        /// An integration question's providers (any access answers it), or the exact credentials it names.
+        var providers: [String]? = nil
+        var credentials: [CredentialRef]? = nil
+    }
+
+    /// A credential an integration question names: `{provider: "personal", id: "github"}` is the member's own.
+    struct CredentialRef: Codable, Equatable, Hashable, Sendable {
+        let provider: String
+        let id: String
     }
 
     let sessionId: String

@@ -17,6 +17,8 @@ struct BotQuestionCard: View {
     var failure: String?
     /// Starts an answer in words in the composer, quoting the question; absent where none answers it.
     var onReply: (() -> Void)?
+    /// Chooses the asking conversation's credentials here, for an integration question; absent where it cannot.
+    var onConnect: (() -> Void)?
 
     @State private var expanded = false
     @Environment(\.openURL) private var openURL
@@ -28,6 +30,13 @@ struct BotQuestionCard: View {
         let options = (question.request.options ?? []).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         if options.isEmpty { return [(String(localized: "Mark as done"), "Done.")] }
         return options.map { ($0, $0) }
+    }
+
+    /// "Use your own GitHub" for a question naming the member's own credential; otherwise the picker.
+    private var connectLabel: String {
+        guard let own = question.personalCredentials else { return String(localized: "Choose credentials") }
+        let names = own.map { $0 == "github" ? "GitHub" : $0 == "linear" ? "Linear" : $0 }
+        return String(localized: "Use your own \(names.joined(separator: " and "))")
     }
 
     /// "Other…" beside options; "Reply…" when there are none.
@@ -81,6 +90,11 @@ struct BotQuestionCard: View {
                             .foregroundStyle(Theme.muted)
                             .buttonStyle(.plain)
                     }
+                } else if let onConnect, question.connectable {
+                    Button(connectLabel, action: onConnect)
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .tint(Theme.heading)
                 } else {
                     Button("Answer in the conversation", action: onOpen)
                         .buttonStyle(.bordered)

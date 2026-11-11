@@ -8,6 +8,7 @@ enum BotQuestionsTests {
         theInboxListsEveryOwnQuestionOnce()
         keepsTheBodyTheAgentWroteToDecideFrom()
         aPlanOrASecretIsNeverAnsweredInWords()
+        aQuestionNamingTheMembersOwnCredentialIsConnectable()
         print("Bot questions passed")
     }
 
@@ -97,5 +98,18 @@ enum BotQuestionsTests {
         precondition(plan.planId == "p1")
         // "Other…" quotes the question above the composer, a quote no post in the chat has.
         precondition(ask("preference").quote == ChannelReply(id: nil, authorName: "Agent", text: "Go?"))
+    }
+
+    private static func aQuestionNamingTheMembersOwnCredentialIsConnectable() {
+        func ask(_ json: String) -> BotQuestion {
+            BotQuestion(sessionId: "s", title: "Agent", request: try! JSONDecoder().decode(
+                AgentConversation.InputRequest.self, from: Data(json.utf8)))
+        }
+        let own = ask(#"{"id":"q","category":"integration","question":"?","credentials":[{"provider":"personal","id":"github"}]}"#)
+        precondition(own.personalCredentials == ["github"] && own.connectable)
+        precondition(ask(#"{"id":"q","category":"integration","question":"?","providers":["github"]}"#).connectable)
+        // A mix of providers and credentials, or a team credential named, gets no card in the Inbox.
+        precondition(!ask(#"{"id":"q","category":"integration","question":"?","providers":["github"],"credentials":[{"provider":"personal","id":"github"}]}"#).connectable)
+        precondition(!ask(#"{"id":"q","category":"integration","question":"?","credentials":[{"provider":"github","id":"166"}]}"#).connectable)
     }
 }

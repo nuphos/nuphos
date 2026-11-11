@@ -94,6 +94,8 @@ data class CredentialCatalog(
             Provider("notionIntegrations", "notionIntegrationIds", "Notion", "integrationId", listOf("label"), listOf("workspaceName")),
             Provider("upstashAccounts", "upstashAccountIds", "Upstash", "accountId", listOf("label"), listOf("email")),
             Provider("cloudflareAccounts", "cloudflareAccountIds", "Cloudflare", "accountId", listOf("accountName"), listOf("accountId")),
+            // The member's own GitHub / Linear, where the team has no binding of it; its id is the provider.
+            Provider("personalCredentials", "personalCredentialIds", "Personal Credentials", "provider", listOf("login"), listOf("provider")),
         )
     }
 }
@@ -117,7 +119,8 @@ data class CredentialSelection(
 
     /** Fresh composer defaults; mail remains an explicit opt-in. Never used for stored chats. */
     fun selectDefaults(catalog: CredentialCatalog): CredentialSelection {
-        val usable = catalog.allItems.filter { !it.unavailable }
+        // Never the member's own GitHub / Linear: a chat acts as them only when they pick it.
+        val usable = catalog.allItems.filter { !it.unavailable && it.provider.selectionKey != "personalCredentialIds" }
         val defaults = usable.groupBy { it.provider.selectionKey }.mapValues { (_, items) -> items.map { it.id }.toSet() }
         return copy(newConversation = true, ids = ids.mapValues { (key, selected) -> selected + defaults[key].orEmpty() } +
             defaults.filterKeys { it !in ids } + ("resendIntegrationIds" to emptySet()))
@@ -153,6 +156,20 @@ data class CredentialSelection(
             if (set.isEmpty()) null else provider.selectionKey to set
         }.toMap(),
     )
+
+    companion object {
+        /**
+         * A stored chat's selection in every kind this build knows, for saving it whole from the Inbox:
+         * [json] then sends each of them back, and the server keeps any key a newer client stored.
+         */
+        fun whole(json: JsonValue) = CredentialSelection(
+            CredentialCatalog.NEW_CONVERSATION_PROVIDERS.mapNotNull { provider ->
+                val set = json[provider.selectionKey]?.arrayValue?.mapNotNull { it.stringValue }?.toSet().orEmpty()
+                if (set.isEmpty()) null else provider.selectionKey to set
+            }.toMap(),
+            newConversation = true,
+        )
+    }
 
     fun pruned(catalog: CredentialCatalog): CredentialSelection {
         val valid = catalog.allItems.groupBy { it.provider.selectionKey }.mapValues { e -> e.value.map { it.id }.toSet() }

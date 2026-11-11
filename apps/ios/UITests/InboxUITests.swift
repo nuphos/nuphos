@@ -112,6 +112,42 @@ final class InboxUITests: XCTestCase {
         shot("8-bot-chat-other-composer")
     }
 
+    /// An integration question is answered in the Inbox: its conversation's credential picker
+    /// opens there, with the member's own GitHub to select, and nothing navigates away.
+    func testAnIntegrationQuestionChoosesCredentialsInTheInbox() throws {
+        responses["GET /agent/credential-options"] = ["status": 200, "body": [
+            "personalCredentials": [["provider": "github", "login": "octocat"]]]]
+        responses["PATCH /agent/conversations/agent-ops/credentials"] = ["status": 200, "body": [
+            "credentialAccess": ["personalCredentialIds": ["github"]], "options": [:]]]
+        var github = deploy
+        github["inputRequests"] = [["id": "q-github", "category": "integration",
+                                    "question": "Select your own GitHub so I can open the PR as you.",
+                                    "providers": ["github"], "askedAt": "2026-11-03T09:40:00Z", "status": "open"],
+                                   // One naming the member's own GitHub: answered by that alone, with no picker.
+                                   ["id": "q-own", "category": "integration",
+                                    "question": "Connect your own GitHub so I can push as you.",
+                                    "credentials": [["provider": "personal", "id": "github"]],
+                                    "askedAt": "2026-11-03T09:41:00Z", "status": "open"]]
+        try listQuestions([github])
+        app = launch(page: "agent")
+        app.buttons["Switch page"].firstMatch.tap()
+        app.buttons["Inbox"].firstMatch.tap()
+        let choose = app.buttons["Choose credentials"]
+        XCTAssertTrue(choose.waitForExistence(timeout: 10), "The integration card does not offer its credentials")
+        XCTAssertFalse(app.buttons["Answer in the conversation"].exists)
+        XCTAssertTrue(app.buttons["Use your own GitHub"].exists, "The own-GitHub question does not offer the member's credential")
+        shot("9-inbox-integration")
+
+        choose.tap()
+        let own = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "octocat")).firstMatch
+        XCTAssertTrue(own.waitForExistence(timeout: 10), "The picker does not list the member's own GitHub")
+        own.tap()
+        shot("10-inbox-integration-picker")
+        app.buttons["Done"].firstMatch.tap()
+        // Saved in place: the Inbox stays.
+        XCTAssertTrue(app.staticTexts["Select your own GitHub so I can open the PR as you."].waitForExistence(timeout: 5))
+    }
+
     private static let typedAnswer = NSPredicate(format: "label IN %@", ["Other…", "Reply…"])
 
     private func launch(page: String? = nil) -> XCUIApplication {

@@ -50,6 +50,8 @@ internal fun BotQuestionCard(
     failure: String? = null,
     /** Starts an answer in words in the composer, quoting the question; absent where none answers it. */
     onReply: (() -> Unit)? = null,
+    /** Chooses the asking conversation's credentials here, for an integration question; absent where it cannot. */
+    onConnect: (() -> Unit)? = null,
 ) {
     val replies = cardReplies(question.request)
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp).testTag("bot-question"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -65,7 +67,12 @@ internal fun BotQuestionCard(
                 Text(question.request.question, style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 question.request.body?.takeIf { it.isNotBlank() }?.let { QuestionBody(question.id, it, onLink) }
-                if (replies == null) {
+                if (replies == null && onConnect != null && question.connectable) {
+                    val own = question.personalCredentials?.joinToString(" and ") { if (it == "github") "GitHub" else if (it == "linear") "Linear" else it }
+                    OutlinedButton(onClick = onConnect, modifier = Modifier.testTag("bot-question-connect")) {
+                        Text(own?.let { "Use your own $it" } ?: "Choose credentials")
+                    }
+                } else if (replies == null) {
                     OutlinedButton(onClick = onOpen) { Text("Answer in the conversation") }
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

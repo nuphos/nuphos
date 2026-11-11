@@ -38,6 +38,8 @@ struct CredentialCatalog: Equatable, Sendable {
         let detail: String?
         /// A device that is offline or has local exec off. Shown only while selected, so it can be unticked.
         var offline = false
+        /// Picked by "Select all" and a new chat's defaults: online, and not the member's own credential.
+        var selectable: Bool { !offline && provider.selectionKey != "personalCredentialIds" }
     }
 
     static let providers: [Provider] = [
@@ -64,6 +66,8 @@ struct CredentialCatalog: Equatable, Sendable {
         .init(optionsKey: "vantaIntegrations", selectionKey: "vantaIntegrationIds", title: "Vanta", logo: "logo-vanta", idKey: "integrationId", labelKeys: ["label"], detailKeys: []),
         .init(optionsKey: "secureframeIntegrations", selectionKey: "secureframeIntegrationIds", title: "Secureframe", logo: "logo-secureframe", idKey: "integrationId", labelKeys: ["label"], detailKeys: ["region"]),
         .init(optionsKey: "resendIntegrations", selectionKey: "resendIntegrationIds", title: "Resend", logo: "logo-resend", idKey: "integrationId", labelKeys: ["label"], detailKeys: ["permission"]),
+        // The member's own GitHub / Linear, where the team has no binding of it; its id is the provider.
+        .init(optionsKey: "personalCredentials", selectionKey: "personalCredentialIds", title: "Personal Credentials", logo: "logo-github", idKey: "provider", labelKeys: ["login"], detailKeys: ["provider"]),
         .init(optionsKey: "githubInstallations", selectionKey: "githubInstallationIds", title: "GitHub", logo: "logo-github", idKey: "installationId", labelKeys: ["accountLogin"], detailKeys: ["accountType"]),
         .init(optionsKey: "gitlabBindings", selectionKey: "gitlabBindingIds", title: "GitLab", logo: "logo-gitlab", idKey: "bindingId", labelKeys: ["username"], detailKeys: ["hostUrl"]),
         .init(optionsKey: "grafanaInstances", selectionKey: "grafanaInstanceIds", title: "Grafana", logo: "logo-grafana", idKey: "instanceId", labelKeys: ["name"], detailKeys: ["grafanaUrl"]),
@@ -155,8 +159,10 @@ struct CredentialSelection: Equatable, Sendable {
         }
     }
 
+    /// Every usable credential but the member's own GitHub / Linear, which a chat acts as only when
+    /// picked, as the desktop's `allCredentialAccess`.
     mutating func selectAll(in catalog: CredentialCatalog) {
-        for item in catalog.allItems where !item.offline && !contains(item) { toggle(item) }
+        for item in catalog.allItems where item.selectable && !contains(item) { toggle(item) }
     }
 
     /// What a conversation starts with when nobody has chosen: everything
@@ -168,7 +174,7 @@ struct CredentialSelection: Equatable, Sendable {
     }
 
     func containsAll(in catalog: CredentialCatalog) -> Bool {
-        let usable = catalog.allItems.filter { !$0.offline }
+        let usable = catalog.allItems.filter(\.selectable)
         return !usable.isEmpty && usable.allSatisfy(contains)
     }
 

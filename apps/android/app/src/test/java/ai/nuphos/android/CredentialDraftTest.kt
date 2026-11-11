@@ -42,10 +42,16 @@ class CredentialDraftTest {
             it.optionsKey to JsonValue.arr(JsonValue.obj(it.idKey to JsonValue.Str("id-${it.optionsKey}")))
         }), providers)
         val selection = loaded(all).selection
-        assertEquals(30, providers.size)
+        assertEquals(31, providers.size)
         providers.forEach {
-            assertEquals(if (it.optionsKey == "resendIntegrations") emptySet<String>() else setOf("id-${it.optionsKey}"), selection.ids[it.selectionKey])
-            assertEquals(selection.ids[it.selectionKey]!!.sorted(), selection.json[it.selectionKey]!!.arrayValue!!.map { value -> value.stringValue })
+            // Resend stays opt-in, and the member's own GitHub / Linear is never picked for them.
+            val expected = when (it.optionsKey) {
+                "resendIntegrations" -> emptySet<String>()
+                "personalCredentials" -> null
+                else -> setOf("id-${it.optionsKey}")
+            }
+            assertEquals(expected, selection.ids[it.selectionKey])
+            assertEquals(selection.ids[it.selectionKey].orEmpty().sorted(), selection.json[it.selectionKey]!!.arrayValue!!.map { value -> value.stringValue })
         }
     }
 

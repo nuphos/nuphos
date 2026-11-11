@@ -193,6 +193,25 @@ final class ChatSession {
         }
     }
 
+    /// The picker's selection. An existing conversation's owner saves it at once, as the desktop's
+    /// panel does, so an integration question it now covers is answered without another message;
+    /// a new conversation sends it with its first one. Saves go out in order.
+    func setCredentials(_ selection: CredentialSelection) {
+        credentialAccess = selection.isBlank ? nil : selection
+        guard !isNew, isOwner else { return }
+        let previous = credentialSave
+        credentialSave = Task {
+            await previous?.value
+            do {
+                try await AgentChatAPI.updateCredentials(token: token, teamId: teamId, sessionId: sessionId, selection: selection)
+            } catch {
+                self.error = error.localizedDescription
+            }
+        }
+    }
+
+    @ObservationIgnored private var credentialSave: Task<Void, Never>?
+
     /// Initial mode for a new conversation (no server call).
     func presetPermissionMode(_ mode: PermissionMode) { permissionMode = mode }
 
