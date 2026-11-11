@@ -9,4 +9,5 @@ export {
   downloadTo,
   resolveDownloads,
 } from './fileTransfer/download'
+export { readText } from './fileTransfer/read-text'
 export { uploadFiles } from './fileTransfer/upload'

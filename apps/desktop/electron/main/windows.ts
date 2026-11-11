@@ -10,6 +10,7 @@ import * as terminal from '../terminal'
 import { raiseWindow } from '../window-raise'
 
 import { flushPendingDeepLinks } from './deep-links'
+import { guardFilePreviewFrames } from './file-preview-guard'
 import { APP_NAME, isDev } from './env'
 import { closeBrowserTabs } from './local-runtime/browser-tabs'
 import { openExternal } from './open-external'
@@ -201,6 +202,8 @@ export function createWindow(restore: SavedWindow | null = lastClosedWindow()): 
 
     return { action: 'deny' }
   })
+
+  guardFilePreviewFrames(win.webContents)
 
   win.webContents.on('did-fail-load', (_e, code, desc, url) => {
     console.error('[did-fail-load]', code, desc, url)

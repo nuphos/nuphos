@@ -13,6 +13,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { PageMeta } from '../app/pageMeta'
+import { ViewToggle } from '../components/agent/artifacts/ArtifactToolbar'
 import { EmptyState } from '../components/EmptyState'
 import { Table } from '../components/Table'
 import { Breadcrumb } from '../components/toolbar-breadcrumb'
@@ -23,6 +24,11 @@ import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { useRuntimeFiles } from '../hooks/useRuntimeFiles'
 import { t } from '../i18n'
 import { copyLinkWithFeedback } from '../lib/copyLink'
+import { filePreviewKind } from '../lib/filePreviews'
+
+import { RuntimeContentPreview, RuntimeMediaPreview } from './runtimeFilePreviews'
+
+import type { ArtifactViewMode } from '../components/agent/artifacts/ArtifactToolbar'
 
 export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePath?: string }) {
   const { conversationId, refreshKey, isActive } = useWorkspaceTab()
@@ -44,6 +50,10 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
   } = useRuntimeFiles(teamId, conversationId, isActive, refreshKey, filePath)
   const [downloading, setDownloading] = useState(false)
   const [opening, setOpening] = useState(false)
+  // An HTML file is drawn in the locked file frame and Markdown as a document;
+  // the source is one switch away.
+  const [docView, setDocView] = useState<ArtifactViewMode>('preview')
+  const docKind = fileName && preview && 'text' in preview ? filePreviewKind(fileName) : null
   const navigationSlot = useToolbarSlot('left', isActive && Boolean(source))
   const runtimeSlot = useToolbarSlot('right', isActive)
 
@@ -114,6 +124,7 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
                 <Copy className="h-3.5 w-3.5" />
               </Button>
             )}
+            {docKind && !loading && <ViewToggle view={docView} onView={setDocView} />}
             {/\.html?$/i.test(fileName) && !loading && (
               <Button
                 variant="ghost"
@@ -182,41 +193,15 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
               {t('Opening {name}…', { name: fileName })}
             </div>
           ) : preview ? (
-            'image' in preview ? (
-              <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-state-selected p-6">
-                <img
-                  src={preview.image}
-                  alt={fileName}
-                  className="max-h-full max-w-full rounded object-contain"
-                />
-              </div>
-            ) : (
-              <div className="min-h-0 flex-1 overflow-auto scrollbar-thin">
-                <pre className="min-h-full p-4 font-mono text-[12px] leading-6 text-secondary">
-                  <code>{preview.text}</code>
-                </pre>
-              </div>
-            )
+            <RuntimeContentPreview
+              key={filePathShown}
+              preview={preview}
+              fileName={fileName}
+              teamId={teamId}
+              view={docView}
+            />
           ) : media ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-state-selected p-6">
-              {media.kind === 'video' ? (
-                <video src={media.url} controls className="max-h-full max-w-full rounded" />
-              ) : media.kind === 'audio' ? (
-                <audio src={media.url} controls className="w-full max-w-md" />
-              ) : media.kind === 'pdf' ? (
-                <iframe
-                  src={media.url}
-                  title={fileName}
-                  className="h-full w-full rounded bg-white"
-                />
-              ) : (
-                <img
-                  src={media.url}
-                  alt={fileName}
-                  className="max-h-full max-w-full rounded object-contain"
-                />
-              )}
-            </div>
+            <RuntimeMediaPreview media={media} fileName={fileName} />
           ) : overLimit ? (
             <EmptyState
               icon={FileQuestion}
