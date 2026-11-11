@@ -3,8 +3,9 @@ import { t } from '../../../i18n/index.ts'
 import type { AgentCredentialOptions, AgentCredentialSelection } from '../../../api'
 import type { PersonalCredential, PersonalCredentialProvider } from '../../../types'
 
-// The member's own GitHub / Linear identity for this conversation: who the agent
-// acts as on the team's binding. Like every row, it counts toward the N/M badge.
+// Who the agent acts as on the team's binding of GitHub / Linear: the member, or
+// the team. Not the member's own credential (personalCredentialIds), which is a
+// row of its own. Like every row, it counts toward the N/M badge.
 export type PersonalIdentityRow = {
   provider: PersonalCredentialProvider
   label: string
@@ -23,7 +24,7 @@ export function personalIdentityRow(
 
   return {
     provider,
-    label: t('You ({login}) · Personal', { login: credential.login }),
+    label: t('Team connection acts as you ({login})', { login: credential.login }),
     checked: !(value.teamIdentity ?? []).includes(provider),
   }
 }
@@ -62,8 +63,9 @@ export function keepTeamIdentity(
 }
 
 /**
- * The member's own GitHub / Linear rows, each counted like a credential: under a team binding
- * it is the identity row (ticked = act as the member), without one the credential itself.
+ * The member's own GitHub / Linear rows that Select all and the N/M badge count: under
+ * a team binding the identity row (ticked = act as the member), without one the
+ * credential itself. Under a binding the own credential is opted into only by its row.
  */
 export function personalRows(options: AgentCredentialOptions, value: AgentCredentialSelection) {
   return (options.personalCredentials ?? []).map(({ provider, login }) => {
@@ -79,7 +81,11 @@ export function personalRows(options: AgentCredentialOptions, value: AgentCreden
   })
 }
 
-/** Select all ticks every own row, Clear all unticks them; other providers' identity is kept. */
+/**
+ * Select all ticks every counted own row, keeping an own credential already opted
+ * into under a binding; Clear all unticks them and revokes every own credential.
+ * Other providers' identity is kept.
+ */
 export function setAllPersonal(
   value: AgentCredentialSelection,
   rows: ReturnType<typeof personalRows>,
@@ -92,7 +98,10 @@ export function setAllPersonal(
   return {
     teamIdentity,
     personalCredentialIds: select
-      ? rows.filter((row) => !row.bound).map((row) => row.provider)
+      ? [
+          ...rows.filter((row) => !row.bound).map((row) => row.provider),
+          ...(value.personalCredentialIds ?? []).filter((p) => bound.includes(p)),
+        ]
       : [],
   }
 }

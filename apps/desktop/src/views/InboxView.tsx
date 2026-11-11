@@ -205,6 +205,7 @@ export function InboxView({
               sessionId={sessionId}
               title={open.conversation.title}
               request={open.request}
+              canManage={Boolean(open.conversation.canManage) && !open.conversation.readOnly}
               showingConversation={showConversation}
               onAnswer={(text) => {
                 // A Bot's own question is answered in its chat, where the answer shows.
