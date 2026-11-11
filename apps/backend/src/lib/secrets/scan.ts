@@ -94,16 +94,27 @@ function kindOf(message: { ruleId: string; data?: unknown }): string {
 
 // secretlint drops duplicate messages by comparing every pair, so one lint of
 // a large input full of findings is quadratic and blocks the event loop.
-// Large inputs are linted in line-aligned chunks; a PEM block is never split.
-// Each chunk also re-reads the end of the one before, so a key on one line and
-// its value on the next (YAML, Bearer, --token) is still seen together; the
-// merge below folds the findings the overlap reports twice.
+// Large inputs are linted in chunks of about 32 KB, cut at a newline when one
+// is near and mid-line otherwise (compact JSON has none); a PEM block is never
+// split. Each chunk also re-reads the 2 KB before its cut, so a pair that
+// crosses it (a key and the value on the next line, or a token cut in half) is
+// seen whole; the merge below folds the findings the overlap reports twice.
 const CHUNK_CHARS = 32_000
+const NEWLINE_SEARCH_CHARS = 4_000
 const OVERLAP_CHARS = 2_000
 const PEM_BLOCK =
   /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]{0,16384}?-----END [A-Z0-9 ]*PRIVATE KEY-----/g
 
 type Bounds = readonly [number, number]
+
+function cutAfter(text: string, start: number, pemBlocks: Bounds[]): number {
+  const target = start + CHUNK_CHARS
+  const newline = text.indexOf('\n', target)
+  const cut = newline !== -1 && newline < target + NEWLINE_SEARCH_CHARS ? newline + 1 : target
+  const block = pemBlocks.find(([from, to]) => from < cut && cut < to)
+
+  return block ? block[1] : cut
+}
 
 function chunkBounds(text: string): Bounds[] {
   if (text.length <= CHUNK_CHARS) return [[0, text.length]]
@@ -115,27 +126,18 @@ function chunkBounds(text: string): Bounds[] {
   let start = 0
 
   while (text.length - start > CHUNK_CHARS) {
-    let cut = text.indexOf('\n', start + CHUNK_CHARS)
+    const cut = cutAfter(text, start, pemBlocks)
 
-    if (cut === -1) break
-    const block = pemBlocks.find(([from, to]) => from < cut && cut < to)
-
-    if (block) cut = text.indexOf('\n', block[1])
-    if (cut === -1) break
-    bounds.push([start, cut + 1])
-    start = cut + 1
+    bounds.push([start, cut])
+    start = cut
   }
 
   return [...bounds, [start, text.length]]
 }
 
-/** Where to start linting a chunk: the first line inside its overlap. */
-function lintStart(text: string, start: number): number {
-  if (start === 0) return 0
-  const from = Math.max(0, start - OVERLAP_CHARS)
-  const lineStart = text.indexOf('\n', from) + 1
-
-  return lineStart > 0 && lineStart <= start ? lineStart : from
+/** Where to start linting a chunk: a fixed overlap, even mid-line. */
+function lintStart(start: number): number {
+  return Math.max(0, start - OVERLAP_CHARS)
 }
 
 /**
@@ -152,7 +154,7 @@ export async function findSecrets(
   for (const [chunk, [chunkStart, end]] of chunkBounds(text).entries()) {
     // Let other requests run between the synchronous parts of each lint.
     if (chunk > 0) await new Promise((resolve) => setImmediate(resolve))
-    const start = lintStart(text, chunkStart)
+    const start = lintStart(chunkStart)
     const result = await lintSource({
       source: {
         content: text.slice(start, end),

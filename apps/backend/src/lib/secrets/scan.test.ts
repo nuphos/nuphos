@@ -329,4 +329,31 @@ describe('scanner regressions', () => {
     expect(text.indexOf('\n', 32_000)).toBe(prefix.length + key.length)
     expect(redacted).not.toContain(value)
   })
+
+  test('a long line ending in a key keeps its value across the cut', async () => {
+    const value = randomAlnum(16)
+    const text = `${'ordinary-output '.repeat(2_200)}password:\n  ${value}\n${'ok\n'.repeat(10)}`
+    const { redacted } = await redactSecrets(text)
+
+    expect(text.indexOf('password:')).toBeGreaterThan(32_000 - 2_000)
+    expect(redacted).not.toContain(value)
+  })
+
+  test('compact JSON without newlines is chunked and stays fast', async () => {
+    const passwords = Array.from({ length: 32_000 }, () => randomAlnum(14))
+    const json = JSON.stringify(passwords.map((password) => ({ password })))
+    const start = performance.now()
+    const { redacted } = await redactSecrets(json)
+
+    expect(performance.now() - start).toBeLessThan(1_500)
+    for (const password of passwords) expect(redacted).not.toContain(password)
+  })
+
+  test('a token cut mid-line is redacted whole', async () => {
+    const token = `ghp_${randomAlnum(36)}`
+    const text = `${'a'.repeat(31_990)} ${token} tail`
+    const { redacted } = await redactSecrets(text)
+
+    expect(redacted).toBe(`${'a'.repeat(31_990)} [REDACTED:github-token] tail`)
+  })
 })
