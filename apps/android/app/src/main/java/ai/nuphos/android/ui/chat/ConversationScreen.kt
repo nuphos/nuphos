@@ -810,9 +810,10 @@ private fun ToolRunGroup(
     onOpenTool: (ChatPart.Tool) -> Unit,
 ) {
     val calls = row.rows.filterIsInstance<ChatRow.Tool>()
-    val attention = calls.any { it.part.state == ChatPart.Tool.State.ApprovalRequested || it.part.state == ChatPart.Tool.State.OutputError }
-    var expanded by remember(row.id) { mutableStateOf(row.live) }
-    val visible = expanded || attention
+    // Open while live and for each new authorization request, as on iOS; a tap always wins, so a
+    // failed run folds like any other.
+    val approval = calls.lastOrNull { it.part.state == ChatPart.Tool.State.ApprovalRequested }?.part?.toolCallId
+    var expanded by remember(row.id, approval) { mutableStateOf(row.live || approval != null) }
     val suffix = when {
         calls.any { it.part.state == ChatPart.Tool.State.ApprovalRequested } -> " · Authorization required"
         calls.any { it.part.state == ChatPart.Tool.State.OutputError } -> " · Failed"
@@ -820,8 +821,8 @@ private fun ToolRunGroup(
         else -> ""
     }
     Column {
-        TranscriptDisclosure("${calls.last().part.displayLabel} · ${calls.size} calls$suffix", visible, { expanded = !visible })
-        if (visible) Column(Modifier.padding(start = 12.dp, top = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        TranscriptDisclosure(calls.last().part.displayLabel, expanded, { expanded = !expanded }, " · ${calls.size} calls$suffix")
+        if (expanded) Column(Modifier.padding(start = 12.dp, top = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             row.rows.forEach { child -> key(child.id) { ChatRowView(child, session, onLink, onAlwaysAllow, onOpenTool) } }
         }
     }
@@ -872,13 +873,18 @@ internal fun UserMessageBubble(text: String) {
 }
 
 @Composable
-internal fun TranscriptDisclosure(title: String, expanded: Boolean, onClick: () -> Unit) {
+internal fun TranscriptDisclosure(title: String, expanded: Boolean, onClick: () -> Unit, detail: String? = null) {
     Row(Modifier.fillMaxWidth().clickable(onClickLabel = if (expanded) "Collapse" else "Expand", onClick = onClick)
         .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" }
         .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Icon(Icons.Outlined.Psychology, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // One line, as on iOS: only the title gives way, so [detail] (a run's count and state) always shows.
+        Row(Modifier.weight(1f)) {
+            Text(title, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            detail?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false) }
+        }
         Icon(if (expanded) Icons.Outlined.KeyboardArrowDown else Icons.AutoMirrored.Outlined.KeyboardArrowRight,
             null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
