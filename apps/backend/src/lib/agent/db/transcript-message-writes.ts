@@ -1,7 +1,7 @@
 import { BSON } from 'mongodb'
 
 import { redactSignedTokens } from '@/lib/claude-code-preview/mcp-token'
-import { redactTokenShapes } from '@/lib/journal/redact'
+import { findSecrets, redactTokenShapes } from '@/lib/secrets/scan'
 
 import { preserveRuntimeToolResults, runtimeToolResults } from './transcript-runtime-tool-results'
 import { withoutToolOutputs } from './transcript-tool-output'
@@ -41,23 +41,41 @@ function alreadyStored(stored: AgentMessage | undefined, fields: Record<string, 
 // Agent output arrives in chunks that can split a token, so redact once the
 // message is assembled. Token characters are never JSON-escaped. Well-known
 // key shapes are a safety net for a secret an agent printed by mistake.
-function redacted(parts: unknown[]): unknown[] {
+async function redacted(parts: unknown[]): Promise<unknown[]> {
   const json = JSON.stringify(parts)
   const clean = redactSignedTokens(json)
 
-  if (redactTokenShapes(clean) === json) return parts
+  if (clean === json && (await findSecrets(json, 'tokenShapes')).length === 0) {
+    return parts
+  }
 
   // Per string, so a match can never span two JSON values.
-  return JSON.parse(clean, (_key, value: unknown) =>
-    typeof value === 'string' ? redactTokenShapes(value) : value,
-  ) as unknown[]
+  return (await mapStrings(JSON.parse(clean), redactTokenShapes)) as unknown[]
+}
+
+async function mapStrings(
+  value: unknown,
+  map: (text: string) => Promise<string>,
+): Promise<unknown> {
+  if (typeof value === 'string') return map(value)
+  if (Array.isArray(value)) return Promise.all(value.map((item) => mapStrings(item, map)))
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value).map(async ([key, item]) => [
+      key,
+      await mapStrings(item, map),
+    ])
+
+    return Object.fromEntries(await Promise.all(entries))
+  }
+
+  return value
 }
 
 /**
  * Upserts for the transcript, skipping messages already stored as they would
  * be written. A long conversation used to rewrite every message on every send.
  */
-export function messageWrites(
+export async function messageWrites(
   data: ConversationTranscriptSync,
   stored: {
     attribution: Map<
@@ -77,7 +95,9 @@ export function messageWrites(
   // every message and stalled the event loop for seconds on long conversations.
   const results = runtimeToolResults(runtimeToolParts)
 
-  return data.messages.flatMap((message, position) => {
+  const writes = []
+
+  for (const [position, message] of data.messages.entries()) {
     const index = offset + position
     const fields = {
       ...(attribution.get(message.id) || message.metadata
@@ -85,7 +105,7 @@ export function messageWrites(
         : {}),
       messageId: message.id,
       role: attribution.get(message.id)?.role ?? message.role,
-      parts: redacted(
+      parts: await redacted(
         withoutToolOutputs(
           preserveRuntimeToolResults(
             attribution.get(message.id)?.role === 'user'
@@ -103,19 +123,18 @@ export function messageWrites(
       ...(message.turnKind === 'plan-approval' ? { turnKind: 'plan-approval' as const } : {}),
     }
 
-    if (alreadyStored(storedAt.get(index), fields)) return []
-
-    return [
-      {
-        updateOne: {
-          filter: { sessionId: data.sessionId, userId: data.userId, index },
-          update: {
-            $set: { ...fields, updatedAt: now },
-            $setOnInsert: { sessionId: data.sessionId, userId: data.userId, index, createdAt: now },
-          },
-          upsert: true,
+    if (alreadyStored(storedAt.get(index), fields)) continue
+    writes.push({
+      updateOne: {
+        filter: { sessionId: data.sessionId, userId: data.userId, index },
+        update: {
+          $set: { ...fields, updatedAt: now },
+          $setOnInsert: { sessionId: data.sessionId, userId: data.userId, index, createdAt: now },
         },
+        upsert: true,
       },
-    ]
-  })
+    })
+  }
+
+  return writes
 }

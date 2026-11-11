@@ -138,8 +138,8 @@ export async function runClaudeCodePreviewPrompt(args: {
         runtimeUrl: session.endpoint.url,
         openabSessionId: session.openabSessionId,
       },
-    }).catch((cause: unknown) => {
-      throw new RuntimeStateProbeError(cause)
+    }).catch(async (cause: unknown) => {
+      throw await RuntimeStateProbeError.from(cause)
     })
   const observed = await observe()
 

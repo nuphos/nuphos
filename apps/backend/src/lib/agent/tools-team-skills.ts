@@ -2,6 +2,7 @@ import { tool } from 'ai'
 import { z } from 'zod'
 
 import { AppError } from '@/lib/errors'
+import { findEmbeddedSecret } from '@/lib/secrets/scan'
 
 import {
   assertSkillNameNotBuiltinOverlay,
@@ -13,7 +14,7 @@ import {
   validateSkillObjectKey,
   validateSkillRelativePath,
 } from './skill-store/service'
-import { looksLikeEmbeddedSecret, requireScopeAccess, scopeInput } from './tools-team-skills-access'
+import { requireScopeAccess, scopeInput } from './tools-team-skills-access'
 
 import type { SkillScopeName } from './tools-team-skills-access'
 
@@ -157,7 +158,7 @@ export function createTeamSkillTools(
         }
 
         const skillMd = buildSkillMdContent(name, input.description, input.body)
-        const secretHit = looksLikeEmbeddedSecret(skillMd)
+        const secretHit = await findEmbeddedSecret(skillMd)
 
         if (secretHit) {
           return { ok: false, error: `unsafe_content: ${secretHit}` }
@@ -171,7 +172,7 @@ export function createTeamSkillTools(
           if (rel === 'SKILL.md') {
             return { ok: false, error: 'invalid_input: put SKILL.md content in body, not files[]' }
           }
-          const secret = looksLikeEmbeddedSecret(file.content)
+          const secret = await findEmbeddedSecret(file.content)
 
           if (secret) return { ok: false, error: `unsafe_content: ${secret}` }
           extraFiles.push({
@@ -252,7 +253,7 @@ export function createTeamSkillTools(
           const skillName = validateSkillName(parts[1])
 
           await assertSkillNameNotBuiltinOverlay(skillName)
-          const secret = looksLikeEmbeddedSecret(file.content)
+          const secret = await findEmbeddedSecret(file.content)
 
           if (secret) return { ok: false, error: `unsafe_content: ${secret}` }
           pending.push({ key, content: file.content })

@@ -34,46 +34,48 @@ describe('proposalIdempotencyKey', () => {
 })
 
 describe('findSecretBearingContent (fail-closed gate)', () => {
-  test('rejects drafts containing secrets', () => {
-    const kinds = findSecretBearingContent({
+  test('rejects drafts containing secrets', async () => {
+    const kinds = await findSecretBearingContent({
       actions: ['export AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE and retry'],
     })
 
     expect(kinds).not.toBeNull()
   })
 
-  test('passes clean drafts', () => {
+  test('passes clean drafts', async () => {
     expect(
-      findSecretBearingContent({
+      await findSecretBearingContent({
         title: 'Pod OOM triage',
         actions: ['kubectl describe pod, check lastState exit code'],
       }),
     ).toBeNull()
   })
 
-  test('catches double-quoted and multi-line secrets (JSON.stringify escaping regression)', () => {
+  test('catches double-quoted and multi-line secrets (JSON.stringify escaping regression)', async () => {
     // The old implementation redacted JSON.stringify(value): the escaped
     // quotes broke the quoted-value patterns and this sailed through.
     expect(
-      findSecretBearingContent({ text: 'Grafana admin login — password: "pr0d-Gr4f-2026"' }),
+      await findSecretBearingContent({ text: 'Grafana admin login — password: "pr0d-Gr4f-2026"' }),
     ).not.toBeNull()
-    expect(findSecretBearingContent({ text: 'API_KEY="sk-live-abc123xyz"' })).not.toBeNull()
+    expect(await findSecretBearingContent({ text: 'API_KEY="sk-live-abc123xyz"' })).not.toBeNull()
     expect(
-      findSecretBearingContent({ nested: { categories: ['token: "deep-nested-secret1"'] } }),
+      await findSecretBearingContent({ nested: { categories: ['token: "deep-nested-secret1"'] } }),
     ).not.toBeNull()
-    expect(findSecretBearingContent({ text: 'password:\n"multi-line-secret1"' })).not.toBeNull()
+    expect(
+      await findSecretBearingContent({ text: 'password:\n"multi-line-secret1"' }),
+    ).not.toBeNull()
   })
 
-  test('catches credentials embedded in connection URLs', () => {
+  test('catches credentials embedded in connection URLs', async () => {
     expect(
-      findSecretBearingContent({ text: 'reach it via postgres://app:supersecret1@host/db' }),
+      await findSecretBearingContent({ text: 'reach it via postgres://app:supersecret1@host/db' }),
     ).toBe('url-credentials')
   })
 })
 
 describe('redactSecretBearingContent', () => {
-  test('returns the masked copy alongside the kinds, walking nested values', () => {
-    const { redacted, kinds } = redactSecretBearingContent({
+  test('returns the masked copy alongside the kinds, walking nested values', async () => {
+    const { redacted, kinds } = await redactSecretBearingContent({
       text: 'connect with postgres://app:supersecret1@host/db',
       nested: { keywords: ['clean', 'token: "deep-nested-secret1"'] },
     })
@@ -84,10 +86,10 @@ describe('redactSecretBearingContent', () => {
     expect(redacted.nested.keywords[1]).not.toContain('deep-nested-secret1')
   })
 
-  test('clean input round-trips untouched with no kinds', () => {
+  test('clean input round-trips untouched with no kinds', async () => {
     const input = { title: 'Pod OOM triage', categories: ['k8s'] }
 
-    expect(redactSecretBearingContent(input)).toEqual({ redacted: input, kinds: [] })
+    expect(await redactSecretBearingContent(input)).toEqual({ redacted: input, kinds: [] })
   })
 })
 
