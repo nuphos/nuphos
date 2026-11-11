@@ -258,6 +258,20 @@ class VoiceInputFixtureDeviceTest {
         compose.onNodeWithText("Reset prompt").performClick()
         compose.runOnIdle { assertEquals(DEFAULT_WHISPER_PROMPT, settings.prompt) }
     }
+    /** The stored prompt: the default until one is saved, then what was saved, for the next reader too. */
+    @Test fun storedPromptIsTheDefaultUntilEdited() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val prefs = context.getSharedPreferences("nuphos.voice-prompt", android.content.Context.MODE_PRIVATE)
+        val saved = prefs.getString("prompt", null)
+        try {
+            check(prefs.edit().clear().commit())
+            assertEquals(DEFAULT_WHISPER_PROMPT, DeviceVoiceSettings(context).prompt)
+            DeviceVoiceSettings(context).prompt = "Fixture vocabulary"
+            assertEquals("Fixture vocabulary", DeviceVoiceSettings(context).prompt)
+        } finally {
+            prefs.edit().apply { if (saved == null) clear() else putString("prompt", saved) }.commit()
+        }
+    }
     private fun capture(name: String) {
         compose.waitForIdle()
         val instrumentation = InstrumentationRegistry.getInstrumentation()
