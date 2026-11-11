@@ -1,5 +1,6 @@
 import { t } from '../../i18n'
 import { Button } from '../ui/button'
+import { AppSelect } from '../ui/select'
 import type { RuntimeInstance } from '../../types/runtime'
 
 export function BotImportGuide({
@@ -36,22 +37,16 @@ export function BotImportGuide({
       </section>
       <section className="space-y-2">
         <h3 className="font-medium">{t('2. Choose the destination')}</h3>
-        <select
-          className="w-full rounded-lg border border-line-control bg-main p-2"
+        <AppSelect
           value={selectedId ?? ''}
-          onChange={(event) => onRuntimeChange(event.target.value)}
+          onValueChange={onRuntimeChange}
           disabled={busy}
-          aria-label={t('Destination agent')}
-        >
-          {!selectedId && <option value="">{t('Choose an agent')}</option>}
-          {runtimeInstances
+          ariaLabel={t('Destination agent')}
+          placeholder={t('Choose an agent')}
+          options={runtimeInstances
             .filter((runtime) => runtime.status === 'active')
-            .map((runtime) => (
-              <option key={runtime.id} value={runtime.id}>
-                {runtime.label}
-              </option>
-            ))}
-        </select>
+            .map((runtime) => ({ value: runtime.id, label: runtime.label }))}
+        />
         <p className="text-secondary">
           {t('The ZIP will be uploaded to your signed-in Nuphos server')} <strong>{server}</strong>.{' '}
           {t('Imported Bots will use')} <strong>{destination}</strong>.
