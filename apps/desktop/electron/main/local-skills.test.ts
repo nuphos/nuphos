@@ -248,6 +248,23 @@ describe('readSkillFile size', () => {
   })
 })
 
+describe('readSkillFile procfs', () => {
+  it(
+    'reads a linked file that reports size 0 to its end',
+    { skip: process.platform !== 'linux' },
+    async () => {
+      const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'proc-skill-')))
+
+      writeSkill(root, { 'SKILL.md': 'x' })
+      symlinkSync('/proc/version', path.join(root, 'kernel.txt'))
+      const entry = (await localSkillEntries(root)).find((e) => e.relPath === 'kernel.txt')
+
+      assert.ok(entry)
+      assert.ok((await readSkillFile(entry)).length > 0)
+    },
+  )
+})
+
 describe('readSkillFile', () => {
   it('reads the walked file, and refuses one swapped for a link or another file', async () => {
     const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'read-skill-')))

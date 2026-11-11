@@ -209,21 +209,30 @@ export async function readSkillFile(entry: LocalSkillEntry): Promise<Buffer> {
     if (!stat.isFile() || stat.dev !== entry.dev || stat.ino !== entry.ino) {
       throw new Error(`${entry.relPath} changed while it was being read`)
     }
-    if (stat.size > MAX_SKILL_FILE_BYTES) throw new Error(`${entry.relPath} is larger than 10 MB`)
-    const bytes = Buffer.alloc(stat.size)
-    let offset = 0
+    // To EOF, not to `stat.size`: some files (procfs) report 0 and still have content.
+    let bytes = Buffer.alloc(Math.min(stat.size, MAX_SKILL_FILE_BYTES) + 1)
+    let length = 0
 
-    while (offset < bytes.length) {
-      const { bytesRead } = await handle.read(bytes, offset, bytes.length - offset, offset)
+    for (;;) {
+      if (length === bytes.length) {
+        if (length > MAX_SKILL_FILE_BYTES) throw new Error(`${entry.relPath} is larger than 10 MB`)
+        bytes = Buffer.concat([
+          bytes,
+          Buffer.alloc(Math.min(length, MAX_SKILL_FILE_BYTES + 1 - length)),
+        ])
+      }
+      const { bytesRead } = await handle.read(bytes, length, bytes.length - length, length)
 
       if (bytesRead === 0) break
-      offset += bytesRead
+      length += bytesRead
     }
-    if (offset !== bytes.length || (await handle.stat()).size !== bytes.length) {
+    const after = await handle.stat()
+
+    if (after.size !== stat.size || (stat.size > 0 && length !== stat.size)) {
       throw new Error(`${entry.relPath} changed while it was being read`)
     }
 
-    return bytes
+    return Buffer.from(bytes.subarray(0, length))
   } finally {
     await handle.close()
   }
