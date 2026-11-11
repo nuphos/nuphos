@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { inflateRawSync } from 'node:zlib'
 
-import { redactSecrets } from '@/lib/journal/redact'
+import { findSecrets } from '@/lib/secrets/scan'
 
 import { BUNDLE_LIMITS, botBundleSchema, bundlePath } from './manifest'
 
@@ -18,21 +18,18 @@ function invalid(reason: string): never {
   throw new Error(`Cannot import bundle: ${reason}`)
 }
 
-// The redactor's keyword and entropy rules match ordinary prose, code, links and
-// compressed bytes. Use its concrete formats everywhere; in text, also refuse a
-// secret keyword followed by a key-shaped value (20+ characters, letters and digits).
-const HEURISTIC = new Set(['secret-assignment', 'secret-flag', 'high-entropy'])
+// Known key shapes (secretlint's preset plus the Nuphos token rule) refuse an export
+// anywhere. Its keyword and entropy rules match ordinary prose, code, links and
+// compressed bytes, so text instead refuses a secret keyword followed by a
+// key-shaped value (20+ characters, letters and digits).
 const KEYED_VALUE =
-  // eslint-disable-next-line sonarjs/regex-complexity -- key names mirror the redactor's assignment rule
+  // eslint-disable-next-line sonarjs/regex-complexity -- key names mirror the scanner's assignment rule
   /(?:secret|token|password|passwd|pwd|api[_-]?key|access[_-]?key|private[_-]?key|credential|auth)[\w-]*["']?(?:\s*[=:]\s*|\s+)["']?(?=[\w-]*[a-z])(?=[\w-]*\d)[\w-]{20,}/i
 
-function checkSecret(text: string, prose = true) {
-  if (
-    redactSecrets(text).matches.some((match) => !HEURISTIC.has(match.kind)) ||
-    (prose && KEYED_VALUE.test(text))
-  )
-    invalid('secret-bearing content; remove credentials and export again')
-}
+const secretBearing = () => invalid('secret-bearing content; remove credentials and export again')
+
+/** Checks text now for keyed values and queues it for the async key-shape scan. */
+type Check = (text: string, prose?: boolean) => void
 
 function crc32(bytes: Uint8Array): number {
   let crc = 0xffffffff
@@ -67,7 +64,7 @@ type Entry = {
   offset: number
 }
 
-function entries(bytes: Buffer): Entry[] {
+function entries(bytes: Buffer, checkSecret: Check): Entry[] {
   const end = endOffset(bytes)
   const count = bytes.readUInt16LE(end + 10)
   const directory = bytes.readUInt32LE(end + 16)
@@ -129,7 +126,7 @@ function entries(bytes: Buffer): Entry[] {
   return found
 }
 
-function decodeEntry(bytes: Buffer, entry: Entry): Uint8Array {
+function decodeEntry(bytes: Buffer, entry: Entry, payloads: [number, number][]): Uint8Array {
   const at = entry.offset
 
   if (at + 30 > bytes.length || bytes.readUInt32LE(at) !== 0x04034b50)
@@ -148,6 +145,8 @@ function decodeEntry(bytes: Buffer, entry: Entry): Uint8Array {
     invalid('ZIP headers disagree')
   if (start + entry.compressed > bytes.length) invalid('truncated ZIP data')
   const compressed = bytes.subarray(start, start + entry.compressed)
+
+  payloads.push([start, start + entry.compressed])
   const output =
     entry.method === 0
       ? compressed
@@ -175,7 +174,7 @@ function manifestReferences(manifest: BotBundle, files: Map<string, Uint8Array>)
   for (const name of files.keys()) if (!declared.has(name)) invalid('ZIP contains undeclared files')
 }
 
-function checkAsset(name: string, data: Uint8Array, avatars: Set<string>) {
+function checkAsset(name: string, data: Uint8Array, avatars: Set<string>, checkSecret: Check) {
   if (avatars.has(name)) {
     const png =
       data.length >= 24 && Buffer.from(data.subarray(0, 8)).toString('hex') === '89504e470d0a1a0a'
@@ -199,15 +198,18 @@ function checkAsset(name: string, data: Uint8Array, avatars: Set<string>) {
   checkSecret(text ?? new TextDecoder().decode(data), text !== undefined)
 }
 
-export function readBotBundle(input: Uint8Array): BotBundleArchive {
+export async function readBotBundle(input: Uint8Array): Promise<BotBundleArchive> {
+  const queued: string[] = []
+  const checkSecret: Check = (text, prose = true) => {
+    if (prose && KEYED_VALUE.test(text)) secretBearing()
+    queued.push(text)
+  }
+
   if (input.byteLength > BUNDLE_LIMITS.uploadBytes || input.byteLength < 22)
     invalid('ZIP upload limit or empty archive')
   const bytes = Buffer.from(input)
 
-  // ZIP comments and extra fields are retained in staging too, so scan them as well.
-  checkSecret(new TextDecoder().decode(bytes), false)
-
-  const directory = entries(bytes)
+  const directory = entries(bytes, checkSecret)
   const total = directory.reduce((sum, entry) => sum + entry.size, 0)
 
   if (total > BUNDLE_LIMITS.expandedBytes) invalid('ZIP expanded size limit exceeded')
@@ -215,7 +217,8 @@ export function readBotBundle(input: Uint8Array): BotBundleArchive {
 
   if (!manifestEntry || manifestEntry.size > BUNDLE_LIMITS.manifestBytes)
     invalid('missing or oversized manifest.json')
-  const manifestBytes = decodeEntry(bytes, manifestEntry)
+  const payloads: [number, number][] = []
+  const manifestBytes = decodeEntry(bytes, manifestEntry, payloads)
   const text = new TextDecoder('utf-8', { fatal: true }).decode(manifestBytes)
 
   checkSecret(text)
@@ -224,24 +227,40 @@ export function readBotBundle(input: Uint8Array): BotBundleArchive {
 
   if (!result.success) invalid('manifest does not match nuphos-bot-bundle version 1')
   // Walk parsed strings separately: JSON escaping must not conceal a secret from the scanner.
+  const strings: string[] = []
   const scan = (value: unknown): void => {
-    if (typeof value === 'string') checkSecret(value)
-    else if (Array.isArray(value)) value.forEach(scan)
+    if (typeof value === 'string') {
+      if (KEYED_VALUE.test(value)) secretBearing()
+      strings.push(value)
+    } else if (Array.isArray(value)) value.forEach(scan)
     else if (value && typeof value === 'object') Object.values(value).forEach(scan)
   }
 
   scan(parsed)
+  queued.push(strings.join('\n'))
   const files = new Map<string, Uint8Array>([['manifest.json', manifestBytes]])
   const avatars = new Set(result.data.bots.flatMap((bot) => (bot.avatar ? [bot.avatar] : [])))
 
   for (const entry of directory) {
     if (entry.name === 'manifest.json') continue
-    const data = decodeEntry(bytes, entry)
+    const data = decodeEntry(bytes, entry, payloads)
 
-    checkAsset(entry.name, data, avatars)
+    checkAsset(entry.name, data, avatars, checkSecret)
     files.set(entry.name, data)
   }
   manifestReferences(result.data, files)
+  // Staging keeps the raw ZIP, so scan everything outside entry payloads too (comments,
+  // extra fields, gaps). Payloads are scanned above once decoded.
+  const outside: string[] = []
+  let from = 0
+
+  for (const [start, end] of payloads.toSorted((a, b) => a[0] - b[0])) {
+    outside.push(new TextDecoder().decode(bytes.subarray(from, start)))
+    from = Math.max(from, end)
+  }
+  outside.push(new TextDecoder().decode(bytes.subarray(from)))
+  queued.push(outside.join('\n'))
+  for (const text of queued) if ((await findSecrets(text, 'tokenShapes')).length) secretBearing()
 
   return {
     digest: createHash('sha256').update(bytes).digest('hex'),

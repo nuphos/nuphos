@@ -26,7 +26,7 @@ const bucket = () => new GridFSBucket(db(), { bucketName: 'agent_bot_import_file
 const scope = (id: string, owner: ImportOwner) => ({ _id: id, ...owner })
 
 export async function stageBotBundle(owner: ImportOwner, bytes: Uint8Array, copyId = '') {
-  const archive = readBotBundle(bytes)
+  const archive = await readBotBundle(bytes)
   const batch = newImportBatch(owner, archive.digest, archive.manifest, copyId)
   const existing = await batches().findOne(scope(batch.id, owner))
 
@@ -97,7 +97,7 @@ export async function readStagedBotBundle(batch: StoredBatch) {
     if (total > BUNDLE_LIMITS.uploadBytes) throw new Error('Bundle storage limit exceeded')
     chunks.push(data)
   }
-  const archive = readBotBundle(Buffer.concat(chunks))
+  const archive = await readBotBundle(Buffer.concat(chunks))
 
   if (archive.digest !== batch.digest) throw new Error('Staged export integrity check failed')
 

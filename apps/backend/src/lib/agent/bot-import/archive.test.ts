@@ -70,8 +70,8 @@ const bundle = (extra: [string, string][] = [], value: unknown = manifest()) =>
   zip([['manifest.json', JSON.stringify(value)], ...extra])
 
 describe('independent Bot bundle admission', () => {
-  test('reads a bundle without provider execution and keeps source references', () => {
-    const archive = readBotBundle(bundle())
+  test('reads a bundle without provider execution and keeps source references', async () => {
+    const archive = await readBotBundle(bundle())
 
     expect(archive.manifest.bots[0]?.key).toBe('research')
     expect(archive.manifest.chats[0]?.lead).toBe('research')
@@ -79,9 +79,9 @@ describe('independent Bot bundle admission', () => {
     expect(archive.manifest.bots[0]?.schedules).toEqual([])
   })
 
-  test('supports actual deflate content', () => {
+  test('supports actual deflate content', async () => {
     expect(
-      readBotBundle(zip([['manifest.json', JSON.stringify(manifest())]], { deflate: true }))
+      (await readBotBundle(zip([['manifest.json', JSON.stringify(manifest())]], { deflate: true })))
         .manifest.bots,
     ).toHaveLength(1)
   })
@@ -94,62 +94,66 @@ describe('independent Bot bundle admission', () => {
     'a/../b',
     '.env.local',
     'private-key.pem',
-  ])('refuses unsafe path %s', (path) => {
+  ])('refuses unsafe path %s', async (path) => {
     expect(bundlePath(path)).toBe(false)
-    expect(() => readBotBundle(bundle([[path, 'unsafe']]))).toThrow()
+    await expect(readBotBundle(bundle([[path, 'unsafe']]))).rejects.toThrow()
   })
 
-  test('rejects links, encrypted archives and normalized duplicate paths', () => {
+  test('rejects links, encrypted archives and normalized duplicate paths', async () => {
     const files: [string, string][] = [['manifest.json', JSON.stringify(manifest())]]
 
-    expect(() => readBotBundle(zip(files, { mode: 0xa1ff }))).toThrow('links')
-    expect(() => readBotBundle(zip(files, { flags: 1 }))).toThrow('encryption')
-    expect(readBotBundle(zip(files, { flags: 0x802, deflate: true })).manifest.bots).toHaveLength(1)
-    expect(() => readBotBundle(bundle([['Manifest.json', '{}']]))).toThrow('duplicate')
-    expect(() =>
+    await expect(readBotBundle(zip(files, { mode: 0xa1ff }))).rejects.toThrow('links')
+    await expect(readBotBundle(zip(files, { flags: 1 }))).rejects.toThrow('encryption')
+    expect(
+      (await readBotBundle(zip(files, { flags: 0x802, deflate: true }))).manifest.bots,
+    ).toHaveLength(1)
+    await expect(readBotBundle(bundle([['Manifest.json', '{}']]))).rejects.toThrow('duplicate')
+    await expect(
       readBotBundle(
         bundle([
           ['é.txt', 'a'],
           ['e\u0301.txt', 'b'],
         ]),
       ),
-    ).toThrow('duplicate')
+    ).rejects.toThrow('duplicate')
   })
 
-  test('checks CRC and does not trust the local header name', () => {
+  test('checks CRC and does not trust the local header name', async () => {
     const damaged = bundle()
 
     damaged[45] = damaged[45]! ^ 1
-    expect(() => readBotBundle(damaged)).toThrow('integrity')
+    await expect(readBotBundle(damaged)).rejects.toThrow('integrity')
     const mismatch = bundle()
 
     mismatch[30] = 88
-    expect(() => readBotBundle(mismatch)).toThrow('headers disagree')
+    await expect(readBotBundle(mismatch)).rejects.toThrow('headers disagree')
   })
 
-  test('rejects undeclared files and missing referenced files', () => {
-    expect(() => readBotBundle(bundle([['notes.txt', 'do not silently carry me']]))).toThrow(
-      'undeclared',
-    )
+  test('rejects undeclared files and missing referenced files', async () => {
+    await expect(
+      readBotBundle(bundle([['notes.txt', 'do not silently carry me']])),
+    ).rejects.toThrow('undeclared')
     const value = {
       ...manifest(),
       bots: [{ ...manifest().bots[0], files: [{ path: 'files/plan.md', destination: 'plan.md' }] }],
     }
 
-    expect(() => readBotBundle(bundle([], value))).toThrow('missing file')
+    await expect(readBotBundle(bundle([], value))).rejects.toThrow('missing file')
     expect(
-      readBotBundle(bundle([['files/plan.md', '# Plan']], value)).files.has('files/plan.md'),
+      (await readBotBundle(bundle([['files/plan.md', '# Plan']], value))).files.has(
+        'files/plan.md',
+      ),
     ).toBe(true)
   })
 
-  test('detects fake secrets in parsed fields despite JSON escapes and in file contents', () => {
+  test('detects fake secrets in parsed fields despite JSON escapes and in file contents', async () => {
     const fake = `ghp_${'a'.repeat(30)}`
     const escaped = JSON.stringify(manifest()).replace(
       'Write cited briefs.',
       fake.replace('g', '\\u0067'),
     )
 
-    expect(() => readBotBundle(zip([['manifest.json', escaped]]))).toThrow('secret-bearing')
+    await expect(readBotBundle(zip([['manifest.json', escaped]]))).rejects.toThrow('secret-bearing')
     const value = {
       ...manifest(),
       bots: [
@@ -157,15 +161,19 @@ describe('independent Bot bundle admission', () => {
       ],
     }
 
-    expect(() => readBotBundle(bundle([['files/notes.md', fake]], value))).toThrow('secret-bearing')
+    await expect(readBotBundle(bundle([['files/notes.md', fake]], value))).rejects.toThrow(
+      'secret-bearing',
+    )
     const withComment = bundle([])
     const comment = Buffer.from(fake)
 
     withComment.writeUInt16LE(comment.length, withComment.length - 2)
-    expect(() => readBotBundle(Buffer.concat([withComment, comment]))).toThrow('secret-bearing')
+    await expect(readBotBundle(Buffer.concat([withComment, comment]))).rejects.toThrow(
+      'secret-bearing',
+    )
   })
 
-  test('accepts ordinary prose, code and links that only resemble secrets', () => {
+  test('accepts ordinary prose, code and links that only resemble secrets', async () => {
     for (const text of [
       'GitHub token: reconnect in Nuphos.',
       'Credentials: reconnect in Nuphos settings.',
@@ -175,16 +183,16 @@ describe('independent Bot bundle admission', () => {
       const value = { ...manifest(), bots: [{ ...manifest().bots[0], instructions: text }] }
 
       expect(
-        readBotBundle(zip([['manifest.json', JSON.stringify(value)]])).manifest.bots,
+        (await readBotBundle(zip([['manifest.json', JSON.stringify(value)]]))).manifest.bots,
       ).toHaveLength(1)
     }
   })
 
-  test('still refuses a keyed credential in instructions and workspace files', () => {
+  test('still refuses a keyed credential in instructions and workspace files', async () => {
     const key = `OPENAI_API_KEY=sk-proj-${'a1B2'.repeat(8)}`
     const inline = { ...manifest(), bots: [{ ...manifest().bots[0], instructions: key }] }
 
-    expect(() => readBotBundle(zip([['manifest.json', JSON.stringify(inline)]]))).toThrow(
+    await expect(readBotBundle(zip([['manifest.json', JSON.stringify(inline)]]))).rejects.toThrow(
       'secret-bearing',
     )
     const value = {
@@ -192,18 +200,18 @@ describe('independent Bot bundle admission', () => {
       bots: [{ ...manifest().bots[0], files: [{ path: 'files/run.sh', destination: 'run.sh' }] }],
     }
 
-    expect(() =>
+    await expect(
       readBotBundle(bundle([['files/run.sh', `deploy --token ${'x9Y8'.repeat(6)}`]], value)),
-    ).toThrow('secret-bearing')
+    ).rejects.toThrow('secret-bearing')
   })
 
-  test('rejects highly expanding ZIP data before inflation', () => {
-    expect(() =>
+  test('rejects highly expanding ZIP data before inflation', async () => {
+    await expect(
       readBotBundle(zip([['manifest.json', 'a'.repeat(100_000)]], { deflate: true })),
-    ).toThrow('ratio')
+    ).rejects.toThrow('ratio')
   })
 
-  test('validates keys, chat membership, versions and schedule timezones', () => {
+  test('validates keys, chat membership, versions and schedule timezones', async () => {
     expect(botBundleSchema.safeParse({ ...manifest(), version: 2 }).success).toBe(false)
     expect(
       botBundleSchema.safeParse({ ...manifest(), bots: [...manifest().bots, ...manifest().bots] })
