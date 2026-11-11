@@ -25,7 +25,7 @@ export type { UpdaterState } from './updater-state.ts'
 let updaterState: UpdaterState = { kind: 'idle' }
 let updaterCheckTimer: ReturnType<typeof setInterval> | null = null
 let lastProgressAt = 0
-/** The version the last restart was meant to install, when the app came back without it. */
+/** The version the last restart was meant to install, when the app came back older. */
 let failedVersion: string | null = null
 
 function setUpdaterState(next: UpdaterState) {
@@ -75,6 +75,9 @@ const restartFile = () => join(app.getPath('userData'), 'update-restart.json')
 export async function installUpdate() {
   if (updaterState.kind !== 'ready') return
   let version = updaterState.version
+
+  // Leaving ready at once makes a second click a no-op.
+  setUpdaterState({ kind: 'checking' })
   const newest = await newestRelease()
 
   if (newest && newest !== version) {
@@ -99,17 +102,37 @@ export async function installUpdate() {
   autoUpdater.quitAndInstall()
 }
 
-/** The version the last restart was meant to install, if this app isn't it. */
+/** The version the last restart was meant to install, if this app is older than
+ * it. Read once: the record is gone after the first launch that reads it. */
 function readFailedRestart(): string | null {
   try {
     const { version } = JSON.parse(readFileSync(restartFile(), 'utf8')) as { version: string }
 
     rmSync(restartFile())
 
-    return version === app.getVersion() ? null : version
+    return isOlder(app.getVersion(), version) ? version : null
   } catch {
     return null
   }
+}
+
+/** Whether release `a` is older than `b`; Nuphos ships plain major.minor.patch. */
+function isOlder(a: string, b: string): boolean {
+  const [x, y] = [a, b].map((v) => v.split('.').map(Number))
+
+  for (let i = 0; i < 3; i++) {
+    if (x[i] !== y[i]) return x[i] < y[i]
+  }
+
+  return false
+}
+
+/** The installer for this platform and architecture, from the Nuphos download page. */
+function installerUrl(): string {
+  const platform = { darwin: 'mac', win32: 'windows' }[process.platform as string] ?? 'linux'
+  const arch = process.arch === 'arm64' ? 'arm64' : 'x64'
+
+  return `https://nuphos.ai/api/desktop/download?platform=${platform}&arch=${arch}`
 }
 
 export function startUpdatePolling() {
@@ -166,7 +189,7 @@ export function initAutoUpdaterEvents() {
     setUpdaterState({
       kind: 'ready',
       version: info.version,
-      installFailed: info.version === failedVersion,
+      installerUrl: info.version === failedVersion ? installerUrl() : null,
     })
   })
   autoUpdater.on('error', (err) => {

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
-import { INSTALLER_DOWNLOAD_URL, useUpdaterState } from '../../components/useReadyUpdate'
+import { useUpdaterState } from '../../components/useReadyUpdate'
 import { t } from '../../i18n'
 
 import { SectionHeader } from './shared'
@@ -21,7 +21,7 @@ function statusText(state: UpdaterState): string {
     case 'downloading':
       return t('Downloading Nuphos {version}…', { version: state.version })
     case 'ready':
-      return state.installFailed
+      return state.installerUrl
         ? t(
             "Nuphos {version} didn't install last time. Restart to try again, or download the installer.",
             {
@@ -38,6 +38,7 @@ export function UpdatesSection() {
   const state = useUpdaterState()
   const [version, setVersion] = useState('')
   const progress = state.kind === 'downloading' ? updateProgress(state) : null
+  const installerUrl = state.kind === 'ready' ? state.installerUrl : null
 
   useEffect(() => {
     api
@@ -65,11 +66,8 @@ export function UpdatesSection() {
           </div>
           {state.kind === 'ready' ? (
             <div className="flex shrink-0 gap-2">
-              {state.installFailed && (
-                <Button
-                  variant="secondary"
-                  onClick={() => void api.appOpenExternal(INSTALLER_DOWNLOAD_URL)}
-                >
+              {installerUrl && (
+                <Button variant="secondary" onClick={() => void api.appOpenExternal(installerUrl)}>
                   {t('Download installer')}
                 </Button>
               )}
