@@ -142,6 +142,7 @@
   "agent.trigger.provider_cleanup_recovery_failed",
   "agent.trigger.provider_cleanup_reenqueue_failed",
   "agent.trigger.provider_cleanup_requested",
+  "agent.trigger.removed_without_provider_cleanup",
   "agent.trigger.rollback_delete_failed",
   "agent.trigger.scheduler_rollback_failed",
   "agent.trigger.update_rollback_failed",

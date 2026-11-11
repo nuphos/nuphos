@@ -6,7 +6,7 @@ import { teamByosBindings } from '@/models'
 
 import { gcpRequest, gcpToken, listAllGcpAlertPolicies } from './gcp'
 import { findMatchingRoutes, grafanaContactPointUrl, grafanaRequest } from './grafana-api'
-import { cleanupConflict, targetsManagedWebhook } from './shared'
+import { cleanupConflict, integrationDisconnected, targetsManagedWebhook } from './shared'
 
 import type { AgentTrigger } from '../trigger-db'
 import type {
@@ -36,7 +36,9 @@ async function discoverLegacyGrafana(
   const bindings = doc?.grafanaInstances ?? []
 
   if (bindings.length === 0) {
-    cleanupConflict('The Grafana integration used by this legacy Watch is no longer connected')
+    integrationDisconnected(
+      'The Grafana integration used by this legacy Watch is no longer connected',
+    )
   }
   const candidates: GrafanaProviderWiring[] = []
 
@@ -123,7 +125,7 @@ async function discoverLegacyGcp(
   )
 
   if (bindings.length === 0) {
-    cleanupConflict('The GCP integration used by this legacy Watch is no longer connected')
+    integrationDisconnected('The GCP integration used by this legacy Watch is no longer connected')
   }
   const candidates: GcpProviderWiring[] = []
 
@@ -173,7 +175,9 @@ async function discoverLegacyBetterStack(
   )
 
   if (bindings.length === 0) {
-    cleanupConflict('The Better Stack integration used by this legacy Watch is no longer connected')
+    integrationDisconnected(
+      'The Better Stack integration used by this legacy Watch is no longer connected',
+    )
   }
   const candidates: BetterStackProviderWiring[] = []
 

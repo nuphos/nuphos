@@ -23,7 +23,7 @@ import {
   isAwsNotFound,
   settleAwsReadback,
 } from './aws-alarm-update'
-import { cleanupConflict, sameJson, targetsManagedWebhook } from './shared'
+import { cleanupConflict, integrationDisconnected, sameJson, targetsManagedWebhook } from './shared'
 
 import type { AwsProviderWiring } from '../trigger-provider-wiring'
 import type { CompositeAlarm, MetricAlarm } from '@aws-sdk/client-cloudwatch'
@@ -83,7 +83,8 @@ export async function cleanupAws(
       extractAwsAccountId(item.roleArn) === receipt.accountId,
   )
 
-  if (!binding) cleanupConflict('The AWS integration used by this Watch is no longer connected')
+  if (!binding)
+    integrationDisconnected('The AWS integration used by this Watch is no longer connected')
 
   const credentials = await assumeRoleAsConnector(binding.roleArn, {
     sessionName: `nuphos-watch-cleanup-${triggerId.slice(-12)}`,
