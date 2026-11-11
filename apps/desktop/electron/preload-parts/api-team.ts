@@ -121,10 +121,19 @@ export const teamApi = {
   teamSkillsListLocal: () => ipcRenderer.invoke('teamSkills:listLocal'),
   localSetupStatus: (teamId: string) => ipcRenderer.invoke('localSetup:status', teamId),
   localSetupSync: (teamId: string) => ipcRenderer.invoke('localSetup:sync', teamId),
+  localSetupApproveLinks: (
+    teamId: string,
+    name: string,
+    reviewed: { relPath: string; realPath: string }[],
+  ) => ipcRenderer.invoke('localSetup:approveLinks', teamId, name, reviewed),
   localSetupSetAutoSync: (teamId: string, enabled: boolean) =>
     ipcRenderer.invoke('localSetup:setAutoSync', teamId, enabled),
-  teamSkillsImportLocal: (teamId: string, skillId: string, scope?: string) =>
-    ipcRenderer.invoke('teamSkills:importLocal', teamId, skillId, scope),
+  teamSkillsImportLocal: (
+    teamId: string,
+    skillId: string,
+    scope: string | undefined,
+    reviewed: { relPath: string; realPath: string }[],
+  ) => ipcRenderer.invoke('teamSkills:importLocal', teamId, skillId, scope, reviewed),
   teamSkillsDeleteObject: (teamId: string, key: string, scope?: string) =>
     ipcRenderer.invoke('teamSkills:deleteObject', teamId, key, scope),
   teamSkillsDeleteSkill: (teamId: string, name: string, scope?: string) =>

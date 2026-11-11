@@ -9,8 +9,8 @@ import type {
 } from './app-types.ts'
 import type { SkillScope } from './plan-types.ts'
 import type { Diagram } from '../architecture/schema.ts'
-import type { DesignOp, DesignPage } from '../design/schema.ts'
 import type { DashboardViewRange } from '../dashboards/schema'
+import type { DesignOp, DesignPage } from '../design/schema.ts'
 import type { ConnectAgentLink } from '../lib/connectAgentLink.ts'
 import type {
   ChangelogState,
@@ -184,10 +184,19 @@ export const appApi = {
   teamSkillsListLocal: () => window.api.teamSkillsListLocal(),
   localSetupStatus: (teamId: string) => window.api.localSetupStatus(teamId),
   localSetupSync: (teamId: string) => window.api.localSetupSync(teamId),
+  localSetupApproveLinks: (
+    teamId: string,
+    name: string,
+    reviewed: { relPath: string; realPath: string }[],
+  ) => window.api.localSetupApproveLinks(teamId, name, reviewed),
   localSetupSetAutoSync: (teamId: string, enabled: boolean) =>
     window.api.localSetupSetAutoSync(teamId, enabled),
-  teamSkillsImportLocal: (teamId: string, skillId: string, scope?: SkillScope) =>
-    window.api.teamSkillsImportLocal(teamId, skillId, scope),
+  teamSkillsImportLocal: (
+    teamId: string,
+    skillId: string,
+    scope: SkillScope | undefined,
+    reviewed: { relPath: string; realPath: string }[],
+  ) => window.api.teamSkillsImportLocal(teamId, skillId, scope, reviewed),
   teamSkillsDeleteObject: (teamId: string, key: string, scope?: SkillScope) =>
     window.api.teamSkillsDeleteObject(teamId, key, scope),
   teamSkillsDeleteSkill: (teamId: string, name: string, scope?: SkillScope) =>

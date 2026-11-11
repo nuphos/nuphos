@@ -1,14 +1,19 @@
 // One-click "import this computer's skill into the team or personal store": resolve the
 // skill against what listLocalSkills found, then read and upload its files one
 // at a time under `skills/<name>/`.
-import fs from 'node:fs/promises'
-import path from 'node:path'
-
 import { teamSkillsPutObject } from '../atlas'
 
-import { listLocalSkills, localSkillEntries, MAX_SKILL_FILE_BYTES } from './local-skills'
+import { recordReviewedLinks } from './local-setup-snapshot'
 
-import type { LocalSkillSource } from './local-skills'
+import {
+  listLocalSkills,
+  localSkillEntries,
+  matchesReview,
+  MAX_SKILL_FILE_BYTES,
+  readSkillFile,
+} from './local-skills'
+
+import type { LocalSkillReviewedFile, LocalSkillSource } from './local-skills'
 import type { SkillScope } from '../atlas'
 
 export type LocalSkillImportResult = {
@@ -39,15 +44,21 @@ export async function importLocalSkill(
   teamId: string,
   /** The `id` of a skill `listLocalSkills` returned. */
   id: string,
-  scope?: SkillScope,
+  scope: SkillScope | undefined,
+  /** The files the member confirmed: nothing else is uploaded. */
+  reviewed: readonly LocalSkillReviewedFile[],
 ): Promise<LocalSkillImportResult> {
   // Never take a directory the renderer names: the listing main just produced is
-  // the whole allow-list, and it already excludes symlinked roots and anything
-  // without a SKILL.md — so there is no path to canonicalize or contain here.
+  // the whole allow-list, and each file is read where localSkillEntries resolved it.
   const skill = (await listLocalSkills()).find((candidate) => candidate.id === id)
 
   if (!skill) throw new Error(`No skill "${id}" on this computer.`)
   const entries = await localSkillEntries(skill.path)
+
+  // A link re-pointed since the review would upload a file the member never saw.
+  if (!matchesReview(entries, reviewed)) {
+    throw new Error(`${skill.name} changed since you reviewed it. Open the import list again.`)
+  }
   const keys: string[] = []
   const skipped: string[] = []
 
@@ -60,7 +71,7 @@ export async function importLocalSkill(
       continue
     }
     const key = `skills/${skill.name}/${entry.relPath}`
-    const bytes = new Uint8Array(await fs.readFile(path.join(skill.path, entry.relPath)))
+    const bytes = new Uint8Array(await readSkillFile(entry))
 
     await teamSkillsPutObject(
       teamId,
@@ -74,6 +85,9 @@ export async function importLocalSkill(
     )
     keys.push(key)
   }
+
+  // The member reviewed these links, so this team's sync may follow them too.
+  if (skill.source === 'claude') await recordReviewedLinks(teamId, skill, reviewed)
 
   return { name: skill.name, source: skill.source, keys, skipped }
 }

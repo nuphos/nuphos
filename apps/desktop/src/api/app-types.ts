@@ -93,7 +93,11 @@ export type LocalSkillInfo = {
   name: string
   source: 'claude' | 'codex'
   path: string
+  /** Where `path` resolves to when the skill's own entry is a link, else null. */
+  linkedTo: string | null
   description: string | null
+  /** What an import would upload; `outside` files come through a link out of the skill. */
+  files: { relPath: string; realPath: string; size: number; outside: boolean }[]
   fileCount: number
   totalBytes: number
   updatedAt: string
@@ -115,7 +119,8 @@ export type LocalSetupResult = {
   removedSkills: number
   skipped: {
     name: string
-    reason: 'too_large' | 'too_many_files' | 'name_taken' | 'over_budget' | 'unreadable'
+    reason:
+      'too_large' | 'too_many_files' | 'name_taken' | 'over_budget' | 'unreadable' | 'needs_review'
   }[]
   instruction: 'synced' | 'removed' | 'none' | 'too_long'
   instructionParts: number
@@ -126,6 +131,8 @@ export type LocalSetupStatus = {
   autoSync: boolean
   running: boolean
   localSkills: number
+  /** Skills linking outside their own folder: sync reads one only once reviewed. */
+  linkedSkills: { name: string; files: LocalSkillInfo['files']; reviewed: boolean }[]
   claudeMdChars: number | null
   last: LocalSetupResult | null
   budget: { files: number; bytes: number }
