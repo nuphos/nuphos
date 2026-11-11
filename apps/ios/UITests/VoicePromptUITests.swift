@@ -34,10 +34,10 @@ final class VoicePromptUITests: XCTestCase {
         let account = app.buttons["Account"].firstMatch
         XCTAssertTrue(account.waitForExistence(timeout: 10), "No Account button")
         account.tap()
-        let fields = app.descendants(matching: .any).matching(NSPredicate(format: "placeholderValue == %@", "Transcription prompt"))
-        for _ in 0..<6 where !fields.firstMatch.exists || !fields.firstMatch.isHittable { app.swipeUp() }
-        XCTAssertTrue(fields.firstMatch.exists, "No transcription prompt in Account")
-        return fields.firstMatch
+        let field = app.descendants(matching: .any).matching(identifier: "voice.prompt").firstMatch
+        for _ in 0..<6 where !field.exists || !field.isHittable { app.swipeUp() }
+        XCTAssertTrue(field.exists, "No transcription prompt in Account")
+        return field
     }
 
     private func shot(_ name: String) {
