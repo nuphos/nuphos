@@ -10,10 +10,12 @@ import {
   removeLocalAgentInstance,
 } from '@/lib/agent/devices/local-runtime/instances'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
+import { settleIfConnected } from '@/lib/agent/devices/pending-removals'
 import { LOCAL_AGENT_PROVIDERS } from '@/lib/agent/devices/local-runtime/protocol'
 import {
   forgetAgentAddition,
   recordAgentAddition,
+  recordAgentRemoval,
   removeDeviceAgent,
   renameDeviceAgent,
 } from '@/lib/agent/devices/agent-registry-store'
@@ -56,6 +58,8 @@ export type DeviceAgentRouteDeps = {
   renameAgent: typeof renameDeviceAgent
   recordAddition: typeof recordAgentAddition
   forgetAddition: typeof forgetAgentAddition
+  recordRemoval: typeof recordAgentRemoval
+  settle: typeof settleIfConnected
 }
 
 type HostDevice = {
@@ -102,6 +106,8 @@ export function createDeviceAgentRoutes(
     renameAgent: renameDeviceAgent,
     recordAddition: recordAgentAddition,
     forgetAddition: forgetAgentAddition,
+    recordRemoval: recordAgentRemoval,
+    settle: settleIfConnected,
   },
 ) {
   const routes = new Hono<{ Variables: AuthVariables }>()
@@ -214,8 +220,35 @@ export function createDeviceAgentRoutes(
     }
   }
 
-  // `:agent` as for rename. A person's own computer keeps its defaults: their logins are
-  // that person's CLI logins.
+  /**
+   * A computer that is offline cannot delete its agent now, so the agent leaves the workspace
+   * at once and the computer deletes it when it next reports in (see pending-removals).
+   * Undefined when the computer is connected: an agent missing from its report is removed
+   * from it directly, as without `force`.
+   */
+  const removeWhileOffline = async (
+    c: Context<{ Variables: AuthVariables }>,
+    agent: RemovableAgent,
+  ) => {
+    const { userId, deviceId, teamId, device } = await authorized(c, 'manage')
+
+    if (await deps.getPresence(device.userId, deviceId)) return undefined
+    // Marked first: a report that lands between the two writes cannot register it again.
+    await deps.recordRemoval(device.userId, deviceId, {
+      id: randomUUID(),
+      agent,
+      actorId: userId,
+      teamId,
+      at: new Date(),
+    })
+    await deps.forgetAgent(device.userId, deviceId, agent)
+    // It may have reconnected meanwhile, after its report already came and went.
+    void deps.settle(device.userId, deviceId).catch(() => undefined)
+
+    return c.body(null, 204)
+  }
+
+  // `:agent` as for rename.
   routes.delete('/devices/:deviceId/agents/:agent', async (c) => {
     const id = c.req.param('agent')
     const provider = z.enum(LOCAL_AGENT_PROVIDERS).safeParse(id)
@@ -226,14 +259,22 @@ export function createDeviceAgentRoutes(
         : undefined
 
     if (!agent) throw new AppError(400, 'agent_not_removable', 'This agent cannot be removed.')
-    const { target, device } = await removableBy(c, agent)
+    if ('provider' in agent) {
+      const { device, deviceId } = await authorized(c, 'manage')
 
-    if ('provider' in agent && !device.box)
-      throw new AppError(
-        400,
-        'agent_not_removable',
-        "Only a Box's default agents can be removed; this computer's stay with its CLIs.",
-      )
+      // A person's own computer's default agent is their CLI login: Nuphos only forgets it,
+      // online or not, and it is listed again while that CLI is signed in.
+      if (!device.box) {
+        await deps.forgetAgent(device.userId, deviceId, agent)
+
+        return c.body(null, 204)
+      }
+    }
+    const queued = c.req.query('force') === 'true' && (await removeWhileOffline(c, agent))
+
+    if (queued) return queued
+    const { target } = await removableBy(c, agent)
+
     await deps.removeInstance(target, agent)
     // Removing is the only way an agent leaves the list once it has been signed in.
     await deps.forgetAgent(target.userId, target.deviceId, agent)

@@ -67,8 +67,8 @@ export const deviceApi = {
     provider: LocalAgentProvider,
     label?: string,
   ) => window.api.boxCreateAgent(deviceId, teamId, provider, label),
-  boxRemoveAgent: (deviceId: string, teamId: string, instanceId: string) =>
-    window.api.boxRemoveAgent(deviceId, teamId, instanceId),
+  boxRemoveAgent: (deviceId: string, teamId: string, instanceId: string, offline = false) =>
+    window.api.boxRemoveAgent(deviceId, teamId, instanceId, offline),
   boxRenameAgent: (deviceId: string, teamId: string, agent: string, label: string) =>
     window.api.boxRenameAgent(deviceId, teamId, agent, label),
   boxRename: (deviceId: string, teamId: string, label: string) =>

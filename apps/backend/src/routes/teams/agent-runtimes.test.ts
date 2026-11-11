@@ -49,3 +49,39 @@ test.each(['VIEWER', 'EDITOR'] as const)(
     expect(result.status).toBe(403)
   },
 )
+
+test("a computer's agent is not changed or removed as a team runtime", async () => {
+  const { Hono } = await import('hono')
+  const { registerAgentRuntimeRoutes } = await import('./agent-runtimes')
+  const { AppError } = await import('@/lib/errors')
+  const app = new Hono<{ Variables: import('@/middleware/auth').TeamAuthVariables }>()
+
+  app.use('*', async (c, next) => {
+    c.set('teamRole', 'ADMINISTRATOR')
+    c.set('teamId', 'team')
+    c.set('userId', 'admin')
+    await next()
+  })
+  app.onError((error, c) =>
+    c.json(
+      { code: error instanceof AppError ? error.code : 'unknown' },
+      error instanceof AppError ? error.status : 500,
+    ),
+  )
+  registerAgentRuntimeRoutes(app)
+  const local = '/agent-runtimes/local_owner_box_codex'
+
+  for (const init of [
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'disabled' }),
+    },
+    { method: 'DELETE' },
+  ]) {
+    const result = await app.request(local, init)
+
+    expect(result.status).toBe(400)
+    expect(await result.json()).toEqual({ code: 'local_agent_not_team_runtime' })
+  }
+})

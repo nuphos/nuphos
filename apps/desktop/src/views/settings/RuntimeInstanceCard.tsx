@@ -12,12 +12,13 @@ import { t } from '../../i18n'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { AgentAddedBy } from './AgentAddedBy'
-import { agentName, localRemovalId, localSignIn } from './agentPresentation'
+import { agentName, localSignIn } from './agentPresentation'
 import { LocalAgentSignInRow } from './LocalAgentSignInRow'
 import { RuntimeActionsMenu } from './RuntimeActionsMenu'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { RuntimeMetricsCharts } from './RuntimeMetricsCharts'
 import { RuntimeOverview, RuntimeUsageSection } from './RuntimeOverview'
+import { removeRuntime } from './runtimeRemoval'
 import { STATUS_DOT, runtimeRemovalDescription, runtimeStatusView } from './runtimePresentation'
 import { RuntimeSignIn } from './RuntimeSignIn'
 import { RuntimeUpdateNotice } from './RuntimeUpdateNotice'
@@ -103,7 +104,6 @@ export function RuntimeInstanceCard({
         )
       : api.atlasUpdateRuntimeInstance(teamId, instance.id, { label })
   const canEdit = isAdmin && instance.kind !== 'development' && !instance.deletion
-  const removalId = localRemovalId(instance)
   const status = runtimeStatusView(instance, runtime, statusError)
   const kindTag =
     instance.kind === 'external'
@@ -281,14 +281,7 @@ export function RuntimeInstanceCard({
           description={runtimeRemovalDescription(instance)}
           destructive
           confirmLabel={t('Remove runtime')}
-          onConfirm={() =>
-            mutate(() =>
-              // The menu offers removal for a computer's agent only when it has a removal id.
-              instance.local && removalId
-                ? api.boxRemoveAgent(instance.local.deviceId, teamId, removalId)
-                : api.atlasRemoveRuntimeInstance(teamId, instance.id),
-            )
-          }
+          onConfirm={() => mutate(() => removeRuntime(instance, teamId))}
           onClose={() => setConfirmRemoval(false)}
         />
       )}
