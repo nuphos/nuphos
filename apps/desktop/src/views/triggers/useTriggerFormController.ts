@@ -62,7 +62,6 @@ export function useTriggerFormController({
         const t = await api.agentGetTrigger(triggerId, teamId)
 
         if (cancelled) return
-        reportCleanupFailures([t])
         setLoaded(t)
         setForm({
           name: t.name,
