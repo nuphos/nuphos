@@ -20,7 +20,7 @@ const ALL_ITEMS = [...TEAM_SIDEBAR_NAV_ITEMS, ...TEAM_WORKSPACE_NAV_ITEMS]
 test('the sidebar lists New agent then the management pages', () => {
   assert.deepEqual(
     TEAM_SIDEBAR_NAV_ITEMS.map((item) => item.key),
-    ['team.agent', 'team.inbox', 'team.agents', 'team.integrations'],
+    ['team.agent', 'team.inbox', 'team.plans', 'team.agents', 'team.integrations'],
   )
   assert.deepEqual(
     TEAM_MANAGEMENT_NAV_ITEMS.map((item) => item.key),
@@ -35,7 +35,6 @@ test('workspace pages are the ones launched beside a conversation', () => {
       'team.browser',
       'team.files',
       'team.terminal',
-      'team.plans',
       'team.architecture',
       'team.designs',
       'team.dashboards',
@@ -55,6 +54,13 @@ test('management and workspace keys are disjoint and classified', () => {
   }
   assert.equal(isTeamManagementKey('team.agent'), false)
   assert.ok(isTeamManagementKey('team.accounts'))
+})
+
+test('Plans opens as the existing main page and keeps its route key', () => {
+  assert.ok(isTeamManagementKey('team.plans'))
+  assert.equal(isTeamWorkspaceKey('team.plans'), false)
+  assert.equal(teamOverviewNavItemFor('team.plans')?.label, 'Plans')
+  assert.equal(renamedTeamPagePath('/teams/t1/plans'), '/teams/t1/plans')
 })
 
 test('archived chats open in the main pane without a nav row of their own', () => {

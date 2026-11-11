@@ -1,12 +1,13 @@
 import {
   goneAdditions,
+  isPendingRemoval,
   mergeAgentRegistry,
   renameRegisteredAgent,
   reportedAgents,
 } from './agent-registry'
 import { agentDevices } from './store'
 
-import type { AgentAddition } from './agent-registry'
+import type { AgentAddition, PendingRemoval } from './agent-registry'
 import type { LocalRuntimeStatus, RemovableAgent } from './local-runtime/protocol'
 import type { RequestOrigin } from '@/lib/request-origin'
 
@@ -22,11 +23,15 @@ export async function recordDeviceAgents(
 ): Promise<void> {
   const device = await agentDevices().findOne(
     { userId, deviceId },
-    { projection: { agents: 1, addedAgents: 1 } },
+    { projection: { agents: 1, addedAgents: 1, removedAgents: 1 } },
   )
 
   if (!device) return
-  const next = mergeAgentRegistry(device.agents ?? [], reportedAgents(status))
+  // An agent removed while the computer was offline does not rejoin before it is deleted.
+  const reported = reportedAgents(status).filter(
+    (agent) => !isPendingRemoval(agent, device.removedAgents ?? []),
+  )
+  const next = mergeAgentRegistry(device.agents ?? [], reported)
   // Pulled by id, so an addition noted since the read above is never overwritten.
   const gone = goneAdditions(device.addedAgents ?? [], next ?? device.agents ?? [], status)
 
@@ -99,4 +104,31 @@ export async function removeDeviceAgent(
       },
     },
   )
+}
+
+/** Notes an agent removed while its computer was offline, for the computer to delete later.
+ *  A repeat removal of the same agent (a double click, a retry) adds nothing. */
+export async function recordAgentRemoval(
+  userId: string,
+  deviceId: string,
+  removal: PendingRemoval,
+): Promise<void> {
+  const same =
+    'instanceId' in removal.agent
+      ? { 'agent.instanceId': removal.agent.instanceId }
+      : { 'agent.provider': removal.agent.provider, 'agent.instanceId': { $exists: false } }
+
+  await agentDevices().updateOne(
+    { userId, deviceId, removedAgents: { $not: { $elemMatch: same } } },
+    { $push: { removedAgents: removal } },
+  )
+}
+
+/** Forgets a pending removal the computer has carried out. */
+export async function forgetAgentRemoval(
+  userId: string,
+  deviceId: string,
+  id: string,
+): Promise<void> {
+  await agentDevices().updateOne({ userId, deviceId }, { $pull: { removedAgents: { id } } })
 }

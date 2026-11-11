@@ -90,8 +90,8 @@ export const deviceApi = {
     provider: LocalAgentProvider,
     label?: string,
   ) => ipcRenderer.invoke('box:createAgent', deviceId, teamId, provider, label),
-  boxRemoveAgent: (deviceId: string, teamId: string, instanceId: string) =>
-    ipcRenderer.invoke('box:removeAgent', deviceId, teamId, instanceId),
+  boxRemoveAgent: (deviceId: string, teamId: string, instanceId: string, offline = false) =>
+    ipcRenderer.invoke('box:removeAgent', deviceId, teamId, instanceId, offline),
   boxRenameAgent: (deviceId: string, teamId: string, agent: string, label: string) =>
     ipcRenderer.invoke('box:renameAgent', deviceId, teamId, agent, label),
   boxRename: (deviceId: string, teamId: string, label: string) =>

@@ -42,7 +42,7 @@ test('switching into a session with no tabs keeps the team scope', () => {
 
   actions.retainTeams([TEAM_A], TEAM_A)
   actions.setDockOpen(true)
-  actions.updateActiveTab((tab) => ({ ...tab, active: 'team.plans' }))
+  actions.updateActiveTab((tab) => ({ ...tab, active: 'team.architecture' }))
   assert.equal(selectScope(store.getState())?.teamId, TEAM_A)
 
   actions.selectSession('session-empty')
@@ -152,7 +152,7 @@ test('a tab opened into a freshly seeded dock replaces the seed', () => {
 
   actions.retainTeams([TEAM_A], TEAM_A)
   actions.setDockOpen(true)
-  const target = { ...createTab(TEAM_A), active: 'team.plans' }
+  const target = { ...createTab(TEAM_A), active: 'team.architecture' }
 
   actions.openTab(target, { replaceLoneFreshTab: true })
 
@@ -246,7 +246,7 @@ test('an update that navigates records history; restore does not', () => {
 
   actions.retainTeams([TEAM_A], TEAM_A)
   actions.setDockOpen(true)
-  actions.updateActiveTab((tab) => ({ ...tab, active: 'team.plans' }))
+  actions.updateActiveTab((tab) => ({ ...tab, active: 'team.architecture' }))
   assert.equal(selectActiveTab(store.getState())?.navHistory.length, 2)
 
   actions.updateActiveTab((tab) => ({ ...tab, active: 'team.monitoring' }), { history: 'restore' })
@@ -354,7 +354,7 @@ test('an open dock tab steps its own history before the conversation does', () =
   actions.selectSession('session-b')
   actions.openTeamTab(TEAM_A)
   actions.setDockOpen(true)
-  actions.updateActiveTab((tab) => ({ ...tab, active: 'team.plans' }))
+  actions.updateActiveTab((tab) => ({ ...tab, active: 'team.architecture' }))
 
   assert.equal(selectHistoryStep(store.getState(), -1), 'tab')
   actions.setDockOpen(false)
