@@ -116,7 +116,7 @@ test('writes every resident session and skips churn that does not change navigat
   store.actions.updateActiveTab((tab) => ({ ...tab, pollTick: tab.pollTick + 1 }))
   assert.equal(writes.length, 1)
 
-  store.actions.updateActiveTab((tab) => ({ ...tab, active: 'team.plans' }))
+  store.actions.updateActiveTab((tab) => ({ ...tab, active: 'team.architecture' }))
   assert.equal(writes.length, 2)
   assert.deepEqual(writes[1], serializeWorkspaceBuckets(store.getState().buckets))
   stop()
@@ -140,13 +140,13 @@ test('panes and windows each write only the docks they changed', () => {
   ]
 
   left.actions.selectSession('session-a')
-  left.actions.updateActiveTab((tab) => ({ ...tab, active: 'team.plans' }))
+  left.actions.updateActiveTab((tab) => ({ ...tab, active: 'team.architecture' }))
   right.actions.selectSession('session-b')
   right.actions.updateActiveTab((tab) => ({ ...tab, active: 'team.browser' }))
 
   const reloaded = hydrateWorkspaceState(disk)
 
-  assert.equal(reloaded.buckets['session-a'].tabs[0].active, 'team.plans')
+  assert.equal(reloaded.buckets['session-a'].tabs[0].active, 'team.architecture')
   assert.equal(reloaded.buckets['session-b'].tabs[0].active, 'team.browser')
 
   // A pane that closes its last tab in a dock removes that dock only.
