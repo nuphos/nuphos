@@ -34,7 +34,7 @@ import {
   stateKey,
   updateTeam,
 } from './local-setup-state.ts'
-import { listLocalSkills, localSkillEntries, readSkillFile } from './local-skills.ts'
+import { listLocalSkills, outsideFiles, readSkillFile, walkSkill } from './local-skills.ts'
 
 import type { LocalSkillSnapshot, RemoteObject } from './local-setup-plan.ts'
 import type {
@@ -63,33 +63,38 @@ async function hashFile(full: string, entry: LocalSkillEntry, cache: HashCache, 
 }
 
 /** Claude Code skills only: Codex keeps its own, and a name can exist under both. */
-async function snapshotLocalSkills(cache: HashCache): Promise<{
-  skills: (LocalSkillSnapshot & { entries: Map<string, LocalSkillEntry> })[]
-  hashes: HashCache
-}> {
+type SkillSnapshot = LocalSkillSnapshot & { entries: Map<string, LocalSkillEntry> }
+
+async function snapshotLocalSkills(
+  cache: HashCache,
+): Promise<{ skills: SkillSnapshot[]; hashes: HashCache }> {
   const skills = (await listLocalSkills()).filter((skill) => skill.source === 'claude')
-  const out: (LocalSkillSnapshot & { entries: Map<string, LocalSkillEntry> })[] = []
+  const out: SkillSnapshot[] = []
   // Only files that still exist keep a cache entry.
   const seen: HashCache = {}
 
   for (const skill of skills) {
-    const entries = await localSkillEntries(skill.path)
+    const { entries, truncated } = await walkSkill(skill.path)
     const files = []
 
-    for (const entry of entries) {
-      const full = path.join(skill.path, entry.relPath)
+    try {
+      for (const entry of entries) {
+        const sha256 = await hashFile(path.join(skill.path, entry.relPath), entry, cache, seen)
 
-      files.push({
-        relPath: entry.relPath,
-        size: entry.size,
-        sha256: await hashFile(full, entry, cache, seen),
+        files.push({ relPath: entry.relPath, size: entry.size, sha256 })
+      }
+      out.push({
+        name: skill.name,
+        entries: new Map(entries.map((e) => [e.relPath, e])),
+        files,
+        truncated,
       })
+    } catch (e) {
+      // One unreadable file skips its own skill: with no files the planner
+      // reports it as unreadable, and the rest of the pass goes on.
+      console.warn(`local-setup: could not read ${skill.name}`, e)
+      out.push({ name: skill.name, entries: new Map(), files: [] })
     }
-    out.push({
-      name: skill.name,
-      entries: new Map(entries.map((entry) => [entry.relPath, entry])),
-      files,
-    })
   }
 
   return { skills: out, hashes: seen }
@@ -286,11 +291,7 @@ export async function localSetupStatus(teamId: string): Promise<LocalSetupStatus
     autoSync: team.autoSync,
     running: running.has(teamId),
     localSkills: skills.length,
-    outsideFiles: skills.flatMap((skill) =>
-      skill.files
-        .filter((file) => file.outside)
-        .map(({ relPath, realPath }) => ({ skill: skill.name, relPath, realPath })),
-    ),
+    outsideFiles: skills.flatMap(outsideFiles),
     claudeMdChars: (await readClaudeMd())?.trim().length ?? null,
     last: team.last,
     budget: { files: RUNTIME_FILE_BUDGET, bytes: RUNTIME_BYTE_BUDGET },

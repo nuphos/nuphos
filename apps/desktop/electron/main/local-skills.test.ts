@@ -3,6 +3,7 @@ import {
   mkdirSync,
   mkdtempSync,
   realpathSync,
+  chmodSync,
   renameSync,
   symlinkSync,
   unlinkSync,
@@ -18,6 +19,7 @@ import {
   matchesReview,
   readSkillFile,
   skillDescription,
+  walkSkill,
 } from './local-skills.ts'
 
 const originalHome = process.env.HOME
@@ -79,6 +81,9 @@ before(() => {
     path.join(store, 'ccc-skills', 'lint', 'SKILL.md'),
   )
   symlinkSync(path.join(store, 'ccc-skills', 'lint'), skillDir('lint'))
+  // A SKILL.md the member cannot read: the CLI could not load it either.
+  writeSkill(skillDir('locked'), { 'SKILL.md': '---\ndescription: Locked\n---\n' })
+  chmodSync(path.join(skillDir('locked'), 'SKILL.md'), 0o000)
   // Links back up the tree must not loop.
   writeSkill(skillDir('loop'), { 'SKILL.md': '---\ndescription: Loops\n---\n' })
   mkdirSync(path.join(skillDir('loop'), 'sub'))
@@ -205,7 +210,15 @@ describe('localSkillEntries fan-out', () => {
       symlinkSync(path.join(root, 'd0'), path.join(root, `l${String(link)}`))
     }
 
-    assert.deepEqual(await relPaths(root), ['SKILL.md'])
+    const walked = await walkSkill(root)
+
+    assert.deepEqual(
+      walked.entries.map((entry) => entry.relPath),
+      ['SKILL.md'],
+    )
+    // Cut short, so sync must not treat it as the whole skill.
+    assert.equal(walked.truncated, true)
+    assert.equal((await walkSkill(skillDir('deploy'))).truncated, false)
   })
 })
 

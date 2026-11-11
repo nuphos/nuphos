@@ -109,10 +109,20 @@ async function resolveEntry(entry: Dirent, full: string): Promise<Resolved | nul
  * being walked is skipped, and depth, entries and files are capped.
  */
 export async function localSkillEntries(root: string): Promise<LocalSkillEntry[]> {
+  return (await walkSkill(root)).entries
+}
+
+/**
+ * localSkillEntries, and whether a cap cut the walk short: a partial list must
+ * not stand in for the whole skill, or sync would delete what it did not reach.
+ */
+export async function walkSkill(
+  root: string,
+): Promise<{ entries: LocalSkillEntry[]; truncated: boolean }> {
   const out: LocalSkillEntry[] = []
   const realRoot = await fs.realpath(root).catch(() => null)
 
-  if (!realRoot) return out
+  if (!realRoot) return { entries: out, truncated: false }
   let examined = 0
 
   // `ancestors`, not every directory seen: an alias such as `assets -> scripts`
@@ -152,12 +162,21 @@ export async function localSkillEntries(root: string): Promise<LocalSkillEntry[]
 
   // SKILL.md first: it is the file the store keys the skill on, so a partial
   // upload still leaves a listable skill rather than orphan objects.
-  return out.sort((a, b) => {
+  const entries = out.toSorted((a, b) => {
     if (a.relPath === 'SKILL.md') return -1
     if (b.relPath === 'SKILL.md') return 1
 
     return a.relPath.localeCompare(b.relPath)
   })
+
+  return { entries, truncated: out.length >= MAX_FILES || examined >= MAX_ENTRIES }
+}
+
+/** The files a link brings into `skill` from outside its folder, for review before sync. */
+export function outsideFiles(skill: LocalSkillInfo) {
+  return skill.files
+    .filter((file) => file.outside)
+    .map(({ relPath, realPath }) => ({ skill: skill.name, relPath, realPath }))
 }
 
 /** Whether a fresh walk found exactly the files the member reviewed, each where it was. */
@@ -210,6 +229,9 @@ async function describeSkill(
   // Without a SKILL.md the directory is not a skill — the store keys on it too.
   if (!skillMd) return null
   const markdown = await readSkillFile(skillMd).catch(() => null)
+
+  // One the CLI could not read either: not a skill, and sync would fail on it.
+  if (!markdown) return null
   const realRoot = await fs.realpath(root).catch(() => root)
   // Only the entry itself: a linked home or skills directory would flag every skill.
   const isLink = (await fs.lstat(root).catch(() => null))?.isSymbolicLink() ?? false
@@ -220,7 +242,7 @@ async function describeSkill(
     source,
     path: root,
     linkedTo: isLink ? realRoot : null,
-    description: markdown ? skillDescription(markdown.toString('utf8')) : null,
+    description: skillDescription(markdown.toString('utf8')),
     files: entries.map(({ relPath, realPath, size }) => ({
       relPath,
       realPath,

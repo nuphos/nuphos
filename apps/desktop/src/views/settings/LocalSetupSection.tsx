@@ -14,10 +14,10 @@ import type { AtlasTeam } from '../../types'
 
 const SKIP_REASON: Record<LocalSetupResult['skipped'][number]['reason'], string> = {
   too_large: t('larger than 4 MB'),
-  too_many_files: t('200 files or more'),
+  too_many_files: t('too many files or links to read in full'),
   name_taken: t('a personal skill with this name already exists'),
   over_budget: t('over the runtime’s skill budget'),
-  unreadable: t('its SKILL.md could not be read'),
+  unreadable: t('some of its files could not be read'),
 }
 
 function skillCount(count: number): string {

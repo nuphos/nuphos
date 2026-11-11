@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import {
+  chmodSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -160,6 +161,17 @@ describe('syncLocalSetup recovery', () => {
     assert.equal(result.syncedSkills, 2)
     assert.deepEqual(result.skipped, [])
     assert.equal(result.uploadedFiles, 0)
+  })
+
+  it('skips only the skill with an unreadable file, and syncs the rest', async () => {
+    writeFile('.claude/skills/deploy/locked.md', 'no')
+    chmodSync(path.join(home, '.claude/skills/deploy/locked.md'), 0o000)
+
+    const result = await syncLocalSetup('t1')
+
+    assert.equal(result.syncedSkills, 1)
+    assert.deepEqual(result.skipped, [{ name: 'deploy', reason: 'unreadable' }])
+    assert.ok(team('t1').objects.has('skills/triage/SKILL.md'))
   })
 
   it('never duplicates CLAUDE.md parts when a create fails part-way', async () => {

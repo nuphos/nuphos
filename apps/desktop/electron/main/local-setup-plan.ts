@@ -14,7 +14,12 @@ export const MAX_SYNCED_SKILL_FILES = 200
 export const MAX_SYNCED_FILE_BYTES = 10_000_000
 
 export type LocalSkillFile = { relPath: string; size: number; sha256: string }
-export type LocalSkillSnapshot = { name: string; files: LocalSkillFile[] }
+export type LocalSkillSnapshot = {
+  name: string
+  files: LocalSkillFile[]
+  /** A walk cap stopped before the whole skill was seen. */
+  truncated?: boolean
+}
 export type RemoteObject = { key: string; size: number }
 
 export type SkippedSkill = {
@@ -69,10 +74,11 @@ export function planSkillSync(
     const kept = skill.files.filter((file) => file.size <= MAX_SYNCED_FILE_BYTES)
     const size = kept.reduce((sum, file) => sum + file.size, 0)
 
-    // The walk stops at 200 files, possibly before reaching SKILL.md, so that comes first.
-    if (skill.files.length >= MAX_SYNCED_SKILL_FILES)
+    // The walk stops at 200 files or 5,000 entries, possibly before reaching
+    // SKILL.md, so that comes first: a partial list must never drive deletions.
+    if (skill.truncated || skill.files.length >= MAX_SYNCED_SKILL_FILES)
       skipped.push({ name: skill.name, reason: 'too_many_files' })
-    // Its SKILL.md was not walked (vanished or unreadable), so nothing would upload.
+    // A file could not be read, or SKILL.md vanished, so nothing would upload.
     else if (!skill.files.some((file) => file.relPath === 'SKILL.md'))
       skipped.push({ name: skill.name, reason: 'unreadable' })
     else if (foreignNames.has(skill.name)) skipped.push({ name: skill.name, reason: 'name_taken' })

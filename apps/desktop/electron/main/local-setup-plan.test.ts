@@ -89,6 +89,17 @@ describe('planSkillSync', () => {
     assert.deepEqual(plan.skipped, [{ name: 'linked', reason: 'unreadable' }])
   })
 
+  it('never plans deletions from a walk an entry cap cut short', () => {
+    const partial = { ...skill('deploy', { 'SKILL.md': [1, 'a'] }), truncated: true }
+    const plan = planSkillSync([partial], { deploy: { 'SKILL.md': 'a', 'scripts/run.sh': 'b' } }, [
+      { key: 'skills/deploy/SKILL.md', size: 1 },
+      { key: 'skills/deploy/scripts/run.sh', size: 1 },
+    ])
+
+    assert.deepEqual(plan.skipped, [{ name: 'deploy', reason: 'too_many_files' }])
+    assert.deepEqual(plan.deleteKeys, [])
+  })
+
   it('skips skills too large or truncated by the walk', () => {
     const many = Object.fromEntries(
       // Cut off at 200 files before the walk reached SKILL.md, as a large checkout is.
