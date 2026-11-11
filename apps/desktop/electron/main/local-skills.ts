@@ -125,10 +125,11 @@ export async function walkSkill(
   if (!realRoot) return { entries: out, truncated: false }
   let examined = 0
 
-  // `ancestors`, not every directory seen: an alias such as `assets -> scripts`
-  // must not hide the real `scripts/` path.
+  // Each cap also stops descents already queued. A cycle is only `ancestors`,
+  // not every directory seen: `assets -> scripts` must not hide `scripts/`.
   async function walk(dir: string, prefix: string, depth: number, ancestors: Set<string>) {
-    if (depth > MAX_DEPTH || out.length >= MAX_FILES || ancestors.has(dir)) return
+    if (depth > MAX_DEPTH || out.length >= MAX_FILES || examined >= MAX_ENTRIES) return
+    if (ancestors.has(dir)) return
     const lineage = new Set(ancestors).add(dir)
     let entries: Dirent[]
 

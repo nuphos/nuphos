@@ -10,6 +10,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
+import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { after, before, describe, it } from 'node:test'
@@ -232,6 +233,33 @@ describe('matchesReview', () => {
     assert.ok(!matchesReview([skillMd, { relPath: 'ref.md', realPath: '/home/.ssh/id' }], reviewed))
     assert.ok(!matchesReview([...reviewed, { relPath: 'new.md', realPath: '/s/new.md' }], reviewed))
     assert.ok(!matchesReview([skillMd], reviewed))
+  })
+})
+
+describe('localSkillEntries wide aliases', () => {
+  it('reads no more directories once the entry cap is reached', async () => {
+    const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'wide-')))
+    const big = path.join(root, 'big')
+
+    writeSkill(root, { 'SKILL.md': 'x' })
+    mkdirSync(big)
+    for (let i = 0; i < 6_000; i += 1) mkdirSync(path.join(big, `e${String(i)}`))
+    for (let i = 0; i < 20; i += 1) symlinkSync(big, path.join(root, `a${String(i)}`))
+    const readdir = fs.readdir
+    let reads = 0
+
+    fs.readdir = ((...args: Parameters<typeof readdir>) => {
+      reads += 1
+
+      return readdir(...args)
+    }) as typeof readdir
+    try {
+      assert.equal((await walkSkill(root)).truncated, true)
+    } finally {
+      fs.readdir = readdir
+    }
+    // The root and the first alias exhaust the cap; the 19 queued aliases are never read.
+    assert.ok(reads <= 3, `read ${String(reads)} directories`)
   })
 })
 
