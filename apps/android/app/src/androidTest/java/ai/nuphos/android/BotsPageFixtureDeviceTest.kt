@@ -145,7 +145,7 @@ class BotsPageFixtureDeviceTest {
         originals.forEach { (name, client) -> Http::class.java.getDeclaredField(name).also { it.isAccessible = true }.set(null, client) }
     }
 
-    private fun render(page: @androidx.compose.runtime.Composable (androidx.navigation.NavHostController) -> Unit = { ChatsPage(it) }) {
+    private fun render(realChannel: Boolean = false, page: @androidx.compose.runtime.Composable (androidx.navigation.NavHostController) -> Unit = { ChatsPage(it) }) {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
         val auth = ai.nuphos.android.session.AuthSession(app, app.tokenStore).also { auth = it }
         // Signed in, as the runtime setup needs an account.
@@ -158,7 +158,11 @@ class BotsPageFixtureDeviceTest {
                 val nav = rememberNavController()
                 NavHost(nav, startDestination = "list") {
                     composable("list") { page(nav) }
-                    composable("channel/{id}") { entry -> Text("Opened ${entry.arguments?.getString("id")}") }
+                    composable("channel/{id}") { entry ->
+                        val id = entry.arguments?.getString("id").orEmpty()
+                        if (realChannel) ai.nuphos.android.ui.chats.ChannelScreen(id, onBack = { nav.popBackStack() })
+                        else Text("Opened $id")
+                    }
                 }
             } }
         }
@@ -177,6 +181,8 @@ class BotsPageFixtureDeviceTest {
         compose.mainClock.advanceTimeBy(1_000)
         compose.waitForIdle()
         val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.waitForIdleSync()
+        Thread.sleep(300) // Wait for the actual window after the Compose idle frame.
         val image = instrumentation.uiAutomation.takeScreenshot() ?: error("No synthetic screenshot")
         val directory = java.io.File(instrumentation.targetContext.getExternalFilesDir(null), "review-bot-runtime-avatar").apply { mkdirs() }
         java.io.File(directory, "$name.png").outputStream().use { image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
@@ -197,7 +203,9 @@ class BotsPageFixtureDeviceTest {
     @Test fun avatarBadgesInRealHeaderAncestors() {
         chats = avatarChat("codex")
         avatarDetail = """{"sessionId":"chat-avatar","kind":"channel","title":"Avatar group","faces":${avatarFaces("codex")},"messages":[],"messageCount":0,"timelineEvents":[],"activitySeq":1,"readSeq":1}"""
-        render { ai.nuphos.android.ui.chats.ChannelScreen("chat-avatar", onBack = {}) }
+        render(realChannel = true)
+        waitRow("chat-avatar")
+        row("chat-avatar").performClick()
         waitText("Avatar group")
         avatarShot("06-real-header-28-codex-grok")
     }

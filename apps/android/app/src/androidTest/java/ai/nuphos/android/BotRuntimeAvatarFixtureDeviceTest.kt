@@ -51,12 +51,13 @@ class BotRuntimeAvatarFixtureDeviceTest {
                     Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                         for (size in listOf(14.dp, 20.dp, 24.dp, 36.dp)) AgentAvatar(first, provider, size)
                     }
-                    Button(onClick = { provider = if (provider == "codex") "grok" else null }) { Text("Switch runtime") }
+                    Button(onClick = { provider = when (provider) { "codex" -> "grok"; "grok" -> null; else -> "codex" } }) { Text("Switch runtime") }
                 }
             } }
         }
         // 4 group marks per size + 4 single-avatar marks. Humans receive none.
         compose.onAllNodesWithTag("runtime-provider-mark", useUnmergedTree = true).assertCountEquals(12)
+        repeat(3) { compose.onNodeWithText("Switch runtime").performClick() }
         capture("01-codex-and-grok")
         compose.onNodeWithText("Switch runtime").performClick()
         capture("02-same-bot-grok")
@@ -69,6 +70,8 @@ class BotRuntimeAvatarFixtureDeviceTest {
         compose.mainClock.advanceTimeBy(1_000)
         compose.waitForIdle()
         val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.waitForIdleSync()
+        Thread.sleep(300) // Let the actual platform window draw after the Compose frame.
         val image = instrumentation.uiAutomation.takeScreenshot() ?: error("No synthetic screenshot")
         val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "review-bot-runtime-avatar").apply { mkdirs() }
         File(directory, "$name.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }
