@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
+import { AppError } from '@/lib/errors'
 
 import type { BotBundle } from './manifest'
 
@@ -105,10 +106,14 @@ export function assertImportSelection(batch: ImportBatch, selection: ImportSelec
       keys.length !== new Set(keys).size ||
       keys.some((key) => !batch.items.some((item) => item.kind === kind && item.key === key))
     )
-      throw new Error('Selection contains duplicate or unknown keys')
+      throw new AppError(
+        400,
+        'invalid_import_selection',
+        'Selection contains duplicate or unknown keys',
+      )
   }
   if (selection.botKeys.length + selection.chatKeys.length === 0)
-    throw new Error('Select at least one Bot or chat')
+    throw new AppError(400, 'invalid_import_selection', 'Select at least one Bot or chat')
 }
 
 export type ImportOperations = {

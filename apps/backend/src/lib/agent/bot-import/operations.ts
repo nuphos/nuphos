@@ -14,6 +14,7 @@ import { requireRuntimeInstance } from '@/lib/claude-code-preview/runtime-catalo
 import { isOpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 import { isValidCronExpression } from '@/lib/cron'
 import { storeAvatar } from '@/lib/identity/avatar-upload'
+import { AppError } from '@/lib/errors'
 
 import { ImportScheduleFailure } from './batch'
 import { importedFileReferences, importBotFiles } from './files'
@@ -31,8 +32,13 @@ export async function checkImportDestination(owner: ImportOwner) {
     runtime.notReady ||
     (runtime.local && !runtime.local.online)
   )
-    throw new Error('The selected agent is not currently available')
-  if (!isOpenAbProvider(owner.agentRuntime)) throw new Error('Unsupported destination agent')
+    throw new AppError(
+      409,
+      'import_destination_unavailable',
+      'The selected agent is not currently available',
+    )
+  if (!isOpenAbProvider(owner.agentRuntime))
+    throw new AppError(400, 'invalid_import_target', 'Unsupported destination agent')
 
   return runtime
 }

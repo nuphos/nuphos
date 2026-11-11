@@ -136,3 +136,28 @@ test('lane layout splits overlapping chips and leaves separate ones full-width',
     ],
   )
 })
+
+test('imported schedules use their IANA clock across daylight saving time', () => {
+  const winter = nextOccurrencesAfter(
+    '0 9 * * *',
+    new Date('2026-01-01T00:00:00Z'),
+    1,
+    'Europe/Warsaw',
+  )
+  const summer = nextOccurrencesAfter(
+    '0 9 * * *',
+    new Date('2026-07-01T00:00:00Z'),
+    1,
+    'Europe/Warsaw',
+  )
+
+  assert.equal(winter[0].toISOString(), '2026-01-01T08:00:00.000Z')
+  assert.equal(summer[0].toISOString(), '2026-07-01T07:00:00.000Z')
+  const events = buildScheduleEvents(
+    [trigger({ timeZone: 'Europe/Warsaw' })],
+    new Date('2026-07-01T00:00:00Z'),
+    new Date('2026-07-02T00:00:00Z'),
+  )
+
+  assert.equal(events[0].start.toISOString(), '2026-07-01T07:00:00.000Z')
+})
