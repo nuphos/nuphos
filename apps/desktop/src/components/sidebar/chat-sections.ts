@@ -4,6 +4,11 @@ import type { ReactNode } from 'react'
 /** The internal title of the Bots group (chats); the sidebar labels it Bots. */
 export const BOTS_SECTION = 'Channels'
 
+/** A Task listed under its Bot as well folds there on its own, apart from its row in Tasks. */
+export function foldKey(section: Pick<Section, 'title'>, key: string): string {
+  return section.title === BOTS_SECTION ? `bots:${key}` : key
+}
+
 /**
  * The agent groups in team view, iMessage-style. Bots holds chats: group
  * channels and each Bot's 1:1 channel, newest message first (the list's own
@@ -25,7 +30,9 @@ export function withChatSections(
   )
   const sessionOf = (item: Item) => item.key.replace('agent-session:', '')
   const isChat = (item: Item) =>
-    item.channel || (item.bot && !item.readOnlyChat && !chatted.has(sessionOf(item)))
+    item.channel ||
+    item.botNested ||
+    (item.bot && !item.readOnlyChat && !chatted.has(sessionOf(item)))
   const chats = agents.items.filter(isChat).map((item) => ({
     ...item,
     description: undefined,
@@ -54,7 +61,7 @@ export function withChatSections(
   // A Task is one line: its runtime icon and title, no latest message.
   const tasks = projects(
     agents.items
-      .filter((item) => !item.channel)
+      .filter((item) => !item.channel && !item.botNested)
       .map(({ preview: _preview, time: _time, ...item }) => {
         const botChat = botChatOf(item)
 

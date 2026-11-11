@@ -22,6 +22,7 @@ export function AgentAvatar({
   animated = false,
   face = true,
   showBadge = true,
+  looping = false,
 }: {
   agentId: string
   /** The picked avatar as last fetched; a newer pick seen anywhere in the app wins. */
@@ -35,6 +36,8 @@ export function AgentAvatar({
   face?: boolean
   /** Groups render badges above both face layers. */
   showBadge?: boolean
+  /** Loops the idle loop regardless of this agent's own turn (a Bot whose sub-agent works). */
+  looping?: boolean
 }) {
   const seen = useAgentAvatarPick(agentId)
   const picked = face ? (seen === undefined ? avatar : seen) : undefined
@@ -65,7 +68,7 @@ export function AgentAvatar({
           ) : (
             <BotAvatarImage
               file={botAvatarFile(agentId, picked)}
-              looping={animated && running}
+              looping={looping || (animated && running)}
               className="absolute left-0 top-0 object-contain"
               style={{ width: box, height: box }}
             />
