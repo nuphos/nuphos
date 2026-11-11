@@ -148,8 +148,11 @@ struct ChannelView: View {
                     .font(Theme.Text.secondary)
                     .foregroundStyle(Theme.body)
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("chat.empty")
             .padding(24)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            // Centered, as the other placeholders: the list runs under the navigation bar.
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         }
     }
 
