@@ -16,6 +16,8 @@ export type ReplyQuestion = {
   secretName?: string
   /** The providers an `integration` request asks to connect. */
   providers?: string[]
+  /** The member's own credential an `integration` request asks for. */
+  credentials?: AgentInputRequest['credentials']
 }
 
 /** A question card as the transcript shows it. */
@@ -38,9 +40,10 @@ export function requestQuestion({
   category,
   secretName,
   providers,
+  credentials,
 }: Pick<
   AgentInputRequest,
-  'id' | 'question' | 'body' | 'options' | 'category' | 'secretName' | 'providers'
+  'id' | 'question' | 'body' | 'options' | 'category' | 'secretName' | 'providers' | 'credentials'
 >): ReplyQuestion {
   return {
     id,
@@ -50,6 +53,7 @@ export function requestQuestion({
     ...(category === 'credential' && { secret: true as const }),
     ...(secretName && { secretName }),
     ...(category === 'integration' && providers?.length && { providers }),
+    ...(category === 'integration' && credentials?.length && { credentials }),
   }
 }
 

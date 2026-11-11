@@ -153,6 +153,53 @@ describe('decision tool module', () => {
     })
   })
 
+  test("request_user_decision keeps a request for the member's own credential exactly", async () => {
+    await decisionToolModule({ publish: () => Promise.resolve() }).handlers(ctx)
+      .request_user_decision!({
+      label: 'Ask for your own GitHub',
+      category: 'integration',
+      question: 'Select your own GitHub for this task.',
+      credentials: [{ provider: 'personal', id: 'github' }],
+    })
+
+    expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
+      $push: {
+        inputRequests: {
+          $each: [
+            { category: 'integration', credentials: [{ provider: 'personal', id: 'github' }] },
+          ],
+        },
+      },
+    })
+  })
+
+  test('only the own GitHub or Linear can be named as a credential', async () => {
+    await expect(
+      decisionToolModule({ publish: () => Promise.resolve() }).handlers(ctx).request_user_decision!(
+        {
+          label: 'Ask for a team installation',
+          category: 'integration',
+          question: 'Select the installation.',
+          credentials: [{ provider: 'github', id: '166381069' }],
+        },
+      ),
+    ).resolves.toMatchObject({ isError: true })
+  })
+
+  test('a question names any access or the own credential, never both', async () => {
+    await expect(
+      decisionToolModule({ publish: () => Promise.resolve() }).handlers(ctx).request_user_decision!(
+        {
+          label: 'Ask for GitHub',
+          category: 'integration',
+          question: 'Select GitHub.',
+          providers: ['github'],
+          credentials: [{ provider: 'personal', id: 'github' }],
+        },
+      ),
+    ).resolves.toMatchObject({ isError: true })
+  })
+
   test('request_user_decision keeps its body for the Inbox and returns the requestId', async () => {
     const result = await decisionToolModule({ publish: async () => {} }).handlers(ctx)
       .request_user_decision!({

@@ -91,3 +91,22 @@ test('a question a queued message answers is no longer listed as open, so the ba
   expect(all.inputRequests).toBeUndefined()
   expect(all.pendingDecision).toBeUndefined()
 })
+
+test("a request for the member's own credential reaches clients with its exact target", () => {
+  const credentials = [{ provider: 'personal' as const, id: 'github' as const }]
+  const body = serializeConversationDoc({
+    sessionId: 's1',
+    inputRequests: [
+      {
+        id: 'q1',
+        category: 'integration',
+        question: 'Select your own GitHub',
+        credentials,
+        askedAt: askedAt(1),
+        status: 'open',
+      },
+    ],
+  })
+
+  expect((body.inputRequests as { credentials?: unknown }[])[0]?.credentials).toEqual(credentials)
+})

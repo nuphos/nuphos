@@ -45,6 +45,17 @@ export const CONNECTABLE_PROVIDERS = {
 
 export type ConnectableProvider = keyof typeof CONNECTABLE_PROVIDERS
 
+/** The member's own credential, named as list_credentials names it: only its selection answers. */
+export const PERSONAL_CREDENTIAL_REF = z
+  .object({ provider: z.literal('personal'), id: z.enum(['github', 'linear']) })
+  .strict()
+
+export type PersonalCredentialRef = z.infer<typeof PERSONAL_CREDENTIAL_REF>
+
+export function isPersonalCredentialRef(value: unknown): value is PersonalCredentialRef {
+  return PERSONAL_CREDENTIAL_REF.safeParse(value).success
+}
+
 const PROVIDER_NAMES = Object.keys(CONNECTABLE_PROVIDERS) as [
   ConnectableProvider,
   ...ConnectableProvider[],
@@ -93,6 +104,26 @@ const INLINE_CHOICE = /[(（]\s*recommended\s*[)）]/i
  * several questions in one, or choices written into the text instead of
  * `options`. Cards answer one question with buttons, so either breaks them.
  */
+/**
+ * Why an integration request names its target wrongly: `credentials` takes only
+ * the member's own credential, and never together with `providers`, which asks
+ * for any access of a kind; mixing them would leave it unclear what answers it.
+ */
+export function integrationTargetProblem(input: {
+  providers?: unknown
+  credentials?: unknown
+}): string | null {
+  if (input.credentials === undefined) return null
+  if (!Array.isArray(input.credentials) || !input.credentials.every(isPersonalCredentialRef)) {
+    return "`credentials` names only the member's own credential, {provider: 'personal', id: 'github' | 'linear'}; ask for team access with `providers`."
+  }
+  if (input.providers !== undefined) {
+    return "Pass either `providers` (any access of that kind, a team binding included) or `credentials` (only the member's own), not both: ask one question per target."
+  }
+
+  return null
+}
+
 export function decisionQuestionProblem(input: {
   question: string
   options?: readonly string[]
@@ -124,7 +155,7 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
         'Use this ONLY for a real preference, approval for a risky/costly/irreversible action, a credential or secret the tools cannot obtain, an integration the user must connect, or a material risk tradeoff. ' +
         'Do not use it for facts you can inspect, safe read-only work, optional follow-ups, or to avoid finishing the task. ' +
         'For an integration or cloud account the task needs that is not connected to the team, or connected but not selected for this conversation, use category `integration` and list it in `providers`: in the Desktop app the user then gets a Connect card for it. ' +
-        'This includes a personal credential list_credentials shows under `notSelected` (provider `personal`): name its id, `github` or `linear`, in `providers`. ' +
+        "`providers` asks for any access of that kind: a team binding answers it too. For the member's own credential that list_credentials shows under `notSelected` (provider `personal`), pass it in `credentials` as that (provider, id) pair instead: only selecting it answers the question. Ask for it only when the task needs the member's own token, not to act as them on a team binding. " +
         'Never ask in a free-text question to tick a credential in the picker: only a question with `providers` resolves itself, and resumes you, once that credential is selected, by the user or by a parent agent. ' +
         'Name only providers the task actually needs. Do not use `providers` when the credential is already selected and a call fails with AccessDenied or 403 (connecting another account does not fix missing permissions), or for MCP servers. ' +
         'For an API key, password or other secret only the user can type, use category `credential` with `secretName`: in the Desktop app the user then gets a masked input that writes the value to a file on this runtime, never into the conversation. Never ask the user to paste a secret into chat. ' +
@@ -144,6 +175,14 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
           .max(6)
           .optional()
           .describe('With category `integration`: the integrations or cloud accounts to connect.'),
+        credentials: z
+          .array(PERSONAL_CREDENTIAL_REF)
+          .min(1)
+          .max(2)
+          .optional()
+          .describe(
+            "With category `integration`: the member's own credential, as the (provider, id) pair list_credentials shows, e.g. {provider: 'personal', id: 'github'}.",
+          ),
         secretName: z
           .string()
           .regex(SECRET_NAME)
@@ -153,11 +192,12 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
           ),
       }),
       execute: async (input) => {
-        const problem = decisionQuestionProblem(input)
+        const problem = decisionQuestionProblem(input) ?? integrationTargetProblem(input)
 
         if (problem) throw new Error(problem)
         const { label: _label, category, question, body, options } = input
         const providers = category === 'integration' ? input.providers : undefined
+        const credentials = category === 'integration' ? input.credentials : undefined
         const secretName = category === 'credential' ? input.secretName : undefined
         const decision: ExplicitUserDecision = {
           category,
@@ -173,12 +213,14 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
           status: 'awaiting_user_decision',
           ...decision,
           ...(providers ? { providers } : {}),
+          ...(credentials ? { credentials } : {}),
           ...(secretName ? { secretName } : {}),
-          instruction: providers
-            ? 'The user sees a Connect card for these below your message. End the turn with one short sentence that refers to "the card below" (never "above") and wait; once one is selected for this conversation, you are told so in a new message and continue from there.'
-            : secretName
-              ? 'The user sees a secure input card below your message. End the turn with one short sentence that refers to "the card below" (never "above") and wait. Their next message gives the path of a file holding the value: read it only inside the command that needs it, e.g. "$(cat <path>)", and never print, echo or copy its contents.'
-              : 'End the turn now with this question and wait for the user. Do not continue the task or choose on their behalf.',
+          instruction:
+            providers || credentials
+              ? 'The user sees a Connect card for these below your message. End the turn with one short sentence that refers to "the card below" (never "above") and wait; once one is selected for this conversation, you are told so in a new message and continue from there.'
+              : secretName
+                ? 'The user sees a secure input card below your message. End the turn with one short sentence that refers to "the card below" (never "above") and wait. Their next message gives the path of a file holding the value: read it only inside the command that needs it, e.g. "$(cat <path>)", and never print, echo or copy its contents.'
+                : 'End the turn now with this question and wait for the user. Do not continue the task or choose on their behalf.',
         }
       },
     })

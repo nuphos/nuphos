@@ -80,6 +80,11 @@ function requestableAs(provider: string, id: string): string | undefined {
 
 function unselectedEntry(provider: string, id: string, label: string): UnselectedCredentialEntry {
   const requestable = requestableAs(provider, id)
+  // The member's own credential is asked for exactly: `providers` is answered by any access.
+  const ask =
+    provider === 'personal'
+      ? `credentials [{"provider": "personal", "id": "${id}"}]`
+      : `providers ["${requestable ?? ''}"]`
   const access =
     provider === 'personal'
       ? 'Standalone personal token access is not enabled for this conversation. This says ' +
@@ -94,7 +99,7 @@ function unselectedEntry(provider: string, id: string, label: string): Unselecte
     hint: requestable
       ? access +
         'When the task needs it, call request_user_decision ' +
-        `with category "integration" and providers ["${requestable}"], naming "${label}" in the ` +
+        `with category "integration" and ${ask}, naming "${label}" in the ` +
         'question. Never ask for it in a free-text question: selecting it answers this one and ' +
         'resumes you.'
       : access +

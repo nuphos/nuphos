@@ -461,13 +461,15 @@ describe('partitionCredentials', () => {
     })
   })
 
-  test('an unselected personal credential is requested by its provider, not by a tick', () => {
+  // `providers ["github"]` is answered by any GitHub access, a team installation too.
+  test('an unselected personal credential is requested as its exact pair, not by a tick', () => {
     const options = emptyOptions()
 
     options.personalCredentials = [{ provider: 'github', login: 'octo' }]
     const { unselected } = partitionCredentials({ personalCredentialIds: [] }, options)
 
-    expect(unselected[0]?.hint).toContain('providers ["github"]')
+    expect(unselected[0]?.hint).toContain('credentials [{"provider": "personal", "id": "github"}]')
+    expect(unselected[0]?.hint).not.toContain('providers [')
   })
 
   test('lists usable but unselected credentials with a request hint and no way to fetch them', () => {
