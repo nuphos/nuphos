@@ -30,7 +30,8 @@ import type { AuthVariables } from '@/middleware/auth'
 import type { Context } from 'hono'
 
 export const botImportRoutes = new Hono<{ Variables: AuthVariables }>()
-botImportRoutes.use('*', requireAuth)
+// Mounted at /agent beside the main agent router: a '*' middleware would gate every /agent route.
+botImportRoutes.use('/bot-imports/*', requireAuth)
 
 async function ownerOf(c: Context<{ Variables: AuthVariables }>): Promise<ImportOwner> {
   const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c))

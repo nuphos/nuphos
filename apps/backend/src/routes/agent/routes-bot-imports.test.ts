@@ -99,3 +99,14 @@ test('unknown principal, runtime or source selection fields are rejected', async
   expect(reads).toBe(0)
   expect(writes).toBe(0)
 })
+
+test('import auth does not gate sibling /agent routes such as device runtime tunnels', async () => {
+  const shared = new Hono().route('/agent', agent).route(
+    '/agent',
+    new Hono().get('/devices/d/runtime-tunnel', (c) => c.text('tunnel')),
+  )
+
+  shared.onError(errorHandler)
+  expect((await shared.request('/agent/devices/d/runtime-tunnel')).status).toBe(200)
+  expect((await shared.request('/agent/bot-imports/export-skill')).status).toBe(401)
+})

@@ -104,6 +104,7 @@ describe('independent Bot bundle admission', () => {
 
     expect(() => readBotBundle(zip(files, { mode: 0xa1ff }))).toThrow('links')
     expect(() => readBotBundle(zip(files, { flags: 1 }))).toThrow('encryption')
+    expect(readBotBundle(zip(files, { flags: 0x802, deflate: true })).manifest.bots).toHaveLength(1)
     expect(() => readBotBundle(bundle([['Manifest.json', '{}']]))).toThrow('duplicate')
     expect(() =>
       readBotBundle(
@@ -162,6 +163,21 @@ describe('independent Bot bundle admission', () => {
 
     withComment.writeUInt16LE(comment.length, withComment.length - 2)
     expect(() => readBotBundle(Buffer.concat([withComment, comment]))).toThrow('secret-bearing')
+  })
+
+  test('accepts ordinary prose, code and links that only resemble secrets', () => {
+    for (const text of [
+      'GitHub token: reconnect in Nuphos.',
+      'Credentials: reconnect in Nuphos settings.',
+      'Use the type `password: string` in the form model.',
+      'See https://docs.google.com/document/d/1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789/edit',
+    ]) {
+      const value = { ...manifest(), bots: [{ ...manifest().bots[0], instructions: text }] }
+
+      expect(
+        readBotBundle(zip([['manifest.json', JSON.stringify(value)]])).manifest.bots,
+      ).toHaveLength(1)
+    }
   })
 
   test('rejects highly expanding ZIP data before inflation', () => {

@@ -18,8 +18,12 @@ function invalid(reason: string): never {
   throw new Error(`Cannot import bundle: ${reason}`)
 }
 
+// Keyword and entropy heuristics match ordinary prose, code, links and compressed bytes;
+// rejecting a whole export needs a concrete credential format.
+const HEURISTIC = new Set(['secret-assignment', 'secret-flag', 'high-entropy'])
+
 function checkSecret(text: string) {
-  if (redactSecrets(text).matches.length)
+  if (redactSecrets(text).matches.some((match) => !HEURISTIC.has(match.kind)))
     invalid('secret-bearing content; remove credentials and export again')
 }
 
@@ -89,7 +93,8 @@ function entries(bytes: Buffer): Entry[] {
     const method = bytes.readUInt16LE(at + 10)
     const unixType = (bytes.readUInt32LE(at + 38) >>> 16) & 0xf000
 
-    if ((flags & ~0x0808) !== 0 || ![0, 8].includes(method))
+    // Bits 1-2 only record the deflate level (zip -9 / -1); bit 3 is a data descriptor, bit 11 UTF-8.
+    if ((flags & ~0x080e) !== 0 || ![0, 8].includes(method))
       invalid('unsupported ZIP encoding or encryption')
     if (unixType !== 0 && unixType !== 0x8000 && unixType !== 0x4000)
       invalid('ZIP links or special files are not allowed')
