@@ -107,6 +107,14 @@ class FixtureDeviceTest {
         waitFor(hasContentDescription("Back"))
         compose.waitUntil(20_000) { store.session("fixture", "").loaded }
     }
+    /** Saved under the app's files, `review-2030/`, for the PR's screenshots. */
+    private fun capture(name: String) {
+        compose.waitForIdle()
+        val directory = java.io.File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "review-2030").apply { mkdirs() }
+        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot() ?: error("Screenshot unavailable")
+        java.io.File(directory, "$name.png").outputStream().use { check(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)) }
+    }
+
     private fun tool() = ChatPart.Tool("fixture-tool", "terminal", false, ChatPart.Tool.State.OutputAvailable,
         input = JsonValue.obj("command" to JsonValue.Str("printf FIXTURE_TOOL_INPUT")),
         output = JsonValue.Str("FIXTURE_TOOL_OUTPUT"), title = "Fixture terminal")
@@ -252,6 +260,35 @@ class FixtureDeviceTest {
         compose.onNodeWithText(loadError).assertIsDisplayed()
         compose.onNodeWithContentDescription("Back").performClick()
         Assert.assertTrue(returned)
+    }
+    @Test fun aFailedRunKeepsAOneLineHeaderAndFolds() {
+        val long = "printf 'first line'\necho " + "x".repeat(300) + "\nexit 1"
+        val first = tool().copy(toolCallId = "first-tool", title = "First terminal")
+        val failed = tool().copy(toolCallId = "failed-tool", title = null, state = ChatPart.Tool.State.OutputError,
+            input = JsonValue.obj("command" to JsonValue.Str(long)), output = null, errorText = "FIXTURE_FAILURE")
+        render(listOf(first, failed))
+        val header = compose.onNode(hasText("· 2 calls · Failed", substring = true))
+        header.performScrollTo()
+        capture("failed-run")
+        val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        header.performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        // One line, however long the command: the full command is in the run and the call's sheet.
+        Assert.assertEquals(1, layouts.single().lineCount)
+        // A failure does not hold the run open: folded until tapped, and a tap folds it again.
+        compose.onNodeWithText("First terminal").assertDoesNotExist()
+        header.performClick()
+        compose.onNodeWithText("First terminal").assertExists()
+        capture("failed-run-open")
+        header.performClick()
+        compose.onNodeWithText("First terminal").assertDoesNotExist()
+    }
+    @Test fun aRunAwaitingAuthorizationOpensItself() {
+        detail = detail.copy(isOwner = true)
+        val approval = tool().copy(toolCallId = "approval-tool", title = "Approval terminal",
+            state = ChatPart.Tool.State.ApprovalRequested, approval = ChatPart.Tool.Approval("fixture-approval"))
+        render(listOf(tool(), approval))
+        compose.onNodeWithText("Approval terminal · 2 calls · Authorization required").assertExists()
+        compose.onNodeWithText("Fixture terminal").assertExists()
     }
     @Test fun alwaysAllowCancelDoesNotSaveRule() {
         detail = detail.copy(isOwner = true)
