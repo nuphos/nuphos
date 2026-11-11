@@ -151,7 +151,7 @@ class AgentRuntimeApi internal constructor(private val token: String, teamId: St
     private suspend fun execute(path: String, method: String, body: String? = null, expected: Int): JsonObject =
         executeResponse(path, method, body, expected).second
     private suspend fun executeResponse(path: String, method: String, body: String? = null, expected: Int, alternate: Int? = null): Pair<Int, JsonObject> = withContext(Dispatchers.IO) {
-        val request = Request.Builder().url("${NuphosApi.BASE_URL}/$path")
+        val request = Request.Builder().url("${NuphosApi.baseUrl(token)}/$path")
             .header("Authorization", "Bearer $token").header("Accept", "application/json")
             .header("x-atlas-client", Http.clientHeader()).method(method, body?.toRequestBody(Http.jsonMedia)).build()
         client.newCall(request).execute().use { response ->

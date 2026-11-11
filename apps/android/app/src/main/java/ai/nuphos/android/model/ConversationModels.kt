@@ -290,7 +290,11 @@ object PlanLink {
     fun target(uri: java.net.URI): Target? {
         val host = uri.host?.lowercase()
         if (host != null) {
-            if (host != "nuphos.ai" && !host.endsWith(".nuphos.ai")) return null
+            val selfHosted = !ai.nuphos.android.data.BackendOrigin.isCloud()
+            val own = java.net.URI(ai.nuphos.android.data.NuphosWeb.SITE_URL)
+            if (selfHosted) {
+                if (uri.scheme != own.scheme || uri.rawAuthority != own.rawAuthority) return null
+            } else if (host != "nuphos.ai" && !host.endsWith(".nuphos.ai")) return null
         } else if (uri.scheme != null) {
             return null
         }

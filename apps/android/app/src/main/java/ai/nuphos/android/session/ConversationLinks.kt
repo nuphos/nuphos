@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /** Public IDs are destinations only, never credentials. No query parameters are supported. */
 data class ConversationLink(val teamId: String, val conversationId: String) {
-    val url get() = "https://nuphos.ai/teams/$teamId/agent/$conversationId"
+    val url get() = "${ai.nuphos.android.data.NuphosWeb.SITE_URL}/teams/$teamId/agent/$conversationId"
 
     companion object {
         private val path = Regex("/teams/([a-fA-F0-9]{24})/agent/([A-Za-z0-9][A-Za-z0-9_-]{0,127})/?")
@@ -38,7 +38,7 @@ data class ConversationLink(val teamId: String, val conversationId: String) {
 
         fun parse(value: String): ConversationLink? = runCatching {
             val uri = URI(value)
-            if (uri.scheme != "https" || uri.rawAuthority != "nuphos.ai" ||
+            if (uri.scheme != "https" || uri.rawAuthority != URI(ai.nuphos.android.data.NuphosWeb.SITE_URL).rawAuthority ||
                 uri.rawQuery != null || uri.rawFragment != null) return null
             val match = path.matchEntire(uri.rawPath ?: return null) ?: return null
             ConversationLink(match.groupValues[1], match.groupValues[2])
@@ -52,6 +52,7 @@ class PendingConversationLink {
     private var sequence = 0L
     private val mutable = MutableStateFlow<Request?>(null)
     val value = mutable.asStateFlow()
+    fun clear() { sequence++; mutable.value = null }
     fun offer(destination: ConversationLink) { mutable.value = Request(++sequence, destination) }
     fun restore(url: String?) {
         if (mutable.value == null) url?.let(ConversationLink::parse)?.let(::offer)

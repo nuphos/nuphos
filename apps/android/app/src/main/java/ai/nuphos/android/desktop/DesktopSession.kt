@@ -19,7 +19,7 @@ internal class DesktopSession(
     private val token: String, private val team: String, private val conversation: String,
     private val scope: CoroutineScope, private val current: () -> Boolean,
     private val calls: OkHttpClient = Http.client,
-    private val endpoint: String = NuphosApi.BASE_URL,
+    private val endpoint: String = NuphosApi.baseUrl(token),
     private val timing: DesktopTiming = DesktopTiming(),
 ) {
     enum class Phase { Connecting, Live, Failed, Closed }

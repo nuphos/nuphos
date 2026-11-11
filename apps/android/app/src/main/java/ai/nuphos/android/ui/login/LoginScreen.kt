@@ -21,6 +21,7 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.key
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -62,16 +63,20 @@ fun LoginScreen(
     val auth = LocalAuthSession.current
     val activity = LocalActivity.current
     val scope = rememberCoroutineScope()
-    var options by remember { mutableStateOf<ProviderOptions>(ProviderOptions.Loading) }
+    val origin = auth.serverOrigin
+    var showServer by remember { mutableStateOf(false) }
+    var options by remember(origin) { mutableStateOf<ProviderOptions>(ProviderOptions.Loading) }
     fun refresh() {
+        val expectedOrigin = origin
         options = ProviderOptions.Loading
         scope.launch {
-            options = try { ProviderOptions.Ready(loadProviders()) }
+            val loaded = try { ProviderOptions.Ready(loadProviders()) }
             catch (e: CancellationException) { throw e }
             catch (_: Exception) { ProviderOptions.Failed }
+            if (auth.serverOrigin == expectedOrigin) options = loaded
         }
     }
-    LaunchedEffect(Unit) { refresh() }
+    LaunchedEffect(origin) { refresh() }
     val busy = auth.state is AuthSession.State.SigningIn
     Box(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Box(
@@ -84,57 +89,63 @@ fun LoginScreen(
                     ),
                 ),
         )
-        EmailLoginContent(
-            busy = busy,
-            error = (auth.state as? AuthSession.State.SignedOut)?.error,
-            onSubmit = auth::emailSignIn,
-            onPasswordSubmit = auth::passwordSignIn,
-            onCancel = auth::cancelCredentialSignIn,
-            onDismissError = auth::dismissSignInError,
-            header = {
-                Column(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Surface(
-                        modifier = Modifier.size(88.dp),
-                        shape = RoundedCornerShape(28.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        shadowElevation = 6.dp,
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(painterResource(R.drawable.ic_nuphos_mark), contentDescription = null,
-                                modifier = Modifier.size(56.dp), tint = MaterialTheme.colorScheme.onPrimary)
+        key(origin) {
+            EmailLoginContent(
+                busy = busy,
+                error = (auth.state as? AuthSession.State.SignedOut)?.error,
+                onSubmit = auth::emailSignIn,
+                onPasswordSubmit = auth::passwordSignIn,
+                onCancel = auth::cancelCredentialSignIn,
+                onDismissError = auth::dismissSignInError,
+                header = {
+                    Column(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Surface(
+                            modifier = Modifier.size(88.dp),
+                            shape = RoundedCornerShape(28.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            shadowElevation = 6.dp,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(painterResource(R.drawable.ic_nuphos_mark), contentDescription = null,
+                                    modifier = Modifier.size(56.dp), tint = MaterialTheme.colorScheme.onPrimary)
+                            }
+                        }
+                        Spacer(Modifier.height(24.dp))
+                        Text(stringResource(R.string.welcome_title), style = MaterialTheme.typography.displaySmall,
+                            color = MaterialTheme.colorScheme.onBackground, textAlign = TextAlign.Center)
+                        TextButton(onClick = { showServer = true }, enabled = !busy) {
+                            Text(if (ai.nuphos.android.data.BackendOrigin.isCloud(origin)) "Nuphos Cloud · Server settings" else "$origin · Server settings")
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(stringResource(R.string.welcome_body), style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                    }
+                },
+                alternatives = {
+                    when (val current = options) {
+                        ProviderOptions.Loading -> Unit
+                        ProviderOptions.Failed -> TextButton(onClick = ::refresh, enabled = !busy,
+                            modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Retry sign-in options") }
+                        is ProviderOptions.Ready -> if (current.providers.isNotEmpty()) {
+                            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                HorizontalDivider(Modifier.weight(1f))
+                                Text("or", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 12.dp))
+                                HorizontalDivider(Modifier.weight(1f))
+                            }
+                            current.providers.forEach { provider ->
+                                OutlinedButton(
+                                    onClick = { activity?.let { auth.signIn(it, provider) } },
+                                    enabled = !busy && activity != null,
+                                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                                ) { Text("Continue with ${provider.title}", style = MaterialTheme.typography.titleMedium) }
+                            }
                         }
                     }
-                    Spacer(Modifier.height(24.dp))
-                    Text(stringResource(R.string.welcome_title), style = MaterialTheme.typography.displaySmall,
-                        color = MaterialTheme.colorScheme.onBackground, textAlign = TextAlign.Center)
-                    Spacer(Modifier.height(8.dp))
-                    Text(stringResource(R.string.welcome_body), style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-                }
-            },
-            alternatives = {
-                when (val current = options) {
-                    ProviderOptions.Loading -> Unit
-                    ProviderOptions.Failed -> TextButton(onClick = ::refresh, enabled = !busy,
-                        modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Retry sign-in options") }
-                    is ProviderOptions.Ready -> if (current.providers.isNotEmpty()) {
-                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            HorizontalDivider(Modifier.weight(1f))
-                            Text("or", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 12.dp))
-                            HorizontalDivider(Modifier.weight(1f))
-                        }
-                        current.providers.forEach { provider ->
-                            OutlinedButton(
-                                onClick = { activity?.let { auth.signIn(it, provider) } },
-                                enabled = !busy && activity != null,
-                                modifier = Modifier.fillMaxWidth().height(52.dp),
-                            ) { Text("Continue with ${provider.title}", style = MaterialTheme.typography.titleMedium) }
-                        }
-                    }
-                }
-            },
-        )
+                },
+            )
+        }
+        if (showServer && !busy) ServerSettings(origin, auth::selectServer, onDismiss = { showServer = false })
     }
 }
 

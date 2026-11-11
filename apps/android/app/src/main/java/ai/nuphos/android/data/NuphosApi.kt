@@ -20,7 +20,9 @@ import okhttp3.Request
 import java.util.concurrent.TimeUnit
 
 object NuphosApi {
-    const val BASE_URL = ai.nuphos.android.BuildConfig.API_BASE_URL
+    val BASE_URL: String get() = BackendOrigin.current
+
+    fun baseUrl(token: String): String = BackendOrigin.forToken(token)
 
     sealed class Failure : Exception() {
         data object Unauthorized : Failure() {
@@ -163,7 +165,7 @@ object NuphosApi {
         forbiddenIsUnauthorized: Boolean = true,
         transport: OkHttpClient = Http.client,
     ): T = withContext(Dispatchers.IO) {
-        val url = BASE_URL.toHttpUrl().newBuilder().addPathSegments(path).apply {
+        val url = baseUrl(token).toHttpUrl().newBuilder().addPathSegments(path).apply {
             query.forEach { (k, v) -> addQueryParameter(k, v) }
         }.build()
         val client = transport.newBuilder()

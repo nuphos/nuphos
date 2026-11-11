@@ -4,12 +4,14 @@
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="nuphos.secure.xml" />
+        <exclude domain="sharedpref" path="nuphos.backend.xml" />
         <exclude domain="sharedpref" path="nuphos.voice.xml" />
         <exclude domain="sharedpref" path="nuphos.secure.fallback.xml" />
         <exclude domain="sharedpref" path="nuphos.composer-drafts.xml" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="nuphos.secure.xml" />
+        <exclude domain="sharedpref" path="nuphos.backend.xml" />
         <exclude domain="sharedpref" path="nuphos.voice.xml" />
         <exclude domain="sharedpref" path="nuphos.secure.fallback.xml" />
         <exclude domain="sharedpref" path="nuphos.composer-drafts.xml" />

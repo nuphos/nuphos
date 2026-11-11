@@ -24,6 +24,9 @@ class NuphosApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        getSharedPreferences("nuphos.backend", MODE_PRIVATE).getString("origin", null)?.let {
+            runCatching { ai.nuphos.android.data.BackendOrigin.select(it) }
+        }
         // One-time cleanup of the legacy process-local layout; it had no recoverable metadata.
         val legacyDraftText = ai.nuphos.android.data.ComposerDraftPreferences(this)
         shareDraftStore = ai.nuphos.android.data.ShareDraftStore(java.io.File(noBackupFilesDir, "share-drafts-v1"),

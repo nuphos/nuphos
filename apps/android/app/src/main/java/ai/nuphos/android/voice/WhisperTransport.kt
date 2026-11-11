@@ -1,6 +1,5 @@
 package ai.nuphos.android.voice
 
-import ai.nuphos.android.BuildConfig
 import ai.nuphos.android.data.Http
 import java.io.File
 import java.io.IOException
@@ -42,7 +41,7 @@ class NuphosWhisperTransport(
     private val calls: Call.Factory = Http.client.newBuilder()
         .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false)
         .readTimeout(90, TimeUnit.SECONDS).writeTimeout(90, TimeUnit.SECONDS).callTimeout(90, TimeUnit.SECONDS).build(),
-    private val baseUrl: String = BuildConfig.API_BASE_URL,
+    private val baseUrl: String? = null,
 ) : WhisperTransport {
     override suspend fun transcribe(file: File, token: String, teamId: String, prompt: String): Transcript {
         require(token.isNotBlank() && teamId.isNotBlank()) { "Choose a workspace and sign in to use voice input." }
@@ -50,7 +49,7 @@ class NuphosWhisperTransport(
         val multipart = MultipartBody.Builder().setType(MultipartBody.FORM)
         if (prompt.isNotBlank()) multipart.addFormDataPart("prompt", prompt.trim())
         multipart.addFormDataPart("file", "dictation.m4a", file.asRequestBody("audio/m4a".toMediaType()))
-        val url = baseUrl.trimEnd('/').toHttpUrl().newBuilder()
+        val url = (baseUrl ?: ai.nuphos.android.data.NuphosApi.baseUrl(token)).trimEnd('/').toHttpUrl().newBuilder()
             .addPathSegment("teams").addPathSegment(teamId).addPathSegment("voice-transcriptions").build()
         val body = execute(Request.Builder().url(url)
             .header("Authorization", "Bearer $token").header("x-atlas-client", Http.clientHeader())

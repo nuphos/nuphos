@@ -12,7 +12,7 @@ fun interface ConnectorTransport {
 class ConnectorHttpFailure(val code: Int) : Exception("The connector request failed ($code). Refresh connections before retrying.")
 class ConnectorApi(private val token: String) : ConnectorTransport {
     override suspend fun request(method: String, teamId: String, path: String, body: JsonValue?, query: Map<String, String>): JsonValue = withContext(Dispatchers.IO) {
-        val url = NuphosApi.BASE_URL.toHttpUrl().newBuilder().addPathSegment("teams").addPathSegment(teamId).addPathSegments(path).apply {
+        val url = NuphosApi.baseUrl(token).toHttpUrl().newBuilder().addPathSegment("teams").addPathSegment(teamId).addPathSegments(path).apply {
             query.forEach { (key, value) -> addQueryParameter(key, value) }
         }.build()
         val payload = body?.let { Http.json.encodeToString(JsonValue.serializer(), it).toRequestBody(Http.jsonMedia) }
