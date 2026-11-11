@@ -217,7 +217,7 @@ export type WindowAppApi = {
     teamId: string,
     name: string,
     reviewed: { relPath: string; realPath: string }[],
-  ): Promise<void>
+  ): Promise<LocalSetupResult>
   localSetupSetAutoSync(teamId: string, enabled: boolean): Promise<void>
   teamSkillsImportLocal(
     teamId: string,

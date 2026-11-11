@@ -61,6 +61,7 @@ export function LocalSetupLinkedSkills({
         confirmLabel={t('Allow and sync')}
         onConfirm={async () => {
           if (!reviewing) return
+          // Approves, then syncs in a pass of its own once any running one ends.
           await api.localSetupApproveLinks(teamId, reviewing.name, reviewing.files)
           onApproved()
         }}

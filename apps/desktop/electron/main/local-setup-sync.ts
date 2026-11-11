@@ -225,6 +225,13 @@ export function syncLocalSetup(teamId: string): Promise<LocalSetupResult> {
   return pass
 }
 
+/** A pass that starts after the one in flight, so it sees what changed since that began. */
+export async function syncLocalSetupAfter(teamId: string): Promise<LocalSetupResult> {
+  await running.get(teamId)?.catch(() => undefined)
+
+  return syncLocalSetup(teamId)
+}
+
 export async function localSetupStatus(teamId: string): Promise<LocalSetupStatus> {
   const team = readTeam(await stateKey(teamId))
   const skills = (await listLocalSkills()).filter((skill) => skill.source === 'claude')

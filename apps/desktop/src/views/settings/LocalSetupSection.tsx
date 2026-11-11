@@ -236,7 +236,7 @@ export function LocalSetupSection({ team }: { team: AtlasTeam | undefined }) {
             <LocalSetupLinkedSkills
               teamId={teamId}
               skills={status.linkedSkills}
-              onApproved={() => void syncNow()}
+              onApproved={() => void refresh()}
             />
           )}
 

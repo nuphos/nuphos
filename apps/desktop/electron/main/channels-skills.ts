@@ -1,7 +1,7 @@
 import * as atlas from '../atlas'
 
 import { approveLinkedSkill } from './local-setup-snapshot'
-import { localSetupStatus, syncLocalSetup } from './local-setup-sync'
+import { localSetupStatus, syncLocalSetup, syncLocalSetupAfter } from './local-setup-sync'
 import { setLocalSetupAutoSync } from './local-setup-watch'
 import { importLocalSkill } from './local-skill-import'
 import { listLocalSkills } from './local-skills'
@@ -42,12 +42,17 @@ export const skillChannels = {
     atlas.teamSkillsPromote(teamId, name),
   'localSetup:status': (_e: unknown, teamId: string) => localSetupStatus(teamId),
   'localSetup:sync': (_e: unknown, teamId: string) => syncLocalSetup(teamId),
-  'localSetup:approveLinks': (
+  'localSetup:approveLinks': async (
     _e: unknown,
     teamId: string,
     name: string,
     reviewed: LocalSkillReviewedFile[],
-  ) => approveLinkedSkill(teamId, name, reviewed),
+  ) => {
+    // A pass already running read the skill before this approval, so run a new one.
+    await approveLinkedSkill(teamId, name, reviewed)
+
+    return syncLocalSetupAfter(teamId)
+  },
   'localSetup:setAutoSync': (_e: unknown, teamId: string, enabled: boolean) =>
     setLocalSetupAutoSync(teamId, enabled),
 }

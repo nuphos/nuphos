@@ -19,6 +19,8 @@ type Team = { objects: Map<string, number>; instructions: Instruction[] }
 
 const teams = new Map<string, Team>()
 const failures = { listInstructions: 0, createInstruction: [] as number[] }
+// Holds a pass after its snapshot, while it lists the store.
+let listGate: Promise<void> | null = null
 let creates = 0
 let nextId = 0
 
@@ -39,6 +41,7 @@ const userData = mkdtempSync(path.join(os.tmpdir(), 'local-setup-data-'))
 const originalHome = process.env.HOME
 
 let syncLocalSetup: typeof import('./local-setup-sync.ts').syncLocalSetup
+let syncLocalSetupAfter: typeof import('./local-setup-sync.ts').syncLocalSetupAfter
 let approveLinkedSkill: typeof import('./local-setup-snapshot.ts').approveLinkedSkill
 let listLocalSkills: typeof import('./local-skills.ts').listLocalSkills
 let setLocalSetupAutoSync: typeof import('./local-setup-watch.ts').setLocalSetupAutoSync
@@ -71,9 +74,11 @@ before(async () => {
   })
   mock.module('../atlas.ts', {
     namedExports: {
-      teamSkillsListObjects: async (teamId: string) => ({
-        objects: [...team(teamId).objects].map(([key, size]) => ({ key, size })),
-      }),
+      teamSkillsListObjects: async (teamId: string) => {
+        await listGate
+
+        return { objects: [...team(teamId).objects].map(([key, size]) => ({ key, size })) }
+      },
       teamSkillsPutObject: async (teamId: string, key: string, file: { bytes: Uint8Array }) => {
         await tick()
         team(teamId).objects.set(key, file.bytes.byteLength)
@@ -124,7 +129,7 @@ before(async () => {
       },
     },
   })
-  ;({ syncLocalSetup } = await import('./local-setup-sync.ts'))
+  ;({ syncLocalSetup, syncLocalSetupAfter } = await import('./local-setup-sync.ts'))
   ;({ approveLinkedSkill } = await import('./local-setup-snapshot.ts'))
   ;({ listLocalSkills } = await import('./local-skills.ts'))
   ;({ setLocalSetupAutoSync, stopLocalSetupWatcher } = await import('./local-setup-watch.ts'))
@@ -272,6 +277,29 @@ describe('syncLocalSetup linked skills', () => {
     assert.deepEqual(result.skipped, [{ name: 'deploy', reason: 'needs_review' }])
     assert.equal(result.removedSkills, 0)
     assert.equal(team('t1').objects.get('skills/deploy/id_demo'), 'private'.length)
+    rmSync(outside, { recursive: true, force: true })
+  })
+
+  it('syncs links approved while a pass that skipped them is still running', async () => {
+    const outside = mkdtempSync(path.join(os.tmpdir(), 'local-setup-outside-'))
+    let release = () => {}
+
+    writeFileSync(path.join(outside, 'id_demo'), 'private')
+    symlinkSync(path.join(outside, 'id_demo'), path.join(home, '.claude/skills/deploy/id_demo'))
+    listGate = new Promise((resolve) => {
+      release = resolve
+    })
+    const running = syncLocalSetup('t1')
+
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    await approve('t1', 'deploy')
+    const fresh = syncLocalSetupAfter('t1')
+
+    listGate = null
+    release()
+    assert.deepEqual((await running).skipped, [{ name: 'deploy', reason: 'needs_review' }])
+    assert.deepEqual((await fresh).skipped, [])
+    assert.ok(team('t1').objects.has('skills/deploy/id_demo'))
     rmSync(outside, { recursive: true, force: true })
   })
 
