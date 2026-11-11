@@ -153,11 +153,12 @@ test('an older Desktop can start a new chat after saving an unknown current mode
   const body = { id: 'new-chat', messages: [], initialSessionConfig: { model: '' } }
 
   validateChatBody(body)
-  expect(body.initialSessionConfig).toEqual({})
+  expect(Object.keys(body.initialSessionConfig)).toEqual([])
 })
 test('omitting an unknown initial model keeps an explicit effort without inventing a model', () => {
   const body = { id: 'new-chat', messages: [], initialSessionConfig: { model: '', effort: 'high' } }
 
   validateChatBody(body)
-  expect(body.initialSessionConfig).toEqual({ effort: 'high' })
+  expect(Object.keys(body.initialSessionConfig)).toEqual(['effort'])
+  expect(body.initialSessionConfig.effort).toBe('high')
 })
