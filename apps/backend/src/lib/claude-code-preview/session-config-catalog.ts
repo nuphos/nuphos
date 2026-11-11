@@ -46,11 +46,23 @@ export function catalogSessionConfig(
 export async function offeredSessionConfig(
   catalogFor: (model?: string) => Promise<RuntimeModelCatalog>,
   pick: RuntimeDefaults,
+  confirmedOnly = false,
 ): Promise<{ options: SessionConfigOption[]; kept: RuntimeDefaults }> {
-  let catalog = pick.model ? await catalogFor(pick.model).catch(() => undefined) : undefined
+  let catalog = pick.model ? await catalogFor(pick.model).catch(() => {}) : undefined
 
   if (!catalog?.models.length) catalog = await catalogFor()
-  const options = catalogSessionConfig(catalog, pick)
+  const offered = catalogSessionConfig(catalog, pick)
+  const options = confirmedOnly
+    ? offered.flatMap((option) => {
+        const value = pick[option.kind]
+        const confirmed =
+          value !== undefined && option.options.some((choice) => choice.value === value)
+
+        if (confirmed) return [{ ...option, currentValue: value }]
+
+        return option.kind === 'model' ? [{ ...option, currentValue: '' }] : []
+      })
+    : offered
   const kept = Object.fromEntries(
     Object.entries(pick).filter(
       ([id, value]) => options.find((option) => option.id === id)?.currentValue === value,

@@ -41,17 +41,15 @@ enum NuphosWeb {
         return url.url!
     }
 
+    /// Only the state is checked: the code is single-use and redeemable solely
+    /// with this sign-in's handle and PKCE verifier, so a stray path, fragment
+    /// or extra parameter added on the way back is not worth failing over.
     static func parseCallback(_ url: URL, expectedState: String) -> CallbackResult? {
         guard url.scheme == callbackScheme, url.host == callbackHost,
-              url.path.isEmpty, url.user == nil, url.password == nil, url.port == nil, url.fragment == nil,
               let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
-              Set(items.map(\.name)).count == items.count,
-              items.allSatisfy({ ["state", "code", "error"].contains($0.name) }),
               items.first(where: { $0.name == "state" })?.value == expectedState else { return nil }
-        let code = items.first(where: { $0.name == "code" })?.value
-        let error = items.first(where: { $0.name == "error" })?.value
-        if let code, error == nil, code.range(of: "^[A-Za-z0-9_-]{43}$", options: .regularExpression) != nil { return .code(code) }
-        if error != nil, code == nil { return .failure("Sign-in did not complete. Please try again.") }
+        if items.contains(where: { $0.name == "error" }) { return .failure("Sign-in did not complete. Please try again.") }
+        if let code = items.first(where: { $0.name == "code" })?.value, !code.isEmpty { return .code(code) }
         return nil
     }
 

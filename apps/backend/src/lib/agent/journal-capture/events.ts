@@ -118,7 +118,7 @@ export async function captureToolIntent(
   input: { toolName: string; toolCallId: string; input: unknown },
 ): Promise<void> {
   const serialized = stableSerialize(input.input)
-  const redaction = redactSecrets(serialized.text)
+  const redaction = await redactSecrets(serialized.text)
   const authorization = await ctx.authorization()
   const payload: JsonValue = {
     toolName: input.toolName,
@@ -164,9 +164,9 @@ export async function captureToolResult(
   const serialized = stableSerialize(result.output)
   // toWellFormed: the truncation itself can split a surrogate pair, and a
   // lone surrogate in the payload would break the chain hash on read.
-  const preview = redactSecrets(
+  const { redacted: preview } = await redactSecrets(
     serialized.text.slice(0, OUTPUT_PREVIEW_CHARS).toWellFormed(),
-  ).redacted
+  )
 
   await ctx.appendOpen(
     'tool_call_result',

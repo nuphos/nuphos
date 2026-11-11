@@ -46,7 +46,7 @@ export async function createMemoryRecord(input: {
   }
   // Title and keywords are persisted, indexed, and later shown to models —
   // the fail-closed gate must scan every stored field, not just the body.
-  const secretKinds = findSecretBearingContent({
+  const secretKinds = await findSecretBearingContent({
     text: input.text,
     categories: input.categories,
     title: input.title,

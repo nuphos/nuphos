@@ -130,7 +130,7 @@ export async function syncConversationTranscriptUnlocked(
     }
   }
 
-  const writes = messageWrites(data, { attribution, runtimeToolParts, storedAt, now })
+  const writes = await messageWrites(data, { attribution, runtimeToolParts, storedAt, now })
 
   if (writes.length > 0) await agentMessages().bulkWrite(writes, { ordered: false })
   await recordTranscript(data, data.messages.length, now)
@@ -159,7 +159,7 @@ export async function appendTranscriptMessages(
     const storedIds = new Set(existing.map((message) => message.messageId))
     const offset = existing.reduce((next, message) => Math.max(next, message.index + 1), 0)
     const added = { ...data, messages: data.messages.filter((m) => !storedIds.has(m.id)) }
-    const writes = messageWrites(added, {
+    const writes = await messageWrites(added, {
       attribution: new Map(),
       runtimeToolParts: existing.flatMap((message) => message.parts ?? []),
       storedAt: new Map(),

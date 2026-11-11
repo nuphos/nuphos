@@ -2,7 +2,9 @@ import { beforeEach, expect, test } from 'bun:test'
 
 import { config } from '@/config'
 import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
+import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useDb } from '@/lib/test/doubles/db'
+import { useModels } from '@/lib/test/doubles/models'
 import { useRedis } from '@/lib/test/doubles/redis'
 import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
 import { useRuntimeRegistry } from '@/lib/test/doubles/runtime-registry'
@@ -10,6 +12,7 @@ import { useRuntimeWorkspace } from '@/lib/test/doubles/runtime-workspace'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { moveConversationRuntime } from './conversation-runtime-move'
+import { fallBackBeforeTurn } from './runtime-fallback'
 import { assertConversationRuntimeAvailable } from './runtime-portability-store'
 
 import type { RuntimeInstance } from './runtime-instances'
@@ -250,4 +253,72 @@ test('a deleted source keeps its last archive available for workspace moves', as
   await moveConversationRuntime({ ...conversation }, 'new', 'workspace', 'owner')
   expect(saved).toBe(false)
   expect(restored).toBe(true)
+})
+
+useModels({ userTeamRuntimeFallbacks: () => ({ findOne: async () => ({ runtimeIds: ['new'] }) }) })
+useConversationChatRoute({ resolveConversationChatRuntime: async () => ({}) })
+const runtimeCatalogOverride = useRuntimeCatalog({
+  requireRuntimeInstance: async () => target,
+  developmentRuntimeEndpoint: () => {},
+})
+
+for (const automatic of [false, true]) {
+  test(`explicit pick survives ${automatic ? 'automatic quota fallback' : 'manual same-provider move'}`, async () => {
+    conversation.teamId = '000000000000000000000001'
+    conversation.claudeCodePreview!.runtimeDefaults = { model: 'old-model', effort: 'low' }
+    conversation.claudeCodePreview!.sessionConfig = [
+      { id: 'model', kind: 'model', name: 'Model', currentValue: 'chosen-model', options: [] },
+      { id: 'effort', kind: 'effort', name: 'Effort', currentValue: 'high', options: [] },
+    ]
+    if (automatic) {
+      runtimeCatalogOverride({
+        requireRuntimeInstance: async () => target,
+        developmentRuntimeEndpoint: () => {},
+        listRuntimeInstances: async () => [{ ...target, id: 'old' }, target],
+        listRuntimeQuotas: async () => [
+          { runtimeId: 'old', available: true, windows: [{ usedPercent: 95, resetsAt: null }] },
+        ],
+      })
+      await fallBackBeforeTurn({ ...conversation }, 'owner')
+    } else await moveConversationRuntime({ ...conversation }, 'new', 'history', 'owner')
+    expect(conversation.runtimeId).toBe('new')
+    expect(conversation.claudeCodePreview).toBeUndefined()
+    expect(conversation.initialSessionConfig).toEqual({ model: 'chosen-model', effort: 'high' })
+  })
+}
+
+test('an unstarted same-provider conversation keeps its explicit initial choices', async () => {
+  delete conversation.claudeCodePreview
+  conversation.initialSessionConfig = { model: 'chosen-model', effort: 'high' }
+  await moveConversationRuntime({ ...conversation }, 'new', 'history', 'owner')
+  expect(conversation.initialSessionConfig).toEqual({ model: 'chosen-model', effort: 'high' })
+})
+test('a same-provider move without a pick does not invent one', async () => {
+  delete conversation.claudeCodePreview
+  delete conversation.initialSessionConfig
+  await moveConversationRuntime({ ...conversation }, 'new', 'history', 'owner')
+  expect(conversation).toMatchObject({ initialSessionConfig: {} })
+})
+test('a cross-provider move clears confirmed choices as well as the old attachment', async () => {
+  conversation.claudeCodePreview!.sessionConfig = [
+    { id: 'model', kind: 'model', name: 'Model', currentValue: 'chosen-model', options: [] },
+  ]
+  target.provider = 'codex'
+  await moveConversationRuntime({ ...conversation }, 'new', 'history', 'owner')
+  expect(conversation.initialSessionConfig).toBeUndefined()
+  expect(conversation.claudeCodePreview).toBeUndefined()
+})
+
+test('a choice saved after the move request was read is preserved from durable state', async () => {
+  const requested = { ...conversation, claudeCodePreview: { ...conversation.claudeCodePreview! } }
+
+  conversation.claudeCodePreview = {
+    ...conversation.claudeCodePreview!,
+    sessionConfig: [
+      { id: 'model', kind: 'model', name: 'Model', currentValue: 'latest-model', options: [] },
+      { id: 'effort', kind: 'effort', name: 'Effort', currentValue: 'high', options: [] },
+    ],
+  }
+  await moveConversationRuntime(requested, 'new', 'history', 'owner')
+  expect(conversation.initialSessionConfig).toEqual({ model: 'latest-model', effort: 'high' })
 })

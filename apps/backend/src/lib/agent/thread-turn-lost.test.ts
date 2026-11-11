@@ -35,6 +35,7 @@ const conversation = {
   runtimeId: 'runtime',
 } as AgentConversation
 const runs: Parameters<TurnRunner['runAgentForTrigger']>[0][] = []
+let released = 0
 let finishReasons: (string | undefined)[] = []
 
 useIdentity({
@@ -53,7 +54,7 @@ useAgentDb({
   }),
 })
 
-function attach(reattached: boolean | undefined, state = 'dormant') {
+function attach(reattached: boolean | Promise<boolean> | undefined, state = 'dormant') {
   sessionsByConversation.set('team:child', {
     openabSessionId: 'sess-1',
     ...(reattached === undefined ? {} : { reattached: Promise.resolve(reattached) }),
@@ -66,9 +67,16 @@ const settle = () => Bun.sleep(10)
 
 beforeEach(() => {
   runs.length = 0
+  released = 0
   finishReasons = ['connection-lost', 'stop']
   installTurnRunner({
-    claimAgentRunOrEnqueue: async () => ({ mode: 'run', carried: [], release: () => {} }),
+    claimAgentRunOrEnqueue: async () => ({
+      mode: 'run',
+      carried: [],
+      release: () => {
+        released += 1
+      },
+    }),
     runAgentForTrigger: async (args) => {
       runs.push(args)
 
@@ -166,4 +174,13 @@ test('no reattach in progress means nothing to report', async () => {
   await settle()
 
   expect(runs.map((run) => run.sessionId)).toEqual(['child'])
+})
+
+test('a computer that never comes back does not hold the session', async () => {
+  attach(new Promise<boolean>(() => {}))
+  await (
+    await startThreadTurn(data)
+  ).run
+
+  expect(released).toBe(1)
 })

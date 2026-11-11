@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb'
 
 import { getTeamMembership } from '@/lib/identity'
-import { redactSecrets } from '@/lib/journal/redact'
+import { redactSecrets } from '@/lib/secrets/scan'
 
 import { agentMemories, LIVE_RECORD_FILTER, teamMemories } from './store'
 
@@ -26,7 +26,7 @@ export async function deleteMemoryItem(
   // Human-stated removal reason: the strongest negative ground truth we can
   // collect. Redacted (people paste secrets into "why" boxes too) and capped.
   const reason = opts.reason?.trim()
-    ? redactSecrets(opts.reason.trim()).redacted.slice(0, 300)
+    ? (await redactSecrets(opts.reason.trim())).redacted.slice(0, 300)
     : undefined
 
   if (opts.scope === 'team') {

@@ -1,5 +1,6 @@
 import { api } from '../../api'
 import { t } from '../../i18n'
+import { announceChatArchived } from '../../lib/chatArchiveEvents'
 import { ownAgents } from '../channels/channelShared'
 
 import { announceTimelineChange } from './panel/timelineEvents'
@@ -65,4 +66,10 @@ export async function removePeople(
     } else at.apply(await api.agentRemoveConversationParticipant(at.sessionId, at.teamId, id))
   }
   announceTimelineChange(at.sessionId)
+}
+
+/** The viewer takes themselves out; the session leaves their lists and tabs as an archived one does. */
+export async function leaveSession(sessionId: string, teamId: string, viewerId: string) {
+  await api.agentRemoveConversationParticipant(sessionId, teamId, viewerId)
+  announceChatArchived({ sessionId, teamId })
 }
