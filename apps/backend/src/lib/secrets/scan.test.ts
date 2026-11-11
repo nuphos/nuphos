@@ -283,3 +283,32 @@ describe('findEmbeddedSecret', () => {
     expect(await findEmbeddedSecret(doc)).toBeNull()
   })
 })
+
+describe('scanner regressions', () => {
+  test('a markerless key with dash segments is redacted whole', async () => {
+    const key = `sk-${randomAlnum(36)}-${randomAlnum(16)}`
+    const { redacted } = await redactSecrets(`token ${key} end`)
+
+    expect(redacted).toBe('token [REDACTED:api-key] end')
+  })
+
+  test('an input dense with findings scans in linear time', async () => {
+    const line = `password=${randomAlnum(14)}\n`
+    const start = performance.now()
+    const { redactedCount } = await redactSecrets(line.repeat(32_000))
+
+    expect(redactedCount).toBe(32_000)
+    expect(performance.now() - start).toBeLessThan(1_500)
+  })
+
+  test('chunked scans keep ranges and do not split a private key', async () => {
+    const filler = 'kubectl get pods -n prod -o wide\n'.repeat(1_000)
+    const pem = `-----BEGIN RSA PRIVATE KEY-----\n${filler}-----END RSA PRIVATE KEY-----`
+    const token = `ghp_${randomAlnum(36)}`
+    const { redacted } = await redactSecrets(`${filler}${pem}\n${filler}gh ${token}\n`)
+
+    expect(redacted).toBe(
+      `${filler}[REDACTED:pem-private-key]\n${filler}gh [REDACTED:github-token]\n`,
+    )
+  })
+})

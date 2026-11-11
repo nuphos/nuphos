@@ -44,7 +44,9 @@ const TOKEN_SHAPES: Shape[] = [
   { kind: 'github-token', pattern: /\bgh[pousr]_[A-Za-z0-9]{20,}\b/dg },
   { kind: 'slack-token', pattern: /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/dg },
   // OpenAI-compatible keys without the marker the preset's openai rule requires.
-  { kind: 'api-key', pattern: /\bsk-[A-Za-z0-9]{20,}\b/dg },
+  // Trailing -/_ segments belong to the key; stopping at the first one would
+  // leave a suffix too short for the entropy sweep to catch.
+  { kind: 'api-key', pattern: /\bsk-[A-Za-z0-9]{20,}(?:[-_][A-Za-z0-9]+)*/dg },
 ]
 
 const PEM_HEADER: Shape = {
@@ -116,14 +118,27 @@ function shapeRanges(text: string, shape: Shape): Range[] {
   })
 }
 
+// One pass over sorted ranges, so a dense input stays linear in its length.
+function maskRanges(text: string, ranges: Range[]): string {
+  const sorted = [...ranges].sort((a, b) => a[0] - b[0])
+  let out = ''
+  let copiedUntil = 0
+
+  for (const [start, end] of sorted) {
+    if (end <= copiedUntil) continue
+    const from = Math.max(start, copiedUntil)
+
+    out += text.slice(copiedUntil, from) + ' '.repeat(end - from)
+    copiedUntil = end
+  }
+
+  return out + text.slice(copiedUntil)
+}
+
 // Entropy runs over the text with every earlier finding blanked out, so a
 // candidate cannot swallow the key name in front of an assignment's value.
 function entropyRanges(text: string, found: Range[]): Range[] {
-  let masked = text
-
-  for (const [start, end] of found) {
-    masked = masked.slice(0, start) + ' '.repeat(end - start) + masked.slice(end)
-  }
+  const masked = maskRanges(text, found)
 
   return [...masked.matchAll(ENTROPY_CANDIDATE)].flatMap((match) => {
     const candidate = match[0]

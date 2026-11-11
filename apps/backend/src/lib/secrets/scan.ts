@@ -92,6 +92,39 @@ function kindOf(message: { ruleId: string; data?: unknown }): string {
   return PRESET_KINDS[name] ?? name
 }
 
+// secretlint drops duplicate messages by comparing every pair, so one lint of
+// a large input full of findings is quadratic and blocks the event loop.
+// Large inputs are linted in line-aligned chunks; a PEM block is never split.
+const CHUNK_CHARS = 32_000
+const PEM_BLOCK =
+  /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----/g
+
+type Bounds = readonly [number, number]
+
+function chunkBounds(text: string): Bounds[] {
+  if (text.length <= CHUNK_CHARS) return [[0, text.length]]
+  const pemBlocks = [...text.matchAll(PEM_BLOCK)].map((m): Bounds => [
+    m.index,
+    m.index + m[0].length,
+  ])
+  const bounds: Bounds[] = []
+  let start = 0
+
+  while (text.length - start > CHUNK_CHARS) {
+    let cut = text.indexOf('\n', start + CHUNK_CHARS)
+
+    if (cut === -1) break
+    const block = pemBlocks.find(([from, to]) => from < cut && cut < to)
+
+    if (block) cut = text.indexOf('\n', block[1])
+    if (cut === -1) break
+    bounds.push([start, cut + 1])
+    start = cut + 1
+  }
+
+  return [...bounds, [start, text.length]]
+}
+
 /**
  * Every secret in `text`, overlapping findings merged. `tokenShapes` keeps to
  * unambiguous key shapes; `storedContent` adds a lone PEM BEGIN line.
@@ -101,16 +134,29 @@ export async function findSecrets(
   profile: ScanProfile = 'everything',
 ): Promise<SecretFinding[]> {
   if (text.length === 0) return []
-  const result = await lintSource({
-    source: { content: text, filePath: 'input.txt', ext: '.txt', contentType: 'text' },
-    options: {
-      config: CONFIGS[profile],
-      noPhysicFilePath: true,
-    },
-  })
-  const findings = result.messages
-    .map((message) => ({ kind: kindOf(message), range: message.range }))
-    .sort((a, b) => a.range[0] - b.range[0])
+  const findings: SecretFinding[] = []
+
+  for (const [chunk, [start, end]] of chunkBounds(text).entries()) {
+    // Let other requests run between the synchronous parts of each lint.
+    if (chunk > 0) await new Promise((resolve) => setImmediate(resolve))
+    const result = await lintSource({
+      source: {
+        content: text.slice(start, end),
+        filePath: 'input.txt',
+        ext: '.txt',
+        contentType: 'text',
+      },
+      options: { config: CONFIGS[profile], noPhysicFilePath: true },
+    })
+
+    for (const message of result.messages) {
+      findings.push({
+        kind: kindOf(message),
+        range: [message.range[0] + start, message.range[1] + start],
+      })
+    }
+  }
+  findings.sort((a, b) => a.range[0] - b.range[0])
   const merged: SecretFinding[] = []
 
   for (const finding of findings) {
