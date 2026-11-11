@@ -16,6 +16,8 @@ export type ClaudeCodeCredentialEntry = {
   hint?: string
   /** kubeconfig context of a selected cluster, kept out of `usage` so it is never shell text. */
   kubeContext?: string
+  /** Selected identity preference; the handout's actor confirms the effective identity. */
+  identityPreference?: { kind: 'personal'; login: string } | { kind: 'team' }
 }
 
 /** A credential the actor may use that this conversation has not selected; never vended. */

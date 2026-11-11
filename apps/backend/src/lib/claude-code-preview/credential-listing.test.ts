@@ -13,7 +13,7 @@ import {
   partitionCredentials,
 } from './credential-listing'
 
-import type { AgentCredentialOptions } from '@/routes/agent/types'
+import type { AgentCredentialOptions, AgentCredentialSelection } from '@/routes/agent/types'
 
 function emptyOptions(): AgentCredentialOptions {
   return {
@@ -364,6 +364,7 @@ describe('flattenSelectedCredentials', () => {
         id: 'linear-1',
         label: 'Linear prod',
         credentialPath: 'linear-workspaces/linear-1/credentials',
+        identityPreference: { kind: 'team' },
       },
       {
         provider: 'resend',
@@ -392,6 +393,70 @@ describe('device listing', () => {
 })
 
 describe('partitionCredentials', () => {
+  test.each(['github', 'linear'] as const)(
+    'reports the selected %s personal identity without granting standalone access',
+    (provider) => {
+      const options = emptyOptions()
+
+      options.personalCredentials = [{ provider, login: 'octo' }]
+      options.githubInstallations = [
+        { installationId: ID, accountLogin: 'org', accountType: 'Organization' },
+      ]
+      options.linearWorkspaces = [{ workspaceId: ID, label: 'Workspace', workspaceName: 'w' }]
+      const key = provider === 'github' ? 'githubInstallationIds' : 'linearWorkspaceIds'
+      const { selected, unselected } = partitionCredentials({ [key]: [ID] }, options)
+
+      expect(selected.find((entry) => entry.provider === provider)?.identityPreference).toEqual({
+        kind: 'personal',
+        login: 'octo',
+      })
+      expect(unselected.some((entry) => entry.provider === 'personal')).toBe(false)
+      expect(selected.some((entry) => entry.provider === 'personal')).toBe(false)
+    },
+  )
+
+  test('keeps team identity and standalone personal access independent', () => {
+    const options = oneOfEach()
+    const selection: AgentCredentialSelection = {
+      githubInstallationIds: [ID],
+      teamIdentity: ['github'],
+    }
+    const team = partitionCredentials(selection, options)
+
+    expect(team.selected.find((entry) => entry.provider === 'github')?.identityPreference).toEqual({
+      kind: 'team',
+    })
+    expect(team.unselected.some((entry) => entry.provider === 'personal')).toBe(true)
+
+    const standalone = partitionCredentials(
+      { ...selection, personalCredentialIds: ['github'] },
+      options,
+    )
+
+    expect(standalone.selected.find((entry) => entry.provider === 'personal')?.credentialPath).toBe(
+      'personal-credentials/github/token',
+    )
+  })
+
+  test('does not enable personal access through an unselected team binding', () => {
+    const { selected, unselected } = partitionCredentials(
+      { githubInstallationIds: [] },
+      oneOfEach(),
+    )
+
+    expect(selected.some((entry) => entry.provider === 'personal')).toBe(false)
+    expect(unselected.some((entry) => entry.provider === 'personal')).toBe(true)
+  })
+
+  test('does not claim a personal identity when none is connected', () => {
+    const options = { ...oneOfEach(), personalCredentials: [] }
+    const { selected } = partitionCredentials({ githubInstallationIds: [ID] }, options)
+
+    expect(selected.find((entry) => entry.provider === 'github')?.identityPreference).toEqual({
+      kind: 'team',
+    })
+  })
+
   test('an unselected personal credential is requested by its provider, not by a tick', () => {
     const options = emptyOptions()
 

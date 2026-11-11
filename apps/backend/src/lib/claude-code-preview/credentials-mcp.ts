@@ -211,7 +211,11 @@ export const CREDENTIALS_MCP_SURFACE: McpSurface = {
         'the team but not enabled for this conversation (`selected: false`); ' +
         'get_credential refuses them. When the task needs one, follow its ' +
         '`hint` to ask for it instead of saying no credential exists. The ' +
-        'selection is live — the user can change it mid-conversation.',
+        'selection is live — the user can change it mid-conversation. GitHub/Linear entries ' +
+        'include identityPreference: the selected personal login or team identity. Confirm ' +
+        'the effective actor with the provider setup script, since the handout may fall back ' +
+        'to the team. A personal identity on a selected team binding does not grant standalone ' +
+        'personal token access.',
       inputSchema: { type: 'object', properties: { description: DESCRIPTION_PROPERTY } },
     },
     {
