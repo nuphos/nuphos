@@ -207,6 +207,27 @@ class BotQuestionsTest {
         assertNull(inbox.failures[own.id])
     }
 
+    @Test fun anInboxSaveSendsOnlyTheKindsTheConversationHad() = runTest {
+        val own = BotQuestion("agent-ops", "Release ops", Http.json.decodeFromString<InputRequest>(
+            """{"id":"q-own","category":"integration","question":"?","credentials":[{"provider":"personal","id":"github"}]}"""))
+        val saved = mutableListOf<JsonValue>()
+        val inbox = OpenQuestions(object : OpenQuestions.Source {
+            // No GitHub key: every installation. [] is none, null is unset, a string is malformed.
+            override suspend fun credentials(sessionId: String) = JsonValue.parse(
+                """{"awsRoleIds":["aws"],"gitlabBindingIds":[],"notionIntegrationIds":null,"grafanaInstanceIds":"bogus"}""")
+            override suspend fun saveCredentials(sessionId: String, access: JsonValue) { saved += access }
+        })
+        inbox.useOwn(listOf("github"), own, connected = setOf("github"))
+        val sent = (saved.single() as JsonValue.Obj).value
+        // An unset kind stays unset rather than revoked as []; the empty one stays empty.
+        assertEquals(setOf("awsRoleIds", "gitlabBindingIds", "grafanaInstanceIds", "personalCredentialIds"), sent.keys)
+        assertEquals(emptyList<JsonValue>(), sent["gitlabBindingIds"]?.arrayValue)
+        // Malformed fails closed: sent as none, never left out to mean "all".
+        assertEquals(emptyList<JsonValue>(), sent["grafanaInstanceIds"]?.arrayValue)
+        // A new conversation still states every kind.
+        assertNotNull(CredentialSelection(newConversation = true).json["githubInstallationIds"])
+    }
+
     @Test fun aPlanOrASecretIsNeverAnsweredInWords() {
         fun ask(category: String, planId: String? = null) =
             BotQuestion("s", "Agent", InputRequest("r", category, "Go?", listOf("Approve", "Reject"), planId = planId))

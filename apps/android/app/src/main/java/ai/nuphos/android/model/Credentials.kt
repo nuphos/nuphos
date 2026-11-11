@@ -104,6 +104,12 @@ data class CredentialCatalog(
 data class CredentialSelection(
     val ids: Map<String, Set<String>> = emptyMap(),
     @kotlinx.serialization.Transient val newConversation: Boolean = false,
+    /**
+     * The kinds a stored selection had, an explicit empty one included; null for one not read [whole].
+     * Such a selection sends only these and the kinds changed here: for several kinds a missing key
+     * means "all", which an empty list would revoke.
+     */
+    @kotlinx.serialization.Transient val stored: Set<String>? = null,
 ) {
     val isEmpty: Boolean get() = ids.values.all { it.isEmpty() }
     val count: Int get() = ids.values.sumOf { it.size }
@@ -142,7 +148,8 @@ data class CredentialSelection(
     val json: JsonValue
         get() = JsonValue.Obj(
             CredentialCatalog.NEW_CONVERSATION_PROVIDERS.filter {
-                newConversation || it in CredentialCatalog.PROVIDERS
+                stored?.let { kinds -> it.selectionKey in kinds || it.selectionKey in ids }
+                    ?: (newConversation || it in CredentialCatalog.PROVIDERS)
             }.associate { provider ->
                 provider.selectionKey to JsonValue.Arr(
                     (ids[provider.selectionKey] ?: emptySet()).sorted().map { JsonValue.Str(it) },
@@ -159,8 +166,8 @@ data class CredentialSelection(
 
     companion object {
         /**
-         * A stored chat's selection in every kind this build knows, for saving it whole from the Inbox:
-         * [json] then sends each of them back, and the server keeps any key a newer client stored.
+         * A stored chat's selection in every kind this build knows, for saving it from the Inbox: [json]
+         * sends back the kinds it had and those changed since, and the server keeps the rest as stored.
          */
         fun whole(json: JsonValue) = CredentialSelection(
             CredentialCatalog.NEW_CONVERSATION_PROVIDERS.mapNotNull { provider ->
@@ -168,6 +175,10 @@ data class CredentialSelection(
                 if (set.isEmpty()) null else provider.selectionKey to set
             }.toMap(),
             newConversation = true,
+            // null is unset, as the server reads it; anything else is stored, and a value that
+            // isn't a list is sent back as an empty one rather than left to mean "all".
+            stored = CredentialCatalog.NEW_CONVERSATION_PROVIDERS.map { it.selectionKey }
+                .filter { json[it]?.isNull == false }.toSet(),
         )
     }
 
