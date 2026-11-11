@@ -47,14 +47,8 @@ export function SidebarItemContextMenu({
 }) {
   // A channel's row: its own nouns, and no pin or watch, which are an agent's.
   const channel = menu.item.channel === true
-  // The row's noun follows its section: a Task, a Bot (its chat or itself), or a group chat.
-  const noun = menu.item.task
-    ? 'task'
-    : menu.item.bot || menu.item.botChannelOf
-      ? 'bot'
-      : channel
-        ? 'chat'
-        : 'task'
+  // A Bot is a Bot in either section (its chat or itself); otherwise a Task or a group chat.
+  const noun = menu.item.bot || menu.item.botChannelOf ? 'bot' : channel ? 'chat' : 'task'
   const sessionId = menu.item.key.slice('agent-session:'.length)
 
   return (

@@ -16,9 +16,10 @@ export function useArchiveSession({ sessionId, teamId, title }: ArchiveTarget) {
     if (archiving) return
     setArchiving(true)
     try {
-      await archiveChat(sessionId, teamId)
+      const { botSessionId } = await archiveChat(sessionId, teamId)
+
       announceChatArchived({ sessionId, teamId })
-      offerArchiveUndo({ sessionId, teamId, title })
+      offerArchiveUndo({ sessionId, teamId, title, ...(botSessionId ? { noun: 'bot' } : {}) })
     } catch (err) {
       toast.apiError(t('Could not archive agent'), err)
     } finally {

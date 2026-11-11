@@ -39,16 +39,20 @@ const isBotChat = (channel: Archivable) =>
   channel.agentSessionIds?.length === 1 &&
   conversationParticipantIds(channel).length === 1
 
+/** What one archive or restore moved: the conversation, or a Bot with its chats. */
+export type ArchiveUnit = { sessionIds: string[]; botSessionId?: string }
+
 /**
  * A Bot is one thing: its session and its owner's 1:1 chats with it. Archiving
  * or restoring any of them moves all of them, so no chat outlives its Bot.
  */
-async function botUnit(conversation: Archivable, archiving = false): Promise<string[]> {
+async function botUnit(conversation: Archivable, archiving = false): Promise<ArchiveUnit> {
+  const alone = { sessionIds: [conversation.sessionId] }
   const chatOf = isBotChat(conversation) ? conversation.agentSessionIds?.[0] : undefined
   const botId =
     conversation.kind === 'channel' ? chatOf : conversation.avatar && conversation.sessionId
 
-  if (!botId) return [conversation.sessionId]
+  if (!botId) return alone
   const scope = { userId: conversation.userId, teamId: conversation.teamId ?? { $exists: false } }
   const [bot, chats] = await Promise.all([
     agentConversations().findOne(
@@ -60,16 +64,19 @@ async function botUnit(conversation: Archivable, archiving = false): Promise<str
       .toArray(),
   ])
 
-  if (!bot) return [conversation.sessionId]
+  if (!bot) return alone
   // Removing a redundant chat must not archive the agent still used elsewhere.
   if (
     archiving &&
     chatOf &&
     chats.some((chat) => chat.sessionId !== conversation.sessionId && !chat.archivedAt)
   )
-    return [conversation.sessionId]
+    return alone
 
-  return [botId, ...chats.filter(isBotChat).map((chat) => chat.sessionId)]
+  return {
+    sessionIds: [botId, ...chats.filter(isBotChat).map((chat) => chat.sessionId)],
+    botSessionId: botId,
+  }
 }
 
 /**
@@ -77,13 +84,20 @@ async function botUnit(conversation: Archivable, archiving = false): Promise<str
  * `botUnit`). Archiving also archives the owner's threads nested below it,
  * stamped with the same `archivedAt`; restoring brings back exactly the
  * descendants carrying that stamp, so a thread archived earlier on its own
- * stays archived.
+ * stays archived. Returns what moved, so a client can follow the server.
  */
-export async function setConversationArchived(sessionId: string, archived: boolean): Promise<void> {
+export async function setConversationArchived(
+  sessionId: string,
+  archived: boolean,
+): Promise<ArchiveUnit> {
   const conversation = await agentConversations().findOne({ sessionId }, { projection: ARCHIVABLE })
 
-  if (!conversation) return
-  for (const id of await botUnit(conversation, archived)) await setTreeArchived(id, archived)
+  if (!conversation) return { sessionIds: [] }
+  const unit = await botUnit(conversation, archived)
+
+  for (const id of unit.sessionIds) await setTreeArchived(id, archived)
+
+  return unit
 }
 
 async function setTreeArchived(sessionId: string, archived: boolean): Promise<void> {
@@ -151,7 +165,7 @@ export async function restoreArchivedConversation(sessionId: string): Promise<bo
   if (result.modifiedCount === 0) return false
   const conversation = await agentConversations().findOne({ sessionId }, { projection: ARCHIVABLE })
 
-  for (const id of conversation ? await botUnit(conversation) : []) {
+  for (const id of conversation ? (await botUnit(conversation)).sessionIds : []) {
     if (id !== sessionId)
       await agentConversations().updateOne(
         { sessionId: id, archivedAt: { $exists: true } },

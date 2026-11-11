@@ -196,8 +196,10 @@ export function AgentHistoryPage({
   async function archiveConversation(conversation: AgentConversation) {
     const label = conversation.title || conversation.firstMessage || t('Untitled agent')
 
+    let botSessionId: string | undefined
+
     try {
-      await archiveChat(conversation.sessionId, teamId)
+      ;({ botSessionId } = await archiveChat(conversation.sessionId, teamId))
     } catch (err) {
       toast.apiError(t('Could not archive agent'), err)
 
@@ -218,6 +220,7 @@ export function AgentHistoryPage({
       sessionId: conversation.sessionId,
       teamId,
       title: label,
+      ...(botSessionId ? { noun: 'bot' } : {}),
       onRestored: () => setItems((prev) => prev.toSpliced(index, 0, conversation)),
     })
   }
