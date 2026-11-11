@@ -55,6 +55,16 @@ class AttachmentTransfersTest {
         assertEquals(1, fixture.puts)
         assertArrayEquals("marker".toByteArray(), fixture.bytes)
         assertTrue(ready.instruction.contains("transfer group ${fixture.group}"))
+        // A runtime is sent the structured part, as from iOS and Desktop, never the instruction as typed text.
+        val data = ready.part["data"]
+        assertEquals("data-attachment", ready.part["type"]?.stringValue)
+        assertEquals("transfer-upload", data?.get("type")?.stringValue)
+        assertEquals(fixture.group, data?.get("groupId")?.stringValue)
+        assertEquals("ready", data?.get("status")?.stringValue)
+        val shown = ai.nuphos.android.model.TransferUpload.display(listOf(ai.nuphos.android.model.ChatPart.Other(ready.part)))
+        assertEquals("", shown.text)
+        assertEquals(listOf(fixture.group), shown.uploads.map { it.groupId })
+        assertEquals(data?.get("files")?.arrayValue?.map { it["fileName"]?.stringValue }, shown.uploads.single().names)
     }
 
     @Test fun mismatchedSizeAndCancellationBlockReady() = runTest {

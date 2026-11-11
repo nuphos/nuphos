@@ -76,7 +76,11 @@ class AttachmentTransfers(
 
     enum class Stage { Intent, Uploading, Finalizing, Ready }
     data class Progress(val stage: Stage, val attachmentId: String? = null, val bytesWritten: Long = 0, val totalBytes: Long = 0)
-    data class Ready(val groupId: String, val instruction: String)
+    /**
+     * [part] is the structured `transfer-upload` a runtime conversation sends, as iOS and Desktop do;
+     * [instruction] is the text the built-in agent pulls the files with.
+     */
+    data class Ready(val groupId: String, val instruction: String, val part: JsonValue)
     class Failure(message: String) : Exception(message)
 
     internal data class Payload(val id: String, val name: String, val path: String, val mime: String, val bytes: ByteArray?, val source: OwnedAttachmentFile?) {
@@ -212,7 +216,18 @@ class AttachmentTransfers(
         val names = pending.payloads.joinToString(", ") { it.name.replace('\n', ' ').replace('\r', ' ') }
         val instruction = "[The user uploaded ${pending.payloads.size} file(s) to the Nuphos file-transfer store (transfer group ${intent.groupId}): $names. To work with them, load the file-transfer skill and pull them into the sandbox: bash skills/file-transfer/scripts/transfer-pull.sh \"\$TEAM\" ${intent.groupId} ./uploads]" +
             if (pending.payloads.any { it.mime == "image/jpeg" }) " Open and read the pulled image files before answering image questions." else ""
-        return Ready(intent.groupId, instruction)
+        val part = JsonValue.obj(
+            "type" to JsonValue.Str("data-attachment"),
+            "data" to JsonValue.obj(
+                "type" to JsonValue.Str("transfer-upload"),
+                "groupId" to JsonValue.Str(intent.groupId),
+                "status" to JsonValue.Str("ready"),
+                "files" to JsonValue.Arr(pending.payloads.map {
+                    JsonValue.obj("fileName" to JsonValue.Str(it.name), "status" to JsonValue.Str("ready"))
+                }),
+            ),
+        )
+        return Ready(intent.groupId, instruction, part)
     }
 
     private fun validateIntent(intent: Intent, pending: Pending) {
