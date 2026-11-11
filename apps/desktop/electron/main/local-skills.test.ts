@@ -3,6 +3,7 @@ import {
   mkdirSync,
   mkdtempSync,
   realpathSync,
+  appendFileSync,
   chmodSync,
   renameSync,
   symlinkSync,
@@ -231,6 +232,19 @@ describe('matchesReview', () => {
     assert.ok(!matchesReview([skillMd, { relPath: 'ref.md', realPath: '/home/.ssh/id' }], reviewed))
     assert.ok(!matchesReview([...reviewed, { relPath: 'new.md', realPath: '/s/new.md' }], reviewed))
     assert.ok(!matchesReview([skillMd], reviewed))
+  })
+})
+
+describe('readSkillFile size', () => {
+  it('refuses a file that grew past the size cap after the walk, never cutting it short', async () => {
+    const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'grow-skill-')))
+
+    writeSkill(root, { 'SKILL.md': 'x' })
+    const [entry] = await localSkillEntries(root)
+
+    assert.ok(entry)
+    appendFileSync(entry.realPath, Buffer.alloc(10_000_000))
+    await assert.rejects(readSkillFile(entry), /larger than 10 MB/)
   })
 })
 

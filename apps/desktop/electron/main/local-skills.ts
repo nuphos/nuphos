@@ -194,8 +194,9 @@ export function matchesReview(
 
 /**
  * A walked file's bytes, only while `realPath` is still that file: opened without
- * following a final link, then checked by device and inode (CERT POS35-C), and
- * read no further than the size cap even if it grew since.
+ * following a final link, then checked by device and inode (CERT POS35-C). One
+ * over the size cap, or that changes size while being read, is refused rather
+ * than uploaded cut short.
  */
 export async function readSkillFile(entry: LocalSkillEntry): Promise<Buffer> {
   // Windows has no O_NOFOLLOW; the inode check below still catches a swap there.
@@ -208,10 +209,21 @@ export async function readSkillFile(entry: LocalSkillEntry): Promise<Buffer> {
     if (!stat.isFile() || stat.dev !== entry.dev || stat.ino !== entry.ino) {
       throw new Error(`${entry.relPath} changed while it was being read`)
     }
-    const bytes = Buffer.alloc(Math.min(stat.size, MAX_SKILL_FILE_BYTES))
-    const { bytesRead } = await handle.read(bytes, 0, bytes.length, 0)
+    if (stat.size > MAX_SKILL_FILE_BYTES) throw new Error(`${entry.relPath} is larger than 10 MB`)
+    const bytes = Buffer.alloc(stat.size)
+    let offset = 0
 
-    return bytes.subarray(0, bytesRead)
+    while (offset < bytes.length) {
+      const { bytesRead } = await handle.read(bytes, offset, bytes.length - offset, offset)
+
+      if (bytesRead === 0) break
+      offset += bytesRead
+    }
+    if (offset !== bytes.length || (await handle.stat()).size !== bytes.length) {
+      throw new Error(`${entry.relPath} changed while it was being read`)
+    }
+
+    return bytes
   } finally {
     await handle.close()
   }
