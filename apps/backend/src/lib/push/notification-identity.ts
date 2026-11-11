@@ -1,6 +1,17 @@
 import { BOT_AVATARS } from '../agent/bot-avatars.ts'
 import { isOpenAbProvider } from '../claude-code-preview/runtime-provider.ts'
 
+import type { watcherCanRead } from './watchers'
+
+export type PushConversation = Parameters<typeof watcherCanRead>[0] & {
+  kind?: 'channel'
+  avatar?: string
+  agentRuntime?: string
+  title?: string
+  firstMessage?: string
+  watcherIds?: string[]
+}
+
 /** Canonical Bot identity is a non-channel session with an avatar, as in /:sessionId/bot.
  * Runtime must be explicit here; its legacy Claude fallback is not identity evidence. */
 export function notificationIdentity(session: {

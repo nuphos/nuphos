@@ -348,6 +348,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				000000000000000000000410 /* UITests */,
+                000000000000000000000520 /* BotAvatars */,
 			);
 			name = "nuphos-iosUITests";
 			productName = "nuphos-iosUITests";

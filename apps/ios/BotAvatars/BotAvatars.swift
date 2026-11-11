@@ -1,4 +1,9 @@
 import Foundation
+#if canImport(UIKit)
+import UIKit
+
+private final class BotAvatarBundle: NSObject {}
+#endif
 
 /// Keep this order and hash identical to Desktop's botAvatars.ts.
 enum BotAvatars {
@@ -91,5 +96,26 @@ enum BotAvatars {
               asset(named: avatar) != nil else { return nil }
         return (avatar, identity["provider"] as? String)
     }
+
+
+    #if canImport(UIKit)
+    /// Bitmap for INPerson, also exercised directly without delivering a notification.
+    static func notificationPNG(avatar: String, provider: String?) -> Data? {
+        let bundle = Bundle(for: BotAvatarBundle.self)
+        guard let asset = asset(named: avatar),
+              let face = UIImage(named: asset, in: bundle, compatibleWith: nil) else { return nil }
+        let size = CGSize(width: 120, height: 120)
+        return UIGraphicsImageRenderer(size: size).pngData { context in
+            face.draw(in: CGRect(origin: .zero, size: size))
+            if let name = runtimeLogo(provider), let logo = UIImage(named: name, in: bundle, compatibleWith: nil) {
+                let disc = CGRect(x: 74, y: 74, width: 32, height: 32)
+                UIColor.systemBackground.setFill()
+                context.cgContext.fillEllipse(in: disc)
+                let mark = provider == "claude-code" ? logo : logo.withTintColor(.label, renderingMode: .alwaysOriginal)
+                mark.draw(in: disc.insetBy(dx: 3, dy: 3))
+            }
+        }
+    }
+    #endif
 
 }

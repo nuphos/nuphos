@@ -9,12 +9,13 @@ import { pushDeviceStore } from './devices'
 import { fcmProjectId, sendFcm, sendFcmBadge } from './fcm'
 import { sendIos } from './ios'
 import { notificationIdentity } from './notification-identity'
-import { approvalToolName, classifyTurn, outcomeBody, truncate } from './turn-outcome'
+import { approvalToolName, classifyTurn, conversationTitle, outcomeBody } from './turn-outcome'
 import { watcherCanRead } from './watchers'
 
 import type { ApnsCredentials, ApnsRequest, ApnsResponse } from './apns'
 import type { PushDevice, PushDeviceStore } from './devices'
 import type { FcmRequest, FcmResponse } from './fcm'
+import type { PushConversation } from './notification-identity'
 import type { TurnOutcome } from './turn-outcome'
 
 export type NotifiableRun = {
@@ -28,15 +29,6 @@ export type NotifiableRun = {
   approvalPushed?: boolean
   activityRecorded?: Promise<unknown>
   trace?: { userId: string; teamId?: string }
-}
-
-export type PushConversation = Parameters<typeof watcherCanRead>[0] & {
-  kind?: 'channel'
-  avatar?: string
-  agentRuntime?: string
-  title?: string
-  firstMessage?: string
-  watcherIds?: string[]
 }
 
 export type TurnNotifierDeps = {
@@ -58,6 +50,8 @@ export type TurnNotifierDeps = {
   now: () => number
 }
 
+export type { PushConversation } from './notification-identity'
+export { conversationTitle } from './turn-outcome'
 export { SESSION_COALESCE_MS, USER_PUSHES_PER_MINUTE } from './admit'
 export const BADGE_DEBOUNCE_MS = 5_000
 
@@ -72,14 +66,6 @@ type Alert = {
 type Delivery = {
   run: NotifiableRun
   body: (conversation: PushConversation | null) => Promise<string | null> | string | null
-}
-
-export function conversationTitle(conversation: PushConversation | null): string {
-  const title = conversation?.title?.trim()
-
-  if (title) return title
-
-  return truncate(conversation?.firstMessage?.trim() ?? '', 60) || 'Nuphos'
 }
 
 export function createTurnNotifier(deps: TurnNotifierDeps) {
