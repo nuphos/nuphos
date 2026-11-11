@@ -16,6 +16,8 @@ export type ClaudeCodeCredentialEntry = {
   hint?: string
   /** kubeconfig context of a selected cluster, kept out of `usage` so it is never shell text. */
   kubeContext?: string
+  /** Selected identity preference; the handout's actor confirms the effective identity. */
+  identityPreference?: { kind: 'personal'; login: string } | { kind: 'team' }
 }
 
 /** A credential the actor may use that this conversation has not selected; never vended. */
@@ -78,6 +80,11 @@ function requestableAs(provider: string, id: string): string | undefined {
 
 function unselectedEntry(provider: string, id: string, label: string): UnselectedCredentialEntry {
   const requestable = requestableAs(provider, id)
+  const access =
+    provider === 'personal'
+      ? 'Standalone personal token access is not enabled for this conversation. This says ' +
+        'nothing about the acting identity on a selected team binding; see its identityPreference. '
+      : 'Not enabled for this conversation. '
 
   return {
     provider,
@@ -85,11 +92,13 @@ function unselectedEntry(provider: string, id: string, label: string): Unselecte
     label,
     selected: false,
     hint: requestable
-      ? 'Not enabled for this conversation. When the task needs it, call request_user_decision ' +
+      ? access +
+        'When the task needs it, call request_user_decision ' +
         `with category "integration" and providers ["${requestable}"], naming "${label}" in the ` +
         'question. Never ask for it in a free-text question: selecting it answers this one and ' +
         'resumes you.'
-      : `Not enabled for this conversation. Ask the user to tick "${label}" (${provider}) in ` +
+      : access +
+        `Ask the user to tick "${label}" (${provider}) in ` +
         "this conversation's credential picker, then call list_credentials again.",
   }
 }
