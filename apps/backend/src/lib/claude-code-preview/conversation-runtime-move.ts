@@ -143,12 +143,16 @@ export async function moveConversationRuntime(
         'runtime_unavailable',
         'The destination was disabled during the move. Choose another agent and retry.',
       )
-    const pick =
-      target.provider === provider
-        ? ((conversation.claudeCodePreview
-            ? storedPick(conversation.claudeCodePreview)
-            : conversation.initialSessionConfig) ?? {})
-        : undefined
+    const latest = await agentConversations().findOne({
+      sessionId: conversation.sessionId,
+      teamId,
+      userId: ownerId,
+      'runtimeOperation.token': token,
+    })
+    const saved = latest?.claudeCodePreview
+      ? storedPick(latest.claudeCodePreview)
+      : latest?.initialSessionConfig
+    const pick = target.provider === provider ? (saved ?? {}) : undefined
     const result = await agentConversations().updateOne(
       {
         sessionId: conversation.sessionId,

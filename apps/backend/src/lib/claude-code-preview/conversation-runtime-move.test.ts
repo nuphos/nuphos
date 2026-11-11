@@ -297,7 +297,7 @@ test('a same-provider move without a pick does not invent one', async () => {
   delete conversation.claudeCodePreview
   delete conversation.initialSessionConfig
   await moveConversationRuntime({ ...conversation }, 'new', 'history', 'owner')
-  expect(conversation.initialSessionConfig).toEqual({})
+  expect(conversation).toMatchObject({ initialSessionConfig: {} })
 })
 test('a cross-provider move clears confirmed choices as well as the old attachment', async () => {
   conversation.claudeCodePreview!.sessionConfig = [
@@ -307,4 +307,18 @@ test('a cross-provider move clears confirmed choices as well as the old attachme
   await moveConversationRuntime({ ...conversation }, 'new', 'history', 'owner')
   expect(conversation.initialSessionConfig).toBeUndefined()
   expect(conversation.claudeCodePreview).toBeUndefined()
+})
+
+test('a choice saved after the move request was read is preserved from durable state', async () => {
+  const requested = { ...conversation, claudeCodePreview: { ...conversation.claudeCodePreview! } }
+
+  conversation.claudeCodePreview = {
+    ...conversation.claudeCodePreview!,
+    sessionConfig: [
+      { id: 'model', kind: 'model', name: 'Model', currentValue: 'latest-model', options: [] },
+      { id: 'effort', kind: 'effort', name: 'Effort', currentValue: 'high', options: [] },
+    ],
+  }
+  await moveConversationRuntime(requested, 'new', 'history', 'owner')
+  expect(conversation.initialSessionConfig).toEqual({ model: 'latest-model', effort: 'high' })
 })
