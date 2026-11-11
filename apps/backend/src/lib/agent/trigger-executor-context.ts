@@ -1,7 +1,3 @@
-import { logError } from '@/lib/observability'
-import { getSlackIncidentPostingRate } from '@/lib/slack/incident-notifications'
-import { listIncidentOccurrences, recordIncidentFiring } from '@/lib/slack/incident-occurrences'
-
 export function resolveMessageTemplate(template: string, payload: unknown): string {
   if (!payload || typeof payload !== 'object') return template
 
@@ -41,52 +37,4 @@ export function readReportedStatus(payload: unknown): string | undefined {
   }
 
   return undefined
-}
-
-/**
- * Record that the alert went off, and gather the two facts the agent cannot
- * look up for itself: whether it has any history at all, and how loud it has
- * already been in the past hour. Never blocks the run — an alert must reach
- * someone even when its bookkeeping fails.
- */
-export async function prepareIncidentContext(input: {
-  teamId: string
-  triggerId: string
-  incidentScope: string
-  sessionId: string
-  reportedStatus?: string
-}): Promise<{ hasPriorOccurrences: boolean; postsInLastHour: number }> {
-  const now = new Date()
-
-  // That the alert fired is a fact, and the append-only record of it must not
-  // depend on two best-effort reads succeeding. Written first, on its own.
-  await recordIncidentFiring({
-    teamId: input.teamId,
-    triggerId: input.triggerId,
-    incidentScope: input.incidentScope,
-    sessionId: input.sessionId,
-    firedAt: now,
-    ...(input.reportedStatus ? { reportedStatus: input.reportedStatus } : {}),
-  }).catch((err: unknown) => {
-    logError('trigger.incident_firing_record_failed', err, { trigger_id: input.triggerId })
-  })
-  try {
-    const [prior, rate] = await Promise.all([
-      listIncidentOccurrences({
-        teamId: input.teamId,
-        triggerId: input.triggerId,
-        incidentScope: input.incidentScope,
-        limit: 2,
-      }),
-      getSlackIncidentPostingRate(input.teamId, input.triggerId, input.incidentScope, now),
-    ])
-    // This run's own firing is already recorded, so it is not prior history.
-    const earlier = prior.filter((occurrence) => occurrence.sessionId !== input.sessionId)
-
-    return { hasPriorOccurrences: earlier.length > 0, postsInLastHour: rate.postsInLastHour }
-  } catch (err) {
-    logError('trigger.incident_context_failed', err, { trigger_id: input.triggerId })
-
-    return { hasPriorOccurrences: false, postsInLastHour: 0 }
-  }
 }

@@ -1,5 +1,5 @@
-// A Trigger stored before credential modes and Full Access existed: both are
-// decided per run, so the row's age must not change what it runs with.
+// Every fire delivers into the Trigger's bound conversation. A row stored
+// before binding was required has nowhere to go and is paused.
 import '@/routes/agent'
 
 import { describe, expect, test } from 'bun:test'
@@ -110,21 +110,14 @@ const legacyTrigger = {
   } as unknown as AgentCredentialAccess,
 } as AgentTrigger
 
-describe('executeTrigger on a Trigger older than the credential mode', () => {
-  test('runs with the team credentials as they stand now and with Full Access', async () => {
+describe('executeTrigger on a Trigger stored before binding was required', () => {
+  test('pauses it instead of opening a session', async () => {
     runs.length = 0
-    await executeTrigger(legacyTrigger, undefined, { runKind: 'scheduled' })
 
-    expect(runs).toHaveLength(1)
-    expect(runs[0]?.credentialAccess?.notionIntegrationIds).toEqual(['notion-late'])
-    // 'trigger' is what makes the session initialize Full Access; it is read
-    // off the run, never off the stored row.
-    expect(runs[0]?.origin).toBe('trigger')
-    // The fire is the Trigger speaking, not the owner.
-    expect(runs[0]?.messages.at(-1)?.metadata).toMatchObject({
-      source: 'agent.resource',
-      sender: { type: 'system', id: `trigger:${legacyTrigger._id!.toHexString()}` },
-    })
+    await expect(
+      executeTrigger(legacyTrigger, undefined, { runKind: 'scheduled' }),
+    ).rejects.toMatchObject({ code: 'trigger_target_session_required' })
+    expect(runs).toHaveLength(0)
   })
 })
 
@@ -147,48 +140,6 @@ describe('executeTrigger on a row left by the removed database-alert feature', (
     }
     expect(runs).toHaveLength(0)
   })
-})
-
-test('routed turns serialize simultaneous deliveries and preserve history', async () => {
-  runs.length = 0
-  const sessionId = 'stable-session'
-
-  conversation = { sessionId, userId: PRINCIPAL_ID, teamId: 'team-1' }
-  let finish!: () => void
-
-  heldTurn = new Promise<void>((resolve) => {
-    finish = resolve
-  })
-  const first = executeTrigger(legacyTrigger, {}, { runKind: 'webhook', sessionId })
-
-  try {
-    for (let i = 0; i < 100 && runs.length === 0; i++)
-      await new Promise((resolve) => setTimeout(resolve, 1))
-    expect(runs).toHaveLength(1)
-    await expect(
-      executeTrigger(legacyTrigger, {}, { runKind: 'webhook', sessionId }),
-    ).rejects.toThrow('busy')
-    expect(runs[0]?.messages[0]?.id).toBe('prior')
-    expect(runs[0]?.sessionId).toBe(sessionId)
-  } finally {
-    finish()
-    await first
-    heldTurn = undefined
-    conversation = null
-  }
-  await executeTrigger(legacyTrigger, {}, { runKind: 'webhook', sessionId })
-  expect(runs).toHaveLength(2)
-})
-
-test('routed sessions refuse an execution-principal change', async () => {
-  conversation = { sessionId: 'stable-session', userId: 'another-owner', teamId: 'team-1' }
-  try {
-    await expect(
-      executeTrigger(legacyTrigger, {}, { runKind: 'webhook', sessionId: 'stable-session' }),
-    ).rejects.toThrow('owner or team')
-  } finally {
-    conversation = null
-  }
 })
 
 describe('a Trigger bound to an existing session', () => {

@@ -17,6 +17,7 @@ const trigger = {
   triggerType: 'cron',
   cronExpression: '0 3 * * *',
   enabled: false,
+  targetSessionId: 'session-1',
   createdAt: new Date(),
   updatedAt: new Date(),
 }
