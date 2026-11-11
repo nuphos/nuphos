@@ -208,7 +208,7 @@ class FixtureDeviceTest {
         compose.onNodeWithText("Second terminal").assertDoesNotExist()
         compose.onNodeWithText("Worked through 3 steps").performScrollTo().performClick()
         // Two calls in a row fold into one line, named after the last.
-        compose.onNodeWithText("Third terminal · 2 calls").performScrollTo().performClick()
+        compose.onNode(hasText("Third terminal") and hasText(" · 2 calls")).performScrollTo().performClick()
         compose.onNodeWithText("Second terminal").assertExists()
         compose.onNodeWithText("Worked through 2 steps").performScrollTo().performClick()
         compose.onNodeWithText("Fixture terminal").assertDoesNotExist()
@@ -267,13 +267,16 @@ class FixtureDeviceTest {
         val failed = tool().copy(toolCallId = "failed-tool", title = null, state = ChatPart.Tool.State.OutputError,
             input = JsonValue.obj("command" to JsonValue.Str(long)), output = null, errorText = "FIXTURE_FAILURE")
         render(listOf(first, failed))
-        val header = compose.onNode(hasText("· 2 calls · Failed", substring = true))
+        val header = compose.onNode(hasText(" · 2 calls · Failed"))
         header.performScrollTo()
         capture("failed-run")
         val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
-        header.performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        compose.onNode(hasText("printf 'first line'", substring = true), useUnmergedTree = true)
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
         // One line, however long the command: the full command is in the run and the call's sheet.
         Assert.assertEquals(1, layouts.single().lineCount)
+        // Only the label gives way: the count and the failure always show.
+        compose.onNode(hasText(" · 2 calls · Failed"), useUnmergedTree = true).assertIsDisplayed()
         // A failure does not hold the run open: folded until tapped, and a tap folds it again.
         compose.onNodeWithText("First terminal").assertDoesNotExist()
         header.performClick()
@@ -287,7 +290,7 @@ class FixtureDeviceTest {
         val approval = tool().copy(toolCallId = "approval-tool", title = "Approval terminal",
             state = ChatPart.Tool.State.ApprovalRequested, approval = ChatPart.Tool.Approval("fixture-approval"))
         render(listOf(tool(), approval))
-        compose.onNodeWithText("Approval terminal · 2 calls · Authorization required").assertExists()
+        compose.onNode(hasText("Approval terminal") and hasText(" · 2 calls · Authorization required")).assertExists()
         compose.onNodeWithText("Fixture terminal").assertExists()
     }
     @Test fun alwaysAllowCancelDoesNotSaveRule() {
