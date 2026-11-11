@@ -50,6 +50,7 @@ test('Antigravity takes the loopback address the browser ended on; Claude takes 
 
 test('Antigravity supports the official CLI authorization page and callback', () => {
   const url = 'https://accounts.google.com/o/oauth2/auth?state=s'
+
   assert.equal(authorizeUrl('antigravity', url), url)
   assert.equal(
     pastedSignInReady(

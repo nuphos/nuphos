@@ -242,8 +242,10 @@ test(
   async (t) => {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'nuphos-agy-cli-'))
     const home = path.join(dir, 'runtime')
+
     t.after(() => rmSync(dir, { recursive: true, force: true }))
     const file = path.join(dir, 'agy')
+
     writeFileSync(
       file,
       '#!/bin/sh\nif [ "$1" = "--version" ]; then echo 1.5.0; elif [ "$HOME" = "' +
@@ -258,6 +260,7 @@ test(
       loggedIn: true,
     })
     const unknown = await probeAgentCli('antigravity', { HOME: dir, PATH: dir }, undefined)
+
     assert.equal(unknown.installed && unknown.loggedIn, null)
   },
 )
