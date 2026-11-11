@@ -3,8 +3,10 @@ import { useContext } from 'react'
 
 import { t } from '../../../i18n'
 
+import { FailureRow } from './FailureRow'
 import { CopyMessageButton } from './messageActions'
 import { normalizeAgentError } from './stall'
+import { TurnSwitchAgentContext } from './turnFailureActions'
 import { TurnRetryContext } from './turnRetryContext'
 
 import type { TurnInterruptedPart } from './parts'
@@ -21,6 +23,21 @@ export function TurnInterruptedPartView({ part }: { part: TurnInterruptedPart })
   const turnRetry = useContext(TurnRetryContext)
   const retry = turnRetry?.partId === part.id ? turnRetry.retry : undefined
   const copyText = [HEADLINE[part.reason], part.message, part.createdAt].filter(Boolean).join('\n')
+  const turnSwitch = useContext(TurnSwitchAgentContext)
+
+  // The agent itself could not run the turn: the row a Bot chat shows, with Switch agent.
+  if (part.cause)
+    return (
+      <FailureRow
+        onSwitchAgent={turnSwitch?.partId === part.id ? turnSwitch.switchAgent : undefined}
+        onRetry={retry}
+        copyText={copyText}
+      >
+        <span className="font-medium text-secondary">{HEADLINE[part.reason]}</span>
+        {detail && <> {detail}</>}
+        {part.repeats && <span className="tabular-nums"> ×{part.repeats}</span>}
+      </FailureRow>
+    )
 
   return (
     <div className="group/interrupted flex items-start gap-1.5 text-[12.5px] text-tertiary">

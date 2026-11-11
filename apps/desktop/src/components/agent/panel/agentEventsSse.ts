@@ -18,10 +18,10 @@ import {
 } from './status'
 import { appendSteering, parseSteeringPart } from './steering'
 import { applyTranscriptTail, startUserTurn } from './turnBoundaries'
-import { appendTurnInterruptedPart, normalizeTurnInterruptedReason } from './turnInterrupted'
+import { appendTurnInterruptedPart, normalizeTurnInterruptedPart } from './turnInterrupted'
 
 import type { PanelCtx } from './ctx'
-import type { MemoryProvenancePart, ToolAuthorization, TurnInterruptedPart } from './parts'
+import type { MemoryProvenancePart, ToolAuthorization } from './parts'
 
 /** One-line labels the backend sends with a provenance frame, so the ribbon can
  * name what was remembered without fetching each memory back. Frames from
@@ -175,13 +175,13 @@ export function handleSseControlFrame(
     return true
   }
   if (sse.type === 'turn-interrupted') {
-    const part: TurnInterruptedPart = {
-      type: 'turn-interrupted',
+    // The stream may leave out what the stored part always has.
+    const part = normalizeTurnInterruptedPart({
+      ...sse,
       id: typeof sse.id === 'string' ? sse.id : `${streamId}:interrupted`,
-      reason: normalizeTurnInterruptedReason(sse.reason),
       message: typeof sse.message === 'string' ? sse.message : '',
       createdAt: typeof sse.createdAt === 'string' ? sse.createdAt : new Date().toISOString(),
-    }
+    })!
 
     setTabs((prev) =>
       prev.map((t) => {

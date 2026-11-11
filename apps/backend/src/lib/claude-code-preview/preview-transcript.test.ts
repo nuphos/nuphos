@@ -432,6 +432,7 @@ test('a provider out of usage keeps its reason in the transcript', () => {
     reason: 'error',
     message:
       'This agent’s provider account has no usage left (Grok Build usage balance exhausted). Add credits or wait for its allowance to reset, or switch to another agent, then resend your message.',
+    cause: 'usage_limit',
   })
 })
 
@@ -445,6 +446,11 @@ test('a signed-out runtime keeps the sign-in action in the transcript', () => {
     reason: 'error',
     message:
       'This agent’s sign-in is no longer valid, so it could not start the turn. Sign the agent in again, then resend your message.',
+    cause: 'auth',
   })
-  expect(classifyPreviewInterruption(refusal, true).reason).toBe('cancelled')
+  // A turn someone stopped has no cause to fix.
+  expect(classifyPreviewInterruption(refusal, true)).toEqual({
+    reason: 'cancelled',
+    message: 'The turn was stopped before the agent finished.',
+  })
 })

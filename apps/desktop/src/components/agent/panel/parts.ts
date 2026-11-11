@@ -207,6 +207,8 @@ export type TurnInterruptedPart = {
   reason: 'cancelled' | 'timeout' | 'error'
   message: string
   createdAt: string
+  /** The agent itself could not run the turn: out of usage, signed out, or offline. */
+  cause?: 'usage_limit' | 'auth' | 'offline'
   /** Identical failed turns in a row this line stands for (display only). */
   repeats?: number
 }
