@@ -15,6 +15,7 @@ import { readSwrCache, writeSwrCache } from '../../lib/swrCache'
 import { toast } from '../ui/toast'
 
 import { chatSidebarItem } from './chat-item'
+import { listedBotChats } from './listed-bot-chats'
 import { loadSidebarChats } from './load-sidebar-chats'
 import { ARCHIVE_IN_FLIGHT, visibleSidebarChats, withRestoredChats } from './local-archive-guard'
 import { RowMenuButton } from './row-menu-button'
@@ -275,6 +276,7 @@ export function useSidebarChats({
   const runtimeStates = useAgentRuntimeStates()
   const unreadSessions = useAgentUnreadSessions()
   const avatarPicks = useAgentAvatarPicks()
+  const botChats = listedBotChats(agentSessions, avatarPicks)
   const chatItems: Item[] = agentSessions.map((conversation) => {
     const item = chatSidebarItem({
       conversation,
@@ -285,8 +287,11 @@ export function useSidebarChats({
       picked: avatarPicks.get(conversation.sessionId),
     })
 
+    // A former Bot's chat is a plain chat.
+    const bot = item.channel ? { botChannelOf: botChats.get(conversation.sessionId) } : {}
+
     // A menu rather than a one-click archive: a stray click only opens it.
-    return { ...item, actions: <RowMenuButton title={item.label} /> }
+    return { ...item, ...bot, actions: <RowMenuButton title={item.label} /> }
   })
   const newChatActive = chatShown && !agentSessionId
 

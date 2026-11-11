@@ -111,6 +111,7 @@ export type WindowAgentApi = AgentDecisionApi & {
       archived?: 'exclude' | 'only'
       sort?: 'activity' | 'created' | 'archived'
       pendingDecision?: boolean
+      kind?: 'channel'
     },
   ): Promise<AgentConversationsPage>
   agentRenameConversation(
