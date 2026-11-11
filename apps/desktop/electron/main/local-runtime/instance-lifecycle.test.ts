@@ -247,3 +247,23 @@ test("an instance's state carries its own workspace, never the default agent's",
     path.join(dirOf(agent.instanceId), 'users', 'alice', 'workspace'),
   )
 })
+
+test('AGY cannot create an instance that would reuse the OS keyring identity', async (t) => {
+  const { instances, inventory } = setup(t)
+
+  await instances.load('alice')
+  await assert.rejects(
+    instances.request(
+      {
+        method: 'create',
+        instanceId: randomUUID(),
+        provider: 'antigravity',
+        label: 'Second account',
+      },
+      'alice',
+    ),
+    /shared OS sign-in/,
+  )
+  assert.deepEqual(inventory(), [])
+  await instances.shutdown()
+})

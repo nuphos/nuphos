@@ -82,7 +82,6 @@ export class InstanceControllers {
     await Promise.all(
       [...this.entries.values()].map(({ controller }) => controller.setUser(userId)),
     )
-    // A restart ends any sign-in in progress; what is not signed in by now never will be.
     await Promise.all(
       [...this.entries.values()]
         .filter((entry) => entry.metadata.state !== 'ready')
@@ -96,7 +95,6 @@ export class InstanceControllers {
     return Promise.all([...this.entries.values()].map(({ controller }) => controller.shutdown()))
   }
 
-  /** Restarts only the providers' agents, so one sign-in leaves other agents' turns running. */
   async refresh(restart: boolean, providers?: readonly LocalAgentProvider[]): Promise<unknown> {
     await Promise.all(
       [...this.entries.values()].map(({ controller, metadata }) =>
@@ -260,6 +258,9 @@ export class InstanceControllers {
     }
     if (body.method !== 'create') throw new Error('Unsupported instance method')
     const metadata = parseInstance(request)
+
+    if (metadata.provider === 'antigravity')
+      throw new Error('Antigravity uses shared OS sign-in; use the computer’s default runtime')
     const existing = this.entries.get(metadata.instanceId)
 
     if (existing) {
@@ -283,7 +284,6 @@ export class InstanceControllers {
     )
     const entry = this.add(record, userId)
 
-    // Acknowledge at once; the sign-in waits for the agent to come up, not the caller.
     entry.starting = entry.controller.setUser(userId).then(this.changed)
     entry.starting.catch(() => {
       /* The controller reports its own start failure. */

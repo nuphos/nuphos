@@ -129,9 +129,11 @@ export function NewAgentMenu({
               icon={<AgentProviderIcon provider={provider} className="h-4 w-4" />}
               onClick={() => onAdd(provider)}
             >
-              {action && 'create' in action
-                ? label
-                : t('Sign in to {provider}', { provider: label })}
+              {provider === 'antigravity' && !action
+                ? t('Antigravity uses this computer’s shared sign-in')
+                : action && 'create' in action
+                  ? label
+                  : t('Sign in to {provider}', { provider: label })}
             </MenuItem>
           )
         })}

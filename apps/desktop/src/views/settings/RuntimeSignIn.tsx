@@ -26,7 +26,7 @@ function memberNote(askAdmin: string | null | undefined): string {
 }
 
 /** The agent owns its login; this only shows what the agent reports. */
-export function RuntimeSignIn({
+function RuntimeSignInContent({
   instance,
   runtime: { authenticated, credentialExpiresAt: expiresAt, apiKey },
   onSignIn,
@@ -105,6 +105,22 @@ export function RuntimeSignIn({
           {authenticated ? t('Add a provider') : t('Sign in')}
         </Button>
       )}
+    </div>
+  )
+}
+
+/** Directory isolation does not isolate the CLI's native keyring identity. */
+export function RuntimeSignIn(props: Parameters<typeof RuntimeSignInContent>[0]) {
+  return (
+    <div>
+      {props.instance.provider === 'antigravity' && (
+        <p className="px-4 pt-4 text-xs leading-relaxed text-tertiary">
+          {t(
+            'Antigravity shares Google sign-in with other Antigravity apps under the same OS account. Signing in or using the CLI to sign out may affect them. Separate runtime accounts are not supported.',
+          )}
+        </p>
+      )}
+      <RuntimeSignInContent {...props} />
     </div>
   )
 }

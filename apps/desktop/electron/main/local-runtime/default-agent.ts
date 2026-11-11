@@ -20,6 +20,10 @@ export async function removeDefaultAgent(
     throw new Error('Only a cloud computer removes its default runtimes')
   if (!LOCAL_AGENT_PROVIDERS.includes(provider as LocalAgentProvider))
     throw new Error('Invalid runtime provider')
+  if (provider === 'antigravity')
+    throw new Error(
+      'Sign out with the official Antigravity CLI; this may sign out other local Antigravity apps',
+    )
   deleteDefaultLogin(
     provider as LocalAgentProvider,
     userDir(deps.dataDir(), userId),

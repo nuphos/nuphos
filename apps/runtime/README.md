@@ -720,3 +720,13 @@ account-free test suite covers the CLI protocol and lifecycle, not those provide
 services.
 
 Use CLI 1.5.4 or newer on desktop hosts to include the upstream security and ACP lifecycle fixes.
+
+Antigravity authentication boundary: official local sign-in is shared across Antigravity
+surfaces under the same OS account (Apple Keychain on macOS; Secret Service or Credential
+Manager elsewhere). `HOME` and `--gemini-dir` isolate configuration/session files, not a
+Google identity. Desktop supports the computer's default AGY runtime, not additional
+independently signed-in AGY instances. It refuses default-runtime removal rather than
+claiming directory deletion logs out the keyring. Use the official CLI for logout; it may
+also affect other Antigravity apps. Separate containers only isolate authentication when
+operators also keep their OS keyrings, homes and mounts separate; Nuphos does not verify
+that deployment property. No real-account cross-app login/logout has been tested.
