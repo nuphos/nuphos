@@ -521,6 +521,7 @@ test('shared turns list session-authorized computers while keeping provider cred
   installOptions({
     getAgentCredentialOptions: (_teamId, userId) => {
       const options = emptyOptions()
+
       options.devices = [
         { deviceId: userId + '-device', label: userId, platform: 'darwin', available: true },
       ]
@@ -532,6 +533,7 @@ test('shared turns list session-authorized computers while keeping provider cred
           roleArn: 'fixture',
         },
       ]
+
       return Promise.resolve(options)
     },
   })
@@ -548,6 +550,7 @@ test('shared turns list session-authorized computers while keeping provider cred
     { userId: 'teammate', conversationOwnerUserId: 'owner', sessionId: 'shared' },
     'team',
   )
+
   expect(
     listed.selected.filter((entry) => entry.provider === 'device').map((entry) => entry.id),
   ).toEqual(['owner-device'])
