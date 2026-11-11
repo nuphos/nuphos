@@ -414,8 +414,6 @@
   "slack.tool_approval.decided",
   "slack.uninstall.mappings_deleted",
   "slack.uninstall.token_decrypt_failed",
-  "trigger.incident_context_failed",
-  "trigger.incident_firing_record_failed",
   "webhook.aws_sns_validation_failed",
   "webhook.trigger_execution_failed",
   "webhook.trigger_group_execution_failed"
