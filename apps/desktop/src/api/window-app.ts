@@ -23,8 +23,8 @@ import type {
   TeamSkillObjectDetail,
 } from './plan-types.ts'
 import type { Diagram, DiagramSummary } from '../architecture/schema.ts'
-import type { Design, DesignOp, DesignPage, DesignSummary } from '../design/schema.ts'
 import type { DashboardViewRange } from '../dashboards/schema'
+import type { Design, DesignOp, DesignPage, DesignSummary } from '../design/schema.ts'
 import type { ConnectAgentLink } from '../lib/connectAgentLink.ts'
 import type {
   AccountSummary,
@@ -217,7 +217,8 @@ export type WindowAppApi = {
   teamSkillsImportLocal(
     teamId: string,
     skillId: string,
-    scope?: SkillScope,
+    scope: SkillScope | undefined,
+    reviewed: { relPath: string; realPath: string }[],
   ): Promise<LocalSkillImportResult>
   teamSkillsDeleteObject(teamId: string, key: string, scope?: SkillScope): Promise<void>
   teamSkillsDeleteSkill(

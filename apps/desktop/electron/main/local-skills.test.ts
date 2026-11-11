@@ -15,6 +15,7 @@ import { after, before, describe, it } from 'node:test'
 import {
   listLocalSkills,
   localSkillEntries,
+  matchesReview,
   readSkillFile,
   skillDescription,
 } from './local-skills.ts'
@@ -37,13 +38,13 @@ function skillDir(name: string) {
   return path.join(home, '.claude', 'skills', name)
 }
 
-async function relPaths(root: string, readOnlyRoots?: string[]) {
-  return (await localSkillEntries(root, readOnlyRoots)).map((entry) => entry.relPath)
+async function relPaths(root: string) {
+  return (await localSkillEntries(root)).map((entry) => entry.relPath)
 }
 
 before(() => {
   home = mkdtempSync(path.join(os.tmpdir(), 'local-skills-'))
-  outside = mkdtempSync(path.join(os.tmpdir(), 'outside-'))
+  outside = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'outside-')))
   store = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'store-')))
   process.env.HOME = home
   writeSkill(outside, { 'SKILL.md': '---\ndescription: Not yours\n---\n', 'secret.txt': 'private' })
@@ -57,12 +58,11 @@ before(() => {
   })
   // No SKILL.md — a directory that merely sits next to the skills.
   mkdirSync(skillDir('notes'), { recursive: true })
-  // Links out of the skill and the skills directory, to a file, a directory and nowhere.
+  // Links out of the skill, to a file, a directory and nowhere: followed like `cp -L`.
   symlinkSync(path.join(outside, 'secret.txt'), path.join(skillDir('deploy'), 'secret.txt'))
   symlinkSync(outside, path.join(skillDir('deploy'), 'elsewhere'))
   symlinkSync(path.join(outside, 'missing'), path.join(skillDir('deploy'), 'dangling'))
-  // A link to a file elsewhere inside the skills directory, as gstack installs
-  // its skills, is followed.
+  // A link to a file elsewhere inside the skills directory, as gstack installs its skills.
   writeSkill(skillDir('shared'), { 'guide.md': '# Guide\n' })
   symlinkSync(path.join(skillDir('shared'), 'guide.md'), path.join(skillDir('deploy'), 'guide.md'))
   // Nix home-manager: the skill root is a link into the store.
@@ -116,20 +116,47 @@ describe('listLocalSkills', () => {
       skills.map((skill) => [skill.id, skill.description, skill.fileCount, skill.linkedTo]),
       [
         ['claude/alias', 'Alias', 4, null],
-        ['claude/deploy', 'Ship the service', 3, null],
-        // Its SKILL.md links out of every trusted root: listed, never read.
-        ['claude/lint', null, 0, path.join(store, 'ccc-skills', 'lint')],
+        ['claude/deploy', 'Ship the service', 6, null],
+        ['claude/lint', 'Lint', 1, path.join(store, 'ccc-skills', 'lint')],
         ['claude/loop', 'Loops', 1, null],
         ['claude/review', 'Review code', 2, path.join(store, 'aaa-review')],
         ['codex/triage', 'Triage alerts', 1, null],
       ],
     )
   })
+
+  it('marks each file a link brings in from outside the skill’s resolved folder', async () => {
+    const skills = new Map((await listLocalSkills()).map((skill) => [skill.id, skill]))
+    const outsideOf = (id: string) =>
+      skills
+        .get(id)
+        ?.files.filter((file) => file.outside)
+        .map((file) => [file.relPath, file.realPath])
+
+    assert.deepEqual(outsideOf('claude/deploy'), [
+      ['elsewhere/secret.txt', path.join(outside, 'secret.txt')],
+      ['elsewhere/SKILL.md', path.join(outside, 'SKILL.md')],
+      ['guide.md', path.join(realpathSync(skillDir('shared')), 'guide.md')],
+      ['secret.txt', path.join(outside, 'secret.txt')],
+    ])
+    // A linked root is the skill's own folder; symlinkJoin's per-file links are not.
+    assert.deepEqual(outsideOf('claude/review'), [])
+    assert.deepEqual(outsideOf('claude/lint'), [
+      ['SKILL.md', path.join(store, 'bbb-lint', 'SKILL.md')],
+    ])
+  })
 })
 
 describe('localSkillEntries', () => {
-  it('returns SKILL.md first, ignores node_modules, and follows only links inside the skills directory', async () => {
-    assert.deepEqual(await relPaths(skillDir('deploy')), ['SKILL.md', 'guide.md', 'scripts/run.sh'])
+  it('returns SKILL.md first, ignores node_modules, follows links anywhere and drops dangling ones', async () => {
+    assert.deepEqual(await relPaths(skillDir('deploy')), [
+      'SKILL.md',
+      'elsewhere/secret.txt',
+      'elsewhere/SKILL.md',
+      'guide.md',
+      'scripts/run.sh',
+      'secret.txt',
+    ])
   })
 
   it('walks a skill root that links into a Nix-style store, reporting where each file is', async () => {
@@ -142,11 +169,6 @@ describe('localSkillEntries', () => {
         ['refs/style.md', path.join('aaa-review', 'refs', 'style.md')],
       ],
     )
-  })
-
-  it('follows per-file links into other store paths only under a read-only root', async () => {
-    assert.deepEqual(await relPaths(skillDir('lint'), [store]), ['SKILL.md'])
-    assert.deepEqual(await relPaths(skillDir('lint'), []), [])
   })
 
   it('stops at links that point back up the tree', async () => {
@@ -184,6 +206,18 @@ describe('localSkillEntries fan-out', () => {
     }
 
     assert.deepEqual(await relPaths(root), ['SKILL.md'])
+  })
+})
+
+describe('matchesReview', () => {
+  it('holds only for the same files at the same real paths', () => {
+    const skillMd = { relPath: 'SKILL.md', realPath: '/s/SKILL.md' }
+    const reviewed = [skillMd, { relPath: 'ref.md', realPath: '/s/ref.md' }]
+
+    assert.ok(matchesReview(reviewed.toReversed(), reviewed))
+    assert.ok(!matchesReview([skillMd, { relPath: 'ref.md', realPath: '/home/.ssh/id' }], reviewed))
+    assert.ok(!matchesReview([...reviewed, { relPath: 'new.md', realPath: '/s/new.md' }], reviewed))
+    assert.ok(!matchesReview([skillMd], reviewed))
   })
 })
 

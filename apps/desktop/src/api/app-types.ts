@@ -96,6 +96,8 @@ export type LocalSkillInfo = {
   /** Where `path` resolves to when the skill's own entry is a link, else null. */
   linkedTo: string | null
   description: string | null
+  /** What an import would upload; `outside` files come through a link out of the skill. */
+  files: { relPath: string; realPath: string; size: number; outside: boolean }[]
   fileCount: number
   totalBytes: number
   updatedAt: string
@@ -128,6 +130,8 @@ export type LocalSetupStatus = {
   autoSync: boolean
   running: boolean
   localSkills: number
+  /** Files a sync uploads that a link brings in from outside their skill's folder. */
+  outsideFiles: { skill: string; relPath: string; realPath: string }[]
   claudeMdChars: number | null
   last: LocalSetupResult | null
   budget: { files: number; bytes: number }

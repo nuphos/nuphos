@@ -29,6 +29,8 @@ export type LocalSetupStatus = {
   autoSync: boolean
   running: boolean
   localSkills: number
+  /** Files a sync uploads that a link brings in from outside their skill's folder. */
+  outsideFiles: { skill: string; relPath: string; realPath: string }[]
   claudeMdChars: number | null
   last: LocalSetupResult | null
   budget: { files: number; bytes: number }

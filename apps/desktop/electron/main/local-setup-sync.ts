@@ -286,6 +286,11 @@ export async function localSetupStatus(teamId: string): Promise<LocalSetupStatus
     autoSync: team.autoSync,
     running: running.has(teamId),
     localSkills: skills.length,
+    outsideFiles: skills.flatMap((skill) =>
+      skill.files
+        .filter((file) => file.outside)
+        .map(({ relPath, realPath }) => ({ skill: skill.name, relPath, realPath })),
+    ),
     claudeMdChars: (await readClaudeMd())?.trim().length ?? null,
     last: team.last,
     budget: { files: RUNTIME_FILE_BUDGET, bytes: RUNTIME_BYTE_BUDGET },

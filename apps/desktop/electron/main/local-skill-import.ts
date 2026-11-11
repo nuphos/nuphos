@@ -6,11 +6,12 @@ import { teamSkillsPutObject } from '../atlas'
 import {
   listLocalSkills,
   localSkillEntries,
+  matchesReview,
   MAX_SKILL_FILE_BYTES,
   readSkillFile,
 } from './local-skills'
 
-import type { LocalSkillSource } from './local-skills'
+import type { LocalSkillReviewedFile, LocalSkillSource } from './local-skills'
 import type { SkillScope } from '../atlas'
 
 export type LocalSkillImportResult = {
@@ -41,15 +42,21 @@ export async function importLocalSkill(
   teamId: string,
   /** The `id` of a skill `listLocalSkills` returned. */
   id: string,
-  scope?: SkillScope,
+  scope: SkillScope | undefined,
+  /** The files the member confirmed: nothing else is uploaded. */
+  reviewed: readonly LocalSkillReviewedFile[],
 ): Promise<LocalSkillImportResult> {
   // Never take a directory the renderer names: the listing main just produced is
-  // the whole allow-list, and localSkillEntries has already resolved and
-  // contained every link — so read each file where it resolved to.
+  // the whole allow-list, and each file is read where localSkillEntries resolved it.
   const skill = (await listLocalSkills()).find((candidate) => candidate.id === id)
 
   if (!skill) throw new Error(`No skill "${id}" on this computer.`)
   const entries = await localSkillEntries(skill.path)
+
+  // A link re-pointed since the review would upload a file the member never saw.
+  if (!matchesReview(entries, reviewed)) {
+    throw new Error(`${skill.name} changed since you reviewed it. Open the import list again.`)
+  }
   const keys: string[] = []
   const skipped: string[] = []
 

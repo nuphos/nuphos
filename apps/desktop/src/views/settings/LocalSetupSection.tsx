@@ -17,7 +17,7 @@ const SKIP_REASON: Record<LocalSetupResult['skipped'][number]['reason'], string>
   too_many_files: t('200 files or more'),
   name_taken: t('a personal skill with this name already exists'),
   over_budget: t('over the runtime’s skill budget'),
-  unreadable: t('its SKILL.md links outside ~/.claude/skills'),
+  unreadable: t('its SKILL.md could not be read'),
 }
 
 function skillCount(count: number): string {
@@ -48,6 +48,31 @@ function instructionLine(last: LocalSetupResult, chars: number | null): string {
     case 'none':
       return t('No CLAUDE.md on this computer.')
   }
+}
+
+/** Links inside a skill are followed like the CLI follows them, so say where they lead. */
+function OutsideFiles({ files }: { files: LocalSetupStatus['outsideFiles'] }) {
+  if (files.length === 0) return null
+
+  return (
+    <details className="text-[13px] text-secondary">
+      <summary className="cursor-pointer text-warning">
+        {t('{files} come from outside their skill’s folder and are synced too', {
+          files: fileCount(files.length),
+        })}
+      </summary>
+      <ul className="mt-2 max-h-60 space-y-0.5 overflow-auto font-mono text-[12px] text-tertiary">
+        {files.map((file) => (
+          <li key={`${file.skill}/${file.relPath}`} className="truncate" title={file.realPath}>
+            <span className="text-secondary">
+              {file.skill}/{file.relPath}
+            </span>{' '}
+            → {file.realPath}
+          </li>
+        ))}
+      </ul>
+    </details>
+  )
 }
 
 function LastSync({
@@ -229,6 +254,8 @@ export function LocalSetupSection({ team }: { team: AtlasTeam | undefined }) {
               {t('Keep in sync while Nuphos is open')}
             </div>
           </div>
+
+          <OutsideFiles files={status.outsideFiles} />
 
           {last && <LastSync last={last} claudeMdChars={status.claudeMdChars} />}
         </div>

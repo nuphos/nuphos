@@ -20,10 +20,23 @@ export type LocalSkillInfo = {
   linkedTo: string | null
   /** First line of the SKILL.md frontmatter `description`, when it has one. */
   description: string | null
+  /** What an upload would send, so the member can review it first. */
+  files: LocalSkillFileInfo[]
   fileCount: number
   totalBytes: number
   updatedAt: string
 }
+
+export type LocalSkillFileInfo = {
+  relPath: string
+  realPath: string
+  size: number
+  /** Reached through a link that leaves the skill's own resolved folder. */
+  outside: boolean
+}
+
+/** A file the member saw before an upload, by where it really is. */
+export type LocalSkillReviewedFile = { relPath: string; realPath: string }
 
 export type LocalSkillEntry = {
   relPath: string
@@ -69,33 +82,17 @@ export function skillDescription(markdown: string): string | null {
   return line ? line.slice(0, 300) : null
 }
 
-/**
- * Read-only and world-readable by construction, so a link into it cannot expose
- * anything private. Nix home-manager installs skills as links into it.
- */
-const READ_ONLY_ROOTS = ['/nix/store']
-
 function isUnder(target: string, base: string): boolean {
   return target.startsWith(base.endsWith(path.sep) ? base : `${base}${path.sep}`)
 }
 
 type Resolved = { real: string; stat: Stats }
 
-/**
- * Where an entry really is and what it is. A link is followed only to a place
- * in `allowed` — its own skill, the skills directory (gstack links each skill
- * into one shared checkout there) or a read-only root — never elsewhere.
- */
-async function resolveEntry(
-  entry: Dirent,
-  full: string,
-  allowed: readonly string[],
-): Promise<Resolved | null> {
+/** Where an entry really is and what it is, after any links (`cp -L`). */
+async function resolveEntry(entry: Dirent, full: string): Promise<Resolved | null> {
   try {
     if (!entry.isSymbolicLink()) return { real: full, stat: await fs.lstat(full) }
     const real = await fs.realpath(full)
-
-    if (!allowed.some((base) => isUnder(real, base))) return null
 
     return { real, stat: await fs.stat(real) }
   } catch {
@@ -105,22 +102,17 @@ async function resolveEntry(
 }
 
 /**
- * Every regular file under a skill directory, flattened to relative paths. The
- * skill directory may itself be a link; links inside it are followed only as
- * resolveEntry allows, a link back to a directory being walked is skipped, and
- * depth and file count are capped, so a link cannot pull in the rest of the
- * computer or loop.
+ * Every regular file under a skill directory, flattened to relative paths: what
+ * Claude Code or Codex would read from it, so links are followed wherever they
+ * point, like `cp -L`. Where that is outside the skill is not refused here but
+ * shown before upload (LocalSkillFileInfo.outside). A link back to a directory
+ * being walked is skipped, and depth, entries and files are capped.
  */
-export async function localSkillEntries(
-  root: string,
-  readOnlyRoots: readonly string[] = READ_ONLY_ROOTS,
-): Promise<LocalSkillEntry[]> {
+export async function localSkillEntries(root: string): Promise<LocalSkillEntry[]> {
   const out: LocalSkillEntry[] = []
   const realRoot = await fs.realpath(root).catch(() => null)
-  const skillsDir = await fs.realpath(path.dirname(root)).catch(() => null)
 
   if (!realRoot) return out
-  const allowed = [realRoot, ...(skillsDir ? [skillsDir] : []), ...readOnlyRoots]
   let examined = 0
 
   // `ancestors`, not every directory seen: an alias such as `assets -> scripts`
@@ -144,7 +136,7 @@ export async function localSkillEntries(
       examined += 1
       if (SKIP_ENTRIES.has(entry.name)) continue
       const relPath = prefix ? `${prefix}/${entry.name}` : entry.name
-      const resolved = await resolveEntry(entry, path.join(dir, entry.name), allowed)
+      const resolved = await resolveEntry(entry, path.join(dir, entry.name))
 
       if (resolved?.stat.isDirectory()) subdirs.push({ real: resolved.real, relPath })
       else if (resolved?.stat.isFile()) {
@@ -166,6 +158,19 @@ export async function localSkillEntries(
 
     return a.relPath.localeCompare(b.relPath)
   })
+}
+
+/** Whether a fresh walk found exactly the files the member reviewed, each where it was. */
+export function matchesReview(
+  entries: readonly LocalSkillReviewedFile[],
+  reviewed: readonly LocalSkillReviewedFile[],
+): boolean {
+  const seen = new Set(reviewed.map((file) => `${file.relPath}\0${file.realPath}`))
+
+  return (
+    entries.length === seen.size &&
+    entries.every((entry) => seen.has(`${entry.relPath}\0${entry.realPath}`))
+  )
 }
 
 /**
@@ -203,20 +208,25 @@ async function describeSkill(
   const skillMd = entries.find((entry) => entry.relPath === 'SKILL.md')
 
   // Without a SKILL.md the directory is not a skill — the store keys on it too.
-  // One that links out is still listed, without reading it, so sync can say so.
-  if (!skillMd && !(await fs.lstat(path.join(root, 'SKILL.md')).catch(() => null))) return null
-  const markdown = skillMd ? await readSkillFile(skillMd).catch(() => null) : null
+  if (!skillMd) return null
+  const markdown = await readSkillFile(skillMd).catch(() => null)
+  const realRoot = await fs.realpath(root).catch(() => root)
   // Only the entry itself: a linked home or skills directory would flag every skill.
   const isLink = (await fs.lstat(root).catch(() => null))?.isSymbolicLink() ?? false
-  const linkedTo = isLink ? await fs.realpath(root).catch(() => null) : null
 
   return {
     id: `${source}/${name}`,
     name,
     source,
     path: root,
-    linkedTo,
+    linkedTo: isLink ? realRoot : null,
     description: markdown ? skillDescription(markdown.toString('utf8')) : null,
+    files: entries.map(({ relPath, realPath, size }) => ({
+      relPath,
+      realPath,
+      size,
+      outside: !isUnder(realPath, realRoot),
+    })),
     fileCount: entries.length,
     totalBytes: entries.reduce((sum, entry) => sum + entry.size, 0),
     updatedAt: new Date(Math.max(0, ...entries.map((entry) => entry.mtimeMs))).toISOString(),

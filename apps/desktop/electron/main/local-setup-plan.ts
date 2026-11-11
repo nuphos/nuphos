@@ -72,7 +72,7 @@ export function planSkillSync(
     // The walk stops at 200 files, possibly before reaching SKILL.md, so that comes first.
     if (skill.files.length >= MAX_SYNCED_SKILL_FILES)
       skipped.push({ name: skill.name, reason: 'too_many_files' })
-    // Its SKILL.md is a link out of the skills directory, so nothing would upload.
+    // Its SKILL.md was not walked (vanished or unreadable), so nothing would upload.
     else if (!skill.files.some((file) => file.relPath === 'SKILL.md'))
       skipped.push({ name: skill.name, reason: 'unreadable' })
     else if (foreignNames.has(skill.name)) skipped.push({ name: skill.name, reason: 'name_taken' })

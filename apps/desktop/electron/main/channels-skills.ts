@@ -5,6 +5,7 @@ import { setLocalSetupAutoSync } from './local-setup-watch'
 import { importLocalSkill } from './local-skill-import'
 import { listLocalSkills } from './local-skills'
 
+import type { LocalSkillReviewedFile } from './local-skills'
 import type { SkillScope } from '../atlas'
 
 // `scope` selects the team store (default) or the caller's personal skills.
@@ -25,8 +26,13 @@ export const skillChannels = {
     scope?: SkillScope,
   ) => atlas.teamSkillsPutObject(teamId, key, file, scope),
   'teamSkills:listLocal': () => listLocalSkills(),
-  'teamSkills:importLocal': (_e: unknown, teamId: string, skillId: string, scope?: SkillScope) =>
-    importLocalSkill(teamId, skillId, scope),
+  'teamSkills:importLocal': (
+    _e: unknown,
+    teamId: string,
+    skillId: string,
+    scope: SkillScope | undefined,
+    reviewed: LocalSkillReviewedFile[],
+  ) => importLocalSkill(teamId, skillId, scope, reviewed),
   'teamSkills:deleteObject': (_e: unknown, teamId: string, key: string, scope?: SkillScope) =>
     atlas.teamSkillsDeleteObject(teamId, key, scope),
   'teamSkills:deleteSkill': (_e: unknown, teamId: string, name: string, scope?: SkillScope) =>
