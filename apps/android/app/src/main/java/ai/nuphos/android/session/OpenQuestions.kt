@@ -102,7 +102,7 @@ class OpenQuestions(
     suspend fun storedSelection(question: BotQuestion): CredentialSelection? {
         failures = failures - question.id
         return try {
-            CredentialSelection.whole(source.credentials(question.sessionId) ?: JsonValue.Obj(emptyMap()))
+            CredentialSelection(source.credentials(question.sessionId) ?: JsonValue.Obj(emptyMap()))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

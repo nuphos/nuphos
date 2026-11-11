@@ -68,4 +68,34 @@ class ComputerCredentialFixtureDeviceTest {
             compose.runOnIdle { store.disposeForConsent() }
         }
     }
+
+    @Test fun aStoredConversationOffersItsNewerKinds() {
+        val catalog = CredentialCatalog(JsonValue.parse("""{
+            "awsRoles":[{"roleId":"aws","accountAlias":"Existing AWS"}],
+            "githubInstallations":[{"installationId":"166","accountLogin":"fixture-org","accountType":"Organization"}]
+        }""")!!, CredentialCatalog.NEW_CONVERSATION_PROVIDERS)
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val store = AgentStore("synthetic-no-credentials", context)
+        // Stored without GitHub: every installation. Ticking one makes it an explicit list.
+        var selection by mutableStateOf(CredentialSelection(JsonValue.parse("""{"awsRoleIds":["aws"]}""")!!))
+        @Suppress("UNCHECKED_CAST")
+        val cached = AgentStore::class.java.getDeclaredField("credentials\$delegate").also { it.isAccessible = true }.get(store) as MutableState<ai.nuphos.android.model.CredentialDraft>
+        try {
+            compose.runOnIdle { cached.value = ai.nuphos.android.model.CredentialDraft(catalog = catalog) }
+            compose.setContent {
+                NuphosTheme {
+                    CompositionLocalProvider(LocalAgentStore provides store) {
+                        CredentialPickerSheet(selection, { selection = it }, {})
+                    }
+                }
+            }
+            compose.onNodeWithText("fixture-org").assertIsDisplayed().assertIsOff().performClick().assertIsOn()
+            compose.runOnIdle {
+                assertEquals(setOf("awsRoleIds", "githubInstallationIds"), selection.json.objectValue!!.keys)
+                assertEquals(listOf("166"), selection.json["githubInstallationIds"]!!.arrayValue!!.map { it.stringValue })
+            }
+        } finally {
+            compose.runOnIdle { store.disposeForConsent() }
+        }
+    }
 }
