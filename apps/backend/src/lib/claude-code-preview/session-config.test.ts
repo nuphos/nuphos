@@ -414,3 +414,50 @@ test('prewarms only the owner’s recently active conversations', () => {
   // A legacy doc without lastActiveAt fails closed instead of throwing.
   expect(shouldPrewarm({ userId: 'owner' } as typeof recent, 'owner', now)).toBe(false)
 })
+
+test('a started conversation does not report catalog defaults as confirmed settings', async () => {
+  const catalog = {
+    models: [
+      { id: 'sol', name: 'Sol' },
+      { id: 'astra', name: 'Astra' },
+    ],
+    controls: {
+      modelId: 'sol',
+      effort: [
+        { value: 'low', name: 'Low' },
+        { value: 'high', name: 'High' },
+      ],
+      defaultEffort: 'low',
+      fast: [],
+    },
+  }
+
+  for (const pick of [{}, { model: 'retired', effort: 'retired-effort' }]) {
+    const { options, kept } = await offeredSessionConfig(async () => catalog, pick, true)
+
+    expect(options).toMatchObject([{ kind: 'model', currentValue: '' }])
+    expect(options).toHaveLength(1)
+    expect(kept).toEqual({})
+  }
+  const confirmed = await offeredSessionConfig(
+    async () => catalog,
+    { model: 'astra', effort: 'high' },
+    true,
+  )
+
+  expect(confirmed.options.map((o) => o.currentValue)).toEqual(['astra', 'high'])
+  expect(confirmed.kept).toEqual({ model: 'astra', effort: 'high' })
+  const unconfirmedEffort = await offeredSessionConfig(
+    async () => catalog,
+    { model: 'astra', effort: 'retired-effort' },
+    true,
+  )
+
+  expect(unconfirmedEffort.options.map((o) => o.currentValue)).toEqual(['astra'])
+  const fresh = await offeredSessionConfig(async () => catalog, {})
+
+  expect(fresh.options.map((o) => o.currentValue)).toEqual(['sol', 'low'])
+  const view = await sessionConfigView({ model: 'retired' }, async () => catalog)
+
+  expect(view.options).toMatchObject([{ kind: 'model', currentValue: '' }])
+})

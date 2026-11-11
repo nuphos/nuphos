@@ -177,7 +177,7 @@ export async function updateThread(
   const runtime = change.runtimeId
     ? await moveConversationRuntime(target, change.runtimeId, 'history', actor.userId)
     : undefined
-  // After a move, which drops the old agent's model choices.
+  // Apply any explicit choice after the move has preserved compatible settings.
   const model = await setThreadModel(threadId, actor.userId, change)
 
   if (change.fullAccess !== undefined) {

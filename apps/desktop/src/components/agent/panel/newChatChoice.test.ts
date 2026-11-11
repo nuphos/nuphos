@@ -117,3 +117,21 @@ test('a chat whose settings are unknown leaves the next new chat as it was', () 
     pick: {},
   })
 })
+
+test('an unknown current model is not saved as an empty new-chat selection', () => {
+  assert.deepEqual(
+    sentChatChoice('codex', {
+      status: 'ready',
+      options: [
+        {
+          id: 'model',
+          name: 'Model',
+          kind: 'model',
+          currentValue: '',
+          options: [{ value: 'sol', name: 'Sol' }],
+        },
+      ],
+    }),
+    { runtimeId: 'codex', pick: {} },
+  )
+})

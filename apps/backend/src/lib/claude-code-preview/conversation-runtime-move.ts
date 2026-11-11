@@ -18,6 +18,7 @@ import {
   restoreRuntimeWorkspace,
   saveRuntimeWorkspace,
 } from './runtime-workspace'
+import { storedPick } from './session-config-options'
 
 import type { AgentConversation } from '@/lib/agent/db/shared'
 import type { RuntimeFallbackReason } from '@/lib/agent/db/timeline-events'
@@ -142,6 +143,12 @@ export async function moveConversationRuntime(
         'runtime_unavailable',
         'The destination was disabled during the move. Choose another agent and retry.',
       )
+    const pick =
+      target.provider === provider
+        ? ((conversation.claudeCodePreview
+            ? storedPick(conversation.claudeCodePreview)
+            : conversation.initialSessionConfig) ?? {})
+        : undefined
     const result = await agentConversations().updateOne(
       {
         sessionId: conversation.sessionId,
@@ -152,6 +159,7 @@ export async function moveConversationRuntime(
       },
       {
         $set: {
+          ...(pick ? { initialSessionConfig: pick } : {}),
           runtimeId: target.id,
           runtimeLabel: target.label,
           agentRuntime: target.provider,
@@ -180,12 +188,13 @@ export async function moveConversationRuntime(
         // every path that reads the attachment before the next prompt handed it
         // to the runtime and got "Invalid sessionId" — a 500 on /agent/chat and
         // on model-config. Clearing it means the first prompt creates the
-        // session; model choices belong to the old agent, so they go too.
+        // session. Same-provider choices seed that session; another provider
+        // starts from its own choices instead of inheriting incompatible ids.
         $unset: {
           runtimeOperation: '',
           claudeCodePreviewContext: '',
           claudeCodePreview: '',
-          initialSessionConfig: '',
+          ...(pick ? {} : { initialSessionConfig: '' }),
         },
       },
     )
