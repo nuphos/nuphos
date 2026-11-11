@@ -199,11 +199,27 @@ describe('conversation participants API', () => {
 
   test('the owner cannot be removed and nobody else can remove anyone', async () => {
     expect((await remove(OWNER)).status).toBe(400)
+    await invite([INVITEE])
     viewer = TEAMMATE
-    expect((await remove(TEAMMATE)).status).toBe(403)
+    expect((await remove(INVITEE)).status).toBe(403)
     viewer = OUTSIDER
     expect((await remove(TEAMMATE)).status).toBe(403)
-    expect(participantIds()).toEqual([TEAMMATE])
+    expect((await remove(OUTSIDER)).status).toBe(403)
+    expect(participantIds()).toEqual([TEAMMATE, INVITEE])
+  })
+
+  test('a participant leaves on their own, and the timeline says they left', async () => {
+    viewer = TEAMMATE
+    const response = await remove(TEAMMATE)
+    const body = (await response.json()) as ParticipantsBody
+
+    expect(response.status).toBe(200)
+    expect(body.participants.map((participant) => participant.id)).toEqual([OWNER])
+    expect(conversation?.timelineEvents?.at(-1)).toMatchObject({
+      kind: 'participant_removed',
+      actorId: TEAMMATE,
+      targetId: TEAMMATE,
+    })
   })
 
   test('participants have no roles to choose; a role other than reply is refused', async () => {
