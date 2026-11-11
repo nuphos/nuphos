@@ -2,6 +2,7 @@ import Foundation
 
 enum CredentialScopeTests {
     static func run() {
+        aStoredSelectionSendsOnlyItsKinds()
         // The member's own GitHub is a credential like any other, its id the provider the server answers asks by.
         let personal = CredentialCatalog(json: JSONValue.parse(#"{"personalCredentials":[{"provider":"github","login":"octocat"}]}"#)!)
         precondition(personal.allItems.map(\.id) == ["github"])
@@ -106,5 +107,24 @@ enum CredentialScopeTests {
         team.finish(teamAAgain, with: .success(catalog))
         precondition(team.selection.ids["awsRoleIds"] == ["aws"])
     }
-}
 
+    private static func aStoredSelectionSendsOnlyItsKinds() {
+        let personal = CredentialCatalog(json: JSONValue.parse(#"{"personalCredentials":[{"provider":"github","login":"octocat"}]}"#)!)
+        // No GitHub key: every installation. [] is none, null is unset, a string is malformed.
+        var stored = CredentialSelection(json: JSONValue.parse(
+            #"{"awsRoleIds":["aws"],"gitlabBindingIds":[],"notionIntegrationIds":null,"grafanaInstanceIds":"bogus"}"#)!)
+        stored.toggle(personal.allItems[0])
+        let sent = stored.json.objectValue ?? [:]
+        // An unset kind stays unset rather than revoked as []; the empty one stays empty.
+        precondition(Set(sent.keys) == ["awsRoleIds", "gitlabBindingIds", "grafanaInstanceIds", "personalCredentialIds"])
+        precondition(sent["gitlabBindingIds"]?.arrayValue?.isEmpty == true)
+        // Malformed fails closed: sent as none, never left out to mean "all".
+        precondition(sent["grafanaInstanceIds"]?.arrayValue?.isEmpty == true)
+        // Nothing stored is still stored: only what changed is sent.
+        var none = CredentialSelection(json: .object([:]))
+        none.toggle(personal.allItems[0])
+        precondition(Set((none.json.objectValue ?? [:]).keys) == ["personalCredentialIds"])
+        // A new conversation still states every kind.
+        precondition(CredentialSelection().json.objectValue?["githubInstallationIds"]?.arrayValue?.isEmpty == true)
+    }
+}
