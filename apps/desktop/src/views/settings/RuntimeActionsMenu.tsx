@@ -60,7 +60,7 @@ export function RuntimeActionsMenu({
           </MenuItem>
         )}
         {/* A Box can remove any of its agents, and an offline computer deletes one when it is
-            back; a person's own default agent is only forgotten, while its computer is offline. */}
+            back; a person's own default agent is only forgotten. */}
         {(instance.kind !== 'local' || localRemovalId(instance)) && (
           <MenuItem
             destructive

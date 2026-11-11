@@ -167,16 +167,16 @@ test('a self-hosted agent reads offline only when its Usage reading could not re
   assert.equal(agentOffline({ ...selfHosted, notReady: true }), false)
 })
 
-test("a Box's default agent can be removed; a person's computer's default only while offline", () => {
+test("any computer's default agent can be removed; a person's own is only forgotten", () => {
   const computer = local('mac-codex', 'mac', true)
   const box = { ...computer, local: { ...computer.local!, box: { state: 'running' } } }
 
-  assert.equal(localRemovalId(computer), undefined)
+  // Online or not: a signed-out default Nuphos forgets stays hidden until it signs in again.
+  assert.equal(localRemovalId(computer), 'codex')
   assert.equal(
     localRemovalId({ ...computer, local: { ...computer.local!, online: true } }),
-    undefined,
+    'codex',
   )
-  // Online, its report lists it again; offline, Nuphos can forget it.
   assert.equal(
     localRemovalId({ ...computer, local: { ...computer.local!, online: false } }),
     'codex',

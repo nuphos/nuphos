@@ -7,14 +7,14 @@ import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 /**
  * How a computer's agent is removed: an added one by its id, a default one by its provider
  * (as for rename). A person's own computer's default is their CLI login, so Nuphos only
- * forgets it, and only while that computer is offline: online, its report lists it again.
+ * forgets it; it shows again once that CLI is signed in (see visibleAgent).
  */
 export function localRemovalId(instance: RuntimeInstance): string | undefined {
   const local = instance.local
 
   if (!local) return undefined
 
-  return local.instanceId ?? (local.box || local.online === false ? instance.provider : undefined)
+  return local.instanceId ?? instance.provider
 }
 
 /**
