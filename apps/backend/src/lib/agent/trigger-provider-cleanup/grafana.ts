@@ -8,7 +8,7 @@ import {
   grafanaRequest,
   removeManagedGrafanaRoute,
 } from './grafana-api'
-import { cleanupConflict, sameJson, targetsManagedWebhook } from './shared'
+import { cleanupConflict, integrationDisconnected, sameJson, targetsManagedWebhook } from './shared'
 
 import type { GrafanaProviderWiring } from '../trigger-provider-wiring'
 import type { JsonObject } from './shared'
@@ -27,7 +27,8 @@ export async function cleanupGrafana(
     (item) => item.id.toHexString() === receipt.integrationId,
   )
 
-  if (!binding) cleanupConflict('The Grafana integration used by this Watch is no longer connected')
+  if (!binding)
+    integrationDisconnected('The Grafana integration used by this Watch is no longer connected')
 
   const contactPoints =
     (await grafanaRequest<JsonObject[]>(binding, '/api/v1/provisioning/contact-points')) ?? []

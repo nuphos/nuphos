@@ -145,7 +145,9 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
   // Delete trigger
   agentTriggersRoutes.delete('/:triggerId', async (c) => {
     const { triggerId } = c.req.param()
-    const result = await deleteTrigger(triggerId, await triggerActor(c, c.req.query('teamId')))
+    const result = await deleteTrigger(triggerId, await triggerActor(c, c.req.query('teamId')), {
+      withoutProviderCleanup: c.req.query('withoutProviderCleanup') === 'true',
+    })
 
     return c.json({ ok: true, ...result }, result.deleted ? 200 : 202)
   })

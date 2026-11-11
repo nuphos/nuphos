@@ -108,6 +108,8 @@ export type AgentTrigger = {
   /** Present only while a managed Watch is being removed or needs a retry. */
   cleanupStatus?: TriggerCleanupStatus
   cleanupError?: string
+  /** Error code of the last cleanup failure; tells the UI which way out to offer. */
+  cleanupErrorCode?: string
   cleanupStartedAt?: Date
   cleanupUpdatedAt?: Date
   lastRunAt?: Date

@@ -186,10 +186,14 @@ export async function updateAgentTrigger(
 export async function deleteAgentTrigger(
   triggerId: string,
   teamId?: string,
+  withoutProviderCleanup = false,
 ): Promise<DeleteAgentTriggerResult> {
+  const path = `/agent/triggers/${encodeURIComponent(triggerId)}${teamQuery(teamId)}`
+  const separator = teamId ? '&' : '?'
+
   return callJson<DeleteAgentTriggerResult>(
     'DELETE',
-    `/agent/triggers/${encodeURIComponent(triggerId)}${teamQuery(teamId)}`,
+    withoutProviderCleanup ? `${path}${separator}withoutProviderCleanup=true` : path,
   )
 }
 

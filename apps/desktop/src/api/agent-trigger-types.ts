@@ -71,6 +71,8 @@ export type AgentTrigger = {
   requiresProviderCleanup?: boolean
   cleanupStatus?: AgentTriggerCleanupStatus
   cleanupError?: string
+  /** `provider_integration_disconnected` offers removal without provider cleanup. */
+  cleanupErrorCode?: string
   cleanupStartedAt?: string
   cleanupUpdatedAt?: string
   lastRunAt?: string
@@ -150,6 +152,7 @@ export type TestAgentTriggerResult = {
 }
 
 export type DeleteAgentTriggerResult =
-  { ok: true; deleted: true } | { ok: true; deleted: false; trigger: AgentTrigger }
+  | { ok: true; deleted: true; leftBehind?: string[] }
+  | { ok: true; deleted: false; trigger: AgentTrigger }
 
 export type TriggerSchedulerStatus = { cronEnabled: boolean }

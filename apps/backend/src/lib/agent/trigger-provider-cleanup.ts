@@ -8,7 +8,7 @@ export {
   discoverLegacyProviderWiring,
   isPotentialLegacyManagedWatch,
 } from './trigger-provider-cleanup/legacy'
-export { targetsManagedWebhook } from './trigger-provider-cleanup/shared'
+export { cleanupOrLeaveBehind, targetsManagedWebhook } from './trigger-provider-cleanup/shared'
 export {
   cleanupManagedProviderWiring,
   settleSequentialProviderCleanup,
