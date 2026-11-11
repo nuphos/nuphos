@@ -410,7 +410,11 @@ describe('partitionCredentials', () => {
         kind: 'personal',
         login: 'octo',
       })
-      expect(unselected.some((entry) => entry.provider === 'personal')).toBe(false)
+      expect(unselected.find((entry) => entry.provider === 'personal')).toMatchObject({
+        id: provider,
+        selected: false,
+        hint: expect.stringContaining('Standalone personal token access'),
+      })
       expect(selected.some((entry) => entry.provider === 'personal')).toBe(false)
     },
   )

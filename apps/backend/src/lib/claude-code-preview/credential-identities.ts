@@ -6,7 +6,6 @@ export function describeCredentialIdentities(
   selection: AgentCredentialSelection,
   options: AgentCredentialOptions,
 ): SessionCredentials {
-  const personalIdentities = new Set<string>()
   const selected = credentials.selected.map((entry) => {
     if (entry.provider !== 'github' && entry.provider !== 'linear') return entry
     const provider = entry.provider
@@ -17,7 +16,6 @@ export function describeCredentialIdentities(
     if (!personal || selection.teamIdentity?.includes(provider)) {
       return { ...entry, identityPreference: { kind: 'team' as const } }
     }
-    personalIdentities.add(provider)
 
     return {
       ...entry,
@@ -27,8 +25,6 @@ export function describeCredentialIdentities(
 
   return {
     selected,
-    unselected: credentials.unselected.filter(
-      (entry) => entry.provider !== 'personal' || !personalIdentities.has(entry.id),
-    ),
+    unselected: credentials.unselected,
   }
 }

@@ -215,7 +215,8 @@ export const CREDENTIALS_MCP_SURFACE: McpSurface = {
         'include identityPreference: the selected personal login or team identity. Confirm ' +
         'the effective actor with the provider setup script, since the handout may fall back ' +
         'to the team. A personal identity on a selected team binding does not grant standalone ' +
-        'personal token access.',
+        'personal token access. An unselected personal row refers only to standalone token ' +
+        'access, not to the acting identity on a selected team binding.',
       inputSchema: { type: 'object', properties: { description: DESCRIPTION_PROPERTY } },
     },
     {
