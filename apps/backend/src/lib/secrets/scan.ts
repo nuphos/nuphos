@@ -1,11 +1,11 @@
 // The one secret scanner in the backend. Detection is secretlint: its
 // recommended preset for provider keys, plus our own rule (nuphos-rule.ts) for
-// what the preset leaves out. Redaction replaces the ranges secretlint reports.
+// what the preset leaves out, whose scan we call directly (see findSecrets). Redaction replaces the ranges secretlint reports.
 
 import { lintSource } from '@secretlint/core'
 import { rules as recommendedRules } from '@secretlint/secretlint-rule-preset-recommend'
 
-import { NUPHOS_RULE_ID, nuphosSecretRule } from './nuphos-rule'
+import { findNuphosSecrets } from './nuphos-rule'
 
 import type { NuphosRuleOptions } from './nuphos-rule'
 import type { SecretLintCoreConfig, SecretLintRuleCreator } from '@secretlint/types'
@@ -63,42 +63,34 @@ function kindRank(kind: string): number {
   return rank === -1 ? KIND_ORDER.length : rank
 }
 
-function scanConfig(options: NuphosRuleOptions): SecretLintCoreConfig {
-  const preset = (recommendedRules as SecretLintRuleCreator[])
+const PRESET_CONFIG: SecretLintCoreConfig = {
+  rules: (recommendedRules as SecretLintRuleCreator[])
     .filter((rule) => !SKIPPED_PRESET_RULES.has(rule.meta.id))
-    .map((rule) => ({ id: rule.meta.id, rule }))
-
-  return {
-    rules: [...preset, { id: NUPHOS_RULE_ID, rule: nuphosSecretRule, options }],
-  }
+    .map((rule) => ({ id: rule.meta.id, rule })),
 }
 
-const CONFIGS = {
-  tokenShapes: scanConfig({}),
-  storedContent: scanConfig({ pemHeaders: true }),
-  everything: scanConfig({ contextual: true, pemHeaders: true }),
-}
+const PROFILES = {
+  tokenShapes: {},
+  storedContent: { pemHeaders: true },
+  everything: { contextual: true, pemHeaders: true },
+} satisfies Record<string, NuphosRuleOptions>
 
-type ScanProfile = keyof typeof CONFIGS
+type ScanProfile = keyof typeof PROFILES
 
-function kindOf(message: { ruleId: string; data?: unknown }): string {
-  if (message.ruleId === NUPHOS_RULE_ID) {
-    const kind = (message.data as { kind?: unknown } | undefined)?.kind
-
-    return typeof kind === 'string' ? kind : 'secret'
-  }
+function kindOf(message: { ruleId: string }): string {
   const name = message.ruleId.replace(PRESET_RULE_PREFIX, '')
 
   return PRESET_KINDS[name] ?? name
 }
 
 // secretlint drops duplicate messages by comparing every pair, so one lint of
-// a large input full of findings is quadratic and blocks the event loop.
-// Large inputs are linted in chunks of about 32 KB, cut at a newline when one
+// a large input full of findings is quadratic and blocks the event loop. The
+// Nuphos rule, whose matches have no length bound, therefore scans the whole
+// text in one linear pass outside lintSource. The preset matches bounded token
+// shapes, so for it large inputs are linted in chunks of about 32 KB, cut at a newline when one
 // is near and mid-line otherwise (compact JSON has none); a PEM block is never
-// split. Each chunk also re-reads the 2 KB before its cut, so a pair that
-// crosses it (a key and the value on the next line, or a token cut in half) is
-// seen whole; the merge below folds the findings the overlap reports twice.
+// split. Each chunk also re-reads the 2 KB before its cut, so a token cut in
+// half is seen whole; the merge below folds the findings the overlap reports twice.
 const CHUNK_CHARS = 32_000
 const NEWLINE_SEARCH_CHARS = 4_000
 const OVERLAP_CHARS = 2_000
@@ -149,7 +141,7 @@ export async function findSecrets(
   profile: ScanProfile = 'everything',
 ): Promise<SecretFinding[]> {
   if (text.length === 0) return []
-  const findings: SecretFinding[] = []
+  const findings: SecretFinding[] = findNuphosSecrets(text, PROFILES[profile])
 
   for (const [chunk, [chunkStart, end]] of chunkBounds(text).entries()) {
     // Let other requests run between the synchronous parts of each lint.
@@ -162,7 +154,7 @@ export async function findSecrets(
         ext: '.txt',
         contentType: 'text',
       },
-      options: { config: CONFIGS[profile], noPhysicFilePath: true },
+      options: { config: PRESET_CONFIG, noPhysicFilePath: true },
     })
 
     for (const message of result.messages) {

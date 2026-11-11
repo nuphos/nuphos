@@ -154,6 +154,32 @@ function entropyRanges(text: string, found: Range[]): Range[] {
   })
 }
 
+export type NuphosFinding = { kind: string; range: Range }
+
+/**
+ * Everything the rule reports, in one linear pass. The backend calls this
+ * directly on whole inputs: secretlint drops duplicate messages by comparing
+ * every pair, which a dense input would make quadratic.
+ */
+export function findNuphosSecrets(text: string, options: NuphosRuleOptions): NuphosFinding[] {
+  const shapes = [
+    ...TOKEN_SHAPES,
+    ...(options.pemHeaders ? [PEM_HEADER] : []),
+    ...(options.contextual ? CONTEXTUAL : []),
+  ]
+  const findings = shapes.flatMap((shape) =>
+    shapeRanges(text, shape).map((range) => ({ kind: shape.kind, range })),
+  )
+
+  if (!options.contextual) return findings
+  const entropy = entropyRanges(
+    text,
+    findings.map((finding) => finding.range),
+  ).map((range) => ({ kind: 'high-entropy', range }))
+
+  return [...findings, ...entropy]
+}
+
 export const nuphosSecretRule: SecretLintRuleCreator<NuphosRuleOptions> = {
   messages,
   meta: {
@@ -164,25 +190,12 @@ export const nuphosSecretRule: SecretLintRuleCreator<NuphosRuleOptions> = {
   },
   create(context, options) {
     const t = context.createTranslator(messages)
-    const shapes = [
-      ...TOKEN_SHAPES,
-      ...(options.pemHeaders ? [PEM_HEADER] : []),
-      ...(options.contextual ? CONTEXTUAL : []),
-    ]
 
     return {
       file(source: SecretLintSourceCode) {
-        const found: Range[] = []
-        const report = (kind: string, range: Range) => {
-          found.push(range)
+        for (const { kind, range } of findNuphosSecrets(source.content, options)) {
           context.report({ message: t('SECRET', { kind }), range, data: { kind } })
         }
-
-        for (const shape of shapes) {
-          for (const range of shapeRanges(source.content, shape)) report(shape.kind, range)
-        }
-        if (!options.contextual) return
-        for (const range of entropyRanges(source.content, found)) report('high-entropy', range)
       },
     }
   },

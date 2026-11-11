@@ -1,5 +1,7 @@
+import { lintSource } from '@secretlint/core'
 import { describe, expect, test } from 'bun:test'
 
+import { NUPHOS_RULE_ID, nuphosSecretRule } from './nuphos-rule'
 import {
   findEmbeddedSecret,
   findSecrets,
@@ -339,6 +341,21 @@ describe('scanner regressions', () => {
     expect(redacted).not.toContain(value)
   })
 
+  test('a value longer than the overlap is redacted across a mid-line cut', async () => {
+    const value = randomAlnum(2_500)
+    const text = `${'x '.repeat(14_950)}password="${value}"`
+    const { redacted } = await redactSecrets(text)
+
+    expect(redacted).toBe(`${'x '.repeat(14_950)}password=[REDACTED:secret-assignment]`)
+  })
+
+  test('a JWT longer than the overlap is redacted whole across a cut', async () => {
+    const jwt = `eyJ${randomAlnum(40)}.${randomAlnum(2_600)}.${randomAlnum(40)}`
+    const text = `${'x '.repeat(15_500)}${jwt} tail`
+
+    expect(await redactTokenShapes(text)).toBe(`${'x '.repeat(15_500)}[REDACTED:jwt] tail`)
+  })
+
   test('compact JSON without newlines is chunked and stays fast', async () => {
     const passwords = Array.from({ length: 32_000 }, () => randomAlnum(14))
     const json = JSON.stringify(passwords.map((password) => ({ password })))
@@ -355,5 +372,22 @@ describe('scanner regressions', () => {
     const { redacted } = await redactSecrets(text)
 
     expect(redacted).toBe(`${'a'.repeat(31_990)} [REDACTED:github-token] tail`)
+  })
+})
+
+describe('nuphosSecretRule', () => {
+  test('reports through secretlint like any other rule', async () => {
+    const token = `nus_${randomAlnum(32)}`
+    const result = await lintSource({
+      source: { content: `t ${token}`, filePath: 'a.txt', ext: '.txt', contentType: 'text' },
+      options: {
+        config: { rules: [{ id: NUPHOS_RULE_ID, rule: nuphosSecretRule, options: {} }] },
+        noPhysicFilePath: true,
+      },
+    })
+
+    expect(result.messages.map((m) => [m.ruleId, m.range, m.data])).toEqual([
+      [NUPHOS_RULE_ID, [2, 2 + token.length], { kind: 'nuphos-token' }],
+    ])
   })
 })
