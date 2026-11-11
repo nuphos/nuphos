@@ -22,16 +22,9 @@ function request(status: AgentInputRequest['status']): AgentInputRequest {
   }
 }
 
-const legacy = {
-  category: 'preference',
-  question: 'Which region?',
-  toolCallId: 'q1',
-  askedAt: '2026-10-29T00:00:00Z',
-}
-
-test('an open question makes a sub-agent wait, whether listed or legacy, even while it runs', () => {
+test('an open question makes a sub-agent wait, even while it runs', () => {
   assert.equal(subAgentState({ inputRequests: [request('open')] }, idle), 'waiting')
-  assert.equal(subAgentState({ pendingDecision: legacy }, turn), 'waiting')
+  assert.equal(subAgentState({ inputRequests: [request('open')] }, turn), 'waiting')
 })
 
 test('a running turn or background work runs', () => {
@@ -47,7 +40,7 @@ test('answered questions, idle, stopped, disconnected and unknown runtimes are d
 })
 
 test('waiting and running sub-agents are active, done ones are not', () => {
-  assert.equal(isSubAgentActive({ pendingDecision: legacy }, undefined), true)
+  assert.equal(isSubAgentActive({ inputRequests: [request('open')] }, undefined), true)
   assert.equal(isSubAgentActive({}, background), true)
   assert.equal(isSubAgentActive({}, idle), false)
 })

@@ -106,8 +106,6 @@ export type AgentConversation = {
   /** Owner-only: assistant turn boundaries so far, and how many were read on any device. */
   activitySeq?: number
   readSeq?: number
-  /** The oldest open question, for builds that predate inputRequests. */
-  pendingDecision?: AgentPendingDecision
   /** Every open question, oldest first; Desktop resolves each by id after a reply or dismissal. */
   inputRequests?: AgentInputRequest[]
   /** Someone asked who can sign this conversation's agent in; their message waits for it. */
@@ -123,14 +121,6 @@ export type AgentSignInRequest = {
   requesterName: string
   askedUserIds: string[]
   askedName: string
-  askedAt: string
-}
-
-export type AgentPendingDecision = {
-  category: string
-  question: string
-  options?: string[]
-  toolCallId: string
   askedAt: string
 }
 

@@ -14,7 +14,7 @@ export function threadFoldsAway({
   runtimeState,
   open,
 }: {
-  conversation: Pick<AgentConversation, 'inputRequests' | 'pendingDecision'>
+  conversation: Pick<AgentConversation, 'inputRequests'>
   runtimeState: RuntimeExecution | undefined
   open: boolean
 }): boolean {
