@@ -18,6 +18,19 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
         !["credential", "integration"].contains(request.category) && request.planId == nil
     }
 
+    /// The member's own credentials an integration question names, answered only by adding them to
+    /// `personalCredentialIds`; nil unless every named credential is personal and no providers are mixed in.
+    var personalCredentials: [String]? {
+        guard request.providers == nil, let refs = request.credentials, !refs.isEmpty,
+              refs.allSatisfy({ $0.provider == "personal" }) else { return nil }
+        return refs.map(\.id)
+    }
+
+    /// An integration question the Inbox answers in place: by its providers, or by the member's own credentials.
+    var connectable: Bool {
+        request.category == "integration" && (request.credentials == nil || personalCredentials != nil)
+    }
+
     /// The question quoted above a composer whose next message answers it.
     var quote: ChannelReply { ChannelReply(id: nil, authorName: title, text: request.question) }
 }

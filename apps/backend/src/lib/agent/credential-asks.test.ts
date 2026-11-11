@@ -134,6 +134,27 @@ describe('answerCredentialAsks', () => {
     expect(turns[0]!.text).toContain('github')
   })
 
+  test("with the team's GitHub already selected, opting into one's own answers the session's ask", async () => {
+    // What the Inbox's own-GitHub pick sends: the stored installation kept, the personal credential added.
+    const stored = { githubInstallationIds: ['166'] }
+    const saved = { githubInstallationIds: ['166'], personalCredentialIds: ['github' as const] }
+
+    await answerCredentialAsks('s1', addedCredentialIds(stored, saved))
+
+    expect(resolved).toHaveLength(1)
+    expect(turns.map((turn) => turn.sessionId)).toEqual(['s1'])
+  })
+
+  test("acting as the member on the team's installation (teamIdentity) answers no ask", async () => {
+    const stored = { githubInstallationIds: ['166'], teamIdentity: ['github' as const] }
+    const saved = { githubInstallationIds: ['166'], teamIdentity: [] }
+
+    await answerCredentialAsks('s1', addedCredentialIds(stored, saved))
+
+    expect(resolved).toEqual([])
+    expect(turns).toEqual([])
+  })
+
   test('another provider leaves the question open and the agent idle', async () => {
     await answerCredentialAsks('s1', { awsRoleIds: ['r'] })
 

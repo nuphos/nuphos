@@ -1,6 +1,7 @@
 package ai.nuphos.android.chats
 
 import ai.nuphos.android.data.Http
+import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.data.TransferDownloadGroup
 import ai.nuphos.android.model.AgentConversation
@@ -9,6 +10,8 @@ import ai.nuphos.android.model.AgentConversationsPage
 import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ComposerAttachment
 import ai.nuphos.android.model.ComposerSubmission
+import ai.nuphos.android.model.CredentialCatalog
+import ai.nuphos.android.model.CredentialSelection
 import ai.nuphos.android.model.InputRequest
 import ai.nuphos.android.session.BotQuestion
 import ai.nuphos.android.session.BotQuestions
@@ -139,6 +142,69 @@ class BotQuestionsTest {
         testScheduler.advanceUntilIdle()
         assertEquals("Hello" to null, transport.posted.last())
         assertTrue(transport.answers.isEmpty())
+    }
+
+    @Test fun anIntegrationIsAnsweredByTheConversationsWholeSelection() = runTest {
+        val saved = mutableListOf<Pair<String, JsonValue>>()
+        var failSave = false
+        val source = object : OpenQuestions.Source {
+            override suspend fun credentials(sessionId: String) = JsonValue.parse(
+                """{"githubInstallationIds":["166"],"awsRoleIds":["r1"],"futureIds":["kept-by-the-server"]}""")
+            override suspend fun saveCredentials(sessionId: String, access: JsonValue) {
+                if (failSave) throw NuphosApi.Failure.Http(403, "Not yours")
+                saved += sessionId to access
+            }
+        }
+        val inbox = OpenQuestions(source)
+        val ask = BotQuestion("agent-ops", "Release ops", InputRequest("q-gh", "integration", "Select your GitHub", null))
+        val stored = requireNotNull(inbox.storedSelection(ask))
+        // As the store loads it for the picker.
+        val catalog = CredentialCatalog(JsonValue.parse("""{"personalCredentials":[{"provider":"github","login":"octocat"}]}""")!!,
+            CredentialCatalog.NEW_CONVERSATION_PROVIDERS)
+        inbox.select(stored.toggle(catalog.allItems.single()), ask)
+        // Everything it had, plus the member's own GitHub; a key this build does not know is left to the server.
+        val sent = saved.single().second
+        assertEquals("agent-ops", saved.single().first)
+        assertEquals(listOf("166"), sent["githubInstallationIds"]?.arrayValue?.mapNotNull { it.stringValue })
+        assertEquals(listOf("r1"), sent["awsRoleIds"]?.arrayValue?.mapNotNull { it.stringValue })
+        assertEquals(listOf("github"), sent["personalCredentialIds"]?.arrayValue?.mapNotNull { it.stringValue })
+        assertNull(sent["futureIds"])
+        // Refused, say why on the card.
+        failSave = true
+        inbox.select(stored, ask)
+        assertNotNull(inbox.failures[ask.id])
+        // A new chat never starts as the member.
+        assertTrue(CredentialSelection().selectDefaults(catalog).ids["personalCredentialIds"].isNullOrEmpty())
+    }
+
+    @Test fun aQuestionNamingTheMembersOwnGithubIsAnsweredByThatAlone() = runTest {
+        fun ask(json: String) = BotQuestion("agent-ops", "Release ops", Http.json.decodeFromString<InputRequest>(json))
+        val own = ask("""{"id":"q-own","category":"integration","question":"Your GitHub","credentials":[{"provider":"personal","id":"github"}]}""")
+        assertEquals(listOf("github"), own.personalCredentials)
+        assertTrue(own.connectable)
+        // Any access answers plain providers; a mix, or a team credential named, gets no card here.
+        assertTrue(ask("""{"id":"q","category":"integration","question":"GitHub","providers":["github"]}""").connectable)
+        assertFalse(ask("""{"id":"q","category":"integration","question":"?","providers":["github"],"credentials":[{"provider":"personal","id":"github"}]}""").connectable)
+        assertFalse(ask("""{"id":"q","category":"integration","question":"?","credentials":[{"provider":"github","id":"166"}]}""").connectable)
+
+        val saved = mutableListOf<JsonValue>()
+        val inbox = OpenQuestions(object : OpenQuestions.Source {
+            override suspend fun credentials(sessionId: String) = JsonValue.parse("""{"githubInstallationIds":["166"]}""")
+            override suspend fun saveCredentials(sessionId: String, access: JsonValue) { saved += access }
+        })
+        // Credentials unreadable: said on the card, nothing saved.
+        inbox.useOwn(listOf("github"), own, connected = null)
+        assertTrue(saved.isEmpty())
+        assertEquals("Couldn't load your credentials. Try again.", inbox.failures[own.id])
+        // Not connected: said on the card, nothing saved.
+        inbox.useOwn(listOf("github"), own, connected = emptySet())
+        assertTrue(saved.isEmpty())
+        assertNotNull(inbox.failures[own.id])
+        // Connected: the conversation keeps its installation and gains the member's own GitHub, nothing else.
+        inbox.useOwn(listOf("github"), own, connected = setOf("github"))
+        assertEquals(listOf("166"), saved.single()["githubInstallationIds"]?.arrayValue?.mapNotNull { it.stringValue })
+        assertEquals(listOf("github"), saved.single()["personalCredentialIds"]?.arrayValue?.mapNotNull { it.stringValue })
+        assertNull(inbox.failures[own.id])
     }
 
     @Test fun aPlanOrASecretIsNeverAnsweredInWords() {

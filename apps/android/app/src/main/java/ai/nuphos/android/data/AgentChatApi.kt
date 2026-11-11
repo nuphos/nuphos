@@ -336,6 +336,16 @@ object AgentChatApi {
         return QueueRecall(text, files)
     }
 
+    /**
+     * `PATCH /agent/conversations/:id/credentials`: the conversation's credential selection, as its
+     * owner sets it. Keys left out keep their stored value; the server answers an open integration
+     * question the selection now covers, and tells the agent.
+     */
+    suspend fun updateCredentials(token: String, teamId: String, sessionId: String, credentialAccess: JsonValue) {
+        send("PATCH", "agent/conversations/$sessionId/credentials", token, listOf("teamId" to teamId),
+            JsonValue.Obj(mapOf("teamId" to JsonValue.Str(teamId), "credentialAccess" to credentialAccess)))
+    }
+
     internal suspend fun send(
         method: String,
         path: String,

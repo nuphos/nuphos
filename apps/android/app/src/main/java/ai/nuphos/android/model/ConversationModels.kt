@@ -148,7 +148,14 @@ data class InputRequest(
     val body: String? = null,
     /** The plan an approval decides: answered with its Approve or Reject, never in words. */
     val planId: String? = null,
+    /** An integration question's providers (any access answers it), or the exact credentials it names. */
+    val providers: List<String>? = null,
+    val credentials: List<CredentialRef>? = null,
 )
+
+/** A credential an integration question names: `{provider: "personal", id: "github"}` is the member's own. */
+@Serializable
+data class CredentialRef(val provider: String, val id: String)
 
 /** The Bot a chat with these faces is the 1:1 of: its one other member is an agent with a face. */
 val List<ChatFace>.botFace: ChatFace? get() = singleOrNull()?.takeIf { it.agent?.avatar != null }

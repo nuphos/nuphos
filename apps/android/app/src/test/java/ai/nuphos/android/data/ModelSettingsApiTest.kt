@@ -39,7 +39,8 @@ class ModelSettingsApiTest {
         assertEquals("a", body["initialSessionConfig"]?.get("model")?.stringValue)
         assertEquals(credential, body["credentialAccess"]); assertEquals("agent", body["runtimeId"]?.stringValue)
         val explicit = body["credentialAccess"] as JsonValue.Obj
-        assertEquals(30, explicit.value.size)
+        // Every kind, the member's own credentials included, explicitly empty.
+        assertEquals(31, explicit.value.size)
         assertTrue(explicit.value.values.all { it.arrayValue?.isEmpty() == true })
         val resumed = request.copy(resume = true, initialSessionConfig = null)
         val other = Buffer(); AgentChatApi.chatRequest("synthetic", resumed).body!!.writeTo(other)
