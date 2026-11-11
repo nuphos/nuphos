@@ -8,6 +8,12 @@ import type { TeamMember } from '../../types'
 
 export type SessionResult = { conversation: AgentConversation; openedAt?: number }
 
+/**
+ * The last recently-opened list per person and team, so ⌘K opens on it at once
+ * and refreshes in place instead of opening empty and growing.
+ */
+const recentCache = new Map<string, SessionResult[]>()
+
 /** Mounted per query: an obsolete request can never populate a newer search. */
 export function useSearchResults(
   teamId: string,
@@ -17,16 +23,18 @@ export function useSearchResults(
   loadPeople: () => Promise<TeamMember[]>,
   ownerId?: string,
 ) {
-  const [sessions, setSessions] = useState<SessionResult[]>([])
+  const recent = mode === 'sessions' && !query && !ownerId
+  const cacheKey = `${userId}:${teamId}`
+  const cached = recent ? recentCache.get(cacheKey) : undefined
+  const [sessions, setSessions] = useState<SessionResult[]>(cached ?? [])
   const [people, setPeople] = useState<TeamMember[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!cached)
   const [error, setError] = useState(false)
   const [cursor, setCursor] = useState<string | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
   const [retry, setRetry] = useState(0)
   const moreInFlight = useRef(false)
   const mounted = useRef(false)
-  const recent = mode === 'sessions' && !query && !ownerId
 
   useEffect(() => {
     let cancelled = false
@@ -61,15 +69,16 @@ export function useSearchResults(
         )
 
         if (cancelled) return
-        setSessions(
-          results.flatMap((result) =>
-            result.status === 'fulfilled' &&
-            !result.value.conversation.archivedAt &&
-            !result.value.conversation.triggerRun
-              ? [result.value]
-              : [],
-          ),
+        const shown = results.flatMap((result) =>
+          result.status === 'fulfilled' &&
+          !result.value.conversation.archivedAt &&
+          !result.value.conversation.triggerRun
+            ? [result.value]
+            : [],
         )
+
+        recentCache.set(cacheKey, shown)
+        setSessions(shown)
         // A temporary failure must not look like an empty history.
         setError(
           results.some(
@@ -104,7 +113,7 @@ export function useSearchResults(
       cancelled = true
       mounted.current = false
     }
-  }, [teamId, userId, mode, query, ownerId, recent, retry, loadPeople])
+  }, [teamId, userId, mode, query, ownerId, recent, retry, loadPeople, cacheKey])
 
   async function loadMore() {
     if (!cursor || moreInFlight.current) return

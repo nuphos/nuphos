@@ -75,7 +75,11 @@ describe('getConversations withParents', () => {
     expect(query).toMatchObject({
       teamId: TEAM,
       archivedAt: { $exists: false },
-      $or: [{ title: /deploy/i }, { firstMessage: /deploy/i }],
+      $or: [
+        { title: /deploy/i },
+        { firstMessage: /deploy/i },
+        { 'linkedResources.title': /deploy/i },
+      ],
     })
     expect(query).not.toHaveProperty('userId')
     expect(query).not.toHaveProperty('participantIds')

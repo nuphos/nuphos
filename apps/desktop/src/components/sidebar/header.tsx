@@ -6,6 +6,7 @@ import { waitingAccounts } from '../../app/accounts'
 import { signOutLocally } from '../../app/signOutLocally'
 import { t } from '../../i18n'
 import { Avatar } from '../Avatar'
+import { SidebarSearchButton } from '../session-search/SidebarSearchButton'
 import { SkeletonReveal } from '../SkeletonReveal'
 import { Kbd } from '../ui/kbd'
 import { toast } from '../ui/toast'
@@ -41,6 +42,7 @@ export function SidebarHeaderBar({
   onForward,
   history,
   chatOf,
+  onSearch,
 }: {
   collapsed: boolean
   onToggleCollapse?: () => void
@@ -50,6 +52,8 @@ export function SidebarHeaderBar({
   onForward?: () => void
   history?: HistoryTimeline
   chatOf?: ChatLookup
+  /** Opens ⌘K. */
+  onSearch?: () => void
 }) {
   return (
     <div className="titlebar-drag desk-titlebar-row flex-shrink-0 flex items-center justify-between px-3.5">
@@ -59,6 +63,7 @@ export function SidebarHeaderBar({
         {onToggleCollapse && (
           <SidebarToggleButton collapsed={collapsed} onClick={onToggleCollapse} />
         )}
+        {onSearch && <SidebarSearchButton onSearch={onSearch} />}
       </div>
       <SidebarHistoryButtons
         canGoBack={canGoBack}
