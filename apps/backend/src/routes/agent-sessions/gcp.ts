@@ -8,6 +8,7 @@ import { renderKubeconfig } from '@/lib/byos/kubeconfig'
 import { AppError } from '@/lib/errors'
 import { requireGcpProject, requireGcpMemberAccess } from '@/middleware/auth'
 import { execCredentialResponse, getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
+import { firebaseRoutes } from '@/routes/gcp-projects/firebase'
 
 import type { GcpHandle, GkeAdminAccess } from '@/lib/byos/gcp'
 import type { GcpProjectVariables } from '@/middleware/auth'
@@ -19,6 +20,8 @@ export const projectScoped = new Hono<{ Variables: AgentVars & GcpProjectVariabl
 projectScoped.use('*', requireGcpProject())
 projectScoped.use('*', requireGcpMemberAccess())
 projectScoped.use('*', requireSelectedGcpAgentCredential())
+
+projectScoped.route('/firebase', firebaseRoutes)
 
 projectScoped.get('/credentials', async (c) => {
   const agent = c.get('agent')

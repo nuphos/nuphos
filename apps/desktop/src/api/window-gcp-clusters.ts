@@ -19,6 +19,11 @@ import type {
 } from '../types/onprem-git.ts'
 
 export type WindowGcpClustersApi = {
+  atlasGetFirebaseProject(
+    teamId: string,
+    projectId: string,
+    serviceAccountId: string,
+  ): Promise<{ projectId: string; projectNumber: string; displayName?: string; state: string }>
   atlasListAwsLightsailInstances(
     teamId: string,
     accountId: string,

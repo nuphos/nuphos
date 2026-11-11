@@ -43,7 +43,7 @@ struct CredentialCatalog: Equatable, Sendable {
     static let providers: [Provider] = [
         .init(optionsKey: "devices", selectionKey: "deviceIds", title: "Computers", logo: "", idKey: "deviceId", labelKeys: ["label"], detailKeys: ["platform"], symbol: "laptopcomputer"),
         .init(optionsKey: "awsRoles", selectionKey: "awsRoleIds", title: "AWS", logo: "logo-aws", idKey: "roleId", labelKeys: ["accountAlias", "accountId"], detailKeys: ["roleArn"]),
-        .init(optionsKey: "gcpServiceAccounts", selectionKey: "gcpServiceAccountIds", title: "Google Cloud", logo: "logo-gcp", idKey: "serviceAccountId", labelKeys: ["projectId"], detailKeys: ["serviceAccountEmail"]),
+        .init(optionsKey: "gcpServiceAccounts", selectionKey: "gcpServiceAccountIds", title: "Google Cloud / Firebase", logo: "logo-gcp", idKey: "serviceAccountId", labelKeys: ["projectId"], detailKeys: ["serviceAccountEmail"]),
         .init(optionsKey: "azureAccounts", selectionKey: "azureAccountIds", title: "Azure", logo: "logo-azure", idKey: "accountId", labelKeys: ["label"], detailKeys: ["subscriptionId"]),
         .init(optionsKey: "linodeAccounts", selectionKey: "linodeAccountIds", title: "Linode", logo: "logo-linode", idKey: "accountId", labelKeys: ["label"], detailKeys: []),
         .init(optionsKey: "hetznerAccounts", selectionKey: "hetznerAccountIds", title: "Hetzner", logo: "logo-hetzner", idKey: "accountId", labelKeys: ["label"], detailKeys: []),

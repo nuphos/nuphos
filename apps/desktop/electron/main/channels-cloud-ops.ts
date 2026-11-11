@@ -178,6 +178,12 @@ export const cloudOpsChannels = {
       query,
       serviceAccountId,
     ),
+  'atlas:getFirebaseProject': (
+    _e: unknown,
+    teamId: string,
+    projectId: string,
+    serviceAccountId: string,
+  ) => atlas.getFirebaseProject(teamId, projectId, serviceAccountId),
   'atlas:listGcpCloudRunServices': (
     _e: unknown,
     teamId: string,

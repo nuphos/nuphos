@@ -1,6 +1,9 @@
 import { ipcRenderer } from 'electron'
 
 export const cloudAccountsApi = {
+  atlasGetFirebaseProject: (teamId: string, projectId: string, serviceAccountId: string) =>
+    ipcRenderer.invoke('atlas:getFirebaseProject', teamId, projectId, serviceAccountId),
+
   atlasWriteCloudflareKvValue: (
     teamId: string,
     accountId: string,

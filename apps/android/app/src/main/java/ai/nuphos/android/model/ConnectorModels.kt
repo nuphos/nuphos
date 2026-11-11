@@ -118,7 +118,7 @@ object ConnectorCatalog {
     private fun form(key: String, title: String, path: String, vararg fields: ConnectorField, note: String? = null) = ConnectorProvider(key, title, path, fields.toList(), note = note)
     val all = listOf(
         form("aws", "AWS", "aws-accounts", ConnectorField("roleArn", "Role ARN", ConnectorFieldKind.Arn, trim = false), note = "The role must already trust Nuphos. The server checks access before saving."),
-        ConnectorProvider("gcp", "Google Cloud"),
+        ConnectorProvider("gcp", "Google Cloud / Firebase"),
         form("azure", "Azure", "azure-accounts", label(), ConnectorField("tenantId", "Tenant ID", ConnectorFieldKind.Guid), ConnectorField("clientId", "Client ID", ConnectorFieldKind.Guid), ConnectorField("subscriptionId", "Subscription ID", ConnectorFieldKind.Guid), note = "Set up the app's federated credential and role assignment first."),
         ConnectorProvider("cloudflare", "Cloudflare"),
         form("linode", "Linode", "linode-accounts", label(), secret("token", "API token")),

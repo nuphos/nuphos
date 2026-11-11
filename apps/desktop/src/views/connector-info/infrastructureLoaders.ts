@@ -1,20 +1,21 @@
-import { api } from '../../api'
+import { api, parseAtlasError } from '../../api.ts'
 import { t } from '../../i18n/index.ts'
-import { databaseEngineLabel } from '../../lib/databaseEngine'
+import { databaseEngineLabel } from '../../lib/databaseEngine.ts'
 
 import type { ConnectorInfoLoaders } from './types'
 import type { GcpProject } from '../../types'
 
-export function gcpConnectorInfo(
+export async function gcpConnectorInfo(
+  teamId: string,
   projects: GcpProject[],
   connectorId: string,
-): Awaited<ReturnType<NonNullable<ConnectorInfoLoaders['gcp']>>> {
+): ReturnType<NonNullable<ConnectorInfoLoaders['gcp']>> {
   const first = projects.find((row) => row.projectId === connectorId)
 
   if (!first) return null
   const serviceAccounts = projects.filter((row) => row.projectId === connectorId)
 
-  return {
+  const info = {
     name: first.alias ?? first.projectId,
     fields: [
       { label: t('Project'), value: first.alias ?? first.projectId },
@@ -36,6 +37,35 @@ export function gcpConnectorInfo(
     externalUrl: `https://console.cloud.google.com/home/dashboard?project=${encodeURIComponent(first.projectId)}`,
     externalLabel: t('Open {name}', { name: 'Google Cloud' }),
   }
+  const bindings = projects.filter(
+    (row) =>
+      row.projectId === connectorId && row.canUse !== false && row.purpose !== 'permission-admin',
+  )
+
+  if (bindings.length !== 1) {
+    info.fields.push({
+      label: 'Firebase',
+      value: t('Select an ordinary service account with the agent to inspect Firebase.'),
+    })
+
+    return info
+  }
+  try {
+    const project = await api.atlasGetFirebaseProject(
+      teamId,
+      connectorId,
+      bindings[0].serviceAccountId,
+    )
+
+    info.fields.push({
+      label: 'Firebase',
+      value: `${project.displayName ?? project.projectId} · ${project.state}`,
+    })
+  } catch (error) {
+    info.fields.push({ label: 'Firebase', value: parseAtlasError(error).message })
+  }
+
+  return info
 }
 
 export const infrastructureLoaders: ConnectorInfoLoaders = {
@@ -64,7 +94,7 @@ export const infrastructureLoaders: ConnectorInfoLoaders = {
   gcp: async (teamId, connectorId) => {
     const projects = await api.atlasListGcpProjects(teamId)
 
-    return gcpConnectorInfo(projects, connectorId)
+    return gcpConnectorInfo(teamId, projects, connectorId)
   },
   cloudflare: async (teamId, connectorId) => {
     const item = (await api.atlasListCloudflareAccounts(teamId)).find(

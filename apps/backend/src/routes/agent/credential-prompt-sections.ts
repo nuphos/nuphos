@@ -35,7 +35,7 @@ export function appendGcpServiceAccountLines(
     const guiBase = `https://nuphos.ai/teams/${encodeURIComponent(teamId)}/infra/gcp/${encodeURIComponent(account.projectId)}`
 
     lines.push(
-      `- projectId=${account.projectId}; serviceAccountId=${account.serviceAccountId}; serviceAccountEmail=${account.serviceAccountEmail}; setupCommand="bash skills/gcloud/scripts/setup-credentials.sh ${teamId} ${account.projectId} ${account.serviceAccountId}"; gceInstancesEndpoint="${projectBase}/gce-instances"; clustersEndpoint="${projectBase}/clusters"; vpcsEndpoint="${projectBase}/vpcs"; firewallsEndpoint="${projectBase}/firewalls"; guiLinks={gceInstances:"${guiBase}/gce-instances"}; guiTemplates={gceSsh:"${guiBase}/gce/<region>/instances/<instanceName>/ssh"}`,
+      `- projectId=${account.projectId}; serviceAccountId=${account.serviceAccountId}; serviceAccountEmail=${account.serviceAccountEmail}; setupCommand="bash skills/gcloud/scripts/setup-credentials.sh ${teamId} ${account.projectId} ${account.serviceAccountId}"; firebaseProjectEndpoint="${projectBase}/firebase/project"; firebaseAppsEndpoint="${projectBase}/firebase/apps"; gceInstancesEndpoint="${projectBase}/gce-instances"; clustersEndpoint="${projectBase}/clusters"; vpcsEndpoint="${projectBase}/vpcs"; firewallsEndpoint="${projectBase}/firewalls"; guiLinks={gceInstances:"${guiBase}/gce-instances"}; guiTemplates={gceSsh:"${guiBase}/gce/<region>/instances/<instanceName>/ssh"}`,
     )
   }
 }
