@@ -19,7 +19,7 @@ const CLAUDE_AUTH_FILE =
 const GROK_LOGIN_COMMAND = 'node /opt/nuphos-runtime/grok-login.mjs'
 const GROK_AUTH_FILE = '/home/node/.grok/auth.json'
 const ANTIGRAVITY_LOGIN_COMMAND = 'node /opt/nuphos-runtime/antigravity-login.mjs'
-const ANTIGRAVITY_AUTH_COMMAND = 'node /opt/nuphos-runtime/antigravity-status.mjs'
+const ANTIGRAVITY_AUTH_COMMAND = 'node /opt/nuphos-runtime/antigravity-status-cli.mjs'
 const OPENCODE_LOGIN_COMMAND = 'node /opt/nuphos-runtime/opencode-login.mjs'
 const OPENCODE_AUTH_FILE = '/home/node/.local/share/opencode/auth.json'
 
