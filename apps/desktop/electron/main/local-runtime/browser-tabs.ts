@@ -1,7 +1,8 @@
-import { app, BrowserWindow } from 'electron'
+import { BrowserWindow } from 'electron'
 
 import { extensionHost } from '../browser-extensions/host.ts'
 import { browserSession } from '../browser-extensions/manage.ts'
+import { isAppQuitting } from '../window-session.ts'
 import { raiseWindow } from '../../window-raise.ts'
 
 import { startRecording, stopRecording } from './browser-recording.ts'
@@ -44,12 +45,6 @@ const VIEWPORT = { width: 1440, height: 900 }
  */
 const tabs = new Map<WebContents, { conversation: string; window: BrowserWindow }>()
 
-let quitting = false
-
-app.on('before-quit', () => {
-  quitting = true
-})
-
 /** The browser tabs this conversation opened. */
 function browserTabs(conversation: string): WebContents[] {
   return [...tabs].flatMap(([contents, tab]) =>
@@ -87,8 +82,9 @@ function openTab(url: string, conversation: string): WebContents {
   })
   extensionHost()?.extensions.addTab(contents, window)
   // Closing a shown tab hides it again, as the conversation still drives it.
+  // A quit closes it for real, or the app never exits and an update never installs.
   window.on('close', (event) => {
-    if (quitting) return
+    if (isAppQuitting()) return
     event.preventDefault()
     window.hide()
   })
