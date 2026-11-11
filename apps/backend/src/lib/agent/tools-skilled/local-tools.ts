@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 
 import { AppError } from '@/lib/errors'
+import { assertConversationSendable } from '@/routes/agent/team-scope'
 
 import { dispatchLocalExec } from '../devices/dispatch'
 import { isActiveTeamMember } from '../devices/store'
@@ -167,7 +168,7 @@ export function createLocalExecTool(
   return withLabel(
     {
       description:
-        "Execute a shell command on one of the user's local devices (their own Desktop machines that allow local exec and are currently online; only in their own conversations). " +
+        "Execute a shell command on one of the user's local devices (the conversation-selected Desktop machines that allow local exec and are currently online). " +
         "You CAN operate on the user's local files and apps with this — listing, reading, moving, or deleting their files when asked. Never claim you cannot touch the local machine while this tool is available. " +
         'Returns the output and exit code of a command that exits on its own: npm, docker, git, make, cargo, gcloud, aws, etc. A command still running after about 40 seconds is stopped. ' +
         'Send commands directly. NEVER use this tool to launch or drive Terminal, iTerm, Windows Terminal or another terminal app to execute commands (including open -a Terminal, AppleScript/osascript do script or GUI keyboard automation). Use local_terminal for a terminal/dock request; if unavailable, report it rather than launching another app. ' +
@@ -182,17 +183,6 @@ export function createLocalExecTool(
       }): Promise<LocalExecToolResult> => {
         const requestedAt = new Date()
 
-        if (turn.conversationOwnerUserId && turn.conversationOwnerUserId !== turn.userId) {
-          const target = device ?? devices[0]?.deviceId
-
-          if (target)
-            await audit(target, command, requestedAt, {
-              outcome: 'rejected',
-              reason: 'not_own_conversation',
-            })
-
-          return { error: 'Local exec only runs in your own conversations.' }
-        }
         if (devices.length === 0) {
           return {
             error:
@@ -220,6 +210,9 @@ export function createLocalExecTool(
 
           return { error: 'You are no longer a member of this team.' }
         }
+        if (!(await assertConversationSendable(turn.sessionId, turn.userId, turn.teamId)))
+          return { error: 'This conversation is no longer available.' }
+
         // A Box that idled into a pause is resumed now, for this command, not for every turn.
         const wake = devices.find((candidate) => candidate.deviceId === deviceId)?.wake
 
@@ -240,10 +233,15 @@ export function createLocalExecTool(
         let outcome: Awaited<ReturnType<typeof dispatchLocalExec>>
 
         try {
-          outcome = await dispatchLocalExec(turn.userId, deviceId, command, {
-            teamId: turn.teamId,
-            ...(purpose === 'terminal' ? { purpose } : {}),
-          })
+          outcome = await dispatchLocalExec(
+            turn.conversationOwnerUserId ?? turn.userId,
+            deviceId,
+            command,
+            {
+              teamId: turn.teamId,
+              ...(purpose === 'terminal' ? { purpose } : {}),
+            },
+          )
         } catch (err) {
           await audit(deviceId, command, requestedAt, {
             outcome: 'error',

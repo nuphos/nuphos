@@ -1,3 +1,7 @@
+import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useIdentity } from '@/lib/test/doubles/identity'
+import type { AgentConversation } from '@/lib/agent/db'
+import type { TeamMembership } from '@/lib/identity/types'
 import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { useAgentDeviceAudit } from '@/lib/test/doubles/agent-devices-audit'
@@ -32,6 +36,18 @@ useAgentDeviceAudit({
     audits.push(input)
   },
 })
+
+const conversationAccess = useAgentDb({
+  getConversationBySessionId: () =>
+    Promise.resolve({
+      sessionId: 's1',
+      userId: 'owner',
+      teamId: 't1',
+      participantIds: ['u1'],
+    } as AgentConversation),
+})
+
+useIdentity({ getTeamMembership: () => Promise.resolve({ role: 'EDITOR' } as TeamMembership) })
 
 const { createLocalExecTool } = await import('./local-tools')
 const { createLocalTerminalTool } = await import('./local-terminal')
@@ -89,6 +105,7 @@ describe('createLocalExecTool execute', () => {
       error:
         'Multiple devices are available; pass device=<deviceId>, one of: d1 (MacBook), d2 (Linux box).',
     })
+
     expect(dispatchCalls).toEqual([])
   })
 
@@ -99,6 +116,7 @@ describe('createLocalExecTool execute', () => {
     expect(result).toEqual({
       error: 'Device d2 is not available; pass device=<deviceId>, one of: d1 (MacBook).',
     })
+
     expect(dispatchCalls).toEqual([])
   })
 
@@ -110,6 +128,7 @@ describe('createLocalExecTool execute', () => {
       error:
         'Device d9 is not available; pass device=<deviceId>, one of: d1 (MacBook), d2 (Linux box).',
     })
+
     expect(dispatchCalls).toEqual([])
   })
 
@@ -121,6 +140,7 @@ describe('createLocalExecTool execute', () => {
       error:
         'No local device is usable in this conversation. Either none is selected in its credential selector, or the selected one is offline: Nuphos Desktop must be open and signed in on it, with local exec allowed. list_credentials shows which.',
     })
+
     expect(dispatchCalls).toEqual([])
   })
 
@@ -157,21 +177,20 @@ describe('createLocalExecTool membership', () => {
     })
   })
 
-  test('refuses and audits a run in a conversation someone else owns', async () => {
+  test('an invited turn uses conversation authority while auditing the real sender', async () => {
     const tool = createLocalExecTool([{ deviceId: 'd1', label: 'MacBook' }], {
       ...turn,
       conversationOwnerUserId: 'owner-1',
     }) as ExecTool
     const result = await tool.execute({ label: 'run', command: 'echo hi' }, {})
 
-    expect(result).toEqual({ error: 'Local exec only runs in your own conversations.' })
-    expect(dispatchCalls).toEqual([])
+    expect(result).toEqual({ stdout: 'ok', stderr: '', exitCode: 0 })
+    expect(dispatchCalls).toEqual([{ userId: 'owner-1', deviceId: 'd1', command: 'echo hi' }])
     expect(audits[0]).toMatchObject({
       deviceId: 'd1',
       actorUserId: 'u1',
       conversationOwnerUserId: 'owner-1',
-      outcome: 'rejected',
-      reason: 'not_own_conversation',
+      outcome: 'unknown',
     })
   })
 })
@@ -202,6 +221,7 @@ describe('createLocalExecTool audit', () => {
       outcome: 'ok',
       exitCode: 3,
     })
+
     expect(entry?.dispatchedAt).toBeInstanceOf(Date)
     expect(entry?.finishedAt?.getTime()).toBeGreaterThanOrEqual(entry?.requestedAt.getTime() ?? 0)
     expect(JSON.stringify(entry)).not.toContain('secret output')
@@ -237,6 +257,7 @@ describe('createLocalExecTool audit', () => {
       outcome: 'rejected',
       reason: 'device_unavailable',
     })
+
     expect(audits[0]?.dispatchedAt).toBeUndefined()
   })
 
@@ -278,24 +299,33 @@ describe('shared dock terminal authorization', () => {
       teamId: 't1',
       action: 'open',
     })
+
     expect(audits.at(-1)).toMatchObject({ deviceId: 'd1', sessionId: 's1', outcome: 'ok' })
   })
 
-  test('rejects another participant and an unavailable device without dispatch', async () => {
+  test('a teammate can open the terminal but cannot select an unavailable device', async () => {
     const other = createLocalTerminalTool(twoDevices, {
       ...turn,
       conversationOwnerUserId: 'u2',
     }) as ExecTool
 
-    expect(await other.execute({ label: 'open', action: 'open', device: 'd1' }, {})).toHaveProperty(
-      'error',
-    )
+    dispatchOutcome = {
+      status: 'ok',
+      result: { stdout: '{"terminalId":"shared"}', stderr: '', exitCode: 0 },
+    }
+
+    expect(await other.execute({ label: 'open', action: 'open', device: 'd1' }, {})).toEqual({
+      terminalId: 'shared',
+    })
+
+    expect(dispatchCalls[0]?.userId).toBe('u2')
     const single = createLocalTerminalTool([twoDevices[0]!], turn) as ExecTool
 
     expect(
       await single.execute({ label: 'open', action: 'open', device: 'missing' }, {}),
     ).toHaveProperty('error')
-    expect(dispatchCalls).toEqual([])
+
+    expect(dispatchCalls).toHaveLength(1)
   })
 
   test('write submits exactly once whatever line ending the model sends', async () => {
@@ -324,6 +354,38 @@ test('shared Box audit preserves the actor separately from its transport owner',
   ) as ExecTool
 
   await tool.execute({ label: 'run', command: 'echo hi' }, {})
+
   expect(audits[0]).toMatchObject({ ownerUserId: 'host-owner', actorUserId: 'u1' })
   expect(dispatchCalls[0]?.userId).toBe('u1')
+})
+
+test('removing a teammate from the conversation stops their next local command', async () => {
+  let participants = ['u1']
+
+  conversationAccess({
+    getConversationBySessionId: () =>
+      Promise.resolve({
+        sessionId: 's1',
+        userId: 'owner',
+        teamId: 't1',
+        generalAccess: 'none',
+        participantIds: participants,
+      } as AgentConversation),
+  })
+  const tool = createLocalExecTool([twoDevices[0]!], {
+    ...turn,
+    conversationOwnerUserId: 'owner',
+  }) as ExecTool
+
+  expect(await tool.execute({ label: 'run', command: 'echo hi' }, {})).toEqual({
+    stdout: 'ok',
+    stderr: '',
+    exitCode: 0,
+  })
+  participants = []
+
+  await expect(tool.execute({ label: 'run', command: 'echo again' }, {})).rejects.toMatchObject({
+    code: 'conversation_read_only',
+  })
+  expect(dispatchCalls).toHaveLength(1)
 })
