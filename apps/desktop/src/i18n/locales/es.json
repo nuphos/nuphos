@@ -653,6 +653,7 @@
   "Cause": "Causa",
   "Chain verification failed (1 violation) — these records can no longer be trusted as-written.": "No se pudo verificar la cadena (1 infracción): ya no se puede confiar en que estos registros estén intactos.",
   "Chain verification failed ({n} violations) — these records can no longer be trusted as-written.": "No se pudo verificar la cadena ({n} infracciones): ya no se puede confiar en que estos registros estén intactos.",
+  "Change avatar": "Cambiar avatar",
   "Change icon": "Cambiar icono",
   "Change operation": "Operación de cambio",
   "Change or cancel anytime in the billing portal.": "Cambia o cancela cuando quieras en el portal de facturación.",

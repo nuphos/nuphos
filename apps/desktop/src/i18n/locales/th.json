@@ -653,6 +653,7 @@
   "Cause": "สาเหตุ",
   "Chain verification failed (1 violation) — these records can no longer be trusted as-written.": "ตรวจสอบห่วงโซ่ไม่ผ่าน (พบการละเมิด 1 รายการ) — ไม่สามารถเชื่อถือได้ว่าบันทึกเหล่านี้ยังเป็นไปตามที่เขียนไว้",
   "Chain verification failed ({n} violations) — these records can no longer be trusted as-written.": "ตรวจสอบห่วงโซ่ไม่ผ่าน (พบการละเมิด {n} รายการ) — ไม่สามารถเชื่อถือได้ว่าบันทึกเหล่านี้ยังเป็นไปตามที่เขียนไว้",
+  "Change avatar": "เปลี่ยนอวาตาร์",
   "Change icon": "เปลี่ยนไอคอน",
   "Change operation": "การดำเนินการเปลี่ยนแปลง",
   "Change or cancel anytime in the billing portal.": "เปลี่ยนหรือยกเลิกได้ทุกเมื่อในพอร์ทัลการเรียกเก็บเงิน",

@@ -653,6 +653,7 @@
   "Cause": "原因",
   "Chain verification failed (1 violation) — these records can no longer be trusted as-written.": "鏈結驗證失敗（1 項違規），這些記錄已無法視為原始內容而予以信任。",
   "Chain verification failed ({n} violations) — these records can no longer be trusted as-written.": "鏈結驗證失敗（{n} 項違規），這些記錄已無法視為原始內容而予以信任。",
+  "Change avatar": "更換頭像",
   "Change icon": "變更圖示",
   "Change operation": "變更操作",
   "Change or cancel anytime in the billing portal.": "可隨時在帳單入口網站中變更或取消。",

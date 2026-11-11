@@ -653,6 +653,7 @@
   "Cause": "원인",
   "Chain verification failed (1 violation) — these records can no longer be trusted as-written.": "체인 검증에 실패했습니다(위반 1건). 이 기록은 더 이상 원본 그대로라고 신뢰할 수 없습니다.",
   "Chain verification failed ({n} violations) — these records can no longer be trusted as-written.": "체인 검증에 실패했습니다(위반 {n}건). 이 기록은 더 이상 원본 그대로라고 신뢰할 수 없습니다.",
+  "Change avatar": "아바타 변경",
   "Change icon": "아이콘 변경",
   "Change operation": "변경 작업",
   "Change or cancel anytime in the billing portal.": "결제 포털에서 언제든지 변경하거나 취소할 수 있습니다.",
