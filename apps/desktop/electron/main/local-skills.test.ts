@@ -163,6 +163,30 @@ describe('localSkillEntries', () => {
   })
 })
 
+describe('localSkillEntries fan-out', () => {
+  it('bounds the work when directory aliases branch', { timeout: 10_000 }, async () => {
+    const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'fan-out-')))
+
+    writeSkill(root, { 'SKILL.md': 'x' })
+    // Ten levels, each linking to the next ten times: 10^6 paths without a cap.
+    for (let level = 0; level < 10; level += 1) {
+      mkdirSync(path.join(root, `d${String(level)}`))
+      for (let link = 0; link < 10; link += 1) {
+        symlinkSync(
+          path.join(root, `d${String(level + 1)}`),
+          path.join(root, `d${String(level)}`, `l${String(link)}`),
+        )
+      }
+    }
+    mkdirSync(path.join(root, 'd10'))
+    for (let link = 0; link < 10; link += 1) {
+      symlinkSync(path.join(root, 'd0'), path.join(root, `l${String(link)}`))
+    }
+
+    assert.deepEqual(await relPaths(root), ['SKILL.md'])
+  })
+})
+
 describe('readSkillFile', () => {
   it('reads the walked file, and refuses one swapped for a link or another file', async () => {
     const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'read-skill-')))

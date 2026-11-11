@@ -16,7 +16,7 @@ export type LocalSkillInfo = {
   name: string
   source: LocalSkillSource
   path: string
-  /** Where `path` resolves to when it is (or sits under) a link, else null. */
+  /** Where `path` resolves to when the skill's own entry is a link, else null. */
   linkedTo: string | null
   /** First line of the SKILL.md frontmatter `description`, when it has one. */
   description: string | null
@@ -40,6 +40,8 @@ export type LocalSkillEntry = {
 export const MAX_SKILL_FILE_BYTES = 10_000_000
 const MAX_FILES = 200
 const MAX_DEPTH = 6
+/** Entries examined per skill: aliased directories can fan out with no files to count. */
+const MAX_ENTRIES = 5_000
 const SKIP_ENTRIES = new Set(['.git', '.DS_Store', 'node_modules'])
 
 function skillRoots(): { source: LocalSkillSource; dir: string }[] {
@@ -119,6 +121,7 @@ export async function localSkillEntries(
 
   if (!realRoot) return out
   const allowed = [realRoot, ...(skillsDir ? [skillsDir] : []), ...readOnlyRoots]
+  let examined = 0
 
   // `ancestors`, not every directory seen: an alias such as `assets -> scripts`
   // must not hide the real `scripts/` path.
@@ -132,19 +135,25 @@ export async function localSkillEntries(
     } catch {
       return
     }
+    // A directory's own files before its subdirectories, so a branching tree
+    // that exhausts the caps cannot crowd out a file nearer the root.
+    const subdirs: { real: string; relPath: string }[] = []
+
     for (const entry of entries.toSorted((a, b) => a.name.localeCompare(b.name))) {
-      if (out.length >= MAX_FILES) return
+      if (out.length >= MAX_FILES || examined >= MAX_ENTRIES) return
+      examined += 1
       if (SKIP_ENTRIES.has(entry.name)) continue
       const relPath = prefix ? `${prefix}/${entry.name}` : entry.name
       const resolved = await resolveEntry(entry, path.join(dir, entry.name), allowed)
 
-      if (resolved?.stat.isDirectory()) await walk(resolved.real, relPath, depth + 1, lineage)
+      if (resolved?.stat.isDirectory()) subdirs.push({ real: resolved.real, relPath })
       else if (resolved?.stat.isFile()) {
         const { size, mtimeMs, dev, ino } = resolved.stat
 
         out.push({ relPath, realPath: resolved.real, size, mtimeMs, dev, ino })
       }
     }
+    for (const subdir of subdirs) await walk(subdir.real, subdir.relPath, depth + 1, lineage)
   }
 
   await walk(realRoot, '', 0, new Set())
@@ -197,14 +206,16 @@ async function describeSkill(
   // One that links out is still listed, without reading it, so sync can say so.
   if (!skillMd && !(await fs.lstat(path.join(root, 'SKILL.md')).catch(() => null))) return null
   const markdown = skillMd ? await readSkillFile(skillMd).catch(() => null) : null
-  const realRoot = await fs.realpath(root).catch(() => root)
+  // Only the entry itself: a linked home or skills directory would flag every skill.
+  const isLink = (await fs.lstat(root).catch(() => null))?.isSymbolicLink() ?? false
+  const linkedTo = isLink ? await fs.realpath(root).catch(() => null) : null
 
   return {
     id: `${source}/${name}`,
     name,
     source,
     path: root,
-    linkedTo: realRoot === root ? null : realRoot,
+    linkedTo,
     description: markdown ? skillDescription(markdown.toString('utf8')) : null,
     fileCount: entries.length,
     totalBytes: entries.reduce((sum, entry) => sum + entry.size, 0),
