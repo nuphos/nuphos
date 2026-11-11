@@ -20,6 +20,9 @@ const e2eCacheRoot = mkdtempSync(path.join(tmpdir(), 'e2e-skills-test-'))
 const TEAM_ID = '64f1a2b3c4d5e6f7a8b9c0d1'
 const EDITOR_USER = 'editor-user-1'
 const VIEWER_USER = 'viewer-user-1'
+const OWNER_USER = '64f1a2b3c4d5e6f7a8b9c0aa'
+const GUEST_USER = '64f1a2b3c4d5e6f7a8b9c0bb'
+const PERSONAL_SCOPE = `teams/${TEAM_ID}/users/${OWNER_USER}`
 
 type StoredS3Object = {
   body: Buffer
@@ -167,20 +170,24 @@ async function execTool(
   return (await tool.execute(input, { toolCallId: 'e2e-call-1' })) as Record<string, unknown>
 }
 
-function requireTeamSkillTools(tools: ReturnType<typeof createTeamSkillTools>): {
+type SkillTools = {
+  skill_list: ExecutableTool
   skill_create: ExecutableTool
   skill_upsert: ExecutableTool
-} {
-  if (!('skill_create' in tools) || !('skill_upsert' in tools)) {
+}
+
+function requireTeamSkillTools(tools: ReturnType<typeof createTeamSkillTools>): SkillTools {
+  if (!('skill_list' in tools) || !('skill_create' in tools) || !('skill_upsert' in tools)) {
     throw new Error('expected team skill tools to be enabled')
   }
 
-  return tools as unknown as { skill_create: ExecutableTool; skill_upsert: ExecutableTool }
+  return tools as unknown as SkillTools
 }
 
 async function rmTeamSkillArtifacts(): Promise<void> {
   await fs.rm(path.join(e2eCacheRoot, '.merged'), { recursive: true, force: true })
   await fs.rm(getScopeCacheDir(`teams/${TEAM_ID}`), { recursive: true, force: true })
+  await fs.rm(getScopeCacheDir(PERSONAL_SCOPE), { recursive: true, force: true })
 }
 
 beforeEach(async () => {
@@ -485,6 +492,119 @@ description: Updated on-call playbook
     })
 
     expect(retry.ok).toBe(true)
+  })
+})
+
+describe('personal skill tools E2E', () => {
+  test("the owner's turn writes and lists personal skills, apart from the team store", async () => {
+    membershipRole = 'VIEWER'
+    const tools = requireTeamSkillTools(
+      createTeamSkillTools(OWNER_USER, TEAM_ID, { conversationOwnerUserId: OWNER_USER }),
+    )
+
+    const created = await execTool(tools.skill_create, {
+      label: 'Create my notes skill',
+      name: 'my-notes',
+      description: 'Only for me',
+      body: '# Notes',
+      scope: 'personal',
+    })
+
+    expect(created.ok).toBe(true)
+    expect(created.scope).toBe(PERSONAL_SCOPE)
+    expect(s3Store.has(`${PERSONAL_SCOPE}/skills/my-notes/SKILL.md`)).toBe(true)
+
+    const upserted = await execTool(tools.skill_upsert, {
+      label: 'Add a script',
+      scope: 'personal',
+      files: [{ key: 'skills/my-notes/scripts/run.sh', content: 'echo ok' }],
+    })
+
+    expect(upserted.ok).toBe(true)
+    expect(s3Store.has(`${PERSONAL_SCOPE}/skills/my-notes/scripts/run.sh`)).toBe(true)
+
+    const personal = await execTool(tools.skill_list, { label: 'List mine', scope: 'personal' })
+
+    expect(personal).toEqual({
+      ok: true,
+      scope: PERSONAL_SCOPE,
+      skills: [{ name: 'my-notes', description: 'Only for me', fileCount: 2 }],
+      truncated: false,
+    })
+
+    const team = await execTool(tools.skill_list, { label: 'List team' })
+
+    expect(team).toEqual({ ok: true, scope: `teams/${TEAM_ID}`, skills: [], truncated: false })
+  })
+
+  test("a guest's turn is refused personal skills and keeps team access", async () => {
+    const tools = requireTeamSkillTools(
+      createTeamSkillTools(GUEST_USER, TEAM_ID, { conversationOwnerUserId: OWNER_USER }),
+    )
+    const refusal = {
+      ok: false,
+      error:
+        "forbidden: personal skills are the conversation owner's and only usable on the owner's own turns",
+    }
+
+    expect(
+      await execTool(tools.skill_create, {
+        label: 'Create in owner scope',
+        name: 'guest-skill',
+        description: 'Not allowed',
+        body: '# No',
+        scope: 'personal',
+      }),
+    ).toEqual(refusal)
+    expect(
+      await execTool(tools.skill_upsert, {
+        label: 'Upsert in owner scope',
+        scope: 'personal',
+        files: [{ key: 'skills/guest-skill/SKILL.md', content: '# No' }],
+      }),
+    ).toEqual(refusal)
+    expect(await execTool(tools.skill_list, { label: 'List', scope: 'personal' })).toEqual(refusal)
+    expect(s3Store.size).toBe(0)
+
+    const team = await execTool(tools.skill_create, {
+      label: 'Create team skill',
+      name: 'guest-team-skill',
+      description: 'Shared',
+      body: '# Shared',
+    })
+
+    expect(team.ok).toBe(true)
+    expect(s3Store.has(`teams/${TEAM_ID}/skills/guest-team-skill/SKILL.md`)).toBe(true)
+  })
+
+  test('a turn without a team member behind it has no personal scope', async () => {
+    const tools = requireTeamSkillTools(createTeamSkillTools('automation:trigger', TEAM_ID))
+
+    expect(await execTool(tools.skill_list, { label: 'List', scope: 'personal' })).toEqual({
+      ok: false,
+      error: 'forbidden: this turn has no team member with personal skills',
+    })
+  })
+
+  test('personal skills keep the builtin-name and secret checks', async () => {
+    const tools = requireTeamSkillTools(createTeamSkillTools(OWNER_USER, TEAM_ID))
+
+    const builtin = await execTool(tools.skill_upsert, {
+      label: 'Overlay aws',
+      scope: 'personal',
+      files: [{ key: 'skills/aws/SKILL.md', content: '# Steal creds' }],
+    })
+    const secret = await execTool(tools.skill_create, {
+      label: 'Leak secret',
+      name: 'leaky',
+      description: 'Bad',
+      body: 'token sk-abcdefghijklmnopqrstuvwxyz123456',
+      scope: 'personal',
+    })
+
+    expect(builtin.error).toContain('reserved_skill_name')
+    expect(secret.error).toContain('unsafe_content')
+    expect(s3Store.size).toBe(0)
   })
 })
 
