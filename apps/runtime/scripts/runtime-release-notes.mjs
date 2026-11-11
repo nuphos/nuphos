@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 
-const PROVIDERS = ['claude', 'codex', 'grok', 'antigravity', 'opencode']
+const PROVIDERS = ['claude', 'codex', 'grok', 'antigravity', 'opencode', 'pi']
 const [tag, provider] = process.argv.slice(2)
 if (!/^runtime-v\d+\.\d+\.\d+$/.test(tag) || ![...PROVIDERS, 'all'].includes(provider))
   throw new Error(
@@ -58,6 +58,13 @@ if (includes('grok')) lines.push(`| Grok Build CLI | ${tools.grok.version} |`)
 if (includes('antigravity'))
   lines.push(`| Antigravity ACP server | ${tools['antigravity-acp'].version} |`)
 if (includes('opencode')) lines.push(`| OpenCode | ${tools.opencode.version} |`)
+if (includes('pi')) {
+  const pi = read('image/pi-acp/package.json')
+  lines.push(
+    `| Pi coding agent | ${pi.dependencies['@earendil-works/pi-coding-agent']} |`,
+    `| Pi ACP adapter | ${pi.dependencies['pi-acp']} |`,
+  )
+}
 lines.push('', '## Container images', '')
 for (const name of PROVIDERS.filter(includes))
   lines.push(

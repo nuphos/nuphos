@@ -3,7 +3,7 @@
 // prints only model metadata. Credentials and adapter diagnostics stay private.
 export const RUNTIME_MODEL_PROBE = String.raw`
 const { spawn } = await import('node:child_process');
-const agents = { 'claude-code': ['claude-agent-acp'], codex: ['codex-acp'], grok: ['node', '/opt/acp-shim.mjs', 'grok'], antigravity: ['node', '/opt/acp-shim.mjs', 'antigravity'], opencode: ['node', '/opt/acp-shim.mjs', 'opencode'] };
+const agents = { 'claude-code': ['claude-agent-acp'], codex: ['codex-acp'], grok: ['node', '/opt/acp-shim.mjs', 'grok'], antigravity: ['node', '/opt/acp-shim.mjs', 'antigravity'], opencode: ['node', '/opt/acp-shim.mjs', 'opencode'], pi: ['pi-acp'] };
 const params = Object.hasOwn(agents, process.argv[1])
   ? { provider: process.argv[1], model: process.argv[2] }
   : JSON.parse(await (await import('node:fs/promises')).readFile((await import('node:path')).join(process.argv[2], 'params.json'), 'utf8'));
@@ -13,7 +13,10 @@ let sessionId;
 let models;
 if (!Object.hasOwn(agents, provider)) process.exit(1);
 const child = spawn(agents[provider][0], agents[provider].slice(1), {
-  env: Object.fromEntries(['PATH', 'HOME', 'USER', 'LANG', 'LC_ALL', 'TERM', 'TMPDIR', 'CLAUDE_CODE_OAUTH_TOKEN'].filter(key => typeof process.env[key] === 'string').map(key => [key, process.env[key]])),
+  env: {
+    ...Object.fromEntries(['PATH', 'HOME', 'USER', 'LANG', 'LC_ALL', 'TERM', 'TMPDIR', 'CLAUDE_CODE_OAUTH_TOKEN', 'PI_CODING_AGENT_DIR', 'NUPHOS_PI_CONFIG_DIR', 'NODE_EXTRA_CA_CERTS'].filter(key => typeof process.env[key] === 'string').map(key => [key, process.env[key]])),
+    ...(provider === 'pi' && !process.env.PI_CODING_AGENT_DIR && process.env.NUPHOS_PI_CONFIG_DIR ? { PI_CODING_AGENT_DIR: process.env.NUPHOS_PI_CONFIG_DIR } : {}),
+  },
   cwd: '/workspace', stdio: ['pipe', 'pipe', 'ignore'], detached: true,
 });
 const stop = () => { try { process.kill(-child.pid, 'SIGKILL'); } catch {} };

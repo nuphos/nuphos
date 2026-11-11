@@ -27,6 +27,7 @@ const LOGIN_FAILED: Record<OpenAbProvider, string> = {
   antigravity:
     'Sign-in did not complete. Start again and paste the whole address your browser ended on after Google sign-in.',
   opencode: 'Sign-in did not complete. Start again and check the details you entered.',
+  pi: 'Configure Pi model providers and credentials in the runtime before connecting.',
 }
 
 async function controlEndpoint(teamId: string, runtimeId: string, userId?: string) {
