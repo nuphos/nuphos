@@ -140,7 +140,8 @@ export function Composer({
       : undefined,
     { commands: runtimeState?.commands, runtimeId: runtimeControl?.value?.id },
   )
-  const send: ComposerSend = (text, paths, people) => onSend(text, paths, people, state.imageThumbs)
+  const send: ComposerSend = (text, paths, people, options) =>
+    onSend(text, paths, people, { ...options, imageThumbs: state.imageThumbs })
   const actions = useComposerActions(state, {
     sendBlocked,
     readOnly,
@@ -180,10 +181,7 @@ export function Composer({
         <div
           className={clsx(
             'relative',
-            // Both variants share the same self-contained input-box look; the in-conversation
-            // (compact) composer is just a tighter version of the hero box instead of a full-width
-            // bottom strip. Opaque, not a translucent tint: the composer only reads as a surface if
-            // it holds its own value against the canvas.
+            // Both variants use an opaque input surface; compact keeps the in-conversation spacing.
             'surface-raised composer-surface bg-composer',
             hero
               ? 'rounded-[24px] px-5 pt-4 pb-3'
@@ -279,6 +277,9 @@ export function Composer({
             )}
             <ComposerSendControls
               runtimeCanCancel={runtimeCanCancel}
+              canSteer={
+                runtimeAllows(runtimeState, 'steer') && !runtimeAllows(runtimeState, 'reply')
+              }
               executing={executing}
               hero={hero}
               readOnly={readOnly}
@@ -287,7 +288,8 @@ export function Composer({
               sendDisabled={sendDisabled}
               sendBlockedReason={agentSendBlock ?? runtimeSendBlock}
               onConnectAgent={runtimeControl?.onConnectAgent}
-              onSubmit={actions.submit}
+              onSubmit={() => actions.submit()}
+              onQueue={() => actions.submit('queue')}
               onStop={onStop}
             />
           </div>

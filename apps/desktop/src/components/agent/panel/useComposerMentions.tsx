@@ -200,10 +200,10 @@ export function useComposerMentions(
 
   /** Read the mentions before the composer clears; ask about them once sent. */
   function wrapSend(send: ComposerSend): ComposerSend {
-    return (text, filePaths) => {
+    return (text, filePaths, _mentions, options) => {
       const mentions = mentionedMembers(editorRef.current)
       const ids = mentions.map((mention) => mention.id)
-      const accepted = send(text, filePaths, mentions)
+      const accepted = send(text, filePaths, mentions, options)
 
       setQuery(null)
       // Only a message that went out addresses anyone; a refused send leaves

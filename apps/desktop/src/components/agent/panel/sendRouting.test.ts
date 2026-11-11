@@ -45,3 +45,12 @@ test('an Inbox answer waits behind the running turn with its question, never ste
   // With no question to answer, it steers like any other send.
   assert.deepEqual(routeSend(running, undefined, undefined, true), { steer: true })
 })
+
+test('explicit queue bypasses steering and preserves reply identity', () => {
+  assert.deepEqual(routeSend(running, undefined, undefined, false, 'queue'), { steer: false })
+  assert.deepEqual(routeSend(running, undefined, 'q1', false, 'queue'), {
+    steer: false,
+    decisionReplyTo: 'q1',
+  })
+  assert.deepEqual(routeSend(idle, undefined, undefined, false, 'queue'), { steer: false })
+})

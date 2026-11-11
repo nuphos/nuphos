@@ -16,6 +16,7 @@ import {
 import { useComposerRecall } from './useComposerRecall'
 import { useComposerSeed } from './useComposerSeed'
 
+import type { ComposerSend } from './composerMentionChips'
 import type { ComposerRecall } from './composerRecall'
 import type { AgentPromptSeed } from './model'
 import type { ComposerState } from './useComposerState'
@@ -37,7 +38,7 @@ export function useComposerActions(
     readOnly: boolean
     sendBlocked?: boolean
     streaming: boolean
-    onSend: (text: string, filePaths: string[]) => boolean
+    onSend: ComposerSend
     pendingSeed?: AgentPromptSeed | null
     onSeedConsumed?: () => void
     dropRegisterRef?: { current: ((dt: DataTransfer) => void) | null }
@@ -89,7 +90,7 @@ export function useComposerActions(
     insertMention,
   })
 
-  function submit() {
+  function submit(mode?: 'queue') {
     if (readOnly || sendBlocked) return
     if (state.composingRef.current) return
     const v = state.readText().trim()
@@ -97,7 +98,7 @@ export function useComposerActions(
     if (!v && state.filePaths.length === 0) return
     // A send that reports false refused the draft before it went anywhere, so
     // the text, its attachments and its folder chips stay for another try.
-    if (!onSend(v, state.filePaths)) return
+    if (!onSend(v, state.filePaths, undefined, { mode })) return
     clearDraft()
   }
 
@@ -191,8 +192,7 @@ export function useComposerActions(
       !native.isComposing &&
       native.keyCode !== 229
     ) {
-      // While streaming this queues the message (handled by the parent's
-      // onSend); when idle it sends immediately.
+      // Enter keeps the default send behavior; the send menu offers queueing.
       e.preventDefault()
       submit()
     }

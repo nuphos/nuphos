@@ -220,6 +220,7 @@ export type PanelCtx = {
     turnKind?: Message['turnKind'],
     decisionReplyTo?: string,
     mentions?: AgentMessageMention[],
+    mode?: 'queue',
   ) => boolean
   steerQueued: (tabId: string, queuedId: string) => Promise<void>
   handleRejectPlan: (

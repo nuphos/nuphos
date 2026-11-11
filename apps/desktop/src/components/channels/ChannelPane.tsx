@@ -114,15 +114,12 @@ export function ChannelPane({
   // A question's answer is its words alone; a post with files is a message quoting nothing.
   const quoted = replying?.answer ? null : replying
 
-  // A channel post takes the draft the moment its optimistic card is rendered
-  // (in `postDraft` below), so acceptance is reported at once rather than after
-  // the round trip. A failure restores the draft through `setRestore`, which is
-  // this pane's own path — hence `true` either way.
-  const send: ComposerSend = (text, filePaths, mentions, previews) => {
+  // The optimistic post owns the draft immediately; failure restores it through setRestore.
+  const send: ComposerSend = (text, filePaths, mentions, options) => {
     if (replying?.answer && filePaths.length === 0 && text.trim()) {
       setReplying(null)
       replying.answer(text)
-    } else void postDraft(text, filePaths, mentions, previews)
+    } else void postDraft(text, filePaths, mentions, options)
 
     return true
   }
@@ -139,13 +136,15 @@ export function ChannelPane({
     )
   }
 
-  async function postDraft(...[text, paths, mentions, previews]: Parameters<ComposerSend>) {
+  async function postDraft(...[text, paths, mentions, options]: Parameters<ComposerSend>) {
     if (!text.trim() && paths.length === 0) return
     const reply = quoted ?? undefined
     const key = [reply?.id, text, ...paths].join('\n')
     const id = unsent.current?.key === key ? unsent.current.id : crypto.randomUUID()
     // Files take the conversation's upload path: shown at once, uploaded, then posted.
-    const files = paths.length ? makeAttachmentTurn(text, paths, teamId, { previews }) : null
+    const files = paths.length
+      ? makeAttachmentTurn(text, paths, teamId, { previews: options?.imageThumbs })
+      : null
 
     unsent.current = { key, id }
     stickToBottom()
