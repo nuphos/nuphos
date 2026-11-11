@@ -6,7 +6,6 @@ import { ObjectId } from 'mongodb'
 
 import { config } from '@/config'
 import { routeResourceWebhook } from '@/lib/agent/resource-webhook'
-import { routeGithubWebhook } from '@/lib/agent/webhook-session-router'
 import { removeGithubInstallationFromAllTeams } from '@/lib/byos/account'
 import {
   buildInstallUrl,
@@ -276,14 +275,14 @@ githubAppRoutes.post('/webhook', async (c) => {
       })
     }
   } else if (event === 'pull_request') {
-    await routeGithubWebhook(event, payload, delivery === '?' ? '' : delivery)
+    // Linked sessions receive it through routeResourceWebhook below.
   } else if (event === 'ping') {
     logEvent('info', 'github.webhook.ping', { delivery })
   } else {
     logEvent('info', 'github.webhook.ignored', { delivery, github_event: event })
   }
 
-  // Preserve installation cleanup and existing trigger routing even if resource delivery fails.
+  // Preserve installation cleanup even if resource delivery fails.
   await routeResourceWebhook(event, payload, delivery === '?' ? '' : delivery)
 
   return c.body(null, 204)

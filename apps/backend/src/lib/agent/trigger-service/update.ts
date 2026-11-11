@@ -58,6 +58,17 @@ export async function updateTrigger(
       ? patch.messageTemplate.trim()
       : trigger.messageTemplate
   const nextEnabled = typeof patch.enabled === 'boolean' ? patch.enabled : trigger.enabled
+  const nextTargetSessionId = patch.targetSessionId ?? trigger.targetSessionId
+
+  // An unbound Trigger has nowhere to deliver. It can only be turned on together
+  // with the conversation it delivers to, which is validated below.
+  if (nextEnabled && !nextTargetSessionId) {
+    throw new AppError(
+      400,
+      'trigger_target_session_required',
+      'Choose the conversation this Trigger delivers to before enabling it',
+    )
+  }
 
   // Turning a Trigger back on takes a quota slot back, the same as creating one.
   if (nextEnabled && !trigger.enabled && !trigger.watchGroupId) {
@@ -67,7 +78,6 @@ export async function updateTrigger(
     })
   }
 
-  const nextTargetSessionId = patch.targetSessionId ?? trigger.targetSessionId
   const targetSessionChanged = nextTargetSessionId !== trigger.targetSessionId
 
   if (patch.minIntervalSeconds !== undefined) {

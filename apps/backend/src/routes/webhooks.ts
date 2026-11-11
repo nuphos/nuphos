@@ -7,11 +7,9 @@ import { executeTrigger } from '@/lib/agent/trigger-executor'
 import {
   claimTriggerGroupMemberRun,
   matchTriggerGroupMembers,
-  triggerGroupIncidentScope,
 } from '@/lib/agent/trigger-group-service'
 import { parseMonitoringProviderWiring } from '@/lib/agent/trigger-provider-wiring'
 import { shouldBypassTriggerCooldown } from '@/lib/agent/webhook-cooldown'
-import { routeWebhookSession } from '@/lib/agent/webhook-session-router'
 import {
   AwsSnsValidationError,
   confirmAwsSnsSubscription,
@@ -182,19 +180,6 @@ webhooksRoutes.post('/:triggerId', async (c) => {
     return c.json({ ok: false, reason: 'trigger_disabled' }, 200)
   }
 
-  if (trigger.sessionRouting) {
-    if (trigger.sessionRouting.github) {
-      throw new AppError(400, 'github_ingress_required', 'Use the signed GitHub App webhook')
-    }
-    const sessionId = await routeWebhookSession(
-      trigger,
-      payload,
-      c.req.header('X-Webhook-Delivery') ?? '',
-    )
-
-    return c.json({ ok: true, sessionId }, 202)
-  }
-
   if (trigger.watchGroupId) {
     const members = await matchTriggerGroupMembers({
       triggerId: trigger._id,
@@ -221,10 +206,7 @@ webhooksRoutes.post('/:triggerId', async (c) => {
 
       if (!canRun) continue
       accepted += 1
-      const incidentScope = triggerGroupIncidentScope(member.key)
-
       void executeTrigger(trigger, memberPayload, {
-        incidentScope,
         groupMember: member,
         runKind: 'webhook',
       }).catch((err: unknown) => {

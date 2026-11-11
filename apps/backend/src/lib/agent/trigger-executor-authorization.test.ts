@@ -1,72 +1,13 @@
-import { describe, expect, test } from 'bun:test'
+import { beforeEach, describe, expect, test } from 'bun:test'
 import { ObjectId } from 'mongodb'
 
-import { useCredentialOptions } from '@/lib/test/doubles/credential-options'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
-import type { AgentCredentialAccess } from './db'
 import type { AgentTrigger } from './trigger-db'
-import type { AgentCredentialOptions } from '@/routes/agent/types'
-
-const EMPTY_OPTIONS: AgentCredentialOptions = {
-  awsRoles: [],
-  gcpServiceAccounts: [],
-  linodeAccounts: [],
-  hetznerAccounts: [],
-  tencentAccounts: [],
-  aliyunAccounts: [],
-  volcengineAccounts: [],
-  huaweiAccounts: [],
-  azureAccounts: [],
-  onpremClusters: [],
-  betterStackIntegrations: [],
-  uptimeKumaInstances: [],
-  linearWorkspaces: [],
-  jiraSites: [],
-  asanaAccounts: [],
-  sentryAccounts: [],
-  tailscaleClients: [],
-  zeaburProviders: [],
-  vantaIntegrations: [],
-  secureframeIntegrations: [],
-  resendIntegrations: [],
-  personalCredentials: [],
-  devices: [],
-  githubInstallations: [],
-  gitlabBindings: [],
-  grafanaInstances: [],
-  sonarqubeIntegrations: [],
-  notionIntegrations: [],
-  upstashAccounts: [],
-  posthogIntegrations: [],
-  plaudAccounts: [],
-  cloudflareAccounts: [],
-  instaboxAccounts: [],
-}
-
-function access(overrides: Partial<AgentCredentialAccess> = {}): AgentCredentialAccess {
-  return {
-    awsRoleIds: [],
-    gcpServiceAccountIds: [],
-    linodeAccountIds: [],
-    hetznerAccountIds: [],
-    betterStackIntegrationIds: [],
-    uptimeKumaInstanceIds: [],
-    jiraSiteIds: [],
-    asanaAccountIds: [],
-    tailscaleClientIds: [],
-    zeaburIds: [],
-    vantaIntegrationIds: [],
-    secureframeIntegrationIds: [],
-    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-    updatedBy: 'principal',
-    ...overrides,
-  }
-}
 
 const writes: { name: string; filter: unknown; update: unknown }[] = []
-let teamOptions: AgentCredentialOptions = EMPTY_OPTIONS
+const conversations = new Map<string, { sessionId: string; userId: string; teamId?: string }>()
 let group: Record<string, unknown> | null = null
 
 useDb({
@@ -77,18 +18,29 @@ useDb({
 
         return Promise.resolve({})
       },
-      findOne: () => Promise.resolve(name === 'agent_trigger_groups' ? group : null),
+      updateMany: (filter: unknown, update: unknown) => {
+        writes.push({ name, filter, update })
+
+        return Promise.resolve({})
+      },
+      countDocuments: () => Promise.resolve(0),
+      findOne: (filter: { sessionId?: string }) =>
+        Promise.resolve(
+          name === 'agent_trigger_groups'
+            ? group
+            : (conversations.get(filter.sessionId ?? '') ?? null),
+        ),
       find: () => ({ toArray: () => Promise.resolve([]) }),
     }),
   }),
 })
 useIdentity({ getTeamMembership: () => Promise.resolve({ role: 'ADMINISTRATOR' }) })
-useCredentialOptions({ getAgentCredentialOptions: () => Promise.resolve(teamOptions) })
 
 const { resolveExecutionAuthorization } = await import('./trigger-executor-authorization')
 
 function trigger(overrides: Partial<AgentTrigger> = {}): AgentTrigger {
   return {
+    _id: new ObjectId(),
     userId: 'principal',
     teamId: 'team-1',
     executionPrincipalUserId: 'principal',
@@ -101,88 +53,70 @@ function trigger(overrides: Partial<AgentTrigger> = {}): AgentTrigger {
   } as AgentTrigger
 }
 
-describe('resolveExecutionAuthorization', () => {
-  test('a Trigger bound to every credential sees a connector added after it was created', async () => {
-    writes.length = 0
-    teamOptions = {
-      ...EMPTY_OPTIONS,
-      notionIntegrations: [{ integrationId: 'notion-late', workspaceName: 'Team' }],
-    } as AgentCredentialOptions
+function paused() {
+  return writes.find(
+    (write) =>
+      write.name === 'agent_triggers' &&
+      (write.update as { $set?: { enabled?: boolean } }).$set?.enabled === false,
+  )
+}
 
-    const { credentialAccess } = await resolveExecutionAuthorization(
-      trigger({
-        credentialMode: 'all',
-        executionCredentialAccess: access({ notionIntegrationIds: [] }),
-      }),
-    )
-
-    expect(credentialAccess.notionIntegrationIds).toEqual(['notion-late'])
-    expect(writes).toEqual([])
-  })
-
-  test('a Trigger the user narrowed keeps exactly its selection', async () => {
-    teamOptions = {
-      ...EMPTY_OPTIONS,
-      notionIntegrations: [{ integrationId: 'notion-late', workspaceName: 'Team' }],
-    } as AgentCredentialOptions
-
-    const { credentialAccess } = await resolveExecutionAuthorization(
-      trigger({
-        credentialMode: 'selected',
-        executionCredentialAccess: access({ notionIntegrationIds: [] }),
-      }),
-    )
-
-    expect(credentialAccess.notionIntegrationIds).toEqual([])
-  })
-
-  test('a Trigger stored before the mode existed follows the team, and nothing is pinned to it', async () => {
-    writes.length = 0
-    teamOptions = {
-      ...EMPTY_OPTIONS,
-      notionIntegrations: [{ integrationId: 'notion-late', workspaceName: 'Team' }],
-    } as AgentCredentialOptions
-
-    const { credentialAccess } = await resolveExecutionAuthorization(
-      trigger({
-        executionCredentialAccess: access({ notionIntegrationIds: [] }),
-      }),
-    )
-
-    expect(credentialAccess.notionIntegrationIds).toEqual(['notion-late'])
-    expect(writes).toEqual([])
+beforeEach(() => {
+  writes.length = 0
+  group = null
+  conversations.clear()
+  conversations.set('own', { sessionId: 'own', userId: 'principal', teamId: 'team-1' })
+  conversations.set('other-user', { sessionId: 'other-user', userId: 'someone', teamId: 'team-1' })
+  conversations.set('other-team', {
+    sessionId: 'other-team',
+    userId: 'principal',
+    teamId: 'team-2',
   })
 })
 
-describe('resolveExecutionAuthorization on a Trigger created from an Agent session', () => {
-  test('keeps the scope that session approved', async () => {
-    teamOptions = {
-      ...EMPTY_OPTIONS,
-      notionIntegrations: [{ integrationId: 'notion-late', workspaceName: 'Team' }],
-    } as AgentCredentialOptions
+describe('resolveExecutionAuthorization', () => {
+  test('a Trigger bound to its owner’s conversation delivers there', async () => {
+    const { target } = await resolveExecutionAuthorization(trigger({ targetSessionId: 'own' }))
 
-    const { credentialAccess } = await resolveExecutionAuthorization(
-      trigger({
-        sourceContext: { sessionId: 'conv-1' },
-        executionCredentialAccess: access({ notionIntegrationIds: [] }),
-      }),
-    )
-
-    expect(credentialAccess.notionIntegrationIds).toEqual([])
+    expect(target.sessionId).toBe('own')
+    expect(paused()).toBeUndefined()
   })
+
+  test('an unbound Trigger is paused instead of opening a session', async () => {
+    await expect(resolveExecutionAuthorization(trigger())).rejects.toMatchObject({
+      code: 'trigger_target_session_required',
+    })
+    expect(paused()?.update).toMatchObject({
+      $set: { enabled: false, executionAuthorizationStatus: 'invalid' },
+    })
+  })
+
+  test.each(['other-user', 'other-team', 'deleted'])(
+    'a Trigger bound to a %s conversation is paused',
+    async (targetSessionId) => {
+      await expect(
+        resolveExecutionAuthorization(trigger({ targetSessionId })),
+      ).rejects.toMatchObject({ code: 'trigger_target_session_invalid' })
+      expect(paused()).toBeDefined()
+    },
+  )
 })
 
 describe('a partition repairing itself from its Watch Group', () => {
   test('drops the scope it had pinned when the Group has none', async () => {
-    writes.length = 0
-    teamOptions = EMPTY_OPTIONS
     group = { executionPrincipalUserId: 'new-principal', credentialMode: 'all' }
+    conversations.set('group-target', {
+      sessionId: 'group-target',
+      userId: 'new-principal',
+      teamId: 'team-1',
+    })
 
     await resolveExecutionAuthorization(
       trigger({
         watchGroupId: new ObjectId(),
-        executionCredentialAccess: access({ notionIntegrationIds: [] }),
-      }),
+        targetSessionId: 'group-target',
+        executionCredentialAccess: { updatedAt: new Date(), updatedBy: 'principal' },
+      } as Partial<AgentTrigger>),
     )
 
     const repair = writes.find((write) => write.name === 'agent_triggers')
@@ -192,24 +126,4 @@ describe('a partition repairing itself from its Watch Group', () => {
       $unset: { executionCredentialAccess: true },
     })
   })
-})
-
-test('GitHub review runs only receive their authorized installation', async () => {
-  teamOptions = {
-    ...EMPTY_OPTIONS,
-    githubInstallations: [{ installationId: '123', accountLogin: 'test' }],
-    notionIntegrations: [{ integrationId: 'notion', workspaceName: 'Team' }],
-  } as AgentCredentialOptions
-  const routed = trigger({
-    sessionRouting: {
-      keyTemplate: '{{payload.number}}',
-      github: { installationId: 123, repositoryId: 456, actions: ['opened'] },
-    },
-  })
-  const { credentialAccess } = await resolveExecutionAuthorization(routed)
-
-  expect(credentialAccess.githubInstallationIds).toEqual(['123'])
-  expect(credentialAccess.notionIntegrationIds).toEqual([])
-  teamOptions = EMPTY_OPTIONS
-  await expect(resolveExecutionAuthorization(routed)).rejects.toThrow('cannot access')
 })

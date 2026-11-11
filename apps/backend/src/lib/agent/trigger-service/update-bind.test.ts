@@ -25,9 +25,18 @@ const legacyTrigger = {
   updatedAt: new Date(),
 }
 
+const conversations: Record<string, unknown> = {
+  'bound-session': { sessionId: 'bound-session', userId: OWNER, teamId: TEAM },
+  'someone-elses': {
+    sessionId: 'someone-elses',
+    userId: new ObjectId().toHexString(),
+    teamId: TEAM,
+  },
+  'other-team': { sessionId: 'other-team', userId: OWNER, teamId: new ObjectId().toHexString() },
+}
+let storedTrigger: Record<string, unknown> = legacyTrigger
+
 const rows: Record<string, unknown> = {
-  agent_conversations: { sessionId: 'bound-session', userId: OWNER, teamId: TEAM },
-  agent_triggers: legacyTrigger,
   teams: {
     _id: new ObjectId(TEAM),
     name: 'Team',
@@ -40,7 +49,15 @@ const rows: Record<string, unknown> = {
 
 function collection(name: string) {
   return {
-    findOne: () => Promise.resolve(rows[name] ?? null),
+    findOne: (filter: { sessionId?: string }) =>
+      Promise.resolve(
+        name === 'agent_conversations'
+          ? (conversations[filter.sessionId ?? ''] ?? null)
+          : name === 'agent_triggers'
+            ? storedTrigger
+            : (rows[name] ?? null),
+      ),
+    countDocuments: () => Promise.resolve(0),
     findOneAndUpdate: () => Promise.resolve(null),
     updateOne: (_filter: unknown, update: Record<string, Record<string, unknown>>) => {
       writes.push({ collection: name, update })
@@ -60,6 +77,7 @@ const { assertDedupeCompatible, bindLegacyWatch } = await import('./watch-dedupe
 
 afterEach(() => {
   writes.length = 0
+  storedTrigger = legacyTrigger
 })
 
 describe('binding a legacy unbound Trigger', () => {
@@ -118,5 +136,77 @@ describe('re-creating a Watch stored before binding was required', () => {
         [],
       )
     }).toThrow('another conversation')
+  })
+})
+
+describe('turning a Trigger on', () => {
+  const disabledUnbound = { ...legacyTrigger, enabled: false }
+  const triggerWrite = () => writes.find((entry) => entry.collection === 'agent_triggers')
+
+  test('refuses an unbound Trigger without a conversation, and writes nothing', async () => {
+    storedTrigger = disabledUnbound
+
+    await expect(
+      updateTrigger(triggerId.toHexString(), OWNER, { enabled: true }),
+    ).rejects.toMatchObject({ status: 400, code: 'trigger_target_session_required' })
+    expect(triggerWrite()).toBeUndefined()
+  })
+
+  test('enables an unbound Trigger together with its owner’s conversation', async () => {
+    storedTrigger = disabledUnbound
+
+    const updated = await updateTrigger(triggerId.toHexString(), OWNER, {
+      enabled: true,
+      targetSessionId: 'bound-session',
+    })
+
+    expect(updated.enabled).toBe(true)
+    expect(updated.targetSessionId).toBe('bound-session')
+    expect(triggerWrite()?.update.$set).toMatchObject({
+      enabled: true,
+      targetSessionId: 'bound-session',
+    })
+  })
+
+  test.each(['someone-elses', 'other-team', 'missing'])(
+    'refuses to enable it into a %s conversation',
+    async (targetSessionId) => {
+      storedTrigger = disabledUnbound
+
+      await expect(
+        updateTrigger(triggerId.toHexString(), OWNER, { enabled: true, targetSessionId }),
+      ).rejects.toMatchObject({ status: 400 })
+      expect(triggerWrite()).toBeUndefined()
+    },
+  )
+
+  test('still enables a Trigger that is already bound', async () => {
+    storedTrigger = { ...disabledUnbound, targetSessionId: 'bound-session' }
+
+    const updated = await updateTrigger(triggerId.toHexString(), OWNER, { enabled: true })
+
+    expect(updated.enabled).toBe(true)
+  })
+
+  test('still disables an unbound Trigger', async () => {
+    const updated = await updateTrigger(triggerId.toHexString(), OWNER, { enabled: false })
+
+    expect(updated.enabled).toBe(false)
+  })
+
+  test('still renames a disabled unbound Trigger', async () => {
+    storedTrigger = disabledUnbound
+
+    const updated = await updateTrigger(triggerId.toHexString(), OWNER, { name: 'Renamed' })
+
+    expect(updated.name).toBe('Renamed')
+    expect(updated.enabled).toBe(false)
+  })
+
+  test('refuses other edits to an enabled unbound row until it is bound or disabled', async () => {
+    await expect(
+      updateTrigger(triggerId.toHexString(), OWNER, { name: 'Renamed' }),
+    ).rejects.toMatchObject({ status: 400, code: 'trigger_target_session_required' })
+    expect(triggerWrite()).toBeUndefined()
   })
 })
