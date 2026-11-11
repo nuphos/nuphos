@@ -11,7 +11,6 @@ import {
 import { memo, useState } from 'react'
 
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../components/ui/menu'
-import { useReportVisibleError } from '../components/VisibleErrorReporter'
 import { t } from '../i18n'
 
 import { panelDisplay } from './panelDisplay'
@@ -93,13 +92,6 @@ export const PanelCard = memo(
     const subtitle = outputSubtitle(lastSuccessful?.output ?? null)
     const snapshotLoading = loading || panel.currentSnapshot?.status === 'running'
     const hasStaleOutput = Boolean(lastSuccessful?.output)
-
-    useReportVisibleError(
-      panel.currentSnapshot?.status === 'failed'
-        ? (panel.currentSnapshot.error?.message ?? 'Panel script failed.')
-        : null,
-      'cost_panel_snapshot_failed',
-    )
 
     return (
       <div className="flex flex-col overflow-hidden rounded-lg border border-line-control bg-state-selected">

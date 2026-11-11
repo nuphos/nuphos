@@ -3,7 +3,6 @@ import { useState } from 'react'
 
 import { Modal } from '../components/Modal'
 import { Button } from '../components/ui/button'
-import { useReportVisibleError } from '../components/VisibleErrorReporter'
 import { t } from '../i18n'
 import { reportFrontendError } from '../lib/frontendErrorReporter'
 
@@ -24,7 +23,6 @@ export function ScriptErrorModal({ open, panel, snapshot, onClose }: Props) {
   const [copied, setCopied] = useState(false)
   const message = snapshot.error?.message ?? t('No error details were returned.')
 
-  useReportVisibleError(message, 'cost_script_error_modal', open)
   const close = () => {
     setCopied(false)
     onClose()
