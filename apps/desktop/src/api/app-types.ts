@@ -93,6 +93,8 @@ export type LocalSkillInfo = {
   name: string
   source: 'claude' | 'codex'
   path: string
+  /** Where `path` resolves to when it is (or sits under) a link, else null. */
+  linkedTo: string | null
   description: string | null
   fileCount: number
   totalBytes: number

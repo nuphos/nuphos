@@ -1,11 +1,14 @@
 // One-click "import this computer's skill into the team or personal store": resolve the
 // skill against what listLocalSkills found, then read and upload its files one
 // at a time under `skills/<name>/`.
-import fs from 'node:fs/promises'
-
 import { teamSkillsPutObject } from '../atlas'
 
-import { listLocalSkills, localSkillEntries, MAX_SKILL_FILE_BYTES } from './local-skills'
+import {
+  listLocalSkills,
+  localSkillEntries,
+  MAX_SKILL_FILE_BYTES,
+  readSkillFile,
+} from './local-skills'
 
 import type { LocalSkillSource } from './local-skills'
 import type { SkillScope } from '../atlas'
@@ -59,7 +62,7 @@ export async function importLocalSkill(
       continue
     }
     const key = `skills/${skill.name}/${entry.relPath}`
-    const bytes = new Uint8Array(await fs.readFile(entry.realPath))
+    const bytes = new Uint8Array(await readSkillFile(entry))
 
     await teamSkillsPutObject(
       teamId,

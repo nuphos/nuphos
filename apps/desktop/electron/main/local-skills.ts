@@ -1,6 +1,7 @@
 // Skills this computer already has: the directories Claude Code and Codex read
-// from. Listing them and walking one is all this module owns; reading and
-// uploading a skill's files is local-skill-import.ts.
+// from. Listing them, walking one and reading its files is all this module owns;
+// uploading them is local-skill-import.ts and local-setup-sync.ts.
+import { constants } from 'node:fs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -15,6 +16,8 @@ export type LocalSkillInfo = {
   name: string
   source: LocalSkillSource
   path: string
+  /** Where `path` resolves to when it is (or sits under) a link, else null. */
+  linkedTo: string | null
   /** First line of the SKILL.md frontmatter `description`, when it has one. */
   description: string | null
   fileCount: number
@@ -28,6 +31,9 @@ export type LocalSkillEntry = {
   realPath: string
   size: number
   mtimeMs: number
+  /** Identify the file the walk checked, so readSkillFile reads no other. */
+  dev: number
+  ino: number
 }
 
 /** The team skill store rejects anything larger, so skip it before uploading. */
@@ -134,9 +140,9 @@ export async function localSkillEntries(
 
       if (resolved?.stat.isDirectory()) await walk(resolved.real, relPath, depth + 1, lineage)
       else if (resolved?.stat.isFile()) {
-        const { real, stat } = resolved
+        const { size, mtimeMs, dev, ino } = resolved.stat
 
-        out.push({ relPath, realPath: real, size: stat.size, mtimeMs: stat.mtimeMs })
+        out.push({ relPath, realPath: resolved.real, size, mtimeMs, dev, ino })
       }
     }
   }
@@ -153,24 +159,53 @@ export async function localSkillEntries(
   })
 }
 
+/**
+ * A walked file's bytes, only while `realPath` is still that file: opened without
+ * following a final link, then checked by device and inode (CERT POS35-C), and
+ * read no further than the size cap even if it grew since.
+ */
+export async function readSkillFile(entry: LocalSkillEntry): Promise<Buffer> {
+  // Windows has no O_NOFOLLOW; the inode check below still catches a swap there.
+  const noFollow = (constants as Partial<typeof constants>).O_NOFOLLOW ?? 0
+  const handle = await fs.open(entry.realPath, constants.O_RDONLY | noFollow)
+
+  try {
+    const stat = await handle.stat()
+
+    if (!stat.isFile() || stat.dev !== entry.dev || stat.ino !== entry.ino) {
+      throw new Error(`${entry.relPath} changed while it was being read`)
+    }
+    const bytes = Buffer.alloc(Math.min(stat.size, MAX_SKILL_FILE_BYTES))
+    const { bytesRead } = await handle.read(bytes, 0, bytes.length, 0)
+
+    return bytes.subarray(0, bytesRead)
+  } finally {
+    await handle.close()
+  }
+}
+
 async function describeSkill(
   source: LocalSkillSource,
   dir: string,
   name: string,
 ): Promise<LocalSkillInfo | null> {
   const root = path.join(dir, name)
-  const markdown = await fs.readFile(path.join(root, 'SKILL.md'), 'utf8').catch(() => null)
+  const entries = await localSkillEntries(root)
+  const skillMd = entries.find((entry) => entry.relPath === 'SKILL.md')
 
   // Without a SKILL.md the directory is not a skill — the store keys on it too.
-  if (markdown === null) return null
-  const entries = await localSkillEntries(root)
+  // One that links out is still listed, without reading it, so sync can say so.
+  if (!skillMd && !(await fs.lstat(path.join(root, 'SKILL.md')).catch(() => null))) return null
+  const markdown = skillMd ? await readSkillFile(skillMd).catch(() => null) : null
+  const realRoot = await fs.realpath(root).catch(() => root)
 
   return {
     id: `${source}/${name}`,
     name,
     source,
     path: root,
-    description: skillDescription(markdown),
+    linkedTo: realRoot === root ? null : realRoot,
+    description: markdown ? skillDescription(markdown.toString('utf8')) : null,
     fileCount: entries.length,
     totalBytes: entries.reduce((sum, entry) => sum + entry.size, 0),
     updatedAt: new Date(Math.max(0, ...entries.map((entry) => entry.mtimeMs))).toISOString(),

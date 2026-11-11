@@ -104,7 +104,7 @@ export function LocalSkillImportMenu({
                 key={skill.id}
                 closeOnClick={false}
                 onClick={() => importSkill(skill)}
-                title={skill.path}
+                title={skill.linkedTo ? `${skill.path} → ${skill.linkedTo}` : skill.path}
               >
                 <span className="flex w-full min-w-0 flex-col">
                   <span className="w-full truncate text-[12.5px]">
@@ -118,6 +118,11 @@ export function LocalSkillImportMenu({
                       : t('{count} files', { count: String(skill.fileCount) })}
                     {skill.description ? ` · ${skill.description}` : ''}
                   </span>
+                  {skill.linkedTo && (
+                    <span className="w-full truncate text-[11px] text-tertiary">
+                      → {skill.linkedTo}
+                    </span>
+                  )}
                 </span>
               </MenuItem>
             ))}

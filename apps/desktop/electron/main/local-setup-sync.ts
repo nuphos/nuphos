@@ -34,7 +34,7 @@ import {
   stateKey,
   updateTeam,
 } from './local-setup-state.ts'
-import { listLocalSkills, localSkillEntries } from './local-skills.ts'
+import { listLocalSkills, localSkillEntries, readSkillFile } from './local-skills.ts'
 
 import type { LocalSkillSnapshot, RemoteObject } from './local-setup-plan.ts'
 import type {
@@ -54,7 +54,7 @@ async function hashFile(full: string, entry: LocalSkillEntry, cache: HashCache, 
     cached?.size === size && cached.mtimeMs === mtimeMs && cached.realPath === realPath
       ? cached.sha256
       : createHash('sha256')
-          .update(await fs.readFile(realPath))
+          .update(await readSkillFile(entry))
           .digest('hex')
 
   seen[full] = { size, mtimeMs, realPath, sha256 }
@@ -64,11 +64,11 @@ async function hashFile(full: string, entry: LocalSkillEntry, cache: HashCache, 
 
 /** Claude Code skills only: Codex keeps its own, and a name can exist under both. */
 async function snapshotLocalSkills(cache: HashCache): Promise<{
-  skills: (LocalSkillSnapshot & { realPaths: Map<string, string> })[]
+  skills: (LocalSkillSnapshot & { entries: Map<string, LocalSkillEntry> })[]
   hashes: HashCache
 }> {
   const skills = (await listLocalSkills()).filter((skill) => skill.source === 'claude')
-  const out: (LocalSkillSnapshot & { realPaths: Map<string, string> })[] = []
+  const out: (LocalSkillSnapshot & { entries: Map<string, LocalSkillEntry> })[] = []
   // Only files that still exist keep a cache entry.
   const seen: HashCache = {}
 
@@ -87,7 +87,7 @@ async function snapshotLocalSkills(cache: HashCache): Promise<{
     }
     out.push({
       name: skill.name,
-      realPaths: new Map(entries.map((entry) => [entry.relPath, entry.realPath])),
+      entries: new Map(entries.map((entry) => [entry.relPath, entry])),
       files,
     })
   }
@@ -159,9 +159,9 @@ async function uploadFile(
   teamId: string,
   key: string,
   upload: { name: string; key: string; file: { relPath: string; sha256: string } },
-  realPath: string,
+  entry: LocalSkillEntry,
 ) {
-  const bytes = new Uint8Array(await fs.readFile(realPath))
+  const bytes = new Uint8Array(await readSkillFile(entry))
 
   await teamSkillsPutObject(
     teamId,
@@ -185,7 +185,7 @@ async function runSync(teamId: string): Promise<LocalSetupResult> {
   saveHashCache(snapshot.hashes, path.join(claudeDir(), 'skills'))
   const listing = (await teamSkillsListObjects(teamId, 'personal')) as { objects: RemoteObject[] }
   const plan = planSkillSync(local, readTeam(key).skills, listing.objects)
-  const realPaths = new Map(local.map((skill) => [skill.name, skill.realPaths]))
+  const entries = new Map(local.map((skill) => [skill.name, skill.entries]))
   const failed = new Set<string>()
   let removed = 0
 
@@ -218,11 +218,11 @@ async function runSync(teamId: string): Promise<LocalSetupResult> {
   // One file in memory at a time, SKILL.md first within each skill (the planner
   // keeps localSkillEntries' order), so a partial pass still leaves listable skills.
   for (const upload of plan.uploads) {
-    const realPath = realPaths.get(upload.name)?.get(upload.file.relPath)
+    const entry = entries.get(upload.name)?.get(upload.file.relPath)
 
-    if (failed.has(upload.name) || !realPath) continue
+    if (failed.has(upload.name) || !entry) continue
     try {
-      await uploadFile(teamId, key, upload, realPath)
+      await uploadFile(teamId, key, upload, entry)
       uploaded += 1
     } catch (e) {
       console.warn(`local-setup: could not upload ${upload.key}`, e)

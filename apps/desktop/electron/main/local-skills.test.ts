@@ -1,10 +1,23 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  renameSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { after, before, describe, it } from 'node:test'
 
-import { listLocalSkills, localSkillEntries, skillDescription } from './local-skills.ts'
+import {
+  listLocalSkills,
+  localSkillEntries,
+  readSkillFile,
+  skillDescription,
+} from './local-skills.ts'
 
 const originalHome = process.env.HOME
 let home: string
@@ -71,12 +84,13 @@ before(() => {
   mkdirSync(path.join(skillDir('loop'), 'sub'))
   symlinkSync(skillDir('loop'), path.join(skillDir('loop'), 'sub', 'up'))
   symlinkSync('.', path.join(skillDir('loop'), 'self'))
-  // A directory alias inside a skill: both paths stay.
+  // Directory aliases inside a skill, sorting before and after their target: all paths stay.
   writeSkill(skillDir('alias'), {
     'SKILL.md': '---\ndescription: Alias\n---\n',
     'scripts/run.sh': 'echo\n',
   })
   symlinkSync('scripts', path.join(skillDir('alias'), 'assets'))
+  symlinkSync('scripts', path.join(skillDir('alias'), 'tools'))
 })
 
 after(() => {
@@ -99,14 +113,15 @@ describe('listLocalSkills', () => {
     const skills = await listLocalSkills()
 
     assert.deepEqual(
-      skills.map((skill) => [skill.id, skill.description, skill.fileCount]),
+      skills.map((skill) => [skill.id, skill.description, skill.fileCount, skill.linkedTo]),
       [
-        ['claude/alias', 'Alias', 3],
-        ['claude/deploy', 'Ship the service', 3],
-        ['claude/lint', 'Lint', 0],
-        ['claude/loop', 'Loops', 1],
-        ['claude/review', 'Review code', 2],
-        ['codex/triage', 'Triage alerts', 1],
+        ['claude/alias', 'Alias', 4, null],
+        ['claude/deploy', 'Ship the service', 3, null],
+        // Its SKILL.md links out of every trusted root: listed, never read.
+        ['claude/lint', null, 0, path.join(store, 'ccc-skills', 'lint')],
+        ['claude/loop', 'Loops', 1, null],
+        ['claude/review', 'Review code', 2, path.join(store, 'aaa-review')],
+        ['codex/triage', 'Triage alerts', 1, null],
       ],
     )
   })
@@ -138,11 +153,29 @@ describe('localSkillEntries', () => {
     assert.deepEqual(await relPaths(skillDir('loop')), ['SKILL.md'])
   })
 
-  it('keeps the real path of a directory that a sibling link aliases', async () => {
+  it('keeps the real path of a directory that sibling links alias', async () => {
     assert.deepEqual(await relPaths(skillDir('alias')), [
       'SKILL.md',
       'assets/run.sh',
       'scripts/run.sh',
+      'tools/run.sh',
     ])
+  })
+})
+
+describe('readSkillFile', () => {
+  it('reads the walked file, and refuses one swapped for a link or another file', async () => {
+    const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'read-skill-')))
+
+    writeSkill(root, { 'SKILL.md': 'mine', 'other.md': 'other' })
+    const [entry] = await localSkillEntries(root)
+
+    assert.ok(entry)
+    assert.equal((await readSkillFile(entry)).toString(), 'mine')
+    renameSync(path.join(root, 'other.md'), entry.realPath)
+    await assert.rejects(readSkillFile(entry), /changed while it was being read/)
+    unlinkSync(entry.realPath)
+    symlinkSync(path.join(outside, 'secret.txt'), entry.realPath)
+    await assert.rejects(readSkillFile(entry))
   })
 })
