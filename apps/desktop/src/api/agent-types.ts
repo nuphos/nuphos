@@ -49,7 +49,7 @@ export type ConversationAccessState = {
 }
 
 /** An agent in a channel: its session, which is the agent. */
-export type ChannelAgent = { sessionId: string; title: string; ownerId: string; avatar?: string }
+export type ChannelAgent = AgentFace & { sessionId: string; title: string; ownerId: string }
 
 /** A member a chat's icon shows (up to two, whoever spoke last first): a person, or an agent by its session. */
 export type ChannelFace = {
