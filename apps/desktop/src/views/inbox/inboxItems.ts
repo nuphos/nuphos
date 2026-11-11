@@ -63,7 +63,7 @@ export function openQuestion(
   return rows[Math.max(0, Math.min(selected?.index ?? 0, rows.length - 1))]
 }
 
-/** Connect and secure-input cards live in the transcript; only there can these be answered. */
+/** Secure-input and Connect cards answer these themselves, never with a reply. */
 const ANSWERED_IN_CONVERSATION = new Set(['credential', 'integration'])
 
 /**

@@ -22,25 +22,15 @@ export function CredentialSelectorSectionList({
   unseen: CredentialSelectorControl['unseen']
   /** The member's Personal Credentials; null hides the identity rows. */
   personal: PersonalCredential[] | null
-  /** The member's own credentials for providers the team has no binding of. */
+  /** The member's own GitHub / Linear credentials, offered whether or not the team has a binding. */
   ownCredentials: { provider: 'github' | 'linear'; login: string }[]
   onChange: CredentialSelectorControl['onChange']
 }) {
   const identityRow = (provider: 'github' | 'linear', providerSections: CredentialSection[]) => {
     if (!personal) return null
-    if (providerSections.length > 0)
-      return (
-        <PersonalIdentityItem
-          provider={provider}
-          personal={personal}
-          value={value}
-          onChange={onChange}
-        />
-      )
     const own = ownCredentials.find((credential) => credential.provider === provider)
-
-    // No team binding: the member's own credential is itself what the agent may use.
-    return own ? (
+    // The member's own credential is what the agent may use as itself, binding or not.
+    const ownRow = own ? (
       <MenuCheckboxItem
         checked={(value.personalCredentialIds ?? []).includes(provider)}
         onCheckedChange={(checked) => onChange(setPersonalOnly(value, provider, checked))}
@@ -53,6 +43,20 @@ export function CredentialSelectorSectionList({
         </span>
       </MenuCheckboxItem>
     ) : null
+
+    if (providerSections.length === 0) return ownRow
+
+    return (
+      <>
+        {ownRow}
+        <PersonalIdentityItem
+          provider={provider}
+          personal={personal}
+          value={value}
+          onChange={onChange}
+        />
+      </>
+    )
   }
 
   return (

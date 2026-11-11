@@ -190,7 +190,7 @@ function SelectionButton({
             value={value}
             unseen={unseen}
             personal={personalIdentity && menuOpen ? personal : null}
-            ownCredentials={rows.filter((row) => !row.bound)}
+            ownCredentials={options.personalCredentials ?? []}
             onChange={onChange}
           />
         )}
