@@ -1,3 +1,6 @@
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import { app, BrowserWindow, session } from 'electron'
 
 import { guardBrowserDownloads } from './browser-downloads.ts'
@@ -55,6 +58,14 @@ export function initWebviewGuard() {
         ['AppleWebKit', 'Chrome', 'Safari'].includes(product) ? token : '',
       ),
   )
+  // Google sign-in also rejects a page whose `window.chrome` lacks Chrome's own members.
+  browserSession.registerPreloadScript({
+    id: 'nuphos-browser-chrome-object',
+    type: 'frame',
+    // Built next to the app's own preload in dist-electron.
+    filePath: path.join(path.dirname(fileURLToPath(import.meta.url)), 'browser-preload.cjs'),
+    matches: ['http://*/*', 'https://*/*'],
+  })
 
   app.on('web-contents-created', (_event, contents) => {
     contents.on('will-attach-webview', (event, webPreferences, params) => {
