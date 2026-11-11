@@ -11,10 +11,11 @@ const build = readFileSync(
 const LOGIN_COMMAND = 'node /opt/nuphos-runtime/codex-login.mjs --install'
 const AUTH_FILE = '/home/node/.codex/auth.json'
 const CLAUDE_LOGIN_COMMAND = 'node /opt/nuphos-runtime/claude-login.mjs --long-lived'
-// The one-year token `claude-login.mjs --long-lived` stores, then the login `claude auth
-// login` or `/login` stores, which the agent reads when no long-lived token is present.
+// An API key in Claude's own settings (`claude-login.mjs` stores it, and it outranks every
+// login), the one-year token `claude-login.mjs --long-lived` stores, then the login `claude
+// auth login` or `/login` stores, which the agent reads when no long-lived token is present.
 const CLAUDE_AUTH_FILE =
-  '/home/node/.claude/.nuphos-oauth-token.json:/home/node/.claude/.credentials.json'
+  '/home/node/.claude/settings.json#/env/ANTHROPIC_API_KEY:/home/node/.claude/.nuphos-oauth-token.json:/home/node/.claude/.credentials.json'
 const GROK_LOGIN_COMMAND = 'node /opt/nuphos-runtime/grok-login.mjs'
 const GROK_AUTH_FILE = '/home/node/.grok/auth.json'
 const ANTIGRAVITY_LOGIN_COMMAND = 'node /opt/nuphos-runtime/antigravity-login.mjs'

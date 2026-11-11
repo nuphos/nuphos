@@ -337,16 +337,39 @@ pub(crate) fn runtime_authenticated(state: &crate::AppState) -> Option<bool> {
 }
 
 /// When the runtime's sign-in lapses on its own, for a credential that says so (a
-/// long-lived token): the first auth file whose JSON carries a top-level `expiresAt`.
-/// Nothing else is read from the file, and nothing from it is logged.
+/// long-lived token): the first auth file whose JSON carries a top-level `expiresAt`, unless
+/// a key listed before it is in use, which does not lapse. Nothing else is read from the
+/// file, and nothing from it is logged.
 pub(crate) fn runtime_credential_expires_at(state: &crate::AppState) -> Option<String> {
     auth_files_expiry(state.acp.as_ref()?.auth_file.as_ref()?)
 }
 
-/// `OPENAB_RUNTIME_AUTH_FILE` may list several `:`-separated files, any one of which
-/// signs the runtime in: a long-lived token, then the provider's ordinary login.
+/// `OPENAB_RUNTIME_AUTH_FILE` may list several `:`-separated entries, any one of which
+/// signs the runtime in: an API key, a long-lived token, then the provider's ordinary login.
 fn auth_files(paths: &str) -> impl Iterator<Item = &str> {
     paths.split(':').map(str::trim).filter(|path| !path.is_empty())
+}
+
+/// An entry is a file, or `file#/json/pointer` for a credential the provider keeps inside a
+/// file of its own (Claude Code's API key in its settings.json): only the value is a sign-in.
+fn auth_entry(entry: &str) -> (&str, Option<&str>) {
+    match entry.split_once('#') {
+        Some((path, pointer)) => (path, Some(pointer)),
+        None => (entry, None),
+    }
+}
+
+fn read_auth_json(path: &str) -> Option<serde_json::Value> {
+    serde_json::from_slice(&std::fs::read(path).ok()?).ok()
+}
+
+/// A non-empty string at the pointer; the value itself is never kept or logged.
+fn auth_value_present(path: &str, pointer: &str) -> bool {
+    read_auth_json(path).is_some_and(|file| {
+        file.pointer(pointer)
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|value| !value.is_empty())
+    })
 }
 
 fn auth_files_present(paths: &str) -> bool {
@@ -355,25 +378,36 @@ fn auth_files_present(paths: &str) -> bool {
 
 /// A credential that says when it lapses (a one-year token) signs the runtime in only until then.
 fn auth_files_present_at(paths: &str, now: chrono::DateTime<chrono::Utc>) -> bool {
-    auth_files(paths).any(|path| {
-        std::fs::metadata(path).is_ok_and(|meta| meta.is_file() && meta.len() > 0)
-            && !auth_file_lapsed(path, now)
+    auth_files(paths).any(|entry| match auth_entry(entry) {
+        (path, Some(pointer)) => auth_value_present(path, pointer),
+        (path, None) => {
+            std::fs::metadata(path).is_ok_and(|meta| meta.is_file() && meta.len() > 0)
+                && !auth_file_lapsed(path, now)
+        }
     })
 }
 
 fn auth_file_lapsed(path: &str, now: chrono::DateTime<chrono::Utc>) -> bool {
-    std::fs::read(path)
-        .ok()
-        .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
+    read_auth_json(path)
         .and_then(|file| file.get("expiresAt")?.as_str()?.parse::<chrono::DateTime<chrono::Utc>>().ok())
         .is_some_and(|at| at <= now)
 }
 
 fn auth_files_expiry(paths: &str) -> Option<String> {
-    auth_files(paths).find_map(|path| {
-        let file: serde_json::Value = serde_json::from_slice(&std::fs::read(path).ok()?).ok()?;
-        file.get("expiresAt")?.as_str().map(str::to_owned)
-    })
+    for entry in auth_files(paths) {
+        match auth_entry(entry) {
+            (path, Some(pointer)) if auth_value_present(path, pointer) => return None,
+            (_, Some(_)) => {}
+            (path, None) => {
+                if let Some(at) = read_auth_json(path)
+                    .and_then(|file| file.get("expiresAt")?.as_str().map(str::to_owned))
+                {
+                    return Some(at);
+                }
+            }
+        }
+    }
+    None
 }
 
 /// Whether a **keyless-mode** WS upgrade may proceed given its `Origin` header. WS
@@ -12309,6 +12343,39 @@ mod auth_file_tests {
         std::fs::remove_file(&login).unwrap();
         assert!(!auth_files_present_at(&list, after));
         assert!(auth_files_present_at(&list, "2027-10-28T00:00:00Z".parse().unwrap()));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_key_inside_the_providers_own_settings_signs_the_runtime_in_while_it_is_set() {
+        let dir = std::env::temp_dir().join(format!("openab-auth-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let settings = dir.join("settings.json");
+        let token = dir.join("token.json");
+        let list = format!(
+            "{}#/env/ANTHROPIC_API_KEY:{}",
+            settings.display(),
+            token.display()
+        );
+
+        // Settings without a key are not a sign-in, however full the file is.
+        std::fs::write(&settings, r#"{"syncClaudeAiSkills":false,"env":{"OTHER":"x"}}"#).unwrap();
+        assert!(!auth_files_present(&list));
+        std::fs::write(&settings, r#"{"env":{"ANTHROPIC_API_KEY":""}}"#).unwrap();
+        assert!(!auth_files_present(&list));
+        // Set, then replaced: signed in either way, and a key does not lapse.
+        std::fs::write(&settings, r#"{"env":{"ANTHROPIC_API_KEY":"sk-ant-one"}}"#).unwrap();
+        assert!(auth_files_present(&list));
+        std::fs::write(&token, r#"{"token":"t","expiresAt":"2027-10-29T00:00:00.000Z"}"#).unwrap();
+        assert_eq!(auth_files_expiry(&list), None);
+        std::fs::write(&settings, r#"{"env":{"ANTHROPIC_API_KEY":"sk-ant-two"}}"#).unwrap();
+        assert!(auth_files_present(&list));
+        // Removed: the account sign-in beside it counts again, with its own expiry.
+        std::fs::write(&settings, r#"{"env":{}}"#).unwrap();
+        assert!(auth_files_present(&list));
+        assert_eq!(auth_files_expiry(&list).as_deref(), Some("2027-10-29T00:00:00.000Z"));
+        std::fs::remove_file(&token).unwrap();
+        assert!(!auth_files_present(&list));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

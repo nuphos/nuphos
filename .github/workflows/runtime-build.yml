@@ -210,9 +210,10 @@ jobs:
             AUTH_FILE='/home/node/.local/share/opencode/auth.json'
             LABEL='OpenCode'
           else
-            # A one-year token that never refreshes, then the ordinary login it replaces.
+            # An API key in Claude's own settings outranks a one-year token that never
+            # refreshes, then the ordinary login it replaces.
             LOGIN_COMMAND='node /opt/nuphos-runtime/claude-login.mjs --long-lived'
-            AUTH_FILE='/home/node/.claude/.nuphos-oauth-token.json:/home/node/.claude/.credentials.json'
+            AUTH_FILE='/home/node/.claude/settings.json#/env/ANTHROPIC_API_KEY:/home/node/.claude/.nuphos-oauth-token.json:/home/node/.claude/.credentials.json'
             LABEL='Claude Code'
           fi
 
