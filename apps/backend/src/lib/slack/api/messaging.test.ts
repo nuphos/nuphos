@@ -4,7 +4,7 @@ import { fetchSlackChannelHistory } from './messaging'
 
 test('channel history forwards bounds and cursor and retains Slack pagination', async () => {
   const requests: URL[] = []
-  const fetch = spyOn(globalThis, 'fetch').mockImplementation((input) => {
+  const respond = (input: Parameters<typeof globalThis.fetch>[0]) => {
     requests.push(new URL(input instanceof Request ? input.url : input))
 
     return Promise.resolve(
@@ -15,7 +15,10 @@ test('channel history forwards bounds and cursor and retains Slack pagination', 
         response_metadata: { next_cursor: 'next-page' },
       }),
     )
-  })
+  }
+  const fetch = spyOn(globalThis, 'fetch').mockImplementation(
+    Object.assign(respond, { preconnect: globalThis.fetch.preconnect }),
+  )
 
   try {
     const page = await fetchSlackChannelHistory({
