@@ -114,7 +114,7 @@ describe('session-scoped Trello execution', () => {
   test.each([{ value: [] }, { value: undefined }])(
     'denies missing and empty selection before Composio',
     async ({ value }) => {
-      selected = value
+      selected = value === undefined ? undefined : [...value]
       expect((await execute()).status).toBe(403)
       expect(calls).toHaveLength(0)
     },
