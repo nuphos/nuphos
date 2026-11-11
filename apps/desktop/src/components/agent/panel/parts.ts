@@ -48,7 +48,7 @@ export type TransferUploadPart = {
   // the agent is told to pull-and-extract it. Single-file uploads omit this.
   archive?: boolean
   archiveEntryCount?: number
-  files: { fileName: string; size: number | null; status: string }[]
+  files: { fileName: string; size: number | null; status: string; previewUrl?: string }[]
 }
 export function normalizeTransferUploadPart(
   value: Record<string, unknown>,
@@ -77,6 +77,9 @@ export function normalizeTransferUploadPart(
         fileName: typeof o.fileName === 'string' ? o.fileName : '',
         size: typeof o.size === 'number' ? o.size : null,
         status: typeof o.status === 'string' ? o.status : 'ready',
+        ...(value.status === 'uploading' && typeof o.previewUrl === 'string'
+          ? { previewUrl: o.previewUrl }
+          : {}),
       }
     }),
   }
