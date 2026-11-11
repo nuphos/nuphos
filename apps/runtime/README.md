@@ -685,10 +685,12 @@ read boundary.
 
 ### Antigravity CLI
 
-The existing `antigravity` provider runs the official CLI, pinned to 1.5.5 in
+The existing `antigravity` provider runs the official CLI, pinned to 1.5.4 in
 `image/tools/manifest.json`. This uses the urgent security-fix exception to the
 seven-day dependency wait: 1.5.3 fixed terminal-sandbox isolation issues, and
-1.5.1–1.5.4 fixed ACP cancellation, resume and permission waits. It uses `agy acp --process-per-session`; the worker
+1.5.4 is the minimum required for ACP turns that need a second permission
+approval and for preserving a reloaded/resumed session’s mode; older versions
+can hang those ordinary turns or silently reset their mode. It uses `agy acp --process-per-session`; the worker
 flag is required for HTTP MCP servers. The explicit `--gemini-dir` flag keeps
 the runtime-owned CLI directory stable when a conversation changes HOME. The shim keeps Nuphos turns sequential,
 forwards the advertised ACP capabilities, and uses the same load/resume, cancel
@@ -717,4 +719,4 @@ instances need manual verification on each supported desktop platform. The
 account-free test suite covers the CLI protocol and lifecycle, not those provider
 services.
 
-Use CLI 1.5.5 or newer on desktop hosts to include the upstream security and ACP lifecycle fixes.
+Use CLI 1.5.4 or newer on desktop hosts to include the upstream security and ACP lifecycle fixes.

@@ -91,7 +91,7 @@ test('a computer on an older Desktop still reports its fast switch', () => {
 })
 
 test('Antigravity presence survives tunnel validation with its sign-in status', () => {
-  const agent = { cli: { installed: true, loggedIn: true }, version: '1.5.5' }
+  const agent = { cli: { installed: true, loggedIn: true }, version: '1.5.4' }
 
   expect(
     localRuntimeStatusSchema.parse({ agents: { antigravity: agent } }).agents.antigravity,

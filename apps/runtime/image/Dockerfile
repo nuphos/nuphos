@@ -114,7 +114,7 @@ ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs grok" \
 
 FROM common AS antigravity
 ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs antigravity" \
-    OPENAB_ADAPTER_VERSION="antigravity-cli@1.5.5" \
+    OPENAB_ADAPTER_VERSION="antigravity-cli@1.5.4" \
     NUPHOS_RUNTIME_PREINSTALL=antigravity-cli \
     OPENAB_RUNTIME_AUTH_COMMAND="node /opt/nuphos-runtime/antigravity-status.mjs"
 

@@ -122,7 +122,7 @@ describe('probeExternalRuntimeProvider', () => {
   for (const [stamp, provider] of [
     ['grok@1.0.46', 'grok'],
     ['antigravity-acp@1.3.0', 'antigravity'],
-    ['antigravity-cli@1.5.5', 'antigravity'],
+    ['antigravity-cli@1.5.4', 'antigravity'],
     ['opencode@1.18.35', 'opencode'],
   ] as const)
     test(`recognizes the ${provider} stamp the image sets`, async () => {
