@@ -689,7 +689,8 @@ The existing `antigravity` provider runs the official CLI, pinned to 1.5.5 in
 `image/tools/manifest.json`. This uses the urgent security-fix exception to the
 seven-day dependency wait: 1.5.3 fixed terminal-sandbox isolation issues, and
 1.5.1–1.5.4 fixed ACP cancellation, resume and permission waits. It uses `agy acp --process-per-session`; the worker
-flag is required for HTTP MCP servers. The shim keeps Nuphos turns sequential,
+flag is required for HTTP MCP servers. The explicit `--gemini-dir` flag keeps
+the runtime-owned CLI directory stable when a conversation changes HOME. The shim keeps Nuphos turns sequential,
 forwards the advertised ACP capabilities, and uses the same load/resume, cancel
 and process-exit handling as the other native ACP providers.
 

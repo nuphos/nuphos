@@ -57,8 +57,14 @@ export const PROVIDERS = {
     instruct: (meta, text) => ({ ...meta, rules: text }),
   },
   antigravity: {
-    command: ['agy', 'acp', '--process-per-session'],
-    home: (runtimeHome) => ({ ANTIGRAVITY_GEMINI_DIR: join(runtimeHome, '.gemini') }),
+    command: (env) => [
+      'agy',
+      'acp',
+      '--process-per-session',
+      '--gemini-dir',
+      join(env.NUPHOS_AGENT_HOME, '.gemini'),
+    ],
+    home: (runtimeHome) => ({ NUPHOS_AGENT_HOME: runtimeHome }),
     // Reuse the existing first-prompt instruction path.
     instruct: null,
     // Keep separate Nuphos turns separate: native ACP treats overlapping prompts as steering.
@@ -195,7 +201,7 @@ export function runShim({
   const start = (env) => {
     agent?.kill('SIGTERM')
     // A computer running the agent locally names its own CLI, which may be off PATH.
-    const [command, ...args] = spec.command
+    const [command, ...args] = typeof spec.command === 'function' ? spec.command(env) : spec.command
     const child = spawnAgent([env.NUPHOS_AGENT_EXECUTABLE || command, ...args], env)
     agent = child
     // The agent is the session: when it ends, so does this process.

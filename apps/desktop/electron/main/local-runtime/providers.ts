@@ -26,17 +26,8 @@ export const LOCAL_AGENT_NAMES: Record<LocalAgentProvider, string> = {
  * stands in for. openab runs their login wrapper under its own HOME, so the shim and the
  * wrapper are both told the CLI and the home.
  */
-export function shimEnv(
-  cliPath: string,
-  home: string,
-  provider: LocalAgentProvider,
-): Record<string, string> {
-  return {
-    HOME: home,
-    NUPHOS_AGENT_EXECUTABLE: cliPath,
-    NUPHOS_AGENT_HOME: home,
-    ...(provider === 'antigravity' ? { ANTIGRAVITY_GEMINI_DIR: path.join(home, '.gemini') } : {}),
-  }
+export function shimEnv(cliPath: string, home: string): Record<string, string> {
+  return { HOME: home, NUPHOS_AGENT_EXECUTABLE: cliPath, NUPHOS_AGENT_HOME: home }
 }
 
 /**

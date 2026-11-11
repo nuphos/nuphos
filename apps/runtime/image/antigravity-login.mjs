@@ -38,9 +38,7 @@ export async function runAntigravityLogin({
   const child = spawn(executable, ['acp', '--login'], {
     env: {
       ...Object.fromEntries(
-        ['PATH', 'SystemRoot', 'ANTIGRAVITY_GEMINI_DIR'].flatMap((key) =>
-          env[key] ? [[key, env[key]]] : [],
-        ),
+        ['PATH', 'SystemRoot'].flatMap((key) => (env[key] ? [[key, env[key]]] : [])),
       ),
       HOME: home,
       USERPROFILE: home,

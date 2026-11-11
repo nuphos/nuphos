@@ -18,7 +18,7 @@ rl.on('line', (line) => {
   if (m.id === undefined) return
   const seen = { method: m.method, params: m.params, pid: process.pid, env: {
     HOME: process.env.HOME, NUPHOS_TOKEN: process.env.NUPHOS_TOKEN, EXTRA: process.env.EXTRA,
-    GROK_HOME: process.env.GROK_HOME, ANTIGRAVITY_GEMINI_DIR: process.env.ANTIGRAVITY_GEMINI_DIR,
+    GROK_HOME: process.env.GROK_HOME, NUPHOS_AGENT_HOME: process.env.NUPHOS_AGENT_HOME,
     XDG_DATA_HOME: process.env.XDG_DATA_HOME, XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
     OPENCODE_DISABLE_AUTOUPDATE: process.env.OPENCODE_DISABLE_AUTOUPDATE } }
   const result = m.method === 'session/new' ? { sessionId: 's1', configOptions: [], seen } : { seen }
@@ -201,8 +201,14 @@ test('antigravity takes the instructions on the first prompt only', async () => 
   await withShim('antigravity', async ({ call, children, home }) => {
     await call('initialize', { protocolVersion: 1 })
     const reply = await call('session/new', session('Be Nuphos.'))
-    assert.deepEqual(children[1].command, ['agy', 'acp', '--process-per-session'])
-    assert.equal(reply.result.seen.env.ANTIGRAVITY_GEMINI_DIR, join(home, '.gemini'))
+    assert.deepEqual(children[1].command, [
+      'agy',
+      'acp',
+      '--process-per-session',
+      '--gemini-dir',
+      join(home, '.gemini'),
+    ])
+    assert.equal(reply.result.seen.env.NUPHOS_AGENT_HOME, home)
     assert.equal(reply.result.seen.params._meta.rules, undefined)
 
     const first = await call('session/prompt', {
