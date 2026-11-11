@@ -401,6 +401,7 @@ mod tests {
             allowed_origins: vec![],
             login_command: None,
             auth_file: None,
+            auth_command: None,
             runtime_jobs: RuntimeJobs::default(),
             disk_paths: vec![],
             credentials: Some(store),

@@ -203,7 +203,8 @@ jobs:
             LABEL='Grok Build'
           elif [[ "$VARIANT" == "antigravity" ]]; then
             LOGIN_COMMAND='node /opt/nuphos-runtime/antigravity-login.mjs'
-            AUTH_FILE='/home/node/.gemini/antigravity-acp/acp_token.json'
+            # The official CLI owns a keyring; the image probes it through agy models.
+            AUTH_FILE=''
             LABEL='Antigravity'
           elif [[ "$VARIANT" == "opencode" ]]; then
             LOGIN_COMMAND='node /opt/nuphos-runtime/opencode-login.mjs'

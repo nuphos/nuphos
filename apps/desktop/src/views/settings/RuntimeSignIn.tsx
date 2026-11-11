@@ -8,11 +8,12 @@ import { longLivedSignIn } from './longLivedSignIn'
 import type { RuntimeInstance } from '../../types/runtime'
 import type { OpenAbRuntimeStatus } from '../../types/team'
 
-/** Antigravity signs in through a browser on the agent's own loopback address, so only the app can. */
+/** Each provider's official terminal sign-in, when its operator channel is unavailable. */
 const HOST_SIGN_IN: Partial<Record<RuntimeInstance['provider'], string>> = {
   'claude-code': 'docker exec -it <container> claude auth login',
   codex: 'docker exec -it <container> codex login --device-auth',
   grok: 'docker exec -it <container> grok login --device-auth',
+  antigravity: 'docker exec -it <container> agy acp --login',
   opencode: 'docker exec -it <container> opencode providers login',
 }
 

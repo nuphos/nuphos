@@ -25,7 +25,7 @@ const LOGIN_FAILED: Record<OpenAbProvider, string> = {
   codex: CODEX_LOGIN_FAILED,
   grok: 'Sign-in did not complete. Start again and confirm the code on the xAI page.',
   antigravity:
-    'Sign-in did not complete. Start again and paste the whole address your browser ended on after Google sign-in.',
+    'Sign-in did not complete. Start again and paste the code or full callback address Google shows you.',
   opencode: 'Sign-in did not complete. Start again and check the details you entered.',
 }
 

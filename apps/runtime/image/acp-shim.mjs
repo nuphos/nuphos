@@ -57,12 +57,11 @@ export const PROVIDERS = {
     instruct: (meta, text) => ({ ...meta, rules: text }),
   },
   antigravity: {
-    command: ['agy-acp-server'],
-    home: (runtimeHome) => ({ GEMINI_HOME: join(runtimeHome, '.gemini') }),
-    // No system prompt parameter: the instructions lead the session's first prompt.
+    command: ['agy', 'acp', '--process-per-session'],
+    home: (runtimeHome) => ({ ANTIGRAVITY_GEMINI_DIR: join(runtimeHome, '.gemini') }),
+    // Reuse the existing first-prompt instruction path.
     instruct: null,
-    // A second prompt while one runs is answered out of order with a "Concurrent
-    // receive" error, so a session's prompts wait their turn, as in the CLI.
+    // Keep separate Nuphos turns separate: native ACP treats overlapping prompts as steering.
     serialPrompts: true,
   },
   opencode: {

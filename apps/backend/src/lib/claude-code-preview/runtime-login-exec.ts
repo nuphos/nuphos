@@ -45,7 +45,10 @@ export function isGoogleAuthorizeUrl(value: unknown): value is string {
     return (
       url.protocol === 'https:' &&
       url.hostname === 'accounts.google.com' &&
-      url.pathname === '/o/oauth2/v2/auth'
+      ['/o/oauth2/auth', '/o/oauth2/v2/auth'].includes(url.pathname) &&
+      !url.username &&
+      !url.password &&
+      !url.port
     )
   } catch {
     return false

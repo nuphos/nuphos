@@ -15,7 +15,13 @@ export type TunnelPurpose =
   | 'vnc'
   | 'instances'
 
-export const LOCAL_AGENT_PROVIDERS = ['claude-code', 'codex', 'grok', 'opencode'] as const
+export const LOCAL_AGENT_PROVIDERS = [
+  'claude-code',
+  'codex',
+  'grok',
+  'antigravity',
+  'opencode',
+] as const
 
 export type LocalAgentProvider = (typeof LOCAL_AGENT_PROVIDERS)[number]
 

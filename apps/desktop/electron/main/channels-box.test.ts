@@ -63,12 +63,12 @@ test('Box IPC channels scope the list and every Box action to the page team', as
 
 test('Box IPC channels add every agent a Box offers', async () => {
   calls.length = 0
-  for (const provider of ['claude-code', 'codex', 'grok', 'opencode'])
+  for (const provider of ['claude-code', 'codex', 'grok', 'antigravity', 'opencode'])
     await boxChannels['box:createAgent'](null, 'dev/1', 'team-1', provider)
 
   assert.deepEqual(
     calls.map(([, , body]) => (body as { provider: string }).provider),
-    ['claude-code', 'codex', 'grok', 'opencode'],
+    ['claude-code', 'codex', 'grok', 'antigravity', 'opencode'],
   )
   assert.throws(() => boxChannels['box:createAgent'](null, 'dev/1', 'team-1', 'gemini'), TypeError)
 })

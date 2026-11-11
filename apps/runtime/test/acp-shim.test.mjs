@@ -18,7 +18,7 @@ rl.on('line', (line) => {
   if (m.id === undefined) return
   const seen = { method: m.method, params: m.params, pid: process.pid, env: {
     HOME: process.env.HOME, NUPHOS_TOKEN: process.env.NUPHOS_TOKEN, EXTRA: process.env.EXTRA,
-    GROK_HOME: process.env.GROK_HOME, GEMINI_HOME: process.env.GEMINI_HOME,
+    GROK_HOME: process.env.GROK_HOME, ANTIGRAVITY_GEMINI_DIR: process.env.ANTIGRAVITY_GEMINI_DIR,
     XDG_DATA_HOME: process.env.XDG_DATA_HOME, XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
     OPENCODE_DISABLE_AUTOUPDATE: process.env.OPENCODE_DISABLE_AUTOUPDATE } }
   const result = m.method === 'session/new' ? { sessionId: 's1', configOptions: [], seen } : { seen }
@@ -34,6 +34,7 @@ async function withShim(provider, run, agentScript = FAKE_AGENT) {
   const replies = new Map()
   const notifications = []
   const outputs = []
+  const exits = []
   createInterface({ input: output }).on('line', (line) => {
     const message = JSON.parse(line)
     outputs.push(message)
@@ -53,7 +54,7 @@ async function withShim(provider, run, agentScript = FAKE_AGENT) {
       children.push({ command, child })
       return child
     },
-    onExit: () => {},
+    onExit: (code) => exits.push(code),
     settleMs: 20,
   })
   let id = 0
@@ -63,7 +64,7 @@ async function withShim(provider, run, agentScript = FAKE_AGENT) {
       input.write(`${JSON.stringify({ jsonrpc: '2.0', id, method, params })}\n`)
     })
   try {
-    await run({ call, children, home, notifications, outputs })
+    await run({ call, children, home, notifications, outputs, exits })
   } finally {
     for (const { child } of children) child.kill()
     await rm(home, { recursive: true, force: true })
@@ -200,8 +201,8 @@ test('antigravity takes the instructions on the first prompt only', async () => 
   await withShim('antigravity', async ({ call, children, home }) => {
     await call('initialize', { protocolVersion: 1 })
     const reply = await call('session/new', session('Be Nuphos.'))
-    assert.deepEqual(children[1].command, ['agy-acp-server'])
-    assert.equal(reply.result.seen.env.GEMINI_HOME, join(home, '.gemini'))
+    assert.deepEqual(children[1].command, ['agy', 'acp', '--process-per-session'])
+    assert.equal(reply.result.seen.env.ANTIGRAVITY_GEMINI_DIR, join(home, '.gemini'))
     assert.equal(reply.result.seen.params._meta.rules, undefined)
 
     const first = await call('session/prompt', {
@@ -465,5 +466,29 @@ test('a reopened session takes the stored settings; only a value no longer offer
       assert.match((await load('d')).error.message, /did not accept/)
     },
     RESTORING_AGENT,
+  )
+})
+
+test('Antigravity forwards advertised capabilities, errors and process exit', async () => {
+  await withShim(
+    'antigravity',
+    async ({ call, children, exits }) => {
+      const init = await call('initialize', { protocolVersion: 1 })
+      assert.equal(init.result.agentCapabilities.sessionCapabilities.resume !== undefined, true)
+      assert.equal(init.result.agentCapabilities.promptCapabilities.audio, false)
+      const failed = await call('session/new', { cwd: '/workspace', mcpServers: [] })
+      assert.deepEqual(failed.error, { code: -32000, message: 'Authentication required' })
+      const done = new Promise((resolve) => children[0].child.once('exit', resolve))
+      children[0].child.kill('SIGTERM')
+      await done
+      assert.deepEqual(exits, [1])
+    },
+    `require('node:readline').createInterface({ input: process.stdin }).on('line', line => {
+  const m = JSON.parse(line)
+  const response = m.method === 'initialize'
+   ? { result: { agentCapabilities: { sessionCapabilities: { resume: {}, close: {} }, promptCapabilities: { image: true, audio: false } } } }
+   : { error: { code: -32000, message: 'Authentication required' } }
+  process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, ...response }) + '\\n')
+ })`,
   )
 })

@@ -58,6 +58,7 @@ export const ADAPTERS = {
   // Agents that speak ACP themselves run behind the image's ACP shim, on the
   // computer's own CLI.
   grok: { shim: true, entry: 'index.mjs', version: 'grok@acp-shim' },
+  antigravity: { shim: true, entry: 'index.mjs', version: 'antigravity-cli@acp-shim' },
   opencode: { shim: true, entry: 'index.mjs', version: 'opencode@acp-shim' },
 }
 /** The shim and the modules it imports, as the image ships them. */
@@ -226,6 +227,7 @@ export async function prepare({ targets, openab, skipOpenab, require }) {
     cpSync(join(RUNTIME_DIR, 'claude-login.mjs'), join(out, 'claude-login.mjs'))
     cpSync(join(RUNTIME_DIR, 'codex-login.mjs'), join(out, 'codex-login.mjs'))
     cpSync(join(RUNTIME_DIR, 'grok-login.mjs'), join(out, 'grok-login.mjs'))
+    cpSync(join(RUNTIME_DIR, 'antigravity-login.mjs'), join(out, 'antigravity-login.mjs'))
     cpSync(join(RUNTIME_DIR, 'opencode-login.mjs'), join(out, 'opencode-login.mjs'))
     // The `panel` job a machine Nuphos made offers, the one the runtime image runs.
     cpSync(join(RUNTIME_DIR, 'panel-job.mjs'), join(out, 'panel-job.mjs'))

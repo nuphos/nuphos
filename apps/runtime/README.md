@@ -25,8 +25,7 @@ Three things, in layers:
    inside the Claude Agent SDK; for `codex`, `@openai/codex` with
    `@agentclientprotocol/codex-acp`. The adapter translates ACP into whatever
    the CLI actually speaks. Each image carries exactly one copy of each.
-   Grok Build (`grok agent stdio`) and Antigravity (Google's `antigravity-acp`
-   server) speak ACP themselves, so they take no adapter; `acp-shim.mjs` sits in
+   Grok Build (`grok agent stdio`) and Antigravity (`agy acp --process-per-session`) speak ACP themselves, so they take no adapter; `acp-shim.mjs` sits in
    front of them instead (see below). Both are proprietary and are not in the
    image: the pinned build installs on first use, and the container starts that
    install in the background as it boots.
@@ -61,7 +60,7 @@ until someone re-reviews the patch.
 | `/opt/acp-shim.mjs`                         | The Nuphos layer for Grok Build, Antigravity and OpenCode: respawns the agent with the conversation's environment and CLI home, syncs skills, applies runtime defaults, bridges MCP credentials, and hands over Nuphos's instructions (Grok's `_meta.rules`; otherwise ahead of the first prompt after each session is opened) |
 | `/opt/nuphos-runtime/grok-login.mjs`        | Drives `grok login --device-auth` and reports the xAI device code                                                                                                                                                                                                                                                              |
 | `/opt/nuphos-runtime/opencode-login.mjs`    | Drives OpenCode's own server through every sign-in it offers: reports the provider, method and field choices, then an API key prompt or the provider's page, and passes back what the user picks, types or pastes                                                                                                              |
-| `/opt/nuphos-runtime/antigravity-login.mjs` | Drives Antigravity's Google sign-in: reports the authorize URL and delivers the loopback address the user pastes back to the listener in the container                                                                                                                                                                         |
+| `/opt/nuphos-runtime/antigravity-login.mjs` | Runs the official `agy acp --login`: reports its Google authorize URL and passes the code or callback URL back over stdin; the CLI owns the credential store                                                                                                                                                                   |
 | `/opt/nuphos-runtime/claude-login.mjs`      | Drives `claude auth login`: reports the authorize URL, passes back the code the user pastes, and leaves the credential in `~/.claude`                                                                                                                                                                                          |
 | `/usr/local/bin/nuphos-sync-skills`         | Fetches the workspace's skill bundle and swaps it in atomically — pushed by the provisioner for a managed pod, run per session by `runtime-defaults.mjs` for a self-hosted one                                                                                                                                                 |
 | `/usr/local/bin/nuphos-seed-codex-auth`     | Seeds Codex credentials from a mounted secret, once per credential revision                                                                                                                                                                                                                                                    |
@@ -277,13 +276,13 @@ container's limits. The agent command itself is not pinned there: it stays on
 Each runtime owns its own login. Nuphos never stores the account and never sends
 one to a runtime it did not provision; it only shows what the runtime reports.
 
-| Variant       | Sign in on the host                                                                   | Credential                                          |
-| ------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `claude-code` | `docker exec -it nuphos-runtime claude auth login` (or run `claude` and use `/login`) | `/home/node/.claude/.credentials.json`              |
-| `codex`       | `docker exec -it nuphos-runtime codex login --device-auth`                            | `/home/node/.codex/auth.json`                       |
-| `grok`        | `docker exec -it nuphos-runtime grok login --device-auth`                             | `/home/node/.grok/auth.json`                        |
-| `antigravity` | Sign in from the app (below)                                                          | `/home/node/.gemini/antigravity-acp/acp_token.json` |
-| `opencode`    | `docker exec -it nuphos-runtime opencode providers login`                             | `/home/node/.local/share/opencode/auth.json`        |
+| Variant       | Sign in on the host                                                                   | Credential                                     |
+| ------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `claude-code` | `docker exec -it nuphos-runtime claude auth login` (or run `claude` and use `/login`) | `/home/node/.claude/.credentials.json`         |
+| `codex`       | `docker exec -it nuphos-runtime codex login --device-auth`                            | `/home/node/.codex/auth.json`                  |
+| `grok`        | `docker exec -it nuphos-runtime grok login --device-auth`                             | `/home/node/.grok/auth.json`                   |
+| `antigravity` | Sign in from the app (below)                                                          | Official CLI keyring (status via `agy models`) |
+| `opencode`    | `docker exec -it nuphos-runtime opencode providers login`                             | `/home/node/.local/share/opencode/auth.json`   |
 
 You can also sign in from the app once the runtime is connected (see below). Either
 way the credential is written inside the container, so mount the `/home/node` volume
@@ -458,7 +457,7 @@ and the credential path. A hand-built image has to pass them itself:
 --build-arg RUNTIME_AUTH_FILE=/home/node/.grok/auth.json
 # Antigravity
 --build-arg 'RUNTIME_LOGIN_COMMAND=node /opt/nuphos-runtime/antigravity-login.mjs' \
---build-arg RUNTIME_AUTH_FILE=/home/node/.gemini/antigravity-acp/acp_token.json
+--build-arg RUNTIME_AUTH_FILE=
 # OpenCode
 --build-arg 'RUNTIME_LOGIN_COMMAND=node /opt/nuphos-runtime/opencode-login.mjs' \
 --build-arg RUNTIME_AUTH_FILE=/home/node/.local/share/opencode/auth.json
@@ -683,3 +682,34 @@ does not survive adapter restarts, so replaying native history can create anothe
 transfer. If the session workspace is the entire home directory, all supported
 images beneath that directory are eligible: use a dedicated workspace for a narrow
 read boundary.
+
+### Antigravity CLI
+
+The existing `antigravity` provider runs the official CLI, pinned to 1.5.0 in
+`image/tools/manifest.json`. It uses `agy acp --process-per-session`; the worker
+flag is required for HTTP MCP servers. The shim keeps Nuphos turns sequential,
+forwards the advertised ACP capabilities, and uses the same load/resume, cancel
+and process-exit handling as the other native ACP providers.
+
+Sign in from Nuphos or run `agy acp --login` in the runtime. Google shows an
+authorization code (or callback URL) to paste back. The CLI writes and refreshes
+its own credentials (including its native OS keyring on desktop hosts); Nuphos neither copies OAuth tokens nor uses them in HTTP
+requests. Existing standalone ACP-server sign-ins are not migrated: sign in once
+with the official CLI after updating this image.
+
+`agy models` probes sign-in without starting a conversation or inference.
+`OPENAB_RUNTIME_AUTH_COMMAND` runs the status helper and accepts only a JSON
+boolean; failures report unknown, not signed out. Antigravity does not expose
+account usage through this integration. Native scheduling and autonomous wakeups
+are not guaranteed; use Nuphos triggers for durable scheduled work.
+
+Desktop hosts with Antigravity CLI 1.5.0 or newer can add it using the existing
+New runtime menu. Nuphos discovers `agy` on PATH and in the standard local bin
+locations. Its native ACP adapter, login wrapper and model catalog reuse the
+existing host and device tunnel. Install and update the CLI with Google's own
+installer; Nuphos does not install or update it on a personal computer.
+
+Real account sign-in, inference, and OS keyring isolation across multiple local
+instances need manual verification on each supported desktop platform. The
+account-free test suite covers the CLI protocol and lifecycle, not those provider
+services.

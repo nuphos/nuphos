@@ -235,3 +235,29 @@ test('a Codex API key login says so without the part of the key Codex prints', (
     account: 'ChatGPT',
   })
 })
+
+test(
+  'Antigravity status uses its CLI in the prepared home, never an OAuth file',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'nuphos-agy-cli-'))
+    const home = path.join(dir, 'runtime')
+    t.after(() => rmSync(dir, { recursive: true, force: true }))
+    const file = path.join(dir, 'agy')
+    writeFileSync(
+      file,
+      '#!/bin/sh\nif [ "$1" = "--version" ]; then echo 1.5.0; elif [ "$HOME" = "' +
+        home +
+        '" ]; then echo Gemini; else echo wrong-home >&2; exit 1; fi\n',
+      { mode: 0o700 },
+    )
+    assert.deepEqual(await probeAgentCli('antigravity', { HOME: dir, PATH: dir }, home), {
+      installed: true,
+      path: file,
+      version: '1.5.0',
+      loggedIn: true,
+    })
+    const unknown = await probeAgentCli('antigravity', { HOME: dir, PATH: dir }, undefined)
+    assert.equal(unknown.installed && unknown.loggedIn, null)
+  },
+)
