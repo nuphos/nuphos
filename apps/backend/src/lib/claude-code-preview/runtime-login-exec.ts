@@ -6,7 +6,7 @@ import { config } from '@/config'
 import { AppError } from '@/lib/errors'
 
 import { kubectlArgs } from './kubectl-command'
-import { parseLoginStep } from './runtime-login-step'
+import { isClaudeAuthorizeUrl, isGoogleAuthorizeUrl, parseLoginStep } from './runtime-login-step'
 
 import type { RuntimeLoginFrame } from './runtime-login-step'
 
@@ -19,41 +19,6 @@ const LOGIN_ERRORS = new Map<unknown, string>([
   ],
   ['failed', 'Sign-in did not complete. Start again and paste the whole code Claude shows you.'],
 ])
-
-/** Claude's own authorize page, and nothing a runtime could substitute for it. */
-export function isClaudeAuthorizeUrl(value: unknown): value is string {
-  if (typeof value !== 'string' || value.length > 4096) return false
-  try {
-    const url = new URL(value)
-
-    return (
-      url.protocol === 'https:' &&
-      ['claude.com', 'claude.ai'].includes(url.hostname) &&
-      url.pathname.endsWith('/oauth/authorize')
-    )
-  } catch {
-    return false
-  }
-}
-
-/** Google's authorize page, as Antigravity's sign-in opens it. */
-export function isGoogleAuthorizeUrl(value: unknown): value is string {
-  if (typeof value !== 'string' || value.length > 4096) return false
-  try {
-    const url = new URL(value)
-
-    return (
-      url.protocol === 'https:' &&
-      url.hostname === 'accounts.google.com' &&
-      ['/o/oauth2/auth', '/o/oauth2/v2/auth'].includes(url.pathname) &&
-      !url.username &&
-      !url.password &&
-      !url.port
-    )
-  } catch {
-    return false
-  }
-}
 
 /** The device pages a runtime may send a user to: ChatGPT for Codex, xAI for Grok Build. */
 const DEVICE_VERIFICATION_URIS = new Set([

@@ -174,6 +174,7 @@ export const localRuntimeStatusSchema = z.object({
     'claude-code': localAgentStatusSchema.optional(),
     codex: localAgentStatusSchema.optional(),
     grok: localAgentStatusSchema.optional(),
+    antigravity: localAgentStatusSchema.optional(),
     opencode: localAgentStatusSchema.optional(),
   }),
   backendUrl: z.string().url().max(500).optional(),

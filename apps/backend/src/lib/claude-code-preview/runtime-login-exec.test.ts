@@ -246,6 +246,7 @@ test('Antigravity forwards the official CLI Google authorization URL', () => {
   const read = loginFrameReader((frame) => frames.push(frame))
   const url =
     'https://accounts.google.com/o/oauth2/auth?redirect_uri=https%3A%2F%2Fantigravity.google%2Foauth-callback&state=s'
+
   read(`${JSON.stringify({ type: 'authorize', url })}\n`)
   expect(frames).toEqual([{ type: 'authorize', url }])
 })

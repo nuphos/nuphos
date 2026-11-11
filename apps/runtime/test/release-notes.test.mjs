@@ -28,7 +28,7 @@ test('release notes read the tagged runtime subtree and exclude unrelated monore
       JSON.stringify({
         tools: {
           grok: { version: '1.0.46' },
-          'antigravity-cli': { version: '1.5.0' },
+          'antigravity-cli': { version: '1.5.5' },
           opencode: { version: '1.18.35' },
         },
       }),
