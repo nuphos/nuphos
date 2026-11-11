@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 
+import { TriggerConversationOpener } from '../components/agent/trigger-binding/triggerLinks'
+
 import { ArchivedChatsSection } from './settings/ArchivedChatsSection'
 import { BillingSection } from './settings/BillingSection'
 import { AuditSection, MembersSection } from './settings/personalSections'
@@ -90,7 +92,11 @@ export function SettingsPage({
       <SkillsSection key={initialFilter} {...pageProps} initialFilter={initialFilter} />
     ),
     'workspace.memories': <MemoriesSection {...pageProps} />,
-    'workspace.triggers': <TriggersSection {...pageProps} />,
+    'workspace.triggers': (
+      <TriggerConversationOpener.Provider value={(sessionId) => onOpenConversation?.(sessionId)}>
+        <TriggersSection {...pageProps} />
+      </TriggerConversationOpener.Provider>
+    ),
     'workspace.audit': (
       <AuditSection teamId={team?.id} onOpenConversation={openAuditConversation} />
     ),

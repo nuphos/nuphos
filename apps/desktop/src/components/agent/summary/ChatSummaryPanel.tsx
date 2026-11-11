@@ -9,6 +9,7 @@ import { useAgentRuntimeStates } from '../../../lib/agentRuntimeStates'
 import { setChatSummaryOpen } from '../../../lib/chatSummaryPanel'
 import { toast } from '../../ui/toast'
 import { shellsFromRuntimeState } from '../panel/shells'
+import { ScheduledSection } from '../trigger-binding/ScheduledSection'
 
 import { BackgroundTasksSection } from './ChatSummaryBackgroundTasks'
 import { ChangesSection } from './ChatSummaryChanges'
@@ -228,6 +229,7 @@ function SummaryBody({
                 onOpen={onOpenSession}
               />
             )}
+            <ScheduledSection sessionId={sessionId} teamId={teamId} />
             {conversation && <ChatSummaryEnvironment conversation={conversation} />}
             {outputs.length > 0 && (
               <OutputsSection files={outputs} teamId={teamId} sessionId={sessionId} />

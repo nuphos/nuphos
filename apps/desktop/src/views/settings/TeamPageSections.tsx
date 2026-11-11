@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { ArrowLeft } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
+import { takePendingTriggerDetail } from '../../components/agent/trigger-binding/triggerLinks'
 import { PageHeader } from '../../components/PageHeader'
 import { SearchBox } from '../../components/Toolbar'
 import { Button } from '../../components/ui/button'
@@ -174,7 +175,7 @@ export function MemoriesSection({ teamId, onOpenAgentChat }: Omit<PageProps, 'cu
 export function TriggersSection({ teamId, currentUserId, onOpenAgentChat }: PageProps) {
   const [filter, setFilter] = useState('')
   const [count, setCount] = useState(0)
-  const [detail, setDetail] = useState<{ triggerId: string; triggerName: string } | null>(null)
+  const [detail, setDetail] = useState(takePendingTriggerDetail)
   const [form, setForm] = useState<TriggerFormRef | null>(null)
 
   if (!teamId) return <NoTeam />

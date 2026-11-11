@@ -3,6 +3,7 @@ import clsx from 'clsx'
 import { ArrowUpRight, Webhook, X } from 'lucide-react'
 import { useMemo } from 'react'
 
+import { OpenBoundConversationButton } from '../../../components/agent/trigger-binding/OpenBoundConversationButton'
 import { Button } from '../../../components/ui/button'
 import { locale, t } from '../../../i18n'
 import { scheduleSummary } from '../cron'
@@ -161,11 +162,16 @@ export function EventPopover({ selected, trigger, onClose, onOpenTrigger }: Prop
             </div>
 
             {onOpenTrigger && (
-              <div className="border-t border-main p-2.5">
+              <div className="flex gap-2 border-t border-main p-2.5">
+                <OpenBoundConversationButton
+                  trigger={trigger}
+                  onOpened={onClose}
+                  className="flex-1"
+                />
                 <Button
                   variant="secondary"
                   size="sm"
-                  className="w-full"
+                  className="flex-1"
                   onClick={() => onOpenTrigger(event.triggerId, event.name)}
                 >
                   {t('Open trigger')}

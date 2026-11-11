@@ -1,6 +1,7 @@
 import { t } from '../../i18n'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { rowDot } from '../../lib/subAgentState'
+import { TriggerClockMark } from '../agent/trigger-binding/TriggerClockMark'
 import { botOfChannel } from '../channels/botChannel'
 import { ChatIcon } from '../channels/channelParts'
 
@@ -90,7 +91,15 @@ export function chatSidebarItem({
     trailing: status,
     // A phone viewing this chat's dock tab shows here too, where the tab itself may be out of
     // sight. Not in the trailing slot: hover swaps that for the row's actions, hiding Stop.
-    note: <PhoneViewingBadge sessionId={conversation.sessionId} />,
+    note: (
+      <>
+        <PhoneViewingBadge sessionId={conversation.sessionId} />
+        <TriggerClockMark
+          teamId={teamId}
+          sessionIds={[conversation.sessionId, botOfChannel(conversation.faces)]}
+        />
+      </>
+    ),
     foldedStatus: status,
     finished: threadFoldsAway({ conversation, runtimeState, open: active }),
     dot,

@@ -1,4 +1,4 @@
-import { Pencil, Play, Trash2 } from 'lucide-react'
+import { MessageSquare, Pencil, Play, Trash2 } from 'lucide-react'
 
 import { t } from '../../i18n/index.ts'
 
@@ -20,6 +20,8 @@ export function buildTriggerRowMenu(
     onEditTrigger: (triggerId: string, name: string) => void
     onRunNow: (row: TriggerListRow) => void
     onDelete: (row: TriggerListRow) => void
+    /** Opens the conversation a Trigger delivers into. */
+    onOpenConversation?: (sessionId: string) => void
   },
 ): ContextMenuItem[] {
   const remove: ContextMenuItem = {
@@ -46,7 +48,20 @@ export function buildTriggerRowMenu(
     ]
   }
 
+  const sessionId = row.trigger.targetSessionId
+  const open = ctx.onOpenConversation
+
   return [
+    ...(sessionId && open
+      ? [
+          {
+            key: 'open-conversation',
+            label: t('Open conversation'),
+            icon: MessageSquare,
+            onSelect: () => open(sessionId),
+          },
+        ]
+      : []),
     {
       key: 'edit',
       label: ctx.canManage ? t('Edit settings') : t('View settings'),

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { AgentPanel } from '../../components/agent/AgentPanel'
+import { OpenBoundConversationButton } from '../../components/agent/trigger-binding/OpenBoundConversationButton'
 import { Button } from '../../components/ui/button'
 import { Switch } from '../../components/ui/Switch'
 import { useToolbarSlot } from '../../hooks/useToolbarControls'
@@ -168,6 +169,7 @@ export function TriggerDetail({
               label={trigger.enabled ? t('Disable trigger') : t('Enable trigger')}
               onChange={(enabled) => void onToggle(enabled)}
             />
+            <OpenBoundConversationButton trigger={trigger} teamId={teamId} />
             <Button type="button" variant="ghost" size="sm" onClick={onEdit}>
               <Pencil className="h-3.5 w-3.5" strokeWidth={1.8} />
               {t('Edit')}

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { api } from '../../api'
+import { useOpenTriggerConversation } from '../../components/agent/trigger-binding/triggerLinks'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { ContextMenu } from '../../components/ContextMenu'
 import { toast } from '../../components/ui/toast'
@@ -132,6 +133,7 @@ export function TriggersListPage({
     }
   }
 
+  const openConversation = useOpenTriggerConversation()
   const buildMenu = (row: TriggerListRow) =>
     buildTriggerRowMenu(row, {
       canManage,
@@ -149,6 +151,7 @@ export function TriggersListPage({
             })
           : undefined,
       onDelete: setConfirmDelete,
+      onOpenConversation: (sessionId) => openConversation(sessionId, teamId),
     })
 
   const runDelete = async () => {
