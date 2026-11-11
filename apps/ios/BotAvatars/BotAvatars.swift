@@ -70,4 +70,26 @@ enum BotAvatars {
     static func asset(for id: String) -> String {
         "bot-avatar-" + file(for: id).replacingOccurrences(of: ".svg", with: "")
     }
+
+    /// Canonical runtime asset mapping shared by the app and notification extension.
+    static func runtimeLogo(_ runtime: String?) -> String? {
+        switch runtime {
+        case "claude-code": "logo-claude"
+        case "codex": "logo-openai"
+        case "grok": "logo-grok"
+        case "antigravity": "logo-antigravity"
+        case "opencode": "logo-opencode"
+        default: nil
+        }
+    }
+
+    /// Old payloads and Tasks stay ordinary notifications; never derive a persona from an id.
+    static func notificationIdentity(_ userInfo: [AnyHashable: Any]) -> (avatar: String, provider: String?)? {
+        guard let identity = userInfo["agentIdentity"] as? [String: Any],
+              identity["isBot"] as? Bool == true,
+              let avatar = identity["avatar"] as? String,
+              asset(named: avatar) != nil else { return nil }
+        return (avatar, identity["provider"] as? String)
+    }
+
 }

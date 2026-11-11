@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { CornerUpLeft, X } from 'lucide-react'
 
 import { t } from '../../i18n'
-import { AgentAvatar } from '../agent/AgentAvatar'
+import { AgentAvatar, AgentFaceBadge } from '../agent/AgentAvatar'
 import { Avatar } from '../Avatar'
 import { IconButton } from '../ui/icon-button'
 
@@ -47,11 +47,42 @@ export function ChatIcon({
       style={{ width: size, height: size }}
     >
       <span className="absolute left-0 top-0">
-        <Face face={back} size={small} />
+        <Face face={back} size={small} showBadge={false} />
       </span>
       <span className="absolute bottom-0 right-0 rounded-full bg-main p-px">
-        <Face face={front} size={small - 2} />
+        <Face face={front} size={small - 2} showBadge={false} />
       </span>
+      {[back, front].map((face, index) => {
+        if (!face.agent) return null
+        const badge = small <= 24 ? 9 : 12
+        // Two discs otherwise intersect at small group sizes. Move only the front
+        // disc by the overlap; the faces and the group's layout box stay put.
+        const separation = back.agent && front.agent ? Math.max(0, badge - (size - small - 1)) : 0
+
+        return (
+          <span
+            key={face.id}
+            className="absolute pointer-events-none"
+            style={
+              index === 0
+                ? { left: 0, top: 0, width: small, height: small }
+                : {
+                    right: 1 - separation,
+                    bottom: 1 - separation,
+                    width: small - 2,
+                    height: small - 2,
+                  }
+            }
+          >
+            <AgentFaceBadge
+              agentId={face.id}
+              avatar={face.agent.avatar}
+              provider={face.agent.provider}
+              size={badge}
+            />
+          </span>
+        )
+      })}
     </span>
   )
 }
@@ -72,8 +103,18 @@ export function ChatHeaderIcon({
   return <ChatIcon faces={faces} title={title} size={22} />
 }
 
-// A chat shows who is in it, so a Bot wears its bare face: no runtime badge.
-function Face({ face, size, sidebar }: { face: ChannelFace; size: number; sidebar?: boolean }) {
+// Bots keep their runtime badge wherever their face appears.
+function Face({
+  face,
+  size,
+  sidebar,
+  showBadge = true,
+}: {
+  face: ChannelFace
+  size: number
+  sidebar?: boolean
+  showBadge?: boolean
+}) {
   return face.agent ? (
     <AgentAvatar
       agentId={face.id}
@@ -81,7 +122,7 @@ function Face({ face, size, sidebar }: { face: ChannelFace; size: number; sideba
       provider={face.agent.provider}
       size={size}
       sidebar={sidebar}
-      bare
+      showBadge={showBadge}
     />
   ) : (
     <Avatar src={face.avatarURL} name={face.name} size={size} className="rounded-full" />

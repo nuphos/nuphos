@@ -2,6 +2,7 @@ import Foundation
 
 enum ChannelPostTests {
     static func run() {
+        readsTypingProviders()
         readsPeopleAgentsAndFiles()
         skipsMessagesWithoutASenderOrContent()
         startsARunAtEachNewSender()
@@ -13,6 +14,15 @@ enum ChannelPostTests {
         renamingTheBotChangesTheRevision()
         readsAndQuotesReplies()
         print("Chat posts, runs, sending and timeline passed")
+    }
+
+    private static func readsTypingProviders() {
+        for provider in ["codex", "grok", nil] as [String?] {
+            let field = provider.map { ",\"provider\":\"\($0)\"" } ?? ""
+            let data = Data("{\"sessionId\":\"bot\",\"title\":\"Bot\",\"ownerId\":\"owner\"\(field)}".utf8)
+            let agent = try! JSONDecoder().decode(ChannelAgent.self, from: data)
+            precondition(agent.provider == provider)
+        }
     }
 
     private static func message(_ id: String, sender: [String: JSONValue], source: String? = nil, sentAt: String = "2026-11-03T09:00:00.000Z",

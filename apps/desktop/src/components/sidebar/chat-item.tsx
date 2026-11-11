@@ -1,7 +1,6 @@
 import { t } from '../../i18n'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { rowDot } from '../../lib/subAgentState'
-
 import { botOfChannel } from '../channels/botChannel'
 import { ChatIcon } from '../channels/channelParts'
 
@@ -50,6 +49,7 @@ export function chatSidebarItem({
         resources={conversation.linkedResources ?? []}
       />
     ),
+    provider: conversation.agentRuntime,
     enabled: true,
     active,
     ...(conversation.kind === 'channel'
@@ -64,7 +64,13 @@ export function chatSidebarItem({
           bot: true,
           face: (
             <ChatIcon
-              faces={[{ id: conversation.sessionId, name: conversation.title, agent: {} }]}
+              faces={[
+                {
+                  id: conversation.sessionId,
+                  name: conversation.title,
+                  agent: { avatar: conversation.avatar, provider: conversation.agentRuntime },
+                },
+              ]}
               title={conversation.title}
               sidebar
             />

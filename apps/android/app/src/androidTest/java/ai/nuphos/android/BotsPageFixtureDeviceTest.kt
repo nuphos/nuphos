@@ -48,6 +48,7 @@ class BotsPageFixtureDeviceTest {
     private lateinit var store: AgentStore
     private var auth: ai.nuphos.android.session.AuthSession? = null
     private var savedAccess: Any? = null
+    @Volatile private var avatarDetail: String? = null
     @Volatile private var chats = ""
     @Volatile private var history = ""
     @Volatile private var failAddingBot = false
@@ -80,6 +81,9 @@ class BotsPageFixtureDeviceTest {
             val path = request.url.encodedPath
             if (request.method != "GET") writes += "${request.method} $path" else reads += path
             val body = when {
+                request.method == "GET" && path == "/agent/conversations/chat-avatar" && avatarDetail != null -> avatarDetail!!
+                path == "/agent/conversations/chat-avatar/agents" -> """{"agents":[]}"""
+
                 request.method == "GET" && path.endsWith("/agent-runtimes") -> {
                     runtimesHeld?.let { runtimesEntered.countDown(); check(it.await(10, TimeUnit.SECONDS)) }
                     if (runtimesFail) return@addInterceptor Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
@@ -164,6 +168,39 @@ class BotsPageFixtureDeviceTest {
     private fun waitRow(id: String) = compose.waitUntil(8_000) { compose.onAllNodesWithTag("chat-row:$id").fetchSemanticsNodes().isNotEmpty() }
     private fun waitText(text: String) = compose.waitUntil(8_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
     private fun posts(suffix: String) = writes.count { it.startsWith("POST") && it.endsWith(suffix) }
+
+    private fun avatarFaces(provider: String) = """[{"id":"avatar-bot","name":"Bot","agent":{"avatar":"02-leonardo","provider":"$provider"}},{"id":"avatar-other","name":"Other Bot","agent":{"avatar":"07-ada","provider":"grok"}}]"""
+
+    private fun avatarChat(provider: String) = """{"sessionId":"chat-avatar","title":"Avatar group","kind":"channel","lastActiveAt":"2026-11-03T12:30:00Z","faces":${avatarFaces(provider)},"lastMessage":{"text":"Runtime $provider"}}"""
+
+    private fun avatarShot(name: String) {
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val image = instrumentation.uiAutomation.takeScreenshot() ?: error("No synthetic screenshot")
+        val directory = java.io.File(instrumentation.targetContext.getExternalFilesDir(null), "review-bot-runtime-avatar").apply { mkdirs() }
+        java.io.File(directory, "$name.png").outputStream().use { image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        image.recycle()
+    }
+
+    @Test fun avatarBadgesInRealListAncestorsFollowTheKnownRuntime() {
+        chats = avatarChat("codex")
+        render()
+        waitRow("chat-avatar")
+        waitText("Runtime codex")
+        avatarShot("04-real-list-codex-grok")
+        chats = avatarChat("grok")
+        waitText("Runtime grok") // The actual poll replaced the same row's face metadata.
+        avatarShot("05-real-list-same-bot-grok")
+    }
+
+    @Test fun avatarBadgesInRealHeaderAncestors() {
+        chats = avatarChat("codex")
+        avatarDetail = """{"sessionId":"chat-avatar","kind":"channel","title":"Avatar group","faces":${avatarFaces("codex")},"messages":[],"messageCount":0,"timelineEvents":[],"activitySeq":1,"readSeq":1}"""
+        render { ai.nuphos.android.ui.chats.ChannelScreen("chat-avatar", onBack = {}) }
+        waitText("Avatar group")
+        avatarShot("06-real-header-28-codex-grok")
+    }
 
     @Test fun listsChatsAndABotWithoutOneNewestFirstWithTheirPreviews() {
         chats = "$oneOnOne,$group"

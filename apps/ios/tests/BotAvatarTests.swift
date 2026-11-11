@@ -29,6 +29,17 @@ enum BotAvatarTests {
 
     static func run() throws {
         sharedPreferenceSurvivesLegacyConflicts()
+        precondition(BotAvatars.notificationIdentity([:]) == nil)
+        precondition(BotAvatars.notificationIdentity(["sessionId": "old-session", "teamId": "team"]) == nil)
+        precondition(BotAvatars.notificationIdentity(["sessionId": "task", "agentIdentity": ["isBot": false]]) == nil)
+        precondition(BotAvatars.notificationIdentity(["agentIdentity": ["isBot": true, "avatar": "future-face"]]) == nil)
+        for provider in ["codex", "grok", "future-provider"] {
+            let identity = BotAvatars.notificationIdentity(["agentIdentity": ["isBot": true, "avatar": "07-ada", "provider": provider]])!
+            precondition(identity.avatar == "07-ada" && identity.provider == provider)
+            precondition(BotAvatars.runtimeLogo(provider) == (provider == "future-provider" ? nil : provider == "codex" ? "logo-openai" : "logo-grok"))
+        }
+        let legacyBot = BotAvatars.notificationIdentity(["agentIdentity": ["isBot": true, "avatar": "07-ada"]])!
+        precondition(legacyBot.provider == nil && BotAvatars.runtimeLogo(legacyBot.provider) == nil)
         for raw in [nil, "", "future-provider"] as [String?] {
             precondition(RuntimeInstance.Provider.logo(raw) == "logo-runtime")
         }

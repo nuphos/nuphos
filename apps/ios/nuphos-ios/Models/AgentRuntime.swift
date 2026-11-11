@@ -97,14 +97,7 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
 extension RuntimeInstance.Provider {
     /// Asset catalog mark: Claude's for Claude Code, OpenAI's for Codex.
     static func logo(_ raw: String?) -> String {
-        switch raw {
-        case "claude-code": "logo-claude"
-        case "codex": "logo-openai"
-        case "grok": "logo-grok"
-        case "antigravity": "logo-antigravity"
-        case "opencode": "logo-opencode"
-        default: "logo-runtime"
-        }
+        BotAvatars.runtimeLogo(raw) ?? "logo-runtime"
     }
 
     /// Provider and instance are separate identities, even when an instance has a custom name.

@@ -124,6 +124,46 @@ afterEach(() => {
 })
 
 describe('turn notifier', () => {
+  test('APNs receives the original Bot face/runtime, while Tasks and denied nudges do not', async () => {
+    const conversation = {
+      userId: 'owner-1',
+      title: 'Bot',
+      teamId: 'team-1',
+      watcherIds: ['user-1'],
+      avatar: '07-ada',
+      agentRuntime: 'grok',
+    }
+
+    await notifier({ conversation: async () => conversation }).runEnded(run())
+    expect(sent[0]?.payload.agentIdentity).toEqual({
+      isBot: true,
+      avatar: '07-ada',
+      provider: 'grok',
+    })
+    expect(sent[0]?.payload.sessionId).toBe('session-1')
+    sent = []
+    await notifier().runEnded(run())
+    expect(sent[0]?.payload.agentIdentity).toEqual({ isBot: false })
+    sent = []
+    await notifier({ conversation: async () => conversation }).nudge('user-1', {
+      sessionId: 'session-1',
+      title: 'Read this',
+      body: 'Hello',
+    })
+    expect(sent[0]?.payload.agentIdentity).toEqual({
+      isBot: true,
+      avatar: '07-ada',
+      provider: 'grok',
+    })
+    sent = []
+    await notifier({ conversation: async () => conversation, canRead: async () => false }).nudge(
+      'user-1',
+      { sessionId: 'session-1', title: 'Read this', body: 'Hello' },
+    )
+    expect(sent[0]?.payload).not.toHaveProperty('agentIdentity')
+    expect(sent[0]?.payload).not.toHaveProperty('sessionId')
+  })
+
   test('sends the finished answer to every device of each user watching the session', async () => {
     await notifier().runEnded(run())
 

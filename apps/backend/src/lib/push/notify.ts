@@ -8,6 +8,7 @@ import { sendAndroidAlert, sendAndroidBadge } from './badge'
 import { pushDeviceStore } from './devices'
 import { fcmProjectId, sendFcm, sendFcmBadge } from './fcm'
 import { sendIos } from './ios'
+import { notificationIdentity } from './notification-identity'
 import { approvalToolName, classifyTurn, outcomeBody, truncate } from './turn-outcome'
 import { watcherCanRead } from './watchers'
 
@@ -30,6 +31,9 @@ export type NotifiableRun = {
 }
 
 export type PushConversation = Parameters<typeof watcherCanRead>[0] & {
+  kind?: 'channel'
+  avatar?: string
+  agentRuntime?: string
   title?: string
   firstMessage?: string
   watcherIds?: string[]
@@ -97,7 +101,12 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
   }
 
   /** One alert; without a conversation it opens the app, and Android, which needs one, is skipped. */
-  async function alertUser(userId: string, devices: PushDevice[], push: Alert): Promise<void> {
+  async function alertUser(
+    userId: string,
+    devices: PushDevice[],
+    push: Alert,
+    conversation?: PushConversation | null,
+  ): Promise<void> {
     const { sessionId, teamId, aps, ...alert } = push
     const projectId = deps.fcmProject?.()
     const badge = await deps.unreadCount(userId)
@@ -121,6 +130,7 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
           ...aps,
         },
         accountId: userId,
+        ...(conversation ? { agentIdentity: notificationIdentity(conversation) } : {}),
         ...(sessionId ? { sessionId } : {}),
         ...(teamId ? { teamId } : {}),
       },
@@ -145,13 +155,18 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
 
         if (content === null || !admit(userId, run.sessionId)) return
         await run.activityRecorded
-        await alertUser(userId, devices, {
-          title: conversationTitle(conversation),
-          body: content,
-          sessionId: run.sessionId,
-          teamId,
-          aps: SESSION_ALERT_APS,
-        })
+        await alertUser(
+          userId,
+          devices,
+          {
+            title: conversationTitle(conversation),
+            body: content,
+            sessionId: run.sessionId,
+            teamId,
+            aps: SESSION_ALERT_APS,
+          },
+          conversation,
+        )
       }),
     )
   }
@@ -224,7 +239,12 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
       const conversation = await deps.conversation(push.sessionId)
       const readable = conversation !== null && (await deps.canRead(conversation, userId))
 
-      await alertUser(userId, devices, readable ? push : { ...push, sessionId: undefined })
+      await alertUser(
+        userId,
+        devices,
+        readable ? push : { ...push, sessionId: undefined },
+        readable ? conversation : null,
+      )
     },
     /** Reading on one device clears the badge on the others. Debounced per user. */
     badgeChanged(userId: string): void {

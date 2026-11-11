@@ -44,11 +44,11 @@ export function withChatSections(
       agents.items.find((other) => other.botChannelOf === botId) ??
       agents.items.find((other) => other.channelAgentIds?.includes(botId))
 
-    if (chat) return { botId, name: chat.label, key: chat.key }
+    if (chat) return { botId, provider: item.provider, name: chat.label, key: chat.key }
 
     // Only its owner can bring a Bot into a chat, so a teammate's Bot without one has no link.
     return openBot && !item.readOnlyChat
-      ? { botId, name: item.label, open: () => openBot(botId) }
+      ? { botId, provider: item.provider, name: item.label, open: () => openBot(botId) }
       : undefined
   }
   // A Task is one line: its runtime icon and title, no latest message.

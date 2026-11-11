@@ -1,5 +1,8 @@
 package ai.nuphos.android.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -37,15 +40,19 @@ private fun agentImageLoader(): ImageLoader = AgentImages.get(LocalContext.curre
 
 /** A Bot wears its face; a Task, or a Bot not seen yet, shows its runtime mark. */
 @Composable
-fun AgentAvatar(sessionId: String, runtime: String?, size: Dp = 36.dp) {
+fun AgentAvatar(sessionId: String, runtime: String?, size: Dp = 36.dp, showBadge: Boolean = true) {
     val loader = agentImageLoader()
     val face = ai.nuphos.android.model.BotFaces.face(sessionId)
     Box(Modifier.size(size).testTag("agent-identity-avatar"), contentAlignment = Alignment.Center) {
         // A face this build doesn't ship falls back to the one the ID derives, as on iOS and Desktop.
-        if (face != null) AsyncImage(model = "file:///android_asset/bot-avatars/${BotAvatars.named(face) ?: BotAvatars.file(sessionId)}",
+        if (face != null) {
+            AsyncImage(model = "file:///android_asset/bot-avatars/${BotAvatars.named(face) ?: BotAvatars.file(sessionId)}",
             imageLoader = loader, contentDescription = null, contentScale = ContentScale.Fit,
             modifier = Modifier.size(size))
-        else RuntimeMark(runtime, 20.dp, loader)
+            if (showBadge) Box(Modifier.align(Alignment.BottomEnd)) {
+                AgentRuntimeBadge(runtime, if (size <= 24.dp) 9.dp else 12.dp)
+            }
+        } else RuntimeMark(runtime, 20.dp, loader)
     }
 }
 
@@ -66,4 +73,12 @@ fun RuntimeMark(runtime: String?, size: Dp = 14.dp, loader: ImageLoader = agentI
         contentDescription = null,
         colorFilter = if (RuntimeIdentity.originalColor(runtime)) null else ColorFilter.tint(MaterialTheme.colorScheme.onSurfaceVariant),
         modifier = Modifier.size(size).testTag("runtime-provider-mark"))
+}
+
+/** Decorative disc also used above overlapping group faces. */
+@Composable
+fun AgentRuntimeBadge(runtime: String?, size: Dp) {
+    Box(Modifier.size(size).background(MaterialTheme.colorScheme.surface, CircleShape).padding(1.dp)) {
+        RuntimeMark(runtime, size - 2.dp)
+    }
 }
