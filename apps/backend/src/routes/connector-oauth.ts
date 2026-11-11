@@ -13,12 +13,14 @@ import { persistPlaudBinding } from '@/routes/plaud-app'
 import { persistPosthogBinding } from '@/routes/posthog-app'
 import { persistSentryBinding } from '@/routes/sentry-app'
 import { persistSlackBinding } from '@/routes/slack-app'
+import { persistTrelloBinding } from '@/routes/trello-integrations'
 
 import type { ConnectorBindPersist } from '@/lib/connector-oauth'
 import type { TeamAuthVariables } from '@/middleware/auth'
 
 const PERSISTS = {
   asana: persistAsanaBinding,
+  trello: persistTrelloBinding,
   cloudflare: persistCloudflareBinding,
   discord: persistDiscordBinding,
   gitlab: persistGitlabBinding,

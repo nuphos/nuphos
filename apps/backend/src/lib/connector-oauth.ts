@@ -24,13 +24,14 @@ const READY_TTL_MS = 10 * 60_000
  */
 export async function finishConnectorOAuth<B extends object>(input: {
   provider: string
+  defer?: boolean
   state: string
   teamId: ObjectId
   requesterUserId: string
   draft: B
   persist: ConnectorBindPersist<B>
 }): Promise<Record<string, string>> {
-  if (!config.byos.connectorOAuthDeferredBind) {
+  if (!(input.defer ?? config.byos.connectorOAuthDeferredBind)) {
     return { state: input.state, ...(await input.persist(input.teamId, input.draft)) }
   }
   const code = randomBytes(24).toString('base64url')

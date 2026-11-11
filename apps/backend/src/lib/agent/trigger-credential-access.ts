@@ -32,6 +32,7 @@ const CREDENTIAL_ARRAY_KEYS = [
   'vantaIntegrationIds',
   'secureframeIntegrationIds',
   'resendIntegrationIds',
+  'trelloIntegrationIds',
   'githubInstallationIds',
   'gitlabBindingIds',
   'grafanaInstanceIds',

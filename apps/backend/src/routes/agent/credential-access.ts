@@ -37,6 +37,9 @@ export function allCredentialAccessFromOptions(
     ),
     // Explicit all-credential channel defaults include Resend; other surfaces
     // retain their existing opt-in default.
+    trelloIntegrationIds: selectAll
+      ? (options.trelloIntegrations ?? []).map((entry) => entry.integrationId)
+      : [],
     resendIntegrationIds: selectAll
       ? options.resendIntegrations.map((entry) => entry.integrationId)
       : [],
@@ -106,6 +109,7 @@ export function hasCredentialOptions(options: AgentCredentialOptions): boolean {
       options.vantaIntegrations.length +
       options.secureframeIntegrations.length +
       options.resendIntegrations.length +
+      (options.trelloIntegrations?.length ?? 0) +
       options.githubInstallations.length +
       options.gitlabBindings.length +
       options.grafanaInstances.length +
@@ -146,6 +150,7 @@ export function isEmptyCredentialAccess(access: AgentCredentialAccess | undefine
       (access.vantaIntegrationIds?.length ?? 0) +
       (access.secureframeIntegrationIds?.length ?? 0) +
       (access.resendIntegrationIds?.length ?? 0) +
+      (access.trelloIntegrationIds?.length ?? 0) +
       (access.githubInstallationIds?.length ?? 0) +
       (access.gitlabBindingIds?.length ?? 0) +
       (access.grafanaInstanceIds?.length ?? 0) +
@@ -165,6 +170,7 @@ export function credentialAccessResponse(access: AgentCredentialAccess) {
     onpremClusterIds: access.onpremClusterIds ?? [],
     linearWorkspaceIds: access.linearWorkspaceIds ?? [],
     resendIntegrationIds: access.resendIntegrationIds ?? [],
+    trelloIntegrationIds: access.trelloIntegrationIds ?? [],
     posthogIntegrationIds: access.posthogIntegrationIds ?? [],
     plaudAccountIds: access.plaudAccountIds ?? [],
     deviceIds: access.deviceIds ?? [],

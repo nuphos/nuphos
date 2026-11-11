@@ -144,6 +144,12 @@ export const CREDENTIAL_LISTERS: Record<SelectionKey, Lister> = {
       credentialPath: `resend-integrations/${id}/credentials`,
     }),
   }),
+  trelloIntegrationIds: lister({
+    provider: 'trello',
+    available: (o) => o.trelloIntegrations ?? [],
+    idOf: (i) => i.integrationId,
+    details: (i, id) => viaTeamApi(i.label, `POST /trello-integrations/${id}/execute`),
+  }),
   posthogIntegrationIds: lister({
     provider: 'posthog',
     available: (o) => o.posthogIntegrations,

@@ -22,6 +22,7 @@ import {
   buildJiraCredentialSections,
   buildLinearCredentialSections,
   buildResendCredentialSections,
+  buildTrelloCredentialSections,
   buildSecureframeCredentialSections,
   buildPlaudCredentialSections,
   buildPosthogCredentialSections,
@@ -127,6 +128,10 @@ export function useCredentialSections(options: CredentialSelectorControl['option
     () => buildSecureframeCredentialSections(options.secureframeIntegrations),
     [options.secureframeIntegrations],
   )
+  const trelloSections = useMemo(
+    () => buildTrelloCredentialSections(options.trelloIntegrations),
+    [options.trelloIntegrations],
+  )
   const resendSections = useMemo(
     () => buildResendCredentialSections(options.resendIntegrations),
     [options.resendIntegrations],
@@ -215,6 +220,7 @@ export function useCredentialSections(options: CredentialSelectorControl['option
     vantaSections,
     secureframeSections,
     resendSections,
+    trelloSections,
     betterStackSections,
     uptimeKumaSections,
     linearSections,

@@ -31,6 +31,7 @@ import type {
   NotionIntegration,
   OnpremCluster,
   ResendIntegration,
+  TrelloIntegration,
   Scope,
   SecureframeIntegration,
   SentryAccount,
@@ -75,6 +76,7 @@ export type AccountSet = {
   onprem: OnpremCluster[]
   upstash: UpstashAccount[]
   resend: ResendIntegration[]
+  trello: TrelloIntegration[]
   instabox: InstaboxAccount[]
   tencent: TencentAccount[]
   aliyun: AliyunAccount[]

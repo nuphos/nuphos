@@ -22,6 +22,7 @@ export {
   findLinodeAccount,
   findNotionIntegration,
   findResendIntegration,
+  findTrelloIntegration,
   findSecureframeIntegration,
   findSentryAccount,
   findSonarqubeIntegration,

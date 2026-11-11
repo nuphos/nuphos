@@ -1,6 +1,6 @@
 import type { TailscaleBindingAuth } from '@/lib/byos/tailscale-binding'
-import type { CliTokenPrincipal } from '@/lib/identity/cli-tokens'
 import type { NuphosTeamRole, NuphosUser, NuphosTeam } from '@/lib/identity'
+import type { CliTokenPrincipal } from '@/lib/identity/cli-tokens'
 import type {
   AwsRoleBinding,
   BindingAccess,
@@ -17,6 +17,7 @@ import type {
   PosthogIntegrationBinding,
   UpstashAccountBinding,
   ResendIntegrationBinding,
+  TrelloIntegrationBinding,
   JiraSiteBinding,
   AsanaAccountBinding,
   SentryAccountBinding,
@@ -254,4 +255,11 @@ export type ZeaburProviderVariables = TeamAuthVariables & {
   zeaburKind: 'user' | 'team'
   zeaburName: string
   zeaburEncryptedToken: ZeaburProviderBinding['encryptedToken']
+}
+
+export type TrelloIntegrationVariables = TeamAuthVariables & {
+  trelloIntegrationId: string
+  trelloIntegrationLabel: string
+  trelloAccess?: BindingAccess
+  trelloBinding: TrelloIntegrationBinding
 }

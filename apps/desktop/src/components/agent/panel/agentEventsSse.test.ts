@@ -39,6 +39,7 @@ test('autonomous start opens a distinct assistant turn, and a replay rebuilds it
       vantaIntegrationIds: [],
       secureframeIntegrationIds: [],
       resendIntegrationIds: [],
+      trelloIntegrationIds: [],
     },
     readOnly: false,
   }
@@ -104,6 +105,7 @@ test('turn-interrupted attaches to the current answer and replaces the same id',
       vantaIntegrationIds: [],
       secureframeIntegrationIds: [],
       resendIntegrationIds: [],
+      trelloIntegrationIds: [],
     },
     readOnly: false,
   }

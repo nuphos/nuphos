@@ -1,7 +1,7 @@
 import { canUseAllowList } from '@/lib/byos/access'
 
-import type { TeamByosBindings } from '@/models'
 import type { AgentCredentialOptions } from './types'
+import type { TeamByosBindings } from '@/models'
 
 type ConnectorKeys =
   | 'githubInstallations'
@@ -12,6 +12,7 @@ type ConnectorKeys =
   | 'upstashAccounts'
   | 'posthogIntegrations'
   | 'plaudAccounts'
+  | 'trelloIntegrations'
   | 'cloudflareAccounts'
   | 'instaboxAccounts'
 
@@ -27,6 +28,7 @@ export type ConnectorCredentialOptions = Pick<
   | 'upstashAccounts'
   | 'posthogIntegrations'
   | 'plaudAccounts'
+  | 'trelloIntegrations'
   | 'cloudflareAccounts'
   | 'instaboxAccounts'
 >
@@ -40,6 +42,7 @@ export const emptyConnectorCredentialOptions = (): ConnectorCredentialOptions =>
   upstashAccounts: [],
   posthogIntegrations: [],
   plaudAccounts: [],
+  trelloIntegrations: [],
   cloudflareAccounts: [],
   instaboxAccounts: [],
 })
@@ -53,6 +56,7 @@ export const connectorCredentialOptionsProjection = {
   upstashAccounts: 1,
   posthogIntegrations: 1,
   plaudAccounts: 1,
+  trelloIntegrations: 1,
   cloudflareAccounts: 1,
   instaboxAccounts: 1,
 } as const
@@ -113,6 +117,13 @@ export function connectorCredentialOptions(
       apiBaseUrl: binding.apiBaseUrl,
       projects: binding.projects.map((project) => ({ id: project.id, name: project.name })),
     }))
+  const trelloIntegrations = (doc?.trelloIntegrations ?? [])
+    .filter((binding) => canUseAllowList(binding.access?.memberAllowList ?? [], userId))
+    .map((binding) => ({
+      integrationId: binding.id.toHexString(),
+      label: binding.label,
+      username: binding.username,
+    }))
   const plaudAccounts = (doc?.plaudAccounts ?? [])
     .filter((binding) => canUseAllowList(binding.access?.memberAllowList, userId))
     .map((binding) => ({ bindingId: binding.id.toHexString(), label: binding.label }))
@@ -139,6 +150,7 @@ export function connectorCredentialOptions(
     upstashAccounts,
     posthogIntegrations,
     plaudAccounts,
+    trelloIntegrations,
     cloudflareAccounts,
     instaboxAccounts,
   }

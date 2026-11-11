@@ -72,6 +72,7 @@ function oneOfEach(): AgentCredentialOptions {
     zeaburProviders: [{ zeaburId: ID, kind: 'team', name: label }],
     vantaIntegrations: [{ integrationId: ID, label, authType: 'client_credentials' }],
     secureframeIntegrations: [{ integrationId: ID, label, region: 'us' }],
+    trelloIntegrations: [{ integrationId: ID, label, username: 'fixture' }],
     resendIntegrations: [{ integrationId: ID, label, permission: 'sending_access' }],
     githubInstallations: [{ installationId: ID, accountLogin: 'org', accountType: 'Organization' }],
     gitlabBindings: [{ bindingId: ID, hostUrl: 'https://g', username: 'u' }],
