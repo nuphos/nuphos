@@ -58,11 +58,8 @@ function matches(row: Record<string, unknown>, filter: Record<string, unknown>):
       return false
     }
   }
-  if (typeof filter.configRevision === 'number' && row.configRevision !== filter.configRevision) {
-    return false
-  }
 
-  return true
+  return typeof filter.configRevision !== 'number' || row.configRevision === filter.configRevision
 }
 
 const triggers = {
