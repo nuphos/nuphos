@@ -140,7 +140,8 @@ export function Composer({
       : undefined,
     { commands: runtimeState?.commands, runtimeId: runtimeControl?.value?.id },
   )
-  const send: ComposerSend = (text, paths, people) => onSend(text, paths, people, state.imageThumbs)
+  const send: ComposerSend = (text, paths, people, options) =>
+    onSend(text, paths, people, { ...options, imageThumbs: state.imageThumbs })
   const actions = useComposerActions(state, {
     sendBlocked,
     readOnly,

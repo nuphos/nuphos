@@ -98,7 +98,7 @@ export function useComposerActions(
     if (!v && state.filePaths.length === 0) return
     // A send that reports false refused the draft before it went anywhere, so
     // the text, its attachments and its folder chips stay for another try.
-    if (!onSend(v, state.filePaths, undefined, mode)) return
+    if (!onSend(v, state.filePaths, undefined, { mode })) return
     clearDraft()
   }
 
