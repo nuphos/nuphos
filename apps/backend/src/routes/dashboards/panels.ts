@@ -21,7 +21,7 @@ import {
 } from '@/models'
 import { intersectTriggerCredentialAccess } from '@/lib/agent/trigger-credential-access'
 import { resolveAgentCredentialAccess } from '@/routes/agent/credential-resolve'
-import { getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
+import { getAgentCredentialAccess, normalizeCredentialAccess } from '@/routes/agent-sessions/shared'
 
 import { cadenceSchema, loadDashboard } from './dashboards'
 import { appendScriptVersion, serializePanel, serializeSnapshot } from './serialize'
@@ -57,7 +57,7 @@ export async function panelCredentialAccess(
 ): Promise<AgentCredentialAccess | undefined> {
   const requested =
     selection === undefined
-      ? existing
+      ? existing && { ...existing, ...normalizeCredentialAccess(existing) }
       : (
           await resolveAgentCredentialAccess({
             teamId: teamId.toHexString(),
