@@ -39,6 +39,14 @@ import type { SessionConfigSelection, SessionConfigState } from './session-confi
 import type { CloudCliProvider, CloudCliProbe } from '../lib/cloudCli.ts'
 import type { AgentProvider } from '../types/runtime.ts'
 
+/** What one archive or restore moved: a Bot goes with its chats. Absent from older servers. */
+export type ArchiveResult = {
+  ok: boolean
+  archived: boolean
+  sessionIds?: string[]
+  botSessionId?: string
+}
+
 export type WindowAgentApi = AgentDecisionApi & {
   cloudProbeCliVersion(provider: CloudCliProvider, probeId?: string): Promise<string | null>
   cloudProbeCli(provider: CloudCliProvider): Promise<CloudCliProbe>
@@ -114,7 +122,7 @@ export type WindowAgentApi = AgentDecisionApi & {
     sessionId: string,
     archived: boolean,
     teamId?: string,
-  ): Promise<{ ok: boolean; archived: boolean }>
+  ): Promise<ArchiveResult>
   agentSetConversationWatched(
     sessionId: string,
     watching: boolean,

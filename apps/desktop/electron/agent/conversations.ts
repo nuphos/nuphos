@@ -12,12 +12,20 @@ import type {
   ConversationMessagesPage,
 } from './types'
 
+/** What moved with it: a Bot goes with its chats. The ids are absent from older servers. */
+type ArchiveResult = {
+  ok: boolean
+  archived: boolean
+  sessionIds?: string[]
+  botSessionId?: string
+}
+
 export async function setConversationArchived(
   sessionId: string,
   archived: boolean,
   teamId?: string,
-): Promise<{ ok: boolean; archived: boolean }> {
-  return callJson<{ ok: boolean; archived: boolean }>(
+): Promise<ArchiveResult> {
+  return callJson<ArchiveResult>(
     'PATCH',
     `/agent/conversations/${encodeURIComponent(sessionId)}/archive${teamQuery(teamId)}`,
     { archived },

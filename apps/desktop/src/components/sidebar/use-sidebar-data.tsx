@@ -218,9 +218,10 @@ export function useSidebarChats({
         setTimeout(resolve, cssDurationMs('--resize-dur', 300)),
       )
       let ok = false
+      let botSessionId: string | undefined
 
       try {
-        await archiveChatRequest(sessionId, teamId)
+        ;({ botSessionId } = await archiveChatRequest(sessionId, teamId))
         ok = true
       } catch {
         // Handled below once the collapse finished.
@@ -237,7 +238,7 @@ export function useSidebarChats({
       })
       if (ok) {
         announceChatArchived({ sessionId, teamId })
-        offerUndo(sessionId)
+        offerUndo(sessionId, botSessionId)
       } else {
         toast.error(t('Could not archive agent'))
       }

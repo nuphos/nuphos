@@ -71,13 +71,14 @@ export function useSidebarArchiveEvents({
 
   /** Shows the archive receipt; Undo lists the chat again at once. */
   const offerUndo = useCallback(
-    (sessionId: string) => {
+    (sessionId: string, botSessionId?: string) => {
       const row = listedRowsRef.current.get(sessionId)
 
       offerArchiveUndo({
         sessionId,
         teamId,
         title: [row?.title, row?.firstMessage].find(Boolean) ?? t('Untitled agent'),
+        ...(botSessionId ? { noun: 'bot' } : row?.kind === 'channel' ? { noun: 'chat' } : {}),
         onRestored: () => {
           if (!row || teamIdRef.current !== teamId) return
           locallyArchivedRef.current.delete(sessionId)
