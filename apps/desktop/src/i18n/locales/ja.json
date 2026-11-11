@@ -3823,7 +3823,7 @@
   "Restart pod \"{name}\"? Kubernetes will recreate it via its controller.": "Pod「{name}」を再起動しますか？Kubernetes がコントローラー経由で再作成します。",
   "Restart pods": "Pod の再起動",
   "Restart rollout": "ロールアウトを再起動",
-  "Restart to finish installing Nuphos {version}. Your work will be right where you left it.": "再起動すると Nuphos {version} のインストールが完了します。作業内容はそのまま残ります。",
+  "Restart to finish installing Nuphos {version}. Agents on this computer stop, so replies still running there are cut off.": "再起動すると Nuphos {version} のインストールが完了します。このコンピュータのエージェントは停止するため、実行中の返信は中断されます。",
   "Restart to update to {version}": "再起動して {version} にアップデート",
   "Restart {n} DaemonSet? Its RollingUpdate controller will replace the pods.": "{n} 個の DaemonSet を再起動しますか？RollingUpdate コントローラーが Pod を置き換えます。",
   "Restart {n} DaemonSets? Their RollingUpdate controllers will replace the pods.": "{n} 個の DaemonSet を再起動しますか？それぞれの RollingUpdate コントローラーが Pod を置き換えます。",

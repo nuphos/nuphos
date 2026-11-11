@@ -30,7 +30,7 @@ export function UpdateDialog({
           </AlertDialog.Title>
           <AlertDialog.Description className="mt-2 text-[14px] leading-relaxed text-secondary">
             {t(
-              'Restart to finish installing Nuphos {version}. Your work will be right where you left it.',
+              'Restart to finish installing Nuphos {version}. Agents on this computer stop, so replies still running there are cut off.',
               { version },
             )}
           </AlertDialog.Description>

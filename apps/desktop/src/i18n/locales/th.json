@@ -3823,7 +3823,7 @@
   "Restart pod \"{name}\"? Kubernetes will recreate it via its controller.": "รีสตาร์ท Pod \"{name}\" ใช่ไหม Kubernetes จะสร้าง Pod ใหม่ผ่านคอนโทรลเลอร์",
   "Restart pods": "รีสตาร์ท Pod",
   "Restart rollout": "รีสตาร์ทการโรลเอาต์",
-  "Restart to finish installing Nuphos {version}. Your work will be right where you left it.": "รีสตาร์ตเพื่อติดตั้ง Nuphos {version} ให้เสร็จ งานของคุณจะยังอยู่ที่เดิม",
+  "Restart to finish installing Nuphos {version}. Agents on this computer stop, so replies still running there are cut off.": "รีสตาร์ตเพื่อติดตั้ง Nuphos {version} ให้เสร็จ เอเจนต์บนคอมพิวเตอร์เครื่องนี้จะหยุดทำงาน คำตอบที่ยังทำงานอยู่บนเครื่องนี้จึงจะถูกตัดกลางคัน",
   "Restart to update to {version}": "รีสตาร์ทเพื่ออัปเดตเป็น {version}",
   "Restart {n} DaemonSet? Its RollingUpdate controller will replace the pods.": "รีสตาร์ท {n} DaemonSet ใช่ไหม คอนโทรลเลอร์ RollingUpdate จะแทนที่ Pod ให้",
   "Restart {n} DaemonSets? Their RollingUpdate controllers will replace the pods.": "รีสตาร์ท {n} DaemonSet ใช่ไหม คอนโทรลเลอร์ RollingUpdate จะแทนที่ Pod ให้",
