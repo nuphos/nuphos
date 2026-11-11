@@ -3,14 +3,6 @@ import { t } from '../../i18n'
 
 import type { AgentTrigger } from '../../api'
 
-/** Cleanup failed only because the Watch's integration is no longer connected. */
-export function integrationDisconnected(trigger: AgentTrigger | null): boolean {
-  return (
-    trigger?.cleanupStatus === 'cleanup_failed' &&
-    trigger.cleanupErrorCode === 'provider_integration_disconnected'
-  )
-}
-
 export function TriggerRemoveWithoutCleanupDialog({
   open,
   loaded,

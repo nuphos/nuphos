@@ -5,12 +5,10 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Button } from '../../components/ui/button'
 import { t } from '../../i18n'
 
+import { integrationDisconnected } from './cleanupFailures'
 import { CopyableRow } from './parts'
 import { ProviderCleanupPreview } from './providerResources'
-import {
-  integrationDisconnected,
-  TriggerRemoveWithoutCleanupDialog,
-} from './TriggerRemoveWithoutCleanupDialog'
+import { TriggerRemoveWithoutCleanupDialog } from './TriggerRemoveWithoutCleanupDialog'
 
 import type { AgentTrigger } from '../../api'
 
