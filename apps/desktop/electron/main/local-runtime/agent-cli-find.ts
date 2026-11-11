@@ -47,7 +47,9 @@ export function findAgentCli(provider: LocalAgentProvider, env: NodeJS.ProcessEn
     ...(envValue(env, 'PATH') ?? '').split(path.delimiter).filter(Boolean),
     ...fallbackDirs(home, env),
   ]
-  const command = provider === 'claude-code' ? 'claude' : provider
+  const command =
+    ({ 'claude-code': 'claude', antigravity: 'agy' } as Record<string, string>)[provider] ??
+    provider
   const names = process.platform === 'win32' ? [`${command}.exe`, `${command}.cmd`] : [command]
 
   for (const dir of dirs) {

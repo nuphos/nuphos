@@ -12,7 +12,7 @@ import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 export function localRemovalId(instance: RuntimeInstance): string | undefined {
   const local = instance.local
 
-  if (!local) return undefined
+  if (!local || (instance.provider === 'antigravity' && !local.instanceId)) return undefined
 
   return local.instanceId ?? (local.box ? instance.provider : undefined)
 }
@@ -101,6 +101,8 @@ export function newAgentAction(
   const idle = agents.find((agent) => agent.provider === provider && agent.local?.signedIn !== true)
 
   if (idle) return { signIn: idle.id }
+  // Native keyring sign-in is shared; another home does not create another account.
+  if (provider === 'antigravity') return null
 
   return agents.some((agent) => agent.local?.agentInstances === true) ? { create: true } : null
 }

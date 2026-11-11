@@ -269,7 +269,7 @@ export function podOwnerAgentHome(
       : prepareAgentHome(provider, userDir, workspace, env)
 }
 
-/** New instances own their authentication; never link or import the host login. */
+/** Added instances do not import file-based logins. AGY cannot be added: its keyring is shared. */
 export function prepareIsolatedAgentHome(
   provider: LocalAgentProvider,
   userDir: string,

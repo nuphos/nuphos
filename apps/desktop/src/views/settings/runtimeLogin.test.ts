@@ -41,9 +41,26 @@ test('Antigravity takes the loopback address the browser ended on; Claude takes 
     pastedSignInReady('antigravity', 'http://localhost:41234/?error=access_denied'),
     true,
   )
-  assert.equal(pastedSignInReady('antigravity', '4/abc'), false)
+  assert.equal(pastedSignInReady('antigravity', '4/abc'), true)
   assert.equal(pastedSignInReady('antigravity', 'http://127.0.0.1:41234/'), false)
   assert.equal(pastedSignInReady('antigravity', 'https://example.com/?code=x'), false)
   assert.equal(pastedSignInReady('claude-code', 'abc#state'), true)
   assert.equal(pastedSignInReady('claude-code', '  '), false)
+})
+
+test('Antigravity supports the official CLI authorization page and callback', () => {
+  const url = 'https://accounts.google.com/o/oauth2/auth?state=s'
+
+  assert.equal(authorizeUrl('antigravity', url), url)
+  assert.equal(
+    pastedSignInReady(
+      'antigravity',
+      'https://antigravity.google/oauth-callback?code=4/abc&state=s',
+    ),
+    true,
+  )
+  assert.equal(
+    pastedSignInReady('antigravity', 'https://antigravity.google.evil/oauth-callback?code=x'),
+    false,
+  )
 })

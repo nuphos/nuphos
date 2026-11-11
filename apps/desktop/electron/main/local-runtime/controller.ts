@@ -3,8 +3,6 @@ import { discoverModels } from './agent-models.ts'
 import {
   freshAgent,
   HEALTHY_AFTER_MS,
-  AGENT_HOME_UNAVAILABLE,
-  INSTALL_HINT,
   prepareHomeFor,
   scheduleAgentRestart,
   stopAgentProcess,
@@ -14,6 +12,7 @@ import {
   userDir,
 } from './controller-types.ts'
 import { InstanceControllers } from './instance-controllers.ts'
+import { AGENT_HOME_UNAVAILABLE, INSTALL_HINT } from './providers.ts'
 import { createUsageSampler } from './usage-sampler.ts'
 
 import type { LocalAgentProvider } from './agent-cli.ts'

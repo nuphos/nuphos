@@ -246,3 +246,21 @@ test('New Agent signs in a signed-out agent of that provider before it adds anot
   assert.deepEqual(newAgentAction(old, 'codex'), { signIn: 'codex' })
   assert.equal(newAgentAction(old, 'claude-code'), null)
 })
+
+test('AGY only offers its existing shared sign-in, never a second account', () => {
+  assert.equal(newAgentAction([], 'antigravity'), null)
+  const signedIn = {
+    id: 'agy',
+    provider: 'antigravity',
+    local: { signedIn: true, agentInstances: true },
+  } as RuntimeInstance
+
+  assert.equal(newAgentAction([signedIn], 'antigravity'), null)
+  assert.deepEqual(
+    newAgentAction(
+      [{ ...signedIn, local: { ...signedIn.local!, signedIn: false } }],
+      'antigravity',
+    ),
+    { signIn: 'agy' },
+  )
+})

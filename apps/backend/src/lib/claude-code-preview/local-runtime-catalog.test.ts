@@ -81,25 +81,30 @@ describe('local runtime catalog', () => {
     expect((await listOwnLocalRuntimes('t1', 'owner', deps))[0]?.local.desktopOpen).toBe(true)
   })
 
-  test('Grok Build and OpenCode are listed, and a signed-out one can still be signed in', async () => {
+  test('Native ACP agents are listed, and a signed-out one can still be signed in', async () => {
     const signedOut = { cli: { installed: true, loggedIn: false } }
 
     presence = {
       conn: 'c1',
       seenAt: Date.now(),
-      status: { agents: { grok: signedOut, opencode: signedOut } },
+      status: { agents: { grok: signedOut, antigravity: signedOut, opencode: signedOut } },
     }
     const listed = await listOwnLocalRuntimes('t1', 'owner', deps)
 
     expect(listed.map(({ id, provider, label }) => ({ id, provider, label }))).toEqual([
       { id: 'local_owner_mac-1_grok', provider: 'grok', label: 'Grok Build in Olivia’s MacBook' },
       {
+        id: 'local_owner_mac-1_antigravity',
+        provider: 'antigravity',
+        label: 'Antigravity in Olivia’s MacBook',
+      },
+      {
         id: 'local_owner_mac-1_opencode',
         provider: 'opencode',
         label: 'OpenCode in Olivia’s MacBook',
       },
     ])
-    for (const provider of ['grok', 'opencode'] as const) {
+    for (const provider of ['grok', 'antigravity', 'opencode'] as const) {
       const id = localRuntimeId({ ...ref, provider })
       const endpoint = await resolveLocalRuntimeEndpoint('t1', id, 'owner', 'login', deps)
 

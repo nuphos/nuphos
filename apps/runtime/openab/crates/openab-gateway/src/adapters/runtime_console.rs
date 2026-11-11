@@ -627,7 +627,7 @@ async fn state_handler(State(state): State<Arc<crate::AppState>>, headers: Heade
         "deepLinks": std::env::var("OPENAB_RUNTIME_CONNECT_URL_TEMPLATE").is_ok_and(|t| !t.is_empty()),
     });
     body["provider"] = json!({
-        "authenticated": super::acp_server::runtime_authenticated(&state),
+        "authenticated": super::acp_server::runtime_authenticated(&state).await,
         "signInSupported": state.acp.as_ref().is_some_and(|c| c.login_command.is_some()),
     });
     Ok(Json(body).into_response())
@@ -930,6 +930,7 @@ mod tests {
             allowed_origins: vec![],
             login_command: None,
             auth_file: None,
+            auth_command: None,
             runtime_jobs: RuntimeJobs::default(),
             disk_paths: vec![],
             credentials: Some(store),

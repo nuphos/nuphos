@@ -8,11 +8,12 @@ import { longLivedSignIn } from './longLivedSignIn'
 import type { RuntimeInstance } from '../../types/runtime'
 import type { OpenAbRuntimeStatus } from '../../types/team'
 
-/** Antigravity signs in through a browser on the agent's own loopback address, so only the app can. */
+/** Each provider's official terminal sign-in, when its operator channel is unavailable. */
 const HOST_SIGN_IN: Partial<Record<RuntimeInstance['provider'], string>> = {
   'claude-code': 'docker exec -it <container> claude auth login',
   codex: 'docker exec -it <container> codex login --device-auth',
   grok: 'docker exec -it <container> grok login --device-auth',
+  antigravity: 'docker exec -it <container> agy acp --login',
   opencode: 'docker exec -it <container> opencode providers login',
 }
 
@@ -25,7 +26,7 @@ function memberNote(askAdmin: string | null | undefined): string {
 }
 
 /** The agent owns its login; this only shows what the agent reports. */
-export function RuntimeSignIn({
+function RuntimeSignInContent({
   instance,
   runtime: { authenticated, credentialExpiresAt: expiresAt, apiKey },
   onSignIn,
@@ -104,6 +105,22 @@ export function RuntimeSignIn({
           {authenticated ? t('Add a provider') : t('Sign in')}
         </Button>
       )}
+    </div>
+  )
+}
+
+/** Directory isolation does not isolate the CLI's native keyring identity. */
+export function RuntimeSignIn(props: Parameters<typeof RuntimeSignInContent>[0]) {
+  return (
+    <div>
+      {props.instance.provider === 'antigravity' && (
+        <p className="px-4 pt-4 text-xs leading-relaxed text-tertiary">
+          {t(
+            'Antigravity shares Google sign-in with other Antigravity apps under the same OS account. Signing in or using the CLI to sign out may affect them. Separate runtime accounts are not supported.',
+          )}
+        </p>
+      )}
+      <RuntimeSignInContent {...props} />
     </div>
   )
 }
