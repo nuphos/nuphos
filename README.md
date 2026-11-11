@@ -1,33 +1,37 @@
-![Nuphos — The Agent Workspace for your team.](assets/nuphos-banner.png)
+![Nuphos, the open source Grok Bot alternative](assets/nuphos-banner.jpg)
 
 # Nuphos
 
-**The agent workspace for your team.**
+**The open source Grok Bot alternative for teams.**
 
 <a href="https://nuphos.ai/download"><img alt="Download for macOS" src="assets/download-macos.svg" height="44"></a> <a href="https://apps.apple.com/app/nuphos/id6812533633"><img alt="Download on the App Store" src="assets/download-app-store.svg" height="44"></a> <a href="https://x.com/NuphosAI"><img alt="Follow on X" src="assets/follow-x.svg" height="44"></a> <a href="https://nuphos.ai/dc"><img alt="Join Discord" src="assets/join-discord.svg" height="44"></a>
 
-Coding agents are single-player by default: one agent, on one laptop, in one
-terminal, for one person. Nuphos is where a team runs them instead — across
-people, across machines, and without the session ending when someone closes
-their lid.
+Nuphos is an open source (Apache-2.0) alternative to xAI's Grok Bot. It gives
+you always-on Bots that run on the Claude Code or Codex subscription you
+already pay for, on a managed cloud computer or a machine you own, in chats
+your whole team can join.
 
-Looking for an open source alternative to xAI's Grok Bot? Nuphos gives you
-always-on agents that run on the Claude Code or Codex subscription you already
-pay for, on a managed cloud runtime or a machine you own, in sessions your
-whole team can join. Nuphos is not affiliated with xAI.
+What sets Nuphos apart is the team. Your teammates work with a Bot in the same
+live session, see the same tool calls, and steer it together. Nuphos is not
+affiliated with xAI.
 
 ## Features
 
-- **Use your existing agent.** Claude Code and Codex ship today, each behind an
-  [ACP](https://agentclientprotocol.com) adapter. You keep the coding-plan
-  subscription you already pay for — the runtime signs in with that account,
-  and there is no extra model charge on top.
-- **The session outlives your machine.** A runtime can be local, a remote
-  machine you own, or one Nuphos manages. Close the laptop and the turn keeps
-  going; pick it up from your phone in the iOS app.
+- **Bots that keep working.** Give a Bot a name and a face and chat with it
+  one-on-one. On a cloud computer or a server you keep running, its turn
+  continues after you close your laptop, and you can pick it up from the iOS
+  app.
+- **Use the subscription you already pay for.** Claude Code and Codex each run
+  behind an [ACP](https://agentclientprotocol.com) adapter and sign in with
+  your own Claude or ChatGPT account, so there is no extra model charge on
+  top. OpenCode, Grok Build and Antigravity runtimes are available too.
+- **Run it where you want.** A runtime can be a cloud computer Nuphos manages,
+  a remote machine you own, or your laptop. Move a conversation between them
+  and it keeps going.
 - **A session is a room with your teammates.** Invite someone into a running
-  session the way you would a Notion page. Several people talk to the same
-  agent, see the same tool calls, and steer together.
+  session the way you would a Notion page, or put people and Bots in the same
+  group chat. Several people talk to the same agent, see the same tool calls,
+  and steer together.
 - **Share and sync skills and tools across your team.** Grant a skill or an
   integration once and every agent on the team has it, synced, rather than each
   person pasting a token into their own machine.
@@ -46,9 +50,6 @@ whole team can join. Nuphos is not affiliated with xAI.
 - **Split the window.** ⌘D splits side by side and ⌘⇧D splits top and bottom,
   so you can watch several agent sessions at once. Drag a chat from the sidebar
   onto a pane's edge to open it there, or drag a pane by its grip to move it.
-- **Move the session between local, remote, and cloud.** The conversation you
-  are in switches to this computer, another machine you own, or a cloud
-  runtime, and keeps going.
 - **Memory, with nothing to install.** Memory across the team, across agents,
   and across sessions is built in. There is no MCP server to add before one
   agent can recall what another learned.
