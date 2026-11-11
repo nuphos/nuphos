@@ -1,10 +1,8 @@
 import { runtimePresenceStore } from './local-runtime/presence'
 
-/** Local exec uses the same live, pong-confirmed tunnel as local agents. */
+/** Online means holding the live, pong-confirmed tunnel; local exec and local agents share it. */
 export async function isDevicePresent(userId: string, deviceId: string): Promise<boolean> {
-  const presence = await runtimePresenceStore().get(userId, deviceId)
-
-  return presence?.status?.localExec === true
+  return (await runtimePresenceStore().get(userId, deviceId)) != null
 }
 
 /** Polls the device's presence until it is here or the time is up. */

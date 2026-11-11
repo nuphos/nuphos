@@ -1,5 +1,6 @@
 import { signedIn, stillCurrent } from './account-request.ts'
 import { authSession } from './auth-session.ts'
+import { dialBackend } from './backend-socket.ts'
 import { onPageGone } from './page-owner.ts'
 
 import type { DesktopTarget, RuntimeDesktopEvent } from '../src/api/local-terminal-types.ts'
@@ -36,8 +37,7 @@ export class RuntimeDesktopSessions {
       account.api,
     )
 
-    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
-    const socket = new WebSocket(url, { headers: { authorization: `Bearer ${account.token}` } })
+    const socket = dialBackend(url, { authorization: `Bearer ${account.token}` })
     const send = (event: RuntimeDesktopEvent) => {
       if (!owner.isDestroyed()) owner.send('runtime-desktop:event', event)
     }

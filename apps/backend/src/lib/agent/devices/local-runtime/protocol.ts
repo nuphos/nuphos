@@ -103,7 +103,7 @@ const localAgentStatusSchema = z.object({
   }),
   version: z.string().max(200).optional(),
   // Never fatal, like usage: a catalog over its bounds costs the model picker,
-  // not the computer's presence (which `localExec` in this same frame decides).
+  // not the computer's presence.
   models: localModelCatalogSchema.optional().catch(undefined),
   /** The provider's own usage body, as the computer read it with its own
    *  credential, narrowed to the fields runtime-quota normalizes. Unknown keys

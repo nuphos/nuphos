@@ -8,6 +8,7 @@ import { callJson } from '../../agent/http.ts'
 import { logLocalTool } from '../../agent/local-exec.ts'
 import { apiUrl, deviceRegistrationAllowed } from '../../api-endpoint.ts'
 import { authSession } from '../../auth-session.ts'
+import { dialBackend } from '../../backend-socket.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../../client-version.ts'
 import { resolveShellEnv } from '../../shell-env.ts'
 import { leftAloneDir } from '../app-paths.ts'
@@ -122,13 +123,9 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
 
         if (!token) throw new Error('Not signed in')
 
-        const url = tunnelUrlFor(api, readDeviceIdentity().deviceId, reclaim)
-
-        return new WebSocket(url.replace(/^http/u, 'ws'), {
-          headers: {
-            authorization: `Bearer ${token}`,
-            [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,
-          },
+        return dialBackend(tunnelUrlFor(api, readDeviceIdentity().deviceId, reclaim), {
+          authorization: `Bearer ${token}`,
+          [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,
         })
       },
       ...localFileConnectors(() => controller.state(), bundleRoot()),
