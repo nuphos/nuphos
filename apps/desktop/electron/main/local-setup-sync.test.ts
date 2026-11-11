@@ -163,15 +163,23 @@ describe('syncLocalSetup recovery', () => {
     assert.equal(result.uploadedFiles, 0)
   })
 
-  it('skips only the skill with an unreadable file, and syncs the rest', async () => {
+  it('skips only the skill with an unreadable file, and keeps its synced copy', async () => {
+    await syncLocalSetup('t1')
+    assert.ok(team('t1').objects.has('skills/deploy/run.sh'))
     writeFile('.claude/skills/deploy/locked.md', 'no')
     chmodSync(path.join(home, '.claude/skills/deploy/locked.md'), 0o000)
 
     const result = await syncLocalSetup('t1')
 
     assert.equal(result.syncedSkills, 1)
+    assert.equal(result.removedSkills, 0)
     assert.deepEqual(result.skipped, [{ name: 'deploy', reason: 'unreadable' }])
     assert.ok(team('t1').objects.has('skills/triage/SKILL.md'))
+    assert.ok(team('t1').objects.has('skills/deploy/run.sh'))
+    // Readable again: the next pass picks it back up as its own.
+    chmodSync(path.join(home, '.claude/skills/deploy/locked.md'), 0o644)
+    assert.equal((await syncLocalSetup('t1')).syncedSkills, 2)
+    assert.ok(team('t1').objects.has('skills/deploy/locked.md'))
   })
 
   it('never duplicates CLAUDE.md parts when a create fails part-way', async () => {

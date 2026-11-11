@@ -49,6 +49,30 @@ function skillOfKey(key: string): string | null {
 }
 
 /**
+ * Skills synced before whose files failed to read this pass. That is likely
+ * passing (permissions, a link being re-pointed), so each keeps its copy and
+ * record as they are, and the copy still counts against the budget.
+ */
+function heldSkills(
+  skipped: readonly SkippedSkill[],
+  managed: Readonly<Record<string, unknown>>,
+  remote: readonly RemoteObject[],
+): { names: Set<string>; files: number; bytes: number } {
+  const names = new Set(
+    skipped
+      .filter((skip) => skip.reason === 'unreadable' && skip.name in managed)
+      .map((skip) => skip.name),
+  )
+  const objects = remote.filter((object) => names.has(skillOfKey(object.key) ?? ''))
+
+  return {
+    names,
+    files: objects.length,
+    bytes: objects.reduce((sum, object) => sum + object.size, 0),
+  }
+}
+
+/**
  * Plan one pass. `managed` holds, per skill this computer synced before, the
  * sha256 of each file as last uploaded; anything in the store this computer
  * did not put there is left alone and counts against the budget.
@@ -86,6 +110,11 @@ export function planSkillSync(
     else candidates.push({ name: skill.name, files: kept, bytes: size })
   }
 
+  const held = heldSkills(skipped, managed, remote)
+
+  files += held.files
+  bytes += held.bytes
+
   // Smallest first fits the most skills; ties by name keep the choice stable
   // between passes so a skill does not flap in and out of the store.
   candidates.sort((a, b) => a.bytes - b.bytes || a.name.localeCompare(b.name))
@@ -121,7 +150,7 @@ export function planSkillSync(
     }
   }
 
-  const keep = new Set(synced)
+  const keep = new Set([...synced, ...held.names])
   const deleteSkills = Object.keys(managed)
     .filter((name) => !keep.has(name))
     .toSorted((a, b) => a.localeCompare(b))
