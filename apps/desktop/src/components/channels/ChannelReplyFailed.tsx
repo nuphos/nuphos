@@ -1,11 +1,10 @@
-import { CircleAlert } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
 import { formatResetsAt } from '../../lib/runtimeQuota'
 import { requestAgentMenu } from '../agent/panel/agentMenuRequest'
-import { Button } from '../ui/button'
+import { FailureRow } from '../agent/panel/FailureRow'
 import { toast } from '../ui/toast'
 
 import type { AgentTimelineEvent } from '../../api'
@@ -62,28 +61,13 @@ export function ChannelReplyFailed({
   }
 
   return (
-    <div className="flex justify-center py-1">
-      <div className="flex max-w-[560px] items-start gap-2 rounded-xl border border-line-control/60 bg-main px-3 py-2 text-[12.5px] text-secondary">
-        <CircleAlert className="mt-[2px] h-3.5 w-3.5 shrink-0 text-warning" strokeWidth={2.5} />
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <span>
-            {event.text}
-            {resets && <> {t('Usage {resets}.', { resets })}</>}
-          </span>
-          {actionable && agentId && (
-            <div className="flex gap-1.5">
-              {canSwitch && (
-                <Button size="sm" variant="secondary" onClick={switchAgent}>
-                  {t('Switch agent')}
-                </Button>
-              )}
-              <Button size="sm" variant="ghost" disabled={retrying} onClick={retry}>
-                {t('Retry')}
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+    <FailureRow
+      onSwitchAgent={canSwitch && agentId ? switchAgent : undefined}
+      onRetry={actionable && agentId ? retry : undefined}
+      retrying={retrying}
+    >
+      {event.text}
+      {resets && <> {t('Usage {resets}.', { resets })}</>}
+    </FailureRow>
   )
 }

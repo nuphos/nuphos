@@ -5,6 +5,9 @@ export function normalizeTurnInterruptedReason(value: unknown): TurnInterruptedP
   return value === 'cancelled' || value === 'timeout' ? value : 'error'
 }
 
+const isCause = (value: unknown): value is TurnInterruptedPart['cause'] =>
+  value === 'usage_limit' || value === 'auth' || value === 'offline'
+
 export function normalizeTurnInterruptedPart(
   value: Record<string, unknown>,
 ): TurnInterruptedPart | null {
@@ -23,6 +26,7 @@ export function normalizeTurnInterruptedPart(
     reason: normalizeTurnInterruptedReason(value.reason),
     message: value.message,
     createdAt: value.createdAt,
+    ...(isCause(value.cause) ? { cause: value.cause } : {}),
   }
 }
 

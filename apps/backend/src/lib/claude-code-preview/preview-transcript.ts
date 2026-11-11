@@ -9,10 +9,12 @@ import {
   OpenAbConnectionLostError,
   claudeNotice,
   runtimeProductStateMessage,
+  turnFailureCause,
 } from './openab-acp-errors'
 import { runtimeFailure } from './runtime-failure'
 import { RuntimeStateProbeError } from './turn-diagnostics'
 
+import type { TurnFailureCause } from './openab-acp-errors'
 import type { PreviewTextMetadata } from './preview-agent-update'
 import type { SteeringEntry, SteeringReceipt } from './steering-receipt'
 import type { UIMessage } from 'ai'
@@ -38,6 +40,8 @@ export type PreviewToolStep = {
 export type PreviewTurnInterruption = {
   reason: 'cancelled' | 'timeout' | 'error'
   message: string
+  /** Set when the agent itself was the cause, so a client can offer Switch agent. */
+  cause?: Exclude<TurnFailureCause, 'other'>
 }
 
 export const INTERRUPTED_TOOL_ERROR = 'Interrupted before the tool finished.'
@@ -53,6 +57,13 @@ export function classifyPreviewInterruption(
   error: unknown,
   aborted: boolean,
 ): PreviewTurnInterruption {
+  const interruption = interruptionOf(error, aborted)
+  const cause = aborted ? 'other' : turnFailureCause(error)
+
+  return cause === 'other' ? interruption : { ...interruption, cause }
+}
+
+function interruptionOf(error: unknown, aborted: boolean): PreviewTurnInterruption {
   if (
     !aborted &&
     (error instanceof CodexTurnFailedError || error instanceof OpenAbConnectionLostError)
@@ -107,6 +118,7 @@ export function turnInterruptedPart(id: string, interruption: PreviewTurnInterru
     id,
     reason: interruption.reason,
     message: interruption.message,
+    ...(interruption.cause ? { cause: interruption.cause } : {}),
     createdAt: new Date().toISOString(),
   }
 }
