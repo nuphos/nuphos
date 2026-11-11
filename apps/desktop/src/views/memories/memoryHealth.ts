@@ -11,10 +11,7 @@ export type MemoryHealth = {
   // yet — a rate has no meaning without a denominator. Each rate carries the
   // counts it came from, which is how the view communicates sample size.
   applied: { pct: number; applied: number; judged: number } | null
-  recall: { pct: number; hit: number; total: number }
-  learned7d: number
-  /** Turns the attribution judge covered — the denominator behind `applied`,
-   *  exposed so the view can say how much of the window went unchecked. */
+  /** Turns the attribution judge covered — the denominator behind `applied`. */
   checkedTurns: number
   windowDays: number
 }
@@ -27,7 +24,7 @@ export type MemoryHealth = {
  * subset of checked turns by construction (only the judge sets appliedCount),
  * so the ratio is always ≤ 100%. */
 export function deriveMemoryHealth(summary: Summary): MemoryHealth {
-  const { turns, judge, learnedLast7d, windowDays } = summary
+  const { turns, judge, windowDays } = summary
   const ran = judge.ran
 
   return {
@@ -39,8 +36,6 @@ export function deriveMemoryHealth(summary: Summary): MemoryHealth {
             judged: ran,
           }
         : null,
-    recall: { pct: Math.round(turns.recallRate * 100), hit: turns.withRecall, total: turns.total },
-    learned7d: learnedLast7d,
     checkedTurns: ran,
     windowDays,
   }
