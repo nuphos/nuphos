@@ -184,6 +184,11 @@ export const appApi = {
   teamSkillsListLocal: () => window.api.teamSkillsListLocal(),
   localSetupStatus: (teamId: string) => window.api.localSetupStatus(teamId),
   localSetupSync: (teamId: string) => window.api.localSetupSync(teamId),
+  localSetupApproveLinks: (
+    teamId: string,
+    name: string,
+    reviewed: { relPath: string; realPath: string }[],
+  ) => window.api.localSetupApproveLinks(teamId, name, reviewed),
   localSetupSetAutoSync: (teamId: string, enabled: boolean) =>
     window.api.localSetupSetAutoSync(teamId, enabled),
   teamSkillsImportLocal: (

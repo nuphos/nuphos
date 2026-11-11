@@ -119,7 +119,8 @@ export type LocalSetupResult = {
   removedSkills: number
   skipped: {
     name: string
-    reason: 'too_large' | 'too_many_files' | 'name_taken' | 'over_budget' | 'unreadable'
+    reason:
+      'too_large' | 'too_many_files' | 'name_taken' | 'over_budget' | 'unreadable' | 'needs_review'
   }[]
   instruction: 'synced' | 'removed' | 'none' | 'too_long'
   instructionParts: number
@@ -130,8 +131,8 @@ export type LocalSetupStatus = {
   autoSync: boolean
   running: boolean
   localSkills: number
-  /** Files a sync uploads that a link brings in from outside their skill's folder. */
-  outsideFiles: { skill: string; relPath: string; realPath: string }[]
+  /** Skills linking outside their own folder: sync reads one only once reviewed. */
+  linkedSkills: { name: string; files: LocalSkillInfo['files']; reviewed: boolean }[]
   claudeMdChars: number | null
   last: LocalSetupResult | null
   budget: { files: number; bytes: number }

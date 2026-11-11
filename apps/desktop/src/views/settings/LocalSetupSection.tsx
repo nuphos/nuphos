@@ -7,6 +7,7 @@ import { Switch } from '../../components/ui/Switch'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
+import { LocalSetupLinkedSkills } from './LocalSetupLinkedSkills'
 import { LoadFailed, SectionHeader } from './shared'
 
 import type { LocalSetupResult, LocalSetupStatus } from '../../api'
@@ -18,6 +19,7 @@ const SKIP_REASON: Record<LocalSetupResult['skipped'][number]['reason'], string>
   name_taken: t('a personal skill with this name already exists'),
   over_budget: t('over the runtime’s skill budget'),
   unreadable: t('some of its files could not be read'),
+  needs_review: t('it links outside its folder and waits for your review'),
 }
 
 function skillCount(count: number): string {
@@ -48,31 +50,6 @@ function instructionLine(last: LocalSetupResult, chars: number | null): string {
     case 'none':
       return t('No CLAUDE.md on this computer.')
   }
-}
-
-/** Links inside a skill are followed like the CLI follows them, so say where they lead. */
-function OutsideFiles({ files }: { files: LocalSetupStatus['outsideFiles'] }) {
-  if (files.length === 0) return null
-
-  return (
-    <details className="text-[13px] text-secondary">
-      <summary className="cursor-pointer text-warning">
-        {t('{files} come from outside their skill’s folder and are synced too', {
-          files: fileCount(files.length),
-        })}
-      </summary>
-      <ul className="mt-2 max-h-60 space-y-0.5 overflow-auto font-mono text-[12px] text-tertiary">
-        {files.map((file) => (
-          <li key={`${file.skill}/${file.relPath}`} className="truncate" title={file.realPath}>
-            <span className="text-secondary">
-              {file.skill}/{file.relPath}
-            </span>{' '}
-            → {file.realPath}
-          </li>
-        ))}
-      </ul>
-    </details>
-  )
 }
 
 function LastSync({
@@ -255,7 +232,13 @@ export function LocalSetupSection({ team }: { team: AtlasTeam | undefined }) {
             </div>
           </div>
 
-          <OutsideFiles files={status.outsideFiles} />
+          {teamId && (
+            <LocalSetupLinkedSkills
+              teamId={teamId}
+              skills={status.linkedSkills}
+              onApproved={() => void syncNow()}
+            />
+          )}
 
           {last && <LastSync last={last} claudeMdChars={status.claudeMdChars} />}
         </div>

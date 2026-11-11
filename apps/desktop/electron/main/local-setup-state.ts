@@ -12,6 +12,7 @@ import { app } from 'electron'
 import { readConfig } from '../auth/config.ts'
 
 import type { SkippedSkill } from './local-setup-plan.ts'
+import type { LocalSkillFileInfo } from './local-skills.ts'
 
 export type LocalSetupResult = {
   at: string
@@ -29,8 +30,8 @@ export type LocalSetupStatus = {
   autoSync: boolean
   running: boolean
   localSkills: number
-  /** Files a sync uploads that a link brings in from outside their skill's folder. */
-  outsideFiles: { skill: string; relPath: string; realPath: string }[]
+  /** Skills linking outside their own folder: sync reads one only once reviewed. */
+  linkedSkills: { name: string; files: LocalSkillFileInfo[]; reviewed: boolean }[]
   claudeMdChars: number | null
   last: LocalSetupResult | null
   budget: { files: number; bytes: number }
@@ -47,13 +48,19 @@ export type TeamState = {
   /** Instruction ids in part order, recorded the moment each is created. */
   instructionIds: string[]
   last: LocalSetupResult | null
+  /** Links out of a skill the member reviewed: skill → relPath → realPath. */
+  approvedLinks?: ApprovedLinks
 }
+
+export type ApprovedLinks = Record<string, Record<string, string> | undefined>
 
 export type FileHash = {
   size: number
   mtimeMs: number
   /** Where a linked file resolved to: Nix store files all share one mtime. */
   realPath?: string
+  /** What reading it returned, when that differs from `size` (procfs reports 0). */
+  bytes?: number
   sha256: string
 }
 export type HashCache = Record<string, FileHash>

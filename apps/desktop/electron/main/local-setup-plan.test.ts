@@ -89,6 +89,17 @@ describe('planSkillSync', () => {
     assert.deepEqual(plan.skipped, [{ name: 'linked', reason: 'unreadable' }])
   })
 
+  it('skips an unreviewed skill and keeps the copy it synced before', () => {
+    const waiting = { ...skill('deploy', {}), unreviewed: true }
+    const plan = planSkillSync([waiting], { deploy: { 'SKILL.md': 'a' } }, [
+      { key: 'skills/deploy/SKILL.md', size: 1 },
+    ])
+
+    assert.deepEqual(plan.skipped, [{ name: 'deploy', reason: 'needs_review' }])
+    assert.deepEqual(plan.deleteSkills, [])
+    assert.deepEqual(plan.uploads, [])
+  })
+
   it('keeps a synced skill whose files could not be read this pass', () => {
     const plan = planSkillSync(
       [skill('deploy', {}), skill('triage', { 'SKILL.md': [2, 't'] })],

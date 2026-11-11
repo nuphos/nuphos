@@ -3,6 +3,8 @@
 // at a time under `skills/<name>/`.
 import { teamSkillsPutObject } from '../atlas'
 
+import { recordReviewedLinks } from './local-setup-snapshot'
+
 import {
   listLocalSkills,
   localSkillEntries,
@@ -83,6 +85,9 @@ export async function importLocalSkill(
     )
     keys.push(key)
   }
+
+  // The member reviewed these links, so this team's sync may follow them too.
+  if (skill.source === 'claude') await recordReviewedLinks(teamId, skill, reviewed)
 
   return { name: skill.name, source: skill.source, keys, skipped }
 }

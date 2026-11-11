@@ -213,6 +213,11 @@ export type WindowAppApi = {
   teamSkillsListLocal(): Promise<LocalSkillInfo[]>
   localSetupStatus(teamId: string): Promise<LocalSetupStatus>
   localSetupSync(teamId: string): Promise<LocalSetupResult>
+  localSetupApproveLinks(
+    teamId: string,
+    name: string,
+    reviewed: { relPath: string; realPath: string }[],
+  ): Promise<void>
   localSetupSetAutoSync(teamId: string, enabled: boolean): Promise<void>
   teamSkillsImportLocal(
     teamId: string,

@@ -39,6 +39,8 @@ const userData = mkdtempSync(path.join(os.tmpdir(), 'local-setup-data-'))
 const originalHome = process.env.HOME
 
 let syncLocalSetup: typeof import('./local-setup-sync.ts').syncLocalSetup
+let approveLinkedSkill: typeof import('./local-setup-snapshot.ts').approveLinkedSkill
+let listLocalSkills: typeof import('./local-skills.ts').listLocalSkills
 let setLocalSetupAutoSync: typeof import('./local-setup-watch.ts').setLocalSetupAutoSync
 let stopLocalSetupWatcher: typeof import('./local-setup-watch.ts').stopLocalSetupWatcher
 let resetStateForTests: typeof import('./local-setup-state.ts').resetStateForTests
@@ -123,6 +125,8 @@ before(async () => {
     },
   })
   ;({ syncLocalSetup } = await import('./local-setup-sync.ts'))
+  ;({ approveLinkedSkill } = await import('./local-setup-snapshot.ts'))
+  ;({ listLocalSkills } = await import('./local-skills.ts'))
   ;({ setLocalSetupAutoSync, stopLocalSetupWatcher } = await import('./local-setup-watch.ts'))
   ;({ resetStateForTests } = await import('./local-setup-state.ts'))
 })
@@ -234,6 +238,74 @@ describe('syncLocalSetup with linked skills', () => {
     assert.equal(result.uploadedFiles, 1)
     rmSync(store, { recursive: true, force: true })
   })
+})
+
+async function approve(teamId: string, name: string) {
+  const skill = (await listLocalSkills()).find((found) => found.id === `claude/${name}`)
+
+  assert.ok(skill)
+  await approveLinkedSkill(teamId, name, skill.files)
+}
+
+describe('syncLocalSetup linked skills', () => {
+  it('reads a skill that links outside its folder only once those links are reviewed', async () => {
+    const outside = mkdtempSync(path.join(os.tmpdir(), 'local-setup-outside-'))
+    const link = path.join(home, '.claude/skills/deploy/id_demo')
+
+    writeFileSync(path.join(outside, 'id_demo'), 'private')
+    writeFileSync(path.join(outside, 'other'), 'another file')
+    symlinkSync(path.join(outside, 'id_demo'), link)
+
+    let result = await syncLocalSetup('t1')
+
+    assert.deepEqual(result.skipped, [{ name: 'deploy', reason: 'needs_review' }])
+    assert.ok(!team('t1').objects.has('skills/deploy/SKILL.md'))
+    await approve('t1', 'deploy')
+    result = await syncLocalSetup('t1')
+    assert.deepEqual(result.skipped, [])
+    assert.equal(team('t1').objects.get('skills/deploy/id_demo'), 'private'.length)
+
+    // Re-pointed since the review: the new target is not read and the reviewed copy stays.
+    unlinkSync(link)
+    symlinkSync(path.join(outside, 'other'), link)
+    result = await syncLocalSetup('t1')
+    assert.deepEqual(result.skipped, [{ name: 'deploy', reason: 'needs_review' }])
+    assert.equal(result.removedSkills, 0)
+    assert.equal(team('t1').objects.get('skills/deploy/id_demo'), 'private'.length)
+    rmSync(outside, { recursive: true, force: true })
+  })
+
+  it('refuses an approval for links that changed since the review', async () => {
+    const outside = mkdtempSync(path.join(os.tmpdir(), 'local-setup-outside-'))
+
+    writeFileSync(path.join(outside, 'id_demo'), 'private')
+    symlinkSync(path.join(outside, 'id_demo'), path.join(home, '.claude/skills/deploy/id_demo'))
+    await assert.rejects(
+      approveLinkedSkill('t1', 'deploy', [{ relPath: 'SKILL.md', realPath: '/elsewhere' }]),
+      /changed since you reviewed it/,
+    )
+    rmSync(outside, { recursive: true, force: true })
+  })
+
+  it(
+    'budgets what a file holds, not the size it reports',
+    {
+      skip: process.platform !== 'linux',
+    },
+    async () => {
+      symlinkSync('/proc/version', path.join(home, '.claude/skills/deploy/kernel.txt'))
+      await approve('t1', 'deploy')
+      await syncLocalSetup('t1')
+
+      const { hashes } = JSON.parse(
+        readFileSync(path.join(userData, 'local-setup-hashes.json'), 'utf8'),
+      ) as { hashes: Record<string, { size: number; bytes?: number }> }
+      const kernel = hashes[path.join(home, '.claude/skills/deploy/kernel.txt')]
+
+      assert.equal(kernel?.size, 0)
+      assert.ok((kernel.bytes ?? 0) > 0)
+    },
+  )
 })
 
 describe('syncLocalSetup state', () => {

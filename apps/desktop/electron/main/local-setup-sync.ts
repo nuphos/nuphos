@@ -4,7 +4,6 @@
 // decisions live in local-setup-plan.ts; this module reads disk and calls the API,
 // recording each change in local-setup-state.ts as it lands, and
 // local-setup-watch.ts re-runs it when files change.
-import { createHash } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
@@ -21,7 +20,6 @@ import {
 
 import {
   instructionTitle,
-  MAX_SYNCED_FILE_BYTES,
   planSkillSync,
   RUNTIME_BYTE_BUDGET,
   RUNTIME_FILE_BUDGET,
@@ -35,69 +33,14 @@ import {
   stateKey,
   updateTeam,
 } from './local-setup-state.ts'
-import { listLocalSkills, outsideFiles, readSkillFile, walkSkill } from './local-skills.ts'
+import { linksReviewed, snapshotLocalSkills } from './local-setup-snapshot.ts'
+import { listLocalSkills, outsideFiles, readSkillFile } from './local-skills.ts'
 
-import type { LocalSkillSnapshot, RemoteObject } from './local-setup-plan.ts'
-import type {
-  FileHash,
-  HashCache,
-  LocalSetupResult,
-  LocalSetupStatus,
-} from './local-setup-state.ts'
+import type { RemoteObject } from './local-setup-plan.ts'
+import type { LocalSetupResult, LocalSetupStatus } from './local-setup-state.ts'
 import type { LocalSkillEntry } from './local-skills.ts'
 
 export type { LocalSetupResult, LocalSetupStatus } from './local-setup-state.ts'
-
-async function hashFile(full: string, entry: LocalSkillEntry, cache: HashCache, seen: HashCache) {
-  const { realPath, size, mtimeMs } = entry
-
-  // The planner leaves a file over the cap behind, so never read one.
-  if (size > MAX_SYNCED_FILE_BYTES) return ''
-  const cached = cache[full] as FileHash | undefined
-  const sha256 =
-    cached?.size === size && cached.mtimeMs === mtimeMs && cached.realPath === realPath
-      ? cached.sha256
-      : createHash('sha256')
-          .update(await readSkillFile(entry))
-          .digest('hex')
-
-  seen[full] = { size, mtimeMs, realPath, sha256 }
-
-  return sha256
-}
-
-type SkillSnapshot = LocalSkillSnapshot & { entries: Map<string, LocalSkillEntry> }
-
-/** Claude Code skills only: Codex keeps its own, and a name can exist under both. */
-async function snapshotLocalSkills(
-  cache: HashCache,
-): Promise<{ skills: SkillSnapshot[]; hashes: HashCache }> {
-  const skills = (await listLocalSkills()).filter((skill) => skill.source === 'claude')
-  const out: SkillSnapshot[] = []
-  // Only files that still exist keep a cache entry.
-  const seen: HashCache = {}
-
-  for (const skill of skills) {
-    const { entries, truncated } = await walkSkill(skill.path)
-    const byPath = new Map(entries.map((entry) => [entry.relPath, entry]))
-    const files = []
-
-    try {
-      for (const entry of entries) {
-        const sha256 = await hashFile(path.join(skill.path, entry.relPath), entry, cache, seen)
-
-        files.push({ relPath: entry.relPath, size: entry.size, sha256 })
-      }
-      out.push({ name: skill.name, entries: byPath, files, truncated })
-    } catch (e) {
-      // One unreadable file skips only its own skill, which the planner holds.
-      console.warn(`local-setup: could not read ${skill.name}`, e)
-      out.push({ name: skill.name, entries: new Map(), files: [] })
-    }
-  }
-
-  return { skills: out, hashes: seen }
-}
 
 async function readClaudeMd(): Promise<string | null> {
   return fs.readFile(path.join(claudeDir(), 'CLAUDE.md'), 'utf8').catch(() => null)
@@ -183,7 +126,7 @@ async function uploadFile(
 
 async function runSync(teamId: string): Promise<LocalSetupResult> {
   const key = await stateKey(teamId)
-  const snapshot = await snapshotLocalSkills(readHashCache())
+  const snapshot = await snapshotLocalSkills(readHashCache(), readTeam(key).approvedLinks ?? {})
   const local = snapshot.skills
 
   saveHashCache(snapshot.hashes, path.join(claudeDir(), 'skills'))
@@ -290,7 +233,13 @@ export async function localSetupStatus(teamId: string): Promise<LocalSetupStatus
     autoSync: team.autoSync,
     running: running.has(teamId),
     localSkills: skills.length,
-    outsideFiles: skills.flatMap(outsideFiles),
+    linkedSkills: skills
+      .filter((skill) => outsideFiles(skill).length > 0)
+      .map((skill) => ({
+        name: skill.name,
+        files: skill.files,
+        reviewed: linksReviewed(skill, team.approvedLinks ?? {}),
+      })),
     claudeMdChars: (await readClaudeMd())?.trim().length ?? null,
     last: team.last,
     budget: { files: RUNTIME_FILE_BUDGET, bytes: RUNTIME_BYTE_BUDGET },
