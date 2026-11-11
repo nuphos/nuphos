@@ -13,6 +13,7 @@ import { isActiveTeamMember } from '@/lib/agent/devices/store'
 import { describeDevices, pickDevice } from '@/lib/agent/tools-skilled/local-tools'
 import { toolError } from '@/lib/mcp/protocol'
 import { logError } from '@/lib/observability'
+import { assertConversationSendable } from '@/routes/agent/team-scope'
 
 import { publishPreviewFrame } from '../run-frame-bridge'
 
@@ -173,6 +174,8 @@ export async function resolveDevice(
   requested: string | undefined,
   deps: DeviceToolDeps,
 ): Promise<string | ToolResult> {
+  if (!(await assertConversationSendable(ctx.sessionId, ctx.userId, ctx.teamId)))
+    return toolError('This conversation is no longer available.')
   const devices = await deps.devices(ctx)
 
   if (devices.length === 0) return toolError(tool.noDevice)

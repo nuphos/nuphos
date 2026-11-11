@@ -118,6 +118,7 @@ describe('localExecToolModule', () => {
       { deviceId: 'mac', label: 'MacBook' },
       { deviceId: 'box', label: 'Box' },
     ])
+
     expect(devices.find((d) => d.deviceId === 'mac')?.wake).toBeUndefined()
     expect(typeof devices.find((d) => d.deviceId === 'box')?.wake).toBe('function')
   })
@@ -127,6 +128,7 @@ test('a shared turn resolves the owner selection instead of the teammate devices
   credentialOptions({
     getAgentCredentialOptions: async (_teamId, userId) => {
       expect(userId).toBe('u1')
+
       return options
     },
   })
@@ -134,6 +136,7 @@ test('a shared turn resolves the owner selection instead of the teammate devices
     getAgentCredentialAccess: async (agent) => {
       expect(agent.userId).toBe('u1')
       expect(agent.sessionId).toBe('conv-1')
+
       return access
     },
   })
@@ -142,6 +145,7 @@ test('a shared turn resolves the owner selection instead of the teammate devices
     userId: 'teammate',
     conversationOwnerUserId: 'u1',
   })
+
   expect(devices.map((device) => device.deviceId)).toEqual(['mac', 'box'])
   expect(devices.find((device) => device.deviceId === 'box')?.wake).toBeFunction()
 })

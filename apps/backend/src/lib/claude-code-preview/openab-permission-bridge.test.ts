@@ -157,6 +157,7 @@ describe('OpenAB permission bridge', () => {
         ref: 'tool-dangerous',
       },
     ])
+
     expect(awaited).toEqual([
       {
         userId: 'user-1',
@@ -165,6 +166,7 @@ describe('OpenAB permission bridge', () => {
         timeoutMs: OPENAB_PERMISSION_DECISION_TIMEOUT_MS,
       },
     ])
+
     expect(tools).toEqual([
       {
         kind: 'tool',
@@ -175,6 +177,7 @@ describe('OpenAB permission bridge', () => {
         revealed: true,
       },
     ])
+
     expect(frames).toEqual([
       {
         type: 'authorization-decision',
@@ -190,6 +193,7 @@ describe('OpenAB permission bridge', () => {
         options: request.options,
       },
     ])
+
     expect(outcome).toEqual({ outcome: { outcome: 'selected', optionId: 'allow-once' } })
   })
 
@@ -227,6 +231,7 @@ describe('OpenAB permission bridge', () => {
         reason: 'Full Access is enabled for this conversation.',
       },
     ])
+
     expect(outcome).toEqual({ outcome: { outcome: 'selected', optionId: 'allow-once' } })
   })
 
@@ -261,6 +266,7 @@ describe('OpenAB permission bridge', () => {
       layer: 'bypass',
       reason: 'The agent did not offer an allow option.',
     })
+
     expect(outcome).toEqual({ outcome: { outcome: 'cancelled' } })
   })
 
@@ -435,10 +441,12 @@ test.each([true, false])(
       {
         getSessionBypass: async (sessionId, userId) => {
           expect([sessionId, userId]).toEqual(['shared', 'owner'])
+
           return fullAccess
         },
         registerWait: async (args) => {
           waits.push(args.userId)
+
           return { ...args, waitId: 'wait', createdAt: 0 }
         },
         hasPendingMessages: async () => false,
@@ -454,6 +462,7 @@ test.each([true, false])(
         }),
       },
     )
+
     expect(waits).toEqual(fullAccess ? [] : ['teammate'])
     expect(frames.some((frame) => frame.type === 'tool-approval-request')).toBe(!fullAccess)
     expect(outcome).toEqual({ outcome: { outcome: 'selected', optionId: 'allow-once' } })

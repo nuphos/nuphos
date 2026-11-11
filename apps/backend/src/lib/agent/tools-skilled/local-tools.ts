@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 
 import { AppError } from '@/lib/errors'
+import { assertConversationSendable } from '@/routes/agent/team-scope'
 
 import { dispatchLocalExec } from '../devices/dispatch'
 import { isActiveTeamMember } from '../devices/store'
@@ -209,6 +210,9 @@ export function createLocalExecTool(
 
           return { error: 'You are no longer a member of this team.' }
         }
+        if (!(await assertConversationSendable(turn.sessionId, turn.userId, turn.teamId)))
+          return { error: 'This conversation is no longer available.' }
+
         // A Box that idled into a pause is resumed now, for this command, not for every turn.
         const wake = devices.find((candidate) => candidate.deviceId === deviceId)?.wake
 
