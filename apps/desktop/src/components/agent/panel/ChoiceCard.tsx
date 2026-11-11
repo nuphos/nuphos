@@ -79,7 +79,7 @@ export function ChoiceCard({
           {TITLE[category] ?? t('Decision needed')}
         </div>
         <AgentQuote text={question} />
-        <DecisionBody text={body} />
+        <DecisionBody text={body} full={ctx?.fullBody} />
       </div>
       {!chosen &&
         (options.length > 0 || reply ? (
@@ -125,10 +125,10 @@ function typedReply(ctx: ConnectCardContextValue | null, interactive: boolean, c
 }
 
 /** The question's markdown body, a few lines at first; "Show more" reveals the rest. */
-function DecisionBody({ text }: { text: string | undefined }) {
+function DecisionBody({ text, full = false }: { text: string | undefined; full?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const [overflows, setOverflows] = useState(false)
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(full)
 
   useLayoutEffect(() => {
     const el = ref.current
@@ -145,7 +145,7 @@ function DecisionBody({ text }: { text: string | undefined }) {
           {text}
         </MessageResponse>
       </div>
-      {(overflows || expanded) && (
+      {!full && (overflows || expanded) && (
         <button
           type="button"
           onClick={() => setExpanded((open) => !open)}
