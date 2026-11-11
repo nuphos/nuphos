@@ -9,6 +9,7 @@ import { OpenAbRpcError } from './openab-acp-errors'
 import { runtimeModelCatalog } from './runtime-models'
 import { offeredSessionConfig } from './session-config-catalog'
 import { parseSessionConfigOptions, storedPick } from './session-config-options'
+import { storeSessionConfig } from './session-config-record'
 import { sessionConfigRestoreContext } from './session-config-restore'
 
 import type { RuntimeDefaults } from './openab-acp-session'
@@ -256,14 +257,11 @@ async function applySessionConfig(
     return (await controlSessionConfig(client, attachment.openabSessionId, selection)).options
   })
 
-  // Scoped to the session id so a newer session's settings are never overwritten.
-  await agentConversations().updateOne(
-    {
-      sessionId: conversation.sessionId,
-      teamId: conversation.teamId,
-      'claudeCodePreview.openabSessionId': attachment.openabSessionId,
-    },
-    { $set: { 'claudeCodePreview.sessionConfig': options } },
+  await storeSessionConfig(
+    conversation.sessionId,
+    conversation.teamId,
+    attachment.openabSessionId,
+    options,
   )
 
   return storedPick({ ...attachment, sessionConfig: options })
