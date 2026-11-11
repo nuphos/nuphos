@@ -21,6 +21,7 @@ import {
 
 import {
   instructionTitle,
+  MAX_SYNCED_FILE_BYTES,
   planSkillSync,
   RUNTIME_BYTE_BUDGET,
   RUNTIME_FILE_BUDGET,
@@ -49,6 +50,9 @@ export type { LocalSetupResult, LocalSetupStatus } from './local-setup-state.ts'
 
 async function hashFile(full: string, entry: LocalSkillEntry, cache: HashCache, seen: HashCache) {
   const { realPath, size, mtimeMs } = entry
+
+  // The planner leaves a file over the cap behind, so never read one.
+  if (size > MAX_SYNCED_FILE_BYTES) return ''
   const cached = cache[full] as FileHash | undefined
   const sha256 =
     cached?.size === size && cached.mtimeMs === mtimeMs && cached.realPath === realPath
@@ -62,9 +66,9 @@ async function hashFile(full: string, entry: LocalSkillEntry, cache: HashCache, 
   return sha256
 }
 
-/** Claude Code skills only: Codex keeps its own, and a name can exist under both. */
 type SkillSnapshot = LocalSkillSnapshot & { entries: Map<string, LocalSkillEntry> }
 
+/** Claude Code skills only: Codex keeps its own, and a name can exist under both. */
 async function snapshotLocalSkills(
   cache: HashCache,
 ): Promise<{ skills: SkillSnapshot[]; hashes: HashCache }> {
@@ -75,6 +79,7 @@ async function snapshotLocalSkills(
 
   for (const skill of skills) {
     const { entries, truncated } = await walkSkill(skill.path)
+    const byPath = new Map(entries.map((entry) => [entry.relPath, entry]))
     const files = []
 
     try {
@@ -83,15 +88,9 @@ async function snapshotLocalSkills(
 
         files.push({ relPath: entry.relPath, size: entry.size, sha256 })
       }
-      out.push({
-        name: skill.name,
-        entries: new Map(entries.map((e) => [e.relPath, e])),
-        files,
-        truncated,
-      })
+      out.push({ name: skill.name, entries: byPath, files, truncated })
     } catch (e) {
-      // One unreadable file skips its own skill: with no files the planner
-      // reports it as unreadable, and the rest of the pass goes on.
+      // One unreadable file skips only its own skill, which the planner holds.
       console.warn(`local-setup: could not read ${skill.name}`, e)
       out.push({ name: skill.name, entries: new Map(), files: [] })
     }

@@ -182,6 +182,16 @@ describe('syncLocalSetup recovery', () => {
     assert.ok(team('t1').objects.has('skills/deploy/locked.md'))
   })
 
+  it('syncs the rest of a skill that holds a file over the size cap', async () => {
+    writeFile('.claude/skills/deploy/archive.bin', 'x'.repeat(10_000_001))
+
+    const result = await syncLocalSetup('t1')
+
+    assert.equal(result.syncedSkills, 2)
+    assert.ok(team('t1').objects.has('skills/deploy/run.sh'))
+    assert.ok(!team('t1').objects.has('skills/deploy/archive.bin'))
+  })
+
   it('never duplicates CLAUDE.md parts when a create fails part-way', async () => {
     writeFile('.claude/CLAUDE.md', `${'a'.repeat(7_000)}\n${'b'.repeat(7_000)}\n`)
     failures.createInstruction = [2]
