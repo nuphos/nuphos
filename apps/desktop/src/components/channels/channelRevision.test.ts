@@ -38,3 +38,14 @@ test('a new post or member still changes the revision', () => {
     channelRevision(probe),
   )
 })
+
+test('an opening failure refreshes the chat even before its first message', () => {
+  const failed = {
+    ...probe,
+    timelineEvents: [
+      { kind: 'agent_reply_failed', at: '2026-11-07T09:01:00Z', text: 'Could not reply' },
+    ],
+  }
+
+  assert.notEqual(channelRevision(failed), channelRevision(probe))
+})

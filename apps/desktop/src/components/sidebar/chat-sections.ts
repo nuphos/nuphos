@@ -90,3 +90,25 @@ export function withSectionActions(
     return action ? { ...section, action } : section
   })
 }
+
+/** Assemble the chat navigation in one place for the full and compact sidebar. */
+export function decorateChatSections(options: {
+  sections: Section[]
+  openBot: (botId: string) => void
+  projects: (tasks: Item[]) => Item[]
+  favorites: Item[]
+  compact: boolean
+  actions: Partial<Record<string, ReactNode>>
+}): Section[] {
+  const sections = withChatSections(options.sections, options.openBot, options.projects)
+
+  if (options.favorites.length)
+    sections.splice(1, 0, { title: 'Favorites', items: options.favorites })
+
+  return withSectionActions(
+    options.compact
+      ? sections.filter((section, index) => index === 0 || isChatSection(section))
+      : sections,
+    options.actions,
+  )
+}

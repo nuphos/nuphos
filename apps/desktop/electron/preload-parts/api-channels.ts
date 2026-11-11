@@ -5,6 +5,9 @@ export const channelsApi = {
   agentCreateBot: (
     teamId: string,
     bot?: {
+      onboarding?: boolean
+      starter?: 'coordinate'
+      locale?: string
       title?: string
       avatar?: string
       runtimeId?: string
@@ -12,6 +15,8 @@ export const channelsApi = {
       runtimeLabel?: string
     },
   ) => ipcRenderer.invoke('agent:createBot', teamId, bot),
+  agentStartBotOnboarding: (sessionId: string, teamId: string, channelId: string) =>
+    ipcRenderer.invoke('agent:startBotOnboarding', sessionId, teamId, channelId),
   agentMakeBot: (sessionId: string, teamId: string) =>
     ipcRenderer.invoke('agent:makeBot', sessionId, teamId),
   agentListChannelMentions: (teamId: string) =>

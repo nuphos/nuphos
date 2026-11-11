@@ -14,8 +14,10 @@ test('exposes the past-conversation tools in a team', () => {
   expect(Object.keys(createSessionTools('u', 'c', 'team')).sort(byCodeUnit)).toEqual([
     'create_bot',
     'list_recent_conversations',
+    'list_tasks',
     'read_conversation',
     'rename_conversation',
+    'report_task',
     'update_self',
   ])
 })

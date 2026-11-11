@@ -6,6 +6,7 @@ import { api } from '../../api'
 import { openSessionDesktop } from '../../app/workspace/openSessionDesktop'
 import { t } from '../../i18n'
 import { runtimeStateOf, subscribeRuntimeStates } from '../../lib/agentRuntimeStates'
+import { runtimeTurnActive } from '../../lib/runtimeExecution'
 import { forgetSessionDesktops, publishSessionDesktops } from '../../lib/sessionDesktops'
 import { makeAttachmentTurn } from '../agent/panel/attachments'
 import { Composer } from '../agent/panel/Composer'
@@ -14,28 +15,25 @@ import { FileDropZone } from '../agent/panel/FileDropZone'
 import { sessionDesktopsOf } from '../agent/panel/shells'
 import { useConversationRead } from '../agent/panel/useConversationRead'
 import { SessionParticipants } from '../agent/SessionParticipants'
+import { HeaderEdge } from '../ui/header-edge'
 import { IconButton } from '../ui/icon-button'
 import { toast } from '../ui/toast'
 
 import { botOfChannel } from './botChannel'
 import { ChannelMessages } from './ChannelMessages'
 import { ChannelTitle } from './ChannelTitle'
-import { ChatHeaderIcon, ChatIcon, ReplyingBanner } from './channelParts'
+import { ChatHeaderIcon, ReplyingBanner } from './channelParts'
+import { ChannelEmptyState } from './ChannelEmptyState'
 import { sendingPost, stillSending } from './sendingPosts'
 import { useBotChatQuestions } from './useBotChatQuestions'
 import { useChannel } from './useChannel'
 import { useStickToBottom } from './useStickToBottom'
-import { HeaderEdge } from '../ui/header-edge'
 
 import type { AgentMessageMention, AgentMessageReply, AgentPersistedMessage } from '../../api'
 import type { UserInfo } from '../../types'
 import type { AgentPromptSeed } from '../agent/panel/model'
 import type { ReactNode } from 'react'
 
-/**
- * A channel: people and agents talking. It runs no agent of its own; each
- * agent here answers from its own session, which "Open session" shows.
- */
 /** The post a reply quotes, or an agent's question it answers through `answer`. */
 type Replying = AgentMessageReply & { answer?: (text: string) => void }
 
@@ -83,6 +81,9 @@ export function ChannelPane({
   // A Bot's chat opens the Bot's desktop in this chat's dock, as its Task page's dock does.
   const bot = botOfChannel(detail?.faces)
   const botState = useSyncExternalStore(subscribeRuntimeStates, () => runtimeStateOf(bot))
+  const preparingFirstReply = runtimeTurnActive(botState)
+  const firstReplyFailed =
+    detail?.timelineEvents?.some((event) => event.kind === 'agent_reply_failed') ?? false
   const botOwned = agents.some((agent) => agent.sessionId === bot && agent.ownerId === user.id)
   const canOpenBotDesktop =
     bot !== undefined &&
@@ -236,18 +237,17 @@ export function ChannelPane({
             the one width every row takes, the composer's own (px-3, 760px). */}
         <div className="mx-auto w-full max-w-[760px]">
           {detail && messages.length === 0 && (
-            <div className="flex flex-col items-start gap-3 pt-10">
-              <ChatIcon faces={detail.faces} title={title} size={44} />
-              <div className="text-lg font-semibold leading-snug text-main">{title}</div>
-              <div className="max-w-[560px] text-[13px] leading-relaxed text-secondary">
-                {t(
-                  'Everyone here sees each message and decides for themselves whether to reply, as in any group chat.',
-                )}
-              </div>
-            </div>
+            <ChannelEmptyState
+              faces={detail.faces}
+              title={title}
+              bot={Boolean(bot)}
+              preparingFirstReply={preparingFirstReply}
+              firstReplyFailed={firstReplyFailed}
+            />
           )}
           {detail && (
             <ChannelMessages
+              initialBotId={messages.length === 0 ? bot : undefined}
               messages={messages}
               events={detail?.timelineEvents ?? []}
               agents={agents}

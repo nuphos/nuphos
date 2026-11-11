@@ -1,7 +1,6 @@
 import { t } from '../../i18n'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { rowDot } from '../../lib/subAgentState'
-
 import { botOfChannel } from '../channels/botChannel'
 import { ChatIcon } from '../channels/channelParts'
 

@@ -9,6 +9,23 @@ import type { ResourceTurn } from './resource-webhook'
 // A producer-only connection: importing tools must not load the worker/route graph.
 let queue: Queue | undefined
 
+export async function enqueueTaskReport(reportId: string): Promise<void> {
+  if (!redisEnabled())
+    throw new Error('Task report delivery requires Redis; the report is saved for recovery.')
+  queue ??= new Queue(AGENT_TRIGGER_QUEUE, { connection: buildBullMQConnection() })
+  await queue.add(
+    'task-report',
+    { reportId },
+    {
+      jobId: `task-report-${reportId}`,
+      attempts: 5,
+      backoff: { type: 'exponential', delay: 5000 },
+      removeOnComplete: { age: 30 * 86400 },
+      removeOnFail: false,
+    },
+  )
+}
+
 export async function closeThreadQueue(): Promise<void> {
   const closing = queue
 

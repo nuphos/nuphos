@@ -3,17 +3,17 @@ import { memo, useState } from 'react'
 
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
 import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor'
-import { openBotChannel } from '../channels/botChannel'
 import { SidebarSearchButton } from '../session-search/SidebarSearchButton'
 import { SIDEBAR_PANEL_PADDING_CLASS } from '../SidebarNavItem'
 
 import { useArchiveBotConfirm } from './archive-bot-confirm'
-import { isChatSection, withChatSections, withSectionActions } from './chat-sections'
+import { decorateChatSections } from './chat-sections'
 import { SidebarHeaderBar, SidebarTeamSwitcher, SidebarUserEntry } from './header'
 import { SidebarHelpMenu } from './help-menu'
 import { SidebarItemContextMenu } from './item-context-menu'
 import { SidebarBackControl, SidebarNavStack } from './nav-stack'
 import { SidebarIdentitySelector, SidebarInvitations } from './parts'
+import { openBotFromList } from './open-bot-from-list'
 import { chatSectionActions, useProjectRows } from './section-actions'
 import { SidebarSectionList } from './sections-list'
 import { teamSections } from './sections-services'
@@ -26,8 +26,6 @@ import { sectionsFor, sidebarView } from './view'
 
 import type { ItemMenuRequest, SidebarProps } from './types'
 
-// Memoized: the workspace renders its sidebar on every update; this skips the
-// ones whose props are unchanged.
 export const Sidebar = memo(function Sidebar({
   scope,
   active,
@@ -124,19 +122,15 @@ export const Sidebar = memo(function Sidebar({
   const [itemMenu, setItemMenu] = useState<ItemMenuRequest | null>(null)
   const archiveBot = useArchiveBotConfirm(archiveChat)
   const projects = useProjectRows(teamId, onSelect, chrome.toggleGroup)
-  const openBot = (botId: string) => openBotChannel(teamId, botId, onSelect)
-  const renderSections = withChatSections(sections, openBot, projects.rows)
-
-  if (dynamicNavigation && teamView && favoriteItems.length > 0) {
-    renderSections.splice(1, 0, { title: 'Favorites', items: favoriteItems })
-  }
-
-  const sidebarSections = withSectionActions(
-    dynamicNavigation
-      ? renderSections
-      : renderSections.filter((section, index) => index === 0 || isChatSection(section)),
-    chatSectionActions(teamId, onSelect),
-  )
+  const openBot = (botId: string) => openBotFromList(teamId, botId, agentSessions, onSelect)
+  const sidebarSections = decorateChatSections({
+    sections,
+    openBot,
+    projects: projects.rows,
+    favorites: dynamicNavigation && teamView ? favoriteItems : [],
+    compact: !dynamicNavigation,
+    actions: chatSectionActions(teamId, onSelect),
+  })
 
   useChatNavKeys(sidebarSections, chrome.isGroupCollapsed, onSelect, chatNavKeysLive)
 
@@ -203,7 +197,6 @@ export const Sidebar = memo(function Sidebar({
           history={history}
           chatOf={(id) => agentSessions.find((chat) => chat.sessionId === id)}
         />
-
         <SidebarTeamSwitcher
           teamSegment={teamSegment}
           loading={teamSkeleton}
@@ -211,7 +204,6 @@ export const Sidebar = memo(function Sidebar({
           onOpenMyPreferences={onOpenMyPreferences}
           onCreateTeam={onCreateTeam}
         />
-
         <SidebarSearchButton onSearch={onSearch} />
         <nav
           onScroll={chrome.handleNavScroll}

@@ -1,6 +1,9 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 
+import { getSessionBypass } from './auto-mode/store'
+import { BOT_AVATARS } from './bot-avatars'
+import { createBot } from './bots'
 import {
   getConversations,
   getConversationTranscriptForAgent,
@@ -8,10 +11,9 @@ import {
   renameConversation,
   updateBotSelf,
 } from './db'
-import { getSessionBypass } from './auto-mode/store'
-import { BOT_AVATARS } from './bot-avatars'
-import { createBot } from './bots'
 import { getLiveTurn } from './live-turn'
+import { createCoordinationTools } from './tools-coordination'
+import { conversationSummary } from './tools-session-summary'
 import { withLabel } from './tools-skilled/labeling'
 
 const LIST_DESCRIPTION =
@@ -44,38 +46,11 @@ const CREATE_BOT_DESCRIPTION =
   'The Bot belongs to that person and is their 1:1 chat with it; it starts idle on their default agent, in your own permission mode. ' +
   'Pass instructions in the second person, drafted from what they asked for. Returns its session_id.'
 
-function conversationSummary(
-  c: {
-    sessionId: string
-    title: string
-    createdAt: Date
-    lastActiveAt: Date
-    messageCount: number
-    archivedAt?: Date
-    userId: string
-    parentSessionId?: string
-  },
-  viewerUserId: string,
-  currentSessionId: string,
-) {
-  return {
-    session_id: c.sessionId,
-    title: c.title,
-    created_at: c.createdAt.toISOString(),
-    last_active_at: c.lastActiveAt.toISOString(),
-    message_count: c.messageCount,
-    ...(c.parentSessionId ? { parent_session_id: c.parentSessionId } : {}),
-    ...(c.archivedAt ? { archived: true } : {}),
-    ...(c.userId === viewerUserId ? {} : { owner: 'teammate' }),
-    ...(c.sessionId === currentSessionId ? { is_current_conversation: true } : {}),
-  }
-}
-
 export function createSessionTools(
   userId: string,
   conversationId: string,
   teamId: string | null | undefined,
-) {
+): Record<string, ReturnType<typeof withLabel>> {
   if (!teamId) return {}
 
   const listShape = {
@@ -291,6 +266,7 @@ export function createSessionTools(
   )
 
   return {
+    ...createCoordinationTools(userId, conversationId, teamId),
     list_recent_conversations,
     read_conversation,
     rename_conversation,

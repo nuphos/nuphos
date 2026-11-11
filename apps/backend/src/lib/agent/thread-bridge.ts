@@ -1,10 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import {
-  getSessionBypass,
-  initializeSessionBypass,
-  setSessionBypass,
-} from '@/lib/agent/auto-mode/store'
+import { getSessionBypass, setSessionBypass } from '@/lib/agent/auto-mode/store'
 import { wakeOfflineBox } from '@/lib/agent/devices/box-wake'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/conversation-chat-route'
 import { fallBackBeforeTurn } from '@/lib/claude-code-preview/runtime-fallback'
@@ -17,13 +13,15 @@ import {
   recordAgentEvent,
   setConversationArchived,
   setConversationParent,
-  upsertConversationShell,
 } from './db'
 import { isChannel } from './db/channels'
+import { prepareThread } from './thread-delegation'
 
+import type { AgentConversation } from './db'
 import type { CredentialRef } from './thread-credentials'
 import type { ThreadModelPick } from './thread-runtime'
-import type { AgentConversation } from './db'
+
+export { delegationThreadId } from './thread-delegation'
 
 export type ThreadActor = { userId: string; teamId: string; sessionId: string; locale: string }
 export type ThreadTurn = ThreadActor & {
@@ -84,46 +82,10 @@ export async function createAgentThread(
   actor: ThreadActor,
   prompt: string,
   title: string,
-  pick: ThreadModelPick & { credentials?: CredentialRef[] } = {},
+  pick: ThreadModelPick & { credentials?: CredentialRef[]; requestId?: string } = {},
 ) {
   const source = await authorizeThreadActor(actor)
-  const { threadCredentialAccess } = await import('./thread-credentials')
-  // Checked before anything is written, so a refused grant leaves no conversation.
-  const credentialAccess = await threadCredentialAccess(actor, source, pick.credentials)
-  const threadId = randomUUID()
-  const messageId = randomUUID()
-
-  await upsertConversationShell({
-    sessionId: threadId,
-    userId: actor.userId,
-    teamId: actor.teamId,
-    title,
-    firstMessage: prompt,
-    locale: actor.locale,
-    source: 'agent.thread',
-    credentialAccess,
-    agentRuntime: source.agentRuntime,
-    runtimeId: source.runtimeId,
-    runtimeLabel: source.runtimeLabel,
-    parentSessionId: actor.sessionId,
-    parentGrants: source,
-    workspace: source.workspace,
-  })
-  // A thread runs in its parent's permission mode, as a hand-opened chat in the user's pick.
-  await initializeSessionBypass(
-    threadId,
-    actor.userId,
-    await getSessionBypass(actor.sessionId, actor.userId),
-  )
-  const { setThreadModel } = await import('./thread-runtime')
-
-  try {
-    await setThreadModel(threadId, actor.userId, pick)
-  } catch (error) {
-    // Nothing ran yet; a refused pick hides the unused conversation.
-    await setConversationArchived(threadId, true)
-    throw error
-  }
+  const { threadId, messageId } = await prepareThread(actor, source, prompt, title, pick)
   const { status } = await startThreadTurn({
     ...actor,
     targetSessionId: threadId,

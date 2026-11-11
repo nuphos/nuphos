@@ -42,6 +42,20 @@ export async function initTriggerScheduler(): Promise<boolean> {
   _worker = new Worker(
     AGENT_TRIGGER_QUEUE,
     async (job, token) => {
+      if (job.name === 'task-report') {
+        const { deliverTaskReport } = await import('./task-report-delivery')
+
+        await deliverTaskReport(job.data.reportId)
+
+        return
+      }
+      if (job.name === 'recover-task-reports') {
+        const { recoverTaskReports } = await import('./task-reports')
+
+        await recoverTaskReports()
+
+        return
+      }
       if (job.name === 'resource-session-turn') {
         const { executeResourceTurn } = await import('./resource-turn')
 
@@ -108,7 +122,33 @@ export async function initTriggerScheduler(): Promise<boolean> {
 
   _worker.on('failed', (job, err) => {
     logError('agent.trigger_scheduler.job_failed', err, { job_id: job?.id })
+    if (job?.name === 'task-report') {
+      void import('./task-reports')
+        .then(({ taskReports }) =>
+          taskReports().updateOne(
+            { _id: job.data.reportId },
+            {
+              $set: {
+                deliveryError:
+                  'Report notification failed; inspect the parent conversation and queue before retrying.',
+              },
+            },
+          ),
+        )
+        .catch((error: unknown) => {
+          logError('agent.task_report.failure_record_failed', error)
+        })
+    }
   })
+
+  await _queue.upsertJobScheduler(
+    'task-report-recovery',
+    { every: 60_000 },
+    {
+      name: 'recover-task-reports',
+      opts: { removeOnComplete: 1, removeOnFail: 10 },
+    },
+  )
 
   const cronTriggers = await agentTriggers()
     .find({ ...liveTriggerShapeFilter, triggerType: 'cron', enabled: true })
