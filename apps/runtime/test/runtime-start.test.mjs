@@ -203,6 +203,20 @@ test('a home that has run before warns that the new password must be re-entered'
   assert.match(stdout, /^WARNING: .*update it in every Nuphos workspace/u)
 })
 
+test('a settings file counts as a sign-in left behind only when it holds the listed key', () => {
+  const run = (settings) => {
+    const home = mkdtempSync(join(tmpdir(), 'nuphos-home-'))
+    const file = join(home, 'settings.json')
+
+    writeFileSync(file, settings)
+
+    return start({ OPENAB_RUNTIME_AUTH_FILE: `${file}#/env/ANTHROPIC_API_KEY` }, home).stdout
+  }
+
+  assert.doesNotMatch(run('{"syncClaudeAiSkills":false}'), /^WARNING:/u)
+  assert.match(run('{"env":{"ANTHROPIC_API_KEY":"sk-ant-fixture"}}'), /^WARNING: /u)
+})
+
 test('a custom key file in a directory it does not own leaves that directory alone', () => {
   const home = mkdtempSync(join(tmpdir(), 'nuphos-home-'))
   chmodSync(home, 0o755)
