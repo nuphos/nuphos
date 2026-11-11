@@ -25,6 +25,7 @@ export type TeamPreviewClient = Pick<
   | 'onRuntimeLoginFrame'
   | 'createSession'
   | 'loadSession'
+  | 'getSessionConfigOptions'
   | 'prompt'
   | 'cancel'
   | 'close'

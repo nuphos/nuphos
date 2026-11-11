@@ -54,7 +54,11 @@ export async function offeredSessionConfig(
   const offered = catalogSessionConfig(catalog, pick)
   const options = confirmedOnly
     ? offered.flatMap((option) => {
-        const value = pick[option.kind]
+        // Claude Code's "default" model is listed as the model it stands for.
+        const value =
+          option.kind === 'model' && pick.model === 'default'
+            ? option.currentValue
+            : pick[option.kind]
         const confirmed =
           value !== undefined && option.options.some((choice) => choice.value === value)
 

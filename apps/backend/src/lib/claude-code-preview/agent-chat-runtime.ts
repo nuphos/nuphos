@@ -8,7 +8,6 @@ import {
   setClaudeCodeAutonomousUpdateHandler,
 } from './autonomous-session-observer'
 import { backgroundWorkPrompt, markBackgroundWorkLost } from './background-work'
-import { settledCodexStopReason } from './codex-turn-settle'
 import { openConversationSession } from './open-conversation-session'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { redactedPromptUpdates } from './redacted-prompt-updates'
@@ -25,6 +24,7 @@ import {
   turnDefaults,
 } from './session-context'
 import { pushSessionCredentials } from './session-credential-push'
+import { settledTurn } from './session-config-record'
 import { probeExecutionState } from './session-execution-state'
 import { observeSession, resumeSessionOn } from './session-reattach'
 import {
@@ -289,7 +289,7 @@ export async function runClaudeCodePreviewPrompt(args: {
         text.flush()
       })
 
-    return { stopReason: await settledCodexStopReason(session, result, text.last()) }
+    return { stopReason: await settledTurn(client, session, result, text.last()) }
   } finally {
     renewal?.stop()
     args.signal.removeEventListener('abort', onAbort)
