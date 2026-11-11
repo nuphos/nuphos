@@ -1,10 +1,13 @@
 import { z } from 'zod'
 
-import { redactSecrets } from '@/lib/journal/redact'
+import { redactSecrets } from '@/lib/secrets/scan'
 
 const bounded = (max: number) => z.string().transform((value) => value.slice(0, max))
 // Best-effort secret masking, not anonymization of hosts, paths or commands.
-const text = z.string().transform((value) => redactSecrets(value).redacted.slice(0, 2000))
+// The transform is async, so parse with parseAsync / safeParseAsync.
+const text = z
+  .string()
+  .transform(async (value) => (await redactSecrets(value)).redacted.slice(0, 2000))
 const timestamp = z.string().datetime()
 const duration = z.number().finite().nonnegative()
 

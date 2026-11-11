@@ -3,6 +3,7 @@ import { z } from 'zod'
 
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
+import { findEmbeddedSecret } from '@/lib/secrets/scan'
 
 import {
   assertSkillNameNotBuiltinOverlay,
@@ -61,20 +62,6 @@ async function requireWriteAccess(
   }
 
   return { ok: true }
-}
-
-function looksLikeEmbeddedSecret(text: string): string | null {
-  if (/\bAKIA[0-9A-Z]{16}\b/.test(text)) {
-    return 'content appears to contain an AWS access key id'
-  }
-  if (/\bsk-[a-zA-Z0-9]{20,}\b/.test(text)) {
-    return 'content appears to contain a secret API key'
-  }
-  if (/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(text)) {
-    return 'content appears to contain a private key'
-  }
-
-  return null
 }
 
 /** Team skill authoring, offered to every team conversation; each call checks access. */
@@ -149,7 +136,7 @@ export function createTeamSkillTools(
         }
 
         const skillMd = buildSkillMdContent(name, input.description, input.body)
-        const secretHit = looksLikeEmbeddedSecret(skillMd)
+        const secretHit = await findEmbeddedSecret(skillMd)
 
         if (secretHit) {
           return { ok: false, error: `unsafe_content: ${secretHit}` }
@@ -163,7 +150,7 @@ export function createTeamSkillTools(
           if (rel === 'SKILL.md') {
             return { ok: false, error: 'invalid_input: put SKILL.md content in body, not files[]' }
           }
-          const secret = looksLikeEmbeddedSecret(file.content)
+          const secret = await findEmbeddedSecret(file.content)
 
           if (secret) return { ok: false, error: `unsafe_content: ${secret}` }
           extraFiles.push({
@@ -240,7 +227,7 @@ export function createTeamSkillTools(
           const skillName = validateSkillName(parts[1])
 
           await assertSkillNameNotBuiltinOverlay(skillName)
-          const secret = looksLikeEmbeddedSecret(file.content)
+          const secret = await findEmbeddedSecret(file.content)
 
           if (secret) return { ok: false, error: `unsafe_content: ${secret}` }
           pending.push({ key, content: file.content })

@@ -1,6 +1,6 @@
 import { turnDiagnosticsSchema } from '@/lib/agent/turn-diagnostics-schema'
-import { redactSecrets } from '@/lib/journal/redact'
 import { errorMessage } from '@/lib/observability-sanitize'
+import { redactSecrets } from '@/lib/secrets/scan'
 
 import { OpenAbConnectionLostError, OpenAbRpcError } from './openab-acp-errors'
 
@@ -21,18 +21,21 @@ export class OpenAbTimeoutError extends Error {
 
 /** A failed read before prompt dispatch, with a safe message and the original diagnostic cause. */
 export class RuntimeStateProbeError extends Error {
-  constructor(cause: unknown) {
-    super(
-      `Could not check the agent's state: ${redactSecrets(errorMessage(cause)).redacted.slice(0, 2000)}`,
-      { cause },
-    )
+  private constructor(detail: string, cause: unknown) {
+    super(`Could not check the agent's state: ${detail}`, { cause })
     this.name = 'RuntimeStateProbeError'
+  }
+
+  static async from(cause: unknown): Promise<RuntimeStateProbeError> {
+    const { redacted } = await redactSecrets(errorMessage(cause))
+
+    return new RuntimeStateProbeError(redacted.slice(0, 2000), cause)
   }
 }
 
 export type { TurnDiagnostics } from '@/lib/agent/turn-diagnostics-schema'
 
-export function turnDiagnostics(args: {
+export async function turnDiagnostics(args: {
   streamId: string
   startedAt: number
   endedAt?: number
@@ -43,7 +46,7 @@ export function turnDiagnostics(args: {
   error?: unknown
   aborted?: boolean
   toolSteps: PreviewToolStep[]
-}): TurnDiagnostics {
+}): Promise<TurnDiagnostics> {
   const endedAt = args.endedAt ?? Date.now()
   const error = args.error instanceof RuntimeStateProbeError ? args.error.cause : args.error
   const message = error === undefined ? '' : errorMessage(error)
@@ -74,7 +77,7 @@ export function turnDiagnostics(args: {
   if (lastTool?.output !== undefined) toolStatus = 'completed'
   if (lastTool?.errorText !== undefined) toolStatus = 'failed'
 
-  return turnDiagnosticsSchema.parse({
+  return await turnDiagnosticsSchema.parseAsync({
     streamId: args.streamId,
     startedAt: new Date(args.startedAt).toISOString(),
     endedAt: new Date(endedAt).toISOString(),

@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { config } from '@/config'
 import { OpenAbRpcError } from '@/lib/claude-code-preview/openab-acp-errors'
 import { runtimeBackendUrl } from '@/lib/claude-code-preview/runtime-backend-url'
-import { redactSecrets } from '@/lib/journal/redact'
+import { redactSecrets } from '@/lib/secrets/scan'
 
 import {
   panelOutputSchema,
@@ -73,10 +73,10 @@ export function parseOutput(
 /** Extract the diagnostic envelope and sanitize it again at the backend trust
  * boundary. Panel code controls stdout and can forge the runner sentinel, so
  * runner-side redaction alone must never be trusted before persistence. */
-export function parseRunnerError(
+export async function parseRunnerError(
   stdout: string,
   exactSecrets: readonly string[] = [],
-): string | null {
+): Promise<string | null> {
   const idx = stdout.lastIndexOf(ERROR_SENTINEL)
 
   if (idx === -1) return null
@@ -102,7 +102,7 @@ export function parseRunnerError(
           diagnostic = diagnostic.split(secret).join('[REDACTED:runtime-secret]')
       }
 
-      return redactSecrets(diagnostic).redacted.slice(0, 4_000)
+      return (await redactSecrets(diagnostic)).redacted.slice(0, 4_000)
     }
   } catch {
     // A malformed envelope is untrusted output; use the generic exit message.
@@ -200,7 +200,7 @@ export async function runOnRuntime(args: {
     )
   }
   if (result.exitCode !== 0) {
-    const diagnostic = parseRunnerError(result.stdout, [nuphosToken])
+    const diagnostic = await parseRunnerError(result.stdout, [nuphosToken])
     const exitMessage =
       result.exitCode === null || result.exitCode < 0
         ? 'panel process was terminated'

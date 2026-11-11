@@ -7,7 +7,7 @@
 // attribution capture, attribution judge) plus the ingest dispatcher ONE
 // consistent snapshot. Runtime-OWNED — providers only ever see the observer.
 
-import { redactSecrets } from '@/lib/journal/redact'
+import { redactSecrets } from '@/lib/secrets/scan'
 
 import { createMemoryObserver } from './runtime'
 import { renderMemorySavedFrame } from './save-frame'
@@ -93,23 +93,29 @@ export function createTurnMemoryAccumulator(input: {
         if (event.label !== undefined) fetchedLabels.set(event.id, event.label)
       },
       searched: (event) => {
-        input.recordEvent({
-          conversationId: sessionId,
-          event: 'memory.searched',
-          userId,
-          data: {
-            // Redact BEFORE truncating: slicing first can cut a secret in
-            // half, leaving a fragment the redactor no longer matches.
-            query: redactSecrets(event.query).redacted.slice(0, 200),
-            queryHasCjk: CJK_RE.test(event.query),
-            // Persisted analytics keys keep their legacy shapes: hitCount is
-            // the flat-record count (hitsByKind.record; a vendor without the
-            // breakdown falls back to its total), geneHitCount the playbook
-            // count until the data migration renames it.
-            hitCount: event.hitsByKind?.record ?? event.hitCount,
-            geneHitCount: event.hitsByKind?.playbook ?? 0,
+        // Telemetry is best effort, so a failed scan drops the event.
+        void redactSecrets(event.query).then(
+          ({ redacted }) => {
+            input.recordEvent({
+              conversationId: sessionId,
+              event: 'memory.searched',
+              userId,
+              data: {
+                // Redact BEFORE truncating: slicing first can cut a secret in
+                // half, leaving a fragment the redactor no longer matches.
+                query: redacted.slice(0, 200),
+                queryHasCjk: CJK_RE.test(event.query),
+                // Persisted analytics keys keep their legacy shapes: hitCount is
+                // the flat-record count (hitsByKind.record; a vendor without the
+                // breakdown falls back to its total), geneHitCount the playbook
+                // count until the data migration renames it.
+                hitCount: event.hitsByKind?.record ?? event.hitCount,
+                geneHitCount: event.hitsByKind?.playbook ?? 0,
+              },
+            })
           },
-        })
+          () => {},
+        )
       },
     },
   })
