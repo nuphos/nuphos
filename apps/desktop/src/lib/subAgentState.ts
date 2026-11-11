@@ -12,7 +12,7 @@ export type SubAgentState = 'waiting' | 'running' | 'done'
  * doing neither is done, a stopped or disconnected runtime included.
  */
 export function subAgentState(
-  conversation: Pick<AgentConversation, 'inputRequests' | 'pendingDecision'>,
+  conversation: Pick<AgentConversation, 'inputRequests'>,
   runtimeState: RuntimeExecution | undefined,
 ): SubAgentState {
   if (openInputRequests(conversation).length > 0) return 'waiting'
@@ -23,7 +23,7 @@ export function subAgentState(
 
 /** Waiting or running: what a list of sub-agents keeps in view. */
 export function isSubAgentActive(
-  conversation: Pick<AgentConversation, 'inputRequests' | 'pendingDecision'>,
+  conversation: Pick<AgentConversation, 'inputRequests'>,
   runtimeState: RuntimeExecution | undefined,
 ): boolean {
   return subAgentState(conversation, runtimeState) !== 'done'
@@ -43,7 +43,7 @@ export type RowDot = 'unread' | 'waiting' | null
  * parent cannot resolve on its own, gives it a dot.
  */
 export function rowDot(
-  conversation: Pick<AgentConversation, 'parentSessionId' | 'inputRequests' | 'pendingDecision'>,
+  conversation: Pick<AgentConversation, 'parentSessionId' | 'inputRequests'>,
   runtimeState: RuntimeExecution | undefined,
   unread: boolean,
 ): RowDot {

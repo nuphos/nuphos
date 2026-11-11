@@ -55,7 +55,7 @@ export function requestQuestion({
 
 /** A conversation's open questions, oldest first. */
 export function conversationQuestions(
-  conversation: Pick<AgentConversation, 'inputRequests' | 'pendingDecision'>,
+  conversation: Pick<AgentConversation, 'inputRequests'>,
 ): ReplyQuestion[] {
   return openInputRequests(conversation).map(requestQuestion)
 }

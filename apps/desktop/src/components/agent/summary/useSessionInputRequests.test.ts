@@ -25,12 +25,15 @@ const question = {
   sessionId: 'child',
   teamId: 'team',
   parentSessionId: 'first',
-  pendingDecision: {
-    category: 'preference',
-    question: 'Which layout?',
-    toolCallId: 'question-1',
-    askedAt: '2026-10-27T13:00:00Z',
-  },
+  inputRequests: [
+    {
+      id: 'question-1',
+      category: 'preference',
+      question: 'Which layout?',
+      askedAt: '2026-10-27T13:00:00Z',
+      status: 'open',
+    },
+  ],
 } as AgentConversation
 
 mock.module('../../../api.ts', {
@@ -165,7 +168,7 @@ test('a refresh signal and window focus reload at once, without waiting for the 
   pending = [question]
   refreshInputRequests()
   await settle()
-  assert.equal(render('first').requests[0]?.pendingDecision?.toolCallId, 'question-1')
+  assert.equal(render('first').requests[0]?.inputRequest.id, 'question-1')
   pending = []
   for (const listener of windowListeners.get('focus') ?? []) listener()
   await settle()
@@ -207,7 +210,7 @@ test("the queue draws only what the pending listing holds, never a cached row's 
   // The sidebar cache still says "first" asks something, answered long ago.
   const cached = known
 
-  known = [{ ...cached[0]!, pendingDecision: { ...question.pendingDecision! } }, cached[1]!]
+  known = [{ ...cached[0]!, inputRequests: question.inputRequests }, cached[1]!]
   pending = []
   render('first')
   await settle()
