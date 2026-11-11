@@ -72,6 +72,11 @@ export function nextTaskProject(teamId: string | undefined): string | null {
   return next && next.teamId === teamId ? next.path : null
 }
 
+/** A project's folder is on this computer, so picking an agent elsewhere starts a plain task. */
+export function pickNextTaskAgent(teamId: string | undefined, onThisComputer: boolean) {
+  if (teamId && !onThisComputer && nextTaskProject(teamId)) startNextTaskIn(teamId, null)
+}
+
 /** Takes the folder the task being started works in; only an agent on a computer has folders. */
 export function takeNextTaskWorkspace(teamId: string | undefined, runtime: { kind: string }) {
   const path = nextTaskProject(teamId)
