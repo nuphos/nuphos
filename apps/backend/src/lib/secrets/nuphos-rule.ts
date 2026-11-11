@@ -5,6 +5,10 @@
 //
 // Bias: over-redact. A false positive costs a little readability; a false
 // negative welds a live credential into storage we cannot purge.
+//
+// The backend runs this over whole inputs, so every pattern must stay linear:
+// a part that can restart at each position of a long run (a key-name suffix,
+// a URL scheme) is bounded, and the values, which only consume, are not.
 
 import type { SecretLintRuleCreator, SecretLintSourceCode } from '@secretlint/types'
 
@@ -35,13 +39,18 @@ const messages = {
 const TOKEN_SHAPES: Shape[] = [
   {
     kind: 'pem-private-key',
-    // Capped well above an 8192-bit RSA key, so many unclosed BEGIN lines
-    // cannot make the lazy body quadratic.
+    // The body stops at the next BEGIN line and is capped well above an
+    // 8192-bit RSA key, so many unclosed BEGIN lines stay cheap.
     pattern:
-      /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]{0,16384}?-----END [A-Z0-9 ]*PRIVATE KEY-----/dg,
+      /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----(?:[^-]|-(?!----BEGIN )){0,16384}?-----END [A-Z0-9 ]*PRIVATE KEY-----/dg,
   },
   { kind: 'aws-access-key-id', pattern: /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/dg },
-  { kind: 'jwt', pattern: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}\b/dg },
+  // Starts only at the head of a token run: from every `eyJ` inside one (as
+  // in `eyJ-eyJ-...`) the scan would re-read the run, which is quadratic.
+  {
+    kind: 'jwt',
+    pattern: /(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}\b/dg,
+  },
   // Nuphos sign-in sessions (nus_) and CLI tokens (nup_).
   { kind: 'nuphos-token', pattern: /\bnu[ps]_[A-Za-z0-9_-]{20,}/dg },
   { kind: 'github-token', pattern: /\bgh[pousr]_[A-Za-z0-9]{20,}\b/dg },
@@ -63,7 +72,7 @@ const CONTEXTUAL: Shape[] = [
     // that IS a whole placeholder, so redacted text stays at zero matches; a
     // password merely prefixed with "[REDACTED" still matches.
     kind: 'url-credentials',
-    pattern: /\b[a-z][a-z0-9+.-]*:\/\/[^\s:@/]+:(?!\[REDACTED:[a-z0-9-]+\]@)([^\s@/]+)@/dgi,
+    pattern: /\b[a-z][a-z0-9+.-]{0,31}:\/\/[^\s:@/]+:(?!\[REDACTED:[a-z0-9-]+\]@)([^\s@/]+)@/dgi,
     group: 1,
   },
   { kind: 'bearer-token', pattern: /\bBearer\s+([A-Za-z0-9._~+/=-]{12,})/dg, group: 1 },
@@ -76,7 +85,7 @@ const CONTEXTUAL: Shape[] = [
     kind: 'secret-assignment',
     pattern:
       // eslint-disable-next-line sonarjs/regex-complexity -- every way under the threshold drops key names or value forms this rule must cover, and a missed assignment welds a live credential into WORM storage
-      /(?:secret|token|password|passwd|pwd|api[_-]?key|access[_-]?key|private[_-]?key|credential|auth(?!ors?(?![\w-])))[\w-]*["']?\s*[=:]\s*(?!Bearer\b|Basic\b|\[REDACTED)("[^"]{6,}"|'[^']{6,}'|[^\s"']{6,})/dgi,
+      /(?:secret|token|password|passwd|pwd|api[_-]?key|access[_-]?key|private[_-]?key|credential|auth(?!ors?(?![\w-])))[\w-]{0,64}["']?\s*[=:]\s*(?!Bearer\b|Basic\b|\[REDACTED)("[^"]{6,}"|'[^']{6,}'|[^\s"']{6,})/dgi,
     group: 1,
   },
   {

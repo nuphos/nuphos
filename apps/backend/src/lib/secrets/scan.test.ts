@@ -356,6 +356,20 @@ describe('scanner regressions', () => {
     expect(await redactTokenShapes(text)).toBe(`${'x '.repeat(15_500)}[REDACTED:jwt] tail`)
   })
 
+  test.each([
+    ['repeated keywords', 'token'],
+    ['a dotted run', 'a.'],
+    ['a dashed run', 'x-y'],
+    ['JWT prefixes', 'eyJ-'],
+    ['unclosed PEM headers', '-----BEGIN RSA PRIVATE KEY-----\n'],
+  ])('1 MB of %s scans in linear time', async (_name, unit) => {
+    const text = unit.repeat(Math.ceil(1_000_000 / unit.length))
+    const start = performance.now()
+
+    await redactSecrets(text)
+    expect(performance.now() - start).toBeLessThan(1_000)
+  })
+
   test('compact JSON without newlines is chunked and stays fast', async () => {
     const passwords = Array.from({ length: 32_000 }, () => randomAlnum(14))
     const json = JSON.stringify(passwords.map((password) => ({ password })))

@@ -95,7 +95,7 @@ const CHUNK_CHARS = 32_000
 const NEWLINE_SEARCH_CHARS = 4_000
 const OVERLAP_CHARS = 2_000
 const PEM_BLOCK =
-  /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]{0,16384}?-----END [A-Z0-9 ]*PRIVATE KEY-----/g
+  /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----(?:[^-]|-(?!----BEGIN )){0,16384}?-----END [A-Z0-9 ]*PRIVATE KEY-----/g
 
 type Bounds = readonly [number, number]
 
