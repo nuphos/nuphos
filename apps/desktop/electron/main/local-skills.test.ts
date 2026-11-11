@@ -71,6 +71,12 @@ before(() => {
   mkdirSync(path.join(skillDir('loop'), 'sub'))
   symlinkSync(skillDir('loop'), path.join(skillDir('loop'), 'sub', 'up'))
   symlinkSync('.', path.join(skillDir('loop'), 'self'))
+  // A directory alias inside a skill: both paths stay.
+  writeSkill(skillDir('alias'), {
+    'SKILL.md': '---\ndescription: Alias\n---\n',
+    'scripts/run.sh': 'echo\n',
+  })
+  symlinkSync('scripts', path.join(skillDir('alias'), 'assets'))
 })
 
 after(() => {
@@ -95,6 +101,7 @@ describe('listLocalSkills', () => {
     assert.deepEqual(
       skills.map((skill) => [skill.id, skill.description, skill.fileCount]),
       [
+        ['claude/alias', 'Alias', 3],
         ['claude/deploy', 'Ship the service', 3],
         ['claude/lint', 'Lint', 0],
         ['claude/loop', 'Loops', 1],
@@ -127,7 +134,15 @@ describe('localSkillEntries', () => {
     assert.deepEqual(await relPaths(skillDir('lint'), []), [])
   })
 
-  it('walks each real directory once when links point back up the tree', async () => {
+  it('stops at links that point back up the tree', async () => {
     assert.deepEqual(await relPaths(skillDir('loop')), ['SKILL.md'])
+  })
+
+  it('keeps the real path of a directory that a sibling link aliases', async () => {
+    assert.deepEqual(await relPaths(skillDir('alias')), [
+      'SKILL.md',
+      'assets/run.sh',
+      'scripts/run.sh',
+    ])
   })
 })

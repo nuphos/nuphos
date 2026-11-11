@@ -99,8 +99,9 @@ async function resolveEntry(
 /**
  * Every regular file under a skill directory, flattened to relative paths. The
  * skill directory may itself be a link; links inside it are followed only as
- * resolveEntry allows, each real directory is walked once, and depth and file
- * count are capped, so a link cannot pull in the rest of the computer or loop.
+ * resolveEntry allows, a link back to a directory being walked is skipped, and
+ * depth and file count are capped, so a link cannot pull in the rest of the
+ * computer or loop.
  */
 export async function localSkillEntries(
   root: string,
@@ -112,11 +113,12 @@ export async function localSkillEntries(
 
   if (!realRoot) return out
   const allowed = [realRoot, ...(skillsDir ? [skillsDir] : []), ...readOnlyRoots]
-  const visited = new Set<string>()
 
-  async function walk(dir: string, prefix: string, depth: number) {
-    if (depth > MAX_DEPTH || out.length >= MAX_FILES || visited.has(dir)) return
-    visited.add(dir)
+  // `ancestors`, not every directory seen: an alias such as `assets -> scripts`
+  // must not hide the real `scripts/` path.
+  async function walk(dir: string, prefix: string, depth: number, ancestors: Set<string>) {
+    if (depth > MAX_DEPTH || out.length >= MAX_FILES || ancestors.has(dir)) return
+    const lineage = new Set(ancestors).add(dir)
     let entries: Dirent[]
 
     try {
@@ -130,7 +132,7 @@ export async function localSkillEntries(
       const relPath = prefix ? `${prefix}/${entry.name}` : entry.name
       const resolved = await resolveEntry(entry, path.join(dir, entry.name), allowed)
 
-      if (resolved?.stat.isDirectory()) await walk(resolved.real, relPath, depth + 1)
+      if (resolved?.stat.isDirectory()) await walk(resolved.real, relPath, depth + 1, lineage)
       else if (resolved?.stat.isFile()) {
         const { real, stat } = resolved
 
@@ -139,7 +141,7 @@ export async function localSkillEntries(
     }
   }
 
-  await walk(realRoot, '', 0)
+  await walk(realRoot, '', 0, new Set())
 
   // SKILL.md first: it is the file the store keys the skill on, so a partial
   // upload still leaves a listable skill rather than orphan objects.
