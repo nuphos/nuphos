@@ -204,6 +204,12 @@ struct ConversationView: View {
         } message: {
             Text(archiveError ?? "")
         }
+        // Wherever the reader is in the transcript, a refused Stop is answered.
+        .alert("Couldn't stop the agent", isPresented: Binding(get: { session.stopRefusal != nil }, set: { if !$0 { session.stopRefusal = nil } })) {
+            Button("OK") { session.stopRefusal = nil }
+        } message: {
+            Text(session.stopRefusal ?? "")
+        }
         .sheet(item: $toolDetail) { ToolDetailSheet(part: $0) }
         .sheet(isPresented: $showShare) { ShareSessionSheet(session: session).presentationDetents([.medium, .large]) }
         .sheet(isPresented: $showRuntimes) {
