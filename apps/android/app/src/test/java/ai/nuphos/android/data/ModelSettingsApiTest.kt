@@ -30,6 +30,14 @@ class ModelSettingsApiTest {
             assertTrue(runCatching { ModelSettingsApi.read("synthetic", "team", "chat") { _, _, _, _, _ -> raw } }.isFailure)
         }
     }
+    @Test fun unknownCurrentModelHasANeutralTitleAndKeepsChoicesEditable() = runTest {
+        val raw = """{"status":"ready","options":[{"id":"model","name":"Model","kind":"model","currentValue":"","options":[{"value":"sol","name":"Sol"}]}]}"""
+        val state = ModelSettingsApi.read("synthetic", "team", "chat") { _, _, _, _, _ -> raw }
+        assertEquals("Model", state.modelTitle)
+        assertTrue(state.editable)
+        assertTrue(state.allows("model", "sol"))
+        assertEquals("", state.options.single().currentValue)
+    }
     @Test fun initialSettingsCoexistWithExplicitCredentialSelectionAndRuntimeBinding() {
         val credential = ai.nuphos.android.model.CredentialSelection(newConversation = true).json
         val request = AgentChatApi.ChatRequest("new", "team", emptyList(), streamId = "s", credentialAccess = credential,

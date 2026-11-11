@@ -163,3 +163,29 @@ test('a teammate’s turn on the owner’s computer resumes the same session', a
   // A teammate's turn records the computer itself, so the owner's checks match it too.
   expect(attachment?.runtimeUrl).toBe(localRuntimeUrl({ ...ref, deviceId: 'pc' }, 'team'))
 })
+
+test('confirmed model and effort override start defaults on resume and a fresh native replacement', async () => {
+  defaults = { model: 'later-default', effort: 'low' }
+  attachment = {
+    openabSessionId: 'existing',
+    runtimeUrl: endpoint.url,
+    runtimeDefaults: { model: 'start-model', effort: 'medium' },
+    sessionConfig: [
+      { id: 'model', name: 'Model', kind: 'model', currentValue: 'chosen-model', options: [] },
+      { id: 'effort', name: 'Effort', kind: 'effort', currentValue: 'high', options: [] },
+    ],
+  }
+  await attach()
+  expect(calls[0]?.runtime?.defaults).toEqual({ model: 'chosen-model', effort: 'high' })
+  await attachOpenAbSession(
+    client(),
+    'team',
+    'conversation',
+    { ...endpoint, url: 'wss://replacement.invalid/acp' },
+    [],
+    undefined,
+    { provider: 'codex' },
+  )
+  expect(calls[1]?.method).toBe('create')
+  expect(calls[1]?.runtime?.defaults).toEqual({ model: 'chosen-model', effort: 'high' })
+})
