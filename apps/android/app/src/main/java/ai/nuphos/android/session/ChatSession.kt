@@ -506,7 +506,11 @@ class ChatSession(
                     uploadError = "Files are ready. Wait for the current run, then retry this message."
                     return@launch
                 }
-                if (sendPrepared(draft, ready.instruction)) {
+                // A runtime gets the files from the structured part, as from iOS and Desktop; only the
+                // built-in agent is told in words, which every client would otherwise show as typed.
+                val transfer = if (isNative) ChatPart.Other(ready.part)
+                    else ChatPart.Text(text = ready.instruction, state = ChatPart.StreamState.Done)
+                if (sendPrepared(draft, transfer)) {
                     preparedTransfer = pending
                     uploadDraft = null
                     uploadProgress = null
@@ -518,7 +522,7 @@ class ChatSession(
         }
     }
 
-    private fun sendPrepared(submission: ComposerSubmission, transferInstruction: String? = null): Boolean {
+    private fun sendPrepared(submission: ComposerSubmission, transfer: ChatPart? = null): Boolean {
         observationClock = RuntimeObservation.now()
         val trimmed = submission.text.trim()
         val attachments = submission.attachments
@@ -545,7 +549,7 @@ class ChatSession(
             for (a in attachments) {
                 a.dataUrl?.let { add(ChatPart.File(mediaType = "image/jpeg", filename = a.name, url = it)) }
             }
-            transferInstruction?.let { add(ChatPart.Text(text = it, state = ChatPart.StreamState.Done)) }
+            transfer?.let(::add)
         }
         val message = retryUserMessage?.takeIf { retrySubmission == submission } ?: ChatMessage(role = ChatMessage.Role.User, parts = parts)
         submissionAccepted = false
