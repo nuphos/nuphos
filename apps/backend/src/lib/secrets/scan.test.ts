@@ -302,13 +302,31 @@ describe('scanner regressions', () => {
   })
 
   test('chunked scans keep ranges and do not split a private key', async () => {
-    const filler = 'kubectl get pods -n prod -o wide\n'.repeat(1_000)
-    const pem = `-----BEGIN RSA PRIVATE KEY-----\n${filler}-----END RSA PRIVATE KEY-----`
+    const line = 'kubectl get pods -n prod -o wide\n'
+    const filler = line.repeat(1_000)
+    // Starts just before the first 32 KB cut, so the block straddles it.
+    const prefix = line.repeat(969)
+    const pem = `-----BEGIN RSA PRIVATE KEY-----\n${line.repeat(50)}-----END RSA PRIVATE KEY-----`
     const token = `ghp_${randomAlnum(36)}`
-    const { redacted } = await redactSecrets(`${filler}${pem}\n${filler}gh ${token}\n`)
+    const { redacted } = await redactSecrets(`${prefix}${pem}\n${filler}gh ${token}\n`)
 
+    expect(prefix.length).toBeLessThan(32_000)
+    expect(prefix.length + pem.length).toBeGreaterThan(32_000)
     expect(redacted).toBe(
-      `${filler}[REDACTED:pem-private-key]\n${filler}gh [REDACTED:github-token]\n`,
+      `${prefix}[REDACTED:pem-private-key]\n${filler}gh [REDACTED:github-token]\n`,
     )
+  })
+
+  test('a value on the line after its key is found across a chunk cut', async () => {
+    const line = 'kubectl get pods -n prod -o wide\n'
+    const prefix = line.repeat(969)
+    // The key line ends exactly at the first cut, the newline after 32,000 chars.
+    const key = `${'x'.repeat(32_000 - prefix.length)} password:`
+    const value = randomAlnum(16)
+    const text = `${prefix}${key}\n  ${value}\n${line.repeat(10)}`
+    const { redacted } = await redactSecrets(text)
+
+    expect(text.indexOf('\n', 32_000)).toBe(prefix.length + key.length)
+    expect(redacted).not.toContain(value)
   })
 })

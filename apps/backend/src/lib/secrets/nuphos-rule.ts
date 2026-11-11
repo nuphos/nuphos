@@ -35,7 +35,10 @@ const messages = {
 const TOKEN_SHAPES: Shape[] = [
   {
     kind: 'pem-private-key',
-    pattern: /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----/dg,
+    // Capped well above an 8192-bit RSA key, so many unclosed BEGIN lines
+    // cannot make the lazy body quadratic.
+    pattern:
+      /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]{0,16384}?-----END [A-Z0-9 ]*PRIVATE KEY-----/dg,
   },
   { kind: 'aws-access-key-id', pattern: /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/dg },
   { kind: 'jwt', pattern: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}\b/dg },

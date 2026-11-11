@@ -95,9 +95,13 @@ function kindOf(message: { ruleId: string; data?: unknown }): string {
 // secretlint drops duplicate messages by comparing every pair, so one lint of
 // a large input full of findings is quadratic and blocks the event loop.
 // Large inputs are linted in line-aligned chunks; a PEM block is never split.
+// Each chunk also re-reads the end of the one before, so a key on one line and
+// its value on the next (YAML, Bearer, --token) is still seen together; the
+// merge below folds the findings the overlap reports twice.
 const CHUNK_CHARS = 32_000
+const OVERLAP_CHARS = 2_000
 const PEM_BLOCK =
-  /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----/g
+  /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]{0,16384}?-----END [A-Z0-9 ]*PRIVATE KEY-----/g
 
 type Bounds = readonly [number, number]
 
@@ -125,6 +129,15 @@ function chunkBounds(text: string): Bounds[] {
   return [...bounds, [start, text.length]]
 }
 
+/** Where to start linting a chunk: the first line inside its overlap. */
+function lintStart(text: string, start: number): number {
+  if (start === 0) return 0
+  const from = Math.max(0, start - OVERLAP_CHARS)
+  const lineStart = text.indexOf('\n', from) + 1
+
+  return lineStart > 0 && lineStart <= start ? lineStart : from
+}
+
 /**
  * Every secret in `text`, overlapping findings merged. `tokenShapes` keeps to
  * unambiguous key shapes; `storedContent` adds a lone PEM BEGIN line.
@@ -136,9 +149,10 @@ export async function findSecrets(
   if (text.length === 0) return []
   const findings: SecretFinding[] = []
 
-  for (const [chunk, [start, end]] of chunkBounds(text).entries()) {
+  for (const [chunk, [chunkStart, end]] of chunkBounds(text).entries()) {
     // Let other requests run between the synchronous parts of each lint.
     if (chunk > 0) await new Promise((resolve) => setImmediate(resolve))
+    const start = lintStart(text, chunkStart)
     const result = await lintSource({
       source: {
         content: text.slice(start, end),
