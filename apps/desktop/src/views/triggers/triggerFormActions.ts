@@ -6,8 +6,6 @@ import {
   pendingTriggerFromDeleteResult,
 } from '../../lib/agentTriggerDelete'
 
-import { reportCleanupFailures } from './shared'
-
 import type { FormState } from './useTriggerFormController'
 import type { AgentTrigger, CreateAgentTriggerInput, UpdateAgentTriggerInput } from '../../api'
 
@@ -147,7 +145,6 @@ export async function confirmRemoveTrigger({
     try {
       const refreshed = await api.agentGetTrigger(triggerId, teamId)
 
-      reportCleanupFailures([refreshed])
       setLoaded(refreshed)
     } catch {
       // The original delete error is already visible in the toast.
