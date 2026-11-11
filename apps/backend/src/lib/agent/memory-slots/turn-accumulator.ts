@@ -7,6 +7,7 @@
 // attribution capture, attribution judge) plus the ingest dispatcher ONE
 // consistent snapshot. Runtime-OWNED — providers only ever see the observer.
 
+import { logError } from '@/lib/observability'
 import { redactSecrets } from '@/lib/secrets/scan'
 
 import { createMemoryObserver } from './runtime'
@@ -92,10 +93,11 @@ export function createTurnMemoryAccumulator(input: {
         fetchedIds.set(event.id, event.scope)
         if (event.label !== undefined) fetchedLabels.set(event.id, event.label)
       },
+      // Telemetry is best effort: a failed scan or sink drops the event and is
+      // logged as the observer guard would, never left as an unhandled rejection.
       searched: (event) => {
-        // Telemetry is best effort, so a failed scan drops the event.
-        void redactSecrets(event.query).then(
-          ({ redacted }) => {
+        void redactSecrets(event.query)
+          .then(({ redacted }) => {
             input.recordEvent({
               conversationId: sessionId,
               event: 'memory.searched',
@@ -113,9 +115,10 @@ export function createTurnMemoryAccumulator(input: {
                 geneHitCount: event.hitsByKind?.playbook ?? 0,
               },
             })
-          },
-          () => {},
-        )
+          })
+          .catch((err: unknown) => {
+            logError('memory.observer.searched_failed', err, { provider: providerId })
+          })
       },
     },
   })

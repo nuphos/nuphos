@@ -5,6 +5,10 @@
 //
 // Bias: over-redact. A false positive costs a little readability; a false
 // negative welds a live credential into storage we cannot purge.
+//
+// The backend runs this over whole inputs, so every pattern must stay linear:
+// a part that can restart at each position of a long run (a key-name suffix,
+// a URL scheme) is bounded, and the values, which only consume, are not.
 
 import type { SecretLintRuleCreator, SecretLintSourceCode } from '@secretlint/types'
 
@@ -35,13 +39,24 @@ const messages = {
 const TOKEN_SHAPES: Shape[] = [
   {
     kind: 'pem-private-key',
-    // Capped well above an 8192-bit RSA key, so many unclosed BEGIN lines
-    // cannot make the lazy body quadratic.
+    // The body stops at the next BEGIN line and is capped well above an
+    // 8192-bit RSA key, so many unclosed BEGIN lines stay cheap.
     pattern:
-      /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]{0,16384}?-----END [A-Z0-9 ]*PRIVATE KEY-----/dg,
+      /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----(?:[^-]|-(?!----BEGIN )){0,16384}?-----END [A-Z0-9 ]*PRIVATE KEY-----/dg,
   },
   { kind: 'aws-access-key-id', pattern: /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/dg },
-  { kind: 'jwt', pattern: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}\b/dg },
+  // An unbounded header starts only at the head of a token run: from every
+  // `eyJ` inside one (as in `eyJ-eyJ-...`) the scan would re-read the run,
+  // which is quadratic. After a hyphen (`session-<jwt>`) the header is capped
+  // instead, well above a real one, so each restart reads a bounded span.
+  {
+    kind: 'jwt',
+    pattern: /(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}\b/dg,
+  },
+  {
+    kind: 'jwt',
+    pattern: /(?<=-)eyJ[A-Za-z0-9_-]{8,512}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}\b/dg,
+  },
   // Nuphos sign-in sessions (nus_) and CLI tokens (nup_).
   { kind: 'nuphos-token', pattern: /\bnu[ps]_[A-Za-z0-9_-]{20,}/dg },
   { kind: 'github-token', pattern: /\bgh[pousr]_[A-Za-z0-9]{20,}\b/dg },
@@ -63,7 +78,7 @@ const CONTEXTUAL: Shape[] = [
     // that IS a whole placeholder, so redacted text stays at zero matches; a
     // password merely prefixed with "[REDACTED" still matches.
     kind: 'url-credentials',
-    pattern: /\b[a-z][a-z0-9+.-]*:\/\/[^\s:@/]+:(?!\[REDACTED:[a-z0-9-]+\]@)([^\s@/]+)@/dgi,
+    pattern: /\b[a-z][a-z0-9+.-]{0,31}:\/\/[^\s:@/]+:(?!\[REDACTED:[a-z0-9-]+\]@)([^\s@/]+)@/dgi,
     group: 1,
   },
   { kind: 'bearer-token', pattern: /\bBearer\s+([A-Za-z0-9._~+/=-]{12,})/dg, group: 1 },
@@ -76,7 +91,7 @@ const CONTEXTUAL: Shape[] = [
     kind: 'secret-assignment',
     pattern:
       // eslint-disable-next-line sonarjs/regex-complexity -- every way under the threshold drops key names or value forms this rule must cover, and a missed assignment welds a live credential into WORM storage
-      /(?:secret|token|password|passwd|pwd|api[_-]?key|access[_-]?key|private[_-]?key|credential|auth(?!ors?(?![\w-])))[\w-]*["']?\s*[=:]\s*(?!Bearer\b|Basic\b|\[REDACTED)("[^"]{6,}"|'[^']{6,}'|[^\s"']{6,})/dgi,
+      /(?:secret|token|password|passwd|pwd|api[_-]?key|access[_-]?key|private[_-]?key|credential|auth(?!ors?(?![\w-])))[\w-]{0,64}["']?\s*[=:]\s*(?!Bearer\b|Basic\b|\[REDACTED)("[^"]{6,}"|'[^']{6,}'|[^\s"']{6,})/dgi,
     group: 1,
   },
   {
@@ -154,6 +169,32 @@ function entropyRanges(text: string, found: Range[]): Range[] {
   })
 }
 
+export type NuphosFinding = { kind: string; range: Range }
+
+/**
+ * Everything the rule reports, in one linear pass. The backend calls this
+ * directly on whole inputs: secretlint drops duplicate messages by comparing
+ * every pair, which a dense input would make quadratic.
+ */
+export function findNuphosSecrets(text: string, options: NuphosRuleOptions): NuphosFinding[] {
+  const shapes = [
+    ...TOKEN_SHAPES,
+    ...(options.pemHeaders ? [PEM_HEADER] : []),
+    ...(options.contextual ? CONTEXTUAL : []),
+  ]
+  const findings = shapes.flatMap((shape) =>
+    shapeRanges(text, shape).map((range) => ({ kind: shape.kind, range })),
+  )
+
+  if (!options.contextual) return findings
+  const entropy = entropyRanges(
+    text,
+    findings.map((finding) => finding.range),
+  ).map((range) => ({ kind: 'high-entropy', range }))
+
+  return [...findings, ...entropy]
+}
+
 export const nuphosSecretRule: SecretLintRuleCreator<NuphosRuleOptions> = {
   messages,
   meta: {
@@ -164,25 +205,12 @@ export const nuphosSecretRule: SecretLintRuleCreator<NuphosRuleOptions> = {
   },
   create(context, options) {
     const t = context.createTranslator(messages)
-    const shapes = [
-      ...TOKEN_SHAPES,
-      ...(options.pemHeaders ? [PEM_HEADER] : []),
-      ...(options.contextual ? CONTEXTUAL : []),
-    ]
 
     return {
       file(source: SecretLintSourceCode) {
-        const found: Range[] = []
-        const report = (kind: string, range: Range) => {
-          found.push(range)
+        for (const { kind, range } of findNuphosSecrets(source.content, options)) {
           context.report({ message: t('SECRET', { kind }), range, data: { kind } })
         }
-
-        for (const shape of shapes) {
-          for (const range of shapeRanges(source.content, shape)) report(shape.kind, range)
-        }
-        if (!options.contextual) return
-        for (const range of entropyRanges(source.content, found)) report('high-entropy', range)
       },
     }
   },

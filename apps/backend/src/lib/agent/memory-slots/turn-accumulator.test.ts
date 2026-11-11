@@ -37,6 +37,33 @@ const make = () => {
 const settled = () => new Promise((resolve) => setImmediate(resolve))
 
 describe('searched sink — memory.searched telemetry parity', () => {
+  test('a failing telemetry sink is caught by the observer guard', async () => {
+    const unhandled: unknown[] = []
+    const frames: Record<string, unknown>[] = []
+    const onUnhandled = (reason: unknown) => unhandled.push(reason)
+    const acc = createTurnMemoryAccumulator({
+      providerId: 'native',
+      sessionId: 'sess-1',
+      userId: 'u1',
+      teamId: 't1',
+      requestId: 'req-1',
+      emitFrame: (frame) => frames.push(frame),
+      recordEvent: () => {
+        throw new Error('db closed')
+      },
+    })
+
+    process.on('unhandledRejection', onUnhandled)
+    try {
+      acc.observer.searched({ query: 'oom', hitCount: 0 })
+      await settled()
+      await settled()
+    } finally {
+      process.off('unhandledRejection', onUnhandled)
+    }
+    expect(unhandled).toEqual([])
+  })
+
   test('payload matches the agent.ts shape: redacted query, CJK flag, per-kind counts', async () => {
     const { acc, events } = make()
 
