@@ -20,6 +20,8 @@ object Http {
 
     val client: OkHttpClient = OkHttpClient.Builder()
         .addInterceptor(ConsentInterceptor())
+        .followRedirects(false)
+        .followSslRedirects(false)
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)

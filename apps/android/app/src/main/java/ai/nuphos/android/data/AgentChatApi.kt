@@ -36,7 +36,7 @@ object AgentChatApi {
     fun chatRequest(token: String, body: ChatRequest): Request {
         val json = Http.json.encodeToString(ChatRequestBody.serializer(), ChatRequestBody.from(body))
         return Request.Builder()
-            .url("${NuphosApi.BASE_URL}/agent/chat")
+            .url("${NuphosApi.baseUrl(token)}/agent/chat")
             .post(json.toRequestBody(Http.jsonMedia))
             .header("Authorization", "Bearer $token")
             .header("Accept", "text/event-stream")
@@ -343,7 +343,7 @@ object AgentChatApi {
         query: List<Pair<String, String>> = emptyList(),
         body: JsonValue? = null,
     ): String = withContext(Dispatchers.IO) {
-        val url = NuphosApi.BASE_URL.toHttpUrl().newBuilder().addPathSegments(path).apply {
+        val url = NuphosApi.baseUrl(token).toHttpUrl().newBuilder().addPathSegments(path).apply {
             query.forEach { (k, v) -> addQueryParameter(k, v) }
         }.build()
         val builder = Request.Builder()

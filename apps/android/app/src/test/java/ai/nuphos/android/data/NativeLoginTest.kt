@@ -54,6 +54,19 @@ class NativeLoginTest {
         }
     }
 
+    @Test fun nativeAttemptKeepsItsOriginalBackendWhenSelectionChanges() {
+        BackendOrigin.select("https://native-first.example")
+        val fixture = Fixture()
+        try {
+            NativeLogin(fixture.client).use { login ->
+                BackendOrigin.select("https://native-second.example")
+                val url = login.register(NuphosWeb.Provider.Google)
+                assertTrue(url.startsWith("https://native-first.example/"))
+                assertEquals("native-first.example", fixture.requests.single().url.host)
+            }
+        } finally { BackendOrigin.select(BackendOrigin.DEFAULT) }
+    }
+
     @Test fun nativeFlowRegistersBoundLoopbackAndRedeemsOnlyDeliveredCode() {
         val fixture = Fixture()
         NativeLogin(fixture.client).use { login ->

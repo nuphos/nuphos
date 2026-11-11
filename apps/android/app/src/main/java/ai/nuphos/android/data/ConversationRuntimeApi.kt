@@ -22,7 +22,7 @@ object ConversationRuntimeApi {
     }
 
     private suspend fun request(token: String, team: String, session: String, target: String, mode: String): RuntimeBinding = withContext(Dispatchers.IO) {
-        val url = NuphosApi.BASE_URL.toHttpUrl().newBuilder().addPathSegment("agent").addPathSegment("conversations")
+        val url = NuphosApi.baseUrl(token).toHttpUrl().newBuilder().addPathSegment("agent").addPathSegment("conversations")
             .addPathSegment(session).addPathSegment("runtime").addQueryParameter("teamId", team).build()
         val body = JsonValue.obj("runtimeId" to JsonValue.Str(target), "mode" to JsonValue.Str(mode))
         val request = Request.Builder().url(url).header("Authorization", "Bearer $token")

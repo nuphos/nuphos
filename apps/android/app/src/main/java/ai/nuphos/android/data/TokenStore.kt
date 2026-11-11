@@ -26,19 +26,20 @@ class TokenStore(context: Context) {
         context.getSharedPreferences(FALLBACK_FILE, Context.MODE_PRIVATE)
     }
 
-    fun read(): String? = prefs.getString(KEY, null)
+    fun read(): String? = BackendOrigin.restore(prefs.getString(KEY, null), prefs.getString(ORIGIN_KEY, null))
 
     fun write(token: String) {
-        prefs.edit().putString(KEY, token).apply()
+        prefs.edit().putString(KEY, token).putString(ORIGIN_KEY, BackendOrigin.forToken(token)).apply()
     }
 
     fun clear() {
-        prefs.edit().remove(KEY).apply()
+        prefs.edit().remove(KEY).remove(ORIGIN_KEY).apply()
     }
 
     companion object {
         private const val FILE = "nuphos.secure"
         private const val FALLBACK_FILE = "nuphos.secure.fallback"
+        private const val ORIGIN_KEY = "session-origin"
         private const val KEY = "session-token"
     }
 }
