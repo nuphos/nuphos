@@ -1986,7 +1986,6 @@
   "GCP project bound with a gap": "GCP 專案已綁定，但仍有缺漏",
   "GCP service account": "GCP 服務帳號",
   "GKE Clusters": "GKE 叢集",
-  "GKE, Compute, Cloud Run, IAM.": "GKE、Compute、Cloud Run、IAM。",
   "GKE, Compute, Cloud Run, IAM. Firebase project and app inventory through the same service account.": "GKE、Compute、Cloud Run、IAM。使用同一個服務帳戶查詢 Firebase 專案與應用程式清單。",
   "General": "一般",
   "Generate": "產生",
