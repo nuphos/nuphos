@@ -38,7 +38,8 @@ export function LocalSetupLinkedSkills({
           <li key={skill.name} className="flex items-center gap-2">
             <span className="min-w-0 truncate font-mono text-[12px]">{skill.name}</span>
             <span className="text-[12px] text-tertiary">
-              {skill.reviewed ? t('reviewed, synced') : t('not synced until you review it')}
+              {/* Only the review: whether the last pass synced it is listed under Last synced. */}
+              {skill.reviewed ? t('links reviewed') : t('not synced until you review it')}
             </span>
             <Button
               size="sm"
