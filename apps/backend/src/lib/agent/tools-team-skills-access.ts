@@ -54,17 +54,3 @@ export async function requireScopeAccess(args: {
 
   return { ok: true, scope: teamSkillsScope(teamId) }
 }
-
-export function looksLikeEmbeddedSecret(text: string): string | null {
-  if (/\bAKIA[0-9A-Z]{16}\b/.test(text)) {
-    return 'content appears to contain an AWS access key id'
-  }
-  if (/\bsk-[a-zA-Z0-9]{20,}\b/.test(text)) {
-    return 'content appears to contain a secret API key'
-  }
-  if (/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(text)) {
-    return 'content appears to contain a private key'
-  }
-
-  return null
-}
