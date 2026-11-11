@@ -26,6 +26,7 @@ export type AgentCredentialSelection = {
   vantaIntegrationIds: string[]
   secureframeIntegrationIds: string[]
   resendIntegrationIds: string[]
+  trelloIntegrationIds: string[]
   githubInstallationIds: string[]
   gitlabBindingIds: string[]
   grafanaInstanceIds: string[]
@@ -164,6 +165,7 @@ export type AgentCredentialOptions = {
     label: string
     permission: 'full_access' | 'sending_access'
   }[]
+  trelloIntegrations: { integrationId: string; label: string; username: string }[]
   githubInstallations: {
     installationId: string
     accountLogin: string

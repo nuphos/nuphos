@@ -44,6 +44,7 @@ function credentialAccessPayload(access: {
   vantaIntegrationIds: string[]
   secureframeIntegrationIds: string[]
   resendIntegrationIds?: string[]
+  trelloIntegrationIds?: string[]
 }): Record<string, string[]> {
   return {
     aws_role_ids: access.awsRoleIds,
@@ -61,6 +62,7 @@ function credentialAccessPayload(access: {
     vanta_integration_ids: access.vantaIntegrationIds,
     secureframe_integration_ids: access.secureframeIntegrationIds,
     resend_integration_ids: access.resendIntegrationIds ?? [],
+    trello_integration_ids: access.trelloIntegrationIds ?? [],
   }
 }
 
@@ -122,6 +124,7 @@ const NAMED_CATEGORIES = {
   vantaIntegrationIds: 'vanta_integration_ids',
   secureframeIntegrationIds: 'secureframe_integration_ids',
   resendIntegrationIds: 'resend_integration_ids',
+  trelloIntegrationIds: 'trello_integration_ids',
 } as const
 
 export async function nuphosUpdateCredentials(

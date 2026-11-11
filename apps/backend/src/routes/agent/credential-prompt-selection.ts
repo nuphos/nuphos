@@ -24,6 +24,7 @@ export type AgentCredentialAccessSelection = Pick<
   | 'vantaIntegrationIds'
   | 'secureframeIntegrationIds'
   | 'resendIntegrationIds'
+  | 'trelloIntegrationIds'
   | 'posthogIntegrationIds'
   | 'plaudAccountIds'
   | 'githubInstallationIds'
@@ -56,6 +57,11 @@ export function selectAgentCredentials(
   const access: Partial<AgentCredentialAccessSelection> = rawAccess ?? {}
 
   return {
+    trelloIntegrations: pick(
+      options.trelloIntegrations,
+      access.trelloIntegrationIds,
+      (i) => i.integrationId,
+    ),
     awsRoles: pick(options.awsRoles, access.awsRoleIds, (role) => role.roleId),
     gcpServiceAccounts: pick(
       options.gcpServiceAccounts,

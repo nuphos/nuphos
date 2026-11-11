@@ -219,6 +219,8 @@ export type AsanaAccount = {
   createdAt?: string
 }
 
+export type TrelloBindResult = { bindingId: string; teamId: string; accountName: string }
+
 export type AsanaBindResult = {
   bindingId: string
   teamId: string

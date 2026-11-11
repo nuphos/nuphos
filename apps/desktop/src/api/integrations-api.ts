@@ -100,11 +100,20 @@ export const integrationsApi = {
     integrationId: string,
     access: Pick<BindingAccess, 'memberAllowList'>,
   ) => window.api.atlasUpdateBetterStackIntegrationAccess(teamId, integrationId, access),
+  atlasGetTrelloAccess: (teamId: string, id: string) => window.api.atlasGetTrelloAccess(teamId, id),
+  atlasUpdateTrelloAccess: (
+    teamId: string,
+    id: string,
+    input: Pick<BindingAccess, 'memberAllowList'>,
+  ) => window.api.atlasUpdateTrelloAccess(teamId, id, input),
   atlasListResendIntegrations: (teamId: string) => window.api.atlasListResendIntegrations(teamId),
+  atlasListTrelloIntegrations: (teamId: string) => window.api.atlasListTrelloIntegrations(teamId),
   atlasBindResendIntegration: (teamId: string, label: string, apiKey: string) =>
     window.api.atlasBindResendIntegration(teamId, label, apiKey),
   atlasUnbindResendIntegration: (teamId: string, integrationId: string) =>
     window.api.atlasUnbindResendIntegration(teamId, integrationId),
+  atlasUnbindTrelloIntegration: (teamId: string, integrationId: string) =>
+    window.api.atlasUnbindTrelloIntegration(teamId, integrationId),
   atlasListVantaTests: (
     teamId: string,
     integrationId: string,

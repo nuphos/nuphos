@@ -79,6 +79,24 @@ export function buildResendCredentialSections(
     },
   ]
 }
+export function buildTrelloCredentialSections(
+  integrations: AgentCredentialOptions['trelloIntegrations'],
+): CredentialSection[] {
+  if (!integrations.length) return []
+
+  return [
+    {
+      id: 'trello',
+      provider: 'trello' as const,
+      title: 'Trello',
+      items: integrations.map((i) => ({
+        id: i.integrationId,
+        label: i.label,
+        sublabel: i.username,
+      })),
+    },
+  ]
+}
 
 export function buildBetterStackCredentialSections(
   integrations: AgentCredentialOptions['betterStackIntegrations'],

@@ -143,6 +143,14 @@ export type ResendIntegration = {
   domains?: string[] | null
   createdAt?: string
 }
+export type TrelloIntegration = {
+  id: string
+  label: string
+  memberId: string
+  username: string
+  authorizedBy: string
+  createdAt?: string
+}
 
 // A team's own instabox account: Boxes on it are billed to the team, outside the vCPU limit.
 export type InstaboxAccount = { id: string; label: string; createdAt?: string }

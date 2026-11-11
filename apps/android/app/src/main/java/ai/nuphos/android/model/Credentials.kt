@@ -76,6 +76,7 @@ data class CredentialCatalog(
             Provider("sentryAccounts", "sentryAccountIds", "Sentry", "accountId", listOf("label"), listOf("userEmail")),
             Provider("linearWorkspaces", "linearWorkspaceIds", "Linear", "workspaceId", listOf("label", "workspaceName"), listOf("workspaceName")),
             Provider("jiraSites", "jiraSiteIds", "Jira", "siteId", listOf("label"), listOf("siteUrl")),
+            Provider("trelloIntegrations", "trelloIntegrationIds", "Trello", "integrationId", listOf("label"), listOf("username")),
             Provider("asanaAccounts", "asanaAccountIds", "Asana", "accountId", listOf("label"), listOf("accountEmail")),
             Provider("plaudAccounts", "plaudAccountIds", "Plaud", "bindingId", listOf("label"), emptyList()),
             Provider("vantaIntegrations", "vantaIntegrationIds", "Vanta", "integrationId", listOf("label"), emptyList()),
@@ -123,7 +124,7 @@ data class CredentialSelection(
         val usable = catalog.allItems.filter { !it.unavailable && it.provider.selectionKey != "personalCredentialIds" }
         val defaults = usable.groupBy { it.provider.selectionKey }.mapValues { (_, items) -> items.map { it.id }.toSet() }
         return copy(newConversation = true, ids = ids.mapValues { (key, selected) -> selected + defaults[key].orEmpty() } +
-            defaults.filterKeys { it !in ids } + ("resendIntegrationIds" to emptySet()))
+            defaults.filterKeys { it !in ids } + ("resendIntegrationIds" to emptySet()) + ("trelloIntegrationIds" to emptySet()))
     }
 
     /** Add usable computers without revoking an already selected unavailable computer. */

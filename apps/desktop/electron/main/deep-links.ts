@@ -17,6 +17,7 @@ import * as plaudInstall from '../plaud-install'
 import * as posthogInstall from '../posthog-install'
 import * as sentryInstall from '../sentry-install'
 import * as slackInstall from '../slack-install'
+import * as trelloInstall from '../trello-install'
 
 import { openInTeamAccount } from './account-for-link'
 import { teamOfPath } from './account-for-link-core.ts'
@@ -32,6 +33,7 @@ const CONNECTOR_CALLBACKS = [
   ['linear_callback', linearInstall, 'Linear'],
   ['jira_callback', jiraInstall, 'Jira'],
   ['asana_callback', asanaInstall, 'Asana'],
+  ['trello_callback', trelloInstall, 'Trello'],
   ['sentry_callback', sentryInstall, 'Sentry'],
   ['plaud_callback', plaudInstall, 'Plaud'],
   ['posthog_callback', posthogInstall, 'PostHog'],

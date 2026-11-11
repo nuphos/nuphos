@@ -151,6 +151,7 @@ export function connectorInfoActions(
     case 'huawei':
     case 'notion':
     case 'upstash':
+    case 'trello':
     case 'resend':
     case 'instabox':
     case 'jira':
@@ -199,6 +200,7 @@ function connectorInfoRow(ctx: ScopeRenderContext, connectorId: string) {
       notionIntegrations: accounts.notion,
       upstashAccounts: accounts.upstash,
       resendIntegrations: accounts.resend,
+      trelloIntegrations: accounts.trello,
       instaboxAccounts: accounts.instabox,
       tencentAccounts: accounts.tencent,
       aliyunAccounts: accounts.aliyun,

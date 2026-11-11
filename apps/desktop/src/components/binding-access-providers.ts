@@ -9,6 +9,7 @@ export type BindingAccessProvider =
   | 'azure'
   | 'upstash'
   | 'posthog'
+  | 'trello'
   | 'plaud'
   | 'tencent'
   | 'aliyun'
@@ -63,6 +64,12 @@ export const PROVIDERS: Record<BindingAccessProvider, ProviderConfig> = {
     adminBypass: true,
     load: (teamId, id) => api.atlasGetUpstashAccountAccess(teamId, id),
     save: (teamId, id, input) => api.atlasUpdateUpstashAccountAccess(teamId, id, input),
+  },
+  trello: {
+    resourceLabel: t('Trello account'),
+    adminBypass: false,
+    load: (teamId, id) => api.atlasGetTrelloAccess(teamId, id),
+    save: (teamId, id, input) => api.atlasUpdateTrelloAccess(teamId, id, input),
   },
   posthog: {
     resourceLabel: t('PostHog integration'),

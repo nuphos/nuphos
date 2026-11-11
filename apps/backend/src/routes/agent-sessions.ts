@@ -1,10 +1,5 @@
 import { Hono } from 'hono'
 
-import {
-  dashboardPanelAgent,
-  dashboardPanelSessionId,
-  verifyDashboardPanelToken,
-} from '@/lib/dashboards/panel-principal'
 import { agentSubjectId, verifyAgentForActor } from '@/lib/agents/identity'
 import { agentSessionClusterContexts, renderAgentKubeconfig } from '@/lib/byos/agent-kubeconfig'
 import { listSelectedCredentials } from '@/lib/claude-code-preview/credential-listing'
@@ -15,6 +10,11 @@ import {
 import { scopedPathAllowed, verifyPreviewMcpToken } from '@/lib/claude-code-preview/mcp-token'
 import { nuphosToolsMcp } from '@/lib/claude-code-preview/nuphos-tools-mcp'
 import { resolvePreviewToolContext } from '@/lib/claude-code-preview/preview-tool-context-resolve'
+import {
+  dashboardPanelAgent,
+  dashboardPanelSessionId,
+  verifyDashboardPanelToken,
+} from '@/lib/dashboards/panel-principal'
 import { AppError, errorHandler, notFoundHandler } from '@/lib/errors'
 import { isTokenRevoked } from '@/lib/internal-token/revocation'
 import { fail, handleMcpHttpPayload } from '@/lib/mcp/protocol'
@@ -33,10 +33,11 @@ import { previewPlans } from '@/routes/agent-sessions/plans'
 import { plaudScoped } from '@/routes/agent-sessions/plaud'
 import { posthogScoped } from '@/routes/agent-sessions/posthog'
 import { resendScoped, sentryScoped } from '@/routes/agent-sessions/resend-sentry'
+import { requireCloudCredentialRole } from '@/routes/agent-sessions/shared'
 import { tailscaleScoped } from '@/routes/agent-sessions/tailscale'
+import { trelloScoped } from '@/routes/agent-sessions/trello'
 import { uptimeKumaScoped } from '@/routes/agent-sessions/uptime-kuma'
 import { zeaburScoped } from '@/routes/agent-sessions/zeabur'
-import { requireCloudCredentialRole } from '@/routes/agent-sessions/shared'
 import { fileTransfersRoutes } from '@/routes/file-transfers'
 import { conversationTeamApiPathAllowed } from '@/routes/teams/conversation-api-routes'
 
@@ -64,13 +65,9 @@ function bearerOf(header: string | undefined): string | undefined {
   return header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : undefined
 }
 
-// Two accepted bearers: a normal Nuphos session token, or the scoped
-// scoped MCP token the Claude Code runtime carries. Runtime endpoints are
-// team-admin-configurable, so they must never see a general token — the
-// scoped one is honored here and by the ordinary /teams API's explicit
-// conversation-capability middleware. On this compatibility mount, the path
-// must match the (session, team) it was minted for. Anything else is a hard
-// 403, never a fallthrough into broader access.
+// Accept normal session tokens or runtime MCP tokens. A runtime bearer must match
+// this path's session/team and pass the conversation-capability gates; never fall
+// through into general access or expose a general token to configurable runtimes.
 const previewMcpOrSessionAuth: MiddlewareHandler<{ Variables: AuthVariables }> = async (
   c,
   next,
@@ -237,6 +234,7 @@ teamScoped.route('/linear-workspaces/:bindingId', linearScoped)
 teamScoped.route('/jira-sites/:bindingId', jiraScoped)
 teamScoped.route('/asana-accounts/:bindingId', asanaScoped)
 teamScoped.route('/resend-integrations/:integrationId', resendScoped)
+teamScoped.route('/trello-integrations/:integrationId', trelloScoped)
 teamScoped.route('/sentry-accounts/:bindingId', sentryScoped)
 teamScoped.route('/posthog-integrations/:integrationId', posthogScoped)
 teamScoped.route('/plaud-accounts/:bindingId', plaudScoped)
