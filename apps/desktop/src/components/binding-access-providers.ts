@@ -66,7 +66,7 @@ export const PROVIDERS: Record<BindingAccessProvider, ProviderConfig> = {
     save: (teamId, id, input) => api.atlasUpdateUpstashAccountAccess(teamId, id, input),
   },
   trello: {
-    resourceLabel: 'Trello account',
+    resourceLabel: t('Trello account'),
     adminBypass: false,
     load: (teamId, id) => api.atlasGetTrelloAccess(teamId, id),
     save: (teamId, id, input) => api.atlasUpdateTrelloAccess(teamId, id, input),
