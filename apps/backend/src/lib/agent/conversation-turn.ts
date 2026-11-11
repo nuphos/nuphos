@@ -179,8 +179,9 @@ export async function runTurn(
       throw new Error('Thread run failed; inspect the target conversation.')
     // The channel posts it carried were delivered: a retry would show them again.
     await markRead()
-    if (outcome.finishReason === 'connection-lost' && (await runtimeRestarted(data)))
-      await reportUndelivered(data, fresh, LOST_TURN)
+    // Not awaited: it waits for the computer to come back, which may be never,
+    // and this turn's claim must not wait with it.
+    if (outcome.finishReason === 'connection-lost') void reportIfRestarted(data, fresh)
 
     return outcome.finishReason
   } catch (error) {
@@ -208,6 +209,17 @@ async function runtimeRestarted(data: DeliveredTo): Promise<boolean> {
   const { state } = await session.client.getSessionExecutionState(session.openabSessionId)
 
   return state === 'dormant'
+}
+
+async function reportIfRestarted(
+  data: DeliveredTo,
+  messages: readonly PendingUserMessage[],
+): Promise<void> {
+  try {
+    if (await runtimeRestarted(data)) await reportUndelivered(data, messages, LOST_TURN)
+  } catch (error) {
+    logError('agent.thread.lost_turn_check_failed', error, { session_id: data.targetSessionId })
+  }
 }
 
 /**
