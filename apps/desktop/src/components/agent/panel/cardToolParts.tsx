@@ -20,7 +20,7 @@ export type CardContext = {
   now: number
   /** The latest idle reply: decision cards can act. */
   canAct: boolean
-  /** The runtime takes a reply and the viewer may send one. */
+  /** The viewer may answer questions, including through the server queue. */
   canReply: boolean
   /** Viewer may approve permission-grant proposals. */
   canApprove: boolean

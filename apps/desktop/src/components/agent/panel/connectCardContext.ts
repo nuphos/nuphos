@@ -10,7 +10,7 @@ export type ConnectCardContextValue = {
    * A card says what it asked, to find its open request when the ids differ.
    * Without one it is a plain message, as when a failed one is sent again.
    */
-  send: (text: string, card?: DecisionCardRef) => void
+  send: (text: string, card?: DecisionCardRef) => boolean | void
   // Writes a secret to a file on the agent's runtime and returns its path; absent when read-only.
   saveSecret?: (name: string, value: string) => Promise<string>
   // The conversation's open questions once listed: a card asking one can still be answered.

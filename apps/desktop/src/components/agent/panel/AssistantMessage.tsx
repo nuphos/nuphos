@@ -53,6 +53,7 @@ export const AssistantMessage = memo(
     onRejectPlan,
     activePlanCanAct,
     canActOnPlans = false,
+    canReplyToQuestions = false,
     isTeamAdmin = false,
     onOpenNuphosLink,
     onMessageFeedback,
@@ -78,6 +79,8 @@ export const AssistantMessage = memo(
     /** Tab is idle (not streaming, not read-only) — any `proposed` plan card in
      *  the transcript can be approved/rejected, not only the latest. */
     canActOnPlans?: boolean
+    /** Viewer may answer questions; replies can queue while the runtime is busy or offline. */
+    canReplyToQuestions?: boolean
     onStop?: () => void
     onApprovePlan?: (planId: string) => void
     onRejectPlan?: (planId: string, reason: string, mode: 'revise' | 'delete') => void
@@ -170,10 +173,7 @@ export const AssistantMessage = memo(
       if (p.type === 'turn-interrupted') {
         return <TurnInterruptedPartView key={partKey} part={p} />
       }
-      // `plan_update` / `plan_get` are agent bookkeeping — the inline card
-      // reflects their effects via DB state, so we don't render them as tool
-      // rows. But while one is in flight, show a shimmer line (like thinking)
-      // so the turn doesn't look stalled; it vanishes once the call lands.
+      // Plan bookkeeping only shows a shimmer while in flight; the card reads the stored plan.
       if (p.type === 'tool' && (p.toolName === 'plan_update' || p.toolName === 'plan_get')) {
         return <PlanBookkeepingPart key={partKey} part={p} now={now} />
       }
@@ -184,7 +184,7 @@ export const AssistantMessage = memo(
           onOpen: onOpenNuphosLink,
           now,
           canAct: isLatestReply && !streaming && canActOnPlans,
-          canReply: canActOnPlans,
+          canReply: canReplyToQuestions,
           canApprove: isTeamAdmin && canActOnPlans,
         })
 

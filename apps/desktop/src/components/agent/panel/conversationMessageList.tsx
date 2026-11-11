@@ -127,6 +127,7 @@ function MessageList({
         onApprovePlan={onApprovePlan}
         onRejectPlan={onRejectPlan}
         activePlanCanAct={activePlanCanAct ?? null}
+        canReplyToQuestions={!tab.readOnly}
         canActOnPlans={
           (runtimeAllows(tab.runtimeState, 'send') || runtimeAllows(tab.runtimeState, 'reply')) &&
           !tab.readOnly
