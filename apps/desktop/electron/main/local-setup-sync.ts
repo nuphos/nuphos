@@ -43,35 +43,32 @@ import type {
   LocalSetupResult,
   LocalSetupStatus,
 } from './local-setup-state.ts'
+import type { LocalSkillEntry } from './local-skills.ts'
 
 export type { LocalSetupResult, LocalSetupStatus } from './local-setup-state.ts'
 
-async function hashFile(
-  full: string,
-  size: number,
-  mtimeMs: number,
-  cache: HashCache,
-  seen: HashCache,
-) {
+async function hashFile(full: string, entry: LocalSkillEntry, cache: HashCache, seen: HashCache) {
+  const { realPath, size, mtimeMs } = entry
   const cached = cache[full] as FileHash | undefined
   const sha256 =
-    cached?.size === size && cached.mtimeMs === mtimeMs
+    cached?.size === size && cached.mtimeMs === mtimeMs && cached.realPath === realPath
       ? cached.sha256
       : createHash('sha256')
-          .update(await fs.readFile(full))
+          .update(await fs.readFile(realPath))
           .digest('hex')
 
-  seen[full] = { size, mtimeMs, sha256 }
+  seen[full] = { size, mtimeMs, realPath, sha256 }
 
   return sha256
 }
 
 /** Claude Code skills only: Codex keeps its own, and a name can exist under both. */
-async function snapshotLocalSkills(
-  cache: HashCache,
-): Promise<{ skills: (LocalSkillSnapshot & { root: string })[]; hashes: HashCache }> {
+async function snapshotLocalSkills(cache: HashCache): Promise<{
+  skills: (LocalSkillSnapshot & { realPaths: Map<string, string> })[]
+  hashes: HashCache
+}> {
   const skills = (await listLocalSkills()).filter((skill) => skill.source === 'claude')
-  const out: (LocalSkillSnapshot & { root: string })[] = []
+  const out: (LocalSkillSnapshot & { realPaths: Map<string, string> })[] = []
   // Only files that still exist keep a cache entry.
   const seen: HashCache = {}
 
@@ -85,10 +82,14 @@ async function snapshotLocalSkills(
       files.push({
         relPath: entry.relPath,
         size: entry.size,
-        sha256: await hashFile(full, entry.size, entry.mtimeMs, cache, seen),
+        sha256: await hashFile(full, entry, cache, seen),
       })
     }
-    out.push({ name: skill.name, root: skill.path, files })
+    out.push({
+      name: skill.name,
+      realPaths: new Map(entries.map((entry) => [entry.relPath, entry.realPath])),
+      files,
+    })
   }
 
   return { skills: out, hashes: seen }
@@ -158,9 +159,9 @@ async function uploadFile(
   teamId: string,
   key: string,
   upload: { name: string; key: string; file: { relPath: string; sha256: string } },
-  root: string,
+  realPath: string,
 ) {
-  const bytes = new Uint8Array(await fs.readFile(path.join(root, upload.file.relPath)))
+  const bytes = new Uint8Array(await fs.readFile(realPath))
 
   await teamSkillsPutObject(
     teamId,
@@ -184,7 +185,7 @@ async function runSync(teamId: string): Promise<LocalSetupResult> {
   saveHashCache(snapshot.hashes, path.join(claudeDir(), 'skills'))
   const listing = (await teamSkillsListObjects(teamId, 'personal')) as { objects: RemoteObject[] }
   const plan = planSkillSync(local, readTeam(key).skills, listing.objects)
-  const roots = new Map(local.map((skill) => [skill.name, skill.root]))
+  const realPaths = new Map(local.map((skill) => [skill.name, skill.realPaths]))
   const failed = new Set<string>()
   let removed = 0
 
@@ -217,11 +218,11 @@ async function runSync(teamId: string): Promise<LocalSetupResult> {
   // One file in memory at a time, SKILL.md first within each skill (the planner
   // keeps localSkillEntries' order), so a partial pass still leaves listable skills.
   for (const upload of plan.uploads) {
-    const root = roots.get(upload.name)
+    const realPath = realPaths.get(upload.name)?.get(upload.file.relPath)
 
-    if (failed.has(upload.name) || !root) continue
+    if (failed.has(upload.name) || !realPath) continue
     try {
-      await uploadFile(teamId, key, upload, root)
+      await uploadFile(teamId, key, upload, realPath)
       uploaded += 1
     } catch (e) {
       console.warn(`local-setup: could not upload ${upload.key}`, e)

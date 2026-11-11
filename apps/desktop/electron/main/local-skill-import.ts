@@ -2,7 +2,6 @@
 // skill against what listLocalSkills found, then read and upload its files one
 // at a time under `skills/<name>/`.
 import fs from 'node:fs/promises'
-import path from 'node:path'
 
 import { teamSkillsPutObject } from '../atlas'
 
@@ -42,8 +41,8 @@ export async function importLocalSkill(
   scope?: SkillScope,
 ): Promise<LocalSkillImportResult> {
   // Never take a directory the renderer names: the listing main just produced is
-  // the whole allow-list, and it already excludes symlinked roots and anything
-  // without a SKILL.md — so there is no path to canonicalize or contain here.
+  // the whole allow-list, and localSkillEntries has already resolved and
+  // contained every link — so read each file where it resolved to.
   const skill = (await listLocalSkills()).find((candidate) => candidate.id === id)
 
   if (!skill) throw new Error(`No skill "${id}" on this computer.`)
@@ -60,7 +59,7 @@ export async function importLocalSkill(
       continue
     }
     const key = `skills/${skill.name}/${entry.relPath}`
-    const bytes = new Uint8Array(await fs.readFile(path.join(skill.path, entry.relPath)))
+    const bytes = new Uint8Array(await fs.readFile(entry.realPath))
 
     await teamSkillsPutObject(
       teamId,

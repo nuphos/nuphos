@@ -1,5 +1,14 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  unlinkSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { after, before, beforeEach, describe, it, mock } from 'node:test'
@@ -167,6 +176,33 @@ describe('syncLocalSetup recovery', () => {
       team('t1').instructions.map((item) => item.title),
       ['CLAUDE.md from this computer (1 of 2)', 'CLAUDE.md from this computer (2 of 2)'],
     )
+  })
+})
+
+describe('syncLocalSetup with linked skills', () => {
+  it('re-uploads a Nix-style linked skill when its target changes but size and mtime do not', async () => {
+    const store = mkdtempSync(path.join(os.tmpdir(), 'local-setup-store-'))
+    const link = path.join(home, '.claude', 'skills', 'nix')
+
+    // Nix store files all carry the same mtime, and these two have the same size.
+    for (const [dir, body] of [
+      ['v1', 'one'],
+      ['v2', 'two'],
+    ] as const) {
+      mkdirSync(path.join(store, dir))
+      writeFileSync(path.join(store, dir, 'SKILL.md'), `---\ndescription: ${body}\n---\n`)
+      utimesSync(path.join(store, dir, 'SKILL.md'), 1, 1)
+    }
+    symlinkSync(path.join(store, 'v1'), link)
+    await syncLocalSetup('t1')
+    assert.ok(team('t1').objects.has('skills/nix/SKILL.md'))
+    unlinkSync(link)
+    symlinkSync(path.join(store, 'v2'), link)
+
+    const result = await syncLocalSetup('t1')
+
+    assert.equal(result.uploadedFiles, 1)
+    rmSync(store, { recursive: true, force: true })
   })
 })
 

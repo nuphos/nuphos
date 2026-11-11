@@ -47,7 +47,13 @@ export type TeamState = {
   last: LocalSetupResult | null
 }
 
-export type FileHash = { size: number; mtimeMs: number; sha256: string }
+export type FileHash = {
+  size: number
+  mtimeMs: number
+  /** Where a linked file resolved to: Nix store files all share one mtime. */
+  realPath?: string
+  sha256: string
+}
 export type HashCache = Record<string, FileHash>
 
 type State = { teams: Record<string, TeamState> }

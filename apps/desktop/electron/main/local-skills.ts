@@ -22,7 +22,13 @@ export type LocalSkillInfo = {
   updatedAt: string
 }
 
-export type LocalSkillEntry = { relPath: string; size: number; mtimeMs: number }
+export type LocalSkillEntry = {
+  relPath: string
+  /** The file itself, after links: read this, never `relPath` under the skill. */
+  realPath: string
+  size: number
+  mtimeMs: number
+}
 
 /** The team skill store rejects anything larger, so skip it before uploading. */
 export const MAX_SKILL_FILE_BYTES = 10_000_000
@@ -56,46 +62,61 @@ export function skillDescription(markdown: string): string | null {
 }
 
 /**
- * Where a symlinked file really is, when that is a regular file inside `within`
- * (the skills directory itself). Tools such as gstack install each skill as a
- * folder of links into one shared checkout there; a link anywhere else, or to a
- * directory, is never followed.
+ * Read-only and world-readable by construction, so a link into it cannot expose
+ * anything private. Nix home-manager installs skills as links into it.
  */
-async function containedLink(full: string, within: string): Promise<Stats | null> {
+const READ_ONLY_ROOTS = ['/nix/store']
+
+function isUnder(target: string, base: string): boolean {
+  return target.startsWith(base.endsWith(path.sep) ? base : `${base}${path.sep}`)
+}
+
+type Resolved = { real: string; stat: Stats }
+
+/**
+ * Where an entry really is and what it is. A link is followed only to a place
+ * in `allowed` — its own skill, the skills directory (gstack links each skill
+ * into one shared checkout there) or a read-only root — never elsewhere.
+ */
+async function resolveEntry(
+  entry: Dirent,
+  full: string,
+  allowed: readonly string[],
+): Promise<Resolved | null> {
   try {
-    const target = await fs.realpath(full)
+    if (!entry.isSymbolicLink()) return { real: full, stat: await fs.lstat(full) }
+    const real = await fs.realpath(full)
 
-    if (!target.startsWith(`${within}${path.sep}`)) return null
-    const stat = await fs.stat(target)
+    if (!allowed.some((base) => isUnder(real, base))) return null
 
-    return stat.isFile() ? stat : null
+    return { real, stat: await fs.stat(real) }
   } catch {
+    // Vanished between readdir and stat, or a dangling link: treat it as absent.
     return null
   }
 }
 
-/** A regular file's stat, or a contained link's target's; null for anything else. */
-async function fileStat(entry: Dirent, full: string, within: string | null): Promise<Stats | null> {
-  if (entry.isSymbolicLink()) return within ? containedLink(full, within) : null
-  if (!entry.isFile()) return null
-
-  // Vanished between readdir and stat: treat it as absent.
-  return fs.lstat(full).catch(() => null)
-}
-
 /**
- * Every regular file under a skill directory, flattened to relative paths.
- * Directory symlinks are never followed, and a file symlink only when it points
- * at a file inside the same skills directory (see containedLink), so a link
- * cannot pull anything from elsewhere on the computer in — the same reason a
- * symlinked skill root never appears in `listLocalSkills`.
+ * Every regular file under a skill directory, flattened to relative paths. The
+ * skill directory may itself be a link; links inside it are followed only as
+ * resolveEntry allows, each real directory is walked once, and depth and file
+ * count are capped, so a link cannot pull in the rest of the computer or loop.
  */
-export async function localSkillEntries(root: string): Promise<LocalSkillEntry[]> {
+export async function localSkillEntries(
+  root: string,
+  readOnlyRoots: readonly string[] = READ_ONLY_ROOTS,
+): Promise<LocalSkillEntry[]> {
   const out: LocalSkillEntry[] = []
-  const within = await fs.realpath(path.dirname(root)).catch(() => null)
+  const realRoot = await fs.realpath(root).catch(() => null)
+  const skillsDir = await fs.realpath(path.dirname(root)).catch(() => null)
+
+  if (!realRoot) return out
+  const allowed = [realRoot, ...(skillsDir ? [skillsDir] : []), ...readOnlyRoots]
+  const visited = new Set<string>()
 
   async function walk(dir: string, prefix: string, depth: number) {
-    if (depth > MAX_DEPTH || out.length >= MAX_FILES) return
+    if (depth > MAX_DEPTH || out.length >= MAX_FILES || visited.has(dir)) return
+    visited.add(dir)
     let entries: Dirent[]
 
     try {
@@ -106,20 +127,19 @@ export async function localSkillEntries(root: string): Promise<LocalSkillEntry[]
     for (const entry of entries.toSorted((a, b) => a.name.localeCompare(b.name))) {
       if (out.length >= MAX_FILES) return
       if (SKIP_ENTRIES.has(entry.name)) continue
-      const full = path.join(dir, entry.name)
       const relPath = prefix ? `${prefix}/${entry.name}` : entry.name
+      const resolved = await resolveEntry(entry, path.join(dir, entry.name), allowed)
 
-      if (entry.isDirectory()) {
-        await walk(full, relPath, depth + 1)
-        continue
+      if (resolved?.stat.isDirectory()) await walk(resolved.real, relPath, depth + 1)
+      else if (resolved?.stat.isFile()) {
+        const { real, stat } = resolved
+
+        out.push({ relPath, realPath: real, size: stat.size, mtimeMs: stat.mtimeMs })
       }
-      const stat = await fileStat(entry, full, within)
-
-      if (stat) out.push({ relPath, size: stat.size, mtimeMs: stat.mtimeMs })
     }
   }
 
-  await walk(root, '', 0)
+  await walk(realRoot, '', 0)
 
   // SKILL.md first: it is the file the store keys the skill on, so a partial
   // upload still leaves a listable skill rather than orphan objects.
@@ -161,8 +181,11 @@ export async function listLocalSkills(): Promise<LocalSkillInfo[]> {
       const names = await fs.readdir(dir, { withFileTypes: true }).catch(() => [])
       const skills = await Promise.all(
         names
+          // A linked root is fine: localSkillEntries walks where it resolves to.
           .filter(
-            (entry) => entry.isDirectory() && /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(entry.name),
+            (entry) =>
+              (entry.isDirectory() || entry.isSymbolicLink()) &&
+              /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(entry.name),
           )
           .map((entry) => describeSkill(source, dir, entry.name)),
       )
