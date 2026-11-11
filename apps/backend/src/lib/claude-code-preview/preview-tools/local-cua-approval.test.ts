@@ -50,11 +50,13 @@ describe('approveAppForComputerUse', () => {
     expect(waits).toEqual([
       { userId: 'u1', sessionId: 's1', waitId: card, kind: 'authorization-rule' },
     ])
+
     expect(frames.map((frame) => frame.type)).toEqual([
       'tool-input-available',
       'tool-approval-request',
       'tool-output-available',
     ])
+
     expect(frames[0]).toMatchObject({ input: { title: request.message } })
     expect(frames[1]).toMatchObject({ toolCallId: card, approvalId: card })
   })
@@ -83,4 +85,20 @@ describe('approveAppForComputerUse', () => {
       layer: 'bypass',
     })
   })
+})
+
+test('a shared turn uses the conversation Full Access mode for app approval', async () => {
+  const { deps, waits } = harness({
+    bypass: async (sessionId, userId) => {
+      expect([sessionId, userId]).toEqual(['s1', 'owner'])
+
+      return true
+    },
+  })
+
+  expect(
+    await approveAppForComputerUse({ ...ctx, conversationOwnerUserId: 'owner' }, request, deps),
+  ).toBe(true)
+
+  expect(waits).toEqual([])
 })

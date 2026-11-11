@@ -13,11 +13,7 @@ import { sessionConfigRestoreContext } from './session-config-restore'
 
 import type { RuntimeDefaults } from './openab-acp-session'
 import type { RuntimeModelCatalog } from './runtime-models'
-import type {
-  SessionConfigOption,
-  SessionConfigSelection,
-  SessionConfigState,
-} from './session-config-options'
+import type { SessionConfigSelection, SessionConfigState } from './session-config-options'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 import type { AgentConversation } from '@/lib/agent/db'
 
@@ -147,7 +143,7 @@ export async function sessionConfigView(
   picked: RuntimeDefaults,
   catalogFor: CatalogFor,
 ): Promise<SessionConfigState> {
-  const { status, options } = await catalogState(picked, catalogFor)
+  const { status, options } = await catalogState(picked, catalogFor, true)
 
   return { status: status === 'dormant' ? 'ready' : status, options }
 }
@@ -155,19 +151,17 @@ export async function sessionConfigView(
 async function catalogState(
   picked: RuntimeDefaults,
   catalogFor: CatalogFor,
+  confirmedOnly = false,
 ): Promise<SessionConfigState & { kept: RuntimeDefaults }> {
   if (!catalogFor) return { status: 'dormant', options: [], kept: {} }
   try {
-    return { status: 'dormant', ...(await offeredSessionConfig(catalogFor, picked)) }
+    return { status: 'dormant', ...(await offeredSessionConfig(catalogFor, picked, confirmedOnly)) }
   } catch {
     return { status: 'offline', options: [], kept: {} }
   }
 }
 
-/**
- * Before a session exists the choices come from the runtime itself, and a pick
- * is kept on the conversation for the runtime to apply when it creates one.
- */
+// Before attachment, choices come from the catalog and explicit picks are saved.
 async function initialSessionConfig(
   conversation: AgentConversation,
   selection: SessionConfigSelection | undefined,
@@ -177,6 +171,7 @@ async function initialSessionConfig(
   const { status, options, kept } = await catalogState(
     selection ? { ...stored, [selection.configId]: selection.value } : stored,
     runtimeCatalog(conversation, viewerUserId),
+    Boolean(conversation.runtimeMigration),
   )
 
   if (selection && status === 'offline')
@@ -190,8 +185,8 @@ async function initialSessionConfig(
       'invalid_runtime_config',
       'This model setting is no longer available. Refresh and try again.',
     )
-  // Only before the session starts; afterwards the session holds its own settings.
-  if (status !== 'offline' && JSON.stringify(kept) !== JSON.stringify(stored))
+  // Reading a catalog must not erase a saved choice it no longer offers.
+  if (selection && JSON.stringify(kept) !== JSON.stringify(stored))
     await agentConversations().updateOne(
       {
         sessionId: conversation.sessionId,

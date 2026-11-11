@@ -31,7 +31,7 @@ function useMinuteClock(): Date {
 
 export function NextRuns({ trigger }: { trigger: AgentTrigger }) {
   const now = useMinuteClock()
-  const runs = nextOccurrencesAfter(trigger.cronExpression ?? '', now, 3)
+  const runs = nextOccurrencesAfter(trigger.cronExpression ?? '', now, 3, trigger.timeZone)
 
   if (!trigger.enabled) {
     return (
@@ -60,13 +60,15 @@ export function NextRuns({ trigger }: { trigger: AgentTrigger }) {
 export function ScheduleEditor({
   value,
   onChange,
+  timeZone,
 }: {
   value: string
   onChange: (expression: string) => void
+  timeZone?: string
 }) {
   return (
     <div className="text-[13px] [&_input]:text-[13px] [&_select]:text-[13px]">
-      <CronBuilder value={value} onChange={onChange} />
+      <CronBuilder value={value} onChange={onChange} scheduleTimeZone={timeZone} />
     </div>
   )
 }

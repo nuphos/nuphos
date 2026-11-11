@@ -3,7 +3,7 @@ import { expect, test } from 'bun:test'
 import { transcriptTurnDiagnostics } from './transcript-diagnostics'
 import { compactTranscriptLine } from './transcript-read'
 
-test('legacy interruption at the end of a long transcript remains independently readable', () => {
+test('legacy interruption at the end of a long transcript remains independently readable', async () => {
   const message = {
     index: 7,
     role: 'assistant' as const,
@@ -19,7 +19,7 @@ test('legacy interruption at the end of a long transcript remains independently 
   }
 
   expect(compactTranscriptLine(message)).toContain('[truncated]')
-  expect(transcriptTurnDiagnostics(message)).toEqual([
+  expect(await transcriptTurnDiagnostics(message)).toEqual([
     {
       message_index: 7,
       outcome: 'interrupted',
@@ -30,7 +30,7 @@ test('legacy interruption at the end of a long transcript remains independently 
   ])
 })
 
-test('structured diagnostics omit arbitrary payloads and survive without prose', () => {
+test('structured diagnostics omit arbitrary payloads and survive without prose', async () => {
   const data = {
     streamId: 'run',
     startedAt: '2026-10-10T09:00:00.000Z',
@@ -40,7 +40,7 @@ test('structured diagnostics omit arbitrary payloads and survive without prose',
     error: 'Agent exceeded hard timeout (1800s)',
     authKey: 'secret',
   }
-  const result = transcriptTurnDiagnostics({
+  const result = await transcriptTurnDiagnostics({
     index: 2,
     role: 'assistant' as const,
     parts: [{ type: 'turn-interrupted', reason: 'timeout', diagnostics: data }],
@@ -49,14 +49,14 @@ test('structured diagnostics omit arbitrary payloads and survive without prose',
   expect(result[0]?.diagnostics?.error).toBe(data.error)
   expect(JSON.stringify(result)).not.toContain('secret')
   expect(
-    transcriptTurnDiagnostics({
+    await transcriptTurnDiagnostics({
       index: 2,
       role: 'user',
       parts: [{ type: 'data-turn-diagnostics', data }],
     }),
   ).toEqual([])
   expect(
-    transcriptTurnDiagnostics({
+    await transcriptTurnDiagnostics({
       index: 2,
       role: 'assistant',
       parts: [{ type: 'data-turn-diagnostics', data }],
@@ -64,9 +64,9 @@ test('structured diagnostics omit arbitrary payloads and survive without prose',
   ).toEqual([])
 })
 
-test('optional fields the driver stored as null still read as a valid record', () => {
+test('optional fields the driver stored as null still read as a valid record', async () => {
   // The Mongo driver writes an undefined optional field as null.
-  const result = transcriptTurnDiagnostics({
+  const result = await transcriptTurnDiagnostics({
     index: 15,
     role: 'assistant' as const,
     parts: [

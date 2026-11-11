@@ -17,7 +17,12 @@ const MAX_OCCURRENCES_PER_TRIGGER = 5000
  * The scheduler evaluates every expression in UTC, so these are real UTC
  * instants; the grids draw them on the viewer's clock.
  */
-export function cronOccurrencesInRange(expression: string, start: Date, end: Date): Date[] {
+export function cronOccurrencesInRange(
+  expression: string,
+  start: Date,
+  end: Date,
+  timeZone = 'UTC',
+): Date[] {
   const occurrences: Date[] = []
 
   try {
@@ -26,7 +31,7 @@ export function cronOccurrencesInRange(expression: string, start: Date, end: Dat
     const interval = cronParser.parseExpression(expression, {
       currentDate: new Date(start.getTime() - 1),
       endDate: end,
-      tz: 'UTC',
+      tz: timeZone,
     })
 
     while (occurrences.length < MAX_OCCURRENCES_PER_TRIGGER) {
@@ -61,7 +66,7 @@ export function buildScheduleEvents(
     const expression = trigger.cronExpression?.trim()
 
     if (!expression) continue
-    for (const fireAt of cronOccurrencesInRange(expression, start, end)) {
+    for (const fireAt of cronOccurrencesInRange(expression, start, end, trigger.timeZone)) {
       events.push({
         key: `${trigger.id}@${String(fireAt.getTime())}`,
         triggerId: trigger.id,
@@ -119,9 +124,14 @@ export function sortEvents(events: ScheduleEvent[]): ScheduleEvent[] {
 
 /** The next `count` fire times strictly after `after` — the detail panel's
  *  "Upcoming runs" list. */
-export function nextOccurrencesAfter(expression: string, after: Date, count: number): Date[] {
+export function nextOccurrencesAfter(
+  expression: string,
+  after: Date,
+  count: number,
+  timeZone = 'UTC',
+): Date[] {
   try {
-    const interval = cronParser.parseExpression(expression, { currentDate: after, tz: 'UTC' })
+    const interval = cronParser.parseExpression(expression, { currentDate: after, tz: timeZone })
 
     return Array.from({ length: count }, () => interval.next().toDate())
   } catch {

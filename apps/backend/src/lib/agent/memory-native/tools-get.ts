@@ -16,6 +16,7 @@ import type { MemoryFetchedObserver, MemorySearchedObserver } from './tools-shar
 export function createMemoryGetTool(deps: {
   userId: string
   teamId: string | null | undefined
+  conversationId?: string
   onMemoryFetched?: MemoryFetchedObserver
   onMemorySearched?: MemorySearchedObserver
 }) {
@@ -62,7 +63,7 @@ export function createMemoryGetTool(deps: {
     execute: async (input) => {
       if (input.query) {
         const limit = input.limit ?? 8
-        const filters = { tags: input.tags, scope: input.scope }
+        const filters = { tags: input.tags, scope: input.scope, sessionId: deps.conversationId }
         const [hits, playbookHits] = await Promise.all([
           searchMemoryRecords(userId, teamId, input.query, limit, filters),
           // Playbook hits are summaries (title + signals), not full bodies —
@@ -144,7 +145,7 @@ export function createMemoryGetTool(deps: {
           })),
         }
       }
-      const record = await getMemoryRecord(memoryId, userId, teamId)
+      const record = await getMemoryRecord(memoryId, userId, teamId, deps.conversationId)
 
       if (!record) return { ok: false, error: 'memory not found' }
       onMemoryFetched?.(memoryId, 'record', record.scope, record.title || record.text.slice(0, 160))

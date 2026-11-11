@@ -29,8 +29,8 @@ function input(command: string): DeviceExecAuditInput {
 }
 
 describe('buildDeviceExecAuditEntry', () => {
-  test('keeps unfinished operations unknown without inventing a finish or duration', () => {
-    const entry = buildDeviceExecAuditEntry({
+  test('keeps unfinished operations unknown without inventing a finish or duration', async () => {
+    const entry = await buildDeviceExecAuditEntry({
       ...input('git status'),
       operationId: 'operation-1',
       outcome: 'unknown',
@@ -48,16 +48,16 @@ describe('buildDeviceExecAuditEntry', () => {
     expect(entry.exitCode).toBeUndefined()
   })
 
-  test('keeps a harmless command verbatim and derives the duration', () => {
-    const entry = buildDeviceExecAuditEntry(input('git status'))
+  test('keeps a harmless command verbatim and derives the duration', async () => {
+    const entry = await buildDeviceExecAuditEntry(input('git status'))
 
     expect(entry.command).toBe('git status')
     expect(entry.commandRedacted).toBe(false)
     expect(entry.durationMs).toBe(2500)
   })
 
-  test('redacts secrets in the command before it is stored', () => {
-    const entry = buildDeviceExecAuditEntry(
+  test('redacts secrets in the command before it is stored', async () => {
+    const entry = await buildDeviceExecAuditEntry(
       input(
         'curl -H "Authorization: Bearer abcdefghijklmnop1234" https://x && export API_KEY=supersecretvalue && gh auth login --token ghp_abcdefghijklmnopqrstuvwxyz0123',
       ),
@@ -70,8 +70,8 @@ describe('buildDeviceExecAuditEntry', () => {
     expect(entry.command).toContain('[REDACTED:')
   })
 
-  test('caps a very long command', () => {
-    const entry = buildDeviceExecAuditEntry(input(`echo ${'a '.repeat(5000)}`))
+  test('caps a very long command', async () => {
+    const entry = await buildDeviceExecAuditEntry(input(`echo ${'a '.repeat(5000)}`))
 
     expect(entry.command.length).toBeLessThanOrEqual(4001)
     expect(entry.command.endsWith('…')).toBe(true)
@@ -79,7 +79,7 @@ describe('buildDeviceExecAuditEntry', () => {
 })
 
 describe('audit cursor', () => {
-  test('round-trips time and id so entries sharing a millisecond are not skipped', () => {
+  test('round-trips time and id so entries sharing a millisecond are not skipped', async () => {
     const requestedAt = new Date('2026-09-01T00:00:00.000Z')
     const id = new ObjectId('65f000000000000000000002')
     const cursor = encodeAuditCursor({ requestedAt, _id: id })
@@ -94,7 +94,7 @@ describe('audit cursor', () => {
     })
   })
 
-  test('ignores a malformed cursor', () => {
+  test('ignores a malformed cursor', async () => {
     expect(decodeAuditCursor('2026-09-01T00:00:00.000Z')).toBeNull()
     expect(decodeAuditCursor('nope_65f000000000000000000002')).toBeNull()
     expect(decodeAuditCursor('2026-09-01T00:00:00.000Z_zz')).toBeNull()

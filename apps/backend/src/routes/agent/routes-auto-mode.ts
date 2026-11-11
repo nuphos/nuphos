@@ -10,7 +10,7 @@ import { agent } from './router'
 agent.get('/auto-mode/policy/rules', (c) => c.json({ enabled: true, rules: [] }))
 
 // Full Access: a per-conversation switch that allows the runtime's permission
-// requests without asking, applied to the turns the person who set it sends.
+// requests without asking, for every participant's turn in the conversation.
 // Only the owner sets it.
 async function assertCanSetMode(sessionId: string, userId: string) {
   const conversation = await getConversationBySessionId(sessionId)

@@ -41,7 +41,7 @@ export function ChoiceCard({
   /** What the agent wrote to decide from: context, findings, links, risks. */
   body?: string
   options: string[]
-  /** The latest reply and no turn running: only then can an option be sent. */
+  /** The viewer may answer this question. */
   canAct: boolean
 }) {
   const ctx = useContext(ConnectCardContext)
@@ -53,16 +53,17 @@ export function ChoiceCard({
   const reply = typedReply(ctx, interactive, category)
   const cardRef = useRef<HTMLDivElement | null>(null)
   const choose = (option: string) => {
+    if (!ctx || ctx.send(option, { toolCallId, question, options }) === false) return false
     setSent(option)
-    ctx?.send(option, { toolCallId, question, options })
+
+    return true
   }
   const act = useDecisionKeys(cardRef, live, (key) => {
     const option = key.kind === 'option' ? options[key.index] : undefined
 
     if (option === undefined) return false
-    choose(option)
 
-    return true
+    return choose(option)
   })
 
   return (

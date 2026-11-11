@@ -100,7 +100,10 @@ export async function handleOpenAbPermissionRequest(
 
     return cancelled()
   }
-  const bypass = await deps.getSessionBypass(args.conversationId, args.userId)
+  const bypass = await deps.getSessionBypass(
+    args.conversationId,
+    args.conversationOwnerUserId ?? args.userId,
+  )
 
   // Nuphos MCP tool cards are normally hidden (the handler renders its own);
   // an approval request has nowhere to attach unless this card is visible.

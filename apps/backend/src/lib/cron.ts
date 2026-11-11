@@ -1,11 +1,21 @@
 import cronParser from 'cron-parser'
 
-/** Every schedule the backend stores or evaluates is UTC, whatever the host's zone. */
+/** Existing schedules default to UTC, whatever the host's zone. */
 export const CRON_TIME_ZONE = 'UTC'
 
-export function parseUtcCron(expression: string, currentDate?: Date) {
+export function isValidTimeZone(timeZone: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en', { timeZone }).format()
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function parseUtcCron(expression: string, currentDate?: Date, timeZone = CRON_TIME_ZONE) {
   return cronParser.parseExpression(expression, {
-    tz: CRON_TIME_ZONE,
+    tz: timeZone,
     ...(currentDate ? { currentDate } : {}),
   })
 }
@@ -28,9 +38,9 @@ export function nextCronRun(expression: string, after: Date): Date {
   return parseUtcCron(expression, after).next().toDate()
 }
 
-export function nextCronRuns(expression: string, count = 3): string[] {
+export function nextCronRuns(expression: string, count = 3, timeZone = CRON_TIME_ZONE): string[] {
   try {
-    const interval = parseUtcCron(expression)
+    const interval = parseUtcCron(expression, undefined, timeZone)
 
     return Array.from({ length: count }, () => interval.next().toISOString())
   } catch {

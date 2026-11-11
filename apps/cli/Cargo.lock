@@ -1357,7 +1357,7 @@ dependencies = [
 
 [[package]]
 name = "nuphos-cli"
-version = "0.13.3"
+version = "0.13.4"
 dependencies = [
  "anyhow",
  "base64 0.22.1",

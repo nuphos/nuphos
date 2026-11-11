@@ -148,6 +148,7 @@ export const localRuntimeStatusSchema = z.object({
     )
     .optional(),
   localAttachments: z.boolean().optional(),
+  fileImport: z.boolean().optional(),
   localExec: z.boolean().optional(),
   localMetrics: z.boolean().optional(),
   localTerminal: z.boolean().optional(),

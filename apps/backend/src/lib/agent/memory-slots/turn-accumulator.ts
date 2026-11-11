@@ -7,7 +7,8 @@
 // attribution capture, attribution judge) plus the ingest dispatcher ONE
 // consistent snapshot. Runtime-OWNED — providers only ever see the observer.
 
-import { redactSecrets } from '@/lib/journal/redact'
+import { logError } from '@/lib/observability'
+import { redactSecrets } from '@/lib/secrets/scan'
 
 import { createMemoryObserver } from './runtime'
 import { renderMemorySavedFrame } from './save-frame'
@@ -92,24 +93,32 @@ export function createTurnMemoryAccumulator(input: {
         fetchedIds.set(event.id, event.scope)
         if (event.label !== undefined) fetchedLabels.set(event.id, event.label)
       },
+      // Telemetry is best effort: a failed scan or sink drops the event and is
+      // logged as the observer guard would, never left as an unhandled rejection.
       searched: (event) => {
-        input.recordEvent({
-          conversationId: sessionId,
-          event: 'memory.searched',
-          userId,
-          data: {
-            // Redact BEFORE truncating: slicing first can cut a secret in
-            // half, leaving a fragment the redactor no longer matches.
-            query: redactSecrets(event.query).redacted.slice(0, 200),
-            queryHasCjk: CJK_RE.test(event.query),
-            // Persisted analytics keys keep their legacy shapes: hitCount is
-            // the flat-record count (hitsByKind.record; a vendor without the
-            // breakdown falls back to its total), geneHitCount the playbook
-            // count until the data migration renames it.
-            hitCount: event.hitsByKind?.record ?? event.hitCount,
-            geneHitCount: event.hitsByKind?.playbook ?? 0,
-          },
-        })
+        void redactSecrets(event.query)
+          .then(({ redacted }) => {
+            input.recordEvent({
+              conversationId: sessionId,
+              event: 'memory.searched',
+              userId,
+              data: {
+                // Redact BEFORE truncating: slicing first can cut a secret in
+                // half, leaving a fragment the redactor no longer matches.
+                query: redacted.slice(0, 200),
+                queryHasCjk: CJK_RE.test(event.query),
+                // Persisted analytics keys keep their legacy shapes: hitCount is
+                // the flat-record count (hitsByKind.record; a vendor without the
+                // breakdown falls back to its total), geneHitCount the playbook
+                // count until the data migration renames it.
+                hitCount: event.hitsByKind?.record ?? event.hitCount,
+                geneHitCount: event.hitsByKind?.playbook ?? 0,
+              },
+            })
+          })
+          .catch((err: unknown) => {
+            logError('memory.observer.searched_failed', err, { provider: providerId })
+          })
       },
     },
   })

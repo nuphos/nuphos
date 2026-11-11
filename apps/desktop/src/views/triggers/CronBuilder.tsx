@@ -29,9 +29,11 @@ import type { CronMode } from './cron'
 export function CronBuilder({
   value,
   onChange,
+  scheduleTimeZone = 'UTC',
 }: {
   value: string
   onChange: (expr: string) => void
+  scheduleTimeZone?: string
 }) {
   // Parse incoming value once and keep mode in local state so the user can
   // change individual fields without losing other selections. Re-deriving from
@@ -69,8 +71,8 @@ export function CronBuilder({
   const preview = buildCron(mode)
   const timeZone = viewerTimeZone()
   const nextRuns = useMemo(
-    () => (preview ? nextOccurrencesAfter(preview, new Date(), 3) : []),
-    [preview],
+    () => (preview ? nextOccurrencesAfter(preview, new Date(), 3, scheduleTimeZone) : []),
+    [preview, scheduleTimeZone],
   )
 
   return (
@@ -170,7 +172,11 @@ export function CronBuilder({
               }}
               className="w-14 h-7 px-2 rounded-md bg-surface border border-line-control text-main text-[12.5px] text-center focus:outline-none focus:border-line-focus"
             />
-            <span className="text-tertiary text-[11.5px]">{t('(24-hour, UTC)')}</span>
+            <span className="text-tertiary text-[11.5px]">
+              {scheduleTimeZone === 'UTC'
+                ? t('(24-hour, UTC)')
+                : t('(24-hour, {zone})', { zone: scheduleTimeZone })}
+            </span>
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
             {WEEKDAYS.map((d) => {
@@ -230,7 +236,9 @@ export function CronBuilder({
       )}
 
       <div className="text-[11px] text-tertiary">
-        {t('Cron (UTC):')}{' '}
+        {scheduleTimeZone === 'UTC'
+          ? t('Cron (UTC):')
+          : t('Cron ({zone}):', { zone: scheduleTimeZone })}{' '}
         <code className="font-mono text-[11px] text-secondary bg-surface-sheet border border-line-control rounded px-1.5 py-0.5">
           {preview || '—'}
         </code>
@@ -238,7 +246,10 @@ export function CronBuilder({
       {nextRuns.length > 0 && (
         <div className="space-y-0.5 text-[11.5px] text-tertiary">
           <div className="text-secondary">
-            {scheduleSummary({ triggerType: 'cron', cronExpression: preview }, timeZone)}
+            {scheduleSummary(
+              { triggerType: 'cron', cronExpression: preview, timeZone: scheduleTimeZone },
+              timeZone,
+            )}
           </div>
           <div>{t('Next runs:')}</div>
           <ul className="space-y-0.5 pl-2">

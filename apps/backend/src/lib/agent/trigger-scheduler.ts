@@ -89,7 +89,7 @@ export async function initTriggerScheduler(): Promise<boolean> {
 
   for (const trigger of cronTriggers) {
     if (trigger._id && trigger.cronExpression) {
-      await _upsertJobScheduler(trigger._id.toString(), trigger.cronExpression)
+      await _upsertJobScheduler(trigger._id.toString(), trigger.cronExpression, trigger.timeZone)
     }
   }
   const removedOrphanCount = await removeOrphanJobSchedulers()
@@ -146,10 +146,14 @@ export async function shutdownTriggerScheduler(): Promise<void> {
   await closeTriggerQueues()
 }
 
-async function _upsertJobScheduler(triggerId: string, cronExpression: string): Promise<void> {
+async function _upsertJobScheduler(
+  triggerId: string,
+  cronExpression: string,
+  timeZone = CRON_TIME_ZONE,
+): Promise<void> {
   await _queue!.upsertJobScheduler(
     `trigger:${triggerId}`,
-    { pattern: cronExpression, tz: CRON_TIME_ZONE },
+    { pattern: cronExpression, tz: timeZone },
     {
       name: 'run-trigger',
       data: { triggerId },
@@ -184,9 +188,10 @@ async function removeOrphanJobSchedulers(): Promise<number> {
 export async function scheduleCronTrigger(
   triggerId: string,
   cronExpression: string,
+  timeZone?: string,
 ): Promise<void> {
   if (!_queue) return
-  await _upsertJobScheduler(triggerId, cronExpression)
+  await _upsertJobScheduler(triggerId, cronExpression, timeZone)
 }
 
 export async function unscheduleCronTrigger(triggerId: string): Promise<void> {

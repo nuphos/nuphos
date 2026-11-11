@@ -67,6 +67,8 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
         name: body.name,
         triggerType: body.triggerType as TriggerType,
         ...(typeof body.cronExpression === 'string' ? { cronExpression: body.cronExpression } : {}),
+        ...(typeof body.timeZone === 'string' ? { timeZone: body.timeZone } : {}),
+        ...(typeof body.enabled === 'boolean' ? { enabled: body.enabled } : {}),
         messageTemplate: body.messageTemplate,
         ...(typeof body.expiresAt === 'string' ? { expiresAt: new Date(body.expiresAt) } : {}),
         ...(typeof body.dedupeKey === 'string' ? { dedupeKey: body.dedupeKey } : {}),
@@ -89,7 +91,10 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
           ? { webhookUrl: webhookUrlFor(created.id), secretHeader: 'X-Webhook-Secret' }
           : {}),
         ...(created.triggerType === 'cron' && created.cronExpression
-          ? { nextRuns: nextCronRuns(created.cronExpression), timeZone: CRON_TIME_ZONE }
+          ? {
+              nextRuns: nextCronRuns(created.cronExpression, 3, created.timeZone),
+              timeZone: created.timeZone ?? CRON_TIME_ZONE,
+            }
           : {}),
       },
       201,
@@ -112,6 +117,7 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
         : {}),
       ...(typeof body.enabled === 'boolean' ? { enabled: body.enabled } : {}),
       ...(typeof body.cronExpression === 'string' ? { cronExpression: body.cronExpression } : {}),
+      ...(typeof body.timeZone === 'string' ? { timeZone: body.timeZone } : {}),
       ...(typeof body.targetSessionId === 'string'
         ? { targetSessionId: body.targetSessionId }
         : {}),

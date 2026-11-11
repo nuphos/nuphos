@@ -161,7 +161,7 @@ export function TriggerCard({
       />
       <div className="border-t border-line-control px-3.5 py-2.5">
         {editing ? (
-          <ScheduleEditor value={draft} onChange={setDraft} />
+          <ScheduleEditor value={draft} onChange={setDraft} timeZone={trigger.timeZone} />
         ) : (
           <NextRuns trigger={trigger} />
         )}

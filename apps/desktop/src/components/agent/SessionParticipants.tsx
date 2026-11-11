@@ -8,7 +8,7 @@ import { t } from '../../i18n'
 import { toast } from '../ui/toast'
 
 import { TIMELINE_CHANGED_EVENT, announceTimelineChange } from './panel/timelineEvents'
-import { addableAgents, agentPeople, removePeople } from './channelPeople'
+import { addableAgents, agentPeople, leaveSession, removePeople } from './channelPeople'
 import { ComputerUseConfirm } from './ComputerUseConfirm'
 import { needsComputerUse } from './computerUse'
 import { InviteSection } from './InviteSection'
@@ -175,7 +175,7 @@ export function SessionParticipants({
     const { id, name } = person
 
     setPending(id)
-    removeAll([person])
+    ;(id === currentUserId ? leaveSession(sessionId, teamId, id) : removeAll([person]))
       .catch((err: unknown) => toast.apiError(t('Failed to remove {name}', { name }), err))
       .finally(() => setPending(null))
   }

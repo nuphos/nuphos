@@ -1,3 +1,5 @@
+import { useCredentialOptions } from '@/lib/test/doubles/credential-options'
+import { useAgentSessionsShared, real as shared } from '@/lib/test/doubles/agent-sessions-shared'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 
@@ -9,6 +11,7 @@ import { emptyConnectorCredentialOptions } from '@/routes/agent/credential-optio
 
 import {
   CREDENTIAL_LISTERS,
+  listSessionCredentials,
   flattenSelectedCredentials,
   partitionCredentials,
 } from './credential-listing'
@@ -43,6 +46,9 @@ function emptyOptions(): AgentCredentialOptions {
     ...emptyConnectorCredentialOptions(),
   }
 }
+
+const installOptions = useCredentialOptions({})
+const installAccess = useAgentSessionsShared({})
 
 const ID = 'id-1'
 
@@ -254,7 +260,8 @@ describe('flattenSelectedCredentials', () => {
         provider: 'device',
         id: 'dev-1',
         label: 'MacBook (darwin)',
-        usage: 'Local machine; run commands on it with the local_exec tool, device=dev-1.',
+        usage:
+          'Authorized for this conversation; any participant who may reply can request local_exec on device=dev-1. No separate owner confirmation is needed.',
       },
       {
         provider: 'device',
@@ -508,4 +515,48 @@ describe('partitionCredentials', () => {
       expect.objectContaining({ provider: 'cloudflare', id: 'cf-1', selected: false }),
     ])
   })
+})
+
+test('shared turns list session-authorized computers while keeping provider credentials actor-scoped', async () => {
+  installOptions({
+    getAgentCredentialOptions: (_teamId, userId) => {
+      const options = emptyOptions()
+
+      options.devices = [
+        { deviceId: userId + '-device', label: userId, platform: 'darwin', available: true },
+      ]
+      options.awsRoles = [
+        {
+          roleId: userId + '-role',
+          accountId: '123456789012',
+          accountAlias: null,
+          roleArn: 'fixture',
+        },
+      ]
+
+      return Promise.resolve(options)
+    },
+  })
+  installAccess({
+    getAgentCredentialAccess: (agent) =>
+      Promise.resolve(
+        shared.normalizeCredentialAccess({
+          deviceIds: [agent.userId + '-device'],
+          awsRoleIds: [agent.userId + '-role'],
+        }),
+      ),
+  })
+  const listed = await listSessionCredentials(
+    { userId: 'teammate', conversationOwnerUserId: 'owner', sessionId: 'shared' },
+    'team',
+  )
+
+  expect(
+    listed.selected.filter((entry) => entry.provider === 'device').map((entry) => entry.id),
+  ).toEqual(['owner-device'])
+  expect(
+    listed.selected.filter((entry) => entry.provider === 'aws').map((entry) => entry.id),
+  ).toEqual(['teammate-role'])
+  expect(listed.selected.some((entry) => entry.id === 'owner-role')).toBe(false)
+  expect(listed.unselected.some((entry) => entry.id === 'teammate-device')).toBe(false)
 })

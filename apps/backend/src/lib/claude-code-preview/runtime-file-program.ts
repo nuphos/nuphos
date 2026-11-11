@@ -48,6 +48,52 @@ try {
   });
   const inside = candidate => within(root, candidate) !== null || inHome(candidate);
   if (!inside(requested)) throw Error('forbidden_path');
+  if (input.action === 'import') {
+    if (typeof input.sessionId !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(input.sessionId)) throw Error('invalid_path');
+    const relative = within(root, requested);
+    if (!relative || !relative.split(path.sep).join('/').startsWith('imported/' + input.sessionId + '/') || relative.split(path.sep).some(p => !p || p === '.' || p === '..')) throw Error('forbidden_path');
+    if (!Number.isSafeInteger(input.size) || input.size < 0 || input.size > 25 * 1024 * 1024 || !/^[0-9a-f]{64}$/.test(input.sha256)) throw Error('invalid_path');
+    const crypto = await import('node:crypto');
+    let bytes = Buffer.alloc(0);
+    if (input.size > 0) {
+      const url = new URL(input.url);
+      if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) throw Error('invalid_path');
+      const response = await fetch(url, { signal: AbortSignal.timeout(90000), redirect: 'error' });
+      if (!response.ok || !response.body) throw Error('file_import_failed');
+      const reader = response.body.getReader(); const chunks = []; let size = 0;
+      try {
+        for (;;) {
+          const part = await reader.read(); if (part.done) break;
+          size += part.value.length; if (size > input.size) throw Error('file_import_failed');
+          chunks.push(part.value);
+        }
+      } finally { await reader.cancel().catch(() => {}); }
+      bytes = Buffer.concat(chunks);
+    }
+    if (bytes.length !== input.size || crypto.createHash('sha256').update(bytes).digest('hex') !== input.sha256) throw Error('file_import_failed');
+    let parent = root;
+    for (const part of relative.split(path.sep).slice(0, -1)) {
+      parent = path.join(parent, part);
+      await fs.mkdir(parent, { mode: 448 }).catch(error => { if (error.code !== 'EEXIST') throw error; });
+      const stat = await fs.lstat(parent);
+      if (!stat.isDirectory() || stat.isSymbolicLink() || await fs.realpath(parent) !== parent) throw Error('forbidden_path');
+    }
+    const temporary = path.join(parent, '.nuphos-import-' + crypto.randomUUID());
+    try {
+      handle = await fs.open(temporary, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | (constants.O_NOFOLLOW || 0), 384);
+      await handle.writeFile(bytes); await handle.sync(); await handle.close(); handle = undefined;
+      await fs.link(temporary, requested);
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      const stat = await fs.lstat(requested);
+      if (!stat.isFile() || stat.isSymbolicLink() || stat.size !== bytes.length) throw Error('forbidden_path');
+      handle = await fs.open(requested, constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
+      const existing = await handle.readFile(); await handle.close(); handle = undefined;
+      if (crypto.createHash('sha256').update(existing).digest('hex') !== input.sha256) throw Error('file_import_failed');
+    } finally { await fs.rm(temporary, { force: true }).catch(() => {}); }
+    process.stdout.write(JSON.stringify({ imported: true, size: bytes.length, sha256: input.sha256 }));
+    process.exit(0);
+  }
   const target = await fs.realpath(requested);
   if (!inside(target)) throw Error('forbidden_path');
   const hidden = name => name.startsWith('.') && within(root, target) === null;

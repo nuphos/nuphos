@@ -14,7 +14,7 @@ test('a token streamed across chunks is redacted once the message is assembled',
   parts.appendText(token.slice(0, cut))
   parts.appendText(`${token.slice(cut)} done`)
 
-  const writes = messageWrites(
+  const writes = await messageWrites(
     {
       sessionId: 'conv-1',
       userId: 'u1',
@@ -30,9 +30,9 @@ test('a token streamed across chunks is redacted once the message is assembled',
   expect(stored).toContain('token: [redacted] done')
 })
 
-test('a well-known key an agent printed is redacted inside its own string', () => {
+test('a well-known key an agent printed is redacted inside its own string', async () => {
   const key = 'ghp_abcdefghijklmnopqrstuvwxyz0123'
-  const writes = messageWrites(
+  const writes = await messageWrites(
     {
       sessionId: 'conv-1',
       userId: 'u1',
@@ -59,7 +59,7 @@ test('a well-known key an agent printed is redacted inside its own string', () =
   expect(stored).toContain('-----BEGIN PRIVATE KEY-----')
 })
 
-test('a long conversation syncs in linear time', () => {
+test('a long conversation syncs in linear time', async () => {
   const messages = Array.from({ length: 6000 }, (_, i) => ({
     id: `m${String(i)}`,
     role: 'assistant' as const,
@@ -72,7 +72,7 @@ test('a long conversation syncs in linear time', () => {
   }))
   const startedAt = performance.now()
 
-  messageWrites(
+  await messageWrites(
     { sessionId: 'conv-1', userId: 'u1', teamId: 't1', firstMessage: '', messages } as Parameters<
       typeof messageWrites
     >[0],
