@@ -356,11 +356,20 @@ describe('scanner regressions', () => {
     expect(await redactTokenShapes(text)).toBe(`${'x '.repeat(15_500)}[REDACTED:jwt] tail`)
   })
 
+  test('a JWT right after a hyphen is redacted in transcripts', async () => {
+    const jwt = `eyJ${randomAlnum(30)}.${randomAlnum(60)}.${randomAlnum(40)}`
+
+    expect(await redactTokenShapes(`/tmp/session-${jwt}.json`)).toBe(
+      '/tmp/session-[REDACTED:jwt].json',
+    )
+  })
+
   test.each([
     ['repeated keywords', 'token'],
     ['a dotted run', 'a.'],
     ['a dashed run', 'x-y'],
     ['JWT prefixes', 'eyJ-'],
+    ['JWT prefixes before a dot', 'eyJaaaa-'],
     ['unclosed PEM headers', '-----BEGIN RSA PRIVATE KEY-----\n'],
   ])('1 MB of %s scans in linear time', async (_name, unit) => {
     const text = unit.repeat(Math.ceil(1_000_000 / unit.length))

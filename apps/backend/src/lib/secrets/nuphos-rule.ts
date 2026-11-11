@@ -45,11 +45,17 @@ const TOKEN_SHAPES: Shape[] = [
       /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----(?:[^-]|-(?!----BEGIN )){0,16384}?-----END [A-Z0-9 ]*PRIVATE KEY-----/dg,
   },
   { kind: 'aws-access-key-id', pattern: /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/dg },
-  // Starts only at the head of a token run: from every `eyJ` inside one (as
-  // in `eyJ-eyJ-...`) the scan would re-read the run, which is quadratic.
+  // An unbounded header starts only at the head of a token run: from every
+  // `eyJ` inside one (as in `eyJ-eyJ-...`) the scan would re-read the run,
+  // which is quadratic. After a hyphen (`session-<jwt>`) the header is capped
+  // instead, well above a real one, so each restart reads a bounded span.
   {
     kind: 'jwt',
     pattern: /(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}\b/dg,
+  },
+  {
+    kind: 'jwt',
+    pattern: /(?<=-)eyJ[A-Za-z0-9_-]{8,512}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}\b/dg,
   },
   // Nuphos sign-in sessions (nus_) and CLI tokens (nup_).
   { kind: 'nuphos-token', pattern: /\bnu[ps]_[A-Za-z0-9_-]{20,}/dg },
