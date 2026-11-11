@@ -12,7 +12,7 @@ class ConnectorContractTest {
             JsonValue.arr(JsonValue.obj("id" to JsonValue.Str("saved")), JsonValue.Null, JsonValue.obj("label" to JsonValue.Str("bad")))
         })
         val rows = ConnectorInventory.decode(json).rows
-        assertEquals(30, rows.size)
+        assertEquals(31, rows.size)
         assertEquals(ConnectorCatalog.arrayKeys.toSet(), rows.map { it.provider }.toSet())
     }
     @Test fun idsPreferBindingAndZeaburIdentitiesStayDistinct() {

@@ -4,7 +4,8 @@ import { executeTrelloTool } from '@/lib/byos/trello'
 import { finishConnectorOAuth } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
-import { composioUserId } from '@/lib/personal-credentials/composio'
+import { logError } from '@/lib/observability'
+import { composioUserId, deleteComposioAccount } from '@/lib/personal-credentials/composio'
 import { trelloPendingOAuth } from '@/models'
 import { persistTrelloBinding } from '@/routes/trello-integrations'
 
@@ -18,8 +19,17 @@ trelloAppRoutes.get('/setup', async (c) => {
   if (!/^[a-f0-9]{48}$/iu.test(state)) return back({ error: 'invalid_state' })
   const pending = await trelloPendingOAuth().findOneAndDelete({ _id: state })
 
-  if (!pending || pending.expiresAt.getTime() < Date.now()) return back({ error: 'expired_state' })
-  if (c.req.query('status') !== 'success') return back({ error: 'access_denied' })
+  if (!pending) return back({ error: 'expired_state' })
+  const fail = async (error: string) => {
+    await deleteComposioAccount(pending.composioAccountId).catch((cause: unknown) =>
+      logError('trello.pending_connection_cleanup_failed', cause),
+    )
+
+    return back({ error })
+  }
+
+  if (pending.expiresAt.getTime() < Date.now()) return fail('expired_state')
+  if (c.req.query('status') !== 'success') return fail('access_denied')
   try {
     const userId = composioUserId(pending.teamId.toHexString(), pending.requesterUserId)
     const profile = await executeTrelloTool(
@@ -56,6 +66,6 @@ trelloAppRoutes.get('/setup', async (c) => {
       }),
     )
   } catch {
-    return back({ error: 'trello_connection_failed' })
+    return fail('trello_connection_failed')
   }
 })

@@ -1,48 +1,118 @@
+import { z } from 'zod'
+
 import { config } from '@/config'
 import { composioRequest } from '@/lib/composio'
 import { AppError } from '@/lib/errors'
 
 const VERSION = '20261104_00'
 
-const TOOL_FIELDS: Record<string, readonly string[]> = {
-  TRELLO_GET_MEMBERS_BY_ID_MEMBER: ['idMember', 'fields'],
-  TRELLO_GET_MEMBERS_BOARDS_BY_ID_MEMBER: ['idMember', 'fields', 'filter'],
-  TRELLO_GET_BOARDS_BY_ID_BOARD: ['idBoard', 'fields'],
-  TRELLO_GET_BOARDS_LISTS_BY_ID_BOARD: ['idBoard', 'fields', 'filter'],
-  TRELLO_GET_BOARDS_CARDS_BY_ID_BOARD: ['idBoard', 'fields', 'limit', 'before'],
-  TRELLO_GET_LISTS_CARDS_BY_ID_LIST: ['idList', 'fields', 'limit', 'before'],
-  TRELLO_GET_CARDS_BY_ID_CARD: ['idCard', 'fields'],
-  TRELLO_ADD_LISTS: ['name', 'idBoard', 'pos'],
-  TRELLO_UPDATE_LISTS_BY_ID_LIST: ['idList', 'name', 'closed', 'pos'],
-  TRELLO_ADD_CARDS: ['name', 'desc', 'idList', 'due', 'pos'],
-  TRELLO_UPDATE_CARDS_BY_ID_CARD: ['idCard', 'name', 'desc', 'closed', 'due', 'pos'],
-  TRELLO_UPDATE_CARDS_ID_LIST_BY_ID_CARD: ['idCard', 'value'],
-  TRELLO_ADD_CARDS_ACTIONS_COMMENTS_BY_ID_CARD: ['idCard', 'text'],
+const id = z.string().regex(/^[a-f0-9]{24}$/iu)
+const memberId = z.union([z.literal('me'), id])
+const date = z.string().datetime({ offset: true })
+const position = z.union([z.enum(['top', 'bottom']), z.number().finite().nonnegative()])
+const name = z.string().trim().min(1).max(1024)
+const description = z.string().max(16384)
+const text = z.string().min(1).max(16384)
+const csv = (allowed: readonly string[]) =>
+  z
+    .string()
+    .max(200)
+    .refine((value) => value.split(',').every((field) => allowed.includes(field)))
+const boardFields = csv([
+  'id',
+  'name',
+  'desc',
+  'closed',
+  'url',
+  'shortUrl',
+  'idOrganization',
+]).default('id,name,url,closed')
+const listFields = csv(['id', 'name', 'closed', 'idBoard', 'pos']).default(
+  'id,name,closed,idBoard,pos',
+)
+const cardFields = csv([
+  'id',
+  'name',
+  'desc',
+  'closed',
+  'idBoard',
+  'idList',
+  'url',
+  'shortUrl',
+  'due',
+  'pos',
+  'dateLastActivity',
+]).default('id,name,desc,closed,idBoard,idList,url,due')
+const page = {
+  fields: cardFields,
+  limit: z.number().int().min(1).max(100).default(100),
+  before: z.union([id, date]).optional(),
+}
+const cardChanges = {
+  name: name.optional(),
+  desc: description.optional(),
+  closed: z.boolean().optional(),
+  due: date.optional(),
+  pos: position.optional(),
 }
 
-export const TRELLO_TOOLS = new Set(Object.keys(TOOL_FIELDS))
+const TOOL_SCHEMAS: Record<string, z.ZodType<Record<string, unknown>>> = {
+  TRELLO_GET_MEMBERS_BY_ID_MEMBER: z
+    .object({
+      idMember: memberId,
+      fields: csv(['id', 'username', 'fullName', 'url']).default('id,username'),
+    })
+    .strict(),
+  TRELLO_GET_MEMBERS_BOARDS_BY_ID_MEMBER: z
+    .object({
+      idMember: memberId,
+      fields: boardFields,
+      filter: z.enum(['all', 'open', 'closed', 'starred']).default('open'),
+    })
+    .strict(),
+  TRELLO_GET_BOARDS_BY_ID_BOARD: z.object({ idBoard: id, fields: boardFields }).strict(),
+  TRELLO_GET_BOARDS_LISTS_BY_ID_BOARD: z
+    .object({
+      idBoard: id,
+      fields: listFields,
+      filter: z.enum(['all', 'open', 'closed']).default('open'),
+    })
+    .strict(),
+  TRELLO_GET_BOARDS_CARDS_BY_ID_BOARD: z.object({ idBoard: id, ...page }).strict(),
+  TRELLO_GET_LISTS_CARDS_BY_ID_LIST: z.object({ idList: id, ...page }).strict(),
+  TRELLO_GET_CARDS_BY_ID_CARD: z.object({ idCard: id, fields: cardFields }).strict(),
+  TRELLO_ADD_LISTS: z.object({ name, idBoard: id, pos: position.optional() }).strict(),
+  TRELLO_UPDATE_LISTS_BY_ID_LIST: z
+    .object({
+      idList: id,
+      name: name.optional(),
+      closed: z.boolean().optional(),
+      pos: position.optional(),
+    })
+    .strict(),
+  TRELLO_ADD_CARDS: z
+    .object({
+      name,
+      idList: id,
+      desc: description.optional(),
+      due: date.optional(),
+      pos: position.optional(),
+    })
+    .strict(),
+  TRELLO_UPDATE_CARDS_BY_ID_CARD: z.object({ idCard: id, ...cardChanges }).strict(),
+  TRELLO_UPDATE_CARDS_ID_LIST_BY_ID_CARD: z.object({ idCard: id, value: id }).strict(),
+  TRELLO_ADD_CARDS_ACTIONS_COMMENTS_BY_ID_CARD: z.object({ idCard: id, text }).strict(),
+}
+
+export const TRELLO_TOOLS = new Set(Object.keys(TOOL_SCHEMAS))
 
 export function trelloToolArguments(tool: string, args: Record<string, unknown>) {
-  const allowed = TOOL_FIELDS[tool]
+  const parsed = TOOL_SCHEMAS[tool]?.safeParse(args)
 
-  if (!allowed || Object.keys(args).some((field) => !allowed.includes(field))) {
+  if (!parsed?.success)
     throw new AppError(400, 'trello_arguments_not_allowed', 'Unsupported Trello tool arguments')
-  }
-  if (tool === 'TRELLO_GET_MEMBERS_BY_ID_MEMBER') return { ...args, fields: 'id,username' }
-  if (
-    tool === 'TRELLO_GET_BOARDS_CARDS_BY_ID_BOARD' ||
-    tool === 'TRELLO_GET_LISTS_CARDS_BY_ID_LIST'
-  ) {
-    const limit = args.limit ?? 100
 
-    if (typeof limit !== 'number' || !Number.isInteger(limit) || limit < 1 || limit > 100) {
-      throw new AppError(400, 'trello_page_too_large', 'Trello card pages must contain 1–100 items')
-    }
-
-    return { ...args, limit }
-  }
-
-  return args
+  return parsed.data
 }
 
 export function trelloAuthConfig(): string {
@@ -65,6 +135,7 @@ export async function trelloConnectLink(userId: string, callbackUrl: string) {
     '/connected_accounts/link',
     { auth_config_id: trelloAuthConfig(), user_id: userId, callback_url: callbackUrl },
   )
+
   if (
     typeof link.connected_account_id !== 'string' ||
     !/^ca_[A-Za-z0-9_-]+$/u.test(link.connected_account_id)

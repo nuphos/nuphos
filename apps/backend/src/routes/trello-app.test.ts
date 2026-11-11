@@ -27,6 +27,9 @@ let staged: Record<string, unknown>[]
 let stored: TrelloIntegrationBinding[]
 let writes: number
 let calls: string[]
+let deleted: string[]
+let profileFails: boolean
+let cleanupFails: boolean
 let role: 'ADMINISTRATOR' | 'VIEWER'
 const realFetch = globalThis.fetch
 const saved = {
@@ -80,21 +83,31 @@ beforeEach(() => {
   writes = 0
   stored = []
   calls = []
+  deleted = []
+  profileFails = false
+  cleanupFails = false
   role = 'ADMINISTRATOR'
   Object.assign(config.byos.composio, { apiKey: 'fixture-key', trelloAuthConfigId: 'ac_fixture' })
   config.agent.publicBackendUrl = 'https://app.example'
   config.byos.connectorOAuthDeferredBind = false
-  globalThis.fetch = (async (url: string | URL | Request) => {
-    const path = new URL(String(url)).pathname
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    const path = new URL(url instanceof Request ? url.url : url.toString()).pathname
 
     calls.push(path)
+    if (init?.method === 'DELETE') {
+      deleted.push(path)
+      if (cleanupFails)
+        return new Response(JSON.stringify({ error: { message: 'fixture-secret-marker' } }), {
+          status: 503,
+        })
+    }
     const body = path.endsWith('/link')
       ? {
           redirect_url: 'https://connect.composio.dev/link/fixture',
           connected_account_id: 'ca_fixture',
         }
       : path.includes('/tools/execute/')
-        ? { successful: true, data: { id: 'member-fixture', username: 'Fixture' } }
+        ? { successful: !profileFails, data: { id: 'member-fixture', username: 'Fixture' } }
         : {
             status: 'ACTIVE',
             user_id: `${TEAM.toHexString()}:${MEMBER}`,
@@ -160,6 +173,7 @@ describe('Trello managed OAuth lifecycle', () => {
       binding: { composioAccountId: 'ca_fixture' },
     })
     expect(writes).toBe(0)
+    expect(deleted).toHaveLength(0)
     expect(calls.some((path) => path.includes('ca_attacker'))).toBe(false)
     await app().request(`/trello-app/setup?state=${state}&status=success`)
     expect(staged).toHaveLength(1)
@@ -173,8 +187,30 @@ describe('Trello managed OAuth lifecycle', () => {
 
     await app().request(`/trello-app/setup?state=${second.state}&status=failed`)
     await app().request('/trello-app/setup?state=unknown&status=success')
+    expect(deleted).toEqual([
+      '/api/v3.1/connected_accounts/ca_fixture',
+      '/api/v3.1/connected_accounts/ca_fixture',
+    ])
     expect(staged).toHaveLength(0)
     expect(writes).toBe(0)
+  })
+  test('a failed profile lookup deletes the pending connection without staging it', async () => {
+    const { state } = await start()
+
+    profileFails = true
+    await app().request(`/trello-app/setup?state=${state}&status=success`)
+    expect(staged).toHaveLength(0)
+    expect(deleted).toEqual(['/api/v3.1/connected_accounts/ca_fixture'])
+  })
+  test('a cleanup failure is best effort and never forwards upstream secrets', async () => {
+    const { state } = await start()
+
+    cleanupFails = true
+    const response = await app().request(`/trello-app/setup?state=${state}&status=failed`)
+
+    expect(staged).toHaveLength(0)
+    expect(deleted).toHaveLength(1)
+    expect(await response.text()).not.toContain('fixture-secret-marker')
   })
   test('cancel removes the pending connection and prevents late approval', async () => {
     const { state } = await start()

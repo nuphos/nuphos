@@ -57,7 +57,10 @@ beforeEach(() => {
   calls = []
   Object.assign(config.byos.composio, { apiKey: 'fixture-key', trelloAuthConfigId: 'ac_trello' })
   globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
-    calls.push({ url: String(url), body: init?.body ? JSON.parse(String(init.body)) : null })
+    calls.push({
+      url: url instanceof Request ? url.url : url.toString(),
+      body: init?.body ? JSON.parse(init.body as string) : null,
+    })
 
     return new Response(
       JSON.stringify(

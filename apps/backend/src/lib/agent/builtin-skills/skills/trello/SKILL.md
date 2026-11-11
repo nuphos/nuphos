@@ -46,3 +46,22 @@ Official references:
 https://docs.composio.dev/toolkits/trello
 https://docs.composio.dev/kb/guide/toolkits-trello
 https://developer.atlassian.com/cloud/trello/guides/rest-api/rate-limits/
+
+Use full 24-character hexadecimal resource IDs from read results; `idMember`
+accepts `me` or a full member ID. `fields` is a comma-separated selection from
+safe board/list/card fields, never `all` or token fields. `filter` accepts only
+open/closed/all (member boards also allow starred). Dates use ISO 8601, `closed`
+is boolean, and `pos` is top/bottom or a nonnegative number. Names are limited
+to 1024 characters; descriptions and comments to 16384. Objects/arrays/null are
+not accepted as argument values.
+
+For writes, the supported arguments are:
+
+| Tool suffix                           | Required                            | Optional                     |
+| ------------------------------------- | ----------------------------------- | ---------------------------- |
+| ADD_LISTS                             | name, idBoard                       | pos                          |
+| UPDATE_LISTS_BY_ID_LIST               | idList                              | name, closed, pos            |
+| ADD_CARDS                             | name, idList                        | desc, due, pos               |
+| UPDATE_CARDS_BY_ID_CARD               | idCard                              | name, desc, closed, due, pos |
+| UPDATE_CARDS_ID_LIST_BY_ID_CARD       | idCard, value (destination list ID) | —                            |
+| ADD_CARDS_ACTIONS_COMMENTS_BY_ID_CARD | idCard, text                        | —                            |

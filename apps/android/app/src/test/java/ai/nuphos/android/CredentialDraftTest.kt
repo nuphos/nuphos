@@ -42,11 +42,11 @@ class CredentialDraftTest {
             it.optionsKey to JsonValue.arr(JsonValue.obj(it.idKey to JsonValue.Str("id-${it.optionsKey}")))
         }), providers)
         val selection = loaded(all).selection
-        assertEquals(31, providers.size)
+        assertEquals(32, providers.size)
         providers.forEach {
             // Resend stays opt-in, and the member's own GitHub / Linear is never picked for them.
             val expected = when (it.optionsKey) {
-                "resendIntegrations" -> emptySet<String>()
+                "resendIntegrations", "trelloIntegrations" -> emptySet<String>()
                 "personalCredentials" -> null
                 else -> setOf("id-${it.optionsKey}")
             }
