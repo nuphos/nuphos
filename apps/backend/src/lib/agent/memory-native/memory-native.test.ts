@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test'
+
 import { ObjectId } from 'mongodb'
 
 import { byCodeUnit } from '@/lib/agent/sort-order'
@@ -8,6 +9,7 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 import { deleteMemoryItem, restoreMemoryItem } from './records-api'
 import {
   createMemoryRecord,
+  getMemoryRecord,
   createProposal,
   findSecretBearingContent,
   playbookContentHash,
@@ -257,7 +259,12 @@ function matchesCond(value: unknown, cond: unknown): boolean {
 }
 
 const matchesFilter = (doc: FakeDoc, filter: FakeDoc): boolean =>
-  Object.entries(filter).every(([key, cond]) => matchesCond(doc[key], cond))
+  Object.entries(filter).every(([key, cond]) => {
+    if (key === '$and') return (cond as FakeDoc[]).every((part) => matchesFilter(doc, part))
+    if (key === '$or') return (cond as FakeDoc[]).some((part) => matchesFilter(doc, part))
+
+    return matchesCond(doc[key], cond)
+  })
 
 function applyUpdate(doc: FakeDoc, update: { $set?: FakeDoc; $unset?: FakeDoc }): void {
   Object.assign(doc, update.$set ?? {})
@@ -579,6 +586,52 @@ describe('createMemoryRecord dedupe honors explicit supersede', () => {
     const doc = recordDocs().find((d) => (d._id as ObjectId).toHexString() === existing.memoryId)!
 
     expect(doc.disabledAt).toBeUndefined()
+  })
+})
+
+describe('imported private Bot memories', () => {
+  beforeEach(() => fakeCollections.clear())
+
+  test('direct lookup requires matching owner, team and session; global reads cannot see the fact', async () => {
+    const result = await createMemoryRecord({
+      scope: 'personal',
+      ownerUserId: USER,
+      teamId: TEAM,
+      type: 'fact',
+      text: 'This Bot prepares internal forecasts.',
+      source: 'save_memory',
+      conversationId: 'bot-one',
+      restrictedToSessionId: 'bot-one',
+    })
+
+    if (!result.ok) throw new Error(result.error)
+    expect(await getMemoryRecord(result.memoryId, USER, TEAM)).toBeNull()
+    expect(await getMemoryRecord(result.memoryId, USER, TEAM, 'bot-two')).toBeNull()
+    expect(await getMemoryRecord(result.memoryId, 'other-owner', TEAM, 'bot-one')).toBeNull()
+    expect(await getMemoryRecord(result.memoryId, USER, 'other-team', 'bot-one')).toBeNull()
+    expect((await getMemoryRecord(result.memoryId, USER, TEAM, 'bot-one'))?.text).toBe(
+      'This Bot prepares internal forecasts.',
+    )
+  })
+
+  test('identical content in another Bot stays private and does not deduplicate into its pool', async () => {
+    const save = (sessionId: string) =>
+      createMemoryRecord({
+        scope: 'personal',
+        ownerUserId: USER,
+        teamId: TEAM,
+        type: 'fact',
+        text: 'Prepare forecasts.',
+        source: 'save_memory',
+        conversationId: sessionId,
+        restrictedToSessionId: sessionId,
+      })
+    const first = await save('bot-one')
+    const second = await save('bot-two')
+
+    if (!first.ok || !second.ok) throw new Error('fixture creation failed')
+    expect(first.memoryId).not.toBe(second.memoryId)
+    expect(await save('bot-one')).toMatchObject({ existing: true, memoryId: first.memoryId })
   })
 })
 

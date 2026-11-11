@@ -33,7 +33,7 @@ export async function rollbackTriggerUpdate(input: {
   if (rolledBack?.matchedCount && reconcileCron) {
     try {
       if (trigger.enabled && trigger.cronExpression) {
-        await scheduleCronTrigger(triggerId, trigger.cronExpression)
+        await scheduleCronTrigger(triggerId, trigger.cronExpression, trigger.timeZone)
       } else {
         await unscheduleCronTrigger(triggerId)
       }

@@ -113,7 +113,7 @@ export async function createTrigger(
 
   // Group partitions are implementation details; the Group service charges
   // exactly one quota slot before it creates any of them.
-  if (!input.watchGroup) await assertTriggerCreationQuota(ctx)
+  if (!input.watchGroup && input.enabled !== false) await assertTriggerCreationQuota(ctx)
 
   const now = new Date()
   const webhookSecret = input.triggerType === 'webhook' ? generateWebhookSecret() : undefined
@@ -131,6 +131,7 @@ export async function createTrigger(
     name,
     triggerType: input.triggerType,
     ...(cronExpression ? { cronExpression } : {}),
+    ...(input.timeZone ? { timeZone: input.timeZone } : {}),
     ...(webhookSecret ? { webhookSecret } : {}),
     targetSessionId: input.targetSessionId,
     messageTemplate,
@@ -191,9 +192,9 @@ export async function createTrigger(
   }
   const triggerId = insertedId.toString()
 
-  if (input.triggerType === 'cron' && cronExpression) {
+  if (input.triggerType === 'cron' && cronExpression && doc.enabled) {
     try {
-      await scheduleCronTrigger(triggerId, cronExpression)
+      await scheduleCronTrigger(triggerId, cronExpression, input.timeZone)
     } catch (err) {
       // Roll back the insert so a scheduler failure doesn't leave an enabled
       // trigger in MongoDB that the cron worker never picks up.

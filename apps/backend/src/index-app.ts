@@ -12,6 +12,7 @@ import { requestLog } from '@/middleware/request-log'
 import { otelHono } from '@/otel'
 import { adminRoutes } from '@/routes/admin'
 import { agent } from '@/routes/agent'
+import { botImportRoutes } from '@/routes/agent/routes-bot-imports'
 import { agentJournal } from '@/routes/agent-journal'
 import { agentSessions } from '@/routes/agent-sessions'
 import { agentTriggersRoutes } from '@/routes/agent-triggers'
@@ -107,6 +108,7 @@ app.route('/push', pushRoutes)
 app.route('/teams', teamsRoutes)
 app.route('/invitations', invitationsRoutes)
 app.route('/agent/triggers', agentTriggersRoutes)
+app.route('/agent', botImportRoutes)
 app.route('/agent', agent)
 
 app.route('/agent-journal', agentJournal)

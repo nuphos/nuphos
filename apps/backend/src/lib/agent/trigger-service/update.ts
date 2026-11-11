@@ -1,4 +1,4 @@
-import { isValidCronExpression } from '@/lib/cron'
+import { CRON_TIME_ZONE, isValidCronExpression, isValidTimeZone } from '@/lib/cron'
 import { AppError } from '@/lib/errors'
 import { clearSlackNotificationIncidentsForTrigger } from '@/lib/slack/incident-notifications'
 
@@ -10,6 +10,7 @@ import {
 import { agentTriggers, triggerConfigRevisionFilter } from '../trigger-db'
 import { scheduleCronTrigger, unscheduleCronTrigger } from '../trigger-scheduler'
 
+import { assertTriggerCreationQuota } from './quota'
 import {
   assertBindableSession,
   findManagedTrigger,
@@ -17,7 +18,6 @@ import {
   serializeTrigger,
   validateMinInterval,
 } from './shared'
-import { assertTriggerCreationQuota } from './quota'
 import { rollbackTriggerUpdate } from './update-rollback'
 
 import type { TriggerActor } from '../trigger-access'
@@ -37,6 +37,12 @@ export async function updateTrigger(
 ): Promise<SerializedTrigger> {
   const _id = parseTriggerId(triggerId)
   const trigger = await findManagedTrigger(_id)
+
+  if (
+    patch.timeZone !== undefined &&
+    (trigger.triggerType !== 'cron' || !isValidTimeZone(patch.timeZone))
+  )
+    throw new AppError(400, 'invalid_request', 'timeZone must be an IANA zone for a cron Trigger')
 
   await assertTriggerAccess(trigger, actor, 'manage')
   if (trigger.cleanupStatus) {
@@ -95,12 +101,18 @@ export async function updateTrigger(
   const nameChanged = nextName !== trigger.name
   const messageTemplateChanged = nextMessageTemplate !== trigger.messageTemplate
   const cronChanged = nextCronExpression !== trigger.cronExpression
+  const nextTimeZone = patch.timeZone ?? trigger.timeZone ?? CRON_TIME_ZONE
+  const timeZoneChanged = nextTimeZone !== (trigger.timeZone ?? CRON_TIME_ZONE)
   const minIntervalChanged =
     patch.minIntervalSeconds !== undefined &&
     patch.minIntervalSeconds !== trigger.minIntervalSeconds
   const enabledChanged = nextEnabled !== trigger.enabled
   const substantiveChanged =
-    messageTemplateChanged || cronChanged || minIntervalChanged || targetSessionChanged
+    messageTemplateChanged ||
+    cronChanged ||
+    timeZoneChanged ||
+    minIntervalChanged ||
+    targetSessionChanged
 
   // An edit changes what the Trigger does, never who it runs as. Editing is
   // still gated on outranking the principal, because until the identity moves
@@ -135,6 +147,7 @@ export async function updateTrigger(
     ...(messageTemplateChanged ? { messageTemplate: nextMessageTemplate } : {}),
     ...(enabledChanged ? { enabled: nextEnabled } : {}),
     ...(cronChanged && nextCronExpression ? { cronExpression: nextCronExpression } : {}),
+    ...(timeZoneChanged ? { timeZone: nextTimeZone } : {}),
     ...(minIntervalChanged ? { minIntervalSeconds: patch.minIntervalSeconds } : {}),
     ...(targetSessionChanged ? { targetSessionId: nextTargetSessionId } : {}),
   }
@@ -194,13 +207,15 @@ export async function updateTrigger(
     )
   }
 
-  const reconcileCron = trigger.triggerType === 'cron' && (cronChanged || enabledChanged)
+  const reconcileCron =
+    trigger.triggerType === 'cron' && (cronChanged || timeZoneChanged || enabledChanged)
 
   try {
     if (reconcileCron) {
       const expression = updated.cronExpression
 
-      if (updated.enabled && expression) await scheduleCronTrigger(triggerId, expression)
+      if (updated.enabled && expression)
+        await scheduleCronTrigger(triggerId, expression, updated.timeZone)
       else await unscheduleCronTrigger(triggerId)
 
       // If deletion claimed the row while BullMQ was updating, delete wins:

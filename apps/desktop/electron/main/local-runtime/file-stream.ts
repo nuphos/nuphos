@@ -49,6 +49,7 @@ export class LocalFileStream implements SocketLike {
       sessionId?: unknown
       url?: unknown
       size?: unknown
+      sha256?: unknown
     }
 
     try {
@@ -66,7 +67,7 @@ export class LocalFileStream implements SocketLike {
       },
       stdio: ['pipe', 'pipe', 'ignore'],
       // An upload of a file too large to preview takes longer than a read.
-      timeout: request.action === 'upload' ? 110_000 : 10_000,
+      timeout: request.action === 'upload' || request.action === 'import' ? 110_000 : 10_000,
     })
 
     this.child = child
@@ -91,6 +92,7 @@ export class LocalFileStream implements SocketLike {
         sessionId: request.sessionId,
         url: request.url,
         size: request.size,
+        sha256: request.sha256,
         workspace: this.workspace,
       }),
     )

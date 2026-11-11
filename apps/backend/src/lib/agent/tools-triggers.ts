@@ -138,7 +138,10 @@ export function createTriggerTools(
           ok: true as const,
           trigger: created,
           ...(created.triggerType === 'cron' && created.cronExpression
-            ? { nextRuns: nextCronRuns(created.cronExpression), timeZone: CRON_TIME_ZONE }
+            ? {
+                nextRuns: nextCronRuns(created.cronExpression, 3, created.timeZone),
+                timeZone: created.timeZone ?? CRON_TIME_ZONE,
+              }
             : {}),
           ...(created.triggerType === 'webhook'
             ? {
@@ -210,7 +213,10 @@ export function createTriggerTools(
           ok: true as const,
           trigger: updated,
           ...(updated.triggerType === 'cron' && updated.enabled && updated.cronExpression
-            ? { nextRuns: nextCronRuns(updated.cronExpression), timeZone: CRON_TIME_ZONE }
+            ? {
+                nextRuns: nextCronRuns(updated.cronExpression, 3, updated.timeZone),
+                timeZone: updated.timeZone ?? CRON_TIME_ZONE,
+              }
             : {}),
         }
       }),

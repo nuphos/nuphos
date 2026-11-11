@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 
 import { buildTriggerRunStamp } from './conversation-trigger-run'
+import { postChannelMessage } from './channel-chat'
 import { executeConversationTurn } from './conversation-turn'
 import { systemSender } from './message-metadata'
 import { agentTriggers, isRetiredTriggerShape } from './trigger-db'
@@ -86,23 +87,28 @@ async function deliverToTargetSession(
   const triggerId = trigger._id!.toHexString()
   const { sessionId } = target
 
-  await executeConversationTurn(
-    {
-      userId: target.userId,
-      // resolveExecutionAuthorization paused the Trigger unless this is its team.
-      teamId: target.teamId!,
-      targetSessionId: sessionId,
-      messageId: delivery.fireId
-        ? createHash('sha256').update(`${triggerId}:${delivery.fireId}`).digest('hex')
-        : randomUUID(),
-      locale: target.metadata?.locale ?? 'en-US',
-      trigger: delivery.trigger,
-    },
-    target,
-    text,
-    'agent.resource',
-    triggerMetadata(trigger),
-  )
+  const messageId = delivery.fireId
+    ? createHash('sha256').update(`${triggerId}:${delivery.fireId}`).digest('hex')
+    : randomUUID()
+
+  if (target.kind === 'channel') {
+    await postChannelMessage(target, { id: messageId, text, metadata: triggerMetadata(trigger) })
+  } else
+    await executeConversationTurn(
+      {
+        userId: target.userId,
+        // resolveExecutionAuthorization paused the Trigger unless this is its team.
+        teamId: target.teamId!,
+        targetSessionId: sessionId,
+        messageId,
+        locale: target.metadata?.locale ?? 'en-US',
+        trigger: delivery.trigger,
+      },
+      target,
+      text,
+      'agent.resource',
+      triggerMetadata(trigger),
+    )
   await agentTriggers().updateOne(
     { _id: trigger._id },
     { $set: { lastRunAt: new Date(), updatedAt: new Date() } },

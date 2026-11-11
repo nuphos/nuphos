@@ -173,7 +173,12 @@ async function currentAvatarURL(_id: ObjectId): Promise<unknown> {
     { projection: { avatarUrl: 1 } },
   )
 
-  return team?.avatarUrl
+  if (team) return team.avatarUrl
+  const bot = await db()
+    .collection<{ _id: ObjectId; avatar?: string }>('agent_conversations')
+    .findOne({ _id, avatar: { $exists: true } }, { projection: { avatar: 1 } })
+
+  return bot?.avatar
 }
 
 /** The image hash in the owner's current avatar URL, if it is one this backend serves. */

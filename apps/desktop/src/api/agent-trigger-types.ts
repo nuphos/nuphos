@@ -45,6 +45,7 @@ export type AgentTrigger = {
   name: string
   triggerType: AgentTriggerType
   cronExpression?: string
+  timeZone?: string
   /** Every fire is delivered into this conversation instead of a new one. */
   targetSessionId?: string
   /** Present on webhook triggers that route to a session per resource. */
