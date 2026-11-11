@@ -31,11 +31,16 @@ export function useUpdaterState(): UpdaterState {
   return state
 }
 
+/** Where people download the installer when an in-app update doesn't install. */
+export const INSTALLER_DOWNLOAD_URL = 'https://nuphos.ai/download'
+
 /** The update a restart installs, or null. After the click, the restart checks for
  * a newer release and downloads it first; `percent` is set while it does. */
 export function useReadyUpdate(): {
   version: string
   percent: number | null
+  /** The last restart came back without this version. */
+  installFailed: boolean
   install: () => void
 } | null {
   const state = useUpdaterState()
@@ -46,11 +51,17 @@ export function useReadyUpdate(): {
     void api.updaterInstall()
   }
 
-  if (state.kind === 'ready') return { version: state.version, percent: null, install }
+  if (state.kind === 'ready') {
+    return { version: state.version, percent: null, installFailed: state.installFailed, install }
+  }
   if (!clicked) return null
-  if (state.kind === 'checking') return { version: clicked, percent: 0, install }
+  if (state.kind === 'checking') {
+    return { version: clicked, percent: 0, installFailed: false, install }
+  }
   if (state.kind === 'downloading') {
-    return { version: state.version, percent: updateProgress(state)?.percent ?? 0, install }
+    const percent = updateProgress(state)?.percent ?? 0
+
+    return { version: state.version, percent, installFailed: false, install }
   }
 
   return null

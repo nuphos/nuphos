@@ -17,7 +17,7 @@ import {
   MenuTrigger,
 } from '../ui/menu'
 import { useChangelog } from '../useChangelog'
-import { useReadyUpdate } from '../useReadyUpdate'
+import { INSTALLER_DOWNLOAD_URL, useReadyUpdate } from '../useReadyUpdate'
 import { WhatsNewReader } from '../WhatsNewReader'
 
 import type { ChangelogEntry } from '../../types/team'
@@ -125,6 +125,14 @@ export function SidebarHelpMenu({ onOpenShortcutsHelp }: { onOpenShortcutsHelp?:
                   disabled
                 >
                   {t('Downloading Nuphos {version}…', { version: update.version })}
+                </MenuItem>
+              )}
+              {update.installFailed && (
+                <MenuItem
+                  icon={<ArrowUpRight className="h-3.5 w-3.5" />}
+                  onClick={() => void api.appOpenExternal(INSTALLER_DOWNLOAD_URL)}
+                >
+                  {t('Download installer')}
                 </MenuItem>
               )}
               <MenuSeparator />
