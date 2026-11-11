@@ -381,6 +381,7 @@
 
   /* A link is the same white as the text around it; the underline marks it. */
   .user-message-bubble a:not(.atlas-mention) {
+    color: inherit;
     text-decoration-line: underline;
     text-decoration-color: rgba(255, 255, 255, 0.45);
     text-underline-offset: 2px;
