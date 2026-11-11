@@ -1,3 +1,4 @@
+import { userAvatars } from '@/lib/identity/avatar-upload'
 import {
   nuphosDashboards,
   dashboardPanelAlerts,
@@ -19,6 +20,7 @@ import {
 } from '@/models/diagrams'
 import {
   asanaPendingOAuth,
+  trelloPendingOAuth,
   cloudflareOAuthResult,
   cloudflarePendingOAuth,
   gitlabPendingOAuth,
@@ -32,7 +34,6 @@ import {
 } from '@/models/oauth'
 import { personalCredentialPendingOAuth, personalCredentials } from '@/models/personal-credentials'
 import { teamByosBindings } from '@/models/team'
-import { userAvatars } from '@/lib/identity/avatar-upload'
 
 export async function setupCoreIndexes(): Promise<void> {
   // _id is auto-indexed; nothing to set up here.
@@ -63,6 +64,10 @@ export async function setupCoreIndexes(): Promise<void> {
   await asanaPendingOAuth().createIndex(
     { expiresAt: 1 },
     { expireAfterSeconds: 0, name: 'asana_oauth_pending_ttl' },
+  )
+  await trelloPendingOAuth().createIndex(
+    { expiresAt: 1 },
+    { expireAfterSeconds: 0, name: 'trello_oauth_pending_ttl' },
   )
   await sentryPendingOAuth().createIndex(
     { expiresAt: 1 },

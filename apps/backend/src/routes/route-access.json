@@ -914,5 +914,14 @@
   "PUT /teams/:teamId/tailscale-clients/:clientId/sandbox-access": "admin",
   "PUT /teams/:teamId/tencent-accounts/:accountId/access": "admin",
   "PUT /teams/:teamId/upstash-accounts/:accountId/access": "admin",
-  "PUT /teams/:teamId/volcengine-accounts/:accountId/access": "admin"
+  "PUT /teams/:teamId/volcengine-accounts/:accountId/access": "admin",
+  "DELETE /teams/:teamId/trello-integrations/:integrationId": "admin",
+  "DELETE /teams/:teamId/trello-integrations/start-oauth/:state": "admin",
+  "GET /teams/:teamId/trello-integrations": "member",
+  "GET /teams/:teamId/trello-integrations/:integrationId": "member",
+  "GET /teams/:teamId/trello-integrations/:integrationId/access": "admin",
+  "GET /trello-app/setup": "public",
+  "POST /agent-sessions/:sessionId/teams/:teamId/trello-integrations/:integrationId/execute": "user",
+  "POST /teams/:teamId/trello-integrations/start-oauth": "admin",
+  "PUT /teams/:teamId/trello-integrations/:integrationId/access": "admin"
 }

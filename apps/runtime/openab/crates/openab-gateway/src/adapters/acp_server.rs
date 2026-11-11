@@ -240,6 +240,8 @@ pub struct AcpConfig {
     /// container holds a credential (`OPENAB_RUNTIME_AUTH_FILE`). Unset → `_openab/runtime/state` reports
     /// `authenticated: null`, which is "OpenAB cannot tell", not "signed out".
     pub auth_file: Option<String>,
+    /// Official CLI status command, for providers whose credentials live in a keyring.
+    pub auth_command: Option<LoginCommand>,
     /// Allowlisted commands `_openab/runtime/job` may run (`OPENAB_RUNTIME_JOBS`) and the
     /// limits that bound them.
     pub runtime_jobs: RuntimeJobs,
@@ -313,6 +315,10 @@ impl AcpConfig {
             allowed_origins,
             login_command,
             auth_file,
+            auth_command: std::env::var("OPENAB_RUNTIME_AUTH_COMMAND")
+                .ok()
+                .as_deref()
+                .and_then(runtime_login::parse_login_command),
             runtime_jobs: RuntimeJobs::from_env(),
             disk_paths: std::env::var("OPENAB_RUNTIME_DISK_PATHS")
                 .map(|v| {
@@ -332,8 +338,12 @@ impl AcpConfig {
 /// `OPENAB_RUNTIME_AUTH_FILE` is configured — an operator who cannot answer the question
 /// must not be told "signed out", because a container can carry its own credential in a
 /// form OpenAB never sees.
-pub(crate) fn runtime_authenticated(state: &crate::AppState) -> Option<bool> {
-    Some(auth_files_present(state.acp.as_ref()?.auth_file.as_ref()?))
+pub(crate) async fn runtime_authenticated(state: &crate::AppState) -> Option<bool> {
+    let config = state.acp.as_ref()?;
+    if let Some(command) = &config.auth_command {
+        return runtime_login::authenticated(command).await;
+    }
+    Some(auth_files_present(config.auth_file.as_ref()?))
 }
 
 /// When the runtime's sign-in lapses on its own, for a credential that says so (a
@@ -2737,7 +2747,7 @@ async fn handle_acp_connection(
                         id,
                         json!({
                             "sessions": snapshots,
-                            "authenticated": runtime_authenticated(&state),
+                            "authenticated": runtime_authenticated(&state).await,
                             "credentialExpiresAt": runtime_credential_expires_at(&state),
                             "usage": usage,
                         }),
@@ -8109,6 +8119,7 @@ mod acp_ws_integration {
             allowed_origins: vec![],
             login_command: None,
             auth_file: None,
+            auth_command: None,
             runtime_jobs: RuntimeJobs::default(),
             disk_paths: vec![],
             credentials: None,
@@ -8171,6 +8182,7 @@ mod acp_ws_integration {
             allowed_origins: vec![],
             login_command: None,
             auth_file: None,
+            auth_command: None,
             runtime_jobs: RuntimeJobs::default(),
             disk_paths: vec![],
             credentials: None,
@@ -8243,6 +8255,7 @@ mod acp_ws_integration {
             allowed_origins: vec![],
             login_command: None,
             auth_file: None,
+            auth_command: None,
             runtime_jobs: RuntimeJobs::default(),
             disk_paths: vec![],
             credentials: None,
@@ -8305,6 +8318,7 @@ mod acp_ws_integration {
             allowed_origins: vec![],
             login_command: None,
             auth_file: None,
+            auth_command: None,
             runtime_jobs: RuntimeJobs::default(),
             disk_paths: vec![],
             credentials: None,
@@ -8365,6 +8379,7 @@ mod acp_ws_integration {
             allowed_origins: vec![],
             login_command: None,
             auth_file: None,
+            auth_command: None,
             runtime_jobs: RuntimeJobs::default(),
             disk_paths: vec![],
             credentials: None,
@@ -8443,6 +8458,7 @@ mod acp_ws_integration {
             allowed_origins: vec![],
             login_command: None,
             auth_file: None,
+            auth_command: None,
             runtime_jobs: RuntimeJobs::default(),
             disk_paths: vec![],
             credentials: None,
@@ -8519,6 +8535,7 @@ mod acp_ws_integration {
                 ],
             }),
             auth_file: Some(credential.display().to_string()),
+            auth_command: None,
             runtime_jobs: RuntimeJobs::default(),
             disk_paths: vec![],
             credentials: None,
@@ -8653,6 +8670,7 @@ mod acp_ws_integration {
                 ],
             }),
             auth_file: None,
+            auth_command: None,
             runtime_jobs: RuntimeJobs::default(),
             disk_paths: vec![],
             credentials: None,
@@ -8738,6 +8756,7 @@ mod acp_ws_integration {
             allowed_origins: vec![],
             login_command: None,
             auth_file: None,
+            auth_command: None,
             runtime_jobs: jobs,
             disk_paths: vec![],
             credentials: None,
@@ -11489,6 +11508,7 @@ mod acp_ws_integration {
             allowed_origins: vec![],
             login_command: None,
             auth_file: None,
+            auth_command: None,
             runtime_jobs: RuntimeJobs::default(),
             disk_paths: vec![],
             credentials: Some(store),

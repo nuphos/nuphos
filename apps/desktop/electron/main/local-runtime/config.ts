@@ -87,8 +87,7 @@ type AgentCliLaunch = Pick<LocalRuntimeLaunch, 'provider' | 'cliPath' | 'agentHo
 function providerEnv(launch: AgentCliLaunch): Record<string, string> {
   if (launch.provider === 'codex')
     return { CODEX_PATH: launch.cliPath, CODEX_HOME: launch.agentHome }
-  if (launch.provider === 'grok' || launch.provider === 'opencode')
-    return shimEnv(launch.cliPath, launch.agentHome)
+  if (launch.provider !== 'claude-code') return shimEnv(launch.cliPath, launch.agentHome)
 
   return {
     CLAUDE_CODE_EXECUTABLE: launch.cliPath,

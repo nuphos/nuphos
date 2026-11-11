@@ -344,6 +344,27 @@ class ChatSession(
         }
     }
 
+    /** The picker's selection: sent with the next message and, in an existing conversation of the owner's, saved now. */
+    fun updateCredentials(selection: CredentialSelection) {
+        if (!canManage) return
+        credentialAccess = selection
+        if (isNew || !isOwner) return
+        val previous = credentialSave
+        credentialSave = scope.launch {
+            previous?.join()
+            try {
+                if (!hasAiAccess) return@launch
+                AgentChatApi.updateCredentials(token, teamId, sessionId, selection.json)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                error = e.message
+            }
+        }
+    }
+
+    private var credentialSave: kotlinx.coroutines.Job? = null
+
     fun presetPermissionMode(mode: PermissionMode) {
         permissionMode = mode
     }
@@ -370,10 +391,8 @@ class ChatSession(
             draftAccessInvalidated = readOnly || isArchived
             detail.title?.takeIf { it.isNotEmpty() }?.let { title = it }
             if (detail.isChannel) markChannel()
-            detail.credentialAccess?.let {
-                val selection = CredentialSelection(it)
-                credentialAccess = if (selection.isEmpty) null else selection
-            }
+            // Nothing stored is still stored: every kind shows, and a save sends back only what changed.
+            credentialAccess = CredentialSelection(detail.credentialAccess ?: JsonValue.Obj(emptyMap()))
             scope.launch {
                 if (!hasAiAccess) return@launch
                 runCatching { readBypass(token, sessionId) }.getOrNull()?.let {

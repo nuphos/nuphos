@@ -1,11 +1,14 @@
 import { Eye, EyeOff, Loader2, Play, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Button } from '../../components/ui/button'
 import { t } from '../../i18n'
 
+import { integrationDisconnected } from './cleanupFailures'
 import { CopyableRow } from './parts'
 import { ProviderCleanupPreview } from './providerResources'
+import { TriggerRemoveWithoutCleanupDialog } from './TriggerRemoveWithoutCleanupDialog'
 
 import type { AgentTrigger } from '../../api'
 
@@ -112,6 +115,7 @@ export function TriggerFormFooter({
   canSave,
   saving,
   onDelete,
+  onRemoveWithoutProviderCleanup,
   onCancel,
   onSubmit,
 }: {
@@ -121,9 +125,12 @@ export function TriggerFormFooter({
   canSave: boolean
   saving: boolean
   onDelete: () => void
+  onRemoveWithoutProviderCleanup: () => Promise<void>
   onCancel: () => void
   onSubmit: () => void
 }) {
+  const [removeWithoutCleanupOpen, setRemoveWithoutCleanupOpen] = useState(false)
+
   return (
     <div className="px-5 py-3 border-t border-line-control flex items-center justify-between">
       <div>
@@ -144,6 +151,23 @@ export function TriggerFormFooter({
                 : t('Delete')}
           </Button>
         )}
+        {mode === 'edit' && canDelete && integrationDisconnected(loaded) && (
+          <Button
+            type="button"
+            onClick={() => setRemoveWithoutCleanupOpen(true)}
+            variant="ghost"
+            size="sm"
+            className="text-error hover:text-error"
+          >
+            {t('Remove without provider cleanup')}
+          </Button>
+        )}
+        <TriggerRemoveWithoutCleanupDialog
+          open={removeWithoutCleanupOpen}
+          loaded={loaded}
+          onClose={() => setRemoveWithoutCleanupOpen(false)}
+          onConfirm={onRemoveWithoutProviderCleanup}
+        />
       </div>
       <div className="flex items-center gap-2">
         <Button type="button" onClick={onCancel} variant="secondary" size="sm">

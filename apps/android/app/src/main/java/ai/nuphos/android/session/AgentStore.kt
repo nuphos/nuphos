@@ -759,7 +759,7 @@ class AgentStore(
         val revision = workspaceRevision
         fun isCurrent() = !disposed && hasAiAccess() && selectedTeam?.id == team.id && workspaceRevision == revision
         try {
-            val catalog = NuphosApi.credentialOptions(token, team.id, forNewConversation = true)
+            val catalog = NuphosApi.credentialOptions(token, team.id)
             if (isCurrent()) credentials = credentials.finish(request, Result.success(catalog))
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e

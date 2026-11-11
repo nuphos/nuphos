@@ -1,8 +1,10 @@
 package ai.nuphos.android.session
 
 import ai.nuphos.android.data.AgentChatApi
+import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.model.AgentConversation
+import ai.nuphos.android.model.CredentialSelection
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -28,6 +30,10 @@ class OpenQuestions(
         suspend fun answer(sessionId: String, text: String, requestId: String) {}
         /** A post in the Bot's chat [chatId], naming its question it answers. */
         suspend fun answerInChat(chatId: String, text: String, requestId: String) {}
+        /** [sessionId]'s stored credential selection. */
+        suspend fun credentials(sessionId: String): JsonValue? = null
+        /** Saves [sessionId]'s credential selection, as its picker would. */
+        suspend fun saveCredentials(sessionId: String, access: JsonValue) {}
     }
 
     class Api(private val token: String, private val teamId: String) : Source {
@@ -51,6 +57,12 @@ class OpenQuestions(
             }
             if (!sent) throw NuphosApi.Failure.InvalidResponse
         }
+
+        override suspend fun credentials(sessionId: String): JsonValue? =
+            NuphosApi.conversationDetail(token, teamId, sessionId, tail = 1).credentialAccess
+
+        override suspend fun saveCredentials(sessionId: String, access: JsonValue) =
+            AgentChatApi.updateCredentials(token, teamId, sessionId, access)
 
         override suspend fun answerInChat(chatId: String, text: String, requestId: String) {
             ChannelSession.Api(token, teamId, chatId)
@@ -81,6 +93,57 @@ class OpenQuestions(
         } catch (_: Exception) {
             // Kept as they were; the next poll tries again.
         }
+    }
+
+    /**
+     * The asking conversation's credential selection, for an integration card to add to; null, with
+     * why on its card, if it could not be read.
+     */
+    suspend fun storedSelection(question: BotQuestion): CredentialSelection? {
+        failures = failures - question.id
+        return try {
+            CredentialSelection(source.credentials(question.sessionId) ?: JsonValue.Obj(emptyMap()))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            failures = failures + (question.id to ChannelSession.postFailureMessage(e))
+            null
+        }
+    }
+
+    /**
+     * Answers a question naming the member's own credentials: adds them to the asking conversation's stored
+     * selection, nothing else. [connected] is the member's own, null when they could not be read; either way
+     * short of all of them is said on the card.
+     */
+    suspend fun useOwn(ids: List<String>, question: BotQuestion, connected: Set<String>?) {
+        if (connected == null) {
+            failures = failures + (question.id to "Couldn't load your credentials. Try again.")
+            return
+        }
+        if (!connected.containsAll(ids)) {
+            failures = failures + (question.id to "Connect it in Settings → Personal Credentials first.")
+            return
+        }
+        val stored = storedSelection(question) ?: return
+        val own = stored.ids["personalCredentialIds"].orEmpty() + ids
+        select(stored.copy(ids = stored.ids + ("personalCredentialIds" to own)), question)
+    }
+
+    /**
+     * Saves the asking conversation's selection, as its credential picker would. The server answers
+     * the question once it covers a provider asked for; the card leaves with the listing.
+     */
+    suspend fun select(selection: CredentialSelection, question: BotQuestion) {
+        failures = failures - question.id
+        try {
+            source.saveCredentials(question.sessionId, selection.json)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            failures = failures + (question.id to ChannelSession.postFailureMessage(e))
+        }
+        refresh()
     }
 
     /**

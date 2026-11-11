@@ -12,6 +12,7 @@ function sampler(read: () => Promise<unknown>, readTookMs = 0) {
     'claude-code': freshAgent(),
     codex: freshAgent(),
     grok: freshAgent(),
+    antigravity: freshAgent(),
     opencode: freshAgent(),
   }
 

@@ -36,6 +36,7 @@ import { publicView as sentryAccountView } from '@/routes/sentry-accounts'
 import { sonarqubePublicView } from '@/routes/sonarqube-integrations'
 import { publicView as tailscaleClientView } from '@/routes/tailscale-clients'
 import { tencentAccountsView } from '@/routes/tencent-accounts'
+import { publicView as trelloIntegrationView } from '@/routes/trello-integrations'
 import { publicView as upstashAccountView } from '@/routes/upstash-accounts'
 import { uptimeKumaInstancesView } from '@/routes/uptime-kuma-instances'
 import { publicView as vantaIntegrationView } from '@/routes/vanta-integrations'
@@ -119,6 +120,7 @@ teamConnectorsRoutes.get('/', async (c) => {
     onprem: connectorViews('onprem', doc?.onpremClusters, onpremClusterView),
     upstash: connectorViews('upstash', doc?.upstashAccounts, upstashAccountView),
     resend: connectorViews('resend', doc?.resendIntegrations, resendIntegrationView),
+    trello: connectorViews('trello', doc?.trelloIntegrations, trelloIntegrationView),
     posthog: connectorViews('posthog', doc?.posthogIntegrations, posthogPublicView),
     plaud: connectorViews('plaud', doc?.plaudAccounts, plaudAccountView),
     instabox: connectorViews('instabox', doc?.instaboxAccounts, instaboxAccountView),

@@ -38,6 +38,8 @@ struct CredentialCatalog: Equatable, Sendable {
         let detail: String?
         /// A device that is offline or has local exec off. Shown only while selected, so it can be unticked.
         var offline = false
+        /// Picked by "Select all" and a new chat's defaults: online, and not the member's own credential.
+        var selectable: Bool { !offline && provider.selectionKey != "personalCredentialIds" }
     }
 
     static let providers: [Provider] = [
@@ -59,11 +61,14 @@ struct CredentialCatalog: Equatable, Sendable {
         .init(optionsKey: "posthogIntegrations", selectionKey: "posthogIntegrationIds", title: "PostHog", logo: "logo-posthog", idKey: "integrationId", labelKeys: ["label"], detailKeys: ["apiBaseUrl"]),
         .init(optionsKey: "linearWorkspaces", selectionKey: "linearWorkspaceIds", title: "Linear", logo: "logo-linear", idKey: "workspaceId", labelKeys: ["label", "workspaceName"], detailKeys: ["workspaceName"]),
         .init(optionsKey: "jiraSites", selectionKey: "jiraSiteIds", title: "Jira", logo: "logo-jira", idKey: "siteId", labelKeys: ["label"], detailKeys: ["siteUrl"]),
+        .init(optionsKey: "trelloIntegrations", selectionKey: "trelloIntegrationIds", title: "Trello", logo: "logo-trello", idKey: "integrationId", labelKeys: ["label"], detailKeys: ["username"]),
         .init(optionsKey: "asanaAccounts", selectionKey: "asanaAccountIds", title: "Asana", logo: "logo-asana", idKey: "accountId", labelKeys: ["label"], detailKeys: ["accountEmail"]),
         .init(optionsKey: "plaudAccounts", selectionKey: "plaudAccountIds", title: "Plaud", logo: "logo-plaud", idKey: "bindingId", labelKeys: ["label"], detailKeys: []),
         .init(optionsKey: "vantaIntegrations", selectionKey: "vantaIntegrationIds", title: "Vanta", logo: "logo-vanta", idKey: "integrationId", labelKeys: ["label"], detailKeys: []),
         .init(optionsKey: "secureframeIntegrations", selectionKey: "secureframeIntegrationIds", title: "Secureframe", logo: "logo-secureframe", idKey: "integrationId", labelKeys: ["label"], detailKeys: ["region"]),
         .init(optionsKey: "resendIntegrations", selectionKey: "resendIntegrationIds", title: "Resend", logo: "logo-resend", idKey: "integrationId", labelKeys: ["label"], detailKeys: ["permission"]),
+        // The member's own GitHub / Linear, where the team has no binding of it; its id is the provider.
+        .init(optionsKey: "personalCredentials", selectionKey: "personalCredentialIds", title: "Personal Credentials", logo: "logo-github", idKey: "provider", labelKeys: ["login"], detailKeys: ["provider"]),
         .init(optionsKey: "githubInstallations", selectionKey: "githubInstallationIds", title: "GitHub", logo: "logo-github", idKey: "installationId", labelKeys: ["accountLogin"], detailKeys: ["accountType"]),
         .init(optionsKey: "gitlabBindings", selectionKey: "gitlabBindingIds", title: "GitLab", logo: "logo-gitlab", idKey: "bindingId", labelKeys: ["username"], detailKeys: ["hostUrl"]),
         .init(optionsKey: "grafanaInstances", selectionKey: "grafanaInstanceIds", title: "Grafana", logo: "logo-grafana", idKey: "instanceId", labelKeys: ["name"], detailKeys: ["grafanaUrl"]),
@@ -123,6 +128,10 @@ struct CredentialSelection: Equatable, Sendable {
     /// Stored keys this build has no row for, sent back untouched so a
     /// selection made on a newer client survives an edit here.
     var unknown: [String: JSONValue]?
+    /// The kinds a stored selection had, an explicit empty one included; nil for one never stored.
+    /// A stored selection sends only these and the kinds changed here: for several kinds a missing
+    /// key means "all", which an empty list would revoke.
+    var stored: Set<String>?
 
     var isEmpty: Bool { ids.values.allSatisfy(\.isEmpty) }
     /// Nothing to send: no selection here and no keys only a newer client understands.
@@ -155,8 +164,10 @@ struct CredentialSelection: Equatable, Sendable {
         }
     }
 
+    /// Every usable credential but the member's own GitHub / Linear, which a chat acts as only when
+    /// picked, as the desktop's `allCredentialAccess`.
     mutating func selectAll(in catalog: CredentialCatalog) {
-        for item in catalog.allItems where !item.offline && !contains(item) { toggle(item) }
+        for item in catalog.allItems where item.selectable && !contains(item) { toggle(item) }
     }
 
     /// What a conversation starts with when nobody has chosen: everything
@@ -165,17 +176,19 @@ struct CredentialSelection: Equatable, Sendable {
     mutating func selectDefaults(in catalog: CredentialCatalog) {
         selectAll(in: catalog)
         ids["resendIntegrationIds"] = []
+        ids["trelloIntegrationIds"] = []
     }
 
     func containsAll(in catalog: CredentialCatalog) -> Bool {
-        let usable = catalog.allItems.filter { !$0.offline }
+        let usable = catalog.allItems.filter(\.selectable)
         return !usable.isEmpty && usable.allSatisfy(contains)
     }
 
     /// `AgentCredentialSelection` — every known key present, empty arrays allowed.
     var json: JSONValue {
         var o = unknown ?? [:]
-        for provider in CredentialCatalog.providers {
+        for provider in CredentialCatalog.providers
+        where stored.map({ $0.contains(provider.selectionKey) || ids[provider.selectionKey] != nil }) ?? true {
             o[provider.selectionKey] = .array((ids[provider.selectionKey] ?? []).sorted().map(JSONValue.string))
         }
         return .object(o)
@@ -186,8 +199,12 @@ struct CredentialSelection: Equatable, Sendable {
     /// From a stored `credentialAccess` object.
     init(json: JSONValue) {
         let known = Set(CredentialCatalog.providers.map(\.selectionKey))
+        stored = []
         for (key, value) in json.objectValue ?? [:] {
             if known.contains(key) {
+                // null is unset, as the server reads it; anything else is stored, and a value that
+                // isn't a list is sent back as an empty one rather than left to mean "all".
+                if value != .null { stored?.insert(key) }
                 let set = Set(value.arrayValue?.compactMap(\.stringValue) ?? [])
                 if !set.isEmpty { ids[key] = set }
             } else if !Self.metadataKeys.contains(key) {

@@ -13,11 +13,13 @@ import { removeTriggerFromWatchGroups } from './watch-group-refs'
 import type { TriggerActor } from '../trigger-access'
 import type { SerializedTrigger } from './shared'
 
-export type DeleteTriggerResult = { deleted: true } | { deleted: false; trigger: SerializedTrigger }
+export type DeleteTriggerResult =
+  { deleted: true; leftBehind?: string[] } | { deleted: false; trigger: SerializedTrigger }
 
 export async function deleteTrigger(
   triggerId: string,
   actor: TriggerActor,
+  { withoutProviderCleanup = false }: { withoutProviderCleanup?: boolean } = {},
 ): Promise<DeleteTriggerResult> {
   const _id = parseTriggerId(triggerId)
   const trigger = await agentTriggers().findOne({ _id })
@@ -41,6 +43,14 @@ export async function deleteTrigger(
     return { deleted: true }
   }
   await assertTriggerAccess(trigger, actor, 'delete')
+
+  if (withoutProviderCleanup && trigger.cleanupStatus !== 'cleanup_failed') {
+    throw new AppError(
+      409,
+      'trigger_cleanup_not_failed',
+      'Only a Watch whose cleanup failed can be removed without provider cleanup',
+    )
+  }
 
   if (trigger.cleanupStatus === 'deleting') {
     try {
@@ -76,7 +86,7 @@ export async function deleteTrigger(
         cleanupUpdatedAt: now,
         updatedAt: now,
       },
-      $unset: { cleanupError: true },
+      $unset: { cleanupError: true, cleanupErrorCode: true },
       $inc: { configRevision: 1 },
     },
   )
@@ -95,6 +105,26 @@ export async function deleteTrigger(
   })
 
   if (trigger.triggerType === 'cron') await unscheduleCronTrigger(triggerId)
+
+  if (withoutProviderCleanup) {
+    // Inline, not queued: only this request may skip a provider, and it does
+    // so only for an integration it finds missing now. Reachable providers are
+    // still cleaned, and any other failure leaves the Watch in cleanup_failed.
+    const leftBehind: string[] = []
+
+    await performTriggerCleanup(triggerId, leftBehind)
+    if (leftBehind.length > 0) {
+      logEvent('warn', 'agent.trigger.removed_without_provider_cleanup', {
+        trigger_id: triggerId,
+        team_id: trigger.teamId,
+        actor_user_id: typeof actor === 'string' ? actor : actor.userId,
+        left_behind: leftBehind.join(','),
+        provider_wiring: trigger.providerWiring ?? null,
+      })
+    }
+
+    return { deleted: true, leftBehind }
+  }
 
   // Ordinary cron/ad-hoc webhook triggers have no provider resource to wait
   // for; preserve the original immediate-delete behavior for them.

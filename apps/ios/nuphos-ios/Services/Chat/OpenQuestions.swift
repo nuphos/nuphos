@@ -47,6 +47,49 @@ final class OpenQuestions {
         }
     }
 
+    /// The asking conversation's credential selection, for an integration card to add to;
+    /// nil, with why on its card, if it could not be read.
+    func storedSelection(for question: BotQuestion) async -> CredentialSelection? {
+        failures[question.id] = nil
+        do {
+            let detail = try await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: question.sessionId, tail: 1)
+            // None stored is still stored: nothing it leaves unset is sent as empty.
+            return CredentialSelection(json: detail.credentialAccess ?? .object([:]))
+        } catch {
+            failures[question.id] = error.localizedDescription
+            return nil
+        }
+    }
+
+    /// Answers a question naming the member's own credentials: adds them to the asking conversation's
+    /// stored selection, nothing else. `connected` is the member's own, nil when they could not be read;
+    /// either way short of all of them is said on the card.
+    func useOwn(_ ids: [String], for question: BotQuestion, connected: Set<String>?) async {
+        guard let connected else {
+            failures[question.id] = String(localized: "Couldn't load your credentials. Try again.")
+            return
+        }
+        guard ids.allSatisfy(connected.contains) else {
+            failures[question.id] = String(localized: "Connect it in Settings → Personal Credentials first.")
+            return
+        }
+        guard var selection = await storedSelection(for: question) else { return }
+        selection.ids["personalCredentialIds", default: []].formUnion(ids)
+        await select(selection, for: question)
+    }
+
+    /// Saves the asking conversation's selection, as its credential picker would. The server
+    /// answers the question once it covers a provider asked for; the card leaves with the listing.
+    func select(_ selection: CredentialSelection, for question: BotQuestion) async {
+        failures[question.id] = nil
+        do {
+            try await AgentChatAPI.updateCredentials(token: token, teamId: teamId, sessionId: question.sessionId, selection: selection)
+        } catch {
+            failures[question.id] = error.localizedDescription
+        }
+        await refresh()
+    }
+
     /// The owner's own reply to the conversation that asked, naming the question,
     /// so it resolves that one request wherever it is shown: a card's quick reply.
     /// Hidden at once; if it could not be sent, the card comes back with why.

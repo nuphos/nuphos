@@ -237,6 +237,15 @@ enum AgentChatAPI {
     }
 
     /// `POST /agent/conversations/:id/decisions/:requestId/resolve` — marks a question answered.
+    /// `PATCH /agent/conversations/:id/credentials` — the conversation's whole credential
+    /// selection, as its owner sets it. The server answers an open integration question
+    /// the selection now covers, and tells the agent.
+    static func updateCredentials(token: String, teamId: String, sessionId: String, selection: CredentialSelection) async throws {
+        _ = try await send("PATCH", "agent/conversations/\(sessionId)/credentials",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token,
+            body: JSONValue.object(["teamId": .string(teamId), "credentialAccess": selection.json]))
+    }
+
     static func resolveDecision(token: String, teamId: String, sessionId: String, requestId: String) async throws {
         _ = try await send("POST", "agent/conversations/\(sessionId)/decisions/\(requestId)/resolve",
             query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: ["resolution": "answered"])

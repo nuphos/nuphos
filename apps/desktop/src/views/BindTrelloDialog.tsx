@@ -1,0 +1,128 @@
+import { faArrowUpRightFromSquare, faListCheck, faSpinner } from '@fortawesome/free-solid-svg-icons'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { useEffect, useRef, useState } from 'react'
+
+import { api } from '../api'
+import { Modal } from '../components/Modal'
+import { Button } from '../components/ui/button'
+import { toast } from '../components/ui/toast'
+import { t } from '../i18n'
+
+import { Fill } from './bind-account/shared'
+import { useResetOnKey } from './useResetOnKey'
+
+type Props = {
+  open: boolean
+  teamId: string
+  onClose: () => void
+  onBound: () => void
+}
+
+type Phase = 'idle' | 'waiting'
+
+export function BindTrelloDialog({ open, teamId, onClose, onBound }: Props) {
+  const [phase, setPhase] = useState<Phase>('idle')
+  const attemptRef = useRef(0)
+
+  // Closing during authorization cancels both the local attempt and the pending grant.
+  useEffect(() => {
+    if (open || phase !== 'waiting') return
+    attemptRef.current += 1
+    void api.atlasCancelTrelloOAuth(teamId).catch(() => {})
+  }, [open, phase, teamId])
+
+  // Reset on open, not on close: the teardown above still has to see the
+  // 'waiting' phase it keys off, and the closed dialog is already fading out.
+  useResetOnKey(String(open), () => {
+    if (open) setPhase('idle')
+  })
+
+  function close() {
+    onClose()
+  }
+
+  async function startInstall() {
+    const attempt = ++attemptRef.current
+
+    setPhase('waiting')
+    try {
+      await api.atlasStartTrelloOAuth(teamId)
+      if (attempt !== attemptRef.current) return
+      // Reset before closing so the close effect doesn't see a 'waiting' phase
+      // and cancel the grant we just successfully completed.
+      setPhase('idle')
+      onBound()
+      onClose()
+    } catch (e) {
+      if (attempt !== attemptRef.current) return
+      setPhase('idle')
+      toast.apiError(t('Could not connect {name}', { name: 'Trello' }), e, {
+        fallback: t(
+          'Trello authorization did not complete. Try again or ask a team administrator to check the connection settings.',
+        ),
+      })
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={close}
+      title={t('Connect {name}', { name: 'Trello' })}
+      description={t(
+        'Connect Trello through Composio to read boards and lists and create, update, move or comment on cards. Access starts with the authorizing member only.',
+      )}
+      width={460}
+    >
+      <div className="px-5 py-5 selectable">
+        {phase === 'idle' && (
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-surface-sunken flex items-center justify-center">
+              <FontAwesomeIcon icon={faListCheck} className="w-[22px] h-[22px] text-main" />
+            </div>
+            <div className="text-[12.5px] text-secondary leading-relaxed text-center max-w-[400px]">
+              {t(
+                "Click below to open {name} in your browser. Approve the OAuth request and you'll be redirected back automatically.",
+                { name: 'Trello' },
+              )}
+            </div>
+          </div>
+        )}
+
+        {phase === 'waiting' && (
+          <div className="flex flex-col items-center gap-4 py-3">
+            <FontAwesomeIcon icon={faSpinner} className="w-6 h-6 text-primary animate-spin" />
+            <div className="text-[12.5px] text-secondary text-center">
+              {t('Waiting for {name}… complete the authorization in your browser.', {
+                name: 'Trello',
+              })}
+            </div>
+            <div className="text-[11px] text-tertiary text-center max-w-[380px]">
+              <Fill
+                text={t(
+                  'If nothing happens, make sure your browser allowed the popup and that your OS routes {scheme} URLs to this app.',
+                )}
+                scheme={<span className="font-mono">nuphos://</span>}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-line-control bg-state-selected">
+        <button
+          onClick={close}
+          className="h-8 px-3 rounded-md text-[12.5px] text-secondary hover:text-main hover:bg-state-hover"
+        >
+          {phase === 'waiting' ? t('Cancel') : t('Close')}
+        </button>
+        {phase !== 'waiting' && (
+          <Button size="sm" onClick={() => void startInstall()}>
+            <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="w-3.5 h-3.5" />
+            {t('Authorize {name}', { name: 'Trello' })}
+          </Button>
+        )}
+      </div>
+    </Modal>
+  )
+}

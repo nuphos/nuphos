@@ -20,6 +20,7 @@ export const agentCredentialSelectionSchema = z.object({
   vantaIntegrationIds: z.array(objectIdStringSchema).default([]),
   secureframeIntegrationIds: z.array(objectIdStringSchema).default([]),
   resendIntegrationIds: z.array(objectIdStringSchema).default([]),
+  trelloIntegrationIds: z.array(objectIdStringSchema).default([]),
   // Left optional on purpose: undefined means "not narrowed", which for these
   // connectors is still team-wide reach, unlike an explicit empty list.
   githubInstallationIds: z.array(z.string().min(1)).optional(),
@@ -53,6 +54,7 @@ const agentCredentialAccessSchema = z.object({
   vantaIntegrationIds: z.array(objectIdStringSchema),
   secureframeIntegrationIds: z.array(objectIdStringSchema),
   resendIntegrationIds: z.array(objectIdStringSchema).optional(),
+  trelloIntegrationIds: z.array(objectIdStringSchema).optional(),
   githubInstallationIds: z.array(z.string().min(1)).optional(),
   gitlabBindingIds: z.array(objectIdStringSchema).optional(),
   grafanaInstanceIds: z.array(objectIdStringSchema).optional(),
@@ -183,6 +185,15 @@ export const agentCredentialOptionsSchema = z.object({
       region: z.enum(['us', 'uk']),
     }),
   ),
+  trelloIntegrations: z
+    .array(
+      z.object({
+        integrationId: objectIdStringSchema,
+        label: z.string().min(1),
+        username: z.string(),
+      }),
+    )
+    .default([]),
   resendIntegrations: z.array(
     z.object({
       integrationId: objectIdStringSchema,

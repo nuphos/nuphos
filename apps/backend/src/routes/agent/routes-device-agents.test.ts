@@ -45,6 +45,12 @@ function app(overrides: Partial<DeviceAgentRouteDeps> = {}) {
     },
     recordAddition: () => Promise.resolve(),
     forgetAddition: () => Promise.resolve(),
+    recordRemoval: async (userId, deviceId, removal) => {
+      calls.push({ pending: [userId, deviceId, removal] })
+    },
+    settle: async (userId, deviceId) => {
+      calls.push({ settle: [userId, deviceId] })
+    },
     ...overrides,
   }
   const server = new Hono<{ Variables: AuthVariables }>()
@@ -64,8 +70,8 @@ function app(overrides: Partial<DeviceAgentRouteDeps> = {}) {
       body: JSON.stringify({ teamId: '69e989027ab63e8d6a0ffcb6', ...(body as object) }),
     })
 
-  const remove = (instanceId: string) =>
-    server.request(`/devices/box/agents/${instanceId}?teamId=69e989027ab63e8d6a0ffcb6`, {
+  const remove = (instanceId: string, query = '') =>
+    server.request(`/devices/box/agents/${instanceId}?teamId=69e989027ab63e8d6a0ffcb6${query}`, {
       method: 'DELETE',
     })
 
@@ -150,7 +156,7 @@ test('adding is managed: manage authorizes the actor and dispatches to the durab
   })
 })
 
-test('remove is managed, reaches the transport owner, and refuses a default agent', async () => {
+test('remove is managed, reaches the transport owner, and refuses an unknown agent', async () => {
   const levels: string[] = []
   const { remove, calls } = app({
     requireAccess: async (_actorId, _teamId, _deviceId, level) => {
@@ -169,11 +175,11 @@ test('remove is managed, reaches the transport owner, and refuses a default agen
     },
     { forgot: ['transport-owner', 'box', { instanceId: id }] },
   ])
-  for (const bad of ['default-codex', 'grok', 'x']) expect((await remove(bad)).status).toBe(400)
+  for (const bad of ['default-codex', 'x']) expect((await remove(bad)).status).toBe(400)
   expect(calls).toHaveLength(2)
 })
 
-test("a Box removes its default agent; a person's computer refuses to", async () => {
+test("a Box removes its default agent; a person's computer only forgets its own", async () => {
   const box = { ...device, box: {} as never }
   const onBox = app({ requireAccess: async () => box })
 
@@ -184,8 +190,9 @@ test("a Box removes its default agent; a person's computer refuses to", async ()
   ])
   const computer = app()
 
-  expect((await computer.remove('claude-code')).status).toBe(400)
-  expect(computer.calls).toEqual([])
+  // Its CLI login is the person's: the computer is never asked to remove it.
+  expect((await computer.remove('claude-code')).status).toBe(204)
+  expect(computer.calls).toEqual([{ forgot: ['owner', 'box', { provider: 'claude-code' }] }])
 })
 
 test('remove without access or on an older host never reaches the host', async () => {
@@ -236,5 +243,66 @@ test('a member who may only use the Box cannot rename its agents', async () => {
   })
 
   expect((await rename(id, 'Mine')).status).toBe(404)
+  expect(calls).toEqual([])
+})
+
+test("an offline computer's agent is removed now and deleted by the computer later", async () => {
+  const { remove, calls } = app({ getPresence: async () => null })
+  const response = await remove(id, '&force=true')
+
+  expect(response.status).toBe(204)
+  // Marked before it is forgotten, so a report in between cannot register it again.
+  expect(calls).toEqual([
+    {
+      pending: [
+        'owner',
+        'box',
+        {
+          id: expect.any(String),
+          agent: { instanceId: id },
+          actorId: 'owner',
+          teamId: '69e989027ab63e8d6a0ffcb6',
+          at: expect.any(Date),
+        },
+      ],
+    },
+    { forgot: ['owner', 'box', { instanceId: id }] },
+    // In case it reconnected while the removal was being saved.
+    { settle: ['owner', 'box'] },
+  ])
+})
+
+test('removing anyway while the computer is online removes the agent from it now', async () => {
+  const { remove, calls } = app()
+  const response = await remove(id, '&force=true')
+
+  // An agent missing from a connected computer's report: nothing is queued.
+  expect(response.status).toBe(204)
+  expect(calls).toMatchObject([
+    { target: { userId: 'owner', deviceId: 'box' }, removed: { instanceId: id } },
+    { forgot: ['owner', 'box', { instanceId: id }] },
+  ])
+})
+
+test("an offline person's computer's default agent is only forgotten, never queued", async () => {
+  const { remove, calls } = app({ getPresence: async () => null })
+  const response = await remove('claude-code', '&force=true')
+
+  expect(response.status).toBe(204)
+  expect(calls).toEqual([{ forgot: ['owner', 'box', { provider: 'claude-code' }] }])
+})
+
+test("removing anyway is for the computer's managers only", async () => {
+  const { remove, calls } = app({
+    getPresence: async () => null,
+    requireAccess: async (_user, _team, _device, level) => {
+      if (level === 'manage') throw Object.assign(new Error('Unavailable'), { status: 404 })
+
+      return device
+    },
+  })
+  const response = await remove(id, '&force=true')
+
+  expect(response.status).toBe(404)
   expect(calls).toEqual([])
 })

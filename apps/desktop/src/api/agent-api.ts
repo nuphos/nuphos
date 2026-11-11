@@ -230,8 +230,8 @@ export const agentApi = {
   agentCreateTrigger: (input: CreateAgentTriggerInput) => window.api.agentCreateTrigger(input),
   agentUpdateTrigger: (triggerId: string, patch: UpdateAgentTriggerInput, teamId?: string) =>
     window.api.agentUpdateTrigger(triggerId, patch, teamId),
-  agentDeleteTrigger: (triggerId: string, teamId?: string) =>
-    window.api.agentDeleteTrigger(triggerId, teamId),
+  agentDeleteTrigger: (triggerId: string, teamId?: string, withoutProviderCleanup?: boolean) =>
+    window.api.agentDeleteTrigger(triggerId, teamId, withoutProviderCleanup),
   agentTestFireTrigger: (triggerId: string, payload?: Record<string, unknown>, teamId?: string) =>
     window.api.agentTestFireTrigger(triggerId, payload, teamId),
   agentTransferTriggerExecutionPrincipal: (triggerId: string, userId: string, teamId?: string) =>

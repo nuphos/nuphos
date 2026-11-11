@@ -2,15 +2,28 @@ import SwiftUI
 
 /// The desktop's Inbox ("Needs your input"): every open question across the
 /// viewer's conversations, newest first, each answered from its card. "From …"
-/// opens the conversation that asked, as a notification does.
+/// opens the conversation that asked, as a notification does. An integration
+/// question is answered here, in the asking conversation's credential picker.
 struct InboxPage: View {
+    @Environment(AgentStore.self) private var store
     let inbox: OpenQuestions?
+
+    /// The integration question whose conversation's credentials are being chosen, while the picker shows.
+    @State private var connecting: BotQuestion?
+    /// The same question, kept past the picker's dismissal for saving.
+    @State private var target: BotQuestion?
+    /// That conversation's selection, as stored and as edited in the picker.
+    @State private var stored = CredentialSelection()
+    @State private var selection = CredentialSelection()
 
     var body: some View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.canvas)
             .refreshable { await inbox?.refresh() }
+            .sheet(item: $connecting, onDismiss: save) { _ in
+                CredentialPickerSheet(selection: $selection).presentationDetents([.medium, .large])
+            }
     }
 
     @ViewBuilder
@@ -31,7 +44,8 @@ struct InboxPage: View {
                                 onAnswer: { text in Task { await inbox.answer(question, with: text) } },
                                 failure: inbox.failures[question.id],
                                 // Opens the conversation, its composer answering this question.
-                                onReply: { open(question, in: inbox, answering: true) })
+                                onReply: { open(question, in: inbox, answering: true) },
+                                onConnect: { Task { await connect(question, in: inbox) } })
                         }
                     }
                     .padding(.horizontal, 16)
@@ -42,6 +56,31 @@ struct InboxPage: View {
         } else {
             ProgressView().tint(Theme.muted)
         }
+    }
+
+    /// Opens the picker on the asking conversation's own selection, so saving keeps what it had.
+    private func connect(_ question: BotQuestion, in inbox: OpenQuestions) async {
+        // The member's own credential: added as named, with no picker and no team connection in its place.
+        if let own = question.personalCredentials {
+            await store.loadCredentialOptions()
+            let connected = store.credentialCatalog.map { catalog in
+                Set(catalog.allItems.filter { $0.provider.selectionKey == "personalCredentialIds" }.map(\.id))
+            }
+            await inbox.useOwn(own, for: question, connected: connected)
+            return
+        }
+        guard let current = await inbox.storedSelection(for: question) else { return }
+        stored = current
+        selection = current
+        target = question
+        connecting = question
+    }
+
+    /// Saves the picker's selection when it changed; the server answers the question it covers.
+    private func save() {
+        guard let inbox, let question = target, selection != stored else { return }
+        let chosen = selection
+        Task { await inbox.select(chosen, for: question) }
     }
 
     /// As a notification opens one: on the Tasks page, its composer answering the question for "Other…".

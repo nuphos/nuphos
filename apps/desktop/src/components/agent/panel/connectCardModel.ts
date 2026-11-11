@@ -17,6 +17,7 @@ export const CONNECT_SELECTION_KEY = {
   notion: 'notionIntegrationIds',
   upstash: 'upstashAccountIds',
   resend: 'resendIntegrationIds',
+  trello: 'trelloIntegrationIds',
   cloudflare: 'cloudflareAccountIds',
   instabox: 'instaboxAccountIds',
   betterstack: 'betterStackIntegrationIds',

@@ -7,7 +7,13 @@ import { cleanupAws } from './aws'
 import { cleanupBetterStack } from './betterstack'
 import { cleanupGcp, gcpRequest, gcpToken, listAllGcpAlertPolicies } from './gcp'
 import { cleanupGrafana } from './grafana'
-import { cleanupConflict, sameJson, targetsManagedWebhook } from './shared'
+import {
+  cleanupConflict,
+  cleanupOrLeaveBehind,
+  integrationDisconnected,
+  sameJson,
+  targetsManagedWebhook,
+} from './shared'
 
 import type { AgentTrigger } from '../trigger-db'
 import type {
@@ -52,7 +58,7 @@ async function cleanupGcpGroup(
   )
 
   if (!binding)
-    cleanupConflict('The GCP integration used by this Watch Group is no longer connected')
+    integrationDisconnected('The GCP integration used by this Watch Group is no longer connected')
 
   const token = await gcpToken(first.serviceAccountEmail, teamId)
   const channel = await gcpRequest<JsonObject>(token, first.notificationChannelName, {}, true)
@@ -142,6 +148,7 @@ async function cleanupWatchGroup(
   teamId: ObjectId,
   triggerId: string,
   receipt: WatchGroupProviderWiring,
+  leftBehind?: string[],
 ): Promise<void> {
   const grafana = receipt.wirings.filter(
     (wiring): wiring is GrafanaProviderWiring => wiring.provider === 'grafana',
@@ -160,16 +167,24 @@ async function cleanupWatchGroup(
   // channel early therefore cannot deliver a half-cleaned event; each member
   // attachment is still independently read back and restored.
   await settleSequentialProviderCleanup(grafana, (wiring) =>
-    cleanupGrafana(teamId, triggerId, wiring),
+    cleanupOrLeaveBehind('grafana', () => cleanupGrafana(teamId, triggerId, wiring), leftBehind),
   )
-  if (gcp.length > 0) await cleanupGcpGroup(teamId, triggerId, gcp)
-  await settleSequentialProviderCleanup(aws, (wiring) => cleanupAws(teamId, triggerId, wiring))
+  if (gcp.length > 0) {
+    await cleanupOrLeaveBehind('gcp', () => cleanupGcpGroup(teamId, triggerId, gcp), leftBehind)
+  }
+  await settleSequentialProviderCleanup(aws, (wiring) =>
+    cleanupOrLeaveBehind('aws', () => cleanupAws(teamId, triggerId, wiring), leftBehind),
+  )
   const seenWebhooks = new Set<string>()
 
   for (const wiring of betterStack) {
     if (seenWebhooks.has(wiring.outgoingWebhookId)) continue
     seenWebhooks.add(wiring.outgoingWebhookId)
-    await cleanupBetterStack(teamId, triggerId, wiring)
+    await cleanupOrLeaveBehind(
+      'betterstack',
+      () => cleanupBetterStack(teamId, triggerId, wiring),
+      leftBehind,
+    )
   }
 }
 
@@ -177,6 +192,7 @@ export async function cleanupManagedProviderWiring(
   trigger: AgentTrigger,
   triggerId: string,
   receipt: MonitoringProviderWiring,
+  leftBehind?: string[],
 ): Promise<void> {
   if (!trigger.teamId || !ObjectId.isValid(trigger.teamId)) {
     cleanupConflict('This managed Watch has no valid team ownership')
@@ -184,16 +200,24 @@ export async function cleanupManagedProviderWiring(
   const teamId = new ObjectId(trigger.teamId)
 
   if (receipt.provider === 'watch_group') {
-    return cleanupWatchGroup(teamId, triggerId, receipt)
+    return cleanupWatchGroup(teamId, triggerId, receipt, leftBehind)
   }
-  if (receipt.provider === 'grafana') return cleanupGrafana(teamId, triggerId, receipt)
-  if (receipt.provider === 'gcp') return cleanupGcp(teamId, triggerId, receipt)
-  if (receipt.provider === 'aws') return cleanupAws(teamId, triggerId, receipt)
+
+  const cleanup = (provider: string, run: () => Promise<void>) =>
+    cleanupOrLeaveBehind(provider, run, leftBehind)
+
+  if (receipt.provider === 'grafana') {
+    return cleanup('grafana', () => cleanupGrafana(teamId, triggerId, receipt))
+  }
+  if (receipt.provider === 'gcp')
+    return cleanup('gcp', () => cleanupGcp(teamId, triggerId, receipt))
+  if (receipt.provider === 'aws')
+    return cleanup('aws', () => cleanupAws(teamId, triggerId, receipt))
   // Generic receipts deliberately describe dynamically wired provider
   // resources without pretending the backend knows how to mutate that API.
   // Trigger details and the removal preview disclose that these resources are
   // preserved and require the recorded manual cleanup procedure.
   if (receipt.provider === 'generic') return
 
-  return cleanupBetterStack(teamId, triggerId, receipt)
+  return cleanup('betterstack', () => cleanupBetterStack(teamId, triggerId, receipt))
 }

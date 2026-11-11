@@ -20,8 +20,8 @@ import { asanaAppRoutes } from '@/routes/asana-app'
 import { auth } from '@/routes/auth'
 import { avatarsRoutes } from '@/routes/avatars'
 import { claudeCodeRuntimeSkills } from '@/routes/claude-code-runtime-skills'
-import { cliAuthRoutes } from '@/routes/cli-auth'
 import { cliRoutes } from '@/routes/cli'
+import { cliAuthRoutes } from '@/routes/cli-auth'
 import { cloudflareAppRoutes } from '@/routes/cloudflare-app'
 import { desktopRoutes } from '@/routes/desktop'
 import { discordRoutes } from '@/routes/discord'
@@ -36,16 +36,17 @@ import { inviteLandingRoutes } from '@/routes/invite-landing'
 import { jiraAppRoutes } from '@/routes/jira-app'
 import { larkRoutes } from '@/routes/lark'
 import { linearAppRoutes } from '@/routes/linear-app'
-import { personalCredentialRoutes } from '@/routes/personal-credentials'
 import { mcp } from '@/routes/mcp'
 import { oauthRoutes } from '@/routes/oauth'
-import { pushRoutes } from '@/routes/push-devices'
+import { personalCredentialRoutes } from '@/routes/personal-credentials'
 import { plaudAppRoutes } from '@/routes/plaud-app'
 import { posthogAppRoutes } from '@/routes/posthog-app'
+import { pushRoutes } from '@/routes/push-devices'
 import { sentryAppRoutes } from '@/routes/sentry-app'
 import { slackRoutes } from '@/routes/slack'
 import { slackAppRoutes } from '@/routes/slack-app'
 import { teamsRoutes } from '@/routes/teams'
+import { trelloAppRoutes } from '@/routes/trello-app'
 import { webhooksRoutes } from '@/routes/webhooks'
 import { internalWellKnownRoutes, wellKnownRoutes } from '@/routes/well-known'
 
@@ -129,6 +130,7 @@ app.route('/linear-app', linearAppRoutes)
 app.route('/personal-credentials', personalCredentialRoutes)
 app.route('/jira-app', jiraAppRoutes)
 app.route('/asana-app', asanaAppRoutes)
+app.route('/trello-app', trelloAppRoutes)
 app.route('/plaud-app', plaudAppRoutes)
 app.route('/posthog-app', posthogAppRoutes)
 app.route('/sentry-app', sentryAppRoutes)

@@ -5,16 +5,16 @@ import type { LocalAgentProvider } from '../../api/device-types'
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 
 /**
- * How a computer's agent is removed: an added one by its id, a Box's default one by its
- * provider (as for rename). A person's own computer keeps its defaults (they are its CLIs'
- * logins), so it has none to offer.
+ * How a computer's agent is removed: an added one by its id, a default one by its provider
+ * (as for rename). A person's own computer's default is their CLI login, so Nuphos only
+ * forgets it; it shows again once that CLI is signed in (see visibleAgent).
  */
 export function localRemovalId(instance: RuntimeInstance): string | undefined {
   const local = instance.local
 
-  if (!local) return undefined
+  if (!local || (instance.provider === 'antigravity' && !local.instanceId)) return undefined
 
-  return local.instanceId ?? (local.box ? instance.provider : undefined)
+  return local.instanceId ?? instance.provider
 }
 
 /**
@@ -101,6 +101,8 @@ export function newAgentAction(
   const idle = agents.find((agent) => agent.provider === provider && agent.local?.signedIn !== true)
 
   if (idle) return { signIn: idle.id }
+  // Native keyring sign-in is shared; another home does not create another account.
+  if (provider === 'antigravity') return null
 
   return agents.some((agent) => agent.local?.agentInstances === true) ? { create: true } : null
 }

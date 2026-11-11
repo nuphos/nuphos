@@ -8,8 +8,8 @@ import { deriveMemoryHealth } from './memoryHealth'
 
 import type { AgentMemoryScorecard } from '../../api'
 
-// Is memory helping? Three figures, folded behind an icon in the controls row
-// — read occasionally, so they don't earn permanent space above the list.
+// Is memory helping? Folded behind an icon in the controls row — read
+// occasionally, so it doesn't earn permanent space above the list.
 //
 // Scope is deliberate: only what a team member can read and act on. Pipeline
 // telemetry (judge coverage, distillation and judge error counts) used to sit
@@ -25,7 +25,6 @@ import type { AgentMemoryScorecard } from '../../api'
 export function MemoryScorecardStrip({ summary }: { summary: AgentMemoryScorecard['summary'] }) {
   const [open, setOpen] = useState(false)
   const h = deriveMemoryHealth(summary)
-  const notChecked = h.recall.total - h.checkedTurns
 
   // "checked", not "judged": the reader does not need to know an attribution
   // judge exists to understand that the rate covers a subset of turns.
@@ -47,12 +46,6 @@ export function MemoryScorecardStrip({ summary }: { summary: AgentMemoryScorecar
       applied: String(h.applied.applied),
       judged: String(h.applied.judged),
     })
-    if (notChecked > 0) {
-      appliedTitle += ` ${t(
-        "The other {count} turns in the window weren't checked — often because nothing was recalled for them — so they are left out rather than counted as failures.",
-        { count: String(notChecked) },
-      )}`
-    }
   }
 
   return (
@@ -75,25 +68,6 @@ export function MemoryScorecardStrip({ summary }: { summary: AgentMemoryScorecar
                 window={`${String(h.windowDays)}d`}
                 title={appliedTitle}
               />
-              <Stat
-                label={t('recall')}
-                value={`${String(h.recall.pct)}%`}
-                note={t('{hit} of {total} turns', {
-                  hit: String(h.recall.hit),
-                  total: String(h.recall.total),
-                })}
-                window={`${String(h.windowDays)}d`}
-                title={t('Turns where the agent was given at least one relevant memory.')}
-              />
-              <Stat
-                label={t('learned')}
-                value={String(h.learned7d)}
-                note={t('memories')}
-                window="7d"
-                title={t(
-                  'Memories auto-learned in the last 7 days. This is the one figure on a 7-day window — the rest cover 90.',
-                )}
-              />
             </div>
           </Popover.Popup>
         </Popover.Positioner>
@@ -114,9 +88,7 @@ function Stat({
   label: string
   value: string
   note: string
-  /** This figure's own window. Stated per row rather than once at the top:
-   *  `learned` covers 7 days while everything else covers 90, and a card-level
-   *  header would have to lie about one of them. */
+  /** The window this figure covers. */
   window: string
   title: string
 }) {

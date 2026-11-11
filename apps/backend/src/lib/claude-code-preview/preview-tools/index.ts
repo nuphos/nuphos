@@ -152,7 +152,12 @@ export async function previewAiSdkToolSets(
   return {
     memory: await memoryTools(ctx),
     // Skill authoring stays a Nuphos tool; discovery and loading are native skills.
-    skills: createTeamSkillTools(ctx.userId, ctx.teamId, { conversationId: ctx.sessionId }),
+    skills: createTeamSkillTools(ctx.userId, ctx.teamId, {
+      conversationId: ctx.sessionId,
+      ...(ctx.conversationOwnerUserId
+        ? { conversationOwnerUserId: ctx.conversationOwnerUserId }
+        : {}),
+    }),
     chart: { render_chart: createChartTool() },
     artifact: { render_artifact: createArtifactTool() },
     sessions: createSessionTools(ctx.userId, ctx.sessionId, ctx.teamId),

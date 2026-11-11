@@ -20,6 +20,7 @@ export function BotChatQuestion({
   onOpenSession,
   onAnswer,
   onReply,
+  fullBody,
 }: {
   request: Pick<SessionInputRequest, 'sessionId' | 'title' | 'inputRequest'>
   teamId: string
@@ -30,6 +31,8 @@ export function BotChatQuestion({
   onAnswer: (text: string, replyTo: string) => void
   /** Starts a typed answer to the question in the chat's composer. */
   onReply?: (replyTo: string) => void
+  /** Shows the question's body in full, as the Inbox does. */
+  fullBody?: boolean
 }) {
   const { part, questions, answerable, typed, replyTo } = botChatQuestion(
     request.inputRequest,
@@ -58,6 +61,7 @@ export function BotChatQuestion({
             (await api.agentSaveSecret(request.sessionId, name, value, teamId)).path,
           openQuestions: questions,
           reply: onReply && typed ? (card) => onReply(replyTo(card)) : undefined,
+          fullBody,
         }}
       >
         <DecisionToolPart

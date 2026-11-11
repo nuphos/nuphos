@@ -128,3 +128,28 @@ test('removing names a known provider', async (t) => {
     /Invalid runtime provider/u,
   )
 })
+
+test('AGY removal cannot pretend deleting its home signs out the native keyring', async () => {
+  const { removeDefaultAgent } = await import('./default-agent.ts')
+  let touched = false
+
+  await assert.rejects(
+    removeDefaultAgent(
+      {
+        ownsMachine: true,
+        userEnv: async () => {
+          touched = true
+
+          return {}
+        },
+      } as never,
+      'alice',
+      'antigravity',
+      async () => {
+        touched = true
+      },
+    ),
+    /official Antigravity CLI/,
+  )
+  assert.equal(touched, false)
+})

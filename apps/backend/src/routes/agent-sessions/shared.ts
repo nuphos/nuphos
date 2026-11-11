@@ -1,9 +1,9 @@
 import { ObjectId } from 'mongodb'
 
-import { dashboardPanelIdFromSessionId } from '@/lib/dashboards/panel-principal'
 import { agentConversations } from '@/lib/agent/db'
 import { agentSubjectId } from '@/lib/agents/identity'
 import { canMintCredentials, isCloudCredentialPath } from '@/lib/byos/credential-role'
+import { dashboardPanelIdFromSessionId } from '@/lib/dashboards/panel-principal'
 import { AppError } from '@/lib/errors'
 import { dashboardPanels } from '@/models'
 import { allCredentialAccessFromOptions } from '@/routes/agent/credential-access'
@@ -23,6 +23,7 @@ import type {
   AsanaAccountVariables,
   PosthogIntegrationVariables,
   ResendIntegrationVariables,
+  TrelloIntegrationVariables,
   SentryAccountVariables,
   TailscaleClientVariables,
   TeamAuthVariables,
@@ -45,6 +46,7 @@ export type AgentJiraVars = AgentVars & JiraSiteVariables
 export type AgentAsanaVars = AgentVars & AsanaAccountVariables
 export type AgentPosthogVars = AgentVars & PosthogIntegrationVariables
 export type AgentResendVars = AgentVars & ResendIntegrationVariables
+export type AgentTrelloVars = AgentVars & TrelloIntegrationVariables
 export type AgentSentryVars = AgentVars & SentryAccountVariables
 export type AgentTailscaleVars = AgentVars & TailscaleClientVariables
 export type AgentZeaburVars = AgentVars & ZeaburProviderVariables
@@ -219,6 +221,7 @@ export function normalizeCredentialAccess(
     vantaIntegrationIds: credentialIds(access?.vantaIntegrationIds),
     secureframeIntegrationIds: credentialIds(access?.secureframeIntegrationIds),
     resendIntegrationIds: credentialIds(access?.resendIntegrationIds),
+    trelloIntegrationIds: credentialIds(access?.trelloIntegrationIds),
     posthogIntegrationIds: credentialIds(access?.posthogIntegrationIds),
     plaudAccountIds: credentialIds(access?.plaudAccountIds),
     // Left undefined when unset rather than defaulted to []: for these

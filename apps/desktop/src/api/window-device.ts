@@ -73,7 +73,13 @@ export type WindowDeviceApi = {
     provider: LocalAgentProvider,
     label?: string,
   ): Promise<DeviceAgentInstance>
-  boxRemoveAgent(deviceId: string, teamId: string, instanceId: string): Promise<void>
+  /** `offline`: the computer is unreachable, so it deletes the agent when it is back. */
+  boxRemoveAgent(
+    deviceId: string,
+    teamId: string,
+    instanceId: string,
+    offline?: boolean,
+  ): Promise<void>
   boxRenameAgent(
     deviceId: string,
     teamId: string,

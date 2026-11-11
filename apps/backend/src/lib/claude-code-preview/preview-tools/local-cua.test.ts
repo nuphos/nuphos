@@ -1,9 +1,24 @@
+import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useIdentity } from '@/lib/test/doubles/identity'
+import type { AgentConversation } from '@/lib/agent/db'
+import type { TeamMembership } from '@/lib/identity/types'
 import { describe, expect, test } from 'bun:test'
 
 import { createLocalCuaHandler } from './local-cua'
 
 import type { LocalCuaDeps } from './local-cua'
 import type { PreviewToolContext } from '../preview-tool-context'
+
+useAgentDb({
+  getConversationBySessionId: () =>
+    Promise.resolve({
+      sessionId: 's1',
+      userId: 'owner',
+      teamId: 't1',
+      participantIds: ['u1'],
+    } as AgentConversation),
+})
+useIdentity({ getTeamMembership: () => Promise.resolve({ role: 'EDITOR' } as TeamMembership) })
 
 type Listener = (event: { data?: unknown }) => void
 
@@ -144,11 +159,11 @@ describe('local_cua', () => {
     expect(result.content).toEqual([{ type: 'text', text: 'false' }])
   })
 
-  test('never reaches a device from a conversation the caller does not own', async () => {
+  test('a shared turn still refuses a device whose conversation authority was revoked', async () => {
     const device = fakeDevice(() => {})
     const result = await createLocalCuaHandler(
       { ...ctx, conversationOwnerUserId: 'someone-else' },
-      deps({ connect: device.connect }),
+      deps({ connect: device.connect, owner: async () => null }),
     )({ code: 'await cua.getState()' })
 
     expect(result.isError).toBe(true)

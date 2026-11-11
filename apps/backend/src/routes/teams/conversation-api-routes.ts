@@ -1,6 +1,7 @@
 import { CONNECTOR_COLLECTIONS } from './conversation-denial'
 
 const ROUTES: { method: string; path: RegExp }[] = [
+  { method: 'POST', path: /^\/trello-integrations\/[^/]+\/execute$/u },
   { method: 'GET', path: /^\/gcp-projects\/[^/]+\/firebase\/(?:project|apps)$/u },
   { method: 'GET', path: /^\/aws-accounts\/[^/]+\/credentials$/u },
   {

@@ -17,6 +17,8 @@ export type ConnectCardContextValue = {
   openQuestions?: readonly ReplyQuestion[]
   // Starts a typed answer to the card's question in the composer; absent where none answers it.
   reply?: (card: DecisionCardRef) => void
+  // Shows a question's body in full, where the card is the page it is read on.
+  fullBody?: boolean
 }
 
 export const ConnectCardContext = createContext<ConnectCardContextValue | null>(null)

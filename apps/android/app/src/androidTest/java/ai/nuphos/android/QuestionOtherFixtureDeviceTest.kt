@@ -24,6 +24,7 @@ import ai.nuphos.android.data.TransferDownloadGroup
 import ai.nuphos.android.model.AgentConversationDetail
 import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ComposerAttachment
+import ai.nuphos.android.model.CredentialRef
 import ai.nuphos.android.model.InputRequest
 import ai.nuphos.android.session.AgentStore
 import ai.nuphos.android.session.BotQuestion
@@ -117,6 +118,28 @@ class QuestionOtherFixtureDeviceTest {
         compose.onNodeWithTag("channel-reply-chip").assertIsDisplayed()
         assertEquals(deploy, conversation?.answering)
         capture("inbox-other")
+    }
+
+    @Test fun anIntegrationQuestionChoosesCredentialsInTheInbox() {
+        val github = BotQuestion("agent-ops", "Release ops",
+            InputRequest("q-github", "integration", "Select your own GitHub so I can open the PR as you.", null))
+        // One naming the member's own GitHub: answered by that alone, with no picker.
+        val own = BotQuestion("agent-ops", "Release ops", InputRequest("q-own", "integration",
+            "Connect your own GitHub so I can push as you.", null, credentials = listOf(CredentialRef("personal", "github"))))
+        var connecting by mutableStateOf<BotQuestion?>(null)
+        screen {
+            Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                BotQuestionCard(github, onOpen = {}, onAnswer = {}, onConnect = { connecting = github })
+                BotQuestionCard(own, onOpen = {}, onAnswer = {}, onConnect = { connecting = own })
+            }
+        }
+        compose.onNodeWithText("Use your own GitHub").assertIsDisplayed()
+        // Answered here, in the asking conversation's credential picker, not in the conversation.
+        compose.onAllNodesWithTag("bot-question-connect").assertCountEquals(2)
+        compose.onNodeWithText("Answer in the conversation").assertDoesNotExist()
+        capture("inbox-integration")
+        compose.onNodeWithText("Choose credentials").performClick()
+        assertEquals(github, connecting)
     }
 
     private fun screen(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {

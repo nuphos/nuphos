@@ -49,7 +49,7 @@ COPY reply-image-stream.mjs reply-images.mjs runtime-defaults.mjs mcp-bridge-con
 # Sourced via BASH_ENV, so it is read, never executed.
 COPY --chmod=644 runtime-guard.sh /opt/nuphos-runtime/runtime-guard.sh
 COPY codex-login.mjs claude-login.mjs mcp-http-bridge.mjs panel-job.mjs /opt/nuphos-runtime/
-COPY grok-login.mjs antigravity-login.mjs opencode-login.mjs /opt/nuphos-runtime/
+COPY grok-login.mjs antigravity-login.mjs antigravity-status.mjs antigravity-status-cli.mjs opencode-login.mjs /opt/nuphos-runtime/
 # COPY --chmod also affects newly created destination directories.
 # Runtime helpers must be traversable by the non-root init and agent containers.
 RUN chmod 755 /opt/nuphos-runtime \
@@ -114,8 +114,9 @@ ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs grok" \
 
 FROM common AS antigravity
 ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs antigravity" \
-    OPENAB_ADAPTER_VERSION="antigravity-acp@1.3.0" \
-    NUPHOS_RUNTIME_PREINSTALL=antigravity-acp
+    OPENAB_ADAPTER_VERSION="antigravity-cli@1.5.4" \
+    NUPHOS_RUNTIME_PREINSTALL=antigravity-cli \
+    OPENAB_RUNTIME_AUTH_COMMAND="node /opt/nuphos-runtime/antigravity-status-cli.mjs"
 
 FROM common AS opencode
 ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs opencode" \
@@ -227,6 +228,8 @@ RUN test -x /opt/nuphos-runtime \
  && test -r /opt/nuphos-runtime/claude-login.mjs \
  && test -r /opt/nuphos-runtime/grok-login.mjs \
  && test -r /opt/nuphos-runtime/antigravity-login.mjs \
+ && test -r /opt/nuphos-runtime/antigravity-status.mjs \
+ && test -r /opt/nuphos-runtime/antigravity-status-cli.mjs \
  && test -r /opt/nuphos-runtime/opencode-login.mjs \
  && test -r /opt/nuphos-runtime/panel-job.mjs \
  && test -r /opt/nuphos-agent/host.mjs \

@@ -186,6 +186,7 @@ export function TeamHomeBindDialogs({
           onChanged()
         }}
       />
+
       <BindSentryDialog
         open={bindSentryOpen}
         teamId={teamId}

@@ -7,7 +7,7 @@ import { decryptBetterStackToken } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { teamByosBindings } from '@/models'
 
-import { cleanupConflict, targetsManagedWebhook } from './shared'
+import { cleanupConflict, integrationDisconnected, targetsManagedWebhook } from './shared'
 
 import type { BetterStackProviderWiring } from '../trigger-provider-wiring'
 import type { ObjectId } from 'mongodb'
@@ -26,7 +26,9 @@ export async function cleanupBetterStack(
   )
 
   if (!binding?.encryptedUptimeApiToken) {
-    cleanupConflict('The Better Stack integration used by this Watch is no longer connected')
+    integrationDisconnected(
+      'The Better Stack integration used by this Watch is no longer connected',
+    )
   }
   const handle = { uptimeApiToken: decryptBetterStackToken(binding.encryptedUptimeApiToken) }
   let outgoingWebhook

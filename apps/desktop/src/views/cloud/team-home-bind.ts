@@ -35,6 +35,7 @@ export const BIND_DIALOG_KEYS = [
   'posthog',
   'plaud',
   'asana',
+  'trello',
   'grafana',
   'sonarqube',
   'onprem-k8s',
@@ -60,6 +61,7 @@ export type IntegrationPlatformRow = {
     | 'linear'
     | 'jira'
     | 'asana'
+    | 'trello'
     | 'sentry'
     | 'posthog'
     | 'plaud'

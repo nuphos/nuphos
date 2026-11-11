@@ -27,6 +27,7 @@ const credentialAccess: Tab['credentialAccess'] = {
   vantaIntegrationIds: [],
   secureframeIntegrationIds: [],
   resendIntegrationIds: [],
+  trelloIntegrationIds: [],
 }
 
 function tab(messages: Message[]): Tab {

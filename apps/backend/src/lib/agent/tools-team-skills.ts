@@ -2,20 +2,20 @@ import { tool } from 'ai'
 import { z } from 'zod'
 
 import { AppError } from '@/lib/errors'
-import { getTeamMembership } from '@/lib/identity'
 
 import {
   assertSkillNameNotBuiltinOverlay,
   buildSkillMdContent,
   getSkillManifest,
-  isSkillsStoreConfigured,
   putSkillObjects,
   skillObjectKeyForName,
-  teamSkillsScope,
   validateSkillName,
   validateSkillObjectKey,
   validateSkillRelativePath,
 } from './skill-store/service'
+import { looksLikeEmbeddedSecret, requireScopeAccess, scopeInput } from './tools-team-skills-access'
+
+import type { SkillScopeName } from './tools-team-skills-access'
 
 const label = z
   .string()
@@ -42,48 +42,54 @@ async function run<T>(fn: () => Promise<T>): Promise<T | { ok: false; error: str
   }
 }
 
-// Checked on every call rather than by hiding the tools: an agent without the
-// tools cannot tell "not allowed" from "not supported" and reports neither.
-async function requireWriteAccess(
-  userId: string,
-  teamId: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (!isSkillsStoreConfigured()) {
-    return { ok: false, error: 'unavailable: this Nuphos server has no team skills store' }
-  }
-  const membership = await getTeamMembership(userId, teamId)
+type ScopeAccess = (scope: SkillScopeName, write: boolean) => ReturnType<typeof requireScopeAccess>
 
-  if (!membership) {
-    return { ok: false, error: 'forbidden: you are not a member of this team' }
-  }
-  if (membership.role === 'VIEWER') {
-    return { ok: false, error: 'forbidden: VIEWER role cannot create or update team skills' }
-  }
+function createSkillListTool(access: ScopeAccess) {
+  return tool({
+    description:
+      'List the skills stored in one scope: the team store (default) or, with `scope: "personal"`, the conversation owner\'s personal skills. Read-only. ' +
+      'Use before `skill_create` or `skill_upsert` to see what already exists. Builtin skills are not listed.',
+    inputSchema: z.object({ label, scope: scopeInput }),
+    execute: async (input) =>
+      run(async () => {
+        const resolved = await access(input.scope, false)
 
-  return { ok: true }
+        if (!resolved.ok) return resolved
+        const manifest = await getSkillManifest(resolved.scope)
+
+        return {
+          ok: true,
+          scope: resolved.scope,
+          skills: manifest.skills.map((skill) => ({
+            name: skill.name,
+            description: skill.description,
+            fileCount: skill.fileCount,
+          })),
+          truncated: manifest.truncated,
+        }
+      }),
+  })
 }
 
-function looksLikeEmbeddedSecret(text: string): string | null {
-  if (/\bAKIA[0-9A-Z]{16}\b/.test(text)) {
-    return 'content appears to contain an AWS access key id'
-  }
-  if (/\bsk-[a-zA-Z0-9]{20,}\b/.test(text)) {
-    return 'content appears to contain a secret API key'
-  }
-  if (/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(text)) {
-    return 'content appears to contain a private key'
-  }
-
-  return null
-}
-
-/** Team skill authoring, offered to every team conversation; each call checks access. */
+/** Team and personal skill authoring, offered to every team conversation; each call checks access. */
 export function createTeamSkillTools(
   userId: string,
   teamId: string,
-  auditContext?: { conversationId?: string | null; requestId?: string | null },
+  auditContext?: {
+    conversationId?: string | null
+    requestId?: string | null
+    /** Whose personal skills `scope: 'personal'` addresses; the actor when unset. */
+    conversationOwnerUserId?: string
+  },
 ) {
-  const scope = teamSkillsScope(teamId)
+  const access: ScopeAccess = (scope, write) =>
+    requireScopeAccess({
+      userId,
+      teamId,
+      ownerUserId: auditContext?.conversationOwnerUserId ?? userId,
+      scope: scope ?? 'team',
+      write,
+    })
 
   const mutationContext = (toolCallId: string) => ({
     mutationId: auditContext?.conversationId
@@ -100,9 +106,10 @@ export function createTeamSkillTools(
 
   const skill_create = tool({
     description:
-      'Create a NEW team-shared agent skill for this team. Writes under `teams/<teamId>/skills/<name>/` in the skills store so every future chat in this team can `skill()` it. ' +
-      'Use when the user explicitly asks to add, document, or codify a repeatable playbook for the whole team (deploy checklist, incident runbook, provider workflow). ' +
-      'Confirm the skill name and scope with the user in plain language BEFORE calling — this mutates shared team state. ' +
+      'Create a NEW agent skill. By default it is team-shared: written under `teams/<teamId>/skills/<name>/` so every future chat in this team can `skill()` it. ' +
+      'With `scope: "personal"` it is written to the conversation owner\'s personal skills instead, loaded only on that owner\'s turns; use that when the user asks for a skill for themselves only. ' +
+      'Use when the user explicitly asks to add, document, or codify a repeatable playbook (deploy checklist, incident runbook, provider workflow). ' +
+      'Confirm the skill name and scope with the user in plain language BEFORE calling — a team skill mutates shared team state. ' +
       'Do NOT store secrets, API keys, tokens, or private keys in skill files; reference env vars or Nuphos credential flows instead. ' +
       'If the skill already exists, use `skill_upsert` to revise it instead of creating a duplicate.',
     inputSchema: z.object({
@@ -114,6 +121,7 @@ export function createTeamSkillTools(
         .describe(
           'Skill directory name (e.g. "deploy-checklist"). Becomes skills/<name>/ in the store.',
         ),
+      scope: scopeInput,
       description: z
         .string()
         .min(1)
@@ -132,10 +140,10 @@ export function createTeamSkillTools(
     }),
     execute: async (input, { toolCallId }) =>
       run(async () => {
-        const access = await requireWriteAccess(userId, teamId)
+        const resolved = await access(input.scope, true)
 
-        if (!access.ok) return access
-
+        if (!resolved.ok) return resolved
+        const { scope } = resolved
         const name = validateSkillName(input.name)
 
         await assertSkillNameNotBuiltinOverlay(name)
@@ -193,26 +201,30 @@ export function createTeamSkillTools(
           name,
           scope,
           files: writes.map((write) => write.key),
-          note: 'Skill is persisted for the team. It will appear in the skill registry on the next agent turn; call skill() to load the full SKILL.md body.',
+          note:
+            input.scope === 'personal'
+              ? "Skill is persisted in the conversation owner's personal skills. It is loaded on the owner's next turn; a team skill with the same name wins over it."
+              : 'Skill is persisted for the team. It will appear in the skill registry on the next agent turn; call skill() to load the full SKILL.md body.',
         }
       }),
   })
 
   const skill_upsert = tool({
     description:
-      'Create or replace one or more files in an existing (or new) team-shared skill. ' +
-      'Each file key must be `skills/<name>/...` relative to the team scope. ' +
-      'Use to revise SKILL.md, add scripts, or fix team playbooks the user asked you to update. ' +
+      'Create or replace one or more files in an existing (or new) skill: team-shared by default, or with `scope: "personal"` one of the conversation owner\'s personal skills. ' +
+      'Each file key must be `skills/<name>/...` relative to the chosen scope. ' +
+      'Use to revise SKILL.md, add scripts, or fix playbooks the user asked you to update. ' +
       'Confirm with the user before mutating shared team skills. Never store secrets or private keys in skill files.',
     inputSchema: z.object({
       label,
+      scope: scopeInput,
       files: z
         .array(
           z.object({
             key: z
               .string()
               .min(1)
-              .describe('Object key relative to team scope, e.g. skills/deploy-checklist/SKILL.md'),
+              .describe('Object key relative to the scope, e.g. skills/deploy-checklist/SKILL.md'),
             content: z.string().describe('UTF-8 text file content.'),
           }),
         )
@@ -221,10 +233,10 @@ export function createTeamSkillTools(
     }),
     execute: async (input, { toolCallId }) =>
       run(async () => {
-        const access = await requireWriteAccess(userId, teamId)
+        const resolved = await access(input.scope, true)
 
-        if (!access.ok) return access
-
+        if (!resolved.ok) return resolved
+        const { scope } = resolved
         const pending: { key: string; content: string }[] = []
 
         for (const file of input.files) {
@@ -265,5 +277,5 @@ export function createTeamSkillTools(
       }),
   })
 
-  return { skill_create, skill_upsert }
+  return { skill_list: createSkillListTool(access), skill_create, skill_upsert }
 }

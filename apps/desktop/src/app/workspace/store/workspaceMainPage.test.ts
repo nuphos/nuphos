@@ -158,7 +158,7 @@ test('the sidebar highlights the main page, or the chat when the chat surface sh
 test('a dock tab navigating to a management page stays put; the page opens in the main pane', () => {
   const { store, actions } = setup()
 
-  actions.updateActiveTab((tab) => ({ ...tab, active: 'team.plans' }))
+  actions.updateActiveTab((tab) => ({ ...tab, active: 'team.architecture' }))
   const dockTab = selectActiveTab(store.getState())
 
   actions.updateActiveTab((tab) => ({
@@ -209,7 +209,7 @@ test('connector scopes may still live in a dock', () => {
 })
 
 test('restoring drops management tabs from docks but keeps the main page', () => {
-  const tabs = ['team.plans', 'team.inbox'].map((active) => {
+  const tabs = ['team.architecture', 'team.inbox'].map((active) => {
     const tab = createWorkspaceTab(TEAM_A)
 
     return { ...tab, active, navHistory: [{ ...tab.navHistory[0], active }] }
@@ -226,7 +226,7 @@ test('restoring drops management tabs from docks but keeps the main page', () =>
 
   assert.deepEqual(
     state.buckets['chat-1'].tabs.map((tab) => tab.active),
-    ['team.plans'],
+    ['team.architecture'],
   )
   assert.equal('chat-2' in state.buckets, false)
   assert.equal(state.buckets[MAIN_PAGE_BUCKET_KEY].tabs[0].active, 'team.inbox')
@@ -262,4 +262,20 @@ test('restored tabs load nothing until the teams arrive, then a team the account
     ),
     false,
   )
+})
+
+test('Plans opens in the main pane without replacing the current chat or dock', () => {
+  const { store, actions } = setup()
+  const dock = selectBucket(store.getState(), 'chat-1')
+
+  actions.updateActiveTab((tab) => ({ ...tab, active: 'team.plans' }))
+
+  assert.equal(store.getState().mainPageOpen, true)
+  assert.equal(store.getState().sessionId, 'chat-1')
+  assert.equal(selectActiveTab(store.getState())?.active, 'team.plans')
+  assert.deepEqual(selectBucket(store.getState(), 'chat-1'), dock)
+
+  actions.selectSession('chat-1')
+  assert.equal(store.getState().mainPageOpen, false)
+  assert.deepEqual(selectBucket(store.getState(), 'chat-1'), dock)
 })

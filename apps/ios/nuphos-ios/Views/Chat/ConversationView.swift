@@ -346,7 +346,7 @@ struct ConversationView: View {
                     devices: session.canManage ? store.credentialCatalog?.scoped(to: .devices).allItems ?? [] : [],
                     pickDevice: { device in
                         var selection = session.credentialAccess ?? CredentialSelection()
-                        if !selection.contains(device) { selection.toggle(device); session.credentialAccess = selection }
+                        if !selection.contains(device) { selection.toggle(device); session.setCredentials(selection) }
                     },
                     search: { query in
                         await store.loadCredentialOptions()
@@ -361,7 +361,7 @@ struct ConversationView: View {
                 if session.canManage { ComposerControls(
                     selection: Binding(
                         get: { session.credentialAccess ?? CredentialSelection() },
-                        set: { session.credentialAccess = $0 }
+                        set: { session.setCredentials($0) }
                     ),
                     mode: Binding(get: { session.permissionMode }, set: { session.setPermissionMode($0) }),
                     session: session,

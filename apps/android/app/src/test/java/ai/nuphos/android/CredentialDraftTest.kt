@@ -42,10 +42,16 @@ class CredentialDraftTest {
             it.optionsKey to JsonValue.arr(JsonValue.obj(it.idKey to JsonValue.Str("id-${it.optionsKey}")))
         }), providers)
         val selection = loaded(all).selection
-        assertEquals(30, providers.size)
+        assertEquals(32, providers.size)
         providers.forEach {
-            assertEquals(if (it.optionsKey == "resendIntegrations") emptySet<String>() else setOf("id-${it.optionsKey}"), selection.ids[it.selectionKey])
-            assertEquals(selection.ids[it.selectionKey]!!.sorted(), selection.json[it.selectionKey]!!.arrayValue!!.map { value -> value.stringValue })
+            // Resend stays opt-in, and the member's own GitHub / Linear is never picked for them.
+            val expected = when (it.optionsKey) {
+                "resendIntegrations", "trelloIntegrations" -> emptySet<String>()
+                "personalCredentials" -> null
+                else -> setOf("id-${it.optionsKey}")
+            }
+            assertEquals(expected, selection.ids[it.selectionKey])
+            assertEquals(selection.ids[it.selectionKey].orEmpty().sorted(), selection.json[it.selectionKey]!!.arrayValue!!.map { value -> value.stringValue })
         }
     }
 
@@ -174,8 +180,22 @@ class CredentialDraftTest {
         val before = existing.json
         loaded().refresh(mixed).reset()
         assertEquals(before, existing.json)
-        assertEquals(CredentialCatalog.PROVIDERS.map { it.selectionKey }.toSet(), before.objectValue!!.keys)
+        // Only the kinds it had: an unset GitHub stays unset, meaning every installation.
+        assertEquals(setOf("awsRoleIds", "deviceIds", "resendIntegrationIds"), before.objectValue!!.keys)
         assertNull(before["githubInstallationIds"])
         assertEquals(setOf("mail"), existing.ids["resendIntegrationIds"])
+    }
+
+    @Test fun anExistingConversationKeepsAndChangesTheNewerKinds() {
+        val existing = CredentialSelection(JsonValue.parse("""{"awsRoleIds":["stored"],"githubInstallationIds":["github"]}""")!!)
+        // Read, not dropped: its GitHub installation shows ticked in the picker.
+        assertEquals(setOf("github"), existing.ids["githubInstallationIds"])
+        val github = mixed.allItems.single { it.id == "github" }
+        val cleared = existing.toggle(github)
+        assertEquals(emptyList<JsonValue>(), cleared.json["githubInstallationIds"]?.arrayValue)
+        assertEquals(setOf("awsRoleIds", "githubInstallationIds"), cleared.json.objectValue!!.keys)
+        // One that never set PostHog gains it as an explicit list, and nothing else unset is sent.
+        val posthog = CredentialSelection(JsonValue.Obj(emptyMap())).toggle(mixed.allItems.single { it.id == "analytics" })
+        assertEquals(setOf("posthogIntegrationIds"), posthog.json.objectValue!!.keys)
     }
 }

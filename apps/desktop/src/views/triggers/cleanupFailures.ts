@@ -17,3 +17,11 @@ export function newCleanupFailures(
     (trigger) => trigger.cleanupStatus === 'cleanup_failed' && removing.has(trigger.id),
   )
 }
+
+/** Cleanup failed only because the Watch's integration is no longer connected. */
+export function integrationDisconnected(trigger: AgentTrigger | null): boolean {
+  return (
+    trigger?.cleanupStatus === 'cleanup_failed' &&
+    trigger.cleanupErrorCode === 'provider_integration_disconnected'
+  )
+}

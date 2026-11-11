@@ -1,8 +1,13 @@
 import { ipcRenderer } from 'electron'
 
+import type { BindingAccess } from '../../src/types/k8s-core.ts'
+
 let appShortcutsSuspended = false
 
 export const integrationsApi = {
+  atlasStartTrelloOAuth: (teamId: string) => ipcRenderer.invoke('atlas:startTrelloOAuth', teamId),
+  atlasCancelTrelloOAuth: (teamId: string) => ipcRenderer.invoke('atlas:cancelTrelloOAuth', teamId),
+
   onAgentPlanUpdated: (cb: (payload: { plan: unknown }) => void) => {
     const handler = (_e: unknown, payload: { plan: unknown }) => cb(payload)
 
@@ -143,12 +148,23 @@ export const integrationsApi = {
     access: unknown,
   ) =>
     ipcRenderer.invoke('atlas:updateBetterStackIntegrationAccess', teamId, integrationId, access),
+  atlasGetTrelloAccess: (teamId: string, id: string) =>
+    ipcRenderer.invoke('atlas:getTrelloAccess', teamId, id),
+  atlasUpdateTrelloAccess: (
+    teamId: string,
+    id: string,
+    input: Pick<BindingAccess, 'memberAllowList'>,
+  ) => ipcRenderer.invoke('atlas:updateTrelloAccess', teamId, id, input),
   atlasListResendIntegrations: (teamId: string) =>
     ipcRenderer.invoke('atlas:listResendIntegrations', teamId),
+  atlasListTrelloIntegrations: (teamId: string) =>
+    ipcRenderer.invoke('atlas:listTrelloIntegrations', teamId),
   atlasBindResendIntegration: (teamId: string, label: string, apiKey: string) =>
     ipcRenderer.invoke('atlas:bindResendIntegration', teamId, label, apiKey),
   atlasUnbindResendIntegration: (teamId: string, integrationId: string) =>
     ipcRenderer.invoke('atlas:unbindResendIntegration', teamId, integrationId),
+  atlasUnbindTrelloIntegration: (teamId: string, integrationId: string) =>
+    ipcRenderer.invoke('atlas:unbindTrelloIntegration', teamId, integrationId),
   atlasListVantaTests: (
     teamId: string,
     integrationId: string,

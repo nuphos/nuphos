@@ -191,7 +191,7 @@ test('tunnel sign-in uses bundled wrappers and each provider’s isolated creden
       } else assert.equal(env.CLAUDE_CONFIG_DIR, launch.agentHome)
     }
     // Grok Build and OpenCode run the image's wrappers, told the CLI and the agent's home.
-    for (const provider of ['grok', 'opencode'] as const) {
+    for (const provider of ['grok', 'antigravity', 'opencode'] as const) {
       const wrapper = path.join(root, `${provider}-login.mjs`)
 
       writeFileSync(wrapper, '')

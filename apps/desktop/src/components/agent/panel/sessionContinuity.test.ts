@@ -39,6 +39,7 @@ const baseTab = (overrides: Partial<Tab> = {}): Tab => ({
     vantaIntegrationIds: [],
     secureframeIntegrationIds: [],
     resendIntegrationIds: [],
+    trelloIntegrationIds: [],
     githubInstallationIds: [],
     gitlabBindingIds: [],
     grafanaInstanceIds: [],
