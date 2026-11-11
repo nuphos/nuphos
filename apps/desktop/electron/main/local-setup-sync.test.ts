@@ -306,6 +306,21 @@ describe('syncLocalSetup linked skills', () => {
       assert.ok((kernel.bytes ?? 0) > 0)
     },
   )
+
+  it(
+    're-reads a size-0 file every pass, since its stat does not change with it',
+    {
+      skip: process.platform !== 'linux',
+    },
+    async () => {
+      symlinkSync('/proc/uptime', path.join(home, '.claude/skills/deploy/uptime.txt'))
+      await approve('t1', 'deploy')
+      await syncLocalSetup('t1')
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      assert.equal((await syncLocalSetup('t1')).uploadedFiles, 1)
+    },
+  )
 })
 
 describe('syncLocalSetup state', () => {

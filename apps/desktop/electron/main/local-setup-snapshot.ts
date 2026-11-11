@@ -70,7 +70,13 @@ async function hashFile(full: string, entry: LocalSkillEntry, cache: HashCache, 
   const cached = cache[full] as FileHash | undefined
   let hashed: FileHash
 
-  if (cached?.size === size && cached.mtimeMs === mtimeMs && cached.realPath === realPath) {
+  // A file reporting size 0 (procfs) can change without its stat changing: read it.
+  if (
+    size > 0 &&
+    cached?.size === size &&
+    cached.mtimeMs === mtimeMs &&
+    cached.realPath === realPath
+  ) {
     hashed = cached
   } else {
     const content = await readSkillFile(entry)
