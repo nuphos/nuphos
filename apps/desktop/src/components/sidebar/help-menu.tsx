@@ -20,6 +20,8 @@ import { useChangelog } from '../useChangelog'
 import { useReadyUpdate } from '../useReadyUpdate'
 import { WhatsNewReader } from '../WhatsNewReader'
 
+import { UpdateDialog } from './update-dialog'
+
 import type { ChangelogEntry } from '../../types/team'
 import { StatusDot } from '../ui/status-dot'
 
@@ -76,15 +78,17 @@ function WhatsNewGroup({
   )
 }
 
+type ReadyUpdate = NonNullable<ReturnType<typeof useReadyUpdate>>
+
 /** The update a restart installs, its download progress after the click, and the
  * installer when the last restart came back without it. */
-function UpdateItems({ update }: { update: NonNullable<ReturnType<typeof useReadyUpdate>> }) {
+function UpdateItems({ update, onUpdate }: { update: ReadyUpdate; onUpdate: () => void }) {
   const { installerUrl } = update
 
   return (
     <>
       {update.percent === null ? (
-        <MenuItem icon={<ArrowDown className="h-3.5 w-3.5" />} onClick={update.install}>
+        <MenuItem icon={<ArrowDown className="h-3.5 w-3.5" />} onClick={onUpdate}>
           {t('Restart to update to {version}', { version: update.version })}
         </MenuItem>
       ) : (
@@ -108,45 +112,70 @@ function UpdateItems({ update }: { update: NonNullable<ReturnType<typeof useRead
   )
 }
 
+/** A round update button that opens into an "Update" pill on hover, and shows the
+ * download progress once the restart has started. */
+function UpdatePill({ update, onUpdate }: { update: ReadyUpdate; onUpdate: () => void }) {
+  const label = t('Update ready — version {version}', { version: update.version })
+  const downloading = update.percent !== null
+
+  return (
+    <button
+      type="button"
+      onClick={onUpdate}
+      disabled={downloading}
+      aria-label={label}
+      title={label}
+      className="update-notif-enter group titlebar-no-drag flex h-7 flex-shrink-0 items-center rounded-full bg-action-primary px-[7px] text-inverse shadow-sm shadow-black/25 outline-none transition-colors enabled:hover:bg-action-primary/90 focus-visible:ring-2 focus-visible:ring-line-focus"
+    >
+      <ArrowDown className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={2.4} />
+      {/* 0fr → 1fr animates to the label's own width, whatever the language. */}
+      <span
+        className={clsx(
+          'grid transition-[grid-template-columns,opacity] duration-200 ease-out motion-reduce:transition-none',
+          downloading
+            ? 'grid-cols-[1fr]'
+            : 'grid-cols-[0fr] opacity-0 group-hover:grid-cols-[1fr] group-hover:opacity-100 group-focus-visible:grid-cols-[1fr] group-focus-visible:opacity-100',
+        )}
+      >
+        <span className="overflow-hidden whitespace-nowrap">
+          <span className="block pl-1 pr-0.5 text-[12px] font-medium tabular-nums">
+            {downloading ? <>{update.percent}%</> : t('Update')}
+          </span>
+        </span>
+      </span>
+    </button>
+  )
+}
+
 export function SidebarHelpMenu({ onOpenShortcutsHelp }: { onOpenShortcutsHelp?: () => void }) {
   const changelog = useChangelog()
   const update = useReadyUpdate()
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
+  const askToUpdate = () => setUpdateDialogOpen(true)
 
   return (
     <>
+      {update && <UpdatePill update={update} onUpdate={askToUpdate} />}
       <Menu
         onOpenChange={(open) => {
           if (open) changelog.markSeen()
         }}
       >
         <MenuTrigger
-          className={clsx(
-            'titlebar-no-drag relative flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full outline-none transition-colors',
-            update
-              ? 'update-notif-enter bg-action-primary text-inverse shadow-sm shadow-black/25 hover:bg-action-primary/90'
-              : 'text-tertiary hover:bg-[var(--sidebar-overlay-hover)] hover:text-secondary data-[popup-open]:bg-[var(--sidebar-overlay-active)]',
-          )}
-          aria-label={
-            update ? t('Update ready — version {version}', { version: update.version }) : t('Help')
-          }
-          title={
-            update ? t('Update ready — version {version}', { version: update.version }) : t('Help')
-          }
+          className="titlebar-no-drag relative flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-tertiary outline-none transition-colors hover:bg-[var(--sidebar-overlay-hover)] hover:text-secondary data-[popup-open]:bg-[var(--sidebar-overlay-active)]"
+          aria-label={t('Help')}
+          title={t('Help')}
         >
-          {update ? (
-            <ArrowDown className="h-3.5 w-3.5" strokeWidth={2.4} />
-          ) : (
-            <CircleHelp className="h-4 w-4" strokeWidth={1.8} />
-          )}
-          {!update && changelog.unread && (
+          <CircleHelp className="h-4 w-4" strokeWidth={1.8} />
+          {changelog.unread && (
             <StatusDot tone="unread" label={t("What's new")} className="absolute right-0 top-0" />
           )}
         </MenuTrigger>
         <MenuContent side="top" align="end" sideOffset={8} className="w-[300px]">
           {update && (
             <>
-              <UpdateItems update={update} />
+              <UpdateItems update={update} onUpdate={askToUpdate} />
               <MenuSeparator />
             </>
           )}
@@ -175,6 +204,14 @@ export function SidebarHelpMenu({ onOpenShortcutsHelp }: { onOpenShortcutsHelp?:
           )}
         </MenuContent>
       </Menu>
+      {update && (
+        <UpdateDialog
+          version={update.version}
+          open={updateDialogOpen}
+          onClose={() => setUpdateDialogOpen(false)}
+          onUpdate={update.install}
+        />
+      )}
       {changelog.readerEntry && (
         <WhatsNewReader entry={changelog.readerEntry} onClose={changelog.closeReader} />
       )}
