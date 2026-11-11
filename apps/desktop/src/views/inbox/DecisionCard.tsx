@@ -1,16 +1,13 @@
 import clsx from 'clsx'
-import { useState } from 'react'
 
-import { api } from '../../api'
 import { parseConnectRequest } from '../../components/agent/panel/connectCardModel'
 import { CredentialSelectorButton } from '../../components/agent/panel/CredentialSelectorButton'
 import { botChatQuestion } from '../../components/channels/botChatQuestion'
 import { BotChatQuestion } from '../../components/channels/BotChatQuestions'
 import { useBotCredentials } from '../../components/channels/useBotCredentials'
-import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
-import { refreshInputRequests } from '../../lib/inputRequestRefresh'
 
+import { DismissQuestionButton } from './DismissQuestionButton'
 import { markAsDone } from './inboxItems'
 
 import type { AgentInputRequest } from '../../api/agent-types'
@@ -52,24 +49,10 @@ export function DecisionCard({
   onHideConversation: () => void
   onOpenConversation: () => void
 }) {
-  // Answers go through the conversation; the card itself only dismisses.
-  const [dismissing, setDismissing] = useState(false)
   const connect = parseConnectRequest(request) !== null
   const credentials = useBotCredentials(teamId, connect && canManage ? sessionId : undefined)
   // The card a Bot's chat and the transcript draw; what it can't answer is answered in the conversation.
   const { answerable } = botChatQuestion(request, credentials !== undefined)
-
-  async function dismiss() {
-    setDismissing(true)
-    try {
-      await api.agentResolveDecision(sessionId, request.id, teamId, 'dismissed')
-      refreshInputRequests()
-    } catch (error) {
-      toast.apiError(t('Could not dismiss question'), error)
-    } finally {
-      setDismissing(false)
-    }
-  }
 
   return (
     <div
@@ -122,14 +105,13 @@ export function DecisionCard({
               {t('Answer in the conversation')}
             </button>
           )}
-          <button
-            type="button"
-            disabled={dismissing}
-            onClick={() => void dismiss()}
-            className="ml-auto text-[11px] text-tertiary hover:text-main"
-          >
-            {dismissing ? t('Dismissing...') : t('Dismiss question')}
-          </button>
+          {/* Answers go through the conversation; the card itself only dismisses. */}
+          <DismissQuestionButton
+            teamId={teamId}
+            sessionId={sessionId}
+            requestId={request.id}
+            className="ml-auto"
+          />
         </div>
       </section>
     </div>

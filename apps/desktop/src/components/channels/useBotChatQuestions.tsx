@@ -1,4 +1,5 @@
 import { t } from '../../i18n'
+import { DismissQuestionButton } from '../../views/inbox/DismissQuestionButton'
 import { answerInChat, answerQuestion } from '../../views/inbox/useInbox'
 import { inputRequestKey } from '../agent/summary/sessionInputRequests'
 import { useSessionInputRequests } from '../agent/summary/useSessionInputRequests'
@@ -66,24 +67,33 @@ export function useBotChatQuestions(
       at: Date.parse(request.inputRequest.askedAt) || 0,
       key: `question-${inputRequestKey(request)}`,
       node: (
-        <BotChatQuestion
-          request={request}
-          teamId={teamId}
-          credentials={request.sessionId === botId ? botCredentials : undefined}
-          // The Bot's own questions are this chat's; only an agent under it is named.
-          onOpenSession={request.sessionId === botId ? undefined : onOpenSession}
-          onAnswer={answer}
-          onReply={(replyTo) =>
-            chat.reply(
-              {
-                id: replyTo,
-                authorName: request.title || t('Untitled agent'),
-                text: request.inputRequest.question,
-              },
-              (text) => answer(text, replyTo),
-            )
-          }
-        />
+        <div className="flex flex-col gap-1">
+          <BotChatQuestion
+            request={request}
+            teamId={teamId}
+            credentials={request.sessionId === botId ? botCredentials : undefined}
+            // The Bot's own questions are this chat's; only an agent under it is named.
+            onOpenSession={request.sessionId === botId ? undefined : onOpenSession}
+            onAnswer={answer}
+            onReply={(replyTo) =>
+              chat.reply(
+                {
+                  id: replyTo,
+                  authorName: request.title || t('Untitled agent'),
+                  text: request.inputRequest.question,
+                },
+                (text) => answer(text, replyTo),
+              )
+            }
+          />
+          {/* A question none of the choices fits, or one the work moved past, is closed here as in the Inbox. */}
+          <DismissQuestionButton
+            teamId={teamId}
+            sessionId={request.sessionId}
+            requestId={request.inputRequest.id}
+            className="self-end px-1"
+          />
+        </div>
       ),
     }
   })
