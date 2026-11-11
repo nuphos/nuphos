@@ -19,6 +19,7 @@ import { IconButton } from '../ui/icon-button'
 import { toast } from '../ui/toast'
 
 import { botOfChannel } from './botChannel'
+import { BotTaskButton } from './BotTaskButton'
 import { ChannelMessages } from './ChannelMessages'
 import { ChatHeaderIcon, ChatIcon, ReplyingBanner } from './channelParts'
 import { ChannelTitle } from './ChannelTitle'
@@ -33,10 +34,6 @@ import type { ComposerSend } from '../agent/panel/composerMentionChips'
 import type { AgentPromptSeed } from '../agent/panel/model'
 import type { ReactNode } from 'react'
 
-/**
- * A channel: people and agents talking. It runs no agent of its own; each
- * agent here answers from its own session, which "Open session" shows.
- */
 /** The post a reply quotes, or an agent's question it answers through `answer`. */
 type Replying = AgentMessageReply & { answer?: (text: string) => void }
 
@@ -49,6 +46,7 @@ export function ChannelPane({
   titlebarLeading,
   titlebarClassName,
   onOpenSession,
+  onOpenTask,
   onOpenNuphosLink,
 }: {
   teamId: string
@@ -56,17 +54,14 @@ export function ChannelPane({
   user: UserInfo
   dockOpen: boolean
   grip?: ReactNode
-  /** Leads the header; the sidebar's toggle once this pane holds the window's corner. */
   titlebarLeading?: ReactNode
-  /** Extra header classes, such as the corner clearance for the traffic lights. */
   titlebarClassName?: string
   onOpenSession: (sessionId: string) => void
-  /** Opens a Nuphos link in the app, as a conversation's messages do. */
+  onOpenTask?: (sessionId: string) => void
   onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
 }) {
   const { detail, agents, refresh } = useChannel(teamId, channelId)
 
-  // On screen, the channel is read, as an open conversation is.
   useConversationRead(channelId, true)
   // Text that could not be posted goes back into the composer.
   const [restore, setRestore] = useState<AgentPromptSeed | null>(null)
@@ -197,6 +192,12 @@ export function ChannelPane({
             onRenamed={refresh}
           />
         </div>
+        {bot && botOwned && (
+          <BotTaskButton
+            provider={agents.find((agent) => agent.sessionId === bot)?.provider}
+            onClick={() => (onOpenTask ?? onOpenSession)(bot)}
+          />
+        )}
         {bot && canOpenBotDesktop && (
           <IconButton
             label={t('Desktop')}

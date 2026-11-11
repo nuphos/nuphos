@@ -62,14 +62,6 @@ export type Item = {
   botChannelOf?: string
   /** Agents already reachable through this channel, including group chats. */
   channelAgentIds?: string[]
-  /** A Task that is also a Bot: the Bot's chat, linked from the Task's row. */
-  botChat?: {
-    provider?: AgentProvider | null
-    botId: string
-    name: string
-    key?: string
-    open?: () => void
-  }
   /** An agent the viewer does not own: no rename or unlink, which are the owner's. */
   readOnlyChat?: boolean
   /** Such an agent the viewer manages, so they may archive it for everyone. */
