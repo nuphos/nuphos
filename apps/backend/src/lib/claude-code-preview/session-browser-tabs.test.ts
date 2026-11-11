@@ -12,6 +12,7 @@ import {
 } from './session-browser-tabs'
 
 import type { DeviceToolDeps } from './preview-tools/device-tool'
+import type { AgentConversation } from '@/lib/agent/db'
 
 // Run with: cd apps/backend && bun test src/lib/claude-code-preview/session-browser-tabs.test.ts
 
@@ -19,7 +20,10 @@ type Listener = (event: { data?: unknown }) => void
 
 let conversation: Record<string, unknown> | null
 
-useAgentDb({ getReadableConversation: () => conversation })
+useAgentDb({
+  getReadableConversation: () => conversation,
+  getConversationBySessionId: () => Promise.resolve(conversation as AgentConversation | null),
+})
 
 beforeEach(() => {
   conversation = { userId: 'owner', teamId: 't1', runtimeId: 'rt' }

@@ -9,7 +9,7 @@ import { getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
 
 import { setupHint, vendedAccountHint } from './credential-hints'
 import { describeCredentialIdentities } from './credential-identities'
-import { lister, vendedAccount, viaSkill, viaTeamApi } from './credential-lister'
+import { deviceLister, lister, vendedAccount, viaSkill, viaTeamApi } from './credential-lister'
 
 import type {
   ClaudeCodeCredentialEntry,
@@ -25,18 +25,6 @@ export type {
   SessionCredentials,
   UnselectedCredentialEntry,
 } from './credential-lister'
-
-const deviceLister: Lister = lister<AgentCredentialOptions['devices'][number]>({
-  provider: 'device',
-  available: (o) => o.devices,
-  idOf: (d) => d.deviceId,
-  details: (d, id) => ({
-    label: `${d.label} (${d.platform})`,
-    usage: d.available
-      ? `Local machine; run commands on it with the local_exec tool, device=${id}.`
-      : 'Selected, but offline or with local exec turned off; local_exec cannot reach it until Nuphos Desktop is open on it with local exec allowed.',
-  }),
-})
 
 // Keyed by every selection field, so a new selectable type cannot compile
 // without deciding how list_credentials shows it.
@@ -289,7 +277,18 @@ export async function listSessionCredentials(
     getAgentCredentialOptions(teamId, agent.userId),
   ])
 
-  return partitionCredentials(selection, options)
+  const owner = agent.conversationOwnerUserId
+
+  if (!owner || owner === agent.userId) return partitionCredentials(selection, options)
+  const [ownerSelection, ownerOptions] = await Promise.all([
+    getAgentCredentialAccess({ ...agent, userId: owner }, teamId),
+    getAgentCredentialOptions(teamId, owner),
+  ])
+
+  return partitionCredentials(
+    { ...selection, deviceIds: ownerSelection.deviceIds },
+    { ...options, devices: ownerOptions.devices },
+  )
 }
 
 export async function listSelectedCredentials(
