@@ -20,6 +20,7 @@ class NativeLogin internal constructor(
     private val client: OkHttpClient = Http.client,
     private val timeoutMs: Int = 5 * 60 * 1000,
 ) : Closeable {
+    private val origin = BackendOrigin.current
     private val server = ServerSocket(0, 4, InetAddress.getByName("127.0.0.1"))
     private val closed = AtomicBoolean(false)
     private val claimed = AtomicBoolean(false)
@@ -47,7 +48,7 @@ class NativeLogin internal constructor(
             ?: throw IOException("Nuphos could not start secure sign-in. Please try again.")
         checkOpen()
         handle = registered
-        return NuphosWeb.loginUrl(registered, provider)
+        return NuphosWeb.loginUrl(registered, provider, origin)
     }
 
     /** Called on an IO thread. Close interrupts both the listener and HTTPS calls. */
@@ -108,7 +109,7 @@ class NativeLogin internal constructor(
 
     private fun post(path: String, body: JsonObject): JsonObject {
         checkOpen()
-        val call = client.newCall(Request.Builder().url("${NuphosApi.BASE_URL}/auth/native/$path")
+        val call = client.newCall(Request.Builder().url("${origin}/auth/native/$path")
             .header("Accept", "application/json").header("x-atlas-client", Http.clientHeader())
             .post(body.toString().toRequestBody(Http.jsonMedia)).build())
         activeCall = call

@@ -3,13 +3,15 @@ import { useEffect, useId, useMemo, useState } from 'react'
 import { t } from '../../i18n'
 import { isMac } from '../../lib/platform'
 import { searchKeyAction } from '../../lib/searchKeyboard'
-import { searchMatch } from '../../lib/searchMatch'
 import { AgentAvatar } from '../agent/AgentAvatar'
-import { relativeTimeFromNow } from '../agent/panel/textUtils'
 import { Avatar } from '../Avatar'
+import { ChatIcon } from '../channels/channelParts'
 
+import { searchPreview } from './matchedResource'
 import { PaletteCommandRows } from './PaletteCommandRows'
 import { matchPaletteCommands } from './paletteCommands'
+import { kindOf, metaFor, trackOpened } from './searchResultMeta'
+import { GroupLabel, ResultSkeleton } from './searchResultParts'
 import { SearchResultRow } from './SearchResultRow'
 import { useSearchResults } from './useSearchResults'
 
@@ -17,17 +19,7 @@ import type { SessionResult } from './useSearchResults'
 import type { TeamMember } from '../../types'
 import type { RefObject } from 'react'
 
-function subtitleFor({ conversation, openedAt }: SessionResult) {
-  const vars = {
-    owner: conversation.owner?.name || conversation.owner?.email || t('Unknown member'),
-    time: relativeTimeFromNow(
-      openedAt ? new Date(openedAt).toISOString() : conversation.lastActiveAt,
-    ),
-  }
-
-  return openedAt ? t('{owner} · Opened {time}', vars) : t('{owner} · Updated {time}', vars)
-}
-
+/** When it was opened, and whose it is when it isn't yours. */
 export function SearchResults({
   teamId,
   userId,
@@ -65,6 +57,13 @@ export function SearchResults({
     () => (mode === 'sessions' && !owner ? matchPaletteCommands(query, otherTeams) : []),
     [mode, owner, query, otherTeams],
   )
+  // As the sidebar lists them: chats (channels and Bots' chats) under Bots, every agent under Tasks.
+  const sessions = useMemo(() => {
+    const chats = results.sessions.filter(({ conversation }) => conversation.kind === 'channel')
+    const tasks = results.sessions.filter(({ conversation }) => conversation.kind !== 'channel')
+
+    return { chats, tasks, ordered: [...chats, ...tasks] }
+  }, [results.sessions])
   const resultCount = mode === 'people' ? results.people.length : results.sessions.length
   const busy = pending || results.loading
   // Commands are local, so they stay usable while only the sessions load.
@@ -87,10 +86,17 @@ export function SearchResults({
       event.preventDefault()
       if (action === 'next' || action === 'previous') {
         setSelected((previous) => (previous + (action === 'next' ? 1 : -1) + count) % count)
-      } else if (selectedIndex < commands.length) onCommand(commands[selectedIndex].id)
-      else if (mode === 'people') onChoosePerson(results.people[selectedIndex])
-      else {
-        const { conversation } = results.sessions[selectedIndex - commands.length]
+      } else if (selectedIndex < commands.length) {
+        trackOpened('command', selectedIndex, 'keyboard', query)
+        onCommand(commands[selectedIndex].id)
+      } else if (mode === 'people') {
+        trackOpened('person', selectedIndex, 'keyboard', query)
+        onChoosePerson(results.people[selectedIndex])
+      } else {
+        const result = sessions.ordered[selectedIndex - commands.length]
+
+        trackOpened(kindOf(result), selectedIndex, 'keyboard', query)
+        const { conversation } = result
 
         onOpen(conversation.sessionId, action === 'beside')
       }
@@ -112,8 +118,9 @@ export function SearchResults({
     onChoosePerson,
     onCommand,
     onOpen,
+    query,
     results.people,
-    results.sessions,
+    sessions.ordered,
     selectedIndex,
   ])
 
@@ -122,11 +129,44 @@ export function SearchResults({
       ? t('People in {team}', { team: teamName })
       : owner
         ? t('Agents by {name}', { name: owner.name || owner.email })
-        : results.recent
-          ? t('Recently opened')
-          : t('Agents')
+        : t('Agents')
+  const sessionRow = (result: SessionResult, index: number) => {
+    const { conversation } = result
+    const at = commands.length + index
 
-  const shownCount = `${resultCount}${results.hasMore ? '+' : ''}`
+    return (
+      <SearchResultRow
+        key={conversation.sessionId}
+        id={`${listId}-${String(at)}`}
+        preview={searchPreview(conversation, query)}
+        title={conversation.title || conversation.firstMessage || t('Untitled agent')}
+        meta={metaFor(result, userId)}
+        query={query}
+        selected={at === selectedIndex}
+        avatar={
+          conversation.kind === 'channel' ? (
+            <ChatIcon faces={conversation.faces} title={conversation.title} size={24} />
+          ) : (
+            // A Task wears its runtime's mark, as in the sidebar.
+            <span className="flex size-6 shrink-0 items-center justify-center">
+              <AgentAvatar
+                agentId={conversation.sessionId}
+                provider={conversation.agentRuntime}
+                face={false}
+                size={18}
+              />
+            </span>
+          )
+        }
+        action={t('Open')}
+        onSelect={() => setSelected(at)}
+        onOpen={(beside) => {
+          trackOpened(kindOf(result), at, 'mouse', query)
+          onOpen(conversation.sessionId, beside)
+        }}
+      />
+    )
+  }
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
@@ -137,23 +177,12 @@ export function SearchResults({
           query={query}
           selectedIndex={selectedIndex}
           onSelect={setSelected}
-          onRun={(command) => onCommand(command.id)}
+          onRun={(command) => {
+            trackOpened('command', commands.indexOf(command), 'mouse', query)
+            onCommand(command.id)
+          }}
         />
       )}
-      <div className="flex h-8 items-center justify-between gap-3 px-4 text-xs text-secondary">
-        <span className="truncate font-medium">{heading}</span>
-        {!busy && (
-          <span className="shrink-0 text-secondary">
-            {mode === 'people'
-              ? resultCount === 1
-                ? t('{n} person', { n: shownCount })
-                : t('{n} people', { n: shownCount })
-              : resultCount === 1
-                ? t('{n} result', { n: shownCount })
-                : t('{n} results', { n: shownCount })}
-          </span>
-        )}
-      </div>
       <div
         id={listId}
         role="listbox"
@@ -161,6 +190,7 @@ export function SearchResults({
         aria-busy={busy}
         className="space-y-0.5 px-2 pb-2"
       >
+        {!busy && (mode === 'people' || owner) && resultCount > 0 && <GroupLabel text={heading} />}
         {!busy &&
           mode === 'people' &&
           results.people.map((person, index) => (
@@ -168,55 +198,41 @@ export function SearchResults({
               key={person.id}
               id={`${listId}-${index}`}
               title={person.name || person.email}
-              subtitle={person.email}
+              meta={person.email}
               query={query}
               selected={index === selectedIndex}
               avatar={
                 <Avatar
                   src={person.avatarURL}
                   name={person.name || person.email}
-                  size={28}
+                  size={24}
                   className="shrink-0 rounded-full"
                 />
               }
               action={t('View agents')}
               onSelect={() => setSelected(index)}
-              onOpen={() => onChoosePerson(person)}
+              onOpen={() => {
+                trackOpened('person', index, 'mouse', query)
+                onChoosePerson(person)
+              }}
             />
           ))}
+        {!busy && mode === 'sessions' && owner && sessions.ordered.map(sessionRow)}
+        {!busy && mode === 'sessions' && !owner && sessions.chats.length > 0 && (
+          <GroupLabel text={t('Bots')} />
+        )}
+        {!busy && mode === 'sessions' && !owner && sessions.chats.map(sessionRow)}
+        {!busy && mode === 'sessions' && !owner && sessions.tasks.length > 0 && (
+          <GroupLabel text={t('Tasks')} />
+        )}
         {!busy &&
           mode === 'sessions' &&
-          results.sessions.map(({ conversation, openedAt }, index) => (
-            <SearchResultRow
-              key={conversation.sessionId}
-              id={`${listId}-${commands.length + index}`}
-              preview={
-                conversation.title &&
-                !searchMatch(conversation.title, query) &&
-                searchMatch(conversation.firstMessage, query)
-                  ? conversation.firstMessage
-                  : undefined
-              }
-              title={conversation.title || conversation.firstMessage || t('Untitled agent')}
-              subtitle={subtitleFor({ conversation, openedAt })}
-              query={query}
-              selected={commands.length + index === selectedIndex}
-              avatar={
-                <AgentAvatar
-                  agentId={conversation.sessionId}
-                  avatar={conversation.avatar}
-                  provider={conversation.agentRuntime}
-                  size={28}
-                />
-              }
-              action={t('Open')}
-              onSelect={() => setSelected(commands.length + index)}
-              onOpen={(beside) => onOpen(conversation.sessionId, beside)}
-            />
-          ))}
+          !owner &&
+          sessions.tasks.map((result, index) => sessionRow(result, sessions.chats.length + index))}
       </div>
+      {busy && <ResultSkeleton />}
       <div role="status" className="px-4 text-sm text-secondary">
-        {busy && <p className="py-5">{t('Searching…')}</p>}
+        {busy && <span className="sr-only">{t('Searching…')}</span>}
         {!busy && !results.error && resultCount === 0 && (
           <p className="py-5">
             {results.recent

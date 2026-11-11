@@ -82,6 +82,11 @@ async function lookup() {
       ...(typeof tokens.account_id === 'string' && tokens.account_id ? { 'chatgpt-account-id': tokens.account_id } : {}),
     };
   } else {
+    // An API key (claude-login.mjs puts it in Claude's own settings) outranks every
+    // sign-in for the agent, and like a Codex key it has no plan to read.
+    const settings = await read(join(homedir(), '.claude', 'settings.json'));
+    if (settings && settings.env && typeof settings.env.ANTHROPIC_API_KEY === 'string' && settings.env.ANTHROPIC_API_KEY)
+      return { error: 'API-key agents have no usage limits' };
     // A one-year token (claude-login.mjs --long-lived) wins over the ordinary login, as it
     // does for the agent. It carries only the inference scope, so usage may be refused.
     const longLived = await read(join(homedir(), '.claude', '.nuphos-oauth-token.json'));

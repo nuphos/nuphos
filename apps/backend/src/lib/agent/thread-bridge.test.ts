@@ -225,7 +225,7 @@ useAgentDb({
   setConversationArchived: async (...args) => {
     archives.push(args)
 
-    return undefined
+    return { sessionIds: [args[0]] }
   },
   getConversationBySessionId: async (id) =>
     id === 'source'

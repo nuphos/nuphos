@@ -650,7 +650,7 @@ async fn report_session_failure(adapter: &Arc<dyn ChatAdapter>, channel: &Channe
     }
     let (error, data) = match e.downcast_ref::<JsonRpcError>() {
         Some(err) => (
-            format_coded_error(err.code, &err.message, err.data_message()),
+            format_coded_error(err.code, &err.message, err.data_message().as_deref()),
             Some(err.relay_data()),
         ),
         None => (format_user_error(&e.to_string()), None),
@@ -1693,7 +1693,9 @@ mod tests {
         let sent = recorder.sent.lock().unwrap();
         assert_eq!(sent.len(), 1);
         assert!(sent[0].starts_with("⚠️ "));
-        assert!(sent[0].contains("JSON-RPC error -32603: Internal error"));
+        // A cause-less -32603 reads as a next step on chat platforms too.
+        assert!(sent[0].contains("**Internal Error** (code: -32603)"));
+        assert!(sent[0].contains("without reporting a reason"));
     }
 
     fn make_channel(thread: &str) -> ChannelRef {

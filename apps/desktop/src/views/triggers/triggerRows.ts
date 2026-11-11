@@ -104,6 +104,17 @@ export function rowSearchText(row: TriggerListRow): string {
 }
 
 /**
+ * The same text, for a trigger that was never built into a row.
+ *
+ * The calendar draws triggers rather than rows, so it searches through this
+ * instead of a second set of rules — one query means the same thing in both
+ * views.
+ */
+export function triggerSearchText(trigger: AgentTrigger): string {
+  return rowSearchText({ key: trigger.id, kind: 'trigger', trigger })
+}
+
+/**
  * The principals worth offering as a filter: those that actually own a row.
  *
  * Derived from the rows rather than from team membership, for two reasons. A

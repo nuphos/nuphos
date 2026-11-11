@@ -24,9 +24,9 @@ import type { ComposerSend } from './composerMentionChips'
 import type { ComposerRecall } from './composerRecall'
 import type { CredentialSelectorControl } from './credentialSections'
 import type { AgentPromptSeed } from './model'
-import type { ViewOnlyNotice } from './viewOnlyNotice'
 import type { RuntimeControl } from './RuntimeSelector'
 import type { ModelSession } from './useSessionConfig'
+import type { ViewOnlyNotice } from './viewOnlyNotice'
 import type { AgentConversation, AgentSlackThread, LocalAgentSessionInfo } from '../../../api'
 import type { RuntimeExecution } from '../../../lib/runtimeExecution'
 import type { ReactNode } from 'react'
@@ -140,11 +140,12 @@ export function Composer({
       : undefined,
     { commands: runtimeState?.commands, runtimeId: runtimeControl?.value?.id },
   )
+  const send: ComposerSend = (text, paths, people) => onSend(text, paths, people, state.imageThumbs)
   const actions = useComposerActions(state, {
     sendBlocked,
     readOnly,
     streaming,
-    onSend: mentions.wrapSend(slash.wrapSend(modelControl.wrapSend(onSend))),
+    onSend: mentions.wrapSend(slash.wrapSend(modelControl.wrapSend(send))),
     pendingSeed,
     onSeedConsumed,
     dropRegisterRef,

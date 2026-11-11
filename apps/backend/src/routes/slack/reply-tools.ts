@@ -1,4 +1,9 @@
-import { addSlackReaction, removeSlackReaction, searchSlackAssistantContext } from '@/lib/slack/api'
+import {
+  addSlackReaction,
+  fetchSlackChannelHistory,
+  removeSlackReaction,
+  searchSlackAssistantContext,
+} from '@/lib/slack/api'
 import { normalizeEmojiName } from '@/routes/slack/shared'
 
 import type {
@@ -127,6 +132,23 @@ export function createSlackReplyToolContext(args: {
   }
 
   return {
+    history: async (input) => {
+      try {
+        const page = await fetchSlackChannelHistory({
+          ...input,
+          token: args.token,
+          channel: args.channel,
+        })
+
+        return { ok: true, channel: args.channel, ...page }
+      } catch (err) {
+        return {
+          ok: false,
+          channel: args.channel,
+          error: err instanceof Error ? err.message : String(err),
+        }
+      }
+    },
     react,
     search: SLACK_SEARCH_ENABLED ? search : undefined,
     sender: args.sender,

@@ -69,19 +69,38 @@ agent.post('/conversations/:sessionId/steer', async (c) => {
 
   if (!text && !groupId) throw new AppError(400, 'invalid_request', 'text or groupId is required')
   const runtime = await conversationExecutionState(conversation)
+  const refused = (reason: string, extra: Record<string, unknown> = {}) =>
+    logEvent('info', 'agent.steer.refused', {
+      trace_id: c.get('requestId'),
+      session_id: sessionId,
+      runtime_id: conversation.runtimeId,
+      reason,
+      ...extra,
+    })
 
-  if (!runtime.actions?.steer)
+  if (!runtime.actions?.steer) {
+    // The runtime's own snapshot decides; these fields say which part of it refused.
+    refused('runtime_actions', {
+      runtime_state: runtime.state,
+      phase: runtime.phase,
+      provider_state: runtime.providerState,
+      operation: runtime.operation,
+      automation_running: runtime.automation?.running,
+    })
     throw new AppError(409, 'runtime_steering_unavailable', 'This agent cannot accept steering')
+  }
   // Only the turn's actor steers it; anyone else's message waits its turn. Agent,
   // resource and trigger turns act as the session owner, so the owner can steer them.
   const active = await getActiveAgentRunForSession(conversation.userId, sessionId)
 
-  if (active?.actorUserId && active.actorUserId !== userId)
+  if (active?.actorUserId && active.actorUserId !== userId) {
+    refused('another_actor')
     throw new AppError(
       409,
       'runtime_steering_unavailable',
       'Someone else started the running turn; send your message to run after it',
     )
+  }
   const messageId = steeringMessageId(groupId)
   // A waiting message leaves the queue before it steers, so the queue cannot
   // also start it; a refused steer puts it back at the front.
@@ -98,6 +117,12 @@ agent.post('/conversations/:sessionId/steer', async (c) => {
     },
     messageId,
   ).catch(async (error: unknown) => {
+    // The adapter's own outcome (e.g. promptRequired / noRunningTurn) says why it did not inject.
+    if (error instanceof AppError && error.code === 'runtime_steering_unavailable') {
+      const runtime = (error.details ?? {}) as { outcome?: unknown; reason?: unknown }
+
+      refused('not_injected', { outcome: runtime.outcome, outcome_reason: runtime.reason })
+    }
     if (claimed) {
       await requeuePendingAtHead(conversation.userId, sessionId, [claimed])
       sessionReleased(conversation.userId, sessionId)

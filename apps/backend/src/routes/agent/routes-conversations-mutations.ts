@@ -149,9 +149,10 @@ agent.patch('/conversations/:sessionId/archive', async (c) => {
   if (!conversation || conversation.userId !== userId) {
     throw new AppError(404, 'not_found', 'Conversation not found')
   }
-  await setConversationArchived(sessionId, body.archived)
+  // What moved with it (a Bot and its chats), so clients close and hide exactly that.
+  const moved = await setConversationArchived(sessionId, body.archived)
 
-  return c.json({ ok: true, archived: body.archived })
+  return c.json({ ok: true, archived: body.archived, ...moved })
 })
 
 // PUT { parentSessionId } nests the conversation; null or DELETE unlinks it.

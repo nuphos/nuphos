@@ -71,7 +71,7 @@ export const RUNTIME_AUTH_REQUIRED_MESSAGE =
  */
 const ACP_WRAPPED_CODE = /^\*\*[^*\n]+\*\* \(code: (-?\d+)\)\n/u
 
-function acpErrorCode(error: OpenAbRpcError): number | undefined {
+export function acpErrorCode(error: OpenAbRpcError): number | undefined {
   const wrapped = error.code === -32603 ? ACP_WRAPPED_CODE.exec(error.message) : null
 
   return wrapped ? Number(wrapped[1]) : error.code
@@ -95,7 +95,7 @@ const CLAUDE_NOTICE = /^\*\*Internal Error\*\* \(code: -32603\)\nInternal error:
 const CLAUDE_USAGE_LIMIT =
   /^(?:You've hit your|You've reached your|You're out of usage credits|Your org is out of usage)/u
 /** A credential the CLI holds but can no longer use, e.g. `Failed to authenticate: OAuth session expired …`. */
-const CLAUDE_AUTH_FAILED = /^Failed to authenticate\b/u
+const CLAUDE_AUTH_FAILED = /^(?:Failed to authenticate\b|Invalid API key\b|.*Please run \/login\b)/u
 
 /** The runtime's own reason for a failed turn: the first line after `Internal error: `. */
 export function claudeNotice(error: unknown): string | undefined {

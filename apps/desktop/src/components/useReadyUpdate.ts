@@ -36,6 +36,8 @@ export function useUpdaterState(): UpdaterState {
 export function useReadyUpdate(): {
   version: string
   percent: number | null
+  /** The installer download, when the last restart came back without this version. */
+  installerUrl: string | null
   install: () => void
 } | null {
   const state = useUpdaterState()
@@ -46,11 +48,17 @@ export function useReadyUpdate(): {
     void api.updaterInstall()
   }
 
-  if (state.kind === 'ready') return { version: state.version, percent: null, install }
+  if (state.kind === 'ready') {
+    return { version: state.version, percent: null, installerUrl: state.installerUrl, install }
+  }
   if (!clicked) return null
-  if (state.kind === 'checking') return { version: clicked, percent: 0, install }
+  if (state.kind === 'checking') {
+    return { version: clicked, percent: 0, installerUrl: null, install }
+  }
   if (state.kind === 'downloading') {
-    return { version: state.version, percent: updateProgress(state)?.percent ?? 0, install }
+    const percent = updateProgress(state)?.percent ?? 0
+
+    return { version: state.version, percent, installerUrl: null, install }
   }
 
   return null

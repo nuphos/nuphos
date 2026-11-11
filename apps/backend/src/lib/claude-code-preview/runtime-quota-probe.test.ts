@@ -93,3 +93,23 @@ test('a lapsed one-year token with no login beside it reports Sign in required',
     ),
   ).toEqual({ error: 'Sign in required' })
 })
+
+test('an API key in Claude settings is signed in, with no usage to read, before any login', () => {
+  const key = 'sk-ant-api03-not-a-real-key-0123456789'
+
+  expect(probe({ 'settings.json': { env: { ANTHROPIC_API_KEY: key } } }, 200)).toEqual({
+    error: 'API-key agents have no usage limits',
+  })
+  // It outranks an account sign-in beside it, as it does for the agent.
+  expect(
+    probe(
+      {
+        'settings.json': { env: { ANTHROPIC_API_KEY: key } },
+        '.credentials.json': { claudeAiOauth: { accessToken: 'fixture-access' } },
+      },
+      403,
+    ),
+  ).toEqual({ error: 'API-key agents have no usage limits' })
+  // Settings without a key leave the sign-in as it was.
+  expect(probe({ 'settings.json': { env: {} } }, 200)).toEqual({ error: 'Sign in required' })
+})

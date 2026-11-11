@@ -14,7 +14,7 @@ import { toolModuleFromAiSdkTools } from './ai-sdk-adapter'
 import type { PreviewToolContext, PreviewToolModule } from '../preview-tool-context'
 
 /**
- * Reply-context tools (slack_react, slack_search) exist only for a Slack-bound
+ * Reply-context tools (slack_react, slack_channel_history, slack_search) exist only for a Slack-bound
  * conversation. The reaction lands on the thread root: the triggering message
  * ts is not part of the conversation's coordinates.
  */

@@ -12,7 +12,7 @@ import java.security.MessageDigest
 
 /** Browser sign-in delivers a one-time code to a private loopback listener. */
 object NuphosWeb {
-    const val SITE_URL = "https://nuphos.ai"
+    val SITE_URL: String get() = if (BackendOrigin.isCloud()) "https://nuphos.ai" else BackendOrigin.current
     const val CALLBACK_SCHEME = "nuphos"
     const val CALLBACK_HOST = "google-callback"
 
@@ -43,9 +43,9 @@ object NuphosWeb {
     }
 
     /** Opens the chosen provider directly; the handle stays the only parameter. */
-    fun loginUrl(handle: String, provider: Provider): String {
+    fun loginUrl(handle: String, provider: Provider, origin: String = BackendOrigin.current): String {
         require(handle.matches(Regex("[A-Za-z0-9_-]{43}")))
-        return "${NuphosApi.BASE_URL}/auth/social/${provider.raw}/start?handle=$handle"
+        return "${origin}/auth/social/${provider.raw}/start?handle=$handle"
     }
 
     /** Old token intents can only return focus to the app; they carry no authority. */

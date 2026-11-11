@@ -42,6 +42,11 @@ export function useSessionConfig(session: ModelSession | undefined, streaming: b
     sync.setStreaming(streaming)
     if (open) void sync.refresh()
   }, [sync, open, streaming])
+  // A refused change explains itself while the picker is open; closing it lets
+  // the reason go, so reopening starts from the settings the runtime holds.
+  useEffect(() => {
+    if (!open) sync.dismissWriteError()
+  }, [sync, open])
 
   return {
     ...state,

@@ -8,7 +8,7 @@ data class BotQuestion(val sessionId: String, val title: String, val request: In
     val id: String get() = "$sessionId:${request.id}"
 
     /** The conversation that asked, opened in the app like any Nuphos link. */
-    fun link(teamId: String): String = "https://nuphos.ai/teams/$teamId/agent/$sessionId"
+    fun link(teamId: String): String = "${ai.nuphos.android.data.NuphosWeb.SITE_URL}/teams/$teamId/agent/$sessionId"
 }
 
 /**

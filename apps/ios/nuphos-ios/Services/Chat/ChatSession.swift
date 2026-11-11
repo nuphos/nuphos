@@ -37,6 +37,10 @@ final class ChatSession {
     private(set) var stoppedByUser = false
     /// Stop was sent; the runtime has not yet closed the turn.
     private(set) var isStopping = false
+    /// Why the runtime refused the last Stop, until the alert is dismissed.
+    /// Not a transcript row: one at the end is off screen to a reader of
+    /// older messages, so the tap looked like it did nothing.
+    var stopRefusal: String?
     /// New conversation: sent on the first POST. Existing: mirrors the
     /// server's bypass flag — change it with `setPermissionMode`.
     private(set) var permissionMode: PermissionMode = .auto
@@ -810,9 +814,10 @@ final class ChatSession {
         if isNativeRuntime {
             // The button showed for a status that may be seconds old; the
             // server decides from the live one, and its refusal (a turn that
-            // already ended) shows as an error rather than a silent tap.
+            // already ended) shows as an alert rather than a silent tap.
             guard !readOnly, !isStopping else { return }
             isStopping = true
+            stopRefusal = nil
             Task {
                 defer { isStopping = false }
                 do {
@@ -822,7 +827,7 @@ final class ChatSession {
                     if let detail = try? await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId, tail: 1) {
                         receiveRuntime(detail.runtimeState, observedAt: observedAt)
                     }
-                } catch { self.error = error.localizedDescription }
+                } catch { stopRefusal = error.localizedDescription }
             }
             return
         }

@@ -26,7 +26,7 @@ export function Highlight({ text, query }: { text: string; query: string }) {
 export function SearchResultRow({
   id,
   title,
-  subtitle,
+  meta,
   preview,
   query,
   selected,
@@ -37,7 +37,8 @@ export function SearchResultRow({
 }: {
   id: string
   title: string
-  subtitle: string
+  /** Quiet detail at the row's end, such as when it was opened; the selected row shows its action there instead. */
+  meta: string
   preview?: string
   query: string
   selected: boolean
@@ -60,13 +61,13 @@ export function SearchResultRow({
         if (mode) onOpen(mode === 'beside')
       }}
       className={clsx(
-        'flex min-h-[52px] cursor-pointer items-center gap-2.5 rounded-md px-2 py-2',
-        selected ? 'bg-line-control' : 'hover:bg-state-hover',
+        'flex min-h-10 cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5',
+        selected ? 'bg-state-selected' : 'hover:bg-state-hover',
       )}
     >
       {avatar}
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[13px] font-medium text-main">
+        <div className="truncate text-[14px] text-main">
           <Highlight text={title} query={query} />
         </div>
         {preview && (
@@ -74,13 +75,14 @@ export function SearchResultRow({
             <Highlight text={preview} query={query} />
           </div>
         )}
-        <div className="mt-0.5 truncate text-xs text-secondary">{subtitle}</div>
       </div>
-      {selected && (
-        <span className="flex shrink-0 items-center gap-2 text-xs text-secondary">
-          <span className="hidden sm:inline">{action}</span>
-          <CornerDownLeft size={15} />
+      {selected ? (
+        <span className="flex shrink-0 items-center gap-1.5 text-xs text-secondary">
+          {action}
+          <CornerDownLeft size={14} />
         </span>
+      ) : (
+        <span className="shrink-0 truncate text-xs text-tertiary">{meta}</span>
       )}
     </div>
   )

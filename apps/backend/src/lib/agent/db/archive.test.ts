@@ -170,7 +170,11 @@ describe('a Bot is archived and restored as one thing with its chat', () => {
   })
 
   test('archiving the Bot from Tasks archives its chat too, and nothing else', async () => {
-    await setConversationArchived('bot', true)
+    // What moved is returned, so a client closes exactly that.
+    expect(await setConversationArchived('bot', true)).toEqual({
+      sessionIds: ['bot', 'bot-chat'],
+      botSessionId: 'bot',
+    })
 
     expect(['bot', 'bot-chat'].map(archived)).toEqual([true, true])
     // A group chat is not the Bot: it stays, as do chats with several agents.
@@ -181,7 +185,10 @@ describe('a Bot is archived and restored as one thing with its chat', () => {
     conversations.docs = conversations.docs.filter(
       (doc) => doc.sessionId !== 'group' && doc.sessionId !== 'two-agents',
     )
-    await setConversationArchived('bot-chat', true)
+    expect(await setConversationArchived('bot-chat', true)).toEqual({
+      sessionIds: ['bot', 'bot-chat'],
+      botSessionId: 'bot',
+    })
 
     expect(['bot', 'bot-chat'].map(archived)).toEqual([true, true])
   })
@@ -212,7 +219,7 @@ describe('a Bot is archived and restored as one thing with its chat', () => {
   })
 
   test("a Task's chat is just a chat", async () => {
-    await setConversationArchived('task-chat', true)
+    expect(await setConversationArchived('task-chat', true)).toEqual({ sessionIds: ['task-chat'] })
 
     expect(archived('root')).toBe(false)
   })
@@ -243,7 +250,7 @@ describe('archiving a redundant Bot chat', () => {
   })
 
   test('keeps the Bot, its work and the shared chat active', async () => {
-    await setConversationArchived('empty', true)
+    expect(await setConversationArchived('empty', true)).toEqual({ sessionIds: ['empty'] })
     expect(['empty', 'bot', 'shared', 'work'].map(archived)).toEqual([true, false, false, false])
     expect(revokedSessions.at(-1)).toEqual(['empty'])
   })

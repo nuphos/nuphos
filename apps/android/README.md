@@ -46,11 +46,18 @@ Play app signing and CI upload keys remain separate from this development key.
 
 ## Service support
 
-The current app connects to `api.nuphos.ai`. Sign-in opens `nuphos.ai` in a
-browser and returns to the app. A Nuphos Cloud account is required. This version
-does not expose a custom API endpoint or native email sign-in. Desktop and iOS
-support self-hosted endpoints; Android support remains separate future work.
+The app defaults to Nuphos Cloud (`api.nuphos.ai`). On the welcome screen,
+**Server settings** accepts the HTTPS origin of a self-hosted backend, including
+an optional port. Paths, credentials, queries, fragments and cleartext HTTP are
+not accepted. Use **Use Nuphos Cloud** to return to the default server.
 
+Sign out before changing servers. Changing servers clears the previous local
+session and sign-in form; session tokens remain pinned to their issuing server.
+Email/password and the server's available social providers use the selected
+backend. The server must support the client's existing authentication and AI
+consent contracts. Cloud FCM push is disabled for self-hosted sessions; local
+notifications remain available. No Cloud account is needed for a self-hosted
+backend.
 The app supports conversations, shared history, attachment transfers, runtime
 controls, permissions, Plans, Connectors, account settings, read-only Monitoring,
 and read-only stored Trigger runs. Availability depends on team permissions,

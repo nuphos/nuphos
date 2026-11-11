@@ -9,6 +9,7 @@ import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import ai.nuphos.android.data.BackendOrigin
 import ai.nuphos.android.data.AccountApi
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.data.NuphosWeb
@@ -45,6 +46,25 @@ class AuthSession(
         private set
     var token: String? = null
         private set
+
+    var serverOrigin: String by mutableStateOf(BackendOrigin.current)
+        private set
+
+    /** The server can only change at the signed-out boundary. */
+    fun selectServer(address: String) {
+        check(state is State.SignedOut) { "Sign out before changing servers." }
+        val origin = BackendOrigin.normalize(address)
+        if (origin == serverOrigin) return
+        check(app.getSharedPreferences("nuphos.backend", Application.MODE_PRIVATE)
+            .edit().putString("origin", origin).commit()) { "Could not save the server address." }
+        cancelLogin()
+        beginIdentity()
+        clearToken()
+        (app as? ai.nuphos.android.NuphosApplication)?.conversationLinks?.clear()
+        BackendOrigin.select(origin)
+        serverOrigin = origin
+        state = State.SignedOut(null)
+    }
 
     val user: NuphosUser?
         get() = (state as? State.SignedIn)?.user
@@ -262,6 +282,7 @@ class AuthSession(
     fun signIn(activity: Activity, provider: NuphosWeb.Provider) {
         if (state !is State.SignedOut) return
         val expected = beginIdentity()
+        val origin = serverOrigin
         state = State.SigningIn
         customTabsOpen = false
         val resumed = CompletableDeferred<Unit>()
@@ -301,6 +322,9 @@ class AuthSession(
                     throw java.net.SocketTimeoutException("Sign-in expired. Please try again.")
                 }
                 val received = withContext(Dispatchers.IO) { attempt.redeem(code) }
+                ensureActive()
+                if (generation != expected || serverOrigin != origin) return@launch
+                BackendOrigin.bind(received, origin)
                 val user = NuphosApi.currentUser(received)
                 ensureActive()
                 if (generation != expected || state !is State.SigningIn || loginAttempt !== attempt) return@launch
@@ -345,6 +369,7 @@ class AuthSession(
     private fun credentialSignIn(email: String, credential: String, password: Boolean) {
         if (state !is State.SignedOut) return
         val expected = beginIdentity()
+        val origin = serverOrigin
         state = State.SigningIn
         loginJob = scope.launch {
             try {
@@ -355,6 +380,9 @@ class AuthSession(
                     if (generation == expected) state = State.SignedOut(if (password) "The email or password is incorrect." else "Incorrect or expired code. Request a new code if needed.")
                     return@launch
                 }
+                ensureActive()
+                if (generation != expected || serverOrigin != origin) return@launch
+                BackendOrigin.bind(received, origin)
                 val user = NuphosApi.currentUser(received)
                 ensureActive()
                 if (generation != expected || state !is State.SigningIn) return@launch

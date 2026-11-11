@@ -113,8 +113,16 @@ export async function getConversations(
     // first messages, where regex is predictable. The user/team index prefix
     // keeps the scan bounded to the viewer's own documents.
     const pattern = new RegExp(escapeRegExp(search), 'i')
+    // "1831" or "#1831" also finds the conversation a PR with that number is
+    // linked to; a Linear issue's identifier is part of its stored title.
+    const number = /^#?(\d{1,9})$/.exec(search)?.[1]
 
-    query.$or = [{ title: pattern }, { firstMessage: pattern }]
+    query.$or = [
+      { title: pattern },
+      { firstMessage: pattern },
+      { 'linkedResources.title': pattern },
+      ...(number ? [{ 'linkedResources.number': Number(number) }] : []),
+    ]
   }
   // A row's parents are listed whether or not they wait on anything: a question
   // nests under every conversation above it, as a thread does.

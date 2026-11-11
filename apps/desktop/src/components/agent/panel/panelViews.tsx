@@ -227,7 +227,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     }
                     onStop={stopActive}
                     autoFocus={focusComposerOnOpen}
-                    runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
+                    runtimeState={activeTab.runtimeState}
                     executing={runtimeIsExecuting(activeTab.runtimeState)}
                     readOnly={activeTab.readOnly}
                     readOnlyNotice={readOnlyNotice}
@@ -262,7 +262,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                         : activeTab.promptSuggestion
                     }
                     autoFocus={focusComposerOnOpen}
-                    runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
+                    runtimeState={activeTab.runtimeState}
                     canStop={canStopTurn(activeTab)}
                     readOnly={activeTab.readOnly}
                     readOnlyNotice={readOnlyNotice}

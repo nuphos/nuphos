@@ -9,5 +9,6 @@ export type UpdaterState =
       total: number
       bytesPerSecond: number
     }
-  | { kind: 'ready'; version: string }
+  /** installerUrl: set when the last restart came back without this version. */
+  | { kind: 'ready'; version: string; installerUrl: string | null }
   | { kind: 'error' }

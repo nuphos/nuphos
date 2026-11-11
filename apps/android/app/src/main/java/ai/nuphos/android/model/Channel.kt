@@ -1,6 +1,7 @@
 package ai.nuphos.android.model
 
 import ai.nuphos.android.data.JsonValue
+import ai.nuphos.android.session.BotQuestion
 import kotlinx.serialization.Serializable
 import java.time.Instant
 
@@ -77,7 +78,7 @@ data class ChannelPost(
 
         /** Posts, the loop guard's lines and the typing bubble, in the order they happened. */
         fun items(posts: List<ChannelPost>, events: List<AgentConversationDetail.TimelineEvent>,
-                  typing: List<ChannelAgent>): List<ChannelItem> {
+                  typing: List<ChannelAgent>, questions: List<BotQuestion> = emptyList()): List<ChannelItem> {
             data class Timed(val at: Instant, val order: Int, val item: ChannelItem)
             val rows = mutableListOf<Timed>()
             var previous: Instant? = null
@@ -100,6 +101,11 @@ data class ChannelPost(
                 if (event.kind == "agent_reply_failed")
                     rows += Timed(event.at, rows.size, ChannelItem.ReplyFailed(key, event, event == events.last() && event.at >= lastPost))
             }
+            // A question sits where it was asked, as on Desktop.
+            questions.forEach { question ->
+                val at = question.request.askedAt?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: Instant.MIN
+                rows += Timed(at, rows.size, ChannelItem.Question(question))
+            }
             val sorted = rows.sortedWith(compareBy<Timed>({ it.at }, { it.order })).map { it.item }
             return if (typing.isEmpty()) sorted else sorted + ChannelItem.Typing(typing)
         }
@@ -119,4 +125,6 @@ sealed class ChannelItem {
     data class ReplyFailed(override val key: String, val event: AgentConversationDetail.TimelineEvent, val actionable: Boolean) : ChannelItem()
     /** Agents in a turn right now. */
     data class Typing(val agents: List<ChannelAgent>) : ChannelItem() { override val key get() = "typing" }
+    /** In a Bot's chat: a question the Bot or an agent under it waits on. */
+    data class Question(val question: BotQuestion) : ChannelItem() { override val key get() = "question.${question.id}" }
 }

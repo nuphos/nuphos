@@ -10,6 +10,8 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
 class AccountApi internal constructor(private val token: String, private val client: OkHttpClient) {
+    private val origin = if (token.isEmpty()) BackendOrigin.current else BackendOrigin.forToken(token)
+
     constructor(token: String) : this(token, Http.client)
 
     companion object {
@@ -95,7 +97,7 @@ class AccountApi internal constructor(private val token: String, private val cli
     /** Ends this device's session on the server. Best effort: failures are ignored. */
     suspend fun endSession() = withContext(Dispatchers.IO) {
         runCatching {
-            val request = Request.Builder().url("${NuphosApi.BASE_URL}/auth/sessions/current")
+            val request = Request.Builder().url("${origin}/auth/sessions/current")
                 .header("Authorization", "Bearer $token")
                 .header("x-atlas-client", Http.clientHeader())
                 .delete().build()
@@ -108,7 +110,7 @@ class AccountApi internal constructor(private val token: String, private val cli
         path: String, method: String, body: JsonObject? = null, authenticated: Boolean = true, allowRedirects: Boolean = true,
         upload: ByteArray? = null,
     ): T = withContext(Dispatchers.IO) {
-        val request = Request.Builder().url("${NuphosApi.BASE_URL}/auth/$path")
+        val request = Request.Builder().url("${origin}/auth/$path")
             .header("Accept", "application/json")
             .header("x-atlas-client", Http.clientHeader())
             .apply { if (authenticated) header("Authorization", "Bearer $token") }

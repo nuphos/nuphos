@@ -14,6 +14,7 @@ import { materializeRuntimeAttachments, runtimeAttachments } from './runtime-att
 import { parseSessionExecutionState } from './runtime-execution-snapshot'
 import { rememberRuntimeState } from './runtime-state-store'
 import { withSessionDesktops } from './session-desktops'
+import { steerNotInjected } from './steer-refusal'
 import { steeringText } from './steering-receipt'
 
 import type { RuntimeAttachment } from './runtime-attachments'
@@ -282,12 +283,9 @@ export async function steerConversationRuntime(
       attributionHeader(messageId, metadata),
     )
 
-    if (result.outcome !== 'injected')
-      throw new AppError(
-        409,
-        'runtime_steering_unavailable',
-        'The turn already ended. Your message was not sent; send it as a new turn.',
-      )
+    const refused = steerNotInjected(result)
+
+    if (refused) throw refused
 
     return text
   } catch (error) {

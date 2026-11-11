@@ -15,6 +15,8 @@ import {
 
 import type { ChatStreamCtx } from './chat-shared.ts'
 
+const NON_RETRYABLE_ERROR_CODES = new Set(['runtime_usage_exhausted', 'runtime_disk_full'])
+
 export type ChatReadResult =
   | { kind: 'stop' }
   | {
@@ -131,8 +133,8 @@ export async function consumeChatStream(
             return
           }
           needsFreshRetry = true
-          // Only credits or a reset bring the provider back; resending would fail the same way.
-          if (data.errorCode === 'runtime_usage_exhausted') retryForbidden = true
+          // Only credits, a reset or freed disk bring the runtime back; resending would fail the same way.
+          if (NON_RETRYABLE_ERROR_CODES.has(String(data.errorCode))) retryForbidden = true
           freshRetryReason = formatAgentSseError(data, {
             phase: 'sse_error_frame',
             streamId,

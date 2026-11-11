@@ -4,7 +4,7 @@ import java.nio.charset.StandardCharsets
 
 object ConversationActions {
     fun shareUrl(teamId: String, sessionId: String): String? =
-        if (teamId.isEmpty() || sessionId.isEmpty()) null else "https://nuphos.ai/teams/${segment(teamId)}/agent/${segment(sessionId)}"
+        if (teamId.isEmpty() || sessionId.isEmpty()) null else "${ai.nuphos.android.data.NuphosWeb.SITE_URL}/teams/${segment(teamId)}/agent/${segment(sessionId)}"
 
     internal fun segment(value: String): String = buildString {
         for (byte in value.toByteArray(StandardCharsets.UTF_8)) {

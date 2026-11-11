@@ -84,3 +84,32 @@ test('connect and secure-input cards are not choices', () => {
 
   assert.equal(decisionAnswers([connect, reply('github', SAM)]).size, 0)
 })
+
+const secret = (id: string, name: string): Message => ({
+  id: `m-${id}`,
+  role: 'assistant',
+  parts: [
+    {
+      type: 'tool',
+      toolCallId: id,
+      toolName: 'request_user_decision',
+      state: 'output-available',
+      input: { category: 'credential', question: 'Paste the key', secretName: name },
+    },
+  ],
+})
+
+test('a secret card is answered by its saved reply, never by other text or another name', () => {
+  const answers = decisionAnswers([
+    secret('s1', 'OPENAI_API_KEY'),
+    secret('s2', 'GITHUB_TOKEN'),
+    reply('here it is'),
+    reply('🔒 OPENAI_API_KEY saved to /home/agent/.nuphos/secrets/OPENAI_API_KEY'),
+  ])
+
+  assert.equal(
+    answers.get('s1')?.option,
+    '🔒 OPENAI_API_KEY saved to /home/agent/.nuphos/secrets/OPENAI_API_KEY',
+  )
+  assert.equal(answers.has('s2'), false)
+})

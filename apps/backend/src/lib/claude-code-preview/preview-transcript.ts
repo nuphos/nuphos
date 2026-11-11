@@ -10,6 +10,7 @@ import {
   claudeNotice,
   runtimeProductStateMessage,
 } from './openab-acp-errors'
+import { runtimeFailure } from './runtime-failure'
 import { RuntimeStateProbeError } from './turn-diagnostics'
 
 import type { PreviewTextMetadata } from './preview-agent-update'
@@ -61,14 +62,11 @@ export function classifyPreviewInterruption(
   const productState = aborted ? undefined : runtimeProductStateMessage(error)
 
   if (productState) return { reason: 'error', message: productState }
+  const failure = aborted ? undefined : runtimeFailure(error)
+
+  if (failure) return { reason: 'error', message: failure.message }
   const lower = (error instanceof Error ? error.message : String(error)).toLowerCase()
 
-  if (!aborted && (lower.includes('enospc') || lower.includes('no space left on device'))) {
-    return {
-      reason: 'error',
-      message: 'The agent ran out of disk space. Free space before retrying.',
-    }
-  }
   if (!aborted && lower.includes('no turn progress')) {
     return {
       reason: 'timeout',

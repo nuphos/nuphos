@@ -1,11 +1,15 @@
+import { CodexTurnFailedError } from '@/lib/claude-code-preview/codex-turn-failure'
 import {
+  acpErrorCode,
   claudeNotice,
   isRuntimeAuthRequired,
+  OpenAbRpcError,
   RUNTIME_AUTH_REQUIRED_CODE,
   RUNTIME_USAGE_EXHAUSTED_CODE,
   runtimeProductStateMessage,
   runtimeUsageExhaustedMessage,
 } from '@/lib/claude-code-preview/openab-acp-errors'
+import { runtimeFailure } from '@/lib/claude-code-preview/runtime-failure'
 import { AppError } from '@/lib/errors'
 import { errorTelemetryProperties } from '@/lib/observability'
 
@@ -79,6 +83,11 @@ function getErrorMessage(error: unknown): string {
   return JSON.stringify(error)
 }
 
+/** A provider that failed the turn is not a runtime fault, whatever its notice says. */
+function agentRuntimeFailure(error: unknown) {
+  return error instanceof CodexTurnFailedError ? undefined : runtimeFailure(error)
+}
+
 export function formatAgentStreamError(error: unknown): string {
   // A signed-out or out-of-usage runtime is a product state with its own UI,
   // not a transport failure. Every client — including those that do not read
@@ -86,6 +95,10 @@ export function formatAgentStreamError(error: unknown): string {
   const productState = runtimeProductStateMessage(error)
 
   if (productState) return productState
+  // A known runtime fault names the next step; the raw error stays in the frame's details.
+  const failure = agentRuntimeFailure(error)
+
+  if (failure) return failure.message
   const message = claudeNotice(error) ?? getErrorMessage(error)
 
   // The Bedrock provider sometimes prefixes messages with a literal
@@ -117,6 +130,9 @@ function agentStreamErrorCode(
   // normalization drops (it only lifts string codes), so name it here.
   if (isRuntimeAuthRequired(error)) return RUNTIME_AUTH_REQUIRED_CODE
   if (runtimeUsageExhaustedMessage(error)) return RUNTIME_USAGE_EXHAUSTED_CODE
+  const failure = agentRuntimeFailure(error)
+
+  if (failure) return failure.code
   if (error instanceof AppError) return error.code
   const providerCode = diagnostics.provider_error_code
 
@@ -130,8 +146,11 @@ export function agentStreamErrorFrame(
   trace: AgentRunTrace | undefined,
   extras?: Record<string, unknown>,
 ): Record<string, unknown> {
-  const details = {
+  const acpCode = error instanceof OpenAbRpcError ? acpErrorCode(error) : undefined
+  const details: Record<string, unknown> = {
     ...agentStreamErrorDiagnostics(error),
+    // Telemetry normalization drops numeric codes; the adapter's own one tells causes apart.
+    ...(acpCode === undefined ? {} : { acp_error_code: acpCode }),
     ...extras,
   }
   const code = agentStreamErrorCode(error, details)

@@ -8,6 +8,7 @@ enum ChannelPostTests {
         putsATimeAboveAPostAfterAPause()
         keepsSendingPostsUntilTheChatReturnsThem()
         placesPausedLinesAndTypingInOrder()
+        placesQuestionsWhereTheyWereAsked()
         decodesChatsFromTheList()
         renamingTheBotChangesTheRevision()
         readsAndQuotesReplies()
@@ -127,6 +128,16 @@ enum ChannelPostTests {
         // The line between two posts does not split their sender's run.
         precondition(firsts(items) == ["a"])
         precondition(ChannelPost.items(posts: [], events: [], typing: []).isEmpty)
+    }
+
+    private static func placesQuestionsWhereTheyWereAsked() {
+        let ask = { (id: String, at: String) in
+            BotQuestion(sessionId: "bot", title: "Bot", request: .init(
+                id: id, category: "approval", question: "Ship?", options: ["Yes"], askedAt: at))
+        }
+        let items = ChannelPost.items(posts: [post("a", "x", at: 1), post("b", "x", at: 3)], events: [], typing: [],
+                                      questions: [ask("q2", "1970-01-01T00:00:02Z"), ask("q4", "1970-01-01T00:00:04.000Z")])
+        precondition(items.map(\.id) == ["time.a", "post.a", "question.bot:q2", "post.b", "question.bot:q4"])
     }
 
     private static func decodesChatsFromTheList() {

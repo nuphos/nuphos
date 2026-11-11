@@ -63,6 +63,21 @@ test('the receipt names the chat and never merges with another archive', () => {
   assert.equal(shown[0].dedupe, false)
 })
 
+test('the receipt says a Bot or a chat was archived when the server said so', () => {
+  reset()
+  offerArchiveUndo({ sessionId: 'bot', teamId: 'team', title: 'Release helper', noun: 'bot' })
+  offerArchiveUndo({ sessionId: 'c', teamId: 'team', title: 'Release helper', noun: 'chat' })
+
+  assert.deepEqual(
+    shown.map((toast) => [toast.title, toast.description]),
+    [
+      ['Bot archived', '"Release helper" is still available in Archived agents.'],
+      // Archived agents does not list chats, so nothing promises one is there.
+      ['Chat archived', undefined],
+    ],
+  )
+})
+
 test('undo restores the chat, then tells the other surfaces', async () => {
   reset()
   request = () => Promise.resolve({ ok: true, archived: false })

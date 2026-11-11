@@ -182,45 +182,59 @@ export function credentialAccessForExecution(
   )
 }
 
-function normalizeCredentialAccess(
-  access: Partial<ReturnType<typeof allCredentialAccessFromOptions>> | undefined,
+/** A stored list that is not an array of ids (null, a scalar) reaches nothing. */
+function credentialIds(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : []
+}
+
+/** As `credentialIds`, but absent stays absent: for these connectors it means team-wide reach. */
+function optionalCredentialIds(value: unknown): string[] | undefined {
+  return value === undefined ? undefined : credentialIds(value)
+}
+
+/** The one boundary stored selections pass through: a malformed list fails closed, never wider. */
+export function normalizeCredentialAccess(
+  access:
+    Partial<Record<keyof ReturnType<typeof allCredentialAccessFromOptions>, unknown>> | undefined,
 ) {
   return {
-    awsRoleIds: access?.awsRoleIds ?? [],
-    gcpServiceAccountIds: access?.gcpServiceAccountIds ?? [],
-    linodeAccountIds: access?.linodeAccountIds ?? [],
-    hetznerAccountIds: access?.hetznerAccountIds ?? [],
-    tencentAccountIds: access?.tencentAccountIds ?? [],
-    aliyunAccountIds: access?.aliyunAccountIds ?? [],
-    volcengineAccountIds: access?.volcengineAccountIds ?? [],
-    azureAccountIds: access?.azureAccountIds ?? [],
-    huaweiAccountIds: access?.huaweiAccountIds ?? [],
-    onpremClusterIds: access?.onpremClusterIds ?? [],
-    betterStackIntegrationIds: access?.betterStackIntegrationIds ?? [],
-    uptimeKumaInstanceIds: access?.uptimeKumaInstanceIds ?? [],
-    linearWorkspaceIds: access?.linearWorkspaceIds ?? [],
-    jiraSiteIds: access?.jiraSiteIds ?? [],
-    asanaAccountIds: access?.asanaAccountIds ?? [],
-    sentryAccountIds: access?.sentryAccountIds ?? [],
-    tailscaleClientIds: access?.tailscaleClientIds ?? [],
-    zeaburIds: access?.zeaburIds ?? [],
-    vantaIntegrationIds: access?.vantaIntegrationIds ?? [],
-    secureframeIntegrationIds: access?.secureframeIntegrationIds ?? [],
-    resendIntegrationIds: access?.resendIntegrationIds ?? [],
-    posthogIntegrationIds: access?.posthogIntegrationIds ?? [],
-    plaudAccountIds: access?.plaudAccountIds ?? [],
+    awsRoleIds: credentialIds(access?.awsRoleIds),
+    gcpServiceAccountIds: credentialIds(access?.gcpServiceAccountIds),
+    linodeAccountIds: credentialIds(access?.linodeAccountIds),
+    hetznerAccountIds: credentialIds(access?.hetznerAccountIds),
+    tencentAccountIds: credentialIds(access?.tencentAccountIds),
+    aliyunAccountIds: credentialIds(access?.aliyunAccountIds),
+    volcengineAccountIds: credentialIds(access?.volcengineAccountIds),
+    azureAccountIds: credentialIds(access?.azureAccountIds),
+    huaweiAccountIds: credentialIds(access?.huaweiAccountIds),
+    onpremClusterIds: credentialIds(access?.onpremClusterIds),
+    betterStackIntegrationIds: credentialIds(access?.betterStackIntegrationIds),
+    uptimeKumaInstanceIds: credentialIds(access?.uptimeKumaInstanceIds),
+    linearWorkspaceIds: credentialIds(access?.linearWorkspaceIds),
+    jiraSiteIds: credentialIds(access?.jiraSiteIds),
+    asanaAccountIds: credentialIds(access?.asanaAccountIds),
+    sentryAccountIds: credentialIds(access?.sentryAccountIds),
+    tailscaleClientIds: credentialIds(access?.tailscaleClientIds),
+    zeaburIds: credentialIds(access?.zeaburIds),
+    vantaIntegrationIds: credentialIds(access?.vantaIntegrationIds),
+    secureframeIntegrationIds: credentialIds(access?.secureframeIntegrationIds),
+    resendIntegrationIds: credentialIds(access?.resendIntegrationIds),
+    posthogIntegrationIds: credentialIds(access?.posthogIntegrationIds),
+    plaudAccountIds: credentialIds(access?.plaudAccountIds),
     // Left undefined when unset rather than defaulted to []: for these
     // connectors an absent selection still means team-wide reach.
-    githubInstallationIds: access?.githubInstallationIds,
-    gitlabBindingIds: access?.gitlabBindingIds,
-    grafanaInstanceIds: access?.grafanaInstanceIds,
-    sonarqubeIntegrationIds: access?.sonarqubeIntegrationIds,
-    notionIntegrationIds: access?.notionIntegrationIds,
-    upstashAccountIds: access?.upstashAccountIds,
-    cloudflareAccountIds: access?.cloudflareAccountIds,
-    instaboxAccountIds: access?.instaboxAccountIds,
-    personalCredentialIds: access?.personalCredentialIds ?? [],
-    deviceIds: access?.deviceIds ?? [],
+    githubInstallationIds: optionalCredentialIds(access?.githubInstallationIds),
+    gitlabBindingIds: optionalCredentialIds(access?.gitlabBindingIds),
+    grafanaInstanceIds: optionalCredentialIds(access?.grafanaInstanceIds),
+    sonarqubeIntegrationIds: optionalCredentialIds(access?.sonarqubeIntegrationIds),
+    notionIntegrationIds: optionalCredentialIds(access?.notionIntegrationIds),
+    upstashAccountIds: optionalCredentialIds(access?.upstashAccountIds),
+    cloudflareAccountIds: optionalCredentialIds(access?.cloudflareAccountIds),
+    instaboxAccountIds: optionalCredentialIds(access?.instaboxAccountIds),
+    personalCredentialIds: credentialIds(access?.personalCredentialIds).filter(
+      (id): id is 'github' | 'linear' => id === 'github' || id === 'linear',
+    ),
+    deviceIds: credentialIds(access?.deviceIds),
   }
 }
 

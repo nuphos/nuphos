@@ -8,6 +8,7 @@ import { getAgentCredentialOptions } from '@/routes/agent/credential-options'
 import { getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
 
 import { setupHint, vendedAccountHint } from './credential-hints'
+import { describeCredentialIdentities } from './credential-identities'
 import { lister, vendedAccount, viaSkill, viaTeamApi } from './credential-lister'
 
 import type {
@@ -256,10 +257,14 @@ export function partitionCredentials(
     CREDENTIAL_LISTERS[key](selection[key], options),
   )
 
-  return {
-    selected: parts.flatMap((part) => part.selected),
-    unselected: parts.flatMap((part) => part.unselected),
-  }
+  return describeCredentialIdentities(
+    {
+      selected: parts.flatMap((part) => part.selected),
+      unselected: parts.flatMap((part) => part.unselected),
+    },
+    selection,
+    options,
+  )
 }
 
 export function flattenSelectedCredentials(

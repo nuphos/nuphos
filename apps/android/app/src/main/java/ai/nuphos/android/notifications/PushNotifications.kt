@@ -40,7 +40,7 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
     init {
         // One answer for every entry point: a process a notification reply starts has the same
         // consent the app had, without waiting for a screen to restore the session.
-        app.tokenStore.read()?.let { token ->
+        app.tokenStore.read()?.takeIf { ai.nuphos.android.data.BackendOrigin.supportsCloudPush() }?.let { token ->
             if (PushBindingPolicy.restoresConsent(prefs.getBoolean("consent_granted", false),
                     prefs.getString("login_hash", null), fingerprint(token))) AiAccess.restore(token)
         }
@@ -81,7 +81,7 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
     }
 
     fun sync(account: String?, token: String?, allowed: Boolean) {
-        if (account == null || token == null || !allowed) { reset(clearPending = account == null); return }
+        if (account == null || token == null || !allowed || !ai.nuphos.android.data.BackendOrigin.supportsCloudPush(ai.nuphos.android.data.BackendOrigin.forToken(token))) { reset(clearPending = account == null); return }
         val next = account to token
         if (login == next) return
         reset(clearPending = app.localNotifications.pending.value.value?.accountId != account)

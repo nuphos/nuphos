@@ -27,7 +27,7 @@ import type { useSessionConfig } from './useSessionConfig'
 
 export type ModelControl = Pick<
   ReturnType<typeof useSessionConfig>,
-  'data' | 'loading' | 'slow' | 'saving' | 'error' | 'queued' | 'open' | 'select'
+  'data' | 'loading' | 'slow' | 'saving' | 'error' | 'writeError' | 'queued' | 'open' | 'select'
 > & { setOpen: (open: boolean) => void; refresh: () => void }
 
 function chipLabel(name: string, fast: string | undefined) {
@@ -47,7 +47,9 @@ export function ModelSelector({
   /** Sized like the hero composer's other controls; compact otherwise. */
   hero?: boolean
 }) {
-  const { data, loading, slow, saving, error } = control
+  const { data, loading, slow, saving, error, writeError } = control
+  // A refused change reports its own reason; a stalled connection keeps its note.
+  const failure = writeError ?? error
   const [view, setView] = useState<'effort' | 'models'>('effort')
   const chipRef = useRef<HTMLButtonElement>(null)
   const sliderRef = useRef<HTMLInputElement>(null)
@@ -124,19 +126,19 @@ export function ModelSelector({
   const footer = {
     lines: [
       (loading || slow) &&
-        !error &&
+        !failure &&
         (slow
           ? t('The runtime is reconnecting. This may take a moment.')
           : t('Getting model settings…')),
-      error,
-      error && model && t('Showing last synced settings.'),
+      failure,
+      failure && model && t('Showing last synced settings.'),
       control.queued ? t('Selected for the next reply.') : hint,
       disabled &&
         !busy &&
         status === 'ready' &&
         t('Available when this agent is ready for your next message.'),
     ].filter((line): line is string => Boolean(line)),
-    error: error ?? undefined,
+    error: failure ?? undefined,
     onRetry: error || status === 'offline' ? control.refresh : undefined,
     retrying: loading || saving,
   }

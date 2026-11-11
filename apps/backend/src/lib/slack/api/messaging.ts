@@ -63,15 +63,23 @@ export async function fetchSlackChannelHistory(args: {
   channel: string
   // Slack ts lower bound (exclusive); older messages are not returned.
   oldest?: string
+  latest?: string
+  cursor?: string
   limit?: number
-}): Promise<{ messages: Record<string, unknown>[] }> {
+}): Promise<{ messages: Record<string, unknown>[]; hasMore: boolean; nextCursor?: string }> {
   const json = await slackApiGet(args.token, 'conversations.history', {
     channel: args.channel,
     limit: Math.min(args.limit ?? 15, 100),
     ...(args.oldest ? { oldest: args.oldest } : {}),
+    ...(args.latest ? { latest: args.latest } : {}),
+    ...(args.cursor ? { cursor: args.cursor } : {}),
   })
 
-  return { messages: Array.isArray(json.messages) ? json.messages : [] }
+  return {
+    messages: Array.isArray(json.messages) ? json.messages : [],
+    hasMore: Boolean(json.has_more),
+    nextCursor: json.response_metadata?.next_cursor || undefined,
+  }
 }
 
 export async function postSlackMessage(args: {
