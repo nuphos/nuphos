@@ -263,7 +263,7 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                                 onAnswer = { option -> if (allowed()) session.answer(question, option, scope, viewerId) },
                                 // The Bot's own questions are this chat's; only an agent under it is named.
                                 showsFrom = question.sessionId != session.faces.botFace?.id, onLink = onLink,
-                                failure = session.answerFailure(question))
+                                failure = session.answerFailure(question), onReply = { session.reply(question) })
                         }
                     }
                 }
@@ -501,7 +501,7 @@ private fun ChannelComposer(session: ChannelSession) {
 
 /** The post the next one answers, above the composer; × cancels. */
 @Composable
-private fun ReplyChip(reply: ChannelReply, onCancel: () -> Unit) {
+internal fun ReplyChip(reply: ChannelReply, onCancel: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 6.dp).clip(RoundedCornerShape(14.dp))
         .background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(start = 12.dp).testTag("channel-reply-chip"),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

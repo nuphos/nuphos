@@ -312,6 +312,9 @@ struct ConversationView: View {
                     onSwitchRuntime: session.canManage ? { showRuntimes = true } : nil
                 )
             }
+            if let question = session.answering {
+                ReplyChip(reply: question.quote) { session.answering = nil }
+            }
             if !session.queued.isEmpty || !session.serverQueued.isEmpty {
                 QueuedStrip(
                     items: session.queued.enumerated().map { .init(id: "local.\($0.offset)", text: $0.element, steering: false) }

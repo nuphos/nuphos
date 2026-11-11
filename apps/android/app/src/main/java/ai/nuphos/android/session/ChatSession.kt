@@ -427,7 +427,11 @@ class ChatSession(
         val name = part.secretRequest?.name ?: return
         val path = AgentChatApi.saveSecret(token, teamId, sessionId, name, value)
         runCatching { AgentChatApi.resolveDecision(token, teamId, sessionId, part.decisionRequestId) }
+        // The saved path answers the secret's own request, never a question quoted for "Other…".
+        val quoted = answering
+        answering = null
         send(ChatPart.Tool.SecretRequest.savedReply(name) + path)
+        answering = quoted
     }
 
     /** The first reply after the message that asked, if anyone replied yet. */
@@ -445,6 +449,9 @@ class ChatSession(
         readOnly = true
         draftAccessInvalidated = true
     }
+
+    /** The open question the next message answers, quoted above the composer: the Inbox's "Other…". */
+    var answering by mutableStateOf<BotQuestion?>(null)
 
     fun send(submission: ComposerSubmission): Boolean {
         if (isChannel) return false
@@ -539,6 +546,9 @@ class ChatSession(
             if (trimmed.isNotEmpty()) queued = queued + trimmed
             return true
         }
+        // Words for the quoted question answer it, as its options do; with files, a message answering nothing.
+        val answers = answering?.request?.id?.takeIf { attachments.isEmpty() }
+        answering = null
         val reply = isNative && canReply
         if (reply) lockRuntimeReply()
         submissionPending = true
@@ -553,7 +563,7 @@ class ChatSession(
         }
         val message = retryUserMessage?.takeIf { retrySubmission == submission } ?: ChatMessage(role = ChatMessage.Role.User, parts = parts)
         submissionAccepted = false
-        scope.launch { dispatch(message, if (trimmed.isEmpty()) "Photo" else trimmed, reply) }
+        scope.launch { dispatch(message, if (trimmed.isEmpty()) "Photo" else trimmed, reply, answers) }
         return true
     }
 
@@ -565,7 +575,7 @@ class ChatSession(
         if (queued.isEmpty()) { steeringRetryRequired = false; if (!steeringUnconfirmed) error = null }
     }
 
-    private suspend fun dispatch(message: ChatMessage, titleText: String, reply: Boolean = false) {
+    private suspend fun dispatch(message: ChatMessage, titleText: String, reply: Boolean = false, decisionReplyTo: String? = null) {
         if (!permissions.writable) { rejectedSubmission = pendingSubmission; pendingSubmission = null; submissionPending = false; return }
         val wasEmpty = messages.isEmpty()
         val lastAssistant = messages.indexOfLast { it.role == ChatMessage.Role.Assistant }
@@ -585,7 +595,7 @@ class ChatSession(
         scrollToLatestRevision += 1
         syncTranscriptNow()
         if (!hasAiAccess) return
-        startTurn(TurnOptions(streamId = newId(), resumeReason = if (reply) "runtime-reply" else null, permissionMode = if (wasEmpty) permissionMode.raw else null, initialSessionConfig = if (wasEmpty) initialModelPick else null))
+        startTurn(TurnOptions(streamId = newId(), resumeReason = if (reply) "runtime-reply" else null, permissionMode = if (wasEmpty) permissionMode.raw else null, initialSessionConfig = if (wasEmpty) initialModelPick else null, decisionReplyTo = decisionReplyTo))
     }
 
     enum class ApprovalDecision { Once, Session, Always, Deny }
@@ -705,6 +715,8 @@ class ChatSession(
         val resumeReason: String? = null,
         val permissionMode: String? = null,
         val initialSessionConfig: Map<String, String>? = null,
+        /** The open question the message answers. */
+        val decisionReplyTo: String? = null,
     )
 
     private sealed class TurnResult {
@@ -1156,6 +1168,7 @@ class ChatSession(
                 runtimeId = if (shouldResume == true) null else outgoingCreationBinding?.runtimeId,
                 agentRuntime = if (shouldResume == true) null else outgoingCreationBinding?.agentRuntime,
                 initialSessionConfig = if (firstPost && !shouldResume) options.initialSessionConfig else null,
+                decisionReplyTo = if (firstPost) options.decisionReplyTo else null,
             )
             var needsFreshRetry = false
             var terminal = false

@@ -17,6 +17,11 @@ final class InboxUITests: XCTestCase {
         live = fixture.deletingLastPathComponent().appending(path: "inbox-live-\(UUID().uuidString).json")
         responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
         responses["POST /agent/chat"] = ["status": 200, "body": [:], "headers": ["Content-Type": "text/event-stream"]]
+        // The asking conversations, opened by "From …" and "Other…".
+        for (id, title) in [("agent-ops", "Release ops"), ("agent-staging", "Check the staging cluster")] {
+            responses["GET /agent/conversations/\(id)"] = ["status": 200, "body": [
+                "title": title, "messages": [], "timelineEvents": [], "isOwner": true, "readOnly": false]]
+        }
         try listQuestions([deploy, staging])
     }
 
@@ -45,7 +50,7 @@ final class InboxUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["Roll out 1.4 to production?"].waitForExistence(timeout: 5), "The question is not listed")
         XCTAssertTrue(app.staticTexts["Which node pool should the staging cluster use?"].exists)
-        XCTAssertTrue(app.textFields["Reply to this question"].firstMatch.exists, "No typed answer")
+        XCTAssertTrue(app.buttons["Other…"].firstMatch.exists, "No Other… to answer in words")
         shot("3-inbox")
 
         // The answer leaves the Inbox at once; the listing then agrees.
@@ -56,10 +61,65 @@ final class InboxUITests: XCTestCase {
         shot("4-answered")
 
         // "From …" opens the conversation that asked.
-        app.buttons["botQuestion.from"].firstMatch.tap()
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "From Check the staging cluster")).firstMatch.tap()
         XCTAssertTrue(app.navigationBars.staticTexts["Check the staging cluster"].waitForExistence(timeout: 10)
                       || app.staticTexts["Check the staging cluster"].waitForExistence(timeout: 1),
                       "The asking conversation did not open")
+    }
+
+    /// "Other…" starts the answer in a composer: the asking conversation's, from the Inbox,
+    /// quoting the question. A plan keeps only Approve and Reject.
+    func testOtherStartsTheAnswerInTheConversationComposer() throws {
+        try listQuestions([deploy, staging, plan])
+        app = launch(page: "agent")
+        app.buttons["Switch page"].firstMatch.tap()
+        app.buttons["Inbox"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Roll out 1.4 to production?"].waitForExistence(timeout: 10), "The question is not listed")
+        // Other… beside options, Reply… without them, nothing on the plan.
+        // By label: the card's own identifier covers those inside it.
+        XCTAssertEqual(app.buttons.matching(Self.typedAnswer).count, 2)
+        XCTAssertTrue(app.buttons["Other…"].exists && app.buttons["Reply…"].exists)
+        shot("5-inbox-other")
+
+        app.buttons["Other…"].firstMatch.tap()
+        let chip = app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "Replying to Release ops")).firstMatch
+        XCTAssertTrue(chip.waitForExistence(timeout: 10), "The conversation's composer does not quote the question")
+        shot("6-inbox-other-composer")
+    }
+
+    /// In a Bot's chat, "Other…" quotes the question in the chat's reply chip.
+    func testOtherQuotesTheQuestionInABotChat() throws {
+        // The release chat as a Bot's 1:1, whose own questions show in it.
+        var detail = try XCTUnwrap(responses["GET /agent/conversations/chat-release"] as? [String: Any])
+        var body = try XCTUnwrap(detail["body"] as? [String: Any])
+        body["faces"] = [["id": "bot-release", "name": "Release Lead", "agent": ["avatar": "05"]]]
+        detail["body"] = body
+        responses["GET /agent/conversations/chat-release"] = detail
+        let ask = { (row: [String: Any]) in (row["inputRequests"] as? [[String: Any]])?.first ?? [:] }
+        var own = InboxUITests.row("bot-release", "Release Lead", ask(deploy))
+        own["inputRequests"] = [ask(deploy), ask(plan)]
+        try listQuestions([own])
+        app = launch()
+        app.staticTexts["release-planning"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Roll out 1.4 to production?"].waitForExistence(timeout: 15),
+                      "The Bot's question is not in its chat")
+        XCTAssertEqual(app.buttons.matching(Self.typedAnswer).count, 1, "Other… on the plan, or missing")
+        shot("7-bot-chat")
+
+        app.buttons["Other…"].firstMatch.tap()
+        let chip = app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "Replying to Release Lead")).firstMatch
+        XCTAssertTrue(chip.waitForExistence(timeout: 5), "The chat's composer does not quote the question")
+        shot("8-bot-chat-other-composer")
+    }
+
+    private static let typedAnswer = NSPredicate(format: "label IN %@", ["Other…", "Reply…"])
+
+    private func launch(page: String? = nil) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-preview-home", "-preview-no-push"] + (page.map { ["-page", $0] } ?? [])
+        app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
+        app.launch()
+        return app
     }
 
     // MARK: - Fixture
@@ -72,6 +132,11 @@ final class InboxUITests: XCTestCase {
         "agent-staging", "Check the staging cluster",
         ["id": "q-staging", "category": "preference", "question": "Which node pool should the staging cluster use?",
          "options": [], "askedAt": "2026-11-03T09:10:00Z", "status": "open"])
+
+    private let plan: [String: Any] = InboxUITests.row(
+        "agent-migrate", "Migrate staging",
+        ["id": "q-plan", "category": "approval", "question": "Approve the plan \"Move staging to the new cluster\"?",
+         "options": ["Approve", "Reject"], "planId": "p1", "askedAt": "2026-11-03T09:20:00Z", "status": "open"])
 
     private static func row(_ id: String, _ title: String, _ request: [String: Any]) -> [String: Any] {
         ["sessionId": id, "teamId": "64b5f1c2e4b0a1d2c3e4f5a6", "title": title, "firstMessage": title,

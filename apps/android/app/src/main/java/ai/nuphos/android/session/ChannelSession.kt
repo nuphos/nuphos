@@ -118,8 +118,17 @@ class ChannelSession(
     var replyRequests by mutableStateOf(0)
         private set
 
+    /** The question the next post answers instead, quoted as [replying]: its card's "Other…". */
+    private var answering: BotQuestion? = null
+
     fun reply(to: ChannelPost) {
         replying = to.asReply()
+        replyRequests++
+    }
+
+    fun reply(to: BotQuestion) {
+        answering = to
+        replying = to.quote
         replyRequests++
     }
     var sendError by mutableStateOf<String?>(null)
@@ -181,9 +190,17 @@ class ChannelSession(
              newId: () -> String = { java.util.UUID.randomUUID().toString().lowercase() }): Boolean {
         val text = submission.text.trim()
         if (readOnly || !allowed() || (text.isEmpty() && submission.attachments.isEmpty())) return false
+        // Words under a quoted question are its answer, as its options are; with files, a post quoting nothing.
+        val question = answering?.takeIf { replying == it.quote }
+        answering = null
+        if (question != null && submission.attachments.isEmpty()) {
+            replying = null
+            answer(question, text, scope, viewerId, viewerName, viewerAvatar, newId)
+            return true
+        }
         // The same post is the same words and the same attached files (their own ids, not their
         // names): a post put back after a failure keeps its id, while a newly picked file never does.
-        val reply = replying
+        val reply = replying.takeIf { question == null }
         val key = (listOf(reply?.id.orEmpty(), text) + submission.attachments.map { it.id }).joinToString("\n")
         val id = retry?.takeIf { it.first == key }?.second ?: newId()
         retry = key to id

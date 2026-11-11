@@ -1,6 +1,7 @@
 package ai.nuphos.android.session
 
 import ai.nuphos.android.model.AgentConversation
+import ai.nuphos.android.model.ChannelReply
 import ai.nuphos.android.model.InputRequest
 
 /** An open question a Bot's chat shows: one request and the conversation that asked it. */
@@ -9,6 +10,12 @@ data class BotQuestion(val sessionId: String, val title: String, val request: In
 
     /** The conversation that asked, opened in the app like any Nuphos link. */
     fun link(teamId: String): String = "${ai.nuphos.android.data.NuphosWeb.SITE_URL}/teams/$teamId/agent/$sessionId"
+
+    /** Answered in words, "Other…": never a plan, approved or rejected, nor a credential or connection. */
+    val typed: Boolean get() = request.category != "credential" && request.category != "integration" && request.planId == null
+
+    /** The question quoted above a composer whose next message answers it. */
+    val quote: ChannelReply get() = ChannelReply(null, title, request.question)
 }
 
 /**

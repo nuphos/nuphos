@@ -2,9 +2,10 @@ import SwiftUI
 
 /// An open question, in a Bot's chat or the Inbox, like the desktop's decision
 /// card: which agent asked, the question and what the agent wrote to decide it
-/// from, each option as the reply, and a short typed answer. A connect or
-/// secure-input question is answered in the conversation that asked, which the
-/// link opens. `showsFrom` is off for the Bot's own questions in its own chat.
+/// from, each option as the reply, and "Other…" to answer in words in the
+/// composer, quoting it. A connect or secure-input question is answered in the
+/// conversation that asked, which the link opens. `showsFrom` is off for the
+/// Bot's own questions in its own chat.
 struct BotQuestionCard: View {
     let question: BotQuestion
     var showsFrom = true
@@ -14,8 +15,9 @@ struct BotQuestionCard: View {
     var onLink: ((URL) -> Void)?
     /// Why the last answer could not be sent; the question is still open.
     var failure: String?
+    /// Starts an answer in words in the composer, quoting the question; absent where none answers it.
+    var onReply: (() -> Void)?
 
-    @State private var draft = ""
     @State private var expanded = false
     @Environment(\.openURL) private var openURL
 
@@ -26,6 +28,11 @@ struct BotQuestionCard: View {
         let options = (question.request.options ?? []).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         if options.isEmpty { return [(String(localized: "Mark as done"), "Done.")] }
         return options.map { ($0, $0) }
+    }
+
+    /// "Other…" beside options; "Reply…" when there are none.
+    private var replyLabel: LocalizedStringKey {
+        (question.request.options ?? []).contains { !$0.trimmingCharacters(in: .whitespaces).isEmpty } ? "Other…" : "Reply…"
     }
 
     private var heading: LocalizedStringKey {
@@ -68,18 +75,11 @@ struct BotQuestionCard: View {
                                 .tint(Theme.heading)
                         }
                     }
-                    HStack(spacing: 8) {
-                        TextField("Or type a different answer", text: $draft)
+                    if let onReply, question.typed {
+                        Button(replyLabel, action: onReply)
                             .font(Theme.Text.label)
-                            .textFieldStyle(.roundedBorder)
-                            .submitLabel(.send)
-                            .onSubmit(send)
-                            .accessibilityLabel("Reply to this question")
-                        Button("Send", action: send)
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            .tint(Theme.heading)
-                            .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .foregroundStyle(Theme.muted)
+                            .buttonStyle(.plain)
                     }
                 } else {
                     Button("Answer in the conversation", action: onOpen)
@@ -116,12 +116,5 @@ struct BotQuestionCard: View {
                     .buttonStyle(.plain)
             }
         }
-    }
-
-    private func send() {
-        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        draft = ""
-        onAnswer(text)
     }
 }

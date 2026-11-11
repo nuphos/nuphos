@@ -2,26 +2,15 @@ import SwiftUI
 
 /// The desktop's Inbox ("Needs your input"): every open question across the
 /// viewer's conversations, newest first, each answered from its card. "From …"
-/// opens the conversation that asked, on top of the Inbox.
+/// opens the conversation that asked, as a notification does.
 struct InboxPage: View {
-    @Environment(AgentStore.self) private var store
     let inbox: OpenQuestions?
-
-    @State private var opened: AgentPage.OpenChat?
 
     var body: some View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.canvas)
             .refreshable { await inbox?.refresh() }
-            .navigationDestination(item: $opened) { chat in
-                if let session = chat.session {
-                    ConversationView(session: session, sourcePage: HomePage.inbox.rawValue)
-                        .readWhileShown(session)
-                        // An answer given there leaves the Inbox on return.
-                        .onDisappear { Task { await inbox?.refresh() } }
-                }
-            }
     }
 
     @ViewBuilder
@@ -38,12 +27,11 @@ struct InboxPage: View {
                         ForEach(inbox.list.reversed()) { question in
                             BotQuestionCard(
                                 question: question,
-                                onOpen: {
-                                    opened = AgentPage.OpenChat(session: store.session(
-                                        sessionId: question.sessionId, title: question.title, teamId: inbox.teamId))
-                                },
+                                onOpen: { open(question, in: inbox) },
                                 onAnswer: { text in Task { await inbox.answer(question, with: text) } },
-                                failure: inbox.failures[question.id])
+                                failure: inbox.failures[question.id],
+                                // Opens the conversation, its composer answering this question.
+                                onReply: { open(question, in: inbox, answering: true) })
                         }
                     }
                     .padding(.horizontal, 16)
@@ -54,5 +42,12 @@ struct InboxPage: View {
         } else {
             ProgressView().tint(Theme.muted)
         }
+    }
+
+    /// As a notification opens one: on the Tasks page, its composer answering the question for "Other…".
+    private func open(_ question: BotQuestion, in inbox: OpenQuestions, answering: Bool = false) {
+        PushNotifications.shared.pendingTarget = PushTarget(
+            teamId: inbox.teamId, sessionId: question.sessionId, title: question.title,
+            answering: answering ? question.request : nil)
     }
 }
