@@ -8,12 +8,14 @@ import { sendAndroidAlert, sendAndroidBadge } from './badge'
 import { pushDeviceStore } from './devices'
 import { fcmProjectId, sendFcm, sendFcmBadge } from './fcm'
 import { sendIos } from './ios'
-import { approvalToolName, classifyTurn, outcomeBody, truncate } from './turn-outcome'
+import { notificationIdentity } from './notification-identity'
+import { approvalToolName, classifyTurn, conversationTitle, outcomeBody } from './turn-outcome'
 import { watcherCanRead } from './watchers'
 
 import type { ApnsCredentials, ApnsRequest, ApnsResponse } from './apns'
 import type { PushDevice, PushDeviceStore } from './devices'
 import type { FcmRequest, FcmResponse } from './fcm'
+import type { PushConversation } from './notification-identity'
 import type { TurnOutcome } from './turn-outcome'
 
 export type NotifiableRun = {
@@ -27,12 +29,6 @@ export type NotifiableRun = {
   approvalPushed?: boolean
   activityRecorded?: Promise<unknown>
   trace?: { userId: string; teamId?: string }
-}
-
-export type PushConversation = Parameters<typeof watcherCanRead>[0] & {
-  title?: string
-  firstMessage?: string
-  watcherIds?: string[]
 }
 
 export type TurnNotifierDeps = {
@@ -54,6 +50,8 @@ export type TurnNotifierDeps = {
   now: () => number
 }
 
+export type { PushConversation } from './notification-identity'
+export { conversationTitle } from './turn-outcome'
 export { SESSION_COALESCE_MS, USER_PUSHES_PER_MINUTE } from './admit'
 export const BADGE_DEBOUNCE_MS = 5_000
 
@@ -68,14 +66,6 @@ type Alert = {
 type Delivery = {
   run: NotifiableRun
   body: (conversation: PushConversation | null) => Promise<string | null> | string | null
-}
-
-export function conversationTitle(conversation: PushConversation | null): string {
-  const title = conversation?.title?.trim()
-
-  if (title) return title
-
-  return truncate(conversation?.firstMessage?.trim() ?? '', 60) || 'Nuphos'
 }
 
 export function createTurnNotifier(deps: TurnNotifierDeps) {
@@ -97,7 +87,12 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
   }
 
   /** One alert; without a conversation it opens the app, and Android, which needs one, is skipped. */
-  async function alertUser(userId: string, devices: PushDevice[], push: Alert): Promise<void> {
+  async function alertUser(
+    userId: string,
+    devices: PushDevice[],
+    push: Alert,
+    conversation?: PushConversation | null,
+  ): Promise<void> {
     const { sessionId, teamId, aps, ...alert } = push
     const projectId = deps.fcmProject?.()
     const badge = await deps.unreadCount(userId)
@@ -121,6 +116,7 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
           ...aps,
         },
         accountId: userId,
+        ...(conversation ? { agentIdentity: notificationIdentity(conversation) } : {}),
         ...(sessionId ? { sessionId } : {}),
         ...(teamId ? { teamId } : {}),
       },
@@ -145,13 +141,18 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
 
         if (content === null || !admit(userId, run.sessionId)) return
         await run.activityRecorded
-        await alertUser(userId, devices, {
-          title: conversationTitle(conversation),
-          body: content,
-          sessionId: run.sessionId,
-          teamId,
-          aps: SESSION_ALERT_APS,
-        })
+        await alertUser(
+          userId,
+          devices,
+          {
+            title: conversationTitle(conversation),
+            body: content,
+            sessionId: run.sessionId,
+            teamId,
+            aps: SESSION_ALERT_APS,
+          },
+          conversation,
+        )
       }),
     )
   }
@@ -224,7 +225,12 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
       const conversation = await deps.conversation(push.sessionId)
       const readable = conversation !== null && (await deps.canRead(conversation, userId))
 
-      await alertUser(userId, devices, readable ? push : { ...push, sessionId: undefined })
+      await alertUser(
+        userId,
+        devices,
+        readable ? push : { ...push, sessionId: undefined },
+        readable ? conversation : null,
+      )
     },
     /** Reading on one device clears the badge on the others. Debounced per user. */
     badgeChanged(userId: string): void {

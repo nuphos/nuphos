@@ -20,7 +20,7 @@ export function AgentAvatar({
   sidebar = false,
   animated = false,
   face = true,
-  bare = false,
+  showBadge = true,
 }: {
   agentId: string
   /** The picked avatar as last fetched; a newer pick seen anywhere in the app wins. */
@@ -32,18 +32,15 @@ export function AgentAvatar({
   animated?: boolean
   /** False: only the Runtime icon, in main's sidebar box (a Tasks row). */
   face?: boolean
-  /** The face alone, at any size: no runtime badge, as a sidebar row shows it. */
-  bare?: boolean
+  /** Groups render badges above both face layers. */
+  showBadge?: boolean
 }) {
   const seen = useAgentAvatarPick(agentId)
   const picked = face ? (seen === undefined ? avatar : seen) : undefined
   const running = runtimeTurnActive(useAgentRuntimeStates().get(agentId))
-  // A sidebar row shows one clean face, as the iOS list does: no runtime badge.
-  const clean = sidebar || bare
   // A face takes the Bots list's 36px; a Runtime icon a Tasks row's 22px.
   const sidebarSize = face ? 36 : 22
   const box = sidebar ? sidebarSize : size
-  const badge = box <= 24 ? 9 : 12
   const runtime = (
     <AgentProviderIcon provider={provider} style={{ width: '100%', height: '100%' }} />
   )
@@ -62,18 +59,49 @@ export function AgentAvatar({
             className="absolute left-0 top-0 object-contain"
             style={{ width: box, height: box }}
           />
-          {!clean && (
-            <span
-              className="absolute bottom-0 right-0 flex items-center justify-center rounded-full bg-main p-px text-secondary"
-              style={{ width: badge, height: badge }}
-            >
-              {runtime}
-            </span>
-          )}
+          {showBadge && <AgentRuntimeBadge provider={provider} size={box <= 24 ? 9 : 12} />}
         </>
       ) : (
         <span className="inline-flex size-4">{runtime}</span>
       )}
     </span>
   )
+}
+
+/** Decorative runtime disc shared with overlapping group faces. */
+export function AgentRuntimeBadge({
+  provider,
+  size,
+}: {
+  provider?: AgentProvider | null
+  size: number
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className="absolute bottom-0 right-0 flex items-center justify-center rounded-full bg-main p-px text-secondary"
+      style={{ width: size, height: size }}
+    >
+      <AgentProviderIcon provider={provider} style={{ width: '100%', height: '100%' }} />
+    </span>
+  )
+}
+
+/** Only Bots wear a badge; the same live avatar selection drives their face. */
+export function AgentFaceBadge({
+  agentId,
+  avatar,
+  provider,
+  size,
+}: {
+  agentId: string
+  avatar?: string
+  provider?: AgentProvider | null
+  size: number
+}) {
+  const seen = useAgentAvatarPick(agentId)
+
+  const picked = seen === undefined ? avatar : seen
+
+  return picked ? <AgentRuntimeBadge provider={provider} size={size} /> : null
 }

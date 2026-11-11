@@ -1,5 +1,15 @@
 import { isEmptyTurnText } from '@/lib/claude-code-preview/empty-turn'
 
+export function conversationTitle(
+  conversation: { title?: string; firstMessage?: string } | null,
+): string {
+  const title = conversation?.title?.trim()
+
+  if (title) return title
+
+  return truncate(conversation?.firstMessage?.trim() ?? '', 60) || 'Nuphos'
+}
+
 export type TurnOutcome =
   | { kind: 'finished'; text: string }
   | { kind: 'approval'; toolName?: string }

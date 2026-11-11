@@ -7,6 +7,7 @@ import { teamOverviewNavItemFor } from '../../lib/teamOverviewNav'
 import type { HistoryTimeline } from './historyRows'
 import type { RowDot } from '../../lib/subAgentState'
 import type { Scope, TeamInvitation, UserInfo } from '../../types'
+import type { AgentProvider } from '../../types/runtime'
 import type { BreadcrumbSegment } from '../Toolbar'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
@@ -23,6 +24,7 @@ export type Item = {
   iconNode?: ReactNode
   /** A Bot (a conversation with an avatar), listed under Bots; every other agent row is a Task. */
   bot?: boolean
+  provider?: AgentProvider | null
   /** Listed as a Task: one line, without the latest-message preview. */
   task?: boolean
   enabled: boolean
@@ -61,7 +63,13 @@ export type Item = {
   /** Agents already reachable through this channel, including group chats. */
   channelAgentIds?: string[]
   /** A Task that is also a Bot: the Bot's chat, linked from the Task's row. */
-  botChat?: { botId: string; name: string; key?: string; open?: () => void }
+  botChat?: {
+    provider?: AgentProvider | null
+    botId: string
+    name: string
+    key?: string
+    open?: () => void
+  }
   /** An agent the viewer does not own: no rename or unlink, which are the owner's. */
   readOnlyChat?: boolean
   /** Such an agent the viewer manages, so they may archive it for everyone. */

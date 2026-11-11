@@ -38,8 +38,7 @@ export function BotChatLink({
         className="titlebar-no-drag ml-1 inline-flex h-5 flex-shrink-0 items-center gap-0.5 rounded-full border border-line-control py-0.5 pl-1 pr-0.5 text-tertiary transition-colors hover:border-line-focus hover:text-main"
       >
         <MessageCircle className="size-3" strokeWidth={1.8} aria-hidden />
-        {/* The face alone: the row already shows the runtime. */}
-        <AgentAvatar agentId={link.botId} size={14} bare />
+        <AgentAvatar agentId={link.botId} size={14} provider={link.provider} />
       </span>
     </Tooltip>
   )

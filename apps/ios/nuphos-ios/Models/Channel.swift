@@ -5,6 +5,7 @@ struct ChannelAgent: Decodable, Equatable, Identifiable, Sendable {
     let sessionId: String
     let title: String
     let ownerId: String
+    var provider: String? = nil
     var id: String { sessionId }
 }
 

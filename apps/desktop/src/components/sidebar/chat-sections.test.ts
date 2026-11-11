@@ -148,3 +148,20 @@ test('a group with several agents suppresses each fallback without hiding other 
     },
   )
 })
+
+test('a Bot task chat link keeps its actual provider as it switches runtimes', () => {
+  for (const provider of ['codex', 'grok', undefined] as const) {
+    const sections = withChatSections([
+      {
+        title: 'Agents',
+        items: [
+          { ...row('agent-session:bot', { bot: true }), provider },
+          row('agent-session:chat', { channel: true, botChannelOf: 'bot' }),
+        ],
+      },
+    ])
+    const task = sections.find((section) => section.title === 'Tasks')?.items[0]
+
+    assert.equal(task?.botChat?.provider, provider)
+  }
+})

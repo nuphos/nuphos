@@ -271,6 +271,7 @@ struct TranscriptJump: Equatable {
 /// overlapping, whoever spoke last in front. A chat with nobody else shows
 /// its title's initials.
 struct ChatIcon: View {
+    @AppStorage(BotAvatars.enabledKey, store: BotAvatars.defaults) private var avatarsEnabled = true
     let faces: [ChatFace]
     let title: String
     var size: CGFloat = 22
@@ -280,10 +281,18 @@ struct ChatIcon: View {
             if faces.count >= 2 {
                 let small = (size * 0.72).rounded()
                 ZStack {
-                    face(faces[1], size: small).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    face(faces[0], size: small)
+                    face(faces[1], size: small, showBadge: false).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    face(faces[0], size: small, showBadge: false)
                         .padding(1.5)
                         .background(Theme.chatCanvas, in: Circle())
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    badge(faces[1], badgeSize: small <= 24 ? 9 : 12)
+                        .frame(width: small, height: small, alignment: .bottomTrailing)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    badge(faces[0], badgeSize: small <= 24 ? 9 : 12)
+                        .frame(width: small, height: small, alignment: .bottomTrailing)
+                        .padding(1.5)
+                        .offset(x: badgeSeparation(small), y: badgeSeparation(small))
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
             } else if let only = faces.first {
@@ -297,11 +306,23 @@ struct ChatIcon: View {
     }
 
     @ViewBuilder
-    private func face(_ face: ChatFace, size: CGFloat) -> some View {
+    private func face(_ face: ChatFace, size: CGFloat, showBadge: Bool = true) -> some View {
         if face.agent != nil {
-            AgentAvatar(agentId: face.id, runtime: face.agent?.provider, size: size)
+            AgentAvatar(agentId: face.id, runtime: face.agent?.provider, size: size, showBadge: showBadge)
         } else {
             person(id: face.id, name: face.name, avatarURL: face.avatarURL, size: size)
+        }
+    }
+
+    private func badgeSeparation(_ small: CGFloat) -> CGFloat {
+        guard faces[0].agent != nil, faces[1].agent != nil else { return 0 }
+        return max(0, (small <= 24 ? 9 : 12) - (size - small - 1.5))
+    }
+
+    @ViewBuilder
+    private func badge(_ face: ChatFace, badgeSize: CGFloat) -> some View {
+        if face.agent != nil, avatarsEnabled, BotFaces.shared.face(for: face.id) != nil {
+            AgentRuntimeBadge(runtime: face.agent?.provider, size: badgeSize)
         }
     }
 
@@ -496,7 +517,7 @@ private struct TypingRow: View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(agents) { agent in
                 HStack(alignment: .bottom, spacing: 8) {
-                    AgentAvatar(agentId: agent.sessionId, runtime: nil, size: 28)
+                    AgentAvatar(agentId: agent.sessionId, runtime: agent.provider, size: 28)
                     TypingDots()
                         .padding(.horizontal, 14)
                         .padding(.vertical, 12)

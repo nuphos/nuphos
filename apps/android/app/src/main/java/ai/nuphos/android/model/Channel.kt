@@ -7,7 +7,7 @@ import java.time.Instant
 
 /** An agent brought into a chat (`GET /agent/conversations/:id/agents`). */
 @Serializable
-data class ChannelAgent(val sessionId: String, val title: String = "", val ownerId: String? = null)
+data class ChannelAgent(val sessionId: String, val title: String = "", val ownerId: String? = null, val provider: String? = null)
 
 @Serializable
 data class ChannelAgentsEnvelope(val agents: List<ChannelAgent> = emptyList())
@@ -37,6 +37,7 @@ data class ChannelPost(
     val sending: Boolean = false,
     /** The post this one replies to. */
     val replyTo: ChannelReply? = null,
+    val runtime: String? = null,
 ) {
     fun isMine(viewerId: String?): Boolean = !isAgent && viewerId != null && senderId == viewerId
 
@@ -67,7 +68,7 @@ data class ChannelPost(
                 reply["text"]?.stringValue?.takeIf { it.isNotEmpty() }?.let { ChannelReply(reply["id"]?.stringValue, author, it) }
             }
             return ChannelPost(message.id, senderId, type == "agent", name,
-                SenderAvatar.trusted(sender["avatarURL"]?.stringValue), text, display.uploads, downloads, sentAt, replyTo = replyTo)
+                SenderAvatar.trusted(sender["avatarURL"]?.stringValue), text, display.uploads, downloads, sentAt, replyTo = replyTo, runtime = sender["agentRuntime"]?.stringValue)
         }
 
         /** The posts still on their way: the chat has not returned them yet. */
