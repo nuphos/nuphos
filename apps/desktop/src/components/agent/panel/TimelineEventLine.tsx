@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
 
+import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { t } from '../../../i18n'
 import { toAbsoluteAtlasUrl } from '../../../lib/webBaseUrl'
 import { Avatar } from '../../Avatar'
@@ -82,29 +83,15 @@ function EventLine({
 
   // An event from an older backend carries only its sentence.
   if (!actor) return <Rule title={title}>{event.text}</Rule>
-  if (event.kind === 'message_edited') {
-    const forkUrl =
-      teamId && event.forkSessionId
-        ? toAbsoluteAtlasUrl(`/teams/${teamId}/agent/${event.forkSessionId}`)
-        : null
-
+  if (event.kind === 'message_edited')
     return (
-      <Rule title={title}>
-        {fill(t('{actor} edited a message and ran it in a new task'), {
-          actor: <Person person={actor} />,
-        })}
-        {forkUrl && onOpenNuphosLink && (
-          <button
-            type="button"
-            onClick={() => onOpenNuphosLink(forkUrl)}
-            className="shrink-0 font-medium text-secondary hover:underline"
-          >
-            {t('Open')}
-          </button>
-        )}
-      </Rule>
+      <EditedLine
+        event={{ ...event, actor }}
+        title={title}
+        teamId={teamId}
+        onOpenNuphosLink={onOpenNuphosLink}
+      />
     )
-  }
   if (event.kind === 'runtime_fallback_stopped')
     return (
       <Rule title={event.text}>
@@ -175,5 +162,41 @@ export function MovingSessionLine({ label }: { label: string }) {
         </Rule>
       </div>
     </PlanRevealSection>
+  )
+}
+
+/** An edit that ran in a fork. The fork is private to whoever edited, so only they get Open. */
+function EditedLine({
+  event,
+  title,
+  teamId,
+  onOpenNuphosLink,
+}: {
+  event: AgentTimelineEvent & { actor: NonNullable<AgentTimelineEvent['actor']> }
+  title: string
+  teamId?: string
+  onOpenNuphosLink?: (href: string) => boolean
+}) {
+  const viewerId = useCurrentUser()?.id
+  const forkUrl =
+    teamId && event.forkSessionId && viewerId === event.actor.id
+      ? toAbsoluteAtlasUrl(`/teams/${teamId}/agent/${event.forkSessionId}`)
+      : null
+
+  return (
+    <Rule title={title}>
+      {fill(t('{actor} edited a message and ran it in a new task'), {
+        actor: <Person person={event.actor} />,
+      })}
+      {forkUrl && onOpenNuphosLink && (
+        <button
+          type="button"
+          onClick={() => onOpenNuphosLink(forkUrl)}
+          className="shrink-0 font-medium text-secondary hover:underline"
+        >
+          {t('Open')}
+        </button>
+      )}
+    </Rule>
   )
 }

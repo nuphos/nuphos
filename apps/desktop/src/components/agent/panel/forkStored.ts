@@ -1,24 +1,28 @@
-// Each fork's first send: its history import, if it had history, and its first turn.
-const forkSends = new Map<string, { imported: Promise<void> | null; turn: Promise<unknown> }>()
+import { parseAtlasError } from '../../../api/errors.ts'
 
-export function rememberForkSend(
-  tabId: string,
-  imported: Promise<void> | null,
-  turn: Promise<unknown>,
-) {
-  forkSends.set(tabId, { imported, turn })
-}
+/** How long to wait before each new try while the server has no fork yet; tests shorten it. */
+export const forkLookupWaits = { ms: [1_000, 2_000, 4_000, 8_000, 15_000, 30_000] }
 
 /**
- * Settles once the server stores the fork `tabId` sent its first message in:
- * when its copied history is imported, or, with no history to import, when
- * that first turn has run, even if the turn failed. Rejects when the import
- * fails, since the server then has no fork.
+ * Runs `record` once the server has the fork an edit sent its first message in.
+ * A fork with history has it once the import lands; a failed import rejects,
+ * since then there is no fork. A fork with no history is stored by its first
+ * turn, which the server starts after agentStart has returned, so `record` is
+ * tried again while the server answers fork_not_found.
  */
-export async function forkStored(tabId: string): Promise<void> {
-  const send = forkSends.get(tabId)
+export async function afterForkStored(
+  imported: Promise<void> | undefined,
+  record: () => Promise<unknown>,
+) {
+  await imported
+  for (const wait of [...forkLookupWaits.ms, null]) {
+    try {
+      await record()
 
-  forkSends.delete(tabId)
-  if (!send) return
-  await (send.imported ?? send.turn.catch(() => undefined))
+      return
+    } catch (err) {
+      if (wait === null || parseAtlasError(err).code !== 'fork_not_found') throw err
+      await new Promise((resolve) => setTimeout(resolve, wait))
+    }
+  }
 }

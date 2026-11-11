@@ -89,7 +89,7 @@ describe('session timeline events', () => {
       {
         kind: 'message_edited',
         at: at.toISOString(),
-        text: 'Alice edited a message and ran it in a new session',
+        text: 'Alice edited a message and ran it in a new task',
         actor: { id: 'alice', name: 'Alice', avatarURL: '' },
         forkSessionId: 'fork-1',
       },

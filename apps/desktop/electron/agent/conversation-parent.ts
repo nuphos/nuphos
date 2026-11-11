@@ -1,4 +1,4 @@
-import { callJson, teamQuery } from './http'
+import { callJson, callJsonForRenderer, teamQuery } from './http'
 
 export async function unlinkConversationParent(
   sessionId: string,
@@ -16,7 +16,7 @@ export async function recordEditFork(
   forkSessionId: string,
   teamId?: string,
 ): Promise<{ ok: boolean }> {
-  return callJson<{ ok: boolean }>(
+  return callJsonForRenderer<{ ok: boolean }>(
     'POST',
     `/agent/conversations/${encodeURIComponent(sessionId)}/edit-forks${teamQuery(teamId)}`,
     { forkSessionId },

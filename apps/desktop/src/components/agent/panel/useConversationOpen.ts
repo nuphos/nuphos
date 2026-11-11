@@ -12,7 +12,8 @@ import {
   defaultCredentialAccess,
   credentialSelectionSignature,
 } from './credentialAccess'
-import { forkStored } from './forkStored'
+import { forkImport } from './dispatchTurn'
+import { afterForkStored } from './forkStored'
 import { runLoadEarlierMessages } from './loadEarlierMessages'
 import { runOpenConversation } from './openConversation'
 import { fromPersistedMessages } from './persistence'
@@ -164,8 +165,11 @@ export function useConversationOpen(acc: Acc) {
     editResendRef.current = null
     // Once the server has the fork, the original links to it: the edit ran there.
     void dispatchTurn(pending.tabId, pending.text, [])
-      .then(() => forkStored(pending.tabId))
-      .then(() => api.agentRecordEditFork(pending.sourceSessionId, fork.sessionId, teamId))
+      .then(() =>
+        afterForkStored(forkImport(pending.tabId), () =>
+          api.agentRecordEditFork(pending.sourceSessionId, fork.sessionId, teamId),
+        ),
+      )
       .catch((err: unknown) => {
         console.warn('[edit] could not link the original agent to its fork', err)
       })

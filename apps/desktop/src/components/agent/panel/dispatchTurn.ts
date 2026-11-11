@@ -6,7 +6,6 @@ import { toast } from '../../ui/toast.ts'
 
 import { makeAttachmentTurn } from './attachments.ts'
 import { supersedePendingApprovals, finalizeIncompleteTools } from './clientTools.ts'
-import { rememberForkSend } from './forkStored.ts'
 import {
   rememberDispatchedDraft,
   rememberSideSend,
@@ -24,6 +23,9 @@ import type { AgentMessageMention } from '../../../api/agent-types'
 
 // Each tab's latest fork history import, which a message sent meanwhile waits for.
 const forkImports = new Map<string, Promise<void>>()
+
+/** The tab's latest fork history import, if it has one. */
+export const forkImport = (tabId: string) => forkImports.get(tabId)
 
 export type DispatchTurnCtx = Pick<
   PanelCtx,
@@ -256,44 +258,42 @@ export async function runDispatchTurn(
     : Promise.resolve()
 
   if (forkHistory) forkImports.set(tabId, importForkHistory)
-  const turn = importForkHistory.then(() => {
-    if (forkHistory) {
-      setTabs((prev) => prev.map((t) => (t.id === tabId ? { ...t, unsaved: false } : t)))
-    }
+  void importForkHistory
+    .then(() => {
+      if (forkHistory) {
+        setTabs((prev) => prev.map((t) => (t.id === tabId ? { ...t, unsaved: false } : t)))
+      }
 
-    return startTurn(nextMessages)
-  })
+      return startTurn(nextMessages)
+    })
+    .catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err)
 
-  // The server has the fork once its history is imported, or its first turn has run.
-  if (tab.unsaved) rememberForkSend(tabId, forkHistory ? importForkHistory : null, turn)
-  void turn.catch((err: unknown) => {
-    const message = err instanceof Error ? err.message : String(err)
-
-    trackError(
-      {
-        source: 'agent_stream',
-        phase: 'agent_start_failed',
-        message,
-        streamId,
-        sessionId: tab.sessionId,
-      },
-      err,
-    )
-    // The Inbox shows no transcript: the question it put back needs a reason.
-    if (ctx.decisionReplyTo) toast.apiError(t('Could not send your answer'), err)
-    setTabs((prev) =>
-      prev.map((t) =>
-        t.streamId === streamId
-          ? {
-              ...t,
-              streaming: false,
-              streamId: null,
-              phase: null,
-              streamStartedAt: null,
-              error: message,
-            }
-          : t,
-      ),
-    )
-  })
+      trackError(
+        {
+          source: 'agent_stream',
+          phase: 'agent_start_failed',
+          message,
+          streamId,
+          sessionId: tab.sessionId,
+        },
+        err,
+      )
+      // The Inbox shows no transcript: the question it put back needs a reason.
+      if (ctx.decisionReplyTo) toast.apiError(t('Could not send your answer'), err)
+      setTabs((prev) =>
+        prev.map((t) =>
+          t.streamId === streamId
+            ? {
+                ...t,
+                streaming: false,
+                streamId: null,
+                phase: null,
+                streamStartedAt: null,
+                error: message,
+              }
+            : t,
+        ),
+      )
+    })
 }

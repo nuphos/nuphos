@@ -76,7 +76,7 @@ export function serializeTimelineEvents(
       return {
         kind: event.kind,
         at,
-        text: `${actor.name} edited a message and ran it in a new session`,
+        text: `${actor.name} edited a message and ran it in a new task`,
         actor,
         forkSessionId: event.forkSessionId,
       }
