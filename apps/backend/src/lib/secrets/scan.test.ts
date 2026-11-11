@@ -359,8 +359,8 @@ describe('scanner regressions', () => {
   test('a JWT right after a hyphen is redacted in transcripts', async () => {
     const jwt = `eyJ${randomAlnum(30)}.${randomAlnum(60)}.${randomAlnum(40)}`
 
-    expect(await redactTokenShapes(`/tmp/session-${jwt}.json`)).toBe(
-      '/tmp/session-[REDACTED:jwt].json',
+    expect(await redactTokenShapes(`logs/session-${jwt}.json`)).toBe(
+      'logs/session-[REDACTED:jwt].json',
     )
   })
 
