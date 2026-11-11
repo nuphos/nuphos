@@ -57,6 +57,7 @@ export function TriggersView({
   initialView,
 }: Props) {
   const [pageView, changePageView] = useTriggersPageView(initialView)
+  const createTrigger = () => setTriggerForm({ kind: 'create' })
   const {
     members,
     membersFailed,
@@ -75,7 +76,7 @@ export function TriggersView({
     refreshKey,
     onLoading,
     inSubView: Boolean(triggerDetail) || Boolean(triggerForm),
-    onCreate: () => setTriggerForm({ kind: 'create' }),
+    onCreate: createTrigger,
   })
 
   const triggers = listState.kind === 'ready' ? listState.triggers : []
@@ -84,11 +85,7 @@ export function TriggersView({
   // Leaving a form returns to the trigger it belongs to when there is one, and
   // to the list otherwise — the same rule the breadcrumb's Triggers crumb uses.
   const closeForm = () => setTriggerForm(null)
-  const newTriggerAction = {
-    label: t('New trigger'),
-    icon: Plus,
-    onClick: () => setTriggerForm({ kind: 'create' }),
-  }
+  const newTriggerAction = { label: t('New trigger'), icon: Plus, onClick: createTrigger }
 
   const patchTrigger = async (triggerId: string, enabled: boolean) => {
     try {
@@ -153,6 +150,8 @@ export function TriggersView({
           triggers={triggers}
           loading={listState.kind === 'loading'}
           refreshKey={refreshKey}
+          filter={filter}
+          onCount={onCount}
           emptyAction={canManage ? newTriggerAction : undefined}
           onOpenTrigger={(triggerId, triggerName) => setTriggerDetail({ triggerId, triggerName })}
         />
@@ -173,7 +172,7 @@ export function TriggersView({
           onOpenTrigger={(triggerId, triggerName) => setTriggerDetail({ triggerId, triggerName })}
           onOpenGroup={(groupId, name) => setTriggerForm({ kind: 'group', groupId, name })}
           onEditTrigger={(triggerId, name) => setTriggerForm({ kind: 'edit', triggerId, name })}
-          onCreate={() => setTriggerForm({ kind: 'create' })}
+          onCreate={createTrigger}
           onOpenAgentChat={onOpenAgentChat}
         />
       )}

@@ -1,9 +1,11 @@
 import { CalendarDays } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { EmptyState } from '../../../components/EmptyState'
 import { t } from '../../../i18n'
+import { applyFilter } from '../../cloud/shared'
 import { useResetOnKey } from '../../useResetOnKey'
+import { triggerSearchText } from '../triggerRows'
 
 import { EventPopover } from './EventPopover'
 import { addDays, monthViewStartWeek, startOfDay, startOfWeek, titleForView } from './model'
@@ -39,6 +41,10 @@ type Props = {
   triggers: AgentTrigger[]
   loading: boolean
   refreshKey?: number
+  /** The workspace toolbar's shared search box; the list filters with it too. */
+  filter: string
+  /** Row count for the page header: the triggers these grids actually draw. */
+  onCount?: (n: number) => void
   /** The empty state's call to action. */
   emptyAction?: ComponentProps<typeof EmptyState>['primaryAction']
   /** Open one trigger's detail — the popup's jump-out. */
@@ -59,6 +65,8 @@ export function TriggerCalendar({
   triggers,
   loading,
   refreshKey,
+  filter,
+  onCount,
   emptyAction,
   onOpenTrigger,
 }: Props) {
@@ -80,13 +88,40 @@ export function TriggerCalendar({
   const monthStripRef = useRef<MonthStripHandle>(null)
 
   useResetOnKey(`${teamId}|${String(refreshKey)}`, () => setSelected(null))
+  // A query that hides the selected chip takes its popup with it.
+  useResetOnKey(filter, () => setSelected(null))
 
-  const cronTriggers = useMemo(
-    () => triggers.filter((trigger) => trigger.triggerType === 'cron' && trigger.cronExpression),
-    [triggers],
+  // One search box, one matcher: the text the list searches by decides which
+  // triggers both grids draw.
+  const matchedIds = useMemo(
+    () => new Set(applyFilter(triggers, filter, triggerSearchText).map((trigger) => trigger.id)),
+    [triggers, filter],
   )
-  // Received webhook events overlay the cron projections on every grid.
-  const runEvents = useWebhookRuns(teamId, triggers, refreshKey)
+  const cronTriggers = useMemo(
+    () =>
+      triggers.filter(
+        (trigger) =>
+          matchedIds.has(trigger.id) &&
+          trigger.triggerType === 'cron' &&
+          Boolean(trigger.cronExpression),
+      ),
+    [triggers, matchedIds],
+  )
+  // Received webhook events overlay the cron projections on every grid. The
+  // fetch stays on the whole set — a keystroke must not restart it — and only
+  // the overlay is narrowed.
+  const webhookRuns = useWebhookRuns(teamId, triggers, refreshKey)
+  const runEvents = useMemo(
+    () => webhookRuns.filter((event) => matchedIds.has(event.triggerId)),
+    [webhookRuns, matchedIds],
+  )
+  // What the header counts is what the grids draw: one per trigger, whether it
+  // projects fire times or arrived as a received run.
+  const drawn = cronTriggers.length + new Set(runEvents.map((event) => event.triggerId)).size
+
+  useEffect(() => {
+    onCount?.(drawn)
+  }, [drawn, onCount])
 
   const shift = (direction: 1 | -1) => {
     if (mode === 'month') monthStripRef.current?.page(direction)
@@ -113,7 +148,9 @@ export function TriggerCalendar({
   const selectEvent = (event: SelectedEvent['event'], anchorEl: HTMLElement) =>
     setSelected({ event, anchor: anchorEl })
 
-  if (!loading && cronTriggers.length === 0 && runEvents.length === 0) {
+  // The full-page state is for a feature nobody has used yet; a query that
+  // matches nothing is an empty calendar, not an unused one.
+  if (!loading && !filter && cronTriggers.length === 0 && runEvents.length === 0) {
     return (
       <EmptyState
         icon={CalendarDays}
