@@ -46,7 +46,7 @@ export async function approveAppForComputerUse(
     // `title` is what the card shows as its heading.
     input: { title: request.message, app: request.meta.tool_params },
   })
-  if (await deps.bypass(ctx.sessionId, ctx.userId)) {
+  if (await deps.bypass(ctx.sessionId, ctx.conversationOwnerUserId ?? ctx.userId)) {
     // The transcript keeps what the agent was allowed to control without asking.
     await publish({
       type: 'authorization-decision',

@@ -106,17 +106,6 @@ describe('local_browser', () => {
     expect(fake.opened).toHaveLength(0)
   })
 
-  test("only runs in the user's own conversations", async () => {
-    const fake = device(null)
-    const result = await createLocalBrowserHandler(
-      { ...ctx, conversationOwnerUserId: 'someone-else' },
-      deps({ connect: fake.connect }),
-    )({ action: 'tabs' })
-
-    expect(result.isError).toBe(true)
-    expect(fake.opened).toHaveLength(0)
-  })
-
   test("opens on the user's own screen when a Nuphos computer is also selected", async () => {
     const targets: string[] = []
     const fake = device(null)
@@ -180,4 +169,21 @@ describe('local_browser', () => {
       'open that login or sign-up page here yourself, sub-agents included',
     )
   })
+})
+
+test('an authorized teammate can use the selected conversation browser', async () => {
+  const tabs = { content: [{ type: 'text' as const, text: '[]' }] }
+  const fake = device(tabs)
+  const actors: string[] = []
+  const result = await createLocalBrowserHandler(
+    { ...ctx, conversationOwnerUserId: 'conversation-owner' },
+    deps({
+      connect: fake.connect,
+      audit: async (entry) => {
+        actors.push(entry.actorUserId)
+      },
+    }),
+  )({ action: 'tabs' })
+  expect(result).toEqual(tabs)
+  expect(actors).toEqual(['u1', 'u1'])
 })

@@ -76,7 +76,12 @@ export const defaultDeviceToolDeps: DeviceToolDeps = {
   devices: resolveAvailableLocalExecDevices,
   isMember: isActiveTeamMember,
   owner: (ctx, deviceId) =>
-    requireDeviceAccess(ctx.userId, ctx.teamId, deviceId, 'use').then(
+    requireDeviceAccess(
+      ctx.conversationOwnerUserId ?? ctx.userId,
+      ctx.teamId,
+      deviceId,
+      'use',
+    ).then(
       (device) => device.userId,
       () => null,
     ),
@@ -168,8 +173,6 @@ export async function resolveDevice(
   requested: string | undefined,
   deps: DeviceToolDeps,
 ): Promise<string | ToolResult> {
-  if (ctx.conversationOwnerUserId && ctx.conversationOwnerUserId !== ctx.userId)
-    return toolError(`${tool.label} only runs in your own conversations.`)
   const devices = await deps.devices(ctx)
 
   if (devices.length === 0) return toolError(tool.noDevice)

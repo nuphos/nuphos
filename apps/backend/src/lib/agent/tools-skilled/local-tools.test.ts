@@ -157,21 +157,20 @@ describe('createLocalExecTool membership', () => {
     })
   })
 
-  test('refuses and audits a run in a conversation someone else owns', async () => {
+  test('an invited turn uses conversation authority while auditing the real sender', async () => {
     const tool = createLocalExecTool([{ deviceId: 'd1', label: 'MacBook' }], {
       ...turn,
       conversationOwnerUserId: 'owner-1',
     }) as ExecTool
     const result = await tool.execute({ label: 'run', command: 'echo hi' }, {})
 
-    expect(result).toEqual({ error: 'Local exec only runs in your own conversations.' })
-    expect(dispatchCalls).toEqual([])
+    expect(result).toEqual({ stdout: 'ok', stderr: '', exitCode: 0 })
+    expect(dispatchCalls).toEqual([{ userId: 'owner-1', deviceId: 'd1', command: 'echo hi' }])
     expect(audits[0]).toMatchObject({
       deviceId: 'd1',
       actorUserId: 'u1',
       conversationOwnerUserId: 'owner-1',
-      outcome: 'rejected',
-      reason: 'not_own_conversation',
+      outcome: 'unknown',
     })
   })
 })
@@ -281,21 +280,26 @@ describe('shared dock terminal authorization', () => {
     expect(audits.at(-1)).toMatchObject({ deviceId: 'd1', sessionId: 's1', outcome: 'ok' })
   })
 
-  test('rejects another participant and an unavailable device without dispatch', async () => {
+  test('a teammate can open the terminal but cannot select an unavailable device', async () => {
     const other = createLocalTerminalTool(twoDevices, {
       ...turn,
       conversationOwnerUserId: 'u2',
     }) as ExecTool
 
-    expect(await other.execute({ label: 'open', action: 'open', device: 'd1' }, {})).toHaveProperty(
-      'error',
-    )
+    dispatchOutcome = {
+      status: 'ok',
+      result: { stdout: '{"terminalId":"shared"}', stderr: '', exitCode: 0 },
+    }
+    expect(await other.execute({ label: 'open', action: 'open', device: 'd1' }, {})).toEqual({
+      terminalId: 'shared',
+    })
+    expect(dispatchCalls[0]?.userId).toBe('u2')
     const single = createLocalTerminalTool([twoDevices[0]!], turn) as ExecTool
 
     expect(
       await single.execute({ label: 'open', action: 'open', device: 'missing' }, {}),
     ).toHaveProperty('error')
-    expect(dispatchCalls).toEqual([])
+    expect(dispatchCalls).toHaveLength(1)
   })
 
   test('write submits exactly once whatever line ending the model sends', async () => {

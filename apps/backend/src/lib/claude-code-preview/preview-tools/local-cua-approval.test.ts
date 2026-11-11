@@ -84,3 +84,16 @@ describe('approveAppForComputerUse', () => {
     })
   })
 })
+
+test('a shared turn uses the conversation Full Access mode for app approval', async () => {
+  const { deps, waits } = harness({
+    bypass: async (sessionId, userId) => {
+      expect([sessionId, userId]).toEqual(['s1', 'owner'])
+      return true
+    },
+  })
+  expect(
+    await approveAppForComputerUse({ ...ctx, conversationOwnerUserId: 'owner' }, request, deps),
+  ).toBe(true)
+  expect(waits).toEqual([])
+})

@@ -23,8 +23,9 @@ export type AvailableDevice = LocalExecDevice & { box?: boolean }
 export async function resolveAvailableLocalExecDevices(
   ctx: PreviewToolContext,
 ): Promise<AvailableDevice[]> {
+  const userId = ctx.conversationOwnerUserId ?? ctx.userId
   const agent: AgentRef = {
-    userId: ctx.userId,
+    userId,
     sessionId: ctx.sessionId,
     ...(ctx.conversationOwnerUserId
       ? { conversationOwnerUserId: ctx.conversationOwnerUserId }
@@ -32,23 +33,20 @@ export async function resolveAvailableLocalExecDevices(
   }
   const [access, options] = await Promise.all([
     getAgentCredentialAccess(agent, ctx.teamId),
-    getAgentCredentialOptions(ctx.teamId, ctx.userId),
+    getAgentCredentialOptions(ctx.teamId, userId),
   ])
   const selected = new Set(access.deviceIds)
 
-  // Resolve owners server-side; every actual dispatch and wake rechecks the actor.
+  // Sharing delegates this conversation's selected devices, not computer-wide access.
   const devices = await Promise.all(
     options.devices
       .filter((device) => selected.has(device.deviceId))
       .map(async (device): Promise<AvailableDevice | null> => {
         if (!device.available && !device.box?.ready) return null
         // A device removed or unshared since the list was read is just not offered.
-        const target = await requireDeviceAccess(
-          ctx.userId,
-          ctx.teamId,
-          device.deviceId,
-          'use',
-        ).catch(() => null)
+        const target = await requireDeviceAccess(userId, ctx.teamId, device.deviceId, 'use').catch(
+          () => null,
+        )
 
         if (!target?.allowLocalExec) return null
 
@@ -61,7 +59,7 @@ export async function resolveAvailableLocalExecDevices(
             ? {
                 wake: async () => {
                   const current = await requireDeviceAccess(
-                    ctx.userId,
+                    userId,
                     ctx.teamId,
                     device.deviceId,
                     'use',

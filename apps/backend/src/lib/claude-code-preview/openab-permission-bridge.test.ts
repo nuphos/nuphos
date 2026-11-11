@@ -417,3 +417,45 @@ describe('OpenAB permission bridge', () => {
     expect(outcome).toEqual({ outcome: { outcome: 'cancelled' } })
   })
 })
+
+test.each([true, false])(
+  'a teammate follows the conversation mode (Full Access=%s)',
+  async (fullAccess) => {
+    const frames: Record<string, unknown>[] = []
+    const waits: string[] = []
+    const outcome = await handleOpenAbPermissionRequest(
+      {
+        userId: 'teammate',
+        conversationOwnerUserId: 'owner',
+        conversationId: 'shared',
+        request,
+        emit: (frame) => frames.push(frame),
+        handleTool: () => undefined,
+      },
+      {
+        getSessionBypass: async (sessionId, userId) => {
+          expect([sessionId, userId]).toEqual(['shared', 'owner'])
+          return fullAccess
+        },
+        registerWait: async (args) => {
+          waits.push(args.userId)
+          return { ...args, waitId: 'wait', createdAt: 0 }
+        },
+        hasPendingMessages: async () => false,
+        awaitDecision: async () => ({
+          timedOut: false as const,
+          decision: {
+            userId: 'teammate',
+            sessionId: 'shared',
+            waitId: 'wait',
+            resolvedAt: 1,
+            payload: { decision: 'approved', optionId: 'allow-once' },
+          },
+        }),
+      },
+    )
+    expect(waits).toEqual(fullAccess ? [] : ['teammate'])
+    expect(frames.some((frame) => frame.type === 'tool-approval-request')).toBe(!fullAccess)
+    expect(outcome).toEqual({ outcome: { outcome: 'selected', optionId: 'allow-once' } })
+  },
+)
