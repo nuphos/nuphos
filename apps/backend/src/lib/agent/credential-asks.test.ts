@@ -93,6 +93,30 @@ describe('selectedProviders', () => {
     )
   })
 
+  // An exact own credential: only selecting that one answers it, never a team binding.
+  const personal = (id: 'github' | 'linear'): InputRequest => ({
+    ...ask('q'),
+    credentials: [{ provider: 'personal', id }],
+  })
+
+  test("a team binding never answers a question for the member's own credential", () => {
+    expect(selectedProviders(personal('github'), { githubInstallationIds: ['1', '2'] })).toEqual([])
+    expect(selectedProviders(personal('linear'), { linearWorkspaceIds: ['w'] })).toEqual([])
+  })
+
+  test('selecting the own credential it names answers it; another one does not', () => {
+    expect(selectedProviders(personal('github'), { personalCredentialIds: ['github'] })).toEqual([
+      'personal github',
+    ])
+    expect(selectedProviders(personal('github'), { personalCredentialIds: ['linear'] })).toEqual([])
+  })
+
+  test('a question for any GitHub access is still answered by a team installation', () => {
+    expect(selectedProviders(ask('q', ['github']), { githubInstallationIds: ['1'] })).toEqual([
+      'github',
+    ])
+  })
+
   test('a question without providers is never answered by a selection', () => {
     expect(selectedProviders(ask('q'), { githubInstallationIds: ['1'] })).toEqual([])
   })

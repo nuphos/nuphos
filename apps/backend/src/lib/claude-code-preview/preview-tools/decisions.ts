@@ -12,6 +12,7 @@ import {
   createUserDecisionTools,
   decisionQuestionProblem,
   isConnectableProvider,
+  integrationTargetProblem,
 } from '@/lib/agent/tools-skilled/decision-tools'
 import { createLocalTools } from '@/lib/agent/tools-skilled/local-tools'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
@@ -32,6 +33,7 @@ import type {
   PublishPreviewFrame,
 } from '../preview-tool-context'
 import type { AiSdkToolLike } from './ai-sdk-adapter'
+import type { PersonalCredentialRef } from '@/lib/agent/tools-skilled/decision-tools'
 import type { ExplicitUserDecision } from '@/lib/agent/tools-skilled/types'
 import type { ToolHandler } from '@/lib/mcp/protocol'
 
@@ -164,7 +166,12 @@ function passthroughHandler(
   return async (args) => {
     // Only the Desktop app renders the Connect and secure input cards; elsewhere
     // (Slack, Discord, Lark) the question goes out as plain text.
-    const { providers: _providers, secretName: _secretName, ...plain } = args
+    const {
+      providers: _providers,
+      credentials: _credentials,
+      secretName: _secretName,
+      ...plain
+    } = args
     const input = name === 'request_user_decision' && ctx.localTools !== true ? plain : args
     // Rejected before its card goes out, so no unanswerable question reaches the user.
     const problem =
@@ -176,6 +183,9 @@ function passthroughHandler(
         : null
 
     if (problem) return toolError(problem)
+    const target = name === 'request_user_decision' ? integrationTargetProblem(args) : null
+
+    if (target) return toolError(target)
     const outcome = await runClassicTool(name, tool, input, ctx, options)
 
     if ('error' in outcome) return toolError(outcome.error)
@@ -195,6 +205,9 @@ function passthroughHandler(
         : {}),
       ...(category === 'integration' && Array.isArray(args.providers)
         ? { providers: args.providers.filter(isConnectableProvider) }
+        : {}),
+      ...(category === 'integration' && Array.isArray(args.credentials)
+        ? { credentials: args.credentials as PersonalCredentialRef[] }
         : {}),
       askedAt: new Date(),
     }).catch((err: unknown) => {

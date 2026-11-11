@@ -14,8 +14,7 @@ export type AgentConversationPerson = {
   name: string
   email: string
   avatarURL?: string
-  /** Former team member (removed, or account deleted) — render dimmed with a
-   *  "Deactivated" tag. */
+  /** Former team member (removed, or account deleted) — render dimmed with a "Deactivated" tag. */
   deactivated?: boolean
 }
 
@@ -132,9 +131,10 @@ export type AgentInputRequest = {
   /** Markdown the agent wrote so the question can be decided without the chat. */
   body?: string
   options?: string[]
-  /** The secret a `credential` request asks for, the providers an `integration` one connects, or the plan it approves. */
+  /** The secret a `credential` request asks for, the providers an `integration` one connects (any access) or the member's own credentials it asks for (only selecting one answers), or the plan it approves. */
   secretName?: string
   providers?: string[]
+  credentials?: { provider: 'personal'; id: 'github' | 'linear' }[]
   planId?: string
   askedAt: string
   status: 'open' | 'answered' | 'dismissed'

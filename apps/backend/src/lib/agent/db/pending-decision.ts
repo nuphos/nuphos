@@ -1,5 +1,6 @@
 import { agentConversations } from './shared'
 
+import type { PersonalCredentialRef } from '@/lib/agent/tools-skilled/decision-tools'
 import type { ExplicitUserDecision } from '@/lib/agent/tools-skilled/types'
 
 export type InputRequestStatus = 'open' | 'answered' | 'dismissed'
@@ -17,6 +18,8 @@ export type InputRequest = ExplicitUserDecision & {
   planId?: string
   /** The providers an `integration` request asks to connect, so its Connect card lists them. */
   providers?: string[]
+  /** The member's own credentials an `integration` request asks for: only selecting one answers it. */
+  credentials?: PersonalCredentialRef[]
   askedAt: Date
   status: InputRequestStatus
   resolvedAt?: Date
