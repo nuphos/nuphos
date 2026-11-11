@@ -180,6 +180,23 @@ describe('independent Bot bundle admission', () => {
     }
   })
 
+  test('still refuses a keyed credential in instructions and workspace files', () => {
+    const key = `OPENAI_API_KEY=sk-proj-${'a1B2'.repeat(8)}`
+    const inline = { ...manifest(), bots: [{ ...manifest().bots[0], instructions: key }] }
+
+    expect(() => readBotBundle(zip([['manifest.json', JSON.stringify(inline)]]))).toThrow(
+      'secret-bearing',
+    )
+    const value = {
+      ...manifest(),
+      bots: [{ ...manifest().bots[0], files: [{ path: 'files/run.sh', destination: 'run.sh' }] }],
+    }
+
+    expect(() =>
+      readBotBundle(bundle([['files/run.sh', `deploy --token ${'x9Y8'.repeat(6)}`]], value)),
+    ).toThrow('secret-bearing')
+  })
+
   test('rejects highly expanding ZIP data before inflation', () => {
     expect(() =>
       readBotBundle(zip([['manifest.json', 'a'.repeat(100_000)]], { deflate: true })),

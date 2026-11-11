@@ -18,12 +18,19 @@ function invalid(reason: string): never {
   throw new Error(`Cannot import bundle: ${reason}`)
 }
 
-// Keyword and entropy heuristics match ordinary prose, code, links and compressed bytes;
-// rejecting a whole export needs a concrete credential format.
+// The redactor's keyword and entropy rules match ordinary prose, code, links and
+// compressed bytes. Use its concrete formats everywhere; in text, also refuse a
+// secret keyword followed by a key-shaped value (20+ characters, letters and digits).
 const HEURISTIC = new Set(['secret-assignment', 'secret-flag', 'high-entropy'])
+const KEYED_VALUE =
+  // eslint-disable-next-line sonarjs/regex-complexity -- key names mirror the redactor's assignment rule
+  /(?:secret|token|password|passwd|pwd|api[_-]?key|access[_-]?key|private[_-]?key|credential|auth)[\w-]*["']?(?:\s*[=:]\s*|\s+)["']?(?=[\w-]*[a-z])(?=[\w-]*\d)[\w-]{20,}/i
 
-function checkSecret(text: string) {
-  if (redactSecrets(text).matches.some((match) => !HEURISTIC.has(match.kind)))
+function checkSecret(text: string, prose = true) {
+  if (
+    redactSecrets(text).matches.some((match) => !HEURISTIC.has(match.kind)) ||
+    (prose && KEYED_VALUE.test(text))
+  )
     invalid('secret-bearing content; remove credentials and export again')
 }
 
@@ -182,7 +189,14 @@ function checkAsset(name: string, data: Uint8Array, avatars: Set<string>) {
       invalid('avatar dimensions exceed limits')
   }
   // Scan raw decoded bytes as well as parsed fields; filenames never exempt content.
-  checkSecret(new TextDecoder().decode(data))
+  let text: string | undefined
+
+  try {
+    text = new TextDecoder('utf-8', { fatal: true }).decode(data)
+  } catch {
+    // Binary content: concrete credential formats only.
+  }
+  checkSecret(text ?? new TextDecoder().decode(data), text !== undefined)
 }
 
 export function readBotBundle(input: Uint8Array): BotBundleArchive {
@@ -191,7 +205,7 @@ export function readBotBundle(input: Uint8Array): BotBundleArchive {
   const bytes = Buffer.from(input)
 
   // ZIP comments and extra fields are retained in staging too, so scan them as well.
-  checkSecret(new TextDecoder().decode(bytes))
+  checkSecret(new TextDecoder().decode(bytes), false)
 
   const directory = entries(bytes)
   const total = directory.reduce((sum, entry) => sum + entry.size, 0)
