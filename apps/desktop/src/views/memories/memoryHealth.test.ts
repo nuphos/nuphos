@@ -62,7 +62,6 @@ test('every rate carries the counts it was computed from', () => {
 
   assert.deepEqual(h.applied, { pct: 31, applied: 18, judged: 58 })
   assert.equal(h.checkedTurns, 58)
-  assert.equal(h.recall.total, 967)
 })
 
 test('the model exposes only what the page renders', () => {
@@ -71,13 +70,7 @@ test('the model exposes only what the page renders', () => {
   // recourse. If they come back, they come back with an audience.
   const h = deriveMemoryHealth(summary({ total: 100, withApplied: 10, ran: 40 }))
 
-  assert.deepEqual(Object.keys(h).sort(), [
-    'applied',
-    'checkedTurns',
-    'learned7d',
-    'recall',
-    'windowDays',
-  ])
+  assert.deepEqual(Object.keys(h).sort(), ['applied', 'checkedTurns', 'windowDays'])
 })
 
 test('applied% can never exceed 100 (withApplied is a subset of judged)', () => {
