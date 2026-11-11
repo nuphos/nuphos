@@ -80,8 +80,8 @@ fun InboxPage(inbox: OpenQuestions?, nav: NavHostController, allowed: () -> Bool
                                 val own = question.personalCredentials
                                 if (own != null) {
                                     store.loadCredentialOptions()
-                                    val connected = store.credentialCatalog?.allItems.orEmpty()
-                                        .filter { it.provider.selectionKey == "personalCredentialIds" }.map { it.id }.toSet()
+                                    val connected = store.credentialCatalog?.allItems
+                                        ?.filter { it.provider.selectionKey == "personalCredentialIds" }?.map { it.id }?.toSet()
                                     if (allowed()) inbox.useOwn(own, question, connected)
                                 } else inbox.storedSelection(question)?.let { stored = it; selection = it; connecting = question }
                             }

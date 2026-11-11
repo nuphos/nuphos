@@ -192,6 +192,10 @@ class BotQuestionsTest {
             override suspend fun credentials(sessionId: String) = JsonValue.parse("""{"githubInstallationIds":["166"]}""")
             override suspend fun saveCredentials(sessionId: String, access: JsonValue) { saved += access }
         })
+        // Credentials unreadable: said on the card, nothing saved.
+        inbox.useOwn(listOf("github"), own, connected = null)
+        assertTrue(saved.isEmpty())
+        assertEquals("Couldn't load your credentials. Try again.", inbox.failures[own.id])
         // Not connected: said on the card, nothing saved.
         inbox.useOwn(listOf("github"), own, connected = emptySet())
         assertTrue(saved.isEmpty())

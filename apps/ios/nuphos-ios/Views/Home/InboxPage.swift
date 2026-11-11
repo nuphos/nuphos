@@ -63,9 +63,10 @@ struct InboxPage: View {
         // The member's own credential: added as named, with no picker and no team connection in its place.
         if let own = question.personalCredentials {
             await store.loadCredentialOptions()
-            let connected = (store.credentialCatalog?.allItems ?? [])
-                .filter { $0.provider.selectionKey == "personalCredentialIds" }.map(\.id)
-            await inbox.useOwn(own, for: question, connected: Set(connected))
+            let connected = store.credentialCatalog.map { catalog in
+                Set(catalog.allItems.filter { $0.provider.selectionKey == "personalCredentialIds" }.map(\.id))
+            }
+            await inbox.useOwn(own, for: question, connected: connected)
             return
         }
         guard let current = await inbox.storedSelection(for: question) else { return }

@@ -60,11 +60,14 @@ final class OpenQuestions {
         }
     }
 
-    /// Saves the asking conversation's selection, as its credential picker would. The server
-    /// answers the question once it covers a provider asked for; the card leaves with the listing.
     /// Answers a question naming the member's own credentials: adds them to the asking conversation's
-    /// stored selection, nothing else. One not connected (`connected` is the member's own) is said on the card.
-    func useOwn(_ ids: [String], for question: BotQuestion, connected: Set<String>) async {
+    /// stored selection, nothing else. `connected` is the member's own, nil when they could not be read;
+    /// either way short of all of them is said on the card.
+    func useOwn(_ ids: [String], for question: BotQuestion, connected: Set<String>?) async {
+        guard let connected else {
+            failures[question.id] = String(localized: "Couldn't load your credentials. Try again.")
+            return
+        }
         guard ids.allSatisfy(connected.contains) else {
             failures[question.id] = String(localized: "Connect it in Settings → Personal Credentials first.")
             return
@@ -74,6 +77,8 @@ final class OpenQuestions {
         await select(selection, for: question)
     }
 
+    /// Saves the asking conversation's selection, as its credential picker would. The server
+    /// answers the question once it covers a provider asked for; the card leaves with the listing.
     func select(_ selection: CredentialSelection, for question: BotQuestion) async {
         failures[question.id] = nil
         do {
