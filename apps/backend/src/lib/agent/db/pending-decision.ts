@@ -20,6 +20,8 @@ export type InputRequest = ExplicitUserDecision & {
   providers?: string[]
   /** The member's own credentials an `integration` request asks for: only selecting one answers it. */
   credentials?: PersonalCredentialRef[]
+  /** The linked resources and sub-agent threads it is about: their changes remind the agent of it. */
+  about?: string[]
   askedAt: Date
   status: InputRequestStatus
   resolvedAt?: Date
@@ -66,17 +68,37 @@ export async function updateInputRequest(
   return result.matchedCount > 0
 }
 
-/** The conversation's open requests, oldest first. */
+/** The conversation's open requests, oldest first, but those a queued message answers. */
 export async function listOpenInputRequests(
   sessionId: string,
   userId: string,
+  answering: ReadonlySet<string> = new Set(),
 ): Promise<InputRequest[]> {
   const conversation = await agentConversations().findOne(
     { sessionId, userId },
     { projection: { inputRequests: 1 } },
   )
 
-  return conversation ? openInputRequests(conversation) : []
+  return conversation ? openInputRequests(conversation, answering) : []
+}
+
+/**
+ * What a wake from a linked resource or sub-agent thread tells the agent about
+ * the open questions it asked about that resource or thread; empty when none.
+ */
+export function relatedQuestionsNote(
+  conversation: ConversationInputRequests,
+  ref: string,
+  what: string,
+): string {
+  const related = openInputRequests(conversation).filter((request) => request.about?.includes(ref))
+
+  if (!related.length) return ''
+  const list = related
+    .map((request) => `- ${request.id}: ${JSON.stringify(request.question)}`)
+    .join('\n')
+
+  return `\n\nYour open questions about this ${what}:\n${list}\nIf this answers one or makes it moot, withdraw it with withdraw_user_decision or correct it with update_user_decision.`
 }
 
 /** One request, open or resolved, by its id. */
