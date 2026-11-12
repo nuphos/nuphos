@@ -191,10 +191,14 @@ async function inspectAll(
     if (tracked.length === 0) continue
     const archive = await downloadFor(tracked, pins, download)
 
-    for (const entry of tracked)
-      inspected.push(
-        archive ? await inspect(entry.origin, archive, entry.current) : sourceGone(entry),
-      )
+    for (const entry of tracked) {
+      const result = archive
+        ? await inspect(entry.origin, archive, entry.current)
+        : sourceGone(entry)
+
+      // A report-only check keeps no file bytes, so each archive is freed before the next download.
+      inspected.push(pins ? result : { ...result, upstream: null })
+    }
   }
 
   return inspected.sort((a, b) => a.report.name.localeCompare(b.report.name))
