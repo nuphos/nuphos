@@ -573,6 +573,7 @@ describe('run stream buffer', () => {
     frame({ type: 'tool-output-available', toolCallId: 'ask-1', output: { requestId: 'r1' } }),
     frame({ type: 'atlas-stream-done' }),
   ]
+
   test('a finished run still replays to a reconnecting client, then leaves Redis', async () => {
     for (const f of frames) mirrorAgentRunFrame(USER, 'finished', f)
     expireAgentRunMirror(USER, 'finished')
