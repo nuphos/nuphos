@@ -25,6 +25,7 @@ import { ChatHeaderIcon, ChatIcon, ReplyingBanner } from './channelParts'
 import { ChannelTitle } from './ChannelTitle'
 import { sendingPost, stillSending } from './sendingPosts'
 import { useBotChatQuestions } from './useBotChatQuestions'
+import { useBotTaskAccess } from './useBotTaskAccess'
 import { useChannel } from './useChannel'
 import { useStickToBottom } from './useStickToBottom'
 
@@ -73,13 +74,13 @@ export function ChannelPane({
   const [replying, setReplying] = useState<Replying | null>(null)
   const composerRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  // Files dropped anywhere on the chat go to its composer, as in a conversation.
   const dropRef = useRef<((dt: DataTransfer) => void) | null>(null)
   const title = detail?.title ?? ''
   // A Bot's chat opens the Bot's desktop in this chat's dock, as its Task page's dock does.
   const bot = botOfChannel(detail?.faces)
   const botState = useSyncExternalStore(subscribeRuntimeStates, () => runtimeStateOf(bot))
   const botOwned = agents.some((agent) => agent.sessionId === bot && agent.ownerId === user.id)
+  const canOpenTask = useBotTaskAccess(teamId, bot, botOwned)
   const canOpenBotDesktop =
     bot !== undefined &&
     sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !botOwned }).canOpen
@@ -101,7 +102,6 @@ export function ChannelPane({
   if (pending !== sending) setSending(pending)
   const messages = [...stored, ...pending]
 
-  // Open at the latest post, and follow new ones and the typing bubble.
   const stickToBottom = useStickToBottom(scrollRef)
   const chat = { channelId, user, setSending, stickToBottom, refresh, reply: replyToQuestion }
   const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession, chat)
@@ -192,7 +192,7 @@ export function ChannelPane({
             onRenamed={refresh}
           />
         </div>
-        {bot && botOwned && (
+        {bot && canOpenTask && (
           <BotTaskButton
             provider={agents.find((agent) => agent.sessionId === bot)?.provider}
             onClick={() => (onOpenTask ?? onOpenSession)(bot)}

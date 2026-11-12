@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { withChatSections } from './chat-sections.ts'
+import { foldKey, withChatSections } from './chat-sections.ts'
 import { nestItems } from './nest-items.ts'
 
 import type { Item, Section } from './types'
@@ -191,4 +191,21 @@ test('delegated Tasks remain visible when their Bot parent is hidden', () => {
     nestItems(tasks.items).map(({ item, depth }) => [item.key, depth]),
     [['child', 0]],
   )
+})
+
+test('Bot-nested task copies stay under Bots without duplicating ordinary Tasks', () => {
+  const sections = withChatSections([
+    {
+      title: 'Agents',
+      items: [
+        row('bot', { bot: true }),
+        row('child'),
+        { ...row('nested-child', { parentKey: 'bot' }), botNested: true },
+      ],
+    },
+  ])
+
+  assert.deepEqual(layout(sections), { Channels: ['bot', 'nested-child'], Tasks: ['child'] })
+  assert.equal(foldKey({ title: 'Channels' }, 'child'), 'bots:child')
+  assert.equal(foldKey({ title: 'Tasks' }, 'child'), 'child')
 })

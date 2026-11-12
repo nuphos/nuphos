@@ -2,7 +2,6 @@ import { useState } from 'react'
 
 import { BotTaskMode } from './BotTaskMode'
 import { WorkspaceDockPanels } from './WorkspaceDockPanels'
-import { WorkspaceMainPane } from './WorkspaceMainPane'
 import { WorkspaceSessionPane } from './WorkspaceSessionPane'
 
 import type { WorkspaceController } from './useWorkspaceController'
@@ -16,16 +15,15 @@ export function WorkspaceConversationSurface({
   ws: WorkspaceController
   user: UserInfo
 }) {
-  const [task, setTask] = useState<{ conversationId: string | null; sessionId: string } | null>(
-    null,
-  )
-  const [conversationId, setConversationId] = useState(ws.selectedSessionId)
+  const [taskSessionId, setTaskSessionId] = useState<string | null>(null)
+  const surfaceKey = `${ws.scope?.teamId ?? ''}:${ws.selectedSessionId ?? ''}:${ws.mainPageOpen}`
+  const [seededSurfaceKey, setSeededSurfaceKey] = useState(surfaceKey)
 
-  if (conversationId !== ws.selectedSessionId) {
-    setConversationId(ws.selectedSessionId)
-    setTask(null)
+  if (seededSurfaceKey !== surfaceKey) {
+    setSeededSurfaceKey(surfaceKey)
+    setTaskSessionId(null)
   }
-  const taskOpen = Boolean(task) && !ws.mainPageOpen
+  const taskOpen = Boolean(taskSessionId) && !ws.mainPageOpen
 
   return (
     <div className="relative flex flex-1 min-h-0 min-w-0 overflow-hidden">
@@ -34,22 +32,18 @@ export function WorkspaceConversationSurface({
           ws={ws}
           user={user}
           workspaceExpanded={ws.workspaceDockExpanded || ws.mainPageOpen}
-          onOpenTask={(sessionId) => setTask({ conversationId: ws.selectedSessionId, sessionId })}
+          onOpenTask={setTaskSessionId}
         />
-        {ws.mainPageOpen ? (
-          <WorkspaceMainPane ws={ws} user={user} />
-        ) : (
-          <WorkspaceDockPanels ws={ws} user={user} />
-        )}
+        <WorkspaceDockPanels ws={ws} user={user} />
       </div>
-      {taskOpen && task && ws.scope?.teamId && (
+      {taskOpen && taskSessionId && ws.scope?.teamId && (
         <BotTaskMode
           ws={ws}
           user={user}
           teamId={ws.scope.teamId}
-          sessionId={task.sessionId}
-          onSessionChange={(sessionId) => setTask({ ...task, sessionId })}
-          onBack={() => setTask(null)}
+          sessionId={taskSessionId}
+          onSessionChange={setTaskSessionId}
+          onBack={() => setTaskSessionId(null)}
         />
       )}
     </div>

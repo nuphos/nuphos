@@ -12,8 +12,9 @@ outside the local Vite server is blocked. No production accounts, messages,
 credentials or customer information are included.
 
 Before uses the original production source at
-`f8f5eab12c89f73a5f0555b9df3115950d13e4ef`; after uses the product code at
-`f52f01d9255f423ab4aa56b4d545725f36c67f81`. The same fixture responses drive both.
+`f8f5eab12c89f73a5f0555b9df3115950d13e4ef`; after uses this branch with main
+`cd893d69771da0a5ef6bbf4996e3695523d92161` integrated and the read-only
+Bot Task access fix. The same fixture responses drive both.
 Playwright launches Electron and captures its actual window content. The GIF
 records opening Task, Back to conversation, reopening Task and Back again.
 
