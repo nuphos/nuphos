@@ -23,6 +23,7 @@ export async function createMemoryRecord(input: {
   keywords?: string[]
   source: 'save_memory'
   conversationId?: string | null
+  restrictedToSessionId?: string
   // save_memory only: id of an existing live record in the same pool that
   // this write replaces (ADR-0006 supersede — the no-edit-tool answer).
   // Contract: the store only tombstones; emitting the supersede_correction
@@ -37,9 +38,15 @@ export async function createMemoryRecord(input: {
   if (input.scope === 'team' && !input.teamId) {
     return { ok: false, error: 'team record requires teamId' }
   }
+  if (
+    input.restrictedToSessionId &&
+    (input.scope !== 'personal' || input.conversationId !== input.restrictedToSessionId)
+  ) {
+    return { ok: false, error: 'Restricted memory must belong to its personal Bot conversation' }
+  }
   // Title and keywords are persisted, indexed, and later shown to models —
   // the fail-closed gate must scan every stored field, not just the body.
-  const secretKinds = findSecretBearingContent({
+  const secretKinds = await findSecretBearingContent({
     text: input.text,
     categories: input.categories,
     title: input.title,
@@ -53,10 +60,14 @@ export async function createMemoryRecord(input: {
     }
   }
   const textHash = memoryTextHash(input.text)
-  const pool =
+  const scopePool =
     input.scope === 'personal'
       ? { scope: 'personal' as const, ownerUserId: input.ownerUserId, teamId: input.teamId }
       : { scope: 'team' as const, teamId: input.teamId }
+  const pool = {
+    ...scopePool,
+    restrictedToSessionId: input.restrictedToSessionId ?? { $exists: false },
+  }
   let supersededId: ObjectId | null = null
 
   if (input.supersedes) {
@@ -140,6 +151,7 @@ export async function createMemoryRecord(input: {
     ...(input.keywords?.length ? { keywords: input.keywords } : {}),
     source: input.source,
     conversationId: input.conversationId ?? null,
+    ...(input.restrictedToSessionId ? { restrictedToSessionId: input.restrictedToSessionId } : {}),
     textHash,
     ...(textSearch ? { textSearch } : {}),
     createdAt: now,

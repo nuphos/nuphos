@@ -30,6 +30,7 @@ import type {
   LinodeAccount,
   NotionIntegration,
   ResendIntegration,
+  TrelloIntegration,
   SecureframeIntegration,
   SecureframeTest,
   SonarqubeIntegration,
@@ -142,13 +143,21 @@ export type WindowIntegrationsApi = {
     integrationId: string,
     access: Pick<BindingAccess, 'memberAllowList'>,
   ): Promise<BindingAccess>
+  atlasGetTrelloAccess(teamId: string, id: string): Promise<BindingAccess>
+  atlasUpdateTrelloAccess(
+    teamId: string,
+    id: string,
+    input: Pick<BindingAccess, 'memberAllowList'>,
+  ): Promise<BindingAccess>
   atlasListResendIntegrations(teamId: string): Promise<ResendIntegration[]>
+  atlasListTrelloIntegrations(teamId: string): Promise<TrelloIntegration[]>
   atlasBindResendIntegration(
     teamId: string,
     label: string,
     apiKey: string,
   ): Promise<ResendIntegration>
   atlasUnbindResendIntegration(teamId: string, integrationId: string): Promise<void>
+  atlasUnbindTrelloIntegration(teamId: string, integrationId: string): Promise<void>
   atlasListVantaTests(
     teamId: string,
     integrationId: string,

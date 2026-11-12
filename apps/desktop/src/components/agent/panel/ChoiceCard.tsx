@@ -41,7 +41,7 @@ export function ChoiceCard({
   /** What the agent wrote to decide from: context, findings, links, risks. */
   body?: string
   options: string[]
-  /** The latest reply and no turn running: only then can an option be sent. */
+  /** The viewer may answer this question. */
   canAct: boolean
 }) {
   const ctx = useContext(ConnectCardContext)
@@ -53,16 +53,17 @@ export function ChoiceCard({
   const reply = typedReply(ctx, interactive, category)
   const cardRef = useRef<HTMLDivElement | null>(null)
   const choose = (option: string) => {
+    if (!ctx || ctx.send(option, { toolCallId, question, options }) === false) return false
     setSent(option)
-    ctx?.send(option, { toolCallId, question, options })
+
+    return true
   }
   const act = useDecisionKeys(cardRef, live, (key) => {
     const option = key.kind === 'option' ? options[key.index] : undefined
 
     if (option === undefined) return false
-    choose(option)
 
-    return true
+    return choose(option)
   })
 
   return (
@@ -79,7 +80,7 @@ export function ChoiceCard({
           {TITLE[category] ?? t('Decision needed')}
         </div>
         <AgentQuote text={question} />
-        <DecisionBody text={body} />
+        <DecisionBody text={body} full={ctx?.fullBody} />
       </div>
       {!chosen &&
         (options.length > 0 || reply ? (
@@ -125,10 +126,10 @@ function typedReply(ctx: ConnectCardContextValue | null, interactive: boolean, c
 }
 
 /** The question's markdown body, a few lines at first; "Show more" reveals the rest. */
-function DecisionBody({ text }: { text: string | undefined }) {
+function DecisionBody({ text, full = false }: { text: string | undefined; full?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const [overflows, setOverflows] = useState(false)
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(full)
 
   useLayoutEffect(() => {
     const el = ref.current
@@ -145,7 +146,7 @@ function DecisionBody({ text }: { text: string | undefined }) {
           {text}
         </MessageResponse>
       </div>
-      {(overflows || expanded) && (
+      {!full && (overflows || expanded) && (
         <button
           type="button"
           onClick={() => setExpanded((open) => !open)}

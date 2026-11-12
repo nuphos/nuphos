@@ -3,13 +3,12 @@
 // Nuphos keeps only the connected account id and runs tools through it with
 // its own server-side API key. https://docs.composio.dev/docs/authenticating-users
 import { config } from '@/config'
+import { composioRequest as call } from '@/lib/composio'
 import { AppError } from '@/lib/errors'
 import { personalCredentialPendingOAuth } from '@/models'
 
 import type { GoogleProvider } from './google'
 import type { PersonalCredentialPendingOAuth } from '@/models'
-
-const API = 'https://backend.composio.dev/api/v3.1'
 
 const PROFILE: Record<GoogleProvider, { tool: string; email: (data: unknown) => unknown }> = {
   gmail: {
@@ -50,26 +49,6 @@ export function composioAuthConfig(provider: GoogleProvider): string | null {
 
 /** Connected accounts are per Nuphos team and member, like the team-client grants. */
 export const composioUserId = (teamId: string, userId: string) => `${teamId}:${userId}`
-
-async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${API}${path}`, {
-    method,
-    headers: { 'x-api-key': config.byos.composio.apiKey ?? '', 'Content-Type': 'application/json' },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    signal: AbortSignal.timeout(30_000),
-  })
-  const json = (await res.json().catch(() => ({}))) as T & { error?: { message?: string } }
-
-  if (!res.ok) {
-    throw new AppError(
-      502,
-      'composio_request_failed',
-      `Composio request failed: ${json.error?.message ?? String(res.status)}`,
-    )
-  }
-
-  return json
-}
 
 /** A Connect Link for the member; Composio returns to callbackUrl when they finish. */
 export async function createComposioLink(args: {
@@ -135,7 +114,16 @@ export async function composioConnection(
  * end the member's other Composio connections, here and in other products.
  */
 export async function deleteComposioAccount(connectedAccountId: string): Promise<void> {
-  await call('DELETE', `/connected_accounts/${encodeURIComponent(connectedAccountId)}`)
+  try {
+    await call('DELETE', `/connected_accounts/${encodeURIComponent(connectedAccountId)}`)
+  } catch (error) {
+    const status =
+      error instanceof AppError
+        ? (error.details as { upstreamStatus?: number } | undefined)?.upstreamStatus
+        : undefined
+
+    if (status !== 404) throw error
+  }
 }
 
 /** Starts connecting through a Connect Link, remembering the account it creates. */

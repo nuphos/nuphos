@@ -36,10 +36,8 @@ export const agentApi = {
     sessionId: string,
     teamId: string,
     runtimeId: string,
-    mode: 'history' | 'workspace',
     grantComputerUse?: boolean,
-  ) =>
-    window.api.agentMoveConversationRuntime(sessionId, teamId, runtimeId, mode, grantComputerUse),
+  ) => window.api.agentMoveConversationRuntime(sessionId, teamId, runtimeId, grantComputerUse),
   agentCheckConversationMove: (sessionId: string, teamId: string, runtimeId: string) =>
     window.api.agentCheckConversationMove(sessionId, teamId, runtimeId),
   agentImportLocalSession: (args: {
@@ -230,8 +228,8 @@ export const agentApi = {
   agentCreateTrigger: (input: CreateAgentTriggerInput) => window.api.agentCreateTrigger(input),
   agentUpdateTrigger: (triggerId: string, patch: UpdateAgentTriggerInput, teamId?: string) =>
     window.api.agentUpdateTrigger(triggerId, patch, teamId),
-  agentDeleteTrigger: (triggerId: string, teamId?: string) =>
-    window.api.agentDeleteTrigger(triggerId, teamId),
+  agentDeleteTrigger: (triggerId: string, teamId?: string, withoutProviderCleanup?: boolean) =>
+    window.api.agentDeleteTrigger(triggerId, teamId, withoutProviderCleanup),
   agentTestFireTrigger: (triggerId: string, payload?: Record<string, unknown>, teamId?: string) =>
     window.api.agentTestFireTrigger(triggerId, payload, teamId),
   agentTransferTriggerExecutionPrincipal: (triggerId: string, userId: string, teamId?: string) =>

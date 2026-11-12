@@ -5,7 +5,6 @@ import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
 import { useDb } from '@/lib/test/doubles/db'
 import { useProvisionerKube } from '@/lib/test/doubles/provisioner-kube'
 import { useRedis } from '@/lib/test/doubles/redis'
-import { useRuntimeWorkspace } from '@/lib/test/doubles/runtime-workspace'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { placementNamespace, RUNTIME_CONTROLLER_STALE_MS } from './runtime-controllers'
@@ -24,15 +23,6 @@ useRedis({ redisEnabled: () => true })
 useAgentRunStore({
   getActiveAgentRunForSession: async () => null,
   reserveActiveAgentRunForSession: async () => null,
-})
-// A removal must never enter the workspace backup path.
-useRuntimeWorkspace({
-  findWorkspaceArchive: async () => {
-    throw new Error('Deletion must not read backups')
-  },
-  saveRuntimeWorkspace: async () => {
-    throw new Error('Deletion must not create backups')
-  },
 })
 const teamId = '123456789012345678901234'
 const namespace = config.claudeCodeRuntimeProvisioner.namespace

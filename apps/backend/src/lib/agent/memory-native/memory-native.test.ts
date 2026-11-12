@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test'
+
 import { ObjectId } from 'mongodb'
 
 import { byCodeUnit } from '@/lib/agent/sort-order'
@@ -8,6 +9,7 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 import { deleteMemoryItem, restoreMemoryItem } from './records-api'
 import {
   createMemoryRecord,
+  getMemoryRecord,
   createProposal,
   findSecretBearingContent,
   playbookContentHash,
@@ -34,46 +36,48 @@ describe('proposalIdempotencyKey', () => {
 })
 
 describe('findSecretBearingContent (fail-closed gate)', () => {
-  test('rejects drafts containing secrets', () => {
-    const kinds = findSecretBearingContent({
+  test('rejects drafts containing secrets', async () => {
+    const kinds = await findSecretBearingContent({
       actions: ['export AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE and retry'],
     })
 
     expect(kinds).not.toBeNull()
   })
 
-  test('passes clean drafts', () => {
+  test('passes clean drafts', async () => {
     expect(
-      findSecretBearingContent({
+      await findSecretBearingContent({
         title: 'Pod OOM triage',
         actions: ['kubectl describe pod, check lastState exit code'],
       }),
     ).toBeNull()
   })
 
-  test('catches double-quoted and multi-line secrets (JSON.stringify escaping regression)', () => {
+  test('catches double-quoted and multi-line secrets (JSON.stringify escaping regression)', async () => {
     // The old implementation redacted JSON.stringify(value): the escaped
     // quotes broke the quoted-value patterns and this sailed through.
     expect(
-      findSecretBearingContent({ text: 'Grafana admin login — password: "pr0d-Gr4f-2026"' }),
+      await findSecretBearingContent({ text: 'Grafana admin login — password: "pr0d-Gr4f-2026"' }),
     ).not.toBeNull()
-    expect(findSecretBearingContent({ text: 'API_KEY="sk-live-abc123xyz"' })).not.toBeNull()
+    expect(await findSecretBearingContent({ text: 'API_KEY="sk-live-abc123xyz"' })).not.toBeNull()
     expect(
-      findSecretBearingContent({ nested: { categories: ['token: "deep-nested-secret1"'] } }),
+      await findSecretBearingContent({ nested: { categories: ['token: "deep-nested-secret1"'] } }),
     ).not.toBeNull()
-    expect(findSecretBearingContent({ text: 'password:\n"multi-line-secret1"' })).not.toBeNull()
+    expect(
+      await findSecretBearingContent({ text: 'password:\n"multi-line-secret1"' }),
+    ).not.toBeNull()
   })
 
-  test('catches credentials embedded in connection URLs', () => {
+  test('catches credentials embedded in connection URLs', async () => {
     expect(
-      findSecretBearingContent({ text: 'reach it via postgres://app:supersecret1@host/db' }),
+      await findSecretBearingContent({ text: 'reach it via postgres://app:supersecret1@host/db' }),
     ).toBe('url-credentials')
   })
 })
 
 describe('redactSecretBearingContent', () => {
-  test('returns the masked copy alongside the kinds, walking nested values', () => {
-    const { redacted, kinds } = redactSecretBearingContent({
+  test('returns the masked copy alongside the kinds, walking nested values', async () => {
+    const { redacted, kinds } = await redactSecretBearingContent({
       text: 'connect with postgres://app:supersecret1@host/db',
       nested: { keywords: ['clean', 'token: "deep-nested-secret1"'] },
     })
@@ -84,10 +88,10 @@ describe('redactSecretBearingContent', () => {
     expect(redacted.nested.keywords[1]).not.toContain('deep-nested-secret1')
   })
 
-  test('clean input round-trips untouched with no kinds', () => {
+  test('clean input round-trips untouched with no kinds', async () => {
     const input = { title: 'Pod OOM triage', categories: ['k8s'] }
 
-    expect(redactSecretBearingContent(input)).toEqual({ redacted: input, kinds: [] })
+    expect(await redactSecretBearingContent(input)).toEqual({ redacted: input, kinds: [] })
   })
 })
 
@@ -255,7 +259,12 @@ function matchesCond(value: unknown, cond: unknown): boolean {
 }
 
 const matchesFilter = (doc: FakeDoc, filter: FakeDoc): boolean =>
-  Object.entries(filter).every(([key, cond]) => matchesCond(doc[key], cond))
+  Object.entries(filter).every(([key, cond]) => {
+    if (key === '$and') return (cond as FakeDoc[]).every((part) => matchesFilter(doc, part))
+    if (key === '$or') return (cond as FakeDoc[]).some((part) => matchesFilter(doc, part))
+
+    return matchesCond(doc[key], cond)
+  })
 
 function applyUpdate(doc: FakeDoc, update: { $set?: FakeDoc; $unset?: FakeDoc }): void {
   Object.assign(doc, update.$set ?? {})
@@ -577,6 +586,52 @@ describe('createMemoryRecord dedupe honors explicit supersede', () => {
     const doc = recordDocs().find((d) => (d._id as ObjectId).toHexString() === existing.memoryId)!
 
     expect(doc.disabledAt).toBeUndefined()
+  })
+})
+
+describe('imported private Bot memories', () => {
+  beforeEach(() => fakeCollections.clear())
+
+  test('direct lookup requires matching owner, team and session; global reads cannot see the fact', async () => {
+    const result = await createMemoryRecord({
+      scope: 'personal',
+      ownerUserId: USER,
+      teamId: TEAM,
+      type: 'fact',
+      text: 'This Bot prepares internal forecasts.',
+      source: 'save_memory',
+      conversationId: 'bot-one',
+      restrictedToSessionId: 'bot-one',
+    })
+
+    if (!result.ok) throw new Error(result.error)
+    expect(await getMemoryRecord(result.memoryId, USER, TEAM)).toBeNull()
+    expect(await getMemoryRecord(result.memoryId, USER, TEAM, 'bot-two')).toBeNull()
+    expect(await getMemoryRecord(result.memoryId, 'other-owner', TEAM, 'bot-one')).toBeNull()
+    expect(await getMemoryRecord(result.memoryId, USER, 'other-team', 'bot-one')).toBeNull()
+    expect((await getMemoryRecord(result.memoryId, USER, TEAM, 'bot-one'))?.text).toBe(
+      'This Bot prepares internal forecasts.',
+    )
+  })
+
+  test('identical content in another Bot stays private and does not deduplicate into its pool', async () => {
+    const save = (sessionId: string) =>
+      createMemoryRecord({
+        scope: 'personal',
+        ownerUserId: USER,
+        teamId: TEAM,
+        type: 'fact',
+        text: 'Prepare forecasts.',
+        source: 'save_memory',
+        conversationId: sessionId,
+        restrictedToSessionId: sessionId,
+      })
+    const first = await save('bot-one')
+    const second = await save('bot-two')
+
+    if (!first.ok || !second.ok) throw new Error('fixture creation failed')
+    expect(first.memoryId).not.toBe(second.memoryId)
+    expect(await save('bot-one')).toMatchObject({ existing: true, memoryId: first.memoryId })
   })
 })
 

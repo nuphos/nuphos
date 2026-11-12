@@ -1,5 +1,6 @@
 import { Radio } from '@base-ui/react/radio'
 import { RadioGroup } from '@base-ui/react/radio-group'
+import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { Check, Search, ShieldCheck, UserCheck, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -8,7 +9,8 @@ import { Avatar } from '../../components/Avatar'
 import { Checkbox } from '../../components/ui/checkbox'
 import { InputGroup, InputGroupInput } from '../../components/ui/input-group'
 import { t } from '../../i18n'
-import { memberDisplayName, useTeamMembers } from '../../lib/bindingAccess'
+import { memberDisplayName } from '../../lib/bindingAccess'
+import { teamMembersReadNow } from '../../lib/query/team'
 
 import type { AccessMode } from './boxAccessPresentation'
 import type { useBoxAccessChoice } from './useBoxAccessChoice'
@@ -24,6 +26,9 @@ const MODES: { mode: AccessMode; icon: typeof Users; title: string }[] = [
   { mode: 'everyone', icon: Users, title: t('Everyone') },
   { mode: 'members', icon: UserCheck, title: t('Specific people') },
 ]
+
+const readNow = (read: { isFetchedAfterMount: boolean; isError: boolean }) =>
+  read.isFetchedAfterMount && !read.isError
 
 function AvatarStack({ members }: { members: TeamMember[] }) {
   const extra = members.length - STACK
@@ -92,7 +97,9 @@ export function BoxAccessFields({
   teamId: string
   choice: ReturnType<typeof useBoxAccessChoice>
 }) {
-  const members = useTeamMembers(teamId)
+  // The mode settles once from these, so it waits for a read made now, never a cached one.
+  const roster = useQuery(teamMembersReadNow(teamId))
+  const members = roster.data ?? []
   const admins = members.filter((member) => member.role === 'ADMINISTRATOR')
   // Admins always use and manage a Box, so they are never picked.
   const others = members.filter((member) => member.role !== 'ADMINISTRATOR')
@@ -105,7 +112,7 @@ export function BoxAccessFields({
     : others
   const picked = others.filter((member) => choice.chosen.has(member.id)).length
   const { settle } = choice
-  const loaded = members.length > 0
+  const loaded = readNow(roster) && members.length > 0
 
   useEffect(() => {
     if (loaded) settle(new Set(others.map((member) => member.id)))

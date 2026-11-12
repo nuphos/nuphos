@@ -1,7 +1,7 @@
 # Session resources
 
-A conversation can link up to 50 GitHub pull requests or Linear issues through
-`bind_session_resource`. The native tool derives the session and team from the
+A conversation can link up to 50 GitHub pull requests, GitLab merge requests or
+Linear issues through `bind_session_resource`. The native tool derives the session and team from the
 conversation principal. It resolves the resource through a selected integration;
 callers cannot supply a display URL or substitute another session. Re-linking the
 same resource is idempotent. Only owners and managers can change bindings.
@@ -19,8 +19,11 @@ sidebar and titlebar, including when the dock is not currently mounted. Idle
 shells are omitted, and process badges clear after the foreground process exits.
 On macOS, Cmd+D splits the workspace; Ctrl+D remains available to the terminal.
 
-Linear issues are navigation links in this first version; their state is captured
-when linked. This does not replace the Linear issue's `Nuphos session` attachment.
+GitLab merge requests and Linear issues are navigation links: their state is
+captured when linked and rechecked while the conversation is open, but their
+events do not wake the session. A GitLab MR shows as a pull-request tag labelled
+with GitLab's own `!iid`. This does not replace the Linear issue's `Nuphos session`
+attachment.
 
 A session's Slack or Discord thread appears as a tag too. It is not stored on the
 conversation: the thread routing rows (`slack_agent_threads`,

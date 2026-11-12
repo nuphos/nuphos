@@ -260,6 +260,33 @@ describe('local runtime catalog', () => {
       resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'transport', deps),
     ).rejects.toMatchObject({ code: 'runtime_login_required' })
   })
+
+  test('an agent removed while its computer was offline is gone, not waiting for it', async () => {
+    presence = null
+    const removing: LocalRuntimeCatalogDeps = {
+      ...deps,
+      access: {
+        ...deps.access,
+        getDevice: async (owner, id) => ({
+          ...device(owner, id, 'Olivia’s MacBook'),
+          removedAgents: [
+            {
+              id: 'r1',
+              agent: { provider: 'claude-code' },
+              actorId: 'owner',
+              teamId: 't1',
+              at: new Date(0),
+            },
+          ],
+        }),
+      },
+    }
+
+    // Not runtime_offline, which would wake a Box and queue the message for an agent it deletes.
+    await expect(
+      resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'transport', removing),
+    ).rejects.toMatchObject({ code: 'runtime_not_found' })
+  })
 })
 
 describe('team Box runtime authorization before transport', () => {

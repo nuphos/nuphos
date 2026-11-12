@@ -4,7 +4,6 @@ import { db } from '@/lib/db'
 import { AppError } from '@/lib/errors'
 
 import type { OpenAbProvider } from './runtime-provider'
-import type { ObjectId } from 'mongodb'
 
 export type RuntimeDeletion = {
   _id: string
@@ -28,18 +27,6 @@ export type RuntimeDeletion = {
   completedAt?: Date
 }
 export const runtimeDeletions = () => db().collection<RuntimeDeletion>('agent_runtime_deletions')
-
-export type WorkspaceArchive = {
-  _id: string
-  teamId: string
-  sessionId: string
-  runtimeUrl: string
-  fileId: ObjectId
-  sha256: string
-  size: number
-  createdAt: Date
-}
-export const workspaceArchives = () => db().collection<WorkspaceArchive>('agent_workspace_archives')
 
 export async function assertRuntimeNotDeleting(
   teamId: string,

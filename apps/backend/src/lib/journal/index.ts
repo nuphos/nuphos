@@ -8,7 +8,12 @@ export {
   hmacSha256Hex,
   digestEquals,
 } from './hashing'
-export { redactSecrets, shannonEntropy, type RedactionResult, type RedactionMatch } from './redact'
+export {
+  redactSecrets,
+  shannonEntropy,
+  type RedactionResult,
+  type RedactionMatch,
+} from '@/lib/secrets/scan'
 export {
   deriveEventId,
   buildAuditEvent,

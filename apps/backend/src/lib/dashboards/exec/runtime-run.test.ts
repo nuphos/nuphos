@@ -14,23 +14,23 @@ import type { RuntimeJobRequest } from '@/lib/claude-code-preview/openab-acp-lif
 import type { DashboardPanel } from '@/models'
 
 describe('parseRunnerError', () => {
-  test('extracts a diagnostic envelope', () => {
+  test('extracts a diagnostic envelope', async () => {
     const stdout = `script log\n${ERROR_SENTINEL}${JSON.stringify({ message: 'fetch failed: 401' })}\n`
 
-    expect(parseRunnerError(stdout)).toBe('fetch failed: 401')
+    expect(await parseRunnerError(stdout)).toBe('fetch failed: 401')
   })
 
-  test('ignores missing or malformed envelopes', () => {
-    expect(parseRunnerError('ordinary script output')).toBeNull()
-    expect(parseRunnerError(`${ERROR_SENTINEL}{not-json}\n`)).toBeNull()
+  test('ignores missing or malformed envelopes', async () => {
+    expect(await parseRunnerError('ordinary script output')).toBeNull()
+    expect(await parseRunnerError(`${ERROR_SENTINEL}{not-json}\n`)).toBeNull()
   })
 
-  test('redacts forged envelopes again at the backend boundary', () => {
+  test('redacts forged envelopes again at the backend boundary', async () => {
     const token = 'runtime-token-panel-can-read'
     const stdout = `${ERROR_SENTINEL}${JSON.stringify({
       message: `request failed with ${token}; apiKey=hardcoded-secret`,
     })}\n`
-    const diagnostic = parseRunnerError(stdout, [token])
+    const diagnostic = await parseRunnerError(stdout, [token])
 
     expect(diagnostic).toContain('[REDACTED:runtime-secret]')
     expect(diagnostic).toContain('[REDACTED:secret-assignment]')
@@ -38,10 +38,10 @@ describe('parseRunnerError', () => {
     expect(diagnostic).not.toContain('hardcoded-secret')
   })
 
-  test('bounds forged diagnostic envelopes', () => {
+  test('bounds forged diagnostic envelopes', async () => {
     const stdout = `${ERROR_SENTINEL}${JSON.stringify({ message: 'x'.repeat(5_000) })}\n`
 
-    expect(parseRunnerError(stdout)).toHaveLength(4_000)
+    expect(await parseRunnerError(stdout)).toHaveLength(4_000)
   })
 })
 

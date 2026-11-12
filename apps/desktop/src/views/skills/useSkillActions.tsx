@@ -265,5 +265,5 @@ export function useSkillActions(args: ActionsArgs) {
     ],
   )
 
-  return { loadSkillDetail, deleteObject, deleteSkill, uploadFile }
+  return { loadSkillDetail, reloadDetailForName, deleteObject, deleteSkill, uploadFile }
 }

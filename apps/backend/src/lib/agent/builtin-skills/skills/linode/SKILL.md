@@ -13,7 +13,7 @@ Changing runtime-global settings is possible, but strongly discouraged unless th
 
 Use this skill when the user wants to inspect or change Linode/Akamai Cloud resources directly with `linode-cli`, including Linode instances, LKE clusters, NodeBalancers, firewalls, volumes, object storage, images, and account events.
 
-The CLI is pre-installed in the sandbox runtime image. If it is missing, tell the user the runtime image is missing `linode-cli`; do not conclude that Nuphos lacks Linode credentials.
+`linode-cli` is provided by the runtime image's tool manifest, not baked into it: the first call installs the pinned build from its hash-locked requirements and can take a while, so let it finish rather than interrupt it. `nuphos-tools list` shows the tool and its state. If the command is missing entirely, or that install keeps failing, report the runtime mismatch instead of doing an unpinned package install during the task; do not conclude that Nuphos lacks Linode credentials.
 
 ## Prefer Nuphos API for first-party reads
 

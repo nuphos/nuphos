@@ -2,12 +2,8 @@ import clsx from 'clsx'
 import { useState } from 'react'
 
 import { api } from '../../api'
-import { MessageResponse } from '../../components/agent/MessageResponse'
+import { parseConnectRequest } from '../../components/agent/panel/connectCardModel'
 import { CredentialSelectorButton } from '../../components/agent/panel/CredentialSelectorButton'
-import {
-  parseConnectRequest,
-  parseSecretRequest,
-} from '../../components/agent/panel/connectCardModel'
 import { botChatQuestion } from '../../components/channels/botChatQuestion'
 import { BotChatQuestion } from '../../components/channels/BotChatQuestions'
 import { useBotCredentials } from '../../components/channels/useBotCredentials'
@@ -15,9 +11,7 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import { refreshInputRequests } from '../../lib/inputRequestRefresh'
 
-import { AnswerFailure } from './AnswerFailure'
-import { cardReplies } from './inboxItems'
-import { useAnswerFailure } from './useInbox'
+import { markAsDone } from './inboxItems'
 
 import type { AgentInputRequest } from '../../api/agent-types'
 
@@ -60,13 +54,10 @@ export function DecisionCard({
 }) {
   // Answers go through the conversation; the card itself only dismisses.
   const [dismissing, setDismissing] = useState(false)
-  const replies = cardReplies(request)
-  const secret = parseSecretRequest(request) !== null
   const connect = parseConnectRequest(request) !== null
   const credentials = useBotCredentials(teamId, connect && canManage ? sessionId : undefined)
-  // A secret's or a connection's card is its own surface, and shows its own failure.
-  const ownCard = secret || connect
-  const failure = useAnswerFailure(request.id)
+  // The card a Bot's chat and the transcript draw; what it can't answer is answered in the conversation.
+  const { answerable } = botChatQuestion(request, credentials !== undefined)
 
   async function dismiss() {
     setDismissing(true)
@@ -100,42 +91,21 @@ export function DecisionCard({
           {t('Open agent conversation')}
         </button>
       </div>
-      <section
-        className={clsx(!ownCard && 'surface-raised rounded-lg bg-surface-raised px-4 py-3.5')}
-      >
-        {ownCard ? (
-          <BotChatQuestion
-            request={{ sessionId, title: title ?? '', inputRequest: request }}
-            teamId={teamId}
-            credentials={credentials}
-            onAnswer={onAnswer}
-          />
-        ) : (
-          <>
-            <h2 className="selectable text-[15px] font-medium leading-6 text-main">
-              {request.question}
-            </h2>
-            {request.body && (
-              <MessageResponse
-                className="selectable mt-2 text-[13px] text-secondary"
-                streaming={false}
-              >
-                {request.body}
-              </MessageResponse>
-            )}
-          </>
-        )}
+      <section>
+        <BotChatQuestion
+          request={{ sessionId, title: title ?? '', inputRequest: request }}
+          teamId={teamId}
+          credentials={credentials}
+          onAnswer={onAnswer}
+          onReply={onReply}
+          fullBody
+        />
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          {replies?.map(({ label, reply }) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => onAnswer(reply)}
-              className={primaryButton}
-            >
-              {label}
+          {markAsDone(request) && (
+            <button type="button" onClick={() => onAnswer('Done.')} className={primaryButton}>
+              {t('Mark as done')}
             </button>
-          ))}
+          )}
           {/* The conversation's own picker, as its composer has it: a personal
               credential, or one of several, is chosen here. */}
           {credentials && (
@@ -147,15 +117,9 @@ export function DecisionCard({
               {t('Only the owner of this conversation can connect this.')}
             </span>
           )}
-          {!replies && !secret && !(connect && canManage) && (
+          {!answerable && (
             <button type="button" onClick={onShowConversation} className={primaryButton}>
               {t('Answer in the conversation')}
-            </button>
-          )}
-          {/* A typed answer, in the conversation's composer; a plan is only approved or rejected. */}
-          {replies && botChatQuestion(request).typed && (
-            <button type="button" onClick={onReply} className={secondaryButton}>
-              {request.options?.length ? t('Other…') : t('Reply…')}
             </button>
           )}
           <button
@@ -167,11 +131,6 @@ export function DecisionCard({
             {dismissing ? t('Dismissing...') : t('Dismiss question')}
           </button>
         </div>
-        {failure && !ownCard && (
-          <div className="mt-3">
-            <AnswerFailure message={failure} />
-          </div>
-        )}
       </section>
     </div>
   )
@@ -179,6 +138,3 @@ export function DecisionCard({
 
 const primaryButton =
   'rounded-md border border-line-control px-3 py-1.5 text-[12px] text-main outline-none hover:bg-state-hover focus-visible:ring-1 focus-visible:ring-line-focus disabled:opacity-50'
-
-const secondaryButton =
-  'rounded-md px-3 py-1.5 text-[12px] text-secondary outline-none hover:bg-state-hover hover:text-main focus-visible:ring-1 focus-visible:ring-line-focus'

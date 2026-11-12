@@ -51,7 +51,7 @@ export function createAgentRun(
   sessionId: string,
   streamId: string,
   trace?: AgentRunTrace,
-  options: { runtimeOwned?: boolean; channelIds?: string[] } = {},
+  options: { runtimeOwned?: boolean; channelIds?: string[]; channelWoken?: boolean } = {},
 ): AgentRun {
   const now = Date.now()
   const abortController = new AbortController()
@@ -70,6 +70,7 @@ export function createAgentRun(
     trace,
     ...(options.runtimeOwned ? { runtimeOwned: true } : {}),
     channelIds,
+    ...(options.channelWoken ? { channelWoken: true } : {}),
     frames: [],
     done: false,
     abortController,

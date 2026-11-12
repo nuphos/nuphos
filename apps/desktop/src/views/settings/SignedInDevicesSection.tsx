@@ -7,10 +7,16 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { SkeletonReveal } from '../../components/SkeletonReveal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { Tooltip } from '../../components/ui/tooltip'
 import { t } from '../../i18n'
 
 import { SectionHeader } from './shared'
-import { sessionDevice, sessionPlace, sortSessions } from './signInSessionsPresentation'
+import {
+  sessionDevice,
+  sessionLocation,
+  sessionPlace,
+  sortSessions,
+} from './signInSessionsPresentation'
 
 import type { SignInSession } from '../../types'
 
@@ -132,11 +138,24 @@ export function SignedInDevicesSection({ onSignOut }: { onSignOut: () => void })
                       </span>
                     )}
                   </div>
-                  <p className="mt-0.5 truncate text-[12.5px] text-tertiary">
-                    {sessionPlace(session)} ·{' '}
-                    {session.current
-                      ? t('Active now')
-                      : t('Last active {when}', { when: relativeTimeFromNow(session.lastUsedAt) })}
+                  {/* Device · location · last active. The IP is on hover, where a
+                      long IPv6 cannot push the time out of the row. */}
+                  <p className="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-tertiary">
+                    <Tooltip
+                      content={sessionPlace(session)}
+                      triggerClassName="min-w-0"
+                      disabled={!session.ip}
+                    >
+                      <span className="min-w-0 truncate">{sessionLocation(session)}</span>
+                    </Tooltip>
+                    <span className="shrink-0">
+                      ·{' '}
+                      {session.current
+                        ? t('Active now')
+                        : t('Last active {when}', {
+                            when: relativeTimeFromNow(session.lastUsedAt),
+                          })}
+                    </span>
                   </p>
                 </div>
                 {!session.current && (

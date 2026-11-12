@@ -71,6 +71,7 @@ import { registerLocalAgentSharingRoutes } from '@/routes/teams/local-agent-shar
 import { registerTeamManagementRoutes } from '@/routes/teams/management'
 import { registerTeamsRootRoutes } from '@/routes/teams/root'
 import { tencentAccountsRoutes } from '@/routes/tencent-accounts'
+import { trelloIntegrationsRoutes } from '@/routes/trello-integrations'
 import { upstashAccountsRoutes } from '@/routes/upstash-accounts'
 import { uptimeKumaInstancesRoutes } from '@/routes/uptime-kuma-instances'
 import { vantaIntegrationsRoutes } from '@/routes/vanta-integrations'
@@ -188,6 +189,7 @@ teamScoped.route('/sonarqube-integrations', sonarqubeIntegrationsRoutes)
 teamScoped.route('/notion-integrations', notionIntegrationsRoutes)
 teamScoped.route('/upstash-accounts', upstashAccountsRoutes)
 teamScoped.route('/resend-integrations', resendIntegrationsRoutes)
+teamScoped.route('/trello-integrations', trelloIntegrationsRoutes)
 teamScoped.route('/instabox-accounts', instaboxAccountsRoutes)
 teamScoped.route('/posthog-integrations', posthogIntegrationsRoutes)
 teamScoped.route('/plaud-accounts', plaudAccountsRoutes)

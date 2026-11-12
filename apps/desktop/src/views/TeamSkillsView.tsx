@@ -10,7 +10,8 @@ import { useToolbarSlot } from '../hooks/useToolbarControls'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
 
-import { LocalSkillImportMenu } from './skills/LocalSkillImportMenu'
+import { GithubSkillInstallDialog } from './skills/GithubSkillInstallDialog'
+import { LocalSkillImport } from './skills/LocalSkillImport'
 import { buildSkillColumns } from './skills/skillColumns'
 import { SkillDetailPane } from './skills/SkillDetailPane'
 import { useSkillActions } from './skills/useSkillActions'
@@ -103,26 +104,27 @@ export function TeamSkillsView({
     rows,
     selectedSkill,
   } = list
-  const { loadSkillDetail, deleteObject, deleteSkill, uploadFile } = useSkillActions({
-    teamId,
-    scope,
-    filter,
-    state,
-    canEdit,
-    canDelete,
-    selectedName,
-    setSelectedName,
-    setSkillMd,
-    setSkillFiles,
-    setSkillHistory,
-    setDetailLoading,
-    uploadKey,
-    setUploadKey,
-    setUploading,
-    detailRequestRef,
-    fileInputRef,
-    reloadWithSkeleton,
-  })
+  const { loadSkillDetail, reloadDetailForName, deleteObject, deleteSkill, uploadFile } =
+    useSkillActions({
+      teamId,
+      scope,
+      filter,
+      state,
+      canEdit,
+      canDelete,
+      selectedName,
+      setSelectedName,
+      setSkillMd,
+      setSkillFiles,
+      setSkillHistory,
+      setDetailLoading,
+      uploadKey,
+      setUploadKey,
+      setUploading,
+      detailRequestRef,
+      fileInputRef,
+      reloadWithSkeleton,
+    })
   const menuItems = useSkillMenu({
     teamId,
     scope,
@@ -168,7 +170,9 @@ export function TeamSkillsView({
       {importSlot &&
         createPortal(
           <>
-            <div className="flex items-center rounded-md bg-state-selected p-0.5">
+            {/* The same pills as the Audit log's filters: on the bare toolbar, so the
+                selected one's fill is the only fill and reads as selected. */}
+            <div className="flex items-center gap-1">
               {SCOPES.map((option) => (
                 <button
                   key={option.scope}
@@ -177,22 +181,33 @@ export function TeamSkillsView({
                   title={option.title}
                   onClick={() => setScope(option.scope)}
                   className={clsx(
-                    'h-6 px-2 rounded text-[12px]',
+                    'rounded-full px-2.5 py-1 text-[12px] transition-colors',
                     scope === option.scope
                       ? 'bg-surface-sunken text-main'
-                      : 'text-secondary hover:text-main',
+                      : 'text-tertiary hover:text-secondary',
                   )}
                 >
                   {option.label}
                 </button>
               ))}
             </div>
-            <LocalSkillImportMenu
+            <GithubSkillInstallDialog
               teamId={teamId}
               scope={scope}
               disabled={!canEdit}
-              onImported={(name) => {
-                void reloadWithSkeleton().then(() => setSelectedName(name))
+              onInstalled={(name) => {
+                void reloadWithSkeleton().then(() => reloadDetailForName(name))
+              }}
+            />
+            <LocalSkillImport
+              teamId={teamId}
+              scope={scope}
+              disabled={!canEdit}
+              onImported={(names) => {
+                // Open the one imported skill; several just refresh the list.
+                void reloadWithSkeleton().then(() => {
+                  if (names.length === 1 && names[0]) void reloadDetailForName(names[0])
+                })
               }}
             />
           </>,
@@ -256,6 +271,7 @@ export function TeamSkillsView({
       {selectedSkill && (
         <SkillDetailPane
           skill={selectedSkill}
+          scope={scope}
           files={skillFiles}
           history={skillHistory}
           members={members}

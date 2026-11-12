@@ -56,6 +56,13 @@ export type WindowMonitoringApi = {
     groupId: string
     channelId?: string
   }): Promise<FileTransferGroup>
+  fileTransferReadText(args: {
+    teamId: string
+    sessionId?: string
+    groupId: string
+    fileId: string
+    channelId?: string
+  }): Promise<{ text: string; fileName: string } | { tooLarge: true; fileName: string }>
   fileTransferListDownloads(args: {
     teamId: string
     sessionId?: string

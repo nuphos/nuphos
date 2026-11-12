@@ -1,9 +1,10 @@
 import { KeyRound } from 'lucide-react'
-import { useContext, useEffect, useState } from 'react'
+import { useContext, useState } from 'react'
 
 import { api } from '../../../api'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { useRuntimeInstances } from '../../../hooks/useRuntimeInstances'
+import { useTeamMemberList } from '../../../hooks/useTeamMemberList'
 import { useThisComputer } from '../../../hooks/useThisComputer'
 import { t } from '../../../i18n'
 import { agentTier } from '../../../lib/agentName'
@@ -56,39 +57,25 @@ export function AgentSetupRequiredCard({
   const [signingIn, setSigningIn] = useState(false)
   const [sending, setSending] = useState(false)
   const [signedInHere, setSignedInHere] = useState(false)
-  const [members, setMembers] = useState<TeamMember[] | null>(null)
   const personalAgent = runtimeId?.startsWith('local_') === true
   const onThisComputer = Boolean(
     runtimeId && personalAgent && agentTier({ id: runtimeId, label: '' }, owner) === 'local',
   )
-  const route = signInRoute({
-    runtimeId,
-    viewerId,
-    isTeamAdmin,
-    onThisComputer,
-    instance: instances.find((instance) => instance.id === runtimeId),
-    members,
-  })
-  const asksSomeone = route.kind === 'ask'
+  const routeOf = (members: TeamMember[] | null) =>
+    signInRoute({
+      runtimeId,
+      viewerId,
+      isTeamAdmin,
+      onThisComputer,
+      instance: instances.find((instance) => instance.id === runtimeId),
+      members,
+    })
+  // Who to ask never depends on the members; only their names do.
+  const asksSomeone = routeOf(null).kind === 'ask'
+  const route = routeOf(useTeamMemberList(teamId, asksSomeone))
   const ask = askState(signInRequest, viewerId, messages)
   const failed = message !== undefined
   const canAsk = Boolean(teamId && sessionId && retryText)
-
-  useEffect(() => {
-    if (!asksSomeone || !teamId) return
-    let stopped = false
-
-    void api.atlasListTeamMembers(teamId).then(
-      (list) => {
-        if (!stopped) setMembers(list)
-      },
-      () => {},
-    )
-
-    return () => {
-      stopped = true
-    }
-  }, [asksSomeone, teamId])
 
   // Without a failed turn of the viewer's own, the card is about an open ask.
   if (!failed && (!ask || signedInHere)) return null

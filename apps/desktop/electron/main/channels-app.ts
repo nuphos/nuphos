@@ -181,6 +181,17 @@ export const appChannels = {
     _e: IpcMainInvokeEvent,
     args: { teamId: string; sessionId?: string; groupId: string; channelId?: string },
   ) => fileTransfer.resolveDownloads(args.teamId, args.sessionId, args.groupId, args.channelId),
+  // An HTML or Markdown file's text for the in-app preview; capped, never written to disk.
+  'fileTransfer:readText': (
+    _e: IpcMainInvokeEvent,
+    args: {
+      teamId: string
+      sessionId?: string
+      groupId: string
+      fileId: string
+      channelId?: string
+    },
+  ) => fileTransfer.readText(args),
   'fileTransfer:listDownloads': (
     _e: IpcMainInvokeEvent,
     args: { teamId: string; sessionId?: string },

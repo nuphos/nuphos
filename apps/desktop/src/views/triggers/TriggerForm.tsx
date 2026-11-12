@@ -174,6 +174,7 @@ export function TriggerForm({
         canSave={canSave}
         saving={saving}
         onDelete={() => setConfirmDeleteOpen(true)}
+        onRemoveWithoutProviderCleanup={() => confirmRemove(true)}
         onCancel={onCancel}
         onSubmit={() => void submit()}
       />
@@ -181,7 +182,7 @@ export function TriggerForm({
         open={confirmDeleteOpen}
         loaded={loaded}
         onClose={() => setConfirmDeleteOpen(false)}
-        onConfirm={confirmRemove}
+        onConfirm={() => confirmRemove()}
       />
     </div>
   )

@@ -5,22 +5,40 @@ import { clearSlackNotificationIncidentsForTrigger } from '@/lib/slack/incident-
 import { agentTriggers } from '../trigger-db'
 import {
   cleanupManagedProviderWiring,
+  cleanupOrLeaveBehind,
   discoverLegacyProviderWiring,
 } from '../trigger-provider-cleanup'
 
 import { parseTriggerId } from './shared'
 import { removeTriggerFromWatchGroups } from './watch-group-refs'
 
-/** Queue worker entry point. It is idempotent and owns the actual provider mutation. */
-export async function performTriggerCleanup(triggerId: string): Promise<void> {
+/**
+ * Queue worker entry point. It is idempotent and owns the actual provider mutation.
+ * `leftBehind` is passed only by a removal the user confirmed without provider
+ * cleanup: providers whose integration is missing right now are skipped and
+ * recorded there, everything reachable is still cleaned.
+ */
+export async function performTriggerCleanup(
+  triggerId: string,
+  leftBehind?: string[],
+): Promise<void> {
   const _id = parseTriggerId(triggerId)
   const trigger = await agentTriggers().findOne({ _id })
 
   if (!trigger || trigger.cleanupStatus !== 'deleting') return
 
   try {
-    const providerWiring =
-      trigger.providerWiring ?? (await discoverLegacyProviderWiring(trigger, triggerId))
+    let providerWiring = trigger.providerWiring
+
+    if (!providerWiring) {
+      await cleanupOrLeaveBehind(
+        trigger.legacyMonitoringProvider ?? trigger.monitoringIdentity?.provider ?? 'unknown',
+        async () => {
+          providerWiring = (await discoverLegacyProviderWiring(trigger, triggerId)) ?? undefined
+        },
+        leftBehind,
+      )
+    }
 
     if (providerWiring && !trigger.providerWiring) {
       await agentTriggers().updateOne(
@@ -33,6 +51,7 @@ export async function performTriggerCleanup(triggerId: string): Promise<void> {
         { ...trigger, enabled: false, providerWiring },
         triggerId,
         providerWiring,
+        leftBehind,
       )
     }
 
@@ -85,6 +104,7 @@ export async function performTriggerCleanup(triggerId: string): Promise<void> {
         $set: {
           cleanupStatus: 'cleanup_failed',
           cleanupError: message.slice(0, 500),
+          cleanupErrorCode: err instanceof AppError ? err.code : 'provider_cleanup_failed',
           cleanupUpdatedAt: new Date(),
           updatedAt: new Date(),
         },

@@ -487,6 +487,32 @@
                         "additionalProperties": false
                       }
                     },
+                    "trelloIntegrations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "integrationId": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{24}$"
+                          },
+                          "label": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "username": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "integrationId",
+                          "label",
+                          "username"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "default": []
+                    },
                     "resendIntegrations": {
                       "type": "array",
                       "items": {
@@ -760,6 +786,14 @@
                         },
                         "default": []
                       },
+                      "trelloIntegrationIds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{24}$"
+                        },
+                        "default": []
+                      },
                       "githubInstallationIds": {
                         "type": "array",
                         "items": {
@@ -981,6 +1015,13 @@
                           }
                         },
                         "resendIntegrationIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{24}$"
+                          }
+                        },
+                        "trelloIntegrationIds": {
                           "type": "array",
                           "items": {
                             "type": "string",
@@ -1531,6 +1572,32 @@
                             ],
                             "additionalProperties": false
                           }
+                        },
+                        "trelloIntegrations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "integrationId": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{24}$"
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "username": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "integrationId",
+                              "label",
+                              "username"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "default": []
                         },
                         "resendIntegrations": {
                           "type": "array",

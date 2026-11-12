@@ -1,15 +1,15 @@
 import type { Tab } from './model.ts'
 
-type GateTab = Pick<
-  Tab,
-  'sessionId' | 'readOnly' | 'foreign' | 'canManage' | 'archived' | 'unsaved' | 'watching'
->
+type StoredTab = Partial<Pick<Tab, 'connected' | 'messages' | 'unsaved' | 'openedAt' | 'stored'>>
 
-/** Which titlebar session actions the active chat allows. Pin, links, rename
- *  and archive all need a session the server has stored, so an unsaved fork
- *  gets none of them until its first turn is sent. */
+type GateTab = StoredTab &
+  Partial<Pick<Tab, 'sessionId' | 'readOnly' | 'foreign' | 'canManage' | 'archived' | 'watching'>>
+
+/** Which titlebar session actions the active chat allows. Participants, pin,
+ *  links, rename and archive all need a session the server has stored, so a
+ *  new chat or an unsaved fork gets none of them until the server has it. */
 export function sessionActionGates(tab: GateTab | null | undefined) {
-  const saved = Boolean(tab?.sessionId && !tab.unsaved)
+  const saved = Boolean(tab?.sessionId && serverHasConversation(tab))
   const writable = saved && !tab?.readOnly
 
   return {
@@ -22,12 +22,24 @@ export function sessionActionGates(tab: GateTab | null | undefined) {
   }
 }
 
-/** A new chat's conversation is stored with its first turn. Until the server
- *  answers (its stream starts, or a reply is on record), reading the
- *  conversation's settings finds nothing. An unsaved fork carries its source's
- *  replies but is not stored yet either. */
-export function serverHasConversation(tab: Pick<Tab, 'connected' | 'messages' | 'unsaved'>) {
+/** A new chat's conversation is stored with its first turn, before the backend
+ *  answers it: until its stream starts or a reply is on record, reading the
+ *  conversation finds nothing. One opened from the server is stored. An unsaved
+ *  fork carries its source's replies but is not stored yet either. */
+export function serverHasConversation(tab: StoredTab) {
   if (tab.unsaved) return false
 
-  return tab.connected || tab.messages.some((message) => message.role === 'assistant')
+  return (
+    tab.openedAt !== undefined ||
+    tab.stored === true ||
+    tab.connected === true ||
+    Boolean(tab.messages?.some((message) => message.role === 'assistant'))
+  )
+}
+
+/** The route stores a new conversation before accepting its run and queues only
+ *  a stored one, so any frame of the run, or a queued reply, proves it exists.
+ *  A request refused before that (an HTTP error) proves nothing. */
+export function provesStored(evType: string | undefined) {
+  return evType === 'sse' || evType === 'queued'
 }

@@ -21,10 +21,9 @@ import { UploadingPreviews } from './UploadingPreviews'
 import type { TransferUploadPart } from './parts'
 import type { FileTransferGroup } from '../../../types'
 
-// Files the agent produced for the user. Bytes live in the transfer store.
-// Images show as thumbnails (saved from the preview) and videos play inline, with
-// no frame around them; any other file is a row saved through a native dialog,
-// and several rows can be saved together as a zip of the whole group.
+// Files the agent produced, kept in the transfer store. Images show as thumbnails and
+// videos play inline; any other file is a row saved through a native dialog (HTML and
+// Markdown also open beside the chat), several at once as a zip of the group.
 export function DownloadFilesCard({
   group,
   teamId,
@@ -128,6 +127,7 @@ export function DownloadFilesCard({
             compact={multiple}
             busy={busy}
             onDownload={() => void downloadOne(f.id, f.fileName)}
+            preview={base}
           />
         ))}
       </div>

@@ -50,7 +50,12 @@ export function appendAgentRunFrame(run: AgentRun, frame: string) {
       run_age_ms: Date.now() - run.createdAt,
     })
   }
-  if (frameType === AGENT_TURN_COMPLETE_EVENT || frameType === AGENT_TURN_PAUSED_EVENT) {
+  // A turn a channel woke answers in the channel; its own conversation has nothing
+  // new for its owner. A pause can still need the owner, so it counts.
+  if (
+    frameType === AGENT_TURN_PAUSED_EVENT ||
+    (frameType === AGENT_TURN_COMPLETE_EVENT && !run.channelWoken)
+  ) {
     recordConversationActivity(run)
   }
   if (frameType === 'tool-approval-request') {

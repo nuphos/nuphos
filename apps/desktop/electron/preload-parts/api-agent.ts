@@ -15,7 +15,6 @@ export const agentApi = {
     sessionId: string,
     teamId: string,
     runtimeId: string,
-    mode: 'history' | 'workspace',
     grantComputerUse?: boolean,
   ) =>
     ipcRenderer.invoke(
@@ -23,7 +22,6 @@ export const agentApi = {
       sessionId,
       teamId,
       runtimeId,
-      mode,
       grantComputerUse,
     ),
   agentCheckConversationMove: (sessionId: string, teamId: string, runtimeId: string) =>
@@ -224,8 +222,8 @@ export const agentApi = {
     },
     teamId?: string,
   ) => ipcRenderer.invoke('agent:updateTrigger', triggerId, patch, teamId),
-  agentDeleteTrigger: (triggerId: string, teamId?: string) =>
-    ipcRenderer.invoke('agent:deleteTrigger', triggerId, teamId),
+  agentDeleteTrigger: (triggerId: string, teamId?: string, withoutProviderCleanup?: boolean) =>
+    ipcRenderer.invoke('agent:deleteTrigger', triggerId, teamId, withoutProviderCleanup),
   agentTestFireTrigger: (triggerId: string, payload?: Record<string, unknown>, teamId?: string) =>
     ipcRenderer.invoke('agent:testFireTrigger', triggerId, payload, teamId),
   agentTransferTriggerExecutionPrincipal: (triggerId: string, userId: string, teamId?: string) =>

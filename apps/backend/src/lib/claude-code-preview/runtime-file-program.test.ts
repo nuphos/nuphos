@@ -1,12 +1,71 @@
+import { expect, test } from 'bun:test'
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { expect, test } from 'bun:test'
-
 import { RUNTIME_FILE_PROGRAM } from './runtime-file-program'
+
+test('Bot import writes verified bytes, retries safely and refuses another session or symlink destination', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'runtime-import-'))
+  const bytes = Buffer.from('a synthetic report')
+  const sha256 = createHash('sha256').update(bytes).digest('hex')
+  const run = (path: string, patch: Record<string, unknown> = {}) =>
+    JSON.parse(
+      execFileSync(
+        // eslint-disable-next-line sonarjs/no-os-command-from-path -- Runs the installed Node interpreter against synthetic temporary files, without a shell.
+        'node',
+        [
+          '--input-type=module',
+          '-e',
+          `globalThis.fetch = async () => new Response(Buffer.from(${JSON.stringify(bytes.toString('base64'))}, 'base64'));\n${RUNTIME_FILE_PROGRAM}`,
+        ],
+        {
+          input: JSON.stringify({
+            action: 'import',
+            workspace: root,
+            sessionId: 'bot-one',
+            path,
+            url: 'https://fixture.invalid/file',
+            size: bytes.length,
+            sha256,
+            ...patch,
+          }),
+          encoding: 'utf8',
+          timeout: 5000,
+        },
+      ),
+    )
+
+  try {
+    expect(run('imported/bot-one/notes/report.md')).toEqual({
+      imported: true,
+      size: bytes.length,
+      sha256,
+    })
+    expect(await readFile(join(root, 'imported/bot-one/notes/report.md'), 'utf8')).toBe(
+      'a synthetic report',
+    )
+    expect(run('imported/bot-one/notes/report.md').imported).toBe(true)
+    expect(run('imported/bot-two/leak.md').error).toBe('forbidden_path')
+    expect(run('imported/bot-one/wrong.md', { sha256: '0'.repeat(64) }).error).toBeDefined()
+    expect(run('imported/bot-one/oversized.md', { size: 1 }).error).toBeDefined()
+    await writeFile(join(root, 'imported/bot-one/notes/report.md'), 'changed by the owner')
+    expect(run('imported/bot-one/notes/report.md').error).toBeDefined()
+    expect(await readFile(join(root, 'imported/bot-one/notes/report.md'), 'utf8')).toBe(
+      'changed by the owner',
+    )
+    await symlink(root, join(root, 'imported/bot-one/escape'))
+    expect(run('imported/bot-one/escape/outside.md').error).toBe('forbidden_path')
+    const emptyHash = createHash('sha256').update('').digest('hex')
+
+    expect(run('imported/bot-one/empty', { size: 0, sha256: emptyHash }).imported).toBe(true)
+    expect(await readFile(join(root, 'imported/bot-one/empty'))).toHaveLength(0)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
 
 test('the cloud panel runner reads JSON params and returns exact binary bytes', async () => {
   const root = await mkdtemp(join(tmpdir(), 'runtime-file-'))

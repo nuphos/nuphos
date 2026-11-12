@@ -1,5 +1,6 @@
 import { useReducer } from 'react'
 
+import { useAccountLabelledInstances } from '../../../hooks/useAccountLabelledInstances'
 import { useLocalRuntimeState } from '../../../hooks/useLocalRuntimeState'
 import { useRuntimeInstances } from '../../../hooks/useRuntimeInstances'
 import { useRuntimeQuotas } from '../../../hooks/useRuntimeQuotas'
@@ -26,9 +27,11 @@ export function useNewConversationRuntime(teamId?: string) {
   const runtimeQuotas = useRuntimeQuotas(teamId)
   const owner = useThisComputer()
   const localState = useLocalRuntimeState()
+  // A computer that holds several accounts for one provider tells its agents apart by account.
+  const listed = useAccountLabelledInstances(catalog.instances)
   const instances = teamId
-    ? [...catalog.instances, ...pendingLocalAgents(localState, catalog.instances)]
-    : catalog.instances
+    ? [...listed, ...pendingLocalAgents(localState, catalog.instances)]
+    : listed
   const choice = readNewChatChoice(newChatChoiceKey(teamId))
   // The saved agent stands while it is usable; otherwise the nearest one, never none.
   // So an agent connected from the home composer is picked the moment it lists.

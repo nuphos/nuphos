@@ -2,7 +2,7 @@ import { impersonateSa } from '@/lib/byos/gcp'
 import { AppError } from '@/lib/errors'
 import { teamByosBindings } from '@/models'
 
-import { cleanupConflict, sameJson, targetsManagedWebhook } from './shared'
+import { cleanupConflict, integrationDisconnected, sameJson, targetsManagedWebhook } from './shared'
 
 import type { GcpProviderWiring } from '../trigger-provider-wiring'
 import type { JsonObject } from './shared'
@@ -96,7 +96,8 @@ export async function cleanupGcp(
       item.purpose !== 'permission-admin',
   )
 
-  if (!binding) cleanupConflict('The GCP integration used by this Watch is no longer connected')
+  if (!binding)
+    integrationDisconnected('The GCP integration used by this Watch is no longer connected')
   const projectPrefix = `projects/${receipt.projectId}/`
 
   if (

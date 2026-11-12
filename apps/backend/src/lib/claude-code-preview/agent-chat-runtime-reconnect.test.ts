@@ -275,7 +275,7 @@ for (const [name, error, diagnostics] of [
       message: `Could not check the agent's state: ${error.message}`,
     })
     expect(
-      turnDiagnostics({ streamId: 'run', startedAt: 1000, error: failure, toolSteps: [] }),
+      await turnDiagnostics({ streamId: 'run', startedAt: 1000, error: failure, toolSteps: [] }),
     ).toMatchObject({
       ...diagnostics,
       error: error.message,

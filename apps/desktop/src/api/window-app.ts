@@ -9,13 +9,15 @@ import type {
   AppOpenDeepLinkPayload,
   LocalAgentSessionInfo,
   LocalSessionSource,
-  LocalSkillImportResult,
+  LocalSkillImportOutcome,
   LocalSetupResult,
   LocalSetupStatus,
   LocalSkillInfo,
   PastedAttachmentPayload,
 } from './app-types.ts'
 import type {
+  GithubSkillCandidate,
+  GithubSkillPreview,
   SkillScope,
   TeamSkillHistory,
   TeamSkillManifest,
@@ -23,8 +25,8 @@ import type {
   TeamSkillObjectDetail,
 } from './plan-types.ts'
 import type { Diagram, DiagramSummary } from '../architecture/schema.ts'
-import type { Design, DesignOp, DesignPage, DesignSummary } from '../design/schema.ts'
 import type { DashboardViewRange } from '../dashboards/schema'
+import type { Design, DesignOp, DesignPage, DesignSummary } from '../design/schema.ts'
 import type { ConnectAgentLink } from '../lib/connectAgentLink.ts'
 import type {
   AccountSummary,
@@ -213,12 +215,17 @@ export type WindowAppApi = {
   teamSkillsListLocal(): Promise<LocalSkillInfo[]>
   localSetupStatus(teamId: string): Promise<LocalSetupStatus>
   localSetupSync(teamId: string): Promise<LocalSetupResult>
+  localSetupApproveLinks(
+    teamId: string,
+    name: string,
+    reviewed: { relPath: string; realPath: string }[],
+  ): Promise<LocalSetupResult>
   localSetupSetAutoSync(teamId: string, enabled: boolean): Promise<void>
   teamSkillsImportLocal(
     teamId: string,
-    skillId: string,
-    scope?: SkillScope,
-  ): Promise<LocalSkillImportResult>
+    scope: SkillScope | undefined,
+    picks: { id: string; reviewed: { relPath: string; realPath: string }[] }[],
+  ): Promise<LocalSkillImportOutcome[]>
   teamSkillsDeleteObject(teamId: string, key: string, scope?: SkillScope): Promise<void>
   teamSkillsDeleteSkill(
     teamId: string,
@@ -226,4 +233,14 @@ export type WindowAppApi = {
     scope?: SkillScope,
   ): Promise<{ name: string; deletedCount: number; keys: string[] }>
   teamSkillsPromote(teamId: string, name: string): Promise<unknown>
+  teamSkillsGithubPreview(
+    teamId: string,
+    source: string,
+    scope?: SkillScope,
+  ): Promise<GithubSkillPreview>
+  teamSkillsGithubInstall(
+    teamId: string,
+    input: { source: string; commitSha: string; names: string[] },
+    scope?: SkillScope,
+  ): Promise<{ installed: GithubSkillCandidate[] }>
 }

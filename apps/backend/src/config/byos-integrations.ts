@@ -210,6 +210,7 @@ export function byosIntegrationsConfig() {
       apiKey: optional('NUPHOS_COMPOSIO_API_KEY'),
       gmailAuthConfigId: optional('NUPHOS_COMPOSIO_GMAIL_AUTH_CONFIG_ID'),
       googleDriveAuthConfigId: optional('NUPHOS_COMPOSIO_GOOGLE_DRIVE_AUTH_CONFIG_ID'),
+      trelloAuthConfigId: optional('NUPHOS_COMPOSIO_TRELLO_AUTH_CONFIG_ID'),
     },
     linear: {
       // OAuth2 app the team authorises against. Linear has a single hosted

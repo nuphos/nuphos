@@ -6,3 +6,5 @@ export * from '@/middleware/auth/posthog'
 export * from '@/middleware/auth/providers'
 export * from '@/middleware/auth/types'
 export * from '@/middleware/auth/workspaces'
+
+export * from '@/middleware/auth/trello'

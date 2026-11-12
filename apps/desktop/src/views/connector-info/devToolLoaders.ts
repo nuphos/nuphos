@@ -2,6 +2,8 @@ import { api } from '../../api'
 import { t } from '../../i18n/index.ts'
 import { POSTHOG_REGION_LABELS } from '../../types/posthog'
 
+import { loadTrelloInfo } from './trelloLoader'
+
 import type { ConnectorInfoLoaders } from './types'
 
 export const devToolLoaders: ConnectorInfoLoaders = {
@@ -86,6 +88,7 @@ export const devToolLoaders: ConnectorInfoLoaders = {
       externalLabel: t('Open {name}', { name: 'Resend' }),
     }
   },
+  trello: loadTrelloInfo,
   linear: async (teamId, connectorId) => {
     const item = (await api.atlasListLinearWorkspaces(teamId)).find((row) => row.id === connectorId)
 
@@ -98,7 +101,7 @@ export const devToolLoaders: ConnectorInfoLoaders = {
         {
           label: 'URL',
           value: item.organizationUrlKey ? `linear.app/${item.organizationUrlKey}` : '—',
-          mono: !!item.organizationUrlKey,
+          mono: Boolean(item.organizationUrlKey),
         },
         { label: t('Account'), value: item.accountName || '—' },
         { label: t('OAuth scope'), value: item.scope, mono: true },
@@ -123,7 +126,7 @@ export const devToolLoaders: ConnectorInfoLoaders = {
         {
           label: 'URL',
           value: item.siteUrl ? item.siteUrl.replace(/^https?:\/\//, '') : '—',
-          mono: !!item.siteUrl,
+          mono: Boolean(item.siteUrl),
         },
         { label: t('Account'), value: item.accountName || '—' },
         { label: t('Cloud ID'), value: item.cloudId, mono: true },

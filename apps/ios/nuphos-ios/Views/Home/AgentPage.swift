@@ -545,7 +545,7 @@ struct SearchBar: View {
             .frame(height: 38)
             .contentShape(Capsule())
             .onTapGesture { focused = true }
-            .glassEffect(.regular, in: Capsule())
+            .glass(in: Capsule())
 
             Button("Cancel", action: onCancel)
                 .font(.body)

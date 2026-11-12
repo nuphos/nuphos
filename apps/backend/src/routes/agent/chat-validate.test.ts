@@ -39,7 +39,7 @@ test('a first-turn model pick is trimmed, and anything else is refused', () => {
     initialSessionConfig: { model: ' opus ', fast: 'on' },
   }
 
-  validateChatBody(body as never)
+  validateChatBody(body)
   expect(body.initialSessionConfig).toEqual({ model: 'opus', fast: 'on' })
   for (const initialSessionConfig of [{ fast: '' }, { tools: 'all' }, { effort: '' }, 'opus'])
     expect(() =>
@@ -147,4 +147,18 @@ describe('acceptClientTail', () => {
     expect(error?.status).toBe(409)
     expect(error?.details).toEqual({ storedMessageCount: 1 })
   })
+})
+
+test('an older Desktop can start a new chat after saving an unknown current model', () => {
+  const body = { id: 'new-chat', messages: [], initialSessionConfig: { model: '' } }
+
+  validateChatBody(body)
+  expect(Object.keys(body.initialSessionConfig)).toEqual([])
+})
+test('omitting an unknown initial model keeps an explicit effort without inventing a model', () => {
+  const body = { id: 'new-chat', messages: [], initialSessionConfig: { model: '', effort: 'high' } }
+
+  validateChatBody(body)
+  expect(Object.keys(body.initialSessionConfig)).toEqual(['effort'])
+  expect(body.initialSessionConfig.effort).toBe('high')
 })

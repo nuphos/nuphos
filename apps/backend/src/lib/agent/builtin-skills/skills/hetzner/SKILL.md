@@ -20,9 +20,12 @@ equivalent), so there are no managed clusters or kubeconfigs to fetch here. If a
 user runs Kubernetes on Hetzner, it is self-managed on their servers — inspect
 it with `kubectl` using a kubeconfig they provide, not through this skill.
 
-The CLI is pre-installed in the sandbox runtime image. If it is missing, tell
-the user the runtime image is missing `hcloud`; do not conclude that Nuphos
-lacks Hetzner credentials.
+`hcloud` is provided by the runtime image's tool manifest, not baked into it:
+the first call downloads the pinned, checksum-verified release and can take a
+while, so let it finish rather than interrupt it. `nuphos-tools list` shows the
+tool and its state. If the command is missing entirely, or that install keeps
+failing, report the runtime mismatch instead of installing another build during
+the task; do not conclude that Nuphos lacks Hetzner credentials.
 
 ## Prefer Nuphos API for first-party reads
 

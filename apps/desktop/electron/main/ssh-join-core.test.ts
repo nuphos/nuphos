@@ -89,10 +89,11 @@ test('the script starts the agent in the background with the token from stdin', 
     /NUPHOS_API_URL='https:\/\/api.dev' NUPHOS_JOIN_TOKEN='nj_1' nohup "\$HOME\/.local\/bin\/nuphos" agent .*&\n/,
   )
   assert.doesNotMatch(sshJoinScript({ token: 'nj_1', apiUrl: 'https://api.nuphos.ai' }), /API_URL/)
-  // An agent that exits at once fails the run with its log, instead of a silent wait.
+  // An agent that exits without joining fails the run with its log, instead of a silent wait;
+  // one that installed the systemd service exits once it joined.
   assert.match(
     script,
-    /kill -0 \$agent 2>\/dev\/null \|\| \{ cat "\$HOME\/.nuphos-agent.log" >&2; exit 1; \}/,
+    /\[ -s "\$cred" \] \|\| kill -0 \$agent 2>\/dev\/null \|\| \{ cat "\$HOME\/.nuphos-agent.log" >&2; exit 1; \}/,
   )
   // It names the computer it joined, so Desktop waits for that one.
   assert.match(script, /device-credential\.json[\s\S]*"deviceId"[\s\S]*Device: /)

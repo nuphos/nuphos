@@ -28,6 +28,18 @@ export const sessionResourceInput = z.discriminatedUnion('provider', [
     .strict(),
   z
     .object({
+      provider: z.literal('gitlab'),
+      bindingId: z.string().regex(/^[a-f\d]{24}$/i),
+      /** The project's numeric id or its full path, e.g. `group/sub/project`. */
+      project: z
+        .string()
+        .regex(/^(\d+|[\w.-]+(\/[\w.-]+)+)$/)
+        .max(300),
+      iid: z.number().int().positive(),
+    })
+    .strict(),
+  z
+    .object({
       provider: z.literal('linear'),
       workspaceId: z.string().regex(/^[a-f\d]{24}$/i),
       issueId: z.string().min(1).max(100),
@@ -38,7 +50,7 @@ export const sessionResourceInput = z.discriminatedUnion('provider', [
 export type SessionResource = {
   id: string
   key: string
-  provider: 'github' | 'linear'
+  provider: 'github' | 'gitlab' | 'linear'
   integrationId: string
   resourceId: string
   title: string
@@ -130,24 +142,31 @@ export async function unlinkSessionResource(actor: ResourceActor, id: string) {
   return { ok: true }
 }
 
+/** The bind input that looks a stored resource up again. */
+function lookupInput(resource: SessionResource): z.infer<typeof sessionResourceInput> {
+  if (resource.provider === 'github')
+    return {
+      provider: 'github',
+      installationId: Number(resource.integrationId),
+      repository: resource.repository!,
+      number: resource.number!,
+    }
+  if (resource.provider === 'gitlab')
+    return {
+      provider: 'gitlab',
+      bindingId: resource.integrationId,
+      project: resource.resourceId.split('/')[0]!,
+      iid: resource.number!,
+    }
+
+  return { provider: 'linear', workspaceId: resource.integrationId, issueId: resource.resourceId }
+}
+
 export async function refreshSessionResource(
   conversation: AgentConversation,
   resource: SessionResource,
 ) {
-  const input =
-    resource.provider === 'github'
-      ? {
-          provider: 'github' as const,
-          installationId: Number(resource.integrationId),
-          repository: resource.repository!,
-          number: resource.number!,
-        }
-      : {
-          provider: 'linear' as const,
-          workspaceId: resource.integrationId,
-          issueId: resource.resourceId,
-        }
-  const fresh = await resolveResource(conversation, conversation.userId, input)
+  const fresh = await resolveResource(conversation, conversation.userId, lookupInput(resource))
 
   return writeFreshResource(conversation.sessionId, resource, fresh)
 }

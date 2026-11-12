@@ -181,19 +181,25 @@ conversationParticipantsRoutes.post('/conversations/:sessionId/participants', as
 
 // The invite's mirror image: removing revokes the person's own grant. They keep
 // whatever general access still gives the team. The owner cannot be removed.
+// Anyone may remove themselves: that is leaving, and needs no owner.
 conversationParticipantsRoutes.delete(
   '/conversations/:sessionId/participants/:userId',
   async (c) => {
+    const userId = c.get('userId')
     const sessionId = c.req.param('sessionId')
     const targetId = c.req.param('userId')
     const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c))
 
     if (!teamId) throw new AppError(403, 'forbidden', 'Workspace membership is required')
-    const conversation = await requireOwnedConversation(sessionId, c.get('userId'), teamId)
+    const conversation =
+      targetId === userId
+        ? await getReadableConversation(sessionId, userId, teamId)
+        : await requireOwnedConversation(sessionId, userId, teamId)
 
+    if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
     if (targetId === conversation.userId)
       throw new AppError(400, 'invalid_request', 'The conversation owner cannot be removed')
-    const updated = await removeConversationParticipant(sessionId, c.get('userId'), targetId)
+    const updated = await removeConversationParticipant(sessionId, userId, targetId)
 
     if (!updated) throw new AppError(404, 'not_found', 'Conversation not found')
 

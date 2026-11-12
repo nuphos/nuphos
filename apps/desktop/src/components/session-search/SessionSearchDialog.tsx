@@ -1,11 +1,12 @@
 import { Dialog } from '@base-ui/react/dialog'
+import { useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { Search, UserRound, Users, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { api } from '../../api'
 import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
 import { t } from '../../i18n'
+import { teamMembersQuery } from '../../lib/query/team'
 import { trackSearch } from '../../lib/searchAnalytics'
 import { useDebouncedValue } from '../agent/panel/historyPageHooks'
 import { InputGroup, InputGroupInput } from '../ui/input-group'
@@ -79,15 +80,11 @@ export function SessionSearchDialog({
   useEffect(() => {
     if (!open && !ready) onExited()
   }, [open, ready, onExited])
-  const members = useRef<Promise<TeamMember[]> | null>(null)
-  const loadPeople = useCallback(() => {
-    members.current ??= api.atlasListTeamMembers(teamId).catch((error: unknown) => {
-      members.current = null
-      throw error
-    })
-
-    return members.current
-  }, [teamId])
+  const queryClient = useQueryClient()
+  const loadPeople = useCallback(
+    () => queryClient.query(teamMembersQuery(teamId)),
+    [queryClient, teamId],
+  )
 
   useSuspendTitlebarDrag(true)
 

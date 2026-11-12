@@ -204,6 +204,33 @@ export async function listSkillPackageObjects(
   return s3.listUnderPrefix(`${scope}/${SKILL_OBJECT_KEY_PREFIX}${skillName}/`)
 }
 
+/** Whether `skills/<name>/` holds any object, independent of the manifest's listing cap. */
+export async function skillPackageExists(scope: string, skillName: string): Promise<boolean> {
+  const normalized = normalizeSkillScope(scope)
+  const objects = await listSkillPackageObjects(
+    requireSkillsStore(normalized),
+    normalized,
+    skillName,
+  )
+
+  return objects.length > 0
+}
+
+/** Current ETags of one skill package, keyed like `SkillObject.key`. */
+export async function skillPackageEtags(
+  scope: string,
+  skillName: string,
+): Promise<Record<string, string>> {
+  const normalized = normalizeSkillScope(scope)
+  const objects = await listSkillPackageObjects(
+    requireSkillsStore(normalized),
+    normalized,
+    skillName,
+  )
+
+  return etagsByRelativeKey(normalized, objects)
+}
+
 export function mutationError(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }

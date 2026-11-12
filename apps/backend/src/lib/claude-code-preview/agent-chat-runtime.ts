@@ -8,7 +8,6 @@ import {
   setClaudeCodeAutonomousUpdateHandler,
 } from './autonomous-session-observer'
 import { backgroundWorkPrompt, markBackgroundWorkLost } from './background-work'
-import { settledCodexStopReason } from './codex-turn-settle'
 import { openConversationSession } from './open-conversation-session'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { redactedPromptUpdates } from './redacted-prompt-updates'
@@ -25,12 +24,13 @@ import {
   turnDefaults,
 } from './session-context'
 import { pushSessionCredentials } from './session-credential-push'
+import { settledTurn } from './session-config-record'
 import { probeExecutionState } from './session-execution-state'
 import { observeSession, resumeSessionOn } from './session-reattach'
 import {
   MAX_PREVIEW_CONVERSATION_ID_LENGTH,
   cancelActiveTeamTurn,
-  previewRuntimeCwd,
+  RUNTIME_CWD,
 } from './team-openab-runtime'
 import { renewTurnCredentials } from './turn-credential-renewal'
 import { RuntimeStateProbeError } from './turn-diagnostics'
@@ -138,8 +138,8 @@ export async function runClaudeCodePreviewPrompt(args: {
         runtimeUrl: session.endpoint.url,
         openabSessionId: session.openabSessionId,
       },
-    }).catch((cause: unknown) => {
-      throw new RuntimeStateProbeError(cause)
+    }).catch(async (cause: unknown) => {
+      throw await RuntimeStateProbeError.from(cause)
     })
   const observed = await observe()
 
@@ -209,7 +209,7 @@ export async function runClaudeCodePreviewPrompt(args: {
     ) {
       const { alive } = await client.loadSession(
         session.openabSessionId,
-        previewRuntimeCwd(session.conversationId),
+        RUNTIME_CWD,
         nextContext.mcpServers,
         nextContext.systemPrompt,
         nextContext.runtime,
@@ -289,7 +289,7 @@ export async function runClaudeCodePreviewPrompt(args: {
         text.flush()
       })
 
-    return { stopReason: await settledCodexStopReason(session, result, text.last()) }
+    return { stopReason: await settledTurn(client, session, result, text.last()) }
   } finally {
     renewal?.stop()
     args.signal.removeEventListener('abort', onAbort)

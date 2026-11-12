@@ -14,7 +14,6 @@ import { applyFilter } from './cloud/shared'
 import { tabs } from './memories/memoriesShared'
 import { buildMemoryColumns } from './memories/memoryColumns'
 import { MemoryDetailPane } from './memories/MemoryDetailPane'
-import { MemoryScorecardStrip } from './memories/MemoryScorecardStrip'
 import { useMemoriesList } from './memories/useMemoriesList'
 import { useMemoryActions } from './memories/useMemoryActions'
 import { useMemoryScorecard } from './memories/useMemoryScorecard'
@@ -100,7 +99,7 @@ export function AgentMemoriesView({
     onCount?.(rows.length)
   }, [rows.length, onCount])
 
-  const { summary, scores } = useMemoryScorecard(teamId, rows)
+  const { scores } = useMemoryScorecard(teamId, rows)
   const selected = useMemo(
     () => selectedMemory ?? rows.find((memory) => memory.id === selectedId) ?? null,
     [rows, selectedId, selectedMemory],
@@ -210,12 +209,6 @@ export function AgentMemoriesView({
                 {s === 'live' ? t('Active') : t('Removed')}
               </button>
             ))}
-            {summary && stateFilter === 'live' && summary.turns.total > 0 && (
-              <>
-                <div className="mx-1 h-4 w-px bg-surface-sunken" />
-                <MemoryScorecardStrip summary={summary} />
-              </>
-            )}
           </div>,
           controlsSlot,
         )}

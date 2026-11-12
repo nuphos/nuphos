@@ -76,6 +76,7 @@ data class CredentialCatalog(
             Provider("sentryAccounts", "sentryAccountIds", "Sentry", "accountId", listOf("label"), listOf("userEmail")),
             Provider("linearWorkspaces", "linearWorkspaceIds", "Linear", "workspaceId", listOf("label", "workspaceName"), listOf("workspaceName")),
             Provider("jiraSites", "jiraSiteIds", "Jira", "siteId", listOf("label"), listOf("siteUrl")),
+            Provider("trelloIntegrations", "trelloIntegrationIds", "Trello", "integrationId", listOf("label"), listOf("username")),
             Provider("asanaAccounts", "asanaAccountIds", "Asana", "accountId", listOf("label"), listOf("accountEmail")),
             Provider("plaudAccounts", "plaudAccountIds", "Plaud", "bindingId", listOf("label"), emptyList()),
             Provider("vantaIntegrations", "vantaIntegrationIds", "Vanta", "integrationId", listOf("label"), emptyList()),
@@ -104,6 +105,12 @@ data class CredentialCatalog(
 data class CredentialSelection(
     val ids: Map<String, Set<String>> = emptyMap(),
     @kotlinx.serialization.Transient val newConversation: Boolean = false,
+    /**
+     * The kinds a stored selection had, an explicit empty one included; null for one not read from storage.
+     * Such a selection sends only these and the kinds changed here: for several kinds a missing key
+     * means "all", which an empty list would revoke.
+     */
+    @kotlinx.serialization.Transient val stored: Set<String>? = null,
 ) {
     val isEmpty: Boolean get() = ids.values.all { it.isEmpty() }
     val count: Int get() = ids.values.sumOf { it.size }
@@ -123,7 +130,7 @@ data class CredentialSelection(
         val usable = catalog.allItems.filter { !it.unavailable && it.provider.selectionKey != "personalCredentialIds" }
         val defaults = usable.groupBy { it.provider.selectionKey }.mapValues { (_, items) -> items.map { it.id }.toSet() }
         return copy(newConversation = true, ids = ids.mapValues { (key, selected) -> selected + defaults[key].orEmpty() } +
-            defaults.filterKeys { it !in ids } + ("resendIntegrationIds" to emptySet()))
+            defaults.filterKeys { it !in ids } + ("resendIntegrationIds" to emptySet()) + ("trelloIntegrationIds" to emptySet()))
     }
 
     /** Add usable computers without revoking an already selected unavailable computer. */
@@ -142,7 +149,8 @@ data class CredentialSelection(
     val json: JsonValue
         get() = JsonValue.Obj(
             CredentialCatalog.NEW_CONVERSATION_PROVIDERS.filter {
-                newConversation || it in CredentialCatalog.PROVIDERS
+                stored?.let { kinds -> it.selectionKey in kinds || it.selectionKey in ids }
+                    ?: (newConversation || it in CredentialCatalog.PROVIDERS)
             }.associate { provider ->
                 provider.selectionKey to JsonValue.Arr(
                     (ids[provider.selectionKey] ?: emptySet()).sorted().map { JsonValue.Str(it) },
@@ -150,26 +158,20 @@ data class CredentialSelection(
             },
         )
 
+    /**
+     * A stored conversation's selection in every kind this build knows: [json] sends back the kinds it
+     * had and those changed since, and the server keeps the rest as stored.
+     */
     constructor(json: JsonValue) : this(
-        CredentialCatalog.PROVIDERS.mapNotNull { provider ->
+        CredentialCatalog.NEW_CONVERSATION_PROVIDERS.mapNotNull { provider ->
             val set = json[provider.selectionKey]?.arrayValue?.mapNotNull { it.stringValue }?.toSet().orEmpty()
             if (set.isEmpty()) null else provider.selectionKey to set
         }.toMap(),
+        // null is unset, as the server reads it; anything else is stored, and a value that
+        // isn't a list is sent back as an empty one rather than left to mean "all".
+        stored = CredentialCatalog.NEW_CONVERSATION_PROVIDERS.map { it.selectionKey }
+            .filter { json[it]?.isNull == false }.toSet(),
     )
-
-    companion object {
-        /**
-         * A stored chat's selection in every kind this build knows, for saving it whole from the Inbox:
-         * [json] then sends each of them back, and the server keeps any key a newer client stored.
-         */
-        fun whole(json: JsonValue) = CredentialSelection(
-            CredentialCatalog.NEW_CONVERSATION_PROVIDERS.mapNotNull { provider ->
-                val set = json[provider.selectionKey]?.arrayValue?.mapNotNull { it.stringValue }?.toSet().orEmpty()
-                if (set.isEmpty()) null else provider.selectionKey to set
-            }.toMap(),
-            newConversation = true,
-        )
-    }
 
     fun pruned(catalog: CredentialCatalog): CredentialSelection {
         val valid = catalog.allItems.groupBy { it.provider.selectionKey }.mapValues { e -> e.value.map { it.id }.toSet() }

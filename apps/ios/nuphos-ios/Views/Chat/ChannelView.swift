@@ -352,6 +352,8 @@ private struct ChannelPostRow: View {
     var onReply: (() -> Void)?
     var onQuote: (ChannelReply) -> Void = { _ in }
 
+    @State private var selectionRequest = 0
+
     private static let avatar: CGFloat = 20
 
     /// The groups' files when the chat has read them all; else the card reads them.
@@ -377,22 +379,25 @@ private struct ChannelPostRow: View {
                     TransferCard(groupIds: post.downloads, fromUser: false, files: read(post.downloads), resolve: resolve)
                 }
             }
+            .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .contextMenu {
+                if let onReply {
+                    Button("Reply", systemImage: "arrowshape.turn.up.left", action: onReply)
+                }
+                #if canImport(UIKit)
+                if !post.text.isEmpty {
+                    Button("Select Text", systemImage: "text.cursor") { selectionRequest += 1 }
+                    Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = post.text }
+                }
+                #endif
+            }
             if !mine { Spacer(minLength: 48) }
         }
         .frame(maxWidth: .infinity, alignment: mine ? .trailing : .leading)
-        .contextMenu {
-            if let onReply {
-                Button("Reply", systemImage: "arrowshape.turn.up.left", action: onReply)
-            }
-            #if canImport(UIKit)
-            if !post.text.isEmpty {
-                Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = post.text }
-            }
-            #endif
-        }
         .accessibilityElement(children: .contain)
         .accessibilityActions {
             if let onReply { Button("Reply", action: onReply) }
+            if !post.text.isEmpty { Button("Select Text") { selectionRequest += 1 } }
         }
     }
 
@@ -434,7 +439,7 @@ private struct ChannelPostRow: View {
     }
 
     private var bubble: some View {
-        AssistantMarkdown(text: post.text, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, onLink: onLink)
+        AssistantMarkdown(text: post.text, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink)
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
             .background(flashed ? Theme.brand.opacity(0.3) : mine ? Theme.brand.opacity(0.14) : Theme.chatSurface,

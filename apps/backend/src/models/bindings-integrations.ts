@@ -265,3 +265,15 @@ export type PlaudAccountBinding = {
   createdAt: Date
   access?: BindingAccess
 }
+
+export type TrelloIntegrationBinding = {
+  id: ObjectId
+  label: string
+  memberId: string
+  username: string
+  composioAccountId: string
+  composioUserId: string
+  authorizedBy: string
+  createdAt: Date
+  access?: BindingAccess
+}

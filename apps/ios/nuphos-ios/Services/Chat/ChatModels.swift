@@ -96,7 +96,13 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
         let text: String
         var agentId: String? = nil
         var runtime: String? = nil
+        /// Set when this is a channel's wake-up notice (`channel-wake.ts`): its body is
+        /// the agent's input, so only the channel is shown, as on the desktop.
+        var channelId: String? = nil
     }
+
+    /// The sender id prefix of a channel's wake-up notice (`CHANNEL_SENDER_PREFIX`).
+    static let channelSenderPrefix = "channel:"
 
     var event: Event? {
         let source = metadata?["source"]?.stringValue
@@ -107,9 +113,13 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
         let logo = source == "agent.thread"
             ? runtime.map { RuntimeInstance.Provider.logo($0.rawValue) }
             : ["github", "linear"].contains(id) ? "logo-\(id)" : nil
+        let senderId = metadata?["sender"]?["id"]?.stringValue ?? ""
+        let channelId = source == "agent.resource" && senderId.hasPrefix(Self.channelSenderPrefix)
+            ? String(senderId.dropFirst(Self.channelSenderPrefix.count)) : ""
         return Event(name: name, logo: logo, text: text.trimmingCharacters(in: .whitespacesAndNewlines),
                      agentId: source == "agent.thread" ? (metadata?["sourceSessionId"]?.stringValue ?? metadata?["sender"]?["id"]?.stringValue) : nil,
-                     runtime: runtime?.rawValue)
+                     runtime: runtime?.rawValue,
+                     channelId: channelId.isEmpty ? nil : channelId)
     }
 
     var text: String {
@@ -295,6 +305,12 @@ enum ChatPart: Equatable, Sendable {
                   let name = input?["secretName"]?.stringValue,
                   name.range(of: #"^[A-Za-z][A-Za-z0-9_]{0,63}$"#, options: .regularExpression) != nil else { return nil }
             return (name, input?["question"]?.stringValue ?? "")
+        }
+
+        /// Native runtimes may name the call with its display label, so recognize the decision input.
+        var isProviderIntegrationRequest: Bool {
+            input?["category"]?.stringValue == "integration" && input?["question"]?.stringValue != nil
+                && input?["credentials"] == nil
         }
 
         /// The request id the decision's result names; the call id otherwise.

@@ -3,9 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
-import { useAgentAvatarPicks } from '../../lib/agentAvatarChoices'
-import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
-import { useAgentUnreadSessions } from '../../lib/agentUnreadSessions'
 import { archiveChat as archiveChatRequest } from '../../lib/archiveChat'
 import { announceChatArchived } from '../../lib/chatArchiveEvents'
 import { onChatTitleChanged } from '../../lib/chatTitleEvents'
@@ -14,11 +11,10 @@ import { cssDurationMs } from '../../lib/motion'
 import { readSwrCache, writeSwrCache } from '../../lib/swrCache'
 import { toast } from '../ui/toast'
 
-import { chatSidebarItem } from './chat-item'
 import { loadSidebarChats } from './load-sidebar-chats'
 import { ARCHIVE_IN_FLIGHT, visibleSidebarChats, withRestoredChats } from './local-archive-guard'
-import { RowMenuButton } from './row-menu-button'
 import { AGENT_SESSIONS_POLL_MS, agentSessionsCacheKey, crdCacheKey } from './state'
+import { useChatItems } from './use-chat-items'
 import { useSidebarArchiveEvents } from './use-sidebar-archive-events'
 
 import type { LocalRestoreGuard } from './local-archive-guard'
@@ -272,22 +268,7 @@ export function useSidebarChats({
     [teamId, refreshSessions],
   )
 
-  const runtimeStates = useAgentRuntimeStates()
-  const unreadSessions = useAgentUnreadSessions()
-  const avatarPicks = useAgentAvatarPicks()
-  const chatItems: Item[] = agentSessions.map((conversation) => {
-    const item = chatSidebarItem({
-      conversation,
-      teamId,
-      active: chatShown && agentSessionId === conversation.sessionId,
-      runtimeState: runtimeStates.get(conversation.sessionId),
-      unread: unreadSessions.has(conversation.sessionId),
-      picked: avatarPicks.get(conversation.sessionId),
-    })
-
-    // A menu rather than a one-click archive: a stray click only opens it.
-    return { ...item, actions: <RowMenuButton title={item.label} /> }
-  })
+  const chatItems = useChatItems({ agentSessions, teamId, chatShown, agentSessionId })
   const newChatActive = chatShown && !agentSessionId
 
   return { agentSessions, chatItems, newChatActive, archiveChat, unlinkChat, archivingIds }

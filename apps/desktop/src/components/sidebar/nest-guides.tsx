@@ -9,6 +9,11 @@ import type { ReactNode } from 'react'
 
 // Tree lines follow the icon centre of a 36px Tasks row.
 const NEST_INDENT = 16
+const TASK_ICON_CENTER_X = 19
+
+/** A Bot chat row (60px, a 36px face at px-2): the face's centre and just under it. */
+const BOT_FACE_CENTER_X = 26
+const BOT_FACE_BOTTOM_Y = 50
 const LINE = 'pointer-events-none absolute border-line-control/60'
 // -bottom-0.5 spans the 2px gap between rows so the next row's line joins on.
 const DOWN = `${LINE} -bottom-0.5 border-l`
@@ -21,23 +26,33 @@ export function NestedRowBody({
   trail,
   expanded,
   children,
+  bot = false,
 }: {
   /** From nestItems: per ancestor level, whether that branch continues below. */
   trail: boolean[]
   /** This row's own children are showing, so a line drops from its icon. */
   expanded: boolean
   children: ReactNode
+  /**
+   * A Bot's chat row (the root, taller with a 36px face) or a row nested under
+   * one: the lines are measured from that face rather than a Task's icon.
+   */
+  bot?: boolean
 }) {
   const own = trail.length - 1
-  const x = (level: number) => ({ left: level * NEST_INDENT + 19 })
+  const origin = bot ? BOT_FACE_CENTER_X : TASK_ICON_CENTER_X
+  const x = (level: number) => ({ left: level * NEST_INDENT + origin })
   const centerY = 15
-  const bottomY = 27
+  // Only the chat row itself is a root; its line starts under the face.
+  const bottomY = bot && trail.length === 0 ? BOT_FACE_BOTTOM_Y : 27
+  // Each level steps one indent past the line it hangs from.
+  const pad = trail.length ? trail.length * NEST_INDENT + origin - TASK_ICON_CENTER_X : 0
 
   return (
     <>
       <div
         className="t-collapse-inner t-stagger-line"
-        style={trail.length ? { paddingLeft: trail.length * NEST_INDENT } : undefined}
+        style={pad ? { paddingLeft: pad } : undefined}
       >
         {children}
       </div>

@@ -42,6 +42,7 @@ const NEW_CHAT_NAV_ITEM: TeamOverviewNavItem = {
 /** Team-wide pages that replace the chat surface when opened from the sidebar. */
 export const TEAM_MANAGEMENT_NAV_ITEMS: TeamOverviewNavItem[] = [
   { key: 'team.inbox', label: t('Inbox'), icon: Inbox },
+  { key: 'team.plans', label: t('Plans'), icon: ClipboardList },
   { key: 'team.agents', label: t('Runtimes'), icon: Bot },
   { key: 'team.integrations', label: t('Connectors'), icon: Cloud },
 ]
@@ -67,7 +68,6 @@ export const TEAM_WORKSPACE_NAV_ITEMS: TeamOverviewNavItem[] = [
   { key: 'team.browser', label: t('Browser'), icon: Globe },
   { key: 'team.files', label: t('Files'), icon: FolderOpen },
   { key: 'team.terminal', label: t('Terminal'), icon: Terminal },
-  { key: 'team.plans', label: t('Plans'), icon: ClipboardList },
   { key: 'team.architecture', label: t('Architecture'), icon: Network },
   { key: 'team.designs', label: t('Designs'), icon: Palette },
   { key: 'team.dashboards', label: t('Dashboards'), icon: ChartLine },

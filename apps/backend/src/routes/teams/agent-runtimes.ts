@@ -2,7 +2,7 @@ import { upgradeWebSocket } from 'hono/bun'
 import { z } from 'zod'
 
 import { wakeOfflineBox } from '@/lib/agent/devices/box-wake'
-import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
+import { isLocalRuntimeId, parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { boxUpdateStatus } from '@/lib/claude-code-preview/box-update'
 import { localRuntimeStatus } from '@/lib/claude-code-preview/local-runtime-catalog'
 import { isAllowedRemoteOpenAbUrl } from '@/lib/claude-code-preview/runtime-backend-url'
@@ -71,6 +71,21 @@ export const probeSchema = z
     authKey: z.string().trim().min(1).max(500),
   })
   .strict()
+
+/**
+ * A computer's agent is changed through that computer (its own agent routes), never as a
+ * team runtime: answer that plainly instead of "no longer available".
+ */
+function teamRuntimeId(runtimeId: string): string {
+  if (isLocalRuntimeId(runtimeId))
+    throw new AppError(
+      400,
+      'local_agent_not_team_runtime',
+      "This agent runs on a computer. Manage it from that computer's agents instead.",
+    )
+
+  return runtimeId
+}
 
 export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAuthVariables }>) {
   registerRuntimeFileRoutes(teamScoped)
@@ -235,7 +250,7 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
     zv('json', updateSchema),
     async (c) => {
       const teamId = c.get('teamId')
-      const instance = await requireRuntimeInstance(teamId, c.req.param('runtimeId'))
+      const instance = await requireRuntimeInstance(teamId, teamRuntimeId(c.req.param('runtimeId')))
       const patch = c.req.valid('json')
 
       await assertRuntimeNotDeleting(teamId, instance.id)
@@ -259,7 +274,7 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
   )
   teamScoped.delete('/agent-runtimes/:runtimeId', requireTeamRole('ADMINISTRATOR'), async (c) => {
     const teamId = c.get('teamId')
-    const instance = await requireRuntimeInstance(teamId, c.req.param('runtimeId'))
+    const instance = await requireRuntimeInstance(teamId, teamRuntimeId(c.req.param('runtimeId')))
 
     if (instance.kind === 'development')
       throw new AppError(

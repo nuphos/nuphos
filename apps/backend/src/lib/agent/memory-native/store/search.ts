@@ -2,7 +2,13 @@ import { ObjectId } from 'mongodb'
 
 import { expandSearchQuery } from '../search-text'
 
-import { agentMemories, LIVE_RECORD_FILTER, memoryRecordAccessFilter, teamMemories } from './shared'
+import {
+  agentMemories,
+  LIVE_RECORD_FILTER,
+  memoryRecordAccessFilter,
+  memorySessionAccessFilter,
+  teamMemories,
+} from './shared'
 
 import type { AgentMemoryRecord, AgentTeamMemory, PlaybookStatus } from '../types'
 
@@ -17,7 +23,7 @@ export async function searchMemoryRecords(
   limit = 8,
   // ADR-0008 rung 2: optional narrowing at recall time. tags = ALL must be
   // present on the record; scope restricts within what access already allows.
-  filters?: { tags?: string[]; scope?: 'personal' | 'team' },
+  filters?: { tags?: string[]; scope?: 'personal' | 'team'; sessionId?: string },
 ): Promise<(AgentMemoryRecord & { score: number })[]> {
   const trimmed = query.trim()
 
@@ -29,7 +35,10 @@ export async function searchMemoryRecords(
         // expandSearchQuery appends dictionary-segmented CJK tokens so a
         // Chinese query can match the textSearch shadow field (track A3).
         $text: { $search: expandSearchQuery(trimmed) },
-        ...memoryRecordAccessFilter(userId, teamId),
+        $and: [
+          memoryRecordAccessFilter(userId, teamId),
+          memorySessionAccessFilter(filters?.sessionId),
+        ],
         ...LIVE_RECORD_FILTER,
         ...(filters?.tags?.length ? { categories: { $all: filters.tags } } : {}),
         ...(filters?.scope ? { scope: filters.scope } : {}),

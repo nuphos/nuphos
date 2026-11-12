@@ -79,6 +79,7 @@ before(async () => {
   })
   mock.module('../browser-extensions/host.ts', { namedExports: { extensionHost: () => null } })
   mock.module('../browser-extensions/manage.ts', { namedExports: { browserSession: () => ({}) } })
+  mock.module('../window-session.ts', { namedExports: { isAppQuitting: () => false } })
   ;({ runBrowserCall } = await import('./browser-tabs.ts'))
 })
 

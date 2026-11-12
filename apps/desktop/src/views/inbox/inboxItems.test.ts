@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { answeredIn, cardReplies, inboxCount, inboxQuestions, openQuestion } from './inboxItems.ts'
+import { answeredIn, inboxCount, inboxQuestions, markAsDone, openQuestion } from './inboxItems.ts'
 
 import type { AgentConversation } from '../../api/agent-types.ts'
 
@@ -74,15 +74,10 @@ test('a listing settles answers it no longer has open, and those past their dead
   assert.deepEqual(answeredIn(listing, answered, 1_000), ['gone', 'stale'])
 })
 
-test('a card replies with its choices, a to-do with "Done.", and a secret only in the chat', () => {
-  assert.deepEqual(cardReplies({ category: 'preference', options: ['us-east-1', 'eu-west-1'] }), [
-    { label: 'us-east-1', reply: 'us-east-1' },
-    { label: 'eu-west-1', reply: 'eu-west-1' },
-  ])
+test('a to-do is marked done; a choice, a secret or a connection is not', () => {
   // Marking a to-do done answers it like any reply, so the agent goes on.
-  assert.deepEqual(cardReplies({ category: 'approval' }), [
-    { label: 'Mark as done', reply: 'Done.' },
-  ])
-  assert.equal(cardReplies({ category: 'credential' }), null)
-  assert.equal(cardReplies({ category: 'integration', options: ['Connect'] }), null)
+  assert.equal(markAsDone({ category: 'approval' }), true)
+  assert.equal(markAsDone({ category: 'preference', options: ['us-east-1', 'eu-west-1'] }), false)
+  assert.equal(markAsDone({ category: 'credential' }), false)
+  assert.equal(markAsDone({ category: 'integration' }), false)
 })

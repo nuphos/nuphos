@@ -210,7 +210,7 @@ struct ConversationView: View {
         } message: {
             Text(session.stopRefusal ?? "")
         }
-        .sheet(item: $toolDetail) { ToolDetailSheet(part: $0) }
+        .sheet(item: $toolDetail) { ToolDetailSheet(part: $0, session: session) }
         .sheet(isPresented: $showShare) { ShareSessionSheet(session: session).presentationDetents([.medium, .large]) }
         .sheet(isPresented: $showRuntimes) {
             RuntimePickerSheet(session: session) { runtime in
@@ -486,7 +486,7 @@ struct ConversationView: View {
                 onSwitchRuntime: session.canManage && AgentChatAPI.switchRuntimeErrors.contains(text) ? { showRuntimes = true } : nil
             )
         case .event(_, let event):
-            EventLine(event: event, onLink: open(link:))
+            EventLine(event: event, onLink: open(link:), teamId: session.teamId)
         case .channel:
             EmptyView()
         }
@@ -517,13 +517,18 @@ struct UserBubble: View {
                 }
             }
             if !images.isEmpty {
-                HStack(spacing: 6) {
-                    ForEach(Array(images.prefix(4).enumerated()), id: \.offset) { _, url in
-                        DataURLImage(url: url)
-                            .frame(width: 96, height: 96)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                // Four or more are wider than a phone's column, so the row scrolls.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(Array(images.enumerated()), id: \.offset) { _, url in
+                            DataURLImage(url: url)
+                                .frame(width: 96, height: 96)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
                     }
                 }
+                .defaultScrollAnchor(.trailing, for: .alignment)
+                .scrollBounceBehavior(.basedOnSize)
             }
             if let session {
                 ForEach(transfers, id: \.groupId) { transfer in
@@ -565,12 +570,18 @@ struct SendingBubble: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
-            HStack(spacing: 6) {
-                ForEach(submission.attachments.prefix(4)) { attachment in
-                    AttachmentPreview(attachment: attachment)
-                        .frame(width: 96, height: 96)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            if !submission.attachments.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(submission.attachments) { attachment in
+                            AttachmentPreview(attachment: attachment)
+                                .frame(width: 96, height: 96)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                    }
                 }
+                .defaultScrollAnchor(.trailing, for: .alignment)
+                .scrollBounceBehavior(.basedOnSize)
             }
             if !submission.text.isEmpty {
                 PlainMessageText(text: MessagePreview.head(of: submission.text) ?? submission.text, selectable: false)
@@ -606,12 +617,18 @@ struct FailedBubble: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
-            HStack(spacing: 6) {
-                ForEach(submission.attachments.prefix(4)) { attachment in
-                    AttachmentPreview(attachment: attachment)
-                        .frame(width: 96, height: 96)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            if !submission.attachments.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(submission.attachments) { attachment in
+                            AttachmentPreview(attachment: attachment)
+                                .frame(width: 96, height: 96)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                    }
                 }
+                .defaultScrollAnchor(.trailing, for: .alignment)
+                .scrollBounceBehavior(.basedOnSize)
             }
             if !submission.text.isEmpty {
                 PlainMessageText(text: MessagePreview.head(of: submission.text) ?? submission.text, selectable: false)
@@ -704,14 +721,42 @@ struct SwitchRuntimeButton: View {
 
 /// A message another session, a linked resource or a trigger delivered: one
 /// muted line — who sent it and its first line — that expands to the full text.
+/// A channel's wake-up notice is only "New messages in #channel": its body is
+/// the agent's input and never expands.
 struct EventLine: View {
     let event: ChatMessage.Event
     var onLink: ((URL) -> Void)?
+    /// The conversation's team, to link a channel notice to its channel.
+    var teamId: String? = nil
 
     @State private var expanded = false
     @Environment(\.transcriptReadingInteraction) private var readingInteraction
 
     var body: some View {
+        if let channelId = event.channelId {
+            channelNotice(channelId)
+        } else {
+            disclosure
+        }
+    }
+
+    @ViewBuilder
+    private func channelNotice(_ channelId: String) -> some View {
+        let label = Text("New messages in #\(event.name)")
+            .font(Theme.Text.caption)
+            .foregroundStyle(Theme.muted)
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        if let onLink, let teamId, let link = SessionLink.url(teamId: teamId, sessionId: channelId) {
+            Button { onLink(link) } label: { label.contentShape(Rectangle()) }
+                .buttonStyle(.plain)
+                .accessibilityHint("Opens the channel")
+        } else {
+            label
+        }
+    }
+
+    private var disclosure: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button {
                 disclose(readingInteraction) { expanded.toggle() }

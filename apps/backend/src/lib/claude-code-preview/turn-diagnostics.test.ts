@@ -5,8 +5,8 @@ import { OpenAbTimeoutError, turnDiagnostics } from './turn-diagnostics'
 
 const base = { streamId: 'run', startedAt: 1000, endedAt: 1801000, toolSteps: [] }
 
-test('a runtime hard timeout preserves its threshold without inventing deadline semantics', () => {
-  const result = turnDiagnostics({
+test('a runtime hard timeout preserves its threshold without inventing deadline semantics', async () => {
+  const result = await turnDiagnostics({
     ...base,
     lastOutputAt: 1800000,
     error: new OpenAbRpcError('Agent exceeded hard timeout (1800s)', -32603),
@@ -28,15 +28,17 @@ test('a runtime hard timeout preserves its threshold without inventing deadline 
   expect(JSON.stringify(result)).not.toContain('not-persisted')
 })
 
-test('backend timeouts preserve the configured kind and window', () => {
+test('backend timeouts preserve the configured kind and window', async () => {
   expect(
-    turnDiagnostics({ ...base, error: new OpenAbTimeoutError('deadline', 'progress', 1234) }),
+    await turnDiagnostics({ ...base, error: new OpenAbTimeoutError('deadline', 'progress', 1234) }),
   ).toMatchObject({ source: 'backend', timeoutKind: 'progress', timeoutMs: 1234 })
-  expect(turnDiagnostics({ ...base, aborted: true, error: new Error('stop') }).source).toBe('abort')
+  expect((await turnDiagnostics({ ...base, aborted: true, error: new Error('stop') })).source).toBe(
+    'abort',
+  )
 })
 
-test('missing progress/build stays unknown, and secrets in errors are redacted', () => {
-  const result = turnDiagnostics({
+test('missing progress/build stays unknown, and secrets in errors are redacted', async () => {
+  const result = await turnDiagnostics({
     ...base,
     error: new Error('Authorization: Bearer abcdefghijklmnopqrstuvwxyz'),
   })
@@ -58,7 +60,7 @@ test('the turn retains its observed runtime build after disconnection', async ()
   tracker.observe()
   tracker.progress()
   connected = false
-  expect(tracker.finish(new Error('connection closed'))).toMatchObject({
+  expect(await tracker.finish(new Error('connection closed'))).toMatchObject({
     buildSha: 'old-build',
     adapterVersion: 'adapter-v1',
     lastOutputAt: expect.any(String),
@@ -67,7 +69,7 @@ test('the turn retains its observed runtime build after disconnection', async ()
 
 test('write-side bounds match the reader instead of losing the whole record', async () => {
   const { transcriptTurnDiagnostics } = await import('@/lib/agent/db/transcript-diagnostics')
-  const data = turnDiagnostics({
+  const data = await turnDiagnostics({
     ...base,
     streamId: 's'.repeat(500),
     runtimeId: 'r'.repeat(500),
@@ -80,11 +82,13 @@ test('write-side bounds match the reader instead of losing the whole record', as
   expect(data.streamId).toHaveLength(128)
   expect(data.lastTool?.toolCallId).toHaveLength(200)
   expect(
-    transcriptTurnDiagnostics({
-      index: 1,
-      role: 'assistant',
-      parts: [{ type: 'turn-interrupted', diagnostics: data }],
-    })[0]?.diagnostics,
+    (
+      await transcriptTurnDiagnostics({
+        index: 1,
+        role: 'assistant',
+        parts: [{ type: 'turn-interrupted', diagnostics: data }],
+      })
+    )[0]?.diagnostics,
   ).toEqual(data)
 })
 
@@ -99,6 +103,6 @@ test('output tracking does not probe the registry on each delta when no build is
 
   for (let i = 0; i < 100; i++) tracker.progress()
   expect(probes).toBe(0)
-  tracker.finish(new Error('failed'))
+  await tracker.finish(new Error('failed'))
   expect(probes).toBe(1)
 })

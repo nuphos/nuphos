@@ -1,6 +1,4 @@
-import { useEffect, useState } from 'react'
-
-import { api } from '../api'
+import { useTeamMemberList } from '../hooks/useTeamMemberList'
 
 import type { TeamMember } from '../types'
 
@@ -19,32 +17,6 @@ export function allowListIsAll(list: string[]): boolean {
 
 export function memberDisplayName(member: TeamMember): string {
   return member.name || member.username || member.email
-}
-
-/** The team's members, or null while they load. */
-export function useTeamMemberList(teamId: string): TeamMember[] | null {
-  const [members, setMembers] = useState<TeamMember[] | null>(null)
-
-  useEffect(() => {
-    // The no-team workspace shell renders the sidebar with an empty team id.
-    if (!teamId) return
-    let alive = true
-
-    api
-      .atlasListTeamMembers(teamId)
-      .then((items) => {
-        if (alive) setMembers(items)
-      })
-      .catch(() => {
-        if (alive) setMembers([])
-      })
-
-    return () => {
-      alive = false
-    }
-  }, [teamId])
-
-  return members
 }
 
 /** The team's members; none while they load. */

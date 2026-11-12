@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 
 import { db } from '@/lib/db'
-import { redactSecrets } from '@/lib/journal/redact'
+import { redactSecrets } from '@/lib/secrets/scan'
 
 import type {
   AgentMemoryRecord,
@@ -62,35 +62,46 @@ export function playbookContentHash(playbook: Playbook): string {
 // Every read path filters tombstones; deleteMemoryItem sets them.
 export const LIVE_RECORD_FILTER = { disabledAt: { $exists: false } } as const
 
+export function memorySessionAccessFilter(sessionId?: string): Record<string, unknown> {
+  return sessionId
+    ? { $or: [{ restrictedToSessionId: { $exists: false } }, { restrictedToSessionId: sessionId }] }
+    : { restrictedToSessionId: { $exists: false } }
+}
+
 // One walk serves two callers: the fail-closed write gate (kinds only) and
 // auto-ingest's redact-and-save fallback (which needs the masked copy too).
 // Redact each RAW string, never a JSON encoding: stringify escapes quotes and
 // newlines, which breaks the quoted-value alternatives of the secret patterns
 // (e.g. password: "hunter2-s3cret" sails through the escaped form untouched).
-export function redactSecretBearingContent<T>(value: T): { redacted: T; kinds: string[] } {
+export async function redactSecretBearingContent<T>(
+  value: T,
+): Promise<{ redacted: T; kinds: string[] }> {
   const kinds = new Set<string>()
-  const visit = (v: unknown): unknown => {
+  const visit = async (v: unknown): Promise<unknown> => {
     if (typeof v === 'string') {
-      const result = redactSecrets(v)
+      const result = await redactSecrets(v)
 
       for (const m of result.matches) kinds.add(m.kind)
 
       return result.redacted
     }
-    if (Array.isArray(v)) return v.map(visit)
+    if (Array.isArray(v)) return Promise.all(v.map(visit))
     if (v && typeof v === 'object') {
-      return Object.fromEntries(Object.entries(v).map(([k, item]) => [k, visit(item)]))
+      return Object.fromEntries(
+        await Promise.all(Object.entries(v).map(async ([k, item]) => [k, await visit(item)])),
+      )
     }
 
     return v
   }
+  const redacted = (await visit(value)) as T
 
-  return { redacted: visit(value) as T, kinds: [...kinds] }
+  return { redacted, kinds: [...kinds] }
 }
 
 // Fail closed: any redaction hit anywhere in the draft rejects the proposal.
-export function findSecretBearingContent(value: unknown): string | null {
-  const { kinds } = redactSecretBearingContent(value)
+export async function findSecretBearingContent(value: unknown): Promise<string | null> {
+  const { kinds } = await redactSecretBearingContent(value)
 
   return kinds.length ? kinds.join(', ') : null
 }

@@ -136,8 +136,13 @@ export const boxChannels = {
       agentProvider(provider),
       optionalString(label),
     ),
-  'box:removeAgent': (_e: unknown, deviceId: unknown, teamId: unknown, instanceId: unknown) =>
-    removeDeviceAgent(string(deviceId), string(teamId), string(instanceId)),
+  'box:removeAgent': (
+    _e: unknown,
+    deviceId: unknown,
+    teamId: unknown,
+    instanceId: unknown,
+    offline?: unknown,
+  ) => removeDeviceAgent(string(deviceId), string(teamId), string(instanceId), offline === true),
   'box:renameAgent': (
     _e: unknown,
     deviceId: unknown,

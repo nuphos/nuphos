@@ -46,6 +46,9 @@ importers:
       '@streamdown/code':
         specifier: ^1.1.1
         version: 1.1.1(react@19.2.5)
+      '@tanstack/react-query':
+        specifier: ^5.106.0
+        version: 5.106.0(@types/react@19.2.14)(react@19.2.5)
       '@tanstack/react-virtual':
         specifier: ^3.14.2
         version: 3.14.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -1123,6 +1126,18 @@ packages:
     resolution: {integrity: sha512-p18dswChx6WnTSaJCSGx6lTmrGzNNvm2FtXmiO6AuA1V4U5REyoqwmT6kgAsIMdjo07QdAfYXHJ4hnMtfHzWgA==}
     peerDependencies:
       tailwindcss: '>=3.2.0'
+
+  '@tanstack/query-core@5.106.0':
+    resolution: {integrity: sha512-3GuqVrhCG0bBfmLt4AU0SIm8UuZ1rzeRjDiQBnYuzW3lkri1RdawWN73jZYvB4kC8WyDUoDgBx3kyO3TbNH/6Q==}
+
+  '@tanstack/react-query@5.106.0':
+    resolution: {integrity: sha512-OuP/ST9dEMBwHhisE5A/bBSWMhMmB/xKPfeZ2U0Wy8W/txb9QiGd7iXhxJPQ7jGbfcKlV13sJUHip9Nki54yyg==}
+    peerDependencies:
+      '@types/react': ^18 || ^19
+      react: ^18 || ^19
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
 
   '@tanstack/react-virtual@3.14.2':
     resolution: {integrity: sha512-IpWnmCLvuymRfeeLNVXIzNEYBFLpd3drVIS91sqV78VTZFyldlChkOocZRCPp1B+Wnk09bcLNme8WaMU/9/9bQ==}
@@ -5462,6 +5477,15 @@ snapshots:
   '@tailwindcss/container-queries@0.1.1(tailwindcss@3.4.19(yaml@2.9.0))':
     dependencies:
       tailwindcss: 3.4.19(yaml@2.9.0)
+
+  '@tanstack/query-core@5.106.0': {}
+
+  '@tanstack/react-query@5.106.0(@types/react@19.2.14)(react@19.2.5)':
+    dependencies:
+      '@tanstack/query-core': 5.106.0
+      react: 19.2.5
+    optionalDependencies:
+      '@types/react': 19.2.14
 
   '@tanstack/react-virtual@3.14.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5)':
     dependencies:

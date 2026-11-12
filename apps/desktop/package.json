@@ -1,7 +1,7 @@
 {
   "name": "k8s-gui",
   "private": true,
-  "version": "0.113.1",
+  "version": "0.115.1",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -26,6 +26,7 @@
     "@novnc/novnc": "1.7.0",
     "@streamdown/cjk": "^1.0.3",
     "@streamdown/code": "^1.1.1",
+    "@tanstack/react-query": "^5.106.0",
     "@tanstack/react-virtual": "^3.14.2",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",

@@ -13,7 +13,7 @@ import {
 } from './runtime-portability-store'
 import { storedPick } from './session-config-options'
 import { workspaceDirectory } from './session-context'
-import { previewRuntimeCwd } from './team-openab-runtime'
+import { RUNTIME_CWD } from './team-openab-runtime'
 
 import type { AcpHttpMcpServer } from './openab-acp-client'
 import type { OpenAbSessionRuntime, RuntimeDefaults } from './openab-acp-session'
@@ -43,7 +43,6 @@ export async function attachOpenAbSession(
 }> {
   await assertConversationRuntimeAvailable(conversationId)
   await assertRuntimeNotDeleting(teamId, endpoint.runtimeId, endpoint.url)
-  const cwd = previewRuntimeCwd(conversationId)
   const stored = await getConversationPreviewAttachment(conversationId, teamId)
 
   // The settings a session starts with are fixed with its attachment, so any
@@ -61,7 +60,7 @@ export async function attachOpenAbSession(
     onResume?.(stored.openabSessionId, defaults, workingDirectory)
     const { alive } = await client.loadSession(
       stored.openabSessionId,
-      cwd,
+      RUNTIME_CWD,
       mcpServers,
       systemPrompt,
       sessionRuntime,
@@ -82,7 +81,12 @@ export async function attachOpenAbSession(
 
     return { openabSessionId: stored.openabSessionId, fresh: !alive, defaults, workingDirectory }
   }
-  const openabSessionId = await client.createSession(cwd, mcpServers, systemPrompt, sessionRuntime)
+  const openabSessionId = await client.createSession(
+    RUNTIME_CWD,
+    mcpServers,
+    systemPrompt,
+    sessionRuntime,
+  )
 
   // Placement is part of the conversation's durable identity. Never start a
   // prompt on process-local state if another replica could not recover this

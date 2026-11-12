@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { isConversationUnavailable } from './api/errors.ts'
+import { isAccountGone, isConversationUnavailable } from './api/errors.ts'
 import { decideErrorToast, isNetworkError, isSessionRejected } from './api.ts'
 
 // Run with: pnpm test  (node --experimental-strip-types --test; Node >= 22.6)
@@ -250,4 +250,23 @@ test('onSessionRejected signs out once per registration and skips other errors',
   await call()
   assert.equal(calls, 2)
   onSessionRejected(null)
+})
+
+test('isAccountGone matches a request that outlived its account, and nothing else', () => {
+  assert.equal(
+    isAccountGone(
+      new Error(
+        "Error invoking remote method 'agent:listConversations': AccountChangedError: The account changed. Try again.",
+      ),
+    ),
+    true,
+  )
+  assert.equal(
+    isAccountGone(
+      new Error("Error invoking remote method 'atlas:listRuntimeQuotas': Error: Not signed in"),
+    ),
+    true,
+  )
+  assert.equal(isAccountGone(new Error('Not signed in; run `nuphos login`')), false)
+  assert.equal(isAccountGone(new Error('Conversation not found')), false)
 })

@@ -11,7 +11,7 @@ Keep CLI credentials and settings inside the current session's `HOME` (`NUPHOS_S
 
 Changing runtime-global settings is possible, but strongly discouraged unless the user understands the impact on other sessions and explicitly requests it. Explain the shared scope first; do not unset session isolation variables, write to the runtime owner's home, use a shared OS credential store, or modify shared shell startup files as routine setup. This is configuration isolation, not an OS security boundary.
 
-Use this skill when the user wants to inspect or change GCP resources directly with `gcloud`. The SDK is **pre-installed in the sandbox runtime image** — assume it's on PATH. Authenticate before any `gcloud` call — either with a token Nuphos mints for a bound project (preferred), or with a service-account key the user pasted.
+Use this skill when the user wants to inspect or change GCP resources directly with `gcloud`. The SDK is on PATH; the runtime image's tool manifest installs it on first use, so the first call can take a while. Authenticate before any `gcloud` call — either with a token Nuphos mints for a bound project (preferred), or with a service-account key the user pasted.
 
 ## When to skip this skill
 

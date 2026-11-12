@@ -1,6 +1,7 @@
+import { isPull } from '../../../api/session-resource-types.ts'
 import { t } from '../../../i18n/index.ts'
 import { subAgentState } from '../../../lib/subAgentState.ts'
-import { changeStatus } from '../../sidebar/sessionResourcePresentation.ts'
+import { changeStatus, resourceLabel } from '../../sidebar/sessionResourcePresentation.ts'
 import { normalizeCredentialAccess } from '../panel/credentialAccess.ts'
 import { countSelectedCredentials } from '../panel/credentialSelectorButtonCounts.ts'
 
@@ -51,7 +52,7 @@ export function subThreadsOf(
 /** Pull requests and issues. Slack and Discord links are the chat's own thread, not changes. */
 export function changesOf(resources: readonly SessionResource[]): SessionResource[] {
   return resources
-    .filter((resource) => resource.provider === 'github' || resource.provider === 'linear')
+    .filter((resource) => isPull(resource) || resource.provider === 'linear')
     .sort((a, b) => b.linkedAt.localeCompare(a.linkedAt))
 }
 
@@ -77,7 +78,7 @@ export function changeStatusLabel(
   if (status === 'open') return t('Open|state')
   if (status === 'closed') return t('Closed')
 
-  return changes.some((change) => change.provider === 'github' && changeStatus(change) === 'merged')
+  return changes.some((change) => isPull(change) && changeStatus(change) === 'merged')
     ? t('Merged')
     : t('Done')
 }
@@ -199,12 +200,12 @@ export function filterSubAgents(
   )
 }
 
-/** "nuphos #12" for a pull request, the issue key ("ENG-12") for Linear. */
+/** "nuphos #12" for a pull request ("app !12" on GitLab), the issue key ("ENG-12") for Linear. */
 export function changeSubtitle(resource: SessionResource): string {
-  if (resource.provider === 'github') {
+  if (isPull(resource)) {
     const repo = resource.repository?.split('/').at(-1) ?? ''
 
-    return `${repo} #${String(resource.number ?? '')}`.trim()
+    return `${repo} ${resourceLabel(resource)}`.trim()
   }
 
   return resource.title.split(/\s+/, 1)[0] ?? ''

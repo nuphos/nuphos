@@ -176,6 +176,7 @@ export function ParticipantList({
   pending: string | null
   /** Invite a participant who reads only again, which offers them use of the computer. */
   onAllowReply: (participant: AgentConversationParticipant) => void
+  /** On the viewer's own row, this is leaving. */
   onRemove: (participant: AgentConversationParticipant) => void
 }) {
   return (
@@ -183,6 +184,7 @@ export function ParticipantList({
       <div className={SECTION_LABEL}>{label}</div>
       {participants.map((participant) => {
         const person = !participant.isOwner && !participant.agent
+        const self = person && participant.id === currentUserId
 
         return (
           <div
@@ -218,7 +220,7 @@ export function ParticipantList({
                 )}
               </>
             )}
-            {person && canManage && (
+            {person && canManage && !self && (
               <ParticipantMenu
                 canReply={participant.role !== 'view'}
                 disabled={pending !== null}
@@ -237,6 +239,16 @@ export function ParticipantList({
               >
                 {participant.role === 'view' ? t('Can view') : t('Can reply')}
               </span>
+            )}
+            {self && (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={pending !== null}
+                onClick={() => onRemove(participant)}
+              >
+                {t('Leave')}
+              </Button>
             )}
           </div>
         )

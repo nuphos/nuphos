@@ -53,7 +53,8 @@ final class OpenQuestions {
         failures[question.id] = nil
         do {
             let detail = try await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: question.sessionId, tail: 1)
-            return detail.credentialAccess.map(CredentialSelection.init(json:)) ?? CredentialSelection()
+            // None stored is still stored: nothing it leaves unset is sent as empty.
+            return CredentialSelection(json: detail.credentialAccess ?? .object([:]))
         } catch {
             failures[question.id] = error.localizedDescription
             return nil

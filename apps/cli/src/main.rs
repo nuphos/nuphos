@@ -9,6 +9,7 @@ mod config;
 mod login;
 mod render;
 mod secret;
+mod service;
 mod shared;
 mod transcript;
 mod update;
@@ -95,6 +96,8 @@ enum Command {
         session: String,
     },
     /// Run this computer's Claude Code and Codex as local runtimes, as the desktop app does.
+    /// On Linux with systemd it installs and starts the user service `nuphos-agent`, which
+    /// starts again after a reboot; elsewhere it runs in the foreground.
     Agent {
         /// Join Nuphos with a one-time token instead of signing in. Pass `-` and pipe the token
         /// to stdin, or set `NUPHOS_JOIN_TOKEN`, so it stays out of the shell history. Later
@@ -203,6 +206,9 @@ async fn run(args: Args) -> Result<i32> {
             // A joined computer has its own credential; only the session needs signing in.
             if join.is_none() && !agent::joined() {
                 sign_in(std::io::stdin().is_terminal()).await?;
+            }
+            if service::wanted() {
+                return service::install(join.as_deref());
             }
             return agent::run(join).await;
         }

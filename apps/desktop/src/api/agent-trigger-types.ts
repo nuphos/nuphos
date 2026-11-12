@@ -45,6 +45,7 @@ export type AgentTrigger = {
   name: string
   triggerType: AgentTriggerType
   cronExpression?: string
+  timeZone?: string
   /** Every fire is delivered into this conversation instead of a new one. */
   targetSessionId?: string
   /** Present on webhook triggers that route to a session per resource. */
@@ -71,6 +72,8 @@ export type AgentTrigger = {
   requiresProviderCleanup?: boolean
   cleanupStatus?: AgentTriggerCleanupStatus
   cleanupError?: string
+  /** `provider_integration_disconnected` offers removal without provider cleanup. */
+  cleanupErrorCode?: string
   cleanupStartedAt?: string
   cleanupUpdatedAt?: string
   lastRunAt?: string
@@ -150,6 +153,7 @@ export type TestAgentTriggerResult = {
 }
 
 export type DeleteAgentTriggerResult =
-  { ok: true; deleted: true } | { ok: true; deleted: false; trigger: AgentTrigger }
+  | { ok: true; deleted: true; leftBehind?: string[] }
+  | { ok: true; deleted: false; trigger: AgentTrigger }
 
 export type TriggerSchedulerStatus = { cronEnabled: boolean }

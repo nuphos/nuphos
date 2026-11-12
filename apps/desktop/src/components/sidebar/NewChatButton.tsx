@@ -9,6 +9,7 @@ import { AgentAvatarGrid } from '../agent/AgentAvatarGrid'
 import { BotAvatarImage } from '../agent/BotAvatarImage'
 import { useNewConversationRuntime } from '../agent/panel/useNewConversationRuntime'
 import { createBotChannel } from '../channels/botChannel'
+import { BotImportDialog } from '../channels/BotImportDialog'
 import { Modal } from '../Modal'
 import { Button } from '../ui/button'
 import { toast } from '../ui/toast'
@@ -24,6 +25,7 @@ export function NewChatButton({
   onCreated: (sessionId: string) => void
 }) {
   const [open, setOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const created = (sessionId: string) => {
     setOpen(false)
     onCreated(sessionId)
@@ -60,8 +62,21 @@ export function NewChatButton({
         >
           <div className="titlebar-no-drag px-5 pt-1 pb-5">
             <NewBotForm teamId={teamId} onCreated={created} />
+            <Button
+              variant="ghost"
+              className="mt-3"
+              onClick={() => {
+                setOpen(false)
+                setImportOpen(true)
+              }}
+            >
+              {t('Import from Grok Bot…')}
+            </Button>
           </div>
         </Modal>
+      )}
+      {importOpen && (
+        <BotImportDialog teamId={teamId} onClose={() => setImportOpen(false)} onOpen={onCreated} />
       )}
     </>
   )

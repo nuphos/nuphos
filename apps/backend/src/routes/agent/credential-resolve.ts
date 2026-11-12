@@ -120,6 +120,11 @@ export function availableCredentialAccess(
       options.secureframeIntegrations,
       byIntegrationId,
     ),
+    trelloIntegrationIds: keep(
+      selection.trelloIntegrationIds,
+      options.trelloIntegrations ?? [],
+      byIntegrationId,
+    ),
     resendIntegrationIds: keep(
       selection.resendIntegrationIds,
       options.resendIntegrations,

@@ -119,7 +119,7 @@ test('resumes an observed session on a fresh transport when its transport closes
   await Bun.sleep(5)
 
   expect(session.client).toBe(replacement)
-  expect(replacement.loads).toEqual([['sess-1', '/workspace/conv-conv', [], 'context', undefined]])
+  expect(replacement.loads).toEqual([['sess-1', '/workspace', [], 'context', undefined]])
   expect(await session.reattached).toBe(true)
 })
 

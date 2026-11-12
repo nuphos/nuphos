@@ -59,13 +59,11 @@ export type WindowAgentApi = AgentDecisionApi & {
     sessionId: string,
     teamId: string,
     runtimeId: string,
-    mode: 'history' | 'workspace',
     grantComputerUse?: boolean,
   ): Promise<{
     runtimeId: string
     runtimeLabel: string
     agentRuntime: AgentProvider
-    mode: 'history' | 'workspace'
   }>
   agentImportLocalSession(args: {
     source: LocalSessionSource
@@ -264,7 +262,11 @@ export type WindowAgentApi = AgentDecisionApi & {
     patch: UpdateAgentTriggerInput,
     teamId?: string,
   ): Promise<AgentTrigger>
-  agentDeleteTrigger(triggerId: string, teamId?: string): Promise<DeleteAgentTriggerResult>
+  agentDeleteTrigger(
+    triggerId: string,
+    teamId?: string,
+    withoutProviderCleanup?: boolean,
+  ): Promise<DeleteAgentTriggerResult>
   agentTestFireTrigger(
     triggerId: string,
     payload?: Record<string, unknown>,

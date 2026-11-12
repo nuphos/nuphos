@@ -1,6 +1,7 @@
 import { ExternalLink, GitMerge, Terminal, X } from 'lucide-react'
 import { useRef } from 'react'
 
+import { isPull } from '../../api/session-resource-types'
 import { t } from '../../i18n'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../ui/menu'
 
@@ -36,7 +37,7 @@ const ROW_ACTION =
 function resourceRow(resource: SessionResource) {
   const label = resourceLabel(resource)
 
-  if (resource.provider === 'github')
+  if (isPull(resource))
     return { place: resource.repository ?? 'GitHub', label, title: resource.title }
   if (resource.provider === 'linear')
     return { place: 'Linear', label, title: resource.title.slice(label.length).trim() || label }

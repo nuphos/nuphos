@@ -61,6 +61,7 @@ struct CredentialCatalog: Equatable, Sendable {
         .init(optionsKey: "posthogIntegrations", selectionKey: "posthogIntegrationIds", title: "PostHog", logo: "logo-posthog", idKey: "integrationId", labelKeys: ["label"], detailKeys: ["apiBaseUrl"]),
         .init(optionsKey: "linearWorkspaces", selectionKey: "linearWorkspaceIds", title: "Linear", logo: "logo-linear", idKey: "workspaceId", labelKeys: ["label", "workspaceName"], detailKeys: ["workspaceName"]),
         .init(optionsKey: "jiraSites", selectionKey: "jiraSiteIds", title: "Jira", logo: "logo-jira", idKey: "siteId", labelKeys: ["label"], detailKeys: ["siteUrl"]),
+        .init(optionsKey: "trelloIntegrations", selectionKey: "trelloIntegrationIds", title: "Trello", logo: "logo-trello", idKey: "integrationId", labelKeys: ["label"], detailKeys: ["username"]),
         .init(optionsKey: "asanaAccounts", selectionKey: "asanaAccountIds", title: "Asana", logo: "logo-asana", idKey: "accountId", labelKeys: ["label"], detailKeys: ["accountEmail"]),
         .init(optionsKey: "plaudAccounts", selectionKey: "plaudAccountIds", title: "Plaud", logo: "logo-plaud", idKey: "bindingId", labelKeys: ["label"], detailKeys: []),
         .init(optionsKey: "vantaIntegrations", selectionKey: "vantaIntegrationIds", title: "Vanta", logo: "logo-vanta", idKey: "integrationId", labelKeys: ["label"], detailKeys: []),
@@ -127,6 +128,10 @@ struct CredentialSelection: Equatable, Sendable {
     /// Stored keys this build has no row for, sent back untouched so a
     /// selection made on a newer client survives an edit here.
     var unknown: [String: JSONValue]?
+    /// The kinds a stored selection had, an explicit empty one included; nil for one never stored.
+    /// A stored selection sends only these and the kinds changed here: for several kinds a missing
+    /// key means "all", which an empty list would revoke.
+    var stored: Set<String>?
 
     var isEmpty: Bool { ids.values.allSatisfy(\.isEmpty) }
     /// Nothing to send: no selection here and no keys only a newer client understands.
@@ -171,6 +176,7 @@ struct CredentialSelection: Equatable, Sendable {
     mutating func selectDefaults(in catalog: CredentialCatalog) {
         selectAll(in: catalog)
         ids["resendIntegrationIds"] = []
+        ids["trelloIntegrationIds"] = []
     }
 
     func containsAll(in catalog: CredentialCatalog) -> Bool {
@@ -181,7 +187,8 @@ struct CredentialSelection: Equatable, Sendable {
     /// `AgentCredentialSelection` — every known key present, empty arrays allowed.
     var json: JSONValue {
         var o = unknown ?? [:]
-        for provider in CredentialCatalog.providers {
+        for provider in CredentialCatalog.providers
+        where stored.map({ $0.contains(provider.selectionKey) || ids[provider.selectionKey] != nil }) ?? true {
             o[provider.selectionKey] = .array((ids[provider.selectionKey] ?? []).sorted().map(JSONValue.string))
         }
         return .object(o)
@@ -192,8 +199,12 @@ struct CredentialSelection: Equatable, Sendable {
     /// From a stored `credentialAccess` object.
     init(json: JSONValue) {
         let known = Set(CredentialCatalog.providers.map(\.selectionKey))
+        stored = []
         for (key, value) in json.objectValue ?? [:] {
             if known.contains(key) {
+                // null is unset, as the server reads it; anything else is stored, and a value that
+                // isn't a list is sent back as an empty one rather than left to mean "all".
+                if value != .null { stored?.insert(key) }
                 let set = Set(value.arrayValue?.compactMap(\.stringValue) ?? [])
                 if !set.isEmpty { ids[key] = set }
             } else if !Self.metadataKeys.contains(key) {

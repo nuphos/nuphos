@@ -1,5 +1,6 @@
 import { GitMerge, Terminal, X } from 'lucide-react'
 
+import { isPull } from '../../api/session-resource-types'
 import { t } from '../../i18n'
 import { ResourcePreview } from '../ui/resource-preview'
 
@@ -137,7 +138,7 @@ function ResourceBadge({
   actions,
 }: ChipProps & { resource: SessionResource }) {
   const Label = titlebar ? 'button' : 'span'
-  const github = resource.provider === 'github'
+  const pull = isPull(resource)
   const { icon, color } = resourceStyle(resource)
   const label = resourceLabel(resource)
 
@@ -147,10 +148,10 @@ function ResourceBadge({
     onUnlink(resource.id)
   }
 
-  // GitHub chips unlink from their preview card; other chips have no card, so
+  // Pull-request chips unlink from their preview card; other chips have no card, so
   // they carry the ✕ themselves.
   const chipUnlink =
-    canUnlink && !github ? (
+    canUnlink && !pull ? (
       <button
         type="button"
         aria-label={t('Unlink {label}', { label })}
@@ -188,7 +189,7 @@ function ResourceBadge({
             ? 'inline-flex min-w-0 max-w-24 items-center gap-1 rounded-md px-1.5 py-0.5 focus-visible:outline focus-visible:outline-1 focus-visible:outline-current'
             : 'inline-flex min-w-0 max-w-40 items-center gap-1'
         }
-        title={github ? undefined : `${resource.title} · ${resource.state}`}
+        title={pull ? undefined : `${resource.title} · ${resource.state}`}
         aria-label={`${label} · ${resourceStatus(resource)}`}
       >
         <span className={`inline-flex shrink-0 ${color}`}>{icon}</span>
@@ -199,7 +200,7 @@ function ResourceBadge({
     </span>
   )
 
-  return github && !measure ? (
+  return pull && !measure ? (
     <ResourcePreview
       actionable={titlebar}
       actions={previewUnlink}

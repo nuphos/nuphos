@@ -7,6 +7,7 @@ import { Switch } from '../../components/ui/Switch'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
+import { LocalSetupLinkedSkills } from './LocalSetupLinkedSkills'
 import { LoadFailed, SectionHeader } from './shared'
 
 import type { LocalSetupResult, LocalSetupStatus } from '../../api'
@@ -14,10 +15,11 @@ import type { AtlasTeam } from '../../types'
 
 const SKIP_REASON: Record<LocalSetupResult['skipped'][number]['reason'], string> = {
   too_large: t('larger than 4 MB'),
-  too_many_files: t('200 files or more'),
+  too_many_files: t('too many files or links to read in full'),
   name_taken: t('a personal skill with this name already exists'),
   over_budget: t('over the runtime’s skill budget'),
-  unreadable: t('its SKILL.md links outside ~/.claude/skills'),
+  unreadable: t('some of its files could not be read'),
+  needs_review: t('it links outside its folder and waits for your review'),
 }
 
 function skillCount(count: number): string {
@@ -229,6 +231,14 @@ export function LocalSetupSection({ team }: { team: AtlasTeam | undefined }) {
               {t('Keep in sync while Nuphos is open')}
             </div>
           </div>
+
+          {teamId && (
+            <LocalSetupLinkedSkills
+              teamId={teamId}
+              skills={status.linkedSkills}
+              onApproved={() => void refresh()}
+            />
+          )}
 
           {last && <LastSync last={last} claudeMdChars={status.claudeMdChars} />}
         </div>

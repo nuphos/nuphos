@@ -14,6 +14,7 @@ import type {
   NotionIntegrationBinding,
   PosthogIntegrationBinding,
   ResendIntegrationBinding,
+  TrelloIntegrationBinding,
   SecureframeIntegrationBinding,
   SentryAccountBinding,
   SonarqubeIntegrationBinding,
@@ -273,4 +274,16 @@ export async function findPosthogIntegration(
   )
 
   return (doc?.posthogIntegrations ?? []).find((b) => b.id.equals(bindingId)) ?? null
+}
+
+export async function findTrelloIntegration(
+  teamId: ObjectId,
+  bindingId: ObjectId,
+): Promise<TrelloIntegrationBinding | null> {
+  const doc = await teamByosBindings().findOne(
+    { _id: teamId },
+    { projection: { trelloIntegrations: 1 } },
+  )
+
+  return (doc?.trelloIntegrations ?? []).find((b) => b.id.equals(bindingId)) ?? null
 }

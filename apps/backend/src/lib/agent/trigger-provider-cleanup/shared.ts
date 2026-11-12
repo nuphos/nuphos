@@ -42,3 +42,36 @@ export function sameJson(a: unknown, b: unknown): boolean {
 export function cleanupConflict(message: string): never {
   throw new AppError(409, 'provider_cleanup_conflict', message)
 }
+
+/**
+ * The integration a receipt names is no longer bound to the team, so nothing
+ * can reach its provider resources. Thrown only from the binding lookups that
+ * run before any provider call; every other conflict uses cleanupConflict.
+ */
+export class ProviderIntegrationDisconnectedError extends AppError {
+  constructor(message: string) {
+    super(409, 'provider_integration_disconnected', message)
+  }
+}
+
+export function integrationDisconnected(message: string): never {
+  throw new ProviderIntegrationDisconnectedError(message)
+}
+
+/**
+ * Run one provider's cleanup. With `leftBehind` (a removal the user confirmed
+ * without provider cleanup), a provider whose integration is missing right
+ * now is recorded and skipped; any other failure still stops cleanup.
+ */
+export async function cleanupOrLeaveBehind(
+  provider: string,
+  cleanup: () => Promise<void>,
+  leftBehind?: string[],
+): Promise<void> {
+  try {
+    await cleanup()
+  } catch (err) {
+    if (!leftBehind || !(err instanceof ProviderIntegrationDisconnectedError)) throw err
+    if (!leftBehind.includes(provider)) leftBehind.push(provider)
+  }
+}

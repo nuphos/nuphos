@@ -1,8 +1,8 @@
 import { z } from 'zod'
 
-import { turnDiagnosticsSchema } from '../turn-diagnostics-schema'
+import { redactSecrets } from '@/lib/secrets/scan'
 
-import { redactSecrets } from '@/lib/journal/redact'
+import { turnDiagnosticsSchema } from '../turn-diagnostics-schema'
 
 const timestamp = z.string().datetime()
 
@@ -14,30 +14,30 @@ function withoutNulls(value: unknown): unknown {
   return Object.fromEntries(Object.entries(value).filter(([, field]) => field !== null))
 }
 
-export function transcriptTurnDiagnostics(message: {
+export async function transcriptTurnDiagnostics(message: {
   index: number
   role: string
   parts: unknown[]
 }) {
   if (message.role !== 'assistant') return []
+  const interrupted = message.parts.filter(
+    (raw): raw is Record<string, unknown> =>
+      !!raw && typeof raw === 'object' && (raw as { type?: unknown }).type === 'turn-interrupted',
+  )
 
-  return message.parts.flatMap((raw) => {
-    if (!raw || typeof raw !== 'object') return []
-    const part = raw as Record<string, unknown>
+  return Promise.all(
+    interrupted.map(async (part) => {
+      const parsed = await turnDiagnosticsSchema.safeParseAsync(withoutNulls(part.diagnostics))
+      const reason =
+        typeof part.reason === 'string' && ['cancelled', 'timeout', 'error'].includes(part.reason)
+          ? part.reason
+          : undefined
+      const messageText =
+        typeof part.message === 'string'
+          ? (await redactSecrets(part.message)).redacted.slice(0, 2000)
+          : undefined
 
-    if (part.type !== 'turn-interrupted') return []
-    const parsed = turnDiagnosticsSchema.safeParse(withoutNulls(part.diagnostics))
-    const reason =
-      typeof part.reason === 'string' && ['cancelled', 'timeout', 'error'].includes(part.reason)
-        ? part.reason
-        : undefined
-    const messageText =
-      typeof part.message === 'string'
-        ? redactSecrets(part.message).redacted.slice(0, 2000)
-        : undefined
-
-    return [
-      {
+      return {
         message_index: message.index,
         outcome: 'interrupted',
         ...(reason ? { reason } : {}),
@@ -49,7 +49,7 @@ export function transcriptTurnDiagnostics(message: {
         ...(!parsed.success && part.diagnostics !== undefined
           ? { diagnostics_unavailable: 'invalid_record' }
           : {}),
-      },
-    ]
-  })
+      }
+    }),
+  )
 }

@@ -161,6 +161,25 @@ export type TeamSkillSummary = {
 
 export type TeamSkillMutationSource = 'desktop' | 'admin' | 'agent' | 'import' | 'legacy'
 
+export type GithubSkillCandidate = {
+  name: string
+  description: string | null
+  path: string
+  fileCount: number
+  totalBytes: number
+  skipped: string[]
+  problem: { code: string; message: string } | null
+}
+
+export type GithubSkillPreview = {
+  repo: string
+  ref: string | null
+  subpath: string | null
+  commitSha: string
+  skills: GithubSkillCandidate[]
+  truncated: boolean
+}
+
 export type TeamSkillMetadata = {
   createdAt: string | null
   createdByUserId: string | null

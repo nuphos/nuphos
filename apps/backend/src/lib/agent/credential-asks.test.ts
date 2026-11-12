@@ -134,6 +134,25 @@ describe('answerCredentialAsks', () => {
     expect(turns[0]!.text).toContain('github')
   })
 
+  test('selecting Trello answers its exact request and resumes the asking conversation', async () => {
+    conversation!.inputRequests = [ask('q-trello', ['trello']), ask('q-github', ['github'])]
+
+    await answerCredentialAsks(
+      's1',
+      addedCredentialIds(
+        { trelloIntegrationIds: [] },
+        { trelloIntegrationIds: ['trello-account'] },
+      ),
+    )
+
+    expect(resolved).toHaveLength(1)
+    expect(resolved[0]).toMatchObject({ $set: { 'inputRequests.$.status': 'answered' } })
+    expect(turns).toHaveLength(1)
+    expect(turns[0]!.sessionId).toBe('s1')
+    expect(turns[0]!.text).toContain('q-trello')
+    expect(turns[0]!.text).not.toContain('q-github')
+  })
+
   test("with the team's GitHub already selected, opting into one's own answers the session's ask", async () => {
     // What the Inbox's own-GitHub pick sends: the stored installation kept, the personal credential added.
     const stored = { githubInstallationIds: ['166'] }

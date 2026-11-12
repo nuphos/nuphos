@@ -123,7 +123,7 @@ export async function getConversationTranscriptForAgent(
     messageCount: number
   }
   lines: string[]
-  turnDiagnostics: ReturnType<typeof transcriptTurnDiagnostics>
+  turnDiagnostics: Awaited<ReturnType<typeof transcriptTurnDiagnostics>>
   nextIndex: number | null
   /** When the page's last message was first stored, if it is an assistant's. */
   lastAssistantAt: Date | null
@@ -162,7 +162,7 @@ export async function getConversationTranscriptForAgent(
     lines: page.map((message) =>
       compactTranscriptLine(message, { includeToolDetails: options.includeToolDetails }),
     ),
-    turnDiagnostics: page.flatMap(transcriptTurnDiagnostics),
+    turnDiagnostics: (await Promise.all(page.map(transcriptTurnDiagnostics))).flat(),
     nextIndex: messages.length > limit && last ? last.index + 1 : null,
     lastAssistantAt: last?.role === 'assistant' ? last.createdAt : null,
   }

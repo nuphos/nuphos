@@ -23,6 +23,7 @@ import type {
   PlaudAccount,
   PosthogIntegration,
   ResendIntegration,
+  TrelloIntegration,
   SecureframeIntegration,
   SentryAccount,
   SlackInstallation,
@@ -52,6 +53,7 @@ export type TeamHomeViewProps = {
   onpremClusters: OnpremCluster[]
   upstashAccounts: UpstashAccount[]
   resendIntegrations: ResendIntegration[]
+  trelloIntegrations: TrelloIntegration[]
   instaboxAccounts: InstaboxAccount[]
   tencentAccounts: TencentAccount[]
   aliyunAccounts: AliyunAccount[]

@@ -9,6 +9,7 @@ import type {
   InstaboxAccount,
   NotionIntegration,
   ResendIntegration,
+  TrelloIntegration,
   SecureframeIntegration,
   SonarqubeIntegration,
   TencentAccount,
@@ -25,6 +26,7 @@ export function buildSaasConnectorRows({
   notionIntegrations,
   upstashAccounts,
   resendIntegrations,
+  trelloIntegrations,
   instaboxAccounts,
   tencentAccounts,
   aliyunAccounts,
@@ -40,6 +42,7 @@ export function buildSaasConnectorRows({
   notionIntegrations: NotionIntegration[]
   upstashAccounts: UpstashAccount[]
   resendIntegrations: ResendIntegration[]
+  trelloIntegrations: TrelloIntegration[]
   instaboxAccounts: InstaboxAccount[]
   tencentAccounts: TencentAccount[]
   aliyunAccounts: AliyunAccount[]
@@ -135,6 +138,20 @@ export function buildSaasConnectorRows({
           name: account.label,
         }),
       onDelete: () => api.atlasUnbindUpstashAccount(teamId, account.id),
+    })),
+    ...trelloIntegrations.map((integration) => ({
+      key: `trello:${integration.id}`,
+      provider: 'trello' as const,
+      account: integration.label,
+      principal: integration.username,
+      status: t('Connected'),
+      onAction: () =>
+        onOpenConnectorInfo({
+          provider: 'trello',
+          connectorId: integration.id,
+          name: integration.label,
+        }),
+      onDelete: () => api.atlasUnbindTrelloIntegration(teamId, integration.id),
     })),
     ...resendIntegrations.map((integration) => ({
       key: `resend:${integration.id}`,

@@ -17,6 +17,7 @@ type Props = {
     | 'uptime-kuma'
     | 'jira'
     | 'asana'
+    | 'trello'
     | 'sentry'
     | 'posthog'
     | 'plaud'
@@ -65,6 +66,7 @@ const SRC = {
   'uptime-kuma': '/uptime-kuma.svg',
   jira: '/jira.svg',
   asana: '/asana.svg',
+  trello: '/trello.svg',
   sentry: '/sentry.svg',
   posthog: '/posthog-dark.svg',
   plaud: '/plaud-dark.svg',
@@ -107,6 +109,7 @@ const ZEABUR_LIGHT_SRC = '/zeabur-light-bg.svg'
 const THEMED_SRC = {
   notion: { alt: 'Notion', dark: SRC.notion, light: '/notion-light.svg' },
   resend: { alt: 'Resend', dark: SRC.resend, light: 'https://cdn.simpleicons.org/resend/181717' },
+  trello: { alt: 'Trello', dark: SRC.trello, light: 'https://cdn.simpleicons.org/trello/181717' },
   posthog: { alt: 'PostHog', dark: SRC.posthog, light: '/posthog-light.svg' },
   plaud: { alt: 'Plaud', dark: SRC.plaud, light: '/plaud-light.svg' },
 } as const

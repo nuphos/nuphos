@@ -97,7 +97,7 @@ export const CONNECTOR_CATEGORIES: ConnectorCategory[] = [
   {
     id: 'project-management',
     label: t('Project management'),
-    catalog: ['linear', 'jira', 'asana'],
+    catalog: ['linear', 'jira', 'asana', 'trello'],
   },
   {
     id: 'document',
@@ -150,7 +150,7 @@ export function providerFromIntegrationKey(key: string): string | null {
 export function satisfiesCloudOnboarding(integrationKey: string): boolean {
   const provider = providerFromIntegrationKey(integrationKey)
 
-  return !!provider && CLOUD_ONBOARDING_PROVIDERS.has(provider)
+  return provider !== null && CLOUD_ONBOARDING_PROVIDERS.has(provider)
 }
 
 /** Same question as `satisfiesCloudOnboarding`, asked of a provider name
@@ -200,7 +200,7 @@ export function groupByConnectorCategory<T extends { key: string }>(
     items: items.filter((item) => {
       const provider = providerFromIntegrationKey(item.key)
 
-      return !!provider && connectorCategoryFor(provider)?.id === category.id
+      return provider !== null && connectorCategoryFor(provider)?.id === category.id
     }),
   })).filter((group) => group.items.length > 0)
 }

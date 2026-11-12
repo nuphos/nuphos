@@ -95,6 +95,11 @@ export function renderAgentCredentialPrompt(
   appendVantaIntegrationLines(lines, selected.vantaIntegrations, teamId)
   appendSecureframeIntegrationLines(lines, selected.secureframeIntegrations, teamId)
   appendResendIntegrationLines(lines, selected.resendIntegrations, teamId)
+  for (const integration of selected.trelloIntegrations) {
+    lines.push(
+      `- Trello integrationId=${integration.integrationId}; executeCommand="bash skills/trello/scripts/composio.sh ${teamId} ${integration.integrationId} TOOL"; use the trello skill for boards, lists, cards, moves and comments. Never print credentials.`,
+    )
+  }
   appendPosthogIntegrationLines(lines, selected.posthogIntegrations, teamId)
   appendPlaudAccountLines(lines, selected.plaudAccounts, teamId)
   appendGithubInstallationLines(lines, selected.githubInstallations, teamId)

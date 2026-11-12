@@ -1,6 +1,6 @@
 import { useContext, useMemo } from 'react'
 
-import { runtimeAllows, runtimeIsExecuting } from '../../../lib/runtimeExecution'
+import { runtimeIsExecuting } from '../../../lib/runtimeExecution'
 
 import { DecisionToolPart } from './ConnectCard'
 import { ConnectCardContext } from './connectCardContext'
@@ -20,12 +20,9 @@ export function OpenQuestionCards({ tab, now }: { tab: Tab; now: number }) {
   const cards = useMemo(() => openQuestionParts(tab.messages, open), [tab.messages, open])
 
   if (cards.length === 0) return null
-  // The gate the transcript's own cards use: the runtime takes a reply and this
-  // viewer may send one. A question open in the record is answerable even while
-  // a turn runs, so the newest idle reply is not required.
-  const canReply =
-    (runtimeAllows(tab.runtimeState, 'send') || runtimeAllows(tab.runtimeState, 'reply')) &&
-    !tab.readOnly
+  // Open questions accept replies through the server queue, even while the
+  // runtime is busy or offline. Only the viewer's permission gates the card.
+  const canReply = !tab.readOnly
 
   return (
     <>
