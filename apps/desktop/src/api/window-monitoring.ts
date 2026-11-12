@@ -73,7 +73,7 @@ export type WindowMonitoringApi = {
     groupId: string
     fileId: string
     maxBytes: number
-  }): Promise<Uint8Array | null>
+  }): Promise<Uint8Array<ArrayBuffer> | null>
   fileTransferRevealInFolder(path: string): Promise<void>
   readImageAttachment(
     path: string,

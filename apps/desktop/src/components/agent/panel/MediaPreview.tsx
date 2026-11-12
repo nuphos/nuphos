@@ -152,7 +152,7 @@ export function PdfFrame({ source, name }: { source: PdfSource; name: string }) 
         }
         // The type is stated here on purpose, rather than taken from the store:
         // whatever the store said, the frame is handed a PDF.
-        made = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }))
+        made = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
         setBlob(made)
       },
       // An expired link, a body that never arrived, or a store that refused it.
