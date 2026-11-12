@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useAgentAvatarPicks } from '../../lib/agentAvatarChoices'
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
 import { useAgentUnreadSessions } from '../../lib/agentUnreadSessions'
-import { setOpenedFromBots, useOpenedFromBots } from '../../lib/botNestedSelection'
 import { runtimeTurnActive, runtimeBackgroundRunning } from '../../lib/runtimeExecution'
 import { botOfChannel } from '../channels/botChannel'
 
@@ -17,7 +16,7 @@ import type { AgentConversation } from '../../api'
 
 /**
  * The sidebar's chat rows: one per conversation, and under each Bot's chat its
- * own Task and that Task's sub-agents, with what they are doing.
+ * sub-agents, with what they are doing.
  */
 export function useChatItems({
   agentSessions,
@@ -33,7 +32,6 @@ export function useChatItems({
   const runtimeStates = useAgentRuntimeStates()
   const unreadSessions = useAgentUnreadSessions()
   const avatarPicks = useAgentAvatarPicks()
-  const fromBots = useOpenedFromBots()
   const openId = chatShown ? (agentSessionId ?? undefined) : undefined
   const previousUnread = useRef(unreadSessions)
   const previousWorking = useRef<ReadonlySet<string>>(new Set())
@@ -65,10 +63,6 @@ export function useChatItems({
       return next.size === pending.size && [...next].every((id) => pending.has(id)) ? pending : next
     })
   }, [agentSessions, runtimeStates, openId, unreadSessions])
-  // Bots whose chats exist: their sub-agents are listed twice while the tree is on.
-  const botIds = new Set(
-    agentSessions.flatMap((c) => (c.kind === 'channel' ? (botOfChannel(c.faces) ?? []) : [])),
-  )
   const byId = new Map(agentSessions.map((conversation) => [conversation.sessionId, conversation]))
   const kidsOf = new Map<string, AgentConversation[]>()
 
@@ -94,9 +88,6 @@ export function useChatItems({
       picked: avatarPicks.get(conversation.sessionId),
     })
     // A menu rather than a one-click archive: a stray click only opens it.
-    const listedTwice =
-      botIds.has(conversation.sessionId) ||
-      Boolean(conversation.parentSessionId && botIds.has(conversation.parentSessionId))
     const row = {
       ...item,
       ...(pendingReplies.has(conversation.sessionId) && {
@@ -104,10 +95,6 @@ export function useChatItems({
         finished: false,
       }),
       actions: <RowMenuButton title={item.label} />,
-      ...(listedTwice && {
-        active: item.active && !fromBots.has(conversation.sessionId),
-        onPress: () => setOpenedFromBots(conversation.sessionId, false),
-      }),
     }
     const botId = conversation.kind === 'channel' ? botOfChannel(conversation.faces) : undefined
 

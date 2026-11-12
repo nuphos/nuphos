@@ -117,6 +117,24 @@ export function withChatSections(
   )
 }
 
+/** A pinned Bot owns its whole tree; no descendant becomes an orphaned list root. */
+export function unpinnedChatItems(items: Item[], pinned: (item: Item) => boolean): Item[] {
+  const byKey = new Map(items.map((item) => [item.key, item]))
+
+  return items.filter((item) => {
+    const seen = new Set<string>()
+    let row: Item | undefined = item
+
+    while (row && !seen.has(row.key)) {
+      if (pinned(row)) return false
+      seen.add(row.key)
+      row = row.parentKey ? byKey.get(row.parentKey) : undefined
+    }
+
+    return true
+  })
+}
+
 const CHAT_SECTIONS = new Set<string | undefined>([BOTS_SECTION, 'Agents', 'Tasks'])
 
 /** The sections that hold chats, the only ones a split sidebar keeps. */

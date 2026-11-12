@@ -1,4 +1,3 @@
-import { setOpenedFromBots } from '../../lib/botNestedSelection'
 import { ChatIcon } from '../channels/channelParts'
 
 import { activityOf } from './bot-activity'
@@ -57,7 +56,6 @@ export function botChatRows({
     task: true,
     preview: undefined,
     time: undefined,
-    onPress: () => setOpenedFromBots(run.conversation.sessionId, true),
   })
   const nested = kids.map((kid) => copy(kid, chat.key))
   // A sub-agent at work is the Bot at work.

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { foldKey, withChatSections } from './chat-sections.ts'
+import { foldKey, unpinnedChatItems, withChatSections } from './chat-sections.ts'
 import { nestItems } from './nest-items.ts'
 
 import type { Item, Section } from './types'
@@ -263,5 +263,40 @@ test('a fallback Bot keeps its children and existing chat copies are not duplica
       copy,
     ]).Channels,
     ['dm', 'child'],
+  )
+})
+
+test('pinning a Bot hides its entire delegated tree without orphaning grandchildren', () => {
+  const items = [
+    row('bot', { bot: true }),
+    row('child', { parentKey: 'bot' }),
+    row('grandchild', { parentKey: 'child' }),
+    row('other'),
+  ]
+
+  assert.deepEqual(
+    unpinnedChatItems(items, (item) => item.key === 'bot').map((item) => item.key),
+    ['other'],
+  )
+  assert.deepEqual(
+    unpinnedChatItems(items, (item) => item.key === 'child').map((item) => item.key),
+    ['bot', 'other'],
+  )
+})
+
+test('pin filtering tolerates missing parents and parent cycles', () => {
+  const items = [
+    row('a', { parentKey: 'b' }),
+    row('b', { parentKey: 'a' }),
+    row('orphan', { parentKey: 'missing' }),
+  ]
+
+  assert.deepEqual(
+    unpinnedChatItems(items, () => false),
+    items,
+  )
+  assert.deepEqual(
+    unpinnedChatItems(items, (item) => item.key === 'a').map((item) => item.key),
+    ['orphan'],
   )
 })
