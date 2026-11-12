@@ -5,7 +5,7 @@
 
 export { readAgentRunFrames } from './run-store/frames'
 export { flushGuardWrites } from './run-store/guards'
-export { dropAgentRunMirror, mirrorAgentRunFrame } from './run-store/mirror'
+export { expireAgentRunMirror, mirrorAgentRunFrame } from './run-store/mirror'
 export {
   getActiveAgentRunForSession,
   requestAgentRunCancellation,

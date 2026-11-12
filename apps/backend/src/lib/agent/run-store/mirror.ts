@@ -1,6 +1,13 @@
 import { redisEnabled, withRedis } from '@/lib/redis'
 
-import { frameType, ownerKey, RUN_KEY_TTL_SEC, RUN_STREAM_MAXLEN, streamKey } from './shared'
+import {
+  FINISHED_RUN_KEY_TTL_SEC,
+  frameType,
+  RUN_KEY_TTL_SEC,
+  RUN_STREAM_FRAME_MAX_BYTES,
+  RUN_STREAM_MAXLEN,
+  streamKey,
+} from './shared'
 import { traceRunStoreError } from './trace'
 
 /** Fire-and-forget append a frame to the Redis Stream. Order is preserved on a
@@ -13,7 +20,7 @@ export function mirrorAgentRunFrame(userId: string, streamId: string, frame: str
   void withRedis((c) =>
     c
       .pipeline()
-      .xadd(key, 'MAXLEN', '~', String(RUN_STREAM_MAXLEN), '*', 'f', frame)
+      .xadd(key, 'MAXLEN', '~', String(RUN_STREAM_MAXLEN), '*', 'f', replayFrame(frame))
       .expire(key, RUN_KEY_TTL_SEC)
       .exec(),
   ).catch((err: unknown) => {
@@ -30,12 +37,18 @@ export function mirrorAgentRunFrame(userId: string, streamId: string, frame: str
   })
 }
 
-/** Drop the stream + lease entirely. Used when the run completes so we
- *  don't keep a stale key around longer than necessary. */
-export function dropAgentRunMirror(userId: string, streamId: string): void {
-  if (!redisEnabled()) return
-  const key = streamKey(userId, streamId)
-  const oKey = ownerKey(userId, streamId)
+/** The frame as a reconnecting client replays it: an oversized tool output is left out. */
+export function replayFrame(frame: string): string {
+  if (frame.length <= RUN_STREAM_FRAME_MAX_BYTES || frameType(frame) !== 'tool-output-available')
+    return frame
+  const payload = JSON.parse(frame.slice('data: '.length)) as Record<string, unknown>
 
-  void withRedis((c) => c.pipeline().del(key).del(oKey).exec())
+  return `data: ${JSON.stringify({ ...payload, output: { omitted: true, bytes: frame.length } })}\n\n`
+}
+
+/** Once the run has finished, keep its buffer only as long as a reconnect takes. */
+export function expireAgentRunMirror(userId: string, streamId: string): void {
+  if (!redisEnabled()) return
+
+  void withRedis((c) => c.expire(streamKey(userId, streamId), FINISHED_RUN_KEY_TTL_SEC))
 }
