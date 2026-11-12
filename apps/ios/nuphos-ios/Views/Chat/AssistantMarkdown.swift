@@ -21,6 +21,8 @@ struct AssistantMarkdown: View {
     /// Each typed line stays a line, as in any chat app; Markdown would
     /// join a single newline into a space. For people's chat posts.
     var keepsLineBreaks = false
+    /// A menu action starts a selection in the first text segment.
+    var selectionRequest = 0
     /// A tapped link. Absent, links do nothing.
     var onLink: ((URL) -> Void)?
 
@@ -32,13 +34,14 @@ struct AssistantMarkdown: View {
 
     var body: some View {
         let segments = MarkdownImages.segments(of: rendered)
+        let firstText = segments.firstIndex { if case .markdown = $0 { return true }; return false }
         if segments.count == 1, case .markdown(let text) = segments[0] {
-            markdown(text)
+            markdown(text, selectionRequest: selectionRequest)
         } else {
             VStack(alignment: .leading, spacing: theme.spacings.paragraph) {
-                ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
+                ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
                     switch segment {
-                    case .markdown(let text): markdown(text)
+                    case .markdown(let text): markdown(text, selectionRequest: index == firstText ? selectionRequest : 0)
                     case .image(let url, let alt): MarkdownImage(url: url, alt: alt, onLink: onLink)
                     }
                 }
@@ -46,8 +49,8 @@ struct AssistantMarkdown: View {
         }
     }
 
-    private func markdown(_ text: String) -> some View {
-        MarkdownTextRepresentable(text: text, theme: theme, typeSize: typeSize, plain: false, keepsLineBreaks: keepsLineBreaks, selectable: true, onLink: onLink)
+    private func markdown(_ text: String, selectionRequest: Int) -> some View {
+        MarkdownTextRepresentable(text: text, theme: theme, typeSize: typeSize, plain: false, keepsLineBreaks: keepsLineBreaks, selectable: true, selectionRequest: selectionRequest, onLink: onLink)
     }
 
     static var theme: MarkdownTheme {
@@ -153,6 +156,7 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
     let plain: Bool
     let keepsLineBreaks: Bool
     let selectable: Bool
+    var selectionRequest = 0
     let onLink: ((URL) -> Void)?
 
     func makeUIView(context: Context) -> MarkdownTextView {
@@ -191,6 +195,7 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
         context.coordinator.keepsLineBreaks = keepsLineBreaks
         view.textLabelView.isSelectable = selectable
         context.coordinator.setTextThrottled(text, theme: theme, on: view)
+        context.coordinator.selectText(request: selectionRequest, in: view)
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: MarkdownTextView, context: Context) -> CGSize? {
@@ -210,6 +215,20 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
         var onLink: ((URL) -> Void)?
         var plain = false
         var keepsLineBreaks = false
+        private var lastSelectionRequest = 0
+
+        func selectText(request: Int, in view: MarkdownTextView) {
+            guard request > lastSelectionRequest else { return }
+            lastSelectionRequest = request
+            DispatchQueue.main.async { [weak view] in
+                guard let label = view?.textLabelView, label.isSelectable else { return }
+                let text = label.attributedText.string
+                text.enumerateSubstrings(in: text.startIndex..., options: .byWords) { _, range, _, stop in
+                    label.selectionRange = NSRange(range, in: text)
+                    stop = true
+                }
+            }
+        }
 
         private var lastText = ""
         private var lastTheme: MarkdownTheme = .default
