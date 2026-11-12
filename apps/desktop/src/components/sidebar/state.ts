@@ -106,10 +106,6 @@ export function writeGroupFold(teamId: string, title: string, value: 'open' | 'c
 
 export const AGENT_SESSIONS_POLL_MS = 4_000
 
-export function agentSessionsCacheKey(teamId: string): string {
-  return `sidebar-agent-sessions:${teamId}`
-}
-
 export function crdCacheKey(kubeconfigContext: string): string {
   return `sidebar-crds:${kubeconfigContext}`
 }

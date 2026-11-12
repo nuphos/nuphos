@@ -6,6 +6,8 @@ export const queryKeys = {
   /** Under `teamMembers`, so refreshing the members refreshes this too. */
   teamMembersWithRemoved: (teamId: string) =>
     [...queryKeys.teamMembers(teamId), 'with-removed'] as const,
+  /** The Chats the sidebar lists: the viewer's agents and the channels they joined. */
+  agentSessions: (teamId: string) => [...queryKeys.team(teamId), 'agent-sessions'] as const,
   inbox: (teamId: string) => [...queryKeys.team(teamId), 'inbox'] as const,
   shareApprovals: (teamId: string) => [...queryKeys.team(teamId), 'share-approvals'] as const,
   channelMentions: (teamId: string) => [...queryKeys.team(teamId), 'channel-mentions'] as const,

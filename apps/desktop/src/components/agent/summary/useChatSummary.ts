@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react'
 
 import { useOpenedConversation } from '../../../lib/openedConversation'
-import { useSwrCache } from '../../../lib/swrCache'
-import { agentSessionsCacheKey } from '../../sidebar/state'
+import { useAgentSessions } from '../../sidebar/agentSessions'
 import { useSessionTransferGroups } from '../panel/useTransferDownloads'
 
 import { findConversation, outputFilesOf, subThreadsOf } from './chatSummaryModel'
@@ -25,7 +24,7 @@ export type ChatSummary = {
  * asks the backend.
  */
 export function useChatSummary(sessionId: string, teamId: string): ChatSummary {
-  const own = useSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId))
+  const own = useAgentSessions(teamId).data
   const opened = useOpenedConversation(sessionId)
   const groups = useSessionTransferGroups(sessionId)
   const lists = useMemo(() => [own ?? []], [own])
