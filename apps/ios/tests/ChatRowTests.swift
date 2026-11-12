@@ -385,16 +385,20 @@ enum ChatRowTests {
             toolCallId: "connect", toolName: "Request a Trello connection", isDynamic: false, state: .outputAvailable,
             input: .object(["category": .string("integration"), "question": .string("Connect Trello?"),
                             "providers": .array([.string("trello")])]))
-        precondition(integration.isIntegrationRequest)
+        precondition(integration.isProviderIntegrationRequest)
         precondition(integration.kind == .question)
         let message = ChatMessage(id: "m", role: .assistant, parts: [tool("a"), tool("b"), .tool(integration), text("Choose an account.")])
         let rows = ChatRow.assistantRows(message, live: false, lastApprovalCallId: nil)
         precondition(shape(rows) == ["work[run:tool.a,tool.b]", "tool.connect", "text:Choose an account."], "\(shape(rows))")
+        var personal = integration
+        personal.input = .object(["category": .string("integration"), "question": .string("Use your own GitHub?"),
+                                  "credentials": .array([.object(["provider": .string("personal"), "id": .string("github")])])])
+        precondition(!personal.isProviderIntegrationRequest)
         var ordinary = integration
         ordinary.input = .object(["category": .string("integration")])
-        precondition(!ordinary.isIntegrationRequest)
+        precondition(!ordinary.isProviderIntegrationRequest)
         ordinary.input = .object(["category": .string("preference"), "question": .string("Which board?")])
-        precondition(!ordinary.isIntegrationRequest)
+        precondition(!ordinary.isProviderIntegrationRequest)
     }
 
     private static func rendersReasoningMarkdown() {

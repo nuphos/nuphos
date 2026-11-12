@@ -55,7 +55,7 @@ struct ToolCallRow: View {
             }
             .buttonStyle(.plain)
 
-            if part.isIntegrationRequest {
+            if part.isProviderIntegrationRequest {
                 Button("Choose credentials or connect an account", action: onOpen)
                     .font(Theme.Text.label)
                     .buttonStyle(.bordered)
