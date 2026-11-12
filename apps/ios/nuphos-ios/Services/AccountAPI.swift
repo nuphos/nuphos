@@ -68,7 +68,12 @@ enum AccountAPI {
 
     // MARK: Two-factor authentication (Settings → Two-factor authentication)
 
-    struct MfaStatus: Decodable, Equatable { let enabled: Bool; let enabledAt: String?; let recoveryCodesRemaining: Int }
+    struct Passkey: Decodable, Equatable, Identifiable { let id: String; let name: String; let createdAt: String }
+    struct MfaStatus: Decodable, Equatable {
+        let enabled: Bool; let enabledAt: String?; let recoveryCodesRemaining: Int
+        /// Absent from a backend without passkeys.
+        var passkeys: [Passkey]? = nil
+    }
     struct MfaSetup: Decodable, Equatable { let secret: String; let otpauthUrl: String }
     struct RecoveryCodes: Decodable { let recoveryCodes: [String] }
 
@@ -87,6 +92,30 @@ enum AccountAPI {
     static func newRecoveryCodes(code: String, token: String) async throws -> [String] {
         let result: RecoveryCodes = try await request("mfa/recovery-codes", method: "POST", token: token, body: ["code": code])
         return result.recoveryCodes
+    }
+
+    // Passkeys: added once it is on, then usable wherever a code is.
+
+    /// To finish a sign-in with a passkey.
+    static func signInPasskeyOptions(mfaToken: String) async throws -> Passkeys.AssertionOptions {
+        try await request("mfa/verify/options", method: "POST", body: ["mfaToken": mfaToken])
+    }
+
+    /// For this session: step-up, turning it off, removing a passkey.
+    static func sessionPasskeyOptions(token: String) async throws -> Passkeys.AssertionOptions {
+        try await request("mfa/passkey-options", method: "POST", token: token)
+    }
+
+    static func addPasskey(name: String, token: String) async throws {
+        let options: Passkeys.RegistrationOptions = try await request("mfa/passkeys/options", method: "POST", token: token)
+        let response = try await Passkeys.create(options)
+        let _: Empty = try await request("mfa/passkeys", method: "POST", token: token, body: ["response": response, "name": name])
+    }
+
+    /// `answer` is a code, or a passkey's answer from `Passkeys.answer`.
+    static func removePasskey(id: String, answer: Any, token: String) async throws {
+        let key = answer is String ? "code" : "passkey"
+        let _: Empty = try await request("mfa/passkeys/\(id)", method: "DELETE", token: token, body: [key: answer])
     }
 
     static func disableMfa(code: String, token: String) async throws {

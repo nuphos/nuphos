@@ -19,9 +19,37 @@ struct TwoFactorView: View {
         case failed(String)
     }
 
-    private enum Confirm: Identifiable {
+    private enum Confirm: Identifiable, Equatable {
         case disable, codes
-        var id: Self { self }
+        case removePasskey(AccountAPI.Passkey)
+        var id: String {
+            switch self {
+            case .disable: "disable"
+            case .codes: "codes"
+            case .removePasskey(let passkey): "passkey-\(passkey.id)"
+            }
+        }
+        var title: LocalizedStringKey {
+            switch self {
+            case .disable: "Turn off two-factor authentication"
+            case .codes: "Replace your recovery codes"
+            case .removePasskey: "Remove passkey"
+            }
+        }
+        var text: LocalizedStringKey {
+            switch self {
+            case .disable: "Sign-in will no longer ask for a code. Enter one to confirm."
+            case .codes: "Your current recovery codes will stop working. Enter a code to confirm."
+            case .removePasskey: "This passkey will no longer work for this account. Enter a code to confirm."
+            }
+        }
+        var action: LocalizedStringKey {
+            switch self {
+            case .disable: "Turn off"
+            case .codes: "Replace codes"
+            case .removePasskey: "Remove"
+            }
+        }
     }
 
     @State private var load = Load.loading
@@ -69,17 +97,14 @@ struct TwoFactorView: View {
         .sheet(item: $confirming) { confirm in
             NavigationStack {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text(confirm == .disable
-                         ? "Sign-in will no longer ask for a code. Enter one to confirm."
-                         : "Your current recovery codes will stop working. Enter a code to confirm.")
-                        .foregroundStyle(Theme.body)
-                    MfaCodeEntry(submitLabel: confirm == .disable ? "Turn off" : "Replace codes") { code in
+                    Text(confirm.text).foregroundStyle(Theme.body)
+                    MfaCodeEntry(submitLabel: confirm.action) { code in
                         try await apply(confirm, code: code)
                     }
                     Spacer()
                 }
                 .padding(24)
-                .navigationTitle(confirm == .disable ? "Turn off two-factor authentication" : "Replace your recovery codes")
+                .navigationTitle(confirm.title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { confirming = nil } } }
             }
@@ -98,6 +123,22 @@ struct TwoFactorView: View {
                 LabeledContent("Recovery codes left", value: "\(status.recoveryCodesRemaining)")
                 Button("New recovery codes") { confirming = .codes }
                 Button("Turn off", role: .destructive) { confirming = .disable }
+                if let passkeys = status.passkeys {
+                    ForEach(passkeys) { passkey in
+                        HStack {
+                            Label(passkey.name, systemImage: "person.badge.key")
+                            Spacer()
+                            Button("Remove", role: .destructive) { confirming = .removePasskey(passkey) }
+                                .buttonStyle(.borderless)
+                        }
+                    }
+                    Button {
+                        Task { await addPasskey() }
+                    } label: {
+                        HStack { Text("Add a passkey"); if busy { Spacer(); ProgressView() } }
+                    }
+                    .disabled(busy)
+                }
             } else {
                 LabeledContent("Status", value: String(localized: "Off"))
                 Button {
@@ -187,6 +228,26 @@ struct TwoFactorView: View {
             let codes = try await AccountAPI.newRecoveryCodes(code: code, token: token)
             confirming = nil
             load = .codes(codes)
+        case .removePasskey(let passkey):
+            try await AccountAPI.removePasskey(id: passkey.id, answer: code, token: token)
+            confirming = nil
+            await refresh()
+        }
+    }
+
+    /// A passkey on this device, for signing in and confirming it's you. A
+    /// session that has not entered a code lately is asked for one first.
+    private func addPasskey() async {
+        guard let token = session.token else { return }
+        busy = true
+        actionError = nil
+        defer { busy = false }
+        do {
+            try await AccountAPI.addPasskey(name: UIDevice.current.name, token: token)
+            await refresh()
+        } catch Passkeys.Failure.cancelled {
+        } catch {
+            actionError = error.localizedDescription
         }
     }
 

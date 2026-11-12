@@ -6,6 +6,8 @@ import SwiftUI
 struct MfaCodeEntry: View {
     let submitLabel: LocalizedStringKey
     let submit: (String) async throws -> Void
+    /// Offered when the account may answer with a passkey instead.
+    var passkey: (() async throws -> Void)? = nil
 
     @State private var code = ""
     @State private var recovery = false
@@ -52,6 +54,17 @@ struct MfaCodeEntry: View {
             }
             .buttonStyle(.borderedProminent).controlSize(.large).buttonBorderShape(.capsule)
             .disabled(!complete || busy)
+            if let passkey {
+                Button("Use a passkey") {
+                    Task {
+                        busy = true
+                        defer { busy = false }
+                        do { try await passkey() } catch Passkeys.Failure.cancelled {} catch { self.error = error.localizedDescription }
+                    }
+                }
+                .font(.subheadline).buttonStyle(.plain).foregroundStyle(Theme.body).frame(minHeight: 44)
+                .disabled(busy).accessibilityIdentifier("mfa.passkey")
+            }
             Button(recovery ? "Use your authenticator app" : "Use a recovery code") {
                 recovery.toggle(); code = ""; error = nil; focused = true
             }
@@ -83,7 +96,8 @@ struct StepUpSheet: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Enter a code from your authenticator app to continue.")
                     .foregroundStyle(Theme.body)
-                MfaCodeEntry(submitLabel: "Continue") { try await prompt.submit(code: $0) }
+                MfaCodeEntry(submitLabel: "Continue", submit: { try await prompt.submit(code: $0) },
+                             passkey: { try await prompt.submitPasskey() })
                 Spacer()
             }
             .padding(24)
