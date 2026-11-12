@@ -162,11 +162,3 @@ export async function updatePlanApprovalPolicy(
     minimumOtherApprovals,
   })
 }
-
-export async function retryPlan(planId: string, teamId?: string): Promise<Plan> {
-  return callJson<Plan>(
-    'POST',
-    `/agent/plans/${encodeURIComponent(planId)}/retry${teamQuery(teamId)}`,
-    {},
-  )
-}

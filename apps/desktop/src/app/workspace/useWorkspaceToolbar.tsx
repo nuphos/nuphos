@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 
 import { LINEAR_PAGE_KEY } from '../../lib/linearNav'
-import { planNumberFromFilter } from '../../lib/planRoute'
 
 import { computeIdentitySegment } from './identitySegment'
 import { computeRootIntegrations } from './rootIntegrations'
@@ -52,6 +51,8 @@ function isLinearIssueDetail(active: string, linearNav: LinearNavState | null): 
 
 const UNFILTERABLE_PAGE_KEYS = new Set([
   'team.new-tab',
+  // Only single Plans remain, opened from links.
+  'team.plans',
   'team.browser',
   'team.desktop',
   'team.terminal',
@@ -75,7 +76,6 @@ export function useWorkspaceToolbar(a: Args) {
     gitlabNamespacesByTeam,
     scope,
     active,
-    filter,
     target,
     architectureDetail,
     designDetail,
@@ -121,7 +121,6 @@ export function useWorkspaceToolbar(a: Args) {
   // The alarm drill-down has no filterable list (lambda/log-group details do —
   // their Logs tabs consume the filter), so hide the stale list controls there.
   const inAlarmDetail = active === 'aws.cloudwatch-alarms' && awsDetail?.kind === 'alarm'
-  const inPlanDetail = active === 'team.plans' && Boolean(planNumberFromFilter(filter))
   // Pages whose body is not a filterable list — a search box there would type
   // into nothing. Everything else inside a scope gets the shared filter, the
   // settings-nav lists (bound roles / apps / service accounts) included: they
@@ -137,7 +136,6 @@ export function useWorkspaceToolbar(a: Args) {
     !target &&
     !sshTerminal &&
     !inAlarmDetail &&
-    !inPlanDetail &&
     !architectureDetail &&
     !designDetail &&
     // The connector drill-down swaps the table out for a provider info page.

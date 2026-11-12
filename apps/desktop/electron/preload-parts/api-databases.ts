@@ -139,14 +139,8 @@ export const databasesApi = {
     ipcRenderer.invoke('atlas:listAwsClusters', teamId, accountId, roleId),
   atlasGetAwsIamPermissions: (teamId: string, accountId: string, roleId?: string) =>
     ipcRenderer.invoke('atlas:getAwsIamPermissions', teamId, accountId, roleId),
-  atlasListPermissionGrantProposals: (teamId: string) =>
-    ipcRenderer.invoke('atlas:listPermissionGrantProposals', teamId),
   atlasGetPermissionGrantProposal: (teamId: string, id: string) =>
     ipcRenderer.invoke('atlas:getPermissionGrantProposal', teamId, id),
-  atlasApprovePermissionGrantProposal: (teamId: string, id: string) =>
-    ipcRenderer.invoke('atlas:approvePermissionGrantProposal', teamId, id),
-  atlasRejectPermissionGrantProposal: (teamId: string, id: string) =>
-    ipcRenderer.invoke('atlas:rejectPermissionGrantProposal', teamId, id),
   atlasGetGcpIamPermissions: (teamId: string, projectId: string, serviceAccountId?: string) =>
     ipcRenderer.invoke('atlas:getGcpIamPermissions', teamId, projectId, serviceAccountId),
   atlasGetCloudflareIamPermissions: (teamId: string, accountId: string) =>

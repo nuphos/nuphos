@@ -180,17 +180,7 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
       'team.plans',
       t('Plans'),
       <ClipboardList className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
-      <PlansView
-        teamId={scope.teamId}
-        refreshKey={refreshKey}
-        filter={filter}
-        onOpenPlan={(planNumber) => onSelectActive('team.plans', planNumber)}
-        onCount={onCount}
-        onLoading={onLoading}
-        onOpenInChat={onOpenPlanInChat}
-        isTeamAdmin={isTeamAdmin}
-        onOpenAgentChat={onOpenAgentChat}
-      />,
+      <PlansView teamId={scope.teamId} filter={filter} onOpenInChat={onOpenPlanInChat} />,
     )
   }
   if (active === 'team.audit') {

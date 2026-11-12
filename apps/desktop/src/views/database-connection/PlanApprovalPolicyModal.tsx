@@ -33,7 +33,7 @@ export function PlanApprovalPolicyModal({
       onClose={() => !saving && onClose()}
       title={t('Plan approval policy')}
       description={t(
-        'Choose who must approve execution Plans for this team, including Agent- and human-proposed database changes.',
+        'Choose who must approve database changes proposed in this team, by an Agent or a person.',
       )}
       width={520}
       footer={
@@ -50,11 +50,7 @@ export function PlanApprovalPolicyModal({
       <div className="space-y-3 p-5">
         {(
           [
-            [
-              'requester',
-              t('Requester only'),
-              t('The session user approves their own Agent plan.'),
-            ],
+            ['requester', t('Requester only'), t('The requester approves their own change.')],
             [
               'one-other',
               t('Requester + one teammate'),
