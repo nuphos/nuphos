@@ -59,10 +59,14 @@ test('Bots show actual sub-agents directly, without a duplicate own Task', () =>
     faces: [],
     teamId: 'team-a',
     unread: false,
-    openId: undefined,
-    fromBots: new Set(),
+    openId: 'kid',
   })
 
+  assert.equal(
+    rows[1]?.active,
+    true,
+    'a Bot task opened directly still highlights its only sidebar row',
+  )
   assert.deepEqual(
     rows.map((row) => [row.key, row.parentKey]),
     [

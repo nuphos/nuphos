@@ -31,7 +31,6 @@ export function botChatRows({
   teamId,
   unread,
   openId,
-  fromBots,
   unreadIds = new Set<string>(),
 }: {
   chat: Item
@@ -42,15 +41,13 @@ export function botChatRows({
   unread: boolean
   /** The chat open in the pane, if any. */
   openId: string | undefined
-  /** Tasks last opened from under their Bot rather than from Tasks. */
   unreadIds?: ReadonlySet<string>
-  fromBots: ReadonlySet<string>
 }): Item[] {
   const copy = (run: Run, parentKey: string): Item => ({
     ...chatSidebarItem({
       conversation: run.conversation,
       teamId,
-      active: openId === run.conversation.sessionId && fromBots.has(run.conversation.sessionId),
+      active: openId === run.conversation.sessionId,
       runtimeState: run.runtimeState,
       unread: unreadIds.has(run.conversation.sessionId),
     }),

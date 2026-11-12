@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 /** The internal title of the Bots group (chats); the sidebar labels it Bots. */
 export const BOTS_SECTION = 'Channels'
 
-/** A Bot's nested task folds independently from its copy in Tasks. */
+/** Bot tree fold keys stay scoped to the Bots section. */
 export function foldKey(section: Pick<Section, 'title'>, key: string): string {
   return section.title === BOTS_SECTION ? `bots:${key}` : key
 }
