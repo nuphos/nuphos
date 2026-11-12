@@ -19,6 +19,7 @@ const browserSession = {
   getUserAgent: () =>
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Nuphos/0.98.0 Chrome/146.0.7680.65 Electron/43.8.3 Safari/537.36',
   setUserAgent: mock.fn<(userAgent: string) => void>(),
+  registerPreloadScript: mock.fn<(script: Record<string, unknown>) => string>(),
   on: mock.fn<(event: string, listener: (...args: unknown[]) => void) => void>(),
 }
 const externalUrls: string[] = []
@@ -169,6 +170,14 @@ test('browser user agent drops the release-specific app and Electron tokens', ()
   assert.deepEqual(browserSession.setUserAgent.mock.calls[0].arguments, [
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.7680.65 Safari/537.36',
   ])
+})
+
+test('browser pages get a preload that fills in window.chrome, on web pages only', () => {
+  const [script] = browserSession.registerPreloadScript.mock.calls[0].arguments
+
+  assert.equal(script.type, 'frame')
+  assert.match(String(script.filePath), /[/\\]browser-preload\.cjs$/)
+  assert.deepEqual(script.matches, ['http://*/*', 'https://*/*'])
 })
 
 test('sign-in popups open as real windows that keep their opener; links still load in the tab', () => {
