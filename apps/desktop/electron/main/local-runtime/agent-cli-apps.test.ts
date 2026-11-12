@@ -132,3 +132,32 @@ test(
     assert.equal(findAgentCli('opencode', env), cli)
   },
 )
+
+test(
+  "the OpenCode desktop app's own CLI is found without one on PATH",
+  {
+    skip:
+      process.platform !== 'darwin' ||
+      findAgentCli('opencode', { HOME: os.tmpdir(), PATH: '' }) !== null,
+  },
+  (t) => {
+    const home = mkdtempSync(path.join(os.tmpdir(), 'nuphos-opencode-app-'))
+
+    t.after(() => rmSync(home, { recursive: true, force: true }))
+    const env = { HOME: home, PATH: '' }
+    const cli = path.join(
+      home,
+      'Applications',
+      'OpenCode.app',
+      'Contents',
+      'Resources',
+      'opencode-cli',
+    )
+
+    assert.equal(findAgentCli('opencode', env), null)
+    mkdirSync(path.dirname(cli), { recursive: true })
+    writeFileSync(cli, '#!/bin/sh\n', { mode: 0o700 })
+    assert.equal(findAgentCli('opencode', env), cli)
+    assert.equal(findAgentCli('codex', env), null)
+  },
+)
