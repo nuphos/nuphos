@@ -16,6 +16,7 @@ export function MfaCodeDialog({
   description,
   submitLabel,
   onSubmit,
+  onPasskey,
   onClose,
 }: {
   open: boolean
@@ -24,6 +25,7 @@ export function MfaCodeDialog({
   submitLabel: string
   /** Throws when the code is refused, which keeps the dialog open. */
   onSubmit: (code: string) => Promise<void>
+  onPasskey?: () => Promise<void>
   onClose: () => void
 }) {
   return (
@@ -39,7 +41,7 @@ export function MfaCodeDialog({
     >
       {open && (
         <div className="titlebar-no-drag px-5 pt-1 pb-5">
-          <MfaCodeForm submitLabel={submitLabel} onSubmit={onSubmit} />
+          <MfaCodeForm submitLabel={submitLabel} onSubmit={onSubmit} onPasskey={onPasskey} />
         </div>
       )}
     </Modal>
@@ -72,6 +74,10 @@ export function StepUpPrompt() {
       submitLabel={t('Continue')}
       onSubmit={async (code) => {
         await api.atlasReauthMfa(code)
+        finish(true)
+      }}
+      onPasskey={async () => {
+        await api.atlasReauthWithPasskey()
         finish(true)
       }}
       onClose={() => finish(false)}

@@ -44,6 +44,8 @@ export type MfaStatus = {
   enabled: boolean
   enabledAt: string | null
   recoveryCodesRemaining: number
+  /** Absent from a backend without passkeys. */
+  passkeys?: { id: string; name: string; createdAt: string }[]
 }
 
 /** A new authenticator secret, to scan or type in before confirming. */

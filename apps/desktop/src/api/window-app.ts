@@ -68,6 +68,10 @@ export type WindowAppApi = {
   atlasNewMfaRecoveryCodes(code: string): Promise<string[]>
   atlasDisableMfa(code: string): Promise<void>
   atlasReauthMfa(code: string): Promise<void>
+  authMfaVerifyPasskey(mfaToken: string): Promise<UserInfo>
+  atlasReauthWithPasskey(): Promise<void>
+  atlasAddPasskey(): Promise<void>
+  atlasRemovePasskey(id: string, code: string): Promise<void>
   authUploadAvatar(image: Uint8Array): Promise<UserInfo>
   apiUrlSync(): string
   authRemoveAvatar(): Promise<UserInfo>
