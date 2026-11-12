@@ -78,9 +78,9 @@ class AuthSession(
     var consentError: String? by mutableStateOf(null)
         private set
     var profileError: String? by mutableStateOf(null)
+        private set
     /** A sign-in that needs the account's second factor; the sign-in screen asks for the code. */
     var mfaChallenge: String? by mutableStateOf(null)
-        private set
         private set
     val aiAllowed: Boolean get() = token?.let { AiAccess.allows(it) } == true
     val composerDrafts = ComposerDrafts(ai.nuphos.android.data.ComposerDraftPreferences(app))
@@ -410,6 +410,7 @@ class AuthSession(
                     return@launch
                 } catch (_: NuphosApi.Failure.Unauthorized) {
                     if (generation == expected) state = State.SignedOut(if (password) "The email or password is incorrect." else "Incorrect or expired code. Request a new code if needed.")
+                    onRefused?.invoke("That code is not valid.")
                     return@launch
                 }
                 ensureActive()

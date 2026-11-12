@@ -66,7 +66,7 @@ fun MfaCodeForm(submitLabel: String, onSubmit: suspend (String) -> Unit, modifie
             placeholder = { Text(if (recovery) "xxxx-xxxx-xxxx-xxxx" else "000000") },
             singleLine = true,
             isError = error != null,
-            supportingText = error?.let { { Text(it) } },
+            supportingText = error?.let { message -> @Composable { Text(message) } },
             keyboardOptions = KeyboardOptions(keyboardType = if (recovery) KeyboardType.Ascii else KeyboardType.NumberPassword),
             textStyle = MaterialTheme.typography.titleLarge,
             modifier = Modifier.fillMaxWidth().focusRequester(focus).testTag("mfa.code"),

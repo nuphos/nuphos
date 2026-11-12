@@ -154,7 +154,7 @@ class AccountApi internal constructor(private val token: String, private val cli
                 else runCatching { Http.json.parseToJsonElement(text).jsonObject["error"]?.jsonObject }.getOrNull()
             mfaChallenge(error)?.let { throw NuphosApi.Failure.MfaRequired(it) }
             // A refused two-factor code is a 401 too, but the session is fine.
-            val codeRefused = runCatching { error?.get("code")?.jsonPrimitive?.contentOrNull }.getOrNull() in MFA_CODE_ERRORS
+            val codeRefused = MFA_CODE_ERRORS.contains(runCatching { error?.get("code")?.jsonPrimitive?.contentOrNull }.getOrNull() ?: "")
             if (response.code == 401 && !codeRefused) throw NuphosApi.Failure.Unauthorized
             if (!response.isSuccessful) {
                 val message = runCatching { error?.get("message")?.jsonPrimitive?.contentOrNull }.getOrNull()
