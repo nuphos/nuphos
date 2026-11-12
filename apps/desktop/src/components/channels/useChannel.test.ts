@@ -40,12 +40,14 @@ test('a refresh from any pane of the channel fetches it all, even with nothing c
 })
 
 test('a channel whose first load fails tries again in 8 s, then backs off', () => {
-  const failed = (errorUpdateCount: number, dataUpdatedAt = 0) =>
-    channelRetryMs({ status: 'error', errorUpdateCount, dataUpdatedAt } as never)
+  const failed = (errorUpdateCount: number, dataUpdatedAt = 0, errorUpdatedAt = 0) =>
+    channelRetryMs({ status: 'error', errorUpdateCount, dataUpdatedAt, errorUpdatedAt } as never)
 
   assert.deepEqual(
     [1, 2, 3, 4, 5].map((count) => failed(count)),
     [8_000, 16_000, 32_000, 60_000, 60_000],
   )
-  assert.equal(failed(9, Date.now() - 1_000), 8_000, 'a channel that just loaded starts short too')
+  assert.equal(failed(9, 1_000, 2_000), 8_000, 'a channel that just loaded starts short too')
+  // Fixed per attempt, so a rerender between attempts never pushes the next one back.
+  assert.equal(failed(9, 1_000, 31_000), 30_000)
 })

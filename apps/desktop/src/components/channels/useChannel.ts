@@ -49,8 +49,9 @@ export function refreshChannel(client: QueryClient, teamId: string, channelId: s
  *  or for a channel that never loaded, by how many times it failed (8, 16, 32, then 60 s). */
 export function channelRetryMs(state: QueryState<Channel>): number {
   if (state.status !== 'error') return POLL_MS
+  // From timestamps fixed per attempt: a rerender re-arms the timer whenever this changes.
   const failingFor = state.dataUpdatedAt
-    ? Date.now() - state.dataUpdatedAt
+    ? state.errorUpdatedAt - state.dataUpdatedAt
     : POLL_MS * 2 ** state.errorUpdateCount
 
   return Math.min(RETRY_MAX_MS, Math.max(2 * POLL_MS, failingFor))
