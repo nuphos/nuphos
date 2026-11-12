@@ -29,11 +29,9 @@
     <string name="couldnt_load_plans">Couldn\'t load plans</string>
     <string name="couldnt_load_teams">Couldn\'t load teams</string>
     <string name="loading_chats">Loading agents…</string>
-    <string name="loading_plans">Loading plans…</string>
     <string name="page_agent">Agents</string>
     <string name="page_monitoring">Monitoring</string>
     <string name="page_triggers">Triggers</string>
-    <string name="page_plans">Plans</string>
     <string name="switch_page">Switch page</string>
     <string name="approve">Approve</string>
     <string name="approve_once">Approve once</string>

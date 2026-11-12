@@ -109,7 +109,7 @@ Navigation regression: track root screens from `pageContent.onAppear`, not
 With the offline `tests/fixtures/push-responses.json` simulator fixture, open
 chat A, pop to Agent, then open chat B. The actual screen callback sequence
 must be `agent → chat → agent → chat`. Returning to the list and foregrounding
-must retain the list name. Repeat from Plans when a plan-linked chat is present.
+must retain the list name.
 Wrapper tests cover foreground emission and same-team chat re-entry for both
 root names; those tests do not replace checking SwiftUI navigation callbacks.
 The Agent callback sequence was checked on iOS 26.3 using temporary local

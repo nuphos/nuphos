@@ -38,7 +38,7 @@ struct ConversationView: View {
     @State private var dockOpen = false
     /// A dock page open in the phone's own browser.
     @State private var web: DockWeb?
-    /// An iPhone screen opened from the dock: Plans, Runtimes or Connectors.
+    /// An iPhone screen opened from the dock: Runtimes or Connectors.
     @State private var dockScreen: DockDestination?
     /// A watched tab is laid out on the Mac at this screen's size, so its page fits the phone.
     private static var screenSize: CGSize {

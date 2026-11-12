@@ -9,7 +9,7 @@ struct DockPanel: View {
     var openDesktop: () -> Void
     /// A web page in the phone's browser: its address (nil for a blank one) and its dock tab.
     var openWeb: (URL?, String?) -> Void
-    /// A screen the iPhone has: Plans, Runtimes or Connectors.
+    /// A screen the iPhone has: Runtimes or Connectors.
     var openScreen: (DockDestination) -> Void
     var close: () -> Void
 
@@ -218,7 +218,6 @@ struct DockPanel: View {
         switch destination {
         case .web, .newBrowser: "globe"
         case .desktop: "display"
-        case .plans: "list.bullet.clipboard"
         case .runtimes: "cpu"
         case .connectors: "link"
         case .chat: "bubble.left"
@@ -263,7 +262,7 @@ struct DockPanel: View {
             if tab != nil { openWeb(url, tab) } else { openAddress(url) }
         case .newBrowser: openWeb(nil, nil)
         case .desktop: openDesktop()
-        case .plans, .runtimes, .connectors: openScreen(destination)
+        case .runtimes, .connectors: openScreen(destination)
         case .chat(let id):
             if let link = URL(string: "https://nuphos.ai/teams/\(session.teamId)/agent/\(id)") { openURL(link) }
         case .onMac(let page, let href):
@@ -320,9 +319,6 @@ extension DockDestination: Identifiable {
 struct DockScreen: View {
     let destination: DockDestination
     @Environment(\.dismiss) private var dismiss
-    @State private var page = HomePage.plans
-    @State private var searching = false
-    @State private var collapsed = false
 
     var body: some View {
         content
@@ -334,7 +330,6 @@ struct DockScreen: View {
     @ViewBuilder
     private var content: some View {
         switch destination {
-        case .plans: PlansPage(page: $page, isSearching: $searching, titleCollapsed: $collapsed).navigationTitle("Plans")
         case .runtimes: RuntimesPage().navigationTitle("Runtimes")
         default: ConnectorsPage().navigationTitle("Connectors")
         }
