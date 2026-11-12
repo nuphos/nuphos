@@ -102,6 +102,13 @@ class FakeCollection {
 
     return { matchedCount: 1, modifiedCount: 1 }
   }
+  async deleteMany(filter: Doc) {
+    const before = this.docs.length
+
+    this.docs = this.docs.filter((d) => !matches(d, filter))
+
+    return { deletedCount: before - this.docs.length }
+  }
   find() {
     const cursor = { limit: () => cursor, toArray: async () => [] }
 
@@ -138,7 +145,12 @@ useIdentity({
       : null) as unknown as typeof identityActual.authenticateToken,
   getNuphosUserById: async (id: string) => (id === USER_ID ? USER : null),
 })
+const revoked: string[] = []
+
 useIdentitySessions({
+  revokeAllUserSessions: async (userId: string) => {
+    revoked.push(userId)
+  },
   createUserSession: async (userId: string) => {
     sessionsStarted.push(userId)
 
@@ -187,6 +199,7 @@ async function enroll() {
 beforeEach(() => {
   collections.clear()
   sessionsStarted.length = 0
+  revoked.length = 0
   users().docs.push({ _id: new ObjectId(USER_ID), email: USER.email })
 })
 
@@ -308,6 +321,25 @@ describe('verifySecondFactor', () => {
     await expect(mfa.verifySecondFactor(USER_ID, recoveryCodes[0])).rejects.toMatchObject({
       code: 'invalid_mfa_code',
     })
+  })
+})
+
+describe('support reset', () => {
+  test('turns MFA off and signs the account out everywhere, CLI tokens included', async () => {
+    await enroll()
+    collection('cli_tokens').docs.push({ _id: new ObjectId(), userId: USER_ID })
+    revoked.length = 0
+
+    expect(await mfa.resetMfaForSupport(USER_ID)).toBe(true)
+    expect(await mfa.isMfaEnabled(USER_ID)).toBe(false)
+    expect(revoked).toEqual([USER_ID])
+    expect(collection('cli_tokens').docs).toEqual([])
+    expect(account().sessionsInvalidBefore).toBeNumber()
+  })
+
+  test('an account without MFA is left alone', async () => {
+    expect(await mfa.resetMfaForSupport(USER_ID)).toBe(false)
+    expect(revoked).toEqual([])
   })
 })
 

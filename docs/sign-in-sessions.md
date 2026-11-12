@@ -40,6 +40,11 @@ is checked, so parallel guesses share one budget: after ten attempts within 15
 minutes without a right code, code entry is locked for the rest of that window. Turning it on or off and
 using a recovery code send an email, best effort.
 
+Someone who lost both the authenticator and the recovery codes contacts
+support. Once support confirms who is asking, an admin calls
+`POST /admin/directory/users/:id/mfa-reset`, which turns MFA off, signs the
+account out of every session and emails the user.
+
 ## Step-up re-authentication
 
 A session counts as recently verified for 10 minutes after its sign-in, or

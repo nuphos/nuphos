@@ -635,6 +635,7 @@
   "PATCH /teams/:teamId/uptime-kuma-instances/:instanceId": "admin",
   "PATCH /teams/:teamId/uptime-kuma-instances/:instanceId/monitors/:monitorId": "editor",
   "POST /admin/agent/conversations/:sessionId/rewake": "user",
+  "POST /admin/directory/users/:id/mfa-reset": "user",
   "POST /admin/skills/object": "user",
   "POST /agent-sessions/:sessionId/teams/:teamId/file-transfers": "user",
   "POST /agent-sessions/:sessionId/teams/:teamId/file-transfers/:groupId/finalize": "user",
