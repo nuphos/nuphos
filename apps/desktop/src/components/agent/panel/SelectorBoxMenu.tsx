@@ -27,12 +27,12 @@ import type { AgentDevice } from '../../../api/device-types'
 import type { AgentUpdate } from '../../../hooks/useAgentUpdates'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 
-/** Amber from 80%, red from 95%. */
+/** Data fill, as the agents' usage meters, turning warning from 80% and error from 95%. */
 function meterTone(value: number) {
   if (value >= 95) return { bar: 'bg-error', text: 'text-error' }
   if (value >= 80) return { bar: 'bg-warning', text: 'text-warning' }
 
-  return { bar: 'bg-action-primary/90', text: 'text-secondary' }
+  return { bar: 'bg-data-1', text: 'text-secondary' }
 }
 
 function percent(value: number) {
@@ -65,7 +65,7 @@ export function SelectorBoxMeters({ metrics }: { metrics: SelectorMetrics }) {
               {percent(value)}
             </span>
           </span>
-          <span className="mt-1 block h-[3px] overflow-hidden rounded-full bg-state-selected">
+          <span className="mt-1 block h-[3px] overflow-hidden rounded-full bg-surface-sunken">
             <span
               className={clsx('block h-full rounded-full', meterTone(value).bar)}
               style={{ width: percent(value) }}
