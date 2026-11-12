@@ -20,7 +20,7 @@ struct LoginView: View {
     @FocusState private var focused: Field?
     @ScaledMetric(relativeTo: .title2) private var codeCellHeight: CGFloat = 56
 
-    private enum Screen: Hashable { case code }
+    private enum Screen: Hashable { case code, mfa }
     private enum Field { case email, password }
     private var signingIn: Bool { busy || session.state == .signingIn }
     private var cleanEmail: String { email.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -33,8 +33,11 @@ struct LoginView: View {
     var body: some View {
         NavigationStack(path: $path) {
             welcome
-                .navigationDestination(for: Screen.self) { _ in
-                    codeScreen
+                .navigationDestination(for: Screen.self) { screen in
+                    switch screen {
+                    case .code: codeScreen
+                    case .mfa: mfaScreen
+                    }
                 }
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -51,6 +54,12 @@ struct LoginView: View {
             if newPath.count < oldPath.count {
                 credential = ""
             }
+            // Going back from the authenticator step abandons that sign-in.
+            if oldPath.last == .mfa, newPath.last != .mfa { session.cancelMfa() }
+        }
+        // A sign-in that needs the second factor continues on its own screen.
+        .onChange(of: session.mfaChallenge?.token) { _, challenge in
+            if challenge != nil, path.last != .mfa { path.append(.mfa) }
         }
         .onChange(of: savedURL) {
             path = []; email = ""; credential = ""; usePassword = false
@@ -222,6 +231,23 @@ struct LoginView: View {
             primaryAction("Sign in", disabled: !validCode) { await signIn(password: false) }
         }
         .disabled(signingIn)
+    }
+
+    private var mfaScreen: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Two-factor authentication")
+                        .font(.title.bold()).foregroundStyle(Theme.heading)
+                    Text("Enter the 6-digit code from your authenticator app.").foregroundStyle(Theme.body)
+                }
+                MfaCodeEntry(submitLabel: "Sign in") { try await session.verifyMfa(code: $0) }
+            }
+            .padding(24).frame(maxWidth: 440).frame(maxWidth: .infinity)
+        }
+        .background(Theme.canvas)
+        .navigationTitle("").navigationBarTitleDisplayMode(.inline)
+        .scrollDismissesKeyboard(.interactively)
     }
 
     private var verificationCodeField: some View {

@@ -35,6 +35,9 @@ final class AuthSession {
     private(set) var aiConsentAccepted = false
     private(set) var aiConsentVersion: String?
     private(set) var aiConsentError: String?
+    /// A sign-in that needs the account's second factor: its challenge, and the
+    /// backend it came from. The sign-in screen asks for the code.
+    private(set) var mfaChallenge: (token: String, origin: String)?
 
     let savedAccounts = SavedAccounts()
     private(set) var generation = 0
@@ -179,6 +182,8 @@ final class AuthSession {
             }
         } catch let error as ASWebAuthenticationSessionError where error.code == .canceledLogin {
             if generation == expected { state = .signedOut(error: nil) }
+        } catch NuphosAPI.Failure.mfaRequired(let challenge) {
+            if generation == expected { askForMfa(challenge, origin: origin) }
         } catch {
             if generation == expected { state = .signedOut(error: error.localizedDescription) }
         }
@@ -375,11 +380,38 @@ final class AuthSession {
             let path = newPassword != nil ? "password/set" : password ? "password/sign-in" : "email/verify-code"
             let result: AccountAPI.SignIn = try await AccountAPI.request(path, method: "POST", body: body)
             await complete(token: result.token, expected: expected, origin: origin)
+        } catch NuphosAPI.Failure.mfaRequired(let challenge) {
+            if generation == expected { askForMfa(challenge, origin: origin) }
         } catch {
             if generation == expected { state = .signedOut(error: error.localizedDescription) }
             throw error
         }
     }
+
+    private func askForMfa(_ challenge: String, origin: String) {
+        mfaChallenge = (challenge, origin)
+        state = .signedOut(error: nil)
+    }
+
+    /// The second step of a sign-in that asked for it: an authenticator or
+    /// recovery code. Throws when the code is refused, so the screen can say so.
+    func verifyMfa(code: String) async throws {
+        guard let challenge = mfaChallenge, state != .signingIn else { return }
+        let expected = generation
+        state = .signingIn
+        do {
+            let result: AccountAPI.SignIn = try await AccountAPI.request("mfa/verify", method: "POST", body: [
+                "mfaToken": challenge.token, "code": code,
+            ])
+            mfaChallenge = nil
+            await complete(token: result.token, expected: expected, origin: challenge.origin)
+        } catch {
+            if generation == expected { state = .signedOut(error: nil) }
+            throw error
+        }
+    }
+
+    func cancelMfa() { mfaChallenge = nil }
 
     // MARK: - Signed in
 

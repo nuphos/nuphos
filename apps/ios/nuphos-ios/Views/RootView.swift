@@ -4,6 +4,7 @@ import SwiftUI
 struct RootView: View {
     @Environment(AuthSession.self) private var session
     @Environment(\.scenePhase) private var scenePhase
+    @State private var stepUp = StepUpPrompt.shared
 
     var body: some View {
         Group {
@@ -30,6 +31,11 @@ struct RootView: View {
         }
         .task(id: "\(session.generation)/\(isSignedIn)") {
             if isSignedIn { await session.activatePush() }
+        }
+        // A request that needs a recent code waits on this sheet (StepUp.swift).
+        .onAppear { stepUp.presenting = true }
+        .sheet(isPresented: Binding(get: { stepUp.token != nil }, set: { if !$0 { stepUp.cancel() } })) {
+            StepUpSheet(prompt: stepUp)
         }
     }
 

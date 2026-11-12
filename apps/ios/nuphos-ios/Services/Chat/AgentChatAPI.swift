@@ -503,6 +503,14 @@ enum AgentChatAPI {
         _ method: String, _ path: String, query: [URLQueryItem] = [], token: String, body: B?, encodeNulls: Bool = false,
         timeout: TimeInterval = 30
     ) async throws -> Data {
+        try await StepUp.retrying(token: token) {
+            try await sendOnce(method, path, query: query, token: token, body: body, timeout: timeout)
+        }
+    }
+
+    private static func sendOnce<B: Encodable>(
+        _ method: String, _ path: String, query: [URLQueryItem], token: String, body: B?, timeout: TimeInterval
+    ) async throws -> Data {
         var components = URLComponents(url: NuphosAPI.baseURL(for: token).appending(path: path), resolvingAgainstBaseURL: false)!
         if !query.isEmpty { components.queryItems = query }
         var request = URLRequest(url: components.url!)
@@ -523,6 +531,7 @@ enum AgentChatAPI {
         switch http.statusCode {
         case 200..<300: return data
         case 401: throw NuphosAPI.Failure.unauthorized
+        case 403 where NuphosAPI.needsStepUp(data): throw NuphosAPI.Failure.reauthRequired
         default: throw conflict(status: http.statusCode, body: String(data: data, encoding: .utf8))
         }
     }

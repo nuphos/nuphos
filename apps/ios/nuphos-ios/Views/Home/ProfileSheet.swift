@@ -59,6 +59,12 @@ struct ProfileSheet: View {
                             session.signOut()
                         }
                     }
+                    NavigationLink("Two-factor authentication") {
+                        TwoFactorView {
+                            dismiss()
+                            session.signOut()
+                        }
+                    }
                 }
                 .listRowBackground(Theme.surface)
 
