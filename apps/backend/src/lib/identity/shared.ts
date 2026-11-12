@@ -32,6 +32,8 @@ export type NuphosUserDoc = {
   mfa?: UserMfa
   mfaPending?: UserMfaPending
   mfaFailures?: { count: number; since: Date }
+  /** A passkey ceremony's challenge for this account (mfa-passkeys.ts). */
+  passkeyChallenge?: { value: string; createdAt: Date }
   createdAt: Date
   updatedAt: Date
   deletedAt?: Date

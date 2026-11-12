@@ -3,7 +3,6 @@ import { randomBytes } from 'node:crypto'
 import { ObjectId } from 'mongodb'
 
 import { sealers } from '@/lib/byos/secrets'
-import { escapeHtml, isEmailConfigured, sendEmail } from '@/lib/email'
 import { AppError } from '@/lib/errors'
 import {
   base32Decode,
@@ -14,12 +13,15 @@ import {
   otpauthUrl,
 } from '@/lib/identity/mfa-codes'
 import { revokeAllCliTokens } from '@/lib/identity/cli-tokens'
+import { notify } from '@/lib/identity/mfa-notify'
+import { answeredWithPasskey, freshChallenge, publicPasskeys } from '@/lib/identity/mfa-passkeys'
 import { revokeAllUserSessions } from '@/lib/identity/sessions'
 import { users } from '@/lib/identity/shared'
 import { hashToken } from '@/lib/oauth/tokens'
 import { logEvent } from '@/lib/observability'
 
 import type { EncryptedSecret } from '@/lib/byos/secrets'
+import type { StoredPasskey } from '@/lib/identity/mfa-passkeys'
 import type { NuphosUserDoc } from '@/lib/identity/shared'
 
 /**
@@ -38,6 +40,8 @@ export type UserMfa = {
   lastStep: number
   /** hashToken of each unused recovery code. */
   recoveryCodes: string[]
+  /** More ways to answer, added once it is on (mfa-passkeys.ts). */
+  passkeys?: StoredPasskey[]
 }
 
 export type UserMfaPending = { totp: EncryptedSecret; createdAt: Date }
@@ -48,12 +52,15 @@ const FAILURE_WINDOW_MS = 15 * 60 * 1000
 
 // ── Account state ──
 
-type MfaFields = Pick<NuphosUserDoc, 'email' | 'mfa' | 'mfaPending' | 'mfaFailures'>
+type MfaFields = Pick<
+  NuphosUserDoc,
+  'email' | 'mfa' | 'mfaPending' | 'mfaFailures' | 'passkeyChallenge'
+>
 
 async function readMfa(userId: string): Promise<MfaFields | null> {
   return users().findOne(
     { _id: new ObjectId(userId), deletedAt: { $exists: false } },
-    { projection: { email: 1, mfa: 1, mfaPending: 1, mfaFailures: 1 } },
+    { projection: { email: 1, mfa: 1, mfaPending: 1, mfaFailures: 1, passkeyChallenge: 1 } },
   )
 }
 
@@ -68,6 +75,7 @@ export async function mfaStatus(userId: string) {
     enabled: Boolean(mfa),
     enabledAt: mfa?.enabledAt.toISOString() ?? null,
     recoveryCodesRemaining: mfa?.recoveryCodes.length ?? 0,
+    passkeys: publicPasskeys(mfa?.passkeys),
   }
 }
 
@@ -188,7 +196,11 @@ const cleanCode = (code: unknown) => (typeof code === 'string' ? code.replace(/\
  * Accepts a current authenticator code or an unused recovery code, consuming
  * either so it cannot be replayed. Returns the account's email.
  */
-export async function verifySecondFactor(userId: string, code: unknown): Promise<string> {
+export async function verifySecondFactor(
+  userId: string,
+  code: unknown,
+  passkeyChallenge?: string,
+): Promise<string> {
   const account = await readMfa(userId)
   const mfa = account?.mfa
 
@@ -198,6 +210,12 @@ export async function verifySecondFactor(userId: string, code: unknown): Promise
   await reserveAttempt(userId)
   const entered = cleanCode(code)
   const _id = new ObjectId(userId)
+
+  // A passkey's answer, to a sign-in's challenge or to the one kept on the account.
+  const challenge = passkeyChallenge ?? freshChallenge(account.passkeyChallenge)
+
+  if (challenge && (await answeredWithPasskey(_id, mfa.passkeys, code, challenge)))
+    return account.email
 
   if (/^\d{6}$/.test(entered)) {
     // A code for the next step (clock drift) moves lastStep past the current
@@ -275,24 +293,4 @@ async function reserveAttempt(userId: string): Promise<void> {
     if (opened.modifiedCount === 1) return
   }
   throw new AppError(429, 'mfa_too_many_attempts', 'Too many attempts. Try again shortly.')
-}
-
-/** Best effort, like the sign-in alert: a failed email never fails the change. */
-async function notify(to: string, subject: string, line: string): Promise<void> {
-  if (!isEmailConfigured()) return
-  const notYou =
-    "Not you? Open Nuphos, go to Settings → Account → Signed-in devices and sign out the devices you don't recognise, then reset your password from the sign-in screen."
-
-  try {
-    await sendEmail({
-      to,
-      subject,
-      text: `${line}\n\n${notYou}`,
-      html: `<p>${escapeHtml(line)}</p><p style="color:#55555e">${escapeHtml(notYou)}</p>`,
-    })
-  } catch (err) {
-    logEvent('warn', 'auth.mfa.notify_failed', {
-      error: err instanceof Error ? err.message : String(err),
-    })
-  }
 }

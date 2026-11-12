@@ -7,6 +7,7 @@ import { useDb } from '@/lib/test/doubles/db'
 import { useEmailOtp } from '@/lib/test/doubles/email-otp'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useIdentitySessions } from '@/lib/test/doubles/identity-sessions'
+import { FakeCollection } from '@/lib/test/fake-mfa-collection'
 
 import type * as dbActual from '@/lib/db'
 import type * as identityActual from '@/lib/identity'
@@ -14,107 +15,6 @@ import type * as identityActual from '@/lib/identity'
 // Run with: cd apps/backend && bun test src/lib/identity/mfa.test.ts
 
 process.env.LINODE_BYOK_ENCRYPTION_KEY = 'a'.repeat(64)
-
-type Doc = Record<string, unknown>
-
-const get = (doc: Doc, path: string): unknown =>
-  path.split('.').reduce<unknown>((v, k) => (v as Doc | undefined)?.[k], doc)
-
-function set(doc: Doc, path: string, value: unknown) {
-  const keys = path.split('.')
-  const last = keys.pop()!
-  let parent = doc
-
-  for (const key of keys) {
-    parent[key] ??= {}
-    parent = parent[key] as Doc
-  }
-
-  if (value === undefined) delete parent[last]
-  else parent[last] = value
-}
-
-function matches(doc: Doc, filter: Doc): boolean {
-  return Object.entries(filter).every(([path, expected]) => {
-    if (path === '$or') return (expected as Doc[]).some((f) => matches(doc, f))
-    const value = get(doc, path)
-
-    if (expected instanceof ObjectId) return String(value) === expected.toHexString()
-    if (expected && typeof expected === 'object' && !Array.isArray(expected)) {
-      const op = expected as Doc
-
-      if ('$exists' in op) return (value !== undefined) === op.$exists
-      if ('$lt' in op) return (value as number) < (op.$lt as number)
-      if ('$lte' in op) return value instanceof Date && value <= (op.$lte as Date)
-      if ('$gt' in op) return value instanceof Date && value > (op.$gt as Date)
-    }
-    if (Array.isArray(value)) return value.includes(expected)
-
-    return value === expected
-  })
-}
-
-/** Just the Mongo the MFA code uses. */
-class FakeCollection {
-  docs: Doc[] = []
-  async insertOne(doc: Doc) {
-    this.docs.push(structuredClone(doc))
-
-    return { insertedId: doc._id }
-  }
-  async findOne(filter: Doc) {
-    const hit = this.docs.find((d) => matches(d, filter))
-
-    return hit ? structuredClone(hit) : null
-  }
-  async findOneAndDelete(filter: Doc) {
-    const hit = this.docs.find((d) => matches(d, filter))
-
-    this.docs = this.docs.filter((d) => d !== hit)
-
-    return hit ?? null
-  }
-  async findOneAndUpdate(filter: Doc, update: Record<string, Doc>) {
-    const hit = this.docs.find((d) => matches(d, filter))
-
-    if (hit) await this.updateOne({ _id: hit._id }, update)
-
-    return hit ? structuredClone(hit) : null
-  }
-  async updateOne(filter: Doc, update: Record<string, Doc>) {
-    // Yield first, as a round trip would, so parallel requests interleave.
-    await Promise.resolve()
-    const hit = this.docs.find((d) => matches(d, filter))
-
-    if (!hit) return { matchedCount: 0, modifiedCount: 0 }
-    for (const [path, value] of Object.entries(update.$set ?? {})) set(hit, path, value)
-    for (const path of Object.keys(update.$unset ?? {})) set(hit, path, undefined)
-    for (const [path, by] of Object.entries(update.$inc ?? {})) {
-      set(hit, path, (get(hit, path) as number) + (by as number))
-    }
-    for (const [path, value] of Object.entries(update.$pull ?? {})) {
-      set(
-        hit,
-        path,
-        (get(hit, path) as unknown[]).filter((v) => v !== value),
-      )
-    }
-
-    return { matchedCount: 1, modifiedCount: 1 }
-  }
-  async deleteMany(filter: Doc) {
-    const before = this.docs.length
-
-    this.docs = this.docs.filter((d) => !matches(d, filter))
-
-    return { deletedCount: before - this.docs.length }
-  }
-  find() {
-    const cursor = { limit: () => cursor, toArray: async () => [] }
-
-    return cursor
-  }
-}
 
 const collections = new Map<string, FakeCollection>()
 const collection = (name: string) => {
