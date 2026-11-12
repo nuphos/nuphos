@@ -40,19 +40,16 @@
 
 ## Data fetching
 
-Backend reads in the renderer go through TanStack Query (#2181); move a screen
-over when you touch its loading code.
+The team members and roster reads are a TanStack Query pilot (#2181). The rest
+of the renderer still loads data as before.
 
 - The client and its defaults live in `src/lib/query/client.ts`: a read is
   retried once, and only when it got no answer; writes are never retried; a
-  hidden window does not poll, focus refreshes what went stale.
-- Build keys with `queryKeys` in `src/lib/query/keys.ts`. A key starts with its
-  scope (`['team', teamId, ...]`) so one `invalidateQueries` refreshes it all.
-- Each domain exports `queryOptions` helpers (`src/lib/query/team.ts`); views
-  call `useQuery(helper(...))` and never write a key inline. Outside React, use
-  `queryClient.query(helper(...))`.
-- Writes use `useMutation`, then invalidate or `setQueryData` the narrowest key.
-- Do not add another `useEffect` + `useState` loader, module-level promise
-  cache, `sharedPoll`, `useWatchedList`, `useSilentRefresh` or `usePolledList`.
-- Streams (agent SSE, WebSockets, Kubernetes watches, terminals) and local IPC
-  stay outside the query cache.
+  hidden window does not poll, and focus refreshes what went stale.
+- Keys come from `queryKeys` in `src/lib/query/keys.ts` and start with their
+  scope (`['team', teamId, ...]`), so one `invalidateQueries` refreshes it all.
+- `src/lib/query/team.ts` holds the pilot's helpers: `teamMembersQuery`,
+  `teamRosterQuery`, and `teamMembersReadNow` for a view that decides something
+  once from the members and so must not start from a cached answer.
+- Read members through `useTeamMemberList` / `useTeamMembers`, or
+  `queryClient.query(teamMembersQuery(teamId))` outside a component.
