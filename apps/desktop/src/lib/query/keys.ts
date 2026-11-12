@@ -29,4 +29,8 @@ export const queryKeys = {
     [...queryKeys.team(teamId), 'audit', ...filters] as const,
   memories: (teamId: string, scope: string, state = 'live') =>
     [...queryKeys.team(teamId), 'memories', scope, state] as const,
+  grafanaInstances: (teamId: string) => [...queryKeys.team(teamId), 'grafana'] as const,
+  /** Under `grafanaInstances`, so refreshing the bindings refreshes what was read through them. */
+  grafana: (teamId: string, instanceId: string, ...rest: string[]) =>
+    [...queryKeys.grafanaInstances(teamId), instanceId, ...rest] as const,
 }
