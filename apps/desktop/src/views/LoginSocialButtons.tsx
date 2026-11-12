@@ -15,7 +15,7 @@ const PROVIDERS = [
   { provider: 'apple', label: 'Apple', icon: faApple },
 ] as const
 
-/** One button per provider, each straight to that provider's sign-in. */
+/** One button per provider, each straight to that provider's sign-in, then the "or" above email. */
 export function LoginSocialButtons({ onLogin }: { onLogin: (user: UserInfo) => void }) {
   // Only what this server offers: a self-hosted server without social sign-in shows none.
   const [offered, setOffered] = useState<SocialProvider[]>([])
@@ -36,25 +36,35 @@ export function LoginSocialButtons({ onLogin }: { onLogin: (user: UserInfo) => v
     }
   }
 
+  if (offered.length === 0) return null
+
   return (
-    <div className="w-full flex flex-col gap-2.5">
-      {PROVIDERS.filter((p) => offered.includes(p.provider)).map((p) => (
-        <Button
-          key={p.provider}
-          onClick={() => void signIn(p.provider)}
-          size="lg"
-          className="group w-full titlebar-no-drag"
-        >
-          <span className="flex flex-1 items-center gap-2">
-            <FontAwesomeIcon icon={p.icon} />
-            {t('Continue with {provider}', { provider: p.label })}
-          </span>
-          <FontAwesomeIcon
-            icon={faArrowRight}
-            className="text-[14px] transition-transform duration-200 group-hover:translate-x-1"
-          />
-        </Button>
-      ))}
-    </div>
+    <>
+      <div className="w-full flex flex-col gap-2.5">
+        {PROVIDERS.filter((p) => offered.includes(p.provider)).map((p) => (
+          <Button
+            key={p.provider}
+            onClick={() => void signIn(p.provider)}
+            size="lg"
+            className="group w-full titlebar-no-drag"
+          >
+            <span className="flex flex-1 items-center gap-2">
+              <FontAwesomeIcon icon={p.icon} />
+              {t('Continue with {provider}', { provider: p.label })}
+            </span>
+            <FontAwesomeIcon
+              icon={faArrowRight}
+              className="text-[14px] transition-transform duration-200 group-hover:translate-x-1"
+            />
+          </Button>
+        ))}
+      </div>
+
+      <div className="w-full flex items-center gap-3 my-5">
+        <div className="h-px flex-1 bg-surface-sunken" />
+        <span className="text-[12px] text-secondary">{t('or')}</span>
+        <div className="h-px flex-1 bg-surface-sunken" />
+      </div>
+    </>
   )
 }
