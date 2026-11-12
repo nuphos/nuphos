@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
-import { api } from '../../api'
 import { t } from '../../i18n'
+import { useRuntimeQuotaHistoryQuery } from '../../lib/query/runtime'
 
 import { HeatmapSkeleton } from './AgentUsageSkeleton'
 import { GAP_FILL, RangeSwitch } from './MetricChart'
@@ -9,17 +9,11 @@ import { QUOTA_HISTORY_RANGES, quotaHistoryRows } from './quotaHistoryRows'
 import { PanelHeading } from './RuntimePanel'
 import { UsageHeatmap } from './UsageHeatmap'
 
-import type {
-  RuntimeInstance,
-  RuntimeQuotaHistoryRange,
-  RuntimeQuotaHistorySeries,
-} from '../../types/runtime'
+import type { RuntimeInstance, RuntimeQuotaHistoryRange } from '../../types/runtime'
 
 const RANGE_OPTIONS = (Object.keys(QUOTA_HISTORY_RANGES) as RuntimeQuotaHistoryRange[]).map(
   (value) => ({ value, label: QUOTA_HISTORY_RANGES[value].label }),
 )
-// A reading is held ten minutes on the backend, so nothing new arrives sooner.
-const POLL_MS = 600_000
 
 /** How much of each agent's subscription the team used over the last day, week or
  *  month: a heatmap of every agent's busiest plan window. */
@@ -33,32 +27,8 @@ export function RuntimeQuotaHistory({
   onSelect: (runtimeId: string) => void
 }) {
   const [range, setRange] = useState<RuntimeQuotaHistoryRange>('1d')
-  const [loaded, setLoaded] = useState<{
-    range: RuntimeQuotaHistoryRange
-    series: RuntimeQuotaHistorySeries[]
-    nowMs: number
-  } | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    const load = () =>
-      void api.atlasGetRuntimeQuotaHistory(teamId, range).then(
-        (series) => {
-          if (!cancelled) setLoaded({ range, series, nowMs: Date.now() })
-        },
-        () => {
-          /* History is decoration; keep whatever was shown before. */
-        },
-      )
-
-    load()
-    const timer = setInterval(load, POLL_MS)
-
-    return () => {
-      cancelled = true
-      clearInterval(timer)
-    }
-  }, [teamId, range])
+  // History is decoration: a failed read keeps whatever was shown before.
+  const { data: loaded } = useRuntimeQuotaHistoryQuery(teamId, range)
 
   const rows = loaded ? quotaHistoryRows(loaded.series, instances, loaded.range, loaded.nowMs) : []
   const shownRange = loaded?.range ?? range
