@@ -25,6 +25,7 @@ import { openExternal } from './open-external'
 import { readAppIcon, setAppIcon } from './app-icon'
 import { readLoginItem, writeLoginItem } from './login-item'
 import { writePersistedThemeSource } from './theme'
+import { fileTransferReadChannels } from './channels-file-transfer'
 import { checkForUpdates, getUpdaterState, installUpdate } from './updater'
 import { mostRecentlyFocusedVisibleAppWindow } from './windows'
 
@@ -211,9 +212,7 @@ export const appChannels = {
     _e: IpcMainInvokeEvent,
     args: { teamId: string; sessionId?: string },
   ) => atlas.listFileTransferDownloads(args.teamId, args.sessionId),
-  'fileTransfer:revealInFolder': (_e: IpcMainInvokeEvent, path: string) => {
-    if (path) shell.showItemInFolder(path)
-  },
+  ...fileTransferReadChannels,
   // Read an attached image into a vision data URL — no upload. Also
   // registers the path so a later upload_attachment tool call can transfer it.
   'attachment:readImage': async (_e: IpcMainInvokeEvent, path: string) => {
@@ -237,55 +236,6 @@ export const appChannels = {
     }
 
     return dirs
-  },
-  'fileTransfer:downloadOne': async (
-    e: IpcMainInvokeEvent,
-    args: {
-      teamId: string
-      sessionId?: string
-      groupId: string
-      fileId: string
-      fileName: string
-      channelId?: string
-    },
-  ) => {
-    const parentWindow = BrowserWindow.fromWebContents(e.sender) ?? undefined
-    const result = await dialog.showSaveDialog(
-      parentWindow && !parentWindow.isDestroyed() ? parentWindow : (undefined as never),
-      { defaultPath: args.fileName },
-    )
-
-    if (result.canceled || !result.filePath) return { saved: false }
-    await fileTransfer.downloadOne({ ...args, destPath: result.filePath })
-
-    return { saved: true, path: result.filePath }
-  },
-  'fileTransfer:downloadAllZip': async (
-    e: IpcMainInvokeEvent,
-    args: {
-      teamId: string
-      sessionId?: string
-      groupId: string
-      zipName: string
-      channelId?: string
-    },
-  ) => {
-    const parentWindow = BrowserWindow.fromWebContents(e.sender) ?? undefined
-    const result = await dialog.showSaveDialog(
-      parentWindow && !parentWindow.isDestroyed() ? parentWindow : (undefined as never),
-      { defaultPath: args.zipName.endsWith('.zip') ? args.zipName : `${args.zipName}.zip` },
-    )
-
-    if (result.canceled || !result.filePath) return { saved: false }
-    const out = await fileTransfer.downloadAllAsZip({
-      teamId: args.teamId,
-      sessionId: args.sessionId,
-      groupId: args.groupId,
-      channelId: args.channelId,
-      destZipPath: result.filePath,
-    })
-
-    return { saved: true, path: result.filePath, ...out }
   },
   'changelog:getState': () => getChangelogState(),
   'updater:getState': () => getUpdaterState(),

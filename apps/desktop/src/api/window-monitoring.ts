@@ -67,6 +67,13 @@ export type WindowMonitoringApi = {
     teamId: string
     sessionId?: string
   }): Promise<{ groups: FileTransferGroup[] }>
+  /** A file's bytes for an in-app preview; null over the cap, expired, missing or empty. */
+  fileTransferReadOne(args: {
+    teamId: string
+    groupId: string
+    fileId: string
+    maxBytes: number
+  }): Promise<Uint8Array | null>
   fileTransferRevealInFolder(path: string): Promise<void>
   readImageAttachment(
     path: string,

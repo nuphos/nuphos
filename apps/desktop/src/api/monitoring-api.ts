@@ -63,6 +63,12 @@ export const monitoringApi = {
   }) => window.api.fileTransferReadText(args),
   fileTransferListDownloads: (args: { teamId: string; sessionId?: string }) =>
     window.api.fileTransferListDownloads(args),
+  fileTransferReadOne: (args: {
+    teamId: string
+    groupId: string
+    fileId: string
+    maxBytes: number
+  }) => window.api.fileTransferReadOne(args),
   fileTransferRevealInFolder: (path: string) => window.api.fileTransferRevealInFolder(path),
   readImageAttachment: (path: string) => window.api.readImageAttachment(path),
   attachmentDirectoryPaths: (paths: string[]) => window.api.attachmentDirectoryPaths(paths),

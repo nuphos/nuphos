@@ -7,6 +7,7 @@ export {
   downloadAllAsZip,
   downloadOne,
   downloadTo,
+  readOne,
   resolveDownloads,
 } from './fileTransfer/download'
 export { readText } from './fileTransfer/read-text'

@@ -8,9 +8,12 @@ import { useEffect, useRef, useState } from 'react'
 import { t } from '../../../i18n'
 import { renderMentionChip } from '../../../lib/atlasLinkMention'
 
+import { PdfFrame } from './MediaPreview'
 import { fileNameFromPath } from './textUtils'
 import { MEDIA_BOX } from './transferDownloads'
 import { ZoomableImage } from './ZoomableImage'
+
+import type { PdfSource } from './MediaPreview'
 
 export function AtlasMentionInline({
   url,
@@ -115,12 +118,18 @@ export function ImageAttachmentThumb({
   )
 }
 
-export type LightboxImage = {
-  url: string
-  fileName: string
-  /** Played with controls instead of shown as a still. */
-  video?: boolean
-}
+export type LightboxImage =
+  | {
+      url: string
+      fileName: string
+      /** Played with controls instead of shown as a still. */
+      video?: boolean
+    }
+  | {
+      fileName: string
+      /** Framed full size; its bytes are read through the main process. */
+      pdf: PdfSource
+    }
 
 const STEP_KEYS: Record<string, number> = {
   ArrowLeft: -1,
@@ -184,7 +193,14 @@ export function ImageLightbox({
         >
           {image && (
             <>
-              {image.video ? (
+              {'pdf' in image ? (
+                <PdfFrame
+                  key={`${image.pdf.groupId}:${image.pdf.fileId}`}
+                  source={image.pdf}
+                  name={image.fileName}
+                />
+              ) : null}
+              {'url' in image && image.video ? (
                 <video
                   key={image.url}
                   src={image.url}
@@ -192,14 +208,15 @@ export function ImageLightbox({
                   autoPlay
                   className="max-h-full max-w-full rounded-lg bg-black shadow-2xl"
                 />
-              ) : (
+              ) : null}
+              {'url' in image && !image.video ? (
                 <ZoomableImage
                   key={image.url}
                   url={image.url}
                   fileName={image.fileName}
                   onDismiss={() => onIndexChange(null)}
                 />
-              )}
+              ) : null}
               {count > 1 && (
                 <>
                   <button

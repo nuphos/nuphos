@@ -69,8 +69,14 @@ export function anchorDownloadGroups(
 // so media never resizes the transcript when it arrives. The preview opens full size.
 export const MEDIA_BOX = 'h-20 w-20'
 
+// The frame that square sits in, shared by an image and one still arriving. A
+// video, an audio player and a PDF frame size themselves.
+export const MEDIA_FRAME = `block rounded-lg border border-line-control bg-surface-sheet ${MEDIA_BOX}`
+
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp|bmp|svg)$/i
 const VIDEO_EXTENSIONS = /\.(mp4|mov|m4v|webm)$/i
+const AUDIO_EXTENSIONS = /\.(mp3|m4a|aac|wav|ogg|oga|flac|opus)$/i
+const PDF_EXTENSIONS = /\.pdf$/i
 
 // Images and videos the agent sent are shown, not just offered for download.
 // Agent pushes often carry no content type, so the file name decides then.
@@ -83,6 +89,27 @@ export function mediaKind(fileName: string, contentType?: string | null): 'image
 
   if (type.startsWith('image/') || (!type && IMAGE_EXTENSIONS.test(fileName))) return 'image'
   if (type.startsWith('video/') || (!type && VIDEO_EXTENSIONS.test(fileName))) return 'video'
+
+  return null
+}
+
+/** How an inline preview shows a file. Anything else is offered, not shown. */
+export type ViewerKind = 'image' | 'video' | 'audio' | 'pdf'
+
+/**
+ * Which viewer an inline preview sends a file to: the images and videos above,
+ * plus the audio and PDFs that only it renders. The same rule as `mediaKind` —
+ * the content type decides when the push carries one, and the file name decides
+ * when it does not — so a file the chat's squares hold back stays held back.
+ */
+export function viewerKind(fileName: string, contentType?: string | null): ViewerKind | null {
+  const media = mediaKind(fileName, contentType)
+
+  if (media) return media
+  const type = contentType ?? ''
+
+  if (type.startsWith('audio/') || (!type && AUDIO_EXTENSIONS.test(fileName))) return 'audio'
+  if (type === 'application/pdf' || (!type && PDF_EXTENSIONS.test(fileName))) return 'pdf'
 
   return null
 }
