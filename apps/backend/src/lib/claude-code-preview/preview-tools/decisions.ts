@@ -154,8 +154,8 @@ async function runClassicTool(
 }
 
 /**
- * Classic tools that do not park the turn (`request_user_decision`: the model
- * ends the turn with its question and the user's next message is the answer).
+ * Classic tools that do not park the turn (`request_user_decision`: the card is
+ * kept for the user, and their answer arrives as a new message).
  */
 function passthroughHandler(
   name: string,

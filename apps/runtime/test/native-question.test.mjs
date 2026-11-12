@@ -36,7 +36,7 @@ function recorder(result = { content: [] }, ok = true) {
   return { calls, request }
 }
 
-test('AskUserQuestion registers a decision and tells Claude to end the turn', async () => {
+test('AskUserQuestion registers a decision and tells Claude the answer comes later', async () => {
   nuphosRememberDecisionServer(servers)
   const { calls, request } = recorder()
   const answer = await nuphosAskClaudeQuestion(

@@ -81,7 +81,7 @@ describe('decision tool module', () => {
     expect(names).not.toContain('check_decision')
   })
 
-  test('request_user_decision returns at once so the model can end the turn with its question', async () => {
+  test('request_user_decision returns at once; the answer arrives as a new message', async () => {
     const frames: Record<string, unknown>[] = []
     const tools = decisionToolModule({
       publish: async (_ctx, frame) => {
