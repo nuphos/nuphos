@@ -171,3 +171,17 @@ test('a parent whose open done group holds every child can fold it', () => {
     [['parent', true, 2, 0]],
   )
 })
+
+test('a row listed under two parents gets a distinct path under each', () => {
+  const rows = nestItems([
+    { key: 'cto' },
+    { key: 'head', parentKey: 'cto' },
+    { key: 'head' },
+    { key: 'sre', parentKey: 'head' },
+  ])
+
+  assert.deepEqual(
+    rows.map(({ path }) => path),
+    ['cto', 'cto/head', 'cto/head/sre', 'head', 'head/sre'],
+  )
+})

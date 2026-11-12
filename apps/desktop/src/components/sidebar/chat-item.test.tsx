@@ -30,9 +30,9 @@ const item = (picked?: string | null) =>
     picked,
   })
 
-test('Bots never receive task Idle classification, but removing their avatar restores Task classification', () => {
+test("a Bot's session keeps its Task state, for when Tasks lists it over its sub-agents", () => {
   assert.equal(item().bot, true)
-  assert.equal(item().taskState, undefined)
+  assert.equal(item().taskState, 'idle')
   assert.equal(item(null).bot, undefined)
   assert.equal(item(null).taskState, 'idle')
 })

@@ -114,7 +114,7 @@ export function SidebarSectionList({
                     ) : (
                       folds(section)
                         .nest()
-                        .map(({ item, trail, hasChildren, hidden, done }) => {
+                        .map(({ item, path, trail, hasChildren, hidden, done }) => {
                           const Icon = item.icon
                           const leading = item.iconNode ?? (Icon && <SidebarNavIcon icon={Icon} />)
                           const isActive =
@@ -239,13 +239,14 @@ export function SidebarSectionList({
 
                           // Chat rows collapse out (t-collapse, grid-rows) while an
                           // archive is in flight; other rows render flat.
-                          // Keyed by item.key, not index: the list shrinks when an
+                          // Keyed by the row's path, not index: the list shrinks when an
                           // archive lands, and positional keys would hand the removed
                           // row's data-open state to its neighbor, replaying a bogus
-                          // collapse.
+                          // collapse. Not by item.key alone: a sub-agent under two Bots
+                          // is one key twice, and React leaves stale copies behind.
                           return rowSessionId ? (
                             <div
-                              key={item.key}
+                              key={path}
                               data-task-reflow-key={item.task && !item.bot ? item.key : undefined}
                               className={clsx(
                                 't-collapse t-sidebar-session t-stagger relative transition-opacity duration-150',
@@ -267,7 +268,7 @@ export function SidebarSectionList({
                               </NestedRowBody>
                             </div>
                           ) : (
-                            <div key={item.key}>{row}</div>
+                            <div key={path}>{row}</div>
                           )
                         })
                     )}

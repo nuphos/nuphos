@@ -1,5 +1,8 @@
 export type NestedItem<T> = {
   item: T
+  /** The row's keys from the top down: unique even where one row is listed
+   *  under two parents, so it can key the rendered row. */
+  path: string
   depth: number
   /** Per level, whether a later sibling at that level still follows this row. */
   trail: boolean[]
@@ -52,12 +55,14 @@ export function nestItems<T extends { key: string; parentKey?: string; finished?
   ]
   const nested: NestedItem<T>[] = []
   const below = (key: string): T[] => kidsOf(key).flatMap((kid) => [kid, ...below(kid.key)])
-  const visit = (item: T, trail: boolean[]) => {
+  const visit = (item: T, trail: boolean[], parentPath: string) => {
     const kids = kidsOf(item.key)
     const folded = kids.length > 0 && isFolded(item.key)
+    const path = parentPath ? `${parentPath}/${item.key}` : item.key
 
     nested.push({
       item,
+      path,
       depth: trail.length,
       trail,
       hasChildren: kids.length > 0,
@@ -65,11 +70,11 @@ export function nestItems<T extends { key: string; parentKey?: string; finished?
       done: folded ? [] : doneOf(item.key),
     })
     if (folded) return
-    kids.forEach((kid, index) => visit(kid, [...trail, index < kids.length - 1]))
+    kids.forEach((kid, index) => visit(kid, [...trail, index < kids.length - 1], path))
   }
 
   for (const item of items) {
-    if (!item.parentKey || !keys.has(item.parentKey)) visit(item, [])
+    if (!item.parentKey || !keys.has(item.parentKey)) visit(item, [], '')
   }
 
   return nested

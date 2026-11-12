@@ -3,6 +3,7 @@ import { test } from 'node:test'
 
 import { foldKey, withChatSections } from './chat-sections.ts'
 import { nestItems } from './nest-items.ts'
+import { taskPageSections } from './task-page-sections.ts'
 
 import type { Item, Section } from './types'
 
@@ -54,7 +55,7 @@ test('Bots holds group chats and Bots in the list order; Tasks holds only ordina
   })
 })
 
-test('a Bot with its chat is listed as that chat; its Tasks are under Tasks', () => {
+test('a Bot with its chat is listed as that chat; its Tasks are under it in Tasks', () => {
   const agents = [
     row('agent-session:dm', { channel: true, botChannelOf: 'ada' }),
     row('agent-session:ada', { bot: true }),
@@ -65,7 +66,7 @@ test('a Bot with its chat is listed as that chat; its Tasks are under Tasks', ()
   assert.deepEqual(build(agents), {
     '': [],
     Channels: ['agent-session:dm', 'agent-session:new'],
-    Tasks: ['task-of-ada'],
+    Tasks: ['agent-session:ada', 'task-of-ada'],
   })
 })
 
@@ -174,7 +175,7 @@ test('a read-only Bot fallback does not try to create a chat', () => {
   assert.equal(sections[0]?.items[0]?.onActivate, undefined)
 })
 
-test('delegated Tasks remain visible when their Bot parent is hidden', () => {
+test('delegated Tasks nest under their Bot in Tasks', () => {
   const sections = withChatSections([
     {
       title: 'Agents',
@@ -189,7 +190,16 @@ test('delegated Tasks remain visible when their Bot parent is hidden', () => {
   assert.ok(tasks)
   assert.deepEqual(
     nestItems(tasks.items).map(({ item, depth }) => [item.key, depth]),
-    [['child', 0]],
+    [
+      ['agent-session:bot', 0],
+      ['child', 1],
+    ],
+  )
+  // The Bot's own Task, listed as a Task, so the Tasks page keeps it.
+  assert.equal(tasks.items[0]?.bot, undefined)
+  assert.deepEqual(
+    taskPageSections(tasks.items).flatMap((section) => section.items.map((item) => item.key)),
+    ['agent-session:bot', 'child'],
   )
 })
 

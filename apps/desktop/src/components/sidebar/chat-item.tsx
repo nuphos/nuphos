@@ -109,7 +109,7 @@ export function chatSidebarItem({
     }),
     dot,
     taskState:
-      isBot || conversation.kind === 'channel'
+      conversation.kind === 'channel'
         ? undefined
         : sidebarTaskState({
             waiting,

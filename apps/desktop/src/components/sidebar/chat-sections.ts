@@ -57,11 +57,17 @@ export function withChatSections(
       ...(openBot && !item.readOnlyChat && { onActivate: () => openBot(sessionOf(item)) }),
     }),
   }))
-  // A Task is one line: its runtime icon and title, no latest message.
+  const isTask = (item: Item) => !item.channel && !item.bot && !item.botNested
+  const parents = new Set(agents.items.filter(isTask).flatMap((item) => item.parentKey ?? []))
+  // A Task is one line: its runtime icon and title, no latest message. A Bot's
+  // own Task is listed only to hold its sub-agents, and as a Task, not the Bot.
   const tasks = projects(
     agents.items
-      .filter((item) => !item.channel && !item.bot && !item.botNested)
-      .map(({ preview: _preview, time: _time, ...item }) => ({ ...item, task: true })),
+      .filter((item) => isTask(item) || (item.bot && parents.has(item.key)))
+      .map(({ preview: _preview, time: _time, bot: _bot, face: _face, ...item }) => ({
+        ...item,
+        task: true,
+      })),
   )
 
   return sections.flatMap((section) =>
