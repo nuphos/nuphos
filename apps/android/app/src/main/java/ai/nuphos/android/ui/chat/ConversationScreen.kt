@@ -334,6 +334,9 @@ fun ConversationScreen(
                                 },
                                 onOpenTool = { toolDetail = it },
                                 onSwitchRuntime = if (session.canManage) ({ showAgent = true }) else null,
+                                onOpenChannel = { channelId ->
+                                    nav.navigate("channel/${android.net.Uri.encode(channelId)}") { launchSingleTop = true }
+                                },
                             )
                         }
                     }
@@ -586,6 +589,7 @@ private fun ChatRowView(
     onAlwaysAllow: (ChatPart.Tool) -> Unit,
     onOpenTool: (ChatPart.Tool) -> Unit,
     onSwitchRuntime: (() -> Unit)? = null,
+    onOpenChannel: ((String) -> Unit)? = null,
 ) {
     when (row) {
         is ChatRow.Timestamp -> Text(
@@ -595,7 +599,7 @@ private fun ChatRowView(
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
         )
-        is ChatRow.Event -> AgentEventRow(row, onLink) {
+        is ChatRow.Event -> AgentEventRow(row, onLink, onOpenChannel) {
             UserAttachments(row.content, session)
         }
         is ChatRow.User -> UserMessageContent(row.sender, row.text) { UserAttachments(row, session) }
