@@ -4,7 +4,18 @@ import type { ReactNode } from 'react'
 /** The internal title of the Bots group (chats); the sidebar labels it Bots. */
 export const BOTS_SECTION = 'Channels'
 
-/** Bots holds chats and fallback Bot entries; Tasks holds ordinary sessions only. */
+/** A Task listed under its Bot as well folds there on its own, apart from its row in Tasks. */
+export function foldKey(section: Pick<Section, 'title'>, key: string): string {
+  return section.title === BOTS_SECTION ? `bots:${key}` : key
+}
+
+/**
+ * The agent groups in team view, iMessage-style. Bots holds chats: group
+ * channels and each Bot's 1:1 channel, newest message first (the list's own
+ * order); a Bot without its chat yet is listed there until opened, which makes
+ * it. Only its owner can bring a Bot into a chat, so a teammate's Bot without
+ * one stays a Task. Tasks holds every agent session, a Bot's own included.
+ */
 export function withChatSections(
   sections: Section[],
   openBot?: (botId: string) => void,
@@ -18,21 +29,44 @@ export function withChatSections(
     agents.items.flatMap((item) => item.channelAgentIds ?? item.botChannelOf ?? []),
   )
   const sessionOf = (item: Item) => item.key.replace('agent-session:', '')
-  const isChat = (item: Item) => item.channel || (item.bot && !chatted.has(sessionOf(item)))
+  const isChat = (item: Item) =>
+    item.channel ||
+    item.botNested ||
+    (item.bot && !item.readOnlyChat && !chatted.has(sessionOf(item)))
   const chats = agents.items.filter(isChat).map((item) => ({
     ...item,
     description: undefined,
     // Bots shows faces: a Bot not yet in its chat wears its own, as its chat will.
     ...(item.bot && {
       iconNode: item.face,
-      ...(openBot && !item.readOnlyChat && { onActivate: () => openBot(sessionOf(item)) }),
+      ...(openBot && { onActivate: () => openBot(sessionOf(item)) }),
     }),
   }))
+  // A Bot's Task links to its chat, so the two rows read as one agent.
+  const botChatOf = (item: Item): Item['botChat'] => {
+    if (!item.bot) return undefined
+    const botId = sessionOf(item)
+    // Its own chat first; once teammates are invited that chat is a group with the Bot in it.
+    const chat =
+      agents.items.find((other) => other.botChannelOf === botId) ??
+      agents.items.find((other) => other.channelAgentIds?.includes(botId))
+
+    if (chat) return { botId, provider: item.provider, name: chat.label, key: chat.key }
+
+    // Only its owner can bring a Bot into a chat, so a teammate's Bot without one has no link.
+    return openBot && !item.readOnlyChat
+      ? { botId, provider: item.provider, name: item.label, open: () => openBot(botId) }
+      : undefined
+  }
   // A Task is one line: its runtime icon and title, no latest message.
   const tasks = projects(
     agents.items
-      .filter((item) => !item.channel && !item.bot)
-      .map(({ preview: _preview, time: _time, ...item }) => ({ ...item, task: true })),
+      .filter((item) => !item.channel && !item.botNested)
+      .map(({ preview: _preview, time: _time, ...item }) => {
+        const botChat = botChatOf(item)
+
+        return { ...item, task: true, ...(botChat && { botChat }) }
+      }),
   )
 
   return sections.flatMap((section) =>
