@@ -58,6 +58,9 @@ export const appChannels = {
   'atlas:newMfaRecoveryCodes': (_e: unknown, code: string) => atlas.newMfaRecoveryCodes(code),
   'atlas:disableMfa': (_e: unknown, code: string) => atlas.disableMfa(code),
   'atlas:reauthMfa': (_e: unknown, code: string) => atlas.reauthMfa(code),
+  'atlas:reauthWithPasskey': () => atlas.reauthWithPasskey(),
+  'atlas:addPasskey': () => atlas.addPasskey(),
+  'atlas:removePasskey': (_e: unknown, id: string, code: string) => atlas.removePasskey(id, code),
   'auth:uploadAvatar': (_e: unknown, image: Uint8Array) => uploadAvatar(image),
   'auth:removeAvatar': () => removeAvatar(),
   'auth:status': () => auth.status(),
@@ -80,6 +83,7 @@ export const appChannels = {
   'auth:emailVerifyCode': (_e: unknown, email: string, code: string) =>
     auth.verifyEmailCode(email, code),
   'auth:mfaVerify': (_e: unknown, mfaToken: string, code: string) => auth.verifyMfa(mfaToken, code),
+  'auth:mfaVerifyPasskey': (_e: unknown, mfaToken: string) => auth.verifyMfaWithPasskey(mfaToken),
   'analytics:identify': (_e: unknown, userId: string, props?: Record<string, unknown>) => {
     setAnalyticsUser(userId, props)
   },

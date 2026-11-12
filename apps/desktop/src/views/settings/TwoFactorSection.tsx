@@ -9,6 +9,7 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import { formatDate } from '../members/memberRows'
 
+import { PasskeyList } from './PasskeyList'
 import { SectionHeader } from './shared'
 import { TotpSetup } from './TotpSetup'
 
@@ -145,6 +146,9 @@ export function TwoFactorSection({ onSignOut }: { onSignOut: () => void }) {
                 </Button>
               )}
             </div>
+          )}
+          {view.state === 'ready' && view.status.enabled && view.status.passkeys && (
+            <PasskeyList passkeys={view.status.passkeys} className={card} onChange={refresh} />
           )}
         </SkeletonReveal>
       )}
