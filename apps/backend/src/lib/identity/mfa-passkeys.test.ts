@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from 'bun:test'
+import { beforeEach, describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
@@ -7,6 +7,7 @@ import { useDb } from '@/lib/test/doubles/db'
 import { useEmailOtp } from '@/lib/test/doubles/email-otp'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useIdentitySessions } from '@/lib/test/doubles/identity-sessions'
+import { useWebAuthn } from '@/lib/test/doubles/webauthn'
 import { FakeCollection } from '@/lib/test/fake-mfa-collection'
 
 import type * as dbActual from '@/lib/db'
@@ -23,7 +24,7 @@ process.env.LINODE_BYOK_ENCRYPTION_KEY = 'a'.repeat(64)
 
 let issued = 0
 
-await mock.module('@simplewebauthn/server', () => ({
+useWebAuthn({
   generateRegistrationOptions: async () => ({ challenge: 'registration' }),
   verifyRegistrationResponse: async (o: {
     response: { id: string; signed: string }
@@ -55,7 +56,7 @@ await mock.module('@simplewebauthn/server', () => ({
     o.response.signed === o.expectedChallenge
       ? { verified: true, authenticationInfo: { newCounter: o.credential.counter + 1 } }
       : { verified: false },
-}))
+} as unknown as Parameters<typeof useWebAuthn>[0])
 
 const collections = new Map<string, FakeCollection>()
 const collection = (name: string) => {

@@ -1,14 +1,14 @@
-import {
-  generateAuthenticationOptions,
-  generateRegistrationOptions,
-  verifyAuthenticationResponse,
-  verifyRegistrationResponse,
-} from '@simplewebauthn/server'
 import { ObjectId } from 'mongodb'
 
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
 import { users } from '@/lib/identity/shared'
+import {
+  generateAuthenticationOptions,
+  generateRegistrationOptions,
+  verifyAuthenticationResponse,
+  verifyRegistrationResponse,
+} from '@/lib/identity/webauthn'
 
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/server'
 
