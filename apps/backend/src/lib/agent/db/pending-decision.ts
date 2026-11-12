@@ -18,6 +18,8 @@ export type InputRequest = ExplicitUserDecision & {
   secretName?: string
   /** The plan (#N) a plan's approval question decides. */
   planId?: string
+  /** The channel whose post woke the turn that asked: the answer is recorded there and the agent replies there. */
+  channelId?: string
   /** The providers an `integration` request asks to connect, so its Connect card lists them. */
   providers?: string[]
   /** The member's own credentials an `integration` request asks for: only selecting one answers it. */
@@ -146,6 +148,14 @@ export async function resolveInputRequest(
   )
 
   return listed.matchedCount > 0
+}
+
+/** An answer whose agent could not be told: the question waits for an answer again. */
+export async function reopenInputRequest(sessionId: string, userId: string, id: string) {
+  await agentConversations().updateOne(
+    { sessionId, userId, inputRequests: { $elemMatch: { id, status: 'answered' } } },
+    { $set: { 'inputRequests.$.status': 'open' }, $unset: { 'inputRequests.$.resolvedAt': '' } },
+  )
 }
 
 /** A plan decided anywhere (its card, the Plans page, Slack) is no longer asked about. */

@@ -130,6 +130,37 @@ describe('decision tool module', () => {
     expect(await listPendingPreviewWaits(ctx.userId, ctx.sessionId)).toEqual([])
   })
 
+  test('a question records the channel whose post woke the turn, and only that one', async () => {
+    const tools = decisionToolModule({ publish: () => Promise.resolve() }).handlers(ctx)
+    const ask = (category: string) =>
+      tools.request_user_decision!({ label: 'Ask', category, question: 'Ship it?' })
+
+    // The turn's wake notice: a post in chan-2, though the Bot is in other channels too.
+    storedConversation = {
+      metadata: {
+        version: 1,
+        sender: { type: 'system', id: 'channel:chan-2', displayName: '#release' },
+        source: 'agent.resource',
+        sentAt: '2026-11-12T00:00:00Z',
+      },
+    }
+    await ask('approval')
+    expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
+      $push: { inputRequests: { $each: [{ channelId: 'chan-2' }] } },
+    })
+    // A person's own message started the turn: no channel is guessed.
+    storedConversation = {
+      metadata: {
+        version: 1,
+        sender: { type: 'user', id: 'u1', displayName: 'Yuanlin' },
+        source: 'nuphos',
+        sentAt: '2026-11-12T00:00:00Z',
+      },
+    }
+    await ask('approval')
+    expect(JSON.stringify(conversationUpdates.at(-1))).not.toContain('channelId')
+  })
+
   test("request_user_decision keeps a credential request's secretName for its secure card", async () => {
     await decisionToolModule({ publish: () => Promise.resolve() }).handlers(ctx)
       .request_user_decision!({

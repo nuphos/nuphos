@@ -1,11 +1,13 @@
 // Follow-ups to request_user_decision: the agent lists, corrects or withdraws
 // the questions it asked while they are still open in the user's Inbox.
-import { getConversationBySessionId } from '@/lib/agent/db'
+import { channelIdOf } from '@/lib/agent/channel-wake'
+import { agentMessages, getConversationBySessionId } from '@/lib/agent/db'
 import {
   listOpenInputRequests,
   resolveInputRequest,
   updateInputRequest,
 } from '@/lib/agent/db/pending-decision'
+import { parseMessageMetadata } from '@/lib/agent/message-metadata'
 import { queuedAnswers } from '@/lib/agent/pending-queue'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
@@ -110,4 +112,24 @@ export async function aboutRefs(
   }
 
   return refs
+}
+
+/**
+ * The channel a question is asked in: the one whose post woke the turn that
+ * asks it, read from that turn's wake notice. Only that is certain; a turn no
+ * channel woke records none, nor do the questions a card answers by itself.
+ */
+export async function askedInChannel(
+  ctx: PreviewToolContext,
+  category: unknown,
+): Promise<{ channelId?: string }> {
+  if (category === 'credential' || category === 'integration') return {}
+  const latest = await agentMessages().findOne(
+    { sessionId: ctx.sessionId, userId: requestOwner(ctx), role: 'user' },
+    { sort: { index: -1 }, projection: { metadata: 1 } },
+  )
+  const metadata = parseMessageMetadata(latest?.metadata)
+  const channelId = metadata && channelIdOf({ source: metadata.source, metadata })
+
+  return channelId ? { channelId } : {}
 }
