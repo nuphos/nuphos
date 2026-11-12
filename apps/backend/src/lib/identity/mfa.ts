@@ -13,6 +13,8 @@ import {
   normalizeRecoveryCode,
   otpauthUrl,
 } from '@/lib/identity/mfa-codes'
+import { revokeAllCliTokens } from '@/lib/identity/cli-tokens'
+import { revokeAllUserSessions } from '@/lib/identity/sessions'
 import { users } from '@/lib/identity/shared'
 import { hashToken } from '@/lib/oauth/tokens'
 import { logEvent } from '@/lib/observability'
@@ -136,6 +138,36 @@ export async function disableMfa(userId: string, code: unknown): Promise<void> {
     'Two-factor authentication turned off',
     'Two-factor authentication was turned off for your Nuphos account.',
   )
+}
+
+/**
+ * Support's way back in for someone who lost both the authenticator and the
+ * recovery codes, once their identity is confirmed out of band. Turns MFA off
+ * and signs the account out everywhere, CLI tokens included, as a password
+ * reset does: the account may be compromised. False when MFA was off.
+ */
+export async function resetMfaForSupport(userId: string): Promise<boolean> {
+  const account = await readMfa(userId)
+
+  if (!account) throw new AppError(404, 'not_found', 'User not found')
+  if (!account.mfa) return false
+  await users().updateOne(
+    { _id: new ObjectId(userId) },
+    {
+      $set: { sessionsInvalidBefore: Math.floor(Date.now() / 1000) },
+      $unset: { mfa: '', mfaPending: '', mfaFailures: '' },
+    },
+  )
+  // `sessionsInvalidBefore` already refuses them; deleting also drops them
+  // from the user's lists of signed-in devices and CLI tokens.
+  await Promise.all([revokeAllUserSessions(userId), revokeAllCliTokens(userId)])
+  void notify(
+    account.email,
+    'Two-factor authentication was reset',
+    'Nuphos support turned off two-factor authentication on your account at your request, and signed it out everywhere, CLI tokens included.',
+  )
+
+  return true
 }
 
 export async function regenerateRecoveryCodes(userId: string, code: unknown) {
