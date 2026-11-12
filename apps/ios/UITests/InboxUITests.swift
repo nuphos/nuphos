@@ -177,7 +177,7 @@ final class InboxUITests: XCTestCase {
         app.buttons["Keep it for a week"].tap()
         let note = app.textFields["Your answer"]
         note.tap()
-        note.typeText("Mention the new region picker.")
+        note.typeText("Mention the new region picker.\n")
         XCTAssertTrue(send.isEnabled)
         shot("12-inbox-several-questions-filled")
 
