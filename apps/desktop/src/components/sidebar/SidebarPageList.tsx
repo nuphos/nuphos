@@ -4,6 +4,7 @@ import { useRef } from 'react'
 
 import { t } from '../../i18n'
 
+import { unpinnedChatItems } from './chat-sections'
 import { AddProjectButton } from './project-actions'
 import { SidebarSectionList } from './sections-list'
 import { SidebarArchiveSection } from './SidebarArchiveSection'
@@ -43,12 +44,7 @@ export function SidebarPageList({
       ...section,
       ...(section.title === 'Tasks' || section.title === 'Channels' ? { title: undefined } : {}),
       ...(section.title === 'Channels' && {
-        items: section.items.filter((item) => {
-          if (pinned(item)) return false
-          const parent = section.items.find((row) => row.key === item.parentKey)
-
-          return !parent || !pinned(parent)
-        }),
+        items: unpinnedChatItems(section.items, pinned),
       }),
     }))
   const empty =

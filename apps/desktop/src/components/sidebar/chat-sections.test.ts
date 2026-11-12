@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { foldKey, withChatSections } from './chat-sections.ts'
+import { foldKey, unpinnedChatItems, withChatSections } from './chat-sections.ts'
 import { nestItems } from './nest-items.ts'
 
 import type { Item, Section } from './types'
@@ -54,7 +54,7 @@ test('Bots holds group chats and Bots in the list order; Tasks holds only ordina
   })
 })
 
-test('a Bot with its chat is listed as that chat; its Tasks are under Tasks', () => {
+test('a Bot and its tasks stay under its chat, outside Tasks', () => {
   const agents = [
     row('agent-session:dm', { channel: true, botChannelOf: 'ada' }),
     row('agent-session:ada', { bot: true }),
@@ -64,8 +64,7 @@ test('a Bot with its chat is listed as that chat; its Tasks are under Tasks', ()
 
   assert.deepEqual(build(agents), {
     '': [],
-    Channels: ['agent-session:dm', 'agent-session:new'],
-    Tasks: ['task-of-ada'],
+    Channels: ['agent-session:dm', 'task-of-ada', 'agent-session:new'],
   })
 })
 
@@ -174,7 +173,7 @@ test('a read-only Bot fallback does not try to create a chat', () => {
   assert.equal(sections[0]?.items[0]?.onActivate, undefined)
 })
 
-test('delegated Tasks remain visible when their Bot parent is hidden', () => {
+test('delegated Tasks stay nested with their Bot instead of becoming Task roots', () => {
   const sections = withChatSections([
     {
       title: 'Agents',
@@ -184,12 +183,17 @@ test('delegated Tasks remain visible when their Bot parent is hidden', () => {
       ],
     },
   ])
-  const tasks = sections.find((section) => section.title === 'Tasks')
 
-  assert.ok(tasks)
+  assert.equal(
+    sections.some((section) => section.title === 'Tasks'),
+    false,
+  )
   assert.deepEqual(
-    nestItems(tasks.items).map(({ item, depth }) => [item.key, depth]),
-    [['child', 0]],
+    nestItems(sections[0]!.items).map(({ item, depth }) => [item.key, depth]),
+    [
+      ['agent-session:bot', 0],
+      ['child', 1],
+    ],
   )
 })
 
@@ -208,4 +212,103 @@ test('Bot-nested task copies stay under Bots without duplicating ordinary Tasks'
   assert.deepEqual(layout(sections), { Channels: ['bot', 'nested-child'], Tasks: ['child'] })
   assert.equal(foldKey({ title: 'Channels' }, 'child'), 'bots:child')
   assert.equal(foldKey({ title: 'Tasks' }, 'child'), 'child')
+})
+
+test('Bot descendants retain their hierarchy and are excluded from project Tasks', () => {
+  const rows = [
+    row('agent-session:dm', { channel: true, botChannelOf: 'ada' }),
+    row('agent-session:ada', { bot: true }),
+    row('child', { parentKey: 'agent-session:ada' }),
+    row('grandchild', { parentKey: 'child' }),
+    row('task'),
+    row('task-child', { parentKey: 'task' }),
+  ]
+  const received: Item[][] = []
+  const sections = withChatSections([{ title: 'Agents', items: rows }], undefined, (items) => {
+    received.push(items)
+
+    return items
+  })
+
+  assert.deepEqual(
+    received[0]?.map((item) => item.key),
+    ['task', 'task-child'],
+  )
+  assert.deepEqual(
+    nestItems(sections[0]!.items).map(({ item, depth }) => [item.key, depth]),
+    [
+      ['agent-session:dm', 0],
+      ['child', 1],
+      ['grandchild', 2],
+    ],
+  )
+})
+
+test('a fallback Bot keeps its children and existing chat copies are not duplicated', () => {
+  const fallback = withChatSections([
+    { title: 'Agents', items: [row('bot', { bot: true }), row('child', { parentKey: 'bot' })] },
+  ])
+
+  assert.deepEqual(
+    nestItems(fallback[0]!.items).map(({ depth }) => depth),
+    [0, 1],
+  )
+  const copy = { ...row('child', { parentKey: 'dm' }), botNested: true }
+
+  assert.deepEqual(
+    build([
+      row('dm', { channel: true, botChannelOf: 'ada' }),
+      row('agent-session:ada', { bot: true }),
+      row('child', { parentKey: 'agent-session:ada' }),
+      copy,
+    ]).Channels,
+    ['dm', 'child'],
+  )
+})
+
+test('a Bot without a chat under another Bot is listed once, as its copy', () => {
+  const copy = { ...row('agent-session:b', { parentKey: 'dm' }), botNested: true }
+  const channels = build([
+    row('dm', { channel: true, botChannelOf: 'a' }),
+    row('agent-session:a', { bot: true }),
+    row('agent-session:b', { bot: true, parentKey: 'agent-session:a' }),
+    copy,
+  ]).Channels
+
+  assert.deepEqual(channels, ['dm', 'agent-session:b'])
+})
+
+test('pinning a Bot hides its entire delegated tree without orphaning grandchildren', () => {
+  const items = [
+    row('bot', { bot: true }),
+    row('child', { parentKey: 'bot' }),
+    row('grandchild', { parentKey: 'child' }),
+    row('other'),
+  ]
+
+  assert.deepEqual(
+    unpinnedChatItems(items, (item) => item.key === 'bot').map((item) => item.key),
+    ['other'],
+  )
+  assert.deepEqual(
+    unpinnedChatItems(items, (item) => item.key === 'child').map((item) => item.key),
+    ['bot', 'other'],
+  )
+})
+
+test('pin filtering tolerates missing parents and parent cycles', () => {
+  const items = [
+    row('a', { parentKey: 'b' }),
+    row('b', { parentKey: 'a' }),
+    row('orphan', { parentKey: 'missing' }),
+  ]
+
+  assert.deepEqual(
+    unpinnedChatItems(items, () => false),
+    items,
+  )
+  assert.deepEqual(
+    unpinnedChatItems(items, (item) => item.key === 'a').map((item) => item.key),
+    ['orphan'],
+  )
 })

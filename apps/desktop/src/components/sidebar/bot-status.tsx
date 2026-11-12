@@ -1,4 +1,3 @@
-import { setOpenedFromBots } from '../../lib/botNestedSelection'
 import { ChatIcon } from '../channels/channelParts'
 
 import { activityOf } from './bot-activity'
@@ -31,7 +30,6 @@ export function botChatRows({
   teamId,
   unread,
   openId,
-  fromBots,
   unreadIds = new Set<string>(),
 }: {
   chat: Item
@@ -42,15 +40,13 @@ export function botChatRows({
   unread: boolean
   /** The chat open in the pane, if any. */
   openId: string | undefined
-  /** Tasks last opened from under their Bot rather than from Tasks. */
   unreadIds?: ReadonlySet<string>
-  fromBots: ReadonlySet<string>
 }): Item[] {
   const copy = (run: Run, parentKey: string): Item => ({
     ...chatSidebarItem({
       conversation: run.conversation,
       teamId,
-      active: openId === run.conversation.sessionId && fromBots.has(run.conversation.sessionId),
+      active: openId === run.conversation.sessionId,
       runtimeState: run.runtimeState,
       unread: unreadIds.has(run.conversation.sessionId),
     }),
@@ -60,7 +56,6 @@ export function botChatRows({
     task: true,
     preview: undefined,
     time: undefined,
-    onPress: () => setOpenedFromBots(run.conversation.sessionId, true),
   })
   const nested = kids.map((kid) => copy(kid, chat.key))
   // A sub-agent at work is the Bot at work.
