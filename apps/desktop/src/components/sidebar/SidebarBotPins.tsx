@@ -188,7 +188,10 @@ export function SidebarBotPins({
                   bot.active && 'bg-state-selected',
                 )}
               >
-                <BotPinFace item={bot} size={Math.min(56, cellWidth - 20)} />
+                <span className="relative">
+                  <BotPinFace item={bot} size={Math.min(56, cellWidth - 20)} />
+                  <span className="absolute -right-1 top-0">{bot.trailing}</span>
+                </span>
                 <span className="w-full truncate px-1 text-center text-[12px] leading-4 text-secondary">
                   {bot.label}
                 </span>

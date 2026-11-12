@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import { Plus } from 'lucide-react'
+import { useRef } from 'react'
 
 import { t } from '../../i18n'
 
@@ -9,6 +10,7 @@ import { SidebarArchiveSection } from './SidebarArchiveSection'
 import { SidebarBotPins } from './SidebarBotPins'
 import { SidebarSectionHeading } from './SidebarSectionHeading'
 import { taskPageSections } from './task-page-sections'
+import { useTaskReflow } from './useTaskReflow'
 
 import type { Item, Section } from './types'
 import type { ComponentProps, UIEventHandler } from 'react'
@@ -24,6 +26,9 @@ export function SidebarPageList({
   listProps: Omit<ComponentProps<typeof SidebarSectionList>, 'sections'>
   onScroll: UIEventHandler<HTMLElement>
 }) {
+  const taskList = useRef<HTMLElement | null>(null)
+
+  useTaskReflow(taskList)
   const source = sections.filter((section) =>
     page === 0 ? section.title === 'Channels' : section.title === 'Tasks',
   )
@@ -37,7 +42,14 @@ export function SidebarPageList({
     .map((section) => ({
       ...section,
       ...(section.title === 'Tasks' || section.title === 'Channels' ? { title: undefined } : {}),
-      ...(section.title === 'Channels' && { items: section.items.filter((item) => !pinned(item)) }),
+      ...(section.title === 'Channels' && {
+        items: section.items.filter((item) => {
+          if (pinned(item)) return false
+          const parent = section.items.find((row) => row.key === item.parentKey)
+
+          return !parent || !pinned(parent)
+        }),
+      }),
     }))
   const empty =
     source.every((section) => !section.loading) &&
@@ -78,6 +90,7 @@ export function SidebarPageList({
         )}
       </div>
       <nav
+        ref={taskList}
         onScroll={onScroll}
         className={clsx(
           'px-2.5 pb-2',

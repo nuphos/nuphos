@@ -40,7 +40,7 @@ export function chatSidebarItem({
     (picked === undefined ? conversation.avatar : picked) && conversation.kind !== 'channel',
   )
   const waiting = openInputRequests(conversation).length > 0 || Boolean(conversation.signInRequest)
-  const dot = waiting ? 'waiting' : rowDot(conversation, runtimeState, unread)
+  const dot = waiting ? 'waiting' : unread ? 'unread' : rowDot(conversation, runtimeState, unread)
   const status = <ChatRowStatus runtimeState={runtimeState} dot={dot} />
 
   return {
@@ -48,6 +48,8 @@ export function chatSidebarItem({
     label: conversation.title || conversation.firstMessage || t('Untitled agent'),
     ...chatRowIcon(conversation),
     preview: chatPreview(conversation.lastMessage, conversation.faces),
+    lastActiveAt: conversation.lastActiveAt,
+    unread,
     time: chatTime(conversation.lastActiveAt),
     description: (
       <SessionResources
@@ -99,7 +101,12 @@ export function chatSidebarItem({
     // sight. Not in the trailing slot: hover swaps that for the row's actions, hiding Stop.
     note: <PhoneViewingBadge sessionId={conversation.sessionId} />,
     foldedStatus: status,
-    finished: threadFoldsAway({ conversation, runtimeState, open: active }),
+    finished: threadFoldsAway({
+      conversation,
+      runtimeState,
+      open: active,
+      unread: unread || waiting,
+    }),
     dot,
     taskState:
       isBot || conversation.kind === 'channel'

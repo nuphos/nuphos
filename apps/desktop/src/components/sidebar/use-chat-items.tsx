@@ -1,11 +1,15 @@
+import { useEffect, useRef, useState } from 'react'
+
 import { useAgentAvatarPicks } from '../../lib/agentAvatarChoices'
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
 import { useAgentUnreadSessions } from '../../lib/agentUnreadSessions'
 import { setOpenedFromBots, useOpenedFromBots } from '../../lib/botNestedSelection'
+import { runtimeTurnActive, runtimeBackgroundRunning } from '../../lib/runtimeExecution'
 import { botOfChannel } from '../channels/botChannel'
 
 import { botChatRows } from './bot-status'
 import { chatSidebarItem } from './chat-item'
+import { nextReplyInbox } from './replyInbox'
 import { RowMenuButton } from './row-menu-button'
 
 import type { Item } from './types'
@@ -31,6 +35,36 @@ export function useChatItems({
   const avatarPicks = useAgentAvatarPicks()
   const fromBots = useOpenedFromBots()
   const openId = chatShown ? (agentSessionId ?? undefined) : undefined
+  const previousUnread = useRef(unreadSessions)
+  const previousWorking = useRef<ReadonlySet<string>>(new Set())
+  const [pendingReplies, setPendingReplies] = useState<ReadonlySet<string>>(new Set())
+
+  useEffect(() => {
+    const working = new Set(
+      agentSessions
+        .filter((conversation) => {
+          const state = runtimeStates.get(conversation.sessionId) ?? conversation.runtimeState
+
+          return (
+            runtimeTurnActive(state) ||
+            runtimeBackgroundRunning(state) ||
+            Boolean(conversation.activeRun)
+          )
+        })
+        .map((conversation) => conversation.sessionId),
+    )
+    const beforeUnread = previousUnread.current
+
+    previousUnread.current = unreadSessions
+    const before = previousWorking.current
+
+    previousWorking.current = working
+    setPendingReplies((pending) => {
+      const next = nextReplyInbox(pending, before, working, openId, beforeUnread)
+
+      return next.size === pending.size && [...next].every((id) => pending.has(id)) ? pending : next
+    })
+  }, [agentSessions, runtimeStates, openId, unreadSessions])
   // Bots whose chats exist: their sub-agents are listed twice while the tree is on.
   const botIds = new Set(
     agentSessions.flatMap((c) => (c.kind === 'channel' ? (botOfChannel(c.faces) ?? []) : [])),
@@ -65,6 +99,10 @@ export function useChatItems({
       Boolean(conversation.parentSessionId && botIds.has(conversation.parentSessionId))
     const row = {
       ...item,
+      ...(pendingReplies.has(conversation.sessionId) && {
+        taskState: 'attention' as const,
+        finished: false,
+      }),
       actions: <RowMenuButton title={item.label} />,
       ...(listedTwice && {
         active: item.active && !fromBots.has(conversation.sessionId),
@@ -79,6 +117,7 @@ export function useChatItems({
     return botChatRows({
       openId,
       fromBots,
+      unreadIds: unreadSessions,
       faces: conversation.faces,
       chat: row,
       bot: bot && run(bot),

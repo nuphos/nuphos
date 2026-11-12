@@ -1,13 +1,12 @@
 import type { Item, Section } from './types'
 
-function priority(items: Item[]): number {
-  if (items.some((item) => item.taskState === 'attention' && item.dot === 'waiting')) return 0
-  if (items.some((item) => item.taskState === 'attention')) return 1
-  if (items.some((item) => item.taskState === 'working')) return 2
-  // Keep an empty, newly added folder available for its first task.
-  if (items.every((item) => item.project)) return 3
-
-  return 4
+function attention(items: Item[]): boolean {
+  return items.some(
+    (item) => item.unread || item.taskState === 'attention' || item.dot === 'waiting',
+  )
+}
+function latest(items: Item[]): number {
+  return Math.max(0, ...items.map((item) => Date.parse(item.lastActiveAt ?? '') || 0))
 }
 
 /** Keep each project or parent task with its descendants when grouping by status. */
@@ -29,12 +28,16 @@ export function taskPageSections(items: Item[]): Section[] {
     group.push(item)
     groups.set(root.key, group)
   }
-  const ordered = [...groups.values()].sort((a, b) => priority(a) - priority(b))
-  const active = ordered.filter((group) => priority(group) < 4).flat()
-  const idle = ordered.filter((group) => priority(group) === 4).flat()
+  const ordered = [...groups.values()].sort(
+    (a, b) =>
+      Number(b.some((item) => item.dot === 'waiting')) -
+        Number(a.some((item) => item.dot === 'waiting')) || latest(b) - latest(a),
+  )
+  const inbox = ordered.filter(attention).flat()
+  const read = ordered.filter((group) => !attention(group)).flat()
 
   return [
-    { title: 'Tasks', items: active, compact: true },
-    ...(idle.length ? [{ items: idle, compact: true, separator: active.length > 0 }] : []),
+    { title: 'Tasks', items: inbox, compact: true },
+    ...(read.length ? [{ items: read, compact: true, separator: inbox.length > 0 }] : []),
   ]
 }
