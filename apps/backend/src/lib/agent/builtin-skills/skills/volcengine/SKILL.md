@@ -1,6 +1,6 @@
 ---
 name: volcengine
-description: Call Volcengine (火山引擎) OpenAPI or the pre-installed `ve` CLI from the sandbox to inspect or change Volcengine resources (VKE, ECS, CLB, VPC, TOS, CDN/DCDN, 证书中心, etc.). Includes scripts to load a Nuphos-bound Volcengine account's credentials and to look up the exact service, action, version and parameters of any Volcengine API.
+description: Call Volcengine (火山引擎) OpenAPI or the `ve` CLI from the sandbox to inspect or change Volcengine resources (VKE, ECS, CLB, VPC, TOS, CDN/DCDN, 证书中心, etc.). Includes scripts to load a Nuphos-bound Volcengine account's credentials and to look up the exact service, action, version and parameters of any Volcengine API.
 ---
 
 # Volcengine (火山引擎)
@@ -33,7 +33,7 @@ source ~/.volc/credentials.env
 
 Nuphos uses OIDC web-identity federation here (like AWS): the customer registers Nuphos as an IAM OIDC identity provider and creates a role trusting it, then Nuphos mints a per-team token and calls `sts:AssumeRoleWithOIDC` to get short-lived credentials — no long-lived keys are stored. `setup-credentials.sh` calls `GET /teams/:teamId/volcengine-accounts/:accountId/credentials` with the user's `NUPHOS_TOKEN` and writes the credentials under both of Volcengine's naming schemes, because neither reads the other's: `VOLC_ACCESSKEY` / `VOLC_SECRETKEY` / `VOLC_SESSION_TOKEN` / `VOLC_REGION` for the SDKs, and `VOLCENGINE_ACCESS_KEY` / `VOLCENGINE_SECRET_KEY` / `VOLCENGINE_SESSION_TOKEN` / `VOLCENGINE_REGION` for the `ve` CLI. Sourcing the file arms both. These expire (assumed-role session), so re-run the script to refresh. The credentials carry exactly the role's permissions.
 
-The CLI is `ve`, pre-installed in the sandbox — there is no `volc` binary, and no `ve login` step is needed since the sourced environment already authenticates it. Prefer it over hand-rolled requests; drop to signing the OpenAPI yourself (SigV4-style, query params `Action` + `Version`) only for something `ve` cannot express. When you do sign by hand, use the service-scoped regional gateway `<service>.<region>.volcengineapi.com` (e.g. `ecs.cn-beijing.volcengineapi.com`) — the shared `open.volcengineapi.com` host does NOT serve every region.
+The CLI is `ve`, on PATH and installed on first use by the runtime image's tool manifest — there is no `volc` binary, and no `ve login` step is needed since the sourced environment already authenticates it. Prefer it over hand-rolled requests; drop to signing the OpenAPI yourself (SigV4-style, query params `Action` + `Version`) only for something `ve` cannot express. When you do sign by hand, use the service-scoped regional gateway `<service>.<region>.volcengineapi.com` (e.g. `ecs.cn-beijing.volcengineapi.com`) — the shared `open.volcengineapi.com` host does NOT serve every region.
 
 ## Look the API up before you call it
 
