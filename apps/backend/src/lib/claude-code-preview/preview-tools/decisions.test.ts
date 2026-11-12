@@ -280,31 +280,27 @@ describe('decision tool module', () => {
     ])
   })
 
-  test('several questions in one, or choices in the text, are rejected before any card goes out', async () => {
-    const frames: Record<string, unknown>[] = []
-    const tools = decisionToolModule({
-      publish: async (_ctx, frame) => {
-        frames.push(frame)
+  test('several related questions and a multi-select go out as one card, kept for the Inbox', async () => {
+    const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
+    const questions = [
+      {
+        question: 'Which regions?',
+        options: ['us-east', 'eu-west', 'ap-south'],
+        multiSelect: true,
       },
-    }).handlers(ctx)
-    const several = await tools.request_user_decision!({
-      label: 'Ask two things',
+      { question: 'Keep the old cluster?', options: ['Keep', 'Delete'] },
+    ]
+    const result = await tools.request_user_decision!({
+      label: 'Ask about the rollout',
       category: 'preference',
-      question:
-        '1. Is this definition right? (Yes (Recommended) / Adjust) 2. How should the AI pick a component? (Guide (Recommended) / Descriptions only)',
-    })
-    const inline = await tools.request_user_decision!({
-      label: 'Ask with inline choices',
-      category: 'preference',
-      question:
-        'Which rule should components follow? (Repeated or stateful (Recommended) / Basics only)',
+      question: 'How should the rollout go?',
+      questions,
     })
 
-    expect(several.isError).toBe(true)
-    expect(JSON.stringify(several.content)).toContain('once per question')
-    expect(inline.isError).toBe(true)
-    expect(JSON.stringify(inline.content)).toContain('`options`')
-    expect(frames).toEqual([])
+    expect(result.isError).toBeFalsy()
+    expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
+      $push: { inputRequests: { $each: [{ question: 'How should the rollout go?', questions }] } },
+    })
   })
 
   test('one question with its choices in options still goes out', async () => {

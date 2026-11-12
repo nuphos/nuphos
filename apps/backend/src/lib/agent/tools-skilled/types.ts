@@ -56,7 +56,13 @@ export type ExplicitUserDecision = {
   /** Markdown context the user decides from without reading the chat. */
   body?: string
   options?: string[]
+  /** Any number of `options` may be picked. */
+  multiSelect?: boolean
+  /** Related questions answered together; `question` is their headline. */
+  questions?: DecisionQuestion[]
 }
+
+export type DecisionQuestion = { question: string; options?: string[]; multiSelect?: boolean }
 
 // Slack-originated turns no longer expose an outbound reply tool: the model's
 // visible text streams to the Slack thread and its tool calls become task

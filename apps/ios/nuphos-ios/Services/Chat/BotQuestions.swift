@@ -31,6 +31,29 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
         request.category == "integration" && (request.credentials == nil || personalCredentials != nil)
     }
 
+    /// The desktop's `formQuestions`: the questions a multi-select or several-question card answers
+    /// as a form, sent as one reply; nil for one single-choice question, which keeps its one-tap options.
+    var form: [AgentConversation.DecisionQuestion]? {
+        guard typed else { return nil }
+        if let questions = request.questions, !questions.isEmpty { return questions }
+        if request.multiSelect == true, let options = request.options, !options.isEmpty {
+            return [.init(question: request.question, options: options, multiSelect: true)]
+        }
+        return nil
+    }
+
+    /// The desktop's `formReply`: a lone answer as is, or each question followed by its answer.
+    static func formReply(_ questions: [AgentConversation.DecisionQuestion], answers: [String]) -> String {
+        if questions.count == 1 { return answers.first ?? "" }
+        return zip(questions, answers).map { "\($0.question)\n\($1)" }.joined(separator: "\n\n")
+    }
+
+    /// One question's answer: what was typed, else the picked options.
+    static func answerText(picked: [String], typed: String) -> String {
+        let words = typed.trimmingCharacters(in: .whitespacesAndNewlines)
+        return words.isEmpty ? picked.joined(separator: ", ") : words
+    }
+
     /// The question quoted above a composer whose next message answers it.
     var quote: ChannelReply { ChannelReply(id: nil, authorName: title, text: request.question) }
 }

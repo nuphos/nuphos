@@ -3,7 +3,8 @@ import SwiftUI
 /// An open question, in a Bot's chat or the Inbox, like the desktop's decision
 /// card: which agent asked, the question and what the agent wrote to decide it
 /// from, each option as the reply, and "Other…" to answer in words in the
-/// composer, quoting it. A connect or secure-input question is answered in the
+/// composer, quoting it. A multi-select or several questions are a form, sent
+/// as one reply. A connect or secure-input question is answered in the
 /// conversation that asked, which the link opens. `showsFrom` is off for the
 /// Bot's own questions in its own chat.
 struct BotQuestionCard: View {
@@ -75,7 +76,9 @@ struct BotQuestionCard: View {
                 if let body = question.request.body?.trimmingCharacters(in: .whitespacesAndNewlines), !body.isEmpty {
                     questionBody(body)
                 }
-                if let replies {
+                if let form = question.form {
+                    DecisionForm(questions: form, onSubmit: onAnswer)
+                } else if let replies {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(replies, id: \.reply) { reply in
                             Button(reply.label) { onAnswer(reply.reply) }
@@ -129,6 +132,70 @@ struct BotQuestionCard: View {
                     .foregroundStyle(Theme.muted)
                     .buttonStyle(.plain)
             }
+        }
+    }
+}
+
+/// The desktop's `DecisionForm`: each question's options toggled, one or any
+/// number, or the answer typed in their place, sent together as one reply.
+private struct DecisionForm: View {
+    let questions: [AgentConversation.DecisionQuestion]
+    let onSubmit: (String) -> Void
+
+    @State private var picked: [[String]]
+    @State private var typed: [String]
+
+    init(questions: [AgentConversation.DecisionQuestion], onSubmit: @escaping (String) -> Void) {
+        self.questions = questions
+        self.onSubmit = onSubmit
+        _picked = State(initialValue: questions.map { _ in [] })
+        _typed = State(initialValue: questions.map { _ in "" })
+    }
+
+    private var answers: [String] {
+        questions.indices.map { BotQuestion.answerText(picked: picked[$0], typed: typed[$0]) }
+    }
+
+    private func toggle(_ option: String, at index: Int) {
+        if picked[index].contains(option) {
+            picked[index].removeAll { $0 == option }
+        } else {
+            picked[index] = questions[index].multiSelect == true ? picked[index] + [option] : [option]
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(questions.indices, id: \.self) { index in
+                VStack(alignment: .leading, spacing: 8) {
+                    if questions.count > 1 {
+                        Text(questions[index].question)
+                            .font(Theme.Text.label.weight(.medium))
+                            .foregroundStyle(Theme.heading)
+                    }
+                    ForEach(questions[index].options ?? [], id: \.self) { option in
+                        let on = picked[index].contains(option)
+                        Button { toggle(option, at: index) } label: {
+                            Label(option, systemImage: on ? "checkmark.circle.fill" : "circle")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .tint(on ? Theme.brand : Theme.heading)
+                        .accessibilityAddTraits(on ? .isSelected : [])
+                    }
+                    TextField(
+                        (questions[index].options ?? []).isEmpty ? "Your answer" : "Or type your own answer",
+                        text: $typed[index]
+                    )
+                    .textFieldStyle(.roundedBorder)
+                    .font(Theme.Text.label)
+                }
+            }
+            Button("Send answer") { onSubmit(BotQuestion.formReply(questions, answers: answers)) }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .disabled(answers.contains { $0.isEmpty })
+                .accessibilityIdentifier("botQuestion.sendAnswer")
         }
     }
 }
