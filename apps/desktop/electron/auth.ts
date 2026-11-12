@@ -21,7 +21,6 @@ import {
 } from './auth/config.ts'
 import { unsavedReason } from './auth/unsaved.ts'
 import { apiErrorMessage } from './auth/web.ts'
-import { completeLegacyLogin } from './auth/legacy.ts'
 import { completeNativeLogin } from './auth/native.ts'
 import { planLogin } from './auth/plan.ts'
 import { isValidUserInfo } from './auth-status.ts'
@@ -41,14 +40,11 @@ let pendingServer: Server | null = null
 /**
  * Signs in through the system browser.
  *
- * Native path (RFC 8252): register this listener's loopback port with the
- * backend and send the browser straight to the provider carrying only the resulting
- * handle. The redirect back to the listener carries a one-time `code`, which we
- * exchange — together with a PKCE verifier that never leaves this process — for
- * the session over TLS. No session token ever rides a redirect URL.
- *
- * Legacy path: the landing page delivers a token to the listener instead. Kept
- * for deployments without the native endpoints — see `planLogin`.
+ * RFC 8252: register this listener's loopback port with the backend and send
+ * the browser straight to the provider carrying only the resulting handle. The
+ * redirect back to the listener carries a one-time `code`, which we exchange —
+ * together with a PKCE verifier that never leaves this process — for the
+ * session over TLS. No session token ever rides a redirect URL.
  */
 export async function login(provider: SocialProvider): Promise<UserInfo> {
   cancelPendingLogin()
@@ -63,9 +59,7 @@ export async function login(provider: SocialProvider): Promise<UserInfo> {
 
     await shell.openExternal(plan.browserUrl)
 
-    return plan.mode === 'native'
-      ? await completeNativeLogin(server, plan, attempt)
-      : await completeLegacyLogin(server, plan, attempt)
+    return await completeNativeLogin(server, plan, attempt)
   } finally {
     server.close()
     if (pendingServer === server) pendingServer = null

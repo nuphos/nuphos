@@ -84,6 +84,15 @@ spec:
                   optional: true
             - name: NUPHOS_EMAIL_FROM
               value: {{ .Values.email.from | quote }}
+            # Optional: without both, sign-in offers no Google button.
+            - name: GOOGLE_OAUTH_CLIENT_ID
+              value: {{ .Values.google.clientId | quote }}
+            - name: GOOGLE_OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret }}
+                  key: GOOGLE_OAUTH_CLIENT_SECRET
+                  optional: true
             - name: ATLAS_REDIS_ENABLED
               value: 'false'
             - name: CLAUDE_CODE_RUNTIME_KUBECTL

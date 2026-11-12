@@ -84,6 +84,12 @@ Other commands:
 To email codes instead, set `email.resendApiKey` and `email.from` (a sender on a
 domain verified in Resend), or add `RESEND_API_KEY` to `secrets.existingSecret`.
 
+To offer **Continue with Google**, create a Google OAuth client of type Web
+application with the redirect URI `<backend.url>/auth/social/google/callback`,
+then set `google.clientId` and `google.clientSecret` (or add
+`GOOGLE_OAUTH_CLIENT_SECRET` to `secrets.existingSecret`). Desktop and the mobile
+apps show the button only when the server offers it.
+
 ## Secrets
 
 The chart generates the JWT secret, Mongo password, storage secret key, runtime
@@ -92,7 +98,7 @@ upgrade, and leaves the Secret behind on uninstall. Renderers without cluster
 access (`helm template`, Argo CD, Flux with `--dry-run`) regenerate them on every
 render. For those, set `secrets.existingSecret` to a Secret you manage with the
 keys `NUPHOS_JWT_SECRET`, `MONGO_PASSWORD`, `STORAGE_SECRET_KEY`,
-`RUNTIME_AUTH_KEY`, `RUNTIME_TOKEN_ENCRYPTION_KEY` and, optionally, `RESEND_API_KEY`. Keep the Mongo password
+`RUNTIME_AUTH_KEY`, `RUNTIME_TOKEN_ENCRYPTION_KEY` and, optionally, `RESEND_API_KEY` and `GOOGLE_OAUTH_CLIENT_SECRET`. Keep the Mongo password
 alphanumeric: it is placed in the connection URI as is.
 `RUNTIME_TOKEN_ENCRYPTION_KEY` is base64 of 32 random bytes
 (`openssl rand -base64 32`). It seals the runtime credentials the backend

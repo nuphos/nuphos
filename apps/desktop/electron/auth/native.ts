@@ -73,7 +73,7 @@ async function redeemNativeSession(
  */
 export async function completeNativeLogin(
   server: Server,
-  plan: Extract<LoginPlan, { mode: 'native' }>,
+  plan: LoginPlan,
   attempt: SignInAttempt,
 ): Promise<UserInfo> {
   // An object rather than plain `let`s: TypeScript narrows those to their

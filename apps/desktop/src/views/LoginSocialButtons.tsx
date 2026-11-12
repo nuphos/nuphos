@@ -17,11 +17,11 @@ const PROVIDERS = [
 
 /** One button per provider, each straight to that provider's sign-in. */
 export function LoginSocialButtons({ onLogin }: { onLogin: (user: UserInfo) => void }) {
-  // Google is always offered: servers without social sign-in still have the landing page.
-  const [offered, setOffered] = useState<SocialProvider[]>(['google'])
+  // Only what this server offers: a self-hosted server without social sign-in shows none.
+  const [offered, setOffered] = useState<SocialProvider[]>([])
 
   useEffect(() => {
-    void api.authSocialProviders().then((providers) => setOffered(['google', ...providers]))
+    void api.authSocialProviders().then(setOffered)
   }, [])
 
   // No in-flight guard: each click re-launches the auth flow so the user can
