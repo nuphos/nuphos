@@ -14,6 +14,7 @@ let conversations: Conversation[] = []
 let updated = 0
 let approved = 0
 let retried = 0
+let listed: Record<string, unknown> | undefined
 
 const plan = (number: number, sourceConversationId?: string) => ({
   id: String(number),
@@ -44,12 +45,15 @@ useAgentDb({
 useAgentPlans({
   getPlan: (id: string) =>
     Promise.resolve(plan(Number(id), { '1': 'private', '2': 'shared' }[id]) as never),
-  listPlans: () =>
-    Promise.resolve({
+  listPlans: (options: Record<string, unknown>) => {
+    listed = options
+
+    return Promise.resolve({
       plans: [plan(1, 'private'), plan(2, 'shared'), plan(3)] as never,
       nextCursor: null,
       hasMore: false,
-    }),
+    })
+  },
   recordPlanApproval: () => {
     approved++
 
@@ -88,6 +92,8 @@ describe('plans follow their conversation access', () => {
     }
 
     expect(body.plans.map((row) => row.number)).toEqual([2, 3])
+    // Filtered in the query too, so a page is not emptied after the fact.
+    expect(listed?.viewerId).toBe(VIEWER)
   })
 
   test('a plan from a private conversation answers not found', async () => {

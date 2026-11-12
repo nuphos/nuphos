@@ -1,3 +1,5 @@
+import { readableByFilter } from '../db/access'
+
 import { plans } from './collections'
 import { parsePlanNumber, scopedNumberFilter, withTeamScope } from './scope'
 import { serializePlan } from './serialize'
@@ -5,7 +7,7 @@ import { serializePlan } from './serialize'
 import type { PlanScope } from './scope'
 import type { PlanDTO } from './serialize'
 import type { Plan, PlanLifecycleStatus } from './types'
-import type { Filter } from 'mongodb'
+import type { Document, Filter } from 'mongodb'
 
 export async function getPlan(id: string, scope: PlanScope): Promise<PlanDTO | null> {
   const planNumber = parsePlanNumber(id)
@@ -82,10 +84,45 @@ export async function findProposedPlanNumberForConversation(
   return row?.number ?? null
 }
 
+/** The collection agentConversations() reads; named here so plans need not import the agent db. */
+const CONVERSATIONS = 'agent_conversations'
+
+/**
+ * Stages that keep only the plans a viewer may read: one with no source
+ * conversation, one whose source is gone, or one whose source readableByFilter
+ * opens to them. Run before $limit, so a page holds `limit` readable plans
+ * instead of `limit` plans with the unreadable ones dropped afterwards.
+ */
+export function readablePlanStages(viewerId: string): Document[] {
+  return [
+    {
+      $lookup: {
+        from: CONVERSATIONS,
+        localField: 'sourceConversationId',
+        foreignField: 'sessionId',
+        pipeline: [{ $project: { userId: 1, generalAccess: 1, participantIds: 1 } }],
+        as: 'source',
+      },
+    },
+    {
+      $match: {
+        $or: [
+          { sourceConversationId: { $in: [null, ''] } },
+          { source: { $size: 0 } },
+          { source: { $elemMatch: readableByFilter(viewerId) } },
+        ],
+      },
+    },
+    { $project: { source: 0 } },
+  ]
+}
+
 export async function listPlans(options: {
   teamId?: string
   createdBy?: string
   sourceConversationId?: string
+  /** Only plans this user may read; see readablePlanStages. */
+  viewerId?: string
   limit?: number
   cursor?: string
 }): Promise<{ plans: PlanDTO[]; nextCursor: string | null; hasMore: boolean }> {
@@ -103,11 +140,20 @@ export async function listPlans(options: {
     if (!Number.isNaN(cursorDate.getTime())) base.createdAt = { $lt: cursorDate }
   }
   const query = withTeamScope(base, options.teamId)
-  const rows = await plans()
-    .find(query)
-    .sort({ createdAt: -1 })
-    .limit(limit + 1)
-    .toArray()
+  const rows = options.viewerId
+    ? await plans()
+        .aggregate<Plan>([
+          { $match: query },
+          { $sort: { createdAt: -1 } },
+          ...readablePlanStages(options.viewerId),
+          { $limit: limit + 1 },
+        ])
+        .toArray()
+    : await plans()
+        .find(query)
+        .sort({ createdAt: -1 })
+        .limit(limit + 1)
+        .toArray()
   const hasMore = rows.length > limit
 
   if (hasMore) rows.pop()
