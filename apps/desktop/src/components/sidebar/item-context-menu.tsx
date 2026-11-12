@@ -6,6 +6,7 @@ import {
   Hash,
   Link2,
   Pencil,
+  SmilePlus,
   Star,
   StarOff,
   Unlink,
@@ -13,6 +14,7 @@ import {
 
 import { api } from '../../api'
 import { t } from '../../i18n'
+import { openChangeBotAvatar } from '../../lib/changeBotAvatar'
 import { copyLinkWithFeedback } from '../../lib/copyLink'
 import { agentSessionUrl } from '../agent/sessionUrl'
 import { makeBot } from '../channels/botChannel'
@@ -103,6 +105,22 @@ export function SidebarItemContextMenu({
                       onSelect: () =>
                         renameChat(menu.item.botChannelOf ?? sessionId, menu.item.label),
                     },
+                    // A Bot's chat wears the Bot's face, so its row changes the Bot's.
+                    ...(noun === 'bot'
+                      ? [
+                          {
+                            key: 'change-avatar',
+                            label: t('Change avatar'),
+                            icon: SmilePlus,
+                            onSelect: () =>
+                              openChangeBotAvatar({
+                                teamId,
+                                botId: menu.item.botChannelOf ?? sessionId,
+                                title: menu.item.label,
+                              }),
+                          },
+                        ]
+                      : []),
                   ]),
               ...(menu.item.parentKey && !menu.item.readOnlyChat
                 ? [

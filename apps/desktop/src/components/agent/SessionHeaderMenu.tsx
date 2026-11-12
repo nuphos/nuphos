@@ -11,6 +11,7 @@ import {
   Link2,
   MoreHorizontal,
   Pencil,
+  SmilePlus,
   X,
 } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -19,8 +20,10 @@ import { api } from '../../api'
 import { usePaneSummary } from '../../app/workspace/usePaneSummary'
 import { t } from '../../i18n'
 import { pickAgentAvatar, useAgentAvatarPick } from '../../lib/agentAvatarChoices'
+import { openChangeBotAvatar } from '../../lib/changeBotAvatar'
 import { copyLinkWithFeedback } from '../../lib/copyLink'
 import { sessionShortcutCombo } from '../../lib/sessionShortcuts'
+import { makeBot } from '../channels/botChannel'
 import {
   Menu,
   MenuContent,
@@ -33,7 +36,6 @@ import {
 import { ShortcutHint } from '../ui/shortcut-hint'
 import { toast } from '../ui/toast'
 import { Tooltip } from '../ui/tooltip'
-import { makeBot } from '../channels/botChannel'
 
 import { agentSessionUrl } from './sessionUrl'
 import { SummaryIcon } from './summary/ChatSummaryToggle'
@@ -105,6 +107,7 @@ export function SessionHeaderMenu({
   // Rename waits for the popup to finish closing; otherwise focus returning to
   // the trigger blurs the title input, and blur saves and closes it.
   const renameOnClose = useRef(false)
+  const avatarOnClose = useRef(false)
   // Closing the pane waits too: the menu hands focus back to its trigger in this
   // pane, which would make the closed pane the active one again.
   const closePaneOnClose = useRef(false)
@@ -161,6 +164,10 @@ export function SessionHeaderMenu({
           closePaneOnClose.current = false
           onClosePane?.()
         }
+        if (avatarOnClose.current) {
+          avatarOnClose.current = false
+          openChangeBotAvatar({ teamId, botId: sessionId, title })
+        }
         if (!renameOnClose.current) return
         renameOnClose.current = false
         onRename()
@@ -196,6 +203,16 @@ export function SessionHeaderMenu({
             }}
           >
             {isBot ? t('Rename Bot') : t('Rename task')}
+          </MenuItem>
+        )}
+        {canRename && isBot && (
+          <MenuItem
+            icon={<SmilePlus className="h-3.5 w-3.5" />}
+            onClick={() => {
+              avatarOnClose.current = true
+            }}
+          >
+            {t('Change avatar')}
           </MenuItem>
         )}
         {canRename && (

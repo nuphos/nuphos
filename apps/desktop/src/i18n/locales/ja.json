@@ -661,6 +661,7 @@
   "Cause": "原因",
   "Chain verification failed (1 violation) — these records can no longer be trusted as-written.": "チェーンの検証に失敗しました（違反 1 件）。これらの記録は記録時のまま信頼することはできません。",
   "Chain verification failed ({n} violations) — these records can no longer be trusted as-written.": "チェーンの検証に失敗しました（違反 {n} 件）。これらの記録は記録時のまま信頼することはできません。",
+  "Change avatar": "アバターを変更",
   "Change icon": "アイコンを変更",
   "Change operation": "変更操作",
   "Change or cancel anytime in the billing portal.": "請求ポータルからいつでも変更・解約できます。",

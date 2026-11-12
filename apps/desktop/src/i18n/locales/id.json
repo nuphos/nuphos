@@ -661,6 +661,7 @@
   "Cause": "Penyebab",
   "Chain verification failed (1 violation) — these records can no longer be trusted as-written.": "Verifikasi rantai gagal (1 pelanggaran) — catatan ini tidak dapat lagi dipercaya sesuai aslinya.",
   "Chain verification failed ({n} violations) — these records can no longer be trusted as-written.": "Verifikasi rantai gagal ({n} pelanggaran) — catatan ini tidak dapat lagi dipercaya sesuai aslinya.",
+  "Change avatar": "Ganti avatar",
   "Change icon": "Ganti ikon",
   "Change operation": "Operasi perubahan",
   "Change or cancel anytime in the billing portal.": "Ubah atau batalkan kapan saja di portal tagihan.",
