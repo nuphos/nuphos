@@ -35,7 +35,8 @@ async function relist(client: QueryClient, teamId: string, change: (rows: Rows) 
 
   await client.cancelQueries({ queryKey })
   client.setQueryData<Rows>(queryKey, (rows) => rows && change(rows))
-  await client.invalidateQueries({ queryKey })
+  // Not awaited: the archive receipt and Undo follow the change, not the next listing.
+  void client.invalidateQueries({ queryKey })
 }
 
 /** An archived chat leaves the list, and an older listing cannot bring it back. */

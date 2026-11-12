@@ -71,12 +71,11 @@ test('Undo lists the chat again at once, in activity order, before any listing h
   const older = Promise.withResolvers<AgentConversation[]>()
 
   next = () => older.promise
-  const restoring = restoreChat(list.client, 't', chat('y', '2'))
-
-  await settle()
+  // Returns before the next listing lands, so Undo and the receipt never wait on the network.
+  await restoreChat(list.client, 't', chat('y', '2'))
   assert.deepEqual(list.ids(), ['x', 'y', 'z'])
   older.resolve([chat('x', '3'), chat('y', '2'), chat('z', '1')])
-  await restoring
+  await settle()
   assert.deepEqual(list.ids(), ['x', 'y', 'z'])
   list.stop()
   list.client.clear()
