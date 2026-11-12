@@ -19,6 +19,12 @@ export const teamMembersQuery = (
     staleTime: 60_000,
   })
 
+/** The same members, read again on mount for a view that decides something once from them. */
+export const teamMembersReadNow = (teamId: string, read?: ReadMembers) => ({
+  ...teamMembersQuery(teamId, read),
+  refetchOnMount: 'always' as const,
+})
+
 /** The members and the people who left, for lines that name who did something long ago. */
 export const teamRosterQuery = (
   teamId: string,
