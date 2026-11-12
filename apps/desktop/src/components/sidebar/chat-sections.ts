@@ -46,8 +46,12 @@ export function withChatSections(
     agents.items.flatMap((item) => item.channelAgentIds ?? item.botChannelOf ?? []),
   )
   const sessionOf = (item: Item) => item.key.replace('agent-session:', '')
+  const copies = new Set(agents.items.filter((item) => item.botNested).map((item) => item.key))
+  // A Bot without a chat that is copied under another Bot's chat is listed once, as the copy.
   const isChat = (item: Item) =>
-    item.channel || item.botNested || (item.bot && !chatted.has(sessionOf(item)))
+    item.channel ||
+    item.botNested ||
+    (item.bot && !chatted.has(sessionOf(item)) && !copies.has(item.key))
   // Read ancestry from the original rows, before Bot-chat copies reparent them.
   const originals = new Map(
     agents.items.filter((item) => !item.botNested).map((item) => [item.key, item]),
@@ -75,7 +79,6 @@ export function withChatSections(
     for (const botId of item.channelAgentIds ?? (item.botChannelOf ? [item.botChannelOf] : []))
       if (!chatByBot.has(botId)) chatByBot.set(botId, item.key)
   }
-  const copies = new Set(agents.items.filter((item) => item.botNested).map((item) => item.key))
   const chats = agents.items
     .filter((item) => isChat(item) || (owners.get(item.key) && !copies.has(item.key)))
     .map((item) => {
