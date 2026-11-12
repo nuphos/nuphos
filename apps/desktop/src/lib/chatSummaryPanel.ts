@@ -32,17 +32,12 @@ function shownElsewhere(paneId: string, sessionId: string): boolean {
 let pendingOpenFor: string | null = null
 let pendingOpenAt = 0
 
-/** A list the panel can be opened on. */
-type RevealSection = 'changes' | 'subAgents'
-
-// Bumped by each openChatSummaryChanges or openChatSummarySubAgents call, even
-// one that changes nothing else, so the panel can scroll to the list again.
-// `revealFor` is the chat whose `revealTarget` list should do so, asked at
-// `revealAt`, until that list takes it, the panel closes or
-// REVEAL_LIFETIME_MS passes.
+// Bumped by each openChatSummaryChanges call, even one that changes nothing
+// else, so the panel can scroll to the list again. `revealFor` is the chat
+// whose Changes list should do so, asked at `revealAt`, until that list takes
+// it, the panel closes or REVEAL_LIFETIME_MS passes.
 let revealRequest = 0
 let revealFor: string | null = null
-let revealTarget: RevealSection = 'changes'
 let revealAt = 0
 
 /** A reveal not taken by then is stale: coming back to the chat later should not scroll it. */
@@ -181,10 +176,9 @@ export function setSubAgentsFilter(next: SubAgentsFilter): void {
   notify()
 }
 
-function requestReveal(section: RevealSection, sessionId: string) {
+function requestReveal(sessionId: string) {
   revealRequest += 1
   revealFor = sessionId
-  revealTarget = section
   revealAt = Date.now()
   pendingOpenFor = null
 
@@ -202,14 +196,6 @@ function requestReveal(section: RevealSection, sessionId: string) {
   notify() // the request counter changed even if no pane opened
 }
 
-function takeReveal(section: RevealSection, sessionId: string, now: number): boolean {
-  if (revealFor !== sessionId || revealTarget !== section || now - revealAt > REVEAL_LIFETIME_MS)
-    return false
-  revealFor = null
-
-  return true
-}
-
 /**
  * Opens the panel on its Changes list showing only `filter`, as the merged
  * badge does, and asks the list of chat `sessionId` to come into view. Call it
@@ -218,7 +204,7 @@ function takeReveal(section: RevealSection, sessionId: string, now: number): boo
 export function openChatSummaryChanges(filter: ChangesFilter, sessionId: string): void {
   changesFilter = filter
   write(FILTER_KEY, filter)
-  requestReveal('changes', sessionId)
+  requestReveal(sessionId)
 }
 
 /**
@@ -227,23 +213,10 @@ export function openChatSummaryChanges(filter: ChangesFilter, sessionId: string)
  * view. Other chats' lists, such as another split's, leave it in place.
  */
 export function takeChangesReveal(sessionId: string, now = Date.now()): boolean {
-  return takeReveal('changes', sessionId, now)
-}
+  if (revealFor !== sessionId || now - revealAt > REVEAL_LIFETIME_MS) return false
+  revealFor = null
 
-/**
- * Opens the panel on its Sub-agents list showing only `filter`, and asks the
- * list of chat `sessionId` to come into view, as openChatSummaryChanges does
- * for Changes. Call it before or after switching to that chat.
- */
-export function openChatSummarySubAgents(filter: SubAgentsFilter, sessionId: string): void {
-  subAgentsFilter = filter
-  write(SUB_AGENTS_FILTER_KEY, filter)
-  requestReveal('subAgents', sessionId)
-}
-
-/** As takeChangesReveal, for an openChatSummarySubAgents call. */
-export function takeSubAgentsReveal(sessionId: string, now = Date.now()): boolean {
-  return takeReveal('subAgents', sessionId, now)
+  return true
 }
 
 function subscribe(listener: () => void) {
@@ -285,10 +258,7 @@ export function useSubAgentsFilter(): SubAgentsFilter {
   )
 }
 
-/**
- * Changes with every openChatSummaryChanges and openChatSummarySubAgents call;
- * pair with takeChangesReveal or takeSubAgentsReveal.
- */
+/** Changes with every openChatSummaryChanges call; pair with takeChangesReveal. */
 export function useSummaryRevealRequest(): number {
   return useSyncExternalStore(
     subscribe,

@@ -1,6 +1,6 @@
 import { rowIndicator } from '../../lib/subAgentState.ts'
 
-import { nestItems } from './nest-items.ts'
+import { sectionFolds } from './chat-sections.ts'
 
 import type { Item, Section } from './types'
 import type { RuntimeExecution } from '../../lib/runtimeExecution.ts'
@@ -43,7 +43,7 @@ export function chatRowToward(
 ): Item | undefined {
   const rows = sections
     .filter((section) => !section.title || !isCollapsed(section))
-    .flatMap((section) => nestItems(section.items, (key) => isCollapsed({ title: key })))
+    .flatMap((section) => sectionFolds(section, isCollapsed).nest())
     .filter(({ item }) => item.key.startsWith('agent-session:'))
   const current = rows.findIndex(
     ({ item, hidden }) => item.active === true || hidden.some((row) => row.active),

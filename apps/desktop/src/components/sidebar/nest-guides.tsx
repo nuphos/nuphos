@@ -1,10 +1,9 @@
-import { CircleCheck } from 'lucide-react'
+import { ChevronDown, ChevronRight, CircleCheck } from 'lucide-react'
 import { Fragment } from 'react'
 
 import { t } from '../../i18n'
-import { openChatSummarySubAgents } from '../../lib/chatSummaryPanel'
+import { Fenced } from '../SidebarRowParts'
 
-import type { Item } from './types'
 import type { ReactNode } from 'react'
 
 // Tree lines follow the icon centre of a 36px Tasks row.
@@ -82,31 +81,38 @@ function finishedThreadsLabel(n: number): string {
 }
 
 /**
- * Sub-agents that finished with nothing left to show, as one quiet count on
- * their parent row, like the merged badge. The tooltip names each of them.
- * The click also reaches the row, which opens the parent chat, and opens its
- * summary panel on the Done sub-agents. A click that opens the chat in a new
- * tab leaves this window's panel alone.
+ * Sub-agents that finished with nothing left running, as one quiet count on
+ * their parent row, like the merged badge. It opens and closes their done
+ * group: the finished rows listed under the parent, after the running ones.
  */
-export function FinishedThreadsBadge({ threads }: { threads: Item[] }) {
-  const n = threads.length
-  const parentKey = threads[0]?.parentKey
+export function FinishedThreadsBadge({
+  count,
+  open,
+  onToggle,
+}: {
+  count: number
+  open: boolean
+  onToggle: () => void
+}) {
+  const Chevron = open ? ChevronDown : ChevronRight
 
   return (
-    <span
-      onClick={(event) => {
-        const newTab = event.metaKey || event.ctrlKey
-
-        if (parentKey && !newTab) {
-          openChatSummarySubAgents('done', parentKey.slice('agent-session:'.length))
-        }
-      }}
-      title={[finishedThreadsLabel(n), ...threads.map((thread) => thread.label)].join('\n')}
-      className="inline-flex items-center gap-1 text-[11px] text-tertiary"
-    >
-      <CircleCheck aria-hidden className="size-3 shrink-0" />
-      <span aria-hidden>{n === 1 ? t('1 done') : t('{n} done', { n })}</span>
-      <span className="sr-only">{finishedThreadsLabel(n)}</span>
-    </span>
+    <Fenced>
+      <span
+        // No aria-expanded: the row reads that as its menu being open and pins its hover actions.
+        role="button"
+        title={finishedThreadsLabel(count)}
+        onClick={(event) => {
+          event.stopPropagation()
+          onToggle()
+        }}
+        className="-mx-1 inline-flex items-center gap-1 rounded px-1 text-[11px] text-tertiary hover:bg-[var(--sidebar-overlay-hover)] hover:text-main"
+      >
+        <CircleCheck aria-hidden className="size-3 shrink-0" />
+        <span aria-hidden>{count === 1 ? t('1 done') : t('{n} done', { n: count })}</span>
+        <Chevron aria-hidden className="size-3 shrink-0" strokeWidth={1.8} />
+        <span className="sr-only">{finishedThreadsLabel(count)}</span>
+      </span>
+    </Fenced>
   )
 }

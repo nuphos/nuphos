@@ -6,14 +6,11 @@ import {
   REVEAL_LIFETIME_MS,
   isChatSummaryOpen,
   openChatSummaryChanges,
-  openChatSummarySubAgents,
   setChangesFilter,
   setChatSummaryDocked,
   setChatSummaryOpen,
   setPaneSession,
-  setSubAgentsFilter,
   takeChangesReveal,
-  takeSubAgentsReveal,
   toggleChatSummary,
 } from './chatSummaryPanel.ts'
 
@@ -58,38 +55,6 @@ test('closing the panel drops the reveal, and choosing a filter asks for none', 
 
   setChangesFilter('open')
   assert.equal(takeChangesReveal('a'), false)
-
-  setPaneSession(PRIMARY_PANE_ID, null)
-})
-
-test('opening on Sub-agents asks that chat for one reveal, which the Changes list cannot take', () => {
-  openChatSummarySubAgents('done', 'a')
-  assert.equal(takeChangesReveal('a'), false)
-  assert.equal(takeSubAgentsReveal('b'), false)
-  assert.equal(takeSubAgentsReveal('a'), true)
-  assert.equal(takeSubAgentsReveal('a'), false)
-})
-
-test('opening on Changes replaces a Sub-agents reveal not yet taken', () => {
-  openChatSummarySubAgents('done', 'a')
-  openChatSummaryChanges('merged', 'a')
-  assert.equal(takeSubAgentsReveal('a'), false)
-  assert.equal(takeChangesReveal('a'), true)
-})
-
-test('a Sub-agents reveal expires and closing drops it; choosing a filter asks for none', () => {
-  const asked = Date.now()
-
-  setPaneSession(PRIMARY_PANE_ID, 'a')
-  openChatSummarySubAgents('done', 'a')
-  assert.equal(takeSubAgentsReveal('a', asked + REVEAL_LIFETIME_MS + 1000), false)
-
-  openChatSummarySubAgents('active', 'a')
-  setChatSummaryOpen(PRIMARY_PANE_ID, false)
-  assert.equal(takeSubAgentsReveal('a'), false)
-
-  setSubAgentsFilter('all')
-  assert.equal(takeSubAgentsReveal('a'), false)
 
   setPaneSession(PRIMARY_PANE_ID, null)
 })
