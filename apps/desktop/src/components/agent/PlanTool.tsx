@@ -3,7 +3,6 @@ import { useMemo } from 'react'
 import { isPlanReadyForApproval, planToPayload, planToProgress } from './plan-tool/planData'
 import { PlanStatusBadge } from './plan-tool/PlanStatusBadge'
 import { PlanTool } from './plan-tool/PlanToolCard'
-import { usePlanRetry } from './plan-tool/usePlanRetry'
 import { usePlan } from './planUpdates'
 
 import type { Plan } from '../../api'
@@ -48,7 +47,6 @@ export function PlanCard({
   fallback = null,
 }: PlanCardProps) {
   const { plan } = usePlan(planId, teamId, { keepPolling })
-  const retryState = usePlanRetry(plan, teamId)
   const payload = useMemo(() => (plan ? planToPayload(plan) : null), [plan])
   const progress = useMemo(() => (plan ? planToProgress(plan) : undefined), [plan])
 
@@ -67,13 +65,9 @@ export function PlanCard({
       approvalProgress={plan.approvalProgress}
       executionError={plan.executionError}
       canApprove={allowApprove}
-      canRetry={plan.status === 'failed' && !plan.actions?.length}
       canChat={canChat}
       onApprove={onApprove}
       onReject={onReject}
-      onRetry={retryState.retry}
-      retrying={retryState.retrying}
-      retryError={retryState.retryError}
       onChat={onChat}
       embedded={embedded}
       headerAction={headerAction}

@@ -231,7 +231,6 @@ export const agentApi = {
   agentGetPlanApprovalPolicy: (teamId: string) => window.api.agentGetPlanApprovalPolicy(teamId),
   agentUpdatePlanApprovalPolicy: (teamId: string, minimumOtherApprovals: number) =>
     window.api.agentUpdatePlanApprovalPolicy(teamId, minimumOtherApprovals),
-  agentRetryPlan: (planId: string, teamId?: string) => window.api.agentRetryPlan(planId, teamId),
   agentListTriggers: (teamId?: string) => window.api.agentListTriggers(teamId),
   agentListTriggerGroups: (teamId?: string) => window.api.agentListTriggerGroups(teamId),
   agentUpdateTriggerGroup: (groupId: string, patch: UpdateAgentTriggerGroupInput, teamId: string) =>
