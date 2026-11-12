@@ -14,6 +14,8 @@ import type { ReactNode } from 'react'
 
 export type Item = {
   /** Derived from actual execution, open requests and personal reminders. */
+  unread?: boolean
+  lastActiveAt?: string
   taskState?: 'attention' | 'working' | 'idle'
 
   key: string

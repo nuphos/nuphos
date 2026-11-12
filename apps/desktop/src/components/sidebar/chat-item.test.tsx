@@ -5,6 +5,7 @@ import { createElement, isValidElement } from 'react'
 
 import { ChatIcon } from '../channels/channelParts'
 
+import { botChatRows } from './bot-status'
 import { BotPinFace } from './BotPinFace'
 import { chatSidebarItem } from './chat-item'
 
@@ -42,4 +43,31 @@ test('a pinned face receives its actual rendering size rather than a larger wrap
   assert.ok(isValidElement<{ size: number; sidebar: boolean }>(result))
   assert.equal(result.props.size, 56)
   assert.equal(result.props.sidebar, false)
+})
+
+test('Bots show actual sub-agents directly, without a duplicate own Task', () => {
+  const chat = { ...item(), key: 'chat', channel: true, bot: false }
+  const bot = { conversation, runtimeState: undefined }
+  const kid = {
+    conversation: { ...conversation, sessionId: 'kid', parentSessionId: conversation.sessionId },
+    runtimeState: undefined,
+  }
+  const rows = botChatRows({
+    chat,
+    bot,
+    kids: [kid],
+    faces: [],
+    teamId: 'team-a',
+    unread: false,
+    openId: undefined,
+    fromBots: new Set(),
+  })
+
+  assert.deepEqual(
+    rows.map((row) => [row.key, row.parentKey]),
+    [
+      ['chat', undefined],
+      ['agent-session:kid', 'chat'],
+    ],
+  )
 })

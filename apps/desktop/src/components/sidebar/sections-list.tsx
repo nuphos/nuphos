@@ -246,21 +246,15 @@ export function SidebarSectionList({
                           return rowSessionId ? (
                             <div
                               key={item.key}
+                              data-task-reflow-key={item.task && !item.bot ? item.key : undefined}
                               className={clsx(
                                 't-collapse t-sidebar-session t-stagger relative transition-opacity duration-150',
-                                item.task &&
-                                  !item.bot &&
-                                  item.taskState === 'idle' &&
-                                  !isActive &&
-                                  'opacity-50 hover:opacity-100 focus-within:opacity-100',
                                 archivingIds.has(rowSessionId) ? 'is-hiding' : 'is-shown',
                               )}
                               title={
                                 item.task && !item.bot && item.taskState === 'working'
                                   ? t('Working')
-                                  : item.task && !item.bot && item.taskState === 'idle'
-                                    ? t('Idle')
-                                    : undefined
+                                  : undefined
                               }
                               data-open={archivingIds.has(rowSessionId) ? 'false' : 'true'}
                             >

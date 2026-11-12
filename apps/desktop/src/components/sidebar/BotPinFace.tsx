@@ -10,7 +10,7 @@ export function BotPinFace({ item, size }: { item: Item; size: number }) {
   const face = item.face ?? item.iconNode
 
   if (isValidElement<ComponentProps<typeof ChatIcon>>(face) && face.type === ChatIcon)
-    return cloneElement(face, { size, sidebar: false })
+    return cloneElement(face, { size, sidebar: false, looping: item.labelShimmer })
 
   return (
     <span className="inline-flex items-center justify-center" style={{ width: size, height: size }}>
