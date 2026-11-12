@@ -88,7 +88,7 @@ useIdentity({
 })
 const bypass = new Map<string, Record<string, unknown>>()
 const events: { conversationId: string; event: string }[] = []
-const moves: { sessionId: string; runtimeId: string; mode: string; userId: string }[] = []
+const moves: { sessionId: string; runtimeId: string; userId: string }[] = []
 // Each conversation's selection as list_credentials reads it, and the fields grants write.
 const selections = new Map<string, Partial<AgentCredentialAccess>>()
 const writes: { sessionId: string; fields: Partial<Record<string, string[]>> }[] = []
@@ -149,10 +149,10 @@ useDb({
   }),
 })
 useConversationRuntimeMove({
-  moveConversationRuntime: async (conversation, runtimeId, mode, userId) => {
-    moves.push({ sessionId: conversation.sessionId, runtimeId, mode, userId })
+  moveConversationRuntime: async (conversation, runtimeId, userId) => {
+    moves.push({ sessionId: conversation.sessionId, runtimeId, userId })
 
-    return { runtimeId, runtimeLabel: 'Other', agentRuntime: 'codex', mode }
+    return { runtimeId, runtimeLabel: 'Other', agentRuntime: 'codex' }
   },
 })
 useRuntimeCatalog({
@@ -683,18 +683,14 @@ describe('conversation-scoped thread tools', () => {
     const { threadId } = await createAgentThread(actor, 'Work', 'Task')
     const result = await updateThread(actor, threadId, { runtimeId: 'runtime-2' })
 
-    expect(moves).toEqual([
-      { sessionId: threadId, runtimeId: 'runtime-2', mode: 'history', userId: 'owner' },
-    ])
+    expect(moves).toEqual([{ sessionId: threadId, runtimeId: 'runtime-2', userId: 'owner' }])
     expect(result.runtime?.runtimeId).toBe('runtime-2')
   })
 
   test('moves an owned conversation that is not nested here, e.g. one past its usage limit', async () => {
     await updateThread(actor, 'target', { runtimeId: 'runtime-2' })
 
-    expect(moves).toEqual([
-      { sessionId: 'target', runtimeId: 'runtime-2', mode: 'history', userId: 'owner' },
-    ])
+    expect(moves).toEqual([{ sessionId: 'target', runtimeId: 'runtime-2', userId: 'owner' }])
   })
 
   test("lists the team's agents and the owner's Boxes, never a computer", async () => {

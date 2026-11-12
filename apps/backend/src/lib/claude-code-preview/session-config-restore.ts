@@ -3,7 +3,7 @@ import { sessionMeta } from './openab-acp-session'
 import { runtimeProvider } from './runtime-provider'
 import { storedPick } from './session-config-options'
 import { workspaceDirectory } from './session-context'
-import { previewRuntimeCwd } from './team-openab-runtime'
+import { RUNTIME_CWD } from './team-openab-runtime'
 
 import type { AgentConversation } from '@/lib/agent/db'
 
@@ -40,7 +40,7 @@ export async function sessionConfigRestoreContext(
   })
 
   return {
-    cwd: previewRuntimeCwd(conversation.sessionId),
+    cwd: RUNTIME_CWD,
     mcpServers: access.mcpServers,
     ...sessionMeta(systemPrompt, {
       provider,

@@ -15,7 +15,6 @@ export const agentApi = {
     sessionId: string,
     teamId: string,
     runtimeId: string,
-    mode: 'history' | 'workspace',
     grantComputerUse?: boolean,
   ) =>
     ipcRenderer.invoke(
@@ -23,7 +22,6 @@ export const agentApi = {
       sessionId,
       teamId,
       runtimeId,
-      mode,
       grantComputerUse,
     ),
   agentCheckConversationMove: (sessionId: string, teamId: string, runtimeId: string) =>

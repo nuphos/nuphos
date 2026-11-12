@@ -30,7 +30,7 @@ import { observeSession, resumeSessionOn } from './session-reattach'
 import {
   MAX_PREVIEW_CONVERSATION_ID_LENGTH,
   cancelActiveTeamTurn,
-  previewRuntimeCwd,
+  RUNTIME_CWD,
 } from './team-openab-runtime'
 import { renewTurnCredentials } from './turn-credential-renewal'
 import { RuntimeStateProbeError } from './turn-diagnostics'
@@ -209,7 +209,7 @@ export async function runClaudeCodePreviewPrompt(args: {
     ) {
       const { alive } = await client.loadSession(
         session.openabSessionId,
-        previewRuntimeCwd(session.conversationId),
+        RUNTIME_CWD,
         nextContext.mcpServers,
         nextContext.systemPrompt,
         nextContext.runtime,

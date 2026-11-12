@@ -329,7 +329,6 @@
   "redis.operation.failed",
   "redis.subscriber.forced_reconnect",
   "relay.status_unavailable",
-  "runtime.archive.previous_cleanup_failed",
   "runtime.deletion.paused",
   "runtime.deletion.placement_abandoned",
   "runtime.image_tag_unpublished",

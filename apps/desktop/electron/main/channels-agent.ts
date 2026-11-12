@@ -80,9 +80,8 @@ export const agentChannels = {
     sessionId: string,
     teamId: string,
     runtimeId: string,
-    mode: 'history' | 'workspace',
     grantComputerUse?: boolean,
-  ) => agent.moveConversationRuntime(sessionId, teamId, runtimeId, mode, grantComputerUse),
+  ) => agent.moveConversationRuntime(sessionId, teamId, runtimeId, grantComputerUse),
   'agent:renameConversation': (_e: unknown, sessionId: string, title: string, teamId?: string) =>
     agent.renameConversation(sessionId, title, teamId),
   'agent:setConversationArchived': (
