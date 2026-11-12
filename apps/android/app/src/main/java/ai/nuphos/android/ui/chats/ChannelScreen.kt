@@ -195,6 +195,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
 @Composable
 internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>, viewerId: String?, onLink: (String) -> Unit, allowed: () -> Boolean = { true },
                                 downloads: TransferDownloads = remember { TransferDownloads() }, onSwitchAgent: ((String) -> Unit)? = null) {
+    val store = LocalAgentStore.current
     val state = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val typing = (items.lastOrNull() as? ChannelItem.Typing)?.agents.orEmpty()

@@ -161,7 +161,7 @@ class ChannelSession(
         if (readOnly || !allowed() || (text.isEmpty() && submission.attachments.isEmpty())) return false
         // The same post is the same words and the same attached files (their own ids, not their
         // names): a post put back after a failure keeps its id, while a newly picked file never does.
-        val reply = replying.takeIf { question == null }
+        val reply = replying
         val key = (listOf(reply?.id.orEmpty(), text) + submission.attachments.map { it.id }).joinToString("\n")
         val id = retry?.takeIf { it.first == key }?.second ?: newId()
         retry = key to id
