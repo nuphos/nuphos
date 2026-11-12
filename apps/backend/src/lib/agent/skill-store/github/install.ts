@@ -5,6 +5,7 @@ import {
   MAX_SKILL_UPLOAD_BYTES,
   putSkillObjects,
   skillObjectKeyForName,
+  skillPackageExists,
   validateSkillName,
   validateSkillRelativePath,
 } from '@/lib/agent/skill-store/service'
@@ -45,7 +46,8 @@ export type GithubSkillPreview = {
 }
 
 export async function fetchRepoArchive(source: GithubSkillSource, ref: string | null) {
-  const url = `https://codeload.github.com/${source.owner}/${source.repo}/tar.gz/${ref ?? 'HEAD'}`
+  const path = (ref ?? 'HEAD').split('/').map(encodeURIComponent).join('/')
+  const url = `https://codeload.github.com/${source.owner}/${source.repo}/tar.gz/${path}`
   const response = await pinnedFetch(url, { signal: AbortSignal.timeout(60_000) })
 
   if (response.status === 404)
@@ -117,9 +119,14 @@ async function assess(
 
 async function candidates(scope: string, archive: RepoArchive, subpath: string | null) {
   const [builtin, manifest] = await Promise.all([listBuiltinSkillNames(), getSkillManifest(scope)])
-  const taken = { builtin: new Set(builtin), existing: new Set(manifest.skills.map((s) => s.name)) }
   const found = discoverSkills(archive.files, subpath)
   const listed = found.slice(0, GITHUB_SKILL_LIMITS.listed)
+  const existing = new Set(manifest.skills.map((s) => s.name))
+
+  // A truncated manifest can miss stored skills, so look each candidate up directly.
+  if (manifest.truncated)
+    for (const { name } of listed) if (await skillPackageExists(scope, name)) existing.add(name)
+  const taken = { builtin: new Set(builtin), existing }
   const assessed = await Promise.all(
     listed.map(async (skill) => {
       const prefix = skill.path ? `${skill.path}/` : ''
@@ -192,6 +199,13 @@ export async function installGithubSkills(
     return entry
   })
 
+  for (const { skill } of chosen)
+    if (await skillPackageExists(scope, skill.name))
+      throw new AppError(
+        409,
+        'skill_exists',
+        `${skill.name}: A skill with this name already exists`,
+      )
   for (const { skill } of chosen) {
     const writes = [...skill.files].map(([path, body]) => ({
       key: skillObjectKeyForName(skill.name, path),

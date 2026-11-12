@@ -34,6 +34,8 @@ const download = async (_source: unknown, ref: string | null) => {
 let refs: (string | null)[] = []
 let writes: SkillObjectWrite[][] = []
 let origins: Record<string, unknown>[] = []
+let stored = new Set<string>()
+let truncated = false
 
 useSkillStoreService({
   listBuiltinSkillNames: async () => ['kubectl'],
@@ -41,9 +43,10 @@ useSkillStoreService({
     scope,
     skills: [{ name: 'existing' }],
     orphans: [],
-    truncated: false,
+    truncated,
     limit: 5000,
   }),
+  skillPackageExists: async (_scope, name) => stored.has(name),
   putSkillObjects: async (_scope, batch) => {
     writes.push(batch)
 
@@ -69,6 +72,8 @@ beforeEach(() => {
   refs = []
   writes = []
   origins = []
+  stored = new Set()
+  truncated = false
 })
 const context = { mutationId: 'req-1', actor: { userId: 'u1', source: 'import' as const } }
 
@@ -125,6 +130,27 @@ describe('GitHub skill install', () => {
     )
 
     await expect(attempt).rejects.toMatchObject({ code: 'skill_not_installable' })
+    expect(writes).toEqual([])
+  })
+
+  test('a truncated manifest falls back to looking each skill up', async () => {
+    truncated = true
+    stored = new Set(['pdf'])
+    const preview = await previewGithubSkills(scope, 'o/r', download)
+
+    expect(preview.skills.find((s) => s.name === 'pdf')?.problem?.code).toBe('exists')
+  })
+
+  test('install refuses a name stored since the preview', async () => {
+    stored = new Set(['pdf'])
+    const attempt = installGithubSkills(
+      scope,
+      { source: 'o/r', commitSha: sha, names: ['pdf'] },
+      context,
+      download,
+    )
+
+    await expect(attempt).rejects.toMatchObject({ code: 'skill_exists' })
     expect(writes).toEqual([])
   })
 
