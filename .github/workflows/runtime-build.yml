@@ -295,6 +295,10 @@ jobs:
   publish:
     needs: [plan, build]
     runs-on: ubuntu-24.04
+    # This job checks nothing out, so the workflow default (apps/runtime) does not exist here.
+    defaults:
+      run:
+        working-directory: .
     permissions:
       contents: read
       packages: write
