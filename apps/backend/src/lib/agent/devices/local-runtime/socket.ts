@@ -24,6 +24,7 @@ export type DeviceRuntimeSocketDeps = {
   bus: TunnelBus
   presence: LocalRuntimePresenceStore
   livenessMs?: number
+  closeRetryMs?: number
 }
 
 export type DeviceStreamTarget = {
@@ -42,6 +43,10 @@ const CONNECTING = 0
 const OPEN = 1
 const CLOSED = 3
 const DEFAULT_LIVENESS_MS = 10_000
+// A close the holder missed leaves the computer's side open, and the runtime
+// waiting on it; it is sent again until a holder hears it.
+const CLOSE_RETRY_MS = 1_000
+const CLOSE_RETRIES = 30
 const OFFLINE_REASON = 'The computer running this agent is offline'
 const CAPABILITY: Partial<Record<TunnelPurpose, keyof LocalRuntimeStatus>> = {
   attachments: 'localAttachments',
@@ -105,12 +110,12 @@ export class DeviceRuntimeSocket {
 
   close(): void {
     if (this.readyState === CLOSED) return
-    void this.toHolder({ t: 'close', s: this.streamId })
     this.finish(1000, '')
+    void this.closeOnHolder()
   }
 
   /** Logs which check found the computer unreachable, since the person only sees "offline". */
-  private fail(stage: 'connect' | 'liveness', cause: string, error?: unknown): void {
+  private fail(stage: 'connect' | 'liveness' | 'send', cause: string, error?: unknown): void {
     const { userId, deviceId, purpose, provider, instanceId } = this.target
 
     logEvent('warn', 'agent.local_runtime.stream_failed', {
@@ -130,10 +135,29 @@ export class DeviceRuntimeSocket {
     for (const listener of this.listeners.get(type) ?? []) listener(event)
   }
 
-  private toHolder(message: HolderMessage): Promise<void> {
+  /** A frame no holder received is lost, so the stream ends instead of carrying on without it. */
+  private async toHolder(message: HolderMessage): Promise<void> {
+    const delivered = await this.publishToHolder(message)
+
+    if (delivered || this.readyState === CLOSED) return
+    this.fail('send', 'undelivered')
+    void this.closeOnHolder()
+  }
+
+  private publishToHolder(message: HolderMessage): Promise<boolean> {
     return this.deps.bus
       .publish(holderChannel(this.target.userId, this.target.deviceId), JSON.stringify(message))
-      .catch(() => {})
+      .then(
+        (received) => received > 0,
+        () => false,
+      )
+  }
+
+  private async closeOnHolder(): Promise<void> {
+    for (let attempt = 0; attempt < CLOSE_RETRIES; attempt++) {
+      if (await this.publishToHolder({ t: 'close', s: this.streamId })) return
+      await new Promise((resolve) => setTimeout(resolve, this.deps.closeRetryMs ?? CLOSE_RETRY_MS))
+    }
   }
 
   private finish(code: number, reason: string): void {
@@ -203,8 +227,8 @@ export class DeviceRuntimeSocket {
       .catch(() => null)
 
     if (presence?.conn === this.conn || this.readyState === CLOSED) return
-    void this.toHolder({ t: 'close', s: this.streamId })
     this.fail('liveness', presence ? 'tunnel_replaced' : 'no_presence')
+    void this.closeOnHolder()
   }
 }
 

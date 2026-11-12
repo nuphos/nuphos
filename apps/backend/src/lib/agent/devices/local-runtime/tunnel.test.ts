@@ -2,7 +2,7 @@ import { afterEach, describe, expect, spyOn, test } from 'bun:test'
 
 import { localRuntimeUrl } from './address'
 import { createLocalTunnelBus } from './bus'
-import { holderChannel } from './protocol'
+import { holderChannel, streamChannel } from './protocol'
 import { attachRuntimeTunnel, connectedComputerCount, TUNNEL_CLOSE_SUPERSEDED } from './holder'
 import { createMemoryPresenceStore } from './presence'
 import { processSingleton } from './singleton'
@@ -108,7 +108,7 @@ function openStream(
   const socket = openLocalRuntimeSocket(
     localRuntimeUrl(owner, teamId, actorId),
     ['openab.bearer.transport', 'acp.v1'],
-    { bus, presence, livenessMs: 60_000 },
+    { bus, presence, livenessMs: 60_000, closeRetryMs: 5 },
   )
   const events: { type: string; data?: unknown; reason?: string }[] = []
 
@@ -462,7 +462,7 @@ test('losing the command bus also loses heartbeat and takes the device offline',
   let broken = false
   const brokenBus: TunnelBus = {
     ...bus,
-    publish: (channel, message) => (broken ? Promise.resolve() : bus.publish(channel, message)),
+    publish: (channel, message) => (broken ? Promise.resolve(0) : bus.publish(channel, message)),
   }
   const presence = createMemoryPresenceStore()
   const desktop = await connectDesktop(brokenBus, presence, new Set(['t1']), {
@@ -545,4 +545,58 @@ test('every usage report is handed to the recorder with its device', async () =>
     ['u1', 'd1', 10],
     ['u1', 'd1', 20],
   ])
+})
+
+/** A bus whose channels can stop listening, as a subscriber does while it reconnects. */
+function gappyBus() {
+  const inner = createLocalTunnelBus()
+  const deaf = new Set<string>()
+  const bus: TunnelBus = {
+    ...inner,
+    publish: (channel, message) =>
+      deaf.has(channel) ? Promise.resolve(0) : inner.publish(channel, message),
+  }
+
+  return { bus, deaf }
+}
+
+describe('a frame nobody receives', () => {
+  test('from the backend: the stream ends, and the computer still hears the close', async () => {
+    const { bus, deaf } = gappyBus()
+    const presence = createMemoryPresenceStore()
+    const desktop = await connectDesktop(bus, presence, new Set(['t1']), { echo: true })
+    const { socket, events } = openStream(bus, presence, 't1')
+
+    await eventually(() => events.some((event) => event.type === 'open'))
+    const s = desktop.frames.find((frame) => frame.t === 'open')!.s
+
+    deaf.add(holderChannel(owner.userId, owner.deviceId))
+    socket.send('{"jsonrpc":"2.0","id":7,"result":{"outcome":{"outcome":"selected"}}}')
+    await eventually(() => events.some((event) => event.type === 'close'))
+    expect(desktop.frames.some((frame) => frame.t === 'data')).toBe(false)
+
+    deaf.clear()
+    await eventually(() => desktop.frames.some((frame) => frame.t === 'close' && frame.s === s))
+  })
+
+  test('from the computer: it ends there, and the backend learns on its next frame', async () => {
+    const { bus, deaf } = gappyBus()
+    const presence = createMemoryPresenceStore()
+    const desktop = await connectDesktop(bus, presence, new Set(['t1']))
+    const { socket, events } = openStream(bus, presence, 't1')
+
+    await eventually(() => desktop.frames.some((frame) => frame.t === 'open'))
+    const s = desktop.frames.find((frame) => frame.t === 'open')!.s
+
+    desktop.send({ t: 'opened', s })
+    await eventually(() => events.some((event) => event.type === 'open'))
+    deaf.add(streamChannel(s))
+    desktop.send({ t: 'data', s, d: '{"jsonrpc":"2.0","method":"session/request_permission"}' })
+    await eventually(() => desktop.frames.some((frame) => frame.t === 'close' && frame.s === s))
+
+    deaf.clear()
+    socket.send('{"jsonrpc":"2.0","id":1,"result":{}}')
+    await eventually(() => events.some((event) => event.type === 'close'))
+    expect(events.find((event) => event.type === 'close')?.reason).toContain('lost')
+  })
 })

@@ -5,7 +5,8 @@ import { processSingleton } from './singleton'
 export type TunnelBusHandler = (message: string) => void
 
 export type TunnelBus = {
-  publish(channel: string, message: string): Promise<void>
+  /** How many subscribers received the message: pub/sub keeps nothing for one that is not listening. */
+  publish(channel: string, message: string): Promise<number>
   /** Resolves once the subscription is live, so a publish that follows cannot race past it. */
   subscribe(channel: string, handler: TunnelBusHandler): Promise<() => void>
   /** Replaces a subscription that stopped delivering; ioredis resubscribes on the new connection. */
@@ -38,7 +39,7 @@ export function createLocalTunnelBus(): TunnelBus {
         deliver(handlers, channel, message)
       })
 
-      return Promise.resolve()
+      return Promise.resolve(handlers.get(channel)?.size ?? 0)
     },
     subscribe(channel, handler) {
       const set = handlers.get(channel) ?? new Set()
@@ -69,8 +70,8 @@ export function createRedisTunnelBus(): TunnelBus {
   }
 
   return {
-    async publish(channel, message) {
-      await getRedis().publish(channel, message)
+    publish(channel, message) {
+      return getRedis().publish(channel, message)
     },
     reconnect: reconnectSubscriber,
     async subscribe(channel, handler) {
