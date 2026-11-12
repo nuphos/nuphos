@@ -12,6 +12,8 @@ import type { PermissionGrantProposalView, TeamMember } from '../../types'
 
 type SelectionArgs = {
   teamId: string
+  /** Only the viewer's own plans, as the first page was loaded. */
+  mine: boolean
   filter: string
   state: LoadState
   setState: React.Dispatch<React.SetStateAction<LoadState>>
@@ -27,6 +29,7 @@ type SelectionArgs = {
 
 export function usePlansSelection({
   teamId,
+  mine,
   filter,
   state,
   setState,
@@ -45,7 +48,7 @@ export function usePlansSelection({
 
     setLoadingMore(true)
     try {
-      const page = await api.agentListPlans({ teamId, limit: PAGE_SIZE, cursor })
+      const page = await api.agentListPlans({ teamId, limit: PAGE_SIZE, cursor, mine })
 
       setState((prev) => {
         if (prev.kind !== 'ready') return prev
@@ -63,7 +66,7 @@ export function usePlansSelection({
     } finally {
       setLoadingMore(false)
     }
-  }, [state, loadingMore, teamId, setLoadingMore, setState])
+  }, [state, loadingMore, teamId, mine, setLoadingMore, setState])
 
   const selectedRow = useMemo<Row | null>(() => {
     if (!selectedId || state.kind !== 'ready') return null

@@ -24,6 +24,9 @@ export type LoadState =
 
 export const PAGE_SIZE = 50
 
+/** Which plans the library lists: the viewer's own, or the whole team's. */
+export type PlanScope = 'mine' | 'team'
+
 // Statuses that can still be abandoned ("mark as unplanned"). Terminal states
 // (completed / failed / rejected / cancelled) can't.
 export const CANCELLABLE_STATUSES: ReadonlySet<PlanLifecycleStatus> = new Set([

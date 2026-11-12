@@ -23,12 +23,16 @@ struct PlansPage: View {
 
         content
             .safeAreaInset(edge: .top, spacing: 0) {
-                if isSearching {
-                    SearchBar(text: $plans.search, placeholder: "Search plans") {
-                        plans.search = ""
-                        isSearching = false
+                VStack(spacing: 0) {
+                    if isSearching {
+                        SearchBar(text: $plans.search, placeholder: "Search plans") {
+                            plans.search = ""
+                            isSearching = false
+                        }
+                        .transition(.move(edge: .top).combined(with: .opacity))
                     }
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                    // Outside the list, so it stays reachable when one side has no plans.
+                    scopePicker
                 }
             }
             .animation(.snappy(duration: 0.25), value: isSearching)
@@ -164,6 +168,19 @@ struct PlansPage: View {
                     .buttonStyle(.bordered)
             }
         }
+    }
+
+    private var scopePicker: some View {
+        Picker("Plans", selection: Binding(
+            get: { plans.scope },
+            set: { scope in Task { await plans.show(scope) } }
+        )) {
+            Text("Mine").tag(PlansStore.Scope.mine)
+            Text("Team").tag(PlansStore.Scope.team)
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
     }
 
     private var list: some View {

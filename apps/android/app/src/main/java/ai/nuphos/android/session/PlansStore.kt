@@ -35,6 +35,9 @@ class PlansStore(private val token: String) {
         private set
     var actionError: String? by mutableStateOf(null)
 
+    /** Mine by default, like the desktop: a member mostly looks for their own plans. */
+    var mine by mutableStateOf(true)
+        private set
     var showDismissed by mutableStateOf(false)
     var search by mutableStateOf("")
 
@@ -84,7 +87,7 @@ class PlansStore(private val token: String) {
         val generation = loadGeneration
         if (plans.isEmpty()) phase = Phase.Loading
         try {
-            val page = AgentChatApi.listPlans(token, teamId, pageSize)
+            val page = AgentChatApi.listPlans(token, teamId, pageSize, mine = mine)
             if (generation != loadGeneration) return
             plans = page.plans
             nextCursor = page.nextCursor
@@ -108,11 +111,21 @@ class PlansStore(private val token: String) {
         val teamId = teamId
         if (teamId == null || phase != Phase.Loaded || isLoadingMore || plans.size > pageSize) return
         val generation = loadGeneration
-        val page = runCatching { AgentChatApi.listPlans(token, teamId, pageSize) }.getOrNull() ?: return
+        val page = runCatching { AgentChatApi.listPlans(token, teamId, pageSize, mine = mine) }.getOrNull() ?: return
         if (generation != loadGeneration) return
         plans = page.plans
         nextCursor = page.nextCursor
         hasMore = page.hasMore
+    }
+
+    /** Switches between the member's own plans and the team's, starting again from the first page. */
+    suspend fun showMine(mine: Boolean) {
+        if (mine == this.mine) return
+        this.mine = mine
+        plans = emptyList()
+        nextCursor = null
+        hasMore = false
+        reload()
     }
 
     suspend fun loadMore() {
@@ -122,7 +135,7 @@ class PlansStore(private val token: String) {
         isLoadingMore = true
         val generation = loadGeneration
         try {
-            val page = AgentChatApi.listPlans(token, teamId, pageSize, cursor)
+            val page = AgentChatApi.listPlans(token, teamId, pageSize, cursor, mine)
             if (generation != loadGeneration) return
             val seen = plans.map { it.id }.toSet()
             plans = plans + page.plans.filter { it.id !in seen }

@@ -12,6 +12,11 @@ final class PlansStore {
 
     static let pageSize = 50
 
+    /// Whose plans the library lists: the member's own agents', or the whole team's.
+    enum Scope: Hashable {
+        case mine, team
+    }
+
     private(set) var teamId: String?
     private(set) var plans: [Plan] = []
     private(set) var phase: Phase = .idle
@@ -24,6 +29,8 @@ final class PlansStore {
     /// The most recent mutation failure, for an alert.
     var actionError: String?
 
+    /// Mine by default, like the desktop: a member mostly looks for their own plans.
+    private(set) var scope: Scope = .mine
     /// Default list hides dismissed (rejected / cancelled) plans.
     var showDismissed = false
     /// Client-side, like the desktop: an exact plan number or a title substring.
@@ -86,7 +93,7 @@ final class PlansStore {
         async let membersTask = try? NuphosAPI.teamMembers(token: token, teamId: teamId)
         async let policyTask = try? AgentChatAPI.planApprovalPolicy(token: token, teamId: teamId)
         do {
-            let page = try await AgentChatAPI.listPlans(token: token, teamId: teamId, limit: Self.pageSize)
+            let page = try await AgentChatAPI.listPlans(token: token, teamId: teamId, limit: Self.pageSize, mine: scope == .mine)
             guard generation == loadGeneration else { return }
             plans = page.plans
             nextCursor = page.nextCursor
@@ -105,11 +112,21 @@ final class PlansStore {
     func silentRefresh() async {
         guard let teamId, phase == .loaded, !isLoadingMore, plans.count <= Self.pageSize else { return }
         let generation = loadGeneration
-        guard let page = try? await AgentChatAPI.listPlans(token: token, teamId: teamId, limit: Self.pageSize),
+        guard let page = try? await AgentChatAPI.listPlans(token: token, teamId: teamId, limit: Self.pageSize, mine: scope == .mine),
               generation == loadGeneration else { return }
         plans = page.plans
         nextCursor = page.nextCursor
         hasMore = page.hasMore
+    }
+
+    /// Switches between the member's own plans and the team's, starting again from the first page.
+    func show(_ scope: Scope) async {
+        guard scope != self.scope else { return }
+        self.scope = scope
+        plans = []
+        nextCursor = nil
+        hasMore = false
+        await reload()
     }
 
     func loadMore() async {
@@ -118,7 +135,7 @@ final class PlansStore {
         defer { isLoadingMore = false }
         let generation = loadGeneration
         do {
-            let page = try await AgentChatAPI.listPlans(token: token, teamId: teamId, limit: Self.pageSize, cursor: cursor)
+            let page = try await AgentChatAPI.listPlans(token: token, teamId: teamId, limit: Self.pageSize, cursor: cursor, mine: scope == .mine)
             guard generation == loadGeneration else { return }
             let seen = Set(plans.map(\.id))
             plans.append(contentsOf: page.plans.filter { !seen.contains($0.id) })

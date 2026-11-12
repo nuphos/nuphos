@@ -206,11 +206,13 @@ object AgentChatApi {
         return decodePlan(data)
     }
 
-    suspend fun listPlans(token: String, teamId: String, limit: Int = 50, cursor: String? = null): PlanListPage {
+    /** `mine` keeps the caller's own plans; otherwise every plan in the team they can read. */
+    suspend fun listPlans(token: String, teamId: String, limit: Int = 50, cursor: String? = null, mine: Boolean = false): PlanListPage {
         val query = buildList {
             add("teamId" to teamId)
             add("limit" to limit.toString())
             if (cursor != null) add("cursor" to cursor)
+            if (mine) add("mine" to "1")
         }
         val json = JsonValue.parse(send("GET", "agent/plans", token, query)) ?: throw NuphosApi.Failure.InvalidResponse
         return PlanListPage(

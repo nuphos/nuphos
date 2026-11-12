@@ -388,11 +388,12 @@ enum AgentChatAPI {
         return try decodePlan(data)
     }
 
-    /// `GET /agent/plans?teamId=&limit=&cursor=` — newest first; `cursor` is
-    /// the `createdAt` of the previous page's last row.
-    static func listPlans(token: String, teamId: String, limit: Int = 50, cursor: String? = nil) async throws -> PlanListPage {
+    /// `GET /agent/plans?teamId=&limit=&cursor=&mine=` — newest first; `cursor` is
+    /// the `createdAt` of the previous page's last row; `mine` keeps the caller's own plans.
+    static func listPlans(token: String, teamId: String, limit: Int = 50, cursor: String? = nil, mine: Bool = false) async throws -> PlanListPage {
         var query = [URLQueryItem(name: "teamId", value: teamId), URLQueryItem(name: "limit", value: String(limit))]
         if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }
+        if mine { query.append(URLQueryItem(name: "mine", value: "1")) }
         let data = try await send("GET", "agent/plans", query: query, token: token, body: Optional<Int>.none)
         let json = try JSONDecoder().decode(JSONValue.self, from: data)
         return PlanListPage(

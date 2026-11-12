@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { AlertCircle, Ban, ClipboardList, Settings2, ShieldCheck } from 'lucide-react'
+import { AlertCircle, ClipboardList, Settings2, ShieldCheck } from 'lucide-react'
 import { createPortal } from 'react-dom'
 
 import { ContextMenu } from '../components/ContextMenu'
@@ -12,6 +12,7 @@ import { planNumberFromFilter } from '../lib/planRoute'
 
 import { PlanApprovalPolicyModal } from './plans/PlanApprovalPolicyModal'
 import { PermissionRequestDetail } from './plans/PlanCells'
+import { PlansToolbarFilters } from './plans/PlansToolbarFilters'
 import { buildPlanColumns } from './plans/planColumns'
 import { PlanDetailView } from './plans/PlanDetailView'
 import { usePlanRowActions } from './plans/usePlanRowActions'
@@ -111,11 +112,15 @@ function PlansListView({
     openPolicy,
     savePolicy,
     rows,
+    scope,
+    setScope,
+    hasDismissed,
     dismissedSlot,
     configureSlot,
   } = core
   const { loadMore, selectedRow, membersById } = usePlansSelection({
     teamId,
+    mine: scope === 'mine',
     filter,
     state,
     setState,
@@ -177,14 +182,13 @@ function PlansListView({
       >
         {dismissedSlot &&
           createPortal(
-            <button
-              type="button"
-              onClick={() => setShowDismissed((v) => !v)}
-              className="inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] text-tertiary transition-colors hover:bg-state-hover hover:text-secondary"
-            >
-              <Ban className="h-3.5 w-3.5" strokeWidth={1.8} />
-              {showDismissed ? t('Hide dismissed') : t('Show dismissed')}
-            </button>,
+            <PlansToolbarFilters
+              scope={scope}
+              onScopeChange={setScope}
+              showDismissed={showDismissed}
+              onToggleDismissed={() => setShowDismissed((v) => !v)}
+              hasDismissed={hasDismissed}
+            />,
             dismissedSlot,
           )}
         {configureSlot &&
@@ -210,7 +214,7 @@ function PlansListView({
         </div>
         {state.kind === 'ready' &&
         state.plans.length === 0 &&
-        proposals.length === 0 &&
+        rows.length === 0 &&
         !filter.trim() ? (
           <EmptyState
             icon={ClipboardList}
