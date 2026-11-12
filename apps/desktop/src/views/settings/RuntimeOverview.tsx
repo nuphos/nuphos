@@ -10,10 +10,8 @@ import {
 import { PanelHeading, PanelStat } from './RuntimePanel'
 import { QUOTA_FILL_CLASS, QUOTA_LABEL_CLASS, formatUptime } from './runtimePresentation'
 
+import type { PolledRuntimeStatus } from '../../lib/query/runtime'
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
-import type { OpenAbRuntimeStatus } from '../../types/team'
-
-export type PolledRuntimeStatus = OpenAbRuntimeStatus & { fetchedAtMs: number }
 
 /** One stat per provider usage window — or, when the agent could not report
  *  them, why. This is where a reason belongs: the composer's chip shows a

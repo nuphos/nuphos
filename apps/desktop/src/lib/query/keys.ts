@@ -11,4 +11,14 @@ export const queryKeys = {
   channelMentions: (teamId: string) => [...queryKeys.team(teamId), 'channel-mentions'] as const,
   channel: (teamId: string, channelId: string) =>
     [...queryKeys.team(teamId), 'channel', channelId] as const,
+  runtimeInstances: (teamId: string) => [...queryKeys.team(teamId), 'runtime-instances'] as const,
+  runtimeQuotas: (teamId: string) => [...queryKeys.team(teamId), 'runtime-quotas'] as const,
+  runtimeQuotaHistory: (teamId: string, range: string) =>
+    [...queryKeys.team(teamId), 'runtime-quota-history', range] as const,
+  /** Under `runtimeInstances`, so a change to the agents reads their status again too. */
+  runtimeStatus: (teamId: string, runtimeId: string) =>
+    [...queryKeys.runtimeInstances(teamId), runtimeId, 'status'] as const,
+  runtimeMetrics: (teamId: string, runtimeId: string, hours: number) =>
+    [...queryKeys.team(teamId), 'runtime-metrics', runtimeId, hours] as const,
+  runtimeFallback: (teamId: string) => [...queryKeys.team(teamId), 'runtime-fallback'] as const,
 }
