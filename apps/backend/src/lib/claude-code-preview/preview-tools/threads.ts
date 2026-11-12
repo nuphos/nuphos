@@ -8,7 +8,6 @@ import {
   setAgentThreadParent,
   updateThread,
 } from '@/lib/agent/thread-bridge'
-
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
 import { publishPreviewFrame } from '../run-frame-bridge'
@@ -45,6 +44,15 @@ const create = z
   .object({
     ...common,
     title: z.string().trim().min(1).max(160),
+    requestId: z
+      .string()
+      .trim()
+      .min(1)
+      .max(128)
+      .optional()
+      .describe(
+        'Stable key for this delegation. Reuse the same key and prompt when retrying; use a new key for unrelated work.',
+      ),
     credentials: credentialRefs.describe(
       '(provider, id) pairs from your own list_credentials: the thread gets exactly these. ' +
         '[] gives it none; omit to give it your whole selection.',
@@ -111,7 +119,7 @@ export function threadToolModule(
           'refused. Without credentials it gets your whole selection. ' +
           "model and effort set its model picker before its first turn; its agent's defaults otherwise. " +
           'The current chat stays available. Specify a completion condition and ask the worker to use ' +
-          'send_message_to_thread to report back. Returns a Nuphos threadId (not a Codex internal ID). ' +
+          'report_task to report results or blockers. Supply requestId and reuse it with the same prompt on retries to avoid duplicate Tasks. Returns a Nuphos threadId (not a Codex internal ID). ' +
           'Only available for conversations owned by the current actor.',
         inputSchema: toolInputJsonSchema(create),
       },

@@ -40,7 +40,7 @@ export function BotChatQuestion({
   const failure = useAnswerFailure(request.inputRequest.id)
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="ml-[38px] flex min-w-0 w-[calc(100%-38px)] max-w-[85%] flex-col gap-1.5">
       {onOpenSession && (
         <button
           type="button"

@@ -15,6 +15,9 @@ export type WindowChannelsApi = {
   agentCreateBot(
     teamId: string,
     bot?: {
+      onboarding?: boolean
+      starter?: 'coordinate'
+      locale?: string
       title?: string
       avatar?: string
       runtimeId?: string
@@ -22,6 +25,11 @@ export type WindowChannelsApi = {
       runtimeLabel?: string
     },
   ): Promise<{ sessionId: string; title: string; avatar: string }>
+  agentStartBotOnboarding(
+    sessionId: string,
+    teamId: string,
+    channelId: string,
+  ): Promise<{ started: boolean }>
   agentMakeBot(sessionId: string, teamId: string): Promise<{ avatar: string }>
   agentListChannelMentions(teamId: string): Promise<{ mentions: ChannelMention[] }>
   agentListChannelAgents(channelId: string, teamId: string): Promise<{ agents: ChannelAgent[] }>

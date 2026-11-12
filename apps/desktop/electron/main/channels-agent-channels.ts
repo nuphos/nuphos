@@ -21,6 +21,8 @@ export const agentChannelChannels = {
   'agent:createChannel': (_e: unknown, teamId: string) => agent.createChannel(teamId),
   'agent:createBot': (_e: unknown, teamId: string, bot?: agent.NewBot) =>
     agent.createBot(teamId, bot),
+  'agent:startBotOnboarding': (_e: unknown, sessionId: string, teamId: string, channelId: string) =>
+    agent.startBotOnboarding(sessionId, teamId, channelId),
   'agent:makeBot': (_e: unknown, sessionId: string, teamId: string) =>
     agent.makeBot(sessionId, teamId),
   'agent:listChannelMentions': (_e: unknown, teamId: string) => agent.listChannelMentions(teamId),

@@ -2,12 +2,16 @@ import { randomUUID } from 'node:crypto'
 
 import { initializeSessionBypass } from './auto-mode/store'
 import { derivedAvatar } from './bot-avatars'
+import { botStarterInstructions } from './bot-starters'
 import { upsertConversationShell } from './db'
 
 import type { BotAvatar } from './bot-avatars'
 import type { AgentConversation } from './db'
 
 export type NewBot = {
+  onboarding?: boolean
+  starter?: 'coordinate'
+  locale?: string
   title?: string
   avatar?: BotAvatar
   agentRuntime?: NonNullable<AgentConversation['agentRuntime']>
@@ -39,6 +43,9 @@ export async function createBot(
     title,
     firstMessage: '',
     avatar,
+    ...(bot.onboarding || bot.starter ? { instructions: botStarterInstructions(bot.starter) } : {}),
+    ...(bot.onboarding ? { botOnboarding: 'pending' as const } : {}),
+    ...(bot.locale ? { locale: bot.locale } : {}),
     ...(agentRuntime ? { agentRuntime } : {}),
     ...(runtimeId ? { runtimeId, ...(runtimeLabel ? { runtimeLabel } : {}) } : {}),
   })
