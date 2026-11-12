@@ -244,6 +244,12 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
         'Fails once the user has answered or dismissed it.',
       inputSchema: z.object({ label: labelField, requestId: requestIdField }),
     })
+    userDecisionTools.list_user_decisions = tool({
+      description:
+        'List the questions you asked with request_user_decision that are still waiting for the user, oldest first, each with its `requestId`. ' +
+        'Check it before asking again, and to find the requestId for update_user_decision or withdraw_user_decision.',
+      inputSchema: z.object({ label: labelField }),
+    })
   }
 
   return userDecisionTools

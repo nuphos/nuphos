@@ -1,6 +1,10 @@
-// Follow-ups to request_user_decision: the agent corrects or withdraws a
-// question it asked while it is still open in the user's Inbox.
-import { resolveInputRequest, updateInputRequest } from '@/lib/agent/db/pending-decision'
+// Follow-ups to request_user_decision: the agent lists, corrects or withdraws
+// the questions it asked while they are still open in the user's Inbox.
+import {
+  listOpenInputRequests,
+  resolveInputRequest,
+  updateInputRequest,
+} from '@/lib/agent/db/pending-decision'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
 import type { PreviewToolContext } from '../preview-tool-context'
@@ -23,7 +27,7 @@ type RequestFollowUp = {
 
 const NOT_OPEN = 'No open question has this requestId; the user may have answered it already.'
 
-/** The agent corrects or withdraws a question it asked while the user has not answered it. */
+/** The agent lists, corrects or withdraws the questions it asked while the user has not answered them. */
 const requestFollowUps = {
   update_user_decision: async (ctx: PreviewToolContext, input: RequestFollowUp) => {
     const { requestId, label: _label, ...patch } = input
@@ -39,6 +43,19 @@ const requestFollowUps = {
     (await resolveInputRequest(ctx.sessionId, requestOwner(ctx), requestId, 'dismissed'))
       ? toolResult({ ok: true, requestId, status: 'withdrawn' })
       : toolError(NOT_OPEN),
+  list_user_decisions: async (ctx: PreviewToolContext) => {
+    const open = await listOpenInputRequests(ctx.sessionId, requestOwner(ctx))
+
+    return toolResult({
+      requests: open.map(({ id, category, question, options, askedAt }) => ({
+        requestId: id,
+        category,
+        question,
+        ...(options ? { options } : {}),
+        askedAt,
+      })),
+    })
+  },
 }
 
 /** MCP does not check arguments against the advertised schema, so the follow-ups do. */

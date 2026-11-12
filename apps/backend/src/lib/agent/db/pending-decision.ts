@@ -66,6 +66,19 @@ export async function updateInputRequest(
   return result.matchedCount > 0
 }
 
+/** The conversation's open requests, oldest first. */
+export async function listOpenInputRequests(
+  sessionId: string,
+  userId: string,
+): Promise<InputRequest[]> {
+  const conversation = await agentConversations().findOne(
+    { sessionId, userId },
+    { projection: { inputRequests: 1 } },
+  )
+
+  return conversation ? openInputRequests(conversation) : []
+}
+
 /** One request, open or resolved, by its id. */
 export async function findInputRequest(
   sessionId: string,
