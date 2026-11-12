@@ -110,6 +110,17 @@ export function closeAutonomousTranscript(
   if (!session.autonomousTranscriptOpen && !diedBetweenTurns) return false
   session.autonomousTranscriptOpen = false
   session.runtimeThreadStatus = update.kind === 'complete' ? 'idle' : undefined
+  // Each close ends one assistant message headed "Resumed automatically";
+  // which frame closed it tells a provider idle from a reattach (#704).
+  if (update.kind === 'complete' || update.kind === 'interrupted')
+    logEvent('info', 'agent.autonomous_segment.closed', {
+      session_id: session.conversationId,
+      team_id: session.teamId,
+      kind: update.kind,
+      reason: update.kind === 'interrupted' ? update.reason : undefined,
+      provider_state: update.runtimeSnapshot?.providerState,
+      thread_status: update.runtimeSnapshot?.providerDetails?.type,
+    })
 
   return true
 }
