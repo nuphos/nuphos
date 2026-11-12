@@ -323,3 +323,34 @@ test('a prompt suggestion after the turn is forwarded as session info', async (t
     [{ suggestion: 'run the tests' }],
   )
 })
+
+// Recorded from SDK 0.3.322: a steer sent with priority 'now' during a
+// task-notification cycle aborts that cycle, then answers the steer in a cycle
+// of its own whose result carries the steer's uuid and no origin.
+test('a steer during a cycle Claude Code started on its own is injected and completes', async (t) => {
+  const h = harness(t)
+  const steer = (text) =>
+    h.agent.steer({
+      sessionId: SESSION,
+      prompt: [{ type: 'text', text }],
+      _meta: { steering: { idleBehavior: 'promptRequired' } },
+    })
+
+  assert.deepEqual(await steer('nothing runs'), {
+    outcome: 'promptRequired',
+    reason: 'noRunningTurn',
+  })
+  await h.emit(state('running'))
+  assert.equal(h.lastState(), 'active')
+
+  assert.deepEqual(await steer('stop'), { outcome: 'injected' })
+  const { value: sent } = await h.session.input[Symbol.asyncIterator]().next()
+  assert.equal(sent.priority, 'now')
+
+  await h.emit({ ...result(undefined), origin: { kind: 'task-notification' } })
+  await h.emit({ ...result(sent.uuid), origin: undefined })
+  await h.emit(state('idle'))
+  await until(() => h.session.turnQueue.every((turn) => turn.settled), 'steer never settled')
+  assert.equal(h.lastState(), 'idle')
+  assert.deepEqual(h.errors, [])
+})
