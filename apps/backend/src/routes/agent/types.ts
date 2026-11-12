@@ -104,6 +104,8 @@ export type AgentRun = {
   runtimeOwned?: boolean
   /** The channels whose posts started or were steered into this turn. */
   channelIds?: string[]
+  /** Every message the turn started with was a channel's wake-up notice. */
+  channelWoken?: boolean
   frames: string[]
   done: boolean
   // Latest finishReason observed from streamText's onFinish. Stays undefined

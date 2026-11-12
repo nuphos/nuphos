@@ -29,6 +29,7 @@ export type NotifiableRun = {
   approvalPushed?: boolean
   activityRecorded?: Promise<unknown>
   trace?: { userId: string; teamId?: string }
+  channelWoken?: boolean // see AgentRun.channelWoken
 }
 
 export type TurnNotifierDeps = {
@@ -194,6 +195,8 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
       })
 
       if (!outcome || (outcome.kind === 'approval' && run.approvalPushed)) return
+      // Woken by a channel, it speaks there (channel_post); its last words are its own note.
+      if (run.channelWoken && outcome.kind === 'finished') return
       await deliver({
         run,
         body: async (conversation) => {

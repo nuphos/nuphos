@@ -159,6 +159,7 @@ export async function runTurn(
         origin: source === 'agent.resource' ? 'trigger' : 'user',
         // The channels this turn answers: they show it typing until it ends.
         channelIds: fresh.flatMap((message) => channelIdOf(message) ?? []),
+        ...(fresh.every((message) => channelIdOf(message)) ? { channelWoken: true } : {}),
         // Not recorded as interrupted: the messages go back on the queue below.
         clientResendsRefusal: true,
         ...(data.trigger ? { trigger: data.trigger } : {}),
