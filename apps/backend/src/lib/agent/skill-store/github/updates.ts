@@ -10,6 +10,8 @@ import { discoverSkills } from './discover'
 import { assess, fetchRepoArchive } from './install'
 import { listSkillOrigins, recordSkillOrigin, skillContentHash, skillFileHashes } from './origin'
 import { parseGithubSource } from './source'
+import { downloadFor } from './update-download'
+import { appliedPut, onlyOurChanges } from './update-retry'
 
 import type { DiscoveredSkill } from './discover'
 import type { GithubSkillCandidate } from './install'
@@ -40,7 +42,7 @@ type Inspected = {
   current: Record<string, string>
 }
 
-type Tracked = { origin: SkillOrigin; current: Record<string, string> }
+export type Tracked = { origin: SkillOrigin; current: Record<string, string> }
 
 const NO_CHANGES = { added: [], changed: [], removed: [] }
 
@@ -121,51 +123,6 @@ function sourceGone({ origin, current }: Tracked): Inspected {
   return { report, origin, upstream: null, current }
 }
 
-/** The commit to download for one source: its ref, or the commit the member reviewed. */
-function pinnedRef(tracked: Tracked[], pins: Record<string, string> | null): string | null {
-  const first = tracked[0]?.origin
-
-  if (!pins) return first?.ref ?? null
-  const shas = new Set(tracked.map(({ origin }) => pins[origin.name]))
-  const [sha] = shas
-
-  if (shas.size !== 1 || !sha)
-    throw new AppError(
-      400,
-      'invalid_input',
-      'Send the reviewed commit of every skill from a source',
-    )
-
-  return sha
-}
-
-async function downloadFor(
-  tracked: Tracked[],
-  pins: Record<string, string> | null,
-  download: typeof fetchRepoArchive,
-) {
-  const [first] = tracked
-
-  if (!first) return null
-  const ref = pinnedRef(tracked, pins)
-
-  try {
-    const archive = await download(parseGithubSource(first.origin.repo), ref)
-
-    if (pins && archive.commitSha !== ref)
-      throw new AppError(
-        409,
-        'source_changed',
-        'Repository archive does not match the reviewed commit',
-      )
-
-    return archive
-  } catch (err) {
-    if (!pins && err instanceof AppError && err.code === 'source_not_found') return null
-    throw err
-  }
-}
-
 /**
  * Downloads each tracked (repo, ref) once, or the commit in `pins` when applying
  * an update the member reviewed, and compares it with what was installed.
@@ -241,13 +198,30 @@ export async function updateGithubSkills(
   download = fetchRepoArchive,
 ): Promise<GithubSkillUpdate[]> {
   const inspected = await inspectAll(scope, input.names, download, input.commits)
-  const chosen = input.names.map((name) =>
-    assertUpdatable(
-      inspected.find((entry) => entry.report.name === name),
-      name,
-      input.overwriteEdited,
-    ),
-  )
+  const mutationOf = (name: string, suffix: string) =>
+    context.mutationId && `${context.mutationId}:${name}:${suffix}`
+  const chosen = []
+  const replayed: GithubSkillUpdate[] = []
+
+  for (const name of input.names) {
+    const entry = inspected.find((item) => item.report.name === name)
+    const upstream = entry?.upstream
+    const written = upstream ? await appliedPut(mutationOf(name, 'put')) : null
+
+    // A retry after this request's write resumes the cleanup and origin, unless the
+    // origin already records the update, in which case it reports it as done.
+    if (!entry || !upstream || !written)
+      chosen.push(assertUpdatable(entry, name, input.overwriteEdited))
+    else if (entry.origin.contentHash === skillContentHash(upstream.files))
+      replayed.push(entry.report)
+    else if (!onlyOurChanges(entry.current, written) && !input.overwriteEdited.includes(name))
+      throw new AppError(
+        409,
+        'skill_edited',
+        `${name} was edited in Nuphos; confirm to replace the edits`,
+      )
+    else chosen.push({ ...entry, upstream })
+  }
 
   for (const { origin, upstream, report, current } of chosen) {
     const now = await skillPackageEtags(scope, origin.name)
@@ -259,10 +233,7 @@ export async function updateGithubSkills(
       body: Buffer.from(data),
     }))
     const keys = new Set(writes.map((write) => write.key))
-    const step = (suffix: string) => ({
-      ...context,
-      mutationId: context.mutationId && `${context.mutationId}:${origin.name}:${suffix}`,
-    })
+    const step = (suffix: string) => ({ ...context, mutationId: mutationOf(origin.name, suffix) })
 
     // Conditional writes: a file saved since `now` makes the write fail instead of being replaced.
     const saved = await putSkillObjects(scope, writes, step('put'), { expectedEtags: now })
@@ -284,5 +255,7 @@ export async function updateGithubSkills(
     })
   }
 
-  return chosen.map((entry) => entry.report)
+  const reports = [...chosen.map((entry) => entry.report), ...replayed]
+
+  return input.names.flatMap((name) => reports.filter((report) => report.name === name))
 }

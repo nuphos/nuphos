@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 
+import { getSkillRecord } from '@/lib/agent/skill-store/metadata'
 import { byCodeUnit } from '@/lib/agent/sort-order'
 import { db } from '@/lib/db'
 
@@ -42,17 +43,31 @@ export type SkillOriginDTO = Pick<SkillOrigin, 'repo' | 'ref' | 'path' | 'commit
   installedAt: string
 }
 
+/**
+ * A skill deleted and created again starts a new lifecycle with a later `createdAt`;
+ * an origin recorded before that describes the deleted package, not this one.
+ */
+async function isCurrentOrigin(origin: SkillOrigin): Promise<boolean> {
+  const createdAt = (await getSkillRecord(origin.scope, origin.name))?.createdAt
+
+  return !createdAt || createdAt <= origin.installedAt
+}
+
 export async function listSkillOrigins(scope: string): Promise<SkillOrigin[]> {
-  return await skillOrigins()
+  const origins = await skillOrigins()
     .find({ scope: normalizeSkillScope(scope) })
     .toArray()
+  const current = await Promise.all(origins.map(isCurrentOrigin))
+
+  return origins.filter((_, i) => current[i])
 }
 
 export async function getSkillOriginDTO(
   scope: string,
   name: string,
 ): Promise<SkillOriginDTO | null> {
-  const origin = await skillOrigins().findOne({ _id: skillOriginId(scope, name) })
+  const found = await skillOrigins().findOne({ _id: skillOriginId(scope, name) })
+  const origin = found && (await isCurrentOrigin(found)) ? found : null
 
   return origin
     ? {
