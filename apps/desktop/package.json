@@ -13,7 +13,8 @@
     "electron:start": "electron .",
     "release": "vite build && electron-builder --publish always",
     "local-runtime:prepare": "node local-runtime/prepare.mjs",
-    "postinstall": "node scripts/prepare-terminal.mjs"
+    "postinstall": "node scripts/prepare-terminal.mjs",
+    "test:ui": "bun test src/app/workspace/WorkspaceBotsStart.test.tsx && bun test src/components/sidebar/NewChatButton.test.tsx && bun test src/components/sidebar/SidebarPinShelf.test.tsx && bun test src/components/sidebar/SidebarStatsButton.test.tsx && bun test src/components/sidebar/chat-item.test.tsx"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -78,6 +79,8 @@
     "eslint-plugin-sonarjs": "4.2.0",
     "eslint-plugin-unicorn": "72.0.0",
     "globals": "^17.5.0",
+    "happy-dom": "^21.0.4",
+    "node-api-headers": "^1.9.0",
     "postcss": "^8.5.23",
     "sharp": "^0.35.5",
     "tailwindcss": "^3.4.19",
@@ -183,6 +186,13 @@
         "to": "local-runtime",
         "filter": [
           "**/*"
+        ]
+      },
+      {
+        "from": "build/native",
+        "to": "native",
+        "filter": [
+          "*.node"
         ]
       }
     ],

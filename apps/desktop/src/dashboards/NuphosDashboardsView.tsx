@@ -22,6 +22,7 @@ import { usePanelActions } from './view/usePanelActions'
 import type { DashboardViewRange, NuphosDashboard, DashboardPanel, OpenAgentChat } from './schema'
 
 type Props = {
+  embedded?: boolean
   teamId: string
   viewRange?: DashboardViewRange
   refreshKey: number
@@ -41,6 +42,7 @@ type Props = {
 }
 
 export function NuphosDashboardsView({
+  embedded = false,
   teamId,
   viewRange,
   refreshKey,
@@ -63,7 +65,7 @@ export function NuphosDashboardsView({
   const { isActive } = useWorkspaceTab()
   const dragFrom = useRef<number | null>(null)
   const selectedId = openDashboardId ?? null
-  const headerRightSlot = useToolbarHeaderRightSlot(isActive && Boolean(selectedId))
+  const headerRightSlot = useToolbarHeaderRightSlot(!embedded && isActive && Boolean(selectedId))
 
   const {
     dashboards,
@@ -132,7 +134,7 @@ export function NuphosDashboardsView({
   // Publish "New dashboard" to the shared toolbar CTA slot — nothing while a
   // dashboard is open, or while this is a keep-alive'd background tab.
   useToolbarPrimaryAction(
-    isActive && !selectedId ? t('New dashboard') : null,
+    !embedded && isActive && !selectedId ? t('New dashboard') : null,
     () => void createDashboard(),
     creating,
   )
@@ -169,6 +171,7 @@ export function NuphosDashboardsView({
   if (!selectedId) {
     return (
       <DashboardListPage
+        embedded={embedded}
         loading={loading}
         dashboards={dashboards}
         visibleDashboards={visibleDashboards}
@@ -184,6 +187,18 @@ export function NuphosDashboardsView({
 
   return (
     <div className="flex h-full flex-col">
+      {embedded && (
+        <div className="flex shrink-0 items-center justify-between px-3 py-2">
+          <button
+            type="button"
+            className="text-xs text-secondary hover:text-main"
+            onClick={() => onDashboardOpened?.(null)}
+          >
+            {t('Back')}
+          </button>
+          <RefreshButton onRefresh={() => void refreshAll(true)} loading={refreshing} />
+        </div>
+      )}
       {headerRightSlot &&
         createPortal(
           <>

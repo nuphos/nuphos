@@ -75,7 +75,7 @@ export function BotImportDialog({
 
   return (
     <Modal open title={t('Import from Grok Bot')} width={680} onClose={onClose}>
-      <div className="space-y-5 px-5 pb-5 text-sm text-primary">
+      <div className="space-y-5 p-5 text-sm text-primary">
         <p className="text-secondary">
           {t(
             'Bring your Bots, shared chats and working context into Nuphos. Review everything before creating anything.',

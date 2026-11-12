@@ -43,6 +43,7 @@ export function ChannelPane({
   channelId,
   user,
   dockOpen,
+  visible = true,
   grip,
   titlebarLeading,
   titlebarClassName,
@@ -54,6 +55,7 @@ export function ChannelPane({
   channelId: string
   user: UserInfo
   dockOpen: boolean
+  visible?: boolean
   grip?: ReactNode
   titlebarLeading?: ReactNode
   titlebarClassName?: string
@@ -63,7 +65,7 @@ export function ChannelPane({
 }) {
   const { detail, agents, refresh } = useChannel(teamId, channelId)
 
-  useConversationRead(channelId, true)
+  useConversationRead(channelId, visible)
   // Text that could not be posted goes back into the composer.
   const [restore, setRestore] = useState<AgentPromptSeed | null>(null)
   // A resend of the same post reuses its id, so a post that did land is not doubled.
@@ -98,7 +100,6 @@ export function ChannelPane({
   const stored = detail?.messages ?? []
   const pending = stillSending(stored, sending)
 
-  // Once the channel returns a post, it is shown from there.
   if (pending !== sending) setSending(pending)
   const messages = [...stored, ...pending]
 
@@ -124,7 +125,6 @@ export function ChannelPane({
     focusComposer()
   }
 
-  // After a menu or card hands focus back to where it was opened.
   function focusComposer() {
     requestAnimationFrame(() =>
       composerRef.current?.querySelector<HTMLElement>('[contenteditable="true"]')?.focus(),

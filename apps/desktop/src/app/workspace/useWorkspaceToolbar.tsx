@@ -59,6 +59,7 @@ const UNFILTERABLE_PAGE_KEYS = new Set([
   'team.files',
   'team.artifact',
   'team.agent',
+  'team.home',
   // Cloudflare IAM is a status panel: summary card, warnings and granted-scope
   // chips, with no list to filter.
   'cloudflare.iam',

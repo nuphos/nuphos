@@ -20,7 +20,7 @@ const ALL_ITEMS = [...TEAM_SIDEBAR_NAV_ITEMS, ...TEAM_WORKSPACE_NAV_ITEMS]
 test('the sidebar lists New agent then the management pages', () => {
   assert.deepEqual(
     TEAM_SIDEBAR_NAV_ITEMS.map((item) => item.key),
-    ['team.agent', 'team.inbox', 'team.plans', 'team.agents', 'team.integrations'],
+    ['team.agent', 'team.integrations'],
   )
   assert.deepEqual(
     TEAM_MANAGEMENT_NAV_ITEMS.map((item) => item.key),
@@ -37,7 +37,6 @@ test('workspace pages are the ones launched beside a conversation', () => {
       'team.terminal',
       'team.architecture',
       'team.designs',
-      'team.dashboards',
       'team.monitoring',
     ],
   )
@@ -117,4 +116,13 @@ test('a stored Cost Management key or path resolves to Dashboards', () => {
   assert.equal(renamedTeamPagePath('/teams/t1/cost-management/d1'), '/teams/t1/dashboards/d1')
   assert.equal(renamedTeamPagePath('/teams/t1/cost-managementx'), '/teams/t1/cost-managementx')
   assert.equal(renamedTeamPagePath('/teams/t1/plans'), '/teams/t1/plans')
+})
+
+test('Home opens the dashboard without adding a top sidebar row', () => {
+  assert.ok(isTeamManagementKey('team.home'))
+  assert.equal(teamOverviewNavItemFor('team.home')?.label, 'Stats')
+  assert.equal(
+    TEAM_SIDEBAR_NAV_ITEMS.some((item) => item.key === 'team.home'),
+    false,
+  )
 })

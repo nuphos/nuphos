@@ -44,6 +44,7 @@ export const MY_PREFERENCES_DEFAULT_SECTION = 'preferences.instructions'
 
 /** Team pages that live in Settings, by the workspace page key their links resolve to. */
 const SETTINGS_SECTION_FOR_PAGE: Partial<Record<string, string>> = {
+  'team.agents': 'workspace.computers',
   'team.agent-skills': 'workspace.skills',
   'team.agent-memories': 'workspace.memories',
   'team.triggers': 'workspace.triggers',
@@ -76,6 +77,7 @@ const TEAM_GROUPS: SettingsNavGroup[] = [
     title: t('Team'),
     items: [
       { key: 'workspace.general', label: t('General'), icon: Settings },
+      { key: 'workspace.computers', label: t('Computers'), icon: Monitor },
       { key: 'workspace.members', label: t('Members'), icon: Users },
       { key: 'workspace.billing', label: t('Billing'), icon: CreditCard },
       { key: 'workspace.instructions', label: t('Instructions'), icon: FileText },

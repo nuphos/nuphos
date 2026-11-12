@@ -6,7 +6,7 @@ import { onChatTitleChanged } from '../../../lib/chatTitleEvents'
 import { markChannel } from '../../channels/channelKind'
 
 import { HOME_TAB_ID } from './model'
-import { retainBackgroundTabs } from './sessionContinuity'
+import { retainBackgroundTabs, retainOpenedTabs, touchOpenedTab } from './sessionContinuity'
 
 import type { PanelCtx } from './ctx'
 
@@ -192,7 +192,7 @@ export function usePanelSessionBridge(acc: Acc) {
         // they dismissed.
         openGenerationRef.current += 1
         pendingOpenRef.current = null
-        setTabs((prev) => retainBackgroundTabs(prev, uploadingTabsRef.current))
+        setTabs((prev) => retainOpenedTabs(prev, uploadingTabsRef.current))
         setActiveId(HOME_TAB_ID)
         setOpeningConversation(null)
 
@@ -210,6 +210,7 @@ export function usePanelSessionBridge(acc: Acc) {
         // An audit open must not inherit a previously-interactive tab (and an
         // interactive open must not inherit an audit-forced lock).
         setTabAuditReadOnly(action.sessionId, sessionReadOnly)
+        setTabs((tabs) => touchOpenedTab(tabs, existing.id))
         setActiveId(existing.id)
 
         return

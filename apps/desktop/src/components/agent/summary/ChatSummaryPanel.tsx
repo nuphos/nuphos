@@ -17,6 +17,7 @@ import { ChatSummaryEnvironment } from './ChatSummaryEnvironment'
 import { changesOf, splitFileName, subAgentsOf } from './chatSummaryModel'
 import { SummaryRow, SummarySection } from './ChatSummaryRows'
 import { SubAgentsSection } from './ChatSummarySubAgents'
+import { ChatSummaryTaskActions } from './ChatSummaryTaskActions'
 import { SessionInputQueue, SessionInputReply } from './SessionInputQueue'
 import { inputRequestKey } from './sessionInputRequests'
 import { PANE, TOGGLE, useDismissOutside, useSummaryPlacement } from './summaryPlacement'
@@ -228,6 +229,7 @@ function SummaryBody({
             failed={requestsFailed}
             onSelect={select}
           />
+          {conversation && <ChatSummaryTaskActions conversation={conversation} teamId={teamId} />}
           {background.length > 0 && <BackgroundTasksSection shells={background} />}
           {!loaded && <Skeleton />}
           {changes.length > 0 && (

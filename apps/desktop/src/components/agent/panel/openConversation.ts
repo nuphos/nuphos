@@ -11,7 +11,7 @@ import { openingAfterFailure } from './conversationUnavailable'
 import { reconcileStoredCredentialAccess, credentialSelectionSignature } from './credentialAccess'
 import { CONVERSATION_TAIL_LIMIT } from './model'
 import { fromPersistedMessages, transcriptSignature } from './persistence'
-import { retainBackgroundTabs } from './sessionContinuity'
+import { retainOpenedTabs, touchOpenedTab } from './sessionContinuity'
 import { INTERRUPTED_TOOL_MESSAGE, uid } from './stall'
 import { getAgentLocale } from './textUtils'
 import { toUiMessages } from './toUiMessages'
@@ -79,6 +79,7 @@ export async function runOpenConversation(
     clearPendingOpen(sessionId)
     setOpeningConversation(null)
     setTabAuditReadOnly(sessionId, opts?.forceReadOnly === true)
+    setTabs((tabs) => touchOpenedTab(tabs, existing.id))
     setActiveId(existing.id)
 
     return
@@ -179,7 +180,7 @@ export async function runOpenConversation(
       credentialSelectionSignature(tab.credentialAccess),
     )
     setTabs((prev) => [
-      ...retainBackgroundTabs(prev, uploadingTabsRef.current).filter(
+      ...retainOpenedTabs(prev, uploadingTabsRef.current).filter(
         (existingTab) => existingTab.sessionId !== tab.sessionId,
       ),
       tab,

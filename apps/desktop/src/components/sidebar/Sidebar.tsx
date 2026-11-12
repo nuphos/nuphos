@@ -8,25 +8,25 @@ import { SIDEBAR_PANEL_PADDING_CLASS } from '../SidebarNavItem'
 
 import { useArchiveBotConfirm } from './archive-bot-confirm'
 import { isChatSection, withChatSections, withSectionActions } from './chat-sections'
-import { SidebarHeaderBar, SidebarTeamSwitcher, SidebarUserEntry } from './header'
-import { SidebarHelpMenu } from './help-menu'
+import { SidebarHeaderBar, SidebarTeamSwitcher } from './header'
 import { SidebarItemContextMenu } from './item-context-menu'
 import { SidebarBackControl, SidebarNavStack } from './nav-stack'
-import { SidebarIdentitySelector, SidebarInvitations } from './parts'
+import { SidebarIdentitySelector } from './parts'
 import { chatSectionActions, useProjectRows } from './section-actions'
 import { SidebarSectionList } from './sections-list'
 import { teamSections } from './sections-services'
+import { SidebarFooter } from './SidebarFooter'
+import { SidebarTeamPages } from './SidebarTeamPages'
 import { settingsBackTarget } from './types'
 import { useChatNavKeys } from './use-chat-nav-keys'
 import { useSidebarChrome } from './use-sidebar-chrome'
 import { useSidebarChats, useSidebarCrdSections } from './use-sidebar-data'
 import { useSidebarFavorites } from './use-sidebar-favorites'
+import { useSidebarMode } from './useSidebarMode'
 import { sectionsFor, sidebarView } from './view'
 
 import type { ItemMenuRequest, SidebarProps } from './types'
 
-// Memoized: the workspace renders its sidebar on every update; this skips the
-// ones whose props are unchanged.
 export const Sidebar = memo(function Sidebar({
   scope,
   active,
@@ -72,6 +72,7 @@ export const Sidebar = memo(function Sidebar({
   const [renameTarget, setRenameTarget] = useState<{ sessionId: string; title: string } | null>(
     null,
   )
+  const [sidebarPage, changeSidebarPage] = useSidebarMode(scope.teamId, agentSessionId)
   const teamId = scope.teamId
   const chrome = useSidebarChrome({ teamId, collapsed })
   const { width, dragging, setDragging, peek, setPeek } = chrome
@@ -82,7 +83,6 @@ export const Sidebar = memo(function Sidebar({
       chatShown,
       onArchived: onChatArchived,
     })
-
   // Expanded mode restores scope-specific navigation; split mode keeps Chats.
   const teamScope = { kind: 'team' as const, teamId }
   const navigationScope = dynamicNavigation ? scope : teamScope
@@ -108,18 +108,17 @@ export const Sidebar = memo(function Sidebar({
     : { key: `team:${teamId}`, level: 0 }
   const teamView = view.level === 0
   const settingsBack = dynamicNavigation ? settingsBackTarget(scope, active) : null
-
-  const { favoriteMatch, canFavorite, toggleFavorite, favoriteItems } = useSidebarFavorites({
-    userId: user?.id ?? '',
-    teamId,
-    teamView,
-    sections,
-    currentHref,
-    scopeChipForPath,
-    onOpenPath,
-    onOpenKey,
-  })
-
+  const { favoriteMatch, canFavorite, toggleFavorite, favoriteItems, botPins } =
+    useSidebarFavorites({
+      userId: user?.id ?? '',
+      teamId,
+      teamView,
+      sections,
+      currentHref,
+      scopeChipForPath,
+      onOpenPath,
+      onOpenKey,
+    })
   const [itemMenu, setItemMenu] = useState<ItemMenuRequest | null>(null)
   const archiveBot = useArchiveBotConfirm(archiveChat)
   const projects = useProjectRows(teamId, onSelect, chrome.toggleGroup)
@@ -129,7 +128,6 @@ export const Sidebar = memo(function Sidebar({
   if (dynamicNavigation && teamView && favoriteItems.length > 0) {
     renderSections.splice(1, 0, { title: 'Favorites', items: favoriteItems })
   }
-
   const sidebarSections = withSectionActions(
     dynamicNavigation
       ? renderSections
@@ -137,27 +135,46 @@ export const Sidebar = memo(function Sidebar({
     chatSectionActions(teamId, onSelect),
   )
 
-  useChatNavKeys(sidebarSections, chrome.isGroupCollapsed, onSelect, chatNavKeysLive)
-
+  useChatNavKeys(
+    teamView
+      ? sidebarSections.filter((section) =>
+          sidebarPage === 0
+            ? section.title === 'Channels'
+            : sidebarPage === 1 && section.title === 'Tasks',
+        )
+      : sidebarSections,
+    chrome.isGroupCollapsed,
+    onSelect,
+    chatNavKeysLive,
+  )
+  const listProps = {
+    scope: teamScope,
+    active,
+    teamView,
+    newChatActive,
+    archivingIds,
+    isGroupCollapsed: chrome.isGroupCollapsed,
+    toggleGroup: chrome.toggleGroup,
+    favoriteMatch,
+    canFavorite,
+    toggleFavorite,
+    botPins,
+    onItemMenu: setItemMenu,
+    onSelect: projects.select,
+    onOpenKey,
+  }
   const showSidebar = !collapsed || peek
 
-  // Floating, the panel is an overlay: the pane titlebar underneath stays
-  // draggable and eats the press meant for the panel's own toggle.
+  // Keep the titlebar underneath the floating sidebar from stealing its clicks.
   useSuspendTitlebarDrag(collapsed && peek)
 
   return (
     <>
-      {/*
-        In-flow spacer: reserves the docked width and tweens to 0 on collapse,
-        pushing the content area. The visible surface below is absolutely
-        positioned so it can float over the content while peeking.
-      */}
       <div
         aria-hidden
         className={clsx('flex-shrink-0', !dragging && 't-resize')}
         style={{ width: collapsed ? 0 : width }}
       />
-      {/* Left-edge hover target that triggers the floating peek while collapsed. */}
       {collapsed && (
         <div
           className="absolute left-0 top-0 bottom-0 z-30 w-2.5"
@@ -170,9 +187,7 @@ export const Sidebar = memo(function Sidebar({
           transform: showSidebar ? 'translateX(0)' : 'translateX(-100%)',
         }}
         onMouseEnter={collapsed ? () => setPeek(true) : undefined}
-        // Only past the trailing edge counts as leaving. Losing the pointer any
-        // other way — the native traffic lights, out of the window — is a hole
-        // in the hover region, not an exit.
+        // Only leaving past the trailing edge dismisses the peek.
         onMouseLeave={collapsed ? (event) => setPeek(event.clientX < width) : undefined}
         data-focus-region={showSidebar ? 'sidebar' : undefined}
         className={clsx(
@@ -193,6 +208,7 @@ export const Sidebar = memo(function Sidebar({
           />
         )}
         <SidebarHeaderBar
+          stats={{ teamId: scope.teamId, active, agentSessionId, onSelect }}
           collapsed={collapsed}
           onToggleCollapse={onToggleCollapse}
           canGoBack={canGoBack}
@@ -203,7 +219,6 @@ export const Sidebar = memo(function Sidebar({
           chatOf={(id) => agentSessions.find((chat) => chat.sessionId === id)}
           onSearch={onSearch}
         />
-
         <SidebarTeamSwitcher
           teamSegment={teamSegment}
           loading={teamSkeleton}
@@ -211,38 +226,31 @@ export const Sidebar = memo(function Sidebar({
           onOpenMyPreferences={onOpenMyPreferences}
           onCreateTeam={onCreateTeam}
         />
-
-        <nav
-          onScroll={chrome.handleNavScroll}
-          className={clsx(
-            SIDEBAR_PANEL_PADDING_CLASS,
-            'flex-1 overflow-x-hidden overflow-y-auto scrollbar-thin scrollbar-overlay',
-            'border-t border-transparent transition-colors duration-200 data-[scrolled]:border-line-control/60',
-          )}
-        >
-          <SidebarNavStack viewKey={view.key} level={view.level}>
-            {dynamicNavigation && !settingsBack && onSidebarBack && (
-              <SidebarBackControl hierarchy={hierarchy} onBack={() => onSidebarBack()} />
+        {teamView ? (
+          <SidebarTeamPages
+            page={sidebarPage}
+            onPage={changeSidebarPage}
+            sections={sidebarSections}
+            listProps={listProps}
+            onScroll={chrome.handleNavScroll}
+          />
+        ) : (
+          <nav
+            onScroll={chrome.handleNavScroll}
+            className={clsx(
+              SIDEBAR_PANEL_PADDING_CLASS,
+              'flex-1 overflow-x-hidden overflow-y-auto scrollbar-thin scrollbar-overlay',
+              'border-t border-transparent transition-colors duration-200 data-[scrolled]:border-line-control/60',
             )}
-            <SidebarSectionList
-              sections={sidebarSections}
-              scope={teamScope}
-              active={active}
-              teamView={teamView}
-              newChatActive={newChatActive}
-              archivingIds={archivingIds}
-              isGroupCollapsed={chrome.isGroupCollapsed}
-              toggleGroup={chrome.toggleGroup}
-              favoriteMatch={favoriteMatch}
-              canFavorite={canFavorite}
-              toggleFavorite={toggleFavorite}
-              onItemMenu={setItemMenu}
-              onSelect={projects.select}
-              onOpenKey={onOpenKey}
-            />
-          </SidebarNavStack>
-        </nav>
-
+          >
+            <SidebarNavStack viewKey={view.key} level={view.level}>
+              {dynamicNavigation && !settingsBack && onSidebarBack && (
+                <SidebarBackControl hierarchy={hierarchy} onBack={() => onSidebarBack()} />
+              )}
+              <SidebarSectionList {...listProps} sections={sidebarSections} />
+            </SidebarNavStack>
+          </nav>
+        )}
         {dynamicNavigation &&
           identitySegment &&
           (scope.kind === 'aws-account' || scope.kind === 'gcp-project') && (
@@ -250,26 +258,19 @@ export const Sidebar = memo(function Sidebar({
               <SidebarIdentitySelector scope={scope} segment={identitySegment} />
             </div>
           )}
-
-        <div className="flex-shrink-0 flex items-center gap-1 border-t border-line-control/60 px-1.5 pb-1.5 pt-1.5">
-          {user ? (
-            <SidebarUserEntry
-              user={user}
-              onOpenUserSettings={onOpenUserSettings}
-              onLogout={onLogout}
-            />
-          ) : (
-            <div className="flex-1" />
-          )}
-          {pendingInvitations.length > 0 && (
-            <SidebarInvitations
-              invitations={pendingInvitations}
-              onAccept={onAcceptInvitation}
-              onReject={onRejectInvitation}
-            />
-          )}
-          <SidebarHelpMenu onOpenShortcutsHelp={onOpenShortcutsHelp} />
-        </div>
+        <SidebarFooter
+          active={active}
+          onSelect={onSelect}
+          {...{
+            user,
+            onOpenUserSettings,
+            onLogout,
+            pendingInvitations,
+            onAcceptInvitation,
+            onRejectInvitation,
+            onOpenShortcutsHelp,
+          }}
+        />
       </aside>
       {renameTarget && (
         <RenameConversationDialog

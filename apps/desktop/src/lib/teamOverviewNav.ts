@@ -1,6 +1,7 @@
 import {
-  Bot,
+  ChartNoAxesColumn,
   FolderOpen,
+  Inbox,
   Archive,
   SquarePen,
   Brain,
@@ -10,7 +11,6 @@ import {
   Cloud,
   HeartPulse,
   Globe,
-  Inbox,
   Monitor,
   Terminal,
   Network,
@@ -41,14 +41,12 @@ const NEW_CHAT_NAV_ITEM: TeamOverviewNavItem = {
 
 /** Team-wide pages that replace the chat surface when opened from the sidebar. */
 export const TEAM_MANAGEMENT_NAV_ITEMS: TeamOverviewNavItem[] = [
-  { key: 'team.inbox', label: t('Inbox'), icon: Inbox },
-  { key: 'team.plans', label: t('Plans'), icon: ClipboardList },
-  { key: 'team.agents', label: t('Runtimes'), icon: Bot },
   { key: 'team.integrations', label: t('Connectors'), icon: Cloud },
 ]
 
 /** Team pages hosted in Team Settings. Their keys still name them in links and ⌘K. */
 export const TEAM_SETTINGS_PAGE_NAV_ITEMS: TeamOverviewNavItem[] = [
+  { key: 'team.agents', label: t('Computers'), icon: Monitor },
   { key: 'team.agent-skills', label: t('Skills'), icon: Sparkles },
   { key: 'team.agent-memories', label: t('Memories'), icon: Brain },
   { key: 'team.triggers', label: t('Triggers'), icon: Clock },
@@ -57,11 +55,29 @@ export const TEAM_SETTINGS_PAGE_NAV_ITEMS: TeamOverviewNavItem[] = [
 /** Opened from the foot of the sidebar's Chats list, not from the nav rows. */
 export const ARCHIVED_CHATS_NAV_ITEM: TeamOverviewNavItem = {
   key: 'team.archived-chats',
-  label: t('Archived agents'),
+  label: t('Archive'),
   icon: Archive,
 }
 
-const MAIN_PANE_NAV_ITEMS = [...TEAM_MANAGEMENT_NAV_ITEMS, ARCHIVED_CHATS_NAV_ITEM]
+const LEGACY_INBOX_NAV_ITEM: TeamOverviewNavItem = {
+  key: 'team.inbox',
+  label: t('Inbox'),
+  icon: Inbox,
+}
+
+export const HOME_NAV_ITEM: TeamOverviewNavItem = {
+  key: 'team.home',
+  label: t('Stats'),
+  icon: ChartNoAxesColumn,
+}
+
+const MAIN_PANE_NAV_ITEMS = [
+  HOME_NAV_ITEM,
+  ...TEAM_MANAGEMENT_NAV_ITEMS,
+  ARCHIVED_CHATS_NAV_ITEM,
+  LEGACY_INBOX_NAV_ITEM,
+  { key: 'team.plans', label: t('Plans'), icon: ClipboardList },
+]
 
 /** Pages read beside a conversation, launched from the dock's New Tab page. */
 export const TEAM_WORKSPACE_NAV_ITEMS: TeamOverviewNavItem[] = [
@@ -70,7 +86,6 @@ export const TEAM_WORKSPACE_NAV_ITEMS: TeamOverviewNavItem[] = [
   { key: 'team.terminal', label: t('Terminal'), icon: Terminal },
   { key: 'team.architecture', label: t('Architecture'), icon: Network },
   { key: 'team.designs', label: t('Designs'), icon: Palette },
-  { key: 'team.dashboards', label: t('Dashboards'), icon: ChartLine },
   { key: 'team.monitoring', label: t('Monitoring'), icon: HeartPulse },
 ]
 
@@ -121,13 +136,17 @@ function navItemIn(
 }
 
 export function teamOverviewNavItemFor(active: string): TeamOverviewNavItem | undefined {
+  if (active === 'team.home') return HOME_NAV_ITEM
+  if (active === 'team.dashboards')
+    return { key: active, label: t('Custom boards'), icon: ChartLine }
+  if (canonicalTeamOverviewKey(active) === 'team.inbox') return LEGACY_INBOX_NAV_ITEM
   if (active === 'team.desktop') return { key: active, label: t('Desktop'), icon: Monitor }
 
   return (
     navItemIn(TEAM_SIDEBAR_NAV_ITEMS, active) ??
     navItemIn(TEAM_WORKSPACE_NAV_ITEMS, active) ??
     navItemIn(TEAM_SETTINGS_PAGE_NAV_ITEMS, active) ??
-    navItemIn([ARCHIVED_CHATS_NAV_ITEM], active)
+    navItemIn(MAIN_PANE_NAV_ITEMS, active)
   )
 }
 
@@ -136,7 +155,11 @@ export function isTeamManagementKey(active: string): boolean {
 }
 
 export function isTeamWorkspaceKey(active: string): boolean {
-  return active === 'team.desktop' || Boolean(navItemIn(TEAM_WORKSPACE_NAV_ITEMS, active))
+  return (
+    active === 'team.desktop' ||
+    active === 'team.dashboards' ||
+    Boolean(navItemIn(TEAM_WORKSPACE_NAV_ITEMS, active))
+  )
 }
 
 export function isTeamOverviewKey(active: string): boolean {

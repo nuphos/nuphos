@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 
+import { HeaderEdge } from '../components/ui/header-edge'
+
 import { ArchivedChatsSection } from './settings/ArchivedChatsSection'
 import { BillingSection } from './settings/BillingSection'
+import { ComputersSection } from './settings/ComputersSection'
 import { AuditSection, MembersSection } from './settings/personalSections'
 import {
   TEAM_SETTINGS_DEFAULT_SECTION,
@@ -10,7 +13,6 @@ import {
 } from './settings/settingsNav'
 import { SettingsNav } from './settings/SettingsNavPanel'
 import { SettingsSectionBody } from './settings/SettingsSectionBody'
-import { HeaderEdge } from '../components/ui/header-edge'
 import {
   MemoriesSection,
   NoTeam,
@@ -80,6 +82,7 @@ export function SettingsPage({
     : undefined
   const pageProps = { teamId: team?.id, currentUserId: user.id, onOpenAgentChat }
   const fullHeightSections: Partial<Record<string, ReactNode>> = {
+    'workspace.computers': <ComputersSection team={team} onOpenSection={setSection} />,
     'workspace.members': <MembersSection teamId={team?.id} currentUserId={user.id} />,
     'workspace.billing': team ? (
       <BillingSection teamId={team.id} isAdmin={team.role === 'ADMINISTRATOR'} />

@@ -53,6 +53,8 @@ export type WindowSurface = {
 }
 
 export type WindowShellApi = {
+  onSidebarGesture?(callback: (phase: 'begin' | 'end') => void): () => void
+  sidebarAlignmentFeedback?(): void
   takeWindowSurface?(): Promise<WindowSurface | null>
   reportWindowSurface?(surface: WindowSurface): void
   acceptDockTerminal(id: string): Promise<boolean>

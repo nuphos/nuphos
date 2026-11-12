@@ -7,6 +7,8 @@ import {
   Link2,
   Pencil,
   SmilePlus,
+  Pin,
+  PinOff,
   Star,
   StarOff,
   Unlink,
@@ -49,7 +51,7 @@ export function SidebarItemContextMenu({
   confirmArchiveBot: (sessionId: string) => void
   unlinkChat: (sessionId: string) => Promise<void>
 }) {
-  // A channel's row: its own nouns, and no pin or watch, which are an agent's.
+  // A Bot's channel shares its pin controls with the Bot row.
   const channel = menu.item.channel === true
   // A Bot is a Bot in either section (its chat or itself); otherwise a Task or a group chat.
   const noun = menu.item.bot || menu.item.botChannelOf ? 'bot' : channel ? 'chat' : 'task'
@@ -61,19 +63,19 @@ export function SidebarItemContextMenu({
       y={menu.y}
       onClose={onClose}
       items={[
-        ...(!channel && canFavorite(menu.item)
+        ...((!channel || noun === 'bot') && canFavorite(menu.item)
           ? [
               favoriteMatch(menu.item)
                 ? {
                     key: 'unfavorite',
-                    label: t('Remove from Favorites'),
-                    icon: StarOff,
+                    label: noun === 'bot' ? t('Unpin Bot') : t('Remove from Favorites'),
+                    icon: noun === 'bot' ? PinOff : StarOff,
                     onSelect: () => toggleFavorite(menu.item),
                   }
                 : {
                     key: 'favorite',
-                    label: t('Add to Favorites'),
-                    icon: Star,
+                    label: noun === 'bot' ? t('Pin Bot') : t('Add to Favorites'),
+                    icon: noun === 'bot' ? Pin : Star,
                     onSelect: () => toggleFavorite(menu.item),
                   },
             ]

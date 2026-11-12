@@ -1207,3 +1207,15 @@ test('an artifact link opens its conversation with the artifact and version, ign
     undefined,
   )
 })
+
+test('Home has a dashboard route separate from composing a task', () => {
+  const home = emptyNavigation({ kind: 'team', teamId: T }, 'team.home')
+  const path = pageLocationForNavigation(home).href
+
+  assert.equal(path, `/teams/${T}/home`)
+  assert.equal(navigationFromAppPath(path)?.active, 'team.home')
+  assert.notEqual(
+    path,
+    pageLocationForNavigation(emptyNavigation({ kind: 'team', teamId: T }, 'team.agent')).href,
+  )
+})

@@ -31,3 +31,5 @@ release
 !build/
 # Local runtime staging (local-runtime/prepare.mjs)
 build/local-runtime
+
+build/native

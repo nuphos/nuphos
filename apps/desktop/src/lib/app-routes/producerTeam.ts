@@ -20,6 +20,7 @@ export function teamPageLocation(
     repoProvider,
   } = navigation
 
+  if (active === 'team.home') return pageLocation(`/teams/${pathSegment(scope.teamId)}/home`)
   if (active === 'team.agents') {
     return pageLocation(`/teams/${pathSegment(scope.teamId)}/agents`)
   }

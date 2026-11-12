@@ -5,8 +5,10 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { ContextMenu } from '../../components/ContextMenu'
 import { EmptyState } from '../../components/EmptyState'
 import { Table } from '../../components/Table'
+import { Button } from '../../components/ui/button'
 import { t } from '../../i18n'
 
+import { DashboardGrid } from './DashboardGrid'
 import { RANGE_PRESETS, rangeLabel } from './helpers'
 
 import type { Column } from '../../components/Table'
@@ -14,6 +16,7 @@ import type { NuphosDashboard, OpenAgentChat } from '../schema'
 import type { Dispatch, SetStateAction } from 'react'
 
 type Props = {
+  embedded?: boolean
   loading: boolean
   dashboards: NuphosDashboard[]
   visibleDashboards: NuphosDashboard[]
@@ -26,6 +29,7 @@ type Props = {
 }
 
 export function DashboardListPage({
+  embedded = false,
   loading,
   dashboards,
   visibleDashboards,
@@ -43,12 +47,12 @@ export function DashboardListPage({
     return (
       <EmptyState
         icon={LayoutGrid}
-        title={t('Dashboards')}
+        title={t('Custom boards')}
         description={t(
           'Dashboards chart what matters to your team — cloud spend, AI usage, delivery, and system health — with panels that pull live data from Nuphos and your connected accounts. Create one and add panels, or have the agent build it.',
         )}
         primaryAction={{
-          label: t('Create dashboard'),
+          label: embedded ? t('New custom board') : t('Create dashboard'),
           icon: Plus,
           onClick: () => void createDashboard(),
         }}
@@ -121,17 +125,36 @@ export function DashboardListPage({
           ]}
         />
       )}
-      <Table<NuphosDashboard>
-        columns={columns}
-        rows={visibleDashboards}
-        rowKey={(d) => d.id}
-        onPrimaryAction={(d) => onDashboardOpened?.({ dashboardId: d.id, dashboardName: d.name })}
-        onRowContextMenu={(row, e) => setMenu({ row, x: e.clientX, y: e.clientY })}
-        storageKey="cost-dashboards"
-        defaultSort={{ key: 'updated', dir: 'desc' }}
-        loading={loading}
-        empty={t('No dashboards match.')}
-      />
+      {embedded && (
+        <div className="mb-3 flex justify-end">
+          <Button variant="ghost" size="sm" onClick={() => void createDashboard()}>
+            <Plus className="size-3.5" />
+            {t('New custom board')}
+          </Button>
+        </div>
+      )}
+      {embedded ? (
+        <DashboardGrid
+          dashboards={visibleDashboards}
+          loading={loading}
+          onOpen={(dashboard) =>
+            onDashboardOpened?.({ dashboardId: dashboard.id, dashboardName: dashboard.name })
+          }
+          onMenu={(row, position) => setMenu({ row, ...position })}
+        />
+      ) : (
+        <Table<NuphosDashboard>
+          columns={columns}
+          rows={visibleDashboards}
+          rowKey={(d) => d.id}
+          onPrimaryAction={(d) => onDashboardOpened?.({ dashboardId: d.id, dashboardName: d.name })}
+          onRowContextMenu={(row, e) => setMenu({ row, x: e.clientX, y: e.clientY })}
+          storageKey="cost-dashboards"
+          defaultSort={{ key: 'updated', dir: 'desc' }}
+          loading={loading}
+          empty={t('No dashboards match.')}
+        />
+      )}
       <ConfirmDialog
         open={dashboardToDelete !== null}
         title={t('Delete dashboard?')}
