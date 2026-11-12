@@ -113,11 +113,10 @@ export type AgentConversation = ConversationInputRequests & {
   agentRuntime?: OpenAbProvider
   runtimeId?: string
   runtimeLabel?: string
-  /** Retains workspace ownership after a move, so deleting the old runtime can still save its files. */
+  /** Runtimes this conversation left, so its files there stay readable after a move. */
   previousRuntimeUrls?: string[]
   runtimeOperation?: { token: string; expiresAt: Date }
   runtimeMigration?: {
-    mode: 'history' | 'workspace'
     fromRuntimeId?: string
     toRuntimeId: string
     movedAt: Date

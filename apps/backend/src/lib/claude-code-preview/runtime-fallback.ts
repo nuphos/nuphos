@@ -125,7 +125,7 @@ async function fallBack(
       skipped.push({ label: instance.label, reason: 'low on usage' })
     else {
       try {
-        await moveConversationRuntime(conversation, id, 'history', userId, {
+        await moveConversationRuntime(conversation, id, userId, {
           reason,
           claimed: options.claimed,
         })

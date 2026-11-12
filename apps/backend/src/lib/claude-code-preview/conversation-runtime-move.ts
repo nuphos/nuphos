@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto'
 import { config } from '@/config'
 import { pushTimelineEvent } from '@/lib/agent/db/participants'
 import { agentConversations } from '@/lib/agent/db/shared'
-import { isLocalRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { claimAgentRunForSession } from '@/lib/agent/run-admission'
 import { AppError } from '@/lib/errors'
 
@@ -13,11 +12,6 @@ import { placementNamespace } from './runtime-controllers'
 import { assertRuntimeNotDeleting } from './runtime-portability-store'
 import { runtimeProvider } from './runtime-provider'
 import { findHostedRuntime, resolveTeamRuntimeEndpoints } from './runtime-registry'
-import {
-  findWorkspaceArchive,
-  restoreRuntimeWorkspace,
-  saveRuntimeWorkspace,
-} from './runtime-workspace'
 import { storedPick } from './session-config-options'
 
 import type { AgentConversation } from '@/lib/agent/db/shared'
@@ -26,7 +20,6 @@ import type { RuntimeFallbackReason } from '@/lib/agent/db/timeline-events'
 export async function moveConversationRuntime(
   conversation: AgentConversation,
   targetId: string,
-  mode: 'history' | 'workspace',
   userId: string,
   /** A fallback names its reason; `claimed` when the caller already holds the session's run claim. */
   options: { reason?: RuntimeFallbackReason; claimed?: boolean } = {},
@@ -56,32 +49,18 @@ export async function moveConversationRuntime(
   if (target.status !== 'active')
     throw new AppError(409, 'runtime_unavailable', 'Choose an agent that is enabled.')
   await assertRuntimeNotDeleting(teamId, target.id)
-  // Conversation history is provider-agnostic: it reaches a freshly created
-  // inner session as the plain-text preamble previewHistoryPreamble builds from
-  // the stored transcript, so Claude Code ↔ Codex is just another move. A
-  // workspace archive is only proven to restore onto the same agent type, so
-  // that mode keeps the restriction.
-  if (mode === 'workspace' && target.provider !== provider)
-    throw new AppError(
-      400,
-      'runtime_provider_mismatch',
-      'A workspace can only move to another agent of the same type. Choose conversation history only.',
-    )
+  // Only the conversation history moves: it reaches a freshly created inner
+  // session as the plain-text preamble previewHistoryPreamble builds from the
+  // stored transcript, so Claude Code ↔ Codex is just another move. Files stay
+  // behind, since every conversation on a runtime shares its /workspace.
   if (conversation.runtimeId === target.id)
-    return { runtimeId: target.id, runtimeLabel: target.label, agentRuntime: target.provider, mode }
+    return { runtimeId: target.id, runtimeLabel: target.label, agentRuntime: target.provider }
   const endpoints = await resolveTeamRuntimeEndpoints(teamId, undefined, target.provider)
   const development = developmentRuntimeEndpoint(target.provider)
 
   if (development) endpoints.push(development)
-  if (target.kind === 'local') {
-    if (mode === 'workspace')
-      throw new AppError(
-        409,
-        'workspace_unavailable',
-        'A local agent cannot receive a workspace. Choose conversation history only.',
-      )
+  if (target.kind === 'local')
     endpoints.push(await resolveLocalRuntimeEndpoint(teamId, target.id, userId, 'transport'))
-  }
   const endpoint = endpoints.find((entry) => entry.runtimeId === target.id)
 
   if (!endpoint)
@@ -119,21 +98,6 @@ export async function moveConversationRuntime(
         'conversation_busy',
         'Wait for the current response to finish before moving this conversation.',
       )
-    if (mode === 'workspace') {
-      if (!sourceUrl || isLocalRuntimeUrl(sourceUrl))
-        throw new AppError(
-          409,
-          'workspace_unavailable',
-          'No workspace is attached. Choose conversation history only.',
-        )
-      let archive = await findWorkspaceArchive(teamId, conversation.sessionId, sourceUrl)
-      // An active source must be freshly saved; an old archive may be stale.
-      const sourceLive = endpoints.some((entry) => entry.url === sourceUrl)
-
-      if (sourceLive || !archive)
-        archive = await saveRuntimeWorkspace(teamId, conversation.sessionId, provider, sourceUrl)
-      await restoreRuntimeWorkspace(archive, target.provider, endpoint.url)
-    }
     await assertRuntimeNotDeleting(teamId, target.id)
     const latestTarget = await requireRuntimeInstance(teamId, target.id, userId)
 
@@ -168,7 +132,6 @@ export async function moveConversationRuntime(
           runtimeLabel: target.label,
           agentRuntime: target.provider,
           runtimeMigration: {
-            mode,
             fromRuntimeId: conversation.runtimeId,
             toRuntimeId: target.id,
             movedAt: new Date(),
@@ -210,7 +173,7 @@ export async function moveConversationRuntime(
         'The conversation changed before the move completed. Refresh and retry.',
       )
 
-    return { runtimeId: target.id, runtimeLabel: target.label, agentRuntime: target.provider, mode }
+    return { runtimeId: target.id, runtimeLabel: target.label, agentRuntime: target.provider }
   } finally {
     release?.()
     await agentConversations().updateOne(

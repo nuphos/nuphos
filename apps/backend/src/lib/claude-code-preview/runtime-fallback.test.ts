@@ -76,7 +76,6 @@ useConversationRuntimeMove({
   moveConversationRuntime: async (
     _conversation: AgentConversation,
     to: string,
-    _mode: string,
     _userId: string,
     options: { reason?: string; claimed?: boolean } = {},
   ) => {

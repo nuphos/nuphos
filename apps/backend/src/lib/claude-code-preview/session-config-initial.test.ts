@@ -49,7 +49,6 @@ const conversation = (moved = false) =>
     ...(moved
       ? {
           runtimeMigration: {
-            mode: 'history',
             fromRuntimeId: 'old',
             toRuntimeId: 'runtime',
             movedAt: new Date(),

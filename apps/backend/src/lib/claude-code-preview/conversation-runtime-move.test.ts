@@ -8,12 +8,10 @@ import { useModels } from '@/lib/test/doubles/models'
 import { useRedis } from '@/lib/test/doubles/redis'
 import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
 import { useRuntimeRegistry } from '@/lib/test/doubles/runtime-registry'
-import { useRuntimeWorkspace } from '@/lib/test/doubles/runtime-workspace'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { moveConversationRuntime } from './conversation-runtime-move'
 import { fallBackBeforeTurn } from './runtime-fallback'
-import { assertConversationRuntimeAvailable } from './runtime-portability-store'
 
 import type { RuntimeInstance } from './runtime-instances'
 import type { ClaudeCodeRuntimeDoc } from './runtime-registry'
@@ -21,12 +19,8 @@ import type { AgentConversation } from '@/lib/agent/db/shared'
 
 let memory = portabilityDb()
 let busy = false
-let restoreFails = false
 let target: RuntimeInstance
 let conversation: AgentConversation
-let restored = false
-let saved = false
-let archiveAvailable = true
 let hostedSources: ClaudeCodeRuntimeDoc[] = []
 
 useDb({ db: () => memory })
@@ -46,29 +40,9 @@ useRuntimeRegistry({
     { runtimeId: 'new', url: 'wss://new/acp', authKey: 'private' },
   ],
 })
-useRuntimeWorkspace({
-  findWorkspaceArchive: async () => (archiveAvailable ? { createdAt: new Date() } : null),
-  saveRuntimeWorkspace: async () => {
-    saved = true
-
-    return {}
-  },
-  restoreRuntimeWorkspace: async () => {
-    // A concurrent send must fail while files are being restored.
-    await expect(assertConversationRuntimeAvailable('conversation')).rejects.toMatchObject({
-      code: 'runtime_moving',
-    })
-    if (restoreFails) throw new Error('Restore failed')
-    restored = true
-  },
-})
 beforeEach(() => {
   memory = portabilityDb()
   busy = false
-  restoreFails = false
-  restored = false
-  saved = false
-  archiveAvailable = true
   hostedSources = []
   target = {
     id: 'new',
@@ -99,9 +73,8 @@ beforeEach(() => {
   }
   memory.rows('agent_conversations').push(conversation)
 })
-test('moves the same conversation after restoring files and keeps history and settings', async () => {
-  await moveConversationRuntime({ ...conversation }, 'new', 'workspace', 'owner')
-  expect(restored).toBe(true)
+test('moves the same conversation and keeps history and settings', async () => {
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner')
   expect(conversation).toMatchObject({
     sessionId: 'conversation',
     title: 'Keep title',
@@ -115,10 +88,9 @@ test('moves the same conversation after restoring files and keeps history and se
   expect(conversation.claudeCodePreview).toBeUndefined()
   expect(conversation.runtimeOperation).toBeUndefined()
 })
-test('an already removed runtime can continue using history without pretending files were restored', async () => {
-  await moveConversationRuntime({ ...conversation }, 'new', 'history', 'owner')
-  expect(restored).toBe(false)
-  expect(conversation.runtimeMigration?.mode).toBe('history')
+test('a move records where the conversation came from', async () => {
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner')
+  expect(conversation.runtimeMigration).toMatchObject({ fromRuntimeId: 'old', toRuntimeId: 'new' })
   expect(conversation.previousRuntimeUrls).toEqual(['wss://old/acp'])
   expect(conversation.runtimeId).toBe('new')
   // What the session's timeline shows, with the labels as they were at the move.
@@ -126,41 +98,35 @@ test('an already removed runtime can continue using history without pretending f
     { kind: 'runtime_moved', actorId: 'owner', fromLabel: 'Old runtime', toLabel: 'New runtime' },
   ])
 })
-test('failed restore and active turns preserve the original placement and release the operation lock', async () => {
-  restoreFails = true
-  await expect(
-    moveConversationRuntime({ ...conversation }, 'new', 'workspace', 'owner'),
-  ).rejects.toThrow('Restore failed')
-  expect(conversation.runtimeId).toBe('old')
-  expect(conversation.runtimeOperation).toBeUndefined()
+test('an active turn preserves the original placement and releases the operation lock', async () => {
   busy = true
-  await expect(
-    moveConversationRuntime({ ...conversation }, 'new', 'history', 'owner'),
-  ).rejects.toMatchObject({ code: 'conversation_busy' })
+  await expect(moveConversationRuntime({ ...conversation }, 'new', 'owner')).rejects.toMatchObject({
+    code: 'conversation_busy',
+  })
   expect(conversation.runtimeId).toBe('old')
   expect(conversation.runtimeOperation).toBeUndefined()
 })
 test('only the owner moves the session; a participant, even a former manager, cannot', async () => {
   const shared = { ...conversation, participantIds: ['manager'], managerIds: ['manager'] }
 
-  await expect(moveConversationRuntime(shared, 'new', 'history', 'manager')).rejects.toMatchObject({
+  await expect(moveConversationRuntime(shared, 'new', 'manager')).rejects.toMatchObject({
     status: 403,
   })
   expect(conversation.runtimeId).toBe('old')
 })
 test('readers, disabled destinations, and deleting destinations are rejected', async () => {
-  await expect(
-    moveConversationRuntime(conversation, 'new', 'history', 'reader'),
-  ).rejects.toMatchObject({ status: 403 })
+  await expect(moveConversationRuntime(conversation, 'new', 'reader')).rejects.toMatchObject({
+    status: 403,
+  })
   target.status = 'disabled'
-  await expect(
-    moveConversationRuntime(conversation, 'new', 'history', 'owner'),
-  ).rejects.toMatchObject({ code: 'runtime_unavailable' })
+  await expect(moveConversationRuntime(conversation, 'new', 'owner')).rejects.toMatchObject({
+    code: 'runtime_unavailable',
+  })
   target.status = 'active'
   memory.rows('agent_runtime_deletions').push({ _id: 'new', teamId: 'team' })
-  await expect(
-    moveConversationRuntime(conversation, 'new', 'history', 'owner'),
-  ).rejects.toMatchObject({ code: 'runtime_deleting' })
+  await expect(moveConversationRuntime(conversation, 'new', 'owner')).rejects.toMatchObject({
+    code: 'runtime_deleting',
+  })
   expect(conversation.runtimeId).toBe('old')
 })
 
@@ -170,7 +136,7 @@ test('history moves to the other agent type and leaves no session behind', async
   // minted here is not in the destination runtime's namespace, and the first
   // prompt is what creates the real one.
   target.provider = 'codex'
-  await moveConversationRuntime({ ...conversation }, 'new', 'history', 'owner')
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner')
 
   expect(conversation.agentRuntime).toBe('codex')
   expect(conversation.runtimeId).toBe('new')
@@ -179,31 +145,19 @@ test('history moves to the other agent type and leaves no session behind', async
   expect(conversation.initialSessionConfig).toBeUndefined()
 })
 
-test('a workspace cannot move to the other agent type', async () => {
-  target.provider = 'codex'
-  await expect(
-    moveConversationRuntime(conversation, 'new', 'workspace', 'owner'),
-  ).rejects.toMatchObject({ code: 'runtime_provider_mismatch' })
-  expect(conversation.runtimeId).toBe('old')
-  expect(conversation.claudeCodePreview?.openabSessionId).toBe('native-old')
-})
-
-test('history-only moves retain old workspace ownership without needing an online source', async () => {
-  archiveAvailable = false
+test('a move retains the old runtime without needing an online source', async () => {
   memory.rows('agent_runtime_deletions').push({
     _id: 'old',
     teamId: 'team',
     requestedAt: new Date(),
     placements: [{ url: 'wss://old/acp', state: 'pending' }],
   })
-  await moveConversationRuntime({ ...conversation }, 'new', 'history', 'owner')
-  expect(saved).toBe(false)
-  expect(restored).toBe(false)
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner')
   expect(conversation.previousRuntimeUrls).toEqual(['wss://old/acp'])
   expect(conversation.runtimeId).toBe('new')
 })
 
-test('neither move mode can overwrite a different environment attachment in the shared database', async () => {
+test('a move cannot overwrite a different environment attachment in the shared database', async () => {
   const namespace = `${config.claudeCodeRuntimeProvisioner.namespace}-other`
   const sourceUrl = `ws://openab-claude-old.${namespace}.svc:8080/acp`
 
@@ -220,39 +174,18 @@ test('neither move mode can overwrite a different environment attachment in the 
       updatedAt: new Date(),
     },
   ]
-  for (const mode of ['history', 'workspace'] as const) {
-    await expect(
-      moveConversationRuntime({ ...conversation }, 'new', mode, 'owner'),
-    ).rejects.toMatchObject({
-      code: 'runtime_environment_mismatch',
-    })
-    expect(conversation.runtimeId).toBe('old')
-    expect(conversation.claudeCodePreview!.runtimeUrl).toBe(sourceUrl)
-    expect(conversation.runtimeOperation).toBeUndefined()
-  }
-  expect(saved).toBe(false)
-  expect(restored).toBe(false)
+  await expect(moveConversationRuntime({ ...conversation }, 'new', 'owner')).rejects.toMatchObject({
+    code: 'runtime_environment_mismatch',
+  })
+  expect(conversation.runtimeId).toBe('old')
+  expect(conversation.claudeCodePreview!.runtimeUrl).toBe(sourceUrl)
+  expect(conversation.runtimeOperation).toBeUndefined()
 })
 
 test('a manually registered in-cluster source remains movable using history', async () => {
   conversation.claudeCodePreview!.runtimeUrl = 'ws://custom.other-ns.svc:1234/acp'
-  await moveConversationRuntime({ ...conversation }, 'new', 'history', 'owner')
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner')
   expect(conversation.runtimeId).toBe('new')
-  expect(saved).toBe(false)
-  expect(restored).toBe(false)
-})
-
-test('a deleted source keeps its last archive available for workspace moves', async () => {
-  memory.rows('agent_runtime_deletions').push({
-    _id: 'old',
-    teamId: 'team',
-    requestedAt: new Date(Date.now() + 60_000),
-    completedAt: new Date(),
-    placements: [{ url: 'wss://old/acp', state: 'deleted' }],
-  })
-  await moveConversationRuntime({ ...conversation }, 'new', 'workspace', 'owner')
-  expect(saved).toBe(false)
-  expect(restored).toBe(true)
 })
 
 useModels({ userTeamRuntimeFallbacks: () => ({ findOne: async () => ({ runtimeIds: ['new'] }) }) })
@@ -280,7 +213,7 @@ for (const automatic of [false, true]) {
         ],
       })
       await fallBackBeforeTurn({ ...conversation }, 'owner')
-    } else await moveConversationRuntime({ ...conversation }, 'new', 'history', 'owner')
+    } else await moveConversationRuntime({ ...conversation }, 'new', 'owner')
     expect(conversation.runtimeId).toBe('new')
     expect(conversation.claudeCodePreview).toBeUndefined()
     expect(conversation.initialSessionConfig).toEqual({ model: 'chosen-model', effort: 'high' })
@@ -290,13 +223,13 @@ for (const automatic of [false, true]) {
 test('an unstarted same-provider conversation keeps its explicit initial choices', async () => {
   delete conversation.claudeCodePreview
   conversation.initialSessionConfig = { model: 'chosen-model', effort: 'high' }
-  await moveConversationRuntime({ ...conversation }, 'new', 'history', 'owner')
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner')
   expect(conversation.initialSessionConfig).toEqual({ model: 'chosen-model', effort: 'high' })
 })
 test('a same-provider move without a pick does not invent one', async () => {
   delete conversation.claudeCodePreview
   delete conversation.initialSessionConfig
-  await moveConversationRuntime({ ...conversation }, 'new', 'history', 'owner')
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner')
   expect(conversation).toMatchObject({ initialSessionConfig: {} })
 })
 test('a cross-provider move clears confirmed choices as well as the old attachment', async () => {
@@ -304,7 +237,7 @@ test('a cross-provider move clears confirmed choices as well as the old attachme
     { id: 'model', kind: 'model', name: 'Model', currentValue: 'chosen-model', options: [] },
   ]
   target.provider = 'codex'
-  await moveConversationRuntime({ ...conversation }, 'new', 'history', 'owner')
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner')
   expect(conversation.initialSessionConfig).toBeUndefined()
   expect(conversation.claudeCodePreview).toBeUndefined()
 })
@@ -319,6 +252,6 @@ test('a choice saved after the move request was read is preserved from durable s
       { id: 'effort', kind: 'effort', name: 'Effort', currentValue: 'high', options: [] },
     ],
   }
-  await moveConversationRuntime(requested, 'new', 'history', 'owner')
+  await moveConversationRuntime(requested, 'new', 'owner')
   expect(conversation.initialSessionConfig).toEqual({ model: 'latest-model', effort: 'high' })
 })

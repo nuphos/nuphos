@@ -175,7 +175,7 @@ export async function updateThread(
   const { moveConversationRuntime } =
     await import('@/lib/claude-code-preview/conversation-runtime-move')
   const runtime = change.runtimeId
-    ? await moveConversationRuntime(target, change.runtimeId, 'history', actor.userId)
+    ? await moveConversationRuntime(target, change.runtimeId, actor.userId)
     : undefined
   // Apply any explicit choice after the move has preserved compatible settings.
   const model = await setThreadModel(threadId, actor.userId, change)

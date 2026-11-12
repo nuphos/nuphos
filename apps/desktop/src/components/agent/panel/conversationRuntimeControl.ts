@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 
 import { api } from '../../../api'
-import { decideErrorToast, parseAtlasError } from '../../../api/errors'
+import { decideErrorToast } from '../../../api/errors'
 import { t } from '../../../i18n/index.ts'
 import { localAgentMoveWarning, moveNotice } from '../../../lib/localAgentSharing'
 import { AGENT_PROVIDER } from '../../../types/runtime'
@@ -10,16 +10,6 @@ import { toast } from '../../ui/toast'
 import type { PanelViewCtx } from './ctx'
 import type { RuntimeControl } from './RuntimeSelector'
 import type { RuntimeInstance } from '../../../types/runtime'
-
-/** Whether this destination can receive the conversation's working files too.
- *  The backend restores an archive only onto another hosted agent of the same
- *  type; anywhere else the conversation still moves, just without the files. */
-function canCarryWorkspace(
-  target: RuntimeInstance,
-  provider: RuntimeInstance['provider'],
-): boolean {
-  return target.provider === provider && target.kind !== 'local'
-}
 
 /** The runtime chip in an open conversation's composer: names the agent the
  *  conversation runs on, and lists the others — picking one moves it there. */
@@ -70,32 +60,12 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
       // replaces it, so the result needs no toast of its own.
       setTab({ movingTo: target.label })
       try {
-        // Try to bring the working files when the destination can hold them, and
-        // fall back to history rather than making the user choose up front.
-        const result = await api
-          .agentMoveConversationRuntime(
-            sessionId,
-            teamId,
-            runtimeId,
-            canCarryWorkspace(target, provider) ? 'workspace' : 'history',
-            grantComputerUse,
-          )
-          .catch(async (cause: unknown) => {
-            // The backend's code crosses IPC inside the error message, not as a
-            // property — `cause.code` is always undefined here.
-            if (parseAtlasError(cause).code !== 'workspace_unavailable') throw cause
-            const moved = await api.agentMoveConversationRuntime(
-              sessionId,
-              teamId,
-              runtimeId,
-              'history',
-              grantComputerUse,
-            )
-
-            toast.success(t('Agent moved'), t('The working files could not come along.'))
-
-            return moved
-          })
+        const result = await api.agentMoveConversationRuntime(
+          sessionId,
+          teamId,
+          runtimeId,
+          grantComputerUse,
+        )
 
         // Read the event back now rather than on the next catch-up poll.
         const detail = await api
@@ -124,7 +94,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
         }
       }
     },
-    [moving, provider, refreshHistory, runtimeInstances, sessionId, setTab, tabId, teamId],
+    [moving, refreshHistory, runtimeInstances, sessionId, setTab, tabId, teamId],
   )
 
   // Explain host trust, and who would lose reply, before a move.

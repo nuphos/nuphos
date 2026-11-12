@@ -114,16 +114,9 @@ export function closeAutonomousTranscript(
   return true
 }
 
-const SAFE_CONVERSATION_ID = /^[A-Za-z0-9_-]+$/
-
-// ponytail: per-conversation subdir; Claude Code walks up to /workspace for .claude/
-export function previewRuntimeCwd(conversationId: string): string {
-  if (!SAFE_CONVERSATION_ID.test(conversationId)) {
-    throw new Error('Conversation id contains invalid characters.')
-  }
-
-  return `/workspace/conv-${conversationId}`
-}
+// ACP requires a cwd, but OpenAB ignores it: the agent runs in the runtime's
+// `working_dir` (/workspace), or a conversation's chosen workspace via _meta.
+export const RUNTIME_CWD = '/workspace'
 
 export const MAX_PREVIEW_CONVERSATION_ID_LENGTH = 200
 

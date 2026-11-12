@@ -218,18 +218,17 @@ export async function moveConversationRuntime(
   sessionId: string,
   teamId: string,
   runtimeId: string,
-  mode: 'history' | 'workspace',
   grantComputerUse?: boolean,
 ): Promise<{
   runtimeId: string
   runtimeLabel: string
   agentRuntime: AgentProvider
-  mode: 'history' | 'workspace'
 }> {
   return callJsonForRenderer(
     'POST',
     `/agent/conversations/${encodeURIComponent(sessionId)}/runtime${teamQuery(teamId)}`,
-    { runtimeId, mode, ...(grantComputerUse ? { grantComputerUse } : {}) },
+    // Older backends require `mode`. Only the conversation history moves.
+    { runtimeId, mode: 'history', ...(grantComputerUse ? { grantComputerUse } : {}) },
   )
 }
 
