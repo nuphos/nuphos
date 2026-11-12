@@ -62,6 +62,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: t('Accept suggested prompt'), combos: ['tab'] },
       { label: t('Select effort'), combos: ['ctrl+shift+m'] },
       { label: t('Recall sent message'), combos: ['up', 'down'] },
+      { label: t('Voice input'), combos: ['mod+shift+u'] },
       { label: t('Approve tool or plan'), combos: ['mod+enter'] },
       { label: t('Deny tool'), combos: ['mod+backspace'] },
       { label: t('Pick option 1–9'), combos: ['mod+alt+1'] },

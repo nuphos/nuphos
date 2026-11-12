@@ -7,10 +7,12 @@ import { Button } from '../../ui/button'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../ui/menu'
 
 import { isRichImageDrop } from './attachmentDrag'
+import { ComposerVoice } from './ComposerVoice'
 import { AGENT_QUEUE_PLACEHOLDER } from './constants'
 import { usePastedTextChips } from './usePastedTextChips'
 import { OpenSlackThreadButton } from './ReadOnlyNotice'
 
+import type { ComposerVoiceScope } from './ComposerVoice'
 import type { AgentSlackThread } from '../../../api'
 import type {
   ClipboardEvent,
@@ -109,7 +111,7 @@ export function ComposerEditor({
   )
 }
 
-export function ComposerSendControls({
+function SendControls({
   hero,
   readOnly,
   runtimeCanCancel = false,
@@ -272,6 +274,21 @@ export function ComposerTools({ children }: { children: ReactNode }) {
       className="-my-3 flex h-14 min-w-0 flex-1 flex-wrap content-start items-center gap-x-0.5 gap-y-6 overflow-hidden py-3 @[320px]:gap-x-1"
     >
       {children}
+    </div>
+  )
+}
+
+/** The send controls, with the voice-input button before them while the composer can be edited. */
+export function ComposerSendControls({
+  voice,
+  ...props
+}: Parameters<typeof SendControls>[0] & { voice?: ComposerVoiceScope }) {
+  if (!voice || props.readOnly) return <SendControls {...props} />
+
+  return (
+    <div className="flex items-center gap-1">
+      <ComposerVoice {...voice} hero={props.hero} />
+      <SendControls {...props} />
     </div>
   )
 }

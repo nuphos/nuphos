@@ -142,7 +142,8 @@
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
       "extendInfo": {
-        "NSAppleEventsUsageDescription": "Nuphos uses automation to notify Computer Use when an agent turn ends."
+        "NSAppleEventsUsageDescription": "Nuphos uses automation to notify Computer Use when an agent turn ends.",
+        "NSMicrophoneUsageDescription": "Nuphos uses the microphone for voice input in the composer."
       },
       "notarize": true,
       "binaries": [
