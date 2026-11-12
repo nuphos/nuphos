@@ -54,7 +54,7 @@ const team = { ...mine, scope: 'team' } as const
 const pull = (key: string, linkedAt: number, mergedAt: number | null) => ({
   id: key,
   key,
-  provider: 'github' as const,
+  provider: key.startsWith('gitlab/') ? ('gitlab' as const) : ('github' as const),
   integrationId: '1',
   resourceId: key,
   title: key,
@@ -177,6 +177,8 @@ test('pull requests count once, merged ones by their local merge time', () => {
       linkedResources: [
         pull('github/1/2/3', utc(27, 9), utc(28, 6)),
         pull('github/1/2/4', utc(27, 9), null),
+        // A GitLab merge request is a pull request too.
+        pull('gitlab/1/2/6', utc(27, 9), null),
       ],
     }),
     // The same pull request linked from another session.
@@ -188,7 +190,7 @@ test('pull requests count once, merged ones by their local merge time', () => {
   )
 
   expect(summarizeStats(read, { ...mine, timeZone: 'America/New_York' }).current).toMatchObject({
-    prsOpened: 2,
+    prsOpened: 3,
     prsMerged: 2,
     prsMergedOvernight: 1,
   })

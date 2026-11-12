@@ -1,3 +1,4 @@
+import { isPull } from '../../api/session-resource-types.ts'
 import { locale, t } from '../../i18n/index.ts'
 
 import type { SessionResource } from '../../api/session-resource-types'
@@ -22,14 +23,15 @@ export const GROUP_THRESHOLD = 3
 /** A group chip's label, e.g. `9 issues` or `3 pull requests`. */
 export function groupLabel(provider: SessionResource['provider'], n: number): string {
   if (provider === 'linear') return t('{n} issues', { n })
-  if (provider === 'github') return t('{n} pull requests', { n })
+  if (isPull({ provider })) return t('{n} pull requests', { n })
 
   return t('{n} threads', { n })
 }
 
-/** What a chip says: a PR number, a thread's title, or an issue's identifier. */
+/** What a chip says: a PR number (`!n` on GitLab), a thread's title, or an issue's identifier. */
 export function resourceLabel(resource: SessionResource): string {
-  if (resource.provider === 'github') return `#${String(resource.number)}`
+  if (isPull(resource))
+    return `${resource.provider === 'gitlab' ? '!' : '#'}${String(resource.number)}`
   if (resource.provider === 'slack' || resource.provider === 'discord') return resource.title
 
   return resource.title.split(/\s+/, 1)[0]
@@ -47,16 +49,14 @@ const DRAFT_HEALTH_TEXT = {
   conflict: t('draft · merge conflict'),
 }
 
-/** An open PR still marked as a draft on GitHub. */
+/** An open PR still marked as a draft. */
 export function resourceDraft(resource: SessionResource) {
-  return resource.provider === 'github' && resource.state === 'open' && Boolean(resource.draft)
+  return isPull(resource) && resource.state === 'open' && Boolean(resource.draft)
 }
 
 /** What holds up an open PR. A merged or closed PR's last health no longer applies. */
 export function resourceHealth(resource: SessionResource) {
-  return resource.provider === 'github' && resource.state === 'open'
-    ? (resource.health ?? null)
-    : null
+  return isPull(resource) && resource.state === 'open' ? (resource.health ?? null) : null
 }
 
 /** A resource's state as a person would say it, e.g. `open · checks failing` or `draft`. */
@@ -90,7 +90,7 @@ export function changeStatus(resource: SessionResource): ChangeStatus {
 
     return resource.stateType === 'canceled' ? 'closed' : 'open'
   }
-  if (resource.provider !== 'github') return 'open'
+  if (!isPull(resource)) return 'open'
   if (resource.state === 'merged') return 'merged'
 
   return resource.state === 'closed' ? 'closed' : 'open'
@@ -115,9 +115,7 @@ export function resourceMark(resource: SessionResource) {
 
 /** The whole name, as a list shows it: a PR's number and title, or anything else's title. */
 export function resourceFullLabel(resource: SessionResource): string {
-  return resource.provider === 'github'
-    ? `${resourceLabel(resource)} ${resource.title}`
-    : resource.title
+  return isPull(resource) ? `${resourceLabel(resource)} ${resource.title}` : resource.title
 }
 
 /** Every name the chips stand for, one per line in a tooltip. */
@@ -161,7 +159,7 @@ export function finishedLabel(resources: SessionResource[]): string {
   const merged = resources.filter((resource) => changeStatus(resource) === 'merged')
 
   if (!merged.length) return finishedCount('closed', resources.length)
-  const word = merged.some((resource) => resource.provider === 'github') ? 'merged' : 'done'
+  const word = merged.some(isPull) ? 'merged' : 'done'
 
   return finishedCount(word, merged.length)
 }

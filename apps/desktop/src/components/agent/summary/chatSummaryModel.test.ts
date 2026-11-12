@@ -97,16 +97,21 @@ test('changes keep pull requests and issues, newest link first', () => {
     resource({ id: 'pr', linkedAt: '2026-10-14T01:00:00Z' }),
     resource({ id: 'slack', provider: 'slack' }),
     resource({ id: 'issue', provider: 'linear', linkedAt: '2026-10-14T02:00:00Z' }),
+    resource({ id: 'mr', provider: 'gitlab', linkedAt: '2026-10-14T03:00:00Z' }),
   ])
 
   assert.deepEqual(
     list.map((r) => r.id),
-    ['issue', 'pr'],
+    ['mr', 'issue', 'pr'],
   )
 })
 
 test('a pull request reads repo and number; an issue reads its key under its title', () => {
   assert.equal(changeSubtitle(resource({ repository: 'nuphos/nuphos', number: 12 })), 'nuphos #12')
+  assert.equal(
+    changeSubtitle(resource({ provider: 'gitlab', repository: 'group/sub/app', number: 3 })),
+    'app !3',
+  )
   const issue = resource({ provider: 'linear', title: 'ENG-7 Fix the panel' })
 
   assert.equal(changeSubtitle(issue), 'ENG-7')

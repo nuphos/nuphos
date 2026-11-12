@@ -40,6 +40,17 @@ test('labels a PR by number, a thread by title and an issue by identifier', () =
   assert.equal(resourceLabel(resource({ provider: 'linear', title: 'ENG-12 Fix chips' })), 'ENG-12')
 })
 
+test('a GitLab merge request reads like a pull request, numbered the GitLab way', () => {
+  const mr = resource({ provider: 'gitlab', number: 42, repository: 'group/app' })
+
+  assert.equal(resourceLabel(mr), '!42')
+  assert.equal(resourceFullLabel(mr), '!42 Fix chips')
+  assert.equal(resourceStatus({ ...mr, draft: true }), 'draft')
+  assert.equal(pullStateColor({ ...mr, state: 'merged' }), 'session-resource-merged')
+  assert.equal(changeStatus({ ...mr, state: 'merged' }), 'merged')
+  assert.equal(changeStatus({ ...mr, state: 'closed' }), 'closed')
+})
+
 test('a full label adds the PR title to its number', () => {
   assert.equal(resourceFullLabel(resource({ number: 630 })), '#630 Fix chips')
   assert.equal(
@@ -204,6 +215,7 @@ test('the badge counts what its Changes pill counts: merged first, else closed',
   assert.equal(finishedLabel([merged('m1', 1), closed, done]), '2 merged')
   assert.equal(finishedLabel([done, canceled]), '1 done')
   assert.equal(finishedLabel([closed, canceled]), '2 closed')
+  assert.equal(finishedLabel([{ ...merged('g1', 1), provider: 'gitlab' }]), '1 merged')
 })
 
 test('the badge tooltip breaks the items down, most common first, then names them', () => {
