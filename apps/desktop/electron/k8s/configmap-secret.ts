@@ -1,6 +1,7 @@
-import * as k8s from '@kubernetes/client-node'
-
 import { getClients, withAuthRetry } from './client'
+import { k8sLib } from './lib'
+
+import type * as k8s from '@kubernetes/client-node'
 
 export function upsertConfigMapKey(
   context: string,
@@ -23,7 +24,7 @@ export function upsertConfigMapKey(
         namespace,
         body: { [source]: { [key]: value } },
       },
-      k8s.setHeaderOptions('Content-Type', k8s.PatchStrategy.MergePatch),
+      k8sLib.setHeaderOptions('Content-Type', k8sLib.PatchStrategy.MergePatch),
     )
   })
 }
@@ -48,7 +49,7 @@ export function removeConfigMapKey(
         namespace,
         body: { [source]: { [key]: null } },
       },
-      k8s.setHeaderOptions('Content-Type', k8s.PatchStrategy.MergePatch),
+      k8sLib.setHeaderOptions('Content-Type', k8sLib.PatchStrategy.MergePatch),
     )
   })
 }
@@ -69,7 +70,7 @@ export function upsertSecretKey(
         namespace,
         body: { stringData: { [key]: value } },
       },
-      k8s.setHeaderOptions('Content-Type', k8s.PatchStrategy.MergePatch),
+      k8sLib.setHeaderOptions('Content-Type', k8sLib.PatchStrategy.MergePatch),
     )
   })
 }
@@ -84,7 +85,7 @@ export function removeSecretKey(context: string, namespace: string, name: string
         namespace,
         body: { data: { [key]: null } },
       },
-      k8s.setHeaderOptions('Content-Type', k8s.PatchStrategy.MergePatch),
+      k8sLib.setHeaderOptions('Content-Type', k8sLib.PatchStrategy.MergePatch),
     )
   })
 }

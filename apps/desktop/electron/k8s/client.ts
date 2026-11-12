@@ -1,6 +1,3 @@
-import { Metrics } from '@kubernetes/client-node'
-import * as k8s from '@kubernetes/client-node'
-
 import { contextRefreshers, parseCredentialExpiry } from './context-refreshers'
 import {
   METRICS_TIMEOUT_MS,
@@ -10,6 +7,9 @@ import {
   isPreRequestConnError,
   translateK8sError,
 } from './errors'
+import { k8sLib } from './lib'
+
+import type * as k8s from '@kubernetes/client-node'
 
 // Multi-context state.
 //
@@ -54,7 +54,7 @@ export function withDeadline<T>(promise: Promise<T>, timeoutMs: number): Promise
 // so attaching one here bounds (and actually aborts) every generated API call
 // without touching the hundreds of call sites.
 class DeadlineHttpLibrary implements k8s.HttpLibrary {
-  private readonly inner = new k8s.IsomorphicFetchHttpLibrary()
+  private readonly inner = new k8sLib.IsomorphicFetchHttpLibrary()
 
   send(request: k8s.RequestContext) {
     if (!request.getSignal()) request.setSignal(AbortSignal.timeout(REQUEST_TIMEOUT_MS))
@@ -67,10 +67,10 @@ class DeadlineHttpLibrary implements k8s.HttpLibrary {
 // clients, so the HttpLibrary above can't reach it — bound it by racing. The
 // socket is left to the OS rather than aborted, which is acceptable only
 // because this path is optional and low-volume.
-type MetricsClient = Pick<Metrics, 'getNodeMetrics' | 'getPodMetrics'>
+type MetricsClient = Pick<k8s.Metrics, 'getNodeMetrics' | 'getPodMetrics'>
 
 function deadlineMetrics(kc: k8s.KubeConfig): MetricsClient {
-  const inner = new Metrics(kc)
+  const inner = new k8sLib.Metrics(kc)
 
   return {
     getNodeMetrics: () => withDeadline(inner.getNodeMetrics(), METRICS_TIMEOUT_MS),
@@ -86,22 +86,22 @@ export function buildApiClients(
   const cluster = kc.getCurrentCluster()
 
   if (!cluster) throw new Error('KubeConfig has no active cluster')
-  const config = k8s.createConfiguration({
-    baseServer: new k8s.ServerConfiguration(cluster.server, {}),
+  const config = k8sLib.createConfiguration({
+    baseServer: new k8sLib.ServerConfiguration(cluster.server, {}),
     authMethods: { default: kc },
     httpApi: new DeadlineHttpLibrary(),
   })
 
   return {
-    coreApi: new k8s.CoreV1Api(config),
-    appsApi: new k8s.AppsV1Api(config),
-    batchApi: new k8s.BatchV1Api(config),
-    networkingApi: new k8s.NetworkingV1Api(config),
-    discoveryApi: new k8s.DiscoveryV1Api(config),
-    storageApi: new k8s.StorageV1Api(config),
-    rbacApi: new k8s.RbacAuthorizationV1Api(config),
-    apiextensionsApi: new k8s.ApiextensionsV1Api(config),
-    customObjectsApi: new k8s.CustomObjectsApi(config),
+    coreApi: new k8sLib.CoreV1Api(config),
+    appsApi: new k8sLib.AppsV1Api(config),
+    batchApi: new k8sLib.BatchV1Api(config),
+    networkingApi: new k8sLib.NetworkingV1Api(config),
+    discoveryApi: new k8sLib.DiscoveryV1Api(config),
+    storageApi: new k8sLib.StorageV1Api(config),
+    rbacApi: new k8sLib.RbacAuthorizationV1Api(config),
+    apiextensionsApi: new k8sLib.ApiextensionsV1Api(config),
+    customObjectsApi: new k8sLib.CustomObjectsApi(config),
     metricsClient: deadlineMetrics(kc),
   }
 }
@@ -202,7 +202,7 @@ async function authRetry<T>(context: string, fn: () => Promise<T>): Promise<T> {
 }
 
 export function loadDefaultKubeconfig(): k8s.KubeConfig {
-  const kc = new k8s.KubeConfig()
+  const kc = new k8sLib.KubeConfig()
 
   kc.loadFromDefault()
 

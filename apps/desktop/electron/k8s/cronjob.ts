@@ -1,6 +1,7 @@
-import * as k8s from '@kubernetes/client-node'
-
 import { getClients, withAuthRetry } from './client'
+import { k8sLib } from './lib'
+
+import type * as k8s from '@kubernetes/client-node'
 
 export type CronJobContainer = {
   name: string
@@ -108,7 +109,7 @@ export function setCronJobSuspend(
 
     await api.patchNamespacedCronJob(
       { name, namespace, body: { spec: { suspend } } },
-      k8s.setHeaderOptions('Content-Type', k8s.PatchStrategy.MergePatch),
+      k8sLib.setHeaderOptions('Content-Type', k8sLib.PatchStrategy.MergePatch),
     )
   })
 }
