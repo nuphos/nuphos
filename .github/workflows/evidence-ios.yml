@@ -1,0 +1,43 @@
+name: evidence-ios-workspace
+on:
+  push:
+    branches: [evidence/ios-bubble-2188]
+jobs:
+  shots:
+    runs-on: xcode-27
+    timeout-minutes: 40
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Native bubble menu evidence
+        working-directory: apps/ios
+        run: |
+          set -euo pipefail
+          UDID=$(xcrun simctl list devices available -j | jq -r '[.devices[][] | select(.name|startswith("iPhone"))][0].udid')
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl ui "$UDID" appearance light
+          git fetch --no-tags --depth=1 origin 6638deacf3ac7da47e85e235a236f528a97a91c6
+          status=0
+          for variant in after before; do
+            if [ "$variant" = before ]; then
+              for file in ChannelView.swift AssistantMarkdown.swift; do
+                git show "6638deacf3ac7da47e85e235a236f528a97a91c6:apps/ios/nuphos-ios/Views/Chat/$file" > "nuphos-ios/Views/Chat/$file"
+              done
+              python3 -c 'from pathlib import Path; p=Path("UITests/ChannelMessageMenuUITests.swift"); p.write_text(p.read_text().replace("if ProcessInfo.processInfo.environment[\"NUPHOS_EVIDENCE_BASELINE\"] == \"1\"", "if true"))'
+            fi
+            mkdir -p "$RUNNER_TEMP/out/$variant"
+            xcodebuild test -project nuphos-ios.xcodeproj -scheme nuphos-ios -configuration Debug               -destination "id=$UDID" -only-testing:nuphos-iosUITests/ChannelMessageMenuUITests               -jobs 2 -parallel-testing-enabled NO -resultBundlePath "$RUNNER_TEMP/$variant.xcresult"               CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER=               > "$RUNNER_TEMP/out/$variant/build.log" 2>&1 || status=1
+            tail -45 "$RUNNER_TEMP/out/$variant/build.log"
+            xcrun xcresulttool export attachments --path "$RUNNER_TEMP/$variant.xcresult" --output-path "$RUNNER_TEMP/out/$variant" || true
+            xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/$variant.xcresult" > "$RUNNER_TEMP/out/$variant/summary.json" || true
+          done
+          exit "$status"
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: shots
+          path: ${{ runner.temp }}/out
