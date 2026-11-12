@@ -6,11 +6,10 @@ import { AgentPanel } from '../components/agent/AgentPanel'
 import { conversationQuestions } from '../components/agent/panel/replyTarget'
 import { chatOfBot } from '../components/channels/botChannel'
 import { EmptyState } from '../components/EmptyState'
-import { agentSessionsCacheKey } from '../components/sidebar/state'
+import { useAgentSessions } from '../components/sidebar/agentSessions'
 import { useElementSize } from '../grafana/useElementSize'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
-import { useSwrCache } from '../lib/swrCache'
 
 import { ChannelMentions } from './inbox/ChannelMentions'
 import { DecisionCard } from './inbox/DecisionCard'
@@ -27,7 +26,6 @@ import {
 import { useShareApprovals } from './inbox/useShareApprovals'
 
 import type { InboxQuestion } from './inbox/inboxItems'
-import type { AgentConversation } from '../api/agent-types'
 import type { JournalChatTarget } from '../lib/journalEvent'
 
 // Below this the page shows the list alone, and a row opens its conversation.
@@ -64,7 +62,7 @@ export function InboxView({
   const twoPane = width === 0 || width >= TWO_PANE_MIN_WIDTH
   const listing = useInboxListing(teamId, refreshKey).data ?? null
   // The sidebar's conversations: where a Bot's chat is.
-  const known = useSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId))
+  const known = useAgentSessions(teamId).data
   const [selected, setSelected] = useState<{ id: string; index: number } | null>(null)
   // The reader shows the question; the transcript only when asked for, at the question.
   const [showConversation, setShowConversation] = useState(false)

@@ -59,8 +59,9 @@ mock.module('../../../lib/agentRuntimeStates.ts', {
   },
 })
 mock.module('../../ui/toast.ts', { namedExports: { toast: { info: () => {} } } })
-mock.module('../../../lib/swrCache.ts', { namedExports: { useSwrCache: () => known } })
-mock.module('../../sidebar/state.ts', { namedExports: { agentSessionsCacheKey: () => 'team' } })
+mock.module('../../sidebar/agentSessions.ts', {
+  namedExports: { useAgentSessions: () => ({ data: known }) },
+})
 function useState(initial: unknown) {
   const index = cursor++
 

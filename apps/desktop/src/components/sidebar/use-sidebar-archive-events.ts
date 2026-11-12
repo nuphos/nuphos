@@ -1,65 +1,45 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef } from 'react'
 
 import { t } from '../../i18n'
 import { offerArchiveUndo } from '../../lib/archiveUndo'
 import { onChatArchived, onChatUnarchived } from '../../lib/chatArchiveEvents'
+import { queryKeys } from '../../lib/query/keys'
 
-import { withRestoredChats } from './local-archive-guard'
+import { removeChat, restoreChat } from './agentSessions'
 
-import type { LocalRestoreGuard } from './local-archive-guard'
 import type { AgentConversation } from '../../api'
-import type { Dispatch, RefObject, SetStateAction } from 'react'
 
 export function useSidebarArchiveEvents({
   teamId,
   sessions,
-  locallyArchivedRef,
-  locallyRestoredRef,
-  refreshSeqRef,
-  setSessions,
-  refresh,
   onArchived,
 }: {
   teamId: string
   sessions: AgentConversation[]
-  locallyArchivedRef: RefObject<Map<string, number>>
-  locallyRestoredRef: RefObject<LocalRestoreGuard<AgentConversation>>
-  refreshSeqRef: RefObject<number>
-  setSessions: Dispatch<SetStateAction<AgentConversation[]>>
-  refresh: () => Promise<void>
   onArchived?: (sessionId: string) => void
 }) {
+  const client = useQueryClient()
+
   useEffect(
     () =>
       onChatArchived((change) => {
         if (change.teamId !== teamId) return
-        locallyRestoredRef.current.delete(change.sessionId)
-        locallyArchivedRef.current.set(change.sessionId, refreshSeqRef.current)
-        setSessions((previous) => previous.filter((row) => row.sessionId !== change.sessionId))
+        void removeChat(client, teamId, change.sessionId)
         onArchived?.(change.sessionId)
-        void refresh()
       }),
-    [
-      teamId,
-      locallyArchivedRef,
-      locallyRestoredRef,
-      refreshSeqRef,
-      setSessions,
-      refresh,
-      onArchived,
-    ],
+    [client, teamId, onArchived],
   )
   useEffect(
     () =>
-      onChatUnarchived((sessionId) => {
-        locallyArchivedRef.current.delete(sessionId)
-        void refresh()
-      }),
-    [locallyArchivedRef, refresh],
+      onChatUnarchived(
+        () => void client.invalidateQueries({ queryKey: queryKeys.agentSessions(teamId) }),
+      ),
+    [client, teamId],
   )
 
-  // Undo needs the row as it was last listed: the archive (or a poll during
-  // its collapse) has already taken it out of state by the time Undo runs.
+  // Undo needs the row as it was last listed: the archive has already taken it
+  // out of the list by the time Undo runs.
   const listedRowsRef = useRef(new Map<string, AgentConversation>())
   const teamIdRef = useRef(teamId)
 
@@ -80,16 +60,11 @@ export function useSidebarArchiveEvents({
         title: [row?.title, row?.firstMessage].find(Boolean) ?? t('Untitled agent'),
         ...(botSessionId ? { noun: 'bot' } : row?.kind === 'channel' ? { noun: 'chat' } : {}),
         onRestored: () => {
-          if (!row || teamIdRef.current !== teamId) return
-          locallyArchivedRef.current.delete(sessionId)
-          locallyRestoredRef.current.set(sessionId, { row, settledSeq: refreshSeqRef.current })
-          setSessions((previous) =>
-            withRestoredChats(previous, locallyRestoredRef.current, refreshSeqRef.current),
-          )
+          if (row && teamIdRef.current === teamId) void restoreChat(client, teamId, row)
         },
       })
     },
-    [teamId, locallyArchivedRef, locallyRestoredRef, refreshSeqRef, setSessions],
+    [client, teamId],
   )
 
   return { offerUndo }
