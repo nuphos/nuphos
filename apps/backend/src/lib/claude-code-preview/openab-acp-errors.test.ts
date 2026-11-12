@@ -76,7 +76,9 @@ describe('the adapter error behind the gateway', () => {
     settlePendingCall(
       {
         resolve: () => undefined,
-        reject: (e) => (reason = e),
+        reject: (e) => {
+          reason = e
+        },
         timer: setTimeout(() => undefined, 0),
       },
       { jsonrpc: '2.0', id: 1, error },
