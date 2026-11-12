@@ -526,7 +526,11 @@ test('each closed autonomous segment logs the frame that closed it', async () =>
         snapshot: { state: 'idle', providerState: 'idle', providerDetails: { type: 'idle' } },
       },
     })
-    harness.emit({ kind: 'status', status: 'active' })
+    // After a runtime snapshot, only snapshots move the lifecycle.
+    harness.emit({
+      kind: 'agent',
+      update: { kind: 'runtime-state', snapshot: { state: 'active', providerState: 'active' } },
+    })
     harness.emit({ kind: 'text', text: 'Still checking.' })
     harness.emit({ kind: 'interrupted', reason: 'runtime_connection_lost' })
     await Bun.sleep(0)
