@@ -13,6 +13,9 @@ const conversationUpdates: Record<string, unknown>[][] = []
 let matchedCount = 1
 // The conversation findOne reads back.
 let storedConversation: Record<string, unknown> | null = null
+// The conversations find returns, and the query it was asked.
+let foundConversations: Record<string, unknown>[] = []
+let findQuery: Record<string, unknown> | undefined
 
 useDb({
   db: (() => ({
@@ -23,6 +26,11 @@ useDb({
         return { matchedCount }
       },
       findOne: async () => storedConversation,
+      find: (query: Record<string, unknown>) => {
+        findQuery = query
+
+        return { toArray: async () => foundConversations }
+      },
     }),
   })) as unknown as typeof dbActual.db,
 })
@@ -57,6 +65,8 @@ beforeEach(() => {
   resetLocalPreviewWaits()
   matchedCount = 1
   storedConversation = null
+  foundConversations = []
+  findQuery = undefined
 })
 
 describe('decision tool module', () => {
@@ -158,6 +168,48 @@ describe('decision tool module', () => {
       },
     }
     await ask('approval')
+    expect(JSON.stringify(conversationUpdates.at(-1))).not.toContain('channelId')
+  })
+
+  test("a question no channel woke is asked in the Bot's one chat with its owner", async () => {
+    const tools = decisionToolModule({ publish: () => Promise.resolve() }).handlers(ctx)
+    const ask = () =>
+      tools.request_user_decision!({ label: 'Ask', category: 'approval', question: 'Ship it?' })
+
+    // A sub-agent's report woke the turn.
+    storedConversation = {
+      metadata: {
+        version: 1,
+        sender: { type: 'agent', id: 'thread-1', displayName: 'Worker' },
+        source: 'agent.thread',
+        sentAt: '2026-11-12T00:00:00Z',
+      },
+    }
+    // The owner's chat with the Bot, and a team channel the Bot is also in.
+    foundConversations = [
+      { sessionId: 'chat-1', userId: 'u1' },
+      { sessionId: 'team-chan', userId: 'u1', participantIds: ['u1', 'u2'] },
+    ]
+    await ask()
+    expect(findQuery).toEqual({
+      userId: 'u1',
+      kind: 'channel',
+      agentSessionIds: ['conv-1'],
+      archivedAt: { $exists: false },
+    })
+    expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
+      $push: { inputRequests: { $each: [{ channelId: 'chat-1' }] } },
+    })
+    // Two open chats: which one the owner reads is not known, so none is recorded.
+    foundConversations = [
+      { sessionId: 'chat-1', userId: 'u1' },
+      { sessionId: 'chat-2', userId: 'u1', participantIds: ['u1'] },
+    ]
+    await ask()
+    expect(JSON.stringify(conversationUpdates.at(-1))).not.toContain('channelId')
+    // No chat: a Task, answered where it was asked.
+    foundConversations = []
+    await ask()
     expect(JSON.stringify(conversationUpdates.at(-1))).not.toContain('channelId')
   })
 
