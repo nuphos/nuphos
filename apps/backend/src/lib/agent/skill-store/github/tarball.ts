@@ -6,6 +6,9 @@ export const TARBALL_LIMITS = {
   compressedBytes: 25_000_000,
   expandedBytes: 100_000_000,
   entries: 20_000,
+  /** Folders below the archive root; discovery searches at most five deep. */
+  pathDepth: 32,
+  pathLength: 4096,
 }
 
 export type RepoArchive = {
@@ -62,9 +65,11 @@ function paxRecords(data: Buffer): Map<string, string> {
 function repoPath(name: string): string | null {
   if (name.includes('\0') || name.includes('\\') || name.startsWith('/'))
     invalid(`unsafe path ${name}`)
+  if (name.length > TARBALL_LIMITS.pathLength) invalid('path too long')
   const parts = name.split('/').filter((part) => part && part !== '.')
 
   if (parts.includes('..')) invalid(`unsafe path ${name}`)
+  if (parts.length > TARBALL_LIMITS.pathDepth + 1) invalid('path nested too deeply')
 
   return parts.length > 1 ? parts.slice(1).join('/') : null
 }

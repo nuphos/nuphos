@@ -38,13 +38,12 @@ function childDirs(files: Iterable<string>): Map<string, Set<string>> {
   const children = new Map<string, Set<string>>()
 
   for (const file of files) {
-    const parts = file.split('/')
+    let parent = ''
 
-    parts.slice(0, -1).forEach((part, i) => {
-      const parent = parts.slice(0, i).join('/')
-
+    for (const part of file.split('/').slice(0, -1)) {
       children.set(parent, (children.get(parent) ?? new Set()).add(part))
-    })
+      parent = join(parent, part)
+    }
   }
 
   return children
@@ -68,11 +67,12 @@ function filesByFolder(files: Map<string, Uint8Array>, folders: Set<string>) {
   const byFolder = new Map([...folders].map((dir) => [dir, new Map<string, Uint8Array>()]))
 
   for (const [file, data] of files) {
-    const parts = file.split('/')
+    let folder = ''
 
-    parts.forEach((_, i) =>
-      byFolder.get(parts.slice(0, i).join('/'))?.set(parts.slice(i).join('/'), data),
-    )
+    for (const part of file.split('/')) {
+      byFolder.get(folder)?.set(folder ? file.slice(folder.length + 1) : file, data)
+      folder = join(folder, part)
+    }
   }
 
   return byFolder
