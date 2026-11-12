@@ -8,7 +8,22 @@ import { MediaPreview } from './panel/MediaPreview'
 import { ImageLightbox } from './panel/messageInline'
 import { MEDIA_FRAME, viewerKind } from './panel/transferDownloads'
 
+import type { PdfSource } from './panel/MediaPreview'
+import type { LightboxImage } from './panel/messageInline'
 import type { FileTransferGroup } from '../../types'
+
+/** What the lightbox shows this reply full size: a PDF is framed from its record, anything else is its own link. */
+function lightboxItem(
+  file: FileTransferGroup['files'][number],
+  url: string,
+  kind: ReturnType<typeof viewerKind>,
+  source: Omit<PdfSource, 'fileId' | 'size'>,
+): LightboxImage {
+  if (kind === 'pdf')
+    return { fileName: file.fileName, pdf: { ...source, fileId: file.id, size: file.size } }
+
+  return { url, fileName: file.fileName, video: kind === 'video' }
+}
 
 /**
  * Any other markdown or HTML image (GitHub bodies and comments included):
@@ -103,6 +118,7 @@ export function ReplyImage({
     setAttempt((n) => n + 1)
   }
   const file = group?.files.find((item) => item.status === 'ready' && item.downloadUrl)
+  const url = file?.downloadUrl
   // Which viewer takes it; a file nothing renders in place keeps the image slot.
   const kind = file ? viewerKind(file.fileName, file.contentType) : null
   const download = () => {
@@ -126,7 +142,7 @@ export function ReplyImage({
         )}
       </span>
     )
-  if (!group || !file?.downloadUrl)
+  if (!group || !file || !url)
     return (
       <span
         role="status"
@@ -153,7 +169,7 @@ export function ReplyImage({
         </button>
       </span>
       <ImageLightbox
-        images={[{ url: file.downloadUrl, fileName: file.fileName }]}
+        images={[lightboxItem(file, url, kind, { teamId, groupId })]}
         index={preview}
         onIndexChange={setPreview}
         onDownload={download}
