@@ -56,6 +56,7 @@ test('a card with questions drops only the list the backend wrote out, never a `
   assert.equal(ownBody(written, undefined), written)
   // The raw call input has no list: the agent's own separators and what follows them stay.
   const own = 'Findings.\n\n---\n\nRisks.'
+
   assert.equal(ownBody(own, [regions, keep]), own)
   assert.equal(ownBody(`${own}${writtenQuestions([regions, keep])}`, [regions, keep]), own)
 })

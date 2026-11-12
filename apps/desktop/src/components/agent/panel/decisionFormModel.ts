@@ -21,14 +21,18 @@ export function formQuestions(card: DecisionFormInput): DecisionQuestion[] | nul
   return null
 }
 
+/** Text on one line, as the written-out list has it. */
+function oneLine(text: string) {
+  return text.replace(/\s+/g, ' ').trim()
+}
+
 /** The backend's `writtenQuestions`: the questions as markdown after a `---` separator, one line each. */
 export function writtenQuestions(questions: readonly DecisionQuestion[]): string {
-  const line = (text: string) => text.replace(/\s+/g, ' ').trim()
   const list = questions
     .map(({ question, options, multiSelect }, index) =>
       [
-        `**${String(index + 1)}. ${line(question)}**${multiSelect ? ' (any number)' : ''}`,
-        ...options.map((option) => `- ${line(option)}`),
+        `**${String(index + 1)}. ${oneLine(question)}**${multiSelect ? ' (any number)' : ''}`,
+        ...options.map((option) => `- ${oneLine(option)}`),
       ].join('\n'),
     )
     .join('\n\n')
