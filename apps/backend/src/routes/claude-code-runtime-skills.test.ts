@@ -2,6 +2,7 @@ import { describe, expect, spyOn, test } from 'bun:test'
 import { Hono } from 'hono'
 
 import * as inject from '@/lib/agent/skill-store/inject'
+import * as skillsS3 from '@/lib/agent/skill-store/skills-s3'
 import { mintRuntimeSkillsToken } from '@/lib/claude-code-preview/runtime-skills-token'
 import { errorHandler } from '@/lib/errors'
 
@@ -72,6 +73,47 @@ describe('Claude runtime skills route', () => {
       expect(((await stale.json()) as { revision: string }).revision).toBe(etag.slice(1, -1))
     } finally {
       reads.mockRestore()
+    }
+  })
+
+  test('a pod that just synced the team confirms the bundle it served without reading it again', async () => {
+    // A cold pod: nothing of this team is cached, so the first request syncs it from the store.
+    const teamId = `team-cold-${String(Date.now())}`
+    const store = {
+      listUnderPrefix: (prefix: string) =>
+        Promise.resolve(
+          prefix.startsWith('teams/')
+            ? [{ key: `${prefix}cold/SKILL.md`, etag: 'e1', size: 7, lastModified: new Date(0) }]
+            : [],
+        ),
+      getObjectBody: () => Promise.resolve(Buffer.from('# cold\n')),
+    } as unknown as skillsS3.SkillsS3Client
+    const spies = [
+      spyOn(skillsS3, 'isSkillsS3Configured').mockReturnValue(true),
+      spyOn(skillsS3, 'getSkillsStore').mockReturnValue(store),
+    ]
+    const headers = { Authorization: `Bearer ${mintRuntimeSkillsToken(teamId)}` }
+
+    try {
+      const first = await app.request(`/skills/${teamId}`, { headers })
+      const etag = first.headers.get('ETag') ?? ''
+      const paths = ((await first.json()) as { files: { path: string }[] }).files.map((f) => f.path)
+
+      expect(paths).toContain('cold/SKILL.md')
+      const reads = spyOn(inject, 'collectSkillFiles')
+
+      try {
+        const held = await app.request(`/skills/${teamId}`, {
+          headers: { ...headers, 'If-None-Match': etag },
+        })
+
+        expect(held.status).toBe(304)
+        expect(reads).not.toHaveBeenCalled()
+      } finally {
+        reads.mockRestore()
+      }
+    } finally {
+      for (const spy of spies) spy.mockRestore()
     }
   })
 
