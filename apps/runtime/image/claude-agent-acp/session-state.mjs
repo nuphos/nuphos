@@ -79,6 +79,35 @@ ${stateAnchor}`,
     `        const result = await this.getOrCreateSession(params);\n${publishLoaded}\n        // Needs to happen after we return the session`,
     'session resume',
   )
+  // Claude Code also runs cycles of its own, such as a task notification, with
+  // no Turn. The published state calls them active, so the snapshot offers a
+  // steer; refusing it with noRunningTurn left the message waiting for the
+  // cycle to end. Start it as a turn that pre-empts the cycle instead: with the
+  // default priority the SDK folds it into the cycle, whose task-notification
+  // result never settles a user turn.
+  source = replaceOnce(
+    source,
+    '        if (!turnInFlight) {\n            const promptRequest = {',
+    `        if (!turnInFlight && nuphosSessionState(session) === "active") {
+            this.prompt({ sessionId, prompt: params.prompt, nuphosSteer: true }).catch((error) => {
+                this.logger.error(\`Session \${sessionId}: steer into a runtime cycle failed: \${error}\`);
+            });
+            return { outcome: "injected" };
+        }
+        if (!turnInFlight) {
+            const promptRequest = {`,
+    'steer idle check',
+  )
+  source = replaceOnce(
+    source,
+    '        userMessage.uuid = promptUuid;\n',
+    `        userMessage.uuid = promptUuid;
+        if (params.nuphosSteer)
+            userMessage.priority =
+                (session.pendingUserInputCount ?? 0) > 0 ? STEER_PRIORITY_LATER : STEER_PRIORITY_NOW;
+`,
+    'prompt input',
+  )
   const closeAnchor = '        session.queryClosed = true;'
   source = replaceOnce(
     source,
