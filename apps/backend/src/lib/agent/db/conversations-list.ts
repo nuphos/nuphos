@@ -61,6 +61,8 @@ export async function getConversations(
     withParents?: boolean
     /** Channels instead of agent conversations. Lists never mix the two. */
     channels?: boolean
+    /** Only Bots: agent conversations with a face, wherever they fall in the history. */
+    bots?: boolean
   },
 ): Promise<{
   conversations: AgentConversation[]
@@ -97,6 +99,7 @@ export async function getConversations(
   // else's id, limited like every scope to what the viewer may read.
   if (scope === 'team' && options.ownerId) query.userId = options.ownerId
   if (options.parentSessionId) query.parentSessionId = options.parentSessionId
+  if (options.bots) query.avatar = { $exists: true }
   if (!options.pendingDecision)
     query['metadata.trigger.id'] = options.triggerIds
       ? { $in: options.triggerIds }
