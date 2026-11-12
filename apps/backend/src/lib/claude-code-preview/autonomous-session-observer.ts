@@ -272,6 +272,19 @@ export function observeAutonomousUpdates(session: TeamSession): void {
       if (update.kind !== 'status') session.autonomousTranscriptOpen = true
     } else if (!closeAutonomousTranscript(session, observedUpdate)) {
       return
+    } else {
+      // Each close ends one assistant message headed "Resumed automatically";
+      // which frame closed it tells a provider idle from a reattach (#704).
+      const snapshot = observedUpdate.runtimeSnapshot
+
+      logEvent('info', 'agent.autonomous_segment.closed', {
+        session_id: session.conversationId,
+        team_id: session.teamId,
+        kind: observedUpdate.kind,
+        reason: observedUpdate.kind === 'interrupted' ? observedUpdate.reason : undefined,
+        provider_state: snapshot?.providerState,
+        thread_status: snapshot?.providerDetails?.type,
+      })
     }
 
     // attachmentIsCurrent is asynchronous. Preserve wire order across those
