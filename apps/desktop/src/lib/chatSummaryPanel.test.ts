@@ -8,6 +8,7 @@ import {
   openChatSummaryChanges,
   openChatSummarySubAgents,
   setChangesFilter,
+  setChatSummaryDocked,
   setChatSummaryOpen,
   setPaneSession,
   setSubAgentsFilter,
@@ -205,4 +206,45 @@ test('two panes on the same chat share its panel; other chats are untouched', ()
 
   setChatSummaryOpen('pane-2', false)
   for (const pane of ['pane-1', 'pane-2', 'pane-3']) setPaneSession(pane, null)
+})
+
+test("an open dock hides the panel and keeps the chat's choice for when it closes", () => {
+  setPaneSession('dock-pane', 'dock-chat')
+  setChatSummaryOpen('dock-pane', true)
+
+  setChatSummaryDocked('dock-pane', true)
+  assert.equal(isChatSummaryOpen('dock-pane'), false)
+
+  setChatSummaryDocked('dock-pane', false)
+  assert.equal(isChatSummaryOpen('dock-pane'), true)
+  setPaneSession('dock-pane', null)
+})
+
+test('beside an open dock the toggle only peeks, and closing the dock ends the peek', () => {
+  setPaneSession('peek-pane', 'peek-chat')
+  setChatSummaryOpen('peek-pane', false)
+  setChatSummaryDocked('peek-pane', true)
+
+  toggleChatSummary('peek-pane')
+  assert.equal(isChatSummaryOpen('peek-pane'), true)
+  toggleChatSummary('peek-pane')
+  assert.equal(isChatSummaryOpen('peek-pane'), false)
+
+  toggleChatSummary('peek-pane')
+  setChatSummaryDocked('peek-pane', false)
+  // The peek did not change the chat's own choice, which was closed.
+  assert.equal(isChatSummaryOpen('peek-pane'), false)
+  setPaneSession('peek-pane', null)
+})
+
+test('switching chats beside the dock ends the peek opened on the previous chat', () => {
+  setPaneSession('switch-pane', 'first-chat')
+  setChatSummaryDocked('switch-pane', true)
+  toggleChatSummary('switch-pane')
+  assert.equal(isChatSummaryOpen('switch-pane'), true)
+
+  setPaneSession('switch-pane', 'second-chat')
+  assert.equal(isChatSummaryOpen('switch-pane'), false)
+  setChatSummaryDocked('switch-pane', false)
+  setPaneSession('switch-pane', null)
 })

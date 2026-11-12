@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { AgentAvatar } from '../../components/agent/AgentAvatar'
 import { AgentPanel } from '../../components/agent/AgentPanel'
@@ -11,6 +11,8 @@ import { ChatSummaryPanel } from '../../components/agent/summary/ChatSummaryPane
 import { ChatSummaryToggle } from '../../components/agent/summary/ChatSummaryToggle'
 import { useComposerReplyTarget } from '../../components/agent/summary/useComposerReplyTarget'
 import { useSessionInputRequests } from '../../components/agent/summary/useSessionInputRequests'
+import { HeaderEdge } from '../../components/ui/header-edge'
+import { setChatSummaryDocked } from '../../lib/chatSummaryPanel'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 
 import { CORNER_TITLEBAR_CLASS, CornerSidebarToggle } from './CornerSidebarToggle'
@@ -22,7 +24,6 @@ import { useTitlebarFit } from './titlebarFit'
 import { useOwnPaneSummary } from './usePaneSummary'
 import { useSessionHeading } from './useSessionHeading'
 import { usePaneId, useWorkspacePane } from './WorkspacePaneContext'
-import { HeaderEdge } from '../../components/ui/header-edge'
 
 import type { WorkspaceController } from './useWorkspaceController'
 import type { JournalChatTarget } from '../../lib/journalEvent'
@@ -67,6 +68,9 @@ export function WorkspaceAgentPane({
   } = ws
   const { currentHeading, handleTitleChange } = useSessionHeading(selectedSessionId)
   const { open: summaryOpen } = useOwnPaneSummary(selectedSessionId)
+
+  // The open dock takes the right edge from the summary panel; see setChatSummaryDocked.
+  useEffect(() => setChatSummaryDocked(paneId, dockOpen), [paneId, dockOpen])
   const savedSessionId = currentHeading.saved ? selectedSessionId : null
   // The titlebar menu's Rename opens the same inline editor as clicking the title.
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
