@@ -98,11 +98,12 @@ async function bundleOf(key: string, inputs: string, directory: string): Promise
  * script-backed equivalent.
  */
 export async function nativeSkillBundle(teamId: string): Promise<SkillBundle> {
-  // Taken before the tree is resolved, so a remembered revision can only be keyed by
-  // inputs as old as the tree it was read from, never newer: a concurrent sync that
-  // lands in between makes the next request read again instead of freezing old content.
-  const inputs = await mergedSkillsFingerprint(teamId)
   const directory = await resolveSkillsDirectory(teamId)
+  // The fingerprint the tree on disk records, taken before its files are read: a rebuild
+  // that lands in between makes the next request read again instead of freezing old
+  // content. Taking it before the sync instead keyed a freshly synced tree by the inputs
+  // it replaced, so the next request read the whole tree again.
+  const inputs = await mergedSkillsFingerprint(directory)
 
   return bundleOf(`team:${teamId}`, inputs, directory)
 }
