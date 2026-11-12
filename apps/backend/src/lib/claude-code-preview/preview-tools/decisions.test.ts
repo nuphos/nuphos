@@ -284,52 +284,6 @@ describe('decision tool module', () => {
     ])
   })
 
-  test('list_user_decisions returns only the open questions, oldest first', async () => {
-    const at = (iso: string) => new Date(iso)
-
-    storedConversation = {
-      inputRequests: [
-        {
-          id: 'r2',
-          category: 'approval',
-          question: 'Ship?',
-          askedAt: at('2026-01-02'),
-          status: 'open',
-        },
-        {
-          id: 'r0',
-          category: 'preference',
-          question: 'Old',
-          askedAt: at('2026-01-01'),
-          status: 'answered',
-        },
-        {
-          id: 'r1',
-          category: 'preference',
-          question: 'Region?',
-          options: ['a', 'b'],
-          askedAt: at('2026-01-01'),
-          status: 'open',
-        },
-      ],
-    }
-    const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
-    const result = await tools.list_user_decisions!({ label: 'List my questions' })
-
-    expect(result.structuredContent).toEqual({
-      requests: [
-        {
-          requestId: 'r1',
-          category: 'preference',
-          question: 'Region?',
-          options: ['a', 'b'],
-          askedAt: at('2026-01-01'),
-        },
-        { requestId: 'r2', category: 'approval', question: 'Ship?', askedAt: at('2026-01-02') },
-      ],
-    })
-  })
-
   test('several questions in one, or choices in the text, are rejected before any card goes out', async () => {
     const frames: Record<string, unknown>[] = []
     const tools = decisionToolModule({
@@ -591,6 +545,52 @@ describe('decision tool module', () => {
     expect(instruction).toContain('End your turn')
     // The card stays live in the app; only the turn stops holding itself open.
     expect(await listPendingPreviewWaits(ctx.userId, ctx.sessionId)).toEqual([])
+  })
+
+  test('list_user_decisions returns only the open questions, oldest first', async () => {
+    const at = (iso: string) => new Date(iso)
+
+    storedConversation = {
+      inputRequests: [
+        {
+          id: 'r2',
+          category: 'approval',
+          question: 'Ship?',
+          askedAt: at('2026-01-02'),
+          status: 'open',
+        },
+        {
+          id: 'r0',
+          category: 'preference',
+          question: 'Old',
+          askedAt: at('2026-01-01'),
+          status: 'answered',
+        },
+        {
+          id: 'r1',
+          category: 'preference',
+          question: 'Region?',
+          options: ['a', 'b'],
+          askedAt: at('2026-01-01'),
+          status: 'open',
+        },
+      ],
+    }
+    const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
+    const result = await tools.list_user_decisions!({ label: 'List my questions' })
+
+    expect(result.structuredContent).toEqual({
+      requests: [
+        {
+          requestId: 'r1',
+          category: 'preference',
+          question: 'Region?',
+          options: ['a', 'b'],
+          askedAt: at('2026-01-01'),
+        },
+        { requestId: 'r2', category: 'approval', question: 'Ship?', askedAt: at('2026-01-02') },
+      ],
+    })
   })
 })
 
