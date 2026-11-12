@@ -1,82 +1,73 @@
-import { useCallback, useContext, useRef, useSyncExternalStore } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useCallback, useContext } from 'react'
 
-import { api } from '../../api'
-import { pollSnapshot, refreshPoll, subscribePoll } from '../../hooks/sharedPoll'
-import { WorkspaceTabContext } from '../../hooks/useWorkspaceTab'
+import { api } from '../../api.ts'
+import { WorkspaceTabContext } from '../../hooks/useWorkspaceTab.ts'
+import { queryKeys } from '../../lib/query/keys.ts'
 
-import { channelRevision } from './channelRevision'
+import { channelRevision } from './channelRevision.ts'
 
 import type { AgentConversationDetail, ChannelAgent } from '../../api'
+import type { QueryClient } from '@tanstack/react-query'
 
 // Like an open conversation: new posts from people and agents show within a few seconds.
 const POLL_MS = 4_000
 const RETRY_MAX_MS = 60_000
 const TAIL = 200
 
-type Channel = { detail: AgentConversationDetail; agents: ChannelAgent[] }
+type Channel = { detail: AgentConversationDetail; agents: ChannelAgent[]; revision: string }
+
+/** A cheap probe first; the messages and agents only when it shows a change. */
+export async function loadChannel(client: QueryClient, teamId: string, channelId: string) {
+  const last = client.getQueryData<Channel>(queryKeys.channel(teamId, channelId))
+  const probe = await api.agentGetConversation(channelId, teamId, {
+    tail: 1,
+    messages: 'omit',
+    runtimeState: 'omit',
+  })
+  const revision = channelRevision(probe)
+
+  if (last?.revision === revision) return last
+  const [detail, listed] = await Promise.all([
+    api.agentGetConversation(channelId, teamId, { tail: TAIL, runtimeState: 'omit' }),
+    api.agentListChannelAgents(channelId, teamId),
+  ])
+
+  return { detail, agents: listed.agents, revision }
+}
+
+/** After a post or an agent change, from any pane showing the channel: fetch it all now. */
+export function refreshChannel(client: QueryClient, teamId: string, channelId: string) {
+  const queryKey = queryKeys.channel(teamId, channelId)
+
+  client.setQueryData<Channel>(queryKey, (last) => last && { ...last, revision: '' })
+
+  return client.invalidateQueries({ queryKey, exact: true })
+}
 
 /**
- * A channel's messages and agents, polled while it is on screen. One load runs
- * at a time and ticks skip while the window is hidden (sharedPoll); a failed
- * load backs off, and a cheap probe skips the full fetch when nothing changed.
+ * A channel's messages and agents, polled while it is on screen and the window is
+ * visible. A failing channel backs off, longer the longer it has failed.
  */
 export function useChannel(teamId: string, channelId: string) {
+  const client = useQueryClient()
   // A background workspace tab stays mounted but hidden; outside any tab, the pane is on screen.
   const tab = useContext(WorkspaceTabContext)
-  const onScreen = tab ? tab.isActive : true
-  const key = `channel:${teamId}:${channelId}`
-  const state = useRef({
-    revision: '',
-    last: undefined as Channel | undefined,
-    failures: 0,
-    retryAt: 0,
+  const { data } = useQuery({
+    queryKey: queryKeys.channel(teamId, channelId),
+    queryFn: () => loadChannel(client, teamId, channelId),
+    enabled: tab ? tab.isActive : true,
+    retry: false,
+    refetchInterval: ({ state }) =>
+      state.status === 'error'
+        ? Math.min(RETRY_MAX_MS, Math.max(2 * POLL_MS, Date.now() - state.dataUpdatedAt))
+        : POLL_MS,
   })
 
-  const load = useCallback(async () => {
-    const s = state.current
-
-    if (Date.now() < s.retryAt) return s.last
-    try {
-      const probe = await api.agentGetConversation(channelId, teamId, {
-        tail: 1,
-        messages: 'omit',
-        runtimeState: 'omit',
-      })
-      const next = channelRevision(probe)
-
-      if (next !== s.revision || !s.last) {
-        const [detail, listed] = await Promise.all([
-          api.agentGetConversation(channelId, teamId, { tail: TAIL, runtimeState: 'omit' }),
-          api.agentListChannelAgents(channelId, teamId),
-        ])
-
-        s.last = { detail, agents: listed.agents }
-        // Only after the full fetch, so a failed one is tried again.
-        s.revision = next
-      }
-      s.failures = 0
-      s.retryAt = 0
-
-      return s.last
-    } catch (error) {
-      s.failures += 1
-      s.retryAt = Date.now() + Math.min(RETRY_MAX_MS, POLL_MS * 2 ** s.failures)
-      throw error
-    }
-  }, [teamId, channelId])
-
-  const subscribe = useCallback(
-    (listener: () => void) => (onScreen ? subscribePoll(key, load, POLL_MS, listener) : () => {}),
-    [onScreen, key, load],
+  const refresh = useCallback(
+    () => void refreshChannel(client, teamId, channelId),
+    [client, teamId, channelId],
   )
-  const channel = useSyncExternalStore(subscribe, () => pollSnapshot<Channel>(key)).value
 
-  // After a post or an agent change: fetch now, even inside a backoff.
-  const refresh = useCallback(() => {
-    state.current.revision = ''
-    state.current.retryAt = 0
-    refreshPoll(key)
-  }, [key])
-
-  return { detail: channel?.detail ?? null, agents: channel?.agents ?? [], refresh }
+  return { detail: data?.detail ?? null, agents: data?.agents ?? [], refresh }
 }

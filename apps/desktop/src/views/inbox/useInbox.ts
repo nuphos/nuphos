@@ -1,7 +1,10 @@
-import { useEffect, useSyncExternalStore } from 'react'
+import { queryOptions, useQuery } from '@tanstack/react-query'
+import { useEffect, useRef, useSyncExternalStore } from 'react'
 
 import { api } from '../../api.ts'
 import { onInputRequestsRefresh } from '../../lib/inputRequestRefresh.ts'
+import { queryClient } from '../../lib/query/client.ts'
+import { queryKeys } from '../../lib/query/keys.ts'
 
 import { answeredIn, inboxCount } from './inboxItems.ts'
 
@@ -12,13 +15,6 @@ export const INBOX_POLL_MS = 15_000
 // stops hiding its question after this, so the badge falls back to the server.
 const ANSWER_HOLD_MS = 60_000
 
-// The one listing of the team's conversations with an open question that the
-// viewer may read: the Inbox and its badge take the viewer's own, a Task page
-// and a Bot's chat those the viewer may reply in.
-// Kept per team: split panes may show sessions of different teams at once.
-const listings = new Map<string, AgentConversation[]>()
-// The teams whose last load failed, until a listing lands again.
-const failedTeams = new Set<string>()
 // Questions answered on this device, hidden until a listing no longer has them
 // open. Infinity while the reply is being sent; a deadline once it was.
 const answered = new Map<string, number>()
@@ -41,12 +37,12 @@ function subscribe(listener: () => void) {
   }
 }
 
-/** The newest listing of the team's waiting conversations, from the badge or the Inbox page. */
-export function publishInboxListing(teamId: string, conversations: AgentConversation[]) {
-  for (const id of answeredIn(conversations, answered, Date.now())) answered.delete(id)
-  listings.set(teamId, conversations)
-  failedTeams.delete(teamId)
-  emit()
+/** Lets a newer listing settle the questions answered on this device that it has closed. */
+export function settleAnswers(conversations: readonly AgentConversation[]) {
+  const settled = answeredIn(conversations, answered, Date.now())
+
+  for (const id of settled) answered.delete(id)
+  if (settled.length > 0) emit()
 }
 
 /**
@@ -151,13 +147,6 @@ export function useAnswerFailure(requestId: string): string | undefined {
   return useSyncExternalStore(subscribe, () => failures.get(requestId))
 }
 
-/** How many questions wait on the viewer in this team; `null` until known. */
-export function inboxCountFor(teamId: string): number | null {
-  const conversations = listings.get(teamId)
-
-  return conversations ? inboxCount(conversations, answered) : null
-}
-
 // Bounded, as the other listings are: a cursor never repeats a page.
 const MAX_PAGES = 10
 
@@ -185,101 +174,67 @@ async function listPending(teamId: string): Promise<AgentConversation[]> {
   return conversations
 }
 
-// The screens reading a listing, each with the team and rate it wants. One
-// poller per team serves them all, at the fastest rate any of them asks for.
-const readers = new Map<object, { teamId: string; pollMs: number }>()
-const pollers = new Map<string, { pollMs: number; stop: () => void }>()
-let requested = 0
-// The newest request whose listing landed, by team.
-const landed = new Map<string, number>()
-
-function loadListing(teamId: string) {
-  const requestNo = ++requested
-
-  listPending(teamId).then(
-    (conversations) => {
-      // A slow older request must not replace a newer listing.
-      if (requestNo < (landed.get(teamId) ?? 0)) return
-      landed.set(teamId, requestNo)
-      publishInboxListing(teamId, conversations)
-    },
-    () => {
-      // Keep what is already shown, and say the list may be stale.
-      if (failedTeams.has(teamId)) return
-      failedTeams.add(teamId)
-      emit()
-    },
-  )
-}
-
-/** Starts, retimes or stops the team's poller for whoever reads its listing now. */
-function syncPoller(teamId: string) {
-  const rates = [...readers.values()].filter((r) => r.teamId === teamId).map((r) => r.pollMs)
-  const pollMs = Math.min(...rates)
-  const poller = pollers.get(teamId)
-
-  if (poller?.pollMs === pollMs) return
-  poller?.stop()
-  pollers.delete(teamId)
-  if (rates.length === 0) return
-  const load = () => loadListing(teamId)
-  const interval = setInterval(load, pollMs)
-  // The moments a question may have been asked, answered or dismissed.
-  const stopRefresh = onInputRequestsRefresh(load)
-
-  window.addEventListener('focus', load)
-  pollers.set(teamId, {
-    pollMs,
-    stop: () => {
-      clearInterval(interval)
-      stopRefresh()
-      window.removeEventListener('focus', load)
-    },
+export const inboxListingQuery = (teamId: string) =>
+  queryOptions({
+    queryKey: queryKeys.inbox(teamId),
+    queryFn: () => listPending(teamId),
+    staleTime: 0,
   })
-}
+
+// The moments a question may have been asked, answered or dismissed, and window focus, which a
+// blurred but visible window never reports as visibility, reload whatever listing is shown.
+const reloadListings = () =>
+  void queryClient.invalidateQueries(
+    { predicate: (query) => query.queryKey[0] === 'team' && query.queryKey[2] === 'inbox' },
+    { cancelRefetch: false },
+  )
+
+onInputRequestsRefresh(reloadListings)
+if (typeof window !== 'undefined') window.addEventListener('focus', reloadListings)
 
 /**
- * The team's waiting conversations, `null` until listed: the one listing the
- * badge counts and the Inbox lists, kept current by one poller per team at the
- * fastest `pollMs` any of its mounted readers asks for, and by every answer or question. A new
- * `reloadKey` reloads it at once.
+ * The team's waiting conversations: the one listing the badge counts and the Inbox lists. Only
+ * the always-mounted badge passes `poll`; a new `reloadKey` reloads it at once.
  */
-export function useInboxListing(
-  teamId: string,
-  pollMs = INBOX_POLL_MS,
-  reloadKey: unknown = 0,
-): AgentConversation[] | null {
+export function useInboxListing(teamId: string, { poll = false, reloadKey }: ListingOptions = {}) {
+  const listing = useQuery({
+    ...inboxListingQuery(teamId),
+    enabled: Boolean(teamId),
+    refetchInterval: poll && INBOX_POLL_MS,
+    refetchIntervalInBackground: poll,
+  })
+  const { refetch } = listing
+  const shownKey = useRef(reloadKey)
+
   useEffect(() => {
-    if (!teamId) return
-    const reader = {}
+    if (Object.is(shownKey.current, reloadKey)) return
+    shownKey.current = reloadKey
+    if (teamId) void refetch()
+  }, [reloadKey, teamId, refetch])
 
-    readers.set(reader, { teamId, pollMs })
-    syncPoller(teamId)
-    // A screen opening, or asking again, shows a fresh listing.
-    loadListing(teamId)
-
-    return () => {
-      readers.delete(reader)
-      syncPoller(teamId)
-    }
-  }, [teamId, pollMs, reloadKey])
-
-  return useSyncExternalStore(subscribe, () => listings.get(teamId) ?? null)
+  return listing
 }
 
-/** Whether the last load of the team's listing failed, so what is shown may be stale. */
-export function useInboxListingFailed(teamId: string): boolean {
-  return useSyncExternalStore(subscribe, () => failedTeams.has(teamId))
-}
+type ListingOptions = { poll?: boolean; reloadKey?: unknown }
 
-/** {@link inboxCountFor}, kept current by {@link useInboxListing}. */
-export function useInboxCount(teamId: string): number | null {
-  useInboxListing(teamId)
+/** How many questions wait on the viewer in this team: the badge, which polls the listing. */
+export function useInboxCount(teamId: string): number {
+  const listing = useInboxListing(teamId, { poll: true }).data
+  const onDevice = useAnsweredOnDevice()
 
-  return useSyncExternalStore(subscribe, () => inboxCountFor(teamId))
+  useEffect(() => {
+    if (listing) settleAnswers(listing)
+  }, [listing])
+
+  return listing ? inboxCount(listing, onDevice) : 0
 }
 
 /** The questions answered on this device that a listing may still show open. */
+export function answeredOnDevice(): ReadonlyMap<string, number> {
+  return answered
+}
+
+/** {@link answeredOnDevice}, rendering again when it changes. */
 export function useAnsweredOnDevice(): ReadonlyMap<string, number> {
   useSyncExternalStore(subscribe, () => version)
 

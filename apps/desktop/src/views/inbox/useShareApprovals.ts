@@ -1,7 +1,7 @@
-import { useCallback, useSyncExternalStore } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '../../api'
-import { pollSnapshot, refreshPoll, subscribePoll } from '../../hooks/sharedPoll'
+import { queryKeys } from '../../lib/query/keys'
 
 import type { LocalShareApproval, ShareTrustDuration } from '../../api/device-types'
 
@@ -10,35 +10,29 @@ const NONE: LocalShareApproval[] = []
 
 /**
  * Teammates' conversations waiting for this person to let them run on their own
- * computer, in this team. One poll per team serves every caller. `decide` answers
- * one and reloads; approving with trust also settles that teammate's other asks.
+ * computer, in this team. Only the always-mounted badge passes `poll`, also in the
+ * background since a new ask is notified. `decide` answers one and reloads;
+ * approving with trust also settles that teammate's other asks.
  */
-export function useShareApprovals(teamId: string) {
-  const key = teamId ? `share-approvals:${teamId}` : undefined
-  const subscribe = useCallback(
-    (listener: () => void) =>
-      key
-        ? subscribePoll(
-            key,
-            () => api.localShareApprovals(teamId),
-            SHARE_APPROVAL_POLL_MS,
-            listener,
-            // A new ask is notified, so it is read in the background too.
-            true,
-          )
-        : () => {},
-    [teamId, key],
-  )
-  const approvals =
-    useSyncExternalStore(subscribe, () => pollSnapshot<LocalShareApproval[]>(key)).value ?? NONE
+export function useShareApprovals(teamId: string, { poll = false } = {}) {
+  const client = useQueryClient()
+  const queryKey = queryKeys.shareApprovals(teamId)
+  const { data } = useQuery({
+    queryKey,
+    queryFn: () => api.localShareApprovals(teamId),
+    enabled: Boolean(teamId),
+    refetchInterval: poll && SHARE_APPROVAL_POLL_MS,
+    refetchIntervalInBackground: poll,
+  })
 
-  const decide = useCallback(
-    async (approval: LocalShareApproval, approve: boolean, trust?: ShareTrustDuration) => {
-      await api.localShareDecide(approval.id, approve, trust)
-      if (key) refreshPoll(key)
-    },
-    [key],
-  )
+  async function decide(
+    approval: LocalShareApproval,
+    approve: boolean,
+    trust?: ShareTrustDuration,
+  ) {
+    await api.localShareDecide(approval.id, approve, trust)
+    void client.invalidateQueries({ queryKey })
+  }
 
-  return { approvals, decide }
+  return { approvals: data ?? NONE, decide }
 }

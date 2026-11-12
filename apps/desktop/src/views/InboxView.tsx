@@ -30,8 +30,6 @@ import type { InboxQuestion } from './inbox/inboxItems'
 import type { AgentConversation } from '../api/agent-types'
 import type { JournalChatTarget } from '../lib/journalEvent'
 
-// The list reloads on this beat while the page is open, so the next question comes in.
-const INBOX_REFRESH_MS = 5_000
 // Below this the page shows the list alone, and a row opens its conversation.
 const TWO_PANE_MIN_WIDTH = 720
 const RAIL_WIDTH = 340
@@ -64,7 +62,7 @@ export function InboxView({
   const { isActive } = useWorkspaceTab()
   const { ref, width } = useElementSize<HTMLDivElement>()
   const twoPane = width === 0 || width >= TWO_PANE_MIN_WIDTH
-  const listing = useInboxListing(teamId, INBOX_REFRESH_MS, refreshKey)
+  const listing = useInboxListing(teamId, { reloadKey: refreshKey }).data ?? null
   // The sidebar's conversations: where a Bot's chat is.
   const known = useSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId))
   const [selected, setSelected] = useState<{ id: string; index: number } | null>(null)

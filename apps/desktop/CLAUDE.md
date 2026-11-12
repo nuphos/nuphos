@@ -52,6 +52,9 @@ over when you touch its loading code.
   call `useQuery(helper(...))` and never write a key inline. Outside React, use
   `queryClient.query(helper(...))`.
 - Writes use `useMutation`, then invalidate or `setQueryData` the narrowest key.
+- Poll a key with `refetchInterval` in exactly one always-mounted reader (the
+  sidebar badge polls the Inbox, approvals and mentions); other readers use the
+  same query without an interval and read the cache.
 - Do not add another `useEffect` + `useState` loader, module-level promise
   cache, `sharedPoll`, `useWatchedList`, `useSilentRefresh` or `usePolledList`.
 - Streams (agent SSE, WebSockets, Kubernetes watches, terminals) and local IPC

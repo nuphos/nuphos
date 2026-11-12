@@ -4,6 +4,8 @@ import { before, mock, test } from 'node:test'
 
 import type { DispatchTurnCtx } from './dispatchTurn.ts'
 import type { Message, Tab } from './model'
+import { inboxCount } from '../../../views/inbox/inboxItems.ts'
+
 import type { AgentConversation } from '../../../api/agent-types'
 import type { WindowAgentApi } from '../../../api/window-agent'
 
@@ -94,6 +96,14 @@ before(async () => {
   ;({ runDispatchTurn } = await import('./dispatchTurn.ts'))
   inbox = await import('../../../views/inbox/useInbox.ts')
 })
+
+// The listing the badge last read, and the count it shows with this device's answers.
+let listing: AgentConversation[] = []
+const publish = (conversations: AgentConversation[]) => {
+  listing = conversations
+  inbox.settleAnswers(conversations)
+}
+const count = () => inboxCount(listing, inbox.answeredOnDevice())
 
 const history: Message[] = [
   { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'first' }] },
@@ -204,19 +214,19 @@ test('an answer leaves the Inbox badge as it is sent, and comes back if the send
     const gate = Promise.withResolvers<undefined>()
 
     startGate = gate.promise
-    inbox.publishInboxListing('team', [waiting])
+    publish([waiting])
     const state = context({ unsaved: false })
 
     state.ctx.decisionReplyTo = 'q'
     await runDispatchTurn(state.ctx, 'tab', 'Started the download', [])
     await settle()
-    assert.equal(inbox.inboxCountFor('team'), 0, 'gone before the server answers')
+    assert.equal(count(), 0, 'gone before the server answers')
     if (fails) gate.reject(new Error('offline'))
     else gate.resolve(undefined)
     await settle()
-    assert.equal(inbox.inboxCountFor('team'), fails ? 1 : 0)
-    inbox.publishInboxListing('team', [waiting])
-    assert.equal(inbox.inboxCountFor('team'), fails ? 1 : 0, 'a listing from before the answer')
+    assert.equal(count(), fails ? 1 : 0)
+    publish([waiting])
+    assert.equal(count(), fails ? 1 : 0, 'a listing from before the answer')
   }
 })
 
@@ -231,9 +241,7 @@ test('an answer to a busy agent leaves the badge at once, without a toast', asyn
 
   toasts.length = 0
   startGate = Promise.resolve()
-  inbox.publishInboxListing('team', [
-    { sessionId: 'fork', isOwner: true, inputRequests: [request] } as AgentConversation,
-  ])
+  publish([{ sessionId: 'fork', isOwner: true, inputRequests: [request] } as AgentConversation])
   const state = context({
     unsaved: false,
     runtimeState: { state: 'active', schemaVersion: 2, actions: { send: true, steer: true } },
@@ -242,11 +250,11 @@ test('an answer to a busy agent leaves the badge at once, without a toast', asyn
   state.ctx.decisionReplyTo = 'busy-q'
   await runDispatchTurn(state.ctx, 'tab', 'Keep it public', [])
   await settle()
-  assert.equal(inbox.inboxCountFor('team'), 0)
+  assert.equal(count(), 0)
   assert.deepEqual(toasts, [])
   // The server holds the question for the queued answer, so its listing agrees.
-  inbox.publishInboxListing('team', [{ sessionId: 'fork' } as AgentConversation])
-  assert.equal(inbox.inboxCountFor('team'), 0)
+  publish([{ sessionId: 'fork' } as AgentConversation])
+  assert.equal(count(), 0)
 })
 
 test('a failed import does not start the turn and surfaces the error', async () => {
