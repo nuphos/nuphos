@@ -159,7 +159,7 @@ export function finishedLabel(resources: SessionResource[]): string {
   const merged = resources.filter((resource) => changeStatus(resource) === 'merged')
 
   if (!merged.length) return finishedCount('closed', resources.length)
-  const word = merged.some((resource) => resource.provider === 'github') ? 'merged' : 'done'
+  const word = merged.some(isPull) ? 'merged' : 'done'
 
   return finishedCount(word, merged.length)
 }

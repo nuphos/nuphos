@@ -215,6 +215,7 @@ test('the badge counts what its Changes pill counts: merged first, else closed',
   assert.equal(finishedLabel([merged('m1', 1), closed, done]), '2 merged')
   assert.equal(finishedLabel([done, canceled]), '1 done')
   assert.equal(finishedLabel([closed, canceled]), '2 closed')
+  assert.equal(finishedLabel([{ ...merged('g1', 1), provider: 'gitlab' }]), '1 merged')
 })
 
 test('the badge tooltip breaks the items down, most common first, then names them', () => {

@@ -112,7 +112,7 @@ function tallySession(t: Tally, w: Window, { session: s, turns }: RecentTurns['s
   if (started) t.totals[started][s.parentSessionId ? 'subAgents' : 'sessions']++
   if (started === 'current' && s.parentSessionId)
     t.children.set(s.parentSessionId, (t.children.get(s.parentSessionId) ?? 0) + 1)
-  for (const r of s.linkedResources ?? []) if (r.provider === 'github') tallyLink(t, r)
+  for (const r of s.linkedResources ?? []) if (r.provider !== 'linear') tallyLink(t, r)
   for (const turn of turns) tallyTurn(t, w, s, turn)
 }
 
