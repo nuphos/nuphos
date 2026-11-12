@@ -61,6 +61,8 @@ bash skills/github/scripts/setup-credentials.sh <teamId> <installationId>
 
 Identity: when the turn's member connected a Personal Credential, `gh` acts as their own GitHub account. That member is the sender of a member's message, or the session owner for automated turns (triggers, agent threads, resource events). Otherwise it acts as the team's GitHub App (`nuphos[bot]`). Add `--team` to use the App identity on purpose, for example for bot-owned automation. The JSON response's `actor.kind` (`personal` or `team`) says which one you got.
 
+Permissions: acting as a member and the member's own `personal` / `github` credential use the same token, issued by the Nuphos GitHub App on the member's behalf. It can do only what both the member and the App's granted permissions allow. A 403 or `Resource not accessible by integration` means the App lacks that permission (org Projects, for example, need `organization_projects`). Switching to `personal` or `--team` will not help, and neither will asking the user to select another GitHub credential. Name the missing permission and tell the user that an org owner has to add it to the GitHub App and approve the change for the org.
+
 Without a team installation: when `list_credentials` lists a selected `personal` / `github` entry, the conversation owner chose their own GitHub account for this conversation. Load it with `bash skills/github/scripts/setup-credentials.sh <teamId> personal`; it reaches what that member can reach.
 
 `gh` is pre-installed in the runtime; the script retains a fallback for outdated images.
