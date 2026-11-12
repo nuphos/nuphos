@@ -45,6 +45,15 @@ class TwoFactorApiTest {
         assertNull(requests.single().header("Authorization"))
     }
 
+    @Test fun aPasskeyAnswerFinishesTheSignInAsIs() = runTest {
+        replies += 200 to """{"token":"session","user":{"id":"u1"}}"""
+        val answer = Http.json.parseToJsonElement("""{"id":"cred","type":"public-key","response":{"signature":"sig"}}""")
+        assertEquals("session", AccountApi("", client()).verifyMfaPasskey("challenge", answer))
+        val sent = okio.Buffer().also { requests.single().body!!.writeTo(it) }.readUtf8()
+        assertEquals("""{"mfaToken":"challenge","passkey":{"id":"cred","type":"public-key","response":{"signature":"sig"}}}""", sent)
+        assertNull(requests.single().header("Authorization"))
+    }
+
     @Test fun onlyAnMfaReauthAsksForACode() {
         assertTrue(StepUp.needsCode(reauth))
         assertFalse(StepUp.needsCode("""{"error":{"code":"reauth_required","details":{"method":"sign_in"}}}"""))
