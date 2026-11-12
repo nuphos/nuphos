@@ -1328,6 +1328,7 @@
   "Couldn't list bindings — showing effective permissions instead": "ไม่สามารถแสดงรายการ binding ได้ — แสดงสิทธิ์ที่มีผลแทน",
   "Couldn't load agent stats": "โหลดสถิติเอเจนต์ไม่สำเร็จ",
   "Couldn't load from GitHub": "โหลดจาก GitHub ไม่สำเร็จ",
+  "Couldn't load sign-in options.": "ไม่สามารถโหลดตัวเลือกการลงชื่อเข้าใช้ได้",
   "Couldn't load the permission proposal: {error}": "โหลดข้อเสนอสิทธิ์ไม่สำเร็จ: {error}",
   "Couldn't load this pod's containers.": "โหลดคอนเทนเนอร์ของ Pod นี้ไม่สำเร็จ",
   "Couldn't reach billing. Try again later.": "ไม่สามารถติดต่อระบบเรียกเก็บเงิน ลองอีกครั้งภายหลัง",

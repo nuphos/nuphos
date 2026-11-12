@@ -1328,6 +1328,7 @@
   "Couldn't list bindings — showing effective permissions instead": "バインディングを一覧表示できないため、代わりに有効な権限を表示しています",
   "Couldn't load agent stats": "エージェントの統計を読み込めませんでした",
   "Couldn't load from GitHub": "GitHub から読み込めませんでした",
+  "Couldn't load sign-in options.": "サインイン方法を読み込めませんでした。",
   "Couldn't load the permission proposal: {error}": "権限の提案を読み込めませんでした：{error}",
   "Couldn't load this pod's containers.": "この Pod のコンテナを読み込めませんでした。",
   "Couldn't reach billing. Try again later.": "請求サービスに接続できませんでした。しばらくしてからもう一度お試しください。",

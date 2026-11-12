@@ -289,6 +289,20 @@ test('socialProviders reports what the backend offers, and nothing from older se
   assert.deepEqual(await auth.socialProviders(), [])
 })
 
+test('socialProviders fails when the backend cannot be asked, so the screen can retry', async () => {
+  chooserProbe = () => new Response('Bad gateway', { status: 502 })
+  await assert.rejects(auth.socialProviders(), /HTTP 502/)
+
+  chooserProbe = () => {
+    throw new TypeError('fetch failed')
+  }
+  await assert.rejects(auth.socialProviders(), /fetch failed/)
+
+  // Not configured is an answer, not a failure.
+  chooserProbe = () => new Response('Social sign-in is not configured', { status: 503 })
+  assert.deepEqual(await auth.socialProviders(), [])
+})
+
 test('Apple fails without opening a browser when the backend does not offer it', async () => {
   chooserProbe = () =>
     new Response('provider chooser', {

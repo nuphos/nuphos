@@ -1328,6 +1328,7 @@
   "Couldn't list bindings — showing effective permissions instead": "Tidak dapat mencantumkan binding — menampilkan izin efektif sebagai gantinya",
   "Couldn't load agent stats": "Tidak dapat memuat statistik agen",
   "Couldn't load from GitHub": "Tidak dapat memuat dari GitHub",
+  "Couldn't load sign-in options.": "Tidak dapat memuat opsi masuk.",
   "Couldn't load the permission proposal: {error}": "Tidak dapat memuat usulan izin: {error}",
   "Couldn't load this pod's containers.": "Tidak dapat memuat kontainer pod ini.",
   "Couldn't reach billing. Try again later.": "Tidak dapat menghubungi layanan tagihan. Coba lagi nanti.",

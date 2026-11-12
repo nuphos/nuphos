@@ -1328,6 +1328,7 @@
   "Couldn't list bindings — showing effective permissions instead": "바인딩을 나열할 수 없어 대신 유효 권한을 표시합니다",
   "Couldn't load agent stats": "에이전트 통계를 불러올 수 없습니다",
   "Couldn't load from GitHub": "GitHub에서 불러올 수 없습니다",
+  "Couldn't load sign-in options.": "로그인 옵션을 불러오지 못했습니다.",
   "Couldn't load the permission proposal: {error}": "권한 제안을 불러올 수 없습니다: {error}",
   "Couldn't load this pod's containers.": "이 Pod의 컨테이너를 불러올 수 없습니다.",
   "Couldn't reach billing. Try again later.": "결제 서비스에 연결할 수 없습니다. 나중에 다시 시도하세요.",
