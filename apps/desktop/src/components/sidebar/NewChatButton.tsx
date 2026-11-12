@@ -1,8 +1,8 @@
 import { Loader2, Plus } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 
 import { api } from '../../api'
-import { locale, t } from '../../i18n'
+import { t } from '../../i18n'
 import { receiveAgentAvatars } from '../../lib/agentAvatarChoices'
 import { usable } from '../../lib/agentName'
 import { botAvatarName, derivedBotAvatar } from '../../lib/botAvatars'
@@ -14,7 +14,6 @@ import { createBotChannel } from '../channels/botChannel'
 import { BotImportDialog } from '../channels/BotImportDialog'
 import { Modal } from '../Modal'
 import { Button } from '../ui/button'
-import { Checkbox } from '../ui/checkbox'
 import { toast } from '../ui/toast'
 
 import { BotStartIntro } from './BotStartIntro'
@@ -131,14 +130,6 @@ function NewBotForm({
   const [preview, setPreview] = useState<BotAvatarFile | null>(null)
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
-  const [coordinate, setCoordinate] = useState(false)
-  const [createdBot, setCreatedBot] = useState<{
-    sessionId: string
-    title: string
-    avatar: string
-  } | null>(null)
-  const channel = useRef<string | null>(null)
-  const creating = useRef(false)
   // The Bot runs where a new chat would, so it is ready the moment it opens.
   const {
     newConversationRuntime: runtime,
@@ -150,7 +141,7 @@ function NewBotForm({
   async function create() {
     const title = name.trim()
 
-    if (!title || creating.current || loading) return
+    if (!title || busy || loading) return
     if (runtimeError) {
       toast.apiError(t('Could not load agents'), runtimeError)
 
@@ -161,34 +152,23 @@ function NewBotForm({
 
       return
     }
-    creating.current = true
     setBusy(true)
     try {
       const startedAt = Date.now()
-      const bot =
-        createdBot ??
-        (await api.agentCreateBot(teamId, {
-          onboarding: true,
-          locale,
-          ...(coordinate ? { starter: 'coordinate' as const } : {}),
-          title,
-          avatar: botAvatarName(avatar),
-          ...(runtime
-            ? { runtimeId: runtime.id, agentRuntime: runtime.provider, runtimeLabel: runtime.label }
-            : {}),
-        }))
+      const bot = await api.agentCreateBot(teamId, {
+        title,
+        avatar: botAvatarName(avatar),
+        runtimeId: runtime.id,
+        agentRuntime: runtime.provider,
+        runtimeLabel: runtime.label,
+      })
 
-      setCreatedBot(bot)
       receiveAgentAvatars([bot], startedAt)
       // A Bot is talked to in its own chat: a channel with the Bot in it.
-      channel.current ??= await createBotChannel(teamId, bot.sessionId)
-      await api.agentStartBotOnboarding(bot.sessionId, teamId, channel.current)
-      onCreated(channel.current)
+      onCreated(await createBotChannel(teamId, bot.sessionId))
     } catch (error) {
-      toast.apiError(t('Could not finish setting up the Bot. Retry to continue.'), error)
+      toast.apiError(t('Could not create the Bot'), error)
       setBusy(false)
-    } finally {
-      creating.current = false
     }
   }
 
@@ -208,7 +188,7 @@ function NewBotForm({
           autoFocus
           maxLength={120}
           value={name}
-          disabled={busy || !!createdBot}
+          disabled={busy}
           onChange={(event) => setName(event.target.value)}
           onKeyDown={(event) => {
             event.stopPropagation()
@@ -223,32 +203,10 @@ function NewBotForm({
           disabled={busy || loading || !name.trim()}
         >
           {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-          {createdBot ? t('Retry setup') : t('Create')}
+          {t('Create')}
         </Button>
       </div>
-      <div className="space-y-1.5">
-        <label className="flex w-fit cursor-pointer items-center gap-2 text-[13px] text-secondary">
-          <Checkbox
-            checked={coordinate}
-            onCheckedChange={(checked) => setCoordinate(checked)}
-            disabled={busy || !!createdBot}
-            aria-describedby="bot-coordination-description"
-          />
-          {t('Help me coordinate work')}
-        </label>
-        <p
-          id="bot-coordination-description"
-          className="pl-6 text-[12px] leading-relaxed text-tertiary"
-        >
-          {t('Break down work, delegate tasks, and follow up on results.')}
-        </p>
-      </div>
-      <fieldset
-        disabled={busy || !!createdBot}
-        className="m-0 min-w-0 border-0 p-0 disabled:pointer-events-none disabled:opacity-60"
-      >
-        <AgentAvatarGrid value={avatar} onChange={setAvatar} onPreview={setPreview} />
-      </fieldset>
+      <AgentAvatarGrid value={avatar} onChange={setAvatar} onPreview={setPreview} />
     </form>
   )
 }

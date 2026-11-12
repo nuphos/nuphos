@@ -3,21 +3,20 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { listSessionCredentials } from '@/lib/claude-code-preview/credential-listing'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAgentSessionsShared } from '@/lib/test/doubles/agent-sessions-shared'
-import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
-import { useConversationRuntimeMove } from '@/lib/test/doubles/conversation-runtime-move'
 import { real as realOptions, useCredentialOptions } from '@/lib/test/doubles/credential-options'
+import { useConversationRuntimeMove } from '@/lib/test/doubles/conversation-runtime-move'
 import { useDb } from '@/lib/test/doubles/db'
+import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
 import { useSessionConfig } from '@/lib/test/doubles/session-config'
 
+import { clearPendingUserMessages } from './pending-messages'
 import { getSessionBypass, setSessionBypass } from './auto-mode/store'
 import { threadReadGrants } from './db/access'
-import { clearPendingUserMessages } from './pending-messages'
 import {
   authorizeThreadDelivery,
   createAgentThread,
-  delegationThreadId,
   listThreadRuntimes,
   sendAgentThreadMessage,
   updateThread,
@@ -101,21 +100,22 @@ const removals: {
 const options = await realOptions.getAgentCredentialOptions(undefined, 'owner')
 
 useCredentialOptions({
-  getAgentCredentialOptions: async () => ({
-    ...options,
-    awsRoles: ['role-1', 'role-2'].map((roleId) => ({ roleId, accountId: roleId })),
-    linearWorkspaces: [{ workspaceId: 'ws-1', label: 'Zeabur' }],
-    // A connector whose unset selection means all of them.
-    githubInstallations: ['gh-1', 'gh-2'].map((installationId) => ({
-      installationId,
-      accountLogin: installationId,
-    })),
-    devices: [
-      { deviceId: 'mac-1', available: true },
-      { deviceId: 'mac-2', available: true },
-      { deviceId: 'offline-mac', available: false },
-    ].map((device) => ({ ...device, label: device.deviceId, platform: 'darwin' })),
-  }),
+  getAgentCredentialOptions: async () =>
+    ({
+      ...options,
+      awsRoles: ['role-1', 'role-2'].map((roleId) => ({ roleId, accountId: roleId })),
+      linearWorkspaces: [{ workspaceId: 'ws-1', label: 'Zeabur' }],
+      // A connector whose unset selection means all of them.
+      githubInstallations: ['gh-1', 'gh-2'].map((installationId) => ({
+        installationId,
+        accountLogin: installationId,
+      })),
+      devices: [
+        { deviceId: 'mac-1', available: true },
+        { deviceId: 'mac-2', available: true },
+        { deviceId: 'offline-mac', available: false },
+      ].map((device) => ({ ...device, label: device.deviceId, platform: 'darwin' })),
+    }) as never,
 })
 const readSelection: typeof getAccess = async ({ sessionId }) =>
   (selections.get(sessionId) ?? {}) as never
@@ -221,7 +221,7 @@ useSessionConfig({
     }
   },
 })
-const installAgentDb = useAgentDb({
+useAgentDb({
   setConversationArchived: async (...args) => {
     archives.push(args)
 
@@ -259,9 +259,9 @@ const installAgentDb = useAgentDb({
 
     for (const [key, ids] of Object.entries(fields))
       next[key] = [...new Set([...((next[key] as string[] | undefined) ?? []), ...(ids ?? [])])]
-    selections.set(sessionId, next)
+    selections.set(sessionId, next as Partial<AgentCredentialAccess>)
 
-    return {}
+    return {} as AgentConversation
   },
   // The store's $pull and $set, guarded that pulled fields are lists and narrowed
   // ones unset: missing or null, as the driver stores undefined.
@@ -276,54 +276,14 @@ const installAgentDb = useAgentDb({
 
     for (const [key, ids] of Object.entries(pull))
       next[key] = (next[key] as string[]).filter((id) => !ids.includes(id))
-    selections.set(sessionId, next)
+    selections.set(sessionId, next as Partial<AgentCredentialAccess>)
 
-    return {}
+    return {} as AgentConversation
   },
   getConversationWithMessages: async (sessionId) => ({
     conversation: { ...source, sessionId },
     messages: [],
   }),
-})
-
-test('a delegation key is stable and scoped to its parent, owner and team', () => {
-  const id = delegationThreadId(actor, 'request-1')
-
-  expect(id).toMatch(/^[\da-f]{8}-[\da-f]{4}-5[\da-f]{3}-a[\da-f]{3}-[\da-f]{12}$/)
-  expect(delegationThreadId(actor, 'request-1')).toBe(id)
-  for (const changed of [{ sessionId: 'elsewhere' }, { userId: 'other' }, { teamId: 'other' }])
-    expect(delegationThreadId({ ...actor, ...changed }, 'request-1')).not.toBe(id)
-})
-
-test('retrying a delegation preserves its task and delivery id; changed prompts are refused', async () => {
-  let stored: AgentConversation | undefined
-
-  installAgentDb({
-    upsertConversationShell: async (data) => {
-      if (stored) return { isNew: false }
-      stored = { ...source, ...data }
-
-      return { isNew: true }
-    },
-    getConversationBySessionId: async (id) =>
-      id === 'source' ? source : stored?.sessionId === id ? stored : null,
-    agentConversations: () => ({
-      updateOne: async () => {
-        stored!.delegation!.ready = true
-
-        return { matchedCount: 1 }
-      },
-    }),
-  })
-  const first = await createAgentThread(actor, 'Work', 'Task', { requestId: 'request-1' })
-  const retry = await createAgentThread(actor, 'Work', 'Task', { requestId: 'request-1' })
-
-  expect(retry.threadId).toBe(first.threadId)
-  expect(retry.messageId).toBe(first.messageId)
-  await expect(
-    createAgentThread(actor, 'Different work', 'Task', { requestId: 'request-1' }),
-  ).rejects.toThrow('different or archived work')
-  expect(stored?.firstMessage).toBe('Work')
 })
 
 describe('conversation-scoped thread tools', () => {
