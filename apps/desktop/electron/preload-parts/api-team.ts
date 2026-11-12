@@ -130,10 +130,9 @@ export const teamApi = {
     ipcRenderer.invoke('localSetup:setAutoSync', teamId, enabled),
   teamSkillsImportLocal: (
     teamId: string,
-    skillId: string,
     scope: string | undefined,
-    reviewed: { relPath: string; realPath: string }[],
-  ) => ipcRenderer.invoke('teamSkills:importLocal', teamId, skillId, scope, reviewed),
+    picks: { id: string; reviewed: { relPath: string; realPath: string }[] }[],
+  ) => ipcRenderer.invoke('teamSkills:importLocal', teamId, scope, picks),
   teamSkillsDeleteObject: (teamId: string, key: string, scope?: string) =>
     ipcRenderer.invoke('teamSkills:deleteObject', teamId, key, scope),
   teamSkillsDeleteSkill: (teamId: string, name: string, scope?: string) =>

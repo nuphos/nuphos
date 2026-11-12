@@ -5,53 +5,43 @@ import { useState } from 'react'
 import { api, parseAtlasError } from '../../api'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
-import { Checkbox } from '../../components/ui/checkbox'
 import { fieldClass } from '../../components/ui/input-group'
-import { toast } from '../../components/ui/toast'
 import { formatBytes } from '../../grafana/format'
 import { t } from '../../i18n'
 
 import { installableNames, MAX_INSTALL_NAMES, previewSourceLabel } from './githubSkillInstall'
+import { SkillImportResults } from './SkillImportResults'
+import { SkillPicker } from './SkillPicker'
 
+import type { SkillImportResult } from './SkillImportResults'
+import type { SkillPickerItem } from './SkillPicker'
 import type { GithubSkillCandidate, GithubSkillPreview, SkillScope } from '../../api'
 
-function SkillPickerRow({
-  skill,
-  checked,
-  full,
-  onChange,
-}: {
-  skill: GithubSkillCandidate
-  checked: boolean
-  /** The selection is at the per-install limit; only already picked rows stay toggleable. */
-  full: boolean
-  onChange: (checked: boolean) => void
-}) {
-  return (
-    <label className="flex items-start gap-2 py-1.5">
-      <Checkbox
-        className="mt-0.5"
-        disabled={skill.problem !== null || (full && !checked)}
-        checked={checked}
-        onCheckedChange={onChange}
-      />
-      <span className="flex min-w-0 flex-col">
-        <span className="truncate text-[12.5px]">{skill.name}</span>
-        <span className="truncate text-[11px] text-tertiary">
-          {t('{count} files', { count: String(skill.fileCount) })} · {formatBytes(skill.totalBytes)}
-          {skill.description ? ` · ${skill.description}` : ''}
-        </span>
-        {skill.problem && (
-          <span className="text-[11px] text-status-danger">{skill.problem.message}</span>
-        )}
-        {skill.skipped.length > 0 && (
-          <span className="truncate text-[11px] text-tertiary">
-            {t('Links not installed: {names}', { names: skill.skipped.join(', ') })}
-          </span>
-        )}
-      </span>
-    </label>
-  )
+/** Why a candidate cannot be installed, or which of its links stay behind. */
+function candidateDetail(skill: GithubSkillCandidate) {
+  if (skill.problem) return <span className="text-status-danger">{skill.problem.message}</span>
+  if (skill.skipped.length === 0) return null
+
+  return <span>{t('Links not installed: {names}', { names: skill.skipped.join(', ') })}</span>
+}
+
+/** Every candidate as a picker row; one the backend would refuse, or past the limit, is shown disabled. */
+function pickerItems(preview: GithubSkillPreview, selected: readonly string[]): SkillPickerItem[] {
+  const full = selected.length >= MAX_INSTALL_NAMES
+
+  return preview.skills.map((skill) => ({
+    id: skill.name,
+    title: skill.name,
+    subtitle: [
+      t('{count} files', { count: String(skill.fileCount) }),
+      formatBytes(skill.totalBytes),
+      skill.description,
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    detail: candidateDetail(skill),
+    disabled: skill.problem !== null || (full && !selected.includes(skill.name)),
+  }))
 }
 
 function PickerNotes({ full, truncated }: { full: boolean; truncated: boolean }) {
@@ -67,6 +57,64 @@ function PickerNotes({ full, truncated }: { full: boolean; truncated: boolean })
       {truncated && (
         <div className="py-1 text-[11px] text-tertiary">
           {t('Only the first 100 skills are shown; paste a folder to narrow it down.')}
+        </div>
+      )}
+    </>
+  )
+}
+
+function GithubSourceStep({
+  source,
+  pending,
+  preview,
+  selected,
+  onSource,
+  onFind,
+  onChoose,
+}: {
+  source: string
+  pending: boolean
+  preview: GithubSkillPreview | null
+  selected: readonly string[]
+  onSource: (value: string) => void
+  onFind: () => void
+  onChoose: (next: ReadonlySet<string>) => void
+}) {
+  return (
+    <>
+      <form
+        className="flex gap-2"
+        onSubmit={(event) => {
+          event.preventDefault()
+          if (source.trim()) onFind()
+        }}
+      >
+        <input
+          className={clsx(fieldClass, 'h-8')}
+          value={source}
+          disabled={pending}
+          placeholder="anthropics/skills"
+          onChange={(event) => onSource(event.target.value)}
+        />
+        <Button type="submit" variant="secondary" size="sm" disabled={pending || !source.trim()}>
+          {t('Find skills')}
+        </Button>
+      </form>
+      {preview && (
+        <div className="mt-3">
+          <div className="py-1 text-[11px] text-tertiary">{previewSourceLabel(preview)}</div>
+          {preview.skills.length === 0 ? (
+            <div className="py-2 text-[12px] text-tertiary">
+              {t('No skills found in this source')}
+            </div>
+          ) : (
+            <SkillPicker
+              items={pickerItems(preview, selected)}
+              selected={new Set(selected)}
+              onChange={onChoose}
+            />
+          )}
+          <PickerNotes full={selected.length >= MAX_INSTALL_NAMES} truncated={preview.truncated} />
         </div>
       )}
     </>
@@ -90,15 +138,26 @@ export function GithubSkillInstallDialog({ teamId, scope, disabled, onInstalled 
   const [selected, setSelected] = useState<string[]>([])
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The install succeeded: what it installed, from where.
+  const [installed, setInstalled] = useState<{ results: SkillImportResult[]; from: string } | null>(
+    null,
+  )
 
   const reset = () => {
     setPreview(null)
     setSelected([])
     setError(null)
+    setInstalled(null)
   }
 
-  const toggle = (name: string, checked: boolean) =>
-    setSelected((names) => names.filter((n) => n !== name).concat(checked ? [name] : []))
+  // In the preview's order and never past the per-install limit, so Select all stops there too.
+  const choose = (from: GithubSkillPreview, next: ReadonlySet<string>) =>
+    setSelected(
+      from.skills
+        .map((skill) => skill.name)
+        .filter((name) => next.has(name))
+        .slice(0, MAX_INSTALL_NAMES),
+    )
 
   const run = async (action: () => Promise<void>) => {
     setPending(true)
@@ -123,20 +182,23 @@ export function GithubSkillInstallDialog({ teamId, scope, disabled, onInstalled 
 
   const install = (from: GithubSkillPreview & { source: string }) =>
     run(async () => {
-      const { installed } = await api.teamSkillsGithubInstall(
+      const { installed: skills } = await api.teamSkillsGithubInstall(
         teamId,
         { source: from.source, commitSha: from.commitSha, names: selected },
         scope,
       )
 
-      toast.success(
-        installed.length === 1
-          ? t('Installed {name}', { name: installed[0]?.name ?? '' })
-          : t('Installed {count} skills', { count: String(installed.length) }),
-        previewSourceLabel(from),
-      )
-      setOpen(false)
-      if (installed[0]) onInstalled(installed[0].name)
+      // The backend installs every picked skill or none, so each row here is installed.
+      setInstalled({
+        from: previewSourceLabel(from),
+        results: skills.map((skill) => ({
+          id: skill.name,
+          name: skill.name,
+          status: 'imported',
+          detail: `${t('{count} files', { count: String(skill.fileCount) })} · ${formatBytes(skill.totalBytes)}`,
+        })),
+      })
+      if (skills[0]) onInstalled(skills[0].name)
     })
 
   const close = () => {
@@ -168,71 +230,62 @@ export function GithubSkillInstallDialog({ teamId, scope, disabled, onInstalled 
         width={520}
         closeOnBackdrop={false}
         footer={
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex items-center justify-end gap-2 px-5 py-4">
             {pending && <Loader2 className="mr-auto h-3.5 w-3.5 animate-spin" strokeWidth={2} />}
-            <Button type="button" variant="secondary" size="sm" disabled={pending} onClick={close}>
-              {t('Cancel')}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              disabled={pending || !preview || selected.length === 0}
-              onClick={() => preview && void install(preview)}
-            >
-              {t('Install')}
-            </Button>
+            {installed ? (
+              <Button type="button" size="sm" onClick={close}>
+                {t('Done')}
+              </Button>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={pending}
+                  onClick={close}
+                >
+                  {t('Cancel')}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={pending || !preview || selected.length === 0}
+                  onClick={() => preview && void install(preview)}
+                >
+                  {t('Install')}
+                </Button>
+              </>
+            )}
           </div>
         }
       >
-        <form
-          className="flex gap-2"
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (source.trim()) void find()
-          }}
-        >
-          <input
-            className={clsx(fieldClass, 'h-8')}
-            value={source}
-            disabled={pending}
-            placeholder="anthropics/skills"
-            onChange={(event) => {
-              setSource(event.target.value)
-              reset()
-            }}
-          />
-          <Button type="submit" variant="secondary" size="sm" disabled={pending || !source.trim()}>
-            {t('Find skills')}
-          </Button>
-        </form>
-        {preview && (
-          <div className="mt-3">
-            <div className="py-1 text-[11px] text-tertiary">{previewSourceLabel(preview)}</div>
-            {preview.skills.length === 0 && (
-              <div className="py-2 text-[12px] text-tertiary">
-                {t('No skills found in this source')}
-              </div>
-            )}
-            {preview.skills.map((skill) => (
-              <SkillPickerRow
-                key={skill.name}
-                skill={skill}
-                checked={selected.includes(skill.name)}
-                full={selected.length >= MAX_INSTALL_NAMES}
-                onChange={(checked) => toggle(skill.name, checked)}
-              />
-            ))}
-            <PickerNotes
-              full={selected.length >= MAX_INSTALL_NAMES}
-              truncated={preview.truncated}
+        <div className="px-5 py-4">
+          {installed ? (
+            <>
+              <div className="mb-2 text-[11px] text-tertiary">{installed.from}</div>
+              <SkillImportResults results={installed.results} />
+            </>
+          ) : (
+            <GithubSourceStep
+              source={source}
+              pending={pending}
+              preview={preview}
+              selected={selected}
+              onSource={(value) => {
+                setSource(value)
+                reset()
+              }}
+              onFind={() => void find()}
+              onChoose={(next) => preview && choose(preview, next)}
             />
-          </div>
-        )}
-        {error && (
-          <div className="mt-2 rounded-md border border-error/25 bg-error/10 px-2.5 py-2 text-[12px] text-error">
-            {error}
-          </div>
-        )}
+          )}
+          {error && (
+            <div className="mt-2 rounded-md border border-error/25 bg-error/10 px-2.5 py-2 text-[12px] text-error">
+              {error}
+            </div>
+          )}
+        </div>
       </Modal>
     </>
   )

@@ -103,12 +103,16 @@ export type LocalSkillInfo = {
   updatedAt: string
 }
 
-export type LocalSkillImportResult = {
+/** One picked skill after Import from this computer; mirrors main's outcome. */
+export type LocalSkillImportOutcome = {
+  id: string
   name: string
-  source: LocalSkillInfo['source']
+  status: 'imported' | 'skipped' | 'failed'
+  reason?: 'name_taken' | 'builtin' | 'changed' | 'missing' | 'error'
+  message?: string
   keys: string[]
-  /** Files the team store would have rejected for size. */
-  skipped: string[]
+  /** Files the store would have rejected for size. */
+  tooLarge: string[]
 }
 
 /** One "Sync my setup" pass: this computer's Claude Code skills and CLAUDE.md, as personal ones. */

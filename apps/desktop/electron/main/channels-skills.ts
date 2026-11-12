@@ -3,9 +3,10 @@ import * as atlas from '../atlas'
 import { approveLinkedSkill } from './local-setup-snapshot'
 import { localSetupStatus, syncLocalSetup, syncLocalSetupAfter } from './local-setup-sync'
 import { setLocalSetupAutoSync } from './local-setup-watch'
-import { importLocalSkill } from './local-skill-import'
+import { importLocalSkills } from './local-skill-import'
 import { listLocalSkills } from './local-skills'
 
+import type { LocalSkillImportPick } from './local-skill-import'
 import type { LocalSkillReviewedFile } from './local-skills'
 import type { SkillScope } from '../atlas'
 
@@ -30,10 +31,9 @@ export const skillChannels = {
   'teamSkills:importLocal': (
     _e: unknown,
     teamId: string,
-    skillId: string,
     scope: SkillScope | undefined,
-    reviewed: LocalSkillReviewedFile[],
-  ) => importLocalSkill(teamId, skillId, scope, reviewed),
+    picks: LocalSkillImportPick[],
+  ) => importLocalSkills(teamId, scope, picks),
   'teamSkills:deleteObject': (_e: unknown, teamId: string, key: string, scope?: SkillScope) =>
     atlas.teamSkillsDeleteObject(teamId, key, scope),
   'teamSkills:deleteSkill': (_e: unknown, teamId: string, name: string, scope?: SkillScope) =>

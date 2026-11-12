@@ -9,7 +9,7 @@ import type {
   AppOpenDeepLinkPayload,
   LocalAgentSessionInfo,
   LocalSessionSource,
-  LocalSkillImportResult,
+  LocalSkillImportOutcome,
   LocalSetupResult,
   LocalSetupStatus,
   LocalSkillInfo,
@@ -223,10 +223,9 @@ export type WindowAppApi = {
   localSetupSetAutoSync(teamId: string, enabled: boolean): Promise<void>
   teamSkillsImportLocal(
     teamId: string,
-    skillId: string,
     scope: SkillScope | undefined,
-    reviewed: { relPath: string; realPath: string }[],
-  ): Promise<LocalSkillImportResult>
+    picks: { id: string; reviewed: { relPath: string; realPath: string }[] }[],
+  ): Promise<LocalSkillImportOutcome[]>
   teamSkillsDeleteObject(teamId: string, key: string, scope?: SkillScope): Promise<void>
   teamSkillsDeleteSkill(
     teamId: string,

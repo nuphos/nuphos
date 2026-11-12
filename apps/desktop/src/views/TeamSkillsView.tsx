@@ -11,7 +11,7 @@ import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
 
 import { GithubSkillInstallDialog } from './skills/GithubSkillInstallDialog'
-import { LocalSkillImportMenu } from './skills/LocalSkillImportMenu'
+import { LocalSkillImport } from './skills/LocalSkillImport'
 import { buildSkillColumns } from './skills/skillColumns'
 import { SkillDetailPane } from './skills/SkillDetailPane'
 import { useSkillActions } from './skills/useSkillActions'
@@ -199,12 +199,15 @@ export function TeamSkillsView({
                 void reloadWithSkeleton().then(() => reloadDetailForName(name))
               }}
             />
-            <LocalSkillImportMenu
+            <LocalSkillImport
               teamId={teamId}
               scope={scope}
               disabled={!canEdit}
-              onImported={(name) => {
-                void reloadWithSkeleton().then(() => reloadDetailForName(name))
+              onImported={(names) => {
+                // Open the one imported skill; several just refresh the list.
+                void reloadWithSkeleton().then(() => {
+                  if (names.length === 1 && names[0]) void reloadDetailForName(names[0])
+                })
               }}
             />
           </>,
