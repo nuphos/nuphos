@@ -79,7 +79,7 @@ export function AuditLogView({
   // Journal detail panel (the audit "open" action) — read-only, no side
   // effects; a row click must never fork or navigate into the chat.
   const [selected, setSelected] = useState<SelectedJournal | null>(null)
-  const { pollTick, isActive } = useWorkspaceTab()
+  const { isActive } = useWorkspaceTab()
   // Filters (tab / scope / mutations / range) ride the toolbar's left slot and
   // the compliance Export sits in the right slot. Gate on
   // isActive so a keep-alive'd background tab never leaks its controls.
@@ -107,7 +107,6 @@ export function AuditLogView({
     range,
     refreshKey,
     needle,
-    pollTick,
     onCount,
     onLoading,
   })

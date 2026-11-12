@@ -5,9 +5,6 @@ import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
-import { PAGE_SIZE } from './memoriesShared'
-
-import type { LoadState } from './memoriesShared'
 import type { AgentMemoryItem, AgentMemoryScope } from '../../api'
 import type { ContextMenuItem } from '../../components/ContextMenu'
 import type { RefObject } from 'react'
@@ -16,17 +13,12 @@ type ActionsArgs = {
   teamId: string
   scope: AgentMemoryScope
   stateFilter: 'live' | 'removed'
-  listState: 'removed' | undefined
-  state: LoadState
-  setState: React.Dispatch<React.SetStateAction<LoadState>>
+  removeFromList: (id: string) => void
   selectedId: string | null
   setSelectedId: React.Dispatch<React.SetStateAction<string | null>>
   setSelectedMemory: React.Dispatch<React.SetStateAction<AgentMemoryItem | null>>
   setDetailLoading: React.Dispatch<React.SetStateAction<boolean>>
   setConfirmDelete: React.Dispatch<React.SetStateAction<AgentMemoryItem | null>>
-  loadingMore: boolean
-  setLoadingMore: React.Dispatch<React.SetStateAction<boolean>>
-  listRequestRef: RefObject<number>
   detailRequestRef: RefObject<number>
   reload: () => Promise<void>
 }
@@ -36,17 +28,12 @@ export function useMemoryActions(args: ActionsArgs) {
     teamId,
     scope,
     stateFilter,
-    listState,
-    state,
-    setState,
+    removeFromList,
     selectedId,
     setSelectedId,
     setSelectedMemory,
     setDetailLoading,
     setConfirmDelete,
-    loadingMore,
-    setLoadingMore,
-    listRequestRef,
     detailRequestRef,
     reload,
   } = args
@@ -79,14 +66,7 @@ export function useMemoryActions(args: ActionsArgs) {
     async (memory: AgentMemoryItem, reason?: string) => {
       try {
         await api.agentDeleteMemory(memory.id, teamId, scope, reason)
-        setState((prev) => {
-          if (prev.kind !== 'ready') return prev
-
-          return {
-            ...prev,
-            memories: prev.memories.filter((item) => item.id !== memory.id),
-          }
-        })
+        removeFromList(memory.id)
         if (selectedId === memory.id) {
           setSelectedId(null)
           setSelectedMemory(null)
@@ -94,25 +74,17 @@ export function useMemoryActions(args: ActionsArgs) {
       } catch (err) {
         console.warn('[memory] failed to delete memory', err)
         toast.apiError(t('Could not remove memory'), err)
-        setState({ kind: 'loading' })
         void reload()
       }
     },
-    [reload, scope, selectedId, teamId, setSelectedId, setSelectedMemory, setState],
+    [reload, removeFromList, scope, selectedId, teamId, setSelectedId, setSelectedMemory],
   )
 
   const restoreMemory = useCallback(
     async (memory: AgentMemoryItem) => {
       try {
         await api.agentRestoreMemory(memory.id, teamId, scope)
-        setState((prev) => {
-          if (prev.kind !== 'ready') return prev
-
-          return {
-            ...prev,
-            memories: prev.memories.filter((item) => item.id !== memory.id),
-          }
-        })
+        removeFromList(memory.id)
         if (selectedId === memory.id) {
           setSelectedId(null)
           setSelectedMemory(null)
@@ -120,11 +92,10 @@ export function useMemoryActions(args: ActionsArgs) {
       } catch (err) {
         console.warn('[memory] failed to restore memory', err)
         toast.apiError(t('Could not restore memory'), err)
-        setState({ kind: 'loading' })
         void reload()
       }
     },
-    [reload, scope, selectedId, teamId, setSelectedId, setSelectedMemory, setState],
+    [reload, removeFromList, scope, selectedId, teamId, setSelectedId, setSelectedMemory],
   )
 
   const buildMenu = useCallback(
@@ -150,38 +121,5 @@ export function useMemoryActions(args: ActionsArgs) {
     [restoreMemory, stateFilter, setConfirmDelete],
   )
 
-  const loadMore = useCallback(async () => {
-    if (state.kind !== 'ready' || !state.nextCursor || loadingMore) return
-    const cursor = state.nextCursor
-    const requestId = listRequestRef.current + 1
-
-    listRequestRef.current = requestId
-    setLoadingMore(true)
-    try {
-      const page = await api.agentListMemories(cursor, PAGE_SIZE, teamId, scope, listState)
-
-      if (listRequestRef.current !== requestId) return
-      setState((prev) => {
-        if (prev.kind !== 'ready') return prev
-        if (prev.nextCursor !== cursor) return prev
-
-        return {
-          kind: 'ready',
-          enabled: page.enabled,
-          memories: [...prev.memories, ...page.memories],
-          nextCursor: page.nextCursor,
-          hasMore: page.hasMore,
-        }
-      })
-    } catch (err) {
-      if (listRequestRef.current !== requestId) return
-      setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
-    } finally {
-      if (listRequestRef.current === requestId) {
-        setLoadingMore(false)
-      }
-    }
-  }, [loadingMore, scope, state, teamId, listState, listRequestRef, setLoadingMore, setState])
-
-  return { openMemory, deleteMemory, restoreMemory, buildMenu, loadMore }
+  return { openMemory, deleteMemory, restoreMemory, buildMenu }
 }

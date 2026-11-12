@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useInfiniteQuery } from '@tanstack/react-query'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
-import { useSilentTick } from '../../hooks/useSilentRefresh'
 import { t } from '../../i18n/index.ts'
+import { queryKeys } from '../../lib/query/keys'
+import { useRefreshKey, useTabPollMs } from '../../lib/query/tabQuery'
 
 import { isRuntimeImageAuditEvent, isSkillAuditEvent, rangeFrom, userLabel } from './shared'
 
 import type { ConversationsState, EventsState, Range, Scope, Tab } from './shared'
+import type { AgentAuditConversationsPage, AgentAuditEventsPage } from '../../api'
 
 type Args = {
   scope: Scope
@@ -18,7 +21,6 @@ type Args = {
   refreshKey: number
   /** Lowercased search text — filters loaded rows client-side. */
   needle: string
-  pollTick: number
   onCount?: (n: number) => void
   onLoading?: (loading: boolean) => void
 }
@@ -31,150 +33,67 @@ export function useAuditLogData({
   range,
   refreshKey,
   needle,
-  pollTick,
   onCount,
   onLoading,
 }: Args) {
-  const [conversations, setConversations] = useState<ConversationsState>({ kind: 'loading' })
-  const [events, setEvents] = useState<EventsState>({ kind: 'loading' })
-  const [loadingMore, setLoadingMore] = useState(false)
   const [exporting, setExporting] = useState(false)
-  // Guards against pagination hazards (CodeRabbit review):
-  // - generation bumps whenever tab/filters change, so an in-flight load-more
-  //   from the previous filter set is discarded instead of appended;
-  // - loadedMore suppresses the silent background refresh once the user has
-  //   paged past page one (a first-page refetch would discard those pages).
-  const genRef = useRef(0)
-  const loadedMoreRef = useRef(false)
-
+  const pollMs = useTabPollMs()
   const baseArgs = useMemo(
-    () => ({
-      scope,
-      teamId,
-      mutationsOnly: mutationsOnly || undefined,
-      from: rangeFrom(range),
-    }),
+    () => ({ scope, teamId, mutationsOnly: mutationsOnly || undefined, from: rangeFrom(range) }),
     [scope, teamId, mutationsOnly, range],
   )
-
-  // Fetch + apply are split so every setState lives inside a promise callback
-  // (react-hooks/set-state-in-effect): the effect body only kicks the fetch.
-  const fetchPage = useCallback(() => {
-    return tab === 'conversations'
-      ? api
-          .agentListJournalConversations(baseArgs)
-          .then((page) => ({ kind: 'conversations' as const, page }))
-      : api.agentListJournalEvents(baseArgs).then((page) => ({ kind: 'events' as const, page }))
-  }, [tab, baseArgs])
-
-  const applyPage = useCallback(
-    (result: Awaited<ReturnType<typeof fetchPage>>) => {
-      if (result.kind === 'conversations') {
-        setConversations({
-          kind: 'ready',
-          rows: result.page.conversations,
-          users: result.page.users,
-          nextCursor: result.page.nextCursor,
-        })
-        onCount?.(result.page.conversations.length)
-      } else {
-        setEvents({
-          kind: 'ready',
-          events: result.page.events,
-          conversations: result.page.conversations,
-          users: result.page.users,
-          nextCursor: result.page.nextCursor,
-        })
-        onCount?.(result.page.events.length)
-      }
-    },
-    [onCount],
+  const filters = [scope, range, mutationsOnly] as const
+  // Paged past page one, a poll would read every page again: only the first page polls.
+  const paged = {
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last: { nextCursor: string | null }) => last.nextCursor ?? undefined,
+    refetchInterval: (query: { state: { data?: { pages: unknown[] } } }) =>
+      (query.state.data?.pages.length ?? 0) > 1 ? false : pollMs,
+  }
+  const conversationPages = useInfiniteQuery({
+    queryKey: queryKeys.audit(teamId, 'conversations', ...filters),
+    queryFn: ({ pageParam }) =>
+      api.agentListJournalConversations({ ...baseArgs, from: rangeFrom(range), cursor: pageParam }),
+    enabled: tab === 'conversations',
+    ...paged,
+  })
+  const eventPages = useInfiniteQuery({
+    queryKey: queryKeys.audit(teamId, 'events', ...filters),
+    queryFn: ({ pageParam }) =>
+      api.agentListJournalEvents({ ...baseArgs, from: rangeFrom(range), cursor: pageParam }),
+    enabled: tab === 'events',
+    ...paged,
+  })
+  const active = tab === 'conversations' ? conversationPages : eventPages
+  const conversations = useMemo(
+    () => conversationsState(conversationPages),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- derived from these alone
+    [conversationPages.data, conversationPages.error],
   )
+  const events = useMemo(
+    () => eventsState(eventPages),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- derived from these alone
+    [eventPages.data, eventPages.error],
+  )
+  const count =
+    tab === 'conversations'
+      ? conversations.kind === 'ready' && conversations.rows.length
+      : events.kind === 'ready' && events.events.length
 
+  useRefreshKey(active, refreshKey, onLoading)
   useEffect(() => {
-    let cancelled = false
-
-    // New filter set: invalidate in-flight load-mores and re-arm the silent
-    // refresh (we're back on page one).
-    genRef.current += 1
-    loadedMoreRef.current = false
-    onLoading?.(true)
-    fetchPage()
-      .then((result) => {
-        if (!cancelled) applyPage(result)
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return
-        const message = err instanceof Error ? err.message : String(err)
-
-        if (tab === 'conversations') setConversations({ kind: 'error', message })
-        else setEvents({ kind: 'error', message })
-        toast.apiError(t('Failed to load audit log'), err)
-      })
-      .finally(() => {
-        if (!cancelled) onLoading?.(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [fetchPage, applyPage, refreshKey, onLoading, tab])
-
-  // Silent background refresh: same fetch, no loading churn, errors swallowed
-  // (the next foreground load surfaces them). Skipped while paging or once
-  // the user has loaded more — a first-page refetch would discard pages.
-  useSilentTick(() => {
-    if (loadingMore || loadedMoreRef.current) return
-    const gen = genRef.current
-
-    fetchPage()
-      .then((result) => {
-        if (genRef.current === gen) applyPage(result)
-      })
-      .catch(() => {})
-  }, pollTick)
+    if (count !== false) onCount?.(count)
+  }, [count, onCount])
+  useEffect(() => {
+    if (active.error && !active.data) toast.apiError(t('Failed to load audit log'), active.error)
+  }, [active.error, active.data])
 
   const loadMore = useCallback(async () => {
-    if (loadingMore) return
-    const gen = genRef.current
+    const result = await active.fetchNextPage()
 
-    setLoadingMore(true)
-    try {
-      if (tab === 'conversations' && conversations.kind === 'ready' && conversations.nextCursor) {
-        const page = await api.agentListJournalConversations({
-          ...baseArgs,
-          cursor: conversations.nextCursor,
-        })
-
-        if (genRef.current !== gen) return // filters changed mid-flight
-        loadedMoreRef.current = true
-        setConversations({
-          kind: 'ready',
-          rows: [...conversations.rows, ...page.conversations],
-          users: { ...conversations.users, ...page.users },
-          nextCursor: page.nextCursor,
-        })
-        onCount?.(conversations.rows.length + page.conversations.length)
-      } else if (tab === 'events' && events.kind === 'ready' && events.nextCursor) {
-        const page = await api.agentListJournalEvents({ ...baseArgs, cursor: events.nextCursor })
-
-        if (genRef.current !== gen) return // filters changed mid-flight
-        loadedMoreRef.current = true
-        setEvents({
-          kind: 'ready',
-          events: [...events.events, ...page.events],
-          conversations: { ...events.conversations, ...page.conversations },
-          users: { ...events.users, ...page.users },
-          nextCursor: page.nextCursor,
-        })
-        onCount?.(events.events.length + page.events.length)
-      }
-    } catch (err) {
-      toast.apiError(t('Failed to load more'), err)
-    } finally {
-      setLoadingMore(false)
-    }
-  }, [loadingMore, tab, baseArgs, conversations, events, onCount])
+    if (result.isError) toast.apiError(t('Failed to load more'), result.error)
+  }, [active])
+  const loadingMore = active.isFetchingNextPage
 
   const conversationRows = useMemo(() => {
     if (conversations.kind !== 'ready') return []
@@ -257,3 +176,34 @@ export function useAuditLogData({
     exportComplianceRecords,
   }
 }
+
+type Pages<T> = { data?: { pages: T[] }; error: Error | null }
+
+function conversationsState({
+  data,
+  error,
+}: Pages<AgentAuditConversationsPage>): ConversationsState {
+  if (!data) return error ? { kind: 'error', message: error.message } : { kind: 'loading' }
+
+  return {
+    kind: 'ready',
+    rows: data.pages.flatMap((page) => page.conversations),
+    users: merged(data.pages.map((page) => page.users)),
+    nextCursor: data.pages.at(-1)?.nextCursor ?? null,
+  }
+}
+
+function eventsState({ data, error }: Pages<AgentAuditEventsPage>): EventsState {
+  if (!data) return error ? { kind: 'error', message: error.message } : { kind: 'loading' }
+
+  return {
+    kind: 'ready',
+    events: data.pages.flatMap((page) => page.events),
+    conversations: merged(data.pages.map((page) => page.conversations)),
+    users: merged(data.pages.map((page) => page.users)),
+    nextCursor: data.pages.at(-1)?.nextCursor ?? null,
+  }
+}
+
+const merged = <T>(maps: Record<string, T>[]): Record<string, T> =>
+  Object.fromEntries(maps.flatMap((map) => Object.entries(map)))

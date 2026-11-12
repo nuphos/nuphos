@@ -1,14 +1,12 @@
+import { useQuery } from '@tanstack/react-query'
 import { KeyRound, ShieldCheck } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { BindingAccessSection } from '../../components/BindingAccess'
 import { SectionHeader } from '../../components/SectionHeader'
-import { useReportLoading } from '../../components/useReportLoading'
-import { useSilentTick } from '../../hooks/useSilentRefresh'
-import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
 import { t } from '../../i18n'
-import { useResetOnKey } from '../useResetOnKey'
+import { queryKeys } from '../../lib/query/keys'
+import { useRefreshKey, useTabPollMs } from '../../lib/query/tabQuery'
 
 import {
   DetailSidebarCloseButton,
@@ -19,7 +17,7 @@ import { EmptyHint, RetiredBindingNotice, ProviderSummaryCard, Warnings } from '
 import { PolicyCard } from './PolicyCard'
 
 import type { CommonProps } from './common'
-import type { AwsIamPermissions, BindingAccess } from '../../types'
+import type { BindingAccess } from '../../types'
 
 export function AwsIamPermissionsView({
   teamId,
@@ -40,64 +38,16 @@ export function AwsIamPermissionsView({
   onAccessChanged?: (access: BindingAccess) => void
   onClose?: () => void
 }) {
-  const identityKey = `aws:${teamId}:${accountId}:${roleId ?? ''}`
-  const [data, setData] = useState<AwsIamPermissions | null>(null)
-  const [dataKey, setDataKey] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const reqRef = useRef(0)
-
-  useReportLoading(loading, onLoading)
-
-  useResetOnKey(`${identityKey}|${String(refreshKey)}`, () => {
-    setLoading(true)
-    setError(null)
+  const query = useQuery({
+    queryKey: queryKeys.iamPermissions(teamId, 'aws', accountId, roleId),
+    queryFn: () => api.atlasGetAwsIamPermissions(teamId, accountId, roleId),
+    refetchInterval: useTabPollMs(),
   })
+  const visibleData = query.data ?? null
+  const error = query.error?.message ?? null
+  const loading = query.isPending
 
-  useEffect(() => {
-    const req = ++reqRef.current
-
-    api
-      .atlasGetAwsIamPermissions(teamId, accountId, roleId)
-      .then((res) => {
-        if (req !== reqRef.current) return
-        setData(res)
-        setDataKey(identityKey)
-        setLoading(false)
-      })
-      .catch((e: unknown) => {
-        if (req !== reqRef.current) return
-        setError(String(e instanceof Error ? e.message : e))
-        setLoading(false)
-      })
-  }, [teamId, accountId, roleId, refreshKey, identityKey])
-
-  const { pollTick } = useWorkspaceTab()
-  const silentReload = useCallback(() => {
-    // Snapshot the current request id instead of incrementing it: a poll
-    // must NOT invalidate an in-flight foreground load (which is what
-    // tracks `loading`). If a foreground load lands between this snapshot
-    // and the response, `req !== reqRef.current` and we drop the stale
-    // background result.
-    const req = reqRef.current
-
-    api
-      .atlasGetAwsIamPermissions(teamId, accountId, roleId)
-      .then((res) => {
-        if (req !== reqRef.current) return
-        setData(res)
-        setDataKey(identityKey)
-        setError(null)
-      })
-      .catch((e: unknown) => {
-        if (req !== reqRef.current) return
-        setError(String(e instanceof Error ? e.message : e))
-      })
-  }, [teamId, accountId, roleId, identityKey])
-
-  useSilentTick(silentReload, pollTick)
-
-  const visibleData = dataKey === identityKey ? data : null
+  useRefreshKey(query, refreshKey, onLoading)
 
   return (
     <div className="relative flex-1 flex flex-col min-h-0">

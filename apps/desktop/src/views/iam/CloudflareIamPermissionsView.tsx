@@ -1,23 +1,21 @@
+import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { ShieldCheck } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 
 import { api } from '../../api'
 import { SectionHeader } from '../../components/SectionHeader'
 import { Button } from '../../components/ui/button'
-import { useReportLoading } from '../../components/useReportLoading'
-import { useSilentTick } from '../../hooks/useSilentRefresh'
-import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
 import { t } from '../../i18n'
+import { queryKeys } from '../../lib/query/keys'
+import { useRefreshKey, useTabPollMs } from '../../lib/query/tabQuery'
 import { BindAccountDialog } from '../BindAccountDialog'
-import { useResetOnKey } from '../useResetOnKey'
 
 import { formatExpiry } from './common'
 import { EmptyHint, ProviderSummaryCard, Warnings } from './permissionCards'
 import { SelfManagementCard } from './SelfManagementCard'
 
 import type { CommonProps } from './common'
-import type { CloudflareIamInfo } from '../../types'
 
 export function CloudflareIamPermissionsView({
   teamId,
@@ -25,59 +23,17 @@ export function CloudflareIamPermissionsView({
   refreshKey,
   onLoading,
 }: CommonProps & { accountId: string }) {
-  const [data, setData] = useState<CloudflareIamInfo | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
   const [reauthorizing, setReauthorizing] = useState(false)
-  const reqRef = useRef(0)
-
-  useReportLoading(loading, onLoading)
-
-  useResetOnKey(`${teamId}|${accountId}|${String(refreshKey)}`, () => {
-    setLoading(true)
-    setError(null)
+  const query = useQuery({
+    queryKey: queryKeys.iamPermissions(teamId, 'cloudflare', accountId),
+    queryFn: () => api.atlasGetCloudflareIamPermissions(teamId, accountId),
+    refetchInterval: useTabPollMs(),
   })
+  const data = query.data ?? null
+  const error = query.error?.message ?? null
+  const loading = query.isPending
 
-  useEffect(() => {
-    const req = ++reqRef.current
-
-    api
-      .atlasGetCloudflareIamPermissions(teamId, accountId)
-      .then((res) => {
-        if (req !== reqRef.current) return
-        setData(res)
-        setLoading(false)
-      })
-      .catch((e: unknown) => {
-        if (req !== reqRef.current) return
-        setError(String(e instanceof Error ? e.message : e))
-        setLoading(false)
-      })
-  }, [teamId, accountId, refreshKey])
-
-  const { pollTick } = useWorkspaceTab()
-  const silentReload = useCallback(() => {
-    // Snapshot the current request id instead of incrementing it: a poll
-    // must NOT invalidate an in-flight foreground load (which is what
-    // tracks `loading`). If a foreground load lands between this snapshot
-    // and the response, `req !== reqRef.current` and we drop the stale
-    // background result.
-    const req = reqRef.current
-
-    api
-      .atlasGetCloudflareIamPermissions(teamId, accountId)
-      .then((res) => {
-        if (req !== reqRef.current) return
-        setData(res)
-        setError(null)
-      })
-      .catch((e: unknown) => {
-        if (req !== reqRef.current) return
-        setError(String(e instanceof Error ? e.message : e))
-      })
-  }, [teamId, accountId])
-
-  useSilentTick(silentReload, pollTick)
+  useRefreshKey(query, refreshKey, onLoading)
 
   // The current bind flow is Cloudflare OAuth — render scopes + connection
   // health. The token-policy layout below only survives for legacy API-token
@@ -172,7 +128,7 @@ export function CloudflareIamPermissionsView({
                 onClose={() => setReauthorizing(false)}
                 onBound={() => {
                   setReauthorizing(false)
-                  silentReload()
+                  void query.refetch()
                 }}
               />
             </>
