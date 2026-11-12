@@ -4,15 +4,20 @@ import { useRef, useState } from 'react'
 import { api } from '../../api'
 import { locale, t } from '../../i18n'
 import { receiveAgentAvatars } from '../../lib/agentAvatarChoices'
+import { usable } from '../../lib/agentName'
 import { botAvatarName, derivedBotAvatar } from '../../lib/botAvatars'
+import { LocalAgentSetupCards } from '../../views/onboarding/setup/LocalAgentsStep'
 import { AgentAvatarGrid } from '../agent/AgentAvatarGrid'
 import { BotAvatarImage } from '../agent/BotAvatarImage'
 import { useNewConversationRuntime } from '../agent/panel/useNewConversationRuntime'
 import { createBotChannel } from '../channels/botChannel'
+import { BotImportDialog } from '../channels/BotImportDialog'
 import { Modal } from '../Modal'
 import { Button } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
 import { toast } from '../ui/toast'
+
+import { BotStartIntro } from './BotStartIntro'
 
 import type { BotAvatarFile } from '../../lib/botAvatars'
 
@@ -20,11 +25,17 @@ import type { BotAvatarFile } from '../../lib/botAvatars'
 export function NewChatButton({
   teamId,
   onCreated,
+  empty = false,
+  visible = true,
 }: {
   teamId: string
+  empty?: boolean
+  visible?: boolean
   onCreated: (sessionId: string) => void
 }) {
   const [open, setOpen] = useState(false)
+  const [connecting, setConnecting] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const created = (sessionId: string) => {
     setOpen(false)
     onCreated(sessionId)
@@ -32,37 +43,74 @@ export function NewChatButton({
 
   return (
     <>
-      <span
-        role="button"
-        tabIndex={0}
-        aria-label={t('New Bot')}
-        title={t('New Bot')}
-        onPointerDown={(event) => event.stopPropagation()}
-        onClick={(event) => {
-          event.stopPropagation()
-          setOpen(true)
-        }}
-        onKeyDown={(event) => {
-          if (event.key !== 'Enter' && event.key !== ' ') return
-          event.preventDefault()
-          setOpen(true)
-        }}
-        className="ml-auto inline-flex h-5 w-5 items-center justify-center rounded text-tertiary hover:bg-[var(--sidebar-overlay-hover)] hover:text-secondary"
-      >
-        <Plus className="h-3.5 w-3.5" strokeWidth={2} />
-      </span>
+      {empty ? (
+        <BotStartIntro
+          visible={visible}
+          onCreate={() => setOpen(true)}
+          onImport={() => setImportOpen(true)}
+        />
+      ) : (
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label={t('New Bot')}
+          title={t('New Bot')}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation()
+            setOpen(true)
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return
+            event.preventDefault()
+            setOpen(true)
+          }}
+          className="ml-auto inline-flex h-5 w-5 items-center justify-center rounded text-tertiary hover:bg-[var(--sidebar-overlay-hover)] hover:text-secondary"
+        >
+          <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+        </span>
+      )}
       {open && (
         <Modal
           open
-          title={t('New Bot')}
+          title={connecting ? t('Connect your agent') : t('New Bot')}
           appearance="prompt"
-          width={440}
-          onClose={() => setOpen(false)}
+          width={connecting ? 600 : 440}
+          onClose={() => (connecting ? setConnecting(false) : setOpen(false))}
         >
           <div className="titlebar-no-drag px-5 pt-1 pb-5">
-            <NewBotForm teamId={teamId} onCreated={created} />
+            {connecting && (
+              <div className="space-y-4 pt-3">
+                <LocalAgentSetupCards />
+                <div className="flex justify-end">
+                  <Button variant="secondary" onClick={() => setConnecting(false)}>
+                    {t('Back')}
+                  </Button>
+                </div>
+              </div>
+            )}
+            <div hidden={connecting}>
+              <NewBotForm
+                teamId={teamId}
+                onCreated={created}
+                onNeedRuntime={() => setConnecting(true)}
+              />
+              <Button
+                variant="ghost"
+                className="mt-3"
+                onClick={() => {
+                  setOpen(false)
+                  setImportOpen(true)
+                }}
+              >
+                {t('Import from Grok Bot…')}
+              </Button>
+            </div>
           </div>
         </Modal>
+      )}
+      {importOpen && (
+        <BotImportDialog teamId={teamId} onClose={() => setImportOpen(false)} onOpen={onCreated} />
       )}
     </>
   )
@@ -72,9 +120,11 @@ export function NewChatButton({
 function NewBotForm({
   teamId,
   onCreated,
+  onNeedRuntime,
 }: {
   teamId: string
   onCreated: (sessionId: string) => void
+  onNeedRuntime: () => void
 }) {
   // The face a new Bot would get anyway, until another is picked.
   const [avatar, setAvatar] = useState(() => derivedBotAvatar(crypto.randomUUID()))
@@ -90,13 +140,27 @@ function NewBotForm({
   const channel = useRef<string | null>(null)
   const creating = useRef(false)
   // The Bot runs where a new chat would, so it is ready the moment it opens.
-  const runtime = useNewConversationRuntime(teamId).newConversationRuntime
+  const {
+    newConversationRuntime: runtime,
+    runtimeInstancesLoading: loading,
+    runtimeInstancesError: runtimeError,
+  } = useNewConversationRuntime(teamId)
   const shown = preview ?? avatar
 
   async function create() {
     const title = name.trim()
 
-    if (!title || creating.current) return
+    if (!title || creating.current || loading) return
+    if (runtimeError) {
+      toast.apiError(t('Could not load agents'), runtimeError)
+
+      return
+    }
+    if (!runtime || !usable(runtime) || runtime.deletion) {
+      onNeedRuntime()
+
+      return
+    }
     creating.current = true
     setBusy(true)
     try {
@@ -152,7 +216,12 @@ function NewBotForm({
           }}
           className="min-w-0 flex-1 rounded-md border border-main bg-main px-3 py-2 text-[13px] text-main outline-none focus:border-line-focus"
         />
-        <Button type="submit" variant="neutral" size="sm" disabled={busy || !name.trim()}>
+        <Button
+          type="submit"
+          variant="neutral"
+          size="sm"
+          disabled={busy || loading || !name.trim()}
+        >
           {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           {createdBot ? t('Retry setup') : t('Create')}
         </Button>

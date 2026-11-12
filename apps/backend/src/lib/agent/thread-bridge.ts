@@ -16,6 +16,7 @@ import {
 } from './db'
 import { isChannel } from './db/channels'
 import { prepareThread } from './thread-delegation'
+import { relatedQuestionsNote } from './db/pending-decision'
 
 import type { AgentConversation } from './db'
 import type { CredentialRef } from './thread-credentials'
@@ -137,9 +138,9 @@ export async function updateThread(
   const { moveConversationRuntime } =
     await import('@/lib/claude-code-preview/conversation-runtime-move')
   const runtime = change.runtimeId
-    ? await moveConversationRuntime(target, change.runtimeId, 'history', actor.userId)
+    ? await moveConversationRuntime(target, change.runtimeId, actor.userId)
     : undefined
-  // After a move, which drops the old agent's model choices.
+  // Apply any explicit choice after the move has preserved compatible settings.
   const model = await setThreadModel(threadId, actor.userId, change)
 
   if (change.fullAccess !== undefined) {
@@ -197,7 +198,8 @@ export async function startThreadTurn(data: ThreadTurn) {
   await assertTargetCanRun(target)
   // Lazy so importing the tools does not pull in the route graph.
   const { startConversationTurn } = await import('./conversation-turn')
-  const { status, run } = await startConversationTurn(data, target, data.prompt, 'agent.thread', {
+  const prompt = data.prompt + relatedQuestionsNote(target, data.sessionId, 'sub-agent thread')
+  const { status, run } = await startConversationTurn(data, target, prompt, 'agent.thread', {
     version: 1,
     sender: {
       type: 'agent',

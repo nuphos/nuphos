@@ -1,4 +1,4 @@
-import { DelayedError, Queue, Worker } from 'bullmq'
+import { Queue, Worker } from 'bullmq'
 import { ObjectId } from 'mongodb'
 
 import { CRON_TIME_ZONE } from '@/lib/cron'
@@ -7,7 +7,7 @@ import { redisEnabled } from '@/lib/redis'
 
 import { closeThreadQueue } from './thread-queue'
 import { agentTriggers, liveTriggerShapeFilter } from './trigger-db'
-import { executeTrigger, RoutedSessionBusyError } from './trigger-executor'
+import { executeTrigger } from './trigger-executor'
 import { AGENT_TRIGGER_QUEUE, buildBullMQConnection } from './trigger-scheduler-setup'
 // Straight to the two section modules, not the trigger-service barrel: the
 // barrel would also pull create/update/transfer into our graph and widen the
@@ -41,7 +41,7 @@ export async function initTriggerScheduler(): Promise<boolean> {
 
   _worker = new Worker(
     AGENT_TRIGGER_QUEUE,
-    async (job, token) => {
+    async (job) => {
       if (job.name === 'task-report') {
         const { deliverTaskReport } = await import('./task-report-delivery')
 
@@ -60,33 +60,6 @@ export async function initTriggerScheduler(): Promise<boolean> {
         const { executeResourceTurn } = await import('./resource-turn')
 
         await executeResourceTurn(job.data)
-
-        return
-      }
-      if (job.name === 'webhook-session-turn') {
-        const data = job.data as WebhookTurnJob
-        const trigger = await agentTriggers().findOne({ _id: new ObjectId(data.triggerId) })
-
-        if (
-          !trigger?.enabled ||
-          !trigger.sessionRouting ||
-          (trigger.configRevision ?? 0) !== data.revision
-        )
-          return
-        if (trigger.expiresAt && trigger.expiresAt.getTime() <= Date.now()) return
-        try {
-          await executeTrigger(trigger, data.payload, {
-            runKind: 'webhook',
-            sessionId: data.sessionId,
-            deliveryId: data.deliveryId,
-          })
-        } catch (error) {
-          if (error instanceof RoutedSessionBusyError) {
-            await job.moveToDelayed(Date.now() + 5000, token)
-            throw new DelayedError()
-          }
-          throw error
-        }
 
         return
       }
@@ -156,7 +129,7 @@ export async function initTriggerScheduler(): Promise<boolean> {
 
   for (const trigger of cronTriggers) {
     if (trigger._id && trigger.cronExpression) {
-      await _upsertJobScheduler(trigger._id.toString(), trigger.cronExpression)
+      await _upsertJobScheduler(trigger._id.toString(), trigger.cronExpression, trigger.timeZone)
     }
   }
   const removedOrphanCount = await removeOrphanJobSchedulers()
@@ -213,10 +186,14 @@ export async function shutdownTriggerScheduler(): Promise<void> {
   await closeTriggerQueues()
 }
 
-async function _upsertJobScheduler(triggerId: string, cronExpression: string): Promise<void> {
+async function _upsertJobScheduler(
+  triggerId: string,
+  cronExpression: string,
+  timeZone = CRON_TIME_ZONE,
+): Promise<void> {
   await _queue!.upsertJobScheduler(
     `trigger:${triggerId}`,
-    { pattern: cronExpression, tz: CRON_TIME_ZONE },
+    { pattern: cronExpression, tz: timeZone },
     {
       name: 'run-trigger',
       data: { triggerId },
@@ -251,9 +228,10 @@ async function removeOrphanJobSchedulers(): Promise<number> {
 export async function scheduleCronTrigger(
   triggerId: string,
   cronExpression: string,
+  timeZone?: string,
 ): Promise<void> {
   if (!_queue) return
-  await _upsertJobScheduler(triggerId, cronExpression)
+  await _upsertJobScheduler(triggerId, cronExpression, timeZone)
 }
 
 export async function unscheduleCronTrigger(triggerId: string): Promise<void> {
@@ -276,24 +254,4 @@ export async function scheduleTriggerCleanup(triggerId: string): Promise<boolean
   )
 
   return true
-}
-
-export type WebhookTurnJob = {
-  deliveryId: string
-  triggerId: string
-  sessionId: string
-  payload: unknown
-  revision: number
-}
-
-/** Acknowledgement follows Redis persistence. Keep delivery IDs for 30 days. */
-export async function enqueueWebhookTurn(data: WebhookTurnJob, jobId: string): Promise<void> {
-  if (!_queue) throw new Error('Webhook session queue is unavailable')
-  await _queue.add('webhook-session-turn', data, {
-    jobId,
-    attempts: 5,
-    backoff: { type: 'exponential', delay: 10000 },
-    removeOnComplete: { age: 30 * 86400 },
-    removeOnFail: false,
-  })
 }

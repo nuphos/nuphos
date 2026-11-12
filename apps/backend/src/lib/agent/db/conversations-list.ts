@@ -55,13 +55,14 @@ export async function getConversations(
      */
     triggerIds?: string[]
     parentSessionId?: string // Only threads nested under this conversation: its sub-agents.
-    bots?: boolean // Active Bots, for the primary-Bot picker.
+    bots?: boolean // Only agent conversations with a nonempty face.
     /** The Inbox: only conversations waiting on a decision, trigger runs included. */
     pendingDecision?: boolean
     /** Also return the rows' parents that another page would list. */
     withParents?: boolean
     /** Channels instead of agent conversations. Lists never mix the two. */
     channels?: boolean
+    /** Only Bots: agent conversations with a face, wherever they fall in the history. */
   },
 ): Promise<{
   conversations: AgentConversation[]
@@ -115,8 +116,16 @@ export async function getConversations(
     // first messages, where regex is predictable. The user/team index prefix
     // keeps the scan bounded to the viewer's own documents.
     const pattern = new RegExp(escapeRegExp(search), 'i')
+    // "1831" or "#1831" also finds the conversation a PR with that number is
+    // linked to; a Linear issue's identifier is part of its stored title.
+    const number = /^#?(\d{1,9})$/.exec(search)?.[1]
 
-    query.$or = [{ title: pattern }, { firstMessage: pattern }]
+    query.$or = [
+      { title: pattern },
+      { firstMessage: pattern },
+      { 'linkedResources.title': pattern },
+      ...(number ? [{ 'linkedResources.number': Number(number) }] : []),
+    ]
   }
   // A row's parents are listed whether or not they wait on anything: a question
   // nests under every conversation above it, as a thread does.
