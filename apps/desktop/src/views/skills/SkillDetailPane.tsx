@@ -6,7 +6,12 @@ import { Button } from '../../components/ui/button'
 import { formatBytes } from '../../grafana/format'
 import { t } from '../../i18n'
 
-import { SkillFilesSection, SkillHistorySection, SkillUploadSection } from './SkillDetailSections'
+import {
+  SkillFilesSection,
+  SkillHistorySection,
+  SkillOriginRow,
+  SkillUploadSection,
+} from './SkillDetailSections'
 
 import type {
   SkillScope,
@@ -154,6 +159,7 @@ export function SkillDetailPane({
                   </span>
                   <span className="text-tertiary">{t('Source')}</span>
                   <span className="font-mono text-secondary">{metadata.createdSource}</span>
+                  {history?.origin && <SkillOriginRow origin={history.origin} />}
                   <span className="text-tertiary">{t('Revision')}</span>
                   <span className="font-mono text-secondary">{metadata.revision}</span>
                   <span className="text-tertiary">{t('Last changed by')}</span>

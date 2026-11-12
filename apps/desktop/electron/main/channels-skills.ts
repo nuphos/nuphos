@@ -46,6 +46,14 @@ export const skillChannels = {
     input: { source: string; commitSha: string; names: string[] },
     scope?: SkillScope,
   ) => atlas.teamSkillsGithubInstall(teamId, input, scope),
+  'teamSkills:githubUpdates': (_e: unknown, teamId: string, scope?: SkillScope) =>
+    atlas.teamSkillsGithubUpdates(teamId, scope),
+  'teamSkills:githubUpdate': (
+    _e: unknown,
+    teamId: string,
+    input: { names: string[]; overwriteEdited: string[]; commits: Record<string, string> },
+    scope?: SkillScope,
+  ) => atlas.teamSkillsGithubUpdate(teamId, input, scope),
   'teamSkills:promote': (_e: unknown, teamId: string, name: string) =>
     atlas.teamSkillsPromote(teamId, name),
   'localSetup:status': (_e: unknown, teamId: string) => localSetupStatus(teamId),

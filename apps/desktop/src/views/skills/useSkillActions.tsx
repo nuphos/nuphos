@@ -115,7 +115,8 @@ export function useSkillActions(args: ActionsArgs) {
   )
 
   const reloadDetailForName = useCallback(
-    async (name: string) => {
+    async (name: string | null) => {
+      if (!name) return
       const manifest = await api.teamSkillsGetManifest(teamId, scope)
       const skill = manifest.skills.find((item) => item.name === name)
 

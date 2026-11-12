@@ -201,6 +201,13 @@ export const appApi = {
   teamSkillsDeleteSkill: (teamId: string, name: string, scope?: SkillScope) =>
     window.api.teamSkillsDeleteSkill(teamId, name, scope),
   teamSkillsPromote: (teamId: string, name: string) => window.api.teamSkillsPromote(teamId, name),
+  teamSkillsGithubUpdates: (teamId: string, scope?: SkillScope) =>
+    window.api.teamSkillsGithubUpdates(teamId, scope),
+  teamSkillsGithubUpdate: (
+    teamId: string,
+    input: { names: string[]; overwriteEdited: string[]; commits: Record<string, string> },
+    scope?: SkillScope,
+  ) => window.api.teamSkillsGithubUpdate(teamId, input, scope),
   teamSkillsGithubPreview: (teamId: string, source: string, scope?: SkillScope) =>
     window.api.teamSkillsGithubPreview(teamId, source, scope),
   teamSkillsGithubInstall: (

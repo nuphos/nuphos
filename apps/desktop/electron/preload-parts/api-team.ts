@@ -139,13 +139,14 @@ export const teamApi = {
     ipcRenderer.invoke('teamSkills:deleteSkill', teamId, name, scope),
   teamSkillsPromote: (teamId: string, name: string) =>
     ipcRenderer.invoke('teamSkills:promote', teamId, name),
+  teamSkillsGithubUpdates: (teamId: string, scope?: string) =>
+    ipcRenderer.invoke('teamSkills:githubUpdates', teamId, scope),
+  teamSkillsGithubUpdate: (teamId: string, input: unknown, scope?: string) =>
+    ipcRenderer.invoke('teamSkills:githubUpdate', teamId, input, scope),
   teamSkillsGithubPreview: (teamId: string, source: string, scope?: string) =>
     ipcRenderer.invoke('teamSkills:githubPreview', teamId, source, scope),
-  teamSkillsGithubInstall: (
-    teamId: string,
-    input: { source: string; commitSha: string; names: string[] },
-    scope?: string,
-  ) => ipcRenderer.invoke('teamSkills:githubInstall', teamId, input, scope),
+  teamSkillsGithubInstall: (teamId: string, input: unknown, scope?: string) =>
+    ipcRenderer.invoke('teamSkills:githubInstall', teamId, input, scope),
   atlasCreateTeam: (name: string) => ipcRenderer.invoke('atlas:createTeam', name),
   atlasUpdateTeam: (teamId: string, input: { name: string }) =>
     ipcRenderer.invoke('atlas:updateTeam', teamId, input),
