@@ -51,9 +51,13 @@ defineAgentApiRoute(planListOperation, async (c, { query }) => {
     // No teamId AND not explicitly mine → scope to creator so users without a
     // team don't see each other's personal plans.
     createdBy: !teamId || mine ? userId : undefined,
+    // Filtered in the query, so every page is full and its cursor is right.
+    viewerId: userId,
     limit: query.limit,
     cursor: query.cursor,
   })
+  // The query applies readableByFilter; readsConversation stays the authority (team scope of
+  // an agent token, a teamless conversation), so a plan it refuses is still dropped here.
   const hidden = await unreadableSessionIds(
     [...new Set(result.plans.flatMap((plan) => plan.sourceConversationId ?? []))],
     userId,
