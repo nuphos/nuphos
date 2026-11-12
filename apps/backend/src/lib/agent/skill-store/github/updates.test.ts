@@ -7,7 +7,7 @@ import { repoTarball } from '@/lib/test/repo-tarball'
 import { AppError } from '@/lib/errors'
 
 import { discoverSkills } from './discover'
-import { skillContentHash, skillFileHashes } from './origin'
+import { getSkillOriginDTO, skillContentHash, skillFileHashes } from './origin'
 import { readRepoTarball } from './tarball'
 import { checkGithubSkillUpdates, updateGithubSkills } from './updates'
 
@@ -55,6 +55,9 @@ let deletes: string[] = []
 let recorded: SkillOrigin[] = []
 let legacyOrigin: SkillOrigin | null = null
 let afterPut = () => {}
+let createdAt: Date | null = null
+/** Applied mutation results by ID, with the ETags each write left. */
+let applied = new Map<string, Record<string, string>>()
 let beforePut = () => {}
 let duringDownload = () => {}
 const download = async () => {
@@ -85,7 +88,16 @@ useSkillStoreService({
 })
 useDb({
   db: () => ({
-    collection: () => ({
+    collection: (name: string) => ({
+      // skill_records: the package's lifecycle; skill_events: completed mutations.
+      findOne: async (filter: { mutationId?: string; _id?: string }) => {
+        if (name === 'skill_records') return createdAt ? { createdAt } : null
+        const afterEtags = filter.mutationId && applied.get(filter.mutationId)
+
+        if (name === 'skill_events') return afterEtags ? { status: 'applied', afterEtags } : null
+
+        return legacyOrigin ?? origin
+      },
       find: () => ({ toArray: async () => [legacyOrigin ?? origin] }),
       replaceOne: async (_filter: unknown, doc: SkillOrigin) => {
         recorded.push(doc)
@@ -104,9 +116,18 @@ beforeEach(() => {
   recorded = []
   legacyOrigin = null
   afterPut = () => {}
+  createdAt = null
+  applied = new Map()
   beforePut = () => {}
 })
 const context = { mutationId: 'req', actor: { userId: 'u2', source: 'import' as const } }
+const apply = (input: { overwriteEdited?: string[]; commits?: Record<string, string> } = {}) =>
+  updateGithubSkills(
+    scope,
+    { names: ['pdf'], overwriteEdited: [], commits: { pdf: v2 }, ...input },
+    context,
+    download,
+  )
 
 describe('GitHub skill updates', () => {
   test('reports upstream changes since install', async () => {
@@ -143,12 +164,7 @@ describe('GitHub skill updates', () => {
       status: 'update_available',
       changes: { added: [], changed: ['SKILL.md', 'new.py'], removed: [] },
     })
-    await updateGithubSkills(
-      scope,
-      { names: ['pdf'], overwriteEdited: [], commits: { pdf: v2 } },
-      context,
-      download,
-    )
+    await apply()
     expect(recorded[0]?.fileHashes).toBeDefined()
   })
 
@@ -158,12 +174,7 @@ describe('GitHub skill updates', () => {
   })
 
   test('replaces the skill, removes stale files and records the new commit', async () => {
-    await updateGithubSkills(
-      scope,
-      { names: ['pdf'], overwriteEdited: [], commits: { pdf: v2 } },
-      context,
-      download,
-    )
+    await apply()
 
     expect(puts).toEqual([['skills/pdf/SKILL.md', 'skills/pdf/new.py']])
     expect(deletes).toEqual(['skills/pdf/old.py'])
@@ -181,12 +192,7 @@ describe('GitHub skill updates', () => {
     afterPut = () => {
       stored['skills/pdf/SKILL.md'] = 'edited by someone else'
     }
-    await updateGithubSkills(
-      scope,
-      { names: ['pdf'], overwriteEdited: [], commits: { pdf: v2 } },
-      context,
-      download,
-    )
+    await apply()
 
     expect(recorded[0]?.installedEtags['skills/pdf/SKILL.md']).toBe('new-skills/pdf/SKILL.md')
   })
@@ -224,21 +230,11 @@ describe('GitHub skill updates', () => {
 
   test('an edited skill needs explicit confirmation', async () => {
     stored['skills/pdf/SKILL.md'] = 'edited'
-    const refused = updateGithubSkills(
-      scope,
-      { names: ['pdf'], overwriteEdited: [], commits: { pdf: v2 } },
-      context,
-      download,
-    )
+    const refused = apply()
 
     await expect(refused).rejects.toMatchObject({ code: 'skill_edited' })
     expect(puts).toEqual([])
-    await updateGithubSkills(
-      scope,
-      { names: ['pdf'], overwriteEdited: ['pdf'], commits: { pdf: v2 } },
-      context,
-      download,
-    )
+    await apply({ overwriteEdited: ['pdf'] })
     expect(puts).toHaveLength(1)
   })
 
@@ -251,12 +247,7 @@ describe('GitHub skill updates', () => {
   })
 
   test('refuses an update when the source moved past the reviewed commit', async () => {
-    const attempt = updateGithubSkills(
-      scope,
-      { names: ['pdf'], overwriteEdited: [], commits: { pdf: 'c'.repeat(40) } },
-      context,
-      download,
-    )
+    const attempt = apply({ commits: { pdf: 'c'.repeat(40) } })
 
     await expect(attempt).rejects.toMatchObject({ code: 'source_changed' })
     expect(puts).toEqual([])
@@ -266,25 +257,64 @@ describe('GitHub skill updates', () => {
     duringDownload = () => {
       stored['skills/pdf/SKILL.md'] = 'edited meanwhile'
     }
-    const attempt = updateGithubSkills(
-      scope,
-      { names: ['pdf'], overwriteEdited: [], commits: { pdf: v2 } },
-      context,
-      download,
-    )
+    const attempt = apply()
 
     await expect(attempt).rejects.toMatchObject({ code: 'skill_edited' })
     expect(puts).toEqual([])
   })
 
+  test('a retried update that already completed returns its report instead of no_update', async () => {
+    latest = installed
+    applied = new Map([['req:pdf:put', { ...stored }]])
+    const updated = await apply({ commits: { pdf: v1 } })
+
+    expect(updated.map((u) => u.name)).toEqual(['pdf'])
+    expect(puts).toEqual([])
+  })
+
+  test('a retry after the write but before cleanup finishes the update', async () => {
+    // The first attempt wrote the new files, then failed before removing old.py and saving the origin.
+    stored = {
+      'skills/pdf/SKILL.md': 'new-skills/pdf/SKILL.md',
+      'skills/pdf/new.py': 'new-skills/pdf/new.py',
+      'skills/pdf/old.py': 'e2',
+    }
+    applied = new Map([['req:pdf:put', { ...stored }]])
+    await apply()
+
+    expect(deletes).toEqual(['skills/pdf/old.py'])
+    expect(recorded[0]).toMatchObject({ commitSha: v2 })
+  })
+
+  test('a retry does not resume over a file added after the first write', async () => {
+    stored = {
+      'skills/pdf/SKILL.md': 'new-skills/pdf/SKILL.md',
+      'skills/pdf/new.py': 'new-skills/pdf/new.py',
+    }
+    applied = new Map([['req:pdf:put', { ...stored }]])
+    stored['skills/pdf/custom.py'] = 'added by someone else'
+    const input = { names: ['pdf'], overwriteEdited: [] as string[], commits: { pdf: v2 } }
+
+    await expect(updateGithubSkills(scope, input, context, download)).rejects.toMatchObject({
+      code: 'skill_edited',
+    })
+    expect(deletes).toEqual([])
+    await updateGithubSkills(scope, { ...input, overwriteEdited: ['pdf'] }, context, download)
+    expect(deletes).toEqual(['skills/pdf/custom.py'])
+  })
+
+  test('ignores an origin from before the skill was deleted and created again', async () => {
+    createdAt = new Date(origin.installedAt.getTime() + 1000)
+    expect(await checkGithubSkillUpdates(scope, download)).toEqual([])
+    expect(await getSkillOriginDTO(scope, 'pdf')).toBeNull()
+    createdAt = new Date(origin.installedAt.getTime() - 1000)
+    expect((await checkGithubSkillUpdates(scope, download)).map((u) => u.name)).toEqual(['pdf'])
+    expect(await getSkillOriginDTO(scope, 'pdf')).toMatchObject({ repo: 'o/r', path: 'skills/pdf' })
+  })
+
   test('refuses a skill with no update', async () => {
     latest = installed
-    const attempt = updateGithubSkills(
-      scope,
-      { names: ['pdf'], overwriteEdited: [], commits: { pdf: v1 } },
-      context,
-      download,
-    )
+    const attempt = apply({ commits: { pdf: v1 } })
 
     await expect(attempt).rejects.toMatchObject({ code: 'no_update' })
   })
