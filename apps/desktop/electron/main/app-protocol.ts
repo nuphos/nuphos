@@ -30,6 +30,9 @@ export function registerAppScheme() {
         secure: true,
         supportFetchAPI: true,
         stream: true,
+        // Keep compiled scripts between launches, as Chromium does for http(s);
+        // without it every launch recompiles the whole renderer bundle.
+        codeCache: true,
       },
     },
   ])
