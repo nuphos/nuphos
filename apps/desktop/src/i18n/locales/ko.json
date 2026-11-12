@@ -4911,6 +4911,7 @@
   "Up to 1 agent at once": "최대 에이전트 1개 동시 실행",
   "Up to date": "최신 상태",
   "Up to {count} skills can be installed at once.": "한 번에 최대 {count}개의 스킬을 설치할 수 있습니다.",
+  "Up to {count} skills can be updated at once.": "한 번에 최대 {count}개의 스킬을 업데이트할 수 있습니다.",
   "Up to {n} agents at once": "최대 에이전트 {n}개 동시 실행",
   "Up to {n} at once": "최대 {n}개 동시 실행",
   "Up to {n} vCPU": "최대 {n} vCPU",

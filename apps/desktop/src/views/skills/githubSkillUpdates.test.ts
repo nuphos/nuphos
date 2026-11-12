@@ -4,6 +4,7 @@ import { test } from 'node:test'
 import {
   defaultUpdateSelection,
   editedSelected,
+  MAX_UPDATE_NAMES,
   originUrl,
   reviewedCommits,
 } from './githubSkillUpdates.ts'
@@ -34,6 +35,12 @@ test('update all skips edited, current and blocked skills', () => {
   assert.deepEqual(defaultUpdateSelection(updates), ['pdf'])
 })
 
+test('update all picks no more than one request accepts', () => {
+  const many = Array.from({ length: 70 }, (_, i) => update(`s${String(i)}`))
+
+  assert.equal(defaultUpdateSelection(many).length, MAX_UPDATE_NAMES)
+})
+
 test('lists the edited skills a selection would overwrite', () => {
   assert.deepEqual(editedSelected(updates, ['pdf', 'docx']), ['docx'])
   assert.deepEqual(editedSelected(updates, ['pdf']), [])
@@ -53,5 +60,9 @@ test('links the installed folder at its commit', () => {
   assert.equal(
     originUrl({ repo: 'o/r', path: '', commitSha }),
     `https://github.com/o/r/tree/${commitSha}`,
+  )
+  assert.equal(
+    originUrl({ repo: 'o/r', path: 'skills/c#-helper', commitSha }),
+    `https://github.com/o/r/tree/${commitSha}/skills/c%23-helper`,
   )
 })

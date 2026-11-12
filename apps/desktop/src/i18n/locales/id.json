@@ -4911,6 +4911,7 @@
   "Up to 1 agent at once": "Hingga 1 agen sekaligus",
   "Up to date": "Sudah terbaru",
   "Up to {count} skills can be installed at once.": "Maksimal {count} skill dapat dipasang sekaligus.",
+  "Up to {count} skills can be updated at once.": "Maksimal {count} skill dapat diperbarui sekaligus.",
   "Up to {n} agents at once": "Hingga {n} agen sekaligus",
   "Up to {n} at once": "Hingga {n} sekaligus",
   "Up to {n} vCPU": "Hingga {n} vCPU",

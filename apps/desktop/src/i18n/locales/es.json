@@ -4911,6 +4911,7 @@
   "Up to 1 agent at once": "Hasta 1 agente a la vez",
   "Up to date": "Actualizado",
   "Up to {count} skills can be installed at once.": "Se pueden instalar hasta {count} habilidades a la vez.",
+  "Up to {count} skills can be updated at once.": "Se pueden actualizar hasta {count} habilidades a la vez.",
   "Up to {n} agents at once": "Hasta {n} agentes a la vez",
   "Up to {n} at once": "Hasta {n} a la vez",
   "Up to {n} vCPU": "Hasta {n} vCPU",

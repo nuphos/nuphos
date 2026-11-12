@@ -12,6 +12,7 @@ import {
   canUpdate,
   defaultUpdateSelection,
   editedSelected,
+  MAX_UPDATE_NAMES,
   reviewedCommits,
 } from './githubSkillUpdates'
 
@@ -32,10 +33,13 @@ function statusText(update: GithubSkillUpdate): string {
 function UpdateRow({
   update,
   checked,
+  full,
   onChange,
 }: {
   update: GithubSkillUpdate
   checked: boolean
+  /** The selection is at the per-request limit; only picked rows stay toggleable. */
+  full: boolean
   onChange: (checked: boolean) => void
 }) {
   const { added, changed, removed } = update.changes
@@ -49,7 +53,7 @@ function UpdateRow({
     <label className="flex items-start gap-2 py-1.5">
       <Checkbox
         className="mt-0.5"
-        disabled={!canUpdate(update)}
+        disabled={!canUpdate(update) || (full && !checked)}
         checked={checked}
         onCheckedChange={onChange}
       />
@@ -202,9 +206,15 @@ export function GithubSkillUpdatesDialog({
             key={update.name}
             update={update}
             checked={selected.includes(update.name)}
+            full={selected.length >= MAX_UPDATE_NAMES}
             onChange={(checked) => toggle(update.name, checked)}
           />
         ))}
+        {selected.length >= MAX_UPDATE_NAMES && (
+          <div className="py-1 text-[11px] text-tertiary">
+            {t('Up to {count} skills can be updated at once.', { count: String(MAX_UPDATE_NAMES) })}
+          </div>
+        )}
         {overwrite.length > 0 && (
           <label className="mt-2 flex items-start gap-2 rounded-md border border-line-control px-2.5 py-2 text-[12px]">
             <Checkbox className="mt-0.5" checked={confirmed} onCheckedChange={setConfirmed} />

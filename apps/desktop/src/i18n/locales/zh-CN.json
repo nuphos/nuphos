@@ -4911,6 +4911,7 @@
   "Up to 1 agent at once": "最多同时运行 1 个 Agent",
   "Up to date": "已是最新版本",
   "Up to {count} skills can be installed at once.": "一次最多可安装 {count} 个技能。",
+  "Up to {count} skills can be updated at once.": "一次最多可更新 {count} 个技能。",
   "Up to {n} agents at once": "最多同时运行 {n} 个 Agent",
   "Up to {n} at once": "最多同时运行 {n} 个",
   "Up to {n} vCPU": "最多 {n} vCPU",

@@ -4911,6 +4911,7 @@
   "Up to 1 agent at once": "สูงสุด 1 เอเจนต์พร้อมกัน",
   "Up to date": "เป็นเวอร์ชันล่าสุด",
   "Up to {count} skills can be installed at once.": "ติดตั้งได้สูงสุด {count} ทักษะต่อครั้ง",
+  "Up to {count} skills can be updated at once.": "อัปเดตได้สูงสุด {count} ทักษะต่อครั้ง",
   "Up to {n} agents at once": "สูงสุด {n} เอเจนต์พร้อมกัน",
   "Up to {n} at once": "สูงสุด {n} พร้อมกัน",
   "Up to {n} vCPU": "สูงสุด {n} vCPU",
