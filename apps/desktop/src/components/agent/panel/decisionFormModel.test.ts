@@ -43,6 +43,11 @@ test('a card with questions shows the body the agent wrote, not the list written
   assert.equal(ownBody(written, [regions, keep]), 'Context.')
   assert.equal(ownBody('\n\n---\n\n**1. Which regions?**', [regions, keep]), undefined)
   assert.equal(ownBody(written, undefined), written)
+  // The agent's own separators stay: only the list the backend appends last is dropped.
+  assert.equal(
+    ownBody('Findings.\n\n---\n\nRisks.\n\n---\n\n**1. Which regions?**', [regions, keep]),
+    'Findings.\n\n---\n\nRisks.',
+  )
 })
 
 test("a form's reply marks its card answered in the transcript", () => {

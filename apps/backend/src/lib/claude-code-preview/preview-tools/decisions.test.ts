@@ -270,7 +270,7 @@ describe('decision tool module', () => {
         {
           id: 'nuphos-1',
           question: 'Rollout?',
-          body: 'CI passed.\n\n---\n\n**1. Old?**\n\n**2. Older?**',
+          body: 'CI passed.\n\n---\n\nRisks.\n\n---\n\n**1. Old?**\n\n**2. Older?**',
           questions: [{ question: 'Old?' }, { question: 'Older?' }],
           status: 'open',
         },
@@ -282,7 +282,7 @@ describe('decision tool module', () => {
       requestId: 'nuphos-1',
       questions: [
         { question: 'Which regions?', options: ['us', 'eu'], multiSelect: true },
-        { question: 'Keep the old cluster?' },
+        { question: 'Keep the old\n\n---\n\ncluster?' },
       ],
     })
 
@@ -291,10 +291,11 @@ describe('decision tool module', () => {
       $set: {
         'inputRequests.$.questions': [
           { question: 'Which regions?', options: ['us', 'eu'], multiSelect: true },
-          { question: 'Keep the old cluster?' },
+          { question: 'Keep the old\n\n---\n\ncluster?' },
         ],
+        // Written on single lines, so the last separator is always the one added.
         'inputRequests.$.body':
-          'CI passed.\n\n---\n\n**1. Which regions?** (any number)\n- us\n- eu\n\n**2. Keep the old cluster?**',
+          'CI passed.\n\n---\n\nRisks.\n\n---\n\n**1. Which regions?** (any number)\n- us\n- eu\n\n**2. Keep the old --- cluster?**',
       },
     })
   })

@@ -137,18 +137,21 @@ export const QUESTIONS_SEPARATOR = '\n\n---\n\n'
 /**
  * A card's body with its `questions` written out after it, so a client that
  * draws only `question` and `body` still shows what is asked. Clients that
- * render `questions` drop everything after the last separator.
+ * render `questions` drop everything after the last separator: the list is
+ * written on single lines, so that separator is always the one added here,
+ * and any the agent put in its own body stay.
  */
 export function withQuestionsInBody(input: {
   body?: string
   questions?: { question: string; options?: string[]; multiSelect?: boolean }[]
 }): string | undefined {
   if (!input.questions?.length) return input.body
+  const line = (text: string) => text.replace(/\s+/g, ' ').trim()
   const list = input.questions
     .map(({ question, options, multiSelect }, index) =>
       [
-        `**${String(index + 1)}. ${question}**${multiSelect ? ' (any number)' : ''}`,
-        ...(options ?? []).map((option) => `- ${option}`),
+        `**${String(index + 1)}. ${line(question)}**${multiSelect ? ' (any number)' : ''}`,
+        ...(options ?? []).map((option) => `- ${line(option)}`),
       ].join('\n'),
     )
     .join('\n\n')

@@ -33,6 +33,12 @@ enum BotQuestionsTests {
             == "Which regions?\nus, eu\n\nKeep the old cluster?\nKeep")
         precondition(BotQuestion.formReply([form[0]], answers: ["us"]) == "us")
         precondition(several.ownBody == nil)
+        // The agent's own separators stay: only the list the backend appends last is dropped.
+        var ruled = AgentConversation.InputRequest(id: "e", category: "preference", question: "Rollout",
+                                                   options: nil, askedAt: nil)
+        ruled.body = "Findings.\n\n---\n\nRisks.\n\n---\n\n**1. Which regions?**"
+        ruled.questions = form
+        precondition(ask(ruled).ownBody == "Findings.\n\n---\n\nRisks.")
         var secret = AgentConversation.InputRequest(id: "d", category: "credential", question: "Which key?",
                                                     options: ["a", "b"], askedAt: nil)
         secret.multiSelect = true
