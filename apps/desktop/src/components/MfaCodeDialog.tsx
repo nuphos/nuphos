@@ -37,7 +37,11 @@ export function MfaCodeDialog({
       // A stray click must not drop a code that is being checked.
       closeOnBackdrop={false}
     >
-      {open && <MfaCodeForm submitLabel={submitLabel} onSubmit={onSubmit} />}
+      {open && (
+        <div className="titlebar-no-drag px-5 pt-1 pb-5">
+          <MfaCodeForm submitLabel={submitLabel} onSubmit={onSubmit} />
+        </div>
+      )}
     </Modal>
   )
 }
