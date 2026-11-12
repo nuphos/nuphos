@@ -9,7 +9,6 @@ import {
 import { contextRefreshers, parseCredentialExpiry } from './context-refreshers'
 import { k8sLib } from './lib'
 
-import type * as k8s from '@kubernetes/client-node'
 import type { RefreshedCredential } from './context-refreshers'
 
 export function listContexts() {

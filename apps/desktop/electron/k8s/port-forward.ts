@@ -11,7 +11,6 @@ import {
   safeDestroySocket,
 } from './port-forward-shared'
 
-import type * as k8s from '@kubernetes/client-node'
 import type { PortForwardInfo, PortForwardWebSocket } from './port-forward-shared'
 import type { Writable } from 'node:stream'
 

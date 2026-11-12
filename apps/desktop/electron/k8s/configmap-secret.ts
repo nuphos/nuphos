@@ -1,8 +1,6 @@
 import { getClients, withAuthRetry } from './client'
 import { k8sLib } from './lib'
 
-import type * as k8s from '@kubernetes/client-node'
-
 export function upsertConfigMapKey(
   context: string,
   namespace: string,
