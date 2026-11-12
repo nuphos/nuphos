@@ -13,6 +13,7 @@ import { AppError } from '@/lib/errors'
 import { pinnedFetch } from '@/lib/net/safe-outbound'
 import { findEmbeddedSecret, findSecrets } from '@/lib/secrets/scan'
 
+import { claimSkillNames, completedBefore } from './claims'
 import { discoverSkills } from './discover'
 import { recordSkillOrigin, skillContentHash } from './origin'
 import { githubSourceLabel, parseGithubSource } from './source'
@@ -169,6 +170,33 @@ export async function previewGithubSkills(
 }
 
 /** Installs the named skills from exactly the commit the member previewed. */
+async function writeSkill(
+  scope: string,
+  source: GithubSkillSource,
+  commitSha: string,
+  skill: DiscoveredSkill,
+  context: SkillMutationContext,
+) {
+  const writes = [...skill.files].map(([path, body]) => ({
+    key: skillObjectKeyForName(skill.name, path),
+    body: Buffer.from(body),
+  }))
+  const saved = await putSkillObjects(scope, writes, context)
+
+  await recordSkillOrigin({
+    scope,
+    name: skill.name,
+    repo: githubSourceLabel(source),
+    ref: source.ref,
+    path: skill.path,
+    commitSha,
+    contentHash: skillContentHash(skill.files),
+    installedEtags: Object.fromEntries(saved.map((object) => [object.key, object.etag])),
+    installedAt: new Date(),
+    installedByUserId: context.actor.userId,
+  })
+}
+
 export async function installGithubSkills(
   scope: string,
   input: { source: string; commitSha: string; names: string[] },
@@ -185,50 +213,38 @@ export async function installGithubSkills(
       'Repository archive does not match the previewed commit',
     )
   const { assessed } = await candidates(scope, archive, source.subpath)
-  const chosen = input.names.map((name) => {
+  const mutationOf = (name: string) => context.mutationId && `${context.mutationId}:${name}`
+  const chosen = []
+
+  for (const name of input.names) {
     const entry = assessed.find((item) => item.candidate.name === name)
 
     if (!entry) throw new AppError(404, 'skill_not_found', `No skill named ${name} in this source`)
-    if (entry.candidate.problem)
-      throw new AppError(
-        409,
-        'skill_not_installable',
-        `${name}: ${entry.candidate.problem.message}`,
-      )
+    const replay = await completedBefore(mutationOf(name))
+    const { problem } = entry.candidate
 
-    return entry
-  })
+    if (problem && !(replay && problem.code === 'exists'))
+      throw new AppError(409, 'skill_not_installable', `${name}: ${problem.message}`)
+    chosen.push({ ...entry, replay })
+  }
+  const release = await claimSkillNames(scope, input.names, mutationOf)
 
-  for (const { skill } of chosen)
-    if (await skillPackageExists(scope, skill.name))
-      throw new AppError(
-        409,
-        'skill_exists',
-        `${skill.name}: A skill with this name already exists`,
-      )
-  for (const { skill } of chosen) {
-    const writes = [...skill.files].map(([path, body]) => ({
-      key: skillObjectKeyForName(skill.name, path),
-      body: Buffer.from(body),
-    }))
-    const saved = await putSkillObjects(scope, writes, {
-      ...context,
-      mutationId: context.mutationId && `${context.mutationId}:${skill.name}`,
-    })
-
-    await recordSkillOrigin({
-      scope,
-      name: skill.name,
-      repo: githubSourceLabel(source),
-      ref: source.ref,
-      path: skill.path,
-      commitSha: archive.commitSha,
-      contentHash: skillContentHash(skill.files),
-      installedEtags: Object.fromEntries(saved.map((object) => [object.key, object.etag])),
-      installedAt: new Date(),
-      installedByUserId: context.actor.userId,
-    })
+  try {
+    for (const { skill, replay } of chosen)
+      if (!replay && (await skillPackageExists(scope, skill.name)))
+        throw new AppError(
+          409,
+          'skill_exists',
+          `${skill.name}: A skill with this name already exists`,
+        )
+    for (const { skill } of chosen)
+      await writeSkill(scope, source, archive.commitSha, skill, {
+        ...context,
+        mutationId: mutationOf(skill.name),
+      })
+  } finally {
+    await release()
   }
 
-  return chosen.map((entry) => entry.candidate)
+  return chosen.map((entry) => ({ ...entry.candidate, problem: null }))
 }
