@@ -1,5 +1,5 @@
 // Pure color helpers for the palette tool. `resolveCssColor` / `rgbToHex` are
-// copied (not imported) from src/components/YamlEditor.tsx — importing that
+// copied (not imported) from src/components/yaml-editor-theme.ts — importing that
 // module would pull Monaco into this dev-only bundle.
 
 export function resolveCssColor(expr: string): string {
