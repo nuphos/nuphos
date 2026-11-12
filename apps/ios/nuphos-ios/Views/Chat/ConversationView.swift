@@ -517,13 +517,18 @@ struct UserBubble: View {
                 }
             }
             if !images.isEmpty {
-                HStack(spacing: 6) {
-                    ForEach(Array(images.prefix(4).enumerated()), id: \.offset) { _, url in
-                        DataURLImage(url: url)
-                            .frame(width: 96, height: 96)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                // Four or more are wider than a phone's column, so the row scrolls.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(Array(images.enumerated()), id: \.offset) { _, url in
+                            DataURLImage(url: url)
+                                .frame(width: 96, height: 96)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
                     }
                 }
+                .defaultScrollAnchor(.trailing, for: .alignment)
+                .scrollBounceBehavior(.basedOnSize)
             }
             if let session {
                 ForEach(transfers, id: \.groupId) { transfer in
@@ -565,12 +570,18 @@ struct SendingBubble: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
-            HStack(spacing: 6) {
-                ForEach(submission.attachments.prefix(4)) { attachment in
-                    AttachmentPreview(attachment: attachment)
-                        .frame(width: 96, height: 96)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            if !submission.attachments.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(submission.attachments) { attachment in
+                            AttachmentPreview(attachment: attachment)
+                                .frame(width: 96, height: 96)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                    }
                 }
+                .defaultScrollAnchor(.trailing, for: .alignment)
+                .scrollBounceBehavior(.basedOnSize)
             }
             if !submission.text.isEmpty {
                 PlainMessageText(text: MessagePreview.head(of: submission.text) ?? submission.text, selectable: false)
@@ -606,12 +617,18 @@ struct FailedBubble: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
-            HStack(spacing: 6) {
-                ForEach(submission.attachments.prefix(4)) { attachment in
-                    AttachmentPreview(attachment: attachment)
-                        .frame(width: 96, height: 96)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            if !submission.attachments.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(submission.attachments) { attachment in
+                            AttachmentPreview(attachment: attachment)
+                                .frame(width: 96, height: 96)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                    }
                 }
+                .defaultScrollAnchor(.trailing, for: .alignment)
+                .scrollBounceBehavior(.basedOnSize)
             }
             if !submission.text.isEmpty {
                 PlainMessageText(text: MessagePreview.head(of: submission.text) ?? submission.text, selectable: false)
