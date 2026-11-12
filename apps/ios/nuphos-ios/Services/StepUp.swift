@@ -7,7 +7,7 @@ import Observation
 /// for a code (the sheet `RootView` shows for `StepUpPrompt`), confirms it with
 /// `POST /auth/mfa/reauth`, and sends the request once more.
 enum StepUp {
-    static func retrying<T>(token: String?, _ send: () async throws -> T) async throws -> T {
+    nonisolated(nonsending) static func retrying<T>(token: String?, _ send: () async throws -> T) async throws -> T {
         do {
             return try await send()
         } catch NuphosAPI.Failure.reauthRequired {
