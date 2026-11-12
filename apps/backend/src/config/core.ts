@@ -64,6 +64,16 @@ export function coreConfig() {
         clientSecret: optional('GOOGLE_OAUTH_CLIENT_SECRET'),
       },
     },
+    // Passkeys as a second factor (lib/identity/mfa-passkeys.ts). The RP ID is the
+    // domain passkeys belong to; the origins are where a ceremony may run: the
+    // website, plus `android:apk-key-hash:…` for the Android app.
+    webauthn: {
+      rpId: optional('WEBAUTHN_RP_ID') ?? 'nuphos.ai',
+      origins: (optional('WEBAUTHN_ORIGINS') ?? 'https://nuphos.ai')
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean),
+    },
     email: {
       // Resend key and `from` must both be set for email OTP sign-in; `from`
       // must use a domain verified in Resend.
