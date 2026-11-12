@@ -233,6 +233,21 @@ describe('turn notifier', () => {
     expect(sent).toEqual([])
   })
 
+  test('skips a finished turn that only channel posts started, but not its failure', async () => {
+    const n = notifier()
+
+    await n.runEnded(run({ channelWoken: true }))
+    expect(sent).toEqual([])
+
+    await n.runEnded(
+      run({
+        channelWoken: true,
+        frames: [frame({ type: 'error', errorText: 'Provider failed' })],
+      }),
+    )
+    expect(sent[0]?.payload).toMatchObject({ aps: { alert: { body: 'Provider failed' } } })
+  })
+
   test('announces a plan proposed during the turn', async () => {
     planNumber = 7
     await notifier().runEnded(run())

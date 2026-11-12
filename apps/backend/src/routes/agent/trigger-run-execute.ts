@@ -66,6 +66,8 @@ export type TriggerRunParams = {
   clientResendsRefusal?: boolean
   /** The channels whose posts this turn answers. */
   channelIds?: string[]
+  /** Only channel posts started this turn: its end is not pushed to the owner. */
+  channelWoken?: boolean
 }
 
 /**
@@ -136,6 +138,7 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
   }
   const run = createAgentRun(conversationOwnerUserId, sessionId, streamId, runTrace, {
     channelIds: params.channelIds,
+    channelWoken: params.channelWoken,
   })
 
   // Every caller of this function is headless — nobody on the other end can
