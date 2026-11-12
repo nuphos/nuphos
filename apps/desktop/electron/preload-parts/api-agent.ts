@@ -11,6 +11,16 @@ export const agentApi = {
     teamId?: string,
     resolution?: 'answered' | 'dismissed',
   ) => ipcRenderer.invoke('agent:resolveDecision', sessionId, toolCallId, teamId, resolution),
+  agentAnswerDecision: (
+    sessionId: string,
+    requestId: string,
+    teamId: string | undefined,
+    answer: {
+      choices?: string[]
+      text?: string
+      questions?: { choices?: string[]; text?: string }[]
+    },
+  ) => ipcRenderer.invoke('agent:answerDecision', sessionId, requestId, teamId, answer),
   agentMoveConversationRuntime: (
     sessionId: string,
     teamId: string,

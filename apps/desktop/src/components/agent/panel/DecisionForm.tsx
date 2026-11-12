@@ -3,13 +3,14 @@ import { useState } from 'react'
 import { t } from '../../../i18n'
 import { Button } from '../../ui/button'
 
-import { answerText, formReply, replaceAt, togglePick } from './decisionFormModel'
+import { answerText, formAnswer, replaceAt, togglePick } from './decisionFormModel'
 
 import type { DecisionQuestion } from './decisionFormModel'
+import type { DecisionAnswer } from '../../../api/agent-chat-types'
 
 /**
  * A card's questions answered together: options toggled (one, or any number
- * with `multiSelect`), or the answer typed in their place, sent as one reply.
+ * with `multiSelect`), or the answer typed in their place, sent as one answer.
  */
 export function DecisionForm({
   questions,
@@ -18,7 +19,7 @@ export function DecisionForm({
 }: {
   questions: readonly DecisionQuestion[]
   disabled: boolean
-  onSubmit: (text: string) => void
+  onSubmit: (answer: DecisionAnswer) => void
 }) {
   const [picked, setPicked] = useState<string[][]>(() => questions.map(() => []))
   const [typed, setTyped] = useState<string[]>(() => questions.map(() => ''))
@@ -31,7 +32,7 @@ export function DecisionForm({
       className="flex flex-col gap-3 border-t border-line-control/60 px-4 py-3"
       onSubmit={(event) => {
         event.preventDefault()
-        onSubmit(formReply(questions, answers))
+        onSubmit(formAnswer(questions, picked, typed))
       }}
     >
       {questions.map((q, index) => (

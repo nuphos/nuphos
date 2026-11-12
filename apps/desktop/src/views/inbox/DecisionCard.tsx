@@ -13,16 +13,17 @@ import { refreshInputRequests } from '../../lib/inputRequestRefresh'
 
 import { markAsDone } from './inboxItems'
 
+import type { DecisionAnswer } from '../../api/agent-chat-types'
 import type { AgentInputRequest } from '../../api/agent-types'
 
 /**
- * One open question, with what the agent wrote to decide it from. A choice, or
- * "Done." for a to-do, is sent as the reply to this question. A secret is the
+ * One open question, with what the agent wrote to decide it from. A choice, a
+ * typed answer, or "Done." for a to-do answers it, which wakes the agent that
+ * asked; no message is sent. A secret is the
  * secure card the conversation and a Bot's chat draw, which sends only where the
  * value was saved. An integration is the Connect card, which selects it in the
  * asking conversation's credentials, and that answers it, for whoever may change
- * them. "Other…" types the answer in the conversation's composer, which only
- * comes with the conversation.
+ * them.
  */
 export function DecisionCard({
   teamId,
@@ -33,7 +34,6 @@ export function DecisionCard({
   showingConversation,
   onAnswer,
   onShowConversation,
-  onReply,
   onHideConversation,
   onOpenConversation,
 }: {
@@ -45,10 +45,8 @@ export function DecisionCard({
   canManage: boolean
   /** With the transcript shown below, the card takes less of the reader. */
   showingConversation: boolean
-  onAnswer: (text: string) => void
+  onAnswer: (answer: DecisionAnswer) => void
   onShowConversation: () => void
-  /** Opens the conversation with its composer answering this question. */
-  onReply: () => void
   onHideConversation: () => void
   onOpenConversation: () => void
 }) {
@@ -96,13 +94,16 @@ export function DecisionCard({
           request={{ sessionId, title: title ?? '', inputRequest: request }}
           teamId={teamId}
           credentials={credentials}
-          onAnswer={onAnswer}
-          onReply={onReply}
+          onAnswer={(answer) => onAnswer(answer)}
           fullBody
         />
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {markAsDone(request) && (
-            <button type="button" onClick={() => onAnswer('Done.')} className={primaryButton}>
+            <button
+              type="button"
+              onClick={() => onAnswer({ text: 'Done.' })}
+              className={primaryButton}
+            >
               {t('Mark as done')}
             </button>
           )}

@@ -15,6 +15,7 @@ import type {
   GeneralAccess,
 } from './agent-types.ts'
 import type { LocalSessionSource } from './app-types.ts'
+import type { DecisionAnswer } from './agent-chat-types.ts'
 import type { PlanUpdatePatch } from './plan-types.ts'
 import type { CloudCliProvider } from '../lib/cloudCli.ts'
 import type { AgentProvider } from '../types/runtime.ts'
@@ -26,6 +27,12 @@ export const agentApi = {
     teamId?: string,
     resolution?: 'answered' | 'dismissed',
   ) => window.api.agentResolveDecision(sessionId, toolCallId, teamId, resolution),
+  agentAnswerDecision: (
+    sessionId: string,
+    requestId: string,
+    teamId: string | undefined,
+    answer: DecisionAnswer,
+  ) => window.api.agentAnswerDecision(sessionId, requestId, teamId, answer),
   agentGetSessionResources: (sessionId: string, teamId: string) =>
     window.api.agentGetSessionResources(sessionId, teamId),
   agentUnlinkSessionResource: (sessionId: string, teamId: string, resourceId: string) =>

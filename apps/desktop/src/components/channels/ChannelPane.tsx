@@ -35,9 +35,6 @@ import type { ComposerSend } from '../agent/panel/composerMentionChips'
 import type { AgentPromptSeed } from '../agent/panel/model'
 import type { ReactNode } from 'react'
 
-/** The post a reply quotes, or an agent's question it answers through `answer`. */
-type Replying = AgentMessageReply & { answer?: (text: string) => void }
-
 export function ChannelPane({
   teamId,
   channelId,
@@ -72,8 +69,8 @@ export function ChannelPane({
   const unsent = useRef<{ key: string; id: string } | null>(null)
   // Posts shown at once, until the channel returns them under the same id.
   const [sending, setSending] = useState<AgentPersistedMessage[]>([])
-  // The post the next one answers, quoted above the composer; for a question, sent as its answer.
-  const [replying, setReplying] = useState<Replying | null>(null)
+  // The post the next one answers, quoted above the composer.
+  const [replying, setReplying] = useState<AgentMessageReply | null>(null)
   const composerRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const dropRef = useRef<((dt: DataTransfer) => void) | null>(null)
@@ -104,25 +101,13 @@ export function ChannelPane({
   const messages = [...stored, ...pending]
 
   const stickToBottom = useStickToBottom(scrollRef)
-  const chat = { channelId, user, setSending, stickToBottom, refresh, reply: replyToQuestion }
-  const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession, chat)
-
-  // A question's answer is its words alone; a post with files is a message quoting nothing.
-  const quoted = replying?.answer ? null : replying
+  const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession)
 
   // The optimistic post owns the draft immediately; failure restores it through setRestore.
   const send: ComposerSend = (text, filePaths, mentions, options) => {
-    if (replying?.answer && filePaths.length === 0 && text.trim()) {
-      setReplying(null)
-      replying.answer(text)
-    } else void postDraft(text, filePaths, mentions, options)
+    void postDraft(text, filePaths, mentions, options)
 
     return true
-  }
-
-  function replyToQuestion(quote: AgentMessageReply, answer: (text: string) => void) {
-    setReplying({ ...quote, answer })
-    focusComposer()
   }
 
   function focusComposer() {
@@ -133,7 +118,7 @@ export function ChannelPane({
 
   async function postDraft(...[text, paths, mentions, options]: Parameters<ComposerSend>) {
     if (!text.trim() && paths.length === 0) return
-    const reply = quoted ?? undefined
+    const reply = replying ?? undefined
     const key = [reply?.id, text, ...paths].join('\n')
     const id = unsent.current?.key === key ? unsent.current.id : crypto.randomUUID()
     // Files take the conversation's upload path: shown at once, uploaded, then posted.

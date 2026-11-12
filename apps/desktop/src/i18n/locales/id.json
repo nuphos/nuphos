@@ -378,6 +378,7 @@
   "Another runtime on this computer already has this name.": "Runtime lain di komputer ini sudah memakai nama ini.",
   "Answer in the conversation": "Jawab di percakapan",
   "Answer in the secure card below. Never paste a secret in a message.": "Jawab di kartu aman di bawah. Jangan pernah menempelkan rahasia di pesan.",
+  "Answered: {answer}": "Dijawab: {answer}",
   "Antigravity shares Google sign-in with other Antigravity apps under the same OS account. Signing in or using the CLI to sign out may affect them. Separate runtime accounts are not supported.": "Antigravity berbagi login Google dengan aplikasi Antigravity lain dalam akun OS yang sama. Login atau logout melalui CLI dapat memengaruhinya. Akun terpisah untuk setiap runtime tidak didukung.",
   "Antigravity uses this computer’s shared sign-in": "Antigravity menggunakan login bersama komputer ini",
   "Any": "Apa saja",

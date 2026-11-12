@@ -13,8 +13,8 @@ const started: {
   decisionReplyTo?: string
   messages: unknown[]
 }[] = []
-const posted: unknown[][] = []
-let postFails = false
+const answers: unknown[][] = []
+let answerFails = false
 
 Object.defineProperty(globalThis, 'window', {
   configurable: true,
@@ -30,11 +30,11 @@ Object.defineProperty(globalThis, 'window', {
       agentStart: async (args: (typeof started)[number]) => {
         started.push(args)
       },
-      agentPostChannelMessage: async (...args: unknown[]) => {
-        posted.push(args)
-        if (postFails) throw new Error('offline')
+      agentAnswerDecision: async (...args: unknown[]) => {
+        answers.push(args)
+        if (answerFails) throw new Error('This question is no longer open')
 
-        return { id: args[3] }
+        return { ok: true }
       },
     },
   },
@@ -89,29 +89,22 @@ test('a send that fails brings the card back, with why', async () => {
   assert.equal(count(), 0)
 })
 
-test("a Bot's own question is answered by a post in its chat", async () => {
-  publish([waiting('q-chat')])
-  const sent = inbox.answerInChat('team', 'chat', 'q-chat', 'Ship it', 'post-1')
+test('an answer goes to the server, which wakes the agent; the card leaves at once', async () => {
+  publish([waiting('q-answer')])
+  const messagesBefore = started.length
+  const sent = inbox.answerDecision('team', 'agent', 'q-answer', { choices: ['Ship it'] })
 
   assert.equal(count(), 0, 'gone at once')
-  assert.equal(await sent, true)
-  assert.deepEqual(posted.at(-1), [
-    'chat',
-    'team',
-    'Ship it',
-    'post-1',
-    undefined,
-    undefined,
-    undefined,
-    'q-chat',
-  ])
-  assert.equal(count(), 0, 'and stays gone once posted')
+  await sent
+  assert.deepEqual(answers.at(-1), ['agent', 'q-answer', 'team', { choices: ['Ship it'] }])
+  assert.equal(started.length, messagesBefore, 'no message is sent')
+  assert.equal(count(), 0, 'and stays gone once answered')
 })
 
-test('a post that fails brings the card back', async () => {
-  publish([waiting('q-chat-fail')])
-  postFails = true
-  assert.equal(await inbox.answerInChat('team', 'chat', 'q-chat-fail', 'Ship it'), false)
-  postFails = false
+test('an answer the server refuses brings the card back', async () => {
+  publish([waiting('q-refused')])
+  answerFails = true
+  await inbox.answerDecision('team', 'agent', 'q-refused', { text: 'Ship it' })
+  answerFails = false
   assert.equal(count(), 1)
 })

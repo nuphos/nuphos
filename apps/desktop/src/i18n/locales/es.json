@@ -378,6 +378,7 @@
   "Another runtime on this computer already has this name.": "Otro entorno de ejecución de esta computadora ya tiene este nombre.",
   "Answer in the conversation": "Responder en la conversación",
   "Answer in the secure card below. Never paste a secret in a message.": "Responde en la tarjeta segura de abajo. Nunca pegues un secreto en un mensaje.",
+  "Answered: {answer}": "Respondido: {answer}",
   "Antigravity shares Google sign-in with other Antigravity apps under the same OS account. Signing in or using the CLI to sign out may affect them. Separate runtime accounts are not supported.": "Antigravity comparte el inicio de sesión de Google con otras aplicaciones de Antigravity de la misma cuenta del sistema operativo. Iniciar sesión o cerrarla desde la CLI puede afectarlas. No se admiten cuentas independientes por entorno de ejecución.",
   "Antigravity uses this computer’s shared sign-in": "Antigravity usa el inicio de sesión compartido de este equipo",
   "Any": "Cualquiera",

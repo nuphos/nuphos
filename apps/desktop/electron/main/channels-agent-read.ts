@@ -5,6 +5,8 @@ import type { GeneralAccess } from '../../src/api/agent-types'
 
 // Agent reads that no longer fit in channels-agent.ts or channels-team.ts (max-lines).
 export const agentReadChannels = {
+  'agent:answerDecision': (_e: unknown, ...args: Parameters<typeof agent.answerDecision>) =>
+    agent.answerDecision(...args),
   'atlas:getAgentStats': (_e: unknown, teamId: string, query: atlas.AgentStatsQuery) =>
     atlas.getAgentStats(teamId, query),
   'agent:getSessionResources': (_e: unknown, sessionId: string, teamId: string) =>
