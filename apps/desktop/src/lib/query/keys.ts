@@ -23,4 +23,10 @@ export const queryKeys = {
   runtimeMetrics: (teamId: string, runtimeId: string, hours: number) =>
     [...queryKeys.team(teamId), 'runtime-metrics', runtimeId, hours] as const,
   runtimeFallback: (teamId: string) => [...queryKeys.team(teamId), 'runtime-fallback'] as const,
+  iamPermissions: (teamId: string, provider: string, id: string, principal = '') =>
+    [...queryKeys.team(teamId), 'iam', provider, id, principal] as const,
+  audit: (teamId: string, ...filters: (string | boolean)[]) =>
+    [...queryKeys.team(teamId), 'audit', ...filters] as const,
+  memories: (teamId: string, scope: string, state = 'live') =>
+    [...queryKeys.team(teamId), 'memories', scope, state] as const,
 }

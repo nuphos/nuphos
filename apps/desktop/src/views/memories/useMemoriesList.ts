@@ -1,14 +1,17 @@
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
-import { useSilentTick } from '../../hooks/useSilentRefresh'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
+import { queryKeys } from '../../lib/query/keys'
+import { useRefreshKey, useTabPollMs } from '../../lib/query/tabQuery'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { PAGE_SIZE } from './memoriesShared'
 
 import type { LoadState, MenuState } from './memoriesShared'
-import type { AgentMemoryItem, AgentMemoryScope } from '../../api'
+import type { AgentMemoryPage, AgentMemoryItem, AgentMemoryScope } from '../../api'
+import type { InfiniteData } from '@tanstack/react-query'
 
 type ListArgs = {
   teamId: string
@@ -19,103 +22,60 @@ type ListArgs = {
 export function useMemoriesList({ teamId, refreshKey, onLoading }: ListArgs) {
   const [scope, setScope] = useState<AgentMemoryScope>('personal')
   const [stateFilter, setStateFilter] = useState<'live' | 'removed'>('live')
-  const [state, setState] = useState<LoadState>({ kind: 'loading' })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedMemory, setSelectedMemory] = useState<AgentMemoryItem | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [menu, setMenu] = useState<MenuState | null>(null)
-  const [loadingMore, setLoadingMore] = useState(false)
   // One shared removal dialog (menu + detail pane). The optional reason shows
   // in the Removed view and the non-resurrection gate echoes it to the agent.
   const [confirmDelete, setConfirmDelete] = useState<AgentMemoryItem | null>(null)
   const [deleteReason, setDeleteReason] = useState('')
-  const listRequestRef = useRef(0)
   const detailRequestRef = useRef(0)
 
   useResetOnKey(`${scope}|${teamId}|${stateFilter}`, () => {
     setSelectedId(null)
     setSelectedMemory(null)
     setDetailLoading(false)
-    setLoadingMore(false)
   })
   useEffect(() => {
-    listRequestRef.current += 1
     detailRequestRef.current += 1
   }, [scope, teamId, stateFilter])
 
   const listState = stateFilter === 'removed' ? ('removed' as const) : undefined
+  const client = useQueryClient()
+  const queryKey = queryKeys.memories(teamId, scope, stateFilter)
+  const pollMs = useTabPollMs()
+  const pages = useInfiniteQuery({
+    queryKey,
+    queryFn: ({ pageParam }) =>
+      api.agentListMemories(pageParam, PAGE_SIZE, teamId, scope, listState),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => (last.hasMore ? (last.nextCursor ?? undefined) : undefined),
+    // Paged past page one, a poll would read every page again: only the first page polls.
+    refetchInterval: (query) => ((query.state.data?.pages.length ?? 0) > 1 ? false : pollMs),
+  })
+  const state = loadState(pages)
 
-  // reload() is also the recovery path for a failed delete/restore, so entering
-  // the loading state belongs to each caller rather than to reload itself.
-  const reload = useCallback(() => {
-    const requestId = listRequestRef.current + 1
+  useRefreshKey(pages, refreshKey, onLoading)
 
-    listRequestRef.current = requestId
-    onLoading?.(true)
-
-    return api
-      .agentListMemories(undefined, PAGE_SIZE, teamId, scope, listState)
-      .then((page) => {
-        if (listRequestRef.current !== requestId) return
-        setState({
-          kind: 'ready',
-          enabled: page.enabled,
-          memories: page.memories,
-          nextCursor: page.nextCursor,
-          hasMore: page.hasMore,
-        })
-        setSelectedId((current) =>
-          current && page.memories.some((memory) => memory.id === current) ? current : null,
-        )
-        setSelectedMemory((current) =>
-          current && page.memories.some((memory) => memory.id === current.id) ? current : null,
-        )
-      })
-      .catch((err: unknown) => {
-        if (listRequestRef.current !== requestId) return
-        setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
-      })
-      .finally(() => {
-        if (listRequestRef.current === requestId) {
-          onLoading?.(false)
-        }
-      })
-  }, [onLoading, scope, teamId, listState])
-
-  useResetOnKey(`${teamId}|${scope}|${listState ?? ''}|${String(refreshKey)}`, () =>
-    setState({ kind: 'loading' }),
+  /** A memory removed or restored leaves this list at once. */
+  const removeFromList = useCallback(
+    (id: string) =>
+      client.setQueryData<InfiniteData<AgentMemoryPage>>(queryKey, (data) =>
+        withoutMemory(data, id),
+      ),
+    // The key is rebuilt from these on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [client, teamId, scope, stateFilter],
   )
-  useEffect(() => {
-    void reload()
-  }, [reload, refreshKey])
-
-  const { pollTick, isActive } = useWorkspaceTab()
-  const silentRefresh = useCallback(async () => {
-    if (state.kind !== 'ready') return
-    if (loadingMore) return
-    if (state.memories.length > PAGE_SIZE) return
-    const requestId = listRequestRef.current + 1
-
-    listRequestRef.current = requestId
-    try {
-      const page = await api.agentListMemories(undefined, PAGE_SIZE, teamId, scope, listState)
-
-      if (listRequestRef.current !== requestId) return
-      setState({
-        kind: 'ready',
-        enabled: page.enabled,
-        memories: page.memories,
-        nextCursor: page.nextCursor,
-        hasMore: page.hasMore,
-      })
-    } catch {
-      // Swallow — the next foreground load will surface the error.
-    }
-  }, [loadingMore, scope, state, teamId, listState])
-
-  useSilentTick(() => {
-    void silentRefresh()
-  }, pollTick)
+  const { refetch, fetchNextPage } = pages
+  const reload = useCallback(async () => {
+    await refetch()
+  }, [refetch])
+  const loadMore = useCallback(async () => {
+    await fetchNextPage()
+  }, [fetchNextPage])
+  const { isActive } = useWorkspaceTab()
 
   return {
     scope,
@@ -123,7 +83,6 @@ export function useMemoriesList({ teamId, refreshKey, onLoading }: ListArgs) {
     stateFilter,
     setStateFilter,
     state,
-    setState,
     selectedId,
     setSelectedId,
     selectedMemory,
@@ -132,16 +91,44 @@ export function useMemoriesList({ teamId, refreshKey, onLoading }: ListArgs) {
     setDetailLoading,
     menu,
     setMenu,
-    loadingMore,
-    setLoadingMore,
+    loadingMore: pages.isFetchingNextPage,
+    loadMore,
+    removeFromList,
     confirmDelete,
     setConfirmDelete,
     deleteReason,
     setDeleteReason,
-    listRequestRef,
     detailRequestRef,
-    listState,
     reload,
     isActive,
+  }
+}
+
+function withoutMemory(data: InfiniteData<AgentMemoryPage> | undefined, id: string) {
+  if (!data) return data
+  const pages = data.pages.map((page) => ({
+    ...page,
+    memories: page.memories.filter((memory) => memory.id !== id),
+  }))
+
+  return { ...data, pages }
+}
+
+function loadState({
+  data,
+  error,
+}: {
+  data?: InfiniteData<AgentMemoryPage>
+  error: Error | null
+}): LoadState {
+  if (!data) return error ? { kind: 'error', message: error.message } : { kind: 'loading' }
+  const last = data.pages.at(-1)
+
+  return {
+    kind: 'ready',
+    enabled: data.pages[0]?.enabled ?? false,
+    memories: data.pages.flatMap((page) => page.memories),
+    nextCursor: last?.nextCursor ?? null,
+    hasMore: last?.hasMore ?? false,
   }
 }
