@@ -32,6 +32,7 @@ let shells: Record<string, unknown>[] = []
 let currentAvatar: string | undefined
 let member = true
 let claimWins = true
+let parentSessionId: string | undefined
 
 useIdentity({
   authenticateToken: async () => ({ user: { id: caller } }),
@@ -47,6 +48,7 @@ useAgentDb({
           participantIds: managerIds,
           managerIds,
           ...(currentAvatar ? { avatar: currentAvatar } : {}),
+          ...(parentSessionId ? { parentSessionId } : {}),
         }
       : null,
   upsertConversationShell: async (data) => {
@@ -101,6 +103,7 @@ beforeEach(() => {
   currentAvatar = undefined
   member = true
   claimWins = true
+  parentSessionId = undefined
   turns.length = 0
 })
 const pick = (avatar: unknown, team = teamId) =>
@@ -194,6 +197,13 @@ test('"Make this a Bot" leaves a Bot as it is, and only the owner may', async ()
   currentAvatar = undefined
   owner = 'someone-else'
   expect((await makeBot()).status).toBe(404)
+  expect(saved).toEqual([])
+  expect(turns).toEqual([])
+})
+
+test('"Make this a Bot" refuses a sub-task', async () => {
+  parentSessionId = 'parent'
+  expect((await makeBot()).status).toBe(400)
   expect(saved).toEqual([])
   expect(turns).toEqual([])
 })

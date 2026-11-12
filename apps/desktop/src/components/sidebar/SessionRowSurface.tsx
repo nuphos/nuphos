@@ -3,6 +3,7 @@ import clsx from 'clsx'
 import { SESSION_DRAG_TYPE } from '../../app/workspace/splitLayout'
 
 import { MAKE_BOT_DRAG_TYPE } from './bot-drop'
+import { canBecomeBot } from './make-bot'
 import { setRowDragImage } from './rowDragImage'
 
 import type { Item } from './types'
@@ -50,9 +51,9 @@ export function SessionRowSurface({
         event.dataTransfer.effectAllowed = 'copyMove'
         setRowDragImage(event, event.currentTarget, item.label)
         event.dataTransfer.setData(SESSION_DRAG_TYPE, JSON.stringify({ sessionId, teamId }))
-        // A Task can also be dropped on Bots to become one, as its menu's "Make this a Bot".
-        if (item.task && !item.bot && !item.readOnlyChat)
-          event.dataTransfer.setData(MAKE_BOT_DRAG_TYPE, sessionId)
+        // A Task can also be dropped on Bots to become one, as its menu's "Make this a Bot";
+        // a sub-task cannot, so dragging it about never turns it into a Bot by accident.
+        if (canBecomeBot(item)) event.dataTransfer.setData(MAKE_BOT_DRAG_TYPE, sessionId)
       }}
       data-sidebar-row
       className={clsx(

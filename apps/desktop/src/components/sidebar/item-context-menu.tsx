@@ -21,6 +21,8 @@ import { makeBot } from '../channels/botChannel'
 import { ContextMenu } from '../ContextMenu'
 import { toast } from '../ui/toast'
 
+import { canBecomeBot } from './make-bot'
+
 import type { Item, ItemMenuRequest } from './types'
 import type { SidebarFavorite } from '../../lib/sidebarFavorites'
 
@@ -152,8 +154,8 @@ export function SidebarItemContextMenu({
               },
             ]
           : []),
-        // A Task becomes a Bot from its row too, as from its session's menu.
-        ...(menu.item.task && !menu.item.bot && !menu.item.readOnlyChat
+        // A Task becomes a Bot from its row too, as from its session's menu; a sub-task does not.
+        ...(canBecomeBot(menu.item)
           ? [
               {
                 key: 'make-bot',
