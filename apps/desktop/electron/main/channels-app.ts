@@ -185,6 +185,18 @@ export const appChannels = {
     _e: IpcMainInvokeEvent,
     args: { teamId: string; sessionId?: string },
   ) => atlas.listFileTransferDownloads(args.teamId, args.sessionId),
+  // The renderer's PDF preview reads its bytes here rather than fetching the
+  // presigned link: the store sends no CORS headers and serves an attachment.
+  'fileTransfer:readOne': (
+    _e: IpcMainInvokeEvent,
+    args: {
+      teamId: string
+      sessionId?: string
+      groupId: string
+      fileId: string
+      maxBytes: number
+    },
+  ) => fileTransfer.readOne(args),
   'fileTransfer:revealInFolder': (_e: IpcMainInvokeEvent, path: string) => {
     if (path) shell.showItemInFolder(path)
   },

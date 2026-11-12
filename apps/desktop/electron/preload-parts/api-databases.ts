@@ -76,6 +76,12 @@ export const databasesApi = {
   }) => ipcRenderer.invoke('fileTransfer:resolve', args),
   fileTransferListDownloads: (args: { teamId: string; sessionId?: string }) =>
     ipcRenderer.invoke('fileTransfer:listDownloads', args),
+  fileTransferReadOne: (args: {
+    teamId: string
+    groupId: string
+    fileId: string
+    maxBytes: number
+  }) => ipcRenderer.invoke('fileTransfer:readOne', args),
   fileTransferRevealInFolder: (path: string) =>
     ipcRenderer.invoke('fileTransfer:revealInFolder', path),
   readImageAttachment: (path: string) => ipcRenderer.invoke('attachment:readImage', path),
