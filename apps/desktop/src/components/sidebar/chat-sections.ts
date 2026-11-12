@@ -47,7 +47,6 @@ export function withChatSections(
   )
   const sessionOf = (item: Item) => item.key.replace('agent-session:', '')
   const copies = new Set(agents.items.filter((item) => item.botNested).map((item) => item.key))
-  // A Bot without a chat that is copied under another Bot's chat is listed once, as the copy.
   const isChat = (item: Item) =>
     item.channel ||
     item.botNested ||
@@ -56,16 +55,17 @@ export function withChatSections(
   const originals = new Map(
     agents.items.filter((item) => !item.botNested).map((item) => [item.key, item]),
   )
-  const botOwner = (item: Item): Item | undefined => {
+  const botOwner = (item: Item): string | undefined => {
     const seen = new Set<string>()
     let parent = item.parentKey
 
     while (parent && !seen.has(parent)) {
       seen.add(parent)
+      if (chatted.has(parent.replace('agent-session:', ''))) return parent
       const row = originals.get(parent)
 
       if (!row) return undefined
-      if (row.bot) return row
+      if (row.bot) return row.key
       parent = row.parentKey
     }
 
@@ -92,8 +92,8 @@ export function withChatSections(
             botNested: true,
             task: true,
             // The Bot's own row is replaced by its chat; descendants keep their parents.
-            ...(item.parentKey === owner.key && {
-              parentKey: chatByBot.get(sessionOf(owner)) ?? item.parentKey,
+            ...(item.parentKey === owner && {
+              parentKey: chatByBot.get(owner.replace('agent-session:', '')) ?? item.parentKey,
             }),
           }),
         // Bots shows faces: a Bot not yet in its chat wears its own, as its chat will.

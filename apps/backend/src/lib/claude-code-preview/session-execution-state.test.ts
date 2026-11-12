@@ -109,20 +109,6 @@ test('a continuation parked on a lost output connection accepts the prompt that 
   }
 })
 
-test('a new Bot with no native session is startable before its first Task message', async () => {
-  const snapshot = await probeExecutionState({
-    sessionId: 'new-bot',
-    teamId: 'team',
-    userId: 'owner',
-    agentRuntime: 'codex',
-    messageCount: 0,
-  })
-
-  expect(snapshot.state).toBe('dormant')
-  expect(snapshot.phase).toBe('dormant')
-  expect(snapshot.actions?.send).toBe(true)
-})
-
 test('a moved conversation reports a startable agent, not a lost connection', async () => {
   // The move clears the attachment, so there is no session to probe: probing
   // anyway reported 'disconnected', which parks a queued message on "waiting for

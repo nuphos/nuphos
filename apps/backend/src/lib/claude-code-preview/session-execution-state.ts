@@ -41,8 +41,7 @@ type ExecutionStateConversation = Pick<
   | 'runtimeId'
   | 'claudeCodePreview'
   | 'runtimeMigration'
-> &
-  Partial<Pick<AgentConversation, 'messageCount'>>
+>
 
 /** The runtime's own state, plus the desktops the conversation holds on its Box. */
 export async function conversationExecutionState(
@@ -71,12 +70,13 @@ export async function probeExecutionState(
   const attachment = liveAttachment(conversation)
 
   if (!conversation.teamId) return { state: 'disconnected' }
-  // A freshly created Bot has a durable shell but no native Task session yet.
-  // Only its first prompt creates that session; probing a placeholder session
-  // reports a lost connection and prevents clients from sending that prompt.
-  if (!attachment && conversation.messageCount === 0) return READY_FOR_NEXT_MESSAGE
-  // A move clears the attachment; only the next prompt can create its replacement.
-  // Keep probing legacy conversations with history: they may have an untracked session.
+  // A moved conversation has no attachment by design: the move clears it and the
+  // next prompt creates the session. Probing for one anyway reported
+  // 'disconnected', which the desktop reads as a broken conversation — the status
+  // says "Connection lost" and a queued message parks on "waiting for the agent
+  // to be ready" forever, because only a prompt can change that state. Say what
+  // is actually true. A conversation that has never been moved keeps the probe:
+  // one from before attachments were tracked may still have a live session.
   if (!attachment && conversation.runtimeMigration) return READY_FOR_NEXT_MESSAGE
   let client: OpenAbAcpClient | undefined
 
