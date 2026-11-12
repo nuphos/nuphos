@@ -223,7 +223,9 @@ export function channelToolModule(): PreviewToolModule {
           'calls rather than one wall of text. For work that takes a while, post a quick ' +
           'acknowledgement first, then post results as they come in instead of staying silent ' +
           'until the end. No headings or long tables; attach images as files, not inside ' +
-          'tables. If you have nothing to say, do not post.',
+          'tables. If you have nothing to say, do not post. A choice, approval or information ' +
+          'you need from your owner (the person you work for) goes in a request_user_decision ' +
+          'card, with at most one short post pointing to it; ask other members in a post.',
         inputSchema: toolInputJsonSchema(post),
       },
       {
