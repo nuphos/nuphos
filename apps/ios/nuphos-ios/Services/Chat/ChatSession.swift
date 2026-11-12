@@ -679,21 +679,10 @@ final class ChatSession {
         await refreshDownloads()
     }
 
-    /// Moves this conversation to another agent. The working files come along
-    /// when the destination can hold them — another Cloud agent of the same
-    /// type — and the move falls back to the transcript alone when they cannot.
+    /// Moves this conversation to another agent, carrying its history.
     func move(to target: RuntimeInstance) async throws {
         guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner can move it.") }
-        func request(workspace: Bool) async throws -> AgentChatAPI.RuntimeMove {
-            try await AgentChatAPI.moveRuntime(token: token, teamId: teamId, sessionId: sessionId, runtimeId: target.id, workspace: workspace)
-        }
-        let moved: AgentChatAPI.RuntimeMove
-        if target.tier == .cloud, target.provider.rawValue == agentRuntime {
-            do { moved = try await request(workspace: true) }
-            catch AgentChatAPI.Conflict.other(let code, _, _) where code == "workspace_unavailable" { moved = try await request(workspace: false) }
-        } else {
-            moved = try await request(workspace: false)
-        }
+        let moved = try await AgentChatAPI.moveRuntime(token: token, teamId: teamId, sessionId: sessionId, runtimeId: target.id)
         runtimeId = moved.runtimeId
         runtimeLabel = moved.runtimeLabel
         agentRuntime = moved.agentRuntime

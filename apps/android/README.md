@@ -83,8 +83,7 @@ picker; existing conversations show their assigned Agent and open its usage deta
 and a Switch agent list. Owners and managers can switch idle conversations; only
 owners can select local or self-hosted agents. Moving to a personal computer
 requires confirmation. Signed-out, disabled, and deleting agents cannot be chosen.
-Same-provider Cloud moves try to preserve the workspace, falling back to history
-only for `workspace_unavailable`; cross-provider and local moves use history.
+A move carries the conversation history to the new agent. Files stay behind.
 Drafts and history remain in the same conversation. Failed moves keep the current
 agent until a server refresh confirms its placement.
 Usage uses the shared `GET /teams/:id/agent-runtimes/quota` snapshot, refreshed every

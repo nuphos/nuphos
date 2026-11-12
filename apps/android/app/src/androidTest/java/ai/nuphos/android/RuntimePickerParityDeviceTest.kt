@@ -60,7 +60,7 @@ class RuntimePickerParityDeviceTest {
     }
     private fun render(dark: Boolean=false, owner: Boolean=true, current: Boolean=true, immediate: Boolean=false, fontScale: Float=1f) {
         if (immediate) catalogGate.countDown()
-        session=ChatSession("synthetic-picker","507f1f77bcf86cd799439011","picker",moveRuntime={ _,_,_,target,_ ->
+        session=ChatSession("synthetic-picker","507f1f77bcf86cd799439011","picker",moveRuntime={ _,_,_,target ->
             moves.incrementAndGet(); delay(200)
             if(failMove) throw java.io.IOException("Synthetic switch failed")
             RuntimeBinding(target.id,target.provider,target.label)
