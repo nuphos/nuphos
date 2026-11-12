@@ -193,15 +193,15 @@ onInputRequestsRefresh(reloadListings)
 if (typeof window !== 'undefined') window.addEventListener('focus', reloadListings)
 
 /**
- * The team's waiting conversations: the one listing the badge counts and the Inbox lists. Only
- * the always-mounted badge passes `poll`; a new `reloadKey` reloads it at once.
+ * The team's waiting conversations: the one listing the badge counts and the Inbox lists,
+ * polled also in the background. A new `reloadKey` reloads it at once.
  */
-export function useInboxListing(teamId: string, { poll = false, reloadKey }: ListingOptions = {}) {
+export function useInboxListing(teamId: string, reloadKey?: unknown) {
   const listing = useQuery({
     ...inboxListingQuery(teamId),
     enabled: Boolean(teamId),
-    refetchInterval: poll && INBOX_POLL_MS,
-    refetchIntervalInBackground: poll,
+    refetchInterval: INBOX_POLL_MS,
+    refetchIntervalInBackground: true,
   })
   const { refetch } = listing
   const shownKey = useRef(reloadKey)
@@ -215,11 +215,9 @@ export function useInboxListing(teamId: string, { poll = false, reloadKey }: Lis
   return listing
 }
 
-type ListingOptions = { poll?: boolean; reloadKey?: unknown }
-
-/** How many questions wait on the viewer in this team: the badge, which polls the listing. */
+/** How many questions wait on the viewer in this team, settling this device's answers. */
 export function useInboxCount(teamId: string): number {
-  const listing = useInboxListing(teamId, { poll: true }).data
+  const listing = useInboxListing(teamId).data
   const onDevice = useAnsweredOnDevice()
 
   useEffect(() => {

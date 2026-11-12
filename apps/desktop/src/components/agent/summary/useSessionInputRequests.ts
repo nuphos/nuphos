@@ -18,8 +18,8 @@ import type { AgentConversation } from '../../../api/agent-types'
  */
 export function useSessionInputRequests(sessionId: string | null, teamId: string | undefined) {
   // Opening another session shows the last listing at once, and reloads it.
-  // Streams, replies, dismissals, focus and runtime changes reload it; the badge polls it.
-  const listing = useInboxListing(teamId ?? '', { reloadKey: sessionId })
+  // Streams, replies, dismissals, focus and runtime changes reload it at once.
+  const listing = useInboxListing(teamId ?? '', sessionId)
   const pending = listing.data ?? null
   const failed = listing.isError
   const known = useSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId ?? ''))

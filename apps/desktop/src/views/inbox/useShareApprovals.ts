@@ -10,19 +10,19 @@ const NONE: LocalShareApproval[] = []
 
 /**
  * Teammates' conversations waiting for this person to let them run on their own
- * computer, in this team. Only the always-mounted badge passes `poll`, also in the
- * background since a new ask is notified. `decide` answers one and reloads;
- * approving with trust also settles that teammate's other asks.
+ * computer, in this team. `decide` answers one and reloads; approving with trust
+ * also settles that teammate's other asks.
  */
-export function useShareApprovals(teamId: string, { poll = false } = {}) {
+export function useShareApprovals(teamId: string) {
   const client = useQueryClient()
   const queryKey = queryKeys.shareApprovals(teamId)
   const { data } = useQuery({
     queryKey,
     queryFn: () => api.localShareApprovals(teamId),
     enabled: Boolean(teamId),
-    refetchInterval: poll && SHARE_APPROVAL_POLL_MS,
-    refetchIntervalInBackground: poll,
+    refetchInterval: SHARE_APPROVAL_POLL_MS,
+    // A new one is notified, so it is read in the background too.
+    refetchIntervalInBackground: true,
   })
 
   async function decide(

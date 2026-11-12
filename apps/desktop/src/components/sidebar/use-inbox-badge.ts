@@ -12,9 +12,8 @@ import type { Section } from './types'
  * and the chats and agents that @mention them, announcing each new one.
  */
 export function useInboxBadge(teamId: string, sections: Section[]): Section[] {
-  // The one always-mounted reader, so the one that polls them.
-  const { approvals } = useShareApprovals(teamId, { poll: true })
-  const mentions = useChannelMentions(teamId, { poll: true })
+  const { approvals } = useShareApprovals(teamId)
+  const mentions = useChannelMentions(teamId)
   const count = useInboxCount(teamId) + approvals.length + (mentions?.length ?? 0)
 
   useShareApprovalNotifications(teamId, approvals)

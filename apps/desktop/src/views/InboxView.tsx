@@ -62,7 +62,7 @@ export function InboxView({
   const { isActive } = useWorkspaceTab()
   const { ref, width } = useElementSize<HTMLDivElement>()
   const twoPane = width === 0 || width >= TWO_PANE_MIN_WIDTH
-  const listing = useInboxListing(teamId, { reloadKey: refreshKey }).data ?? null
+  const listing = useInboxListing(teamId, refreshKey).data ?? null
   // The sidebar's conversations: where a Bot's chat is.
   const known = useSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId))
   const [selected, setSelected] = useState<{ id: string; index: number } | null>(null)
