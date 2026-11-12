@@ -283,6 +283,31 @@ object AgentChatApi {
     /** The errors the conversation shows Switch runtime beside. */
     val switchRuntimeErrors: Set<String> = RUNTIME_BLOCKED.values.toSet()
 
+    /** The error someone else may get past for the viewer, by signing the agent in. */
+    val signedOutError: String = RUNTIME_BLOCKED.getValue("runtime_login_required")
+
+    /**
+     * Who signs this agent in when the viewer can't, as the backend decides: a
+     * computer's agent (`local_<owner>_…`) its owner, a team's agent an
+     * administrator. Null when the viewer can sign it in themselves.
+     */
+    fun signInAsk(runtimeId: String?, viewerId: String?, isAdministrator: Boolean): String? {
+        if (runtimeId == null || viewerId == null) return null
+        if (runtimeId.startsWith("local_")) return if (runtimeId.startsWith("local_${viewerId}_")) null else "Ask owner"
+        return if (isAdministrator) null else "Ask an admin"
+    }
+
+    /**
+     * `POST /teams/:id/agent-runtimes/:runtimeId/sign-in-requests`: asks whoever can
+     * sign this conversation's agent in, through their Inbox and a push. Answers
+     * with whom it asked.
+     */
+    suspend fun runtimeSignInAsk(token: String, teamId: String, runtimeId: String, sessionId: String): String {
+        val data = send("POST", "teams/$teamId/agent-runtimes/$runtimeId/sign-in-requests", token,
+            body = JsonValue.obj("sessionId" to JsonValue.Str(sessionId)))
+        return JsonValue.parse(data)?.get("askedName")?.stringValue ?: throw NuphosApi.Failure.InvalidResponse
+    }
+
     fun conflict(status: Int, body: String?): Conflict {
         var code: String? = null
         var message = body ?: "Nuphos returned status $status."

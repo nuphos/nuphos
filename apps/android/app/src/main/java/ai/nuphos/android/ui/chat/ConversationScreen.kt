@@ -655,8 +655,24 @@ private fun ChatRowView(
         }
         is ChatRow.Hint -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(row.text, color = if (row.isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodySmall)
-            // A runtime that can't take the turn: moving the conversation is the way on.
-            if (onSwitchRuntime != null && row.text in AgentChatApi.switchRuntimeErrors) SwitchRuntimeButton(onSwitchRuntime)
+            // A signed-out agent the viewer can't sign in: whoever can is asked through their Inbox.
+            val runtimeId = session.runtimeId
+            val askLabel = if (row.text == AgentChatApi.signedOutError) AgentChatApi.signInAsk(runtimeId, LocalAuthSession.current.user?.id,
+                LocalAgentStore.current.teams.firstOrNull { it.id == session.teamId }?.isAdministrator == true) else null
+            val ask = session.signInAsk?.takeIf { askLabel != null && it.runtimeId == runtimeId }
+            if (ask != null) Text(ask.status, color = MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodySmall)
+            val switch = onSwitchRuntime?.takeIf { row.text in AgentChatApi.switchRuntimeErrors }
+            if ((askLabel != null && ask?.asked != true) || switch != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (askLabel != null && runtimeId != null && ask?.asked != true) {
+                    val scope = rememberCoroutineScope()
+                    Button(onClick = { scope.launch { session.askSignIn(runtimeId) } },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {
+                        Text(askLabel, style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+                // A runtime that can't take the turn: moving the conversation is the way on.
+                if (switch != null) SwitchRuntimeButton(switch)
+            }
         }
         ChatRow.Bottom -> Spacer(Modifier.height(1.dp))
     }

@@ -722,6 +722,11 @@ final class ChatSession {
         return try JSONDecoder().decode(SessionAccess.self, from: data)
     }
 
+    /// Asks whoever can sign this conversation's agent in; answers with whom it asked.
+    func askSignIn(runtimeId: String) async throws -> String {
+        try await AgentChatAPI.runtimeSignInAsk(token: token, teamId: teamId, runtimeId: runtimeId, sessionId: sessionId)
+    }
+
     func teamMembers() async throws -> [TeamMember] {
         try await NuphosAPI.teamMembers(token: token, teamId: teamId, includeRemoved: false)
     }

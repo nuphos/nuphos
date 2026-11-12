@@ -226,6 +226,17 @@ enum AgentChatAPI {
         return ConversationUnread.Marker(activity: state.activitySeq, read: state.readSeq)
     }
 
+    /// `POST /teams/:id/agent-runtimes/:runtimeId/sign-in-requests` — asks whoever can
+    /// sign this conversation's agent in, through their Inbox and a push. Answers with
+    /// whom it asked.
+    static func runtimeSignInAsk(token: String, teamId: String, runtimeId: String, sessionId: String) async throws -> String {
+        struct Body: Encodable { var sessionId: String }
+        struct Asked: Decodable { let askedName: String }
+        let data = try await send("POST", "teams/\(teamId)/agent-runtimes/\(runtimeId)/sign-in-requests",
+            token: token, body: Body(sessionId: sessionId))
+        return try JSONDecoder().decode(Asked.self, from: data).askedName
+    }
+
     /// `POST /agent/conversations/:id/secrets` — the secure input card: the
     /// value goes to a file on the agent's runtime, and only its path comes back.
     static func saveSecret(token: String, teamId: String, sessionId: String, name: String, value: String) async throws -> String {
