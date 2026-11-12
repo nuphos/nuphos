@@ -2,8 +2,6 @@ package ai.nuphos.android.data
 
 import ai.nuphos.android.model.ChatMessage
 import ai.nuphos.android.model.Plan
-import ai.nuphos.android.model.PlanApprovalRequirement
-import ai.nuphos.android.model.PlanListPage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -204,44 +202,6 @@ object AgentChatApi {
             JsonValue.obj("status" to JsonValue.Str(status), "teamId" to JsonValue.Str(teamId)),
         )
         return decodePlan(data)
-    }
-
-    /** `mine` keeps the caller's own plans; otherwise every plan in the team they can read. */
-    suspend fun listPlans(token: String, teamId: String, limit: Int = 50, cursor: String? = null, mine: Boolean = false): PlanListPage {
-        val query = buildList {
-            add("teamId" to teamId)
-            add("limit" to limit.toString())
-            if (cursor != null) add("cursor" to cursor)
-            if (mine) add("mine" to "1")
-        }
-        val json = JsonValue.parse(send("GET", "agent/plans", token, query)) ?: throw NuphosApi.Failure.InvalidResponse
-        return PlanListPage(
-            plans = json["plans"]?.arrayValue?.mapNotNull { Plan.from(it) } ?: emptyList(),
-            nextCursor = json["nextCursor"]?.stringValue,
-            hasMore = json["hasMore"]?.boolValue ?: false,
-        )
-    }
-
-    suspend fun planApprovalPolicy(token: String, teamId: String): PlanApprovalRequirement {
-        val json = JsonValue.parse(send("GET", "agent/plan-approval-policy", token, listOf("teamId" to teamId)))
-            ?: throw NuphosApi.Failure.InvalidResponse
-        return PlanApprovalRequirement(json)
-    }
-
-    suspend fun updatePlanApprovalPolicy(token: String, teamId: String, minimumOtherApprovals: Int): PlanApprovalRequirement {
-        val json = JsonValue.parse(
-            send(
-                "PUT",
-                "agent/plan-approval-policy",
-                token,
-                body = JsonValue.obj(
-                    "teamId" to JsonValue.Str(teamId),
-                    "requesterApprovalRequired" to JsonValue.Bool(true),
-                    "minimumOtherApprovals" to JsonValue.Number(minimumOtherApprovals.toDouble()),
-                ),
-            ),
-        ) ?: throw NuphosApi.Failure.InvalidResponse
-        return PlanApprovalRequirement(json)
     }
 
     private fun decodePlan(data: String): Plan {

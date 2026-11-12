@@ -17,24 +17,20 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Assignment
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Computer
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.MonitorHeart
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.ui.semantics.selected
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.Assignment
 import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bolt
-import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.MonitorHeart
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -119,7 +115,6 @@ import ai.nuphos.android.ui.agent.AgentPage
 import ai.nuphos.android.ui.chat.ConversationScreen
 import ai.nuphos.android.ui.components.NuphosAvatar
 import ai.nuphos.android.ui.plans.PlanDetailScreen
-import ai.nuphos.android.ui.plans.PlansPage
 import ai.nuphos.android.ui.profile.ProfileSheet
 import ai.nuphos.android.ui.login.SplashScreen
 
@@ -311,7 +306,6 @@ fun HomeScreen(
     listVisible: Boolean = true,
 ) {
     val store = LocalAgentStore.current
-    val plans = LocalPlansStore.current
     var page by rememberSaveable { mutableStateOf(HomePage.launch(store.rememberedHasChats).route) }
     // Once chats load, the launch page is corrected unless the viewer already picked one or opened something.
     var pagePicked by rememberSaveable { mutableStateOf(false) }
@@ -362,9 +356,6 @@ fun HomeScreen(
     }
 
 
-    LaunchedEffect(store.selectedTeam?.id) {
-        plans.use(store.selectedTeam?.id)
-    }
     // The workspace's open questions, polled while in the foreground as Desktop's badge is.
     val inbox = remember(store, store.selectedTeam?.id, store.workspaceRevision, AiAccess.revision) { store.openQuestions() }
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
@@ -388,7 +379,6 @@ fun HomeScreen(
                         if (it != current) {
                             pagePicked = true
                             if (current == HomePage.Agent || current == HomePage.Chats) store.updateSearch("")
-                            if (current == HomePage.Plans) plans.search = ""
                             page = it.route; searching = false
                         }
                     })
@@ -396,12 +386,10 @@ fun HomeScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                 actions = {
-                    if (current == HomePage.Agent || current == HomePage.Plans || current == HomePage.Chats) {
+                    if (current == HomePage.Agent || current == HomePage.Chats) {
                         IconButton(onClick = { searching = !searching }, modifier = Modifier.testTag("home-search")) {
                             Icon(Icons.Outlined.Search, contentDescription = "Search")
                         }
-                        // Like iOS, Tasks has search only; Plans keeps its filter.
-                        if (current == HomePage.Plans) PlansFilterButton()
                     }
                     FilledIconButton(
                         onClick = { showProfile = true },
@@ -447,7 +435,6 @@ fun HomeScreen(
                         })
                     }
                     HomePage.Runtimes -> ai.nuphos.android.ui.agent.RuntimesPage()
-                    HomePage.Plans -> PlansPage(searching = searching, onSearchingChange = { searching = it }, nav = nav)
                     HomePage.Connectors -> ConnectorsPage()
 
                 }
@@ -533,25 +520,7 @@ private fun HomePage.icon(selected: Boolean): ImageVector = when (this) {
     HomePage.Agent -> if (selected) Icons.Rounded.AutoAwesome else Icons.Outlined.AutoAwesome
     HomePage.Inbox -> if (selected) Icons.Rounded.Inbox else Icons.Outlined.Inbox
     HomePage.Runtimes -> Icons.Outlined.Computer
-    HomePage.Plans -> if (selected) Icons.Rounded.Assignment else Icons.Outlined.Assignment
     HomePage.Connectors -> if (selected) Icons.Rounded.Link else Icons.Outlined.Link
-}
-
-@Composable
-internal fun PlansFilterButton() {
-    val plans = LocalPlansStore.current
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        IconButton(onClick = { expanded = true }, modifier = Modifier.testTag("home-filter").semantics { stateDescription = if (plans.showDismissed) "Filters applied" else "Default filters" }) {
-            Icon(if (plans.showDismissed) Icons.Rounded.FilterList else Icons.Outlined.FilterList, contentDescription = "Filter")
-        }
-        DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text("Show dismissed") },
-                onClick = { plans.showDismissed = !plans.showDismissed; expanded = false },
-            )
-        }
-    }
 }
 
 @Composable

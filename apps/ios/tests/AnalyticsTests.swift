@@ -51,7 +51,7 @@ import PostHog
         // SwiftUI navigation is checked separately on the simulator. Once its
         // root-content onAppear restores the list, neither foregrounding nor
         // reopening a chat in the same team may retain/deduplicate the old chat.
-        for page in ["agent", "plans"] {
+        for page in ["agent", "inbox"] {
             analytics.screen(page, teamID: "team-b")
             analytics.screen("chat", teamID: "team-b")
             analytics.screen(page, teamID: "team-b")

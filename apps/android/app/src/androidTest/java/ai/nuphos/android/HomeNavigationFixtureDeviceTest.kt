@@ -212,7 +212,6 @@ class HomeNavigationFixtureDeviceTest {
     }
     private fun menu() { compose.onNodeWithTag("home-page-switcher").performClick() }
     private fun select(route: String) { menu(); compose.onNodeWithTag("home-page-$route").performScrollTo().performClick(); compose.waitForIdle() }
-    private fun filter() { compose.onNodeWithTag("home-filter").performClick() }
     private fun assertFixedListSelectors() = assertTrue(requests.filter { it.url.encodedPath == "/agent/conversations" }.all {
         it.url.queryParameter("scope") == "mine" && it.url.queryParameter("sort") == "activity" && it.url.queryParameter("archived") == "exclude"
     })
@@ -235,7 +234,7 @@ class HomeNavigationFixtureDeviceTest {
         Espresso.pressBack(); compose.waitForIdle()
         compose.onNodeWithTag("home-page-menu").assertDoesNotExist()
         compose.onNodeWithTag("home-page-switcher").assertIsFocused()
-        for (route in listOf("plans", "runtimes", "connectors", "agent")) {
+        for (route in listOf("runtimes", "connectors", "agent")) {
             select(route); menu()
             compose.onNodeWithTag("home-page-$route").assertIsSelected()
             Espresso.pressBack()
@@ -277,16 +276,12 @@ class HomeNavigationFixtureDeviceTest {
         assertNull(auth.runtimeSelections.bind(NuphosUser.preview.id, a.id).selectedId)
         select("agent"); waitText("Synthetic active conversation"); noWrites()
     }
-    @Test fun agentsHasSearchButNoFilterWhilePlansKeepsItsFilter() {
+    @Test fun agentsHasSearchButNoFilter() {
         render(); waitText("Synthetic active conversation")
         compose.onNodeWithTag("home-search").assertIsDisplayed()
         compose.onNodeWithTag("home-filter").assertDoesNotExist()
         compose.onNodeWithContentDescription("Filter agents").assertDoesNotExist()
         shot("agents-toolbar")
-        select("plans"); filter()
-        compose.onNodeWithText("Show dismissed").assertIsDisplayed(); shot("plans-filter"); Espresso.pressBack()
-        select("agent"); waitText("Synthetic active conversation")
-        compose.onNodeWithTag("home-filter").assertDoesNotExist()
         assertFixedListSelectors(); noWrites()
     }
 
@@ -295,7 +290,7 @@ class HomeNavigationFixtureDeviceTest {
         compose.onNodeWithTag("home-search").performClick()
         compose.onNodeWithText("Search tasks").performTextInput("needle")
         compose.waitUntil(5_000) { requests.any { it.url.encodedPath == "/agent/conversations" && it.url.queryParameter("search") == "needle" } }
-        select("plans"); compose.runOnIdle { assertEquals("", agent.search) }
+        select("runtimes"); compose.runOnIdle { assertEquals("", agent.search) }
         select("agent"); compose.runOnIdle { agent.select(b) }
         compose.waitUntil(8_000) { requests.any { it.url.encodedPath == "/agent/conversations" && it.url.queryParameter("teamId") == b.id } }
         assertFixedListSelectors(); noWrites()
@@ -303,9 +298,9 @@ class HomeNavigationFixtureDeviceTest {
 
     @Test fun selectedPageSurvivesSavedStateAndOutsideDismisses() {
         val restoration = StateRestorationTester(compose)
-        render(restoration = restoration); select("plans")
+        render(restoration = restoration); select("runtimes")
         restoration.emulateSavedInstanceStateRestore(); menu()
-        compose.onNodeWithTag("home-page-plans").assertIsSelected()
+        compose.onNodeWithTag("home-page-runtimes").assertIsSelected()
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
         val bounds = compose.onAllNodes(isRoot()).onFirst().fetchSemanticsNode().boundsInRoot
         val now = android.os.SystemClock.uptimeMillis()
@@ -316,19 +311,17 @@ class HomeNavigationFixtureDeviceTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("home-page-menu").fetchSemanticsNodes().isEmpty() }
         noWrites()
     }
-    @Test fun compactRtlLargeFontAllEntriesAndPlansFilterRemainReachable() {
+    @Test fun compactRtlLargeFontAllEntriesRemainReachable() {
         render(compact = true); menu(); shot("rtl-large-menu")
-        for (route in listOf("agent", "plans", "runtimes", "connectors"))
+        for (route in listOf("agent", "runtimes", "connectors"))
             compose.onNodeWithTag("home-page-$route").performScrollTo().assertIsDisplayed()
         Espresso.pressBack(); compose.onNodeWithTag("home-filter").assertDoesNotExist()
-        select("plans"); filter()
-        compose.onNodeWithText("Show dismissed").performScrollTo().assertIsDisplayed()
-        shot("rtl-large-plans-filter"); noWrites()
+        noWrites()
     }
 
     @Test fun deniedHistoryDoesNotBlockNavigationOrAlterWorkspace() {
         historyFailure = true; render()
-        select("plans"); select("agent")
+        select("runtimes"); select("agent")
         compose.runOnIdle { assertNotNull(agent.phaseError); assertEquals(a.id, agent.selectedTeam?.id) }
         menu(); compose.onNodeWithTag("home-page-connectors").performClick(); noWrites()
     }

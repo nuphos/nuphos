@@ -534,7 +534,7 @@ struct ChannelRow: View {
 }
 
 /// The expandable search field under the navigation bar. The owning store
-/// decides whether the query is server-backed (chats) or local (plans).
+/// decides how the query is applied.
 struct SearchBar: View {
     @Binding var text: String
     var placeholder: LocalizedStringKey = "Search agents"

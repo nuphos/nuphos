@@ -22,7 +22,7 @@ enum DockDestinationTests {
     }
 
     private static func workspacePagesOpenTheirIPhoneScreenOrTheMac() {
-        precondition(DockDestination(href: "\(team)/plans", url: nil, kind: nil) == .plans)
+        precondition(DockDestination(href: "\(team)/plans", url: nil, kind: nil) == .onMac(page: "team.plans", href: "\(team)/plans"))
         precondition(DockDestination(href: "\(team)/runtimes", url: nil, kind: nil) == .runtimes)
         precondition(DockDestination(href: "\(team)/integrations", url: nil, kind: nil) == .connectors)
         precondition(DockDestination(href: "\(team)/agent/ses_1", url: nil, kind: nil) == .chat(sessionId: "ses_1"))
@@ -31,7 +31,7 @@ enum DockDestinationTests {
         precondition(DockDestination(href: "", url: nil, kind: "team.dashboards") == .onMac(page: "team.dashboards", href: nil))
         let items = DockWorkspaceItem.all(teamId: "t1", desktop: true)
         precondition(items.map(\.title) == [
-            "Browser", "Files", "Local terminal", "Runtime terminal", "Plans", "Architecture", "Designs", "Dashboards", "Monitoring", "Desktop",
+            "Browser", "Files", "Local terminal", "Runtime terminal", "Architecture", "Designs", "Dashboards", "Monitoring", "Desktop",
         ])
         // The runtime terminal is its own path on the Mac, not the local one.
         precondition(items[3].destination == .onMac(page: "team.terminal", href: "/teams/t1/terminal/runtime"))
