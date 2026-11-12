@@ -116,6 +116,8 @@ export const agentApi = {
     window.api.agentSetConversationWatched(sessionId, watching, teamId),
   agentUnlinkConversationParent: (sessionId: string, teamId?: string) =>
     window.api.agentUnlinkConversationParent(sessionId, teamId),
+  agentRecordEditFork: (sessionId: string, forkSessionId: string, teamId?: string) =>
+    window.api.agentRecordEditFork(sessionId, forkSessionId, teamId),
   agentCancelRuntime: (sessionId: string, teamId?: string) =>
     window.api.agentCancelRuntime(sessionId, teamId),
   agentRetractMessage: (sessionId: string, messageId: string, teamId?: string) =>

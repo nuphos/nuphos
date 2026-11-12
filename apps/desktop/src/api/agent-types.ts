@@ -266,6 +266,8 @@ export type AgentTimelineEvent = {
   reason?: 'quota' | 'offline' | 'failure'
   /** A fallback that found no agent: each one passed over, and why. */
   skipped?: { label: string; reason: string }[]
+  /** message_edited: the session the edited message ran in. */
+  forkSessionId?: string
 }
 
 export type AgentConversationDetail = AgentConversation & {

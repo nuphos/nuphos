@@ -15,6 +15,12 @@ export const agentReadChannels = {
     teamId: string,
     resourceId: string,
   ) => agent.unlinkSessionResource(sessionId, teamId, resourceId),
+  'agent:recordEditFork': (
+    _e: unknown,
+    sessionId: string,
+    forkSessionId: string,
+    teamId?: string,
+  ) => agent.recordEditFork(sessionId, forkSessionId, teamId),
   'agent:markConversationRead': (_e: unknown, sessionId: string, seq: number, teamId?: string) =>
     agent.markConversationRead(sessionId, seq, teamId),
   'agent:checkConversationMove': (

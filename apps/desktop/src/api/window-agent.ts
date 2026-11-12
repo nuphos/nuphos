@@ -128,6 +128,11 @@ export type WindowAgentApi = AgentDecisionApi & {
     teamId?: string,
   ): Promise<{ ok: boolean; watching: boolean }>
   agentUnlinkConversationParent(sessionId: string, teamId?: string): Promise<{ ok: boolean }>
+  agentRecordEditFork(
+    sessionId: string,
+    forkSessionId: string,
+    teamId?: string,
+  ): Promise<{ ok: boolean }>
   agentMarkConversationRead(
     sessionId: string,
     seq: number,

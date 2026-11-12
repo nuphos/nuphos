@@ -1,6 +1,7 @@
 import { resolveConversationAccess } from '@/lib/agent/devices/conversation-computer'
 import './routes-conversation-runtime'
 import './routes-conversation-messages'
+import './routes-message-edit'
 import './routes-message-retract'
 
 import {

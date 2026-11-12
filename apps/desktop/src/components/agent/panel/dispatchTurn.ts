@@ -24,6 +24,9 @@ import type { AgentMessageMention } from '../../../api/agent-types'
 // Each tab's latest fork history import, which a message sent meanwhile waits for.
 const forkImports = new Map<string, Promise<void>>()
 
+/** The tab's latest fork history import, if it has one. */
+export const forkImport = (tabId: string) => forkImports.get(tabId)
+
 export type DispatchTurnCtx = Pick<
   PanelCtx,
   | 'currentUser'
