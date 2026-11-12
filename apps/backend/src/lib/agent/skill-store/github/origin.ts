@@ -16,6 +16,9 @@ export type SkillOrigin = {
   commitSha: string
   /** Hash of the upstream folder, compared on update checks. */
   contentHash: string
+  /** Per-file hashes of the upstream folder, for the change preview of an update.
+   *  Absent on origins recorded before the hashes were kept. */
+  fileHashes?: Record<string, string>
   /** Object ETags right after install; a mismatch later means the skill was edited. */
   installedEtags: Record<string, string>
   installedAt: Date
@@ -33,6 +36,39 @@ export async function recordSkillOrigin(origin: Omit<SkillOrigin, '_id'>): Promi
   const _id = skillOriginId(origin.scope, origin.name)
 
   await skillOrigins().replaceOne({ _id }, origin, { upsert: true })
+}
+
+export type SkillOriginDTO = Pick<SkillOrigin, 'repo' | 'ref' | 'path' | 'commitSha'> & {
+  installedAt: string
+}
+
+export async function listSkillOrigins(scope: string): Promise<SkillOrigin[]> {
+  return await skillOrigins()
+    .find({ scope: normalizeSkillScope(scope) })
+    .toArray()
+}
+
+export async function getSkillOriginDTO(
+  scope: string,
+  name: string,
+): Promise<SkillOriginDTO | null> {
+  const origin = await skillOrigins().findOne({ _id: skillOriginId(scope, name) })
+
+  return origin
+    ? {
+        repo: origin.repo,
+        ref: origin.ref,
+        path: origin.path,
+        commitSha: origin.commitSha,
+        installedAt: origin.installedAt.toISOString(),
+      }
+    : null
+}
+
+export function skillFileHashes(files: Map<string, Uint8Array>): Record<string, string> {
+  return Object.fromEntries(
+    [...files].map(([path, data]) => [path, createHash('sha256').update(data).digest('hex')]),
+  )
 }
 
 /** SHA-256 over sorted `path\0size\0bytes` frames, independent of storage ETags. */

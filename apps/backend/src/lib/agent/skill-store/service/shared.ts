@@ -216,6 +216,21 @@ export async function skillPackageExists(scope: string, skillName: string): Prom
   return objects.length > 0
 }
 
+/** Current ETags of one skill package, keyed like `SkillObject.key`. */
+export async function skillPackageEtags(
+  scope: string,
+  skillName: string,
+): Promise<Record<string, string>> {
+  const normalized = normalizeSkillScope(scope)
+  const objects = await listSkillPackageObjects(
+    requireSkillsStore(normalized),
+    normalized,
+    skillName,
+  )
+
+  return etagsByRelativeKey(normalized, objects)
+}
+
 export function mutationError(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
