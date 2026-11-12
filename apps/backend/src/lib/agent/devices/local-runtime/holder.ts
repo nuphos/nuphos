@@ -5,11 +5,12 @@ import { logEvent } from '@/lib/observability'
 import { reportedAgents } from '../agent-registry'
 
 import { RUNTIME_PRESENCE_HEARTBEAT_MS } from './presence'
-import { desktopFrameSchema, holderChannel, parseJson, streamChannel } from './protocol'
+import { desktopFrameSchema, holderChannel, parseJson } from './protocol'
+import { streamRelay } from './stream-relay'
 
 import type { RuntimeTunnel, TunnelConnection, TunnelHolderDeps } from './holder-types'
 import type { BoxMetrics } from '../metrics-schema'
-import type { HolderMessage, LocalRuntimeStatus, StreamMessage } from './protocol'
+import type { HolderMessage, LocalRuntimeStatus } from './protocol'
 
 export type { RuntimeTunnel, TunnelConnection, TunnelHolderDeps } from './holder-types'
 
@@ -57,8 +58,7 @@ export async function attachRuntimeTunnel(
   let heartbeat: ReturnType<typeof setInterval> | undefined
   let unsubscribe = () => {}
 
-  const toStream = (s: string, message: StreamMessage) =>
-    deps.bus.publish(streamChannel(s), JSON.stringify(message)).catch(() => {})
+  const { toStream, toComputer } = streamRelay(deps.bus, streams, connection)
   const refreshPresence = () =>
     deps.presence
       .put(userId, deviceId, {
@@ -175,7 +175,7 @@ export async function attachRuntimeTunnel(
 
         return
       case 'data':
-        if (streams.has(message.s)) connection.send({ t: 'data', s: message.s, d: message.d })
+        toComputer(message.s, message.d)
 
         return
       case 'close':
