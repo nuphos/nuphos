@@ -63,7 +63,7 @@ export function MediaPreview({
         aria-label={t('Preview {name}', { name })}
         className={clsx(
           MEDIA_FRAME,
-          'flex cursor-zoom-in items-center justify-center text-red-500',
+          'flex cursor-zoom-in items-center justify-center text-status-danger',
         )}
       >
         <FileText className="h-6 w-6" />

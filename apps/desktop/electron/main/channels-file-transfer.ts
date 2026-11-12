@@ -20,7 +20,13 @@ export const fileTransferReadChannels = {
       fileId: string
       maxBytes: number
     },
-  ) => fileTransfer.readOne({ ...args, maxBytes: Math.min(args.maxBytes, READ_BYTES_MAX) }),
+  ) =>
+    fileTransfer.readOne({
+      ...args,
+      maxBytes: Number.isFinite(args.maxBytes)
+        ? Math.min(args.maxBytes, READ_BYTES_MAX)
+        : READ_BYTES_MAX,
+    }),
   'fileTransfer:revealInFolder': (_e: IpcMainInvokeEvent, path: string) => {
     if (path) shell.showItemInFolder(path)
   },
