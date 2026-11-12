@@ -15,6 +15,7 @@ import type {
   LocalSkillInfo,
   PastedAttachmentPayload,
 } from './app-types.ts'
+import type { LoginItemState } from './device-types.ts'
 import type {
   GithubSkillCandidate,
   GithubSkillPreview,
@@ -93,6 +94,8 @@ export type WindowAppApi = {
   appSetNativeTheme(source: 'system' | 'light' | 'dark'): Promise<void>
   appGetAppIcon(): Promise<string>
   appSetAppIcon(icon: string): Promise<void>
+  appGetLoginItem(): Promise<LoginItemState>
+  appSetLoginItem(openAtLogin: boolean): Promise<LoginItemState>
   onNativeThemeUpdated(cb: (payload: { shouldUseDarkColors: boolean }) => void): () => void
   getZoomFactor(): number
   notifyZoom(): void

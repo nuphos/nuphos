@@ -98,6 +98,9 @@ export type SleepState = SleepPreferences & {
   reason: 'unsupported' | 'off' | 'battery' | 'signed-out' | 'idle' | 'active'
 }
 
+/** Whether the OS opens Nuphos at login (macOS and Windows releases only). */
+export type LoginItemState = { supported: boolean; openAtLogin: boolean }
+
 export type LocalRuntimeState = {
   detectionDisabled?: boolean
   sleepPrevention?: SleepState
