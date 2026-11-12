@@ -127,3 +127,47 @@ test('a finished row without a listed parent stays at the top level', () => {
     ['thread'],
   )
 })
+
+test('an open done group lists the finished children after the running ones', () => {
+  const rows = nestItems(
+    [
+      { key: 'parent' },
+      { key: 'finished', parentKey: 'parent', finished: true },
+      { key: 'running', parentKey: 'parent' },
+    ],
+    () => false,
+    (key) => key === 'parent',
+  )
+
+  assert.deepEqual(
+    rows.map(({ item, trail }) => [item.key, trail]),
+    [
+      ['parent', []],
+      ['running', [true]],
+      ['finished', [false]],
+    ],
+  )
+  // The count stays, so the group can be closed again.
+  assert.deepEqual(
+    rows[0]?.done.map((item) => item.key),
+    ['finished'],
+  )
+})
+
+test('a parent whose open done group holds every child can fold it', () => {
+  const rows = nestItems(
+    threads.filter((item) => item.key !== 'running'),
+    (key) => key === 'parent',
+    () => true,
+  )
+
+  assert.deepEqual(
+    rows.map(({ item, hasChildren, hidden, done }) => [
+      item.key,
+      hasChildren,
+      hidden.length,
+      done.length,
+    ]),
+    [['parent', true, 2, 0]],
+  )
+})

@@ -1,3 +1,5 @@
+import { doneGroup, nestItems } from './nest-items.ts'
+
 import type { Item, Section } from './types'
 import type { ReactNode } from 'react'
 
@@ -7,6 +9,27 @@ export const BOTS_SECTION = 'Channels'
 /** A Bot's nested task folds independently from its copy in Tasks. */
 export function foldKey(section: Pick<Section, 'title'>, key: string): string {
   return section.title === BOTS_SECTION ? `bots:${key}` : key
+}
+
+type Fold = Pick<Section, 'title' | 'defaultCollapsed'>
+
+/** A section's rows as nested, with its thread folds and done groups read and toggled by row key. */
+export function sectionFolds(
+  section: Pick<Section, 'title' | 'items'>,
+  isCollapsed: (fold: Fold) => boolean,
+  toggle?: (fold: Fold) => void,
+) {
+  const done = (key: string) => doneGroup(foldKey(section, key))
+  const folded = (key: string) => isCollapsed({ title: foldKey(section, key) })
+  const doneOpen = (key: string) => !isCollapsed(done(key))
+
+  return {
+    nest: () => nestItems(section.items, folded, doneOpen),
+    folded,
+    toggleFold: (key: string) => toggle?.({ title: foldKey(section, key) }),
+    doneOpen,
+    toggleDone: (key: string) => toggle?.(done(key)),
+  }
 }
 
 /** Bots holds chats and fallback Bot entries; Tasks holds ordinary sessions only. */

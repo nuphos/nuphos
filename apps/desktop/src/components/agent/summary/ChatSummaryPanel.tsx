@@ -234,7 +234,7 @@ function SummaryBody({
             <ChangesSection sessionId={sessionId} changes={changes} onOpen={onOpenLink} />
           )}
           {subAgents.length > 0 && (
-            <SubAgentsSection sessionId={sessionId} subAgents={subAgents} onOpen={onOpenSession} />
+            <SubAgentsSection subAgents={subAgents} onOpen={onOpenSession} />
           )}
           {conversation && <ChatSummaryEnvironment conversation={conversation} />}
           {outputs.length > 0 && (

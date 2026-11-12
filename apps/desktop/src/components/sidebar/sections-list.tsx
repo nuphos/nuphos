@@ -14,11 +14,10 @@ import {
 import { Kbd } from '../ui/kbd'
 
 import { BotsDropZone } from './bot-drop'
-import { BOTS_SECTION, foldKey } from './chat-sections'
+import { BOTS_SECTION, sectionFolds } from './chat-sections'
 import { FavoriteToggle } from './favorite-toggle'
 import { FoldedStatus } from './folded-status'
 import { NestedRowBody } from './nest-guides'
-import { nestItems } from './nest-items'
 import { SidebarSectionSkeleton } from './parts'
 import { RowDetail } from './row-detail'
 import { rowNote } from './row-note'
@@ -72,8 +71,7 @@ export function SidebarSectionList({
 }: SectionListProps) {
   // The Inbox row carries how many conversations wait on the viewer.
   const shown = useInboxBadge(scope.teamId, sections)
-  const collapsedIn = (section: Section) => (key: string) =>
-    isGroupCollapsed({ title: foldKey(section, key) })
+  const folds = (section: Section) => sectionFolds(section, isGroupCollapsed, toggleGroup)
 
   return (
     <>
@@ -132,8 +130,9 @@ export function SidebarSectionList({
                     {section.loading ? (
                       <SidebarSectionSkeleton />
                     ) : (
-                      nestItems(section.items, collapsedIn(section)).map(
-                        ({ item, trail, hasChildren, hidden, done }) => {
+                      folds(section)
+                        .nest()
+                        .map(({ item, trail, hasChildren, hidden, done }) => {
                           const Icon = item.icon
                           const leading = item.iconNode ?? (Icon && <SidebarNavIcon icon={Icon} />)
                           const isActive =
@@ -164,7 +163,7 @@ export function SidebarSectionList({
                           ) : null
                           // A thread parent folds its threads; the fold is remembered
                           // per team like a section's.
-                          const folded = hasChildren && collapsedIn(section)(item.key)
+                          const folded = hasChildren && folds(section).folded(item.key)
                           const foldToggle = hasChildren ? (
                             <span
                               role="button"
@@ -172,7 +171,7 @@ export function SidebarSectionList({
                               title={foldLabel(item, folded)}
                               onClick={(e) => {
                                 e.stopPropagation()
-                                toggleGroup({ title: foldKey(section, item.key) })
+                                folds(section).toggleFold(item.key)
                               }}
                               className={clsx(
                                 'flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded text-tertiary hover:text-main hover:bg-[var(--sidebar-overlay-hover)]',
@@ -228,7 +227,7 @@ export function SidebarSectionList({
                                 labelShimmer={item.labelShimmer}
                                 time={twoLine ? item.time : undefined}
                                 animateLabel={chatRow}
-                                note={rowNote(item, done)}
+                                note={rowNote(item, done, folds(section))}
                                 badge={item.badge}
                                 trailing={
                                   <>
@@ -281,8 +280,7 @@ export function SidebarSectionList({
                           ) : (
                             <div key={item.key}>{row}</div>
                           )
-                        },
-                      )
+                        })
                     )}
                   </div>
                 </div>
