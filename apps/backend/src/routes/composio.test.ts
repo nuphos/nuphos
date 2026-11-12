@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
 import { config } from '@/config'
+import * as composioClient from '@/lib/composio'
 import { mintPreviewMcpToken } from '@/lib/claude-code-preview/mcp-token'
 import { AppError } from '@/lib/errors'
 import { useAuthMiddleware } from '@/lib/test/doubles/auth-middleware'
@@ -104,21 +105,17 @@ const saveConfig = {
   publicBackendUrl: config.agent.publicBackendUrl,
   linearKey: config.byos.linear.encryptionKey,
 }
-const COMPOSIO = {
-  apiKey: 'composio-key',
-  gmailAuthConfigId: 'ac_gmail',
-  googleDriveAuthConfigId: 'ac_drive',
-}
-const noComposio = {
-  apiKey: undefined,
-  gmailAuthConfigId: undefined,
-  googleDriveAuthConfigId: undefined,
-}
+const COMPOSIO = { apiKey: 'composio-key' }
+const noComposio = { apiKey: undefined }
+const authConfigSpy = spyOn(composioClient, 'composioAuthConfigId').mockImplementation(
+  async (toolkit) => `ac_${toolkit}`,
+)
 
 Object.assign(config.agent, { publicBackendUrl: 'https://api.nuphos.test/' })
 // Seals a team-client grant's PKCE verifier.
 Object.assign(config.byos.linear, { encryptionKey: 'k' })
 afterAll(() => {
+  authConfigSpy.mockRestore()
   const { publicBackendUrl, linearKey, ...composio } = saveConfig
 
   Object.assign(config.byos.composio, composio)

@@ -1,6 +1,7 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterAll, afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test'
 
 import { config } from '@/config'
+import * as composioClient from '@/lib/composio'
 
 import {
   executeTrelloTool,
@@ -19,10 +20,13 @@ const account = {
   auth_config: { id: 'ac_trello' },
 }
 let calls: { url: string; init?: RequestInit }[]
+const authConfigSpy = spyOn(composioClient, 'composioAuthConfigId').mockResolvedValue('ac_trello')
+
+afterAll(() => authConfigSpy.mockRestore())
 
 beforeEach(() => {
   calls = []
-  Object.assign(config.byos.composio, { apiKey: 'fixture-key', trelloAuthConfigId: 'ac_trello' })
+  Object.assign(config.byos.composio, { apiKey: 'fixture-key' })
 })
 afterEach(() => {
   globalThis.fetch = realFetch

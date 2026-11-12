@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import { config } from '@/config'
-import { composioRequest } from '@/lib/composio'
+import { composioAuthConfigId, composioRequest } from '@/lib/composio'
 import { AppError } from '@/lib/errors'
 
 const VERSION = '20261104_00'
@@ -115,10 +115,8 @@ export function trelloToolArguments(tool: string, args: Record<string, unknown>)
   return parsed.data
 }
 
-export function trelloAuthConfig(): string {
-  const { apiKey, trelloAuthConfigId } = config.byos.composio
-
-  if (!apiKey || !trelloAuthConfigId) {
+function trelloAuthConfig(): Promise<string> {
+  if (!config.byos.composio.apiKey) {
     throw new AppError(
       503,
       'trello_not_configured',
@@ -126,14 +124,14 @@ export function trelloAuthConfig(): string {
     )
   }
 
-  return trelloAuthConfigId
+  return composioAuthConfigId('trello')
 }
 
 export async function trelloConnectLink(userId: string, callbackUrl: string) {
   const link = await composioRequest<{ redirect_url: string; connected_account_id: string }>(
     'POST',
     '/connected_accounts/link',
-    { auth_config_id: trelloAuthConfig(), user_id: userId, callback_url: callbackUrl },
+    { auth_config_id: await trelloAuthConfig(), user_id: userId, callback_url: callbackUrl },
   )
 
   if (
@@ -174,7 +172,7 @@ export async function verifyTrelloConnection(accountId: string, userId: string) 
     account.status !== 'ACTIVE' ||
     account.user_id !== userId ||
     account.toolkit?.slug !== 'trello' ||
-    account.auth_config?.id !== trelloAuthConfig()
+    account.auth_config?.id !== (await trelloAuthConfig())
   ) {
     throw new AppError(
       403,
