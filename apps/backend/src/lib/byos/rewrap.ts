@@ -1,4 +1,5 @@
 import { sealers } from '@/lib/byos/secrets'
+import { users } from '@/lib/identity/shared'
 import { sealerOf } from '@/lib/personal-credentials/seal'
 import { personalCredentials, teamByosBindings } from '@/models'
 
@@ -151,6 +152,11 @@ export async function rewrapByokSecrets(options: {
         field.startsWith('encrypted')
           ? sealerOf(doc.provider as PersonalCredentialProvider)
           : undefined,
+      options.dryRun,
+    ),
+    users: await rewrapCollection(
+      users() as unknown as Collection,
+      () => (field) => (field === 'mfa' || field === 'mfaPending' ? 'mfa' : undefined),
       options.dryRun,
     ),
   }

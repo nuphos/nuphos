@@ -2,6 +2,8 @@ import { localShareCeiling } from '@/lib/agent/devices/local-share-types'
 import { runtimeProvider } from '@/lib/claude-code-preview/runtime-provider'
 import { db } from '@/lib/db'
 
+import type { UserMfa, UserMfaPending } from '@/lib/identity/mfa'
+import type { SignupSource } from '@/lib/identity/signup-source'
 import type {
   NuphosTeam,
   NuphosTeamRole,
@@ -10,7 +12,6 @@ import type {
   TeamBillingSummary,
 } from '@/lib/identity/types'
 import type { Collection, ObjectId } from 'mongodb'
-import type { SignupSource } from '@/lib/identity/signup-source'
 
 export type NuphosUserDoc = {
   _id: ObjectId
@@ -27,6 +28,10 @@ export type NuphosUserDoc = {
   googleID?: string
   /** Where the account came from, set once at signup (signup-source.ts). */
   signupSource?: SignupSource
+  /** Optional two-factor authentication (mfa.ts). */
+  mfa?: UserMfa
+  mfaPending?: UserMfaPending
+  mfaFailures?: { count: number; since: Date }
   createdAt: Date
   updatedAt: Date
   deletedAt?: Date

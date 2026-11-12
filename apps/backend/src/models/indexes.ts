@@ -32,6 +32,7 @@ import { setupEmailOtpIndexes } from '@/lib/email-otp'
 import { setupIdentityIndexes } from '@/lib/identity'
 import { setupCliTokenIndexes } from '@/lib/identity/cli-tokens'
 import { setupDeviceLoginIndexes } from '@/lib/identity/device-login'
+import { setupMfaChallengeIndexes } from '@/lib/identity/mfa'
 import { setupPasswordIndexes } from '@/lib/identity/password'
 import { setupUserSessionIndexes } from '@/lib/identity/sessions'
 import { setupSocialAuthIndexes } from '@/lib/identity/social-store'
@@ -87,6 +88,7 @@ export async function setupIndexes(): Promise<void> {
     ['social-auth', setupSocialAuthIndexes],
     ['cli-tokens', setupCliTokenIndexes],
     ['user-sessions', setupUserSessionIndexes],
+    ['mfa-challenges', setupMfaChallengeIndexes],
     ['device-login', setupDeviceLoginIndexes],
     ['runtime-login', setupRuntimeLoginIndexes],
     ['hosted-runtime-slots', setupHostedRuntimeSlotIndexes],

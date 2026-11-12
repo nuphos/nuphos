@@ -96,6 +96,13 @@ export const sealers = {
     keyId: () => config.byos.notion.encryptionKeyId,
     recovery: 'Re-bind the Notion integration.',
   }),
+  // Two-factor secrets are the account's own, but need no key of their own either.
+  mfa: createSealer({
+    subject: 'two-factor authentication secret',
+    keyEnvs: [LINODE, CLOUDFLARE],
+    keyId: () => config.byos.linode.encryptionKeyId,
+    recovery: 'Ask support to reset two-factor authentication on the account.',
+  }),
   // On-prem kubeconfigs share the Linode key: both are customer-issued secrets.
   onprem: createSealer({
     subject: 'on-prem cluster kubeconfig',
