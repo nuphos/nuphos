@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react'
 
 import { t } from '../../i18n'
 
+import { AddProjectButton } from './project-actions'
 import { SidebarSectionList } from './sections-list'
 import { SidebarArchiveSection } from './SidebarArchiveSection'
 import { SidebarBotPins } from './SidebarBotPins'
@@ -63,14 +64,17 @@ export function SidebarPageList({
         {page === 0 ? (
           source[0]?.action
         ) : (
-          <button
-            title={t('New task')}
-            aria-label={t('New task')}
-            onClick={() => listProps.onSelect('team.agent')}
-            className="flex size-7 items-center justify-center rounded-lg text-tertiary hover:bg-state-hover hover:text-main"
-          >
-            <Plus className="size-4" strokeWidth={1.8} />
-          </button>
+          <div className="ml-auto flex items-center gap-1">
+            <AddProjectButton teamId={listProps.scope.teamId} />
+            <button
+              title={t('New task')}
+              aria-label={t('New task')}
+              onClick={() => listProps.onSelect('team.agent')}
+              className="flex size-7 items-center justify-center rounded-lg text-tertiary hover:bg-state-hover hover:text-main"
+            >
+              <Plus className="size-4" strokeWidth={1.8} />
+            </button>
+          </div>
         )}
       </div>
       <nav
