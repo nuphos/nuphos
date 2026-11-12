@@ -56,6 +56,8 @@ export const appApi = {
   appSetNativeTheme: (source: 'system' | 'light' | 'dark') => window.api.appSetNativeTheme(source),
   appGetAppIcon: () => window.api.appGetAppIcon(),
   appSetAppIcon: (icon: string) => window.api.appSetAppIcon(icon),
+  appGetLoginItem: () => window.api.appGetLoginItem(),
+  appSetLoginItem: (openAtLogin: boolean) => window.api.appSetLoginItem(openAtLogin),
   onNativeThemeUpdated: (cb: (payload: { shouldUseDarkColors: boolean }) => void) =>
     window.api.onNativeThemeUpdated?.(cb) ?? (() => {}),
   appHideWindow: () => window.api.appHideWindow(),

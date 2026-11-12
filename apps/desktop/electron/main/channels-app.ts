@@ -23,6 +23,7 @@ import { importLocalSession } from '../agent/local-session-import'
 import { listLocalAgentSessions, validateLocalSessionSource } from './local-sessions'
 import { openExternal } from './open-external'
 import { readAppIcon, setAppIcon } from './app-icon'
+import { readLoginItem, writeLoginItem } from './login-item'
 import { writePersistedThemeSource } from './theme'
 import { checkForUpdates, getUpdaterState, installUpdate } from './updater'
 import { mostRecentlyFocusedVisibleAppWindow } from './windows'
@@ -92,6 +93,9 @@ export const appChannels = {
   },
   'app:getAppIcon': () => readAppIcon(),
   'app:setAppIcon': (_e: unknown, icon: string) => setAppIcon(icon),
+  'app:getLoginItem': () => readLoginItem(app, process.platform),
+  'app:setLoginItem': (_e: unknown, openAtLogin: unknown) =>
+    writeLoginItem(app, process.platform, openAtLogin),
   'app:hideWindow': (e: IpcMainInvokeEvent) => {
     const win = BrowserWindow.fromWebContents(e.sender)
 
