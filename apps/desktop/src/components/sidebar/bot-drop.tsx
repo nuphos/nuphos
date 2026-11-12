@@ -10,10 +10,8 @@ import type { ReactNode } from 'react'
 export const MAKE_BOT_DRAG_TYPE = 'application/x-nuphos-make-bot'
 /**
  * Bots as a drop target: a Task dropped on it becomes a Bot, as "Make this a
- * Bot" does. The Task keeps running and stays in Tasks; it gains a face and a
- * chat here, so the drop copies rather than moves. While such a drag is under
- * way the group shows where to drop; over any part of it, it lights up. Other
- * groups render as a plain wrapper.
+ * Bot" does. It keeps running, gains a face and chat, and moves out of Tasks.
+ * While dragging, the group shows where to drop and lights up on hover.
  */
 export function BotsDropZone({
   enabled,
@@ -77,7 +75,7 @@ export function BotsDropZone({
       onDragOver={(event) => {
         if (!event.dataTransfer.types.includes(type)) return
         event.preventDefault()
-        event.dataTransfer.dropEffect = 'copy'
+        event.dataTransfer.dropEffect = 'move'
       }}
       onDragLeave={(event) => {
         if (!event.dataTransfer.types.includes(type)) return
@@ -111,9 +109,6 @@ export function BotsDropZone({
             >
               <span className="flex flex-col items-center leading-tight">
                 <span>{t('Drop to make it a Bot')}</span>
-                <span className="text-[11.5px] text-tertiary">
-                  {t('It keeps running in Tasks')}
-                </span>
               </span>
             </div>
           </div>

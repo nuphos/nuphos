@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { withChatSections } from './chat-sections.ts'
+import { foldKey, withChatSections } from './chat-sections.ts'
+import { nestItems } from './nest-items.ts'
 
 import type { Item, Section } from './types'
 
@@ -37,7 +38,7 @@ const layout = (sections: Section[]) =>
 const build = (agents: Item[]) =>
   layout(withChatSections([{ items: [] }, { title: 'Agents', items: agents }]))
 
-test('Bots holds group chats and Bots in the list order; Tasks holds every session', () => {
+test('Bots holds group chats and Bots in the list order; Tasks holds only ordinary sessions', () => {
   const agents = [
     row('newest-task'),
     row('zeta', { bot: true }),
@@ -49,7 +50,7 @@ test('Bots holds group chats and Bots in the list order; Tasks holds every sessi
   assert.deepEqual(build(agents), {
     '': [],
     Channels: ['zeta', 'group', 'alpha'],
-    Tasks: ['newest-task', 'zeta', 'older-task', 'alpha'],
+    Tasks: ['newest-task', 'older-task'],
   })
 })
 
@@ -64,11 +65,11 @@ test('a Bot with its chat is listed as that chat; its Tasks are under Tasks', ()
   assert.deepEqual(build(agents), {
     '': [],
     Channels: ['agent-session:dm', 'agent-session:new'],
-    Tasks: ['agent-session:ada', 'task-of-ada', 'agent-session:new'],
+    Tasks: ['task-of-ada'],
   })
 })
 
-test("a teammate's Bot without a chat stays a Task: only its owner can bring it into one", () => {
+test("a teammate's Bot without a chat keeps a Bots entry without creating a chat", () => {
   const agents = [
     row('agent-session:mine', { bot: true }),
     row('agent-session:theirs', { bot: true, readOnlyChat: true }),
@@ -76,8 +77,7 @@ test("a teammate's Bot without a chat stays a Task: only its owner can bring it 
 
   assert.deepEqual(build(agents), {
     '': [],
-    Channels: ['agent-session:mine'],
-    Tasks: ['agent-session:mine', 'agent-session:theirs'],
+    Channels: ['agent-session:mine', 'agent-session:theirs'],
   })
 })
 
@@ -105,7 +105,7 @@ test('a chat drops its linked-work line; a Task keeps it', () => {
 
   assert.deepEqual(
     sections.map((section) => section.items.map((item) => item.description)),
-    [[undefined], ['PR', 'PR']],
+    [[undefined], ['PR']],
   )
 })
 
@@ -127,7 +127,6 @@ test('inviting a human into a Bot chat does not expose the fallback Bot row', ()
   assert.deepEqual(build([group, row('agent-session:ada', { bot: true })]), {
     '': [],
     Channels: ['group'],
-    Tasks: ['agent-session:ada'],
   })
 })
 
@@ -144,24 +143,69 @@ test('a group with several agents suppresses each fallback without hiding other 
     {
       '': [],
       Channels: ['group', 'agent-session:new'],
-      Tasks: ['agent-session:ada', 'agent-session:venus', 'agent-session:new'],
     },
   )
 })
 
-test('a Bot task chat link keeps its actual provider as it switches runtimes', () => {
-  for (const provider of ['codex', 'grok', undefined] as const) {
-    const sections = withChatSections([
-      {
-        title: 'Agents',
-        items: [
-          { ...row('agent-session:bot', { bot: true }), provider },
-          row('agent-session:chat', { channel: true, botChannelOf: 'bot' }),
-        ],
-      },
-    ])
-    const task = sections.find((section) => section.title === 'Tasks')?.items[0]
+test('project grouping receives ordinary Tasks only', () => {
+  const received: Item[][] = []
 
-    assert.equal(task?.botChat?.provider, provider)
-  }
+  withChatSections(
+    [{ title: 'Agents', items: [row('bot', { bot: true }), row('task')] }],
+    undefined,
+    (tasks) => {
+      received.push(tasks)
+
+      return tasks
+    },
+  )
+  assert.deepEqual(
+    received[0]?.map((item) => item.key),
+    ['task'],
+  )
+})
+
+test('a read-only Bot fallback does not try to create a chat', () => {
+  const sections = withChatSections(
+    [{ title: 'Agents', items: [row('bot', { bot: true, readOnlyChat: true })] }],
+    () => assert.fail('only the owner can create the chat'),
+  )
+
+  assert.equal(sections[0]?.items[0]?.onActivate, undefined)
+})
+
+test('delegated Tasks remain visible when their Bot parent is hidden', () => {
+  const sections = withChatSections([
+    {
+      title: 'Agents',
+      items: [
+        row('agent-session:bot', { bot: true }),
+        row('child', { parentKey: 'agent-session:bot' }),
+      ],
+    },
+  ])
+  const tasks = sections.find((section) => section.title === 'Tasks')
+
+  assert.ok(tasks)
+  assert.deepEqual(
+    nestItems(tasks.items).map(({ item, depth }) => [item.key, depth]),
+    [['child', 0]],
+  )
+})
+
+test('Bot-nested task copies stay under Bots without duplicating ordinary Tasks', () => {
+  const sections = withChatSections([
+    {
+      title: 'Agents',
+      items: [
+        row('bot', { bot: true }),
+        row('child'),
+        { ...row('nested-child', { parentKey: 'bot' }), botNested: true },
+      ],
+    },
+  ])
+
+  assert.deepEqual(layout(sections), { Channels: ['bot', 'nested-child'], Tasks: ['child'] })
+  assert.equal(foldKey({ title: 'Channels' }, 'child'), 'bots:child')
+  assert.equal(foldKey({ title: 'Tasks' }, 'child'), 'child')
 })

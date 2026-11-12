@@ -19,10 +19,9 @@ import { usePaletteCommand } from './usePaletteCommand'
 import { useWorkspaceController } from './useWorkspaceController'
 import { useWorkspaceTabMigrations } from './useWorkspaceTabMigrations'
 import { WorkspaceBindDialogs } from './WorkspaceBindDialogs'
-import { WorkspaceDockPanels } from './WorkspaceDockPanels'
+import { WorkspaceConversationSurface } from './WorkspaceConversationSurface'
 import { useWorkspacePane } from './WorkspacePaneContext'
 import { WorkspaceSearch } from './WorkspaceSearch'
-import { WorkspaceSessionPane } from './WorkspaceSessionPane'
 import { WorkspaceSplits } from './WorkspaceSplits'
 
 import type { WorkspaceProps } from './workspaceProps'
@@ -236,16 +235,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
         <div className="relative flex min-h-0 flex-1">
           {pane?.active ? <ActivePaneSidebar pane={pane} ws={ws} user={user} /> : null}
           <div className="flex-1 flex flex-col min-w-0">
-            <div className="flex flex-1 min-h-0 min-w-0">
-              <WorkspaceSessionPane
-                ws={ws}
-                user={user}
-                workspaceExpanded={ws.workspaceDockExpanded || ws.mainPageOpen}
-              />
-              {/* One column in both modes: a management page takes the dock's
-                  place, and the dock keeps the browser panes mounted inside it. */}
-              <WorkspaceDockPanels ws={ws} user={user} />
-            </div>
+            <WorkspaceConversationSurface ws={ws} user={user} />
           </div>
         </div>
         <PortForwardBottomBar />

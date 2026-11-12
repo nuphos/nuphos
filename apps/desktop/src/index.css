@@ -2482,3 +2482,20 @@ html.light .workspace-desk {
     animation: none;
   }
 }
+
+/* Temporary Bot work enters and leaves over the preserved conversation. */
+.t-bot-task-mode {
+  transform: translateX(100%);
+  transition: transform var(--resize-dur) var(--resize-ease);
+}
+.t-bot-task-mode[data-open='true'] {
+  transform: translateX(0);
+  @starting-style {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-bot-task-mode {
+    transition: none;
+  }
+}

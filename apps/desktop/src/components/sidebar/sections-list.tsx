@@ -13,7 +13,6 @@ import {
 } from '../SidebarNavItem'
 import { Kbd } from '../ui/kbd'
 
-import { BotChatLink } from './bot-chat-link'
 import { BotsDropZone } from './bot-drop'
 import { BOTS_SECTION, foldKey } from './chat-sections'
 import { FavoriteToggle } from './favorite-toggle'
@@ -234,9 +233,6 @@ export function SidebarSectionList({
                                 trailing={
                                   <>
                                     {item.trailing}
-                                    {item.botChat && (
-                                      <BotChatLink link={item.botChat} onSelect={onSelect} />
-                                    )}
                                     <FoldedStatus rows={hidden} />
                                   </>
                                 }

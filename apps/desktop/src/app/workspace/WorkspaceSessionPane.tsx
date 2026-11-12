@@ -16,10 +16,12 @@ export function WorkspaceSessionPane({
   ws,
   user,
   workspaceExpanded = false,
+  onOpenTask,
 }: {
   ws: WorkspaceController
   user: UserInfo
   workspaceExpanded?: boolean
+  onOpenTask?: (sessionId: string) => void
 }) {
   const teamId = ws.scope?.teamId
   const sessionId = ws.selectedSessionId
@@ -55,6 +57,7 @@ export function WorkspaceSessionPane({
         // carries the sidebar's toggle, as an agent's pane does.
         titlebarLeading={<CornerSidebarToggle />}
         titlebarClassName={cornerPane ? CORNER_TITLEBAR_CLASS : undefined}
+        onOpenTask={onOpenTask}
         onOpenSession={(agentId) => ws.workspaceActions.selectSession(agentId, { teamId })}
         onOpenNuphosLink={ws.stableOpenNuphosLinkFromChat}
       />
