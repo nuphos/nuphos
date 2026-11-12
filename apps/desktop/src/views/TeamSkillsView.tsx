@@ -168,7 +168,9 @@ export function TeamSkillsView({
       {importSlot &&
         createPortal(
           <>
-            <div className="flex items-center rounded-md bg-state-selected p-0.5">
+            {/* The same pills as the Audit log's filters: on the bare toolbar, so the
+                selected one's fill is the only fill and reads as selected. */}
+            <div className="flex items-center gap-1">
               {SCOPES.map((option) => (
                 <button
                   key={option.scope}
@@ -177,10 +179,10 @@ export function TeamSkillsView({
                   title={option.title}
                   onClick={() => setScope(option.scope)}
                   className={clsx(
-                    'h-6 px-2 rounded text-[12px]',
+                    'rounded-full px-2.5 py-1 text-[12px] transition-colors',
                     scope === option.scope
                       ? 'bg-surface-sunken text-main'
-                      : 'text-secondary hover:text-main',
+                      : 'text-tertiary hover:text-secondary',
                   )}
                 >
                   {option.label}
