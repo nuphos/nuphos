@@ -45,6 +45,7 @@ describe('parseGithubSource', () => {
     'owner/repo/../../etc',
     'owner/repo#../main',
     'owner/repo#main.lock',
+    'owner/repo#%2e%2e/%2e%2e/other/name/tar.gz/HEAD',
     'owner/repo#a b',
     'owner/repo#x@{1}',
     'https://github.com/owner/repo/tree/main/%2e%2e/etc',

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { discoverSkills } from './discover'
+import { discoverSkills, FRONTMATTER_BYTES } from './discover'
 
 const skill = (name: string, description = `${name} skill`) =>
   `---\nname: ${name}\ndescription: ${description}\n---\n\nBody\n`
@@ -38,6 +38,26 @@ describe('discoverSkills', () => {
     )
 
     expect(found.map((s) => s.name)).toEqual(['docx'])
+  })
+
+  test('reads frontmatter only from the start of SKILL.md', () => {
+    const padded = `${skill('big')}${'x'.repeat(FRONTMATTER_BYTES)}`
+    const late = `${'\n'.repeat(FRONTMATTER_BYTES)}${skill('late')}`
+    const unclosed = `---\nname: open\ndescription: ${'y'.repeat(FRONTMATTER_BYTES)}\n---\n`
+    const found = discoverSkills(
+      files({
+        'skills/big/SKILL.md': padded,
+        'skills/late/SKILL.md': late,
+        'skills/open/SKILL.md': unclosed,
+      }),
+      null,
+    )
+
+    expect(found.map((s) => [s.name, s.malformed])).toEqual([
+      ['big', false],
+      ['late', true],
+      ['open', true],
+    ])
   })
 
   test('falls back to a deep search and flags SKILL.md without frontmatter', () => {

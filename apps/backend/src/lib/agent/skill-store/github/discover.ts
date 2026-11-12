@@ -27,6 +27,9 @@ const CONTAINERS = [
 ]
 const CONTAINER_DEPTH = 3
 const FALLBACK_DEPTH = 5
+
+/** Frontmatter must open SKILL.md; nothing past this is parsed during discovery. */
+export const FRONTMATTER_BYTES = 64 * 1024
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '__pycache__'])
 
 const join = (dir: string, name: string) => (dir ? `${dir}/${name}` : name)
@@ -47,8 +50,9 @@ function childDirs(files: Iterable<string>): Map<string, Set<string>> {
   return children
 }
 
-function frontmatter(markdown: string): { name?: unknown; description?: unknown } {
-  const raw = /^---\r?\n([\s\S]*?)\r?\n---/.exec(markdown)?.[1]
+function frontmatter(skillMd: Uint8Array | undefined): { name?: unknown; description?: unknown } {
+  const head = new TextDecoder().decode(skillMd?.subarray(0, FRONTMATTER_BYTES))
+  const raw = /^---\r?\n([\s\S]*?)\r?\n---/.exec(head)?.[1]
 
   try {
     const parsed: unknown = raw ? yaml.parse(raw) : null
@@ -75,7 +79,7 @@ function filesByFolder(files: Map<string, Uint8Array>, folders: Set<string>) {
 }
 
 function readSkill(path: string, own: Map<string, Uint8Array>): DiscoveredSkill {
-  const meta = frontmatter(new TextDecoder().decode(own.get('SKILL.md')))
+  const meta = frontmatter(own.get('SKILL.md'))
   const name = typeof meta.name === 'string' ? meta.name.trim() : ''
   const description = typeof meta.description === 'string' ? meta.description.trim() : ''
 
