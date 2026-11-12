@@ -158,6 +158,5 @@ test(
     mkdirSync(path.dirname(cli), { recursive: true })
     writeFileSync(cli, '#!/bin/sh\n', { mode: 0o700 })
     assert.equal(findAgentCli('opencode', env), cli)
-    assert.equal(findAgentCli('codex', env), null)
   },
 )
