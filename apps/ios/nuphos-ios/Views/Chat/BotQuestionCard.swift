@@ -195,7 +195,6 @@ private struct DecisionForm: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
                 .disabled(answers.contains { $0.isEmpty })
-                .accessibilityIdentifier("botQuestion.sendAnswer")
         }
     }
 }
