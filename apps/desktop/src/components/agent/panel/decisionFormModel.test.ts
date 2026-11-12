@@ -2,7 +2,14 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { decisionAnswers } from './decisionAnswers.ts'
-import { answerText, answersForm, formQuestions, formReply, ownBody } from './decisionFormModel.ts'
+import {
+  answerText,
+  answersForm,
+  formQuestions,
+  formReply,
+  ownBody,
+  writtenQuestions,
+} from './decisionFormModel.ts'
 
 import type { Message } from './model.ts'
 
@@ -37,17 +44,20 @@ test('the reply is a lone answer as is, or each question followed by its answer'
   )
 })
 
-test('a card with questions shows the body the agent wrote, not the list written out for older clients', () => {
-  const written = 'Context.\n\n---\n\n**1. Which regions?**\n- us'
+test('a card with questions drops only the list the backend wrote out, never a `---` of its own', () => {
+  const written = `Context.${writtenQuestions([regions, keep])}`
 
-  assert.equal(ownBody(written, [regions, keep]), 'Context.')
-  assert.equal(ownBody('\n\n---\n\n**1. Which regions?**', [regions, keep]), undefined)
-  assert.equal(ownBody(written, undefined), written)
-  // The agent's own separators stay: only the list the backend appends last is dropped.
   assert.equal(
-    ownBody('Findings.\n\n---\n\nRisks.\n\n---\n\n**1. Which regions?**', [regions, keep]),
-    'Findings.\n\n---\n\nRisks.',
+    written,
+    'Context.\n\n---\n\n**1. Which regions?** (any number)\n- us\n- eu\n- ap\n\n**2. Keep the old cluster?**\n- Keep\n- Delete',
   )
+  assert.equal(ownBody(written, [regions, keep]), 'Context.')
+  assert.equal(ownBody(writtenQuestions([regions, keep]), [regions, keep]), undefined)
+  assert.equal(ownBody(written, undefined), written)
+  // The raw call input has no list: the agent's own separators and what follows them stay.
+  const own = 'Findings.\n\n---\n\nRisks.'
+  assert.equal(ownBody(own, [regions, keep]), own)
+  assert.equal(ownBody(`${own}${writtenQuestions([regions, keep])}`, [regions, keep]), own)
 })
 
 test("a form's reply marks its card answered in the transcript", () => {

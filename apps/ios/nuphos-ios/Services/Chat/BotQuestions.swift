@@ -48,13 +48,26 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
         return zip(questions, answers).map { "\($0.question)\n\($1)" }.joined(separator: "\n\n")
     }
 
-    /// The body the agent wrote, without the questions the backend writes out after the last
-    /// separator for clients that do not render `questions`.
+    /// The backend's `writtenQuestions`: the questions as markdown after a `---` separator, one line each.
+    static func writtenQuestions(_ questions: [AgentConversation.DecisionQuestion]) -> String {
+        func line(_ text: String) -> String { text.split(whereSeparator: \.isWhitespace).joined(separator: " ") }
+        let list = questions.enumerated().map { index, item in
+            (["**\(index + 1). \(line(item.question))**" + (item.multiSelect == true ? " (any number)" : "")]
+                + (item.options ?? []).map { "- \(line($0))" }).joined(separator: "\n")
+        }
+        return "\n\n---\n\n" + list.joined(separator: "\n\n")
+    }
+
+    /// The body the agent wrote, without the list the backend writes out after it for clients that
+    /// do not render `questions`: dropped only when the body ends with exactly that list, so a `---`
+    /// of the agent's own always stays.
     var ownBody: String? {
-        guard let body = request.body?.trimmingCharacters(in: .whitespacesAndNewlines), !body.isEmpty else { return nil }
-        guard request.questions?.isEmpty == false, let end = body.range(of: "\n\n---\n\n", options: .backwards)
-        else { return body }
-        let own = body[..<end.lowerBound].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard var body = request.body else { return nil }
+        if let questions = request.questions, !questions.isEmpty {
+            let written = Self.writtenQuestions(questions)
+            if body.hasSuffix(written) { body = String(body.dropLast(written.count)) }
+        }
+        let own = body.trimmingCharacters(in: .whitespacesAndNewlines)
         return own.isEmpty ? nil : own
     }
 

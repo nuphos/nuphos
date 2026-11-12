@@ -131,23 +131,16 @@ export function integrationTargetProblem(input: {
   return null
 }
 
-/** Where a card's own body ends and its questions, written out for older clients, begin. */
-export const QUESTIONS_SEPARATOR = '\n\n---\n\n'
+type WrittenQuestion = { question: string; options?: string[]; multiSelect?: boolean }
 
 /**
- * A card's body with its `questions` written out after it, so a client that
- * draws only `question` and `body` still shows what is asked. Clients that
- * render `questions` drop everything after the last separator: the list is
- * written on single lines, so that separator is always the one added here,
- * and any the agent put in its own body stay.
+ * A card's questions written out as markdown after a `---` separator, for
+ * clients that draw only `question` and `body`. Each question and option is
+ * one line. Desktop and iOS build the same text to find and drop it.
  */
-export function withQuestionsInBody(input: {
-  body?: string
-  questions?: { question: string; options?: string[]; multiSelect?: boolean }[]
-}): string | undefined {
-  if (!input.questions?.length) return input.body
+export function writtenQuestions(questions: readonly WrittenQuestion[]): string {
   const line = (text: string) => text.replace(/\s+/g, ' ').trim()
-  const list = input.questions
+  const list = questions
     .map(({ question, options, multiSelect }, index) =>
       [
         `**${String(index + 1)}. ${line(question)}**${multiSelect ? ' (any number)' : ''}`,
@@ -156,14 +149,27 @@ export function withQuestionsInBody(input: {
     )
     .join('\n\n')
 
-  return `${input.body ?? ''}${QUESTIONS_SEPARATOR}${list}`
+  return `\n\n---\n\n${list}`
 }
 
-/** The body the agent wrote, without the questions written out after it. */
-export function ownBody(body: string | undefined): string | undefined {
-  const end = body?.lastIndexOf(QUESTIONS_SEPARATOR) ?? -1
+/** A card's body with its `questions` written out after it. */
+export function withQuestionsInBody(input: {
+  body?: string
+  questions?: readonly WrittenQuestion[]
+}): string | undefined {
+  if (!input.questions?.length) return input.body
 
-  return end < 0 ? body : body!.slice(0, end) || undefined
+  return `${input.body ?? ''}${writtenQuestions(input.questions)}`
+}
+
+/** The body the agent wrote: without its questions' written-out list, only when it ends with exactly that. */
+export function ownBody(
+  body: string | undefined,
+  questions: readonly WrittenQuestion[] | undefined,
+): string | undefined {
+  const written = questions?.length ? writtenQuestions(questions) : undefined
+
+  return written && body?.endsWith(written) ? body.slice(0, -written.length) || undefined : body
 }
 
 type UserDecisionDeps = {

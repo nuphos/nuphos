@@ -32,13 +32,17 @@ enum BotQuestionsTests {
         precondition(BotQuestion.formReply(form, answers: ["us, eu", "Keep"])
             == "Which regions?\nus, eu\n\nKeep the old cluster?\nKeep")
         precondition(BotQuestion.formReply([form[0]], answers: ["us"]) == "us")
-        precondition(several.ownBody == nil)
-        // The agent's own separators stay: only the list the backend appends last is dropped.
+        // Only the exact list the backend wrote out is dropped; a `---` of the agent's own stays.
+        precondition(BotQuestion.writtenQuestions(form) == "\n\n---\n\n**1. Which regions?** (any number)\n- us\n- eu\n\n**2. Keep the old cluster?**\n- Keep\n- Delete")
         var ruled = AgentConversation.InputRequest(id: "e", category: "preference", question: "Rollout",
                                                    options: nil, askedAt: nil)
-        ruled.body = "Findings.\n\n---\n\nRisks.\n\n---\n\n**1. Which regions?**"
         ruled.questions = form
+        ruled.body = "Findings.\n\n---\n\nRisks."
         precondition(ask(ruled).ownBody == "Findings.\n\n---\n\nRisks.")
+        ruled.body = "Findings.\n\n---\n\nRisks." + BotQuestion.writtenQuestions(form)
+        precondition(ask(ruled).ownBody == "Findings.\n\n---\n\nRisks.")
+        ruled.body = BotQuestion.writtenQuestions(form)
+        precondition(ask(ruled).ownBody == nil)
         var secret = AgentConversation.InputRequest(id: "d", category: "credential", question: "Which key?",
                                                     options: ["a", "b"], askedAt: nil)
         secret.multiSelect = true

@@ -21,18 +21,35 @@ export function formQuestions(card: DecisionFormInput): DecisionQuestion[] | nul
   return null
 }
 
+/** The backend's `writtenQuestions`: the questions as markdown after a `---` separator, one line each. */
+export function writtenQuestions(questions: readonly DecisionQuestion[]): string {
+  const line = (text: string) => text.replace(/\s+/g, ' ').trim()
+  const list = questions
+    .map(({ question, options, multiSelect }, index) =>
+      [
+        `**${String(index + 1)}. ${line(question)}**${multiSelect ? ' (any number)' : ''}`,
+        ...options.map((option) => `- ${line(option)}`),
+      ].join('\n'),
+    )
+    .join('\n\n')
+
+  return `\n\n---\n\n${list}`
+}
+
 /**
- * The body the agent wrote, without the questions the backend writes out after
- * the last separator for clients that do not render `questions`.
+ * The body the agent wrote, without the list the backend writes out after it
+ * for clients that do not render `questions`: dropped only when the body ends
+ * with exactly that list, so a `---` of the agent's own always stays.
  */
 export function ownBody(
   body: string | undefined,
   questions: readonly DecisionQuestion[] | undefined,
 ) {
-  if (!body || !questions?.length) return body
-  const end = body.lastIndexOf('\n\n---\n\n')
+  const written = questions?.length ? writtenQuestions(questions) : undefined
 
-  return end < 0 ? body : body.slice(0, end).trim() || undefined
+  return written && body?.endsWith(written)
+    ? body.slice(0, -written.length).trim() || undefined
+    : body
 }
 
 /** One question's answer in words: its picked options, or what was typed in their place. */

@@ -68,7 +68,10 @@ export async function updateInputRequest(
     if (questions?.length)
       patch = {
         ...patch,
-        body: withQuestionsInBody({ body: patch.body ?? ownBody(stored.body), questions }),
+        body: withQuestionsInBody({
+          body: patch.body ?? ownBody(stored.body, stored.questions),
+          questions,
+        }),
       }
   }
   const set = Object.fromEntries(
