@@ -60,6 +60,19 @@ describe('discoverSkills', () => {
     ])
   })
 
+  test('indexes a full-size tree at the depth limit quickly', () => {
+    const dir = Array.from({ length: 31 }, (_, i) => `directory-${String(i)}`).join('/')
+    const deep = new Map<string, Uint8Array>(
+      Array.from({ length: 10_000 }, (_, i) => [`${dir}/f${String(i)}`, new Uint8Array()] as const),
+    )
+
+    deep.set('skills/pdf/SKILL.md', new TextEncoder().encode(skill('pdf')))
+    const started = performance.now()
+
+    expect(discoverSkills(deep, null).map((s) => s.name)).toEqual(['pdf'])
+    expect(performance.now() - started).toBeLessThan(2000)
+  })
+
   test('falls back to a deep search and flags SKILL.md without frontmatter', () => {
     const found = discoverSkills(
       files({
