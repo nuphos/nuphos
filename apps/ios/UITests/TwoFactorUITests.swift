@@ -24,8 +24,15 @@ final class TwoFactorUITests: XCTestCase {
     private func openTwoFactor(_ app: XCUIApplication) {
         XCTAssertTrue(app.buttons["Account"].waitForExistence(timeout: 15))
         app.buttons["Account"].tap()
-        let row = app.buttons["Two-factor authentication"]
-        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        tapRow("Two-factor authentication", in: app)
+    }
+
+    /// The account rows sit below the fold of the account sheet.
+    private func tapRow(_ label: String, in app: XCUIApplication) {
+        let row = app.buttons[label]
+        XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: 5))
+        for _ in 0..<6 where !row.isHittable { app.swipeUp() }
+        XCTAssertTrue(row.isHittable)
         row.tap()
     }
 
@@ -66,7 +73,7 @@ final class TwoFactorUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Turn off"].waitForExistence(timeout: 5))
         capture("Two-factor on")
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        app.buttons["Signed-in devices"].tap()
+        tapRow("Signed-in devices", in: app)
         XCTAssertTrue(app.navigationBars["Confirm it’s you"].waitForExistence(timeout: 5))
         capture("Step-up prompt")
     }
