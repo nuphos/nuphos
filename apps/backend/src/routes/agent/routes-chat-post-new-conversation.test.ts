@@ -4,7 +4,6 @@ import { beforeEach, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
 import { errorHandler } from '@/lib/errors'
-import { useAgentChatRuntime } from '@/lib/test/doubles/agent-chat-runtime'
 import { useAgentTranscript } from '@/lib/test/doubles/agent-transcript'
 import { useAuthMiddleware } from '@/lib/test/doubles/auth-middleware'
 import { useChatConversation } from '@/lib/test/doubles/chat-conversation'
@@ -12,6 +11,7 @@ import { useChatPreviewResume } from '@/lib/test/doubles/chat-preview-resume'
 import { useChatPreviewTurn } from '@/lib/test/doubles/chat-preview-turn'
 import { useChatSlackBound } from '@/lib/test/doubles/chat-slack-bound'
 import { useChatValidate } from '@/lib/test/doubles/chat-validate'
+import { useClaudeCodePreviewRuntime } from '@/lib/test/doubles/claude-code-preview-runtime'
 import { useSessionQueueSignIn } from '@/lib/test/doubles/session-queue-sign-in'
 import { useSessionQueueTurn } from '@/lib/test/doubles/session-queue-turn'
 import { useTeamScope } from '@/lib/test/doubles/team-scope'
@@ -39,7 +39,7 @@ useChatValidate({
   acceptClientTail: (body) => Promise.resolve(body.messages),
 })
 useSessionQueueSignIn({ queueForSignIn: () => Promise.resolve(null) })
-useAgentChatRuntime({
+useClaudeCodePreviewRuntime({
   resolveConversationChatRuntime: () =>
     Promise.resolve({ runtime: 'claude-code', endpoint: { url: 'ws://runtime', authKey: 'k' } }),
 })
