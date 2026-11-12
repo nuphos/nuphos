@@ -154,6 +154,8 @@ final class InboxUITests: XCTestCase {
         let rollout = InboxUITests.row(
             "agent-ops", "Release ops",
             ["id": "q-rollout", "category": "preference", "question": "How should the staging rollout go?",
+             // As the backend sends it: the questions written out after the separator for older clients.
+             "body": "The new build passed CI.\n\n---\n\n**1. Which regions should get it first?** (any number)\n- us-east\n- eu-west\n- ap-south\n\n**2. Keep the old cluster afterwards?**\n- Keep it for a week\n- Delete it\n\n**3. Anything the release note must mention?**",
              "questions": [
                 ["question": "Which regions should get it first?", "options": ["us-east", "eu-west", "ap-south"],
                  "multiSelect": true],
@@ -168,6 +170,8 @@ final class InboxUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["How should the staging rollout go?"].waitForExistence(timeout: 10),
                       "The question is not listed")
         shot("11-inbox-several-questions")
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "(any number)")).firstMatch.exists,
+                       "The list written out for older clients shows beside the form")
 
         // By label: the card's own identifier covers those inside it.
         let send = app.buttons["Send answer"]
