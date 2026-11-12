@@ -1,11 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { ShieldCheck } from 'lucide-react'
 
-import { api } from '../../api'
 import { BindingAccessSection } from '../../components/BindingAccess'
 import { SectionHeader } from '../../components/SectionHeader'
 import { t } from '../../i18n'
-import { queryKeys } from '../../lib/query/keys'
 import { useRefreshKey, useTabPollMs } from '../../lib/query/tabQuery'
 
 import {
@@ -14,6 +12,7 @@ import {
   LoadedDetailContentReveal,
 } from './detailPane'
 import { GcpBindingCard } from './GcpBindingCard'
+import { gcpPermissionsQuery } from './iamQueries'
 import {
   BindingWarnings,
   EffectivePermissions,
@@ -44,8 +43,7 @@ export function GcpIamPermissionsView({
   onClose?: () => void
 }) {
   const query = useQuery({
-    queryKey: queryKeys.iamPermissions(teamId, 'gcp', projectId, serviceAccountId),
-    queryFn: () => api.atlasGetGcpIamPermissions(teamId, projectId, serviceAccountId),
+    ...gcpPermissionsQuery(teamId, projectId, serviceAccountId),
     refetchInterval: useTabPollMs(),
   })
   const visibleData = query.data ?? null

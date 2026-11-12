@@ -3,15 +3,14 @@ import clsx from 'clsx'
 import { ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 
-import { api } from '../../api'
 import { SectionHeader } from '../../components/SectionHeader'
 import { Button } from '../../components/ui/button'
 import { t } from '../../i18n'
-import { queryKeys } from '../../lib/query/keys'
 import { useRefreshKey, useTabPollMs } from '../../lib/query/tabQuery'
 import { BindAccountDialog } from '../BindAccountDialog'
 
 import { formatExpiry } from './common'
+import { cloudflarePermissionsQuery } from './iamQueries'
 import { EmptyHint, ProviderSummaryCard, Warnings } from './permissionCards'
 import { SelfManagementCard } from './SelfManagementCard'
 
@@ -25,8 +24,7 @@ export function CloudflareIamPermissionsView({
 }: CommonProps & { accountId: string }) {
   const [reauthorizing, setReauthorizing] = useState(false)
   const query = useQuery({
-    queryKey: queryKeys.iamPermissions(teamId, 'cloudflare', accountId),
-    queryFn: () => api.atlasGetCloudflareIamPermissions(teamId, accountId),
+    ...cloudflarePermissionsQuery(teamId, accountId),
     refetchInterval: useTabPollMs(),
   })
   const data = query.data ?? null
