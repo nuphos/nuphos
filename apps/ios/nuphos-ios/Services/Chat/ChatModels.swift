@@ -297,6 +297,12 @@ enum ChatPart: Equatable, Sendable {
             return (name, input?["question"]?.stringValue ?? "")
         }
 
+        /// Native runtimes may name the call with its display label, so recognize the decision input.
+        var isProviderIntegrationRequest: Bool {
+            input?["category"]?.stringValue == "integration" && input?["question"]?.stringValue != nil
+                && input?["credentials"] == nil
+        }
+
         /// The request id the decision's result names; the call id otherwise.
         var decisionRequestId: String {
             output?["requestId"]?.stringValue ?? toolCallId

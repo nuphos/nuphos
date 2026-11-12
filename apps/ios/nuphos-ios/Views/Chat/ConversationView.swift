@@ -210,7 +210,7 @@ struct ConversationView: View {
         } message: {
             Text(session.stopRefusal ?? "")
         }
-        .sheet(item: $toolDetail) { ToolDetailSheet(part: $0) }
+        .sheet(item: $toolDetail) { ToolDetailSheet(part: $0, session: session) }
         .sheet(isPresented: $showShare) { ShareSessionSheet(session: session).presentationDetents([.medium, .large]) }
         .sheet(isPresented: $showRuntimes) {
             RuntimePickerSheet(session: session) { runtime in
