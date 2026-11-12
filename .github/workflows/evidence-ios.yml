@@ -1,0 +1,34 @@
+name: evidence-ios-workspace
+on:
+  push:
+    branches: [evidence/ios-integration-2175-after]
+jobs:
+  shots:
+    runs-on: xcode-27
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Shoot
+        working-directory: apps/ios
+        run: |
+          set -euo pipefail
+          UDID=$(xcrun simctl list devices available -j | jq -r '[.devices[][] | select(.name|test("^iPhone 17 Pro$"))][0].udid // empty')
+          [ -n "$UDID" ] || UDID=$(xcrun simctl list devices available -j | jq -r '[.devices[][] | select(.name|startswith("iPhone"))][0].udid')
+          echo "sim $UDID"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl ui "$UDID" appearance light
+          xcodebuild test -project nuphos-ios.xcodeproj -scheme nuphos-ios -configuration Debug \
+            -destination "id=$UDID" -only-testing:nuphos-iosUITests/IntegrationEvidenceUITests -only-testing:nuphos-iosUITests/IntegrationQuestionUITests \
+            -parallel-testing-enabled NO -resultBundlePath "$RUNNER_TEMP/r.xcresult" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= 2>&1 | tail -80
+          mkdir -p "$RUNNER_TEMP/out"
+          xcrun xcresulttool export attachments --path "$RUNNER_TEMP/r.xcresult" --output-path "$RUNNER_TEMP/out"
+          ls -la "$RUNNER_TEMP/out"
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: shots
+          path: ${{ runner.temp }}/out
