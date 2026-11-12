@@ -1,7 +1,8 @@
 // Follow-ups to request_user_decision: the agent lists, corrects or withdraws
 // the questions it asked while they are still open in the user's Inbox.
 import { channelIdOf } from '@/lib/agent/channel-wake'
-import { agentMessages, getConversationBySessionId } from '@/lib/agent/db'
+import { agentConversations, agentMessages, getConversationBySessionId } from '@/lib/agent/db'
+import { conversationParticipantIds } from '@/lib/agent/db/participants'
 import {
   listOpenInputRequests,
   resolveInputRequest,
@@ -122,20 +123,44 @@ export async function aboutRefs(
 
 /**
  * The channel a question is asked in: the one whose post woke the turn that
- * asks it, read from that turn's wake notice. Only that is certain; a turn no
- * channel woke records none, nor do the questions a card answers by itself.
+ * asks it, read from that turn's wake notice. Any other turn (a sub-agent's
+ * report, a Trigger, an answer) asks in the Bot's chat with its owner, where
+ * they talk to it, when it has exactly one open. Otherwise none is guessed,
+ * nor for the questions a card answers by itself.
  */
 export async function askedInChannel(
   ctx: PreviewToolContext,
   category: unknown,
 ): Promise<{ channelId?: string }> {
   if (category === 'credential' || category === 'integration') return {}
+  const owner = requestOwner(ctx)
   const latest = await agentMessages().findOne(
-    { sessionId: ctx.sessionId, userId: requestOwner(ctx), role: 'user' },
+    { sessionId: ctx.sessionId, userId: owner, role: 'user' },
     { sort: { index: -1 }, projection: { metadata: 1 } },
   )
   const metadata = parseMessageMetadata(latest?.metadata)
-  const channelId = metadata && channelIdOf({ source: metadata.source, metadata })
+  const channelId =
+    (metadata && channelIdOf({ source: metadata.source, metadata })) ??
+    (await botChat(ctx.sessionId, owner))
 
   return channelId ? { channelId } : {}
+}
+
+/** The owner's one open 1:1 chat with this Bot: a channel whose only members are the two. */
+async function botChat(botId: string, owner: string): Promise<string | undefined> {
+  const chats = (
+    await agentConversations()
+      .find(
+        {
+          userId: owner,
+          kind: 'channel',
+          agentSessionIds: [botId],
+          archivedAt: { $exists: false },
+        },
+        { projection: { sessionId: 1, userId: 1, participantIds: 1 } },
+      )
+      .toArray()
+  ).filter((chat) => conversationParticipantIds(chat).length === 1)
+
+  return chats.length === 1 ? chats[0]!.sessionId : undefined
 }
