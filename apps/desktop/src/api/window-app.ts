@@ -211,6 +211,11 @@ export type WindowAppApi = {
     scope?: SkillScope,
   ): Promise<TeamSkillObject>
   teamSkillsListLocal(): Promise<LocalSkillInfo[]>
+  voiceTranscribe(
+    teamId: string,
+    file: { filename: string; bytes: Uint8Array; contentType?: string },
+    prompt?: string,
+  ): Promise<{ text: string; language: string | null }>
   localSetupStatus(teamId: string): Promise<LocalSetupStatus>
   localSetupSync(teamId: string): Promise<LocalSetupResult>
   localSetupApproveLinks(

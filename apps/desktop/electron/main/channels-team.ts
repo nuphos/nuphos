@@ -185,6 +185,12 @@ export const teamChannels = {
     atlas.dashboardsDeleteAlert(teamId, dashboardId, panelId),
   ...skillChannels,
   ...designChannels,
+  'voice:transcribe': (
+    _e: unknown,
+    teamId: string,
+    file: { filename: string; bytes: Uint8Array; contentType?: string },
+    prompt?: string,
+  ) => atlas.voiceTranscribe(teamId, file, prompt),
   'atlas:createTeam': (_e: unknown, name: string) => atlas.createTeam(name),
   'atlas:updateTeam': (_e: unknown, teamId: string, input: { name: string }) =>
     atlas.updateTeam(teamId, input),

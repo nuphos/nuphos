@@ -182,6 +182,11 @@ export const appApi = {
     scope?: SkillScope,
   ) => window.api.teamSkillsPutObject(teamId, key, file, scope),
   teamSkillsListLocal: () => window.api.teamSkillsListLocal(),
+  voiceTranscribe: (
+    teamId: string,
+    file: { filename: string; bytes: Uint8Array; contentType?: string },
+    prompt?: string,
+  ) => window.api.voiceTranscribe(teamId, file, prompt),
   localSetupStatus: (teamId: string) => window.api.localSetupStatus(teamId),
   localSetupSync: (teamId: string) => window.api.localSetupSync(teamId),
   localSetupApproveLinks: (

@@ -119,6 +119,11 @@ export const teamApi = {
     scope?: string,
   ) => ipcRenderer.invoke('teamSkills:putObject', teamId, key, file, scope),
   teamSkillsListLocal: () => ipcRenderer.invoke('teamSkills:listLocal'),
+  voiceTranscribe: (
+    teamId: string,
+    file: { filename: string; bytes: Uint8Array; contentType?: string },
+    prompt?: string,
+  ) => ipcRenderer.invoke('voice:transcribe', teamId, file, prompt),
   localSetupStatus: (teamId: string) => ipcRenderer.invoke('localSetup:status', teamId),
   localSetupSync: (teamId: string) => ipcRenderer.invoke('localSetup:sync', teamId),
   localSetupApproveLinks: (

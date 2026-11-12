@@ -159,11 +159,10 @@ export function Composer({
   return (
     <div
       className={clsx(
-        // The in-conversation composer needs room for its shadow to fall and
-        // clearance from the pane edges; 4px left it wedged into the corner.
-        // Docked, it takes the left sidebar's inset instead, and its bottom gap
-        // matches the content card's own (`pb-2` on the main pane) so the two
-        // columns end on the same line.
+        // The in-conversation composer needs room for its shadow to fall and clearance from the
+        // pane edges; 4px left it wedged into the corner. Docked, it takes the left sidebar's inset
+        // instead, and its bottom gap matches the content card's own (`pb-2` on the main pane) so
+        // the two columns end on the same line.
         // The hero always keeps room for the agent-status banner above the greeting.
         hero ? 'pt-5' : sidebar ? 'px-2.5 pb-2' : 'px-3 pb-3',
       )}
@@ -291,6 +290,7 @@ export function Composer({
               onSubmit={() => actions.submit()}
               onQueue={() => actions.submit('queue')}
               onStop={onStop}
+              voice={{ editor: state.ref, teamId: mentionScope?.teamId }}
             />
           </div>
         </div>
