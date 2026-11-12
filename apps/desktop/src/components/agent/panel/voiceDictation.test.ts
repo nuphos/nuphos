@@ -5,6 +5,7 @@ import {
   dictationInsert,
   formatElapsed,
   isVoiceShortcut,
+  openMicrophone,
   recordingFilename,
   recordingMimeType,
 } from './voiceDictation.ts'
@@ -55,4 +56,29 @@ test('the voice shortcut is mod+shift+U only', () => {
   assert.equal(isVoiceShortcut({ ...key, ctrlKey: true }, true), false)
   assert.equal(isVoiceShortcut({ ...key, metaKey: true, shiftKey: false }, true), false)
   assert.equal(isVoiceShortcut({ ...key, metaKey: true, isComposing: true }, true), false)
+})
+
+test('a take given up during the permission prompt stops the microphone it gets', async () => {
+  const stopped: string[] = []
+  const stream = { getTracks: () => [{ stop: () => stopped.push('mic') }] }
+  let abandoned = false
+  const later = openMicrophone(
+    async () => {
+      abandoned = true // the composer closed while the prompt was open
+
+      return stream
+    },
+    () => abandoned,
+  )
+
+  assert.equal(await later, null)
+  assert.deepEqual(stopped, ['mic'])
+  assert.equal(
+    await openMicrophone(
+      async () => stream,
+      () => false,
+    ),
+    stream,
+  )
+  assert.deepEqual(stopped, ['mic'])
 })

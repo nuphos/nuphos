@@ -17,6 +17,23 @@ export function recordingMimeType(isSupported: (type: string) => boolean): strin
   return RECORDING_TYPES.find(isSupported)
 }
 
+/**
+ * The microphone for one take, or null when the take was given up while the
+ * permission prompt was open (the composer closed, or Discard): its tracks are
+ * stopped at once, so nothing records without a visible take.
+ */
+export async function openMicrophone<S extends { getTracks: () => { stop: () => void }[] }>(
+  open: () => Promise<S>,
+  abandoned: () => boolean,
+): Promise<S | null> {
+  const stream = await open()
+
+  if (!abandoned()) return stream
+  for (const track of stream.getTracks()) track.stop()
+
+  return null
+}
+
 /** Whisper reads the format from the file name. */
 export function recordingFilename(mimeType: string): string {
   return mimeType.startsWith('audio/ogg') ? 'dictation.ogg' : 'dictation.webm'

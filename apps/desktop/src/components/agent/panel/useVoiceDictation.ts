@@ -7,15 +7,13 @@ import { toast } from '../../ui/toast'
 import {
   MAX_RECORDING_MS,
   VOICE_PROMPT,
+  openMicrophone,
   recordingFilename,
   recordingMimeType,
 } from './voiceDictation'
 
 export type VoicePhase =
   { kind: 'idle' } | { kind: 'recording'; startedAt: number } | { kind: 'transcribing' }
-
-// Read through a call: the ref can change while getUserMedia is awaited.
-const takeInProgress = (ref: { current: MediaRecorder | null }) => ref.current !== null
 
 /** Why the microphone would not start, in words the person can act on. */
 function microphoneHelp(cause: unknown): string {
@@ -42,7 +40,10 @@ export function useVoiceDictation({
   const [phase, setPhase] = useState<VoicePhase>({ kind: 'idle' })
   const [now, setNow] = useState(() => Date.now())
   const recorder = useRef<MediaRecorder | null>(null)
+  // Set by Discard and by unmounting: a take that was still asking for the microphone is
+  // dropped when the stream arrives, and a finished one is not transcribed.
   const discard = useRef(false)
+  const opening = useRef(false)
   const onTextRef = useRef(onText)
 
   useEffect(() => {
@@ -59,27 +60,29 @@ export function useVoiceDictation({
   }, [stop])
 
   const start = useCallback(async () => {
-    if (!teamId || recorder.current) return
-    let stream: MediaStream
+    // One take at a time, including one still waiting on the permission prompt.
+    if (!teamId || recorder.current || opening.current) return
+    opening.current = true
+    discard.current = false
+    let stream: MediaStream | null
 
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream = await openMicrophone(
+        () => navigator.mediaDevices.getUserMedia({ audio: true }),
+        () => discard.current,
+      )
     } catch (cause) {
-      toast.error(t('Voice input could not start'), microphoneHelp(cause))
+      if (!discard.current) toast.error(t('Voice input could not start'), microphoneHelp(cause))
 
       return
+    } finally {
+      opening.current = false
     }
-    // A second start while the microphone was opening: keep the first take.
-    if (takeInProgress(recorder)) {
-      for (const track of stream.getTracks()) track.stop()
-
-      return
-    }
+    if (!stream) return
     const mimeType = recordingMimeType((type) => MediaRecorder.isTypeSupported(type))
     const take = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
     const chunks: Blob[] = []
 
-    discard.current = false
     take.ondataavailable = (event) => {
       if (event.data.size > 0) chunks.push(event.data)
     }
