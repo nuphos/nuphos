@@ -50,3 +50,19 @@ test('every turn boundary, and nothing else, records conversation activity', asy
   expect(bumps).toEqual([bump, bump])
   run.releaseOwnership()
 })
+
+test('a turn only channel posts started records activity for a pause, not for its end', async () => {
+  bumps.length = 0
+  const run = createAgentRun('owner', 'session-b', 'stream-b', undefined, { channelWoken: true })
+
+  appendAgentRunTurnComplete(run)
+  await Promise.resolve()
+  expect(bumps).toEqual([])
+
+  appendAgentRunTurnPaused(run, 'max-steps')
+  await Promise.resolve()
+  expect(bumps).toEqual([
+    { filter: { sessionId: 'session-b', userId: 'owner' }, update: { $inc: { activitySeq: 1 } } },
+  ])
+  run.releaseOwnership()
+})
