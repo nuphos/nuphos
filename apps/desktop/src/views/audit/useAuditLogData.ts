@@ -38,9 +38,11 @@ export function useAuditLogData({
 }: Args) {
   const [exporting, setExporting] = useState(false)
   const pollMs = useTabPollMs()
+  // `from` is computed at each request, so a rolling range like the last 24 h moves with time
+  // alike for the polled list and the export.
   const baseArgs = useMemo(
-    () => ({ scope, teamId, mutationsOnly: mutationsOnly || undefined, from: rangeFrom(range) }),
-    [scope, teamId, mutationsOnly, range],
+    () => ({ scope, teamId, mutationsOnly: mutationsOnly || undefined }),
+    [scope, teamId, mutationsOnly],
   )
   const filters = [scope, range, mutationsOnly] as const
   // Paged past page one, a poll would read every page again: only the first page polls.
@@ -145,6 +147,7 @@ export function useAuditLogData({
       try {
         const result = await api.agentExportJournal({
           ...baseArgs,
+          from: rangeFrom(range),
           sessionIds: sessionIds && sessionIds.length > 0 ? sessionIds : undefined,
         })
 
@@ -162,7 +165,7 @@ export function useAuditLogData({
         setExporting(false)
       }
     },
-    [baseArgs, exporting],
+    [baseArgs, range, exporting],
   )
 
   return {
