@@ -1,3 +1,5 @@
+import { ownBody, withQuestionsInBody } from '@/lib/agent/tools-skilled/decision-tools'
+
 import { agentConversations } from './shared'
 
 import type { PersonalCredentialRef } from '@/lib/agent/tools-skilled/decision-tools'
@@ -53,8 +55,22 @@ export async function updateInputRequest(
   sessionId: string,
   userId: string,
   id: string,
-  patch: Partial<Pick<ExplicitUserDecision, 'question' | 'body' | 'options'>>,
+  patch: Partial<
+    Pick<ExplicitUserDecision, 'question' | 'body' | 'options' | 'multiSelect' | 'questions'>
+  >,
 ): Promise<boolean> {
+  // A card with questions keeps them written out after its body, for older clients.
+  if (patch.questions || patch.body !== undefined) {
+    const stored = await findInputRequest(sessionId, userId, id)
+    const questions = patch.questions ?? stored?.questions
+
+    if (!stored) return false
+    if (questions?.length)
+      patch = {
+        ...patch,
+        body: withQuestionsInBody({ body: patch.body ?? ownBody(stored.body), questions }),
+      }
+  }
   const set = Object.fromEntries(
     Object.entries(patch).map(([field, value]) => [`inputRequests.$.${field}`, value]),
   )

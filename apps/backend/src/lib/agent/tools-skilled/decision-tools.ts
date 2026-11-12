@@ -156,6 +156,13 @@ export function withQuestionsInBody(input: {
   return `${input.body ?? ''}${QUESTIONS_SEPARATOR}${list}`
 }
 
+/** The body the agent wrote, without the questions written out after it. */
+export function ownBody(body: string | undefined): string | undefined {
+  const end = body?.lastIndexOf(QUESTIONS_SEPARATOR) ?? -1
+
+  return end < 0 ? body : body!.slice(0, end) || undefined
+}
+
 type UserDecisionDeps = {
   agentOrigin: AgentSessionOrigin
   onExplicitUserDecision?: (decision: ExplicitUserDecision) => void
@@ -250,13 +257,15 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
     userDecisionTools.update_user_decision = tool({
       description:
         'Correct a question you asked with request_user_decision that is still waiting for the user, e.g. when new findings change its context or choices. ' +
-        'Pass only the fields to change. Fails once the user has answered or dismissed it.',
+        'Pass only the fields to change; `questions` replaces all of them. Fails once the user has answered or dismissed it.',
       inputSchema: z.object({
         label: labelField,
         requestId: requestIdField,
         question: questionField.optional(),
         body: bodyField.optional(),
         options: optionsField.optional(),
+        multiSelect: multiSelectField.optional(),
+        questions: questionsField.optional(),
       }),
     })
     userDecisionTools.withdraw_user_decision = tool({

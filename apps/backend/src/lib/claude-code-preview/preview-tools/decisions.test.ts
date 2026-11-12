@@ -11,6 +11,8 @@ useRedis({ redisEnabled: () => false, withRedis: async () => null })
 const conversationUpdates: Record<string, unknown>[][] = []
 // How many documents the next updates match: an open request, or none.
 let matchedCount = 1
+// The conversation findOne reads back.
+let storedConversation: Record<string, unknown> | null = null
 
 useDb({
   db: (() => ({
@@ -20,6 +22,7 @@ useDb({
 
         return { matchedCount }
       },
+      findOne: async () => storedConversation,
     }),
   })) as unknown as typeof dbActual.db,
 })
@@ -52,6 +55,7 @@ async function pendingWait() {
 beforeEach(() => {
   resetLocalPreviewWaits()
   matchedCount = 1
+  storedConversation = null
 })
 
 describe('decision tool module', () => {
@@ -258,6 +262,41 @@ describe('decision tool module', () => {
       (await tools.update_user_decision!({ label: 'x', requestId: 'nuphos-1', question: 'Now?' }))
         .isError,
     ).toBe(true)
+  })
+
+  test('update_user_decision replaces the questions and rewrites them after the body', async () => {
+    storedConversation = {
+      inputRequests: [
+        {
+          id: 'nuphos-1',
+          question: 'Rollout?',
+          body: 'CI passed.\n\n---\n\n**1. Old?**\n\n**2. Older?**',
+          questions: [{ question: 'Old?' }, { question: 'Older?' }],
+          status: 'open',
+        },
+      ],
+    }
+    const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
+    const result = await tools.update_user_decision!({
+      label: 'Ask about regions too',
+      requestId: 'nuphos-1',
+      questions: [
+        { question: 'Which regions?', options: ['us', 'eu'], multiSelect: true },
+        { question: 'Keep the old cluster?' },
+      ],
+    })
+
+    expect(result.isError).toBeFalsy()
+    expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
+      $set: {
+        'inputRequests.$.questions': [
+          { question: 'Which regions?', options: ['us', 'eu'], multiSelect: true },
+          { question: 'Keep the old cluster?' },
+        ],
+        'inputRequests.$.body':
+          'CI passed.\n\n---\n\n**1. Which regions?** (any number)\n- us\n- eu\n\n**2. Keep the old cluster?**',
+      },
+    })
   })
 
   test('withdraw_user_decision dismisses the open request', async () => {
