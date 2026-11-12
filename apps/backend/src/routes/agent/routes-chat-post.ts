@@ -10,7 +10,7 @@ import { logEvent } from '@/lib/observability'
 
 import { resolveChatConversation } from './chat-conversation'
 import { shouldInitializePermissionMode } from './chat-permission-mode'
-import { launchAcceptedChatTurn } from './chat-post-run'
+import { launchAcceptedChatTurn, persistAppTurn } from './chat-post-run'
 import { awaitAdoptedPreviewRun, resolvePreviewWaitFromChat } from './chat-preview-resume'
 import { handleExistingRun, resumeFromRedisOrThrow } from './chat-resume'
 import { buildSlackBoundTurnPlan, findSlackBoundThread } from './chat-slack-bound'
@@ -169,6 +169,26 @@ agent.post('/chat', async (c) => {
     const messages = slackPlan?.messages ?? clientView
     const firstMessage = getFirstUserMessage(messages)
     const isPotentialNewConversation = messages.length === 1 && messages[0]?.role === 'user'
+    const turn = {
+      body,
+      teamId,
+      messages,
+      firstMessage,
+      locale,
+      credentialAccess: requestedCredentialAccess?.access,
+      chatRuntime,
+    }
+
+    // A conversation the server does not have yet is stored before the run is
+    // accepted: the app takes the run's first frame to mean the chat exists, and
+    // reads it (participants, model config) from then on. A failure here is the
+    // request's own error, before any run or frame exists.
+    if (!conversationForResume && !teamId) {
+      throw new AppError(400, 'invalid_request', 'An agent conversation is missing its Team scope.')
+    }
+    const storedTurn = conversationForResume
+      ? undefined
+      : await persistAppTurn(runOwnerUserId, turn)
 
     const chatSpan = startTraceSpan({
       name: 'turn',
@@ -237,15 +257,10 @@ agent.post('/chat', async (c) => {
 
     acceptAgentRun(run, messages)
     launchAcceptedChatTurn({
+      ...turn,
       run,
       chatCtx,
       chatSpan,
-      body,
-      teamId,
-      messages,
-      firstMessage,
-      locale,
-      credentialAccess: requestedCredentialAccess?.access,
       credentialAccessRequested: requestedCredentialAccess !== null,
       releaseClaim: releaseAgentRunClaim,
       slack: slackThread
@@ -256,8 +271,8 @@ agent.post('/chat', async (c) => {
             mirror: slackPlan?.mirror ?? null,
           }
         : null,
-      chatRuntime,
       queued: queuedItem,
+      storedTurn,
     })
 
     return streamAgentRunResponse(run, body.resumeFrom)
