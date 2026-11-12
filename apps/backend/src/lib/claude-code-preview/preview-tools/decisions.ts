@@ -10,7 +10,7 @@ import { randomUUID } from 'node:crypto'
 import { addInputRequest } from '@/lib/agent/db/pending-decision'
 import {
   createUserDecisionTools,
-  decisionQuestionProblem,
+  withQuestionsInBody,
   isConnectableProvider,
   integrationTargetProblem,
 } from '@/lib/agent/tools-skilled/decision-tools'
@@ -163,7 +163,10 @@ function passthroughHandler(
   ctx: PreviewToolContext,
   options: BlockOptions,
 ): ToolHandler {
-  return async (args) => {
+  return async (raw) => {
+    // Written out in the body too, for clients that draw only question and body.
+    const written = name === 'request_user_decision' ? withQuestionsInBody(raw) : undefined
+    const args = written === undefined ? raw : { ...raw, body: written }
     // Only the Desktop app renders the Connect and secure input cards; elsewhere
     // (Slack, Discord, Lark) the question goes out as plain text.
     const {
@@ -173,16 +176,6 @@ function passthroughHandler(
       ...plain
     } = args
     const input = name === 'request_user_decision' && ctx.localTools !== true ? plain : args
-    // Rejected before its card goes out, so no unanswerable question reaches the user.
-    const problem =
-      name === 'request_user_decision' && typeof args.question === 'string'
-        ? decisionQuestionProblem({
-            question: args.question,
-            ...(Array.isArray(args.options) ? { options: args.options as string[] } : {}),
-          })
-        : null
-
-    if (problem) return toolError(problem)
     const target = name === 'request_user_decision' ? integrationTargetProblem(args) : null
 
     if (target) return toolError(target)
@@ -193,7 +186,14 @@ function passthroughHandler(
 
     if ('error' in outcome) return toolError(outcome.error)
     if (name !== 'request_user_decision') return toolResult(outcome.output)
-    const { category, question, body, options: choices } = outcome.output as ExplicitUserDecision
+    const {
+      category,
+      question,
+      body,
+      options: choices,
+      multiSelect,
+      questions,
+    } = outcome.output as ExplicitUserDecision
 
     await addInputRequest(ctx.sessionId, requestOwner(ctx), {
       id: outcome.toolCallId,
@@ -201,6 +201,8 @@ function passthroughHandler(
       question,
       ...(body ? { body } : {}),
       ...(choices ? { options: choices } : {}),
+      ...(multiSelect ? { multiSelect } : {}),
+      ...(questions ? { questions } : {}),
       // From args, as a channel turn's card drops them: the Inbox and a Bot's chat
       // still draw the secure input or Connect card from the record.
       ...(category === 'credential' && typeof args.secretName === 'string'

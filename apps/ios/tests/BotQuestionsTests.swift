@@ -9,7 +9,44 @@ enum BotQuestionsTests {
         keepsTheBodyTheAgentWroteToDecideFrom()
         aPlanOrASecretIsNeverAnsweredInWords()
         aQuestionNamingTheMembersOwnCredentialIsConnectable()
+        aMultiSelectOrSeveralQuestionsAreAForm()
         print("Bot questions passed")
+    }
+
+    private static func aMultiSelectOrSeveralQuestionsAreAForm() {
+        func ask(_ request: AgentConversation.InputRequest) -> BotQuestion {
+            BotQuestion(sessionId: "s", title: "Agent", request: request)
+        }
+        let single = ask(.init(id: "a", category: "preference", question: "Ship?", options: ["Yes", "No"], askedAt: nil))
+        precondition(single.form == nil)
+        var regions = AgentConversation.InputRequest(id: "b", category: "preference", question: "Which regions?",
+                                                     options: ["us", "eu"], askedAt: nil)
+        regions.multiSelect = true
+        precondition(ask(regions).form?.first?.multiSelect == true)
+        let data = #"{"id":"c","category":"preference","question":"Rollout","questions":[{"question":"Which regions?","options":["us","eu"],"multiSelect":true},{"question":"Keep the old cluster?","options":["Keep","Delete"]}]}"#
+        let several = ask(try! JSONDecoder().decode(AgentConversation.InputRequest.self, from: Data(data.utf8)))
+        let form = several.form!
+        precondition(form.count == 2)
+        precondition(BotQuestion.answerText(picked: ["us", "eu"], typed: " ") == "us, eu")
+        precondition(BotQuestion.answerText(picked: ["us"], typed: " Tokyo ") == "Tokyo")
+        precondition(BotQuestion.formReply(form, answers: ["us, eu", "Keep"])
+            == "Which regions?\nus, eu\n\nKeep the old cluster?\nKeep")
+        precondition(BotQuestion.formReply([form[0]], answers: ["us"]) == "us")
+        // Only the exact list the backend wrote out is dropped; a `---` of the agent's own stays.
+        precondition(BotQuestion.writtenQuestions(form) == "\n\n---\n\n**1. Which regions?** (any number)\n- us\n- eu\n\n**2. Keep the old cluster?**\n- Keep\n- Delete")
+        var ruled = AgentConversation.InputRequest(id: "e", category: "preference", question: "Rollout",
+                                                   options: nil, askedAt: nil)
+        ruled.questions = form
+        ruled.body = "Findings.\n\n---\n\nRisks."
+        precondition(ask(ruled).ownBody == "Findings.\n\n---\n\nRisks.")
+        ruled.body = "Findings.\n\n---\n\nRisks." + BotQuestion.writtenQuestions(form)
+        precondition(ask(ruled).ownBody == "Findings.\n\n---\n\nRisks.")
+        ruled.body = BotQuestion.writtenQuestions(form)
+        precondition(ask(ruled).ownBody == nil)
+        var secret = AgentConversation.InputRequest(id: "d", category: "credential", question: "Which key?",
+                                                    options: ["a", "b"], askedAt: nil)
+        secret.multiSelect = true
+        precondition(ask(secret).form == nil)
     }
 
     private static func row(_ id: String, parent: String? = nil, owner: Bool = true,

@@ -131,6 +131,10 @@ export type AgentInputRequest = {
   /** Markdown the agent wrote so the question can be decided without the chat. */
   body?: string
   options?: string[]
+  /** Any number of `options` may be picked. */
+  multiSelect?: boolean
+  /** Related questions answered together; `question` is their headline. */
+  questions?: { question: string; options?: string[]; multiSelect?: boolean }[]
   /** The secret a `credential` request asks for, the providers an `integration` one connects (any access) or the member's own credentials it asks for (only selecting one answers), or the plan it approves. */
   secretName?: string
   providers?: string[]

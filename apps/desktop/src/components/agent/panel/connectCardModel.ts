@@ -1,3 +1,6 @@
+import { parseDecisionQuestions } from './decisionFormModel.ts'
+
+import type { DecisionQuestion } from './decisionFormModel.ts'
 import type { AgentCredentialSelection } from '../../../api'
 import type { AddIntegrationKey } from '../../../views/addIntegrationCatalog'
 
@@ -112,9 +115,14 @@ export function secretSavedReply(name: string): string {
 }
 
 /** Any other `request_user_decision`: its question card, with the options as replies. */
-export function parseChoiceRequest(
-  value: unknown,
-): { category: string; question: string; body?: string; options: string[] } | null {
+export function parseChoiceRequest(value: unknown): {
+  category: string
+  question: string
+  body?: string
+  options: string[]
+  multiSelect?: boolean
+  questions?: DecisionQuestion[]
+} | null {
   if (
     !value ||
     typeof value !== 'object' ||
@@ -122,12 +130,15 @@ export function parseChoiceRequest(
     parseSecretRequest(value)
   )
     return null
-  const { category, question, body, options } = value as {
+  const { category, question, body, options, multiSelect, questions } = value as {
     category?: unknown
     question?: unknown
     body?: unknown
     options?: unknown
+    multiSelect?: unknown
+    questions?: unknown
   }
+  const parsedQuestions = parseDecisionQuestions(questions)
 
   if (typeof question !== 'string' || !question.trim()) return null
 
@@ -138,6 +149,8 @@ export function parseChoiceRequest(
     options: Array.isArray(options)
       ? options.filter((o): o is string => typeof o === 'string' && o.trim() !== '')
       : [],
+    ...(multiSelect === true ? { multiSelect: true } : {}),
+    ...(parsedQuestions ? { questions: parsedQuestions } : {}),
   }
 }
 

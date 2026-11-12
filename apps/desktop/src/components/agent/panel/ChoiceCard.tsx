@@ -9,9 +9,12 @@ import { MessageResponse } from '../MessageResponse'
 import { ConnectCardContext } from './connectCardContext'
 import { AgentQuote } from './ConnectCardRows'
 import { DecisionAnswersContext } from './decisionAnswers'
+import { DecisionForm } from './DecisionForm'
+import { formQuestions, ownBody } from './decisionFormModel'
 import { useDecisionKeys } from './useDecisionKeys'
 
 import type { ConnectCardContextValue } from './connectCardContext'
+import type { DecisionQuestion } from './decisionFormModel'
 
 const TITLE: Record<string, string> = {
   approval: t('Approval needed'),
@@ -24,8 +27,8 @@ const TITLE: Record<string, string> = {
 /**
  * A user decision other than a Connect card: the question, with each option sent
  * as the reply, like quick-reply chips, and "Other…" to type an answer in the
- * composer instead. Once answered, the options go: the answer is the reply
- * bubble that follows.
+ * composer instead. A multi-select or several questions are a form sent as one
+ * reply. Once answered, the options go: the answer is the reply bubble that follows.
  */
 export function ChoiceCard({
   toolCallId,
@@ -33,6 +36,8 @@ export function ChoiceCard({
   question,
   body,
   options,
+  multiSelect,
+  questions,
   canAct,
 }: {
   toolCallId: string
@@ -41,6 +46,9 @@ export function ChoiceCard({
   /** What the agent wrote to decide from: context, findings, links, risks. */
   body?: string
   options: string[]
+  multiSelect?: boolean
+  /** Related questions answered together; `question` is their headline. */
+  questions?: DecisionQuestion[]
   /** The viewer may answer this question. */
   canAct: boolean
 }) {
@@ -49,7 +57,8 @@ export function ChoiceCard({
   const [sent, setSent] = useState<string | null>(null)
   const chosen = answer?.option ?? sent
   const interactive = Boolean(ctx) && canAct && !chosen
-  const live = interactive && options.length > 0
+  const form = formQuestions({ question, options, multiSelect, questions })
+  const live = interactive && (form !== null || options.length > 0)
   const reply = typedReply(ctx, interactive, category)
   const cardRef = useRef<HTMLDivElement | null>(null)
   const choose = (option: string) => {
@@ -59,7 +68,8 @@ export function ChoiceCard({
     return true
   }
   const act = useDecisionKeys(cardRef, live, (key) => {
-    const option = key.kind === 'option' ? options[key.index] : undefined
+    // A form's options are toggles, not answers.
+    const option = key.kind === 'option' && !form ? options[key.index] : undefined
 
     if (option === undefined) return false
 
@@ -80,42 +90,74 @@ export function ChoiceCard({
           {TITLE[category] ?? t('Decision needed')}
         </div>
         <AgentQuote text={question} />
-        <DecisionBody text={body} full={ctx?.fullBody} />
+        <DecisionBody text={ownBody(body, questions)} full={ctx?.fullBody} />
       </div>
       {!chosen &&
-        (options.length > 0 || reply ? (
-          <div className="flex flex-wrap gap-2 border-t border-line-control/60 px-4 py-2.5">
-            {options.map((option, index) => (
-              <Button
-                key={option}
-                variant="secondary"
-                size="sm"
-                className="h-auto min-h-7 whitespace-normal px-2.5 py-1 text-left text-[12.5px]"
-                disabled={!interactive}
-                title={index < 9 ? comboText(`mod+alt+${String(index + 1)}`) : undefined}
-                onClick={() => act(() => choose(option))}
-              >
-                {option}
-              </Button>
-            ))}
-            {reply && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-auto min-h-7 px-2.5 py-1 text-[12.5px] text-secondary"
-                onClick={() => reply({ toolCallId, question, options })}
-              >
-                {options.length > 0 ? t('Other…') : t('Reply…')}
-              </Button>
-            )}
-          </div>
+        (form ? (
+          <DecisionForm
+            questions={form}
+            disabled={!interactive}
+            onSubmit={(text) => act(() => choose(text))}
+          />
         ) : (
-          canAct && (
-            <div className="border-t border-line-control/60 px-4 py-2.5 text-[12px] text-tertiary">
-              {t('Reply below to answer.')}
-            </div>
-          )
+          <ChoiceActions
+            options={options}
+            interactive={interactive}
+            canAct={canAct}
+            onChoose={(option) => act(() => choose(option))}
+            onReply={reply && (() => reply({ toolCallId, question, options }))}
+          />
         ))}
+    </div>
+  )
+}
+
+/** One option per reply button, and "Other…" to answer in the composer instead. */
+function ChoiceActions({
+  options,
+  interactive,
+  canAct,
+  onChoose,
+  onReply,
+}: {
+  options: string[]
+  interactive: boolean
+  canAct: boolean
+  onChoose: (option: string) => void
+  onReply: (() => void) | undefined
+}) {
+  if (options.length === 0 && !onReply)
+    return canAct ? (
+      <div className="border-t border-line-control/60 px-4 py-2.5 text-[12px] text-tertiary">
+        {t('Reply below to answer.')}
+      </div>
+    ) : null
+
+  return (
+    <div className="flex flex-wrap gap-2 border-t border-line-control/60 px-4 py-2.5">
+      {options.map((option, index) => (
+        <Button
+          key={option}
+          variant="secondary"
+          size="sm"
+          className="h-auto min-h-7 whitespace-normal px-2.5 py-1 text-left text-[12.5px]"
+          disabled={!interactive}
+          title={index < 9 ? comboText(`mod+alt+${String(index + 1)}`) : undefined}
+          onClick={() => onChoose(option)}
+        >
+          {option}
+        </Button>
+      ))}
+      {onReply && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-auto min-h-7 px-2.5 py-1 text-[12.5px] text-secondary"
+          onClick={onReply}
+        >
+          {options.length > 0 ? t('Other…') : t('Reply…')}
+        </Button>
+      )}
     </div>
   )
 }

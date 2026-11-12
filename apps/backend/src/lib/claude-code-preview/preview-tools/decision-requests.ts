@@ -11,6 +11,7 @@ import { toolError, toolResult } from '@/lib/mcp/protocol'
 
 import type { PreviewToolContext } from '../preview-tool-context'
 import type { AiSdkToolLike } from './ai-sdk-adapter'
+import type { DecisionQuestion } from '@/lib/agent/tools-skilled/types'
 import type { ToolHandler } from '@/lib/mcp/protocol'
 import type { ZodType } from 'zod'
 
@@ -25,6 +26,8 @@ type RequestFollowUp = {
   question?: string
   body?: string
   options?: string[]
+  multiSelect?: boolean
+  questions?: DecisionQuestion[]
 }
 
 const NOT_OPEN = 'No open question has this requestId; the user may have answered it already.'
@@ -35,7 +38,7 @@ const requestFollowUps = {
     const { requestId, label: _label, ...patch } = input
 
     if (Object.keys(patch).length === 0)
-      return toolError('Pass question, body or options to change.')
+      return toolError('Pass question, body, options, multiSelect or questions to change.')
 
     return (await updateInputRequest(ctx.sessionId, requestOwner(ctx), requestId, patch))
       ? toolResult({ ok: true, requestId, status: 'updated' })

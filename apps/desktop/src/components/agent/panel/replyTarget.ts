@@ -12,6 +12,8 @@ export type ReplyQuestion = {
   /** The markdown the agent wrote to decide from. */
   body?: string
   options?: string[]
+  multiSelect?: boolean
+  questions?: AgentInputRequest['questions']
   secret?: true
   secretName?: string
   /** The providers an `integration` request asks to connect. */
@@ -37,19 +39,32 @@ export function requestQuestion({
   question,
   body,
   options,
+  multiSelect,
+  questions,
   category,
   secretName,
   providers,
   credentials,
 }: Pick<
   AgentInputRequest,
-  'id' | 'question' | 'body' | 'options' | 'category' | 'secretName' | 'providers' | 'credentials'
+  | 'id'
+  | 'question'
+  | 'body'
+  | 'options'
+  | 'multiSelect'
+  | 'questions'
+  | 'category'
+  | 'secretName'
+  | 'providers'
+  | 'credentials'
 >): ReplyQuestion {
   return {
     id,
     question,
     ...(body && { body }),
     ...(options && { options }),
+    ...(multiSelect && { multiSelect }),
+    ...(questions?.length && { questions }),
     ...(category === 'credential' && { secret: true as const }),
     ...(secretName && { secretName }),
     ...(category === 'integration' && providers?.length && { providers }),

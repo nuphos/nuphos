@@ -6,6 +6,7 @@ import {
   parseSecretRequest,
   secretSavedReply,
 } from './connectCardModel.ts'
+import { answersForm, formQuestions } from './decisionFormModel.ts'
 
 import type { Message } from './model'
 
@@ -21,7 +22,11 @@ function answeredBy(input: unknown): ((text: string) => boolean) | null {
   const secret = parseSecretRequest(input)
 
   if (secret) return (text) => text.startsWith(secretSavedReply(secret.name))
-  const options = parseChoiceRequest(input)?.options ?? []
+  const choice = parseChoiceRequest(input)
+  const form = choice && formQuestions(choice)
+
+  if (form) return (text) => answersForm(form, text)
+  const options = choice?.options ?? []
 
   return options.length > 0 ? (text) => options.includes(text) : null
 }
