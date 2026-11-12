@@ -3,6 +3,7 @@
 //! 127.0.0.1, and redeem it for the token. Without a browser here, a code
 //! approved on another device instead (RFC 8628).
 
+use std::io::IsTerminal;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -295,11 +296,16 @@ async fn browser(api_url: &str) -> Result<Session> {
             tokio::time::sleep(REDEEM_INTERVAL).await;
             continue;
         }
-        if !response.status().is_success() {
+        let status = response.status();
+        let mut body: Value = response.json().await.unwrap_or(Value::Null);
+        if let Some(challenge) = mfa_challenge(&body) {
+            // Two-factor authentication: the code is typed here, not in the browser.
+            respond(&mut browser, 200, "Return to the terminal and enter the code from your authenticator app.").await;
+            body = verify_mfa(&http, api_url, &challenge).await?;
+        } else if !status.is_success() {
             respond(&mut browser, 500, "Sign-in failed. Return to the terminal.").await;
-            bail!("Sign-in failed with status {}", response.status());
+            bail!("Sign-in failed with status {status}");
         }
-        let body: Value = response.json().await?;
         let token = body["token"].as_str().ok_or_else(|| anyhow!("Malformed sign-in response"))?;
         let user = body["user"].clone();
         let session = Session {
@@ -316,6 +322,43 @@ async fn browser(api_url: &str) -> Result<Session> {
         return Ok(session);
     }
     bail!("Sign-in timed out")
+}
+
+/// The challenge in a `401 mfa_required` sign-in answer, if that is what it is.
+fn mfa_challenge(body: &Value) -> Option<String> {
+    let error = &body["error"];
+    (error["code"] == "mfa_required").then(|| error["details"]["mfaToken"].as_str().map(String::from))?
+}
+
+/// The second step of a sign-in to an account with two-factor authentication
+/// on: asks for an authenticator or recovery code, a few tries at most.
+async fn verify_mfa(http: &reqwest::Client, api_url: &str, challenge: &str) -> Result<Value> {
+    if !std::io::stdin().is_terminal() {
+        bail!("This account uses two-factor authentication. Sign in from a terminal, or use `nuphos login --token`.");
+    }
+    for _ in 0..3 {
+        eprint!("Code from your authenticator app (or a recovery code): ");
+        let mut code = String::new();
+        std::io::stdin().read_line(&mut code)?;
+        let response = http
+            .post(format!("{api_url}/auth/mfa/verify"))
+            .json(&json!({ "mfaToken": challenge, "code": code.trim() }))
+            .timeout(Duration::from_secs(15))
+            .send()
+            .await
+            .context("Could not reach Nuphos")?;
+        let ok = response.status().is_success();
+        let body: Value = response.json().await.unwrap_or(Value::Null);
+        if ok {
+            return Ok(body);
+        }
+        let message = body["error"]["message"].as_str().unwrap_or("That code did not work.");
+        if body["error"]["code"] != "invalid_mfa_code" {
+            bail!("{}", clean(message));
+        }
+        eprintln!("{}", clean(message));
+    }
+    bail!("Too many wrong codes. Run `nuphos login` to try again.")
 }
 
 /// The query of a `GET /callback?…` request, or `None` for anything else.
@@ -373,5 +416,14 @@ mod tests {
         assert_eq!(own_device_token(&session(Some(device), true)), None);
         assert_eq!(own_device_token(&session(Some(json!({ "id": "a", "kind": "agent" })), false)), None);
         assert_eq!(own_device_token(&session(None, false)), None);
+    }
+
+    #[test]
+    fn only_an_mfa_answer_carries_a_challenge() {
+        let mfa = json!({ "error": { "code": "mfa_required", "details": { "mfaToken": "challenge" } } });
+        assert_eq!(mfa_challenge(&mfa).as_deref(), Some("challenge"));
+        assert_eq!(mfa_challenge(&json!({ "error": { "code": "mfa_required" } })), None);
+        assert_eq!(mfa_challenge(&json!({ "error": { "code": "invalid_handle" } })), None);
+        assert_eq!(mfa_challenge(&json!({ "token": "nus_x" })), None);
     }
 }

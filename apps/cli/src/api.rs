@@ -44,13 +44,19 @@ impl ApiError {
             .and_then(|e| e["message"].as_str())
             .map(String::from)
             .unwrap_or_else(|| format!("Nuphos returned status {}.", status.as_u16()));
+        // The terminal cannot ask for the code; a fresh sign-in counts as a recent check.
+        let message = if code.as_deref() == Some("reauth_required") {
+            "This needs a recent two-factor check. Do it in the Nuphos app, or run `nuphos login` again.".to_string()
+        } else {
+            message
+        };
         ApiError { status: status.as_u16(), code, message }
     }
 
     /// For `/auth/me`: the server rejected the token, as opposed to a network
     /// failure that says nothing about it.
     pub fn is_rejected_token(&self) -> bool {
-        self.status == 401 || self.status == 403
+        self.status == 401 || (self.status == 403 && self.code.as_deref() != Some("reauth_required"))
     }
 }
 
