@@ -3,7 +3,6 @@ import { randomBytes } from 'node:crypto'
 import { ObjectId } from 'mongodb'
 
 import { sealers } from '@/lib/byos/secrets'
-import { db } from '@/lib/db'
 import { escapeHtml, isEmailConfigured, sendEmail } from '@/lib/email'
 import { AppError } from '@/lib/errors'
 import {
@@ -15,7 +14,7 @@ import {
   otpauthUrl,
 } from '@/lib/identity/mfa-codes'
 import { users } from '@/lib/identity/shared'
-import { generateOpaqueToken, hashToken } from '@/lib/oauth/tokens'
+import { hashToken } from '@/lib/oauth/tokens'
 import { logEvent } from '@/lib/observability'
 
 import type { EncryptedSecret } from '@/lib/byos/secrets'
@@ -25,7 +24,7 @@ import type { NuphosUserDoc } from '@/lib/identity/shared'
  * Optional two-factor authentication: a TOTP authenticator (RFC 6238) plus
  * single-use recovery codes for when it is lost. Once enabled, a sign-in ends
  * in a challenge rather than a session (`start-session.ts`), and the session
- * is issued only after `verifyMfaChallenge`.
+ * is issued only after `verifyMfaChallenge` (`mfa-challenge.ts`).
  *
  * Every code check, wherever it comes from, goes through `verifySecondFactor`,
  * so one failure budget per account covers sign-in and settings alike.
@@ -42,7 +41,6 @@ export type UserMfa = {
 export type UserMfaPending = { totp: EncryptedSecret; createdAt: Date }
 
 const SETUP_TTL_MS = 15 * 60 * 1000
-const CHALLENGE_TTL_MS = 5 * 60 * 1000
 const MAX_FAILURES = 10
 const FAILURE_WINDOW_MS = 15 * 60 * 1000
 
@@ -101,10 +99,10 @@ export async function confirmTotpSetup(userId: string, code: unknown) {
   if (!account || !pending || Date.now() - pending.createdAt.getTime() > SETUP_TTL_MS) {
     throw new AppError(400, 'mfa_setup_expired', 'Start setting up two-factor authentication again')
   }
-  guardFailures(userId, account)
+  await reserveAttempt(userId)
   const step = matchTotp(base32Decode(sealers.mfa.open(pending.totp)), cleanCode(code))
 
-  if (step === null) return failCode(userId, account)
+  if (step === null) throw invalidCode()
   const { codes, hashes } = newRecoveryCodes()
   const mfa: UserMfa = {
     totp: pending.totp,
@@ -165,11 +163,13 @@ export async function verifySecondFactor(userId: string, code: unknown): Promise
   if (!account || !mfa) {
     throw new AppError(400, 'mfa_not_enabled', 'Two-factor authentication is not on')
   }
-  guardFailures(userId, account)
+  await reserveAttempt(userId)
   const entered = cleanCode(code)
   const _id = new ObjectId(userId)
 
   if (/^\d{6}$/.test(entered)) {
+    // A code for the next step (clock drift) moves lastStep past the current
+    // one, so the current step's code is then refused until the step after.
     const step = matchTotp(base32Decode(sealers.mfa.open(mfa.totp)), entered)
     // Conditional on lastStep, so two requests racing with one code cannot both pass.
     const accepted =
@@ -201,82 +201,48 @@ export async function verifySecondFactor(userId: string, code: unknown): Promise
     }
   }
 
-  return failCode(userId, account)
+  throw invalidCode()
 }
 
-function guardFailures(userId: string, account: MfaFields): void {
-  const failures = account.mfaFailures
+const invalidCode = () => new AppError(401, 'invalid_mfa_code', 'That code is not valid')
 
-  if (
-    failures &&
-    failures.count >= MAX_FAILURES &&
-    Date.now() - failures.since.getTime() < FAILURE_WINDOW_MS
-  ) {
-    logEvent('warn', 'auth.mfa.locked', { user_id: userId })
-    throw new AppError(
-      429,
-      'mfa_too_many_attempts',
-      'Too many wrong codes. Try again in 15 minutes.',
+/**
+ * Counts an attempt before its code is checked, so a burst of parallel guesses
+ * cannot all read the counter before any of them writes it. A right code then
+ * clears the count. Each step is one atomic update: add to a window still open,
+ * or start a new one when it has lapsed (retried if another request did first).
+ */
+async function reserveAttempt(userId: string): Promise<void> {
+  const _id = new ObjectId(userId)
+
+  for (let tries = 0; tries < 3; tries++) {
+    const windowStart = new Date(Date.now() - FAILURE_WINDOW_MS)
+    const counted = await users().findOneAndUpdate(
+      { _id, 'mfaFailures.since': { $gt: windowStart } },
+      { $inc: { 'mfaFailures.count': 1 } },
+      { returnDocument: 'after', projection: { mfaFailures: 1 } },
     )
+
+    if (counted) {
+      if ((counted.mfaFailures?.count ?? 0) <= MAX_FAILURES) return
+      logEvent('warn', 'auth.mfa.locked', { user_id: userId })
+      throw new AppError(
+        429,
+        'mfa_too_many_attempts',
+        'Too many wrong codes. Try again in 15 minutes.',
+      )
+    }
+    const opened = await users().updateOne(
+      {
+        _id,
+        $or: [{ mfaFailures: { $exists: false } }, { 'mfaFailures.since': { $lte: windowStart } }],
+      },
+      { $set: { mfaFailures: { count: 1, since: new Date() } } },
+    )
+
+    if (opened.modifiedCount === 1) return
   }
-}
-
-async function failCode(userId: string, account: MfaFields): Promise<never> {
-  const failures = account.mfaFailures
-  const fresh = !failures || Date.now() - failures.since.getTime() >= FAILURE_WINDOW_MS
-
-  await users().updateOne(
-    { _id: new ObjectId(userId) },
-    fresh
-      ? { $set: { mfaFailures: { count: 1, since: new Date() } } }
-      : { $inc: { 'mfaFailures.count': 1 } },
-  )
-  throw new AppError(401, 'invalid_mfa_code', 'That code is not valid')
-}
-
-// ── Sign-in challenge: what a sign-in returns instead of a session. ──
-
-type MfaChallengeDoc = { _id: string; userId: string; expiresAt: Date }
-
-const mfaChallenges = () => db().collection<MfaChallengeDoc>('mfa_challenges')
-
-export async function setupMfaChallengeIndexes(): Promise<void> {
-  await mfaChallenges().createIndex(
-    { expiresAt: 1 },
-    { expireAfterSeconds: 0, name: 'mfa_challenges_ttl' },
-  )
-}
-
-export async function createMfaChallenge(userId: string): Promise<string> {
-  const token = generateOpaqueToken()
-
-  await mfaChallenges().insertOne({
-    _id: hashToken(token),
-    userId,
-    expiresAt: new Date(Date.now() + CHALLENGE_TTL_MS),
-  })
-
-  return token
-}
-
-/** The user a challenge belongs to, once `code` passes; the challenge is then spent. */
-export async function verifyMfaChallenge(mfaToken: unknown, code: unknown): Promise<string> {
-  const _id = typeof mfaToken === 'string' && mfaToken ? hashToken(mfaToken) : null
-  const challenge = _id
-    ? await mfaChallenges().findOne({ _id, expiresAt: { $gt: new Date() } })
-    : null
-
-  if (!challenge) {
-    throw new AppError(401, 'mfa_challenge_expired', 'This sign-in has expired. Sign in again.')
-  }
-  await verifySecondFactor(challenge.userId, code)
-  // A code is single-use, so only one request can get here per challenge; the
-  // delete is what keeps a stolen token from being reused afterwards.
-  if (!(await mfaChallenges().findOneAndDelete({ _id: challenge._id }))) {
-    throw new AppError(401, 'mfa_challenge_expired', 'This sign-in has expired. Sign in again.')
-  }
-
-  return challenge.userId
+  throw new AppError(429, 'mfa_too_many_attempts', 'Too many attempts. Try again shortly.')
 }
 
 /** Best effort, like the sign-in alert: a failed email never fails the change. */

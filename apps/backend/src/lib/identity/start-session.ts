@@ -1,5 +1,6 @@
 import { AppError } from '@/lib/errors'
-import { createMfaChallenge, isMfaEnabled } from '@/lib/identity/mfa'
+import { isMfaEnabled } from '@/lib/identity/mfa'
+import { createMfaChallenge } from '@/lib/identity/mfa-challenge'
 import { createUserSession } from '@/lib/identity/sessions'
 import { isNewSignIn, sendNewSignInAlert } from '@/lib/identity/sign-in-alert'
 import { signInSource } from '@/lib/request-origin'

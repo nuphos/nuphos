@@ -8,8 +8,8 @@ import {
   mfaStatus,
   regenerateRecoveryCodes,
   startTotpSetup,
-  verifyMfaChallenge,
 } from '@/lib/identity/mfa'
+import { verifyMfaChallenge } from '@/lib/identity/mfa-challenge'
 import { issueSession } from '@/lib/identity/start-session'
 import { requireAuth } from '@/middleware/auth'
 

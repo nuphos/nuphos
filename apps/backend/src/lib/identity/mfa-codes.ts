@@ -71,16 +71,17 @@ export function matchTotp(secret: Buffer, code: string, now = Date.now()): numbe
   return null
 }
 
-// ── Recovery codes: ten of `xxxxx-xxxxx`, shown once, stored hashed. ──
+// ── Recovery codes: ten of `xxxx-xxxx-xxxx-xxxx` (about 79 bits, out of reach
+// of an offline search of their hashes), shown once, stored hashed. ──
 
 const RECOVERY_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789'
 
 function newRecoveryCode(): string {
-  const chars = Array.from({ length: 10 }, () =>
+  const chars = Array.from({ length: 16 }, () =>
     RECOVERY_ALPHABET.charAt(randomInt(RECOVERY_ALPHABET.length)),
-  )
+  ).join('')
 
-  return `${chars.slice(0, 5).join('')}-${chars.slice(5).join('')}`
+  return chars.match(/.{4}/g)!.join('-')
 }
 
 export const normalizeRecoveryCode = (code: string) => code.toLowerCase().replace(/[^a-z0-9]/g, '')

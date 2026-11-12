@@ -36,6 +36,7 @@ function set(doc: Doc, path: string, value: unknown) {
 
 function matches(doc: Doc, filter: Doc): boolean {
   return Object.entries(filter).every(([path, expected]) => {
+    if (path === '$or') return (expected as Doc[]).some((f) => matches(doc, f))
     const value = get(doc, path)
 
     if (expected instanceof ObjectId) return String(value) === expected.toHexString()
@@ -44,7 +45,8 @@ function matches(doc: Doc, filter: Doc): boolean {
 
       if ('$exists' in op) return (value !== undefined) === op.$exists
       if ('$lt' in op) return (value as number) < (op.$lt as number)
-      if ('$gt' in op) return (value as Date).getTime() > (op.$gt as Date).getTime()
+      if ('$lte' in op) return value instanceof Date && value <= (op.$lte as Date)
+      if ('$gt' in op) return value instanceof Date && value > (op.$gt as Date)
     }
     if (Array.isArray(value)) return value.includes(expected)
 
@@ -72,7 +74,16 @@ class FakeCollection {
 
     return hit ?? null
   }
+  async findOneAndUpdate(filter: Doc, update: Record<string, Doc>) {
+    const hit = this.docs.find((d) => matches(d, filter))
+
+    if (hit) await this.updateOne({ _id: hit._id }, update)
+
+    return hit ? structuredClone(hit) : null
+  }
   async updateOne(filter: Doc, update: Record<string, Doc>) {
+    // Yield first, as a round trip would, so parallel requests interleave.
+    await Promise.resolve()
     const hit = this.docs.find((d) => matches(d, filter))
 
     if (!hit) return { matchedCount: 0, modifiedCount: 0 }
@@ -257,6 +268,19 @@ describe('verifySecondFactor', () => {
     await expect(mfa.verifySecondFactor(USER_ID, codeAt(secret, step(1)))).rejects.toMatchObject({
       code: 'mfa_too_many_attempts',
     })
+  })
+
+  test('parallel guesses cannot get past the limit', async () => {
+    await enroll()
+    const results = await Promise.allSettled(
+      Array.from({ length: 50 }, () => mfa.verifySecondFactor(USER_ID, '000000')),
+    )
+    const codes = results.map((r) =>
+      r.status === 'rejected' ? (r.reason as { code: string }).code : 'ok',
+    )
+
+    expect(codes.filter((c) => c === 'mfa_too_many_attempts').length).toBeGreaterThanOrEqual(40)
+    expect(account().mfaFailures).toMatchObject({ count: 50 })
   })
 
   test('turning it off takes a code', async () => {

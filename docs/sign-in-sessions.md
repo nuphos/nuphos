@@ -35,8 +35,9 @@ it with a code to `POST /auth/mfa/verify` for the usual `{ token, user }`. An
 app that predates this shows the error message, which asks the user to update.
 
 An authenticator code is accepted once (the last accepted time step is kept),
-a recovery code is spent when used, and ten wrong codes within 15 minutes lock
-code entry for the account for the rest of that window. Turning it on or off and
+a recovery code is spent when used. Every attempt is counted before its code
+is checked, so parallel guesses share one budget: after ten attempts within 15
+minutes without a right code, code entry is locked for the rest of that window. Turning it on or off and
 using a recovery code send an email, best effort.
 
 ## New sign-in alert
