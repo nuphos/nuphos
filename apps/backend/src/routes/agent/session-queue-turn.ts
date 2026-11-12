@@ -61,7 +61,6 @@ export function queuedChatContext(
   return {
     locale,
     localTools: capabilities?.localTools === true,
-    ...(capabilities?.decisionReplies === true ? { decisionReplies: true } : {}),
     ...(decisionReplyTo ? { decisionReplyTo } : {}),
     currentUrl:
       c.req.header('X-Atlas-Url') ?? c.req.header('referer') ?? c.req.header('origin') ?? null,

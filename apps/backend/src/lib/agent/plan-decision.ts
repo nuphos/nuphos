@@ -4,7 +4,6 @@
 // wherever it was given: the Task, a Bot's chat, the Inbox or the Plans page.
 import {
   addInputRequest,
-  clearPendingDecision,
   findInputRequest,
   resolveInputRequest,
   resolvePlanInputRequests,
@@ -162,8 +161,9 @@ async function applyPlanAnswer(
 }
 
 /**
- * A person speaking answers what the session waited on: the question an
- * updated client names, or for older clients and channel integrations, any.
+ * A person's message answers the question it names with `decisionReplyTo`.
+ * A message that names none answers nothing: questions stay open until
+ * answered, dismissed or withdrawn.
  */
 export async function answerHumanTurn(args: {
   sessionId: string
@@ -171,17 +171,11 @@ export async function answerHumanTurn(args: {
   actorUserId?: string
   teamId?: string
   decisionReplyTo?: string
-  explicitDecisionReplies?: boolean
   messages: UIMessage[]
 }): Promise<void> {
-  if (args.decisionReplyTo) {
-    const said = args.messages.findLast((message) => message.role === 'user')
-    const answer = (said?.parts ?? []).flatMap((part) => (part.type === 'text' ? [part.text] : []))
+  if (!args.decisionReplyTo) return
+  const said = args.messages.findLast((message) => message.role === 'user')
+  const answer = (said?.parts ?? []).flatMap((part) => (part.type === 'text' ? [part.text] : []))
 
-    await answerInputRequest({
-      ...args,
-      requestId: args.decisionReplyTo,
-      answer: answer.join('\n'),
-    })
-  } else if (!args.explicitDecisionReplies) await clearPendingDecision(args.sessionId, args.userId)
+  await answerInputRequest({ ...args, requestId: args.decisionReplyTo, answer: answer.join('\n') })
 }

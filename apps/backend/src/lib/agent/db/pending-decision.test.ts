@@ -3,12 +3,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { useDb } from '@/lib/test/doubles/db'
 
 import { getConversations } from './conversations-list'
-import {
-  addInputRequest,
-  clearPendingDecision,
-  openInputRequests,
-  resolveInputRequest,
-} from './pending-decision'
+import { addInputRequest, openInputRequests, resolveInputRequest } from './pending-decision'
 
 import type * as dbActual from '@/lib/db'
 
@@ -114,18 +109,6 @@ describe('input requests', () => {
     expect(open.status).toBe('open')
     expect(await resolveInputRequest('s1', 'owner', 'nuphos-1', 'answered')).toBe(true)
     expect(open.status).toBe('answered')
-  })
-
-  test('a legacy channel turn answers every open request', async () => {
-    await clearPendingDecision('s1', 'owner')
-
-    expect(updates[0]?.update).toEqual({
-      $set: {
-        'inputRequests.$[open].status': 'answered',
-        'inputRequests.$[open].resolvedAt': expect.any(Date),
-      },
-    })
-    expect(updates).toHaveLength(1)
   })
 
   test('open requests are the open ones, oldest first', () => {

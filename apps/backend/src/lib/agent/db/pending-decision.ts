@@ -172,20 +172,6 @@ export async function resolvePlanInputRequests(sessionId: string, planId: string
   )
 }
 
-/** Legacy non-Desktop channels answer every open question with their next human turn. */
-export async function clearPendingDecision(sessionId: string, userId: string): Promise<void> {
-  await agentConversations().updateOne(
-    { sessionId, userId, 'inputRequests.status': 'open' },
-    {
-      $set: {
-        'inputRequests.$[open].status': 'answered',
-        'inputRequests.$[open].resolvedAt': new Date(),
-      },
-    },
-    { arrayFilters: [{ 'open.status': 'open' }] },
-  )
-}
-
 /** Matches a conversation with any open request. */
 export const OPEN_INPUT_REQUEST_FILTER = { 'inputRequests.status': 'open' }
 
