@@ -48,19 +48,62 @@ export function withChatSections(
   const sessionOf = (item: Item) => item.key.replace('agent-session:', '')
   const isChat = (item: Item) =>
     item.channel || item.botNested || (item.bot && !chatted.has(sessionOf(item)))
-  const chats = agents.items.filter(isChat).map((item) => ({
-    ...item,
-    description: undefined,
-    // Bots shows faces: a Bot not yet in its chat wears its own, as its chat will.
-    ...(item.bot && {
-      iconNode: item.face,
-      ...(openBot && !item.readOnlyChat && { onActivate: () => openBot(sessionOf(item)) }),
-    }),
-  }))
+  // Read ancestry from the original rows, before Bot-chat copies reparent them.
+  const originals = new Map(
+    agents.items.filter((item) => !item.botNested).map((item) => [item.key, item]),
+  )
+  const botOwner = (item: Item): Item | undefined => {
+    const seen = new Set<string>()
+    let parent = item.parentKey
+
+    while (parent && !seen.has(parent)) {
+      seen.add(parent)
+      const row = originals.get(parent)
+
+      if (!row) return undefined
+      if (row.bot) return row
+      parent = row.parentKey
+    }
+
+    return undefined
+  }
+  const owners = new Map([...originals].map(([key, item]) => [key, botOwner(item)]))
+  const chatByBot = new Map<string, string>()
+
+  for (const item of agents.items) {
+    if (!item.channel) continue
+    for (const botId of item.channelAgentIds ?? (item.botChannelOf ? [item.botChannelOf] : []))
+      if (!chatByBot.has(botId)) chatByBot.set(botId, item.key)
+  }
+  const copies = new Set(agents.items.filter((item) => item.botNested).map((item) => item.key))
+  const chats = agents.items
+    .filter((item) => isChat(item) || (owners.get(item.key) && !copies.has(item.key)))
+    .map((item) => {
+      const owner = owners.get(item.key)
+
+      return {
+        ...item,
+        description: undefined,
+        ...(owner &&
+          !item.botNested && {
+            botNested: true,
+            task: true,
+            // The Bot's own row is replaced by its chat; descendants keep their parents.
+            ...(item.parentKey === owner.key && {
+              parentKey: chatByBot.get(sessionOf(owner)) ?? item.parentKey,
+            }),
+          }),
+        // Bots shows faces: a Bot not yet in its chat wears its own, as its chat will.
+        ...(item.bot && {
+          iconNode: item.face,
+          ...(openBot && !item.readOnlyChat && { onActivate: () => openBot(sessionOf(item)) }),
+        }),
+      }
+    })
   // A Task is one line: its runtime icon and title, no latest message.
   const tasks = projects(
     agents.items
-      .filter((item) => !item.channel && !item.bot && !item.botNested)
+      .filter((item) => !item.channel && !item.bot && !item.botNested && !owners.get(item.key))
       .map(({ preview: _preview, time: _time, ...item }) => ({ ...item, task: true })),
   )
 
