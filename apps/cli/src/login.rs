@@ -324,7 +324,6 @@ async fn browser(api_url: &str) -> Result<Session> {
     bail!("Sign-in timed out")
 }
 
-/// The query of a `GET /callback?…` request, or `None` for anything else.
 /// The challenge in a `401 mfa_required` sign-in answer, if that is what it is.
 fn mfa_challenge(body: &Value) -> Option<String> {
     let error = &body["error"];
@@ -362,6 +361,7 @@ async fn verify_mfa(http: &reqwest::Client, api_url: &str, challenge: &str) -> R
     bail!("Too many wrong codes. Run `nuphos login` to try again.")
 }
 
+/// The query of a `GET /callback?…` request, or `None` for anything else.
 async fn read_callback(stream: &mut TcpStream) -> Option<Vec<(String, String)>> {
     let mut buffer = vec![0u8; 8192];
     let n = tokio::time::timeout(Duration::from_secs(10), stream.read(&mut buffer)).await.ok()?.ok()?;
