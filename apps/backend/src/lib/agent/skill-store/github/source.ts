@@ -11,9 +11,8 @@ export type GithubSkillSource = {
 
 const OWNER = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/
 const REPO = /^[A-Za-z0-9._-]{1,100}$/
-// git check-ref-format: no control characters, space, ~ ^ : ? * [ \, "..", "@{", "//", or a
-// component that starts with "." or ends with ".lock".
-const REF_FORBIDDEN = /[~^:?*[\\]|\.\.|@\{|\/\/|^\/|\/$|\.$|(?:^|\/)\.|\.lock(?:\/|$)/
+// git check-ref-format's forbidden patterns, plus `%`, which a URL would read as an escape.
+const REF_FORBIDDEN = /[~^:?*[\\%]|\.\.|@\{|\/\/|^\/|\/$|\.$|(?:^|\/)\.|\.lock(?:\/|$)/
 
 function invalid(message: string): never {
   throw new AppError(400, 'invalid_source', message)
