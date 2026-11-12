@@ -44,7 +44,7 @@ class ChatSession(
     private val readDetail: suspend (String, String, String) -> AgentConversationDetail = NuphosApi::conversationDetail,
     private val aiAllowed: () -> Boolean = AiAccess.bind(token),
     val creationRuntimeBinding: ai.nuphos.android.data.RuntimeBinding? = null,
-    private val moveRuntime: suspend (String, String, String, ai.nuphos.android.data.AgentRuntime, String?) -> ai.nuphos.android.data.RuntimeBinding = ai.nuphos.android.data.ConversationRuntimeApi::move,
+    private val moveRuntime: suspend (String, String, String, ai.nuphos.android.data.AgentRuntime) -> ai.nuphos.android.data.RuntimeBinding = ai.nuphos.android.data.ConversationRuntimeApi::move,
     private val steerRuntime: suspend (String, String, String, String) -> String = RuntimeApi::steer,
     private val readBypass: suspend (String, String) -> Boolean = AgentChatApi::bypass,
     private val readShareApproval: suspend (String, String) -> String? = NuphosApi::ownShareApproval,
@@ -272,7 +272,7 @@ class ChatSession(
         transportGeneration++
         detailLoadGeneration++
         try {
-            val moved = moveRuntime(token, teamId, sessionId, target, agentRuntime)
+            val moved = moveRuntime(token, teamId, sessionId, target)
             if (!hasAiAccess) return
             modelSettings?.invalidate()
             runtimeId = moved.runtimeId

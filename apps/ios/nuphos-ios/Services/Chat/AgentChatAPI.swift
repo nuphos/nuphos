@@ -293,14 +293,13 @@ enum AgentChatAPI {
     struct RuntimeMove: Decodable { let runtimeId: String; let runtimeLabel: String; let agentRuntime: String }
 
     /// `POST /agent/conversations/:id/runtime` — moves the conversation to
-    /// another agent. `workspace` brings the working files; `history` only
-    /// the transcript.
-    static func moveRuntime(token: String, teamId: String, sessionId: String, runtimeId: String, workspace: Bool) async throws -> RuntimeMove {
+    /// another agent. Only its history moves; older backends require `mode`.
+    static func moveRuntime(token: String, teamId: String, sessionId: String, runtimeId: String) async throws -> RuntimeMove {
         struct Body: Encodable { var runtimeId: String; var mode: String }
         let data = try await send(
             "POST", "agent/conversations/\(sessionId)/runtime",
             query: [URLQueryItem(name: "teamId", value: teamId)], token: token,
-            body: Body(runtimeId: runtimeId, mode: workspace ? "workspace" : "history"), timeout: 120
+            body: Body(runtimeId: runtimeId, mode: "history"), timeout: 120
         )
         return try JSONDecoder().decode(RuntimeMove.self, from: data)
     }

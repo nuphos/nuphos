@@ -27,7 +27,7 @@ class ModelSettingsSessionTest {
         var provider = "codex"
         val session = ChatSession("synthetic", "team", sessionId = "chat", aiAllowed = { true }, readDetail = { _, _, _ ->
             AgentConversationDetail(runtimeId = runtime, agentRuntime = provider, isOwner = true, canManage = true, readOnly = false, messages = emptyList())
-        }, moveRuntime = { _, _, _, target, _ ->
+        }, moveRuntime = { _, _, _, target ->
             runtime = target.id; provider = target.provider; RuntimeBinding(runtime, provider)
         }).also { opened += it }
         session.activateModelSettings(true); session.load()
