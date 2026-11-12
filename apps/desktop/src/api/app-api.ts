@@ -193,10 +193,9 @@ export const appApi = {
     window.api.localSetupSetAutoSync(teamId, enabled),
   teamSkillsImportLocal: (
     teamId: string,
-    skillId: string,
     scope: SkillScope | undefined,
-    reviewed: { relPath: string; realPath: string }[],
-  ) => window.api.teamSkillsImportLocal(teamId, skillId, scope, reviewed),
+    picks: { id: string; reviewed: { relPath: string; realPath: string }[] }[],
+  ) => window.api.teamSkillsImportLocal(teamId, scope, picks),
   teamSkillsDeleteObject: (teamId: string, key: string, scope?: SkillScope) =>
     window.api.teamSkillsDeleteObject(teamId, key, scope),
   teamSkillsDeleteSkill: (teamId: string, name: string, scope?: SkillScope) =>
