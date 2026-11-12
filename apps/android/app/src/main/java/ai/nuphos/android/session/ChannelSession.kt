@@ -41,11 +41,8 @@ class ChannelSession(
         suspend fun attachment(groupId: String): TransferDownloadGroup
         /** Uploads a post's files to the transfer store and returns their group. */
         suspend fun upload(attachments: List<ComposerAttachment>): String
-        /**
-         * `POST …/channel-messages` with `{text, id, upload, replyTo, decisionReplyTo}`; a repeated id is not
-         * posted twice. `decisionReplyTo` names the chat's agent's question the post answers.
-         */
-        suspend fun post(text: String, id: String, upload: String?, replyTo: String?, decisionReplyTo: String? = null)
+        /** `POST …/channel-messages` with `{text, id, upload, replyTo}`; a repeated id is not posted twice. */
+        suspend fun post(text: String, id: String, upload: String?, replyTo: String?)
         /** Retry after an agent could not reply: it reads again what it has not read yet. */
         suspend fun wake(agentId: String) {}
     }
@@ -59,12 +56,11 @@ class ChannelSession(
             val pending = transfers.retain(attachments)
             return transfers.prepare(token, teamId, pending, allowed = { AiAccess.bind(token)() }).groupId
         }
-        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?, decisionReplyTo: String?) {
+        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?) {
             val body = buildList {
                 add("text" to JsonValue.Str(text)); add("id" to JsonValue.Str(id))
                 if (upload != null) add("upload" to JsonValue.Str(upload))
                 if (replyTo != null) add("replyTo" to JsonValue.Str(replyTo))
-                if (decisionReplyTo != null) add("decisionReplyTo" to JsonValue.Str(decisionReplyTo))
             }
             AgentChatApi.send("POST", "agent/conversations/${android.net.Uri.encode(channelId)}/channel-messages", token,
                 query = listOf("teamId" to teamId), body = JsonValue.obj(*body.toTypedArray()))
@@ -75,8 +71,8 @@ class ChannelSession(
         }
         private val questions = OpenQuestions.Api(token, teamId)
         override suspend fun pending() = questions.pending()
-        override suspend fun answer(sessionId: String, text: String, requestId: String) =
-            questions.answer(sessionId, text, requestId)
+        override suspend fun answer(sessionId: String, requestId: String, answer: JsonValue) =
+            questions.answer(sessionId, requestId, answer)
     }
 
     var title by mutableStateOf(title)
@@ -118,19 +114,11 @@ class ChannelSession(
     var replyRequests by mutableStateOf(0)
         private set
 
-    /** The question the next post answers instead, quoted as [replying]: its card's "Other…". */
-    private var answering: BotQuestion? = null
-
     fun reply(to: ChannelPost) {
         replying = to.asReply()
         replyRequests++
     }
 
-    fun reply(to: BotQuestion) {
-        answering = to
-        replying = to.quote
-        replyRequests++
-    }
     var sendError by mutableStateOf<String?>(null)
     /** The latest send, so the transcript returns to the end for it. */
     var lastSubmittedKey by mutableStateOf<String?>(null)
@@ -150,28 +138,9 @@ class ChannelSession(
         open.refresh { BotQuestions.under(bot, it) }
     }
 
-    /**
-     * The Bot's own question is answered by a post here, shown at once as any post is, so the answer
-     * is the viewer's message in this chat. An agent under the Bot takes it in its own conversation.
-     */
-    fun answer(question: BotQuestion, text: String, scope: kotlinx.coroutines.CoroutineScope,
-               viewerId: String? = null, viewerName: String? = null, viewerAvatar: String? = null,
-               newId: () -> String = { java.util.UUID.randomUUID().toString().lowercase() }) {
-        if (question.sessionId != faces.botFace?.id) return open.answer(question, text, scope)
-        val id = newId()
-        sending = sending + ChannelPost(id, viewerId.orEmpty(), isAgent = false, name = viewerName ?: "You",
-            avatarURL = viewerAvatar, text = text, sentAt = java.time.Instant.now(), sending = true)
-        lastSubmittedKey = "post.$id"
-        open.answer(question, text, scope) {
-            try {
-                transport.post(text, id, null, null, decisionReplyTo = question.request.id)
-            } catch (e: Exception) {
-                sending = sending.filter { it.id != id }
-                throw e
-            }
-            refresh(force = true)
-        }
-    }
+    /** Answers a question in this chat: the server wakes the agent that asked, which replies where it asked. */
+    fun answer(question: BotQuestion, text: String, scope: kotlinx.coroutines.CoroutineScope) =
+        open.answer(question, text, scope)
 
     fun retry(agentId: String, scope: kotlinx.coroutines.CoroutineScope) {
         scope.launch {
@@ -190,14 +159,6 @@ class ChannelSession(
              newId: () -> String = { java.util.UUID.randomUUID().toString().lowercase() }): Boolean {
         val text = submission.text.trim()
         if (readOnly || !allowed() || (text.isEmpty() && submission.attachments.isEmpty())) return false
-        // Words under a quoted question are its answer, as its options are; with files, a post quoting nothing.
-        val question = answering?.takeIf { replying == it.quote }
-        answering = null
-        if (question != null && submission.attachments.isEmpty()) {
-            replying = null
-            answer(question, text, scope, viewerId, viewerName, viewerAvatar, newId)
-            return true
-        }
         // The same post is the same words and the same attached files (their own ids, not their
         // names): a post put back after a failure keeps its id, while a newly picked file never does.
         val reply = replying.takeIf { question == null }

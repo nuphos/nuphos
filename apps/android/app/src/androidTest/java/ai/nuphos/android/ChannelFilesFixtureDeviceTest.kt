@@ -84,7 +84,7 @@ class ChannelFilesFixtureDeviceTest {
             return TransferDownloadGroup(groupId, "2099-01-01T00:00:00Z", groups.getValue(groupId))
         }
         override suspend fun upload(attachments: List<ComposerAttachment>): String = error("Not posting in this fixture")
-        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?, decisionReplyTo: String?) = error("Not posting in this fixture")
+        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?) = error("Not posting in this fixture")
     }
 
     private fun post(id: String, minute: Int, text: String, downloads: List<String> = emptyList(), uploads: List<TransferUpload> = emptyList(),
