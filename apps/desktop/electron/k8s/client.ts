@@ -201,12 +201,6 @@ async function authRetry<T>(context: string, fn: () => Promise<T>): Promise<T> {
   }
 }
 
-export async function init() {
-  // No-op. Default kubeconfig contexts are discovered lazily by `listContexts`
-  // and resolved on first use via `getClients`. Nuphos-loaded contexts come in
-  // through `loadKubeconfigYaml`.
-}
-
 export function loadDefaultKubeconfig(): k8s.KubeConfig {
   const kc = new k8s.KubeConfig()
 
