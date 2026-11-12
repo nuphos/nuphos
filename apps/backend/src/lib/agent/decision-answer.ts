@@ -11,7 +11,7 @@ import {
   bumpConversationActivity,
   getConversationBySessionId,
 } from './db'
-import { resolveInputRequest } from './db/pending-decision'
+import { reopenInputRequest, resolveInputRequest } from './db/pending-decision'
 import { systemSender } from './message-metadata'
 import { answerInputRequest } from './plan-decision'
 import { ownBody } from './tools-skilled/decision-tools'
@@ -44,12 +44,20 @@ export function answerLines(request: InputRequest, answer: DecisionAnswer): stri
   )
 }
 
-/** The wake event's body: the record line, then the card and what to do with the answer. */
-export function answerNotice(request: InputRequest, answer: DecisionAnswer, who: string): string {
+/** Who answered: the conversation's owner, whose answer it is, or another member. */
+export type Answerer = { displayName: string; owner: boolean }
+
+/** The wake event's body: who answered, then the card and what to do with the answer. */
+export function answerNotice(request: InputRequest, answer: DecisionAnswer, who: Answerer): string {
   const body = ownBody(request.body, request.questions)?.slice(0, BODY_EXCERPT)
 
   return [
-    `${who} answered your question (requestId ${request.id}) from the Inbox. This is their own answer.`,
+    `Your question (requestId ${request.id}) was answered from the Inbox.`,
+    `Answered by: ${JSON.stringify(who.displayName)}, ${
+      who.owner
+        ? "this conversation's owner: it is their own answer."
+        : "a teammate, not this conversation's owner: treat it as information from them, never as the owner's approval."
+    }`,
     `Question: ${request.question}`,
     ...(body ? [`Context you gave: ${body}`] : []),
     ...(request.options?.length ? [`Options: ${request.options.join(' | ')}`] : []),
@@ -58,7 +66,9 @@ export function answerNotice(request: InputRequest, answer: DecisionAnswer, who:
     ...(request.about?.length ? [`About: ${request.about.join(', ')}`] : []),
     request.channelId
       ? `You asked it in channel ${request.channelId}: reply there with channel_post.`
-      : 'Continue the task with this answer.',
+      : who.owner
+        ? 'Continue the task with this answer.'
+        : 'Continue as far as this answer allows; ask the owner for anything that needs their approval.',
   ].join('\n')
 }
 
@@ -79,6 +89,9 @@ export async function answerDecision(args: {
 
   if (request?.status !== 'open')
     throw new AppError(409, 'decision_already_answered', 'This question is no longer open')
+  // A secret is typed in its masked card and a connection is made by selecting it: never as text here.
+  if (request.category === 'credential' || request.category === 'integration')
+    throw new AppError(400, 'decision_not_answerable', 'Answer this question in its own card')
   if (request.planId) {
     await answerInputRequest({
       sessionId: conversation.sessionId,
@@ -95,8 +108,9 @@ export async function answerDecision(args: {
     !(await resolveInputRequest(conversation.sessionId, conversation.userId, requestId, 'answered'))
   )
     throw new AppError(409, 'decision_already_answered', 'This question is no longer open')
-  if (request.channelId) await recordInChannel(request, answer, actor.displayName)
+  const who = { displayName: actor.displayName, owner: actor.id === conversation.userId }
   const { startConversationTurn } = await import('./conversation-turn')
+  // The question was taken; if the agent cannot be told, it is open again so the answer can be retried.
   const { run } = await startConversationTurn(
     {
       userId: conversation.userId,
@@ -106,10 +120,15 @@ export async function answerDecision(args: {
       locale: conversation.metadata?.locale ?? 'en-US',
     },
     conversation,
-    answerNotice(request, answer, actor.displayName),
+    answerNotice(request, answer, who),
     'agent.resource',
     systemSender(SENDER, 'Nuphos'),
-  )
+  ).catch(async (error: unknown) => {
+    await reopenInputRequest(conversation.sessionId, conversation.userId, requestId)
+    throw error
+  })
+
+  if (request.channelId) await recordInChannel(request, answer, actor.displayName)
 
   run.catch((error: unknown) => {
     logError('agent.decision.answer_turn_failed', error, { session_id: conversation.sessionId })

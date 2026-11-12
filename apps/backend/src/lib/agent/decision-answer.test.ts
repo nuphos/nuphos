@@ -60,7 +60,8 @@ const ask = (extra: Record<string, unknown> = {}) =>
       },
     ],
   }) as never
-const actor = { id: 'u1', displayName: 'Yuanlin' }
+const actor = { id: 'owner', displayName: 'Yuanlin' }
+const teammate = { id: 'u2', displayName: 'Sam' }
 
 beforeEach(() => {
   matchedCount = 1
@@ -79,7 +80,9 @@ test('an answer wakes the asking agent with the card and the answer, and sends n
 
   expect(turns).toHaveLength(1)
   expect(turns[0]).toMatchObject({ session: 'bot', sender: 'nuphos:decision' })
-  expect(turns[0]!.text).toContain('Yuanlin answered your question (requestId q1)')
+  expect(turns[0]!.text).toContain('Your question (requestId q1) was answered')
+  expect(turns[0]!.text).toContain('Answered by: "Yuanlin", this conversation\'s owner')
+  expect(turns[0]!.text).toContain('Continue the task with this answer.')
   expect(turns[0]!.text).toContain('- Which regions? → us-east, eu-west')
   expect(turns[0]!.text).toContain('Options: us-east | eu-west')
   expect(turns[0]!.text).toContain('About: res-1')
@@ -111,6 +114,34 @@ test('a question asked in a channel is recorded there without waking it, and the
   // One wake, the asking agent's: the record itself wakes no one.
   expect(turns).toHaveLength(1)
   expect(turns[0]!.text).toContain('reply there with channel_post')
+})
+
+test("a teammate's answer is told apart from the owner's", async () => {
+  await answerDecision({
+    conversation: ask(),
+    requestId: 'q1',
+    answer: { choices: ['us-east'] },
+    actor: teammate,
+    teamId: 't1',
+  })
+
+  expect(turns[0]!.text).toContain('Answered by: "Sam", a teammate, not this conversation\'s owner')
+  expect(turns[0]!.text).toContain("never as the owner's approval")
+  expect(turns[0]!.text).not.toContain('Continue the task with this answer.')
+})
+
+test('a secret or a connection is never answered with text here', async () => {
+  for (const category of ['credential', 'integration'])
+    await expect(
+      answerDecision({
+        conversation: ask({ category }),
+        requestId: 'q1',
+        answer: { text: 'sk-secret' },
+        actor,
+        teamId: 't1',
+      }),
+    ).rejects.toThrow('its own card')
+  expect(turns).toEqual([])
 })
 
 test('an answered question, or one that lost the race, is refused and wakes no one', async () => {

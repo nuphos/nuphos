@@ -150,6 +150,14 @@ export async function resolveInputRequest(
   return listed.matchedCount > 0
 }
 
+/** An answer whose agent could not be told: the question waits for an answer again. */
+export async function reopenInputRequest(sessionId: string, userId: string, id: string) {
+  await agentConversations().updateOne(
+    { sessionId, userId, inputRequests: { $elemMatch: { id, status: 'answered' } } },
+    { $set: { 'inputRequests.$.status': 'open' }, $unset: { 'inputRequests.$.resolvedAt': '' } },
+  )
+}
+
 /** A plan decided anywhere (its card, the Plans page, Slack) is no longer asked about. */
 export async function resolvePlanInputRequests(sessionId: string, planId: string): Promise<void> {
   await agentConversations().updateOne(
