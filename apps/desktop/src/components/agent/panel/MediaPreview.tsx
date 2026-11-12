@@ -71,10 +71,18 @@ export function MediaPreview({
 }
 
 /**
- * A PDF in a frame of its own, over a blob of the file: what the frame holds is
- * that file and nothing else. Sandboxed with no scripts and no origin of its
- * own, so a PDF cannot run anything or reach the app; a file the size cap rules
- * out is left to the caller's fallback.
+ * A PDF in a frame of its own, over a blob of the bytes its record points at.
+ *
+ * The frame carries no `sandbox` on purpose: Chromium will not open its PDF
+ * viewer in a sandboxed frame at all — `sandbox=""` and
+ * `sandbox="allow-same-origin"` both fail the load with ERR_BLOCKED_BY_CLIENT —
+ * and the only sandbox that renders carries `allow-scripts`, not a thing to hand
+ * a file the agent chose. `RuntimeFilesView` frames a PDF the same way.
+ *
+ * Wrapping the bytes as `application/pdf` is what makes the type certain: a file
+ * the store chose to serve as `text/html` cannot be framed as a document here.
+ * The read is bounded by {@link PDF_PREVIEW_BYTES_MAX}; over the cap, an expired
+ * link or a missing body all go to the caller's fallback.
  */
 function PdfPreview({
   file,
@@ -114,6 +122,8 @@ function PdfPreview({
 
           return
         }
+        // The type is stated here on purpose, rather than taken from the
+        // response: whatever the store said, the frame is handed a PDF.
         made = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
         setBlob(made)
       },
@@ -127,12 +137,10 @@ function PdfPreview({
     }
   }, [url, file.size, fail])
 
-  // No scripts, no same-origin: never allow-scripts on a file the agent chose.
   return blob ? (
     <iframe
       src={blob}
       title={name}
-      sandbox=""
       className="h-[480px] w-full rounded-lg border border-line-control bg-white"
     />
   ) : (
