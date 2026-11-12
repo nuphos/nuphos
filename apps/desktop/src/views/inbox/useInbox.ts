@@ -217,12 +217,13 @@ export function useInboxListing(teamId: string, reloadKey?: unknown) {
 
 /** How many questions wait on the viewer in this team, settling this device's answers. */
 export function useInboxCount(teamId: string): number {
-  const listing = useInboxListing(teamId).data
+  const { data: listing, dataUpdatedAt } = useInboxListing(teamId)
   const onDevice = useAnsweredOnDevice()
 
+  // On every read, not only a changed one: an answer's hold can expire under the same listing.
   useEffect(() => {
     if (listing) settleAnswers(listing)
-  }, [listing])
+  }, [listing, dataUpdatedAt])
 
   return listing ? inboxCount(listing, onDevice) : 0
 }

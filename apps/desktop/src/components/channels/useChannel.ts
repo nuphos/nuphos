@@ -8,7 +8,7 @@ import { queryKeys } from '../../lib/query/keys.ts'
 import { channelRevision } from './channelRevision.ts'
 
 import type { AgentConversationDetail, ChannelAgent } from '../../api'
-import type { QueryClient } from '@tanstack/react-query'
+import type { QueryClient, QueryState } from '@tanstack/react-query'
 
 // Like an open conversation: new posts from people and agents show within a few seconds.
 const POLL_MS = 4_000
@@ -45,6 +45,17 @@ export function refreshChannel(client: QueryClient, teamId: string, channelId: s
   return client.invalidateQueries({ queryKey, exact: true })
 }
 
+/** While failing, wait longer the longer it has failed: by how long since the last success,
+ *  or for a channel that never loaded, by how many times it failed (8, 16, 32, then 60 s). */
+export function channelRetryMs(state: QueryState<Channel>): number {
+  if (state.status !== 'error') return POLL_MS
+  const failingFor = state.dataUpdatedAt
+    ? Date.now() - state.dataUpdatedAt
+    : POLL_MS * 2 ** state.errorUpdateCount
+
+  return Math.min(RETRY_MAX_MS, Math.max(2 * POLL_MS, failingFor))
+}
+
 /**
  * A channel's messages and agents, polled while it is on screen and the window is
  * visible. A failing channel backs off, longer the longer it has failed.
@@ -58,10 +69,7 @@ export function useChannel(teamId: string, channelId: string) {
     queryFn: () => loadChannel(client, teamId, channelId),
     enabled: tab ? tab.isActive : true,
     retry: false,
-    refetchInterval: ({ state }) =>
-      state.status === 'error'
-        ? Math.min(RETRY_MAX_MS, Math.max(2 * POLL_MS, Date.now() - state.dataUpdatedAt))
-        : POLL_MS,
+    refetchInterval: (query) => channelRetryMs(query.state),
   })
 
   const refresh = useCallback(
