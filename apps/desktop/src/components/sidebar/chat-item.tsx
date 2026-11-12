@@ -1,5 +1,8 @@
 import { t } from '../../i18n'
+import { openInputRequests } from '../../lib/agentInputRequests'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
+import { runtimeTurnActive, runtimeBackgroundRunning } from '../../lib/runtimeExecution'
+import { sidebarTaskState } from '../../lib/sidebarTaskState'
 import { rowDot } from '../../lib/subAgentState'
 import { botOfChannel } from '../channels/botChannel'
 import { ChatIcon } from '../channels/channelParts'
@@ -33,7 +36,11 @@ export function chatSidebarItem({
   /** A face picked in this app since the list loaded (null: taken away), which wins. */
   picked?: string | null
 }): Item {
-  const dot = rowDot(conversation, runtimeState, unread)
+  const isBot = Boolean(
+    (picked === undefined ? conversation.avatar : picked) && conversation.kind !== 'channel',
+  )
+  const waiting = openInputRequests(conversation).length > 0 || Boolean(conversation.signInRequest)
+  const dot = waiting ? 'waiting' : rowDot(conversation, runtimeState, unread)
   const status = <ChatRowStatus runtimeState={runtimeState} dot={dot} />
 
   return {
@@ -59,7 +66,7 @@ export function chatSidebarItem({
           channelAgentIds: conversation.agentSessionIds,
         }
       : {}),
-    ...((picked === undefined ? conversation.avatar : picked) && conversation.kind !== 'channel'
+    ...(isBot
       ? {
           bot: true,
           face: (
@@ -94,6 +101,17 @@ export function chatSidebarItem({
     foldedStatus: status,
     finished: threadFoldsAway({ conversation, runtimeState, open: active }),
     dot,
+    taskState:
+      isBot || conversation.kind === 'channel'
+        ? undefined
+        : sidebarTaskState({
+            waiting,
+            working:
+              runtimeTurnActive(runtimeState ?? conversation.runtimeState) ||
+              runtimeBackgroundRunning(runtimeState ?? conversation.runtimeState) ||
+              Boolean(conversation.activeRun),
+            unread,
+          }),
     ...(conversation.workspace && { projectPath: conversation.workspace.path }),
   }
 }

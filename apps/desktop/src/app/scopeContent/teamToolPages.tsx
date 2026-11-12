@@ -12,13 +12,13 @@ import {
 } from 'lucide-react'
 
 import { NuphosDashboardsView } from '../../dashboards/NuphosDashboardsView'
-import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
-import { toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
 import { dashboardsPageTitle } from '../../dashboards/view/pageTitle'
 import { t } from '../../i18n'
+import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
+import { toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
 import { ArchitectureView } from '../../views/ArchitectureView'
-import { ArtifactView } from '../../views/ArtifactView'
 import { ArchivedChatsView } from '../../views/ArchivedChatsView'
+import { ArtifactView } from '../../views/ArtifactView'
 import { AuditLogView } from '../../views/AuditLogView'
 import { BrowserView } from '../../views/BrowserView'
 import { DesignsView } from '../../views/DesignsView'
@@ -30,6 +30,8 @@ import { RuntimeFilesView } from '../../views/RuntimeFilesView'
 import { AgentSection } from '../../views/settings/AgentSection'
 import { TeamMembersView } from '../../views/TeamMembersView'
 import { TerminalView } from '../../views/TerminalView'
+
+import { renderTeamHomePage } from './teamHomePage'
 
 import type { ScopeRenderContext } from './context'
 
@@ -66,10 +68,12 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
 
   if (scope.kind !== 'team') return undefined
 
+  if (active === 'team.home') return renderTeamHomePage(ctx)
+
   if (active === 'team.agents') {
     return renderPage(
       'team.agents',
-      t('Runtimes'),
+      t('Computers'),
       <Bot className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <AgentSection
         key={scope.teamId}

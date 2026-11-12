@@ -197,6 +197,29 @@ export function removeSidebarFavorite(userId: string, teamId: string, identity: 
   enqueueOperation(userId, teamId, { id: nextOperationId(), kind: 'remove', identity })
 }
 
+/** Reuses the conflict-safe operation queue so pin order follows the person. */
+export function moveSidebarFavorite(
+  userId: string,
+  teamId: string,
+  identity: string,
+  before: string | null,
+): void {
+  const operation: SidebarFavoriteOperation = {
+    id: nextOperationId(),
+    kind: 'move',
+    identity,
+    before,
+  }
+
+  writeFavoritesCache(
+    userId,
+    teamId,
+    applyFavoriteOperations(readSidebarFavorites(userId, teamId), [operation]),
+  )
+  dispatchChange(userId, teamId)
+  enqueueOperation(userId, teamId, operation)
+}
+
 /** Notifies on changes to this user's favorites for one team. */
 export function subscribeSidebarFavorites(
   userId: string,

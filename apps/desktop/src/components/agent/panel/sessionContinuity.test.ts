@@ -160,3 +160,38 @@ test('a steering receipt keeps whichever acknowledgement carried the sender', as
     undefined,
   )
 })
+
+test('switching keeps recently opened idle chats alongside every unfinished chat', async () => {
+  const { retainOpenedTabs } = await import('./sessionContinuity.ts')
+  const tabs = [
+    baseTab({ id: 'old', sessionId: 'old' }),
+    baseTab({ id: 'running', sessionId: 'running', streaming: true }),
+    baseTab({ id: 'bot', sessionId: 'bot' }),
+    baseTab({ id: 'task', sessionId: 'task' }),
+    baseTab({ id: 'upload', sessionId: 'upload' }),
+  ]
+
+  assert.deepEqual(
+    retainOpenedTabs(tabs, new Set(['upload'])).map((tab) => tab.id),
+    ['running', 'bot', 'task', 'upload'],
+  )
+  assert.equal(
+    retainOpenedTabs(tabs, new Set(['upload']))[1],
+    tabs[2],
+    'switching preserves the loaded transcript rather than rebuilding it',
+  )
+})
+
+test('reactivating a loaded chat updates recency without resetting live state', async () => {
+  const { retainOpenedTabs, touchOpenedTab } = await import('./sessionContinuity.ts')
+  const bot = baseTab({ id: 'bot', sessionId: 'bot' })
+  const task = baseTab({ id: 'task', sessionId: 'task' })
+  const other = baseTab({ id: 'other', sessionId: 'other' })
+  const touched = touchOpenedTab([bot, task, other], bot.id)
+
+  assert.equal(touched.at(-1), bot)
+  assert.deepEqual(
+    retainOpenedTabs(touched).map((tab) => tab.id),
+    ['other', 'bot'],
+  )
+})

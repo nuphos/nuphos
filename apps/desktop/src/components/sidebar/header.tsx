@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 import { ChevronRight, ChevronsUpDown, Loader2, LogOut, Settings, Users } from 'lucide-react'
 import { useState } from 'react'
 
@@ -9,7 +10,6 @@ import { Avatar } from '../Avatar'
 import { SidebarSearchButton } from '../session-search/SidebarSearchButton'
 import { SkeletonReveal } from '../SkeletonReveal'
 import { Kbd } from '../ui/kbd'
-import { toast } from '../ui/toast'
 import {
   Menu,
   MenuContent,
@@ -19,13 +19,16 @@ import {
   MenuSubmenuTrigger,
   MenuTrigger,
 } from '../ui/menu'
+import { toast } from '../ui/toast'
 import { renderWorkspaceMenuOptions } from '../WorkspaceMenuOptions'
 
 import { SidebarAccountItems } from './account-items'
 import { SidebarHistoryButtons } from './history-buttons'
 import { SidebarToggleButton } from './nav-stack'
+import { SidebarStatsButton } from './SidebarStatsButton'
 
 import type { ChatLookup, HistoryTimeline } from './historyRows'
+import type { SidebarStatsButtonProps } from './SidebarStatsButton'
 import type { AccountSummary, UserInfo } from '../../types'
 import type { BreadcrumbSegment } from '../Toolbar'
 
@@ -43,7 +46,9 @@ export function SidebarHeaderBar({
   history,
   chatOf,
   onSearch,
+  stats,
 }: {
+  stats?: SidebarStatsButtonProps
   collapsed: boolean
   onToggleCollapse?: () => void
   canGoBack: boolean
@@ -64,15 +69,18 @@ export function SidebarHeaderBar({
           <SidebarToggleButton collapsed={collapsed} onClick={onToggleCollapse} />
         )}
         {onSearch && <SidebarSearchButton onSearch={onSearch} />}
+        {stats && <SidebarStatsButton {...stats} />}
       </div>
-      <SidebarHistoryButtons
-        canGoBack={canGoBack}
-        canGoForward={canGoForward}
-        onBack={onBack}
-        onForward={onForward}
-        history={history}
-        chatOf={chatOf}
-      />
+      <div className={stats ? '[&_button]:w-6' : undefined}>
+        <SidebarHistoryButtons
+          canGoBack={canGoBack}
+          canGoForward={canGoForward}
+          onBack={onBack}
+          onForward={onForward}
+          history={history}
+          chatOf={chatOf}
+        />
+      </div>
     </div>
   )
 }
@@ -188,7 +196,9 @@ export function SidebarUserEntry({
   user,
   onOpenUserSettings,
   onLogout,
+  compact = false,
 }: {
+  compact?: boolean
   user: UserInfo
   onOpenUserSettings?: () => void
   onLogout: () => void
@@ -203,17 +213,26 @@ export function SidebarUserEntry({
           api
             .authListAccounts()
             .then((accounts) => setWaiting(waitingAccounts(accounts)))
-            .catch(() => undefined)
+            .catch(() => {})
       }}
     >
-      <MenuTrigger className="titlebar-no-drag min-w-0 flex-1 h-9 flex items-center gap-2.5 px-2 rounded-lg text-[13.5px] text-main outline-none transition-colors hover:bg-[var(--sidebar-overlay-hover)] focus-visible:bg-[var(--sidebar-overlay-focus)] data-[popup-open]:bg-[var(--sidebar-overlay-active)]">
+      <MenuTrigger
+        aria-label={name}
+        title={compact ? name : undefined}
+        className={clsx(
+          'titlebar-no-drag flex items-center text-main outline-none transition-colors hover:bg-[var(--sidebar-overlay-hover)] focus-visible:bg-[var(--sidebar-overlay-focus)] data-[popup-open]:bg-[var(--sidebar-overlay-active)]',
+          compact
+            ? 'size-8 shrink-0 justify-center rounded-full'
+            : 'min-w-0 flex-1 h-9 gap-2.5 px-2 rounded-lg text-[13.5px]',
+        )}
+      >
         <Avatar
           src={user.avatarURL}
           name={name}
-          size={22}
+          size={compact ? 28 : 22}
           className="rounded-full !shadow-none flex-shrink-0"
         />
-        <span className="truncate font-medium">{name}</span>
+        {!compact && <span className="truncate font-medium">{name}</span>}
       </MenuTrigger>
       <MenuContent side="top" align="start" sideOffset={8} className="w-[260px] !rounded-xl !p-1.5">
         <div className="flex items-center gap-2.5 px-2 pb-2.5 pt-1.5">

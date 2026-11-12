@@ -6,9 +6,8 @@ import { projectName } from '../../../lib/taskProjects'
 import { Composer } from './Composer'
 import { successfulTurns } from './endEventEffects'
 import { StarStrip } from './hero'
-import { AgentHomeAnimation, COMPOSER_REVEAL_MS, DelayedPanelReveal } from './homeAnimation'
+import { AgentHomeAnimation, DelayedPanelReveal } from './homeAnimation'
 import { HomeGithubButton } from './HomeGithubButton'
-import { HomeWidgets } from './HomeWidgets'
 import { homeGreeting } from './textUtils'
 import { useEntranceCount } from './useEntranceCount'
 
@@ -61,8 +60,6 @@ export function AgentHomePage({
   project,
   onImportSession,
   isTeamAdmin = false,
-  onOpenConversation,
-  onOpenNuphosLink,
 }: {
   onSend: ComposerSend
   onStop: () => void
@@ -178,20 +175,6 @@ export function AgentHomePage({
             )}
           </DelayedPanelReveal>
         </div>
-        {teamId && (
-          <div className="mx-auto mt-6 w-full max-w-[820px]">
-            {/* The composer's panel reveal, starting 0.3s after it. */}
-            <HomeWidgets
-              key={teamId}
-              teamId={teamId}
-              isTeamAdmin={isTeamAdmin}
-              onOpenConversation={onOpenConversation}
-              onOpenNuphosLink={onOpenNuphosLink}
-              revealAt={COMPOSER_REVEAL_MS + 300}
-              replayKey={entranceKey}
-            />
-          </div>
-        )}
       </div>
     </div>
   )

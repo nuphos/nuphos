@@ -8,7 +8,7 @@ import { credentialSelectionSignature } from './credentialAccess.ts'
 import { newConversationCredentialAccessForRequest } from './credentialRequest.ts'
 import { optimisticSenderMetadata } from './optimisticSender.ts'
 import { markMessageSent } from './sentMessageMotion.ts'
-import { retainBackgroundTabs } from './sessionContinuity.ts'
+import { retainOpenedTabs } from './sessionContinuity.ts'
 import { newAgentStreamId, uid } from './stall.ts'
 import { getAgentLocale } from './textUtils.ts'
 import { toUiMessages } from './toUiMessages.ts'
@@ -141,7 +141,7 @@ export function runStartChatWith(
     sessionId,
     credentialSelectionSignature(initial.credentialAccess),
   )
-  setTabs((prev) => [...retainBackgroundTabs(prev, uploadingTabsRef.current), initial])
+  setTabs((prev) => [...retainOpenedTabs(prev, uploadingTabsRef.current), initial])
   setActiveId(id)
   syncTranscriptNow(initial)
 

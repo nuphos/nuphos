@@ -2,10 +2,13 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import electron from 'vite-plugin-electron/simple'
 
+import { buildSidebarGestures } from './scripts/build-sidebar-gestures.ts'
+
 export default defineConfig({
   base: './',
   plugins: [
     react(),
+    { name: 'sidebar-native-gestures', buildStart: buildSidebarGestures },
     electron({
       main: {
         entry: 'electron/main.ts',

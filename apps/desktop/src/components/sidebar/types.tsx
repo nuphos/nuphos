@@ -13,6 +13,9 @@ import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 export type Item = {
+  /** Derived from actual execution, open requests and personal reminders. */
+  taskState?: 'attention' | 'working' | 'idle'
+
   key: string
   label: string
   description?: ReactNode
@@ -96,6 +99,11 @@ export type Section = {
   loading?: boolean
   /** Default for a group with no persisted user preference. */
   defaultCollapsed?: boolean
+  /** A quiet status label, without the collapse chevron. */
+  hideChevron?: boolean
+  nonCollapsible?: boolean
+  compact?: boolean
+  separator?: boolean
   /** Beside the title, outside its collapse toggle, e.g. Channels' "+". */
   action?: ReactNode
 }

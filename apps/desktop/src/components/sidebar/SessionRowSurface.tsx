@@ -3,6 +3,7 @@ import clsx from 'clsx'
 import { SESSION_DRAG_TYPE } from '../../app/workspace/splitLayout'
 
 import { MAKE_BOT_DRAG_TYPE } from './bot-drop'
+import { BOT_PIN_DRAG_TYPE } from './bot-pin-drag'
 import { canBecomeBot } from './make-bot'
 import { setRowDragImage } from './rowDragImage'
 
@@ -49,12 +50,14 @@ export function SessionRowSurface({
         if (!sessionId) return
         // Moving opens it in a split; copying onto Bots makes it a Bot and keeps the Task.
         event.dataTransfer.effectAllowed = 'copyMove'
+        if (item.bot || item.channel) event.dataTransfer.setData(BOT_PIN_DRAG_TYPE, item.key)
         setRowDragImage(event, event.currentTarget, item.label)
         event.dataTransfer.setData(SESSION_DRAG_TYPE, JSON.stringify({ sessionId, teamId }))
         // A Task can also be dropped on Bots to become one, as its menu's "Make this a Bot";
         // a sub-task cannot, so dragging it about never turns it into a Bot by accident.
         if (canBecomeBot(item)) event.dataTransfer.setData(MAKE_BOT_DRAG_TYPE, sessionId)
       }}
+      data-bot-pin-key={item.bot || item.channel ? item.key : undefined}
       data-sidebar-row
       className={clsx(
         // A row with a detail line keeps one height; the detail rises into it on hover.

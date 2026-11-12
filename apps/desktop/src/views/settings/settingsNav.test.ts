@@ -8,17 +8,20 @@ import { settingsLinkTarget, settingsNavGroups, settingsSectionForPage } from '.
 
 const team = { kind: 'team', teamId: 'aaaaaaaaaaaaaaaaaaaaaaaa' } as const
 
-test('Skills, Memories and Triggers open their Team Settings sections', () => {
-  const keys = settingsNavGroups('team').flatMap((group) => group.items.map((item) => item.key))
+test('Computers, Skills, Memories and Triggers open their Team Settings sections', () => {
+  const keys = new Set(
+    settingsNavGroups('team').flatMap((group) => group.items.map((item) => item.key)),
+  )
 
   for (const [page, section] of [
+    ['team.agents', 'workspace.computers'],
     ['team.agent-skills', 'workspace.skills'],
     ['team.agent-memories', 'workspace.memories'],
     ['team.triggers', 'workspace.triggers'],
     ['team.schedule', 'workspace.triggers'],
   ]) {
     assert.equal(settingsSectionForPage(page), section)
-    assert.ok(keys.includes(section))
+    assert.ok(keys.has(section))
   }
   assert.equal(settingsSectionForPage('team.inbox'), undefined)
 })

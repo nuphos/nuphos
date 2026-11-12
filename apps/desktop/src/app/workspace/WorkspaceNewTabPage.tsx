@@ -15,6 +15,7 @@ import { TEAM_WORKSPACE_NAV_ITEMS } from '../../lib/teamOverviewNav'
 import { RUNTIME_TERMINAL_FILTER } from '../../views/TerminalView'
 
 import { browserAddressOption } from './browserAddressOption'
+import { NewTabEmptyState } from './NewTabEmptyState'
 import { HistoryIcon, LauncherIcon, NewTabGroupSection, NewTabOptionRow } from './NewTabOptions'
 import { useSessionDesktopItems } from './useSessionDesktopItems'
 
@@ -54,7 +55,6 @@ export function WorkspaceNewTabPage({
 }: Props) {
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
-  // Frecency decays over days, so the time this New Tab opened is precise enough.
   const [now] = useState(() => Date.now())
   const searchRef = useRef<HTMLInputElement>(null)
   const { conversationId } = useWorkspaceTab()
@@ -89,8 +89,6 @@ export function WorkspaceNewTabPage({
     onOpenPath,
     onOpenKey,
   })
-  // Terminal is two destinations here, so picking one opens the shell directly
-  // instead of landing on a chooser.
   const workspaceItems = TEAM_WORKSPACE_NAV_ITEMS.flatMap((item): Item[] =>
     item.key === 'team.terminal'
       ? [
@@ -120,8 +118,6 @@ export function WorkspaceNewTabPage({
       item.onActivate ? item.onActivate(newTab) : onOpenKey(item.key, null, newTab),
   })
   const itemOptions = (items: Item[]) => items.filter((item) => item.enabled).map(itemOption)
-  // Every page this dock has shown, most frecent first. A page that is also a
-  // launcher entry (same title) lends that entry its frecency instead.
   const historyOption = (entry: DockHistoryEntry): NewTabOption => ({
     id: `history:${entry.href}`,
     label: entry.title,
@@ -146,9 +142,6 @@ export function WorkspaceNewTabPage({
     .slice(1)
     .flatMap((group) => group.options.map((option) => ({ ...option, detail: group.title })))
   const addressOption = onOpenPath ? browserAddressOption(query, teamId, onOpenPath) : null
-  // While typing, every group collapses into one list ranked by match, then
-  // frecency, with an Open-in-Browser row when the text is an address. With
-  // an empty query the grouped launcher stays, Recent first.
   const options: NewTabOption[] = searching
     ? withAddressOption(
         rankNewTabOptions(
@@ -262,30 +255,14 @@ export function WorkspaceNewTabPage({
             )}
           </div>
 
-          {loading && rootIntegrations.length === 0 && (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-1">
-              {Array.from({ length: 6 }, (_, index) => (
-                <div key={index} className="h-9 animate-pulse rounded-md bg-state-selected" />
-              ))}
-            </div>
-          )}
-
-          {!loading && (noConnectors || options.length === 0) && (
-            <div className="flex flex-col items-center rounded-lg px-6 py-6 text-center">
-              <p className="text-[12.5px] text-tertiary">
-                {searching ? t('No matching destinations') : t('No connected resources yet')}
-              </p>
-              {!searching && (
-                <button
-                  type="button"
-                  onClick={() => onOpenKey('team.integrations', null, false)}
-                  className="mt-3 rounded-md bg-surface-sunken px-2.5 py-1 text-[12px] font-medium text-main transition-colors hover:bg-state-hover"
-                >
-                  {t('Add a connector')}
-                </button>
-              )}
-            </div>
-          )}
+          <NewTabEmptyState
+            loading={loading}
+            empty={rootIntegrations.length === 0}
+            noConnectors={noConnectors}
+            searching={searching}
+            noMatches={options.length === 0}
+            onOpenKey={onOpenKey}
+          />
         </div>
       </div>
     </PageMeta>

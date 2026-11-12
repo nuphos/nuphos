@@ -7,7 +7,6 @@ import { SIDEBAR_ITEM_SHORTCUTS } from '../../lib/teamOverviewNav'
 import {
   SIDEBAR_GROUP_GAP_CLASS,
   SIDEBAR_GROUP_ITEMS_CLASS,
-  SIDEBAR_GROUP_TITLE_CLASS,
   SidebarNavIcon,
   SidebarNavItem,
 } from '../SidebarNavItem'
@@ -21,8 +20,8 @@ import { NestedRowBody } from './nest-guides'
 import { SidebarSectionSkeleton } from './parts'
 import { RowDetail } from './row-detail'
 import { rowNote } from './row-note'
-import { SECTION_LABELS } from './section-labels'
 import { SessionRowSurface } from './SessionRowSurface'
+import { SidebarSectionHeading } from './SidebarSectionHeading'
 import { isSidebarItemActive } from './types'
 import { useInboxBadge } from './use-inbox-badge'
 
@@ -31,6 +30,7 @@ import type { SidebarFavorite } from '../../lib/sidebarFavorites'
 import type { Scope } from '../../types'
 
 type SectionListProps = {
+  botPins?: { order: string[]; place: (item: Item, before: Item | null) => void }
   sections: Section[]
   scope: Scope
   active: string
@@ -83,37 +83,19 @@ export function SidebarSectionList({
           teamId={scope.teamId}
           className={clsx(
             'transition-[margin-bottom] duration-200',
-            isGroupCollapsed(section) ? 'mb-1' : SIDEBAR_GROUP_GAP_CLASS,
+            section.separator && 'mt-2 border-t border-line-control/60 pt-2',
+            section.compact ? 'mb-0' : isGroupCollapsed(section) ? 'mb-1' : SIDEBAR_GROUP_GAP_CLASS,
           )}
         >
           {(dropSlot) => (
             <>
               {section.title && (
                 <div className="flex items-center">
-                  <button
-                    type="button"
-                    onPointerDown={(event) => {
-                      if (event.button === 0) toggleGroup(section)
-                    }}
-                    onClick={(event) => {
-                      if (event.detail === 0) toggleGroup(section)
-                    }}
-                    className={clsx(
-                      SIDEBAR_GROUP_TITLE_CLASS,
-                      'min-w-0 flex-1 hover:text-secondary flex items-center gap-1.5',
-                    )}
-                  >
-                    <span className="text-left">
-                      {SECTION_LABELS[section.title] ?? section.title}
-                    </span>
-                    <span
-                      className="t-icon-swap w-3 h-3 flex-shrink-0"
-                      data-state={isGroupCollapsed(section) ? 'a' : 'b'}
-                    >
-                      <ChevronRight className="t-icon w-3 h-3" data-icon="a" />
-                      <ChevronDown className="t-icon w-3 h-3" data-icon="b" />
-                    </span>
-                  </button>
+                  <SidebarSectionHeading
+                    section={section}
+                    collapsed={isGroupCollapsed(section)}
+                    toggle={() => toggleGroup(section)}
+                  />
                   {section.action}
                 </div>
               )}
@@ -156,6 +138,7 @@ export function SidebarSectionList({
                           const bot = twoLine || Boolean(item.botNested)
                           const favoriteToggle = canFavorite(item) ? (
                             <FavoriteToggle
+                              pin={Boolean(item.bot || item.botChannelOf)}
                               favorited={favorited}
                               label={item.label}
                               onToggle={() => toggleFavorite(item)}
@@ -247,7 +230,7 @@ export function SidebarSectionList({
                                     </>
                                   ) : undefined
                                 }
-                                icon={leading}
+                                icon={leading ?? null}
                                 revealDetail={Boolean(item.description)}
                               />
                               <RowDetail item={item} />
@@ -264,9 +247,21 @@ export function SidebarSectionList({
                             <div
                               key={item.key}
                               className={clsx(
-                                't-collapse t-sidebar-session t-stagger relative',
+                                't-collapse t-sidebar-session t-stagger relative transition-opacity duration-150',
+                                item.task &&
+                                  !item.bot &&
+                                  item.taskState === 'idle' &&
+                                  !isActive &&
+                                  'opacity-50 hover:opacity-100 focus-within:opacity-100',
                                 archivingIds.has(rowSessionId) ? 'is-hiding' : 'is-shown',
                               )}
+                              title={
+                                item.task && !item.bot && item.taskState === 'working'
+                                  ? t('Working')
+                                  : item.task && !item.bot && item.taskState === 'idle'
+                                    ? t('Idle')
+                                    : undefined
+                              }
                               data-open={archivingIds.has(rowSessionId) ? 'false' : 'true'}
                             >
                               <NestedRowBody

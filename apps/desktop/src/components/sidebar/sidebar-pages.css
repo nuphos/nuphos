@@ -1,0 +1,91 @@
+.sidebar-swipe-viewport {
+  overflow: hidden;
+  overscroll-behavior-x: contain;
+  touch-action: pan-y;
+}
+.sidebar-swipe-track {
+  display: flex;
+  width: 200%;
+  height: 100%;
+  will-change: transform;
+}
+.sidebar-swipe-page {
+  flex: 0 0 50%;
+  min-width: 0;
+  height: 100%;
+}
+.sidebar-page-indicators {
+  gap: 2px;
+  padding: 6px 0;
+}
+.sidebar-page-indicator {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  color: rgb(var(--color-text-tertiary));
+  background: transparent;
+  transition:
+    background-color 150ms,
+    color 150ms;
+}
+.sidebar-page-indicator:hover,
+.sidebar-page-indicator.is-active {
+  background: var(--sidebar-overlay-hover);
+  color: rgb(var(--color-text-primary));
+}
+.sidebar-page-indicator:focus-visible {
+  outline: 1px solid rgb(var(--color-line-focus));
+  outline-offset: 2px;
+}
+.sidebar-page-list {
+  mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 26px), transparent 100%);
+}
+
+.sidebar-pin-shelf {
+  overflow: hidden;
+  transition: height 250ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: height;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-pin-shelf {
+    transition: none;
+  }
+}
+
+.sidebar-page-list:has(.sidebar-pin-shelf) {
+  overflow-anchor: none;
+}
+
+.sidebar-archive-overlay {
+  position: relative;
+  isolation: isolate;
+  height: 360px;
+  transition: height 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.sidebar-page-layout:has([data-archive-expanded='true']) .sidebar-page-list {
+  /* Reveal the actual sidebar surface, including macOS vibrancy, rather than
+     painting an opaque approximation over the tasks. The overlay overlaps the
+     28px footer, so the rest of its height covers the scrolling list. */
+  mask-image: linear-gradient(
+    to top,
+    transparent 0,
+    transparent max(0px, calc(var(--sidebar-archive-height, 360px) - 28px)),
+    #000 var(--sidebar-archive-height, 360px),
+    #000 100%
+  );
+}
+.sidebar-archive-overlay[data-starting-style],
+.sidebar-archive-overlay[data-ending-style] {
+  height: 28px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-archive-overlay {
+    transition: none;
+  }
+}

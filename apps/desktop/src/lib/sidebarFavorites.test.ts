@@ -6,6 +6,7 @@ import {
   applyFavoriteOperations,
   favoriteIdentity,
   mergeFavoriteLists,
+  moveSidebarFavorite,
   readSidebarFavorites,
   syncSidebarFavorites,
 } from './sidebarFavorites.ts'
@@ -237,4 +238,24 @@ test('moving an unknown favorite, or before one, changes nothing', () => {
     ]),
     entries,
   )
+})
+
+test('pin reorder is optimistic, persists remotely, and preserves unrelated favorites', async () => {
+  reset()
+  const teamId = 'pin-order-team'
+
+  for (const key of ['a', 'tool', 'b', 'c'])
+    addSidebarFavorite('user-a', teamId, { key, label: key })
+  await syncSidebarFavorites('user-a', teamId)
+  moveSidebarFavorite('user-a', teamId, 'c', 'a')
+  assert.deepEqual(
+    readSidebarFavorites('user-a', teamId).map((entry) => entry.key),
+    ['c', 'a', 'tool', 'b'],
+  )
+  await syncSidebarFavorites('user-a', teamId)
+  assert.deepEqual(
+    remote.get(teamId)?.entries.map((entry) => entry.key),
+    ['c', 'a', 'tool', 'b'],
+  )
+  assert.deepEqual(readSidebarFavorites('user-b', teamId), [])
 })
