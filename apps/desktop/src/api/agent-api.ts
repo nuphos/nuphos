@@ -1,6 +1,7 @@
 import { receiveAgentAvatars } from '../lib/agentAvatarChoices.ts'
 import { publishRuntimeStates } from '../lib/agentRuntimeStates.ts'
 import { receiveConversationReadStates } from '../lib/agentUnreadSessions.ts'
+import { receiveSubAgents } from '../lib/subAgentIds.ts'
 
 import type { AgentAuditListArgs, AgentMemoryScope } from './agent-audit-types.ts'
 import type {
@@ -85,6 +86,8 @@ export const agentApi = {
       archived?: 'exclude' | 'only'
       sort?: 'activity' | 'created' | 'archived'
       pendingDecision?: boolean
+      /** Channels instead of agent conversations; lists never mix the two. */
+      kind?: 'channel'
     },
   ) => {
     const requestedAt = Date.now()
@@ -99,6 +102,7 @@ export const agentApi = {
     )
     receiveConversationReadStates(page.conversations)
     receiveAgentAvatars(page.conversations, requestedAt)
+    receiveSubAgents(page.conversations)
 
     return page
   },
@@ -141,6 +145,8 @@ export const agentApi = {
 
     receiveConversationReadStates([detail], true)
     receiveAgentAvatars([detail], requestedAt)
+    // Only a parent it names is trusted here; the list says when one is gone.
+    if (detail.parentSessionId) receiveSubAgents([detail])
 
     return detail
   },
