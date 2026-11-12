@@ -34,6 +34,11 @@ object NuphosApi {
             override val message = serverMessage ?: "Nuphos returned an unexpected response ($code)."
         }
 
+        /** Two-factor authentication: the sign-in continues with this challenge and a code. */
+        data class MfaRequired(val challenge: String) : Failure() {
+            override val message = "Enter the code from your authenticator app."
+        }
+
         data object InvalidResponse : Failure() {
             private fun readResolve(): Any = InvalidResponse
             override val message = "Nuphos returned something we could not read."
@@ -185,7 +190,9 @@ object NuphosApi {
                 response.isSuccessful -> runCatching {
                     Http.json.decodeFromString<T>(body)
                 }.getOrElse { throw Failure.InvalidResponse }
-                response.code == 401 || (response.code == 403 && forbiddenIsUnauthorized) -> throw Failure.Unauthorized
+                // A step-up refusal the user cancelled (StepUp.kt) is not a signed-out session.
+                response.code == 401 || (response.code == 403 && forbiddenIsUnauthorized && !StepUp.needsCode(body)) ->
+                    throw Failure.Unauthorized
                 else -> {
                     val message = runCatching {
                         Http.json.decodeFromString<ErrorEnvelope>(body).error?.message

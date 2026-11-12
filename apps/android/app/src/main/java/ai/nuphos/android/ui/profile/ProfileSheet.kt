@@ -64,6 +64,7 @@ fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (
     var edit by remember(user.id) { mutableStateOf(false) }
     var deletion by remember(user.id) { mutableStateOf(false) }
     var devices by remember(user.id) { mutableStateOf(false) }
+    var twoFactor by remember(user.id) { mutableStateOf(false) }
     var withdraw by remember(user.id) { mutableStateOf(false) }
     val uri = LocalUriHandler.current
     val clipboard = LocalClipboardManager.current
@@ -79,6 +80,7 @@ fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (
             consentError = auth.consentError,
             onEdit = { edit = true },
             onDevices = { devices = true },
+            onTwoFactor = { twoFactor = true },
             onPrivacy = { uri.openUri("https://nuphos.ai/privacy") },
             onWithdraw = { withdraw = true },
             onDeletion = { deletion = true },
@@ -100,6 +102,7 @@ fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (
     }
     if (edit) EditProfileSheet(user = auth.user ?: user, onDismiss = { edit = false })
     if (devices) SignedInDevicesSheet(onDismiss = { devices = false })
+    if (twoFactor) TwoFactorSheet(onDismiss = { twoFactor = false })
     if (deletion) AccountDeletionSheet(onDismiss = { deletion = false })
     if (withdraw) {
         AlertDialog(
@@ -134,6 +137,7 @@ internal fun ProfileContent(
     consentError: String?,
     onEdit: () -> Unit,
     onDevices: () -> Unit,
+    onTwoFactor: () -> Unit = {},
     onPrivacy: () -> Unit,
     onWithdraw: () -> Unit,
     onDeletion: () -> Unit,
@@ -178,6 +182,8 @@ internal fun ProfileContent(
                 Info("Email", user.email)
                 ProfileDivider(Modifier.testTag("profile-account-line-email"))
                 ProfileAction("Signed-in devices", disclosure = true, onClick = onDevices)
+                ProfileDivider(Modifier.testTag("profile-account-line-devices"))
+                ProfileAction("Two-factor authentication", disclosure = true, onClick = onTwoFactor)
                 if (workspaceSettings != null) {
                     ProfileDivider(Modifier.testTag("profile-account-line-workspace"))
                     workspaceSettings()

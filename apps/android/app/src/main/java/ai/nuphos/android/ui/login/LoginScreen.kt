@@ -3,6 +3,7 @@ package ai.nuphos.android.ui.login
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -89,7 +90,8 @@ fun LoginScreen(
                     ),
                 ),
         )
-        key(origin) {
+        val challenge = auth.mfaChallenge
+        if (challenge != null) MfaLoginContent(auth) else key(origin) {
             EmailLoginContent(
                 busy = busy,
                 error = (auth.state as? AuthSession.State.SignedOut)?.error,
@@ -172,5 +174,24 @@ fun SplashScreen(modifier: Modifier = Modifier) {
             Spacer(Modifier.height(24.dp))
             LoadingIndicator()
         }
+    }
+}
+
+/** The last step of a sign-in to an account with two-factor authentication on. */
+@Composable
+private fun MfaLoginContent(auth: ai.nuphos.android.session.AuthSession) {
+    androidx.activity.compose.BackHandler { auth.cancelMfa() }
+    Column(Modifier.fillMaxSize().padding(24.dp).padding(top = 72.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text("Two-factor authentication", style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground)
+        Text("Enter the 6-digit code from your authenticator app.", style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        ai.nuphos.android.ui.MfaCodeForm("Sign in", onSubmit = { code ->
+            kotlinx.coroutines.suspendCancellableCoroutine<Unit> { done ->
+                // A refused code comes back here; a success leaves this screen.
+                auth.verifyMfa(code) { message -> done.resumeWith(Result.failure(Exception(message))) }
+            }
+        })
+        TextButton(onClick = auth::cancelMfa) { Text("Back to sign-in") }
     }
 }

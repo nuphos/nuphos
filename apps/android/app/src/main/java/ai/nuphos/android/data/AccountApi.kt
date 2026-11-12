@@ -16,6 +16,7 @@ class AccountApi internal constructor(private val token: String, private val cli
 
     companion object {
         const val AI_CONSENT_VERSION = "2026-09-28"
+        private val MFA_CODE_ERRORS = setOf("invalid_mfa_code", "mfa_challenge_expired")
     }
 
     /** Uses the same existing-account endpoint as iOS; never stores credentials. */
@@ -94,6 +95,37 @@ class AccountApi internal constructor(private val token: String, private val cli
     /** Signs out every device but this one; returns how many were signed out. */
     suspend fun signOutOtherSessions(): Int = execute<SignedOutSessions>("sessions", "DELETE").revoked
 
+    // Two-factor authentication (Profile -> Two-factor authentication).
+
+    /** The second step of a sign-in that answered with [NuphosApi.Failure.MfaRequired]. */
+    suspend fun verifyMfa(challenge: String, code: String): String {
+        val result: JsonObject = execute("mfa/verify", "POST", buildJsonObject {
+            put("mfaToken", challenge); put("code", code.trim())
+        }, authenticated = false, allowRedirects = false)
+        return (result["token"] as? JsonPrimitive)?.takeIf { it.isString }?.content
+            ?.takeIf { it.isNotBlank() } ?: throw NuphosApi.Failure.InvalidResponse
+    }
+
+    suspend fun mfaStatus(): MfaStatus = execute("mfa", "GET")
+
+    suspend fun startMfaSetup(): MfaSetup = execute("mfa/totp/setup", "POST")
+
+    /** Turns it on; the recovery codes are shown only this once. */
+    suspend fun confirmMfaSetup(code: String): List<String> =
+        execute<RecoveryCodes>("mfa/totp/confirm", "POST", buildJsonObject { put("code", code.trim()) }).recoveryCodes
+
+    suspend fun newRecoveryCodes(code: String): List<String> =
+        execute<RecoveryCodes>("mfa/recovery-codes", "POST", buildJsonObject { put("code", code.trim()) }).recoveryCodes
+
+    /** Step-up: a current code makes this session recently verified again (StepUp.kt). */
+    suspend fun reauthMfa(code: String) {
+        execute<Unit>("mfa/reauth", "POST", buildJsonObject { put("code", code.trim()) })
+    }
+
+    suspend fun disableMfa(code: String) {
+        execute<Unit>("mfa/disable", "POST", buildJsonObject { put("code", code.trim()) })
+    }
+
     /** Ends this device's session on the server. Best effort: failures are ignored. */
     suspend fun endSession() = withContext(Dispatchers.IO) {
         runCatching {
@@ -118,9 +150,13 @@ class AccountApi internal constructor(private val token: String, private val cli
         val transport = if (allowRedirects) client else client.newBuilder().followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false).build()
         transport.newCall(request).execute().use { response ->
             val text = response.body.string()
-            if (response.code == 401) throw NuphosApi.Failure.Unauthorized
+            val error = if (response.isSuccessful) null
+                else runCatching { Http.json.parseToJsonElement(text).jsonObject["error"]?.jsonObject }.getOrNull()
+            mfaChallenge(error)?.let { throw NuphosApi.Failure.MfaRequired(it) }
+            // A refused two-factor code is a 401 too, but the session is fine.
+            val codeRefused = runCatching { error?.get("code")?.jsonPrimitive?.contentOrNull }.getOrNull() in MFA_CODE_ERRORS
+            if (response.code == 401 && !codeRefused) throw NuphosApi.Failure.Unauthorized
             if (!response.isSuccessful) {
-                val error = runCatching { Http.json.parseToJsonElement(text).jsonObject["error"]?.jsonObject }.getOrNull()
                 val message = runCatching { error?.get("message")?.jsonPrimitive?.contentOrNull }.getOrNull()
                 val code = runCatching { error?.get("code")?.jsonPrimitive?.contentOrNull }.getOrNull()
                 throw NuphosApi.Failure.Http(response.code, message, code)
@@ -142,3 +178,18 @@ class AccountApi internal constructor(private val token: String, private val cli
         }
     }
 }
+
+@kotlinx.serialization.Serializable
+data class MfaStatus(val enabled: Boolean, val enabledAt: String? = null, val recoveryCodesRemaining: Int = 0)
+
+@kotlinx.serialization.Serializable
+data class MfaSetup(val secret: String, val otpauthUrl: String)
+
+@kotlinx.serialization.Serializable
+private data class RecoveryCodes(val recoveryCodes: List<String>)
+
+/** The challenge in a `401 mfa_required` error, if that is what it is. */
+internal fun mfaChallenge(error: JsonObject?): String? = runCatching {
+    if (error?.get("code")?.jsonPrimitive?.contentOrNull != "mfa_required") return null
+    error["details"]?.jsonObject?.get("mfaToken")?.jsonPrimitive?.contentOrNull
+}.getOrNull()
