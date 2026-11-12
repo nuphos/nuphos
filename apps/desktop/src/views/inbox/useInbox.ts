@@ -181,8 +181,7 @@ export const inboxListingQuery = (teamId: string) =>
     staleTime: 0,
   })
 
-// The moments a question may have been asked, answered or dismissed, and window focus, which a
-// blurred but visible window never reports as visibility, reload whatever listing is shown.
+// The moments a question may have been asked, answered or dismissed reload the listing shown.
 const reloadListings = () =>
   void queryClient.invalidateQueries(
     { predicate: (query) => query.queryKey[0] === 'team' && query.queryKey[2] === 'inbox' },
@@ -190,7 +189,6 @@ const reloadListings = () =>
   )
 
 onInputRequestsRefresh(reloadListings)
-if (typeof window !== 'undefined') window.addEventListener('focus', reloadListings)
 
 /**
  * The team's waiting conversations: the one listing the badge counts and the Inbox lists,

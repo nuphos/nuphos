@@ -187,7 +187,7 @@ test('unmounting the panel preserves the question; a resolved question stays abs
   assert.deepEqual(render('first').requests, [])
 })
 
-test('a refresh signal and window focus reload at once, without waiting for the poll', async () => {
+test('a refresh signal reloads at once, without waiting for the poll', async () => {
   pending = []
   render('first')
   await settle()
@@ -196,10 +196,6 @@ test('a refresh signal and window focus reload at once, without waiting for the 
   refreshInputRequests()
   await settle()
   assert.equal(render('first').requests[0]?.inputRequest.id, 'question-1')
-  pending = []
-  for (const listener of windowListeners.get('focus') ?? []) listener()
-  await settle()
-  assert.deepEqual(render('first').requests, [])
 })
 
 test('a sub-agent changing runtime state reloads; an unrelated session does not', async () => {
