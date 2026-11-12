@@ -55,13 +55,6 @@ struct ToolCallRow: View {
             }
             .buttonStyle(.plain)
 
-            if part.isProviderIntegrationRequest {
-                Button("Choose credentials or connect an account", action: onOpen)
-                    .font(Theme.Text.label)
-                    .buttonStyle(.bordered)
-                    .accessibilityIdentifier("integration.open")
-            }
-
             if part.state == .approvalRequested {
                 ApprovalActions(part: part, enabled: canDecide, session: session)
             } else if let note = authorizationNote {

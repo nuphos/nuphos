@@ -30,7 +30,7 @@ final class IntegrationQuestionUITests: XCTestCase {
             "https://nuphos.ai/teams/64b5f1c2e4b0a1d2c3e4f5a6/agent/push-a"]
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
         app.launch()
-        let entry = app.buttons["integration.open"]
+        let entry = app.buttons["Request a Trello connection"].firstMatch
         XCTAssertTrue(entry.waitForExistence(timeout: 10))
         entry.tap()
         XCTAssertTrue(app.staticTexts["Connect Trello for this conversation?"].waitForExistence(timeout: 5))

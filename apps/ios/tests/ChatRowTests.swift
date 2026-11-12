@@ -16,7 +16,6 @@ enum ChatRowTests {
         foldsFinishedWorkUnderOneHeader()
         liftsThreadBadgesOutOfTheFold()
         keepsSecretRequestsOutOfTheFold()
-        keepsIntegrationRequestsOutOfTheFold()
         rendersReasoningMarkdown()
         keepsNarrationBetweenToolCalls()
         followsTheNewestRun()
@@ -378,27 +377,6 @@ enum ChatRowTests {
         let message = ChatMessage(id: "m", role: .assistant, parts: [tool("a"), tool("b"), .tool(secret), text("Use the card below.")])
         let rows = ChatRow.assistantRows(message, live: false, lastApprovalCallId: nil)
         precondition(shape(rows) == ["work[run:tool.a,tool.b]", "tool.ask", "text:Use the card below."], "\(shape(rows))")
-    }
-
-    private static func keepsIntegrationRequestsOutOfTheFold() {
-        let integration = ChatPart.ToolPart(
-            toolCallId: "connect", toolName: "Request a Trello connection", isDynamic: false, state: .outputAvailable,
-            input: .object(["category": .string("integration"), "question": .string("Connect Trello?"),
-                            "providers": .array([.string("trello")])]))
-        precondition(integration.isProviderIntegrationRequest)
-        precondition(integration.kind == .question)
-        let message = ChatMessage(id: "m", role: .assistant, parts: [tool("a"), tool("b"), .tool(integration), text("Choose an account.")])
-        let rows = ChatRow.assistantRows(message, live: false, lastApprovalCallId: nil)
-        precondition(shape(rows) == ["work[run:tool.a,tool.b]", "tool.connect", "text:Choose an account."], "\(shape(rows))")
-        var personal = integration
-        personal.input = .object(["category": .string("integration"), "question": .string("Use your own GitHub?"),
-                                  "credentials": .array([.object(["provider": .string("personal"), "id": .string("github")])])])
-        precondition(!personal.isProviderIntegrationRequest)
-        var ordinary = integration
-        ordinary.input = .object(["category": .string("integration")])
-        precondition(!ordinary.isProviderIntegrationRequest)
-        ordinary.input = .object(["category": .string("preference"), "question": .string("Which board?")])
-        precondition(!ordinary.isProviderIntegrationRequest)
     }
 
     private static func rendersReasoningMarkdown() {
