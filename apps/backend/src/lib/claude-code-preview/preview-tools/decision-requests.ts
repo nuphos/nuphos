@@ -1,10 +1,12 @@
 // Follow-ups to request_user_decision: the agent lists, corrects or withdraws
 // the questions it asked while they are still open in the user's Inbox.
+import { getConversationBySessionId } from '@/lib/agent/db'
 import {
   listOpenInputRequests,
   resolveInputRequest,
   updateInputRequest,
 } from '@/lib/agent/db/pending-decision'
+import { queuedAnswers } from '@/lib/agent/pending-queue'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
 import type { PreviewToolContext } from '../preview-tool-context'
@@ -44,14 +46,18 @@ const requestFollowUps = {
       ? toolResult({ ok: true, requestId, status: 'withdrawn' })
       : toolError(NOT_OPEN),
   list_user_decisions: async (ctx: PreviewToolContext) => {
-    const open = await listOpenInputRequests(ctx.sessionId, requestOwner(ctx))
+    const owner = requestOwner(ctx)
+    // An answer waiting behind a running turn already settles its question.
+    const answering = new Set((await queuedAnswers(owner, ctx.sessionId)).keys())
+    const open = await listOpenInputRequests(ctx.sessionId, owner, answering)
 
     return toolResult({
-      requests: open.map(({ id, category, question, options, askedAt }) => ({
+      requests: open.map(({ id, category, question, options, about, askedAt }) => ({
         requestId: id,
         category,
         question,
         ...(options ? { options } : {}),
+        ...(about ? { about } : {}),
         askedAt,
       })),
     })
@@ -77,4 +83,28 @@ export function followUpHandler(
 
 export function isRequestFollowUp(name: string): name is keyof typeof requestFollowUps {
   return name in requestFollowUps
+}
+
+/**
+ * The `about` refs of a question, each a resource linked to this conversation
+ * or one of its own sub-agent threads, or why one is not.
+ */
+export async function aboutRefs(
+  ctx: PreviewToolContext,
+  about: unknown,
+): Promise<string[] | string> {
+  if (!Array.isArray(about) || about.length === 0) return []
+  const refs = [...new Set(about.filter((ref): ref is string => typeof ref === 'string'))]
+  const conversation = await getConversationBySessionId(ctx.sessionId)
+  const linked = new Set(conversation?.linkedResources?.map((resource) => resource.id))
+
+  for (const ref of refs) {
+    if (linked.has(ref)) continue
+    const thread = await getConversationBySessionId(ref)
+
+    if (thread?.parentSessionId !== ctx.sessionId)
+      return `\`about\` names ${JSON.stringify(ref)}, which is neither a resource linked to this conversation (see list_session_resources) nor one of its sub-agent threads.`
+  }
+
+  return refs
 }

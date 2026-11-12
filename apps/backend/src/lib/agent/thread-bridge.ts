@@ -20,6 +20,7 @@ import {
   upsertConversationShell,
 } from './db'
 import { isChannel } from './db/channels'
+import { relatedQuestionsNote } from './db/pending-decision'
 
 import type { CredentialRef } from './thread-credentials'
 import type { ThreadModelPick } from './thread-runtime'
@@ -235,7 +236,8 @@ export async function startThreadTurn(data: ThreadTurn) {
   await assertTargetCanRun(target)
   // Lazy so importing the tools does not pull in the route graph.
   const { startConversationTurn } = await import('./conversation-turn')
-  const { status, run } = await startConversationTurn(data, target, data.prompt, 'agent.thread', {
+  const prompt = data.prompt + relatedQuestionsNote(target, data.sessionId, 'sub-agent thread')
+  const { status, run } = await startConversationTurn(data, target, prompt, 'agent.thread', {
     version: 1,
     sender: {
       type: 'agent',

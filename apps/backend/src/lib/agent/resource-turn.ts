@@ -1,4 +1,5 @@
 import { executeConversationTurn } from './conversation-turn'
+import { relatedQuestionsNote } from './db/pending-decision'
 import { systemSender } from './message-metadata'
 import { authorizedResourceTurn } from './resource-webhook'
 import { refreshSessionResource } from './session-resources'
@@ -21,7 +22,7 @@ export async function executeResourceTurn(data: ResourceTurn) {
       locale: conversation.metadata?.locale ?? 'en-US',
     },
     conversation,
-    data.summary,
+    data.summary + relatedQuestionsNote(conversation, authorized.resource.id, 'resource'),
     'agent.resource',
     systemSender('github', 'GitHub', resource.url),
   )

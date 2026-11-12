@@ -39,6 +39,7 @@ const decisionToolModule = (options: Parameters<typeof createDecisionToolModule>
   createDecisionToolModule({ runStreamId: async () => undefined, ...options })
 const { unansweredInstruction } = await import('./decision-specs')
 const { awaitDecisionOnce } = await import('./decision-wait')
+const { relatedQuestionsNote } = await import('@/lib/agent/db/pending-decision')
 
 const ctx = { userId: 'u1', teamId: 't1', sessionId: 'conv-1', locale: 'zh-TW', localTools: true }
 
@@ -591,6 +592,67 @@ describe('decision tool module', () => {
         { requestId: 'r2', category: 'approval', question: 'Ship?', askedAt: at('2026-01-02') },
       ],
     })
+  })
+
+  test('a question names what it is about: a linked resource, never an unknown ref', async () => {
+    storedConversation = { sessionId: 'conv-1', linkedResources: [{ id: 'res-1' }] }
+    const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
+    const ask = (about: string[]) =>
+      tools.request_user_decision!({
+        label: 'Ask to merge',
+        category: 'approval',
+        question: 'Merge the PR?',
+        options: ['Merge', 'Wait'],
+        about,
+      })
+
+    expect((await ask(['res-1'])).isError).toBeFalsy()
+    expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
+      $push: { inputRequests: { $each: [{ question: 'Merge the PR?', about: ['res-1'] }] } },
+    })
+    const before = conversationUpdates.length
+    const unknown = await ask(['res-2'])
+
+    expect(unknown.isError).toBe(true)
+    expect(JSON.stringify(unknown.content)).toContain('list_session_resources')
+    expect(conversationUpdates).toHaveLength(before)
+  })
+
+  test('a wake from a resource lists the open questions about it, and nothing when there are none', () => {
+    const conversation = {
+      inputRequests: [
+        {
+          id: 'q1',
+          category: 'approval',
+          question: 'Merge?',
+          about: ['res-1'],
+          askedAt: new Date(),
+          status: 'open',
+        },
+        {
+          id: 'q2',
+          category: 'approval',
+          question: 'Old',
+          about: ['res-1'],
+          askedAt: new Date(),
+          status: 'answered',
+        },
+        {
+          id: 'q3',
+          category: 'preference',
+          question: 'Other',
+          askedAt: new Date(),
+          status: 'open',
+        },
+      ],
+    } as Parameters<typeof relatedQuestionsNote>[0]
+    const note = relatedQuestionsNote(conversation, 'res-1', 'resource')
+
+    expect(note).toContain('- q1: "Merge?"')
+    expect(note).not.toContain('q2')
+    expect(note).not.toContain('q3')
+    expect(note).toContain('withdraw_user_decision')
+    expect(relatedQuestionsNote(conversation, 'res-9', 'resource')).toBe('')
   })
 })
 

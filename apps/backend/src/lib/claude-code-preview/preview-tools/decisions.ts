@@ -23,7 +23,7 @@ import { previewRunStreamId, publishPreviewFrame } from '../run-frame-bridge'
 
 import { toolInputJsonSchema } from './ai-sdk-adapter'
 import { CLIENT_TOOL_INSTRUCTION, CLIENT_TOOL_UNREACHABLE_INSTRUCTION } from './decision-specs'
-import { followUpHandler, isRequestFollowUp, requestOwner } from './decision-requests'
+import { aboutRefs, followUpHandler, isRequestFollowUp, requestOwner } from './decision-requests'
 import { awaitDecisionOnce } from './decision-wait'
 
 import type { PreviewClientToolCall, PreviewWaitKind } from '../decision-waiter'
@@ -186,6 +186,9 @@ function passthroughHandler(
     const target = name === 'request_user_decision' ? integrationTargetProblem(args) : null
 
     if (target) return toolError(target)
+    const about = name === 'request_user_decision' ? await aboutRefs(ctx, args.about) : []
+
+    if (typeof about === 'string') return toolError(about)
     const outcome = await runClassicTool(name, tool, input, ctx, options)
 
     if ('error' in outcome) return toolError(outcome.error)
@@ -209,6 +212,7 @@ function passthroughHandler(
       ...(category === 'integration' && Array.isArray(args.credentials)
         ? { credentials: args.credentials as PersonalCredentialRef[] }
         : {}),
+      ...(about.length ? { about } : {}),
       askedAt: new Date(),
     }).catch((err: unknown) => {
       // The card is already in the transcript; only the Inbox misses it.
