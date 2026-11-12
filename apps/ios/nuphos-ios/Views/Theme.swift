@@ -65,6 +65,26 @@ extension View {
     func prominentButton() -> some View {
         buttonStyle(.borderedProminent).tint(Theme.brand)
     }
+
+    /// Liquid Glass on iOS 26 and later; a material in the same shape before.
+    @ViewBuilder
+    func glass(interactive: Bool = false, in shape: some Shape) -> some View {
+        if #available(iOS 26, *) {
+            glassEffect(interactive ? .regular.interactive() : .regular, in: shape)
+        } else {
+            background(.regularMaterial, in: shape)
+        }
+    }
+
+    /// The glass call-to-action on iOS 26; the bordered one before it.
+    @ViewBuilder
+    func glassProminentButton() -> some View {
+        if #available(iOS 26, *) {
+            buttonStyle(.glassProminent)
+        } else {
+            buttonStyle(.borderedProminent)
+        }
+    }
 }
 
 extension Theme {

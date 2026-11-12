@@ -65,11 +65,11 @@ struct AgentSetupView: View {
                 if busy {
                     ProgressView()
                 } else if runtime == nil {
-                    Button("Create") { create(provider) }.buttonStyle(.glassProminent)
+                    Button("Create") { create(provider) }.glassProminentButton()
                 } else if needsCode {
-                    Button("Continue") { submitCode() }.buttonStyle(.glassProminent).disabled(trimmedCode.isEmpty)
+                    Button("Continue") { submitCode() }.glassProminentButton().disabled(trimmedCode.isEmpty)
                 } else if connected, let runtime {
-                    Button("Done") { finish(runtime) }.buttonStyle(.glassProminent)
+                    Button("Done") { finish(runtime) }.glassProminentButton()
                 }
             }
         }
