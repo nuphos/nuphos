@@ -98,6 +98,11 @@ enum ChatRowTests {
         precondition(message("agent.resource", "system", "trigger:1", "Hourly scan").event?.logo == nil)
         precondition(message("agent.resource", "user", "github", "GitHub").event == nil)
         precondition(message("slack", "user", "u1", "Teammate").event == nil)
+        // Only a resource sender named for a channel is a channel's wake-up notice.
+        precondition(message("agent.resource", "system", "channel:c1", "Launch").event?.channelId == "c1")
+        precondition(message("agent.resource", "system", "channel:", "Launch").event?.channelId == nil)
+        precondition(message("agent.resource", "system", "GitHub", "GitHub").event?.channelId == nil)
+        precondition(message("agent.thread", "agent", "channel:c1", "Launch").event?.channelId == nil)
     }
 
     /// A channel's notice steered into a running turn is the channel's event
