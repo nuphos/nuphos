@@ -20,7 +20,6 @@ import { useWorkspaceController } from './useWorkspaceController'
 import { useWorkspaceTabMigrations } from './useWorkspaceTabMigrations'
 import { WorkspaceBindDialogs } from './WorkspaceBindDialogs'
 import { WorkspaceDockPanels } from './WorkspaceDockPanels'
-import { WorkspaceMainPane } from './WorkspaceMainPane'
 import { useWorkspacePane } from './WorkspacePaneContext'
 import { WorkspaceSearch } from './WorkspaceSearch'
 import { WorkspaceSessionPane } from './WorkspaceSessionPane'
@@ -243,11 +242,9 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
                 user={user}
                 workspaceExpanded={ws.workspaceDockExpanded || ws.mainPageOpen}
               />
-              {ws.mainPageOpen ? (
-                <WorkspaceMainPane ws={ws} user={user} />
-              ) : (
-                <WorkspaceDockPanels ws={ws} user={user} />
-              )}
+              {/* One column in both modes: a management page takes the dock's
+                  place, and the dock keeps the browser panes mounted inside it. */}
+              <WorkspaceDockPanels ws={ws} user={user} />
             </div>
           </div>
         </div>
