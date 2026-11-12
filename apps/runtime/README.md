@@ -473,7 +473,8 @@ request that bumps it: the `Release runtime` workflow then tags that commit
 version on an existing tag publishes nothing. Builds always run `main`'s workflow
 definition against a commit reachable from `main`.
 
-Each release publishes four tags per provider:
+Each release publishes four tags per provider, each one image for both
+linux/amd64 and linux/arm64:
 
 | Layer               | Semantic tag             | Revision tag                       |
 | ------------------- | ------------------------ | ---------------------------------- |
