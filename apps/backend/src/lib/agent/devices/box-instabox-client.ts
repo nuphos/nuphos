@@ -61,10 +61,11 @@ export const BOX_MOUNTS_COMMAND = [
 ].join('\n')
 
 /**
- * Starts the host, which keeps the Box's own credential. Run with `background: true`:
- * a foreground run would wait for the host, which never exits on its own.
+ * Starts the host, which keeps the Box's own credential, as the systemd user service
+ * `nuphos agent` installs on its first run, so it also starts again after a reboot.
+ * A CLI from before the service runs the host itself, detached. Run with `background: true`.
  */
-export const AGENT_COMMAND = `export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"; pgrep -f "[h]ost.mjs" >/dev/null || exec setsid nuphos agent >> "$HOME/nuphos-agent.log" 2>&1 < /dev/null`
+export const AGENT_COMMAND = `export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"; systemctl --user start nuphos-agent 2>/dev/null || pgrep -f "[h]ost.mjs" >/dev/null || exec setsid nuphos agent >> "$HOME/nuphos-agent.log" 2>&1 < /dev/null`
 
 /** sha256 of each ~/AGENTS.md a Box image or instabox wrote; only these are emptied on update. */
 export const IMAGE_AGENTS_SHA256 = [
@@ -81,6 +82,8 @@ export const IMAGE_AGENTS_SHA256 = [
  * (desktop-session.mjs). Run with `background: true`.
  */
 export const BOX_UPDATE_COMMAND = [
+  // Stopped, not killed: the service would start it again on the old CLI mid-install.
+  'systemctl --user stop nuphos-agent 2>/dev/null',
   'pkill -f "[h]ost.mjs"; for i in $(seq 30); do pgrep -f "[h]ost.mjs" >/dev/null || break; sleep 1; done',
   'pkill -9 -f "[h]ost.mjs"',
   '(',
