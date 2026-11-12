@@ -11,6 +11,8 @@ useRedis({ redisEnabled: () => false, withRedis: async () => null })
 const conversationUpdates: Record<string, unknown>[][] = []
 // How many documents the next updates match: an open request, or none.
 let matchedCount = 1
+// The conversation findOne reads back.
+let storedConversation: Record<string, unknown> | null = null
 
 useDb({
   db: (() => ({
@@ -20,6 +22,7 @@ useDb({
 
         return { matchedCount }
       },
+      findOne: async () => storedConversation,
     }),
   })) as unknown as typeof dbActual.db,
 })
@@ -52,6 +55,7 @@ async function pendingWait() {
 beforeEach(() => {
   resetLocalPreviewWaits()
   matchedCount = 1
+  storedConversation = null
 })
 
 describe('decision tool module', () => {
@@ -541,6 +545,52 @@ describe('decision tool module', () => {
     expect(instruction).toContain('End your turn')
     // The card stays live in the app; only the turn stops holding itself open.
     expect(await listPendingPreviewWaits(ctx.userId, ctx.sessionId)).toEqual([])
+  })
+
+  test('list_user_decisions returns only the open questions, oldest first', async () => {
+    const at = (iso: string) => new Date(iso)
+
+    storedConversation = {
+      inputRequests: [
+        {
+          id: 'r2',
+          category: 'approval',
+          question: 'Ship?',
+          askedAt: at('2026-01-02'),
+          status: 'open',
+        },
+        {
+          id: 'r0',
+          category: 'preference',
+          question: 'Old',
+          askedAt: at('2026-01-01'),
+          status: 'answered',
+        },
+        {
+          id: 'r1',
+          category: 'preference',
+          question: 'Region?',
+          options: ['a', 'b'],
+          askedAt: at('2026-01-01'),
+          status: 'open',
+        },
+      ],
+    }
+    const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
+    const result = await tools.list_user_decisions!({ label: 'List my questions' })
+
+    expect(result.structuredContent).toEqual({
+      requests: [
+        {
+          requestId: 'r1',
+          category: 'preference',
+          question: 'Region?',
+          options: ['a', 'b'],
+          askedAt: at('2026-01-01'),
+        },
+        { requestId: 'r2', category: 'approval', question: 'Ship?', askedAt: at('2026-01-02') },
+      ],
+    })
   })
 })
 
