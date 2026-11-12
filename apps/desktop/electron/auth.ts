@@ -20,7 +20,7 @@ import {
   writeConfig,
 } from './auth/config.ts'
 import { unsavedReason } from './auth/unsaved.ts'
-import { apiErrorMessage } from './auth/web.ts'
+import { apiError, apiErrorMessage } from './auth/web.ts'
 import { completeNativeLogin } from './auth/native.ts'
 import { planLogin } from './auth/plan.ts'
 import { isValidUserInfo } from './auth-status.ts'
@@ -83,27 +83,39 @@ export async function requestEmailCode(email: string): Promise<void> {
 }
 
 export async function verifyEmailCode(email: string, code: string): Promise<UserInfo> {
+  return signInWith('/auth/email/verify-code', { email, code })
+}
+
+/**
+ * The second step of a sign-in that answered `mfa_required`: the challenge it
+ * carried and a code from the authenticator app (or a recovery code).
+ */
+export async function verifyMfa(mfaToken: string, code: string): Promise<UserInfo> {
+  return signInWith('/auth/mfa/verify', { mfaToken, code })
+}
+
+/** Posts a sign-in step that answers with `{ token, user }`, and keeps the session. */
+async function signInWith(route: string, body: Record<string, string>): Promise<UserInfo> {
   const attempt = beginSignIn()
   // The token this returns is the backend's it was asked of, whatever the endpoint is by then.
   const api = apiUrl()
-  const res = await fetch(`${api}/auth/email/verify-code`, {
+  const res = await fetch(`${api}${route}`, {
     method: 'POST',
     // The app's name labels this sign-in in the account's device list.
     headers: { 'content-type': 'application/json', [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE },
-    body: JSON.stringify({ email, code }),
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(20_000),
   })
 
-  if (!res.ok) {
-    throw new Error(await apiErrorMessage(res))
-  }
-  const body = (await res.json().catch(() => null)) as { token?: unknown; user?: unknown } | null
-  const token = typeof body?.token === 'string' ? body.token : null
+  // Keeps the code, so `mfa_required` reaches the sign-in screen with its challenge.
+  if (!res.ok) throw await apiError(res)
+  const session = (await res.json().catch(() => null)) as { token?: unknown; user?: unknown } | null
+  const token = typeof session?.token === 'string' ? session.token : null
 
-  if (!token || !isValidUserInfo(body?.user)) {
+  if (!token || !isValidUserInfo(session?.user)) {
     throw new Error('Malformed sign-in response')
   }
-  const user = body.user
+  const user = session.user
 
   assertWanted(attempt)
   try {

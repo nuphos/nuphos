@@ -16,7 +16,14 @@ const PROVIDERS = [
 ] as const
 
 /** One button per provider, each straight to that provider's sign-in, then the "or" above email. */
-export function LoginSocialButtons({ onLogin }: { onLogin: (user: UserInfo) => void }) {
+export function LoginSocialButtons({
+  onLogin,
+  onMfaRequired,
+}: {
+  onLogin: (user: UserInfo) => void
+  /** True when the failure was the account asking for its second factor. */
+  onMfaRequired: (error: unknown) => boolean
+}) {
   // Only what this server offers: a self-hosted server without social sign-in shows none.
   const [offered, setOffered] = useState<SocialProvider[]>([])
 
@@ -30,6 +37,7 @@ export function LoginSocialButtons({ onLogin }: { onLogin: (user: UserInfo) => v
     try {
       onLogin(await api.authLogin(provider))
     } catch (e) {
+      if (onMfaRequired(e)) return
       toast.apiError(t('Sign-in failed'), e, {
         fallback: t('Check your internet connection and try again.'),
       })

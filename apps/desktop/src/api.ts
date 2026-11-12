@@ -21,6 +21,7 @@ import { shellApi } from './api/shell-api.ts'
 import { teamApi } from './api/team-api.ts'
 import { reportFrontendError } from './lib/frontendErrorReporter.ts'
 import { instrumentApi } from './lib/instrumentApi.ts'
+import { withStepUp } from './lib/stepUp.ts'
 
 import type { WindowAgentApi } from './api/window-agent.ts'
 import type { WindowAppApi } from './api/window-app.ts'
@@ -115,7 +116,8 @@ export function onSessionRejected(handler: (() => void) | null): void {
 }
 
 export const api = instrumentApi(
-  rawApi,
+  // A call refused for want of a recent code asks for one and runs again.
+  withStepUp(rawApi),
   (operation, error) => {
     // Offline, asleep, or backend unreachable: the user's connectivity, not an
     // app defect. Every poll would report it again, so it never reaches Error

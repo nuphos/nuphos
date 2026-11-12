@@ -39,6 +39,16 @@ export type SignInSession = {
   userAgent: string | null
 }
 
+/** Two-factor authentication on the account (`GET /auth/mfa`). */
+export type MfaStatus = {
+  enabled: boolean
+  enabledAt: string | null
+  recoveryCodesRemaining: number
+}
+
+/** A new authenticator secret, to scan or type in before confirming. */
+export type MfaSetup = { secret: string; otpauthUrl: string }
+
 export type PersonalCredentialProvider = 'github' | 'linear' | 'gmail' | 'google-drive'
 
 export type PersonalCredential = {

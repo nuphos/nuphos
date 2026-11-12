@@ -66,6 +66,19 @@ const sessionEnds: { method?: string; authorization: string | null }[] = []
 /** x-atlas-client sent with each sign-in code request. */
 const codeRequestClients: (string | null)[] = []
 const readySession = () => json({ token: TOKEN, user: USER })
+const MFA_EMAIL = 'mfa@example.com'
+const MFA_TOKEN = 'challenge-token'
+const mfaRequired = () =>
+  json(
+    {
+      error: {
+        code: 'mfa_required',
+        message: 'Enter the code from your authenticator app.',
+        details: { mfaToken: MFA_TOKEN },
+      },
+    },
+    401,
+  )
 const pendingSession = () =>
   json({ error: { code: 'authorization_pending', message: 'not yet' } }, 409)
 
@@ -148,7 +161,19 @@ before(async () => {
       return json({ ok: true })
     }
 
-    if (url.endsWith('/auth/email/verify-code')) return json({ token: TOKEN, user: USER })
+    if (url.endsWith('/auth/email/verify-code')) {
+      const { email } = JSON.parse(String(init?.body)) as { email: string }
+
+      return email === MFA_EMAIL ? mfaRequired() : json({ token: TOKEN, user: USER })
+    }
+
+    if (url.endsWith('/auth/mfa/verify')) {
+      const body = JSON.parse(String(init?.body)) as { mfaToken: string; code: string }
+
+      return body.mfaToken === MFA_TOKEN && body.code === '123456'
+        ? json({ token: TOKEN, user: USER })
+        : json({ error: { code: 'invalid_mfa_code', message: 'That code is not valid' } }, 401)
+    }
 
     if (url.endsWith('/auth/sessions/current')) {
       sessionEnds.push({
@@ -471,6 +496,40 @@ test('a sign-in that fails to save for another reason keeps its own error', asyn
 
     return true
   })
+})
+
+test('two-factor: a sign-in that needs a code keeps its challenge and stores nothing', async () => {
+  await assert.rejects(auth.verifyEmailCode(MFA_EMAIL, '123456'), (e: Error) => {
+    assert.match(e.message, /"code":"mfa_required"/)
+    assert.match(e.message, /"mfaToken":"challenge-token"/)
+
+    return true
+  })
+  assert.equal(configWrites.length, 0)
+
+  await assert.rejects(auth.verifyMfa(MFA_TOKEN, '000000'), /"code":"invalid_mfa_code"/)
+  assert.equal(configWrites.length, 0)
+
+  assert.deepEqual(await auth.verifyMfa(MFA_TOKEN, '123456'), USER)
+  assert.equal(lastConfig().token, TOKEN)
+})
+
+test('native: a sign-in that needs a code sends the browser back to the app', async () => {
+  redeemQueue = [mfaRequired]
+
+  const loginPromise = auth.login('google')
+
+  loginPromise.catch(() => {})
+  await waitForBrowser()
+  const res = await hitCallback(registeredPort(), {
+    state: registrations[0]!.clientState,
+    code: DELIVERY_CODE,
+  })
+
+  assert.equal(res.status, 200)
+  assert.match(await res.text(), /authenticator app/)
+  await assert.rejects(loginPromise, /"code":"mfa_required"/)
+  assert.equal(configWrites.length, 0)
 })
 
 test('native: an error reported by the browser fails fast', async () => {
