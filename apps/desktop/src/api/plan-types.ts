@@ -180,6 +180,28 @@ export type GithubSkillPreview = {
   truncated: boolean
 }
 
+export type GithubSkillUpdate = {
+  name: string
+  repo: string
+  ref: string | null
+  path: string
+  installedCommit: string
+  latestCommit: string | null
+  status: 'up_to_date' | 'update_available' | 'source_missing'
+  edited: boolean
+  changes: { added: string[]; changed: string[]; removed: string[] }
+  problem: { code: string; message: string } | null
+}
+
+/** Where a skill installed from GitHub came from. */
+export type TeamSkillOrigin = {
+  repo: string
+  ref: string | null
+  path: string
+  commitSha: string
+  installedAt: string
+}
+
 export type TeamSkillMetadata = {
   createdAt: string | null
   createdByUserId: string | null
@@ -221,6 +243,7 @@ export type TeamSkillHistory = {
   name: string
   metadata: TeamSkillMetadata
   events: TeamSkillMutationEvent[]
+  origin?: TeamSkillOrigin | null
 }
 
 export type TeamSkillManifest = {

@@ -18,6 +18,7 @@ import type {
 import type {
   GithubSkillCandidate,
   GithubSkillPreview,
+  GithubSkillUpdate,
   SkillScope,
   TeamSkillHistory,
   TeamSkillManifest,
@@ -238,6 +239,15 @@ export type WindowAppApi = {
     scope?: SkillScope,
   ): Promise<{ name: string; deletedCount: number; keys: string[] }>
   teamSkillsPromote(teamId: string, name: string): Promise<unknown>
+  teamSkillsGithubUpdates(
+    teamId: string,
+    scope?: SkillScope,
+  ): Promise<{ updates: GithubSkillUpdate[] }>
+  teamSkillsGithubUpdate(
+    teamId: string,
+    input: { names: string[]; overwriteEdited: string[]; commits: Record<string, string> },
+    scope?: SkillScope,
+  ): Promise<{ updated: GithubSkillUpdate[] }>
   teamSkillsGithubPreview(
     teamId: string,
     source: string,

@@ -10,7 +10,7 @@ import { useToolbarSlot } from '../hooks/useToolbarControls'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
 
-import { GithubSkillInstallDialog } from './skills/GithubSkillInstallDialog'
+import { GithubSkillActions } from './skills/GithubSkillActions'
 import { LocalSkillImport } from './skills/LocalSkillImport'
 import { buildSkillColumns } from './skills/skillColumns'
 import { SkillDetailPane } from './skills/SkillDetailPane'
@@ -139,6 +139,9 @@ export function TeamSkillsView({
   // never lingers as an empty band.
   const { isActive } = useWorkspaceTab()
   const importSlot = useToolbarSlot('right', isActive && state.kind !== 'error')
+  // Reloads the list, then the given skill's pane, so its details match the new contents.
+  const showSkill = (name: string | null) =>
+    void reloadWithSkeleton().then(() => reloadDetailForName(name))
 
   if (state.kind === 'error') {
     if (state.unconfigured) {
@@ -191,24 +194,19 @@ export function TeamSkillsView({
                 </button>
               ))}
             </div>
-            <GithubSkillInstallDialog
+            <GithubSkillActions
               teamId={teamId}
               scope={scope}
               disabled={!canEdit}
-              onInstalled={(name) => {
-                void reloadWithSkeleton().then(() => reloadDetailForName(name))
-              }}
+              openSkill={selectedName}
+              onChanged={showSkill}
             />
             <LocalSkillImport
               teamId={teamId}
               scope={scope}
               disabled={!canEdit}
-              onImported={(names) => {
-                // Open the one imported skill; several just refresh the list.
-                void reloadWithSkeleton().then(() => {
-                  if (names.length === 1 && names[0]) void reloadDetailForName(names[0])
-                })
-              }}
+              // Open the one imported skill; several just refresh the list.
+              onImported={(names) => showSkill(names.length === 1 ? (names[0] ?? null) : null)}
             />
           </>,
           importSlot,
