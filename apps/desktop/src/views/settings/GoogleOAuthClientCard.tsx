@@ -14,10 +14,13 @@ import type { AtlasTeam } from '../../types'
 export const GOOGLE_CLIENT_GUIDE_URL = 'https://docs.nuphos.ai/connectors/google-workspace'
 
 // The team's own Google OAuth client, which members' Gmail and Google Drive
-// Personal Credentials connect through. The secret is write-only.
+// Personal Credentials connect through. The secret is write-only. Where the
+// deployment offers Composio (Nuphos Cloud), members can connect without one,
+// so the client is optional until the team saves it.
 export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
   const isAdmin = team.role === 'ADMINISTRATOR'
   const [savedClientId, setSavedClientId] = useState<string | null | undefined>(undefined)
+  const [composio, setComposio] = useState(false)
   const [clientId, setClientId] = useState('')
   const [clientSecret, setClientSecret] = useState('')
   const [saving, setSaving] = useState(false)
@@ -28,8 +31,9 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
   useEffect(() => {
     void api
       .atlasGetTeamGoogleClient(team.id)
-      .then(({ clientId: id }) => {
+      .then(({ clientId: id, composio: viaComposio }) => {
         setSavedClientId(id)
+        setComposio(viaComposio)
         setClientId(id ?? '')
         setFailed(false)
       })
@@ -65,12 +69,25 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
     }
   }
 
+  const optional = composio && savedClientId === null
+
   return (
     <div className="mt-10">
       <div className="mb-4">
-        <h2 className="text-[15px] font-semibold text-main">{t('Google OAuth client')}</h2>
+        <h2 className="text-[15px] font-semibold text-main">
+          {t('Google OAuth client')}
+          {optional && isAdmin && (
+            <span className="ml-2 text-[12px] font-normal text-tertiary">{t('Optional')}</span>
+          )}
+        </h2>
         <p className="mt-1 text-[13px] text-tertiary">
-          {t('Members connect Gmail and Google Drive through your own Google Cloud OAuth client.')}{' '}
+          {optional
+            ? t(
+                'Members can connect Gmail and Google Drive in Personal Credentials through Composio. Add your own Google Cloud OAuth client to connect through it instead.',
+              )
+            : t(
+                'Members connect Gmail and Google Drive through your own Google Cloud OAuth client.',
+              )}{' '}
           <button
             type="button"
             className="text-link hover:underline"
@@ -140,9 +157,11 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
             ? '—'
             : savedClientId
               ? t('Configured. Connect Gmail or Google Drive in Personal Credentials.')
-              : admin
-                ? t('Not configured. Ask {name} to add one.', { name: admin })
-                : t('Not configured. Ask a workspace administrator to add one.')}
+              : composio
+                ? t('Not required. Connect Gmail or Google Drive in Personal Credentials.')
+                : admin
+                  ? t('Not configured. Ask {name} to add one.', { name: admin })
+                  : t('Not configured. Ask a workspace administrator to add one.')}
         </div>
       )}
     </div>
