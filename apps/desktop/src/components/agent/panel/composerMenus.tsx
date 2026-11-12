@@ -1,7 +1,7 @@
 import { faFolder, faPaperclip } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
-import { ChevronDown, ChevronRight, FileSearch, Loader2, Lock, Plus, Unlock } from 'lucide-react'
+import { ChevronRight, FileSearch, Loader2, Lock, Plus, Unlock } from 'lucide-react'
 
 import { t } from '../../../i18n'
 import {
@@ -105,8 +105,10 @@ export function ComposerAttachmentMenu({
   onImportSession,
   onSelectAttachment,
   onSelectFolderAttachment,
+  bypassControl,
 }: {
-  open: boolean
+  /** 'permissions' opens it on its Permissions submenu, as /permissions does. */
+  open: boolean | 'permissions'
   onOpenChange: (open: boolean) => void
   readOnly: boolean
   hero: boolean
@@ -120,6 +122,8 @@ export function ComposerAttachmentMenu({
   onImportSession?: (session: LocalAgentSessionInfo) => void
   onSelectAttachment: () => void
   onSelectFolderAttachment: () => void
+  /** Auto Mode ↔ Full Access; absent before the conversation has a session. */
+  bypassControl?: { active: boolean; onSelect: (bypass: boolean) => void }
 }) {
   const sessionSubmenu = (
     source: LocalSessionSource,
@@ -142,7 +146,7 @@ export function ComposerAttachmentMenu({
   )
 
   return (
-    <Menu open={open} onOpenChange={onOpenChange}>
+    <Menu open={Boolean(open)} onOpenChange={onOpenChange}>
       <MenuTrigger
         disabled={readOnly}
         className={clsx(
@@ -152,7 +156,7 @@ export function ComposerAttachmentMenu({
             ? 'text-tertiary'
             : 'text-secondary hover:text-main hover:bg-state-hover data-[popup-open]:bg-state-selected data-[popup-open]:text-main',
         )}
-        title={t('Add attachment')}
+        title={t('Attach, and more')}
       >
         <Plus className="w-4 h-4" strokeWidth={2.2} />
       </MenuTrigger>
@@ -194,46 +198,35 @@ export function ComposerAttachmentMenu({
           t('Codex sessions'),
           CodexIcon,
         )}
+        {bypassControl && (
+          <PermissionsSubmenu control={bypassControl} defaultOpen={open === 'permissions'} />
+        )}
       </MenuContent>
     </Menu>
   )
 }
 
-export function BypassControlMenu({
-  bypassControl,
-  hero,
+/** How commands are authorized in this conversation: rarely changed, so in the + menu. */
+function PermissionsSubmenu({
+  control,
+  defaultOpen,
 }: {
-  bypassControl: { active: boolean; onSelect: (bypass: boolean) => void }
-  hero: boolean
+  control: { active: boolean; onSelect: (bypass: boolean) => void }
+  defaultOpen: boolean
 }) {
+  const Icon = control.active ? Unlock : Lock
+
   return (
-    <Menu>
-      <MenuTrigger
-        aria-label={t('Authorization mode')}
-        className={clsx(
-          'hidden @[210px]:flex items-center gap-1.5 flex-shrink-0 rounded-full transition-colors',
-          hero ? 'h-8 px-1.5 @[400px]:px-3' : 'h-7 px-1.5 @[400px]:px-2.5',
-          'text-secondary hover:text-main hover:bg-state-hover',
-        )}
+    <MenuSubmenu defaultOpen={defaultOpen}>
+      <MenuSubmenuTrigger
+        icon={<Icon className="w-3.5 h-3.5" strokeWidth={2} />}
+        chevron={<ChevronRight className="w-3.5 h-3.5" strokeWidth={2} />}
         title={t('Choose how commands in this agent are authorized')}
       >
-        <span className="text-[12.5px] font-medium flex items-center">
-          {bypassControl.active ? (
-            <Unlock className="w-3.5 h-3.5 @[400px]:hidden" strokeWidth={2} aria-hidden />
-          ) : (
-            <Lock className="w-3.5 h-3.5 @[400px]:hidden" strokeWidth={2} aria-hidden />
-          )}
-          <span className="hidden @[400px]:inline @[520px]:hidden">
-            {bypassControl.active ? t('Full') : t('Auto')}
-          </span>
-          <span className="hidden @[520px]:inline">
-            {bypassControl.active ? t('Full Access') : t('Auto Mode')}
-          </span>
-        </span>
-        <ChevronDown className="w-3 h-3 opacity-60 hidden @[400px]:block" strokeWidth={2} />
-      </MenuTrigger>
-      <MenuContent side="top" align="start" className="w-64">
-        <MenuItem selected={!bypassControl.active} onClick={() => bypassControl.onSelect(false)}>
+        {control.active ? t('Full Access') : t('Auto Mode')}
+      </MenuSubmenuTrigger>
+      <MenuContent alignOffset={-6} className="w-64">
+        <MenuItem selected={!control.active} onClick={() => control.onSelect(false)}>
           <div className="flex flex-col">
             <span>{t('Auto Mode')}</span>
             <span className="text-[11px] text-tertiary">
@@ -241,7 +234,7 @@ export function BypassControlMenu({
             </span>
           </div>
         </MenuItem>
-        <MenuItem selected={bypassControl.active} onClick={() => bypassControl.onSelect(true)}>
+        <MenuItem selected={control.active} onClick={() => control.onSelect(true)}>
           <div className="flex flex-col">
             <span>{t('Full Access')}</span>
             <span className="text-[11px] text-tertiary">
@@ -250,6 +243,22 @@ export function BypassControlMenu({
           </div>
         </MenuItem>
       </MenuContent>
-    </Menu>
+    </MenuSubmenu>
+  )
+}
+
+/** Shown by send while commands run without asking; Auto Mode, the usual, shows nothing. */
+export function FullAccessMark() {
+  return (
+    <span
+      role="img"
+      aria-label={t('Full Access')}
+      title={t(
+        'Full Access: commands run without asking. Change it in the + menu or with /permissions.',
+      )}
+      className="flex h-7 w-5 shrink-0 items-center justify-center text-secondary"
+    >
+      <Unlock className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+    </span>
   )
 }

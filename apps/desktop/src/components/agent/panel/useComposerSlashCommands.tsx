@@ -42,6 +42,7 @@ export function useComposerSlashCommands(
   onEdited: () => void,
   openModel?: () => void,
   agent: { commands?: readonly AgentCommand[]; runtimeId?: string } = {},
+  openPermissions?: () => void,
 ) {
   const { commands: listedCommands, runtimeId } = agent
   const panelCommands = useContext(SlashCommandsContext)
@@ -59,12 +60,22 @@ export function useComposerSlashCommands(
     getBoundingClientRect: () => DOMRect
     contextElement: HTMLElement
   } | null>(null)
-  const commands: SlashCommand[] = openModel
-    ? [
-        ...panelCommands,
-        { id: 'model', title: t('Model'), description: t('Change the model'), run: openModel },
-      ]
-    : panelCommands
+  const commands: SlashCommand[] = [
+    ...panelCommands,
+    ...(openModel
+      ? [{ id: 'model', title: t('Model'), description: t('Change the model'), run: openModel }]
+      : []),
+    ...(openPermissions
+      ? [
+          {
+            id: 'permissions',
+            title: t('Permissions'),
+            description: t('Choose Auto Mode or Full Access'),
+            run: openPermissions,
+          },
+        ]
+      : []),
+  ]
   const matches =
     token === null || dismissed
       ? []

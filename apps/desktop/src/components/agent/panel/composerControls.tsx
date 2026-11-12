@@ -7,6 +7,7 @@ import { Button } from '../../ui/button'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../ui/menu'
 
 import { isRichImageDrop } from './attachmentDrag'
+import { FullAccessMark } from './composerMenus'
 import { ComposerVoice } from './ComposerVoice'
 import { AGENT_QUEUE_PLACEHOLDER } from './constants'
 import { usePastedTextChips } from './usePastedTextChips'
@@ -281,13 +282,13 @@ export function ComposerTools({ children }: { children: ReactNode }) {
 /** The send controls, with the voice-input button before them while the composer can be edited. */
 export function ComposerSendControls({
   voice,
+  fullAccess,
   ...props
-}: Parameters<typeof SendControls>[0] & { voice?: ComposerVoiceScope }) {
-  if (!voice || props.readOnly) return <SendControls {...props} />
-
+}: Parameters<typeof SendControls>[0] & { voice?: ComposerVoiceScope; fullAccess?: boolean }) {
   return (
     <div className="flex items-center gap-1">
-      <ComposerVoice {...voice} hero={props.hero} />
+      {fullAccess && !props.readOnly && <FullAccessMark />}
+      {voice && !props.readOnly && <ComposerVoice {...voice} hero={props.hero} />}
       <SendControls {...props} />
     </div>
   )

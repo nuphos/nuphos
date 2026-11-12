@@ -101,7 +101,8 @@ export function useComposerState({
   const placeholderSwapTimerRef = useRef<number | null>(null)
   const displayedPlaceholderRef = useRef<string>(idlePlaceholder)
   const [displayedPlaceholder, setDisplayedPlaceholder] = useState<string>(idlePlaceholder)
-  const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false)
+  // 'permissions' opens it on its Permissions submenu, as /permissions does.
+  const [attachmentMenuOpen, setAttachmentMenuOpen] = useState<boolean | 'permissions'>(false)
   const [localSessionsBySource, setLocalSessionsBySource] = useState<
     Partial<Record<LocalSessionSource, LocalAgentSessionInfo[]>>
   >({})

@@ -6,7 +6,7 @@ import { runtimeAllows } from '../../../lib/runtimeExecution'
 import { clearAgentMenuRequest, useAgentMenuRequested } from './agentMenuRequest'
 import { AttachmentChips } from './composerAttachments'
 import { ComposerEditor, ComposerSendControls, ComposerTools } from './composerControls'
-import { BypassControlMenu, ComposerAttachmentMenu } from './composerMenus'
+import { ComposerAttachmentMenu } from './composerMenus'
 import { CredentialSelectorButton } from './CredentialSelectorButton'
 import { ModelSelector } from './ModelSelector'
 import { runtimeSendRefusal } from './queuedAutoSend'
@@ -78,17 +78,14 @@ export function Composer({
   modelSession?: ModelSession
   /** Model settings for a conversation that does not exist yet. */
   newConversationModelControl?: ReactNode
-  /** Authorization-mode picker for this conversation (Auto Mode ↔ Bypass
-   *  Permissions) — absent when the conversation has no session yet. */
+  /** Auto Mode ↔ Full Access, in the + menu; absent before the conversation has a session. */
   bypassControl?: { active: boolean; onSelect: (bypass: boolean) => void }
   pendingSeed?: AgentPromptSeed | null
   onSeedConsumed?: () => void
   autoFocus?: boolean
   /** Docked sidebar variant: matches the left content card's larger radius. */
   sidebar?: boolean
-  // Panel-level drag-and-drop: the whole chat panel is the drop zone.
-  // The composer publishes an "attach these dropped files" handler here so the
-  // panel can route a drop to whichever composer is currently visible.
+  // The whole panel is the drop zone: the visible composer publishes its handler here.
   dropRegisterRef?: { current: ((dt: DataTransfer) => void) | null }
   /** Where this composer's unsent text is kept; see composerDraftKey. */
   draftKey?: string
@@ -139,6 +136,7 @@ export function Composer({
       ? () => modelControl.setOpen(true)
       : undefined,
     { commands: runtimeState?.commands, runtimeId: runtimeControl?.value?.id },
+    bypassControl && (() => state.setAttachmentMenuOpen('permissions')),
   )
   const send: ComposerSend = (text, paths, people, options) =>
     onSend(text, paths, people, { ...options, imageThumbs: state.imageThumbs })
@@ -252,11 +250,11 @@ export function Composer({
                 onImportSession={onImportSession}
                 onSelectAttachment={actions.selectAttachment}
                 onSelectFolderAttachment={actions.selectFolderAttachment}
+                bypassControl={bypassControl}
               />
               {credentialSelector && (
                 <CredentialSelectorButton {...credentialSelector} hero={hero} personalIdentity />
               )}
-              {bypassControl && <BypassControlMenu bypassControl={bypassControl} hero={hero} />}
               {runtimeControl && (
                 <RuntimeSelector
                   {...runtimeControl}
@@ -291,6 +289,7 @@ export function Composer({
               onQueue={() => actions.submit('queue')}
               onStop={onStop}
               voice={{ editor: state.ref, teamId: mentionScope?.teamId }}
+              fullAccess={bypassControl?.active}
             />
           </div>
         </div>
