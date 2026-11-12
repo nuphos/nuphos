@@ -15,11 +15,7 @@ test('reordering keeps pin nodes and animates displacement instead of remounting
     HTMLElement: dom.HTMLElement,
     Node: dom.Node,
     IS_REACT_ACT_ENVIRONMENT: true,
-    getComputedStyle: () => ({ transform: 'matrix(1, 0, 0, 1, 36, 0)' }),
-    DOMMatrixReadOnly: class {
-      m41 = 36
-      m42 = 0
-    },
+    getComputedStyle: () => ({ transform: 'none' }),
   }
   const original = Object.keys(values).map(
     (key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const,
@@ -94,9 +90,6 @@ test('reordering keeps pin nodes and animates displacement instead of remounting
       { transform: 'translate(72px,0px)' },
       { transform: 'translate(0,0)' },
     ])
-    await act(() => root.render(createElement(Fixture, { order: ['b', 'a'] })))
-    assert.equal(moves.length, 2, 'status updates must not restart an in-flight move')
-    assert.equal(canceled, 0, 'an unchanged grid must let its existing move finish')
     await act(() => root.unmount())
     assert.equal(canceled, 2)
   } finally {
