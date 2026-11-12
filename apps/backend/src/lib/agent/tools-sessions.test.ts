@@ -4,6 +4,7 @@ import { agentRuns } from '@/lib/agent/run-admission'
 import { byCodeUnit } from '@/lib/agent/sort-order'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useDb } from '@/lib/test/doubles/db'
+import { useRuntimeModels } from '@/lib/test/doubles/runtime-models'
 
 import { createSessionTools } from './tools-sessions'
 
@@ -60,6 +61,22 @@ let userRenamed = false
 const named: string[] = []
 
 useAgentDb({
+  getConversation: async (sessionId, userId, teamId) =>
+    sessionId === 'c' && userId === 'u' && teamId === 'team'
+      ? ({
+          sessionId,
+          userId,
+          teamId,
+          avatar: '07-ada',
+          runtimeId: 'runtime',
+          claudeCodePreview: {
+            openabSessionId: 'live',
+            runtimeUrl: 'ws://runtime',
+            runtimeDefaults: { model: 'astra', effort: 'low' },
+            pendingSessionConfig: { effort: 'low' },
+          },
+        } as never)
+      : null,
   getConversations: async (viewer, options) => {
     expect(viewer).toBe('u')
     listOptions = options
@@ -145,6 +162,29 @@ useAgentDb({
       lastAssistantAt: null,
     }
   },
+})
+
+useRuntimeModels({
+  runtimeModelCatalog: async (_teamId, _runtimeId, model) => ({
+    models: [
+      { id: 'astra', name: 'Astra' },
+      { id: 'luna', name: 'Luna' },
+    ],
+    controls: {
+      modelId: 'astra',
+      effort:
+        model === 'luna'
+          ? [
+              { value: 'medium', name: 'Medium' },
+              { value: 'high', name: 'High' },
+            ]
+          : [
+              { value: 'low', name: 'Low' },
+              { value: 'high', name: 'High' },
+            ],
+      fast: [],
+    },
+  }),
 })
 
 test("list_recent_conversations children:true lists this conversation's own sub-agents", async () => {
@@ -282,6 +322,37 @@ test('update_self changes only the fields it is given, on the current conversati
   expect(selfUpdates.at(-1)).toEqual({ title: 'Release Helper', avatar: '07-ada' })
 })
 
+test('update_self queues model and effort on the current Bot for its next turn', async () => {
+  const tool = createSessionTools('u', 'c', 'team').update_self!
+  const result = await tool.execute!(
+    { label: 'Use another model', model: 'luna', effort: 'medium' },
+    { toolCallId: 'self-model', messages: [] },
+  )
+
+  expect(result).toEqual({
+    updated: ['model', 'effort'],
+    model: { model: 'luna', effort: 'medium' },
+    applies: 'next_turn',
+  })
+  expect(selfUpdates.at(-1)).toEqual({
+    pendingSessionConfig: { model: 'luna', effort: 'medium' },
+  })
+})
+
+test('update_self rejects an unavailable effort before writing any Bot fields', async () => {
+  const before = selfUpdates.length
+  const tool = createSessionTools('u', 'c', 'team').update_self!
+  const result = await tool.execute!(
+    { label: 'Use too much effort', name: 'Thinker', model: 'luna', effort: 'extreme' },
+    { toolCallId: 'bad-effort', messages: [] },
+  )
+
+  expect(result).toEqual({
+    error: 'effort "extreme" is not offered by the Bot\'s agent. Choose one of: medium, high.',
+  })
+  expect(selfUpdates).toHaveLength(before)
+})
+
 test('update_self refuses an empty change and a conversation that is not a Bot', async () => {
   const empty = await createSessionTools('u', 'c', 'team').update_self!.execute!(
     { label: 'Nothing' },
@@ -291,9 +362,14 @@ test('update_self refuses an empty change and a conversation that is not a Bot',
     { label: 'Instructions', instructions: 'Be brief.' },
     { toolCallId: 'self', messages: [] },
   )
+  const taskModel = await createSessionTools('u', 'a-task', 'team').update_self!.execute!(
+    { label: 'Model', model: 'luna' },
+    { toolCallId: 'task-model', messages: [] },
+  )
 
   expect(empty).toHaveProperty('error')
   expect(task).toHaveProperty('error')
+  expect(taskModel).toHaveProperty('error')
 })
 
 test('create_bot makes a Bot owned by the person the agent works for, as "+ New Bot" does', async () => {
