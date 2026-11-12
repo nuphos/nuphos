@@ -98,9 +98,7 @@ runtime:
     requests:
       cpu: 500m
       memory: 1Gi
-  # The runtime image is published for amd64 only.
-  nodeSelector:
-    kubernetes.io/arch: amd64
+  nodeSelector: {}
   tolerations: []
   affinity: {}
 

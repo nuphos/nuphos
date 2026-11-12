@@ -21,7 +21,6 @@ This page covers the full stack with no dev server. `bun run dev` at the reposit
 
 - Docker Desktop (or Docker Engine with Compose v2.24+)
 - `openssl`
-- Apple Silicon: the runtime image is amd64 only and runs under emulation (enable Rosetta in Docker Desktop), so it starts slower
 - `127.0.0.1:3000` (backend), `127.0.0.1:9000` (RustFS), and `127.0.0.1:18180` (runtime console) free on the host; otherwise change `BACKEND_PORT` / `RUSTFS_PORT` / `RUNTIME_PORT` in `.env` (changing `RUSTFS_PORT` breaks Desktop file transfers)
 
 ## Start
