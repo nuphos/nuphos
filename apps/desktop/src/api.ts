@@ -7,7 +7,7 @@ import { cloudflareApi } from './api/cloudflare-api.ts'
 import { cloudflarePagesApi } from './api/cloudflare-pages-api.ts'
 import { databaseApi } from './api/database-api.ts'
 import { deviceApi } from './api/device-api.ts'
-import { isNetworkError, isSessionRejected, parseAtlasError } from './api/errors.ts'
+import { isAccountGone, isNetworkError, isSessionRejected, parseAtlasError } from './api/errors.ts'
 import { gcpClustersApi } from './api/gcp-clusters-api.ts'
 import { gitApi } from './api/git-api.ts'
 import { instructionsApi } from './api/instructions-api.ts'
@@ -119,8 +119,9 @@ export const api = instrumentApi(
   (operation, error) => {
     // Offline, asleep, or backend unreachable: the user's connectivity, not an
     // app defect. Every poll would report it again, so it never reaches Error
-    // Tracking; backend availability is watched server-side.
-    if (isNetworkError(error)) return
+    // Tracking; backend availability is watched server-side. A request cut off
+    // by a sign-out or account switch is not a failure either.
+    if (isNetworkError(error) || isAccountGone(error)) return
     if (isSessionRejected(error)) {
       const handler = sessionRejected
 
