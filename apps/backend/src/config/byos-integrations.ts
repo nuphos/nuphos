@@ -204,13 +204,11 @@ export function byosIntegrationsConfig() {
     // code. Off until Desktop, iOS and Android builds that confirm have shipped.
     connectorOAuthDeferredBind: bool('CONNECTOR_OAUTH_DEFERRED_BIND', false),
     composio: {
-      // Nuphos's own Composio project. When the key and a toolkit's auth config
-      // are set, members of teams without their own Google OAuth client connect
-      // Gmail / Google Drive through Composio-managed auth. Unset on self-hosted.
+      // A Composio project's API key. When set, every Composio connector is on:
+      // Trello, and Gmail / Google Drive for teams without their own Google
+      // OAuth client. Each toolkit's Composio-managed auth config is found (or
+      // created) in the project at first use.
       apiKey: optional('NUPHOS_COMPOSIO_API_KEY'),
-      gmailAuthConfigId: optional('NUPHOS_COMPOSIO_GMAIL_AUTH_CONFIG_ID'),
-      googleDriveAuthConfigId: optional('NUPHOS_COMPOSIO_GOOGLE_DRIVE_AUTH_CONFIG_ID'),
-      trelloAuthConfigId: optional('NUPHOS_COMPOSIO_TRELLO_AUTH_CONFIG_ID'),
     },
     linear: {
       // OAuth2 app the team authorises against. Linear has a single hosted

@@ -1,8 +1,9 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterAll, afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test'
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
 import { config } from '@/config'
+import * as composioClient from '@/lib/composio'
 import { errorHandler } from '@/lib/errors'
 import { useAgentSessionsShared } from '@/lib/test/doubles/agent-sessions-shared'
 import { useModels } from '@/lib/test/doubles/models'
@@ -48,6 +49,9 @@ useAgentSessionsShared({
   getAgentCredentialAccess: async () => ({ trelloIntegrationIds: selected }),
 })
 const { trelloScoped } = await import('./trello')
+const authConfigSpy = spyOn(composioClient, 'composioAuthConfigId').mockResolvedValue('ac_trello')
+
+afterAll(() => authConfigSpy.mockRestore())
 
 beforeEach(() => {
   selected = [BINDING.toHexString()]
@@ -55,7 +59,7 @@ beforeEach(() => {
   currentTeam = TEAM
   remoteStatus = 'ACTIVE'
   calls = []
-  Object.assign(config.byos.composio, { apiKey: 'fixture-key', trelloAuthConfigId: 'ac_trello' })
+  Object.assign(config.byos.composio, { apiKey: 'fixture-key' })
   globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
     calls.push({
       url: url instanceof Request ? url.url : url.toString(),

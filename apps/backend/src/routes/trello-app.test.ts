@@ -1,8 +1,9 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterAll, afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test'
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
 import { config } from '@/config'
+import * as composioClient from '@/lib/composio'
 import { errorHandler } from '@/lib/errors'
 import { useModels } from '@/lib/test/doubles/models'
 
@@ -32,6 +33,9 @@ let profileFails: boolean
 let cleanupFails: boolean
 let role: 'ADMINISTRATOR' | 'VIEWER'
 const realFetch = globalThis.fetch
+const authConfigSpy = spyOn(composioClient, 'composioAuthConfigId').mockResolvedValue('ac_fixture')
+
+afterAll(() => authConfigSpy.mockRestore())
 const saved = {
   ...config.byos.composio,
   publicBackendUrl: config.agent.publicBackendUrl,
@@ -87,7 +91,7 @@ beforeEach(() => {
   profileFails = false
   cleanupFails = false
   role = 'ADMINISTRATOR'
-  Object.assign(config.byos.composio, { apiKey: 'fixture-key', trelloAuthConfigId: 'ac_fixture' })
+  Object.assign(config.byos.composio, { apiKey: 'fixture-key' })
   config.agent.publicBackendUrl = 'https://app.example'
   config.byos.connectorOAuthDeferredBind = false
   globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
