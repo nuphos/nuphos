@@ -47,7 +47,6 @@ function skillSyncEnv(
 
 export function previewSessionEnv(args: {
   base: string
-  mount: string
   token: string
   conversationId: string
   teamId: string
@@ -68,8 +67,6 @@ export function previewSessionEnv(args: {
     // Skills address team-scoped routes as /teams/$TEAM/...
     TEAM: args.teamId,
     NUPHOS_TEAM_ID: args.teamId,
-    NUPHOS_PLAN_API_BASE: `${args.mount}/plans`,
-    NUPHOS_PLAN_API_TOKEN: args.token,
   }
 }
 
@@ -166,7 +163,6 @@ export async function previewSessionAccess(
       ...connectorEnv(selected.map((entry) => entry.provider)),
       ...previewSessionEnv({
         base,
-        mount,
         token,
         conversationId,
         teamId,

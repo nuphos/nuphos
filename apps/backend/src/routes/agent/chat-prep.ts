@@ -6,8 +6,6 @@ import {
 } from '@/lib/agent/db'
 import { resolveTurnFromStamp } from '@/lib/agent/memory-slots/runtime'
 import { createTurnMemoryAccumulator } from '@/lib/agent/memory-slots/turn-accumulator'
-import { listActivePlansForConversation } from '@/lib/agent/plans'
-import { renderActivePlanStatusBlock } from '@/lib/agent/stop-gate'
 import { logError } from '@/lib/observability'
 
 import { appendAgentRunFrame } from './run-frames'
@@ -34,32 +32,6 @@ export function buildCompactionPromise(
     } catch (err) {
       traceAgentChatError('agent.chat.compaction_load.error', err, run?.trace, {
         incoming_message_count: incomingMessageCount,
-      })
-
-      return null
-    }
-  })()
-}
-
-/**
- * Live plan-state block, re-fetched from Mongo every turn: the model gets
- * the stored lifecycle truth for every non-terminal plan in this
- * conversation. Fail-open — a Mongo hiccup must not block the turn.
- */
-export function buildActivePlanStatusPromise(
-  sessionId: string,
-  teamId: string | undefined,
-  userId: string,
-  run: AgentRun | undefined,
-): Promise<string | null> {
-  return (async () => {
-    try {
-      const activePlans = await listActivePlansForConversation(sessionId, { teamId, userId })
-
-      return renderActivePlanStatusBlock(activePlans)
-    } catch (err) {
-      traceAgentChatError('agent.chat.plan_state.load_failed', err, run?.trace, {
-        session_id: sessionId,
       })
 
       return null

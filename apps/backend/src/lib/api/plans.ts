@@ -49,7 +49,6 @@ export {
   planApprovalPolicyGetOperation,
   planApprovalPolicyUpdateOperation,
   planApproveOperation,
-  planCreateOperation,
   planGetOperation,
   planListOperation,
   planUpdateOperation,

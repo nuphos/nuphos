@@ -57,11 +57,10 @@ useTokenRevocation({
 })
 
 describe('credentialsMcpTools', () => {
-  test('session environment supports native Plan and provider scripts with one scoped token', () => {
+  test('session environment gives provider scripts one scoped token', () => {
     expect(
       previewSessionEnv({
         base: 'https://backend.example',
-        mount: 'https://backend.example/agent-sessions/conv-1/teams/team-1',
         token: 'scoped',
         conversationId: 'conv-1',
         teamId: 'team-1',
@@ -76,8 +75,6 @@ describe('credentialsMcpTools', () => {
       NUPHOS_SESSION_ID: 'conv-1',
       TEAM: 'team-1',
       NUPHOS_TEAM_ID: 'team-1',
-      NUPHOS_PLAN_API_BASE: 'https://backend.example/agent-sessions/conv-1/teams/team-1/plans',
-      NUPHOS_PLAN_API_TOKEN: 'scoped',
     })
   })
 

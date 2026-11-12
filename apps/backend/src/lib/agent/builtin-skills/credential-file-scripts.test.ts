@@ -43,7 +43,6 @@ async function capturedAuthorization(script: string[], stdin = '', revoked = fal
   writeFileSync(argv, '')
   if (!revoked) {
     writeFileSync(join(credentials, 'NUPHOS_TOKEN'), jwt('fresh'))
-    writeFileSync(join(credentials, 'NUPHOS_PLAN_API_TOKEN'), jwt('fresh'))
   }
   const child = Bun.spawn(['bash', ...script], {
     env: {
@@ -53,8 +52,6 @@ async function capturedAuthorization(script: string[], stdin = '', revoked = fal
       CURL_ARGV: argv,
       OPENAB_CREDENTIALS_DIR: credentials,
       NUPHOS_TOKEN: jwt('stale'),
-      NUPHOS_PLAN_API_TOKEN: jwt('stale'),
-      NUPHOS_PLAN_API_BASE: 'http://backend.invalid/plans',
       NUPHOS_BACKEND_URL: 'http://backend.invalid',
       NUPHOS_SESSION_ID: 'session',
     },
@@ -70,7 +67,6 @@ async function capturedAuthorization(script: string[], stdin = '', revoked = fal
 
 describe('skill scripts prefer the per-turn credential file over the spawn-time env', () => {
   const cases: [string, string[], string?][] = [
-    ['nuphos-plan request', [join(skills, 'nuphos-plan/scripts/_request.sh'), 'GET', '/1']],
     ['Nuphos API helper', [join(skills, '_runtime/scripts/nuphos-api.sh'), 'GET', '/teams']],
     [
       'file transfer',
