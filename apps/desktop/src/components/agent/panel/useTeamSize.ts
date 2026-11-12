@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 
-import { useTeamMemberList } from '../../../lib/bindingAccess'
+import { useTeamMemberList } from '../../../hooks/useTeamMemberList'
 
 import { knownTeamSize } from './homeCardCatalog'
 
@@ -8,7 +8,7 @@ import { knownTeamSize } from './homeCardCatalog'
  * How many people are on the team: the last count seen on this machine until
  * the members load, and null before any is known. Team activity takes its
  * height from it, so the card keeps its place while they load. A failed load
- * reads as no members, which no team has, so it is not remembered.
+ * keeps the last count.
  */
 export function useTeamSize(teamId: string): number | null {
   const members = useTeamMemberList(teamId)

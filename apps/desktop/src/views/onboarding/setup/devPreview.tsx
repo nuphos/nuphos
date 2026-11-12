@@ -1,4 +1,7 @@
+import { QueryClientProvider } from '@tanstack/react-query'
 import { createRoot } from 'react-dom/client'
+
+import { queryClient } from '../../../lib/query/client'
 
 import { AgentSetupFlow } from './AgentSetupFlow'
 
@@ -25,5 +28,9 @@ export function showRuntimeSetupPreview() {
     container.remove()
     closePreview = undefined
   }
-  root.render(<AgentSetupFlow workspaceCreated onFinish={() => closePreview?.()} />)
+  root.render(
+    <QueryClientProvider client={queryClient}>
+      <AgentSetupFlow workspaceCreated onFinish={() => closePreview?.()} />
+    </QueryClientProvider>,
+  )
 }
