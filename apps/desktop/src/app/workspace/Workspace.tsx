@@ -4,7 +4,6 @@ import { useEffect } from 'react'
 import { ChatLinkMenuContext } from '../../components/agent/chatLinkMenuContext'
 import { ConfettiBurst } from '../../components/ConfettiBurst'
 import { PortForwardBottomBar } from '../../components/PortForwardBottomBar'
-import { SessionSearchDialog } from '../../components/session-search/SessionSearchDialog'
 import { ShortcutsHelpModal } from '../../components/ShortcutsHelpModal'
 import { Sidebar } from '../../components/Sidebar'
 import { TeamInvitationsTakeover } from '../../components/TeamInvitationsPanel'
@@ -20,10 +19,9 @@ import { usePaletteCommand } from './usePaletteCommand'
 import { useWorkspaceController } from './useWorkspaceController'
 import { useWorkspaceTabMigrations } from './useWorkspaceTabMigrations'
 import { WorkspaceBindDialogs } from './WorkspaceBindDialogs'
-import { WorkspaceDockPanels } from './WorkspaceDockPanels'
-import { WorkspaceMainPane } from './WorkspaceMainPane'
+import { WorkspaceConversationSurface } from './WorkspaceConversationSurface'
 import { useWorkspacePane } from './WorkspacePaneContext'
-import { WorkspaceSessionPane } from './WorkspaceSessionPane'
+import { WorkspaceSearch } from './WorkspaceSearch'
 import { WorkspaceSplits } from './WorkspaceSplits'
 
 import type { WorkspaceProps } from './workspaceProps'
@@ -94,6 +92,13 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
   useEffect(() => {
     if ((pane?.active ?? true) && searchBlocked) setSessionSearchOpen(false)
   }, [pane?.active, searchBlocked, setSessionSearchOpen])
+
+  const searchShown =
+    ws.sessionSearchOpen &&
+    !settingsOpen &&
+    !createOrJoinOpen &&
+    !invitationTakeoverOpen &&
+    (pane?.active ?? true)
 
   // Full-screen "Create or join team" page (workspace picker). Rendered in the
   // no-scope shell too, where the picker's entry is also reachable.
@@ -230,18 +235,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
         <div className="relative flex min-h-0 flex-1">
           {pane?.active ? <ActivePaneSidebar pane={pane} ws={ws} user={user} /> : null}
           <div className="flex-1 flex flex-col min-w-0">
-            <div className="flex flex-1 min-h-0 min-w-0">
-              <WorkspaceSessionPane
-                ws={ws}
-                user={user}
-                workspaceExpanded={ws.workspaceDockExpanded || ws.mainPageOpen}
-              />
-              {ws.mainPageOpen ? (
-                <WorkspaceMainPane ws={ws} user={user} />
-              ) : (
-                <WorkspaceDockPanels ws={ws} user={user} />
-              )}
-            </div>
+            <WorkspaceConversationSurface ws={ws} user={user} />
           </div>
         </div>
         <PortForwardBottomBar />
@@ -270,26 +264,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
           onOpenAuditConversation={openAuditConversation}
         />
       )}
-      {ws.sessionSearchOpen &&
-        !settingsOpen &&
-        !createOrJoinOpen &&
-        !invitationTakeoverOpen &&
-        (pane?.active ?? true) && (
-          <SessionSearchDialog
-            key={scope.teamId}
-            teamId={scope.teamId}
-            teamName={ws.currentTeam?.name ?? t('Workspace')}
-            otherTeams={ws.teams.filter((team) => team.id !== scope.teamId)}
-            userId={user.id}
-            onClose={() => ws.setSessionSearchOpen(false)}
-            onCommand={runPaletteCommand}
-            onOpen={(sessionId, beside) => {
-              ws.setSessionSearchOpen(false)
-              if (beside && pane?.openSessionBeside(sessionId, scope.teamId)) return
-              ws.workspaceActions.selectSession(sessionId, { teamId: scope.teamId })
-            }}
-          />
-        )}
+      <WorkspaceSearch ws={ws} userId={user.id} shown={searchShown} onCommand={runPaletteCommand} />
       <ShortcutsHelpModal open={shortcutsHelpOpen} onClose={() => setShortcutsHelpOpen(false)} />
       {createOrJoinOverlay}
       {invitationTakeover}

@@ -15,7 +15,7 @@ import ai.nuphos.android.session.BotArchive
 /** Asks before Archive Bot, then waits for it, since the Bot and its chats are several requests. */
 @Composable
 fun ArchiveBotDialog(store: AgentStore, botId: String, onDismiss: () -> Unit) {
-    val bot = store.conversations.firstOrNull { it.sessionId == botId }
+    val bot = store.botRow(botId)
     var started by remember(botId) { mutableStateOf(false) }
     val busy = store.archivingBotId == botId
     // Done, or reported by the dialog below.

@@ -33,6 +33,7 @@ export const RUNTIME_SOURCES = [
   'codex-login.mjs',
   'panel-job.mjs',
   'grok-login.mjs',
+  'antigravity-login.mjs',
   'opencode-login.mjs',
   'acp-shim.mjs',
   'reply-images.mjs',

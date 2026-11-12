@@ -183,6 +183,32 @@ describe('credentialsMcpTools', () => {
     })
   })
 
+  test('lists the personal identity preference without granting its standalone token', async () => {
+    listing.entries = [
+      {
+        provider: 'github',
+        id: '1',
+        label: 'org',
+        usage: 'Use the github skill with this id.',
+        identityPreference: { kind: 'personal', login: 'octo' },
+      },
+    ]
+    listing.unselected = []
+    let vended = false
+    const tools = credentialsMcpTools(agent, 'team-1', () => {
+      vended = true
+
+      return Promise.resolve({ status: 200, body: '{}' })
+    })
+    const listed = await tools.list_credentials!({})
+
+    expect(listed.structuredContent).toEqual({ credentials: listing.entries })
+    const fetched = await tools.get_credential!({ provider: 'personal', id: 'github' })
+
+    expect(fetched.isError).toBe(true)
+    expect(vended).toBe(false)
+  })
+
   test('list_credentials marks team credentials this conversation has not selected', async () => {
     const gcp: UnselectedCredentialEntry = {
       provider: 'gcp',

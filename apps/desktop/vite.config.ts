@@ -2,10 +2,13 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import electron from 'vite-plugin-electron/simple'
 
+import { buildSidebarGestures } from './scripts/build-sidebar-gestures.ts'
+
 export default defineConfig({
   base: './',
   plugins: [
     react(),
+    { name: 'sidebar-native-gestures', buildStart: buildSidebarGestures },
     electron({
       main: {
         entry: 'electron/main.ts',
@@ -33,14 +36,17 @@ export default defineConfig({
         },
       },
       preload: {
-        input: 'electron/preload.ts',
+        // `browser-preload` runs in Dock browser pages (see webview-guard.ts).
+        input: { preload: 'electron/preload.ts', 'browser-preload': 'electron/browser-preload.ts' },
         vite: {
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
               output: {
                 format: 'cjs',
-                entryFileNames: 'preload.cjs',
+                entryFileNames: '[name].cjs',
+                // Two entries need it on; neither imports the other or anything dynamic, so no chunks.
+                codeSplitting: true,
               },
             },
           },

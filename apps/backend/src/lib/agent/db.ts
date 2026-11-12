@@ -55,7 +55,6 @@ export {
 } from './db/maintenance'
 export {
   addInputRequest,
-  clearPendingDecision,
   findInputRequest,
   resolveInputRequest,
   resolvePlanInputRequests,
@@ -72,6 +71,7 @@ export {
   appendConversationMessages,
 } from './db/transcript-autonomous'
 export { getConversationTranscriptForAgent, liveTurnTranscriptLine } from './db/transcript-read'
+export { recordMessageEditedInFork } from './db/message-edit'
 export { retractTrailingUserMessage } from './db/transcript-retract'
 export {
   appendTranscriptMessages,

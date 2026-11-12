@@ -184,6 +184,20 @@ test('a silent socket is treated as dead and redialed', (t) => {
   client.stop()
 })
 
+test('a slow handshake does not cut the opened tunnel before its first ping', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const { backend, backends, client } = setup()
+
+  t.mock.timers.tick(10_000)
+  backend().emit('open')
+  // The backend pings 5s after it accepts the socket.
+  t.mock.timers.tick(5_000)
+  backend().emit('message', { data: JSON.stringify({ t: 'ping' }) })
+  assert.equal(backends[0]?.closed, false)
+  assert.equal(backends.length, 1)
+  client.stop()
+})
+
 test('once back, it tells the backend why it gave up the last tunnel, and only once', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
   const { backend, frames, client } = setup()

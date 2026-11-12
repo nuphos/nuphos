@@ -80,9 +80,8 @@ export const agentChannels = {
     sessionId: string,
     teamId: string,
     runtimeId: string,
-    mode: 'history' | 'workspace',
     grantComputerUse?: boolean,
-  ) => agent.moveConversationRuntime(sessionId, teamId, runtimeId, mode, grantComputerUse),
+  ) => agent.moveConversationRuntime(sessionId, teamId, runtimeId, grantComputerUse),
   'agent:renameConversation': (_e: unknown, sessionId: string, title: string, teamId?: string) =>
     agent.renameConversation(sessionId, title, teamId),
   'agent:setConversationArchived': (
@@ -269,8 +268,12 @@ export const agentChannels = {
     patch: agent.UpdateAgentTriggerInput,
     teamId?: string,
   ) => agent.updateAgentTrigger(triggerId, patch, teamId),
-  'agent:deleteTrigger': (_e: unknown, triggerId: string, teamId?: string) =>
-    agent.deleteAgentTrigger(triggerId, teamId),
+  'agent:deleteTrigger': (
+    _e: unknown,
+    triggerId: string,
+    teamId?: string,
+    withoutProviderCleanup?: boolean,
+  ) => agent.deleteAgentTrigger(triggerId, teamId, withoutProviderCleanup === true),
   'agent:testFireTrigger': (
     _e: unknown,
     triggerId: string,

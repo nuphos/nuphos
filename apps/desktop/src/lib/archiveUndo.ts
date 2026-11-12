@@ -8,6 +8,8 @@ type ArchivedChat = {
   sessionId: string
   teamId: string
   title: string
+  /** What was archived, when the server said: a Bot (with its chat) or a chat on its own. */
+  noun?: 'bot' | 'chat'
   /** Runs once the chat is back, before other surfaces hear about it. */
   onRestored?: () => void
 }
@@ -17,12 +19,23 @@ type ArchivedChat = {
  * to undo. Every archive gets its own toast, so archiving several chats in a
  * row leaves each one restorable.
  */
-export function offerArchiveUndo({ sessionId, teamId, title, onRestored }: ArchivedChat): void {
+export function offerArchiveUndo({
+  sessionId,
+  teamId,
+  title,
+  noun,
+  onRestored,
+}: ArchivedChat): void {
   let restoring = false
 
   toast.success(
-    t('Agent archived'),
-    t('"{title}" is still available in the Agent history.', { title }),
+    noun === 'bot' ? t('Bot archived') : noun === 'chat' ? t('Chat archived') : t('Agent archived'),
+    // A chat is not listed in Archived agents, so its receipt promises only Undo.
+    noun === 'chat'
+      ? undefined
+      : noun === 'bot'
+        ? t('"{title}" is still available in Archived agents.', { title })
+        : t('"{title}" is still available in the Agent history.', { title }),
     {
       dedupe: false,
       action: {

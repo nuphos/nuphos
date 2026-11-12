@@ -1,5 +1,8 @@
+import { ownBody, withQuestionsInBody } from '@/lib/agent/tools-skilled/decision-tools'
+
 import { agentConversations } from './shared'
 
+import type { PersonalCredentialRef } from '@/lib/agent/tools-skilled/decision-tools'
 import type { ExplicitUserDecision } from '@/lib/agent/tools-skilled/types'
 
 export type InputRequestStatus = 'open' | 'answered' | 'dismissed'
@@ -15,8 +18,14 @@ export type InputRequest = ExplicitUserDecision & {
   secretName?: string
   /** The plan (#N) a plan's approval question decides. */
   planId?: string
+  /** The channel whose post woke the turn that asked: the answer is recorded there and the agent replies there. */
+  channelId?: string
   /** The providers an `integration` request asks to connect, so its Connect card lists them. */
   providers?: string[]
+  /** The member's own credentials an `integration` request asks for: only selecting one answers it. */
+  credentials?: PersonalCredentialRef[]
+  /** The linked resources and sub-agent threads it is about: their changes remind the agent of it. */
+  about?: string[]
   askedAt: Date
   status: InputRequestStatus
   resolvedAt?: Date
@@ -50,8 +59,25 @@ export async function updateInputRequest(
   sessionId: string,
   userId: string,
   id: string,
-  patch: Partial<Pick<ExplicitUserDecision, 'question' | 'body' | 'options'>>,
+  patch: Partial<
+    Pick<ExplicitUserDecision, 'question' | 'body' | 'options' | 'multiSelect' | 'questions'>
+  >,
 ): Promise<boolean> {
+  // A card with questions keeps them written out after its body, for older clients.
+  if (patch.questions || patch.body !== undefined) {
+    const stored = await findInputRequest(sessionId, userId, id)
+    const questions = patch.questions ?? stored?.questions
+
+    if (!stored) return false
+    if (questions?.length)
+      patch = {
+        ...patch,
+        body: withQuestionsInBody({
+          body: patch.body ?? ownBody(stored.body, stored.questions),
+          questions,
+        }),
+      }
+  }
   const set = Object.fromEntries(
     Object.entries(patch).map(([field, value]) => [`inputRequests.$.${field}`, value]),
   )
@@ -61,6 +87,39 @@ export async function updateInputRequest(
   )
 
   return result.matchedCount > 0
+}
+
+/** The conversation's open requests, oldest first, but those a queued message answers. */
+export async function listOpenInputRequests(
+  sessionId: string,
+  userId: string,
+  answering: ReadonlySet<string> = new Set(),
+): Promise<InputRequest[]> {
+  const conversation = await agentConversations().findOne(
+    { sessionId, userId },
+    { projection: { inputRequests: 1 } },
+  )
+
+  return conversation ? openInputRequests(conversation, answering) : []
+}
+
+/**
+ * What a wake from a linked resource or sub-agent thread tells the agent about
+ * the open questions it asked about that resource or thread; empty when none.
+ */
+export function relatedQuestionsNote(
+  conversation: ConversationInputRequests,
+  ref: string,
+  what: string,
+): string {
+  const related = openInputRequests(conversation).filter((request) => request.about?.includes(ref))
+
+  if (!related.length) return ''
+  const list = related
+    .map((request) => `- ${request.id}: ${JSON.stringify(request.question)}`)
+    .join('\n')
+
+  return `\n\nYour open questions about this ${what}:\n${list}\nIf this answers one or makes it moot, withdraw it with withdraw_user_decision or correct it with update_user_decision.`
 }
 
 /** One request, open or resolved, by its id. */
@@ -91,6 +150,14 @@ export async function resolveInputRequest(
   return listed.matchedCount > 0
 }
 
+/** An answer whose agent could not be told: the question waits for an answer again. */
+export async function reopenInputRequest(sessionId: string, userId: string, id: string) {
+  await agentConversations().updateOne(
+    { sessionId, userId, inputRequests: { $elemMatch: { id, status: 'answered' } } },
+    { $set: { 'inputRequests.$.status': 'open' }, $unset: { 'inputRequests.$.resolvedAt': '' } },
+  )
+}
+
 /** A plan decided anywhere (its card, the Plans page, Slack) is no longer asked about. */
 export async function resolvePlanInputRequests(sessionId: string, planId: string): Promise<void> {
   await agentConversations().updateOne(
@@ -102,20 +169,6 @@ export async function resolvePlanInputRequests(sessionId: string, planId: string
       },
     },
     { arrayFilters: [{ 'plan.planId': planId, 'plan.status': 'open' }] },
-  )
-}
-
-/** Legacy non-Desktop channels answer every open question with their next human turn. */
-export async function clearPendingDecision(sessionId: string, userId: string): Promise<void> {
-  await agentConversations().updateOne(
-    { sessionId, userId, 'inputRequests.status': 'open' },
-    {
-      $set: {
-        'inputRequests.$[open].status': 'answered',
-        'inputRequests.$[open].resolvedAt': new Date(),
-      },
-    },
-    { arrayFilters: [{ 'open.status': 'open' }] },
   )
 }
 

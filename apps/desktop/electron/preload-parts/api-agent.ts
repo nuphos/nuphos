@@ -11,11 +11,20 @@ export const agentApi = {
     teamId?: string,
     resolution?: 'answered' | 'dismissed',
   ) => ipcRenderer.invoke('agent:resolveDecision', sessionId, toolCallId, teamId, resolution),
+  agentAnswerDecision: (
+    sessionId: string,
+    requestId: string,
+    teamId: string | undefined,
+    answer: {
+      choices?: string[]
+      text?: string
+      questions?: { choices?: string[]; text?: string }[]
+    },
+  ) => ipcRenderer.invoke('agent:answerDecision', sessionId, requestId, teamId, answer),
   agentMoveConversationRuntime: (
     sessionId: string,
     teamId: string,
     runtimeId: string,
-    mode: 'history' | 'workspace',
     grantComputerUse?: boolean,
   ) =>
     ipcRenderer.invoke(
@@ -23,11 +32,12 @@ export const agentApi = {
       sessionId,
       teamId,
       runtimeId,
-      mode,
       grantComputerUse,
     ),
   agentCheckConversationMove: (sessionId: string, teamId: string, runtimeId: string) =>
     ipcRenderer.invoke('agent:checkConversationMove', sessionId, teamId, runtimeId),
+  agentRecordEditFork: (sessionId: string, forkSessionId: string, teamId?: string) =>
+    ipcRenderer.invoke('agent:recordEditFork', sessionId, forkSessionId, teamId),
   agentGetSessionConfig: (sessionId: string, teamId: string) =>
     ipcRenderer.invoke('agent:getSessionConfig', sessionId, teamId),
   agentImportLocalSession: (args: {
@@ -224,8 +234,8 @@ export const agentApi = {
     },
     teamId?: string,
   ) => ipcRenderer.invoke('agent:updateTrigger', triggerId, patch, teamId),
-  agentDeleteTrigger: (triggerId: string, teamId?: string) =>
-    ipcRenderer.invoke('agent:deleteTrigger', triggerId, teamId),
+  agentDeleteTrigger: (triggerId: string, teamId?: string, withoutProviderCleanup?: boolean) =>
+    ipcRenderer.invoke('agent:deleteTrigger', triggerId, teamId, withoutProviderCleanup),
   agentTestFireTrigger: (triggerId: string, payload?: Record<string, unknown>, teamId?: string) =>
     ipcRenderer.invoke('agent:testFireTrigger', triggerId, payload, teamId),
   agentTransferTriggerExecutionPrincipal: (triggerId: string, userId: string, teamId?: string) =>

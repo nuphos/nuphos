@@ -1,9 +1,25 @@
+import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useIdentity } from '@/lib/test/doubles/identity'
+import type { AgentConversation } from '@/lib/agent/db'
+import type { TeamMembership } from '@/lib/identity/types'
 import { describe, expect, test } from 'bun:test'
 
 import { createLocalBrowserHandler, localBrowserToolModule } from './local-browser'
 
 import type { DeviceToolDeps } from './device-tool'
 import type { PreviewToolContext } from '../preview-tool-context'
+
+const conversationAccess = useAgentDb({
+  getConversationBySessionId: () =>
+    Promise.resolve({
+      sessionId: 's1',
+      userId: 'owner',
+      teamId: 't1',
+      participantIds: ['u1'],
+    } as AgentConversation),
+})
+
+useIdentity({ getTeamMembership: () => Promise.resolve({ role: 'EDITOR' } as TeamMembership) })
 
 type Listener = (event: { data?: unknown }) => void
 
@@ -88,6 +104,7 @@ describe('local_browser', () => {
       tab: 7,
       script: 'document.title',
     })
+
     expect(audits).toEqual([
       '[browser] eval tab=7 document.title',
       '[browser] eval tab=7 document.title',
@@ -103,17 +120,6 @@ describe('local_browser', () => {
     expect((await handler({ action: 'click' })).isError).toBe(true)
     expect((await handler({ action: 'record_start' })).isError).toBe(true)
     expect((await handler({ action: 'record_stop' })).isError).toBe(true)
-    expect(fake.opened).toHaveLength(0)
-  })
-
-  test("only runs in the user's own conversations", async () => {
-    const fake = device(null)
-    const result = await createLocalBrowserHandler(
-      { ...ctx, conversationOwnerUserId: 'someone-else' },
-      deps({ connect: fake.connect }),
-    )({ action: 'tabs' })
-
-    expect(result.isError).toBe(true)
     expect(fake.opened).toHaveLength(0)
   })
 
@@ -134,6 +140,7 @@ describe('local_browser', () => {
     await handler({ action: 'open', url: 'https://dash.cloudflare.com/login' })
     // Naming the Box still reaches it.
     await handler({ action: 'tabs', device: 'box' })
+
     expect(targets).toEqual(['mac', 'box'])
   })
 
@@ -153,6 +160,7 @@ describe('local_browser', () => {
       })
       docks.push(fake.opened[0]?.sent[0]?.dock)
     }
+
     expect(docks).toEqual(['channel-1', undefined, undefined])
   })
 
@@ -165,6 +173,7 @@ describe('local_browser', () => {
     })
 
     await handler({ action: 'tabs' })
+
     expect(lookups).toBe(0)
   })
 
@@ -176,8 +185,56 @@ describe('local_browser', () => {
     expect(description).toContain(
       'A site or app named by the user ("open up TikTok") means its official URL (https://www.tiktok.com)',
     )
+
     expect(description).toContain(
       'open that login or sign-up page here yourself, sub-agents included',
     )
   })
+})
+
+test('an authorized teammate can use the selected conversation browser', async () => {
+  const tabs = { content: [{ type: 'text' as const, text: '[]' }] }
+  const fake = device(tabs)
+  const actors: string[] = []
+  const result = await createLocalBrowserHandler(
+    { ...ctx, conversationOwnerUserId: 'conversation-owner' },
+    deps({
+      connect: fake.connect,
+      audit: async (entry) => {
+        actors.push(entry.actorUserId)
+      },
+    }),
+  )({ action: 'tabs' })
+
+  expect(result).toEqual(tabs)
+  expect(actors).toEqual(['u1', 'u1'])
+})
+
+test('removing a teammate stops the next browser call in the same turn', async () => {
+  let participants = ['u1']
+
+  conversationAccess({
+    getConversationBySessionId: () =>
+      Promise.resolve({
+        sessionId: 's1',
+        userId: 'owner',
+        teamId: 't1',
+        generalAccess: 'none',
+        participantIds: participants,
+      } as AgentConversation),
+  })
+  const tabs = { content: [{ type: 'text' as const, text: '[]' }] }
+  const fake = device(tabs)
+  const handler = createLocalBrowserHandler(
+    { ...ctx, conversationOwnerUserId: 'owner' },
+    deps({ connect: fake.connect }),
+  )
+
+  expect(await handler({ action: 'tabs' })).toEqual(tabs)
+  participants = []
+
+  await expect(handler({ action: 'tabs' })).rejects.toMatchObject({
+    code: 'conversation_read_only',
+  })
+  expect(fake.opened).toHaveLength(1)
 })

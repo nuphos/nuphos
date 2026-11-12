@@ -13,6 +13,7 @@ import { attachRuntimeTunnel } from '@/lib/agent/devices/local-runtime/holder'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { DEVICE_CREDENTIAL_PREFIX } from '@/lib/agent/devices/join-tokens'
 import { recordDeviceAgents } from '@/lib/agent/devices/agent-registry-store'
+import { settlePendingRemovals } from '@/lib/agent/devices/pending-removals'
 import { getAgentDevice, isActiveTeamMember } from '@/lib/agent/devices/store'
 import { recordDeviceMetricSample } from '@/lib/claude-code-preview/runtime-metrics-store'
 import { AppError } from '@/lib/errors'
@@ -50,7 +51,11 @@ function defaultDependencies(): DeviceRuntimeRouteDependencies {
       bus: tunnelBus(),
       presence: runtimePresenceStore(),
       isMember: isActiveTeamMember,
-      recordAgents: recordDeviceAgents,
+      recordAgents: async (userId, deviceId, status, from) => {
+        await recordDeviceAgents(userId, deviceId, status, from)
+        // Back online: it deletes what was removed while it was away (settling never throws).
+        void settlePendingRemovals(userId, deviceId, status).catch(() => undefined)
+      },
       connectionChanged: (userId, deviceId) => {
         void noteBoxPresence(userId, deviceId, getAgentDevice)
       },

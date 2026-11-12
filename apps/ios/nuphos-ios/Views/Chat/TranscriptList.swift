@@ -115,10 +115,12 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
         // SwiftUI's own keyboard avoidance would move it a second time.
         composer.safeAreaRegions = []
         composer.view.translatesAutoresizingMaskIntoConstraints = false
-        let edge = UIScrollEdgeElementContainerInteraction()
-        edge.scrollView = collection
-        edge.edge = .bottom
-        composer.view.addInteraction(edge)
+        if #available(iOS 26, *) {
+            let edge = UIScrollEdgeElementContainerInteraction()
+            edge.scrollView = collection
+            edge.edge = .bottom
+            composer.view.addInteraction(edge)
+        }
         view.addSubview(composer.view)
         composer.didMove(toParent: self)
         NSLayoutConstraint.activate([

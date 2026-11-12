@@ -96,6 +96,16 @@ export function runtimeRemovalDescription(instance: RuntimeInstance): string {
     return t(
       'This disconnects the external runtime. Its files remain on the external machine. Your agents stay in Nuphos and can be moved to another runtime with their history.',
     )
+  if (!local.instanceId && !local.box)
+    return t(
+      'This removes {name} from Nuphos. Its CLI sign-in on {device} is yours and stays; while it is signed in there, {name} is listed again.',
+      { name: instance.label, device: local.deviceLabel },
+    )
+  if (local.online === false)
+    return t(
+      '{device} is offline. The agent leaves this workspace now, and {device} deletes it and its sign-in the next time it connects.',
+      { device: local.deviceLabel },
+    )
   if (local.instanceId)
     return t(
       'This removes the agent and its sign-in from {device}. Your conversation history stays in Nuphos.',

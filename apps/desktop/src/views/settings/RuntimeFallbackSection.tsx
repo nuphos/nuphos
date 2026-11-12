@@ -1,5 +1,6 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowDown, ArrowUp, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
 import { api } from '../../api'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
@@ -8,6 +9,7 @@ import { AppSelect } from '../../components/ui/select'
 import { toast } from '../../components/ui/toast'
 import { useRuntimeInstances } from '../../hooks/useRuntimeInstances'
 import { t } from '../../i18n'
+import { runtimeFallbackQuery } from '../../lib/query/runtime'
 
 import { SectionHeader } from './shared'
 
@@ -22,50 +24,47 @@ function where(instance: RuntimeInstance): string {
 export function RuntimeFallbackSection({ team }: { team: AtlasTeam | undefined }) {
   const teamId = team?.id
   const { instances } = useRuntimeInstances(teamId)
-  const [runtimeIds, setRuntimeIds] = useState<string[] | null>(null)
-  // One save at a time, so a slower earlier save cannot land after a later one.
-  const [saving, setSaving] = useState(false)
+  const queryClient = useQueryClient()
+  const { data: runtimeIds, error } = useQuery({
+    ...runtimeFallbackQuery(teamId ?? ''),
+    enabled: Boolean(teamId),
+  })
+  // One save at a time, so a slower earlier save cannot land after a later one. The save carries
+  // its team, so switching teams meanwhile cannot write one team's list into another's.
+  const { mutate, isPending: saving } = useMutation({
+    mutationFn: async ({ target, next }: { target: string; next: string[] }) =>
+      (await api.atlasPutRuntimeFallback(target, next)).runtimeIds,
+    onMutate: async ({ target, next }) => {
+      const { queryKey } = runtimeFallbackQuery(target)
+
+      await queryClient.cancelQueries({ queryKey })
+      const previous = queryClient.getQueryData(queryKey)
+
+      queryClient.setQueryData(queryKey, next)
+
+      return previous
+    },
+    onSuccess: (saved, { target }) =>
+      queryClient.setQueryData(runtimeFallbackQuery(target).queryKey, saved),
+    onError: (err, { target }, previous) => {
+      queryClient.setQueryData(runtimeFallbackQuery(target).queryKey, previous)
+      toast.apiError(t('Could not save your fallback agents'), err)
+    },
+  })
+  const save = (next: string[]) => {
+    if (teamId) mutate({ target: teamId, next })
+  }
 
   useEffect(() => {
-    if (!teamId) return
-    let cancelled = false
-
-    api.atlasGetRuntimeFallback(teamId).then(
-      (fallback) => {
-        if (!cancelled) setRuntimeIds(fallback.runtimeIds)
-      },
-      (err: unknown) => {
-        toast.apiError(t('Could not load your fallback agents'), err)
-      },
-    )
-
-    return () => {
-      cancelled = true
-    }
-  }, [teamId])
-
-  async function save(next: string[]) {
-    if (!teamId) return
-    const previous = runtimeIds
-
-    setRuntimeIds(next)
-    setSaving(true)
-    try {
-      setRuntimeIds((await api.atlasPutRuntimeFallback(teamId, next)).runtimeIds)
-    } catch (err) {
-      setRuntimeIds(previous)
-      toast.apiError(t('Could not save your fallback agents'), err)
-    } finally {
-      setSaving(false)
-    }
-  }
+    if (error) toast.apiError(t('Could not load your fallback agents'), error)
+  }, [error])
 
   function move(index: number, by: -1 | 1) {
     if (!runtimeIds) return
     const next = [...runtimeIds]
 
     ;[next[index], next[index + by]] = [next[index + by], next[index]]
-    void save(next)
+    save(next)
   }
 
   const listed = runtimeIds ?? []
@@ -128,7 +127,7 @@ export function RuntimeFallbackSection({ team }: { team: AtlasTeam | undefined }
                         size="icon-sm"
                         aria-label={t('Remove')}
                         disabled={saving}
-                        onClick={() => void save(listed.filter((entry) => entry !== id))}
+                        onClick={() => save(listed.filter((entry) => entry !== id))}
                       >
                         <X size={14} />
                       </Button>
@@ -156,7 +155,7 @@ export function RuntimeFallbackSection({ team }: { team: AtlasTeam | undefined }
               description: where(instance),
             }))}
             onValueChange={(id) => {
-              if (id) void save([...listed, id])
+              if (id) save([...listed, id])
             }}
           />
         </div>

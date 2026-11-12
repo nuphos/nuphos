@@ -368,6 +368,12 @@ jobs:
         timeout-minutes: 3
         working-directory: apps/desktop
         run: pnpm test
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+      - name: Run sidebar UI tests in isolated processes
+        working-directory: apps/desktop
+        run: pnpm test:ui
       # Bundling catches what tsc and eslint cannot (unresolved assets, CSS,
       # Rollup errors) and takes seconds, so it runs on every desktop change.
       - name: Build renderer and main bundles

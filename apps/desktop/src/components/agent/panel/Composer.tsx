@@ -24,9 +24,9 @@ import type { ComposerSend } from './composerMentionChips'
 import type { ComposerRecall } from './composerRecall'
 import type { CredentialSelectorControl } from './credentialSections'
 import type { AgentPromptSeed } from './model'
-import type { ViewOnlyNotice } from './viewOnlyNotice'
 import type { RuntimeControl } from './RuntimeSelector'
 import type { ModelSession } from './useSessionConfig'
+import type { ViewOnlyNotice } from './viewOnlyNotice'
 import type { AgentConversation, AgentSlackThread, LocalAgentSessionInfo } from '../../../api'
 import type { RuntimeExecution } from '../../../lib/runtimeExecution'
 import type { ReactNode } from 'react'
@@ -140,11 +140,13 @@ export function Composer({
       : undefined,
     { commands: runtimeState?.commands, runtimeId: runtimeControl?.value?.id },
   )
+  const send: ComposerSend = (text, paths, people, options) =>
+    onSend(text, paths, people, { ...options, imageThumbs: state.imageThumbs })
   const actions = useComposerActions(state, {
     sendBlocked,
     readOnly,
     streaming,
-    onSend: mentions.wrapSend(slash.wrapSend(modelControl.wrapSend(onSend))),
+    onSend: mentions.wrapSend(slash.wrapSend(modelControl.wrapSend(send))),
     pendingSeed,
     onSeedConsumed,
     dropRegisterRef,
@@ -157,11 +159,10 @@ export function Composer({
   return (
     <div
       className={clsx(
-        // The in-conversation composer needs room for its shadow to fall and
-        // clearance from the pane edges; 4px left it wedged into the corner.
-        // Docked, it takes the left sidebar's inset instead, and its bottom gap
-        // matches the content card's own (`pb-2` on the main pane) so the two
-        // columns end on the same line.
+        // The in-conversation composer needs room for its shadow to fall and clearance from the
+        // pane edges; 4px left it wedged into the corner. Docked, it takes the left sidebar's inset
+        // instead, and its bottom gap matches the content card's own (`pb-2` on the main pane) so
+        // the two columns end on the same line.
         // The hero always keeps room for the agent-status banner above the greeting.
         hero ? 'pt-5' : sidebar ? 'px-2.5 pb-2' : 'px-3 pb-3',
       )}
@@ -179,10 +180,7 @@ export function Composer({
         <div
           className={clsx(
             'relative',
-            // Both variants share the same self-contained input-box look; the in-conversation
-            // (compact) composer is just a tighter version of the hero box instead of a full-width
-            // bottom strip. Opaque, not a translucent tint: the composer only reads as a surface if
-            // it holds its own value against the canvas.
+            // Both variants use an opaque input surface; compact keeps the in-conversation spacing.
             'surface-raised composer-surface bg-composer',
             hero
               ? 'rounded-[24px] px-5 pt-4 pb-3'
@@ -278,6 +276,9 @@ export function Composer({
             )}
             <ComposerSendControls
               runtimeCanCancel={runtimeCanCancel}
+              canSteer={
+                runtimeAllows(runtimeState, 'steer') && !runtimeAllows(runtimeState, 'reply')
+              }
               executing={executing}
               hero={hero}
               readOnly={readOnly}
@@ -286,8 +287,10 @@ export function Composer({
               sendDisabled={sendDisabled}
               sendBlockedReason={agentSendBlock ?? runtimeSendBlock}
               onConnectAgent={runtimeControl?.onConnectAgent}
-              onSubmit={actions.submit}
+              onSubmit={() => actions.submit()}
+              onQueue={() => actions.submit('queue')}
               onStop={onStop}
+              voice={{ editor: state.ref, teamId: mentionScope?.teamId }}
             />
           </div>
         </div>

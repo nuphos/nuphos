@@ -124,7 +124,8 @@ function stepsOf(line: readonly ArtifactVersion[], current: ArtifactVersion) {
   }
 }
 
-function ViewToggle({
+/** Preview or source; the runtime Files page shows an HTML file with the same switch. */
+export function ViewToggle({
   view,
   onView,
 }: {

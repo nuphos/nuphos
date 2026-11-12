@@ -5,16 +5,16 @@ import type { LocalAgentProvider } from '../../api/device-types'
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 
 /**
- * How a computer's agent is removed: an added one by its id, a Box's default one by its
- * provider (as for rename). A person's own computer keeps its defaults (they are its CLIs'
- * logins), so it has none to offer.
+ * How a computer's agent is removed: an added one by its id, a default one by its provider
+ * (as for rename). A person's own computer's default is their CLI login, so Nuphos only
+ * forgets it; it shows again once that CLI is signed in (see visibleAgent).
  */
 export function localRemovalId(instance: RuntimeInstance): string | undefined {
   const local = instance.local
 
-  if (!local) return undefined
+  if (!local || (instance.provider === 'antigravity' && !local.instanceId)) return undefined
 
-  return local.instanceId ?? (local.box ? instance.provider : undefined)
+  return local.instanceId ?? instance.provider
 }
 
 /**
@@ -36,11 +36,56 @@ const RUNS_ON: Record<RuntimeInstance['kind'], string> = {
   local: t('Computer'),
 }
 
-/** A computer's agent goes by its own name, else its provider's; Runs on says which computer. */
+/**
+ * A computer's agent goes by its own name, else its provider's; Runs on says which computer.
+ * This is the name it is stored under, which Rename edits; lists show `agentDisplayName`.
+ */
 export function agentName(instance: RuntimeInstance): string {
   return instance.kind === 'local'
     ? (instance.local?.agentLabel ?? AGENT_PROVIDER[instance.provider].label)
     : instance.label
+}
+
+/** The number in the name a computer gives a later agent: the 2 of "Claude Code 2". */
+const NUMBERED_DEFAULT = /^[2-9]\d*$/u
+
+/**
+ * A name a person gave the agent; undefined while it goes by the one its computer gave it —
+ * its provider's, or that provider's name numbered, as `defaultAgentName` makes it. Rename can
+ * write any name, so a name the computer gave is told from a chosen one by its shape alone.
+ */
+function agentNameOfPerson(agent: Pick<RuntimeInstance, 'provider' | 'local'>): string | undefined {
+  const label = agent.local?.agentLabel
+
+  if (!label) return undefined
+  const base = AGENT_PROVIDER[agent.provider].label
+
+  if (label === base) return undefined
+  if (label.startsWith(`${base} `) && NUMBERED_DEFAULT.test(label.slice(base.length + 1)))
+    return undefined
+
+  return label
+}
+
+/**
+ * What a list calls an agent: its name, or — on a computer holding more than one account for
+ * its provider, where a name alone would not tell two of them apart — that and the account.
+ * The account is only for an agent with no name of its own: the number its computer gave it is
+ * not a person's choice, so it gives way to the account.
+ */
+export function agentDisplayName(
+  instance: Pick<RuntimeInstance, 'label' | 'provider' | 'local'>,
+): string {
+  const local = instance.local
+
+  if (!local) return instance.label
+
+  return (
+    agentNameOfPerson(instance) ??
+    local.accountLabel ??
+    local.agentLabel ??
+    AGENT_PROVIDER[instance.provider].label
+  )
 }
 
 /**
@@ -101,6 +146,8 @@ export function newAgentAction(
   const idle = agents.find((agent) => agent.provider === provider && agent.local?.signedIn !== true)
 
   if (idle) return { signIn: idle.id }
+  // Native keyring sign-in is shared; another home does not create another account.
+  if (provider === 'antigravity') return null
 
   return agents.some((agent) => agent.local?.agentInstances === true) ? { create: true } : null
 }

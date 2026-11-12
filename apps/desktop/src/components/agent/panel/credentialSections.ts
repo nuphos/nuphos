@@ -31,6 +31,7 @@ export type CredentialSection = {
     | 'linear'
     | 'jira'
     | 'asana'
+    | 'trello'
     | 'sentry'
     | 'posthog'
     | 'plaud'
@@ -89,7 +90,7 @@ export function buildGcpCredentialSections(
     {
       id: 'gcp',
       provider: 'gcp',
-      title: 'GCP',
+      title: 'Google Cloud / Firebase',
       items: serviceAccounts.map((account) => ({
         id: account.serviceAccountId,
         label: `${account.projectId} · ${serviceAccountName(account.serviceAccountEmail)}`,

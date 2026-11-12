@@ -49,7 +49,7 @@ export async function createProposal(input: {
   // Revises an existing live playbook lineage instead of creating a new one.
   supersedesMemoryId?: ObjectId
 }): Promise<{ ok: true; proposalId: string; existing: boolean } | { ok: false; error: string }> {
-  const secretKinds = findSecretBearingContent({
+  const secretKinds = await findSecretBearingContent({
     playbook: input.playbook,
     caseRecord: input.caseRecord,
   })

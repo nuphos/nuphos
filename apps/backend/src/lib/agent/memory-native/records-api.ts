@@ -199,6 +199,7 @@ export async function listMemoryItems(
   const cursor = parseNativeMemoryCursor(opts.cursor)
   const query = {
     scope: 'personal' as const,
+    restrictedToSessionId: { $exists: false },
     ownerUserId: userId,
     teamId: opts.teamId ?? null,
     ...recordStateFilter,
@@ -256,6 +257,7 @@ export async function getMemoryItem(
   const record = await agentMemories().findOne({
     _id,
     scope: 'personal',
+    restrictedToSessionId: { $exists: false },
     ownerUserId: userId,
     teamId: opts.teamId ?? null,
     ...LIVE_RECORD_FILTER,

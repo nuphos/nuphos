@@ -72,6 +72,14 @@ export function serializeTimelineEvents(
 
       return { kind: event.kind, at, text, actor, from, to, ...(reason ? { reason } : {}) }
     }
+    if (event.kind === 'message_edited')
+      return {
+        kind: event.kind,
+        at,
+        text: `${actor.name} edited a message and ran it in a new task`,
+        actor,
+        forkSessionId: event.forkSessionId,
+      }
     if (event.kind === 'runtime_fallback_stopped') {
       const passed = event.skipped.map((entry) => `${entry.label} (${entry.reason})`).join(', ')
       const text = passed

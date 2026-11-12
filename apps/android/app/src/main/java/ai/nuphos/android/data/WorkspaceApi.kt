@@ -45,7 +45,7 @@ class WorkspaceApi internal constructor(private val token: String, private val c
         }
     } catch (_: Exception) { throw NuphosApi.Failure.InvalidResponse }
     private suspend fun execute(path: String, method: String, body: String? = null, expected: Int): JsonObject = withContext(Dispatchers.IO) {
-        val request = Request.Builder().url("${NuphosApi.BASE_URL}/$path")
+        val request = Request.Builder().url("${NuphosApi.baseUrl(token)}/$path")
             .header("Authorization", "Bearer $token").header("Accept", "application/json")
             .header("x-atlas-client", Http.clientHeader())
             .method(method, body?.toRequestBody(Http.jsonMedia)).build()

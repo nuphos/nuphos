@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 
 import { useThisComputer } from '../../../hooks/useThisComputer'
 import { agentTier } from '../../../lib/agentName'
-import { useNextTaskProject } from '../../../lib/taskProjects'
+import { pickNextTaskAgent, useNextTaskProject } from '../../../lib/taskProjects'
 import { openAgentSetup } from '../../../views/onboarding/setup/agentSetupStore'
 
 import { AgentHomePage } from './AgentHomePage'
@@ -46,6 +46,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
   } = c
   const draftKey = newChatDraftKey(teamId, c.newChatDraftId)
   const project = useTaskProject(c)
+  const owner = useThisComputer()
   const addAgent = useAddAgent(teamId, isTeamAdmin, selectConversationRuntime)
   const { importSession } = useLocalSessionImport({
     teamId,
@@ -68,7 +69,12 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
     value: newConversationRuntime,
     options: runtimeInstances,
     quotas: runtimeQuotas,
-    onSelect: selectConversationRuntime,
+    onSelect: (runtimeId: string) => {
+      const agent = runtimeInstances.find((instance) => instance.id === runtimeId)
+
+      pickNextTaskAgent(teamId, !agent || agentTier(agent, owner) === 'local')
+      selectConversationRuntime(runtimeId)
+    },
     loading: runtimeInstancesLoading,
     error: runtimeInstancesError,
     onSettings: onOpenAgentSettings,

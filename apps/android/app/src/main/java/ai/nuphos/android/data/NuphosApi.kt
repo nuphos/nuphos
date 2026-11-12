@@ -20,7 +20,9 @@ import okhttp3.Request
 import java.util.concurrent.TimeUnit
 
 object NuphosApi {
-    const val BASE_URL = ai.nuphos.android.BuildConfig.API_BASE_URL
+    val BASE_URL: String get() = BackendOrigin.current
+
+    fun baseUrl(token: String): String = BackendOrigin.forToken(token)
 
     sealed class Failure : Exception() {
         data object Unauthorized : Failure() {
@@ -30,6 +32,11 @@ object NuphosApi {
 
         data class Http(val code: Int, val serverMessage: String?, val errorCode: String? = null) : Failure() {
             override val message = serverMessage ?: "Nuphos returned an unexpected response ($code)."
+        }
+
+        /** Two-factor authentication: the sign-in continues with this challenge and a code. */
+        data class MfaRequired(val challenge: String) : Failure() {
+            override val message = "Enter the code from your authenticator app."
         }
 
         data object InvalidResponse : Failure() {
@@ -58,9 +65,10 @@ object NuphosApi {
         search: String? = null,
         includeArchived: Boolean = false,
         channels: Boolean = false,
+        bots: Boolean = false,
         pendingDecision: Boolean = false,
     ): AgentConversationsPage {
-        val query = conversationQuery(teamId, cursor, limit, scope, search, includeArchived, channels, pendingDecision)
+        val query = conversationQuery(teamId, cursor, limit, scope, search, includeArchived, channels, bots, pendingDecision)
         return get("agent/conversations", token, query, timeoutSeconds = 20)
     }
 
@@ -72,6 +80,7 @@ object NuphosApi {
         search: String? = null,
         includeArchived: Boolean = false,
         channels: Boolean = false,
+        bots: Boolean = false,
         pendingDecision: Boolean = false,
     ): List<Pair<String, String>> {
         return buildList {
@@ -85,6 +94,8 @@ object NuphosApi {
             if (!includeArchived) add("archived" to "exclude")
             // Chats are their own listing: the server never mixes them with agents.
             if (channels) add("kind" to "channel")
+            // Only Bots, wherever they fall in the history.
+            if (bots) add("bots" to "true")
             // Only conversations with an open question, each with every parent above it.
             if (pendingDecision) add("pendingDecision" to "true")
         }
@@ -137,9 +148,9 @@ object NuphosApi {
             timeoutSeconds = 12, forbiddenIsUnauthorized = false,
         ).resources
 
-    suspend fun credentialOptions(token: String, teamId: String, forNewConversation: Boolean = false): CredentialCatalog {
+    suspend fun credentialOptions(token: String, teamId: String): CredentialCatalog {
         val json: JsonValue = get("agent/credential-options", token, listOf("teamId" to teamId), timeoutSeconds = 20)
-        return CredentialCatalog(json["options"] ?: json, if (forNewConversation) CredentialCatalog.NEW_CONVERSATION_PROVIDERS else CredentialCatalog.PROVIDERS)
+        return CredentialCatalog(json["options"] ?: json, CredentialCatalog.NEW_CONVERSATION_PROVIDERS)
     }
 
     @Serializable
@@ -163,7 +174,7 @@ object NuphosApi {
         forbiddenIsUnauthorized: Boolean = true,
         transport: OkHttpClient = Http.client,
     ): T = withContext(Dispatchers.IO) {
-        val url = BASE_URL.toHttpUrl().newBuilder().addPathSegments(path).apply {
+        val url = baseUrl(token).toHttpUrl().newBuilder().addPathSegments(path).apply {
             query.forEach { (k, v) -> addQueryParameter(k, v) }
         }.build()
         val client = transport.newBuilder()
@@ -183,7 +194,9 @@ object NuphosApi {
                 response.isSuccessful -> runCatching {
                     Http.json.decodeFromString<T>(body)
                 }.getOrElse { throw Failure.InvalidResponse }
-                response.code == 401 || (response.code == 403 && forbiddenIsUnauthorized) -> throw Failure.Unauthorized
+                // A step-up refusal the user cancelled (StepUp.kt) is not a signed-out session.
+                response.code == 401 || (response.code == 403 && forbiddenIsUnauthorized && !StepUp.needsCode(body)) ->
+                    throw Failure.Unauthorized
                 else -> {
                     val message = runCatching {
                         Http.json.decodeFromString<ErrorEnvelope>(body).error?.message

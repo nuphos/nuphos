@@ -16,6 +16,8 @@ export type ClaudeCodeCredentialEntry = {
   hint?: string
   /** kubeconfig context of a selected cluster, kept out of `usage` so it is never shell text. */
   kubeContext?: string
+  /** Selected identity preference; the handout's actor confirms the effective identity. */
+  identityPreference?: { kind: 'personal'; login: string } | { kind: 'team' }
 }
 
 /** A credential the actor may use that this conversation has not selected; never vended. */
@@ -78,6 +80,17 @@ function requestableAs(provider: string, id: string): string | undefined {
 
 function unselectedEntry(provider: string, id: string, label: string): UnselectedCredentialEntry {
   const requestable = requestableAs(provider, id)
+  // The member's own credential is asked for exactly: `providers` is answered by any access.
+  const ask =
+    provider === 'personal'
+      ? `credentials [{"provider": "personal", "id": "${id}"}]`
+      : `providers ["${requestable ?? ''}"]`
+  const access =
+    provider === 'personal'
+      ? 'Your own credential is not selected for this conversation. It is the same grant a ' +
+        'selected team binding uses when its identityPreference is personal, so selecting it ' +
+        'adds no permissions there; it is needed only where no team binding reaches. '
+      : 'Not enabled for this conversation. '
 
   return {
     provider,
@@ -85,11 +98,13 @@ function unselectedEntry(provider: string, id: string, label: string): Unselecte
     label,
     selected: false,
     hint: requestable
-      ? 'Not enabled for this conversation. When the task needs it, call request_user_decision ' +
-        `with category "integration" and providers ["${requestable}"], naming "${label}" in the ` +
+      ? access +
+        'When the task needs it, call request_user_decision ' +
+        `with category "integration" and ${ask}, naming "${label}" in the ` +
         'question. Never ask for it in a free-text question: selecting it answers this one and ' +
         'resumes you.'
-      : `Not enabled for this conversation. Ask the user to tick "${label}" (${provider}) in ` +
+      : access +
+        `Ask the user to tick "${label}" (${provider}) in ` +
         "this conversation's credential picker, then call list_credentials again.",
   }
 }
@@ -121,3 +136,15 @@ export function viaTeamApi(label: string, path: string): EntryDetails {
     usage: `No raw value to fetch; call ${path} under $NUPHOS_BACKEND_URL/teams/$TEAM with $NUPHOS_TOKEN.`,
   }
 }
+
+export const deviceLister: Lister = lister<AgentCredentialOptions['devices'][number]>({
+  provider: 'device',
+  available: (o) => o.devices,
+  idOf: (d) => d.deviceId,
+  details: (d, id) => ({
+    label: `${d.label} (${d.platform})`,
+    usage: d.available
+      ? `Authorized for this conversation; any participant who may reply can request local_exec on device=${id}. No separate owner confirmation is needed.`
+      : 'Selected, but offline or with local exec turned off; local_exec cannot reach it until Nuphos Desktop is open on it with local exec allowed.',
+  }),
+})

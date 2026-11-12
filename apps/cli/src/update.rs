@@ -64,6 +64,9 @@ pub async fn update() -> Result<i32> {
         .env("NUPHOS_INSTALL_DIR", dir)
         .env("NUPHOS_VERSION", &latest)
         .status()?;
+    if status.success() {
+        crate::service::restart_if_active();
+    }
     Ok(status.code().unwrap_or(1))
 }
 

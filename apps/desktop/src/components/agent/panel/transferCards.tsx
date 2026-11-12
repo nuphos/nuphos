@@ -16,15 +16,14 @@ import {
 } from './transferDownloads'
 import { FileRow } from './transferFileRow'
 import { TransferPreviews } from './transferPreviews'
+import { UploadingPreviews } from './UploadingPreviews'
 
 import type { TransferUploadPart } from './parts'
 import type { FileTransferGroup } from '../../../types'
-import type { LucideIcon } from 'lucide-react'
 
-// Files the agent produced for the user. Bytes live in the transfer store.
-// Images show as thumbnails (saved from the preview) and videos play inline, with
-// no frame around them; any other file is a row saved through a native dialog,
-// and several rows can be saved together as a zip of the whole group.
+// Files the agent produced, kept in the transfer store. Images show as thumbnails and
+// videos play inline; any other file is a row saved through a native dialog (HTML and
+// Markdown also open beside the chat), several at once as a zip of the group.
 export function DownloadFilesCard({
   group,
   teamId,
@@ -128,6 +127,7 @@ export function DownloadFilesCard({
             compact={multiple}
             busy={busy}
             onDownload={() => void downloadOne(f.id, f.fileName)}
+            preview={base}
           />
         ))}
       </div>
@@ -248,47 +248,51 @@ function UploadedFilesList({
 
   useReportVisibleError(errored ? 'Agent attachment upload failed.' : null, 'agent_upload_failed')
   const entries = part.archiveEntryCount
+  const listed = uploading ? rows.filter((file) => !file.previewUrl) : rows
 
   return (
-    <div className="flex max-w-[480px] flex-wrap justify-end gap-1.5 self-end">
-      {rows.map((f, i) => {
-        const failed = errored || f.status === 'failed'
-        const Icon = uploadIcon(uploading, failed, part.archive)
+    <>
+      <UploadingPreviews files={uploading ? rows : []} />
+      <div className="flex max-w-[480px] flex-wrap justify-end gap-1.5 self-end">
+        {listed.map((f, i) => {
+          const failed = errored || f.status === 'failed'
+          const Icon = uploadIcon(uploading, failed, part.archive)
 
-        return (
-          <span
-            key={`${f.fileName}:${String(i)}`}
-            className={clsx(
-              'flex h-8 min-w-0 max-w-full items-center gap-1.5 rounded-full border bg-surface px-3 text-[13px]',
-              failed ? 'border-error/30 text-error' : 'border-line-control text-main',
-            )}
-          >
-            <Icon
+          return (
+            <span
+              key={`${f.fileName}:${String(i)}`}
               className={clsx(
-                'h-3.5 w-3.5 flex-shrink-0',
-                uploading && 'animate-spin',
-                !failed && 'text-tertiary',
+                'flex h-8 min-w-0 max-w-full items-center gap-1.5 rounded-full border bg-surface px-3 text-[13px]',
+                failed ? 'border-error/30 text-error' : 'border-line-control text-main',
               )}
-            />
-            <span className="truncate">{f.fileName}</span>
-            {failed ? (
-              <span className="flex-shrink-0 text-[12px]">{t('Upload failed')}</span>
-            ) : (
-              part.archive &&
-              entries != null && (
-                <span className="flex-shrink-0 text-[12px] text-tertiary">
-                  · {entries === 1 ? t('1 file') : t('{n} files', { n: String(entries) })}
-                </span>
-              )
-            )}
-          </span>
-        )
-      })}
-    </div>
+            >
+              <Icon
+                className={clsx(
+                  'h-3.5 w-3.5 flex-shrink-0',
+                  uploading && 'animate-spin',
+                  !failed && 'text-tertiary',
+                )}
+              />
+              <span className="truncate">{f.fileName}</span>
+              {failed ? (
+                <span className="flex-shrink-0 text-[12px]">{t('Upload failed')}</span>
+              ) : (
+                part.archive &&
+                entries != null && (
+                  <span className="flex-shrink-0 text-[12px] text-tertiary">
+                    · {entries === 1 ? t('1 file') : t('{n} files', { n: String(entries) })}
+                  </span>
+                )
+              )}
+            </span>
+          )
+        })}
+      </div>
+    </>
   )
 }
 
-function uploadIcon(uploading: boolean, failed: boolean, archive?: boolean): LucideIcon {
+function uploadIcon(uploading: boolean, failed: boolean, archive?: boolean) {
   if (uploading) return Loader2
   if (failed) return CircleAlert
 

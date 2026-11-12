@@ -143,10 +143,13 @@ class AgentStore(
         private set
     var channelsLoaded by mutableStateOf(false)
         private set
+    /** The viewer's own Bots, listed by the server rather than found in the loaded history. */
+    var bots by mutableStateOf<List<AgentConversation>>(emptyList())
+        private set
     private var channelGeneration = 0
 
     /** The Bots page: every chat, and each Bot without one yet. */
-    val botsList: List<AgentConversation> get() = botsList(channels, conversations)
+    val botsList: List<AgentConversation> get() = botsList(channels, bots)
 
     var openingBotId by mutableStateOf<String?>(null)
         private set
@@ -232,6 +235,8 @@ class AgentStore(
             newBotWaitingForChat = bot
             BotFaces.learn(bot, avatar)
             reload()
+            // Bots lists it from its own listing, so it shows even if its chat below fails.
+            loadChannels()
             if (!current()) return null
             val chat = makeBotChat(team, bot, ::current) ?: return null
             newBotWaitingForChat = null
@@ -264,19 +269,30 @@ class AgentStore(
         fun current() = !disposed && hasAiAccess() && AiAccess.revision == consent && selectedTeam?.id == team.id &&
             workspaceRevision == workspace && generation == channelGeneration
         try {
-            val rows = kotlinx.coroutines.coroutineScope {
-                listOf(ConversationScope.Mine, ConversationScope.Shared).map { scope ->
+            val (rows, botRows) = kotlinx.coroutines.coroutineScope {
+                val chats = listOf(ConversationScope.Mine, ConversationScope.Shared).map { scope ->
                     async { NuphosApi.conversations(token, team.id, limit = 100, scope = scope, search = query, channels = true).rows }
-                }.flatMap { it.await() }
+                }
+                // A failed Bots read keeps the Bots shown and still refreshes the chats.
+                val botPage = async {
+                    try {
+                        NuphosApi.conversations(token, team.id, limit = 100, search = query, bots = true).rows
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+                chats.flatMap { it.await() } to botPage.await()
             }
             if (!current()) return
+            if (botRows != null) bots = botRows.filter { (it.teamId ?: team.id) == team.id }
             // A listing only ever shows chats; an agent row from an older server is left out.
             channels = rows.filter { it.isChannel && (it.teamId ?: team.id) == team.id }
                 .distinctBy { it.sessionId }.sortedByDescending { it.lastActiveAt }.map(::withLocalRead)
             BotFaces.learn(channels)
             channelsLoaded = true
-            // The Bots without a chat come from the history, so its absence says nothing yet.
-            if (phase == Phase.Loaded) rememberHasChats()
+            rememberHasChats()
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -354,7 +370,7 @@ class AgentStore(
         val team = selectedTeam ?: return null
         if (disposed || !hasAiAccess()) return null
         inbox?.takeIf { it.first == team.id }?.let { return it.second }
-        return OpenQuestions(OpenQuestions.Api(token, team.id)) { bot -> conversations.firstOrNull { it.botId == bot }?.sessionId }
+        return OpenQuestions(OpenQuestions.Api(token, team.id))
             .also { inbox = team.id to it }
     }
 
@@ -364,6 +380,7 @@ class AgentStore(
         hasRuntimes = null
         channelGeneration++
         channels = emptyList()
+        bots = emptyList()
         channelsLoaded = false
         unfinishedBotChats.clear()
         openingBotId = null
@@ -537,9 +554,12 @@ class AgentStore(
         get() = BotArchiveIssues.of(token)?.takeIf { !disposed && it.teamId == selectedTeam?.id }
     fun dismissBotArchiveIssue() = BotArchiveIssues.clear(token)
 
+    /** A Bot by id: from the history, or from the Bots listing when its page isn't loaded yet. */
+    fun botRow(botId: String) = conversations.firstOrNull { it.sessionId == botId } ?: bots.firstOrNull { it.sessionId == botId }
+
     /** The owner's own Bot, listed and not archived. Its chats go with it. */
-    fun canArchiveBot(botId: String) = conversations.firstOrNull { it.sessionId == botId }?.let { bot ->
-        currentActionRow(bot) != null && bot.isBot && !bot.isArchived && bot.isOwner == true && bot.readOnly != true
+    fun canArchiveBot(botId: String) = botRow(botId)?.let { bot ->
+        selectedTeam != null && bot.isBot && !bot.isArchived && bot.isOwner == true && bot.readOnly != true
     } == true && !disposed && hasAiAccess()
 
     fun archiveBot(botId: String) = runBotArchive(botId) { it.run(botId) }
@@ -557,7 +577,7 @@ class AgentStore(
         val team = selectedTeam?.id ?: return
         if (disposed || !hasAiAccess() || archivingBotId != null || rowActionSessionId != null) return
         if (requireListed && !canArchiveBot(botId)) return
-        val botTitle = title ?: conversations.first { it.sessionId == botId }.displayTitle
+        val botTitle = title ?: botRow(botId)?.displayTitle ?: return
         val workspace = workspaceRevision
         val consent = AiAccess.revision
         val signedIn = token
@@ -759,7 +779,7 @@ class AgentStore(
         val revision = workspaceRevision
         fun isCurrent() = !disposed && hasAiAccess() && selectedTeam?.id == team.id && workspaceRevision == revision
         try {
-            val catalog = NuphosApi.credentialOptions(token, team.id, forNewConversation = true)
+            val catalog = NuphosApi.credentialOptions(token, team.id)
             if (isCurrent()) credentials = credentials.finish(request, Result.success(catalog))
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
@@ -914,7 +934,6 @@ class AgentStore(
             nextCursor = page.nextCursor
             hasMore = page.hasMore
             phase = Phase.Loaded
-            if (channelsLoaded) rememberHasChats()
             phaseError = null
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e

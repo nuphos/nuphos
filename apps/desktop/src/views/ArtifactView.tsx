@@ -1,5 +1,5 @@
 import { AppWindow, FileCode2, FileText, Image, Shapes } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 
 import { PageMeta } from '../app/pageMeta'
 import { AddToDesignDialog } from '../components/agent/artifacts/AddToDesignDialog'
@@ -7,6 +7,7 @@ import { ArtifactFrame } from '../components/agent/artifacts/ArtifactFrame'
 import { artifactSourceLanguage, fencedSource } from '../components/agent/artifacts/artifactPayload'
 import { svgDataUrl } from '../components/agent/artifacts/artifactSandbox'
 import { ArtifactToolbar } from '../components/agent/artifacts/ArtifactToolbar'
+import { FilePreviewFrame } from '../components/agent/artifacts/FilePreviewFrame'
 import { ARTIFACT_DOCUMENT_TYPE } from '../components/agent/artifacts/artifactTypography'
 import { toolbarDensity } from '../components/agent/artifacts/toolbarDensity'
 import {
@@ -18,6 +19,7 @@ import { agentArtifactUrl } from '../components/agent/sessionUrl'
 import { EmptyState } from '../components/EmptyState'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
+import { isFilePreviewId, readFilePreview, subscribeFilePreviews } from '../lib/filePreviews'
 import { ARTIFACT_PAGE, pickArtifactVersion } from '../lib/sessionArtifacts'
 
 import type { ArtifactKind, ArtifactVersion } from '../components/agent/artifacts/artifactPayload'
@@ -50,12 +52,15 @@ export function ArtifactView({
   onOpenDesign?: (designId: string) => void
 }) {
   const { conversationId, isActive } = useWorkspaceTab()
-  const line = useArtifactLine(conversationId, artifactId)
+  const sessionLine = useArtifactLine(conversationId, artifactId)
+  // An HTML or Markdown file opened from its card is held apart from the chat's artifacts.
+  const file = useSyncExternalStore(subscribeFilePreviews, () => readFilePreview(artifactId))
+  const line = useMemo(() => (file ? [file] : sessionLine), [file, sessionLine])
   const picked = usePickedArtifactVersion(conversationId, artifactId)
   const current = line.find((entry) => entry.version === picked) ?? line.at(-1)
   const [view, setView] = useState<ArtifactViewMode>('preview')
   const link =
-    current && conversationId
+    current && conversationId && !file
       ? agentArtifactUrl(teamId, conversationId, artifactId, current.version)
       : null
   const [errors, setErrors] = useState<FrameErrors | null>(null)
@@ -100,9 +105,10 @@ export function ArtifactView({
               )
             }}
             onAskAgent={onAskAgent}
-            onAddToDesign={onOpenDesign ? () => setAddingToDesign(true) : undefined}
+            // A design runs its screens' scripts; a file's preview never does.
+            onAddToDesign={onOpenDesign && !file ? () => setAddingToDesign(true) : undefined}
           />
-          {onOpenDesign && addingToDesign && (
+          {onOpenDesign && addingToDesign && !file && (
             <AddToDesignDialog
               teamId={teamId}
               version={current}
@@ -115,16 +121,21 @@ export function ArtifactView({
             teamId={teamId}
             version={current}
             view={current.kind === 'code' ? 'source' : view}
+            locked={Boolean(file)}
             onError={(message) => recordError(current.version, message)}
           />
         </div>
       ) : (
         <EmptyState
           icon={Shapes}
-          title={t('Artifact not loaded')}
-          description={t(
-            'Open it from its card in the chat. Cards further up load once you scroll back to them.',
-          )}
+          title={isFilePreviewId(artifactId) ? t('Preview not loaded') : t('Artifact not loaded')}
+          description={
+            isFilePreviewId(artifactId)
+              ? t('Open it again from its file card in the chat.')
+              : t(
+                  'Open it from its card in the chat. Cards further up load once you scroll back to them.',
+                )
+          }
         />
       )}
     </PageMeta>
@@ -135,12 +146,15 @@ function ArtifactBody({
   teamId,
   version,
   view,
+  locked,
   onError,
 }: {
   /** Resolves the files a document shows (`_reply-images` links) with the viewer's credentials. */
   teamId: string
   version: ArtifactVersion
   view: ArtifactViewMode
+  /** A file, not an artifact: drawn in the locked frame, never run. */
+  locked: boolean
   onError: (message: string) => void
 }) {
   if (view === 'source') {
@@ -149,6 +163,13 @@ function ArtifactBody({
         <MessageResponse>
           {fencedSource(version.content, artifactSourceLanguage(version))}
         </MessageResponse>
+      </div>
+    )
+  }
+  if (version.kind === 'html' && locked) {
+    return (
+      <div className="flex min-h-0 flex-1">
+        <FilePreviewFrame html={version.content} title={version.title} className="h-full w-full" />
       </div>
     )
   }

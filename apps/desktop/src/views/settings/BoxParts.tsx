@@ -91,7 +91,7 @@ export function MachineLine({ device, dim }: { device: AgentDevice; dim: boolean
   )
 }
 
-const PROVIDERS: LocalAgentProvider[] = ['claude-code', 'codex', 'grok', 'opencode']
+const PROVIDERS: LocalAgentProvider[] = ['claude-code', 'codex', 'grok', 'antigravity', 'opencode']
 
 /** Add an agent to a machine; an older host can only sign in the agents it already has. */
 export function NewAgentMenu({
@@ -129,9 +129,11 @@ export function NewAgentMenu({
               icon={<AgentProviderIcon provider={provider} className="h-4 w-4" />}
               onClick={() => onAdd(provider)}
             >
-              {action && 'create' in action
-                ? label
-                : t('Sign in to {provider}', { provider: label })}
+              {provider === 'antigravity' && !action
+                ? t('Antigravity uses this computer’s shared sign-in')
+                : action && 'create' in action
+                  ? label
+                  : t('Sign in to {provider}', { provider: label })}
             </MenuItem>
           )
         })}

@@ -1,9 +1,13 @@
 import { AppError } from '@/lib/errors'
 
+/** The adapter's own JSON-RPC error, relayed by the gateway in `error.data` under -32603. */
+export type AcpAdapterError = { code: number; message: string }
+
 export class OpenAbRpcError extends Error {
   constructor(
     message: string,
     readonly code?: number,
+    readonly adapter?: AcpAdapterError,
   ) {
     super(message)
     this.name = 'OpenAbRpcError'
@@ -62,19 +66,21 @@ export const RUNTIME_AUTH_REQUIRED_CODE = 'runtime_auth_required'
 export const RUNTIME_AUTH_REQUIRED_MESSAGE =
   'This agent’s sign-in is no longer valid, so it could not start the turn. Sign the agent in again, then resend your message.'
 
-/**
- * The gateway relays an adapter refusal as JSON-RPC -32603 (internal error) and
- * keeps the adapter's own code only in the leading wrapper openab-core's
- * `format_coded_error` emits: `**<Label>** (code: N)\n<message>`. Only that
- * shape, and only under the gateway's -32603, names the adapter's code; a
- * `(code: N)` quoted anywhere else in a message is some other producer's.
- */
-const ACP_WRAPPED_CODE = /^\*\*[^*\n]+\*\* \(code: (-?\d+)\)\n/u
+// Runtimes before v0.1.50 send the adapter's error only in openab-core's display wrapper,
+// `**<Label>** (code: N)\n<message>`. Delete this fallback once they are unsupported.
+const ACP_WRAPPED = /^\*\*[^*\n]+\*\* \(code: (-?\d+)\)\n([\s\S]*)/u
+
+/** The adapter's own error behind the gateway's -32603, from runtime v0.1.50 on its `data`. */
+function adapterError(error: OpenAbRpcError): AcpAdapterError | undefined {
+  if (error.code !== -32603) return undefined
+  if (error.adapter) return error.adapter
+  const wrapped = ACP_WRAPPED.exec(error.message)
+
+  return wrapped ? { code: Number(wrapped[1]), message: wrapped[2] ?? '' } : undefined
+}
 
 export function acpErrorCode(error: OpenAbRpcError): number | undefined {
-  const wrapped = error.code === -32603 ? ACP_WRAPPED_CODE.exec(error.message) : null
-
-  return wrapped ? Number(wrapped[1]) : error.code
+  return adapterError(error)?.code ?? error.code
 }
 
 /**
@@ -85,12 +91,10 @@ export function acpErrorCode(error: OpenAbRpcError): number | undefined {
 const PROVIDER_PAYMENT_REQUIRED = /\(status 402 Payment Required\): ?([^\n]*)/u
 
 /**
- * Claude Code refuses a turn it cannot bill with its own one-line notice: the
- * adapter streams it as the answer, then fails the prompt with
- * `Internal error: <notice>`, which the gateway wraps under -32603. Only that
- * wrapper's first line counts.
+ * Claude Code refuses a turn it cannot bill with its own one-line notice: it streams
+ * it, then fails the prompt with -32603 `Internal error: <notice>` (first line only).
  */
-const CLAUDE_NOTICE = /^\*\*Internal Error\*\* \(code: -32603\)\nInternal error: ([^\n]*)/u
+const CLAUDE_NOTICE = /^Internal error: ([^\n]*)/u
 /** The SDK's `USAGE_LIMIT_ERROR_PREFIXES` that name a limit; the notice already names the reset. */
 const CLAUDE_USAGE_LIMIT =
   /^(?:You've hit your|You've reached your|You're out of usage credits|Your org is out of usage)/u
@@ -99,9 +103,9 @@ const CLAUDE_AUTH_FAILED = /^(?:Failed to authenticate\b|Invalid API key\b|.*Ple
 
 /** The runtime's own reason for a failed turn: the first line after `Internal error: `. */
 export function claudeNotice(error: unknown): string | undefined {
-  if (!(error instanceof OpenAbRpcError) || error.code !== -32603) return undefined
+  const adapter = error instanceof OpenAbRpcError ? adapterError(error) : undefined
 
-  return CLAUDE_NOTICE.exec(error.message)?.[1]?.trim()
+  return adapter?.code === -32603 ? CLAUDE_NOTICE.exec(adapter.message)?.[1]?.trim() : undefined
 }
 
 /** Claude Code's notice when it names a usage limit or a sign-in failure, or undefined. */
@@ -117,10 +121,9 @@ export function isRuntimeAuthRequired(error: unknown): boolean {
   if (!(error instanceof OpenAbRpcError)) return false
   if (CLAUDE_AUTH_FAILED.test(claudeNotice(error) ?? '')) return true
 
-  return (
-    acpErrorCode(error) === ACP_AUTH_REQUIRED_CODE &&
-    error.message.includes(ACP_AUTH_REQUIRED_MESSAGE)
-  )
+  const { code, message } = adapterError(error) ?? error
+
+  return code === ACP_AUTH_REQUIRED_CODE && message.includes(ACP_AUTH_REQUIRED_MESSAGE)
 }
 
 export const RUNTIME_USAGE_EXHAUSTED_CODE = 'runtime_usage_exhausted'
@@ -275,10 +278,15 @@ export function settlePendingCall(
     ) {
       cancelledSessions?.add(pending.sessionId)
     }
+    const data = detail.data as Partial<AcpAdapterError> | null | undefined
+
     pending.reject(
       new OpenAbRpcError(
         typeof detail.message === 'string' ? detail.message : 'OpenAB ACP error',
         typeof detail.code === 'number' ? detail.code : undefined,
+        typeof data?.code === 'number' && typeof data.message === 'string'
+          ? { code: data.code, message: data.message }
+          : undefined,
       ),
     )
 

@@ -11,6 +11,8 @@ useRedis({ redisEnabled: () => false, withRedis: async () => null })
 const conversationUpdates: Record<string, unknown>[][] = []
 // How many documents the next updates match: an open request, or none.
 let matchedCount = 1
+// The conversation findOne reads back.
+let storedConversation: Record<string, unknown> | null = null
 
 useDb({
   db: (() => ({
@@ -20,6 +22,7 @@ useDb({
 
         return { matchedCount }
       },
+      findOne: async () => storedConversation,
     }),
   })) as unknown as typeof dbActual.db,
 })
@@ -36,6 +39,7 @@ const decisionToolModule = (options: Parameters<typeof createDecisionToolModule>
   createDecisionToolModule({ runStreamId: async () => undefined, ...options })
 const { unansweredInstruction } = await import('./decision-specs')
 const { awaitDecisionOnce } = await import('./decision-wait')
+const { relatedQuestionsNote } = await import('@/lib/agent/db/pending-decision')
 
 const ctx = { userId: 'u1', teamId: 't1', sessionId: 'conv-1', locale: 'zh-TW', localTools: true }
 
@@ -52,6 +56,7 @@ async function pendingWait() {
 beforeEach(() => {
   resetLocalPreviewWaits()
   matchedCount = 1
+  storedConversation = null
 })
 
 describe('decision tool module', () => {
@@ -77,7 +82,7 @@ describe('decision tool module', () => {
     expect(names).not.toContain('check_decision')
   })
 
-  test('request_user_decision returns at once so the model can end the turn with its question', async () => {
+  test('request_user_decision returns at once; the answer arrives as a new message', async () => {
     const frames: Record<string, unknown>[] = []
     const tools = decisionToolModule({
       publish: async (_ctx, frame) => {
@@ -125,6 +130,37 @@ describe('decision tool module', () => {
     expect(await listPendingPreviewWaits(ctx.userId, ctx.sessionId)).toEqual([])
   })
 
+  test('a question records the channel whose post woke the turn, and only that one', async () => {
+    const tools = decisionToolModule({ publish: () => Promise.resolve() }).handlers(ctx)
+    const ask = (category: string) =>
+      tools.request_user_decision!({ label: 'Ask', category, question: 'Ship it?' })
+
+    // The turn's wake notice: a post in chan-2, though the Bot is in other channels too.
+    storedConversation = {
+      metadata: {
+        version: 1,
+        sender: { type: 'system', id: 'channel:chan-2', displayName: '#release' },
+        source: 'agent.resource',
+        sentAt: '2026-11-12T00:00:00Z',
+      },
+    }
+    await ask('approval')
+    expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
+      $push: { inputRequests: { $each: [{ channelId: 'chan-2' }] } },
+    })
+    // A person's own message started the turn: no channel is guessed.
+    storedConversation = {
+      metadata: {
+        version: 1,
+        sender: { type: 'user', id: 'u1', displayName: 'Yuanlin' },
+        source: 'nuphos',
+        sentAt: '2026-11-12T00:00:00Z',
+      },
+    }
+    await ask('approval')
+    expect(JSON.stringify(conversationUpdates.at(-1))).not.toContain('channelId')
+  })
+
   test("request_user_decision keeps a credential request's secretName for its secure card", async () => {
     await decisionToolModule({ publish: () => Promise.resolve() }).handlers(ctx)
       .request_user_decision!({
@@ -151,6 +187,53 @@ describe('decision tool module', () => {
     expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
       $push: { inputRequests: { $each: [{ category: 'integration', providers: ['linear'] }] } },
     })
+  })
+
+  test("request_user_decision keeps a request for the member's own credential exactly", async () => {
+    await decisionToolModule({ publish: () => Promise.resolve() }).handlers(ctx)
+      .request_user_decision!({
+      label: 'Ask for your own GitHub',
+      category: 'integration',
+      question: 'Select your own GitHub for this task.',
+      credentials: [{ provider: 'personal', id: 'github' }],
+    })
+
+    expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
+      $push: {
+        inputRequests: {
+          $each: [
+            { category: 'integration', credentials: [{ provider: 'personal', id: 'github' }] },
+          ],
+        },
+      },
+    })
+  })
+
+  test('only the own GitHub or Linear can be named as a credential', async () => {
+    await expect(
+      decisionToolModule({ publish: () => Promise.resolve() }).handlers(ctx).request_user_decision!(
+        {
+          label: 'Ask for a team installation',
+          category: 'integration',
+          question: 'Select the installation.',
+          credentials: [{ provider: 'github', id: '166381069' }],
+        },
+      ),
+    ).resolves.toMatchObject({ isError: true })
+  })
+
+  test('a question names any access or the own credential, never both', async () => {
+    await expect(
+      decisionToolModule({ publish: () => Promise.resolve() }).handlers(ctx).request_user_decision!(
+        {
+          label: 'Ask for GitHub',
+          category: 'integration',
+          question: 'Select GitHub.',
+          providers: ['github'],
+          credentials: [{ provider: 'personal', id: 'github' }],
+        },
+      ),
+    ).resolves.toMatchObject({ isError: true })
   })
 
   test('request_user_decision keeps its body for the Inbox and returns the requestId', async () => {
@@ -213,6 +296,42 @@ describe('decision tool module', () => {
     ).toBe(true)
   })
 
+  test('update_user_decision replaces the questions and rewrites them after the body', async () => {
+    storedConversation = {
+      inputRequests: [
+        {
+          id: 'nuphos-1',
+          question: 'Rollout?',
+          body: 'CI passed.\n\n---\n\nRisks.\n\n---\n\n**1. Old?**\n\n**2. Older?**',
+          questions: [{ question: 'Old?' }, { question: 'Older?' }],
+          status: 'open',
+        },
+      ],
+    }
+    const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
+    const result = await tools.update_user_decision!({
+      label: 'Ask about regions too',
+      requestId: 'nuphos-1',
+      questions: [
+        { question: 'Which regions?', options: ['us', 'eu'], multiSelect: true },
+        { question: 'Keep the old\n\n---\n\ncluster?' },
+      ],
+    })
+
+    expect(result.isError).toBeFalsy()
+    expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
+      $set: {
+        'inputRequests.$.questions': [
+          { question: 'Which regions?', options: ['us', 'eu'], multiSelect: true },
+          { question: 'Keep the old\n\n---\n\ncluster?' },
+        ],
+        // Written on single lines, so the last separator is always the one added.
+        'inputRequests.$.body':
+          'CI passed.\n\n---\n\nRisks.\n\n---\n\n**1. Which regions?** (any number)\n- us\n- eu\n\n**2. Keep the old --- cluster?**',
+      },
+    })
+  })
+
   test('withdraw_user_decision dismisses the open request', async () => {
     const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
     const result = await tools.withdraw_user_decision!({ label: 'Withdraw', requestId: 'nuphos-1' })
@@ -233,31 +352,39 @@ describe('decision tool module', () => {
     ])
   })
 
-  test('several questions in one, or choices in the text, are rejected before any card goes out', async () => {
-    const frames: Record<string, unknown>[] = []
-    const tools = decisionToolModule({
-      publish: async (_ctx, frame) => {
-        frames.push(frame)
+  test('several related questions and a multi-select go out as one card, kept for the Inbox', async () => {
+    const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
+    const questions = [
+      {
+        question: 'Which regions?',
+        options: ['us-east', 'eu-west', 'ap-south'],
+        multiSelect: true,
       },
-    }).handlers(ctx)
-    const several = await tools.request_user_decision!({
-      label: 'Ask two things',
+      { question: 'Keep the old cluster?', options: ['Keep', 'Delete'] },
+    ]
+    const result = await tools.request_user_decision!({
+      label: 'Ask about the rollout',
       category: 'preference',
-      question:
-        '1. Is this definition right? (Yes (Recommended) / Adjust) 2. How should the AI pick a component? (Guide (Recommended) / Descriptions only)',
-    })
-    const inline = await tools.request_user_decision!({
-      label: 'Ask with inline choices',
-      category: 'preference',
-      question:
-        'Which rule should components follow? (Repeated or stateful (Recommended) / Basics only)',
+      question: 'How should the rollout go?',
+      questions,
     })
 
-    expect(several.isError).toBe(true)
-    expect(JSON.stringify(several.content)).toContain('once per question')
-    expect(inline.isError).toBe(true)
-    expect(JSON.stringify(inline.content)).toContain('`options`')
-    expect(frames).toEqual([])
+    expect(result.isError).toBeFalsy()
+    expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
+      $push: { inputRequests: { $each: [{ question: 'How should the rollout go?', questions }] } },
+    })
+    // Written out in the body for clients that draw only question and body.
+    expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
+      $push: {
+        inputRequests: {
+          $each: [
+            {
+              body: '\n\n---\n\n**1. Which regions?** (any number)\n- us-east\n- eu-west\n- ap-south\n\n**2. Keep the old cluster?**\n- Keep\n- Delete',
+            },
+          ],
+        },
+      },
+    })
   })
 
   test('one question with its choices in options still goes out', async () => {
@@ -494,6 +621,113 @@ describe('decision tool module', () => {
     expect(instruction).toContain('End your turn')
     // The card stays live in the app; only the turn stops holding itself open.
     expect(await listPendingPreviewWaits(ctx.userId, ctx.sessionId)).toEqual([])
+  })
+
+  test('list_user_decisions returns only the open questions, oldest first', async () => {
+    const at = (iso: string) => new Date(iso)
+
+    storedConversation = {
+      inputRequests: [
+        {
+          id: 'r2',
+          category: 'approval',
+          question: 'Ship?',
+          askedAt: at('2026-01-02'),
+          status: 'open',
+        },
+        {
+          id: 'r0',
+          category: 'preference',
+          question: 'Old',
+          askedAt: at('2026-01-01'),
+          status: 'answered',
+        },
+        {
+          id: 'r1',
+          category: 'preference',
+          question: 'Region?',
+          options: ['a', 'b'],
+          askedAt: at('2026-01-01'),
+          status: 'open',
+        },
+      ],
+    }
+    const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
+    const result = await tools.list_user_decisions!({ label: 'List my questions' })
+
+    expect(result.structuredContent).toEqual({
+      requests: [
+        {
+          requestId: 'r1',
+          category: 'preference',
+          question: 'Region?',
+          options: ['a', 'b'],
+          askedAt: at('2026-01-01'),
+        },
+        { requestId: 'r2', category: 'approval', question: 'Ship?', askedAt: at('2026-01-02') },
+      ],
+    })
+  })
+
+  test('a question names what it is about: a linked resource, never an unknown ref', async () => {
+    storedConversation = { sessionId: 'conv-1', linkedResources: [{ id: 'res-1' }] }
+    const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
+    const ask = (about: string[]) =>
+      tools.request_user_decision!({
+        label: 'Ask to merge',
+        category: 'approval',
+        question: 'Merge the PR?',
+        options: ['Merge', 'Wait'],
+        about,
+      })
+
+    expect((await ask(['res-1'])).isError).toBeFalsy()
+    expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
+      $push: { inputRequests: { $each: [{ question: 'Merge the PR?', about: ['res-1'] }] } },
+    })
+    const before = conversationUpdates.length
+    const unknown = await ask(['res-2'])
+
+    expect(unknown.isError).toBe(true)
+    expect(JSON.stringify(unknown.content)).toContain('list_session_resources')
+    expect(conversationUpdates).toHaveLength(before)
+  })
+
+  test('a wake from a resource lists the open questions about it, and nothing when there are none', () => {
+    const conversation = {
+      inputRequests: [
+        {
+          id: 'q1',
+          category: 'approval',
+          question: 'Merge?',
+          about: ['res-1'],
+          askedAt: new Date(),
+          status: 'open',
+        },
+        {
+          id: 'q2',
+          category: 'approval',
+          question: 'Old',
+          about: ['res-1'],
+          askedAt: new Date(),
+          status: 'answered',
+        },
+        {
+          id: 'q3',
+          category: 'preference',
+          question: 'Other',
+          askedAt: new Date(),
+          status: 'open',
+        },
+      ],
+    } as Parameters<typeof relatedQuestionsNote>[0]
+    const note = relatedQuestionsNote(conversation, 'res-1', 'resource')
+
+    expect(note).toContain('- q1: "Merge?"')
+    expect(note).not.toContain('q2')
+    expect(note).not.toContain('q3')
+    expect(note).toContain('withdraw_user_decision')
+    expect(relatedQuestionsNote(conversation, 'res-9', 'resource')).toBe('')
   })
 })
 

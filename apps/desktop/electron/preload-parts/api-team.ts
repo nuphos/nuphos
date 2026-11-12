@@ -121,16 +121,32 @@ export const teamApi = {
   teamSkillsListLocal: () => ipcRenderer.invoke('teamSkills:listLocal'),
   localSetupStatus: (teamId: string) => ipcRenderer.invoke('localSetup:status', teamId),
   localSetupSync: (teamId: string) => ipcRenderer.invoke('localSetup:sync', teamId),
+  localSetupApproveLinks: (
+    teamId: string,
+    name: string,
+    reviewed: { relPath: string; realPath: string }[],
+  ) => ipcRenderer.invoke('localSetup:approveLinks', teamId, name, reviewed),
   localSetupSetAutoSync: (teamId: string, enabled: boolean) =>
     ipcRenderer.invoke('localSetup:setAutoSync', teamId, enabled),
-  teamSkillsImportLocal: (teamId: string, skillId: string, scope?: string) =>
-    ipcRenderer.invoke('teamSkills:importLocal', teamId, skillId, scope),
+  teamSkillsImportLocal: (
+    teamId: string,
+    scope: string | undefined,
+    picks: { id: string; reviewed: { relPath: string; realPath: string }[] }[],
+  ) => ipcRenderer.invoke('teamSkills:importLocal', teamId, scope, picks),
   teamSkillsDeleteObject: (teamId: string, key: string, scope?: string) =>
     ipcRenderer.invoke('teamSkills:deleteObject', teamId, key, scope),
   teamSkillsDeleteSkill: (teamId: string, name: string, scope?: string) =>
     ipcRenderer.invoke('teamSkills:deleteSkill', teamId, name, scope),
   teamSkillsPromote: (teamId: string, name: string) =>
     ipcRenderer.invoke('teamSkills:promote', teamId, name),
+  teamSkillsGithubUpdates: (teamId: string, scope?: string) =>
+    ipcRenderer.invoke('teamSkills:githubUpdates', teamId, scope),
+  teamSkillsGithubUpdate: (teamId: string, input: unknown, scope?: string) =>
+    ipcRenderer.invoke('teamSkills:githubUpdate', teamId, input, scope),
+  teamSkillsGithubPreview: (teamId: string, source: string, scope?: string) =>
+    ipcRenderer.invoke('teamSkills:githubPreview', teamId, source, scope),
+  teamSkillsGithubInstall: (teamId: string, input: unknown, scope?: string) =>
+    ipcRenderer.invoke('teamSkills:githubInstall', teamId, input, scope),
   atlasCreateTeam: (name: string) => ipcRenderer.invoke('atlas:createTeam', name),
   atlasUpdateTeam: (teamId: string, input: { name: string }) =>
     ipcRenderer.invoke('atlas:updateTeam', teamId, input),

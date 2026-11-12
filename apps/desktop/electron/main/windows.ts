@@ -10,9 +10,11 @@ import * as terminal from '../terminal'
 import { raiseWindow } from '../window-raise'
 
 import { flushPendingDeepLinks } from './deep-links'
+import { guardFilePreviewFrames } from './file-preview-guard'
 import { APP_NAME, isDev } from './env'
 import { closeBrowserTabs } from './local-runtime/browser-tabs'
 import { openExternal } from './open-external'
+import { initSidebarGestures } from './sidebar-gestures'
 import { liveSessionShortcut } from './session-shortcuts'
 import { lastClosedWindow, placementFor, readSavedWindows, trackWindow } from './window-session'
 import { MIN_WINDOW_SIZE } from './window-session-core'
@@ -115,14 +117,8 @@ export function createWindow(restore: SavedWindow | null = lastClosedWindow()): 
     ...placement.bounds,
     minWidth: MIN_WINDOW_SIZE.width,
     minHeight: MIN_WINDOW_SIZE.height,
-    // macOS keeps the inset native traffic lights. Every other platform gets a
-    // fully frameless window (no native frame, no menu bar) so our custom
-    // titlebar is the entire chrome and the app looks native. On Windows the
-    // `hiddenInset` value was silently ignored and fell back to a full native
-    // frame + menu — `hidden` is the supported value there.
-    // 'hidden' (not 'hiddenInset') on macOS so `trafficLightPosition` /
-    // `setWindowButtonPosition` take effect — we move the buttons to track page
-    // zoom (cmd +/-), which the OS-drawn controls otherwise ignore.
+    // macOS uses hidden chrome so native traffic lights can track page zoom.
+    // Windows/Linux use a frameless titlebar; hiddenInset is ignored on Windows.
     titleBarStyle: 'hidden',
     ...(isDarwin ? { trafficLightPosition: trafficLightPositionFor(1) } : {}),
     // Windows and Linux: draw the native minimize/maximize/close caption buttons
@@ -156,6 +152,8 @@ export function createWindow(restore: SavedWindow | null = lastClosedWindow()): 
       webviewTag: true,
     },
   })
+
+  initSidebarGestures()
 
   const publishFullScreen = () => {
     if (!win.isDestroyed()) win.webContents.send('app:fullScreenChanged', win.isFullScreen())
@@ -201,6 +199,8 @@ export function createWindow(restore: SavedWindow | null = lastClosedWindow()): 
 
     return { action: 'deny' }
   })
+
+  guardFilePreviewFrames(win.webContents)
 
   win.webContents.on('did-fail-load', (_e, code, desc, url) => {
     console.error('[did-fail-load]', code, desc, url)

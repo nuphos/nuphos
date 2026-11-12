@@ -12,7 +12,6 @@ import {
   assertTriggerGroupReadyForTest,
   eventMatchUsesOnlyStableResourceIdentity,
   matchConfiguredTriggerGroupMembers,
-  triggerGroupIncidentScope,
 } from './trigger-group-service'
 
 import type { AgentTrigger } from './trigger-db'
@@ -186,11 +185,6 @@ await test('shared ingress scans deeply nested payloads without recursive stack 
       payload,
     }),
   )
-})
-
-await test('each group member receives a stable and distinct incident scope', () => {
-  assert.equal(triggerGroupIncidentScope('member-a'), triggerGroupIncidentScope('member-a'))
-  assert.notEqual(triggerGroupIncidentScope('member-a'), triggerGroupIncidentScope('member-b'))
 })
 
 await test('Watch Group delivery test requires a complete member matcher receipt', () => {

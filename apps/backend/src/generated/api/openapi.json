@@ -487,6 +487,32 @@
                         "additionalProperties": false
                       }
                     },
+                    "trelloIntegrations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "integrationId": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{24}$"
+                          },
+                          "label": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "username": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "integrationId",
+                          "label",
+                          "username"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "default": []
+                    },
                     "resendIntegrations": {
                       "type": "array",
                       "items": {
@@ -760,6 +786,14 @@
                         },
                         "default": []
                       },
+                      "trelloIntegrationIds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{24}$"
+                        },
+                        "default": []
+                      },
                       "githubInstallationIds": {
                         "type": "array",
                         "items": {
@@ -981,6 +1015,13 @@
                           }
                         },
                         "resendIntegrationIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{24}$"
+                          }
+                        },
+                        "trelloIntegrationIds": {
                           "type": "array",
                           "items": {
                             "type": "string",
@@ -1531,6 +1572,32 @@
                             ],
                             "additionalProperties": false
                           }
+                        },
+                        "trelloIntegrations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "integrationId": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{24}$"
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "username": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "integrationId",
+                              "label",
+                              "username"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "default": []
                         },
                         "resendIntegrations": {
                           "type": "array",
@@ -5044,6 +5111,198 @@
                     "domainId",
                     "defaultRegion"
                   ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/teams/{teamId}/gcp-projects/{projectId}/firebase/project": {
+      "get": {
+        "operationId": "teams.gcpFirebase.project",
+        "tags": [
+          "Google Cloud Firebase"
+        ],
+        "summary": "Inspect the bound Firebase project",
+        "description": "Uses the selected ordinary GCP binding. Does not enable Firebase or APIs. Errors do not prove Firebase is disabled.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "teamId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$",
+              "description": "Nuphos team id."
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "GCP project id."
+            }
+          },
+          {
+            "name": "serviceAccountId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "projectId": {
+                      "type": "string"
+                    },
+                    "projectNumber": {
+                      "type": "string"
+                    },
+                    "displayName": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "projectId",
+                    "projectNumber",
+                    "state"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/teams/{teamId}/gcp-projects/{projectId}/firebase/apps": {
+      "get": {
+        "operationId": "teams.gcpFirebase.apps",
+        "tags": [
+          "Google Cloud Firebase"
+        ],
+        "summary": "List registered Firebase apps",
+        "description": "One bounded page of app metadata; does not return API keys or app configuration. Pass nextPageToken to continue.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "teamId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$",
+              "description": "Nuphos team id."
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "GCP project id."
+            }
+          },
+          {
+            "name": "serviceAccountId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$"
+            }
+          },
+          {
+            "name": "pageToken",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "apps": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "appId": {
+                            "type": "string"
+                          },
+                          "displayName": {
+                            "type": "string"
+                          },
+                          "platform": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "appId",
+                          "platform"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "default": []
+                    },
+                    "nextPageToken": {
+                      "type": "string"
+                    }
+                  },
                   "additionalProperties": false
                 }
               }

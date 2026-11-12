@@ -13,8 +13,12 @@ data class MessageAttribution(
 ) {
     val label: String get() = viaName?.let { "$name · via $it" } ?: name
     val isEvent: Boolean get() = source == "agent.thread" || source == "agent.resource"
+    /** A channel's wake-up notice to its agent (`channel-wake.ts`): the channel's id, else null. */
+    val channelId: String? get() =
+        if (source == "agent.resource" && id.startsWith(CHANNEL_PREFIX)) id.removePrefix(CHANNEL_PREFIX).takeIf { it.isNotEmpty() } else null
 
     companion object {
+        private const val CHANNEL_PREFIX = "channel:"
         private val sources = setOf("nuphos", "slack", "discord", "lark", "agent.thread", "agent.resource")
 
         fun parse(metadata: JsonValue?): MessageAttribution? {

@@ -1,40 +1,61 @@
 import { createContext } from 'react'
 
-import {
-  parseChoiceRequest,
-  parseConnectRequest,
-  parseSecretRequest,
-  secretSavedReply,
-} from './connectCardModel.ts'
+import { decisionRequestId, parseSecretRequest, secretSavedReply } from './connectCardModel.ts'
 
 import type { Message } from './model'
 
-/** The option a choice card was answered with, or a secret card's saved reply, from the reply stored in the transcript. */
+/** What answered a card: a secure card's saved reply, or the answer the server's notice records. */
 export type DecisionAnswer = { option: string }
 
-/** Each conversation's choice and secret card answers, keyed by the card's tool call id. */
+/**
+ * Each conversation's card answers, keyed by the card's tool call id: a secure
+ * card's saved reply, and for any other card the answer the server's notice
+ * records when it wakes the agent (an answer itself sends no message).
+ */
 export const DecisionAnswersContext = createContext<ReadonlyMap<string, DecisionAnswer>>(new Map())
 
-/** Which replies answer a card: one of a choice card's options, or a secret card's saved reply. */
+/** Which replies answer a secure card: its saved reply. */
 function answeredBy(input: unknown): ((text: string) => boolean) | null {
-  if (parseConnectRequest(input)) return null
   const secret = parseSecretRequest(input)
 
-  if (secret) return (text) => text.startsWith(secretSavedReply(secret.name))
-  const options = parseChoiceRequest(input)?.options ?? []
+  return secret ? (text) => text.startsWith(secretSavedReply(secret.name)) : null
+}
 
-  return options.length > 0 ? (text) => options.includes(text) : null
+/** The sender of the notice an answer wakes the asking agent with. */
+const DECISION_NOTICE = 'nuphos:decision'
+
+/** The "- Which regions? → us, eu" lines right after a notice's "Answer:": the answers. */
+function noticeAnswer(text: string): string | undefined {
+  const lines = text.split('\n')
+  const answers: string[] = []
+
+  for (const line of lines.slice(lines.indexOf('Answer:') + 1)) {
+    if (!line.startsWith('- ') || !line.includes(' → ')) break
+    answers.push(line.slice(line.lastIndexOf(' → ') + 3))
+  }
+
+  return lines.includes('Answer:') && answers.length > 0 ? answers.join('; ') : undefined
+}
+
+/** The card a server notice records an answer for, and that answer. */
+function noticeOf(message: Message, text: string, cards: ReadonlyMap<string, string>) {
+  if (message.metadata?.sender.id !== DECISION_NOTICE) return null
+  const requestId = /\(requestId ([^)\s]+)\)/.exec(text)?.[1]
+  const card = requestId ? cards.get(requestId) : undefined
+  const option = noticeAnswer(text)
+
+  return card && option ? { card, option } : null
 }
 
 /**
- * A card's answer is the first later reply that is one of its options, as
- * choosing one sends it, or for a secret card the reply its saved value sends. When several open cards offer it, the newest is the
- * one answered, the same default the reply chip uses. A reply typed in other
- * words answers nothing here, so the card keeps its options.
+ * A secure card's answer is the first later reply its saved value sent; any
+ * other card's is the answer in the server's notice naming its request.
  */
 export function decisionAnswers(messages: readonly Message[]): Map<string, DecisionAnswer> {
   const answers = new Map<string, DecisionAnswer>()
   const open: { id: string; matches: (text: string) => boolean }[] = []
+  // A card's request id, as its call's result names it, to the card.
+  const cards = new Map<string, string>()
 
   for (const message of messages) {
     if (message.role === 'assistant') {
@@ -42,6 +63,7 @@ export function decisionAnswers(messages: readonly Message[]): Map<string, Decis
         if (part.type !== 'tool' || part.toolName !== 'request_user_decision') continue
         const matches = answeredBy(part.input)
 
+        cards.set(decisionRequestId(part.output) ?? part.toolCallId, part.toolCallId)
         if (matches) open.push({ id: part.toolCallId, matches })
       }
       continue
@@ -50,6 +72,9 @@ export function decisionAnswers(messages: readonly Message[]): Map<string, Decis
       .map((part) => (part.type === 'text' ? part.text : ''))
       .join('')
       .trim()
+    const noticed = noticeOf(message, text, cards)
+
+    if (noticed) answers.set(noticed.card, { option: noticed.option })
     const index = open.findLastIndex((entry) => entry.matches(text))
 
     if (index < 0) continue

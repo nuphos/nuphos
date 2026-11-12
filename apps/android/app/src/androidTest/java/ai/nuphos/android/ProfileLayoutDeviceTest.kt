@@ -37,7 +37,7 @@ class ProfileLayoutDeviceTest {
                         ProfileContent(
                             user = NuphosUser("synthetic-profile", "long.synthetic.account@example.invalid", "Synthetic Profile", "synthetic_profile"),
                             canWithdraw = allowed, consentBusy = busy, consentError = null,
-                            onEdit = { calls += "edit" }, onDevices = { calls += "devices" }, onPrivacy = { calls += "privacy" },
+                            onEdit = { calls += "edit" }, onDevices = { calls += "devices" }, onTwoFactor = { calls += "twoFactor" }, onPrivacy = { calls += "privacy" },
                             onWithdraw = { calls += "withdraw" }, onDeletion = { calls += "delete" },
                             onSignOut = { calls += "signout" },
                             onCopyUserId = { calls += "copy-id" },

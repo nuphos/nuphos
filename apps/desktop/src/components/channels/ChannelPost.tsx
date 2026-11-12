@@ -18,6 +18,9 @@ import { channelFiles } from './postFiles'
 import type { AgentPersistedMessage } from '../../api'
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 
+/** The sender of the record an answer to a question leaves in the channel it was asked in. */
+const DECISION_RECORD = 'nuphos:decision'
+
 export type Links = {
   renderLink: (href: string, children: ReactNode) => ReactNode
   onLinkClick?: (href: string, beside?: boolean) => boolean
@@ -61,6 +64,8 @@ export function ChannelMessage({
   const text = textOf(message)
   const posted = channelFiles(message)
 
+  // An answer to an agent's question, recorded by Nuphos: a muted line, never a person's post.
+  if (metadata?.sender.id === DECISION_RECORD && text) return <DecisionRecord text={text} />
   // A channel shows people and agents only; any other sender is not a post.
   if (!metadata || !speaksInChannel(metadata.sender) || (!text && !posted.any)) return null
   const { sender } = metadata
@@ -185,6 +190,17 @@ export function ChannelMessage({
         )}
         {shown({ ...posted, uploads: [] })}
       </div>
+    </div>
+  )
+}
+
+/** "Yuanlin answered: Which regions? → us-east", one muted line per question. */
+function DecisionRecord({ text }: { text: string }) {
+  return (
+    <div className="flex flex-col py-1 pl-11 text-[12px] text-tertiary" data-decision-record="">
+      {text.split('\n').map((line, index) => (
+        <span key={index}>{line}</span>
+      ))}
     </div>
   )
 }

@@ -17,6 +17,22 @@ export type SlackReactToolResult = {
   error?: string
 }
 
+export type SlackHistoryToolInput = {
+  limit?: number
+  cursor?: string
+  oldest?: string
+  latest?: string
+}
+
+export type SlackHistoryToolResult = {
+  ok: boolean
+  channel: string
+  messages?: Record<string, unknown>[]
+  hasMore?: boolean
+  nextCursor?: string
+  error?: string
+}
+
 export type SlackSearchToolInput = {
   query: string
   limit?: number
@@ -40,7 +56,13 @@ export type ExplicitUserDecision = {
   /** Markdown context the user decides from without reading the chat. */
   body?: string
   options?: string[]
+  /** Any number of `options` may be picked. */
+  multiSelect?: boolean
+  /** Related questions answered together; `question` is their headline. */
+  questions?: DecisionQuestion[]
 }
+
+export type DecisionQuestion = { question: string; options?: string[]; multiSelect?: boolean }
 
 // Slack-originated turns no longer expose an outbound reply tool: the model's
 // visible text streams to the Slack thread and its tool calls become task
@@ -66,6 +88,8 @@ export type SlackReplyToolContext = {
   // Present only for Slack, so slack_react is
   // registered only when this is defined.
   react?: (input: SlackReactToolInput) => Promise<SlackReactToolResult>
+  // Reads only the originating channel; the caller cannot select another one.
+  history?: (input: SlackHistoryToolInput) => Promise<SlackHistoryToolResult>
   // Searches the connected Slack workspace via assistant.search.context.
   // Reports search-unavailable (ok:false) when the workspace's bot token lacks
   // the search:read.* scopes instead of throwing.

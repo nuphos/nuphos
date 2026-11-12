@@ -15,14 +15,24 @@ const PROVIDERS = [
   { provider: 'apple', label: 'Apple', icon: faApple },
 ] as const
 
-/** One button per provider, each straight to that provider's sign-in. */
-export function LoginSocialButtons({ onLogin }: { onLogin: (user: UserInfo) => void }) {
-  // Google is always offered: servers without social sign-in still have the landing page.
-  const [offered, setOffered] = useState<SocialProvider[]>(['google'])
+/** One button per provider, each straight to that provider's sign-in, then the "or" above email. */
+export function LoginSocialButtons({
+  onLogin,
+  onMfaRequired,
+}: {
+  onLogin: (user: UserInfo) => void
+  /** True when the failure was the account asking for its second factor. */
+  onMfaRequired: (error: unknown) => boolean
+}) {
+  // Only what this server offers: a self-hosted server without social sign-in shows none.
+  // 'failed' means the server could not be asked, which is not the same as offering none.
+  const [offered, setOffered] = useState<SocialProvider[] | 'failed'>([])
 
-  useEffect(() => {
-    void api.authSocialProviders().then((providers) => setOffered(['google', ...providers]))
-  }, [])
+  function load() {
+    void api.authSocialProviders().then(setOffered, () => setOffered('failed'))
+  }
+
+  useEffect(load, [])
 
   // No in-flight guard: each click re-launches the auth flow so the user can
   // retry freely (e.g. after closing the browser window without finishing).
@@ -30,31 +40,51 @@ export function LoginSocialButtons({ onLogin }: { onLogin: (user: UserInfo) => v
     try {
       onLogin(await api.authLogin(provider))
     } catch (e) {
+      if (onMfaRequired(e)) return
       toast.apiError(t('Sign-in failed'), e, {
         fallback: t('Check your internet connection and try again.'),
       })
     }
   }
 
+  if (offered !== 'failed' && offered.length === 0) return null
+
   return (
-    <div className="w-full flex flex-col gap-2.5">
-      {PROVIDERS.filter((p) => offered.includes(p.provider)).map((p) => (
-        <Button
-          key={p.provider}
-          onClick={() => void signIn(p.provider)}
-          size="lg"
-          className="group w-full titlebar-no-drag"
-        >
-          <span className="flex flex-1 items-center gap-2">
-            <FontAwesomeIcon icon={p.icon} />
-            {t('Continue with {provider}', { provider: p.label })}
-          </span>
-          <FontAwesomeIcon
-            icon={faArrowRight}
-            className="text-[14px] transition-transform duration-200 group-hover:translate-x-1"
-          />
-        </Button>
-      ))}
-    </div>
+    <>
+      {offered === 'failed' ? (
+        <div className="w-full flex items-center justify-between gap-3">
+          <span className="text-[13px] text-secondary">{t("Couldn't load sign-in options.")}</span>
+          <Button variant="secondary" size="sm" onClick={load} className="titlebar-no-drag">
+            {t('Retry')}
+          </Button>
+        </div>
+      ) : (
+        <div className="w-full flex flex-col gap-2.5">
+          {PROVIDERS.filter((p) => offered.includes(p.provider)).map((p) => (
+            <Button
+              key={p.provider}
+              onClick={() => void signIn(p.provider)}
+              size="lg"
+              className="group w-full titlebar-no-drag"
+            >
+              <span className="flex flex-1 items-center gap-2">
+                <FontAwesomeIcon icon={p.icon} />
+                {t('Continue with {provider}', { provider: p.label })}
+              </span>
+              <FontAwesomeIcon
+                icon={faArrowRight}
+                className="text-[14px] transition-transform duration-200 group-hover:translate-x-1"
+              />
+            </Button>
+          ))}
+        </div>
+      )}
+
+      <div className="w-full flex items-center gap-3 my-5">
+        <div className="h-px flex-1 bg-surface-sunken" />
+        <span className="text-[12px] text-secondary">{t('or')}</span>
+        <div className="h-px flex-1 bg-surface-sunken" />
+      </div>
+    </>
   )
 }

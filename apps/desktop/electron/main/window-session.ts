@@ -66,6 +66,12 @@ export function markAppQuitting() {
   saveNow()
 }
 
+/** Whether the app is quitting. An update restart closes every window before
+ * before-quit fires, so a window that only hides on close must ask this. */
+export function isAppQuitting(): boolean {
+  return quitting
+}
+
 /** The last closed window, when none is open: macOS reopens it where it was. */
 export function lastClosedWindow(): SavedWindow | null {
   const live = [...tracked.keys()].some((win) => !win.isDestroyed())

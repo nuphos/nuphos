@@ -1,6 +1,7 @@
 import { Toast } from '@base-ui/react/toast'
 
 import { decideErrorToast } from '../../api'
+import { isAccountGone, isNetworkError } from '../../api/errors'
 import { trackError } from '../../lib/analytics'
 
 import type { ReactNode } from 'react'
@@ -124,6 +125,9 @@ export const toast = {
       return emit('error', title, opts.fallback, undefined, { skipReport: true })
     }
     console.warn('[toast] suppressed error toast:', asReportText(title), err)
+    // Offline, a timed-out request, or one cut off by a sign-out: not app
+    // defects, and the API layer leaves them out of Error Tracking too.
+    if (isNetworkError(err) || isAccountGone(err)) return
     trackError(
       {
         source: 'toast',

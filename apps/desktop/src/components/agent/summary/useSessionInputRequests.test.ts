@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { afterEach, mock, test } from 'node:test'
 
 import type { AgentConversation } from '../../../api/agent-types.ts'
+import type { QueryObserver, QueryObserverOptions } from '@tanstack/react-query'
 
 type Effect = () => (() => void) | undefined
 const slots: unknown[] = []
@@ -25,12 +26,15 @@ const question = {
   sessionId: 'child',
   teamId: 'team',
   parentSessionId: 'first',
-  pendingDecision: {
-    category: 'preference',
-    question: 'Which layout?',
-    toolCallId: 'question-1',
-    askedAt: '2026-10-27T13:00:00Z',
-  },
+  inputRequests: [
+    {
+      id: 'question-1',
+      category: 'preference',
+      question: 'Which layout?',
+      askedAt: '2026-10-27T13:00:00Z',
+      status: 'open',
+    },
+  ],
 } as AgentConversation
 
 mock.module('../../../api.ts', {
@@ -55,31 +59,56 @@ mock.module('../../../lib/agentRuntimeStates.ts', {
   },
 })
 mock.module('../../ui/toast.ts', { namedExports: { toast: { info: () => {} } } })
-mock.module('../../../lib/swrCache.ts', { namedExports: { useSwrCache: () => known } })
-mock.module('../../sidebar/state.ts', { namedExports: { agentSessionsCacheKey: () => 'team' } })
+mock.module('../../sidebar/agentSessions.ts', {
+  namedExports: { useAgentSessions: () => ({ data: known }) },
+})
+function useState(initial: unknown) {
+  const index = cursor++
+
+  if (!(index in slots)) slots[index] = initial
+
+  return [
+    slots[index],
+    (value: unknown) => {
+      slots[index] = value
+    },
+  ]
+}
+
+function useEffect(next: Effect, deps: unknown[]) {
+  effects[effectCursor] ??= {}
+  const slot = effects[effectCursor++]!
+
+  if (slot.deps && deps.every((value, index) => Object.is(value, slot.deps![index]))) return
+  slot.deps = deps
+  slot.next = next
+}
+
+// Loaded before React is replaced, so the harness can mount each useQuery as a real observer.
+const realQuery = await import('@tanstack/react-query')
+
 mock.module('react', {
   namedExports: {
-    useState: (initial: unknown) => {
-      const index = cursor++
-
-      if (!(index in slots)) slots[index] = initial
-
-      return [
-        slots[index],
-        (value: unknown) => {
-          slots[index] = value
-        },
-      ]
-    },
+    useState,
+    useEffect,
+    useRef: (initial: unknown) => useState({ current: initial })[0],
     useMemo: (calculate: () => unknown) => calculate(),
     useSyncExternalStore: (_subscribe: unknown, snapshot: () => unknown) => snapshot(),
-    useEffect: (next: Effect, deps: unknown[]) => {
-      effects[effectCursor] ??= {}
-      const slot = effects[effectCursor++]!
+  },
+})
+mock.module('@tanstack/react-query', {
+  namedExports: {
+    ...realQuery,
+    useQuery: (options: QueryObserverOptions) => {
+      const holder = useState({})[0] as { observer?: QueryObserver }
 
-      if (slot.deps && deps.every((value, index) => Object.is(value, slot.deps![index]))) return
-      slot.deps = deps
-      slot.next = next
+      holder.observer ??= new realQuery.QueryObserver(queryClient, options)
+      const { observer } = holder
+
+      observer.setOptions(options)
+      useEffect(() => observer.subscribe(() => {}), [observer])
+
+      return observer.getOptimisticResult(observer.options)
     },
   },
 })
@@ -98,6 +127,7 @@ Object.defineProperty(globalThis, 'window', {
 })
 
 const { useSessionInputRequests } = await import('./useSessionInputRequests.ts')
+const { queryClient } = await import('../../../lib/query/client.ts')
 const { refreshInputRequests } = await import('../../../lib/inputRequestRefresh.ts')
 const settle = () => new Promise((resolve) => setImmediate(resolve))
 
@@ -123,6 +153,7 @@ function unmount() {
   for (const slot of effects) slot.cleanup?.()
   effects.length = 0
   slots.length = 0
+  queryClient.clear()
   loads = 0
   runtimeStates = new Map()
 }
@@ -157,7 +188,7 @@ test('unmounting the panel preserves the question; a resolved question stays abs
   assert.deepEqual(render('first').requests, [])
 })
 
-test('a refresh signal and window focus reload at once, without waiting for the poll', async () => {
+test('a refresh signal reloads at once, without waiting for the poll', async () => {
   pending = []
   render('first')
   await settle()
@@ -165,11 +196,7 @@ test('a refresh signal and window focus reload at once, without waiting for the 
   pending = [question]
   refreshInputRequests()
   await settle()
-  assert.equal(render('first').requests[0]?.pendingDecision?.toolCallId, 'question-1')
-  pending = []
-  for (const listener of windowListeners.get('focus') ?? []) listener()
-  await settle()
-  assert.deepEqual(render('first').requests, [])
+  assert.equal(render('first').requests[0]?.inputRequest.id, 'question-1')
 })
 
 test('a sub-agent changing runtime state reloads; an unrelated session does not', async () => {
@@ -192,22 +219,11 @@ test('a sub-agent changing runtime state reloads; an unrelated session does not'
   assert.equal(loads, before + 1)
 })
 
-test('unmounting stops listening for refreshes', async () => {
-  pending = []
-  render('first')
-  await settle()
-  unmount()
-  refreshInputRequests()
-  await settle()
-  assert.equal(loads, 0)
-  assert.equal(windowListeners.get('focus')?.size ?? 0, 0)
-})
-
 test("the queue draws only what the pending listing holds, never a cached row's old question", async () => {
   // The sidebar cache still says "first" asks something, answered long ago.
   const cached = known
 
-  known = [{ ...cached[0]!, pendingDecision: { ...question.pendingDecision! } }, cached[1]!]
+  known = [{ ...cached[0]!, inputRequests: question.inputRequests }, cached[1]!]
   pending = []
   render('first')
   await settle()

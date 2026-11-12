@@ -1,10 +1,17 @@
-import { useEffect, useSyncExternalStore } from 'react'
+import { queryOptions, useQuery } from '@tanstack/react-query'
+import { useEffect, useRef, useSyncExternalStore } from 'react'
 
 import { api } from '../../api.ts'
-import { onInputRequestsRefresh } from '../../lib/inputRequestRefresh.ts'
+import { onInputRequestsRefresh, refreshInputRequests } from '../../lib/inputRequestRefresh.ts'
+import { queryClient } from '../../lib/query/client.ts'
+import { queryKeys } from '../../lib/query/keys.ts'
+
+import { cardReplyId } from '../../components/agent/panel/replyTarget.ts'
 
 import { answeredIn, inboxCount } from './inboxItems.ts'
 
+import type { DecisionAnswer } from '../../api/agent-chat-types'
+import type { DecisionCardRef, ReplyQuestion } from '../../components/agent/panel/replyTarget.ts'
 import type { AgentConversation } from '../../api/agent-types'
 
 export const INBOX_POLL_MS = 15_000
@@ -12,12 +19,6 @@ export const INBOX_POLL_MS = 15_000
 // stops hiding its question after this, so the badge falls back to the server.
 const ANSWER_HOLD_MS = 60_000
 
-// The one listing of the team's conversations with an open question that the
-// viewer may read: the Inbox and its badge take the viewer's own, a Task page
-// and a Bot's chat those the viewer may reply in.
-let listing: { teamId: string; conversations: AgentConversation[] } | null = null
-// The team whose last load failed, until a listing lands again.
-let failedTeamId: string | null = null
 // Questions answered on this device, hidden until a listing no longer has them
 // open. Infinity while the reply is being sent; a deadline once it was.
 const answered = new Map<string, number>()
@@ -40,12 +41,12 @@ function subscribe(listener: () => void) {
   }
 }
 
-/** The newest listing of the team's waiting conversations, from the badge or the Inbox page. */
-export function publishInboxListing(teamId: string, conversations: AgentConversation[]) {
-  for (const id of answeredIn(conversations, answered, Date.now())) answered.delete(id)
-  listing = { teamId, conversations }
-  failedTeamId = null
-  emit()
+/** Lets a newer listing settle the questions answered on this device that it has closed. */
+export function settleAnswers(conversations: readonly AgentConversation[]) {
+  const settled = answeredIn(conversations, answered, Date.now())
+
+  for (const id of settled) answered.delete(id)
+  if (settled.length > 0) emit()
 }
 
 /**
@@ -75,9 +76,9 @@ export function answeringInbox<T>(requestId: string | undefined, send: Promise<T
 }
 
 /**
- * Answers an open question with `text`, as the viewer's own message in the
- * conversation that asked: the reply chips of a card. The card leaves at once;
- * if the turn cannot start, it comes back with the error.
+ * Sends a secure card's "saved to" line as the viewer's own message in the
+ * conversation that asked: the agent reads the file's path from it. The card
+ * leaves at once; if the turn cannot start, it comes back with the error.
  */
 export function answerQuestion(
   teamId: string,
@@ -117,42 +118,41 @@ export function answerQuestion(
 }
 
 /**
- * Answers a Bot's own question with a post in its chat, where the Bot reads it:
- * the viewer's own message there. The card leaves at once; if the post fails, it
- * comes back with the error. Whether it was posted.
+ * Answers an open question: the server wakes the agent that asked with the
+ * answer, and no message is sent. The card leaves at once; if the answer is
+ * refused, it comes back with the error.
  */
-export function answerInChat(
-  teamId: string,
-  chatId: string,
+export function answerDecision(
+  teamId: string | undefined,
+  sessionId: string,
   requestId: string,
-  text: string,
-  id: string = crypto.randomUUID(),
+  answer: DecisionAnswer,
 ): Promise<boolean> {
-  const post = api.agentPostChannelMessage(
-    chatId,
-    teamId,
-    text,
-    id,
-    undefined,
-    undefined,
-    undefined,
+  return answeringInbox(
     requestId,
-  )
-
-  return answeringInbox(requestId, post).then(
+    api.agentAnswerDecision(sessionId, requestId, teamId, answer).then(() => {
+      refreshInputRequests()
+    }),
+  ).then(
     () => true,
+    // Shown on the question's card, which is back in its list.
     () => false,
   )
+}
+
+/** A conversation's cards answered through the server, each naming the open request it shows. */
+export function cardAnswers(
+  teamId: string | undefined,
+  sessionId: string,
+  questions: readonly ReplyQuestion[] | undefined,
+) {
+  return (answer: DecisionAnswer, card: DecisionCardRef) =>
+    answerDecision(teamId, sessionId, cardReplyId(card, questions), answer)
 }
 
 /** Why the last answer to this question failed, until it is answered again. */
 export function useAnswerFailure(requestId: string): string | undefined {
   return useSyncExternalStore(subscribe, () => failures.get(requestId))
-}
-
-/** How many questions wait on the viewer in this team; `null` until known. */
-export function inboxCountFor(teamId: string): number | null {
-  return listing?.teamId === teamId ? inboxCount(listing.conversations, answered) : null
 }
 
 // Bounded, as the other listings are: a cursor never repeats a page.
@@ -182,73 +182,64 @@ async function listPending(teamId: string): Promise<AgentConversation[]> {
   return conversations
 }
 
-/**
- * The team's waiting conversations, `null` until listed: the one listing the
- * badge counts and the Inbox lists, kept current by polling every `pollMs` and
- * by every answer or question. A new `reloadKey` reloads it at once.
- */
-export function useInboxListing(
-  teamId: string,
-  pollMs = INBOX_POLL_MS,
-  reloadKey: unknown = 0,
-): AgentConversation[] | null {
-  useEffect(() => {
-    if (!teamId) return
-    let live = true
-    let requested = 0
-    let landed = 0
-    const load = () => {
-      const requestNo = ++requested
+export const inboxListingQuery = (teamId: string) =>
+  queryOptions({
+    queryKey: queryKeys.inbox(teamId),
+    queryFn: () => listPending(teamId),
+    staleTime: 0,
+  })
 
-      listPending(teamId).then(
-        (conversations) => {
-          // A slow older request must not replace a newer listing.
-          if (!live || requestNo < landed) return
-          landed = requestNo
-          publishInboxListing(teamId, conversations)
-        },
-        () => {
-          // Keep what is already shown, and say the list may be stale.
-          if (!live || failedTeamId === teamId) return
-          failedTeamId = teamId
-          emit()
-        },
-      )
-    }
-
-    load()
-    const interval = setInterval(load, pollMs)
-    // The moments a question may have been asked, answered or dismissed.
-    const stopRefresh = onInputRequestsRefresh(load)
-
-    window.addEventListener('focus', load)
-
-    return () => {
-      live = false
-      clearInterval(interval)
-      stopRefresh()
-      window.removeEventListener('focus', load)
-    }
-  }, [teamId, pollMs, reloadKey])
-
-  return useSyncExternalStore(subscribe, () =>
-    listing?.teamId === teamId ? listing.conversations : null,
+// The moments a question may have been asked, answered or dismissed reload the listing shown.
+const reloadListings = () =>
+  void queryClient.invalidateQueries(
+    { predicate: (query) => query.queryKey[0] === 'team' && query.queryKey[2] === 'inbox' },
+    { cancelRefetch: false },
   )
+
+onInputRequestsRefresh(reloadListings)
+
+/**
+ * The team's waiting conversations: the one listing the badge counts and the Inbox lists,
+ * polled also in the background. A new `reloadKey` reloads it at once.
+ */
+export function useInboxListing(teamId: string, reloadKey?: unknown) {
+  const listing = useQuery({
+    ...inboxListingQuery(teamId),
+    enabled: Boolean(teamId),
+    refetchInterval: INBOX_POLL_MS,
+    refetchIntervalInBackground: true,
+  })
+  const { refetch } = listing
+  const shownKey = useRef(reloadKey)
+
+  useEffect(() => {
+    if (Object.is(shownKey.current, reloadKey)) return
+    shownKey.current = reloadKey
+    if (teamId) void refetch()
+  }, [reloadKey, teamId, refetch])
+
+  return listing
 }
 
-/** Whether the last load of the team's listing failed, so what is shown may be stale. */
-export function useInboxListingFailed(teamId: string): boolean {
-  return useSyncExternalStore(subscribe, () => failedTeamId === teamId)
-}
+/** How many questions wait on the viewer in this team, settling this device's answers. */
+export function useInboxCount(teamId: string): number {
+  const { data: listing, dataUpdatedAt } = useInboxListing(teamId)
+  const onDevice = useAnsweredOnDevice()
 
-/** {@link inboxCountFor}, kept current by {@link useInboxListing}. */
-export function useInboxCount(teamId: string): number | null {
-  useInboxListing(teamId)
+  // On every read, not only a changed one: an answer's hold can expire under the same listing.
+  useEffect(() => {
+    if (listing) settleAnswers(listing)
+  }, [listing, dataUpdatedAt])
 
-  return useSyncExternalStore(subscribe, () => inboxCountFor(teamId))
+  return listing ? inboxCount(listing, onDevice) : 0
 }
 
 /** The questions answered on this device that a listing may still show open. */
+export function answeredOnDevice(): ReadonlyMap<string, number> {
+  return answered
+}
+
+/** {@link answeredOnDevice}, rendering again when it changes. */
 export function useAnsweredOnDevice(): ReadonlyMap<string, number> {
   useSyncExternalStore(subscribe, () => version)
 

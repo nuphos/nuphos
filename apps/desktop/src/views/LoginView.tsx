@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
+import { CodeInput, codeInputClasses } from '../components/CodeInput'
 import { NuphosLogo } from '../components/NuphosLogo'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
@@ -8,19 +9,14 @@ import { useErrorShake } from '../hooks/useErrorShake'
 import { useStableCallback } from '../hooks/useStableCallback'
 import { useTextSwap } from '../hooks/useTextSwap'
 import { t } from '../i18n'
-import {
-  cleanCode,
-  CODE_LENGTH,
-  completesCode,
-  hasNonDigits,
-  pasteIntoCode,
-  singleFlight,
-} from '../lib/codeEntry'
+import { CODE_LENGTH, completesCode, singleFlight } from '../lib/codeEntry'
 import { signInEmailError } from '../lib/emailDomain'
+import { mfaChallenge } from '../lib/stepUp'
 import { cssDurationMs, prefersReducedMotion } from '../lib/motion'
 
 import { LoginAccounts } from './LoginAccounts'
 import { LoginApiEndpoint } from './LoginApiEndpoint'
+import { LoginMfaStep } from './LoginMfaStep'
 import { LoginSocialButtons } from './LoginSocialButtons'
 
 import type { AccountSummary, UserInfo } from '../types'
@@ -35,12 +31,11 @@ type Props = {
   onCancel?: () => void
 }
 
-const inputClasses =
-  'w-full px-3 py-2 rounded-md bg-surface border border-line-control text-main text-[14px] ' +
-  'outline-none focus:border-line-focus placeholder:text-secondary titlebar-no-drag t-input'
+const inputClasses = codeInputClasses
 
 export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
-  const [step, setStep] = useState<'start' | 'code'>('start')
+  const [step, setStep] = useState<'start' | 'code' | 'mfa'>('start')
+  const [mfaToken, setMfaToken] = useState<string | null>(null)
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState<'send' | 'verify' | null>(null)
@@ -110,13 +105,25 @@ export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
 
       onLogin(user)
     } catch (e) {
+      setBusy(null)
+      if (askForMfa(e)) return
       toast.apiError(t('Sign-in failed'), e, {
         fallback: t('Check your internet connection and try again.'),
       })
-      setBusy(null)
       shakeCode()
       codeRef.current?.select()
     }
+  }
+
+  /** Moves on to the authenticator code when the sign-in needs one. */
+  function askForMfa(e: unknown): boolean {
+    const token = mfaChallenge(e)
+
+    if (!token) return false
+    setMfaToken(token)
+    setStep('mfa')
+
+    return true
   }
 
   // One verify at a time: the auto-submit and an Enter or click right after it send one request.
@@ -152,19 +159,20 @@ export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
             {notice ??
               (onCancel
                 ? t('You stay signed in to the others, and can switch back any time.')
-                : t('The agent workspace for your team'))}
+                : t('The open source Grok Bot alternative'))}
           </p>
           {step === 'start' && <LoginAccounts accounts={accounts} />}
 
-          <div className="t-page-slide t-wizard-slide w-full" data-page={step === 'start' ? 1 : 2}>
+          <div
+            className="t-page-slide t-wizard-slide w-full"
+            data-page={{ start: 1, code: 2, mfa: 3 }[step]}
+          >
             <section className="t-page" data-page-id="1" inert={step !== 'start'}>
-              <LoginSocialButtons key={serverChanges} onLogin={onLogin} />
-
-              <div className="w-full flex items-center gap-3 my-5">
-                <div className="h-px flex-1 bg-surface-sunken" />
-                <span className="text-[12px] text-secondary">{t('or')}</span>
-                <div className="h-px flex-1 bg-surface-sunken" />
-              </div>
+              <LoginSocialButtons
+                key={serverChanges}
+                onLogin={onLogin}
+                onMfaRequired={(e) => askForMfa(e)}
+              />
 
               <form
                 className="w-full flex flex-col gap-2.5"
@@ -215,34 +223,7 @@ export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
                   <span className="text-main font-medium">{email.trim()}</span>
                   {codeAfter}
                 </p>
-                <input
-                  value={code}
-                  ref={codeRef}
-                  onChange={(e) => enterCode(cleanCode(e.target.value))}
-                  // Typed letters, spaces and symbols never go in; the cursor stays put.
-                  onBeforeInput={(e) => {
-                    if (hasNonDigits(e.data)) e.preventDefault()
-                  }}
-                  onPaste={(e) => {
-                    const input = e.currentTarget
-                    const pasted = pasteIntoCode(
-                      code,
-                      {
-                        start: input.selectionStart ?? code.length,
-                        end: input.selectionEnd ?? code.length,
-                      },
-                      e.clipboardData.getData('text'),
-                    )
-
-                    e.preventDefault()
-                    enterCode(pasted.code)
-                    requestAnimationFrame(() => input.setSelectionRange(pasted.caret, pasted.caret))
-                  }}
-                  placeholder="000000"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  className={`${inputClasses} text-center text-[18px] tracking-[8px] font-mono`}
-                />
+                <CodeInput value={code} inputRef={codeRef} onChange={enterCode} />
                 <Button
                   type="submit"
                   size="lg"
@@ -277,6 +258,15 @@ export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
                   </Button>
                 </div>
               </form>
+            </section>
+            <section className="t-page" data-page-id="3" inert={step !== 'mfa'}>
+              {step === 'mfa' && mfaToken && (
+                <LoginMfaStep
+                  mfaToken={mfaToken}
+                  onLogin={onLogin}
+                  onBack={() => setStep('start')}
+                />
+              )}
             </section>
           </div>
           {onCancel && (

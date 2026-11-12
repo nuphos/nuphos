@@ -6,9 +6,15 @@ import { Button } from '../../components/ui/button'
 import { formatBytes } from '../../grafana/format'
 import { t } from '../../i18n'
 
-import { SkillFilesSection, SkillHistorySection, SkillUploadSection } from './SkillDetailSections'
+import {
+  SkillFilesSection,
+  SkillHistorySection,
+  SkillOriginRow,
+  SkillUploadSection,
+} from './SkillDetailSections'
 
 import type {
+  SkillScope,
   TeamSkillHistory,
   TeamSkillObject,
   TeamSkillObjectDetail,
@@ -19,6 +25,7 @@ import type { RefObject } from 'react'
 
 export function SkillDetailPane({
   skill,
+  scope,
   files,
   history,
   members,
@@ -36,6 +43,8 @@ export function SkillDetailPane({
   onClose,
 }: {
   skill: TeamSkillSummary
+  /** The store the skill is shown from, so the header names it. */
+  scope: SkillScope
   files: TeamSkillObject[]
   history: TeamSkillHistory | null
   members: TeamMember[]
@@ -76,7 +85,7 @@ export function SkillDetailPane({
           <div className="px-4 py-3 border-b border-line-control/60 flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="text-[12px] uppercase tracking-wide text-tertiary">
-                {t('Team skill')}
+                {scope === 'personal' ? t('Personal skill') : t('Team skill')}
               </div>
               <div className="text-[13px] text-main truncate" title={skill.displayName}>
                 {skill.displayName}
@@ -150,6 +159,7 @@ export function SkillDetailPane({
                   </span>
                   <span className="text-tertiary">{t('Source')}</span>
                   <span className="font-mono text-secondary">{metadata.createdSource}</span>
+                  {history?.origin && <SkillOriginRow origin={history.origin} />}
                   <span className="text-tertiary">{t('Revision')}</span>
                   <span className="font-mono text-secondary">{metadata.revision}</span>
                   <span className="text-tertiary">{t('Last changed by')}</span>

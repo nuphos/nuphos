@@ -7,7 +7,47 @@ enum BotQuestionsTests {
         decodesTheOpenRequestsOfAListRow()
         theInboxListsEveryOwnQuestionOnce()
         keepsTheBodyTheAgentWroteToDecideFrom()
+        aPlanOrASecretIsNeverAnsweredInWords()
+        aQuestionNamingTheMembersOwnCredentialIsConnectable()
+        aMultiSelectOrSeveralQuestionsAreAForm()
         print("Bot questions passed")
+    }
+
+    private static func aMultiSelectOrSeveralQuestionsAreAForm() {
+        func ask(_ request: AgentConversation.InputRequest) -> BotQuestion {
+            BotQuestion(sessionId: "s", title: "Agent", request: request)
+        }
+        let single = ask(.init(id: "a", category: "preference", question: "Ship?", options: ["Yes", "No"], askedAt: nil))
+        precondition(single.form == nil)
+        var regions = AgentConversation.InputRequest(id: "b", category: "preference", question: "Which regions?",
+                                                     options: ["us", "eu"], askedAt: nil)
+        regions.multiSelect = true
+        precondition(ask(regions).form?.first?.multiSelect == true)
+        let data = #"{"id":"c","category":"preference","question":"Rollout","questions":[{"question":"Which regions?","options":["us","eu"],"multiSelect":true},{"question":"Keep the old cluster?","options":["Keep","Delete"]}]}"#
+        let several = ask(try! JSONDecoder().decode(AgentConversation.InputRequest.self, from: Data(data.utf8)))
+        let form = several.form!
+        precondition(form.count == 2)
+        precondition(BotQuestion.answerText(picked: ["us", "eu"], typed: " ") == "us, eu")
+        precondition(BotQuestion.answerText(picked: ["us"], typed: " Tokyo ") == "Tokyo")
+        precondition(BotQuestion.formAnswer(form, picked: [["us", "eu"], []], typed: ["", " Keep "])
+            == DecisionAnswer(questions: [DecisionAnswer(choices: ["us", "eu"]), DecisionAnswer(text: "Keep")]))
+        precondition(BotQuestion.formAnswer([form[0]], picked: [["us"]], typed: [""]) == DecisionAnswer(choices: ["us"]))
+        precondition(DecisionAnswer(choices: ["us"]).json == .object(["choices": .array([.string("us")])]))
+        // Only the exact list the backend wrote out is dropped; a `---` of the agent's own stays.
+        precondition(BotQuestion.writtenQuestions(form) == "\n\n---\n\n**1. Which regions?** (any number)\n- us\n- eu\n\n**2. Keep the old cluster?**\n- Keep\n- Delete")
+        var ruled = AgentConversation.InputRequest(id: "e", category: "preference", question: "Rollout",
+                                                   options: nil, askedAt: nil)
+        ruled.questions = form
+        ruled.body = "Findings.\n\n---\n\nRisks."
+        precondition(ask(ruled).ownBody == "Findings.\n\n---\n\nRisks.")
+        ruled.body = "Findings.\n\n---\n\nRisks." + BotQuestion.writtenQuestions(form)
+        precondition(ask(ruled).ownBody == "Findings.\n\n---\n\nRisks.")
+        ruled.body = BotQuestion.writtenQuestions(form)
+        precondition(ask(ruled).ownBody == nil)
+        var secret = AgentConversation.InputRequest(id: "d", category: "credential", question: "Which key?",
+                                                    options: ["a", "b"], askedAt: nil)
+        secret.multiSelect = true
+        precondition(ask(secret).form == nil)
     }
 
     private static func row(_ id: String, parent: String? = nil, owner: Bool = true,
@@ -80,5 +120,34 @@ enum BotQuestionsTests {
         precondition(!BotQuestion.isLongBody("One finding.\nA second.\nA third."))
         precondition(BotQuestion.isLongBody("1\n2\n3\n4"))
         precondition(BotQuestion.isLongBody(String(repeating: "x", count: 241)))
+    }
+
+    private static func aPlanOrASecretIsNeverAnsweredInWords() {
+        func ask(_ category: String, planId: String? = nil) -> BotQuestion {
+            BotQuestion(sessionId: "s", title: "Agent", request: .init(
+                id: "r", category: category, question: "Go?", options: ["Approve", "Reject"], askedAt: nil, planId: planId))
+        }
+        precondition(ask("preference").typed)
+        precondition(!ask("approval", planId: "p1").typed)
+        precondition(!ask("credential").typed)
+        precondition(!ask("integration").typed)
+        let plan = try! JSONDecoder().decode(
+            AgentConversation.InputRequest.self, from: Data(#"{"id":"r","question":"Approve?","planId":"p1"}"#.utf8))
+        precondition(plan.planId == "p1")
+        // "Other…" quotes the question above the composer, a quote no post in the chat has.
+        precondition(ask("preference").quote == ChannelReply(id: nil, authorName: "Agent", text: "Go?"))
+    }
+
+    private static func aQuestionNamingTheMembersOwnCredentialIsConnectable() {
+        func ask(_ json: String) -> BotQuestion {
+            BotQuestion(sessionId: "s", title: "Agent", request: try! JSONDecoder().decode(
+                AgentConversation.InputRequest.self, from: Data(json.utf8)))
+        }
+        let own = ask(#"{"id":"q","category":"integration","question":"?","credentials":[{"provider":"personal","id":"github"}]}"#)
+        precondition(own.personalCredentials == ["github"] && own.connectable)
+        precondition(ask(#"{"id":"q","category":"integration","question":"?","providers":["github"]}"#).connectable)
+        // A mix of providers and credentials, or a team credential named, gets no card in the Inbox.
+        precondition(!ask(#"{"id":"q","category":"integration","question":"?","providers":["github"],"credentials":[{"provider":"personal","id":"github"}]}"#).connectable)
+        precondition(!ask(#"{"id":"q","category":"integration","question":"?","credentials":[{"provider":"github","id":"166"}]}"#).connectable)
     }
 }

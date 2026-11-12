@@ -1,35 +1,12 @@
-import { useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 
-import { api } from '../../api'
 import { relativeTimeFromNow } from '../../components/agent/panel/textUtils'
 import { Avatar } from '../../components/Avatar'
 import { t } from '../../i18n'
 import { memberDisplayName } from '../../lib/bindingAccess'
-import { readSwrCache, useSwrCache, writeSwrCache } from '../../lib/swrCache'
+import { teamRosterQuery } from '../../lib/query/team'
 
-import type { TeamMember } from '../../types'
 import type { LocalRuntimeSummary } from '../../types/runtime'
-
-// One request per team however many agents are opened; removed members say who left.
-const loading = new Set<string>()
-
-function useTeamRoster(teamId: string): TeamMember[] | undefined {
-  const key = `team-members-with-removed:${teamId}`
-  const members = useSwrCache<TeamMember[]>(key)
-
-  useEffect(() => {
-    if (readSwrCache(key) !== undefined || loading.has(key)) return
-    loading.add(key)
-    void api
-      .atlasListTeamMembers(teamId, true)
-      // Without the roster the line is left out; the next agent opened asks again.
-      .then((items) => writeSwrCache(key, items))
-      .catch(() => null)
-      .finally(() => loading.delete(key))
-  }, [key, teamId])
-
-  return members
-}
 
 /** Who added a Box's agent and when; mounted only for agents that have it. */
 export function AgentAddedBy({
@@ -39,7 +16,8 @@ export function AgentAddedBy({
   teamId: string
   addedBy: NonNullable<LocalRuntimeSummary['addedBy']>
 }) {
-  const members = useTeamRoster(teamId)
+  // Without the roster the line is left out.
+  const { data: members } = useQuery(teamRosterQuery(teamId))
 
   if (!members) return null
   const member = members.find((candidate) => candidate.id === addedBy.userId)

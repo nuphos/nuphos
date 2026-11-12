@@ -69,6 +69,10 @@ export function sentChatChoice(
 
   return {
     runtimeId,
-    pick: Object.fromEntries(config.options.map((option) => [option.kind, option.currentValue])),
+    pick: Object.fromEntries(
+      config.options
+        .filter((option) => option.currentValue)
+        .map((option) => [option.kind, option.currentValue]),
+    ),
   }
 }

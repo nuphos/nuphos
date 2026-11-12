@@ -59,12 +59,17 @@ check_password() {
     || fail "the runtime password from $1 is ${#OPENAB_ACP_AUTH_KEY} characters; it must be at least $min_password_length. \`openssl rand -hex 32\` makes one that fits."
 }
 
-# OPENAB_RUNTIME_AUTH_FILE may list several files, ':'-separated.
+# OPENAB_RUNTIME_AUTH_FILE may list several files, ':'-separated. `file#/json/pointer`
+# names a value inside a file (an API key in Claude's settings): the file counts only with it.
 auth_file_exists() {
   old_ifs=$IFS
   IFS=:
   for auth_file in ${OPENAB_RUNTIME_AUTH_FILE:-}; do
-    if [ -n "$auth_file" ] && [ -e "$auth_file" ]; then
+    file=${auth_file%%#*}
+    if [ "$file" != "$auth_file" ]; then
+      grep -qs "\"${auth_file##*/}\"" "$file" || continue
+    fi
+    if [ -n "$file" ] && [ -e "$file" ]; then
       IFS=$old_ifs
       return 0
     fi

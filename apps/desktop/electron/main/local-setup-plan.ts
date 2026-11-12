@@ -14,12 +14,20 @@ export const MAX_SYNCED_SKILL_FILES = 200
 export const MAX_SYNCED_FILE_BYTES = 10_000_000
 
 export type LocalSkillFile = { relPath: string; size: number; sha256: string }
-export type LocalSkillSnapshot = { name: string; files: LocalSkillFile[] }
+export type LocalSkillSnapshot = {
+  name: string
+  files: LocalSkillFile[]
+  /** A walk cap stopped before the whole skill was seen. */
+  truncated?: boolean
+  /** It links outside its folder in a way the member has not reviewed: not read. */
+  unreviewed?: boolean
+}
 export type RemoteObject = { key: string; size: number }
 
 export type SkippedSkill = {
   name: string
-  reason: 'too_large' | 'too_many_files' | 'name_taken' | 'over_budget' | 'unreadable'
+  reason:
+    'too_large' | 'too_many_files' | 'name_taken' | 'over_budget' | 'unreadable' | 'needs_review'
 }
 
 export type SkillSyncPlan = {
@@ -41,6 +49,51 @@ function skillOfKey(key: string): string | null {
   const match = /^skills\/([^/]+)\//u.exec(key)
 
   return match?.[1] ?? null
+}
+
+/** Why `skill` stays on this computer this pass, or null when it can sync. */
+function skipReason(
+  skill: LocalSkillSnapshot,
+  size: number,
+  foreignNames: ReadonlySet<string | null>,
+): SkippedSkill['reason'] | null {
+  if (skill.unreviewed) return 'needs_review'
+  // The walk stops at 200 files or 5,000 entries, possibly before reaching
+  // SKILL.md, so that comes first: a partial list must never drive deletions.
+  if (skill.truncated || skill.files.length >= MAX_SYNCED_SKILL_FILES) return 'too_many_files'
+  // A file could not be read, or SKILL.md vanished, so nothing would upload.
+  if (!skill.files.some((file) => file.relPath === 'SKILL.md')) return 'unreadable'
+  if (foreignNames.has(skill.name)) return 'name_taken'
+  if (size > MAX_SYNCED_SKILL_BYTES) return 'too_large'
+
+  return null
+}
+
+const HELD = new Set<SkippedSkill['reason']>(['unreadable', 'needs_review'])
+
+/**
+ * Skills synced before that this pass did not read: a file failed to read, which
+ * is likely passing (permissions, a link being re-pointed), or a link waits for
+ * the member's review. Each keeps its copy and record as they are, and the copy
+ * still counts against the budget.
+ */
+function heldSkills(
+  skipped: readonly SkippedSkill[],
+  managed: Readonly<Record<string, unknown>>,
+  remote: readonly RemoteObject[],
+): { names: Set<string>; files: number; bytes: number } {
+  const names = new Set(
+    skipped
+      .filter((skip) => HELD.has(skip.reason) && skip.name in managed)
+      .map((skip) => skip.name),
+  )
+  const objects = remote.filter((object) => names.has(skillOfKey(object.key) ?? ''))
+
+  return {
+    names,
+    files: objects.length,
+    bytes: objects.reduce((sum, object) => sum + object.size, 0),
+  }
 }
 
 /**
@@ -69,16 +122,16 @@ export function planSkillSync(
     const kept = skill.files.filter((file) => file.size <= MAX_SYNCED_FILE_BYTES)
     const size = kept.reduce((sum, file) => sum + file.size, 0)
 
-    // The walk stops at 200 files, possibly before reaching SKILL.md, so that comes first.
-    if (skill.files.length >= MAX_SYNCED_SKILL_FILES)
-      skipped.push({ name: skill.name, reason: 'too_many_files' })
-    // Its SKILL.md is a link out of the skills directory, so nothing would upload.
-    else if (!skill.files.some((file) => file.relPath === 'SKILL.md'))
-      skipped.push({ name: skill.name, reason: 'unreadable' })
-    else if (foreignNames.has(skill.name)) skipped.push({ name: skill.name, reason: 'name_taken' })
-    else if (size > MAX_SYNCED_SKILL_BYTES) skipped.push({ name: skill.name, reason: 'too_large' })
+    const reason = skipReason(skill, size, foreignNames)
+
+    if (reason) skipped.push({ name: skill.name, reason })
     else candidates.push({ name: skill.name, files: kept, bytes: size })
   }
+
+  const held = heldSkills(skipped, managed, remote)
+
+  files += held.files
+  bytes += held.bytes
 
   // Smallest first fits the most skills; ties by name keep the choice stable
   // between passes so a skill does not flap in and out of the store.
@@ -115,7 +168,7 @@ export function planSkillSync(
     }
   }
 
-  const keep = new Set(synced)
+  const keep = new Set([...synced, ...held.names])
   const deleteSkills = Object.keys(managed)
     .filter((name) => !keep.has(name))
     .toSorted((a, b) => a.localeCompare(b))

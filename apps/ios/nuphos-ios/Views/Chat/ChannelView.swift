@@ -148,14 +148,17 @@ struct ChannelView: View {
                     .font(Theme.Text.secondary)
                     .foregroundStyle(Theme.body)
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("chat.empty")
             .padding(24)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            // Centered, as the other placeholders: the list runs under the navigation bar.
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         }
     }
 
     private var composer: some View {
         VStack(spacing: 6) {
-            if let reply = channel.replying { replyChip(reply) }
+            if let reply = channel.replying { ReplyChip(reply: reply) { channel.replying = nil } }
             ChatComposerBar(
                 text: $draft,
                 canSend: channel.loaded && !channel.readOnly,
@@ -167,28 +170,6 @@ struct ChannelView: View {
                 controls: { EmptyView() }
             )
         }
-    }
-
-    /// The post the next one answers, above the composer; × cancels.
-    private func replyChip(_ reply: ChannelReply) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "arrowshape.turn.up.left.fill").font(.system(size: 12)).foregroundStyle(Theme.muted)
-            (Text("Replying to \(reply.authorName) ").foregroundStyle(Theme.body).fontWeight(.medium)
-                + Text(reply.text).foregroundStyle(Theme.muted))
-                .font(Theme.Text.caption)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Button { channel.replying = nil } label: {
-                Image(systemName: "xmark.circle.fill").font(.system(size: 17)).foregroundStyle(Theme.muted)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Cancel reply")
-        }
-        .padding(.leading, 12)
-        .padding(.trailing, 8)
-        .padding(.vertical, 8)
-        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .padding(.horizontal, 16)
     }
 
     private func reply(to post: ChannelPost) {
@@ -251,6 +232,13 @@ struct ChannelView: View {
                                onQuote: show)
             case .paused(let text):
                 PausedLine(text: text)
+            case .record(let text):
+                Text(text)
+                    .font(Theme.Text.caption)
+                    .foregroundStyle(Theme.muted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .accessibilityIdentifier("channel.decisionRecord")
             case .replyFailed(let event, let actionable):
                 ReplyFailedLine(
                     event: event,
@@ -289,6 +277,7 @@ struct TranscriptJump: Equatable {
 /// overlapping, whoever spoke last in front. A chat with nobody else shows
 /// its title's initials.
 struct ChatIcon: View {
+    @AppStorage(BotAvatars.enabledKey, store: BotAvatars.defaults) private var avatarsEnabled = true
     let faces: [ChatFace]
     let title: String
     var size: CGFloat = 22
@@ -298,10 +287,18 @@ struct ChatIcon: View {
             if faces.count >= 2 {
                 let small = (size * 0.72).rounded()
                 ZStack {
-                    face(faces[1], size: small).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    face(faces[0], size: small)
+                    face(faces[1], size: small, showBadge: false).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    face(faces[0], size: small, showBadge: false)
                         .padding(1.5)
                         .background(Theme.chatCanvas, in: Circle())
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    badge(faces[1], badgeSize: small <= 24 ? 9 : 12)
+                        .frame(width: small, height: small, alignment: .bottomTrailing)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    badge(faces[0], badgeSize: small <= 24 ? 9 : 12)
+                        .frame(width: small, height: small, alignment: .bottomTrailing)
+                        .padding(1.5)
+                        .offset(x: badgeSeparation(small), y: badgeSeparation(small))
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
             } else if let only = faces.first {
@@ -315,11 +312,23 @@ struct ChatIcon: View {
     }
 
     @ViewBuilder
-    private func face(_ face: ChatFace, size: CGFloat) -> some View {
+    private func face(_ face: ChatFace, size: CGFloat, showBadge: Bool = true) -> some View {
         if face.agent != nil {
-            AgentAvatar(agentId: face.id, runtime: face.agent?.provider, size: size)
+            AgentAvatar(agentId: face.id, runtime: face.agent?.provider, size: size, showBadge: showBadge)
         } else {
             person(id: face.id, name: face.name, avatarURL: face.avatarURL, size: size)
+        }
+    }
+
+    private func badgeSeparation(_ small: CGFloat) -> CGFloat {
+        guard faces[0].agent != nil, faces[1].agent != nil else { return 0 }
+        return max(0, (small <= 24 ? 9 : 12) - (size - small - 1.5))
+    }
+
+    @ViewBuilder
+    private func badge(_ face: ChatFace, badgeSize: CGFloat) -> some View {
+        if face.agent != nil, avatarsEnabled, BotFaces.shared.face(for: face.id) != nil {
+            AgentRuntimeBadge(runtime: face.agent?.provider, size: badgeSize)
         }
     }
 
@@ -346,6 +355,8 @@ private struct ChannelPostRow: View {
     var onReply: (() -> Void)?
     var onQuote: (ChannelReply) -> Void = { _ in }
 
+    @State private var selectionRequest = 0
+
     private static let avatar: CGFloat = 20
 
     /// The groups' files when the chat has read them all; else the card reads them.
@@ -371,22 +382,25 @@ private struct ChannelPostRow: View {
                     TransferCard(groupIds: post.downloads, fromUser: false, files: read(post.downloads), resolve: resolve)
                 }
             }
+            .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .contextMenu {
+                if let onReply {
+                    Button("Reply", systemImage: "arrowshape.turn.up.left", action: onReply)
+                }
+                #if canImport(UIKit)
+                if !post.text.isEmpty {
+                    Button("Select Text", systemImage: "text.cursor") { selectionRequest += 1 }
+                    Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = post.text }
+                }
+                #endif
+            }
             if !mine { Spacer(minLength: 48) }
         }
         .frame(maxWidth: .infinity, alignment: mine ? .trailing : .leading)
-        .contextMenu {
-            if let onReply {
-                Button("Reply", systemImage: "arrowshape.turn.up.left", action: onReply)
-            }
-            #if canImport(UIKit)
-            if !post.text.isEmpty {
-                Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = post.text }
-            }
-            #endif
-        }
         .accessibilityElement(children: .contain)
         .accessibilityActions {
             if let onReply { Button("Reply", action: onReply) }
+            if !post.text.isEmpty { Button("Select Text") { selectionRequest += 1 } }
         }
     }
 
@@ -428,7 +442,7 @@ private struct ChannelPostRow: View {
     }
 
     private var bubble: some View {
-        AssistantMarkdown(text: post.text, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, onLink: onLink)
+        AssistantMarkdown(text: post.text, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink)
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
             .background(flashed ? Theme.brand.opacity(0.3) : mine ? Theme.brand.opacity(0.14) : Theme.chatSurface,
@@ -514,7 +528,7 @@ private struct TypingRow: View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(agents) { agent in
                 HStack(alignment: .bottom, spacing: 8) {
-                    AgentAvatar(agentId: agent.sessionId, runtime: nil, size: 28)
+                    AgentAvatar(agentId: agent.sessionId, runtime: agent.provider, size: 28)
                     TypingDots()
                         .padding(.horizontal, 14)
                         .padding(.vertical, 12)
@@ -552,5 +566,32 @@ struct TypingDots: View {
                 }
             }
         }
+    }
+}
+
+/// What the next message answers, above the composer; × cancels.
+struct ReplyChip: View {
+    let reply: ChannelReply
+    let onCancel: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrowshape.turn.up.left.fill").font(.system(size: 12)).foregroundStyle(Theme.muted)
+            (Text("Replying to \(reply.authorName) ").foregroundStyle(Theme.body).fontWeight(.medium)
+                + Text(reply.text).foregroundStyle(Theme.muted))
+                .font(Theme.Text.caption)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button(action: onCancel) {
+                Image(systemName: "xmark.circle.fill").font(.system(size: 17)).foregroundStyle(Theme.muted)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Cancel reply")
+        }
+        .padding(.leading, 12)
+        .padding(.trailing, 8)
+        .padding(.vertical, 8)
+        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 16)
     }
 }

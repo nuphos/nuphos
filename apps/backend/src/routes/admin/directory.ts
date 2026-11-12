@@ -1,3 +1,5 @@
+import { ObjectId } from 'mongodb'
+
 import { fetchCachedTeams, fetchCachedUsers } from '@/lib/agent/directory'
 import { AppError } from '@/lib/errors'
 import {
@@ -9,6 +11,7 @@ import {
   searchTeamsDirectory,
   searchUsersDirectory,
 } from '@/lib/identity'
+import { resetMfaForSupport } from '@/lib/identity/mfa'
 import { logEvent } from '@/lib/observability'
 import { cleanQuery, parseLimit, splitIdList } from '@/routes/admin/helpers'
 
@@ -50,6 +53,23 @@ export function registerAdminDirectoryRoutes(adminRoutes: Hono<{ Variables: Admi
     if (!result) throw new AppError(404, 'not_found', 'Team not found')
 
     return c.json(result)
+  })
+
+  // Support, after confirming who is asking: the user lost both their
+  // authenticator and their recovery codes.
+  adminRoutes.post('/directory/users/:id/mfa-reset', async (c) => {
+    const userId = c.req.param('id')
+
+    if (!ObjectId.isValid(userId)) throw new AppError(404, 'not_found', 'User not found')
+    const reset = await resetMfaForSupport(userId)
+
+    logEvent('warn', 'admin.user.mfa_reset', {
+      user_id: userId,
+      admin_user_id: c.get('adminUserId'),
+      reset,
+    })
+
+    return c.json({ reset })
   })
 
   adminRoutes.delete('/directory/teams/:id', async (c) => {

@@ -7,6 +7,7 @@ import {
   rowPrincipalIds,
   rowSearchText,
   rowTypeLabel,
+  triggerSearchText,
 } from './triggerRows.ts'
 
 import type { AgentTrigger, AgentTriggerGroup } from '../../api'
@@ -172,6 +173,15 @@ test('search text still finds a group by the word "group"', () => {
 
   assert.match(rowSearchText(rows[0]!), /Grafana prod/)
   assert.match(rowSearchText(rows[0]!), /Group/)
+})
+
+test('the calendar finds a trigger by the text its row carries', () => {
+  // The list searches built rows and the calendar holds triggers, so both have
+  // to answer "does this query match?" from one place.
+  const daily = trigger({ id: 'a', name: 'Cost check', cronExpression: '0 10 * * *' })
+
+  assert.equal(triggerSearchText(daily), rowSearchText(buildTriggerRows([daily], [])[0]!))
+  assert.match(triggerSearchText(daily), /every day at 10:00/)
 })
 
 test('only principals that own something are offered as a filter', () => {

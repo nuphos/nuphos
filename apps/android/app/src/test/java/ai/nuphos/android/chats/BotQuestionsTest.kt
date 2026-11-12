@@ -1,6 +1,7 @@
 package ai.nuphos.android.chats
 
 import ai.nuphos.android.data.Http
+import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.data.TransferDownloadGroup
 import ai.nuphos.android.model.AgentConversation
@@ -8,7 +9,10 @@ import ai.nuphos.android.model.AgentConversationDetail
 import ai.nuphos.android.model.AgentConversationsPage
 import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ComposerAttachment
+import ai.nuphos.android.model.CredentialCatalog
+import ai.nuphos.android.model.CredentialSelection
 import ai.nuphos.android.model.InputRequest
+import ai.nuphos.android.session.BotQuestion
 import ai.nuphos.android.session.BotQuestions
 import ai.nuphos.android.session.ChannelSession
 import ai.nuphos.android.session.OpenQuestions
@@ -74,7 +78,9 @@ class BotQuestionsTest {
 
     private class FakeTransport : ChannelSession.Transport {
         var pending = listOf<AgentConversation>()
+        /** (session, what was said, request), and the body each answer sent. */
         val answers = mutableListOf<Triple<String, String, String>>()
+        val bodies = mutableListOf<JsonValue>()
         var failAnswer = false
         var faces = """[{"id":"bot-1","name":"Release Lead","agent":{"avatar":"05"}}]"""
         override suspend fun detail(tail: Int): AgentConversationDetail =
@@ -84,18 +90,17 @@ class BotQuestionsTest {
         override suspend fun upload(attachments: List<ComposerAttachment>) = "group"
         val posted = mutableListOf<Pair<String, String?>>()
         var failPost = false
-        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?, decisionReplyTo: String?) {
-            posted += text to decisionReplyTo
+        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?) {
+            posted += text to replyTo
             if (failPost) throw NuphosApi.Failure.Http(500, "Synthetic post failure")
         }
         override suspend fun pending() = pending
-        override suspend fun answer(sessionId: String, text: String, requestId: String) {
-            answers += Triple(sessionId, text, requestId)
+        override suspend fun answer(sessionId: String, requestId: String, answer: JsonValue) {
+            val fields = (answer as JsonValue.Obj).value
+            val said = (fields["choices"] as? JsonValue.Arr)?.value?.firstOrNull() ?: fields["text"]
+            answers += Triple(sessionId, (said as JsonValue.Str).value, requestId)
+            bodies += answer
             if (failAnswer) throw NuphosApi.Failure.Http(500, "Synthetic answer failure")
-        }
-        val chatAnswers = mutableListOf<Triple<String, String, String>>()
-        override suspend fun answerInChat(chatId: String, text: String, requestId: String) {
-            chatAnswers += Triple(chatId, text, requestId)
         }
     }
 
@@ -109,6 +114,9 @@ class BotQuestionsTest {
         assertFalse(session.questions.any { it.id == canary.id })
         testScheduler.advanceUntilIdle()
         assertEquals(listOf(Triple("canary", "Yes", "q-canary")), transport.answers)
+        // An option is sent as the choice; no message is posted.
+        assertEquals(JsonValue.obj("choices" to JsonValue.Arr(listOf(JsonValue.Str("Yes")))), transport.bodies.single())
+        assertTrue(transport.posted.isEmpty())
         // Until the listing drops it, an answered question stays hidden.
         session.refreshQuestions()
         assertFalse(session.questions.any { it.id == canary.id })
@@ -117,27 +125,113 @@ class BotQuestionsTest {
         assertEquals(listOf("q-docs", "q-bot"), session.questions.map { it.request.id })
     }
 
-    @Test fun theBotsOwnQuestionIsAnsweredByAPostInItsChat() = runTest {
+    @Test fun anIntegrationIsAnsweredByTheConversationsWholeSelection() = runTest {
+        val saved = mutableListOf<Pair<String, JsonValue>>()
+        var failSave = false
+        val source = object : OpenQuestions.Source {
+            override suspend fun credentials(sessionId: String) = JsonValue.parse(
+                """{"githubInstallationIds":["166"],"awsRoleIds":["r1"],"futureIds":["kept-by-the-server"]}""")
+            override suspend fun saveCredentials(sessionId: String, access: JsonValue) {
+                if (failSave) throw NuphosApi.Failure.Http(403, "Not yours")
+                saved += sessionId to access
+            }
+        }
+        val inbox = OpenQuestions(source)
+        val ask = BotQuestion("agent-ops", "Release ops", InputRequest("q-gh", "integration", "Select your GitHub", null))
+        val stored = requireNotNull(inbox.storedSelection(ask))
+        // As the store loads it for the picker.
+        val catalog = CredentialCatalog(JsonValue.parse("""{"personalCredentials":[{"provider":"github","login":"octocat"}]}""")!!,
+            CredentialCatalog.NEW_CONVERSATION_PROVIDERS)
+        inbox.select(stored.toggle(catalog.allItems.single()), ask)
+        // Everything it had, plus the member's own GitHub; a key this build does not know is left to the server.
+        val sent = saved.single().second
+        assertEquals("agent-ops", saved.single().first)
+        assertEquals(listOf("166"), sent["githubInstallationIds"]?.arrayValue?.mapNotNull { it.stringValue })
+        assertEquals(listOf("r1"), sent["awsRoleIds"]?.arrayValue?.mapNotNull { it.stringValue })
+        assertEquals(listOf("github"), sent["personalCredentialIds"]?.arrayValue?.mapNotNull { it.stringValue })
+        assertNull(sent["futureIds"])
+        // Refused, say why on the card.
+        failSave = true
+        inbox.select(stored, ask)
+        assertNotNull(inbox.failures[ask.id])
+        // A new chat never starts as the member.
+        assertTrue(CredentialSelection().selectDefaults(catalog).ids["personalCredentialIds"].isNullOrEmpty())
+    }
+
+    @Test fun aQuestionNamingTheMembersOwnGithubIsAnsweredByThatAlone() = runTest {
+        fun ask(json: String) = BotQuestion("agent-ops", "Release ops", Http.json.decodeFromString<InputRequest>(json))
+        val own = ask("""{"id":"q-own","category":"integration","question":"Your GitHub","credentials":[{"provider":"personal","id":"github"}]}""")
+        assertEquals(listOf("github"), own.personalCredentials)
+        assertTrue(own.connectable)
+        // Any access answers plain providers; a mix, or a team credential named, gets no card here.
+        assertTrue(ask("""{"id":"q","category":"integration","question":"GitHub","providers":["github"]}""").connectable)
+        assertFalse(ask("""{"id":"q","category":"integration","question":"?","providers":["github"],"credentials":[{"provider":"personal","id":"github"}]}""").connectable)
+        assertFalse(ask("""{"id":"q","category":"integration","question":"?","credentials":[{"provider":"github","id":"166"}]}""").connectable)
+
+        val saved = mutableListOf<JsonValue>()
+        val inbox = OpenQuestions(object : OpenQuestions.Source {
+            override suspend fun credentials(sessionId: String) = JsonValue.parse("""{"githubInstallationIds":["166"]}""")
+            override suspend fun saveCredentials(sessionId: String, access: JsonValue) { saved += access }
+        })
+        // Credentials unreadable: said on the card, nothing saved.
+        inbox.useOwn(listOf("github"), own, connected = null)
+        assertTrue(saved.isEmpty())
+        assertEquals("Couldn't load your credentials. Try again.", inbox.failures[own.id])
+        // Not connected: said on the card, nothing saved.
+        inbox.useOwn(listOf("github"), own, connected = emptySet())
+        assertTrue(saved.isEmpty())
+        assertNotNull(inbox.failures[own.id])
+        // Connected: the conversation keeps its installation and gains the member's own GitHub, nothing else.
+        inbox.useOwn(listOf("github"), own, connected = setOf("github"))
+        assertEquals(listOf("166"), saved.single()["githubInstallationIds"]?.arrayValue?.mapNotNull { it.stringValue })
+        assertEquals(listOf("github"), saved.single()["personalCredentialIds"]?.arrayValue?.mapNotNull { it.stringValue })
+        assertNull(inbox.failures[own.id])
+    }
+
+    @Test fun anInboxSaveSendsOnlyTheKindsTheConversationHad() = runTest {
+        val own = BotQuestion("agent-ops", "Release ops", Http.json.decodeFromString<InputRequest>(
+            """{"id":"q-own","category":"integration","question":"?","credentials":[{"provider":"personal","id":"github"}]}"""))
+        val saved = mutableListOf<JsonValue>()
+        val inbox = OpenQuestions(object : OpenQuestions.Source {
+            // No GitHub key: every installation. [] is none, null is unset, a string is malformed.
+            override suspend fun credentials(sessionId: String) = JsonValue.parse(
+                """{"awsRoleIds":["aws"],"gitlabBindingIds":[],"notionIntegrationIds":null,"grafanaInstanceIds":"bogus"}""")
+            override suspend fun saveCredentials(sessionId: String, access: JsonValue) { saved += access }
+        })
+        inbox.useOwn(listOf("github"), own, connected = setOf("github"))
+        val sent = (saved.single() as JsonValue.Obj).value
+        // An unset kind stays unset rather than revoked as []; the empty one stays empty.
+        assertEquals(setOf("awsRoleIds", "gitlabBindingIds", "grafanaInstanceIds", "personalCredentialIds"), sent.keys)
+        assertEquals(emptyList<JsonValue>(), sent["gitlabBindingIds"]?.arrayValue)
+        // Malformed fails closed: sent as none, never left out to mean "all".
+        assertEquals(emptyList<JsonValue>(), sent["grafanaInstanceIds"]?.arrayValue)
+        // A new conversation still states every kind.
+        assertNotNull(CredentialSelection(newConversation = true).json["githubInstallationIds"])
+    }
+
+    @Test fun aPlanOrASecretIsNeverAnsweredInWords() {
+        fun ask(category: String, planId: String? = null) =
+            BotQuestion("s", "Agent", InputRequest("r", category, "Go?", listOf("Approve", "Reject"), planId = planId))
+        assertTrue(ask("preference").typed)
+        assertFalse(ask("approval", planId = "p1").typed)
+        assertFalse(ask("credential").typed)
+        assertFalse(ask("integration").typed)
+        assertEquals("p1", Http.json.decodeFromString<InputRequest>("""{"id":"r","question":"Approve?","planId":"p1"}""").planId)
+    }
+
+    @Test fun theBotsOwnQuestionIsAnsweredThroughTheServerNotByAPost() = runTest {
         val transport = FakeTransport().apply { pending = listing }
         val session = ChannelSession("team", "chat-release", "Chat", transport)
         session.refresh(force = true)
         session.refreshQuestions()
         val own = session.questions.single { it.sessionId == "bot-1" }
-        session.answer(own, "Yes", this, viewerId = "me", newId = { "answer-1" })
-        // The card leaves and the answer is the viewer's post at once.
+        session.answer(own, "Done.", this)
         assertFalse(session.questions.any { it.id == own.id })
-        assertEquals("Yes", session.posts.single { it.id == "answer-1" }.text)
         testScheduler.advanceUntilIdle()
-        assertEquals(listOf("Yes" to "q-bot"), transport.posted)
-        assertTrue(transport.answers.isEmpty())
-        // A post that fails takes its bubble away and brings the card back.
-        val again = ChannelSession("team", "chat-release", "Chat", transport.apply { failPost = true; pending = listing })
-        again.refresh(force = true)
-        again.refreshQuestions()
-        again.answer(again.questions.single { it.sessionId == "bot-1" }, "Yes", this, newId = { "answer-2" })
-        testScheduler.advanceUntilIdle()
-        assertTrue(again.questions.any { it.sessionId == "bot-1" })
-        assertTrue(again.posts.none { it.id == "answer-2" })
+        assertEquals(listOf(Triple("bot-1", "Done.", "q-bot")), transport.answers)
+        // Words that are not an option are sent as text.
+        assertEquals(JsonValue.obj("text" to JsonValue.Str("Done.")), transport.bodies.single())
+        assertTrue(transport.posted.isEmpty())
     }
 
     @Test fun aFailedAnswerBringsTheCardBack() = runTest {
@@ -190,15 +284,5 @@ class BotQuestionsTest {
         testScheduler.advanceUntilIdle()
         assertEquals(listOf(Triple("deploy", "Ship it", "q-1")), transport.answers)
         assertTrue(inbox.failures.isEmpty())
-    }
-
-    @Test fun theInboxAnswersABotsOwnQuestionInItsChat() = runTest {
-        val transport = FakeTransport().apply { pending = listOf(row("bot-1", null, true, "q-3" to "2026-11-09T03:03:00Z")) }
-        val inbox = OpenQuestions(transport) { bot -> "chat-$bot" }
-        inbox.refresh()
-        inbox.answer(inbox.list.single(), "Ship it", this)
-        testScheduler.advanceUntilIdle()
-        assertEquals(listOf(Triple("chat-bot-1", "Ship it", "q-3")), transport.chatAnswers)
-        assertTrue(transport.answers.isEmpty())
     }
 }

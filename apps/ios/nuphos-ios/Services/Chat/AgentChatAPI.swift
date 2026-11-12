@@ -226,6 +226,17 @@ enum AgentChatAPI {
         return ConversationUnread.Marker(activity: state.activitySeq, read: state.readSeq)
     }
 
+    /// `POST /teams/:id/agent-runtimes/:runtimeId/sign-in-requests` — asks whoever can
+    /// sign this conversation's agent in, through their Inbox and a push. Answers with
+    /// whom it asked.
+    static func runtimeSignInAsk(token: String, teamId: String, runtimeId: String, sessionId: String) async throws -> String {
+        struct Body: Encodable { var sessionId: String }
+        struct Asked: Decodable { let askedName: String }
+        let data = try await send("POST", "teams/\(teamId)/agent-runtimes/\(runtimeId)/sign-in-requests",
+            token: token, body: Body(sessionId: sessionId))
+        return try JSONDecoder().decode(Asked.self, from: data).askedName
+    }
+
     /// `POST /agent/conversations/:id/secrets` — the secure input card: the
     /// value goes to a file on the agent's runtime, and only its path comes back.
     static func saveSecret(token: String, teamId: String, sessionId: String, name: String, value: String) async throws -> String {
@@ -237,6 +248,15 @@ enum AgentChatAPI {
     }
 
     /// `POST /agent/conversations/:id/decisions/:requestId/resolve` — marks a question answered.
+    /// `PATCH /agent/conversations/:id/credentials` — the conversation's whole credential
+    /// selection, as its owner sets it. The server answers an open integration question
+    /// the selection now covers, and tells the agent.
+    static func updateCredentials(token: String, teamId: String, sessionId: String, selection: CredentialSelection) async throws {
+        _ = try await send("PATCH", "agent/conversations/\(sessionId)/credentials",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token,
+            body: JSONValue.object(["teamId": .string(teamId), "credentialAccess": selection.json]))
+    }
+
     static func resolveDecision(token: String, teamId: String, sessionId: String, requestId: String) async throws {
         _ = try await send("POST", "agent/conversations/\(sessionId)/decisions/\(requestId)/resolve",
             query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: ["resolution": "answered"])
@@ -284,14 +304,13 @@ enum AgentChatAPI {
     struct RuntimeMove: Decodable { let runtimeId: String; let runtimeLabel: String; let agentRuntime: String }
 
     /// `POST /agent/conversations/:id/runtime` — moves the conversation to
-    /// another agent. `workspace` brings the working files; `history` only
-    /// the transcript.
-    static func moveRuntime(token: String, teamId: String, sessionId: String, runtimeId: String, workspace: Bool) async throws -> RuntimeMove {
+    /// another agent. Only its history moves; older backends require `mode`.
+    static func moveRuntime(token: String, teamId: String, sessionId: String, runtimeId: String) async throws -> RuntimeMove {
         struct Body: Encodable { var runtimeId: String; var mode: String }
         let data = try await send(
             "POST", "agent/conversations/\(sessionId)/runtime",
             query: [URLQueryItem(name: "teamId", value: teamId)], token: token,
-            body: Body(runtimeId: runtimeId, mode: workspace ? "workspace" : "history"), timeout: 120
+            body: Body(runtimeId: runtimeId, mode: "history"), timeout: 120
         )
         return try JSONDecoder().decode(RuntimeMove.self, from: data)
     }
@@ -495,6 +514,14 @@ enum AgentChatAPI {
         _ method: String, _ path: String, query: [URLQueryItem] = [], token: String, body: B?, encodeNulls: Bool = false,
         timeout: TimeInterval = 30
     ) async throws -> Data {
+        try await StepUp.retrying(token: token) {
+            try await sendOnce(method, path, query: query, token: token, body: body, timeout: timeout)
+        }
+    }
+
+    private static func sendOnce<B: Encodable>(
+        _ method: String, _ path: String, query: [URLQueryItem], token: String, body: B?, timeout: TimeInterval
+    ) async throws -> Data {
         var components = URLComponents(url: NuphosAPI.baseURL(for: token).appending(path: path), resolvingAgainstBaseURL: false)!
         if !query.isEmpty { components.queryItems = query }
         var request = URLRequest(url: components.url!)
@@ -515,6 +542,7 @@ enum AgentChatAPI {
         switch http.statusCode {
         case 200..<300: return data
         case 401: throw NuphosAPI.Failure.unauthorized
+        case 403 where NuphosAPI.needsStepUp(data): throw NuphosAPI.Failure.reauthRequired
         default: throw conflict(status: http.statusCode, body: String(data: data, encoding: .utf8))
         }
     }

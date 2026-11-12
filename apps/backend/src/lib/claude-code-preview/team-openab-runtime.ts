@@ -25,6 +25,7 @@ export type TeamPreviewClient = Pick<
   | 'onRuntimeLoginFrame'
   | 'createSession'
   | 'loadSession'
+  | 'getSessionConfigOptions'
   | 'prompt'
   | 'cancel'
   | 'close'
@@ -109,20 +110,24 @@ export function closeAutonomousTranscript(
   if (!session.autonomousTranscriptOpen && !diedBetweenTurns) return false
   session.autonomousTranscriptOpen = false
   session.runtimeThreadStatus = update.kind === 'complete' ? 'idle' : undefined
+  // Each close ends one assistant message headed "Resumed automatically";
+  // which frame closed it tells a provider idle from a reattach (#704).
+  if (update.kind === 'complete' || update.kind === 'interrupted')
+    logEvent('info', 'agent.autonomous_segment.closed', {
+      session_id: session.conversationId,
+      team_id: session.teamId,
+      kind: update.kind,
+      reason: update.kind === 'interrupted' ? update.reason : undefined,
+      provider_state: update.runtimeSnapshot?.providerState,
+      thread_status: update.runtimeSnapshot?.providerDetails?.type,
+    })
 
   return true
 }
 
-const SAFE_CONVERSATION_ID = /^[A-Za-z0-9_-]+$/
-
-// ponytail: per-conversation subdir; Claude Code walks up to /workspace for .claude/
-export function previewRuntimeCwd(conversationId: string): string {
-  if (!SAFE_CONVERSATION_ID.test(conversationId)) {
-    throw new Error('Conversation id contains invalid characters.')
-  }
-
-  return `/workspace/conv-${conversationId}`
-}
+// ACP requires a cwd, but OpenAB ignores it: the agent runs in the runtime's
+// `working_dir` (/workspace), or a conversation's chosen workspace via _meta.
+export const RUNTIME_CWD = '/workspace'
 
 export const MAX_PREVIEW_CONVERSATION_ID_LENGTH = 200
 

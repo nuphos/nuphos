@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict'
 import { mock, test } from 'node:test'
 
+type Moved = { ok: boolean; archived: boolean; sessionIds?: string[]; botSessionId?: string }
+
 const calls: { sessionId: string; archived: boolean; teamId: string }[] = []
-let request: () => Promise<{ ok: boolean; archived: boolean }>
+const announced: { sessionId: string; teamId: string }[] = []
+let request: () => Promise<Moved>
 
 mock.module('../api.ts', {
   namedExports: {
@@ -12,6 +15,14 @@ mock.module('../api.ts', {
 
         return request()
       },
+    },
+  },
+})
+
+mock.module('./chatArchiveEvents.ts', {
+  namedExports: {
+    announceChatArchived(change: { sessionId: string; teamId: string }) {
+      announced.push(change)
     },
   },
 })
@@ -58,4 +69,29 @@ test('in-flight archives are isolated by team and session', async () => {
     archiveChat('other-session', 'team-a'),
   ])
   assert.equal(calls.length, 3)
+})
+
+test('what the server archived with it is announced too, so its tabs and rows close', async () => {
+  announced.length = 0
+  request = () =>
+    Promise.resolve({
+      ok: true,
+      archived: true,
+      sessionIds: ['bot', 'bot-chat'],
+      botSessionId: 'bot',
+    })
+
+  assert.equal((await archiveChat('bot', 'team')).botSessionId, 'bot')
+  // The caller announces the one it archived; the rest come from the server's answer.
+  assert.deepEqual(announced, [{ sessionId: 'bot-chat', teamId: 'team' }])
+})
+
+test('a chat archived on its own, or an older server, announces nothing more', async () => {
+  announced.length = 0
+  request = () => Promise.resolve({ ok: true, archived: true, sessionIds: ['bot-chat'] })
+  await archiveChat('bot-chat', 'team')
+  request = () => Promise.resolve({ ok: true, archived: true })
+  await archiveChat('task', 'team')
+
+  assert.deepEqual(announced, [])
 })

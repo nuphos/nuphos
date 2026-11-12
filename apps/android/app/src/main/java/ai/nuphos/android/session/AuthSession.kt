@@ -9,6 +9,7 @@ import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import ai.nuphos.android.data.BackendOrigin
 import ai.nuphos.android.data.AccountApi
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.data.NuphosWeb
@@ -46,6 +47,25 @@ class AuthSession(
     var token: String? = null
         private set
 
+    var serverOrigin: String by mutableStateOf(BackendOrigin.current)
+        private set
+
+    /** The server can only change at the signed-out boundary. */
+    fun selectServer(address: String) {
+        check(state is State.SignedOut) { "Sign out before changing servers." }
+        val origin = BackendOrigin.normalize(address)
+        if (origin == serverOrigin) return
+        check(app.getSharedPreferences("nuphos.backend", Application.MODE_PRIVATE)
+            .edit().putString("origin", origin).commit()) { "Could not save the server address." }
+        cancelLogin()
+        beginIdentity()
+        clearToken()
+        (app as? ai.nuphos.android.NuphosApplication)?.conversationLinks?.clear()
+        BackendOrigin.select(origin)
+        serverOrigin = origin
+        state = State.SignedOut(null)
+    }
+
     val user: NuphosUser?
         get() = (state as? State.SignedIn)?.user
 
@@ -58,6 +78,9 @@ class AuthSession(
     var consentError: String? by mutableStateOf(null)
         private set
     var profileError: String? by mutableStateOf(null)
+        private set
+    /** A sign-in that needs the account's second factor; the sign-in screen asks for the code. */
+    var mfaChallenge: String? by mutableStateOf(null)
         private set
     val aiAllowed: Boolean get() = token?.let { AiAccess.allows(it) } == true
     val composerDrafts = ComposerDrafts(ai.nuphos.android.data.ComposerDraftPreferences(app))
@@ -262,6 +285,7 @@ class AuthSession(
     fun signIn(activity: Activity, provider: NuphosWeb.Provider) {
         if (state !is State.SignedOut) return
         val expected = beginIdentity()
+        val origin = serverOrigin
         state = State.SigningIn
         customTabsOpen = false
         val resumed = CompletableDeferred<Unit>()
@@ -301,6 +325,9 @@ class AuthSession(
                     throw java.net.SocketTimeoutException("Sign-in expired. Please try again.")
                 }
                 val received = withContext(Dispatchers.IO) { attempt.redeem(code) }
+                ensureActive()
+                if (generation != expected || serverOrigin != origin) return@launch
+                BackendOrigin.bind(received, origin)
                 val user = NuphosApi.currentUser(received)
                 ensureActive()
                 if (generation != expected || state !is State.SigningIn || loginAttempt !== attempt) return@launch
@@ -314,6 +341,8 @@ class AuthSession(
                 throw e
             } catch (_: ActivityNotFoundException) {
                 if (generation == expected) state = State.SignedOut("We could not open the sign-in window. Please try again.")
+            } catch (e: NuphosApi.Failure.MfaRequired) {
+                if (generation == expected) askForMfa(e.challenge)
             } catch (_: Exception) {
                 if (generation == expected) state = State.SignedOut("Secure sign-in did not complete. Check your connection and try again.")
             } finally {
@@ -342,19 +371,51 @@ class AuthSession(
         if (state is State.SigningIn && loginAttempt == null) signOut()
     }
 
-    private fun credentialSignIn(email: String, credential: String, password: Boolean) {
+    private fun credentialSignIn(email: String, credential: String, password: Boolean) =
+        finishSignIn(password, onRefused = null) {
+            if (password) AccountApi("").passwordSignIn(email, credential)
+            else AccountApi("").emailSignIn(email, credential)
+        }
+
+    private fun askForMfa(challenge: String) {
+        mfaChallenge = challenge
+        state = State.SignedOut(null)
+    }
+
+    /** The second step of a sign-in that asked for it. [onRefused] hears why a code was not accepted. */
+    fun verifyMfa(code: String, onRefused: (String) -> Unit) {
+        val challenge = mfaChallenge ?: return
+        finishSignIn(password = false, onRefused = onRefused) {
+            AccountApi("").verifyMfa(challenge, code).also { mfaChallenge = null }
+        }
+    }
+
+    fun cancelMfa() { mfaChallenge = null }
+
+    private fun finishSignIn(password: Boolean, onRefused: ((String) -> Unit)?, obtain: suspend () -> String) {
         if (state !is State.SignedOut) return
         val expected = beginIdentity()
+        val origin = serverOrigin
         state = State.SigningIn
         loginJob = scope.launch {
             try {
                 val received = try {
-                    if (password) AccountApi("").passwordSignIn(email, credential)
-                    else AccountApi("").emailSignIn(email, credential)
+                    obtain()
+                } catch (e: NuphosApi.Failure.MfaRequired) {
+                    if (generation == expected) askForMfa(e.challenge)
+                    return@launch
+                } catch (e: NuphosApi.Failure.Http) {
+                    if (onRefused == null) throw e
+                    if (generation == expected) { state = State.SignedOut(null); onRefused(e.message) }
+                    return@launch
                 } catch (_: NuphosApi.Failure.Unauthorized) {
                     if (generation == expected) state = State.SignedOut(if (password) "The email or password is incorrect." else "Incorrect or expired code. Request a new code if needed.")
+                    onRefused?.invoke("That code is not valid.")
                     return@launch
                 }
+                ensureActive()
+                if (generation != expected || serverOrigin != origin) return@launch
+                BackendOrigin.bind(received, origin)
                 val user = NuphosApi.currentUser(received)
                 ensureActive()
                 if (generation != expected || state !is State.SigningIn) return@launch
@@ -368,7 +429,9 @@ class AuthSession(
                 throw e
             } catch (_: NuphosApi.Failure.Unauthorized) {
                 if (generation == expected) state = State.SignedOut(NuphosApi.Failure.Unauthorized.message)
+                onRefused?.invoke(NuphosApi.Failure.Unauthorized.message)
             } catch (e: NuphosApi.Failure.Http) {
+                onRefused?.invoke(e.message)
                 if (generation == expected) state = State.SignedOut(if (password) e.message else when (e.code) {
                     400 -> "Incorrect or expired code, or invalid details. Check your entries or request a new code."
                     429 -> "Too many attempts. Wait before requesting a new code."
@@ -376,6 +439,7 @@ class AuthSession(
                 })
             } catch (_: Exception) {
                 if (generation == expected) state = State.SignedOut("Sign-in did not complete. Check your details and connection, then try again.")
+                onRefused?.invoke("Sign-in did not complete. Check your connection, then try again.")
             } finally {
                 if (generation == expected) loginJob = null
             }

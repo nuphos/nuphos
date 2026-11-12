@@ -96,7 +96,7 @@ enum Whisper {
     /// spelling and style, so it lists names Whisper would otherwise guess at.
     /// Whisper reads only its last 224 tokens.
     static let promptKey = "whisper-prompt"
-    static let defaultPrompt = "Nuphos, Zeabur, Claude Code, Codex, Kubernetes, kubectl, Helm, EKS, GKE, AWS, GCP, Cloudflare, Grafana, Linear, GitHub, PR, CI."
+    static let defaultPrompt = "Nuphos, Claude Code, Codex, GitHub, Linear, Slack, Discord."
 
     struct Failure: LocalizedError {
         let errorDescription: String?

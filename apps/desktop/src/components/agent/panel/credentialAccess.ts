@@ -35,6 +35,7 @@ export function normalizeCredentialAccess(
     vantaIntegrationIds: value?.vantaIntegrationIds ?? [],
     secureframeIntegrationIds: value?.secureframeIntegrationIds ?? [],
     resendIntegrationIds: value?.resendIntegrationIds ?? [],
+    trelloIntegrationIds: value?.trelloIntegrationIds ?? [],
     githubInstallationIds: value?.githubInstallationIds ?? [],
     gitlabBindingIds: value?.gitlabBindingIds ?? [],
     grafanaInstanceIds: value?.grafanaInstanceIds ?? [],
@@ -75,6 +76,7 @@ export function normalizeCredentialOptions(
     vantaIntegrations: value?.vantaIntegrations ?? [],
     secureframeIntegrations: value?.secureframeIntegrations ?? [],
     resendIntegrations: value?.resendIntegrations ?? [],
+    trelloIntegrations: value?.trelloIntegrations ?? [],
     githubInstallations: value?.githubInstallations ?? [],
     gitlabBindings: value?.gitlabBindings ?? [],
     grafanaInstances: value?.grafanaInstances ?? [],
@@ -117,6 +119,7 @@ export function credentialSelectionSignature(value: AgentCredentialSelection): s
     vantaIntegrationIds: sortedIds(value.vantaIntegrationIds),
     secureframeIntegrationIds: sortedIds(value.secureframeIntegrationIds),
     resendIntegrationIds: sortedIds(value.resendIntegrationIds),
+    trelloIntegrationIds: sortedIds(value.trelloIntegrationIds),
     githubInstallationIds: sortedIds(value.githubInstallationIds),
     gitlabBindingIds: sortedIds(value.gitlabBindingIds),
     grafanaInstanceIds: sortedIds(value.grafanaInstanceIds),
@@ -170,6 +173,9 @@ export function allCredentialAccess(options: AgentCredentialOptions): AgentCrede
     resendIntegrationIds: (options.resendIntegrations ?? []).map(
       (integration) => integration.integrationId,
     ),
+    trelloIntegrationIds: (options.trelloIntegrations ?? []).map(
+      (integration) => integration.integrationId,
+    ),
     githubInstallationIds: (options.githubInstallations ?? []).map(
       (installation) => installation.installationId,
     ),
@@ -200,6 +206,7 @@ export function defaultCredentialAccess(options: AgentCredentialOptions): AgentC
   return {
     ...allCredentialAccess(options),
     resendIntegrationIds: [],
+    trelloIntegrationIds: [],
     deviceIds: usableDeviceIds(options.devices),
   }
 }
@@ -264,6 +271,7 @@ export function emptyCredentialAccess(): AgentCredentialSelection {
     vantaIntegrationIds: [],
     secureframeIntegrationIds: [],
     resendIntegrationIds: [],
+    trelloIntegrationIds: [],
     githubInstallationIds: [],
     gitlabBindingIds: [],
     grafanaInstanceIds: [],

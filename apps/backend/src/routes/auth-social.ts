@@ -33,7 +33,7 @@ socialAuth.get('/login', async (c) => {
   if (handle && !(await findPendingNativeSession(handle)))
     throw new AppError(400, 'invalid_handle', 'Start sign-in again from the app')
   const suffix = handle ? `?handle=${encodeURIComponent(handle)}` : ''
-  // Only configured providers are offered; with none, clients fall back to their legacy sign-in.
+  // Only configured providers are offered; with none, clients show no provider button.
   const providers = (['google', 'apple'] as const).filter((provider) => isConfigured(provider))
   const links = providers.map(
     (p) => `<a href="${p}/start${suffix}">Continue with ${p === 'google' ? 'Google' : 'Apple'}</a>`,

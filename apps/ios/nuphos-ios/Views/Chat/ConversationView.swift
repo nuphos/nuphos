@@ -29,6 +29,8 @@ struct ConversationView: View {
     @State private var showRename = false
     @State private var renamedTitle = ""
     @State private var showRuntimes = false
+    /// The last sign-in ask from this screen, for the runtime it was about.
+    @State private var signInAsk: (runtimeId: String, status: String, asked: Bool)?
     @State private var showShare = false
     /// The desktop open from this conversation: beside it where the window is wide, else full screen.
     @State private var desktop: DesktopSession?
@@ -204,7 +206,13 @@ struct ConversationView: View {
         } message: {
             Text(archiveError ?? "")
         }
-        .sheet(item: $toolDetail) { ToolDetailSheet(part: $0) }
+        // Wherever the reader is in the transcript, a refused Stop is answered.
+        .alert("Couldn't stop the agent", isPresented: Binding(get: { session.stopRefusal != nil }, set: { if !$0 { session.stopRefusal = nil } })) {
+            Button("OK") { session.stopRefusal = nil }
+        } message: {
+            Text(session.stopRefusal ?? "")
+        }
+        .sheet(item: $toolDetail) { ToolDetailSheet(part: $0, session: session) }
         .sheet(isPresented: $showShare) { ShareSessionSheet(session: session).presentationDetents([.medium, .large]) }
         .sheet(isPresented: $showRuntimes) {
             RuntimePickerSheet(session: session) { runtime in
@@ -286,6 +294,25 @@ struct ConversationView: View {
         }
     }
 
+    /// Asking whoever can sign this conversation's signed-out agent in, when the viewer can't.
+    private var signInAskRow: HintRow.Ask? {
+        let runtimeId = session.runtimeId ?? session.runtime?.id
+        let admin = store.teams.first { $0.id == session.teamId }?.isAdministrator ?? false
+        guard let runtimeId, let label = RuntimeInstance.signInAsk(runtimeId, viewerId: store.userId, isAdministrator: admin)
+        else { return nil }
+        let sent = signInAsk?.runtimeId == runtimeId ? signInAsk : nil
+        return HintRow.Ask(label: label, status: sent?.status, asked: sent?.asked == true) {
+            Task {
+                do {
+                    let name = try await session.askSignIn(runtimeId: runtimeId)
+                    signInAsk = (runtimeId, "Asked \(name). You can send once they sign it in.", true)
+                } catch {
+                    signInAsk = (runtimeId, error.localizedDescription, false)
+                }
+            }
+        }
+    }
+
     /// The agent this conversation runs on, when the catalog lists it.
     private var conversationRuntime: RuntimeInstance? {
         let id = session.runtimeId ?? session.runtime?.id
@@ -305,6 +332,9 @@ struct ConversationView: View {
                     computer: conversationRuntime?.local?.deviceLabel ?? "this computer",
                     onSwitchRuntime: session.canManage ? { showRuntimes = true } : nil
                 )
+            }
+            if let question = session.answering {
+                ReplyChip(reply: question.quote) { session.answering = nil }
             }
             if !session.queued.isEmpty || !session.serverQueued.isEmpty {
                 QueuedStrip(
@@ -337,7 +367,7 @@ struct ConversationView: View {
                     devices: session.canManage ? store.credentialCatalog?.scoped(to: .devices).allItems ?? [] : [],
                     pickDevice: { device in
                         var selection = session.credentialAccess ?? CredentialSelection()
-                        if !selection.contains(device) { selection.toggle(device); session.credentialAccess = selection }
+                        if !selection.contains(device) { selection.toggle(device); session.setCredentials(selection) }
                     },
                     search: { query in
                         await store.loadCredentialOptions()
@@ -352,7 +382,7 @@ struct ConversationView: View {
                 if session.canManage { ComposerControls(
                     selection: Binding(
                         get: { session.credentialAccess ?? CredentialSelection() },
-                        set: { session.credentialAccess = $0 }
+                        set: { session.setCredentials($0) }
                     ),
                     mode: Binding(get: { session.permissionMode }, set: { session.setPermissionMode($0) }),
                     session: session,
@@ -474,10 +504,11 @@ struct ConversationView: View {
             // A runtime that can't take the turn: moving the conversation is the way on.
             HintRow(
                 text: text, isError: isError,
-                onSwitchRuntime: session.canManage && AgentChatAPI.switchRuntimeErrors.contains(text) ? { showRuntimes = true } : nil
+                onSwitchRuntime: session.canManage && AgentChatAPI.switchRuntimeErrors.contains(text) ? { showRuntimes = true } : nil,
+                ask: text == AgentChatAPI.Conflict.runtimeLoginRequired.errorDescription ? signInAskRow : nil
             )
         case .event(_, let event):
-            EventLine(event: event, onLink: open(link:))
+            EventLine(event: event, onLink: open(link:), teamId: session.teamId)
         case .channel:
             EmptyView()
         }
@@ -508,13 +539,18 @@ struct UserBubble: View {
                 }
             }
             if !images.isEmpty {
-                HStack(spacing: 6) {
-                    ForEach(Array(images.prefix(4).enumerated()), id: \.offset) { _, url in
-                        DataURLImage(url: url)
-                            .frame(width: 96, height: 96)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                // Four or more are wider than a phone's column, so the row scrolls.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(Array(images.enumerated()), id: \.offset) { _, url in
+                            DataURLImage(url: url)
+                                .frame(width: 96, height: 96)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
                     }
                 }
+                .defaultScrollAnchor(.trailing, for: .alignment)
+                .scrollBounceBehavior(.basedOnSize)
             }
             if let session {
                 ForEach(transfers, id: \.groupId) { transfer in
@@ -556,12 +592,18 @@ struct SendingBubble: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
-            HStack(spacing: 6) {
-                ForEach(submission.attachments.prefix(4)) { attachment in
-                    AttachmentPreview(attachment: attachment)
-                        .frame(width: 96, height: 96)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            if !submission.attachments.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(submission.attachments) { attachment in
+                            AttachmentPreview(attachment: attachment)
+                                .frame(width: 96, height: 96)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                    }
                 }
+                .defaultScrollAnchor(.trailing, for: .alignment)
+                .scrollBounceBehavior(.basedOnSize)
             }
             if !submission.text.isEmpty {
                 PlainMessageText(text: MessagePreview.head(of: submission.text) ?? submission.text, selectable: false)
@@ -597,12 +639,18 @@ struct FailedBubble: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
-            HStack(spacing: 6) {
-                ForEach(submission.attachments.prefix(4)) { attachment in
-                    AttachmentPreview(attachment: attachment)
-                        .frame(width: 96, height: 96)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            if !submission.attachments.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(submission.attachments) { attachment in
+                            AttachmentPreview(attachment: attachment)
+                                .frame(width: 96, height: 96)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                    }
                 }
+                .defaultScrollAnchor(.trailing, for: .alignment)
+                .scrollBounceBehavior(.basedOnSize)
             }
             if !submission.text.isEmpty {
                 PlainMessageText(text: MessagePreview.head(of: submission.text) ?? submission.text, selectable: false)
@@ -663,6 +711,16 @@ struct HintRow: View {
     var isError = false
     /// Set when another runtime is the way past this error.
     var onSwitchRuntime: (() -> Void)? = nil
+    /// Set when someone else can sign this agent in for the viewer.
+    var ask: Ask? = nil
+
+    /// Asks them through their Inbox and a push; once asked, says so instead.
+    struct Ask {
+        let label: String
+        var status: String?
+        var asked = false
+        let action: () -> Void
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -673,8 +731,21 @@ struct HintRow: View {
                 Text(text).font(Theme.Text.label)
             }
             .foregroundStyle(isError ? Color.red : Theme.muted)
-            if let onSwitchRuntime {
-                SwitchRuntimeButton(action: onSwitchRuntime)
+            if let status = ask?.status {
+                Text(status).font(Theme.Text.label).foregroundStyle(Theme.muted)
+            }
+            if ask?.asked == false || onSwitchRuntime != nil {
+                HStack(spacing: 8) {
+                    if let ask, !ask.asked {
+                        Button(ask.label, systemImage: "hand.wave", action: ask.action)
+                            .font(Theme.Text.label.weight(.medium))
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                    }
+                    if let onSwitchRuntime {
+                        SwitchRuntimeButton(action: onSwitchRuntime)
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -695,14 +766,42 @@ struct SwitchRuntimeButton: View {
 
 /// A message another session, a linked resource or a trigger delivered: one
 /// muted line — who sent it and its first line — that expands to the full text.
+/// A channel's wake-up notice is only "New messages in #channel": its body is
+/// the agent's input and never expands.
 struct EventLine: View {
     let event: ChatMessage.Event
     var onLink: ((URL) -> Void)?
+    /// The conversation's team, to link a channel notice to its channel.
+    var teamId: String? = nil
 
     @State private var expanded = false
     @Environment(\.transcriptReadingInteraction) private var readingInteraction
 
     var body: some View {
+        if let channelId = event.channelId {
+            channelNotice(channelId)
+        } else {
+            disclosure
+        }
+    }
+
+    @ViewBuilder
+    private func channelNotice(_ channelId: String) -> some View {
+        let label = Text("New messages in #\(event.name)")
+            .font(Theme.Text.caption)
+            .foregroundStyle(Theme.muted)
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        if let onLink, let teamId, let link = SessionLink.url(teamId: teamId, sessionId: channelId) {
+            Button { onLink(link) } label: { label.contentShape(Rectangle()) }
+                .buttonStyle(.plain)
+                .accessibilityHint("Opens the channel")
+        } else {
+            label
+        }
+    }
+
+    private var disclosure: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button {
                 disclose(readingInteraction) { expanded.toggle() }

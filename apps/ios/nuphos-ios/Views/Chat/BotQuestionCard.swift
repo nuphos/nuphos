@@ -2,30 +2,47 @@ import SwiftUI
 
 /// An open question, in a Bot's chat or the Inbox, like the desktop's decision
 /// card: which agent asked, the question and what the agent wrote to decide it
-/// from, each option as the reply, and a short typed answer. A connect or
-/// secure-input question is answered in the conversation that asked, which the
-/// link opens. `showsFrom` is off for the Bot's own questions in its own chat.
+/// from, each option an answer, and "Other…" to type the answer in the card. A
+/// multi-select or several questions are a form, sent as one answer. An answer
+/// wakes the agent that asked; no message is sent. A connect or secure-input question is answered in the
+/// conversation that asked, which the link opens. `showsFrom` is off for the
+/// Bot's own questions in its own chat.
 struct BotQuestionCard: View {
     let question: BotQuestion
     var showsFrom = true
     let onOpen: () -> Void
-    let onAnswer: (String) -> Void
+    let onAnswer: (DecisionAnswer) -> Void
     /// A tapped link in the body. Absent, the system opens it.
     var onLink: ((URL) -> Void)?
     /// Why the last answer could not be sent; the question is still open.
     var failure: String?
+    /// Chooses the asking conversation's credentials here, for an integration question; absent where it cannot.
+    var onConnect: (() -> Void)?
 
-    @State private var draft = ""
     @State private var expanded = false
+    /// "Other…" was tapped: the card asks for the answer in words.
+    @State private var typing = false
     @Environment(\.openURL) private var openURL
 
     /// The desktop's `cardReplies`: one per option, or "Done." for a to-do; nil
     /// when only the conversation can answer it.
-    private var replies: [(label: String, reply: String)]? {
+    private var replies: [(label: String, answer: DecisionAnswer)]? {
         if ["credential", "integration"].contains(question.request.category) { return nil }
         let options = (question.request.options ?? []).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-        if options.isEmpty { return [(String(localized: "Mark as done"), "Done.")] }
-        return options.map { ($0, $0) }
+        if options.isEmpty { return [(String(localized: "Mark as done"), DecisionAnswer(text: "Done."))] }
+        return options.map { ($0, DecisionAnswer(choices: [$0])) }
+    }
+
+    /// "Use your own GitHub" for a question naming the member's own credential; otherwise the picker.
+    private var connectLabel: String {
+        guard let own = question.personalCredentials else { return String(localized: "Choose credentials") }
+        let names = own.map { $0 == "github" ? "GitHub" : $0 == "linear" ? "Linear" : $0 }
+        return String(localized: "Use your own \(names.joined(separator: " and "))")
+    }
+
+    /// "Other…" beside options; "Reply…" when there are none.
+    private var replyLabel: LocalizedStringKey {
+        (question.request.options ?? []).contains { !$0.trimmingCharacters(in: .whitespaces).isEmpty } ? "Other…" : "Reply…"
     }
 
     private var heading: LocalizedStringKey {
@@ -56,31 +73,34 @@ struct BotQuestionCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text(heading).font(Theme.Text.secondary.weight(.medium)).foregroundStyle(Theme.heading)
                 Text(question.request.question).font(Theme.Text.label).foregroundStyle(Theme.body)
-                if let body = question.request.body?.trimmingCharacters(in: .whitespacesAndNewlines), !body.isEmpty {
+                if let body = question.ownBody {
                     questionBody(body)
                 }
-                if let replies {
+                if let form = question.form {
+                    DecisionForm(questions: form, onSubmit: onAnswer)
+                } else if typing {
+                    // "Other…": the same form with the question alone and no options.
+                    DecisionForm(questions: [.init(question: question.request.question)], onSubmit: onAnswer)
+                } else if let replies {
                     VStack(alignment: .leading, spacing: 8) {
-                        ForEach(replies, id: \.reply) { reply in
-                            Button(reply.label) { onAnswer(reply.reply) }
+                        ForEach(replies, id: \.label) { reply in
+                            Button(reply.label) { onAnswer(reply.answer) }
                                 .buttonStyle(.bordered)
                                 .controlSize(.small)
                                 .tint(Theme.heading)
                         }
                     }
-                    HStack(spacing: 8) {
-                        TextField("Or type a different answer", text: $draft)
+                    if question.typed {
+                        Button(replyLabel) { typing = true }
                             .font(Theme.Text.label)
-                            .textFieldStyle(.roundedBorder)
-                            .submitLabel(.send)
-                            .onSubmit(send)
-                            .accessibilityLabel("Reply to this question")
-                        Button("Send", action: send)
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            .tint(Theme.heading)
-                            .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .foregroundStyle(Theme.muted)
+                            .buttonStyle(.plain)
                     }
+                } else if let onConnect, question.connectable {
+                    Button(connectLabel, action: onConnect)
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .tint(Theme.heading)
                 } else {
                     Button("Answer in the conversation", action: onOpen)
                         .buttonStyle(.bordered)
@@ -117,11 +137,67 @@ struct BotQuestionCard: View {
             }
         }
     }
+}
 
-    private func send() {
-        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        draft = ""
-        onAnswer(text)
+/// The desktop's `DecisionForm`: each question's options toggled, one or any
+/// number, or the answer typed in their place, sent together as one answer.
+private struct DecisionForm: View {
+    let questions: [AgentConversation.DecisionQuestion]
+    let onSubmit: (DecisionAnswer) -> Void
+
+    @State private var picked: [[String]]
+    @State private var typed: [String]
+
+    init(questions: [AgentConversation.DecisionQuestion], onSubmit: @escaping (DecisionAnswer) -> Void) {
+        self.questions = questions
+        self.onSubmit = onSubmit
+        _picked = State(initialValue: questions.map { _ in [] })
+        _typed = State(initialValue: questions.map { _ in "" })
+    }
+
+    private var answers: [String] {
+        questions.indices.map { BotQuestion.answerText(picked: picked[$0], typed: typed[$0]) }
+    }
+
+    private func toggle(_ option: String, at index: Int) {
+        if picked[index].contains(option) {
+            picked[index].removeAll { $0 == option }
+        } else {
+            picked[index] = questions[index].multiSelect == true ? picked[index] + [option] : [option]
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(questions.indices, id: \.self) { index in
+                VStack(alignment: .leading, spacing: 8) {
+                    if questions.count > 1 {
+                        Text(questions[index].question)
+                            .font(Theme.Text.label.weight(.medium))
+                            .foregroundStyle(Theme.heading)
+                    }
+                    ForEach(questions[index].options ?? [], id: \.self) { option in
+                        let on = picked[index].contains(option)
+                        Button { toggle(option, at: index) } label: {
+                            Label(option, systemImage: on ? "checkmark.circle.fill" : "circle")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .tint(on ? Theme.brand : Theme.heading)
+                        .accessibilityAddTraits(on ? .isSelected : [])
+                    }
+                    TextField(
+                        (questions[index].options ?? []).isEmpty ? "Your answer" : "Or type your own answer",
+                        text: $typed[index]
+                    )
+                    .textFieldStyle(.roundedBorder)
+                    .font(Theme.Text.label)
+                }
+            }
+            Button("Send answer") { onSubmit(BotQuestion.formAnswer(questions, picked: picked, typed: typed)) }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .disabled(answers.contains { $0.isEmpty })
+        }
     }
 }

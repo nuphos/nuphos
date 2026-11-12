@@ -1,6 +1,8 @@
 import { Fragment } from 'react'
 
+import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { t } from '../../../i18n'
+import { toAbsoluteAtlasUrl } from '../../../lib/webBaseUrl'
 import { Avatar } from '../../Avatar'
 import { PlanRevealSection } from '../plan-tool/reveal'
 
@@ -54,21 +56,42 @@ export function Rule({ children, title }: { children: ReactNode; title?: string 
 export function TimelineEventLine({
   event,
   reveal = false,
+  teamId,
+  onOpenNuphosLink,
 }: {
   event: AgentTimelineEvent
   reveal?: boolean
+  teamId?: string
+  onOpenNuphosLink?: (href: string) => boolean
 }) {
-  const line = <EventLine event={event} />
+  const line = <EventLine event={event} teamId={teamId} onOpenNuphosLink={onOpenNuphosLink} />
 
   return reveal ? <PlanRevealSection revealKey={event.at}>{line}</PlanRevealSection> : line
 }
 
-function EventLine({ event }: { event: AgentTimelineEvent }) {
+function EventLine({
+  event,
+  teamId,
+  onOpenNuphosLink,
+}: {
+  event: AgentTimelineEvent
+  teamId?: string
+  onOpenNuphosLink?: (href: string) => boolean
+}) {
   const title = new Date(event.at).toLocaleString()
   const { actor, target, from, to } = event
 
   // An event from an older backend carries only its sentence.
   if (!actor) return <Rule title={title}>{event.text}</Rule>
+  if (event.kind === 'message_edited')
+    return (
+      <EditedLine
+        event={{ ...event, actor }}
+        title={title}
+        teamId={teamId}
+        onOpenNuphosLink={onOpenNuphosLink}
+      />
+    )
   if (event.kind === 'runtime_fallback_stopped')
     return (
       <Rule title={event.text}>
@@ -139,5 +162,41 @@ export function MovingSessionLine({ label }: { label: string }) {
         </Rule>
       </div>
     </PlanRevealSection>
+  )
+}
+
+/** An edit that ran in a fork. The fork is private to whoever edited, so only they get Open. */
+function EditedLine({
+  event,
+  title,
+  teamId,
+  onOpenNuphosLink,
+}: {
+  event: AgentTimelineEvent & { actor: NonNullable<AgentTimelineEvent['actor']> }
+  title: string
+  teamId?: string
+  onOpenNuphosLink?: (href: string) => boolean
+}) {
+  const viewerId = useCurrentUser()?.id
+  const forkUrl =
+    teamId && event.forkSessionId && viewerId === event.actor.id
+      ? toAbsoluteAtlasUrl(`/teams/${teamId}/agent/${event.forkSessionId}`)
+      : null
+
+  return (
+    <Rule title={title}>
+      {fill(t('{actor} edited a message and ran it in a new task'), {
+        actor: <Person person={event.actor} />,
+      })}
+      {forkUrl && onOpenNuphosLink && (
+        <button
+          type="button"
+          onClick={() => onOpenNuphosLink(forkUrl)}
+          className="shrink-0 font-medium text-secondary hover:underline"
+        >
+          {t('Open')}
+        </button>
+      )}
+    </Rule>
   )
 }

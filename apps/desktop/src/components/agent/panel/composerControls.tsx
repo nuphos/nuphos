@@ -1,15 +1,18 @@
 import clsx from 'clsx'
-import { ArrowUp, Square } from 'lucide-react'
+import { ArrowUp, ChevronDown, ListOrdered, Square } from 'lucide-react'
 import { useLayoutEffect, useRef } from 'react'
 
 import { t } from '../../../i18n'
 import { Button } from '../../ui/button'
+import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../ui/menu'
 
 import { isRichImageDrop } from './attachmentDrag'
+import { ComposerVoice } from './ComposerVoice'
 import { AGENT_QUEUE_PLACEHOLDER } from './constants'
 import { usePastedTextChips } from './usePastedTextChips'
 import { OpenSlackThreadButton } from './ReadOnlyNotice'
 
+import type { ComposerVoiceScope } from './ComposerVoice'
 import type { AgentSlackThread } from '../../../api'
 import type {
   ClipboardEvent,
@@ -108,21 +111,24 @@ export function ComposerEditor({
   )
 }
 
-export function ComposerSendControls({
+function SendControls({
   hero,
   readOnly,
   runtimeCanCancel = false,
+  canSteer = false,
   slackThread,
   hasQueueablePayload,
   sendDisabled,
   sendBlockedReason,
   onConnectAgent,
   onSubmit,
+  onQueue,
   onStop,
 }: {
   hero: boolean
   readOnly: boolean
   runtimeCanCancel?: boolean
+  canSteer?: boolean
   executing?: boolean
   slackThread?: AgentSlackThread | null
   hasQueueablePayload: boolean
@@ -132,6 +138,7 @@ export function ComposerSendControls({
   /** Takes the send button's place while no agent can run. */
   onConnectAgent?: () => void
   onSubmit: () => void
+  onQueue?: () => void
   onStop: () => void
 }) {
   if (readOnly && slackThread) {
@@ -147,10 +154,29 @@ export function ComposerSendControls({
               hero ? 'w-8 h-8 rounded-full' : 'w-7 h-7 rounded-md',
               'bg-action-primary hover:bg-action-primary/90 text-inverse flex items-center justify-center transition-colors',
             )}
-            title={t('Send response')}
+            title={canSteer ? t('Send into the running turn') : t('Send response')}
           >
             <ArrowUp className="w-4 h-4" strokeWidth={2.4} />
           </button>
+        )}
+        {canSteer && !sendDisabled && hasQueueablePayload && onQueue && (
+          <Menu>
+            <MenuTrigger
+              className="flex h-7 w-5 items-center justify-center rounded-md text-secondary hover:bg-state-hover"
+              aria-label={t('Send options')}
+              title={t('Send options')}
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </MenuTrigger>
+            <MenuContent side="top" align="end">
+              <MenuItem icon={<ArrowUp className="h-4 w-4" />} onClick={onSubmit}>
+                {t('Send into the running turn')}
+              </MenuItem>
+              <MenuItem icon={<ListOrdered className="h-4 w-4" />} onClick={onQueue}>
+                {t('Queue after this turn')}
+              </MenuItem>
+            </MenuContent>
+          </Menu>
         )}
         <button
           onClick={onStop}
@@ -248,6 +274,21 @@ export function ComposerTools({ children }: { children: ReactNode }) {
       className="-my-3 flex h-14 min-w-0 flex-1 flex-wrap content-start items-center gap-x-0.5 gap-y-6 overflow-hidden py-3 @[320px]:gap-x-1"
     >
       {children}
+    </div>
+  )
+}
+
+/** The send controls, with the voice-input button before them while the composer can be edited. */
+export function ComposerSendControls({
+  voice,
+  ...props
+}: Parameters<typeof SendControls>[0] & { voice?: ComposerVoiceScope }) {
+  if (!voice || props.readOnly) return <SendControls {...props} />
+
+  return (
+    <div className="flex items-center gap-1">
+      <ComposerVoice {...voice} hero={props.hero} />
+      <SendControls {...props} />
     </div>
   )
 }

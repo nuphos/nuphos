@@ -2,6 +2,7 @@ import { StringDecoder } from 'node:string_decoder'
 
 import { signedIn, stillCurrent } from './account-request.ts'
 import { authSession } from './auth-session.ts'
+import { dialBackend } from './backend-socket.ts'
 import { onPageGone } from './page-owner.ts'
 
 import type { LocalTerminalEvent, TerminalTarget } from '../src/api/local-terminal-types.ts'
@@ -69,8 +70,7 @@ export class RuntimeTerminalSessions {
 
     url.searchParams.set('cols', String(cols))
     url.searchParams.set('rows', String(rows))
-    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
-    const socket = new WebSocket(url, { headers: { authorization: `Bearer ${account.token}` } })
+    const socket = dialBackend(url, { authorization: `Bearer ${account.token}` })
 
     session.socket = socket
     const decoder = new StringDecoder('utf8')

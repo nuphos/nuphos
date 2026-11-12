@@ -31,7 +31,7 @@ data class ConnectorProvider(
         "tailscale" -> "Networking"
         "vanta", "secureframe", "sonarqube" -> "Compliance"
         "github", "gitlab" -> "Source control"
-        "linear", "jira", "asana" -> "Project management"
+        "linear", "jira", "asana", "trello" -> "Project management"
         "notion", "plaud" -> "Document"
         "upstash" -> "Databases"
         "resend" -> "Email"
@@ -66,6 +66,7 @@ data class ConnectorProvider(
         "linear", "notion" -> listOf("workspaceName")
         "jira" -> listOf("siteUrl")
         "asana" -> listOf("accountEmail")
+        "trello" -> listOf("username")
         "upstash" -> listOf("email")
         "resend" -> listOf("permission")
         else -> emptyList()
@@ -112,13 +113,13 @@ fun validHttpUrl(value: String): Boolean = runCatching {
 
 object ConnectorCatalog {
     val categoryOrder = listOf("Infrastructure", "Observability", "Databases", "Networking", "Compliance", "Source control", "Project management", "Document", "Email", "Messaging", "Other")
-    val arrayKeys = listOf("aws", "gcp", "cloudflare", "linode", "hetzner", "tencent", "aliyun", "volcengine", "azure", "huawei", "vanta", "secureframe", "sonarqube", "notion", "onprem", "upstash", "resend", "posthog", "betterstack", "uptimeKuma", "tailscale", "zeabur", "github", "gitlab", "grafana", "linear", "jira", "asana", "sentry", "plaud")
+    val arrayKeys = listOf("aws", "gcp", "cloudflare", "linode", "hetzner", "tencent", "aliyun", "volcengine", "azure", "huawei", "vanta", "secureframe", "sonarqube", "notion", "onprem", "upstash", "resend", "posthog", "betterstack", "uptimeKuma", "tailscale", "zeabur", "github", "gitlab", "grafana", "linear", "jira", "asana", "trello", "sentry", "plaud")
     private fun label() = ConnectorField("label", "Label", max = 100)
     private fun secret(key: String, title: String, max: Int = Int.MAX_VALUE, required: Boolean = true, trim: Boolean = true) = ConnectorField(key, title, ConnectorFieldKind.Secret, required, max, trim)
     private fun form(key: String, title: String, path: String, vararg fields: ConnectorField, note: String? = null) = ConnectorProvider(key, title, path, fields.toList(), note = note)
     val all = listOf(
         form("aws", "AWS", "aws-accounts", ConnectorField("roleArn", "Role ARN", ConnectorFieldKind.Arn, trim = false), note = "The role must already trust Nuphos. The server checks access before saving."),
-        ConnectorProvider("gcp", "Google Cloud"),
+        ConnectorProvider("gcp", "Google Cloud / Firebase"),
         form("azure", "Azure", "azure-accounts", label(), ConnectorField("tenantId", "Tenant ID", ConnectorFieldKind.Guid), ConnectorField("clientId", "Client ID", ConnectorFieldKind.Guid), ConnectorField("subscriptionId", "Subscription ID", ConnectorFieldKind.Guid), note = "Set up the app's federated credential and role assignment first."),
         ConnectorProvider("cloudflare", "Cloudflare"),
         form("linode", "Linode", "linode-accounts", label(), secret("token", "API token")),
@@ -136,6 +137,7 @@ object ConnectorCatalog {
         form("sonarqube", "SonarQube", "sonarqube-integrations", label(), ConnectorField("baseUrl", "Base URL", ConnectorFieldKind.Url), secret("token", "Token", 512)),
         ConnectorProvider("github", "GitHub", "github-installations"), ConnectorProvider("gitlab", "GitLab"),
         ConnectorProvider("linear", "Linear", "linear-workspaces", oauth = true), ConnectorProvider("jira", "Jira", "jira-sites", oauth = true), ConnectorProvider("asana", "Asana", "asana-accounts", oauth = true),
+        ConnectorProvider("trello", "Trello", "trello-integrations", oauth = true),
         ConnectorProvider("plaud", "Plaud", "plaud-accounts", oauth = true),
         form("notion", "Notion", "notion-integrations", label(), secret("token", "Integration token", 300)),
         form("upstash", "Upstash", "upstash-accounts", label(), ConnectorField("email", "Account email", ConnectorFieldKind.Email, max = 200), secret("apiKey", "Management API key", 400)),

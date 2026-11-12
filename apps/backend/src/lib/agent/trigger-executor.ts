@@ -1,31 +1,18 @@
 import { createHash, randomUUID } from 'node:crypto'
 
-import { signNuphosToken } from '@/lib/identity'
-import { SLACK_INCIDENT_BUSY_POSTS_PER_HOUR } from '@/lib/slack/incident-notifications'
-import { runAgentForTrigger } from '@/routes/agent'
-import { persistedMessageToUiMessage } from '@/routes/slack/messages'
-
 import { buildTriggerRunStamp } from './conversation-trigger-run'
+import { postChannelMessage } from './channel-chat'
 import { executeConversationTurn } from './conversation-turn'
-import { getConversationBySessionId, getConversationWithMessages } from './db'
-import { incidentDeliveryPolicy } from './incident-delivery-policy'
-import { claimAgentRunForSession } from './run-admission'
+import { systemSender } from './message-metadata'
 import { agentTriggers, isRetiredTriggerShape } from './trigger-db'
 import { resolveExecutionAuthorization } from './trigger-executor-authorization'
-import {
-  prepareIncidentContext,
-  readReportedStatus,
-  resolveMessageTemplate,
-} from './trigger-executor-context'
+import { readReportedStatus, resolveMessageTemplate } from './trigger-executor-context'
 
 import type { ConversationTriggerRun, ConversationTriggerRunKind } from './conversation-trigger-run'
 import type { AgentConversation } from './db'
-import { systemSender } from './message-metadata'
-
 import type { MessageMetadata } from './message-metadata'
 import type { AgentTrigger } from './trigger-db'
 import type { TriggerGroupMember } from './trigger-group-db'
-import type { UIMessage } from 'ai'
 
 export { resolveMessageTemplate } from './trigger-executor-context'
 
@@ -37,11 +24,9 @@ type TriggerFireOptions = {
    * mislabel runs silently.
    */
   runKind: ConversationTriggerRunKind
-  sessionId?: string
   deliveryId?: string
   /** Stable per fire (the BullMQ job id), so a redelivered fire is not delivered twice. */
   fireId?: string
-  incidentScope?: string
   groupMember?: TriggerGroupMember
 }
 
@@ -55,7 +40,7 @@ export async function executeTrigger(
     throw new Error(`Trigger ${trigger._id.toHexString()} is a retired database alert`)
   }
   const triggerId = trigger._id.toHexString()
-  const { principalUserId, credentialAccess, target } = await resolveExecutionAuthorization(trigger)
+  const { target } = await resolveExecutionAuthorization(trigger)
   const reportedStatus = readReportedStatus(webhookPayload)
   const context = templateContext(trigger, triggerId, webhookPayload, options, reportedStatus)
   // The same stamp a new conversation is filed under. A bound session is not
@@ -67,113 +52,15 @@ export async function executeTrigger(
     ...(options.fireId ? { fireId: options.fireId } : {}),
   })
 
-  // Every new Trigger is bound and ends here.
-  if (target) {
-    await deliverToTargetSession(
-      trigger,
-      target,
-      resolveMessageTemplate(trigger.messageTemplate, context),
-      { fireId: options.fireId, trigger: runStamp },
-    )
+  // Unbound Triggers never get here: authorization pauses them.
+  await deliverToTargetSession(
+    trigger,
+    target,
+    resolveMessageTemplate(trigger.messageTemplate, context),
+    { fireId: options.fireId, trigger: runStamp },
+  )
 
-    return target.sessionId
-  }
-
-  // Legacy: Triggers created before binding was required still open a fresh
-  // session per fire until they are migrated. Delete this path afterwards.
-  if (trigger.incidentMode && !trigger.slackDestination) {
-    throw new Error(
-      `Incident trigger ${triggerId} has no stored Slack destination; refusing an unscoped outbound run`,
-    )
-  }
-  const incidentScope = options.incidentScope ?? 'default'
-  const sessionId = options.sessionId ?? randomUUID()
-  const existing = options.sessionId ? await getConversationBySessionId(sessionId) : null
-
-  if (existing && (existing.teamId !== trigger.teamId || existing.userId !== principalUserId)) {
-    throw new Error('Routed session owner or team no longer matches the trigger')
-  }
-  const release = options.sessionId
-    ? await claimAgentRunForSession(principalUserId, sessionId)
-    : null
-
-  if (options.sessionId && !release) throw new RoutedSessionBusyError()
-  try {
-    // An alert firing is a fact, so it is recorded before the agent decides
-    // anything. Everything the agent is told about the past is a pointer: the
-    // history itself is something it fetches, the way an on-call would.
-    const incidentContext =
-      trigger.incidentMode && trigger.teamId
-        ? await prepareIncidentContext({
-            teamId: trigger.teamId,
-            triggerId,
-            incidentScope,
-            sessionId,
-            reportedStatus,
-          })
-        : null
-
-    const baseMessage = resolveMessageTemplate(trigger.messageTemplate, context)
-    const resolvedMessage = trigger.incidentMode
-      ? `${baseMessage}${incidentDeliveryPolicy({
-          ...(reportedStatus ? { reportedStatus } : {}),
-          ...(trigger.slackDestination ? { approvedDestination: trigger.slackDestination } : {}),
-          hasPriorOccurrences: incidentContext?.hasPriorOccurrences ?? false,
-          postsInLastHour: incidentContext?.postsInLastHour ?? 0,
-          busyThreshold: SLACK_INCIDENT_BUSY_POSTS_PER_HOUR,
-        })}`
-      : baseMessage
-
-    const prior = options.sessionId
-      ? await getConversationWithMessages(sessionId, principalUserId, trigger.teamId)
-      : null
-    const history = (prior?.messages ?? [])
-      .map(persistedMessageToUiMessage)
-      .filter((message): message is UIMessage => message !== null)
-    const messages: UIMessage[] = [
-      ...history,
-      {
-        id: randomUUID(),
-        role: 'user',
-        metadata: triggerMetadata(trigger),
-        parts: [{ type: 'text', text: resolvedMessage }],
-      },
-    ]
-
-    // No inbound request to forward a Bearer token from, so mint one for the owner.
-    await runAgentForTrigger({
-      userId: principalUserId,
-      nuphosToken: signNuphosToken(principalUserId, 60 * 60 * 8),
-      teamId: trigger.teamId,
-      sessionId,
-      messages,
-      firstMessage: resolvedMessage,
-      // Self-replication guard: trigger-fired sessions must not create triggers.
-      origin: 'trigger',
-      credentialAccess,
-      // Files this conversation under its trigger rather than in Chats.
-      trigger: runStamp,
-      ...(trigger.incidentMode && trigger.slackDestination
-        ? {
-            triggerNotification: {
-              triggerId,
-              incidentScope,
-              triggerConfigRevision: trigger.configRevision ?? 0,
-              approvedDestination: trigger.slackDestination,
-            },
-          }
-        : {}),
-    })
-
-    await agentTriggers().updateOne(
-      { _id: trigger._id },
-      { $set: { lastRunAt: new Date(), updatedAt: new Date() } },
-    )
-
-    return sessionId
-  } finally {
-    release?.()
-  }
+  return target.sessionId
 }
 
 /** A fire is the Trigger speaking, never the owner: shown and attributed as such. */
@@ -200,33 +87,32 @@ async function deliverToTargetSession(
   const triggerId = trigger._id!.toHexString()
   const { sessionId } = target
 
-  await executeConversationTurn(
-    {
-      userId: target.userId,
-      // resolveExecutionAuthorization paused the Trigger unless this is its team.
-      teamId: target.teamId!,
-      targetSessionId: sessionId,
-      messageId: delivery.fireId
-        ? createHash('sha256').update(`${triggerId}:${delivery.fireId}`).digest('hex')
-        : randomUUID(),
-      locale: target.metadata?.locale ?? 'en-US',
-      trigger: delivery.trigger,
-    },
-    target,
-    text,
-    'agent.resource',
-    triggerMetadata(trigger),
-  )
+  const messageId = delivery.fireId
+    ? createHash('sha256').update(`${triggerId}:${delivery.fireId}`).digest('hex')
+    : randomUUID()
+
+  if (target.kind === 'channel') {
+    await postChannelMessage(target, { id: messageId, text, metadata: triggerMetadata(trigger) })
+  } else
+    await executeConversationTurn(
+      {
+        userId: target.userId,
+        // resolveExecutionAuthorization paused the Trigger unless this is its team.
+        teamId: target.teamId!,
+        targetSessionId: sessionId,
+        messageId,
+        locale: target.metadata?.locale ?? 'en-US',
+        trigger: delivery.trigger,
+      },
+      target,
+      text,
+      'agent.resource',
+      triggerMetadata(trigger),
+    )
   await agentTriggers().updateOne(
     { _id: trigger._id },
     { $set: { lastRunAt: new Date(), updatedAt: new Date() } },
   )
-}
-
-export class RoutedSessionBusyError extends Error {
-  constructor() {
-    super('Routed session is busy')
-  }
 }
 
 /**

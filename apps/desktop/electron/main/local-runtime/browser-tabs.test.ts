@@ -7,6 +7,8 @@ import type { runBrowserCall as RunBrowserCall } from './browser-tabs.ts'
 
 const app = new EventEmitter()
 const browserSession = {}
+/** window-session.ts's flag: set by before-quit, and by an update restart before it. */
+let appQuitting = false
 const windows: Window[] = []
 let runBrowserCall: typeof RunBrowserCall
 
@@ -119,6 +121,7 @@ before(async () => {
   mock.module('../browser-extensions/manage.ts', {
     namedExports: { browserSession: () => browserSession },
   })
+  mock.module('../window-session.ts', { namedExports: { isAppQuitting: () => appQuitting } })
   ;({ runBrowserCall } = await import('./browser-tabs.ts'))
 })
 
@@ -213,6 +216,20 @@ test('show puts the tab on screen, and closing its window hides it again', async
   assert.equal(window.visible, false)
   assert.equal(window.destroyed, false)
   assert.deepEqual(await listed('show-1'), [page.id])
+})
+
+test('an update restart closes a hidden tab, so the app can quit and install', async () => {
+  const { window } = await opened('update-1')
+
+  // quitAndInstall closes every window before before-quit fires; only the
+  // app's own flag, set first by installUpdate, says the app is going.
+  appQuitting = true
+  try {
+    window.close()
+  } finally {
+    appQuitting = false
+  }
+  assert.equal(window.destroyed, true)
 })
 
 test('close ends the tab', async () => {

@@ -13,7 +13,7 @@ import { observeAutonomousUpdates } from './autonomous-session-observer'
 import { markBackgroundWorkLost } from './background-work'
 import { publishLostSessionHandoff } from './runtime-handoff-store'
 import { forgetRuntimeState, holdRuntimeState } from './runtime-state-store'
-import { previewRuntimeCwd } from './team-openab-runtime'
+import { RUNTIME_CWD } from './team-openab-runtime'
 
 import type { TeamPreviewClient, TeamSession } from './team-openab-runtime'
 
@@ -105,7 +105,7 @@ export async function resumeSessionOn(
   try {
     result = await client.loadSession(
       session.openabSessionId,
-      previewRuntimeCwd(session.conversationId),
+      RUNTIME_CWD,
       session.mcpServers,
       session.systemPrompt,
       session.runtime,

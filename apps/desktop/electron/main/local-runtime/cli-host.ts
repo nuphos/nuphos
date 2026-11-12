@@ -8,6 +8,7 @@ import yaml from 'js-yaml'
 
 import { callJson, setTokenSource } from '../../agent/http.ts'
 import { apiUrl } from '../../api-endpoint.ts'
+import { dialBackend } from '../../backend-socket.ts'
 import { CLI_CONFIG_PATH } from '../../cli-config-path.ts'
 import {
   defaultDeviceLabel,
@@ -197,9 +198,9 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
 
         if (!fresh || (!deviceCredential && fresh !== signedIn)) throw new Error('Signed out')
 
-        return new WebSocket(tunnelUrlFor(apiUrl(), deviceId, reclaim).replace(/^http/u, 'ws'), {
-          headers: { authorization: `Bearer ${fresh}`, 'x-atlas-client': clientVersion },
-        })
+        const headers = { authorization: `Bearer ${fresh}`, 'x-atlas-client': clientVersion }
+
+        return dialBackend(tunnelUrlFor(apiUrl(), deviceId, reclaim), headers)
       },
       onRevoked: () => {
         void controller.shutdown().then(exitRevoked)

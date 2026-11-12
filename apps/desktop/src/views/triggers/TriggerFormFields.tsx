@@ -147,9 +147,16 @@ export function TriggerFormFields({
               </span>
             </div>
           )}
-          <Field label={t('Schedule (UTC)')}>
+          <Field
+            label={
+              loaded?.timeZone && loaded.timeZone !== 'UTC'
+                ? t('Schedule ({zone})', { zone: loaded.timeZone })
+                : t('Schedule (UTC)')
+            }
+          >
             <fieldset disabled={!canManage}>
               <CronBuilder
+                scheduleTimeZone={loaded?.timeZone}
                 value={form.cronExpression}
                 onChange={(expr) => setForm((f) => ({ ...f, cronExpression: expr }))}
               />

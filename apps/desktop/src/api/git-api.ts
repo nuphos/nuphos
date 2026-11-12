@@ -88,7 +88,9 @@ export const gitApi = {
     window.api.atlasUnbindJira(teamId, bindingId),
   atlasListAsanaAccounts: (teamId: string) => window.api.atlasListAsanaAccounts(teamId),
   atlasStartAsanaOAuth: (teamId: string) => window.api.atlasStartAsanaOAuth(teamId),
+  atlasStartTrelloOAuth: (teamId: string) => window.api.atlasStartTrelloOAuth(teamId),
   atlasCancelAsanaOAuth: (teamId: string) => window.api.atlasCancelAsanaOAuth(teamId),
+  atlasCancelTrelloOAuth: (teamId: string) => window.api.atlasCancelTrelloOAuth(teamId),
   atlasUnbindAsana: (teamId: string, bindingId: string) =>
     window.api.atlasUnbindAsana(teamId, bindingId),
   atlasListSentryAccounts: (teamId: string) => window.api.atlasListSentryAccounts(teamId),

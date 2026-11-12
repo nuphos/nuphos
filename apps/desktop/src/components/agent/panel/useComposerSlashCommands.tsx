@@ -194,12 +194,12 @@ export function useComposerSlashCommands(
 
   /** Wraps a send so the agent commands in each sent message count as used. */
   function wrapSend(send: ComposerSend): ComposerSend {
-    return (text, filePaths, mentions) => {
+    return (text, filePaths, mentions, options) => {
       const used = slashCommandsIn(text, new Set(agentCommands.map((command) => command.name)))
 
       if (used.length > 0) setUsage(recordSlashUse(used))
 
-      return send(text, filePaths, mentions)
+      return send(text, filePaths, mentions, options)
     }
   }
 

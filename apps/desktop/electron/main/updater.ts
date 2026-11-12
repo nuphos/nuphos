@@ -1,29 +1,32 @@
 import { once } from 'node:events'
+import { readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 import { app, autoUpdater as nativeUpdater, BrowserWindow } from 'electron'
 import electronUpdater from 'electron-updater'
 
-import { captureMain, captureMainException } from '../analytics'
+import { captureMain, captureMainException } from '../analytics.ts'
 
-import { isDev } from './env'
-import { configureStableUpdateChannel } from './updater-channel'
+import { isDev } from './env.ts'
+import { configureStableUpdateChannel } from './updater-channel.ts'
 import {
   classifyUpdaterError,
   createUpdaterErrorDedupe,
   updaterTelemetryError,
-} from './updater-error'
-import { awaitLatestStaged } from './updater-install'
-import { markAppQuitting } from './window-session'
+} from './updater-error.ts'
+import { markAppQuitting } from './window-session.ts'
 
-import type { UpdaterState } from './updater-state'
+import type { UpdaterState } from './updater-state.ts'
 
 export const { autoUpdater } = electronUpdater
 
-export type { UpdaterState } from './updater-state'
+export type { UpdaterState } from './updater-state.ts'
 
 let updaterState: UpdaterState = { kind: 'idle' }
 let updaterCheckTimer: ReturnType<typeof setInterval> | null = null
 let lastProgressAt = 0
+/** The version the last restart was meant to install, when the app came back older. */
+let failedVersion: string | null = null
 
 function setUpdaterState(next: UpdaterState) {
   updaterState = next
@@ -42,7 +45,18 @@ export function getUpdaterState(): UpdaterState {
  * which reports telemetry. */
 export function checkForUpdates() {
   if (updaterState.kind === 'downloading' || updaterState.kind === 'ready') return
-  autoUpdater.checkForUpdates().catch(() => null)
+  void newestRelease().then(async (version) => {
+    if (version) await autoUpdater.downloadUpdate().catch(() => null)
+  })
+}
+
+/** The newest release when it is newer than this app, or null. Only checks: with
+ * autoDownload on, electron-updater would download even the update that is
+ * already staged, and on macOS hand it to Squirrel.Mac to stage again. */
+async function newestRelease(): Promise<string | null> {
+  const check = await autoUpdater.checkForUpdates().catch(() => null)
+
+  return check?.isUpdateAvailable ? check.updateInfo.version : null
 }
 
 /** Squirrel.Mac takes the download from electron-updater, so it holds it a moment later. */
@@ -52,19 +66,73 @@ function stagedByOs() {
     : Promise.resolve()
 }
 
+const restartFile = () => join(app.getPath('userData'), 'update-restart.json')
+
 /** Restarts into the newest release. Releases ship several times a day, so one
  * may be out since the ready update downloaded; it downloads first, with its
- * progress showing, or the app would restart only to offer the next update. */
+ * progress showing, or the app would restart only to offer the next update.
+ * Otherwise the restart starts with no update work in flight. */
 export async function installUpdate() {
   if (updaterState.kind !== 'ready') return
-  const staged = updaterState.version
-  const check = await autoUpdater.checkForUpdates().catch(() => null)
+  let version = updaterState.version
 
-  // A failed download shows as an error; the next check tries again.
-  if (!(await awaitLatestStaged(check, staged, stagedByOs))) return
+  // Leaving ready at once makes a second click a no-op.
+  setUpdaterState({ kind: 'checking' })
+  const newest = await newestRelease()
+
+  if (newest && newest !== version) {
+    // A failed download shows as an error; the next check tries again.
+    const staged = await Promise.all([autoUpdater.downloadUpdate(), stagedByOs()]).then(
+      () => true,
+      () => false,
+    )
+
+    if (!staged) return
+    version = newest
+  }
+  // The installer runs after the app quits and can't report back. If the app
+  // comes back on its old version, the next launch says so.
+  try {
+    writeFileSync(restartFile(), JSON.stringify({ version }))
+  } catch {
+    // Only the failure notice depends on it; the restart goes ahead.
+  }
   // quitAndInstall closes every window before before-quit fires.
   markAppQuitting()
   autoUpdater.quitAndInstall()
+}
+
+/** The version the last restart was meant to install, if this app is older than
+ * it. Read once: the record is gone after the first launch that reads it. */
+function readFailedRestart(): string | null {
+  try {
+    const { version } = JSON.parse(readFileSync(restartFile(), 'utf8')) as { version: string }
+
+    rmSync(restartFile())
+
+    return isOlder(app.getVersion(), version) ? version : null
+  } catch {
+    return null
+  }
+}
+
+/** Whether release `a` is older than `b`; Nuphos ships plain major.minor.patch. */
+function isOlder(a: string, b: string): boolean {
+  const [x, y] = [a, b].map((v) => v.split('.').map(Number))
+
+  for (let i = 0; i < 3; i++) {
+    if (x[i] !== y[i]) return x[i] < y[i]
+  }
+
+  return false
+}
+
+/** The installer for this platform and architecture, from the Nuphos download page. */
+function installerUrl(): string {
+  const platform = { darwin: 'mac', win32: 'windows' }[process.platform as string] ?? 'linux'
+  const arch = process.arch === 'arm64' ? 'arm64' : 'x64'
+
+  return `https://nuphos.ai/api/desktop/download?platform=${platform}&arch=${arch}`
 }
 
 export function startUpdatePolling() {
@@ -82,8 +150,15 @@ export function stopUpdatePolling() {
 export function initAutoUpdaterEvents() {
   const shouldCaptureError = createUpdaterErrorDedupe()
 
+  failedVersion = readFailedRestart()
+  if (failedVersion) {
+    captureMain('update_install_failed', {
+      version: failedVersion,
+      current_version: app.getVersion(),
+    })
+  }
   configureStableUpdateChannel(autoUpdater)
-  autoUpdater.autoDownload = true
+  autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = true
   autoUpdater.on('checking-for-update', () => setUpdaterState({ kind: 'checking' }))
   autoUpdater.on('update-not-available', () => setUpdaterState({ kind: 'up-to-date' }))
@@ -111,7 +186,11 @@ export function initAutoUpdaterEvents() {
   })
   autoUpdater.on('update-downloaded', (info) => {
     captureMain('update_downloaded', { version: info.version })
-    setUpdaterState({ kind: 'ready', version: info.version })
+    setUpdaterState({
+      kind: 'ready',
+      version: info.version,
+      installerUrl: info.version === failedVersion ? installerUrl() : null,
+    })
   })
   autoUpdater.on('error', (err) => {
     const category = classifyUpdaterError(err.message)

@@ -1,5 +1,15 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  unlinkSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { after, before, beforeEach, describe, it, mock } from 'node:test'
@@ -9,6 +19,8 @@ type Team = { objects: Map<string, number>; instructions: Instruction[] }
 
 const teams = new Map<string, Team>()
 const failures = { listInstructions: 0, createInstruction: [] as number[] }
+// Holds a pass after its snapshot, while it lists the store.
+let listGate: Promise<void> | null = null
 let creates = 0
 let nextId = 0
 
@@ -29,6 +41,9 @@ const userData = mkdtempSync(path.join(os.tmpdir(), 'local-setup-data-'))
 const originalHome = process.env.HOME
 
 let syncLocalSetup: typeof import('./local-setup-sync.ts').syncLocalSetup
+let syncLocalSetupAfter: typeof import('./local-setup-sync.ts').syncLocalSetupAfter
+let approveLinkedSkill: typeof import('./local-setup-snapshot.ts').approveLinkedSkill
+let listLocalSkills: typeof import('./local-skills.ts').listLocalSkills
 let setLocalSetupAutoSync: typeof import('./local-setup-watch.ts').setLocalSetupAutoSync
 let stopLocalSetupWatcher: typeof import('./local-setup-watch.ts').stopLocalSetupWatcher
 let resetStateForTests: typeof import('./local-setup-state.ts').resetStateForTests
@@ -59,9 +74,11 @@ before(async () => {
   })
   mock.module('../atlas.ts', {
     namedExports: {
-      teamSkillsListObjects: async (teamId: string) => ({
-        objects: [...team(teamId).objects].map(([key, size]) => ({ key, size })),
-      }),
+      teamSkillsListObjects: async (teamId: string) => {
+        await listGate
+
+        return { objects: [...team(teamId).objects].map(([key, size]) => ({ key, size })) }
+      },
       teamSkillsPutObject: async (teamId: string, key: string, file: { bytes: Uint8Array }) => {
         await tick()
         team(teamId).objects.set(key, file.bytes.byteLength)
@@ -112,7 +129,9 @@ before(async () => {
       },
     },
   })
-  ;({ syncLocalSetup } = await import('./local-setup-sync.ts'))
+  ;({ syncLocalSetup, syncLocalSetupAfter } = await import('./local-setup-sync.ts'))
+  ;({ approveLinkedSkill } = await import('./local-setup-snapshot.ts'))
+  ;({ listLocalSkills } = await import('./local-skills.ts'))
   ;({ setLocalSetupAutoSync, stopLocalSetupWatcher } = await import('./local-setup-watch.ts'))
   ;({ resetStateForTests } = await import('./local-setup-state.ts'))
 })
@@ -153,6 +172,35 @@ describe('syncLocalSetup recovery', () => {
     assert.equal(result.uploadedFiles, 0)
   })
 
+  it('skips only the skill with an unreadable file, and keeps its synced copy', async () => {
+    await syncLocalSetup('t1')
+    assert.ok(team('t1').objects.has('skills/deploy/run.sh'))
+    writeFile('.claude/skills/deploy/locked.md', 'no')
+    chmodSync(path.join(home, '.claude/skills/deploy/locked.md'), 0o000)
+
+    const result = await syncLocalSetup('t1')
+
+    assert.equal(result.syncedSkills, 1)
+    assert.equal(result.removedSkills, 0)
+    assert.deepEqual(result.skipped, [{ name: 'deploy', reason: 'unreadable' }])
+    assert.ok(team('t1').objects.has('skills/triage/SKILL.md'))
+    assert.ok(team('t1').objects.has('skills/deploy/run.sh'))
+    // Readable again: the next pass picks it back up as its own.
+    chmodSync(path.join(home, '.claude/skills/deploy/locked.md'), 0o644)
+    assert.equal((await syncLocalSetup('t1')).syncedSkills, 2)
+    assert.ok(team('t1').objects.has('skills/deploy/locked.md'))
+  })
+
+  it('syncs the rest of a skill that holds a file over the size cap', async () => {
+    writeFile('.claude/skills/deploy/archive.bin', 'x'.repeat(10_000_001))
+
+    const result = await syncLocalSetup('t1')
+
+    assert.equal(result.syncedSkills, 2)
+    assert.ok(team('t1').objects.has('skills/deploy/run.sh'))
+    assert.ok(!team('t1').objects.has('skills/deploy/archive.bin'))
+  })
+
   it('never duplicates CLAUDE.md parts when a create fails part-way', async () => {
     writeFile('.claude/CLAUDE.md', `${'a'.repeat(7_000)}\n${'b'.repeat(7_000)}\n`)
     failures.createInstruction = [2]
@@ -168,6 +216,139 @@ describe('syncLocalSetup recovery', () => {
       ['CLAUDE.md from this computer (1 of 2)', 'CLAUDE.md from this computer (2 of 2)'],
     )
   })
+})
+
+describe('syncLocalSetup with linked skills', () => {
+  it('re-uploads a Nix-style linked skill when its target changes but size and mtime do not', async () => {
+    const store = mkdtempSync(path.join(os.tmpdir(), 'local-setup-store-'))
+    const link = path.join(home, '.claude', 'skills', 'nix')
+
+    // Nix store files all carry the same mtime, and these two have the same size.
+    for (const [dir, body] of [
+      ['v1', 'one'],
+      ['v2', 'two'],
+    ] as const) {
+      mkdirSync(path.join(store, dir))
+      writeFileSync(path.join(store, dir, 'SKILL.md'), `---\ndescription: ${body}\n---\n`)
+      utimesSync(path.join(store, dir, 'SKILL.md'), 1, 1)
+    }
+    symlinkSync(path.join(store, 'v1'), link)
+    await syncLocalSetup('t1')
+    assert.ok(team('t1').objects.has('skills/nix/SKILL.md'))
+    unlinkSync(link)
+    symlinkSync(path.join(store, 'v2'), link)
+
+    const result = await syncLocalSetup('t1')
+
+    assert.equal(result.uploadedFiles, 1)
+    rmSync(store, { recursive: true, force: true })
+  })
+})
+
+async function approve(teamId: string, name: string) {
+  const skill = (await listLocalSkills()).find((found) => found.id === `claude/${name}`)
+
+  assert.ok(skill)
+  await approveLinkedSkill(teamId, name, skill.files)
+}
+
+describe('syncLocalSetup linked skills', () => {
+  it('reads a skill that links outside its folder only once those links are reviewed', async () => {
+    const outside = mkdtempSync(path.join(os.tmpdir(), 'local-setup-outside-'))
+    const link = path.join(home, '.claude/skills/deploy/id_demo')
+
+    writeFileSync(path.join(outside, 'id_demo'), 'private')
+    writeFileSync(path.join(outside, 'other'), 'another file')
+    symlinkSync(path.join(outside, 'id_demo'), link)
+
+    let result = await syncLocalSetup('t1')
+
+    assert.deepEqual(result.skipped, [{ name: 'deploy', reason: 'needs_review' }])
+    assert.ok(!team('t1').objects.has('skills/deploy/SKILL.md'))
+    await approve('t1', 'deploy')
+    result = await syncLocalSetup('t1')
+    assert.deepEqual(result.skipped, [])
+    assert.equal(team('t1').objects.get('skills/deploy/id_demo'), 'private'.length)
+
+    // Re-pointed since the review: the new target is not read and the reviewed copy stays.
+    unlinkSync(link)
+    symlinkSync(path.join(outside, 'other'), link)
+    result = await syncLocalSetup('t1')
+    assert.deepEqual(result.skipped, [{ name: 'deploy', reason: 'needs_review' }])
+    assert.equal(result.removedSkills, 0)
+    assert.equal(team('t1').objects.get('skills/deploy/id_demo'), 'private'.length)
+    rmSync(outside, { recursive: true, force: true })
+  })
+
+  it('syncs links approved while a pass that skipped them is still running', async () => {
+    const outside = mkdtempSync(path.join(os.tmpdir(), 'local-setup-outside-'))
+    let release = () => {}
+
+    writeFileSync(path.join(outside, 'id_demo'), 'private')
+    symlinkSync(path.join(outside, 'id_demo'), path.join(home, '.claude/skills/deploy/id_demo'))
+    listGate = new Promise((resolve) => {
+      release = resolve
+    })
+    const running = syncLocalSetup('t1')
+
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    await approve('t1', 'deploy')
+    const fresh = syncLocalSetupAfter('t1')
+
+    listGate = null
+    release()
+    assert.deepEqual((await running).skipped, [{ name: 'deploy', reason: 'needs_review' }])
+    assert.deepEqual((await fresh).skipped, [])
+    assert.ok(team('t1').objects.has('skills/deploy/id_demo'))
+    rmSync(outside, { recursive: true, force: true })
+  })
+
+  it('refuses an approval for links that changed since the review', async () => {
+    const outside = mkdtempSync(path.join(os.tmpdir(), 'local-setup-outside-'))
+
+    writeFileSync(path.join(outside, 'id_demo'), 'private')
+    symlinkSync(path.join(outside, 'id_demo'), path.join(home, '.claude/skills/deploy/id_demo'))
+    await assert.rejects(
+      approveLinkedSkill('t1', 'deploy', [{ relPath: 'SKILL.md', realPath: '/elsewhere' }]),
+      /changed since you reviewed it/,
+    )
+    rmSync(outside, { recursive: true, force: true })
+  })
+
+  it(
+    'budgets what a file holds, not the size it reports',
+    {
+      skip: process.platform !== 'linux',
+    },
+    async () => {
+      symlinkSync('/proc/version', path.join(home, '.claude/skills/deploy/kernel.txt'))
+      await approve('t1', 'deploy')
+      await syncLocalSetup('t1')
+
+      const { hashes } = JSON.parse(
+        readFileSync(path.join(userData, 'local-setup-hashes.json'), 'utf8'),
+      ) as { hashes: Record<string, { size: number; bytes?: number }> }
+      const kernel = hashes[path.join(home, '.claude/skills/deploy/kernel.txt')]
+
+      assert.equal(kernel?.size, 0)
+      assert.ok((kernel.bytes ?? 0) > 0)
+    },
+  )
+
+  it(
+    're-reads a size-0 file every pass, since its stat does not change with it',
+    {
+      skip: process.platform !== 'linux',
+    },
+    async () => {
+      symlinkSync('/proc/uptime', path.join(home, '.claude/skills/deploy/uptime.txt'))
+      await approve('t1', 'deploy')
+      await syncLocalSetup('t1')
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      assert.equal((await syncLocalSetup('t1')).uploadedFiles, 1)
+    },
+  )
 })
 
 describe('syncLocalSetup state', () => {

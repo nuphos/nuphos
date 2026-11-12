@@ -7,6 +7,7 @@ import { useStableCallback } from '../../../hooks/useStableCallback'
 import { t } from '../../../i18n'
 import { track } from '../../../lib/analytics'
 import { runtimeIsExecuting, runtimeAllows } from '../../../lib/runtimeExecution'
+import { cardAnswers } from '../../../views/inbox/useInbox'
 import { toast } from '../../ui/toast'
 import { PermissionResumeContext } from '../permissionResumeContext'
 
@@ -27,6 +28,7 @@ import { QueuedStrip } from './QueuedStrip'
 import { cardReplyId } from './replyTarget'
 import { ReplyTargetChip } from './ReplyTargetChip'
 import { serverHasConversation } from './sessionActions'
+import { TurnSwitchAgentContext, turnSwitchAgent } from './turnFailureActions'
 import { TurnRetryContext, useFailedTurnRetry } from './turnRetryContext'
 import { useViewOnlyNotice } from './useViewOnlyNotice'
 
@@ -165,6 +167,9 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     : visibleConversationCredentialSelector,
                   send: (text, card) =>
                     sendInActive(text, [], undefined, card && cardReplyId(card, questions)),
+                  answer: canReply
+                    ? cardAnswers(teamId, activeTab.sessionId, questions)
+                    : undefined,
                   // Only the owner provides a secret; it lands on their runtime.
                   saveSecret:
                     activeTab.readOnly || activeTab.foreign
@@ -173,39 +178,33 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                           (await api.agentSaveSecret(activeTab.sessionId, name, value, teamId))
                             .path,
                   openQuestions: c.openQuestions,
-                  reply: canReply
-                    ? (card) => {
-                        c.replyTarget?.onChoose(cardReplyId(card, questions))
-                        composerRef.current
-                          ?.querySelector<HTMLElement>('[contenteditable="true"]')
-                          ?.focus()
-                      }
-                    : undefined,
                 }}
               >
-                <TurnRetryContext.Provider value={turnRetry}>
-                  <Conversation
-                    tab={shownTab ?? activeTab}
-                    visible={c.visible && c.showingConversationPage}
-                    teamId={teamId}
-                    isTeamAdmin={isTeamAdmin}
-                    currentUrl={url}
-                    sidebar={isSidebarMode}
-                    onLoadEarlier={() => void loadEarlierMessages(activeTab.id)}
-                    onMessageFeedback={handleMessageFeedback}
-                    // Only show docking where a sidebar host exists.
-                    onDockToSidebar={
-                      variant === 'page' && onDockToSidebar ? dockCurrentSession : undefined
-                    }
-                    onStop={stopActive}
-                    onApprovePlan={approvePlan}
-                    onRejectPlan={rejectPlan}
-                    activePlanCanAct={activePlanCanAct}
-                    onOpenNuphosLink={onOpenNuphosLink}
-                    onOpenAgentSettings={onOpenAgentSettings}
-                    onEditMessage={editMessage}
-                  />
-                </TurnRetryContext.Provider>
+                <TurnSwitchAgentContext.Provider value={turnSwitchAgent(activeTab)}>
+                  <TurnRetryContext.Provider value={turnRetry}>
+                    <Conversation
+                      tab={shownTab ?? activeTab}
+                      visible={c.visible && c.showingConversationPage}
+                      teamId={teamId}
+                      isTeamAdmin={isTeamAdmin}
+                      currentUrl={url}
+                      sidebar={isSidebarMode}
+                      onLoadEarlier={() => void loadEarlierMessages(activeTab.id)}
+                      onMessageFeedback={handleMessageFeedback}
+                      // Only show docking where a sidebar host exists.
+                      onDockToSidebar={
+                        variant === 'page' && onDockToSidebar ? dockCurrentSession : undefined
+                      }
+                      onStop={stopActive}
+                      onApprovePlan={approvePlan}
+                      onRejectPlan={rejectPlan}
+                      activePlanCanAct={activePlanCanAct}
+                      onOpenNuphosLink={onOpenNuphosLink}
+                      onOpenAgentSettings={onOpenAgentSettings}
+                      onEditMessage={editMessage}
+                    />
+                  </TurnRetryContext.Provider>
+                </TurnSwitchAgentContext.Provider>
               </ConnectCardContext.Provider>
             </div>
             <div ref={composerRef} className="col-start-1 row-start-2 z-10">
@@ -222,12 +221,12 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
               {activeTab.messages.length === 0 ? (
                 <DelayedPanelReveal>
                   <Composer
-                    onSend={(text, filePaths, mentions) =>
-                      sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions)
+                    onSend={(text, filePaths, mentions, { mode } = {}) =>
+                      sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions, mode)
                     }
                     onStop={stopActive}
                     autoFocus={focusComposerOnOpen}
-                    runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
+                    runtimeState={activeTab.runtimeState}
                     executing={runtimeIsExecuting(activeTab.runtimeState)}
                     readOnly={activeTab.readOnly}
                     readOnlyNotice={readOnlyNotice}
@@ -252,8 +251,8 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     <ReplyTargetChip target={c.replyTarget} sidebar={isSidebarMode} />
                   )}
                   <Composer
-                    onSend={(text, filePaths, mentions) =>
-                      sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions)
+                    onSend={(text, filePaths, mentions, { mode } = {}) =>
+                      sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions, mode)
                     }
                     onStop={stopActive}
                     promptSuggestion={
@@ -262,7 +261,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                         : activeTab.promptSuggestion
                     }
                     autoFocus={focusComposerOnOpen}
-                    runtimeState={activeTab.runtimeState ?? { state: 'unknown' }}
+                    runtimeState={activeTab.runtimeState}
                     canStop={canStopTurn(activeTab)}
                     readOnly={activeTab.readOnly}
                     readOnlyNotice={readOnlyNotice}

@@ -131,41 +131,10 @@ final class ChannelSession {
         await questions.refresh { BotQuestions.under(bot: bot, rows: $0) }
     }
 
-    /// The Bot's own question is answered by a post here, shown at once as any
-    /// post is, so the answer is the viewer's message in this chat. An agent
-    /// under the Bot takes it in its own conversation.
-    func answer(_ question: BotQuestion, with text: String) {
-        guard question.sessionId == faces.botId else {
-            Task { await questions.answer(question, with: text) }
-            return
-        }
-        let id = UUID().uuidString.lowercased()
-        sending.append(ChannelPost(
-            id: id, senderId: viewerId ?? "", isAgent: false, name: me?.name ?? "You", avatar: me?.avatar,
-            text: text, sentAt: .now, replyTo: nil, sending: true))
-        lastSubmittedRowID = "post.\(id)"
-        Task {
-            await questions.answer(question, with: text) { [self] in
-                do {
-                    try await Self.postAnswer(token: token, teamId: teamId, channelId: channelId, text: text,
-                                              id: id, to: question.request.id)
-                } catch {
-                    sending.removeAll { $0.id == id }
-                    throw error
-                }
-                await refresh(force: true)
-            }
-        }
-    }
-
-    /// A post in a Bot's chat naming the Bot's question it answers.
-    static func postAnswer(token: String, teamId: String, channelId: String, text: String, id: String,
-                           to requestId: String) async throws {
-        let body: [String: JSONValue] = [
-            "text": .string(text), "id": .string(id), "decisionReplyTo": .string(requestId)]
-        _ = try await AgentChatAPI.send(
-            "POST", "agent/conversations/\(channelId)/channel-messages",
-            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: JSONValue.object(body))
+    /// Answers a question in this chat: the server wakes the agent that asked, which replies
+    /// where it asked; no message is sent.
+    func answer(_ question: BotQuestion, with answer: DecisionAnswer) {
+        Task { await questions.answer(question, with: answer) }
     }
 
     // MARK: - Posting

@@ -54,11 +54,11 @@ fun CredentialPickerSheet(
     val store = LocalAgentStore.current
     // Observe the immutable catalog projection in the sheet's owner. A result
     // must update the dialog content as well as its loading/layout boundary.
-    // Extra provider kinds belong to the fresh composer only. Stored-chat
-    // parsing/wire keys retain their existing contract in this change.
+    // Every kind for a new conversation or a stored one; a selection of unknown origin keeps to the
+    // older kinds, whose empty list never means "all".
     val catalog = store.credentialCatalog?.let { loaded ->
         if (computersOnly) ai.nuphos.android.model.CredentialCatalog(loaded.sections.filter { it.provider.optionsKey == "devices" })
-        else if (selection.newConversation) loaded else ai.nuphos.android.model.CredentialCatalog(
+        else if (selection.newConversation || selection.stored != null) loaded else ai.nuphos.android.model.CredentialCatalog(
             loaded.sections.filter { it.provider in ai.nuphos.android.model.CredentialCatalog.PROVIDERS },
         )
     }

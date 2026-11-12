@@ -70,6 +70,28 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         let askedAt: String?
         /// Markdown the agent wrote to decide from: context, findings, links, risks.
         var body: String? = nil
+        /// The plan an approval decides: answered with its Approve or Reject, never in words.
+        var planId: String? = nil
+        /// An integration question's providers (any access answers it), or the exact credentials it names.
+        var providers: [String]? = nil
+        var credentials: [CredentialRef]? = nil
+        /// Any number of `options` may be picked.
+        var multiSelect: Bool? = nil
+        /// Related questions answered together; `question` is their headline.
+        var questions: [DecisionQuestion]? = nil
+    }
+
+    /// One question of a card that asks several, with its own choices.
+    struct DecisionQuestion: Codable, Equatable, Hashable, Sendable {
+        let question: String
+        var options: [String]? = nil
+        var multiSelect: Bool? = nil
+    }
+
+    /// A credential an integration question names: `{provider: "personal", id: "github"}` is the member's own.
+    struct CredentialRef: Codable, Equatable, Hashable, Sendable {
+        let provider: String
+        let id: String
     }
 
     let sessionId: String

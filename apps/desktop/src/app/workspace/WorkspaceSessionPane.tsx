@@ -1,13 +1,18 @@
 import { clsx } from 'clsx'
+import { useState } from 'react'
 
 import { useIsChannel } from '../../components/channels/channelKind'
 import { ChannelPane } from '../../components/channels/ChannelPane'
+import { useSidebarMode } from '../../components/sidebar/useSidebarMode'
 
 import { CORNER_TITLEBAR_CLASS, CornerSidebarToggle } from './CornerSidebarToggle'
 import { PaneGrip } from './PaneGrip'
+import { retainSessionViews } from './retainedSessionViews'
 import { WorkspaceAgentPane } from './WorkspaceAgentPane'
+import { WorkspaceBotsStart } from './WorkspaceBotsStart'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
+import type { RetainedSessionViews } from './retainedSessionViews'
 import type { WorkspaceController } from './useWorkspaceController'
 import type { UserInfo } from '../../types'
 
@@ -16,48 +21,82 @@ export function WorkspaceSessionPane({
   ws,
   user,
   workspaceExpanded = false,
+  onOpenTask,
 }: {
   ws: WorkspaceController
   user: UserInfo
   workspaceExpanded?: boolean
+  onOpenTask?: (sessionId: string) => void
 }) {
   const teamId = ws.scope?.teamId
   const sessionId = ws.selectedSessionId
   const channel = useIsChannel(teamId, sessionId)
   const cornerPane = useWorkspacePane()?.cornerPane ?? false
 
-  // Still checking: neither view, so a channel never opens as an agent first.
-  if (channel === undefined) return <div className="min-w-0 flex-1" />
-  if (!channel || !teamId || !sessionId)
-    return <WorkspaceAgentPane ws={ws} user={user} workspaceExpanded={workspaceExpanded} />
+  const [retained, setRetained] = useState<RetainedSessionViews>({ teamId })
+  const views = retainSessionViews(retained, {
+    teamId,
+    sessionId,
+    channel,
+    readOnly: ws.selectedSessionReadOnly,
+  })
 
-  // Like the agent's pane: a page opened from the sidebar takes its place.
+  if (views !== retained) setRetained(views)
+  const [mode] = useSidebarMode(teamId ?? '', sessionId)
+  const botsStart = Boolean(teamId && mode === 0 && !sessionId && !ws.mainPageOpen)
+  const agentVisible = channel === false && !botsStart
+  const channelVisible = channel === true
+
   return (
-    <main
-      data-workspace-focus-surface="session"
-      inert={workspaceExpanded}
-      // A channel is a sheet on the desk, like an agent's pane.
-      className={clsx(
-        'workspace-content-surface min-h-0 min-w-0 flex-1 flex-col overflow-hidden',
-        ws.dockOpen && 'workspace-content-surface--leading',
-        workspaceExpanded && 'workspace-content-surface--collapsed',
-        ws.mainPageOpen ? 'hidden' : 'flex',
+    <>
+      {teamId && (
+        <WorkspaceBotsStart
+          key={teamId}
+          visible={botsStart}
+          teamId={teamId}
+          onOpen={(id) => ws.workspaceActions.selectSession(id, { teamId })}
+        />
       )}
-    >
-      <ChannelPane
-        key={sessionId}
-        teamId={teamId}
-        channelId={sessionId}
-        user={user}
-        dockOpen={ws.dockOpen}
-        grip={<PaneGrip />}
-        // With the sidebar collapsed, the header clears the traffic lights and
-        // carries the sidebar's toggle, as an agent's pane does.
-        titlebarLeading={<CornerSidebarToggle />}
-        titlebarClassName={cornerPane ? CORNER_TITLEBAR_CLASS : undefined}
-        onOpenSession={(agentId) => ws.workspaceActions.selectSession(agentId, { teamId })}
-        onOpenNuphosLink={ws.stableOpenNuphosLinkFromChat}
-      />
-    </main>
+      {views.agent && (
+        <WorkspaceAgentPane
+          ws={{
+            ...ws,
+            selectedSessionId: views.agent.sessionId,
+            selectedSessionReadOnly: views.agent.readOnly,
+          }}
+          user={user}
+          workspaceExpanded={workspaceExpanded}
+          foreground={agentVisible}
+        />
+      )}
+      {teamId && views.channelId && (
+        <main
+          data-workspace-focus-surface="session"
+          inert={workspaceExpanded || !channelVisible}
+          className={clsx(
+            'workspace-content-surface min-h-0 min-w-0 flex-1 flex-col overflow-hidden',
+            ws.dockOpen && 'workspace-content-surface--leading',
+            workspaceExpanded && 'workspace-content-surface--collapsed',
+            ws.mainPageOpen || !channelVisible ? 'hidden' : 'flex',
+          )}
+        >
+          <ChannelPane
+            key={`${teamId}:${views.channelId}`}
+            teamId={teamId}
+            channelId={views.channelId}
+            visible={channelVisible && !ws.mainPageOpen && !workspaceExpanded}
+            user={user}
+            dockOpen={ws.dockOpen}
+            grip={<PaneGrip />}
+            titlebarLeading={<CornerSidebarToggle />}
+            titlebarClassName={cornerPane ? CORNER_TITLEBAR_CLASS : undefined}
+            onOpenTask={onOpenTask}
+            onOpenSession={(agentId) => ws.workspaceActions.selectSession(agentId, { teamId })}
+            onOpenNuphosLink={ws.stableOpenNuphosLinkFromChat}
+          />
+        </main>
+      )}
+      {channel === undefined && <div className="min-w-0 flex-1" />}
+    </>
   )
 }

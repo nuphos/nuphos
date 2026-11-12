@@ -17,6 +17,7 @@ import type {
 import type {
   AsanaAccount,
   AsanaBindResult,
+  TrelloBindResult,
   GithubInstallation,
   GithubPR,
   GithubRepository,
@@ -131,7 +132,9 @@ export type WindowGitApi = {
   atlasUnbindJira(teamId: string, bindingId: string): Promise<void>
   atlasListAsanaAccounts(teamId: string): Promise<AsanaAccount[]>
   atlasStartAsanaOAuth(teamId: string): Promise<AsanaBindResult>
+  atlasStartTrelloOAuth(teamId: string): Promise<TrelloBindResult>
   atlasCancelAsanaOAuth(teamId: string): Promise<void>
+  atlasCancelTrelloOAuth(teamId: string): Promise<void>
   atlasUnbindAsana(teamId: string, bindingId: string): Promise<void>
   atlasListSentryAccounts(teamId: string): Promise<SentryAccount[]>
   atlasStartSentryOAuth(teamId: string): Promise<SentryBindResult>

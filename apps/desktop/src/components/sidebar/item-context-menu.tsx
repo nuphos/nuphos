@@ -6,6 +6,9 @@ import {
   Hash,
   Link2,
   Pencil,
+  SmilePlus,
+  Pin,
+  PinOff,
   Star,
   StarOff,
   Unlink,
@@ -13,11 +16,14 @@ import {
 
 import { api } from '../../api'
 import { t } from '../../i18n'
+import { openChangeBotAvatar } from '../../lib/changeBotAvatar'
 import { copyLinkWithFeedback } from '../../lib/copyLink'
 import { agentSessionUrl } from '../agent/sessionUrl'
 import { makeBot } from '../channels/botChannel'
 import { ContextMenu } from '../ContextMenu'
 import { toast } from '../ui/toast'
+
+import { canBecomeBot } from './make-bot'
 
 import type { Item, ItemMenuRequest } from './types'
 import type { SidebarFavorite } from '../../lib/sidebarFavorites'
@@ -45,16 +51,10 @@ export function SidebarItemContextMenu({
   confirmArchiveBot: (sessionId: string) => void
   unlinkChat: (sessionId: string) => Promise<void>
 }) {
-  // A channel's row: its own nouns, and no pin or watch, which are an agent's.
+  // A Bot's channel shares its pin controls with the Bot row.
   const channel = menu.item.channel === true
-  // The row's noun follows its section: a Task, a Bot (its chat or itself), or a group chat.
-  const noun = menu.item.task
-    ? 'task'
-    : menu.item.bot || menu.item.botChannelOf
-      ? 'bot'
-      : channel
-        ? 'chat'
-        : 'task'
+  // A Bot is a Bot in either section (its chat or itself); otherwise a Task or a group chat.
+  const noun = menu.item.bot || menu.item.botChannelOf ? 'bot' : channel ? 'chat' : 'task'
   const sessionId = menu.item.key.slice('agent-session:'.length)
 
   return (
@@ -63,19 +63,19 @@ export function SidebarItemContextMenu({
       y={menu.y}
       onClose={onClose}
       items={[
-        ...(!channel && canFavorite(menu.item)
+        ...((!channel || noun === 'bot') && canFavorite(menu.item)
           ? [
               favoriteMatch(menu.item)
                 ? {
                     key: 'unfavorite',
-                    label: t('Remove from Favorites'),
-                    icon: StarOff,
+                    label: noun === 'bot' ? t('Unpin Bot') : t('Remove from Favorites'),
+                    icon: noun === 'bot' ? PinOff : StarOff,
                     onSelect: () => toggleFavorite(menu.item),
                   }
                 : {
                     key: 'favorite',
-                    label: t('Add to Favorites'),
-                    icon: Star,
+                    label: noun === 'bot' ? t('Pin Bot') : t('Add to Favorites'),
+                    icon: noun === 'bot' ? Pin : Star,
                     onSelect: () => toggleFavorite(menu.item),
                   },
             ]
@@ -109,6 +109,22 @@ export function SidebarItemContextMenu({
                       onSelect: () =>
                         renameChat(menu.item.botChannelOf ?? sessionId, menu.item.label),
                     },
+                    // A Bot's chat wears the Bot's face, so its row changes the Bot's.
+                    ...(noun === 'bot'
+                      ? [
+                          {
+                            key: 'change-avatar',
+                            label: t('Change avatar'),
+                            icon: SmilePlus,
+                            onSelect: () =>
+                              openChangeBotAvatar({
+                                teamId,
+                                botId: menu.item.botChannelOf ?? sessionId,
+                                title: menu.item.label,
+                              }),
+                          },
+                        ]
+                      : []),
                   ]),
               ...(menu.item.parentKey && !menu.item.readOnlyChat
                 ? [
@@ -140,8 +156,8 @@ export function SidebarItemContextMenu({
               },
             ]
           : []),
-        // A Task becomes a Bot from its row too, as from its session's menu.
-        ...(menu.item.task && !menu.item.bot && !menu.item.readOnlyChat
+        // A Task becomes a Bot from its row too, as from its session's menu; a sub-task does not.
+        ...(canBecomeBot(menu.item)
           ? [
               {
                 key: 'make-bot',

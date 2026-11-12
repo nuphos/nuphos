@@ -36,9 +36,14 @@ export function questionPart(question: ReplyQuestion): ToolPart {
     input: {
       ...(question.secret ? { category: 'credential' } : {}),
       ...(question.providers ? { category: 'integration', providers: question.providers } : {}),
+      ...(question.credentials
+        ? { category: 'integration', credentials: question.credentials }
+        : {}),
       question: question.question,
       ...(question.body ? { body: question.body } : {}),
       ...(question.options ? { options: question.options } : {}),
+      ...(question.multiSelect ? { multiSelect: true } : {}),
+      ...(question.questions ? { questions: question.questions } : {}),
       ...(question.secretName ? { secretName: question.secretName } : {}),
     },
     state: 'input-available',

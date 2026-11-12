@@ -5,6 +5,9 @@ import type { PodExecEvent, SshTerminalEvent } from '../types/aws-compute.ts'
 import type { PortForwardEvent } from '../types/navigation.ts'
 
 export const shellApi = {
+  onSidebarGesture: (callback: (phase: 'begin' | 'end') => void) =>
+    window.api.onSidebarGesture?.(callback),
+  sidebarAlignmentFeedback: () => window.api.sidebarAlignmentFeedback?.(),
   takeWindowSurface: () => window.api.takeWindowSurface?.() ?? Promise.resolve(null),
   reportWindowSurface: (surface: WindowSurface) => window.api.reportWindowSurface?.(surface),
   acceptDockTerminal: (id: string) => window.api.acceptDockTerminal(id),

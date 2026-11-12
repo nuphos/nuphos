@@ -74,38 +74,44 @@ test('a card that matches nothing answers its own call id', () => {
   assert.equal(cardReplyId({ toolCallId: 'exec-1', question: 'Red or blue?' }, undefined), 'exec-1')
 })
 
-test("a conversation's single pending decision is its one open question", () => {
+test("a conversation's one open request is its one question", () => {
   assert.deepEqual(conversationQuestions({}), [])
   assert.deepEqual(
     conversationQuestions({
-      pendingDecision: {
-        toolCallId: 'q1',
-        question: 'Red or blue?',
-        options: ['red', 'blue'],
-        category: 'preference',
-        askedAt: '2026-10-28T00:00:00Z',
-      },
+      inputRequests: [
+        {
+          id: 'q1',
+          question: 'Red or blue?',
+          options: ['red', 'blue'],
+          category: 'preference',
+          askedAt: '2026-10-28T00:00:00Z',
+          status: 'open',
+        },
+      ],
     }),
     [older],
   )
 })
 
 test('a credential question is a secret, answered in its card', () => {
-  const pendingDecision = {
-    toolCallId: 'q9',
-    question: 'Paste the deploy token',
-    category: 'credential',
-    askedAt: '2026-10-28T00:00:00Z',
-  }
+  const inputRequests = [
+    {
+      id: 'q9',
+      question: 'Paste the deploy token',
+      category: 'credential',
+      askedAt: '2026-10-28T00:00:00Z',
+      status: 'open' as const,
+    },
+  ]
 
-  assert.deepEqual(conversationQuestions({ pendingDecision }), [
+  assert.deepEqual(conversationQuestions({ inputRequests }), [
     { id: 'q9', question: 'Paste the deploy token', secret: true },
   ])
   // Its secure card still answers exactly that request.
   assert.equal(
     cardReplyId(
       { toolCallId: 'exec-9', question: 'Paste the deploy token' },
-      conversationQuestions({ pendingDecision }),
+      conversationQuestions({ inputRequests }),
     ),
     'q9',
   )

@@ -13,7 +13,7 @@ import type { AgentProvider } from '../../types/runtime'
 
 /**
  * A browser sign-in the runtime needs something back from: Claude's page shows a code;
- * Antigravity's Google sign-in ends on a 127.0.0.1 address that does not load.
+ * Older Antigravity images end on a loopback address instead of showing a code.
  */
 export function BrowserCodeEntry({
   provider,
@@ -29,15 +29,21 @@ export function BrowserCodeEntry({
   const [code, setCode] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const account = AGENT_PROVIDER[provider].account
-  const loopback = provider === 'antigravity'
+  const loopback =
+    provider === 'antigravity' &&
+    new URL(url).searchParams.get('redirect_uri')?.startsWith('http://') === true
 
   async function submit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     if (submitting || !code.trim()) return
     if (!pastedSignInReady(provider, code)) {
       toast.error(
-        t('Paste the whole address'),
-        t('Copy the full address your browser ended on, starting with http://127.0.0.1.'),
+        loopback ? t('Paste the whole address') : t('Paste code'),
+        loopback
+          ? t('Copy the full address your browser ended on, starting with http://127.0.0.1.')
+          : t('Approve access on {account}’s page, then paste the code it shows you here.', {
+              account,
+            }),
       )
 
       return

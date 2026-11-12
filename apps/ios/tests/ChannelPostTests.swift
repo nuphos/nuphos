@@ -2,6 +2,7 @@ import Foundation
 
 enum ChannelPostTests {
     static func run() {
+        readsTypingProviders()
         readsPeopleAgentsAndFiles()
         skipsMessagesWithoutASenderOrContent()
         startsARunAtEachNewSender()
@@ -13,6 +14,15 @@ enum ChannelPostTests {
         renamingTheBotChangesTheRevision()
         readsAndQuotesReplies()
         print("Chat posts, runs, sending and timeline passed")
+    }
+
+    private static func readsTypingProviders() {
+        for provider in ["codex", "grok", nil] as [String?] {
+            let field = provider.map { ",\"provider\":\"\($0)\"" } ?? ""
+            let data = Data("{\"sessionId\":\"bot\",\"title\":\"Bot\",\"ownerId\":\"owner\"\(field)}".utf8)
+            let agent = try! JSONDecoder().decode(ChannelAgent.self, from: data)
+            precondition(agent.provider == provider)
+        }
     }
 
     private static func message(_ id: String, sender: [String: JSONValue], source: String? = nil, sentAt: String = "2026-11-03T09:00:00.000Z",
@@ -73,6 +83,13 @@ enum ChannelPostTests {
         // A chat shows only what people and agents post, never a system notice.
         let system: [String: JSONValue] = ["type": .string("system"), "id": .string("nuphos"), "displayName": .string("Nuphos")]
         precondition(ChannelPost(message("m", sender: system, parts: [text("Release Helper finished a turn.")])) == nil)
+        // Except the record an answer to a question leaves: a line, not a post.
+        let decision: [String: JSONValue] = ["type": .string("system"), "id": .string("nuphos:decision"),
+                                             "displayName": .string("Nuphos")]
+        let record = ChannelPost(message("r", sender: decision, parts: [text("Yuanlin answered: Ship? → Ship it")]))
+        precondition(record?.isRecord == true)
+        let rows = ChannelPost.items(posts: [record!], events: [], typing: [])
+        precondition(rows.map(\.item) == [.time(record!.sentAt!), .record("Yuanlin answered: Ship? → Ship it")])
     }
 
     private static func post(_ id: String, _ sender: String, at seconds: TimeInterval, sending: Bool = false) -> ChannelPost {

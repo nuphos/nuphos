@@ -26,6 +26,8 @@ export type UserSessionDoc = {
   createdAt: Date
   lastUsedAt: Date
   expiresAt: Date
+  /** Last step-up check (step-up.ts); absent means only the sign-in itself. */
+  verifiedAt?: Date
   ip?: string
   /** Cloudflare's guess from the IP; absent off Cloudflare. */
   city?: string

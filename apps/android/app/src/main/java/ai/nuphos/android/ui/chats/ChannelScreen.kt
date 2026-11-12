@@ -195,6 +195,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
 @Composable
 internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>, viewerId: String?, onLink: (String) -> Unit, allowed: () -> Boolean = { true },
                                 downloads: TransferDownloads = remember { TransferDownloads() }, onSwitchAgent: ((String) -> Unit)? = null) {
+    val store = LocalAgentStore.current
     val state = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val typing = (items.lastOrNull() as? ChannelItem.Typing)?.agents.orEmpty()
@@ -260,10 +261,15 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                         // A Bot's chat: what the Bot and the agents under it wait on, where it was asked.
                         is ChannelItem.Question -> item.question.let { question ->
                             BotQuestionCard(question, onOpen = { onLink(question.link(session.teamId)) },
-                                onAnswer = { option -> if (allowed()) session.answer(question, option, scope, viewerId) },
+                                onAnswer = { option -> if (allowed()) session.answer(question, option, scope) },
                                 // The Bot's own questions are this chat's; only an agent under it is named.
                                 showsFrom = question.sessionId != session.faces.botFace?.id, onLink = onLink,
-                                failure = session.answerFailure(question))
+                                failure = session.answerFailure(question),
+                                // Words answer it in the asking conversation's composer, as the Inbox's "Other…" does.
+                                onReply = {
+                                    store.session(question.sessionId, question.title).answering = question
+                                    onLink(question.link(session.teamId))
+                                })
                         }
                     }
                 }
@@ -357,7 +363,7 @@ private val AVATAR = 20.dp
 
 @Composable
 private fun SenderAvatar(post: ChannelPost) {
-    if (post.isAgent) { AgentAvatar(post.senderId, runtime = null, size = AVATAR); return }
+    if (post.isAgent) { AgentAvatar(post.senderId, runtime = post.runtime, size = AVATAR); return }
     Box(Modifier.size(AVATAR).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
         contentAlignment = Alignment.Center) {
         Text(post.name.split(' ').filter { it.isNotBlank() }.take(2).joinToString("") { it.take(1).uppercase() },
@@ -430,7 +436,7 @@ private fun TypingRow(agents: List<ChannelAgent>) {
         agents.forEach { agent ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.semantics { contentDescription = "${agent.title.ifBlank { "Agent" }} is typing" }) {
-                AgentAvatar(agent.sessionId, runtime = null, size = 36.dp)
+                AgentAvatar(agent.sessionId, runtime = agent.provider, size = 36.dp)
                 Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                     TypingDots(Modifier.padding(horizontal = 16.dp, vertical = 14.dp))
                 }
@@ -501,7 +507,7 @@ private fun ChannelComposer(session: ChannelSession) {
 
 /** The post the next one answers, above the composer; × cancels. */
 @Composable
-private fun ReplyChip(reply: ChannelReply, onCancel: () -> Unit) {
+internal fun ReplyChip(reply: ChannelReply, onCancel: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 6.dp).clip(RoundedCornerShape(14.dp))
         .background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(start = 12.dp).testTag("channel-reply-chip"),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

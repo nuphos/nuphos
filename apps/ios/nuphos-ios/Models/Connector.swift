@@ -91,7 +91,7 @@ extension Connector {
             note: "The role must already trust the Nuphos connector — Nuphos assumes it before saving the binding.",
             labelKeys: ["alias", "accountId"], detailKeys: ["roleArn"]
         ),
-        .init(key: "gcp", title: "Google Cloud", logo: "logo-gcp", category: .infrastructure, bind: .desktopOnly,
+        .init(key: "gcp", title: "Google Cloud / Firebase", logo: "logo-gcp", category: .infrastructure, bind: .desktopOnly,
               labelKeys: ["projectId"], detailKeys: ["serviceAccountEmail"]),
         .init(
             key: "azure", title: "Azure", logo: "logo-azure", category: .infrastructure,
@@ -220,6 +220,8 @@ extension Connector {
               bind: .oauth(path: "linear-workspaces", callbackHost: "linear-callback"), labelKeys: ["label", "workspaceName"], detailKeys: ["workspaceName"]),
         .init(key: "jira", title: "Jira", logo: "logo-jira", category: .projectManagement,
               bind: .oauth(path: "jira-sites", callbackHost: "jira-callback"), detailKeys: ["siteUrl"]),
+        .init(key: "trello", title: "Trello", logo: "logo-trello", category: .projectManagement,
+              bind: .oauth(path: "trello-integrations", callbackHost: "trello-callback"), detailKeys: ["username"]),
         .init(key: "asana", title: "Asana", logo: "logo-asana", category: .projectManagement,
               bind: .oauth(path: "asana-accounts", callbackHost: "asana-callback"), detailKeys: ["accountEmail"]),
         .init(key: "plaud", title: "Plaud", logo: "logo-plaud", category: .document,

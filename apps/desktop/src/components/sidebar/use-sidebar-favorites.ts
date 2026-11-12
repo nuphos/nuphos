@@ -5,6 +5,7 @@ import {
   favoriteIdentity,
   readSidebarFavorites,
   removeSidebarFavorite,
+  moveSidebarFavorite,
   subscribeSidebarFavorites,
   syncSidebarFavorites,
 } from '../../lib/sidebarFavorites'
@@ -94,7 +95,8 @@ export function useSidebarFavorites({
       teamView &&
       item.enabled &&
       !item.project &&
-      favoriteSessionId({ key: item.key, href: item.href }) === null &&
+      (Boolean(item.bot || item.channel) ||
+        favoriteSessionId({ key: item.key, href: item.href }) === null) &&
       (!teamOverviewNavItemFor(item.key) || Boolean(favoriteMatch(item))),
     [favoriteMatch, teamView],
   )
@@ -106,6 +108,23 @@ export function useSidebarFavorites({
 
       if (existing) removeSidebarFavorite(userId, teamId, favoriteIdentity(existing))
       else addSidebarFavorite(userId, teamId, favoriteEntryForItem(item))
+    },
+    [favoriteEntryForItem, favoriteMatch, teamId, userId],
+  )
+
+  const placeBotPin = useCallback(
+    (item: Item, before: Item | null) => {
+      const entry = favoriteMatch(item) ?? favoriteEntryForItem(item)
+
+      if (!favoriteMatch(item)) addSidebarFavorite(userId, teamId, entry)
+      const target = before ? favoriteMatch(before) : undefined
+
+      moveSidebarFavorite(
+        userId,
+        teamId,
+        favoriteIdentity(entry),
+        target ? favoriteIdentity(target) : null,
+      )
     },
     [favoriteEntryForItem, favoriteMatch, teamId, userId],
   )
@@ -170,6 +189,14 @@ export function useSidebarFavorites({
     .map(resolveFavorite)
 
   return {
+    botPins: {
+      order: favorites.flatMap((entry) => {
+        const id = favoriteSessionId(entry)
+
+        return id ? [`agent-session:${id}`] : []
+      }),
+      place: placeBotPin,
+    },
     favoriteMatch,
     canFavorite,
     toggleFavorite,

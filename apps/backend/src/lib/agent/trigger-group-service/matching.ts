@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto'
-
 import { agentTriggers } from '../trigger-db'
 import { agentTriggerGroups, triggerGroupMemberRuns } from '../trigger-group-db'
 
@@ -97,10 +95,6 @@ export function matchConfiguredTriggerGroupMembers(input: {
       },
     ]
   })
-}
-
-export function triggerGroupIncidentScope(memberKey: string): string {
-  return `member:${createHash('sha256').update(memberKey).digest('hex').slice(0, 32)}`
 }
 
 export async function matchTriggerGroupMembers(input: {

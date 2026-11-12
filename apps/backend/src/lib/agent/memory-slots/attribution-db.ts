@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { sha256Hex } from '@/lib/journal/hashing'
-import { redactSecrets } from '@/lib/journal/redact'
+import { redactSecrets } from '@/lib/secrets/scan'
 
 import type {
   AttributionSignal,
@@ -65,7 +65,7 @@ export async function recordAttributionSignal(input: {
   const key = attributionKey(input.provider, input.conversationId, input.turnKey, input.memoryId)
   const now = new Date()
   const note = input.signal.note
-    ? redactSecrets(input.signal.note).redacted.slice(0, 300)
+    ? (await redactSecrets(input.signal.note)).redacted.slice(0, 300)
     : undefined
   const entry: AttributionSignalEntry = { ...input.signal, at: now, ...(note ? { note } : {}) }
 

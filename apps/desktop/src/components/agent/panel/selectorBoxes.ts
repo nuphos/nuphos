@@ -1,7 +1,7 @@
 import { t } from '../../../i18n/index.ts'
 import { listedAgents } from '../../../lib/agentName.ts'
 import { quotaSignedOut } from '../../../lib/runtimeQuota.ts'
-import { AGENT_PROVIDER } from '../../../types/runtime.ts'
+import { agentDisplayName } from '../../../views/settings/agentPresentation.ts'
 import { computerOwner, ownerName } from '../../../views/settings/computerOwner.ts'
 
 import type { AgentDevice } from '../../../api/device-types'
@@ -127,9 +127,7 @@ function formatCapacity(value: { used: number; total: number }) {
 
 /** Inside its computer a runtime goes by its own name, or its provider's; never "<name> in <computer>". */
 export function boxAgentName(agent: Pick<RuntimeInstance, 'label' | 'local' | 'provider'>): string {
-  if (!agent.local) return agent.label
-
-  return agent.local.agentLabel ?? AGENT_PROVIDER[agent.provider].label
+  return agentDisplayName(agent)
 }
 
 /** Explicit grants win; older catalogs identify a teammate's computer with shared. */

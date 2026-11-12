@@ -2,18 +2,32 @@ import { Search } from 'lucide-react'
 
 import { t } from '../../i18n'
 import { Kbd } from '../ui/kbd'
+import { Tooltip } from '../ui/tooltip'
 
-export function SidebarSearchButton({ onSearch }: { onSearch?: () => void }) {
-  if (!onSearch) return null
+import { noteSearchSource } from './searchSource'
 
+/** ⌘K's button in the titlebar, beside the sidebar toggle and styled like it. */
+export function SidebarSearchButton({ onSearch }: { onSearch: () => void }) {
   return (
-    <button
-      onClick={onSearch}
-      className="titlebar-no-drag mx-2.5 mb-1 flex items-center gap-2.5 rounded-md px-2 py-2 text-[13px] text-secondary hover:bg-state-hover hover:text-main"
+    <Tooltip
+      content={
+        <span className="inline-flex items-center gap-1.5">
+          {t('Search')} <Kbd combo="mod+k" />
+        </span>
+      }
     >
-      <Search size={16} />
-      <span className="flex-1 text-left">{t('Search')}</span>
-      <Kbd combo="mod+k" />
-    </button>
+      <button
+        type="button"
+        onClick={() => {
+          noteSearchSource('button')
+          onSearch()
+        }}
+        className="titlebar-no-drag w-8 h-8 rounded-md flex items-center justify-center text-tertiary transition-colors hover:text-secondary hover:bg-[var(--sidebar-overlay-hover)]"
+        aria-label={t('Search')}
+        data-search-trigger
+      >
+        <Search className="w-[15px] h-[15px]" strokeWidth={1.5} />
+      </button>
+    </Tooltip>
   )
 }

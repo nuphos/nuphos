@@ -1,3 +1,5 @@
+import { useCredentialOptions } from '@/lib/test/doubles/credential-options'
+import { useAgentSessionsShared, real as shared } from '@/lib/test/doubles/agent-sessions-shared'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 
@@ -9,11 +11,12 @@ import { emptyConnectorCredentialOptions } from '@/routes/agent/credential-optio
 
 import {
   CREDENTIAL_LISTERS,
+  listSessionCredentials,
   flattenSelectedCredentials,
   partitionCredentials,
 } from './credential-listing'
 
-import type { AgentCredentialOptions } from '@/routes/agent/types'
+import type { AgentCredentialOptions, AgentCredentialSelection } from '@/routes/agent/types'
 
 function emptyOptions(): AgentCredentialOptions {
   return {
@@ -44,6 +47,9 @@ function emptyOptions(): AgentCredentialOptions {
   }
 }
 
+const installOptions = useCredentialOptions({})
+const installAccess = useAgentSessionsShared({})
+
 const ID = 'id-1'
 
 function oneOfEach(): AgentCredentialOptions {
@@ -72,6 +78,7 @@ function oneOfEach(): AgentCredentialOptions {
     zeaburProviders: [{ zeaburId: ID, kind: 'team', name: label }],
     vantaIntegrations: [{ integrationId: ID, label, authType: 'client_credentials' }],
     secureframeIntegrations: [{ integrationId: ID, label, region: 'us' }],
+    trelloIntegrations: [{ integrationId: ID, label, username: 'fixture' }],
     resendIntegrations: [{ integrationId: ID, label, permission: 'sending_access' }],
     githubInstallations: [{ installationId: ID, accountLogin: 'org', accountType: 'Organization' }],
     gitlabBindings: [{ bindingId: ID, hostUrl: 'https://g', username: 'u' }],
@@ -253,7 +260,8 @@ describe('flattenSelectedCredentials', () => {
         provider: 'device',
         id: 'dev-1',
         label: 'MacBook (darwin)',
-        usage: 'Local machine; run commands on it with the local_exec tool, device=dev-1.',
+        usage:
+          'Authorized for this conversation; any participant who may reply can request local_exec on device=dev-1. No separate owner confirmation is needed.',
       },
       {
         provider: 'device',
@@ -364,6 +372,7 @@ describe('flattenSelectedCredentials', () => {
         id: 'linear-1',
         label: 'Linear prod',
         credentialPath: 'linear-workspaces/linear-1/credentials',
+        identityPreference: { kind: 'team' },
       },
       {
         provider: 'resend',
@@ -392,13 +401,83 @@ describe('device listing', () => {
 })
 
 describe('partitionCredentials', () => {
-  test('an unselected personal credential is requested by its provider, not by a tick', () => {
+  test.each(['github', 'linear'] as const)(
+    'reports the selected %s personal identity without granting standalone access',
+    (provider) => {
+      const options = emptyOptions()
+
+      options.personalCredentials = [{ provider, login: 'octo' }]
+      options.githubInstallations = [
+        { installationId: ID, accountLogin: 'org', accountType: 'Organization' },
+      ]
+      options.linearWorkspaces = [{ workspaceId: ID, label: 'Workspace', workspaceName: 'w' }]
+      const key = provider === 'github' ? 'githubInstallationIds' : 'linearWorkspaceIds'
+      const { selected, unselected } = partitionCredentials({ [key]: [ID] }, options)
+
+      expect(selected.find((entry) => entry.provider === provider)?.identityPreference).toEqual({
+        kind: 'personal',
+        login: 'octo',
+      })
+      expect(unselected.find((entry) => entry.provider === 'personal')).toMatchObject({
+        id: provider,
+        selected: false,
+        hint: expect.stringContaining('adds no permissions'),
+      })
+      expect(selected.some((entry) => entry.provider === 'personal')).toBe(false)
+    },
+  )
+
+  test('keeps team identity and standalone personal access independent', () => {
+    const options = oneOfEach()
+    const selection: AgentCredentialSelection = {
+      githubInstallationIds: [ID],
+      teamIdentity: ['github'],
+    }
+    const team = partitionCredentials(selection, options)
+
+    expect(team.selected.find((entry) => entry.provider === 'github')?.identityPreference).toEqual({
+      kind: 'team',
+    })
+    expect(team.unselected.some((entry) => entry.provider === 'personal')).toBe(true)
+
+    const standalone = partitionCredentials(
+      { ...selection, personalCredentialIds: ['github'] },
+      options,
+    )
+
+    expect(standalone.selected.find((entry) => entry.provider === 'personal')?.credentialPath).toBe(
+      'personal-credentials/github/token',
+    )
+  })
+
+  test('does not enable personal access through an unselected team binding', () => {
+    const { selected, unselected } = partitionCredentials(
+      { githubInstallationIds: [] },
+      oneOfEach(),
+    )
+
+    expect(selected.some((entry) => entry.provider === 'personal')).toBe(false)
+    expect(unselected.some((entry) => entry.provider === 'personal')).toBe(true)
+  })
+
+  test('does not claim a personal identity when none is connected', () => {
+    const options = { ...oneOfEach(), personalCredentials: [] }
+    const { selected } = partitionCredentials({ githubInstallationIds: [ID] }, options)
+
+    expect(selected.find((entry) => entry.provider === 'github')?.identityPreference).toEqual({
+      kind: 'team',
+    })
+  })
+
+  // `providers ["github"]` is answered by any GitHub access, a team installation too.
+  test('an unselected personal credential is requested as its exact pair, not by a tick', () => {
     const options = emptyOptions()
 
     options.personalCredentials = [{ provider: 'github', login: 'octo' }]
     const { unselected } = partitionCredentials({ personalCredentialIds: [] }, options)
 
-    expect(unselected[0]?.hint).toContain('providers ["github"]')
+    expect(unselected[0]?.hint).toContain('credentials [{"provider": "personal", "id": "github"}]')
+    expect(unselected[0]?.hint).not.toContain('providers [')
   })
 
   test('lists usable but unselected credentials with a request hint and no way to fetch them', () => {
@@ -436,4 +515,48 @@ describe('partitionCredentials', () => {
       expect.objectContaining({ provider: 'cloudflare', id: 'cf-1', selected: false }),
     ])
   })
+})
+
+test('shared turns list session-authorized computers while keeping provider credentials actor-scoped', async () => {
+  installOptions({
+    getAgentCredentialOptions: (_teamId, userId) => {
+      const options = emptyOptions()
+
+      options.devices = [
+        { deviceId: userId + '-device', label: userId, platform: 'darwin', available: true },
+      ]
+      options.awsRoles = [
+        {
+          roleId: userId + '-role',
+          accountId: '123456789012',
+          accountAlias: null,
+          roleArn: 'fixture',
+        },
+      ]
+
+      return Promise.resolve(options)
+    },
+  })
+  installAccess({
+    getAgentCredentialAccess: (agent) =>
+      Promise.resolve(
+        shared.normalizeCredentialAccess({
+          deviceIds: [agent.userId + '-device'],
+          awsRoleIds: [agent.userId + '-role'],
+        }),
+      ),
+  })
+  const listed = await listSessionCredentials(
+    { userId: 'teammate', conversationOwnerUserId: 'owner', sessionId: 'shared' },
+    'team',
+  )
+
+  expect(
+    listed.selected.filter((entry) => entry.provider === 'device').map((entry) => entry.id),
+  ).toEqual(['owner-device'])
+  expect(
+    listed.selected.filter((entry) => entry.provider === 'aws').map((entry) => entry.id),
+  ).toEqual(['teammate-role'])
+  expect(listed.selected.some((entry) => entry.id === 'owner-role')).toBe(false)
+  expect(listed.unselected.some((entry) => entry.id === 'teammate-device')).toBe(false)
 })

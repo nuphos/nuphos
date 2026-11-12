@@ -1,4 +1,3 @@
-import { t } from '../../i18n/index.ts'
 import { openInputRequests } from '../../lib/agentInputRequests.ts'
 
 import type { AgentConversation, AgentInputRequest } from '../../api/agent-types'
@@ -63,20 +62,10 @@ export function openQuestion(
   return rows[Math.max(0, Math.min(selected?.index ?? 0, rows.length - 1))]
 }
 
-/** Connect and secure-input cards live in the transcript; only there can these be answered. */
+/** Secure-input and Connect cards answer these themselves, never with a reply. */
 const ANSWERED_IN_CONVERSATION = new Set(['credential', 'integration'])
 
-/**
- * The replies a card offers, each sent to the conversation as the answer to
- * its question: one per choice, or "Done." for a to-do, so the agent goes on.
- * Null when the question can only be answered in the conversation.
- */
-export function cardReplies(
-  request: Pick<AgentInputRequest, 'category' | 'options'>,
-): { label: string; reply: string }[] | null {
-  if (ANSWERED_IN_CONVERSATION.has(request.category)) return null
-  if (request.options?.length)
-    return request.options.map((option) => ({ label: option, reply: option }))
-
-  return [{ label: t('Mark as done'), reply: 'Done.' }]
+/** A to-do: no choices, answered with "Done." so the agent goes on, or in words. */
+export function markAsDone(request: Pick<AgentInputRequest, 'category' | 'options'>): boolean {
+  return !ANSWERED_IN_CONVERSATION.has(request.category) && !request.options?.length
 }

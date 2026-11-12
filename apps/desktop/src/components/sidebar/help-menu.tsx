@@ -76,6 +76,38 @@ function WhatsNewGroup({
   )
 }
 
+/** The update a restart installs, its download progress after the click, and the
+ * installer when the last restart came back without it. */
+function UpdateItems({ update }: { update: NonNullable<ReturnType<typeof useReadyUpdate>> }) {
+  const { installerUrl } = update
+
+  return (
+    <>
+      {update.percent === null ? (
+        <MenuItem icon={<ArrowDown className="h-3.5 w-3.5" />} onClick={update.install}>
+          {t('Restart to update to {version}', { version: update.version })}
+        </MenuItem>
+      ) : (
+        <MenuItem
+          icon={<ArrowDown className="h-3.5 w-3.5" />}
+          hint={<span className="tabular-nums">{update.percent}%</span>}
+          disabled
+        >
+          {t('Downloading Nuphos {version}…', { version: update.version })}
+        </MenuItem>
+      )}
+      {installerUrl && (
+        <MenuItem
+          icon={<ArrowUpRight className="h-3.5 w-3.5" />}
+          onClick={() => void api.appOpenExternal(installerUrl)}
+        >
+          {t('Download installer')}
+        </MenuItem>
+      )}
+    </>
+  )
+}
+
 export function SidebarHelpMenu({ onOpenShortcutsHelp }: { onOpenShortcutsHelp?: () => void }) {
   const changelog = useChangelog()
   const update = useReadyUpdate()
@@ -114,19 +146,7 @@ export function SidebarHelpMenu({ onOpenShortcutsHelp }: { onOpenShortcutsHelp?:
         <MenuContent side="top" align="end" sideOffset={8} className="w-[300px]">
           {update && (
             <>
-              {update.percent === null ? (
-                <MenuItem icon={<ArrowDown className="h-3.5 w-3.5" />} onClick={update.install}>
-                  {t('Restart to update to {version}', { version: update.version })}
-                </MenuItem>
-              ) : (
-                <MenuItem
-                  icon={<ArrowDown className="h-3.5 w-3.5" />}
-                  hint={<span className="tabular-nums">{update.percent}%</span>}
-                  disabled
-                >
-                  {t('Downloading Nuphos {version}…', { version: update.version })}
-                </MenuItem>
-              )}
+              <UpdateItems update={update} />
               <MenuSeparator />
             </>
           )}

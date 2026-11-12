@@ -36,7 +36,7 @@ object AgentChatApi {
     fun chatRequest(token: String, body: ChatRequest): Request {
         val json = Http.json.encodeToString(ChatRequestBody.serializer(), ChatRequestBody.from(body))
         return Request.Builder()
-            .url("${NuphosApi.BASE_URL}/agent/chat")
+            .url("${NuphosApi.baseUrl(token)}/agent/chat")
             .post(json.toRequestBody(Http.jsonMedia))
             .header("Authorization", "Bearer $token")
             .header("Accept", "text/event-stream")
@@ -283,6 +283,31 @@ object AgentChatApi {
     /** The errors the conversation shows Switch runtime beside. */
     val switchRuntimeErrors: Set<String> = RUNTIME_BLOCKED.values.toSet()
 
+    /** The error someone else may get past for the viewer, by signing the agent in. */
+    val signedOutError: String = RUNTIME_BLOCKED.getValue("runtime_login_required")
+
+    /**
+     * Who signs this agent in when the viewer can't, as the backend decides: a
+     * computer's agent (`local_<owner>_…`) its owner, a team's agent an
+     * administrator. Null when the viewer can sign it in themselves.
+     */
+    fun signInAsk(runtimeId: String?, viewerId: String?, isAdministrator: Boolean): String? {
+        if (runtimeId == null || viewerId == null) return null
+        if (runtimeId.startsWith("local_")) return if (runtimeId.startsWith("local_${viewerId}_")) null else "Ask owner"
+        return if (isAdministrator) null else "Ask an admin"
+    }
+
+    /**
+     * `POST /teams/:id/agent-runtimes/:runtimeId/sign-in-requests`: asks whoever can
+     * sign this conversation's agent in, through their Inbox and a push. Answers
+     * with whom it asked.
+     */
+    suspend fun runtimeSignInAsk(token: String, teamId: String, runtimeId: String, sessionId: String): String {
+        val data = send("POST", "teams/$teamId/agent-runtimes/$runtimeId/sign-in-requests", token,
+            body = JsonValue.obj("sessionId" to JsonValue.Str(sessionId)))
+        return JsonValue.parse(data)?.get("askedName")?.stringValue ?: throw NuphosApi.Failure.InvalidResponse
+    }
+
     fun conflict(status: Int, body: String?): Conflict {
         var code: String? = null
         var message = body ?: "Nuphos returned status $status."
@@ -336,6 +361,16 @@ object AgentChatApi {
         return QueueRecall(text, files)
     }
 
+    /**
+     * `PATCH /agent/conversations/:id/credentials`: the conversation's credential selection, as its
+     * owner sets it. Keys left out keep their stored value; the server answers an open integration
+     * question the selection now covers, and tells the agent.
+     */
+    suspend fun updateCredentials(token: String, teamId: String, sessionId: String, credentialAccess: JsonValue) {
+        send("PATCH", "agent/conversations/$sessionId/credentials", token, listOf("teamId" to teamId),
+            JsonValue.Obj(mapOf("teamId" to JsonValue.Str(teamId), "credentialAccess" to credentialAccess)))
+    }
+
     internal suspend fun send(
         method: String,
         path: String,
@@ -343,7 +378,7 @@ object AgentChatApi {
         query: List<Pair<String, String>> = emptyList(),
         body: JsonValue? = null,
     ): String = withContext(Dispatchers.IO) {
-        val url = NuphosApi.BASE_URL.toHttpUrl().newBuilder().addPathSegments(path).apply {
+        val url = NuphosApi.baseUrl(token).toHttpUrl().newBuilder().addPathSegments(path).apply {
             query.forEach { (k, v) -> addQueryParameter(k, v) }
         }.build()
         val builder = Request.Builder()

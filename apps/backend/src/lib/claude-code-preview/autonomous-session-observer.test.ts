@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from 'bun:test'
+import { beforeEach, describe, expect, spyOn, test } from 'bun:test'
 
 import {
   observeAutonomousUpdates,
@@ -509,4 +509,46 @@ test('provider idle cannot close a runtime-owned continuation before its final b
   })
   await Bun.sleep(0)
   expect(seen).toEqual(['status', 'text', 'complete'])
+})
+
+test('each closed autonomous segment logs the frame that closed it', async () => {
+  setClaudeCodeAutonomousUpdateHandler(() => {})
+  const log = spyOn(console, 'log').mockImplementation(() => {})
+  const harness = sessionHarness('codex')
+
+  try {
+    harness.emit({ kind: 'status', status: 'active' })
+    harness.emit({ kind: 'text', text: 'Checking the build.' })
+    harness.emit({
+      kind: 'agent',
+      update: {
+        kind: 'runtime-state',
+        snapshot: { state: 'idle', providerState: 'idle', providerDetails: { type: 'idle' } },
+      },
+    })
+    // After a runtime snapshot, only snapshots move the lifecycle.
+    harness.emit({
+      kind: 'agent',
+      update: { kind: 'runtime-state', snapshot: { state: 'active', providerState: 'active' } },
+    })
+    harness.emit({ kind: 'text', text: 'Still checking.' })
+    harness.emit({ kind: 'interrupted', reason: 'runtime_connection_lost' })
+    await Bun.sleep(0)
+
+    expect(
+      log.mock.calls
+        .map(([line]) => JSON.parse(String(line)) as Record<string, unknown>)
+        .filter((entry) => entry.event === 'agent.autonomous_segment.closed'),
+    ).toEqual([
+      expect.objectContaining({
+        session_id: 'conversation-1',
+        kind: 'complete',
+        provider_state: 'idle',
+        thread_status: 'idle',
+      }),
+      expect.objectContaining({ kind: 'interrupted', reason: 'runtime_connection_lost' }),
+    ])
+  } finally {
+    log.mockRestore()
+  }
 })

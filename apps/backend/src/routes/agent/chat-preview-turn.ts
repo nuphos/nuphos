@@ -192,7 +192,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       onPermissionRequest: permissionRequest,
     })
 
-  const persistInterrupted = (error: unknown) =>
+  const persistInterrupted = async (error: unknown) =>
     persistInterruptedPreviewTurn({
       ...args,
       run: state.current(),
@@ -205,7 +205,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       finalStepStart: 0,
       steered,
       error,
-      diagnostics: diagnostic.finish(error),
+      diagnostics: await diagnostic.finish(error),
       emit: state.emit,
       provider: args.endpoint.provider ?? 'claude-code',
     })

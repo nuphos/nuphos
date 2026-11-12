@@ -233,9 +233,7 @@ describe('a local agent serves whoever may use its computer', () => {
     const own = { ...conversation('teammate'), runtimeId: 'managed-1' }
 
     memory.rows('agent_conversations').push(own)
-    await expect(
-      moveConversationRuntime(own, localId, 'history', 'teammate'),
-    ).rejects.toMatchObject(notFound)
+    await expect(moveConversationRuntime(own, localId, 'teammate')).rejects.toMatchObject(notFound)
     expect(own.runtimeId).toBe('managed-1')
   })
 })

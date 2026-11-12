@@ -10,6 +10,9 @@ import {
   teamIdentityOf,
 } from './personalIdentity.ts'
 
+import { EMPTY_CREDENTIAL_OPTIONS } from './constants.ts'
+import { defaultCredentialAccess } from './credentialAccess.ts'
+
 import type { AgentCredentialOptions } from '../../../api'
 
 import type { AgentCredentialSelection } from '../../../api'
@@ -29,7 +32,7 @@ describe('personal identity row', () => {
   test('a connected provider is ticked by default', () => {
     assert.deepEqual(personalIdentityRow('github', [github], emptyCredentialAccess()), {
       provider: 'github',
-      label: 'You (fong) · Personal',
+      label: 'Team connection acts as you (fong)',
       checked: true,
     })
   })
@@ -100,6 +103,72 @@ describe('own credential without a team binding', () => {
 
     assert.deepEqual(selected.teamIdentity, [])
     assert.deepEqual(teamIdentityOf(selected).teamIdentity, [])
+  })
+
+  // Under a binding the own credential is opted into only by its own row: Select all
+  // neither adds nor drops it, and Clear all revokes it with the rest.
+  test('under a binding, Select all keeps an opted-in own credential and never adds one', () => {
+    for (const provider of ['github', 'linear'] as const) {
+      const bound = provider === 'github' ? options(1, 0) : options(0, 1)
+      const other = provider === 'github' ? 'linear' : 'github'
+      const absent = emptyCredentialAccess()
+      const optedIn = { ...emptyCredentialAccess(), personalCredentialIds: [provider] }
+
+      assert.deepEqual(
+        setAllPersonal(absent, personalRows(bound, absent), true).personalCredentialIds,
+        [other],
+      )
+      assert.deepEqual(
+        setAllPersonal(optedIn, personalRows(bound, optedIn), true).personalCredentialIds?.sort(),
+        [other, provider].sort(),
+      )
+      assert.deepEqual(
+        setAllPersonal(optedIn, personalRows(bound, optedIn), false).personalCredentialIds,
+        [],
+      )
+    }
+  })
+
+  test('under a binding, the counted row is the identity, never the own credential', () => {
+    for (const teamIdentity of [undefined, ['github' as const]]) {
+      const value = { ...emptyCredentialAccess(), ...(teamIdentity ? { teamIdentity } : {}) }
+      const rows = personalRows(options(1, 1), value)
+
+      assert.deepEqual(
+        rows.map(({ provider, bound }) => ({ provider, bound })),
+        [
+          { provider: 'github', bound: true },
+          { provider: 'linear', bound: true },
+        ],
+      )
+      // The own credential is not selected because the team acts as the member.
+      assert.equal(value.personalCredentialIds, undefined)
+    }
+  })
+
+  test('opting in or out of the own credential never touches teamIdentity', () => {
+    for (const provider of ['github', 'linear'] as const) {
+      for (const teamIdentity of [undefined, [provider]]) {
+        const value = { ...emptyCredentialAccess(), ...(teamIdentity ? { teamIdentity } : {}) }
+        const ticked = setPersonalOnly(value, provider, true)
+
+        assert.deepEqual(ticked.personalCredentialIds, [provider])
+        assert.deepEqual(ticked.teamIdentity, value.teamIdentity)
+        assert.deepEqual(setPersonalOnly(ticked, provider, false).teamIdentity, value.teamIdentity)
+      }
+    }
+  })
+
+  test("a new chat's default selection never includes the member's own credential", () => {
+    const loaded = {
+      ...EMPTY_CREDENTIAL_OPTIONS,
+      githubInstallations: [
+        { installationId: 'i1', accountLogin: 'acme', accountType: 'Organization' },
+      ],
+      personalCredentials: own,
+    } as AgentCredentialOptions
+
+    assert.deepEqual(defaultCredentialAccess(loaded).personalCredentialIds ?? [], [])
   })
 
   test('ticking adds the provider and unticking removes only it', () => {

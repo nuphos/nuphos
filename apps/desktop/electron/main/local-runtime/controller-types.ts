@@ -141,21 +141,6 @@ export const USAGE_SAMPLE_MS = 600_000
 /** A sign-in is worth reading again for; mashing Check is not. */
 export const USAGE_SIGN_IN_FLOOR_MS = 30_000
 export const HEALTHY_AFTER_MS = 60_000
-/** An agent never serves Nuphos from the owner's own home, where their personal config lives. */
-export const AGENT_HOME_UNAVAILABLE: Record<LocalAgentProvider, string> = {
-  'claude-code': 'Nuphos could not prepare a separate Claude Code home on this computer.',
-  codex: 'Sign in to Codex on this computer with `codex login`, then check again.',
-  grok: 'Nuphos could not prepare a separate Grok Build home on this computer.',
-  opencode: 'Nuphos could not prepare a separate OpenCode home on this computer.',
-}
-
-export const INSTALL_HINT: Record<LocalAgentProvider, string> = {
-  'claude-code': 'Install Claude Code on this computer to run it as a local runtime.',
-  codex: 'Install Codex on this computer to run it as a local runtime.',
-  grok: 'Install Grok Build on this computer to run it as a local runtime.',
-  opencode: 'Install OpenCode on this computer to run it as a local runtime.',
-}
-
 export function freshAgent(): Agent {
   return { runtime: null, cli: null, restartAttempt: 0, generation: 0 }
 }

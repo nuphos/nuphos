@@ -7,6 +7,21 @@ export function retainBackgroundTabs(tabs: Tab[], uploadingTabIds?: ReadonlySet<
   )
 }
 
+/** Keep two recent settled conversations warm, without evicting live work. */
+export function retainOpenedTabs(tabs: Tab[], uploadingTabIds?: ReadonlySet<string>): Tab[] {
+  const live = new Set(retainBackgroundTabs(tabs, uploadingTabIds))
+  const recent = new Set(tabs.filter((tab) => !live.has(tab)).slice(-2))
+
+  return tabs.filter((tab) => live.has(tab) || recent.has(tab))
+}
+
+/** Move an activated chat to the recent end without replacing its state. */
+export function touchOpenedTab(tabs: Tab[], id: string): Tab[] {
+  const tab = tabs.find((candidate) => candidate.id === id)
+
+  return tab ? [...tabs.filter((candidate) => candidate.id !== id), tab] : tabs
+}
+
 /** Buffered SSE frames retain their original clock anchor across re-attachment. */
 export function eventEmittedAt(event: Record<string, unknown>, fallback = Date.now()): number {
   return typeof event.emittedAt === 'number' ? event.emittedAt : fallback

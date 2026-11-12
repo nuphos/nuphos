@@ -30,6 +30,14 @@ class ModelSettingsApiTest {
             assertTrue(runCatching { ModelSettingsApi.read("synthetic", "team", "chat") { _, _, _, _, _ -> raw } }.isFailure)
         }
     }
+    @Test fun unknownCurrentModelHasANeutralTitleAndKeepsChoicesEditable() = runTest {
+        val raw = """{"status":"ready","options":[{"id":"model","name":"Model","kind":"model","currentValue":"","options":[{"value":"sol","name":"Sol"}]}]}"""
+        val state = ModelSettingsApi.read("synthetic", "team", "chat") { _, _, _, _, _ -> raw }
+        assertEquals("Model", state.modelTitle)
+        assertTrue(state.editable)
+        assertTrue(state.allows("model", "sol"))
+        assertEquals("", state.options.single().currentValue)
+    }
     @Test fun initialSettingsCoexistWithExplicitCredentialSelectionAndRuntimeBinding() {
         val credential = ai.nuphos.android.model.CredentialSelection(newConversation = true).json
         val request = AgentChatApi.ChatRequest("new", "team", emptyList(), streamId = "s", credentialAccess = credential,
@@ -39,7 +47,8 @@ class ModelSettingsApiTest {
         assertEquals("a", body["initialSessionConfig"]?.get("model")?.stringValue)
         assertEquals(credential, body["credentialAccess"]); assertEquals("agent", body["runtimeId"]?.stringValue)
         val explicit = body["credentialAccess"] as JsonValue.Obj
-        assertEquals(30, explicit.value.size)
+        // Every kind, the member's own credentials included, explicitly empty.
+        assertEquals(32, explicit.value.size)
         assertTrue(explicit.value.values.all { it.arrayValue?.isEmpty() == true })
         val resumed = request.copy(resume = true, initialSessionConfig = null)
         val other = Buffer(); AgentChatApi.chatRequest("synthetic", resumed).body!!.writeTo(other)

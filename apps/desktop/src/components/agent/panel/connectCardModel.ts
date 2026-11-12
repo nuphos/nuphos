@@ -1,3 +1,6 @@
+import { parseDecisionQuestions } from './decisionFormModel.ts'
+
+import type { DecisionQuestion } from './decisionFormModel.ts'
 import type { AgentCredentialSelection } from '../../../api'
 import type { AddIntegrationKey } from '../../../views/addIntegrationCatalog'
 
@@ -17,6 +20,7 @@ export const CONNECT_SELECTION_KEY = {
   notion: 'notionIntegrationIds',
   upstash: 'upstashAccountIds',
   resend: 'resendIntegrationIds',
+  trello: 'trelloIntegrationIds',
   cloudflare: 'cloudflareAccountIds',
   instabox: 'instaboxAccountIds',
   betterstack: 'betterStackIntegrationIds',
@@ -45,18 +49,40 @@ export type ConnectProvider = keyof typeof CONNECT_SELECTION_KEY
 export type ConnectPhase = 'idle' | 'connecting' | 'cancelled' | 'error'
 export type ConnectRowStatus = 'connected' | 'available' | 'choose' | ConnectPhase
 
-/** An integration `request_user_decision` that lists `providers`: its Connect card. */
+/**
+ * An integration `request_user_decision` and its Connect card: `providers` asks
+ * for any access of a kind, `credentials` for the member's own credential only
+ * (`personal`). One that names both is no card: what answers it is unclear.
+ */
 export function parseConnectRequest(
   value: unknown,
-): { providers: ConnectProvider[]; reason: string } | null {
+): { providers: ConnectProvider[]; reason: string; personal: boolean } | null {
   if (!value || typeof value !== 'object') return null
-  const { category, providers, question } = value as {
+  const { category, providers, credentials, question } = value as {
     category?: unknown
     providers?: unknown
+    credentials?: unknown
     question?: unknown
   }
 
-  if (category !== 'integration' || !Array.isArray(providers)) return null
+  if (category !== 'integration') return null
+  const reason = typeof question === 'string' ? question : ''
+
+  if (credentials !== undefined) {
+    if (providers !== undefined || !Array.isArray(credentials)) return null
+    const own = [
+      ...new Set(
+        credentials.flatMap((ref: { provider?: unknown; id?: unknown }) =>
+          ref?.provider === 'personal' && (ref.id === 'github' || ref.id === 'linear')
+            ? [ref.id as ConnectProvider]
+            : [],
+        ),
+      ),
+    ]
+
+    return own.length > 0 ? { providers: own, reason, personal: true } : null
+  }
+  if (!Array.isArray(providers)) return null
   const known = [
     ...new Set(
       providers.filter(
@@ -65,9 +91,7 @@ export function parseConnectRequest(
     ),
   ]
 
-  return known.length > 0
-    ? { providers: known, reason: typeof question === 'string' ? question : '' }
-    : null
+  return known.length > 0 ? { providers: known, reason, personal: false } : null
 }
 
 /** A credential `request_user_decision` that names a `secretName`: its secure input card. */
@@ -91,9 +115,14 @@ export function secretSavedReply(name: string): string {
 }
 
 /** Any other `request_user_decision`: its question card, with the options as replies. */
-export function parseChoiceRequest(
-  value: unknown,
-): { category: string; question: string; body?: string; options: string[] } | null {
+export function parseChoiceRequest(value: unknown): {
+  category: string
+  question: string
+  body?: string
+  options: string[]
+  multiSelect?: boolean
+  questions?: DecisionQuestion[]
+} | null {
   if (
     !value ||
     typeof value !== 'object' ||
@@ -101,12 +130,15 @@ export function parseChoiceRequest(
     parseSecretRequest(value)
   )
     return null
-  const { category, question, body, options } = value as {
+  const { category, question, body, options, multiSelect, questions } = value as {
     category?: unknown
     question?: unknown
     body?: unknown
     options?: unknown
+    multiSelect?: unknown
+    questions?: unknown
   }
+  const parsedQuestions = parseDecisionQuestions(questions)
 
   if (typeof question !== 'string' || !question.trim()) return null
 
@@ -117,6 +149,8 @@ export function parseChoiceRequest(
     options: Array.isArray(options)
       ? options.filter((o): o is string => typeof o === 'string' && o.trim() !== '')
       : [],
+    ...(multiSelect === true ? { multiSelect: true } : {}),
+    ...(parsedQuestions ? { questions: parsedQuestions } : {}),
   }
 }
 
@@ -134,6 +168,20 @@ export function connectRowStatus(
   if (bound.size === 1) return 'available'
 
   return bound.size > 1 ? 'choose' : 'idle'
+}
+
+/**
+ * A row for the member's own credential: selected only by personalCredentialIds,
+ * never by a team binding or identity; `available` once they have connected it.
+ */
+export function personalConnectStatus(
+  provider: 'github' | 'linear',
+  selected: AgentCredentialSelection,
+  own: readonly { provider: string }[],
+): ConnectRowStatus {
+  if ((selected.personalCredentialIds ?? []).includes(provider)) return 'connected'
+
+  return own.some((credential) => credential.provider === provider) ? 'available' : 'idle'
 }
 
 /** Ids of `provider` present in `after` but not in `before`: what a bind just added. */

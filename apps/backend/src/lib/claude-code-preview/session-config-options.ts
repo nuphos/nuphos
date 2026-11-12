@@ -81,11 +81,12 @@ export function parseSessionConfigOptions(value: unknown): SessionConfigOption[]
 /** Model settings picked before a session exists, by option id. */
 export const sessionConfigPickSchema = z
   .object({
-    model: z.string().trim().min(1).max(500).optional(),
+    model: z.string().trim().max(500).optional(),
     effort: z.string().trim().min(1).max(100).optional(),
     fast: z.string().trim().min(1).max(100).optional(),
   })
   .strict()
+  .transform(({ model, ...settings }) => (model ? { ...settings, model } : settings))
 
 /** The values a session confirmed, by kind, as the runtime takes them on creation. */
 export function pickOf(options: SessionConfigOption[]): RuntimeDefaults {

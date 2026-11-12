@@ -11,14 +11,15 @@ const build = readFileSync(
 const LOGIN_COMMAND = 'node /opt/nuphos-runtime/codex-login.mjs --install'
 const AUTH_FILE = '/home/node/.codex/auth.json'
 const CLAUDE_LOGIN_COMMAND = 'node /opt/nuphos-runtime/claude-login.mjs --long-lived'
-// The one-year token `claude-login.mjs --long-lived` stores, then the login `claude auth
-// login` or `/login` stores, which the agent reads when no long-lived token is present.
+// An API key in Claude's own settings (`claude-login.mjs` stores it, and it outranks every
+// login), the one-year token `claude-login.mjs --long-lived` stores, then the login `claude
+// auth login` or `/login` stores, which the agent reads when no long-lived token is present.
 const CLAUDE_AUTH_FILE =
-  '/home/node/.claude/.nuphos-oauth-token.json:/home/node/.claude/.credentials.json'
+  '/home/node/.claude/settings.json#/env/ANTHROPIC_API_KEY:/home/node/.claude/.nuphos-oauth-token.json:/home/node/.claude/.credentials.json'
 const GROK_LOGIN_COMMAND = 'node /opt/nuphos-runtime/grok-login.mjs'
 const GROK_AUTH_FILE = '/home/node/.grok/auth.json'
 const ANTIGRAVITY_LOGIN_COMMAND = 'node /opt/nuphos-runtime/antigravity-login.mjs'
-const ANTIGRAVITY_AUTH_FILE = '/home/node/.gemini/antigravity-acp/acp_token.json'
+const ANTIGRAVITY_AUTH_COMMAND = 'node /opt/nuphos-runtime/antigravity-status-cli.mjs'
 const OPENCODE_LOGIN_COMMAND = 'node /opt/nuphos-runtime/opencode-login.mjs'
 const OPENCODE_AUTH_FILE = '/home/node/.local/share/opencode/auth.json'
 
@@ -37,10 +38,9 @@ test('each published image signs itself in and reports its own credential file',
   assert.ok(build.includes(`LOGIN_COMMAND='${GROK_LOGIN_COMMAND}'`))
   assert.ok(build.includes(`AUTH_FILE='${GROK_AUTH_FILE}'`))
   assert.ok(build.includes(`LOGIN_COMMAND='${ANTIGRAVITY_LOGIN_COMMAND}'`))
-  assert.ok(build.includes(`AUTH_FILE='${ANTIGRAVITY_AUTH_FILE}'`))
+  assert.ok(dockerfile.includes(`OPENAB_RUNTIME_AUTH_COMMAND="${ANTIGRAVITY_AUTH_COMMAND}"`))
   assert.ok(build.includes(`LOGIN_COMMAND='${OPENCODE_LOGIN_COMMAND}'`))
   assert.ok(build.includes(`AUTH_FILE='${OPENCODE_AUTH_FILE}'`))
-  assert.ok(!build.includes("AUTH_FILE=''"))
   assert.ok(build.includes('RUNTIME_LOGIN_COMMAND=${{ steps.tags.outputs.login_command }}'))
   assert.ok(build.includes('RUNTIME_AUTH_FILE=${{ steps.tags.outputs.auth_file }}'))
 })

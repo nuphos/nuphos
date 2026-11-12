@@ -31,11 +31,13 @@ export function makeAttachmentTurn(
     turnKind,
     currentUser,
     mentions,
+    previews,
   }: {
     turnKind?: Message['turnKind']
     currentUser?: UserInfo | null
     /** The composer's mention chips: the server resolves them, this shows them meanwhile. */
     mentions?: AgentMessageMention[]
+    previews?: Readonly<Record<string, string>>
   } = {},
 ) {
   const trimmed = text.trim()
@@ -53,6 +55,7 @@ export function makeAttachmentTurn(
       fileName: fileNameFromPath(p),
       size: null,
       status: 'uploading',
+      ...(previews?.[p] ? { previewUrl: previews[p] } : {}),
     })),
   })
   const buildUserMsg = (uploadPart: TransferUploadPart | null): Message => ({

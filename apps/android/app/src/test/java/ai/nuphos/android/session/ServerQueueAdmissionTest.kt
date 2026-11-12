@@ -64,8 +64,9 @@ class ServerQueueAdmissionTest {
                 state(chat, "loaded", true); state(chat, "agentRuntime", "openab")
                 state(chat, "runtimeObservation", RuntimeObservation(detail.runtimeState!!, RuntimeObservation.now()))
                 write(chat, "preparedTransfer", AttachmentTransfers().retain(listOf(preparedAttachment)))
-                val send = ChatSession::class.java.getDeclaredMethod("sendPrepared", ComposerSubmission::class.java, String::class.java).also { it.isAccessible = true }
-                assertEquals(true, send.invoke(chat, ComposerSubmission("Queued note", listOf(attachment)), "Synthetic transfer instruction"))
+                val send = ChatSession::class.java.getDeclaredMethod("sendPrepared", ComposerSubmission::class.java, ChatPart::class.java).also { it.isAccessible = true }
+                val transfer = ChatPart.Text(text = "Synthetic transfer instruction", state = ChatPart.StreamState.Done)
+                assertEquals(true, send.invoke(chat, ComposerSubmission("Queued note", listOf(attachment)), transfer))
                 withTimeout(5_000) { while (chat.isStreaming || requests.get() == 0) delay(10) }
                 served.get()
                 assertEquals(1, requests.get())

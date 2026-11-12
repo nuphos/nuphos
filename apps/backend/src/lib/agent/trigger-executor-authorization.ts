@@ -1,6 +1,5 @@
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
-import { resolveTriggerCredentialAccess } from '@/routes/agent'
 
 import { getConversationBySessionId } from './db'
 import {
@@ -9,10 +8,7 @@ import {
   triggerExecutionPrincipalId,
   triggerGroupExecutionIsHealthy,
 } from './trigger-access'
-import {
-  resolveTriggerGroupCredentialMode,
-  triggerRunCredentialAccess,
-} from './trigger-credential-access'
+import { resolveTriggerGroupCredentialMode } from './trigger-credential-access'
 import { agentTriggers } from './trigger-db'
 import { agentTriggerGroups } from './trigger-group-db'
 
@@ -197,44 +193,27 @@ export async function resolveExecutionAuthorization(inbound: AgentTrigger) {
       throw new AppError(409, 'trigger_execution_principal_invalid', error)
     }
   }
+  // Unbound rows predate binding. They have nowhere to deliver, so they stay
+  // off until their owner picks a conversation.
   const target = trigger.targetSessionId
     ? await getConversationBySessionId(trigger.targetSessionId)
     : null
 
-  if (trigger.targetSessionId) {
-    // Otherwise a 30-minute cron would knock on a deleted session forever.
-    if (!target?.teamId || target.teamId !== trigger.teamId || target.userId !== principalUserId) {
-      const error =
-        "The session this Trigger delivers to was deleted or no longer belongs to the Trigger's owner. The Trigger was paused."
+  if (!target?.teamId || target.teamId !== trigger.teamId || target.userId !== principalUserId) {
+    const error = trigger.targetSessionId
+      ? "The session this Trigger delivers to was deleted or no longer belongs to the Trigger's owner. The Trigger was paused."
+      : 'This Trigger has no session to deliver to. The Trigger was paused.'
 
-      await pauseBrokenIngresses(trigger, principalUserId, error, now)
-      throw new AppError(409, 'trigger_target_session_invalid', error)
-    }
-  }
-
-  // Recomputed every run so a connector granted or revoked since the last run
-  // takes effect immediately. A Trigger the user narrowed is then held to that
-  // scope, so only an explicit selection ever bounds a run.
-  const currentAccess = await resolveTriggerCredentialAccess(trigger.teamId, principalUserId)
-  const credentialAccess = triggerRunCredentialAccess(trigger, currentAccess)
-
-  const github = trigger.sessionRouting?.github
-
-  if (github) {
-    if (!credentialAccess.githubInstallationIds?.includes(String(github.installationId))) {
-      throw new AppError(
-        403,
-        'github_route_forbidden',
-        'Trigger cannot access this GitHub installation',
-      )
-    }
-    // PR text is untrusted: a review trigger never inherits cloud or device access.
-    for (const [key, value] of Object.entries(credentialAccess)) {
-      if (Array.isArray(value)) Reflect.set(credentialAccess, key, [])
-    }
-    credentialAccess.githubInstallationIds = [String(github.installationId)]
+    await pauseBrokenIngresses(trigger, principalUserId, error, now)
+    throw new AppError(
+      409,
+      trigger.targetSessionId
+        ? 'trigger_target_session_invalid'
+        : 'trigger_target_session_required',
+      error,
+    )
   }
   await markExecutionAuthorizationValid(trigger, now)
 
-  return { principalUserId, credentialAccess, target }
+  return { target }
 }

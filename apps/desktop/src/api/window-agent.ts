@@ -39,6 +39,14 @@ import type { SessionConfigSelection, SessionConfigState } from './session-confi
 import type { CloudCliProvider, CloudCliProbe } from '../lib/cloudCli.ts'
 import type { AgentProvider } from '../types/runtime.ts'
 
+/** What one archive or restore moved: a Bot goes with its chats. Absent from older servers. */
+export type ArchiveResult = {
+  ok: boolean
+  archived: boolean
+  sessionIds?: string[]
+  botSessionId?: string
+}
+
 export type WindowAgentApi = AgentDecisionApi & {
   cloudProbeCliVersion(provider: CloudCliProvider, probeId?: string): Promise<string | null>
   cloudProbeCli(provider: CloudCliProvider): Promise<CloudCliProbe>
@@ -51,13 +59,11 @@ export type WindowAgentApi = AgentDecisionApi & {
     sessionId: string,
     teamId: string,
     runtimeId: string,
-    mode: 'history' | 'workspace',
     grantComputerUse?: boolean,
   ): Promise<{
     runtimeId: string
     runtimeLabel: string
     agentRuntime: AgentProvider
-    mode: 'history' | 'workspace'
   }>
   agentImportLocalSession(args: {
     source: LocalSessionSource
@@ -103,6 +109,7 @@ export type WindowAgentApi = AgentDecisionApi & {
       archived?: 'exclude' | 'only'
       sort?: 'activity' | 'created' | 'archived'
       pendingDecision?: boolean
+      kind?: 'channel'
     },
   ): Promise<AgentConversationsPage>
   agentRenameConversation(
@@ -114,13 +121,18 @@ export type WindowAgentApi = AgentDecisionApi & {
     sessionId: string,
     archived: boolean,
     teamId?: string,
-  ): Promise<{ ok: boolean; archived: boolean }>
+  ): Promise<ArchiveResult>
   agentSetConversationWatched(
     sessionId: string,
     watching: boolean,
     teamId?: string,
   ): Promise<{ ok: boolean; watching: boolean }>
   agentUnlinkConversationParent(sessionId: string, teamId?: string): Promise<{ ok: boolean }>
+  agentRecordEditFork(
+    sessionId: string,
+    forkSessionId: string,
+    teamId?: string,
+  ): Promise<{ ok: boolean }>
   agentMarkConversationRead(
     sessionId: string,
     seq: number,
@@ -256,7 +268,11 @@ export type WindowAgentApi = AgentDecisionApi & {
     patch: UpdateAgentTriggerInput,
     teamId?: string,
   ): Promise<AgentTrigger>
-  agentDeleteTrigger(triggerId: string, teamId?: string): Promise<DeleteAgentTriggerResult>
+  agentDeleteTrigger(
+    triggerId: string,
+    teamId?: string,
+    withoutProviderCleanup?: boolean,
+  ): Promise<DeleteAgentTriggerResult>
   agentTestFireTrigger(
     triggerId: string,
     payload?: Record<string, unknown>,

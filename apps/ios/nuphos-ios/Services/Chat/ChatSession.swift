@@ -37,6 +37,10 @@ final class ChatSession {
     private(set) var stoppedByUser = false
     /// Stop was sent; the runtime has not yet closed the turn.
     private(set) var isStopping = false
+    /// Why the runtime refused the last Stop, until the alert is dismissed.
+    /// Not a transcript row: one at the end is off screen to a reader of
+    /// older messages, so the tap looked like it did nothing.
+    var stopRefusal: String?
     /// New conversation: sent on the first POST. Existing: mirrors the
     /// server's bypass flag — change it with `setPermissionMode`.
     private(set) var permissionMode: PermissionMode = .auto
@@ -188,6 +192,28 @@ final class ChatSession {
             }
         }
     }
+
+    /// The picker's selection. An existing conversation's owner saves it at once, as the desktop's
+    /// panel does, so an integration question it now covers is answered without another message;
+    /// a new conversation sends it with its first one. Saves go out in order.
+    func setCredentials(_ picked: CredentialSelection) {
+        var selection = picked
+        // An existing conversation's selection is stored even when it has none: only what changed is sent.
+        if !isNew, selection.stored == nil { selection.stored = [] }
+        credentialAccess = selection.isBlank ? nil : selection
+        guard !isNew, isOwner else { return }
+        let previous = credentialSave
+        credentialSave = Task {
+            await previous?.value
+            do {
+                try await AgentChatAPI.updateCredentials(token: token, teamId: teamId, sessionId: sessionId, selection: selection)
+            } catch {
+                self.error = error.localizedDescription
+            }
+        }
+    }
+
+    @ObservationIgnored private var credentialSave: Task<Void, Never>?
 
     /// Initial mode for a new conversation (no server call).
     func presetPermissionMode(_ mode: PermissionMode) { permissionMode = mode }
@@ -389,6 +415,9 @@ final class ChatSession {
 
     // MARK: - Sending
 
+    /// The open question the next message answers, quoted above the composer: the Inbox's "Other…".
+    var answering: BotQuestion?
+
     /// Sends `text`, or queues it while a reply is streaming.
     func send(_ text: String) {
         send(ComposerSubmission(text: text, attachments: []))
@@ -401,7 +430,11 @@ final class ChatSession {
         guard let name = part.secretRequest?.name else { return }
         let path = try await AgentChatAPI.saveSecret(token: token, teamId: teamId, sessionId: sessionId, name: name, value: value)
         try? await AgentChatAPI.resolveDecision(token: token, teamId: teamId, sessionId: sessionId, requestId: part.decisionRequestId)
+        // The saved path answers the secret's own request, never a question quoted for "Other…".
+        let quoted = answering
+        answering = nil
         send(SecretCard.savedReply(name) + path)
+        answering = quoted
     }
 
     /// The first reply after the message that asked, if anyone replied yet.
@@ -433,6 +466,9 @@ final class ChatSession {
             }
             return
         }
+        // Words for the quoted question answer it, as its options do; with files, a message answering nothing.
+        let answers = attachments.isEmpty ? answering?.request.id : nil
+        answering = nil
         var parts: [ChatPart] = []
         if !trimmed.isEmpty { parts.append(.text(.init(text: trimmed, state: .done))) }
         let uploads = isNativeRuntime ? attachments : attachments.filter { !$0.isImage }
@@ -457,7 +493,8 @@ final class ChatSession {
                 }
                 sending = nil
                 let message = ChatMessage(role: .user, parts: parts)
-                await dispatch(message, title: trimmed.isEmpty ? (attachments.first?.name ?? "Attachment") : trimmed, submission: submission)
+                await dispatch(message, title: trimmed.isEmpty ? (attachments.first?.name ?? "Attachment") : trimmed,
+                               submission: submission, decisionReplyTo: answers)
             } catch {
                 sending = nil
                 if !Task.isCancelled { self.error = error.localizedDescription }
@@ -642,21 +679,10 @@ final class ChatSession {
         await refreshDownloads()
     }
 
-    /// Moves this conversation to another agent. The working files come along
-    /// when the destination can hold them — another Cloud agent of the same
-    /// type — and the move falls back to the transcript alone when they cannot.
+    /// Moves this conversation to another agent, carrying its history.
     func move(to target: RuntimeInstance) async throws {
         guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner can move it.") }
-        func request(workspace: Bool) async throws -> AgentChatAPI.RuntimeMove {
-            try await AgentChatAPI.moveRuntime(token: token, teamId: teamId, sessionId: sessionId, runtimeId: target.id, workspace: workspace)
-        }
-        let moved: AgentChatAPI.RuntimeMove
-        if target.tier == .cloud, target.provider.rawValue == agentRuntime {
-            do { moved = try await request(workspace: true) }
-            catch AgentChatAPI.Conflict.other(let code, _, _) where code == "workspace_unavailable" { moved = try await request(workspace: false) }
-        } else {
-            moved = try await request(workspace: false)
-        }
+        let moved = try await AgentChatAPI.moveRuntime(token: token, teamId: teamId, sessionId: sessionId, runtimeId: target.id)
         runtimeId = moved.runtimeId
         runtimeLabel = moved.runtimeLabel
         agentRuntime = moved.agentRuntime
@@ -683,6 +709,11 @@ final class ChatSession {
             query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: body, timeout: 12
         )
         return try JSONDecoder().decode(SessionAccess.self, from: data)
+    }
+
+    /// Asks whoever can sign this conversation's agent in; answers with whom it asked.
+    func askSignIn(runtimeId: String) async throws -> String {
+        try await AgentChatAPI.runtimeSignInAsk(token: token, teamId: teamId, runtimeId: runtimeId, sessionId: sessionId)
     }
 
     func teamMembers() async throws -> [TeamMember] {
@@ -717,7 +748,8 @@ final class ChatSession {
     var me: ChatMessage.Sender?
     private(set) var sentHere: Set<String> = []
 
-    private func dispatch(_ message: ChatMessage, title text: String, submission: ComposerSubmission? = nil) async {
+    private func dispatch(_ message: ChatMessage, title text: String, submission: ComposerSubmission? = nil,
+                          decisionReplyTo: String? = nil) async {
         sentHere.insert(message.id)
         let wasEmpty = messages.isEmpty
         // Send intent, matching Desktop; this is not a successful agent outcome.
@@ -746,7 +778,8 @@ final class ChatSession {
             permissionMode: wasEmpty ? permissionMode.rawValue : nil,
             agentRuntime: wasEmpty ? runtime?.provider.rawValue : nil,
             runtimeId: wasEmpty ? runtime?.id : nil,
-            initialSessionConfig: wasEmpty ? initialSessionConfig : nil
+            initialSessionConfig: wasEmpty ? initialSessionConfig : nil,
+            decisionReplyTo: decisionReplyTo
         ))
     }
 
@@ -810,9 +843,10 @@ final class ChatSession {
         if isNativeRuntime {
             // The button showed for a status that may be seconds old; the
             // server decides from the live one, and its refusal (a turn that
-            // already ended) shows as an error rather than a silent tap.
+            // already ended) shows as an alert rather than a silent tap.
             guard !readOnly, !isStopping else { return }
             isStopping = true
+            stopRefusal = nil
             Task {
                 defer { isStopping = false }
                 do {
@@ -822,7 +856,7 @@ final class ChatSession {
                     if let detail = try? await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId, tail: 1) {
                         receiveRuntime(detail.runtimeState, observedAt: observedAt)
                     }
-                } catch { self.error = error.localizedDescription }
+                } catch { stopRefusal = error.localizedDescription }
             }
             return
         }
@@ -879,6 +913,8 @@ final class ChatSession {
         var agentRuntime: String?
         var runtimeId: String?
         var initialSessionConfig: [String: String]?
+        /// The open question the message answers.
+        var decisionReplyTo: String?
     }
 
     private enum TurnResult {
@@ -1163,7 +1199,8 @@ final class ChatSession {
                 agentRuntime: firstPost ? options.agentRuntime : nil,
                 runtimeId: firstPost ? options.runtimeId : nil,
                 initialSessionConfig: firstPost ? options.initialSessionConfig : nil,
-                clientCapabilities: ["localTools": false, "serverQueue": true]
+                clientCapabilities: ["localTools": false, "serverQueue": true],
+                decisionReplyTo: firstPost ? options.decisionReplyTo : nil
             )
 
             var needsFreshRetry = false

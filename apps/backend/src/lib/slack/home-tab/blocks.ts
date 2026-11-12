@@ -212,7 +212,7 @@ export const HOME_INTRO_BLOCKS: unknown[] = [
     type: 'section',
     text: {
       type: 'mrkdwn',
-      text: "Nuphos is your team's agent workspace, right here in Slack. Ask it to review code, triage issues, debug a service, or dig into an alert — it investigates with live thinking steps, proposes plans, and acts once you approve.",
+      text: 'Nuphos is the open source Grok Bot alternative for your team, right here in Slack. Ask it to review code, triage issues, debug a service, or dig into an alert — it investigates with live thinking steps, proposes plans, and acts once you approve.',
     },
   },
 ]

@@ -94,9 +94,12 @@ function serializeFingerprint(fp: MergeFingerprint): string {
   return JSON.stringify(fp)
 }
 
-/** Changes whenever the merged tree for `teamId` would change. Cheap: no skill file is read. */
-export async function mergedSkillsFingerprint(teamId?: string | null): Promise<string> {
-  return serializeFingerprint(await buildFingerprint(teamId))
+/**
+ * What the tree `resolveSkillsDirectory` returned was built from; changes whenever the
+ * tree does. Cheap: no skill file is read. Empty for the builtin tree, which never changes.
+ */
+export async function mergedSkillsFingerprint(directory: string): Promise<string> {
+  return (await readStoredFingerprint(directory)) ?? ''
 }
 
 async function listCachedSkillNames(scopeDir: string): Promise<string[]> {

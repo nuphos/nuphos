@@ -1,6 +1,12 @@
 import { ObjectId } from 'mongodb'
 
-import { agentMemories, LIVE_RECORD_FILTER, memoryRecordAccessFilter, teamMemories } from './shared'
+import {
+  agentMemories,
+  LIVE_RECORD_FILTER,
+  memoryRecordAccessFilter,
+  memorySessionAccessFilter,
+  teamMemories,
+} from './shared'
 
 import type { AgentMemoryRecord, AgentTeamMemory } from '../types'
 
@@ -24,12 +30,13 @@ export async function getMemoryRecord(
   memoryId: string,
   userId: string,
   teamId: string | null | undefined,
+  sessionId?: string,
 ): Promise<AgentMemoryRecord | null> {
   if (!ObjectId.isValid(memoryId)) return null
 
   return agentMemories().findOne({
     _id: new ObjectId(memoryId),
-    ...memoryRecordAccessFilter(userId, teamId),
+    $and: [memoryRecordAccessFilter(userId, teamId), memorySessionAccessFilter(sessionId)],
     ...LIVE_RECORD_FILTER,
   })
 }

@@ -97,7 +97,8 @@ export function navigationFromAppPath(path: string): NavigationSnapshot | null {
   const rest = segs.slice(2)
   const teamScope: Scope = { kind: 'team', teamId }
 
-  if (rest.length === 0) return emptyNavigation(teamScope, 'team.agent')
+  if (rest.length === 0 || rest[0] === 'home')
+    return emptyNavigation(teamScope, rest.length === 0 ? 'team.agent' : 'team.home')
 
   switch (rest[0]) {
     case 'agents':

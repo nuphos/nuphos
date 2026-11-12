@@ -180,6 +180,41 @@ describe('launchAcceptedChatTurn on the Claude Code runtime', () => {
     expect(seen.released).toBe(1)
   })
 
+  test('a turn the route already stored is not stored again', async () => {
+    const run = createAgentRun('user-1', 'conv-stored', 'stream-stored')
+    const messages = [
+      { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hello' }] },
+    ] as UIMessage[]
+
+    launchAcceptedChatTurn({
+      run,
+      chatCtx: {
+        userId: 'user-1',
+        nuphosToken: 'tok',
+        requestId: 'r-stored',
+        streamId: 'stream-stored',
+      } as InternalChatCtx,
+      chatSpan: { end: () => {} } as never,
+      body: { id: 'conv-stored', messages },
+      teamId: 'team-1',
+      messages,
+      firstMessage: 'hello',
+      locale: 'en',
+      credentialAccess: undefined,
+      credentialAccessRequested: false,
+      chatRuntime: { runtime: 'claude-code', endpoint: ENDPOINT },
+      releaseClaim: () => {
+        seen.released++
+      },
+      slack: null,
+      storedTurn: { isNew: true },
+    })
+
+    await settled(() => seen.previewArgs.length === 1)
+    expect(seen.persistedOwners).toEqual([])
+    expect(seen.previewArgs[0]).toMatchObject({ sessionId: 'conv-stored', teamId: 'team-1' })
+  })
+
   test('an explicit reply reaches the turn naming its question, for resolving at admission', async () => {
     const run = createAgentRun('user-1', 'conv-reply', 'stream-reply')
     const messages = [
@@ -199,7 +234,6 @@ describe('launchAcceptedChatTurn on the Claude Code runtime', () => {
         id: 'conv-reply',
         messages,
         decisionReplyTo: 'nuphos-q1',
-        clientCapabilities: { decisionReplies: true },
       },
       teamId: 'team-1',
       messages,
@@ -213,9 +247,6 @@ describe('launchAcceptedChatTurn on the Claude Code runtime', () => {
     })
 
     await settled(() => seen.previewArgs.length === 1)
-    expect(seen.previewArgs[0]).toMatchObject({
-      explicitDecisionReplies: true,
-      decisionReplyTo: 'nuphos-q1',
-    })
+    expect(seen.previewArgs[0]).toMatchObject({ decisionReplyTo: 'nuphos-q1' })
   })
 })

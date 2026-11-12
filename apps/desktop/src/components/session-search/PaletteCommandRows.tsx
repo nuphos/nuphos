@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 
 import { t } from '../../i18n'
-import { Kbd } from '../ui/kbd'
+import { comboText } from '../../lib/platform'
 
 import { Highlight } from './SearchResultRow'
 
@@ -25,9 +25,7 @@ export function PaletteCommandRows({
 }) {
   return (
     <>
-      <div className="flex h-8 items-center px-4 text-xs font-medium text-secondary">
-        {t('Pages and actions')}
-      </div>
+      <div className="px-4 pt-3 pb-1 text-[12.5px] text-tertiary">{t('Pages and actions')}</div>
       <div
         id={`${listId}-commands`}
         role="listbox"
@@ -44,18 +42,22 @@ export function PaletteCommandRows({
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => onRun(command)}
             className={clsx(
-              'flex h-9 cursor-pointer items-center gap-2.5 rounded-md px-2',
-              index === selectedIndex ? 'bg-line-control' : 'hover:bg-state-hover',
+              'flex h-10 cursor-pointer items-center gap-2.5 rounded-lg px-2.5',
+              index === selectedIndex ? 'bg-state-selected' : 'hover:bg-state-hover',
             )}
           >
-            <command.icon size={16} className="shrink-0 text-secondary" />
-            <span className="min-w-0 flex-1 truncate text-[13px] text-main">
+            <span className="flex size-6 shrink-0 items-center justify-center text-tertiary">
+              <command.icon size={16} />
+            </span>
+            <span className="min-w-0 flex-1 truncate text-[14px] text-main">
               <Highlight text={command.label} query={query} />
             </span>
-            <span className="shrink-0 text-xs text-secondary">
+            <span className="shrink-0 text-xs text-tertiary">
               {command.group === 'Go to' ? t('Go to') : t('Actions')}
             </span>
-            {command.combo && <Kbd combo={command.combo} />}
+            {command.combo && (
+              <span className="shrink-0 text-xs text-tertiary">{comboText(command.combo)}</span>
+            )}
           </div>
         ))}
       </div>

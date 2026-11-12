@@ -59,6 +59,12 @@ struct ProfileSheet: View {
                             session.signOut()
                         }
                     }
+                    NavigationLink("Two-factor authentication") {
+                        TwoFactorView {
+                            dismiss()
+                            session.signOut()
+                        }
+                    }
                 }
                 .listRowBackground(Theme.surface)
 
@@ -66,6 +72,7 @@ struct ProfileSheet: View {
                 Section {
                     TextField("Transcription prompt", text: $whisperPrompt, axis: .vertical)
                         .lineLimit(2...6)
+                        .accessibilityIdentifier("voice.prompt")
                     if whisperPrompt != Whisper.defaultPrompt {
                         Button("Reset prompt") { whisperPrompt = Whisper.defaultPrompt }
                     }

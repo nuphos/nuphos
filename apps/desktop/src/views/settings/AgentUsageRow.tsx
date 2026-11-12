@@ -6,7 +6,7 @@ import { useThisComputer } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
 import { quotaNote, quotaWindowLine } from '../../lib/runtimeQuota'
 
-import { agentName, agentOffline, agentRunsOn } from './agentPresentation'
+import { agentDisplayName, agentOffline, agentRunsOn } from './agentPresentation'
 import { ACCENT_RGB } from './MetricChart'
 import { STATUS_DOT } from './runtimePresentation'
 
@@ -52,7 +52,9 @@ export function AgentUsageRow({
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line-control/70 bg-main">
           <AgentProviderIcon provider={instance.provider} className="h-4 w-4" />
         </span>
-        <span className="truncate text-[13px] font-medium text-main">{agentName(instance)}</span>
+        <span className="truncate text-[13px] font-medium text-main">
+          {agentDisplayName(instance)}
+        </span>
         {/* Runs on, which carries the status, is hidden when the page is narrow. */}
         {instance.status !== 'active' && (
           <span className="shrink-0 text-[11px] text-tertiary @3xl:hidden">{t('Disabled')}</span>

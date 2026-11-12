@@ -36,7 +36,7 @@ const noop = () => {}
  * primary action the workspace toolbar offers it, so the page itself is reused
  * unchanged.
  */
-function SettingsPageFrame({
+export function SettingsPageFrame({
   title,
   subtitle,
   onBack,

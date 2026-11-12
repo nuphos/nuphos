@@ -2,20 +2,10 @@ import { useEffect } from 'react'
 
 import { getRuntimeStates, subscribeRuntimeStates } from '../../../lib/agentRuntimeStates.ts'
 import { refreshInputRequests, runtimeStatesKey } from '../../../lib/inputRequestRefresh.ts'
-import { useSwrCache } from '../../../lib/swrCache.ts'
-import {
-  useAnsweredOnDevice,
-  useInboxListing,
-  useInboxListingFailed,
-} from '../../../views/inbox/useInbox.ts'
-import { agentSessionsCacheKey } from '../../sidebar/state.ts'
+import { useAnsweredOnDevice, useInboxListing } from '../../../views/inbox/useInbox.ts'
+import { useAgentSessions } from '../../sidebar/agentSessions.ts'
 
 import { openQuestionsUnder, relatedSessionIds } from './sessionInputRequests.ts'
-
-import type { AgentConversation } from '../../../api/agent-types'
-
-// The fallback: streams, replies, dismissals, focus and runtime changes reload at once.
-const POLL_MS = 5_000
 
 /**
  * The open questions of a session and every agent under it that the viewer may
@@ -25,9 +15,11 @@ const POLL_MS = 5_000
  */
 export function useSessionInputRequests(sessionId: string | null, teamId: string | undefined) {
   // Opening another session shows the last listing at once, and reloads it.
-  const pending = useInboxListing(teamId ?? '', POLL_MS, sessionId)
-  const failed = useInboxListingFailed(teamId ?? '')
-  const known = useSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId ?? ''))
+  // Streams, replies, dismissals, focus and runtime changes reload it at once.
+  const listing = useInboxListing(teamId ?? '', sessionId)
+  const pending = listing.data ?? null
+  const failed = listing.isError
+  const known = useAgentSessions(teamId ?? '').data
   const answered = useAnsweredOnDevice()
   const rows = [...(known ?? []), ...(pending ?? [])]
   // Shared sessions: whoever may reply in a conversation may answer its questions.

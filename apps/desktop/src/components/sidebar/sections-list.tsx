@@ -7,24 +7,21 @@ import { SIDEBAR_ITEM_SHORTCUTS } from '../../lib/teamOverviewNav'
 import {
   SIDEBAR_GROUP_GAP_CLASS,
   SIDEBAR_GROUP_ITEMS_CLASS,
-  SIDEBAR_GROUP_TITLE_CLASS,
   SidebarNavIcon,
   SidebarNavItem,
 } from '../SidebarNavItem'
 import { Kbd } from '../ui/kbd'
 
-import { BotChatLink } from './bot-chat-link'
 import { BotsDropZone } from './bot-drop'
-import { BOTS_SECTION } from './chat-sections'
+import { BOTS_SECTION, sectionFolds } from './chat-sections'
 import { FavoriteToggle } from './favorite-toggle'
 import { FoldedStatus } from './folded-status'
 import { NestedRowBody } from './nest-guides'
-import { nestItems } from './nest-items'
 import { SidebarSectionSkeleton } from './parts'
 import { RowDetail } from './row-detail'
 import { rowNote } from './row-note'
-import { SECTION_LABELS } from './section-labels'
 import { SessionRowSurface } from './SessionRowSurface'
+import { SidebarSectionHeading } from './SidebarSectionHeading'
 import { isSidebarItemActive } from './types'
 import { useInboxBadge } from './use-inbox-badge'
 
@@ -33,6 +30,7 @@ import type { SidebarFavorite } from '../../lib/sidebarFavorites'
 import type { Scope } from '../../types'
 
 type SectionListProps = {
+  botPins?: { order: string[]; place: (item: Item, before: Item | null) => void }
   sections: Section[]
   scope: Scope
   active: string
@@ -73,6 +71,7 @@ export function SidebarSectionList({
 }: SectionListProps) {
   // The Inbox row carries how many conversations wait on the viewer.
   const shown = useInboxBadge(scope.teamId, sections)
+  const folds = (section: Section) => sectionFolds(section, isGroupCollapsed, toggleGroup)
 
   return (
     <>
@@ -84,37 +83,19 @@ export function SidebarSectionList({
           teamId={scope.teamId}
           className={clsx(
             'transition-[margin-bottom] duration-200',
-            isGroupCollapsed(section) ? 'mb-1' : SIDEBAR_GROUP_GAP_CLASS,
+            section.separator && 'mt-2 border-t border-line-control/60 pt-2',
+            section.compact ? 'mb-0' : isGroupCollapsed(section) ? 'mb-1' : SIDEBAR_GROUP_GAP_CLASS,
           )}
         >
           {(dropSlot) => (
             <>
               {section.title && (
                 <div className="flex items-center">
-                  <button
-                    type="button"
-                    onPointerDown={(event) => {
-                      if (event.button === 0) toggleGroup(section)
-                    }}
-                    onClick={(event) => {
-                      if (event.detail === 0) toggleGroup(section)
-                    }}
-                    className={clsx(
-                      SIDEBAR_GROUP_TITLE_CLASS,
-                      'min-w-0 flex-1 hover:text-secondary flex items-center gap-1.5',
-                    )}
-                  >
-                    <span className="text-left">
-                      {SECTION_LABELS[section.title] ?? section.title}
-                    </span>
-                    <span
-                      className="t-icon-swap w-3 h-3 flex-shrink-0"
-                      data-state={isGroupCollapsed(section) ? 'a' : 'b'}
-                    >
-                      <ChevronRight className="t-icon w-3 h-3" data-icon="a" />
-                      <ChevronDown className="t-icon w-3 h-3" data-icon="b" />
-                    </span>
-                  </button>
+                  <SidebarSectionHeading
+                    section={section}
+                    collapsed={isGroupCollapsed(section)}
+                    toggle={() => toggleGroup(section)}
+                  />
                   {section.action}
                 </div>
               )}
@@ -131,8 +112,9 @@ export function SidebarSectionList({
                     {section.loading ? (
                       <SidebarSectionSkeleton />
                     ) : (
-                      nestItems(section.items, (key) => isGroupCollapsed({ title: key })).map(
-                        ({ item, trail, hasChildren, hidden, done }) => {
+                      folds(section)
+                        .nest()
+                        .map(({ item, trail, hasChildren, hidden, done }) => {
                           const Icon = item.icon
                           const leading = item.iconNode ?? (Icon && <SidebarNavIcon icon={Icon} />)
                           const isActive =
@@ -153,8 +135,10 @@ export function SidebarSectionList({
                             favoriteSessionId({ key: item.key, href: item.href }) !== null
                           // Bots read as a chat list (name over latest message); Tasks as on main.
                           const twoLine = chatRow && !item.task
+                          const bot = twoLine || Boolean(item.botNested)
                           const favoriteToggle = canFavorite(item) ? (
                             <FavoriteToggle
+                              pin={Boolean(item.bot || item.botChannelOf)}
                               favorited={favorited}
                               label={item.label}
                               onToggle={() => toggleFavorite(item)}
@@ -162,7 +146,7 @@ export function SidebarSectionList({
                           ) : null
                           // A thread parent folds its threads; the fold is remembered
                           // per team like a section's.
-                          const folded = hasChildren && isGroupCollapsed({ title: item.key })
+                          const folded = hasChildren && folds(section).folded(item.key)
                           const foldToggle = hasChildren ? (
                             <span
                               role="button"
@@ -170,7 +154,7 @@ export function SidebarSectionList({
                               title={foldLabel(item, folded)}
                               onClick={(e) => {
                                 e.stopPropagation()
-                                toggleGroup({ title: item.key })
+                                folds(section).toggleFold(item.key)
                               }}
                               className={clsx(
                                 'flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded text-tertiary hover:text-main hover:bg-[var(--sidebar-overlay-hover)]',
@@ -212,6 +196,7 @@ export function SidebarSectionList({
                                 navigateOnRelease={Boolean(rowSessionId)}
                                 onClick={(event) => {
                                   if (!item.enabled) return
+                                  item.onPress?.()
                                   // cmd/ctrl-click opens beside the current page, as it does
                                   // everywhere else; a plain click still navigates in place.
                                   const newTab = event.metaKey || event.ctrlKey
@@ -221,17 +206,15 @@ export function SidebarSectionList({
                                   else onSelect(item.key)
                                 }}
                                 label={item.label}
-                                preview={twoLine ? item.preview : undefined}
+                                preview={twoLine ? (item.previewNode ?? item.preview) : undefined}
+                                labelShimmer={item.labelShimmer}
                                 time={twoLine ? item.time : undefined}
                                 animateLabel={chatRow}
-                                note={rowNote(item, done)}
+                                note={rowNote(item, done, folds(section))}
                                 badge={item.badge}
                                 trailing={
                                   <>
                                     {item.trailing}
-                                    {item.botChat && (
-                                      <BotChatLink link={item.botChat} onSelect={onSelect} />
-                                    )}
                                     <FoldedStatus rows={hidden} />
                                   </>
                                 }
@@ -247,7 +230,7 @@ export function SidebarSectionList({
                                     </>
                                   ) : undefined
                                 }
-                                icon={leading}
+                                icon={leading ?? null}
                                 revealDetail={Boolean(item.description)}
                               />
                               <RowDetail item={item} />
@@ -264,20 +247,35 @@ export function SidebarSectionList({
                             <div
                               key={item.key}
                               className={clsx(
-                                't-collapse t-sidebar-session t-stagger relative',
+                                't-collapse t-sidebar-session t-stagger relative transition-opacity duration-150',
+                                item.task &&
+                                  !item.bot &&
+                                  item.taskState === 'idle' &&
+                                  !isActive &&
+                                  'opacity-50 hover:opacity-100 focus-within:opacity-100',
                                 archivingIds.has(rowSessionId) ? 'is-hiding' : 'is-shown',
                               )}
+                              title={
+                                item.task && !item.bot && item.taskState === 'working'
+                                  ? t('Working')
+                                  : item.task && !item.bot && item.taskState === 'idle'
+                                    ? t('Idle')
+                                    : undefined
+                              }
                               data-open={archivingIds.has(rowSessionId) ? 'false' : 'true'}
                             >
-                              <NestedRowBody trail={trail} expanded={hasChildren && !folded}>
+                              <NestedRowBody
+                                trail={trail}
+                                expanded={hasChildren && !folded}
+                                bot={bot}
+                              >
                                 {row}
                               </NestedRowBody>
                             </div>
                           ) : (
                             <div key={item.key}>{row}</div>
                           )
-                        },
-                      )
+                        })
                     )}
                   </div>
                 </div>

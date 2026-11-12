@@ -12,6 +12,8 @@ import {
   defaultCredentialAccess,
   credentialSelectionSignature,
 } from './credentialAccess'
+import { forkImport } from './dispatchTurn'
+import { afterForkStored } from './forkStored'
 import { runLoadEarlierMessages } from './loadEarlierMessages'
 import { runOpenConversation } from './openConversation'
 import { fromPersistedMessages } from './persistence'
@@ -151,15 +153,27 @@ export function useConversationOpen(acc: Acc) {
 
   // An edited message waits here until its fork is committed: dispatchTurn
   // reads the tab back from tabsRef, which only updates after the render.
-  const editResendRef = useRef<{ tabId: string; text: string } | null>(null)
+  const editResendRef = useRef<{ tabId: string; text: string; sourceSessionId: string } | null>(
+    null,
+  )
 
   useEffect(() => {
     const pending = editResendRef.current
+    const fork = pending && tabs.find((tab) => tab.id === pending.tabId)
 
-    if (!pending || !tabs.some((tab) => tab.id === pending.tabId)) return
+    if (!pending || !fork) return
     editResendRef.current = null
+    // Once the server has the fork, the original links to it: the edit ran there.
     void dispatchTurn(pending.tabId, pending.text, [])
-  }, [tabs, dispatchTurn])
+      .then(() =>
+        afterForkStored(forkImport(pending.tabId), () =>
+          api.agentRecordEditFork(pending.sourceSessionId, fork.sessionId, teamId),
+        ),
+      )
+      .catch((err: unknown) => {
+        console.warn('[edit] could not link the original agent to its fork', err)
+      })
+  }, [tabs, dispatchTurn, teamId])
 
   // Fork a (possibly someone else's) conversation into a NEW session the current
   // user owns: copy the transcript for full context, but mint a fresh sessionId
@@ -239,7 +253,7 @@ export function useConversationOpen(acc: Acc) {
           tab.sessionId,
           credentialSelectionSignature(tab.credentialAccess),
         )
-        if (edit) editResendRef.current = { tabId: tab.id, text: edit.text }
+        if (edit) editResendRef.current = { tabId: tab.id, text: edit.text, sourceSessionId }
         setTabs([tab])
         setActiveId(tab.id)
         setOpeningConversation(null)

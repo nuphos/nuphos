@@ -112,6 +112,8 @@ export type AgentMemoryRecord = {
   categories: string[]
   source: 'save_memory' | 'auto_ingest'
   conversationId: string | null
+  /** Imported private facts are available only to this Bot's own memory tools. */
+  restrictedToSessionId?: string
   // ADR-0008 track B: authored one-line hook for the index (falls back to a
   // text prefix when absent) + retrieval keywords joined into the text index
   // (dual-language keys are the cheap cross-lingual bridge). Backfilled for

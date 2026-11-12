@@ -9,8 +9,11 @@ import {
   parseChoiceRequest,
   parseConnectRequest,
   parseSecretRequest,
+  personalConnectStatus,
   withConnectIds,
 } from './connectCardModel.ts'
+import { questionPart } from './openQuestionParts.ts'
+import { requestQuestion } from './replyTarget.ts'
 
 import type { AgentCredentialSelection } from '../../../api'
 
@@ -29,12 +32,74 @@ test('parseConnectRequest reads an integration decision and keeps known provider
       question: 'why',
       providers: ['linear', 'slack', 'linear', 'grafana'],
     }),
-    { providers: ['linear', 'grafana'], reason: 'why' },
+    { providers: ['linear', 'grafana'], reason: 'why', personal: false },
   )
   assert.equal(parseConnectRequest({ category: 'integration', providers: ['slack'] }), null)
   // Any other decision stays a plain question, even with providers.
   assert.equal(parseConnectRequest({ category: 'approval', providers: ['linear'] }), null)
   assert.equal(parseConnectRequest(undefined), null)
+})
+
+const ownGithub = [{ provider: 'personal' as const, id: 'github' as const }]
+
+test("a request for the member's own credential is a personal Connect card; naming both is none", () => {
+  assert.deepEqual(
+    parseConnectRequest({ category: 'integration', question: 'why', credentials: ownGithub }),
+    { providers: ['github'], reason: 'why', personal: true },
+  )
+  // What answers a request naming any access and the own credential at once is unclear.
+  assert.equal(
+    parseConnectRequest({
+      category: 'integration',
+      providers: ['github'],
+      credentials: ownGithub,
+    }),
+    null,
+  )
+  assert.equal(
+    parseConnectRequest({
+      category: 'integration',
+      credentials: [{ provider: 'github', id: '166381069' }],
+    }),
+    null,
+  )
+})
+
+test("a personal row is selected only by the member's own credential, never a team binding", () => {
+  const own = [{ provider: 'github' }]
+
+  assert.equal(
+    personalConnectStatus('github', selection({ githubInstallationIds: ['i1'] }), own),
+    'available',
+  )
+  assert.equal(
+    personalConnectStatus('github', selection({ personalCredentialIds: ['github'] }), own),
+    'connected',
+  )
+  // Another provider's own credential does not select this one.
+  assert.equal(
+    personalConnectStatus('github', selection({ personalCredentialIds: ['linear'] }), own),
+    'available',
+  )
+  // Not connected yet: nothing here can bind it.
+  assert.equal(personalConnectStatus('linear', selection(), own), 'idle')
+})
+
+test("the Inbox and a Bot's chat draw a personal request from its record as the same card", () => {
+  const part = questionPart(
+    requestQuestion({
+      id: 'q1',
+      question: 'Select your own GitHub',
+      category: 'integration',
+      credentials: ownGithub,
+    }),
+  )
+
+  assert.deepEqual(parseConnectRequest(part.input), {
+    providers: ['github'],
+    reason: 'Select your own GitHub',
+    personal: true,
+  })
 })
 
 test('parseChoiceRequest reads any other decision, with its options as replies', () => {

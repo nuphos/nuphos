@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
@@ -7,9 +7,11 @@ import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
 import { t } from '../../i18n/index.ts'
 import { useResetOnKey } from '../useResetOnKey'
 
+import { newCleanupFailures } from './cleanupFailures'
 import { canDeleteTeamTriggers, canManageTeamTriggers, reportCleanupFailures } from './shared'
 
 import type { ListState } from './TriggersList'
+import type { AgentTrigger } from '../../api'
 import type { TeamMember } from '../../types'
 
 export function useTriggersViewState({
@@ -120,7 +122,6 @@ export function useTriggersViewState({
     () =>
       Promise.all([api.agentListTriggers(teamId), api.agentListTriggerGroups(teamId)])
         .then(([triggers, groups]) => {
-          reportCleanupFailures(triggers)
           setListState({ kind: 'ready', triggers, groups })
         })
         .catch((err: unknown) => {
@@ -153,6 +154,14 @@ export function useTriggersViewState({
 
   // Provider cleanup runs in the backend queue. Poll only while a row is in
   // the transient Removing state; success removes it, failure exposes Retry.
+  // What the list shows now, so a poll can tell a new failure from one already
+  // on screen. Loading the page never reports failures; their tag shows them.
+  const shownTriggers = useRef<AgentTrigger[]>([])
+
+  useEffect(() => {
+    if (listState.kind === 'ready') shownTriggers.current = listState.triggers
+  }, [listState])
+
   const hasDeletingTrigger =
     listState.kind === 'ready' &&
     listState.triggers.some((trigger) => trigger.cleanupStatus === 'deleting')
@@ -176,7 +185,7 @@ export function useTriggersViewState({
         if (cancelled) return
         failures = 0
         shouldContinue = triggers.some((trigger) => trigger.cleanupStatus === 'deleting')
-        reportCleanupFailures(triggers)
+        reportCleanupFailures(newCleanupFailures(shownTriggers.current, triggers))
         setListState({ kind: 'ready', triggers, groups })
       } catch (err) {
         if (cancelled) return

@@ -91,8 +91,12 @@ useAgentDeviceStore({
 })
 useIdentity({ getTeamMembership: () => Promise.resolve({ role: 'EDITOR' } as TeamMembership) })
 
-useCredentialOptions({ getAgentCredentialOptions: () => Promise.resolve(options) })
-useAgentSessionsShared({ getAgentCredentialAccess: () => Promise.resolve(access) })
+const credentialOptions = useCredentialOptions({
+  getAgentCredentialOptions: () => Promise.resolve(options),
+})
+const credentialAccess = useAgentSessionsShared({
+  getAgentCredentialAccess: () => Promise.resolve(access),
+})
 
 const { localExecToolModule, resolveAvailableLocalExecDevices } = await import('./local-exec')
 
@@ -114,7 +118,34 @@ describe('localExecToolModule', () => {
       { deviceId: 'mac', label: 'MacBook' },
       { deviceId: 'box', label: 'Box' },
     ])
+
     expect(devices.find((d) => d.deviceId === 'mac')?.wake).toBeUndefined()
     expect(typeof devices.find((d) => d.deviceId === 'box')?.wake).toBe('function')
   })
+})
+
+test('a shared turn resolves the owner selection instead of the teammate devices', async () => {
+  credentialOptions({
+    getAgentCredentialOptions: async (_teamId, userId) => {
+      expect(userId).toBe('u1')
+
+      return options
+    },
+  })
+  credentialAccess({
+    getAgentCredentialAccess: async (agent) => {
+      expect(agent.userId).toBe('u1')
+      expect(agent.sessionId).toBe('conv-1')
+
+      return access
+    },
+  })
+  const devices = await resolveAvailableLocalExecDevices({
+    ...ctx,
+    userId: 'teammate',
+    conversationOwnerUserId: 'u1',
+  })
+
+  expect(devices.map((device) => device.deviceId)).toEqual(['mac', 'box'])
+  expect(devices.find((device) => device.deviceId === 'box')?.wake).toBeFunction()
 })

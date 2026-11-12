@@ -5,6 +5,7 @@ import { useEffect, useId } from 'react'
 import { useHoverMarquee } from '../hooks/useHoverMarquee'
 import { useTextSwap } from '../hooks/useTextSwap'
 import { t } from '../i18n'
+
 import { Fenced, TrailingSlot } from './SidebarRowParts'
 import { CountBadge } from './ui/count-badge'
 
@@ -54,7 +55,9 @@ type SidebarNavItemProps = {
   /** A chat-list row (Bots): name over its latest message, with the time. */
   twoLine?: boolean
   /** Comfortable chat rows: the newest message, one line under the label. */
-  preview?: string
+  preview?: ReactNode
+  /** The name shimmers, as running text does elsewhere (a Bot at work). */
+  labelShimmer?: boolean
   /** Comfortable chat rows: when the chat was last active, at the label's right. */
   time?: string
   /** Wait for the click when a press may start a drag instead. */
@@ -78,6 +81,17 @@ function SwapLabel({ label }: { label: string }) {
   )
 }
 
+function RowLabel({ label, shimmer, swap }: { label: string; shimmer: boolean; swap: boolean }) {
+  if (shimmer)
+    return (
+      <span className="t-shimmer max-w-full truncate align-top" data-text={label}>
+        {label}
+      </span>
+    )
+
+  return swap ? <SwapLabel label={label} /> : <>{label}</>
+}
+
 /**
  * The single source of truth for a sidebar-style navigation row — used by both
  * the main app sidebar and the settings page so their active/hover/disabled
@@ -98,6 +112,7 @@ export function SidebarNavItem({
   navigateOnRelease = false,
   twoLine = false,
   preview,
+  labelShimmer = false,
   time,
   animateLabel = false,
   revealDetail = false,
@@ -149,12 +164,12 @@ export function SidebarNavItem({
         twoLine &&
           'font-medium [&>.t-text-swap]:max-w-full [&>.t-text-swap]:truncate [&>.t-text-swap]:align-top',
         revealDetail &&
-          'transition-transform duration-[280ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none',
+          '[&>.t-text-swap]:align-top transition-transform duration-[280ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none',
       )}
       // Lifted in index.css only when the row's detail line has content.
       data-row-title={revealDetail || undefined}
     >
-      {animateLabel ? <SwapLabel label={label} /> : label}
+      <RowLabel label={label} shimmer={labelShimmer} swap={animateLabel} />
     </span>
   )
   const tail = (
@@ -184,6 +199,7 @@ export function SidebarNavItem({
     <BaseButton
       disabled={disabled}
       // Inside a sidebar row the row starts the scroll; restarting here would reset it.
+      draggable={navigateOnRelease}
       onPointerEnter={(event) => {
         if (!event.currentTarget.closest('[data-sidebar-row]')) start()
       }}

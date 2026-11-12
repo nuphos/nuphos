@@ -8,6 +8,7 @@ export const ACCESS_EDITABLE_PROVIDERS: Partial<
 > = {
   upstash: 'upstash',
   posthog: 'posthog',
+  trello: 'trello',
   tencent: 'tencent',
   aliyun: 'aliyun',
   volcengine: 'volcengine',

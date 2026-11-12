@@ -52,6 +52,7 @@ export type AgentTrigger = {
   name: string
   triggerType: TriggerType
   cronExpression?: string
+  timeZone?: string
   webhookSecret?: string
   /** Legacy: only on rows created before binding was required. Binding clears it. */
   sessionRouting?: SessionRouting
@@ -108,6 +109,8 @@ export type AgentTrigger = {
   /** Present only while a managed Watch is being removed or needs a retry. */
   cleanupStatus?: TriggerCleanupStatus
   cleanupError?: string
+  /** Error code of the last cleanup failure; tells the UI which way out to offer. */
+  cleanupErrorCode?: string
   cleanupStartedAt?: Date
   cleanupUpdatedAt?: Date
   lastRunAt?: Date

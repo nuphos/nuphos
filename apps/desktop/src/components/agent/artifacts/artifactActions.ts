@@ -1,8 +1,10 @@
 // What the artifact tab's toolbar does with a version.
 import { t } from '../../../i18n/index.ts'
+import { isFilePreviewId } from '../../../lib/filePreviews'
 import { toast } from '../../ui/toast'
 
 import { exportArtifact } from './artifactExport'
+import { artifactFileName, artifactMimeType } from './artifactPayload'
 
 import type { ArtifactVersion } from './artifactPayload'
 
@@ -27,7 +29,15 @@ export async function downloadArtifact(version: ArtifactVersion) {
   let file: Awaited<ReturnType<typeof exportArtifact>>
 
   try {
-    file = await exportArtifact(version)
+    // A previewed file saves as it came: inlining would fetch what it links to.
+    file = isFilePreviewId(version.artifactId)
+      ? {
+          content: version.content,
+          fileName: artifactFileName(version),
+          mimeType: artifactMimeType(version.kind),
+          missing: [],
+        }
+      : await exportArtifact(version)
   } catch {
     toast.error(t('Could not prepare the download'))
 

@@ -6,8 +6,6 @@ import {
   pendingTriggerFromDeleteResult,
 } from '../../lib/agentTriggerDelete'
 
-import { reportCleanupFailures } from './shared'
-
 import type { FormState } from './useTriggerFormController'
 import type { AgentTrigger, CreateAgentTriggerInput, UpdateAgentTriggerInput } from '../../api'
 
@@ -111,6 +109,7 @@ export async function confirmRemoveTrigger({
   setLoaded,
   onSaved,
   onDeleted,
+  withoutProviderCleanup = false,
 }: {
   triggerId: string
   teamId?: string
@@ -118,6 +117,7 @@ export async function confirmRemoveTrigger({
   setLoaded: (trigger: AgentTrigger) => void
   onSaved: (trigger: AgentTrigger) => void
   onDeleted: (triggerId: string) => void
+  withoutProviderCleanup?: boolean
 }) {
   try {
     if (!canDelete) {
@@ -125,10 +125,20 @@ export async function confirmRemoveTrigger({
 
       return
     }
-    const result = await api.agentDeleteTrigger(triggerId, teamId)
+    const result = await api.agentDeleteTrigger(triggerId, teamId, withoutProviderCleanup)
     const pendingTrigger = pendingTriggerFromDeleteResult(result)
 
     if (!pendingTrigger) {
+      const leftBehind = result.deleted ? (result.leftBehind ?? []) : []
+
+      if (leftBehind.length > 0) {
+        toast.info(
+          t('Watch removed'),
+          t('Delete its remaining resources in {providers} by hand.', {
+            providers: leftBehind.join(', '),
+          }),
+        )
+      }
       onDeleted(triggerId)
 
       return
@@ -147,7 +157,6 @@ export async function confirmRemoveTrigger({
     try {
       const refreshed = await api.agentGetTrigger(triggerId, teamId)
 
-      reportCleanupFailures([refreshed])
       setLoaded(refreshed)
     } catch {
       // The original delete error is already visible in the toast.

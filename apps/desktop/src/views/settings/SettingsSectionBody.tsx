@@ -9,6 +9,7 @@ import { PrivacySection } from './PrivacySection'
 import { ProfileSection } from './ProfileSection'
 import { RuntimeFallbackSection } from './RuntimeFallbackSection'
 import { SignedInDevicesSection } from './SignedInDevicesSection'
+import { TwoFactorSection } from './TwoFactorSection'
 import { UpdatesSection } from './UpdatesSection'
 
 import type { AtlasTeam, UserInfo } from '../../types'
@@ -45,6 +46,7 @@ const SECTIONS: Partial<Record<string, (props: SectionProps) => ReactNode>> = {
     <PersonalCredentialsSection team={team} onOpenSection={onOpenSection} />
   ),
   'account.devices': ({ onSignOut }) => <SignedInDevicesSection onSignOut={onSignOut} />,
+  'account.mfa': ({ onSignOut }) => <TwoFactorSection onSignOut={onSignOut} />,
   'device.appearance': () => <AppearanceSection />,
   'device.updates': () => <UpdatesSection />,
   'device.privacy': () => <PrivacySection />,

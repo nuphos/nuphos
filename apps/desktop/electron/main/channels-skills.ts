@@ -1,10 +1,13 @@
 import * as atlas from '../atlas'
 
-import { localSetupStatus, syncLocalSetup } from './local-setup-sync'
+import { approveLinkedSkill } from './local-setup-snapshot'
+import { localSetupStatus, syncLocalSetup, syncLocalSetupAfter } from './local-setup-sync'
 import { setLocalSetupAutoSync } from './local-setup-watch'
-import { importLocalSkill } from './local-skill-import'
+import { importLocalSkills } from './local-skill-import'
 import { listLocalSkills } from './local-skills'
 
+import type { LocalSkillImportPick } from './local-skill-import'
+import type { LocalSkillReviewedFile } from './local-skills'
 import type { SkillScope } from '../atlas'
 
 // `scope` selects the team store (default) or the caller's personal skills.
@@ -25,16 +28,47 @@ export const skillChannels = {
     scope?: SkillScope,
   ) => atlas.teamSkillsPutObject(teamId, key, file, scope),
   'teamSkills:listLocal': () => listLocalSkills(),
-  'teamSkills:importLocal': (_e: unknown, teamId: string, skillId: string, scope?: SkillScope) =>
-    importLocalSkill(teamId, skillId, scope),
+  'teamSkills:importLocal': (
+    _e: unknown,
+    teamId: string,
+    scope: SkillScope | undefined,
+    picks: LocalSkillImportPick[],
+  ) => importLocalSkills(teamId, scope, picks),
   'teamSkills:deleteObject': (_e: unknown, teamId: string, key: string, scope?: SkillScope) =>
     atlas.teamSkillsDeleteObject(teamId, key, scope),
   'teamSkills:deleteSkill': (_e: unknown, teamId: string, name: string, scope?: SkillScope) =>
     atlas.teamSkillsDeleteSkill(teamId, name, scope),
+  'teamSkills:githubPreview': (_e: unknown, teamId: string, source: string, scope?: SkillScope) =>
+    atlas.teamSkillsGithubPreview(teamId, source, scope),
+  'teamSkills:githubInstall': (
+    _e: unknown,
+    teamId: string,
+    input: { source: string; commitSha: string; names: string[] },
+    scope?: SkillScope,
+  ) => atlas.teamSkillsGithubInstall(teamId, input, scope),
+  'teamSkills:githubUpdates': (_e: unknown, teamId: string, scope?: SkillScope) =>
+    atlas.teamSkillsGithubUpdates(teamId, scope),
+  'teamSkills:githubUpdate': (
+    _e: unknown,
+    teamId: string,
+    input: { names: string[]; overwriteEdited: string[]; commits: Record<string, string> },
+    scope?: SkillScope,
+  ) => atlas.teamSkillsGithubUpdate(teamId, input, scope),
   'teamSkills:promote': (_e: unknown, teamId: string, name: string) =>
     atlas.teamSkillsPromote(teamId, name),
   'localSetup:status': (_e: unknown, teamId: string) => localSetupStatus(teamId),
   'localSetup:sync': (_e: unknown, teamId: string) => syncLocalSetup(teamId),
+  'localSetup:approveLinks': async (
+    _e: unknown,
+    teamId: string,
+    name: string,
+    reviewed: LocalSkillReviewedFile[],
+  ) => {
+    // A pass already running read the skill before this approval, so run a new one.
+    await approveLinkedSkill(teamId, name, reviewed)
+
+    return syncLocalSetupAfter(teamId)
+  },
   'localSetup:setAutoSync': (_e: unknown, teamId: string, enabled: boolean) =>
     setLocalSetupAutoSync(teamId, enabled),
 }

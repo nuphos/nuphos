@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { api } from '../../api'
-import { t } from '../../i18n'
-import { EMPTY_CREDENTIAL_OPTIONS } from '../agent/panel/constants'
+import { api } from '../../api.ts'
+import { t } from '../../i18n/index.ts'
+import { refreshInputRequests } from '../../lib/inputRequestRefresh.ts'
+import { EMPTY_CREDENTIAL_OPTIONS } from '../agent/panel/constants.ts'
 import {
   normalizeCredentialAccess,
   normalizeCredentialOptions,
   reconcileStoredCredentialAccess,
-} from '../agent/panel/credentialAccess'
-import { toast } from '../ui/toast'
+} from '../agent/panel/credentialAccess.ts'
+import { toast } from '../ui/toast.ts'
 
-import type { AgentCredentialOptions, AgentCredentialSelection } from '../../api'
+import type { AgentCredentialOptions, AgentCredentialSelection } from '../../api.ts'
 import type { CredentialSelectorControl } from '../agent/panel/credentialSections'
 
 type Held<T> = { botId: string; value: T }
@@ -83,6 +84,8 @@ export function useBotCredentials(
           setOptions(normalizeCredentialOptions(result.options))
           setStored({ botId, value: normalizeCredentialAccess(result.credentialAccess) })
           setDraft(undefined)
+          // Selecting a credential a question asked for answers it on the server.
+          refreshInputRequests()
         })
         .catch((err: unknown) => {
           if (latest.current !== request) return

@@ -44,7 +44,7 @@ class ChatSession(
     private val readDetail: suspend (String, String, String) -> AgentConversationDetail = NuphosApi::conversationDetail,
     private val aiAllowed: () -> Boolean = AiAccess.bind(token),
     val creationRuntimeBinding: ai.nuphos.android.data.RuntimeBinding? = null,
-    private val moveRuntime: suspend (String, String, String, ai.nuphos.android.data.AgentRuntime, String?) -> ai.nuphos.android.data.RuntimeBinding = ai.nuphos.android.data.ConversationRuntimeApi::move,
+    private val moveRuntime: suspend (String, String, String, ai.nuphos.android.data.AgentRuntime) -> ai.nuphos.android.data.RuntimeBinding = ai.nuphos.android.data.ConversationRuntimeApi::move,
     private val steerRuntime: suspend (String, String, String, String) -> String = RuntimeApi::steer,
     private val readBypass: suspend (String, String) -> Boolean = AgentChatApi::bypass,
     private val readShareApproval: suspend (String, String) -> String? = NuphosApi::ownShareApproval,
@@ -272,7 +272,7 @@ class ChatSession(
         transportGeneration++
         detailLoadGeneration++
         try {
-            val moved = moveRuntime(token, teamId, sessionId, target, agentRuntime)
+            val moved = moveRuntime(token, teamId, sessionId, target)
             if (!hasAiAccess) return
             modelSettings?.invalidate()
             runtimeId = moved.runtimeId
@@ -344,6 +344,27 @@ class ChatSession(
         }
     }
 
+    /** The picker's selection: sent with the next message and, in an existing conversation of the owner's, saved now. */
+    fun updateCredentials(selection: CredentialSelection) {
+        if (!canManage) return
+        credentialAccess = selection
+        if (isNew || !isOwner) return
+        val previous = credentialSave
+        credentialSave = scope.launch {
+            previous?.join()
+            try {
+                if (!hasAiAccess) return@launch
+                AgentChatApi.updateCredentials(token, teamId, sessionId, selection.json)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                error = e.message
+            }
+        }
+    }
+
+    private var credentialSave: kotlinx.coroutines.Job? = null
+
     fun presetPermissionMode(mode: PermissionMode) {
         permissionMode = mode
     }
@@ -370,10 +391,8 @@ class ChatSession(
             draftAccessInvalidated = readOnly || isArchived
             detail.title?.takeIf { it.isNotEmpty() }?.let { title = it }
             if (detail.isChannel) markChannel()
-            detail.credentialAccess?.let {
-                val selection = CredentialSelection(it)
-                credentialAccess = if (selection.isEmpty) null else selection
-            }
+            // Nothing stored is still stored: every kind shows, and a save sends back only what changed.
+            credentialAccess = CredentialSelection(detail.credentialAccess ?: JsonValue.Obj(emptyMap()))
             scope.launch {
                 if (!hasAiAccess) return@launch
                 runCatching { readBypass(token, sessionId) }.getOrNull()?.let {
@@ -427,7 +446,11 @@ class ChatSession(
         val name = part.secretRequest?.name ?: return
         val path = AgentChatApi.saveSecret(token, teamId, sessionId, name, value)
         runCatching { AgentChatApi.resolveDecision(token, teamId, sessionId, part.decisionRequestId) }
+        // The saved path answers the secret's own request, never a question quoted for "Other…".
+        val quoted = answering
+        answering = null
         send(ChatPart.Tool.SecretRequest.savedReply(name) + path)
+        answering = quoted
     }
 
     /** The first reply after the message that asked, if anyone replied yet. */
@@ -445,6 +468,9 @@ class ChatSession(
         readOnly = true
         draftAccessInvalidated = true
     }
+
+    /** The open question the next message answers, quoted above the composer: the Inbox's "Other…". */
+    var answering by mutableStateOf<BotQuestion?>(null)
 
     fun send(submission: ComposerSubmission): Boolean {
         if (isChannel) return false
@@ -506,7 +532,11 @@ class ChatSession(
                     uploadError = "Files are ready. Wait for the current run, then retry this message."
                     return@launch
                 }
-                if (sendPrepared(draft, ready.instruction)) {
+                // A runtime gets the files from the structured part, as from iOS and Desktop; only the
+                // built-in agent is told in words, which every client would otherwise show as typed.
+                val transfer = if (isNative) ChatPart.Other(ready.part)
+                    else ChatPart.Text(text = ready.instruction, state = ChatPart.StreamState.Done)
+                if (sendPrepared(draft, transfer)) {
                     preparedTransfer = pending
                     uploadDraft = null
                     uploadProgress = null
@@ -518,7 +548,7 @@ class ChatSession(
         }
     }
 
-    private fun sendPrepared(submission: ComposerSubmission, transferInstruction: String? = null): Boolean {
+    private fun sendPrepared(submission: ComposerSubmission, transfer: ChatPart? = null): Boolean {
         observationClock = RuntimeObservation.now()
         val trimmed = submission.text.trim()
         val attachments = submission.attachments
@@ -535,6 +565,9 @@ class ChatSession(
             if (trimmed.isNotEmpty()) queued = queued + trimmed
             return true
         }
+        // Words for the quoted question answer it, as its options do; with files, a message answering nothing.
+        val answers = answering?.request?.id?.takeIf { attachments.isEmpty() }
+        answering = null
         val reply = isNative && canReply
         if (reply) lockRuntimeReply()
         submissionPending = true
@@ -545,11 +578,11 @@ class ChatSession(
             for (a in attachments) {
                 a.dataUrl?.let { add(ChatPart.File(mediaType = "image/jpeg", filename = a.name, url = it)) }
             }
-            transferInstruction?.let { add(ChatPart.Text(text = it, state = ChatPart.StreamState.Done)) }
+            transfer?.let(::add)
         }
         val message = retryUserMessage?.takeIf { retrySubmission == submission } ?: ChatMessage(role = ChatMessage.Role.User, parts = parts)
         submissionAccepted = false
-        scope.launch { dispatch(message, if (trimmed.isEmpty()) "Photo" else trimmed, reply) }
+        scope.launch { dispatch(message, if (trimmed.isEmpty()) "Photo" else trimmed, reply, answers) }
         return true
     }
 
@@ -561,7 +594,7 @@ class ChatSession(
         if (queued.isEmpty()) { steeringRetryRequired = false; if (!steeringUnconfirmed) error = null }
     }
 
-    private suspend fun dispatch(message: ChatMessage, titleText: String, reply: Boolean = false) {
+    private suspend fun dispatch(message: ChatMessage, titleText: String, reply: Boolean = false, decisionReplyTo: String? = null) {
         if (!permissions.writable) { rejectedSubmission = pendingSubmission; pendingSubmission = null; submissionPending = false; return }
         val wasEmpty = messages.isEmpty()
         val lastAssistant = messages.indexOfLast { it.role == ChatMessage.Role.Assistant }
@@ -581,7 +614,7 @@ class ChatSession(
         scrollToLatestRevision += 1
         syncTranscriptNow()
         if (!hasAiAccess) return
-        startTurn(TurnOptions(streamId = newId(), resumeReason = if (reply) "runtime-reply" else null, permissionMode = if (wasEmpty) permissionMode.raw else null, initialSessionConfig = if (wasEmpty) initialModelPick else null))
+        startTurn(TurnOptions(streamId = newId(), resumeReason = if (reply) "runtime-reply" else null, permissionMode = if (wasEmpty) permissionMode.raw else null, initialSessionConfig = if (wasEmpty) initialModelPick else null, decisionReplyTo = decisionReplyTo))
     }
 
     enum class ApprovalDecision { Once, Session, Always, Deny }
@@ -622,6 +655,22 @@ class ChatSession(
                 replaceTool(mi, pi, part)
                 error = e.message
             }
+        }
+    }
+
+    /** The last sign-in ask from this phone: the runtime it was about, what to say, and whether it went. */
+    data class SignInAsk(val runtimeId: String, val status: String, val asked: Boolean)
+    var signInAsk by mutableStateOf<SignInAsk?>(null)
+        private set
+
+    /** Asks whoever can sign this conversation's agent in, through their Inbox and a push. */
+    suspend fun askSignIn(runtimeId: String) {
+        signInAsk = try {
+            val name = AgentChatApi.runtimeSignInAsk(token, teamId, runtimeId, sessionId)
+            SignInAsk(runtimeId, "Asked $name. You can send once they sign it in.", true)
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            SignInAsk(runtimeId, e.message ?: "Couldn't ask. Try again.", false)
         }
     }
 
@@ -701,6 +750,8 @@ class ChatSession(
         val resumeReason: String? = null,
         val permissionMode: String? = null,
         val initialSessionConfig: Map<String, String>? = null,
+        /** The open question the message answers. */
+        val decisionReplyTo: String? = null,
     )
 
     private sealed class TurnResult {
@@ -1152,6 +1203,7 @@ class ChatSession(
                 runtimeId = if (shouldResume == true) null else outgoingCreationBinding?.runtimeId,
                 agentRuntime = if (shouldResume == true) null else outgoingCreationBinding?.agentRuntime,
                 initialSessionConfig = if (firstPost && !shouldResume) options.initialSessionConfig else null,
+                decisionReplyTo = if (firstPost) options.decisionReplyTo else null,
             )
             var needsFreshRetry = false
             var terminal = false

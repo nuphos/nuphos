@@ -118,7 +118,6 @@ test('a moved conversation reports a startable agent, not a lost connection', as
     teamId: 'team',
     agentRuntime: 'codex',
     runtimeMigration: {
-      mode: 'history',
       toRuntimeId: 'new',
       movedAt: new Date(),
       movedBy: 'owner',
@@ -146,7 +145,6 @@ test('a conversation moved before the fix is read the same way', async () => {
       forceNew: true,
     },
     runtimeMigration: {
-      mode: 'history',
       toRuntimeId: 'new',
       movedAt: new Date(),
       movedBy: 'owner',

@@ -249,6 +249,44 @@ export async function teamSkillsDeleteSkill(
   return call('DELETE', skillsRoute(teamId, 'skill', scope, { name }))
 }
 
+/** Lists the skills a public GitHub repository offers; the backend downloads it. */
+export async function teamSkillsGithubPreview(
+  teamId: string,
+  source: string,
+  scope?: SkillScope,
+): Promise<unknown> {
+  return call(
+    'POST',
+    skillsRoute(teamId, 'github/preview', scope),
+    { source },
+    { timeoutMs: 120_000 },
+  )
+}
+
+export async function teamSkillsGithubInstall(
+  teamId: string,
+  input: { source: string; commitSha: string; names: string[] },
+  scope?: SkillScope,
+): Promise<unknown> {
+  return call('POST', skillsRoute(teamId, 'github/install', scope), input, { timeoutMs: 120_000 })
+}
+
+/** Compares every skill installed from GitHub with its source. */
+export async function teamSkillsGithubUpdates(
+  teamId: string,
+  scope?: SkillScope,
+): Promise<unknown> {
+  return call('POST', skillsRoute(teamId, 'github/updates', scope), {}, { timeoutMs: 180_000 })
+}
+
+export async function teamSkillsGithubUpdate(
+  teamId: string,
+  input: { names: string[]; overwriteEdited: string[]; commits: Record<string, string> },
+  scope?: SkillScope,
+): Promise<unknown> {
+  return call('POST', skillsRoute(teamId, 'github/update', scope), input, { timeoutMs: 180_000 })
+}
+
 /** Move one of the caller's personal skills into the team store. */
 export async function teamSkillsPromote(teamId: string, name: string): Promise<unknown> {
   return call('POST', skillsRoute(teamId, 'promote', undefined, { name }))

@@ -21,9 +21,14 @@ function statusText(state: UpdaterState): string {
     case 'downloading':
       return t('Downloading Nuphos {version}…', { version: state.version })
     case 'ready':
-      return t('Nuphos {version} is ready. Restart to finish updating.', {
-        version: state.version,
-      })
+      return state.installerUrl
+        ? t(
+            "Nuphos {version} didn't install last time. Restart to try again, or download the installer.",
+            {
+              version: state.version,
+            },
+          )
+        : t('Nuphos {version} is ready. Restart to finish updating.', { version: state.version })
     case 'error':
       return t("Couldn't check for updates. Check your connection and try again.")
   }
@@ -33,6 +38,7 @@ export function UpdatesSection() {
   const state = useUpdaterState()
   const [version, setVersion] = useState('')
   const progress = state.kind === 'downloading' ? updateProgress(state) : null
+  const installerUrl = state.kind === 'ready' ? state.installerUrl : null
 
   useEffect(() => {
     api
@@ -59,7 +65,14 @@ export function UpdatesSection() {
             </p>
           </div>
           {state.kind === 'ready' ? (
-            <Button onClick={() => void api.updaterInstall()}>{t('Restart')}</Button>
+            <div className="flex shrink-0 gap-2">
+              {installerUrl && (
+                <Button variant="secondary" onClick={() => void api.appOpenExternal(installerUrl)}>
+                  {t('Download installer')}
+                </Button>
+              )}
+              <Button onClick={() => void api.updaterInstall()}>{t('Restart')}</Button>
+            </div>
           ) : (
             state.kind !== 'downloading' && (
               <Button

@@ -34,6 +34,11 @@ export function GcpBindWizard({
 
   return (
     <div>
+      <p className="text-[12px] text-secondary mb-3">
+        {t(
+          'Firebase uses this Google Cloud project and service account. Firebase must already be enabled; connecting does not enable APIs or grant Firebase permissions.',
+        )}
+      </p>
       <div className="mb-4">
         <div className="flex items-center gap-1 mb-2">
           {steps.map((title, i) => (

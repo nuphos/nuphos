@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { AgentAvatar } from '../../components/agent/AgentAvatar'
 import { AgentPanel } from '../../components/agent/AgentPanel'
@@ -11,6 +11,9 @@ import { ChatSummaryPanel } from '../../components/agent/summary/ChatSummaryPane
 import { ChatSummaryToggle } from '../../components/agent/summary/ChatSummaryToggle'
 import { useComposerReplyTarget } from '../../components/agent/summary/useComposerReplyTarget'
 import { useSessionInputRequests } from '../../components/agent/summary/useSessionInputRequests'
+import { HeaderEdge } from '../../components/ui/header-edge'
+import { setChatSummaryDocked } from '../../lib/chatSummaryPanel'
+import { t } from '../../i18n'
 import { hasCloudOnboardingBinding } from '../../lib/connectorCategories'
 
 import { CORNER_TITLEBAR_CLASS, CornerSidebarToggle } from './CornerSidebarToggle'
@@ -22,7 +25,6 @@ import { useTitlebarFit } from './titlebarFit'
 import { useOwnPaneSummary } from './usePaneSummary'
 import { useSessionHeading } from './useSessionHeading'
 import { usePaneId, useWorkspacePane } from './WorkspacePaneContext'
-import { HeaderEdge } from '../../components/ui/header-edge'
 
 import type { WorkspaceController } from './useWorkspaceController'
 import type { JournalChatTarget } from '../../lib/journalEvent'
@@ -32,15 +34,17 @@ export function WorkspaceAgentPane({
   ws,
   user,
   workspaceExpanded = false,
+  foreground = true,
 }: {
   ws: WorkspaceController
   user: UserInfo
   workspaceExpanded?: boolean
+  foreground?: boolean
 }) {
   const pane = useWorkspacePane()
   const paneId = usePaneId()
   const paneActive = pane?.active ?? true
-  const paneInFront = paneActive && !ws.mainPageOpen
+  const paneInFront = foreground && paneActive && !ws.mainPageOpen
   const {
     accounts,
     activeKubeContext,
@@ -67,6 +71,9 @@ export function WorkspaceAgentPane({
   } = ws
   const { currentHeading, handleTitleChange } = useSessionHeading(selectedSessionId)
   const { open: summaryOpen } = useOwnPaneSummary(selectedSessionId)
+
+  // The open dock takes the right edge from the summary panel; see setChatSummaryDocked.
+  useEffect(() => setChatSummaryDocked(paneId, dockOpen), [paneId, dockOpen])
   const savedSessionId = currentHeading.saved ? selectedSessionId : null
   // The titlebar menu's Rename opens the same inline editor as clicking the title.
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
@@ -87,10 +94,11 @@ export function WorkspaceAgentPane({
   }, [activeKubeContext, activePageUrl])
   const handleSessionChange = useCallback(
     (sessionId: string | null, unshown?: string) => {
+      if (!foreground) return
       if (!unshown) return workspaceActions.selectSession(sessionId, { keepMainPage: true })
       workspaceActions.forgetSession(unshown)
     },
-    [workspaceActions],
+    [workspaceActions, foreground],
   )
   const openDockTab = useCallback(
     (tabId: string) => {
@@ -126,12 +134,12 @@ export function WorkspaceAgentPane({
       data-workspace-focus-surface="session"
       // An expanded dock shrinks this column to zero width rather than removing
       // it, so the dock's width transition slides over it.
-      inert={workspaceExpanded}
+      inert={workspaceExpanded || !foreground}
       className={clsx(
         'relative min-h-0 min-w-0 flex-1 flex-col overflow-hidden workspace-content-surface',
         dockOpen && 'workspace-content-surface--leading',
         workspaceExpanded && 'workspace-content-surface--collapsed',
-        ws.mainPageOpen ? 'hidden' : 'flex',
+        ws.mainPageOpen || !foreground ? 'hidden' : 'flex',
       )}
     >
       <div className="workspace-session-body flex min-h-0 w-full flex-1 flex-col">
@@ -165,7 +173,7 @@ export function WorkspaceAgentPane({
               key={`title-${selectedSessionId ?? 'home'}`}
               sessionId={selectedSessionId}
               teamId={teamId}
-              title={currentHeading.title}
+              title={selectedSessionId ? currentHeading.title : t('New Task')}
               canRename={mayRename}
               editing={renamingSessionId === selectedSessionId}
               onEditingChange={(editing) =>
@@ -204,7 +212,7 @@ export function WorkspaceAgentPane({
               canRename={mayRename}
               canArchive={currentHeading.canArchive === true}
               watching={currentHeading.watching}
-              shortcutsActive={ws.chatShortcutsLive && !ws.mainPageOpen && !workspaceExpanded}
+              shortcutsActive={paneInFront && ws.chatShortcutsLive && !workspaceExpanded}
               onRename={() => setRenamingSessionId(savedSessionId)}
               onFork={() => setAgentSidebarPendingFork(savedSessionId)}
               canFork={!selectedSessionReadOnly}
@@ -236,16 +244,16 @@ export function WorkspaceAgentPane({
             <AgentPanel
               key={`agent-main-${teamId}`}
               variant="page"
-              open={!workspaceExpanded}
+              open={!workspaceExpanded && foreground}
               userName={user.name}
               runtimeUrlRef={runtimeUrlRef}
               teamId={teamId}
               isTeamAdmin={currentTeam?.role === 'ADMINISTRATOR'}
               runtimeKubeContextRef={runtimeKubeContextRef}
               unbound={unbound}
-              autoFocusComposer={paneActive && !dockOpen}
+              autoFocusComposer={paneInFront && !dockOpen}
               // A pane in the background that opens a chat must not take the keyboard.
-              focusComposerOnOpen={paneActive}
+              focusComposerOnOpen={paneInFront}
               newChatRequest={ws.newChatRequest}
               newChatDraftId={paneId}
               sessionId={selectedSessionId}
@@ -256,13 +264,13 @@ export function WorkspaceAgentPane({
               onSessionChange={handleSessionChange}
               onOpenNuphosLink={stableOpenNuphosLinkFromChat}
               onOpenAgentSettings={handleOpenAgentSettings}
-              pendingImport={agentSidebarPendingImport}
+              pendingImport={foreground ? agentSidebarPendingImport : null}
               onImportConsumed={handleImportConsumed}
-              pendingForkSessionId={agentSidebarPendingFork}
+              pendingForkSessionId={foreground ? agentSidebarPendingFork : null}
               onForkConsumed={clearAgentSidebarPendingFork}
-              pendingLocate={auditChatLocate}
+              pendingLocate={foreground ? auditChatLocate : null}
               onLocateConsumed={handleLocateConsumed}
-              pendingPrompt={pendingChatPrompt}
+              pendingPrompt={foreground ? pendingChatPrompt : null}
               onPromptConsumed={consumeChatPrompt}
               onTitleChange={handleTitleChange}
             />

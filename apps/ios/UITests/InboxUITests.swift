@@ -17,6 +17,16 @@ final class InboxUITests: XCTestCase {
         live = fixture.deletingLastPathComponent().appending(path: "inbox-live-\(UUID().uuidString).json")
         responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
         responses["POST /agent/chat"] = ["status": 200, "body": [:], "headers": ["Content-Type": "text/event-stream"]]
+        // An answer goes to the answer API; no message is sent.
+        for (session, request) in [("agent-ops", "q-deploy"), ("agent-staging", "q-staging"),
+                                   ("agent-ops", "q-rollout"), ("bot-release", "q-deploy")] {
+            responses["POST /agent/conversations/\(session)/decisions/\(request)/answer"] = ["status": 200, "body": ["ok": true]]
+        }
+        // The asking conversations, opened by "From …" and "Other…".
+        for (id, title) in [("agent-ops", "Release ops"), ("agent-staging", "Check the staging cluster")] {
+            responses["GET /agent/conversations/\(id)"] = ["status": 200, "body": [
+                "title": title, "messages": [], "timelineEvents": [], "isOwner": true, "readOnly": false]]
+        }
         try listQuestions([deploy, staging])
     }
 
@@ -45,7 +55,7 @@ final class InboxUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["Roll out 1.4 to production?"].waitForExistence(timeout: 5), "The question is not listed")
         XCTAssertTrue(app.staticTexts["Which node pool should the staging cluster use?"].exists)
-        XCTAssertTrue(app.textFields["Reply to this question"].firstMatch.exists, "No typed answer")
+        XCTAssertTrue(app.buttons["Other…"].firstMatch.exists, "No Other… to answer in words")
         shot("3-inbox")
 
         // The answer leaves the Inbox at once; the listing then agrees.
@@ -56,10 +66,150 @@ final class InboxUITests: XCTestCase {
         shot("4-answered")
 
         // "From …" opens the conversation that asked.
-        app.buttons["botQuestion.from"].firstMatch.tap()
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "From Check the staging cluster")).firstMatch.tap()
         XCTAssertTrue(app.navigationBars.staticTexts["Check the staging cluster"].waitForExistence(timeout: 10)
                       || app.staticTexts["Check the staging cluster"].waitForExistence(timeout: 1),
                       "The asking conversation did not open")
+    }
+
+    /// "Other…" asks for the answer in words in the card itself, which sends it as the answer:
+    /// no composer, no message. A plan keeps only Approve and Reject.
+    func testOtherAnswersInWordsInTheCard() throws {
+        try listQuestions([deploy, staging, plan])
+        app = launch(page: "agent")
+        app.buttons["Switch page"].firstMatch.tap()
+        app.buttons["Inbox"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Roll out 1.4 to production?"].waitForExistence(timeout: 10), "The question is not listed")
+        // Other… beside options, Reply… without them, nothing on the plan.
+        // By label: the card's own identifier covers those inside it.
+        XCTAssertEqual(app.buttons.matching(Self.typedAnswer).count, 2)
+        shot("5-inbox-other")
+
+        app.buttons["Other…"].firstMatch.tap()
+        let words = app.textFields["Your answer"]
+        XCTAssertTrue(words.waitForExistence(timeout: 5), "Other… does not ask for the answer in the card")
+        words.tap()
+        words.typeText("Ship after the 18:00 freeze\n")
+        shot("6-inbox-other-typed")
+        app.buttons["Send answer"].tap()
+        try listQuestions([staging, plan])
+        XCTAssertTrue(app.staticTexts["Roll out 1.4 to production?"].waitForNonExistence(timeout: 5), "The answered question stayed")
+    }
+
+    /// In a Bot's chat too, "Other…" asks for the answer in the card, not in the chat's composer.
+    func testOtherAnswersInWordsInABotChat() throws {
+        // The release chat as a Bot's 1:1, whose own questions show in it.
+        var detail = try XCTUnwrap(responses["GET /agent/conversations/chat-release"] as? [String: Any])
+        var body = try XCTUnwrap(detail["body"] as? [String: Any])
+        body["faces"] = [["id": "bot-release", "name": "Release Lead", "agent": ["avatar": "05"]]]
+        detail["body"] = body
+        responses["GET /agent/conversations/chat-release"] = detail
+        let ask = { (row: [String: Any]) in (row["inputRequests"] as? [[String: Any]])?.first ?? [:] }
+        var own = InboxUITests.row("bot-release", "Release Lead", ask(deploy))
+        own["inputRequests"] = [ask(deploy), ask(plan)]
+        try listQuestions([own])
+        app = launch()
+        app.staticTexts["release-planning"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Roll out 1.4 to production?"].waitForExistence(timeout: 15),
+                      "The Bot's question is not in its chat")
+        XCTAssertEqual(app.buttons.matching(Self.typedAnswer).count, 1, "Other… on the plan, or missing")
+        shot("7-bot-chat")
+
+        app.buttons["Other…"].firstMatch.tap()
+        XCTAssertTrue(app.textFields["Your answer"].waitForExistence(timeout: 5),
+                      "Other… does not ask for the answer in the card")
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "Replying to")).firstMatch.exists,
+                       "The chat's composer quotes the question")
+        shot("8-bot-chat-other-typed")
+    }
+
+    /// An integration question is answered in the Inbox: its conversation's credential picker
+    /// opens there, with the member's own GitHub to select, and nothing navigates away.
+    func testAnIntegrationQuestionChoosesCredentialsInTheInbox() throws {
+        responses["GET /agent/credential-options"] = ["status": 200, "body": [
+            "personalCredentials": [["provider": "github", "login": "octocat"]]]]
+        responses["PATCH /agent/conversations/agent-ops/credentials"] = ["status": 200, "body": [
+            "credentialAccess": ["personalCredentialIds": ["github"]], "options": [:]]]
+        var github = deploy
+        github["inputRequests"] = [["id": "q-github", "category": "integration",
+                                    "question": "Select your own GitHub so I can open the PR as you.",
+                                    "providers": ["github"], "askedAt": "2026-11-03T09:40:00Z", "status": "open"],
+                                   // One naming the member's own GitHub: answered by that alone, with no picker.
+                                   ["id": "q-own", "category": "integration",
+                                    "question": "Connect your own GitHub so I can push as you.",
+                                    "credentials": [["provider": "personal", "id": "github"]],
+                                    "askedAt": "2026-11-03T09:41:00Z", "status": "open"]]
+        try listQuestions([github])
+        app = launch(page: "agent")
+        app.buttons["Switch page"].firstMatch.tap()
+        app.buttons["Inbox"].firstMatch.tap()
+        let choose = app.buttons["Choose credentials"]
+        XCTAssertTrue(choose.waitForExistence(timeout: 10), "The integration card does not offer its credentials")
+        XCTAssertFalse(app.buttons["Answer in the conversation"].exists)
+        XCTAssertTrue(app.buttons["Use your own GitHub"].exists, "The own-GitHub question does not offer the member's credential")
+        shot("9-inbox-integration")
+
+        choose.tap()
+        let own = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "octocat")).firstMatch
+        XCTAssertTrue(own.waitForExistence(timeout: 10), "The picker does not list the member's own GitHub")
+        own.tap()
+        shot("10-inbox-integration-picker")
+        app.buttons["Done"].firstMatch.tap()
+        // Saved in place: the Inbox stays.
+        XCTAssertTrue(app.staticTexts["Select your own GitHub so I can open the PR as you."].waitForExistence(timeout: 5))
+    }
+
+    /// A card asking several questions, one of them multi-select, is a form answered in the Inbox
+    /// with one reply: options toggled, or the answer typed in their place.
+    func testAnswersSeveralQuestionsInOneCard() throws {
+        let rollout = InboxUITests.row(
+            "agent-ops", "Release ops",
+            ["id": "q-rollout", "category": "preference", "question": "How should the staging rollout go?",
+             // As the backend sends it: the questions written out after the separator for older clients.
+             "body": "The new build passed CI.\n\n---\n\n**1. Which regions should get it first?** (any number)\n- us-east\n- eu-west\n- ap-south\n\n**2. Keep the old cluster afterwards?**\n- Keep it for a week\n- Delete it\n\n**3. Anything the release note must mention?**",
+             "questions": [
+                ["question": "Which regions should get it first?", "options": ["us-east", "eu-west", "ap-south"],
+                 "multiSelect": true],
+                ["question": "Keep the old cluster afterwards?", "options": ["Keep it for a week", "Delete it"]],
+                ["question": "Anything the release note must mention?"],
+             ],
+             "askedAt": "2026-11-03T09:40:00Z", "status": "open"])
+        try listQuestions([rollout])
+        app = launch(page: "agent")
+        app.buttons["Switch page"].firstMatch.tap()
+        app.buttons["Inbox"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["How should the staging rollout go?"].waitForExistence(timeout: 10),
+                      "The question is not listed")
+        shot("11-inbox-several-questions")
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "(any number)")).firstMatch.exists,
+                       "The list written out for older clients shows beside the form")
+
+        // By label: the card's own identifier covers those inside it.
+        let send = app.buttons["Send answer"]
+        XCTAssertTrue(send.exists && !send.isEnabled, "Send answer before every question is answered")
+        app.buttons["us-east"].tap()
+        app.buttons["eu-west"].tap()
+        app.buttons["Keep it for a week"].tap()
+        let note = app.textFields["Your answer"]
+        note.tap()
+        note.typeText("Mention the new region picker.\n")
+        XCTAssertTrue(send.isEnabled)
+        shot("12-inbox-several-questions-filled")
+
+        send.tap()
+        try listQuestions([])
+        XCTAssertTrue(app.staticTexts["How should the staging rollout go?"].waitForNonExistence(timeout: 5),
+                      "The answered question stayed")
+    }
+
+    private static let typedAnswer = NSPredicate(format: "label IN %@", ["Other…", "Reply…"])
+
+    private func launch(page: String? = nil) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-preview-home", "-preview-no-push"] + (page.map { ["-page", $0] } ?? [])
+        app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
+        app.launch()
+        return app
     }
 
     // MARK: - Fixture
@@ -72,6 +222,11 @@ final class InboxUITests: XCTestCase {
         "agent-staging", "Check the staging cluster",
         ["id": "q-staging", "category": "preference", "question": "Which node pool should the staging cluster use?",
          "options": [], "askedAt": "2026-11-03T09:10:00Z", "status": "open"])
+
+    private let plan: [String: Any] = InboxUITests.row(
+        "agent-migrate", "Migrate staging",
+        ["id": "q-plan", "category": "approval", "question": "Approve the plan \"Move staging to the new cluster\"?",
+         "options": ["Approve", "Reject"], "planId": "p1", "askedAt": "2026-11-03T09:20:00Z", "status": "open"])
 
     private static func row(_ id: String, _ title: String, _ request: [String: Any]) -> [String: Any] {
         ["sessionId": id, "teamId": "64b5f1c2e4b0a1d2c3e4f5a6", "title": title, "firstMessage": title,

@@ -14,6 +14,69 @@ at once when revoked.
 These need a sign-in session. A sign-in from before sessions existed gets
 `403 session_required` and should be asked to sign in again.
 
+## Two-factor authentication
+
+Optional, per account: an authenticator app (TOTP, RFC 6238: SHA-1, six digits,
+30 seconds) plus ten single-use recovery codes. The TOTP secret is sealed with
+the BYOK key; recovery codes are stored hashed.
+
+- `GET /auth/mfa` reports whether it is on and how many recovery codes remain.
+- `POST /auth/mfa/totp/setup` returns a new secret and its `otpauth://` URL;
+  `POST /auth/mfa/totp/confirm` with `{ code }` turns it on and returns the
+  recovery codes, shown only this once.
+- `POST /auth/mfa/recovery-codes` and `POST /auth/mfa/disable` take a current
+  `{ code }` (authenticator or recovery code).
+
+Managing it takes a sign-in session; CLI tokens and agent runs get `403`.
+
+With it on, every sign-in path ends in `401 mfa_required` instead of a session.
+`error.details.mfaToken` is a single-use challenge valid for five minutes; send
+it with a code to `POST /auth/mfa/verify` for the usual `{ token, user }`. An
+app that predates this shows the error message, which asks the user to update.
+
+An authenticator code is accepted once (the last accepted time step is kept),
+a recovery code is spent when used. Every attempt is counted before its code
+is checked, so parallel guesses share one budget: after ten attempts within 15
+minutes without a right code, code entry is locked for the rest of that window. Turning it on or off and
+using a recovery code send an email, best effort.
+
+Someone who lost both the authenticator and the recovery codes contacts
+support. Once support confirms who is asking, an admin calls
+`POST /admin/directory/users/:id/mfa-reset`, which turns MFA off, signs the
+account out of every session and emails the user.
+
+### Passkeys
+
+Once two-factor authentication is on, passkeys (WebAuthn) can be added as more
+ways to answer; only their public keys are stored. They belong to the RP ID in
+`WEBAUTHN_RP_ID` (default `nuphos.ai`), and a ceremony may run only on an origin
+in `WEBAUTHN_ORIGINS` (the website, and `android:apk-key-hash:…` for Android).
+
+- `POST /auth/mfa/passkeys/options`, then `POST /auth/mfa/passkeys` with
+  `{ response, name }`, add one. Like any new second factor, it takes a recent
+  check. `DELETE /auth/mfa/passkeys/:id` takes a code or a passkey.
+- Wherever a code is accepted, `{ passkey: <AuthenticationResponseJSON> }` is
+  too, answering the last challenge given out: `POST /auth/mfa/verify/options`
+  with `{ mfaToken }` for a sign-in, `POST /auth/mfa/passkey-options` for a
+  session (step-up, turning MFA off, new recovery codes). A challenge lasts five
+  minutes, and a passkey answer counts against the same failure budget as codes.
+  Passkeys ask for user verification as `preferred`, not `required`: as a
+  second factor after the first sign-in step, possession of the device is the
+  point.
+
+## Step-up re-authentication
+
+A session counts as recently verified for 10 minutes after its sign-in, or
+after a code is entered on `POST /auth/mfa/reauth` (`{ code }`, 204). With MFA
+on, the sign-in itself took the second factor, so both are second-factor checks.
+An action that needs a recent check answers `403 reauth_required` otherwise;
+`error.details.method` is `mfa` (ask for a code, call `/auth/mfa/reauth`, then
+retry) or `sign_in` (the account has no MFA, so sign in again).
+
+MFA is optional, and accounts without it are not asked, except to turn MFA on:
+`POST /auth/mfa/totp/setup` needs a sign-in in the last 10 minutes from every
+account, so a stolen session cannot add its own authenticator.
+
 ## New sign-in alert
 
 When a sign-in starts, only its IP decides, checked against the account's

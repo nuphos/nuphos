@@ -12,15 +12,13 @@ import { agentConversations, agentMessages } from './shared'
 import type { AgentConversation } from './shared'
 import type { MessageMetadata } from '../message-metadata'
 
-/**
- * What makes a conversation a channel: a place where people and agents talk. The
- * people are the conversation's own participants; the agents are sessions,
- * because an agent is its session. A channel runs no agent of its own.
- */
+/** A channel holds people and Bot sessions; it runs no agent of its own. */
 export type ChannelFields = {
   /** Absent is an ordinary agent conversation. */
   kind?: 'channel'
   agentSessionIds?: string[]
+  /** An ordinary member selected as the group's lead; never an access grant. */
+  leadAgentSessionId?: string
   /** The index of the last channel message each agent has read, by session id. */
   agentReadIndex?: Record<string, number>
   /** Each other member's read marker, by user id, like the owner's `readSeq`. */
@@ -46,10 +44,7 @@ export function assertNotChannel(conversation: ChannelFields | null | undefined)
     throw new AppError(409, 'channel_conversation', 'A channel has no agent of its own to run')
 }
 
-/**
- * An agent in a channel is a Bot: it gets the face its id derives, stored, so
- * every client shows the same face. A face it already has is kept.
- */
+/** Adding a session makes it a Bot and preserves an existing face. */
 export async function addChannelAgent(
   channelId: string,
   agentSessionId: string,
@@ -69,10 +64,7 @@ export async function addChannelAgent(
   return channel
 }
 
-/**
- * Whether this user owns that agent, i.e. its session. Only its owner may bring
- * an agent into a channel. Another team's session or a channel is not an agent.
- */
+/** Only a Bot's owner can bring it into a channel of this team. */
 export async function ownsChannelAgent(agentSessionId: string, userId: string, teamId: string) {
   const agent = await agentConversations().findOne({ sessionId: agentSessionId })
 
@@ -186,7 +178,13 @@ function fromOwner(metadata: MessageMetadata | undefined, ownerId: string) {
 export async function readChannelMessages(
   channel: Pick<
     AgentConversation,
-    'sessionId' | 'userId' | 'messageCount' | 'agentReadIndex' | 'agentSessionIds'
+    | 'sessionId'
+    | 'userId'
+    | 'messageCount'
+    | 'agentReadIndex'
+    | 'agentSessionIds'
+    | 'instructions'
+    | 'leadAgentSessionId'
   >,
   agentSessionId: string,
   /** The reading agent's owner, whose posts carry `fromOwner`. */
@@ -239,6 +237,12 @@ export async function readChannelMessages(
     }),
     upTo: last?.index,
     more: docs.length > READ_PAGE,
+    ...(channel.instructions
+      ? { sharedInstructions: fenceUntrusted('channel-setup', channel.instructions, '') }
+      : {}),
+    ...(channel.leadAgentSessionId && channel.agentSessionIds?.includes(channel.leadAgentSessionId)
+      ? { leadAgentSessionId: channel.leadAgentSessionId }
+      : {}),
     note:
       channel.agentSessionIds?.length === 1
         ? CHANNEL_READ_NOTE + ONLY_AGENT_NOTE

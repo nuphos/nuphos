@@ -28,6 +28,16 @@ class ChannelTest {
     private val agent = """{"id":"m2","role":"user","metadata":{"version":1,"sender":{"type":"agent","id":"agent-ops","displayName":"Release ops"},"sentAt":"2026-11-03T09:23:00.000Z","sourceSessionId":"agent-ops"},"parts":[{"type":"text","text":"Screenshots:"},{"type":"transfer-download","groupId":"g1"},{"type":"transfer-download","groupId":"g2"}]}"""
     private val upload = """{"id":"m3","role":"user","metadata":{"version":1,"sender":{"type":"user","id":"diana","displayName":"Diana Prince"},"sentAt":"2026-11-03T09:40:00.000Z"},"parts":[{"type":"text","text":"Crash"},{"type":"transfer-upload","groupId":"64b5f1c2e4b0a1d2c3e4f5a7","status":"ready","files":[{"fileName":"crash.png","status":"ready"}]}]}"""
 
+    @Test fun typingAndPostAvatarsKeepKnownProvidersWithoutInventingMissingOnes() {
+        for (provider in listOf("codex", "grok", null)) {
+            val field = provider?.let { ",\"provider\":\"$it\"" } ?: ""
+            val typing = Http.json.decodeFromString<ChannelAgent>("""{"sessionId":"bot"$field}""")
+            assertEquals(provider, typing.provider)
+            val postJson = if (provider == null) agent else agent.replace("\"type\":\"agent\"", "\"type\":\"agent\",\"agentRuntime\":\"$provider\"")
+            assertEquals(provider, ChannelPost.from(message(postJson))!!.runtime)
+        }
+    }
+
     @Test fun postsReadPeopleAgentsAndBothKindsOfFiles() {
         val a = ChannelPost.from(message(person))!!
         assertEquals("diana", a.senderId); assertFalse(a.isAgent); assertEquals("Morning!", a.text)
@@ -138,7 +148,7 @@ class ChannelTest {
             uploads += attachments.map { it.name }; heldUpload?.await(); return "64b5f1c2e4b0a1d2c3e4f5a9"
         }
         val replies = mutableListOf<String?>()
-        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?, decisionReplyTo: String?) {
+        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?) {
             posts += Triple(text, id, upload)
             replies += replyTo
             if (failPost) throw NuphosApi.Failure.Http(500, "Synthetic post failure")

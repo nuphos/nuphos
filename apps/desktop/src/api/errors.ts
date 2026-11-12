@@ -111,6 +111,16 @@ export function isSessionRejected(e: unknown): boolean {
   return parseAtlasError(e).code === 'unauthorized'
 }
 
+/** The request outlived its account: a sign-out or account switch aborted it,
+ *  or it went out after sign-out dropped the token and before the window
+ *  reloaded. The window reloads into the next account; nothing failed. Only
+ *  the message crosses IPC, so this reads the message. */
+export function isAccountGone(e: unknown): boolean {
+  const raw = e instanceof Error ? e.message : String(e)
+
+  return raw.includes('AccountChangedError') || raw.endsWith('Error: Not signed in')
+}
+
 export function isNetworkError(e: unknown): boolean {
   const raw = (e instanceof Error ? e.message : String(e)).toLowerCase()
 

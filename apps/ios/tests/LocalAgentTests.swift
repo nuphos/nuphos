@@ -7,11 +7,23 @@ enum LocalAgentTests {
         groupsOwnComputersApartFromCloud()
         describesAComputersAgent()
         detectsALocalAgentWhileItsComputerIsOffline()
+        asksWhoeverCanSignIn()
         defaultsToAUsableCloudAgent()
         namesCloudOnlyProviders()
         modelSettingsRemainAvailable()
         measuresWhatIsLeft()
         print("Local agents passed")
+    }
+
+    private static func asksWhoeverCanSignIn() {
+        let teammates = "local_u2_dev1_claude-code"
+        precondition(RuntimeInstance.signInAsk(teammates, viewerId: "u1", isAdministrator: true) == "Ask owner")
+        precondition(RuntimeInstance.signInAsk("local_u1_dev1_claude-code", viewerId: "u1", isAdministrator: false) == nil)
+        // An id that only starts like the viewer's is still someone else's computer.
+        precondition(RuntimeInstance.signInAsk("local_u10_dev1_codex", viewerId: "u1", isAdministrator: false) == "Ask owner")
+        precondition(RuntimeInstance.signInAsk("rt_team", viewerId: "u1", isAdministrator: false) == "Ask an admin")
+        precondition(RuntimeInstance.signInAsk("rt_team", viewerId: "u1", isAdministrator: true) == nil)
+        precondition(RuntimeInstance.signInAsk(nil, viewerId: "u1", isAdministrator: false) == nil)
     }
 
     private static func modelSettingsRemainAvailable() {

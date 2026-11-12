@@ -11,6 +11,7 @@ import {
   Link2,
   MoreHorizontal,
   Pencil,
+  SmilePlus,
   X,
 } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -18,9 +19,12 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { api } from '../../api'
 import { usePaneSummary } from '../../app/workspace/usePaneSummary'
 import { t } from '../../i18n'
-import { pickAgentAvatar, useAgentAvatarPick } from '../../lib/agentAvatarChoices'
+import { useAgentAvatarPick } from '../../lib/agentAvatarChoices'
+import { openChangeBotAvatar } from '../../lib/changeBotAvatar'
 import { copyLinkWithFeedback } from '../../lib/copyLink'
 import { sessionShortcutCombo } from '../../lib/sessionShortcuts'
+import { useIsSubAgent } from '../../lib/subAgentIds'
+import { makeBot, turnIntoTask } from '../channels/botChannel'
 import {
   Menu,
   MenuContent,
@@ -33,7 +37,6 @@ import {
 import { ShortcutHint } from '../ui/shortcut-hint'
 import { toast } from '../ui/toast'
 import { Tooltip } from '../ui/tooltip'
-import { makeBot } from '../channels/botChannel'
 
 import { agentSessionUrl } from './sessionUrl'
 import { SummaryIcon } from './summary/ChatSummaryToggle'
@@ -78,6 +81,8 @@ export function SessionHeaderMenu({
   const { archiving, archive } = useArchiveSession({ sessionId, teamId, title })
   const { open: summaryOpen, toggle: toggleSummary } = usePaneSummary()
   const isBot = Boolean(useAgentAvatarPick(sessionId))
+  // A sub-task stays a Task (as a Bot it shows twice); one that is a Bot can still turn back.
+  const subAgent = useIsSubAgent(sessionId)
   // What the server said when the chat opened; a toggle here wins after that.
   const [toggled, setToggled] = useState<boolean | undefined>(undefined)
   const watching = toggled ?? reportedWatching
@@ -91,20 +96,12 @@ export function SessionHeaderMenu({
       toast.apiError(next ? t('Could not watch agent') : t('Could not unwatch agent'), err)
     })
   }
-  // "Turn into a Task" takes the face away; "Make this a Bot" is shared with the Tasks row menu.
-  function setBot(bot: boolean) {
-    if (bot) {
-      void makeBot(teamId, sessionId)
-
-      return
-    }
-    void pickAgentAvatar(sessionId, null, () =>
-      api.agentSetConversationAvatar(sessionId, null, teamId),
-    ).catch((err: unknown) => toast.apiError(t('Could not change avatar'), err))
-  }
+  // "Turn into a Task" takes the face and the chats away; "Make this a Bot" is shared with the row menu.
+  const setBot = (bot: boolean) => void (bot ? makeBot : turnIntoTask)(teamId, sessionId)
   // Rename waits for the popup to finish closing; otherwise focus returning to
   // the trigger blurs the title input, and blur saves and closes it.
   const renameOnClose = useRef(false)
+  const avatarOnClose = useRef(false)
   // Closing the pane waits too: the menu hands focus back to its trigger in this
   // pane, which would make the closed pane the active one again.
   const closePaneOnClose = useRef(false)
@@ -161,6 +158,10 @@ export function SessionHeaderMenu({
           closePaneOnClose.current = false
           onClosePane?.()
         }
+        if (avatarOnClose.current) {
+          avatarOnClose.current = false
+          openChangeBotAvatar({ teamId, botId: sessionId, title })
+        }
         if (!renameOnClose.current) return
         renameOnClose.current = false
         onRename()
@@ -198,7 +199,17 @@ export function SessionHeaderMenu({
             {isBot ? t('Rename Bot') : t('Rename task')}
           </MenuItem>
         )}
-        {canRename && (
+        {canRename && isBot && (
+          <MenuItem
+            icon={<SmilePlus className="h-3.5 w-3.5" />}
+            onClick={() => {
+              avatarOnClose.current = true
+            }}
+          >
+            {t('Change avatar')}
+          </MenuItem>
+        )}
+        {canRename && (isBot || !subAgent) && (
           <MenuItem
             icon={isBot ? <BotOff className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
             onClick={() => setBot(!isBot)}

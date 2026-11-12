@@ -46,6 +46,16 @@ class MessageAttributionTest {
         assertEquals(quoted, row.text)
     }
 
+    @Test fun onlyAResourceSenderNamedForAChannelIsAChannelNotice() {
+        fun sender(source: String, type: String, id: String) = MessageAttribution.parse(JsonValue.parse(
+            """{"version":1,"source":"$source","sentAt":"2026-10-22T00:00:00Z","sender":{"id":"$id","type":"$type","displayName":"Launch"}}"""))
+        assertEquals("channel-1", sender("agent.resource", "system", "channel:channel-1")?.channelId)
+        assertNull(sender("agent.resource", "system", "github")?.channelId)
+        assertNull(sender("agent.resource", "system", "channel:")?.channelId)
+        assertNull(sender("agent.thread", "agent", "channel:channel-1")?.channelId)
+        assertNull(sender("nuphos", "user", "channel:channel-1")?.channelId)
+    }
+
     @Test fun viaMustHaveAnIdentityAndOnlyAppliesToNuphos() {
         assertNull(MessageAttribution.parse(metadata(type = "agent", via = """, "onBehalfOf":{"displayName":"Can"}""")))
         val external = metadata("slack", "user", """, "onBehalfOf":{"id":"owner","displayName":"Can"}""")

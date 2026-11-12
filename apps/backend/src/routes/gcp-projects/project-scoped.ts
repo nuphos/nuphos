@@ -8,6 +8,7 @@ import { teamByosBindings } from '@/models'
 
 import { registerGcpCloudRunRoutes } from './cloud-run'
 import { registerGcpComputeRoutes } from './compute'
+import { firebaseRoutes } from './firebase'
 import { registerGcpCredentialRoutes, registerGkeKubeconfigRoute } from './credentials'
 import { registerGcpMonitoringRoutes } from './monitoring'
 
@@ -74,3 +75,4 @@ registerGcpMonitoringRoutes(gcpProjectScoped)
 registerGcpCredentialRoutes(gcpProjectScoped)
 registerGkeKubeconfigRoute(gcpProjectScoped)
 registerGcpCloudRunRoutes(gcpProjectScoped)
+gcpProjectScoped.route('/firebase', firebaseRoutes)

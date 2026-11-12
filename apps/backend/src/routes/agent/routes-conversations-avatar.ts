@@ -100,7 +100,7 @@ const MAKE_BOT_PROMPT =
   'From the conversation so far, choose a short name for yourself and write the instructions you should keep following, ' +
   'then save both with the `update_self` tool. Reply with one line saying who you are now.'
 
-// "Make this a Bot": the Task gets the face its id derives, so it is a Bot at
+// "Make this a Bot": a top-level Task gets the face its id derives, so it is a Bot at
 // once, and is asked to name and describe itself with `update_self`.
 agent.post('/conversations/:sessionId/bot', async (c) => {
   const userId = c.get('userId')
@@ -111,6 +111,9 @@ agent.post('/conversations/:sessionId/bot', async (c) => {
   if (!conversation || conversation.userId !== userId || conversation.kind === 'channel' || !teamId)
     throw new AppError(404, 'not_found', 'Conversation not found')
   if (conversation.avatar) return c.json({ avatar: conversation.avatar })
+  // A sub-task stays its parent's: as a Bot it would show both there and in Bots.
+  if (conversation.parentSessionId)
+    throw new AppError(400, 'invalid_request', 'A sub-task cannot become a Bot')
   const avatar = derivedAvatar(sessionId)
 
   // A second click that lost the race finds the face set: nothing more to do.

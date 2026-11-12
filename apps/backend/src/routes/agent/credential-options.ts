@@ -5,8 +5,8 @@ import { canUseAllowList } from '@/lib/byos/access'
 import { extractAwsAccountId } from '@/lib/byos/account'
 import { cachedAwsAccountAlias } from '@/lib/byos/aws'
 import { publicZeaburProviders } from '@/lib/byos/zeabur-provider-view'
-import { ownPersonalCredentialOptions } from '@/lib/personal-credentials/handout'
 import { parseObjectId } from '@/lib/objectid'
+import { ownPersonalCredentialOptions } from '@/lib/personal-credentials/handout'
 import { teamByosBindings } from '@/models'
 
 import {

@@ -7,7 +7,7 @@ import type { ToolHandler } from '@/lib/mcp/protocol'
 
 export type PreviewToolContext = {
   userId: string
-  /** Durable run owner; permission checks still use userId (the actor). */
+  /** Durable run owner; supplies the conversation's execution mode and selected devices. */
   conversationOwnerUserId?: string
   teamId: string
   /** The conversation id (== agent session id). */

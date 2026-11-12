@@ -3,6 +3,7 @@ import { expect, test } from 'bun:test'
 import {
   ADDITION_GRACE_MS,
   goneAdditions,
+  isPendingRemoval,
   mergeAgentRegistry,
   renameRegisteredAgent,
   reportedAgents,
@@ -94,4 +95,17 @@ test('who added an agent is kept while it exists, pending or registered, and dro
   expect(goneAdditions([noted(work)], registered, report, now)).toEqual([])
   // An older host lists no agents of its own, so it never says one is gone.
   expect(goneAdditions(additions, [], { agents: {} }, now)).toEqual([])
+})
+
+test('a pending removal hides exactly the agent it names', () => {
+  const removals = [
+    { id: 'r1', agent: { instanceId: 'added' }, actorId: 'm', teamId: 't', at: new Date(0) },
+    { id: 'r2', agent: { provider: 'codex' as const }, actorId: 'm', teamId: 't', at: new Date(0) },
+  ]
+
+  expect(isPendingRemoval({ provider: 'claude-code', instanceId: 'added' }, removals)).toBe(true)
+  expect(isPendingRemoval({ provider: 'codex' }, removals)).toBe(true)
+  // A provider's removal is its default agent, not an added agent of the same provider.
+  expect(isPendingRemoval({ provider: 'codex', instanceId: 'other' }, removals)).toBe(false)
+  expect(isPendingRemoval({ provider: 'claude-code' }, removals)).toBe(false)
 })

@@ -108,7 +108,7 @@ print(data.get("accountLogin", ""))
 acting_as="$(printf '%s' "$token_response" | python3 -c '
 import json, sys
 actor = json.load(sys.stdin).get("actor") or {}
-print(actor.get("login", "") + " (Personal Credential)" if actor.get("kind") == "personal" else "the team App")
+print(actor.get("login", "") + " through the team GitHub App, limited to its permissions" if actor.get("kind") == "personal" else "the team App")
 ')"
 
 if [ -z "$token" ]; then

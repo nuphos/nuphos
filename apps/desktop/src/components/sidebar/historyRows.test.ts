@@ -48,7 +48,7 @@ test('Forward lists what lies ahead after going Back', () => {
   assert.deepEqual(
     historyMenuRows({ entries, index: 0 }, 1, title).map((row) => [row.index, row.label]),
     [
-      [1, 'Runtimes'],
+      [1, 'Computers'],
       [2, 'New chat'],
     ],
   )

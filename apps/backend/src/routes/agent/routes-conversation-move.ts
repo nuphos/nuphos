@@ -58,7 +58,8 @@ agent.post('/conversations/:sessionId/runtime', async (c) => {
   const body = z
     .object({
       runtimeId: z.string().min(1).max(200),
-      mode: z.enum(['history', 'workspace']),
+      // Sent by older Desktop builds. Only the history moves, whatever it says.
+      mode: z.enum(['history', 'workspace']).optional(),
       teamId: z.string().optional(),
       grantComputerUse: z.boolean().optional(),
     })
@@ -76,7 +77,7 @@ agent.post('/conversations/:sessionId/runtime', async (c) => {
       'Only the owner or a manager of that computer can give teammates use of it.',
       { userIds: gap.needing },
     )
-  const moved = await moveConversationRuntime(conversation, body.runtimeId, body.mode, userId)
+  const moved = await moveConversationRuntime(conversation, body.runtimeId, userId)
 
   if (gap?.computer && !(await addTeamUse(gap.computer, conversation.teamId ?? '', gap.needing)))
     throw new AppError(404, 'device_not_found', 'Device is not available')

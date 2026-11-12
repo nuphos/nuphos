@@ -93,6 +93,30 @@ describe('selectedProviders', () => {
     )
   })
 
+  // An exact own credential: only selecting that one answers it, never a team binding.
+  const personal = (id: 'github' | 'linear'): InputRequest => ({
+    ...ask('q'),
+    credentials: [{ provider: 'personal', id }],
+  })
+
+  test("a team binding never answers a question for the member's own credential", () => {
+    expect(selectedProviders(personal('github'), { githubInstallationIds: ['1', '2'] })).toEqual([])
+    expect(selectedProviders(personal('linear'), { linearWorkspaceIds: ['w'] })).toEqual([])
+  })
+
+  test('selecting the own credential it names answers it; another one does not', () => {
+    expect(selectedProviders(personal('github'), { personalCredentialIds: ['github'] })).toEqual([
+      'personal github',
+    ])
+    expect(selectedProviders(personal('github'), { personalCredentialIds: ['linear'] })).toEqual([])
+  })
+
+  test('a question for any GitHub access is still answered by a team installation', () => {
+    expect(selectedProviders(ask('q', ['github']), { githubInstallationIds: ['1'] })).toEqual([
+      'github',
+    ])
+  })
+
   test('a question without providers is never answered by a selection', () => {
     expect(selectedProviders(ask('q'), { githubInstallationIds: ['1'] })).toEqual([])
   })
@@ -108,6 +132,46 @@ describe('answerCredentialAsks', () => {
     expect(turns[0]!.sessionId).toBe('s1')
     expect(turns[0]!.text).toContain('q-github')
     expect(turns[0]!.text).toContain('github')
+  })
+
+  test('selecting Trello answers its exact request and resumes the asking conversation', async () => {
+    conversation!.inputRequests = [ask('q-trello', ['trello']), ask('q-github', ['github'])]
+
+    await answerCredentialAsks(
+      's1',
+      addedCredentialIds(
+        { trelloIntegrationIds: [] },
+        { trelloIntegrationIds: ['trello-account'] },
+      ),
+    )
+
+    expect(resolved).toHaveLength(1)
+    expect(resolved[0]).toMatchObject({ $set: { 'inputRequests.$.status': 'answered' } })
+    expect(turns).toHaveLength(1)
+    expect(turns[0]!.sessionId).toBe('s1')
+    expect(turns[0]!.text).toContain('q-trello')
+    expect(turns[0]!.text).not.toContain('q-github')
+  })
+
+  test("with the team's GitHub already selected, opting into one's own answers the session's ask", async () => {
+    // What the Inbox's own-GitHub pick sends: the stored installation kept, the personal credential added.
+    const stored = { githubInstallationIds: ['166'] }
+    const saved = { githubInstallationIds: ['166'], personalCredentialIds: ['github' as const] }
+
+    await answerCredentialAsks('s1', addedCredentialIds(stored, saved))
+
+    expect(resolved).toHaveLength(1)
+    expect(turns.map((turn) => turn.sessionId)).toEqual(['s1'])
+  })
+
+  test("acting as the member on the team's installation (teamIdentity) answers no ask", async () => {
+    const stored = { githubInstallationIds: ['166'], teamIdentity: ['github' as const] }
+    const saved = { githubInstallationIds: ['166'], teamIdentity: [] }
+
+    await answerCredentialAsks('s1', addedCredentialIds(stored, saved))
+
+    expect(resolved).toEqual([])
+    expect(turns).toEqual([])
   })
 
   test('another provider leaves the question open and the agent idle', async () => {

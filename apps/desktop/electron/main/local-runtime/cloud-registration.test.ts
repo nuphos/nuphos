@@ -80,8 +80,10 @@ mock.module('./tunnel-client.ts', {
     },
   },
 })
-mock.method(globalThis, 'WebSocket', function (url: string) {
-  sockets.push(url)
+mock.method(globalThis, 'WebSocket', function (url: URL) {
+  sockets.push(url.href)
+
+  return new EventTarget()
 })
 
 const { setApiUrl } = await import('../../api-endpoint.ts')

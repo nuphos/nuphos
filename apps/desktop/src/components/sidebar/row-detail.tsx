@@ -15,6 +15,7 @@ export function RowDetail({ item }: { item: Item }) {
       // Empty when there is nothing to show (no linked work); the title then stays put.
       data-row-detail
       className={clsx(
+        item.task && !item.icon && !item.iconNode && '[&>*]:pl-2 [&>*]:pr-9',
         'pointer-events-none absolute inset-x-0 top-[19px] translate-y-1.5 opacity-0',
         'transition-[opacity,transform] duration-[280ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]',
         'group-hover/session:pointer-events-auto group-hover/session:translate-y-0 group-hover/session:opacity-100',

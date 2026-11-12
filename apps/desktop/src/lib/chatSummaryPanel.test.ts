@@ -6,13 +6,11 @@ import {
   REVEAL_LIFETIME_MS,
   isChatSummaryOpen,
   openChatSummaryChanges,
-  openChatSummarySubAgents,
   setChangesFilter,
+  setChatSummaryDocked,
   setChatSummaryOpen,
   setPaneSession,
-  setSubAgentsFilter,
   takeChangesReveal,
-  takeSubAgentsReveal,
   toggleChatSummary,
 } from './chatSummaryPanel.ts'
 
@@ -57,38 +55,6 @@ test('closing the panel drops the reveal, and choosing a filter asks for none', 
 
   setChangesFilter('open')
   assert.equal(takeChangesReveal('a'), false)
-
-  setPaneSession(PRIMARY_PANE_ID, null)
-})
-
-test('opening on Sub-agents asks that chat for one reveal, which the Changes list cannot take', () => {
-  openChatSummarySubAgents('done', 'a')
-  assert.equal(takeChangesReveal('a'), false)
-  assert.equal(takeSubAgentsReveal('b'), false)
-  assert.equal(takeSubAgentsReveal('a'), true)
-  assert.equal(takeSubAgentsReveal('a'), false)
-})
-
-test('opening on Changes replaces a Sub-agents reveal not yet taken', () => {
-  openChatSummarySubAgents('done', 'a')
-  openChatSummaryChanges('merged', 'a')
-  assert.equal(takeSubAgentsReveal('a'), false)
-  assert.equal(takeChangesReveal('a'), true)
-})
-
-test('a Sub-agents reveal expires and closing drops it; choosing a filter asks for none', () => {
-  const asked = Date.now()
-
-  setPaneSession(PRIMARY_PANE_ID, 'a')
-  openChatSummarySubAgents('done', 'a')
-  assert.equal(takeSubAgentsReveal('a', asked + REVEAL_LIFETIME_MS + 1000), false)
-
-  openChatSummarySubAgents('active', 'a')
-  setChatSummaryOpen(PRIMARY_PANE_ID, false)
-  assert.equal(takeSubAgentsReveal('a'), false)
-
-  setSubAgentsFilter('all')
-  assert.equal(takeSubAgentsReveal('a'), false)
 
   setPaneSession(PRIMARY_PANE_ID, null)
 })
@@ -205,4 +171,45 @@ test('two panes on the same chat share its panel; other chats are untouched', ()
 
   setChatSummaryOpen('pane-2', false)
   for (const pane of ['pane-1', 'pane-2', 'pane-3']) setPaneSession(pane, null)
+})
+
+test("an open dock hides the panel and keeps the chat's choice for when it closes", () => {
+  setPaneSession('dock-pane', 'dock-chat')
+  setChatSummaryOpen('dock-pane', true)
+
+  setChatSummaryDocked('dock-pane', true)
+  assert.equal(isChatSummaryOpen('dock-pane'), false)
+
+  setChatSummaryDocked('dock-pane', false)
+  assert.equal(isChatSummaryOpen('dock-pane'), true)
+  setPaneSession('dock-pane', null)
+})
+
+test('beside an open dock the toggle only peeks, and closing the dock ends the peek', () => {
+  setPaneSession('peek-pane', 'peek-chat')
+  setChatSummaryOpen('peek-pane', false)
+  setChatSummaryDocked('peek-pane', true)
+
+  toggleChatSummary('peek-pane')
+  assert.equal(isChatSummaryOpen('peek-pane'), true)
+  toggleChatSummary('peek-pane')
+  assert.equal(isChatSummaryOpen('peek-pane'), false)
+
+  toggleChatSummary('peek-pane')
+  setChatSummaryDocked('peek-pane', false)
+  // The peek did not change the chat's own choice, which was closed.
+  assert.equal(isChatSummaryOpen('peek-pane'), false)
+  setPaneSession('peek-pane', null)
+})
+
+test('switching chats beside the dock ends the peek opened on the previous chat', () => {
+  setPaneSession('switch-pane', 'first-chat')
+  setChatSummaryDocked('switch-pane', true)
+  toggleChatSummary('switch-pane')
+  assert.equal(isChatSummaryOpen('switch-pane'), true)
+
+  setPaneSession('switch-pane', 'second-chat')
+  assert.equal(isChatSummaryOpen('switch-pane'), false)
+  setChatSummaryDocked('switch-pane', false)
+  setPaneSession('switch-pane', null)
 })

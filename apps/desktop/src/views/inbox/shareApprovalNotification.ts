@@ -1,7 +1,9 @@
+import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
 
 import { api } from '../../api'
-import { memberDisplayName, useTeamMembers } from '../../lib/bindingAccess'
+import { memberDisplayName } from '../../lib/bindingAccess'
+import { teamMembersQuery } from '../../lib/query/team'
 
 import { shareApprovalNotice } from './shareApprovalNotice'
 
@@ -15,25 +17,22 @@ export function useShareApprovalNotifications(
   teamId: string,
   approvals: readonly LocalShareApproval[],
 ): void {
-  const members = useTeamMembers(teamId)
+  const roster = useQuery({ ...teamMembersQuery(teamId), enabled: Boolean(teamId) })
+  const members = roster.data
   const sent = useRef(new Set<string>())
-  const waited = useRef(new Set<string>())
 
   useEffect(() => {
+    // Until the members' read answers or fails, a notice would lack the name.
+    if (!roster.isFetched) return
     for (const approval of approvals) {
       if (sent.current.has(approval.id)) continue
-      // The first poll can land before the members do: give the name one more poll.
-      if (members.length === 0 && !waited.current.has(approval.id)) {
-        waited.current.add(approval.id)
-        continue
-      }
       sent.current.add(approval.id)
-      const member = members.find((entry) => entry.id === approval.actorId)
+      const member = members?.find((entry) => entry.id === approval.actorId)
       const { title, body } = shareApprovalNotice(approval, member && memberDisplayName(member))
 
       void api.localShareNotify(approval.id, teamId, title, body).catch(() => {
         // Best effort: the Inbox still lists it.
       })
     }
-  }, [approvals, members, teamId])
+  }, [approvals, members, roster.isFetched, teamId])
 }

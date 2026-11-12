@@ -61,6 +61,30 @@ pub fn parse_login_command(raw: &str) -> Option<LoginCommand> {
     })
 }
 
+/// A provider-owned status probe: only a bounded JSON boolean leaves the command.
+pub async fn authenticated(command: &LoginCommand) -> Option<bool> {
+    let mut child = tokio::process::Command::new(&command.program)
+        .args(&command.args)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .kill_on_drop(true)
+        .spawn()
+        .ok()?;
+    let stdout = child.stdout.take()?;
+    tokio::time::timeout(std::time::Duration::from_secs(12), async {
+        let mut bytes = Vec::new();
+        stdout.take(64).read_to_end(&mut bytes).await.ok()?;
+        if !child.wait().await.ok()?.success() {
+            return None;
+        }
+        serde_json::from_slice::<bool>(&bytes).ok()
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
 /// An `attemptId` is echoed back to the operator on every frame, so it must be safe to
 /// place in a log line and small enough not to be a payload of its own.
 pub fn valid_attempt_id(attempt: &str) -> bool {
@@ -618,5 +642,33 @@ mod tests {
 
         assert_eq!(failed.last().unwrap()["exitCode"], 3);
         assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
+}
+
+#[cfg(all(test, unix))]
+mod auth_status_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn auth_status_accepts_only_a_successful_boolean() {
+        for (script, expected) in [
+            ("printf true", Some(true)),
+            ("printf false", Some(false)),
+            ("printf null", None),
+            ("printf true; exit 1", None),
+            ("printf 'provider output'", None),
+            ("printf '%0100d' 1", None),
+        ] {
+            let command = LoginCommand {
+                program: "sh".into(),
+                args: vec!["-c".into(), script.into()],
+            };
+            assert_eq!(authenticated(&command).await, expected);
+        }
+        let missing = LoginCommand {
+            program: "/nonexistent/nuphos-status".into(),
+            args: vec![],
+        };
+        assert_eq!(authenticated(&missing).await, None);
     }
 }

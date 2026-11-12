@@ -2,8 +2,8 @@ import { ObjectId } from 'mongodb'
 
 import { agentConversations } from '@/lib/agent/db/shared'
 import { db } from '@/lib/db'
-import { redactSecrets } from '@/lib/journal/redact'
 import { logError } from '@/lib/observability'
+import { redactSecrets } from '@/lib/secrets/scan'
 
 import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
 import type { Collection, Filter } from 'mongodb'
@@ -68,8 +68,10 @@ export async function setupDeviceExecAuditIndexes(): Promise<void> {
  * this scrub is a best-effort courtesy for obvious token shapes, not a
  * security boundary.
  */
-export function buildDeviceExecAuditEntry(input: DeviceExecAuditInput): DeviceExecAuditEntry {
-  const { redacted, redactedCount } = redactSecrets(input.command)
+export async function buildDeviceExecAuditEntry(
+  input: DeviceExecAuditInput,
+): Promise<DeviceExecAuditEntry> {
+  const { redacted, redactedCount } = await redactSecrets(input.command)
   const commandRedacted = redactedCount > 0
   const command =
     redacted.length > DEVICE_EXEC_AUDIT_COMMAND_MAX_CHARS
@@ -89,7 +91,7 @@ export function buildDeviceExecAuditEntry(input: DeviceExecAuditInput): DeviceEx
 /** Best effort: an audit write failure must never fail the command it describes. */
 export async function recordDeviceExecAudit(input: DeviceExecAuditInput): Promise<void> {
   try {
-    const entry = buildDeviceExecAuditEntry(input)
+    const entry = await buildDeviceExecAuditEntry(input)
 
     if (input.operationId) {
       await deviceExecAudit().updateOne(

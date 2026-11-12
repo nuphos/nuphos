@@ -42,8 +42,6 @@ export type AgentChatBody = {
   decisionReplyTo?: string
   clientCapabilities?: {
     localTools?: boolean
-    /** Questions are resolved explicitly by id, separately from ordinary messages. */
-    decisionReplies?: boolean
     /** The client reads a 202 for a queued message. Without it, a queued send gets an SSE that ends at once. */
     serverQueue?: boolean
   }
@@ -104,6 +102,8 @@ export type AgentRun = {
   runtimeOwned?: boolean
   /** The channels whose posts started or were steered into this turn. */
   channelIds?: string[]
+  /** Every message the turn started with was a channel's wake-up notice. */
+  channelWoken?: boolean
   frames: string[]
   done: boolean
   // Latest finishReason observed from streamText's onFinish. Stays undefined

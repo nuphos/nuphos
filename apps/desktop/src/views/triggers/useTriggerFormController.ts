@@ -62,7 +62,6 @@ export function useTriggerFormController({
         const t = await api.agentGetTrigger(triggerId, teamId)
 
         if (cancelled) return
-        reportCleanupFailures([t])
         setLoaded(t)
         setForm({
           name: t.name,
@@ -185,10 +184,21 @@ export function useTriggerFormController({
     [form, mode, triggerId, loaded, teamId, onSaved],
   )
 
-  const confirmRemove = useCallback(async () => {
-    if (!triggerId) return
-    await confirmRemoveTrigger({ triggerId, teamId, canDelete, setLoaded, onSaved, onDeleted })
-  }, [triggerId, teamId, canDelete, onDeleted, onSaved])
+  const confirmRemove = useCallback(
+    async (withoutProviderCleanup = false) => {
+      if (!triggerId) return
+      await confirmRemoveTrigger({
+        triggerId,
+        teamId,
+        canDelete,
+        setLoaded,
+        onSaved,
+        onDeleted,
+        withoutProviderCleanup,
+      })
+    },
+    [triggerId, teamId, canDelete, onDeleted, onSaved],
+  )
 
   const testFire = useCallback(async () => {
     if (!triggerId) return

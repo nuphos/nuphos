@@ -25,6 +25,7 @@ import {
 import { clientIp, signInSource } from '@/lib/request-origin'
 import { zv } from '@/lib/validate'
 import * as authMiddleware from '@/middleware/auth' // per request: see auth.late-binding.test.ts
+import { authMfa } from '@/routes/auth-mfa'
 import { authSessions } from '@/routes/auth-sessions'
 
 import { socialAuth } from './auth-social'
@@ -36,8 +37,8 @@ const requireAuth: typeof authMiddleware.requireAuth = (c, n) => authMiddleware.
 
 export const auth = new Hono<{ Variables: AuthVariables }>()
 auth.route('/social', socialAuth)
-
 auth.route('/sessions', authSessions)
+auth.route('/mfa', authMfa)
 
 auth.get('/me', requireAuth, (c) => {
   const cliToken = c.get('cliToken')

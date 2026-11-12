@@ -7,7 +7,12 @@ import type { AgentConversation } from '../../../api/agent-types.ts'
 
 const under = (id: string, rows: AgentConversation[]) => openQuestionsUnder(id, rows, [], new Map())
 
-function chat(id: string, parentSessionId?: string, question?: string): AgentConversation {
+function chat(
+  id: string,
+  parentSessionId?: string,
+  question?: string,
+  askedAt = '2026-10-27T01:00:00Z',
+): AgentConversation {
   return {
     sessionId: id,
     title: id,
@@ -18,12 +23,15 @@ function chat(id: string, parentSessionId?: string, question?: string): AgentCon
     lastActiveAt: '2026-10-27T00:00:00Z',
     ...(question
       ? {
-          pendingDecision: {
-            category: 'preference',
-            question,
-            toolCallId: `question-${id}`,
-            askedAt: '2026-10-27T01:00:00Z',
-          },
+          inputRequests: [
+            {
+              id: `question-${id}`,
+              category: 'preference',
+              question,
+              askedAt,
+              status: 'open' as const,
+            },
+          ],
         }
       : {}),
   }
@@ -55,13 +63,9 @@ test('lists explicit questions from seven children, the parent and nested agents
 
 test('new arrivals append without activity changes reordering the current questions', () => {
   const first = chat('first', 'parent', 'First question')
-  const second = chat('second', 'parent', 'Second question')
-  const arriving = chat('arriving', 'parent', 'New question')
+  const second = chat('second', 'parent', 'Second question', '2026-10-27T02:00:00Z')
+  const arriving = chat('arriving', 'parent', 'New question', '2026-10-27T03:00:00Z')
 
-  assert.ok(second.pendingDecision)
-  assert.ok(arriving.pendingDecision)
-  second.pendingDecision.askedAt = '2026-10-27T02:00:00Z'
-  arriving.pendingDecision.askedAt = '2026-10-27T03:00:00Z'
   first.lastActiveAt = '2026-10-27T05:00:00Z'
   const ids = under('parent', [arriving, second, first]).map((request) => request.sessionId)
 

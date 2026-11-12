@@ -12,10 +12,14 @@ export type ReplyQuestion = {
   /** The markdown the agent wrote to decide from. */
   body?: string
   options?: string[]
+  multiSelect?: boolean
+  questions?: AgentInputRequest['questions']
   secret?: true
   secretName?: string
   /** The providers an `integration` request asks to connect. */
   providers?: string[]
+  /** The member's own credential an `integration` request asks for. */
+  credentials?: AgentInputRequest['credentials']
 }
 
 /** A question card as the transcript shows it. */
@@ -35,27 +39,42 @@ export function requestQuestion({
   question,
   body,
   options,
+  multiSelect,
+  questions,
   category,
   secretName,
   providers,
+  credentials,
 }: Pick<
   AgentInputRequest,
-  'id' | 'question' | 'body' | 'options' | 'category' | 'secretName' | 'providers'
+  | 'id'
+  | 'question'
+  | 'body'
+  | 'options'
+  | 'multiSelect'
+  | 'questions'
+  | 'category'
+  | 'secretName'
+  | 'providers'
+  | 'credentials'
 >): ReplyQuestion {
   return {
     id,
     question,
     ...(body && { body }),
     ...(options && { options }),
+    ...(multiSelect && { multiSelect }),
+    ...(questions?.length && { questions }),
     ...(category === 'credential' && { secret: true as const }),
     ...(secretName && { secretName }),
     ...(category === 'integration' && providers?.length && { providers }),
+    ...(category === 'integration' && credentials?.length && { credentials }),
   }
 }
 
 /** A conversation's open questions, oldest first. */
 export function conversationQuestions(
-  conversation: Pick<AgentConversation, 'inputRequests' | 'pendingDecision'>,
+  conversation: Pick<AgentConversation, 'inputRequests'>,
 ): ReplyQuestion[] {
   return openInputRequests(conversation).map(requestQuestion)
 }

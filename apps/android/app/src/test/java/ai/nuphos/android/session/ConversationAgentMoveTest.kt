@@ -21,7 +21,7 @@ class ConversationAgentMoveTest {
         val saved = detail(owner = false, manage = true)
         var calls = 0
         val session = ChatSession("fixture", "team", readBypass = { _, _ -> false }, aiAllowed = { true }, readDetail = { _, _, _ -> saved },
-            moveRuntime = { _, _, _, _, _ -> calls++; throw IllegalStateException("Unavailable") })
+            moveRuntime = { _, _, _, _ -> calls++; throw IllegalStateException("Unavailable") })
         session.load()
         assertTrue(session.canMoveAgent)
         val before = session.messages
@@ -56,7 +56,7 @@ class ConversationAgentMoveTest {
         var saved = detail()
         lateinit var session: ChatSession
         session = ChatSession("fixture", "team", readBypass = { _, _ -> false }, aiAllowed = { true }, readDetail = { _, _, _ -> saved },
-            moveRuntime = { _, _, _, _, _ ->
+            moveRuntime = { _, _, _, _ ->
                 assertTrue(session.movingAgent)
                 assertFalse(session.canMoveAgent)
                 assertFalse(session.canSubmit)

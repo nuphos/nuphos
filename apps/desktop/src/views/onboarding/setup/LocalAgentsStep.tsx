@@ -192,21 +192,30 @@ export function LocalAgentsStep({ onContinue }: { onContinue: () => void }) {
         </>
       }
     >
-      <div className="space-y-3">
-        {state?.detectionDisabled && (
-          <p
-            role="status"
-            className="rounded-lg bg-state-selected px-4 py-3 text-[12.5px] leading-5 text-secondary"
-          >
-            {t(
-              'Local runtimes are disabled in development builds connected to Nuphos Cloud. This keeps the installed app’s connection active. You can continue to preview onboarding.',
-            )}
-          </p>
-        )}
-        {LOCAL_SETUP_PROVIDERS.map((provider) => (
-          <LocalAgentSetupCard key={provider} provider={provider} />
-        ))}
-      </div>
+      <LocalAgentSetupCards />
     </SetupScreen>
+  )
+}
+
+/** The same account cards, usable in-place without the onboarding screen. */
+export function LocalAgentSetupCards() {
+  const state = useLocalRuntimeState()
+
+  return (
+    <div className="space-y-3">
+      {state?.detectionDisabled && (
+        <p
+          role="status"
+          className="rounded-lg bg-state-selected px-4 py-3 text-[12.5px] leading-5 text-secondary"
+        >
+          {t(
+            'Local runtimes are disabled in development builds connected to Nuphos Cloud. This keeps the installed app’s connection active. You can continue to preview onboarding.',
+          )}
+        </p>
+      )}
+      {LOCAL_SETUP_PROVIDERS.map((provider) => (
+        <LocalAgentSetupCard key={provider} provider={provider} />
+      ))}
+    </div>
   )
 }

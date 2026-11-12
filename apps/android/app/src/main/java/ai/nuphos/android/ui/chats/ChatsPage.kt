@@ -202,16 +202,32 @@ internal fun ChatIcon(faces: List<ChatFace>, title: String, size: Dp) {
         back == null -> Face(front, size)
         else -> Box(Modifier.size(size)) {
             val small = size * 0.72f
-            Box(Modifier.align(Alignment.TopStart)) { Face(back, small) }
-            Box(Modifier.align(Alignment.BottomEnd).clip(CircleShape).background(MaterialTheme.colorScheme.background)
-                .padding(1.5.dp)) { Face(front, small - 3.dp) }
+            Box(Modifier.align(Alignment.TopStart)) { Face(back, small, showBadge = false) }
+            Box(Modifier.align(Alignment.BottomEnd).background(MaterialTheme.colorScheme.background, CircleShape)
+                .padding(1.5.dp)) { Face(front, small - 3.dp, showBadge = false) }
+            val badgeSize = if (small <= 24.dp) 9.dp else 12.dp
+            val separation = if (back.agent != null && front.agent != null)
+                maxOf(0.dp, badgeSize - (size - small - 1.5.dp)) else 0.dp
+            Box(Modifier.align(Alignment.TopStart).size(small), contentAlignment = Alignment.BottomEnd) {
+                FaceBadge(back, badgeSize)
+            }
+            Box(Modifier.align(Alignment.BottomEnd).offset(separation, separation).size(small).padding(1.5.dp), contentAlignment = Alignment.BottomEnd) {
+                FaceBadge(front, badgeSize)
+            }
         }
     }
 }
 
 @Composable
-private fun Face(face: ChatFace, size: Dp) {
-    if (face.agent != null) AgentAvatar(face.id, face.agent.provider, size)
+private fun Face(face: ChatFace, size: Dp, showBadge: Boolean = true) {
+    if (face.agent != null) AgentAvatar(face.id, face.agent.provider, size, showBadge)
     else NuphosAvatar(NuphosUser(id = face.id, name = face.name, avatarURL = face.avatarURL.orEmpty()), size)
 }
 
+
+@Composable
+private fun FaceBadge(face: ChatFace, size: Dp) {
+    if (face.agent != null && ai.nuphos.android.model.BotFaces.face(face.id) != null) {
+        ai.nuphos.android.ui.components.AgentRuntimeBadge(face.agent.provider, size)
+    }
+}

@@ -20,6 +20,7 @@ export type AgentCredentialSelection = {
   vantaIntegrationIds?: string[]
   secureframeIntegrationIds?: string[]
   resendIntegrationIds?: string[]
+  trelloIntegrationIds?: string[]
   posthogIntegrationIds?: string[]
   plaudAccountIds?: string[]
   githubInstallationIds?: string[]
@@ -139,6 +140,7 @@ export type AgentCredentialOptions = {
     label: string
     region: 'us' | 'uk'
   }[]
+  trelloIntegrations?: { integrationId: string; label: string; username: string }[]
   resendIntegrations: {
     integrationId: string
     label: string

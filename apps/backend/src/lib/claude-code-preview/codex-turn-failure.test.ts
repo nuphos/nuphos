@@ -71,7 +71,11 @@ test('a Claude usage limit is one line: the streamed notice gives way to the int
   expect(
     partsWithoutFailureNotice([{ type: 'text', text: notice }] as UIMessage['parts'], error),
   ).toEqual([])
-  expect(classifyPreviewInterruption(error, false)).toEqual({ reason: 'error', message: notice })
+  expect(classifyPreviewInterruption(error, false)).toEqual({
+    reason: 'error',
+    message: notice,
+    cause: 'usage_limit',
+  })
 })
 
 test("only the gateway wrapper's first line names a usage limit", () => {

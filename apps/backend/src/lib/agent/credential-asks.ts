@@ -36,6 +36,13 @@ export function addedCredentialIds(
 
 /** The providers of `request` that `added` selects; a personal credential's id is its provider. */
 export function selectedProviders(request: InputRequest, added: AddedCredentialIds): string[] {
+  // An exact own credential is answered only by selecting it, never by a team binding.
+  if (request.credentials?.length) {
+    return request.credentials
+      .filter((ref) => added.personalCredentialIds?.includes(ref.id))
+      .map((ref) => `${ref.provider} ${ref.id}`)
+  }
+
   return (request.providers ?? []).filter((provider) => {
     const key = isConnectableProvider(provider) ? CONNECTABLE_PROVIDERS[provider] : undefined
 

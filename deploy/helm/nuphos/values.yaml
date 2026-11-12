@@ -24,6 +24,13 @@ email:
   resendApiKey: '' # RESEND_API_KEY, or put it in secrets.existingSecret
   from: '' # a sender on a verified domain, e.g. Nuphos <noreply@example.com>
 
+# Optional. With both set, sign-in offers "Continue with Google". The Google
+# OAuth client (type Web application) must allow the redirect URI
+# <backend.url>/auth/social/google/callback.
+google:
+  clientId: '' # GOOGLE_OAUTH_CLIENT_ID
+  clientSecret: '' # GOOGLE_OAUTH_CLIENT_SECRET, or put it in secrets.existingSecret
+
 # Left empty, each value is generated on first install and kept on upgrade.
 # Tools that render without cluster access (helm template, Argo CD) regenerate
 # them on every render, so set them explicitly or use existingSecret there.
@@ -78,7 +85,7 @@ runtime:
   url: '' # required when enabled, e.g. https://runtime.nuphos.example.com
   image:
     repository: ghcr.io/nuphos/runtime
-    tag: 0.1.52-claude-code
+    tag: 0.1.53-claude-code
     pullPolicy: IfNotPresent
   persistence:
     home:

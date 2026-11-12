@@ -1,6 +1,7 @@
 import { receiveAgentAvatars } from '../lib/agentAvatarChoices.ts'
 import { publishRuntimeStates } from '../lib/agentRuntimeStates.ts'
 import { receiveConversationReadStates } from '../lib/agentUnreadSessions.ts'
+import { receiveSubAgents } from '../lib/subAgentIds.ts'
 
 import type { AgentAuditListArgs, AgentMemoryScope } from './agent-audit-types.ts'
 import type {
@@ -14,6 +15,7 @@ import type {
   GeneralAccess,
 } from './agent-types.ts'
 import type { LocalSessionSource } from './app-types.ts'
+import type { DecisionAnswer } from './agent-chat-types.ts'
 import type { PlanUpdatePatch } from './plan-types.ts'
 import type { CloudCliProvider } from '../lib/cloudCli.ts'
 import type { AgentProvider } from '../types/runtime.ts'
@@ -25,6 +27,12 @@ export const agentApi = {
     teamId?: string,
     resolution?: 'answered' | 'dismissed',
   ) => window.api.agentResolveDecision(sessionId, toolCallId, teamId, resolution),
+  agentAnswerDecision: (
+    sessionId: string,
+    requestId: string,
+    teamId: string | undefined,
+    answer: DecisionAnswer,
+  ) => window.api.agentAnswerDecision(sessionId, requestId, teamId, answer),
   agentGetSessionResources: (sessionId: string, teamId: string) =>
     window.api.agentGetSessionResources(sessionId, teamId),
   agentUnlinkSessionResource: (sessionId: string, teamId: string, resourceId: string) =>
@@ -36,10 +44,8 @@ export const agentApi = {
     sessionId: string,
     teamId: string,
     runtimeId: string,
-    mode: 'history' | 'workspace',
     grantComputerUse?: boolean,
-  ) =>
-    window.api.agentMoveConversationRuntime(sessionId, teamId, runtimeId, mode, grantComputerUse),
+  ) => window.api.agentMoveConversationRuntime(sessionId, teamId, runtimeId, grantComputerUse),
   agentCheckConversationMove: (sessionId: string, teamId: string, runtimeId: string) =>
     window.api.agentCheckConversationMove(sessionId, teamId, runtimeId),
   agentImportLocalSession: (args: {
@@ -87,6 +93,8 @@ export const agentApi = {
       archived?: 'exclude' | 'only'
       sort?: 'activity' | 'created' | 'archived'
       pendingDecision?: boolean
+      /** Channels instead of agent conversations; lists never mix the two. */
+      kind?: 'channel'
     },
   ) => {
     const requestedAt = Date.now()
@@ -101,6 +109,7 @@ export const agentApi = {
     )
     receiveConversationReadStates(page.conversations)
     receiveAgentAvatars(page.conversations, requestedAt)
+    receiveSubAgents(page.conversations)
 
     return page
   },
@@ -114,6 +123,8 @@ export const agentApi = {
     window.api.agentSetConversationWatched(sessionId, watching, teamId),
   agentUnlinkConversationParent: (sessionId: string, teamId?: string) =>
     window.api.agentUnlinkConversationParent(sessionId, teamId),
+  agentRecordEditFork: (sessionId: string, forkSessionId: string, teamId?: string) =>
+    window.api.agentRecordEditFork(sessionId, forkSessionId, teamId),
   agentCancelRuntime: (sessionId: string, teamId?: string) =>
     window.api.agentCancelRuntime(sessionId, teamId),
   agentRetractMessage: (sessionId: string, messageId: string, teamId?: string) =>
@@ -143,6 +154,8 @@ export const agentApi = {
 
     receiveConversationReadStates([detail], true)
     receiveAgentAvatars([detail], requestedAt)
+    // Only a parent it names is trusted here; the list says when one is gone.
+    if (detail.parentSessionId) receiveSubAgents([detail])
 
     return detail
   },
@@ -230,8 +243,8 @@ export const agentApi = {
   agentCreateTrigger: (input: CreateAgentTriggerInput) => window.api.agentCreateTrigger(input),
   agentUpdateTrigger: (triggerId: string, patch: UpdateAgentTriggerInput, teamId?: string) =>
     window.api.agentUpdateTrigger(triggerId, patch, teamId),
-  agentDeleteTrigger: (triggerId: string, teamId?: string) =>
-    window.api.agentDeleteTrigger(triggerId, teamId),
+  agentDeleteTrigger: (triggerId: string, teamId?: string, withoutProviderCleanup?: boolean) =>
+    window.api.agentDeleteTrigger(triggerId, teamId, withoutProviderCleanup),
   agentTestFireTrigger: (triggerId: string, payload?: Record<string, unknown>, teamId?: string) =>
     window.api.agentTestFireTrigger(triggerId, payload, teamId),
   agentTransferTriggerExecutionPrincipal: (triggerId: string, userId: string, teamId?: string) =>

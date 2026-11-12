@@ -5,6 +5,7 @@ import path from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 
+import { PreconditionFailedError } from '@/lib/agent/skill-store/write-condition'
 import { byCodeUnit } from '@/lib/agent/sort-order'
 import { AppError } from '@/lib/errors'
 import * as identity from '@/lib/identity'
@@ -20,6 +21,9 @@ const e2eCacheRoot = mkdtempSync(path.join(tmpdir(), 'e2e-skills-test-'))
 const TEAM_ID = '64f1a2b3c4d5e6f7a8b9c0d1'
 const EDITOR_USER = 'editor-user-1'
 const VIEWER_USER = 'viewer-user-1'
+const OWNER_USER = '64f1a2b3c4d5e6f7a8b9c0aa'
+const GUEST_USER = '64f1a2b3c4d5e6f7a8b9c0bb'
+const PERSONAL_SCOPE = `teams/${TEAM_ID}/users/${OWNER_USER}`
 
 type StoredS3Object = {
   body: Buffer
@@ -77,7 +81,17 @@ const fakeS3Client = {
       lastModified: obj.lastModified,
     }
   },
-  async putObject(key: string, body: Buffer, contentType?: string | null): Promise<string> {
+  async putObject(
+    key: string,
+    body: Buffer,
+    contentType?: string | null,
+    condition?: { ifMatch: string } | { ifNoneMatch: '*' },
+  ): Promise<string> {
+    const current = s3Store.get(key)?.etag
+
+    // S3 answers 412 to a failed condition; the real client turns that into this error.
+    if (condition && ('ifMatch' in condition ? current !== condition.ifMatch : current))
+      throw new PreconditionFailedError(key)
     const etag = etagFor(body)
 
     s3Store.set(key, {
@@ -151,7 +165,7 @@ useSkillStoreSync({
 })
 
 const { createTeamSkillTools } = await import('./tools-team-skills')
-const { deleteSkillByName, getSkillManifest, putSkillObject } =
+const { deleteSkillByName, getSkillManifest, putSkillObject, putSkillObjects } =
   await import('./skill-store/service')
 const { materializeMergedSkillsDir, resolveSkillsDirectory } = await import('./skill-store/merge')
 const { getScopeCacheDir } = await import('./skill-store/sync')
@@ -167,20 +181,24 @@ async function execTool(
   return (await tool.execute(input, { toolCallId: 'e2e-call-1' })) as Record<string, unknown>
 }
 
-function requireTeamSkillTools(tools: ReturnType<typeof createTeamSkillTools>): {
+type SkillTools = {
+  skill_list: ExecutableTool
   skill_create: ExecutableTool
   skill_upsert: ExecutableTool
-} {
-  if (!('skill_create' in tools) || !('skill_upsert' in tools)) {
+}
+
+function requireTeamSkillTools(tools: ReturnType<typeof createTeamSkillTools>): SkillTools {
+  if (!('skill_list' in tools) || !('skill_create' in tools) || !('skill_upsert' in tools)) {
     throw new Error('expected team skill tools to be enabled')
   }
 
-  return tools as unknown as { skill_create: ExecutableTool; skill_upsert: ExecutableTool }
+  return tools as unknown as SkillTools
 }
 
 async function rmTeamSkillArtifacts(): Promise<void> {
   await fs.rm(path.join(e2eCacheRoot, '.merged'), { recursive: true, force: true })
   await fs.rm(getScopeCacheDir(`teams/${TEAM_ID}`), { recursive: true, force: true })
+  await fs.rm(getScopeCacheDir(PERSONAL_SCOPE), { recursive: true, force: true })
 }
 
 beforeEach(async () => {
@@ -485,6 +503,163 @@ description: Updated on-call playbook
     })
 
     expect(retry.ok).toBe(true)
+  })
+})
+
+describe('personal skill tools E2E', () => {
+  test("the owner's turn writes and lists personal skills, apart from the team store", async () => {
+    membershipRole = 'VIEWER'
+    const tools = requireTeamSkillTools(
+      createTeamSkillTools(OWNER_USER, TEAM_ID, { conversationOwnerUserId: OWNER_USER }),
+    )
+
+    const created = await execTool(tools.skill_create, {
+      label: 'Create my notes skill',
+      name: 'my-notes',
+      description: 'Only for me',
+      body: '# Notes',
+      scope: 'personal',
+    })
+
+    expect(created.ok).toBe(true)
+    expect(created.scope).toBe(PERSONAL_SCOPE)
+    expect(s3Store.has(`${PERSONAL_SCOPE}/skills/my-notes/SKILL.md`)).toBe(true)
+
+    const upserted = await execTool(tools.skill_upsert, {
+      label: 'Add a script',
+      scope: 'personal',
+      files: [{ key: 'skills/my-notes/scripts/run.sh', content: 'echo ok' }],
+    })
+
+    expect(upserted.ok).toBe(true)
+    expect(s3Store.has(`${PERSONAL_SCOPE}/skills/my-notes/scripts/run.sh`)).toBe(true)
+
+    const personal = await execTool(tools.skill_list, { label: 'List mine', scope: 'personal' })
+
+    expect(personal).toEqual({
+      ok: true,
+      scope: PERSONAL_SCOPE,
+      skills: [{ name: 'my-notes', description: 'Only for me', fileCount: 2 }],
+      truncated: false,
+    })
+
+    const team = await execTool(tools.skill_list, { label: 'List team' })
+
+    expect(team).toEqual({ ok: true, scope: `teams/${TEAM_ID}`, skills: [], truncated: false })
+  })
+
+  test("a guest's turn is refused personal skills and keeps team access", async () => {
+    const tools = requireTeamSkillTools(
+      createTeamSkillTools(GUEST_USER, TEAM_ID, { conversationOwnerUserId: OWNER_USER }),
+    )
+    const refusal = {
+      ok: false,
+      error:
+        "forbidden: personal skills are the conversation owner's and only usable on the owner's own turns",
+    }
+
+    expect(
+      await execTool(tools.skill_create, {
+        label: 'Create in owner scope',
+        name: 'guest-skill',
+        description: 'Not allowed',
+        body: '# No',
+        scope: 'personal',
+      }),
+    ).toEqual(refusal)
+    expect(
+      await execTool(tools.skill_upsert, {
+        label: 'Upsert in owner scope',
+        scope: 'personal',
+        files: [{ key: 'skills/guest-skill/SKILL.md', content: '# No' }],
+      }),
+    ).toEqual(refusal)
+    expect(await execTool(tools.skill_list, { label: 'List', scope: 'personal' })).toEqual(refusal)
+    expect(s3Store.size).toBe(0)
+
+    const team = await execTool(tools.skill_create, {
+      label: 'Create team skill',
+      name: 'guest-team-skill',
+      description: 'Shared',
+      body: '# Shared',
+    })
+
+    expect(team.ok).toBe(true)
+    expect(s3Store.has(`teams/${TEAM_ID}/skills/guest-team-skill/SKILL.md`)).toBe(true)
+  })
+
+  test('a turn without a team member behind it has no personal scope', async () => {
+    const tools = requireTeamSkillTools(createTeamSkillTools('automation:trigger', TEAM_ID))
+
+    expect(await execTool(tools.skill_list, { label: 'List', scope: 'personal' })).toEqual({
+      ok: false,
+      error: 'forbidden: this turn has no team member with personal skills',
+    })
+  })
+
+  test('personal skills keep the builtin-name and secret checks', async () => {
+    const tools = requireTeamSkillTools(createTeamSkillTools(OWNER_USER, TEAM_ID))
+
+    const builtin = await execTool(tools.skill_upsert, {
+      label: 'Overlay aws',
+      scope: 'personal',
+      files: [{ key: 'skills/aws/SKILL.md', content: '# Steal creds' }],
+    })
+    const secret = await execTool(tools.skill_create, {
+      label: 'Leak secret',
+      name: 'leaky',
+      description: 'Bad',
+      body: 'token sk-abcdefghijklmnopqrstuvwxyz123456',
+      scope: 'personal',
+    })
+
+    expect(builtin.error).toContain('reserved_skill_name')
+    expect(secret.error).toContain('unsafe_content')
+    expect(s3Store.size).toBe(0)
+  })
+})
+
+describe('putSkillObjects with expected ETags', () => {
+  const team = `teams/${TEAM_ID}`
+  const key = (rel: string) => `skills/racy/${rel}`
+  const ctx = (mutationId: string) => ({
+    mutationId,
+    actor: { userId: null, source: 'import' as const },
+  })
+  const read = (rel: string) => s3Store.get(`${team}/${key(rel)}`)?.body.toString()
+
+  test('a save that lands after the read is not overwritten, and nothing half-written stays', async () => {
+    const first = await putSkillObject(team, key('SKILL.md'), Buffer.from('v1'), null, ctx('seed'))
+
+    // Another member saves after the caller read `first` but before it writes.
+    await putSkillObject(team, key('SKILL.md'), Buffer.from('their edit'), null, ctx('theirs'))
+    const attempt = putSkillObjects(
+      team,
+      [
+        { key: key('new.py'), body: Buffer.from('new') },
+        { key: key('SKILL.md'), body: Buffer.from('v2') },
+      ],
+      ctx('update'),
+      { expectedEtags: { [key('SKILL.md')]: first.etag } },
+    )
+
+    await expect(attempt).rejects.toMatchObject({ code: 'skill_edited' })
+    expect(read('SKILL.md')).toBe('their edit')
+    expect(read('new.py')).toBeUndefined()
+  })
+
+  test('writes when nothing changed since the read', async () => {
+    const first = await putSkillObject(team, key('SKILL.md'), Buffer.from('v1'), null, ctx('seed'))
+
+    await putSkillObjects(
+      team,
+      [{ key: key('SKILL.md'), body: Buffer.from('v2') }],
+      ctx('update'),
+      {
+        expectedEtags: { [key('SKILL.md')]: first.etag },
+      },
+    )
+    expect(read('SKILL.md')).toBe('v2')
   })
 })
 

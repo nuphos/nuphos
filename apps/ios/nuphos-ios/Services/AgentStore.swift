@@ -44,10 +44,13 @@ final class AgentStore {
     private(set) var channels: [AgentConversation] = [] {
         didSet { BotFaces.shared.learn(channels) }
     }
+    /// The viewer's own Bots, listed by the server rather than found in the loaded history.
+    private(set) var bots: [AgentConversation] = []
     /// Set once the chats have loaded, so the home list can open on the right tab.
     private(set) var channelsLoaded = false
 
     /// Both listings the desktop sidebar reads: chats of one's own, then the ones joined.
+    /// Then one's Bots, for those that have no chat yet.
     func loadChannels() async {
         guard let team = selectedTeam else { return }
         let query = search
@@ -59,8 +62,12 @@ final class AgentStore {
             let seen = Set(rows.map(\.sessionId))
             rows += page.conversations.filter { !seen.contains($0.sessionId) }
         }
+        guard let botPage = try? await NuphosAPI.conversations(
+            token: token, teamId: team.id, limit: 100, search: query, bots: true
+        ) else { return }
         guard team.id == selectedTeam?.id, query == search, !Task.isCancelled else { return }
         channels = rows.sorted { $0.lastActiveAt > $1.lastActiveAt }
+        bots = botPage.conversations
         if query.isEmpty { HomePage.hasChats = !botsList.isEmpty }
         channelsLoaded = true
     }
@@ -123,7 +130,7 @@ final class AgentStore {
     /// 1:1 chat yet, by its face.
     var botsList: [AgentConversation] {
         let chatted = Set(channels.compactMap(\.botId))
-        let unchatted = conversations.filter { $0.isBot && !chatted.contains($0.sessionId) }
+        let unchatted = bots.filter { $0.isBot && !chatted.contains($0.sessionId) }
         return (channels + unchatted).sorted { $0.lastActiveAt > $1.lastActiveAt }
     }
 
@@ -218,59 +225,47 @@ final class AgentStore {
         }
     }
 
-    /// While "+" on Bots or a Bot's first chat waits for the server, so a
-    /// second tap makes no second one.
+    /// While a Bot's first chat waits for the server, so a second tap makes no second one.
     private(set) var creatingBot = false
 
-    /// A Bot's 1:1 chat, made the first time it is opened (#1691).
-    func botChannel(botId: String) async -> ChannelSession? {
+    /// A Bot's 1:1 chat, made the first time it is opened (#1691). Throws
+    /// to the screen that asked, which says so and offers to try again.
+    func botChannel(botId: String) async throws -> ChannelSession? {
         if let chat = channels.first(where: { $0.botId == botId }) { return channel(for: chat) }
         guard let teamId = selectedTeam?.id, !creatingBot else { return nil }
         creatingBot = true
         defer { creatingBot = false }
         let scope = workspaceScope
-        do {
-            let id = try await AgentChatAPI.createBotChannel(token: token, teamId: teamId, botId: botId)
-            guard scope == workspaceScope else { return nil }
-            await loadChannels()
-            let title = conversations.first { $0.sessionId == botId }?.displayTitle ?? ""
-            return channel(sessionId: id, title: channels.first { $0.sessionId == id }?.displayTitle ?? title, teamId: teamId)
-        } catch {
-            rowActionFailed(error, scope: scope) { [weak self] in _ = await self?.botChannel(botId: botId) }
-            return nil
-        }
+        let id = try await AgentChatAPI.createBotChannel(token: token, teamId: teamId, botId: botId)
+        guard scope == workspaceScope else { return nil }
+        await loadChannels()
+        let title = (conversations + bots).first { $0.sessionId == botId }?.displayTitle ?? ""
+        return channel(sessionId: id, title: channels.first { $0.sessionId == id }?.displayTitle ?? title, teamId: teamId)
     }
 
-    /// "+" on Bots: makes the Bot with the picked name and face, then its 1:1 chat.
-    func createBot(title: String, avatar: String) async -> ChannelSession? {
-        guard let teamId = selectedTeam?.id, !creatingBot else { return nil }
-        creatingBot = true
+    /// "+" on Bots: makes the Bot with the picked name and face and returns
+    /// its id. Throws to the New Bot sheet, which stays open.
+    func createBot(title: String, avatar: String) async throws -> String? {
+        guard let teamId = selectedTeam?.id else { return nil }
         let scope = workspaceScope
-        do {
-            let id = try await AgentChatAPI.createBot(token: token, teamId: teamId, title: title, avatar: avatar, runtime: newConversationRuntime)
-            creatingBot = false
-            guard scope == workspaceScope else { return nil }
-            await reload(afterChange: true)
-            return await botChannel(botId: id)
-        } catch {
-            creatingBot = false
-            rowActionFailed(error, scope: scope) { [weak self] in _ = await self?.createBot(title: title, avatar: avatar) }
-            return nil
-        }
+        let id = try await AgentChatAPI.createBot(token: token, teamId: teamId, title: title, avatar: avatar, runtime: newConversationRuntime)
+        guard scope == workspaceScope else { return nil }
+        await reload(afterChange: true)
+        return id
     }
 
-    /// "Make this a Bot", which then opens its 1:1 chat, or "Turn into a Task".
-    func setBot(_ bot: Bool, conversation: AgentConversation) async -> ChannelSession? {
-        guard conversation.ownsChat, let teamId = conversation.teamId ?? selectedTeam?.id else { return nil }
+    /// "Make this a Bot" or "Turn into a Task". Whether it was saved.
+    func setBot(_ bot: Bool, conversation: AgentConversation) async -> Bool {
+        guard conversation.ownsChat, let teamId = conversation.teamId ?? selectedTeam?.id else { return false }
         let scope = workspaceScope
         do {
             try await AgentChatAPI.setBot(bot, token: token, teamId: teamId, sessionId: conversation.sessionId)
-            guard scope == workspaceScope else { return nil }
+            guard scope == workspaceScope else { return false }
             await reload(afterChange: true)
-            return bot ? await botChannel(botId: conversation.sessionId) : nil
+            return true
         } catch {
             rowActionFailed(error, scope: scope) { [weak self] in _ = await self?.setBot(bot, conversation: conversation) }
-            return nil
+            return false
         }
     }
 
@@ -430,6 +425,7 @@ final class AgentStore {
         newModelPick = [:]
         credentials.reset()
         channels = []
+        bots = []
         runtimes = []
         agentDevices = []
         agentDevicesError = false

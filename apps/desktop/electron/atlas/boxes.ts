@@ -123,10 +123,12 @@ export function removeDeviceAgent(
   deviceId: string,
   teamId: string,
   instanceId: string,
+  /** The computer is offline: the agent leaves now and the computer deletes it later. */
+  offline = false,
 ): Promise<void> {
   return call(
     'DELETE',
-    `/agent/devices/${encodeURIComponent(deviceId)}/agents/${encodeURIComponent(instanceId)}?teamId=${encodeURIComponent(teamId)}`,
+    `/agent/devices/${encodeURIComponent(deviceId)}/agents/${encodeURIComponent(instanceId)}?teamId=${encodeURIComponent(teamId)}${offline ? '&force=true' : ''}`,
     undefined,
     { retry: false, timeoutMs: 50_000 },
   )

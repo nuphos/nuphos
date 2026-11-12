@@ -4,9 +4,9 @@
 // from CONNECTOR_CATEGORIES, the shared source of truth.
 
 import { t } from '../i18n/index.ts'
-import { CONNECTOR_CATEGORIES } from '../lib/connectorCategories'
+import { CONNECTOR_CATEGORIES } from '../lib/connectorCategories.ts'
 
-import type { ConnectorCategoryId } from '../lib/connectorCategories'
+import type { ConnectorCategoryId } from '../lib/connectorCategories.ts'
 
 // Every connector the "Add connector" marketplace can start. Cloud/
 // observability/etc. keys map to BindAccountDialog providers; the source-control
@@ -43,6 +43,7 @@ export type AddIntegrationKey =
   | 'linear'
   | 'jira'
   | 'asana'
+  | 'trello'
   | 'plaud'
   | 'notion'
   | 'upstash'
@@ -66,7 +67,12 @@ export type CatalogCategory = { id: ConnectorCategoryId; title: string; items: C
 // differently or call the same category by two names.
 const ITEM_META: Record<AddIntegrationKey, { name: string; description: string }> = {
   aws: { name: 'AWS', description: t('EC2, S3, EKS, Lambda, IAM, CloudWatch.') },
-  gcp: { name: 'GCP', description: t('GKE, Compute, Cloud Run, IAM.') },
+  gcp: {
+    name: 'Google Cloud / Firebase',
+    description: t(
+      'GKE, Compute, Cloud Run, IAM. Firebase project and app inventory through the same service account.',
+    ),
+  },
   cloudflare: { name: 'Cloudflare', description: t('DNS, Workers, R2, Pages, D1, KV.') },
   linode: { name: 'Linode', description: t('Akamai cloud compute instances.') },
   hetzner: { name: 'Hetzner Cloud', description: t('European VPS & dedicated servers.') },
@@ -95,6 +101,7 @@ const ITEM_META: Record<AddIntegrationKey, { name: string; description: string }
   gitlab: { name: 'GitLab', description: t('Repositories & merge requests.') },
   linear: { name: 'Linear', description: t('Issues & projects.') },
   jira: { name: 'Jira', description: t('Issues & projects.') },
+  trello: { name: 'Trello', description: t('Boards, lists, cards and comments.') },
   asana: { name: 'Asana', description: t('Tasks & projects.') },
   plaud: { name: 'Plaud', description: t('Recordings, transcripts & summaries.') },
   notion: { name: 'Notion', description: t('Pages, databases & docs.') },
@@ -115,7 +122,7 @@ const ITEM_META: Record<AddIntegrationKey, { name: string; description: string }
 // catalog starts advertising things it can't do.
 const ALIASES: Partial<Record<AddIntegrationKey, string>> = {
   aws: 'amazon amazon web services',
-  gcp: 'google',
+  gcp: 'google firebase',
   azure: 'microsoft msft',
   cloudflare: 'cf',
   tencent: '騰訊 腾讯 qcloud',
@@ -135,6 +142,7 @@ const ALIASES: Partial<Record<AddIntegrationKey, string>> = {
   gitlab: 'git',
   jira: 'atlassian',
   resend: 'smtp',
+  trello: 'smtp',
   lark: '飛書 飞书',
 }
 

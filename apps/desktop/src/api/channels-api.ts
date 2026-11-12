@@ -1,4 +1,11 @@
 export const channelsApi = {
+  agentGetBotImportStatus: (...args: Parameters<typeof window.api.agentGetBotImportStatus>) =>
+    window.api.agentGetBotImportStatus(...args),
+  agentChooseBotImport: (...args: Parameters<typeof window.api.agentChooseBotImport>) =>
+    window.api.agentChooseBotImport(...args),
+  agentApplyBotImport: (...args: Parameters<typeof window.api.agentApplyBotImport>) =>
+    window.api.agentApplyBotImport(...args),
+  agentSaveGrokExportSkill: () => window.api.agentSaveGrokExportSkill(),
   agentCreateChannel: (teamId: string) => window.api.agentCreateChannel(teamId),
   agentCreateBot: (teamId: string, bot?: Parameters<typeof window.api.agentCreateBot>[1]) =>
     window.api.agentCreateBot(teamId, bot),

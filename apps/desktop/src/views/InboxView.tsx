@@ -4,13 +4,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { AgentPanel } from '../components/agent/AgentPanel'
 import { conversationQuestions } from '../components/agent/panel/replyTarget'
-import { chatOfBot } from '../components/channels/botChannel'
 import { EmptyState } from '../components/EmptyState'
-import { agentSessionsCacheKey } from '../components/sidebar/state'
 import { useElementSize } from '../grafana/useElementSize'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
-import { useSwrCache } from '../lib/swrCache'
 
 import { ChannelMentions } from './inbox/ChannelMentions'
 import { DecisionCard } from './inbox/DecisionCard'
@@ -18,20 +15,12 @@ import { inboxQuestions, openQuestion } from './inbox/inboxItems'
 import { QuestionRail } from './inbox/QuestionRail'
 import { ShareApprovalRequests } from './inbox/ShareApprovalRequests'
 import { useChannelMentions } from './inbox/useChannelMentions'
-import {
-  answerInChat,
-  answerQuestion,
-  useAnsweredOnDevice,
-  useInboxListing,
-} from './inbox/useInbox'
+import { answerDecision, useAnsweredOnDevice, useInboxListing } from './inbox/useInbox'
 import { useShareApprovals } from './inbox/useShareApprovals'
 
 import type { InboxQuestion } from './inbox/inboxItems'
-import type { AgentConversation } from '../api/agent-types'
 import type { JournalChatTarget } from '../lib/journalEvent'
 
-// The list reloads on this beat while the page is open, so the next question comes in.
-const INBOX_REFRESH_MS = 5_000
 // Below this the page shows the list alone, and a row opens its conversation.
 const TWO_PANE_MIN_WIDTH = 720
 const RAIL_WIDTH = 340
@@ -64,14 +53,10 @@ export function InboxView({
   const { isActive } = useWorkspaceTab()
   const { ref, width } = useElementSize<HTMLDivElement>()
   const twoPane = width === 0 || width >= TWO_PANE_MIN_WIDTH
-  const listing = useInboxListing(teamId, INBOX_REFRESH_MS, refreshKey)
-  // The sidebar's conversations: where a Bot's chat is.
-  const known = useSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId))
+  const listing = useInboxListing(teamId, refreshKey).data ?? null
   const [selected, setSelected] = useState<{ id: string; index: number } | null>(null)
   // The reader shows the question; the transcript only when asked for, at the question.
   const [showConversation, setShowConversation] = useState(false)
-  // "Other…" opens the conversation to type the answer in its composer.
-  const [typeAnswer, setTypeAnswer] = useState(false)
   const [locate, setLocate] = useState<{ sessionId: string; target: JournalChatTarget } | null>(
     null,
   )
@@ -205,25 +190,11 @@ export function InboxView({
               sessionId={sessionId}
               title={open.conversation.title}
               request={open.request}
+              canManage={Boolean(open.conversation.canManage) && !open.conversation.readOnly}
               showingConversation={showConversation}
-              onAnswer={(text) => {
-                // A Bot's own question is answered in its chat, where the answer shows.
-                const chat = chatOfBot(known, sessionId)
-
-                void (chat
-                  ? answerInChat(teamId, chat, open.request.id, text)
-                  : answerQuestion(teamId, sessionId, open.request.id, text))
-              }}
-              onShowConversation={() => {
-                setTypeAnswer(false)
-                openTranscript()
-              }}
-              onReply={() => {
-                setTypeAnswer(true)
-                if (!showConversation) openTranscript()
-                else
-                  readerRef.current?.querySelector<HTMLElement>('[contenteditable="true"]')?.focus()
-              }}
+              // The answer wakes the agent that asked, which replies where it asked.
+              onAnswer={(answer) => void answerDecision(teamId, sessionId, open.request.id, answer)}
+              onShowConversation={openTranscript}
               onHideConversation={() => setShowConversation(false)}
               onOpenConversation={() => onOpenConversation(sessionId)}
             />
@@ -234,10 +205,8 @@ export function InboxView({
                   key="inbox"
                   variant="page"
                   open
-                  focusComposerOnOpen={typeAnswer}
                   teamId={teamId}
                   sessionId={sessionId}
-                  decisionReplyTo={open.request.id}
                   openQuestions={conversationQuestions(open.conversation)}
                   pendingLocate={locate}
                   onLocateConsumed={consumeLocate}

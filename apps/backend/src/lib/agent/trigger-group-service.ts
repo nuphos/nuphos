@@ -7,7 +7,6 @@ export {
   claimTriggerGroupMemberRun,
   matchConfiguredTriggerGroupMembers,
   matchTriggerGroupMembers,
-  triggerGroupIncidentScope,
 } from './trigger-group-service/matching'
 export { getOwnedTriggerGroup, listTriggerGroups } from './trigger-group-service/read'
 export type {

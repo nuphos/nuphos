@@ -51,6 +51,12 @@ export const appChannels = {
   'atlas:listSignInSessions': () => atlas.listSignInSessions(),
   'atlas:signOutSession': (_e: unknown, id: string) => atlas.signOutSession(id),
   'atlas:signOutOtherSessions': () => atlas.signOutOtherSessions(),
+  'atlas:getMfaStatus': () => atlas.getMfaStatus(),
+  'atlas:startMfaSetup': () => atlas.startMfaSetup(),
+  'atlas:confirmMfaSetup': (_e: unknown, code: string) => atlas.confirmMfaSetup(code),
+  'atlas:newMfaRecoveryCodes': (_e: unknown, code: string) => atlas.newMfaRecoveryCodes(code),
+  'atlas:disableMfa': (_e: unknown, code: string) => atlas.disableMfa(code),
+  'atlas:reauthMfa': (_e: unknown, code: string) => atlas.reauthMfa(code),
   'auth:uploadAvatar': (_e: unknown, image: Uint8Array) => uploadAvatar(image),
   'auth:removeAvatar': () => removeAvatar(),
   'auth:status': () => auth.status(),
@@ -72,6 +78,7 @@ export const appChannels = {
   'auth:emailRequestCode': (_e: unknown, email: string) => auth.requestEmailCode(email),
   'auth:emailVerifyCode': (_e: unknown, email: string, code: string) =>
     auth.verifyEmailCode(email, code),
+  'auth:mfaVerify': (_e: unknown, mfaToken: string, code: string) => auth.verifyMfa(mfaToken, code),
   'analytics:identify': (_e: unknown, userId: string, props?: Record<string, unknown>) => {
     setAnalyticsUser(userId, props)
   },
@@ -181,6 +188,17 @@ export const appChannels = {
     _e: IpcMainInvokeEvent,
     args: { teamId: string; sessionId?: string; groupId: string; channelId?: string },
   ) => fileTransfer.resolveDownloads(args.teamId, args.sessionId, args.groupId, args.channelId),
+  // An HTML or Markdown file's text for the in-app preview; capped, never written to disk.
+  'fileTransfer:readText': (
+    _e: IpcMainInvokeEvent,
+    args: {
+      teamId: string
+      sessionId?: string
+      groupId: string
+      fileId: string
+      channelId?: string
+    },
+  ) => fileTransfer.readText(args),
   'fileTransfer:listDownloads': (
     _e: IpcMainInvokeEvent,
     args: { teamId: string; sessionId?: string },

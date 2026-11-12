@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 
-import { isValidCronExpression, nextCronRun, nextCronRuns } from './cron'
+import {
+  isValidCronExpression,
+  isValidTimeZone,
+  nextCronRun,
+  nextCronRuns,
+  parseUtcCron,
+} from './cron'
 
 const originalTz = process.env.TZ
 
@@ -9,6 +15,19 @@ afterEach(() => {
 })
 
 describe('cron', () => {
+  test('keeps an imported local clock schedule across daylight saving changes', () => {
+    const winter = parseUtcCron('0 9 * * *', new Date('2026-01-15T00:00:00Z'), 'Europe/Warsaw')
+      .next()
+      .toDate()
+    const summer = parseUtcCron('0 9 * * *', new Date('2026-07-15T00:00:00Z'), 'Europe/Warsaw')
+      .next()
+      .toDate()
+
+    expect(winter.toISOString()).toBe('2026-01-15T08:00:00.000Z')
+    expect(summer.toISOString()).toBe('2026-07-15T07:00:00.000Z')
+    expect(isValidTimeZone('Europe/Warsaw')).toBe(true)
+    expect(isValidTimeZone('Invented/Timezone')).toBe(false)
+  })
   test('evaluates in UTC whatever the host zone', () => {
     for (const tz of ['UTC', 'Asia/Taipei', 'America/Los_Angeles']) {
       process.env.TZ = tz

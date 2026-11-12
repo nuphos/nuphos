@@ -20,6 +20,13 @@ export type LocalRuntimeSummary = {
   deviceLabel: string
   /** The agent's own name; absent while it has its provider's. */
   agentLabel?: string
+  /**
+   * What this agent is shown as on its own computer when that computer holds more than one
+   * account for its provider: the provider's name and the account it is signed in as. Worked
+   * out by the desktop for the owner alone, never part of the catalog payload, so no other
+   * member of the team sees whose account an agent runs on.
+   */
+  accountLabel?: string
   /** Set for an extra agent beyond the device's default one of its provider. */
   instanceId?: string
   /** The team member who added this agent, and when; absent for older and default agents. */

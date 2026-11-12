@@ -10,7 +10,6 @@ import type { PreviewChatTurnArgs } from './chat-preview-turn'
 
 let written: Record<string, unknown>[] = []
 let cleared: string[] = []
-let answered: string[] = []
 let resolved: string[][] = []
 let writeFails = false
 let clearFails = false
@@ -24,9 +23,6 @@ useAgentDb({
     if (clearFails) throw new Error('still unavailable')
     cleared.push(sessionId)
   },
-  clearPendingDecision: async (sessionId) => {
-    answered.push(sessionId)
-  },
   // An ordinary question, not a plan's.
   findInputRequest: async () => undefined,
   resolveInputRequest: async (sessionId, userId, toolCallId) => {
@@ -38,15 +34,9 @@ useAgentDb({
 
 const { persistPreviewTurnContext } = await import('./chat-preview-prepare')
 
-const turn = (
-  localToolsEnabled: boolean,
-  humanTurn = false,
-  explicitDecisionReplies = true,
-  decisionReplyTo?: string,
-) =>
+const turn = (localToolsEnabled: boolean, humanTurn = false, decisionReplyTo?: string) =>
   ({
     humanTurn,
-    explicitDecisionReplies,
     decisionReplyTo,
     sessionId: 'conv-1',
     teamId: 'team-1',
@@ -60,7 +50,6 @@ const turn = (
 beforeEach(() => {
   written = []
   cleared = []
-  answered = []
   resolved = []
   writeFails = false
   clearFails = false
@@ -99,42 +88,30 @@ test('a capable turn rides out a total write failure', async () => {
   expect(cleared).toEqual([])
 })
 
-test('a human follow-up leaves the pending question intact until an explicit reply', async () => {
+test('a human message from any client that names no question resolves nothing', async () => {
+  // iOS, the CLI and older clients included: questions stay open until named by id.
   await persistPreviewTurnContext(turn(true, true), 'req-5')
+  await persistPreviewTurnContext(turn(false, true), 'req-7')
 
-  expect(answered).toEqual([])
+  expect(resolved).toEqual([])
 })
 
 test('an agent-thread or resource turn leaves the decision waiting for the person', async () => {
   // Only a person can answer: a manager's relay or a webhook is not the reply.
   await persistPreviewTurnContext(turn(true, false), 'req-6')
 
-  expect(answered).toEqual([])
-})
-
-test('non-Desktop channels keep their existing human text-reply behavior', async () => {
-  await persistPreviewTurnContext(turn(false, true, false), 'req-7')
-
-  expect(answered).toEqual(['conv-1'])
-})
-
-test('older Desktop versions keep their text-reply behavior until upgraded', async () => {
-  await persistPreviewTurnContext(turn(true, true, false), 'req-8')
-
-  expect(answered).toEqual(['conv-1'])
+  expect(resolved).toEqual([])
 })
 
 test('an explicit reply resolves the question it names when its turn is admitted', async () => {
-  await persistPreviewTurnContext(turn(true, true, true, 'nuphos-q1'), 'req-9')
+  await persistPreviewTurnContext(turn(true, true, 'nuphos-q1'), 'req-9')
 
   // On the conversation owner's record, and only that question: others stay open.
   expect(resolved).toEqual([['conv-1', 'u1', 'nuphos-q1']])
-  expect(answered).toEqual([])
 })
 
 test('a turn that is not a person speaking resolves nothing, even naming a question', async () => {
-  await persistPreviewTurnContext(turn(true, false, true, 'nuphos-q1'), 'req-10')
+  await persistPreviewTurnContext(turn(true, false, 'nuphos-q1'), 'req-10')
 
   expect(resolved).toEqual([])
-  expect(answered).toEqual([])
 })

@@ -15,7 +15,13 @@ export type TunnelPurpose =
   | 'vnc'
   | 'instances'
 
-export const LOCAL_AGENT_PROVIDERS = ['claude-code', 'codex', 'grok', 'opencode'] as const
+export const LOCAL_AGENT_PROVIDERS = [
+  'claude-code',
+  'codex',
+  'grok',
+  'antigravity',
+  'opencode',
+] as const
 
 export type LocalAgentProvider = (typeof LOCAL_AGENT_PROVIDERS)[number]
 
@@ -103,7 +109,7 @@ const localAgentStatusSchema = z.object({
   }),
   version: z.string().max(200).optional(),
   // Never fatal, like usage: a catalog over its bounds costs the model picker,
-  // not the computer's presence (which `localExec` in this same frame decides).
+  // not the computer's presence.
   models: localModelCatalogSchema.optional().catch(undefined),
   /** The provider's own usage body, as the computer read it with its own
    *  credential, narrowed to the fields runtime-quota normalizes. Unknown keys
@@ -142,6 +148,7 @@ export const localRuntimeStatusSchema = z.object({
     )
     .optional(),
   localAttachments: z.boolean().optional(),
+  fileImport: z.boolean().optional(),
   localExec: z.boolean().optional(),
   localMetrics: z.boolean().optional(),
   localTerminal: z.boolean().optional(),
@@ -168,6 +175,7 @@ export const localRuntimeStatusSchema = z.object({
     'claude-code': localAgentStatusSchema.optional(),
     codex: localAgentStatusSchema.optional(),
     grok: localAgentStatusSchema.optional(),
+    antigravity: localAgentStatusSchema.optional(),
     opencode: localAgentStatusSchema.optional(),
   }),
   backendUrl: z.string().url().max(500).optional(),

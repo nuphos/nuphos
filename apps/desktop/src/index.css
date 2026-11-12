@@ -381,6 +381,7 @@
 
   /* A link is the same white as the text around it; the underline marks it. */
   .user-message-bubble a:not(.atlas-mention) {
+    color: inherit;
     text-decoration-line: underline;
     text-decoration-color: rgba(255, 255, 255, 0.45);
     text-underline-offset: 2px;
@@ -2479,5 +2480,22 @@ html.light .workspace-desk {
   .group:hover .connector-marquee,
   .group:has(:focus-visible) .connector-marquee {
     animation: none;
+  }
+}
+
+/* Temporary Bot work enters and leaves over the preserved conversation. */
+.t-bot-task-mode {
+  transform: translateX(100%);
+  transition: transform var(--resize-dur) var(--resize-ease);
+}
+.t-bot-task-mode[data-open='true'] {
+  transform: translateX(0);
+  @starting-style {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-bot-task-mode {
+    transition: none;
   }
 }

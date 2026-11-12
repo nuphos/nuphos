@@ -7,11 +7,15 @@ import { teamOverviewNavItemFor } from '../../lib/teamOverviewNav'
 import type { HistoryTimeline } from './historyRows'
 import type { RowDot } from '../../lib/subAgentState'
 import type { Scope, TeamInvitation, UserInfo } from '../../types'
+import type { AgentProvider } from '../../types/runtime'
 import type { BreadcrumbSegment } from '../Toolbar'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 export type Item = {
+  /** Derived from actual execution, open requests and personal reminders. */
+  taskState?: 'attention' | 'working' | 'idle'
+
   key: string
   label: string
   description?: ReactNode
@@ -23,6 +27,7 @@ export type Item = {
   iconNode?: ReactNode
   /** A Bot (a conversation with an avatar), listed under Bots; every other agent row is a Task. */
   bot?: boolean
+  provider?: AgentProvider | null
   /** Listed as a Task: one line, without the latest-message preview. */
   task?: boolean
   enabled: boolean
@@ -54,14 +59,20 @@ export type Item = {
   finished?: boolean
   /** A channel: listed under Channels rather than Agents. */
   channel?: boolean
+  /** A Bot's sub-agent repeated under its chat in Bots (the tree status style). */
+  botNested?: boolean
+  /** Replaces the preview line while a Bot works (its live status). */
+  previewNode?: ReactNode
+  /** The name shimmers while a Bot works. */
+  labelShimmer?: boolean
+  /** Runs on a click before the row navigates (which copy of a twice-listed row was opened). */
+  onPress?: () => void
   /** A Bot's face, shown where Bots are listed; elsewhere its row shows its Runtime. */
   face?: ReactNode
   /** A Bot's chat (a channel with only the Bot in it): the Bot's session id. */
   botChannelOf?: string
   /** Agents already reachable through this channel, including group chats. */
   channelAgentIds?: string[]
-  /** A Task that is also a Bot: the Bot's chat, linked from the Task's row. */
-  botChat?: { botId: string; name: string; key?: string; open?: () => void }
   /** An agent the viewer does not own: no rename or unlink, which are the owner's. */
   readOnlyChat?: boolean
   /** Such an agent the viewer manages, so they may archive it for everyone. */
@@ -88,6 +99,11 @@ export type Section = {
   loading?: boolean
   /** Default for a group with no persisted user preference. */
   defaultCollapsed?: boolean
+  /** A quiet status label, without the collapse chevron. */
+  hideChevron?: boolean
+  nonCollapsible?: boolean
+  compact?: boolean
+  separator?: boolean
   /** Beside the title, outside its collapse toggle, e.g. Channels' "+". */
   action?: ReactNode
 }

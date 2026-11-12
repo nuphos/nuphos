@@ -1,3 +1,38 @@
+/** Claude's own authorize page, and nothing a runtime could substitute for it. */
+export function isClaudeAuthorizeUrl(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length > 4096) return false
+  try {
+    const url = new URL(value)
+
+    return (
+      url.protocol === 'https:' &&
+      ['claude.com', 'claude.ai'].includes(url.hostname) &&
+      url.pathname.endsWith('/oauth/authorize')
+    )
+  } catch {
+    return false
+  }
+}
+
+/** Google's authorize page, as Antigravity's sign-in opens it. */
+export function isGoogleAuthorizeUrl(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length > 4096) return false
+  try {
+    const url = new URL(value)
+
+    return (
+      url.protocol === 'https:' &&
+      url.hostname === 'accounts.google.com' &&
+      ['/o/oauth2/auth', '/o/oauth2/v2/auth'].includes(url.pathname) &&
+      !url.username &&
+      !url.password &&
+      !url.port
+    )
+  } catch {
+    return false
+  }
+}
+
 /**
  * One step of a sign-in that asks before it authorizes (OpenCode): pick a provider,
  * method or option; type a field or an API key; or approve on a page, which may hand

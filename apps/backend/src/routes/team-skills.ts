@@ -1,6 +1,9 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 
+import { installGithubSkills, previewGithubSkills } from '@/lib/agent/skill-store/github/install'
+import { getSkillOriginDTO } from '@/lib/agent/skill-store/github/origin'
+import { checkGithubSkillUpdates, updateGithubSkills } from '@/lib/agent/skill-store/github/updates'
 import {
   deleteSkillByName,
   deleteSkillObject,
@@ -39,6 +42,22 @@ const skillNameQuerySchema = z.object({
 
 const skillHistoryQuerySchema = skillNameQuerySchema.extend({
   limit: z.coerce.number().int().min(1).max(250).default(100),
+})
+
+const githubSourceSchema = z.object({
+  source: z.string().trim().min(1).max(500),
+})
+
+const githubInstallSchema = githubSourceSchema.extend({
+  commitSha: z.string().regex(/^[0-9a-f]{40}$/),
+  names: z.array(z.string().trim().min(1)).min(1).max(50),
+})
+
+const githubUpdateSchema = z.object({
+  names: z.array(z.string().trim().min(1)).min(1).max(50),
+  overwriteEdited: z.array(z.string().trim().min(1)).max(50).default([]),
+  /** The latest commit the member reviewed for each named skill. */
+  commits: z.record(z.string().regex(/^[0-9a-f]{40}$/)),
 })
 
 type SkillsContext = Context<{ Variables: TeamSkillsVariables }>
@@ -112,12 +131,13 @@ teamSkillsRoutes.get('/object', zv('query', objectKeyQuerySchema), async (c) => 
 teamSkillsRoutes.get('/history', zv('query', skillHistoryQuerySchema), async (c) => {
   const { name, limit } = c.req.valid('query')
   const scope = resolveScope(c)
-  const [metadata, events] = await Promise.all([
+  const [metadata, events, origin] = await Promise.all([
     getSkillMetadata(scope, name),
     getSkillMutationHistory(scope, name, limit),
+    getSkillOriginDTO(scope, name),
   ])
 
-  return c.json({ scope, name, metadata, events })
+  return c.json({ scope, name, metadata, events, origin })
 })
 
 teamSkillsRoutes.post(
@@ -178,6 +198,56 @@ teamSkillsRoutes.delete(
     const result = await deleteSkillByName(resolveScope(c), name, mutationContext(c))
 
     return c.json(result)
+  },
+)
+
+/** Lists the skills a public GitHub repository offers; it downloads, so it is gated like a write. */
+teamSkillsRoutes.post(
+  '/github/preview',
+  requireTeamSkillRole('ADMINISTRATOR', 'EDITOR'),
+  zv('json', githubSourceSchema),
+  async (c) => {
+    const { source } = c.req.valid('json')
+
+    return c.json(await previewGithubSkills(resolveScope(c), source))
+  },
+)
+
+teamSkillsRoutes.post(
+  '/github/install',
+  requireTeamSkillRole('ADMINISTRATOR', 'EDITOR'),
+  zv('json', githubInstallSchema),
+  async (c) => {
+    const input = c.req.valid('json')
+    const context = mutationContext(c)
+    const installed = await installGithubSkills(resolveScope(c), input, {
+      ...context,
+      actor: { ...context.actor, source: 'import' },
+    })
+
+    return c.json({ installed }, 201)
+  },
+)
+
+/** Compares every skill installed from GitHub with its source; downloads, so gated like a write. */
+teamSkillsRoutes.post(
+  '/github/updates',
+  requireTeamSkillRole('ADMINISTRATOR', 'EDITOR'),
+  async (c) => c.json({ updates: await checkGithubSkillUpdates(resolveScope(c)) }),
+)
+
+teamSkillsRoutes.post(
+  '/github/update',
+  requireTeamSkillRole('ADMINISTRATOR', 'EDITOR'),
+  zv('json', githubUpdateSchema),
+  async (c) => {
+    const context = mutationContext(c)
+    const updated = await updateGithubSkills(resolveScope(c), c.req.valid('json'), {
+      ...context,
+      actor: { ...context.actor, source: 'import' },
+    })
+
+    return c.json({ updated })
   },
 )
 

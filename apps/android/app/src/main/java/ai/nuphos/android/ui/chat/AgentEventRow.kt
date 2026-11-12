@@ -1,6 +1,7 @@
 package ai.nuphos.android.ui.chat
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.BorderStroke
@@ -53,9 +54,22 @@ internal fun MessageSenderLabel(sender: MessageAttribution) {
 }
 
 @Composable
-internal fun AgentEventRow(row: ChatRow.Event, onLink: (String) -> Unit, attachments: @Composable () -> Unit = {}) {
-    var expanded by rememberSaveable(row.id) { mutableStateOf(false) }
+internal fun AgentEventRow(
+    row: ChatRow.Event,
+    onLink: (String) -> Unit,
+    onOpenChannel: ((String) -> Unit)? = null,
+    attachments: @Composable () -> Unit = {},
+) {
     val content = row.content
+    // A channel's wake-up says only "something new there", and its body is the agent's input:
+    // show the channel, never the raw notice, as Desktop does.
+    val sender = content.sender
+    val channelId = sender?.channelId
+    if (sender != null && channelId != null) {
+        ChannelNoticeRow(sender.name, onOpenChannel?.let { open -> { open(channelId) } })
+        return
+    }
+    var expanded by rememberSaveable(row.id) { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth()) {
         Surface(
             onClick = { expanded = !expanded },
@@ -82,4 +96,14 @@ internal fun AgentEventRow(row: ChatRow.Event, onLink: (String) -> Unit, attachm
             }
         }
     }
+}
+
+@Composable
+private fun ChannelNoticeRow(name: String, onOpen: (() -> Unit)?) {
+    val label = "New messages in #$name"
+    Text(label, style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.fillMaxWidth().testTag("channel-notice")
+            .then(if (onOpen != null) Modifier.clickable(onClickLabel = "Open channel", onClick = onOpen) else Modifier)
+            .padding(vertical = 8.dp))
 }

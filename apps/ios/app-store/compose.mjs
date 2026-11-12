@@ -45,7 +45,7 @@ const popCard = (x, y, deg, icon, title, sub, tail = '') => pop(x, y, deg, 2.3, 
     <div><div style="font-size:17px;font-weight:600;letter-spacing:-.43px">${title}</div><div style="font-size:13px;color:#A1A1AA;margin-top:2px">${sub}</div></div>${tail}</div>`);
 
 const shots = {
-  '01-workspace': { bg: 8, h1: 'The agent workspace<br>for your team.', p: 'Claude Code and Codex in one shared workspace, with every teammate’s sessions in your pocket.',
+  '01-workspace': { bg: 8, h1: 'Your team.<br>In your pocket.', p: 'A shared workspace for your agents. Take the whole team with you.',
     body: `${phone(T, ui.home(data.convs))}
       ${popRow(236, 984, -1.4, data.convs[0])}
       ${popRow(60, 1158, 1.2, data.convs[1])}` },

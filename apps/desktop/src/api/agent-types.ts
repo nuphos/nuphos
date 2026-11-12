@@ -14,8 +14,7 @@ export type AgentConversationPerson = {
   name: string
   email: string
   avatarURL?: string
-  /** Former team member (removed, or account deleted) — render dimmed with a
-   *  "Deactivated" tag. */
+  /** Former team member (removed, or account deleted) — render dimmed with a "Deactivated" tag. */
   deactivated?: boolean
 }
 
@@ -49,7 +48,7 @@ export type ConversationAccessState = {
 }
 
 /** An agent in a channel: its session, which is the agent. */
-export type ChannelAgent = { sessionId: string; title: string; ownerId: string; avatar?: string }
+export type ChannelAgent = AgentFace & { sessionId: string; title: string; ownerId: string }
 
 /** A member a chat's icon shows (up to two, whoever spoke last first): a person, or an agent by its session. */
 export type ChannelFace = {
@@ -106,8 +105,6 @@ export type AgentConversation = {
   /** Owner-only: assistant turn boundaries so far, and how many were read on any device. */
   activitySeq?: number
   readSeq?: number
-  /** The oldest open question, for builds that predate inputRequests. */
-  pendingDecision?: AgentPendingDecision
   /** Every open question, oldest first; Desktop resolves each by id after a reply or dismissal. */
   inputRequests?: AgentInputRequest[]
   /** Someone asked who can sign this conversation's agent in; their message waits for it. */
@@ -126,14 +123,6 @@ export type AgentSignInRequest = {
   askedAt: string
 }
 
-export type AgentPendingDecision = {
-  category: string
-  question: string
-  options?: string[]
-  toolCallId: string
-  askedAt: string
-}
-
 export type AgentInputRequest = {
   /** The request_user_decision tool call id. */
   id: string
@@ -142,9 +131,14 @@ export type AgentInputRequest = {
   /** Markdown the agent wrote so the question can be decided without the chat. */
   body?: string
   options?: string[]
-  /** The secret a `credential` request asks for, the providers an `integration` one connects, or the plan it approves. */
+  /** Any number of `options` may be picked. */
+  multiSelect?: boolean
+  /** Related questions answered together; `question` is their headline. */
+  questions?: { question: string; options?: string[]; multiSelect?: boolean }[]
+  /** The secret a `credential` request asks for, the providers an `integration` one connects (any access) or the member's own credentials it asks for (only selecting one answers), or the plan it approves. */
   secretName?: string
   providers?: string[]
+  credentials?: { provider: 'personal'; id: 'github' | 'linear' }[]
   planId?: string
   askedAt: string
   status: 'open' | 'answered' | 'dismissed'
@@ -272,6 +266,8 @@ export type AgentTimelineEvent = {
   reason?: 'quota' | 'offline' | 'failure'
   /** A fallback that found no agent: each one passed over, and why. */
   skipped?: { label: string; reason: string }[]
+  /** message_edited: the session the edited message ran in. */
+  forkSessionId?: string
 }
 
 export type AgentConversationDetail = AgentConversation & {

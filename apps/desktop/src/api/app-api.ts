@@ -9,8 +9,8 @@ import type {
 } from './app-types.ts'
 import type { SkillScope } from './plan-types.ts'
 import type { Diagram } from '../architecture/schema.ts'
-import type { DesignOp, DesignPage } from '../design/schema.ts'
 import type { DashboardViewRange } from '../dashboards/schema'
+import type { DesignOp, DesignPage } from '../design/schema.ts'
 import type { ConnectAgentLink } from '../lib/connectAgentLink.ts'
 import type {
   ChangelogState,
@@ -31,6 +31,13 @@ export const appApi = {
   atlasListSignInSessions: () => window.api.atlasListSignInSessions(),
   atlasSignOutSession: (id: string) => window.api.atlasSignOutSession(id),
   atlasSignOutOtherSessions: () => window.api.atlasSignOutOtherSessions(),
+  authMfaVerify: (mfaToken: string, code: string) => window.api.authMfaVerify(mfaToken, code),
+  atlasGetMfaStatus: () => window.api.atlasGetMfaStatus(),
+  atlasStartMfaSetup: () => window.api.atlasStartMfaSetup(),
+  atlasConfirmMfaSetup: (code: string) => window.api.atlasConfirmMfaSetup(code),
+  atlasNewMfaRecoveryCodes: (code: string) => window.api.atlasNewMfaRecoveryCodes(code),
+  atlasDisableMfa: (code: string) => window.api.atlasDisableMfa(code),
+  atlasReauthMfa: (code: string) => window.api.atlasReauthMfa(code),
   authUploadAvatar: (image: Uint8Array) => window.api.authUploadAvatar(image),
   authRemoveAvatar: () => window.api.authRemoveAvatar(),
   authStatus: () => window.api.authStatus(),
@@ -182,15 +189,42 @@ export const appApi = {
     scope?: SkillScope,
   ) => window.api.teamSkillsPutObject(teamId, key, file, scope),
   teamSkillsListLocal: () => window.api.teamSkillsListLocal(),
+  voiceTranscribe: (
+    teamId: string,
+    file: { filename: string; bytes: Uint8Array; contentType?: string },
+    prompt?: string,
+  ) => window.api.voiceTranscribe(teamId, file, prompt),
   localSetupStatus: (teamId: string) => window.api.localSetupStatus(teamId),
   localSetupSync: (teamId: string) => window.api.localSetupSync(teamId),
+  localSetupApproveLinks: (
+    teamId: string,
+    name: string,
+    reviewed: { relPath: string; realPath: string }[],
+  ) => window.api.localSetupApproveLinks(teamId, name, reviewed),
   localSetupSetAutoSync: (teamId: string, enabled: boolean) =>
     window.api.localSetupSetAutoSync(teamId, enabled),
-  teamSkillsImportLocal: (teamId: string, skillId: string, scope?: SkillScope) =>
-    window.api.teamSkillsImportLocal(teamId, skillId, scope),
+  teamSkillsImportLocal: (
+    teamId: string,
+    scope: SkillScope | undefined,
+    picks: { id: string; reviewed: { relPath: string; realPath: string }[] }[],
+  ) => window.api.teamSkillsImportLocal(teamId, scope, picks),
   teamSkillsDeleteObject: (teamId: string, key: string, scope?: SkillScope) =>
     window.api.teamSkillsDeleteObject(teamId, key, scope),
   teamSkillsDeleteSkill: (teamId: string, name: string, scope?: SkillScope) =>
     window.api.teamSkillsDeleteSkill(teamId, name, scope),
   teamSkillsPromote: (teamId: string, name: string) => window.api.teamSkillsPromote(teamId, name),
+  teamSkillsGithubUpdates: (teamId: string, scope?: SkillScope) =>
+    window.api.teamSkillsGithubUpdates(teamId, scope),
+  teamSkillsGithubUpdate: (
+    teamId: string,
+    input: { names: string[]; overwriteEdited: string[]; commits: Record<string, string> },
+    scope?: SkillScope,
+  ) => window.api.teamSkillsGithubUpdate(teamId, input, scope),
+  teamSkillsGithubPreview: (teamId: string, source: string, scope?: SkillScope) =>
+    window.api.teamSkillsGithubPreview(teamId, source, scope),
+  teamSkillsGithubInstall: (
+    teamId: string,
+    input: { source: string; commitSha: string; names: string[] },
+    scope?: SkillScope,
+  ) => window.api.teamSkillsGithubInstall(teamId, input, scope),
 }

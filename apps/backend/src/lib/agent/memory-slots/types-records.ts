@@ -67,6 +67,13 @@ export type MemoryRecordPage = {
 }
 
 export type RecordsSurface = {
+  /** Import reviewed summaries into a private conversation pool, without promoting them to team facts. */
+  importFacts?(input: {
+    userId: string
+    teamId: string
+    conversationId: string
+    facts: string[]
+  }): Promise<void>
   /** Cursor conformance tier (A5⑦): 'strict' = complete + duplicate-free
    * (native); 'best-effort' = no infinite loops, eventual completeness
    * (page-number vendors, group-scoped walks). Surfaced in the capability

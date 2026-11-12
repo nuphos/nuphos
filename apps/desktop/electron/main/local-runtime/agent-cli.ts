@@ -4,6 +4,8 @@ import { readFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
+import { antigravityStatus } from '../../../../runtime/image/antigravity-status.mjs'
+
 import { appManagedCli, homeOf } from './agent-cli-apps.ts'
 import { locateAgentCli } from './agent-cli-find.ts'
 import { OPENCODE_AUTH_LIST, parseOpenCodeAuthList } from './agent-cli-opencode.ts'
@@ -78,6 +80,7 @@ async function loginOf(
   agentHome: string | undefined,
 ): Promise<Partial<AgentCliStatus> & { loggedIn: boolean | null }> {
   if (!runtimeEnv || !agentHome) return { loggedIn: null }
+  if (provider === 'antigravity') return { loggedIn: await antigravityStatus(file, runtimeEnv) }
   const fromHome = await homeLogin(provider, agentHome)
 
   if (fromHome === false && provider === 'opencode')

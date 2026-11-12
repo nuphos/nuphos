@@ -242,6 +242,7 @@ function toPrincipal(doc: CliTokenDoc): CliTokenPrincipal {
 const SESSION_ONLY: [RegExp, RegExp][] = [
   [/^POST$/, /^\/auth\/cli-tokens\/?$/],
   [/./, /^\/auth\/sessions(\/|$)/],
+  [/./, /^\/auth\/mfa(\/|$)/],
   [/./, /^\/auth\/device\/approve\/?$/],
   [/^POST$/, /^\/agent\/devices\/join-tokens\/?$/],
   // Agents post with channel_post, which spends the agents' budget; a token posting

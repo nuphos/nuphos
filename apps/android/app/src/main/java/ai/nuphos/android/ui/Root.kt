@@ -41,6 +41,8 @@ fun NuphosRoot(auth: AuthSession) {
         if (auth.state is AuthSession.State.SignedIn && auth.aiAllowed) host?.requestNotificationPermission()
     }
     CompositionLocalProvider(LocalAuthSession provides auth) {
+        // A request that needs a recent code waits on this dialog (data/StepUp.kt).
+        StepUpDialogHost()
         Surface(Modifier.fillMaxSize()) {
             val destination = when (auth.state) {
                 AuthSession.State.Restoring -> "restoring"

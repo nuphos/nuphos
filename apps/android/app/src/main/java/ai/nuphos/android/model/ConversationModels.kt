@@ -146,7 +146,16 @@ data class InputRequest(
     val askedAt: String? = null,
     /** Markdown the agent wrote to decide from: context, findings, links, risks. */
     val body: String? = null,
+    /** The plan an approval decides: answered with its Approve or Reject, never in words. */
+    val planId: String? = null,
+    /** An integration question's providers (any access answers it), or the exact credentials it names. */
+    val providers: List<String>? = null,
+    val credentials: List<CredentialRef>? = null,
 )
+
+/** A credential an integration question names: `{provider: "personal", id: "github"}` is the member's own. */
+@Serializable
+data class CredentialRef(val provider: String, val id: String)
 
 /** The Bot a chat with these faces is the 1:1 of: its one other member is an agent with a face. */
 val List<ChatFace>.botFace: ChatFace? get() = singleOrNull()?.takeIf { it.agent?.avatar != null }
@@ -290,7 +299,11 @@ object PlanLink {
     fun target(uri: java.net.URI): Target? {
         val host = uri.host?.lowercase()
         if (host != null) {
-            if (host != "nuphos.ai" && !host.endsWith(".nuphos.ai")) return null
+            val selfHosted = !ai.nuphos.android.data.BackendOrigin.isCloud()
+            val own = java.net.URI(ai.nuphos.android.data.NuphosWeb.SITE_URL)
+            if (selfHosted) {
+                if (uri.scheme != own.scheme || uri.rawAuthority != own.rawAuthority) return null
+            } else if (host != "nuphos.ai" && !host.endsWith(".nuphos.ai")) return null
         } else if (uri.scheme != null) {
             return null
         }
@@ -303,10 +316,10 @@ object PlanLink {
 
 /**
  * What the Bots page lists: every chat, and each Bot that has no 1:1 chat yet, newest first.
- * Only Bots in [conversations] can appear, so one on a page not loaded yet waits until it is.
+ * [bots] is the server's Bots listing, so a Bot far back in the history is listed too.
  */
-fun botsList(channels: List<AgentConversation>, conversations: List<AgentConversation>): List<AgentConversation> {
+fun botsList(channels: List<AgentConversation>, bots: List<AgentConversation>): List<AgentConversation> {
     val chatted = channels.mapNotNull { it.botId }.toSet()
-    val unchatted = conversations.filter { it.isBot && !it.isArchived && it.sessionId !in chatted }
+    val unchatted = bots.filter { it.isBot && !it.isArchived && it.sessionId !in chatted }
     return (channels + unchatted).sortedByDescending { it.lastActiveAt }
 }

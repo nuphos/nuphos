@@ -2,36 +2,38 @@ import clsx from 'clsx'
 import { useState } from 'react'
 
 import { api } from '../../api'
-import { MessageResponse } from '../../components/agent/MessageResponse'
-import { parseSecretRequest } from '../../components/agent/panel/connectCardModel'
+import { parseConnectRequest } from '../../components/agent/panel/connectCardModel'
+import { CredentialSelectorButton } from '../../components/agent/panel/CredentialSelectorButton'
 import { botChatQuestion } from '../../components/channels/botChatQuestion'
 import { BotChatQuestion } from '../../components/channels/BotChatQuestions'
+import { useBotCredentials } from '../../components/channels/useBotCredentials'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import { refreshInputRequests } from '../../lib/inputRequestRefresh'
 
-import { AnswerFailure } from './AnswerFailure'
-import { cardReplies } from './inboxItems'
-import { useAnswerFailure } from './useInbox'
+import { markAsDone } from './inboxItems'
 
+import type { DecisionAnswer } from '../../api/agent-chat-types'
 import type { AgentInputRequest } from '../../api/agent-types'
 
 /**
- * One open question, with what the agent wrote to decide it from. A choice, or
- * "Done." for a to-do, is sent as the reply to this question. A secret is the
+ * One open question, with what the agent wrote to decide it from. A choice, a
+ * typed answer, or "Done." for a to-do answers it, which wakes the agent that
+ * asked; no message is sent. A secret is the
  * secure card the conversation and a Bot's chat draw, which sends only where the
- * value was saved. "Other…" types the answer in the conversation's composer,
- * which only comes with the conversation.
+ * value was saved. An integration is the Connect card, which selects it in the
+ * asking conversation's credentials, and that answers it, for whoever may change
+ * them.
  */
 export function DecisionCard({
   teamId,
   sessionId,
   title,
   request,
+  canManage,
   showingConversation,
   onAnswer,
   onShowConversation,
-  onReply,
   onHideConversation,
   onOpenConversation,
 }: {
@@ -39,20 +41,21 @@ export function DecisionCard({
   sessionId: string
   title: string | undefined
   request: AgentInputRequest
+  /** Whether the viewer may change the asking conversation's credentials. */
+  canManage: boolean
   /** With the transcript shown below, the card takes less of the reader. */
   showingConversation: boolean
-  onAnswer: (text: string) => void
+  onAnswer: (answer: DecisionAnswer) => void
   onShowConversation: () => void
-  /** Opens the conversation with its composer answering this question. */
-  onReply: () => void
   onHideConversation: () => void
   onOpenConversation: () => void
 }) {
   // Answers go through the conversation; the card itself only dismisses.
   const [dismissing, setDismissing] = useState(false)
-  const replies = cardReplies(request)
-  const secret = parseSecretRequest(request) !== null
-  const failure = useAnswerFailure(request.id)
+  const connect = parseConnectRequest(request) !== null
+  const credentials = useBotCredentials(teamId, connect && canManage ? sessionId : undefined)
+  // The card a Bot's chat and the transcript draw; what it can't answer is answered in the conversation.
+  const { answerable } = botChatQuestion(request, credentials !== undefined)
 
   async function dismiss() {
     setDismissing(true)
@@ -86,51 +89,38 @@ export function DecisionCard({
           {t('Open agent conversation')}
         </button>
       </div>
-      {/* A secret's card is its own surface. */}
-      <section
-        className={clsx(!secret && 'surface-raised rounded-lg bg-surface-raised px-4 py-3.5')}
-      >
-        {secret ? (
-          <BotChatQuestion
-            request={{ sessionId, title: title ?? '', inputRequest: request }}
-            teamId={teamId}
-            onAnswer={onAnswer}
-          />
-        ) : (
-          <>
-            <h2 className="selectable text-[15px] font-medium leading-6 text-main">
-              {request.question}
-            </h2>
-            {request.body && (
-              <MessageResponse
-                className="selectable mt-2 text-[13px] text-secondary"
-                streaming={false}
-              >
-                {request.body}
-              </MessageResponse>
-            )}
-          </>
-        )}
+      <section>
+        <BotChatQuestion
+          request={{ sessionId, title: title ?? '', inputRequest: request }}
+          teamId={teamId}
+          credentials={credentials}
+          onAnswer={(answer) => onAnswer(answer)}
+          fullBody
+        />
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          {replies?.map(({ label, reply }) => (
+          {markAsDone(request) && (
             <button
-              key={label}
               type="button"
-              onClick={() => onAnswer(reply)}
+              onClick={() => onAnswer({ text: 'Done.' })}
               className={primaryButton}
             >
-              {label}
-            </button>
-          ))}
-          {!replies && !secret && (
-            <button type="button" onClick={onShowConversation} className={primaryButton}>
-              {t('Answer in the conversation')}
+              {t('Mark as done')}
             </button>
           )}
-          {/* A typed answer, in the conversation's composer; a plan is only approved or rejected. */}
-          {replies && botChatQuestion(request).typed && (
-            <button type="button" onClick={onReply} className={secondaryButton}>
-              {request.options?.length ? t('Other…') : t('Reply…')}
+          {/* The conversation's own picker, as its composer has it: a personal
+              credential, or one of several, is chosen here. */}
+          {credentials && (
+            <CredentialSelectorButton {...credentials} hero={false} personalIdentity />
+          )}
+          {/* Only its owner selects a conversation's credentials; anyone else answers there. */}
+          {connect && !canManage && (
+            <span className="text-[12px] text-tertiary">
+              {t('Only the owner of this conversation can connect this.')}
+            </span>
+          )}
+          {!answerable && (
+            <button type="button" onClick={onShowConversation} className={primaryButton}>
+              {t('Answer in the conversation')}
             </button>
           )}
           <button
@@ -142,12 +132,6 @@ export function DecisionCard({
             {dismissing ? t('Dismissing...') : t('Dismiss question')}
           </button>
         </div>
-        {/* A secret's card shows its own failure. */}
-        {failure && !secret && (
-          <div className="mt-3">
-            <AnswerFailure message={failure} />
-          </div>
-        )}
       </section>
     </div>
   )
@@ -155,6 +139,3 @@ export function DecisionCard({
 
 const primaryButton =
   'rounded-md border border-line-control px-3 py-1.5 text-[12px] text-main outline-none hover:bg-state-hover focus-visible:ring-1 focus-visible:ring-line-focus disabled:opacity-50'
-
-const secondaryButton =
-  'rounded-md px-3 py-1.5 text-[12px] text-secondary outline-none hover:bg-state-hover hover:text-main focus-visible:ring-1 focus-visible:ring-line-focus'

@@ -7,6 +7,7 @@ import {
   Download,
   FileText,
   KeyRound,
+  LockKeyhole,
   LifeBuoy,
   Monitor,
   MonitorSmartphone,
@@ -44,6 +45,7 @@ export const MY_PREFERENCES_DEFAULT_SECTION = 'preferences.instructions'
 
 /** Team pages that live in Settings, by the workspace page key their links resolve to. */
 const SETTINGS_SECTION_FOR_PAGE: Partial<Record<string, string>> = {
+  'team.agents': 'workspace.computers',
   'team.agent-skills': 'workspace.skills',
   'team.agent-memories': 'workspace.memories',
   'team.triggers': 'workspace.triggers',
@@ -76,6 +78,7 @@ const TEAM_GROUPS: SettingsNavGroup[] = [
     title: t('Team'),
     items: [
       { key: 'workspace.general', label: t('General'), icon: Settings },
+      { key: 'workspace.computers', label: t('Computers'), icon: Monitor },
       { key: 'workspace.members', label: t('Members'), icon: Users },
       { key: 'workspace.billing', label: t('Billing'), icon: CreditCard },
       { key: 'workspace.instructions', label: t('Instructions'), icon: FileText },
@@ -103,6 +106,7 @@ const USER_GROUPS: SettingsNavGroup[] = [
       { key: 'account.profile', label: t('Profile'), icon: CircleUserRound },
       { key: 'account.personalCredentials', label: t('Personal Credentials'), icon: KeyRound },
       { key: 'account.devices', label: t('Signed-in devices'), icon: MonitorSmartphone },
+      { key: 'account.mfa', label: t('Two-factor authentication'), icon: LockKeyhole },
     ],
   },
   {

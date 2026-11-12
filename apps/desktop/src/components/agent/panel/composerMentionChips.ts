@@ -15,6 +15,7 @@ export type ComposerSend = (
   text: string,
   filePaths: string[],
   mentions?: AgentMessageMention[],
+  options?: { mode?: 'queue'; imageThumbs?: Readonly<Record<string, string>> },
 ) => boolean
 
 /** The teammates the editor's chips mention, once each, named as the chip shows them. */

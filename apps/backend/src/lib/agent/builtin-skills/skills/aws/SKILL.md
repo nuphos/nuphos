@@ -11,7 +11,7 @@ Keep CLI credentials and settings inside the current session's `HOME` (`NUPHOS_S
 
 Changing runtime-global settings is possible, but strongly discouraged unless the user understands the impact on other sessions and explicitly requests it. Explain the shared scope first; do not unset session isolation variables, write to the runtime owner's home, use a shared OS credential store, or modify shared shell startup files as routine setup. This is configuration isolation, not an OS security boundary.
 
-Use this skill when the user wants to inspect or change AWS resources directly with `aws`. The CLI is **pre-installed in the sandbox runtime image** — assume it's on PATH. Authenticate before any `aws` call — either with credentials Nuphos mints for a bound account (preferred), or with credentials the user pasted in.
+Use this skill when the user wants to inspect or change AWS resources directly with `aws`. The CLI is on PATH; the runtime image's tool manifest installs it on first use, so the first call can take a while. Authenticate before any `aws` call — either with credentials Nuphos mints for a bound account (preferred), or with credentials the user pasted in.
 
 ## When to skip this skill
 

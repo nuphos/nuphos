@@ -17,7 +17,7 @@ data class SessionConfigState(val status: String, val options: List<Option>) {
         }
     }
     val editable get() = status in setOf("ready", "busy", "dormant") && options.isNotEmpty()
-    val modelTitle get() = options.firstOrNull { it.kind == "model" }?.label ?: if (status == "offline") "Model unavailable" else "Model"
+    val modelTitle get() = options.firstOrNull { it.kind == "model" }?.label?.takeIf { it.isNotBlank() } ?: if (status == "offline") "Model unavailable" else "Model"
     fun allows(id: String, value: String) = options.any { it.id == id && it.visibleChoices.any { choice -> choice.value == value } }
     fun retaining(previous: SessionConfigState?) = if (options.isEmpty() && status in setOf("busy", "dormant", "offline")) copy(options = previous?.options.orEmpty()) else this
     companion object { private val defaultNames = setOf("default", "default model", "agent default", "runtime default") }

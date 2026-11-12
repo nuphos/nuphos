@@ -147,6 +147,16 @@ export const plaudPendingOAuth = (): Collection<PlaudPendingOAuth> =>
  * client completes it. `binding` is the provider's binding draft with tokens
  * already encrypted; `persist` for `provider` writes it. TTL-reaped.
  */
+export type TrelloPendingOAuth = {
+  _id: string
+  teamId: ObjectId
+  requesterUserId: string
+  composioAccountId: string
+  expiresAt: Date
+}
+export const trelloPendingOAuth = (): Collection<TrelloPendingOAuth> =>
+  db().collection<TrelloPendingOAuth>('trello_oauth_pending')
+
 export type ConnectorOAuthReady = {
   _id: string
   /** sha256 of the one-time code delivered only to the approving client. */

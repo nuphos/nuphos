@@ -4,10 +4,13 @@ import { Trash2, Upload } from 'lucide-react'
 import { Age } from '../../components/Age'
 import { VisibleErrorReporter } from '../../components/VisibleErrorReporter'
 import { Button } from '../../components/ui/button'
+import { INLINE_LINK } from '../../components/ui/inline-link'
 import { formatBytes } from '../../grafana/format'
 import { t } from '../../i18n'
 
-import type { TeamSkillHistory, TeamSkillObject } from '../../api'
+import { originUrl } from './githubSkillUpdates'
+
+import type { TeamSkillHistory, TeamSkillObject, TeamSkillOrigin } from '../../api'
 import type { RefObject } from 'react'
 
 export function SkillHistorySection({
@@ -195,5 +198,24 @@ export function SkillFilesSection({
         </div>
       )}
     </section>
+  )
+}
+
+/** Provenance rows for a skill installed from GitHub, linking the folder at its commit. */
+export function SkillOriginRow({ origin }: { origin: TeamSkillOrigin }) {
+  return (
+    <>
+      <span className="text-tertiary">{t('Installed from')}</span>
+      <a
+        className={clsx(INLINE_LINK, 'truncate font-mono')}
+        href={originUrl(origin)}
+        target="_blank"
+        rel="noreferrer"
+        title={origin.commitSha}
+      >
+        {origin.repo}
+        {origin.path ? `/${origin.path}` : ''} @ {origin.ref ?? origin.commitSha.slice(0, 7)}
+      </a>
+    </>
   )
 }

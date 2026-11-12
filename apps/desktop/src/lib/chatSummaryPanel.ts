@@ -32,17 +32,12 @@ function shownElsewhere(paneId: string, sessionId: string): boolean {
 let pendingOpenFor: string | null = null
 let pendingOpenAt = 0
 
-/** A list the panel can be opened on. */
-type RevealSection = 'changes' | 'subAgents'
-
-// Bumped by each openChatSummaryChanges or openChatSummarySubAgents call, even
-// one that changes nothing else, so the panel can scroll to the list again.
-// `revealFor` is the chat whose `revealTarget` list should do so, asked at
-// `revealAt`, until that list takes it, the panel closes or
-// REVEAL_LIFETIME_MS passes.
+// Bumped by each openChatSummaryChanges call, even one that changes nothing
+// else, so the panel can scroll to the list again. `revealFor` is the chat
+// whose Changes list should do so, asked at `revealAt`, until that list takes
+// it, the panel closes or REVEAL_LIFETIME_MS passes.
 let revealRequest = 0
 let revealFor: string | null = null
-let revealTarget: RevealSection = 'changes'
 let revealAt = 0
 
 /** A reveal not taken by then is stale: coming back to the chat later should not scroll it. */
@@ -52,8 +47,31 @@ function notify() {
   for (const listener of listeners) listener()
 }
 
+// The dock and the panel share the right edge, so an open dock takes it: each
+// pane keeps its chat's choice for when the dock closes, and meanwhile opening
+// the panel only peeks at it, floating over the transcript until dismissed.
+const docked = new Set<string>()
+const peeking = new Set<string>()
+
+/** Tells the store whether the dock beside this pane is open. */
+export function setChatSummaryDocked(paneId: string, next: boolean): void {
+  if (next === docked.has(paneId)) return
+  if (next) docked.add(paneId)
+  else docked.delete(paneId)
+  peeking.delete(paneId)
+  notify()
+}
+
 /** Opens or closes the panel for the chat this pane shows. */
 export function setChatSummaryOpen(paneId: string, next: boolean): void {
+  if (docked.has(paneId)) {
+    if (next) peeking.add(paneId)
+    else peeking.delete(paneId)
+    notify()
+
+    return
+  }
+
   const key = keyOf(paneId)
 
   // Re-adding moves the chat to the end, so the limit forgets the oldest first.
@@ -68,12 +86,12 @@ export function setChatSummaryOpen(paneId: string, next: boolean): void {
 }
 
 export function toggleChatSummary(paneId: string): void {
-  setChatSummaryOpen(paneId, !openKeys.has(keyOf(paneId)))
+  setChatSummaryOpen(paneId, !isChatSummaryOpen(paneId))
 }
 
-/** Whether the panel is open for the chat this pane shows, for code outside React. */
+/** Whether the panel is showing for the chat this pane shows, for code outside React. */
 export function isChatSummaryOpen(paneId: string): boolean {
-  return openKeys.has(keyOf(paneId))
+  return docked.has(paneId) ? peeking.has(paneId) : openKeys.has(keyOf(paneId))
 }
 
 /** Records which chat a pane shows; a pending badge open for that chat lands here. */
@@ -84,6 +102,8 @@ export function setPaneSession(paneId: string, sessionId: string | null, now = D
 
     return
   }
+  // A peek beside the dock belongs to the chat it was opened on.
+  if (paneSessions.get(paneId) !== sessionId) peeking.delete(paneId)
   // Switching to a chat starts it closed, unless another pane shows it open now.
   if (paneLastSessions.get(paneId) !== sessionId && !shownElsewhere(paneId, sessionId))
     openKeys.delete(sessionId)
@@ -108,6 +128,8 @@ export function useRegisterPaneSession(paneId: string, sessionId: string | null)
   useEffect(
     () => () => {
       openKeys.delete(`pane:${paneId}`)
+      docked.delete(paneId)
+      peeking.delete(paneId)
     },
     [paneId],
   )
@@ -154,10 +176,9 @@ export function setSubAgentsFilter(next: SubAgentsFilter): void {
   notify()
 }
 
-function requestReveal(section: RevealSection, sessionId: string) {
+function requestReveal(sessionId: string) {
   revealRequest += 1
   revealFor = sessionId
-  revealTarget = section
   revealAt = Date.now()
   pendingOpenFor = null
 
@@ -175,14 +196,6 @@ function requestReveal(section: RevealSection, sessionId: string) {
   notify() // the request counter changed even if no pane opened
 }
 
-function takeReveal(section: RevealSection, sessionId: string, now: number): boolean {
-  if (revealFor !== sessionId || revealTarget !== section || now - revealAt > REVEAL_LIFETIME_MS)
-    return false
-  revealFor = null
-
-  return true
-}
-
 /**
  * Opens the panel on its Changes list showing only `filter`, as the merged
  * badge does, and asks the list of chat `sessionId` to come into view. Call it
@@ -191,7 +204,7 @@ function takeReveal(section: RevealSection, sessionId: string, now: number): boo
 export function openChatSummaryChanges(filter: ChangesFilter, sessionId: string): void {
   changesFilter = filter
   write(FILTER_KEY, filter)
-  requestReveal('changes', sessionId)
+  requestReveal(sessionId)
 }
 
 /**
@@ -200,23 +213,10 @@ export function openChatSummaryChanges(filter: ChangesFilter, sessionId: string)
  * view. Other chats' lists, such as another split's, leave it in place.
  */
 export function takeChangesReveal(sessionId: string, now = Date.now()): boolean {
-  return takeReveal('changes', sessionId, now)
-}
+  if (revealFor !== sessionId || now - revealAt > REVEAL_LIFETIME_MS) return false
+  revealFor = null
 
-/**
- * Opens the panel on its Sub-agents list showing only `filter`, and asks the
- * list of chat `sessionId` to come into view, as openChatSummaryChanges does
- * for Changes. Call it before or after switching to that chat.
- */
-export function openChatSummarySubAgents(filter: SubAgentsFilter, sessionId: string): void {
-  subAgentsFilter = filter
-  write(SUB_AGENTS_FILTER_KEY, filter)
-  requestReveal('subAgents', sessionId)
-}
-
-/** As takeChangesReveal, for an openChatSummarySubAgents call. */
-export function takeSubAgentsReveal(sessionId: string, now = Date.now()): boolean {
-  return takeReveal('subAgents', sessionId, now)
+  return true
 }
 
 function subscribe(listener: () => void) {
@@ -228,7 +228,16 @@ function subscribe(listener: () => void) {
 export function useChatSummaryOpen(paneId: string): boolean {
   return useSyncExternalStore(
     subscribe,
-    () => openKeys.has(keyOf(paneId)),
+    () => isChatSummaryOpen(paneId),
+    () => false,
+  )
+}
+
+/** Whether the dock has the right edge, so the panel can only float as a peek. */
+export function useChatSummaryDocked(paneId: string): boolean {
+  return useSyncExternalStore(
+    subscribe,
+    () => docked.has(paneId),
     () => false,
   )
 }
@@ -249,41 +258,11 @@ export function useSubAgentsFilter(): SubAgentsFilter {
   )
 }
 
-/**
- * Changes with every openChatSummaryChanges and openChatSummarySubAgents call;
- * pair with takeChangesReveal or takeSubAgentsReveal.
- */
+/** Changes with every openChatSummaryChanges call; pair with takeChangesReveal. */
 export function useSummaryRevealRequest(): number {
   return useSyncExternalStore(
     subscribe,
     () => revealRequest,
     () => 0,
-  )
-}
-
-// A dialog or menu has the keyboard (⌘K palette, settings): the panel behind it stays as it is.
-const OVERLAY = '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]'
-
-/**
- * ⌘I on macOS, Ctrl+I elsewhere; the physical key, so a layout or ⌥ cannot
- * change it. Not while focus is inside a dialog or menu.
- */
-export function isChatSummaryShortcut(
-  event: Pick<
-    KeyboardEvent,
-    'metaKey' | 'ctrlKey' | 'altKey' | 'shiftKey' | 'code' | 'isComposing'
-  > & { target: EventTarget | null },
-  mac: boolean,
-): boolean {
-  const target = event.target as { closest?: (selector: string) => unknown } | null
-
-  if (target?.closest?.(OVERLAY)) return false
-
-  return (
-    (mac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey) &&
-    !event.altKey &&
-    !event.shiftKey &&
-    event.code === 'KeyI' &&
-    !event.isComposing
   )
 }

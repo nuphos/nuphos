@@ -33,8 +33,38 @@ const make = () => {
   return { acc, frames, events }
 }
 
+// The sink records after the query is redacted, which settles on the next turn.
+const settled = () => new Promise((resolve) => setImmediate(resolve))
+
 describe('searched sink — memory.searched telemetry parity', () => {
-  test('payload matches the agent.ts shape: redacted query, CJK flag, per-kind counts', () => {
+  test('a failing telemetry sink is caught by the observer guard', async () => {
+    const unhandled: unknown[] = []
+    const frames: Record<string, unknown>[] = []
+    const onUnhandled = (reason: unknown) => unhandled.push(reason)
+    const acc = createTurnMemoryAccumulator({
+      providerId: 'native',
+      sessionId: 'sess-1',
+      userId: 'u1',
+      teamId: 't1',
+      requestId: 'req-1',
+      emitFrame: (frame) => frames.push(frame),
+      recordEvent: () => {
+        throw new Error('db closed')
+      },
+    })
+
+    process.on('unhandledRejection', onUnhandled)
+    try {
+      acc.observer.searched({ query: 'oom', hitCount: 0 })
+      await settled()
+      await settled()
+    } finally {
+      process.off('unhandledRejection', onUnhandled)
+    }
+    expect(unhandled).toEqual([])
+  })
+
+  test('payload matches the agent.ts shape: redacted query, CJK flag, per-kind counts', async () => {
     const { acc, events } = make()
 
     acc.observer.searched({
@@ -42,6 +72,7 @@ describe('searched sink — memory.searched telemetry parity', () => {
       hitCount: 3,
       hitsByKind: { record: 2, playbook: 1 },
     })
+    await settled()
     expect(events).toHaveLength(1)
     expect(events[0]).toEqual({
       conversationId: 'sess-1',
@@ -58,10 +89,11 @@ describe('searched sink — memory.searched telemetry parity', () => {
     })
   })
 
-  test('CJK query flags true and long queries truncate to 200 chars', () => {
+  test('CJK query flags true and long queries truncate to 200 chars', async () => {
     const { acc, events } = make()
 
     acc.observer.searched({ query: `部署失敗${'x'.repeat(300)}`, hitCount: 0 })
+    await settled()
     const data = events[0]!.data!
 
     expect(data.queryHasCjk).toBe(true)
@@ -72,7 +104,7 @@ describe('searched sink — memory.searched telemetry parity', () => {
     expect(data.geneHitCount).toBe(0)
   })
 
-  test('secret-bearing query is redacted before recording', () => {
+  test('secret-bearing query is redacted before recording', async () => {
     const { acc, events } = make()
 
     acc.observer.searched({
@@ -80,6 +112,7 @@ describe('searched sink — memory.searched telemetry parity', () => {
       hitCount: 1,
       hitsByKind: { record: 1, playbook: 0 },
     })
+    await settled()
     expect(events[0]!.data!.query as string).not.toContain('AKIAIOSFODNN7EXAMPLE')
   })
 })
