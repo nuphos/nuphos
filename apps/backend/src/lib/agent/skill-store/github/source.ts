@@ -11,7 +11,9 @@ export type GithubSkillSource = {
 
 const OWNER = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/
 const REPO = /^[A-Za-z0-9._-]{1,100}$/
-const REF = /^[A-Za-z0-9._/-]{1,200}$/
+// git check-ref-format: no control characters, space, ~ ^ : ? * [ \, "..", "@{", "//", or a
+// component that starts with "." or ends with ".lock".
+const REF_FORBIDDEN = /[~^:?*[\\]|\.\.|@\{|\/\/|^\/|\/$|\.$|(?:^|\/)\.|\.lock(?:\/|$)/
 
 function invalid(message: string): never {
   throw new AppError(400, 'invalid_source', message)
@@ -35,10 +37,22 @@ function cleanSubpath(raw: string | undefined): string | null {
 
 function cleanRef(raw: string | undefined): string | null {
   if (!raw) return null
-  if (!REF.test(raw) || raw.includes('..') || raw.startsWith('/') || raw.endsWith('/'))
+  const control = Array.from({ length: raw.length }, (_, i) => raw.charCodeAt(i)).some(
+    (code) => code <= 0x20 || code === 0x7f,
+  )
+
+  if (raw.length > 200 || raw === '@' || control || REF_FORBIDDEN.test(raw))
     invalid(`invalid ref: ${raw}`)
 
   return raw
+}
+
+function decodeSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment)
+  } catch {
+    return invalid(`invalid URL segment: ${segment}`)
+  }
 }
 
 const GITHUB_HOST = /^(?:https?:\/\/)?(?:www\.)?github\.com\//i
@@ -48,7 +62,7 @@ function stripGithubUrl(input: string): { path: string; tree: boolean } | null {
 
   if (!host) return null
   const path = input.slice(host[0].length).split(/[?#]/, 1)[0] ?? ''
-  const [owner, repo, kind, ...rest] = path.split('/').filter(Boolean)
+  const [owner, repo, kind, ...rest] = path.split('/').filter(Boolean).map(decodeSegment)
 
   if (kind === 'tree' || kind === 'blob')
     return { path: [owner, repo, ...rest].join('/'), tree: true }
