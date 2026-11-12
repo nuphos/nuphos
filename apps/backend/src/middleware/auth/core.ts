@@ -8,6 +8,7 @@ import { AppError } from '@/lib/errors'
 import { authenticateToken, getTeamMembership } from '@/lib/identity'
 import { AI_CONSENT_VERSION, readAIConsent } from '@/lib/identity/ai-consent'
 import { authenticateCliToken, cliTokenDenied, isCliToken } from '@/lib/identity/cli-tokens'
+import { isStepUpRoute, requireRecentVerification } from '@/lib/identity/step-up'
 import { runInTokenTeamScope } from '@/lib/identity/token-team-scope'
 
 export const requireAuth: MiddlewareHandler<{ Variables: AuthVariables }> = async (c, next) => {
@@ -33,6 +34,10 @@ export const requireAuth: MiddlewareHandler<{ Variables: AuthVariables }> = asyn
   const denied = limited && cliTokenDenied(limited, c.req.method, c.req.path)
 
   if (denied) throw new AppError(403, 'cli_token_forbidden', denied)
+  // CLI tokens and agent runs are exempt: minting them already took a step-up.
+  if (!limited && isStepUpRoute(c.req.method, c.req.path)) {
+    await requireRecentVerification(user.id, 'sessionId' in result ? result.sessionId : undefined)
+  }
 
   if (!ObjectId.isValid(user.id)) {
     throw new AppError(500, 'invalid_user_id', 'Nuphos returned a non-ObjectId user id')

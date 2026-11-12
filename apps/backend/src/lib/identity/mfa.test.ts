@@ -430,6 +430,32 @@ describe('step-up', () => {
     await expect(requireRecentVerification(USER_ID, SESSION_ID)).resolves.toBeUndefined()
   })
 
+  test('sensitive routes ask an old MFA session for a code, then let it through', async () => {
+    const { secret } = await enroll()
+    const { requireAuth } = await import('@/middleware/auth')
+    const guarded = new Hono()
+
+    guarded.onError(errorHandler)
+    guarded.post('/auth/cli-tokens', requireAuth, (c) => c.json({ ok: true }))
+    const mint = () =>
+      guarded.request('/auth/cli-tokens', {
+        method: 'POST',
+        headers: { authorization: 'Bearer session-token' },
+      })
+
+    signedIn(30)
+    const refused = await mint()
+
+    expect(refused.status).toBe(403)
+    expect(await errorOf(refused)).toMatchObject({
+      code: 'reauth_required',
+      details: { method: 'mfa' },
+    })
+
+    await post('/auth/mfa/reauth', { code: codeAt(secret, step(1)) }, 'session-token')
+    expect((await mint()).status).toBe(200)
+  })
+
   test('with MFA, an old session must enter a code, which renews it', async () => {
     const { secret } = await enroll()
     const { requireRecentVerification } = await import('@/lib/identity/step-up')
