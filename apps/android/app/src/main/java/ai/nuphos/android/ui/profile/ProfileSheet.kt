@@ -137,7 +137,7 @@ internal fun ProfileContent(
     consentError: String?,
     onEdit: () -> Unit,
     onDevices: () -> Unit,
-    onTwoFactor: () -> Unit = {},
+    onTwoFactor: () -> Unit,
     onPrivacy: () -> Unit,
     onWithdraw: () -> Unit,
     onDeletion: () -> Unit,
