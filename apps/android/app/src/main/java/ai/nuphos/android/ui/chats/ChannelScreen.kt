@@ -195,6 +195,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
 @Composable
 internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>, viewerId: String?, onLink: (String) -> Unit, allowed: () -> Boolean = { true },
                                 downloads: TransferDownloads = remember { TransferDownloads() }, onSwitchAgent: ((String) -> Unit)? = null) {
+    val store = LocalAgentStore.current
     val state = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val typing = (items.lastOrNull() as? ChannelItem.Typing)?.agents.orEmpty()
@@ -260,10 +261,15 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                         // A Bot's chat: what the Bot and the agents under it wait on, where it was asked.
                         is ChannelItem.Question -> item.question.let { question ->
                             BotQuestionCard(question, onOpen = { onLink(question.link(session.teamId)) },
-                                onAnswer = { option -> if (allowed()) session.answer(question, option, scope, viewerId) },
+                                onAnswer = { option -> if (allowed()) session.answer(question, option, scope) },
                                 // The Bot's own questions are this chat's; only an agent under it is named.
                                 showsFrom = question.sessionId != session.faces.botFace?.id, onLink = onLink,
-                                failure = session.answerFailure(question), onReply = { session.reply(question) })
+                                failure = session.answerFailure(question),
+                                // Words answer it in the asking conversation's composer, as the Inbox's "Other…" does.
+                                onReply = {
+                                    store.session(question.sessionId, question.title).answering = question
+                                    onLink(question.link(session.teamId))
+                                })
                         }
                     }
                 }

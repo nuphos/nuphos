@@ -43,7 +43,7 @@ class ChannelTranscriptFixtureDeviceTest {
         override suspend fun agents() = listOf(ChannelAgent("agent-ops", "Release ops"))
         override suspend fun attachment(groupId: String): TransferDownloadGroup = error("No files in this fixture")
         override suspend fun upload(attachments: List<ai.nuphos.android.model.ComposerAttachment>): String = error("Not posting in this fixture")
-        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?, decisionReplyTo: String?) = error("Not posting in this fixture")
+        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?) = error("Not posting in this fixture")
     }
 
     private val dark get() = InstrumentationRegistry.getArguments().getString("darkTheme") == "true"

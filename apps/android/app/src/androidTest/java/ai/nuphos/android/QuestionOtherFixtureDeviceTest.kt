@@ -19,16 +19,10 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import ai.nuphos.android.data.Http
-import ai.nuphos.android.data.TransferDownloadGroup
-import ai.nuphos.android.model.AgentConversationDetail
-import ai.nuphos.android.model.ChannelAgent
-import ai.nuphos.android.model.ComposerAttachment
 import ai.nuphos.android.model.CredentialRef
 import ai.nuphos.android.model.InputRequest
 import ai.nuphos.android.session.AgentStore
 import ai.nuphos.android.session.BotQuestion
-import ai.nuphos.android.session.ChannelSession
 import ai.nuphos.android.session.ChatSession
 import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.LocalAuthSession
@@ -36,7 +30,6 @@ import ai.nuphos.android.ui.chat.ChatComposer
 import ai.nuphos.android.ui.chats.BotQuestionCard
 import ai.nuphos.android.ui.chats.ReplyChip
 import ai.nuphos.android.ui.theme.NuphosTheme
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -58,35 +51,32 @@ class QuestionOtherFixtureDeviceTest {
     private val plan = BotQuestion("bot-release", "Release Lead",
         InputRequest("q-plan", "approval", "Approve the plan \"Move staging to the new cluster\"?", listOf("Approve", "Reject"), planId = "p1"))
 
-    /** A Bot's 1:1 chat with no posts yet. */
-    private class Transport : ChannelSession.Transport {
-        override suspend fun detail(tail: Int): AgentConversationDetail = Http.json.decodeFromString(
-            """{"kind":"channel","title":"Release Lead","faces":[{"id":"bot-release","name":"Release Lead","agent":{"avatar":"05"}}],"messages":[]}""")
-        override suspend fun agents() = emptyList<ChannelAgent>()
-        override suspend fun attachment(groupId: String): TransferDownloadGroup = error("No files in this fixture")
-        override suspend fun upload(attachments: List<ComposerAttachment>): String = error("Not posting in this fixture")
-        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?, decisionReplyTo: String?) =
-            error("Not posting in this fixture")
-    }
-
-    @Test fun inABotChatOtherQuotesTheQuestionAboveTheComposer() {
-        val session = ChannelSession("team", "chat-release", "Release Lead", Transport())
-        runBlocking { session.refresh(force = true) }
+    @Test fun inABotChatOtherOpensTheAskingConversationsComposer() {
+        var conversation by mutableStateOf<ChatSession?>(null)
         screen {
-            Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
-                for (question in listOf(deploy, plan)) {
-                    BotQuestionCard(question, onOpen = {}, onAnswer = {}, showsFrom = false, onReply = { session.reply(question) })
+            val store = LocalAgentStore.current
+            val chat = conversation
+            if (chat == null) {
+                Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                    for (question in listOf(deploy, plan)) {
+                        BotQuestionCard(question, onOpen = {}, onAnswer = {}, showsFrom = false, onReply = {
+                            // As the chat does: no post quoting it; the asking conversation answers it.
+                            conversation = store.session(question.sessionId, question.title).also { it.answering = question }
+                        })
+                    }
                 }
+            } else {
+                Spacer(Modifier.weight(1f))
+                chat.answering?.let { ReplyChip(it.quote) { chat.answering = null } }
+                ChatComposer(isStreaming = false, onSend = { false })
             }
-            session.replying?.let { ReplyChip(it) { session.replying = null } }
-            ChatComposer(isStreaming = false, onSend = { false })
         }
         // Other… beside the options; nothing on the plan.
         compose.onAllNodesWithTag("bot-question-other").assertCountEquals(1)
         capture("bot-chat")
         compose.onNodeWithText("Other…").performClick()
         compose.onNodeWithTag("channel-reply-chip").assertIsDisplayed()
-        assertEquals(deploy.quote, session.replying)
+        assertEquals(deploy, conversation?.answering)
         capture("bot-chat-other")
     }
 

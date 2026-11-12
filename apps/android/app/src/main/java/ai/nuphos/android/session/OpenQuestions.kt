@@ -10,26 +10,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * Open questions read from the pending listing, as Desktop's Inbox reads them, and answered from
  * their cards. The Inbox shows them all; a Bot's chat only those under the Bot.
  */
-class OpenQuestions(
-    private val source: Source,
-    /** A Bot's own chat, if it has one: a Bot's own question is answered there, where it shows. */
-    private val chatOf: (botId: String) -> String? = { null },
-) {
+class OpenQuestions(private val source: Source) {
     interface Source {
         /** Every page of the viewer's conversations with an open question, with their parents. */
         suspend fun pending(): List<AgentConversation> = emptyList()
-        /** The owner's reply to [sessionId], naming the question it answers. */
-        suspend fun answer(sessionId: String, text: String, requestId: String) {}
-        /** A post in the Bot's chat [chatId], naming its question it answers. */
-        suspend fun answerInChat(chatId: String, text: String, requestId: String) {}
+        /** Answers [requestId] of [sessionId]: the server wakes the agent that asked; no message is sent. */
+        suspend fun answer(sessionId: String, requestId: String, answer: JsonValue) {}
         /** [sessionId]'s stored credential selection. */
         suspend fun credentials(sessionId: String): JsonValue? = null
         /** Saves [sessionId]'s credential selection, as its picker would. */
@@ -51,11 +43,10 @@ class OpenQuestions(
             return rows
         }
 
-        override suspend fun answer(sessionId: String, text: String, requestId: String) {
-            val sent = withContext(Dispatchers.IO) {
-                AgentChatApi.reply(token, teamId, sessionId, text, decisionReplyTo = requestId)
-            }
-            if (!sent) throw NuphosApi.Failure.InvalidResponse
+        override suspend fun answer(sessionId: String, requestId: String, answer: JsonValue) {
+            AgentChatApi.send("POST",
+                "agent/conversations/${android.net.Uri.encode(sessionId)}/decisions/${android.net.Uri.encode(requestId)}/answer",
+                token, query = listOf("teamId" to teamId), body = answer)
         }
 
         override suspend fun credentials(sessionId: String): JsonValue? =
@@ -63,11 +54,6 @@ class OpenQuestions(
 
         override suspend fun saveCredentials(sessionId: String, access: JsonValue) =
             AgentChatApi.updateCredentials(token, teamId, sessionId, access)
-
-        override suspend fun answerInChat(chatId: String, text: String, requestId: String) {
-            ChannelSession.Api(token, teamId, chatId)
-                .post(text, java.util.UUID.randomUUID().toString().lowercase(), null, null, decisionReplyTo = requestId)
-        }
     }
 
     private var listed by mutableStateOf<List<BotQuestion>>(emptyList())
@@ -147,21 +133,19 @@ class OpenQuestions(
     }
 
     /**
-     * The owner's own reply to the conversation that asked, naming the question, so it resolves
-     * that one request wherever it is shown: a card's quick reply. Hidden at once; if it could not
-     * be sent, the card comes back with why. [send] is how the answer goes out.
+     * Answers a question from its card: one of its options, or "Done." for a to-do. The server
+     * wakes the agent that asked, which replies where it asked; no message is sent. Hidden at once;
+     * if the answer is refused, the card comes back with why.
      */
-    fun answer(question: BotQuestion, text: String, scope: CoroutineScope,
-               send: suspend () -> Unit = {
-                   val chat = chatOf(question.sessionId)
-                   if (chat != null) source.answerInChat(chat, text, question.request.id)
-                   else source.answer(question.sessionId, text, question.request.id)
-               }) {
+    fun answer(question: BotQuestion, text: String, scope: CoroutineScope) {
         answered = answered + question.id
         failures = failures - question.id
+        val body = if (question.request.options.orEmpty().contains(text))
+            JsonValue.obj("choices" to JsonValue.Arr(listOf(JsonValue.Str(text))))
+        else JsonValue.obj("text" to JsonValue.Str(text))
         scope.launch {
             try {
-                send()
+                source.answer(question.sessionId, question.request.id, body)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
