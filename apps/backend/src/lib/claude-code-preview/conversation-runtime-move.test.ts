@@ -7,6 +7,7 @@ import { useDb } from '@/lib/test/doubles/db'
 import { useModels } from '@/lib/test/doubles/models'
 import { useRedis } from '@/lib/test/doubles/redis'
 import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
+import { useRuntimeModels } from '@/lib/test/doubles/runtime-models'
 import { useRuntimeRegistry } from '@/lib/test/doubles/runtime-registry'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
@@ -14,6 +15,7 @@ import { moveConversationRuntime } from './conversation-runtime-move'
 import { fallBackBeforeTurn } from './runtime-fallback'
 
 import type { RuntimeInstance } from './runtime-instances'
+import type { RuntimeModelCatalog } from './runtime-models'
 import type { ClaudeCodeRuntimeDoc } from './runtime-registry'
 import type { AgentConversation } from '@/lib/agent/db/shared'
 
@@ -22,6 +24,26 @@ let busy = false
 let target: RuntimeInstance
 let conversation: AgentConversation
 let hostedSources: ClaudeCodeRuntimeDoc[] = []
+const allModels = ['old-agent-model', 'chosen-model', 'latest-model']
+let destinationModels: string[] | null = allModels
+
+useRuntimeModels({
+  runtimeModelCatalog: async (): Promise<RuntimeModelCatalog> => {
+    if (!destinationModels) throw new Error('catalog unreachable')
+
+    return {
+      models: destinationModels.map((id) => ({ id, name: id })),
+      controls: {
+        modelId: 'default',
+        effort: [
+          { value: 'low', name: 'Low' },
+          { value: 'high', name: 'High' },
+        ],
+        fast: [],
+      },
+    }
+  },
+})
 
 useDb({ db: () => memory })
 useRedis({ redisEnabled: () => true })
@@ -44,6 +66,7 @@ beforeEach(() => {
   memory = portabilityDb()
   busy = false
   hostedSources = []
+  destinationModels = allModels
   target = {
     id: 'new',
     provider: 'claude-code',
@@ -254,4 +277,19 @@ test('a choice saved after the move request was read is preserved from durable s
   }
   await moveConversationRuntime(requested, 'new', 'owner')
   expect(conversation.initialSessionConfig).toEqual({ model: 'latest-model', effort: 'high' })
+})
+
+test('a model the destination does not offer is left behind; what it offers moves', async () => {
+  delete conversation.claudeCodePreview
+  conversation.initialSessionConfig = { model: 'chosen-model', effort: 'high' }
+  destinationModels = ['latest-model']
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner')
+  expect(conversation.initialSessionConfig).toEqual({ effort: 'high' })
+})
+test('an unreadable destination catalog keeps the pick as it was', async () => {
+  delete conversation.claudeCodePreview
+  conversation.initialSessionConfig = { model: 'chosen-model', effort: 'high' }
+  destinationModels = null
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner')
+  expect(conversation.initialSessionConfig).toEqual({ model: 'chosen-model', effort: 'high' })
 })

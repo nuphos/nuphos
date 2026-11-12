@@ -11,7 +11,9 @@ import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-ca
 import { placementNamespace } from './runtime-controllers'
 import { assertRuntimeNotDeleting } from './runtime-portability-store'
 import { runtimeProvider } from './runtime-provider'
+import { runtimeModelCatalog } from './runtime-models'
 import { findHostedRuntime, resolveTeamRuntimeEndpoints } from './runtime-registry'
+import { offeredSessionConfig } from './session-config-catalog'
 import { storedPick } from './session-config-options'
 
 import type { AgentConversation } from '@/lib/agent/db/shared'
@@ -116,7 +118,18 @@ export async function moveConversationRuntime(
     const saved = latest?.claudeCodePreview
       ? storedPick(latest.claudeCodePreview)
       : latest?.initialSessionConfig
-    const pick = target.provider === provider ? (saved ?? {}) : undefined
+    // Only what the destination offers, as a new conversation's first turn keeps:
+    // its runtime refuses to open a session on any other value.
+    const pick =
+      target.provider === provider
+        ? await offeredSessionConfig(
+            (model) => runtimeModelCatalog(teamId, target.id, model, userId),
+            saved ?? {},
+          ).then(
+            ({ kept }) => kept,
+            () => saved ?? {},
+          )
+        : undefined
     const result = await agentConversations().updateOne(
       {
         sessionId: conversation.sessionId,
