@@ -19,10 +19,14 @@ const FORWARD: [&str; 4] = ["PATH", "NUPHOS_API_URL", "NUPHOS_DOWNLOAD_URL", "NU
 const JOIN_WAIT: Duration = Duration::from_secs(60);
 
 /// Whether this run should install the service rather than run the host itself.
-/// systemd sets INVOCATION_ID for every unit it runs, this service among them.
+/// A unit's own process, this service's or a hand-written one's, has INVOCATION_ID
+/// and the service manager as its parent. A shell a terminal service started has
+/// only the first, and a process `setsid` left to PID 1 only the second.
 pub fn wanted() -> bool {
+    let unit = std::env::var_os("INVOCATION_ID").is_some()
+        && is_manager(&std::fs::read_to_string("/proc/self/stat").unwrap_or_default());
     cfg!(target_os = "linux")
-        && std::env::var_os("INVOCATION_ID").is_none()
+        && !unit
         && systemctl(&["show-environment"])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -76,6 +80,15 @@ pub fn restart_if_active() {
     }
 }
 
+/// Whether the parent in `/proc/self/stat` is a systemd manager, the system's or a user's.
+fn is_manager(stat: &str) -> bool {
+    // The fields after the parenthesized command name: state, then the parent's pid.
+    let parent = stat.rsplit_once(") ").and_then(|(_, rest)| rest.split(' ').nth(1));
+    parent.is_some_and(|pid| {
+        std::fs::read_to_string(format!("/proc/{pid}/comm")).is_ok_and(|comm| comm.trim_end() == "systemd")
+    })
+}
+
 fn systemctl(args: &[&str]) -> Command {
     let mut command = Command::new("systemctl");
     command.arg("--user").args(args);
@@ -95,6 +108,8 @@ fn write(path: &Path, contents: &str) -> Result<()> {
     std::fs::create_dir_all(path.parent().context("no parent directory")?)?;
     // 0600 from the start: the environment may hold the join token.
     let mut file = std::fs::OpenOptions::new().write(true).create(true).truncate(true).mode(0o600).open(path)?;
+    // Also when it existed with a wider mode.
+    file.set_permissions(std::os::unix::fs::PermissionsExt::from_mode(0o600))?;
     file.write_all(contents.as_bytes()).with_context(|| format!("could not write {}", path.display()))
 }
 
@@ -131,12 +146,14 @@ fn lingering() -> bool {
 }
 
 fn unit(exe: &Path, env: &Path) -> String {
-    // `%` starts a specifier. ExecStart takes a quoted path; EnvironmentFile takes the rest of the line.
+    // `%` starts a specifier, and `$` a variable in ExecStart. ExecStart takes a quoted path;
+    // EnvironmentFile takes the rest of the line.
     let path = |path: &Path| path.display().to_string().replace('%', "%%");
+    let exe = path(exe).replace('$', "$$");
     format!(
         "[Unit]\nDescription=Nuphos local runtimes\n\n[Service]\nExecStart=\"{}\" agent\nEnvironmentFile=-{}\n\
          Restart=always\nRestartSec=10\nRestartPreventExitStatus=78\n\n[Install]\nWantedBy=default.target\n",
-        path(exe),
+        exe,
         path(env),
     )
 }
@@ -163,6 +180,19 @@ mod tests {
     #[test]
     fn unit_escapes_specifiers() {
         assert!(unit(Path::new("/opt/100%/nuphos"), Path::new("/e")).contains("\"/opt/100%%/nuphos\""));
+    }
+
+    #[test]
+    fn unit_escapes_variables_in_exec_start() {
+        assert!(unit(Path::new("/opt/$x/nuphos"), Path::new("/e")).contains("\"/opt/$$x/nuphos\""));
+    }
+
+    #[test]
+    fn a_shell_is_not_run_by_the_service_manager() {
+        // This test's parent is cargo, not systemd; a stat without a parent is not one either.
+        assert!(!is_manager(&std::fs::read_to_string("/proc/self/stat").unwrap_or_default()));
+        assert!(!is_manager(""));
+        assert!(!is_manager("12 (a) b) S"));
     }
 
     #[test]

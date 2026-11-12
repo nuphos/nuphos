@@ -135,7 +135,7 @@ sign-in rather than at boot: `nuphos agent` turns linger on when the system
 allows it, and otherwise asks you to run `sudo loginctl enable-linger "$USER"`.
 Use a dedicated non-root account: anyone who controls that account acts as this
 machine in Nuphos, and agents' commands run as it. Without a systemd user
-manager (macOS, a container), or when a service manager already runs it,
+manager (macOS, a container), or when a systemd unit runs it directly,
 `nuphos agent` runs the runtime in the foreground.
 
 `exec` writes the reply to stdout and tool activity to stderr, ending with
