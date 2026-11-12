@@ -29,6 +29,8 @@ struct ConversationView: View {
     @State private var showRename = false
     @State private var renamedTitle = ""
     @State private var showRuntimes = false
+    /// The last sign-in ask from this screen, for the runtime it was about.
+    @State private var signInAsk: (runtimeId: String, status: String, asked: Bool)?
     @State private var showShare = false
     /// The desktop open from this conversation: beside it where the window is wide, else full screen.
     @State private var desktop: DesktopSession?
@@ -292,6 +294,25 @@ struct ConversationView: View {
         }
     }
 
+    /// Asking whoever can sign this conversation's signed-out agent in, when the viewer can't.
+    private var signInAskRow: HintRow.Ask? {
+        let runtimeId = session.runtimeId ?? session.runtime?.id
+        let admin = store.teams.first { $0.id == session.teamId }?.isAdministrator ?? false
+        guard let runtimeId, let label = RuntimeInstance.signInAsk(runtimeId, viewerId: store.userId, isAdministrator: admin)
+        else { return nil }
+        let sent = signInAsk?.runtimeId == runtimeId ? signInAsk : nil
+        return HintRow.Ask(label: label, status: sent?.status, asked: sent?.asked == true) {
+            Task {
+                do {
+                    let name = try await session.askSignIn(runtimeId: runtimeId)
+                    signInAsk = (runtimeId, "Asked \(name). You can send once they sign it in.", true)
+                } catch {
+                    signInAsk = (runtimeId, error.localizedDescription, false)
+                }
+            }
+        }
+    }
+
     /// The agent this conversation runs on, when the catalog lists it.
     private var conversationRuntime: RuntimeInstance? {
         let id = session.runtimeId ?? session.runtime?.id
@@ -483,7 +504,8 @@ struct ConversationView: View {
             // A runtime that can't take the turn: moving the conversation is the way on.
             HintRow(
                 text: text, isError: isError,
-                onSwitchRuntime: session.canManage && AgentChatAPI.switchRuntimeErrors.contains(text) ? { showRuntimes = true } : nil
+                onSwitchRuntime: session.canManage && AgentChatAPI.switchRuntimeErrors.contains(text) ? { showRuntimes = true } : nil,
+                ask: text == AgentChatAPI.Conflict.runtimeLoginRequired.errorDescription ? signInAskRow : nil
             )
         case .event(_, let event):
             EventLine(event: event, onLink: open(link:), teamId: session.teamId)
@@ -689,6 +711,16 @@ struct HintRow: View {
     var isError = false
     /// Set when another runtime is the way past this error.
     var onSwitchRuntime: (() -> Void)? = nil
+    /// Set when someone else can sign this agent in for the viewer.
+    var ask: Ask? = nil
+
+    /// Asks them through their Inbox and a push; once asked, says so instead.
+    struct Ask {
+        let label: String
+        var status: String?
+        var asked = false
+        let action: () -> Void
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -699,8 +731,21 @@ struct HintRow: View {
                 Text(text).font(Theme.Text.label)
             }
             .foregroundStyle(isError ? Color.red : Theme.muted)
-            if let onSwitchRuntime {
-                SwitchRuntimeButton(action: onSwitchRuntime)
+            if let status = ask?.status {
+                Text(status).font(Theme.Text.label).foregroundStyle(Theme.muted)
+            }
+            if ask?.asked == false || onSwitchRuntime != nil {
+                HStack(spacing: 8) {
+                    if let ask, !ask.asked {
+                        Button(ask.label, systemImage: "hand.wave", action: ask.action)
+                            .font(Theme.Text.label.weight(.medium))
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                    }
+                    if let onSwitchRuntime {
+                        SwitchRuntimeButton(action: onSwitchRuntime)
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

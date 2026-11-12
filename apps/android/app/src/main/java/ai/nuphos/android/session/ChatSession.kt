@@ -658,6 +658,22 @@ class ChatSession(
         }
     }
 
+    /** The last sign-in ask from this phone: the runtime it was about, what to say, and whether it went. */
+    data class SignInAsk(val runtimeId: String, val status: String, val asked: Boolean)
+    var signInAsk by mutableStateOf<SignInAsk?>(null)
+        private set
+
+    /** Asks whoever can sign this conversation's agent in, through their Inbox and a push. */
+    suspend fun askSignIn(runtimeId: String) {
+        signInAsk = try {
+            val name = AgentChatApi.runtimeSignInAsk(token, teamId, runtimeId, sessionId)
+            SignInAsk(runtimeId, "Asked $name. You can send once they sign it in.", true)
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            SignInAsk(runtimeId, e.message ?: "Couldn't ask. Try again.", false)
+        }
+    }
+
     suspend fun confirmProposedRule(ruleId: String): Boolean =
         canManage && runCatching { AgentChatApi.activatePolicyRule(token, ruleId) }.isSuccess
 

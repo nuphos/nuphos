@@ -69,6 +69,15 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
     /// Read from the id, so it holds while that computer is offline.
     static func isLocalAgent(_ runtimeId: String?) -> Bool { runtimeId?.hasPrefix("local_") == true }
 
+    /// Who signs this agent in when the viewer can't, as the backend decides: a
+    /// computer's agent its owner, a team's agent an administrator. Nil when the
+    /// viewer can sign it in themselves.
+    static func signInAsk(_ runtimeId: String?, viewerId: String?, isAdministrator: Bool) -> String? {
+        guard let runtimeId, let viewerId else { return nil }
+        if isLocalAgent(runtimeId) { return runtimeId.hasPrefix("local_\(viewerId)_") ? nil : "Ask owner" }
+        return isAdministrator ? nil : "Ask an admin"
+    }
+
     var providerName: String { Provider.name(provider.rawValue) }
 
     var subtitle: String? {
