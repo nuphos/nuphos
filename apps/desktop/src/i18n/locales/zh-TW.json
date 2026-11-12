@@ -3362,6 +3362,7 @@
   "Personal and work emails are welcome.": "歡迎使用個人與工作用電子郵件。",
   "Personal instructions": "個人指示",
   "Personal memory": "個人記憶",
+  "Personal skill": "個人技能",
   "Personal skills are yours in this team. Claude Code runtimes load them on your turns in agents you own, and never on another member's turn. A team skill with the same name is used instead. Move a skill to the team when everyone should have it.": "個人技能在此團隊中專屬於你。Claude Code 執行環境會在你擁有的 Agent 中於你的輪次載入這些技能，絕不會在其他成員的輪次載入。若有同名的團隊技能，則改用團隊技能。當所有人都需要某項技能時，請將它移至團隊。",
   "Phase": "階段",
   "Phone": "手機",
