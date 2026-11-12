@@ -15,7 +15,7 @@ import { Kbd } from '../ui/kbd'
 
 import { BotChatLink } from './bot-chat-link'
 import { BotsDropZone } from './bot-drop'
-import { BOTS_SECTION } from './chat-sections'
+import { BOTS_SECTION, foldKey } from './chat-sections'
 import { FavoriteToggle } from './favorite-toggle'
 import { FoldedStatus } from './folded-status'
 import { NestedRowBody } from './nest-guides'
@@ -73,6 +73,8 @@ export function SidebarSectionList({
 }: SectionListProps) {
   // The Inbox row carries how many conversations wait on the viewer.
   const shown = useInboxBadge(scope.teamId, sections)
+  const collapsedIn = (section: Section) => (key: string) =>
+    isGroupCollapsed({ title: foldKey(section, key) })
 
   return (
     <>
@@ -131,7 +133,7 @@ export function SidebarSectionList({
                     {section.loading ? (
                       <SidebarSectionSkeleton />
                     ) : (
-                      nestItems(section.items, (key) => isGroupCollapsed({ title: key })).map(
+                      nestItems(section.items, collapsedIn(section)).map(
                         ({ item, trail, hasChildren, hidden, done }) => {
                           const Icon = item.icon
                           const leading = item.iconNode ?? (Icon && <SidebarNavIcon icon={Icon} />)
@@ -153,6 +155,7 @@ export function SidebarSectionList({
                             favoriteSessionId({ key: item.key, href: item.href }) !== null
                           // Bots read as a chat list (name over latest message); Tasks as on main.
                           const twoLine = chatRow && !item.task
+                          const bot = twoLine || Boolean(item.botNested)
                           const favoriteToggle = canFavorite(item) ? (
                             <FavoriteToggle
                               favorited={favorited}
@@ -162,7 +165,7 @@ export function SidebarSectionList({
                           ) : null
                           // A thread parent folds its threads; the fold is remembered
                           // per team like a section's.
-                          const folded = hasChildren && isGroupCollapsed({ title: item.key })
+                          const folded = hasChildren && collapsedIn(section)(item.key)
                           const foldToggle = hasChildren ? (
                             <span
                               role="button"
@@ -170,7 +173,7 @@ export function SidebarSectionList({
                               title={foldLabel(item, folded)}
                               onClick={(e) => {
                                 e.stopPropagation()
-                                toggleGroup({ title: item.key })
+                                toggleGroup({ title: foldKey(section, item.key) })
                               }}
                               className={clsx(
                                 'flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded text-tertiary hover:text-main hover:bg-[var(--sidebar-overlay-hover)]',
@@ -212,6 +215,7 @@ export function SidebarSectionList({
                                 navigateOnRelease={Boolean(rowSessionId)}
                                 onClick={(event) => {
                                   if (!item.enabled) return
+                                  item.onPress?.()
                                   // cmd/ctrl-click opens beside the current page, as it does
                                   // everywhere else; a plain click still navigates in place.
                                   const newTab = event.metaKey || event.ctrlKey
@@ -221,7 +225,8 @@ export function SidebarSectionList({
                                   else onSelect(item.key)
                                 }}
                                 label={item.label}
-                                preview={twoLine ? item.preview : undefined}
+                                preview={twoLine ? (item.previewNode ?? item.preview) : undefined}
+                                labelShimmer={item.labelShimmer}
                                 time={twoLine ? item.time : undefined}
                                 animateLabel={chatRow}
                                 note={rowNote(item, done)}
@@ -269,7 +274,11 @@ export function SidebarSectionList({
                               )}
                               data-open={archivingIds.has(rowSessionId) ? 'false' : 'true'}
                             >
-                              <NestedRowBody trail={trail} expanded={hasChildren && !folded}>
+                              <NestedRowBody
+                                trail={trail}
+                                expanded={hasChildren && !folded}
+                                bot={bot}
+                              >
                                 {row}
                               </NestedRowBody>
                             </div>

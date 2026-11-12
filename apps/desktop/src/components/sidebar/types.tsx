@@ -56,6 +56,14 @@ export type Item = {
   finished?: boolean
   /** A channel: listed under Channels rather than Agents. */
   channel?: boolean
+  /** A Bot's sub-agent repeated under its chat in Bots (the tree status style). */
+  botNested?: boolean
+  /** Replaces the preview line while a Bot works (its live status). */
+  previewNode?: ReactNode
+  /** The name shimmers while a Bot works. */
+  labelShimmer?: boolean
+  /** Runs on a click before the row navigates (which copy of a twice-listed row was opened). */
+  onPress?: () => void
   /** A Bot's face, shown where Bots are listed; elsewhere its row shows its Runtime. */
   face?: ReactNode
   /** A Bot's chat (a channel with only the Bot in it): the Bot's session id. */

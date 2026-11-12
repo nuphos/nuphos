@@ -18,6 +18,7 @@ export function ChatIcon({
   title,
   size: given = 22,
   sidebar = false,
+  looping = false,
   className,
 }: {
   faces?: ChannelFace[]
@@ -25,6 +26,8 @@ export function ChatIcon({
   size?: number
   /** The size a face takes in the sidebar. */
   sidebar?: boolean
+  /** The face plays its idle loop, as for a running turn (a Bot whose sub-agent works). */
+  looping?: boolean
   className?: string
 }) {
   const size = sidebar ? 36 : given
@@ -35,7 +38,7 @@ export function ChatIcon({
   if (!back || sidebar)
     return (
       <span aria-hidden="true" className={clsx('inline-flex shrink-0', className)}>
-        <Face face={front} size={size} sidebar={sidebar} />
+        <Face face={front} size={size} sidebar={sidebar} looping={looping} />
       </span>
     )
   const small = Math.round(size * 0.72)
@@ -109,11 +112,13 @@ function Face({
   size,
   sidebar,
   showBadge = true,
+  looping,
 }: {
   face: ChannelFace
   size: number
   sidebar?: boolean
   showBadge?: boolean
+  looping?: boolean
 }) {
   return face.agent ? (
     <AgentAvatar
@@ -123,6 +128,7 @@ function Face({
       size={size}
       sidebar={sidebar}
       showBadge={showBadge}
+      looping={looping}
     />
   ) : (
     <Avatar src={face.avatarURL} name={face.name} size={size} className="rounded-full" />
