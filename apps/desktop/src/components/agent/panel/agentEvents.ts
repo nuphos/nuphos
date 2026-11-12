@@ -6,6 +6,7 @@ import { toast } from '../../ui/toast'
 import { applyStreamEvent } from './agentEventsApply'
 import { handleSseControlFrame } from './agentEventsSse'
 import { adoptSideStream, dispatchedDraft, takeSideSend, withoutQueued } from './queuedAutoSend'
+import { provesStored } from './sessionActions'
 import { observeTurnUnread } from './turnUnread'
 
 import type { PanelCtx } from './ctx'
@@ -78,6 +79,9 @@ export function handleAgentEvent(ctx: AgentEventCtx, streamId: string, event: un
       sessionId: owner.sessionId,
       title: owner.title,
     })
+  }
+  if (owner && !owner.stored && provesStored(evType)) {
+    setTabs((prev) => prev.map((t) => (t.streamId === streamId ? { ...t, stored: true } : t)))
   }
   observeTurnUnread(owner?.sessionId ?? streamOwnersRef.current.get(streamId)?.sessionId, ev)
   if (evType === 'sse') noteInputRequestFrame(ev.data)

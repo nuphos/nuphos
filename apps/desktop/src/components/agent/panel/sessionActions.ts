@@ -1,6 +1,6 @@
 import type { Tab } from './model.ts'
 
-type StoredTab = Partial<Pick<Tab, 'connected' | 'messages' | 'unsaved' | 'openedAt'>>
+type StoredTab = Partial<Pick<Tab, 'connected' | 'messages' | 'unsaved' | 'openedAt' | 'stored'>>
 
 type GateTab = StoredTab &
   Partial<Pick<Tab, 'sessionId' | 'readOnly' | 'foreign' | 'canManage' | 'archived' | 'watching'>>
@@ -31,7 +31,15 @@ export function serverHasConversation(tab: StoredTab) {
 
   return (
     tab.openedAt !== undefined ||
+    tab.stored === true ||
     tab.connected === true ||
     Boolean(tab.messages?.some((message) => message.role === 'assistant'))
   )
+}
+
+/** The route stores a new conversation before accepting its run and queues only
+ *  a stored one, so any frame of the run, or a queued reply, proves it exists.
+ *  A request refused before that (an HTTP error) proves nothing. */
+export function provesStored(evType: string | undefined) {
+  return evType === 'sse' || evType === 'queued'
 }

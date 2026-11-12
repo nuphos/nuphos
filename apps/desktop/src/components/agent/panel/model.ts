@@ -90,6 +90,9 @@ export type Tab = {
   promptSuggestion?: string | null
   /** When this tab loaded the session; timeline events after it animate in. */
   openedAt?: number
+  /** The server has stored this session: a frame of its run arrived, or it was
+   *  queued. Unlike `connected`, a turn's end does not clear it. */
+  stored?: boolean
   /** Label of the agent this session is being moved to, until the move lands. */
   movingTo?: string
   runtimeState?: import('../../../lib/runtimeExecution').RuntimeExecution

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { serverHasConversation, sessionActionGates } from './sessionActions.ts'
+import { provesStored, serverHasConversation, sessionActionGates } from './sessionActions.ts'
 
 test('an unsaved fork offers no session actions', () => {
   assert.deepEqual(sessionActionGates({ sessionId: 'fork-1', readOnly: false, unsaved: true }), {
@@ -121,6 +121,39 @@ test('a chat opened from the server is saved even with no reply on record', () =
 test('an unsaved fork stays unsaved however it was opened', () => {
   assert.equal(
     sessionActionGates({ sessionId: 'fork-3', unsaved: true, openedAt: 1, connected: true }).saved,
+    false,
+  )
+})
+
+test('a stored chat keeps its actions after a turn ends without a reply', () => {
+  const asked = { id: 'u', role: 'user' as const, parts: [] }
+
+  // Accepted, then cancelled, failed or EOF before any reply: connected is cleared.
+  assert.equal(
+    sessionActionGates({ sessionId: 'new-2', stored: true, connected: false, messages: [asked] })
+      .saved,
+    true,
+  )
+  // A queued first send was stored by the server, though no frame has come.
+  assert.equal(
+    sessionActionGates({ sessionId: 'new-3', stored: true, messages: [asked] }).saved,
+    true,
+  )
+})
+
+test('only a frame of the run or a queued reply proves the server stored the chat', () => {
+  assert.equal(provesStored('sse'), true)
+  assert.equal(provesStored('queued'), true)
+  // Refused before the run was accepted (a failed store included): still unsaved, so it retries.
+  assert.equal(provesStored('error'), false)
+  assert.equal(provesStored('runtime-not-ready'), false)
+  assert.equal(provesStored('end'), false)
+  assert.equal(provesStored(undefined), false)
+})
+
+test('a fork is never saved before its own send, whatever it carries', () => {
+  assert.equal(
+    sessionActionGates({ sessionId: 'fork-4', unsaved: true, stored: true, connected: true }).saved,
     false,
   )
 })
