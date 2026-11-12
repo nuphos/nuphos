@@ -27,6 +27,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -92,6 +93,11 @@ fun PlansPage(
             }
         }
         PolicyStrip(onConfigure = { showPolicy = true })
+        // Above every state, so it stays reachable when one side has no plans.
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected = plans.mine, onClick = { scope.launch { plans.showMine(true) } }, label = { Text("Mine") })
+            FilterChip(selected = !plans.mine, onClick = { scope.launch { plans.showMine(false) } }, label = { Text("Team") })
+        }
         when {
             plans.phase == PlansStore.Phase.Loading || plans.phase == PlansStore.Phase.Idle -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingIndicator() }

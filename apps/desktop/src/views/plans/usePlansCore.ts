@@ -4,13 +4,14 @@ import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
 import { useSilentTick } from '../../hooks/useSilentRefresh'
 import { useToolbarSlot } from '../../hooks/useToolbarControls'
+import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
 import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
 import { DISMISSED_STATUSES, PAGE_SIZE, isRowDismissed, proposalPlanStatus } from './planRows'
 
-import type { LoadState, Row } from './planRows'
+import type { LoadState, PlanScope, Row } from './planRows'
 import type { Plan, PlanApprovalRequirement } from '../../api'
 import type { PermissionGrantProposalView, TeamMember } from '../../types'
 
@@ -32,6 +33,9 @@ export function usePlansCore({
   isTeamAdmin,
 }: CoreArgs) {
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
+  // Mine: plans the viewer's own agents proposed. Team: every plan in the team they can read.
+  const [scope, setScope] = useState<PlanScope>('mine')
+  const viewerId = useCurrentUser()?.id
   // Team-wide permission-grant requests, surfaced alongside plans. Admins get
   // all of them (their review queue); other members get only their own.
   const [proposals, setProposals] = useState<PermissionGrantProposalView[]>([])
@@ -56,7 +60,7 @@ export function usePlansCore({
     onLoading?.(true)
 
     return Promise.all([
-      api.agentListPlans({ teamId, limit: PAGE_SIZE }),
+      api.agentListPlans({ teamId, limit: PAGE_SIZE, mine: scope === 'mine' }),
       api
         .atlasListPermissionGrantProposals(teamId)
         .catch(() => [] as PermissionGrantProposalView[]),
@@ -76,9 +80,9 @@ export function usePlansCore({
       .finally(() => {
         onLoading?.(false)
       })
-  }, [onLoading, teamId])
+  }, [onLoading, teamId, scope])
 
-  useResetOnKey(`${teamId}|${String(refreshKey)}`, () => setState({ kind: 'loading' }))
+  useResetOnKey(`${teamId}|${String(refreshKey)}|${scope}`, () => setState({ kind: 'loading' }))
   useEffect(() => {
     void reload()
   }, [reload, refreshKey])
@@ -155,6 +159,12 @@ export function usePlansCore({
     }
   }, [policyMode, policyQuorum, reload, teamId])
 
+  // Mine shows only the viewer's own permission requests; Team keeps an admin's review queue.
+  const shownProposals = useMemo(
+    () => (scope === 'mine' ? proposals.filter((p) => p.createdByUserId === viewerId) : proposals),
+    [scope, proposals, viewerId],
+  )
+
   // Merge plans + permission requests into one list, newest first. Filter is an
   // exact plan number / proposal id, or a title / grant-label substring.
   const rows = useMemo<Row[]>(() => {
@@ -166,7 +176,7 @@ export function usePlansCore({
       createdBy: p.createdBy,
       plan: p,
     }))
-    const permRows: Row[] = proposals.map((p) => ({
+    const permRows: Row[] = shownProposals.map((p) => ({
       kind: 'permission',
       id: p.id,
       createdAt: p.createdAt ?? '',
@@ -193,15 +203,15 @@ export function usePlansCore({
     }
 
     return all.sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0))
-  }, [state, proposals, filter, showDismissed])
+  }, [state, shownProposals, filter, showDismissed])
 
   // Whether the loaded list has any dismissed rows — gates the toggle so it
   // only appears when there's something to reveal.
   const hasDismissed = useMemo(
     () =>
       (state.kind === 'ready' && state.plans.some((p) => DISMISSED_STATUSES.has(p.status))) ||
-      proposals.some((p) => proposalPlanStatus(p.status) === 'rejected'),
-    [state, proposals],
+      shownProposals.some((p) => proposalPlanStatus(p.status) === 'rejected'),
+    [state, shownProposals],
   )
 
   useEffect(() => {
@@ -217,7 +227,7 @@ export function usePlansCore({
     if (state.plans.length > PAGE_SIZE) return
     try {
       const [page, props] = await Promise.all([
-        api.agentListPlans({ teamId, limit: PAGE_SIZE }),
+        api.agentListPlans({ teamId, limit: PAGE_SIZE, mine: scope === 'mine' }),
         api.atlasListPermissionGrantProposals(teamId).catch(() => proposals),
       ])
 
@@ -231,7 +241,7 @@ export function usePlansCore({
     } catch {
       // swallow; next foreground load surfaces errors
     }
-  }, [state, loadingMore, teamId, proposals])
+  }, [state, loadingMore, teamId, proposals, scope])
 
   useSilentTick(() => {
     void silentRefresh()
@@ -242,7 +252,8 @@ export function usePlansCore({
   // the actions region (right). The policy summary itself stays a body banner.
   // Gate on isActive so a background tab never leaks these, and drop them in the
   // error state (which renders no list) so the slots don't linger.
-  const dismissedToggleActive = isActive && state.kind !== 'error' && hasDismissed && !filter.trim()
+  // The left slot always holds the Mine / Team switch; the dismissed toggle joins it when useful.
+  const dismissedToggleActive = isActive && state.kind !== 'error'
   const configureActive = isActive && state.kind !== 'error' && isTeamAdmin
   const dismissedSlot = useToolbarSlot('left', dismissedToggleActive)
   const configureSlot = useToolbarSlot('right', configureActive)
@@ -274,6 +285,9 @@ export function usePlansCore({
     openPolicy,
     savePolicy,
     rows,
+    scope,
+    setScope,
+    hasDismissed: hasDismissed && !filter.trim(),
     dismissedSlot,
     configureSlot,
   }
