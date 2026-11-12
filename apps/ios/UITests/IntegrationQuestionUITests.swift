@@ -14,12 +14,13 @@ final class IntegrationQuestionUITests: XCTestCase {
         var body = try XCTUnwrap(conversation["body"] as? [String: Any])
         body["credentialAccess"] = ["trelloIntegrationIds": []]
         body["messages"] = [["id": "integration", "role": "assistant", "parts": [[
-            "type": "dynamic-tool", "toolCallId": "ask-trello", "toolName": "Request a Trello connection",
-            "state": "output-available", "input": ["category": "integration", "providers": ["trello"],
+            "type": "dynamic-tool", "toolCallId": "ask-trello", "toolName": "request_user_decision",
+            "state": "output-available", "input": ["label": "Request a Trello connection", "category": "integration", "providers": ["trello"],
                 "question": "Connect Trello for this conversation?"], "output": ["requestId": "ask-trello"]
         ]]]]
         conversation["body"] = body
         responses["GET /agent/conversations/push-a"] = conversation
+        responses["GET /agent/conversations?kind=channel"] = ["status": 200, "body": ["conversations": []]]
         responses["GET /agent/credential-options"] = ["status": 200, "body": ["options": [
             "trelloIntegrations": [["integrationId": "preview-trello", "label": "Preview Trello", "username": "preview"]]
         ]]]
