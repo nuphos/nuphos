@@ -71,8 +71,30 @@ ac /teams/$TEAM/notion-integrations | python3 -m json.tool
 > **Notion sharing model.** An integration only sees pages/databases that have
 > been explicitly shared with it (in Notion: page → ••• → Connections → add the
 > integration). If `search` or a `GET` returns nothing / `object_not_found`,
-> the page almost certainly hasn't been shared with the integration yet — tell
-> the user to share it. This is a Notion permission, not a Nuphos one.
+> the page almost certainly hasn't been shared with the integration yet. This
+> is a Notion permission, not a Nuphos one: the Notion connector being
+> installed does not give access to every page.
+
+### A page that is not shared: ask with a card, then retry
+
+Do not only relay the 404. Ask the user to share the page with
+`request_user_decision`, so it shows in Needs your input and wakes you when
+they answer:
+
+1. Find the integration's name in Notion: `notion GET /users/me` → `.name`.
+2. Call `request_user_decision` with category `approval`, options
+   `["Shared, retry", "Skip this page"]`, and
+   - `question`: `Share "<page title or URL>" with <integration name> in Notion?`
+   - `body`: the page link, and the steps: open the page in Notion, then
+     ••• → Connections → add **<integration name>**. Sharing a parent page also
+     shares its children.
+3. Then end your turn. When the answer is "Shared, retry", run the same request
+   again. If it still returns `object_not_found`, say so once with the page link
+   and continue without that page; do not ask again in a loop.
+
+Use these words, so each side reads as the same thing: the **Notion connector**
+in Nuphos, and **Connections** on the Notion page. Do not ask twice for the
+same page; when several pages are missing, list them in one card, one line each.
 
 ## Find things — search
 
@@ -274,8 +296,8 @@ notion GET /users/<userId> | python3 -m json.tool
 - Notion `401 unauthorized` — the stored token was revoked; tell the user a team
   admin needs to re-connect Notion.
 - Notion `404 object_not_found` — the page/database exists but hasn't been
-  **shared with the integration**, or the id is wrong. Ask the user to share it
-  (page → ••• → Connections), then retry.
+  **shared with the integration**, or the id is wrong. Ask with a card and
+  retry, as in "A page that is not shared" above.
 - Notion `400 validation_error` — the body shape is wrong (e.g. a property key
   that isn't in the schema, or a bad rich-text array). Re-read the schema with
   `GET /data_sources/<dataSourceId>` and fix the payload.
