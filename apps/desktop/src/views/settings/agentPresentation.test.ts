@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import {
+  agentDisplayName,
   agentName,
   agentOffline,
   agentRunsOn,
@@ -118,6 +119,53 @@ test('a computer agent is named by its provider; team runtimes keep their own na
 
   assert.equal(agentName(local), 'Claude Code')
   assert.equal(agentName(managed), 'Prod Codex')
+})
+
+test('a listed agent goes by its account where its computer has one; its name is what Rename edits', () => {
+  const summary = {
+    ownerUserId: 'u',
+    deviceId: 'mac',
+    deviceLabel: 'Mac',
+    signedIn: true,
+    agentLabel: 'Claude Code 2',
+  }
+  const named = {
+    kind: 'local',
+    provider: 'claude-code',
+    label: 'Claude Code in Mac',
+    local: summary,
+  } as RuntimeInstance
+  const labelled = {
+    ...named,
+    local: { ...summary, accountLabel: 'Claude Code · sam@example.com' },
+  } as RuntimeInstance
+
+  assert.equal(agentDisplayName(named), 'Claude Code 2')
+  assert.equal(agentDisplayName(labelled), 'Claude Code · sam@example.com')
+  assert.equal(agentName(labelled), 'Claude Code 2')
+})
+
+test('a name a person gave an agent is kept when its computer holds more than one account', () => {
+  const summary = {
+    ownerUserId: 'u',
+    deviceId: 'mac',
+    deviceLabel: 'Mac',
+    signedIn: true,
+    accountLabel: 'Claude Code · sam@example.com',
+  }
+  const shown = (agentLabel: string) =>
+    agentDisplayName({
+      kind: 'local',
+      provider: 'claude-code',
+      label: `${agentLabel} in Mac`,
+      local: { ...summary, agentLabel },
+    } as RuntimeInstance)
+
+  assert.equal(shown('Reviewer'), 'Reviewer')
+  // Its provider's own name, and the number its computer adds to a second agent, are not the
+  // person's: those give way to the account.
+  assert.equal(shown('Claude Code'), 'Claude Code · sam@example.com')
+  assert.equal(shown('Claude Code 2'), 'Claude Code · sam@example.com')
 })
 
 test("an away computer's signed-in agent stays visible and reads Offline", () => {

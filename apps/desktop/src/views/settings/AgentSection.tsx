@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
+import { useAccountLabelledInstances } from '../../hooks/useAccountLabelledInstances'
 import { usePageAside } from '../../hooks/usePageAside'
 import { useRuntimeInstances } from '../../hooks/useRuntimeInstances'
 import { useRuntimeQuotas } from '../../hooks/useRuntimeQuotas'
@@ -50,7 +51,8 @@ export function AgentSection({
   const [open, setOpen] = useState(false)
   const aside = usePageAside()
   const catalog = useRuntimeInstances(teamId, refreshKey)
-  const visible = catalog.instances.filter(visibleAgent)
+  // A computer holding several accounts for one provider tells its agents apart by account.
+  const visible = useAccountLabelledInstances(catalog.instances).filter(visibleAgent)
   const quotas = useRuntimeQuotas(teamId)
   const sectionOrder = useSectionOrder(teamId, AGENT_SECTION_IDS)
   const instances = visible.filter((instance) =>

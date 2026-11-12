@@ -172,6 +172,26 @@ test('inside its computer a runtime shows its own name, or its provider', () => 
   )
   assert.equal(boxAgentName({ label: 'Codex in Studio', provider: 'codex', local }), 'Codex')
   assert.equal(boxAgentName({ label: 'Team Claude', provider: 'claude-code' }), 'Team Claude')
+  // Its computer on two accounts: a name a person chose stays, the provider's own name and the
+  // number its computer adds to a second agent give way to the account.
+  const account = { accountLabel: 'Claude Code · sam@example.com' }
+
+  assert.equal(
+    boxAgentName({
+      label: 'Reviewer in Studio',
+      provider: 'claude-code',
+      local: { ...local, ...account, agentLabel: 'Reviewer' },
+    }),
+    'Reviewer',
+  )
+  assert.equal(
+    boxAgentName({
+      label: 'Claude Code 2 in Studio',
+      provider: 'claude-code',
+      local: { ...local, ...account, agentLabel: 'Claude Code 2' },
+    }),
+    'Claude Code · sam@example.com',
+  )
 })
 
 test('shared-host disclosure follows use grants, without warning owners or managers', async () => {

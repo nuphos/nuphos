@@ -1,6 +1,6 @@
 import { t } from '../../../i18n/index.ts'
 import { usable } from '../../../lib/agentName.ts'
-import { AGENT_PROVIDER } from '../../../types/runtime.ts'
+import { agentDisplayName } from '../../../views/settings/agentPresentation.ts'
 
 import type { RuntimeControl } from './RuntimeSelector'
 import type { RuntimeInstance } from '../../../types/runtime.ts'
@@ -36,7 +36,7 @@ export function selectedAgentName(control: Pick<RuntimeControl, 'value' | 'optio
   if (!local) return value.label
 
   return t('{agent} on {computer}', {
-    agent: local.agentLabel ?? AGENT_PROVIDER[value.provider].label,
+    agent: agentDisplayName({ provider: value.provider, label: value.label, local }),
     computer: local.deviceLabel,
   })
 }
