@@ -12,6 +12,8 @@ import {
 import { sessionConfigPickSchema } from '@/lib/claude-code-preview/session-config-options'
 import { AppError } from '@/lib/errors'
 
+import { decisionReplyOf } from './decision-reply'
+
 // POSIX or Windows absolute; the runtime checks the folder itself when it spawns.
 function isFolderWorkspace(value: unknown): value is { kind: 'folder'; path: string } {
   const { kind, path } = (value ?? {}) as Record<string, unknown>
@@ -157,6 +159,16 @@ export async function acceptClientTail(
     cliToken,
     teamId,
   )
+  // An answer says which question it answers, so the agent can tell two alike apart.
+  const asked = decisionReplyOf(body)
+  const request = asked && conversationForResume?.inputRequests?.find((r) => r.id === asked)
+  const last = messages.at(-1)
+
+  if (request && last?.role === 'user' && !body.resume && !body.continueAfterInterruption)
+    last.metadata = {
+      ...(last.metadata as object),
+      answers: { requestId: request.id, question: request.question },
+    }
 
   return messages
 }

@@ -352,6 +352,10 @@ describe('answering in a chat', () => {
 
     expect(response.status).toBe(201)
     expect(appended[0]?.messages[0]).toMatchObject({ parts: [{ type: 'text', text: 'Yes' }] })
+    // The post says which question it answers, for the agent that asked.
+    expect(appended[0]?.messages[0]?.metadata).toMatchObject({
+      answers: { requestId: 'q1', question: expect.any(String) },
+    })
     expect(
       (await agentConversations().findOne({ sessionId: 'bot' }))?.inputRequests?.[0]?.status,
     ).toBe('answered')

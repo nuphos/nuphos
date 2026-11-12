@@ -147,6 +147,26 @@ describe('acceptClientTail', () => {
     expect(error?.status).toBe(409)
     expect(error?.details).toEqual({ storedMessageCount: 1 })
   })
+
+  test('an answer says which open question it answers', async () => {
+    state.stored = []
+    const asking = {
+      sessionId: 'sess',
+      userId: 'owner',
+      inputRequests: [{ id: 'nuphos-q1', question: 'Ship it?', status: 'open' }],
+    } as never
+    const answer: UIMessage[] = [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'Yes' }] }]
+    const [sent] = await acceptClientTail(
+      { id: 'sess', messages: answer, decisionReplyTo: 'nuphos-q1' },
+      'sess',
+      'owner',
+      asking,
+    )
+
+    expect(sent?.metadata).toMatchObject({
+      answers: { requestId: 'nuphos-q1', question: 'Ship it?' },
+    })
+  })
 })
 
 test('an older Desktop can start a new chat after saving an unknown current model', () => {

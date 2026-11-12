@@ -32,6 +32,19 @@ test('model envelope is valid JSON and hostile labels cannot close the envelope'
   expect(text.join('\n')).toBe(body)
 })
 
+test('an answer names the question it answers in the model envelope', () => {
+  const answering = { ...metadata, answers: { requestId: 'nuphos-q1', question: 'Ship it?' } }
+  const rendered = renderAttributedMessage('message-a', 'Yes', answering)
+
+  expect(JSON.parse(rendered.split('\n')[1]!)).toMatchObject({
+    answers: { requestId: 'nuphos-q1', question: 'Ship it?' },
+  })
+  // Only a person's own Nuphos message carries it, and only whole.
+  expect(
+    parseMessageMetadata({ ...answering, answers: { requestId: 'nuphos-q1' } }),
+  ).not.toHaveProperty('answers')
+})
+
 test('legacy and unsupported metadata remain unattributed', () => {
   for (const value of [
     undefined,

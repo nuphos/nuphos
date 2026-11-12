@@ -249,6 +249,10 @@ channelRoutes.post('/conversations/:sessionId/channel-messages', async (c) => {
   // A post may answer a question an agent in the chat asked: the post is the answer.
   const decisionReplyTo = decisionReplyOf(body)
   const asked = decisionReplyTo ? await askingAgent(channel, decisionReplyTo, id) : undefined
+  const question = asked?.inputRequests?.find((request) => request.id === decisionReplyTo)?.question
+
+  // The asking agent reads which of its questions this post answers.
+  if (decisionReplyTo && question) metadata.answers = { requestId: decisionReplyTo, question }
 
   await postChannelMessage(channel, { id, text, metadata, files: upload ? [upload] : [] })
   if (asked && decisionReplyTo)

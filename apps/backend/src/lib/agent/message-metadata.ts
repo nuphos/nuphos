@@ -32,7 +32,11 @@ export type MessageMetadata = {
   cliTokenId?: string
   /** Team members it @mentions, resolved by the server from the composer's chips. */
   mentions?: MessageMention[]
+  /** The agent's open question this message answers, as the server read it. */
+  answers?: MessageAnswer
 }
+
+export type MessageAnswer = { requestId: string; question: string }
 
 export type MessageMention = { id: string; displayName: string }
 
@@ -104,6 +108,10 @@ export function parseMessageMetadata(value: unknown): MessageMetadata | undefine
 
   const device = parseDevice(m.device)
   const mentions = m.source === 'nuphos' ? parseMentions(m.mentions) : undefined
+  const answers =
+    m.source === 'nuphos' && nonEmpty(m.answers?.requestId) && nonEmpty(m.answers.question)
+      ? { requestId: m.answers.requestId, question: m.answers.question }
+      : undefined
   const replyTo =
     m.replyTo && nonEmpty(m.replyTo.authorName) && nonEmpty(m.replyTo.text)
       ? {
@@ -137,6 +145,7 @@ export function parseMessageMetadata(value: unknown): MessageMetadata | undefine
     ...(m.source === 'discord' && m.unattested === true ? { unattested: true as const } : {}),
     ...(nonEmpty(m.cliTokenId) ? { cliTokenId: m.cliTokenId } : {}),
     ...(mentions ? { mentions } : {}),
+    ...(answers ? { answers } : {}),
   }
 }
 
