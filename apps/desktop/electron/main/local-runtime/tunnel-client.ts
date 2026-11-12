@@ -150,12 +150,8 @@ export class RuntimeTunnelClient {
   }
 
   /** Silence counts from the last thing the open socket received, its opening included. */
-  private heard(socket: SocketLike): void {
-    this.lastFrameAt = Date.now()
-    this.armIdle(socket)
-  }
-
-  private armIdle(socket: SocketLike): void {
+  private armIdle(socket: SocketLike, lastFrameAt?: number): void {
+    this.lastFrameAt = lastFrameAt
     clearTimeout(this.idleTimer)
     this.idleTimer = setTimeout(() => {
       if (this.socket !== socket) return
@@ -176,13 +172,12 @@ export class RuntimeTunnelClient {
       return
     }
     this.socket = socket
-    this.lastFrameAt = undefined
     this.armIdle(socket)
     socket.addEventListener('open', () => {
       if (this.socket !== socket) return
       this.attempt = 0
       this.superseded = false
-      this.heard(socket)
+      this.armIdle(socket, Date.now())
       this.sendStatus()
       if (this.dropped) this.send({ t: 'dropped', ...this.dropped })
       this.dropped = undefined
@@ -194,7 +189,7 @@ export class RuntimeTunnelClient {
     })
     socket.addEventListener('message', (event) => {
       if (this.socket !== socket) return
-      this.heard(socket)
+      this.armIdle(socket, Date.now())
       const frame = parseFrame(event.data)
 
       if (frame) this.handle(frame)
