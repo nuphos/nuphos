@@ -833,6 +833,8 @@
   "POST /teams/:teamId/sentry-accounts/start-oauth": "admin",
   "POST /teams/:teamId/skills/github/install": "member",
   "POST /teams/:teamId/skills/github/preview": "member",
+  "POST /teams/:teamId/skills/github/update": "member",
+  "POST /teams/:teamId/skills/github/updates": "member",
   "POST /teams/:teamId/skills/object": "member",
   "POST /teams/:teamId/skills/promote": "editor",
   "POST /teams/:teamId/slack-installations/start-oauth": "admin",

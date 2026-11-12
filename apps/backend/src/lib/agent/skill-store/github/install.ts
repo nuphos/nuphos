@@ -15,7 +15,7 @@ import { findEmbeddedSecret, findSecrets } from '@/lib/secrets/scan'
 
 import { claimSkillNames, completedBefore } from './claims'
 import { discoverSkills } from './discover'
-import { recordSkillOrigin, skillContentHash } from './origin'
+import { recordSkillOrigin, skillContentHash, skillFileHashes } from './origin'
 import { githubSourceLabel, parseGithubSource } from './source'
 import { readRepoTarball, TARBALL_LIMITS } from './tarball'
 
@@ -82,9 +82,9 @@ async function secretIn(data: Uint8Array): Promise<string | null> {
 
 const fail = (code: string, message: string) => ({ code, message })
 
-type Taken = { builtin: Set<string>; existing: Set<string> }
+export type Taken = { builtin: Set<string>; existing: Set<string> }
 
-async function assess(
+export async function assess(
   skill: DiscoveredSkill,
   taken: Taken,
 ): Promise<GithubSkillCandidate['problem']> {
@@ -191,6 +191,7 @@ async function writeSkill(
     path: skill.path,
     commitSha,
     contentHash: skillContentHash(skill.files),
+    fileHashes: skillFileHashes(skill.files),
     installedEtags: Object.fromEntries(saved.map((object) => [object.key, object.etag])),
     installedAt: new Date(),
     installedByUserId: context.actor.userId,
