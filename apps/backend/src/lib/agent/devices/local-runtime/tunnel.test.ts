@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, spyOn, test } from 'bun:test'
 
 import { localRuntimeUrl } from './address'
-import { createLocalTunnelBus } from './bus'
+import { createLocalTunnelBus, guardedReconnect } from './bus'
 import { holderChannel, streamChannel } from './protocol'
 import { attachRuntimeTunnel, connectedComputerCount, TUNNEL_CLOSE_SUPERSEDED } from './holder'
 import { createMemoryPresenceStore } from './presence'
@@ -598,5 +598,60 @@ describe('a frame nobody receives', () => {
     socket.send('{"jsonrpc":"2.0","id":1,"result":{}}')
     await eventually(() => events.some((event) => event.type === 'close'))
     expect(events.find((event) => event.type === 'close')?.reason).toContain('lost')
+  })
+})
+
+describe('a tunnel that hears nothing on its channel', () => {
+  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+  test('does not replace a subscriber that still hears its own probe', async () => {
+    let reconnects = 0
+    const check = guardedReconnect(
+      createLocalTunnelBus(),
+      () => {
+        reconnects += 1
+      },
+      50,
+    )
+
+    check()
+    await wait(80)
+    expect(reconnects).toBe(0)
+  })
+
+  test('replaces a deaf subscriber once, however many tunnels ask', async () => {
+    let reconnects = 0
+    const deaf: TunnelBus = {
+      publish: () => Promise.resolve(1),
+      subscribe: () => Promise.resolve(() => {}),
+    }
+    const check = guardedReconnect(
+      deaf,
+      () => {
+        reconnects += 1
+      },
+      20,
+    )
+
+    check()
+    check()
+    check()
+    await wait(60)
+    expect(reconnects).toBe(1)
+  })
+
+  test('blames nothing when the probe cannot even be published', async () => {
+    let reconnects = 0
+    const check = guardedReconnect(
+      { ...createLocalTunnelBus(), publish: () => Promise.reject(new Error('client down')) },
+      () => {
+        reconnects += 1
+      },
+      20,
+    )
+
+    check()
+    await wait(60)
+    expect(reconnects).toBe(0)
   })
 })

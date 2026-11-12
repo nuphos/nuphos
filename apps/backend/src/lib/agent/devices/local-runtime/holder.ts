@@ -190,7 +190,7 @@ export async function attachRuntimeTunnel(
     if (Date.now() - lastFrameAt > (deps.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS))
       return shut(TUNNEL_CLOSE_IDLE, 'No frames from the computer')
     if (Date.now() - lastEchoAt > (deps.channelTimeoutMs ?? DEFAULT_CHANNEL_TIMEOUT_MS)) {
-      // Else the computer's next tunnel waits forever on the same dead subscription.
+      // Only this tunnel ends; the bus replaces the shared subscription only if it is deaf too.
       deps.bus.reconnect?.()
 
       return shut(TUNNEL_CLOSE_IDLE, 'Device channel unavailable')
