@@ -1,4 +1,4 @@
-import { QueryClient } from '@tanstack/react-query'
+import { focusManager, QueryClient } from '@tanstack/react-query'
 
 import { isAccountGone, isSessionRejected, parseAtlasError } from '../../api/errors.ts'
 
@@ -32,3 +32,22 @@ export function createQueryClient(): QueryClient {
 }
 
 export const queryClient = createQueryClient()
+
+// A visible window counts as focused, so a blurred one keeps polling. Focusing it also refreshes
+// what went stale, which visibility alone misses: Electron's window stays visible behind another app.
+focusManager.setEventListener((handleFocus) => {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return
+  const onVisibility = () => handleFocus(document.visibilityState !== 'hidden')
+  const onFocus = () => {
+    handleFocus(false)
+    handleFocus(true)
+  }
+
+  window.addEventListener('focus', onFocus)
+  document.addEventListener('visibilitychange', onVisibility)
+
+  return () => {
+    window.removeEventListener('focus', onFocus)
+    document.removeEventListener('visibilitychange', onVisibility)
+  }
+})

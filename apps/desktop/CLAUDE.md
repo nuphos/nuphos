@@ -52,6 +52,9 @@ over when you touch its loading code.
   call `useQuery(helper(...))` and never write a key inline. Outside React, use
   `queryClient.query(helper(...))`.
 - Writes use `useMutation`, then invalidate or `setQueryData` the narrowest key.
+- One hook per resource wraps `useQuery({ queryKey, queryFn, refetchInterval })`
+  and every reader calls it. TanStack dedupes the reads, and each update re-arms
+  every reader's timer, so readers at the same interval poll about once a cycle.
 - Do not add another `useEffect` + `useState` loader, module-level promise
   cache, `sharedPoll`, `useWatchedList`, `useSilentRefresh` or `usePolledList`.
 - Streams (agent SSE, WebSockets, Kubernetes watches, terminals) and local IPC

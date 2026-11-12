@@ -14,7 +14,7 @@ import type { Section } from './types'
 export function useInboxBadge(teamId: string, sections: Section[]): Section[] {
   const { approvals } = useShareApprovals(teamId)
   const mentions = useChannelMentions(teamId)
-  const count = (useInboxCount(teamId) ?? 0) + approvals.length + (mentions?.length ?? 0)
+  const count = useInboxCount(teamId) + approvals.length + (mentions?.length ?? 0)
 
   useShareApprovalNotifications(teamId, approvals)
   useMentionNotifications(teamId, mentions)

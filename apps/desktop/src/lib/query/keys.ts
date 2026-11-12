@@ -6,4 +6,9 @@ export const queryKeys = {
   /** Under `teamMembers`, so refreshing the members refreshes this too. */
   teamMembersWithRemoved: (teamId: string) =>
     [...queryKeys.teamMembers(teamId), 'with-removed'] as const,
+  inbox: (teamId: string) => [...queryKeys.team(teamId), 'inbox'] as const,
+  shareApprovals: (teamId: string) => [...queryKeys.team(teamId), 'share-approvals'] as const,
+  channelMentions: (teamId: string) => [...queryKeys.team(teamId), 'channel-mentions'] as const,
+  channel: (teamId: string, channelId: string) =>
+    [...queryKeys.team(teamId), 'channel', channelId] as const,
 }
