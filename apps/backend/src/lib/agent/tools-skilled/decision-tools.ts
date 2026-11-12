@@ -199,7 +199,8 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
         'When it is about a PR or issue linked with bind_session_resource, or one of your sub-agent threads, name them in `about`: their changes then remind you of the question, to withdraw or update it. ' +
         'The result carries a `requestId`; while the question is open, update_user_decision corrects it and withdraw_user_decision removes it once it no longer applies. ' +
         'After it returns, never make the choice yourself or do the work that depends on it. You may continue with work that does not depend on the answer, or end your turn: the answer arrives as a new message either way.',
-      inputSchema: z.object({
+      // Strict: a misnamed field, e.g. `choices` for `options`, is refused rather than dropped.
+      inputSchema: z.strictObject({
         label: labelField,
         category: z.enum(['preference', 'approval', 'credential', 'integration', 'risk_tradeoff']),
         question: questionField,
