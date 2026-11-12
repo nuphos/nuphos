@@ -44,5 +44,10 @@ final class IntegrationQuestionUITests: XCTestCase {
         app.staticTexts["Preview Trello"].tap()
         app.buttons["Done"].firstMatch.tap()
         XCTAssertTrue(app.buttons["integration.chooseCredentials"].waitForExistence(timeout: 5))
+        app.buttons["integration.openConnectors"].tap()
+        let connectors = app.navigationBars["Connectors"]
+        XCTAssertTrue(connectors.waitForExistence(timeout: 5), "The inherited ConnectorsStore must be available in the sheet")
+        connectors.buttons["Done"].tap()
+        XCTAssertTrue(app.buttons["integration.chooseCredentials"].waitForExistence(timeout: 5))
     }
 }
