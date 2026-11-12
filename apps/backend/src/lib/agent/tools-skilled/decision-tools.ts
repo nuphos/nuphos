@@ -152,7 +152,7 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
   if (agentOrigin === 'user' && onExplicitUserDecision) {
     userDecisionTools.request_user_decision = tool({
       description:
-        'Declare that the current task is genuinely blocked on a choice only the user can make, then end the turn with exactly that concise question. ' +
+        'Ask the user a choice only they can make, as a card they answer in the conversation or their Inbox. ' +
         'Use this ONLY for a real preference, approval for a risky/costly/irreversible action, a credential or secret the tools cannot obtain, an integration the user must connect, or a material risk tradeoff. ' +
         'Do not use it for facts you can inspect, safe read-only work, optional follow-ups, or to avoid finishing the task. ' +
         'For an integration or cloud account the task needs that is not connected to the team, or connected but not selected for this conversation, use category `integration` and list it in `providers`: in the Desktop app the user then gets a Connect card for it. ' +
@@ -163,7 +163,7 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
         'Ask exactly one question per call, and put its choices in `options`, never in the question text: the user answers with one button per option. ' +
         'The question is listed in the Inbox until answered: put what the user needs to decide in `body`, so they can answer there without reading the chat. ' +
         'The result carries a `requestId`; while the question is open, update_user_decision corrects it and withdraw_user_decision removes it once it no longer applies. ' +
-        'After this tool returns, do not run more tools or make the choice yourself; follow the returned instruction, include the supplied options when present, and wait for the next user message.',
+        'After it returns, never make the choice yourself or do the work that depends on it. You may continue with work that does not depend on the answer, or end your turn: the answer arrives as a new message either way.',
       inputSchema: z.object({
         label: labelField,
         category: z.enum(['preference', 'approval', 'credential', 'integration', 'risk_tradeoff']),
@@ -218,10 +218,10 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
           ...(secretName ? { secretName } : {}),
           instruction:
             providers || credentials
-              ? 'The user sees a Connect card for these below your message. End the turn with one short sentence that refers to "the card below" (never "above") and wait; once one is selected for this conversation, you are told so in a new message and continue from there.'
+              ? 'The user sees a Connect card for these below your message; point to it in one short sentence that refers to "the card below" (never "above"). Once one is selected for this conversation, you are told so in a new message and continue from there.'
               : secretName
-                ? 'The user sees a secure input card below your message. End the turn with one short sentence that refers to "the card below" (never "above") and wait. Their next message gives the path of a file holding the value: read it only inside the command that needs it, e.g. "$(cat <path>)", and never print, echo or copy its contents.'
-                : 'End the turn now with this question and wait for the user. Do not continue the task or choose on their behalf.',
+                ? 'The user sees a secure input card below your message; point to it in one short sentence that refers to "the card below" (never "above"). Their answer, a new message, gives the path of a file holding the value: read it only inside the command that needs it, e.g. "$(cat <path>)", and never print, echo or copy its contents.'
+                : 'Do not choose on their behalf or do the work that depends on the answer. Continue only with work that does not depend on it, or end your turn; the answer arrives as a new message.',
         }
       },
     })

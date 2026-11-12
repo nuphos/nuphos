@@ -4,11 +4,11 @@
 // person never sees the question. Both adapters ask it through the session's own
 // nuphos-tools request_user_decision instead, which registers the pending
 // question Inbox and the session panel show. As with that tool, the reply comes
-// back as the person's next message, so the agent is told to end its turn.
+// back as a new message, so the agent is told not to wait for it here.
 // Inlined into both adapter bundles: no imports.
 
 export const NUPHOS_QUESTION_ASKED =
-  'The question is now shown to the user in Nuphos. End your turn without choosing for them; their answer arrives as the next user message.'
+  'The question is now shown to the user in Nuphos. Do not choose for them; continue only with work that does not depend on it, or end your turn. Their answer arrives as a new message.'
 export const NUPHOS_QUESTION_FAILED =
   'Nuphos could not show this question to the user. Ask it with the nuphos-tools request_user_decision tool instead.'
 // A hung tools server must not hold the agent's turn.
