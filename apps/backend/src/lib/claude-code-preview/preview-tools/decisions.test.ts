@@ -399,6 +399,24 @@ describe('decision tool module', () => {
     expect(result.isError).toBeFalsy()
   })
 
+  test('request_user_decision refuses a parameter it does not take, naming it', async () => {
+    const frames: Record<string, unknown>[] = []
+    const result = await decisionToolModule({
+      publish: async (_ctx, frame) => {
+        frames.push(frame)
+      },
+    }).handlers(ctx).request_user_decision!({
+      label: 'Ask',
+      category: 'preference',
+      question: 'Which region?',
+      choices: ['us-east-1', 'eu-west-1'],
+    })
+
+    expect(result.isError).toBe(true)
+    expect(JSON.stringify(result.content)).toContain("Unrecognized key(s) in object: 'choices'")
+    expect(frames).toEqual([])
+  })
+
   test('an integration decision carries its providers to the Desktop Connect card', async () => {
     const frames: Record<string, unknown>[] = []
     const tools = decisionToolModule({

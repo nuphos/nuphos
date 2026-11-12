@@ -14,7 +14,7 @@ import { toolError, toolResult } from '@/lib/mcp/protocol'
 import type { PreviewToolContext } from '../preview-tool-context'
 import type { AiSdkToolLike } from './ai-sdk-adapter'
 import type { DecisionQuestion } from '@/lib/agent/tools-skilled/types'
-import type { ToolHandler } from '@/lib/mcp/protocol'
+import type { ToolHandler, ToolResult } from '@/lib/mcp/protocol'
 import type { ZodType } from 'zod'
 
 /** Questions are kept on the conversation for its owner, whoever's turn asked them. */
@@ -69,21 +69,27 @@ const requestFollowUps = {
   },
 }
 
-/** MCP does not check arguments against the advertised schema, so the follow-ups do. */
+/**
+ * MCP does not check arguments against the advertised schema, so the decision
+ * tools do: a call with a wrong or unknown parameter is refused, naming it.
+ */
+export async function checkedCall<T>(
+  tool: AiSdkToolLike,
+  args: unknown,
+  handle: (input: T) => Promise<ToolResult>,
+): Promise<ToolResult> {
+  const parsed = (tool.inputSchema as ZodType<T>).safeParse(args)
+
+  return parsed.success ? handle(parsed.data) : toolError(`Invalid input: ${parsed.error.message}`)
+}
+
 export function followUpHandler(
   name: keyof typeof requestFollowUps,
   tool: AiSdkToolLike,
   ctx: PreviewToolContext,
 ): ToolHandler {
-  const schema = tool.inputSchema as ZodType<RequestFollowUp>
-
-  return async (args) => {
-    const parsed = schema.safeParse(args)
-
-    return parsed.success
-      ? requestFollowUps[name](ctx, parsed.data)
-      : toolError(`Invalid input: ${parsed.error.message}`)
-  }
+  return (args) =>
+    checkedCall<RequestFollowUp>(tool, args, (input) => requestFollowUps[name](ctx, input))
 }
 
 export function isRequestFollowUp(name: string): name is keyof typeof requestFollowUps {

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { answeredIn, inboxCount, inboxQuestions, markAsDone, openQuestion } from './inboxItems.ts'
+import { answeredIn, inboxCount, inboxQuestions, openQuestion } from './inboxItems.ts'
 
 import type { AgentConversation } from '../../api/agent-types.ts'
 
@@ -72,12 +72,4 @@ test('a listing settles answers it no longer has open, and those past their dead
   const listing = [waiting('a', 'sending', 'sent', 'stale')]
 
   assert.deepEqual(answeredIn(listing, answered, 1_000), ['gone', 'stale'])
-})
-
-test('a to-do is marked done; a choice, a secret or a connection is not', () => {
-  // Marking a to-do done answers it like any reply, so the agent goes on.
-  assert.equal(markAsDone({ category: 'approval' }), true)
-  assert.equal(markAsDone({ category: 'preference', options: ['us-east-1', 'eu-west-1'] }), false)
-  assert.equal(markAsDone({ category: 'credential' }), false)
-  assert.equal(markAsDone({ category: 'integration' }), false)
 })

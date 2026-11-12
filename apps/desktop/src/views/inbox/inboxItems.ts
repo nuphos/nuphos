@@ -61,11 +61,3 @@ export function openQuestion(
 
   return rows[Math.max(0, Math.min(selected?.index ?? 0, rows.length - 1))]
 }
-
-/** Secure-input and Connect cards answer these themselves, never with a reply. */
-const ANSWERED_IN_CONVERSATION = new Set(['credential', 'integration'])
-
-/** A to-do: no choices, answered with "Done." so the agent goes on, or in words. */
-export function markAsDone(request: Pick<AgentInputRequest, 'category' | 'options'>): boolean {
-  return !ANSWERED_IN_CONVERSATION.has(request.category) && !request.options?.length
-}
