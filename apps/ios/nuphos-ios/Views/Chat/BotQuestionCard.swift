@@ -2,35 +2,35 @@ import SwiftUI
 
 /// An open question, in a Bot's chat or the Inbox, like the desktop's decision
 /// card: which agent asked, the question and what the agent wrote to decide it
-/// from, each option as the reply, and "Other…" to answer in words in the
-/// composer, quoting it. A multi-select or several questions are a form, sent
-/// as one reply. A connect or secure-input question is answered in the
+/// from, each option an answer, and "Other…" to type the answer in the card. A
+/// multi-select or several questions are a form, sent as one answer. An answer
+/// wakes the agent that asked; no message is sent. A connect or secure-input question is answered in the
 /// conversation that asked, which the link opens. `showsFrom` is off for the
 /// Bot's own questions in its own chat.
 struct BotQuestionCard: View {
     let question: BotQuestion
     var showsFrom = true
     let onOpen: () -> Void
-    let onAnswer: (String) -> Void
+    let onAnswer: (DecisionAnswer) -> Void
     /// A tapped link in the body. Absent, the system opens it.
     var onLink: ((URL) -> Void)?
     /// Why the last answer could not be sent; the question is still open.
     var failure: String?
-    /// Starts an answer in words in the composer, quoting the question; absent where none answers it.
-    var onReply: (() -> Void)?
     /// Chooses the asking conversation's credentials here, for an integration question; absent where it cannot.
     var onConnect: (() -> Void)?
 
     @State private var expanded = false
+    /// "Other…" was tapped: the card asks for the answer in words.
+    @State private var typing = false
     @Environment(\.openURL) private var openURL
 
     /// The desktop's `cardReplies`: one per option, or "Done." for a to-do; nil
     /// when only the conversation can answer it.
-    private var replies: [(label: String, reply: String)]? {
+    private var replies: [(label: String, answer: DecisionAnswer)]? {
         if ["credential", "integration"].contains(question.request.category) { return nil }
         let options = (question.request.options ?? []).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-        if options.isEmpty { return [(String(localized: "Mark as done"), "Done.")] }
-        return options.map { ($0, $0) }
+        if options.isEmpty { return [(String(localized: "Mark as done"), DecisionAnswer(text: "Done."))] }
+        return options.map { ($0, DecisionAnswer(choices: [$0])) }
     }
 
     /// "Use your own GitHub" for a question naming the member's own credential; otherwise the picker.
@@ -78,17 +78,20 @@ struct BotQuestionCard: View {
                 }
                 if let form = question.form {
                     DecisionForm(questions: form, onSubmit: onAnswer)
+                } else if typing {
+                    // "Other…": the same form with the question alone and no options.
+                    DecisionForm(questions: [.init(question: question.request.question)], onSubmit: onAnswer)
                 } else if let replies {
                     VStack(alignment: .leading, spacing: 8) {
-                        ForEach(replies, id: \.reply) { reply in
-                            Button(reply.label) { onAnswer(reply.reply) }
+                        ForEach(replies, id: \.label) { reply in
+                            Button(reply.label) { onAnswer(reply.answer) }
                                 .buttonStyle(.bordered)
                                 .controlSize(.small)
                                 .tint(Theme.heading)
                         }
                     }
-                    if let onReply, question.typed {
-                        Button(replyLabel, action: onReply)
+                    if question.typed {
+                        Button(replyLabel) { typing = true }
                             .font(Theme.Text.label)
                             .foregroundStyle(Theme.muted)
                             .buttonStyle(.plain)
@@ -137,15 +140,15 @@ struct BotQuestionCard: View {
 }
 
 /// The desktop's `DecisionForm`: each question's options toggled, one or any
-/// number, or the answer typed in their place, sent together as one reply.
+/// number, or the answer typed in their place, sent together as one answer.
 private struct DecisionForm: View {
     let questions: [AgentConversation.DecisionQuestion]
-    let onSubmit: (String) -> Void
+    let onSubmit: (DecisionAnswer) -> Void
 
     @State private var picked: [[String]]
     @State private var typed: [String]
 
-    init(questions: [AgentConversation.DecisionQuestion], onSubmit: @escaping (String) -> Void) {
+    init(questions: [AgentConversation.DecisionQuestion], onSubmit: @escaping (DecisionAnswer) -> Void) {
         self.questions = questions
         self.onSubmit = onSubmit
         _picked = State(initialValue: questions.map { _ in [] })
@@ -191,7 +194,7 @@ private struct DecisionForm: View {
                     .font(Theme.Text.label)
                 }
             }
-            Button("Send answer") { onSubmit(BotQuestion.formReply(questions, answers: answers)) }
+            Button("Send answer") { onSubmit(BotQuestion.formAnswer(questions, picked: picked, typed: typed)) }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
                 .disabled(answers.contains { $0.isEmpty })

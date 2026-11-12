@@ -29,9 +29,10 @@ enum BotQuestionsTests {
         precondition(form.count == 2)
         precondition(BotQuestion.answerText(picked: ["us", "eu"], typed: " ") == "us, eu")
         precondition(BotQuestion.answerText(picked: ["us"], typed: " Tokyo ") == "Tokyo")
-        precondition(BotQuestion.formReply(form, answers: ["us, eu", "Keep"])
-            == "Which regions?\nus, eu\n\nKeep the old cluster?\nKeep")
-        precondition(BotQuestion.formReply([form[0]], answers: ["us"]) == "us")
+        precondition(BotQuestion.formAnswer(form, picked: [["us", "eu"], []], typed: ["", " Keep "])
+            == DecisionAnswer(questions: [DecisionAnswer(choices: ["us", "eu"]), DecisionAnswer(text: "Keep")]))
+        precondition(BotQuestion.formAnswer([form[0]], picked: [["us"]], typed: [""]) == DecisionAnswer(choices: ["us"]))
+        precondition(DecisionAnswer(choices: ["us"]).json == .object(["choices": .array([.string("us")])]))
         // Only the exact list the backend wrote out is dropped; a `---` of the agent's own stays.
         precondition(BotQuestion.writtenQuestions(form) == "\n\n---\n\n**1. Which regions?** (any number)\n- us\n- eu\n\n**2. Keep the old cluster?**\n- Keep\n- Delete")
         var ruled = AgentConversation.InputRequest(id: "e", category: "preference", question: "Rollout",
