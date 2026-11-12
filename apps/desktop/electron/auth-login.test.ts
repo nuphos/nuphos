@@ -10,10 +10,10 @@ import type { UserInfo } from './auth-status.ts'
 // (node --experimental-strip-types --experimental-test-module-mocks --test ...)
 //
 // Drives login() end to end over a real loopback HTTP request, with `electron`,
-// the config file, and both servers (api.nuphos.ai / nuphos.ai) mocked out.
+// the config file, and the backend mocked out.
 //
-// Both flows are covered because both ship at once: the legacy one stays
-// reachable against a deployment without the native endpoints.
+// A backend that does not offer a provider fails the sign-in before any
+// browser opens.
 
 const USER: UserInfo = {
   id: '507f1f77bcf86cd799439011',
@@ -22,11 +22,9 @@ const USER: UserInfo = {
   username: 'bruce',
 }
 
-const b64url = (value: string) => Buffer.from(value, 'utf8').toString('base64url')
-const encodeUser = (user: unknown) => b64url(JSON.stringify(user))
 const TOKEN = 'nus_test-session'
 const HANDLE = 'h'.repeat(43)
-/** What the landing page puts on the loopback redirect after a real sign-in. */
+/** What the backend puts on the loopback redirect after a real sign-in. */
 const DELIVERY_CODE = 'd'.repeat(43)
 
 const openedUrls: string[] = []
@@ -210,12 +208,6 @@ async function hitCallback(port: string, query: Record<string, string>) {
 }
 
 const registeredPort = () => new URL(registrations[0]!.redirectUri).port
-
-const legacyState = (opened: URL) =>
-  JSON.parse(Buffer.from(opened.searchParams.get('state')!, 'base64').toString('utf8')) as {
-    callbackUrl: string
-    clientState: string
-  }
 
 const lastConfig = () =>
   yaml.load(configWrites[configWrites.length - 1]!) as { token?: string; userInfo?: UserInfo }
@@ -579,76 +571,42 @@ test('native: a callback with the wrong state is ignored', async () => {
   assert.deepEqual(await loginPromise, USER)
 })
 
-// ── Falling back to the legacy flow ──────────────────────────────────────────
+// ── Servers without social sign-in ───────────────────────────────────────────
 
-test('falls back to the legacy flow when the backend has no native endpoint', async () => {
-  nativeSupported = false
+test('Google fails without opening a browser when the backend does not offer it', async () => {
+  // A self-hosted server without Google must not send anyone to another server's sign-in.
+  chooserProbe = () =>
+    new Response('provider chooser', { headers: { 'X-Nuphos-Social-Login': '1' } })
 
-  const loginPromise = auth.login('google')
-
-  loginPromise.catch(() => {})
-  const opened = await waitForBrowser()
-
-  assert.equal(opened.pathname, '/login')
-
-  const state = legacyState(opened)
-  const res = await hitCallback(new URL(state.callbackUrl).port, {
-    token: TOKEN,
-    state: state.clientState,
-    user: encodeUser(USER),
-  })
-
-  assert.equal(res.status, 200)
-
-  assert.deepEqual(await loginPromise, USER)
-  assert.equal(lastConfig().token, TOKEN)
+  await assert.rejects(auth.login('google'), /does not offer Google/)
+  assert.equal(openedUrls.length, 0)
+  assert.equal(registrations.length, 0)
 })
 
-test('falls back to the legacy flow when the backend has no chooser endpoint', async () => {
+test('a backend without the chooser endpoint opens no browser', async () => {
   chooserProbe = () => new Response('Not found', { status: 404 })
 
-  const loginPromise = auth.login('google')
-
-  loginPromise.catch(() => undefined)
-  const opened = await waitForBrowser()
-
-  assert.equal(opened.pathname, '/login')
-  assert.equal(redeemCalls, 0, 'must not poll a flow the landing page cannot start')
-  assert.equal(registrations.length, 0, 'a legacy fallback must not orphan a registration')
-
-  const state = legacyState(opened)
-
-  await hitCallback(new URL(state.callbackUrl).port, {
-    token: TOKEN,
-    state: state.clientState,
-    user: encodeUser(USER),
-  })
-  assert.deepEqual(await loginPromise, USER)
+  await assert.rejects(auth.login('google'), /does not offer Google/)
+  assert.equal(openedUrls.length, 0)
 })
 
-test('falls back to the legacy flow when the backend redirects the chooser probe', async () => {
-  // A redirect without the chooser's support header must not select native login.
+test('a backend that redirects the chooser probe opens no browser', async () => {
+  // A redirect without the chooser's support header is not evidence the endpoint exists.
   chooserProbe = () =>
     new Response(null, {
       status: 301,
       headers: { location: 'https://api.nuphos.ai/auth/social/login' },
     })
 
-  const loginPromise = auth.login('google')
+  await assert.rejects(auth.login('google'), /does not offer Google/)
+  assert.equal(openedUrls.length, 0)
+})
 
-  loginPromise.catch(() => undefined)
-  const opened = await waitForBrowser()
+test('a backend without the native endpoint fails without opening a browser', async () => {
+  nativeSupported = false
 
-  assert.equal(opened.pathname, '/login', 'a bare redirect is not evidence the endpoint exists')
-
-  const state = legacyState(opened)
-
-  await hitCallback(new URL(state.callbackUrl).port, {
-    token: TOKEN,
-    state: state.clientState,
-    user: encodeUser(USER),
-  })
-  assert.deepEqual(await loginPromise, USER)
+  await assert.rejects(auth.login('google'), /nope/)
+  assert.equal(openedUrls.length, 0)
 })
 
 test('the probe never spends the real handle', async () => {
@@ -664,53 +622,6 @@ test('the probe never spends the real handle', async () => {
 
   await hitCallback(registeredPort(), { state: registrations[0]!.clientState, code: DELIVERY_CODE })
   await loginPromise
-})
-
-test('legacy: the user comes from /auth/me, not the callback', async () => {
-  nativeSupported = false
-  let meCalls = 0
-
-  meHandler = async () => {
-    meCalls += 1
-
-    return json(USER)
-  }
-
-  const loginPromise = auth.login('google')
-
-  loginPromise.catch(() => {})
-  const state = legacyState(await waitForBrowser())
-
-  // A forwarded identity is ignored: only the backend can say whose token it is.
-  await hitCallback(new URL(state.callbackUrl).port, {
-    token: TOKEN,
-    state: state.clientState,
-    user: encodeUser({ ...USER, id: '507f1f77bcf86cd799439099' }),
-  })
-
-  assert.deepEqual(await loginPromise, USER)
-  assert.equal(meCalls, 1)
-})
-
-test('legacy: a failed /auth/me never renders the success page', async () => {
-  nativeSupported = false
-  meHandler = async () => new Response('nope', { status: 500 })
-
-  const loginPromise = auth.login('google')
-
-  loginPromise.catch(() => {})
-  const state = legacyState(await waitForBrowser())
-
-  const res = await hitCallback(new URL(state.callbackUrl).port, {
-    token: TOKEN,
-    state: state.clientState,
-  })
-
-  assert.equal(res.status, 500)
-  assert.doesNotMatch(await res.text(), /logged in/i)
-
-  await assert.rejects(loginPromise)
-  assert.equal(configWrites.length, 0)
 })
 
 test('signing out ends the session on the server', async () => {

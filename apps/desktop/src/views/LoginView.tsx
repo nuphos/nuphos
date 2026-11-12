@@ -160,12 +160,6 @@ export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
             <section className="t-page" data-page-id="1" inert={step !== 'start'}>
               <LoginSocialButtons key={serverChanges} onLogin={onLogin} />
 
-              <div className="w-full flex items-center gap-3 my-5">
-                <div className="h-px flex-1 bg-surface-sunken" />
-                <span className="text-[12px] text-secondary">{t('or')}</span>
-                <div className="h-px flex-1 bg-surface-sunken" />
-              </div>
-
               <form
                 className="w-full flex flex-col gap-2.5"
                 onSubmit={(e) => {

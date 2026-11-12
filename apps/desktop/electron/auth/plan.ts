@@ -3,19 +3,16 @@ import crypto from 'node:crypto'
 import { apiUrl } from '../api-endpoint.ts'
 import { nodeFetch } from '../main/chromium-fetch.ts'
 
-import { apiErrorMessage, NUPHOS_LOGIN_URL } from './web.ts'
+import { apiErrorMessage } from './web.ts'
 
-export type LoginPlan =
-  | {
-      mode: 'native'
-      /** The backend the sign-in runs on, and that issues its token. */
-      api: string
-      browserUrl: string
-      clientState: string
-      handle: string
-      codeVerifier: string
-    }
-  | { mode: 'legacy'; api: string; browserUrl: string; clientState: string }
+export type LoginPlan = {
+  /** The backend the sign-in runs on, and that issues its token. */
+  api: string
+  browserUrl: string
+  clientState: string
+  handle: string
+  codeVerifier: string
+}
 
 export type SocialProvider = 'google' | 'apple'
 
@@ -37,8 +34,8 @@ export async function socialProviders(api: string = apiUrl()): Promise<SocialPro
   }
 }
 
-// Register, then open the provider's own start page. Servers without social sign-in fall back
-// to the landing page, which only offers Google.
+// Register, then open the provider's own start page. A provider the backend does not offer
+// fails here, so a self-hosted server never sends anyone to another server's sign-in.
 export async function planLogin(port: number, provider: SocialProvider): Promise<LoginPlan> {
   // Read once: the whole sign-in runs on this backend, and its token is saved
   // as this backend's even if the endpoint changes before it finishes.
@@ -46,41 +43,22 @@ export async function planLogin(port: number, provider: SocialProvider): Promise
   const clientState = crypto.randomBytes(16).toString('hex')
   const redirectUri = `http://127.0.0.1:${String(port)}/callback`
 
-  const legacy = (): LoginPlan => {
-    if (provider !== 'google') throw new Error('This server does not offer Apple sign-in')
-    const url = new URL(NUPHOS_LOGIN_URL)
-
-    url.searchParams.set(
-      'state',
-      Buffer.from(
-        JSON.stringify({ callbackUrl: `http://localhost:${String(port)}/callback`, clientState }),
-        'utf8',
-      ).toString('base64'),
+  if (!(await socialProviders(api)).includes(provider)) {
+    throw new Error(
+      `This server does not offer ${provider === 'apple' ? 'Apple' : 'Google'} sign-in`,
     )
-
-    return { mode: 'legacy', api, browserUrl: url.toString(), clientState }
   }
-
-  if (!(await socialProviders(api)).includes(provider)) return legacy()
 
   const codeVerifier = crypto.randomBytes(48).toString('base64url')
   const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url')
 
-  let handle: string
-
-  try {
-    handle = await registerNativeSession(api, { redirectUri, codeChallenge, clientState })
-  } catch (e) {
-    console.warn('auth: native sign-in unavailable on this backend, using the legacy flow', e)
-
-    return legacy()
-  }
+  const handle = await registerNativeSession(api, { redirectUri, codeChallenge, clientState })
 
   const startUrl = new URL(`${api}/auth/social/${provider}/start`)
 
   startUrl.searchParams.set('handle', handle)
 
-  return { mode: 'native', api, browserUrl: startUrl.toString(), clientState, handle, codeVerifier }
+  return { api, browserUrl: startUrl.toString(), clientState, handle, codeVerifier }
 }
 
 async function registerNativeSession(

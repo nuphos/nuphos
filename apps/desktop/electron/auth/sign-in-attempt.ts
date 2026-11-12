@@ -4,7 +4,6 @@
 // B's token switches the app to B. Closing the OAuth callback listener
 // (`cancelPendingLogin`) does not stop a sign-in already past it:
 //   - the browser has delivered its code and the redeem request is out,
-//   - the legacy landing page has delivered a token and `fetchUserInfo` is out,
 //   - an email code was submitted and `verifyEmailCode` is waiting.
 // Without this, such a request still reached `writeConfig` and switched to B
 // after the user had pressed Cancel and was back in A's workspace.
