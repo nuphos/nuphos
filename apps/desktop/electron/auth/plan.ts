@@ -16,22 +16,25 @@ export type LoginPlan = {
 
 export type SocialProvider = 'google' | 'apple'
 
-/** The providers the backend's social sign-in offers; none on servers without it. */
+/**
+ * The providers the backend's social sign-in offers; none on servers without it.
+ * Throws when the backend could not be asked, so the sign-in screen can offer a retry.
+ */
 export async function socialProviders(api: string = apiUrl()): Promise<SocialProvider[]> {
-  try {
-    const response = await nodeFetch(`${api}/auth/social/login`, {
-      redirect: 'manual',
-      signal: AbortSignal.timeout(8_000),
-    })
+  const response = await nodeFetch(`${api}/auth/social/login`, {
+    redirect: 'manual',
+    signal: AbortSignal.timeout(8_000),
+  })
 
-    if (!response.ok) return []
-
-    return (response.headers.get('X-Nuphos-Social-Providers') ?? '')
-      .split(',')
-      .filter((p): p is SocialProvider => p === 'google' || p === 'apple')
-  } catch {
-    return []
+  // 503 is the backend saying none is configured; a server without the route answers 4xx.
+  if (response.status >= 500 && response.status !== 503) {
+    throw new Error(`Sign-in options are unavailable (HTTP ${String(response.status)})`)
   }
+  if (!response.ok) return []
+
+  return (response.headers.get('X-Nuphos-Social-Providers') ?? '')
+    .split(',')
+    .filter((p): p is SocialProvider => p === 'google' || p === 'apple')
 }
 
 // Register, then open the provider's own start page. A provider the backend does not offer

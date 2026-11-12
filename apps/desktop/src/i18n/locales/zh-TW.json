@@ -1328,6 +1328,7 @@
   "Couldn't list bindings — showing effective permissions instead": "無法列出繫結，改為顯示有效權限",
   "Couldn't load agent stats": "無法載入 Agent 統計",
   "Couldn't load from GitHub": "無法從 GitHub 載入",
+  "Couldn't load sign-in options.": "無法載入登入選項。",
   "Couldn't load the permission proposal: {error}": "無法載入權限提案：{error}",
   "Couldn't load this pod's containers.": "無法載入此 Pod 的容器。",
   "Couldn't reach billing. Try again later.": "無法連線至帳單服務，請稍後再試。",

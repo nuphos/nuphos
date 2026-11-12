@@ -1328,6 +1328,7 @@
   "Couldn't list bindings — showing effective permissions instead": "No se pudieron listar los enlaces; se muestran los permisos efectivos",
   "Couldn't load agent stats": "No se pudieron cargar las estadísticas de agentes",
   "Couldn't load from GitHub": "No se pudo cargar desde GitHub",
+  "Couldn't load sign-in options.": "No se pudieron cargar las opciones de inicio de sesión.",
   "Couldn't load the permission proposal: {error}": "No se pudo cargar la propuesta de permisos: {error}",
   "Couldn't load this pod's containers.": "No se pudieron cargar los contenedores de este pod.",
   "Couldn't reach billing. Try again later.": "No se pudo acceder a la facturación. Vuelve a intentarlo más tarde.",

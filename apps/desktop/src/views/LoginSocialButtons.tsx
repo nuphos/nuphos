@@ -25,11 +25,14 @@ export function LoginSocialButtons({
   onMfaRequired: (error: unknown) => boolean
 }) {
   // Only what this server offers: a self-hosted server without social sign-in shows none.
-  const [offered, setOffered] = useState<SocialProvider[]>([])
+  // 'failed' means the server could not be asked, which is not the same as offering none.
+  const [offered, setOffered] = useState<SocialProvider[] | 'failed'>([])
 
-  useEffect(() => {
-    void api.authSocialProviders().then(setOffered)
-  }, [])
+  function load() {
+    void api.authSocialProviders().then(setOffered, () => setOffered('failed'))
+  }
+
+  useEffect(load, [])
 
   // No in-flight guard: each click re-launches the auth flow so the user can
   // retry freely (e.g. after closing the browser window without finishing).
@@ -44,29 +47,38 @@ export function LoginSocialButtons({
     }
   }
 
-  if (offered.length === 0) return null
+  if (offered !== 'failed' && offered.length === 0) return null
 
   return (
     <>
-      <div className="w-full flex flex-col gap-2.5">
-        {PROVIDERS.filter((p) => offered.includes(p.provider)).map((p) => (
-          <Button
-            key={p.provider}
-            onClick={() => void signIn(p.provider)}
-            size="lg"
-            className="group w-full titlebar-no-drag"
-          >
-            <span className="flex flex-1 items-center gap-2">
-              <FontAwesomeIcon icon={p.icon} />
-              {t('Continue with {provider}', { provider: p.label })}
-            </span>
-            <FontAwesomeIcon
-              icon={faArrowRight}
-              className="text-[14px] transition-transform duration-200 group-hover:translate-x-1"
-            />
+      {offered === 'failed' ? (
+        <div className="w-full flex items-center justify-between gap-3">
+          <span className="text-[13px] text-secondary">{t("Couldn't load sign-in options.")}</span>
+          <Button variant="secondary" size="sm" onClick={load} className="titlebar-no-drag">
+            {t('Retry')}
           </Button>
-        ))}
-      </div>
+        </div>
+      ) : (
+        <div className="w-full flex flex-col gap-2.5">
+          {PROVIDERS.filter((p) => offered.includes(p.provider)).map((p) => (
+            <Button
+              key={p.provider}
+              onClick={() => void signIn(p.provider)}
+              size="lg"
+              className="group w-full titlebar-no-drag"
+            >
+              <span className="flex flex-1 items-center gap-2">
+                <FontAwesomeIcon icon={p.icon} />
+                {t('Continue with {provider}', { provider: p.label })}
+              </span>
+              <FontAwesomeIcon
+                icon={faArrowRight}
+                className="text-[14px] transition-transform duration-200 group-hover:translate-x-1"
+              />
+            </Button>
+          ))}
+        </div>
+      )}
 
       <div className="w-full flex items-center gap-3 my-5">
         <div className="h-px flex-1 bg-surface-sunken" />

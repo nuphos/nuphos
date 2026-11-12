@@ -1328,6 +1328,7 @@
   "Couldn't list bindings — showing effective permissions instead": "无法列出绑定，改为显示有效权限",
   "Couldn't load agent stats": "无法加载 Agent 统计",
   "Couldn't load from GitHub": "无法从 GitHub 加载",
+  "Couldn't load sign-in options.": "无法加载登录选项。",
   "Couldn't load the permission proposal: {error}": "无法加载权限提案：{error}",
   "Couldn't load this pod's containers.": "无法加载此 Pod 的容器。",
   "Couldn't reach billing. Try again later.": "无法连接账单服务，请稍后重试。",
