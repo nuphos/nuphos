@@ -30,3 +30,11 @@ test('lists never mix agents and channels: agents by default, channels on reques
   await getConversations('viewer', { teamId: 'team', scope: 'shared', channels: true })
   expect(lastQuery).toMatchObject({ kind: 'channel', participantIds: 'viewer' })
 })
+
+test('the Bots listing is every agent with a face, never a channel', async () => {
+  await getConversations('viewer', { teamId: 'team', bots: true })
+  expect(lastQuery).toMatchObject({ kind: { $ne: 'channel' }, avatar: { $exists: true } })
+
+  await getConversations('viewer', { teamId: 'team' })
+  expect(lastQuery).not.toHaveProperty('avatar')
+})

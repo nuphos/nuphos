@@ -44,10 +44,13 @@ final class AgentStore {
     private(set) var channels: [AgentConversation] = [] {
         didSet { BotFaces.shared.learn(channels) }
     }
+    /// The viewer's own Bots, listed by the server rather than found in the loaded history.
+    private(set) var bots: [AgentConversation] = []
     /// Set once the chats have loaded, so the home list can open on the right tab.
     private(set) var channelsLoaded = false
 
     /// Both listings the desktop sidebar reads: chats of one's own, then the ones joined.
+    /// Then one's Bots, for those that have no chat yet.
     func loadChannels() async {
         guard let team = selectedTeam else { return }
         let query = search
@@ -59,8 +62,12 @@ final class AgentStore {
             let seen = Set(rows.map(\.sessionId))
             rows += page.conversations.filter { !seen.contains($0.sessionId) }
         }
+        guard let botPage = try? await NuphosAPI.conversations(
+            token: token, teamId: team.id, limit: 100, search: query, bots: true
+        ) else { return }
         guard team.id == selectedTeam?.id, query == search, !Task.isCancelled else { return }
         channels = rows.sorted { $0.lastActiveAt > $1.lastActiveAt }
+        bots = botPage.conversations
         if query.isEmpty { HomePage.hasChats = !botsList.isEmpty }
         channelsLoaded = true
     }
@@ -123,7 +130,7 @@ final class AgentStore {
     /// 1:1 chat yet, by its face.
     var botsList: [AgentConversation] {
         let chatted = Set(channels.compactMap(\.botId))
-        let unchatted = conversations.filter { $0.isBot && !chatted.contains($0.sessionId) }
+        let unchatted = bots.filter { $0.isBot && !chatted.contains($0.sessionId) }
         return (channels + unchatted).sorted { $0.lastActiveAt > $1.lastActiveAt }
     }
 
@@ -233,7 +240,7 @@ final class AgentStore {
             let id = try await AgentChatAPI.createBotChannel(token: token, teamId: teamId, botId: botId)
             guard scope == workspaceScope else { return nil }
             await loadChannels()
-            let title = conversations.first { $0.sessionId == botId }?.displayTitle ?? ""
+            let title = (conversations + bots).first { $0.sessionId == botId }?.displayTitle ?? ""
             return channel(sessionId: id, title: channels.first { $0.sessionId == id }?.displayTitle ?? title, teamId: teamId)
         } catch {
             rowActionFailed(error, scope: scope) { [weak self] in _ = await self?.botChannel(botId: botId) }
@@ -430,6 +437,7 @@ final class AgentStore {
         newModelPick = [:]
         credentials.reset()
         channels = []
+        bots = []
         runtimes = []
         agentDevices = []
         agentDevicesError = false

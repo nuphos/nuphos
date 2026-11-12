@@ -316,10 +316,10 @@ object PlanLink {
 
 /**
  * What the Bots page lists: every chat, and each Bot that has no 1:1 chat yet, newest first.
- * Only Bots in [conversations] can appear, so one on a page not loaded yet waits until it is.
+ * [bots] is the server's Bots listing, so a Bot far back in the history is listed too.
  */
-fun botsList(channels: List<AgentConversation>, conversations: List<AgentConversation>): List<AgentConversation> {
+fun botsList(channels: List<AgentConversation>, bots: List<AgentConversation>): List<AgentConversation> {
     val chatted = channels.mapNotNull { it.botId }.toSet()
-    val unchatted = conversations.filter { it.isBot && !it.isArchived && it.sessionId !in chatted }
+    val unchatted = bots.filter { it.isBot && !it.isArchived && it.sessionId !in chatted }
     return (channels + unchatted).sortedByDescending { it.lastActiveAt }
 }
