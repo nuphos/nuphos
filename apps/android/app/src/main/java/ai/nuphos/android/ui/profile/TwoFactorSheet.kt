@@ -4,6 +4,8 @@ import ai.nuphos.android.data.AccountApi
 import ai.nuphos.android.data.MfaSetup
 import ai.nuphos.android.data.MfaStatus
 import ai.nuphos.android.data.NuphosApi
+import ai.nuphos.android.data.PasskeyInfo
+import ai.nuphos.android.data.Passkeys
 import ai.nuphos.android.ui.LocalAuthSession
 import ai.nuphos.android.ui.MfaCodeDialog
 import ai.nuphos.android.ui.MfaCodeForm
@@ -55,6 +57,8 @@ fun TwoFactorSheet(onDismiss: () -> Unit) {
     var load by remember(token) { mutableStateOf<TwoFactorLoad>(TwoFactorLoad.Loading) }
     var confirming by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
+    var removing by remember { mutableStateOf<PasskeyInfo?>(null) }
+    val activity = androidx.activity.compose.LocalActivity.current
     suspend fun refresh() {
         load = try { TwoFactorLoad.Ready(AccountApi(token).mfaStatus()) }
         catch (e: CancellationException) { throw e }
@@ -97,6 +101,29 @@ fun TwoFactorSheet(onDismiss: () -> Unit) {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(onClick = { confirming = "codes" }) { Text("New recovery codes") }
                                 OutlinedButton(onClick = { confirming = "disable" }) { Text("Turn off") }
+                            }
+                            current.status.passkeys.forEach { passkey ->
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(passkey.name, Modifier.weight(1f))
+                                    TextButton(onClick = { removing = passkey }) {
+                                        Text("Remove", color = MaterialTheme.colorScheme.error)
+                                    }
+                                }
+                            }
+                            if (activity != null) {
+                                // A session without a recent code is asked for one first (data/StepUp.kt).
+                                OutlinedButton(onClick = {
+                                    notice = null
+                                    scope.launch {
+                                        try {
+                                            val api = AccountApi(token)
+                                            api.addPasskey(Passkeys.create(activity, api.passkeyRegistrationOptions()), android.os.Build.MODEL)
+                                            refresh()
+                                        } catch (e: CancellationException) { throw e
+                                        } catch (_: androidx.credentials.exceptions.CreateCredentialCancellationException) {
+                                        } catch (e: Exception) { notice = e.message }
+                                    }
+                                }) { Text("Add a passkey") }
                             }
                         } else {
                             Button(onClick = {
@@ -147,6 +174,19 @@ fun TwoFactorSheet(onDismiss: () -> Unit) {
             notice?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             Spacer(Modifier.height(8.dp))
         }
+    }
+    removing?.let { passkey ->
+        MfaCodeDialog(
+            title = "Remove passkey",
+            text = "“${passkey.name}” will no longer work for this account. Enter a code to confirm.",
+            submitLabel = "Remove",
+            onSubmit = { code ->
+                AccountApi(token).removePasskey(passkey.id, code)
+                removing = null
+                refresh()
+            },
+            onDismiss = { removing = null },
+        )
     }
     confirming?.let { action ->
         val disable = action == "disable"

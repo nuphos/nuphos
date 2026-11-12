@@ -390,6 +390,14 @@ class AuthSession(
         }
     }
 
+    /** The same step answered with a passkey ([ai.nuphos.android.data.Passkeys.answer]). */
+    fun verifyMfaPasskey(answer: kotlinx.serialization.json.JsonElement, onRefused: (String) -> Unit) {
+        val challenge = mfaChallenge ?: return
+        finishSignIn(password = false, onRefused = onRefused) {
+            AccountApi("").verifyMfaPasskey(challenge, answer).also { mfaChallenge = null }
+        }
+    }
+
     fun cancelMfa() { mfaChallenge = null }
 
     private fun finishSignIn(password: Boolean, onRefused: ((String) -> Unit)?, obtain: suspend () -> String) {

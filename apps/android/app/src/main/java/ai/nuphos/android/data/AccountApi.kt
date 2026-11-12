@@ -117,6 +117,37 @@ class AccountApi internal constructor(private val token: String, private val cli
     suspend fun newRecoveryCodes(code: String): List<String> =
         execute<RecoveryCodes>("mfa/recovery-codes", "POST", buildJsonObject { put("code", code.trim()) }).recoveryCodes
 
+    // Passkeys: added once it is on, then usable wherever a code is.
+
+    /** To finish a sign-in with a passkey (Passkeys.answer), bound to that sign-in. */
+    suspend fun signInPasskeyOptions(challenge: String): JsonObject =
+        execute("mfa/verify/options", "POST", buildJsonObject { put("mfaToken", challenge) }, authenticated = false)
+
+    suspend fun verifyMfaPasskey(challenge: String, answer: JsonElement): String {
+        val result: JsonObject = execute("mfa/verify", "POST", buildJsonObject {
+            put("mfaToken", challenge); put("passkey", answer)
+        }, authenticated = false, allowRedirects = false)
+        return (result["token"] as? JsonPrimitive)?.takeIf { it.isString }?.content
+            ?.takeIf { it.isNotBlank() } ?: throw NuphosApi.Failure.InvalidResponse
+    }
+
+    /** For this session: step-up and removing a passkey. */
+    suspend fun sessionPasskeyOptions(): JsonObject = execute("mfa/passkey-options", "POST")
+
+    suspend fun reauthMfaPasskey(answer: JsonElement) {
+        execute<Unit>("mfa/reauth", "POST", buildJsonObject { put("passkey", answer) })
+    }
+
+    suspend fun passkeyRegistrationOptions(): JsonObject = execute("mfa/passkeys/options", "POST")
+
+    suspend fun addPasskey(response: JsonElement, name: String) {
+        execute<Unit>("mfa/passkeys", "POST", buildJsonObject { put("response", response); put("name", name) })
+    }
+
+    suspend fun removePasskey(id: String, code: String) {
+        execute<Unit>("mfa/passkeys/$id", "DELETE", buildJsonObject { put("code", code.trim()) })
+    }
+
     /** Step-up: a current code makes this session recently verified again (StepUp.kt). */
     suspend fun reauthMfa(code: String) {
         execute<Unit>("mfa/reauth", "POST", buildJsonObject { put("code", code.trim()) })
@@ -180,7 +211,16 @@ class AccountApi internal constructor(private val token: String, private val cli
 }
 
 @kotlinx.serialization.Serializable
-data class MfaStatus(val enabled: Boolean, val enabledAt: String? = null, val recoveryCodesRemaining: Int = 0)
+data class MfaStatus(
+    val enabled: Boolean,
+    val enabledAt: String? = null,
+    val recoveryCodesRemaining: Int = 0,
+    /** Empty from a backend without passkeys. */
+    val passkeys: List<PasskeyInfo> = emptyList(),
+)
+
+@kotlinx.serialization.Serializable
+data class PasskeyInfo(val id: String, val name: String, val createdAt: String)
 
 @kotlinx.serialization.Serializable
 data class MfaSetup(val secret: String, val otpauthUrl: String)

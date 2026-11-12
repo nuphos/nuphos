@@ -51,6 +51,14 @@ object StepUp {
         finish(true)
     }
 
+    /** Answers with a passkey instead of a code. */
+    suspend fun submitPasskey(activity: android.app.Activity) {
+        val account = token ?: return
+        val api = AccountApi(account)
+        api.reauthMfaPasskey(Passkeys.answer(activity, api.sessionPasskeyOptions()))
+        finish(true)
+    }
+
     fun cancel() = finish(false)
 
     internal fun finish(ok: Boolean) {
