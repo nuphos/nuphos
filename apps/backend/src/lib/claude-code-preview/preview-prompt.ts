@@ -15,7 +15,7 @@ import {
   buildDiagramMessage,
   buildKubeContextMessage,
   buildNuphosLinksMessage,
-  buildPlanToolMessage,
+  buildTurnRulesMessage,
 } from '@/routes/agent/chat-system-messages'
 import { MODEL_OUTPUT_BUDGET_TOKENS } from '@/routes/agent/constants'
 import { getAgentCredentialOptions } from '@/routes/agent/credential-options'
@@ -79,9 +79,6 @@ async function runtimeWhere(runtimeId: string | null | undefined): Promise<strin
 
   return `on ${safePromptField(device.label)}, the computer this conversation runs on: your shell, files${device.box ? ' and the `nuphos-desktop` tools for this conversation’s own desktop (the user watches it in Nuphos; a page or website the user asks to open, or "a browser", goes to local_browser, the Nuphos browser, shown to them with its show action; use this desktop’s Web Browser launcher, with get_app_state and click and not the shell, only when they ask for this desktop or local_browser cannot run; ignore MACHINE.md’s notes about display :1 and an instabox dashboard)' : ''} are there, and local_exec is for the user's other devices, only when they ask for one`
 }
-
-const PLAN_RUNTIME_NOTE =
-  'For Plan work, use the native `nuphos-plan` skill and its bundled semantic scripts. The create script renders the approval card and returns the persisted Plan immediately; finish every card section in the same turn, then stop for approval.'
 
 const DASHBOARDS_RUNTIME_NOTE =
   'For Nuphos Dashboards work (the Dashboards page of script-driven panels, not Grafana), use Claude Code’s native `nuphos-dashboards` skill FIRST, then build or update the dashboard through its API script exactly as that skill instructs.'
@@ -154,12 +151,6 @@ export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise
     taskNameSection(args.sessionId).catch(() => null),
   ])
   const userFacingLanguage = inferUserFacingLanguage(args.userTexts ?? [], args.locale)
-  const planMessage = buildPlanToolMessage({
-    isInApp: !args.slackThread,
-    slackOriginated: Boolean(args.slackThread),
-    userFacingLanguage,
-    nativeClaudeSkills: true,
-  })
 
   // The notes are written for Claude Code. Grok Build reads `.claude/skills` as well;
   // Codex, Antigravity and OpenCode read the `.agents/skills` link to it.
@@ -189,7 +180,7 @@ export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise
     buildKubeContextMessage(args.kubeContext),
     nativeText(buildDiagramMessage(args.diagramId, { nativeClaudeSkills: true })),
     urlContext,
-    nativeText(`${planMessage}\n\n${PLAN_RUNTIME_NOTE}`),
+    buildTurnRulesMessage({ userFacingLanguage }),
     nativeText(DASHBOARDS_RUNTIME_NOTE),
     BACKGROUND_MONITOR_NOTE,
     taskName,

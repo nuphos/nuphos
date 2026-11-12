@@ -1,4 +1,3 @@
-import type { Plan } from './plans'
 import type { ToolResultError } from './tool-result-errors'
 
 /**
@@ -8,69 +7,8 @@ import type { ToolResultError } from './tool-result-errors'
  */
 export const MAX_STOP_GATE_CONTINUATIONS = 2
 
-type PlanProgress = {
-  totalCommands: number
-  doneCommands: number
-  failedCommands: number
-  unfinishedCommands: number
-}
-
-export function planProgress(plan: Plan): PlanProgress {
-  let total = 0
-  let done = 0
-  let failed = 0
-
-  for (const step of plan.steps ?? []) {
-    for (const job of step.jobs ?? []) {
-      for (const cmd of job.commands ?? []) {
-        total++
-        if (cmd.status === 'done') done++
-        else if (cmd.status === 'failed') failed++
-      }
-    }
-  }
-
-  return {
-    totalCommands: total,
-    doneCommands: done,
-    failedCommands: failed,
-    unfinishedCommands: total - done - failed,
-  }
-}
-
-export function planStatusLine(plan: Plan): string {
-  const progress = planProgress(plan)
-  const counts =
-    progress.totalCommands > 0
-      ? ` — commands: ${String(progress.doneCommands)} done, ${String(progress.failedCommands)} failed, ${String(progress.unfinishedCommands)} unfinished of ${String(progress.totalCommands)}`
-      : ''
-
-  return `Plan #${String(plan.number)} "${plan.title}" [${plan.status}]${counts}`
-}
-
 function attemptSuffix(priorContinuations: number): string {
   return `\n\nThis is automatic continuation ${String(priorContinuations + 1)} of at most ${String(MAX_STOP_GATE_CONTINUATIONS)} for this turn. The user did not type anything — do not greet them or apologize; just do the work or state precisely what you need.`
-}
-
-export function planNudge(gatedPlans: Plan[], priorContinuations: number): string {
-  const lines = gatedPlans.map((plan) => `- ${planStatusLine(plan)}`)
-
-  return (
-    [
-      '## Continuation forced by stop gate: plan execution incomplete',
-      '',
-      'You ended your turn, but this conversation has plan(s) whose stored status says work is still in flight:',
-      '',
-      ...lines,
-      '',
-      'Resolve this before ending the turn. Exactly one of:',
-      '1. Continue executing the plan (mark commands running/done/failed via the plan REST API as you go — load the `plan` skill for the exact calls).',
-      '2. If the work is actually finished, reconcile: set the final command statuses and move the plan to `completed`.',
-      '3. If you are genuinely blocked (missing credential, missing permission, need a user decision), update the plan status to reflect reality (`failed` with a clear executionError, or leave `executing` with an explicit note), then tell the user in one short paragraph exactly what you need from them.',
-      '',
-      'Never leave a plan whose stored status silently disagrees with what actually happened.',
-    ].join('\n') + attemptSuffix(priorContinuations)
-  )
 }
 
 export function silentEndNudge(

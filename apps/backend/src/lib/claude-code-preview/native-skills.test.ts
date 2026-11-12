@@ -24,43 +24,34 @@ describe('nativeSkillFiles', () => {
         relPath: 'nuphos-api/scripts/openapi.sh',
         content: Buffer.from('#!/bin/sh'),
       },
-      { relPath: 'nuphos-plan/SKILL.md', content: Buffer.from('# native') },
       { relPath: 'architecture-diagram/SKILL.md', content: Buffer.from('# architecture') },
       { relPath: 'nuphos-dashboards/SKILL.md', content: Buffer.from('# dashboards') },
-      {
-        relPath: 'nuphos-plan/scripts/create.sh',
-        content: Buffer.from('#!/bin/sh'),
-      },
       { relPath: 'demo/SKILL.md', content: Buffer.from('# demo') },
       { relPath: '_runtime/settings.json', content: Buffer.from('{}') },
       {
-        relPath: '_runtime/scripts/plan-approval-guard.sh',
+        relPath: '_runtime/scripts/oom-hint.sh',
         content: Buffer.from('#!/bin/sh'),
       },
     ])
 
     expect(new Set(files.map((file) => file.path))).toEqual(
       new Set([
-        '_runtime/scripts/plan-approval-guard.sh',
+        '_runtime/scripts/oom-hint.sh',
         '_runtime/settings.json',
         'architecture-diagram/SKILL.md',
         'nuphos-dashboards/SKILL.md',
         'demo/SKILL.md',
         'nuphos-api/SKILL.md',
         'nuphos-api/scripts/openapi.sh',
-        'nuphos-plan/SKILL.md',
-        'nuphos-plan/scripts/create.sh',
       ]),
     )
-    expect(files.find((file) => file.path.endsWith('create.sh'))?.executable).toBe(true)
+    expect(files.find((file) => file.path.endsWith('openapi.sh'))?.executable).toBe(true)
     expect(
       Buffer.from(
         files.find((file) => file.path.endsWith('demo/SKILL.md'))!.contentBase64,
         'base64',
       ).toString(),
     ).toBe('# demo')
-    expect(files.find((file) => file.path.endsWith('plan-approval-guard.sh'))?.executable).toBe(
-      true,
-    )
+    expect(files.find((file) => file.path.endsWith('oom-hint.sh'))?.executable).toBe(true)
   })
 })

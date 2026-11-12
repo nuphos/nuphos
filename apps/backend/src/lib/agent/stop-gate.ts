@@ -8,24 +8,17 @@
 // stream. Entirely server-side — every channel (app, Slack, Discord, MCP,
 // trigger) gets the same behaviour, no client cooperation involved.
 //
-// Two tiers: deterministic rules here (plan lifecycle, silent turn end), then
+// Two tiers: a deterministic rule here (silent turn end), then
 // an LLM judge (stop-gate-judge.ts) for intent-completion and
 // asked-answerable checks. Both are fail-open: any error during evaluation
 // lets the turn complete normally. A per-turn fuse
 // (MAX_STOP_GATE_CONTINUATIONS) stops a broken rule from looping the agent —
 // a runaway forced continuation is strictly worse than a premature stop.
-import {
-  MAX_STOP_GATE_CONTINUATIONS,
-  planNudge,
-  planStatusLine,
-  puntNudge,
-  silentEndNudge,
-} from './stop-gate-nudges'
+import { MAX_STOP_GATE_CONTINUATIONS, puntNudge, silentEndNudge } from './stop-gate-nudges'
 
-import type { Plan } from './plans'
 import type { ToolResultError } from './tool-result-errors'
 
-export { MAX_STOP_GATE_CONTINUATIONS, planProgress } from './stop-gate-nudges'
+export { MAX_STOP_GATE_CONTINUATIONS } from './stop-gate-nudges'
 export {
   canonicalToolInputKey,
   detectRunawayToolFailures,
@@ -36,7 +29,6 @@ export {
 export type { RunawayDetection } from './stop-gate-runaway'
 
 export type StopGateReason =
-  | 'plan-execution-incomplete'
   | 'silent-turn-end'
   // LLM-judged (see stop-gate-judge.ts):
   | 'user-intent-unmet'
@@ -48,8 +40,6 @@ export type StopGateVerdict =
 export type StopGateInput = {
   /** Text parts of the final assistant message of the turn. */
   finalProse: string
-  /** Non-terminal plans linked to this conversation (proposed/approved/executing). */
-  activePlans: Plan[]
   /** Tool-result errors observed anywhere in the turn (already deduped). */
   toolResultErrors: ToolResultError[]
   /** Stop-gate continuations already forced for this user turn. */
@@ -85,48 +75,6 @@ export function finalAssistantProse(responseMessages: unknown): string {
   }
 
   return ''
-}
-
-/**
- * Compact per-turn system block describing every non-terminal plan attached
- * to this conversation. Injected every turn so the model never has to
- * remember (or re-fetch the plan) whether it left a plan hanging — the
- * current lifecycle truth is always in context. Returns null when there is
- * nothing to show.
- */
-export function renderActivePlanStatusBlock(plans: Plan[]): string | null {
-  if (plans.length === 0) return null
-  const lines = plans.map((plan) => {
-    const base = `- ${planStatusLine(plan)}`
-    const stepLines = (plan.steps ?? [])
-      .map((step, idx) => {
-        const cmds = (step.jobs ?? []).flatMap((job) => job.commands ?? [])
-
-        if (cmds.length === 0) return `  ${String(idx + 1)}. ${step.title}`
-        const done = cmds.filter((c) => c.status === 'done').length
-        const failed = cmds.filter((c) => c.status === 'failed').length
-        const running = cmds.filter((c) => c.status === 'running').length
-        const failedSuffix = failed > 0 ? `, ${String(failed)} failed` : ''
-        // Without this a command left in `running` is indistinguishable from
-        // `pending`, so the model can never notice it should be reconciled.
-        const runningSuffix = running > 0 ? `, ${String(running)} still marked running` : ''
-
-        return `  ${String(idx + 1)}. ${step.title} (${String(done)}/${String(cmds.length)} commands done${failedSuffix}${runningSuffix})`
-      })
-      .join('\n')
-
-    return stepLines ? `${base}\n${stepLines}` : base
-  })
-
-  return [
-    '## Current plan state (live)',
-    '',
-    'Non-terminal plans attached to this conversation, as currently stored. This is the source of truth — do not rely on memory of earlier turns.',
-    '',
-    ...lines,
-    '',
-    'Before ending your turn: an `executing` plan must either progress, be completed, or have its status updated to reflect reality (PATCH /agent/plans/{planId} — load the `plan` skill for the exact calls). Only the command you are working on right now may be `running`; if a command above is still marked running and you have moved on, patch it to `done` or `failed`. An `approved` plan means the user already said go — execute it. A `proposed` plan is correctly waiting for the user to approve or reject; do not start executing it.',
-  ].join('\n')
 }
 
 /**
@@ -172,25 +120,7 @@ export function evaluateStopGate(input: StopGateInput): StopGateVerdict {
     return { behavior: 'allow' }
   }
 
-  // Rule 1 — plan execution left hanging. `approved` means the user already
-  // said go; `executing` with unfinished commands means work is mid-flight.
-  // `executing` with every command finished is still a gate: the status
-  // itself must be reconciled to completed/failed before the turn ends.
-  // `proposed` is the one non-terminal status where stopping is CORRECT
-  // (awaiting human approval), so it never gates.
-  const gatedPlans = input.activePlans.filter(
-    (plan) => plan.status === 'approved' || plan.status === 'executing',
-  )
-
-  if (gatedPlans.length > 0) {
-    return {
-      behavior: 'continue',
-      reason: 'plan-execution-incomplete',
-      nudge: planNudge(gatedPlans, input.priorContinuations),
-    }
-  }
-
-  // Rule 2 — silent turn end: no prose in the final assistant message.
+  // Silent turn end: no prose in the final assistant message.
   if (input.finalProse.length === 0) {
     return {
       behavior: 'continue',

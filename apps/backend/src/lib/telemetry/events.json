@@ -163,6 +163,7 @@
   "backend.discord_gateway.ready",
   "backend.journal_sealer.ready",
   "backend.memory_retention_rollup.ready",
+  "backend.migration.agent_plans_cancelled",
   "backend.migration.aliyun_legacy_bindings_removed",
   "backend.migration.cli_token_expiry_backfilled",
   "backend.migration.conversation_watchers_backfilled",

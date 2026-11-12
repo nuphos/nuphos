@@ -8,44 +8,11 @@ import {
   finalAssistantProse,
   judgeResultToVerdict,
   latestRealUserText,
-  planProgress,
-  renderActivePlanStatusBlock,
   runawayWrapUpText,
 } from './stop-gate'
 
-import type { Plan } from './plans'
-
-function makePlan(
-  status: Plan['status'],
-  commandStatuses: ('pending' | 'running' | 'done' | 'failed')[] = ['pending'],
-): Plan {
-  return {
-    createdBy: 'user-1',
-    number: 7,
-    title: 'Rotate database credentials',
-    status,
-    steps: [
-      {
-        title: 'Step one',
-        jobs: [
-          {
-            title: 'Job one',
-            commands: commandStatuses.map((s) => ({
-              command: 'kubectl get pods',
-              status: s,
-            })),
-          },
-        ],
-      },
-    ],
-    createdAt: new Date('2026-07-04T00:00:00Z'),
-    updatedAt: new Date('2026-07-04T00:00:00Z'),
-  }
-}
-
 const baseInput = {
   finalProse: 'All done. The deployment is healthy again.',
-  activePlans: [] as Plan[],
   toolResultErrors: [],
   priorContinuations: 0,
 }
@@ -91,56 +58,14 @@ describe('finalAssistantProse', () => {
 })
 
 describe('evaluateStopGate', () => {
-  test('allows a normal turn with prose and no gated plans', () => {
+  test('allows a normal turn with prose', () => {
     expect(evaluateStopGate(baseInput)).toEqual({ behavior: 'allow' })
   })
 
-  test('vetoes when a plan is executing with unfinished commands', () => {
-    const verdict = evaluateStopGate({
-      ...baseInput,
-      activePlans: [makePlan('executing', ['done', 'pending'])],
-    })
-
-    expect(verdict.behavior).toBe('continue')
-    if (verdict.behavior === 'continue') {
-      expect(verdict.reason).toBe('plan-execution-incomplete')
-      expect(verdict.nudge).toContain('Plan #7')
-      expect(verdict.nudge).toContain('1 unfinished')
-    }
-  })
-
-  test('vetoes when an executing plan finished all commands but the status was never reconciled', () => {
-    const verdict = evaluateStopGate({
-      ...baseInput,
-      activePlans: [makePlan('executing', ['done', 'done'])],
-    })
-
-    expect(verdict.behavior).toBe('continue')
-  })
-
-  test('vetoes when an approved plan was never started', () => {
-    const verdict = evaluateStopGate({
-      ...baseInput,
-      activePlans: [makePlan('approved')],
-    })
-
-    expect(verdict.behavior).toBe('continue')
-  })
-
-  test('a proposed plan awaiting approval is a correct stop', () => {
-    const verdict = evaluateStopGate({
-      ...baseInput,
-      activePlans: [makePlan('proposed')],
-    })
-
-    expect(verdict).toEqual({ behavior: 'allow' })
-  })
-
-  test('a structured user-only decision is a correct stop even with executing work', () => {
+  test('a structured user-only decision is a correct stop', () => {
     const verdict = evaluateStopGate({
       ...baseInput,
       awaitingUserDecision: true,
-      activePlans: [makePlan('executing', ['done', 'pending'])],
       finalProse: '临时 Tunnel 可以继续使用，还是等永久地址？',
     })
 
@@ -172,22 +97,10 @@ describe('evaluateStopGate', () => {
     }
   })
 
-  test('plan rule takes precedence over silent-end rule', () => {
-    const verdict = evaluateStopGate({
-      ...baseInput,
-      finalProse: '',
-      activePlans: [makePlan('executing')],
-    })
-
-    if (verdict.behavior === 'continue') expect(verdict.reason).toBe('plan-execution-incomplete')
-    else throw new Error('expected continue')
-  })
-
   test('fuse: allows the stop once the continuation ceiling is reached', () => {
     const verdict = evaluateStopGate({
       ...baseInput,
       finalProse: '',
-      activePlans: [makePlan('executing')],
       priorContinuations: MAX_STOP_GATE_CONTINUATIONS,
     })
 
@@ -451,45 +364,5 @@ describe('runawayWrapUpText', () => {
     expect(text).toContain('`bash`')
     expect(text).toContain('4 times')
     expect(text).toContain('Stop retrying')
-  })
-})
-
-describe('planProgress', () => {
-  test('counts command statuses across steps and jobs', () => {
-    const progress = planProgress(makePlan('executing', ['done', 'failed', 'running', 'pending']))
-
-    expect(progress).toEqual({
-      totalCommands: 4,
-      doneCommands: 1,
-      failedCommands: 1,
-      unfinishedCommands: 2,
-    })
-  })
-})
-
-describe('renderActivePlanStatusBlock', () => {
-  test('returns null with no plans', () => {
-    expect(renderActivePlanStatusBlock([])).toBeNull()
-  })
-
-  test('renders lifecycle status and per-step command progress', () => {
-    const block = renderActivePlanStatusBlock([makePlan('executing', ['done', 'pending'])])
-
-    expect(block).toContain('Plan #7 "Rotate database credentials" [executing]')
-    expect(block).toContain('1. Step one (1/2 commands done)')
-    expect(block).toContain('Before ending your turn')
-  })
-
-  test('surfaces commands left marked running so the model can reconcile them', () => {
-    const block = renderActivePlanStatusBlock([makePlan('executing', ['done', 'running'])])
-
-    expect(block).toContain('1. Step one (1/2 commands done, 1 still marked running)')
-  })
-
-  test('the step line stays clean when no command claims to be running', () => {
-    const block = renderActivePlanStatusBlock([makePlan('executing', ['done', 'pending'])])
-
-    expect(block).toContain('1. Step one (1/2 commands done)')
-    expect(block).not.toContain('commands done, 1 still marked running')
   })
 })

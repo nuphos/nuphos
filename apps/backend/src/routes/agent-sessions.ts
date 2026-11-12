@@ -29,7 +29,6 @@ import {
 import { cnCloudScoped } from '@/routes/agent-sessions/cn-clouds'
 import { projectScoped } from '@/routes/agent-sessions/gcp'
 import { asanaScoped, jiraScoped, linearScoped } from '@/routes/agent-sessions/issue-trackers'
-import { previewPlans } from '@/routes/agent-sessions/plans'
 import { plaudScoped } from '@/routes/agent-sessions/plaud'
 import { posthogScoped } from '@/routes/agent-sessions/posthog'
 import { resendScoped, sentryScoped } from '@/routes/agent-sessions/resend-sentry'
@@ -209,7 +208,6 @@ teamScoped.get('/mcp-tools', sseUnsupported)
 
 // Script-backed native Claude Code skill. The same conversation-scoped bearer
 // as the MCP mounts authenticates these REST calls; Plan itself is not an MCP.
-teamScoped.route('/plans', previewPlans)
 
 // Mount under team:
 //   /agent-sessions/:sessionId/teams/:teamId/...

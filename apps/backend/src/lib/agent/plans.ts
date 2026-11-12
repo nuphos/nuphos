@@ -21,6 +21,7 @@ export {
   listMongoDatabasePlanDocuments,
   listPlans,
 } from './plans/queries'
+export { cancelOpenAgentPlans } from './plans/retire'
 export { retryPlan } from './plans/retry'
 export type { PlanScope } from './plans/scope'
 export { serializePlan } from './plans/serialize'
