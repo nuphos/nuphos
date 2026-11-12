@@ -55,7 +55,6 @@ export async function getConversations(
      */
     triggerIds?: string[]
     parentSessionId?: string // Only threads nested under this conversation: its sub-agents.
-    bots?: boolean // Only agent conversations with a nonempty face.
     /** The Inbox: only conversations waiting on a decision, trigger runs included. */
     pendingDecision?: boolean
     /** Also return the rows' parents that another page would list. */
@@ -63,6 +62,7 @@ export async function getConversations(
     /** Channels instead of agent conversations. Lists never mix the two. */
     channels?: boolean
     /** Only Bots: agent conversations with a face, wherever they fall in the history. */
+    bots?: boolean
   },
 ): Promise<{
   conversations: AgentConversation[]
@@ -90,7 +90,6 @@ export async function getConversations(
   }
 
   if (scope === 'mine') query.userId = viewerUserId
-  if (options.bots) query.avatar = { $type: 'string', $ne: '' }
   if (scope === 'shared') {
     query.participantIds = viewerUserId
     query.userId = { $ne: viewerUserId }
@@ -100,7 +99,8 @@ export async function getConversations(
   // else's id, limited like every scope to what the viewer may read.
   if (scope === 'team' && options.ownerId) query.userId = options.ownerId
   if (options.parentSessionId) query.parentSessionId = options.parentSessionId
-  if (!options.pendingDecision && !options.bots)
+  if (options.bots) query.avatar = { $exists: true }
+  if (!options.pendingDecision)
     query['metadata.trigger.id'] = options.triggerIds
       ? { $in: options.triggerIds }
       : { $exists: false }
