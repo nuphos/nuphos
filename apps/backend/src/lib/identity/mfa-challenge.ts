@@ -73,7 +73,7 @@ export async function mfaChallengePasskeyOptions(mfaToken: unknown) {
 export async function verifyMfaChallenge(mfaToken: unknown, code: unknown): Promise<string> {
   const challenge = await liveChallenge(mfaToken)
 
-  await verifySecondFactor(challenge.userId, code, challenge.passkeyChallenge)
+  await verifySecondFactor(challenge.userId, code, challenge.passkeyChallenge ?? null)
   // A code is single-use, so only one request can get here per challenge; the
   // delete is what keeps a stolen token from being reused afterwards.
   if (!(await mfaChallenges().findOneAndDelete({ _id: challenge._id }))) {

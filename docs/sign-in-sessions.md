@@ -60,6 +60,9 @@ in `WEBAUTHN_ORIGINS` (the website, and `android:apk-key-hash:…` for Android).
   with `{ mfaToken }` for a sign-in, `POST /auth/mfa/passkey-options` for a
   session (step-up, turning MFA off, new recovery codes). A challenge lasts five
   minutes, and a passkey answer counts against the same failure budget as codes.
+  Passkeys ask for user verification as `preferred`, not `required`: as a
+  second factor after the first sign-in step, possession of the device is the
+  point.
 
 ## Step-up re-authentication
 

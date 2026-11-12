@@ -199,7 +199,7 @@ const cleanCode = (code: unknown) => (typeof code === 'string' ? code.replace(/\
 export async function verifySecondFactor(
   userId: string,
   code: unknown,
-  passkeyChallenge?: string,
+  passkeyChallenge?: string | null,
 ): Promise<string> {
   const account = await readMfa(userId)
   const mfa = account?.mfa
@@ -212,9 +212,12 @@ export async function verifySecondFactor(
   const _id = new ObjectId(userId)
 
   // A passkey's answer, to a sign-in's challenge or to the one kept on the account.
-  const challenge = passkeyChallenge ?? freshChallenge(account.passkeyChallenge)
+  // A sign-in passes its own challenge (null when it has none) and never falls back
+  // to the one a session left on the account.
+  const fromAccount = passkeyChallenge === undefined
+  const challenge = fromAccount ? freshChallenge(account.passkeyChallenge) : passkeyChallenge
 
-  if (challenge && (await answeredWithPasskey(_id, mfa.passkeys, code, challenge)))
+  if (challenge && (await answeredWithPasskey(_id, mfa.passkeys, code, challenge, fromAccount)))
     return account.email
 
   if (/^\d{6}$/.test(entered)) {

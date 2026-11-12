@@ -198,6 +198,7 @@ export async function answeredWithPasskey(
   passkeys: StoredPasskey[] | undefined,
   response: unknown,
   challenge: string,
+  fromAccount: boolean,
 ): Promise<boolean> {
   const hit =
     response && typeof response === 'object'
@@ -205,13 +206,19 @@ export async function answeredWithPasskey(
       : null
 
   if (!hit) return false
-  await users().updateOne(
-    { _id, 'mfa.passkeys.id': hit.id },
+  // Spending the account's challenge is the gate: two requests replaying one
+  // answer cannot both pass. A sign-in's challenge is spent with the sign-in.
+  const { modifiedCount } = await users().updateOne(
+    {
+      _id,
+      'mfa.passkeys.id': hit.id,
+      ...(fromAccount ? { 'passkeyChallenge.value': challenge } : {}),
+    },
     {
       $set: { 'mfa.passkeys.$.counter': hit.counter },
       $unset: { mfaFailures: '', passkeyChallenge: '' },
     },
   )
 
-  return true
+  return modifiedCount === 1
 }

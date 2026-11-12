@@ -107,7 +107,7 @@ const call = (method: string, path: string, body?: unknown, token = 'session-tok
     body: body === undefined ? undefined : JSON.stringify(body),
   })
 const json = async (res: Response) => (await res.json()) as Record<string, any>
-const account = () => collection('users').docs[0]!
+const account = () => collection('users').docs[0] as Record<string, any>
 const code = (secret: string, offset: number) =>
   totpCode(base32Decode(secret), Math.floor(Date.now() / 30_000) + offset)
 
@@ -222,6 +222,40 @@ describe('answering with a passkey', () => {
     expect(res.status).toBe(204)
     expect(collection('user_sessions').docs[0]!.verifiedAt).toBeInstanceOf(Date)
     expect(account().passkeyChallenge).toBeUndefined()
+  })
+
+  test('one answer replayed in parallel passes once', async () => {
+    await enroll()
+    await addPasskey()
+    const options = await json(await call('POST', '/auth/mfa/passkey-options'))
+    const answer = { passkey: { id: 'key-1', signed: options.challenge } }
+    const results = await Promise.all([
+      call('POST', '/auth/mfa/reauth', answer),
+      call('POST', '/auth/mfa/reauth', answer),
+    ])
+
+    expect(results.map((r) => r.status).sort((a, b) => a - b)).toEqual([204, 401])
+  })
+
+  test('a sign-in never takes the challenge a session left on the account', async () => {
+    await enroll()
+    await addPasskey()
+    const sessionOptions = await json(await call('POST', '/auth/mfa/passkey-options'))
+    const signIn = await json(
+      await call('POST', '/auth/email/verify-code', { email: USER.email, code: '123456' }),
+    )
+    const res = await call(
+      'POST',
+      '/auth/mfa/verify',
+      {
+        mfaToken: signIn.error.details.mfaToken,
+        passkey: { id: 'key-1', signed: sessionOptions.challenge },
+      },
+      '',
+    )
+
+    expect(res.status).toBe(401)
+    expect(sessionsStarted).toEqual([])
   })
 
   test('an unknown passkey is refused', async () => {
