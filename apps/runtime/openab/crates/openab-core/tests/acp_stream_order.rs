@@ -43,6 +43,8 @@ enum Call {
 struct RecordingAdapter {
     calls: Mutex<Vec<Call>>,
     streaming: bool,
+    /// What the permission relay answers, as the gateway does once Stop lands.
+    permission_outcome: Option<serde_json::Value>,
 }
 
 impl RecordingAdapter {
@@ -50,6 +52,7 @@ impl RecordingAdapter {
         Self {
             calls: Mutex::new(Vec::new()),
             streaming,
+            permission_outcome: None,
         }
     }
     fn calls(&self) -> Vec<Call> {
@@ -137,6 +140,16 @@ impl ChatAdapter for RecordingAdapter {
     fn use_streaming(&self, _other_bot_present: bool) -> bool {
         self.streaming
     }
+    async fn request_agent_permission(
+        &self,
+        _: &ChannelRef,
+        _relay_required: bool,
+        params: serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        Ok(self.permission_outcome.clone().unwrap_or_else(|| {
+            openab_core::acp::connection::build_permission_response(Some(&params))
+        }))
+    }
 }
 
 /// A line-delimited JSON-RPC fake agent: answers initialize / session/new, and on
@@ -197,6 +210,31 @@ while IFS= read -r line; do
       ;;
     *'"session/prompt"'*)
       printf '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"sess_fake","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"partial"}}}}\n'
+      printf '{"jsonrpc":"2.0","id":%s,"result":{"stopReason":"cancelled"}}\n' "$id"
+      ;;
+  esac
+done
+"##;
+
+/// Asks permission mid-turn, then reports the outcome it was answered with.
+const PERMISSION_AGENT: &str = r##"#!/bin/sh
+while IFS= read -r line; do
+  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p')
+  case "$line" in
+    *'"initialize"'*)
+      printf '{"jsonrpc":"2.0","id":%s,"result":{"agentInfo":{"name":"fake","version":"0"},"agentCapabilities":{}}}\n' "$id"
+      ;;
+    *'"session/new"'*)
+      printf '{"jsonrpc":"2.0","id":%s,"result":{"sessionId":"sess_fake"}}\n' "$id"
+      ;;
+    *'"session/prompt"'*)
+      printf '{"jsonrpc":"2.0","id":900,"method":"session/request_permission","params":{"sessionId":"sess_fake","toolCall":{"toolCallId":"t1","title":"mkdir out"},"options":[{"optionId":"allow","name":"Allow","kind":"allow_once"}]}}\n'
+      IFS= read -r answer
+      case "$answer" in
+        *'"id":900'*'"outcome":"cancelled"'*) got=cancelled ;;
+        *) got=other ;;
+      esac
+      printf '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"sess_fake","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"%s"}}}}\n' "$got"
       printf '{"jsonrpc":"2.0","id":%s,"result":{"stopReason":"cancelled"}}\n' "$id"
       ;;
   esac
@@ -614,4 +652,31 @@ async fn acp_process_exit_is_a_terminal_error_with_partial_output() {
 async fn acp_inactivity_timeout_drops_late_cancel_updates() {
     let _guard = env_lock();
     assert_failed_turn(FAILING_AGENT, "inactivity timeout", 1).await;
+}
+
+// Stop answers a relayed permission request `cancelled` (gateway); the agent itself must
+// receive that answer to its `session/request_permission`, so its turn can end.
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_agent_receives_cancelled_for_a_released_permission_request() {
+    let _guard = env_lock();
+    let fx =
+        setup_with_agent_and_streaming("acp", "acp:permission-stop", PERMISSION_AGENT, false).await;
+    let recorder = Arc::new(RecordingAdapter {
+        permission_outcome: Some(serde_json::json!({"outcome": {"outcome": "cancelled"}})),
+        ..RecordingAdapter::new(false)
+    });
+    let adapter: Arc<dyn ChatAdapter> = recorder.clone();
+    tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        run_turn(&fx, &adapter, "acp:permission-stop"),
+    )
+    .await
+    .expect("the turn ends once the agent is answered");
+    assert_eq!(
+        recorder.calls(),
+        vec![Call::Terminal {
+            content: "cancelled".into(),
+            stop_reason: Some("cancelled".into()),
+        }],
+    );
 }

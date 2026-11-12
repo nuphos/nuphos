@@ -289,6 +289,7 @@ impl ChatAdapter for UnifiedGatewayAdapter {
                 })?;
             if let Some(outcome) = openab_gateway::adapters::acp_server::request_permission(
                 registry,
+                &self.gw_state.acp_session_operations,
                 &channel.channel_id,
                 relay_required,
                 params.clone(),
