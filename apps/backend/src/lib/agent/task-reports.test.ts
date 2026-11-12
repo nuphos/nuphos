@@ -7,6 +7,7 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 import { useThreadQueue } from '@/lib/test/doubles/thread-queue'
 import { FakeCoordinationStore } from '@/lib/test/fake-coordination-store'
 
+import { enqueueReport } from './task-report-queue'
 import { deliverTaskReport } from './task-report-delivery'
 import { recoverTaskReports, reportTask } from './task-reports'
 
@@ -14,6 +15,30 @@ const store = new FakeCoordinationStore()
 let member = true
 let queueFails = false
 const queued: string[] = []
+const jobs = new Map<string, { state: string; attemptsMade: number; retries: number }>()
+const fakeQueue = {
+  getJob: async (id: string) => {
+    const job = jobs.get(id)
+
+    return job
+      ? {
+          getState: async () => job.state,
+          retry: async (_state: 'failed', options: { resetAttemptsMade: boolean }) => {
+            if (job.state !== 'failed') throw new Error('not failed')
+            job.state = 'waiting'
+            if (options.resetAttemptsMade) job.attemptsMade = 0
+            job.retries++
+          },
+        }
+      : undefined
+  },
+  add: async (_name: string, _data: { reportId: string }, options: { jobId?: string }) => {
+    const id = options.jobId!
+
+    // BullMQ ignores duplicate IDs, even when the retained job has failed.
+    if (!jobs.has(id)) jobs.set(id, { state: 'waiting', attemptsMade: 0, retries: 0 })
+  },
+}
 const deliveries: { id: string; metadata: unknown }[] = []
 
 useDb({ db: () => ({ collection: store.collection }) })
@@ -26,6 +51,7 @@ useThreadQueue({
   enqueueTaskReport: async (id) => {
     if (queueFails) throw new Error('queue offline')
     queued.push(id)
+    await enqueueReport(fakeQueue, id)
   },
 })
 useConversationTurn({
@@ -38,6 +64,7 @@ beforeEach(() => {
   member = true
   queueFails = false
   queued.length = 0
+  jobs.clear()
   deliveries.length = 0
   store.rows = {
     agent_conversations: [
@@ -125,4 +152,35 @@ test('retrying an old report cannot overwrite a newer task state', async () => {
   await update('new', 'Newer result')
   await update('old')
   expect(store.rows.agent_conversations![1]!.taskReport.summary).toBe('Newer result')
+})
+
+test('an explicit retry restarts the retained failed job and clears delivery failure', async () => {
+  await update()
+  const report = store.rows.agent_task_reports![0]!
+  const job = jobs.get(`task-report-${report._id}`)!
+
+  job.state = 'failed'
+  job.attemptsMade = 5
+  report.deliveryError = 'Delivery exhausted five attempts'
+  expect((await update()).delivery).toBe('queued')
+  expect(jobs.size).toBe(1)
+  expect(job).toMatchObject({ state: 'waiting', attemptsMade: 0, retries: 1 })
+  expect(report.deliveryError).toBeUndefined()
+  await update()
+  expect(job.retries).toBe(1)
+  await deliverTaskReport(report._id)
+  expect((await update()).delivery).toBe('delivered')
+  expect(deliveries).toHaveLength(1)
+})
+
+test('a failed retry handoff keeps a visible error and can be retried again', async () => {
+  await update()
+  const report = store.rows.agent_task_reports![0]!
+
+  report.deliveryError = 'Previous failure'
+  queueFails = true
+  await expect(update()).rejects.toThrow('queue offline')
+  expect(report.deliveryError).toContain('could not be queued')
+  queueFails = false
+  expect((await update()).delivery).toBe('queued')
 })

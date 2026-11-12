@@ -75,7 +75,10 @@ export class FakeCoordinationStore {
           row = { ...query, ...update.$setOnInsert }
           rows.push(row!)
         }
-        if (row) Object.assign(row, update.$set)
+        if (row) {
+          Object.assign(row, update.$set)
+          for (const key of Object.keys(update.$unset ?? {})) delete row[key]
+        }
 
         return { matchedCount: existed ? 1 : 0 }
       },

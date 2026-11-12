@@ -4,11 +4,14 @@ import { mock, test } from 'bun:test'
 import { Window } from 'happy-dom'
 import { act, createElement } from 'react'
 
+import { locale } from '../../i18n'
+
 import type { RuntimeInstance } from '../../types/runtime'
 import type { ReactNode } from 'react'
 
 let runtime: RuntimeInstance | null = null
 const created: unknown[] = []
+const introductions: string[] = []
 
 mock.module('../agent/panel/useNewConversationRuntime', () => ({
   useNewConversationRuntime: () => ({
@@ -19,6 +22,11 @@ mock.module('../agent/panel/useNewConversationRuntime', () => ({
 }))
 mock.module('../../api', () => ({
   api: {
+    agentStartBotOnboarding: (botId: string) => {
+      introductions.push(botId)
+
+      return Promise.resolve()
+    },
     agentCreateBot: (_team: string, bot: unknown) => {
       created.push(bot)
 
@@ -128,6 +136,8 @@ test('connect before creating, preserving the name and avatar when returning to 
     await submit()
     assert.deepEqual(created, [
       {
+        onboarding: true,
+        locale,
         title: 'Helper',
         avatar: '03-mona-lisa',
         runtimeId: 'ready-runtime',
@@ -136,6 +146,7 @@ test('connect before creating, preserving the name and avatar when returning to 
       },
     ])
     assert.deepEqual(opened, ['made-chat'])
+    assert.deepEqual(introductions, ['made-bot'])
   } finally {
     await act(() => root.unmount())
     await dom.happyDOM.close()

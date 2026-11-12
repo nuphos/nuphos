@@ -111,14 +111,28 @@ export async function reportTask(
     },
   )
   if (!saved.deliveredAt && !saved.droppedAt) {
-    await enqueueTaskReport(id)
+    await taskReports().updateOne({ _id: id }, { $unset: { deliveryError: '' } })
+    try {
+      await enqueueTaskReport(id)
+    } catch (error) {
+      await taskReports().updateOne(
+        { _id: id },
+        {
+          $set: {
+            deliveryError:
+              'Report delivery could not be queued. Retry the same report id and payload.',
+          },
+        },
+      )
+      throw error
+    }
     await taskReports().updateOne({ _id: id }, { $set: { enqueuedAt: new Date() } })
   }
 
   return {
     report_id: report.reportId,
     status: report.status,
-    delivery: taskReportDelivery(saved),
+    delivery: taskReportDelivery((await taskReports().findOne({ _id: id })) ?? saved),
   }
 }
 

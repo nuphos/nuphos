@@ -58,7 +58,9 @@ Delivery rechecks membership, ownership, team, archive state, and the parent lin
 The notification has a stable message ID and uses the existing conversation queue
 and transcript deduplication. Five queue attempts use exponential backoff. Failed
 jobs remain inspectable, and the report retains a delivery error; they do not
-retry indefinitely. Redis and the trigger scheduler must be enabled for delivery.
+retry indefinitely. An explicit retry with the same report id and payload
+restarts a retained failed job with a fresh five-attempt budget and clears the
+previous delivery error. Redis and the trigger scheduler must be enabled for delivery.
 Without Redis the report remains saved and the tool returns a delivery error.
 
 These guarantees cover Task identity and notification delivery. They do not make

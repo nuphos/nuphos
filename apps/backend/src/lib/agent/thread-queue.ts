@@ -2,6 +2,7 @@ import { Queue } from 'bullmq'
 
 import { redisEnabled } from '@/lib/redis'
 
+import { enqueueReport } from './task-report-queue'
 import { AGENT_TRIGGER_QUEUE, buildBullMQConnection } from './trigger-scheduler-setup'
 
 import type { ResourceTurn } from './resource-webhook'
@@ -13,17 +14,7 @@ export async function enqueueTaskReport(reportId: string): Promise<void> {
   if (!redisEnabled())
     throw new Error('Task report delivery requires Redis; the report is saved for recovery.')
   queue ??= new Queue(AGENT_TRIGGER_QUEUE, { connection: buildBullMQConnection() })
-  await queue.add(
-    'task-report',
-    { reportId },
-    {
-      jobId: `task-report-${reportId}`,
-      attempts: 5,
-      backoff: { type: 'exponential', delay: 5000 },
-      removeOnComplete: { age: 30 * 86400 },
-      removeOnFail: false,
-    },
-  )
+  await enqueueReport(queue, reportId)
 }
 
 export async function closeThreadQueue(): Promise<void> {
