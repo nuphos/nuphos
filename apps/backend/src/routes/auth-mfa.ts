@@ -8,9 +8,11 @@ import {
   mfaStatus,
   regenerateRecoveryCodes,
   startTotpSetup,
+  verifySecondFactor,
 } from '@/lib/identity/mfa'
 import { verifyMfaChallenge } from '@/lib/identity/mfa-challenge'
 import { issueSession } from '@/lib/identity/start-session'
+import { markVerified, requireRecentVerification } from '@/lib/identity/step-up'
 import { requireAuth } from '@/middleware/auth'
 
 import type { AuthVariables } from '@/middleware/auth'
@@ -19,7 +21,9 @@ import type { Context } from 'hono'
 /**
  * Optional two-factor authentication (lib/identity/mfa.ts), mounted at
  * /auth/mfa. Managing it takes a sign-in session (cli-tokens.ts SESSION_ONLY);
- * turning it off or replacing the recovery codes also takes a current code.
+ * turning it off or replacing the recovery codes also takes a current code,
+ * and turning it on a recent sign-in, so a stolen session cannot lock the
+ * owner out with an authenticator of its own.
  */
 export const authMfa = new Hono<{ Variables: AuthVariables }>()
 
@@ -28,7 +32,11 @@ const body = async (c: Context) =>
 
 authMfa.get('/', requireAuth, async (c) => c.json(await mfaStatus(c.get('userId'))))
 
-authMfa.post('/totp/setup', requireAuth, async (c) => c.json(await startTotpSetup(c.get('userId'))))
+authMfa.post('/totp/setup', requireAuth, async (c) => {
+  await requireRecentVerification(c.get('userId'), c.get('sessionId'), true)
+
+  return c.json(await startTotpSetup(c.get('userId')))
+})
 
 authMfa.post('/totp/confirm', requireAuth, async (c) =>
   c.json(await confirmTotpSetup(c.get('userId'), (await body(c)).code)),
@@ -40,6 +48,17 @@ authMfa.post('/recovery-codes', requireAuth, async (c) =>
 
 authMfa.post('/disable', requireAuth, async (c) => {
   await disableMfa(c.get('userId'), (await body(c)).code)
+
+  return c.body(null, 204)
+})
+
+// Step-up: a current code makes this session recently verified again.
+authMfa.post('/reauth', requireAuth, async (c) => {
+  const sessionId = c.get('sessionId')
+
+  if (!sessionId) throw new AppError(403, 'session_required', 'Sign in again to continue')
+  await verifySecondFactor(c.get('userId'), (await body(c)).code)
+  await markVerified(sessionId)
 
   return c.body(null, 204)
 })

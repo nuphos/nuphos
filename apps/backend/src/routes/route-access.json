@@ -696,6 +696,7 @@
   "POST /auth/email/verify-code": "public",
   "POST /auth/google/sign-in": "public",
   "POST /auth/mfa/disable": "user",
+  "POST /auth/mfa/reauth": "user",
   "POST /auth/mfa/recovery-codes": "user",
   "POST /auth/mfa/totp/confirm": "user",
   "POST /auth/mfa/totp/setup": "user",

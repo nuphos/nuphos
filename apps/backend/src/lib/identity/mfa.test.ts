@@ -129,7 +129,13 @@ const USER = {
 const sessionsStarted: string[] = []
 
 useDb({ db: () => ({ collection }) })
+const SESSION_ID = '64b7f0c2a1b2c3d4e5f60718'
+
 useIdentity({
+  authenticateToken: (async (token: string) =>
+    token === 'session-token'
+      ? { user: USER, cacheHit: false, provider: 'nuphos' as const, sessionId: SESSION_ID }
+      : null) as unknown as typeof identityActual.authenticateToken,
   getNuphosUserById: async (id: string) => (id === USER_ID ? USER : null),
 })
 useIdentitySessions({
@@ -157,10 +163,13 @@ function app() {
   return outer
 }
 
-const post = (path: string, body: unknown) =>
+const post = (path: string, body: unknown, token?: string) =>
   app().request(path, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: {
+      'content-type': 'application/json',
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify(body),
   })
 
@@ -352,5 +361,62 @@ describe('sign-in', () => {
     expect((await post('/auth/mfa/verify', { mfaToken, code: '12' })).status).toBe(401)
     expect((await post('/auth/mfa/verify', { mfaToken: 'nope', code: '123456' })).status).toBe(401)
     expect(sessionsStarted).toEqual([])
+  })
+})
+
+describe('step-up', () => {
+  const MINUTE = 60_000
+  const session = () => collection('user_sessions').docs[0]!
+  const signedIn = (minutesAgo: number) => {
+    collection('user_sessions').docs.push({
+      _id: new ObjectId(SESSION_ID),
+      userId: USER_ID,
+      createdAt: new Date(Date.now() - minutesAgo * MINUTE),
+    })
+  }
+  const errorOf = async (res: Response) =>
+    ((await res.json()) as { error: { code: string; details?: unknown } }).error
+
+  test('turning MFA on needs a recent sign-in, even without MFA', async () => {
+    signedIn(30)
+    const stale = await post('/auth/mfa/totp/setup', {}, 'session-token')
+
+    expect(stale.status).toBe(403)
+    expect(await errorOf(stale)).toMatchObject({
+      code: 'reauth_required',
+      details: { method: 'sign_in' },
+    })
+
+    session().createdAt = new Date(Date.now() - 2 * MINUTE)
+    expect((await post('/auth/mfa/totp/setup', {}, 'session-token')).status).toBe(200)
+  })
+
+  test('without MFA, other checks pass however old the sign-in', async () => {
+    signedIn(60 * 24)
+    const { requireRecentVerification } = await import('@/lib/identity/step-up')
+
+    await expect(requireRecentVerification(USER_ID, SESSION_ID)).resolves.toBeUndefined()
+  })
+
+  test('with MFA, an old session must enter a code, which renews it', async () => {
+    const { secret } = await enroll()
+    const { requireRecentVerification } = await import('@/lib/identity/step-up')
+
+    signedIn(30)
+    await expect(requireRecentVerification(USER_ID, SESSION_ID)).rejects.toMatchObject({
+      code: 'reauth_required',
+      details: { method: 'mfa' },
+    })
+
+    const wrong = await post('/auth/mfa/reauth', { code: 'nope' }, 'session-token')
+
+    expect(wrong.status).toBe(401)
+    expect(session().verifiedAt).toBeUndefined()
+
+    const res = await post('/auth/mfa/reauth', { code: codeAt(secret, step(1)) }, 'session-token')
+
+    expect(res.status).toBe(204)
+    expect(session().verifiedAt).toBeInstanceOf(Date)
+    await expect(requireRecentVerification(USER_ID, SESSION_ID)).resolves.toBeUndefined()
   })
 })
