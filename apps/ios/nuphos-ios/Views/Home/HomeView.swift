@@ -70,7 +70,7 @@ struct HomeView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     PageTitleMenu(selection: $page, style: .bar, inboxCount: inbox?.list.count ?? 0)
                 }
-                .sharedBackgroundVisibility(.hidden)
+                .sharedBackgroundHidden()
 
                 // Each control gets its own glass group
                 // (ToolbarSpacer(.fixed) splits groups, per the toolbar docs).
@@ -82,7 +82,7 @@ struct HomeView: View {
                             Label("Search agents", systemImage: "magnifyingglass")
                         }
                     }
-                    ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                    GlassGroupSpacer()
                 }
                 if page == .plans, let plans {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -92,12 +92,12 @@ struct HomeView: View {
                             Label("Search plans", systemImage: "magnifyingglass")
                         }
                     }
-                    ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                    GlassGroupSpacer()
                     ToolbarItem(placement: .topBarTrailing) {
                         PlansFilterMenu()
                             .environment(plans)
                     }
-                    ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                    GlassGroupSpacer()
                 }
 
                 // The avatar draws its own circular glass: the system glass
@@ -108,7 +108,7 @@ struct HomeView: View {
                     } label: {
                         AvatarView(user: user, size: 30)
                             .padding(7)
-                            .glassEffect(.regular.interactive(), in: Circle())
+                            .glass(interactive: true, in: Circle())
                     }
                     .buttonStyle(.plain)
                     #if os(iOS)
@@ -116,7 +116,7 @@ struct HomeView: View {
                     #endif
                     .accessibilityLabel("Account")
                 }
-                .sharedBackgroundVisibility(.hidden)
+                .sharedBackgroundHidden()
             }
             #if DEBUG
             .onAppear { if ProcessInfo.processInfo.arguments.contains("-show-app-icons") { showProfile = true } }
@@ -310,6 +310,28 @@ private struct PlansFilterMenu: View {
             Label("Filter plans", systemImage: plans.showDismissed
                   ? "line.3.horizontal.decrease.circle.fill"
                   : "line.3.horizontal.decrease")
+        }
+    }
+}
+
+/// Splits trailing controls into separate glass groups. Before iOS 26
+/// there are no glass groups to split.
+private struct GlassGroupSpacer: ToolbarContent {
+    var body: some ToolbarContent {
+        if #available(iOS 26, *) {
+            ToolbarSpacer(.fixed, placement: .topBarTrailing)
+        }
+    }
+}
+
+private extension ToolbarContent {
+    /// Drops the shared glass behind an item that draws its own (iOS 26).
+    @ToolbarContentBuilder
+    func sharedBackgroundHidden() -> some ToolbarContent {
+        if #available(iOS 26, *) {
+            sharedBackgroundVisibility(.hidden)
+        } else {
+            self
         }
     }
 }
