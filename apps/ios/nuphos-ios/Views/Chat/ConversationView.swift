@@ -486,7 +486,7 @@ struct ConversationView: View {
                 onSwitchRuntime: session.canManage && AgentChatAPI.switchRuntimeErrors.contains(text) ? { showRuntimes = true } : nil
             )
         case .event(_, let event):
-            EventLine(event: event, onLink: open(link:))
+            EventLine(event: event, onLink: open(link:), teamId: session.teamId)
         case .channel:
             EmptyView()
         }
@@ -721,14 +721,42 @@ struct SwitchRuntimeButton: View {
 
 /// A message another session, a linked resource or a trigger delivered: one
 /// muted line — who sent it and its first line — that expands to the full text.
+/// A channel's wake-up notice is only "New messages in #channel": its body is
+/// the agent's input and never expands.
 struct EventLine: View {
     let event: ChatMessage.Event
     var onLink: ((URL) -> Void)?
+    /// The conversation's team, to link a channel notice to its channel.
+    var teamId: String? = nil
 
     @State private var expanded = false
     @Environment(\.transcriptReadingInteraction) private var readingInteraction
 
     var body: some View {
+        if let channelId = event.channelId {
+            channelNotice(channelId)
+        } else {
+            disclosure
+        }
+    }
+
+    @ViewBuilder
+    private func channelNotice(_ channelId: String) -> some View {
+        let label = Text("New messages in #\(event.name)")
+            .font(Theme.Text.caption)
+            .foregroundStyle(Theme.muted)
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        if let onLink, let teamId, let link = SessionLink.url(teamId: teamId, sessionId: channelId) {
+            Button { onLink(link) } label: { label.contentShape(Rectangle()) }
+                .buttonStyle(.plain)
+                .accessibilityHint("Opens the channel")
+        } else {
+            label
+        }
+    }
+
+    private var disclosure: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button {
                 disclose(readingInteraction) { expanded.toggle() }
