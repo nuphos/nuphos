@@ -1,13 +1,14 @@
 import SwiftUI
 
 /// "+" on Bots: a name and a face, then the new Bot's 1:1 chat opens (#1691).
-/// It stays open, with what was picked, when creating fails.
+/// It stays open, with what was picked, when creating fails, and says why.
 struct NewBotSheet: View {
-    let create: (_ title: String, _ avatar: String) async -> Bool
+    let create: (_ title: String, _ avatar: String) async throws -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var face = BotAvatars.files.randomElement()!.replacingOccurrences(of: ".svg", with: "")
     @State private var creating = false
+    @State private var failure: String?
     @FocusState private var nameFocused: Bool
 
     private var title: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -50,15 +51,24 @@ struct NewBotSheet: View {
                     Button("Create") {
                         creating = true
                         Task {
-                            let created = await create(title, face)
+                            do {
+                                try await create(title, face)
+                                dismiss()
+                            } catch {
+                                failure = error.localizedDescription
+                            }
                             creating = false
-                            if created { dismiss() }
                         }
                     }
                     .disabled(title.isEmpty || title.count > 120 || creating)
                 }
             }
             .onAppear { nameFocused = true }
+            .alert("Couldn't create Bot", isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(failure ?? "")
+            }
         }
         .presentationDetents([.large])
     }

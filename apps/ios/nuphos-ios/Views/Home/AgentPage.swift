@@ -63,9 +63,8 @@ struct AgentPage: View {
             .sheet(isPresented: $showAgentSetup) { if let team = store.selectedTeam { AgentSetupSheet(team: team) } }
             .sheet(isPresented: $showNewBot) {
                 NewBotSheet { title, avatar in
-                    guard let channel = await store.createBot(title: title, avatar: avatar) else { return false }
-                    openChat = OpenChat(channel: channel)
-                    return true
+                    guard let bot = try await store.createBot(title: title, avatar: avatar) else { return }
+                    await openBotChat(bot)
                 }
             }
             .alert(
@@ -198,6 +197,18 @@ struct AgentPage: View {
                 }
                 #endif
             }
+    }
+
+    /// A Bot opens in its 1:1 chat, made the first time. A failure is
+    /// reported over the list, and trying again opens the chat (#1738).
+    private func openBotChat(_ botId: String) async {
+        do {
+            if let channel = try await store.botChannel(botId: botId) { openChat = OpenChat(channel: channel) }
+        } catch {
+            store.rowActionFailure = .init(title: "Couldn't open chat", message: error.localizedDescription) {
+                await openBotChat(botId)
+            }
+        }
     }
 
     private func openPushTarget() {
@@ -357,7 +368,9 @@ struct AgentPage: View {
         if conversation.ownsChat, !conversation.isChannel {
             Button {
                 Task {
-                    if let channel = await store.setBot(!conversation.isBot, conversation: conversation) { openChat = OpenChat(channel: channel) }
+                    if await store.setBot(!conversation.isBot, conversation: conversation), !conversation.isBot {
+                        await openBotChat(conversation.sessionId)
+                    }
                 }
             } label: {
                 Label(conversation.isBot ? "Turn into a Task" : "Make this a Bot", systemImage: conversation.isBot ? "person.crop.circle.badge.minus" : "person.crop.circle.badge.plus")
@@ -403,11 +416,6 @@ struct AgentPage: View {
                 openChat = OpenChat(channel: store.channel(for: channel))
                 return
             }
-            // A Bot opens in its 1:1 chat, made on the first tap.
-            if page == .chats, let id {
-                Task { if let channel = await store.botChannel(botId: id) { openChat = OpenChat(channel: channel) } }
-                return
-            }
             openChat = store.listedConversations.first { $0.sessionId == id }.map { OpenChat(session: store.session(for: $0)) }
         }
     }
@@ -417,8 +425,20 @@ struct AgentPage: View {
             if page == .chats {
                 Section {
                     ForEach(store.botsList) { row in
-                        NavigationLink(value: row.sessionId) {
-                            ChannelRow(channel: row).padding(.vertical, 12)
+                        Group {
+                            if row.isChannel {
+                                NavigationLink(value: row.sessionId) {
+                                    ChannelRow(channel: row).padding(.vertical, 12)
+                                }
+                            } else {
+                                // A Bot with no 1:1 chat yet: the list stays while it is made.
+                                Button { Task { await openBotChat(row.sessionId) } } label: {
+                                    ChannelRow(channel: row).padding(.vertical, 12).contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(store.creatingBot)
+                                .overlay(alignment: .trailing) { if store.creatingBot { ProgressView() } }
+                            }
                         }
                         .listRowBackground(openChat?.id == row.sessionId ? Theme.muted.opacity(0.12) : Color.clear)
                         .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 16))
