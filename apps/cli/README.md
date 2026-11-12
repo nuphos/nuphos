@@ -121,33 +121,22 @@ opens only this machine's tunnel. Revoking it
 `nuphos agent` then exits with status 78, as it does for a used or expired
 token, until it joins again with a new one.
 
-To keep it running with systemd, use a dedicated non-root account: anyone who
-controls that account acts as this machine in Nuphos, and agents'
-commands run as it.
-
-```ini
-# ~/.config/systemd/user/nuphos-agent.service
-[Unit]
-Description=Nuphos local runtimes
-After=network-online.target
-
-[Service]
-ExecStart=%h/.local/bin/nuphos agent
-Restart=always
-RestartSec=10
-RestartPreventExitStatus=78
-Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
-
-[Install]
-WantedBy=default.target
-```
-
-Join once in a terminal, then `systemctl --user enable --now nuphos-agent` and
-`sudo loginctl enable-linger "$USER"`. To join from the unit instead, put
-`NUPHOS_JOIN_TOKEN=nbj_…` in a file with mode 600 and add
-`EnvironmentFile=%h/.config/nuphos/join.env` to `[Service]`; the token is used
-on the first start and ignored afterwards. Add the directories of `node` and
-`claude` to `PATH` if they live elsewhere.
+On Linux with systemd, `nuphos agent` does not stay in the foreground: it
+installs the user service `nuphos-agent` and starts it, so the runtime starts
+again after a crash or a reboot. With `--join` it returns once the machine has
+joined. The service runs `nuphos agent` with the `PATH` and `NUPHOS_*`
+variables of the shell that installed it (kept in `~/.config/nuphos/agent.env`);
+run `nuphos agent` again to refresh them. A revoked computer or a refused token
+exits with status 78, which the service does not restart. `nuphos update`
+restarts the service on the new version. Its log is
+`journalctl --user -u nuphos-agent -f`; `systemctl --user disable --now
+nuphos-agent` stops it. Without linger, user services start at the user's first
+sign-in rather than at boot: `nuphos agent` turns linger on when the system
+allows it, and otherwise asks you to run `sudo loginctl enable-linger "$USER"`.
+Use a dedicated non-root account: anyone who controls that account acts as this
+machine in Nuphos, and agents' commands run as it. Without a systemd user
+manager (macOS, a container), or when a service manager already runs it,
+`nuphos agent` runs the runtime in the foreground.
 
 `exec` writes the reply to stdout and tool activity to stderr, ending with
 the agent id. New agents use the mode last picked in `/full-access`
