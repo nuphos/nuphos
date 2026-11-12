@@ -831,6 +831,8 @@
   "POST /teams/:teamId/runtime-desktop/runtime/:runtimeId": "member",
   "POST /teams/:teamId/secureframe-integrations": "admin",
   "POST /teams/:teamId/sentry-accounts/start-oauth": "admin",
+  "POST /teams/:teamId/skills/github/install": "member",
+  "POST /teams/:teamId/skills/github/preview": "member",
   "POST /teams/:teamId/skills/object": "member",
   "POST /teams/:teamId/skills/promote": "editor",
   "POST /teams/:teamId/slack-installations/start-oauth": "admin",

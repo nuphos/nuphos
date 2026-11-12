@@ -19,6 +19,7 @@ export {
   personalSkillsScope,
   skillNameFromObjectKey,
   skillObjectKeyForName,
+  skillPackageExists,
   teamSkillsScope,
   validateSkillName,
   validateSkillObjectKey,

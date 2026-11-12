@@ -204,6 +204,18 @@ export async function listSkillPackageObjects(
   return s3.listUnderPrefix(`${scope}/${SKILL_OBJECT_KEY_PREFIX}${skillName}/`)
 }
 
+/** Whether `skills/<name>/` holds any object, independent of the manifest's listing cap. */
+export async function skillPackageExists(scope: string, skillName: string): Promise<boolean> {
+  const normalized = normalizeSkillScope(scope)
+  const objects = await listSkillPackageObjects(
+    requireSkillsStore(normalized),
+    normalized,
+    skillName,
+  )
+
+  return objects.length > 0
+}
+
 export function mutationError(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }

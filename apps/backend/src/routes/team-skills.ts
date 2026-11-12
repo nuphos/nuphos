@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 
+import { installGithubSkills, previewGithubSkills } from '@/lib/agent/skill-store/github/install'
 import {
   deleteSkillByName,
   deleteSkillObject,
@@ -39,6 +40,15 @@ const skillNameQuerySchema = z.object({
 
 const skillHistoryQuerySchema = skillNameQuerySchema.extend({
   limit: z.coerce.number().int().min(1).max(250).default(100),
+})
+
+const githubSourceSchema = z.object({
+  source: z.string().trim().min(1).max(500),
+})
+
+const githubInstallSchema = githubSourceSchema.extend({
+  commitSha: z.string().regex(/^[0-9a-f]{40}$/),
+  names: z.array(z.string().trim().min(1)).min(1).max(50),
 })
 
 type SkillsContext = Context<{ Variables: TeamSkillsVariables }>
@@ -178,6 +188,34 @@ teamSkillsRoutes.delete(
     const result = await deleteSkillByName(resolveScope(c), name, mutationContext(c))
 
     return c.json(result)
+  },
+)
+
+/** Lists the skills a public GitHub repository offers; it downloads, so it is gated like a write. */
+teamSkillsRoutes.post(
+  '/github/preview',
+  requireTeamSkillRole('ADMINISTRATOR', 'EDITOR'),
+  zv('json', githubSourceSchema),
+  async (c) => {
+    const { source } = c.req.valid('json')
+
+    return c.json(await previewGithubSkills(resolveScope(c), source))
+  },
+)
+
+teamSkillsRoutes.post(
+  '/github/install',
+  requireTeamSkillRole('ADMINISTRATOR', 'EDITOR'),
+  zv('json', githubInstallSchema),
+  async (c) => {
+    const input = c.req.valid('json')
+    const context = mutationContext(c)
+    const installed = await installGithubSkills(resolveScope(c), input, {
+      ...context,
+      actor: { ...context.actor, source: 'import' },
+    })
+
+    return c.json({ installed }, 201)
   },
 )
 
