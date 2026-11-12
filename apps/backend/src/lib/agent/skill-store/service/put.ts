@@ -4,6 +4,7 @@ import { AppError } from '@/lib/errors'
 
 import { skillMetadataRepository } from '../metadata'
 import { normalizeSkillScope, skillObjectKey } from '../scope'
+import { PreconditionFailedError } from '../write-condition'
 
 import {
   assertSkillNameNotBuiltinOverlay,
@@ -19,6 +20,7 @@ import {
 import { MAX_SKILL_UPLOAD_BYTES } from './types'
 
 import type { SkillMutationAction } from '../metadata'
+import type { WriteCondition } from '../write-condition'
 import type { SkillMutationContext, SkillObject, SkillObjectWrite } from './types'
 
 export async function putSkillObject(
@@ -49,7 +51,17 @@ export async function putSkillObjects(
   scope: string,
   writes: SkillObjectWrite[],
   context: SkillMutationContext,
+  /** ETags the caller last saw, by object key; a key absent here must not exist yet. */
+  options: { expectedEtags?: Record<string, string> } = {},
 ): Promise<SkillObject[]> {
+  const { expectedEtags } = options
+  const conditionFor = (key: string): WriteCondition | undefined => {
+    if (!expectedEtags) return undefined
+    const etag = expectedEtags[key]
+
+    return etag ? { ifMatch: etag } : { ifNoneMatch: '*' }
+  }
+
   if (writes.length === 0) {
     throw new AppError(400, 'invalid_input', 'At least one skill object is required')
   }
@@ -161,6 +173,7 @@ export async function putSkillObjects(
         skillObjectKey(normalized, write.key),
         write.body,
         write.contentType,
+        conditionFor(write.key),
       )
 
       saved.push({
@@ -179,15 +192,21 @@ export async function putSkillObjects(
       try {
         const s3Key = skillObjectKey(normalized, savedObject.key)
 
-        if (old) await s3.putObject(s3Key, old.body, old.contentType)
+        // A conditional write restores only what it wrote, never a newer save by someone else.
+        const mine = expectedEtags ? { ifMatch: savedObject.etag } : undefined
+
+        if (old) await s3.putObject(s3Key, old.body, old.contentType, mine)
         else await s3.deleteObject(s3Key)
       } catch (rollbackErr) {
+        if (rollbackErr instanceof PreconditionFailedError) continue
         rollbackErrors.push(`${savedObject.key}: ${mutationError(rollbackErr)}`)
       }
     }
     await refreshScopeAfterMutation(normalized)
     if (rollbackErrors.length === 0) {
       await repository.fail({ ...mutation, error: mutationError(err) })
+      if (err instanceof PreconditionFailedError)
+        throw new AppError(409, 'skill_edited', `${skillName} changed while it was being written`)
       throw err
     }
 

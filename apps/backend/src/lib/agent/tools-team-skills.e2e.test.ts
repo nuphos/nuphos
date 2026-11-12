@@ -5,6 +5,7 @@ import path from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 
+import { PreconditionFailedError } from '@/lib/agent/skill-store/write-condition'
 import { byCodeUnit } from '@/lib/agent/sort-order'
 import { AppError } from '@/lib/errors'
 import * as identity from '@/lib/identity'
@@ -80,7 +81,17 @@ const fakeS3Client = {
       lastModified: obj.lastModified,
     }
   },
-  async putObject(key: string, body: Buffer, contentType?: string | null): Promise<string> {
+  async putObject(
+    key: string,
+    body: Buffer,
+    contentType?: string | null,
+    condition?: { ifMatch: string } | { ifNoneMatch: '*' },
+  ): Promise<string> {
+    const current = s3Store.get(key)?.etag
+
+    // S3 answers 412 to a failed condition; the real client turns that into this error.
+    if (condition && ('ifMatch' in condition ? current !== condition.ifMatch : current))
+      throw new PreconditionFailedError(key)
     const etag = etagFor(body)
 
     s3Store.set(key, {
@@ -154,7 +165,7 @@ useSkillStoreSync({
 })
 
 const { createTeamSkillTools } = await import('./tools-team-skills')
-const { deleteSkillByName, getSkillManifest, putSkillObject } =
+const { deleteSkillByName, getSkillManifest, putSkillObject, putSkillObjects } =
   await import('./skill-store/service')
 const { materializeMergedSkillsDir, resolveSkillsDirectory } = await import('./skill-store/merge')
 const { getScopeCacheDir } = await import('./skill-store/sync')
@@ -605,6 +616,50 @@ describe('personal skill tools E2E', () => {
     expect(builtin.error).toContain('reserved_skill_name')
     expect(secret.error).toContain('unsafe_content')
     expect(s3Store.size).toBe(0)
+  })
+})
+
+describe('putSkillObjects with expected ETags', () => {
+  const team = `teams/${TEAM_ID}`
+  const key = (rel: string) => `skills/racy/${rel}`
+  const ctx = (mutationId: string) => ({
+    mutationId,
+    actor: { userId: null, source: 'import' as const },
+  })
+  const read = (rel: string) => s3Store.get(`${team}/${key(rel)}`)?.body.toString()
+
+  test('a save that lands after the read is not overwritten, and nothing half-written stays', async () => {
+    const first = await putSkillObject(team, key('SKILL.md'), Buffer.from('v1'), null, ctx('seed'))
+
+    // Another member saves after the caller read `first` but before it writes.
+    await putSkillObject(team, key('SKILL.md'), Buffer.from('their edit'), null, ctx('theirs'))
+    const attempt = putSkillObjects(
+      team,
+      [
+        { key: key('new.py'), body: Buffer.from('new') },
+        { key: key('SKILL.md'), body: Buffer.from('v2') },
+      ],
+      ctx('update'),
+      { expectedEtags: { [key('SKILL.md')]: first.etag } },
+    )
+
+    await expect(attempt).rejects.toMatchObject({ code: 'skill_edited' })
+    expect(read('SKILL.md')).toBe('their edit')
+    expect(read('new.py')).toBeUndefined()
+  })
+
+  test('writes when nothing changed since the read', async () => {
+    const first = await putSkillObject(team, key('SKILL.md'), Buffer.from('v1'), null, ctx('seed'))
+
+    await putSkillObjects(
+      team,
+      [{ key: key('SKILL.md'), body: Buffer.from('v2') }],
+      ctx('update'),
+      {
+        expectedEtags: { [key('SKILL.md')]: first.etag },
+      },
+    )
+    expect(read('SKILL.md')).toBe('v2')
   })
 })
 

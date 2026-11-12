@@ -55,6 +55,7 @@ let deletes: string[] = []
 let recorded: SkillOrigin[] = []
 let legacyOrigin: SkillOrigin | null = null
 let afterPut = () => {}
+let beforePut = () => {}
 let duringDownload = () => {}
 const download = async () => {
   duringDownload()
@@ -65,7 +66,12 @@ const download = async () => {
 
 useSkillStoreService({
   skillPackageEtags: async () => ({ ...stored }),
-  putSkillObjects: async (_scope, writes) => {
+  putSkillObjects: async (_scope, writes, _context, options) => {
+    beforePut()
+    // Like the store's conditional writes: refuse if anything changed since the caller's read.
+    for (const write of writes)
+      if (options?.expectedEtags && stored[write.key] !== options.expectedEtags[write.key])
+        throw new AppError(409, 'skill_edited', `${write.key} changed`)
     puts.push(writes.map((w) => w.key))
     for (const write of writes) stored[write.key] = `new-${write.key}`
     afterPut()
@@ -98,6 +104,7 @@ beforeEach(() => {
   recorded = []
   legacyOrigin = null
   afterPut = () => {}
+  beforePut = () => {}
 })
 const context = { mutationId: 'req', actor: { userId: 'u2', source: 'import' as const } }
 
@@ -182,6 +189,37 @@ describe('GitHub skill updates', () => {
     )
 
     expect(recorded[0]?.installedEtags['skills/pdf/SKILL.md']).toBe('new-skills/pdf/SKILL.md')
+  })
+
+  test('a save between the last edit check and the write fails the update instead of being replaced', async () => {
+    beforePut = () => {
+      stored['skills/pdf/SKILL.md'] = 'saved by someone else'
+    }
+    const attempt = updateGithubSkills(
+      scope,
+      { names: ['pdf'], overwriteEdited: [], commits: { pdf: v2 } },
+      context,
+      download,
+    )
+
+    await expect(attempt).rejects.toMatchObject({ code: 'skill_edited' })
+    expect(stored['skills/pdf/SKILL.md']).toBe('saved by someone else')
+    expect(recorded).toEqual([])
+  })
+
+  test('a stale file saved during the update is kept and reads as an edit', async () => {
+    afterPut = () => {
+      stored['skills/pdf/old.py'] = 'saved by someone else'
+    }
+    await updateGithubSkills(
+      scope,
+      { names: ['pdf'], overwriteEdited: [], commits: { pdf: v2 } },
+      context,
+      download,
+    )
+
+    expect(deletes).toEqual([])
+    expect(Object.keys(recorded[0]?.installedEtags ?? {})).not.toContain('skills/pdf/old.py')
   })
 
   test('an edited skill needs explicit confirmation', async () => {
