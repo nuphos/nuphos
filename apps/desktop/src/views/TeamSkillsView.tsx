@@ -10,6 +10,7 @@ import { useToolbarSlot } from '../hooks/useToolbarControls'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
 
+import { GithubSkillInstallDialog } from './skills/GithubSkillInstallDialog'
 import { LocalSkillImportMenu } from './skills/LocalSkillImportMenu'
 import { buildSkillColumns } from './skills/skillColumns'
 import { SkillDetailPane } from './skills/SkillDetailPane'
@@ -103,26 +104,27 @@ export function TeamSkillsView({
     rows,
     selectedSkill,
   } = list
-  const { loadSkillDetail, deleteObject, deleteSkill, uploadFile } = useSkillActions({
-    teamId,
-    scope,
-    filter,
-    state,
-    canEdit,
-    canDelete,
-    selectedName,
-    setSelectedName,
-    setSkillMd,
-    setSkillFiles,
-    setSkillHistory,
-    setDetailLoading,
-    uploadKey,
-    setUploadKey,
-    setUploading,
-    detailRequestRef,
-    fileInputRef,
-    reloadWithSkeleton,
-  })
+  const { loadSkillDetail, reloadDetailForName, deleteObject, deleteSkill, uploadFile } =
+    useSkillActions({
+      teamId,
+      scope,
+      filter,
+      state,
+      canEdit,
+      canDelete,
+      selectedName,
+      setSelectedName,
+      setSkillMd,
+      setSkillFiles,
+      setSkillHistory,
+      setDetailLoading,
+      uploadKey,
+      setUploadKey,
+      setUploading,
+      detailRequestRef,
+      fileInputRef,
+      reloadWithSkeleton,
+    })
   const menuItems = useSkillMenu({
     teamId,
     scope,
@@ -187,12 +189,20 @@ export function TeamSkillsView({
                 </button>
               ))}
             </div>
+            <GithubSkillInstallDialog
+              teamId={teamId}
+              scope={scope}
+              disabled={!canEdit}
+              onInstalled={(name) => {
+                void reloadWithSkeleton().then(() => reloadDetailForName(name))
+              }}
+            />
             <LocalSkillImportMenu
               teamId={teamId}
               scope={scope}
               disabled={!canEdit}
               onImported={(name) => {
-                void reloadWithSkeleton().then(() => setSelectedName(name))
+                void reloadWithSkeleton().then(() => reloadDetailForName(name))
               }}
             />
           </>,

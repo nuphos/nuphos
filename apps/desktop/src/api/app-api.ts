@@ -202,4 +202,11 @@ export const appApi = {
   teamSkillsDeleteSkill: (teamId: string, name: string, scope?: SkillScope) =>
     window.api.teamSkillsDeleteSkill(teamId, name, scope),
   teamSkillsPromote: (teamId: string, name: string) => window.api.teamSkillsPromote(teamId, name),
+  teamSkillsGithubPreview: (teamId: string, source: string, scope?: SkillScope) =>
+    window.api.teamSkillsGithubPreview(teamId, source, scope),
+  teamSkillsGithubInstall: (
+    teamId: string,
+    input: { source: string; commitSha: string; names: string[] },
+    scope?: SkillScope,
+  ) => window.api.teamSkillsGithubInstall(teamId, input, scope),
 }
