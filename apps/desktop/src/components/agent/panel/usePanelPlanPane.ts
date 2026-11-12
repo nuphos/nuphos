@@ -7,7 +7,7 @@ import { usePlan } from '../planUpdates'
 import { ACTIVE_LIFECYCLE_STATUSES } from './applyEvent'
 import { locateChatTarget } from './chatTarget'
 import { credentialSelectionSignature } from './credentialAccess'
-import { sessionActionGates } from './sessionActions'
+import { serverHasConversation, sessionActionGates } from './sessionActions'
 import { useConversationPlanReference } from './useConversationPlanReference'
 
 import type { ActivePlan } from './applyEvent'
@@ -157,6 +157,9 @@ export function usePanelPlanPane(acc: Acc) {
   useEffect(() => {
     onTitleChangeRef.current = onTitleChange
   }, [onTitleChange])
+  // Re-reported when the server comes to have the chat, not on every streamed delta.
+  const stored = activeTab ? serverHasConversation(activeTab) : false
+
   useEffect(() => {
     // Also fires on sessionIdProp change so the parent's pageHref closure is
     // fresh when setPageMeta gates updates by canonicalHref. That means it can
@@ -193,6 +196,7 @@ export function usePanelPlanPane(acc: Acc) {
     activeTab?.archived,
     activeTab?.watching,
     activeTab?.unsaved,
+    stored,
     sessionIdProp,
   ])
 

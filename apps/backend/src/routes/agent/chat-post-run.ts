@@ -44,6 +44,33 @@ export type SlackBoundTurn = {
   mirror: SlackMirrorPayload | null
 }
 
+type AcceptedTurn = {
+  body: AgentChatBody
+  teamId: string | undefined
+  messages: UIMessage[]
+  firstMessage: string
+  locale: string
+  credentialAccess: AgentCredentialAccess | undefined
+  chatRuntime: ConversationChatRuntime
+}
+
+/** Store the app's user turn: the conversation shell, the message, the transcript. */
+export function persistAppTurn(userId: string, turn: AcceptedTurn) {
+  return persistAcceptedConversationTurn({
+    sessionId: turn.body.id,
+    userId,
+    teamId: turn.teamId,
+    messages: turn.messages,
+    firstMessage: turn.firstMessage,
+    locale: turn.locale,
+    credentialAccess: turn.credentialAccess,
+    source: 'app',
+    agentRuntime: turn.chatRuntime.runtime,
+    runtimeId: turn.chatRuntime.runtimeId,
+    runtimeLabel: turn.chatRuntime.runtimeLabel,
+  })
+}
+
 export function launchAcceptedChatTurn(args: {
   run: AgentRun
   chatCtx: InternalChatCtx
@@ -61,6 +88,8 @@ export function launchAcceptedChatTurn(args: {
   chatRuntime: ConversationChatRuntime
   /** Started from the session queue (see PreviewChatTurnArgs.queued). */
   queued?: PendingUserMessage
+  /** A new conversation's turn, already stored by the route before the run was accepted. */
+  storedTurn?: { isNew: boolean } | null
 }): void {
   const { run, chatCtx, chatSpan, body, teamId, messages, slack, chatRuntime } = args
   const sessionId = body.id
@@ -101,19 +130,11 @@ export function launchAcceptedChatTurn(args: {
       // awaits it before anything that needs the write to have landed
       // (default-credential persist on a new conversation, telemetry, title
       // generation), overlapping it with the rest of turn prep.
-      const isNewConversationPromise = persistAcceptedConversationTurn({
-        sessionId,
-        userId: run.userId,
-        teamId,
-        messages,
-        firstMessage: args.firstMessage,
-        locale: args.locale,
-        credentialAccess: args.credentialAccess,
-        source: 'app',
-        agentRuntime: chatRuntime.runtime,
-        runtimeId: chatRuntime.runtimeId,
-        runtimeLabel: chatRuntime.runtimeLabel,
-      })
+      const persisted =
+        args.storedTurn !== undefined
+          ? Promise.resolve(args.storedTurn)
+          : persistAppTurn(run.userId, args)
+      const isNewConversationPromise = persisted
         .then((acceptedTurn) => acceptedTurn?.isNew ?? false)
         .catch((err: unknown) => {
           traceAgentChatError('agent.chat.accepted_turn_persist.error', err, run.trace, {
