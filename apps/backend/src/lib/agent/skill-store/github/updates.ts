@@ -264,10 +264,14 @@ export async function updateGithubSkills(
       mutationId: context.mutationId && `${context.mutationId}:${origin.name}:${suffix}`,
     })
 
-    const saved = await putSkillObjects(scope, writes, step('put'))
+    // Conditional writes: a file saved since `now` makes the write fail instead of being replaced.
+    const saved = await putSkillObjects(scope, writes, step('put'), { expectedEtags: now })
+    const after = await skillPackageEtags(scope, origin.name)
 
+    // A stale file edited since `now` stays, and the next check reports the skill as edited.
     for (const stale of Object.keys(now))
-      if (!keys.has(stale)) await deleteSkillObject(scope, stale, step(`delete:${stale}`))
+      if (!keys.has(stale) && after[stale] === now[stale])
+        await deleteSkillObject(scope, stale, step(`delete:${stale}`))
     await recordSkillOrigin({
       ...origin,
       commitSha: report.latestCommit ?? origin.commitSha,

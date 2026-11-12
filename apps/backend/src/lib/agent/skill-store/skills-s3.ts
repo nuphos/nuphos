@@ -11,6 +11,9 @@ import { config } from '@/config'
 import { AppError } from '@/lib/errors'
 import { makeS3Client } from '@/lib/storage/s3-client'
 
+import { conditionalWriteError, conditionHeaders } from './write-condition'
+
+import type { WriteCondition } from './write-condition'
 import type { S3Client, _Object } from '@aws-sdk/client-s3'
 
 export type SkillS3Object = {
@@ -162,17 +165,27 @@ export class SkillsS3Client {
     }
   }
 
-  async putObject(key: string, body: Buffer, contentType?: string | null): Promise<string> {
-    const out = await this.client.send(
-      new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-        Body: body,
-        ...(contentType ? { ContentType: contentType } : {}),
-      }),
-    )
+  async putObject(
+    key: string,
+    body: Buffer,
+    contentType?: string | null,
+    condition?: WriteCondition,
+  ): Promise<string> {
+    try {
+      const out = await this.client.send(
+        new PutObjectCommand({
+          Bucket: this.bucket,
+          Key: key,
+          Body: body,
+          ...(contentType ? { ContentType: contentType } : {}),
+          ...conditionHeaders(condition),
+        }),
+      )
 
-    return normalizeEtag(out.ETag)
+      return normalizeEtag(out.ETag)
+    } catch (err: unknown) {
+      throw conditionalWriteError(err, key, condition)
+    }
   }
 
   async deleteObject(key: string): Promise<void> {
