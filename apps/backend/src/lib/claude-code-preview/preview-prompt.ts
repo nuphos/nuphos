@@ -3,10 +3,12 @@
 // `_meta.systemPrompt`. Sandbox-only sections (bash/skill tools, setup
 // scripts) are adapted to the native runtime equivalents it actually has.
 
+import { getConversationBySessionId } from '@/lib/agent/db'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { getAgentDevice } from '@/lib/agent/devices/store'
 import { inferUserFacingLanguage } from '@/lib/agent/language'
 import { getSystemPrompt } from '@/lib/agent/system-prompt'
+import { isUnnamedTask } from '@/lib/agent/title-fallback'
 import { generateContextPrompt, parseUrlContext } from '@/lib/agent/url-context'
 import { loadInstructionsBlock } from '@/lib/instructions/prompt'
 import {
@@ -102,6 +104,16 @@ async function urlContextSection(currentUrl: string | null | undefined): Promise
   }
 }
 
+const TASK_NAME_NOTE =
+  '## Naming this task\nThis task is still named after its first message, cut short. Once you understand what it is about, call rename_conversation once with only_if_unnamed: true and a short title: a few words, in the language of the user’s messages, that say what the task is about. Do not rename it again unless asked.'
+
+/** The naming note while a task still has its first message for a name. */
+async function taskNameSection(sessionId: string): Promise<string | null> {
+  const conversation = await getConversationBySessionId(sessionId)
+
+  return conversation && isUnnamedTask(conversation) ? TASK_NAME_NOTE : null
+}
+
 /** Build credential context and permission recovery guidance together. */
 async function credentialAndPermissionWallSections(
   args: PreviewPromptArgs,
@@ -130,7 +142,7 @@ async function credentialAndPermissionWallSections(
 
 /** The text appended to Claude Code's system prompt for one conversation. */
 export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise<string> {
-  const [base, cloudAccess, urlContext, instructions, where] = await Promise.all([
+  const [base, cloudAccess, urlContext, instructions, where, taskName] = await Promise.all([
     getSystemPrompt(args.locale, { max_output_tokens: MODEL_OUTPUT_BUDGET_TOKENS }),
     credentialAndPermissionWallSections(args).catch(() => ({
       credentials: '',
@@ -139,6 +151,7 @@ export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise
     urlContextSection(args.currentUrl),
     loadInstructionsBlock(args.teamId, args.userId, args.sessionId),
     runtimeWhere(args.runtimeId).catch(() => 'inside the team sandbox'),
+    taskNameSection(args.sessionId).catch(() => null),
   ])
   const userFacingLanguage = inferUserFacingLanguage(args.userTexts ?? [], args.locale)
   const planMessage = buildPlanToolMessage({
@@ -179,6 +192,7 @@ export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise
     nativeText(`${planMessage}\n\n${PLAN_RUNTIME_NOTE}`),
     nativeText(DASHBOARDS_RUNTIME_NOTE),
     BACKGROUND_MONITOR_NOTE,
+    taskName,
     previewChannelPromptSection({ teamId: args.teamId, slackThread: args.slackThread }),
     nativeText(buildNuphosLinksMessage(args.teamId, { nativeClaudeSkills: true })),
     instructions,

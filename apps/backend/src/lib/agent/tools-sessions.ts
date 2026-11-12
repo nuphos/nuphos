@@ -5,13 +5,13 @@ import {
   getConversations,
   getConversationTranscriptForAgent,
   liveTurnTranscriptLine,
-  renameConversation,
   updateBotSelf,
 } from './db'
 import { getSessionBypass } from './auto-mode/store'
 import { BOT_AVATARS } from './bot-avatars'
 import { createBot } from './bots'
 import { getLiveTurn } from './live-turn'
+import { renameConversationTool } from './tools-rename'
 import { withLabel } from './tools-skilled/labeling'
 
 const LIST_DESCRIPTION =
@@ -26,11 +26,6 @@ const READ_DESCRIPTION =
   'A turn still running is the last line of the last page, marked in progress with its start and last update times, and returned in in_progress; once it ends it is replaced by the stored message. ' +
   'Turn termination records are returned separately in turn_diagnostics, even when transcript text is truncated; timestamps describe backend observations and missing fields were not recorded. ' +
   'Tool inputs/outputs are omitted by default to keep the transcript small; set include_tool_details only when the exact command or result matters.'
-
-const RENAME_DESCRIPTION =
-  "Set a conversation's title, as if the user renamed it in the sidebar. Defaults to the current conversation. " +
-  'Use it only when the user asks to rename a conversation. ' +
-  'Only conversations the user owns in this workspace can be renamed; the new title is kept over any generated one.'
 
 const UPDATE_SELF_DESCRIPTION =
   'Change who you are, when this conversation is a Bot: your name, your face, or your standing instructions. ' +
@@ -195,32 +190,6 @@ export function createSessionTools(
     readShape,
   )
 
-  const renameShape = {
-    title: z.string().trim().min(1).max(120).describe('New title, 1–120 characters.'),
-    session_id: z
-      .string()
-      .min(1)
-      .max(128)
-      .optional()
-      .describe('Conversation to rename (default: the current conversation).'),
-  }
-  const rename_conversation = withLabel(
-    tool({
-      description: RENAME_DESCRIPTION,
-      inputSchema: z.object(renameShape),
-      execute: async ({ title, session_id }) => {
-        const sessionId = session_id ?? conversationId
-
-        if (!(await renameConversation(sessionId, userId, teamId, title))) {
-          return { error: 'Conversation not found or not owned by the user in this workspace.' }
-        }
-
-        return { session_id: sessionId, title }
-      },
-    }),
-    renameShape,
-  )
-
   const updateSelfShape = {
     name: z.string().trim().min(1).max(120).optional().describe('Your new name, 1–120 characters.'),
     avatar: z.enum(BOT_AVATARS).optional().describe('Your new face, by name.'),
@@ -293,7 +262,7 @@ export function createSessionTools(
   return {
     list_recent_conversations,
     read_conversation,
-    rename_conversation,
+    rename_conversation: renameConversationTool(userId, conversationId, teamId),
     update_self,
     create_bot,
   }
