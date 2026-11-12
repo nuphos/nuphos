@@ -3364,6 +3364,7 @@
   "Personal and work emails are welcome.": "Se aceptan correos personales y de trabajo.",
   "Personal instructions": "Instrucciones personales",
   "Personal memory": "Memoria personal",
+  "Personal skill": "Habilidad personal",
   "Personal skills are yours in this team. Claude Code runtimes load them on your turns in agents you own, and never on another member's turn. A team skill with the same name is used instead. Move a skill to the team when everyone should have it.": "Las habilidades personales son tuyas en este equipo. Los entornos de ejecución de Claude Code las cargan en tus turnos en los agentes que posees, y nunca en el turno de otro miembro. Si hay una habilidad del equipo con el mismo nombre, se usa esa. Mueve una habilidad al equipo cuando todos deban tenerla.",
   "Phase": "Fase",
   "Phone": "Teléfono",

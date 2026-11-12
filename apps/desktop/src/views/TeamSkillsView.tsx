@@ -256,6 +256,7 @@ export function TeamSkillsView({
       {selectedSkill && (
         <SkillDetailPane
           skill={selectedSkill}
+          scope={scope}
           files={skillFiles}
           history={skillHistory}
           members={members}
