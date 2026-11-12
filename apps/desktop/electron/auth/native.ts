@@ -11,8 +11,9 @@ import {
 import { writeConfig } from './config.ts'
 import { unsavedReason } from './unsaved.ts'
 import { assertWanted } from './sign-in-attempt.ts'
-import { apiErrorMessage } from './web.ts'
-import { describeCallbackFailure, errorPage, SUCCESS_HTML } from './pages.ts'
+import { apiError } from './web.ts'
+import { describeCallbackFailure, errorPage, MFA_HTML, SUCCESS_HTML } from './pages.ts'
+import { atlasErrorInfo } from '../atlas/error.ts'
 
 import type { UserInfo } from '../auth-status.ts'
 import type { CallbackHit } from './callback-server.ts'
@@ -23,7 +24,7 @@ import type { Server } from 'node:http'
 type RedeemOutcome =
   | { status: 'ready'; token: string; user: UserInfo }
   | { status: 'pending' }
-  | { status: 'failed'; message: string }
+  | { status: 'failed'; error: Error }
 
 async function redeemNativeSession(
   api: string,
@@ -51,12 +52,12 @@ async function redeemNativeSession(
   }
 
   if (res.status === 409) return { status: 'pending' }
-  if (!res.ok) return { status: 'failed', message: await apiErrorMessage(res) }
+  if (!res.ok) return { status: 'failed', error: await apiError(res) }
 
   const body = (await res.json().catch(() => null)) as { token?: unknown; user?: unknown } | null
 
   if (typeof body?.token !== 'string' || !isValidUserInfo(body.user)) {
-    return { status: 'failed', message: 'Malformed sign-in response' }
+    return { status: 'failed', error: new Error('Malformed sign-in response') }
   }
 
   return { status: 'ready', token: body.token, user: body.user }
@@ -123,8 +124,12 @@ export async function completeNativeLogin(
       )
 
       if (outcome.status === 'failed') {
-        browser.hit?.respond(500, errorPage(outcome.message))
-        throw new Error(outcome.message)
+        const { message, code } = atlasErrorInfo(outcome.error)
+
+        // Two-factor authentication: the app asks for the code, not the browser.
+        if (code === 'mfa_required') browser.hit?.respond(200, MFA_HTML)
+        else browser.hit?.respond(500, errorPage(message))
+        throw outcome.error
       }
       if (outcome.status === 'ready') {
         try {

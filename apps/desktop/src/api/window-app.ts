@@ -37,6 +37,8 @@ import type {
   PersonalCredential,
   PersonalCredentialDeepLinkPayload,
   PersonalCredentialProvider,
+  MfaSetup,
+  MfaStatus,
   SignInSession,
   SocialProvider,
   UpdaterState,
@@ -58,6 +60,13 @@ export type WindowAppApi = {
   atlasListSignInSessions(): Promise<SignInSession[]>
   atlasSignOutSession(id: string): Promise<void>
   atlasSignOutOtherSessions(): Promise<number>
+  authMfaVerify(mfaToken: string, code: string): Promise<UserInfo>
+  atlasGetMfaStatus(): Promise<MfaStatus>
+  atlasStartMfaSetup(): Promise<MfaSetup>
+  atlasConfirmMfaSetup(code: string): Promise<string[]>
+  atlasNewMfaRecoveryCodes(code: string): Promise<string[]>
+  atlasDisableMfa(code: string): Promise<void>
+  atlasReauthMfa(code: string): Promise<void>
   authUploadAvatar(image: Uint8Array): Promise<UserInfo>
   apiUrlSync(): string
   authRemoveAvatar(): Promise<UserInfo>

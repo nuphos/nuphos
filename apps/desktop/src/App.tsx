@@ -12,6 +12,7 @@ import { signOutLocally } from './app/signOutLocally'
 import { enterAs, startupAuth } from './app/startupAuth'
 import { Workspace } from './app/workspace/Workspace'
 import { ChangeBotAvatarHost } from './components/agent/ChangeBotAvatarDialog'
+import { StepUpPrompt } from './components/MfaCodeDialog'
 import { toast } from './components/ui/toast'
 import { CurrentUserContext } from './hooks/useCurrentUser'
 import { t } from './i18n'
@@ -120,6 +121,7 @@ function SignedInApp() {
         <BoxPaywallHost />
         <AgentSetupHost />
         <ChangeBotAvatarHost />
+        <StepUpPrompt />
       </div>
       {/* Over the workspace, which stays mounted: Cancel returns to it as it was. */}
       {adding && (

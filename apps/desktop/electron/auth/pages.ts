@@ -20,6 +20,18 @@ export const SUCCESS_HTML = `<!DOCTYPE html>
 </body>
 </html>`
 
+// The browser part is done, but the account has two-factor authentication on,
+// so the app asks for the code.
+export const MFA_HTML = SUCCESS_HTML.replace(
+  '<title>Logged in</title>',
+  '<title>Almost there</title>',
+)
+  .replace("You're logged in", 'Almost there')
+  .replace(
+    'You can close this tab and return to Nuphos.',
+    'Return to Nuphos and enter the code from your authenticator app.',
+  )
+
 function escapeHtml(value: string): string {
   const entities: Record<string, string> = {
     '&': '&amp;',

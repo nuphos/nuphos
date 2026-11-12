@@ -7,6 +7,7 @@ import {
   Download,
   FileText,
   KeyRound,
+  LockKeyhole,
   LifeBuoy,
   Monitor,
   MonitorSmartphone,
@@ -103,6 +104,7 @@ const USER_GROUPS: SettingsNavGroup[] = [
       { key: 'account.profile', label: t('Profile'), icon: CircleUserRound },
       { key: 'account.personalCredentials', label: t('Personal Credentials'), icon: KeyRound },
       { key: 'account.devices', label: t('Signed-in devices'), icon: MonitorSmartphone },
+      { key: 'account.mfa', label: t('Two-factor authentication'), icon: LockKeyhole },
     ],
   },
   {
