@@ -121,6 +121,13 @@ export async function handleOpenAbPermissionRequest(
   if (bypass) {
     const allowed = allowOnce(request.options)
 
+    // Logged so a lost answer can be told apart from a request that never arrived.
+    logEvent('info', 'agent.openab_permission.bypassed', {
+      conversation_id: args.conversationId,
+      tool_call_id: toolCallId,
+      allowed: Boolean(allowed),
+    })
+
     args.emit({
       type: 'authorization-decision',
       toolCallId,
