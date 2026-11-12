@@ -340,8 +340,8 @@ impl SessionActivity {
         self.prompt_in_flight.store(in_flight, Ordering::Release);
         self.execution
             .operation(if in_flight { "prompt" } else { "none" });
-        if !in_flight && self.prompt_permission_wait_ms.swap(0, Ordering::AcqRel) != 0 {
-            self.execution.permission_wait(false);
+        if !in_flight {
+            self.prompt_permission_wait_ms.store(0, Ordering::Release);
         }
     }
 
@@ -361,21 +361,16 @@ impl SessionActivity {
     }
 
     pub fn begin_prompt_permission_wait(&self) {
-        let opened = self.prompt_permission_wait_ms.compare_exchange(
+        let _ = self.prompt_permission_wait_ms.compare_exchange(
             0,
             Self::now_ms().max(1),
             Ordering::AcqRel,
             Ordering::Acquire,
         );
-        if opened.is_ok() {
-            self.execution.permission_wait(true);
-        }
     }
 
     pub fn end_prompt_permission_wait(&self) {
-        if self.prompt_permission_wait_ms.swap(0, Ordering::AcqRel) != 0 {
-            self.execution.permission_wait(false);
-        }
+        self.prompt_permission_wait_ms.store(0, Ordering::Release);
     }
 
     pub fn prompt_permission_wait_age(&self) -> Option<std::time::Duration> {
@@ -408,22 +403,17 @@ impl SessionActivity {
     /// permission decision. Idempotent: a re-entry keeps the original start, so
     /// the age readers see is the age of the wait, not of the last call.
     pub fn begin_agent_permission_wait(&self) {
-        let opened = self.agent_permission_wait_ms.compare_exchange(
+        let _ = self.agent_permission_wait_ms.compare_exchange(
             0,
             Self::now_ms().max(1),
             Ordering::AcqRel,
             Ordering::Acquire,
         );
-        if opened.is_ok() {
-            self.execution.permission_wait(true);
-        }
     }
 
     /// Record that the decision arrived (or the request failed): no wait is open.
     pub fn end_agent_permission_wait(&self) {
-        if self.agent_permission_wait_ms.swap(0, Ordering::AcqRel) != 0 {
-            self.execution.permission_wait(false);
-        }
+        self.agent_permission_wait_ms.store(0, Ordering::Release);
     }
 
     /// How long the open permission wait has lasted, or `None` when the relay

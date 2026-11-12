@@ -16,3 +16,11 @@ test('an idle snapshot is done, and no snapshot is loading', () => {
   assert.equal(threadStatusOf(snapshot('idle')), 'done')
   assert.equal(threadStatusOf(undefined), 'loading')
 })
+
+test('only a registered request a person answers makes an active thread wait', () => {
+  const ask = (kind: string) =>
+    ({ ...snapshot('active'), requests: [{ waitId: 'w', kind, createdAt: 1 }] }) as RuntimeExecution
+
+  assert.equal(threadStatusOf(ask('agent-permission')), 'waiting')
+  assert.equal(threadStatusOf(ask('client-tool')), 'running')
+})
