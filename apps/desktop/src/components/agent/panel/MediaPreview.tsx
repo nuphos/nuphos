@@ -5,14 +5,10 @@ import { useEffect, useState } from 'react'
 import { api } from '../../../api'
 import { t } from '../../../i18n'
 
-import { MEDIA_BOX, MEDIA_FRAME } from './transferDownloads'
+import { MEDIA_BOX, MEDIA_FRAME, PDF_PREVIEW_BYTES_MAX } from './transferDownloads'
 
 import type { ViewerKind } from './transferDownloads'
 import type { FileTransferFile } from '../../../types'
-
-// The most of a PDF a preview reads into memory. Media streams from its URL and
-// is never read whole; a PDF has to be, so a bigger one is left to Download.
-export const PDF_PREVIEW_BYTES_MAX = 25 * 1024 * 1024
 
 /**
  * A file the agent sent, shown in place as what it is: an image, a video or a
@@ -156,7 +152,7 @@ export function PdfFrame({ source, name }: { source: PdfSource; name: string }) 
         }
         // The type is stated here on purpose, rather than taken from the store:
         // whatever the store said, the frame is handed a PDF.
-        made = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }))
+        made = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
         setBlob(made)
       },
       // An expired link, a body that never arrived, or a store that refused it.

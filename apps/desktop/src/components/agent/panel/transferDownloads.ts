@@ -69,6 +69,10 @@ export function anchorDownloadGroups(
 // so media never resizes the transcript when it arrives. The preview opens full size.
 export const MEDIA_BOX = 'h-20 w-20'
 
+// The most of a PDF a preview reads into memory. Media streams from its URL and
+// is never read whole; a PDF has to be, so a bigger one is left to Download.
+export const PDF_PREVIEW_BYTES_MAX = 25 * 1024 * 1024
+
 // The frame that square sits in, shared by an image and one still arriving. A
 // video, an audio player and a PDF frame size themselves.
 export const MEDIA_FRAME = `block rounded-lg border border-line-control bg-surface-sheet ${MEDIA_BOX}`
