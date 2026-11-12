@@ -18,6 +18,8 @@ export type InputRequest = ExplicitUserDecision & {
   secretName?: string
   /** The plan (#N) a plan's approval question decides. */
   planId?: string
+  /** The channel a Bot asked in: its answer is posted there. */
+  channelId?: string
   /** The providers an `integration` request asks to connect, so its Connect card lists them. */
   providers?: string[]
   /** The member's own credentials an `integration` request asks for: only selecting one answers it. */

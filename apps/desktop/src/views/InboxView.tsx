@@ -4,13 +4,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { AgentPanel } from '../components/agent/AgentPanel'
 import { conversationQuestions } from '../components/agent/panel/replyTarget'
-import { chatOfBot } from '../components/channels/botChannel'
 import { EmptyState } from '../components/EmptyState'
-import { agentSessionsCacheKey } from '../components/sidebar/state'
 import { useElementSize } from '../grafana/useElementSize'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
-import { useSwrCache } from '../lib/swrCache'
 
 import { ChannelMentions } from './inbox/ChannelMentions'
 import { DecisionCard } from './inbox/DecisionCard'
@@ -27,7 +24,6 @@ import {
 import { useShareApprovals } from './inbox/useShareApprovals'
 
 import type { InboxQuestion } from './inbox/inboxItems'
-import type { AgentConversation } from '../api/agent-types'
 import type { JournalChatTarget } from '../lib/journalEvent'
 
 // The list reloads on this beat while the page is open, so the next question comes in.
@@ -65,8 +61,6 @@ export function InboxView({
   const { ref, width } = useElementSize<HTMLDivElement>()
   const twoPane = width === 0 || width >= TWO_PANE_MIN_WIDTH
   const listing = useInboxListing(teamId, INBOX_REFRESH_MS, refreshKey)
-  // The sidebar's conversations: where a Bot's chat is.
-  const known = useSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId))
   const [selected, setSelected] = useState<{ id: string; index: number } | null>(null)
   // The reader shows the question; the transcript only when asked for, at the question.
   const [showConversation, setShowConversation] = useState(false)
@@ -208,8 +202,8 @@ export function InboxView({
               canManage={Boolean(open.conversation.canManage) && !open.conversation.readOnly}
               showingConversation={showConversation}
               onAnswer={(text) => {
-                // A Bot's own question is answered in its chat, where the answer shows.
-                const chat = chatOfBot(known, sessionId)
+                // A Bot's question is answered in the channel it asked in, where the Bot reads it.
+                const chat = open.request.channelId
 
                 void (chat
                   ? answerInChat(teamId, chat, open.request.id, text)

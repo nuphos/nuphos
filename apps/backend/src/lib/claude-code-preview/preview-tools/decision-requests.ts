@@ -1,6 +1,6 @@
 // Follow-ups to request_user_decision: the agent lists, corrects or withdraws
 // the questions it asked while they are still open in the user's Inbox.
-import { getConversationBySessionId } from '@/lib/agent/db'
+import { agentConversations, getConversationBySessionId } from '@/lib/agent/db'
 import {
   listOpenInputRequests,
   resolveInputRequest,
@@ -110,4 +110,18 @@ export async function aboutRefs(
   }
 
   return refs
+}
+
+/**
+ * The channel a Bot's question is answered in: the one it is in that was
+ * active last. The answer is posted there, which wakes the Bot in front of
+ * the people it works with, rather than in its own conversation.
+ */
+export async function askingChannel(sessionId: string): Promise<{ channelId?: string }> {
+  const channel = await agentConversations().findOne(
+    { kind: 'channel', agentSessionIds: sessionId, archivedAt: { $exists: false } },
+    { sort: { lastActiveAt: -1 }, projection: { sessionId: 1 } },
+  )
+
+  return channel ? { channelId: channel.sessionId } : {}
 }

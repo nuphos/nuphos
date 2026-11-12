@@ -15,13 +15,10 @@ final class OpenQuestions {
     /// Why the last answer to a question failed, by `BotQuestion.id`, until it is answered again.
     private(set) var failures: [String: String] = [:]
     private let token: String
-    /// A Bot's own chat, if it has one: a Bot's own question is answered there, where it shows.
-    private let chatOf: (String) -> String?
 
-    init(token: String, teamId: String, chatOf: @escaping (String) -> String? = { _ in nil }) {
+    init(token: String, teamId: String) {
         self.token = token
         self.teamId = teamId
-        self.chatOf = chatOf
     }
 
     /// What the cards show: the listing, less what was answered here.
@@ -100,7 +97,8 @@ final class OpenQuestions {
         do {
             if let send {
                 try await send()
-            } else if let chat = chatOf(question.sessionId) {
+            } else if let chat = question.request.channelId {
+                // A Bot's question is answered in the channel it asked in, where the Bot reads it.
                 try await ChannelSession.postAnswer(token: token, teamId: teamId, channelId: chat, text: text,
                                                     id: UUID().uuidString.lowercased(), to: question.request.id)
             } else {

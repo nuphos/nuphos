@@ -23,7 +23,13 @@ import { previewRunStreamId, publishPreviewFrame } from '../run-frame-bridge'
 
 import { toolInputJsonSchema } from './ai-sdk-adapter'
 import { CLIENT_TOOL_INSTRUCTION, CLIENT_TOOL_UNREACHABLE_INSTRUCTION } from './decision-specs'
-import { aboutRefs, followUpHandler, isRequestFollowUp, requestOwner } from './decision-requests'
+import {
+  aboutRefs,
+  askingChannel,
+  followUpHandler,
+  isRequestFollowUp,
+  requestOwner,
+} from './decision-requests'
 import { awaitDecisionOnce } from './decision-wait'
 
 import type { PreviewClientToolCall, PreviewWaitKind } from '../decision-waiter'
@@ -197,6 +203,7 @@ function passthroughHandler(
 
     await addInputRequest(ctx.sessionId, requestOwner(ctx), {
       id: outcome.toolCallId,
+      ...(await askingChannel(ctx.sessionId)),
       category,
       question,
       ...(body ? { body } : {}),

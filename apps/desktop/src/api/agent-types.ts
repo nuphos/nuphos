@@ -140,6 +140,8 @@ export type AgentInputRequest = {
   providers?: string[]
   credentials?: { provider: 'personal'; id: 'github' | 'linear' }[]
   planId?: string
+  /** The channel a Bot asked in: its answer is posted there. */
+  channelId?: string
   askedAt: string
   status: 'open' | 'answered' | 'dismissed'
 }

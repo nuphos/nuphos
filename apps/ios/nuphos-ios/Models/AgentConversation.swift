@@ -72,6 +72,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         var body: String? = nil
         /// The plan an approval decides: answered with its Approve or Reject, never in words.
         var planId: String? = nil
+        /// The channel a Bot asked in: its answer is posted there.
+        var channelId: String? = nil
         /// An integration question's providers (any access answers it), or the exact credentials it names.
         var providers: [String]? = nil
         var credentials: [CredentialRef]? = nil

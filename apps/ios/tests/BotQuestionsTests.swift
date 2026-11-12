@@ -10,6 +10,7 @@ enum BotQuestionsTests {
         aPlanOrASecretIsNeverAnsweredInWords()
         aQuestionNamingTheMembersOwnCredentialIsConnectable()
         aMultiSelectOrSeveralQuestionsAreAForm()
+        aBotsQuestionKnowsTheChannelItIsAnsweredIn()
         print("Bot questions passed")
     }
 
@@ -47,6 +48,14 @@ enum BotQuestionsTests {
                                                     options: ["a", "b"], askedAt: nil)
         secret.multiSelect = true
         precondition(ask(secret).form == nil)
+    }
+
+    private static func aBotsQuestionKnowsTheChannelItIsAnsweredIn() {
+        let data = #"{"id":"q","category":"approval","question":"Ship?","channelId":"chan-1"}"#
+        let request = try! JSONDecoder().decode(AgentConversation.InputRequest.self, from: Data(data.utf8))
+        precondition(request.channelId == "chan-1")
+        let plain = #"{"id":"q","category":"approval","question":"Ship?"}"#
+        precondition(try! JSONDecoder().decode(AgentConversation.InputRequest.self, from: Data(plain.utf8)).channelId == nil)
     }
 
     private static func row(_ id: String, parent: String? = nil, owner: Bool = true,

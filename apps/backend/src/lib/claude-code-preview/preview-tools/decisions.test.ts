@@ -130,6 +130,22 @@ describe('decision tool module', () => {
     expect(await listPendingPreviewWaits(ctx.userId, ctx.sessionId)).toEqual([])
   })
 
+  test("a Bot's question records the channel it is answered in", async () => {
+    // The channel the asking agent is in, as the lookup returns it.
+    storedConversation = { sessionId: 'chan-1' }
+    await decisionToolModule({ publish: () => Promise.resolve() }).handlers(ctx)
+      .request_user_decision!({
+      label: 'Ask the channel',
+      category: 'approval',
+      question: 'Ship it?',
+      options: ['Ship', 'Wait'],
+    })
+
+    expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
+      $push: { inputRequests: { $each: [{ question: 'Ship it?', channelId: 'chan-1' }] } },
+    })
+  })
+
   test("request_user_decision keeps a credential request's secretName for its secure card", async () => {
     await decisionToolModule({ publish: () => Promise.resolve() }).handlers(ctx)
       .request_user_decision!({
