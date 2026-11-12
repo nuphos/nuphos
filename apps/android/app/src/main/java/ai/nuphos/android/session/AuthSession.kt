@@ -79,6 +79,9 @@ class AuthSession(
         private set
     var profileError: String? by mutableStateOf(null)
         private set
+    /** A sign-in that needs the account's second factor; the sign-in screen asks for the code. */
+    var mfaChallenge: String? by mutableStateOf(null)
+        private set
     val aiAllowed: Boolean get() = token?.let { AiAccess.allows(it) } == true
     val composerDrafts = ComposerDrafts(ai.nuphos.android.data.ComposerDraftPreferences(app))
     val runtimeSelections = RuntimeSelections()
@@ -338,6 +341,8 @@ class AuthSession(
                 throw e
             } catch (_: ActivityNotFoundException) {
                 if (generation == expected) state = State.SignedOut("We could not open the sign-in window. Please try again.")
+            } catch (e: NuphosApi.Failure.MfaRequired) {
+                if (generation == expected) askForMfa(e.challenge)
             } catch (_: Exception) {
                 if (generation == expected) state = State.SignedOut("Secure sign-in did not complete. Check your connection and try again.")
             } finally {
@@ -366,7 +371,28 @@ class AuthSession(
         if (state is State.SigningIn && loginAttempt == null) signOut()
     }
 
-    private fun credentialSignIn(email: String, credential: String, password: Boolean) {
+    private fun credentialSignIn(email: String, credential: String, password: Boolean) =
+        finishSignIn(password, onRefused = null) {
+            if (password) AccountApi("").passwordSignIn(email, credential)
+            else AccountApi("").emailSignIn(email, credential)
+        }
+
+    private fun askForMfa(challenge: String) {
+        mfaChallenge = challenge
+        state = State.SignedOut(null)
+    }
+
+    /** The second step of a sign-in that asked for it. [onRefused] hears why a code was not accepted. */
+    fun verifyMfa(code: String, onRefused: (String) -> Unit) {
+        val challenge = mfaChallenge ?: return
+        finishSignIn(password = false, onRefused = onRefused) {
+            AccountApi("").verifyMfa(challenge, code).also { mfaChallenge = null }
+        }
+    }
+
+    fun cancelMfa() { mfaChallenge = null }
+
+    private fun finishSignIn(password: Boolean, onRefused: ((String) -> Unit)?, obtain: suspend () -> String) {
         if (state !is State.SignedOut) return
         val expected = beginIdentity()
         val origin = serverOrigin
@@ -374,10 +400,17 @@ class AuthSession(
         loginJob = scope.launch {
             try {
                 val received = try {
-                    if (password) AccountApi("").passwordSignIn(email, credential)
-                    else AccountApi("").emailSignIn(email, credential)
+                    obtain()
+                } catch (e: NuphosApi.Failure.MfaRequired) {
+                    if (generation == expected) askForMfa(e.challenge)
+                    return@launch
+                } catch (e: NuphosApi.Failure.Http) {
+                    if (onRefused == null) throw e
+                    if (generation == expected) { state = State.SignedOut(null); onRefused(e.message) }
+                    return@launch
                 } catch (_: NuphosApi.Failure.Unauthorized) {
                     if (generation == expected) state = State.SignedOut(if (password) "The email or password is incorrect." else "Incorrect or expired code. Request a new code if needed.")
+                    onRefused?.invoke("That code is not valid.")
                     return@launch
                 }
                 ensureActive()
@@ -396,7 +429,9 @@ class AuthSession(
                 throw e
             } catch (_: NuphosApi.Failure.Unauthorized) {
                 if (generation == expected) state = State.SignedOut(NuphosApi.Failure.Unauthorized.message)
+                onRefused?.invoke(NuphosApi.Failure.Unauthorized.message)
             } catch (e: NuphosApi.Failure.Http) {
+                onRefused?.invoke(e.message)
                 if (generation == expected) state = State.SignedOut(if (password) e.message else when (e.code) {
                     400 -> "Incorrect or expired code, or invalid details. Check your entries or request a new code."
                     429 -> "Too many attempts. Wait before requesting a new code."
@@ -404,6 +439,7 @@ class AuthSession(
                 })
             } catch (_: Exception) {
                 if (generation == expected) state = State.SignedOut("Sign-in did not complete. Check your details and connection, then try again.")
+                onRefused?.invoke("Sign-in did not complete. Check your connection, then try again.")
             } finally {
                 if (generation == expected) loginJob = null
             }
