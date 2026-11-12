@@ -37,52 +37,55 @@ const reply = (text: string, sender?: { id: string; displayName: string }): Mess
 
 const SAM = { id: 'u-sam', displayName: 'Sam Rivera' }
 
-test('the reply after a card is its answer, whoever sent it', () => {
-  const answers = decisionAnswers([card('q1'), reply('Started the download', SAM)])
-
-  assert.deepEqual(answers.get('q1'), { option: 'Started the download' })
-  // A reply not yet attributed, sent from this device, answers it too.
-  assert.deepEqual(decisionAnswers([card('q1'), reply('Done, Xcode is installed')]).get('q1'), {
-    option: 'Done, Xcode is installed',
-  })
-})
-
-test('an open card has no answer, nor one answered in other words', () => {
-  assert.equal(decisionAnswers([card('q1')]).size, 0)
-  assert.equal(decisionAnswers([card('q1'), reply('I will do it tomorrow', SAM)]).size, 0)
-})
-
-test('a reply before the card does not answer it', () => {
-  assert.equal(decisionAnswers([reply('Started the download', SAM), card('q1')]).size, 0)
-})
-
-test('the newest open card offering the reply takes it, and each card one answer', () => {
-  const answers = decisionAnswers([
-    card('q1'),
-    card('q2'),
-    reply('Started the download', SAM),
-    reply('Started the download'),
-  ])
-
-  assert.equal(answers.get('q2')?.option, 'Started the download')
-  assert.equal(answers.get('q1')?.option, 'Started the download')
-})
-
-test('connect and secure-input cards are not choices', () => {
-  const connect: Message = {
-    ...card('q1'),
+test("a card shows the answer the server's notice records, by its request id", () => {
+  const asked: Message = {
+    ...card('call-1'),
     parts: [
       {
         type: 'tool',
-        toolCallId: 'q1',
+        toolCallId: 'call-1',
         toolName: 'request_user_decision',
         state: 'output-available',
-        input: { category: 'integration', question: 'Connect?', providers: ['github'] },
+        input: { category: 'approval', question: 'Install Xcode?', options: OPTIONS },
+        output: { requestId: 'nuphos-q1' },
       },
     ],
   }
+  const notice = (requestId: string): Message => ({
+    id: `n-${requestId}`,
+    role: 'user',
+    parts: [
+      {
+        type: 'text',
+        text: [
+          `Your question (requestId ${requestId}) was answered from the Inbox.`,
+          'Answered by: "Sam", this conversation\'s owner: it is their own answer.',
+          'Question: Install Xcode?',
+          'Context you gave: - a list → in the body',
+          'Answer:',
+          '- Install Xcode? → Started the download',
+          'Continue the task with this answer.',
+        ].join('\n'),
+      },
+    ],
+    metadata: {
+      version: 1,
+      sender: { type: 'system', id: 'nuphos:decision', displayName: 'Nuphos' },
+      source: 'agent.resource',
+      sentAt: '2026-11-12T06:00:00Z',
+    },
+  })
 
-  assert.equal(decisionAnswers([connect, reply('github', SAM)]).size, 0)
+  assert.deepEqual(decisionAnswers([asked, notice('nuphos-q1')]).get('call-1'), {
+    option: 'Started the download',
+  })
+  // Another request's notice answers nothing here.
+  assert.equal(decisionAnswers([asked, notice('nuphos-q9')]).size, 0)
+})
+
+test('a choice card is answered through the server, never by a reply in the transcript', () => {
+  // Choosing sends no message; a reply naming an option answers nothing here.
+  assert.equal(decisionAnswers([card('q1'), reply('Started the download', SAM)]).size, 0)
 })
 
 const secret = (id: string, name: string): Message => ({

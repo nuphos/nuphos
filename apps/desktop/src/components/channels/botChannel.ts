@@ -7,22 +7,10 @@ import { botAvatarName, derivedBotAvatar } from '../../lib/botAvatars'
 import { announceChatArchived, announceChatUnarchived } from '../../lib/chatArchiveEvents'
 import { toast } from '../ui/toast'
 
-import { botOfChannel, chooseBotChat, openBotChats, readBotChats } from './botChats'
+import { chooseBotChat, openBotChats, readBotChats } from './botChats'
 import { markChannel } from './channelKind'
 
-import type { AgentConversation } from '../../api/agent-types'
-
 export { botOfChannel } from './botChats'
-
-/** A Bot's own chat among these conversations, if it has one. */
-export function chatOfBot(
-  conversations: readonly AgentConversation[] | null | undefined,
-  botId: string,
-): string | undefined {
-  return conversations?.find(
-    (conversation) => conversation.kind === 'channel' && botOfChannel(conversation.faces) === botId,
-  )?.sessionId
-}
 
 const making = new Map<string, Promise<string>>()
 

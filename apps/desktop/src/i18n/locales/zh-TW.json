@@ -378,6 +378,7 @@
   "Another runtime on this computer already has this name.": "此電腦上已有其他執行環境使用這個名稱。",
   "Answer in the conversation": "在對話中回答",
   "Answer in the secure card below. Never paste a secret in a message.": "請在下方的安全卡片中回答，切勿把密鑰貼到訊息裡。",
+  "Answered: {answer}": "已回答：{answer}",
   "Antigravity shares Google sign-in with other Antigravity apps under the same OS account. Signing in or using the CLI to sign out may affect them. Separate runtime accounts are not supported.": "Antigravity 與同一 OS 帳號下的其他 Antigravity 應用程式共用 Google 登入。登入或使用 CLI 登出可能影響它們。不支援各執行環境使用獨立帳號。",
   "Antigravity uses this computer’s shared sign-in": "Antigravity 使用這台電腦的共用登入",
   "Any": "任何",

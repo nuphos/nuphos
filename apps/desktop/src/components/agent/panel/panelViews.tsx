@@ -7,6 +7,7 @@ import { useStableCallback } from '../../../hooks/useStableCallback'
 import { t } from '../../../i18n'
 import { track } from '../../../lib/analytics'
 import { runtimeIsExecuting, runtimeAllows } from '../../../lib/runtimeExecution'
+import { cardAnswers } from '../../../views/inbox/useInbox'
 import { toast } from '../../ui/toast'
 import { PermissionResumeContext } from '../permissionResumeContext'
 
@@ -166,6 +167,9 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     : visibleConversationCredentialSelector,
                   send: (text, card) =>
                     sendInActive(text, [], undefined, card && cardReplyId(card, questions)),
+                  answer: canReply
+                    ? cardAnswers(teamId, activeTab.sessionId, questions)
+                    : undefined,
                   // Only the owner provides a secret; it lands on their runtime.
                   saveSecret:
                     activeTab.readOnly || activeTab.foreign
@@ -174,14 +178,6 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                           (await api.agentSaveSecret(activeTab.sessionId, name, value, teamId))
                             .path,
                   openQuestions: c.openQuestions,
-                  reply: canReply
-                    ? (card) => {
-                        c.replyTarget?.onChoose(cardReplyId(card, questions))
-                        composerRef.current
-                          ?.querySelector<HTMLElement>('[contenteditable="true"]')
-                          ?.focus()
-                      }
-                    : undefined,
                 }}
               >
                 <TurnSwitchAgentContext.Provider value={turnSwitchAgent(activeTab)}>
