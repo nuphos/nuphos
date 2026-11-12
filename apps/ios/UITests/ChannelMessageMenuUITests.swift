@@ -27,15 +27,14 @@ final class ChannelMessageMenuUITests: XCTestCase {
         app.launch()
         let cell = app.collectionViews["chat.transcript"].cells.element(boundBy: 2)
         XCTAssertTrue(cell.waitForExistence(timeout: 15))
+        let composer = try XCTUnwrap([app.textFields.firstMatch, app.textViews.firstMatch].first { $0.exists })
+        composer.tap()
+        if app.buttons["Continue"].waitForExistence(timeout: 2) { app.buttons["Continue"].tap() }
+        app.collectionViews["chat.transcript"].swipeDown()
         shot(app, "bubble")
         cell.press(forDuration: 1)
         XCTAssertTrue(app.buttons["Reply"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Copy"].exists)
-        if app.buttons["Continue"].exists {
-            app.buttons["Continue"].tap()
-            cell.press(forDuration: 1)
-            XCTAssertTrue(app.buttons["Reply"].waitForExistence(timeout: 5))
-        }
         shot(app, "context-menu")
         if ProcessInfo.processInfo.environment["NUPHOS_EVIDENCE_BASELINE"] == "1" { return }
         app.buttons["Select Text"].tap()
@@ -43,7 +42,6 @@ final class ChannelMessageMenuUITests: XCTestCase {
         XCTAssertTrue(copy.waitForExistence(timeout: 5))
         shot(app, "partial-selection")
         copy.tap()
-        let composer = try XCTUnwrap([app.textFields.firstMatch, app.textViews.firstMatch].first { $0.exists })
         XCTAssertTrue(composer.waitForExistence(timeout: 5))
         composer.tap()
         composer.press(forDuration: 1)
