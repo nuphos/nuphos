@@ -40,6 +40,19 @@ is checked, so parallel guesses share one budget: after ten attempts within 15
 minutes without a right code, code entry is locked for the rest of that window. Turning it on or off and
 using a recovery code send an email, best effort.
 
+## Step-up re-authentication
+
+A session counts as recently verified for 10 minutes after its sign-in, or
+after a code is entered on `POST /auth/mfa/reauth` (`{ code }`, 204). With MFA
+on, the sign-in itself took the second factor, so both are second-factor checks.
+An action that needs a recent check answers `403 reauth_required` otherwise;
+`error.details.method` is `mfa` (ask for a code, call `/auth/mfa/reauth`, then
+retry) or `sign_in` (the account has no MFA, so sign in again).
+
+MFA is optional, and accounts without it are not asked, except to turn MFA on:
+`POST /auth/mfa/totp/setup` needs a sign-in in the last 10 minutes from every
+account, so a stolen session cannot add its own authenticator.
+
 ## New sign-in alert
 
 When a sign-in starts, only its IP decides, checked against the account's
