@@ -241,7 +241,11 @@ struct LoginView: View {
                         .font(.title.bold()).foregroundStyle(Theme.heading)
                     Text("Enter the 6-digit code from your authenticator app.").foregroundStyle(Theme.body)
                 }
-                MfaCodeEntry(submitLabel: "Sign in") { try await session.verifyMfa(code: $0) }
+                MfaCodeEntry(submitLabel: "Sign in", submit: { try await session.verifyMfa(code: $0) }, passkey: {
+                    guard let challenge = session.mfaChallenge?.token else { return }
+                    let options = try await AccountAPI.signInPasskeyOptions(mfaToken: challenge)
+                    try await session.verifyMfa(passkey: try await Passkeys.answer(options))
+                })
             }
             .padding(24).frame(maxWidth: 440).frame(maxWidth: .infinity)
         }
