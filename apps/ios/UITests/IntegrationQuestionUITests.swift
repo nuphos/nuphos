@@ -3,6 +3,7 @@ import XCTest
 /// Offline integration request in an ordinary conversation, using only synthetic accounts.
 final class IntegrationQuestionUITests: XCTestCase {
     func testQuestionOpensTheExistingCredentialPicker() throws {
+        continueAfterFailure = false
         let fixture = URL(filePath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "tests/fixtures/push-responses.json")
@@ -26,11 +27,11 @@ final class IntegrationQuestionUITests: XCTestCase {
         try JSONSerialization.data(withJSONObject: responses).write(to: live)
 
         let app = XCUIApplication()
-        app.launchArguments = ["-preview-home", "-preview-no-push", "-open-links",
+        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "agent", "-open-links",
             "https://nuphos.ai/teams/64b5f1c2e4b0a1d2c3e4f5a6/agent/push-a"]
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
         app.launch()
-        let entry = app.buttons["Request a Trello connection"].firstMatch
+        let entry = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Request a Trello connection")).firstMatch
         XCTAssertTrue(entry.waitForExistence(timeout: 10))
         entry.tap()
         XCTAssertTrue(app.staticTexts["Connect Trello for this conversation?"].waitForExistence(timeout: 5))
