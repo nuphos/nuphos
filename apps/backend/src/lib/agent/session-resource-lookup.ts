@@ -1,9 +1,10 @@
 import { ObjectId } from 'mongodb'
 
 import { canUseAllowList } from '@/lib/byos/access'
-import { findGithubInstallation, findLinearWorkspace } from '@/lib/byos/account'
+import { findGithubInstallation, findGitlabBinding, findLinearWorkspace } from '@/lib/byos/account'
 import { getInstallationToken } from '@/lib/byos/github'
 import { GITHUB_API, githubFetch } from '@/lib/byos/github-http'
+import { GitlabApiError, apiRequest as gitlabApi } from '@/lib/byos/gitlab'
 import { linearGraphql } from '@/lib/byos/linear'
 import { withLinearAccessToken } from '@/lib/byos/linear-tokens'
 import { AppError } from '@/lib/errors'
@@ -27,23 +28,36 @@ export async function resourceCredentialAllowed(
 ) {
   if (!conversation.teamId || !(await getTeamMembership(conversation.userId, conversation.teamId)))
     return false
+  const access = conversation.credentialAccess
+  const selected = {
+    github: access?.githubInstallationIds,
+    gitlab: access?.gitlabBindingIds,
+    linear: access?.linearWorkspaceIds,
+  }[resource.provider]
+
+  if (!selected?.includes(resource.integrationId)) return false
   const team = new ObjectId(conversation.teamId)
 
-  if (resource.provider === 'github') {
-    return Boolean(
-      conversation.credentialAccess?.githubInstallationIds?.includes(resource.integrationId) &&
-      (await findGithubInstallation(team, Number(resource.integrationId))),
-    )
-  }
-  if (!conversation.credentialAccess?.linearWorkspaceIds?.includes(resource.integrationId))
-    return false
-  const binding = await findLinearWorkspace(team, new ObjectId(resource.integrationId))
+  if (resource.provider === 'github')
+    return Boolean(await findGithubInstallation(team, Number(resource.integrationId)))
+  const id = new ObjectId(resource.integrationId)
+  const binding =
+    resource.provider === 'gitlab'
+      ? await findGitlabBinding(team, id)
+      : await findLinearWorkspace(team, id)
+  const allowList = binding?.access?.memberAllowList
 
   return Boolean(
     binding &&
-    canUseAllowList(binding.access?.memberAllowList, actorId) &&
-    canUseAllowList(binding.access?.memberAllowList, conversation.userId),
+    canUseAllowList(allowList, actorId) &&
+    canUseAllowList(allowList, conversation.userId),
   )
+}
+
+function inputIntegrationId(input: z.infer<typeof sessionResourceInput>) {
+  if (input.provider === 'github') return String(input.installationId)
+
+  return input.provider === 'gitlab' ? input.bindingId : input.workspaceId
 }
 
 export async function resolveResource(
@@ -51,8 +65,7 @@ export async function resolveResource(
   actorId: string,
   input: z.infer<typeof sessionResourceInput>,
 ): Promise<ResolvedResource> {
-  const integrationId =
-    input.provider === 'github' ? String(input.installationId) : input.workspaceId
+  const integrationId = inputIntegrationId(input)
 
   if (
     !(await resourceCredentialAllowed(
@@ -119,6 +132,8 @@ export async function resolveResource(
     }
   }
   const team = new ObjectId(conversation.teamId!)
+
+  if (input.provider === 'gitlab') return resolveMergeRequest(team, input)
   const binding = await findLinearWorkspace(team, new ObjectId(input.workspaceId))
 
   if (!binding) throw new AppError(404, 'not_found', 'Linear workspace was disconnected')
@@ -148,5 +163,50 @@ export async function resolveResource(
     url: issue.url,
     state: issue.state.name,
     stateType: issue.state.type,
+  }
+}
+
+type GitlabInput = Extract<z.infer<typeof sessionResourceInput>, { provider: 'gitlab' }>
+
+/** A GitLab merge request, in the pull-request words the tags already use. */
+async function resolveMergeRequest(team: ObjectId, input: GitlabInput): Promise<ResolvedResource> {
+  const binding = await findGitlabBinding(team, new ObjectId(input.bindingId))
+
+  if (!binding) throw new AppError(404, 'not_found', 'GitLab binding was disconnected')
+  const mr = await gitlabApi<{
+    iid: number
+    project_id: number
+    title: string
+    state: 'opened' | 'closed' | 'merged' | 'locked'
+    draft?: boolean
+    merged_at?: string | null
+    web_url: string
+    references?: { full?: string }
+  }>(
+    team,
+    binding,
+    `/projects/${encodeURIComponent(input.project)}/merge_requests/${String(input.iid)}`,
+  ).catch((error: unknown) => {
+    if (error instanceof GitlabApiError && error.status === 404)
+      throw new AppError(404, 'not_found', 'GitLab merge request not found')
+    throw new AppError(502, 'resource_lookup_failed', 'GitLab merge request lookup failed')
+  })
+
+  if (!mr.web_url.startsWith(`${binding.hostUrl}/`))
+    throw new AppError(404, 'not_found', 'GitLab merge request not found')
+  const mergedAt = mergedAtOf(mr.merged_at)
+  const stateWords = { opened: 'open', merged: 'merged', closed: 'closed', locked: 'closed' }
+
+  return {
+    provider: 'gitlab',
+    integrationId: input.bindingId,
+    resourceId: `${String(mr.project_id)}/${String(mr.iid)}`,
+    repository: mr.references?.full?.replace(/!\d+$/, ''),
+    number: mr.iid,
+    title: mr.title.slice(0, 300),
+    state: stateWords[mr.state],
+    url: mr.web_url,
+    draft: Boolean(mr.draft),
+    ...(mergedAt ? { mergedAt } : {}),
   }
 }

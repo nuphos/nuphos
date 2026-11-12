@@ -107,6 +107,14 @@ gl "/projects/$PROJECT_ID/merge_requests/$MR_IID/notes" \
 
 The full GitLab REST API surface under `/api/v4` is available through the bound OAuth token. Prefer it over cloning when you only need metadata or a few files.
 
+## Link work to the current conversation
+
+After opening or adopting a merge request for the current task, call
+`bind_session_resource` when that native tool is available, with `provider: gitlab`,
+the selected `bindingId`, `project` (numeric id or full path) and the MR `iid`.
+The link shows the MR and its state in the session sidebar; it does not wake the
+conversation on MR events. Do not bind unrelated search results.
+
 ## Nuphos proxy fallback
 
 The backend also proxies a small read-only subset — handy for a quick look without running setup. `/teams/$TEAM/gitlab-bindings/namespaces` (team-level, no binding id) flattens every top-level group/user namespace across all bindings with project counts; per binding there are `/teams/$TEAM/gitlab-bindings/$GB/projects?namespace=<root>`, `.../projects/:id/merge-requests`, and `.../projects/:id/pipelines`.

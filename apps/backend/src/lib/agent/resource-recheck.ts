@@ -15,14 +15,15 @@ const running = new Set<string>()
 
 /** A merged or closed PR, or a completed or canceled issue, no longer changes on its own. */
 export function resourceFinished(resource: SessionResource) {
-  if (resource.provider === 'github') return resource.state !== 'open'
+  if (resource.provider !== 'linear') return resource.state !== 'open'
 
   return resource.stateType === 'completed' || resource.stateType === 'canceled'
 }
 
 function recheckDue(resource: SessionResource, now: number) {
   if (resourceFinished(resource)) return false
-  if (resource.provider === 'github' && (!resource.repository || !resource.number)) return false
+  if (resource.provider === 'github' && !resource.repository) return false
+  if (resource.provider !== 'linear' && !resource.number) return false
 
   return !resource.checkedAt || now - Date.parse(resource.checkedAt) >= RECHECK_INTERVAL_MS
 }
