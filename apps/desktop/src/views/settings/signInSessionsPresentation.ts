@@ -44,10 +44,20 @@ export function sessionDevice(session: Pick<SignInSession, 'client' | 'userAgent
   return browser ?? (system ? t('A browser on {system}', { system }) : t('Unknown device'))
 }
 
-export function sessionPlace(session: Pick<SignInSession, 'city' | 'country' | 'ip'>): string {
-  const place = [session.city, session.country].filter(Boolean).join(', ')
+/**
+ * City and country as Cloudflare guessed them — what a row shows as its location.
+ *
+ * The IP is deliberately not in here. It is long and it is not something a person
+ * recognizes, so on the row it pushed the last-active time out of view; it stays
+ * available on hover instead, through `sessionPlace`.
+ */
+export function sessionLocation(session: Pick<SignInSession, 'city' | 'country'>): string {
+  return [session.city, session.country].filter(Boolean).join(', ') || t('Unknown location')
+}
 
-  return [place || t('Unknown location'), session.ip].filter(Boolean).join(' · ')
+/** The location and the address behind it: the detail a row shows on hover. */
+export function sessionPlace(session: Pick<SignInSession, 'city' | 'country' | 'ip'>): string {
+  return [sessionLocation(session), session.ip].filter(Boolean).join(' · ')
 }
 
 /** This device first, then the most recently active. */
