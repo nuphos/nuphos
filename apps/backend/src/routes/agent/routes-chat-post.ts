@@ -188,7 +188,16 @@ agent.post('/chat', async (c) => {
     }
     const storedTurn = conversationForResume
       ? undefined
-      : await persistAppTurn(runOwnerUserId, turn)
+      : await persistAppTurn(runOwnerUserId, turn).catch((err: unknown) => {
+          logEvent('error', 'agent.chat.accepted_turn_persist.error', {
+            request_id: requestId,
+            session_id: id,
+            team_id: teamId,
+            credential_access_requested: requestedCredentialAccess !== null,
+            error_message: err instanceof Error ? err.message : String(err),
+          })
+          throw err
+        })
 
     const chatSpan = startTraceSpan({
       name: 'turn',
