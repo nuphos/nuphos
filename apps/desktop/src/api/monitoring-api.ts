@@ -54,6 +54,13 @@ export const monitoringApi = {
     groupId: string
     channelId?: string
   }) => window.api.fileTransferResolve(args),
+  fileTransferReadText: (args: {
+    teamId: string
+    sessionId?: string
+    groupId: string
+    fileId: string
+    channelId?: string
+  }) => window.api.fileTransferReadText(args),
   fileTransferListDownloads: (args: { teamId: string; sessionId?: string }) =>
     window.api.fileTransferListDownloads(args),
   fileTransferRevealInFolder: (path: string) => window.api.fileTransferRevealInFolder(path),
