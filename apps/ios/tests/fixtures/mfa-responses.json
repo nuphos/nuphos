@@ -1,0 +1,117 @@
+{
+  "GET /auth/me": {
+    "status": 200,
+    "body": {
+      "id": "demo-alex",
+      "name": "Alex Chen",
+      "email": "alex@example.com",
+      "username": "alex",
+      "avatarURL": ""
+    }
+  },
+  "GET /auth/ai-consent": {
+    "status": 200,
+    "body": {
+      "version": "2026-09-28",
+      "accepted": true
+    }
+  },
+  "GET /auth/social/login": {
+    "status": 200,
+    "headers": {
+      "X-Nuphos-Social-Providers": "google,apple"
+    },
+    "body": {}
+  },
+  "POST /auth/email/request-code": {
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  },
+  "POST /auth/email/verify-code": {
+    "status": 401,
+    "body": {
+      "error": {
+        "code": "mfa_required",
+        "message": "Enter the code from your authenticator app.",
+        "details": {
+          "mfaToken": "fixture-challenge"
+        }
+      }
+    }
+  },
+  "GET /teams": {
+    "status": 200,
+    "body": {
+      "teams": [
+        {
+          "id": "111111111111111111111111",
+          "name": "Example Studio",
+          "role": "ADMINISTRATOR",
+          "isOwner": true
+        },
+        {
+          "id": "222222222222222222222222",
+          "name": "Personal",
+          "role": "ADMINISTRATOR",
+          "isOwner": true
+        }
+      ]
+    }
+  },
+  "GET /teams/discoverable": {
+    "status": 200,
+    "body": {
+      "teams": []
+    }
+  },
+  "GET /agent/conversations": {
+    "status": 200,
+    "body": {
+      "conversations": [],
+      "hasMore": false,
+      "nextCursor": null
+    }
+  },
+  "GET /agent/conversations?kind=channel": {
+    "status": 200,
+    "body": {
+      "conversations": [],
+      "hasMore": false,
+      "nextCursor": null
+    }
+  },
+  "GET /auth/mfa": {
+    "status": 200,
+    "body": {
+      "enabled": false,
+      "enabledAt": null,
+      "recoveryCodesRemaining": 0
+    }
+  },
+  "POST /auth/mfa/totp/setup": {
+    "status": 200,
+    "body": {
+      "secret": "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
+      "otpauthUrl": "otpauth://totp/Nuphos%3Aalex%40example.com?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=Nuphos&algorithm=SHA1&digits=6&period=30"
+    }
+  },
+  "POST /auth/mfa/totp/confirm": {
+    "status": 200,
+    "body": {
+      "recoveryCodes": [
+        "k7mw-3pqa-x9tr-h2cn",
+        "fz4d-qe8u-n6vb-r3ms",
+        "w2hy-8cpt-m5ka-j7ex",
+        "p9rn-4vgs-d3uf-z6qw",
+        "b6ec-t2yk-q8ma-n4hd",
+        "u3sx-7jwr-e5pn-c9tv",
+        "g8qa-k2mz-r6hy-w3ub",
+        "v5nt-c9ej-x4pd-m2ka",
+        "h4rk-6fsw-y8cq-t3nz",
+        "e7mb-q3xu-k9va-p5gr"
+      ]
+    }
+  }
+}

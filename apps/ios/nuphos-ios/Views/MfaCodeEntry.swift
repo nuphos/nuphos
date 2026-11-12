@@ -76,6 +76,7 @@ struct MfaCodeEntry: View {
 /// The step-up prompt: shown over everything while a request waits for a code.
 struct StepUpSheet: View {
     @Bindable var prompt: StepUpPrompt
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
@@ -93,5 +94,8 @@ struct StepUpSheet: View {
             }
         }
         .presentationDetents([.medium])
+        // Cancel answers the waiting request; a swipe would leave it hanging.
+        .interactiveDismissDisabled()
+        .onChange(of: prompt.token) { _, token in if token == nil { dismiss() } }
     }
 }

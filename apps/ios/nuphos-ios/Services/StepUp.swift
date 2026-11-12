@@ -27,14 +27,20 @@ final class StepUpPrompt {
 
     /// The account asking; set while the sheet is up.
     private(set) var token: String?
-    /// Set by the view that shows the sheet. Without one (the share extension) nothing asks.
-    var presenting = false
+    /// Shows the sheet over whatever is on screen; set by `RootView`. Without
+    /// it (the share extension) nothing asks.
+    var present: (@MainActor (StepUpPrompt) -> Void)?
     private var waiting: [CheckedContinuation<Bool, Never>] = []
 
     func confirm(token: String) async -> Bool {
-        guard presenting else { return false }
-        self.token = token
-        return await withCheckedContinuation { waiting.append($0) }
+        guard let present else { return false }
+        return await withCheckedContinuation { continuation in
+            waiting.append(continuation)
+            if self.token == nil {
+                self.token = token
+                present(self)
+            }
+        }
     }
 
     /// Sends the code; throws when it is refused, which keeps the sheet up.
