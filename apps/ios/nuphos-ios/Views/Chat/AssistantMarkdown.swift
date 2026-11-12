@@ -222,11 +222,7 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
             lastSelectionRequest = request
             DispatchQueue.main.async { [weak view] in
                 guard let label = view?.textLabelView, label.isSelectable else { return }
-                let text = label.attributedText.string
-                text.enumerateSubstrings(in: text.startIndex..., options: .byWords) { _, range, _, stop in
-                    label.selectionRange = NSRange(range, in: text)
-                    stop = true
-                }
+                label.selectionRange = Self.wordRange(in: label.attributedText.string as NSString, at: 0)
             }
         }
 
