@@ -38,6 +38,14 @@ export const skillChannels = {
     atlas.teamSkillsDeleteObject(teamId, key, scope),
   'teamSkills:deleteSkill': (_e: unknown, teamId: string, name: string, scope?: SkillScope) =>
     atlas.teamSkillsDeleteSkill(teamId, name, scope),
+  'teamSkills:githubPreview': (_e: unknown, teamId: string, source: string, scope?: SkillScope) =>
+    atlas.teamSkillsGithubPreview(teamId, source, scope),
+  'teamSkills:githubInstall': (
+    _e: unknown,
+    teamId: string,
+    input: { source: string; commitSha: string; names: string[] },
+    scope?: SkillScope,
+  ) => atlas.teamSkillsGithubInstall(teamId, input, scope),
   'teamSkills:promote': (_e: unknown, teamId: string, name: string) =>
     atlas.teamSkillsPromote(teamId, name),
   'localSetup:status': (_e: unknown, teamId: string) => localSetupStatus(teamId),

@@ -16,6 +16,8 @@ import type {
   PastedAttachmentPayload,
 } from './app-types.ts'
 import type {
+  GithubSkillCandidate,
+  GithubSkillPreview,
   SkillScope,
   TeamSkillHistory,
   TeamSkillManifest,
@@ -232,4 +234,14 @@ export type WindowAppApi = {
     scope?: SkillScope,
   ): Promise<{ name: string; deletedCount: number; keys: string[] }>
   teamSkillsPromote(teamId: string, name: string): Promise<unknown>
+  teamSkillsGithubPreview(
+    teamId: string,
+    source: string,
+    scope?: SkillScope,
+  ): Promise<GithubSkillPreview>
+  teamSkillsGithubInstall(
+    teamId: string,
+    input: { source: string; commitSha: string; names: string[] },
+    scope?: SkillScope,
+  ): Promise<{ installed: GithubSkillCandidate[] }>
 }
