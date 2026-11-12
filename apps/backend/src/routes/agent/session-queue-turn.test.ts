@@ -171,7 +171,7 @@ test('a busy session queues the message with the context its device sent it with
     expect(
       (
         await admit('later', {
-          context: { locale: 'en', localTools: true, kubeContext: 'prod', decisionReplies: true },
+          context: { locale: 'en', localTools: true, kubeContext: 'prod' },
         })
       )?.mode,
     ).toBe('queued')
@@ -190,7 +190,6 @@ test('a busy session queues the message with the context its device sent it with
       localTools: true,
       kubeContext: 'prod',
       locale: 'en',
-      decisionReplies: true,
     },
   })
 })
@@ -542,13 +541,13 @@ test('a queued answer keeps the question it names and is admitted naming it', ()
     c,
     'en',
     {
-      clientCapabilities: { localTools: true, decisionReplies: true },
+      clientCapabilities: { localTools: true },
       decisionReplyTo: 'nuphos-q1',
     },
     undefined,
   )
 
-  expect(context).toMatchObject({ decisionReplies: true, decisionReplyTo: 'nuphos-q1' })
+  expect(context).toMatchObject({ decisionReplyTo: 'nuphos-q1' })
   // An id the resolve route would refuse is not carried at all.
   expect(
     queuedChatContext(c, 'en', { decisionReplyTo: 'x'.repeat(201) }, undefined),
@@ -559,14 +558,12 @@ test('a queued answer keeps the question it names and is admitted naming it', ()
     message: input,
     locale: 'en',
     localTools: true,
-    decisionReplies: true,
     decisionReplyTo: 'nuphos-q1',
   })
 
   expect(body).toMatchObject({
     id: 'conv-1',
     decisionReplyTo: 'nuphos-q1',
-    clientCapabilities: { decisionReplies: true },
   })
   expect(
     queuedChatBody('conv-1', 'team-1', {

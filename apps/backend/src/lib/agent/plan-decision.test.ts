@@ -39,7 +39,6 @@ useAgentDb({
   resolvePlanInputRequests: async (_sessionId, planId) => {
     closedPlans.push(planId)
   },
-  clearPendingDecision: async () => {},
 })
 useAgentPlans({
   assertPlanAccess: async () => {},

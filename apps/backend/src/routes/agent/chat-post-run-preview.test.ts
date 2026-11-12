@@ -234,7 +234,6 @@ describe('launchAcceptedChatTurn on the Claude Code runtime', () => {
         id: 'conv-reply',
         messages,
         decisionReplyTo: 'nuphos-q1',
-        clientCapabilities: { decisionReplies: true },
       },
       teamId: 'team-1',
       messages,
@@ -248,9 +247,6 @@ describe('launchAcceptedChatTurn on the Claude Code runtime', () => {
     })
 
     await settled(() => seen.previewArgs.length === 1)
-    expect(seen.previewArgs[0]).toMatchObject({
-      explicitDecisionReplies: true,
-      decisionReplyTo: 'nuphos-q1',
-    })
+    expect(seen.previewArgs[0]).toMatchObject({ decisionReplyTo: 'nuphos-q1' })
   })
 })

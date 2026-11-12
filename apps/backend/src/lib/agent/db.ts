@@ -55,7 +55,6 @@ export {
 } from './db/maintenance'
 export {
   addInputRequest,
-  clearPendingDecision,
   findInputRequest,
   resolveInputRequest,
   resolvePlanInputRequests,
