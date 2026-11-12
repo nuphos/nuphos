@@ -1,5 +1,5 @@
 import { bumpConversationActivity } from '@/lib/agent/db/read-state'
-import { mirrorAgentRunFrame } from '@/lib/agent/run-store'
+import { expireAgentRunMirror, mirrorAgentRunFrame } from '@/lib/agent/run-store'
 import { RunHandoff } from '@/lib/lifecycle'
 import { logError, logEvent } from '@/lib/observability'
 import { notifyAgentRunEnded, notifyApprovalRequested } from '@/lib/push/notify'
@@ -147,6 +147,7 @@ export function finishAgentRun(run: AgentRun, terminalPauseReason = 'stream-ende
   run.done = true
   run.lastAccessAt = Date.now()
   run.releaseOwnership()
+  expireAgentRunMirror(run.userId, run.streamId)
   traceAgentChatEvent('info', 'agent.chat.run.finished', run.trace, {
     frame_count: run.frames.length,
     last_finish_reason: run.lastFinishReason,

@@ -2,6 +2,12 @@ import { inspect } from 'node:util'
 
 export const RUN_STREAM_MAXLEN = 50_000
 export const RUN_KEY_TTL_SEC = 2 * 60 * 60 // Long-running agent tasks should be attachable for at least an hour.
+// A finished run is in the transcript; its buffer only serves a client that was
+// reconnecting as it ended. Holding it for the full live TTL is what filled Redis.
+export const FINISHED_RUN_KEY_TTL_SEC = 5 * 60
+// The transcript keeps no tool output; a replayed one this large (a base64 image,
+// a file dump) is left out of the buffer rather than held in Redis.
+export const RUN_STREAM_FRAME_MAX_BYTES = 64 * 1024
 export const OWNER_TTL_SEC = 15
 export const OWNER_HEARTBEAT_MS = 5_000
 export const CANCELLATION_REQUEST_TTL_SEC = OWNER_TTL_SEC * 2
