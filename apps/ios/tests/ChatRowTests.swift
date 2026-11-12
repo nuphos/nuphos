@@ -16,6 +16,7 @@ enum ChatRowTests {
         foldsFinishedWorkUnderOneHeader()
         liftsThreadBadgesOutOfTheFold()
         keepsSecretRequestsOutOfTheFold()
+        keepsIntegrationRequestsOutOfTheFold()
         rendersReasoningMarkdown()
         keepsNarrationBetweenToolCalls()
         followsTheNewestRun()
@@ -377,6 +378,23 @@ enum ChatRowTests {
         let message = ChatMessage(id: "m", role: .assistant, parts: [tool("a"), tool("b"), .tool(secret), text("Use the card below.")])
         let rows = ChatRow.assistantRows(message, live: false, lastApprovalCallId: nil)
         precondition(shape(rows) == ["work[run:tool.a,tool.b]", "tool.ask", "text:Use the card below."], "\(shape(rows))")
+    }
+
+    private static func keepsIntegrationRequestsOutOfTheFold() {
+        let integration = ChatPart.ToolPart(
+            toolCallId: "connect", toolName: "Request a Trello connection", isDynamic: false, state: .outputAvailable,
+            input: .object(["category": .string("integration"), "question": .string("Connect Trello?"),
+                            "providers": .array([.string("trello")])]))
+        precondition(integration.isIntegrationRequest)
+        precondition(integration.kind == .question)
+        let message = ChatMessage(id: "m", role: .assistant, parts: [tool("a"), tool("b"), .tool(integration), text("Choose an account.")])
+        let rows = ChatRow.assistantRows(message, live: false, lastApprovalCallId: nil)
+        precondition(shape(rows) == ["work[run:tool.a,tool.b]", "tool.connect", "text:Choose an account."], "\(shape(rows))")
+        var ordinary = integration
+        ordinary.input = .object(["category": .string("integration")])
+        precondition(!ordinary.isIntegrationRequest)
+        ordinary.input = .object(["category": .string("preference"), "question": .string("Which board?")])
+        precondition(!ordinary.isIntegrationRequest)
     }
 
     private static func rendersReasoningMarkdown() {

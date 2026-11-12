@@ -297,6 +297,11 @@ enum ChatPart: Equatable, Sendable {
             return (name, input?["question"]?.stringValue ?? "")
         }
 
+        /// Native runtimes may name the call with its display label, so recognize the decision input.
+        var isIntegrationRequest: Bool {
+            input?["category"]?.stringValue == "integration" && input?["question"]?.stringValue != nil
+        }
+
         /// The request id the decision's result names; the call id otherwise.
         var decisionRequestId: String {
             output?["requestId"]?.stringValue ?? toolCallId
@@ -304,7 +309,7 @@ enum ChatPart: Equatable, Sendable {
 
         var kind: Kind {
             let lower = toolName.lowercased()
-            if secretRequest != nil { return .question }
+            if secretRequest != nil || isIntegrationRequest { return .question }
             if ["plan_create", "database_change_propose"].contains(lower) { return .plan }
             if lower == "save_memory" || lower == "memory_get" { return .memory }
             if lower == "render_chart" { return .chart }

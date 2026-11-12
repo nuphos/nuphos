@@ -4,6 +4,10 @@ import SwiftUI
 /// opens from a tool row. Command tools get a terminal-style result.
 struct ToolDetailSheet: View {
     let part: ChatPart.ToolPart
+    let session: ChatSession
+    @Environment(AgentStore.self) private var store
+    @State private var choosingCredentials = false
+    @State private var showingConnectors = false
     @Environment(\.dismiss) private var dismiss
 
     private var isCommand: Bool { part.isCommandTool }
@@ -13,6 +17,8 @@ struct ToolDetailSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     header
+
+                    if part.isIntegrationRequest { integrationActions }
 
                     if isCommand, let command = part.input?["command"]?.stringValue {
                         section("Command") { code(command) }
@@ -42,7 +48,55 @@ struct ToolDetailSheet: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
         }
+        .sheet(isPresented: $choosingCredentials) {
+            CredentialPickerSheet(selection: Binding(
+                get: { session.credentialAccess ?? CredentialSelection() },
+                set: { session.setCredentials($0) }))
+        }
+        .sheet(isPresented: $showingConnectors) {
+            NavigationStack {
+                ConnectorsPage()
+                    .navigationTitle("Connectors")
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) { Button("Done") { showingConnectors = false } }
+                    }
+            }
+        }
         .tint(Theme.heading)
+    }
+
+    private var integrationActions: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(part.input?["question"]?.stringValue ?? "")
+                .font(Theme.Text.body)
+                .foregroundStyle(Theme.heading)
+            if session.ownsChat {
+                Button("Choose credentials") { choosingCredentials = true }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("integration.chooseCredentials")
+                Text("Choose a connected account to let this conversation use it.")
+                    .font(Theme.Text.caption)
+                    .foregroundStyle(Theme.muted)
+            } else {
+                Text("The conversation owner can choose credentials for this conversation.")
+                    .font(Theme.Text.caption)
+                    .foregroundStyle(Theme.muted)
+            }
+            Button("Open Connectors") { showingConnectors = true }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("integration.openConnectors")
+            Text(store.selectedTeam?.isAdministrator == true
+                 ? "Account not connected yet? Add it in Connectors, then return here and choose it."
+                 : "Account not connected yet? Ask a team administrator to add it in Connectors, then return here and choose it.")
+                .font(Theme.Text.caption)
+                .foregroundStyle(Theme.muted)
+            if let error = session.error {
+                Text(error).font(Theme.Text.caption).foregroundStyle(.red)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private var header: some View {
