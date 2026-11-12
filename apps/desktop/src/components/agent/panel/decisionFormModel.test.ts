@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { decisionAnswers } from './decisionAnswers.ts'
-import { answerText, answersForm, formQuestions, formReply, ownBody } from './decisionForm.ts'
+import { answerText, answersForm, formQuestions, formReply, ownBody } from './decisionFormModel.ts'
 
 import type { Message } from './model.ts'
 

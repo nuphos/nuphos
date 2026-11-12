@@ -6,7 +6,7 @@ import {
   parseSecretRequest,
   secretSavedReply,
 } from './connectCardModel.ts'
-import { answersForm, formQuestions } from './decisionForm.ts'
+import { answersForm, formQuestions } from './decisionFormModel.ts'
 
 import type { Message } from './model'
 

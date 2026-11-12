@@ -1,6 +1,6 @@
-import { parseDecisionQuestions } from './decisionForm.ts'
+import { parseDecisionQuestions } from './decisionFormModel.ts'
 
-import type { DecisionQuestion } from './decisionForm.ts'
+import type { DecisionQuestion } from './decisionFormModel.ts'
 import type { AgentCredentialSelection } from '../../../api'
 import type { AddIntegrationKey } from '../../../views/addIntegrationCatalog'
 

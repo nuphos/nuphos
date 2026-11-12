@@ -3,9 +3,9 @@ import { useState } from 'react'
 import { t } from '../../../i18n'
 import { Button } from '../../ui/button'
 
-import { answerText, formReply, replaceAt, togglePick } from './decisionForm'
+import { answerText, formReply, replaceAt, togglePick } from './decisionFormModel'
 
-import type { DecisionQuestion } from './decisionForm'
+import type { DecisionQuestion } from './decisionFormModel'
 
 /**
  * A card's questions answered together: options toggled (one, or any number

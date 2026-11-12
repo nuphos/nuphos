@@ -9,12 +9,12 @@ import { MessageResponse } from '../MessageResponse'
 import { ConnectCardContext } from './connectCardContext'
 import { AgentQuote } from './ConnectCardRows'
 import { DecisionAnswersContext } from './decisionAnswers'
-import { formQuestions, ownBody } from './decisionForm'
+import { formQuestions, ownBody } from './decisionFormModel'
 import { DecisionForm } from './DecisionForm'
 import { useDecisionKeys } from './useDecisionKeys'
 
 import type { ConnectCardContextValue } from './connectCardContext'
-import type { DecisionQuestion } from './decisionForm'
+import type { DecisionQuestion } from './decisionFormModel'
 
 const TITLE: Record<string, string> = {
   approval: t('Approval needed'),
