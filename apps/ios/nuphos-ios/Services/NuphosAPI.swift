@@ -168,6 +168,8 @@ extension NuphosAPI {
         switch http.statusCode {
         case 200..<300:
             do { return try decoder.decode(T.self, from: data) } catch { throw Failure.invalidResponse }
+        case 403 where needsStepUp(data):
+            throw Failure.reauthRequired
         case 401, 403:
             throw Failure.unauthorized
         default:
