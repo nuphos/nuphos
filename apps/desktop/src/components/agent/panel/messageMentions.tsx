@@ -1,51 +1,22 @@
 import { Popover } from '@base-ui/react/popover'
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 
-import { api } from '../../../api'
 import { t } from '../../../i18n'
+import { teamMembersQuery } from '../../../lib/query/team'
 import { Avatar } from '../../Avatar'
 
 import type { TeamMember } from '../../../types'
 import type { ReactNode } from 'react'
 
-const membersByTeam = new Map<string, Promise<TeamMember[]>>()
-
-/** One fetch per team for every chip a transcript shows; a failure is retried next time. */
-function teamMembers(teamId: string): Promise<TeamMember[]> {
-  let members = membersByTeam.get(teamId)
-
-  if (!members) {
-    members = api.atlasListTeamMembers(teamId).catch(() => {
-      membersByTeam.delete(teamId)
-
-      return []
-    })
-    membersByTeam.set(teamId, members)
-  }
-
-  return members
-}
-
 function MemberCard({ teamId, userId, label }: { teamId?: string; userId: string; label: string }) {
-  const [found, setFound] = useState<{ key: string; member: TeamMember | null } | null>(null)
-  const key = `${teamId ?? ''}/${userId}`
-
-  useEffect(() => {
-    let alive = true
-
-    if (teamId)
-      void teamMembers(teamId).then((members) => {
-        if (alive) setFound({ key, member: members.find((entry) => entry.id === userId) ?? null })
-      })
-
-    return () => {
-      alive = false
-    }
-  }, [key, teamId, userId])
-  // Undefined while loading; null once known not to be a member.
+  const { data: members } = useQuery({
+    ...teamMembersQuery(teamId ?? ''),
+    enabled: Boolean(teamId),
+  })
+  // Undefined while loading or after a failed read; null once known not to be a member.
   let member: TeamMember | null | undefined = teamId ? undefined : null
 
-  if (found?.key === key) member = found.member
+  if (members) member = members.find((entry) => entry.id === userId) ?? null
   const name = member?.name || member?.username || label
 
   return (

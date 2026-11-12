@@ -1,4 +1,5 @@
 import { config } from '@fortawesome/fontawesome-svg-core'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
@@ -13,6 +14,7 @@ import { ThemeProvider } from './hooks/ThemeProvider'
 import { initAnalytics, track } from './lib/analytics'
 import { showFirstLaunchIntro } from './lib/firstLaunchIntro'
 import { isMac } from './lib/platform'
+import { queryClient } from './lib/query/client'
 
 // We import Font Awesome's CSS explicitly above, so stop the SVG core from
 // injecting it again at runtime (prevents the brief flash of oversized icons).
@@ -61,11 +63,13 @@ if (await window.api.claimFirstLaunchIntro?.().catch(() => false)) showFirstLaun
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AppErrorBoundary>
-      <ThemeProvider>
-        <ToastProvider>
-          <App />
-        </ToastProvider>
-      </ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <ToastProvider>
+            <App />
+          </ToastProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
     </AppErrorBoundary>
   </StrictMode>,
 )

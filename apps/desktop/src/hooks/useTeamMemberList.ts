@@ -1,29 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 
-import { api } from '../api'
-
-import { teamMembersRequest } from './teamMembersRequest'
+import { teamMembersQuery } from '../lib/query/team'
 
 import type { TeamMember } from '../types/team'
 
-/** `teamId`'s members from the shared read; null until it lands, and never another team's. */
+/** `teamId`'s members from the shared read; null until it lands or when it failed, and never
+ *  another team's. The no-team workspace shell asks with an empty id. */
 export function useTeamMemberList(teamId: string | undefined, enabled = true): TeamMember[] | null {
-  const [loaded, setLoaded] = useState<{ teamId: string; members: TeamMember[] | null } | null>(
-    null,
-  )
+  const { data } = useQuery({
+    ...teamMembersQuery(teamId ?? ''),
+    enabled: Boolean(teamId) && enabled,
+  })
 
-  useEffect(() => {
-    if (!teamId || !enabled) return
-    let alive = true
-
-    void teamMembersRequest(teamId, api.atlasListTeamMembers).then(
-      (members) => alive && setLoaded({ teamId, members }),
-    )
-
-    return () => {
-      alive = false
-    }
-  }, [teamId, enabled])
-
-  return loaded && loaded.teamId === teamId ? loaded.members : null
+  return data ?? null
 }
