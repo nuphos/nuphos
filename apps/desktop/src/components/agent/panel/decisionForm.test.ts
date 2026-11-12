@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { decisionAnswers } from './decisionAnswers.ts'
-import { answerText, answersForm, formQuestions, formReply } from './decisionForm.ts'
+import { answerText, answersForm, formQuestions, formReply, ownBody } from './decisionForm.ts'
 
 import type { Message } from './model.ts'
 
@@ -35,6 +35,14 @@ test('the reply is a lone answer as is, or each question followed by its answer'
     answersForm([regions, keep], 'Which regions?\nus\n\nKeep the old cluster?\nKeep'),
     true,
   )
+})
+
+test('a card with questions shows the body the agent wrote, not the list written out for older clients', () => {
+  const written = 'Context.\n\n---\n\n**1. Which regions?**\n- us'
+
+  assert.equal(ownBody(written, [regions, keep]), 'Context.')
+  assert.equal(ownBody('\n\n---\n\n**1. Which regions?**', [regions, keep]), undefined)
+  assert.equal(ownBody(written, undefined), written)
 })
 
 test("a form's reply marks its card answered in the transcript", () => {

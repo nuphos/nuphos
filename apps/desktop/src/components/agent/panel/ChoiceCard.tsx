@@ -9,7 +9,7 @@ import { MessageResponse } from '../MessageResponse'
 import { ConnectCardContext } from './connectCardContext'
 import { AgentQuote } from './ConnectCardRows'
 import { DecisionAnswersContext } from './decisionAnswers'
-import { formQuestions } from './decisionForm'
+import { formQuestions, ownBody } from './decisionForm'
 import { DecisionForm } from './DecisionForm'
 import { useDecisionKeys } from './useDecisionKeys'
 
@@ -90,7 +90,7 @@ export function ChoiceCard({
           {TITLE[category] ?? t('Decision needed')}
         </div>
         <AgentQuote text={question} />
-        <DecisionBody text={body} full={ctx?.fullBody} />
+        <DecisionBody text={ownBody(body, questions)} full={ctx?.fullBody} />
       </div>
       {!chosen &&
         (form ? (

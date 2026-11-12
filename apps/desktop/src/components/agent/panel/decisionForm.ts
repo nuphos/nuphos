@@ -21,6 +21,20 @@ export function formQuestions(card: DecisionFormInput): DecisionQuestion[] | nul
   return null
 }
 
+/**
+ * The body the agent wrote, without the questions the backend writes out after
+ * the last separator for clients that do not render `questions`.
+ */
+export function ownBody(
+  body: string | undefined,
+  questions: readonly DecisionQuestion[] | undefined,
+) {
+  if (!body || !questions?.length) return body
+  const end = body.lastIndexOf('\n\n---\n\n')
+
+  return end < 0 ? body : body.slice(0, end).trim() || undefined
+}
+
 /** One question's answer in words: its picked options, or what was typed in their place. */
 export function answerText(picked: readonly string[], typed: string): string {
   return typed.trim() || picked.join(', ')

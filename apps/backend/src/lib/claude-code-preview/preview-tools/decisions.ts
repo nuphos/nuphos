@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto'
 import { addInputRequest } from '@/lib/agent/db/pending-decision'
 import {
   createUserDecisionTools,
+  withQuestionsInBody,
   isConnectableProvider,
   integrationTargetProblem,
 } from '@/lib/agent/tools-skilled/decision-tools'
@@ -162,7 +163,10 @@ function passthroughHandler(
   ctx: PreviewToolContext,
   options: BlockOptions,
 ): ToolHandler {
-  return async (args) => {
+  return async (raw) => {
+    // Written out in the body too, for clients that draw only question and body.
+    const written = name === 'request_user_decision' ? withQuestionsInBody(raw) : undefined
+    const args = written === undefined ? raw : { ...raw, body: written }
     // Only the Desktop app renders the Connect and secure input cards; elsewhere
     // (Slack, Discord, Lark) the question goes out as plain text.
     const {

@@ -35,7 +35,7 @@ export function DecisionForm({
       }}
     >
       {questions.map((q, index) => (
-        <fieldset key={q.question} className="flex flex-col gap-1.5" disabled={disabled}>
+        <fieldset key={index} className="flex flex-col gap-1.5" disabled={disabled}>
           {questions.length > 1 && (
             <legend className="mb-1.5 text-[12.5px] font-medium text-main">{q.question}</legend>
           )}

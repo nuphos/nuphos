@@ -131,6 +131,31 @@ export function integrationTargetProblem(input: {
   return null
 }
 
+/** Where a card's own body ends and its questions, written out for older clients, begin. */
+export const QUESTIONS_SEPARATOR = '\n\n---\n\n'
+
+/**
+ * A card's body with its `questions` written out after it, so a client that
+ * draws only `question` and `body` still shows what is asked. Clients that
+ * render `questions` drop everything after the last separator.
+ */
+export function withQuestionsInBody(input: {
+  body?: string
+  questions?: { question: string; options?: string[]; multiSelect?: boolean }[]
+}): string | undefined {
+  if (!input.questions?.length) return input.body
+  const list = input.questions
+    .map(({ question, options, multiSelect }, index) =>
+      [
+        `**${String(index + 1)}. ${question}**${multiSelect ? ' (any number)' : ''}`,
+        ...(options ?? []).map((option) => `- ${option}`),
+      ].join('\n'),
+    )
+    .join('\n\n')
+
+  return `${input.body ?? ''}${QUESTIONS_SEPARATOR}${list}`
+}
+
 type UserDecisionDeps = {
   agentOrigin: AgentSessionOrigin
   onExplicitUserDecision?: (decision: ExplicitUserDecision) => void

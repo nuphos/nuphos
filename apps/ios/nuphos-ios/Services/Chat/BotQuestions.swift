@@ -48,6 +48,16 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
         return zip(questions, answers).map { "\($0.question)\n\($1)" }.joined(separator: "\n\n")
     }
 
+    /// The body the agent wrote, without the questions the backend writes out after the last
+    /// separator for clients that do not render `questions`.
+    var ownBody: String? {
+        guard let body = request.body?.trimmingCharacters(in: .whitespacesAndNewlines), !body.isEmpty else { return nil }
+        guard request.questions?.isEmpty == false, let end = body.range(of: "\n\n---\n\n", options: .backwards)
+        else { return body }
+        let own = body[..<end.lowerBound].trimmingCharacters(in: .whitespacesAndNewlines)
+        return own.isEmpty ? nil : own
+    }
+
     /// One question's answer: what was typed, else the picked options.
     static func answerText(picked: [String], typed: String) -> String {
         let words = typed.trimmingCharacters(in: .whitespacesAndNewlines)

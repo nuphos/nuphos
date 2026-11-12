@@ -32,6 +32,7 @@ enum BotQuestionsTests {
         precondition(BotQuestion.formReply(form, answers: ["us, eu", "Keep"])
             == "Which regions?\nus, eu\n\nKeep the old cluster?\nKeep")
         precondition(BotQuestion.formReply([form[0]], answers: ["us"]) == "us")
+        precondition(several.ownBody == nil)
         var secret = AgentConversation.InputRequest(id: "d", category: "credential", question: "Which key?",
                                                     options: ["a", "b"], askedAt: nil)
         secret.multiSelect = true

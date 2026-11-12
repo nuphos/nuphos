@@ -73,7 +73,7 @@ struct BotQuestionCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text(heading).font(Theme.Text.secondary.weight(.medium)).foregroundStyle(Theme.heading)
                 Text(question.request.question).font(Theme.Text.label).foregroundStyle(Theme.body)
-                if let body = question.request.body?.trimmingCharacters(in: .whitespacesAndNewlines), !body.isEmpty {
+                if let body = question.ownBody {
                     questionBody(body)
                 }
                 if let form = question.form {

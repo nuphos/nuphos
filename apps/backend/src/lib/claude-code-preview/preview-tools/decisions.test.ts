@@ -301,6 +301,18 @@ describe('decision tool module', () => {
     expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
       $push: { inputRequests: { $each: [{ question: 'How should the rollout go?', questions }] } },
     })
+    // Written out in the body for clients that draw only question and body.
+    expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
+      $push: {
+        inputRequests: {
+          $each: [
+            {
+              body: '\n\n---\n\n**1. Which regions?** (any number)\n- us-east\n- eu-west\n- ap-south\n\n**2. Keep the old cluster?**\n- Keep\n- Delete',
+            },
+          ],
+        },
+      },
+    })
   })
 
   test('one question with its choices in options still goes out', async () => {
