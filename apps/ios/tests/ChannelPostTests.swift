@@ -83,6 +83,13 @@ enum ChannelPostTests {
         // A chat shows only what people and agents post, never a system notice.
         let system: [String: JSONValue] = ["type": .string("system"), "id": .string("nuphos"), "displayName": .string("Nuphos")]
         precondition(ChannelPost(message("m", sender: system, parts: [text("Release Helper finished a turn.")])) == nil)
+        // Except the record an answer to a question leaves: a line, not a post.
+        let decision: [String: JSONValue] = ["type": .string("system"), "id": .string("nuphos:decision"),
+                                             "displayName": .string("Nuphos")]
+        let record = ChannelPost(message("r", sender: decision, parts: [text("Yuanlin answered: Ship? → Ship it")]))
+        precondition(record?.isRecord == true)
+        let rows = ChannelPost.items(posts: [record!], events: [], typing: [])
+        precondition(rows.map(\.item) == [.time(record!.sentAt!), .record("Yuanlin answered: Ship? → Ship it")])
     }
 
     private static func post(_ id: String, _ sender: String, at seconds: TimeInterval, sending: Bool = false) -> ChannelPost {

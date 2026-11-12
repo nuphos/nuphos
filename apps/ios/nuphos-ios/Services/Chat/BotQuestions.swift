@@ -42,10 +42,14 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
         return nil
     }
 
-    /// The desktop's `formReply`: a lone answer as is, or each question followed by its answer.
-    static func formReply(_ questions: [AgentConversation.DecisionQuestion], answers: [String]) -> String {
-        if questions.count == 1 { return answers.first ?? "" }
-        return zip(questions, answers).map { "\($0.question)\n\($1)" }.joined(separator: "\n\n")
+    /// The desktop's `formAnswer`: one question's picks or typed text, or one entry per question.
+    static func formAnswer(_ questions: [AgentConversation.DecisionQuestion], picked: [[String]],
+                           typed: [String]) -> DecisionAnswer {
+        func one(_ index: Int) -> DecisionAnswer {
+            let words = typed[index].trimmingCharacters(in: .whitespacesAndNewlines)
+            return words.isEmpty ? DecisionAnswer(choices: picked[index]) : DecisionAnswer(text: words)
+        }
+        return questions.count == 1 ? one(0) : DecisionAnswer(questions: questions.indices.map(one))
     }
 
     /// The backend's `writtenQuestions`: the questions as markdown after a `---` separator, one line each.
@@ -117,5 +121,21 @@ extension BotQuestion {
     /// The conversation that asked, opened in the app like any Nuphos link.
     func link(team: String) -> URL {
         URL(string: "https://nuphos.ai/teams/\(team)/agent/\(sessionId)")!
+    }
+}
+
+/// A person's answer to a question: picked options, typed text, or one per question.
+/// The server wakes the agent that asked with it; no message is sent.
+struct DecisionAnswer: Equatable, Sendable {
+    var choices: [String]? = nil
+    var text: String? = nil
+    var questions: [DecisionAnswer]? = nil
+
+    var json: JSONValue {
+        var body: [String: JSONValue] = [:]
+        if let choices { body["choices"] = .array(choices.map(JSONValue.string)) }
+        if let text { body["text"] = .string(text) }
+        if let questions { body["questions"] = .array(questions.map(\.json)) }
+        return .object(body)
     }
 }

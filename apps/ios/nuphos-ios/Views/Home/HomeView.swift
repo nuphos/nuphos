@@ -224,9 +224,7 @@ struct HomeView: View {
         .task(id: scenePhase == .active ? store?.selectedTeam?.id : nil) {
             guard scenePhase == .active, let store, let team = store.selectedTeam?.id else { return }
             if inbox?.teamId != team {
-                inbox = OpenQuestions(token: store.token, teamId: team) { bot in
-                    store.conversations.first { $0.botId == bot }?.sessionId
-                }
+                inbox = OpenQuestions(token: store.token, teamId: team)
             }
             while !Task.isCancelled {
                 await inbox?.refresh()

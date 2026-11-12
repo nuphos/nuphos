@@ -41,10 +41,8 @@ struct InboxPage: View {
                             BotQuestionCard(
                                 question: question,
                                 onOpen: { open(question, in: inbox) },
-                                onAnswer: { text in Task { await inbox.answer(question, with: text) } },
+                                onAnswer: { answer in Task { await inbox.answer(question, with: answer) } },
                                 failure: inbox.failures[question.id],
-                                // Opens the conversation, its composer answering this question.
-                                onReply: { open(question, in: inbox, answering: true) },
                                 onConnect: { Task { await connect(question, in: inbox) } })
                         }
                     }
@@ -83,10 +81,9 @@ struct InboxPage: View {
         Task { await inbox.select(chosen, for: question) }
     }
 
-    /// As a notification opens one: on the Tasks page, its composer answering the question for "Other…".
-    private func open(_ question: BotQuestion, in inbox: OpenQuestions, answering: Bool = false) {
+    /// As a notification opens one: the asking conversation, on the Tasks page.
+    private func open(_ question: BotQuestion, in inbox: OpenQuestions) {
         PushNotifications.shared.pendingTarget = PushTarget(
-            teamId: inbox.teamId, sessionId: question.sessionId, title: question.title,
-            answering: answering ? question.request : nil)
+            teamId: inbox.teamId, sessionId: question.sessionId, title: question.title, answering: nil)
     }
 }

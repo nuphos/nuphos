@@ -232,6 +232,13 @@ struct ChannelView: View {
                                onQuote: show)
             case .paused(let text):
                 PausedLine(text: text)
+            case .record(let text):
+                Text(text)
+                    .font(Theme.Text.caption)
+                    .foregroundStyle(Theme.muted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .accessibilityIdentifier("channel.decisionRecord")
             case .replyFailed(let event, let actionable):
                 ReplyFailedLine(
                     event: event,
@@ -249,11 +256,7 @@ struct ChannelView: View {
                     onOpen: { open(link: question.link(team: channel.teamId)) },
                     onAnswer: { channel.answer(question, with: $0) },
                     onLink: open(link:),
-                    failure: channel.questions.failures[question.id],
-                    onReply: {
-                        channel.reply(to: question)
-                        replyFocus += 1
-                    })
+                    failure: channel.questions.failures[question.id])
             }
         }
     }
