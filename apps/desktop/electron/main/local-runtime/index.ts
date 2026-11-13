@@ -22,7 +22,7 @@ import { prepareAgentHome } from './agent-home.ts'
 import { localFileConnectors } from './attachment-stream.ts'
 import { browserStreams } from './browser-streams.ts'
 import { readCliCache, writeCliCache } from './cli-cache.ts'
-import { agentEnv, readBundle } from './config.ts'
+import { readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { localToolStreams } from './cua-stream.ts'
 import { devBundleHint, watchDevBundle } from './dev-bundle.ts'
@@ -30,7 +30,7 @@ import { tunnelUrlFor } from './device-credential.ts'
 import { startDiskMaintenance } from './disk-usage.ts'
 import { localLogins } from './local-logins.ts'
 import { macScreenApp } from './mac-screen-app.ts'
-import { probeLocalModels } from './model-probe.ts'
+import { bundledModelProbe } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import * as sleep from './sleep-prevention-electron.ts'
 import { RuntimeTunnelClient } from './tunnel-client.ts'
@@ -86,31 +86,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   prepareAgentHome,
   registerDevice: () => syncDeviceRegistration(),
   createProcess: () => new OpenabProcess(),
-  probeModels: ({ provider, workspace, env, cliPath, agentHome }) => {
-    const bundle = findBundle()
-    const adapter = bundle?.adapters[provider]
-
-    if (!bundle || !adapter) return Promise.reject(new Error('The local runtime is not bundled'))
-
-    return probeLocalModels({
-      nodeExecPath: process.execPath,
-      adapter: adapter.entry,
-      cwd: workspace,
-      env: agentEnv({
-        provider,
-        bundle,
-        adapter,
-        nodeExecPath: process.execPath,
-        cliPath,
-        agentHome,
-        workspace,
-        openabHome: workspace,
-        port: 0,
-        authKey: '',
-        env,
-      }),
-    })
-  },
+  probeModels: bundledModelProbe(findBundle),
   createTunnel: (runtime, status, onChange, instances) => {
     tunnel = new RuntimeTunnelClient({
       instances,

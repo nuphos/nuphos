@@ -6,32 +6,17 @@ import { deleteClaudeKeychainEntry } from './claude-keychain.ts'
 import { removeDefaultAgent } from './default-agent.ts'
 import { userDir } from './controller-types.ts'
 import { instanceControllerDeps, secureStorageEnv } from './instance-deps.ts'
+import { instanceStates, instanceStatus, publicMetadata } from './instance-entries.ts'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
 import type { AgentInstanceRecord } from './agent-instances.ts'
-import type { LocalRuntimeControllerDeps, LocalRuntimeState } from './controller-types.ts'
+import type { LocalRuntimeControllerDeps } from './controller-types.ts'
+import type { Controller, Entry } from './instance-entries.ts'
 import type { RunningRuntime } from './openab-process.ts'
-import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
-
-type Controller = {
-  setUser(userId: string | null): Promise<void>
-  shutdown(): Promise<void>
-  refresh(restart: boolean): Promise<LocalRuntimeState>
-  state(): LocalRuntimeState
-  runtime(provider: LocalAgentProvider): RunningRuntime | null
-  status(): LocalRuntimeTunnelStatus
-}
 
 /** A sign-in left unfinished this long is abandoned: its login has long expired. */
 export const PENDING_TTL_MS = 20 * 60_000
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u
-
-type Entry = {
-  metadata: AgentInstanceRecord
-  controller: Controller
-  starting?: Promise<void>
-  expiry?: ReturnType<typeof setTimeout>
-}
 
 export type InstanceControllersOptions = {
   now?: () => number
@@ -116,28 +101,11 @@ export class InstanceControllers {
   }
 
   states(online: boolean) {
-    return [...this.entries.values()].map(({ metadata, controller }) => ({
-      ...publicMetadata(metadata),
-      ...controller.state().agents[metadata.provider],
-      workspace: controller.state().workspace,
-      online: online && controller.runtime(metadata.provider) !== null,
-    }))
+    return instanceStates(this.entries.values(), online)
   }
 
-  status(): NonNullable<LocalRuntimeTunnelStatus['instances']> {
-    return [...this.entries.values()].map(({ metadata, controller }) => {
-      const cli = controller.state().agents[metadata.provider].cli
-
-      return {
-        ...publicMetadata(metadata),
-        ...controller.status().agents[metadata.provider],
-        cli: {
-          installed: cli?.installed ?? false,
-          loggedIn: cli?.installed ? cli.loggedIn : false,
-          ...(cli?.installed && cli.apiKey ? { apiKey: true as const } : {}),
-        },
-      }
-    })
+  status() {
+    return instanceStatus(this.entries.values())
   }
 
   private add(metadata: AgentInstanceRecord, userId: string): Entry {
@@ -292,9 +260,4 @@ export class InstanceControllers {
 
     return { instance: publicMetadata(record) }
   }
-}
-
-/** What the backend sees: legacy records count as signed-in agents until settled. */
-function publicMetadata({ instanceId, provider, label, state }: AgentInstanceRecord) {
-  return { instanceId, provider, label, state: state ?? ('ready' as const) }
 }
