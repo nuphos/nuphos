@@ -1,7 +1,6 @@
-//! Every TUI action as a command that needs no terminal, so scripts and other
-//! agents can drive Nuphos: `exec` sends a message and prints the reply, and
-//! `team`, `runtime` and `model` list choices without a value and switch with
-//! one. `--json` prints machine-readable output.
+//! Every TUI action as a command scripts and other agents can run: `exec` sends
+//! a message and prints the reply; `team`, `agents` (with `--session` or
+//! `--default`) and `model` list without a value and switch with one.
 
 use std::io::Write;
 use std::time::{Duration, Instant};
@@ -71,9 +70,9 @@ pub async fn team(ctx: &mut Ctx, name: Option<String>) -> Result<()> {
     Ok(())
 }
 
-/// `nuphos agents [NAME] [--session ID]`: list the team's agents, or pick
-/// NAME for new conversations, or move a conversation to it.
-pub async fn runtime(ctx: &mut Ctx, name: Option<String>, session: Option<String>) -> Result<()> {
+/// `nuphos agents [NAME --session ID | NAME --default]`: list the team's
+/// runtimes, move a conversation to NAME, or pick NAME for new conversations.
+pub async fn runtime(ctx: &mut Ctx, name: Option<String>, session: Option<String>, make_default: bool) -> Result<()> {
     let runtimes = ctx.runtimes().await?;
     let current = match &session {
         Some(id) => {
@@ -96,6 +95,7 @@ pub async fn runtime(ctx: &mut Ctx, name: Option<String>, session: Option<String
     let target = shared::find(&runtimes, &name, "runtime")?;
     let target_id = target["id"].as_str().unwrap_or_default().to_string();
     match session {
+        None if !make_default => bail!("pass --session ID to move an agent, or --default to pick it for new agents"),
         None => {
             ctx.prefs.runtime_ids.insert(ctx.team_id(), target_id);
             config::write_prefs(&ctx.prefs);
