@@ -130,6 +130,8 @@ export type WindowAppApi = {
   updaterGetState(): Promise<UpdaterState>
   updaterCheck(): Promise<void>
   updaterInstall(): Promise<void>
+  updaterGetAutoInstall(): Promise<{ enabled: boolean }>
+  updaterSetAutoInstall(enabled: boolean): Promise<{ enabled: boolean }>
   onUpdaterStatus(cb: (state: UpdaterState) => void): () => void
   changelogGetState(): Promise<ChangelogState>
   onChangelogStatus(cb: (state: ChangelogState) => void): () => void

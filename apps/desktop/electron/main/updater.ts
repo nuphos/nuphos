@@ -7,6 +7,7 @@ import electronUpdater from 'electron-updater'
 
 import { captureMain, captureMainException } from '../analytics.ts'
 
+import { startAutoInstall } from './auto-update-electron.ts'
 import { isDev } from './env.ts'
 import { configureStableUpdateChannel } from './updater-channel.ts'
 import {
@@ -139,6 +140,11 @@ export function startUpdatePolling() {
   if (isDev || updaterCheckTimer) return
   checkForUpdates()
   updaterCheckTimer = setInterval(checkForUpdates, 5 * 60 * 1000)
+  startAutoInstall({
+    ready: () =>
+      updaterState.kind === 'ready' ? { failedBefore: updaterState.installerUrl !== null } : null,
+    install: () => void installUpdate(),
+  })
 }
 
 export function stopUpdatePolling() {
