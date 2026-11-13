@@ -85,7 +85,11 @@ export function forwardToMeeting(
 }
 
 export async function leaveMeeting(botId: string): Promise<void> {
-  await recallFetch(`/bot/${botId}/leave_call/`, {})
+  await recallFetch(`/bot/${botId}/leave_call/`, {}).catch((error: unknown) => {
+    // Recall calls a bot whose call already ended "unstarted": it is out either way.
+    if (!(error instanceof AppError && error.message.includes('cannot_command_unstarted_bot')))
+      throw error
+  })
 }
 
 /** Recall signs `id.timestamp.body` with the workspace secret (Standard Webhooks). */
