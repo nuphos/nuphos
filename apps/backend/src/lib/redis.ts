@@ -7,6 +7,7 @@ import { isShuttingDown } from '@/lib/lifecycle'
 import { logEvent } from '@/lib/observability'
 import { instrumentRedis } from '@/otel/instrumentation/redis'
 
+import { trackRedisOp } from './redis-op-log'
 import {
   REDIS_OP_TIMEOUT_MESSAGE,
   anyClientEnded,
@@ -144,10 +145,15 @@ export function redisClientEnded(): boolean {
 export async function withRedis<T>(op: (client: Redis) => Promise<T>): Promise<T | null> {
   if (!redisEnabled()) return null
   let timer: ReturnType<typeof setTimeout> | undefined
+  let tracked: ReturnType<typeof trackRedisOp> | undefined
 
   try {
-    const opPromise = op(getRedis())
+    const client = getRedis()
 
+    tracked = trackRedisOp(client)
+    const opPromise = op(client)
+
+    tracked.sent()
     opPromise.catch(() => {})
     const result = await Promise.race<T>([
       opPromise,
@@ -163,7 +169,11 @@ export async function withRedis<T>(op: (client: Redis) => Promise<T>): Promise<T
     return result
   } catch (err) {
     wedge.failure(err)
-    logEvent('warn', 'redis.operation.failed', { replica_id: replicaId, ...errorFields(err) })
+    logEvent('warn', 'redis.operation.failed', {
+      replica_id: replicaId,
+      ...tracked?.fields(),
+      ...errorFields(err),
+    })
 
     return null
   } finally {
