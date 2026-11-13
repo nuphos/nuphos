@@ -18,9 +18,14 @@ export function canEditBindingAccess(
   userId: string | undefined,
   isAdmin: boolean,
 ): boolean {
-  if (userId && bindingOwner(memberAllowList, ownerUserId) === userId) return true
+  const owner = bindingOwner(memberAllowList, ownerUserId)
 
-  return isAdmin && bindingShareStatus(memberAllowList, ownerUserId) !== 'private'
+  if (userId && owner === userId) return true
+  if (!isAdmin) return false
+  // A list emptied before owners were kept is nobody's to protect.
+  if (!owner && memberAllowList.length === 0) return true
+
+  return bindingShareStatus(memberAllowList, ownerUserId) !== 'private'
 }
 
 /** Who a binding is shared with, as the access editor names it. */
