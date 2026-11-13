@@ -871,6 +871,7 @@
   "PUT /agent/conversations/:sessionId/watch": "user",
   "PUT /agent/devices": "user",
   "PUT /agent/devices/:deviceId/box/access": "user",
+  "PUT /agent/devices/:deviceId/box/terminal-access": "user",
   "PUT /agent/devices/:deviceId/share": "user",
   "PUT /agent/plan-approval-policy": "user",
   "PUT /auth/agent-profile/avatar": "user",

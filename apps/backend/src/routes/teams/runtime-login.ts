@@ -16,10 +16,10 @@ import { requireTeamRole } from '@/middleware/auth'
 import type { TeamAuthVariables } from '@/middleware/auth'
 import type { Hono, MiddlewareHandler } from 'hono'
 
-/** Whether this person owns the computer: for a Box, whoever holds it now (deviceOwner). */
-async function ownsComputer(userId: string, teamId: string, deviceId: string): Promise<boolean> {
+/** Whether this person manages the computer; a Box's owner is whoever holds it now. */
+async function managesComputer(userId: string, teamId: string, deviceId: string): Promise<boolean> {
   try {
-    await requireDeviceAccess(userId, teamId, deviceId, 'owner')
+    await requireDeviceAccess(userId, teamId, deviceId, 'manage')
 
     return true
   } catch (error) {
@@ -29,17 +29,17 @@ async function ownsComputer(userId: string, teamId: string, deviceId: string): P
 }
 
 /**
- * Signing a team's agent in is an administrator's job. A computer's owner signs in its
+ * Signing a team's agent in is an administrator's job. Those who manage a computer sign in its
  * agents themselves, a Box's new owner included, though its runtime id still names the
- * transport user; the endpoint resolution checks access again.
+ * transport user; those who only use it do not. The endpoint resolution checks access again.
  */
 export function loginRole(
-  owns: typeof ownsComputer = ownsComputer,
+  manages: typeof managesComputer = managesComputer,
 ): MiddlewareHandler<{ Variables: TeamAuthVariables }> {
   return async (c, next) => {
     const ref = parseLocalRuntimeId(c.req.param('runtimeId') ?? '')
 
-    if (ref && (await owns(c.get('userId'), c.get('teamId'), ref.deviceId))) await next()
+    if (ref && (await manages(c.get('userId'), c.get('teamId'), ref.deviceId))) await next()
     else await requireTeamRole('ADMINISTRATOR')(c, next)
   }
 }

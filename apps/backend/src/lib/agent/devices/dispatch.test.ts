@@ -16,7 +16,7 @@ const target: AgentDevice = {
   platform: 'linux',
   allowLocalExec: true,
   box: { provider: 'instabox', teamId: 't1' },
-  access: [{ teamId: 't1', everyone: false, userIds: ['viewer'], managerIds: [] }],
+  access: [{ teamId: 't1', everyone: false, userIds: ['viewer', 'user'], managerIds: ['viewer'] }],
   createdAt: new Date(),
   updatedAt: new Date(),
 }
@@ -157,6 +157,39 @@ test('terminal requests require their own capability and never reach old exec cl
     ).status,
   ).toBe('ok')
   expect(current.commands).toEqual(['{"action":"open"}'])
+})
+
+test('someone who only uses a Box runs no commands, and opens a terminal only when its owner lets them', async () => {
+  const deps = await setup({ terminal: true })
+  const box = (useTerminal?: boolean) => ({
+    ...access,
+    listBoxes: () => Promise.resolve([{ ...target, box: { ...target.box!, useTerminal } }]),
+  })
+
+  for (const purpose of ['exec', 'terminal'] as const)
+    await expect(
+      dispatchLocalExec('user', 'd1', 'cat secrets', {
+        teamId: 't1',
+        deps,
+        access: box(),
+        purpose,
+      }),
+    ).rejects.toMatchObject({ status: 403, code: 'device_manage_required' })
+  await expect(
+    dispatchLocalExec('user', 'd1', 'cat secrets', { teamId: 't1', deps, access: box(true) }),
+  ).rejects.toMatchObject({ status: 403 })
+  expect(deps.commands).toEqual([])
+  expect(
+    (
+      await dispatchLocalExec('user', 'd1', '{"action":"open"}', {
+        teamId: 't1',
+        deps,
+        access: box(true),
+        purpose: 'terminal',
+      })
+    ).status,
+  ).toBe('ok')
+  expect(deps.commands).toEqual(['{"action":"open"}'])
 })
 
 test('dispatch authorizes the actor and sends through the owner tunnel; revocation denies later terminal input', async () => {
