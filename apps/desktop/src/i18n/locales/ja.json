@@ -3100,6 +3100,7 @@
   "Only administrators and editors can change the name or icon.": "名前やアイコンを変更できるのは管理者と編集者だけです。",
   "Only administrators and editors can change them.": "変更できるのは管理者と編集者だけです。",
   "Only apply to your own agents. Injected after team instructions.": "自分のエージェントにのみ適用されます。チームの指示の後に挿入されます。",
+  "Only its owner can change who may use it.": "使用できるメンバーを変更できるのは所有者だけです。",
   "Only mutations (skill changes, bash, outbound messages)": "変更操作のみ (スキル変更、bash、送信メッセージ)",
   "Only needed for TKE (Kubernetes) clusters — no clusters, or CVM only? Hit Next and skip this step. The authorization page lives inside each cluster, so there is no direct link.": "TKE（Kubernetes）クラスタの場合のみ必要です。クラスタがない、または CVM のみの場合は［次へ］を押してこの手順をスキップしてください。認可ページは各クラスタ内にあるため、直接リンクはありません。",
   "Only needed for VKE (Kubernetes) clusters — no clusters, or ECS only? Hit Next and skip this step.": "VKE（Kubernetes）クラスタの場合のみ必要です。クラスタがない、または ECS のみの場合は［次へ］を押してこの手順をスキップしてください。",

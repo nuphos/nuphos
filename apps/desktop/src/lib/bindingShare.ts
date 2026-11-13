@@ -1,3 +1,28 @@
+/** Who connected the binding: its recorded owner, or the one member of an older private list. */
+export function bindingOwner(
+  memberAllowList: string[],
+  ownerUserId: string | null | undefined,
+): string | undefined {
+  if (ownerUserId) return ownerUserId
+
+  return memberAllowList.length === 1 && memberAllowList[0] !== '*' ? memberAllowList[0] : undefined
+}
+
+/**
+ * Mirrors the backend: its owner may always change who a binding is shared
+ * with, an admin only while it is shared.
+ */
+export function canEditBindingAccess(
+  memberAllowList: string[],
+  ownerUserId: string | null | undefined,
+  userId: string | undefined,
+  isAdmin: boolean,
+): boolean {
+  if (userId && bindingOwner(memberAllowList, ownerUserId) === userId) return true
+
+  return isAdmin && bindingShareStatus(memberAllowList, ownerUserId) !== 'private'
+}
+
 /** Who a binding is shared with, as the access editor names it. */
 export type BindingShareStatus = 'private' | 'team' | 'members'
 

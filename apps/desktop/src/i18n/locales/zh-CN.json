@@ -3100,6 +3100,7 @@
   "Only administrators and editors can change the name or icon.": "只有管理员和编辑者可以更改名称或图标。",
   "Only administrators and editors can change them.": "只有管理员和编辑者可以更改。",
   "Only apply to your own agents. Injected after team instructions.": "仅适用于你自己的 Agent，在团队指令之后注入。",
+  "Only its owner can change who may use it.": "只有所有者可以更改谁能使用。",
   "Only mutations (skill changes, bash, outbound messages)": "仅变更（技能更改、bash、外发消息）",
   "Only needed for TKE (Kubernetes) clusters — no clusters, or CVM only? Hit Next and skip this step. The authorization page lives inside each cluster, so there is no direct link.": "仅 TKE（Kubernetes）集群需要此步骤。没有集群或只有 CVM？点击“下一步”跳过此步骤即可。授权页面位于各集群内，因此没有直接链接。",
   "Only needed for VKE (Kubernetes) clusters — no clusters, or ECS only? Hit Next and skip this step.": "仅 VKE（Kubernetes）集群需要此步骤。没有集群或只有 ECS？点击“下一步”跳过此步骤即可。",

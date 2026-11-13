@@ -3100,6 +3100,7 @@
   "Only administrators and editors can change the name or icon.": "มีเพียงผู้ดูแลระบบและผู้แก้ไขที่เปลี่ยนชื่อหรือไอคอนได้",
   "Only administrators and editors can change them.": "มีเพียงผู้ดูแลระบบและผู้แก้ไขที่เปลี่ยนได้",
   "Only apply to your own agents. Injected after team instructions.": "มีผลเฉพาะกับเอเจนต์ของคุณเอง แทรกหลังคำสั่งของทีม",
+  "Only its owner can change who may use it.": "มีเพียงเจ้าของเท่านั้นที่เปลี่ยนผู้ที่ใช้ได้",
   "Only mutations (skill changes, bash, outbound messages)": "เฉพาะการเปลี่ยนแปลง (การแก้ไขทักษะ, bash, ข้อความขาออก)",
   "Only needed for TKE (Kubernetes) clusters — no clusters, or CVM only? Hit Next and skip this step. The authorization page lives inside each cluster, so there is no direct link.": "จำเป็นเฉพาะคลัสเตอร์ TKE (Kubernetes) — ไม่มีคลัสเตอร์หรือใช้แค่ CVM? กด ถัดไป เพื่อข้ามขั้นตอนนี้ หน้าการอนุญาตอยู่ภายในแต่ละคลัสเตอร์ จึงไม่มีลิงก์โดยตรง",
   "Only needed for VKE (Kubernetes) clusters — no clusters, or ECS only? Hit Next and skip this step.": "จำเป็นเฉพาะคลัสเตอร์ VKE (Kubernetes) — ไม่มีคลัสเตอร์หรือใช้แค่ ECS? กด ถัดไป เพื่อข้ามขั้นตอนนี้",

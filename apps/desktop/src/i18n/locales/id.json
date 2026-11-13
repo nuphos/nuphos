@@ -3100,6 +3100,7 @@
   "Only administrators and editors can change the name or icon.": "Hanya administrator dan editor yang dapat mengubah nama atau ikon.",
   "Only administrators and editors can change them.": "Hanya administrator dan editor yang dapat mengubahnya.",
   "Only apply to your own agents. Injected after team instructions.": "Hanya berlaku untuk agen Anda sendiri. Disisipkan setelah instruksi tim.",
+  "Only its owner can change who may use it.": "Hanya pemiliknya yang dapat mengubah siapa yang boleh menggunakannya.",
   "Only mutations (skill changes, bash, outbound messages)": "Hanya mutasi (perubahan skill, bash, pesan keluar)",
   "Only needed for TKE (Kubernetes) clusters — no clusters, or CVM only? Hit Next and skip this step. The authorization page lives inside each cluster, so there is no direct link.": "Hanya diperlukan untuk kluster TKE (Kubernetes) — tidak punya kluster, atau hanya CVM? Tekan Berikutnya dan lewati langkah ini. Halaman otorisasi berada di dalam setiap kluster, jadi tidak ada tautan langsung.",
   "Only needed for VKE (Kubernetes) clusters — no clusters, or ECS only? Hit Next and skip this step.": "Hanya diperlukan untuk kluster VKE (Kubernetes) — tidak punya kluster, atau hanya ECS? Tekan Berikutnya dan lewati langkah ini.",

@@ -3100,6 +3100,7 @@
   "Only administrators and editors can change the name or icon.": "관리자와 편집자만 이름이나 아이콘을 변경할 수 있습니다.",
   "Only administrators and editors can change them.": "관리자와 편집자만 변경할 수 있습니다.",
   "Only apply to your own agents. Injected after team instructions.": "내 에이전트에만 적용됩니다. 팀 지침 다음에 삽입됩니다.",
+  "Only its owner can change who may use it.": "사용할 수 있는 사람은 소유자만 변경할 수 있습니다.",
   "Only mutations (skill changes, bash, outbound messages)": "변경 작업만(스킬 변경, bash, 외부 발송 메시지)",
   "Only needed for TKE (Kubernetes) clusters — no clusters, or CVM only? Hit Next and skip this step. The authorization page lives inside each cluster, so there is no direct link.": "TKE(Kubernetes) 클러스터에만 필요합니다. 클러스터가 없거나 CVM만 사용하나요? [다음]을 눌러 이 단계를 건너뛰세요. 권한 부여 페이지는 각 클러스터 안에 있어 바로 가기 링크가 없습니다.",
   "Only needed for VKE (Kubernetes) clusters — no clusters, or ECS only? Hit Next and skip this step.": "VKE(Kubernetes) 클러스터에만 필요합니다. 클러스터가 없거나 ECS만 사용하나요? [다음]을 눌러 이 단계를 건너뛰세요.",
