@@ -4,6 +4,7 @@ mod accounts;
 mod agent;
 mod api;
 mod app;
+mod bots;
 mod cli;
 mod config;
 mod login;
@@ -78,6 +79,20 @@ enum Command {
         /// Sign the Cloud runtime NAME in to its provider account.
         #[arg(long, requires = "name", conflicts_with = "session")]
         login: bool,
+    },
+    /// List your Bots in the team, or create one named NAME with --create. A new Bot runs with Full Access.
+    #[command(name = "bots", alias = "bot")]
+    Bots {
+        name: Option<String>,
+        /// Create a Bot named NAME.
+        #[arg(long, requires = "name")]
+        create: bool,
+        /// The new Bot's face, such as 01-vermeer-girl (the desktop's Bot picker shows them).
+        #[arg(long, requires = "create")]
+        avatar: Option<String>,
+        /// Runtime for the new Bot (id or label).
+        #[arg(long = "agent", alias = "runtime", requires = "create")]
+        runtime: Option<String>,
     },
     /// Show or set an agent's model and reasoning effort (--session), or list the runtime's models.
     Model {
@@ -270,6 +285,9 @@ async fn run(args: Args) -> Result<i32> {
             cli::login_runtime(&ctx, &name).await.map(|_| 0)
         }
         Some(Command::Runtime { name, session, .. }) => cli::runtime(&mut ctx, name, session).await.map(|_| 0),
+        Some(Command::Bots { name, create, avatar, runtime }) => {
+            bots::bots(&ctx, name, create, avatar, runtime).await.map(|_| 0)
+        }
         Some(Command::Model { value, effort, session }) => {
             cli::model(&mut ctx, value, effort, session).await.map(|_| 0)
         }

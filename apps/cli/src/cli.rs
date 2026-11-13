@@ -44,7 +44,7 @@ impl Ctx {
     }
 }
 
-fn row(current: bool, columns: &[&str]) {
+pub(crate) fn row(current: bool, columns: &[&str]) {
     println!("{} {}", if current { "*" } else { " " }, columns.iter().map(|c| clean(c)).collect::<Vec<_>>().join("  "));
 }
 
