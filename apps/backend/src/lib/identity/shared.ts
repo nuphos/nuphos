@@ -52,6 +52,8 @@ export type NuphosTeamDoc = {
   agentRuntime?: string
   /** The most a member may grant when sharing their own computer; unset is `approve`. */
   localAgentSharing?: string
+  /** Unset is `private`. */
+  bindingShareDefault?: string
   members: {
     userId: ObjectId
     role: NuphosTeamRole
@@ -98,6 +100,7 @@ export function mapTeam(team: NuphosTeamDoc): NuphosTeam {
     allowedEmailDomains: team.allowedEmailDomains ?? [],
     agentRuntime: runtimeProvider(team.agentRuntime),
     localAgentSharing: localShareCeiling(team.localAgentSharing),
+    bindingShareDefault: team.bindingShareDefault === 'team' ? 'team' : 'private',
     createdAt: team.createdAt.toISOString(),
     billing: summarizeBilling(),
   }

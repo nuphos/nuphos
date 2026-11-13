@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
-import { accessView, canUseAllowList, createDefaultAccess } from '@/lib/byos/access'
+import { accessView, canUseAllowList, canUseBinding } from '@/lib/byos/access'
+import { newBindingAccess } from '@/lib/byos/initial-access'
 import { azureOidcInfo, verifyAzureBinding } from '@/lib/byos/azure'
 import { azureConnectorSchema } from '@/lib/byos/connector-schemas'
 import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
@@ -49,7 +50,7 @@ export function azureAccountsView(
     // to members in the list.
     ...(isAdmin ? { access: accessView(b.access) } : {}),
     // Admins pass the member-access gate regardless of the allow-list.
-    canUse: isAdmin || canUseAllowList(b.access?.memberAllowList, userId),
+    canUse: canUseBinding(b.access, userId, teamRole),
     createdAt: b.createdAt,
   }))
 }
@@ -83,7 +84,7 @@ azureAccountsRoutes.post(
 
     const id = new ObjectId()
     const createdAt = new Date()
-    const access = createDefaultAccess(c.get('userId'), createdAt)
+    const access = await newBindingAccess(c, { now: createdAt, highPrivilege: true })
 
     const inserted = await appendEnvironmentBinding(
       teamId,

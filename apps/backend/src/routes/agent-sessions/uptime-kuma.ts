@@ -1,7 +1,6 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 
-import { canUseAllowList } from '@/lib/byos/access'
 import { decryptUptimeKumaSecret } from '@/lib/byos/secrets'
 import {
   createUptimeKumaMonitor,
@@ -14,7 +13,11 @@ import {
 } from '@/lib/byos/uptime-kuma'
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
-import { requireUptimeKumaInstance, requireUptimeKumaMemberAccess } from '@/middleware/auth'
+import {
+  canRequestUseBinding,
+  requireUptimeKumaInstance,
+  requireUptimeKumaMemberAccess,
+} from '@/middleware/auth'
 import { getAgentCredentialAccess, requireAgentWriteRole } from '@/routes/agent-sessions/shared'
 import { uptimeKumaError } from '@/routes/uptime-kuma-instances/shared'
 
@@ -190,7 +193,7 @@ function requireSelectedUptimeKumaAgentCredential(): MiddlewareHandler<{
         'This Uptime Kuma instance is not enabled for this agent session',
       )
     }
-    if (!canUseAllowList(c.get('uptimeKumaAccess')?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('uptimeKumaAccess'))) {
       throw new AppError(
         403,
         'uptime_kuma_instance_agent_access_denied',

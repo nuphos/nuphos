@@ -2,12 +2,8 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import {
-  accessView,
-  bindingAccessUpdateSchema,
-  createBinderOnlyAccess,
-  normalizeAccessInput,
-} from '@/lib/byos/access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { encryptUpstashSecret } from '@/lib/byos/secrets'
 import {
   credentialsFromBinding,
@@ -38,6 +34,7 @@ const bindSchema = z
     label: z.string().trim().min(1).max(100),
     email: z.string().trim().email().max(200),
     apiKey: z.string().trim().min(1).max(400),
+    share: bindingShareSchema.optional(),
   })
   .strict()
 
@@ -96,7 +93,7 @@ upstashAccountsRoutes.post(
       // Upstash Management key has no scopes and reaches every database's data,
       // so a new binding must not silently expose the whole account to the team.
       // Team admins are granted at the gate, not stored here.
-      access: createBinderOnlyAccess(c.get('userId'), now),
+      access: await newBindingAccess(c, { now: now, highPrivilege: true }),
     }
 
     // Dedup atomically rather than read-then-write: `email` is excluded in the
@@ -159,32 +156,7 @@ accountScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
   return c.body(null, 204)
 })
 
-accountScoped.get('/access', requireTeamRole('ADMINISTRATOR'), (c) =>
-  c.json(accessView(c.get('upstashAccess'))),
-)
-
-accountScoped.put(
-  '/access',
-  requireTeamRole('ADMINISTRATOR'),
-  zv('json', bindingAccessUpdateSchema),
-  async (c) => {
-    const teamId = parseObjectId(c.get('teamId'), 'teamId')
-    const accountId = new ObjectId(c.get('upstashAccountId'))
-    const access = normalizeAccessInput(c.req.valid('json'), c.get('userId'))
-    const res = await teamByosBindings().updateOne(
-      { _id: teamId, 'upstashAccounts.id': accountId },
-      { $set: { 'upstashAccounts.$.access': access, updatedAt: new Date() } },
-    )
-
-    // Guard the concurrent-delete race: if the binding was removed between the
-    // middleware fetch and this write, don't report success for a no-op.
-    if (res.matchedCount === 0) {
-      throw new AppError(404, 'upstash_account_not_bound', 'Upstash account not found')
-    }
-
-    return c.json(accessView(access))
-  },
-)
+registerBindingAccessRoutes(accountScoped, 'upstashAccounts', (c) => c.get('upstashBinding'))
 
 // Server-side proxy so desktop can list databases without ever holding the API
 // key. The agent uses /credentials below and calls Upstash directly instead.

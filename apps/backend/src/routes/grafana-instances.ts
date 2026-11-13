@@ -2,12 +2,19 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
+import { newBindingAccess } from '@/lib/byos/initial-access'
 import { encryptGrafanaSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { OutboundBlockedError, pinnedFetch, blockedUrlReason } from '@/lib/net/safe-outbound'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole, requireGrafanaInstance, requireGrafanaWriteRole } from '@/middleware/auth'
+import {
+  requireGrafanaInstance,
+  requireGrafanaMemberAccess,
+  requireGrafanaWriteRole,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables, GrafanaInstanceVariables } from '@/middleware/auth'
@@ -59,11 +66,12 @@ grafanaInstancesRoutes.post(
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const id = new ObjectId()
     const createdAt = new Date()
+    const access = await newBindingAccess(c, { now: createdAt })
 
     await teamByosBindings().updateOne(
       { _id: teamId },
       {
-        $push: { grafanaInstances: { id, name, grafanaUrl, encryptedSaToken, createdAt } },
+        $push: { grafanaInstances: { id, name, grafanaUrl, encryptedSaToken, createdAt, access } },
         $set: { updatedAt: createdAt },
         $setOnInsert: {
           awsRoles: [],
@@ -108,6 +116,15 @@ instanceScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
 
   return c.body(null, 204)
 })
+
+registerBindingAccessRoutes(instanceScoped, 'grafanaInstances', (c) => ({
+  id: c.get('grafanaInstanceId'),
+  access: c.get('grafanaAccess'),
+}))
+
+// Registered after the admin routes, so it guards only the proxy below,
+// which acts with the instance's service account token.
+instanceScoped.use('*', requireGrafanaMemberAccess())
 
 const HOP_BY_HOP = new Set([
   'connection',

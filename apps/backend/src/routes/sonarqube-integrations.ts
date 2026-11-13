@@ -2,7 +2,8 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { createDefaultAccess } from '@/lib/byos/access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { encryptSonarqubeSecret } from '@/lib/byos/secrets'
 import { blockedSonarqubeBaseUrlReason, verifySonarqubeCredentials } from '@/lib/byos/sonarqube'
 import { parseObjectId } from '@/lib/objectid'
@@ -31,6 +32,7 @@ const bindSchema = z
         if (reason) ctx.addIssue({ code: z.ZodIssueCode.custom, message: reason })
       }),
     token: z.string().trim().min(1).max(512),
+    share: bindingShareSchema.optional(),
   })
   .strict()
 
@@ -65,7 +67,7 @@ sonarqubeIntegrationsRoutes.post(
       encryptedToken: encryptSonarqubeSecret(token),
       version: discovered.version,
       createdAt: now,
-      access: createDefaultAccess(c.get('userId'), now),
+      access: await newBindingAccess(c, { now: now }),
     }
     // `$push` owns sonarqubeIntegrations in this update, so initialize every
     // other binding collection without writing the same path twice.
@@ -89,6 +91,7 @@ sonarqubeIntegrationsRoutes.post(
 const scoped = new Hono<{ Variables: SonarqubeIntegrationVariables }>()
 
 scoped.use('*', requireSonarqubeIntegration())
+registerBindingAccessRoutes(scoped, 'sonarqubeIntegrations', (c) => c.get('sonarqubeBinding'))
 
 registerSonarqubeScopedRoutes(scoped)
 

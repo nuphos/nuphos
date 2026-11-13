@@ -1,9 +1,9 @@
 import { ObjectId } from 'mongodb'
 
-import { canUseAllowList } from '@/lib/byos/access'
 import { findPosthogIntegration } from '@/lib/byos/account'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
+import { canRequestUseBinding } from '@/middleware/auth/binding-access'
 
 import type { PosthogIntegrationVariables } from '@/middleware/auth/types'
 import type { MiddlewareHandler } from 'hono'
@@ -42,7 +42,7 @@ export function requirePosthogMemberAccess(): MiddlewareHandler<{
   Variables: PosthogIntegrationVariables
 }> {
   return async (c, next) => {
-    if (!canUseAllowList(c.get('posthogAccess')?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('posthogAccess'))) {
       throw new AppError(
         403,
         'posthog_integration_access_denied',
