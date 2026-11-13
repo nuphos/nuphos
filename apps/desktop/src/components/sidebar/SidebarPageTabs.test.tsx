@@ -16,6 +16,7 @@ test('Bots and Tasks each expose their own count, with no zero badge', () => {
         botCount,
       }),
     )
+
   assert.match(view(2), /aria-label="Bots · 2"/)
   assert.match(view(2), /aria-label="Tasks · 3"/)
   assert.match(view(0), /aria-label="Bots"/)

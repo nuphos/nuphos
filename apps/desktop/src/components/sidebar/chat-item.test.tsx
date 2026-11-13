@@ -109,8 +109,8 @@ test('reading a Bot question clears its dot but keeps the action-needed preview'
     })
 
     assert.ok(isValidElement<{ dot: string | null }>(row?.trailing))
-    assert.equal(row.trailing.props.dot, unread ? 'waiting' : null)
-    assert.equal(row.dot, unread ? 'waiting' : null)
+    assert.equal(row.trailing.props.dot, unread ? 'unread' : null)
+    assert.equal(row.dot, unread ? 'unread' : null)
     assert.ok(row?.previewNode)
   }
 })
