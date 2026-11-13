@@ -1,12 +1,20 @@
-# Team ZIP export
+# Team ZIP migration
 
 A team administrator can open **Settings → General → Data migration → Export
 ZIP** in Desktop. The confirmation explains that the archive contains private
 team content. Choose where to save the ZIP; cancelling the save dialog does not
 start an export.
 
-This is the export slice of team migration. Import into an empty self-hosted team
-is a separate implementation; this change does not modify a destination.
+**Import ZIP into a new team** opens a native file picker, verifies the ZIP and
+shows the source name, historical member identities and reconnect list. Select
+your source identity explicitly, or leave every author historical. Confirm
+**Create imported team**; then choose the new team from the team switcher.
+
+Import always creates a new team. It cannot target, merge into or overwrite an
+existing team. The importer is its sole administrator. Invite teammates after
+completion; historical roles do not grant membership. Email-domain auto-join
+and local computer sharing are reset. Triggers and dashboard schedules remain
+disabled. Runtime sessions, credentials and computers must be reconnected.
 
 ## Included data
 
@@ -15,7 +23,10 @@ attribution, team instructions, team memories/playbooks, UTF-8 skill source,
 conversation text and sender attribution, Bot/group-chat relationships, Plans,
 dashboard/panel source, diagrams, designs, and conversation-owned triggers.
 Triggers retain only their owning conversation reference (`targetSessionId`),
-without user ownership, creator, or execution-principal fields, and remain disabled.
+without source user ownership, creator, or execution-principal fields, and remain disabled.
+On import, the stored Trigger `userId` is derived from its remapped Task owner
+(the importer), so it can be listed, edited and deleted through the Task APIs.
+This does not restore an independent Trigger owner or source execution authority.
 
 The archive uses `manifest.json` with `format: "nuphos-team"` and
 `formatVersion: 1`. It records the backend version, source team, export time,
@@ -61,3 +72,45 @@ Conversation, agent-run and CLI tokens cannot use it. It returns
 `application/zip` with `Cache-Control: no-store`. No public link or persistent
 background export job is created. Audit events record actor, team, counts,
 archive digest and outcome, without content.
+
+## Import contract and atomicity
+
+`POST /teams/migration/preview` accepts an `application/zip` body and returns the
+verified manifest, SHA-256, member directory and exclusion list without writing
+a destination. `POST /teams/migration/import` accepts the same bytes, the preview
+digest in `X-Migration-SHA256`, and optionally `X-Migration-Source-Member` naming
+one source member to map to the signed-in importer. Other identities are freshly
+allocated historical IDs, never existing destination accounts. Both endpoints
+require a signed-in user session; CLI and conversation tokens are refused.
+
+Every destination record gets a new ID, except plan numbers, which are retained
+within the new team's independent counter. Typed references are rewritten;
+authored text and external links are not. Conversation, plan-requester and dashboard/panel custody belongs to the
+importer and source participant grants are cleared. Source message metadata is
+stored as historical provenance and is never replayed as trusted server-authored
+attribution. The visible transcript labels imported authors.
+
+Validation refuses unsafe ZIP paths, symlinks, encryption, unknown entries or
+versions, duplicate source IDs, unknown record fields, invalid references and
+checksum/size mismatches. Validation completes before destination writes.
+Skill objects are staged with conditional creates under a fresh team namespace;
+the new team, its sole membership, records and import receipt commit in one Mongo
+transaction. No other request can access that team before commit. A conflict or
+failure rolls back the entire database import; existing content is untouched.
+The deployment must support MongoDB transactions. Failed imports clean their
+staged objects; uncertain commit outcomes retain objects to protect committed
+teams. There is no maintenance mode, merge, overwrite or automatic member invite.
+
+The import receipt records historical members, ID attribution, resets and the
+source reconnect report. The original ZIP's `not-migrated.json` remains the
+portable checklist. Only import archives you trust: restoring authored scripts
+and instructions is an explicit content import, not a security review of them.
+
+Preview and import allow one in-flight request per account and at most two per
+backend replica. These are resource bounds, not a distributed mutation fence.
+The archive limits are upper bounds: the server's MongoDB transaction lifetime
+(default 60 seconds) can impose a smaller practical import size. An import that
+exceeds it aborts atomically. A process crash before commit can leave unreferenced
+skill objects under an invisible team namespace; automatic orphan sweeping is
+out of scope. Legacy group chats containing Task participants are refused with
+an actionable error; remove those participants and export again.

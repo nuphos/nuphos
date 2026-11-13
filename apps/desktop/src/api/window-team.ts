@@ -29,6 +29,7 @@ import type {
   RegisterExternalRuntimeInput,
   UpdateRuntimeInput,
 } from '../types/runtime'
+import type { TeamImportPreview } from '../types/team-migration'
 import type {
   TeamGoogleClient,
   AtlasTeam,
@@ -50,6 +51,8 @@ import type {
 
 export type WindowTeamApi = {
   atlasExportTeam(teamId: string): Promise<boolean>
+  atlasPreviewTeamImport(): Promise<TeamImportPreview | null>
+  atlasConfirmTeamImport(token: string, sourceMember?: string): Promise<AtlasTeam>
   atlasGetTeamGoogleClient(teamId: string): Promise<TeamGoogleClient>
   atlasSetTeamGoogleClient(teamId: string, clientId: string, clientSecret: string): Promise<void>
   atlasDeleteTeamGoogleClient(teamId: string): Promise<void>
