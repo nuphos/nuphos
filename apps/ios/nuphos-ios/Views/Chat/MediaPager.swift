@@ -94,8 +94,8 @@ private struct Pages: UIViewControllerRepresentable {
     @MainActor
     final class Coordinator: NSObject, UIPageViewControllerDataSource, UIPageViewControllerDelegate, UIGestureRecognizerDelegate {
         var parent: Pages
-        /// Each video's fetch, shared by its pages: one swiped away and back
-        /// while the file is still coming waits for the same fetch.
+        /// Each video's fetch in flight, shared by its pages: one swiped away
+        /// and back while the file is still coming waits for the same fetch.
         private var loads: [URL: Task<Void, Error>] = [:]
         init(_ parent: Pages) { self.parent = parent }
 
@@ -106,13 +106,10 @@ private struct Pages: UIViewControllerRepresentable {
         private func load(_ url: URL) async throws {
             let task = loads[url] ?? Task { try await parent.load(url) }
             loads[url] = task
-            do {
-                try await task.value
-            } catch {
-                // A failed fetch is forgotten, so trying again fetches anew.
-                if loads[url] == task { loads[url] = nil }
-                throw error
-            }
+            // Once done it is forgotten, so a retry, or a file trimmed since,
+            // fetches anew.
+            defer { if loads[url] == task { loads[url] = nil } }
+            try await task.value
         }
 
         func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
