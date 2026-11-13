@@ -356,10 +356,24 @@ export async function applyPendingSessionConfig(
     const value = current.pendingSessionConfig?.[configId]
 
     if (value === undefined) continue
-    const { options } = await controlSessionConfig(client, current.openabSessionId, {
-      configId,
-      value,
-    })
+    let options: SessionConfigState['options']
+
+    try {
+      ;({ options } = await controlSessionConfig(client, current.openabSessionId, {
+        configId,
+        value,
+      }))
+    } catch (error) {
+      if (!(error instanceof AppError) || error.code !== 'invalid_runtime_config') throw error
+      // The agent no longer offers this pick. Drop it so later prompts run on the
+      // last confirmed settings instead of failing every turn. Logged, not retried.
+      logError('agent.session.pending_config_rejected', error, {
+        session_id: conversationId,
+        config_id: configId,
+      })
+      current = await clearPendingSessionConfig(conversationId, teamId, current, configId)
+      continue
+    }
 
     await storeSessionConfig(conversationId, teamId, current.openabSessionId, options)
     current = await clearPendingSessionConfig(conversationId, teamId, current, configId)

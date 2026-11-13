@@ -245,6 +245,8 @@ export function createSessionTools(
             }
           }
           try {
+            // Loaded on demand so this tool module does not pull the runtime session
+            // stack in at import time; the tool only needs it when model settings change.
             const { botSessionConfigUpdate } =
               await import('@/lib/claude-code-preview/session-config')
 

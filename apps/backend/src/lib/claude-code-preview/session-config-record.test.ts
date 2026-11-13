@@ -289,7 +289,7 @@ test('the next prompt confirms a queued model before its effort and clears both 
   ])
 })
 
-test('a rejected queued setting stays pending instead of running with a false confirmation', async () => {
+test('a queued setting the agent rejects is dropped so the prompt runs on confirmed settings', async () => {
   await conversation(undefined, { effort: 'maximum' })
   const attachment = (await agentConversations().findOne({ sessionId: 'chat' }))!.claudeCodePreview!
   const client = {
@@ -299,11 +299,11 @@ test('a rejected queued setting stays pending instead of running with a false co
     },
   }
 
-  await expect(applyPendingSessionConfig(client, 'chat', TEAM, attachment)).rejects.toMatchObject({
-    code: 'invalid_runtime_config',
-  })
+  const applied = await applyPendingSessionConfig(client, 'chat', TEAM, attachment)
+
+  expect(applied.pendingSessionConfig).toEqual({})
   expect(
     (await agentConversations().findOne({ sessionId: 'chat' }))?.claudeCodePreview
       ?.pendingSessionConfig,
-  ).toEqual({ effort: 'maximum' })
+  ).toEqual({})
 })
