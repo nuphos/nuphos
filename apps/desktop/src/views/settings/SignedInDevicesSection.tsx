@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { parseAtlasError } from '../../api/errors'
@@ -9,6 +10,8 @@ import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { Tooltip } from '../../components/ui/tooltip'
 import { t } from '../../i18n'
+import { useSignInSessionsQuery } from '../../lib/query/account'
+import { queryKeys } from '../../lib/query/keys'
 
 import { SectionHeader } from './shared'
 import {
@@ -20,65 +23,43 @@ import {
 
 import type { SignInSession } from '../../types'
 
-type Load =
-  | { state: 'loading' }
-  | { state: 'ready'; sessions: SignInSession[] }
-  // A sign-in from before sessions: it works, but has no session to manage from.
-  | { state: 'signInAgain' }
-  // A backend from before sessions has no such route.
-  | { state: 'unavailable' }
-  | { state: 'failed' }
-
 export function SignedInDevicesSection({ onSignOut }: { onSignOut: () => void }) {
-  const [load, setLoad] = useState<Load>({ state: 'loading' })
-  const [busy, setBusy] = useState<string | null>(null)
+  const listed = useSignInSessionsQuery()
   const [confirming, setConfirming] = useState<SignInSession | 'others' | null>(null)
-
-  const refresh = useCallback(() => {
-    void api
-      .atlasListSignInSessions()
-      .then((sessions) => setLoad({ state: 'ready', sessions: sortSessions(sessions) }))
-      .catch((err: unknown) => {
-        const { code } = parseAtlasError(err)
-
-        if (code === 'session_required') return setLoad({ state: 'signInAgain' })
-        if (code === 'route_not_found') return setLoad({ state: 'unavailable' })
-        setLoad({ state: 'failed' })
-        toast.apiError(t('Could not load your signed-in devices'), err)
-      })
-  }, [])
+  const code = listed.error ? parseAtlasError(listed.error).code : undefined
+  // A sign-in from before sessions works, but has no session to manage from.
+  const signInAgain = code === 'session_required'
+  // A backend from before sessions has no such route.
+  const unavailable = code === 'route_not_found'
+  const failed = listed.isError && !signInAgain && !unavailable
+  const ready = listed.data !== undefined && !signInAgain && !unavailable
 
   useEffect(() => {
-    refresh()
-    window.addEventListener('focus', refresh)
+    if (failed) toast.apiError(t('Could not load your signed-in devices'), listed.error)
+  }, [failed, listed.error])
 
-    return () => window.removeEventListener('focus', refresh)
-  }, [refresh])
-
-  async function signOut(target: SignInSession | 'others') {
-    setBusy(target === 'others' ? 'others' : target.id)
-    try {
-      if (target === 'others') {
-        const revoked = await api.atlasSignOutOtherSessions()
-
-        toast.success(
-          revoked === 1
-            ? t('Signed out 1 other device')
-            : t('Signed out {n} other devices', { n: revoked }),
-        )
-      } else {
+  const signOut = useMutation({
+    mutationFn: async (target: SignInSession | 'others') => {
+      if (target !== 'others') {
         await api.atlasSignOutSession(target.id)
         toast.success(t('Signed out {device}', { device: sessionDevice(target) }))
-      }
-    } catch (err) {
-      toast.apiError(t('Could not sign out'), err)
-    } finally {
-      setBusy(null)
-      refresh()
-    }
-  }
 
-  const sessions = load.state === 'ready' ? load.sessions : []
+        return
+      }
+      const revoked = await api.atlasSignOutOtherSessions()
+
+      toast.success(
+        revoked === 1
+          ? t('Signed out 1 other device')
+          : t('Signed out {n} other devices', { n: revoked }),
+      )
+    },
+    onError: (err) => toast.apiError(t('Could not sign out'), err),
+    onSettled: (_result, _error, _target, _context, { client }) =>
+      client.invalidateQueries({ queryKey: queryKeys.signInSessions() }),
+  })
+  const busy = signOut.isPending
+  const sessions = ready ? sortSessions(listed.data) : []
   const others = sessions.filter((s) => !s.current)
 
   return (
@@ -89,7 +70,7 @@ export function SignedInDevicesSection({ onSignOut }: { onSignOut: () => void })
           'Where your account is signed in. Sign out anything you don’t recognize, then change your password.',
         )}
       />
-      {load.state === 'signInAgain' && (
+      {signInAgain && (
         <div className="rounded-lg border border-line-control/70 bg-surface px-4 py-3.5">
           <p className="text-[13px] text-main">{t('Sign in again to manage your devices.')}</p>
           <p className="mt-1 text-[12.5px] text-tertiary">
@@ -100,22 +81,22 @@ export function SignedInDevicesSection({ onSignOut }: { onSignOut: () => void })
           </Button>
         </div>
       )}
-      {load.state === 'unavailable' && (
+      {unavailable && (
         <p className="text-[12.5px] text-tertiary">
           {t('Device management isn’t available on this server yet.')}
         </p>
       )}
-      {load.state === 'failed' && (
+      {failed && !ready && (
         <p className="text-[12.5px] text-tertiary">
           {t('Couldn’t load your signed-in devices.')}{' '}
-          <Button type="button" size="sm" variant="secondary" onClick={refresh}>
+          <Button type="button" size="sm" variant="secondary" onClick={() => void listed.refetch()}>
             {t('Retry')}
           </Button>
         </p>
       )}
-      {(load.state === 'loading' || load.state === 'ready') && (
+      {(listed.isPending || ready) && (
         <SkeletonReveal
-          ready={load.state === 'ready'}
+          ready={ready}
           skeleton={
             <div aria-busy="true" className="space-y-2">
               <div className="h-[60px] rounded-lg bg-state-selected" />
@@ -163,7 +144,7 @@ export function SignedInDevicesSection({ onSignOut }: { onSignOut: () => void })
                     type="button"
                     size="sm"
                     variant="secondary"
-                    disabled={busy !== null}
+                    disabled={busy}
                     onClick={() => setConfirming(session)}
                   >
                     {t('Sign out')}
@@ -178,7 +159,7 @@ export function SignedInDevicesSection({ onSignOut }: { onSignOut: () => void })
               size="sm"
               variant="secondary"
               className="mt-4"
-              disabled={busy !== null}
+              disabled={busy}
               onClick={() => setConfirming('others')}
             >
               {t('Sign out all other devices')}
@@ -200,7 +181,10 @@ export function SignedInDevicesSection({ onSignOut }: { onSignOut: () => void })
         }
         confirmLabel={t('Sign out')}
         destructive
-        onConfirm={() => (confirming ? signOut(confirming) : undefined)}
+        onConfirm={async () => {
+          // The toast says what failed, so the dialog just closes.
+          if (confirming) await signOut.mutateAsync(confirming).catch(() => null)
+        }}
         onClose={() => setConfirming(null)}
       />
     </div>

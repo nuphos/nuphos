@@ -33,4 +33,12 @@ export const queryKeys = {
   /** Under `grafanaInstances`, so refreshing the bindings refreshes what was read through them. */
   grafana: (teamId: string, instanceId: string, ...rest: string[]) =>
     [...queryKeys.grafanaInstances(teamId), instanceId, ...rest] as const,
+  teamGoogleClient: (teamId: string) => [...queryKeys.team(teamId), 'google-client'] as const,
+  /** The signed-in member's own data. Leaving an account reloads every window, so it is not
+   *  keyed by member. */
+  me: () => ['me'] as const,
+  personalCredentials: () => [...queryKeys.me(), 'personal-credentials'] as const,
+  signInSessions: () => [...queryKeys.me(), 'sign-in-sessions'] as const,
+  /** What agents ran on this computer. */
+  deviceAudit: () => ['device', 'audit'] as const,
 }
