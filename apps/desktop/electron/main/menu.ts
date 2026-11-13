@@ -66,7 +66,7 @@ export function installApplicationMenu() {
           click: () => dispatchAppShortcut('search-sessions'),
         },
         {
-          label: 'New Agent',
+          label: 'New Task',
           accelerator: 'CommandOrControl+N',
           click: () => dispatchAppShortcut('new-chat'),
         },
