@@ -28,7 +28,7 @@ export function NoTeamSidebar({ loading, onCreateTeam, ...footer }: Props) {
       <div className="titlebar-drag desk-titlebar-row flex-shrink-0" />
       <SidebarTeamSwitcher loading={loading} onCreateTeam={onCreateTeam} />
       <div className="flex-1" />
-      <SidebarFooter active="" onSelect={() => {}} {...footer} />
+      <SidebarFooter connectorsOpen={false} onSelect={() => {}} {...footer} />
     </aside>
   )
 }
