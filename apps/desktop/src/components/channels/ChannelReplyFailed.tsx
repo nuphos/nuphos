@@ -7,12 +7,16 @@ import { requestAgentMenu } from '../agent/panel/agentMenuRequest'
 import { FailureRow } from '../agent/panel/FailureRow'
 import { toast } from '../ui/toast'
 
+import { ChannelReplyFix } from './ChannelReplyFix'
+
+import type { ChannelFixes } from './ChannelReplyFix'
+import type { ReplyFailedCause } from './replyFix'
 import type { AgentTimelineEvent } from '../../api'
 
 /** An `agent_reply_failed` line: the agent, whether it was the cause, and when its usage returns. */
 type ReplyFailedEvent = AgentTimelineEvent & {
   agentId?: string
-  cause?: 'usage_limit' | 'auth' | 'offline' | 'other'
+  cause?: ReplyFailedCause
   resetsAt?: string
 }
 
@@ -28,6 +32,7 @@ export function ChannelReplyFailed({
   actionable,
   ownedAgents,
   onOpenSession,
+  fixes = {},
 }: {
   event: ReplyFailedEvent
   channelId: string
@@ -36,6 +41,8 @@ export function ChannelReplyFailed({
   /** The viewer's own agents: only an agent's owner can move it. */
   ownedAgents: ReadonlySet<string>
   onOpenSession: (sessionId: string) => void
+  /** What the workspace lends to repair the agent, such as its runtime settings. */
+  fixes?: ChannelFixes
 }) {
   const [retrying, setRetrying] = useState(false)
   const agentId = event.agentId
@@ -62,6 +69,18 @@ export function ChannelReplyFailed({
 
   return (
     <FailureRow
+      fix={
+        actionable &&
+        agentId && (
+          <ChannelReplyFix
+            teamId={teamId}
+            agentId={agentId}
+            cause={event.cause}
+            fixes={fixes}
+            onFixed={retry}
+          />
+        )
+      }
       onSwitchAgent={canSwitch && agentId ? switchAgent : undefined}
       onRetry={actionable && agentId ? retry : undefined}
       retrying={retrying}

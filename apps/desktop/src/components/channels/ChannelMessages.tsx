@@ -19,6 +19,7 @@ import type {
   AgentTimelineEvent,
   ChannelAgent,
 } from '../../api'
+import type { ChannelFixes } from './ChannelReplyFix'
 import type { ReactNode } from 'react'
 
 /** Who posted: the sender's id, so consecutive posts from one sender form a run. */
@@ -63,6 +64,7 @@ export function ChannelMessages({
   channelId,
   onReply,
   extraRows = [],
+  fixes,
 }: {
   messages: AgentPersistedMessage[]
   events: AgentTimelineEvent[]
@@ -76,6 +78,8 @@ export function ChannelMessages({
   onReply?: (reply: AgentMessageReply) => void
   /** Other lines in the timeline, such as the questions a Bot's chat waits on. */
   extraRows?: TimelineRow[]
+  /** What the workspace lends to repair an agent that could not reply. */
+  fixes?: ChannelFixes
 }) {
   const renderAgentLink = useAgentLinks(teamId, onOpenNuphosLink)
   // One function across renders: a new one makes every post rebuild its text,
@@ -151,6 +155,7 @@ export function ChannelMessages({
               actionable={event === lastEvent && stamp(event.at) >= lastPostAt}
               ownedAgents={owned}
               onOpenSession={onOpenSession}
+              fixes={fixes}
             />
           ),
       })),

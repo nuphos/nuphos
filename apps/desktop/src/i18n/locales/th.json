@@ -460,6 +460,7 @@
   "Ask {name} to choose a plan.": "ขอให้ {name} เลือกแพ็กเกจ",
   "Ask {name} to sign in": "ขอให้ {name} ลงชื่อเข้าใช้",
   "Ask {name} to sign this agent in, then resend your message.": "ขอให้ {name} ลงชื่อเข้าใช้เอเจนต์นี้ แล้วส่งข้อความของคุณอีกครั้ง",
+  "Ask {name} to sign this agent in.": "ขอให้ {name} ลงชื่อเข้าใช้เอเจนต์นี้",
   "Ask {name} to update": "ขอให้ {name} อัปเดต",
   "Asked {name}. You can send once they sign it in.": "ขอให้ {name} ลงชื่อเข้าใช้แล้ว ส่งได้เมื่อเขาลงชื่อเข้าใช้",
   "Asked {name}. Your message will run once they sign in.": "ขอ {name} แล้ว ข้อความของคุณจะทำงานเมื่อพวกเขาลงชื่อเข้าใช้",

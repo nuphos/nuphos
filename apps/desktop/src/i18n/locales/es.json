@@ -460,6 +460,7 @@
   "Ask {name} to choose a plan.": "Pide a {name} que elija un plan.",
   "Ask {name} to sign in": "Pedir a {name} que inicie sesión",
   "Ask {name} to sign this agent in, then resend your message.": "Pide a {name} que inicie sesión en este agente y luego reenvía tu mensaje.",
+  "Ask {name} to sign this agent in.": "Pide a {name} que inicie sesión en este agente.",
   "Ask {name} to update": "Pide a {name} que lo actualice",
   "Asked {name}. You can send once they sign it in.": "Se lo pediste a {name}. Podrás enviar cuando inicie sesión.",
   "Asked {name}. Your message will run once they sign in.": "Se lo pediste a {name}. Tu mensaje se enviará cuando inicie sesión.",

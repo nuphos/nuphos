@@ -460,6 +460,7 @@
   "Ask {name} to choose a plan.": "请 {name} 选择套餐。",
   "Ask {name} to sign in": "请 {name} 登录",
   "Ask {name} to sign this agent in, then resend your message.": "请 {name} 登录此代理，然后重新发送你的消息。",
+  "Ask {name} to sign this agent in.": "请 {name} 登录此代理。",
   "Ask {name} to update": "请 {name} 更新",
   "Asked {name}. You can send once they sign it in.": "已请 {name} 登录。对方登录后即可发送。",
   "Asked {name}. Your message will run once they sign in.": "已请求 {name}。对方登录后，你的消息会自动运行。",
