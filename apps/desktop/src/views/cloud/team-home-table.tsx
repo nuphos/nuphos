@@ -1,7 +1,5 @@
-import clsx from 'clsx'
 import { useMemo } from 'react'
 
-import { Tooltip } from '../../components/ui/tooltip'
 import { t } from '../../i18n'
 import { CATALOG } from '../addIntegrationCatalog'
 import {
@@ -9,125 +7,16 @@ import {
   matchingPersonalConnectors,
 } from '../settings/personalCredentials'
 
-import { CatalogLogo } from './catalog-logo'
-import { CONNECTOR_HOVER } from './connector-actions'
+import { CatalogGroupSection } from './catalog-group-section'
+import { groupCatalog } from './catalog-groups'
 import { ConnectorSearch } from './connector-search'
 import { searchTerms } from './connector-suggestions'
-import { githubConnectedSummary, visibleGithubInstallations } from './github-installation-display'
-import { OverflowMarquee } from './overflow-marquee'
 import { PersonalConnectors } from './personal-connectors'
 import { InstalledList } from './team-home-installed'
 
 import type { IntegrationPlatformRow } from './team-home-bind'
 import type { GithubInstallation } from '../../types'
-import type { AddIntegrationKey, CatalogItem } from '../addIntegrationCatalog'
-
-/** One catalog row. The whole row opens the connector: its detail view once connected, the add flow before. */
-function CatalogConnector({
-  item,
-  installed,
-  connectedSummary,
-  onAdd,
-  onOpen,
-}: {
-  item: CatalogItem
-  installed: IntegrationPlatformRow[]
-  connectedSummary: ConnectedSummary | null
-  onAdd: (key: AddIntegrationKey) => void
-  onOpen: (rows: IntegrationPlatformRow[]) => void
-}) {
-  const connected = installed.length > 0
-  const open = () => {
-    if (connected) onOpen(installed)
-    else onAdd(item.key)
-  }
-
-  return (
-    <div
-      onClick={open}
-      className={clsx(
-        'group flex min-w-0 items-center gap-3 rounded-lg px-2 py-2.5',
-        CONNECTOR_HOVER,
-      )}
-    >
-      <button
-        type="button"
-        aria-label={
-          connected ? t('Open {name}', { name: item.name }) : t('Add {name}', { name: item.name })
-        }
-        className="flex min-w-0 flex-1 items-center gap-3 text-left outline-none focus-visible:shadow-none focus-visible:!outline-none"
-      >
-        <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-line-control/55 bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <CatalogLogo provider={item.key} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[13.5px] font-medium text-main">{item.name}</span>
-          {connectedSummary ? (
-            <span className="mt-0.5 flex items-center gap-1.5 text-[12px] text-secondary">
-              <Tooltip content={connectedSummary.attention ? t('Needs attention') : t('Connected')}>
-                <span
-                  className={clsx(
-                    'h-1.5 w-1.5 flex-none rounded-full',
-                    connectedSummary.attention ? 'bg-warning' : 'bg-success',
-                  )}
-                />
-              </Tooltip>
-              <span className="sr-only">
-                {connectedSummary.attention ? t('Needs attention:') : t('Connected:')}{' '}
-              </span>
-              <OverflowMarquee text={connectedSummary.text} className="min-w-0" />
-            </span>
-          ) : (
-            <OverflowMarquee
-              text={item.description}
-              className="mt-0.5 text-[12px] text-secondary"
-            />
-          )}
-        </span>
-      </button>
-      <span className="flex h-7 w-[76px] flex-none items-center justify-center rounded-lg border border-line-control bg-surface-sheet text-[12px] font-medium text-secondary transition-colors group-hover:border-line-control group-hover:text-main">
-        {connected ? t('Manage') : t('Add')}
-      </span>
-    </div>
-  )
-}
-
-type ConnectedSummary = { text: string; attention: boolean }
-
-function summarizeConnection(
-  item: CatalogItem,
-  installed: IntegrationPlatformRow[],
-  githubInstallations: GithubInstallation[],
-): ConnectedSummary | null {
-  if (installed.length === 0) return null
-  const needing = installed.filter((row) => row.attention)
-
-  if (needing.length > 0) {
-    const text =
-      installed.length === 1
-        ? `${installed[0].account} · ${String(needing[0].attention)}`
-        : t('{n} of {total} connections need attention', {
-            n: needing.length,
-            total: installed.length,
-          })
-
-    return { text, attention: true }
-  }
-  if (item.key === 'github') {
-    const github = visibleGithubInstallations(
-      githubInstallations,
-      installed.map((row) => row.key),
-    )
-
-    if (github.length > 0) return { text: githubConnectedSummary(github), attention: false }
-  }
-
-  return {
-    text:
-      installed.length === 1 ? installed[0].account : t('{n} connections', { n: installed.length }),
-    attention: false,
-  }
-}
+import type { AddIntegrationKey } from '../addIntegrationCatalog'
 
 export function IntegrationCatalog({
   teamId,
@@ -158,6 +47,7 @@ export function IntegrationCatalog({
     ...category,
     items: category.items.filter((item) => terms.every((term) => item.haystack.includes(term))),
   })).filter((category) => category.items.length > 0)
+  const visibleGroups = groupCatalog(visibleCategories)
   const personal = useMemo(() => matchingPersonalConnectors(searchTerms(filter)), [filter])
   const openPersonalCredentials = () => onOpenSettingsSection(PERSONAL_CREDENTIALS_SECTION)
 
@@ -197,7 +87,7 @@ export function IntegrationCatalog({
           </section>
         )}
 
-        {visibleCategories.length > 0 || personal.length > 0 ? (
+        {visibleGroups.length > 0 || personal.length > 0 ? (
           <div className="space-y-8 pt-4">
             {personal.length > 0 && (
               <PersonalConnectors
@@ -206,28 +96,16 @@ export function IntegrationCatalog({
                 onOpenSettings={openPersonalCredentials}
               />
             )}
-            {visibleCategories.map((category) => (
-              <section key={category.id}>
-                <h2 className="mb-1.5 border-b border-line-control/55 pb-2.5 text-[13px] font-medium text-main">
-                  {category.title}
-                </h2>
-                <div className="-mx-2 grid grid-cols-1 gap-x-5 gap-y-0.5 sm:grid-cols-2">
-                  {category.items.map((item) => {
-                    const installed = rows.filter((row) => row.provider === item.key)
-
-                    return (
-                      <CatalogConnector
-                        key={item.key}
-                        item={item}
-                        installed={installed}
-                        connectedSummary={summarizeConnection(item, installed, githubInstallations)}
-                        onAdd={onAdd}
-                        onOpen={onOpen}
-                      />
-                    )
-                  })}
-                </div>
-              </section>
+            {visibleGroups.map((group) => (
+              <CatalogGroupSection
+                key={group.id}
+                group={group}
+                searching={terms.length > 0}
+                rows={rows}
+                githubInstallations={githubInstallations}
+                onAdd={onAdd}
+                onOpen={onOpen}
+              />
             ))}
           </div>
         ) : (
