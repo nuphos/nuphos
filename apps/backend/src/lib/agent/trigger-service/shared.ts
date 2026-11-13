@@ -38,24 +38,22 @@ export type UpdateTriggerPatch = {
   enabled?: boolean
   cronExpression?: string
   timeZone?: string
-  /** Move delivery to another existing conversation. A Trigger cannot be unbound. */
-  targetSessionId?: string
   minIntervalSeconds?: number
 }
 
-/** A Trigger may only wake a conversation its execution principal owns. */
+/** A Trigger is created in a Task its creator owns, and that Task's owner owns it from then on. */
 export async function assertBindableSession(
   sessionId: string,
   teamId: string | undefined,
-  principalUserId: string,
+  ownerUserId: string,
 ): Promise<void> {
   const target = await getConversationBySessionId(sessionId)
 
-  if (!teamId || !target || target.teamId !== teamId || target.userId !== principalUserId) {
+  if (!teamId || !target || target.teamId !== teamId || target.userId !== ownerUserId) {
     throw new AppError(
       400,
       'invalid_target_session',
-      'targetSessionId must be a conversation of the Trigger owner in this team',
+      'targetSessionId must be a Task you own in this team',
     )
   }
 }

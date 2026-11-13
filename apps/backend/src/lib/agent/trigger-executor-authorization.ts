@@ -2,27 +2,15 @@ import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 
 import { getConversationBySessionId } from './db'
-import {
-  executionAuthorizationIsCurrent,
-  triggerExecutionPrincipalFilter,
-  triggerExecutionPrincipalId,
-} from './trigger-access'
+import { executionAuthorizationIsCurrent } from './trigger-access'
 import { agentTriggers } from './trigger-db'
 
 import type { AgentTrigger } from './trigger-db'
 
-/**
- * Pause a Trigger whose execution identity or delivery target broke, unless a
- * transfer already moved it to another principal.
- */
-async function pauseTrigger(
-  trigger: AgentTrigger,
-  principalUserId: string,
-  error: string,
-  now: Date,
-): Promise<void> {
+/** Pause a Trigger whose Task or Task owner can no longer run it. */
+async function pauseTrigger(trigger: AgentTrigger, error: string, now: Date): Promise<void> {
   await agentTriggers().updateOne(
-    { _id: trigger._id, ...triggerExecutionPrincipalFilter(principalUserId) },
+    { _id: trigger._id },
     {
       $set: {
         enabled: false,
@@ -55,40 +43,25 @@ async function markExecutionAuthorizationValid(trigger: AgentTrigger, now: Date)
   )
 }
 
+/** A Trigger runs in its Task, as that Task's owner. */
 export async function resolveExecutionAuthorization(trigger: AgentTrigger) {
-  const principalUserId = triggerExecutionPrincipalId(trigger)
   const now = new Date()
-
-  if (trigger.teamId) {
-    const membership = await getTeamMembership(principalUserId, trigger.teamId)
-
-    if (!membership) {
-      const error =
-        'The Trigger creator is no longer a member of this team. The Trigger was paused.'
-
-      await pauseTrigger(trigger, principalUserId, error, now)
-      throw new AppError(409, 'trigger_execution_principal_invalid', error)
-    }
-  }
-  // Unbound rows predate binding. They have nowhere to deliver, so they stay
-  // off until their owner picks a conversation.
   const target = trigger.targetSessionId
     ? await getConversationBySessionId(trigger.targetSessionId)
     : null
 
-  if (!target?.teamId || target.teamId !== trigger.teamId || target.userId !== principalUserId) {
-    const error = trigger.targetSessionId
-      ? "The session this Trigger delivers to was deleted or no longer belongs to the Trigger's owner. The Trigger was paused."
-      : 'This Trigger has no session to deliver to. The Trigger was paused.'
+  if (!target?.teamId || target.teamId !== trigger.teamId) {
+    const error = 'The Task this Trigger belongs to no longer exists. The Trigger was paused.'
 
-    await pauseTrigger(trigger, principalUserId, error, now)
-    throw new AppError(
-      409,
-      trigger.targetSessionId
-        ? 'trigger_target_session_invalid'
-        : 'trigger_target_session_required',
-      error,
-    )
+    await pauseTrigger(trigger, error, now)
+    throw new AppError(409, 'trigger_target_session_invalid', error)
+  }
+  if (!(await getTeamMembership(target.userId, target.teamId))) {
+    const error =
+      "The owner of this Trigger's Task is no longer a member of this team. The Trigger was paused."
+
+    await pauseTrigger(trigger, error, now)
+    throw new AppError(409, 'trigger_execution_principal_invalid', error)
   }
   await markExecutionAuthorizationValid(trigger, now)
 

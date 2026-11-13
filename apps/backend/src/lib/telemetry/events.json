@@ -130,7 +130,6 @@
   "agent.trace.purge_failed",
   "agent.trace.write_failed",
   "agent.trigger.accepted_turn_persist.error",
-  "agent.trigger.execution_principal_transferred",
   "agent.trigger.expired",
   "agent.trigger.expiry_sweep",
   "agent.trigger.expiry_unschedule_failed",

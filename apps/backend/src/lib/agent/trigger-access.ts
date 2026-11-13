@@ -7,8 +7,8 @@ import { readsConversation } from './db/access'
 import type { AgentCredentialAccess } from './db'
 import type { TriggerCredentialMode } from './trigger-credential-access'
 
-/** Every level above `read` belongs to the Trigger's owner alone. */
-export type TriggerAccessLevel = 'read' | 'manage' | 'transfer' | 'delete'
+/** Every level above `read` belongs to the owner of the Trigger's Task. */
+export type TriggerAccessLevel = 'read' | 'manage' | 'delete'
 
 export type TriggerActorContext = {
   userId: string
@@ -27,12 +27,16 @@ export type TriggerActorContext = {
 
 export type TriggerActor = string | TriggerActorContext
 
+/**
+ * A Trigger has no owner of its own: it belongs to one Task. `userId` is that
+ * Task's owner, copied when the Trigger is created in it. The copy stays true
+ * because a Trigger never moves to another Task and a Task's owner never
+ * changes.
+ */
 export type TeamOwnedTriggerResource = {
   userId: string
   teamId?: string
-  createdByUserId?: string
-  executionPrincipalUserId?: string
-  /** The conversation the Trigger delivers into; who may read it follows that conversation. */
+  /** The Task the Trigger delivers into; who may read it follows that Task. */
   targetSessionId?: string
 }
 
@@ -58,15 +62,12 @@ export async function assertCanCreateTrigger(actor: TriggerActorContext): Promis
   }
 }
 
-/** Every change belongs to the Trigger's owner, who also owns its conversation. */
+/** Every change belongs to the owner of the Trigger's Task. */
 export function canManageTrigger(resource: TeamOwnedTriggerResource, userId: string): boolean {
-  return triggerExecutionPrincipalId(resource) === userId
+  return resource.userId === userId
 }
 
-/**
- * Whoever may read the Trigger's conversation may read the Trigger. One whose
- * conversation is gone is readable by its owner alone.
- */
+/** Whoever may read the Trigger's Task may read the Trigger. */
 export async function readsTriggerConversation(
   resource: TeamOwnedTriggerResource,
   userId: string,
@@ -83,8 +84,8 @@ export async function readsTriggerConversation(
 }
 
 /**
- * Reading follows the Trigger's conversation and every change is its owner's.
- * A team role grants nothing here.
+ * Reading follows the Trigger's Task and every change is the Task owner's. A
+ * team role grants nothing here.
  */
 export async function assertTriggerAccess(
   resource: TeamOwnedTriggerResource,
@@ -114,41 +115,8 @@ export async function assertTriggerAccess(
     throw new AppError(
       403,
       'trigger_access_denied',
-      'Only the owner of the conversation this Trigger belongs to can change it',
+      'Only the owner of the Task this Trigger belongs to can change it',
     )
-  }
-}
-
-export function triggerCreatedByUserId(resource: TeamOwnedTriggerResource): string {
-  return resource.createdByUserId ?? resource.userId
-}
-
-export function triggerExecutionPrincipalId(resource: TeamOwnedTriggerResource): string {
-  return resource.executionPrincipalUserId ?? resource.createdByUserId ?? resource.userId
-}
-
-/**
- * Mongo selector matching exactly the rows whose execution principal is this
- * user, including legacy rows that predate the explicit fields. It must stay
- * in lockstep with triggerExecutionPrincipalId: anything that function would
- * resolve to `principalUserId` has to match here, and nothing else may.
- */
-export function triggerExecutionPrincipalFilter(principalUserId: string): {
-  $or: Record<string, string | { $exists: boolean }>[]
-} {
-  return {
-    $or: [
-      { executionPrincipalUserId: principalUserId },
-      {
-        executionPrincipalUserId: { $exists: false },
-        createdByUserId: principalUserId,
-      },
-      {
-        executionPrincipalUserId: { $exists: false },
-        createdByUserId: { $exists: false },
-        userId: principalUserId,
-      },
-    ],
   }
 }
 

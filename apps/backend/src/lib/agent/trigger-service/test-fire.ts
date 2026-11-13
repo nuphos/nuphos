@@ -4,7 +4,7 @@ import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 import { createSlackOutboundContext } from '@/lib/slack/agent-outbound'
 
-import { assertTriggerAccess, triggerExecutionPrincipalId } from '../trigger-access'
+import { assertTriggerAccess } from '../trigger-access'
 import { executeTrigger } from '../trigger-executor'
 
 import { findManagedTrigger, parseTriggerId } from './shared'
@@ -75,7 +75,7 @@ export async function testTriggerDestination(
   }
 
   const slack = await createSlackOutboundContext({
-    userId: triggerExecutionPrincipalId(trigger),
+    userId: trigger.userId,
     conversationId: randomUUID(),
     teamId: trigger.teamId,
   })

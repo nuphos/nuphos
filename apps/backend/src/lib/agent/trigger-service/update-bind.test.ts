@@ -13,7 +13,6 @@ const legacyTrigger = {
   _id: triggerId,
   userId: OWNER,
   teamId: TEAM,
-  executionPrincipalUserId: OWNER,
   name: 'CPU alert',
   messageTemplate: 'Investigate the alert',
   triggerType: 'webhook',
@@ -80,23 +79,6 @@ afterEach(() => {
   storedTrigger = legacyTrigger
 })
 
-describe('binding a legacy unbound Trigger', () => {
-  test('stores the session and drops its fresh-session modes', async () => {
-    const updated = await updateTrigger(triggerId.toHexString(), OWNER, {
-      targetSessionId: 'bound-session',
-    })
-
-    expect(updated.targetSessionId).toBe('bound-session')
-    expect(updated).not.toHaveProperty('incidentMode')
-    expect(updated).not.toHaveProperty('slackDestination')
-
-    const write = writes.find((entry) => entry.collection === 'agent_triggers')
-
-    expect(write?.update.$set?.targetSessionId).toBe('bound-session')
-    expect(write?.update.$unset).toEqual({ incidentMode: true, slackDestination: true })
-  })
-})
-
 describe('re-creating a Trigger with the same dedupeKey', () => {
   const input = {
     name: 'CPU alert',
@@ -126,73 +108,23 @@ describe('re-creating a Trigger with the same dedupeKey', () => {
 })
 
 describe('turning a Trigger on', () => {
-  const disabledUnbound = { ...legacyTrigger, enabled: false }
-  const triggerWrite = () => writes.find((entry) => entry.collection === 'agent_triggers')
-
-  test('refuses an unbound Trigger without a conversation, and writes nothing', async () => {
-    storedTrigger = disabledUnbound
-
-    await expect(
-      updateTrigger(triggerId.toHexString(), OWNER, { enabled: true }),
-    ).rejects.toMatchObject({ status: 400, code: 'trigger_target_session_required' })
-    expect(triggerWrite()).toBeUndefined()
-  })
-
-  test('enables an unbound Trigger together with its owner’s conversation', async () => {
-    storedTrigger = disabledUnbound
-
-    const updated = await updateTrigger(triggerId.toHexString(), OWNER, {
-      enabled: true,
-      targetSessionId: 'bound-session',
-    })
-
-    expect(updated.enabled).toBe(true)
-    expect(updated.targetSessionId).toBe('bound-session')
-    expect(triggerWrite()?.update.$set).toMatchObject({
-      enabled: true,
-      targetSessionId: 'bound-session',
-    })
-  })
-
-  test.each(['someone-elses', 'other-team', 'missing'])(
-    'refuses to enable it into a %s conversation',
-    async (targetSessionId) => {
-      storedTrigger = disabledUnbound
-
-      await expect(
-        updateTrigger(triggerId.toHexString(), OWNER, { enabled: true, targetSessionId }),
-      ).rejects.toMatchObject({ status: 400 })
-      expect(triggerWrite()).toBeUndefined()
-    },
-  )
-
-  test('still enables a Trigger that is already bound', async () => {
-    storedTrigger = { ...disabledUnbound, targetSessionId: 'bound-session' }
+  test('enables it in its Task', async () => {
+    storedTrigger = { ...legacyTrigger, enabled: false, targetSessionId: 'bound-session' }
 
     const updated = await updateTrigger(triggerId.toHexString(), OWNER, { enabled: true })
 
     expect(updated.enabled).toBe(true)
+    expect(updated.targetSessionId).toBe('bound-session')
   })
+})
 
-  test('still disables an unbound Trigger', async () => {
-    const updated = await updateTrigger(triggerId.toHexString(), OWNER, { enabled: false })
+describe('a Trigger stored without a Task', () => {
+  test('cannot be turned on', async () => {
+    storedTrigger = { ...legacyTrigger, enabled: false }
 
-    expect(updated.enabled).toBe(false)
-  })
-
-  test('still renames a disabled unbound Trigger', async () => {
-    storedTrigger = disabledUnbound
-
-    const updated = await updateTrigger(triggerId.toHexString(), OWNER, { name: 'Renamed' })
-
-    expect(updated.name).toBe('Renamed')
-    expect(updated.enabled).toBe(false)
-  })
-
-  test('refuses other edits to an enabled unbound row until it is bound or disabled', async () => {
     await expect(
-      updateTrigger(triggerId.toHexString(), OWNER, { name: 'Renamed' }),
+      updateTrigger(triggerId.toHexString(), OWNER, { enabled: true }),
     ).rejects.toMatchObject({ status: 400, code: 'trigger_target_session_required' })
-    expect(triggerWrite()).toBeUndefined()
+    expect(writes.filter((entry) => entry.collection === 'agent_triggers')).toHaveLength(0)
   })
 })

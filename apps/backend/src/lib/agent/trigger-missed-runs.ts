@@ -120,7 +120,7 @@ async function claimMissedRun(
     expected_at: expected.toISOString(),
   })
   if (trigger.targetSessionId && trigger.teamId) {
-    deps.notify([trigger.executionPrincipalUserId ?? trigger.userId], {
+    deps.notify([trigger.userId], {
       sessionId: trigger.targetSessionId,
       teamId: trigger.teamId,
       title: 'Trigger missed a run',

@@ -55,23 +55,20 @@ the only copy of `webhookSecret`, the external `webhookUrl`, and
 `secretHeader`. Never print or persist the secret in a skill, log, or final
 answer.
 
-`targetSessionId` is required on every create:
+`targetSessionId` is required on every create. It names the Task the trigger
+belongs to, for good:
 
-- The session must be in the same team and owned by the
-  trigger's execution principal.
-- If the session is mid-turn, the fire queues and runs when that turn ends.
-  A fire into an archived session restores it; deleting it pauses the
-  trigger.
+- The Task must be in the same team and owned by you. The trigger runs as the
+  Task's owner, and only that owner can change or delete it.
+- If the Task is mid-turn, the fire queues and runs when that turn ends.
+  A fire into an archived Task restores it.
 - The session id is the last segment of its `/agent/<sessionId>` link; for the
   current conversation use `$NUPHOS_SESSION_ID`.
 - A trigger cannot be unbound. To report to Slack, say the exact destination
   in `messageTemplate`; the bound conversation posts with `slack_post`.
 
-Move a trigger to another conversation with `PATCH /{triggerId}`:
-
-```json
-{ "targetSessionId": "<sessionId>" }
-```
+A trigger cannot move to another Task: create a new one there and delete the
+old one.
 
 ## Webhook senders
 
@@ -97,5 +94,5 @@ CloudWatch alarm notifications arrive normalized. For monitoring alerts, load
   provider if the user wants that; Nuphos does not do it.
 - `test-fire` only proves the message was queued for the bound conversation,
   not that the run completed successfully.
-- Only the owner of the trigger's conversation can update, delete or test-fire
-  it. Creating one needs a team role above viewer.
+- Only the owner of the trigger's Task can update, delete or test-fire it.
+  Creating one needs a team role above viewer.
