@@ -145,10 +145,12 @@ export function redisClientEnded(): boolean {
 export async function withRedis<T>(op: (client: Redis) => Promise<T>): Promise<T | null> {
   if (!redisEnabled()) return null
   let timer: ReturnType<typeof setTimeout> | undefined
-  const client = getRedis()
-  const tracked = trackRedisOp(client)
+  let tracked: ReturnType<typeof trackRedisOp> | undefined
 
   try {
+    const client = getRedis()
+
+    tracked = trackRedisOp(client)
     const opPromise = op(client)
 
     tracked.sent()
@@ -169,7 +171,7 @@ export async function withRedis<T>(op: (client: Redis) => Promise<T>): Promise<T
     wedge.failure(err)
     logEvent('warn', 'redis.operation.failed', {
       replica_id: replicaId,
-      ...tracked.fields(),
+      ...tracked?.fields(),
       ...errorFields(err),
     })
 
