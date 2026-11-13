@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { accessView, bindingAccessUpdateSchema, normalizeAccessInput } from '@/lib/byos/access'
 import {
   createCloudflareDnsRecord,
   deleteCloudflareDnsRecord,
@@ -64,16 +65,10 @@ const dnsRecordSchema = z
     ttl: v.ttl ?? 1,
   }))
 
-export function registerCloudflareAccountRoutes(
+/** Disconnecting and the member list are the admin's, so they skip the member gate. */
+export function registerCloudflareAdminRoutes(
   accountScoped: Hono<{ Variables: CloudflareAccountVariables }>,
 ): void {
-  accountScoped.get('/', (c) => {
-    return c.json({
-      accountId: c.get('cloudflareAccountId'),
-      accountName: c.get('cloudflareAccountName'),
-    })
-  })
-
   accountScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const accountId = c.get('cloudflareAccountId')
@@ -89,6 +84,38 @@ export function registerCloudflareAccountRoutes(
     invalidateCloudflareAccessToken(teamId, binding.id)
 
     return c.body(null, 204)
+  })
+
+  accountScoped.get('/access', requireTeamRole('ADMINISTRATOR'), (c) =>
+    c.json(accessView(c.get('cloudflareBinding').access)),
+  )
+
+  accountScoped.put(
+    '/access',
+    requireTeamRole('ADMINISTRATOR'),
+    zv('json', bindingAccessUpdateSchema),
+    async (c) => {
+      const teamId = parseObjectId(c.get('teamId'), 'teamId')
+      const access = normalizeAccessInput(c.req.valid('json'), c.get('userId'))
+
+      await teamByosBindings().updateOne(
+        { _id: teamId, 'cloudflareAccounts.accountId': c.get('cloudflareAccountId') },
+        { $set: { 'cloudflareAccounts.$.access': access, updatedAt: access.updatedAt } },
+      )
+
+      return c.json(accessView(access))
+    },
+  )
+}
+
+export function registerCloudflareAccountRoutes(
+  accountScoped: Hono<{ Variables: CloudflareAccountVariables }>,
+): void {
+  accountScoped.get('/', (c) => {
+    return c.json({
+      accountId: c.get('cloudflareAccountId'),
+      accountName: c.get('cloudflareAccountName'),
+    })
   })
 
   accountScoped.use('/credentials', requireTeamRole('ADMINISTRATOR', 'EDITOR'))
@@ -150,7 +177,7 @@ export function registerCloudflareAccountRoutes(
             clientId: binding.oauth.clientId,
             scope: binding.oauth.scope,
             accessTokenExpiresAt: binding.oauth.accessTokenExpiresAt,
-            hasRefreshToken: !!binding.oauth.encryptedRefreshToken,
+            hasRefreshToken: Boolean(binding.oauth.encryptedRefreshToken),
           },
           warnings,
         ),

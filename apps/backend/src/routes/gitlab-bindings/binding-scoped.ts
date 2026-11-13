@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { accessView, bindingAccessUpdateSchema, normalizeAccessInput } from '@/lib/byos/access'
 import {
   invalidateAccessToken,
   getAccessTokenWithExpiry,
@@ -39,15 +40,10 @@ const pipelinesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
 })
 
-export function registerGitlabBindingScopedRoutes(
+/** Disconnecting and the member list are the admin's, so they skip the member gate. */
+export function registerGitlabBindingAdminRoutes(
   bindingScoped: Hono<{ Variables: GitlabBindingVariables }>,
 ) {
-  bindingScoped.get('/', (c) => {
-    const binding = c.get('gitlabBinding')
-
-    return c.json(publicView(binding))
-  })
-
   bindingScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const binding = c.get('gitlabBinding')
@@ -62,6 +58,37 @@ export function registerGitlabBindingScopedRoutes(
     invalidateAccessToken(teamId, binding.id)
 
     return c.body(null, 204)
+  })
+
+  bindingScoped.get('/access', requireTeamRole('ADMINISTRATOR'), (c) =>
+    c.json(accessView(c.get('gitlabBinding').access)),
+  )
+
+  bindingScoped.put(
+    '/access',
+    requireTeamRole('ADMINISTRATOR'),
+    zv('json', bindingAccessUpdateSchema),
+    async (c) => {
+      const teamId = parseObjectId(c.get('teamId'), 'teamId')
+      const access = normalizeAccessInput(c.req.valid('json'), c.get('userId'))
+
+      await teamByosBindings().updateOne(
+        { _id: teamId, 'gitlabAccounts.id': c.get('gitlabBinding').id },
+        { $set: { 'gitlabAccounts.$.access': access, updatedAt: access.updatedAt } },
+      )
+
+      return c.json(accessView(access))
+    },
+  )
+}
+
+export function registerGitlabBindingScopedRoutes(
+  bindingScoped: Hono<{ Variables: GitlabBindingVariables }>,
+) {
+  bindingScoped.get('/', (c) => {
+    const binding = c.get('gitlabBinding')
+
+    return c.json(publicView(binding))
   })
 
   // Agent credential handout, mirroring github-installations /token: the

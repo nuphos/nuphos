@@ -75,6 +75,7 @@ export type GithubInstallationVariables = TeamAuthVariables & {
   githubInstallationId: number
   githubAccountLogin: string
   githubAccountType: 'User' | 'Organization'
+  githubAccess?: BindingAccess
 }
 
 export type GitlabBindingVariables = TeamAuthVariables & {
