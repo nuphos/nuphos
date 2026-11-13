@@ -23,6 +23,7 @@ useObservability({
 })
 
 const { buildDeviceAccessAuditEntry, recordDeviceAccessChange } = await import('./access-audit')
+const { deviceOwner } = await import('./box-access')
 
 const box = {
   userId: 'host',
@@ -41,6 +42,29 @@ test('the authority recorded is what the actor held before the change', () => {
   expect(authorityOf('lead')).toBe('manage')
   // Using it is not managing it: such a change is recorded as unauthorized, not hidden.
   expect(authorityOf('mate')).toBeNull()
+})
+
+test('the owner it records is always box-access’s deviceOwner', () => {
+  const devices = [
+    box,
+    { ...box, box: { teamId: 'team' } },
+    { userId: 'host', deviceId: 'mac' },
+  ] as unknown as AgentDevice[]
+
+  // The owner check is repeated here to avoid an import cycle; this keeps the two in step.
+  for (const device of devices)
+    for (const actorUserId of ['host', 'creator', 'lead'])
+      expect(
+        buildDeviceAccessAuditEntry(device, 'team', next, { actorUserId, via: 'share' })
+          .actorAuthority === 'owner',
+      ).toBe(deviceOwner(device) === actorUserId)
+})
+
+test('a change that follows a membership change says so, whatever the actor holds', () => {
+  for (const via of ['team_leave', 'team_removal'] as const)
+    expect(
+      buildDeviceAccessAuditEntry(box, 'team', null, { actorUserId: 'creator', via }),
+    ).toMatchObject({ actorAuthority: 'team_membership', next: null })
 })
 
 test('a first grant records no previous access', () => {

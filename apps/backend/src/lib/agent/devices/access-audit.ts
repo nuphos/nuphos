@@ -8,7 +8,15 @@ import type { Collection } from 'mongodb'
 
 /** The flow that changed a computer's access. */
 export type DeviceAccessChangeVia =
-  'share' | 'box_access' | 'conversation_invite' | 'conversation_move'
+  | 'share'
+  | 'box_access'
+  | 'conversation_invite'
+  | 'conversation_move'
+  | 'team_leave'
+  | 'team_removal'
+
+/** Changes that follow from someone leaving or being removed from the team, not a grant edit. */
+const MEMBERSHIP_VIAS = new Set<DeviceAccessChangeVia>(['team_leave', 'team_removal'])
 
 /** Who changes a computer's access, and through what. */
 export type DeviceAccessChanger = { actorUserId: string; via: DeviceAccessChangeVia }
@@ -21,11 +29,15 @@ export type DeviceAccessAuditEntry = {
   deviceId: string
   teamId: string
   actorUserId: string
-  /** What let the actor make the change, read from the computer just before it; null means neither. */
-  actorAuthority: 'owner' | 'manage' | null
+  /**
+   * What let the actor make the change: owner or manager of the computer just before it, or a
+   * team membership change; null means none of these.
+   */
+  actorAuthority: 'owner' | 'manage' | 'team_membership' | null
   via: DeviceAccessChangeVia
   previous: TeamAccess | null
-  next: TeamAccess
+  /** Null when the computer stops being granted in the team. */
+  next: TeamAccess | null
   changedAt: Date
 }
 
@@ -54,25 +66,34 @@ function grantAccess(grant: DeviceGrant | undefined): TeamAccess | null {
     : null
 }
 
+function authorityOf(
+  before: AgentDevice,
+  previous: TeamAccess | null,
+  by: DeviceAccessChanger,
+): DeviceAccessAuditEntry['actorAuthority'] {
+  if (MEMBERSHIP_VIAS.has(by.via)) return 'team_membership'
+  // As deviceOwner in box-access, which imports this module's caller; a test keeps them in step.
+  if ((before.box?.createdBy ?? before.userId) === by.actorUserId) return 'owner'
+
+  return previous?.managerIds.includes(by.actorUserId) ? 'manage' : null
+}
+
 /** The audit row for a change, from the computer as it was just before it. */
 export function buildDeviceAccessAuditEntry(
   before: AgentDevice,
   teamId: string,
-  next: TeamAccess,
+  next: TeamAccess | null,
   by: DeviceAccessChanger,
   changedAt: Date = new Date(),
 ): DeviceAccessAuditEntry {
   const previous = grantAccess(before.access?.find((grant) => grant.teamId === teamId))
-  // As deviceOwner and deviceAccess in box-access, which imports this module's caller.
-  const owner = (before.box?.createdBy ?? before.userId) === by.actorUserId
-  const manager = previous?.managerIds.includes(by.actorUserId) ?? false
 
   return {
     ownerUserId: before.userId,
     deviceId: before.deviceId,
     teamId,
     actorUserId: by.actorUserId,
-    actorAuthority: owner ? 'owner' : manager ? 'manage' : null,
+    actorAuthority: authorityOf(before, previous, by),
     via: by.via,
     previous,
     next,
