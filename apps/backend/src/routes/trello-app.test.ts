@@ -41,6 +41,7 @@ const saved = {
   ...config.byos.composio,
   publicBackendUrl: config.agent.publicBackendUrl,
   backendUrl: config.agent.backendUrl,
+  authBaseUrl: config.auth.publicBaseUrl,
   deferred: config.byos.connectorOAuthDeferredBind,
 }
 
@@ -96,6 +97,7 @@ beforeEach(() => {
   Object.assign(config.byos.composio, { apiKey: 'fixture-key' })
   config.agent.publicBackendUrl = 'https://app.example'
   config.agent.backendUrl = undefined
+  config.auth.publicBaseUrl = 'http://localhost:3000'
   callbackUrls = []
   config.byos.connectorOAuthDeferredBind = false
   globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
@@ -130,11 +132,12 @@ beforeEach(() => {
 })
 afterEach(() => {
   globalThis.fetch = realFetch
-  const { publicBackendUrl, backendUrl, deferred, ...composio } = saved
+  const { publicBackendUrl, backendUrl, authBaseUrl, deferred, ...composio } = saved
 
   Object.assign(config.byos.composio, composio)
   config.agent.publicBackendUrl = publicBackendUrl
   config.agent.backendUrl = backendUrl
+  config.auth.publicBaseUrl = authBaseUrl
   config.byos.connectorOAuthDeferredBind = deferred
 })
 
@@ -176,6 +179,35 @@ describe('Trello managed OAuth lifecycle', () => {
     const { state } = await start()
 
     expect(callbackUrls).toEqual([`https://api.example/trello-app/setup?state=${state}`])
+  })
+  test('falls back to the auth origin when the runtime backend URL is internal', async () => {
+    config.agent.publicBackendUrl = undefined
+    config.agent.backendUrl = 'http://nuphos-backend.prod.svc:3000'
+    config.auth.publicBaseUrl = 'https://auth.example'
+    const { state } = await start()
+
+    expect(callbackUrls).toEqual([`https://auth.example/trello-app/setup?state=${state}`])
+  })
+  test('keeps an explicit public backend URL ahead of the auth origin', async () => {
+    config.auth.publicBaseUrl = 'https://auth.example'
+    const { state } = await start()
+
+    expect(callbackUrls).toEqual([`https://app.example/trello-app/setup?state=${state}`])
+  })
+  test.each([
+    'http://localhost:3000',
+    'http://auth.example',
+    'https://backend.prod.svc',
+    'invalid',
+  ])('refuses to use an unsafe auth origin: %s', async (authBaseUrl) => {
+    config.agent.publicBackendUrl = undefined
+    config.agent.backendUrl = undefined
+    config.auth.publicBaseUrl = authBaseUrl
+    const response = await app().request('/trello-integrations/start-oauth', { method: 'POST' })
+
+    expect(response.status).toBe(503)
+    expect(calls).toHaveLength(0)
+    expect(pending).toHaveLength(0)
   })
   test('refuses to start without a public HTTPS backend URL', async () => {
     config.agent.publicBackendUrl = undefined

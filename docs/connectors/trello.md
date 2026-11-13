@@ -14,7 +14,10 @@ flow; legacy managed-account initiation is unsupported. No SDK or additional
 secret-storage service is required.
 
 The backend needs a public HTTPS origin, resolved like the other OAuth connectors:
-`NUPHOS_PUBLIC_BACKEND_URL`, or `NUPHOS_BACKEND_URL` when that is public. The generated
+`NUPHOS_PUBLIC_BACKEND_URL`, or `NUPHOS_BACKEND_URL` when that is public, falling back
+to the configured auth origin (`NUPHOS_AUTH_BASE_URL` / `NUPHOS_PUBLIC_URL`) when neither
+provides a public backend URL. The auth origin must also use HTTPS and serve the
+Trello callback route. The generated
 Connect Link returns to `<origin>/trello-app/setup?state=…`, then opens the
 `nuphos://trello-callback` application link. Completion requires the initiating
 administrator's authenticated session and a one-time code. Trello always uses
