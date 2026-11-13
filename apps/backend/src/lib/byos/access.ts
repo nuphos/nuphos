@@ -123,9 +123,14 @@ export function canEditAccess(
   userId: string,
   teamRole: string | undefined,
 ): boolean {
-  if (bindingOwner(access) === userId) return true
+  const owner = bindingOwner(access)
 
-  return teamRole === 'ADMINISTRATOR' && !isPrivateAccess(access)
+  if (owner === userId) return true
+  if (teamRole !== 'ADMINISTRATOR') return false
+  // A list emptied before owners were kept is nobody's to protect.
+  const unowned = !owner && normalizeAllowList(access?.memberAllowList).length === 0
+
+  return unowned || !isPrivateAccess(access)
 }
 
 /**
