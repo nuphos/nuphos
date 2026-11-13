@@ -458,6 +458,7 @@
   "Ask {name} to choose a plan.": "{name} にプランの選択を依頼してください。",
   "Ask {name} to sign in": "{name} さんにサインインを依頼",
   "Ask {name} to sign this agent in, then resend your message.": "{name} にこのエージェントへのサインインを依頼してから、メッセージを再送信してください。",
+  "Ask {name} to sign this agent in.": "{name} にこのエージェントへのサインインを依頼してください。",
   "Ask {name} to update": "{name} に更新を依頼",
   "Asked {name}. You can send once they sign it in.": "{name} さんに依頼しました。サインインされると送信できます。",
   "Asked {name}. Your message will run once they sign in.": "{name} さんに依頼しました。サインインされるとメッセージが実行されます。",

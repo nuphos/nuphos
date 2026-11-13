@@ -30,6 +30,7 @@ import { useChannel } from './useChannel'
 import { useStickToBottom } from './useStickToBottom'
 
 import type { AgentMessageReply, AgentPersistedMessage } from '../../api'
+import type { ChannelFixes } from './ChannelReplyFix'
 import type { UserInfo } from '../../types'
 import type { ComposerSend } from '../agent/panel/composerMentionChips'
 import type { AgentPromptSeed } from '../agent/panel/model'
@@ -47,6 +48,7 @@ export function ChannelPane({
   onOpenSession,
   onOpenTask,
   onOpenNuphosLink,
+  fixes,
 }: {
   teamId: string
   channelId: string
@@ -59,6 +61,8 @@ export function ChannelPane({
   onOpenSession: (sessionId: string) => void
   onOpenTask?: (sessionId: string) => void
   onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
+  /** What the workspace lends to repair an agent that could not reply. */
+  fixes?: ChannelFixes
 }) {
   const { detail, agents, refresh } = useChannel(teamId, channelId)
 
@@ -243,6 +247,7 @@ export function ChannelPane({
               onOpenNuphosLink={onOpenNuphosLink}
               channelId={channelId}
               extraRows={questions.rows}
+              fixes={fixes}
               onReply={
                 detail.readOnly
                   ? undefined

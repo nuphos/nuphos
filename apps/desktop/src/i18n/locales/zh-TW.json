@@ -458,6 +458,7 @@
   "Ask {name} to choose a plan.": "請 {name} 選擇方案。",
   "Ask {name} to sign in": "請 {name} 登入",
   "Ask {name} to sign this agent in, then resend your message.": "請 {name} 登入此代理，然後重新傳送你的訊息。",
+  "Ask {name} to sign this agent in.": "請 {name} 登入此代理。",
   "Ask {name} to update": "請 {name} 更新",
   "Asked {name}. You can send once they sign it in.": "已請 {name} 登入。對方登入後即可傳送。",
   "Asked {name}. Your message will run once they sign in.": "已請求 {name}。對方登入後，你的訊息會自動執行。",
