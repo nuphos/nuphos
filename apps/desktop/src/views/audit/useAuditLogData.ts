@@ -82,7 +82,7 @@ export function useAuditLogData({
       ? conversations.kind === 'ready' && conversations.rows.length
       : events.kind === 'ready' && events.events.length
 
-  useRefreshKey(active, refreshKey, onLoading)
+  useRefreshKey(active, refreshKey, onLoading, t('Refresh failed'))
   useEffect(() => {
     if (count !== false) onCount?.(count)
   }, [count, onCount])

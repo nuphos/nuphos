@@ -190,13 +190,30 @@ export const inboxListingQuery = (teamId: string) =>
   })
 
 // The moments a question may have been asked, answered or dismissed reload the listing shown.
-const reloadListings = () =>
-  void queryClient.invalidateQueries(
-    { predicate: (query) => query.queryKey[0] === 'team' && query.queryKey[2] === 'inbox' },
-    { cancelRefetch: false },
-  )
+const isListing = (query: { queryKey: readonly unknown[] }) =>
+  query.queryKey[0] === 'team' && query.queryKey[2] === 'inbox'
+let queued = false
 
-onInputRequestsRefresh(reloadListings)
+/** A listing already running may predate what was asked, so it is joined, not cancelled (a burst
+ *  would cancel every read), and read once more after it lands. */
+export function reloadListings(client = queryClient) {
+  if (queued) return
+  const running = client.isFetching({ predicate: isListing }) > 0
+  const reload = () => client.invalidateQueries({ predicate: isListing }, { cancelRefetch: false })
+
+  if (!running) {
+    void reload()
+
+    return
+  }
+  queued = true
+  void reload().finally(() => {
+    queued = false
+    void reload()
+  })
+}
+
+onInputRequestsRefresh(() => reloadListings())
 
 /**
  * The team's waiting conversations: the one listing the badge counts and the Inbox lists,
@@ -207,6 +224,8 @@ export function useInboxListing(teamId: string, reloadKey?: unknown) {
     ...inboxListingQuery(teamId),
     enabled: Boolean(teamId),
     refetchInterval: INBOX_POLL_MS,
+    // A retry would pause until the window is focused; the next poll is the retry.
+    retry: false,
     refetchIntervalInBackground: true,
   })
   const { refetch } = listing

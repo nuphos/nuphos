@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { queryOptions, useQuery } from '@tanstack/react-query'
 
 import { api } from '../../api.ts'
 import { queryKeys } from '../../lib/query/keys.ts'
@@ -11,18 +11,25 @@ import type { QueryClient } from '@tanstack/react-query'
 
 type Rows = AgentConversation[]
 
-/** The team's Chats, newest activity first; undefined until listed once. */
-export function useAgentSessions(teamId: string) {
-  return useQuery({
+/** The team's Chats, newest activity first. */
+export const agentSessionsQuery = (teamId: string) =>
+  queryOptions({
     queryKey: queryKeys.agentSessions(teamId),
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
+      // A cancelled listing (an archive, Undo or rename replaced it) stops paging.
       const rows = await loadSidebarChats(
         (options) => api.agentListConversations(teamId, options),
-        () => true,
+        () => !signal.aborted,
       )
 
       return (rows ?? []).filter((row) => !row.archivedAt)
     },
+  })
+
+/** {@link agentSessionsQuery}, polled; undefined until listed once. */
+export function useAgentSessions(teamId: string) {
+  return useQuery({
+    ...agentSessionsQuery(teamId),
     enabled: Boolean(teamId),
     refetchInterval: AGENT_SESSIONS_POLL_MS,
   })
