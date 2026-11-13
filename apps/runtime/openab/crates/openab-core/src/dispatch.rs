@@ -18,6 +18,7 @@ use async_trait::async_trait;
 use tracing::{debug, error, info, info_span, warn};
 
 use crate::acp::connection::AcpRequestError;
+use crate::acp::pool::SessionStartError;
 use crate::acp::ContentBlock;
 use crate::adapter::{AdapterRouter, ChannelRef, ChatAdapter, MessageRef};
 use crate::config::ReactionsConfig;
@@ -150,7 +151,7 @@ pub trait DispatchTarget: Send + Sync + 'static {
         working_dir: Option<&str>,
         mcp_servers: &[serde_json::Value],
         session_meta: Option<&serde_json::Value>,
-    ) -> Result<bool>;
+    ) -> Result<bool, SessionStartError>;
 
     /// Destroy the session for `session_key` (used to rollback on directive failure).
     async fn reset_session(&self, session_key: &str);
@@ -189,7 +190,7 @@ impl DispatchTarget for AdapterRouter {
         working_dir: Option<&str>,
         mcp_servers: &[serde_json::Value],
         session_meta: Option<&serde_json::Value>,
-    ) -> Result<bool> {
+    ) -> Result<bool, SessionStartError> {
         self.pool()
             .get_or_create(session_key, working_dir, mcp_servers, session_meta)
             .await
@@ -642,14 +643,14 @@ async fn consumer_loop(
 /// A session that could not start fails the turn. An ACP host gets a turn error
 /// carrying the adapter's code and `data`, so it can tell a sign-out from a crash;
 /// chat platforms keep the readable notice.
-async fn report_session_failure(adapter: &Arc<dyn ChatAdapter>, channel: &ChannelRef, e: &anyhow::Error) {
+async fn report_session_failure(adapter: &Arc<dyn ChatAdapter>, channel: &ChannelRef, e: &SessionStartError) {
     if channel.platform != "acp" {
         let user_msg = format_user_error(&e.to_string());
         let _ = adapter.send_message(channel, &format!("⚠️ {user_msg}")).await;
         return;
     }
-    let (error, data) = match e.downcast_ref::<AcpRequestError>() {
-        Some(AcpRequestError::Agent(err)) => (
+    let (error, data) = match e {
+        SessionStartError::Request(AcpRequestError::Agent(err)) => (
             format_coded_error(err.code, &err.message, err.data_message().as_deref()),
             Some(err.relay_data()),
         ),
@@ -1489,9 +1490,9 @@ mod tests {
             _working_dir: Option<&str>,
             _mcp_servers: &[serde_json::Value],
             _session_meta: Option<&serde_json::Value>,
-        ) -> Result<bool> {
+        ) -> Result<bool, SessionStartError> {
             if let Some(msg) = self.ensure_err.lock().unwrap().take() {
-                return Err(anyhow::anyhow!(msg));
+                return Err(anyhow::anyhow!(msg).into());
             }
             if let Some(err) = self.ensure_rpc_err.lock().unwrap().take() {
                 return Err(AcpRequestError::from(err).into());
