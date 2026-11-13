@@ -1,3 +1,5 @@
+import { t } from '../../../i18n/index.ts'
+
 import { parseDecisionQuestions } from './decisionFormModel.ts'
 
 import type { DecisionQuestion } from './decisionFormModel.ts'
@@ -168,6 +170,26 @@ export function connectRowStatus(
   if (bound.size === 1) return 'available'
 
   return bound.size > 1 ? 'choose' : 'idle'
+}
+
+/**
+ * Why a member cannot connect this provider: every route that first binds a
+ * team's connector takes `requireTeamRole('ADMINISTRATOR')`. Only GitHub's flow
+ * is an App install; the rest, GitLab included, are OAuth connects.
+ */
+export function connectBlock(
+  provider: ConnectProvider,
+  isTeamAdmin: boolean,
+): { label: string } | undefined {
+  if (isTeamAdmin) return undefined
+
+  // A member's own credential is asked for by `credentials`, which draws another row.
+  const label =
+    provider === 'github'
+      ? t('Ask a team admin to install it')
+      : t('Ask a team admin to connect it')
+
+  return { label }
 }
 
 /**
