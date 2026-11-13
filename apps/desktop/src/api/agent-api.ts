@@ -241,6 +241,6 @@ export const agentApi = {
     window.api.agentGetTrigger(triggerId, teamId),
   agentUpdateTrigger: (triggerId: string, patch: UpdateAgentTriggerInput, teamId?: string) =>
     window.api.agentUpdateTrigger(triggerId, patch, teamId),
-  agentDeleteTrigger: (triggerId: string, teamId?: string, withoutProviderCleanup?: boolean) =>
-    window.api.agentDeleteTrigger(triggerId, teamId, withoutProviderCleanup),
+  agentDeleteTrigger: (triggerId: string, teamId?: string) =>
+    window.api.agentDeleteTrigger(triggerId, teamId),
 }

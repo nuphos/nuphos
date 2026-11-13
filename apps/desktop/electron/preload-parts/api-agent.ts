@@ -214,8 +214,8 @@ export const agentApi = {
     },
     teamId?: string,
   ) => ipcRenderer.invoke('agent:updateTrigger', triggerId, patch, teamId),
-  agentDeleteTrigger: (triggerId: string, teamId?: string, withoutProviderCleanup?: boolean) =>
-    ipcRenderer.invoke('agent:deleteTrigger', triggerId, teamId, withoutProviderCleanup),
+  agentDeleteTrigger: (triggerId: string, teamId?: string) =>
+    ipcRenderer.invoke('agent:deleteTrigger', triggerId, teamId),
   appOpenExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
   appOpenSsh: (url: string) => ipcRenderer.invoke('app:openSsh', url),
   sshTerminalInput: (id: string, data: string) =>

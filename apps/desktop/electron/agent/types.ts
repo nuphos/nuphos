@@ -17,9 +17,6 @@ export type Conversation = {
   triggerRun?: {
     id: string
     kind?: 'scheduled' | 'webhook' | 'manual' | 'alert'
-    /** Watch group runs only — which monitored item fired behind the shared
-     *  ingress the partition trigger serves. */
-    memberKey?: string
   }
   isOwner?: boolean
   readOnly?: boolean

@@ -11,10 +11,6 @@ export const agentTriggerChannels = {
     patch: agent.UpdateAgentTriggerInput,
     teamId?: string,
   ) => agent.updateAgentTrigger(triggerId, patch, teamId),
-  'agent:deleteTrigger': (
-    _e: unknown,
-    triggerId: string,
-    teamId?: string,
-    withoutProviderCleanup?: boolean,
-  ) => agent.deleteAgentTrigger(triggerId, teamId, withoutProviderCleanup === true),
+  'agent:deleteTrigger': (_e: unknown, triggerId: string, teamId?: string) =>
+    agent.deleteAgentTrigger(triggerId, teamId),
 } as const

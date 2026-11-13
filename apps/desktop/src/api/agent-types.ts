@@ -156,8 +156,6 @@ export type AgentTriggerRunKind = 'scheduled' | 'webhook' | 'manual'
 export type AgentConversationTriggerRun = {
   id: string
   kind?: AgentTriggerRunKind
-  /** Watch group runs only: the monitored item that fired behind the shared partition ingress. */
-  memberKey?: string
 }
 
 export type AgentTokenUsageSummary = {
