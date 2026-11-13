@@ -1,10 +1,11 @@
 import { PassThrough } from 'node:stream'
 
-import * as k8s from '@kubernetes/client-node'
+import { k8sLib } from '../k8s/lib.ts'
 
 import { keyParts, rememberTabScope, tabScopeAllows } from './session-keys.ts'
 import { exitCodeFromStatus, RendererTtyStream } from './tty.ts'
 
+import type * as k8s from '@kubernetes/client-node'
 import type { WebContents } from 'electron'
 
 export type PodExecEvent =
@@ -145,7 +146,7 @@ export async function attachExec(
   container: string,
   command: string[],
 ): Promise<void> {
-  const exec = new k8s.Exec(kc)
+  const exec = new k8sLib.Exec(kc)
   const ws = await exec.exec(
     namespace,
     pod,
