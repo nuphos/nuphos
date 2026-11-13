@@ -1,6 +1,7 @@
 import { faPencil, faTrash } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { useCallback, useEffect, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 
 import { api } from '../../api'
 import { Age } from '../../components/Age'
@@ -9,17 +10,13 @@ import { Table } from '../../components/Table'
 import { toast } from '../../components/ui/toast'
 import { useReportLoading } from '../../components/useReportLoading'
 import { t } from '../../i18n'
-import { useResetOnKey } from '../useResetOnKey'
+import { queryKeys } from '../../lib/query/keys'
 
 import { CfDetailActionBar, CfMetaRow } from './cf-shared'
 import { CronTriggersDialog } from './cloudflare-worker-dialogs'
 import { ErrorBlock } from './ErrorBlock'
 
-import type {
-  CloudflareWorkerCronTrigger,
-  CloudflareWorkerDeployment,
-  CloudflareWorkerSettings,
-} from '../../types'
+import type { CloudflareWorkerDeployment, CloudflareWorkerSettings } from '../../types'
 
 export function CloudflareWorkerDetailView({
   teamId,
@@ -34,42 +31,26 @@ export function CloudflareWorkerDetailView({
   onBack: () => void
   onLoading?: (loading: boolean) => void
 }) {
-  const [settings, setSettings] = useState<CloudflareWorkerSettings | null>(null)
-  const [crons, setCrons] = useState<CloudflareWorkerCronTrigger[]>([])
-  const [deployments, setDeployments] = useState<CloudflareWorkerDeployment[]>([])
-  const [subdomain, setSubdomain] = useState<boolean | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [editingCron, setEditingCron] = useState(false)
   const [pendingDelete, setPendingDelete] = useState(false)
+  const client = useQueryClient()
+  const queryKey = queryKeys.cloudflare(teamId, accountId, 'workers', scriptName)
+  const query = useQuery({
+    queryKey,
+    queryFn: async () => {
+      const [settings, crons, deployments, subdomain] = await Promise.all([
+        api.atlasGetCloudflareWorkerSettings(teamId, accountId, scriptName),
+        api.atlasListCloudflareWorkerCronTriggers(teamId, accountId, scriptName),
+        api.atlasListCloudflareWorkerDeployments(teamId, accountId, scriptName),
+        api.atlasGetCloudflareWorkerSubdomain(teamId, accountId, scriptName).catch(() => null),
+      ])
 
-  useReportLoading(loading, onLoading)
-
-  const load = useCallback(() => {
-    Promise.all([
-      api.atlasGetCloudflareWorkerSettings(teamId, accountId, scriptName),
-      api.atlasListCloudflareWorkerCronTriggers(teamId, accountId, scriptName),
-      api.atlasListCloudflareWorkerDeployments(teamId, accountId, scriptName),
-      api.atlasGetCloudflareWorkerSubdomain(teamId, accountId, scriptName).catch(() => null),
-    ])
-      .then(([s, c, d, sub]) => {
-        setSettings(s)
-        setCrons(c)
-        setDeployments(d)
-        setSubdomain(sub)
-        setLoading(false)
-      })
-      .catch((e: unknown) => {
-        setError(String(e instanceof Error ? e.message : e))
-        setLoading(false)
-      })
-  }, [teamId, accountId, scriptName])
-
-  useResetOnKey(`${teamId}|${accountId}|${scriptName}`, () => {
-    setLoading(true)
-    setError(null)
+      return { settings, crons, deployments, subdomain }
+    },
   })
-  useEffect(() => load(), [load])
+  const { settings = null, crons = [], deployments = [], subdomain = null } = query.data ?? {}
+
+  useReportLoading(query.isPending, onLoading)
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -83,9 +64,9 @@ export function CloudflareWorkerDetailView({
           {t('Delete')}
         </button>
       </CfDetailActionBar>
-      {error ? (
-        <ErrorBlock message={error} />
-      ) : loading && !settings ? (
+      {query.error && !query.data ? (
+        <ErrorBlock message={query.error.message} />
+      ) : !query.data ? (
         <div className="flex-1 flex items-center justify-center text-sm text-tertiary">
           {t('Loading…')}
         </div>
@@ -258,7 +239,12 @@ export function CloudflareWorkerDetailView({
               next,
             )
 
-            setCrons(updated)
+            // A read started before the save would bring the old triggers back.
+            await client.cancelQueries({ queryKey, exact: true })
+            client.setQueryData(
+              queryKey,
+              (cur: typeof query.data) => cur && { ...cur, crons: updated },
+            )
             setEditingCron(false)
             toast.success(t('Cron triggers updated'))
           }}

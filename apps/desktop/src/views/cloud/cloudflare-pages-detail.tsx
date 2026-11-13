@@ -1,6 +1,7 @@
 import { faArrowsRotate, faPlay, faRotateLeft } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { useCallback, useEffect, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 
 import { api } from '../../api'
 import { Age } from '../../components/Age'
@@ -10,13 +11,14 @@ import { Table } from '../../components/Table'
 import { toast } from '../../components/ui/toast'
 import { useReportLoading } from '../../components/useReportLoading'
 import { t } from '../../i18n'
-import { useResetOnKey } from '../useResetOnKey'
+import { queryKeys } from '../../lib/query/keys'
+import { refreshAfterWrite } from '../../lib/query/refreshAfterWrite'
 
 import { CfDetailActionBar, CfMetaRow } from './cf-shared'
 import { PagesDeploymentLogsModal, PagesDomainsSection } from './cloudflare-pages-sections'
 import { ErrorBlock } from './ErrorBlock'
 
-import type { CloudflarePagesDeploymentSummary, CloudflarePagesProject } from '../../types'
+import type { CloudflarePagesDeploymentSummary } from '../../types'
 
 export function CloudflarePagesProjectDetailView({
   teamId,
@@ -29,45 +31,30 @@ export function CloudflarePagesProjectDetailView({
   projectName: string
   onLoading?: (loading: boolean) => void
 }) {
-  const [project, setProject] = useState<CloudflarePagesProject | null>(null)
-  const [deployments, setDeployments] = useState<CloudflarePagesDeploymentSummary[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [logsFor, setLogsFor] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [pendingRollback, setPendingRollback] = useState<string | null>(null)
+  const query = useQuery({
+    queryKey: queryKeys.cloudflare(teamId, accountId, 'pages', projectName),
+    queryFn: async () => {
+      const [project, deployments] = await Promise.all([
+        api.atlasGetCloudflarePagesProject(teamId, accountId, projectName),
+        api.atlasListCloudflarePagesDeployments(teamId, accountId, projectName),
+      ])
 
-  useReportLoading(loading, onLoading)
-
-  const load = useCallback(() => {
-    Promise.all([
-      api.atlasGetCloudflarePagesProject(teamId, accountId, projectName),
-      api.atlasListCloudflarePagesDeployments(teamId, accountId, projectName),
-    ])
-      .then(([p, d]) => {
-        setProject(p)
-        setDeployments(d)
-        setLoading(false)
-      })
-      .catch((e: unknown) => {
-        setError(String(e instanceof Error ? e.message : e))
-        setLoading(false)
-      })
-  }, [teamId, accountId, projectName])
-
-  // Action handlers still go through `reload` for the spinner; the mount/param
-  // fetch gets its spinner from the render-time reset instead.
-  const reload = useCallback(() => {
-    setLoading(true)
-    setError(null)
-    load()
-  }, [load])
-
-  useResetOnKey(`${teamId}|${accountId}|${projectName}`, () => {
-    setLoading(true)
-    setError(null)
+      return { project, deployments }
+    },
   })
-  useEffect(() => load(), [load])
+  const { project = null, deployments = [] } = query.data ?? {}
+  const client = useQueryClient()
+  const reload = () =>
+    void refreshAfterWrite(client, {
+      queryKey: queryKeys.cloudflare(teamId, accountId, 'pages', projectName),
+      exact: true,
+    })
+
+  // Not polled, so a fetch is either the first load or a reload after an action.
+  useReportLoading(query.isFetching, onLoading)
 
   async function triggerDeploy() {
     setBusy(true)
@@ -107,9 +94,9 @@ export function CloudflarePagesProjectDetailView({
           <FontAwesomeIcon icon={faPlay} className="w-3.5 h-3.5" /> {t('Deploy')}
         </button>
       </CfDetailActionBar>
-      {error ? (
-        <ErrorBlock message={error} />
-      ) : loading && !project ? (
+      {query.error && !query.data ? (
+        <ErrorBlock message={query.error.message} />
+      ) : !project ? (
         <div className="flex-1 flex items-center justify-center text-sm text-tertiary">
           {t('Loading…')}
         </div>
@@ -120,11 +107,11 @@ export function CloudflarePagesProjectDetailView({
             <CfMetaRow
               label={t('Subdomain')}
               value={
-                project?.subdomain ? (
+                project.subdomain ? (
                   <a
                     className="text-link hover:underline"
                     onClick={() => {
-                      if (project?.subdomain) {
+                      if (project.subdomain) {
                         void api.appOpenExternal(`https://${project.subdomain}`)
                       }
                     }}
@@ -136,11 +123,11 @@ export function CloudflarePagesProjectDetailView({
                 )
               }
             />
-            <CfMetaRow label={t('Production branch')} value={project?.productionBranch || '-'} />
-            <CfMetaRow label={t('Source')} value={project?.source || '-'} />
+            <CfMetaRow label={t('Production branch')} value={project.productionBranch || '-'} />
+            <CfMetaRow label={t('Source')} value={project.source || '-'} />
             <CfMetaRow
               label={t('Custom domains')}
-              value={project?.domains.length ? project.domains.join(', ') : '-'}
+              value={project.domains.length ? project.domains.join(', ') : '-'}
               mono
             />
           </section>
