@@ -1541,7 +1541,7 @@ test('both providers forward runtime defaults with the session-scoped environmen
   }
 })
 
-test('disconnect explicitly interrupts observed runtime turns without pending prompts', async () => {
+test('disconnect does not end observed runtime turns', async () => {
   const h = harness()
   const client = await OpenAbAcpClient.connect({
     url: 'ws://openab/acp',
@@ -1555,7 +1555,7 @@ test('disconnect explicitly interrupts observed runtime turns without pending pr
   })
   h.socket().fail()
   h.socket().close()
-  expect(observed).toEqual([{ kind: 'interrupted', reason: 'runtime_connection_lost' }])
+  expect(observed).toEqual([])
 })
 
 test('reads a runtime execution snapshot without restoring or taking over its output', async () => {

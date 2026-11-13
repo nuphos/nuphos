@@ -153,7 +153,7 @@ function logHandlerError(error: unknown, session: TeamSession): void {
   })
 }
 
-async function invokeUpdateHandler(
+export async function invokeUpdateHandler(
   session: TeamSession,
   update: OpenAbSessionUpdate,
 ): Promise<void> {

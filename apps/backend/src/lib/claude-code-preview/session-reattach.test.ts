@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test'
 
 import { registry, sessionsByConversation } from './agent-chat-registry'
+import { setClaudeCodeAutonomousUpdateHandler } from './autonomous-session-observer'
 import { observeSession, reattachAfterTransportLoss, untilOnline } from './session-reattach'
 
+import type { OpenAbSessionUpdate } from './openab-acp-client'
 import type { TeamPreviewClient, TeamSession } from './team-openab-runtime'
 
 import { localRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
@@ -53,17 +55,25 @@ useAgentDb({
 
 function fakeClient(name: string, alive = true) {
   const closed = new Set<() => void>()
+  const updates = new Set<(update: OpenAbSessionUpdate) => void>()
   const loads: unknown[][] = []
   const client = {
     name,
     loads,
+    emit: (update: OpenAbSessionUpdate) => {
+      for (const handler of [...updates]) handler(update)
+    },
     onClosed: (handler: () => void) => {
       closed.add(handler)
 
       return () => closed.delete(handler)
     },
     onRetired: () => () => undefined,
-    onSessionUpdate: () => () => undefined,
+    onSessionUpdate: (_sessionId: string, handler: (update: OpenAbSessionUpdate) => void) => {
+      updates.add(handler)
+
+      return () => updates.delete(handler)
+    },
     onSessionPermission: () => () => undefined,
     cancel: () => undefined,
     loadSession: async (...args: unknown[]) => {
@@ -121,6 +131,76 @@ test('resumes an observed session on a fresh transport when its transport closes
   expect(session.client).toBe(replacement)
   expect(replacement.loads).toEqual([['sess-1', '/workspace', [], 'context', undefined]])
   expect(await session.reattached).toBe(true)
+})
+
+// #704: a Desktop tunnel reconnect drops the shared transport mid-turn. The
+// native turn goes on over the reattached transport, so it must stay one
+// autonomous turn instead of ending and opening a second "Resumed automatically".
+test('a turn in flight continues across a reattach instead of ending', async () => {
+  const seen: string[] = []
+  const replacement = fakeClient('replacement')
+
+  setClaudeCodeAutonomousUpdateHandler(({ update }) => {
+    seen.push(update.kind === 'interrupted' ? `interrupted:${update.reason}` : update.kind)
+  })
+  acquire = spyOn(registry, 'acquire').mockResolvedValue(replacement)
+  const lost = session.client as ReturnType<typeof fakeClient>
+
+  observeSession(session)
+  lost.emit({ kind: 'status', status: 'active' })
+  lost.emit({ kind: 'text', text: 'Checking the build' })
+  lost.close()
+  expect(await session.reattached).toBe(true)
+  replacement.emit({ kind: 'status', status: 'active' })
+  replacement.emit({ kind: 'text', text: ' and it passed.' })
+  replacement.emit({ kind: 'status', status: 'idle' })
+  await Bun.sleep(5)
+
+  expect(seen).toEqual(['status', 'text', 'status', 'text', 'complete'])
+})
+
+test('a turn in flight ends when the session cannot get back on', async () => {
+  const seen: string[] = []
+  const draining = spyOn(lifecycle, 'isShuttingDown').mockReturnValue(true)
+
+  setClaudeCodeAutonomousUpdateHandler(({ update }) => {
+    seen.push(update.kind === 'interrupted' ? `interrupted:${update.reason}` : update.kind)
+  })
+  acquire = spyOn(registry, 'acquire').mockResolvedValue(fakeClient('replacement'))
+  const lost = session.client as ReturnType<typeof fakeClient>
+
+  try {
+    observeSession(session)
+    lost.emit({ kind: 'status', status: 'active' })
+    lost.emit({ kind: 'text', text: 'Checking the build' })
+    lost.close()
+    expect(await session.reattached).toBe(false)
+    await Bun.sleep(5)
+  } finally {
+    draining.mockRestore()
+  }
+
+  expect(seen).toEqual(['status', 'text', 'interrupted:runtime_connection_lost'])
+})
+
+test('a turn in flight ends when the reattach finds the agent gone', async () => {
+  const seen: string[] = []
+  const replacement = fakeClient('replacement', false)
+
+  setClaudeCodeAutonomousUpdateHandler(({ update }) => {
+    seen.push(update.kind === 'interrupted' ? `interrupted:${update.reason}` : update.kind)
+  })
+  acquire = spyOn(registry, 'acquire').mockResolvedValue(replacement)
+  const lost = session.client as ReturnType<typeof fakeClient>
+
+  observeSession(session)
+  lost.emit({ kind: 'status', status: 'active' })
+  lost.emit({ kind: 'text', text: 'Checking the build' })
+  lost.close()
+  expect(await session.reattached).toBe(true)
+  await Bun.sleep(5)
+
+  expect(seen).toEqual(['status', 'text', 'interrupted:runtime_connection_lost'])
 })
 
 test('a teammate’s session on the owner’s computer is still theirs to resume after a blip', async () => {
