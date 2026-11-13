@@ -2,11 +2,7 @@ import { CRON_TIME_ZONE, isValidCronExpression, isValidTimeZone } from '@/lib/cr
 import { AppError } from '@/lib/errors'
 import { clearSlackNotificationIncidentsForTrigger } from '@/lib/slack/incident-notifications'
 
-import {
-  assertTriggerAccess,
-  assertTriggerExecutionMutationAccess,
-  triggerExecutionPrincipalId,
-} from '../trigger-access'
+import { assertTriggerAccess, triggerExecutionPrincipalId } from '../trigger-access'
 import { agentTriggers, triggerConfigRevisionFilter } from '../trigger-db'
 import { scheduleCronTrigger, unscheduleCronTrigger } from '../trigger-scheduler'
 
@@ -114,26 +110,9 @@ export async function updateTrigger(
     minIntervalChanged ||
     targetSessionChanged
 
-  // An edit changes what the Trigger does, never who it runs as. Editing is
-  // still gated on outranking the principal, because until the identity moves
-  // the editor's instructions execute with the principal's authority — but the
-  // identity itself only moves through the explicit Admin transfer below, so
-  // no edit can promote a Trigger to its editor's permissions.
-  if (substantiveChanged) {
-    await assertTriggerExecutionMutationAccess(trigger, actor)
-  }
-
   const principalUserId = triggerExecutionPrincipalId(trigger)
 
   if (targetSessionChanged && nextTargetSessionId) {
-    // A bound fire runs with the session's own credentials, so only its owner may bind it.
-    if ((typeof actor === 'string' ? actor : actor.userId) !== principalUserId) {
-      throw new AppError(
-        403,
-        'invalid_target_session',
-        'Only the Trigger owner can choose the session it delivers to',
-      )
-    }
     await assertBindableSession(nextTargetSessionId, trigger.teamId, principalUserId)
   }
 

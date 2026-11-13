@@ -2,7 +2,6 @@ import type { SessionConfigPick } from './session-config-types.ts'
 import type { LarkBindInput } from '../types/messaging.ts'
 import type {
   AgentProvider,
-  CreateRuntimeInput,
   ExternalRuntimeProviderProbe,
   PairExternalRuntimeInput,
   RegisterExternalRuntimeInput,
@@ -55,8 +54,6 @@ export const teamApi = {
   atlasListRuntimeQuotas: (teamId: string) => window.api.atlasListRuntimeQuotas(teamId),
   atlasGetRuntimeQuotaHistory: (teamId: string, range: RuntimeQuotaHistoryRange) =>
     window.api.atlasGetRuntimeQuotaHistory(teamId, range),
-  atlasCreateRuntimeInstance: (teamId: string, input: CreateRuntimeInput) =>
-    window.api.atlasCreateRuntimeInstance(teamId, input),
   atlasProbeExternalRuntimeProvider: (
     teamId: string,
     url: string,

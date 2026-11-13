@@ -34,6 +34,7 @@ const { registerAgentRuntimeRoutes } = await import('@/routes/teams/agent-runtim
 const { listRuntimeInstances, requireRuntimeInstance } = await import('./runtime-catalog')
 const { resolveTeamRuntimeEndpoints } = await import('./runtime-registry')
 const { deriveRuntimeControlKey } = await import('./runtime-control-key')
+const { createManagedRuntimeInstance } = await import('./runtime-instances')
 
 function app(teamId = 'one', role: TeamAuthVariables['teamRole'] = 'ADMINISTRATOR') {
   const app = new Hono<{ Variables: TeamAuthVariables }>()
@@ -56,16 +57,9 @@ function app(teamId = 'one', role: TeamAuthVariables['teamRole'] = 'ADMINISTRATO
 function json(method: string, body: unknown) {
   return { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
 }
-async function add(
-  server: ReturnType<typeof app>,
-  label: string,
-  provider: OpenAbProvider = 'codex',
-) {
-  const response = await server.request('/agent-runtimes', json('POST', { label, provider }))
-
-  expect(response.status).toBe(201)
-
-  return (await response.json()) as { id: string; label: string; kind: string; image: string }
+// Seed a runtime that predates retirement without reopening the HTTP creation path.
+async function existing(label: string, provider: OpenAbProvider = 'codex') {
+  return createManagedRuntimeInstance({ teamId: 'one', userId: 'admin', label, provider })
 }
 const runtimeRows = () => store.rows('claude_code_runtimes')
 
@@ -74,9 +68,9 @@ beforeEach(async () => {
   await publishRuntimeRelease({ version: FLEET_VERSION })
 })
 
-test('adding a managed agent registers a hosted runtime with its own generated password', async () => {
+test('an existing managed runtime keeps its endpoint and encrypted credentials', async () => {
   for (const provider of OPENAB_PROVIDERS) {
-    const created = await add(app(), `${provider} work`, provider)
+    const created = await existing(`${provider} work`, provider)
     const row = runtimeRows().find((doc) => doc._id === created.id)!
 
     expect(created).toMatchObject({
@@ -100,113 +94,8 @@ test('adding a managed agent registers a hosted runtime with its own generated p
   }
 })
 
-test('a team gets at most 20 hosted agents; deleting one frees a slot and other teams are unaffected', async () => {
-  const server = app()
-  const created = []
-
-  for (let index = 0; index < 20; index++) created.push(await add(server, `agent ${String(index)}`))
-  const over = await server.request(
-    '/agent-runtimes',
-    json('POST', { label: 'one more', provider: 'codex' }),
-  )
-
-  expect(over.status).toBe(409)
-  expect(await over.json()).toEqual({ code: 'runtime_limit_reached' })
-  expect(runtimeRows().filter((doc) => doc.teamId === 'one')).toHaveLength(20)
-  await add(app('two'), 'another team')
-  await store.collection('claude_code_runtimes').deleteOne({ _id: created[0]!.id })
-  await add(server, 'after delete')
-})
-
-test('a create whose insert lands after a competing create took the last slot is refused', async () => {
-  const server = app()
-
-  for (let index = 0; index < 19; index++) await add(server, `agent ${String(index)}`)
-  const collection = store.collection.bind(store)
-  let releaseFirstInsert!: () => void
-  let firstInsertReached!: () => void
-  const firstInsertHeld = new Promise<void>((resolve) => {
-    releaseFirstInsert = resolve
-  })
-  const reached = new Promise<void>((resolve) => {
-    firstInsertReached = resolve
-  })
-  let held = false
-
-  store.collection = (name: string) => {
-    const real = collection(name)
-
-    if (name !== 'claude_code_runtimes' || held) return real
-
-    return {
-      ...real,
-      insertOne: async (doc: Record<string, unknown>) => {
-        if (!held) {
-          held = true
-          firstInsertReached()
-          await firstInsertHeld
-        }
-
-        return real.insertOne(doc)
-      },
-    }
-  }
-  const first = server.request(
-    '/agent-runtimes',
-    json('POST', { label: 'first', provider: 'codex' }),
-  )
-
-  // Let the first create read slot 19 as free and block on its insert.
-  await reached
-  const second = await server.request(
-    '/agent-runtimes',
-    json('POST', { label: 'second', provider: 'codex' }),
-  )
-
-  releaseFirstInsert()
-  expect(second.status).toBe(201)
-  expect((await first).status).toBe(409)
-  store.collection = collection
-  expect(runtimeRows().filter((doc) => doc.teamId === 'one')).toHaveLength(20)
-})
-
-test('hosted agents created before slots existed count toward the limit', async () => {
-  for (let index = 0; index < 18; index++)
-    await store.collection('claude_code_runtimes').insertOne({
-      _id: `legacy-${String(index)}`,
-      teamId: 'one',
-      hostedBy: 'nuphos',
-      status: 'active',
-      createdAt: new Date(),
-    })
-  const server = app()
-
-  await add(server, 'nineteenth')
-  await add(server, 'twentieth')
-  expect(
-    (await server.request('/agent-runtimes', json('POST', { label: 'over', provider: 'codex' })))
-      .status,
-  ).toBe(409)
-})
-
-test('the create route takes a name and a type, and nothing that signs the agent in', async () => {
-  for (const extra of [
-    { image: `registry.example/codex@sha256:${'a'.repeat(64)}` },
-    { credential: `sk-ant-${'a'.repeat(40)}` },
-  ])
-    expect(
-      (
-        await app().request(
-          '/agent-runtimes',
-          json('POST', { label: 'Claude', provider: 'claude-code', ...extra }),
-        )
-      ).status,
-    ).toBe(400)
-  expect((await app().request('/agent-runtimes/images')).status).toBe(404)
-})
-
 test('hosted runtimes list as managed; rows of the retired provisioner model are hidden', async () => {
-  const created = await add(app(), 'Hosted', 'claude-code')
+  const created = await existing('Hosted', 'claude-code')
 
   runtimeRows().push({
     _id: 'legacy',
@@ -228,7 +117,7 @@ test('hosted runtimes list as managed; rows of the retired provisioner model are
 
 test('rename and disable change the hosted runtime row itself', async () => {
   const server = app()
-  const instance = await add(server, 'Work')
+  const instance = await existing('Work')
 
   expect(
     (
@@ -247,7 +136,7 @@ test('rename and disable change the hosted runtime row itself', async () => {
 })
 
 test('workspace scope and administrator checks apply to each instance mutation', async () => {
-  const instance = await add(app(), 'Work')
+  const instance = await existing('Work')
 
   for (const [server, status] of [
     [app('two'), 404],
@@ -277,7 +166,7 @@ test('workspace scope and administrator checks apply to each instance mutation',
 
 test('provider changes cannot repurpose an existing instance', async () => {
   const server = app()
-  const instance = await add(server, 'Work')
+  const instance = await existing('Work')
 
   expect(
     (
@@ -291,7 +180,7 @@ test('provider changes cannot repurpose an existing instance', async () => {
 })
 
 test('model discovery needs a runtime from the current workspace, not an administrator', async () => {
-  const instance = await add(app(), 'Models')
+  const instance = await existing('Models')
   const server = app()
 
   await server.request(`/agent-runtimes/${instance.id}`, json('PATCH', { status: 'disabled' }))
@@ -305,13 +194,18 @@ test('model discovery needs a runtime from the current workspace, not an adminis
   expect((await server.request(`/agent-runtimes/${instance.id}/models`)).status).toBe(409)
 })
 
-test('a managed agent can be added by type alone and gets a name unique in its team', async () => {
-  const server = app()
-  const add = async () =>
-    (await (
-      await server.request('/agent-runtimes', json('POST', { provider: 'codex' }))
-    ).json()) as { label: string; kind: string }
+test('retired creation leaves existing runtime records and routes untouched', async () => {
+  const runtime = await existing('Existing')
+  const before = JSON.stringify(runtimeRows())
 
-  expect(await add()).toMatchObject({ label: 'Codex', kind: 'managed' })
-  expect((await add()).label).toBe('Codex 2')
+  const response = await app().request('/agent-runtimes', json('POST', { provider: 'codex' }))
+
+  expect(response.status).toBe(410)
+  expect(await response.json()).toEqual({ code: 'managed_runtime_retired' })
+  expect(JSON.stringify(runtimeRows())).toBe(before)
+  expect(await requireRuntimeInstance('one', runtime.id)).toMatchObject({ kind: 'managed' })
+  expect((await app().request('/agent-runtimes')).status).toBe(200)
+  expect((await resolveTeamRuntimeEndpoints('one', undefined, 'codex'))[0]?.runtimeId).toBe(
+    runtime.id,
+  )
 })

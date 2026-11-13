@@ -8,7 +8,6 @@ import { skillChannels } from './channels-skills'
 import type { DashboardViewRange } from '../../src/dashboards/schema'
 import type {
   AgentProvider,
-  CreateRuntimeInput,
   PairExternalRuntimeInput,
   RegisterExternalRuntimeInput,
   RuntimeQuotaHistoryRange,
@@ -42,8 +41,6 @@ export const teamChannels = {
   'atlas:listRuntimeQuotas': (_e: unknown, teamId: string) => atlas.listRuntimeQuotas(teamId),
   'atlas:getRuntimeQuotaHistory': (_e: unknown, teamId: string, range: RuntimeQuotaHistoryRange) =>
     atlas.getRuntimeQuotaHistory(teamId, range),
-  'atlas:createRuntimeInstance': (_e: unknown, teamId: string, input: CreateRuntimeInput) =>
-    atlas.createRuntimeInstance(teamId, input),
   'atlas:probeExternalRuntimeProvider': (
     _e: unknown,
     teamId: string,

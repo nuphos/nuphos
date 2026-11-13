@@ -118,17 +118,6 @@ pub async fn runtime(ctx: &mut Ctx, name: Option<String>, session: Option<String
     Ok(())
 }
 
-/// `nuphos agents PROVIDER --create`: adds a Nuphos-managed Cloud agent,
-/// picks it for new conversations, and signs it in.
-pub async fn create_runtime(ctx: &mut Ctx, provider: &str) -> Result<()> {
-    let team = ctx.team_id();
-    let runtime = ctx.api.create_runtime(&team, provider).await?;
-    ctx.prefs.runtime_ids.insert(team, runtime["id"].as_str().unwrap_or_default().to_string());
-    config::write_prefs(&ctx.prefs);
-    eprintln!("Added {}; new agents run on it.", label(&runtime));
-    sign_in_runtime(ctx, &runtime).await
-}
-
 /// `nuphos agents NAME --login`: signs a Cloud agent in to its provider
 /// account, again or for the first time.
 pub async fn login_runtime(ctx: &Ctx, name: &str) -> Result<()> {

@@ -50,6 +50,13 @@ const create = z
         '[] gives it none; omit to give it your whole selection.',
     ),
     ...modelPick,
+    modelReason: z
+      .string()
+      .trim()
+      .min(1)
+      .max(300)
+      .optional()
+      .describe('Why this model and effort fit the work, in one sentence; shown to the person.'),
   })
   .strict()
 const send = z.object({ ...common, threadId: z.string().uuid() }).strict()
@@ -110,6 +117,9 @@ export function threadToolModule(
           'task needs; the thread gets exactly those, and anything you have not selected is ' +
           'refused. Without credentials it gets your whole selection. ' +
           "model and effort set its model picker before its first turn; its agent's defaults otherwise. " +
+          'Unless the person named a model for this work, choose them yourself from the models ' +
+          'list_agent_runtimes shows for its agent: a lighter, cheaper model for simple or mechanical ' +
+          'work, a stronger one for hard reasoning or risky changes. Say why in modelReason. ' +
           'The current chat stays available. Specify a completion condition and ask the worker to use ' +
           'send_message_to_thread to report back. Returns a Nuphos threadId (not a Codex internal ID). ' +
           'Only available for conversations owned by the current actor.',
@@ -143,9 +153,9 @@ export function threadToolModule(
       {
         name: 'list_agent_runtimes',
         description:
-          "List the team's agents (runtimes) and your Boxes' agents that your threads can run on, with each one's readiness and " +
-          'usage quota. Use it to pick a runtimeId for update_thread, for example when a thread ' +
-          "has hit its agent's usage limit.",
+          "List the team's agents (runtimes) and your Boxes' agents that your threads can run on, with each one's readiness, " +
+          'usage quota and the models it offers. Use it to pick a model for create_thread, or a ' +
+          "runtimeId for update_thread, for example when a thread has hit its agent's usage limit.",
         inputSchema: toolInputJsonSchema(list),
       },
       {

@@ -3,6 +3,7 @@ import {
   listRuntimeQuotas,
   withRuntimeReadiness,
 } from '@/lib/claude-code-preview/runtime-catalog'
+import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
 import { conversationSessionConfig } from '@/lib/claude-code-preview/session-config'
 import { pickOf } from '@/lib/claude-code-preview/session-config-options'
 import { AppError } from '@/lib/errors'
@@ -21,13 +22,48 @@ export async function threadRuntimeInstances(actor: { teamId: string; userId: st
   )
 }
 
-/** Those agents with each one's readiness and usage, marking the one a conversation runs on. */
+/** How long one agent's model list may take before the listing goes on without it. */
+const MODELS_WAIT_MS = 8_000
+
+/** The models a ready agent offers, or nothing when it cannot say in time. */
+async function offeredModels(actor: { teamId: string; userId: string }, runtimeId: string) {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const late = new Promise<null>((resolve) => {
+    timer = setTimeout(() => {
+      resolve(null)
+    }, MODELS_WAIT_MS)
+  })
+
+  try {
+    return await Promise.race([
+      runtimeModelCatalog(actor.teamId, runtimeId, undefined, actor.userId).then(
+        ({ models }) => models,
+        () => null,
+      ),
+      late,
+    ])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * Those agents with each one's readiness, usage and models, marking the one a
+ * conversation runs on: what a delegating agent needs to pick a model.
+ */
 export async function threadRuntimes(
   actor: { teamId: string; userId: string },
   currentRuntimeId: string | undefined,
 ) {
   const instances = await withRuntimeReadiness(actor.teamId, await threadRuntimeInstances(actor))
-  const quotas = await listRuntimeQuotas(actor.teamId, instances)
+  const [quotas, models] = await Promise.all([
+    listRuntimeQuotas(actor.teamId, instances),
+    Promise.all(
+      instances.map(async (instance) =>
+        instance.notReady ? null : offeredModels(actor, instance.id),
+      ),
+    ),
+  ])
 
   return {
     runtimes: instances.map((instance, i) => ({
@@ -39,6 +75,7 @@ export async function threadRuntimes(
       ready: !instance.notReady,
       current: instance.id === currentRuntimeId,
       quota: quotas[i],
+      ...(models[i]?.length ? { models: models[i] } : {}),
     })),
   }
 }

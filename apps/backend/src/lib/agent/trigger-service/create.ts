@@ -5,7 +5,7 @@ import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
 import { legacyMonitoringWatchDedupeKey, monitoringWatchDedupeKey } from '../monitoring-workflow'
-import { assertTeamTriggerRole } from '../trigger-access'
+import { assertCanCreateTrigger } from '../trigger-access'
 import { agentTriggers, generateWebhookSecret } from '../trigger-db'
 import { scheduleCronTrigger } from '../trigger-scheduler'
 
@@ -39,7 +39,7 @@ export async function createTrigger(
 ): Promise<SerializedTrigger> {
   // Keep the role check at the service boundary so HTTP, Agent tools, and
   // automation cannot disagree about who may create a team Trigger.
-  await assertTeamTriggerRole(ctx, 'manage')
+  await assertCanCreateTrigger(ctx)
 
   const name = input.name.trim().slice(0, 100)
 

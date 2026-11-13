@@ -143,7 +143,7 @@ class HomeNavigationFixtureDeviceTest {
                         if (historyFailure) { code = 403; "{}" } else if (archived || request.url.queryParameter("archived") != "exclude") "{\"conversations\":[],\"nextCursor\":null}" else
                             """{"conversations":[{"sessionId":"fixture-chat","teamId":"${request.url.queryParameter("teamId")}","title":"Synthetic active conversation","archivedAt":null,"canManage":true,"isOwner":true,"createdAt":"2026-01-01T00:00:00Z"}],"nextCursor":null}"""
                     }
-                    browsing -> if (path.endsWith("agent-triggers")) "{\"triggers\":[]}" else "{}"
+                    browsing -> "{}"
                     plans -> """{"plans":[],"hasMore":false}"""
                     members -> """{"members":[]}"""
                     policy -> """{"requesterApprovalRequired":true,"minimumOtherApprovals":0}"""

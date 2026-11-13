@@ -8,7 +8,7 @@ import { agentConversations } from '@/lib/agent/db/shared'
 import { systemSender } from '@/lib/agent/message-metadata'
 import { stripTrailingSlashes } from '@/lib/agent/text-scan'
 
-import { createMeetingBot, leaveMeeting } from './recall'
+import { createMeetingBot, leaveMeeting, recallConfig } from './recall'
 
 import type { AgentConversation } from '@/lib/agent/db'
 
@@ -49,6 +49,26 @@ async function openMeetingChannel(
   await addChannelAgent(channelId, agent.sessionId)
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/** Each bot opens one meeting channel, so a team's recent ones are its usage. */
+export async function assertMeetingBudget(teamId: string, limit: number, now = Date.now()) {
+  const since = new Date(now - DAY_MS)
+  // A channel is never last active before it was created: this bound uses the
+  // { teamId, lastActiveAt } index.
+  const used = await agentConversations().countDocuments({
+    teamId,
+    lastActiveAt: { $gte: since },
+    createdAt: { $gte: since },
+    'meeting.botId': { $exists: true },
+  })
+
+  if (used >= limit)
+    throw new Error(
+      `This team has sent ${String(limit)} bots to meetings in the last 24 hours, its limit. Try again later.`,
+    )
+}
+
 /**
  * Sends `agent` into the call under its own name, with a channel of its own
  * where the call's speech arrives and its posts go out to the call's chat.
@@ -57,6 +77,7 @@ export async function joinMeeting(agent: AgentConversation, teamId: string, meet
   const url = new URL(meetingUrl)
 
   if (url.protocol !== 'https:') throw new Error('A meeting link starts with https://')
+  await assertMeetingBudget(teamId, recallConfig().botsPerTeamPerDay)
   const botName = agent.title || 'Nuphos agent'
   const botId = await createMeetingBot({ meetingUrl: url.href, botName, webhookUrl: webhookUrl() })
   const channelId = randomUUID()

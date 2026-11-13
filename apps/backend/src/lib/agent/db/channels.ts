@@ -47,24 +47,16 @@ export function assertNotChannel(conversation: ChannelFields | null | undefined)
     throw new AppError(409, 'channel_conversation', 'A channel has no agent of its own to run')
 }
 
-/** Adding a session makes it a Bot and preserves an existing face. */
+/** Adding a session leaves it as it was: a Task stays a Task. */
 export async function addChannelAgent(
   channelId: string,
   agentSessionId: string,
 ): Promise<AgentConversation | null> {
-  const channel = await agentConversations().findOneAndUpdate(
+  return agentConversations().findOneAndUpdate(
     { sessionId: channelId, kind: 'channel' },
     { $addToSet: { agentSessionIds: agentSessionId } },
     { returnDocument: 'after' },
   )
-
-  if (channel)
-    await agentConversations().updateOne(
-      { sessionId: agentSessionId, kind: { $ne: 'channel' }, avatar: { $exists: false } },
-      { $set: { avatar: derivedAvatar(agentSessionId) } },
-    )
-
-  return channel
 }
 
 /** Only a Bot's owner can bring it into a channel of this team. */
@@ -110,7 +102,8 @@ export async function listChannelAgents(channel: ChannelFields & { teamId?: stri
             sessionId: id,
             title: session.title,
             ownerId: session.userId,
-            ...(session.avatar ? { avatar: session.avatar } : {}),
+            // A Task has no stored face; in a channel it wears the one its id derives.
+            avatar: session.avatar ?? derivedAvatar(id),
             provider: runtimeProvider(session.agentRuntime),
           },
         ]

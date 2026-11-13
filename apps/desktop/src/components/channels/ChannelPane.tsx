@@ -8,6 +8,7 @@ import { t } from '../../i18n'
 import { runtimeStateOf, subscribeRuntimeStates } from '../../lib/agentRuntimeStates'
 import { forgetSessionDesktops, publishSessionDesktops } from '../../lib/sessionDesktops'
 import { makeAttachmentTurn } from '../agent/panel/attachments'
+import { ChatColumn } from '../agent/panel/ChatColumn'
 import { Composer } from '../agent/panel/Composer'
 import { composerDraftKey } from '../agent/panel/composerDrafts'
 import { FileDropZone } from '../agent/panel/FileDropZone'
@@ -220,11 +221,11 @@ export function ChannelPane({
       </div>
       <HeaderEdge
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto scrollbar-thin px-3 pt-5 pb-4 selectable"
+        className="min-h-0 flex-1 overflow-y-auto scrollbar-thin pt-5 pb-4 selectable"
       >
         {/* The column: one box, so its height says when anything below grows, and
-            the one width every row takes, the composer's own (px-3, 760px). */}
-        <div className="mx-auto w-full max-w-[760px]">
+            the one width every row takes, the composer's own. */}
+        <ChatColumn>
           {detail && messages.length === 0 && (
             <div className="flex flex-col items-start gap-3 pt-10">
               <ChatIcon faces={detail.faces} title={title} size={44} />
@@ -246,6 +247,7 @@ export function ChannelPane({
               onOpenSession={onOpenSession}
               onOpenNuphosLink={onOpenNuphosLink}
               channelId={channelId}
+              botId={bot}
               extraRows={questions.rows}
               fixes={fixes}
               onReply={
@@ -258,19 +260,19 @@ export function ChannelPane({
               }
             />
           )}
-        </div>
+        </ChatColumn>
       </HeaderEdge>
-      <div
-        ref={composerRef}
-        onKeyDown={(event) => {
-          if (event.key === 'Escape' && replying && !event.defaultPrevented) setReplying(null)
-        }}
-      >
-        {replying && <ReplyingBanner reply={replying} onCancel={() => setReplying(null)} />}
-        {/* Inset past the faces on both sides, so the composer lines up with the
-            bubbles: the column's own width (760px plus the Composer's px-3), less a
-            face and its gap (2.375rem) on each side. */}
-        <div className="mx-auto w-full max-w-[calc(760px+1.5rem)] px-[2.375rem]">
+      <ChatColumn>
+        {/* Inset past the faces on both sides, so the reply bar and the composer
+            line up with the bubbles: a face and its gap (2.375rem) on each side. */}
+        <div
+          ref={composerRef}
+          className="px-[2.375rem]"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && replying && !event.defaultPrevented) setReplying(null)
+          }}
+        >
+          {replying && <ReplyingBanner reply={replying} onCancel={() => setReplying(null)} />}
           <Composer
             onSend={send}
             onStop={() => {}}
@@ -289,7 +291,7 @@ export function ChannelPane({
             credentialSelector={questions.credentials}
           />
         </div>
-      </div>
+      </ChatColumn>
     </FileDropZone>
   )
 }

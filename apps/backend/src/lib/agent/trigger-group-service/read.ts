@@ -1,6 +1,10 @@
 import { AppError } from '@/lib/errors'
 
-import { assertTriggerAccess } from '../trigger-access'
+import {
+  assertTeamMember,
+  assertTriggerAccess,
+  triggerExecutionPrincipalFilter,
+} from '../trigger-access'
 import { agentTriggerGroups, isSharedIngressTriggerGroup } from '../trigger-group-db'
 
 import { loadPartitionTriggers, parseGroupId, serializeTriggerGroup } from './shared'
@@ -14,8 +18,10 @@ export async function listTriggerGroups(scope: {
   teamId?: string
 }): Promise<SerializedTriggerGroup[]> {
   if (!scope.teamId) return []
+  await assertTeamMember(scope)
+  // There is no team-wide list: a Group is listed to its owner.
   const groups = await agentTriggerGroups()
-    .find({ teamId: scope.teamId })
+    .find({ teamId: scope.teamId, ...triggerExecutionPrincipalFilter(scope.userId) })
     .sort({ createdAt: -1 })
     .limit(100)
     .toArray()

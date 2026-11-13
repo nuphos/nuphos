@@ -6,7 +6,6 @@ import SwiftUI
 struct RuntimesPage: View {
     @Environment(AgentStore.self) private var store
     @Environment(\.scenePhase) private var scenePhase
-    @State private var showSetup = false
     /// A computer's own desktop, opened from its box.
     @State private var desktop: DesktopSession?
 
@@ -32,7 +31,6 @@ struct RuntimesPage: View {
         // Full screen even where wide: beside this list, the list itself would be put away.
         .desktop($desktop)
         .environment(\.desktopBeside, nil)
-        .navigationDestination(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupView(team: team, selectOnCompletion: false).environment(store) } }
         .task(id: store.selectedTeam?.id) {
             if store.teams.isEmpty { await store.loadTeams() }
             async let agents: Void = store.loadRuntimes(force: true)
@@ -61,7 +59,7 @@ struct RuntimesPage: View {
         List {
             if boxes.isEmpty {
                 ContentUnavailableView("No runtimes", systemImage: "cpu", description: Text(administrator
-                    ? "Add a cloud runtime here, or open Nuphos on your computer to connect a runtime."
+                    ? "Open Nuphos on your computer to add a Box or connect your own computer."
                     : "Ask a workspace administrator to add a runtime."))
                     .listRowBackground(Color.clear)
             }
@@ -84,14 +82,6 @@ struct RuntimesPage: View {
                             SelectorAgentRow(runtime: runtime, quota: store.quotas[runtime.id], selected: false)
                         }
                         .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 12, trailing: 20))
-                    }
-                }
-                .listRowBackground(Theme.surface)
-            }
-            if administrator {
-                Section {
-                    Button { showSetup = true } label: {
-                        Label("Add runtime", systemImage: "plus").font(.system(size: 15)).foregroundStyle(Theme.brandText)
                     }
                 }
                 .listRowBackground(Theme.surface)

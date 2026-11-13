@@ -744,6 +744,8 @@ class ChatSession(
         data object Aborted : TurnResult()
         /** The server holds the message in the session queue; the idle poll follows its turn. */
         data object Queued : TurnResult()
+        /** The turn's stream is gone but a run is live: attach to that one. */
+        data class Follow(val options: TurnOptions) : TurnResult()
     }
 
     private data class Paused(val reason: String, val detail: JsonValue?) {
@@ -779,6 +781,10 @@ class ChatSession(
                     }
                     is TurnResult.Failed -> {
                         finishTurn(result.message, result.definiteRejection)
+                        return@launch
+                    }
+                    is TurnResult.Follow -> {
+                        startTurn(result.options)
                         return@launch
                     }
                     is TurnResult.Completed -> {
@@ -1119,14 +1125,7 @@ class ChatSession(
             val run = detail.activeRun
             val follow = followOptions(run?.streamId)
             if (follow != null) {
-                recallRows = emptySet()
-                readTranscript = null
-                if (isNative) adoptMessages(detail.messages, detail.messagesFirstIndex ?: 0)
-                else {
-                    val lastUser = detail.messages.indexOfLast { it.role == ChatMessage.Role.User }
-                    messages = if (lastUser >= 0) detail.messages.take(lastUser + 1) else detail.messages
-                    baseIndex = detail.messagesFirstIndex ?: 0
-                }
+                adoptBeforeFollowing(detail)
                 startTurn(follow)
                 continue
             }
@@ -1140,6 +1139,17 @@ class ChatSession(
                 recallRows = emptySet()
                 readTranscript = null
             }
+        }
+    }
+
+    private fun adoptBeforeFollowing(detail: AgentConversationDetail) {
+        recallRows = emptySet()
+        readTranscript = null
+        if (isNative) adoptMessages(detail.messages, detail.messagesFirstIndex ?: 0)
+        else {
+            val lastUser = detail.messages.indexOfLast { it.role == ChatMessage.Role.User }
+            messages = if (lastUser >= 0) detail.messages.take(lastUser + 1) else detail.messages
+            baseIndex = detail.messagesFirstIndex ?: 0
         }
     }
 
@@ -1260,6 +1270,23 @@ class ChatSession(
                         ((err.code == 404 && code == "not_found") ||
                             (!isNative && pendingSubmission == null && conflict is AgentChatApi.Conflict.StreamNotResumable)) -> {
                         usedFreshFallback = true
+                        if (conflict is AgentChatApi.Conflict.StreamNotResumable) {
+                            val detail = runCatching { readDetail(token, teamId, sessionId) }.getOrNull()
+                                ?: return TurnResult.Failed(conflict.message ?: conflict.toString())
+                            val sent = messages.lastOrNull { it.role == ChatMessage.Role.User }?.id
+                            when (val next = StreamGone.decide(detail.messages, detail.activeRun?.streamId, sent)) {
+                                is StreamGone.Follow -> {
+                                    val follow = followOptions(next.streamId) ?: return TurnResult.Failed(conflict.message ?: conflict.toString())
+                                    adoptBeforeFollowing(detail)
+                                    return TurnResult.Follow(follow)
+                                }
+                                StreamGone.Replied -> {
+                                    adoptMessages(detail.messages, detail.messagesFirstIndex ?: 0)
+                                    return TurnResult.Completed(sawTurnComplete = true, paused = null)
+                                }
+                                StreamGone.Resend -> Unit
+                            }
+                        }
                         forceFresh = true
                         continue
                     }

@@ -8,7 +8,12 @@ const realFetch = globalThis.fetch
 const realMeetings = { ...config.meetings }
 
 beforeEach(() => {
-  config.meetings.recall = { apiKey: 'key', region: 'us-west-2', webhookSecret: 'whsec_x' }
+  config.meetings.recall = {
+    apiKey: 'key',
+    region: 'us-west-2',
+    webhookSecret: 'whsec_x',
+    botsPerTeamPerDay: 20,
+  }
 })
 
 afterEach(() => {
