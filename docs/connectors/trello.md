@@ -13,7 +13,8 @@ creates one when the project has none. Connections use the hosted Connect Link
 flow; legacy managed-account initiation is unsupported. No SDK or additional
 secret-storage service is required.
 
-Set `NUPHOS_PUBLIC_BACKEND_URL` to the backend's public HTTPS origin. The generated
+The backend needs a public HTTPS origin, resolved like the other OAuth connectors:
+`NUPHOS_PUBLIC_BACKEND_URL`, or `NUPHOS_BACKEND_URL` when that is public. The generated
 Connect Link returns to `<origin>/trello-app/setup?state=…`, then opens the
 `nuphos://trello-callback` application link. Completion requires the initiating
 administrator's authenticated session and a one-time code. Trello always uses
