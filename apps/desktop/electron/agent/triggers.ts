@@ -60,71 +60,12 @@ export type AgentTrigger = {
   webhookSecret?: string
 }
 
-export type AgentTriggerGroup = {
-  id: string
-  userId: string
-  createdByUserId?: string
-  executionPrincipalUserId?: string
-  executionAuthorizationStatus?: 'unchecked' | 'valid' | 'invalid'
-  executionAuthorizationCheckedAt?: string
-  executionAuthorizationError?: string
-  teamId: string
-  name: string
-  messageTemplate: string
-  memberKeys: string[]
-  expectedMemberCount: number
-  partitionCount: number
-  readyPartitionCount: number
-  failedPartitionCount: number
-  partitions: {
-    key: string
-    provider: string
-    integrationId: string
-    memberKeys: string[]
-    triggerId: string
-  }[]
-  slackDestination?: { type: 'dm_self' } | { type: 'channel'; channelId: string }
-  enabled: boolean
-  state: 'provisioning' | 'active' | 'partial' | 'paused'
-  createdAt: string
-  updatedAt: string
-}
-
-export type CreateAgentTriggerInput = {
-  name: string
-  triggerType: AgentTriggerType
-  messageTemplate: string
-  cronExpression?: string
-  targetSessionId: string
-  teamId?: string
-}
-
 export type UpdateAgentTriggerInput = {
   name?: string
   messageTemplate?: string
   cronExpression?: string
   targetSessionId?: string
   enabled?: boolean
-}
-
-export type UpdateAgentTriggerGroupInput = {
-  name?: string
-  messageTemplate?: string
-  enabled?: boolean
-}
-
-export type TestAgentTriggerGroupResult = {
-  ok: true
-  verifiedIngressCount: number
-  verifiedMemberCount: number
-  delivery: 'slack' | 'nuphos'
-  destinationLabel?: string
-}
-
-export type TestAgentTriggerResult = {
-  ok: true
-  delivery: 'slack' | 'nuphos'
-  destinationLabel?: string
 }
 
 export type DeleteAgentTriggerResult =
@@ -142,41 +83,11 @@ export async function listAgentTriggers(
   return callJson<AgentTrigger[]>('GET', `/agent/triggers?${query.toString()}`)
 }
 
-export async function listAgentTriggerGroups(teamId?: string): Promise<AgentTriggerGroup[]> {
-  return callJson<AgentTriggerGroup[]>('GET', `/agent/triggers/groups${teamQuery(teamId)}`)
-}
-
-export async function updateAgentTriggerGroup(
-  groupId: string,
-  patch: UpdateAgentTriggerGroupInput,
-  teamId: string,
-): Promise<AgentTriggerGroup> {
-  return callJson<AgentTriggerGroup>(
-    'PATCH',
-    `/agent/triggers/groups/${encodeURIComponent(groupId)}`,
-    { ...patch, teamId },
-  )
-}
-
-export async function testFireAgentTriggerGroup(
-  groupId: string,
-  teamId: string,
-): Promise<TestAgentTriggerGroupResult> {
-  return callJson<TestAgentTriggerGroupResult>(
-    'POST',
-    `/agent/triggers/groups/${encodeURIComponent(groupId)}/test-fire${teamQuery(teamId)}`,
-  )
-}
-
 export async function getAgentTrigger(triggerId: string, teamId?: string): Promise<AgentTrigger> {
   return callJson<AgentTrigger>(
     'GET',
     `/agent/triggers/${encodeURIComponent(triggerId)}${teamQuery(teamId)}`,
   )
-}
-
-export async function createAgentTrigger(input: CreateAgentTriggerInput): Promise<AgentTrigger> {
-  return callJsonForRenderer<AgentTrigger>('POST', `/agent/triggers`, input)
 }
 
 export async function updateAgentTrigger(
@@ -203,49 +114,4 @@ export async function deleteAgentTrigger(
     'DELETE',
     withoutProviderCleanup ? `${path}${separator}withoutProviderCleanup=true` : path,
   )
-}
-
-export async function transferAgentTriggerExecutionPrincipal(
-  triggerId: string,
-  userId: string,
-  teamId?: string,
-): Promise<AgentTrigger> {
-  return callJson<AgentTrigger>(
-    'POST',
-    `/agent/triggers/${encodeURIComponent(triggerId)}/execution-principal${teamQuery(teamId)}`,
-    { userId },
-  )
-}
-
-export async function transferAgentTriggerGroupExecutionPrincipal(
-  groupId: string,
-  userId: string,
-  teamId?: string,
-): Promise<AgentTriggerGroup> {
-  return callJson<AgentTriggerGroup>(
-    'POST',
-    `/agent/triggers/groups/${encodeURIComponent(groupId)}/execution-principal${teamQuery(teamId)}`,
-    { userId },
-  )
-}
-
-export async function testFireAgentTrigger(
-  triggerId: string,
-  // Deliberately not `unknown`: this used to be, and a call site quietly
-  // passed the teamId here — the request then carried no team scope at all and
-  // the fire failed with nothing to show for it.
-  payload?: Record<string, unknown>,
-  teamId?: string,
-): Promise<TestAgentTriggerResult> {
-  return callJson<TestAgentTriggerResult>(
-    'POST',
-    `/agent/triggers/${encodeURIComponent(triggerId)}/test-fire${teamQuery(teamId)}`,
-    payload !== undefined ? { payload } : {},
-  )
-}
-
-export type TriggerSchedulerStatus = { cronEnabled: boolean }
-
-export async function getTriggerSchedulerStatus(): Promise<TriggerSchedulerStatus> {
-  return callJson<TriggerSchedulerStatus>('GET', `/agent/triggers/scheduler-status`)
 }
