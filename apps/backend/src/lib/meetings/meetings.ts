@@ -5,7 +5,7 @@ import { config } from '@/config'
 import { BOT_AVATARS, derivedAvatar } from '@/lib/agent/bot-avatars'
 import { postChannelMessage } from '@/lib/agent/channel-chat'
 import { getConversationBySessionId, upsertConversationShell } from '@/lib/agent/db'
-import { addChannelAgent, isChannel } from '@/lib/agent/db/channels'
+import { isChannel } from '@/lib/agent/db/channels'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { systemSender } from '@/lib/agent/message-metadata'
 import { stripTrailingSlashes } from '@/lib/agent/text-scan'
@@ -47,8 +47,20 @@ async function openMeetingChannel(
     firstMessage: '',
     kind: 'channel',
   })
-  await agentConversations().updateOne({ sessionId: channelId }, { $set: { meeting } })
-  await addChannelAgent(channelId, agent.sessionId)
+  // Set directly, not through addChannelAgent, which would make a Task a Bot.
+  await agentConversations().updateOne(
+    { sessionId: channelId },
+    { $set: { meeting, agentSessionIds: [agent.sessionId] } },
+  )
+}
+
+type Identity = Pick<AgentConversation, 'sessionId' | 'userId' | 'title' | 'avatar' | 'kind'>
+
+/** The Bot a meeting sees: `agent` itself, or the Bot that manages a Task (its `parent`). */
+export function meetingBot<T extends Identity>(agent: T, parent: T | null | undefined): T {
+  if (agent.avatar) return agent
+  if (parent?.avatar && !isChannel(parent) && parent.userId === agent.userId) return parent
+  throw new Error('Only a Bot, or a Task under one, can join a meeting: it joins as that Bot.')
 }
 
 /** The face the apps show for `agent`, as the JPEG in ./faces (rendered from their SVGs). */
@@ -59,18 +71,22 @@ export async function faceJpeg(agent: Pick<AgentConversation, 'sessionId' | 'ava
 }
 
 /**
- * Sends `agent` into the call under its own name and face, with a channel of its own
+ * Sends `agent` into the call under its Bot's name and face, with a channel of its own
  * where the call's speech arrives and its posts go out to the call's chat.
  */
 export async function joinMeeting(agent: AgentConversation, teamId: string, meetingUrl: string) {
   const url = new URL(meetingUrl)
 
   if (url.protocol !== 'https:') throw new Error('A meeting link starts with https://')
-  const botName = agent.title || 'Nuphos agent'
+  const bot = meetingBot(
+    agent,
+    agent.parentSessionId ? await getConversationBySessionId(agent.parentSessionId) : null,
+  )
+  const botName = bot.title
   const botId = await createMeetingBot({
     meetingUrl: url.href,
     botName,
-    face: await faceJpeg(agent),
+    face: await faceJpeg(bot),
     webhookUrl: webhookUrl(),
   })
   const channelId = randomUUID()

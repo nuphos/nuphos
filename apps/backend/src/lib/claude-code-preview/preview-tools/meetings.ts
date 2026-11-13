@@ -42,7 +42,8 @@ export function meetingToolModule(): PreviewToolModule {
       {
         name: 'meeting_join',
         description:
-          'Join a Google Meet, Zoom or Teams call as yourself (under this conversation’s name) ' +
+          'Join a Google Meet, Zoom or Teams call under your Bot’s name and face (a Task joins ' +
+          'as the Bot that manages it, and one without a Bot cannot join) ' +
           'to listen and type in its chat; you never speak aloud. Use it when the user asks ' +
           'you to join a meeting. It opens a channel for the call: what people say there ' +
           'reaches you as channel messages, and your channel_post in it goes to the meeting ' +

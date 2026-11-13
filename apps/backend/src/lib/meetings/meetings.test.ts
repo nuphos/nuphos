@@ -5,7 +5,7 @@ import { describe, expect, test } from 'bun:test'
 import { BOT_AVATARS, derivedAvatar } from '@/lib/agent/bot-avatars'
 import { readNote } from '@/lib/agent/db/channel-notes'
 
-import { eventText, faceJpeg, joinWords } from './meetings'
+import { eventText, faceJpeg, joinWords, meetingBot } from './meetings'
 import { verifyRecallSignature } from './recall'
 
 import type { RecallEvent } from './meetings'
@@ -128,5 +128,24 @@ describe('faceJpeg', () => {
     expect(await faceJpeg({ sessionId: 'abc' })).toBe(
       await faceJpeg({ sessionId: 'x', avatar: derivedAvatar('abc') }),
     )
+  })
+})
+
+describe('meetingBot', () => {
+  const bot = { sessionId: 'bot', userId: 'u', title: 'Secretary', avatar: '07-ada' }
+  const task = { sessionId: 'task', userId: 'u', title: 'Summarize the call' }
+
+  test('a Bot joins as itself', () => {
+    expect(meetingBot(bot, null)).toBe(bot)
+  })
+
+  test('a Task joins as the Bot that manages it', () => {
+    expect(meetingBot(task, bot)).toBe(bot)
+  })
+
+  test('a Task with no Bot above it cannot join', () => {
+    expect(() => meetingBot(task, null)).toThrow('Only a Bot')
+    expect(() => meetingBot(task, { ...task, sessionId: 'other' })).toThrow('Only a Bot')
+    expect(() => meetingBot(task, { ...bot, userId: 'someone else' })).toThrow('Only a Bot')
   })
 })
