@@ -154,14 +154,14 @@ describe('bounded Trello reads', () => {
     ).toMatchObject({
       idBoard: '000000000000000000000001',
       before: '000000000000000000000002',
-      limit: 100,
+      limit: '100',
     })
     expect(
       trelloToolArguments('TRELLO_GET_LISTS_CARDS_BY_ID_LIST', {
         idList: '000000000000000000000001',
         limit: 20,
       }),
-    ).toMatchObject({ idList: '000000000000000000000001', limit: 20 })
+    ).toMatchObject({ idList: '000000000000000000000001', limit: '20' })
   })
   test.each([0, 101, '100', 1.5])('rejects an invalid page size', (limit) => {
     expect(() =>
@@ -244,12 +244,12 @@ describe('Trello argument values', () => {
         pos: 12.5,
         desc: '',
       }),
-    ).toEqual({ idCard: ID, closed: false, pos: 12.5, desc: '' })
+    ).toEqual({ idCard: ID, closed: 'false', pos: '12.5', desc: '' })
     expect(
       trelloToolArguments('TRELLO_GET_BOARDS_CARDS_BY_ID_BOARD', {
         idBoard: ID,
         before: '2026-11-11T00:00:00Z',
       }),
-    ).toMatchObject({ before: '2026-11-11T00:00:00Z', limit: 100 })
+    ).toMatchObject({ before: '2026-11-11T00:00:00Z', limit: '100' })
   })
 })
