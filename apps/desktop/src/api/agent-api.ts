@@ -7,9 +7,7 @@ import { receiveSubAgents } from '../lib/subAgentIds.ts'
 
 import type { AgentAuditListArgs, AgentMemoryScope } from './agent-audit-types.ts'
 import type { DecisionAnswer } from './agent-chat-types.ts'
-import type {
-  UpdateAgentTriggerInput,
-} from './agent-trigger-types.ts'
+import type { UpdateAgentTriggerInput } from './agent-trigger-types.ts'
 import type {
   AgentCredentialSelection,
   AgentPersistedMessage,
