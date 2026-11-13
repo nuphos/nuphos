@@ -9,11 +9,11 @@ test('withRedis still fails open when the failure context cannot be read', async
 
   config.redis.enabled = true
   config.redis.sentinels = ['127.0.0.1:1']
+  const client = getRedis() as unknown as { commandQueue: unknown }
+  const queue = client.commandQueue
+
   try {
-    const client = getRedis()
-
-    ;(client as unknown as { commandQueue: undefined }).commandQueue = undefined
-
+    client.commandQueue = undefined
     expect(await withRedis(() => Promise.reject(new Error('boom')))).toBeNull()
     expect(
       await withRedis(() => {
@@ -21,6 +21,8 @@ test('withRedis still fails open when the failure context cannot be read', async
       }),
     ).toBeNull()
   } finally {
+    // ioredis itself reads the queue while it disconnects.
+    client.commandQueue = queue
     getRedis().disconnect()
     await closeRedis()
     Object.assign(config.redis, saved)
