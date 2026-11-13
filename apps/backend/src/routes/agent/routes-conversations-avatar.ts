@@ -28,8 +28,8 @@ const avatarBody = z
   })
   .strict()
 
-// Whoever may archive the Agent may also pick its character, and every viewer
-// sees that pick.
+// The owner changes a Bot's face, or takes it away to make the Bot a Task, and
+// every viewer sees that. It never makes a Task a Bot: that is POST .../bot.
 agent.patch('/conversations/:sessionId/avatar', async (c) => {
   const userId = c.get('userId')
   const sessionId = c.req.param('sessionId')
@@ -39,11 +39,11 @@ agent.patch('/conversations/:sessionId/avatar', async (c) => {
   const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.data.teamId))
   const conversation = await getReadableConversation(sessionId, userId, teamId)
 
-  if (
-    !conversation ||
-    conversation.userId !== userId ||
-    !(await setConversationAvatar(sessionId, body.data.avatar))
-  ) {
+  if (!conversation || conversation.userId !== userId)
+    throw new AppError(404, 'not_found', 'Conversation not found')
+  if (!(await setConversationAvatar(sessionId, body.data.avatar))) {
+    if (body.data.avatar !== null && !conversation.avatar)
+      throw new AppError(400, 'invalid_request', 'Only a Bot has a face to change')
     throw new AppError(404, 'not_found', 'Conversation not found')
   }
 

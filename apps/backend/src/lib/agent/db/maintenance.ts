@@ -43,14 +43,15 @@ export async function renameConversation(
   return result.matchedCount > 0
 }
 
-// The character a person picked for this Agent; null goes back to the one its
-// ID selects. Clients own the catalog and ignore a name they do not know.
+// A Bot's new face; null takes it away, so the Bot is a Task again. Only a Bot
+// has a face to change: a Task becomes one through claimBotAvatar. Clients own
+// the catalog and ignore a name they do not know.
 export async function setConversationAvatar(
   sessionId: string,
   avatar: string | null,
 ): Promise<boolean> {
   const result = await agentConversations().updateOne(
-    { sessionId },
+    avatar === null ? { sessionId } : { sessionId, avatar: { $exists: true } },
     avatar === null ? { $unset: { avatar: '' } } : { $set: { avatar } },
   )
 
