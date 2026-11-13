@@ -5766,5 +5766,7 @@
   "“{text}” — send it again.": "「{text}」— もう一度送信してください。",
   "≥ at least": "≥ 以上",
   "≥ {pct}% of Limit": "制限の {pct}% 以上",
-  "✓ used": "✓ 使用済み"
+  "✓ used": "✓ 使用済み",
+  "{actor} forked this conversation": "{actor} がこの会話をフォークしました",
+  "Could not link the fork to its source": "フォークを元の会話にリンクできませんでした"
 }

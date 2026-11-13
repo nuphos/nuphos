@@ -5766,5 +5766,7 @@
   "“{text}” — send it again.": "「{text}」，請重新傳送。",
   "≥ at least": "≥ 至少",
   "≥ {pct}% of Limit": "≥ 限制的 {pct}%",
-  "✓ used": "✓ 已使用"
+  "✓ used": "✓ 已使用",
+  "{actor} forked this conversation": "{actor} 分叉了這段對話",
+  "Could not link the fork to its source": "無法將分叉連結至原對話"
 }

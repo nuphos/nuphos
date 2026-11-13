@@ -36,6 +36,8 @@ export const agentApi = {
     ),
   agentCheckConversationMove: (sessionId: string, teamId: string, runtimeId: string) =>
     ipcRenderer.invoke('agent:checkConversationMove', sessionId, teamId, runtimeId),
+  agentRecordFork: (sessionId: string, forkSessionId: string, teamId?: string) =>
+    ipcRenderer.invoke('agent:recordFork', sessionId, forkSessionId, teamId),
   agentRecordEditFork: (sessionId: string, forkSessionId: string, teamId?: string) =>
     ipcRenderer.invoke('agent:recordEditFork', sessionId, forkSessionId, teamId),
   agentGetSessionConfig: (sessionId: string, teamId: string) =>

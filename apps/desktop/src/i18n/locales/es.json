@@ -5766,5 +5766,7 @@
   "“{text}” — send it again.": "“{text}”: vuelve a enviarlo.",
   "≥ at least": "≥ al menos",
   "≥ {pct}% of Limit": "≥ {pct}% del límite",
-  "✓ used": "✓ usada"
+  "✓ used": "✓ usada",
+  "{actor} forked this conversation": "{actor} creó una bifurcación de esta conversación",
+  "Could not link the fork to its source": "No se pudo vincular la bifurcación con su conversación de origen"
 }

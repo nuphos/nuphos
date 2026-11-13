@@ -72,11 +72,14 @@ export function serializeTimelineEvents(
 
       return { kind: event.kind, at, text, actor, from, to, ...(reason ? { reason } : {}) }
     }
-    if (event.kind === 'message_edited')
+    if (event.kind === 'message_edited' || event.kind === 'conversation_forked')
       return {
         kind: event.kind,
         at,
-        text: `${actor.name} edited a message and ran it in a new task`,
+        text:
+          event.kind === 'message_edited'
+            ? `${actor.name} edited a message and ran it in a new task`
+            : `${actor.name} forked this conversation`,
         actor,
         forkSessionId: event.forkSessionId,
       }

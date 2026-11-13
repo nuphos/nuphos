@@ -22,3 +22,16 @@ export async function recordEditFork(
     { forkSessionId },
   )
 }
+
+/** Link a stored fork from its source conversation. */
+export async function recordFork(
+  sessionId: string,
+  forkSessionId: string,
+  teamId?: string,
+): Promise<{ ok: boolean }> {
+  return callJsonForRenderer<{ ok: boolean }>(
+    'POST',
+    `/agent/conversations/${encodeURIComponent(sessionId)}/forks${teamQuery(teamId)}`,
+    { forkSessionId },
+  )
+}

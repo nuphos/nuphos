@@ -5766,5 +5766,7 @@
   "“{text}” — send it again.": "“{text}” — kirim lagi.",
   "≥ at least": "≥ minimal",
   "≥ {pct}% of Limit": "≥ {pct}% dari batas",
-  "✓ used": "✓ dipakai"
+  "✓ used": "✓ dipakai",
+  "{actor} forked this conversation": "{actor} membuat cabang percakapan ini",
+  "Could not link the fork to its source": "Tidak dapat menautkan cabang ke percakapan asalnya"
 }

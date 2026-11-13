@@ -83,9 +83,9 @@ function EventLine({
 
   // An event from an older backend carries only its sentence.
   if (!actor) return <Rule title={title}>{event.text}</Rule>
-  if (event.kind === 'message_edited')
+  if (event.kind === 'message_edited' || event.kind === 'conversation_forked')
     return (
-      <EditedLine
+      <ForkedLine
         event={{ ...event, actor }}
         title={title}
         teamId={teamId}
@@ -165,8 +165,8 @@ export function MovingSessionLine({ label }: { label: string }) {
   )
 }
 
-/** An edit that ran in a fork. The fork is private to whoever edited, so only they get Open. */
-function EditedLine({
+/** Fork destinations are private to their creator, so only they get Open. */
+function ForkedLine({
   event,
   title,
   teamId,
@@ -185,9 +185,14 @@ function EditedLine({
 
   return (
     <Rule title={title}>
-      {fill(t('{actor} edited a message and ran it in a new task'), {
-        actor: <Person person={event.actor} />,
-      })}
+      {fill(
+        event.kind === 'conversation_forked'
+          ? t('{actor} forked this conversation')
+          : t('{actor} edited a message and ran it in a new task'),
+        {
+          actor: <Person person={event.actor} />,
+        },
+      )}
       {forkUrl && onOpenNuphosLink && (
         <button
           type="button"

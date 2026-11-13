@@ -5766,5 +5766,7 @@
   "“{text}” — send it again.": "“{text}” — ส่งอีกครั้ง",
   "≥ at least": "≥ อย่างน้อย",
   "≥ {pct}% of Limit": "≥ {pct}% ของขีดจำกัด",
-  "✓ used": "✓ ใช้แล้ว"
+  "✓ used": "✓ ใช้แล้ว",
+  "{actor} forked this conversation": "{actor} แยกการสนทนานี้แล้ว",
+  "Could not link the fork to its source": "ไม่สามารถเชื่อมโยงการสนทนาที่แยกกับต้นฉบับได้"
 }

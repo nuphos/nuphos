@@ -110,3 +110,20 @@ describe('session timeline events', () => {
     expect(timelineEventUserIds()).toEqual([])
   })
 })
+
+test('a normal fork has its own confirmation and destination', () => {
+  expect(
+    serializeTimelineEvents(
+      [{ kind: 'conversation_forked', at, actorId: 'alice', forkSessionId: 'fork-2' }],
+      people,
+    ),
+  ).toEqual([
+    {
+      kind: 'conversation_forked',
+      at: at.toISOString(),
+      text: 'Alice forked this conversation',
+      actor: { id: 'alice', name: 'Alice', avatarURL: '' },
+      forkSessionId: 'fork-2',
+    },
+  ])
+})
