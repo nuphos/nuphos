@@ -25,13 +25,13 @@ class RuntimeSetupStore(
     private val expired: () -> Unit,
     private val now: () -> Long = System::currentTimeMillis,
     private val loginAllowed: (AgentRuntime) -> Boolean = { administrator() && it.kind in setOf("managed", "external") },
-    private val selectCreatedRuntime: Boolean = true,
+    private val useSelectedRuntime: Boolean = true,
 ) {
     var state by mutableStateOf(RuntimeSetupState())
         private set
     private var signInTargetId by mutableStateOf<String?>(null)
     val signInRuntime get() = signInTargetId?.let { id -> selection.catalog.firstOrNull { it.id == id && it.status == "active" && !it.deleting } }
-        ?: if (signInTargetId == null && selectCreatedRuntime) selection.selected else null
+        ?: if (signInTargetId == null && useSelectedRuntime) selection.selected else null
     private var active = true
     private var foreground = false
     private var generation = 0L
@@ -58,14 +58,14 @@ class RuntimeSetupStore(
         foreground = resumed; poll?.cancel(); poll = null
         if (resumed && active && canSignIn && selection.loginReview && loginTargetCurrent()) refreshLogin()
     }
-    private fun launch(admin: Boolean = false, login: Boolean = false, action: suspend (Long) -> Unit) {
-        if (state.busy || !active || !isSourceCurrent() || (admin && !canAdminister) || (login && !canSignIn)) return
+    private fun launch(login: Boolean = false, action: suspend (Long) -> Unit) {
+        if (state.busy || !active || !isSourceCurrent() || (login && !canSignIn)) return
         poll?.cancel(); poll = null
         val ticket = ++generation
         state = state.copy(busy = true, error = null)
         job = scope.launch {
             try {
-                if (!current(ticket) || (admin && !canAdminister) || (login && !canSignIn)) return@launch
+                if (!current(ticket) || (login && !canSignIn)) return@launch
                 action(ticket)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
@@ -108,40 +108,6 @@ class RuntimeSetupStore(
                 message = "Runtime selected for new agents. Registration does not confirm provider readiness.")
             if (selection.loginReview && selection.loginRuntimeId == id && canSignIn) refreshLogin()
         }
-    }
-    fun create(provider: String, label: String?) {
-        val trimmed = label?.trim()
-        if (provider !in setOf("claude-code", "codex", "grok", "antigravity", "opencode") || (trimmed != null && trimmed.length !in 1..120)) {
-            state = state.copy(error = "Use a supported provider and a label with 1–120 characters."); return
-        }
-        if (selection.createReview) return
-        launch(admin = true) { ticket ->
-            selection.createReview = true
-            var returnedId: String? = null
-            try { returnedId = api.create(provider, trimmed).id }
-            catch (e: Exception) {
-                if (e is CancellationException) throw e
-                if (!current(ticket) || !canAdminister) return@launch
-                if (definite(e)) { selection.createReview = false; throw e }
-            }
-            if (!current(ticket) || !canAdminister) return@launch
-            state = state.copy(catalogLoaded = false,
-                message = "Creation may have saved a runtime. Refresh and review the saved list before another creation.")
-            val saved = api.catalog()
-            if (!current(ticket) || !canAdminister) return@launch
-            selection.saveCatalog(saved)
-            val verified = returnedId?.let { id -> saved.firstOrNull { it.id == id && it.selectable } }
-            if (verified != null) {
-                if (selectCreatedRuntime) selection.select(verified.id) else signInTargetId = verified.id
-                selection.createReview = false
-            }
-            state = state.copy(catalogLoaded = true, message = if (verified == null)
-                "We could not identify the saved result. No creation was sent again. Review saved runtimes."
-                else if (selectCreatedRuntime) "Runtime registered and selected. Provider readiness is not confirmed." else "Runtime registered. Sign in to finish setting it up. Your current runtime selection is unchanged.")
-        }
-    }
-    fun confirmCreateReviewed() {
-        if (active && canAdminister && !state.busy && state.catalogLoaded) selection.createReview = false
     }
     fun startLogin() {
         val runtime = signInRuntime?.takeIf { loginAllowed(it) && it.status == "active" } ?: return
