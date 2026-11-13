@@ -78,3 +78,39 @@ test('Bots show actual sub-agents directly, without a duplicate own Task', () =>
     ],
   )
 })
+
+test('reading a Bot question clears its dot but keeps the action-needed preview', () => {
+  const chat = { ...item(), key: 'chat', channel: true }
+  const bot = {
+    conversation: {
+      ...conversation,
+      inputRequests: [
+        {
+          id: 'q',
+          category: 'preference' as const,
+          question: 'Which?',
+          status: 'open' as const,
+          askedAt: '2026-11-12T00:00:00Z',
+        },
+      ],
+    },
+    runtimeState: undefined,
+  }
+
+  for (const unread of [false, true]) {
+    const [row] = botChatRows({
+      chat,
+      bot,
+      kids: [],
+      faces: [],
+      teamId: 'team-a',
+      unread,
+      openId: undefined,
+    })
+
+    assert.ok(isValidElement<{ dot: string | null }>(row?.trailing))
+    assert.equal(row.trailing.props.dot, unread ? 'waiting' : null)
+    assert.equal(row.dot, unread ? 'waiting' : null)
+    assert.ok(row?.previewNode)
+  }
+})

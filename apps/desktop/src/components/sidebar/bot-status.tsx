@@ -11,9 +11,10 @@ import type { ChannelFace } from '../../api/agent-types'
 
 /** A question outranks an unread reply; work alone shows no dot. */
 function rowDot(activity: Activity, unread: boolean): 'waiting' | 'unread' | null {
+  if (!unread) return null
   if (activity.kind === 'asking') return 'waiting'
 
-  return unread ? 'unread' : null
+  return 'unread'
 }
 
 /**
@@ -63,6 +64,7 @@ export function botChatRows({
   const busy = activity.kind === 'working' || activity.kind === 'background'
   const row: Item = {
     ...chat,
+    dot: rowDot(activity, unread),
     // The motion says "working"; the mark keeps only what asks for attention.
     trailing: (
       <ChatRowStatus

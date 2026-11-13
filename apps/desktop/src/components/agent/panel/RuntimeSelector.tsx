@@ -23,6 +23,8 @@ import type { AgentDevice } from '../../../api/device-types'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 
 export type RuntimeControl = {
+  /** A quiet runtime line for the simplified Bot composer. */
+  quiet?: boolean
   /** Lets the selector ask each agent whether an update is available. */
   teamId?: string
   /** A team agent's update can be started from the list: the viewer administers the team. */
@@ -91,6 +93,7 @@ export function RuntimeSelector({
   onAddAgent,
   confirm,
   hero = false,
+  quiet = false,
 }: RuntimeControl & {
   /** Lets the composer open the list, e.g. from the agent-status banner. */
   menuOpen?: boolean
@@ -141,8 +144,8 @@ export function RuntimeSelector({
       ) : (
         <span className="min-w-0 max-w-40 truncate">{label}</span>
       )}
-      {value?.id && <RuntimeUsageBar quota={quotas?.get(value.id)} />}
-      {dot && (
+      {!quiet && value?.id && <RuntimeUsageBar quota={quotas?.get(value.id)} />}
+      {!quiet && dot && (
         <span
           role="img"
           aria-label={dot.label}

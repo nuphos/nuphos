@@ -162,3 +162,45 @@ test('an answered question, or one that lost the race, is refused and wakes no o
   ).rejects.toThrow('no longer open')
   expect(turns).toEqual([])
 })
+
+test('credential-category status choices can be answered without entering a secret', async () => {
+  await answerDecision({
+    conversation: ask({ category: 'credential', options: ['Signed in', 'Later'] }),
+    requestId: 'q1',
+    answer: { choices: ['Signed in'] },
+    actor,
+    teamId: 't1',
+  })
+  expect(turns).toHaveLength(1)
+})
+
+test('credential status choices cannot smuggle typed text or an unknown choice', async () => {
+  for (const answer of [
+    { choices: ['not an option'] },
+    { choices: ['Signed in'], text: 'secret' },
+  ]) {
+    await expect(
+      answerDecision({
+        conversation: ask({ category: 'credential', options: ['Signed in'] }),
+        requestId: 'q1',
+        answer,
+        actor,
+        teamId: 't1',
+      }),
+    ).rejects.toThrow('its own card')
+  }
+  expect(turns).toHaveLength(0)
+})
+
+test('a masked secret card cannot be answered by selecting a status option', async () => {
+  await expect(
+    answerDecision({
+      conversation: ask({ category: 'credential', secretName: 'API_KEY', options: ['Signed in'] }),
+      requestId: 'q1',
+      answer: { choices: ['Signed in'] },
+      actor,
+      teamId: 't1',
+    }),
+  ).rejects.toThrow('its own card')
+  expect(turns).toHaveLength(0)
+})

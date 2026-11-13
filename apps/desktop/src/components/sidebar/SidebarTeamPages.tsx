@@ -24,6 +24,12 @@ export function SidebarTeamPages({
   const count = sections
     .flatMap((section) => (section.title === 'Tasks' ? section.items : []))
     .filter((item) => item.task && !item.bot && item.taskState === 'attention').length
+  const botCount = new Set(
+    sections
+      .flatMap((section) => (section.title === 'Channels' ? section.items : []))
+      .filter((item) => item.channel && !item.botNested && item.unread)
+      .map((item) => item.key),
+  ).size
   const changePage = useSidebarModeNavigation(onPage, sections, listProps)
   const content = (index: 0 | 1) => (
     <SidebarPageList page={index} sections={sections} listProps={listProps} onScroll={onScroll} />
@@ -33,7 +39,7 @@ export function SidebarTeamPages({
     <div data-mode-pages className="flex min-h-0 flex-1 flex-col">
       <SidebarSwipePages page={page} onPage={changePage} bots={content(0)} tasks={content(1)} />
       <div className="sidebar-mode-switcher">
-        <SidebarPageTabs page={page} onPage={changePage} count={count} />
+        <SidebarPageTabs page={page} onPage={changePage} count={count} botCount={botCount} />
       </div>
     </div>
   )
