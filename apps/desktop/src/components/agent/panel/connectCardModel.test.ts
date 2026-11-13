@@ -125,6 +125,16 @@ test('parseChoiceRequest reads any other decision, with its options as replies',
   assert.equal(parseChoiceRequest(undefined), null)
 })
 
+test('parseChoiceRequest never offers answers for a credential or integration question', () => {
+  // The server refuses any answer to these but their own card's: no buttons it would refuse.
+  for (const category of ['credential', 'integration']) {
+    assert.equal(
+      parseChoiceRequest({ category, question: 'Need access', options: ['Paste it', 'Skip'] }),
+      null,
+    )
+  }
+})
+
 test('a row is connected only when a bound credential of that provider is selected', () => {
   const available = selection({ linearWorkspaceIds: ['w1'] })
 

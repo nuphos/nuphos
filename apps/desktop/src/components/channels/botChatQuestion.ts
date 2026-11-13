@@ -32,7 +32,7 @@ export function botChatQuestion(
   const questions = [question]
   const part = questionPart(question)
   const choice = parseChoiceRequest(part.input)
-  const typed = choice !== null && request.category !== 'credential' && !request.planId
+  const typed = choice !== null && !request.planId
 
   return {
     part,

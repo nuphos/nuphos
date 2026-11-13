@@ -114,7 +114,10 @@ export function secretSavedReply(name: string): string {
   return `🔒 ${name} saved to `
 }
 
-/** Any other `request_user_decision`: its question card, with the options as replies. */
+/**
+ * Any other `request_user_decision`: its question card, with the options as replies.
+ * A credential or integration question is answered only in its own card, never here.
+ */
 export function parseChoiceRequest(value: unknown): {
   category: string
   question: string
@@ -123,13 +126,7 @@ export function parseChoiceRequest(value: unknown): {
   multiSelect?: boolean
   questions?: DecisionQuestion[]
 } | null {
-  if (
-    !value ||
-    typeof value !== 'object' ||
-    parseConnectRequest(value) ||
-    parseSecretRequest(value)
-  )
-    return null
+  if (!value || typeof value !== 'object') return null
   const { category, question, body, options, multiSelect, questions } = value as {
     category?: unknown
     question?: unknown
@@ -140,6 +137,7 @@ export function parseChoiceRequest(value: unknown): {
   }
   const parsedQuestions = parseDecisionQuestions(questions)
 
+  if (category === 'credential' || category === 'integration') return null
   if (typeof question !== 'string' || !question.trim()) return null
 
   return {

@@ -288,6 +288,31 @@ describe('decision tool module', () => {
     ).resolves.toMatchObject({ isError: true })
   })
 
+  test('a credential or integration question is answered only in its own card, never by an option', async () => {
+    const ask = decisionToolModule({ publish: () => Promise.resolve() }).handlers(
+      ctx,
+    ).request_user_decision!
+    const before = conversationUpdates.length
+
+    for (const input of [
+      { category: 'credential', secretName: 'FIXTURE_KEY', options: ['Paste it', 'Skip'] },
+      { category: 'credential', options: ['Paste it', 'Skip'] },
+      { category: 'credential' },
+      {
+        category: 'integration',
+        providers: ['linear'],
+        questions: [{ question: 'Which?' }, { question: 'When?' }],
+      },
+      { category: 'integration' },
+    ]) {
+      const result = await ask({ label: 'Ask', question: 'Need access.', ...input })
+
+      expect(result.isError).toBe(true)
+      expect(JSON.stringify(result.content)).toContain('another category')
+    }
+    expect(conversationUpdates).toHaveLength(before)
+  })
+
   test('request_user_decision keeps its body for the Inbox and returns the requestId', async () => {
     const result = await decisionToolModule({ publish: async () => {} }).handlers(ctx)
       .request_user_decision!({

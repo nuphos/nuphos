@@ -112,26 +112,6 @@ const requestIdField = z
   .max(200)
   .describe('The requestId request_user_decision returned.')
 
-/**
- * Why an integration request names its target wrongly: `credentials` takes only
- * the member's own credential, and never together with `providers`, which asks
- * for any access of a kind; mixing them would leave it unclear what answers it.
- */
-export function integrationTargetProblem(input: {
-  providers?: unknown
-  credentials?: unknown
-}): string | null {
-  if (input.credentials === undefined) return null
-  if (!Array.isArray(input.credentials) || !input.credentials.every(isPersonalCredentialRef)) {
-    return "`credentials` names only the member's own credential, {provider: 'personal', id: 'github' | 'linear'}; ask for team access with `providers`."
-  }
-  if (input.providers !== undefined) {
-    return "Pass either `providers` (any access of that kind, a team binding included) or `credentials` (only the member's own), not both: ask one question per target."
-  }
-
-  return null
-}
-
 type WrittenQuestion = { question: string; options?: string[]; multiSelect?: boolean }
 
 /**
@@ -193,6 +173,7 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
         'Never ask in a free-text question to tick a credential in the picker: only a question with `providers` resolves itself, and resumes you, once that credential is selected, by the user or by a parent agent. ' +
         'Name only providers the task actually needs. Do not use `providers` when the credential is already selected and a call fails with AccessDenied or 403 (connecting another account does not fix missing permissions), or for MCP servers. ' +
         'For an API key, password or other secret only the user can type, use category `credential` with `secretName`: in the Desktop app the user then gets a masked input that writes the value to a file on this runtime, never into the conversation. Never ask the user to paste a secret into chat. ' +
+        'A `credential` or `integration` question takes no `options` or `questions`: it is answered only in its own card. ' +
         'Put choices in `options`, never in the question text; set `multiSelect` when several may apply. The user can always answer in their own words instead. ' +
         'Ask related questions together in one call through `questions` rather than one card after another; `question` is then the headline. ' +
         'The question is listed in the Inbox until answered: put what the user needs to decide in `body`, so they can answer there without reading the chat. ' +
@@ -232,9 +213,6 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
         about: aboutField.optional(),
       }),
       execute: async (input) => {
-        const problem = integrationTargetProblem(input)
-
-        if (problem) throw new Error(problem)
         const { label: _label, category, question, body, options, multiSelect, questions } = input
         const providers = category === 'integration' ? input.providers : undefined
         const credentials = category === 'integration' ? input.credentials : undefined

@@ -77,6 +77,12 @@ test('a free-form question is answered by typing, never a credential or a plan',
 
   assert.equal(credential.answerable, false)
   assert.equal(credential.typed, false)
+  // Nor do options answer it: only its own card does.
+  const offered = botChatQuestion(
+    request({ category: 'credential', options: ['Paste it', 'Skip'] }),
+  )
+
+  assert.equal(offered.answerable, false)
   // A plan keeps its Approve and Reject; a typed reply is only a message.
   const plan = botChatQuestion(request({ options: ['Approve', 'Reject'], planId: '42' }))
 

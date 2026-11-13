@@ -21,8 +21,6 @@ import type { DecisionAnswer } from '../../../api/agent-chat-types'
 const TITLE: Record<string, string> = {
   approval: t('Approval needed'),
   preference: t('Your choice'),
-  credential: t('Credential needed'),
-  integration: t('Integration needed'),
   risk_tradeoff: t('Weigh the tradeoff'),
 }
 
@@ -61,9 +59,8 @@ export function ChoiceCard({
   const { chosen, failed, submit } = useSubmit(ctx, { toolCallId, question, options }, recorded)
   const [typing, setTyping] = useState(false)
   const interactive = Boolean(ctx?.answer) && canAct && !chosen
-  const typeable = interactive && category !== 'credential'
   // The Inbox shows the text box at once, beside the options, rather than behind "Other…".
-  const inline = typeable && Boolean(ctx?.fullBody)
+  const inline = interactive && Boolean(ctx?.fullBody)
   // "Other…" is the same form with the question alone and no options.
   const form = typing
     ? [{ question, options: [], multiSelect: false }]
@@ -112,7 +109,7 @@ export function ChoiceCard({
                 interactive={interactive}
                 canAct={canAct}
                 onChoose={(option) => act(() => choose(option))}
-                onReply={typeable && !inline ? () => setTyping(true) : undefined}
+                onReply={interactive && !inline ? () => setTyping(true) : undefined}
               />
             )}
             {inline && (

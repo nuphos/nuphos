@@ -8,11 +8,11 @@
 import { randomUUID } from 'node:crypto'
 
 import { addInputRequest } from '@/lib/agent/db/pending-decision'
+import { decisionTargetProblem } from '@/lib/agent/tools-skilled/decision-target'
 import {
   createUserDecisionTools,
   withQuestionsInBody,
   isConnectableProvider,
-  integrationTargetProblem,
 } from '@/lib/agent/tools-skilled/decision-tools'
 import { createLocalTools } from '@/lib/agent/tools-skilled/local-tools'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
@@ -180,7 +180,7 @@ function passthroughHandler(
       ...plain
     } = args
     const input = name === 'request_user_decision' && ctx.localTools !== true ? plain : args
-    const target = name === 'request_user_decision' ? integrationTargetProblem(args) : null
+    const target = name === 'request_user_decision' ? decisionTargetProblem(args) : null
 
     if (target) return toolError(target)
     const about = name === 'request_user_decision' ? await aboutRefs(ctx, args.about) : []
