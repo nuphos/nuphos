@@ -23,6 +23,11 @@ export const deviceApi = {
   /** The key goes straight to the main process, which hands it only to the CLI's login. */
   localRuntimeApplyApiKey: (provider: 'claude-code' | 'codex', key: string | null) =>
     ipcRenderer.invoke('localRuntime:applyApiKey', provider, key),
+  /** The key goes only to the main process, which keeps it in the OS credential store. */
+  localRuntimeSetCustomProvider: (
+    provider: 'claude-code' | 'codex',
+    value: { baseUrl: string; apiKey?: string; models: string[] } | null,
+  ) => ipcRenderer.invoke('localRuntime:setCustomProvider', provider, value),
   localRuntimeStartClaudeLogin: () => ipcRenderer.invoke('localRuntime:startClaudeLogin'),
   localRuntimeStartCodexLogin: () => ipcRenderer.invoke('localRuntime:startCodexLogin'),
   localRuntimeCancelClaudeLogin: () => ipcRenderer.invoke('localRuntime:cancelClaudeLogin'),
