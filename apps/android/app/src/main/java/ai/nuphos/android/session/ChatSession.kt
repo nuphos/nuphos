@@ -393,13 +393,6 @@ class ChatSession(
             if (detail.isChannel) markChannel()
             // Nothing stored is still stored: every kind shows, and a save sends back only what changed.
             credentialAccess = CredentialSelection(detail.credentialAccess ?: JsonValue.Obj(emptyMap()))
-            scope.launch {
-                if (!hasAiAccess) return@launch
-                runCatching { readBypass(token, sessionId) }.getOrNull()?.let {
-                    if (!hasAiAccess) return@launch
-                    permissionMode = if (it) PermissionMode.Bypass else PermissionMode.Auto
-                }
-            }
             val run = detail.activeRun
             if (run != null) {
                 val lastUser = msgs.indexOfLast { it.role == ChatMessage.Role.User }
@@ -414,6 +407,9 @@ class ChatSession(
             loadError = null
             recordReadTranscript(detail)
             lastSyncedSignature = signature()
+            runCatching { readBypass(token, sessionId) }.getOrNull()?.let {
+                if (hasAiAccess) permissionMode = if (it) PermissionMode.Bypass else PermissionMode.Auto
+            }
         } catch (e: Exception) {
             if (!hasAiAccess || detailGeneration != detailLoadGeneration) return
             draftAccessInvalidated = e is NuphosApi.Failure.Unauthorized || (e is NuphosApi.Failure.Http && e.code in setOf(403, 404))
