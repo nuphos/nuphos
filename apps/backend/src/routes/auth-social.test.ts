@@ -6,11 +6,13 @@ import { Hono } from 'hono'
 import { config } from '@/config'
 import { errorHandler } from '@/lib/errors'
 import { authenticateToken } from '@/lib/identity/auth'
-import { revokeUserSession } from '@/lib/identity/sessions'
+import { createUserSession, revokeUserSession } from '@/lib/identity/sessions'
 import { signInSocial } from '@/lib/identity/social'
 import { registerNativeSession, redeemNativeSession } from '@/lib/native-auth'
 import { useDb } from '@/lib/test/doubles/db'
 import { socialAuth } from '@/routes/auth-social'
+import { createCliAuthRoutes } from '@/routes/cli-auth'
+import { createDeviceApproval } from '@/routes/device-approval'
 
 type Doc = Record<string, unknown>
 const app = new Hono().onError(errorHandler).route('/', socialAuth)
@@ -337,4 +339,61 @@ test('"Use another account" makes the provider ask again', async () => {
   expect(await location('/google/start')).toBeNull()
   expect(await location('/google/start?prompt=login')).toBe('select_account')
   expect(await location('/google/start?prompt=consent')).toBeNull()
+})
+test('device page counts every code lookup and decision against the approval quota', async () => {
+  const keys: string[] = []
+  let allow = true
+  const device = new Hono().onError(errorHandler).route(
+    '/device',
+    createDeviceApproval(async (key) => {
+      keys.push(key)
+
+      return allow
+    }),
+  )
+  const { user } = await signInSocial('google', {
+    sub: 'google-sub',
+    email: 'person@example.com',
+    email_verified: true,
+  })
+  const headers = { cookie: `__Host-nuphos-social=${await createUserSession(user.id)}` }
+
+  expect((await device.request('/device', { headers })).status).toBe(200)
+  expect(keys).toEqual([])
+  expect(await (await device.request('/device?code=ABCD-EFGH', { headers })).text()).toContain(
+    'wrong or has expired',
+  )
+  allow = false
+  expect((await device.request('/device?code=ABCD-EFGH', { headers })).status).toBe(429)
+  const post = await device.request('/device', {
+    method: 'POST',
+    headers: {
+      ...headers,
+      'sec-fetch-site': 'same-origin',
+      'content-type': 'application/x-www-form-urlencoded',
+    },
+    body: 'code=ABCDEFGH&decision=approve',
+  })
+
+  expect(post.status).toBe(429)
+  expect(keys).toEqual(Array(3).fill(`device-login:approve:${user.id}`))
+})
+test('nuphos login keeps nuphos.ai/device unless this server has its own OIDC provider', async () => {
+  const cli = new Hono().onError(errorHandler).route(
+    '/',
+    createCliAuthRoutes(async () => true),
+  )
+  const verificationUri = async () => {
+    const response = await cli.request('/device', { method: 'POST' })
+
+    return ((await response.json()) as { verificationUri: string }).verificationUri
+  }
+
+  expect(await verificationUri()).toBe('https://nuphos.ai/device')
+  Object.assign(config.auth.oidc, {
+    issuer: 'https://sso.example.test/oidc',
+    clientId: 'c',
+    clientSecret: 's',
+  })
+  expect(await verificationUri()).toBe(`${config.auth.publicBaseUrl}/auth/social/device`)
 })

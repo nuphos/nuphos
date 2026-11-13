@@ -40,6 +40,12 @@ const keyCache = new Map<
   { until: number; keys: (webcrypto.JsonWebKey & { kid?: string; alg?: string; use?: string })[] }
 >()
 
+export function oidcConfigured() {
+  const { issuer, clientId, clientSecret } = config.auth.oidc
+
+  return Boolean(issuer && clientId && clientSecret)
+}
+
 export async function providerSettings(provider: SocialProvider) {
   const redirectUri = `${config.auth.publicBaseUrl}/auth/social/${provider}/callback`
 
