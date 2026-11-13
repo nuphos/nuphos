@@ -66,6 +66,7 @@ test('closing a stream aborts an upload and suppresses late results', async () =
     stream.send(JSON.stringify({ path }))
     await uploading
     stream.close()
+    assert.ok(signal)
     assert.equal(signal.aborted, true)
     complete({} as never)
     await tick()
