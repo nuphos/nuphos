@@ -103,6 +103,8 @@ export const appApi = {
   updaterGetState: () => window.api.updaterGetState(),
   updaterCheck: () => window.api.updaterCheck(),
   updaterInstall: () => window.api.updaterInstall(),
+  updaterGetAutoInstall: () => window.api.updaterGetAutoInstall(),
+  updaterSetAutoInstall: (enabled: boolean) => window.api.updaterSetAutoInstall(enabled),
   onUpdaterStatus: (cb: (state: UpdaterState) => void) => window.api.onUpdaterStatus(cb),
   changelogGetState: () => window.api.changelogGetState(),
   onChangelogStatus: (cb: (state: ChangelogState) => void) => window.api.onChangelogStatus(cb),

@@ -100,6 +100,8 @@ before(() => {
     namedExports: { captureMain: mock.fn(), captureMainException: mock.fn() },
   })
   mock.module('./window-session.ts', { namedExports: { markAppQuitting: mock.fn() } })
+  // The idle restart polls powerMonitor once a minute; these tests restart by hand.
+  mock.module('./auto-update-electron.ts', { namedExports: { startAutoInstall: mock.fn() } })
 })
 
 beforeEach(() => {
