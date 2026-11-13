@@ -3103,6 +3103,7 @@
   "Only the first 100 skills are shown; paste a folder to narrow it down.": "처음 100개의 스킬만 표시됩니다. 폴더를 붙여넣어 범위를 좁히세요.",
   "Only the first 200 indexes are shown.": "처음 200개 인덱스만 표시됩니다.",
   "Only the most recently active sessions were counted, so the numbers may be low.": "최근에 활동한 세션만 집계했으므로 실제보다 적을 수 있습니다.",
+  "Only the owner can change model settings.": "소유자만 모델 설정을 변경할 수 있습니다.",
   "Only the owner can change who has access.": "소유자만 액세스 권한을 변경할 수 있습니다.",
   "Only the owner can choose who manages it.": "관리자는 소유자만 지정할 수 있습니다.",
   "Only the owner of this conversation can connect this.": "이 대화의 소유자만 이것을 연결할 수 있습니다.",

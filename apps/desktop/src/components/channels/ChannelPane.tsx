@@ -181,7 +181,7 @@ export function ChannelPane({
         </div>
         {bot && canOpenTask && (
           <>
-            <BotModelControl teamId={teamId} botId={bot} provider={botProvider} />
+            <BotModelControl teamId={teamId} botId={bot} provider={botProvider} owned={botOwned} />
             <BotTaskButton
               provider={botProvider}
               onClick={() => (onOpenTask ?? onOpenSession)(bot)}

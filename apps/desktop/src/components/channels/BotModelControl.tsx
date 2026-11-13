@@ -1,3 +1,8 @@
+import { useSyncExternalStore } from 'react'
+
+import { t } from '../../i18n'
+import { runtimeStateOf, subscribeRuntimeStates } from '../../lib/agentRuntimeStates'
+import { runtimeAllows } from '../../lib/runtimeExecution'
 import { AGENT_PROVIDER } from '../../types/runtime'
 import { AgentProviderIcon } from '../agent/panel/icons'
 import { ModelSelector } from '../agent/panel/ModelSelector'
@@ -14,18 +19,25 @@ export function BotModelControl({
   teamId,
   botId,
   provider,
+  owned,
 }: {
   teamId: string
   botId: string
   provider?: AgentProvider
+  /** Only the Bot's owner can change its settings; others see them. */
+  owned: boolean
 }) {
-  const control = useSessionConfig({ sessionId: botId, teamId }, false)
+  const state = useSyncExternalStore(subscribeRuntimeStates, () => runtimeStateOf(botId))
+  // While the Bot is in a turn, refreshes wait, so the runtime's model probe is not re-run.
+  const busy = state ? !runtimeAllows(state, 'send') : false
+  const control = useSessionConfig({ sessionId: botId, teamId }, busy)
 
   return (
     <div className="titlebar-no-drag flex min-w-0 shrink items-center text-secondary">
       <ModelSelector
         control={control}
-        disabled={false}
+        disabled={!owned}
+        disabledHint={owned ? undefined : t('Only the owner can change model settings.')}
         side="bottom"
         inline
         leadingLabel={provider && AGENT_PROVIDER[provider].label}
