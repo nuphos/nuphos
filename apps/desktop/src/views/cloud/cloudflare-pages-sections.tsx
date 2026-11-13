@@ -1,6 +1,7 @@
 import { faPlus, faXmark } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { useCallback, useEffect, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
@@ -8,6 +9,8 @@ import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
+import { queryKeys } from '../../lib/query/keys'
+import { refreshAfterWrite } from '../../lib/query/refreshAfterWrite'
 
 export function PagesDomainsSection({
   teamId,
@@ -18,21 +21,21 @@ export function PagesDomainsSection({
   accountId: string
   projectName: string
 }) {
-  const [domains, setDomains] = useState<
-    { id: string | null; name: string; status: string | null }[]
-  >([])
   const [adding, setAdding] = useState(false)
   const [newDomain, setNewDomain] = useState('')
   const [pendingRemove, setPendingRemove] = useState<string | null>(null)
+  const client = useQueryClient()
+  const queryKey = queryKeys.cloudflare(teamId, accountId, 'pages', projectName, 'domains')
+  const query = useQuery({
+    queryKey,
+    queryFn: () => api.atlasListCloudflarePagesDomains(teamId, accountId, projectName),
+  })
+  const domains = query.data ?? []
+  const reload = () => void refreshAfterWrite(client, { queryKey, exact: true })
 
-  const reload = useCallback(() => {
-    api
-      .atlasListCloudflarePagesDomains(teamId, accountId, projectName)
-      .then(setDomains)
-      .catch((err: unknown) => toast.apiError(t('Failed to load custom domains'), err))
-  }, [teamId, accountId, projectName])
-
-  useEffect(() => reload(), [reload])
+  useEffect(() => {
+    if (query.error) toast.apiError(t('Failed to load custom domains'), query.error)
+  }, [query.error])
 
   async function addDomain() {
     if (!newDomain.trim()) return
@@ -139,17 +142,24 @@ export function PagesDeploymentLogsModal({
   deploymentId: string
   onClose: () => void
 }) {
-  const [logs, setLogs] = useState<{ ts: string | null; line: string }[] | null>(null)
+  const {
+    data: logs,
+    error,
+    isFetching,
+  } = useQuery({
+    queryKey: queryKeys.cloudflare(teamId, accountId, 'pages', projectName, 'logs', deploymentId),
+    queryFn: () =>
+      api.atlasGetCloudflarePagesDeploymentLogs(teamId, accountId, projectName, deploymentId),
+    // A build may still be writing them, so each opening reads them again.
+    staleTime: 0,
+  })
 
+  // An error kept from an earlier read doesn't count while this opening's read is still running.
   useEffect(() => {
-    api
-      .atlasGetCloudflarePagesDeploymentLogs(teamId, accountId, projectName, deploymentId)
-      .then(setLogs)
-      .catch((e: unknown) => {
-        toast.apiError(t('Failed to load logs'), e)
-        onClose()
-      })
-  }, [teamId, accountId, projectName, deploymentId, onClose])
+    if (!error || isFetching) return
+    toast.apiError(t('Failed to load logs'), error)
+    onClose()
+  }, [error, isFetching, onClose])
 
   return (
     <Modal
