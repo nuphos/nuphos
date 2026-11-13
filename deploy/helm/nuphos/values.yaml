@@ -31,6 +31,17 @@ google:
   clientId: '' # GOOGLE_OAUTH_CLIENT_ID
   clientSecret: '' # GOOGLE_OAUTH_CLIENT_SECRET, or put it in secrets.existingSecret
 
+# Optional. With issuer, clientId and clientSecret set, sign-in offers
+# "Continue with <name>" through any OpenID Connect provider, e.g. Logto with
+# issuer https://<tenant>.logto.app/oidc. Its client must allow the redirect URI
+# <backend.url>/auth/social/oidc/callback. A verified email links to an existing
+# account with that email.
+oidc:
+  issuer: '' # OIDC_ISSUER
+  clientId: '' # OIDC_CLIENT_ID
+  clientSecret: '' # OIDC_CLIENT_SECRET, or put it in secrets.existingSecret
+  name: SSO # OIDC_DISPLAY_NAME
+
 # Left empty, each value is generated on first install and kept on upgrade.
 # Tools that render without cluster access (helm template, Argo CD) regenerate
 # them on every render, so set them explicitly or use existingSecret there.

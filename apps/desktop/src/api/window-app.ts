@@ -45,6 +45,7 @@ import type {
   UpdaterState,
   UserInfo,
 } from '../types/team.ts'
+import type { SocialOption } from '../types/app-misc.ts'
 
 export type WindowAppApi = {
   claimFirstLaunchIntro?(): Promise<boolean>
@@ -76,7 +77,7 @@ export type WindowAppApi = {
   apiUrlSync(): string
   authRemoveAvatar(): Promise<UserInfo>
   authStatus(): Promise<AuthStatus>
-  authSocialProviders(): Promise<SocialProvider[]>
+  authSocialProviders(): Promise<SocialOption[]>
   authLogin(provider: SocialProvider): Promise<UserInfo>
   authLogout(): Promise<void>
   authCancel(): Promise<void>
