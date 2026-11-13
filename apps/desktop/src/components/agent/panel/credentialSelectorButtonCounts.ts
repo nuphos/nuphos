@@ -1,74 +1,34 @@
+import { allCredentialAccess } from './credentialAccess.ts'
+
 import type { CredentialSelectorControl } from './credentialSections'
 
-export function countSelectedCredentials(value: CredentialSelectorControl['value']): number {
-  return (
-    value.awsRoleIds.length +
-    value.gcpServiceAccountIds.length +
-    value.linodeAccountIds.length +
-    value.hetznerAccountIds.length +
-    value.tencentAccountIds.length +
-    value.aliyunAccountIds.length +
-    value.volcengineAccountIds.length +
-    value.huaweiAccountIds.length +
-    value.azureAccountIds.length +
-    value.onpremClusterIds.length +
-    value.betterStackIntegrationIds.length +
-    value.uptimeKumaInstanceIds.length +
-    value.linearWorkspaceIds.length +
-    value.jiraSiteIds.length +
-    value.asanaAccountIds.length +
-    value.sentryAccountIds.length +
-    value.posthogIntegrationIds.length +
-    value.plaudAccountIds.length +
-    value.tailscaleClientIds.length +
-    value.zeaburIds.length +
-    value.vantaIntegrationIds.length +
-    value.secureframeIntegrationIds.length +
-    value.resendIntegrationIds.length +
-    value.trelloIntegrationIds.length +
-    value.githubInstallationIds.length +
-    value.gitlabBindingIds.length +
-    value.grafanaInstanceIds.length +
-    value.sonarqubeIntegrationIds.length +
-    value.notionIntegrationIds.length +
-    value.upstashAccountIds.length +
-    value.cloudflareAccountIds.length +
-    value.instaboxAccountIds.length
+// The credential ids a selection holds, devices and identity aside, keyed by kind.
+function credentialIds(value: CredentialSelectorControl['value']): string[] {
+  const { deviceIds: _devices, teamIdentity: _team, personalCredentialIds: _own, ...access } = value
+
+  return Object.entries(access).flatMap(([key, ids]) =>
+    Array.isArray(ids) ? ids.map((id: string) => `${key}:${id}`) : [],
   )
 }
 
+/** Every credential row the picker draws: what Select all ticks. */
 export function countTotalCredentials(options: CredentialSelectorControl['options']): number {
-  return (
-    options.awsRoles.length +
-    options.gcpServiceAccounts.length +
-    options.linodeAccounts.length +
-    options.hetznerAccounts.length +
-    options.tencentAccounts.length +
-    options.aliyunAccounts.length +
-    options.volcengineAccounts.length +
-    options.azureAccounts.length +
-    options.onpremClusters.length +
-    options.betterStackIntegrations.length +
-    options.uptimeKumaInstances.length +
-    options.linearWorkspaces.length +
-    options.jiraSites.length +
-    options.asanaAccounts.length +
-    options.sentryAccounts.length +
-    options.posthogIntegrations.length +
-    options.plaudAccounts.length +
-    options.tailscaleClients.length +
-    options.zeaburProviders.length +
-    options.vantaIntegrations.length +
-    options.secureframeIntegrations.length +
-    options.resendIntegrations.length +
-    options.trelloIntegrations.length +
-    options.githubInstallations.length +
-    options.gitlabBindings.length +
-    options.grafanaInstances.length +
-    options.sonarqubeIntegrations.length +
-    options.notionIntegrations.length +
-    options.upstashAccounts.length +
-    options.cloudflareAccounts.length +
-    options.instaboxAccounts.length
-  )
+  return credentialIds(allCredentialAccess(options)).length
+}
+
+/**
+ * The ticked credentials. Given the options, only drawn rows count, so it never
+ * exceeds countTotalCredentials: both read the same ids.
+ */
+export function countSelectedCredentials(
+  value: CredentialSelectorControl['value'],
+  options?: CredentialSelectorControl['options'],
+): number {
+  const ids = credentialIds(value)
+
+  if (!options) return ids.length
+
+  const drawn = new Set(credentialIds(allCredentialAccess(options)))
+
+  return ids.filter((id) => drawn.has(id)).length
 }

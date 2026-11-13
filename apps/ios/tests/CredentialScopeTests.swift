@@ -17,10 +17,14 @@ enum CredentialScopeTests {
         precondition(stored.json["githubInstallationIds"]?.arrayValue?.compactMap(\.stringValue) == ["166"])
         precondition(stored.json["personalCredentialIds"]?.arrayValue?.compactMap(\.stringValue) == ["github"])
         precondition(stored.json["teamIdentity"]?.arrayValue?.compactMap(\.stringValue) == ["linear"])
-        // Never picked for the member by "Select all" or a new chat's defaults.
+        // Never picked for the member by a new chat's defaults, but "Select all" ticks it like every row (#1928).
         var personalDefaults = CredentialSelection()
         personalDefaults.selectDefaults(in: personal)
         precondition(personalDefaults.count == 0)
+        var personalAll = CredentialSelection()
+        personalAll.selectAll(in: personal)
+        precondition(personalAll.containsAll(in: personal))
+        precondition(personalAll.json["personalCredentialIds"]?.arrayValue?.compactMap(\.stringValue) == ["github"])
         let catalog = CredentialCatalog(json: JSONValue.parse(#"{"devices":[{"deviceId":"mac","label":"Mac","platform":"darwin"}],"awsRoles":[{"roleId":"aws","accountId":"123"}]}"#)!)
         let iam = catalog.scoped(to: .credentials)
         let devices = catalog.scoped(to: .devices)
