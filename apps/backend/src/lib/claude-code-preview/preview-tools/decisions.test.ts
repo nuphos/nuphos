@@ -21,7 +21,7 @@ let foundConversations: Record<string, unknown>[] = []
 let findQuery: Record<string, unknown> | undefined
 
 useDb({
-  db: () => ({
+  db: (() => ({
     collection: () => ({
       updateOne: async (...args: Record<string, unknown>[]) => {
         conversationUpdates.push(args)
@@ -36,7 +36,7 @@ useDb({
         return { toArray: async () => foundConversations }
       },
     }),
-  }),
+  })) as unknown as typeof dbActual.db,
 })
 
 const {
@@ -46,12 +46,12 @@ const {
   resolvePreviewDecision,
 } = await import('../decision-waiter')
 
-useIdentity({ getTeamMembership: async () => ({ role: 'member' }) })
+useIdentity({ getTeamMembership: async () => ({ role: 'member' }) as never })
 
 const { decisionToolModule: createDecisionToolModule } = await import('./decisions')
 
 const decisionToolModule = (options: Parameters<typeof createDecisionToolModule>[0]) =>
-  createDecisionToolModule({ runStreamId: async () => {}, ...options })
+  createDecisionToolModule({ runStreamId: async () => undefined, ...options })
 const { unansweredInstruction } = await import('./decision-specs')
 const { awaitDecisionOnce } = await import('./decision-wait')
 const { relatedQuestionsNote } = await import('@/lib/agent/db/pending-decision')
@@ -640,7 +640,7 @@ describe('decision tool module', () => {
   test('an oversized client tool input stays off the durable request', async () => {
     const tools = decisionToolModule({
       publish: async () => {},
-      runStreamId: async () => {},
+      runStreamId: async () => undefined,
       timeoutMs: 10_000,
     }).handlers(ctx)
 
