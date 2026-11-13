@@ -1,3 +1,4 @@
+import { DismissQuestionButton } from '../../views/inbox/DismissQuestionButton'
 import { answerDecision } from '../../views/inbox/useInbox'
 import { inputRequestKey } from '../agent/summary/sessionInputRequests'
 import { useSessionInputRequests } from '../agent/summary/useSessionInputRequests'
@@ -14,7 +15,8 @@ import type { CredentialSelectorControl } from '../agent/panel/credentialSection
  * chat at the time each was asked, drawn from the same records the Inbox reads,
  * so answering here answers there. An answer wakes the agent that asked, which
  * replies where it asked; no message is sent. The card leaves at once, and comes
- * back with the error if the answer was refused.
+ * back with the error if the answer was refused. Dismissing withdraws it
+ * unanswered, as the Inbox does, and wakes no one.
  * The Bot's own Connect cards select through the Bot's credential picker, which
  * its owner also gets in the chat's composer.
  */
@@ -38,7 +40,7 @@ export function useBotChatQuestions(
       key: `question-${inputRequestKey(request)}`,
       node: (
         // Inset past the faces on both sides, so the card lines up with the bubbles.
-        <div className="px-[2.375rem]">
+        <div className="flex flex-col gap-1 px-[2.375rem]">
           <BotChatQuestion
             request={request}
             teamId={teamId}
@@ -46,6 +48,13 @@ export function useBotChatQuestions(
             // The Bot's own questions are this chat's; only an agent under it is named.
             onOpenSession={request.sessionId === botId ? undefined : onOpenSession}
             onAnswer={answer}
+          />
+          {/* Withdrawn on the agent that asked, which drops it here and in the Inbox. */}
+          <DismissQuestionButton
+            teamId={teamId}
+            sessionId={request.sessionId}
+            requestId={request.inputRequest.id}
+            className="self-end"
           />
         </div>
       ),
