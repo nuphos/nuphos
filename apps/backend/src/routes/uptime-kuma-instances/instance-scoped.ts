@@ -42,6 +42,8 @@ export function registerUptimeKumaInstanceRoutes(
   instanceScoped.patch(
     '/',
     requireTeamRole('ADMINISTRATOR'),
+    // An edit can send the stored password or token to a new base URL.
+    requireUptimeKumaMemberAccess(),
     zv('json', updateSchema),
     async (c) => {
       const teamId = parseObjectId(c.get('teamId'), 'teamId')

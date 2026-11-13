@@ -31,6 +31,7 @@ export function registerBetterStackIntegrationRoutes(
   integrationScoped.patch(
     '/',
     requireTeamRole('ADMINISTRATOR'),
+    requireBetterStackMemberAccess(),
     zv('json', updateSchema),
     async (c) => {
       const teamId = parseObjectId(c.get('teamId'), 'teamId')
