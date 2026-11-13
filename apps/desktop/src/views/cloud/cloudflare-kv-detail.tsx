@@ -10,6 +10,7 @@ import { toast } from '../../components/ui/toast'
 import { useReportLoading } from '../../components/useReportLoading'
 import { t } from '../../i18n'
 import { queryKeys } from '../../lib/query/keys'
+import { refreshAfterWrite } from '../../lib/query/refreshAfterWrite'
 
 import { CfDetailActionBar } from './cf-shared'
 import { KvValueDialog } from './cloudflare-kv-value-dialog'
@@ -45,7 +46,7 @@ export function CloudflareKvNamespaceDetailView({
   const client = useQueryClient()
   // A write changes the listing under every prefix, not only the one on screen.
   const reload = () =>
-    void client.invalidateQueries({
+    void refreshAfterWrite(client, {
       queryKey: queryKeys.cloudflare(teamId, accountId, 'kv', namespaceId, 'keys'),
     })
 
