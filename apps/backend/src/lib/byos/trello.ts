@@ -112,7 +112,8 @@ export function trelloToolArguments(tool: string, args: Record<string, unknown>)
   if (!parsed?.success)
     throw new AppError(400, 'trello_arguments_not_allowed', 'Unsupported Trello tool arguments')
 
-  return parsed.data
+  // Every input of the pinned Composio Trello tools is a string; numbers and booleans fail there.
+  return Object.fromEntries(Object.entries(parsed.data).map(([key, value]) => [key, String(value)]))
 }
 
 function trelloAuthConfig(): Promise<string> {
