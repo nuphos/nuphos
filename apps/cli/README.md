@@ -70,7 +70,9 @@ echo "..." | nuphos exec --session ID        # continue an agent
 nuphos exec --approve --agent Codex "..."    # allow commands needing approval
 nuphos conversations [QUERY]                 # recent agents / find one by title
 nuphos team [NAME] [--create]                # list teams / set the default / create
-nuphos agents [NAME] [--session ID]          # list runtimes (Claude Code, Codex, …) / pick or move
+nuphos agents                                # list runtimes (Claude Code, Codex, …)
+nuphos agents NAME --session ID              # move an agent to runtime NAME
+nuphos agents NAME --default                 # start every new agent in the team on NAME
 nuphos agents NAME --create | --login        # add a Cloud runtime / sign one in
 nuphos model                                 # list the runtime's models
 nuphos model [VALUE] [--effort E] --session ID
