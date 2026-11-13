@@ -16,6 +16,7 @@ type ThreadEntry = {
   title: string | null
   failed: boolean
   provider?: AgentProvider
+  runtimeLabel?: string
 }
 
 // One read and one poll per thread, however many badges in the chat point at it.
@@ -46,6 +47,7 @@ function read(threadId: string, teamId: string | undefined) {
           title: detail.title || null,
           failed: false,
           provider: detail.agentRuntime,
+          runtimeLabel: detail.runtimeLabel,
         })
       },
       // A failed poll keeps what an earlier read showed.
@@ -88,7 +90,7 @@ const getSnapshot = () => entries
 export function useThreadStatus(
   threadId: string | null,
   teamId: string | undefined,
-): { title: string | null; status: ThreadStatus; provider?: AgentProvider } {
+): { title: string | null; status: ThreadStatus; provider?: AgentProvider; runtimeLabel?: string } {
   const snapshot = useAgentRuntimeStates().get(threadId ?? '')
   const entry = useSyncExternalStore(subscribe, getSnapshot, getSnapshot).get(
     keyOf(threadId ?? '', teamId),
@@ -111,5 +113,6 @@ export function useThreadStatus(
     title: entry?.title ?? null,
     status: threadId ? status : 'loading',
     provider: entry?.provider,
+    runtimeLabel: entry?.runtimeLabel,
   }
 }
