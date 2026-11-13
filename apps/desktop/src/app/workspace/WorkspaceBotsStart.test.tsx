@@ -10,6 +10,7 @@ test('Bots has its own main-pane creation/import state without a Task composer',
   const html = renderToStaticMarkup(
     createElement(WorkspaceBotsStart, {
       teamId: 'empty-team',
+      firstBot: true,
       onOpen: () => {},
     }),
   )
@@ -43,7 +44,7 @@ test('hiding and returning to Bots preserves its existing avatar and action node
 
   dom.document.body.append(container)
   const root = createRoot(container as unknown as HTMLElement)
-  const onOpen = () => undefined
+  const onOpen = () => {}
   const render = (visible: boolean) =>
     act(() =>
       root.render(
@@ -77,4 +78,18 @@ test('hiding and returning to Bots preserves its existing avatar and action node
       else Reflect.deleteProperty(globalThis, key)
     }
   }
+})
+
+test('a team with Bots sees a creation page rather than first-Bot onboarding', () => {
+  const html = renderToStaticMarkup(
+    createElement(WorkspaceBotsStart, {
+      teamId: 'existing-bots',
+      firstBot: false,
+      onOpen: () => {},
+    }),
+  )
+
+  assert.ok(!html.includes('Start with your first Bot'))
+  assert.ok(html.includes('New Bot'))
+  assert.ok(html.includes('Import from Grok Bot'))
 })

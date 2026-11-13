@@ -48,8 +48,8 @@ export function PanelContent({ c, homePage, conversationPage }: ContentProps) {
             <button
               onClick={startNewChat}
               className="w-7 h-7 rounded-md hover:bg-state-hover text-secondary hover:text-main flex items-center justify-center transition-colors"
-              title={t('New agent')}
-              aria-label={t('New agent')}
+              title={t('New task')}
+              aria-label={t('New task')}
             >
               <SquarePen className="w-3.5 h-3.5" strokeWidth={1.8} />
             </button>

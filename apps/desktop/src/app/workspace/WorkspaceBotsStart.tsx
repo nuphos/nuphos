@@ -9,8 +9,10 @@ export function WorkspaceBotsStart({
   teamId,
   onOpen,
   visible = true,
+  firstBot = false,
 }: {
   visible?: boolean
+  firstBot?: boolean
   teamId: string
   onOpen: (sessionId: string) => void
 }) {
@@ -31,7 +33,13 @@ export function WorkspaceBotsStart({
       <div className="min-h-0 flex-1 overflow-y-auto [container-type:size]">
         <div className="flex min-h-full flex-col px-6 pb-8">
           <div className="mx-auto flex min-h-[50cqh] w-full max-w-[820px] flex-col justify-end pt-10">
-            <NewChatButton visible={visible} teamId={teamId} onCreated={onOpen} empty />
+            <NewChatButton
+              firstBot={firstBot}
+              visible={visible}
+              teamId={teamId}
+              onCreated={onOpen}
+              empty
+            />
           </div>
         </div>
       </div>

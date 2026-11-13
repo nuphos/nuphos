@@ -33,7 +33,7 @@ export type PaletteCommand = {
 }
 
 const ACTIONS: { id: PaletteAction; label: string; icon: LucideIcon }[] = [
-  { id: 'new-chat', label: t('New agent'), icon: SquarePen },
+  { id: 'new-chat', label: `${t('New Bot')} / ${t('New task')}`, icon: SquarePen },
   { id: 'new-tab', label: t('New tab'), icon: Plus },
   { id: 'toggle-sidebar', label: t('Toggle sidebar'), icon: PanelLeft },
   { id: 'open-settings', label: t('User settings'), icon: Settings },

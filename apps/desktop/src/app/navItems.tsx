@@ -1,5 +1,6 @@
 import { Cloud, FolderTree, Server, Users } from 'lucide-react'
 
+import { sidebarMode } from '../components/sidebar/sidebarModeStore'
 import { t } from '../i18n'
 import { isBarePagePath, navigationFromAppPath } from '../lib/appRoutes'
 import { isSettingsNavigation } from '../lib/connectorScopeCrumb'
@@ -68,7 +69,10 @@ export function activeNavItemsFor(scope: Scope, active: string): NavItemMeta[] {
     const siblings = isTeamWorkspaceKey(active) ? TEAM_WORKSPACE_NAV_ITEMS : TEAM_SIDEBAR_NAV_ITEMS
     const overview: NavItemMeta[] = siblings.map((item) => ({
       key: item.key,
-      label: item.label,
+      label:
+        item.key === 'team.agent' && sidebarMode(scope.teamId, 0) === 1
+          ? t('New task')
+          : item.label,
       icon: <item.icon className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
     }))
 

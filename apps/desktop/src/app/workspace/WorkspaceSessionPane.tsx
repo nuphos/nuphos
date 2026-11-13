@@ -3,6 +3,7 @@ import { useState } from 'react'
 
 import { useIsChannel } from '../../components/channels/channelKind'
 import { ChannelPane } from '../../components/channels/ChannelPane'
+import { useAgentSessions } from '../../components/sidebar/agentSessions'
 import { useSidebarMode } from '../../components/sidebar/useSidebarMode'
 
 import { CORNER_TITLEBAR_CLASS, CornerSidebarToggle } from './CornerSidebarToggle'
@@ -29,6 +30,9 @@ export function WorkspaceSessionPane({
   onOpenTask?: (sessionId: string) => void
 }) {
   const teamId = ws.scope?.teamId
+  const bots = useAgentSessions(teamId ?? '')
+  const firstBot =
+    bots.data !== undefined && !bots.data.some((row) => row.avatar && row.kind !== 'channel')
   const sessionId = ws.selectedSessionId
   const channel = useIsChannel(teamId, sessionId)
   const cornerPane = useWorkspacePane()?.cornerPane ?? false
@@ -53,6 +57,7 @@ export function WorkspaceSessionPane({
         <WorkspaceBotsStart
           key={teamId}
           visible={botsStart}
+          firstBot={firstBot}
           teamId={teamId}
           onOpen={(id) => ws.workspaceActions.selectSession(id, { teamId })}
         />

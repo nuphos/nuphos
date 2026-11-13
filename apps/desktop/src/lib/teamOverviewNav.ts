@@ -35,7 +35,7 @@ export const SIDEBAR_ITEM_SHORTCUTS: Partial<Record<string, string>> = {
 
 const NEW_CHAT_NAV_ITEM: TeamOverviewNavItem = {
   key: 'team.agent',
-  label: t('New agent'),
+  label: t('New Bot'),
   icon: SquarePen,
 }
 
