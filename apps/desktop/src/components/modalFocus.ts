@@ -10,9 +10,11 @@ function focusables(root: Element): HTMLElement[] {
 }
 
 /** Without a child's autoFocus, the first control in the body (not the header's ✕). */
-export function focusIntoModal(panel: HTMLElement, body: HTMLElement | null) {
+export function focusIntoModal(panel: HTMLElement, body: HTMLElement | null, firstControl = true) {
   if (panel.contains(document.activeElement)) return
-  const target = (body && focusables(body).at(0)) ?? focusables(panel).at(0) ?? panel
+  const target = firstControl
+    ? ((body && focusables(body).at(0)) ?? focusables(panel).at(0) ?? panel)
+    : panel
 
   target.focus({ preventScroll: true })
 }
@@ -44,7 +46,7 @@ export function trapTab(event: KeyboardEvent, panel: HTMLElement) {
  * Keeps focus inside an open modal and hands it back when it closes or
  * unmounts. What had focus is read as `open` flips, before a child's autoFocus.
  */
-export function useModalFocus(open: boolean) {
+export function useModalFocus(open: boolean, firstControl = true) {
   const panelRef = useRef<HTMLDivElement | null>(null)
   const bodyRef = useRef<HTMLDivElement | null>(null)
   const titleId = useId()
@@ -62,7 +64,7 @@ export function useModalFocus(open: boolean) {
     const panel = panelRef.current
 
     if (!open || !panel) return
-    const frame = requestAnimationFrame(() => focusIntoModal(panel, bodyRef.current))
+    const frame = requestAnimationFrame(() => focusIntoModal(panel, bodyRef.current, firstControl))
     const onTab = (event: KeyboardEvent) => trapTab(event, panel)
 
     document.addEventListener('keydown', onTab)
@@ -79,7 +81,7 @@ export function useModalFocus(open: boolean) {
         returnTo.focus({ preventScroll: true })
       }
     }
-  }, [open, returnTo])
+  }, [open, returnTo, firstControl])
 
   return { panelRef, bodyRef, titleId }
 }

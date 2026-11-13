@@ -1,11 +1,12 @@
 import { Cloud, Database, Folder, FolderGit2 } from 'lucide-react'
 
-import { activeNavItemsFor, k8sResourceIcon } from '../../../app/navItems'
+import { k8sResourceIcon } from '../../../app/navItems'
 import { Avatar } from '../../../components/Avatar'
 import { CloudLogo } from '../../../components/CloudLogo'
 import { GithubMark } from '../../../components/GithubMark'
 import { t } from '../../../i18n'
 import { isIntegrationNavigation } from '../../../lib/connectorScopeCrumb'
+import { connectorDetailForScope } from '../store/connectorsDialog'
 
 import { pushClusterCrumbs } from './clusterCrumbs'
 import { pushClusterPickerCrumbs } from './clusterPickerCrumbs'
@@ -30,7 +31,7 @@ export function computeBreadcrumb(
     s3Detail,
     updateActiveTab,
     teams,
-    enterScope,
+    openConnectors,
     switchTeam,
     refreshTeamsSilently,
     githubNav,
@@ -82,26 +83,12 @@ export function computeBreadcrumb(
     scope.kind !== 'team' &&
     (isIntegrationNavigation(scope, active) || isOnpremConnectorResource)
   ) {
+    // Connectors is a dialog, not a page with siblings to pick from: the crumb
+    // opens it over this page, on the connector this resource hangs off.
     out.push({
       label: t('Connectors'),
       icon: <Cloud className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
-      onClick: () => enterScope({ kind: 'team', teamId: scope.teamId }, 'team.integrations'),
-      // The same sibling picker the Connectors page carries when you are on
-      // it. Drilling into a connector changes the scope, so the shared nav
-      // picker stops recognising this crumb and it is rebuilt here — without
-      // the list it would be the one first-level crumb that cannot reach its
-      // siblings. The label still goes back to Connectors; the chevron is the
-      // other half of the split.
-      options: activeNavItemsFor({ kind: 'team', teamId: scope.teamId }, 'team.integrations').map(
-        (item) => ({
-          key: item.key,
-          label: item.label,
-          group: item.group,
-          icon: item.icon,
-          selected: item.key === 'team.integrations',
-          onPick: () => enterScope({ kind: 'team', teamId: scope.teamId }, item.key),
-        }),
-      ),
+      onClick: () => openConnectors(connectorDetailForScope(scope)),
     })
   }
   // Chats belongs to the agent and is reached from its home, so the trail

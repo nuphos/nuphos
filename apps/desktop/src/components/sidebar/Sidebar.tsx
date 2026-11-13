@@ -64,6 +64,7 @@ export const Sidebar = memo(function Sidebar({
   onRejectInvitation,
   rootIntegrations,
   rootIntegrationsLoading = false,
+  connectorsOpen = false,
   collapsed = false,
   onToggleCollapse,
   dynamicNavigation = false,
@@ -77,12 +78,7 @@ export const Sidebar = memo(function Sidebar({
   const chrome = useSidebarChrome({ teamId, collapsed })
   const { width, dragging, setDragging, peek, setPeek } = chrome
   const { agentSessions, chatItems, newChatActive, archiveChat, unlinkChat, archivingIds } =
-    useSidebarChats({
-      teamId,
-      agentSessionId,
-      chatShown,
-      onArchived: onChatArchived,
-    })
+    useSidebarChats({ teamId, agentSessionId, chatShown, onArchived: onChatArchived })
   // Expanded mode restores scope-specific navigation; split mode keeps Chats.
   const teamScope = { kind: 'team' as const, teamId }
   const navigationScope = dynamicNavigation ? scope : teamScope
@@ -259,7 +255,7 @@ export const Sidebar = memo(function Sidebar({
             </div>
           )}
         <SidebarFooter
-          active={active}
+          connectorsOpen={connectorsOpen}
           onSelect={onSelect}
           {...{
             user,

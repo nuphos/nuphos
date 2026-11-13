@@ -2,6 +2,7 @@ import { canStepNavigation } from '../../../lib/navHistory.ts'
 import { isTeamManagementKey } from '../../../lib/teamOverviewNav.ts'
 import { NO_SESSION_TAB_BUCKET_KEY } from '../../workspaceTabState.ts'
 
+import type { ConnectorsDialogState } from './connectorsDialog'
 import type { NavigationSnapshot } from '../../../lib/appRoutes'
 import type { Scope } from '../../../types'
 import type { WorkspaceTabState } from '../../workspaceTabState'
@@ -36,6 +37,8 @@ export type WorkspaceState = {
    *  Runtime-only; a dock tab keeps its own history for moves inside it. */
   surfaceHistory: readonly SurfaceEntry[]
   surfaceHistoryIndex: number
+  /** The Connectors dialog, null while closed. Runtime-only. */
+  connectorsDialog: ConnectorsDialogState | null
 }
 
 /** What the main pane shows. */
@@ -166,6 +169,7 @@ export function createWorkspaceState(
     recentSessionKeys: Object.keys(buckets),
     surfaceHistory: [{ ...surface, at: Date.now() }],
     surfaceHistoryIndex: 0,
+    connectorsDialog: null,
   }
 }
 

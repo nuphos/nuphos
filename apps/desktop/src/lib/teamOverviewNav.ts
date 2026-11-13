@@ -38,10 +38,13 @@ const NEW_CHAT_NAV_ITEM: TeamOverviewNavItem = {
   icon: SquarePen,
 }
 
-/** Team-wide pages that replace the chat surface when opened from the sidebar. */
-export const TEAM_MANAGEMENT_NAV_ITEMS: TeamOverviewNavItem[] = [
-  { key: 'team.integrations', label: t('Connectors'), icon: Cloud },
-]
+/** Connectors opens as a dialog over the current page, never as a page; its
+ *  key still names it in the sidebar, ⌘K and old links. */
+export const CONNECTORS_NAV_ITEM: TeamOverviewNavItem = {
+  key: 'team.integrations',
+  label: t('Connectors'),
+  icon: Cloud,
+}
 
 /** Team pages hosted in Team Settings. Their keys still name them in links and ⌘K. */
 export const TEAM_SETTINGS_PAGE_NAV_ITEMS: TeamOverviewNavItem[] = [
@@ -71,7 +74,6 @@ export const HOME_NAV_ITEM: TeamOverviewNavItem = {
 
 const MAIN_PANE_NAV_ITEMS = [
   HOME_NAV_ITEM,
-  ...TEAM_MANAGEMENT_NAV_ITEMS,
   ARCHIVED_CHATS_NAV_ITEM,
   LEGACY_INBOX_NAV_ITEM,
   { key: 'team.plans', label: t('Plans'), icon: ClipboardList },
@@ -87,10 +89,10 @@ export const TEAM_WORKSPACE_NAV_ITEMS: TeamOverviewNavItem[] = [
   { key: 'team.monitoring', label: t('Monitoring'), icon: HeartPulse },
 ]
 
-/** The sidebar's untitled top section: the chat entry plus the management pages. */
+/** The sidebar's untitled top section: the chat entry plus Connectors. */
 export const TEAM_SIDEBAR_NAV_ITEMS: TeamOverviewNavItem[] = [
   NEW_CHAT_NAV_ITEM,
-  ...TEAM_MANAGEMENT_NAV_ITEMS,
+  CONNECTORS_NAV_ITEM,
 ]
 
 /**
