@@ -12,6 +12,7 @@ export function connectLocalStream(
     file: deps.connectFile,
     attachments: deps.connectAttachments,
     exec: deps.connectExec,
+    upload: deps.connectUpload,
     cua: deps.connectCua,
     browser: deps.connectBrowser,
     browserView: deps.connectBrowserView,

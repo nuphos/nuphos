@@ -37,6 +37,7 @@ export type TunnelClientDeps = {
   connectAttachments?: (instanceId?: string) => SocketLike | null
   connectTerminal?: () => SocketLike
   connectExec?: () => SocketLike
+  connectUpload?: () => SocketLike
   /** Computer Use, only where the Codex App can provide it. */
   connectCua?: () => SocketLike
   connectBrowser?: () => SocketLike
@@ -117,6 +118,7 @@ export class RuntimeTunnelClient {
         agentInstances: Boolean(this.deps.instances),
         localMetrics: Boolean(this.deps.sampleMetrics),
         localExec: Boolean(this.deps.connectExec),
+        localUpload: Boolean(this.deps.connectUpload),
         localTerminal: Boolean(this.deps.connectTerminal),
         localCua: Boolean(this.deps.connectCua),
         localBrowser: Boolean(this.deps.connectBrowser),

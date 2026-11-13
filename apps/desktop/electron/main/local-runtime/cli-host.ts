@@ -35,6 +35,7 @@ import {
 } from './desktop-pool.ts'
 import { deviceCredentialFor, exitRevoked, ownsMachine, tunnelUrlFor } from './device-credential.ts'
 import { LocalExecStream } from './exec-stream.ts'
+import { LocalUploadStream } from './upload-stream.ts'
 import { probeLocalModels } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import { LOCAL_AGENT_NAMES as NAMES } from './providers.ts'
@@ -207,6 +208,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       },
       ...localFileConnectors(() => controller.state(), bundleRoot),
       connectExec: () => new LocalExecStream(),
+      connectUpload: () => new LocalUploadStream(),
       connectVnc: desktopPool ? () => new VncStream(desktopPool) : undefined,
       connectRuntime: (purpose, provider, instanceId) => {
         const running = runtime(provider, instanceId)

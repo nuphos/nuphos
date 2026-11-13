@@ -107,8 +107,12 @@ describe('localExecToolModule', () => {
     const module = await localExecToolModule(ctx)
     const names = module.definitions.map((definition) => (definition as { name: string }).name)
 
-    expect(names).toEqual(['local_terminal', 'local_exec'])
-    expect(Object.keys(module.handlers(ctx))).toEqual(['local_terminal', 'local_exec'])
+    expect(names).toEqual(['local_upload', 'local_terminal', 'local_exec'])
+    expect(Object.keys(module.handlers(ctx))).toEqual([
+      'local_upload',
+      'local_terminal',
+      'local_exec',
+    ])
   })
 
   test('offers selected devices that are available, and offline Boxes with a wake', async () => {

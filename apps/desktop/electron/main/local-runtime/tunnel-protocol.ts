@@ -6,6 +6,7 @@ export type TunnelPurpose = 'transport' | 'control'
 export type StreamPurpose =
   | TunnelPurpose
   | 'exec'
+  | 'upload'
   | 'file'
   | 'attachments'
   | 'terminal'
