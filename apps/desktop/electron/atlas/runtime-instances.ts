@@ -3,7 +3,6 @@ import { call } from './client'
 import type { OpenAbRuntimeStatus } from './claude-code'
 import type { SessionConfigPick, SessionConfigState } from '../../src/api/session-config-types'
 import type {
-  CreateRuntimeInput,
   ExternalRuntimeProviderProbe,
   RuntimeInstance,
   RuntimeLoginStatus,
@@ -25,12 +24,6 @@ function path(teamId: string, runtimeId?: string): string {
 
 export async function listRuntimeInstances(teamId: string): Promise<RuntimeInstance[]> {
   return (await call<{ runtimes: RuntimeInstance[] }>('GET', path(teamId))).runtimes
-}
-export function createRuntimeInstance(
-  teamId: string,
-  input: CreateRuntimeInput,
-): Promise<RuntimeInstance> {
-  return call('POST', path(teamId), input, { retry: false })
 }
 export function probeExternalRuntimeProvider(
   teamId: string,

@@ -23,7 +23,6 @@ import type {
   RuntimeQuota,
   RuntimeQuotaHistoryRange,
   RuntimeQuotaHistorySeries,
-  CreateRuntimeInput,
   ExternalRuntimeProviderProbe,
   PairExternalRuntimeInput,
   PairedExternalRuntime,
@@ -68,7 +67,6 @@ export type WindowTeamApi = {
     teamId: string,
     range: RuntimeQuotaHistoryRange,
   ): Promise<RuntimeQuotaHistorySeries[]>
-  atlasCreateRuntimeInstance(teamId: string, input: CreateRuntimeInput): Promise<RuntimeInstance>
   atlasProbeExternalRuntimeProvider(
     teamId: string,
     url: string,
