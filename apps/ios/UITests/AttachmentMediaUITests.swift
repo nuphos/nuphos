@@ -66,6 +66,21 @@ final class AttachmentMediaUITests: XCTestCase {
         shot("video-loading")
     }
 
+    /// The video's link fails: its page says so, rather than an empty player.
+    func testVideoThatFailsToLoadSaysSo() throws {
+        let app = try launch(videoLink: "https://api.preview.invalid/fixture-media/gone.mp4", videoName: "gone.mp4", extra: [
+            "GET /fixture-media/gone.mp4": ["status": 404, "body": ""],
+        ])
+        let image = app.buttons["Open wide.png"]
+        XCTAssertTrue(image.waitForExistence(timeout: 10), "The image never showed")
+        image.tap()
+        XCTAssertTrue(app.staticTexts["2 / 3"].waitForExistence(timeout: 8), "The viewer did not open")
+        app.swipeRight()
+        XCTAssertTrue(app.staticTexts["1 / 3"].waitForExistence(timeout: 5), "Swiping did not reach the video")
+        XCTAssertTrue(app.buttons["Couldn't load the video. Try again."].waitForExistence(timeout: 10), "The failed video showed no error")
+        shot("video-failed")
+    }
+
     /// Opens the release chat, whose first screenshot group is the video at
     /// `videoLink` and `wide.png`, followed by the fixture's `shot-2.png`.
     private func launch(videoLink: String, videoName: String = "clip.mp4", extra: [String: Any] = [:]) throws -> XCUIApplication {
