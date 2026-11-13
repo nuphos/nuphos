@@ -6,11 +6,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
-import { keychainFor } from '../../auth/token-store.ts'
-
 import type { LocalRuntimeControllerDeps, RuntimeProcess } from './controller-types.ts'
 import type { LocalAgentProvider } from './providers.ts'
-import type { TokenStore } from '../../auth/token-store.ts'
 
 export type CustomProviderAgent = 'claude-code' | 'codex'
 export type CustomProvider = { baseUrl: string; models: string[] }
@@ -18,8 +15,19 @@ export type CustomProvider = { baseUrl: string; models: string[] }
 /** What a launch needs: the key in the CLI's own variable, and the models to report. */
 export type CustomProviderLaunch = { models: string[]; env: Record<string, string> }
 
-/** The keys, one item per account and agent; the session token's service is separate. */
-export const providerKeys = keychainFor('ai.nuphos.desktop.provider')
+/**
+ * Where the keys are kept: the OS credential store in the app (`keychainFor` in
+ * auth/token-store.ts). Only its shape is named here, so code that reaches this module, the
+ * backend's tests among it, never needs the store's native module.
+ */
+export type KeyStore = {
+  get: (account: string) => Promise<string | null>
+  set: (account: string, key: string) => Promise<void>
+  delete: (account: string) => Promise<unknown>
+}
+
+/** The credential store's service the keys are kept under, one item per account and agent. */
+export const PROVIDER_KEYCHAIN_SERVICE = 'ai.nuphos.desktop.provider'
 
 /** Claude Code's gateway token, and the variable Codex's provider names as its `env_key`. */
 export const PROVIDER_KEY_ENV: Record<CustomProviderAgent, string> = {
@@ -108,7 +116,7 @@ function writeCustomProvider(
  * so it is never shown as removed while its key stays behind. A key already gone is no error.
  */
 export async function saveCustomProvider(
-  store: TokenStore,
+  store: KeyStore,
   userDir: string,
   userId: string,
   provider: unknown,
@@ -143,7 +151,7 @@ export async function saveCustomProvider(
  * Rejects when the key cannot be read, so the agent never starts without it.
  */
 export async function customProviderLaunch(
-  store: TokenStore,
+  store: KeyStore,
   provider: LocalAgentProvider,
   agentHome: string,
 ): Promise<CustomProviderLaunch | undefined> {
@@ -165,7 +173,7 @@ export async function customProviderLaunch(
  */
 export function withProviderStatus(
   probe: LocalRuntimeControllerDeps['probeCli'],
-  store: TokenStore,
+  store: KeyStore,
 ): LocalRuntimeControllerDeps['probeCli'] {
   return async (provider, env, agentHome) => {
     const cli = await probe(provider, env, agentHome)
@@ -186,7 +194,7 @@ export function withProviderStatus(
  * An openab process that hands the saved provider's key to its agent. Found from the agent's
  * home, so an added agent, whose home is elsewhere, keeps its own sign-in.
  */
-export function withProviderKey(process: RuntimeProcess, store: TokenStore): RuntimeProcess {
+export function withProviderKey(process: RuntimeProcess, store: KeyStore): RuntimeProcess {
   return {
     start: async (options) => {
       const custom = await customProviderLaunch(store, options.provider, options.agentHome)

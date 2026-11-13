@@ -17,9 +17,9 @@ import {
 } from './custom-provider.ts'
 
 import type { LocalRuntimeLaunch } from './config.ts'
-import type { TokenStore } from '../../auth/token-store.ts'
+import type { KeyStore } from './custom-provider.ts'
 
-function memoryStore(): TokenStore & { items: Map<string, string> } {
+function memoryStore(): KeyStore & { items: Map<string, string> } {
   const items = new Map<string, string>()
 
   return {

@@ -8,6 +8,7 @@ import { callJson } from '../../agent/http.ts'
 import { logLocalTool } from '../../agent/local-exec.ts'
 import { apiUrl, deviceRegistrationAllowed } from '../../api-endpoint.ts'
 import { authSession } from '../../auth-session.ts'
+import { keychainFor } from '../../auth/token-store.ts'
 import { dialBackend } from '../../backend-socket.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../../client-version.ts'
 import { resolveShellEnv } from '../../shell-env.ts'
@@ -25,7 +26,7 @@ import { browserStreams } from './browser-streams.ts'
 import { readCliCache, writeCliCache } from './cli-cache.ts'
 import { readBundle } from './config.ts'
 import {
-  providerKeys,
+  PROVIDER_KEYCHAIN_SERVICE,
   readCustomProviders,
   saveCustomProvider,
   withProviderKey,
@@ -63,6 +64,7 @@ function bundleRoot(): string {
 }
 
 const findBundle = (): LocalRuntimeBundle | null => readBundle(bundleRoot())
+const providerKeys = keychainFor(PROVIDER_KEYCHAIN_SERVICE)
 const ownDir = (userId: string) => path.join(dataDir(), 'users', userId)
 
 export async function userEnv(): Promise<NodeJS.ProcessEnv> {
