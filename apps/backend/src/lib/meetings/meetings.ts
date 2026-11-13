@@ -80,6 +80,7 @@ export async function joinMeeting(caller: AgentConversation, teamId: string, mee
   if (url.protocol !== 'https:') throw new Error('A meeting link starts with https://')
   // Only a Bot is in a chat, so a Task joins as its Bot, which hears the call.
   const agent = await speakingBot(caller)
+
   await assertMeetingBudget(teamId, recallConfig().botsPerTeamPerDay)
   const botName = agent.title || 'Nuphos agent'
   const botId = await createMeetingBot({ meetingUrl: url.href, botName, webhookUrl: webhookUrl() })
