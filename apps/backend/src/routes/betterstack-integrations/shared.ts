@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { BetterStackApiError } from '@/lib/byos/betterstack'
+import { bindingShareSchema } from '@/lib/byos/initial-access'
 import { decryptBetterStackToken, encryptBetterStackToken } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 
@@ -26,6 +27,7 @@ export const bindSchema = z
     telemetryApiToken: z.string().trim().min(1).optional(),
     dashboardTeamId: dashboardTeamIdSchema.optional(),
     prometheusWebhookUrl: prometheusWebhookUrlSchema.optional(),
+    share: bindingShareSchema.optional(),
   })
   .strict()
   .refine((value) => value.uptimeApiToken || value.telemetryApiToken, {
