@@ -131,7 +131,6 @@ describe('decision tool module', () => {
                 status: 'open',
               },
             ],
-            $slice: -100,
           },
         },
       },

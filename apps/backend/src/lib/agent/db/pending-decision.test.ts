@@ -34,12 +34,25 @@ const collection = {
     if (!stored) return { matchedCount: 1 }
     const doc = stored.find((candidate) => matches(candidate, filter))
 
+    const pushed = (update.$push as { inputRequests?: { $each: Doc[] } } | undefined)?.inputRequests
+      ?.$each
+    const pulled = (update.$pull as { inputRequests?: { id: { $in: string[] } } } | undefined)
+      ?.inputRequests?.id.$in
+
+    if (doc && pushed) doc.inputRequests = [...((doc.inputRequests ?? []) as Doc[]), ...pushed]
+    if (doc && pulled)
+      doc.inputRequests = (doc.inputRequests as Doc[]).filter(
+        (entry) => !pulled.includes(entry.id as string),
+      )
     const element = doc && elementOf(doc, filter)
     const status = (update.$set as Doc | undefined)?.['inputRequests.$.status']
 
     if (element && status) element.status = status
 
     return { matchedCount: doc ? 1 : 0 }
+  },
+  async findOne(filter: Doc) {
+    return stored?.find((candidate) => matches(candidate, filter)) ?? null
   },
   find(query: Doc) {
     lastQuery = query
@@ -71,11 +84,55 @@ describe('input requests', () => {
     expect(updates).toEqual([
       {
         filter: { sessionId: 's1', userId: 'owner' },
-        update: {
-          $push: { inputRequests: { $each: [{ ...request, status: 'open' }], $slice: -100 } },
-        },
+        update: { $push: { inputRequests: { $each: [{ ...request, status: 'open' }] } } },
       },
     ])
+  })
+
+  test('past the cap only the oldest resolved requests fall off, never an open one', async () => {
+    const entry = (n: number, status: string): Doc => ({
+      ...request,
+      id: `nuphos-${String(n)}`,
+      status,
+    })
+    const owned: Doc = {
+      sessionId: 's1',
+      userId: 'owner',
+      inputRequests: [
+        entry(0, 'open'),
+        entry(1, 'answered'),
+        entry(2, 'dismissed'),
+        ...Array.from({ length: 97 }, (_, n) => entry(n + 3, n % 2 ? 'open' : 'answered')),
+      ],
+    }
+
+    stored = [owned]
+    await addInputRequest('s1', 'owner', { ...request, id: 'nuphos-new' })
+    await addInputRequest('s1', 'owner', { ...request, id: 'nuphos-newer' })
+
+    const ids = (owned.inputRequests as Doc[]).map((kept) => kept.id)
+
+    expect(ids).toHaveLength(100)
+    expect(ids.slice(0, 2)).toEqual(['nuphos-0', 'nuphos-3'])
+    expect(ids.slice(-2)).toEqual(['nuphos-new', 'nuphos-newer'])
+  })
+
+  test('open requests are never dropped, even past the cap', async () => {
+    const owned: Doc = {
+      sessionId: 's1',
+      userId: 'owner',
+      inputRequests: Array.from({ length: 100 }, (_, n) => ({
+        ...request,
+        id: `nuphos-${String(n)}`,
+        status: 'open',
+      })),
+    }
+
+    stored = [owned]
+    await addInputRequest('s1', 'owner', { ...request, id: 'nuphos-new' })
+
+    expect(owned.inputRequests).toHaveLength(101)
+    expect(updates.some((update) => '$pull' in update.update)).toBe(false)
   })
 
   test('resolving marks only the exact open request', async () => {
