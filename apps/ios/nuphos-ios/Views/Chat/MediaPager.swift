@@ -1,19 +1,32 @@
 #if os(iOS)
+import AVKit
 import SwiftUI
+import UniformTypeIdentifiers
 import UIKit
 
-/// Full-screen image preview. Swiping sideways steps through the group and
-/// wraps at either end, a pinch zooms, and a pull down closes it. Whichever
-/// way a drag starts decides which of those it is.
-struct ImagePager: View {
+/// Full-screen preview of a message's images and videos. Swiping sideways
+/// steps through them and wraps at either end, a pinch zooms an image, and a
+/// pull down closes it. Whichever way a drag starts decides which of those it is.
+struct MediaPager: View {
     let urls: [URL]
     @State var current: URL
+    /// Fetches a video's copy to its URL, for a page shown before it is on disk.
+    var load: (URL) async throws -> Void = { _ in }
     @State private var pull: CGFloat = 0
     @State private var closing = false
     @Environment(\.dismiss) private var dismiss
 
+    /// Whether the pager can show `url`: a video, or an image UIImage decodes.
+    static func shows(_ url: URL) -> Bool {
+        isVideo(url) || UIImage(contentsOfFile: url.path) != nil
+    }
+
+    fileprivate static func isVideo(_ url: URL) -> Bool {
+        UTType(filenameExtension: url.pathExtension)?.conforms(to: .movie) == true
+    }
+
     var body: some View {
-        Pages(urls: urls, current: $current, pull: $pull, close: close)
+        Pages(urls: urls, current: $current, pull: $pull, load: load, close: close)
             .ignoresSafeArea()
             .background(Color.black.opacity(1 - min(pull / 300, 0.6)).ignoresSafeArea())
             .overlay(alignment: .top) {
@@ -53,7 +66,12 @@ private struct Pages: UIViewControllerRepresentable {
     let urls: [URL]
     @Binding var current: URL
     @Binding var pull: CGFloat
+    let load: (URL) async throws -> Void
     let close: () -> Void
+
+    func page(_ url: URL) -> UIViewController & Page {
+        MediaPager.isVideo(url) ? PlayerPage(url: url, load: load) : ZoomPage(url: url)
+    }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -61,7 +79,7 @@ private struct Pages: UIViewControllerRepresentable {
         let pager = UIPageViewController(transitionStyle: .scroll, navigationOrientation: .horizontal, options: [.interPageSpacing: 16])
         pager.dataSource = context.coordinator
         pager.delegate = context.coordinator
-        pager.setViewControllers([ZoomPage(url: current)], direction: .forward, animated: false)
+        pager.setViewControllers([page(current)], direction: .forward, animated: false)
         // One touch, one axis: the paging scroll view waits for the pull to
         // decline, and the pull only takes drags that start mostly downward.
         let pull = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.pull(_:)))
@@ -83,8 +101,8 @@ private struct Pages: UIViewControllerRepresentable {
 
         func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
             guard let pan = recognizer as? UIPanGestureRecognizer,
-                  let page = (pan.view?.next as? UIPageViewController)?.viewControllers?.first as? ZoomPage,
-                  !page.isZoomed else { return false }
+                  let page = (pan.view?.next as? UIPageViewController)?.viewControllers?.first,
+                  (page as? ZoomPage)?.isZoomed != true else { return false }
             let velocity = pan.velocity(in: pan.view)
             return velocity.y > abs(velocity.x)
         }
@@ -111,8 +129,8 @@ private struct Pages: UIViewControllerRepresentable {
         /// The neighbour `step` away, wrapping past either end.
         private func neighbour(of controller: UIViewController, step: Int) -> UIViewController? {
             let urls = parent.urls
-            guard urls.count > 1, let index = urls.firstIndex(of: (controller as! ZoomPage).url) else { return nil }
-            return ZoomPage(url: urls[(index + step + urls.count) % urls.count])
+            guard urls.count > 1, let index = urls.firstIndex(of: (controller as! Page).url) else { return nil }
+            return parent.page(urls[(index + step + urls.count) % urls.count])
         }
 
         func pageViewController(_ pager: UIPageViewController, viewControllerBefore controller: UIViewController) -> UIViewController? {
@@ -124,14 +142,18 @@ private struct Pages: UIViewControllerRepresentable {
         }
 
         func pageViewController(_ pager: UIPageViewController, didFinishAnimating finished: Bool, previousViewControllers: [UIViewController], transitionCompleted completed: Bool) {
-            if let page = pager.viewControllers?.first as? ZoomPage { parent.current = page.url }
+            if let page = pager.viewControllers?.first as? Page { parent.current = page.url }
         }
     }
 }
 
+private protocol Page: UIViewController {
+    var url: URL { get }
+}
+
 /// One image in a scroll view, for the pinch. Until it is zoomed there is
 /// nothing to pan, so its own pan stays out of the way of paging and the pull.
-private final class ZoomPage: UIViewController, UIScrollViewDelegate {
+private final class ZoomPage: UIViewController, Page, UIScrollViewDelegate {
     let url: URL
     private let scroll = UIScrollView()
     private let image = UIImageView()
@@ -168,6 +190,50 @@ private final class ZoomPage: UIViewController, UIScrollViewDelegate {
 
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
         scrollView.panGestureRecognizer.isEnabled = isZoomed
+    }
+}
+/// One video with the system's playback controls; it pauses once swiped away.
+/// A video not yet on disk is fetched when its page shows, behind a spinner.
+private final class PlayerPage: UIViewController, Page {
+    let url: URL
+    private let load: (URL) async throws -> Void
+    private let player = AVPlayerViewController()
+
+    init(url: URL, load: @escaping (URL) async throws -> Void) {
+        self.url = url
+        self.load = load
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        player.view.backgroundColor = .clear
+        player.view.frame = view.bounds
+        player.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        player.view.accessibilityIdentifier = url.lastPathComponent
+        addChild(player)
+        view.addSubview(player.view)
+        player.didMove(toParent: self)
+        Task {
+            if !FileManager.default.fileExists(atPath: url.path) {
+                let spinner = UIActivityIndicatorView(style: .large)
+                spinner.color = .white
+                spinner.center = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
+                spinner.autoresizingMask = [.flexibleTopMargin, .flexibleBottomMargin, .flexibleLeftMargin, .flexibleRightMargin]
+                spinner.startAnimating()
+                view.addSubview(spinner)
+                try? await load(url)
+                spinner.removeFromSuperview()
+            }
+            player.player = AVPlayer(url: url)
+        }
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        player.player?.pause()
     }
 }
 #endif

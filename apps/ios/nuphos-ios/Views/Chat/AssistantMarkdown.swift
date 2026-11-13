@@ -140,7 +140,7 @@ private struct MarkdownImage: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         #if os(iOS)
-        .fullScreenCover(isPresented: $previewing) { ImagePager(urls: [url], current: url) }
+        .fullScreenCover(isPresented: $previewing) { MediaPager(urls: [url], current: url) }
         #endif
     }
 }
