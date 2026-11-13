@@ -143,4 +143,16 @@ describe('registerBindingAccessRoutes', () => {
       'linodeAccounts.$.access': { memberAllowList: ['u1', 'u2'], ownerUserId: 'u1' },
     })
   })
+
+  test('makes whoever empties an unowned shared binding its owner, so they can still edit it', async () => {
+    memberAllowList = ['u1', 'u2']
+    ownerUserId = undefined
+    expect((await put('ADMINISTRATOR', [])).status).toBe(200)
+    expect(updates[0]?.update.$set).toMatchObject({
+      'linodeAccounts.$.access': { memberAllowList: [], ownerUserId: 'admin' },
+    })
+    memberAllowList = []
+    ownerUserId = 'admin'
+    expect((await put('ADMINISTRATOR', ['*'])).status).toBe(200)
+  })
 })
