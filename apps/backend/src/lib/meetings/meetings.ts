@@ -30,6 +30,25 @@ function webhookUrl(): string {
   return `${stripTrailingSlashes(base ?? '')}/meetings/recall/webhook`
 }
 
+async function openMeetingChannel(
+  agent: AgentConversation,
+  teamId: string,
+  channelId: string,
+  title: string,
+  meeting: { botId: string; botName: string; url: string },
+) {
+  await upsertConversationShell({
+    sessionId: channelId,
+    userId: agent.userId,
+    teamId,
+    title,
+    firstMessage: '',
+    kind: 'channel',
+  })
+  await agentConversations().updateOne({ sessionId: channelId }, { $set: { meeting } })
+  await addChannelAgent(channelId, agent.sessionId)
+}
+
 /**
  * Sends `agent` into the call under its own name, with a channel of its own
  * where the call's speech arrives and its posts go out to the call's chat.
@@ -42,19 +61,15 @@ export async function joinMeeting(agent: AgentConversation, teamId: string, meet
   const botId = await createMeetingBot({ meetingUrl: url.href, botName, webhookUrl: webhookUrl() })
   const channelId = randomUUID()
 
-  await upsertConversationShell({
-    sessionId: channelId,
-    userId: agent.userId,
-    teamId,
-    title: `Meeting ${url.pathname.replace(/^\//, '') || url.host}`,
-    firstMessage: '',
-    kind: 'channel',
-  })
-  await agentConversations().updateOne(
-    { sessionId: channelId },
-    { $set: { meeting: { botId, botName, url: url.href } } },
-  )
-  await addChannelAgent(channelId, agent.sessionId)
+  try {
+    const title = `Meeting ${url.pathname.replace(/^\//, '') || url.host}`
+
+    await openMeetingChannel(agent, teamId, channelId, title, { botId, botName, url: url.href })
+  } catch (error) {
+    // No channel to hear it, so the bot leaves rather than sit in the call.
+    await leaveMeeting(botId).catch(() => undefined)
+    throw error
+  }
 
   return { channelId, url: `/teams/${teamId}/agent/${channelId}` }
 }
