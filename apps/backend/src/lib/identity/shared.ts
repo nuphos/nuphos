@@ -26,6 +26,7 @@ export type NuphosUserDoc = {
   profileEdited?: boolean
   appleID?: string
   googleID?: string
+  oidcID?: string
   /** Where the account came from, set once at signup (signup-source.ts). */
   signupSource?: SignupSource
   /** Optional two-factor authentication (mfa.ts). */

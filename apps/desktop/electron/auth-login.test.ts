@@ -279,7 +279,20 @@ test('native: Apple opens its own start page with the same handle', async () => 
 })
 
 test('socialProviders reports what the backend offers, and nothing from older servers', async () => {
-  assert.deepEqual(await auth.socialProviders(), ['google', 'apple'])
+  assert.deepEqual(await auth.socialProviders(), [
+    { provider: 'google', name: 'Google' },
+    { provider: 'apple', name: 'Apple' },
+  ])
+
+  chooserProbe = () =>
+    new Response('provider chooser', {
+      headers: {
+        'X-Nuphos-Social-Login': '1',
+        'X-Nuphos-Social-Providers': 'oidc,unknown',
+        'X-Nuphos-Social-Oidc-Name': 'Logto',
+      },
+    })
+  assert.deepEqual(await auth.socialProviders(), [{ provider: 'oidc', name: 'Logto' }])
 
   chooserProbe = () =>
     new Response('provider chooser', { headers: { 'X-Nuphos-Social-Login': '1' } })

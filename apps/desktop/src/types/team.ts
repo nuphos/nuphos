@@ -10,7 +10,7 @@ export type UserInfo = {
   createdAt?: string
 }
 
-export type SocialProvider = 'google' | 'apple'
+export type SocialProvider = 'google' | 'apple' | 'oidc'
 
 /** An account signed in on this computer (electron/auth/accounts.ts); never its token. */
 export type AccountSummary = {

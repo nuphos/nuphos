@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { Hono } from 'hono'
 import { z } from 'zod'
 
+import { config } from '@/config'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { trustedAvatarURL } from '@/lib/identity/avatar-url'
@@ -18,16 +19,24 @@ import {
   pollDeviceLogin,
   startDeviceLogin,
 } from '@/lib/identity/device-login'
-import { redisEnabled, withRedis } from '@/lib/redis'
+import { deviceGuessQuota, redisQuota } from '@/lib/identity/device-login-quota'
+import { oidcConfigured } from '@/lib/identity/social'
 import { clientIp } from '@/lib/request-origin'
 import { zv } from '@/lib/validate'
 import { requireAuth } from '@/middleware/auth'
 import { avatarBodyLimit } from '@/routes/auth'
+import { DEVICE_PAGE_PATH } from '@/routes/device-approval'
 
+import type { Quota } from '@/lib/identity/device-login-quota'
 import type { AuthVariables } from '@/middleware/auth'
 import type { Context } from 'hono'
 
-const VERIFICATION_URI = 'https://nuphos.ai/device'
+const HOSTED_VERIFICATION_URI = 'https://nuphos.ai/device'
+
+// nuphos.ai/device approves only for Nuphos Cloud, so a server with its own OIDC provider sends
+// people to its own page instead.
+const verificationUri = () =>
+  oidcConfigured() ? `${config.auth.publicBaseUrl}${DEVICE_PAGE_PATH}` : HOSTED_VERIFICATION_URI
 
 const agentFields = {
   name: z.string().trim().min(1).max(64),
@@ -43,21 +52,6 @@ const decisionSchema = z.discriminatedUnion('decision', [
   z.object({ userCode: z.string(), decision: z.literal('personal') }),
   z.object({ userCode: z.string(), decision: z.literal('agent'), ...agentFields }),
 ])
-
-type Quota = (key: string, limit: number, windowSec: number) => Promise<boolean>
-
-/** Fixed-window counter in Redis. Without Redis configured (local dev) it never limits. */
-const redisQuota: Quota = async (key, limit, windowSec) => {
-  const count = await withRedis(async (client) => {
-    const n = await client.incr(key)
-
-    if (n === 1) await client.expire(key, windowSec)
-
-    return n
-  })
-
-  return count === null ? !redisEnabled() : count <= limit
-}
 
 function ipOf(c: Context): string | undefined {
   return clientIp(c.req.header('CF-Connecting-IP'), c.req.header('X-Forwarded-For'))
@@ -84,7 +78,7 @@ export function createCliAuthRoutes(quota: Quota = redisQuota) {
     const body = (await c.req.json().catch(() => ({}))) as { clientName?: unknown }
     const started = await startDeviceLogin({ clientName: body.clientName, requesterIp: ip })
 
-    return c.json({ ...started, verificationUri: VERIFICATION_URI })
+    return c.json({ ...started, verificationUri: verificationUri() })
   })
 
   routes.post('/device/token', async (c) => {
@@ -93,7 +87,7 @@ export function createCliAuthRoutes(quota: Quota = redisQuota) {
 
     switch (result.status) {
       case 'pending':
-        throw new AppError(409, 'authorization_pending', 'Waiting for approval on nuphos.ai')
+        throw new AppError(409, 'authorization_pending', 'Waiting for approval')
       case 'slow_down':
         throw new AppError(429, 'slow_down', 'Polling too fast')
       case 'denied':
@@ -107,7 +101,7 @@ export function createCliAuthRoutes(quota: Quota = redisQuota) {
 
   // The approval page: what is asking, then the decision. A session only (`cliTokenDenied`).
   routes.get('/device/approve', requireAuth, async (c) => {
-    await guessQuota(c, quota)
+    await deviceGuessQuota(c.get('userId'), quota)
     const pending = await findPendingDeviceLogin(c.req.query('userCode'))
 
     if (!pending) throw new AppError(404, 'invalid_user_code', 'This code is wrong or has expired')
@@ -116,7 +110,7 @@ export function createCliAuthRoutes(quota: Quota = redisQuota) {
   })
 
   routes.post('/device/approve', requireAuth, zv('json', decisionSchema), async (c) => {
-    await guessQuota(c, quota)
+    await deviceGuessQuota(c.get('userId'), quota)
     const { userCode, ...decision } = c.req.valid('json')
 
     await decideDeviceLogin(userCode, c.get('user'), decision)
@@ -203,13 +197,6 @@ function ownAgentTokenId(c: Context<{ Variables: AuthVariables }>): string {
   }
 
   return cliToken.id
-}
-
-/** Codes are guessable only by trying: cap tries per approving user. */
-async function guessQuota(c: Context<{ Variables: AuthVariables }>, quota: Quota) {
-  if (!(await quota(`device-login:approve:${c.get('userId')}`, 30, 600))) {
-    throw new AppError(429, 'rate_limited', 'Too many attempts; wait a few minutes')
-  }
 }
 
 export const cliAuthRoutes = createCliAuthRoutes()

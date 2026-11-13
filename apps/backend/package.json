@@ -78,6 +78,7 @@
     "google-auth-library": "^10.6.2",
     "hono": "^4.12.25",
     "ioredis": "^5.10.1",
+    "jose": "^6.2.15",
     "marked": "18.0.5",
     "mongodb": "^7.2.0",
     "postgres": "^3.4.9",
