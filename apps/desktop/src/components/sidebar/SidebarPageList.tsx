@@ -37,7 +37,9 @@ export function SidebarPageList({
     page === 1
       ? taskPageSections(source.flatMap((section) => section.items))
       : sections.filter((section) => section.title === 'Channels' || section.title === 'Favorites')
-  const pinned = (item: Item) => Boolean(listProps.favoriteMatch(item))
+  // Only a Bot or chat pins; an older Task pin stays stored but is no Bot.
+  const pinned = (item: Item) =>
+    Boolean((item.bot || item.channel) && listProps.favoriteMatch(item))
   const visible = shown
     .filter((section) => section.title !== 'Tasks' || section.items.length > 0 || section.loading)
     .map((section) => ({

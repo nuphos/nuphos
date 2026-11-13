@@ -38,7 +38,10 @@ test('Bots never receive task Idle classification, but removing their avatar res
 })
 test('a pinned face receives its actual rendering size rather than a larger wrapper', () => {
   const face = createElement(ChatIcon, { sidebar: true, title: 'Bot' })
-  const result = BotPinFace({ item: { key: 'bot-a', label: 'Bot', enabled: true, face }, size: 56 })
+  const result = BotPinFace({
+    item: { key: 'bot-a', label: 'Bot', enabled: true, iconNode: face },
+    size: 56,
+  })
 
   assert.ok(isValidElement<{ size: number; sidebar: boolean }>(result))
   assert.equal(result.props.size, 56)
