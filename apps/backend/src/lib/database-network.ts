@@ -9,7 +9,7 @@ import { AppError } from '@/lib/errors'
 
 import { publicSocksProxy } from '@/lib/net/public-socks'
 
-import type { DatabaseNetworkMode, DatabaseTailscaleNetwork } from '@/models'
+import type { BindingAccess, DatabaseNetworkMode, DatabaseTailscaleNetwork } from '@/models'
 import type { MongoClientOptions } from 'mongodb'
 
 export type MongoNetworkOptions = Pick<
@@ -112,6 +112,8 @@ export async function resolveDatabaseNetwork(
   teamId: ObjectId,
   networkMode: DatabaseNetworkMode,
   tailscale: DatabaseTailscaleNetwork | undefined,
+  /** Whether the member choosing this network may use the Tailscale binding. */
+  canUseBinding: (access: BindingAccess | undefined) => boolean = () => true,
 ): Promise<ResolvedDatabaseNetwork> {
   assertDatabaseNetworkConfiguration(networkMode, tailscale)
   if (networkMode === 'public') {
@@ -139,6 +141,13 @@ export async function resolveDatabaseNetwork(
       422,
       'database_tailscale_binding_not_found',
       'The selected Tailscale OAuth binding is no longer available to this team.',
+    )
+  }
+  if (!canUseBinding(binding.access)) {
+    throw new AppError(
+      403,
+      'database_tailscale_binding_access_denied',
+      'You are not allowed to use the selected Tailscale binding.',
     )
   }
 
