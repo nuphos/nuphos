@@ -114,6 +114,10 @@ export type AgentTrigger = {
   cleanupStartedAt?: Date
   cleanupUpdatedAt?: Date
   lastRunAt?: Date
+  /** When a scheduled fire last reached the worker, whatever the turn's outcome. */
+  lastFiredAt?: Date
+  /** Scheduled time of the latest fire that never ran; unset by the next fire. */
+  missedRunAt?: Date
   createdAt: Date
   updatedAt: Date
 }

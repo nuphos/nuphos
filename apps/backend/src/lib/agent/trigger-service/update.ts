@@ -179,6 +179,8 @@ export async function updateTrigger(
   const $unset: Record<string, true> = {}
 
   for (const field of legacyModes) $unset[field] = true
+  // A missed-run marker belongs to the schedule it was raised for.
+  if (cronChanged || timeZoneChanged || enabledChanged) $unset.missedRunAt = true
   if (Object.keys($unset).length > 0) {
     update.$unset = $unset
   }
