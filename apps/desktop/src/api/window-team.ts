@@ -49,6 +49,7 @@ import type {
 } from '../types/team.ts'
 
 export type WindowTeamApi = {
+  atlasExportTeam(teamId: string): Promise<boolean>
   atlasGetTeamGoogleClient(teamId: string): Promise<TeamGoogleClient>
   atlasSetTeamGoogleClient(teamId: string, clientId: string, clientSecret: string): Promise<void>
   atlasDeleteTeamGoogleClient(teamId: string): Promise<void>

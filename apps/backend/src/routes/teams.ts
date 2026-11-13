@@ -68,6 +68,7 @@ import {
 } from '@/routes/teams/conversation-auth'
 import { registerTeamInvitationRoutes } from '@/routes/teams/invitations'
 import { registerTeamManagementRoutes } from '@/routes/teams/management'
+import { registerTeamMigrationRoutes } from '@/routes/teams/migration'
 import { registerTeamsRootRoutes } from '@/routes/teams/root'
 import { tencentAccountsRoutes } from '@/routes/tencent-accounts'
 import { trelloIntegrationsRoutes } from '@/routes/trello-integrations'
@@ -107,6 +108,7 @@ teamScoped.use('*', requireTeamMember())
 teamScoped.use('*', dispatchConversationTeamApi)
 
 registerTeamManagementRoutes(teamScoped)
+registerTeamMigrationRoutes(teamScoped)
 registerTeamInvitationRoutes(teamScoped)
 registerAgentRuntimeRoutes(teamScoped)
 registerExternalRuntimeRoute(teamScoped)

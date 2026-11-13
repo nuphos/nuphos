@@ -12,6 +12,7 @@ import { t } from '../../i18n'
 import { AllowedEmailDomainCard } from './AllowedEmailDomainCard'
 import { AvatarPicker } from './AvatarPicker'
 import { DangerZone } from './DangerZone'
+import { DataMigrationCard } from './DataMigrationCard'
 import { GoogleOAuthClientCard } from './GoogleOAuthClientCard'
 import { Field, SectionHeader } from './shared'
 import { inputClasses } from './styles'
@@ -161,6 +162,8 @@ export function GeneralSection({
 
           <AllowedEmailDomainCard team={team} userEmail={userEmail} onTeamUpdated={onTeamUpdated} />
           <GoogleOAuthClientCard team={team} />
+
+          <DataMigrationCard team={team} />
 
           <DangerZone team={team} onTeamRemoved={onTeamRemoved} />
         </>

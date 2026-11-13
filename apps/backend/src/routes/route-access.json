@@ -833,6 +833,7 @@
   "POST /teams/:teamId/leave": "member",
   "POST /teams/:teamId/linear-workspaces/start-oauth": "admin",
   "POST /teams/:teamId/linode-accounts": "admin",
+  "POST /teams/:teamId/migration/export": "admin",
   "POST /teams/:teamId/notion-integrations": "admin",
   "POST /teams/:teamId/onprem-clusters": "admin",
   "POST /teams/:teamId/onprem-clusters/:clusterId/rotate-token": "admin",
