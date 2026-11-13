@@ -55,7 +55,8 @@ final class InboxUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["Roll out 1.4 to production?"].waitForExistence(timeout: 5), "The question is not listed")
         XCTAssertTrue(app.staticTexts["Which node pool should the staging cluster use?"].exists)
-        XCTAssertTrue(app.buttons["Other…"].firstMatch.exists, "No Other… to answer in words")
+        XCTAssertTrue(app.textFields["Your answer"].firstMatch.exists, "No text box to answer in words")
+        XCTAssertFalse(app.buttons["Mark as done"].exists, "A to-do is still marked done")
         shot("3-inbox")
 
         // The answer leaves the Inbox at once; the listing then agrees.
@@ -72,26 +73,27 @@ final class InboxUITests: XCTestCase {
                       "The asking conversation did not open")
     }
 
-    /// "Other…" asks for the answer in words in the card itself, which sends it as the answer:
-    /// no composer, no message. A plan keeps only Approve and Reject.
-    func testOtherAnswersInWordsInTheCard() throws {
+    /// The Inbox card has the text box for an answer in words, which sends it as the answer: no
+    /// "Other…", no "Mark as done", no composer, no message. A plan keeps only Approve and Reject.
+    func testAnswersInWordsInTheCard() throws {
         try listQuestions([deploy, staging, plan])
         app = launch(page: "agent")
         app.buttons["Switch page"].firstMatch.tap()
         app.buttons["Inbox"].firstMatch.tap()
         XCTAssertTrue(app.staticTexts["Roll out 1.4 to production?"].waitForExistence(timeout: 10), "The question is not listed")
-        // Other… beside options, Reply… without them, nothing on the plan.
+        // A text box beside options and without them, none on the plan; nothing to open it.
         // By label: the card's own identifier covers those inside it.
-        XCTAssertEqual(app.buttons.matching(Self.typedAnswer).count, 2)
-        shot("5-inbox-other")
+        XCTAssertEqual(app.textFields.matching(NSPredicate(format: "label == %@ OR placeholderValue == %@", "Your answer", "Your answer")).count, 2)
+        XCTAssertEqual(app.buttons.matching(Self.typedAnswer).count, 0)
+        XCTAssertFalse(app.buttons["Mark as done"].exists, "A to-do is still marked done")
+        shot("5-inbox-in-place")
 
-        app.buttons["Other…"].firstMatch.tap()
-        let words = app.textFields["Your answer"]
-        XCTAssertTrue(words.waitForExistence(timeout: 5), "Other… does not ask for the answer in the card")
+        // Newest first: the deploy question's box.
+        let words = app.textFields["Your answer"].firstMatch
         words.tap()
         words.typeText("Ship after the 18:00 freeze\n")
-        shot("6-inbox-other-typed")
-        app.buttons["Send answer"].tap()
+        shot("6-inbox-typed")
+        app.buttons["Send answer"].firstMatch.tap()
         try listQuestions([staging, plan])
         XCTAssertTrue(app.staticTexts["Roll out 1.4 to production?"].waitForNonExistence(timeout: 5), "The answered question stayed")
     }
