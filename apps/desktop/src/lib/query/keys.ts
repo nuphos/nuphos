@@ -41,4 +41,14 @@ export const queryKeys = {
     [...queryKeys.s3Bucket(scope, bucket), 'objects', prefix] as const,
   s3Object: (scope: string, bucket: string, key: string, part: 'preview' | 'download-url') =>
     [...queryKeys.s3Bucket(scope, bucket), part, key] as const,
+  /** One Lambda function's reads, scoped like `s3Bucket`. */
+  lambda: (scope: string, region: string, name: string, ...part: (string | number)[]) =>
+    ['aws-lambda', scope, region, name, ...part] as const,
+  cloudWatchAlarm: (scope: string, arn: string, ...part: (string | number)[]) =>
+    ['aws-cloudwatch-alarm', scope, arn, ...part] as const,
+  /** CloudWatch metrics for one region, scoped like `s3Bucket`. */
+  cloudWatchMetrics: (scope: string, region: string, ...part: (string | number)[]) =>
+    ['aws-cloudwatch-metrics', scope, region, ...part] as const,
+  complianceTests: (teamId: string, provider: string, integrationId: string) =>
+    [...queryKeys.team(teamId), 'compliance-tests', provider, integrationId] as const,
 }

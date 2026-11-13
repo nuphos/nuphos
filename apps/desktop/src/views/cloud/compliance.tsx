@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { api, parseAtlasError } from '../../api'
@@ -6,8 +7,9 @@ import { DetailSidebarTransition } from '../../components/DetailSidebarTransitio
 import { StatusBadge } from '../../components/StatusBadge'
 import { Table } from '../../components/Table'
 import { t } from '../../i18n'
+import { queryKeys } from '../../lib/query/keys'
+import { useRefreshKey } from '../../lib/query/tabQuery'
 import { useLinkOnlyRowMenu, useWorkspaceRowLink } from '../../lib/workspaceRowLink'
-import { useResetOnKey } from '../useResetOnKey'
 
 import { htmlToText } from './compliance-helpers'
 import { ComplianceTestDetail } from './ComplianceTestDetail'
@@ -17,6 +19,39 @@ import { applyFilter } from './shared'
 import type { ComplianceRow } from './compliance-helpers'
 import type { CommonProps } from './shared'
 import type { SecureframeTest, VantaTest } from '../../types'
+
+async function failingTests(
+  teamId: string,
+  provider: 'secureframe' | 'vanta',
+  integrationId: string,
+): Promise<ComplianceRow[]> {
+  if (provider === 'secureframe') {
+    const tests = await api.atlasListSecureframeTests(teamId, integrationId, true)
+
+    return tests.map((test: SecureframeTest) => ({
+      key: test.id,
+      name: htmlToText(test.description) || test.id,
+      category: '',
+      reason: htmlToText(test.failureMessage),
+      remediation: htmlToText(test.remediation),
+      status: test.healthStatus || 'fail',
+      lastRun: null,
+    }))
+  }
+  const tests = await api.atlasListVantaTests(teamId, integrationId, {
+    status: 'NEEDS_ATTENTION',
+  })
+
+  return tests.map((test: VantaTest) => ({
+    key: test.id,
+    name: htmlToText(test.name) || test.id,
+    category: test.category || '',
+    reason: htmlToText(test.failureDescription),
+    remediation: htmlToText(test.remediationDescription),
+    status: test.status || 'NEEDS_ATTENTION',
+    lastRun: test.lastTestRunDate,
+  }))
+}
 
 /**
  * Failed compliance tests for a bound Secureframe or Vanta integration. Both
@@ -39,76 +74,20 @@ export function ComplianceIntegrationView({
   /** False when the integration id no longer matches a bound account. */
   found: boolean
 }) {
-  const [rows, setRows] = useState<ComplianceRow[]>([])
-  const [error, setError] = useState<string | null>(null)
-  // The mount fetch is already in flight, so seed `loading` the way the reset
-  // below would have; it only runs for later integration/refresh changes.
-  const [loading, setLoading] = useState(found)
+  const query = useQuery({
+    queryKey: queryKeys.complianceTests(teamId, provider, integrationId),
+    queryFn: () => failingTests(teamId, provider, integrationId),
+    enabled: found,
+  })
+  const rows = query.data ?? []
+  const error = query.error ? parseAtlasError(query.error).message : null
+  const loading = found && query.isPending
 
-  useResetOnKey(
-    `${teamId}|${provider}|${integrationId}|${String(found)}|${String(refreshKey)}`,
-    () => {
-      setRows([])
-      setError(null)
-      setLoading(found)
-    },
+  useRefreshKey(
+    { isPending: loading, refetch: () => (found ? query.refetch() : Promise.resolve()) },
+    refreshKey,
+    onLoading,
   )
-  useEffect(() => {
-    if (!found) {
-      onLoading?.(false)
-
-      return
-    }
-    let cancelled = false
-
-    onLoading?.(true)
-    const load = async (): Promise<ComplianceRow[]> => {
-      if (provider === 'secureframe') {
-        const tests = await api.atlasListSecureframeTests(teamId, integrationId, true)
-
-        return tests.map((test: SecureframeTest) => ({
-          key: test.id,
-          name: htmlToText(test.description) || test.id,
-          category: '',
-          reason: htmlToText(test.failureMessage),
-          remediation: htmlToText(test.remediation),
-          status: test.healthStatus || 'fail',
-          lastRun: null,
-        }))
-      }
-      const tests = await api.atlasListVantaTests(teamId, integrationId, {
-        status: 'NEEDS_ATTENTION',
-      })
-
-      return tests.map((test: VantaTest) => ({
-        key: test.id,
-        name: htmlToText(test.name) || test.id,
-        category: test.category || '',
-        reason: htmlToText(test.failureDescription),
-        remediation: htmlToText(test.remediationDescription),
-        status: test.status || 'NEEDS_ATTENTION',
-        lastRun: test.lastTestRunDate,
-      }))
-    }
-
-    load()
-      .then((next) => {
-        if (!cancelled) setRows(next)
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(parseAtlasError(err).message)
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false)
-          onLoading?.(false)
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [teamId, provider, integrationId, found, refreshKey, onLoading])
 
   const filtered = applyFilter(
     rows,
