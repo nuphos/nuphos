@@ -96,8 +96,8 @@ issuer endpoint, e.g. `https://<tenant>.logto.app/oidc`), `oidc.clientId`,
 `oidc.clientSecret` (or add `OIDC_CLIENT_SECRET` to `secrets.existingSecret`)
 and `oidc.name`, the label on the "Continue with" button. A verified email
 signs in to the existing account with that email, so the user `nuphos-admin
-bootstrap` created can switch to SSO. Desktop shows the button; the iOS and
-Android apps do not offer OIDC yet.
+bootstrap` created can switch to SSO. Desktop and iOS show the button; Android
+does not offer OIDC yet.
 
 ## Secrets
 
