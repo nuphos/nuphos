@@ -55,7 +55,7 @@ export class LocalRuntimeController {
           this.changed()
           this.tunnel?.sendStatus()
         },
-        { restartDefault: (provider) => this.refresh(true, [provider]) },
+        { refreshDefault: (provider, restart) => this.refresh(restart, [provider]) },
       )
     this.deps = deps
     this.usage = createUsageSampler(

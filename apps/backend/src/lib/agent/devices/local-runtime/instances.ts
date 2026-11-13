@@ -107,13 +107,17 @@ export async function createLocalAgentInstance(
   return created
 }
 
-/** Keeps an added agent once its sign-in succeeded; the host checks the login itself. */
+/**
+ * Tells the host a sign-in succeeded; the host checks the login itself. An added agent
+ * (named by its instance id) is kept from then on; the computer's own agent (named by its
+ * provider) is listed signed in at once.
+ */
 export async function commitLocalAgentInstance(
   target: Target,
-  instanceId: string,
+  agent: RemovableAgent,
   options: Options = {},
 ): Promise<void> {
-  await requestInstances(target, { method: 'commit', instanceId }, options)
+  await requestInstances(target, { method: 'commit', ...agent }, options)
 }
 
 /** Stops an agent and deletes what it stored. Removing a gone agent succeeds. */
