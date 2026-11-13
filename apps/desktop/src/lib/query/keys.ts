@@ -33,4 +33,6 @@ export const queryKeys = {
   /** Under `grafanaInstances`, so refreshing the bindings refreshes what was read through them. */
   grafana: (teamId: string, instanceId: string, ...rest: string[]) =>
     [...queryKeys.grafanaInstances(teamId), instanceId, ...rest] as const,
+  /** A cloud resource list, by its `withResourceListCache` key. */
+  resourceList: (cacheKey: string) => ['resource-list', cacheKey] as const,
 }
