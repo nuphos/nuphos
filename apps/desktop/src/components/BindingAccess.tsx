@@ -140,6 +140,9 @@ export function BindingAccessSection({
       isAdmin,
     )
 
+  // "Specific people" with nobody picked would leave the binding usable by no one.
+  const nobodySelected = normalizeAllowList(memberAllowList).length === 0
+
   return (
     <section className="px-6 py-4 border-t border-line-control/60">
       <div className="flex items-center gap-2 mb-3">
@@ -214,7 +217,7 @@ export function BindingAccessSection({
                 size="sm"
                 type="button"
                 onClick={() => void save()}
-                disabled={saving || !canEdit}
+                disabled={saving || !canEdit || nobodySelected}
               >
                 {saving ? t('Saving...') : t('Save access')}
               </Button>
