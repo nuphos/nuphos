@@ -38,8 +38,8 @@ struct CredentialCatalog: Equatable, Sendable {
         let detail: String?
         /// A device that is offline or has local exec off. Shown only while selected, so it can be unticked.
         var offline = false
-        /// Picked by "Select all" and a new chat's defaults: online, and not the member's own credential.
-        var selectable: Bool { !offline && provider.selectionKey != "personalCredentialIds" }
+        /// Picked by "Select all": online.
+        var selectable: Bool { !offline }
     }
 
     static let providers: [Provider] = [
@@ -164,17 +164,18 @@ struct CredentialSelection: Equatable, Sendable {
         }
     }
 
-    /// Every usable credential but the member's own GitHub / Linear, which a chat acts as only when
-    /// picked, as the desktop's `allCredentialAccess`.
+    /// Every usable credential, the member's own GitHub / Linear included, as the desktop's Select all.
     mutating func selectAll(in catalog: CredentialCatalog) {
         for item in catalog.allItems where item.selectable && !contains(item) { toggle(item) }
     }
 
     /// What a conversation starts with when nobody has chosen: everything
-    /// usable except Resend, whose mail is irreversible and so stays opt-in.
+    /// usable except Resend, whose mail is irreversible and so stays opt-in, and
+    /// the member's own GitHub / Linear, which a chat acts as only when picked.
     /// Mirrors the desktop's `defaultCredentialAccess`.
     mutating func selectDefaults(in catalog: CredentialCatalog) {
         selectAll(in: catalog)
+        ids["personalCredentialIds"] = []
         ids["resendIntegrationIds"] = []
         ids["trelloIntegrationIds"] = []
     }

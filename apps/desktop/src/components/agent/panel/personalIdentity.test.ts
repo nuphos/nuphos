@@ -64,21 +64,22 @@ describe('own credential without a team binding', () => {
       linearWorkspaces: Array.from({ length: linear }, () => ({})),
     }) as unknown as AgentCredentialOptions
 
-  test('one counted row per own credential: identity under a binding, the credential without', () => {
+  test('every drawn own row is counted: the credential, and the identity under a binding', () => {
     const rows = personalRows(options(1, 0), {
       ...emptyCredentialAccess(),
       personalCredentialIds: ['linear'],
     })
 
     assert.deepEqual(rows, [
-      { provider: 'github', login: 'fong', bound: true, checked: true },
-      { provider: 'linear', login: 'fong', bound: false, checked: true },
+      { provider: 'github', identity: false, checked: false },
+      { provider: 'github', identity: true, checked: true },
+      { provider: 'linear', identity: false, checked: true },
     ])
     assert.deepEqual(
       personalRows(options(1, 0), { ...emptyCredentialAccess(), teamIdentity: ['github'] }).map(
         (row) => row.checked,
       ),
-      [false, false],
+      [false, false, false],
     )
   })
 
@@ -87,7 +88,7 @@ describe('own credential without a team binding', () => {
 
     assert.deepEqual(setAllPersonal(emptyCredentialAccess(), rows, true), {
       teamIdentity: [],
-      personalCredentialIds: ['linear'],
+      personalCredentialIds: ['github', 'linear'],
     })
     assert.deepEqual(setAllPersonal(emptyCredentialAccess(), rows, false), {
       teamIdentity: ['github'],
@@ -105,44 +106,20 @@ describe('own credential without a team binding', () => {
     assert.deepEqual(teamIdentityOf(selected).teamIdentity, [])
   })
 
-  // Under a binding the own credential is opted into only by its own row: Select all
-  // neither adds nor drops it, and Clear all revokes it with the rest.
-  test('under a binding, Select all keeps an opted-in own credential and never adds one', () => {
+  // #1928: with the team's binding already acting as the member, Select all left
+  // "You (login) · Personal" unticked while the badge read N/N.
+  test('under a binding, Select all ticks the own credential too', () => {
     for (const provider of ['github', 'linear'] as const) {
       const bound = provider === 'github' ? options(1, 0) : options(0, 1)
-      const other = provider === 'github' ? 'linear' : 'github'
-      const absent = emptyCredentialAccess()
-      const optedIn = { ...emptyCredentialAccess(), personalCredentialIds: [provider] }
+      const value = emptyCredentialAccess()
+      const selected = { ...value, ...setAllPersonal(value, personalRows(bound, value), true) }
 
+      assert.deepEqual(selected.personalCredentialIds?.sort(), ['github', 'linear'])
+      assert.ok(personalRows(bound, selected).every((row) => row.checked))
       assert.deepEqual(
-        setAllPersonal(absent, personalRows(bound, absent), true).personalCredentialIds,
-        [other],
-      )
-      assert.deepEqual(
-        setAllPersonal(optedIn, personalRows(bound, optedIn), true).personalCredentialIds?.sort(),
-        [other, provider].sort(),
-      )
-      assert.deepEqual(
-        setAllPersonal(optedIn, personalRows(bound, optedIn), false).personalCredentialIds,
+        setAllPersonal(selected, personalRows(bound, selected), false).personalCredentialIds,
         [],
       )
-    }
-  })
-
-  test('under a binding, the counted row is the identity, never the own credential', () => {
-    for (const teamIdentity of [undefined, ['github' as const]]) {
-      const value = { ...emptyCredentialAccess(), ...(teamIdentity ? { teamIdentity } : {}) }
-      const rows = personalRows(options(1, 1), value)
-
-      assert.deepEqual(
-        rows.map(({ provider, bound }) => ({ provider, bound })),
-        [
-          { provider: 'github', bound: true },
-          { provider: 'linear', bound: true },
-        ],
-      )
-      // The own credential is not selected because the team acts as the member.
-      assert.equal(value.personalCredentialIds, undefined)
     }
   })
 
