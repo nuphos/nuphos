@@ -134,7 +134,7 @@ export function ChannelPane({
       sendingPost(id, text, user, files?.optimisticPart(), mentions, reply),
     ])
     try {
-      const upload = files ? (await files.runUpload(undefined)).groupId : undefined
+      const upload = files ? (await files.runUpload()).groupId : undefined
 
       await api.agentPostChannelMessage(
         channelId,

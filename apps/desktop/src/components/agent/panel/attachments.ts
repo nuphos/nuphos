@@ -69,13 +69,13 @@ export function makeAttachmentTurn(
     ...(metadata ? { metadata } : {}),
     ...(turnKind ? { turnKind } : {}),
   })
-  const runUpload = (sessionId: string | undefined): Promise<TransferUploadPart> =>
+  // Team-scoped, never agent-session-scoped: a new chat's backend session
+  // doesn't exist until its first turn starts, and a tab whose first upload
+  // failed never gets one. The agent still pulls the group, because loadGroup
+  // matches on team + user, not session.
+  const runUpload = (): Promise<TransferUploadPart> =>
     api
-      .fileTransferUpload({
-        teamId,
-        ...(sessionId ? { sessionId } : {}),
-        filePaths,
-      })
+      .fileTransferUpload({ teamId, filePaths })
       .then((group) => ({
         type: 'transfer-upload' as const,
         groupId: group.groupId,
