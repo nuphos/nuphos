@@ -248,6 +248,8 @@ export type WindowAppApi = {
     reviewed: { relPath: string; realPath: string }[],
   ): Promise<LocalSetupResult>
   localSetupSetAutoSync(teamId: string, enabled: boolean): Promise<void>
+  localSetupSetFolders(teamId: string, folders: string[]): Promise<LocalSetupResult>
+  localSetupSources(teamId: string): Promise<Record<string, string>>
   teamSkillsImportLocal(
     teamId: string,
     scope: SkillScope | undefined,

@@ -9,8 +9,9 @@ import { formatBytes } from '../../grafana/format'
 import { t } from '../../i18n'
 
 import { originUrl } from './githubSkillUpdates'
+import { useSyncedFrom } from './useSyncedFrom'
 
-import type { TeamSkillHistory, TeamSkillObject, TeamSkillOrigin } from '../../api'
+import type { SkillScope, TeamSkillHistory, TeamSkillObject, TeamSkillOrigin } from '../../api'
 import type { RefObject } from 'react'
 
 export function SkillHistorySection({
@@ -216,6 +217,22 @@ export function SkillOriginRow({ origin }: { origin: TeamSkillOrigin }) {
         {origin.repo}
         {origin.path ? `/${origin.path}` : ''} @ {origin.ref ?? origin.commitSha.slice(0, 7)}
       </a>
+    </>
+  )
+}
+
+/** Provenance row for a personal skill Sync my setup brings from a folder on this computer. */
+export function SkillSyncedFromRow(props: { teamId: string; scope: SkillScope; name: string }) {
+  const folder = useSyncedFrom(props.teamId, props.scope, props.name)
+
+  if (!folder) return null
+
+  return (
+    <>
+      <span className="text-tertiary">{t('Synced from')}</span>
+      <span className="truncate font-mono text-secondary" title={folder}>
+        {folder}
+      </span>
     </>
   )
 }
