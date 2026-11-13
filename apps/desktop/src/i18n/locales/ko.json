@@ -4166,6 +4166,7 @@
   "Shortcut: just @mention {name} in a group the bot is already in — it auto-links on the first mention.": "바로가기: 봇이 이미 참여한 그룹에서 {name}을(를) @멘션하기만 하면 첫 멘션 시 자동으로 연결됩니다.",
   "Show": "표시",
   "Show OAuth app settings": "OAuth 앱 설정 표시",
+  "Show all {n} files": "파일 {n}개 모두 보기",
   "Show current port forwards": "현재 포트 포워딩 보기",
   "Show fewer items": "간략히 보기",
   "Show full history": "전체 기록 보기",

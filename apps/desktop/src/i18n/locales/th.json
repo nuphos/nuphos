@@ -4166,6 +4166,7 @@
   "Shortcut: just @mention {name} in a group the bot is already in — it auto-links on the first mention.": "ทางลัด: เพียง @กล่าวถึง {name} ในกลุ่มที่บอทอยู่แล้ว — ระบบจะลิงก์ให้อัตโนมัติเมื่อกล่าวถึงครั้งแรก",
   "Show": "แสดง",
   "Show OAuth app settings": "แสดงการตั้งค่าแอป OAuth",
+  "Show all {n} files": "แสดงไฟล์ทั้งหมด {n} ไฟล์",
   "Show current port forwards": "แสดงพอร์ตฟอร์เวิร์ดที่ใช้งานอยู่",
   "Show fewer items": "แสดงรายการน้อยลง",
   "Show full history": "แสดงประวัติทั้งหมด",

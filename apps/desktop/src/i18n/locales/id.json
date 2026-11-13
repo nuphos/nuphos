@@ -4166,6 +4166,7 @@
   "Shortcut: just @mention {name} in a group the bot is already in — it auto-links on the first mention.": "Pintasan: cukup @mention {name} di grup yang sudah berisi bot — tertaut otomatis pada mention pertama.",
   "Show": "Tampilkan",
   "Show OAuth app settings": "Tampilkan pengaturan aplikasi OAuth",
+  "Show all {n} files": "Tampilkan semua {n} file",
   "Show current port forwards": "Tampilkan port forward saat ini",
   "Show fewer items": "Tampilkan lebih sedikit item",
   "Show full history": "Tampilkan riwayat lengkap",

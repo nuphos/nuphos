@@ -4166,6 +4166,7 @@
   "Shortcut: just @mention {name} in a group the bot is already in — it auto-links on the first mention.": "捷徑：只要在 Bot 已加入的群組中 @提及 {name}，第一次提及時就會自動連結。",
   "Show": "顯示",
   "Show OAuth app settings": "顯示 OAuth 應用程式設定",
+  "Show all {n} files": "顯示全部 {n} 個檔案",
   "Show current port forwards": "顯示目前的連接埠轉送",
   "Show fewer items": "顯示較少項目",
   "Show full history": "顯示完整歷史記錄",

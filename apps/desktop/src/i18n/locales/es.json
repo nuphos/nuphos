@@ -4166,6 +4166,7 @@
   "Shortcut: just @mention {name} in a group the bot is already in — it auto-links on the first mention.": "Atajo: solo tienes que @mencionar a {name} en un grupo donde ya esté el bot; se vincula automáticamente con la primera mención.",
   "Show": "Mostrar",
   "Show OAuth app settings": "Mostrar la configuración de la app OAuth",
+  "Show all {n} files": "Mostrar los {n} archivos",
   "Show current port forwards": "Mostrar reenvíos de puertos actuales",
   "Show fewer items": "Mostrar menos elementos",
   "Show full history": "Mostrar historial completo",
