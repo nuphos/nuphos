@@ -77,8 +77,8 @@ export async function readsTriggerConversation(
 
   return Boolean(
     conversation &&
-      conversation.teamId === resource.teamId &&
-      readsConversation(conversation, userId),
+    conversation.teamId === resource.teamId &&
+    readsConversation(conversation, userId),
   )
 }
 

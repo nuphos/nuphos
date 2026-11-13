@@ -2,10 +2,7 @@ import { CRON_TIME_ZONE, isValidCronExpression, isValidTimeZone } from '@/lib/cr
 import { AppError } from '@/lib/errors'
 import { clearSlackNotificationIncidentsForTrigger } from '@/lib/slack/incident-notifications'
 
-import {
-  assertTriggerAccess,
-  triggerExecutionPrincipalId,
-} from '../trigger-access'
+import { assertTriggerAccess, triggerExecutionPrincipalId } from '../trigger-access'
 import { agentTriggers, triggerConfigRevisionFilter } from '../trigger-db'
 import { scheduleCronTrigger, unscheduleCronTrigger } from '../trigger-scheduler'
 

@@ -65,7 +65,11 @@ export async function updateTriggerGroup(
 
   // Whoever reads the conversation reads the Group, so it may only move into one its owner owns.
   if (nextTargetSessionId && nextTargetSessionId !== group.targetSessionId) {
-    await assertBindableSession(nextTargetSessionId, group.teamId, triggerExecutionPrincipalId(group))
+    await assertBindableSession(
+      nextTargetSessionId,
+      group.teamId,
+      triggerExecutionPrincipalId(group),
+    )
   }
   const triggerById = new Map(
     triggers.flatMap((trigger) =>

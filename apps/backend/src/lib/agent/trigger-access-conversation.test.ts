@@ -82,8 +82,8 @@ describe('Trigger access follows its conversation', () => {
 
   test('a Trigger whose conversation is gone stays readable by its owner alone', async () => {
     await assertTriggerAccess(trigger('deleted'), as(OWNER), 'read')
-    await expect(assertTriggerAccess(trigger('deleted'), as(ADMIN), 'read')).rejects.toMatchObject(
-      { status: 404 },
-    )
+    await expect(assertTriggerAccess(trigger('deleted'), as(ADMIN), 'read')).rejects.toMatchObject({
+      status: 404,
+    })
   })
 })
