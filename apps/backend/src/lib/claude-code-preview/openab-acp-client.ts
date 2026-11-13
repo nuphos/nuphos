@@ -288,11 +288,8 @@ export class OpenAbAcpClient extends OpenAbAcpLifecycle {
       pending.reject(new OpenAbConnectionLostError(event?.reason, pending.accepted === true))
     }
     this.pending.clear()
-    for (const handlers of this.sessionUpdateHandlers.values()) {
-      for (const handler of handlers) {
-        handler({ kind: 'interrupted', reason: 'runtime_connection_lost' })
-      }
-    }
+    // Observers hear nothing: a lost transport is not the end of the agent's
+    // turn, which goes on once the session reattaches (#704).
     this.sessionUpdateHandlers.clear()
     this.cancelledSessions.clear()
     this.disconnect()
