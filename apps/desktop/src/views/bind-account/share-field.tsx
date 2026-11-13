@@ -16,11 +16,14 @@ export function BindShareField({
   provider,
   value,
   onChange,
+  onDefaultChange,
 }: {
   teamId: string
   provider: string
   value: string[] | null
   onChange: (list: string[]) => void
+  /** What the picker shows while untouched; the dialog sends it as the choice. */
+  onDefaultChange: (list: string[]) => void
 }) {
   const members = useTeamMembers(teamId)
   const me = useCurrentUser()?.id
@@ -48,6 +51,14 @@ export function BindShareField({
   const shared = teamShares && !HIGH_PRIVILEGE_PROVIDERS.has(provider)
   const onlyMe = me ? [me] : []
   const fallback = shared ? ['*'] : onlyMe
+  const fallbackKey = fallback.join(',')
+
+  // Until the team default loads this is only the member, so a failed read
+  // connects privately rather than with whatever the default is.
+  useEffect(
+    () => onDefaultChange(fallbackKey ? fallbackKey.split(',') : []),
+    [fallbackKey, onDefaultChange],
+  )
 
   return (
     <div className="mt-4 border-y border-line-control/60">
