@@ -37,7 +37,9 @@ const runtimeModelCatalogSchema = z.object({
   models: runtimeModelsSchema,
   controls: z
     .object({
-      modelId: z.string().min(1).max(500),
+      // The model these controls were read for; absent when the runtime lists no
+      // models and its settings therefore belong to the session, not a model.
+      modelId: z.string().min(1).max(500).optional(),
       effort: z
         .array(
           z.object({

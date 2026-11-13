@@ -45,31 +45,39 @@ child.stdout.on('data', chunk => {
       const result = frame.result;
       if (!Array.isArray(result?.configOptions)) process.exit(1);
       const option = result.configOptions.find(o => o.category === 'model' || o.id === 'model');
-      if (!Array.isArray(option?.options)) process.exit(1);
       if (frame.id === 2) {
         sessionId = result.sessionId;
-        models = option.options.filter(o => typeof o?.value === 'string' && o.value.length > 0 && o.value.length <= 500 && typeof o.name === 'string' && o.name.length > 0 && o.name.length <= 200)
+        models = (Array.isArray(option?.options) ? option.options : []).filter(o => typeof o?.value === 'string' && o.value.length > 0 && o.value.length <= 500 && typeof o.name === 'string' && o.name.length > 0 && o.name.length <= 200)
           .map(o => ({ id: o.value, name: o.name, ...(typeof o.description === 'string' ? { description: o.description.slice(0, 1000) } : {}) }));
         if (models.length > 500) process.exit(1);
-        if (requestedModel && requestedModel !== option.currentValue) {
+        if (requestedModel && option && requestedModel !== option.currentValue) {
           if (!models.some(o => o.id === requestedModel)) process.exit(1);
           send(3, 'session/set_config_option', { sessionId, configId: option.id, value: requestedModel });
           continue;
         }
       }
-      if (requestedModel && option.currentValue !== requestedModel) process.exit(1);
+      if (requestedModel && option?.currentValue !== requestedModel) process.exit(1);
       const effort = result.configOptions.find(o => o.category === 'thought_level' || ['reasoning_effort', 'effort', 'thinking'].includes(o.id));
       const fast = result.configOptions.find(o => ['fast-mode', 'fast_mode', 'fast'].includes(o.id));
-      const controls = typeof option.currentValue === 'string' ? {
-        modelId: option.currentValue,
+      const controls = (option || effort || fast) ? {
+        ...(typeof option?.currentValue === 'string' ? { modelId: option.currentValue } : {}),
         ...(typeof effort?.currentValue === 'string' ? { defaultEffort: effort.currentValue } : {}),
         effort: Array.isArray(effort?.options) ? effort.options.filter(o => typeof o?.value === 'string' && o.value.length > 0 && o.value.length <= 100 && typeof o.name === 'string' && o.name.length <= 200).map(o => ({ value: o.value, name: o.name, ...(typeof o.description === 'string' ? { description: o.description.slice(0, 200) } : {}) })) : [],
         fast: Array.isArray(fast?.options) && fast.options.some(o => o?.value === 'off') ? fast.options.filter(o => typeof o?.value === 'string' && o.value.length > 0 && o.value.length <= 100 && typeof o.name === 'string' && o.name.length <= 200).map(o => ({ value: o.value, name: o.name })) : [],
         ...(typeof fast?.currentValue === 'string' && fast.currentValue.length <= 100 ? { defaultFast: fast.currentValue } : {}),
       } : undefined;
-      clearTimeout(timer);
       child.removeAllListeners('exit');
       stop();
+      // A runtime with settings but no model list names no model to key them by,
+      // so its controls sit under the default entry and it reports no models.
+      if (!models?.length && controls && (controls.effort.length || controls.fast.length)) {
+        const session = { ...controls };
+        delete session.modelId;
+        clearTimeout(timer);
+        process.stdout.write(JSON.stringify({ models: [], defaultModel: '', controls: { default: session }, controlsOnly: true }), () => process.exit(0));
+        return;
+      }
+      clearTimeout(timer);
       process.stdout.write(JSON.stringify({ models, controls }), () => process.exit(0));
     }
   }

@@ -35,11 +35,13 @@ export function modelHint(
   status: SessionConfigState['status'] | undefined,
   hasModel: boolean,
   busy: boolean,
+  /** A runtime may offer effort without a model list, and that effort works now. */
+  hasSettings = false,
 ) {
   if (status === 'offline')
     return t('This runtime is offline. Model settings return when it reconnects.')
   if (busy) return t('Changes apply after this reply.')
-  if (status === 'dormant' && !hasModel)
+  if (status === 'dormant' && !hasModel && !hasSettings)
     return t('Send a message to start this agent before changing model settings.')
 }
 

@@ -266,12 +266,13 @@ export async function localRuntimeModels(
       message: 'The computer running this agent has not reported its models yet. Retry shortly.',
     }
   const modelId = model && model !== 'default' ? model : catalog.defaultModel
-  const controls = catalog.controls[modelId]
+  // A controls-only report names no model: its entry answers a caller asking for none.
+  const split = catalog.controlsOnly && (!model || model === 'default')
+  const controls = catalog.controls[modelId] ?? (split ? catalog.controls.default : undefined)
 
-  return {
-    models: catalog.models,
-    ...(controls ? { controls: { modelId, ...controls } } : {}),
-  }
+  if (!controls) return { models: catalog.models }
+
+  return { models: catalog.models, controls: { ...(modelId ? { modelId } : {}), ...controls } }
 }
 
 /** A local runtime's status comes from its computer's tunnel, not a probe. */

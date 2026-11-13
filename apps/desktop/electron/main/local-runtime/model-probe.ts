@@ -13,11 +13,18 @@ export type ModelControls = {
   defaultEffort?: string
 }
 
-/** What the adapter offers before any conversation, reported so teams can pick up front. */
+/**
+ * What the adapter offers before any conversation, reported so teams can pick up front.
+ * A runtime may offer controls without a model list (Grok Build reports its effort and
+ * no model picker), so the models are empty there rather than the whole read failing.
+ */
 export type LocalModelCatalog = {
   models: { id: string; name: string; description?: string }[]
+  /** The model the controls were read for; empty when none was listed. */
   defaultModel: string
   controls: Record<string, ModelControls>
+  /** Controls but no model list: `controls` holds one entry and a pick starts the session. */
+  controlsOnly?: true
 }
 
 type ConfigOption = {
@@ -28,6 +35,9 @@ type ConfigOption = {
 }
 
 const PROBE_TIMEOUT_MS = 30_000
+
+/** The `controls` key of a catalog with no model: no model names the session it applies to. */
+export const CONTROLS_ONLY_KEY = 'default'
 
 function findOption(options: ConfigOption[], kind: 'model' | 'effort' | 'fast') {
   return options.find((option) => {
@@ -87,6 +97,21 @@ export function controlsOf(options: ConfigOption[]): ModelControls {
     effort: choices(effort),
     fast: speeds.some((choice) => choice.value === 'off') ? speeds : [],
     ...(typeof fast?.currentValue === 'string' ? { defaultFast: fast.currentValue } : {}),
+  }
+}
+
+/** A runtime's settings when it lists no models, or null when it offers no choices. */
+function settingsOnlyCatalog(configOptions: ConfigOption[]): LocalModelCatalog | null {
+  const controls = controlsOf(configOptions)
+
+  // Choices only: an empty level is nothing to pick, so it would open an empty popover.
+  if (!controls.effort.length && !controls.fast.length) return null
+
+  return {
+    models: [],
+    defaultModel: '',
+    controls: { [CONTROLS_ONLY_KEY]: controls },
+    controlsOnly: true,
   }
 }
 
@@ -185,7 +210,11 @@ export function probeLocalModels(options: {
       const { models, defaultModel } = modelChoices(model)
 
       if (!model || typeof model.currentValue !== 'string' || models.length === 0) {
-        finish(new Error('The runtime did not advertise any models'))
+        // Grok Build offers effort and no model: report that, or fail as before if it offers none.
+        const only = settingsOnlyCatalog(configOptions)
+
+        if (only) finish(null, only)
+        else finish(new Error('The runtime did not advertise any models'))
 
         return
       }
