@@ -39,6 +39,8 @@ export type DeviceAccessAuditEntry = {
   previous: TeamAccess | null
   /** Null when the computer stops being granted in the team. */
   next: TeamAccess | null
+  /** Set when the change hands a cloud computer to a new owner; its grants stay as they were. */
+  owner?: { from: string; to: string }
   changedAt: Date
 }
 

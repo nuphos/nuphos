@@ -32,8 +32,8 @@ function setup() {
       record(`drop-from-grants ${userId} by ${by.actorUserId} ${by.via}`),
     dropOwnerGrants: async (_team, userId, by) =>
       record(`drop-owner-grants ${userId} by ${by.actorUserId} ${by.via}`),
-    transferComputers: (_team, from, to) => {
-      record(`transfer ${from} -> ${to}`)
+    transferComputers: (_team, from, to, by) => {
+      record(`transfer ${from} -> ${to} by ${by.actorUserId} ${by.via}`)
 
       return Promise.resolve()
     },
@@ -57,7 +57,7 @@ test('a guest leaving loses their streams, their place in grants, and their appr
     'streams owner,other -> mate',
     'drop-from-grants mate by mate team_leave',
     'drop-owner-grants mate by mate team_leave',
-    'transfer mate -> boss',
+    'transfer mate -> boss by mate team_leave',
     'drop-approvals mate',
     'drop-trusts mate',
   ])
@@ -72,7 +72,7 @@ test('an owner leaving closes every teammate’s stream on their computer and un
   expect(log).toContain('streams owner -> other,mate')
   expect(log).toContain('drop-owner-grants owner by owner team_leave')
   // The team's cloud computers they owned pass to the team's owner.
-  expect(log).toContain('transfer owner -> boss')
+  expect(log).toContain('transfer owner -> boss by owner team_leave')
   // Rejoining starts over: no approval from before carries over.
   expect(log).toContain('drop-approvals owner')
 })
