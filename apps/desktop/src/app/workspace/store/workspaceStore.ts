@@ -8,6 +8,7 @@ import {
   sessionKeyOf,
 } from './workspaceState.ts'
 
+import type { ConnectorsDialogState } from './connectorsDialog'
 import type {
   OpenTabOptions,
   TabHistoryMode,
@@ -66,6 +67,8 @@ export type WorkspaceActions = {
   adoptBuckets: (buckets: Readonly<Record<string, TabBucket>>) => void
   /** Hands docks over to a restored split pane, which then holds the only copy. */
   releaseBuckets: (keys: readonly string[]) => void
+  /** Opens the Connectors dialog over the current page, or closes it with null. */
+  setConnectorsDialog: (dialog: ConnectorsDialogState | null) => void
 }
 
 export type WorkspaceStore = {
@@ -168,6 +171,7 @@ export function createWorkspaceStore(
     removeTeam: (teamId) => dispatch({ type: 'removeTeam', teamId }),
     adoptBuckets: (buckets) => dispatch({ type: 'adoptBuckets', buckets }),
     releaseBuckets: (keys) => dispatch({ type: 'releaseBuckets', keys }),
+    setConnectorsDialog: (dialog) => dispatch({ type: 'setConnectorsDialog', dialog }),
   }
 
   return { getState, subscribe, dispatch, actions }

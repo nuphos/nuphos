@@ -5,7 +5,7 @@ import { launcherMatchRank } from '../../lib/launcherMatch.ts'
 import { SHORTCUT_GROUPS } from '../../lib/shortcutsCatalog.ts'
 import {
   ARCHIVED_CHATS_NAV_ITEM,
-  TEAM_MANAGEMENT_NAV_ITEMS,
+  CONNECTORS_NAV_ITEM,
   TEAM_SETTINGS_PAGE_NAV_ITEMS,
   TEAM_WORKSPACE_NAV_ITEMS,
 } from '../../lib/teamOverviewNav.ts'
@@ -47,7 +47,7 @@ const comboFor = (label: string) =>
 
 export const PALETTE_COMMANDS: PaletteCommand[] = [
   ...[
-    ...TEAM_MANAGEMENT_NAV_ITEMS,
+    CONNECTORS_NAV_ITEM,
     ...TEAM_WORKSPACE_NAV_ITEMS,
     ...TEAM_SETTINGS_PAGE_NAV_ITEMS,
     ARCHIVED_CHATS_NAV_ITEM,
