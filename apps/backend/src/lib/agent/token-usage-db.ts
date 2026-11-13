@@ -101,6 +101,12 @@ export async function setupTokenUsageIndexes(): Promise<void> {
     await c.createIndex({ provider: 1, modelId: 1, createdAt: -1 }, { background: true })
     // Backs the team-wide, time-ranged usage aggregation (getTeamUsageSummary).
     await c.createIndex({ teamId: 1, createdAt: -1 }, { background: true })
+    // Backs the per-Trigger usage aggregation (getTriggerUsage); most rows have
+    // no triggerId, so the index only holds Trigger-made turns.
+    await c.createIndex(
+      { triggerId: 1, createdAt: -1 },
+      { background: true, partialFilterExpression: { triggerId: { $exists: true } } },
+    )
   } catch (err) {
     logError('agent.token_usage.indexes_create_failed', err)
   }
