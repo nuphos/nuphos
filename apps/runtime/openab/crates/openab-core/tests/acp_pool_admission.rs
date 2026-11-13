@@ -1,5 +1,6 @@
 //! Regression coverage for pool-wide admission while ACP sessions initialize.
 
+use openab_core::acp::pool::SessionStartError;
 use openab_core::acp::SessionPool;
 use openab_core::config::AgentConfig;
 use std::collections::HashMap;
@@ -147,7 +148,7 @@ async fn concurrent_initialization_reserves_capacity_before_spawning() {
     );
     let error = second_result.expect_err("the second creation must be rejected at admission");
     assert!(
-        error.to_string().contains("pool exhausted (1 sessions)"),
+        matches!(error, SessionStartError::PoolExhausted(1)),
         "unexpected admission error: {error:#}"
     );
     assert!(

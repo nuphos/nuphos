@@ -1,3 +1,4 @@
+use crate::acp::pool::SessionStartError;
 use crate::acp::protocol::{
     parse_config_options, parse_usage_report, ConfigOption, JsonRpcError, JsonRpcMessage,
     JsonRpcRequest, JsonRpcResponse, UsageReport,
@@ -913,7 +914,7 @@ impl AcpConnection {
         working_dir: &str,
         env: &std::collections::HashMap<String, String>,
         inherit_env: &[String],
-    ) -> Result<Self> {
+    ) -> Result<Self, SessionStartError> {
         info!(cmd = command, ?args, cwd = working_dir, "spawning agent");
 
         let mut cmd = baseline_command(command, args, working_dir);
@@ -938,9 +939,10 @@ impl AcpConnection {
                 "[agent].env/inherit_env is set -- these values are accessible to the agent and could be exfiltrated via prompt injection"
             );
         }
-        let mut proc = cmd
-            .spawn()
-            .map_err(|e| anyhow!("failed to spawn {command}: {e}"))?;
+        let mut proc = cmd.spawn().map_err(|source| SessionStartError::Spawn {
+            command: command.to_string(),
+            source,
+        })?;
         let child_pgid = proc.id().and_then(|pid| i32::try_from(pid).ok());
 
         let stdout = proc.stdout.take().ok_or_else(|| anyhow!("no stdout"))?;
