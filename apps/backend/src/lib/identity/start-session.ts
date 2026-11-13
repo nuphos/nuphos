@@ -19,7 +19,7 @@ export async function startSession(c: Context, user: NuphosUser, viaWebsite = fa
       401,
       'mfa_required',
       'Enter the code from your authenticator app. If Nuphos does not ask for one, update the app.',
-      { mfaToken: await createMfaChallenge(user.id) },
+      { mfaToken: await createMfaChallenge(user.id, viaWebsite) },
     )
   }
 
