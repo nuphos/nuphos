@@ -188,14 +188,13 @@ test(
     t.after(() => sessions.closeAll())
     const { owner, emitter } = renderer()
     const id = 'tab-1'
-    const ignoresHangup = `process.on('SIGHUP', () => {}); process.stdin.resume(); console.log('HUP_' + 'IGNORED')`
 
     sessions.start(owner, id, 80, 24)
     const ready = waitForOutput(emitter, 'HUP_IGNORED')
 
-    // `exec` makes it the terminal's own process, so no shell is left to
-    // forward the hangup; only closing the terminal itself can end it.
-    sessions.input(owner, id, `exec '${process.execPath}' -e "${ignoresHangup}"\r`)
+    // `exec` makes it the terminal's own process, waiting on terminal input
+    // like an idle shell, so only closing the terminal itself can end it.
+    sessions.input(owner, id, `exec sh -c 'trap "" HUP; printf "%s%s\\n" HUP_ IGNORED; read x'\r`)
     await ready
     const exited = waitForExit(emitter, id, t.signal)
 
