@@ -72,6 +72,9 @@ nuphos conversations [QUERY]                 # recent agents / find one by title
 nuphos team [NAME] [--create]                # list teams / set the default / create
 nuphos agents [NAME] [--session ID]          # list runtimes (Claude Code, Codex, …) / pick or move
 nuphos agents NAME --create | --login        # add a Cloud runtime / sign one in
+nuphos bots                                  # list your Bots in the team
+nuphos bots NAME --create [--avatar A]       # create a Bot; it runs with Full Access
+nuphos bots NAME --create --agent RUNTIME    # ... on a chosen runtime
 nuphos model                                 # list the runtime's models
 nuphos model [VALUE] [--effort E] --session ID
 nuphos stop --session ID
