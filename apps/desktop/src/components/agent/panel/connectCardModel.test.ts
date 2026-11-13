@@ -4,6 +4,7 @@ import { test } from 'node:test'
 import {
   decisionRequestId,
   CONNECT_SELECTION_KEY,
+  connectBlock,
   connectRowStatus,
   newConnectIds,
   parseChoiceRequest,
@@ -186,4 +187,23 @@ test('decisionRequestId reads the request a tool result names, also from text', 
   assert.equal(decisionRequestId('{"requestId": "req-3"}'), 'req-3')
   assert.equal(decisionRequestId({ ok: true }), undefined)
   assert.equal(decisionRequestId(undefined), undefined)
+})
+
+test('a member who cannot bind a connector is told who can, so nobody reinstalls an App', () => {
+  // Binding a team's connector takes an administrator: the Connect button must not open GitHub.
+  assert.deepEqual(connectBlock('github', true), undefined)
+  assert.match(connectBlock('github', false)?.label ?? '', /admin/i)
+  // Only GitHub's flow is an App install; GitLab's is OAuth, like the rest.
+  assert.match(connectBlock('gitlab', false)?.label ?? '', /connect/i)
+  assert.match(connectBlock('aws', false)?.label ?? '', /connect/i)
+})
+
+test('a bound credential stays usable for a member: only Connect is blocked', () => {
+  // Selecting what the team already bound is not a bind, so `available` keeps its
+  // "Use in agent" — the block applies where Connect itself would be offered.
+  const available = selection({ grafanaInstanceIds: ['g1'] })
+  const status = connectRowStatus('grafana', 'idle', selection(), available)
+
+  assert.equal(status, 'available')
+  assert.equal(connectRowStatus('grafana', 'idle', selection(), selection()), 'idle')
 })
