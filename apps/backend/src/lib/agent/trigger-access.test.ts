@@ -1,8 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
-  canAccessTeamTrigger,
-  canModifyTriggerExecution,
   executionAuthorizationIsCurrent,
   triggerCreatedByUserId,
   triggerExecutionPrincipalFilter,
@@ -30,46 +28,7 @@ function matchesFilter(
   )
 }
 
-describe('team Trigger access', () => {
-  test('allows every active team role to read', () => {
-    expect(canAccessTeamTrigger('VIEWER', 'read')).toBe(true)
-    expect(canAccessTeamTrigger('EDITOR', 'read')).toBe(true)
-    expect(canAccessTeamTrigger('ADMINISTRATOR', 'read')).toBe(true)
-  })
-
-  test('only the principal or an equal-or-higher role can change execution', () => {
-    expect(canModifyTriggerExecution('editor', 'EDITOR', 'admin', 'ADMINISTRATOR')).toBe(false)
-    expect(canModifyTriggerExecution('admin', 'ADMINISTRATOR', 'editor', 'EDITOR')).toBe(true)
-    expect(canModifyTriggerExecution('editor-a', 'EDITOR', 'editor-b', 'EDITOR')).toBe(true)
-    expect(canModifyTriggerExecution('principal', 'EDITOR', 'principal', 'ADMINISTRATOR')).toBe(
-      true,
-    )
-    expect(canModifyTriggerExecution('editor', 'EDITOR', 'departed', undefined)).toBe(false)
-    expect(canModifyTriggerExecution('admin', 'ADMINISTRATOR', 'departed', undefined)).toBe(true)
-  })
-
-  test('allows editors and administrators to manage', () => {
-    expect(canAccessTeamTrigger('VIEWER', 'manage')).toBe(false)
-    expect(canAccessTeamTrigger('EDITOR', 'manage')).toBe(true)
-    expect(canAccessTeamTrigger('ADMINISTRATOR', 'manage')).toBe(true)
-  })
-
-  test('allows only administrators to delete', () => {
-    expect(canAccessTeamTrigger('VIEWER', 'delete')).toBe(false)
-    expect(canAccessTeamTrigger('EDITOR', 'delete')).toBe(false)
-    expect(canAccessTeamTrigger('ADMINISTRATOR', 'delete')).toBe(true)
-  })
-
-  test('allows only administrators to move who a Trigger runs as', () => {
-    // Editors may change what a Trigger does, but moving execution identity is
-    // the one operation that changes whose authority it carries, so it stays
-    // separate from manage and Administrator-only.
-    expect(canAccessTeamTrigger('VIEWER', 'transfer')).toBe(false)
-    expect(canAccessTeamTrigger('EDITOR', 'transfer')).toBe(false)
-    expect(canAccessTeamTrigger('ADMINISTRATOR', 'transfer')).toBe(true)
-    expect(canAccessTeamTrigger('EDITOR', 'manage')).toBe(true)
-  })
-
+describe('Trigger ownership', () => {
   test('keeps legacy rows bound to their original owner identity', () => {
     expect(triggerCreatedByUserId({ userId: 'legacy-owner' })).toBe('legacy-owner')
     expect(triggerExecutionPrincipalId({ userId: 'legacy-owner' })).toBe('legacy-owner')

@@ -4,7 +4,7 @@ import { ObjectId } from 'mongodb'
 
 import { AppError } from '@/lib/errors'
 
-import { assertTeamTriggerRole, triggerExecutionPrincipalId } from '../trigger-access'
+import { assertCanCreateTrigger, triggerExecutionPrincipalId } from '../trigger-access'
 import { resolveTriggerGroupCredentialMode } from '../trigger-credential-access'
 import { agentTriggers } from '../trigger-db'
 import { agentTriggerGroups, isSharedIngressTriggerGroup } from '../trigger-group-db'
@@ -50,7 +50,7 @@ export async function createTriggerGroup(
   }
   // Checked at the service boundary so HTTP, Agent tools, and automation
   // cannot disagree about who may create a team Watch Group.
-  await assertTeamTriggerRole(context, 'manage')
+  await assertCanCreateTrigger(context)
   const name = input.name.trim().slice(0, 100)
   const messageTemplate = input.messageTemplate.trim()
 

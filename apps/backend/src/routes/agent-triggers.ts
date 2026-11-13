@@ -1,6 +1,5 @@
 import { Hono } from 'hono'
 
-import { assertTeamTriggerRole } from '@/lib/agent/trigger-access'
 import { listTriggers } from '@/lib/agent/trigger-service'
 import { redisEnabled } from '@/lib/redis'
 import { requireAuth } from '@/middleware/auth'
@@ -36,8 +35,6 @@ agentTriggersRoutes.get('/scheduler-status', async (c) => {
 // List triggers
 agentTriggersRoutes.get('/', async (c) => {
   const actor = await triggerActor(c, c.req.query('teamId'))
-
-  await assertTeamTriggerRole(actor, 'read')
 
   return c.json(await listTriggers(actor, c.req.query('targetSessionId')))
 })
