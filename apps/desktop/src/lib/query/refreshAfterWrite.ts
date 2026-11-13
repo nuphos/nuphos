@@ -13,6 +13,8 @@ export async function refreshAfterWrite(client: QueryClient, filters: QueryFilte
   try {
     await client.invalidateQueries(filters, { throwOnError: true })
   } catch (e) {
-    toast.apiError(t('Could not refresh — showing cached data'), e)
+    toast.apiError(t('Could not refresh — showing cached data'), e, {
+      fallback: t('Check your connection and try again.'),
+    })
   }
 }

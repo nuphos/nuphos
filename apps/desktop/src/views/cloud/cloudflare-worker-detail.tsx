@@ -239,6 +239,8 @@ export function CloudflareWorkerDetailView({
               next,
             )
 
+            // A read started before the save would bring the old triggers back.
+            await client.cancelQueries({ queryKey, exact: true })
             client.setQueryData(
               queryKey,
               (cur: typeof query.data) => cur && { ...cur, crons: updated },

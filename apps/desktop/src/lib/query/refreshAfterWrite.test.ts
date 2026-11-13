@@ -6,7 +6,14 @@ import { QueryClient, QueryObserver } from '@tanstack/react-query'
 const toasts: string[] = []
 
 mock.module('../../components/ui/toast.ts', {
-  namedExports: { toast: { apiError: (title: string) => toasts.push(title) } },
+  namedExports: {
+    // The real toast hides a network failure unless it carries a fallback, so only count those.
+    toast: {
+      apiError: (title: string, _e: unknown, opts?: { fallback?: string }) => {
+        if (opts?.fallback) toasts.push(title)
+      },
+    },
+  },
 })
 mock.module('../../i18n/index.ts', { namedExports: { t: (text: string) => text } })
 

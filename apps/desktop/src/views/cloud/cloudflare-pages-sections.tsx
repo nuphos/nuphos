@@ -1,6 +1,6 @@
 import { faPlus, faXmark } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
@@ -10,6 +10,7 @@ import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import { queryKeys } from '../../lib/query/keys'
+import { refreshAfterWrite } from '../../lib/query/refreshAfterWrite'
 
 export function PagesDomainsSection({
   teamId,
@@ -23,12 +24,14 @@ export function PagesDomainsSection({
   const [adding, setAdding] = useState(false)
   const [newDomain, setNewDomain] = useState('')
   const [pendingRemove, setPendingRemove] = useState<string | null>(null)
+  const client = useQueryClient()
+  const queryKey = queryKeys.cloudflare(teamId, accountId, 'pages', projectName, 'domains')
   const query = useQuery({
-    queryKey: queryKeys.cloudflare(teamId, accountId, 'pages', projectName, 'domains'),
+    queryKey,
     queryFn: () => api.atlasListCloudflarePagesDomains(teamId, accountId, projectName),
   })
   const domains = query.data ?? []
-  const reload = () => void query.refetch()
+  const reload = () => void refreshAfterWrite(client, { queryKey, exact: true })
 
   useEffect(() => {
     if (query.error) toast.apiError(t('Failed to load custom domains'), query.error)
@@ -139,17 +142,22 @@ export function PagesDeploymentLogsModal({
   deploymentId: string
   onClose: () => void
 }) {
-  const { data: logs, error } = useQuery({
+  const {
+    data: logs,
+    error,
+    isFetching,
+  } = useQuery({
     queryKey: queryKeys.cloudflare(teamId, accountId, 'pages', projectName, 'logs', deploymentId),
     queryFn: () =>
       api.atlasGetCloudflarePagesDeploymentLogs(teamId, accountId, projectName, deploymentId),
   })
 
+  // An error kept from an earlier read doesn't count while this opening's read is still running.
   useEffect(() => {
-    if (!error) return
+    if (!error || isFetching) return
     toast.apiError(t('Failed to load logs'), error)
     onClose()
-  }, [error, onClose])
+  }, [error, isFetching, onClose])
 
   return (
     <Modal
