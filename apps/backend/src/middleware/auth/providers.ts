@@ -75,7 +75,7 @@ export function requireGithubInstallation(): MiddlewareHandler<{
     c.set('githubInstallationId', installationId)
     c.set('githubAccountLogin', binding.accountLogin)
     c.set('githubAccountType', binding.accountType)
-    c.set('githubAccess', binding.access)
+    c.set('githubBinding', binding)
     await next()
   }
 }
@@ -168,7 +168,7 @@ export function requireCloudflareAccount(): MiddlewareHandler<{
 
 export const requireGithubMemberAccess = () =>
   requireBindingMemberAccess<{ Variables: GithubInstallationVariables }>(
-    (c) => c.get('githubAccess'),
+    (c) => c.get('githubBinding').access,
     'github_installation_access_denied',
     'You are not allowed to use this GitHub installation',
   )

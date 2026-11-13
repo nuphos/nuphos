@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 
 import { Hono } from 'hono'
 
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import {
   buildAuthorizeUrl,
   getAccessTokenWithExpiry,
@@ -108,6 +109,7 @@ jiraSitesRoutes.delete('/start-oauth/:state', requireTeamRole('ADMINISTRATOR'), 
 const bindingScoped = new Hono<{ Variables: JiraSiteVariables }>()
 
 bindingScoped.use('*', requireJiraSite())
+registerBindingAccessRoutes(bindingScoped, 'jiraSites', (c) => c.get('jiraBinding'))
 
 bindingScoped.get('/', (c) => {
   return c.json(publicView(c.get('jiraBinding')))

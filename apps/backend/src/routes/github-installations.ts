@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 
 import { githubReviewScope, assertGithubReviewRequest } from '@/lib/agent/github-review-scope'
-import { accessView, bindingAccessUpdateSchema, normalizeAccessInput } from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { findGithubInstallation } from '@/lib/byos/account'
 import {
   GithubApiError,
@@ -131,25 +131,8 @@ installationScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
   return c.body(null, 204)
 })
 
-installationScoped.get('/access', requireTeamRole('ADMINISTRATOR'), (c) =>
-  c.json(accessView(c.get('githubAccess'))),
-)
-
-installationScoped.put(
-  '/access',
-  requireTeamRole('ADMINISTRATOR'),
-  zv('json', bindingAccessUpdateSchema),
-  async (c) => {
-    const teamId = parseObjectId(c.get('teamId'), 'teamId')
-    const access = normalizeAccessInput(c.req.valid('json'), c.get('userId'))
-
-    await teamByosBindings().updateOne(
-      { _id: teamId, 'githubInstallations.installationId': c.get('githubInstallationId') },
-      { $set: { 'githubInstallations.$.access': access, updatedAt: access.updatedAt } },
-    )
-
-    return c.json(accessView(access))
-  },
+registerBindingAccessRoutes(installationScoped, 'githubInstallations', (c) =>
+  c.get('githubBinding'),
 )
 
 // Registered after the admin routes above, so it guards only the routes below,

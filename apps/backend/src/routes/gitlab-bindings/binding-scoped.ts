@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { accessView, bindingAccessUpdateSchema, normalizeAccessInput } from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import {
   invalidateAccessToken,
   getAccessTokenWithExpiry,
@@ -60,26 +60,7 @@ export function registerGitlabBindingAdminRoutes(
     return c.body(null, 204)
   })
 
-  bindingScoped.get('/access', requireTeamRole('ADMINISTRATOR'), (c) =>
-    c.json(accessView(c.get('gitlabBinding').access)),
-  )
-
-  bindingScoped.put(
-    '/access',
-    requireTeamRole('ADMINISTRATOR'),
-    zv('json', bindingAccessUpdateSchema),
-    async (c) => {
-      const teamId = parseObjectId(c.get('teamId'), 'teamId')
-      const access = normalizeAccessInput(c.req.valid('json'), c.get('userId'))
-
-      await teamByosBindings().updateOne(
-        { _id: teamId, 'gitlabAccounts.id': c.get('gitlabBinding').id },
-        { $set: { 'gitlabAccounts.$.access': access, updatedAt: access.updatedAt } },
-      )
-
-      return c.json(accessView(access))
-    },
-  )
+  registerBindingAccessRoutes(bindingScoped, 'gitlabAccounts', (c) => c.get('gitlabBinding'))
 }
 
 export function registerGitlabBindingScopedRoutes(

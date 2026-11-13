@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 
 import { Hono } from 'hono'
 
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import {
   buildAuthorizeUrl,
   getDefaultClientCredentials,
@@ -120,6 +121,7 @@ linearWorkspacesRoutes.delete(
 const bindingScoped = new Hono<{ Variables: LinearWorkspaceVariables }>()
 
 bindingScoped.use('*', requireLinearWorkspace())
+registerBindingAccessRoutes(bindingScoped, 'linearWorkspaces', (c) => c.get('linearBinding'))
 
 bindingScoped.get('/', (c) => {
   return c.json(publicView(c.get('linearBinding')))
