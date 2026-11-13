@@ -918,7 +918,6 @@
   "PUT /teams/:teamId/home-layout/team": "admin",
   "PUT /teams/:teamId/huawei-accounts/:accountId/access": "admin",
   "PUT /teams/:teamId/lark-installations": "admin",
-  "PUT /teams/:teamId/local-agent-sharing": "admin",
   "PUT /teams/:teamId/onprem-clusters/:clusterId/kubeconfig": "admin",
   "PUT /teams/:teamId/plaud-accounts/:bindingId/access": "admin",
   "PUT /teams/:teamId/posthog-integrations/:integrationId/access": "admin",
