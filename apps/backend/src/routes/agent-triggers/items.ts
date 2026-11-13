@@ -4,7 +4,6 @@ import {
   getTrigger,
   testFireTrigger,
   testTriggerDestination,
-  transferTriggerExecutionPrincipal,
   updateTrigger,
 } from '@/lib/agent/trigger-service'
 import { getTriggerUsage } from '@/lib/agent/trigger-usage'
@@ -97,8 +96,13 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
     const body = await jsonObjectBody(c)
     const actor = await triggerActor(c, body.teamId ?? c.req.query('teamId'))
 
-    if (body.targetSessionId === null) {
-      throw new AppError(400, 'invalid_target_session', 'A Trigger must stay bound to a session')
+    // A Trigger belongs to the one Task it was created in.
+    if (body.targetSessionId !== undefined) {
+      throw new AppError(
+        400,
+        'invalid_target_session',
+        'A Trigger stays in the Task it was created in; create a new one in the other Task',
+      )
     }
     const updated = await updateTrigger(triggerId, actor, {
       ...(typeof body.name === 'string' ? { name: body.name } : {}),
@@ -108,9 +112,6 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
       ...(typeof body.enabled === 'boolean' ? { enabled: body.enabled } : {}),
       ...(typeof body.cronExpression === 'string' ? { cronExpression: body.cronExpression } : {}),
       ...(typeof body.timeZone === 'string' ? { timeZone: body.timeZone } : {}),
-      ...(typeof body.targetSessionId === 'string'
-        ? { targetSessionId: body.targetSessionId }
-        : {}),
       ...(typeof body.minIntervalSeconds === 'number'
         ? { minIntervalSeconds: body.minIntervalSeconds }
         : {}),
@@ -119,26 +120,6 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
     return c.json(updated)
   })
 
-  // Administrator-only: move who a Trigger runs as. The main use is recovering a
-  // Watch whose creator left the team, which pauses it.
-  agentTriggersRoutes.post('/:triggerId/execution-principal', async (c) => {
-    const { triggerId } = c.req.param()
-    const body = await jsonObjectBody(c)
-
-    if (typeof body.userId !== 'string') {
-      throw new AppError(400, 'invalid_request', 'userId is required')
-    }
-
-    return c.json(
-      await transferTriggerExecutionPrincipal(
-        triggerId,
-        await triggerActor(c, body.teamId ?? c.req.query('teamId')),
-        body.userId,
-      ),
-    )
-  })
-
-  // Delete trigger
   agentTriggersRoutes.delete('/:triggerId', async (c) => {
     const { triggerId } = c.req.param()
 

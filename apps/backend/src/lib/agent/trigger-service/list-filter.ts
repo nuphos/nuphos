@@ -1,4 +1,3 @@
-import { triggerExecutionPrincipalFilter } from '../trigger-access'
 import { liveTriggerShapeFilter } from '../trigger-db'
 
 /**
@@ -21,7 +20,7 @@ export function triggerListFilter(
 
   return {
     teamId: scope.teamId,
-    ...(targetSessionId ? {} : triggerExecutionPrincipalFilter(scope.userId)),
+    ...(targetSessionId ? {} : { userId: scope.userId }),
     ...liveTriggerShapeFilter,
     ...(targetSessionId ? { targetSessionId } : {}),
   }

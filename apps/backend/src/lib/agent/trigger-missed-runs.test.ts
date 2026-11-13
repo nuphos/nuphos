@@ -169,7 +169,7 @@ describe('sweepMissedTriggerRuns', () => {
 
   test('alerts the owner once per missed fire however many replicas sweep', async () => {
     const row = trigger({
-      executionPrincipalUserId: 'principal',
+      userId: 'principal',
       lastFiredAt: new Date('2026-11-12T09:00:01.000Z'),
     })
     const { deps, notify } = fakeDeps(row)

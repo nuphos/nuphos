@@ -12,7 +12,6 @@ const cronTrigger = {
   _id: triggerId,
   userId: OWNER,
   teamId: TEAM,
-  executionPrincipalUserId: OWNER,
   name: 'Morning digest',
   messageTemplate: 'Summarize',
   triggerType: 'cron',

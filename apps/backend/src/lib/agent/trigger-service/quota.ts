@@ -71,17 +71,12 @@ export async function assertTriggerCreationQuota(context: TriggerActorContext): 
     return
   }
 
-  const actorOwnership = {
-    $or: [
-      { createdByUserId: context.userId },
-      {
-        createdByUserId: { $exists: false },
-        userId: context.userId,
-      },
-    ],
-  }
   const [actorTriggers, teamTriggers] = await Promise.all([
-    agentTriggers().countDocuments({ teamId: context.teamId, enabled: true, ...actorOwnership }),
+    agentTriggers().countDocuments({
+      teamId: context.teamId,
+      enabled: true,
+      userId: context.userId,
+    }),
     agentTriggers().countDocuments({ teamId: context.teamId, enabled: true }),
   ])
 

@@ -1,5 +1,5 @@
 // Every fire delivers into the Trigger's bound conversation. A row stored
-// before binding was required has nowhere to go and is paused.
+// without a Task has nowhere to go and is paused.
 import '@/routes/agent'
 
 import { describe, expect, test } from 'bun:test'
@@ -137,13 +137,13 @@ const legacyTrigger = {
   } as unknown as AgentCredentialAccess,
 } as AgentTrigger
 
-describe('executeTrigger on a Trigger stored before binding was required', () => {
+describe('executeTrigger on a Trigger without a Task', () => {
   test('pauses it instead of opening a session', async () => {
     runs.length = 0
 
     await expect(
       executeTrigger(legacyTrigger, undefined, { runKind: 'scheduled' }),
-    ).rejects.toMatchObject({ code: 'trigger_target_session_required' })
+    ).rejects.toMatchObject({ code: 'trigger_target_session_invalid' })
     expect(runs).toHaveLength(0)
   })
 })

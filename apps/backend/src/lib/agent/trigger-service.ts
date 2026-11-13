@@ -20,5 +20,4 @@ export type {
 } from './trigger-service/shared'
 export { testFireTrigger, testTriggerDestination } from './trigger-service/test-fire'
 export type { TestTriggerDestinationResult } from './trigger-service/test-fire'
-export { transferTriggerExecutionPrincipal } from './trigger-service/transfer'
 export { updateTrigger } from './trigger-service/update'

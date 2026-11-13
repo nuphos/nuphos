@@ -86,30 +86,10 @@ export async function setupTriggerIndexes(): Promise<void> {
   const c = agentTriggers()
 
   try {
-    // Team ownership and execution identity were introduced after triggers
-    // already existed. Backfill only metadata: schedules, secrets, and run
-    // history remain byte-for-byte untouched.
+    // Execution status was introduced after triggers already existed.
     await c.updateMany(
-      {
-        $or: [
-          { createdByUserId: { $exists: false } },
-          { executionPrincipalUserId: { $exists: false } },
-          { executionAuthorizationStatus: { $exists: false } },
-        ],
-      },
-      [
-        {
-          $set: {
-            createdByUserId: { $ifNull: ['$createdByUserId', '$userId'] },
-            executionPrincipalUserId: {
-              $ifNull: ['$executionPrincipalUserId', { $ifNull: ['$createdByUserId', '$userId'] }],
-            },
-            executionAuthorizationStatus: {
-              $ifNull: ['$executionAuthorizationStatus', 'unchecked'],
-            },
-          },
-        },
-      ],
+      { executionAuthorizationStatus: { $exists: false } },
+      { $set: { executionAuthorizationStatus: 'unchecked' } },
     )
     await c.createIndex({ userId: 1, createdAt: -1 }, { background: true })
     await c.createIndex({ userId: 1, teamId: 1, createdAt: -1 }, { background: true })

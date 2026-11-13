@@ -89,8 +89,6 @@ export async function createTrigger(
     // Keep userId for backwards compatibility while making ownership and
     // execution identity explicit for all newly-created rows.
     userId: ctx.userId,
-    createdByUserId: ctx.userId,
-    executionPrincipalUserId: ctx.userId,
     ...credentials,
     executionAuthorizationStatus: 'unchecked',
     ...(ctx.teamId ? { teamId: ctx.teamId } : {}),

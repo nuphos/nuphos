@@ -21,17 +21,12 @@ export type TriggerSourceContext = {
 
 export type AgentTrigger = {
   _id?: ObjectId
-  /** Legacy owner field retained for compatibility; new team ownership is keyed by teamId. */
+  /**
+   * Owner of the Task the Trigger belongs to, copied when it is created there.
+   * The Trigger runs as this user and only this user may change it.
+   */
   userId: string
   teamId?: string
-  /** Immutable audit identity of the user who created this trigger. */
-  createdByUserId?: string
-  /**
-   * User whose credentials and permissions every run must use. A substantive
-   * edit deliberately rebinds this to the editor after the directional role
-   * check, while rename and enable/disable leave it unchanged.
-   */
-  executionPrincipalUserId?: string
   /**
    * `all` resolves the principal's credentials at run time; `selected` pins
    * the scope in `executionCredentialAccess`. Absent on rows written before

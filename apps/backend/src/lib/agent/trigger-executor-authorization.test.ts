@@ -22,7 +22,9 @@ useDb({
     }),
   }),
 })
-useIdentity({ getTeamMembership: () => Promise.resolve({ role: 'ADMINISTRATOR' }) })
+let member = true
+
+useIdentity({ getTeamMembership: () => Promise.resolve(member ? { role: 'EDITOR' } : null) })
 
 const { resolveExecutionAuthorization } = await import('./trigger-executor-authorization')
 
@@ -31,7 +33,6 @@ function trigger(overrides: Partial<AgentTrigger> = {}): AgentTrigger {
     _id: new ObjectId(),
     userId: 'principal',
     teamId: 'team-1',
-    executionPrincipalUserId: 'principal',
     executionAuthorizationStatus: 'valid',
     name: 'nightly',
     triggerType: 'cron',
@@ -62,29 +63,42 @@ beforeEach(() => {
 })
 
 describe('resolveExecutionAuthorization', () => {
-  test('a Trigger bound to its owner’s conversation delivers there', async () => {
+  beforeEach(() => {
+    member = true
+  })
+
+  test('a Trigger runs in its Task', async () => {
     const { target } = await resolveExecutionAuthorization(trigger({ targetSessionId: 'own' }))
 
     expect(target.sessionId).toBe('own')
     expect(paused()).toBeUndefined()
   })
 
-  test('an unbound Trigger is paused instead of opening a session', async () => {
-    await expect(resolveExecutionAuthorization(trigger())).rejects.toMatchObject({
-      code: 'trigger_target_session_required',
-    })
-    expect(paused()?.update).toMatchObject({
-      $set: { enabled: false, executionAuthorizationStatus: 'invalid' },
-    })
+  test('a Trigger in a teammate’s Task runs as that Task’s owner', async () => {
+    const { target } = await resolveExecutionAuthorization(
+      trigger({ targetSessionId: 'other-user' }),
+    )
+
+    expect(target.userId).toBe('someone')
   })
 
-  test.each(['other-user', 'other-team', 'deleted'])(
-    'a Trigger bound to a %s conversation is paused',
+  test.each([undefined, 'other-team', 'deleted'])(
+    'a Trigger without a Task in its team (%s) is paused',
     async (targetSessionId) => {
       await expect(
-        resolveExecutionAuthorization(trigger({ targetSessionId })),
+        resolveExecutionAuthorization(trigger(targetSessionId ? { targetSessionId } : {})),
       ).rejects.toMatchObject({ code: 'trigger_target_session_invalid' })
-      expect(paused()).toBeDefined()
+      expect(paused()?.update).toMatchObject({
+        $set: { enabled: false, executionAuthorizationStatus: 'invalid' },
+      })
     },
   )
+
+  test('a Trigger whose Task owner left the team is paused', async () => {
+    member = false
+    await expect(
+      resolveExecutionAuthorization(trigger({ targetSessionId: 'own' })),
+    ).rejects.toMatchObject({ code: 'trigger_execution_principal_invalid' })
+    expect(paused()).toBeDefined()
+  })
 })

@@ -2,18 +2,12 @@ import { CRON_TIME_ZONE, isValidCronExpression, isValidTimeZone } from '@/lib/cr
 import { AppError } from '@/lib/errors'
 import { clearSlackNotificationIncidentsForTrigger } from '@/lib/slack/incident-notifications'
 
-import { assertTriggerAccess, triggerExecutionPrincipalId } from '../trigger-access'
+import { assertTriggerAccess } from '../trigger-access'
 import { agentTriggers, triggerConfigRevisionFilter } from '../trigger-db'
 import { scheduleCronTrigger, unscheduleCronTrigger } from '../trigger-scheduler'
 
 import { assertTriggerCreationQuota } from './quota'
-import {
-  assertBindableSession,
-  findManagedTrigger,
-  parseTriggerId,
-  serializeTrigger,
-  validateMinInterval,
-} from './shared'
+import { findManagedTrigger, parseTriggerId, serializeTrigger, validateMinInterval } from './shared'
 import { rollbackTriggerUpdate } from './update-rollback'
 
 import type { TriggerActor } from '../trigger-access'
@@ -51,27 +45,23 @@ export async function updateTrigger(
       ? patch.messageTemplate.trim()
       : trigger.messageTemplate
   const nextEnabled = typeof patch.enabled === 'boolean' ? patch.enabled : trigger.enabled
-  const nextTargetSessionId = patch.targetSessionId ?? trigger.targetSessionId
 
-  // An unbound Trigger has nowhere to deliver. It can only be turned on together
-  // with the conversation it delivers to, which is validated below.
-  if (nextEnabled && !nextTargetSessionId) {
+  // A row stored before Triggers needed a Task has nowhere to run; it stays off.
+  if (nextEnabled && !trigger.targetSessionId) {
     throw new AppError(
       400,
       'trigger_target_session_required',
-      'Choose the conversation this Trigger delivers to before enabling it',
+      'This Trigger has no Task to run in; create a new one in a Task instead',
     )
   }
 
   // Turning a Trigger back on takes a quota slot back, the same as creating one.
   if (nextEnabled && !trigger.enabled) {
     await assertTriggerCreationQuota({
-      userId: trigger.createdByUserId ?? trigger.userId,
+      userId: trigger.userId,
       teamId: trigger.teamId,
     })
   }
-
-  const targetSessionChanged = nextTargetSessionId !== trigger.targetSessionId
 
   if (patch.minIntervalSeconds !== undefined) {
     validateMinInterval(trigger.triggerType, patch.minIntervalSeconds)
@@ -95,17 +85,7 @@ export async function updateTrigger(
     patch.minIntervalSeconds !== trigger.minIntervalSeconds
   const enabledChanged = nextEnabled !== trigger.enabled
   const substantiveChanged =
-    messageTemplateChanged ||
-    cronChanged ||
-    timeZoneChanged ||
-    minIntervalChanged ||
-    targetSessionChanged
-
-  const principalUserId = triggerExecutionPrincipalId(trigger)
-
-  if (targetSessionChanged && nextTargetSessionId) {
-    await assertBindableSession(nextTargetSessionId, trigger.teamId, principalUserId)
-  }
+    messageTemplateChanged || cronChanged || timeZoneChanged || minIntervalChanged
 
   if (!nameChanged && !enabledChanged && !substantiveChanged) {
     return serializeTrigger(trigger)
@@ -119,7 +99,6 @@ export async function updateTrigger(
     ...(cronChanged && nextCronExpression ? { cronExpression: nextCronExpression } : {}),
     ...(timeZoneChanged ? { timeZone: nextTimeZone } : {}),
     ...(minIntervalChanged ? { minIntervalSeconds: patch.minIntervalSeconds } : {}),
-    ...(targetSessionChanged ? { targetSessionId: nextTargetSessionId } : {}),
   }
   const currentConfigRevision = trigger.configRevision ?? 0
   const updated: AgentTrigger = {
@@ -128,27 +107,14 @@ export async function updateTrigger(
     configRevision: currentConfigRevision + 1,
   }
 
-  // A legacy Trigger created before binding was required leaves its
-  // fresh-session modes behind the first time it is bound.
-  const legacyModes =
-    targetSessionChanged && !trigger.targetSessionId
-      ? (['incidentMode', 'slackDestination', 'sessionRouting'] as const).filter(
-          (field) => trigger[field] !== undefined,
-        )
-      : []
-
-  for (const field of legacyModes) delete updated[field]
-
   const resetIncidentLifecycle =
-    trigger.incidentMode === true &&
-    (patch.enabled === false || messageTemplateChanged || legacyModes.length > 0)
+    trigger.incidentMode === true && (patch.enabled === false || messageTemplateChanged)
 
   // Re-assert the revision in the same write, so an update that raced another
   // edit or a deletion cannot apply on top of it.
   const update: UpdateFilter<AgentTrigger> = { $set }
   const $unset: Record<string, true> = {}
 
-  for (const field of legacyModes) $unset[field] = true
   // A missed-run marker belongs to the schedule it was raised for.
   if (cronChanged || timeZoneChanged || enabledChanged) $unset.missedRunAt = true
   if (Object.keys($unset).length > 0) {

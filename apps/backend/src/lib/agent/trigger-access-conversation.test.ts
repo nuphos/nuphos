@@ -49,7 +49,6 @@ function trigger(targetSessionId?: string) {
   return {
     userId: OWNER,
     teamId: TEAM,
-    executionPrincipalUserId: OWNER,
     ...(targetSessionId ? { targetSessionId } : {}),
   }
 }
@@ -70,7 +69,7 @@ describe('Trigger access follows its conversation', () => {
   })
 
   test('only the owner may change it, whatever the team role', async () => {
-    for (const level of ['manage', 'delete', 'transfer'] as const) {
+    for (const level of ['manage', 'delete'] as const) {
       await assertTriggerAccess(trigger('private'), as(OWNER), level)
       for (const userId of [MEMBER, ADMIN]) {
         const denied = assertTriggerAccess(trigger('shared'), as(userId), level)
