@@ -1,4 +1,7 @@
+import { AGENT_PROVIDER } from '../../../types/runtime.ts'
+
 import type { Part, ToolPart } from './parts.ts'
+import type { AgentProvider } from '../../../types/runtime.ts'
 
 const THREAD_TOOLS = new Set(['create_thread', 'send_message_to_thread'])
 const UUID = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i
@@ -9,8 +12,9 @@ export type ThreadBadgeInfo = {
   title: string | null
   verb: 'started' | 'messaged'
   pending: boolean
-  /** The model a new thread was started on, when the agent chose one, and why. */
+  /** The model and effort a new thread was started on, when the agent chose them, and why. */
   model: string | null
+  effort: string | null
   modelReason: string | null
 }
 
@@ -52,6 +56,8 @@ export function threadBadgeInfo(part: ToolPart): ThreadBadgeInfo | null {
   const threadId = threadIdOf(input?.threadId) ?? threadIdOf(receipt(part.output)?.threadId)
   const title = nonEmpty(input?.title)
   const started = part.toolName === 'create_thread'
+  // A message to a thread changes no model, so only a started thread has one.
+  const chosen = (key: string) => (started ? nonEmpty(input?.[key]) : null)
 
   // A finished call without a thread to open (an older transcript stored no
   // receipt) stays an ordinary tool row.
@@ -62,9 +68,24 @@ export function threadBadgeInfo(part: ToolPart): ThreadBadgeInfo | null {
     title,
     verb: started ? 'started' : 'messaged',
     pending,
-    model: started ? nonEmpty(input?.model) : null,
-    modelReason: started ? nonEmpty(input?.modelReason) : null,
+    model: chosen('model'),
+    effort: chosen('effort'),
+    modelReason: chosen('modelReason'),
   }
+}
+
+/** Where a thread runs: its computer and agent, as the runtime selector names them. */
+export function threadRuntimeName(
+  provider: AgentProvider | undefined,
+  runtimeLabel: string | undefined,
+): string | null {
+  const agent = provider ? AGENT_PROVIDER[provider].label : undefined
+  const computer = runtimeLabel?.trim()
+
+  if (!computer) return agent ?? null
+
+  // A local agent's label already names its agent ("Codex in MacBook").
+  return !agent || computer.includes(agent) ? computer : `${computer} · ${agent}`
 }
 
 export function isThreadBadgePart(part: Part): boolean {

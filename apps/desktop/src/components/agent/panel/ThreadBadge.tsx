@@ -5,11 +5,17 @@ import { t } from '../../../i18n'
 import { AgentAvatar } from '../AgentAvatar'
 import { ChatLink } from '../MessageResponse'
 
-import { knownThreadTitle, rememberThreadTitle, threadBadgeInfo } from './threadBadges'
+import {
+  knownThreadTitle,
+  rememberThreadTitle,
+  threadBadgeInfo,
+  threadRuntimeName,
+} from './threadBadges'
 import { useThreadStatus } from './useThreadStatus'
 
 import type { OpenLink } from './LocalUrlChip'
 import type { ToolPart } from './parts'
+import type { ThreadBadgeInfo } from './threadBadges'
 import type { ThreadStatus } from './threadStatus'
 import type { LucideIcon } from 'lucide-react'
 
@@ -51,6 +57,25 @@ function StatusLabel({ status, pending }: { status: ThreadStatus; pending: boole
   )
 }
 
+/** The model and effort it was started on, and the computer and agent it runs on. */
+function ThreadTags({ info, runtime }: { info: ThreadBadgeInfo; runtime: string | null }) {
+  return (
+    <>
+      {info.model && (
+        <span className="truncate font-mono" title={info.modelReason ?? undefined}>
+          {info.model}
+        </span>
+      )}
+      {info.effort && <span className="shrink-0">{info.effort}</span>}
+      {runtime && (
+        <span className="truncate" title={runtime}>
+          {runtime}
+        </span>
+      )}
+    </>
+  )
+}
+
 // A thread this viewer cannot read has nothing to open.
 function threadHref(teamId: string | undefined, threadId: string | null, status: ThreadStatus) {
   return teamId && threadId && status !== 'unavailable'
@@ -69,7 +94,7 @@ export function ThreadBadge({
   onOpen?: OpenLink
 }) {
   const info = threadBadgeInfo(part)
-  const { title, status, provider } = useThreadStatus(info?.threadId ?? null, teamId)
+  const { title, status, provider, runtimeLabel } = useThreadStatus(info?.threadId ?? null, teamId)
 
   if (!info) return null
   rememberThreadTitle(info.threadId, title ?? info.title)
@@ -90,11 +115,7 @@ export function ThreadBadge({
         </span>
         <span className="flex items-center gap-2 text-[12px] leading-4 text-tertiary">
           <span>{verb}</span>
-          {info.model && (
-            <span className="truncate font-mono" title={info.modelReason ?? undefined}>
-              {info.model}
-            </span>
-          )}
+          <ThreadTags info={info} runtime={threadRuntimeName(provider, runtimeLabel)} />
           {(known !== null || status !== 'unavailable') && (
             <StatusLabel status={status} pending={info.pending} />
           )}

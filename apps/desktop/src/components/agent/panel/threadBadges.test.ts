@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { knownThreadTitle, rememberThreadTitle, threadBadgeInfo } from './threadBadges.ts'
+import {
+  knownThreadTitle,
+  rememberThreadTitle,
+  threadBadgeInfo,
+  threadRuntimeName,
+} from './threadBadges.ts'
 
 import type { ToolPart } from './parts.ts'
 
@@ -25,6 +30,7 @@ test('a started thread takes its id from the receipt in any shape', () => {
       verb: 'started',
       pending: false,
       model: null,
+      effort: null,
       modelReason: null,
     })
   }
@@ -35,11 +41,13 @@ test('a started thread shows the model the agent chose for it, and why', () => {
     title: 'Rename strings',
     prompt: 'Go',
     model: 'claude-haiku-5-5',
+    effort: 'low',
     modelReason: 'Mechanical edits across a few files.',
   }
   const info = threadBadgeInfo(part('create_thread', { input, output: { threadId: ID } }))
 
   assert.equal(info?.model, 'claude-haiku-5-5')
+  assert.equal(info?.effort, 'low')
   assert.equal(info?.modelReason, 'Mechanical edits across a few files.')
   // A message to a thread changes no model, so it shows none.
   const sent = threadBadgeInfo(
@@ -82,4 +90,11 @@ test('a thread title seen earlier names a later badge for the same thread', () =
   assert.equal(knownThreadTitle(ID), 'Sidebar cleanup')
   assert.equal(knownThreadTitle('0b8d7c6e-1111-4222-8333-944455556666'), null)
   assert.equal(knownThreadTitle(null), null)
+})
+
+test('a thread names the computer and agent it runs on, once each', () => {
+  assert.equal(threadRuntimeName('claude-code', "Zeabur's Box"), "Zeabur's Box · Claude Code")
+  assert.equal(threadRuntimeName('codex', 'Codex in MacBook M5'), 'Codex in MacBook M5')
+  assert.equal(threadRuntimeName('codex', undefined), 'Codex')
+  assert.equal(threadRuntimeName(undefined, undefined), null)
 })
