@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test'
 
 import { registry, sessionsByConversation } from './agent-chat-registry'
 import { setClaudeCodeAutonomousUpdateHandler } from './autonomous-session-observer'
+import { renewHeldSessions } from './session-holder'
 import { observeSession, reattachAfterTransportLoss, untilOnline } from './session-reattach'
 
 import type { OpenAbSessionUpdate } from './openab-acp-client'
@@ -12,6 +13,7 @@ import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { holderChannel } from '@/lib/agent/devices/local-runtime/protocol'
 import * as lifecycle from '@/lib/lifecycle'
+import { replicaId } from '@/lib/redis'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useRedis } from '@/lib/test/doubles/redis'
 
@@ -26,10 +28,35 @@ let attachmentError: Error | null = null
 let attachmentErrorOnce = false
 let workLost: string | null = null
 const handoffs = new Map<string, string>()
+// Holder keys; a missing one has lapsed (or was never written).
+const keys = new Map<string, string>()
+const renewed: string[] = []
 
 useRedis({
   withRedis: (op) =>
     op({
+      set: async (key: string, value: string) => {
+        keys.set(key, value)
+
+        return 'OK'
+      },
+      // The holder scripts: RENEW names every key, CLAIM one.
+      eval: async (script: string, count: number, ...args: string[]) => {
+        const names = args.slice(0, count)
+        const [key = '', replica = ''] = [names[0], args[count]]
+
+        if (script.includes('ipairs')) {
+          renewed.push(...names.filter((name) => keys.get(name) === replica))
+
+          return 0
+        }
+        const holder = keys.get(key)
+
+        if (holder && holder !== replica) return 0
+        keys.set(key, replica)
+
+        return 1
+      },
       hset: async (_key: string, fields: Record<string, string>) => {
         for (const [field, value] of Object.entries(fields)) handoffs.set(field, value)
 
@@ -97,6 +124,8 @@ const instant = async () => undefined
 beforeEach(() => {
   workLost = null
   handoffs.clear()
+  keys.clear()
+  renewed.length = 0
   attachmentError = null
   attachmentErrorOnce = false
   attachment = { openabSessionId: 'sess-1', runtimeUrl: endpoint.url }
@@ -241,6 +270,54 @@ test('leaves a session alone once its attachment moved elsewhere', async () => {
   expect(await reattachAfterTransportLoss(session, lost, [0], instant)).toBe(false)
   expect(acquire).not.toHaveBeenCalled()
   expect(session.client).toBe(lost)
+})
+
+// #2360: replicas that served the conversation earlier still hold it. Only the
+// one that took it last gets it back; another would take its output away and
+// keep a turn of its own open that nothing ever ends.
+test('leaves a session alone once another replica took it', async () => {
+  acquire = spyOn(registry, 'acquire').mockResolvedValue(fakeClient('replacement'))
+  keys.set('agent:openab-session-holder:sess-1', 'another-replica')
+  const lost = session.client
+
+  expect(await reattachAfterTransportLoss(session, lost, [0], instant)).toBe(false)
+  expect(acquire).not.toHaveBeenCalled()
+  expect(session.client).toBe(lost)
+})
+
+test('the replica that took the session last gets it back', async () => {
+  const replacement = fakeClient('replacement')
+
+  acquire = spyOn(registry, 'acquire').mockResolvedValue(replacement)
+  observeSession(session)
+
+  expect(await reattachAfterTransportLoss(session, session.client, [0], instant)).toBe(true)
+  expect(session.client).toBe(replacement)
+})
+
+// A rollout replaces the replica that held the session; its claim lapses
+// unrenewed, and a surviving replica takes the session back on.
+test('a survivor takes the session back once the holder’s claim lapsed', async () => {
+  const replacement = fakeClient('replacement')
+
+  acquire = spyOn(registry, 'acquire').mockResolvedValue(replacement)
+
+  expect(await reattachAfterTransportLoss(session, session.client, [0], instant)).toBe(true)
+  expect(session.client).toBe(replacement)
+  expect(keys.get('agent:openab-session-holder:sess-1')).toBe(replicaId)
+})
+
+test('a replica renews only the claims it still holds', async () => {
+  acquire = spyOn(registry, 'acquire')
+  const other = { ...session, conversationId: 'conv-2', openabSessionId: 'sess-2' }
+
+  sessionsByConversation.set('team:conv-2', other)
+  keys.set('agent:openab-session-holder:sess-1', replicaId)
+  keys.set('agent:openab-session-holder:sess-2', 'another-replica')
+  await renewHeldSessions()
+  sessionsByConversation.delete('team:conv-2')
+
+  expect(renewed).toEqual(['agent:openab-session-holder:sess-1'])
 })
 
 test('does not replace a transport a turn already moved the session to', async () => {

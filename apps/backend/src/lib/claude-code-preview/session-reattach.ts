@@ -13,6 +13,7 @@ import { invokeUpdateHandler, observeAutonomousUpdates } from './autonomous-sess
 import { markBackgroundWorkLost } from './background-work'
 import { publishLostSessionHandoff } from './runtime-handoff-store'
 import { forgetRuntimeState, holdRuntimeState } from './runtime-state-store'
+import { claimSession, holdSession } from './session-holder'
 import { closeAutonomousTranscript, RUNTIME_CWD } from './team-openab-runtime'
 
 import type { TeamPreviewClient, TeamSession } from './team-openab-runtime'
@@ -82,6 +83,7 @@ export function endAutonomousTranscriptAfterLoss(session: TeamSession): void {
  */
 export function observeSession(session: TeamSession): void {
   observeAutonomousUpdates(session)
+  holdSession(session)
   const transport = session.client
   const release = holdRuntimeState(
     transport,
@@ -187,11 +189,14 @@ async function stillOwned(session: TeamSession, transport: TeamPreviewClient): P
     return false
   const attachment = await getConversationPreviewAttachment(session.conversationId, session.teamId)
 
-  return Boolean(
-    attachment &&
-    sameRuntimeUrl(attachment.runtimeUrl, session.endpoint.url) &&
-    attachment.openabSessionId === session.openabSessionId,
+  if (
+    !attachment ||
+    !sameRuntimeUrl(attachment.runtimeUrl, session.endpoint.url) ||
+    attachment.openabSessionId !== session.openabSessionId
   )
+    return false
+
+  return claimSession(session)
 }
 
 /** Retries wait for an offline computer, so an outage of any length spends
