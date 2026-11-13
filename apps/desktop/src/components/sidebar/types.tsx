@@ -213,8 +213,6 @@ export type SidebarProps = {
   onLogout: () => void
   grafanaInstance?: { id: string; name: string; url: string } | null
   teamSegment?: BreadcrumbSegment
-  /** Pulse a placeholder in the team-switcher slot while teams are loading. */
-  teamSkeleton?: boolean
   identitySegment?: BreadcrumbSegment
   repositoryNav?: {
     repoName: string

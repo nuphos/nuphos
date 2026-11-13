@@ -5,7 +5,7 @@ import { ChatLinkMenuContext } from '../../components/agent/chatLinkMenuContext'
 import { ConfettiBurst } from '../../components/ConfettiBurst'
 import { PortForwardBottomBar } from '../../components/PortForwardBottomBar'
 import { ShortcutsHelpModal } from '../../components/ShortcutsHelpModal'
-import { Sidebar } from '../../components/Sidebar'
+import { NoTeamSidebar } from '../../components/sidebar/NoTeamSidebar'
 import { TeamInvitationsTakeover } from '../../components/TeamInvitationsPanel'
 import { t } from '../../i18n'
 import { recordSessionVisit } from '../../lib/sessionHistory'
@@ -137,13 +137,10 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
   if (!scope) {
     return (
       <div className="flex h-full text-main overflow-hidden">
-        <Sidebar
-          scope={{ kind: 'team', teamId: '' }}
-          active=""
-          onSelect={() => {}}
+        <NoTeamSidebar
           user={user}
           onLogout={handleLogout}
-          teamSkeleton={!teamsLoaded && !error}
+          loading={!teamsLoaded && !error}
           onCreateTeam={openCreateTeam}
           pendingInvitations={pendingInvitations}
           onAcceptInvitation={acceptInvitation}

@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 
 import {
   DEFAULT_COLLAPSED_GROUPS,
-  DEFAULT_SIDEBAR_WIDTH,
   MAX_SIDEBAR_WIDTH,
   MIN_SIDEBAR_WIDTH,
   SIDEBAR_WIDTH_KEY,
   loadGroupState,
   readGroupStateRaw,
+  storedSidebarWidth,
   subscribeGroupState,
   writeGroupFold,
 } from './state'
@@ -16,14 +16,7 @@ import type { Section } from './types'
 import type { UIEvent } from 'react'
 
 export function useSidebarChrome({ teamId, collapsed }: { teamId: string; collapsed: boolean }) {
-  const [width, setWidth] = useState<number>(() => {
-    if (typeof window === 'undefined') return DEFAULT_SIDEBAR_WIDTH
-    const v = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY))
-
-    if (!v || Number.isNaN(v)) return DEFAULT_SIDEBAR_WIDTH
-
-    return Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, v))
-  })
+  const [width, setWidth] = useState(storedSidebarWidth)
   const [dragging, setDragging] = useState(false)
   // When collapsed, hovering the window's left edge slides the sidebar out as a
   // floating overlay. `peek` tracks that hover; reset whenever collapse toggles
