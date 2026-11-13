@@ -97,6 +97,7 @@ class ChatConflictCodesDeviceTest {
         assertEquals("No retry for $code", 1, posted.size)
         assertEquals(expected, session.error)
         assertEquals("The draft comes back for $code", "Next", session.rejectedSubmission?.text)
+        assertEquals("The refused bubble goes for $code", 0, session.messages.count { it.text == "Next" })
         assertFalse(session.runtimeRecoveryRequired)
     }
 
@@ -160,7 +161,7 @@ class ChatConflictCodesDeviceTest {
         assertNull("It may have been taken, so the draft doesn't come back to send twice", session.rejectedSubmission)
         assertTrue(session.runtimeRecoveryRequired)
     }
-    /** The refused message stays on screen and its draft comes back: sending it again is one message. */
+    /** The refused message leaves the list and its draft comes back: sending it again is one message. */
     @Test fun sendingARefusedMessageAgainDoesNotDuplicateIt() {
         answers += 409 to error("conversation_busy", "busy")
         val session = send()
@@ -174,5 +175,38 @@ class ChatConflictCodesDeviceTest {
         assertEquals(1, session.messages.count { it.text == "Next" })
         assertEquals(1, session.messages.count { it.text == "Reply" })
         assertNull(session.error)
+    }
+
+    @Test fun aStartingRuntimeIsWaitedForWithTheSameMessage() {
+        repeat(2) { answers += 409 to error("runtime_not_accepting_message", "The runtime is starting") }
+        val session = send()
+        assertEquals("Two refusals, then the reply", 3, posted.size)
+        assertEquals(1, posted.map { userIds(it).last() }.distinct().size)
+        assertEquals(1, posted.map { it["streamId"] }.distinct().size)
+        assertNull(session.error)
+        assertNull(session.rejectedSubmission)
+        assertEquals(1, session.messages.count { it.text == "Next" })
+        assertEquals(1, session.messages.count { it.text == "Reply" })
+    }
+    @Test fun anInvalidBatchTakesTheServersTranscriptAndKeepsTheDraft() {
+        answers += 400 to error("invalid_message_batch", "Send one new user message at a time, as the final message.")
+        val session = send()
+        assertEquals("No retry", 1, posted.size)
+        assertEquals("This agent changed elsewhere and was reloaded. Retry to send your message.", session.error)
+        assertEquals("Next", session.rejectedSubmission?.text)
+        assertEquals("The server's transcript", listOf("one", "two"), session.messages.map { it.id })
+    }
+    /** A resume the app sent itself, for a conversation the server never created: start over once. */
+    @Test fun aResumeForAMissingConversationStartsOverWithTheSameMessage() {
+        answers += 200 to ""
+        answers += 404 to error("not_found", "Conversation not found")
+        val session = send()
+        assertEquals("The send, the resume, then a fresh start", 3, posted.size)
+        assertEquals(JsonValue.Bool(true), posted[1]["resume"])
+        assertNotEquals(JsonValue.Bool(true), posted[2]["resume"])
+        assertEquals(1, posted.map { userIds(it).last() }.distinct().size)
+        assertNull(session.error)
+        assertEquals(1, session.messages.count { it.text == "Next" })
+        assertEquals(1, session.messages.count { it.text == "Reply" })
     }
 }
