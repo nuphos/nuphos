@@ -6,7 +6,6 @@ import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
 import { sessionReleased } from '@/lib/agent/session-released'
 import { SECRET_NAME } from '@/lib/agent/tools-skilled/decision-tools'
 import {
-  cancelConversationRuntime,
   conversationExecutionState,
   putConversationSecret,
   steerConversationRuntime,
@@ -17,7 +16,7 @@ import { logEvent } from '@/lib/observability'
 
 import { agent } from './router'
 import { takeOwnQueued } from './routes-conversation-queue'
-import { cancelSessionRun } from './run-cancel'
+import { stopConversationTurn } from './run-cancel'
 import { resolveVerifiedTeamId, readTeamIdCandidate } from './team-scope'
 
 agent.post('/conversations/:sessionId/cancel-runtime', async (c) => {
@@ -29,18 +28,8 @@ agent.post('/conversations/:sessionId/cancel-runtime', async (c) => {
   if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
   if (!(await canReplyIn(conversation, userId)))
     throw new AppError(403, 'conversation_read_only', 'You can only view this conversation')
-  // Stop ends what a waiting message is behind: the runtime's turn, and a run
-  // the backend still holds for the session, which a dropped runtime
-  // connection can leave without the other. Then the queue goes.
-  const runStopped = await cancelSessionRun(conversation.userId, sessionId)
+  const stopped = await stopConversationTurn(conversation)
 
-  try {
-    await cancelConversationRuntime(conversation)
-  } catch (error) {
-    if (!runStopped) throw error
-  } finally {
-    sessionReleased(conversation.userId, sessionId)
-  }
   logEvent('info', 'agent.runtime.cancel_requested', {
     trace_id: c.get('requestId'),
     auth_source: 'authenticated_http',
@@ -48,9 +37,11 @@ agent.post('/conversations/:sessionId/cancel-runtime', async (c) => {
     team_id: teamId,
     session_id: sessionId,
     runtime_id: conversation.runtimeId,
+    stopped,
   })
 
-  return c.json({ ok: true, status: 'requested' })
+  // stopped is false when no turn was running.
+  return c.json({ ok: true, status: 'requested', stopped })
 })
 
 agent.post('/conversations/:sessionId/steer', async (c) => {
@@ -69,7 +60,7 @@ agent.post('/conversations/:sessionId/steer', async (c) => {
 
   if (!text && !groupId) throw new AppError(400, 'invalid_request', 'text or groupId is required')
   const runtime = await conversationExecutionState(conversation)
-  const refused = (reason: string, extra: Record<string, unknown> = {}) =>
+  const refused = (reason: string, extra: Record<string, unknown> = {}) => {
     logEvent('info', 'agent.steer.refused', {
       trace_id: c.get('requestId'),
       session_id: sessionId,
@@ -77,6 +68,7 @@ agent.post('/conversations/:sessionId/steer', async (c) => {
       reason,
       ...extra,
     })
+  }
 
   if (!runtime.actions?.steer) {
     // The runtime's own snapshot decides; these fields say which part of it refused.

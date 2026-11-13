@@ -115,7 +115,10 @@ const request = (action: string) =>
   })
 
 test('a teammate can stop and steer the active turn, whoever started it', async () => {
-  expect((await request('cancel-runtime')).status).toBe(200)
+  const stop = await request('cancel-runtime')
+
+  expect(stop.status).toBe(200)
+  expect(await stop.json()).toMatchObject({ stopped: true })
   expect((await request('steer')).status).toBe(200)
   expect(cancelled).toBe(1)
   expect(steered).toBe(1)
@@ -265,6 +268,15 @@ test('Stop with nothing held and no runtime to reach reports the failure', async
 
   expect((await request('cancel-runtime')).status).toBe(500)
   expect(stoppedRuns).toEqual([])
+})
+
+test('Stop on an idle conversation says nothing was running instead of failing', async () => {
+  steerable = false
+  unreachable = true
+  const response = await request('cancel-runtime')
+
+  expect(response.status).toBe(200)
+  expect(await response.json()).toEqual({ ok: true, status: 'requested', stopped: false })
 })
 
 const steerRefusals = async (send: () => Response | Promise<Response>) => {

@@ -138,7 +138,10 @@ export type WindowAgentApi = AgentDecisionApi & {
     seq: number,
     teamId?: string,
   ): Promise<{ activitySeq: number; readSeq: number; unread: boolean }>
-  agentCancelRuntime(sessionId: string, teamId?: string): Promise<{ ok: boolean; status: string }>
+  agentCancelRuntime(
+    sessionId: string,
+    teamId?: string,
+  ): Promise<{ ok: boolean; status: string; stopped?: boolean }>
   agentRetractMessage(
     sessionId: string,
     messageId: string,

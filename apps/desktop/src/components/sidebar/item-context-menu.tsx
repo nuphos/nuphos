@@ -8,6 +8,7 @@ import {
   Pencil,
   SmilePlus,
   Pin,
+  Square,
   PinOff,
   Star,
   StarOff,
@@ -156,6 +157,17 @@ export function SidebarItemContextMenu({
               },
             ]
           : []),
+        // The owner stops a turn from its row, as from the conversation's own Stop.
+        ...(!channel && menu.item.key.startsWith('agent-session:') && !menu.item.readOnlyChat
+          ? [
+              {
+                key: 'stop',
+                label: t('Stop agent'),
+                icon: Square,
+                onSelect: () => stopChat(sessionId, teamId),
+              },
+            ]
+          : []),
         // A Task becomes a Bot from its row too, as from its session's menu; a sub-task does not.
         ...(canBecomeBot(menu.item)
           ? [
@@ -186,6 +198,19 @@ export function SidebarItemContextMenu({
       ]}
     />
   )
+}
+
+// The same request as the conversation's Stop, which says when nothing was running.
+function stopChat(sessionId: string, teamId: string) {
+  api
+    .agentCancelRuntime(sessionId, teamId)
+    .then(({ stopped }) => {
+      if (stopped === false) toast.info(t('Nothing running'))
+      else toast.success(t('Stopping…'))
+    })
+    .catch((err: unknown) => {
+      toast.apiError(t('Could not stop the turn on the server'), err)
+    })
 }
 
 // The sidebar's poll picks the new state up; nothing to refresh by hand.

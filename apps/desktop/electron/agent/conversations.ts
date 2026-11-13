@@ -249,7 +249,7 @@ export async function checkConversationMove(
 export function cancelRuntime(
   sessionId: string,
   teamId?: string,
-): Promise<{ ok: boolean; status: string }> {
+): Promise<{ ok: boolean; status: string; stopped?: boolean }> {
   return callJson(
     'POST',
     `/agent/conversations/${encodeURIComponent(sessionId)}/cancel-runtime${teamQuery(teamId)}`,

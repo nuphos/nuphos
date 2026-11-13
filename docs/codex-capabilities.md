@@ -48,6 +48,12 @@ The tool verifies source ownership, current membership, and target ownership
 and team. Archiving does not cancel an active turn; any new turn restores the
 conversation: a human message, a thread message, or a bound resource or Trigger event.
 
+`stop_thread` stops the running turn of another conversation the actor owns in
+the current team, through the same path as that conversation's Stop button
+(`POST /agent/conversations/:sessionId/cancel-runtime`). History stays and
+queued messages still run. It reports `idle` when no turn was running. A team
+admin cannot stop a conversation someone else owns.
+
 The Redis trigger scheduler must be running: there is no detached-process
 fallback. Queue acceptance means **queued**, not completed. A stalled job that
 already persisted its input is not blindly replayed, because the task may have
