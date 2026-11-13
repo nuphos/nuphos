@@ -165,7 +165,14 @@ File uploads and downloads use presigned URLs that Desktop and the runtime fetch
 echo '127.0.0.1 rustfs' | sudo tee -a /etc/hosts
 ```
 
-When Desktop runs on another machine, set `RUSTFS_PUBLIC_URL` in `.env` to an origin it can reach, for example `http://nuphos-host.lan:9000`, and run `docker compose up -d backend`. Presigned URLs then use that origin. RustFS must be reachable there by Desktop and by the runtime container, so publish it beyond `127.0.0.1` (edit the `rustfs` port mapping or put a proxy in front of it).
+When Desktop runs on another machine, set `RUSTFS_PUBLIC_URL` in `.env` to an origin it can reach, for example `http://nuphos-host.lan:9000`, and run `docker compose up -d backend`. Presigned URLs then use that origin. RustFS must be reachable there by Desktop and by the runtime container, so publish it beyond `127.0.0.1` (edit the `rustfs` port mapping or put a proxy in front of it). Presigned URLs carry their own short-lived signature, but the port is then open, so serve it over TLS or limit it to the networks Desktop and the runtime use.
+
+To check, replace the example origin with yours and run both commands. Each should print `200`:
+
+```sh
+curl -s -o /dev/null -w '%{http_code}\n' http://nuphos-host.lan:9000/health   # on the Desktop machine
+docker compose exec runtime curl -s -o /dev/null -w '%{http_code}\n' http://nuphos-host.lan:9000/health   # on the stack's host
+```
 
 ## Health telemetry (optional, off by default)
 
