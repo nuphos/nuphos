@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
-import { accessView, canUseAllowList, createDefaultAccess } from '@/lib/byos/access'
+import { accessView, canUseAllowList, canUseBinding, createDefaultAccess } from '@/lib/byos/access'
 import { tencentConnectorSchema } from '@/lib/byos/connector-schemas'
 import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
 import { verifyTencentRole, tencentOidcInfo } from '@/lib/byos/tencent'
@@ -46,7 +46,7 @@ export function tencentAccountsView(
     ...(isAdmin ? { access: accessView(b.access) } : {}),
     // Admins pass the member-access gate regardless of the allow-list, so
     // report canUse accordingly (matches the scoped route's gate).
-    canUse: isAdmin || canUseAllowList(b.access?.memberAllowList, userId),
+    canUse: canUseBinding(b.access, userId, teamRole),
     createdAt: b.createdAt,
   }))
 }

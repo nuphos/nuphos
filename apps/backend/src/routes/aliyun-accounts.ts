@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
-import { accessView, canUseAllowList, createDefaultAccess } from '@/lib/byos/access'
+import { accessView, canUseAllowList, canUseBinding, createDefaultAccess } from '@/lib/byos/access'
 import { verifyAliyunRole, aliyunOidcInfo } from '@/lib/byos/aliyun'
 import { aliyunConnectorSchema } from '@/lib/byos/connector-schemas'
 import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
@@ -44,7 +44,7 @@ export function aliyunAccountsView(
     // The ACL (allow list + updatedAt/updatedBy) is admin-only metadata —
     // /access is admin-gated, so don't leak it to members in the list.
     ...(isAdmin ? { access: accessView(b.access) } : {}),
-    canUse: isAdmin || canUseAllowList(b.access?.memberAllowList, userId),
+    canUse: canUseBinding(b.access, userId, teamRole),
     createdAt: b.createdAt,
   }))
 }

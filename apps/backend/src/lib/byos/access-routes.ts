@@ -1,6 +1,12 @@
 import { ObjectId } from 'mongodb'
 
-import { accessView, bindingAccessUpdateSchema, normalizeAccessInput } from '@/lib/byos/access'
+import {
+  accessView,
+  bindingAccessUpdateSchema,
+  canUseAllowList,
+  isPrivateAccess,
+  normalizeAccessInput,
+} from '@/lib/byos/access'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
@@ -26,6 +32,7 @@ type BindingRef = { id: ObjectId | string; access?: BindingAccess }
 /**
  * GET/PUT of a binding's member list, admin only. Register it before the
  * binding's member gate, so an admin who is not on the list can manage it.
+ * A member's private binding stays theirs: an admin can see it, not share it.
  */
 export function registerBindingAccessRoutes<V extends TeamAuthVariables>(
   scoped: Hono<{ Variables: V }>,
@@ -42,8 +49,22 @@ export function registerBindingAccessRoutes<V extends TeamAuthVariables>(
     requireTeamRole('ADMINISTRATOR'),
     zv('json', bindingAccessUpdateSchema),
     async (c) => {
-      const { id } = await bindingOf(c as never)
-      const access = normalizeAccessInput(c.req.valid('json'), c.get('userId'))
+      const { id, access: current } = await bindingOf(c as never)
+      const userId = c.get('userId')
+
+      if (isPrivateAccess(current) && !canUseAllowList(current?.memberAllowList, userId)) {
+        throw new AppError(
+          403,
+          'binding_private',
+          "Only its owner can share another member's private binding",
+        )
+      }
+      const access = normalizeAccessInput(
+        c.req.valid('json'),
+        userId,
+        new Date(),
+        current?.ownerUserId,
+      )
       const result = await teamByosBindings().updateOne(
         {
           _id: parseObjectId(c.get('teamId'), 'teamId'),

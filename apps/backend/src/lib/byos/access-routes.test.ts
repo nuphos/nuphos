@@ -13,6 +13,8 @@ const teamId = new ObjectId().toHexString()
 const bindingId = new ObjectId()
 let updates: { filter: Record<string, unknown>; update: Record<string, unknown> }[] = []
 let matchedCount = 1
+let memberAllowList = ['u1', 'u2']
+let ownerUserId: string | undefined = 'u1'
 
 useModels({
   teamByosBindings: () => ({
@@ -27,6 +29,8 @@ useModels({
 beforeEach(() => {
   updates = []
   matchedCount = 1
+  memberAllowList = ['u1', 'u2']
+  ownerUserId = 'u1'
 })
 
 function app(role: 'ADMINISTRATOR' | 'EDITOR') {
@@ -40,7 +44,7 @@ function app(role: 'ADMINISTRATOR' | 'EDITOR') {
   })
   registerBindingAccessRoutes(scoped, 'linodeAccounts', () => ({
     id: bindingId.toHexString(),
-    access: { memberAllowList: ['u1'], updatedAt: new Date(0), updatedBy: 'u1' },
+    access: { memberAllowList, ownerUserId, updatedAt: new Date(0), updatedBy: 'u1' },
   }))
 
   return scoped.onError(errorHandler)
@@ -58,7 +62,7 @@ describe('registerBindingAccessRoutes', () => {
     const response = await app('ADMINISTRATOR').request('/access')
 
     expect(response.status).toBe(200)
-    expect(await response.json()).toMatchObject({ memberAllowList: ['u1'], updatedBy: 'u1' })
+    expect(await response.json()).toMatchObject({ memberAllowList: ['u1', 'u2'], updatedBy: 'u1' })
   })
 
   test('keeps the list from editors', async () => {
@@ -80,7 +84,11 @@ describe('registerBindingAccessRoutes', () => {
       'linodeAccounts.id': bindingId,
     })
     expect(updates[0]?.update.$set).toMatchObject({
-      'linodeAccounts.$.access': { memberAllowList: ['u1', 'u2'], updatedBy: 'admin' },
+      'linodeAccounts.$.access': {
+        memberAllowList: ['u1', 'u2'],
+        ownerUserId: 'u1',
+        updatedBy: 'admin',
+      },
     })
   })
 
@@ -91,5 +99,20 @@ describe('registerBindingAccessRoutes', () => {
   test('reports a binding disconnected meanwhile', async () => {
     matchedCount = 0
     expect((await put('ADMINISTRATOR', ['u1'])).status).toBe(404)
+  })
+
+  test("lets an admin see, but not share, another member's private binding", async () => {
+    memberAllowList = ['u1']
+    expect((await app('ADMINISTRATOR').request('/access')).status).toBe(200)
+    expect((await put('ADMINISTRATOR', ['*'])).status).toBe(403)
+    ownerUserId = undefined
+    expect((await put('ADMINISTRATOR', ['*'])).status).toBe(403)
+    expect(updates).toEqual([])
+  })
+
+  test('lets an admin who owns a private binding share it', async () => {
+    memberAllowList = ['admin']
+    ownerUserId = 'admin'
+    expect((await put('ADMINISTRATOR', ['*'])).status).toBe(200)
   })
 })

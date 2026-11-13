@@ -1,4 +1,4 @@
-import { canPrincipalsUseAllowList } from '@/lib/byos/access'
+import { canPrincipalsUseAllowList, canUseBinding } from '@/lib/byos/access'
 import { AppError } from '@/lib/errors'
 
 import type { AgentRef } from '@/lib/agents/identity'
@@ -7,6 +7,7 @@ import type { Context, Env, MiddlewareHandler } from 'hono'
 
 type PrincipalVariables = {
   userId: string
+  teamRole?: string
   agent?: AgentRef
   conversationAgent?: AgentRef
 }
@@ -25,16 +26,29 @@ export function bindingAccessPrincipals(c: Context): string[] {
   return [...new Set(ids)]
 }
 
-/** Refuses the request unless every principal is on the binding's member list. */
+/**
+ * Whether this request may use a binding. A member acting in the app follows
+ * `canUseBinding`; a conversation token never gets the admin exception, so
+ * every principal it acts for must be on the list.
+ */
+export function canRequestUseBinding(c: Context, access: BindingAccess | undefined): boolean {
+  const vars = c.var as unknown as PrincipalVariables
+
+  if (!vars.agent && !vars.conversationAgent) {
+    return canUseBinding(access, vars.userId, vars.teamRole)
+  }
+
+  return canPrincipalsUseAllowList(access?.memberAllowList, bindingAccessPrincipals(c))
+}
+
+/** Refuses the request unless `canRequestUseBinding` allows it. */
 export function requireBindingMemberAccess<E extends Env>(
   accessOf: (c: Context<E>) => BindingAccess | undefined,
   code: string,
   message: string,
 ): MiddlewareHandler<E> {
   return async (c, next) => {
-    const list = accessOf(c)?.memberAllowList
-
-    if (!canPrincipalsUseAllowList(list, bindingAccessPrincipals(c as Context))) {
+    if (!canRequestUseBinding(c as Context, accessOf(c))) {
       throw new AppError(403, code, message)
     }
     await next()

@@ -1,7 +1,6 @@
 import { Hono } from 'hono'
 
 import { agentSubjectId } from '@/lib/agents/identity'
-import { canUseAllowList } from '@/lib/byos/access'
 import {
   requireTailnetSandboxTag,
   tailnetSandboxHostname,
@@ -16,7 +15,7 @@ import { tailscaleAuthHandle } from '@/lib/byos/tailscale-binding'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { logEvent } from '@/lib/observability'
-import { requireTailscaleClient } from '@/middleware/auth'
+import { canRequestUseBinding, requireTailscaleClient } from '@/middleware/auth'
 import { getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
 
 import type { AgentTailscaleVars } from '@/routes/agent-sessions/shared'
@@ -128,7 +127,7 @@ function requireSelectedTailscaleAgentCredential(): MiddlewareHandler<{
         'This Tailscale OAuth client is not enabled for this agent session',
       )
     }
-    if (!canUseAllowList(c.get('tailscaleAccess')?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('tailscaleAccess'))) {
       throw new AppError(
         403,
         'tailscale_client_agent_access_denied',

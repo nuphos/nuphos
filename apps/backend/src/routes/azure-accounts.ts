@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
-import { accessView, canUseAllowList, createDefaultAccess } from '@/lib/byos/access'
+import { accessView, canUseAllowList, canUseBinding, createDefaultAccess } from '@/lib/byos/access'
 import { azureOidcInfo, verifyAzureBinding } from '@/lib/byos/azure'
 import { azureConnectorSchema } from '@/lib/byos/connector-schemas'
 import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
@@ -49,7 +49,7 @@ export function azureAccountsView(
     // to members in the list.
     ...(isAdmin ? { access: accessView(b.access) } : {}),
     // Admins pass the member-access gate regardless of the allow-list.
-    canUse: isAdmin || canUseAllowList(b.access?.memberAllowList, userId),
+    canUse: canUseBinding(b.access, userId, teamRole),
     createdAt: b.createdAt,
   }))
 }
