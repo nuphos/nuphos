@@ -1,5 +1,6 @@
 import { config } from '@/config'
 import { canUseAllowList } from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { parseRelayedKubeconfig, renderAgentKubeconfig } from '@/lib/byos/agent-kubeconfig'
 import { readOnpremAccess } from '@/lib/byos/onprem-access'
 import { relayProxyUrl, relayStatusCredential } from '@/lib/byos/relay-token'
@@ -58,6 +59,15 @@ export function registerOnpremStatusRoutes(
       return c.json({ connected: null, idleConnections: null, reason: 'relay_status_unavailable' })
     }
   })
+
+  // `/access` reports what the cluster credential can do, so the member list
+  // has its own path here.
+  registerBindingAccessRoutes(
+    onpremClustersRoutes,
+    'onpremClusters',
+    (c) => loadBinding(parseObjectId(c.get('teamId'), 'teamId'), c.req.param('clusterId') ?? ''),
+    '/:clusterId/member-access',
+  )
 
   /**
    * What the credential can actually do, answered by the customer's own API server
