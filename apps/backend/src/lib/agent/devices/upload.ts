@@ -3,10 +3,11 @@ import { z } from 'zod'
 import { AppError } from '@/lib/errors'
 import { createTransfer, finalizeTransfer } from '@/lib/file-transfer/service'
 
-import { deviceAccessDeps, requireDeviceAccess } from './box-access'
+import { deviceAccessDeps } from './box-access'
 import { tunnelBus } from './local-runtime/bus'
 import { runtimePresenceStore } from './local-runtime/presence'
 import { DeviceRuntimeSocket } from './local-runtime/socket'
+import { requireShellAccess } from './manage-access'
 
 import type { DeviceAccessDeps } from './box-access'
 import type { DeviceRuntimeSocketDeps } from './local-runtime/socket'
@@ -56,7 +57,8 @@ export async function dispatchLocalUpload(
   const teamId = scope.teamId.toHexString()
 
   if (!(await access.role(actorId, teamId))) return { error: 'device_unavailable' }
-  const device = await requireDeviceAccess(actorId, teamId, deviceId, 'use', access)
+  // It reads a file off the computer, as a shell would.
+  const device = await requireShellAccess(actorId, teamId, deviceId, 'exec', access)
 
   if (!device.allowLocalExec) return { error: 'device_unavailable' }
   const socket = new DeviceRuntimeSocket(

@@ -1,6 +1,6 @@
-import { requireDeviceAccess } from '@/lib/agent/devices/box-access'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { commitLocalAgentInstance } from '@/lib/agent/devices/local-runtime/instances'
+import { requireAgentSignInAccess } from '@/lib/agent/devices/manage-access'
 import { settleSignInRequests } from '@/lib/agent/sign-in-settle'
 import { AppError } from '@/lib/errors'
 
@@ -39,13 +39,13 @@ export type RuntimeLoginDeps<Target> = {
 
 /** Managed, self-hosted and local runtimes own their sign-in (a local one over its
  *  computer's tunnel, into the runtime's own config dir); a development runtime is
- *  signed in where it runs. */
+ *  signed in where it runs. Only those who manage a computer sign its agents in or out. */
 async function requireLocalLoginAccess(teamId: string, runtimeId: string, userId?: string) {
   const ref = parseLocalRuntimeId(runtimeId)
 
   if (ref) {
     if (!userId) throw new AppError(404, 'runtime_not_found', 'Agent is not available')
-    const device = await requireDeviceAccess(userId, teamId, ref.deviceId, 'use')
+    const device = await requireAgentSignInAccess(userId, teamId, ref.deviceId)
 
     if (device.userId !== ref.userId)
       throw new AppError(404, 'runtime_not_found', 'Agent is not available')

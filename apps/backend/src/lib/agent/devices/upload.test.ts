@@ -42,8 +42,9 @@ const target: AgentDevice = {
     {
       teamId: teamId.toHexString(),
       everyone: false,
-      userIds: ['conversation-owner'],
-      managerIds: [],
+      userIds: ['conversation-owner', 'user'],
+      // Reading a file off the computer is for those who manage it.
+      managerIds: ['conversation-owner'],
     },
   ],
   createdAt: new Date(),
@@ -254,6 +255,16 @@ test('old computers and revoked membership never receive upload requests', async
     expect(deps.requests()).toBe(0)
     deps.tunnel.closed()
   }
+})
+
+test('someone who only uses the computer cannot read a file off it', async () => {
+  const deps = await setup()
+
+  await expect(
+    dispatchLocalUpload('user', 'd1', '/fixture', scope, { access, deps }),
+  ).rejects.toMatchObject({ status: 403 })
+  expect(deps.requests()).toBe(0)
+  deps.tunnel.closed()
 })
 
 test('a computer cannot finalize an unrelated group or return arbitrary errors', async () => {
