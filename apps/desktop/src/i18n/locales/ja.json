@@ -5408,7 +5408,6 @@
   "workspace": "ワークスペース",
   "workspace not installed": "ワークスペース未インストール",
   "you": "あなた",
-  "{account} connected": "{account} に接続しました",
   "{action} — pick this cluster (or Account All Resources), a namespace scope, and an access right (e.g. read-only).": "{action} — このクラスター（または Account All Resources）、Namespace のスコープ、アクセス権（例：読み取り専用）を選択します。",
   "{action} — pick your clusters (or Account All Resources), a namespace scope, and an access right (read-only is enough for browsing)": "{action}：クラスター（または Account All Resources）、名前空間のスコープ、アクセス権を選択します（参照するだけなら読み取り専用で十分です）",
   "{action}: {n} done": "{action}：{n} 件完了",

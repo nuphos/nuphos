@@ -5408,7 +5408,6 @@
   "workspace": "workspace",
   "workspace not installed": "workspace belum terinstal",
   "you": "Anda",
-  "{account} connected": "{account} terhubung",
   "{action} — pick this cluster (or Account All Resources), a namespace scope, and an access right (e.g. read-only).": "{action} — pilih kluster ini (atau Account All Resources), cakupan namespace, dan hak akses (mis. hanya-baca).",
   "{action} — pick your clusters (or Account All Resources), a namespace scope, and an access right (read-only is enough for browsing)": "{action} — pilih kluster Anda (atau Account All Resources), cakupan namespace, dan hak akses (hanya-baca sudah cukup untuk menjelajah)",
   "{action}: {n} done": "{action}: {n} selesai",
