@@ -193,7 +193,7 @@ export async function executeTrelloTool(
   const toolArguments = trelloToolArguments(tool, args)
 
   await verifyTrelloConnection(accountId, userId)
-  const result = await composioRequest<{ successful: boolean; data: unknown; error?: unknown }>(
+  const result = await composioRequest<{ successful: boolean; data: unknown; log_id?: unknown }>(
     'POST',
     `/tools/execute/${tool}`,
     {
@@ -208,7 +208,9 @@ export async function executeTrelloTool(
     throw new AppError(
       502,
       'trello_tool_failed',
-      'Trello denied or could not complete this operation. Do not automatically retry a write.',
+      // The upstream error text can echo request URLs, so only Composio's log id goes out:
+      // it finds the exact failure in the Composio dashboard's logs.
+      `Trello denied or could not complete this operation (Composio log ${typeof result.log_id === 'string' ? result.log_id : 'unavailable'}). Do not automatically retry a write.`,
     )
 
   return { successful: true, data: result.data }
