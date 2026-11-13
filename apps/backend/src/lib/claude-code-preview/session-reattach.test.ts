@@ -183,6 +183,26 @@ test('a turn in flight ends when the session cannot get back on', async () => {
   expect(seen).toEqual(['status', 'text', 'interrupted:runtime_connection_lost'])
 })
 
+test('a turn in flight ends when the reattach finds the agent gone', async () => {
+  const seen: string[] = []
+  const replacement = fakeClient('replacement', false)
+
+  setClaudeCodeAutonomousUpdateHandler(({ update }) => {
+    seen.push(update.kind === 'interrupted' ? `interrupted:${update.reason}` : update.kind)
+  })
+  acquire = spyOn(registry, 'acquire').mockResolvedValue(replacement)
+  const lost = session.client as ReturnType<typeof fakeClient>
+
+  observeSession(session)
+  lost.emit({ kind: 'status', status: 'active' })
+  lost.emit({ kind: 'text', text: 'Checking the build' })
+  lost.close()
+  expect(await session.reattached).toBe(true)
+  await Bun.sleep(5)
+
+  expect(seen).toEqual(['status', 'text', 'interrupted:runtime_connection_lost'])
+})
+
 test('a teammate’s session on the owner’s computer is still theirs to resume after a blip', async () => {
   const mac = { userId: 'owner', deviceId: 'mac', provider: 'claude-code' } as const
   const replacement = fakeClient('replacement')

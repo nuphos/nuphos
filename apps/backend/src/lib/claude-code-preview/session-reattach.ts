@@ -97,10 +97,11 @@ export function observeSession(session: TeamSession): void {
     // A close after a retire finds the first attempt running; keep its outcome.
     if (session.reattaching) return
     session.reattached = reattachAfterTransportLoss(session, transport)
-    // A turn in flight continues once the session is back; only giving up ends it.
+    // A turn in flight continues once the session is back. Giving up ends it,
+    // and so does a reattach that found the agent gone: no frame will come.
     session.reattached.then(
       (back) => {
-        if (!back) endAutonomousTranscriptAfterLoss(session)
+        if (!back || session.innerSessionLost) endAutonomousTranscriptAfterLoss(session)
       },
       () => {
         endAutonomousTranscriptAfterLoss(session)
