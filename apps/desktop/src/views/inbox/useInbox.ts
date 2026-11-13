@@ -2,17 +2,16 @@ import { queryOptions, useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 
 import { api } from '../../api.ts'
+import { cardReplyId } from '../../components/agent/panel/replyTarget.ts'
 import { onInputRequestsRefresh, refreshInputRequests } from '../../lib/inputRequestRefresh.ts'
 import { queryClient } from '../../lib/query/client.ts'
 import { queryKeys } from '../../lib/query/keys.ts'
 
-import { cardReplyId } from '../../components/agent/panel/replyTarget.ts'
-
 import { answeredIn, inboxCount } from './inboxItems.ts'
 
 import type { DecisionAnswer } from '../../api/agent-chat-types'
-import type { DecisionCardRef, ReplyQuestion } from '../../components/agent/panel/replyTarget.ts'
 import type { AgentConversation } from '../../api/agent-types'
+import type { DecisionCardRef, ReplyQuestion } from '../../components/agent/panel/replyTarget.ts'
 
 export const INBOX_POLL_MS = 15_000
 // A reply the server took but has not applied yet (one queued behind a turn)
@@ -192,25 +191,29 @@ export const inboxListingQuery = (teamId: string) =>
 // The moments a question may have been asked, answered or dismissed reload the listing shown.
 const isListing = (query: { queryKey: readonly unknown[] }) =>
   query.queryKey[0] === 'team' && query.queryKey[2] === 'inbox'
-let queued = false
+const queued = new Set<string>()
 
 /** A listing already running may predate what was asked, so it is joined, not cancelled (a burst
- *  would cancel every read), and read once more after it lands. */
+ *  would cancel every read), and read once more after it lands. Each listing queues on its own,
+ *  so a slow read for one team never holds back another's. */
 export function reloadListings(client = queryClient) {
-  if (queued) return
-  const running = client.isFetching({ predicate: isListing }) > 0
-  const reload = () => client.invalidateQueries({ predicate: isListing }, { cancelRefetch: false })
+  for (const { queryKey, queryHash, state } of client.getQueryCache().findAll({
+    predicate: isListing,
+  })) {
+    if (queued.has(queryHash)) continue
+    const reload = () =>
+      client.invalidateQueries({ queryKey, exact: true }, { cancelRefetch: false })
 
-  if (!running) {
-    void reload()
-
-    return
+    if (state.fetchStatus !== 'fetching') {
+      void reload()
+      continue
+    }
+    queued.add(queryHash)
+    void reload().finally(() => {
+      queued.delete(queryHash)
+      void reload()
+    })
   }
-  queued = true
-  void reload().finally(() => {
-    queued = false
-    void reload()
-  })
 }
 
 onInputRequestsRefresh(() => reloadListings())
