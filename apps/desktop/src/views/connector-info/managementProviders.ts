@@ -2,7 +2,7 @@ import type { BindingAccessProvider } from '../../components/BindingAccess'
 import type { ConnectorInfoProvider } from '../../lib/appRoutes'
 
 // Maps a connector-info provider to its BindingAccess provider key, for the
-// subset that has an /access endpoint. Everything else renders no editor.
+// subset whose member list an admin can edit. Everything else renders no editor.
 export const ACCESS_EDITABLE_PROVIDERS: Partial<
   Record<ConnectorInfoProvider, BindingAccessProvider>
 > = {
@@ -14,6 +14,24 @@ export const ACCESS_EDITABLE_PROVIDERS: Partial<
   volcengine: 'volcengine',
   huawei: 'huawei',
   betterstack: 'betterstack',
+  plaud: 'plaud',
+  cloudflare: 'cloudflare',
+  github: 'github',
+  gitlab: 'gitlab',
+  linode: 'linode',
+  hetzner: 'hetzner',
+  tailscale: 'tailscale',
+  linear: 'linear',
+  jira: 'jira',
+  asana: 'asana',
+  sentry: 'sentry',
+  notion: 'notion',
+  resend: 'resend',
+  sonarqube: 'sonarqube',
+  vanta: 'vanta',
+  secureframe: 'secureframe',
+  'uptime-kuma': 'uptime-kuma',
+  'onprem-k8s': 'onprem',
 }
 
 const MANAGED_PROVIDERS = new Set<ConnectorInfoProvider>([
