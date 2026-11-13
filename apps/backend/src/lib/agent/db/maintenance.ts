@@ -4,6 +4,8 @@ import { logError } from '@/lib/observability'
 
 import { purgeConversationTraces } from '../trace-store/store'
 
+import type { RuntimeDefaults } from '@/lib/claude-code-preview/openab-acp-session'
+
 import { agentConversations, agentMessages, withTeamScope } from './shared'
 
 // Refuses to blank a title. The conversation already carries a usable one from
@@ -68,21 +70,35 @@ export async function claimBotAvatar(sessionId: string, avatar: string): Promise
   return result.modifiedCount > 0
 }
 
-export type BotSelfUpdate = { title?: string; avatar?: string; instructions?: string }
+export type BotSelfUpdate = {
+  title?: string
+  avatar?: string
+  instructions?: string
+  initialSessionConfig?: RuntimeDefaults
+  pendingSessionConfig?: RuntimeDefaults
+}
 
-// A Bot (a conversation with an avatar) edits its own name, face and
-// instructions. A Task has no avatar, so this never turns a Task into a Bot.
+// A Bot (a conversation with an avatar) edits its own profile and model picks.
+// A Task has no avatar, so this never turns a Task into a Bot.
 export async function updateBotSelf(
   sessionId: string,
   userId: string,
   teamId: string | undefined,
   update: BotSelfUpdate,
 ): Promise<boolean> {
+  const { pendingSessionConfig, ...profile } = update
+  const pending = Object.fromEntries(
+    Object.entries(pendingSessionConfig ?? {}).map(([key, value]) => [
+      `claudeCodePreview.pendingSessionConfig.${key}`,
+      value,
+    ]),
+  )
   const result = await agentConversations().updateOne(
     withTeamScope({ sessionId, userId, avatar: { $exists: true } }, teamId),
     {
       $set: {
-        ...update,
+        ...profile,
+        ...pending,
         ...(update.title === undefined ? {} : { titleManuallySet: true }),
       },
     },

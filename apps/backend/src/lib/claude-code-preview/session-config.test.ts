@@ -436,6 +436,13 @@ test('a confirmed pick that differs from the start settings wins on the chip and
   expect(
     storedPick({ runtimeDefaults: { model: 'a', fast: 'on' }, sessionConfig: confirmed }),
   ).toEqual({ model: 'b', effort: 'high', fast: 'on' })
+  expect(
+    storedPick({
+      runtimeDefaults: { model: 'a', fast: 'on' },
+      sessionConfig: confirmed,
+      pendingSessionConfig: { model: 'c', effort: 'maximum' },
+    }),
+  ).toEqual({ model: 'c', effort: 'maximum', fast: 'on' })
   expect(storedPick({ runtimeDefaults: { model: 'a' } })).toEqual({ model: 'a' })
   expect(storedPick()).toEqual({})
 })

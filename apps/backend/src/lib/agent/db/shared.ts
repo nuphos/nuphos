@@ -25,6 +25,8 @@ export type ConversationPreviewAttachment = {
   /** Last model settings this session confirmed; they override runtimeDefaults
    *  on the chip and when the session is recreated (see storedPick). */
   sessionConfig?: SessionConfigOption[]
+  /** A Bot's model picks queued during its reply; the next prompt confirms them. */
+  pendingSessionConfig?: RuntimeDefaults
   openabSessionId: string
   runtimeUrl: string
 }

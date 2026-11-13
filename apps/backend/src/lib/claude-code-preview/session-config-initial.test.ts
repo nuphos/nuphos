@@ -3,7 +3,7 @@ import { beforeEach, expect, test } from 'bun:test'
 import { useDb } from '@/lib/test/doubles/db'
 import { useRuntimeModels } from '@/lib/test/doubles/runtime-models'
 
-import { conversationSessionConfig } from './session-config'
+import { botSessionConfigUpdate, conversationSessionConfig } from './session-config'
 
 import type { AgentConversation } from '@/lib/agent/db'
 
@@ -84,5 +84,16 @@ test('an unsupported explicit choice is refused without deleting the saved setti
       'owner',
     ),
   ).rejects.toMatchObject({ code: 'invalid_runtime_config' })
+  expect(writes).toEqual([])
+})
+
+test('a Bot validates an unstarted model and effort without a separate write', async () => {
+  const update = await botSessionConfigUpdate(
+    conversation(),
+    { model: 'astra', effort: 'high' },
+    'owner',
+  )
+
+  expect(update).toEqual({ initialSessionConfig: { model: 'astra', effort: 'high' } })
   expect(writes).toEqual([])
 })
