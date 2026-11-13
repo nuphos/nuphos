@@ -109,11 +109,11 @@ export function ThreadBadge({
       ) : (
         <MessagesSquare aria-hidden strokeWidth={1.75} className="size-6 shrink-0 text-tertiary" />
       )}
-      <span className="min-w-0 max-w-[44ch]">
+      <span className="min-w-0 max-w-[64ch]">
         <span className="block truncate font-medium leading-5" title={name}>
           {name}
         </span>
-        <span className="flex items-center gap-2 text-[12px] leading-4 text-tertiary">
+        <span className="flex flex-wrap items-center gap-x-2 text-[12px] leading-4 text-tertiary">
           <span>{verb}</span>
           <ThreadTags info={info} runtime={threadRuntimeName(provider, runtimeLabel)} />
           {(known !== null || status !== 'unavailable') && (
