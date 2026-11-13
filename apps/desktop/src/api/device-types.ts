@@ -152,10 +152,9 @@ export type LocalShareInput = {
   managerIds?: string[]
 }
 
-/** A computer's share in one team, the most the team's administrators allow, and its managers. */
+/** A computer's share in one team and its managers. */
 export type LocalAgentShareState = {
   share: LocalShareInput
-  ceiling: LocalShareLevel
   /** Absent from older backends. */
   managerIds?: string[]
 }
