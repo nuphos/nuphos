@@ -98,11 +98,12 @@ deviceApproval.get('/', async (c) => {
 })
 
 deviceApproval.post('/', async (c) => {
-  // The session cookie is SameSite=Lax, so a cross-site form never carries it; the Origin
-  // check also refuses a same-site page on another host.
-  const origin = c.req.header('origin')
+  // The session cookie is SameSite=Lax, so a cross-site form never carries it; Sec-Fetch-Site
+  // also refuses a same-site page on another host. Not Origin: under this route's
+  // `Referrer-Policy: no-referrer` browsers send `Origin: null` even from this page.
+  const site = c.req.header('sec-fetch-site')
 
-  if (origin && origin !== new URL(config.auth.publicBaseUrl).origin)
+  if (site && site !== 'same-origin')
     throw new AppError(403, 'forbidden', 'Approve from this page only')
   const user = await signedInUser(c)
 

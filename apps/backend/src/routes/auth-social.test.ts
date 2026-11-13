@@ -324,6 +324,9 @@ test('device approval refuses other origins and anonymous posts', async () => {
       body: 'code=ABCDEFGH&decision=approve',
     })
 
-  expect((await post({ origin: 'https://evil.example' })).status).toBe(403)
+  expect((await post({ 'sec-fetch-site': 'same-site' })).status).toBe(403)
+  expect((await post({ 'sec-fetch-site': 'cross-site' })).status).toBe(403)
+  // What a browser sends from the page itself under no-referrer: allowed past the check.
+  expect((await post({ 'sec-fetch-site': 'same-origin', origin: 'null' })).status).toBe(401)
   expect((await post({})).status).toBe(401)
 })
