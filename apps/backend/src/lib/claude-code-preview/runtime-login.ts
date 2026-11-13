@@ -77,15 +77,15 @@ export async function requireLoginInstance(
     throw new AppError(409, 'runtime_disabled', 'Enable this agent before signing in')
 }
 
-/** An added agent exists once signed in: its host keeps it from here on. */
-async function commitAddedAgent(doc: RuntimeLoginDoc): Promise<void> {
+/** Tells a computer's host its agent signed in; an older host refuses this for its own agent. */
+async function commitSignedInAgent(doc: RuntimeLoginDoc): Promise<void> {
   const ref = parseLocalRuntimeId(doc.runtimeId)
 
-  if (!ref?.instanceId || !doc.userId) return
+  if (!ref || !doc.userId) return
   await commitLocalAgentInstance(
     { userId: ref.userId, actorId: doc.userId, deviceId: ref.deviceId, teamId: doc.teamId },
-    ref.instanceId,
-  )
+    ref.instanceId ? { instanceId: ref.instanceId } : { provider: ref.provider },
+  ).catch((error: Error) => (ref.instanceId ? Promise.reject(error) : undefined))
 }
 
 /** All callbacks are fenced by the attempt ID, including cross-replica cancellation. */
@@ -180,7 +180,7 @@ export async function performRuntimeLogin<Target>(
     const signedOut = finished === 'signedOut'
 
     // Connected keeps the agent, listed at once; a removed API key keeps and runs nothing.
-    if (!signedOut) await (deps.commit ?? commitAddedAgent)(doc)
+    if (!signedOut) await (deps.commit ?? commitSignedInAgent)(doc)
     // The runtime installed the credential itself, so it is already in use.
     const connected = await runtimeLogins().updateOne(
       {

@@ -3,7 +3,7 @@ import path from 'node:path'
 
 import { parseInstance, readInstances, writeInstances } from './agent-instances.ts'
 import { deleteClaudeKeychainEntry } from './claude-keychain.ts'
-import { removeDefaultAgent } from './default-agent.ts'
+import { defaultAgentRequest } from './default-agent.ts'
 import { userDir } from './controller-types.ts'
 import { instanceControllerDeps, secureStorageEnv } from './instance-deps.ts'
 import { instanceStates, instanceStatus, publicMetadata } from './instance-entries.ts'
@@ -11,6 +11,7 @@ import { instanceStates, instanceStatus, publicMetadata } from './instance-entri
 import type { LocalAgentProvider } from './agent-cli.ts'
 import type { AgentInstanceRecord } from './agent-instances.ts'
 import type { LocalRuntimeControllerDeps } from './controller-types.ts'
+import type { RefreshDefault } from './default-agent.ts'
 import type { Controller, Entry } from './instance-entries.ts'
 import type { RunningRuntime } from './openab-process.ts'
 
@@ -22,8 +23,7 @@ export type InstanceControllersOptions = {
   now?: () => number
   /** Deletes what a removed agent stored outside its own directory. */
   removeCredential?: (env: NodeJS.ProcessEnv) => Promise<void>
-  /** Restarts the computer's own agent of a provider, once its login is gone. */
-  restartDefault?: (provider: LocalAgentProvider) => Promise<unknown>
+  refreshDefault?: RefreshDefault
 }
 
 /**
@@ -41,7 +41,7 @@ export class InstanceControllers {
   private readonly changed: () => void
   private readonly now: () => number
   private readonly removeCredential: (env: NodeJS.ProcessEnv) => Promise<void>
-  private readonly restartDefault?: InstanceControllersOptions['restartDefault']
+  private readonly refreshDefault?: RefreshDefault
   private userId: string | null = null
   constructor(
     deps: LocalRuntimeControllerDeps,
@@ -54,7 +54,7 @@ export class InstanceControllers {
     this.changed = changed
     this.now = options.now ?? Date.now
     this.removeCredential = options.removeCredential ?? deleteClaudeKeychainEntry
-    this.restartDefault = options.restartDefault
+    this.refreshDefault = options.refreshDefault
   }
 
   async load(userId: string | null): Promise<void> {
@@ -200,8 +200,8 @@ export class InstanceControllers {
     const body = request as { method?: string; instanceId?: unknown; provider?: unknown }
 
     // The computer's own agent is named by its provider, an added one by its instance id.
-    if (body.method === 'remove' && body.instanceId === undefined)
-      return removeDefaultAgent(this.deps, userId, body.provider, this.restartDefault)
+    if (body.instanceId === undefined && (body.method === 'remove' || body.method === 'commit'))
+      return defaultAgentRequest(this.deps, userId, body.method, body.provider, this.refreshDefault)
 
     if (body.method === 'list')
       return {
