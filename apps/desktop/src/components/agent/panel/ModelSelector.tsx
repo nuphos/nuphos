@@ -24,6 +24,7 @@ import {
 } from './modelSelectorParts'
 
 import type { useSessionConfig } from './useSessionConfig'
+import type { ReactNode } from 'react'
 
 export type ModelControl = Pick<
   ReturnType<typeof useSessionConfig>,
@@ -41,11 +42,23 @@ export function ModelSelector({
   control,
   disabled,
   hero = false,
+  side = 'top',
+  inline = false,
+  leading,
+  leadingLabel,
 }: {
   control: ModelControl
   disabled: boolean
   /** Sized like the hero composer's other controls; compact otherwise. */
   hero?: boolean
+  /** Where the picker opens: above a composer, below a titlebar. */
+  side?: 'top' | 'bottom'
+  /** Always shows the model and effort, outside a composer's container queries. */
+  inline?: boolean
+  /** Shown before the model, e.g. the runtime's provider. */
+  leading?: ReactNode
+  /** What `leading` says, for the chip's accessible name. */
+  leadingLabel?: string
 }) {
   const { data, loading, slow, saving, error, writeError } = control
   // A refused change reports its own reason; a stalled connection keeps its note.
@@ -172,8 +185,12 @@ export function ModelSelector({
         >
           <Popover.Trigger
             ref={chipRef}
-            data-model-chip=""
-            aria-label={chipLabel([name, level].filter(Boolean).join(' '), fast?.currentValue)}
+            // ⌃⇧M with nothing focused goes to the only composer chip, not a titlebar's.
+            data-model-chip={inline ? undefined : ''}
+            aria-label={chipLabel(
+              [leadingLabel, name, level].filter(Boolean).join(' '),
+              fast?.currentValue,
+            )}
             // A filled pill at rest, so opening it changes nothing but the text.
             className={clsx(
               hero ? 'h-8' : 'h-7',
@@ -181,6 +198,7 @@ export function ModelSelector({
             )}
           >
             {saving && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
+            {leading}
             <ModelChipLabel
               name={name}
               loading={loading && !slow && !error && !data}
@@ -188,16 +206,17 @@ export function ModelSelector({
               levels={effortLevels}
               choosingEffort={effortOpen && Boolean(effort)}
               fast={fast?.currentValue}
+              inline={inline}
             />
             <ChevronDown
               size={14}
               strokeWidth={1.8}
-              className="hidden shrink-0 text-tertiary @[320px]:block"
+              className={clsx('shrink-0 text-tertiary', inline ? 'block' : 'hidden @[320px]:block')}
             />
           </Popover.Trigger>
         </Tooltip>
         <Popover.Portal>
-          <Popover.Positioner side="top" align="center" sideOffset={8} className="z-[1000]">
+          <Popover.Positioner side={side} align="center" sideOffset={8} className="z-[1000]">
             <Popover.Popup
               finalFocus={finalFocus}
               className={(state) =>
@@ -207,7 +226,7 @@ export function ModelSelector({
                   state.transitionStatus === 'ending' && 'is-closing',
                 )
               }
-              style={{ transformOrigin: 'bottom center' }}
+              style={{ transformOrigin: side === 'top' ? 'bottom center' : 'top center' }}
             >
               {!showModels && effort && model && (
                 <ModelEffortPanel
@@ -246,7 +265,7 @@ export function ModelSelector({
         <MenuContent
           ref={menuRef}
           anchor={chipRef}
-          side="top"
+          side={side}
           align="center"
           sideOffset={8}
           finalFocus={finalFocus}
