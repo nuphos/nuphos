@@ -51,7 +51,8 @@ enum TransferFiles {
     private static func download(_ file: TransferDownloadGroup.File, from remote: URL, root: URL, session: URLSession) async throws -> URL {
         let local = path(file, root)
         let (temp, response) = try await session.download(from: remote)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { throw URLError(.badServerResponse) }
+        // Only an HTTP answer has a status; a preview fixture's file link has none.
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) { throw URLError(.badServerResponse) }
         try FileManager.default.createDirectory(at: local.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? FileManager.default.removeItem(at: local)
         try FileManager.default.moveItem(at: temp, to: local)
