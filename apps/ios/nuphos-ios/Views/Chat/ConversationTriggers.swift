@@ -27,6 +27,7 @@ struct ConversationTriggers: View {
     @State private var loading = true
     @State private var pending: Set<String> = []
     @State private var failure: String?
+    @State private var revision = 0
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -69,10 +70,11 @@ struct ConversationTriggers: View {
     }
 
     private func reload() async {
+        let requested = revision
         do {
             let rows: [ConversationTrigger] = try await WorkspaceAPI.request(
                 "agent/triggers", query: [URLQueryItem(name: "teamId", value: teamId), URLQueryItem(name: "targetSessionId", value: sessionId)], token: token)
-            if Task.isCancelled { return }
+            if Task.isCancelled || requested != revision { return }
             triggers = rows
             failure = nil
         } catch { if !Task.isCancelled { failure = error.localizedDescription } }
@@ -86,6 +88,7 @@ struct ConversationTriggers: View {
             let _: ConversationTrigger = try await WorkspaceAPI.request(
                 "agent/triggers/\(trigger.id)", query: [URLQueryItem(name: "teamId", value: teamId)], token: token,
                 method: "PATCH", body: .object(["enabled": .bool(enabled)]))
+            revision += 1
             await reload()
         } catch { failure = error.localizedDescription }
     }
