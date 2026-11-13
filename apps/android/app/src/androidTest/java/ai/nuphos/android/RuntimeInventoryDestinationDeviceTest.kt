@@ -22,14 +22,12 @@ class RuntimeInventoryDestinationDeviceTest {
     private val cloud=AgentRuntime("cloud","codex","Synthetic current","active","managed")
     private val box=AgentRuntime("box","opencode","Synthetic Box runtime","active","local",local=RuntimeHost("host","Synthetic Box",true))
     private var creates=0;private var starts=0;private var answers=0;private var cancels=0;private var closes=0
-    private var createdProvider=""
-    private var lastStart="";private var lastAnswerRuntime="";private var lastAnswer="";private var lastAttempt=""
+        private var lastStart="";private var lastAnswerRuntime="";private var lastAnswer="";private var lastAttempt=""
     private var step=RuntimeLoginStep("choose",message="Choose a method",options=listOf(RuntimeLoginOption("fixture","Synthetic method")))
     private lateinit var store:RuntimeSetupStore
     private lateinit var selection:RuntimeSelections.Selection
     private val api=object:RuntimeTransport {
-        override suspend fun catalog()=listOf(cloud,box,cloud.copy(id="created",provider=createdProvider.ifBlank{"opencode"}))
-        override suspend fun create(provider:String,label:String?):AgentRuntime {creates++;createdProvider=provider;return cloud.copy(id="created",provider=provider)}
+        override suspend fun catalog()=listOf(cloud,box)
         override suspend fun start(runtimeId:String):RuntimeLogin {starts++;lastStart=runtimeId;return login()}
         override suspend fun login(runtimeId:String)=login()
         private fun login()=RuntimeLogin("00000000-0000-4000-8000-000000000001","awaiting_authorization",4102444800000L,step=step)
@@ -41,27 +39,13 @@ class RuntimeInventoryDestinationDeviceTest {
         compose.setContent {
             val scope=rememberCoroutineScope()
             selection=remember {RuntimeSelections().bind("fixture-account","fixture-team").apply {saveCatalog(listOf(cloud,box));select(cloud.id)}}
-            store=remember {RuntimeSetupStore(api,scope,{true},{!boxSignIn},selection,{},now={0},loginAllowed={if(boxSignIn)it.id==box.id else it.kind=="managed"},selectCreatedRuntime=pickerMode)}
+            store=remember {RuntimeSetupStore(api,scope,{true},{!boxSignIn},selection,{},now={0},loginAllowed={if(boxSignIn)it.id==box.id else it.kind=="managed"},useSelectedRuntime=pickerMode)}
             RuntimeFixtureTheme {
-                RuntimeSetupSheet(store,{closes++},initialManaging=!pickerMode,initialSignInRuntimeId=if(boxSignIn)box.id else null,newRuntimeOnly=!boxSignIn && !pickerMode,inventoryMode=!pickerMode)
+                RuntimeSetupSheet(store,{closes++},initialManaging=!pickerMode,initialSignInRuntimeId=if(boxSignIn)box.id else null,inventoryMode=!pickerMode)
             }
         }
         compose.waitUntil(5000) {store.state.catalogLoaded}
         compose.runOnIdle { blockRuntimeFixtureAutofillWindows() }
-    }
-    @Test fun addOffersFiveProvidersAndCreatesOnceWithoutChangingCurrentSelection() {
-        render()
-        compose.onNodeWithText("Change runtime").assertDoesNotExist()
-        listOf("Claude Code","Codex","Grok Build","Antigravity","OpenCode").forEach {compose.onAllNodesWithText(it).onFirst().performScrollTo().assertIsDisplayed()}
-        compose.onAllNodesWithText("OpenCode").onFirst().performScrollTo().performClick()
-        compose.onNodeWithText("Create runtime").performScrollTo().performClick()
-        compose.waitUntil(5000) {creates==1 && store.signInRuntime?.id=="created"}
-        assertEquals("opencode",createdProvider);assertEquals(cloud.id,selection.selectedId);assertEquals(0,starts)
-        compose.onNodeWithText("Start provider sign-in").performScrollTo().performClick()
-        compose.onNodeWithText("Synthetic method").performScrollTo().performClick()
-        compose.waitUntil(5000) {answers==1}
-        assertEquals(1,starts);assertEquals("created",lastStart);assertEquals("created",lastAnswerRuntime);assertEquals("fixture",lastAnswer);assertEquals(cloud.id,selection.selectedId)
-        compose.onNodeWithContentDescription("Close runtime picker").performClick();assertEquals(1,closes);assertEquals(0,cancels)
     }
     @Test fun boxManagerGetsSignInWithoutCreationAndCanCancelOnce() {
         render(true)
@@ -91,7 +75,7 @@ class RuntimeInventoryDestinationDeviceTest {
     @Test fun sharedPickerManagementAndBackPreserveSelectionWithoutWrites() {
         render(pickerMode=true)
         compose.onNodeWithText("Manage computers and runtimes").performScrollTo().performClick()
-        compose.onNodeWithText("Create runtime").assertExists()
+        compose.onNodeWithText("Create runtime").assertDoesNotExist()
         assertEquals(cloud.id,selection.selectedId)
         compose.onNodeWithText("Back to runtimes").performScrollTo().performClick()
         compose.onNodeWithText("Choose runtime").assertIsDisplayed()

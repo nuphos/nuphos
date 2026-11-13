@@ -89,7 +89,7 @@ internal fun ConversationAgentSheet(
                     it.local?.online != false && quotas[it.id]?.needsSignIn != true }
                 if (choices != null && choices.isEmpty()) {
                     Text("No available runtimes.", style = MaterialTheme.typography.titleMedium)
-                    Text("Set up a cloud runtime, or open Nuphos on your computer to connect a runtime.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Open Nuphos on your computer to add a Box or connect your own computer.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (choices != null) ai.nuphos.android.ui.agent.RuntimeChoiceList(choices, session.runtimeId, quotas,
                     enabled = !refreshing && !committing && session.canMoveAgent, devices = devices, onSelect = { target ->

@@ -53,7 +53,7 @@ class RuntimesFixtureDeviceTest {
             CompositionLocalProvider(LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
                 LocalDensity provides Density(LocalDensity.current.density, if (rtl) 2f else 1f)) {
                 RuntimeFixtureTheme { Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) { Box(Modifier.fillMaxSize()) { Box(if(rtl) Modifier.width(320.dp) else Modifier.fillMaxSize()) {
-                    RuntimeInventory(store, canManage, { management++ }, { details = it; detailClicks++ })
+                    RuntimeInventory(store, canManage, { details = it; detailClicks++ })
                 } } } }
             }
         }
@@ -82,9 +82,7 @@ class RuntimesFixtureDeviceTest {
         shot("runtimes-computers.png")
         compose.onNodeWithTag("runtime-row-local").performScrollTo().performClick()
         assertEquals("local", details)
-        compose.onNodeWithTag("runtime-inventory").performScrollToNode(hasText("Add runtime"))
-        compose.onNodeWithText("Add runtime").performClick()
-        assertEquals(1, management)
+        compose.onNodeWithText("Add runtime").assertDoesNotExist()
     }
     @Test fun firstLoadNeverShowsEmptyAndFailedRequestOffersRealRetry() {
         held = kotlinx.coroutines.CompletableDeferred()
@@ -98,7 +96,7 @@ class RuntimesFixtureDeviceTest {
         compose.onNodeWithText("Try again").performClick()
         compose.waitUntil(5000) {store.loaded && !store.loading}
         compose.onNodeWithText("No runtimes").assertIsDisplayed()
-        compose.onNodeWithText("Add runtime").assertExists()
+        compose.onNodeWithText("Add runtime").assertDoesNotExist()
     }
     @Test fun nonAdministratorHasNoAddButCanInspectRuntimeRows() {
         render(canManage = false)
@@ -108,8 +106,7 @@ class RuntimesFixtureDeviceTest {
     }
     @Test fun emptyFailureRetryAndLargeRtlStayUsable() {
         render(true)
-        compose.onNodeWithTag("runtime-inventory").performScrollToNode(hasText("Add runtime"))
-        compose.onNodeWithText("Add runtime").assertIsDisplayed()
+        compose.onNodeWithText("Add runtime").assertDoesNotExist()
         shot("runtimes-rtl-large.png")
         failure = true
         compose.runOnIdle { store.refresh() }

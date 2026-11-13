@@ -104,7 +104,7 @@ class RuntimeSetupFixtureDeviceTest {
         compose.onAllNodesWithText("My laptop")[0].assertExists()
         compose.onAllNodesWithText("Create runtime").assertCountEquals(0)
         click("Manage computers and runtimes")
-        compose.onNodeWithText("Create runtime").assertExists()
+        compose.onNodeWithText("Create runtime").assertDoesNotExist()
         click("Back to runtimes")
         compose.onAllNodesWithText("Create runtime").assertCountEquals(0)
         compose.onNodeWithText("Cloud").assertExists()
@@ -112,14 +112,6 @@ class RuntimeSetupFixtureDeviceTest {
         assertEquals(0, posts("/login"))
     }
 
-    @Test fun actualSheetCreatesOnceThenSelectsExactSavedRegistration() {
-        render(); click("Manage computers and runtimes"); compose.onNodeWithText("Runtime label (optional)").performScrollTo().performTextInput(" Fixture Agent ")
-        click("Create runtime"); waitText("Runtime registered and selected.", true)
-        assertEquals(id, selection.selectedId); assertEquals(1, posts("/agent-runtimes"))
-        assertEquals("GET", requests.last().method)
-        val body = Buffer().also { requests.first { it.method == "POST" }.body!!.writeTo(it) }.readUtf8()
-        assertEquals("""{"provider":"codex","label":"Fixture Agent"}""", body)
-    }
     @Test fun actualCatalogSelectionAndDisabledRemovalNeverFallback() {
         catalog = "[${runtime()}]"; render(); select(manage = false)
         catalog = "[${runtime(active = false)}]"; click("Refresh runtimes")
@@ -172,15 +164,11 @@ class RuntimeSetupFixtureDeviceTest {
         compose.waitUntil(5_000) { selection.selectedId == id }
     }
 
-    @Test fun editorCannotCreateOrSignInAndForbiddenKeepsAccount() {
+    @Test fun editorCannotSignInAndKeepsAccount() {
         administrator = false; catalog = "[${runtime()}]"; render(); select()
         compose.onAllNodesWithText("Create runtime").assertCountEquals(0)
         compose.onAllNodesWithText("Start provider sign-in").assertCountEquals(0)
         assertEquals(0, expired)
-    }
-    @Test fun forbiddenCreateShowsDenialWithoutExpiry() {
-        forbidden = true; render(); click("Manage computers and runtimes"); click("Create runtime")
-        waitText("Administrator permission is required.", true); assertEquals(0, expired); assertNull(selection.selected)
     }
     @Test fun codexDeviceBrowserIsInjectedAndCancelUsesExactAttempt() {
         catalog = "[${runtime()}]"; render(); select(); click("Start provider sign-in")
@@ -213,13 +201,6 @@ class RuntimeSetupFixtureDeviceTest {
         compose.onNodeWithText("Start provider sign-in").assertIsNotEnabled()
         click("Refresh sign-in"); waitText("No actor-bound sign-in was found.", true)
         assertEquals(1, posts("/login")); assertNull(store.state.attempt)
-    }
-    @Test fun uncertainCreateRequiresExplicitSavedReview() {
-        lostReceipt = true; render(); click("Manage computers and runtimes"); click("Create runtime")
-        waitText("We could not identify the saved result.", true)
-        compose.onNodeWithText("Create runtime").assertIsNotEnabled(); assertNull(selection.selected)
-        click("Back to runtimes"); select(); assertEquals(1, posts("/agent-runtimes"))
-        click("I reviewed saved runtimes"); compose.onNodeWithText("Create runtime").assertIsEnabled()
     }
     @Test fun newSessionCapturesExactBindingWithoutNativeAdmission() {
         catalog = "[${runtime()}]"; render(); select()

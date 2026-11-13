@@ -15,9 +15,6 @@ import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,9 +31,7 @@ import ai.nuphos.android.session.RuntimeSetupStore
 fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
     launchBrowser: ((String) -> Unit)? = null,
     quotas: Map<String, ai.nuphos.android.data.RuntimeQuota> = emptyMap(),
-    initialManaging: Boolean = false, initialRuntimeId: String? = null, initialSignInRuntimeId: String? = null, newRuntimeOnly: Boolean = false, inventoryMode: Boolean = false, devices: List<ai.nuphos.android.data.RuntimeDevice> = emptyList()) {
-    var label by remember { mutableStateOf("") }
-    var provider by remember { mutableStateOf("codex") }
+    initialManaging: Boolean = false, initialRuntimeId: String? = null, initialSignInRuntimeId: String? = null, inventoryMode: Boolean = false, devices: List<ai.nuphos.android.data.RuntimeDevice> = emptyList()) {
     var code by remember { mutableStateOf("") }
     var browserError by remember { mutableStateOf(false) }
     var managing by remember(store) { mutableStateOf(initialManaging) }
@@ -73,7 +68,7 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
     LaunchedEffect(store.signInRuntime?.id, state.attempt?.attemptId, state.attempt?.state, state.attempt?.step, state.attempt?.codeSubmitted, state.attemptMismatch, selection.selectedId, selection.selected?.provider, selection.selected?.status, selection.selected?.kind) { code = ""; browserError = false }
     ModalBottomSheet(containerColor = MaterialTheme.colorScheme.background, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), onDismissRequest = { code = ""; onDismiss() }, properties = ModalBottomSheetProperties(securePolicy = androidx.compose.ui.window.SecureFlagPolicy.SecureOn)) {
         Column(Modifier.fillMaxWidth().heightIn(max = 720.dp).fillMaxHeight()) {
-            RuntimePickerHeader(title = if (detail != null) "Runtime details" else if (initialSignInRuntimeId != null) "Sign in" else if (newRuntimeOnly) (store.signInRuntime?.label ?: "New Runtime") else if (inventoryMode && store.signInRuntime != null) "Sign in" else if (managing) "Manage runtimes" else "Choose runtime", onClose = { code = ""; onDismiss() })
+            RuntimePickerHeader(title = if (detail != null) "Runtime details" else if (initialSignInRuntimeId != null) "Sign in" else if (inventoryMode && store.signInRuntime != null) "Sign in" else if (managing) "Manage runtimes" else "Choose runtime", onClose = { code = ""; onDismiss() })
             HorizontalDivider()
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (detail != null) {
@@ -112,35 +107,6 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
                         Text(selected.label, style = MaterialTheme.typography.titleMedium)
                     }
                     if (!inventoryMode && initialSignInRuntimeId == null) OutlinedButton(onClick = { code = ""; browserError = false; store.clearSignInFocus(); managing = false }) { Text("Change runtime") }
-                    if (store.canAdminister && initialSignInRuntimeId == null && (!inventoryMode || newRuntimeOnly && store.signInRuntime == null)) {
-                        HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                        Text("Provider", style = MaterialTheme.typography.titleMedium)
-                        listOf("claude-code", "codex", "grok", "antigravity", "opencode").forEach { choice ->
-                            Surface(onClick = { provider = choice }, enabled = !state.busy && !selection.createReview,
-                                color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth().semantics {
-                                    role = Role.RadioButton; selected = provider == choice
-                                }) {
-                                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    ai.nuphos.android.ui.components.RuntimeMark(choice, 24.dp)
-                                    Column(Modifier.weight(1f)) {
-                                        Text(inventoryProviderName(choice))
-                                        Text(when(choice) { "claude-code" -> "Anthropic"; "codex" -> "OpenAI"; "grok" -> "xAI"; "antigravity" -> "Google"; else -> "OpenCode" },
-                                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                    if (provider == choice) Text("✓")
-                                }
-                            }
-                        }
-                        Text("You'll sign in with your own provider account. Your plan's usage limits apply.", style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        OutlinedTextField(label, { label = it }, label = { Text("Runtime label (optional)") }, enabled = !state.busy && !selection.createReview, singleLine = true)
-                        Button(onClick = { store.create(provider, label.trim().takeIf { it.isNotEmpty() }) },
-                            enabled = !state.busy && !selection.createReview && label.trim().length <= 120) { Text("Create runtime") }
-                        if (selection.createReview) {
-                            Text("Creation is unconfirmed. Closing does not undo a saved runtime.")
-                            OutlinedButton(onClick = store::confirmCreateReviewed, enabled = !state.busy && state.catalogLoaded) { Text("I reviewed saved runtimes") }
-                        }
-                    }
                     if (store.canSignIn) {
                         if (store.signInRuntime != null) {
                             Button(onClick = store::startLogin, enabled = !state.busy && !selection.loginReview) { Text("Start provider sign-in") }

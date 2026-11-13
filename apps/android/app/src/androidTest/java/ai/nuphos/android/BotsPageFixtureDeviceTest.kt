@@ -402,15 +402,15 @@ class BotsPageFixtureDeviceTest {
 
     // MARK: No runtime yet: the first-runtime prompt, as on iOS.
     private val prompt = "Connect your first runtime"
-    private val adminWords = "Create a cloud runtime and sign in with your AI provider."
-    private val memberWords = "Ask a workspace administrator to connect a cloud runtime, or open Nuphos on your computer to connect your own local runtime."
+    private val adminWords = "Open Nuphos on your computer to add a Box or connect your own computer, or ask a workspace administrator to connect one."
+    private val memberWords = "Open Nuphos on your computer to add a Box or connect your own computer, or ask a workspace administrator to connect one."
     private fun asAdministrator() = InstrumentationRegistry.getInstrumentation().runOnMainSync {
         store.acceptMemberships(listOf(teamA.copy(role = "ADMINISTRATOR"), teamB), teamA.id)
     }
     private fun gone(text: String) = compose.onNodeWithText(text).assertDoesNotExist()
     private fun noPlus() = compose.onNodeWithContentDescription("New Bot").assertDoesNotExist()
 
-    @Test fun anAdministratorWithNoRuntimeIsOfferedSetupInsteadOfBots() {
+    @Test fun anAdministratorWithNoRuntimeIsToldToConnectAComputer() {
         noRuntimes = true
         chats = oneOnOne
         asAdministrator()
@@ -420,9 +420,8 @@ class BotsPageFixtureDeviceTest {
         // Like iOS: no "+" and no list, even with a chat.
         noPlus()
         row("chat-bot").assertDoesNotExist()
-        compose.onNodeWithText("Set up runtime").performClick()
-        waitText("New Runtime")
-        compose.onNodeWithText("Provider").assertExists()
+        gone("Set up runtime")
+        gone("Create runtime")
         assertTrue("Opening the setup writes nothing: $writes", writes.isEmpty())
     }
 
@@ -503,19 +502,6 @@ class BotsPageFixtureDeviceTest {
         Thread.sleep(800); compose.waitForIdle()
         gone(prompt)
     }
-    @Test fun closingTheSetupListsRuntimesAgain() {
-        noRuntimes = true
-        asAdministrator()
-        tasks()
-        waitText(prompt)
-        compose.onNodeWithText("Set up runtime").performClick()
-        waitText("New Runtime")
-        noRuntimes = false
-        compose.onNodeWithContentDescription("Close runtime picker").performClick()
-        compose.waitUntil(8_000) { compose.onAllNodesWithText(prompt).fetchSemanticsNodes().isEmpty() }
-        assertTrue("Nothing written: $writes", writes.isEmpty())
-    }
-
     @Test fun aNewBotSendsItsNameAndFaceAndOpensItsChat() {
         render()
         openSheet()

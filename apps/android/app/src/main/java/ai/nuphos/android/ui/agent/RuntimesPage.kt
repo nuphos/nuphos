@@ -7,7 +7,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Computer
-import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.ui.semantics.*
@@ -50,7 +49,7 @@ fun RuntimesPage() {
         val expired = remember { { if (current()) auth.signOut(NuphosApi.Failure.Unauthorized.message) } }
         val observations = remember { RuntimesStore(scope, current, api::catalog, api::quotas, api::devices, expired) }
         val selection = remember { auth.runtimeSelections.bind(account, team.id) }
-        val setup = remember { RuntimeSetupStore(api, scope, current, { current() && agents.selectedTeam?.isAdministrator == true }, selection, expired, loginAllowed = { runtime -> current() && inventoryDestination(runtime, agents.selectedTeam?.isAdministrator == true, observations.devices) in setOf(InventoryDestination.CloudDetails, InventoryDestination.ProviderSignIn) }, selectCreatedRuntime = false) }
+        val setup = remember { RuntimeSetupStore(api, scope, current, { current() && agents.selectedTeam?.isAdministrator == true }, selection, expired, loginAllowed = { runtime -> current() && inventoryDestination(runtime, agents.selectedTeam?.isAdministrator == true, observations.devices) in setOf(InventoryDestination.CloudDetails, InventoryDestination.ProviderSignIn) }, useSelectedRuntime = false) }
         var managing by remember { mutableStateOf(false) }
         var runtimeId by remember { mutableStateOf<String?>(null) }
         DisposableEffect(observations, setup) { onDispose { observations.close(); setup.close() } }
@@ -61,14 +60,13 @@ fun RuntimesPage() {
         }
         if (current()) {
         RuntimeInventory(observations, canManage = team.isAdministrator,
-            onManage = { setup.clearSignInFocus(); runtimeId = null; managing = true },
             onRuntime = { setup.clearSignInFocus(); runtimeId = it; managing = true })
         if (managing && setup.isSourceCurrent()) {
             val runtime = runtimeId?.let { id -> observations.runtimes.firstOrNull { it.id == id } }
             val destination = runtime?.let { inventoryDestination(it, team.isAdministrator, observations.devices) }
             val close: () -> Unit = { managing = false; runtimeId = null; observations.refresh() }
-            if (runtimeId == null || destination == InventoryDestination.CloudDetails) RuntimeSetupSheet(setup, onDismiss = close,
-                quotas = observations.quotas, initialManaging = true, initialRuntimeId = runtimeId, newRuntimeOnly = runtimeId == null, inventoryMode = true, devices = observations.devices)
+            if (destination == InventoryDestination.CloudDetails) RuntimeSetupSheet(setup, onDismiss = close,
+                quotas = observations.quotas, initialManaging = true, initialRuntimeId = runtimeId, inventoryMode = true, devices = observations.devices)
             else if (runtime != null && destination == InventoryDestination.ProviderSignIn) RuntimeSetupSheet(setup, onDismiss = close,
                 quotas = observations.quotas, initialManaging = true, initialSignInRuntimeId = runtime.id, inventoryMode = true, devices = observations.devices)
             else RuntimeInventoryInstructions(runtime, destination, onClose = close,
@@ -81,7 +79,7 @@ fun RuntimesPage() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RuntimeInventory(store: RuntimesStore, canManage: Boolean, onManage: () -> Unit, onRuntime: (String) -> Unit) {
+fun RuntimeInventory(store: RuntimesStore, canManage: Boolean, onRuntime: (String) -> Unit) {
     var userRefreshing by remember(store) { mutableStateOf(false) }
     LaunchedEffect(store.loading) { if (!store.loading) userRefreshing = false }
     androidx.compose.material3.pulltorefresh.PullToRefreshBox(isRefreshing = userRefreshing && store.loading,
@@ -110,7 +108,7 @@ fun RuntimeInventory(store: RuntimesStore, canManage: Boolean, onManage: () -> U
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Icon(Icons.Outlined.Cloud, null)
                     Text("No runtimes", style = MaterialTheme.typography.titleMedium)
-                    Text(if (canManage) "Add a cloud runtime here, or open Nuphos on your computer to connect a runtime."
+                    Text(if (canManage) "Open Nuphos on your computer to add a Box or connect your own computer."
                         else "Ask a workspace administrator to add a runtime.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -144,15 +142,6 @@ fun RuntimeInventory(store: RuntimesStore, canManage: Boolean, onManage: () -> U
                                 }
                             }
                         }
-                    }
-                }
-            }
-            if (canManage) item {
-                Surface(onClick = onManage, shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface) {
-                    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = 20.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Icon(Icons.Outlined.Add, null, tint = MaterialTheme.colorScheme.primary)
-                        Text("Add runtime", color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }

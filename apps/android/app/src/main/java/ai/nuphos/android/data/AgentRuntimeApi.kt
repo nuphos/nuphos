@@ -55,7 +55,6 @@ interface RuntimeManagementTransport {
 
 interface RuntimeTransport {
     suspend fun catalog(): List<AgentRuntime>
-    suspend fun create(provider: String, label: String?): AgentRuntime
     suspend fun start(runtimeId: String): RuntimeLogin
     suspend fun login(runtimeId: String): RuntimeLogin
     suspend fun code(runtimeId: String, attemptId: String, code: String): RuntimeLogin
@@ -71,13 +70,6 @@ class AgentRuntimeApi internal constructor(private val token: String, teamId: St
     }
     suspend fun quotas(): Map<String, RuntimeQuota> = decodeRuntimeQuotas(execute("$path/quota", "GET", expected = 200))
     suspend fun devices(): List<RuntimeDevice> = decodeRuntimeDevices(execute("agent/devices?teamId=${path.split("/")[1]}&metrics=true", "GET", expected = 200))
-    override suspend fun create(provider: String, label: String?): AgentRuntime {
-        require(provider in setOf("claude-code", "codex", "grok", "antigravity", "opencode"))
-        val trimmed = label?.trim(); require(trimmed == null || trimmed.length in 1..120)
-        return decodeRuntime(execute(path, "POST", buildJsonObject {
-            put("provider", provider); trimmed?.let { put("label", it) }
-        }.toString(), 201))
-    }
     override suspend fun update(runtimeId: String, label: String?, status: String?): AgentRuntime {
         require(label != null || status != null)
         require(label == null || label.trim().length in 1..120)
