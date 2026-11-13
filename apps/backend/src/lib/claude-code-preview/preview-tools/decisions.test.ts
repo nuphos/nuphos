@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { useDb } from '@/lib/test/doubles/db'
+import { useIdentity } from '@/lib/test/doubles/identity'
 import { useRedis } from '@/lib/test/doubles/redis'
 import { useFakeRuntimeRequests } from '@/lib/test/doubles/runtime-request-store'
 
@@ -13,26 +14,29 @@ const conversationUpdates: Record<string, unknown>[][] = []
 let matchedCount = 1
 // The conversation findOne reads back.
 let storedConversation: Record<string, unknown> | null = null
+// Other conversations by sessionId, read back instead of storedConversation.
+let otherConversations: Record<string, Record<string, unknown>> = {}
 // The conversations find returns, and the query it was asked.
 let foundConversations: Record<string, unknown>[] = []
 let findQuery: Record<string, unknown> | undefined
 
 useDb({
-  db: (() => ({
+  db: () => ({
     collection: () => ({
       updateOne: async (...args: Record<string, unknown>[]) => {
         conversationUpdates.push(args)
 
         return { matchedCount }
       },
-      findOne: async () => storedConversation,
+      findOne: async (filter?: { sessionId?: string }) =>
+        (filter?.sessionId && otherConversations[filter.sessionId]) || storedConversation,
       find: (query: Record<string, unknown>) => {
         findQuery = query
 
         return { toArray: async () => foundConversations }
       },
     }),
-  })) as unknown as typeof dbActual.db,
+  }),
 })
 
 const {
@@ -41,10 +45,13 @@ const {
   resetLocalPreviewWaits,
   resolvePreviewDecision,
 } = await import('../decision-waiter')
+
+useIdentity({ getTeamMembership: async () => ({ role: 'member' }) })
+
 const { decisionToolModule: createDecisionToolModule } = await import('./decisions')
 
 const decisionToolModule = (options: Parameters<typeof createDecisionToolModule>[0]) =>
-  createDecisionToolModule({ runStreamId: async () => undefined, ...options })
+  createDecisionToolModule({ runStreamId: async () => {}, ...options })
 const { unansweredInstruction } = await import('./decision-specs')
 const { awaitDecisionOnce } = await import('./decision-wait')
 const { relatedQuestionsNote } = await import('@/lib/agent/db/pending-decision')
@@ -633,7 +640,7 @@ describe('decision tool module', () => {
   test('an oversized client tool input stays off the durable request', async () => {
     const tools = decisionToolModule({
       publish: async () => {},
-      runStreamId: async () => undefined,
+      runStreamId: async () => {},
       timeoutMs: 10_000,
     }).handlers(ctx)
 
@@ -760,6 +767,38 @@ describe('decision tool module', () => {
     expect(unknown.isError).toBe(true)
     expect(JSON.stringify(unknown.content)).toContain('list_session_resources')
     expect(conversationUpdates).toHaveLength(before)
+  })
+
+  test("a question may be about another conversation of the same owner, never another member's or a channel", async () => {
+    storedConversation = { sessionId: 'conv-1', userId: 'u1', teamId: 't1' }
+    otherConversations = {
+      reviewer: { sessionId: 'reviewer', userId: 'u1', teamId: 't1' },
+      stranger: { sessionId: 'stranger', userId: 'u2', teamId: 't1' },
+      room: { sessionId: 'room', userId: 'u1', teamId: 't1', kind: 'channel' },
+    }
+    const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
+    const ask = (about: string[]) =>
+      tools.request_user_decision!({
+        label: 'Ask to approve',
+        category: 'approval',
+        question: 'Approve the PR?',
+        about,
+      })
+
+    try {
+      expect((await ask(['reviewer'])).isError).toBeFalsy()
+      expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
+        $push: { inputRequests: { $each: [{ about: ['reviewer'] }] } },
+      })
+      for (const ref of ['stranger', 'room']) {
+        const refused = await ask([ref])
+
+        expect(refused.isError).toBe(true)
+        expect(JSON.stringify(refused.content)).toContain('another conversation you own')
+      }
+    } finally {
+      otherConversations = {}
+    }
   })
 
   test('a wake from a resource lists the open questions about it, and nothing when there are none', () => {
