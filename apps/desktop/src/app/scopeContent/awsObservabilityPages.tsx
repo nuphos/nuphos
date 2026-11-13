@@ -182,6 +182,7 @@ export function renderAwsObservabilityPages(ctx: ScopeRenderContext): React.Reac
       'CloudWatch Metrics',
       <FontAwesomeIcon icon={faChartLine} className="w-3.5 h-3.5 text-tertiary" />,
       <CloudWatchMetricsExplorerView
+        scope={awsResourceListCacheKey(scope.teamId, scope.accountId, awsRoleId, 'cloudwatch')}
         metricsLoader={(region, namespace) =>
           api.atlasListAwsCloudWatchMetrics(
             scope.teamId,
