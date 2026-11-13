@@ -3,6 +3,8 @@ import { useCallback } from 'react'
 
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { useCurrentUser } from '../../hooks/useCurrentUser'
+import { useTeamRole } from '../../hooks/useTeamRole'
 import { t } from '../../i18n'
 
 import type { AgentMemoryItem, AgentMemoryScope } from '../../api'
@@ -37,6 +39,18 @@ export function useMemoryActions(args: ActionsArgs) {
     detailRequestRef,
     reload,
   } = args
+  const me = useCurrentUser()
+  const role = useTeamRole(teamId)
+  // As the backend decides: your own memories are yours, a viewer changes no team memory, and a
+  // removed team memory comes back only by whoever removed it or an administrator.
+  const canAct = useCallback(
+    (memory: AgentMemoryItem) =>
+      scope === 'personal' ||
+      (stateFilter === 'live'
+        ? role !== undefined && role !== 'VIEWER'
+        : role === 'ADMINISTRATOR' || (me !== null && memory.disabledBy === me.id)),
+    [me, role, scope, stateFilter],
+  )
   const openMemory = useCallback(
     async (memory: AgentMemoryItem) => {
       const requestId = detailRequestRef.current + 1
@@ -121,5 +135,5 @@ export function useMemoryActions(args: ActionsArgs) {
     [restoreMemory, stateFilter, setConfirmDelete],
   )
 
-  return { openMemory, deleteMemory, restoreMemory, buildMenu }
+  return { openMemory, deleteMemory, restoreMemory, buildMenu, canAct }
 }

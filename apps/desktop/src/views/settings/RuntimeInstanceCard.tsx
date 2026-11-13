@@ -7,6 +7,7 @@ import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { InlineRename } from '../../components/ui/inline-rename'
 import { toast } from '../../components/ui/toast'
+import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { useThisComputer } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
@@ -43,6 +44,7 @@ export function RuntimeInstanceCard({
   quota?: RuntimeQuota
   isAdmin: boolean
 }) {
+  const me = useCurrentUser()
   const [signingIn, setSigningIn] = useState(false)
   const [cliSigningIn, setCliSigningIn] = useState(false)
   const signIn = localSignIn(instance, useThisComputer())
@@ -76,7 +78,11 @@ export function RuntimeInstanceCard({
           label,
         )
       : api.atlasUpdateRuntimeInstance(teamId, instance.id, { label })
-  const canEdit = isAdmin && instance.kind !== 'development' && !instance.deletion
+  // A computer's agents answer to its owner, not to a team role (box-access.ts).
+  const canEdit =
+    (instance.local ? instance.local.ownerUserId === me?.id : isAdmin) &&
+    instance.kind !== 'development' &&
+    !instance.deletion
   const status = runtimeStatusView(instance, runtime, statusError)
   const kindTag =
     instance.kind === 'external'

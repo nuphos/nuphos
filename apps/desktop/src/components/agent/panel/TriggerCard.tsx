@@ -3,12 +3,9 @@ import { AlarmClock, ArrowUpRight } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../../api'
-import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { t } from '../../../i18n'
-import { useTeamMembers } from '../../../lib/bindingAccess'
 import { scheduleSummary } from '../../../views/triggers/cron'
 import { viewerTimeZone } from '../../../views/triggers/cronTime'
-import { canManageTeamTriggers } from '../../../views/triggers/shared'
 import { ConfirmDialog } from '../../ConfirmDialog'
 import { Switch } from '../../ui/Switch'
 import { toast } from '../../ui/toast'
@@ -67,12 +64,6 @@ export function TriggerCard({
   const [busy, setBusy] = useState(false)
   // The transcript is shared, so turning a live trigger on or off asks first.
   const [switching, setSwitching] = useState<boolean | null>(null)
-  const me = useCurrentUser()
-  // Viewers may read a trigger but not change it, as on the Triggers page.
-  const role = useTeamMembers(teamId ?? '').find(
-    (member) => member.id === me?.id && !member.removedAt,
-  )?.role
-  const canManage = canManageTeamTriggers(role)
 
   if (!info) return null
   if (!trigger) return <Placeholder missing={missing} />
@@ -80,7 +71,11 @@ export function TriggerCard({
   const update = async (patch: { enabled: boolean }, failure: string) => {
     setBusy(true)
     try {
-      setTrigger(await api.agentUpdateTrigger(trigger.id, patch, teamId))
+      // The update answers without the caller's rights, which a switch flipped cannot change.
+      setTrigger({
+        ...(await api.agentUpdateTrigger(trigger.id, patch, teamId)),
+        canManage: trigger.canManage,
+      })
 
       return true
     } catch (err) {
@@ -118,7 +113,7 @@ export function TriggerCard({
         </div>
         <Switch
           checked={trigger.enabled}
-          disabled={busy || !canManage}
+          disabled={busy || !trigger.canManage}
           label={trigger.enabled ? t('Pause this trigger') : t('Resume this trigger')}
           onChange={setSwitching}
         />

@@ -433,7 +433,6 @@
   "Ask a team administrator to choose a plan.": "チームの管理者にプランの選択を依頼してください。",
   "Ask a team administrator to link chats and manage Lark access.": "チャットのリンクと Lark のアクセス管理は、チームの管理者に依頼してください。",
   "Ask a team administrator to link it for you.": "チームの管理者にリンクを依頼してください。",
-  "Ask a workspace administrator to add a runtime.": "ワークスペースの管理者にランタイムの追加を依頼してください。",
   "Ask a workspace administrator to reconnect this runtime.": "ワークスペースの管理者にこのランタイムの再接続を依頼してください。",
   "Ask a workspace administrator to update this runtime.": "ワークスペースの管理者にこのランタイムのアップデートを依頼してください。",
   "Ask agent": "エージェントに依頼",

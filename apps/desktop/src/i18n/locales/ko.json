@@ -433,7 +433,6 @@
   "Ask a team administrator to choose a plan.": "팀 관리자에게 요금제 선택을 요청하세요.",
   "Ask a team administrator to link chats and manage Lark access.": "채팅 연결과 Lark 접근 관리는 팀 관리자에게 요청하세요.",
   "Ask a team administrator to link it for you.": "팀 관리자에게 연결을 요청하세요.",
-  "Ask a workspace administrator to add a runtime.": "워크스페이스 관리자에게 런타임 추가를 요청하세요.",
   "Ask a workspace administrator to reconnect this runtime.": "워크스페이스 관리자에게 이 런타임을 다시 연결해 달라고 요청하세요.",
   "Ask a workspace administrator to update this runtime.": "워크스페이스 관리자에게 이 런타임 업데이트를 요청하세요.",
   "Ask agent": "에이전트에게 요청",
