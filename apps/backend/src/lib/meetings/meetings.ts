@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
 
 import { config } from '@/config'
+import { BOT_AVATARS, derivedAvatar } from '@/lib/agent/bot-avatars'
 import { postChannelMessage } from '@/lib/agent/channel-chat'
 import { getConversationBySessionId, upsertConversationShell } from '@/lib/agent/db'
 import { addChannelAgent, isChannel } from '@/lib/agent/db/channels'
@@ -49,8 +51,15 @@ async function openMeetingChannel(
   await addChannelAgent(channelId, agent.sessionId)
 }
 
+/** The face the apps show for `agent`, as the JPEG in ./faces (rendered from their SVGs). */
+export async function faceJpeg(agent: Pick<AgentConversation, 'sessionId' | 'avatar'>) {
+  const face = BOT_AVATARS.find((name) => name === agent.avatar) ?? derivedAvatar(agent.sessionId)
+
+  return (await readFile(new URL(`./faces/${face}.jpg`, import.meta.url))).toString('base64')
+}
+
 /**
- * Sends `agent` into the call under its own name, with a channel of its own
+ * Sends `agent` into the call under its own name and face, with a channel of its own
  * where the call's speech arrives and its posts go out to the call's chat.
  */
 export async function joinMeeting(agent: AgentConversation, teamId: string, meetingUrl: string) {
@@ -58,7 +67,12 @@ export async function joinMeeting(agent: AgentConversation, teamId: string, meet
 
   if (url.protocol !== 'https:') throw new Error('A meeting link starts with https://')
   const botName = agent.title || 'Nuphos agent'
-  const botId = await createMeetingBot({ meetingUrl: url.href, botName, webhookUrl: webhookUrl() })
+  const botId = await createMeetingBot({
+    meetingUrl: url.href,
+    botName,
+    face: await faceJpeg(agent),
+    webhookUrl: webhookUrl(),
+  })
   const channelId = randomUUID()
 
   try {
