@@ -9,6 +9,13 @@ export type ThreadBadgeInfo = {
   title: string | null
   verb: 'started' | 'messaged'
   pending: boolean
+  /** The model a new thread was started on, when the agent chose one, and why. */
+  model: string | null
+  modelReason: string | null
+}
+
+function nonEmpty(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
 function record(value: unknown): Record<string, unknown> | null {
@@ -43,7 +50,8 @@ export function threadBadgeInfo(part: ToolPart): ThreadBadgeInfo | null {
   const input = record(part.input)
   const pending = part.state !== 'output-available'
   const threadId = threadIdOf(input?.threadId) ?? threadIdOf(receipt(part.output)?.threadId)
-  const title = typeof input?.title === 'string' && input.title.trim() ? input.title.trim() : null
+  const title = nonEmpty(input?.title)
+  const started = part.toolName === 'create_thread'
 
   // A finished call without a thread to open (an older transcript stored no
   // receipt) stays an ordinary tool row.
@@ -52,8 +60,10 @@ export function threadBadgeInfo(part: ToolPart): ThreadBadgeInfo | null {
   return {
     threadId,
     title,
-    verb: part.toolName === 'create_thread' ? 'started' : 'messaged',
+    verb: started ? 'started' : 'messaged',
     pending,
+    model: started ? nonEmpty(input?.model) : null,
+    modelReason: started ? nonEmpty(input?.modelReason) : null,
   }
 }
 

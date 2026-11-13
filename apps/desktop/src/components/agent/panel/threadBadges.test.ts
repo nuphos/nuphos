@@ -24,8 +24,29 @@ test('a started thread takes its id from the receipt in any shape', () => {
       title: 'Sidebar cleanup',
       verb: 'started',
       pending: false,
+      model: null,
+      modelReason: null,
     })
   }
+})
+
+test('a started thread shows the model the agent chose for it, and why', () => {
+  const input = {
+    title: 'Rename strings',
+    prompt: 'Go',
+    model: 'claude-haiku-5-5',
+    modelReason: 'Mechanical edits across a few files.',
+  }
+  const info = threadBadgeInfo(part('create_thread', { input, output: { threadId: ID } }))
+
+  assert.equal(info?.model, 'claude-haiku-5-5')
+  assert.equal(info?.modelReason, 'Mechanical edits across a few files.')
+  // A message to a thread changes no model, so it shows none.
+  const sent = threadBadgeInfo(
+    part('send_message_to_thread', { input: { threadId: ID, model: 'x' } }),
+  )
+
+  assert.equal(sent?.model, null)
 })
 
 test('a messaged thread takes its id from the input', () => {

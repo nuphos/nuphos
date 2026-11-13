@@ -90,6 +90,11 @@ export function ThreadBadge({
         </span>
         <span className="flex items-center gap-2 text-[12px] leading-4 text-tertiary">
           <span>{verb}</span>
+          {info.model && (
+            <span className="truncate font-mono" title={info.modelReason ?? undefined}>
+              {info.model}
+            </span>
+          )}
           {(known !== null || status !== 'unavailable') && (
             <StatusLabel status={status} pending={info.pending} />
           )}
