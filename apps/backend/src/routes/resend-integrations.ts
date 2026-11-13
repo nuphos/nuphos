@@ -2,7 +2,8 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { createDefaultAccess } from '@/lib/byos/access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { ResendApiError, verifyResendApiKey } from '@/lib/byos/resend'
 import { encryptResendSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
@@ -23,6 +24,7 @@ const bindSchema = z
   .object({
     label: z.string().trim().min(1).max(100),
     apiKey: z.string().trim().min(1).max(300),
+    share: bindingShareSchema.optional(),
   })
   .strict()
 
@@ -82,7 +84,7 @@ resendIntegrationsRoutes.post(
       domains: info.domains,
       encryptedApiKey: encryptResendSecret(apiKey),
       createdAt: now,
-      access: createDefaultAccess(c.get('userId'), now),
+      access: await newBindingAccess(c, { now: now }),
     }
 
     await teamByosBindings().updateOne(
@@ -110,6 +112,7 @@ resendIntegrationsRoutes.post(
 const integrationScoped = new Hono<{ Variables: ResendIntegrationVariables }>()
 
 integrationScoped.use('*', requireResendIntegration())
+registerBindingAccessRoutes(integrationScoped, 'resendIntegrations', (c) => c.get('resendBinding'))
 
 integrationScoped.get('/', (c) => {
   return c.json(publicView(c.get('resendBinding')))

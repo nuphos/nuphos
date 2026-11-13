@@ -1,17 +1,11 @@
 import { Hono } from 'hono'
 
-import {
-  accessView,
-  bindingAccessUpdateSchema,
-  canUseAllowList,
-  normalizeAccessInput,
-} from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { huaweiHandleFor } from '@/lib/byos/handles'
 import { BOOTSTRAP_REGION } from '@/lib/byos/huawei'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
-import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
+import { canRequestUseBinding, requireTeamRole } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -53,32 +47,7 @@ export const huaweiAccountScoped = new Hono<{ Variables: HuaweiAccountVariables 
 
 huaweiAccountScoped.use('*', requireHuaweiAccount())
 
-huaweiAccountScoped.get('/access', requireTeamRole('ADMINISTRATOR'), (c) =>
-  c.json(accessView(c.get('huaweiBinding').access)),
-)
-
-huaweiAccountScoped.put(
-  '/access',
-  requireTeamRole('ADMINISTRATOR'),
-  zv('json', bindingAccessUpdateSchema),
-  async (c) => {
-    const teamId = parseObjectId(c.get('teamId'), 'teamId')
-    const accountId = c.get('huaweiBinding').id
-    const access = normalizeAccessInput(c.req.valid('json'), c.get('userId'))
-    const res = await teamByosBindings().updateOne(
-      { _id: teamId, 'huaweiAccounts.id': accountId },
-      { $set: { 'huaweiAccounts.$.access': access, updatedAt: access.updatedAt } },
-    )
-
-    // Guard the concurrent-delete race: if the binding was removed between the
-    // middleware fetch and this write, don't report success for a no-op.
-    if (res.matchedCount === 0) {
-      throw new AppError(404, 'huawei_account_not_found', 'Huawei Cloud account binding not found')
-    }
-
-    return c.json(accessView(access))
-  },
-)
+registerBindingAccessRoutes(huaweiAccountScoped, 'huaweiAccounts', (c) => c.get('huaweiBinding'))
 
 huaweiAccountScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
   const teamId = parseObjectId(c.get('teamId'), 'teamId')
@@ -94,10 +63,7 @@ huaweiAccountScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
 
 // Below: any team member with allow-list access to this binding.
 huaweiAccountScoped.use('*', async (c, next) => {
-  if (
-    c.get('teamRole') !== 'ADMINISTRATOR' &&
-    !canUseAllowList(c.get('huaweiBinding').access?.memberAllowList, c.get('userId'))
-  ) {
+  if (!canRequestUseBinding(c, c.get('huaweiBinding').access)) {
     throw new AppError(403, 'forbidden', 'You do not have access to this Huawei Cloud binding')
   }
   await next()

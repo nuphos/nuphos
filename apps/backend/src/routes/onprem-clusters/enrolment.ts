@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { createDefaultAccess } from '@/lib/byos/access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
 import { clearAgentClusterContextCache } from '@/lib/byos/agent-kubeconfig/collect'
 import { relayConfigured } from '@/lib/byos/relay-token'
 import { encryptOnpremKubeconfig } from '@/lib/byos/secrets'
@@ -43,6 +43,7 @@ const enrolSchema = z
       .min(1)
       .max(256 * 1024)
       .optional(),
+    share: bindingShareSchema.optional(),
   })
   .strict()
 
@@ -98,7 +99,7 @@ export function registerOnpremEnrolmentRoutes(
           : {}),
         createdAt: now,
         tokenIssuedAt: now,
-        access: createDefaultAccess(c.get('userId'), now),
+        access: await newBindingAccess(c, { now: now, highPrivilege: true }),
       }
 
       if (!(await appendCluster(teamId, binding, now))) {

@@ -368,6 +368,26 @@ describe('POST /onprem-clusters', () => {
     expect(pushed).not.toHaveProperty('endpoint')
   })
 
+  test('starts private to the member who enrols it, unless they share it', async () => {
+    const pushedAccess = () =>
+      (updateCalls[1]!.update as { $push: { onpremClusters: { access: unknown } } }).$push
+        .onpremClusters.access
+
+    expect((await enrol({ label: 'acme-dc1', kubeconfig: KUBECONFIG })).status).toBe(201)
+    expect(pushedAccess()).toMatchObject({ memberAllowList: [expect.any(String)] })
+
+    updateCalls.length = 0
+    const shared = await enrol({
+      label: 'acme-dc2',
+      kubeconfig: KUBECONFIG,
+      share: { mode: 'team' },
+    })
+
+    // The route's strict schema has to let `share` through to reach the binding.
+    expect(shared.status).toBe(201)
+    expect(pushedAccess()).toMatchObject({ memberAllowList: ['*'] })
+  })
+
   test('rejects a label that would not survive as a kubectl context name', async () => {
     const response = await enrol({ label: 'Acme DC1', kubeconfig: KUBECONFIG })
 

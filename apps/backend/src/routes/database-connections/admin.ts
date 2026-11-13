@@ -9,7 +9,7 @@ import { assertDatabaseNetworkConfiguration, resolveDatabaseNetwork } from '@/li
 import { probeCloudflareD1Connection } from '@/lib/database-provider-cloudflare'
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
+import { canRequestUseBinding, requireTeamRole } from '@/middleware/auth'
 import { databaseChangeRequests, databaseConnections, databaseMetricSamples } from '@/models'
 import {
   assertHealthyConnection,
@@ -91,7 +91,12 @@ databaseConnectionAdminRoutes.patch(
           error instanceof Error ? error.message : 'Invalid database connection URI',
         )
       }
-      const network = await resolveDatabaseNetwork(current.teamId, networkMode, tailscale)
+      const network = await resolveDatabaseNetwork(
+        current.teamId,
+        networkMode,
+        tailscale,
+        (access) => canRequestUseBinding(c, access),
+      )
 
       health = await probeDatabaseConnection(parsed, undefined, network.mongoOptions)
       assertHealthyConnection(health)

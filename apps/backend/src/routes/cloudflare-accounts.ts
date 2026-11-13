@@ -1,7 +1,10 @@
 import { Hono } from 'hono'
 
-import { requireCloudflareAccount } from '@/middleware/auth'
-import { registerCloudflareAccountRoutes } from '@/routes/cloudflare-accounts/account'
+import { requireCloudflareAccount, requireCloudflareMemberAccess } from '@/middleware/auth'
+import {
+  registerCloudflareAccountRoutes,
+  registerCloudflareAdminRoutes,
+} from '@/routes/cloudflare-accounts/account'
 import { registerCloudflareBindRoutes } from '@/routes/cloudflare-accounts/bind'
 import { registerCloudflareD1Routes } from '@/routes/cloudflare-accounts/d1'
 import { registerCloudflareKvRoutes } from '@/routes/cloudflare-accounts/kv'
@@ -21,6 +24,10 @@ registerCloudflareBindRoutes(cloudflareAccountsRoutes)
 const accountScoped = new Hono<{ Variables: CloudflareAccountVariables }>()
 
 accountScoped.use('*', requireCloudflareAccount())
+registerCloudflareAdminRoutes(accountScoped)
+// Registered after the admin routes, so it guards only the routes below,
+// which all act with the account's credentials.
+accountScoped.use('*', requireCloudflareMemberAccess())
 
 registerCloudflareAccountRoutes(accountScoped)
 registerCloudflareWorkerRoutes(accountScoped)

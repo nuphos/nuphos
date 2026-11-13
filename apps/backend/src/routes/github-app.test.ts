@@ -224,6 +224,15 @@ describe('GitHub installation flow', () => {
     expect(verifyInstallFlowState(`${tampered}.${sig ?? ''}`)).toBeNull()
   })
 
+  test('keeps the share choice from the ticket through the install redirect', async () => {
+    const sh = { mode: 'private' as const, memberIds: [] }
+    const ticket = signInstallFlowState({ t: TEAM.toHexString(), u: ADMIN, sh })
+    const install = await app.request(`/github-app/install?ticket=${ticket}`)
+    const state = new URL(install.headers.get('location') ?? '').searchParams.get('state') ?? ''
+
+    expect(verifyInstallFlowState(state)).toMatchObject({ sh })
+  })
+
   test('rejects a callback without the signed state', async () => {
     const res = await app.request('/github-app/setup?installation_id=42&setup_action=install')
 

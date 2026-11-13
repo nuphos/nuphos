@@ -3,24 +3,19 @@ import { randomBytes } from 'node:crypto'
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
-import {
-  accessView,
-  bindingAccessUpdateSchema,
-  normalizeAccessInput,
-  createBinderOnlyAccess,
-} from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
+import { requestedBindingShare } from '@/lib/byos/initial-access'
 import { trelloConnectLink } from '@/lib/byos/trello'
 import { publicBackendUrl } from '@/lib/claude-code-preview/runtime-backend-url'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { logError } from '@/lib/observability'
 import { composioUserId, deleteComposioAccount } from '@/lib/personal-credentials/composio'
-import { zv } from '@/lib/validate'
 import { requireTrelloIntegration, requireTeamRole } from '@/middleware/auth'
 import { teamByosBindings, trelloPendingOAuth } from '@/models'
 
 import type { TrelloIntegrationVariables, TeamAuthVariables } from '@/middleware/auth'
-import type { TrelloIntegrationBinding } from '@/models'
+import type { BindingAccess, TrelloIntegrationBinding } from '@/models'
 
 export const trelloIntegrationsRoutes = new Hono<{ Variables: TeamAuthVariables }>()
 
@@ -63,6 +58,7 @@ trelloIntegrationsRoutes.post('/start-oauth', requireTeamRole('ADMINISTRATOR'), 
   )
 
   await trelloPendingOAuth().insertOne({
+    ...(await requestedBindingShare(c)),
     _id: state,
     teamId,
     requesterUserId,
@@ -92,29 +88,7 @@ trelloIntegrationsRoutes.delete(
 const integrationScoped = new Hono<{ Variables: TrelloIntegrationVariables }>()
 
 integrationScoped.use('*', requireTrelloIntegration())
-integrationScoped.get('/access', requireTeamRole('ADMINISTRATOR'), (c) =>
-  c.json(accessView(c.get('trelloAccess'))),
-)
-integrationScoped.put(
-  '/access',
-  requireTeamRole('ADMINISTRATOR'),
-  zv('json', bindingAccessUpdateSchema),
-  async (c) => {
-    const access = normalizeAccessInput(c.req.valid('json'), c.get('userId'))
-    const result = await teamByosBindings().updateOne(
-      {
-        _id: parseObjectId(c.get('teamId'), 'teamId'),
-        'trelloIntegrations.id': c.get('trelloBinding').id,
-      },
-      { $set: { 'trelloIntegrations.$.access': access, updatedAt: new Date() } },
-    )
-
-    if (!result.matchedCount)
-      throw new AppError(404, 'trello_not_bound', 'Trello connection not found')
-
-    return c.json(accessView(access))
-  },
-)
+registerBindingAccessRoutes(integrationScoped, 'trelloIntegrations', (c) => c.get('trelloBinding'))
 integrationScoped.get('/', (c) => c.json(publicView(c.get('trelloBinding'))))
 integrationScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
   const binding = c.get('trelloBinding')
@@ -138,6 +112,7 @@ type Draft = Pick<
 export async function persistTrelloBinding(
   teamId: ObjectId,
   draft: Draft,
+  access: BindingAccess,
 ): Promise<Record<string, string>> {
   const doc = await teamByosBindings().findOne(
     { _id: teamId },
@@ -151,7 +126,7 @@ export async function persistTrelloBinding(
     id: existing?.id ?? new ObjectId(),
     label: existing?.label ?? draft.username,
     createdAt: existing?.createdAt ?? new Date(),
-    access: existing?.access ?? createBinderOnlyAccess(draft.authorizedBy),
+    access: existing?.access ?? access,
   }
 
   if (existing) {
@@ -167,9 +142,9 @@ export async function persistTrelloBinding(
         'Trello connection changed during authorization. Try again.',
       )
     if (existing.composioAccountId !== binding.composioAccountId) {
-      await deleteComposioAccount(existing.composioAccountId).catch((error: unknown) =>
-        logError('trello.previous_connection_cleanup_failed', error),
-      )
+      await deleteComposioAccount(existing.composioAccountId).catch((error: unknown) => {
+        logError('trello.previous_connection_cleanup_failed', error)
+      })
     }
   } else
     await teamByosBindings().updateOne(

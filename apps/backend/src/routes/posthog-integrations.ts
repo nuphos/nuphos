@@ -4,6 +4,7 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
+import { bindingShareSchema, requestedBindingShare } from '@/lib/byos/initial-access'
 import { findPosthogIntegration } from '@/lib/byos/account'
 import {
   buildPosthogAuthorizeUrl,
@@ -48,6 +49,7 @@ const startSchema = z
       .regex(/^[a-f0-9]{24}$/i)
       .optional(),
     permissions: z.record(z.enum(['none', 'read', 'write'])).optional(),
+    share: bindingShareSchema.optional(),
   })
   .strict()
 
@@ -136,6 +138,7 @@ posthogIntegrationsRoutes.post(
     const expiresAt = new Date(Date.now() + OAUTH_PENDING_TTL_MS)
 
     await posthogPendingOAuth().insertOne({
+      ...(await requestedBindingShare(c)),
       _id: state,
       teamId,
       requesterUserId: c.get('userId'),

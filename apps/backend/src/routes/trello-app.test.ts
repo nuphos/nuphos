@@ -4,7 +4,9 @@ import { ObjectId } from 'mongodb'
 
 import { config } from '@/config'
 import * as composioClient from '@/lib/composio'
+import { createBinderOnlyAccess } from '@/lib/byos/access'
 import { errorHandler } from '@/lib/errors'
+import { useIdentity } from '@/lib/test/doubles/identity'
 import { useModels } from '@/lib/test/doubles/models'
 
 import { trelloAppRoutes } from './trello-app'
@@ -12,6 +14,9 @@ import { persistTrelloBinding, publicView, trelloIntegrationsRoutes } from './tr
 
 import type { TeamAuthVariables } from '@/middleware/auth'
 import type { TrelloIntegrationBinding } from '@/models'
+
+// A new binding's default share reads the team; these tests run without one.
+useIdentity({ getTeamMembership: async () => null })
 
 const TEAM = new ObjectId()
 const MEMBER = new ObjectId().toHexString()
@@ -257,13 +262,14 @@ describe('Trello managed OAuth lifecycle', () => {
       composioAccountId: 'ca_fixture',
       composioUserId: `${TEAM.toHexString()}:${MEMBER}`,
     }
-    const first = await persistTrelloBinding(TEAM, draft)
+    const first = await persistTrelloBinding(TEAM, draft, createBinderOnlyAccess(MEMBER))
 
     stored[0]!.access!.memberAllowList = ['chosen-member']
-    const second = await persistTrelloBinding(TEAM, {
-      ...draft,
-      composioAccountId: 'ca_reconnected',
-    })
+    const second = await persistTrelloBinding(
+      TEAM,
+      { ...draft, composioAccountId: 'ca_reconnected' },
+      createBinderOnlyAccess(MEMBER),
+    )
 
     expect(second.binding_id).toBe(first.binding_id)
     expect(stored).toHaveLength(1)

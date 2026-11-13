@@ -2,7 +2,8 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { createDefaultAccess } from '@/lib/byos/access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { encryptSecureframeSecret } from '@/lib/byos/secrets'
 import {
   credentialsFromBinding,
@@ -33,6 +34,7 @@ const bindSchema = z
     region: z.enum(['us', 'uk']).default('us'),
     apiKey: z.string().trim().min(1).max(200),
     apiSecret: z.string().trim().min(1).max(400),
+    share: bindingShareSchema.optional(),
   })
   .strict()
 
@@ -86,7 +88,7 @@ secureframeIntegrationsRoutes.post(
       apiKey,
       encryptedApiSecret: encryptSecureframeSecret(apiSecret),
       createdAt: now,
-      access: createDefaultAccess(c.get('userId'), now),
+      access: await newBindingAccess(c, { now: now }),
     }
 
     await teamByosBindings().updateOne(
@@ -114,6 +116,9 @@ secureframeIntegrationsRoutes.post(
 const integrationScoped = new Hono<{ Variables: SecureframeIntegrationVariables }>()
 
 integrationScoped.use('*', requireSecureframeIntegration())
+registerBindingAccessRoutes(integrationScoped, 'secureframeIntegrations', (c) =>
+  c.get('secureframeBinding'),
+)
 
 integrationScoped.get('/', (c) => {
   return c.json({

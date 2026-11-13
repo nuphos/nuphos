@@ -8,12 +8,12 @@ import {
   getSetupRedirect,
   invalidateSentryAccessToken,
 } from '@/lib/byos/sentry'
-import { finishConnectorOAuth } from '@/lib/connector-oauth'
+import { finishConnectorOAuth, reboundAccess } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { sentryPendingOAuth, teamByosBindings } from '@/models'
 
-import type { SentryAccountBinding } from '@/models'
+import type { BindingAccess, SentryAccountBinding } from '@/models'
 import type { Context } from 'hono'
 
 export const sentryAppRoutes = new Hono()
@@ -118,6 +118,7 @@ sentryAppRoutes.get('/setup', async (c) => {
       state,
       teamId: pending.teamId,
       requesterUserId: pending.requesterUserId,
+      share: pending.share,
       draft,
       persist: persistSentryBinding,
     }),
@@ -132,6 +133,7 @@ type SentryBindingDraft = Omit<SentryAccountBinding, 'id' | 'label' | 'createdAt
 export async function persistSentryBinding(
   teamId: ObjectId,
   draft: SentryBindingDraft,
+  access: BindingAccess,
 ): Promise<Record<string, string>> {
   const accountLabel = draft.userName ?? draft.userEmail ?? `Sentry user ${draft.userId}`
   const existingDoc = await teamByosBindings().findOne(
@@ -146,7 +148,7 @@ export async function persistSentryBinding(
     id: bindingId,
     label: existing?.label ?? accountLabel,
     createdAt: existing?.createdAt ?? new Date(),
-    ...(existing?.access ? { access: existing.access } : {}),
+    ...reboundAccess(existing, access),
   }
 
   if (existing) {
