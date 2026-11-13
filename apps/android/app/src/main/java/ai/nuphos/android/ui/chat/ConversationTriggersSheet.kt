@@ -27,10 +27,14 @@ fun ConversationTriggersSheet(token: String, team: String, session: String, onDi
     var loading by remember { mutableStateOf(true) }
     var failure by remember { mutableStateOf<String?>(null) }
     var pending by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var revision by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
     suspend fun reload() {
         try {
-            triggers = ConversationTriggersApi.list(token, team, session)
+            val requested = revision
+            val rows = ConversationTriggersApi.list(token, team, session)
+            if (requested != revision) return
+            triggers = rows
             failure = null
         } catch (e: CancellationException) { throw e }
         catch (e: Exception) { failure = e.message ?: "Could not load triggers" }
@@ -62,6 +66,7 @@ fun ConversationTriggersSheet(token: String, team: String, session: String, onDi
                                 scope.launch {
                                     try {
                                         ConversationTriggersApi.toggle(token, team, trigger.id, enabled)
+                                        revision++
                                         reload()
                                     } catch (e: CancellationException) { throw e }
                                     catch (e: Exception) { failure = e.message ?: "Could not update trigger" }
