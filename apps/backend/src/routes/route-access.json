@@ -659,6 +659,7 @@
   "POST /agent/conversations/:sessionId/decisions/:requestId/answer": "user",
   "POST /agent/conversations/:sessionId/decisions/:toolCallId/resolve": "user",
   "POST /agent/conversations/:sessionId/edit-forks": "user",
+  "POST /agent/conversations/:sessionId/forks": "user",
   "POST /agent/conversations/:sessionId/messages/:messageId/feedback": "user",
   "POST /agent/conversations/:sessionId/messages/:messageId/retract": "user",
   "POST /agent/conversations/:sessionId/participants": "user",
