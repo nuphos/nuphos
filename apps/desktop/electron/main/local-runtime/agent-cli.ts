@@ -57,7 +57,10 @@ function run(file: string, args: string[], env: NodeJS.ProcessEnv): Promise<stri
   })
 }
 
-/** `codex login status` prints "Logged in using ChatGPT" (or "… an API key") or "Not logged in". */
+/**
+ * `codex login status` prints "Logged in using ChatGPT", "Not logged in", and for a key
+ * "API key configured" (older CLIs: "Logged in using an API key").
+ */
 export function parseCodexLoginStatus(
   output: string,
 ): Pick<Extract<AgentCliStatus, { installed: true }>, 'loggedIn' | 'account' | 'apiKey'> {
@@ -65,7 +68,8 @@ export function parseCodexLoginStatus(
   const loggedIn = /^Logged in using (.+)$/imu.exec(text)
 
   // It goes on to print part of the key, which is not shown anywhere.
-  if (/^Logged in using an API key/imu.test(text)) return { loggedIn: true, apiKey: true }
+  if (/^(Logged in using an API key|API key configured)/imu.test(text))
+    return { loggedIn: true, apiKey: true }
   if (loggedIn?.[1]) return { loggedIn: true, account: loggedIn[1].trim() }
   if (/not logged in/iu.test(text)) return { loggedIn: false }
 

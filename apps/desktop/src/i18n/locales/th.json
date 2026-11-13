@@ -5406,7 +5406,6 @@
   "workspace": "เวิร์กสเปซ",
   "workspace not installed": "ยังไม่ได้ติดตั้งในเวิร์กสเปซ",
   "you": "คุณ",
-  "{account} connected": "เชื่อมต่อ {account} แล้ว",
   "{action} — pick this cluster (or Account All Resources), a namespace scope, and an access right (e.g. read-only).": "{action} — เลือกคลัสเตอร์นี้ (หรือทรัพยากรทั้งหมดของบัญชี) ขอบเขตเนมสเปซ และสิทธิ์การเข้าถึง (เช่น อ่านอย่างเดียว)",
   "{action} — pick your clusters (or Account All Resources), a namespace scope, and an access right (read-only is enough for browsing)": "{action} — เลือกคลัสเตอร์ของคุณ (หรือ Account All Resources) ขอบเขตเนมสเปซ และสิทธิ์การเข้าถึง (อ่านอย่างเดียวก็เพียงพอสำหรับการเรียกดู)",
   "{action}: {n} done": "{action}: สำเร็จ {n} รายการ",

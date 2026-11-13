@@ -5406,7 +5406,6 @@
   "workspace": "espacio de trabajo",
   "workspace not installed": "espacio de trabajo sin instalar",
   "you": "tú",
-  "{account} connected": "{account} conectado",
   "{action} — pick this cluster (or Account All Resources), a namespace scope, and an access right (e.g. read-only).": "{action}: elige este clúster (o Account All Resources), un alcance de namespace y un derecho de acceso (p. ej., solo lectura).",
   "{action} — pick your clusters (or Account All Resources), a namespace scope, and an access right (read-only is enough for browsing)": "{action}: elige tus clústeres (o Account All Resources), un ámbito de namespace y un derecho de acceso (solo lectura basta para explorar)",
   "{action}: {n} done": "{action}: {n} completados",

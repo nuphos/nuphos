@@ -5406,7 +5406,6 @@
   "workspace": "工作区",
   "workspace not installed": "工作区未安装",
   "you": "你",
-  "{account} connected": "{account} 已连接",
   "{action} — pick this cluster (or Account All Resources), a namespace scope, and an access right (e.g. read-only).": "{action}：选择此集群（或账号下所有资源）、命名空间范围和访问权限（例如只读）。",
   "{action} — pick your clusters (or Account All Resources), a namespace scope, and an access right (read-only is enough for browsing)": "{action}：选择你的集群（或 Account All Resources）、命名空间范围和访问权限（浏览只需只读即可）",
   "{action}: {n} done": "{action}：已完成 {n} 个",
