@@ -1,4 +1,4 @@
-import { optional } from './env'
+import { boundedInt, optional } from './env'
 
 /** Bots joining meetings through Recall.ai; unset turns meeting_join off. */
 export type MeetingsConfig = {
@@ -10,6 +10,8 @@ export type MeetingsConfig = {
     webhookSecret: string
     /** Real-time speech-to-text provider key, e.g. soniox_streaming for Chinese. */
     transcriptProvider?: string
+    /** Bots one team may send into calls in any 24 hours. */
+    botsPerTeamPerDay: number
   }
 }
 
@@ -25,6 +27,10 @@ export function meetingsConfig(): MeetingsConfig {
       region: optional('RECALL_REGION')?.trim() || 'us-west-2',
       webhookSecret,
       transcriptProvider: optional('RECALL_TRANSCRIPT_PROVIDER')?.trim() || undefined,
+      botsPerTeamPerDay: boundedInt('RECALL_MAX_BOTS_PER_TEAM_PER_DAY', 20, {
+        min: 1,
+        max: 10_000,
+      }),
     },
   }
 }
