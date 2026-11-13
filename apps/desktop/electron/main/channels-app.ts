@@ -18,6 +18,7 @@ import { raiseWindow } from '../window-raise'
 
 import { getChangelogState } from './changelog'
 import { pickPaths, savePastedAttachments } from './dialogs'
+import { setMainLocale } from './i18n-electron.ts'
 import { importLocalSession } from '../agent/local-session-import'
 
 import { listLocalAgentSessions, validateLocalSessionSource } from './local-sessions'
@@ -105,6 +106,7 @@ export const appChannels = {
   },
   'app:getAppIcon': () => readAppIcon(),
   'app:setAppIcon': (_e: unknown, icon: string) => setAppIcon(icon),
+  'app:setLocale': (_e: unknown, locale: unknown) => setMainLocale(locale),
   'app:getLoginItem': () => readLoginItem(app, process.platform),
   'app:setLoginItem': (_e: unknown, openAtLogin: unknown) =>
     writeLoginItem(app, process.platform, openAtLogin),

@@ -58,6 +58,7 @@ import { prepareFirstLaunch } from './main/first-launch'
 import './main/account-leave'
 import { initLocalRuntime, stopLocalRuntime } from './main/local-runtime'
 import { resumeLocalSetupSync } from './main/local-setup-watch'
+import { initMainLocale, onMainLocaleChange } from './main/i18n-electron.ts'
 import { installApplicationMenu } from './main/menu'
 import { applyAppIcon, readAppIcon } from './main/app-icon'
 import { readPersistedThemeSource } from './main/theme'
@@ -241,6 +242,8 @@ app
       }
     })
     installApplicationMenu()
+    onMainLocaleChange(installApplicationMenu)
+    void initMainLocale()
     if (isDev && devSuffix && process.platform === 'darwin') {
       app.dock?.setBadge(process.env.ATLAS_DEV_SUFFIX ?? '')
     }
