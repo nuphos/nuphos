@@ -36,7 +36,11 @@ export type ConversationTimelineEvent = { at: Date; actorId: string } & (
     }
   | {
       /** One of the session's messages was edited and ran again in a fork: the session it ran in. */
-      kind: 'message_edited' | 'conversation_forked'
+      kind: 'message_edited'
+      forkSessionId: string
+    }
+  | {
+      kind: 'conversation_forked'
       forkSessionId: string
     }
   | {
