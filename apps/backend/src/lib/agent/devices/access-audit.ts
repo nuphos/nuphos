@@ -1,10 +1,10 @@
 import { db } from '@/lib/db'
 import { logError } from '@/lib/observability'
 
-import { DEVICE_EXEC_AUDIT_RETENTION_DAYS } from './audit'
+import { DEVICE_EXEC_AUDIT_RETENTION_DAYS, decodeAuditCursor, encodeAuditCursor } from './audit'
 
 import type { AgentDevice, DeviceGrant } from './store'
-import type { Collection } from 'mongodb'
+import type { Collection, Filter, ObjectId } from 'mongodb'
 
 /** The flow that changed a computer's access. */
 export type DeviceAccessChangeVia =
@@ -25,6 +25,7 @@ type TeamAccess = Omit<DeviceGrant, 'teamId'>
 
 /** One change to who may use or manage a computer in a team, kept as long as device exec audits. */
 export type DeviceAccessAuditEntry = {
+  _id?: ObjectId
   ownerUserId: string
   deviceId: string
   teamId: string
@@ -111,5 +112,52 @@ export async function recordDeviceAccessChange(entry: DeviceAccessAuditEntry): P
       teamId: entry.teamId,
       via: entry.via,
     })
+  }
+}
+
+export type DeviceAccessAuditPage = {
+  entries: DeviceAccessAuditEntry[]
+  nextCursor: string | null
+}
+
+/**
+ * One computer's access changes in one team, newest first. The caller has checked who may read
+ * them; the filter keeps other computers and other teams out whatever it passes.
+ */
+export async function listDeviceAccessAudit(
+  scope: { ownerUserId: string; deviceId: string; teamId: string },
+  options: { limit: number; cursor?: string; since?: Date; until?: Date },
+): Promise<DeviceAccessAuditPage> {
+  const cursor = options.cursor ? decodeAuditCursor(options.cursor) : null
+  const changedAt = {
+    ...(options.since ? { $gte: options.since } : {}),
+    ...(options.until ? { $lt: options.until } : {}),
+  }
+  const filter: Filter<DeviceAccessAuditEntry> = {
+    ...scope,
+    ...(options.since || options.until ? { changedAt } : {}),
+    ...(cursor
+      ? {
+          $or: [
+            { changedAt: { $lt: cursor.requestedAt } },
+            { changedAt: cursor.requestedAt, _id: { $lt: cursor.id } },
+          ],
+        }
+      : {}),
+  }
+  const docs = await deviceAccessAudit()
+    .find(filter)
+    .sort({ changedAt: -1, _id: -1 })
+    .limit(options.limit + 1)
+    .toArray()
+  const entries = docs.slice(0, options.limit)
+  const last = entries.at(-1)
+
+  return {
+    entries,
+    nextCursor:
+      docs.length > options.limit && last
+        ? encodeAuditCursor({ requestedAt: last.changedAt, _id: last._id })
+        : null,
   }
 }

@@ -203,6 +203,7 @@
   "GET /agent/conversations/:sessionId/runtime-move": "user",
   "GET /agent/credential-options": "user",
   "GET /agent/devices": "user",
+  "GET /agent/devices/:deviceId/access-audit": "user",
   "GET /agent/devices/:deviceId/audit": "user",
   "GET /agent/devices/:deviceId/runtime-activity": "user",
   "GET /agent/devices/:deviceId/runtime-tunnel": "user",
