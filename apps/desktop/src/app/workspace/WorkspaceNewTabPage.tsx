@@ -16,8 +16,8 @@ import { RUNTIME_TERMINAL_FILTER } from '../../views/TerminalView'
 
 import { browserAddressOption } from './browserAddressOption'
 import { NewTabEmptyState } from './NewTabEmptyState'
+import { browsableOptions, useNewTabFolds } from './newTabFolds'
 import { HistoryIcon, LauncherIcon, NewTabGroupSection, NewTabOptionRow } from './NewTabOptions'
-import { useNewTabFolds } from './useNewTabFolds'
 import { useSessionDesktopItems } from './useSessionDesktopItems'
 
 import type { Item, Section } from '../../components/sidebar/types'
@@ -182,7 +182,7 @@ export function WorkspaceNewTabPage({
         addressOption,
         query,
       )
-    : groups.flatMap((group) => (folds.isCollapsed(group) ? [] : group.options))
+    : browsableOptions(groups, folds.isCollapsed)
   const active = Math.min(activeIndex, options.length - 1)
   const visibleGroups = groups.filter((group) => group.options.length > 0)
   const noConnectors = !searching && liveSections.length === 0
