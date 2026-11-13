@@ -808,8 +808,6 @@ class ChatSession(
         submissionPending = false
         if (message != null && pendingSubmission != null) {
             if (definiteRejection && !submissionAccepted) {
-                // The server never took it: its bubble goes, and sending the draft again brings it back with the same id.
-                pendingUserMessage?.let { pending -> messages = messages.filterNot { it.id == pending.id } }
                 rejectedSubmission = pendingSubmission
                 retrySubmission = pendingSubmission
                 retryUserMessage = pendingUserMessage
@@ -1156,7 +1154,6 @@ class ChatSession(
         var freshRetries = 0
         var idleTimeouts = 0
         var gatewayRetries = 0
-        var notReadyRetries = 0
         var forceFresh = false
         var usedFreshFallback = false
         var accepted = false
@@ -1251,14 +1248,10 @@ class ChatSession(
             if (err is SseClient.Failure.BadStatus) {
                 if (pendingSubmission != null && !accepted && err.code >= 500) return TurnResult.Failed("Message delivery is unconfirmed. Resume the original connection.")
                 val conflict = AgentChatApi.conflict(err.code, err.rawBody ?: err.body)
-                val code = (conflict as? AgentChatApi.Conflict.Other)?.code
                 when {
                     // The runtime refused the start and the server put the message back in its queue: it wasn't refused.
-                    code == "message_queued" -> return TurnResult.Queued
-                    // A resume for a conversation the server never created: send it as the first request, as iOS does.
-                    shouldResume && resumeFrom == 0 && !options.explicitResume && !usedFreshFallback &&
-                        ((err.code == 404 && code == "not_found") ||
-                            (!isNative && pendingSubmission == null && conflict is AgentChatApi.Conflict.StreamNotResumable)) -> {
+                    (conflict as? AgentChatApi.Conflict.Other)?.code == "message_queued" -> return TurnResult.Queued
+                    !isNative && pendingSubmission == null && conflict is AgentChatApi.Conflict.StreamNotResumable && shouldResume && resumeFrom == 0 && !options.explicitResume && !usedFreshFallback -> {
                         usedFreshFallback = true
                         forceFresh = true
                         continue
@@ -1266,18 +1259,6 @@ class ChatSession(
                     conflict is AgentChatApi.Conflict.TranscriptOutOfSync && !sendFullTranscript -> {
                         if (conflict.storedMessageCount != null && rebaseTo == null) rebaseTo = conflict.storedMessageCount else sendFullTranscript = true
                         continue
-                    }
-                    // A send the server queue doesn't take can still meet a runtime that is starting up.
-                    code == "runtime_not_accepting_message" && !accepted && notReadyRetries < 30 -> {
-                        notReadyRetries += 1
-                        phaseLabel = "Waiting for the runtime to be ready…"
-                        delay(backoff(notReadyRetries, 0.5, 3.0).toLong())
-                        continue
-                    }
-                    // Messages here the server never stored: take the server's transcript.
-                    code == "invalid_message_batch" && !accepted -> {
-                        runCatching { readDetail(token, teamId, sessionId) }.getOrNull()?.let { adoptMessages(it.messages, it.messagesFirstIndex ?: 0) }
-                        return TurnResult.Failed("This agent changed elsewhere and was reloaded. Retry to send your message.", definiteRejection = true)
                     }
                     conflict is AgentChatApi.Conflict.Other && reconnects == 0 && err.code in GATEWAY && gatewayRetries < 3 -> {
                         gatewayRetries += 1
