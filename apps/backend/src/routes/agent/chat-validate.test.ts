@@ -72,7 +72,7 @@ test('rejects invalid runtime preferences before accepting a chat', () => {
         messages: [],
         agentRuntime: agentRuntime as 'codex',
       }),
-    ).toThrow('agentRuntime must be one of claude-code, codex, grok, antigravity, opencode')
+    ).toThrow('agentRuntime must be one of claude-code, codex, grok, antigravity, opencode, hermes')
   }
 })
 

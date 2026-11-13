@@ -36,6 +36,7 @@ export const RUNTIME_SOURCES = [
   'antigravity-login.mjs',
   'opencode-login.mjs',
   'acp-shim.mjs',
+  'hermes-session.mjs',
   'reply-images.mjs',
   'reply-image-stream.mjs',
   'mcp-bridge-config.mjs',

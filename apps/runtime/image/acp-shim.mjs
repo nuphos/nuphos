@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The Nuphos layer for agents that ship their own ACP server (Grok Build, Google
-// Antigravity, OpenCode). Claude Code and Codex get this layer by patching their Node adapters;
+// Antigravity, OpenCode, Hermes Agent). Claude Code and Codex get this layer by patching their Node adapters;
 // a native binary cannot be patched, so this process sits in front of it instead and
 // passes every frame through, except where a Nuphos session needs something:
 //
@@ -17,6 +17,7 @@ import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { pathToFileURL } from 'node:url'
 
+import { hermesProfile } from './hermes-session.mjs'
 import { nuphosBridgeMcpServers } from './mcp-bridge-config.mjs'
 import { nuphosApplyRuntimeDefaults, nuphosSyncRuntimeSkills } from './runtime-defaults.mjs'
 import { nuphosSessionHomeEnv } from './session-home.mjs'
@@ -83,6 +84,16 @@ export const PROVIDERS = {
     // A prompt sent while a turn runs joins that turn instead of starting its own.
     serialPrompts: true,
   },
+  hermes: {
+    command: ['hermes', 'acp'],
+    // A profile, and so a background daemon, of the session home's own: see hermes-session.mjs.
+    home: (runtimeHome, sessionHome) => ({
+      HERMES_HOME: hermesProfile(runtimeHome, sessionHome ?? runtimeHome),
+    }),
+    // Hermes reads no _meta: the instructions lead the first prompt.
+    instruct: null,
+    serialPrompts: true,
+  },
 }
 
 export function sessionContext(params) {
@@ -106,7 +117,7 @@ export function agentEnv(provider, context, runtimeEnv = process.env) {
     ...runtimeEnv,
     ...env,
     ...sessionHome,
-    ...PROVIDERS[provider].home(runtimeHome),
+    ...PROVIDERS[provider].home(runtimeHome, sessionHome.NUPHOS_SESSION_HOME),
   }
 }
 

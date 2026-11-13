@@ -7,7 +7,7 @@ object RuntimeIdentity {
     }
     fun name(provider: String?): String = when (provider) {
         "codex" -> "Codex"; "claude-code" -> "Claude Code"; "grok" -> "Grok Build"
-        "opencode" -> "OpenCode"; "antigravity" -> "Antigravity"; "nuphos" -> "Nuphos"
+        "opencode" -> "OpenCode"; "antigravity" -> "Antigravity"; "hermes" -> "Hermes Agent"; "nuphos" -> "Nuphos"
         null, "" -> "Runtime"; else -> "Unknown runtime"
     }
     fun detail(provider: String?, instance: String?): String =

@@ -1,5 +1,12 @@
 /** Every agent a runtime image can carry; the identifier is also the image variant. */
-export const OPENAB_PROVIDERS = ['claude-code', 'codex', 'grok', 'antigravity', 'opencode'] as const
+export const OPENAB_PROVIDERS = [
+  'claude-code',
+  'codex',
+  'grok',
+  'antigravity',
+  'opencode',
+  'hermes',
+] as const
 
 export type OpenAbProvider = (typeof OPENAB_PROVIDERS)[number]
 
@@ -19,6 +26,7 @@ const PROVIDERS: Record<
     shim: true,
   },
   opencode: { label: 'OpenCode', errorPrefix: 'opencode', short: 'opencode', shim: true },
+  hermes: { label: 'Hermes Agent', errorPrefix: 'hermes', short: 'hermes', shim: true },
 }
 
 export function isOpenAbProvider(value: unknown): value is OpenAbProvider {
