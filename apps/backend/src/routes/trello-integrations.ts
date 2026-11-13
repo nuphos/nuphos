@@ -3,7 +3,6 @@ import { randomBytes } from 'node:crypto'
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
-import { config } from '@/config'
 import {
   accessView,
   bindingAccessUpdateSchema,
@@ -11,6 +10,7 @@ import {
   createBinderOnlyAccess,
 } from '@/lib/byos/access'
 import { trelloConnectLink } from '@/lib/byos/trello'
+import { publicBackendUrl } from '@/lib/claude-code-preview/runtime-backend-url'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { logError } from '@/lib/observability'
@@ -50,13 +50,12 @@ trelloIntegrationsRoutes.post('/start-oauth', requireTeamRole('ADMINISTRATOR'), 
   const requesterUserId = c.get('userId')
   const state = randomBytes(24).toString('hex')
   const expiresAt = new Date(Date.now() + 10 * 60_000)
-  const base = config.agent.publicBackendUrl
+  const base = publicBackendUrl()
 
-  if (!base) throw new AppError(503, 'trello_not_configured', 'A public backend URL is required')
+  if (!base?.startsWith('https://'))
+    throw new AppError(503, 'trello_not_configured', 'A public HTTPS backend URL is required')
   const callback = new URL('/trello-app/setup', base)
 
-  if (callback.protocol !== 'https:' || callback.username || callback.password)
-    throw new AppError(503, 'trello_not_configured', 'A public HTTPS backend URL is required')
   callback.searchParams.set('state', state)
   const link = await trelloConnectLink(
     composioUserId(teamId.toHexString(), requesterUserId),
