@@ -135,7 +135,7 @@ function Face({
   )
 }
 
-/** The post the next one answers, above the composer, laid out as the composer is: its padding outside, its width inside. */
+/** The post the next one answers, above the composer and as wide as it. */
 export function ReplyingBanner({
   reply,
   onCancel,
@@ -144,23 +144,21 @@ export function ReplyingBanner({
   onCancel: () => void
 }) {
   return (
-    <div className="px-3">
-      <div className="mx-auto mb-1.5 flex max-w-[760px] items-center gap-2 rounded-xl bg-state-hover py-1 pl-3 pr-1 text-xs leading-4">
-        <CornerUpLeft className="h-3.5 w-3.5 shrink-0 text-tertiary" strokeWidth={2.2} />
-        <div className="min-w-0 flex-1 truncate text-tertiary">
-          <span className="font-medium text-secondary">
-            {t('Replying to {name}', { name: reply.authorName })}
-          </span>{' '}
-          {reply.text}
-        </div>
-        <IconButton
-          size="sm"
-          label={t('Cancel reply')}
-          shortcut="Esc"
-          icon={<X />}
-          onClick={onCancel}
-        />
+    <div className="mb-1.5 flex items-center gap-2 rounded-xl bg-state-hover py-1 pl-3 pr-1 text-xs leading-4">
+      <CornerUpLeft className="h-3.5 w-3.5 shrink-0 text-tertiary" strokeWidth={2.2} />
+      <div className="min-w-0 flex-1 truncate text-tertiary">
+        <span className="font-medium text-secondary">
+          {t('Replying to {name}', { name: reply.authorName })}
+        </span>{' '}
+        {reply.text}
       </div>
+      <IconButton
+        size="sm"
+        label={t('Cancel reply')}
+        shortcut="Esc"
+        icon={<X />}
+        onClick={onCancel}
+      />
     </div>
   )
 }
