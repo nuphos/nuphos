@@ -3,14 +3,13 @@ import { ObjectId } from 'mongodb'
 import {
   accessView,
   bindingAccessUpdateSchema,
-  canUseAllowList,
-  isPrivateAccess,
+  canEditAccess,
+  canViewAccess,
   normalizeAccessInput,
 } from '@/lib/byos/access'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth/core'
 import { teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables } from '@/middleware/auth/types'
@@ -29,10 +28,14 @@ export type BindingCollection = {
 
 type BindingRef = { id: ObjectId | string; access?: BindingAccess }
 
+/** The team route variables every scoped router carries. */
+const teamOf = (c: Context) => c as unknown as Context<{ Variables: TeamAuthVariables }>
+
 /**
- * GET/PUT of a binding's member list, admin only. Register it before the
- * binding's member gate, so an admin who is not on the list can manage it.
- * A member's private binding stays theirs: an admin can see it, not share it.
+ * GET/PUT of a binding's member list, for admins and the binding's owner.
+ * Register it before the binding's member gate, so they can manage it while
+ * off the list. A member's private binding stays theirs: an admin can see it,
+ * not share it.
  */
 export function registerBindingAccessRoutes<V extends TeamAuthVariables>(
   scoped: Hono<{ Variables: V }>,
@@ -40,44 +43,51 @@ export function registerBindingAccessRoutes<V extends TeamAuthVariables>(
   bindingOf: (c: Context<{ Variables: V }>) => BindingRef | Promise<BindingRef>,
   path = '/access',
 ): void {
-  scoped.get(path, requireTeamRole('ADMINISTRATOR'), async (c) =>
-    c.json(accessView((await bindingOf(c as never)).access)),
-  )
+  scoped.get(path, async (c) => {
+    const { access } = await bindingOf(c as never)
+    const team = teamOf(c)
 
-  scoped.put(
-    path,
-    requireTeamRole('ADMINISTRATOR'),
-    zv('json', bindingAccessUpdateSchema),
-    async (c) => {
-      const { id, access: current } = await bindingOf(c as never)
-      const userId = c.get('userId')
-
-      if (isPrivateAccess(current) && !canUseAllowList(current?.memberAllowList, userId)) {
-        throw new AppError(
-          403,
-          'binding_private',
-          "Only its owner can share another member's private binding",
-        )
-      }
-      const access = normalizeAccessInput(
-        c.req.valid('json'),
-        userId,
-        new Date(),
-        current?.ownerUserId,
+    if (!canViewAccess(access, team.get('userId'), team.get('teamRole'))) {
+      throw new AppError(
+        403,
+        'forbidden',
+        "Only admins and the binding's owner can see its members",
       )
-      const result = await teamByosBindings().updateOne(
-        {
-          _id: parseObjectId(c.get('teamId'), 'teamId'),
-          [`${collection}.id`]: typeof id === 'string' ? new ObjectId(id) : id,
-        },
-        { $set: { [`${collection}.$.access`]: access, updatedAt: access.updatedAt } },
+    }
+
+    return c.json(accessView(access))
+  })
+
+  scoped.put(path, zv('json', bindingAccessUpdateSchema), async (c) => {
+    const { id, access: current } = await bindingOf(c as never)
+    const team = teamOf(c)
+    const userId = team.get('userId')
+
+    if (!canEditAccess(current, userId, team.get('teamRole'))) {
+      throw new AppError(
+        403,
+        'binding_private',
+        "Only its owner can change who may use another member's private binding",
       )
+    }
+    const access = normalizeAccessInput(
+      c.req.valid('json'),
+      userId,
+      new Date(),
+      current?.ownerUserId,
+    )
+    const result = await teamByosBindings().updateOne(
+      {
+        _id: parseObjectId(team.get('teamId'), 'teamId'),
+        [`${collection}.id`]: typeof id === 'string' ? new ObjectId(id) : id,
+      },
+      { $set: { [`${collection}.$.access`]: access, updatedAt: access.updatedAt } },
+    )
 
-      if (result.matchedCount === 0) {
-        throw new AppError(404, 'binding_not_found', 'This binding was disconnected')
-      }
+    if (result.matchedCount === 0) {
+      throw new AppError(404, 'binding_not_found', 'This binding was disconnected')
+    }
 
-      return c.json(accessView(access))
-    },
-  )
+    return c.json(accessView(access))
+  })
 }

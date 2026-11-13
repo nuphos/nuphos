@@ -97,6 +97,37 @@ export function isPrivateAccess(access: BindingAccess | undefined): boolean {
   return owner ? list.every((id) => id === owner) : list.length <= 1
 }
 
+/** Who connected the binding: its recorded owner, or the one member of an older private list. */
+export function bindingOwner(access: BindingAccess | undefined): string | undefined {
+  if (access?.ownerUserId) return access.ownerUserId
+  const list = normalizeAllowList(access?.memberAllowList)
+
+  return list.length === 1 && list[0] !== '*' ? list[0] : undefined
+}
+
+/** Admins and the binding's owner may see who it is shared with. */
+export function canViewAccess(
+  access: BindingAccess | undefined,
+  userId: string,
+  teamRole: string | undefined,
+): boolean {
+  return teamRole === 'ADMINISTRATOR' || bindingOwner(access) === userId
+}
+
+/**
+ * Its owner may always change who a binding is shared with; an admin only
+ * while it is shared, never another member's private binding.
+ */
+export function canEditAccess(
+  access: BindingAccess | undefined,
+  userId: string,
+  teamRole: string | undefined,
+): boolean {
+  if (bindingOwner(access) === userId) return true
+
+  return teamRole === 'ADMINISTRATOR' && !isPrivateAccess(access)
+}
+
 /**
  * The one rule for every binding: members on the list may use it, and admins
  * may use any binding shared with the team or specific people, but never
