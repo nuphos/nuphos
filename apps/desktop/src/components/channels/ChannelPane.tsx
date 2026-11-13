@@ -262,23 +262,28 @@ export function ChannelPane({
         }}
       >
         {replying && <ReplyingBanner reply={replying} onCancel={() => setReplying(null)} />}
-        <Composer
-          onSend={send}
-          onStop={() => {}}
-          readOnly={detail?.readOnly === true}
-          pendingSeed={restore}
-          onSeedConsumed={() => setRestore(null)}
-          draftKey={composerDraftKey(teamId, channelId)}
-          dropRegisterRef={dropRef}
-          mentionScope={{
-            teamId,
-            sessionId: channelId,
-            channel: true,
-            only: { agentIds: agents.map((agent) => agent.sessionId), selfId: user.id },
-          }}
-          placeholder={t('Message {name}', { name: title })}
-          credentialSelector={questions.credentials}
-        />
+        {/* Inset past the faces on both sides, so the composer lines up with the
+            bubbles: the column's own width (760px plus the Composer's px-3), less a
+            face and its gap (2.375rem) on each side. */}
+        <div className="mx-auto w-full max-w-[calc(760px+1.5rem)] px-[2.375rem]">
+          <Composer
+            onSend={send}
+            onStop={() => {}}
+            readOnly={detail?.readOnly === true}
+            pendingSeed={restore}
+            onSeedConsumed={() => setRestore(null)}
+            draftKey={composerDraftKey(teamId, channelId)}
+            dropRegisterRef={dropRef}
+            mentionScope={{
+              teamId,
+              sessionId: channelId,
+              channel: true,
+              only: { agentIds: agents.map((agent) => agent.sessionId), selfId: user.id },
+            }}
+            placeholder={t('Message {name}', { name: title })}
+            credentialSelector={questions.credentials}
+          />
+        </div>
       </div>
     </FileDropZone>
   )

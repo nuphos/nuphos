@@ -37,14 +37,17 @@ export function useBotChatQuestions(
       at: Date.parse(request.inputRequest.askedAt) || 0,
       key: `question-${inputRequestKey(request)}`,
       node: (
-        <BotChatQuestion
-          request={request}
-          teamId={teamId}
-          credentials={request.sessionId === botId ? botCredentials : undefined}
-          // The Bot's own questions are this chat's; only an agent under it is named.
-          onOpenSession={request.sessionId === botId ? undefined : onOpenSession}
-          onAnswer={answer}
-        />
+        // Inset past the faces on both sides, so the card lines up with the bubbles.
+        <div className="px-[2.375rem]">
+          <BotChatQuestion
+            request={request}
+            teamId={teamId}
+            credentials={request.sessionId === botId ? botCredentials : undefined}
+            // The Bot's own questions are this chat's; only an agent under it is named.
+            onOpenSession={request.sessionId === botId ? undefined : onOpenSession}
+            onAnswer={answer}
+          />
+        </div>
       ),
     }
   })
