@@ -42,17 +42,18 @@ useRedis({
       },
       // The holder scripts: RENEW names every key, CLAIM one.
       eval: async (script: string, count: number, ...args: string[]) => {
-        const [names, [replica]] = [args.slice(0, count), args.slice(count)]
+        const names = args.slice(0, count)
+        const [key = '', replica = ''] = [names[0], args[count]]
 
         if (script.includes('ipairs')) {
-          renewed.push(...names.filter((key) => keys.get(key) === replica))
+          renewed.push(...names.filter((name) => keys.get(name) === replica))
 
           return 0
         }
-        const holder = keys.get(names[0])
+        const holder = keys.get(key)
 
         if (holder && holder !== replica) return 0
-        keys.set(names[0], replica)
+        keys.set(key, replica)
 
         return 1
       },
