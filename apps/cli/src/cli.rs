@@ -31,7 +31,7 @@ pub struct Ctx {
 }
 
 impl Ctx {
-    fn team_id(&self) -> String {
+    pub(crate) fn team_id(&self) -> String {
         self.team["id"].as_str().unwrap_or_default().to_string()
     }
 
@@ -39,7 +39,7 @@ impl Ctx {
         Ok(shared::active_runtimes(self.api.runtimes(&self.team_id()).await?))
     }
 
-    fn print_json(&self, value: &Value) {
+    pub(crate) fn print_json(&self, value: &Value) {
         println!("{}", serde_json::to_string_pretty(value).unwrap_or_default());
     }
 }

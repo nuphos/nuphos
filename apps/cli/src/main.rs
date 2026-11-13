@@ -13,6 +13,7 @@ mod secret;
 mod service;
 mod shared;
 mod transcript;
+mod triggers;
 mod update;
 
 use std::io::{IsTerminal, Read};
@@ -61,6 +62,14 @@ enum Command {
     Resume { session: Option<String> },
     /// List recent tasks, or find them by a word in the title or first message.
     Conversations { query: Option<String> },
+    /// List a task's Triggers (schedules and webhooks) with their last and next run;
+    /// without SESSION, your own Triggers in the team.
+    #[command(alias = "trigger", args_conflicts_with_subcommands = true)]
+    Triggers {
+        session: Option<String>,
+        #[command(subcommand)]
+        command: Option<TriggersCommand>,
+    },
     /// List teams, make TEAM the default, or create it with --create.
     Team {
         name: Option<String>,
@@ -151,6 +160,12 @@ enum Command {
     },
     /// Install the newest release over this binary.
     Update,
+}
+
+#[derive(Subcommand)]
+enum TriggersCommand {
+    /// What a Trigger spent over the last 7 days (its id or name).
+    Usage { trigger: String },
 }
 
 #[derive(Subcommand)]
@@ -280,6 +295,10 @@ async fn run(args: Args) -> Result<i32> {
             cli::exec(&mut ctx, prompt.trim().to_string(), session, runtime, approve).await
         }
         Some(Command::Conversations { query }) => cli::conversations(&ctx, query.as_deref()).await.map(|_| 0),
+        Some(Command::Triggers { command: Some(TriggersCommand::Usage { trigger }), .. }) => {
+            triggers::usage(&ctx, &trigger).await.map(|_| 0)
+        }
+        Some(Command::Triggers { session, .. }) => triggers::list(&ctx, session.as_deref()).await.map(|_| 0),
         Some(Command::Team { name, .. }) => cli::team(&mut ctx, name).await.map(|_| 0),
         Some(Command::Runtime { name: Some(name), login: true, .. }) => {
             cli::login_runtime(&ctx, &name).await.map(|_| 0)
@@ -609,5 +628,25 @@ mod runtime_args {
             assert!(matches!(args.command, Some(Command::Runtime { login: true, .. })));
         }
         assert!(Args::try_parse_from(["nuphos", "team", "Acme", "--create"]).is_ok());
+    }
+}
+
+#[cfg(test)]
+mod triggers_args {
+    use clap::Parser;
+
+    use super::{Args, Command, TriggersCommand};
+
+    #[test]
+    fn a_task_id_lists_its_triggers_and_usage_stays_a_subcommand() {
+        let args = Args::try_parse_from(["nuphos", "triggers", "sess-1"]).unwrap();
+        assert!(matches!(args.command, Some(Command::Triggers { session: Some(s), command: None }) if s == "sess-1"));
+        let args = Args::try_parse_from(["nuphos", "triggers"]).unwrap();
+        assert!(matches!(args.command, Some(Command::Triggers { session: None, command: None })));
+        let args = Args::try_parse_from(["nuphos", "triggers", "usage", "Nightly"]).unwrap();
+        assert!(matches!(
+            args.command,
+            Some(Command::Triggers { session: None, command: Some(TriggersCommand::Usage { trigger }) }) if trigger == "Nightly"
+        ));
     }
 }
