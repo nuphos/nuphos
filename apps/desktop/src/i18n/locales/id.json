@@ -1117,6 +1117,7 @@
   "Could not leave workspace": "Tidak dapat keluar dari workspace",
   "Could not link Discord account": "Tidak dapat menautkan akun Discord",
   "Could not link channel": "Tidak dapat menautkan kanal",
+  "Could not link the fork to its source": "Tidak dapat menautkan cabang ke percakapan asalnya",
   "Could not list PostHog projects": "Tidak dapat menampilkan daftar proyek PostHog",
   "Could not load Azure role assignments": "Tidak dapat memuat penetapan peran Azure",
   "Could not load ConfigMap/Secret choices: {error}": "Tidak dapat memuat pilihan ConfigMap/Secret: {error}",
@@ -5416,6 +5417,7 @@
   "{action}: {ok} done, {failed} failed": "{action}: {ok} selesai, {failed} gagal",
   "{active} active · {failed} failed attempts": "{active} aktif · {failed} percobaan gagal",
   "{actor} edited a message and ran it in a new task": "{actor} mengedit pesan dan menjalankannya di tugas baru",
+  "{actor} forked this conversation": "{actor} membuat cabang percakapan ini",
   "{actor} invited {target} into this agent": "{actor} mengundang {target} ke agen ini",
   "{actor} left this agent": "{actor} keluar dari agen ini",
   "{actor} moved this agent from {from} to {to}": "{actor} memindahkan agen ini dari {from} ke {to}",
@@ -5766,7 +5768,5 @@
   "“{text}” — send it again.": "“{text}” — kirim lagi.",
   "≥ at least": "≥ minimal",
   "≥ {pct}% of Limit": "≥ {pct}% dari batas",
-  "✓ used": "✓ dipakai",
-  "{actor} forked this conversation": "{actor} membuat cabang percakapan ini",
-  "Could not link the fork to its source": "Tidak dapat menautkan cabang ke percakapan asalnya"
+  "✓ used": "✓ dipakai"
 }

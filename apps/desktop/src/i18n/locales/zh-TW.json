@@ -1117,6 +1117,7 @@
   "Could not leave workspace": "無法離開工作區",
   "Could not link Discord account": "無法連結 Discord 帳號",
   "Could not link channel": "無法連結頻道",
+  "Could not link the fork to its source": "無法將分叉連結至原對話",
   "Could not list PostHog projects": "無法列出 PostHog 專案",
   "Could not load Azure role assignments": "無法載入 Azure 角色指派",
   "Could not load ConfigMap/Secret choices: {error}": "無法載入 ConfigMap/Secret 選項：{error}",
@@ -5416,6 +5417,7 @@
   "{action}: {ok} done, {failed} failed": "{action}：{ok} 個已完成，{failed} 個失敗",
   "{active} active · {failed} failed attempts": "{active} 個進行中 · {failed} 次失敗嘗試",
   "{actor} edited a message and ran it in a new task": "{actor} 編輯了一則訊息，並在新任務中執行",
+  "{actor} forked this conversation": "{actor} 分叉了這段對話",
   "{actor} invited {target} into this agent": "{actor} 已邀請 {target} 加入此 Agent",
   "{actor} left this agent": "{actor} 已離開此 Agent",
   "{actor} moved this agent from {from} to {to}": "{actor} 已將此 Agent 從 {from} 移至 {to}",
@@ -5766,7 +5768,5 @@
   "“{text}” — send it again.": "「{text}」，請重新傳送。",
   "≥ at least": "≥ 至少",
   "≥ {pct}% of Limit": "≥ 限制的 {pct}%",
-  "✓ used": "✓ 已使用",
-  "{actor} forked this conversation": "{actor} 分叉了這段對話",
-  "Could not link the fork to its source": "無法將分叉連結至原對話"
+  "✓ used": "✓ 已使用"
 }
