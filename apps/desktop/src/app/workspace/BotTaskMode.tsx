@@ -31,9 +31,15 @@ export function BotTaskMode({
   const [title, setTitle] = useState('')
   const [provider, setProvider] = useState<AgentProvider | undefined>()
   const corner = useWorkspacePane()?.cornerPane ?? false
-  const { open, panelRef, requestClose } = useDetailSidebarTransition(onBack, undefined, {
-    closeOnEscape: false,
-  })
+  const { contentOpen, open, panelRef, requestClose } = useDetailSidebarTransition(
+    onBack,
+    undefined,
+    { closeOnEscape: false },
+  )
+  // The conversation's first render is most of the cost of opening, so it waits for the slide.
+  const [settled, setSettled] = useState(false)
+
+  if (contentOpen && !settled) setSettled(true)
 
   return (
     <section
@@ -58,23 +64,25 @@ export function BotTaskMode({
           <span className="truncate">{title || t('Task')}</span>
         </div>
       </header>
-      <AgentPanel
-        variant="page"
-        open
-        userName={user.name}
-        teamId={teamId}
-        sessionId={sessionId}
-        isTeamAdmin={ws.currentTeam?.role === 'ADMINISTRATOR'}
-        autoFocusComposer
-        onSessionChange={(nextId) => (nextId ? onSessionChange(nextId) : requestClose())}
-        onOpenNuphosLink={ws.stableOpenNuphosLinkFromChat}
-        onOpenAgentSettings={() => ws.openSettingsSection('workspace.agent')}
-        onTitleChange={(nextTitle, reportedId, agentRuntime) => {
-          if (reportedId !== sessionId) return
-          setTitle(nextTitle)
-          setProvider(agentRuntime)
-        }}
-      />
+      {settled && (
+        <AgentPanel
+          variant="page"
+          open
+          userName={user.name}
+          teamId={teamId}
+          sessionId={sessionId}
+          isTeamAdmin={ws.currentTeam?.role === 'ADMINISTRATOR'}
+          autoFocusComposer
+          onSessionChange={(nextId) => (nextId ? onSessionChange(nextId) : requestClose())}
+          onOpenNuphosLink={ws.stableOpenNuphosLinkFromChat}
+          onOpenAgentSettings={() => ws.openSettingsSection('workspace.agent')}
+          onTitleChange={(nextTitle, reportedId, agentRuntime) => {
+            if (reportedId !== sessionId) return
+            setTitle(nextTitle)
+            setProvider(agentRuntime)
+          }}
+        />
+      )}
     </section>
   )
 }
