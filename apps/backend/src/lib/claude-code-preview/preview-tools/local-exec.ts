@@ -8,6 +8,7 @@ import { requireDeviceAccess } from '@/lib/agent/devices/box-access'
 import { wakeBox } from '@/lib/agent/devices/box-instabox'
 import { createLocalTerminalTool } from '@/lib/agent/tools-skilled/local-terminal'
 import { createLocalExecTool } from '@/lib/agent/tools-skilled/local-tools'
+import { createLocalUploadTool } from '@/lib/agent/tools-skilled/local-upload'
 import { getAgentCredentialOptions } from '@/routes/agent/credential-options'
 import { getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
 
@@ -80,6 +81,13 @@ export async function localExecToolModule(ctx: PreviewToolContext): Promise<Prev
   const devices = await resolveAvailableLocalExecDevices(ctx)
 
   return toolModuleFromAiSdkTools({
+    local_upload: createLocalUploadTool(devices, {
+      userId: ctx.userId,
+      conversationOwnerUserId: ctx.conversationOwnerUserId,
+      teamId: ctx.teamId,
+      sessionId: ctx.sessionId,
+      origin: ctx.turnOrigin ?? 'user',
+    }),
     local_terminal: createLocalTerminalTool(devices, {
       userId: ctx.userId,
       conversationOwnerUserId: ctx.conversationOwnerUserId,

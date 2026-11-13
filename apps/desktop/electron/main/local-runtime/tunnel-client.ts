@@ -14,7 +14,6 @@ import type {
 import type { DeviceMetrics } from '../../../src/api/device-types.ts'
 
 export type SocketEvent = { data?: unknown; code?: number }
-
 export type SocketLike = {
   readonly readyState: number
   send(data: string): void
@@ -22,7 +21,6 @@ export type SocketLike = {
   terminate?(): void
   addEventListener(type: string, listener: (event: SocketEvent) => void): void
 }
-
 export type TunnelClientDeps = {
   /** Opens the backend tunnel as the signed-in user; `reclaim` only takes a free computer. */
   connectBackend: (reclaim: boolean) => SocketLike
@@ -37,6 +35,7 @@ export type TunnelClientDeps = {
   connectAttachments?: (instanceId?: string) => SocketLike | null
   connectTerminal?: () => SocketLike
   connectExec?: () => SocketLike
+  connectUpload?: () => SocketLike
   /** Computer Use, only where the Codex App can provide it. */
   connectCua?: () => SocketLike
   connectBrowser?: () => SocketLike
@@ -117,6 +116,7 @@ export class RuntimeTunnelClient {
         agentInstances: Boolean(this.deps.instances),
         localMetrics: Boolean(this.deps.sampleMetrics),
         localExec: Boolean(this.deps.connectExec),
+        localUpload: Boolean(this.deps.connectUpload),
         localTerminal: Boolean(this.deps.connectTerminal),
         localCua: Boolean(this.deps.connectCua),
         localBrowser: Boolean(this.deps.connectBrowser),

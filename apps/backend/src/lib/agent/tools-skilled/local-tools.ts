@@ -136,7 +136,7 @@ export function describeDevices(devices: LocalExecDevice[]): string {
 }
 
 /** Wakes a paused Box for a command: null once it is up, else why not. A plan refusal (402) says why. */
-async function wakeRefusal(deviceId: string, wake: (() => Promise<boolean>) | undefined) {
+export async function wakeRefusal(deviceId: string, wake: (() => Promise<boolean>) | undefined) {
   if (!wake) return null
   const woke = await wake().catch((error: unknown) =>
     error instanceof AppError && error.status === 402 ? error.message : false,

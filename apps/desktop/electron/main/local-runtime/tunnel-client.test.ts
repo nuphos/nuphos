@@ -521,3 +521,28 @@ test('instance RPC shares the tunnel and returns one result then closes', async 
   assert.equal(JSON.parse(frames().at(-2).d).ok, false)
   client.stop()
 })
+
+test('upload is independently advertised and routed on the device tunnel', () => {
+  const backend = new FakeSocket()
+  const upload = new FakeSocket()
+  const client = new RuntimeTunnelClient({
+    connectBackend: () => backend,
+    connectRuntime: () => null,
+    connectUpload: () => upload,
+    status: () => ({ agents: {} }),
+  })
+
+  client.start()
+  backend.emit('open')
+  const status = JSON.parse(backend.sent[0]!)
+
+  assert.equal(status.status.localUpload, true)
+  backend.emit('message', { data: JSON.stringify({ t: 'open', s: 'upload', purpose: 'upload' }) })
+  upload.emit('open')
+  backend.emit('message', {
+    data: JSON.stringify({ t: 'data', s: 'upload', d: 'fixture-request' }),
+  })
+  assert.deepEqual(upload.sent, ['fixture-request'])
+  client.stop()
+  assert.equal(upload.closed, true)
+})
