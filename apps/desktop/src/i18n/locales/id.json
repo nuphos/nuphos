@@ -27,7 +27,7 @@
   "(required for self-hosted)": "(wajib untuk self-hosted)",
   "(you)": "(Anda)",
   "+{count} more": "+{count} lainnya",
-  "- Always open a Plan before changing production.\n- Reply in English.": "- Selalu buat Rencana sebelum mengubah production.\n- Balas dalam bahasa Indonesia.",
+  "- Always ask before deleting a production resource.\n- Reply in English.": "- Selalu tanyakan dulu sebelum menghapus resource production.\n- Balas dalam bahasa Indonesia.",
   "/ month": "/ bulan",
   "1 active port forward": "1 port forward aktif",
   "1 background task running": "1 tugas latar belakang berjalan",

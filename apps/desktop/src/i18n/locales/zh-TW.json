@@ -27,7 +27,7 @@
   "(required for self-hosted)": "（自架環境必填）",
   "(you)": "（你）",
   "+{count} more": "還有 {count} 個",
-  "- Always open a Plan before changing production.\n- Reply in English.": "- 變更正式環境前，一律先建立計畫。\n- 使用繁體中文回覆。",
+  "- Always ask before deleting a production resource.\n- Reply in English.": "- 刪除正式環境的資源前，一律先詢問。\n- 使用繁體中文回覆。",
   "/ month": "/ 月",
   "1 active port forward": "1 個進行中的連接埠轉送",
   "1 background task running": "1 個背景工作執行中",

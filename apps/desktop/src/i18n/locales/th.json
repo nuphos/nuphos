@@ -27,7 +27,7 @@
   "(required for self-hosted)": "(จำเป็นสำหรับแบบโฮสต์เอง)",
   "(you)": "(คุณ)",
   "+{count} more": "+{count} รายการ",
-  "- Always open a Plan before changing production.\n- Reply in English.": "- เปิดแผนทุกครั้งก่อนเปลี่ยนแปลง production\n- ตอบเป็นภาษาไทย",
+  "- Always ask before deleting a production resource.\n- Reply in English.": "- ถามก่อนทุกครั้งก่อนลบทรัพยากรใน production\n- ตอบเป็นภาษาไทย",
   "/ month": "/ เดือน",
   "1 active port forward": "พอร์ตฟอร์เวิร์ดที่ทำงานอยู่ 1 รายการ",
   "1 background task running": "มีงานเบื้องหลัง 1 รายการกำลังทำงาน",

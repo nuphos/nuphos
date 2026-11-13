@@ -27,7 +27,7 @@
   "(required for self-hosted)": "（自托管必填）",
   "(you)": "（你）",
   "+{count} more": "还有 {count} 个",
-  "- Always open a Plan before changing production.\n- Reply in English.": "- 修改生产环境前，务必先创建计划。\n- 使用中文回复。",
+  "- Always ask before deleting a production resource.\n- Reply in English.": "- 删除生产环境的资源前，务必先询问。\n- 使用中文回复。",
   "/ month": "/ 月",
   "1 active port forward": "1 个活动的端口转发",
   "1 background task running": "1 个后台任务运行中",

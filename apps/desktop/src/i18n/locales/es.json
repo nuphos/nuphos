@@ -27,7 +27,7 @@
   "(required for self-hosted)": "(obligatorio para autoalojado)",
   "(you)": "(tú)",
   "+{count} more": "+{count} más",
-  "- Always open a Plan before changing production.\n- Reply in English.": "- Abre siempre un plan antes de cambiar producción.\n- Responde en español.",
+  "- Always ask before deleting a production resource.\n- Reply in English.": "- Pregunta siempre antes de eliminar un recurso de producción.\n- Responde en español.",
   "/ month": "/ mes",
   "1 active port forward": "1 reenvío de puertos activo",
   "1 background task running": "1 tarea en segundo plano en curso",

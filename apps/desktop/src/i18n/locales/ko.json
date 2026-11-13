@@ -27,7 +27,7 @@
   "(required for self-hosted)": "(셀프 호스팅 시 필수)",
   "(you)": "(나)",
   "+{count} more": "+{count}개 더",
-  "- Always open a Plan before changing production.\n- Reply in English.": "- 프로덕션을 변경하기 전에 항상 플랜을 여세요.\n- 한국어로 답하세요.",
+  "- Always ask before deleting a production resource.\n- Reply in English.": "- 프로덕션 리소스를 삭제하기 전에 항상 먼저 물어보세요.\n- 한국어로 답하세요.",
   "/ month": "/ 월",
   "1 active port forward": "활성 포트 포워딩 1개",
   "1 background task running": "백그라운드 작업 1개 실행 중",

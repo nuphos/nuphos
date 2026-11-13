@@ -27,7 +27,7 @@
   "(required for self-hosted)": "（セルフホストの場合は必須）",
   "(you)": "（自分）",
   "+{count} more": "ほか {count} 件",
-  "- Always open a Plan before changing production.\n- Reply in English.": "- 本番環境を変更する前に必ずプランを作成すること。\n- 日本語で返信すること。",
+  "- Always ask before deleting a production resource.\n- Reply in English.": "- 本番環境のリソースを削除する前に必ず確認すること。\n- 日本語で返信すること。",
   "/ month": "/ 月",
   "1 active port forward": "アクティブなポートフォワード 1 件",
   "1 background task running": "バックグラウンドタスク 1 件を実行中",
