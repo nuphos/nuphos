@@ -234,13 +234,30 @@ test('a computer the update leaves matching ends the loop instead of spinning', 
   expect(audits).toHaveLength(1)
 })
 
-test('a person leaving hands the team’s cloud computers they own to its owner', async () => {
+test('a person leaving hands the team’s cloud computers they own to its owner, audited', async () => {
   calls.length = 0
-  await transferTeamComputers('team', 'owner', 'boss')
+  audits.length = 0
+  queue = [{ ...stored, box: { teamId: 'team', createdBy: 'owner' } }]
+  await transferTeamComputers('team', 'owner', 'boss', { actorUserId: 'owner', via: 'team_leave' })
+  queue = null
 
   expect(calls[0]?.filter).toEqual({
     'box.teamId': 'team',
     'box.createdBy': 'owner',
     'box.provider': { $ne: 'k8s' },
   })
+  expect(calls[0]?.update).toMatchObject({ $set: { 'box.createdBy': 'boss' } })
+  const grant = { everyone: false, userIds: ['old'], managerIds: ['lead'] }
+
+  expect(audits).toEqual([
+    expect.objectContaining({
+      deviceId: 'mac',
+      teamId: 'team',
+      via: 'team_leave',
+      actorAuthority: 'team_membership',
+      previous: grant,
+      next: grant,
+      owner: { from: 'owner', to: 'boss' },
+    }),
+  ])
 })

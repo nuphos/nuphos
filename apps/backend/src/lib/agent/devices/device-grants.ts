@@ -5,7 +5,7 @@ import { buildDeviceAccessAuditEntry, recordDeviceAccessChange } from './access-
 import { migrateDeviceAccessGrants } from './device-grants-migration'
 import { agentDevices } from './store'
 
-import type { DeviceAccessChanger } from './access-audit'
+import type { DeviceAccessAuditEntry, DeviceAccessChanger } from './access-audit'
 import type { AgentDevice, DeviceGrant } from './store'
 import type { Document, Filter, UpdateFilter } from 'mongodb'
 
@@ -241,6 +241,7 @@ async function auditEach(
   update: UpdateFilter<AgentDevice>,
   next: (grant: DeviceGrant) => Omit<DeviceGrant, 'teamId'> | null,
   arrayFilters?: Document[],
+  owner?: DeviceAccessAuditEntry['owner'],
 ): Promise<void> {
   const seen = new Set<string>()
 
@@ -259,20 +260,30 @@ async function auditEach(
     seen.add(String(before._id))
     const grant = teamGrant(before, teamId)
 
-    await recordDeviceAccessChange(
-      buildDeviceAccessAuditEntry(before, teamId, grant ? next(grant) : null, by),
-    )
+    await recordDeviceAccessChange({
+      ...buildDeviceAccessAuditEntry(before, teamId, grant ? next(grant) : null, by),
+      ...(owner ? { owner } : {}),
+    })
   }
 }
 
-/** The team's cloud computers someone owned pass to the team's owner when they leave. */
+/**
+ * The team's cloud computers someone owned pass to the team's owner when they leave, each
+ * audited with who held it before. Who may use or manage it does not change.
+ */
 export async function transferTeamComputers(
   teamId: string,
   fromId: string,
   toId: string,
+  by: DeviceAccessChanger,
 ): Promise<void> {
-  await agentDevices().updateMany(
+  await auditEach(
+    teamId,
+    by,
     { 'box.teamId': teamId, 'box.createdBy': fromId, 'box.provider': { $ne: 'k8s' } },
     { $set: { 'box.createdBy': toId, updatedAt: new Date() } },
+    ({ everyone, userIds, managerIds }) => ({ everyone, userIds, managerIds }),
+    undefined,
+    { from: fromId, to: toId },
   )
 }

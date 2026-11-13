@@ -64,7 +64,7 @@ export async function revokeTeamMemberAccess(
   await deps.dropOwnerGrants(teamId, actorId, by)
   const owner = await deps.teamOwner(teamId)
 
-  if (owner && owner !== actorId) await deps.transferComputers(teamId, actorId, owner)
+  if (owner && owner !== actorId) await deps.transferComputers(teamId, actorId, owner, by)
   await deps.dropApprovals(teamId, actorId)
   await deps.dropTrusts(teamId, actorId)
 }
