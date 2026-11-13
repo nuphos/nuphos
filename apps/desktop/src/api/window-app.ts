@@ -96,6 +96,8 @@ export type WindowAppApi = {
   appSetApiEndpoint(url: string | null): Promise<string>
   appGetPlatform(): Promise<string>
   appSelectAsciiInputSource(): Promise<void>
+  /** The menu bar and notifications follow the language the windows show. */
+  appSetLocale(locale: string): Promise<void>
   appSetNativeTheme(source: 'system' | 'light' | 'dark'): Promise<void>
   appGetAppIcon(): Promise<string>
   appSetAppIcon(icon: string): Promise<void>
