@@ -26,6 +26,7 @@ struct ConversationView: View {
     #else
     private let barButtonsInSideRail = false
     #endif
+    @State private var showTriggers = false
     @State private var showRename = false
     @State private var renamedTitle = ""
     @State private var showRuntimes = false
@@ -213,6 +214,7 @@ struct ConversationView: View {
             Text(session.stopRefusal ?? "")
         }
         .sheet(item: $toolDetail) { ToolDetailSheet(part: $0, session: session) }
+        .sheet(isPresented: $showTriggers) { ConversationTriggers(teamId: session.teamId, sessionId: session.sessionId, token: store.token).presentationDetents([.large]) }
         .sheet(isPresented: $showShare) { ShareSessionSheet(session: session).presentationDetents([.medium, .large]) }
         .sheet(isPresented: $showRuntimes) {
             RuntimePickerSheet(session: session) { runtime in
@@ -253,35 +255,42 @@ struct ConversationView: View {
     /// The conversation's title, with the agent that answers in it on a
     /// second, quieter line — where the composer's runtime chip used to be.
     private var titleBar: some View {
-        HStack(spacing: 8) {
-            AgentAvatar(agentId: session.sessionId, runtime: session.agentRuntime)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(session.title)
-                    .font(Theme.Text.label.weight(.semibold))
-                    .foregroundStyle(Theme.heading)
-                    .lineLimit(1)
-                if session.loaded || session.runtimeDisplayName != nil {
-                    let name = session.runtimeDisplayName
-                    HStack(spacing: 4) {
-                        if botAvatars { RuntimeMark(runtime: session.agentRuntime) }
-                        Text(RuntimeInstance.Provider.detail(session.agentRuntime, instance: name))
-                            .font(Theme.Text.micro)
-                            .foregroundStyle(Theme.muted)
-                            .lineLimit(1)
+        Button { showTriggers = true } label: {
+            HStack(spacing: 8) {
+                AgentAvatar(agentId: session.sessionId, runtime: session.agentRuntime)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(session.title)
+                        .font(Theme.Text.label.weight(.semibold))
+                        .foregroundStyle(Theme.heading)
+                        .lineLimit(1)
+                    if session.loaded || session.runtimeDisplayName != nil {
+                        let name = session.runtimeDisplayName
+                        HStack(spacing: 4) {
+                            if botAvatars { RuntimeMark(runtime: session.agentRuntime) }
+                            Text(RuntimeInstance.Provider.detail(session.agentRuntime, instance: name))
+                                .font(Theme.Text.micro)
+                                .foregroundStyle(Theme.muted)
+                                .lineLimit(1)
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Runtime: \(RuntimeInstance.Provider.detail(session.agentRuntime, instance: name))")
+                    } else if !session.loaded {
+                        Text(" ").font(Theme.Text.micro).accessibilityHidden(true)
                     }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Runtime: \(RuntimeInstance.Provider.detail(session.agentRuntime, instance: name))")
-                } else if !session.loaded {
-                    Text(" ").font(Theme.Text.micro).accessibilityHidden(true)
                 }
             }
         }
+        .buttonStyle(.plain)
+        .disabled(session.isNew)
         // The principal item is only as wide as its content and centred, so
         // it is given all the room between the back and options buttons
         // (each 44 + 16 margin + 8 gap) to start the title on the left. On
         // iPhone Duo those buttons sit in the side rail, so the title gets
         // the whole bar.
         .frame(width: max(width - (barButtonsInSideRail ? 0 : 136), 0), alignment: .leading)
+        .contentShape(Rectangle())
+        .accessibilityHint("Show conversation triggers")
+        .accessibilityIdentifier("conversation-trigger-entry")
     }
 
     /// Plan links open the plan here, approved through this chat; other app

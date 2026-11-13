@@ -158,7 +158,10 @@ export function withRenamedPage(snapshot: LegacyNavigationSnapshot): NavigationS
   const { costDashboard, linearIssue, ...rest } = snapshot
   const renamed = renamedTeamNavKey(snapshot.active)
   // A tab saved on a page that now lives in Settings has nothing to show; it reopens as Inbox.
-  const active = settingsSectionForPage(renamed) ? 'team.inbox' : renamed
+  const active =
+    settingsSectionForPage(renamed) || renamed === 'team.triggers' || renamed === 'team.schedule'
+      ? 'team.inbox'
+      : renamed
 
   if (active === snapshot.active && costDashboard === undefined && linearIssue === undefined) {
     return snapshot

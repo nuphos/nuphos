@@ -43,6 +43,7 @@ class FixtureDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private val originals = mutableMapOf<String, OkHttpClient>()
     private val requests = CopyOnWriteArrayList<String>()
+    private var triggerFixture: String? = null
     private var status = 200
     private var detail = AgentConversationDetail(title = "Synthetic acceptance fixture")
     private lateinit var store: AgentStore
@@ -57,7 +58,8 @@ class FixtureDeviceTest {
             val request = chain.request()
             requests += request.method + " " + request.url.encodedPath
             val isDetail = request.url.encodedPath.endsWith("/fixture")
-            val body = if (isDetail && status == 200) Http.json.encodeToString(AgentConversationDetail.serializer(), detail)
+            val body = if (request.url.encodedPath == "/agent/triggers" && triggerFixture != null) triggerFixture!!
+                else if (isDetail && status == 200) Http.json.encodeToString(AgentConversationDetail.serializer(), detail)
                 else if (isDetail) "{\"error\":{\"message\":\"Fixture conversation unavailable\"}}" else "{}"
             Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(if (isDetail) status else 200)
                 .message("fixture").body(body.toResponseBody(Http.jsonMedia)).build()
@@ -118,6 +120,16 @@ class FixtureDeviceTest {
     private fun tool() = ChatPart.Tool("fixture-tool", "terminal", false, ChatPart.Tool.State.OutputAvailable,
         input = JsonValue.obj("command" to JsonValue.Str("printf FIXTURE_TOOL_INPUT")),
         output = JsonValue.Str("FIXTURE_TOOL_OUTPUT"), title = "Fixture terminal")
+
+    @Test fun conversationTitleOpensTriggers() {
+        triggerFixture = """[{"id": "digest", "name": "Morning PR digest", "enabled": true, "triggerType": "cron", "cronExpression": "0 9 * * 1-5", "scheduleDescription": "Weekdays at 09:00 UTC", "nextRunAt": "2027-01-04T09:00:00.000Z", "canManage": true}, {"id": "watch", "name": "Production alerts", "enabled": true, "triggerType": "webhook", "scheduleDescription": "When a webhook arrives", "canManage": true}, {"id": "weekly", "name": "Weekly dependency review", "enabled": false, "triggerType": "cron", "cronExpression": "0 10 * * 1", "scheduleDescription": "Mondays at 10:00 UTC", "canManage": true}]"""
+        render(emptyList())
+        compose.onNodeWithContentDescription("Show conversation triggers").performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithText("Morning PR digest").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Production alerts").assertIsDisplayed()
+        compose.onNodeWithText("Weekly dependency review").assertIsDisplayed()
+        capture("triggers-2096-android")
+    }
 
     @Test fun readOnlyComposerPreventsSubmission() {
         render(listOf(ChatPart.Text(text = "Read-only fixture")), readOnly = true)

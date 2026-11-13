@@ -29,8 +29,7 @@ export function reportCleanupFailures(triggers: AgentTrigger[]) {
     if (trigger.cleanupStatus === 'cleanup_failed') {
       toast.error(
         t('Could not remove {name}', { name: trigger.name }),
-        trigger.cleanupError ??
-          t('Provider cleanup did not finish. Retry from the trigger details.'),
+        trigger.cleanupError ?? t('Provider cleanup failed'),
       )
     }
   }

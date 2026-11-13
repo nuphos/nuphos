@@ -252,7 +252,7 @@ export type WindowAgentApi = AgentDecisionApi & {
     teamId: string,
     minimumOtherApprovals: number,
   ): Promise<PlanApprovalRequirement>
-  agentListTriggers(teamId?: string): Promise<AgentTrigger[]>
+  agentListTriggers(teamId?: string, targetSessionId?: string): Promise<AgentTrigger[]>
   agentListTriggerGroups(teamId?: string): Promise<AgentTriggerGroup[]>
   agentUpdateTriggerGroup(
     groupId: string,

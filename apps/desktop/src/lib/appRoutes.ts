@@ -56,7 +56,6 @@ export type {
   PageLocation,
   RepoProvider,
   SshTerminalLocation,
-  TriggerFormRef,
 } from './app-routes/types.ts'
 
 /**
@@ -117,7 +116,7 @@ export function navigationFromAppPath(path: string): NavigationSnapshot | null {
     case 'plans':
       return emptyNavigation(teamScope, 'team.plans', rest[1] ? { filter: rest[1] } : {})
     case 'triggers':
-      return emptyNavigation(teamScope, 'team.triggers')
+      return emptyNavigation(teamScope, 'team.inbox')
     case 'inbox':
       return emptyNavigation(teamScope, 'team.inbox')
     // Legacy: the Chats page merged into Agent, which now carries the
@@ -145,9 +144,9 @@ export function navigationFromAppPath(path: string): NavigationSnapshot | null {
       })
     case 'monitoring':
       return emptyNavigation(teamScope, 'team.monitoring')
-    // Legacy: the Schedule page is now the Triggers page's Calendar view.
+    // Legacy scheduling pages now live inside their conversations.
     case 'schedule':
-      return emptyNavigation(teamScope, 'team.schedule')
+      return emptyNavigation(teamScope, 'team.inbox')
     case 'architecture':
       return emptyNavigation(teamScope, 'team.architecture', architectureDetailOf(rest[1]))
     case 'designs':

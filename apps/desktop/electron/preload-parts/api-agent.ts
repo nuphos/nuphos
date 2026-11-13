@@ -197,7 +197,8 @@ export const agentApi = {
     ipcRenderer.invoke('agent:getPlanApprovalPolicy', teamId),
   agentUpdatePlanApprovalPolicy: (teamId: string, minimumOtherApprovals: number) =>
     ipcRenderer.invoke('agent:updatePlanApprovalPolicy', teamId, minimumOtherApprovals),
-  agentListTriggers: (teamId?: string) => ipcRenderer.invoke('agent:listTriggers', teamId),
+  agentListTriggers: (teamId?: string, targetSessionId?: string) =>
+    ipcRenderer.invoke('agent:listTriggers', teamId, targetSessionId),
   agentListTriggerGroups: (teamId?: string) =>
     ipcRenderer.invoke('agent:listTriggerGroups', teamId),
   agentUpdateTriggerGroup: (

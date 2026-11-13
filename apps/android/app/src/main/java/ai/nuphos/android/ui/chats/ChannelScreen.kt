@@ -132,6 +132,10 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
         if (!bot.loaded) bot.load()
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { bot.pollWhileIdle() }
     }
+    var showTriggers by remember(session.channelId) { mutableStateOf(false) }
+    if (showTriggers && botFace != null && auth.token != null) {
+        ai.nuphos.android.ui.chat.ConversationTriggersSheet(auth.token!!, session.teamId, botFace.id) { showTriggers = false }
+    }
     var desktop by remember(bot, store.workspaceRevision) { mutableStateOf(false) }
     if (desktop && bot != null) ai.nuphos.android.desktop.DesktopScreen(bot, store) { desktop = false }
     val items = ChannelPost.items(session.posts, session.events, typing, session.questions)
@@ -149,7 +153,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(modifier = Modifier.clickable(enabled = botFace != null) { showTriggers = true }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ChatIcon(session.faces, session.title, 28.dp)
                         Text(session.title, maxLines = 1, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     }
