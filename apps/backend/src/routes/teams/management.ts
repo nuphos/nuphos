@@ -13,7 +13,6 @@ import {
   removeUserFromTeam,
   setTeamAgentRuntime,
   setTeamAllowedEmailDomains,
-  setTeamBindingShareDefault,
   transferTeamOwnership,
   updateTeam,
   updateTeamMemberRole,
@@ -61,7 +60,7 @@ const updateAgentRuntimeSchema = z
   .strict()
 
 /** The team as its routes return it, or a 404 when the update found no team. */
-function teamJson(c: Context<{ Variables: TeamAuthVariables }>, team: NuphosTeam | null) {
+export function teamJson(c: Context<{ Variables: TeamAuthVariables }>, team: NuphosTeam | null) {
   if (!team) throw new AppError(404, 'team_not_found', 'Team not found')
 
   return c.json({ ...team, isOwner: team.ownerID === c.get('userId'), role: c.get('teamRole') })
@@ -108,19 +107,6 @@ export function registerTeamManagementRoutes(teamScoped: Hono<{ Variables: TeamA
     async (c) => {
       const { runtime } = c.req.valid('json')
       const team = await setTeamAgentRuntime(c.get('teamId'), runtime)
-
-      return teamJson(c, team)
-    },
-  )
-
-  teamScoped.put(
-    '/binding-share-default',
-    requireTeamRole('ADMINISTRATOR'),
-    zv('json', z.object({ share: z.enum(['private', 'team']) })),
-    async (c) => {
-      const team = await setTeamBindingShareDefault(c.get('teamId'), c.req.valid('json').share)
-
-      if (!team) throw new AppError(404, 'team_not_found', 'Team not found')
 
       return teamJson(c, team)
     },
