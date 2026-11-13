@@ -115,7 +115,7 @@ export type LocalSkillImportOutcome = {
   tooLarge: string[]
 }
 
-/** One "Sync my setup" pass: this computer's Claude Code skills and CLAUDE.md, as personal ones. */
+/** One "Sync my setup" pass: this computer's skill folders and CLAUDE.md, as personal ones. */
 export type LocalSetupResult = {
   at: string
   syncedSkills: number
@@ -124,17 +124,31 @@ export type LocalSetupResult = {
   skipped: {
     name: string
     reason:
-      'too_large' | 'too_many_files' | 'name_taken' | 'over_budget' | 'unreadable' | 'needs_review'
+      | 'too_large'
+      | 'too_many_files'
+      | 'name_taken'
+      | 'over_budget'
+      | 'unreadable'
+      | 'needs_review'
+      | 'name_clash'
+    /** For `name_clash`: the folder whose copy stays here, and the earlier one that syncs. */
+    folder?: string
+    syncedFrom?: string
   }[]
   instruction: 'synced' | 'removed' | 'none' | 'too_long'
   instructionParts: number
   failed: string[]
+  /** The folder each synced skill came from. */
+  sources?: Record<string, string>
 }
 
 export type LocalSetupStatus = {
   autoSync: boolean
   running: boolean
-  localSkills: number
+  /** The folders synced, ~/.claude/skills first: a name in two goes from the first. */
+  folders: { path: string; skills: number }[]
+  /** Where Codex keeps its skills, offered as a folder to add. */
+  codexFolder: string
   /** Skills linking outside their own folder: sync reads one only once reviewed. */
   linkedSkills: { name: string; files: LocalSkillInfo['files']; reviewed: boolean }[]
   claudeMdChars: number | null
