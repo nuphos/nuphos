@@ -1,5 +1,4 @@
 import { chunkGroupMembers, groupWebhookUrl } from '@/lib/agent/tools-triggers-shared'
-import { assertTeamTriggerRole } from '@/lib/agent/trigger-access'
 import {
   createTriggerGroup,
   listTriggerGroups,
@@ -21,8 +20,6 @@ export function registerTriggerGroupRoutes(
 ) {
   agentTriggersRoutes.get('/groups', async (c) => {
     const actor = await triggerActor(c, c.req.query('teamId'))
-
-    await assertTeamTriggerRole(actor, 'read')
 
     return c.json(await listTriggerGroups(actor))
   })

@@ -1,16 +1,13 @@
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 
+import { getConversationBySessionId } from './db'
+import { readsConversation } from './db/access'
+
 import type { AgentCredentialAccess } from './db'
 import type { TriggerCredentialMode } from './trigger-credential-access'
-import type { NuphosTeamRole } from '@/lib/identity'
 
-/**
- * `transfer` moves a Trigger's execution identity. It sits at the same height
- * as `delete` because it is the one operation that changes whose authority a
- * Trigger runs with — deliberately separate from `manage`, so that editing can
- * never promote a Trigger to its editor's permissions as a side effect.
- */
+/** Every level above `read` belongs to the Trigger's owner alone. */
 export type TriggerAccessLevel = 'read' | 'manage' | 'transfer' | 'delete'
 
 export type TriggerActorContext = {
@@ -35,143 +32,91 @@ export type TeamOwnedTriggerResource = {
   teamId?: string
   createdByUserId?: string
   executionPrincipalUserId?: string
+  /** The conversation the Trigger delivers into; who may read it follows that conversation. */
+  targetSessionId?: string
 }
 
-function requiredRoles(level: TriggerAccessLevel): NuphosTeamRole[] {
-  if (level === 'read') return ['VIEWER', 'EDITOR', 'ADMINISTRATOR']
-  if (level === 'manage') return ['EDITOR', 'ADMINISTRATOR']
-
-  return ['ADMINISTRATOR']
-}
-
-export function canAccessTeamTrigger(role: NuphosTeamRole, level: TriggerAccessLevel): boolean {
-  return requiredRoles(level).includes(role)
-}
-
-const TEAM_ROLE_RANK: Record<NuphosTeamRole, number> = {
-  VIEWER: 0,
-  EDITOR: 1,
-  ADMINISTRATOR: 2,
-}
-
-export function canModifyTriggerExecution(
-  actorUserId: string,
-  actorRole: NuphosTeamRole,
-  principalUserId: string,
-  principalRole: NuphosTeamRole | undefined,
-): boolean {
-  if (actorUserId === principalUserId) return true
-  // A departed principal is a broken execution identity. Only an administrator
-  // may repair/rebind it; an editor must not inherit that principal's former
-  // authority merely because their membership no longer resolves.
-  if (!principalRole) return actorRole === 'ADMINISTRATOR'
-
-  return TEAM_ROLE_RANK[actorRole] >= TEAM_ROLE_RANK[principalRole]
-}
-
-export async function assertTeamTriggerRole(
-  actor: TriggerActorContext,
-  level: TriggerAccessLevel,
-): Promise<void> {
-  if (!actor.teamId) return
-  const membership = await getTeamMembership(actor.userId, actor.teamId)
+export async function assertTeamMember(actor: TriggerActorContext) {
+  const membership = actor.teamId ? await getTeamMembership(actor.userId, actor.teamId) : null
 
   if (!membership) {
     throw new AppError(404, 'not_found', 'Trigger not found')
   }
-  if (!canAccessTeamTrigger(membership.role, level)) {
-    throw new AppError(
-      403,
-      'trigger_access_denied',
-      level === 'delete'
-        ? 'Only team administrators can remove team triggers'
-        : level === 'transfer'
-          ? 'Only team administrators can transfer who a Trigger runs as'
-          : 'Your team role cannot modify triggers',
-    )
+
+  return membership
+}
+
+/**
+ * Creating a Trigger is the one check left on the team role: a viewer may not
+ * start recurring agent work. Everything after creation follows the
+ * conversation the Trigger belongs to.
+ */
+export async function assertCanCreateTrigger(actor: TriggerActorContext): Promise<void> {
+  if (!actor.teamId) return
+  if ((await assertTeamMember(actor)).role === 'VIEWER') {
+    throw new AppError(403, 'trigger_access_denied', 'Your team role cannot create triggers')
   }
 }
 
+/** Every change belongs to the Trigger's owner, who also owns its conversation. */
+export function canManageTrigger(resource: TeamOwnedTriggerResource, userId: string): boolean {
+  return triggerExecutionPrincipalId(resource) === userId
+}
+
+/**
+ * Whoever may read the Trigger's conversation may read the Trigger. One whose
+ * conversation is gone is readable by its owner alone.
+ */
+export async function readsTriggerConversation(
+  resource: TeamOwnedTriggerResource,
+  userId: string,
+): Promise<boolean> {
+  if (canManageTrigger(resource, userId)) return true
+  if (!resource.targetSessionId) return false
+  const conversation = await getConversationBySessionId(resource.targetSessionId)
+
+  return Boolean(
+    conversation &&
+      conversation.teamId === resource.teamId &&
+      readsConversation(conversation, userId),
+  )
+}
+
+/**
+ * Reading follows the Trigger's conversation and every change is its owner's.
+ * A team role grants nothing here.
+ */
 export async function assertTriggerAccess(
   resource: TeamOwnedTriggerResource,
   actor: TriggerActor,
   level: TriggerAccessLevel,
 ): Promise<void> {
-  // Internal callers historically pass only the owner id. Preserve that
-  // narrow capability while the public HTTP surface always passes a team
-  // context and receives role-based access.
-  if (typeof actor === 'string') {
-    if (resource.userId !== actor) {
-      throw new AppError(404, 'not_found', 'Trigger not found')
-    }
-
-    return
-  }
+  const actorContext = typeof actor === 'string' ? { userId: actor } : actor
 
   if (!resource.teamId) {
-    if (resource.userId !== actor.userId) {
+    if (resource.userId !== actorContext.userId) {
       throw new AppError(404, 'not_found', 'Trigger not found')
     }
 
     return
   }
-  if (!actor.teamId || actor.teamId !== resource.teamId) {
+  // Internal callers pass only a user id and act on that user's behalf.
+  if (typeof actor !== 'string') {
+    if (actor.teamId !== resource.teamId) {
+      throw new AppError(404, 'not_found', 'Trigger not found')
+    }
+    await assertTeamMember(actor)
+  }
+  if (!(await readsTriggerConversation(resource, actorContext.userId))) {
     throw new AppError(404, 'not_found', 'Trigger not found')
   }
-  await assertTeamTriggerRole(actor, level)
-}
-
-/**
- * Execution-affecting edits are stricter than ordinary management: the actor
- * must be the current principal or hold a team role at least as privileged.
- *
- * The edit does not move the execution identity — only an explicit `transfer`
- * does — so this guard exists because the edited instructions will run with
- * the *existing* principal's authority. Without it, an Editor could have an
- * Administrator's identity execute whatever they wrote.
- */
-export async function assertTriggerExecutionMutationAccess(
-  resource: TeamOwnedTriggerResource,
-  actor: TriggerActor,
-): Promise<void> {
-  await assertTriggerAccess(resource, actor, 'manage')
-  if (typeof actor === 'string' || !resource.teamId) return
-
-  const principalUserId = triggerExecutionPrincipalId(resource)
-  const [actorMembership, principalMembership] = await Promise.all([
-    getTeamMembership(actor.userId, resource.teamId),
-    actor.userId === principalUserId
-      ? Promise.resolve(undefined)
-      : getTeamMembership(principalUserId, resource.teamId),
-  ])
-
-  if (
-    !actorMembership ||
-    !canModifyTriggerExecution(
-      actor.userId,
-      actorMembership.role,
-      principalUserId,
-      principalMembership?.role,
-    )
-  ) {
+  if (level !== 'read' && !canManageTrigger(resource, actorContext.userId)) {
     throw new AppError(
       403,
-      'trigger_execution_access_denied',
-      'Your team role is lower than this Trigger execution principal',
+      'trigger_access_denied',
+      'Only the owner of the conversation this Trigger belongs to can change it',
     )
   }
-}
-
-export async function canManageTrigger(
-  resource: TeamOwnedTriggerResource,
-  actor: TriggerActor,
-): Promise<boolean> {
-  if (typeof actor === 'string') return resource.userId === actor
-  if (!resource.teamId) return resource.userId === actor.userId
-  if (!actor.teamId || actor.teamId !== resource.teamId) return false
-  const membership = await getTeamMembership(actor.userId, actor.teamId)
-
-  return Boolean(membership && canAccessTeamTrigger(membership.role, 'manage'))
 }
 
 export function triggerCreatedByUserId(resource: TeamOwnedTriggerResource): string {

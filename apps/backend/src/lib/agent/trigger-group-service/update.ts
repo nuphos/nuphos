@@ -1,9 +1,10 @@
 import { AppError } from '@/lib/errors'
 
-import { assertTriggerExecutionMutationAccess } from '../trigger-access'
+import { triggerExecutionPrincipalId } from '../trigger-access'
 import { agentTriggerGroups } from '../trigger-group-db'
 import { updateTrigger } from '../trigger-service'
 import { assertTriggerCreationQuota } from '../trigger-service/quota'
+import { assertBindableSession } from '../trigger-service/shared'
 
 import { getOwnedTriggerGroup } from './read'
 import { loadPartitionTriggers, serializeTriggerGroup } from './shared'
@@ -60,19 +61,12 @@ export async function updateTriggerGroup(
     throw new AppError(400, 'invalid_request', 'name and messageTemplate are required')
   }
 
-  // The shared prompt is what the ingresses actually execute, so changing it
-  // requires outranking the current principal — until the identity moves, the
-  // editor's instructions run with that principal's authority. The identity
-  // itself only moves through the explicit Admin transfer, so editing never
-  // promotes a Group to its editor's permissions.
   const nextTargetSessionId = patch.targetSessionId ?? group.targetSessionId
-  const substantiveChanged =
-    nextMessageTemplate !== currentMessageTemplate || nextTargetSessionId !== group.targetSessionId
 
-  if (substantiveChanged) {
-    await assertTriggerExecutionMutationAccess(group, context)
+  // Whoever reads the conversation reads the Group, so it may only move into one its owner owns.
+  if (nextTargetSessionId && nextTargetSessionId !== group.targetSessionId) {
+    await assertBindableSession(nextTargetSessionId, group.teamId, triggerExecutionPrincipalId(group))
   }
-
   const triggerById = new Map(
     triggers.flatMap((trigger) =>
       trigger._id ? [[trigger._id.toString(), trigger] as const] : [],

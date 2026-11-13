@@ -192,14 +192,15 @@ describe('removing without provider cleanup', () => {
     expect(triggerWrites).toEqual([])
   })
 
-  test('is refused for a role that cannot delete, without writing', async () => {
+  test('is refused for anyone but the Trigger owner, without writing', async () => {
     load()
 
     const err = await failure(
       deleteTrigger(triggerId.toHexString(), { userId: EDITOR, teamId: TEAM }, force),
     )
 
-    expect(err.status).toBe(403)
+    // The Trigger has no conversation the editor can read, so it does not exist for them.
+    expect(err.status).toBe(404)
     expect(triggerWrites).toEqual([])
     expect(stored?.cleanupStatus).toBe('cleanup_failed')
   })
