@@ -40,6 +40,7 @@ function banner(
   const fix = agentProblem(instance, undefined, {
     viewerId: 'u-alex',
     isTeamAdmin: false,
+    canSignInShared: false,
     onThisComputer: () => false,
     members: null,
     ...viewer,

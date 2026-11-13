@@ -63,6 +63,7 @@ function local(
 const viewer = (viewerId: string, isTeamAdmin = false, here = false) => ({
   viewerId,
   isTeamAdmin,
+  canSignInShared: false,
   onThisComputer: () => here,
   members,
 })

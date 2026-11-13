@@ -186,6 +186,10 @@ describe('local runtime catalog', () => {
     await expect(
       resolveLocalRuntimeEndpoint('t1', runtimeId, 'teammate', 'control', deps),
     ).rejects.toMatchObject({ status: 404, code: 'runtime_not_found' })
+    // Nor sign it in: signing in needs use access, whatever the team role.
+    await expect(
+      resolveLocalRuntimeEndpoint('t1', runtimeId, 'teammate', 'login', deps),
+    ).rejects.toMatchObject({ status: 404, code: 'runtime_not_found' })
   })
 
   test('resolves a tunnel address scoped to the team and purpose for the owner', async () => {
@@ -301,6 +305,7 @@ describe('team Box runtime authorization before transport', () => {
       access: [
         { teamId: 't1', everyone: false, userIds: ['teammate'], managerIds: [] as string[] },
       ],
+      signIns: [{ key: 'claude-code', userId: 'teammate', at: new Date('2026-11-13T00:00:00Z') }],
     }
     const id = localRuntimeId({ userId: 'host', deviceId: 'box', provider: 'claude-code' })
     const calls: string[] = []
@@ -318,6 +323,12 @@ describe('team Box runtime authorization before transport', () => {
       (await resolveLocalRuntimeEndpoint('t1', id, 'teammate', 'transport', shared)).local,
     ).toEqual({ userId: 'host', deviceId: 'box' })
     expect(calls).toEqual(['presence:host'])
+    // Everyone on its use list sees whose account its agent runs on.
+    expect((await listOwnLocalRuntimes('t1', 'teammate', shared))[0]?.local.signedInBy).toEqual({
+      userId: 'teammate',
+      at: '2026-11-13T00:00:00.000Z',
+    })
+    calls.length = 0
     expect((await resolveLocalRuntimeEndpoint('t1', id, 'teammate', 'login', shared)).authKey).toBe(
       'control',
     )

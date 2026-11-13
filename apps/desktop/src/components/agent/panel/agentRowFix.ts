@@ -34,6 +34,8 @@ export type AgentProblem = {
 export type AgentRowViewer = {
   viewerId: string | undefined
   isTeamAdmin: boolean
+  /** An editor or administrator, who may sign in any computer's agent they may use. */
+  canSignInShared: boolean
   /** Whether the agent runs on the computer this window is on. */
   onThisComputer: (instance: RuntimeInstance) => boolean
   members: TeamMember[] | null
@@ -70,6 +72,7 @@ export function agentProblem(
     runtimeId: instance.id,
     viewerId: viewer.viewerId,
     isTeamAdmin: viewer.isTeamAdmin,
+    canSignInShared: viewer.canSignInShared,
     onThisComputer: viewer.onThisComputer(instance),
     instance,
     members: viewer.members,

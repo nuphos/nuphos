@@ -4206,6 +4206,7 @@
   "Sign-in will no longer ask for a code. Enter one to confirm.": "로그인 시 더 이상 코드를 묻지 않습니다. 확인하려면 코드를 입력하세요.",
   "Signals": "신호",
   "Signed in and ready to use": "로그인되어 사용할 준비가 되었습니다",
+  "Signed in by {name} · {time}": "로그인한 사람: {name} · {time}",
   "Signed in on the runtime.": "런타임에 로그인되어 있습니다.",
   "Signed in on the runtime. Sign in to another model provider to use its models too.": "런타임에 로그인되어 있습니다. 다른 모델 제공업체의 모델도 사용하려면 해당 제공업체에 로그인하세요.",
   "Signed in on this computer": "이 컴퓨터에 로그인됨",

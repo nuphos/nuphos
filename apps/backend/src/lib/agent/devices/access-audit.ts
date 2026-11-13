@@ -14,6 +14,8 @@ export type DeviceAccessChangeVia =
   | 'conversation_move'
   | 'team_leave'
   | 'team_removal'
+  /** A sign-in to one of its agents: grants stay as they were. */
+  | 'agent_sign_in'
 
 /** Changes that follow from someone leaving or being removed from the team, not a grant edit. */
 const MEMBERSHIP_VIAS = new Set<DeviceAccessChangeVia>(['team_leave', 'team_removal'])
@@ -31,16 +33,18 @@ export type DeviceAccessAuditEntry = {
   teamId: string
   actorUserId: string
   /**
-   * What let the actor make the change: owner or manager of the computer just before it, or a
-   * team membership change; null means none of these.
+   * What let the actor make the change: owner or manager of the computer just before it (or
+   * user, for a sign-in), or a team membership change; null means none of these.
    */
-  actorAuthority: 'owner' | 'manage' | 'team_membership' | null
+  actorAuthority: 'owner' | 'manage' | 'use' | 'team_membership' | null
   via: DeviceAccessChangeVia
   previous: TeamAccess | null
   /** Null when the computer stops being granted in the team. */
   next: TeamAccess | null
   /** Set when the change hands a cloud computer to a new owner; its grants stay as they were. */
   owner?: { from: string; to: string }
+  /** Set for an agent sign-in: which agent, and whether it was signed out instead. */
+  agent?: { provider: string; instanceId?: string; signedOut?: true }
   changedAt: Date
 }
 
@@ -78,7 +82,11 @@ function authorityOf(
   // As deviceOwner in box-access, which imports this module's caller; a test keeps them in step.
   if ((before.box?.createdBy ?? before.userId) === by.actorUserId) return 'owner'
 
-  return previous?.managerIds.includes(by.actorUserId) ? 'manage' : null
+  if (previous?.managerIds.includes(by.actorUserId)) return 'manage'
+  // Using a computer lets someone sign its agents in, never change its access.
+  const uses = previous?.everyone || previous?.userIds.includes(by.actorUserId)
+
+  return by.via === 'agent_sign_in' && uses ? 'use' : null
 }
 
 /** The audit row for a change, from the computer as it was just before it. */

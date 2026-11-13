@@ -24,57 +24,18 @@ import { runtimeLabel } from './runtime-provider'
 
 import type { RuntimeModelCatalog } from './runtime-models'
 import type { PreviewRuntimeStatus } from './runtime-status'
+import type { LocalRuntimeInstance } from './local-runtime-summary'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 import type { RegisteredAgent } from '@/lib/agent/devices/agent-registry'
 import type { DeviceAccessDeps } from '@/lib/agent/devices/box-access'
 import type { LocalAgentRef } from '@/lib/agent/devices/local-runtime/address'
 import type { LocalRuntimePresence } from '@/lib/agent/devices/local-runtime/presence'
 import type {
-  LocalAgentProvider,
   LocalAgentStatus,
   LocalRuntimeStatus,
 } from '@/lib/agent/devices/local-runtime/protocol'
-import type { LocalShareLevel } from '@/lib/agent/devices/local-share-types'
-import type { AgentDeviceBox } from '@/lib/agent/devices/store'
 
-export type LocalRuntimeSummary = {
-  /** Who owns the computer; its address names the transport owner, which a handover keeps. */
-  ownerUserId: string
-  deviceId: string
-  deviceLabel: string
-  /** The agent's own name; absent while it has its provider's. */
-  agentLabel?: string
-  instanceId?: string
-  /** The team member who added this agent through Nuphos; absent for older and default agents. */
-  addedBy?: { userId: string; at: string }
-  agentInstances?: boolean
-  /** Whether the computer reports this agent right now. */
-  online: boolean
-  /** Whether the owner's own CLI is signed in; null when the computer cannot tell. */
-  signedIn: boolean | null
-  /** Seen signed in at least once: the agent registry. A host's default agent no one used has none. */
-  everSignedIn?: true
-  /** Provider usage the computer reported, raw; normalized in runtime-quota. */
-  usage?: unknown
-  /** When that computer read the usage above. */
-  usageAt?: string
-  /** Present when the computer is a Box Nuphos made, rather than someone's own machine. */
-  box?: Pick<AgentDeviceBox, 'provider'>
-  /** Present when it is a teammate's own computer they share with the viewer; see local-share. */
-  shared?: { level: Exclude<LocalShareLevel, 'off'> }
-  /** The computer opens its desktop on request (runtime-desktop). */
-  desktopOpen?: true
-}
-
-export type LocalRuntimeInstance = {
-  id: string
-  provider: LocalAgentProvider
-  label: string
-  status: 'active'
-  kind: 'local'
-  createdAt: string
-  local: LocalRuntimeSummary
-}
+export type { LocalRuntimeInstance, LocalRuntimeSummary } from './local-runtime-summary'
 
 export type LocalRuntimeCatalogDeps = {
   access: DeviceAccessDeps
@@ -141,6 +102,7 @@ export async function listOwnLocalRuntimes(
           const reported = presence ? reportedLocalAgent(presence.status, agent) : undefined
           const added =
             instanceId && device.addedAgents?.find((entry) => entry.instanceId === instanceId)
+          const signIn = device.signIns?.find((entry) => entry.key === registryKey(agent))
 
           return {
             id,
@@ -160,6 +122,9 @@ export async function listOwnLocalRuntimes(
               ...(shared ? { shared: { level: 'full' as const } } : {}),
               ...(instanceId ? { instanceId } : {}),
               ...(added ? { addedBy: { userId: added.userId, at: added.at.toISOString() } } : {}),
+              ...(signIn
+                ? { signedInBy: { userId: signIn.userId, at: signIn.at.toISOString() } }
+                : {}),
               // Reachable right now; offline, the last report still says who is signed in.
               online: reported !== undefined,
               signedIn: reported ? reported.cli.loggedIn : agent.signedIn,
@@ -206,7 +171,7 @@ export async function resolveLocalRuntimeEndpoint(
   let deviceLabel: string
 
   try {
-    // Anyone who may use the computer may sign in its agents, as they may add them.
+    // Anyone who may use the computer reaches its agents' sign-in; the route says who starts one.
     const device = await requireDeviceAccess(userId, teamId, ref.deviceId, 'use', deps.access)
 
     // One removed while its computer was offline is gone, not waiting for the computer.

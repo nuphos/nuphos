@@ -142,6 +142,9 @@ export function RuntimeInstanceCard({
             {instance.local?.addedBy && (
               <AgentAddedBy teamId={teamId} addedBy={instance.local.addedBy} />
             )}
+            {instance.local?.signedInBy && instance.local.signedIn !== false && (
+              <AgentAddedBy teamId={teamId} addedBy={instance.local.signedInBy} signedIn />
+            )}
           </div>
         </div>
         <span

@@ -4206,6 +4206,7 @@
   "Sign-in will no longer ask for a code. Enter one to confirm.": "サインイン時にコードを求めなくなります。確認のためコードを入力してください。",
   "Signals": "シグナル",
   "Signed in and ready to use": "ログイン済みで利用できます",
+  "Signed in by {name} · {time}": "サインイン：{name} · {time}",
   "Signed in on the runtime.": "ランタイムでサインイン済みです。",
   "Signed in on the runtime. Sign in to another model provider to use its models too.": "ランタイムでサインイン済みです。他のモデルプロバイダのモデルも使用するには、そのプロバイダにサインインしてください。",
   "Signed in on this computer": "このコンピュータでサインイン中",

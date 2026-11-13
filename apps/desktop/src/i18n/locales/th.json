@@ -4206,6 +4206,7 @@
   "Sign-in will no longer ask for a code. Enter one to confirm.": "การลงชื่อเข้าใช้จะไม่ขอรหัสอีกต่อไป ป้อนรหัสเพื่อยืนยัน",
   "Signals": "สัญญาณ",
   "Signed in and ready to use": "ลงชื่อเข้าใช้แล้วและพร้อมใช้งาน",
+  "Signed in by {name} · {time}": "ลงชื่อเข้าใช้โดย {name} · {time}",
   "Signed in on the runtime.": "ลงชื่อเข้าใช้บนรันไทม์แล้ว",
   "Signed in on the runtime. Sign in to another model provider to use its models too.": "ลงชื่อเข้าใช้บนรันไทม์แล้ว ลงชื่อเข้าใช้ผู้ให้บริการโมเดลรายอื่นเพื่อใช้โมเดลของผู้ให้บริการนั้นด้วย",
   "Signed in on this computer": "ลงชื่อเข้าใช้ในคอมพิวเตอร์นี้",

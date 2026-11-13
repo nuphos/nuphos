@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { api } from '../../../api'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
+import { useTeamRole } from '../../../hooks/useTeamRole'
 import { RUNTIME_INSTANCES_CHANGED } from '../../../hooks/useRuntimeInstances'
 import { useTeamMemberList } from '../../../hooks/useTeamMemberList'
 import { useThisComputer } from '../../../hooks/useThisComputer'
@@ -54,6 +55,7 @@ export function usePickerFixes({
   sessionId?: string
 }): { fixes: PickerFixes; dialogs: React.ReactNode } {
   const viewerId = useCurrentUser()?.id
+  const role = useTeamRole(teamId)
   const thisComputer = useThisComputer()
   // Keyed by team: a selector that outlives a team switch never names the last team's admin.
   const members = useTeamMemberList(teamId, open)
@@ -144,6 +146,7 @@ export function usePickerFixes({
       viewer: {
         viewerId,
         isTeamAdmin,
+        canSignInShared: role !== undefined && role !== 'VIEWER',
         onThisComputer: (instance) => agentTier(instance, thisComputer) === 'local',
         members,
       },

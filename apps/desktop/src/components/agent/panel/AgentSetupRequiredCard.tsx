@@ -3,6 +3,7 @@ import { useContext, useState } from 'react'
 
 import { api } from '../../../api'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
+import { useTeamRole } from '../../../hooks/useTeamRole'
 import { useRuntimeInstances } from '../../../hooks/useRuntimeInstances'
 import { useTeamMemberList } from '../../../hooks/useTeamMemberList'
 import { useThisComputer } from '../../../hooks/useThisComputer'
@@ -52,6 +53,7 @@ export function AgentSetupRequiredCard({
 }) {
   const owner = useThisComputer()
   const viewerId = useCurrentUser()?.id
+  const role = useTeamRole(teamId)
   const { instances } = useRuntimeInstances(teamId)
   const send = useContext(ConnectCardContext)?.send
   const [signingIn, setSigningIn] = useState(false)
@@ -66,6 +68,7 @@ export function AgentSetupRequiredCard({
       runtimeId,
       viewerId,
       isTeamAdmin,
+      canSignInShared: role !== undefined && role !== 'VIEWER',
       onThisComputer,
       instance: instances.find((instance) => instance.id === runtimeId),
       members,

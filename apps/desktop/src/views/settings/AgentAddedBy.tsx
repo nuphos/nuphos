@@ -8,13 +8,16 @@ import { teamRosterQuery } from '../../lib/query/team'
 
 import type { LocalRuntimeSummary } from '../../types/runtime'
 
-/** Who added a Box's agent and when; mounted only for agents that have it. */
+/** Who added a Box's agent, or signed it in, and when; mounted only for agents that have it. */
 export function AgentAddedBy({
   teamId,
   addedBy,
+  signedIn = false,
 }: {
   teamId: string
   addedBy: NonNullable<LocalRuntimeSummary['addedBy']>
+  /** The account the agent runs on is this member's, for everyone who uses the computer. */
+  signedIn?: boolean
 }) {
   // Without the roster the line is left out.
   const { data: members } = useQuery(teamRosterQuery(teamId))
@@ -33,7 +36,9 @@ export function AgentAddedBy({
         <Avatar src={current.avatarURL} name={name} size={16} className="shrink-0 rounded-full" />
       )}
       <span className="truncate">
-        {t('Added by {name} · {time}', { name, time: relativeTimeFromNow(addedBy.at) })}
+        {signedIn
+          ? t('Signed in by {name} · {time}', { name, time: relativeTimeFromNow(addedBy.at) })
+          : t('Added by {name} · {time}', { name, time: relativeTimeFromNow(addedBy.at) })}
       </span>
     </p>
   )

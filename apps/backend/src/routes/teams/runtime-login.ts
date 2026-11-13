@@ -13,15 +13,24 @@ import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 import { requireTeamRole } from '@/middleware/auth'
 
+import type { LocalRuntimeRef } from '@/lib/agent/devices/local-runtime/address'
 import type { TeamAuthVariables } from '@/middleware/auth'
 import type { Hono, MiddlewareHandler } from 'hono'
 
-/** Whether this person owns the computer: for a Box, whoever holds it now (deviceOwner). */
-async function ownsComputer(userId: string, teamId: string, deviceId: string): Promise<boolean> {
+/**
+ * Whether this person owns the computer the runtime id names: for a Box, whoever holds it now
+ * (deviceOwner). The id's transport user must match too, so a device id alone never passes.
+ */
+export async function ownsComputer(
+  userId: string,
+  teamId: string,
+  ref: LocalRuntimeRef,
+  access: typeof requireDeviceAccess = requireDeviceAccess,
+): Promise<boolean> {
   try {
-    await requireDeviceAccess(userId, teamId, deviceId, 'owner')
+    const device = await access(userId, teamId, ref.deviceId, 'owner')
 
-    return true
+    return device.userId === ref.userId
   } catch (error) {
     if (error instanceof AppError && error.status === 404) return false
     throw error
@@ -29,9 +38,10 @@ async function ownsComputer(userId: string, teamId: string, deviceId: string): P
 }
 
 /**
- * Signing a team's agent in is an administrator's job. A computer's owner signs in its
- * agents themselves, a Box's new owner included, though its runtime id still names the
- * transport user; the endpoint resolution checks access again.
+ * Signing a team's agent in is an administrator's job. A computer's agents are signed in by
+ * its owner (a Box's new owner included, though its runtime id still names the transport
+ * user), or by an editor or administrator who may use it, whose account then serves its whole
+ * use list (#2394). The endpoint resolution checks use access; a viewer only signs in their own.
  */
 export function loginRole(
   owns: typeof ownsComputer = ownsComputer,
@@ -39,7 +49,8 @@ export function loginRole(
   return async (c, next) => {
     const ref = parseLocalRuntimeId(c.req.param('runtimeId') ?? '')
 
-    if (ref && (await owns(c.get('userId'), c.get('teamId'), ref.deviceId))) await next()
+    if (ref && (await owns(c.get('userId'), c.get('teamId'), ref))) await next()
+    else if (ref) await requireTeamRole('ADMINISTRATOR', 'EDITOR')(c, next)
     else await requireTeamRole('ADMINISTRATOR')(c, next)
   }
 }

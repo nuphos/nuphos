@@ -4206,6 +4206,7 @@
   "Sign-in will no longer ask for a code. Enter one to confirm.": "登入時將不再要求驗證碼。請輸入一組驗證碼以確認。",
   "Signals": "訊號",
   "Signed in and ready to use": "已登入，可以開始使用",
+  "Signed in by {name} · {time}": "由 {name} 登入 · {time}",
   "Signed in on the runtime.": "已在執行環境上登入。",
   "Signed in on the runtime. Sign in to another model provider to use its models too.": "已在執行環境上登入。登入其他模型供應商即可一併使用其模型。",
   "Signed in on this computer": "已在這台電腦登入",

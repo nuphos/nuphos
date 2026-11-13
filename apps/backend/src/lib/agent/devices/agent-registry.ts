@@ -43,7 +43,15 @@ export type DeviceAgentRecords = {
   addedAgents?: AgentAddition[]
   /** Agents removed while it was offline, until it deletes them. */
   removedAgents?: PendingRemoval[]
+  /** Who signed each agent in through Nuphos, by registryKey; see agent-sign-ins. */
+  signIns?: AgentSignIn[]
 }
+
+/**
+ * Who last signed one of a computer's agents in through Nuphos. Everyone who may use the
+ * computer runs on that account, so the account's owner is shown and audited.
+ */
+export type AgentSignIn = { key: string; userId: string; at: Date }
 
 /** Whether a report's agent is one that was removed while its computer was offline. */
 export function isPendingRemoval(

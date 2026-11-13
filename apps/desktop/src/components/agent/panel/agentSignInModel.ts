@@ -22,13 +22,14 @@ export function localRuntimeOwner(runtimeId: string | undefined): string | undef
 }
 
 /**
- * Mirrors the backend's rule: a team's agent is signed in by an administrator, a
- * member's own computer or Box by that member only.
+ * Mirrors the backend's rule: a team's agent is signed in by an administrator; a computer's
+ * agent by its owner, or by an editor or administrator who may use the computer.
  */
 export function signInRoute({
   runtimeId,
   viewerId,
   isTeamAdmin,
+  canSignInShared = false,
   onThisComputer,
   instance,
   members,
@@ -36,6 +37,8 @@ export function signInRoute({
   runtimeId: string | undefined
   viewerId: string | undefined
   isTeamAdmin: boolean
+  /** An editor or administrator, who may sign in any computer's agent they may use. */
+  canSignInShared?: boolean
   onThisComputer: boolean
   instance: RuntimeInstance | undefined
   members: TeamMember[] | null
@@ -49,9 +52,10 @@ export function signInRoute({
   const owner = instance?.local?.ownerUserId ?? localRuntimeOwner(runtimeId)
 
   if (owner) {
-    if (owner !== viewerId) return { kind: 'ask', name: memberName(members, owner) }
+    // Listed for the viewer means they may use it; their account then serves its use list.
+    if (instance && (owner === viewerId || canSignInShared)) return { kind: 'dialog', instance }
 
-    return instance ? { kind: 'dialog', instance } : { kind: 'none' }
+    return owner === viewerId ? { kind: 'none' } : { kind: 'ask', name: memberName(members, owner) }
   }
   if (!isTeamAdmin) return { kind: 'ask', name: adminName(members) }
 

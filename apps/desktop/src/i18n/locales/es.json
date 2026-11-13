@@ -4206,6 +4206,7 @@
   "Sign-in will no longer ask for a code. Enter one to confirm.": "El inicio de sesión dejará de pedir un código. Introduce uno para confirmar.",
   "Signals": "Señales",
   "Signed in and ready to use": "Sesión iniciada y listo para usar",
+  "Signed in by {name} · {time}": "Sesión iniciada por {name} · {time}",
   "Signed in on the runtime.": "Sesión iniciada en el entorno de ejecución.",
   "Signed in on the runtime. Sign in to another model provider to use its models too.": "Sesión iniciada en el entorno de ejecución. Inicia sesión en otro proveedor de modelos para usar también sus modelos.",
   "Signed in on this computer": "Con sesión iniciada en este equipo",

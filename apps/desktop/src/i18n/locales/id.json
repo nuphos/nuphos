@@ -4206,6 +4206,7 @@
   "Sign-in will no longer ask for a code. Enter one to confirm.": "Proses masuk tidak akan lagi meminta kode. Masukkan satu kode untuk mengonfirmasi.",
   "Signals": "Sinyal",
   "Signed in and ready to use": "Sudah masuk dan siap digunakan",
+  "Signed in by {name} · {time}": "Masuk oleh {name} · {time}",
   "Signed in on the runtime.": "Sudah masuk di runtime.",
   "Signed in on the runtime. Sign in to another model provider to use its models too.": "Sudah masuk di runtime. Masuk ke penyedia model lain untuk memakai modelnya juga.",
   "Signed in on this computer": "Masuk di komputer ini",

@@ -1,3 +1,4 @@
+import { recordAgentSignIn } from '@/lib/agent/devices/agent-sign-ins'
 import { requireDeviceAccess } from '@/lib/agent/devices/box-access'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { commitLocalAgentInstance } from '@/lib/agent/devices/local-runtime/instances'
@@ -35,6 +36,8 @@ export type RuntimeLoginDeps<Target> = {
   input?: (target: Target, doc: RuntimeLoginDoc, text: string) => Promise<void>
   /** Keeps an added agent once it is signed in; defaults to its computer's host. */
   commit?: (doc: RuntimeLoginDoc) => Promise<void>
+  /** Notes who signed a computer's agent in or out; defaults to the device record and audit. */
+  noteSignIn?: typeof recordAgentSignIn
 }
 
 /** Managed, self-hosted and local runtimes own their sign-in (a local one over its
@@ -193,6 +196,9 @@ export async function performRuntimeLogin<Target>(
 
     // Whoever asked for this sign-in gets their held message run.
     if (connected.matchedCount && !signedOut) await settleSignInRequests(doc.teamId, doc.runtimeId)
+    // Everyone on the computer now runs on this account, so who signed it in is kept.
+    if (connected.matchedCount && doc.userId)
+      await (deps.noteSignIn ?? recordAgentSignIn)(doc.teamId, doc.runtimeId, doc.userId, signedOut)
   } catch (error) {
     await runtimeLogins().updateOne(
       { ...filter, state: { $in: ['starting', 'awaiting_authorization'] } },

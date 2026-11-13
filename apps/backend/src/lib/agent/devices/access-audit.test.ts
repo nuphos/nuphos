@@ -65,6 +65,11 @@ test('the authority recorded is what the actor held before the change', () => {
   expect(authorityOf('lead')).toBe('manage')
   // Using it is not managing it: such a change is recorded as unauthorized, not hidden.
   expect(authorityOf('mate')).toBeNull()
+  // Using it is enough to sign its agents in, though.
+  expect(
+    buildDeviceAccessAuditEntry(box, 'team', next, { actorUserId: 'mate', via: 'agent_sign_in' })
+      .actorAuthority,
+  ).toBe('use')
 })
 
 test('the owner it records is always box-access’s deviceOwner', () => {
