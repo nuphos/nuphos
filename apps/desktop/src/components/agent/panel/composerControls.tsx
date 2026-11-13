@@ -13,11 +13,7 @@ import { OpenSlackThreadButton } from './ReadOnlyNotice'
 
 import type { ComposerVoiceScope } from './ComposerVoice'
 import type { AgentSlackThread } from '../../../api'
-import type {
-  ClipboardEvent,
-  KeyboardEvent as ReactKeyboardEvent,
-  RefObject,
-} from 'react'
+import type { ClipboardEvent, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
 
 export function ComposerEditor({
   hero,
