@@ -239,6 +239,17 @@ export function Composer({
           )}
           <div className="@container flex items-start gap-1 mt-1 min-w-0 @[320px]:gap-2">
             <ComposerTools>
+              {runtimeControl && (
+                <RuntimeSelector
+                  {...runtimeControl}
+                  menuOpen={agentMenuOpen || agentMenuRequested}
+                  onMenuOpenChange={(open) => {
+                    setAgentMenuOpen(open)
+                    if (!open) clearAgentMenuRequest()
+                  }}
+                  hero={hero}
+                />
+              )}
               <ComposerAttachmentMenu
                 open={state.attachmentMenuOpen}
                 onOpenChange={state.setAttachmentMenuOpen}
@@ -253,17 +264,6 @@ export function Composer({
                 onSelectAttachment={actions.selectAttachment}
                 onSelectFolderAttachment={actions.selectFolderAttachment}
               />
-              {runtimeControl && (
-                <RuntimeSelector
-                  {...runtimeControl}
-                  menuOpen={agentMenuOpen || agentMenuRequested}
-                  onMenuOpenChange={(open) => {
-                    setAgentMenuOpen(open)
-                    if (!open) clearAgentMenuRequest()
-                  }}
-                  hero={hero}
-                />
-              )}
               {credentialSelector && (
                 <CredentialSelectorButton {...credentialSelector} hero={hero} personalIdentity />
               )}

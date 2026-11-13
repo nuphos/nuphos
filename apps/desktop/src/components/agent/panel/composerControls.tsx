@@ -228,6 +228,8 @@ function SendControls({
  * The toolbar's left controls on one row. A control that does not fit wraps
  * whole onto a second line the row never shows, and is made inert there so
  * keyboard focus cannot land on it or scroll it into view; a menu it had open closes.
+ * The row shares the squeeze with the model chip, but never drops below the runtime
+ * selector it leads with, so a task's runtime can always be changed.
  */
 export function ComposerTools({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -271,7 +273,7 @@ export function ComposerTools({ children }: { children: ReactNode }) {
   return (
     <div
       ref={ref}
-      className="-my-3 flex h-14 min-w-0 flex-1 flex-wrap content-start items-center gap-x-0.5 gap-y-6 overflow-hidden py-3 @[320px]:gap-x-1"
+      className="-my-3 flex h-14 min-w-16 flex-auto flex-wrap content-start items-center gap-x-0.5 gap-y-6 overflow-hidden py-3 @[320px]:gap-x-1"
     >
       {children}
     </div>
