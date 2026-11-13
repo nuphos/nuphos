@@ -147,7 +147,7 @@ test('6 MiB shared-computer upload and pull preserve SHA-256 without exposing ca
   const server = Bun.serve({
     port: 0,
     hostname: '127.0.0.1',
-    fetch: async (request) => {
+    fetch: async (request): Promise<Response> => {
       if (request.method === 'PUT') {
         uploaded = new Uint8Array(await request.arrayBuffer())
 
