@@ -8,7 +8,7 @@ import {
   PlaudApiError,
 } from '@/lib/byos/plaud'
 import { decryptPlaudSecret, encryptPlaudSecret } from '@/lib/byos/secrets'
-import { finishConnectorOAuth } from '@/lib/connector-oauth'
+import { finishConnectorOAuth, reboundAccess } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { emptyTeamByosBindings, plaudPendingOAuth, teamByosBindings } from '@/models'
@@ -113,7 +113,7 @@ export async function persistPlaudBinding(
     id: existing?.id ?? new ObjectId(),
     label: existing?.label ?? label,
     createdAt: existing?.createdAt ?? new Date(),
-    access: existing?.access ?? access,
+    ...reboundAccess(existing, access),
   }
 
   if (existing) {

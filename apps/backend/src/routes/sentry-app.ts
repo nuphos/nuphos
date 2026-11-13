@@ -8,7 +8,7 @@ import {
   getSetupRedirect,
   invalidateSentryAccessToken,
 } from '@/lib/byos/sentry'
-import { finishConnectorOAuth } from '@/lib/connector-oauth'
+import { finishConnectorOAuth, reboundAccess } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { sentryPendingOAuth, teamByosBindings } from '@/models'
@@ -148,7 +148,7 @@ export async function persistSentryBinding(
     id: bindingId,
     label: existing?.label ?? accountLabel,
     createdAt: existing?.createdAt ?? new Date(),
-    access: existing?.access ?? access,
+    ...reboundAccess(existing, access),
   }
 
   if (existing) {

@@ -11,7 +11,7 @@ import {
   verifyWebhookToken,
 } from '@/lib/byos/gitlab'
 import { decryptGitlabSecret, encryptGitlabSecret } from '@/lib/byos/secrets'
-import { finishConnectorOAuth } from '@/lib/connector-oauth'
+import { finishConnectorOAuth, reboundAccess } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { gitlabPendingOAuth, teamByosBindings } from '@/models'
@@ -186,7 +186,7 @@ export async function persistGitlabBinding(
     id: bindingId,
     createdAt: existing?.createdAt ?? new Date(),
     // Reauthorizing renews the grant; who may use the binding stays as set.
-    access: existing?.access ?? access,
+    ...reboundAccess(existing, access),
   }
 
   if (existing) {

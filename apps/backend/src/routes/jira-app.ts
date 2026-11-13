@@ -9,7 +9,7 @@ import {
   invalidateAccessToken,
 } from '@/lib/byos/jira'
 import { encryptJiraSecret } from '@/lib/byos/secrets'
-import { finishConnectorOAuth } from '@/lib/connector-oauth'
+import { finishConnectorOAuth, reboundAccess } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { jiraPendingOAuth, teamByosBindings } from '@/models'
@@ -175,7 +175,7 @@ export async function persistJiraBinding(
     id: bindingId,
     label: existing?.label ?? draft.siteName,
     createdAt: existing?.createdAt ?? new Date(),
-    access: existing?.access ?? access,
+    ...reboundAccess(existing, access),
   }
 
   if (existing) {

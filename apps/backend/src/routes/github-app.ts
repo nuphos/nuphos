@@ -72,6 +72,7 @@ githubAppRoutes.get('/install', (c) => {
     t: ticket.t,
     u: ticket.u,
     ...(clientState ? { s: clientState } : {}),
+    ...(ticket.sh ? { sh: ticket.sh } : {}),
   })
   const url = buildInstallUrl(state)
 
