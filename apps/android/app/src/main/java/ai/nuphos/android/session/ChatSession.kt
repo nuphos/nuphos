@@ -39,7 +39,7 @@ class ChatSession(
     private val token: String,
     val teamId: String,
     val sessionId: String = UUID.randomUUID().toString().lowercase(),
-    title: String = "New agent",
+    title: String = "New task",
     private val transfers: AttachmentTransfers = AttachmentTransfers(),
     private val readDetail: suspend (String, String, String) -> AgentConversationDetail = NuphosApi::conversationDetail,
     private val aiAllowed: () -> Boolean = AiAccess.bind(token),
