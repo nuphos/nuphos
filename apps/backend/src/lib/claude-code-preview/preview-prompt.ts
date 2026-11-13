@@ -4,6 +4,8 @@
 // scripts) are adapted to the native runtime equivalents it actually has.
 
 import { getConversationBySessionId } from '@/lib/agent/db'
+import { OWNER_DECISION_NOTE } from '@/lib/agent/db/channel-notes'
+import { agentConversations } from '@/lib/agent/db/shared'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { getAgentDevice } from '@/lib/agent/devices/store'
 import { inferUserFacingLanguage } from '@/lib/agent/language'
@@ -111,6 +113,23 @@ async function taskNameSection(sessionId: string): Promise<string | null> {
   return conversation && isUnnamedTask(conversation) ? TASK_NAME_NOTE : null
 }
 
+/**
+ * The channels this conversation is in. Whatever wakes a turn, the people there
+ * see only its posts, so the reminder rides on every turn, not on a channel wake.
+ */
+async function channelsSection(sessionId: string): Promise<string | null> {
+  const channels = await agentConversations()
+    .find({ kind: 'channel', agentSessionIds: sessionId, archivedAt: { $exists: false } })
+    .project<{ sessionId: string }>({ _id: 0, sessionId: 1 })
+    .toArray()
+
+  if (channels.length === 0) return null
+  // Ids only: a title is free text the channel's creator, maybe not the owner, chose.
+  const ids = channels.map((channel) => channel.sessionId).join(', ')
+
+  return `## Channels you are in\nYou are a member of the channels ${ids}; channel_read shows who is in each. The people in a channel see you only there: nothing you write in this conversation reaches them, and only channel_post does. Whatever woke this turn (a channel, a sub-agent, an Inbox answer, a Trigger, a Nuphos notice or your owner here), when it produced something a channel's people are meant to see, such as a result, a finding or a blocker for work they asked for, post it in that channel with channel_post. ${OWNER_DECISION_NOTE}`
+}
+
 /** Build credential context and permission recovery guidance together. */
 async function credentialAndPermissionWallSections(
   args: PreviewPromptArgs,
@@ -139,17 +158,19 @@ async function credentialAndPermissionWallSections(
 
 /** The text appended to Claude Code's system prompt for one conversation. */
 export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise<string> {
-  const [base, cloudAccess, urlContext, instructions, where, taskName] = await Promise.all([
-    getSystemPrompt(args.locale, { max_output_tokens: MODEL_OUTPUT_BUDGET_TOKENS }),
-    credentialAndPermissionWallSections(args).catch(() => ({
-      credentials: '',
-      permissionWall: '',
-    })),
-    urlContextSection(args.currentUrl),
-    loadInstructionsBlock(args.teamId, args.userId, args.sessionId),
-    runtimeWhere(args.runtimeId).catch(() => 'inside the team sandbox'),
-    taskNameSection(args.sessionId).catch(() => null),
-  ])
+  const [base, cloudAccess, urlContext, instructions, where, taskName, channels] =
+    await Promise.all([
+      getSystemPrompt(args.locale, { max_output_tokens: MODEL_OUTPUT_BUDGET_TOKENS }),
+      credentialAndPermissionWallSections(args).catch(() => ({
+        credentials: '',
+        permissionWall: '',
+      })),
+      urlContextSection(args.currentUrl),
+      loadInstructionsBlock(args.teamId, args.userId, args.sessionId),
+      runtimeWhere(args.runtimeId).catch(() => 'inside the team sandbox'),
+      taskNameSection(args.sessionId).catch(() => null),
+      channelsSection(args.sessionId).catch(() => null),
+    ])
   const userFacingLanguage = inferUserFacingLanguage(args.userTexts ?? [], args.locale)
 
   // The notes are written for Claude Code. Grok Build reads `.claude/skills` as well;
@@ -184,6 +205,7 @@ export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise
     nativeText(DASHBOARDS_RUNTIME_NOTE),
     BACKGROUND_MONITOR_NOTE,
     taskName,
+    channels,
     previewChannelPromptSection({ teamId: args.teamId, slackThread: args.slackThread }),
     nativeText(buildNuphosLinksMessage(args.teamId, { nativeClaudeSkills: true })),
     instructions,
