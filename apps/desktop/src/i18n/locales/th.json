@@ -933,7 +933,6 @@
   "Connected to the API server.": "เชื่อมต่อกับ API server แล้ว",
   "Connected {name}": "เชื่อมต่อ {name} แล้ว",
   "Connected {name} as {login}": "เชื่อมต่อ {name} ในชื่อ {login} แล้ว",
-  "Connected, but could not share it. Change who can use it from its page.": "เชื่อมต่อแล้ว แต่แชร์ไม่ได้ เปลี่ยนผู้ที่ใช้ได้จากหน้าของการเชื่อมต่อนั้น",
   "Connected, but this cluster hasn't authorized Nuphos yet": "เชื่อมต่อแล้ว แต่คลัสเตอร์นี้ยังไม่ได้อนุญาต Nuphos",
   "Connected:": "เชื่อมต่อแล้ว:",
   "Connecting": "กำลังเชื่อมต่อ",

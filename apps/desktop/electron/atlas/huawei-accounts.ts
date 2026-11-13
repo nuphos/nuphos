@@ -1,4 +1,7 @@
+import { withShare } from './binding-access'
 import { call } from './client'
+
+import type { BindingShare } from './binding-access'
 
 export type HuaweiAccount = {
   id: string
@@ -52,11 +55,12 @@ export async function bindHuaweiAccount(
   domainId: string,
   idpId: string,
   agencyName: string,
+  share?: BindingShare,
 ): Promise<HuaweiAccount> {
   const a = await call<HuaweiAccountResponse>(
     'POST',
     `/teams/${teamId}/huawei-accounts`,
-    { label, domainId, idpId, agencyName },
+    withShare({ label, domainId, idpId, agencyName }, share),
     // Bind federates once before storing to prove the identity provider works —
     // same headroom as the other verifying binds.
     { retry: false, timeoutMs: 30_000 },

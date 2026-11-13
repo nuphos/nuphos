@@ -933,7 +933,6 @@
   "Connected to the API server.": "API サーバーに接続しました。",
   "Connected {name}": "{name} を接続しました",
   "Connected {name} as {login}": "{name} に {login} として接続しました",
-  "Connected, but could not share it. Change who can use it from its page.": "接続しましたが、共有できませんでした。使用できるメンバーは接続のページで変更してください。",
   "Connected, but this cluster hasn't authorized Nuphos yet": "接続されましたが、このクラスターはまだ Nuphos を認可していません",
   "Connected:": "接続済み：",
   "Connecting": "接続中",

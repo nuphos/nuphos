@@ -933,7 +933,6 @@
   "Connected to the API server.": "API 서버에 연결되었습니다.",
   "Connected {name}": "{name} 연결됨",
   "Connected {name} as {login}": "{name} 계정을 연결했습니다({login})",
-  "Connected, but could not share it. Change who can use it from its page.": "연결했지만 공유하지 못했습니다. 사용할 수 있는 사람은 해당 페이지에서 변경하세요.",
   "Connected, but this cluster hasn't authorized Nuphos yet": "연결되었지만 이 클러스터가 아직 Nuphos를 승인하지 않았습니다",
   "Connected:": "연결됨:",
   "Connecting": "연결 중",

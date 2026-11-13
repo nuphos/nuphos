@@ -24,6 +24,7 @@ import { sidebarGesturesApi } from './preload-parts/api-sidebar-gestures'
 import { signInSessionsApi } from './preload-parts/api-sign-in-sessions'
 import { teamApi } from './preload-parts/api-team'
 import { voiceApi } from './preload-parts/api-voice'
+import { vpsApi } from './preload-parts/api-vps'
 import { windowSessionApi } from './preload-parts/api-window-session'
 
 const api = {
@@ -43,6 +44,7 @@ const api = {
   ...integrationsApi,
   ...posthogApi,
   ...plaudApi,
+  ...vpsApi,
   ...bindingAccessApi,
   ...sessionAccessApi,
   ...channelsApi,

@@ -933,7 +933,6 @@
   "Connected to the API server.": "Terhubung ke server API.",
   "Connected {name}": "{name} terhubung",
   "Connected {name} as {login}": "{name} terhubung sebagai {login}",
-  "Connected, but could not share it. Change who can use it from its page.": "Terhubung, tetapi tidak dapat dibagikan. Ubah siapa yang dapat menggunakannya dari halamannya.",
   "Connected, but this cluster hasn't authorized Nuphos yet": "Terhubung, tetapi kluster ini belum memberi otorisasi kepada Nuphos",
   "Connected:": "Terhubung:",
   "Connecting": "Menghubungkan",

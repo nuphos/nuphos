@@ -51,20 +51,6 @@ export const integrationsApi = {
   k8sGetServicePortForwardOptions: (ctx: string, ns: string, service: string) =>
     ipcRenderer.invoke('k8s:getServicePortForwardOptions', ctx, ns, service),
   k8sStopPortForward: (id: string) => ipcRenderer.invoke('k8s:stopPortForward', id),
-  atlasListLinodeAccounts: (teamId: string) =>
-    ipcRenderer.invoke('atlas:listLinodeAccounts', teamId),
-  atlasBindLinodeAccount: (teamId: string, label: string, token: string) =>
-    ipcRenderer.invoke('atlas:bindLinodeAccount', teamId, label, token),
-  atlasUnbindLinodeAccount: (teamId: string, accountId: string) =>
-    ipcRenderer.invoke('atlas:unbindLinodeAccount', teamId, accountId),
-  atlasListHetznerAccounts: (teamId: string) =>
-    ipcRenderer.invoke('atlas:listHetznerAccounts', teamId),
-  atlasBindHetznerAccount: (teamId: string, label: string, token: string) =>
-    ipcRenderer.invoke('atlas:bindHetznerAccount', teamId, label, token),
-  atlasUnbindHetznerAccount: (teamId: string, accountId: string) =>
-    ipcRenderer.invoke('atlas:unbindHetznerAccount', teamId, accountId),
-  atlasListHetznerServers: (teamId: string, accountId: string) =>
-    ipcRenderer.invoke('atlas:listHetznerServers', teamId, accountId),
   atlasListVantaIntegrations: (teamId: string) =>
     ipcRenderer.invoke('atlas:listVantaIntegrations', teamId),
   atlasBindVantaIntegration: (
@@ -72,7 +58,9 @@ export const integrationsApi = {
     label: string,
     clientId: string,
     clientSecret: string,
-  ) => ipcRenderer.invoke('atlas:bindVantaIntegration', teamId, label, clientId, clientSecret),
+    share?: unknown,
+  ) =>
+    ipcRenderer.invoke('atlas:bindVantaIntegration', teamId, label, clientId, clientSecret, share),
   atlasUnbindVantaIntegration: (teamId: string, integrationId: string) =>
     ipcRenderer.invoke('atlas:unbindVantaIntegration', teamId, integrationId),
   atlasListSecureframeIntegrations: (teamId: string) =>
@@ -83,6 +71,7 @@ export const integrationsApi = {
     region: 'us' | 'uk',
     apiKey: string,
     apiSecret: string,
+    share?: unknown,
   ) =>
     ipcRenderer.invoke(
       'atlas:bindSecureframeIntegration',
@@ -91,6 +80,7 @@ export const integrationsApi = {
       region,
       apiKey,
       apiSecret,
+      share,
     ),
   atlasUnbindSecureframeIntegration: (teamId: string, integrationId: string) =>
     ipcRenderer.invoke('atlas:unbindSecureframeIntegration', teamId, integrationId),
@@ -110,14 +100,19 @@ export const integrationsApi = {
     ipcRenderer.invoke('atlas:listSecureframeTests', teamId, integrationId, failingOnly),
   atlasListNotionIntegrations: (teamId: string) =>
     ipcRenderer.invoke('atlas:listNotionIntegrations', teamId),
-  atlasBindNotionIntegration: (teamId: string, label: string, token: string) =>
-    ipcRenderer.invoke('atlas:bindNotionIntegration', teamId, label, token),
+  atlasBindNotionIntegration: (teamId: string, label: string, token: string, share?: unknown) =>
+    ipcRenderer.invoke('atlas:bindNotionIntegration', teamId, label, token, share),
   atlasUnbindNotionIntegration: (teamId: string, integrationId: string) =>
     ipcRenderer.invoke('atlas:unbindNotionIntegration', teamId, integrationId),
   atlasListUpstashAccounts: (teamId: string) =>
     ipcRenderer.invoke('atlas:listUpstashAccounts', teamId),
-  atlasBindUpstashAccount: (teamId: string, label: string, email: string, apiKey: string) =>
-    ipcRenderer.invoke('atlas:bindUpstashAccount', teamId, label, email, apiKey),
+  atlasBindUpstashAccount: (
+    teamId: string,
+    label: string,
+    email: string,
+    apiKey: string,
+    share?: unknown,
+  ) => ipcRenderer.invoke('atlas:bindUpstashAccount', teamId, label, email, apiKey, share),
   atlasUnbindUpstashAccount: (teamId: string, accountId: string) =>
     ipcRenderer.invoke('atlas:unbindUpstashAccount', teamId, accountId),
   atlasGetUpstashAccountAccess: (teamId: string, accountId: string) =>
@@ -159,8 +154,8 @@ export const integrationsApi = {
     ipcRenderer.invoke('atlas:listResendIntegrations', teamId),
   atlasListTrelloIntegrations: (teamId: string) =>
     ipcRenderer.invoke('atlas:listTrelloIntegrations', teamId),
-  atlasBindResendIntegration: (teamId: string, label: string, apiKey: string) =>
-    ipcRenderer.invoke('atlas:bindResendIntegration', teamId, label, apiKey),
+  atlasBindResendIntegration: (teamId: string, label: string, apiKey: string, share?: unknown) =>
+    ipcRenderer.invoke('atlas:bindResendIntegration', teamId, label, apiKey, share),
   atlasUnbindResendIntegration: (teamId: string, integrationId: string) =>
     ipcRenderer.invoke('atlas:unbindResendIntegration', teamId, integrationId),
   atlasUnbindTrelloIntegration: (teamId: string, integrationId: string) =>
@@ -180,7 +175,9 @@ export const integrationsApi = {
     site: string,
     roleArn: string,
     providerId: string,
-  ) => ipcRenderer.invoke('atlas:bindTencentAccount', teamId, label, site, roleArn, providerId),
+    share?: unknown,
+  ) =>
+    ipcRenderer.invoke('atlas:bindTencentAccount', teamId, label, site, roleArn, providerId, share),
   atlasUnbindTencentAccount: (teamId: string, accountId: string) =>
     ipcRenderer.invoke('atlas:unbindTencentAccount', teamId, accountId),
   atlasListTencentClusters: (teamId: string, accountId: string) =>
@@ -228,7 +225,17 @@ export const integrationsApi = {
     site: string,
     roleArn: string,
     oidcProviderArn: string,
-  ) => ipcRenderer.invoke('atlas:bindAliyunAccount', teamId, label, site, roleArn, oidcProviderArn),
+    share?: unknown,
+  ) =>
+    ipcRenderer.invoke(
+      'atlas:bindAliyunAccount',
+      teamId,
+      label,
+      site,
+      roleArn,
+      oidcProviderArn,
+      share,
+    ),
   atlasUnbindAliyunAccount: (teamId: string, accountId: string) =>
     ipcRenderer.invoke('atlas:unbindAliyunAccount', teamId, accountId),
   atlasListAliyunClusters: (teamId: string, accountId: string) =>
@@ -243,8 +250,8 @@ export const integrationsApi = {
     ipcRenderer.invoke('atlas:listVolcengineAccounts', teamId),
   atlasGetVolcengineOidcInfo: (teamId: string) =>
     ipcRenderer.invoke('atlas:getVolcengineOidcInfo', teamId),
-  atlasBindVolcengineAccount: (teamId: string, label: string, roleTrn: string) =>
-    ipcRenderer.invoke('atlas:bindVolcengineAccount', teamId, label, roleTrn),
+  atlasBindVolcengineAccount: (teamId: string, label: string, roleTrn: string, share?: unknown) =>
+    ipcRenderer.invoke('atlas:bindVolcengineAccount', teamId, label, roleTrn, share),
   atlasUnbindVolcengineAccount: (teamId: string, accountId: string) =>
     ipcRenderer.invoke('atlas:unbindVolcengineAccount', teamId, accountId),
   atlasListHuaweiAccounts: (teamId: string) =>
@@ -256,7 +263,17 @@ export const integrationsApi = {
     domainId: string,
     idpId: string,
     agencyName: string,
-  ) => ipcRenderer.invoke('atlas:bindHuaweiAccount', teamId, label, domainId, idpId, agencyName),
+    share?: unknown,
+  ) =>
+    ipcRenderer.invoke(
+      'atlas:bindHuaweiAccount',
+      teamId,
+      label,
+      domainId,
+      idpId,
+      agencyName,
+      share,
+    ),
   atlasUnbindHuaweiAccount: (teamId: string, accountId: string) =>
     ipcRenderer.invoke('atlas:unbindHuaweiAccount', teamId, accountId),
   atlasListVolcengineClusters: (teamId: string, accountId: string) =>

@@ -4,6 +4,7 @@ import { api } from '../api'
 import { Modal } from '../components/Modal'
 import { toast } from '../components/ui/toast'
 import { t } from '../i18n'
+import { shareFromAllowList } from '../lib/bindingShare'
 import { isCloudCliProvider } from '../lib/cloudCli'
 
 import { BindDialogBody } from './bind-account/body'
@@ -96,7 +97,12 @@ export function BindAccountDialog({
       st={st}
       valid={valid}
       onSubmit={() =>
-        void submitBind(st, { teamId, onBound, onClose, ...(shareList ? { shareList } : {}) })
+        void submitBind(st, {
+          teamId,
+          onBound,
+          onClose,
+          ...(shareList ? { share: shareFromAllowList(shareList) } : {}),
+        })
       }
       onCloseRequest={close}
     />

@@ -933,7 +933,6 @@
   "Connected to the API server.": "已連線至 API 伺服器。",
   "Connected {name}": "已連接 {name}",
   "Connected {name} as {login}": "已以 {login} 身分連接 {name}",
-  "Connected, but could not share it. Change who can use it from its page.": "已連線，但無法分享。請到它的頁面調整誰可以使用。",
   "Connected, but this cluster hasn't authorized Nuphos yet": "已連線，但此叢集尚未授權 Nuphos",
   "Connected:": "已連接：",
   "Connecting": "連接中",

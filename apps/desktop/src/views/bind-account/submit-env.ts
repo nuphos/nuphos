@@ -1,7 +1,9 @@
+import type { BindingShare } from '../../lib/bindingShare'
+
 export type SubmitEnv = {
   teamId: string
   onBound: () => void
   onClose: () => void
-  /** Members chosen while connecting; absent keeps the team default. */
-  shareList?: string[]
+  /** Who the member chose to share the connection with; absent keeps the team default. */
+  share?: BindingShare
 }

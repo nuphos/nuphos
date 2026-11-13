@@ -52,6 +52,7 @@ export const cloudAccountsApi = {
     label: string,
     uptimeApiToken: string | null,
     telemetryApiToken: string | null,
+    share?: unknown,
   ) =>
     ipcRenderer.invoke(
       'atlas:bindBetterStackIntegration',
@@ -59,6 +60,7 @@ export const cloudAccountsApi = {
       label,
       uptimeApiToken,
       telemetryApiToken,
+      share,
     ),
   atlasUpdateBetterStackIntegration: (
     teamId: string,

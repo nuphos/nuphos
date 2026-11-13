@@ -30,6 +30,16 @@ export function canEditBindingAccess(
 /** The team setting for bindings members connect from now on; absent is private. */
 export type TeamShareDefault = { bindingShareDefault?: 'private' | 'team' }
 
+/** Who the member connecting a binding shares it with, as the bind request sends it. */
+export type BindingShare = { mode: 'private' | 'team' | 'members'; memberIds: string[] }
+
+/** The bind request's share for the members picked in the connect dialog. */
+export function shareFromAllowList(list: string[]): BindingShare {
+  return list.includes('*')
+    ? { mode: 'team', memberIds: [] }
+    : { mode: 'members', memberIds: list.filter((id) => id !== '*') }
+}
+
 /** Who a binding is shared with, as the access editor names it. */
 export type BindingShareStatus = 'private' | 'team' | 'members'
 
@@ -47,14 +57,4 @@ export function bindingShareStatus(
     : memberAllowList.length <= 1
 
   return isPrivate ? 'private' : 'members'
-}
-
-/** The list to save for a connection shared while adding it; its owner always stays on it. */
-export function connectAllowList(
-  chosen: string[],
-  ownerUserId: string | null | undefined,
-): string[] {
-  if (chosen.includes('*')) return ['*']
-
-  return [...new Set([...(ownerUserId ? [ownerUserId] : []), ...chosen])]
 }

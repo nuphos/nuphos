@@ -933,7 +933,6 @@
   "Connected to the API server.": "Conectado al servidor de API.",
   "Connected {name}": "{name} conectado",
   "Connected {name} as {login}": "{name} conectado como {login}",
-  "Connected, but could not share it. Change who can use it from its page.": "Conectado, pero no se pudo compartir. Cambia quién puede usarlo desde su página.",
   "Connected, but this cluster hasn't authorized Nuphos yet": "Conectado, pero este clúster aún no ha autorizado a Nuphos",
   "Connected:": "Conectado:",
   "Connecting": "Conectando",
