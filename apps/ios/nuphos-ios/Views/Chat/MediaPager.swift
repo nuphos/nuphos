@@ -10,6 +10,8 @@ import UIKit
 struct MediaPager: View {
     let urls: [URL]
     @State var current: URL
+    /// Fetches a video's copy to its URL, for a page shown before it is on disk.
+    var load: (URL) async throws -> Void = { _ in }
     @State private var pull: CGFloat = 0
     @State private var closing = false
     @Environment(\.dismiss) private var dismiss
@@ -24,7 +26,7 @@ struct MediaPager: View {
     }
 
     var body: some View {
-        Pages(urls: urls, current: $current, pull: $pull, close: close)
+        Pages(urls: urls, current: $current, pull: $pull, load: load, close: close)
             .ignoresSafeArea()
             .background(Color.black.opacity(1 - min(pull / 300, 0.6)).ignoresSafeArea())
             .overlay(alignment: .top) {
@@ -64,10 +66,11 @@ private struct Pages: UIViewControllerRepresentable {
     let urls: [URL]
     @Binding var current: URL
     @Binding var pull: CGFloat
+    let load: (URL) async throws -> Void
     let close: () -> Void
 
-    static func page(_ url: URL) -> UIViewController & Page {
-        MediaPager.isVideo(url) ? PlayerPage(url: url) : ZoomPage(url: url)
+    func page(_ url: URL) -> UIViewController & Page {
+        MediaPager.isVideo(url) ? PlayerPage(url: url, load: load) : ZoomPage(url: url)
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -76,7 +79,7 @@ private struct Pages: UIViewControllerRepresentable {
         let pager = UIPageViewController(transitionStyle: .scroll, navigationOrientation: .horizontal, options: [.interPageSpacing: 16])
         pager.dataSource = context.coordinator
         pager.delegate = context.coordinator
-        pager.setViewControllers([Self.page(current)], direction: .forward, animated: false)
+        pager.setViewControllers([page(current)], direction: .forward, animated: false)
         // One touch, one axis: the paging scroll view waits for the pull to
         // decline, and the pull only takes drags that start mostly downward.
         let pull = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.pull(_:)))
@@ -127,7 +130,7 @@ private struct Pages: UIViewControllerRepresentable {
         private func neighbour(of controller: UIViewController, step: Int) -> UIViewController? {
             let urls = parent.urls
             guard urls.count > 1, let index = urls.firstIndex(of: (controller as! Page).url) else { return nil }
-            return Pages.page(urls[(index + step + urls.count) % urls.count])
+            return parent.page(urls[(index + step + urls.count) % urls.count])
         }
 
         func pageViewController(_ pager: UIPageViewController, viewControllerBefore controller: UIViewController) -> UIViewController? {
@@ -190,12 +193,15 @@ private final class ZoomPage: UIViewController, Page, UIScrollViewDelegate {
     }
 }
 /// One video with the system's playback controls; it pauses once swiped away.
+/// A video not yet on disk is fetched when its page shows, behind a spinner.
 private final class PlayerPage: UIViewController, Page {
     let url: URL
+    private let load: (URL) async throws -> Void
     private let player = AVPlayerViewController()
 
-    init(url: URL) {
+    init(url: URL, load: @escaping (URL) async throws -> Void) {
         self.url = url
+        self.load = load
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -203,7 +209,6 @@ private final class PlayerPage: UIViewController, Page {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        player.player = AVPlayer(url: url)
         player.view.backgroundColor = .clear
         player.view.frame = view.bounds
         player.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -211,6 +216,19 @@ private final class PlayerPage: UIViewController, Page {
         addChild(player)
         view.addSubview(player.view)
         player.didMove(toParent: self)
+        Task {
+            if !FileManager.default.fileExists(atPath: url.path) {
+                let spinner = UIActivityIndicatorView(style: .large)
+                spinner.color = .white
+                spinner.center = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
+                spinner.autoresizingMask = [.flexibleTopMargin, .flexibleBottomMargin, .flexibleLeftMargin, .flexibleRightMargin]
+                spinner.startAnimating()
+                view.addSubview(spinner)
+                try? await load(url)
+                spinner.removeFromSuperview()
+            }
+            player.player = AVPlayer(url: url)
+        }
     }
 
     override func viewWillDisappear(_ animated: Bool) {

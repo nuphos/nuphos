@@ -79,7 +79,12 @@ struct TransferCard: View {
         .quickLookPreview($preview, in: previewItems)
         #if os(iOS)
         .fullScreenCover(isPresented: Binding(get: { pagerStart != nil }, set: { if !$0 { pagerStart = nil } })) {
-            if let pagerStart { MediaPager(urls: previewItems, current: pagerStart) }
+            if let pagerStart {
+                MediaPager(urls: previewItems, current: pagerStart) { url in
+                    guard let video = media.first(where: { TransferFiles.path($0) == url }) else { return }
+                    _ = try await TransferFiles.localCopies(of: [video], tapped: video) { try await fetch().flatMap(\.files) }
+                }
+            }
         }
         #endif
     }
@@ -170,12 +175,13 @@ struct TransferCard: View {
         do {
             // A file already on disk opens at once; only missing ones are
             // re-signed (presigned links expire) and fetched. The message's
-            // other media come along so the pager can swipe between them.
+            // other images come along so the pager can swipe between them;
+            // its other videos are fetched once their page shows.
             let shown = media.contains(file) ? media : [file]
-            let locals = try await TransferFiles.localCopies(of: shown, tapped: file) {
+            let locals = try await TransferFiles.localCopies(of: shown.filter { !$0.isVideo || $0 == file }, tapped: file) {
                 try await fetch().flatMap(\.files)
             }
-            previewItems = shown.compactMap { locals[$0.id] }
+            previewItems = shown.compactMap { $0.isVideo ? TransferFiles.path($0) : locals[$0.id] }
             #if os(iOS)
             // Anything the pager can't show (an SVG, say) stays with Quick Look.
             let pageable = previewItems.filter(MediaPager.shows)
@@ -185,6 +191,7 @@ struct TransferCard: View {
                 return
             }
             #endif
+            previewItems = previewItems.filter { FileManager.default.fileExists(atPath: $0.path) }
             preview = locals[file.id]
         } catch {
             failed = true
