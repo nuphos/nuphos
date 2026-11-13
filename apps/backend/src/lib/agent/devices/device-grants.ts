@@ -7,6 +7,7 @@ import { agentDevices } from './store'
 
 import type { DeviceAccessChanger } from './access-audit'
 import type { AgentDevice, DeviceGrant } from './store'
+import type { Document, Filter, UpdateFilter } from 'mongodb'
 
 /**
  * Who besides a computer's owner may use or manage it, one grant per team.
@@ -193,20 +194,67 @@ export async function addTeamUse(
 }
 
 /** Someone who left the team keeps no use or management of any computer in it. */
-export async function dropFromTeamGrants(teamId: string, userId: string): Promise<void> {
-  await agentDevices().updateMany(
+export async function dropFromTeamGrants(
+  teamId: string,
+  userId: string,
+  by: DeviceAccessChanger,
+): Promise<void> {
+  const without = (ids: string[]) => ids.filter((id) => id !== userId)
+
+  await auditEach(
+    teamId,
+    by,
     { access: { $elemMatch: { teamId, $or: [{ userIds: userId }, { managerIds: userId }] } } },
     { $pull: { 'access.$[grant].userIds': userId, 'access.$[grant].managerIds': userId } },
-    { arrayFilters: [{ 'grant.teamId': teamId }] },
+    (grant) => ({
+      everyone: grant.everyone,
+      userIds: without(grant.userIds),
+      managerIds: without(grant.managerIds),
+    }),
+    [{ 'grant.teamId': teamId }],
   )
 }
 
 /** An owner who left the team: their own computers stop being granted in it. */
-export async function dropOwnerTeamGrants(teamId: string, ownerId: string): Promise<void> {
-  await agentDevices().updateMany(
+export async function dropOwnerTeamGrants(
+  teamId: string,
+  ownerId: string,
+  by: DeviceAccessChanger,
+): Promise<void> {
+  await auditEach(
+    teamId,
+    by,
     { userId: ownerId, box: { $exists: false }, 'access.teamId': teamId },
     { $pull: { access: { teamId } } },
+    () => null,
   )
+}
+
+/**
+ * Updates every computer the filter matches, one at a time so each audit names the grant it
+ * replaced. The update must stop the computer matching, or this would never end.
+ */
+async function auditEach(
+  teamId: string,
+  by: DeviceAccessChanger,
+  filter: Filter<AgentDevice>,
+  update: UpdateFilter<AgentDevice>,
+  next: (grant: DeviceGrant) => Omit<DeviceGrant, 'teamId'> | null,
+  arrayFilters?: Document[],
+): Promise<void> {
+  for (;;) {
+    const before = await agentDevices().findOneAndUpdate(filter, update, {
+      returnDocument: 'before',
+      ...(arrayFilters ? { arrayFilters } : {}),
+    })
+
+    if (!before) return
+    const grant = teamGrant(before, teamId)
+
+    await recordDeviceAccessChange(
+      buildDeviceAccessAuditEntry(before, teamId, grant ? next(grant) : null, by),
+    )
+  }
 }
 
 /** The team's cloud computers someone owned pass to the team's owner when they leave. */

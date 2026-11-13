@@ -28,8 +28,10 @@ function setup() {
       record(
         `streams ${devices.map((device) => device.userId).join(',')} -> ${actorIds.join(',')}`,
       ),
-    dropFromGrants: async (_team, userId) => record(`drop-from-grants ${userId}`),
-    dropOwnerGrants: async (_team, userId) => record(`drop-owner-grants ${userId}`),
+    dropFromGrants: async (_team, userId, by) =>
+      record(`drop-from-grants ${userId} by ${by.actorUserId} ${by.via}`),
+    dropOwnerGrants: async (_team, userId, by) =>
+      record(`drop-owner-grants ${userId} by ${by.actorUserId} ${by.via}`),
     transferComputers: (_team, from, to) => {
       record(`transfer ${from} -> ${to}`)
 
@@ -48,13 +50,13 @@ function setup() {
 test('a guest leaving loses their streams, their place in grants, and their approvals', async () => {
   const { log, deps } = setup()
 
-  await revokeTeamMemberAccess('team', 'mate', deps)
+  await revokeTeamMemberAccess('team', 'mate', { actorUserId: 'mate', via: 'team_leave' }, deps)
 
   expect(log).toEqual([
     'boxes',
     'streams owner,other -> mate',
-    'drop-from-grants mate',
-    'drop-owner-grants mate',
+    'drop-from-grants mate by mate team_leave',
+    'drop-owner-grants mate by mate team_leave',
     'transfer mate -> boss',
     'drop-approvals mate',
     'drop-trusts mate',
@@ -64,11 +66,11 @@ test('a guest leaving loses their streams, their place in grants, and their appr
 test('an owner leaving closes every teammate’s stream on their computer and ungrants it', async () => {
   const { log, deps } = setup()
 
-  await revokeTeamMemberAccess('team', 'owner', deps)
+  await revokeTeamMemberAccess('team', 'owner', { actorUserId: 'owner', via: 'team_leave' }, deps)
 
   expect(log).toContain('streams other -> owner')
   expect(log).toContain('streams owner -> other,mate')
-  expect(log).toContain('drop-owner-grants owner')
+  expect(log).toContain('drop-owner-grants owner by owner team_leave')
   // The team's cloud computers they owned pass to the team's owner.
   expect(log).toContain('transfer owner -> boss')
   // Rejoining starts over: no approval from before carries over.
@@ -78,7 +80,7 @@ test('an owner leaving closes every teammate’s stream on their computer and un
 test('the team’s owner leaving keeps the cloud computers they own', async () => {
   const { log, deps } = setup()
 
-  await revokeTeamMemberAccess('team', 'boss', deps)
+  await revokeTeamMemberAccess('team', 'boss', { actorUserId: 'boss', via: 'team_leave' }, deps)
 
   expect(log.some((entry) => entry.startsWith('transfer'))).toBe(false)
 })

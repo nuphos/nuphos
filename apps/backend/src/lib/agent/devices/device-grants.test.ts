@@ -8,6 +8,8 @@ const calls: Call[] = []
 const audits: Record<string, unknown>[] = []
 // What the next update matches, and whether the computer is still there.
 const db = { matched: 1, exists: true }
+// When set, what each guarded update finds in turn, as the leave flow's loop sees it.
+let queue: Record<string, unknown>[] | null = null
 const stored = {
   userId: 'owner',
   deviceId: 'mac',
@@ -16,6 +18,7 @@ const stored = {
 const collection = {
   findOneAndUpdate: (filter: unknown, update: unknown, options: unknown) => {
     calls.push({ op: 'findOneAndUpdate', filter, update, options })
+    if (queue) return Promise.resolve(queue.shift() ?? null)
 
     return Promise.resolve(db.matched ? stored : null)
   },
@@ -168,28 +171,60 @@ test('teamGrant reads only the asked team', () => {
   expect(teamGrant(device, 'b')).toBeUndefined()
 })
 
-test('leaving a team drops the person from its grants, their own grants there, and hands over its computers', async () => {
+test('leaving a team drops the person from its grants and their own grants, one audited computer at a time', async () => {
   calls.length = 0
-  await dropFromTeamGrants('team', 'mate')
-  await dropOwnerTeamGrants('team', 'owner')
-  await transferTeamComputers('team', 'owner', 'boss')
+  audits.length = 0
+  const leave = { actorUserId: 'admin', via: 'team_removal' as const }
+  const theirs = {
+    userId: 'mate',
+    deviceId: 'pc',
+    access: [{ teamId: 'team', everyone: true, userIds: [], managerIds: [] }],
+  }
 
+  queue = [stored, { ...stored, deviceId: 'mini' }]
+  await dropFromTeamGrants('team', 'lead', leave)
+  queue = [theirs]
+  await dropOwnerTeamGrants('team', 'mate', leave)
+  queue = null
+
+  // Each loop runs until nothing matches: two computers, then the miss that ends it.
+  expect(calls.map((call) => call.op)).toEqual(Array(5).fill('findOneAndUpdate'))
   expect(calls[0]).toEqual({
-    op: 'updateMany',
+    op: 'findOneAndUpdate',
     filter: {
       access: {
-        $elemMatch: { teamId: 'team', $or: [{ userIds: 'mate' }, { managerIds: 'mate' }] },
+        $elemMatch: { teamId: 'team', $or: [{ userIds: 'lead' }, { managerIds: 'lead' }] },
       },
     },
-    update: { $pull: { 'access.$[grant].userIds': 'mate', 'access.$[grant].managerIds': 'mate' } },
-    options: { arrayFilters: [{ 'grant.teamId': 'team' }] },
+    update: { $pull: { 'access.$[grant].userIds': 'lead', 'access.$[grant].managerIds': 'lead' } },
+    options: { returnDocument: 'before', arrayFilters: [{ 'grant.teamId': 'team' }] },
   })
-  expect(calls[1]).toEqual({
-    op: 'updateMany',
-    filter: { userId: 'owner', box: { $exists: false }, 'access.teamId': 'team' },
+  expect(calls[3]).toEqual({
+    op: 'findOneAndUpdate',
+    filter: { userId: 'mate', box: { $exists: false }, 'access.teamId': 'team' },
     update: { $pull: { access: { teamId: 'team' } } },
+    options: { returnDocument: 'before' },
   })
-  expect(calls[2]?.filter).toEqual({
+  expect(audits.map((audit) => audit.deviceId)).toEqual(['mac', 'mini', 'pc'])
+  expect(audits[0]).toMatchObject({
+    actorUserId: 'admin',
+    actorAuthority: 'team_membership',
+    via: 'team_removal',
+    previous: { everyone: false, userIds: ['old'], managerIds: ['lead'] },
+    next: { everyone: false, userIds: ['old'], managerIds: [] },
+  })
+  // Their own computer stops being granted in the team at all.
+  expect(audits[2]).toMatchObject({
+    previous: { everyone: true, userIds: [], managerIds: [] },
+    next: null,
+  })
+})
+
+test('a person leaving hands the team’s cloud computers they own to its owner', async () => {
+  calls.length = 0
+  await transferTeamComputers('team', 'owner', 'boss')
+
+  expect(calls[0]?.filter).toEqual({
     'box.teamId': 'team',
     'box.createdBy': 'owner',
     'box.provider': { $ne: 'k8s' },
