@@ -49,6 +49,8 @@ export async function createMeetingBot(input: {
     meeting_url: input.meetingUrl,
     bot_name: input.botName,
     recording_config: {
+      // Zero data retention: only the real-time stream is used, so Recall keeps no media.
+      retention: null,
       transcript: {
         provider: transcriptProvider(recall),
         diarization: { use_separate_streams_when_available: true },
@@ -84,7 +86,9 @@ export function verifyRecallSignature(
   const { id, timestamp, signature } = headers
 
   if (!id || !timestamp || !signature || !secret.startsWith('whsec_')) return false
-  if (Math.abs(now / 1000 - Number(timestamp)) > MAX_SKEW_SECONDS) return false
+  const skew = Math.abs(now / 1000 - Number(timestamp))
+
+  if (!Number.isFinite(skew) || skew > MAX_SKEW_SECONDS) return false
   const expected = createHmac('sha256', Buffer.from(secret.slice('whsec_'.length), 'base64'))
     .update(`${id}.${timestamp}.${body}`)
     .digest()

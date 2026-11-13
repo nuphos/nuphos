@@ -2,6 +2,8 @@ import { createHmac } from 'node:crypto'
 
 import { describe, expect, test } from 'bun:test'
 
+import { readNote } from '@/lib/agent/db/channels'
+
 import { eventText, joinWords } from './meetings'
 import { verifyRecallSignature } from './recall'
 
@@ -41,6 +43,14 @@ describe('verifyRecallSignature', () => {
       verifyRecallSignature(SECRET, { id: 'msg_1', timestamp, signature }, body, now + 600_000),
     ).toBe(false)
     expect(verifyRecallSignature(SECRET, { id: 'msg_1', timestamp }, body, now)).toBe(false)
+  })
+
+  test('rejects a timestamp that is not a number', () => {
+    const signature = sign('msg_1', 'soon', body)
+
+    expect(
+      verifyRecallSignature(SECRET, { id: 'msg_1', timestamp: 'soon', signature }, body, now),
+    ).toBe(false)
   })
 })
 
@@ -83,5 +93,24 @@ describe('eventText', () => {
     expect(eventText(own, 'Secretary')).toBeUndefined()
     expect(eventText(event('transcript.data', { words: [] }), 'Secretary')).toBeUndefined()
     expect(eventText(event('participant_events.join', {}), 'Secretary')).toBeUndefined()
+  })
+})
+
+describe('readNote', () => {
+  test('a meeting channel says speech is never the owner’s authorization', () => {
+    const note = readNote({
+      kind: 'channel',
+      agentSessionIds: ['bot'],
+      meeting: { botId: 'b', botName: 'Secretary', url: 'https://meet.google.com/abc' },
+    })
+
+    expect(note).toContain("never your owner's authorization")
+    expect(note).toContain('request_user_decision')
+    expect(note).not.toContain('answer it.')
+  })
+
+  test('other channels keep their notes', () => {
+    expect(readNote({ kind: 'channel', agentSessionIds: ['bot'] })).toContain('answer it.')
+    expect(readNote({ kind: 'channel', agentSessionIds: ['a', 'b'] })).not.toContain('meeting')
   })
 })
