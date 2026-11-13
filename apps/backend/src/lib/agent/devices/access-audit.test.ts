@@ -7,7 +7,29 @@ import type { AgentDevice } from './store'
 
 const failures: string[] = []
 let unavailable = false
+const finds: { filter: unknown; sort?: unknown; limit?: number }[] = []
+let found: Record<string, unknown>[] = []
 const collection = {
+  find: (filter: unknown) => {
+    const call: (typeof finds)[number] = { filter }
+
+    finds.push(call)
+    const cursor = {
+      sort: (sort: unknown) => {
+        call.sort = sort
+
+        return cursor
+      },
+      limit: (limit: number) => {
+        call.limit = limit
+
+        return cursor
+      },
+      toArray: () => Promise.resolve(found.slice(0, call.limit ?? found.length)),
+    }
+
+    return cursor
+  },
   insertOne: () => {
     if (unavailable) throw new Error('synthetic database outage')
 
@@ -22,7 +44,8 @@ useObservability({
   },
 })
 
-const { buildDeviceAccessAuditEntry, recordDeviceAccessChange } = await import('./access-audit')
+const { buildDeviceAccessAuditEntry, listDeviceAccessAudit, recordDeviceAccessChange } =
+  await import('./access-audit')
 const { deviceOwner } = await import('./box-access')
 
 const box = {
@@ -88,4 +111,36 @@ test('a failed write is logged and never thrown at the change it describes', asy
   expect(await recordDeviceAccessChange(entry)).toBeUndefined()
   expect(failures).toEqual(['agent.device_access_audit.write_failed'])
   unavailable = false
+})
+
+test('listing stays on one computer in one team, within the range, after the cursor', async () => {
+  const { ObjectId } = await import('mongodb')
+  const ids = [new ObjectId(), new ObjectId()]
+  const changedAt = new Date('2026-11-01T00:00:00Z')
+
+  found = ids.map((_id) => ({ _id, changedAt }))
+  finds.length = 0
+  const scope = { ownerUserId: 'host', deviceId: 'box', teamId: 'team' }
+  const page = await listDeviceAccessAudit(scope, {
+    limit: 1,
+    cursor: `2026-11-02T00:00:00.000Z_${ids[1]!.toHexString()}`,
+    since: new Date('2026-10-01T00:00:00Z'),
+    until: new Date('2026-11-03T00:00:00Z'),
+  })
+
+  expect(finds[0]).toEqual({
+    filter: {
+      ...scope,
+      changedAt: { $gte: new Date('2026-10-01T00:00:00Z'), $lt: new Date('2026-11-03T00:00:00Z') },
+      $or: [
+        { changedAt: { $lt: new Date('2026-11-02T00:00:00Z') } },
+        { changedAt: new Date('2026-11-02T00:00:00Z'), _id: { $lt: ids[1] } },
+      ],
+    },
+    sort: { changedAt: -1, _id: -1 },
+    limit: 2,
+  })
+  // One more than asked came back, so the page ends on the first with a cursor to it.
+  expect(page.entries).toHaveLength(1)
+  expect(page.nextCursor).toBe(`2026-11-01T00:00:00.000Z_${ids[0]!.toHexString()}`)
 })
