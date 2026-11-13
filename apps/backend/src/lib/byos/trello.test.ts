@@ -90,6 +90,27 @@ describe('Trello Composio authorization', () => {
       expect(calls).toHaveLength(1)
     }
   })
+  test('names the Composio log of a failed tool call without its error text', async () => {
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify(
+          calls.push({ url: '' }) === 1
+            ? account
+            : { successful: false, data: {}, error: 'fixture-secret-token', log_id: 'log_fixture' },
+        ),
+      )) as typeof fetch
+    const error = await executeTrelloTool(
+      'ca_fixture',
+      'team:member',
+      'TRELLO_GET_BOARDS_BY_ID_BOARD',
+      {
+        idBoard: ID,
+      },
+    ).catch((e: unknown) => e)
+
+    expect(String(error)).toContain('Composio log log_fixture')
+    expect(String(error)).not.toContain('fixture-secret-token')
+  })
   test('refuses arbitrary and deprecated tools before network access', async () => {
     respond(account)
     await expect(
