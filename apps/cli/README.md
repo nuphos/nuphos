@@ -48,17 +48,16 @@ and can be revoked on its own. An agent signed in with its own token can
 change the name and avatar its messages show, and nothing else, with
 `nuphos agent-profile --name NAME --avatar FILE|URL`.
 
-Getting started needs neither the desktop app nor the web. The first run
+The first run
 signs in through the browser and, if you are not in a team yet, asks for a
-name and creates one. Then add a runtime for its agents to run on:
+name and creates one. Add a Box or connect your own computer in Nuphos, then sign in an existing runtime:
 
 ```sh
 nuphos team "Acme" --create           # create a team and make it the default
-nuphos agents claude-code --create    # add a Nuphos-managed Cloud runtime and sign it in
 nuphos agents "Claude Code" --login   # sign a Cloud runtime in again
 ```
 
-`--create` takes `claude-code`, `codex`, `grok`, `antigravity` or `opencode`. Signing in
+Add a Box or connect your own computer in Nuphos. Signing in
 opens the provider's page; paste the code it shows back into the terminal.
 
 Every TUI action is also a command that needs no terminal, for scripts and
@@ -71,7 +70,7 @@ nuphos exec --approve --agent Codex "..."    # allow commands needing approval
 nuphos conversations [QUERY]                 # recent agents / find one by title
 nuphos team [NAME] [--create]                # list teams / set the default / create
 nuphos agents [NAME] [--session ID]          # list runtimes (Claude Code, Codex, …) / pick or move
-nuphos agents NAME --create | --login        # add a Cloud runtime / sign one in
+nuphos agents NAME --login                   # sign an existing runtime in
 nuphos model                                 # list the runtime's models
 nuphos model [VALUE] [--effort E] --session ID
 nuphos stop --session ID

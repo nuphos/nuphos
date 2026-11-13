@@ -12,22 +12,18 @@ import {
   withRuntimeReadiness,
 } from '@/lib/claude-code-preview/runtime-catalog'
 import { requestRuntimeDeletion } from '@/lib/claude-code-preview/runtime-deletion'
-import { createManagedRuntimeInstance } from '@/lib/claude-code-preview/runtime-instances'
 import {
   deviceMetricsRuntimeId,
   listRuntimeMetricSamples,
 } from '@/lib/claude-code-preview/runtime-metrics-store'
 import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
 import { assertRuntimeNotDeleting } from '@/lib/claude-code-preview/runtime-portability-store'
-import { defaultRuntimeLabel, OPENAB_PROVIDERS } from '@/lib/claude-code-preview/runtime-provider'
 import { probeExternalRuntimeProvider } from '@/lib/claude-code-preview/runtime-provider-probe'
 import {
   removeTeamRuntime,
   renameTeamRuntime,
   setTeamRuntimeStatus,
 } from '@/lib/claude-code-preview/runtime-registry'
-import { offeredSessionConfig } from '@/lib/claude-code-preview/session-config-catalog'
-import { sessionConfigPickSchema } from '@/lib/claude-code-preview/session-config-options'
 import {
   runtimeTerminalTarget,
   runtimeTerminalEvents,
@@ -36,6 +32,8 @@ import {
   requestRuntimeUpdate,
   runtimeStatusWithUpdate,
 } from '@/lib/claude-code-preview/runtime-updates'
+import { offeredSessionConfig } from '@/lib/claude-code-preview/session-config-catalog'
+import { sessionConfigPickSchema } from '@/lib/claude-code-preview/session-config-options'
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 import { requireTeamRole } from '@/middleware/auth'
@@ -49,14 +47,6 @@ import type { TeamAuthVariables } from '@/middleware/auth'
 import type { Context, Hono } from 'hono'
 
 const label = z.string().trim().min(1).max(120)
-const createSchema = z
-  .object({
-    label: label.optional(),
-    provider: z.enum(OPENAB_PROVIDERS),
-    // Ignored: agents no longer carry model defaults; accepted so older clients still save.
-    defaults: z.unknown().optional(),
-  })
-  .strict()
 const updateSchema = z
   .object({
     label: label.optional(),
@@ -222,28 +212,13 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
       return c.json({ provider: (await probeExternalRuntimeProvider(url, authKey)) ?? null })
     },
   )
-  teamScoped.post(
-    '/agent-runtimes',
-    requireTeamRole('ADMINISTRATOR'),
-    zv('json', createSchema),
-    async (c) => {
-      const input = c.req.valid('json')
-      const teamId = c.get('teamId')
-      const instance = await createManagedRuntimeInstance({
-        ...input,
-        label:
-          input.label ??
-          defaultRuntimeLabel(
-            input.provider,
-            (await listRuntimeInstances(teamId)).map((existing) => existing.label),
-          ),
-        teamId,
-        userId: c.get('userId'),
-      })
-
-      return c.json(instance, 201)
-    },
-  )
+  teamScoped.post('/agent-runtimes', requireTeamRole('ADMINISTRATOR'), () => {
+    throw new AppError(
+      410,
+      'managed_runtime_retired',
+      'Managed runtimes are being retired. Add a Nuphos Box or connect your own computer instead.',
+    )
+  })
   teamScoped.patch(
     '/agent-runtimes/:runtimeId',
     requireTeamRole('ADMINISTRATOR'),

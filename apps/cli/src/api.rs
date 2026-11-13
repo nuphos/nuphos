@@ -196,12 +196,6 @@ impl Api {
         Ok(v["runtimes"].as_array().cloned().unwrap_or_default())
     }
 
-    /// A Nuphos-managed Cloud agent; administrators only.
-    pub async fn create_runtime(&self, team: &str, provider: &str) -> Result<Value, ApiError> {
-        let body = json!({ "provider": provider });
-        self.call(Method::POST, &format!("/teams/{team}/agent-runtimes"), &[], Some(&body)).await
-    }
-
     /// `{ online, … }` — whether the agent answers yet.
     /// Only sign-in waits on this, so it also resumes a paused Box.
     pub async fn runtime_status(&self, team: &str, runtime: &str) -> Result<Value, ApiError> {

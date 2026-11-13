@@ -4,7 +4,7 @@ import SwiftUI
 struct AgentSetupSheet: View {
     @Environment(\.dismiss) private var dismiss
     let team: Team
-    var runtime: RuntimeInstance?
+    let runtime: RuntimeInstance
     var login: WorkspaceAPI.Login?
 
     var body: some View {
@@ -15,8 +15,7 @@ struct AgentSetupSheet: View {
     }
 }
 
-/// Creates a Cloud agent and signs it in to the user's own provider account,
-/// or, given `runtime`, signs an existing one in again.
+/// Signs an existing runtime in to the user's own provider account.
 struct AgentSetupView: View {
     @Environment(AuthSession.self) private var auth
     @Environment(AgentStore.self) private var store
@@ -24,9 +23,7 @@ struct AgentSetupView: View {
     @Environment(\.openURL) private var openURL
     let team: Team
     private let selectOnCompletion: Bool
-    @State private var provider = RuntimeInstance.Provider.claudeCode
-    @State private var name = ""
-    @State private var runtime: RuntimeInstance?
+    private let runtime: RuntimeInstance
     @State private var login: WorkspaceAPI.Login?
     @State private var code = ""
     @State private var search = ""
@@ -36,10 +33,10 @@ struct AgentSetupView: View {
     @State private var copied = false
     @State private var error: String?
 
-    init(team: Team, runtime: RuntimeInstance? = nil, login: WorkspaceAPI.Login? = nil, selectOnCompletion: Bool = true) {
+    init(team: Team, runtime: RuntimeInstance, login: WorkspaceAPI.Login? = nil, selectOnCompletion: Bool = true) {
         self.team = team
         self.selectOnCompletion = selectOnCompletion
-        _runtime = State(initialValue: runtime)
+        self.runtime = runtime
         _login = State(initialValue: login)
     }
 
@@ -53,29 +50,27 @@ struct AgentSetupView: View {
 
     var body: some View {
         Form {
-            if let runtime { signIn(runtime) } else { createForm }
+            signIn(runtime)
             if let error {
                 Section { Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red).font(.footnote) }
             }
         }
-        .navigationTitle(runtime?.label ?? "New Runtime")
+        .navigationTitle(runtime.label)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 if busy {
                     ProgressView()
-                } else if runtime == nil {
-                    Button("Create") { create(provider) }.glassProminentButton()
                 } else if needsCode {
                     Button("Continue") { submitCode() }.glassProminentButton().disabled(trimmedCode.isEmpty)
-                } else if connected, let runtime {
+                } else if connected {
                     Button("Done") { finish(runtime) }.glassProminentButton()
                 }
             }
         }
         .interactiveDismissDisabled(busy || login?.pending == true)
         .task(id: login?.attemptId) {
-            guard let runtime, let token = auth.token, login?.pending == true else { return }
+            guard let token = auth.token, login?.pending == true else { return }
             while !Task.isCancelled, login?.pending == true {
                 do {
                     try await Task.sleep(for: .seconds(3))
@@ -85,45 +80,6 @@ struct AgentSetupView: View {
                 } catch is CancellationError { return }
                 catch {}
             }
-        }
-    }
-
-    // MARK: - Create
-
-    @ViewBuilder
-    private var createForm: some View {
-        Section {
-            ForEach(Self.providers, id: \.0) { entry in
-                let item = entry.0
-                Button { provider = item } label: {
-                    HStack(spacing: 12) {
-                        ProviderIcon(provider: item, size: 30)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(RuntimeInstance.Provider.name(item.rawValue)).foregroundStyle(Theme.heading)
-                            Text(entry.vendor).font(.footnote).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        if item == provider {
-                            Image(systemName: "checkmark").fontWeight(.semibold).foregroundStyle(Theme.heading)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-        } header: {
-            Text("Provider")
-        }
-
-        Section {
-            LabeledContent("Name") {
-                TextField("Name", text: $name, prompt: Text(RuntimeInstance.Provider.name(provider.rawValue)))
-                    .multilineTextAlignment(.trailing)
-                    .submitLabel(.done)
-                    .onChange(of: name) { _, value in if value.count > 80 { name = String(value.prefix(80)) } }
-            }
-        } footer: {
-            Text("You'll sign in with your own \(account(provider)) account. Your plan's usage limits apply.")
         }
     }
 
@@ -347,21 +303,6 @@ struct AgentSetupView: View {
 
     private func path(_ runtime: RuntimeInstance) -> String { "teams/\(team.id)/agent-runtimes/\(runtime.id)" }
 
-    private func create(_ provider: RuntimeInstance.Provider) {
-        guard let token = auth.token else { return }
-        let label = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        busy = true; error = nil
-        Task {
-            do {
-                let created: RuntimeInstance = try await WorkspaceAPI.request("teams/\(team.id)/agent-runtimes", token: token, method: "POST", body: .object(["provider": .string(provider.rawValue), "label": .string(label.isEmpty ? RuntimeInstance.Provider.name(provider.rawValue) : label)]))
-                withAnimation { runtime = created }
-                busy = false
-                startLogin(created)
-                await store.loadRuntimes(force: true)
-            } catch { self.error = error.localizedDescription; busy = false }
-        }
-    }
-
     private func startLogin(_ runtime: RuntimeInstance) {
         guard let token = auth.token else { return }
         struct Status: Decodable { let online: Bool }
@@ -383,7 +324,7 @@ struct AgentSetupView: View {
     }
 
     private func submitCode() {
-        guard let token = auth.token, let runtime, let login, !trimmedCode.isEmpty else { return }
+        guard let token = auth.token, let login, !trimmedCode.isEmpty else { return }
         busy = true; error = nil
         Task {
             defer { busy = false }

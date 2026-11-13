@@ -17,7 +17,6 @@ struct AgentPage: View {
     /// Whether the keyboard on screen is this page's composer's.
     @State private var ownsKeyboard = false
     @State private var showWorkspaceSetup = false
-    @State private var showAgentSetup = false
     @State private var showNewBot = false
     @State private var renaming: AgentConversation?
     @State private var archivingBot: AgentConversation?
@@ -60,7 +59,6 @@ struct AgentPage: View {
                 if store.selectedTeam == nil { await store.loadTeams() } else { await store.reload() }
             }
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
-            .sheet(isPresented: $showAgentSetup) { if let team = store.selectedTeam { AgentSetupSheet(team: team) } }
             .sheet(isPresented: $showNewBot) {
                 NewBotSheet { title, avatar in
                     guard let bot = try await store.createBot(title: title, avatar: avatar) else { return }
@@ -264,11 +262,7 @@ struct AgentPage: View {
             ContentUnavailableView {
                 Label("Connect your first runtime", systemImage: "cpu")
             } description: {
-                Text(store.selectedTeam?.isAdministrator == true ? "Create a cloud runtime and sign in with your AI provider." : "Ask a workspace administrator to connect a cloud runtime, or open Nuphos on your computer to connect your own local runtime.")
-            } actions: {
-                if store.selectedTeam?.isAdministrator == true {
-                    Button("Set up runtime") { showAgentSetup = true }.prominentButton()
-                }
+                Text("Open Nuphos on your computer to add a Box or connect your own computer, or ask a workspace administrator to connect one.")
             }
         case .idle, .loading:
             ProgressView("Loading agents…")
