@@ -99,7 +99,6 @@ describe('eventText', () => {
 describe('readNote', () => {
   test('a meeting channel says speech is never the owner’s authorization', () => {
     const note = readNote({
-      kind: 'channel',
       agentSessionIds: ['bot'],
       meeting: { botId: 'b', botName: 'Secretary', url: 'https://meet.google.com/abc' },
     })
@@ -110,7 +109,7 @@ describe('readNote', () => {
   })
 
   test('other channels keep their notes', () => {
-    expect(readNote({ kind: 'channel', agentSessionIds: ['bot'] })).toContain('answer it.')
-    expect(readNote({ kind: 'channel', agentSessionIds: ['a', 'b'] })).not.toContain('meeting')
+    expect(readNote({ agentSessionIds: ['bot'] })).toContain('answer it.')
+    expect(readNote({ agentSessionIds: ['a', 'b'] })).not.toContain('meeting')
   })
 })
