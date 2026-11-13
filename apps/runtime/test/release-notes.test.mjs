@@ -33,6 +33,10 @@ test('release notes read the tagged runtime subtree and exclude unrelated monore
         },
       }),
     )
+    writeFileSync(
+      join(cwd, 'image/Dockerfile'),
+      'FROM common AS hermes\nARG HERMES_VERSION=0.23.1\n',
+    )
     git('init', '-b', 'main')
     version('0.1.0')
     writeFileSync(
@@ -71,6 +75,8 @@ test('release notes read the tagged runtime subtree and exclude unrelated monore
     assert.match(notes, /ghcr\.io\/nuphos\/runtime:0\.1\.1-antigravity/)
     assert.match(notes, /ghcr\.io\/nuphos\/runtime:0\.1\.1-opencode/)
     assert.match(notes, /\| OpenCode \| 1\.18\.35 \|/)
+    assert.match(notes, /ghcr\.io\/nuphos\/runtime:0\.1\.1-hermes/)
+    assert.match(notes, /\| Hermes Agent \| 0\.23\.1 \|/)
     assert.match(notes, /\| Grok Build CLI \| 1\.0\.46 \|/)
     assert.match(notes, /nuphos\/nuphos\/compare\/runtime-v0\.1\.0\.\.\.runtime-v0\.1\.1/)
     assert.throws(() =>

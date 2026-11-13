@@ -10,7 +10,7 @@
 # No default: a baked-in default would publish the operator's registry path in
 # the image config, and every caller already knows which base it is taking from.
 ARG BASE_IMAGE
-# Selects the final stage below: claude-code, codex, grok, antigravity or opencode.
+# Selects the final stage below: claude-code, codex, grok, antigravity, opencode or hermes.
 ARG RUNTIME_PROVIDER=claude-code
 
 FROM ${BASE_IMAGE:?BASE_IMAGE-build-arg-is-required-see-the-README} AS openab
@@ -45,17 +45,19 @@ RUN chmod -R a+rX /opt/nuphos-runtime \
 COPY --chmod=755 sync-skills.sh /usr/local/bin/nuphos-sync-skills
 COPY --chmod=755 seed-codex-auth.sh /usr/local/bin/nuphos-seed-codex-auth
 COPY reply-image-stream.mjs reply-images.mjs runtime-defaults.mjs mcp-bridge-config.mjs session-home.mjs \
-     process-death.mjs acp-shim.mjs native-question.mjs /opt/
+     process-death.mjs acp-shim.mjs hermes-session.mjs native-question.mjs /opt/
 # Sourced via BASH_ENV, so it is read, never executed.
 COPY --chmod=644 runtime-guard.sh /opt/nuphos-runtime/runtime-guard.sh
 COPY codex-login.mjs claude-login.mjs mcp-http-bridge.mjs panel-job.mjs /opt/nuphos-runtime/
-COPY grok-login.mjs antigravity-login.mjs antigravity-status.mjs antigravity-status-cli.mjs opencode-login.mjs /opt/nuphos-runtime/
+COPY grok-login.mjs antigravity-login.mjs antigravity-status.mjs antigravity-status-cli.mjs opencode-login.mjs \
+     hermes-login.mjs /opt/nuphos-runtime/
 # COPY --chmod also affects newly created destination directories.
 # Runtime helpers must be traversable by the non-root init and agent containers.
 RUN chmod 755 /opt/nuphos-runtime \
  && chmod 644 /opt/nuphos-runtime/runtime-guard.sh /opt/nuphos-runtime/codex-login.mjs \
       /opt/nuphos-runtime/claude-login.mjs /opt/nuphos-runtime/grok-login.mjs \
       /opt/nuphos-runtime/antigravity-login.mjs /opt/nuphos-runtime/opencode-login.mjs \
+      /opt/nuphos-runtime/hermes-login.mjs \
       /opt/nuphos-runtime/mcp-http-bridge.mjs /opt/nuphos-runtime/panel-job.mjs
 
 FROM common AS claude-code
@@ -123,6 +125,45 @@ ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs opencode" \
     OPENAB_AGENT_AUTH_COMMAND="opencode providers login" \
     OPENAB_ADAPTER_VERSION="opencode@1.18.35" \
     NUPHOS_RUNTIME_PREINSTALL=opencode
+
+# Hermes Agent speaks ACP itself too, but ships no binaries and its PyPI package is stale:
+# the tagged source installs from its own uv.lock, on the only Python it supports (3.14),
+# with the uv build Hermes's own installer pins. On-demand installs stay off: they build
+# a second environment, without ACP, and every later start moves to it.
+FROM common AS hermes
+ARG HERMES_VERSION=0.23.1
+ARG HERMES_SHA256=52a8eb321f368576034f40595491abf9646b60c3861eee0cf45f610e5faa9bb6
+ARG UV_VERSION=0.13.5
+RUN arch=$(uname -m) \
+ && case "$arch" in \
+      x86_64) uv_sha256=f68d291c75783122dad58ab77def0e13f3233f358731db5d6d7e8715603b928f ;; \
+      aarch64) uv_sha256=4bb69cf95ed13f23713bb7bc09f241896ea0c75b7c557e615a20604b82f9c403 ;; \
+      *) echo "unsupported architecture $arch" >&2; exit 1 ;; \
+    esac \
+ && cd /tmp \
+ && curl -fsSLo uv.tar.gz \
+      "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-${arch}-unknown-linux-gnu.tar.gz" \
+ && echo "${uv_sha256}  uv.tar.gz" | sha256sum -c - \
+ && tar -xzf uv.tar.gz --strip-components=1 "uv-${arch}-unknown-linux-gnu/uv" \
+ && curl -fsSLo hermes.tar.gz \
+      "https://github.com/NousResearch/hermes-agent/archive/refs/tags/v${HERMES_VERSION}.tar.gz" \
+ && echo "${HERMES_SHA256}  hermes.tar.gz" | sha256sum -c - \
+ && install -d -m 755 /opt/hermes \
+ && tar -xzf hermes.tar.gz --strip-components=1 -C /opt/hermes \
+ && rm -rf /opt/hermes/tests /opt/hermes/website /opt/hermes/contributors \
+ && cd /opt/hermes \
+ && UV_NO_CONFIG=1 UV_CACHE_DIR=/tmp/uv-cache UV_PYTHON_INSTALL_DIR=/opt/hermes-python \
+      UV_PROJECT_ENVIRONMENT=/opt/hermes/.venv \
+      /tmp/uv sync --frozen --no-dev --extra acp --python 3.14.8 --compile-bytecode \
+ && rm -rf /tmp/uv /tmp/uv.tar.gz /tmp/hermes.tar.gz /tmp/uv-cache \
+ && chmod -R a+rX /opt/hermes /opt/hermes-python \
+ && ln -s /opt/hermes/.venv/bin/hermes /usr/local/bin/hermes \
+ && HERMES_HOME=/tmp/hermes-check HERMES_DISABLE_LAZY_INSTALLS=1 hermes acp --check \
+ && rm -rf /tmp/hermes-check
+ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs hermes" \
+    OPENAB_AGENT_AUTH_COMMAND="hermes auth add" \
+    OPENAB_ADAPTER_VERSION="hermes@0.23.1" \
+    HERMES_DISABLE_LAZY_INSTALLS=1
 
 FROM ${RUNTIME_PROVIDER}
 ARG RUNTIME_PROVIDER
@@ -202,7 +243,8 @@ ENV OPENAB_RUNTIME_LABEL="${RUNTIME_LABEL}" \
 # and a bare `docker run` needs no volume. A mount at /etc/openab/config.toml
 # replaces this file; openab reads that single path and merges nothing.
 COPY openab-config.claude-code.toml openab-config.codex.toml openab-config.grok.toml \
-     openab-config.antigravity.toml openab-config.opencode.toml /tmp/nuphos-config/
+     openab-config.antigravity.toml openab-config.opencode.toml openab-config.hermes.toml \
+     /tmp/nuphos-config/
 RUN install -d -m 755 /etc/openab \
  && install -m 644 "/tmp/nuphos-config/openab-config.${RUNTIME_PROVIDER}.toml" \
       /etc/openab/config.toml \
@@ -231,6 +273,7 @@ RUN test -x /opt/nuphos-runtime \
  && test -r /opt/nuphos-runtime/antigravity-status.mjs \
  && test -r /opt/nuphos-runtime/antigravity-status-cli.mjs \
  && test -r /opt/nuphos-runtime/opencode-login.mjs \
+ && test -r /opt/nuphos-runtime/hermes-login.mjs \
  && test -r /opt/nuphos-runtime/panel-job.mjs \
  && test -r /opt/nuphos-agent/host.mjs \
  && test -r /etc/openab/config.toml \

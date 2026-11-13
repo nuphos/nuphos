@@ -56,6 +56,12 @@ Agent CLIs and ACP adapters
   Not included either: OpenCode (MIT, https://github.com/anomalyco/opencode).
   The opencode image downloads the pinned release from GitHub on first use.
 
+  Hermes Agent                 MIT           https://github.com/NousResearch/hermes-agent
+    Included in the hermes image only, at /opt/hermes, with the Python 3.14
+    interpreter (PSF-2.0) it runs on and the Python packages its uv.lock pins
+    for the acp extra, each under its own licence. See the package metadata
+    under /opt/hermes/.venv/lib/python3.14/site-packages in the image.
+
 
 Command-line tools
 ------------------

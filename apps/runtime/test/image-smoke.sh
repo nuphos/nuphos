@@ -17,6 +17,8 @@ case "$OPENAB_AGENT_COMMAND" in
   # A 320 MB download on first use; the shim on PATH is enough here.
   'node /opt/acp-shim.mjs antigravity') agy acp --help ;;
   'node /opt/acp-shim.mjs opencode') opencode --version ;;
+  # A home of its own: the check writes logs, and the runtime's home holds only the login.
+  'node /opt/acp-shim.mjs hermes') HERMES_HOME="$(mktemp -d)" hermes acp --check ;;
   *) fail "unexpected agent command $OPENAB_AGENT_COMMAND" ;;
 esac
 [ -z "$(ls /usr/local/lib/node_modules | grep -v -x -e npm -e corepack)" ] \

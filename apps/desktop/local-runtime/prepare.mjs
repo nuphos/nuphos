@@ -64,6 +64,7 @@ export const ADAPTERS = {
 /** The shim and the modules it imports, as the image ships them. */
 const SHIM_SOURCES = [
   'acp-shim.mjs',
+  'hermes-session.mjs',
   'mcp-bridge-config.mjs',
   'mcp-http-bridge.mjs',
   'runtime-defaults.mjs',
