@@ -14,6 +14,16 @@ use tokio::sync::{Mutex, OwnedSemaphorePermit, RwLock, Semaphore};
 use tokio::time::Instant;
 use tracing::{info, warn};
 
+/// Why a session could not start. `Request` keeps the agent's own error, so a
+/// caller can relay its code and `data` instead of reading the message text.
+#[derive(Debug, thiserror::Error)]
+pub enum SessionStartError {
+    #[error(transparent)]
+    Request(#[from] AcpRequestError),
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
 /// Combined state protected by a single lock to prevent deadlocks.
 /// Lock ordering: never await a per-connection mutex while holding `state`.
 struct PoolState {
@@ -713,7 +723,7 @@ impl SessionPool {
         working_dir_override: Option<&str>,
         mcp_servers: &[serde_json::Value],
         session_meta: Option<&serde_json::Value>,
-    ) -> Result<bool> {
+    ) -> Result<bool, SessionStartError> {
         self.get_or_restore(
             thread_id,
             working_dir_override,
@@ -786,7 +796,7 @@ impl SessionPool {
         mcp_servers: &[serde_json::Value],
         session_meta: Option<&serde_json::Value>,
         restore_only: bool,
-    ) -> Result<bool> {
+    ) -> Result<bool, SessionStartError> {
         let working_dir_override = working_dir_override.or_else(|| meta_working_dir(session_meta));
         let create_gate = {
             let mut state = self.state.write().await;
@@ -794,7 +804,7 @@ impl SessionPool {
                 && !state.persisted.contains_key(thread_id)
                 && !state.active.contains_key(thread_id)
             {
-                return Err(anyhow!("No saved native session to restore"));
+                return Err(anyhow!("No saved native session to restore").into());
             }
             // A non-empty declaration updates the stored set used by the next
             // spawn. An idle live agent is respawned below when it differs.
@@ -862,7 +872,7 @@ impl SessionPool {
 
         if restore_only {
             if saved_session_id.is_none() {
-                return Err(anyhow!("No saved native session to restore"));
+                return Err(anyhow!("No saved native session to restore").into());
             }
             let mut state = self.state.write().await;
             state
@@ -1083,7 +1093,8 @@ impl SessionPool {
                     }
                     Err(e) if restore_only => {
                         return Err(anyhow::Error::new(e)
-                            .context("Could not restore the saved native session"));
+                            .context("Could not restore the saved native session")
+                            .into());
                     }
                     Err(e @ AcpRequestError::Timeout { .. }) => {
                         warn!(thread_id = %crate::redact::redact_session_ids(thread_id), session_id = %crate::redact::redact_session_ids(sid), error = %e,
@@ -1103,16 +1114,12 @@ impl SessionPool {
             // in state.persisted (we haven't touched it), so the next message will
             // retry session/load automatically. Return an error so the current message
             // is not processed against a context-free session.
-            return Err(anyhow!(
-                "session load timeout: could not restore previous session"
-            ));
+            return Err(anyhow!("session load timeout: could not restore previous session").into());
         }
 
         if !resumed {
             if restore_only {
-                return Err(anyhow!(
-                    "Agent does not support restoring the saved session"
-                ));
+                return Err(anyhow!("Agent does not support restoring the saved session").into());
             }
             new_conn
                 .session_new(

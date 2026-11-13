@@ -803,7 +803,7 @@ impl AdapterRouter {
                 .send_message(&ctx.thread_channel, &format!("⚠️ {msg}"))
                 .await;
             error!("pool error: {e}");
-            return Err(e);
+            return Err(e.into());
         }
 
         // In assistant-status mode (e.g. Slack assistant_mode), status is conveyed

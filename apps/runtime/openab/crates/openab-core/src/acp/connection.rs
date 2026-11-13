@@ -29,9 +29,9 @@ pub enum AcpRequestError {
     Timeout { method: String },
     #[error("connection closed waiting for {method}")]
     ConnectionClosed { method: String },
-    /// The request could not be written to the agent.
+    /// The request could not be written, or its response was unusable.
     #[error(transparent)]
-    Write(#[from] anyhow::Error),
+    Other(#[from] anyhow::Error),
 }
 
 type NotificationSender = Arc<Mutex<Option<mpsc::Sender<JsonRpcMessage>>>>;
@@ -1111,7 +1111,7 @@ impl AcpConnection {
         Ok(with_recent_stderr(resp, &self.activity))
     }
 
-    pub async fn initialize(&mut self) -> Result<()> {
+    pub async fn initialize(&mut self) -> Result<(), AcpRequestError> {
         let resp = self
             .send_request(
                 "initialize",
@@ -1170,7 +1170,7 @@ impl AcpConnection {
         cwd: &str,
         mcp_servers: &[serde_json::Value],
         session_meta: Option<&serde_json::Value>,
-    ) -> Result<String> {
+    ) -> Result<String, AcpRequestError> {
         let resp = self
             .send_request(
                 "session/new",
