@@ -2,7 +2,8 @@ import SwiftUI
 
 /// An open question, in a Bot's chat or the Inbox, like the desktop's decision
 /// card: which agent asked, the question and what the agent wrote to decide it
-/// from, each option an answer, and "Other…" to type the answer in the card. A
+/// from, each option an answer, and "Other…" to type the answer in the card
+/// (in the Inbox, the text box is always there). A
 /// multi-select or several questions are a form, sent as one answer. An answer
 /// wakes the agent that asked; no message is sent. A connect or secure-input question is answered in the
 /// conversation that asked, which the link opens. `showsFrom` is off for the
@@ -18,18 +19,20 @@ struct BotQuestionCard: View {
     var failure: String?
     /// Chooses the asking conversation's credentials here, for an integration question; absent where it cannot.
     var onConnect: (() -> Void)?
+    /// The text box is always on the card, rather than behind "Other…", as the Inbox shows it.
+    var answersInPlace = false
 
     @State private var expanded = false
     /// "Other…" was tapped: the card asks for the answer in words.
     @State private var typing = false
     @Environment(\.openURL) private var openURL
 
-    /// The desktop's `cardReplies`: one per option, or "Done." for a to-do; nil
-    /// when only the conversation can answer it.
+    /// One answer per option, possibly none; nil when only the conversation can answer it.
     private var replies: [(label: String, answer: DecisionAnswer)]? {
         if ["credential", "integration"].contains(question.request.category) { return nil }
         let options = (question.request.options ?? []).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-        if options.isEmpty { return [(String(localized: "Mark as done"), DecisionAnswer(text: "Done."))] }
+        // Neither an option nor words answer it here.
+        if options.isEmpty && !question.typed { return nil }
         return options.map { ($0, DecisionAnswer(choices: [$0])) }
     }
 
@@ -78,19 +81,21 @@ struct BotQuestionCard: View {
                 }
                 if let form = question.form {
                     DecisionForm(questions: form, onSubmit: onAnswer)
-                } else if typing {
-                    // "Other…": the same form with the question alone and no options.
-                    DecisionForm(questions: [.init(question: question.request.question)], onSubmit: onAnswer)
                 } else if let replies {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(replies, id: \.label) { reply in
-                            Button(reply.label) { onAnswer(reply.answer) }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                                .tint(Theme.heading)
+                    if !replies.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(replies, id: \.label) { reply in
+                                Button(reply.label) { onAnswer(reply.answer) }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.small)
+                                    .tint(Theme.heading)
+                            }
                         }
                     }
-                    if question.typed {
+                    if question.typed && (typing || answersInPlace) {
+                        // The answer in words: the same form with the question alone and no options.
+                        DecisionForm(questions: [.init(question: question.request.question)], onSubmit: onAnswer)
+                    } else if question.typed {
                         Button(replyLabel) { typing = true }
                             .font(Theme.Text.label)
                             .foregroundStyle(Theme.muted)
