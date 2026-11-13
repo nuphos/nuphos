@@ -74,16 +74,14 @@ export function makeAttachmentTurn(
   // failed never gets one. The agent still pulls the group, because loadGroup
   // matches on team + user, not session.
   const runUpload = (): Promise<TransferUploadPart> =>
-    api
-      .fileTransferUpload({ teamId, filePaths })
-      .then((group) => ({
-        type: 'transfer-upload' as const,
-        groupId: group.groupId,
-        status: 'ready' as const,
-        ...(group.archive ? { archive: true as const } : {}),
-        ...(group.archiveEntryCount != null ? { archiveEntryCount: group.archiveEntryCount } : {}),
-        files: group.files.map((f) => ({ fileName: f.fileName, size: f.size, status: f.status })),
-      }))
+    api.fileTransferUpload({ teamId, filePaths }).then((group) => ({
+      type: 'transfer-upload' as const,
+      groupId: group.groupId,
+      status: 'ready' as const,
+      ...(group.archive ? { archive: true as const } : {}),
+      ...(group.archiveEntryCount != null ? { archiveEntryCount: group.archiveEntryCount } : {}),
+      files: group.files.map((f) => ({ fileName: f.fileName, size: f.size, status: f.status })),
+    }))
 
   return { messageId, optimisticPart, buildUserMsg, runUpload }
 }
