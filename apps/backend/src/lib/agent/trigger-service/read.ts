@@ -53,7 +53,9 @@ export async function listTriggers(
 export async function getTrigger(
   triggerId: string,
   actor: TriggerActor,
-): Promise<SerializedTrigger & { managedProviderResources?: ManagedProviderResourcePlan }> {
+): Promise<
+  SerializedTrigger & { canManage: boolean; managedProviderResources?: ManagedProviderResourcePlan }
+> {
   const trigger = await findManagedTrigger(parseTriggerId(triggerId))
 
   await assertTriggerAccess(trigger, actor, 'read')
@@ -62,6 +64,8 @@ export async function getTrigger(
 
   return {
     ...serializeTrigger(trigger, exposeSecret),
+    // As in the list, so a card shows its switch only to whoever may flip it.
+    canManage: !trigger.cleanupStatus && exposeSecret,
     ...(managedProviderResources ? { managedProviderResources } : {}),
   }
 }
