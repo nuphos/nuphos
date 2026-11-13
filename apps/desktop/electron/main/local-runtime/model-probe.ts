@@ -1,5 +1,10 @@
 import { spawn } from 'node:child_process'
 
+import { agentEnv } from './config.ts'
+
+import type { LocalRuntimeBundle } from './config.ts'
+import type { ProbeModelsRun } from './controller-types.ts'
+
 export type ModelControls = {
   effort: { value: string; name: string; description?: string }[]
   /** Off and each speed the adapter offers; empty when it has none. */
@@ -217,4 +222,33 @@ export function probeLocalModels(options: {
       finish(error instanceof Error ? error : new Error(String(error)))
     })
   })
+}
+
+/** `probeModels` for a host that stages `bundle`: the adapter runs as it would under openab. */
+export function bundledModelProbe(bundle: () => LocalRuntimeBundle | null) {
+  return ({ provider, workspace, env, cliPath, agentHome }: ProbeModelsRun) => {
+    const staged = bundle()
+    const adapter = staged?.adapters[provider]
+
+    if (!staged || !adapter) return Promise.reject(new Error('The local runtime is not bundled'))
+
+    return probeLocalModels({
+      nodeExecPath: process.execPath,
+      adapter: adapter.entry,
+      cwd: workspace,
+      env: agentEnv({
+        provider,
+        bundle: staged,
+        adapter,
+        nodeExecPath: process.execPath,
+        cliPath,
+        agentHome,
+        workspace,
+        openabHome: workspace,
+        port: 0,
+        authKey: '',
+        env,
+      }),
+    })
+  }
 }

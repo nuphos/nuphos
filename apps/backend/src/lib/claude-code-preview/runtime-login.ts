@@ -7,6 +7,7 @@ import { AppError } from '@/lib/errors'
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { requireRuntimeInstance } from './runtime-catalog'
 import { controlLoginTransport } from './runtime-login-control'
+import { acceptsAnswer } from './runtime-login-step'
 import {
   AUTHORIZATION_FIELDS,
   claimRuntimeLogin,
@@ -17,7 +18,6 @@ import {
   submitLoginCode,
 } from './runtime-login-store'
 
-import type { ControlLoginTarget } from './runtime-login-control'
 import type { RuntimeLoginFrame } from './runtime-login-step'
 import type { RuntimeLoginDoc, RuntimeLoginStatus } from './runtime-login-store'
 
@@ -87,8 +87,6 @@ async function commitAddedAgent(doc: RuntimeLoginDoc): Promise<void> {
     ref.instanceId,
   )
 }
-
-const loginDeps: RuntimeLoginDeps<ControlLoginTarget> = controlLoginTransport
 
 /** All callbacks are fenced by the attempt ID, including cross-replica cancellation. */
 export async function performRuntimeLogin<Target>(
@@ -225,7 +223,7 @@ export async function startRuntimeLogin(
   await requireLoginInstance(teamId, runtimeId, userId)
   const doc = await claimRuntimeLogin(teamId, runtimeId, userId)
 
-  void performRuntimeLogin(doc, loginDeps).catch(() => {
+  void performRuntimeLogin(doc, controlLoginTransport).catch(() => {
     /* Expiry bounds recovery after a database outage. */
   })
 
@@ -252,27 +250,6 @@ export async function cancelRuntimeLogin(
   )
 
   if (result.matchedCount) running.get(attemptId)?.abort()
-}
-
-/**
- * The `code#state` Claude's callback page shows, or the loopback address Google's
- * sign-in leaves the browser on for Antigravity. The runtime checks the port itself.
- */
-export const AUTHORIZATION_CODE =
-  /^(?:[\w.~-]{1,2048}#[\w.~-]{1,512}|http:\/\/(?:127\.0\.0\.1|localhost):\d{1,5}\/\?[\w.~%&=/+:-]{1,4096})$/u
-/** In place of the account sign-in: an API key for the runtime's CLI, or removing it. */
-export const API_KEY_ANSWER = /^(?:sk-[\w-]{20,400}|sign-out)$/u
-const LOOPBACK_ADDRESS = /^http:\/\/(?:127\.0\.0\.1|localhost):\d{1,5}\/\S*$/u
-
-/** Whether `answer` is what the sign-in is waiting for; the runtime checks it again. */
-export function acceptsAnswer(doc: RuntimeLoginDoc, answer: string): boolean {
-  const { step } = doc
-
-  if (!step) return AUTHORIZATION_CODE.test(answer) || API_KEY_ANSWER.test(answer)
-  if (step.kind === 'choose') return step.options.some((option) => option.value === answer)
-  if (step.kind === 'browser' && step.paste === 'address') return LOOPBACK_ADDRESS.test(answer)
-
-  return answer.length > 0
 }
 
 export async function submitRuntimeLoginCode(

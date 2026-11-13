@@ -74,7 +74,7 @@ const boundaries: Record<string, Record<string, unknown>> = {
   './mac-screen-app.ts': {
     macScreenApp: () => ({ deps: () => ({}) }),
   },
-  './model-probe.ts': { probeLocalModels: noop },
+  './model-probe.ts': { bundledModelProbe: () => noop },
   './openab-process.ts': { OpenabProcess: class {} },
   './sleep-prevention-electron.ts': {},
 }

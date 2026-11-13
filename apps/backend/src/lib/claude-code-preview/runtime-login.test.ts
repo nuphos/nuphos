@@ -249,7 +249,7 @@ test('a runtime reports its sign-in without carrying the credential', () => {
 })
 
 test('a pasted sign-in result is a Claude code or a loopback callback, nothing else', async () => {
-  const { AUTHORIZATION_CODE } = await import('./runtime-login')
+  const { AUTHORIZATION_CODE } = await import('./runtime-login-step')
 
   for (const ok of [
     'the-code#the-state',
@@ -267,7 +267,7 @@ test('a pasted sign-in result is a Claude code or a loopback callback, nothing e
 })
 
 test('a stepped sign-in takes one answer per step, each checked against that step', async () => {
-  const { acceptsAnswer } = await import('./runtime-login')
+  const { acceptsAnswer } = await import('./runtime-login-step')
   const doc = await claimRuntimeLogin('team', 'runtime', 'admin')
   const { deps } = dependencies()
   const delivered: string[] = []
@@ -320,7 +320,7 @@ test('a stepped sign-in takes one answer per step, each checked against that ste
 })
 
 test('a page OpenCode watches itself takes no answer; one that ends on loopback takes its address', async () => {
-  const { acceptsAnswer } = await import('./runtime-login')
+  const { acceptsAnswer } = await import('./runtime-login-step')
   const doc = await claimRuntimeLogin('team', 'runtime', 'admin')
   const browser = { kind: 'browser' as const, url: 'https://github.com/login/device' }
 
@@ -366,7 +366,7 @@ test('an added agent is kept before its sign-in reads connected, and a failed ke
 })
 
 test('an API key replaces the device sign-in, sealed until the runtime takes it', async () => {
-  const { acceptsAnswer } = await import('./runtime-login')
+  const { acceptsAnswer } = await import('./runtime-login-step')
   const doc = await claimRuntimeLogin('team', 'runtime', 'admin')
   const { deps } = dependencies()
   const key = 'sk-proj-not-a-real-key-0123456789'
@@ -399,7 +399,7 @@ test('an API key replaces the device sign-in, sealed until the runtime takes it'
 })
 
 test('removing an API key ends as signed out, not connected', async () => {
-  const { acceptsAnswer } = await import('./runtime-login')
+  const { acceptsAnswer } = await import('./runtime-login-step')
   const doc = await claimRuntimeLogin('team', 'runtime', 'admin')
   const { deps } = dependencies()
   let committed = false
