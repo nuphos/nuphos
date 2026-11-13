@@ -1,6 +1,7 @@
 import { ipcRenderer } from 'electron'
 
 import { runtimeApi } from './api-runtimes'
+import { teamDataApi } from './api-team-data'
 
 import type { DashboardViewRange } from '../../src/dashboards/schema'
 import type { AgentProvider } from '../../src/types/runtime'
@@ -150,9 +151,7 @@ export const teamApi = {
     ipcRenderer.invoke('teamSkills:githubPreview', teamId, source, scope),
   teamSkillsGithubInstall: (teamId: string, input: unknown, scope?: string) =>
     ipcRenderer.invoke('teamSkills:githubInstall', teamId, input, scope),
-  atlasCreateTeam: (name: string) => ipcRenderer.invoke('atlas:createTeam', name),
-  atlasUpdateTeam: (teamId: string, input: { name: string }) =>
-    ipcRenderer.invoke('atlas:updateTeam', teamId, input),
+  ...teamDataApi,
   atlasSetTeamAvatar: (teamId: string, image: Uint8Array | null) =>
     ipcRenderer.invoke('atlas:setTeamAvatar', teamId, image),
   atlasSetTeamEmailDomainDiscovery: (teamId: string, enabled: boolean) =>

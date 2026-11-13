@@ -18,6 +18,7 @@ import type {
 } from '../types/team.ts'
 
 export const teamApi = {
+  atlasExportTeam: (teamId: string) => window.api.atlasExportTeam(teamId),
   atlasGetTeamGoogleClient: (teamId: string) => window.api.atlasGetTeamGoogleClient(teamId),
   atlasSetTeamGoogleClient: (teamId: string, clientId: string, clientSecret: string) =>
     window.api.atlasSetTeamGoogleClient(teamId, clientId, clientSecret),

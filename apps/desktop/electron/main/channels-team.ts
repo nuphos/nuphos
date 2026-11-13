@@ -1,4 +1,5 @@
 import * as atlas from '../atlas'
+import { saveTeamExport } from '../atlas/team-migration'
 import * as discordInstall from '../discord-install'
 import * as slackInstall from '../slack-install'
 
@@ -14,8 +15,10 @@ import type {
   RuntimeQuotaHistoryRange,
   UpdateRuntimeInput,
 } from '../../src/types/runtime'
+import type { IpcMainInvokeEvent } from 'electron'
 
 export const teamChannels = {
+  'atlas:exportTeam': (event: IpcMainInvokeEvent, teamId: string) => saveTeamExport(event, teamId),
   'atlas:getTeamGoogleClient': (_e: unknown, teamId: string) => atlas.getTeamGoogleClient(teamId),
   'atlas:setTeamGoogleClient': (
     _e: unknown,
@@ -102,7 +105,6 @@ export const teamChannels = {
     runtimeId: string,
     hours: number,
   ) => atlas.getRuntimeInstanceMetrics(teamId, runtimeId, hours),
-
   'atlas:listTeams': () => atlas.listTeams(),
   'atlas:getSidebarFavorites': (_e: unknown, teamId: string) => atlas.getSidebarFavorites(teamId),
   'atlas:putSidebarFavorites': (
