@@ -231,17 +231,6 @@ export function Composer({
           )}
           <div className="@container flex items-start gap-1 mt-1 min-w-0 @[320px]:gap-2">
             <ComposerTools>
-              {runtimeControl && (
-                <RuntimeSelector
-                  {...runtimeControl}
-                  menuOpen={agentMenuOpen || agentMenuRequested}
-                  onMenuOpenChange={(open) => {
-                    setAgentMenuOpen(open)
-                    if (!open) clearAgentMenuRequest()
-                  }}
-                  hero={hero}
-                />
-              )}
               <ComposerAttachmentMenu
                 open={state.attachmentMenuOpen}
                 onOpenChange={state.setAttachmentMenuOpen}
@@ -260,6 +249,17 @@ export function Composer({
                 <CredentialSelectorButton {...credentialSelector} hero={hero} personalIdentity />
               )}
               {bypassControl && <BypassControlMenu bypassControl={bypassControl} hero={hero} />}
+              {runtimeControl && (
+                <RuntimeSelector
+                  {...runtimeControl}
+                  menuOpen={agentMenuOpen || agentMenuRequested}
+                  onMenuOpenChange={(open) => {
+                    setAgentMenuOpen(open)
+                    if (!open) clearAgentMenuRequest()
+                  }}
+                  hero={hero}
+                />
+              )}
             </ComposerTools>
             {modelSession ? (
               <ModelSelector control={modelControl} disabled={readOnly} hero={hero} />

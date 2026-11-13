@@ -225,11 +225,9 @@ function SendControls({
 }
 
 /**
- * The toolbar's left controls on one row. A control that does not fit wraps
- * whole onto a second line the row never shows, and is made inert there so
- * keyboard focus cannot land on it or scroll it into view; a menu it had open closes.
- * The row shares the squeeze with the model chip, but never drops below the runtime
- * selector it leads with, so a task's runtime can always be changed.
+ * The toolbar's left controls on one row. A control that does not fit wraps whole onto a second line the
+ * row never shows, and is made inert there so keyboard focus cannot land on it or scroll it into view; a menu
+ * it had open closes. A `data-keep` control outranks those before it: they leave, nearest first, until it fits.
  */
 export function ComposerTools({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -244,12 +242,18 @@ export function ComposerTools({ children }: { children: ReactNode }) {
         (child): child is HTMLElement =>
           child instanceof HTMLElement && !child.matches('[data-base-ui-focus-guard], [aria-owns]'),
       )
+      const keep = controls.find((control) => control.matches('[data-keep]'))
+      const before = keep ? controls.slice(0, controls.indexOf(keep)) : []
+
+      for (const control of before) control.style.display = ''
       const first = controls[0]
 
       if (!first) return
       // Controls on the first line differ in height by a few pixels; the hidden line starts a full row lower.
       const nextLine = first.offsetTop + first.offsetHeight
 
+      for (const control of before.toReversed())
+        if (keep && keep.offsetTop >= nextLine) control.style.display = 'none'
       for (const control of controls) control.inert = control.offsetTop >= nextLine
       // A menu whose trigger just dropped out has nothing to anchor to or return focus to.
       if (
