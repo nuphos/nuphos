@@ -13,7 +13,6 @@ import { shellsFromRuntimeState } from '../panel/shells'
 
 import { BackgroundTasksSection } from './ChatSummaryBackgroundTasks'
 import { ChangesSection } from './ChatSummaryChanges'
-import { ChatSummaryEnvironment } from './ChatSummaryEnvironment'
 import { changesOf, splitFileName, subAgentsOf } from './chatSummaryModel'
 import { SummaryRow, SummarySection } from './ChatSummaryRows'
 import { SubAgentsSection } from './ChatSummarySubAgents'
@@ -246,7 +245,6 @@ function SummaryBody({
           {subAgents.length > 0 && (
             <SubAgentsSection subAgents={subAgents} onOpen={onOpenSession} />
           )}
-          {conversation && <ChatSummaryEnvironment conversation={conversation} />}
           {outputs.length > 0 && (
             <OutputsSection files={outputs} teamId={teamId} sessionId={sessionId} />
           )}
