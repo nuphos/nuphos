@@ -5,7 +5,7 @@ import { runtimeAllows } from '../../../lib/runtimeExecution'
 
 import { clearAgentMenuRequest, useAgentMenuRequested } from './agentMenuRequest'
 import { AttachmentChips } from './composerAttachments'
-import { ComposerEditor, ComposerSendControls } from './composerControls'
+import { ComposerEditor, ComposerSendControls, ComposerTools } from './composerControls'
 import { BypassControlMenu, ComposerAttachmentMenu } from './composerMenus'
 import { CredentialSelectorButton } from './CredentialSelectorButton'
 import { ModelSelector } from './ModelSelector'
@@ -238,7 +238,7 @@ export function Composer({
             />
           )}
           <div className="@container flex items-start gap-1 mt-1 min-w-0 @[320px]:gap-2">
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-0.5 @[320px]:gap-1">
+            <ComposerTools>
               <ComposerAttachmentMenu
                 open={state.attachmentMenuOpen}
                 onOpenChange={state.setAttachmentMenuOpen}
@@ -253,10 +253,6 @@ export function Composer({
                 onSelectAttachment={actions.selectAttachment}
                 onSelectFolderAttachment={actions.selectFolderAttachment}
               />
-              {credentialSelector && (
-                <CredentialSelectorButton {...credentialSelector} hero={hero} personalIdentity />
-              )}
-              {bypassControl && <BypassControlMenu bypassControl={bypassControl} hero={hero} />}
               {runtimeControl && (
                 <RuntimeSelector
                   {...runtimeControl}
@@ -268,7 +264,11 @@ export function Composer({
                   hero={hero}
                 />
               )}
-            </div>
+              {credentialSelector && (
+                <CredentialSelectorButton {...credentialSelector} hero={hero} personalIdentity />
+              )}
+              {bypassControl && <BypassControlMenu bypassControl={bypassControl} hero={hero} />}
+            </ComposerTools>
             {modelSession ? (
               <ModelSelector control={modelControl} disabled={readOnly} hero={hero} />
             ) : (
