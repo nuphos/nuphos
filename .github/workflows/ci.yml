@@ -79,8 +79,10 @@ jobs:
         id: filter
         with:
           filters: |
+            # Backend tests import electron main's local runtime, so its typecheck follows it.
             backend:
               - 'apps/backend/**'
+              - 'apps/desktop/electron/**'
               - '.bun-version'
               - '.github/workflows/ci.yml'
             # electron main imports runtime-file-program.ts from the backend.
