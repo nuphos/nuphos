@@ -106,6 +106,10 @@ socialAuth.get('/:provider/start', async (c) => {
     state,
     nonce,
     ...(provider === 'apple' ? { response_mode: 'form_post' } : {}),
+    // Asked by "Use another account": skip the provider's remembered session.
+    ...(c.req.query('prompt') === 'login' && provider !== 'apple'
+      ? { prompt: provider === 'google' ? 'select_account' : 'login' }
+      : {}),
   }).toString()
 
   return c.redirect(url.toString())

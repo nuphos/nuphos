@@ -36,7 +36,7 @@ async function signedInUser(c: Context) {
   return token ? ((await authenticateToken(token))?.user ?? null) : null
 }
 
-async function signInLinks(next: string) {
+async function signInLinks(next: string, switching = false) {
   const offered = await Promise.all(
     SOCIAL_PROVIDERS.map((p) =>
       providerSettings(p).then(
@@ -48,9 +48,10 @@ async function signInLinks(next: string) {
 
   return offered
     .filter((p): p is SocialProvider => p !== null)
-    .map(
-      (p) =>
-        `<a href="${p}/start?next=${encodeURIComponent(next)}">Continue with ${escapeHtml(providerName(p))}</a>`,
+    .map((p) =>
+      switching
+        ? `<a href="${p}/start?prompt=login&amp;next=${encodeURIComponent(next)}">Use another ${escapeHtml(providerName(p))} account</a>`
+        : `<a href="${p}/start?next=${encodeURIComponent(next)}">Continue with ${escapeHtml(providerName(p))}</a>`,
     )
     .join('')
 }
@@ -65,14 +66,17 @@ export function safeNext(raw: unknown): string | undefined {
   return url.pathname + url.search
 }
 
+// Cloudflare's Email Obfuscation would swap the address for a script this page's CSP blocks.
+const showEmail = (email: string) => `<!--email_off-->${escapeHtml(email)}<!--/email_off-->`
+
 export const deviceApproval = new Hono()
 
 deviceApproval.get('/', async (c) => {
   const code = c.req.query('code')?.trim() ?? ''
   const user = await signedInUser(c)
+  const next = code ? `${DEVICE_PAGE_PATH}?code=${encodeURIComponent(code)}` : DEVICE_PAGE_PATH
 
   if (!user) {
-    const next = code ? `${DEVICE_PAGE_PATH}?code=${encodeURIComponent(code)}` : DEVICE_PAGE_PATH
     const links = await signInLinks(next)
 
     if (!links) throw new AppError(503, 'provider_unavailable', 'Social sign-in is not configured')
@@ -80,11 +84,13 @@ deviceApproval.get('/', async (c) => {
     return c.html(page(`<p>Sign in first, then enter the code your terminal shows.</p>${links}`))
   }
   const pending = code ? await findPendingDeviceLogin(code) : null
+  const signedInAs = `<p class="muted">Signed in as ${showEmail(user.email)}</p>`
+  const switchLinks = await signInLinks(next, true)
 
   if (!pending) {
     return c.html(
       page(
-        `<p class="muted">Signed in as ${escapeHtml(user.email)}</p>${code ? '<p>That code is wrong or has expired.</p>' : ''}<form method="get"><input name="code" placeholder="ABCD-EFGH" autocomplete="off" autofocus required><button>Continue</button></form>`,
+        `${signedInAs}${code ? '<p>That code is wrong or has expired.</p>' : ''}<form method="get"><input name="code" placeholder="ABCD-EFGH" autocomplete="off" autofocus required><button>Continue</button></form>${switchLinks}`,
       ),
     )
   }
@@ -92,7 +98,7 @@ deviceApproval.get('/', async (c) => {
 
   return c.html(
     page(
-      `<p><b>${escapeHtml(pending.clientName)}</b>${from} wants to sign in to Nuphos as <b>${escapeHtml(user.email)}</b>.</p><p>Code <code>${escapeHtml(code.toUpperCase())}</code></p><p class="muted">Approve only a code you started yourself.</p><form method="post"><input type="hidden" name="code" value="${escapeHtml(code)}"><button name="decision" value="approve">Approve</button><button name="decision" value="deny">Deny</button></form>`,
+      `<p><b>${escapeHtml(pending.clientName)}</b>${from} wants to sign in to Nuphos as <b>${showEmail(user.email)}</b>.</p><p>Code <code>${escapeHtml(code.toUpperCase())}</code></p><p class="muted">Approve only a code you started yourself.</p><form method="post"><input type="hidden" name="code" value="${escapeHtml(code)}"><button name="decision" value="approve">Approve</button><button name="decision" value="deny">Deny</button></form>${switchLinks}`,
     ),
   )
 })

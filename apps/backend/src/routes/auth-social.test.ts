@@ -330,3 +330,11 @@ test('device approval refuses other origins and anonymous posts', async () => {
   expect((await post({ 'sec-fetch-site': 'same-origin', origin: 'null' })).status).toBe(401)
   expect((await post({})).status).toBe(401)
 })
+test('"Use another account" makes the provider ask again', async () => {
+  const location = async (path: string) =>
+    new URL((await app.request(path)).headers.get('location')!).searchParams.get('prompt')
+
+  expect(await location('/google/start')).toBeNull()
+  expect(await location('/google/start?prompt=login')).toBe('select_account')
+  expect(await location('/google/start?prompt=consent')).toBeNull()
+})
