@@ -14,7 +14,6 @@ import type {
 import type { DeviceMetrics } from '../../../src/api/device-types.ts'
 
 export type SocketEvent = { data?: unknown; code?: number }
-
 export type SocketLike = {
   readonly readyState: number
   send(data: string): void
@@ -22,7 +21,6 @@ export type SocketLike = {
   terminate?(): void
   addEventListener(type: string, listener: (event: SocketEvent) => void): void
 }
-
 export type TunnelClientDeps = {
   /** Opens the backend tunnel as the signed-in user; `reclaim` only takes a free computer. */
   connectBackend: (reclaim: boolean) => SocketLike

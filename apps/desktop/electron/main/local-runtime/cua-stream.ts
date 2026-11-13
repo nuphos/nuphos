@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto'
 
 import { CuaHost, cuaServerConfig, failed } from './cua-host.ts'
 import { LocalExecStream } from './exec-stream.ts'
-import { LocalUploadStream } from './upload-stream.ts'
 
 import type { CuaCall, CuaElicitation, CuaToolResult, ServerConfig } from './cua-host.ts'
 import type { SocketEvent, SocketLike } from './tunnel-client.ts'
@@ -155,6 +154,5 @@ export class LocalCuaStream implements SocketLike {
 /** Tool streams a device tunnel serves; Computer Use only where the Codex App runs. */
 export const localToolStreams = {
   connectExec: (): SocketLike => new LocalExecStream(),
-  connectUpload: () => new LocalUploadStream(),
   ...(process.platform === 'darwin' ? { connectCua: (): SocketLike => new LocalCuaStream() } : {}),
 }
