@@ -146,7 +146,6 @@ struct AgentPage: View {
                 if CommandLine.arguments.contains("-open-first-chat") {
                     openChat = store.conversations.first.map { OpenChat(session: store.session(for: $0)) }
                 }
-                if CommandLine.arguments.contains("-show-agent-setup") { showAgentSetup = true }
                 if CommandLine.arguments.contains("-show-new-bot") { showNewBot = true }
                 if CommandLine.arguments.contains("-preview-agent-login") { previewLogin = true }
                 // `-preview-approval`: a canned tool run + pending approval, for UI work.
