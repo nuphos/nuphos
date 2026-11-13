@@ -46,7 +46,7 @@ export function runStartChatWith(
   // card, then `run` resolves the upload part and the stream starts.
   deferredUpload?: {
     messageId: string
-    run: (sessionId: string | undefined) => Promise<TransferUploadPart>
+    run: () => Promise<TransferUploadPart>
   },
 ): boolean {
   const {
@@ -200,13 +200,9 @@ export function runStartChatWith(
   }
 
   if (deferredUpload) {
-    // The backend session doesn't exist until `agentStart` registers it, so a
-    // first-message upload must be TEAM-scoped (not agent-session-scoped) or
-    // verifyAgent rejects it. The agent can still pull it: loadGroup matches on
-    // team + user, not session.
     uploadingTabsRef.current.add(id)
     deferredUpload
-      .run(undefined)
+      .run()
       .then((uploadPart) => {
         uploadingTabsRef.current.delete(id)
         const patched: Message = {

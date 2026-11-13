@@ -103,7 +103,7 @@ export async function runDispatchTurn(
       ),
     )
     try {
-      uploadPart = await runUpload(tab.sessionId)
+      uploadPart = await runUpload()
     } catch (err) {
       uploadingTabsRef.current.delete(tabId)
       // Patch the card to error against the latest tab state, then persist so
