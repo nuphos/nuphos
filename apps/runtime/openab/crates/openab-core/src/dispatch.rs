@@ -17,10 +17,10 @@ use anyhow::Result;
 use async_trait::async_trait;
 use tracing::{debug, error, info, info_span, warn};
 
+use crate::acp::connection::AcpRequestError;
 use crate::acp::ContentBlock;
 use crate::adapter::{AdapterRouter, ChannelRef, ChatAdapter, MessageRef};
 use crate::config::ReactionsConfig;
-use crate::acp::protocol::JsonRpcError;
 use crate::error_display::{format_coded_error, format_user_error};
 use crate::reactions::StatusReactionController;
 
@@ -648,12 +648,12 @@ async fn report_session_failure(adapter: &Arc<dyn ChatAdapter>, channel: &Channe
         let _ = adapter.send_message(channel, &format!("⚠️ {user_msg}")).await;
         return;
     }
-    let (error, data) = match e.downcast_ref::<JsonRpcError>() {
-        Some(err) => (
+    let (error, data) = match e.downcast_ref::<AcpRequestError>() {
+        Some(AcpRequestError::Agent(err)) => (
             format_coded_error(err.code, &err.message, err.data_message().as_deref()),
             Some(err.relay_data()),
         ),
-        None => (format_user_error(&e.to_string()), None),
+        _ => (format_user_error(&e.to_string()), None),
     };
     if let Err(send_err) = adapter.fail_agent_turn(channel, "", &error, data).await {
         warn!(error = %send_err, "failed to report session start failure");
@@ -920,6 +920,7 @@ pub fn estimate_tokens(prompt: &str, extra_blocks: &[ContentBlock]) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::acp::protocol::JsonRpcError;
 
     #[test]
     fn estimate_tokens_empty() {
@@ -1493,7 +1494,7 @@ mod tests {
                 return Err(anyhow::anyhow!(msg));
             }
             if let Some(err) = self.ensure_rpc_err.lock().unwrap().take() {
-                return Err(anyhow::Error::new(err));
+                return Err(AcpRequestError::from(err).into());
             }
             Ok(true)
         }
