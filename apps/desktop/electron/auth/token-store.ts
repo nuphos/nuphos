@@ -40,7 +40,7 @@ export function secureStorageEnabled(
  */
 export const ENTRY_OPTIONS = { linux: { store: 'secret-service' } } as const
 
-async function entry(account: string) {
+async function entry(service: string, account: string) {
   // Any other binary is not the item's creator, so macOS would ask for the
   // login keychain password: fail instead of reaching the keychain.
   if (!secureStorageEnabled()) throw new Error('the keychain is used only by the packaged app')
@@ -48,15 +48,20 @@ async function entry(account: string) {
   // dependencies.
   const { AsyncEntry } = await import('@napi-rs/keyring')
 
-  return new AsyncEntry(KEYCHAIN_SERVICE, account, ENTRY_OPTIONS)
+  return new AsyncEntry(service, account, ENTRY_OPTIONS)
 }
 
-export const keychainStore: TokenStore = {
-  get: async (account) => (await entry(account)).getPassword(),
-  set: async (account, token) => {
-    await (await entry(account)).setPassword(token)
-  },
-  delete: async (account) => {
-    await (await entry(account)).deletePassword()
-  },
+/** The items of one service in the credential store. */
+export function keychainFor(service: string): TokenStore {
+  return {
+    get: async (account) => (await entry(service, account)).getPassword(),
+    set: async (account, token) => {
+      await (await entry(service, account)).setPassword(token)
+    },
+    delete: async (account) => {
+      await (await entry(service, account)).deletePassword()
+    },
+  }
 }
+
+export const keychainStore: TokenStore = keychainFor(KEYCHAIN_SERVICE)

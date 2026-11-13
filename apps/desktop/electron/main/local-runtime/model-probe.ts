@@ -1,7 +1,9 @@
 import { spawn } from 'node:child_process'
 
 import { agentEnv } from './config.ts'
+import { customProviderLaunch } from './custom-provider.ts'
 
+import type { TokenStore } from '../../auth/token-store.ts'
 import type { LocalRuntimeBundle } from './config.ts'
 import type { ProbeModelsRun } from './controller-types.ts'
 
@@ -99,11 +101,15 @@ export function probeLocalModels(options: {
   adapter: string
   cwd: string
   env: Record<string, string>
+  /** A custom provider's key, which reaches the adapter only in its environment. */
+  secretEnv?: Record<string, string>
+  /** A custom provider's own model ids, offered instead of the adapter's list. */
+  models?: string[]
 }): Promise<LocalModelCatalog> {
   return new Promise((resolve, reject) => {
     const child = spawn(options.nodeExecPath, [options.adapter], {
       cwd: options.cwd,
-      env: options.env,
+      env: { ...options.env, ...options.secretEnv },
       stdio: ['pipe', 'pipe', 'ignore'],
       windowsHide: true,
     })
@@ -182,7 +188,14 @@ export function probeLocalModels(options: {
       const sessionId = String(session.sessionId)
       let configOptions = (session.configOptions ?? []) as ConfigOption[]
       const model = findOption(configOptions, 'model')
-      const { models, defaultModel } = modelChoices(model)
+      const advertised = modelChoices(model)
+      // Each id is still tried below, so one the adapter refuses is left out.
+      const { models, defaultModel } = options.models?.length
+        ? {
+            models: options.models.map((id) => ({ id, name: id })),
+            defaultModel: options.models[0],
+          }
+        : advertised
 
       if (!model || typeof model.currentValue !== 'string' || models.length === 0) {
         finish(new Error('The runtime did not advertise any models'))
@@ -225,12 +238,14 @@ export function probeLocalModels(options: {
 }
 
 /** `probeModels` for a host that stages `bundle`: the adapter runs as it would under openab. */
-export function bundledModelProbe(bundle: () => LocalRuntimeBundle | null) {
-  return ({ provider, workspace, env, cliPath, agentHome }: ProbeModelsRun) => {
+/** `keys` holds the custom providers' keys, whose models the probe then offers. */
+export function bundledModelProbe(bundle: () => LocalRuntimeBundle | null, keys?: TokenStore) {
+  return async ({ provider, workspace, env, cliPath, agentHome }: ProbeModelsRun) => {
     const staged = bundle()
     const adapter = staged?.adapters[provider]
 
-    if (!staged || !adapter) return Promise.reject(new Error('The local runtime is not bundled'))
+    if (!staged || !adapter) throw new Error('The local runtime is not bundled')
+    const custom = keys && (await customProviderLaunch(keys, provider, agentHome))
 
     return probeLocalModels({
       nodeExecPath: process.execPath,
@@ -249,6 +264,7 @@ export function bundledModelProbe(bundle: () => LocalRuntimeBundle | null) {
         authKey: '',
         env,
       }),
+      ...(custom ? { secretEnv: custom.env, models: custom.models } : {}),
     })
   }
 }

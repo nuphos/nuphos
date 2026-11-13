@@ -18,7 +18,8 @@ import {
 } from '../device-identity-core.ts'
 import { readDeviceMetrics } from '../device-metrics.ts'
 
-import { LOCAL_AGENT_PROVIDERS, probeAgentCli, readAgentUsage } from './agent-cli.ts'
+import { LOCAL_AGENT_PROVIDERS, probeAgentCli } from './agent-cli.ts'
+import { readAgentUsage } from './agent-cli-usage.ts'
 import { podOwnerAgentHome } from './agent-home.ts'
 import { localFileConnectors } from './attachment-stream.ts'
 import { readCliCache, writeCliCache } from './cli-cache.ts'
