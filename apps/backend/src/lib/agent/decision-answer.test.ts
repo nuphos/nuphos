@@ -3,6 +3,7 @@ import { beforeEach, expect, test } from 'bun:test'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useConversationTurn } from '@/lib/test/doubles/conversation-turn'
 import { useDb } from '@/lib/test/doubles/db'
+import { useIdentity } from '@/lib/test/doubles/identity'
 
 import type * as dbActual from '@/lib/db'
 
@@ -11,14 +12,31 @@ let matchedCount = 1
 const turns: { text: string; sender: string; session: string }[] = []
 const channelRecords: { sessionId: string; texts: string[]; sender: string }[] = []
 
+// The conversations a question can be about, besides the asker's own.
+const others: Record<string, Record<string, unknown>> = {
+  reviewer: { userId: 'owner', teamId: 't1' },
+  stranger: { userId: 'u2', teamId: 't1' },
+  room: { userId: 'owner', teamId: 't1', kind: 'channel' },
+}
+// The conversations whose turn cannot start.
+const unreachable = new Set<string>()
+let reopened = 0
+
 useDb({
   db: (() => ({
-    collection: () => ({ updateOne: async () => ({ matchedCount }) }),
+    collection: () => ({
+      updateOne: async (filter: Record<string, unknown>) => {
+        if (JSON.stringify(filter).includes('"answered"')) reopened++
+
+        return { matchedCount }
+      },
+    }),
   })) as unknown as typeof dbActual.db,
 })
+useIdentity({ getTeamMembership: async () => ({ role: 'member' }) as never })
 useAgentDb({
   getConversationBySessionId: async (sessionId) =>
-    ({ sessionId, userId: 'owner', teamId: 't1' }) as never,
+    ({ sessionId, userId: 'owner', teamId: 't1', ...others[sessionId] }) as never,
   appendConversationMessages: async ({ sessionId, messages }) => {
     const [message] = messages as {
       parts: { text: string }[]
@@ -35,6 +53,7 @@ useAgentDb({
 })
 useConversationTurn({
   startConversationTurn: async (data, _target, text, _source, metadata) => {
+    if (unreachable.has(data.targetSessionId)) throw new Error('runtime offline')
     turns.push({ text, sender: metadata?.sender.id ?? '', session: data.targetSessionId })
 
     return { status: 'started' as const, run: Promise.resolve(undefined) }
@@ -43,8 +62,9 @@ useConversationTurn({
 
 const { answerDecision } = await import('./decision-answer')
 
-const ask = (extra: Record<string, unknown> = {}) =>
+const ask = (extra: Record<string, unknown> = {}, conversation: Record<string, unknown> = {}) =>
   ({
+    ...conversation,
     sessionId: 'bot',
     userId: 'owner',
     teamId: 't1',
@@ -67,11 +87,13 @@ beforeEach(() => {
   matchedCount = 1
   turns.length = 0
   channelRecords.length = 0
+  unreachable.clear()
+  reopened = 0
 })
 
 test('an answer wakes the asking agent with the card and the answer, and sends no message', async () => {
   await answerDecision({
-    conversation: ask({ about: ['res-1'] }),
+    conversation: ask({ about: ['res-1'] }, { linkedResources: [{ id: 'res-1' }] }),
     requestId: 'q1',
     answer: { choices: ['us-east', 'eu-west'] },
     actor,
@@ -161,4 +183,51 @@ test('an answered question, or one that lost the race, is refused and wakes no o
     answerDecision({ conversation: ask(), requestId: 'q1', answer, actor, teamId: 't1' }),
   ).rejects.toThrow('no longer open')
   expect(turns).toEqual([])
+})
+
+test('a conversation the question is about is told the answer as Nuphos; a linked resource is not', async () => {
+  await answerDecision({
+    conversation: ask({ about: ['res-1', 'reviewer'] }, { linkedResources: [{ id: 'res-1' }] }),
+    requestId: 'q1',
+    answer: { choices: ['eu-west'] },
+    actor,
+    teamId: 't1',
+  })
+
+  expect(turns.map((turn) => turn.session)).toEqual(['bot', 'reviewer'])
+  const told = turns[1]!
+
+  expect(told.sender).toBe('nuphos:decision')
+  expect(told.text).toContain(
+    'A question about this conversation (requestId q1), asked by conversation bot',
+  )
+  expect(told.text).toContain('- Which regions? → eu-west')
+  expect(told.text).toContain("this conversation's owner: it is their own answer.")
+  expect(told.text).toContain('Act on this answer where it concerns your own work')
+})
+
+test("another member's conversation or a channel is never told", async () => {
+  await answerDecision({
+    conversation: ask({ about: ['stranger', 'room'] }),
+    requestId: 'q1',
+    answer: { choices: ['us-east'] },
+    actor,
+    teamId: 't1',
+  })
+
+  expect(turns.map((turn) => turn.session)).toEqual(['bot'])
+})
+
+test('a conversation that cannot be told leaves the question answered', async () => {
+  unreachable.add('reviewer')
+  await answerDecision({
+    conversation: ask({ about: ['reviewer'] }),
+    requestId: 'q1',
+    answer: { choices: ['us-east'] },
+    actor,
+    teamId: 't1',
+  })
+
+  expect(turns.map((turn) => turn.session)).toEqual(['bot'])
+  expect(reopened).toBe(0)
 })
