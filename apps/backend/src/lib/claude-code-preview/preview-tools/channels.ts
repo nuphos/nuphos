@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { agentFileParts, resolveChannelFiles } from '@/lib/agent/channel-attachments'
 import { postAsAgent } from '@/lib/agent/channel-chat'
 import { getConversationBySessionId, upsertConversationShell } from '@/lib/agent/db'
+import { assertBot, speakingBot } from '@/lib/agent/db/bot-membership'
 import {
   addChannelAgent,
   isChannel,
@@ -142,8 +143,8 @@ async function withFiles(
 }
 
 /**
- * Opens a channel as the owner would from the app: theirs, with this agent in
- * it, the people invited and the owner's other agents added by the same rules.
+ * Opens a channel as the owner would from the app: theirs, with this agent (or
+ * its Bot) in it, the people invited and the owner's other Bots.
  */
 async function createChannel(ctx: PreviewToolContext, input: z.infer<typeof create>) {
   const self = await owner(ctx)
@@ -159,12 +160,14 @@ async function createChannel(ctx: PreviewToolContext, input: z.infer<typeof crea
     throw new Error(
       `Not a member of this team: ${unknown.join(', ')}. Only teammates can be invited.`,
     )
-  const agents = [...new Set(input.agents ?? [])].filter((id) => id !== ctx.sessionId)
+  const speaker = await speakingBot(self)
+  const agents = [...new Set(input.agents ?? [])].filter((id) => id !== speaker.sessionId)
 
   for (const id of agents) {
     const owned = await ownsChannelAgent(id, self.userId, ctx.teamId).catch(() => false)
 
     if (!owned) throw new Error(`Agent ${id} is not one of this owner’s conversations.`)
+    await assertBot(id)
   }
   const sessionId = randomUUID()
 
@@ -176,20 +179,20 @@ async function createChannel(ctx: PreviewToolContext, input: z.infer<typeof crea
     firstMessage: '',
     kind: 'channel',
   })
-  for (const id of [ctx.sessionId, ...agents]) await addChannelAgent(sessionId, id)
+  for (const id of [speaker.sessionId, ...agents]) await addChannelAgent(sessionId, id)
   // The owner is already in their own channel.
   const invitees = people.flatMap((member) =>
     member && member.id !== self.userId ? [member.id] : [],
   )
   const channel = await inviteConversationParticipants(sessionId, self.userId, invitees)
 
-  if (channel && input.message) await postAsAgent(sessionId, self, input.message)
+  if (channel && input.message) await postAsAgent(sessionId, speaker, input.message)
 
   return {
     channelId: sessionId,
     url: `/teams/${ctx.teamId}/agent/${sessionId}`,
     people: people.flatMap((member) => (member ? [{ id: member.id, name: member.name }] : [])),
-    agents: [ctx.sessionId, ...agents],
+    agents: [speaker.sessionId, ...agents],
   }
 }
 
@@ -236,9 +239,9 @@ export function channelToolModule(): PreviewToolModule {
           'into it, with you in it as a member. Use it when the user asks you to start a ' +
           'channel or chat with people, or when work needs several teammates (or agents) to ' +
           'talk together; for a one-person question use request_user_decision instead. Only ' +
-          'team members can be invited; agents you add must belong to this conversation’s ' +
-          'owner. The channel is owned by this conversation’s owner. Pass `message` to post ' +
-          'your opening words; after that, reply with channel_post when the channel wakes you.',
+          'team members can be invited; agents you add must be the owner’s Bots. A chat holds ' +
+          'people and Bots: a Task is not a member, the Bot above it joins for it. Pass ' +
+          '`message` to post your opening words; then reply with channel_post when woken.',
         inputSchema: toolInputJsonSchema(create),
       },
     ],

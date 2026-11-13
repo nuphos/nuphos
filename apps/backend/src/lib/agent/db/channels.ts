@@ -7,6 +7,7 @@ import { parseMessageMetadata } from '../message-metadata'
 import { fenceUntrusted } from '../untrusted-content'
 
 import { canReply, readableConversationScope } from './access'
+import { assertBot } from './bot-membership'
 import { readNote } from './channel-notes'
 import { agentConversations, agentMessages } from './shared'
 
@@ -47,11 +48,13 @@ export function assertNotChannel(conversation: ChannelFields | null | undefined)
     throw new AppError(409, 'channel_conversation', 'A channel has no agent of its own to run')
 }
 
-/** Adding a session leaves it as it was: a Task stays a Task. */
+/** Adding a session leaves it as it was, and only a Bot is added. */
 export async function addChannelAgent(
   channelId: string,
   agentSessionId: string,
 ): Promise<AgentConversation | null> {
+  await assertBot(agentSessionId)
+
   return agentConversations().findOneAndUpdate(
     { sessionId: channelId, kind: 'channel' },
     { $addToSet: { agentSessionIds: agentSessionId } },

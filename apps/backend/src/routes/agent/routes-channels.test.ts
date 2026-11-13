@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
-import { derivedAvatar } from '@/lib/agent/bot-avatars'
 import { errorHandler } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useDb } from '@/lib/test/doubles/db'
@@ -84,6 +83,8 @@ async function seedAgent(sessionId: string, userId: string, extra: Record<string
     messageCount: 0,
     createdAt: new Date(),
     lastActiveAt: new Date(),
+    // A Bot: only a Bot joins a chat.
+    avatar: '07-ada',
     ...extra,
   })
 }
@@ -149,11 +150,24 @@ describe('agents in a channel', () => {
           title: 'agent-a title',
           ownerId: OWNER,
           provider: 'claude-code',
-          // A Task in a channel wears the face its id derives, without becoming a Bot.
-          avatar: derivedAvatar('agent-a'),
+          avatar: '07-ada',
         },
       ],
     })
+  })
+
+  test('a Task is not added, and stays a Task', async () => {
+    const channelId = await createChannel()
+
+    await seedAgent('task-a', OWNER)
+    await agentConversations().updateOne({ sessionId: 'task-a' }, { $unset: { avatar: '' } })
+    const response = await send('POST', `/conversations/${channelId}/agents`, {
+      sessionId: 'task-a',
+    })
+
+    expect(response.status).toBe(409)
+    expect((await agentIds(channelId)).ids).toEqual([])
+    expect((await agentConversations().findOne({ sessionId: 'task-a' }))?.avatar).toBeUndefined()
   })
 
   test('only its owner can add an agent, not a manager of it', async () => {
