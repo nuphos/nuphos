@@ -10,6 +10,7 @@ import {
 import { agentTriggers, triggerConfigRevisionFilter } from '../trigger-db'
 import { scheduleCronTrigger, unscheduleCronTrigger } from '../trigger-scheduler'
 
+import { assertEmailGrantAuthorized } from './email-grant'
 import { assertTriggerCreationQuota } from './quota'
 import {
   assertBindableSession,
@@ -124,6 +125,16 @@ export async function updateTrigger(
   }
 
   const principalUserId = triggerExecutionPrincipalId(trigger)
+
+  if (messageTemplateChanged) {
+    await assertEmailGrantAuthorized({
+      previous: trigger.messageTemplate,
+      next: nextMessageTemplate,
+      triggerType: trigger.triggerType,
+      principalUserId,
+      ...(typeof actor !== 'string' && actor.sessionId ? { sessionId: actor.sessionId } : {}),
+    })
+  }
 
   if (targetSessionChanged && nextTargetSessionId) {
     // A bound fire runs with the session's own credentials, so only its owner may bind it.

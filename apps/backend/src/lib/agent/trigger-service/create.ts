@@ -10,6 +10,7 @@ import { agentTriggers, generateWebhookSecret } from '../trigger-db'
 import { scheduleCronTrigger } from '../trigger-scheduler'
 
 import { validateCreateTriggerShape } from './create-validation'
+import { assertEmailGrantAuthorized } from './email-grant'
 import { assertTriggerCreationQuota, resolveTriggerCredentialSelection } from './quota'
 import {
   assertBindableSession,
@@ -51,6 +52,12 @@ export async function createTrigger(
   const messageTemplate = input.messageTemplate.trim()
 
   if (!messageTemplate) throw new AppError(400, 'invalid_request', 'messageTemplate is required')
+  await assertEmailGrantAuthorized({
+    next: messageTemplate,
+    triggerType: input.triggerType,
+    principalUserId: ctx.userId,
+    ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}),
+  })
 
   let cronExpression: string | undefined
 

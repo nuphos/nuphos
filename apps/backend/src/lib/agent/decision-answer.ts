@@ -105,7 +105,16 @@ export async function answerDecision(args: {
     return
   }
   if (
-    !(await resolveInputRequest(conversation.sessionId, conversation.userId, requestId, 'answered'))
+    !(await resolveInputRequest(
+      conversation.sessionId,
+      conversation.userId,
+      requestId,
+      'answered',
+      {
+        by: actor.id,
+        choices: answer.choices ?? [],
+      },
+    ))
   )
     throw new AppError(409, 'decision_already_answered', 'This question is no longer open')
   const who = { displayName: actor.displayName, owner: actor.id === conversation.userId }

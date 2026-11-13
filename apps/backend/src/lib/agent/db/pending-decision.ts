@@ -29,6 +29,9 @@ export type InputRequest = ExplicitUserDecision & {
   askedAt: Date
   status: InputRequestStatus
   resolvedAt?: Date
+  /** Who answered it from its card, and the options they picked: what a server-side check can trust. */
+  answeredBy?: string
+  answerChoices?: string[]
 }
 
 /** The questions a conversation document keeps for its owner. */
@@ -141,10 +144,22 @@ export async function resolveInputRequest(
   userId: string,
   id: string,
   resolution: Exclude<InputRequestStatus, 'open'>,
+  answer?: { by: string; choices: string[] },
 ): Promise<boolean> {
   const listed = await agentConversations().updateOne(
     { sessionId, userId, inputRequests: { $elemMatch: { id, status: 'open' } } },
-    { $set: { 'inputRequests.$.status': resolution, 'inputRequests.$.resolvedAt': new Date() } },
+    {
+      $set: {
+        'inputRequests.$.status': resolution,
+        'inputRequests.$.resolvedAt': new Date(),
+        ...(answer
+          ? {
+              'inputRequests.$.answeredBy': answer.by,
+              'inputRequests.$.answerChoices': answer.choices,
+            }
+          : {}),
+      },
+    },
   )
 
   return listed.matchedCount > 0
@@ -154,7 +169,14 @@ export async function resolveInputRequest(
 export async function reopenInputRequest(sessionId: string, userId: string, id: string) {
   await agentConversations().updateOne(
     { sessionId, userId, inputRequests: { $elemMatch: { id, status: 'answered' } } },
-    { $set: { 'inputRequests.$.status': 'open' }, $unset: { 'inputRequests.$.resolvedAt': '' } },
+    {
+      $set: { 'inputRequests.$.status': 'open' },
+      $unset: {
+        'inputRequests.$.resolvedAt': '',
+        'inputRequests.$.answeredBy': '',
+        'inputRequests.$.answerChoices': '',
+      },
+    },
   )
 }
 
