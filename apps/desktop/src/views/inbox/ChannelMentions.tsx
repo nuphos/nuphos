@@ -1,11 +1,11 @@
-import { AtSign } from 'lucide-react'
+import { AtSign, UserPlus } from 'lucide-react'
 
 import { ChatIcon } from '../../components/channels/channelParts'
 import { t } from '../../i18n'
 
 import type { ChannelMention } from '../../api'
 
-/** Chats and shared agents where someone @mentioned the viewer. A row opens it. */
+/** Chats and shared agents where someone @mentioned or invited the viewer. A row opens it. */
 export function ChannelMentions({
   mentions,
   onOpen,
@@ -26,7 +26,9 @@ export function ChannelMentions({
               onClick={() => onOpen(mention.channelId)}
               className="flex w-full items-start gap-2.5 px-4 py-2.5 text-left text-[12.5px] hover:bg-state-hover"
             >
-              {mention.kind === 'agent' ? (
+              {mention.kind === 'agent' && mention.invited ? (
+                <UserPlus className="mt-0.5 h-5 w-5 shrink-0 text-tertiary" strokeWidth={1.75} />
+              ) : mention.kind === 'agent' ? (
                 <AtSign className="mt-0.5 h-5 w-5 shrink-0 text-tertiary" strokeWidth={1.75} />
               ) : (
                 <ChatIcon title={mention.title} size={20} className="mt-0.5" />
@@ -34,9 +36,13 @@ export function ChannelMentions({
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-secondary">
                   <span className="text-main">{mention.sender?.name ?? t('Someone')}</span>{' '}
-                  {t('mentioned you in {title}', { title: mention.title })}
+                  {mention.invited
+                    ? t('invited you to {title}', { title: mention.title })
+                    : t('mentioned you in {title}', { title: mention.title })}
                 </span>
-                <span className="block truncate text-tertiary">{mention.text}</span>
+                {mention.text && (
+                  <span className="block truncate text-tertiary">{mention.text}</span>
+                )}
               </span>
             </button>
           </li>

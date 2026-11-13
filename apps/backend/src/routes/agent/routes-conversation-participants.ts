@@ -4,7 +4,6 @@ import { getReadableConversation } from '@/lib/agent/db'
 import { generalAccessOf, generalAccessValues } from '@/lib/agent/db/access'
 import {
   conversationParticipantIds,
-  inviteConversationParticipants,
   removeConversationParticipant,
   setGeneralAccess,
 } from '@/lib/agent/db/participants'
@@ -13,6 +12,7 @@ import {
   resolveConversationAccess,
 } from '@/lib/agent/devices/conversation-computer'
 import { addTeamUse } from '@/lib/agent/devices/device-grants'
+import { inviteToConversation } from '@/lib/agent/mentions'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 
@@ -171,7 +171,7 @@ conversationParticipantsRoutes.post('/conversations/:sessionId/participants', as
     invitees,
     typeof body.grantComputerUse === 'boolean' ? body.grantComputerUse : undefined,
   )
-  const updated = await inviteConversationParticipants(sessionId, userId, invitees)
+  const updated = await inviteToConversation(teamId, sessionId, userId, invitees)
 
   if (!updated) throw new AppError(404, 'not_found', 'Conversation not found')
   await grant?.()

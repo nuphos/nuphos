@@ -11,7 +11,7 @@ import {
   ownsChannelAgent,
   readChannelMessages,
 } from '@/lib/agent/db/channels'
-import { inviteConversationParticipants } from '@/lib/agent/db/participants'
+import { inviteToConversation } from '@/lib/agent/mentions'
 import { getTeamMembers, getTeamMembership } from '@/lib/identity'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
@@ -180,7 +180,7 @@ async function createChannel(ctx: PreviewToolContext, input: z.infer<typeof crea
   const invitees = people.flatMap((member) =>
     member && member.id !== self.userId ? [member.id] : [],
   )
-  const channel = await inviteConversationParticipants(sessionId, self.userId, invitees)
+  const channel = await inviteToConversation(ctx.teamId, sessionId, self.userId, invitees)
 
   if (channel && input.message) await postAsAgent(sessionId, self, input.message)
 

@@ -2,11 +2,9 @@ import { runtimeProvider } from '@/lib/claude-code-preview/runtime-provider'
 import { AppError } from '@/lib/errors'
 
 import { derivedAvatar } from '../bot-avatars'
-import { resolveConversationAccessList } from '../devices/conversation-computer'
 import { parseMessageMetadata } from '../message-metadata'
 import { fenceUntrusted } from '../untrusted-content'
 
-import { canReply, readableConversationScope } from './access'
 import { agentConversations, agentMessages } from './shared'
 
 import type { AgentConversation } from './shared'
@@ -27,9 +25,12 @@ export type ChannelFields = {
   agentTurns?: number
   /** On an agent: the channels it posted in this turn, woken once when the turn ends. */
   channelWakes?: string[]
-  /** People @mentioned here, in a channel or a shared agent, who have not posted since: their Inbox entry. */
-  mentions?: Record<string, { messageId: string; at: Date }>
+  /** People @mentioned or invited here who have not posted since: their Inbox entry. */
+  mentions?: Record<string, InboxEntry>
 }
+
+/** An invite has no message: its id is `invite:…` and it names who invited. */
+type InboxEntry = { messageId: string; at: Date; invitedBy?: { id: string; name: string } }
 
 /** The sender id a channel notice carries, which also picks its instructions. */
 export const CHANNEL_SENDER_PREFIX = 'channel:'
@@ -248,53 +249,4 @@ export async function readChannelMessages(
         ? CHANNEL_READ_NOTE + ONLY_AGENT_NOTE
         : CHANNEL_READ_NOTE,
   }
-}
-
-/**
- * Where the viewer was @mentioned and has not posted since, the newest first.
- * Not where they cannot reply now: they could never post to clear it.
- */
-export async function listChannelMentions(teamId: string, viewerId: string) {
-  const mentioning = await agentConversations()
-    .find(
-      readableConversationScope({ [`mentions.${viewerId}`]: { $exists: true } }, viewerId, teamId),
-    )
-    .toArray()
-  const access = await resolveConversationAccessList(mentioning, viewerId)
-  const channels = mentioning.filter((_, index) => canReply(access[index] ?? null))
-  const found = await Promise.all(
-    channels.map(async (channel) => {
-      const mention = channel.mentions?.[viewerId]
-      const message =
-        mention &&
-        (await agentMessages().findOne({
-          sessionId: channel.sessionId,
-          userId: channel.userId,
-          messageId: mention.messageId,
-        }))
-
-      if (!mention || !message) return []
-      const metadata = parseMessageMetadata(message.metadata)
-
-      return [
-        {
-          channelId: channel.sessionId,
-          kind: isChannel(channel) ? 'channel' : 'agent',
-          title: channel.title,
-          messageId: mention.messageId,
-          at: mention.at.toISOString(),
-          sender: metadata
-            ? {
-                type: metadata.sender.type,
-                id: metadata.sender.id,
-                name: metadata.sender.displayName,
-              }
-            : null,
-          text: postText(message.parts),
-        },
-      ]
-    }),
-  )
-
-  return found.flat().sort((a, b) => b.at.localeCompare(a.at))
 }
