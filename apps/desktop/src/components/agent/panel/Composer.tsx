@@ -5,7 +5,7 @@ import { runtimeAllows } from '../../../lib/runtimeExecution'
 
 import { clearAgentMenuRequest, useAgentMenuRequested } from './agentMenuRequest'
 import { AttachmentChips } from './composerAttachments'
-import { ComposerEditor, ComposerSendControls, ComposerTools } from './composerControls'
+import { ComposerEditor, ComposerSendControls } from './composerControls'
 import { BypassControlMenu, ComposerAttachmentMenu } from './composerMenus'
 import { CredentialSelectorButton } from './CredentialSelectorButton'
 import { ModelSelector } from './ModelSelector'
@@ -238,7 +238,7 @@ export function Composer({
             />
           )}
           <div className="@container flex items-start gap-1 mt-1 min-w-0 @[320px]:gap-2">
-            <ComposerTools>
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-0.5 @[320px]:gap-1">
               <ComposerAttachmentMenu
                 open={state.attachmentMenuOpen}
                 onOpenChange={state.setAttachmentMenuOpen}
@@ -268,7 +268,7 @@ export function Composer({
                   hero={hero}
                 />
               )}
-            </ComposerTools>
+            </div>
             {modelSession ? (
               <ModelSelector control={modelControl} disabled={readOnly} hero={hero} />
             ) : (
