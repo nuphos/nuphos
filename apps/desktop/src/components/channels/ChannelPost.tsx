@@ -14,6 +14,7 @@ import { speaksInChannel } from './channelSpeakers'
 import { textOf } from './channelReply'
 import { exactTime } from './chatTime'
 import { channelFiles } from './postFiles'
+import { ReplyButton } from './ReplyButton'
 
 import type { AgentPersistedMessage } from '../../api'
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
@@ -43,6 +44,7 @@ export function ChannelMessage({
   links,
   onOpenSession,
   onMenu,
+  onReply,
 }: {
   message: AgentPersistedMessage
   /** When it was posted: the exact time shows on hover. */
@@ -59,6 +61,8 @@ export function ChannelMessage({
   onOpenSession: (sessionId: string) => void
   /** Right-click: the post's menu, unless text is selected to copy. */
   onMenu?: (event: ReactMouseEvent) => void
+  /** Replies to the post from the button beside it on hover; absent where the viewer cannot. */
+  onReply?: () => void
 }) {
   const metadata = parseMessageMetadata(message.metadata)
   const text = textOf(message)
@@ -104,7 +108,8 @@ export function ChannelMessage({
       // The quote sits above the row, so your face stays level with your words.
       <div className="flex w-full flex-col items-end gap-1">
         {quote && <div className="flex max-w-[85%] justify-end pr-[2.375rem]">{quote}</div>}
-        <div className="flex w-full items-start justify-end gap-2.5">
+        <div className="group/post flex w-full items-start justify-end gap-2.5">
+          {onReply && <ReplyButton onReply={onReply} />}
           <div {...post} className="flex min-w-0 max-w-[85%] flex-col items-end gap-1 rounded-2xl">
             {files}
             {text && (
@@ -133,7 +138,7 @@ export function ChannelMessage({
     )
 
   return (
-    <div className="flex w-full items-start gap-2.5">
+    <div className="group/post flex w-full items-start gap-2.5">
       <div className="w-7 shrink-0">
         {first &&
           (agentId ? (
@@ -190,6 +195,7 @@ export function ChannelMessage({
         )}
         {shown({ ...posted, uploads: [] })}
       </div>
+      {onReply && <ReplyButton onReply={onReply} />}
     </div>
   )
 }
