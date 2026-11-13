@@ -3,8 +3,8 @@ import { spawn } from 'node:child_process'
 import { agentEnv } from './config.ts'
 import { customProviderLaunch } from './custom-provider.ts'
 
-import type { TokenStore } from '../../auth/token-store.ts'
 import type { LocalRuntimeBundle } from './config.ts'
+import type { KeyStore } from './custom-provider.ts'
 import type { ProbeModelsRun } from './controller-types.ts'
 
 export type ModelControls = {
@@ -239,7 +239,7 @@ export function probeLocalModels(options: {
 
 /** `probeModels` for a host that stages `bundle`: the adapter runs as it would under openab. */
 /** `keys` holds the custom providers' keys, whose models the probe then offers. */
-export function bundledModelProbe(bundle: () => LocalRuntimeBundle | null, keys?: TokenStore) {
+export function bundledModelProbe(bundle: () => LocalRuntimeBundle | null, keys?: KeyStore) {
   return async ({ provider, workspace, env, cliPath, agentHome }: ProbeModelsRun) => {
     const staged = bundle()
     const adapter = staged?.adapters[provider]
