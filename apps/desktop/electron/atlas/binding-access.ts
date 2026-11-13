@@ -8,6 +8,7 @@ const COLLECTIONS = new Set([
   'cloudflare-accounts',
   'github-installations',
   'gitlab-bindings',
+  'grafana-instances',
   'hetzner-accounts',
   'jira-sites',
   'linear-workspaces',
