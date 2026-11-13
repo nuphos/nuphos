@@ -2,7 +2,8 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { createDefaultAccess } from '@/lib/byos/access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
 import { listHetznerServers, verifyHetznerToken, HetznerApiError } from '@/lib/byos/hetzner'
 import { encryptHetznerToken, decryptHetznerToken } from '@/lib/byos/secrets'
@@ -25,6 +26,7 @@ const bindSchema = z
   .object({
     label: z.string().trim().min(1).max(100),
     token: z.string().trim().min(1),
+    share: bindingShareSchema.optional(),
   })
   .strict()
 
@@ -79,7 +81,7 @@ hetznerAccountsRoutes.post(
       label,
       encryptedToken,
       createdAt: now,
-      access: createDefaultAccess(c.get('userId'), now),
+      access: await newBindingAccess(c, { now: now, highPrivilege: true }),
     }
 
     await appendEnvironmentBinding(
@@ -98,6 +100,10 @@ hetznerAccountsRoutes.post(
 const accountScoped = new Hono<{ Variables: HetznerAccountVariables }>()
 
 accountScoped.use('*', requireHetznerAccount())
+registerBindingAccessRoutes(accountScoped, 'hetznerAccounts', (c) => ({
+  id: c.get('hetznerAccountId'),
+  access: c.get('hetznerAccess'),
+}))
 
 accountScoped.get('/', (c) => {
   return c.json({

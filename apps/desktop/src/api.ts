@@ -1,8 +1,9 @@
 import { agentApi } from './api/agent-api.ts'
 import { appApi } from './api/app-api.ts'
-import { channelsApi } from './api/channels-api.ts'
 import { awsApi } from './api/aws-api.ts'
+import { bindingAccessApi } from './api/binding-access-api.ts'
 import { browserExtensionsApi } from './api/browser-extensions-api.ts'
+import { channelsApi } from './api/channels-api.ts'
 import { cloudflareApi } from './api/cloudflare-api.ts'
 import { cloudflarePagesApi } from './api/cloudflare-pages-api.ts'
 import { databaseApi } from './api/database-api.ts'
@@ -25,9 +26,10 @@ import { withStepUp } from './lib/stepUp.ts'
 
 import type { WindowAgentApi } from './api/window-agent.ts'
 import type { WindowAppApi } from './api/window-app.ts'
-import type { WindowChannelsApi } from './api/window-channels.ts'
 import type { WindowAwsApi } from './api/window-aws.ts'
+import type { WindowBindingAccessApi } from './api/window-binding-access.ts'
 import type { WindowBrowserExtensionsApi } from './api/window-browser-extensions.ts'
+import type { WindowChannelsApi } from './api/window-channels.ts'
 import type { WindowCloudflarePagesApi } from './api/window-cloudflare-pages.ts'
 import type { WindowCloudflareApi } from './api/window-cloudflare.ts'
 import type { WindowDatabaseApi } from './api/window-database.ts'
@@ -71,6 +73,7 @@ declare global {
       WindowIntegrationsApi &
       WindowPosthogApi &
       WindowPlaudApi &
+      WindowBindingAccessApi &
       WindowSessionAccessApi &
       WindowChannelsApi &
       WindowAwsApi &
@@ -96,6 +99,7 @@ const rawApi = {
   ...integrationsApi,
   ...posthogApi,
   ...plaudApi,
+  ...bindingAccessApi,
   ...awsApi,
   ...gcpClustersApi,
   ...gitApi,

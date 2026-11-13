@@ -11,12 +11,12 @@ import {
   verifyWebhookToken,
 } from '@/lib/byos/gitlab'
 import { decryptGitlabSecret, encryptGitlabSecret } from '@/lib/byos/secrets'
-import { finishConnectorOAuth } from '@/lib/connector-oauth'
+import { finishConnectorOAuth, reboundAccess } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { gitlabPendingOAuth, teamByosBindings } from '@/models'
 
-import type { GitlabBinding } from '@/models'
+import type { BindingAccess, GitlabBinding } from '@/models'
 import type { Context } from 'hono'
 
 export const gitlabAppRoutes = new Hono()
@@ -155,6 +155,7 @@ gitlabAppRoutes.get('/setup', async (c) => {
       state,
       teamId: pending.teamId,
       requesterUserId: pending.requesterUserId,
+      share: pending.share,
       draft,
       persist: persistGitlabBinding,
     }),
@@ -169,6 +170,7 @@ type GitlabBindingDraft = Omit<GitlabBinding, 'id' | 'createdAt' | 'access'>
 export async function persistGitlabBinding(
   teamId: ObjectId,
   draft: GitlabBindingDraft,
+  access: BindingAccess,
 ): Promise<Record<string, string>> {
   const existingDoc = await teamByosBindings().findOne(
     { _id: teamId },
@@ -183,6 +185,8 @@ export async function persistGitlabBinding(
     ...draft,
     id: bindingId,
     createdAt: existing?.createdAt ?? new Date(),
+    // Reauthorizing renews the grant; who may use the binding stays as set.
+    ...reboundAccess(existing, access),
   }
 
   if (existing) {

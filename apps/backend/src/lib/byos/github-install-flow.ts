@@ -10,7 +10,7 @@ import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { teamByosBindings } from '@/models'
 
-import type { GithubInstallationBinding } from '@/models'
+import type { BindingAccess, BindingShareChoice, GithubInstallationBinding } from '@/models'
 import type { Context } from 'hono'
 
 // The setup flow binds a GitHub installation to a team. The backend signs who
@@ -26,6 +26,8 @@ export type InstallFlowState = {
   u: string
   /** The client's own correlation state, handed back unchanged. */
   s?: string
+  /** Who the starter chose to share the installation with. */
+  sh?: BindingShareChoice
   /** Installation id and setup action, once GitHub has returned them. */
   i?: number
   a?: string
@@ -108,6 +110,7 @@ export async function administeredTeamName(userId: string, teamId: string): Prom
 export async function bindGithubInstallation(
   teamId: ObjectId,
   installationId: number,
+  access: BindingAccess,
 ): Promise<GithubInstallationBinding> {
   const existing = await teamByosBindings().findOne(
     { _id: teamId },
@@ -127,6 +130,7 @@ export async function bindGithubInstallation(
     accountId: info.account.id,
     targetType: info.repositorySelection,
     createdAt,
+    access,
   }
 
   const result = await teamByosBindings().updateOne(

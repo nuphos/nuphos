@@ -2,7 +2,8 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { createDefaultAccess } from '@/lib/byos/access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { verifyUptimeKumaCredentials } from '@/lib/byos/uptime-kuma'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
@@ -32,6 +33,7 @@ const bindSchema = z
     username: z.string().trim().min(1).max(255).optional(),
     password: z.string().min(1).optional(),
     authToken: z.string().trim().min(1).optional(),
+    share: bindingShareSchema.optional(),
   })
   .strict()
   .refine((value) => value.authToken || (value.username && value.password), {
@@ -77,7 +79,7 @@ uptimeKumaInstancesRoutes.post(
             encryptedPassword: encryptUptimeKumaSecretOrUnavailable(password!),
           }),
       createdAt: now,
-      access: createDefaultAccess(c.get('userId'), now),
+      access: await newBindingAccess(c, { now: now }),
     }
 
     await teamByosBindings().updateOne(
@@ -108,6 +110,9 @@ uptimeKumaInstancesRoutes.post(
 const instanceScoped = new Hono<{ Variables: UptimeKumaInstanceVariables }>()
 
 instanceScoped.use('*', requireUptimeKumaInstance())
+registerBindingAccessRoutes(instanceScoped, 'uptimeKumaInstances', (c) =>
+  c.get('uptimeKumaBinding'),
+)
 
 registerUptimeKumaInstanceRoutes(instanceScoped)
 registerUptimeKumaMonitorRoutes(instanceScoped)

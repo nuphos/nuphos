@@ -4,9 +4,13 @@ import { ObjectId } from 'mongodb'
 
 import { errorHandler } from '@/lib/errors'
 import { useByosSecrets } from '@/lib/test/doubles/byos-secrets'
+import { useIdentity } from '@/lib/test/doubles/identity'
 import { useModels } from '@/lib/test/doubles/models'
 
 import type { PlaudAccountBinding, PlaudPendingOAuth } from '@/models'
+
+// A new binding's default share reads the team; these tests run without one.
+useIdentity({ getTeamMembership: async () => null })
 
 const TEAM_ID = new ObjectId()
 const USER_ID = new ObjectId().toHexString()

@@ -1,5 +1,6 @@
 export * from '@/lib/identity/agent-runtime'
 export * from '@/lib/identity/auth'
+export * from '@/lib/identity/binding-share'
 export * from '@/lib/identity/directory-admin'
 export * from '@/lib/identity/discovery'
 export * from '@/lib/identity/team-removal'

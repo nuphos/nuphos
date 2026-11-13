@@ -1,5 +1,13 @@
+/** Who the member connecting a binding chose to share it with. */
+export type BindingShareChoice = {
+  mode: 'private' | 'team' | 'members'
+  memberIds: string[]
+}
+
 export type BindingAccess = {
   memberAllowList: string[]
+  /** The member who connected the binding; absent on bindings connected before it was kept. */
+  ownerUserId?: string
   updatedAt: Date
   updatedBy: string
 }

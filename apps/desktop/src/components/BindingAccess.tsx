@@ -1,9 +1,14 @@
+import clsx from 'clsx'
 import { KeyRound } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
+import { parseAtlasError } from '../api/errors'
+import { useCurrentUser } from '../hooks/useCurrentUser'
+import { useTeamRole } from '../hooks/useTeamRole'
 import { t } from '../i18n'
 import { memberDisplayName, normalizeAllowList } from '../lib/bindingAccess'
+import { bindingShareStatus, canEditBindingAccess } from '../lib/bindingShare'
 
 import { AllowListSelect } from './binding-access-allow-list'
 import { PROVIDERS } from './binding-access-providers'
@@ -15,6 +20,12 @@ import type { BindingAccess, TeamMember } from '../types'
 
 export { AllowListSelect } from './binding-access-allow-list'
 export type { BindingAccessProvider } from './binding-access-providers'
+
+const SHARE_LABELS = {
+  private: () => t('Private'),
+  team: () => t('Everyone in the team'),
+  members: () => t('Specific people'),
+}
 
 function memberLabelById(userId: string, members: TeamMember[]): string {
   const member = members.find((item) => item.id === userId)
@@ -46,6 +57,10 @@ export function BindingAccessSection({
   const [loadedAccess, setLoadedAccess] = useState<BindingAccess | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  // Hidden for members who may neither see nor change the list.
+  const [hidden, setHidden] = useState(false)
+  const me = useCurrentUser()?.id
+  const isAdmin = useTeamRole(teamId) === 'ADMINISTRATOR'
   const reqRef = useRef(0)
 
   // A new binding starts from a loading, not-saving slate; adjusting during
@@ -58,6 +73,7 @@ export function BindingAccessSection({
     setLoadingKey(bindingKey)
     setLoading(true)
     setSaving(false)
+    setHidden(false)
   }
 
   useEffect(() => {
@@ -75,7 +91,8 @@ export function BindingAccessSection({
         setMembers([])
         setMemberAllowList([])
         setLoadedAccess(null)
-        toast.apiError(t('Failed to load access settings'), err)
+        if (parseAtlasError(err).code === 'forbidden') setHidden(true)
+        else toast.apiError(t('Failed to load access settings'), err)
       })
       .finally(() => {
         if (req === reqRef.current) setLoading(false)
@@ -113,6 +130,19 @@ export function BindingAccessSection({
     }
   }
 
+  if (hidden) return null
+  const canEdit =
+    loadedAccess !== null &&
+    canEditBindingAccess(
+      normalizeAllowList(loadedAccess.memberAllowList),
+      loadedAccess.ownerUserId,
+      me,
+      isAdmin,
+    )
+
+  // "Specific people" with nobody picked would leave the binding usable by no one.
+  const nobodySelected = normalizeAllowList(memberAllowList).length === 0
+
   return (
     <section className="px-6 py-4 border-t border-line-control/60">
       <div className="flex items-center gap-2 mb-3">
@@ -121,22 +151,41 @@ export function BindingAccessSection({
         {principal && <span className="ml-auto text-[11.5px] text-tertiary">{principal}</span>}
       </div>
       <p className="mb-3 text-[12px] text-tertiary">
-        {config.adminBypass
-          ? t(
-              'Control which team members can use this {resource}, including from their agents. Team admins always have access, whether or not they are listed.',
-              { resource: config.resourceLabel },
-            )
-          : t('Control which team members can use this {resource}, including from their agents.', {
-              resource: config.resourceLabel,
-            })}
+        {t(
+          "Control which team members can use this {resource}, including from their agents. Admins can also use it once it is shared, but never a member's private one.",
+          { resource: config.resourceLabel },
+        )}
       </p>
+      {loadedAccess && (
+        <p className="mb-3 flex gap-3 text-[12px] text-secondary">
+          {loadedAccess.ownerUserId && (
+            <span>
+              {t('Owner')}: {memberLabelById(loadedAccess.ownerUserId, members)}
+            </span>
+          )}
+          <span>
+            {SHARE_LABELS[bindingShareStatus(memberAllowList, loadedAccess.ownerUserId)]()}
+          </span>
+        </p>
+      )}
       {loading ? (
         <div className="rounded-md border border-line-control bg-surface-canvas px-3 py-6 text-center text-[12.5px] text-tertiary">
           {t('Loading access...')}
         </div>
       ) : !loadedAccess ? null : (
         <>
-          <div className="border-y border-line-control/60 divide-y divide-line-control/60">
+          {!canEdit && (
+            <p className="mb-3 text-[12px] text-tertiary">
+              {t('Only its owner can change who may use it.')}
+            </p>
+          )}
+          <div
+            className={clsx(
+              'border-y border-line-control/60 divide-y divide-line-control/60',
+              !canEdit && 'pointer-events-none opacity-60',
+            )}
+            aria-disabled={!canEdit}
+          >
             <AllowListSelect
               title={t('Access')}
               subtitle={t(
@@ -164,7 +213,12 @@ export function BindingAccessSection({
                   </>
                 )}
               </div>
-              <Button size="sm" type="button" onClick={() => void save()} disabled={saving}>
+              <Button
+                size="sm"
+                type="button"
+                onClick={() => void save()}
+                disabled={saving || !canEdit || nobodySelected}
+              >
                 {saving ? t('Saving...') : t('Save access')}
               </Button>
             </div>

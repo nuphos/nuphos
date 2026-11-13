@@ -9,12 +9,12 @@ import {
   invalidateAccessToken,
 } from '@/lib/byos/jira'
 import { encryptJiraSecret } from '@/lib/byos/secrets'
-import { finishConnectorOAuth } from '@/lib/connector-oauth'
+import { finishConnectorOAuth, reboundAccess } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { jiraPendingOAuth, teamByosBindings } from '@/models'
 
-import type { JiraSiteBinding } from '@/models'
+import type { BindingAccess, JiraSiteBinding } from '@/models'
 import type { Context } from 'hono'
 
 export const jiraAppRoutes = new Hono()
@@ -147,6 +147,7 @@ jiraAppRoutes.get('/setup', async (c) => {
       state,
       teamId: pending.teamId,
       requesterUserId: pending.requesterUserId,
+      share: pending.share,
       draft,
       persist: persistJiraBinding,
     }),
@@ -160,6 +161,7 @@ type JiraBindingDraft = Omit<JiraSiteBinding, 'id' | 'label' | 'createdAt' | 'ac
 export async function persistJiraBinding(
   teamId: ObjectId,
   draft: JiraBindingDraft,
+  access: BindingAccess,
 ): Promise<Record<string, string>> {
   const existingDoc = await teamByosBindings().findOne(
     { _id: teamId },
@@ -173,7 +175,7 @@ export async function persistJiraBinding(
     id: bindingId,
     label: existing?.label ?? draft.siteName,
     createdAt: existing?.createdAt ?? new Date(),
-    ...(existing?.access ? { access: existing.access } : {}),
+    ...reboundAccess(existing, access),
   }
 
   if (existing) {
