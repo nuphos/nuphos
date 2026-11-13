@@ -926,30 +926,50 @@ struct MemoryRecallPill: View {
 struct ResourceStrip: View {
     let resources: [SessionResource]
     @Environment(\.openURL) private var openURL
+    /// Merged and closed links no longer need attention, so they fold into one
+    /// chip after the open ones, as on Desktop.
+    @State private var showFinished = false
 
     var body: some View {
+        let groups = resources.openFirst
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(resources) { resource in
-                    Button { openURL(resource.url) } label: {
-                        HStack(spacing: 5) {
-                            BrandLogo(name: "logo-\(resource.provider)", size: 12)
-                            Text(resource.chip).fontWeight(.medium).foregroundStyle(Theme.heading)
-                            Text(resource.state.capitalized).foregroundStyle(tone(resource))
-                        }
-                        .font(Theme.Text.caption)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Theme.chatSurface, in: Capsule())
+                ForEach(groups.open) { chip($0) }
+                if !groups.finished.isEmpty {
+                    let label = SessionResource.finishedLabel(groups.finished)
+                    Button { showFinished.toggle() } label: {
+                        Text(label)
+                            .foregroundStyle(Theme.muted)
+                            .font(Theme.Text.caption)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Theme.chatSurface, in: Capsule())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("\(resource.title), \(resource.state)")
+                    .accessibilityLabel("\(label), \(showFinished ? "hide" : "show") finished links")
                 }
+                if showFinished { ForEach(groups.finished) { chip($0) } }
             }
             .padding(.horizontal, 16)
         }
         .padding(.vertical, 6)
         .background(Theme.chatCanvas)
+    }
+
+    private func chip(_ resource: SessionResource) -> some View {
+        Button { openURL(resource.url) } label: {
+            HStack(spacing: 5) {
+                BrandLogo(name: "logo-\(resource.provider)", size: 12)
+                Text(resource.chip).fontWeight(.medium).foregroundStyle(Theme.heading)
+                Text(resource.state.capitalized).foregroundStyle(tone(resource))
+            }
+            .font(Theme.Text.caption)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Theme.chatSurface, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(resource.title), \(resource.state)")
     }
 
     private func tone(_ resource: SessionResource) -> Color {
