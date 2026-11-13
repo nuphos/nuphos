@@ -149,7 +149,7 @@ describe('agents in a channel', () => {
           title: 'agent-a title',
           ownerId: OWNER,
           provider: 'claude-code',
-          // Being in a channel makes it a Bot, with the face its id derives.
+          // A Task in a channel wears the face its id derives, without becoming a Bot.
           avatar: derivedAvatar('agent-a'),
         },
       ],
