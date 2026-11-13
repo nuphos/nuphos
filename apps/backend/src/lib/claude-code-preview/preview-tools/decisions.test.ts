@@ -329,7 +329,7 @@ describe('decision tool module', () => {
       {
         sessionId: 'conv-1',
         userId: 'u1',
-        inputRequests: { $elemMatch: { id: 'nuphos-1', status: 'open' } },
+        'inputRequests.id': 'nuphos-1',
       },
       { $set: { 'inputRequests.$.options': ['Delete', 'Keep', 'Back up, then delete'] } },
     ])
@@ -390,7 +390,7 @@ describe('decision tool module', () => {
     })
   })
 
-  test('withdraw_user_decision dismisses the open request', async () => {
+  test('withdraw_user_decision takes the open request off the list', async () => {
     const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
     const result = await tools.withdraw_user_decision!({ label: 'Withdraw', requestId: 'nuphos-1' })
 
@@ -399,14 +399,9 @@ describe('decision tool module', () => {
       {
         sessionId: 'conv-1',
         userId: 'u1',
-        inputRequests: { $elemMatch: { id: 'nuphos-1', status: 'open' } },
+        'inputRequests.id': 'nuphos-1',
       },
-      {
-        $set: {
-          'inputRequests.$.status': 'dismissed',
-          'inputRequests.$.resolvedAt': expect.any(Date),
-        },
-      },
+      { $pull: { inputRequests: { id: 'nuphos-1' } } },
     ])
   })
 

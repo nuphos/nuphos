@@ -48,7 +48,7 @@ const requestFollowUps = {
       : toolError(NOT_OPEN)
   },
   withdraw_user_decision: async (ctx: PreviewToolContext, { requestId }: RequestFollowUp) =>
-    (await resolveInputRequest(ctx.sessionId, requestOwner(ctx), requestId, 'dismissed'))
+    (await resolveInputRequest(ctx.sessionId, requestOwner(ctx), requestId))
       ? toolResult({ ok: true, requestId, status: 'withdrawn' })
       : toolError(NOT_OPEN),
   list_user_decisions: async (ctx: PreviewToolContext) => {

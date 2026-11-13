@@ -1,16 +1,16 @@
 import { ownBody, withQuestionsInBody } from '@/lib/agent/tools-skilled/decision-tools'
+import { logEvent } from '@/lib/observability'
 
 import { agentConversations } from './shared'
 
 import type { PersonalCredentialRef } from '@/lib/agent/tools-skilled/decision-tools'
 import type { ExplicitUserDecision } from '@/lib/agent/tools-skilled/types'
 
-export type InputRequestStatus = 'open' | 'answered' | 'dismissed'
-
 /**
  * A request_user_decision card the owner has to answer, kept on the conversation
- * so an Inbox can list it across sessions. `id` is the card's tool call id. Only
- * an explicit answer or dismissal of that id resolves it.
+ * so an Inbox can list it across sessions. `id` is the card's tool call id. The
+ * conversation keeps only open requests: answering, dismissing or withdrawing
+ * one removes it.
  */
 export type InputRequest = ExplicitUserDecision & {
   id: string
@@ -27,47 +27,28 @@ export type InputRequest = ExplicitUserDecision & {
   /** The linked resources and sub-agent threads it is about: their changes remind the agent of it. */
   about?: string[]
   askedAt: Date
-  status: InputRequestStatus
-  resolvedAt?: Date
+  /** Always 'open': clients still filter on it. */
+  status: 'open'
 }
 
 /** The questions a conversation document keeps for its owner. */
 export type ConversationInputRequests = {
-  /** Questions asked through request_user_decision, open and resolved. */
+  /** The open questions asked through request_user_decision. */
   inputRequests?: InputRequest[]
 }
 
-/** Resolved requests are kept for history; the oldest fall off past this many requests. */
-const MAX_INPUT_REQUESTS = 100
-
-/** A new question joins the open ones; it never replaces or evicts another open request. */
+/** A new question joins the open ones; it never replaces another open request. */
 export async function addInputRequest(
   sessionId: string,
   userId: string,
-  request: Omit<InputRequest, 'status' | 'resolvedAt'>,
+  request: Omit<InputRequest, 'status'>,
 ): Promise<void> {
   const entry: InputRequest = { ...request, status: 'open' }
-  const conversations = agentConversations()
 
-  await conversations.updateOne(
+  await agentConversations().updateOne(
     { sessionId, userId },
     { $push: { inputRequests: { $each: [entry] } } },
   )
-  const conversation = await conversations.findOne(
-    { sessionId, userId },
-    { projection: { inputRequests: 1 } },
-  )
-  const requests = conversation?.inputRequests ?? []
-  const stale = requests
-    .filter((stored) => stored.status !== 'open')
-    .slice(0, Math.max(0, requests.length - MAX_INPUT_REQUESTS))
-    .map((stored) => stored.id)
-
-  if (stale.length)
-    await conversations.updateOne(
-      { sessionId, userId },
-      { $pull: { inputRequests: { id: { $in: stale } } } },
-    )
 }
 
 /** The agent corrects a request while it is still open; an answered one stays as answered. */
@@ -98,7 +79,7 @@ export async function updateInputRequest(
     Object.entries(patch).map(([field, value]) => [`inputRequests.$.${field}`, value]),
   )
   const result = await agentConversations().updateOne(
-    { sessionId, userId, inputRequests: { $elemMatch: { id, status: 'open' } } },
+    { sessionId, userId, 'inputRequests.id': id },
     { $set: set },
   )
 
@@ -138,7 +119,7 @@ export function relatedQuestionsNote(
   return `\n\nYour open questions about this ${what}:\n${list}\nIf this answers one or makes it moot, withdraw it with withdraw_user_decision or correct it with update_user_decision.`
 }
 
-/** One request, open or resolved, by its id. */
+/** One open request, by its id. */
 export async function findInputRequest(
   sessionId: string,
   userId: string,
@@ -152,40 +133,50 @@ export async function findInputRequest(
   return conversation?.inputRequests?.[0]
 }
 
+/** An answer, dismissal or withdrawal takes the request off the list; false when it was not on it. */
 export async function resolveInputRequest(
   sessionId: string,
   userId: string,
   id: string,
-  resolution: Exclude<InputRequestStatus, 'open'>,
 ): Promise<boolean> {
-  const listed = await agentConversations().updateOne(
-    { sessionId, userId, inputRequests: { $elemMatch: { id, status: 'open' } } },
-    { $set: { 'inputRequests.$.status': resolution, 'inputRequests.$.resolvedAt': new Date() } },
+  const result = await agentConversations().updateOne(
+    { sessionId, userId, 'inputRequests.id': id },
+    { $pull: { inputRequests: { id } } },
   )
 
-  return listed.matchedCount > 0
+  return result.matchedCount > 0
 }
 
-/** An answer whose agent could not be told: the question waits for an answer again. */
-export async function reopenInputRequest(sessionId: string, userId: string, id: string) {
+/** An answer whose agent could not be told: the question goes back on the list. */
+export async function reopenInputRequest(sessionId: string, userId: string, request: InputRequest) {
   await agentConversations().updateOne(
-    { sessionId, userId, inputRequests: { $elemMatch: { id, status: 'answered' } } },
-    { $set: { 'inputRequests.$.status': 'open' }, $unset: { 'inputRequests.$.resolvedAt': '' } },
+    { sessionId, userId, 'inputRequests.id': { $ne: request.id } },
+    { $push: { inputRequests: { $each: [request] } } },
   )
 }
 
 /** A plan decided anywhere (its card, the Plans page, Slack) is no longer asked about. */
 export async function resolvePlanInputRequests(sessionId: string, planId: string): Promise<void> {
   await agentConversations().updateOne(
-    { sessionId, inputRequests: { $elemMatch: { planId, status: 'open' } } },
-    {
-      $set: {
-        'inputRequests.$[plan].status': 'answered',
-        'inputRequests.$[plan].resolvedAt': new Date(),
-      },
-    },
-    { arrayFilters: [{ 'plan.planId': planId, 'plan.status': 'open' }] },
+    { sessionId, 'inputRequests.planId': planId },
+    { $pull: { inputRequests: { planId } } },
   )
+}
+
+/**
+ * Conversations used to keep answered and dismissed requests as history. Drops
+ * them; idempotent, a no-op once none remain.
+ */
+export async function dropResolvedInputRequests(): Promise<void> {
+  const result = await agentConversations().updateMany(
+    { 'inputRequests.status': { $in: ['answered', 'dismissed'] } },
+    { $pull: { inputRequests: { status: { $ne: 'open' } } } },
+  )
+
+  if (result.modifiedCount > 0)
+    logEvent('info', 'backend.migration.resolved_input_requests_dropped', {
+      conversations: result.modifiedCount,
+    })
 }
 
 /** Matches a conversation with any open request. */

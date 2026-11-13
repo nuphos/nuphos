@@ -28,7 +28,7 @@ useDb({
   db: () => ({
     collection: () => ({
       updateOne: async (filter: Record<string, unknown>, update: Record<string, unknown>) => {
-        const listed = 'inputRequests' in filter
+        const listed = 'inputRequests.id' in filter
 
         if (listed && stillOpen) resolved.push(update)
 
@@ -127,7 +127,7 @@ describe('answerCredentialAsks', () => {
     await answerCredentialAsks('s1', { personalCredentialIds: ['github'] })
 
     expect(resolved).toHaveLength(1)
-    expect(resolved[0]).toMatchObject({ $set: { 'inputRequests.$.status': 'answered' } })
+    expect(resolved[0]).toMatchObject({ $pull: { inputRequests: { id: expect.any(String) } } })
     expect(turns).toHaveLength(1)
     expect(turns[0]!.sessionId).toBe('s1')
     expect(turns[0]!.text).toContain('q-github')
@@ -146,7 +146,7 @@ describe('answerCredentialAsks', () => {
     )
 
     expect(resolved).toHaveLength(1)
-    expect(resolved[0]).toMatchObject({ $set: { 'inputRequests.$.status': 'answered' } })
+    expect(resolved[0]).toMatchObject({ $pull: { inputRequests: { id: expect.any(String) } } })
     expect(turns).toHaveLength(1)
     expect(turns[0]!.sessionId).toBe('s1')
     expect(turns[0]!.text).toContain('q-trello')

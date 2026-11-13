@@ -670,17 +670,7 @@ test('an answer taken back, or never queued, leaves its question answerable', as
   }
 })
 
-test('an answer to a question already answered or dismissed is refused', async () => {
-  for (const status of ['answered', 'dismissed'] as const) {
-    await expect(answer(`late-${status}`, status)).rejects.toMatchObject({
-      status: 409,
-      code: 'decision_already_answered',
-    })
-  }
-  expect(await listPendingUserMessages(OWNER, SESSION)).toEqual([])
-})
-
-test('an answer to a question this conversation does not list is left to the turn', async () => {
+test('an answer to a question this conversation does not list, or no longer lists, is left to the turn', async () => {
   const done = busy()
 
   try {

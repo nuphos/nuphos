@@ -352,15 +352,14 @@ describe('answering in a chat', () => {
 
     expect(response.status).toBe(201)
     expect(appended[0]?.messages[0]).toMatchObject({ parts: [{ type: 'text', text: 'Yes' }] })
-    expect(
-      (await agentConversations().findOne({ sessionId: 'bot' }))?.inputRequests?.[0]?.status,
-    ).toBe('answered')
+    expect((await agentConversations().findOne({ sessionId: 'bot' }))?.inputRequests).toEqual([])
   })
 
   test('refuses a question already answered, or one no agent in the chat asked', async () => {
     const channelId = await createChannel()
 
-    await seedAgent('bot', OWNER, ask('answered'))
+    // An answered question is off its agent's list, as is one asked elsewhere.
+    await seedAgent('bot', OWNER, { ...ask('open'), inputRequests: [] })
     await seedAgent('elsewhere', OWNER, {
       ...ask('open'),
       inputRequests: [{ ...ask('open').inputRequests[0], id: 'q2' }],
@@ -372,7 +371,7 @@ describe('answering in a chat', () => {
     const post = (decisionReplyTo: string) =>
       send('POST', `/conversations/${channelId}/channel-messages`, { text: 'Yes', decisionReplyTo })
 
-    expect((await post('q1')).status).toBe(409)
+    expect((await post('q1')).status).toBe(404)
     expect((await post('q2')).status).toBe(404)
     expect(appended).toHaveLength(0)
   })
