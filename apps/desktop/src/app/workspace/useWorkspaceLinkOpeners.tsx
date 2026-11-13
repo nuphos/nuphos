@@ -16,11 +16,13 @@ import {
   teamIdFromAppPath,
 } from '../../lib/appRoutes'
 import { parseAtlasLink } from '../../lib/atlasLinkMention'
+import { isConnectorsPage } from '../../lib/connectorScopeCrumb'
 import { requestArtifactOpen } from '../../lib/sessionArtifacts'
 import { isTeamId } from '../../lib/teamId'
 import { ATLAS_WEB_BASE_URL, toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
 import { settingsLinkTarget, settingsSectionForPage } from '../../views/settings/settingsNav'
 
+import { connectorsDialogOf } from './store/connectorsDialog'
 import { selectActiveTab, selectCurrentBucket, selectScope } from './store/workspaceState'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
@@ -128,6 +130,17 @@ export function useWorkspaceLinkOpeners(a: Args) {
           workspaceActions.openTeamTab(settingsTarget.teamId)
         }
         openSettingsSection(settingsTarget.section, settingsTarget.filter)
+
+        return true
+      }
+
+      // Connectors opens as a dialog over the page, in a team this account is in.
+      if (isConnectorsPage(navigation.scope, navigation.active)) {
+        if (!teams.some((team) => team.id === navigation.scope.teamId)) return false
+        if (navigation.scope.teamId !== selectScope(workspaceStore.getState())?.teamId) {
+          workspaceActions.openTeamTab(navigation.scope.teamId)
+        }
+        workspaceActions.setConnectorsDialog(connectorsDialogOf(navigation))
 
         return true
       }
@@ -253,7 +266,11 @@ export function useWorkspaceLinkOpeners(a: Args) {
       // the deep-link resolver, which knows the remaining tricks.
       const navigation = !newTab ? navigationFromAppPath(href) : null
 
-      if (navigation && !settingsSectionForPage(navigation.active)) {
+      if (
+        navigation &&
+        !settingsSectionForPage(navigation.active) &&
+        !isConnectorsPage(navigation.scope, navigation.active)
+      ) {
         const hydrated = hydrateNavigationCredentialState(navigation, accountsByTeam)
 
         updateActiveTab((tab) => ({

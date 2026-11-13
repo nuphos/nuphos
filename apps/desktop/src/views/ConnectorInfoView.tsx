@@ -8,7 +8,6 @@ import { installedConnectorAddAction } from './cloud/connector-actions'
 import { TeamHomeBindFlow } from './cloud/team-home-bind-flow'
 import { ConnectorInfoPage } from './connector-info/ConnectorInfoPage'
 import { ConnectorManagementSection } from './connector-info/ConnectorManagementSection'
-import { ConnectorsBackButton } from './connector-info/ConnectorsBackButton'
 import { DisconnectConnectorDialog } from './connector-info/DisconnectConnectorDialog'
 import { loadConnectorInfos } from './connector-info/loadConnectorInfo'
 import { hasConnectorManagement } from './connector-info/managementProviders'
@@ -35,7 +34,7 @@ export {
 function ConnectorInfoSkeleton() {
   return (
     <div
-      className="mx-auto w-full max-w-[760px] animate-pulse px-7 py-10"
+      className="w-full animate-pulse px-8 pb-8 pt-2"
       aria-label={t('Loading connector')}
       aria-busy="true"
     >
@@ -183,12 +182,11 @@ export function ConnectorInfoView({
       data-connector-detail
       className="connector-quiet-focus flex-1 min-h-0 overflow-y-auto scrollbar-thin selectable"
     >
-      {onExit && <ConnectorsBackButton onBack={onExit} />}
       {state !== 'ready' && (
         <>
           {state === 'loading' && <ConnectorInfoSkeleton />}
           {state === 'missing' && (
-            <div className="mx-auto w-full max-w-[760px] px-7 py-10">
+            <div className="w-full px-8 pb-8 pt-2">
               <div className="text-[12.5px] text-tertiary">
                 {t('No connections were found for this connector.')}
               </div>

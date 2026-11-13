@@ -226,6 +226,11 @@ export function isTeamIntegrationsActive(active: string): boolean {
   return active === 'team.integrations' || active === 'team.accounts'
 }
 
+/** A navigation to Connectors, which opens as a dialog over the current page. */
+export function isConnectorsPage(scope: Scope, active: string): boolean {
+  return scope.kind === 'team' && isTeamIntegrationsActive(active)
+}
+
 /**
  * Pages reached from the Connectors page rather than the resource sidebar —
  * "who may use this binding" settings. Their trail deliberately ends at the
