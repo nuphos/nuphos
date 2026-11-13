@@ -1,6 +1,6 @@
 import { faArrowsRotate, faPlay, faRotateLeft } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { api } from '../../api'
@@ -12,6 +12,7 @@ import { toast } from '../../components/ui/toast'
 import { useReportLoading } from '../../components/useReportLoading'
 import { t } from '../../i18n'
 import { queryKeys } from '../../lib/query/keys'
+import { refreshAfterWrite } from '../../lib/query/refreshAfterWrite'
 
 import { CfDetailActionBar, CfMetaRow } from './cf-shared'
 import { PagesDeploymentLogsModal, PagesDomainsSection } from './cloudflare-pages-sections'
@@ -45,7 +46,12 @@ export function CloudflarePagesProjectDetailView({
     },
   })
   const { project = null, deployments = [] } = query.data ?? {}
-  const reload = () => void query.refetch()
+  const client = useQueryClient()
+  const reload = () =>
+    void refreshAfterWrite(client, {
+      queryKey: queryKeys.cloudflare(teamId, accountId, 'pages', projectName),
+      exact: true,
+    })
 
   // Not polled, so a fetch is either the first load or a reload after an action.
   useReportLoading(query.isFetching, onLoading)
