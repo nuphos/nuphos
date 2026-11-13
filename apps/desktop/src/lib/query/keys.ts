@@ -33,4 +33,12 @@ export const queryKeys = {
   /** Under `grafanaInstances`, so refreshing the bindings refreshes what was read through them. */
   grafana: (teamId: string, instanceId: string, ...rest: string[]) =>
     [...queryKeys.grafanaInstances(teamId), instanceId, ...rest] as const,
+  /** A cloud resource list, by its `withResourceListCache` key. */
+  resourceList: (cacheKey: string) => ['resource-list', cacheKey] as const,
+  /** A bucket's objects, scoped by the bucket list's key, which names the team, account and role. */
+  s3Bucket: (scope: string, bucket: string) => ['aws-s3', scope, bucket] as const,
+  s3Objects: (scope: string, bucket: string, prefix: string) =>
+    [...queryKeys.s3Bucket(scope, bucket), 'objects', prefix] as const,
+  s3Object: (scope: string, bucket: string, key: string, part: 'preview' | 'download-url') =>
+    [...queryKeys.s3Bucket(scope, bucket), part, key] as const,
 }
