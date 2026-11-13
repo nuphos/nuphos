@@ -797,7 +797,6 @@
   "Cloud Monitoring pagination limit reached": "已達 Cloud Monitoring 分頁上限",
   "Cloud Run access denied": "Cloud Run 存取遭拒",
   "Cloud computers for your agents, billed to your instabox account.": "給 agent 用的雲端電腦，由你的 instabox 帳號計費。",
-  "Cloud runtime": "雲端執行環境",
   "Cloudflare API tokens can only list their own policies if they include the \"User Details: Read\" permission. Add it to your Nuphos token to see what was granted.": "Cloudflare API 權杖必須包含「User Details: Read」權限，才能列出自身的原則。請將此權限加入你的 Nuphos 權杖，以查看已授予的內容。",
   "Cloudflare D1 Query Console": "Cloudflare D1 查詢主控台",
   "Cloudflare D1 changes unavailable": "Cloudflare D1 變更無法使用",

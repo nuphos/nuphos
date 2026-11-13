@@ -797,7 +797,6 @@
   "Cloud Monitoring pagination limit reached": "Batas paginasi Cloud Monitoring tercapai",
   "Cloud Run access denied": "Akses Cloud Run ditolak",
   "Cloud computers for your agents, billed to your instabox account.": "Komputer cloud untuk agen Anda, ditagihkan ke akun instabox Anda.",
-  "Cloud runtime": "Runtime cloud",
   "Cloudflare API tokens can only list their own policies if they include the \"User Details: Read\" permission. Add it to your Nuphos token to see what was granted.": "Token API Cloudflare hanya dapat mencantumkan kebijakannya sendiri jika menyertakan izin \"User Details: Read\". Tambahkan izin tersebut ke token Nuphos Anda untuk melihat apa yang diberikan.",
   "Cloudflare D1 Query Console": "Konsol Kueri Cloudflare D1",
   "Cloudflare D1 changes unavailable": "Perubahan Cloudflare D1 tidak tersedia",

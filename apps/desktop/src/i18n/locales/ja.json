@@ -797,7 +797,6 @@
   "Cloud Monitoring pagination limit reached": "Cloud Monitoring のページ分割の上限に達しました",
   "Cloud Run access denied": "Cloud Run へのアクセスが拒否されました",
   "Cloud computers for your agents, billed to your instabox account.": "エージェント用のクラウドコンピューター。instabox アカウントに課金されます。",
-  "Cloud runtime": "クラウドランタイム",
   "Cloudflare API tokens can only list their own policies if they include the \"User Details: Read\" permission. Add it to your Nuphos token to see what was granted.": "Cloudflare API トークンが自身のポリシーを一覧表示するには「User Details: Read」権限が必要です。付与内容を確認するには、Nuphos のトークンにこの権限を追加してください。",
   "Cloudflare D1 Query Console": "Cloudflare D1 クエリコンソール",
   "Cloudflare D1 changes unavailable": "Cloudflare D1 の変更は利用できません",
