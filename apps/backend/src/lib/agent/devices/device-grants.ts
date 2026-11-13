@@ -1,9 +1,11 @@
 import { AppError } from '@/lib/errors'
 import { logEvent } from '@/lib/observability'
 
+import { buildDeviceAccessAuditEntry, recordDeviceAccessChange } from './access-audit'
 import { migrateDeviceAccessGrants } from './device-grants-migration'
 import { agentDevices } from './store'
 
+import type { DeviceAccessChanger } from './access-audit'
 import type { AgentDevice, DeviceGrant } from './store'
 
 /**
@@ -42,12 +44,14 @@ export function teamUse(
 /**
  * Replaces who may use the computer in this team, and its managers when given; otherwise it
  * keeps them. One update, so two saves at once never leave the team with two grants or none.
+ * Every change is audited with who made it and the grant it replaced.
  */
 export async function setTeamUse(
   userId: string,
   deviceId: string,
   teamId: string,
   use: { everyone: boolean; userIds: string[] },
+  by: DeviceAccessChanger,
   /** The new managers, and when they follow from the ones read, those, which must still hold. */
   managers?: { ids: string[]; read?: string[] },
 ): Promise<boolean> {
@@ -64,39 +68,51 @@ export async function setTeamUse(
     ],
   }
   const filter = { userId, deviceId, ...(readManagers ? sameManagers(teamId, readManagers) : {}) }
-  const result = await agentDevices().updateOne(filter, [
-    {
-      $set: {
-        access: {
-          $concatArrays: [
-            others,
-            [
-              {
-                teamId: { $literal: teamId },
-                everyone: { $literal: use.everyone },
-                userIds: { $literal: use.userIds },
-                managerIds: managerIds
-                  ? { $literal: managerIds }
-                  : { $let: { vars: { current }, in: { $ifNull: ['$$current.managerIds', []] } } },
-              },
+  const before = await agentDevices().findOneAndUpdate(
+    filter,
+    [
+      {
+        $set: {
+          access: {
+            $concatArrays: [
+              others,
+              [
+                {
+                  teamId: { $literal: teamId },
+                  everyone: { $literal: use.everyone },
+                  userIds: { $literal: use.userIds },
+                  managerIds: managerIds
+                    ? { $literal: managerIds }
+                    : {
+                        $let: { vars: { current }, in: { $ifNull: ['$$current.managerIds', []] } },
+                      },
+                },
+              ],
             ],
-          ],
+          },
+          ...legacyUse(teamId, use),
+          updatedAt: '$$NOW',
         },
-        ...legacyUse(teamId, use),
-        updatedAt: '$$NOW',
       },
-    },
-  ])
+    ],
+    { returnDocument: 'before' },
+  )
 
   // Someone changed the managers since the read: writing would put the old ones back.
-  if (!result.matchedCount && readManagers && (await agentDevices().findOne({ userId, deviceId })))
+  if (!before && readManagers && (await agentDevices().findOne({ userId, deviceId })))
     throw new AppError(
       409,
       'access_changed',
       'Access changed while you were editing; reopen Manage access.',
     )
+  if (!before) return false
+  const kept = teamGrant(before, teamId)?.managerIds ?? []
 
-  return result.matchedCount === 1
+  await recordDeviceAccessChange(
+    buildDeviceAccessAuditEntry(before, teamId, { ...use, managerIds: managerIds ?? kept }, by),
+  )
+
+  return true
 }
 
 /** Matches only while this team's managers are still exactly these; none also means no grant yet. */
@@ -154,15 +170,26 @@ function legacyUse(teamId: string, use: { everyone: boolean; userIds: string[] }
 }
 
 /** Lets these people use the computer in this team too, keeping everyone it already lets. */
-export async function addTeamUse(device: AgentDevice, teamId: string, userIds: string[]) {
+export async function addTeamUse(
+  device: AgentDevice,
+  teamId: string,
+  userIds: string[],
+  by: DeviceAccessChanger,
+) {
   const use = teamUse(device, teamId)
 
   if (use.everyone) return true
 
-  return setTeamUse(device.userId, device.deviceId, teamId, {
-    everyone: false,
-    userIds: [...new Set([...use.userIds, ...userIds])],
-  })
+  return setTeamUse(
+    device.userId,
+    device.deviceId,
+    teamId,
+    {
+      everyone: false,
+      userIds: [...new Set([...use.userIds, ...userIds])],
+    },
+    by,
+  )
 }
 
 /** Someone who left the team keeps no use or management of any computer in it. */

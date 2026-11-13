@@ -264,8 +264,9 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
       const boxTeam = device.box?.teamId ?? ''
       const members = await deps.teamMembers(boxTeam)
       const access = memberAccess(members, c.req.valid('json'))
+      const by = { actorUserId: c.get('userId'), via: 'box_access' as const }
 
-      if (!(await deps.setTeamUse(device.userId, device.deviceId, boxTeam, access)))
+      if (!(await deps.setTeamUse(device.userId, device.deviceId, boxTeam, access, by)))
         throw new AppError(404, 'device_not_found', 'Device is not available')
       const memberIds = members.map((member) => member.id)
 

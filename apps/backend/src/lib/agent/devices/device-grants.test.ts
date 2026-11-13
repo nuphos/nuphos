@@ -5,13 +5,24 @@ import { useDb } from '@/lib/test/doubles/db'
 type Call = { op: string; filter: unknown; update?: unknown; options?: unknown }
 
 const calls: Call[] = []
+const audits: Record<string, unknown>[] = []
 // What the next update matches, and whether the computer is still there.
 const db = { matched: 1, exists: true }
+const stored = {
+  userId: 'owner',
+  deviceId: 'mac',
+  access: [{ teamId: 'team', everyone: false, userIds: ['old'], managerIds: ['lead'] }],
+}
 const collection = {
-  updateOne: (filter: unknown, update: unknown) => {
-    calls.push({ op: 'updateOne', filter, update })
+  findOneAndUpdate: (filter: unknown, update: unknown, options: unknown) => {
+    calls.push({ op: 'findOneAndUpdate', filter, update, options })
 
-    return Promise.resolve({ matchedCount: db.matched })
+    return Promise.resolve(db.matched ? stored : null)
+  },
+  insertOne: (doc: Record<string, unknown>) => {
+    audits.push(doc)
+
+    return Promise.resolve({ acknowledged: true })
   },
   findOne: () => Promise.resolve(db.exists ? { deviceId: 'mac' } : null),
   updateMany: (filter: unknown, update: unknown, options?: unknown) => {
@@ -32,10 +43,12 @@ const {
   transferTeamComputers,
 } = await import('./device-grants')
 
+const by = { actorUserId: 'lead', via: 'share' as const }
+
 test('replacing a team’s use list is one update that keeps its managers', async () => {
   calls.length = 0
 
-  expect(await setTeamUse('owner', 'mac', 'team', { everyone: false, userIds: ['mate'] })).toBe(
+  expect(await setTeamUse('owner', 'mac', 'team', { everyone: false, userIds: ['mate'] }, by)).toBe(
     true,
   )
   expect(calls).toHaveLength(1)
@@ -65,7 +78,7 @@ test('adding use keeps who already uses it and leaves an everyone grant alone', 
     access: [{ teamId: 'team', everyone: false, userIds: ['mate'], managerIds: ['lead'] }],
   } as never
 
-  expect(await addTeamUse(device, 'team', ['mate', 'new'])).toBe(true)
+  expect(await addTeamUse(device, 'team', ['mate', 'new'], by)).toBe(true)
   const update = calls[0]?.update as { $set: { access: { $concatArrays: unknown[] } } }[]
   const [, mine] = update[0]?.$set.access.$concatArrays ?? []
 
@@ -79,7 +92,7 @@ test('adding use keeps who already uses it and leaves an everyone grant alone', 
     access: [{ teamId: 'team', everyone: true, userIds: [], managerIds: [] }],
   } as never
 
-  expect(await addTeamUse(everyone, 'team', ['new'])).toBe(true)
+  expect(await addTeamUse(everyone, 'team', ['new'], by)).toBe(true)
   expect(calls).toHaveLength(0)
 })
 
@@ -88,7 +101,7 @@ test('managers that followed from a read are written only while they still hold'
   const use = { everyone: false, userIds: ['mate'] }
 
   expect(
-    await setTeamUse('owner', 'mac', 'team', use, { ids: ['mate'], read: ['mate', 'lead'] }),
+    await setTeamUse('owner', 'mac', 'team', use, by, { ids: ['mate'], read: ['mate', 'lead'] }),
   ).toBe(true)
   expect(calls[0]?.filter).toEqual({
     userId: 'owner',
@@ -96,7 +109,7 @@ test('managers that followed from a read are written only while they still hold'
     access: { $elemMatch: { teamId: 'team', managerIds: ['mate', 'lead'] } },
   })
   // None read also matches a team with no grant yet.
-  await setTeamUse('owner', 'mac', 'team', use, { ids: [], read: [] })
+  await setTeamUse('owner', 'mac', 'team', use, by, { ids: [], read: [] })
   expect(calls[1]?.filter).toEqual({
     userId: 'owner',
     deviceId: 'mac',
@@ -106,14 +119,43 @@ test('managers that followed from a read are written only while they still hold'
     ],
   })
   db.matched = 0
-  const error = await setTeamUse('owner', 'mac', 'team', use, { ids: [], read: ['lead'] }).catch(
-    (e: unknown) => e,
-  )
+  const error = await setTeamUse('owner', 'mac', 'team', use, by, {
+    ids: [],
+    read: ['lead'],
+  }).catch((e: unknown) => e)
 
   expect(error).toMatchObject({ status: 409, code: 'access_changed' })
   // A computer that is gone is still just not found.
   db.exists = false
-  expect(await setTeamUse('owner', 'mac', 'team', use, { ids: [], read: ['lead'] })).toBe(false)
+  expect(await setTeamUse('owner', 'mac', 'team', use, by, { ids: [], read: ['lead'] })).toBe(false)
+  db.matched = 1
+  db.exists = true
+})
+
+test('every change is audited with who made it, their authority and the grant it replaced', async () => {
+  audits.length = 0
+  await setTeamUse('owner', 'mac', 'team', { everyone: false, userIds: ['mate'] }, by)
+
+  expect(calls.at(-1)?.options).toEqual({ returnDocument: 'before' })
+  expect(audits).toEqual([
+    {
+      ownerUserId: 'owner',
+      deviceId: 'mac',
+      teamId: 'team',
+      actorUserId: 'lead',
+      actorAuthority: 'manage',
+      via: 'share',
+      previous: { everyone: false, userIds: ['old'], managerIds: ['lead'] },
+      // Managers not named are kept, and the record says so.
+      next: { everyone: false, userIds: ['mate'], managerIds: ['lead'] },
+      changedAt: expect.any(Date),
+    },
+  ])
+  // Nothing written, nothing audited.
+  db.matched = 0
+  db.exists = false
+  expect(await setTeamUse('owner', 'mac', 'team', { everyone: true, userIds: [] }, by)).toBe(false)
+  expect(audits).toHaveLength(1)
   db.matched = 1
   db.exists = true
 })

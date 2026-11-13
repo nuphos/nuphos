@@ -86,7 +86,9 @@ async function computerUseToGrant(
     )
 
   return async () => {
-    if (!(await addTeamUse(computer, conversation.teamId ?? '', needing)))
+    const by = { actorUserId: actorId, via: 'conversation_invite' as const }
+
+    if (!(await addTeamUse(computer, conversation.teamId ?? '', needing, by)))
       throw new AppError(404, 'device_not_found', 'Device is not available')
   }
 }
