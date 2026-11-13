@@ -43,8 +43,6 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
     setBindGithubTarget,
     setBindGitlabTarget,
     openSettingsSection,
-    slackBindRequested,
-    handleSlackBindRequested,
     firstRunDevForced,
     sidebarAgentPagePendingImport,
     clearSidebarAgentPagePendingImport,
@@ -187,8 +185,6 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
                           onRequestBindGithub={setBindGithubTarget}
                           onRequestBindGitlab={setBindGitlabTarget}
                           onOpenSettingsSection={openSettingsSection}
-                          slackBindRequested={slackBindRequested && tab.id === activeTabId}
-                          onSlackBindHandled={handleSlackBindRequested}
                           renderAgentPage={false}
                           dockVisible={ws.dockOpen}
                         />

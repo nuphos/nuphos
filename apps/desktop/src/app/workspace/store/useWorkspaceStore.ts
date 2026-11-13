@@ -45,6 +45,7 @@ export function useWorkspaceStore() {
     canGoForward: selectHistoryStep(state, 1) !== null,
     surfaceHistory: state.surfaceHistory,
     surfaceHistoryIndex: state.surfaceHistoryIndex,
+    connectorsDialog: state.connectorsDialog,
   }
 }
 

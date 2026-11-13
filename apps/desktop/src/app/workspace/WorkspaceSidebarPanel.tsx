@@ -24,7 +24,6 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
     setSettingsInitialSection,
     openSettingsSection,
     setShortcutsHelpOpen,
-    setSlackBindRequested,
     sidebarCollapsed,
     toggleSidebarCollapsed,
     activeTab,
@@ -86,10 +85,6 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
   const closeArchivedChatTabs = useStableCallback((sessionId: string) => {
     if (selectedSessionId === sessionId)
       workspaceActions.selectSession(null, { keepMainPage: true })
-  })
-  const connectSlack = useStableCallback(() => {
-    onSidebarSelect('team.integrations')
-    setSlackBindRequested(true)
   })
   const goBack = useStableCallback(() => navigateHistory(-1))
   const goForward = useStableCallback(() => navigateHistory(1))
@@ -155,10 +150,11 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
         repositoryNav={sidebarRepositoryNav}
         rootIntegrations={rootIntegrations}
         rootIntegrationsLoading={!accounts}
+        connectorsOpen={ws.connectorsDialog !== null}
         slackConnected={
           Boolean(accounts?.slackInstallation) || (accounts?.slackLinkedChannels?.count ?? 0) > 0
         }
-        onConnectSlack={connectSlack}
+        onConnectSlack={ws.connectSlack}
         celebrating={landingCelebration}
         canGoBack={canGoBack}
         canGoForward={canGoForward}

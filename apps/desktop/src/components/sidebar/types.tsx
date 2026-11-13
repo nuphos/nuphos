@@ -243,6 +243,8 @@ export type SidebarProps = {
   onRejectInvitation?: (invitationId: string) => Promise<void>
   rootIntegrations?: Item[]
   rootIntegrationsLoading?: boolean
+  /** Whether the Connectors dialog is open, for the footer button's pressed state. */
+  connectorsOpen?: boolean
   /** Whether the team already has a Slack workspace bound. */
   slackConnected?: boolean
   /** Start the Slack install flow (shown by the post-onboarding promo card). */
