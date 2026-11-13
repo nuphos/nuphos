@@ -239,7 +239,7 @@ test('6 MiB shared-computer upload and pull preserve SHA-256 without exposing ca
       createHash('sha256').update(fixture).digest('hex'),
     )
   } finally {
-    server.stop(true)
+    await server.stop(true)
     await rm(dir, { recursive: true, force: true })
   }
 })
