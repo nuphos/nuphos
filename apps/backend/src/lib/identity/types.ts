@@ -1,6 +1,8 @@
 import type { LocalShareLevel } from '@/lib/agent/devices/local-share-types'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 
+export type BindingShareDefault = 'private' | 'team'
+
 export type NuphosUser = {
   id: string
   email: string
@@ -22,6 +24,8 @@ export type NuphosTeam = {
   allowedEmailDomains: string[]
   agentRuntime: OpenAbProvider
   localAgentSharing: LocalShareLevel
+  /** Who a newly connected binding is shared with when its owner does not say. */
+  bindingShareDefault?: BindingShareDefault
   createdAt: string
   role?: NuphosTeamRole
   billing: TeamBillingSummary

@@ -913,6 +913,7 @@
   "PUT /teams/:teamId/aws-accounts/:accountId/log-groups/retention": "admin",
   "PUT /teams/:teamId/azure-accounts/:accountId/access": "member",
   "PUT /teams/:teamId/betterstack-integrations/:integrationId/access": "member",
+  "PUT /teams/:teamId/binding-share-default": "admin",
   "PUT /teams/:teamId/claude-code-runtimes/:runtimeId/keys": "admin",
   "PUT /teams/:teamId/cloudflare-accounts/:accountId/access": "member",
   "PUT /teams/:teamId/cloudflare-accounts/:accountId/kv/namespaces/:namespaceId": "admin",

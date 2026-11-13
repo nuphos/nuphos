@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { createDefaultAccess } from '@/lib/byos/access'
+import { newBindingAccess } from '@/lib/byos/initial-access'
 import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { ResendApiError, verifyResendApiKey } from '@/lib/byos/resend'
 import { encryptResendSecret } from '@/lib/byos/secrets'
@@ -83,7 +83,7 @@ resendIntegrationsRoutes.post(
       domains: info.domains,
       encryptedApiKey: encryptResendSecret(apiKey),
       createdAt: now,
-      access: createDefaultAccess(c.get('userId'), now),
+      access: await newBindingAccess(c, { now: now }),
     }
 
     await teamByosBindings().updateOne(

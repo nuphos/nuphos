@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
 import { MongoServerError, ObjectId } from 'mongodb'
 
-import { accessView, canUseAllowList, canUseBinding, createDefaultAccess } from '@/lib/byos/access'
+import { accessView, canUseAllowList, canUseBinding } from '@/lib/byos/access'
+import { newBindingAccess } from '@/lib/byos/initial-access'
 import { huaweiConnectorSchema } from '@/lib/byos/connector-schemas'
 import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
 import { huaweiOidcInfo, verifyHuaweiIdentity } from '@/lib/byos/huawei'
@@ -101,7 +102,7 @@ huaweiAccountsRoutes.post(
 
     const id = new ObjectId()
     const createdAt = new Date()
-    const access = createDefaultAccess(c.get('userId'), createdAt)
+    const access = await newBindingAccess(c, { now: createdAt, highPrivilege: true })
 
     let inserted: boolean
 

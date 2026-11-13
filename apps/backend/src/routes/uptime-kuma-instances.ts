@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { createDefaultAccess } from '@/lib/byos/access'
+import { newBindingAccess } from '@/lib/byos/initial-access'
 import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { verifyUptimeKumaCredentials } from '@/lib/byos/uptime-kuma'
 import { parseObjectId } from '@/lib/objectid'
@@ -78,7 +78,7 @@ uptimeKumaInstancesRoutes.post(
             encryptedPassword: encryptUptimeKumaSecretOrUnavailable(password!),
           }),
       createdAt: now,
-      access: createDefaultAccess(c.get('userId'), now),
+      access: await newBindingAccess(c, { now: now }),
     }
 
     await teamByosBindings().updateOne(

@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
+import { newBindingAccess } from '@/lib/byos/initial-access'
 import { encryptGrafanaSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { OutboundBlockedError, pinnedFetch, blockedUrlReason } from '@/lib/net/safe-outbound'
@@ -59,11 +60,12 @@ grafanaInstancesRoutes.post(
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const id = new ObjectId()
     const createdAt = new Date()
+    const access = await newBindingAccess(c, { now: createdAt })
 
     await teamByosBindings().updateOne(
       { _id: teamId },
       {
-        $push: { grafanaInstances: { id, name, grafanaUrl, encryptedSaToken, createdAt } },
+        $push: { grafanaInstances: { id, name, grafanaUrl, encryptedSaToken, createdAt, access } },
         $set: { updatedAt: createdAt },
         $setOnInsert: {
           awsRoles: [],
