@@ -16,14 +16,7 @@ export async function rollbackTriggerUpdate(input: {
   const { _id, triggerId, trigger, currentConfigRevision, reconcileCron } = input
   // Revert only if nobody changed or claimed the row after our write.
   const rolledBack = await agentTriggers()
-    .replaceOne(
-      {
-        _id,
-        cleanupStatus: { $exists: false },
-        ...triggerConfigRevisionFilter(currentConfigRevision + 1),
-      },
-      trigger,
-    )
+    .replaceOne({ _id, ...triggerConfigRevisionFilter(currentConfigRevision + 1) }, trigger)
     .catch((rollbackError: unknown) => {
       logError('agent.trigger.update_rollback_failed', rollbackError, { trigger_id: triggerId })
 

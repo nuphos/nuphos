@@ -163,26 +163,3 @@ export function executionAuthorizationIsCurrent(resource: {
 }): boolean {
   return resource.executionAuthorizationStatus === 'valid' && !resource.executionAuthorizationError
 }
-
-/**
- * Whether a Watch Group as a whole may be reported healthy.
- *
- * Only an ingress that has actually proven itself counts as passing. One that
- * has never run is unverified, not healthy — it may be the one whose principal
- * lost access.
- *
- * Being disabled excuses an ingress only when it was switched off deliberately.
- * A recorded failure always blocks, because the system disables an ingress
- * precisely when its execution identity breaks: treating that as "switched off,
- * so ignore it" would let the very failure that paused it turn the Group green
- * again as soon as a sibling ran.
- */
-export function triggerGroupExecutionIsHealthy(
-  partitions: { enabled: boolean; executionAuthorizationStatus?: string }[],
-): boolean {
-  return partitions.every((partition) => {
-    if (partition.executionAuthorizationStatus === 'invalid') return false
-
-    return !partition.enabled || partition.executionAuthorizationStatus === 'valid'
-  })
-}

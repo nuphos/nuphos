@@ -2,7 +2,7 @@
 // chat seam. Tool handlers run on the backend (any replica) while the turn's
 // run lives on the replica serving the SSE stream; frames reach it through
 // the run-frame bridge.
-import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
+import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { ToolHandler } from '@/lib/mcp/protocol'
 
 export type PreviewToolContext = {

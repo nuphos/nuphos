@@ -11,7 +11,7 @@ import { isActiveTeamMember } from '../devices/store'
 import { clientToolWithLabel, withLabel } from './labeling'
 import { createLocalExecAudit } from './local-tools-audit'
 
-import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
+import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 
 export type LocalExecDevice = {
   /** Persistent transport owner, distinct from the acting viewer of a Box. */

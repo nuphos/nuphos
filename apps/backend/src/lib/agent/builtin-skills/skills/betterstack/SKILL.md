@@ -47,7 +47,7 @@ Use this when the user says "watch this monitor / when it goes down, do Y" (post
 
 If the requested destination is Slack, call `slack_list_destinations` before creating the trigger. Use only the user's explicit DM/channel choice and name its stable ID/DM in the messageTemplate. If the user chose Nuphos, do not add Slack delivery.
 
-1. **Create the webhook trigger** with `trigger_create` (`triggerType: "webhook"`; set `monitoringIdentity` to `{provider:"betterstack", integrationId:"<connected Better Stack integration ID>", resourceId:"<exact monitor ID>"}` so retries reuse one trigger). Write the messageTemplate as the ACTION, branching on the incident payload — Better Stack posts incident events whose `data.attributes` include the incident `status`/`cause`/`started_at`/`resolved_at` and the monitored URL:
+1. **Create the webhook trigger** through the `triggers` skill (`triggerType: "webhook"`, `targetSessionId` this conversation unless the user names another of theirs; first list the triggers bound to it and reuse one that already receives this monitor). Write the messageTemplate as the ACTION, branching on the incident payload — Better Stack posts incident events whose `data.attributes` include the incident `status`/`cause`/`started_at`/`resolved_at` and the monitored URL:
 
    ```text
    Better Stack incident event received.
@@ -62,7 +62,7 @@ If the requested destination is Slack, call `slack_list_destinations` before cre
 
    The exact target guard is mandatory even when provider-side scoping is available, and especially when the user explicitly accepts account-wide delivery as a fallback. Replace both placeholders with values read from the selected monitor; do not leave generic text in the stored template.
 
-   Always include the drill line — delivery tests then cost one short reply instead of a full investigation session. Sanity check the trigger_create result: `webhookUrl` must be an absolute `https://` URL; if it is a bare path, STOP and tell the user the backend has no public base URL configured. NEVER substitute a different host for the returned webhookUrl (and never bypass sandbox checks to do so); if the URL looks temporary (e.g. *.trycloudflare.com) and the user has not already accepted temporary local-debug wiring, call `request_user_decision` with category `risk_tradeoff`, offer to use the temporary URL or wait for a permanent one, ask that single question, and STOP.
+   Always include the drill line — delivery tests then cost one short reply instead of a full investigation session. Sanity check the create response: `webhookUrl` must be an absolute `https://` URL; if it is a bare path, STOP and tell the user the backend has no public base URL configured. NEVER substitute a different host for the returned webhookUrl (and never bypass sandbox checks to do so); if the URL looks temporary (e.g. *.trycloudflare.com) and the user has not already accepted temporary local-debug wiring, call `request_user_decision` with category `risk_tradeoff`, offer to use the temporary URL or wait for a permanent one, ask that single question, and STOP.
 
    A Slack firing notification uses one root message per problem, followed by one investigation-result reply. Later meaningful changes and recovery also stay in that thread. Tell the user they can reply there to continue with Nuphos.
 
@@ -91,13 +91,13 @@ If the requested destination is Slack, call `slack_list_destinations` before cre
 
 3. **Scope it.** Inspect the current Better Stack API for a monitor/team/policy scope and use the narrowest server-side filter available. Never silently create an account-wide outgoing webhook for an exact-monitor Watch: filtering only in `messageTemplate` still starts an Agent session for every unrelated incident and violates the Watch scope. If the connected plan/API only supports account-wide delivery, that is a genuine capability blocker — roll back the trigger and ask whether the user accepts account-wide delivery before proceeding. If they explicitly accept it, the mandatory first template branch above must contain and compare the exact selected monitor ID/URL. As a backstop the trigger rate-limits non-terminal webhook runs (server default 60s between runs; set `minIntervalSeconds` on the trigger for "at most every N minutes"). Terminal resolution deliveries bypass this flood guard, so recovery is not lost; the bound conversation can see an earlier recovery post and skip a duplicate.
 
-4. **Verify before saying live**: read the outgoing webhook back and verify its exact URL, `X-Webhook-Secret` custom header configuration, and resource scope; never print the secret while doing so. Then run `trigger_test_fire` with a representative `{"test": true, ...}` payload to check the cheap action branch. Use Better Stack's non-mutating test facility when available. Pausing a real monitor to force an incident is a separate risky action and still requires explicit approval.
+4. **Verify before saying live**: read the outgoing webhook back and verify its exact URL, `X-Webhook-Secret` custom header configuration, and resource scope; never print the secret while doing so. Then `POST /{triggerId}/test-fire` (see the `triggers` skill) with a representative `{"test": true, ...}` payload to check the cheap action branch. Use Better Stack's non-mutating test facility when available. Pausing a real monitor to force an incident is a separate risky action and still requires explicit approval.
 
-5. **Register deterministic cleanup.** After read-back and the drill succeed, call `trigger_finalize_wiring` with `provider: "betterstack"`, the Better Stack integration ID, outgoing-webhook ID, selected monitor ID, and the verified scope (`monitor` or explicitly approved `account`). Store resource IDs only — never API tokens, custom headers, or the webhook secret. The Watch is not complete until this call succeeds.
+5. **Report what you created**: the outgoing-webhook ID, the selected monitor ID, and the verified scope (`monitor` or explicitly approved `account`). Nuphos does not record them, and removing the trigger leaves the outgoing webhook in Better Stack.
 
 If webhook creation, scoping, read-back, or the drill fails, delete the newly created outgoing webhook and newly created trigger when safe. Report the exact blocker; do not leave an enabled half-configured workflow.
 
-To tear down, confirm with the user and call `trigger_delete`; the backend verifies and deletes the finalized outgoing webhook before deleting the local trigger. Do not separately mutate Better Stack first.
+To tear down, confirm with the user, delete the outgoing webhook you created (read it back first to confirm it targets this trigger), then delete the trigger. Deleting the trigger alone does not touch Better Stack.
 
 ## Safety
 

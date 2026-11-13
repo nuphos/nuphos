@@ -1,10 +1,6 @@
-import { monitoringIdentitySchema, webhookUrlFor } from '@/lib/agent/tools-triggers-shared'
-import { finalizeTriggerGroupIngress } from '@/lib/agent/trigger-group-service'
-import { monitoringProviderWiringSchema } from '@/lib/agent/trigger-provider-wiring'
 import {
   createTrigger,
   deleteTrigger,
-  finalizeTriggerProviderWiring,
   getTrigger,
   testFireTrigger,
   testTriggerDestination,
@@ -14,7 +10,7 @@ import {
 import { getTriggerUsage } from '@/lib/agent/trigger-usage'
 import { CRON_TIME_ZONE, nextCronRuns } from '@/lib/cron'
 import { AppError } from '@/lib/errors'
-import { jsonObjectBody, triggerActor } from '@/routes/agent-triggers/shared'
+import { jsonObjectBody, triggerActor, webhookUrlFor } from '@/routes/agent-triggers/shared'
 
 import type { TriggerType } from '@/lib/agent/trigger-db'
 import type { AuthVariables } from '@/middleware/auth'
@@ -56,11 +52,6 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
     }
 
     const actor = await triggerActor(c, body.teamId)
-    const monitoringIdentity = monitoringIdentitySchema.safeParse(body.monitoringIdentity)
-
-    if (body.monitoringIdentity !== undefined && !monitoringIdentity.success) {
-      throw new AppError(400, 'invalid_request', 'monitoringIdentity is invalid')
-    }
     const created = await createTrigger(
       {
         targetSessionId: body.targetSessionId,
@@ -72,7 +63,6 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
         messageTemplate: body.messageTemplate,
         ...(typeof body.expiresAt === 'string' ? { expiresAt: new Date(body.expiresAt) } : {}),
         ...(typeof body.dedupeKey === 'string' ? { dedupeKey: body.dedupeKey } : {}),
-        ...(monitoringIdentity.success ? { monitoringIdentity: monitoringIdentity.data } : {}),
         ...(typeof body.minIntervalSeconds === 'number'
           ? { minIntervalSeconds: body.minIntervalSeconds }
           : {}),
@@ -151,18 +141,17 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
   // Delete trigger
   agentTriggersRoutes.delete('/:triggerId', async (c) => {
     const { triggerId } = c.req.param()
-    const result = await deleteTrigger(triggerId, await triggerActor(c, c.req.query('teamId')), {
-      withoutProviderCleanup: c.req.query('withoutProviderCleanup') === 'true',
-    })
 
-    return c.json({ ok: true, ...result }, result.deleted ? 200 : 202)
+    await deleteTrigger(triggerId, await triggerActor(c, c.req.query('teamId')))
+
+    return c.json({ ok: true, deleted: true })
   })
 
   // Verify the destination configured by the desktop UI. Slack-backed Watches
   // receive one clearly marked direct test, bypassing incident investigation and
   // dedupe. Nuphos-only triggers retain the background agent verification.
-  // Real provider webhooks and the agent-facing trigger_test_fire tool still use
-  // testFireTrigger, so this UI-only behavior cannot alter real alert handling.
+  // Agent sessions still use testFireTrigger, so this UI-only behavior cannot
+  // alter real alert handling.
   agentTriggersRoutes.post('/:triggerId/test-fire', async (c) => {
     const { triggerId } = c.req.param()
     const actor = await triggerActor(c, c.req.query('teamId'))
@@ -204,34 +193,5 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
     }
 
     return c.json(await testTriggerDestination(triggerId, actor, body.payload))
-  })
-
-  agentTriggersRoutes.post('/:triggerId/finalize-wiring', async (c) => {
-    const { triggerId } = c.req.param()
-    const body = await jsonObjectBody(c)
-    const wiring = monitoringProviderWiringSchema.safeParse(body.wiring)
-
-    if (!wiring.success) {
-      throw new AppError(400, 'invalid_request', 'wiring is invalid')
-    }
-
-    const actor = await triggerActor(c, body.teamId)
-
-    if (wiring.data.provider === 'watch_group') {
-      if (!actor.teamId) {
-        throw new AppError(400, 'trigger_group_team_required', 'A team is required')
-      }
-
-      return c.json(
-        await finalizeTriggerGroupIngress({
-          triggerId,
-          userId: actor.userId,
-          teamId: actor.teamId,
-          receipt: wiring.data,
-        }),
-      )
-    }
-
-    return c.json(await finalizeTriggerProviderWiring(triggerId, actor, wiring.data))
   })
 }

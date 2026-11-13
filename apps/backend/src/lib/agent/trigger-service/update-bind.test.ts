@@ -73,7 +73,7 @@ function collection(name: string) {
 useDb({ db: () => ({ collection }) as never })
 
 const { updateTrigger } = await import('./update')
-const { assertDedupeCompatible, bindLegacyWatch } = await import('./watch-dedupe')
+const { createTrigger } = await import('./create')
 
 afterEach(() => {
   writes.length = 0
@@ -97,45 +97,31 @@ describe('binding a legacy unbound Trigger', () => {
   })
 })
 
-describe('re-creating a Watch stored before binding was required', () => {
+describe('re-creating a Trigger with the same dedupeKey', () => {
   const input = {
     name: 'CPU alert',
     triggerType: 'webhook' as const,
     messageTemplate: 'Investigate the alert',
     targetSessionId: 'bound-session',
+    dedupeKey: 'import:cpu',
   }
-  const ctx = { userId: OWNER, teamId: TEAM, source: 'agent' as const }
+  const ctx = { userId: OWNER, teamId: TEAM, source: 'user' as const }
 
-  test('adopts the unbound row and binds it for its owner', async () => {
-    expect(() => {
-      assertDedupeCompatible(legacyTrigger as never, input, ctx, [])
-    }).not.toThrow()
+  test('returns the existing Trigger without writing', async () => {
+    storedTrigger = { ...legacyTrigger, targetSessionId: 'bound-session', dedupeKey: 'import:cpu' }
 
-    await bindLegacyWatch(legacyTrigger as never, 'bound-session', ctx)
+    const existing = await createTrigger(input, ctx)
 
-    const write = writes.find((entry) => entry.collection === 'agent_triggers')
-
-    expect(write?.update.$set?.targetSessionId).toBe('bound-session')
+    expect(existing.id).toBe(triggerId.toHexString())
+    expect(writes.filter((entry) => entry.collection === 'agent_triggers')).toHaveLength(0)
   })
 
-  test('leaves the row alone for someone it does not run as', async () => {
-    await bindLegacyWatch(legacyTrigger as never, 'bound-session', {
-      ...ctx,
-      userId: new ObjectId().toHexString(),
+  test('refuses a key already used by a Trigger bound to another conversation', async () => {
+    storedTrigger = { ...legacyTrigger, targetSessionId: 'other-session', dedupeKey: 'import:cpu' }
+
+    await expect(createTrigger(input, ctx)).rejects.toMatchObject({
+      code: 'trigger_dedupe_conflict',
     })
-
-    expect(writes).toHaveLength(0)
-  })
-
-  test('refuses a Watch already bound to another conversation', () => {
-    expect(() => {
-      assertDedupeCompatible(
-        { ...legacyTrigger, targetSessionId: 'other-session' } as never,
-        input,
-        ctx,
-        [],
-      )
-    }).toThrow('another conversation')
   })
 })
 

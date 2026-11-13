@@ -1,6 +1,6 @@
 ---
 name: triggers
-description: Manage Nuphos cron and webhook triggers and Watch Groups through the canonical team REST API. Use for recurring agent work, webhook Watches, listing/updating/removing triggers, testing delivery, or finalizing provider wiring.
+description: Manage Nuphos cron and webhook triggers through the canonical team REST API. Use for recurring agent work, webhooks from monitoring providers or other senders, listing/updating/removing triggers, or testing delivery.
 ---
 
 # Nuphos Triggers API
@@ -36,11 +36,6 @@ All paths start with `/teams/{teamId}/agent-triggers`.
 | Update | `PATCH /{triggerId}` |
 | Delete | `DELETE /{triggerId}` |
 | Test once | `POST /{triggerId}/test-fire` with optional `{ "payload": {...} }` |
-| List your own Watch Groups | `GET /groups` |
-| Create Watch Group | `POST /groups` |
-| Update Watch Group | `PATCH /groups/{groupId}` |
-| Test Watch Group | `POST /groups/{groupId}/test-fire` |
-| Finalize provider wiring | `POST /{triggerId}/finalize-wiring` with `{ "wiring": ... }` |
 
 Create body:
 
@@ -54,13 +49,13 @@ Create body:
 }
 ```
 
-For a webhook Watch, `triggerType` is `webhook`. Optional fields are
-`expiresAt`, `dedupeKey`, `monitoringIdentity`, and `minIntervalSeconds`. The
-create response returns the only
-copy of `webhookSecret`, the external `webhookUrl`, and `secretHeader`.
-Never print or persist the secret in a skill, receipt, log, or final answer.
+For a webhook trigger, `triggerType` is `webhook`. Optional fields are
+`expiresAt`, `dedupeKey`, and `minIntervalSeconds`. The create response returns
+the only copy of `webhookSecret`, the external `webhookUrl`, and
+`secretHeader`. Never print or persist the secret in a skill, log, or final
+answer.
 
-`targetSessionId` is required on every create, including `POST /groups`:
+`targetSessionId` is required on every create:
 
 - The session must be in the same team and owned by the
   trigger's execution principal.
@@ -72,27 +67,22 @@ Never print or persist the secret in a skill, receipt, log, or final answer.
 - A trigger cannot be unbound. To report to Slack, say the exact destination
   in `messageTemplate`; the bound conversation posts with `slack_post`.
 
-Move a trigger to another conversation with `PATCH /{triggerId}` (or a Watch
-Group with `PATCH /groups/{groupId}`):
+Move a trigger to another conversation with `PATCH /{triggerId}`:
 
 ```json
 { "targetSessionId": "<sessionId>" }
 ```
 
-`monitoringIdentity` is:
+## Webhook senders
 
-```json
-{
-  "provider": "grafana",
-  "integrationId": "stable connected integration id",
-  "resourceId": "exact provider alert id"
-}
-```
-
-Use it instead of `dedupeKey` for provider Watches. Preserve existing provider
-destinations and complete the provider API read-back/test workflow before
-calling `finalize-wiring`. Load `monitoring-workflow` for the full receipt and
-rollback rules.
+A webhook trigger is a plain URL plus secret. Whatever calls it (a Grafana
+contact point, an SNS subscription, a CI job) is configured and owned in that
+provider; Nuphos does not track it, and deleting the trigger leaves it in
+place. Point the sender at `webhookUrl` with the secret in the
+`X-Webhook-Secret` header, or as `?secret=` on the URL when the sender cannot
+set headers. AWS SNS subscriptions to that URL are confirmed automatically and
+CloudWatch alarm notifications arrive normalized. For monitoring alerts, load
+`monitoring-workflow` for wiring and rollback rules.
 
 ## Safety and lifecycle
 
@@ -103,7 +93,9 @@ rollback rules.
   and restate `nextRuns` (UTC instants) in their timezone after creation.
 - A conversation fired by a trigger must not create another trigger.
 - Confirm before DELETE; prefer PATCH `{ "enabled": false }` when reversible.
+  When removing a webhook trigger, also remove or detach its sender in the
+  provider if the user wants that; Nuphos does not do it.
 - `test-fire` only proves the message was queued for the bound conversation,
   not that the run completed successfully.
-- Only the owner of the trigger's conversation can update, delete, test-fire or
-  finalize it. Creating one needs a team role above viewer.
+- Only the owner of the trigger's conversation can update, delete or test-fire
+  it. Creating one needs a team role above viewer.

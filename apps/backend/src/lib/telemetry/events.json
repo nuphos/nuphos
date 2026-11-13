@@ -134,15 +134,7 @@
   "agent.trigger.expired",
   "agent.trigger.expiry_sweep",
   "agent.trigger.expiry_unschedule_failed",
-  "agent.trigger.group_reference_cleanup_failed",
   "agent.trigger.indexes_create_failed",
-  "agent.trigger.provider_cleanup_completed",
-  "agent.trigger.provider_cleanup_enqueue_failed",
-  "agent.trigger.provider_cleanup_failed",
-  "agent.trigger.provider_cleanup_recovery_failed",
-  "agent.trigger.provider_cleanup_reenqueue_failed",
-  "agent.trigger.provider_cleanup_requested",
-  "agent.trigger.removed_without_provider_cleanup",
   "agent.trigger.rollback_delete_failed",
   "agent.trigger.scheduler_rollback_failed",
   "agent.trigger.update_rollback_failed",
@@ -416,6 +408,5 @@
   "slack.uninstall.mappings_deleted",
   "slack.uninstall.token_decrypt_failed",
   "webhook.aws_sns_validation_failed",
-  "webhook.trigger_execution_failed",
-  "webhook.trigger_group_execution_failed"
+  "webhook.trigger_execution_failed"
 ]

@@ -40,22 +40,10 @@ export async function transferTriggerExecutionPrincipal(
       'Only a team Trigger has an execution identity to transfer',
     )
   }
-  if (trigger.cleanupStatus) {
-    throw new AppError(409, 'trigger_cleanup_pending', 'This Watch is being removed')
-  }
-  // A Group's ingresses share one identity; transferring one in isolation
-  // would leave the Group describing an identity its partitions do not use.
-  if (trigger.watchGroupId) {
-    throw new AppError(
-      409,
-      'trigger_group_ingress',
-      'Transfer the Watch Group instead; its ingresses share one execution identity',
-    )
-  }
   await assertTransferTargetIsMember(targetUserId, trigger.teamId)
 
   const updated = await agentTriggers().findOneAndUpdate(
-    { _id, cleanupStatus: { $exists: false } },
+    { _id },
     {
       $set: executionPrincipalAssignment(targetUserId),
       $unset: {
@@ -82,10 +70,10 @@ export async function transferTriggerExecutionPrincipal(
 }
 
 /**
- * The identity fields a transfer writes, shared by the Trigger and Group
- * paths. Callers pair it with an `$unset` of `executionCredentialAccess`.
+ * The identity fields a transfer writes. Callers pair it with an `$unset` of
+ * `executionCredentialAccess`.
  */
-export function executionPrincipalAssignment(targetUserId: string): Partial<AgentTrigger> {
+function executionPrincipalAssignment(targetUserId: string): Partial<AgentTrigger> {
   return {
     executionPrincipalUserId: targetUserId,
     credentialMode: 'all',
@@ -95,10 +83,7 @@ export function executionPrincipalAssignment(targetUserId: string): Partial<Agen
 }
 
 /** A Trigger may only run as someone who is currently on the team. */
-export async function assertTransferTargetIsMember(
-  targetUserId: string,
-  teamId: string,
-): Promise<void> {
+async function assertTransferTargetIsMember(targetUserId: string, teamId: string): Promise<void> {
   if (!targetUserId.trim()) {
     throw new AppError(400, 'invalid_request', 'userId is required')
   }

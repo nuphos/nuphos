@@ -23,7 +23,7 @@ import type { UpdateFilter } from 'mongodb'
 
 /**
  * Patch name / messageTemplate / enabled / cronExpression. The MongoDB write
- * owns the cleanup/revision fence; scheduler and incident side effects run
+ * owns the revision fence; scheduler and incident side effects run
  * only after it succeeds and the row is rolled back if reconciliation fails.
  */
 export async function updateTrigger(
@@ -41,15 +41,6 @@ export async function updateTrigger(
     throw new AppError(400, 'invalid_request', 'timeZone must be an IANA zone for a cron Trigger')
 
   await assertTriggerAccess(trigger, actor, 'manage')
-  if (trigger.cleanupStatus) {
-    throw new AppError(
-      409,
-      'trigger_cleanup_pending',
-      trigger.cleanupStatus === 'deleting'
-        ? 'This Watch is being removed'
-        : 'This Watch is disabled until provider cleanup is retried',
-    )
-  }
 
   const nextName =
     typeof patch.name === 'string' && patch.name.trim()
@@ -73,7 +64,7 @@ export async function updateTrigger(
   }
 
   // Turning a Trigger back on takes a quota slot back, the same as creating one.
-  if (nextEnabled && !trigger.enabled && !trigger.watchGroupId) {
+  if (nextEnabled && !trigger.enabled) {
     await assertTriggerCreationQuota({
       userId: trigger.createdByUserId ?? trigger.userId,
       teamId: trigger.teamId,
@@ -152,8 +143,8 @@ export async function updateTrigger(
     trigger.incidentMode === true &&
     (patch.enabled === false || messageTemplateChanged || legacyModes.length > 0)
 
-  // Re-assert ownership, revision, and cleanup state in the same write. This
-  // prevents an update that raced a deletion claim from mutating the Watch.
+  // Re-assert the revision in the same write, so an update that raced another
+  // edit or a deletion cannot apply on top of it.
   const update: UpdateFilter<AgentTrigger> = { $set }
   const $unset: Record<string, true> = {}
 
@@ -165,20 +156,13 @@ export async function updateTrigger(
   }
   update.$inc = { configRevision: 1 }
   const writeResult = await agentTriggers().updateOne(
-    {
-      _id,
-      cleanupStatus: { $exists: false },
-      ...triggerConfigRevisionFilter(currentConfigRevision),
-    },
+    { _id, ...triggerConfigRevisionFilter(currentConfigRevision) },
     update,
   )
 
   if (writeResult.matchedCount === 0) {
     const current = await agentTriggers().findOne({ _id })
 
-    if (current?.cleanupStatus) {
-      throw new AppError(409, 'trigger_cleanup_pending', 'This Watch is being removed')
-    }
     throw new AppError(
       current ? 409 : 404,
       current ? 'trigger_changed' : 'not_found',
@@ -199,20 +183,20 @@ export async function updateTrigger(
         await scheduleCronTrigger(triggerId, expression, updated.timeZone)
       else await unscheduleCronTrigger(triggerId)
 
-      // If deletion claimed the row while BullMQ was updating, delete wins:
-      // remove any schedule this call may just have created.
+      // If the row was deleted or changed while BullMQ was updating, the
+      // other write wins: remove any schedule this call may just have created.
       const stillCurrent = await agentTriggers().findOne(
-        {
-          _id,
-          cleanupStatus: { $exists: false },
-          ...triggerConfigRevisionFilter(currentConfigRevision + 1),
-        },
+        { _id, ...triggerConfigRevisionFilter(currentConfigRevision + 1) },
         { projection: { _id: 1 } },
       )
 
       if (!stillCurrent) {
         await unscheduleCronTrigger(triggerId)
-        throw new AppError(409, 'trigger_cleanup_pending', 'This Watch is being removed')
+        throw new AppError(
+          409,
+          'trigger_changed',
+          'Trigger changed concurrently; reload it and retry',
+        )
       }
     }
     if (resetIncidentLifecycle) {

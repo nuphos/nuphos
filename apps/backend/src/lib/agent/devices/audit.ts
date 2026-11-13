@@ -5,7 +5,7 @@ import { db } from '@/lib/db'
 import { logError } from '@/lib/observability'
 import { redactSecrets } from '@/lib/secrets/scan'
 
-import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
+import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { Collection, Filter } from 'mongodb'
 
 export const DEVICE_EXEC_AUDIT_RETENTION_DAYS = 90
