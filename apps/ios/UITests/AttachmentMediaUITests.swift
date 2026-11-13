@@ -36,6 +36,20 @@ final class AttachmentMediaUITests: XCTestCase {
         shot("image-tapped")
     }
 
+    /// The ✕ button closes the viewer, as a pull down does.
+    func testCloseButtonClosesViewer() throws {
+        let app = try launch(videoLink: "file://$FIXTURE_DIR/media/clip.mp4")
+        let image = app.buttons["Open wide.png"]
+        XCTAssertTrue(image.waitForExistence(timeout: 10), "The image never showed")
+        image.tap()
+        let counter = app.staticTexts["2 / 3"]
+        XCTAssertTrue(counter.waitForExistence(timeout: 10), "The viewer did not open")
+        shot("viewer-open")
+        app.buttons["Done"].tap()
+        XCTAssertTrue(counter.waitForNonExistence(timeout: 5), "The ✕ button did not close the viewer")
+        shot("viewer-closed")
+    }
+
     /// The video's link answers only after 20 s: the image opens at once, and
     /// the video's page fetches it when swiped to.
     func testImageOpensWithoutWaitingForVideo() throws {

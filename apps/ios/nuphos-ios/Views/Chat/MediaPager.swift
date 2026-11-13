@@ -26,28 +26,30 @@ struct MediaPager: View {
     }
 
     var body: some View {
-        Pages(urls: urls, current: $current, pull: $pull, load: load, close: close)
-            .ignoresSafeArea()
-            .background(Color.black.opacity(1 - min(pull / 300, 0.6)).ignoresSafeArea())
-            .overlay(alignment: .top) {
-                HStack {
-                    Button("Done", systemImage: "xmark", action: close)
-                    Spacer()
-                    if urls.count > 1, let index = urls.firstIndex(of: current) {
-                        Text(verbatim: "\(index + 1) / \(urls.count)").monospacedDigit()
-                    }
-                    Spacer()
-                    ShareLink(item: current) { Image(systemName: "square.and.arrow.up") }
+        // The bar sits above the pages rather than over them: a SwiftUI
+        // button drawn over the UIKit pager never gets its tap.
+        VStack(spacing: 0) {
+            HStack {
+                Button("Done", systemImage: "xmark", action: close)
+                Spacer()
+                if urls.count > 1, let index = urls.firstIndex(of: current) {
+                    Text(verbatim: "\(index + 1) / \(urls.count)").monospacedDigit()
                 }
-                .labelStyle(.iconOnly)
-                .font(.body.weight(.medium))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .opacity(pull > 0 ? 0 : 1)
+                Spacer()
+                ShareLink(item: current) { Image(systemName: "square.and.arrow.up") }
             }
-            .opacity(closing ? 0 : 1)
-            .presentationBackground(.clear)
+            .labelStyle(.iconOnly)
+            .font(.body.weight(.medium))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
+            .opacity(pull > 0 ? 0 : 1)
+            Pages(urls: urls, current: $current, pull: $pull, load: load, close: close)
+                .ignoresSafeArea(edges: [.horizontal, .bottom])
+        }
+        .background(Color.black.opacity(1 - min(pull / 300, 0.6)).ignoresSafeArea())
+        .opacity(closing ? 0 : 1)
+        .presentationBackground(.clear)
     }
 
     /// Fades out where it is; the cover's own slide down is skipped.
