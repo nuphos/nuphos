@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 
 import { Hono } from 'hono'
 
+import { requestedBindingShare } from '@/lib/byos/initial-access'
 import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import {
   buildAuthorizeUrl,
@@ -76,6 +77,7 @@ asanaAccountsRoutes.post('/start-oauth', requireTeamRole('ADMINISTRATOR'), async
   const expiresAt = new Date(Date.now() + OAUTH_PENDING_TTL_MS)
 
   await asanaPendingOAuth().insertOne({
+    ...(await requestedBindingShare(c)),
     _id: state,
     teamId,
     requesterUserId,

@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
+import { requestedBindingShare } from '@/lib/byos/initial-access'
 import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import {
   buildPlaudAuthorizeUrl,
@@ -112,6 +113,7 @@ plaudAccountsRoutes.post('/start-oauth', requireTeamRole('ADMINISTRATOR'), async
   const expiresAt = new Date(Date.now() + OAUTH_PENDING_TTL_MS)
 
   await plaudPendingOAuth().insertOne({
+    ...(await requestedBindingShare(c)),
     _id: state,
     teamId: parseObjectId(c.get('teamId'), 'teamId'),
     requesterUserId: c.get('userId'),

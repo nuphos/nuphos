@@ -13,6 +13,7 @@ import {
   listInstallationRepositories,
 } from '@/lib/byos/github'
 import { githubInstallStartUrl, signInstallFlowState } from '@/lib/byos/github-install-flow'
+import { bindingShareSchema } from '@/lib/byos/initial-access'
 import { AppError } from '@/lib/errors'
 import { getNuphosUserById } from '@/lib/identity'
 import { parseObjectId } from '@/lib/objectid'
@@ -67,11 +68,20 @@ githubInstallationsRoutes.get('/', async (c) => {
 githubInstallationsRoutes.get('/install-url', requireTeamRole('ADMINISTRATOR'), (c) => {
   const slug = getGithubAppSlug()
   const state = c.req.query('state')
+  const share = c.req.query('shareMode')
+    ? bindingShareSchema.safeParse({
+        mode: c.req.query('shareMode'),
+        memberIds: c.req.query('shareMemberIds')?.split(',').filter(Boolean),
+      })
+    : null
+
+  if (share && !share.success) throw new AppError(400, 'invalid_share', 'shareMode is not valid')
   const url = githubInstallStartUrl(
     signInstallFlowState({
       t: c.get('teamId'),
       u: c.get('userId'),
       ...(state ? { s: state } : {}),
+      ...(share?.data ? { sh: share.data } : {}),
     }),
   )
 

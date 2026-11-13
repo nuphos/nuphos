@@ -1,7 +1,6 @@
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
-import { createDefaultAccess } from '@/lib/byos/access'
 import { findPosthogIntegration } from '@/lib/byos/account'
 import { discoverPosthogAccount, POSTHOG_REGION_HOSTS } from '@/lib/byos/posthog'
 import {
@@ -23,7 +22,7 @@ import { MAX_POSTHOG_PROJECTS } from '@/routes/posthog-integrations/shared'
 
 import type { PosthogDiscovery } from '@/lib/byos/posthog'
 import type { PosthogTokens } from '@/lib/byos/posthog-oauth'
-import type { PosthogIntegrationBinding, PosthogPendingOAuth } from '@/models'
+import type { BindingAccess, PosthogIntegrationBinding, PosthogPendingOAuth } from '@/models'
 import type { Context } from 'hono'
 
 export const posthogAppRoutes = new Hono()
@@ -137,6 +136,7 @@ posthogAppRoutes.get('/callback', async (c) => {
       state,
       teamId: pending.teamId,
       requesterUserId: pending.requesterUserId,
+      share: pending.share,
       draft,
       persist: persistPosthogBinding,
     }),
@@ -163,13 +163,14 @@ type PosthogBindingDraft = {
 export async function persistPosthogBinding(
   teamId: ObjectId,
   draft: PosthogBindingDraft,
+  access: BindingAccess,
 ): Promise<Record<string, string>> {
   const pending = { ...draft.pending, teamId }
   const { discovery } = draft
   const existing = await findExisting(pending, draft.apiBaseUrl, discovery.user)
   const binding = buildBinding(pending, existing, draft)
 
-  await persistBinding(pending, binding, existing)
+  await persistBinding(pending, binding, existing, access)
   if (existing) await revokeReplacedGrant(existing, binding)
 
   return {
@@ -215,6 +216,7 @@ async function persistBinding(
   pending: BindingPending,
   binding: PosthogIntegrationBinding,
   existing: PosthogIntegrationBinding | null,
+  access: BindingAccess,
 ): Promise<void> {
   if (existing) {
     await teamByosBindings().updateOne(
@@ -233,7 +235,7 @@ async function persistBinding(
     { _id: pending.teamId },
     {
       $push: {
-        posthogIntegrations: { ...binding, access: createDefaultAccess(pending.requesterUserId) },
+        posthogIntegrations: { ...binding, access },
       },
       $set: { updatedAt: new Date() },
       $setOnInsert: insertDefaults,

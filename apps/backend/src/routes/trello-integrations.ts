@@ -3,8 +3,8 @@ import { randomBytes } from 'node:crypto'
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
-import { createBinderOnlyAccess } from '@/lib/byos/access'
 import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
+import { requestedBindingShare } from '@/lib/byos/initial-access'
 import { trelloConnectLink } from '@/lib/byos/trello'
 import { publicBackendUrl } from '@/lib/claude-code-preview/runtime-backend-url'
 import { AppError } from '@/lib/errors'
@@ -15,7 +15,7 @@ import { requireTrelloIntegration, requireTeamRole } from '@/middleware/auth'
 import { teamByosBindings, trelloPendingOAuth } from '@/models'
 
 import type { TrelloIntegrationVariables, TeamAuthVariables } from '@/middleware/auth'
-import type { TrelloIntegrationBinding } from '@/models'
+import type { BindingAccess, TrelloIntegrationBinding } from '@/models'
 
 export const trelloIntegrationsRoutes = new Hono<{ Variables: TeamAuthVariables }>()
 
@@ -58,6 +58,7 @@ trelloIntegrationsRoutes.post('/start-oauth', requireTeamRole('ADMINISTRATOR'), 
   )
 
   await trelloPendingOAuth().insertOne({
+    ...(await requestedBindingShare(c)),
     _id: state,
     teamId,
     requesterUserId,
@@ -111,6 +112,7 @@ type Draft = Pick<
 export async function persistTrelloBinding(
   teamId: ObjectId,
   draft: Draft,
+  access: BindingAccess,
 ): Promise<Record<string, string>> {
   const doc = await teamByosBindings().findOne(
     { _id: teamId },
@@ -124,7 +126,7 @@ export async function persistTrelloBinding(
     id: existing?.id ?? new ObjectId(),
     label: existing?.label ?? draft.username,
     createdAt: existing?.createdAt ?? new Date(),
-    access: existing?.access ?? createBinderOnlyAccess(draft.authorizedBy),
+    access: existing?.access ?? access,
   }
 
   if (existing) {
@@ -140,9 +142,9 @@ export async function persistTrelloBinding(
         'Trello connection changed during authorization. Try again.',
       )
     if (existing.composioAccountId !== binding.composioAccountId) {
-      await deleteComposioAccount(existing.composioAccountId).catch((error: unknown) =>
-        logError('trello.previous_connection_cleanup_failed', error),
-      )
+      await deleteComposioAccount(existing.composioAccountId).catch((error: unknown) => {
+        logError('trello.previous_connection_cleanup_failed', error)
+      })
     }
   } else
     await teamByosBindings().updateOne(

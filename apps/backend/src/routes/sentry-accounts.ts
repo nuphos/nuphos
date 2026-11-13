@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 
 import { Hono } from 'hono'
 
+import { requestedBindingShare } from '@/lib/byos/initial-access'
 import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import {
   buildAuthorizeUrl,
@@ -75,6 +76,7 @@ sentryAccountsRoutes.post('/start-oauth', requireTeamRole('ADMINISTRATOR'), asyn
   const expiresAt = new Date(Date.now() + OAUTH_PENDING_TTL_MS)
 
   await sentryPendingOAuth().insertOne({
+    ...(await requestedBindingShare(c)),
     _id: state,
     teamId,
     requesterUserId,

@@ -30,10 +30,13 @@ useModels({
 })
 
 test('reauthorizing a GitLab account keeps who may use the binding', async () => {
-  await persistGitlabBinding(new ObjectId(), {
-    hostUrl: existing.hostUrl,
-    accountId: existing.accountId,
-  } as never)
+  const fresh = { memberAllowList: ['*'], updatedAt: new Date(), updatedBy: 'u2' }
+
+  await persistGitlabBinding(
+    new ObjectId(),
+    { hostUrl: existing.hostUrl, accountId: existing.accountId } as never,
+    fresh,
+  )
 
   expect(writes[0]).toMatchObject({
     $set: { 'gitlabAccounts.$[el]': { id: existing.id, access: existing.access } },

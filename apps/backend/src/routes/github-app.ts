@@ -25,8 +25,10 @@ import {
   signInstallFlowState,
   verifyInstallFlowState,
 } from '@/lib/byos/github-install-flow'
+import { initialBindingAccess } from '@/lib/byos/initial-access'
 import { desktopCallbackPage, githubInstallConfirmPage } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
+import { getTeamMembership } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
 import {
   exchangeGithubCode,
@@ -176,8 +178,12 @@ githubAppRoutes.post('/confirm', async (c) => {
   const state = browserFlowState(c, typeof form.state === 'string' ? form.state : undefined)
 
   if (!state.v || !state.i) invalidFlow()
-  if (await administeredTeamName(state.u, state.t)) {
-    await bindGithubInstallation(new ObjectId(state.t), state.i)
+  const membership = await getTeamMembership(state.u, state.t)
+
+  if (membership?.role === 'ADMINISTRATOR') {
+    const access = initialBindingAccess({ userId: state.u, team: membership.team, share: state.sh })
+
+    await bindGithubInstallation(new ObjectId(state.t), state.i, access)
   }
   deleteCookie(c, INSTALL_FLOW_COOKIE, { path: '/github-app', secure: true })
 
