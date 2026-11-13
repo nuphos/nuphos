@@ -150,6 +150,8 @@ export function PagesDeploymentLogsModal({
     queryKey: queryKeys.cloudflare(teamId, accountId, 'pages', projectName, 'logs', deploymentId),
     queryFn: () =>
       api.atlasGetCloudflarePagesDeploymentLogs(teamId, accountId, projectName, deploymentId),
+    // A build may still be writing them, so each opening reads them again.
+    staleTime: 0,
   })
 
   // An error kept from an earlier read doesn't count while this opening's read is still running.
