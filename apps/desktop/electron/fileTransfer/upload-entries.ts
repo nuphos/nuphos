@@ -16,7 +16,7 @@ async function mapWithLimit<T, R>(
     while (next < items.length) {
       const i = next++
 
-      out[i] = await fn(items[i], i)
+      out[i] = await fn(items[i]!, i)
     }
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
