@@ -91,14 +91,17 @@ describe('Trello Composio authorization', () => {
     }
   })
   test('names the Composio log of a failed tool call without its error text', async () => {
-    globalThis.fetch = (async () =>
-      new Response(
+    globalThis.fetch = (async (_url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+      calls.push({ url: '', init })
+
+      return new Response(
         JSON.stringify(
-          calls.push({ url: '' }) === 1
+          calls.length === 1
             ? account
             : { successful: false, data: {}, error: 'fixture-secret-token', log_id: 'log_fixture' },
         ),
-      )) as typeof fetch
+      )
+    }) as typeof fetch
     const error = await executeTrelloTool(
       'ca_fixture',
       'team:member',
