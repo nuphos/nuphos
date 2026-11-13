@@ -43,7 +43,6 @@ export const Sidebar = memo(function Sidebar({
   onLogout,
   grafanaInstance,
   teamSegment,
-  teamSkeleton = false,
   identitySegment,
   repositoryNav,
   canGoBack = false,
@@ -221,7 +220,7 @@ export const Sidebar = memo(function Sidebar({
         />
         <SidebarTeamSwitcher
           teamSegment={teamSegment}
-          loading={teamSkeleton}
+          loading={false}
           onOpenSettings={onOpenSettings}
           onOpenMyPreferences={onOpenMyPreferences}
           onCreateTeam={onCreateTeam}
