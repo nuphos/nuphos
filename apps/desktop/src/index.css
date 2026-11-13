@@ -2210,10 +2210,10 @@ html.platform-darwin:not(.window-fullscreen) .workspace-corner-titlebar {
   --stagger-stagger: 0ms;
 }
 @starting-style {
-  .t-sidebar-session[data-open='true'] {
+  .t-sidebar-session:not(.t-task-row)[data-open='true'] {
     grid-template-rows: 0fr;
   }
-  .t-sidebar-session.is-shown > .t-stagger-line {
+  .t-sidebar-session:not(.t-task-row).is-shown > .t-stagger-line {
     opacity: 0;
     transform: translateY(var(--stagger-distance));
   }
@@ -2493,6 +2493,10 @@ html.light .workspace-desk {
   @starting-style {
     transform: translateX(100%);
   }
+}
+/* A full-page blur costs frames, so the Task's skeleton reveal only fades. */
+.t-bot-task-mode .t-skel > * {
+  filter: none !important;
 }
 @media (prefers-reduced-motion: reduce) {
   .t-bot-task-mode {

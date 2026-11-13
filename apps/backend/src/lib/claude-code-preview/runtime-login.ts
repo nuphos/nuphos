@@ -1,12 +1,13 @@
-import { requireDeviceAccess } from '@/lib/agent/devices/box-access'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { commitLocalAgentInstance } from '@/lib/agent/devices/local-runtime/instances'
+import { requireAgentSignInAccess } from '@/lib/agent/devices/manage-access'
 import { settleSignInRequests } from '@/lib/agent/sign-in-settle'
 import { AppError } from '@/lib/errors'
 
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { requireRuntimeInstance } from './runtime-catalog'
 import { controlLoginTransport } from './runtime-login-control'
+import { acceptsAnswer } from './runtime-login-step'
 import {
   AUTHORIZATION_FIELDS,
   claimRuntimeLogin,
@@ -17,7 +18,6 @@ import {
   submitLoginCode,
 } from './runtime-login-store'
 
-import type { ControlLoginTarget } from './runtime-login-control'
 import type { RuntimeLoginFrame } from './runtime-login-step'
 import type { RuntimeLoginDoc, RuntimeLoginStatus } from './runtime-login-store'
 
@@ -39,13 +39,13 @@ export type RuntimeLoginDeps<Target> = {
 
 /** Managed, self-hosted and local runtimes own their sign-in (a local one over its
  *  computer's tunnel, into the runtime's own config dir); a development runtime is
- *  signed in where it runs. */
+ *  signed in where it runs. Only those who manage a computer sign its agents in or out. */
 async function requireLocalLoginAccess(teamId: string, runtimeId: string, userId?: string) {
   const ref = parseLocalRuntimeId(runtimeId)
 
   if (ref) {
     if (!userId) throw new AppError(404, 'runtime_not_found', 'Agent is not available')
-    const device = await requireDeviceAccess(userId, teamId, ref.deviceId, 'use')
+    const device = await requireAgentSignInAccess(userId, teamId, ref.deviceId)
 
     if (device.userId !== ref.userId)
       throw new AppError(404, 'runtime_not_found', 'Agent is not available')
@@ -77,18 +77,16 @@ export async function requireLoginInstance(
     throw new AppError(409, 'runtime_disabled', 'Enable this agent before signing in')
 }
 
-/** An added agent exists once signed in: its host keeps it from here on. */
-async function commitAddedAgent(doc: RuntimeLoginDoc): Promise<void> {
+/** Tells a computer's host its agent signed in; an older host refuses this for its own agent. */
+async function commitSignedInAgent(doc: RuntimeLoginDoc): Promise<void> {
   const ref = parseLocalRuntimeId(doc.runtimeId)
 
-  if (!ref?.instanceId || !doc.userId) return
+  if (!ref || !doc.userId) return
   await commitLocalAgentInstance(
     { userId: ref.userId, actorId: doc.userId, deviceId: ref.deviceId, teamId: doc.teamId },
-    ref.instanceId,
-  )
+    ref.instanceId ? { instanceId: ref.instanceId } : { provider: ref.provider },
+  ).catch((error: Error) => (ref.instanceId ? Promise.reject(error) : undefined))
 }
-
-const loginDeps: RuntimeLoginDeps<ControlLoginTarget> = controlLoginTransport
 
 /** All callbacks are fenced by the attempt ID, including cross-replica cancellation. */
 export async function performRuntimeLogin<Target>(
@@ -182,7 +180,7 @@ export async function performRuntimeLogin<Target>(
     const signedOut = finished === 'signedOut'
 
     // Connected keeps the agent, listed at once; a removed API key keeps and runs nothing.
-    if (!signedOut) await (deps.commit ?? commitAddedAgent)(doc)
+    if (!signedOut) await (deps.commit ?? commitSignedInAgent)(doc)
     // The runtime installed the credential itself, so it is already in use.
     const connected = await runtimeLogins().updateOne(
       {
@@ -225,7 +223,7 @@ export async function startRuntimeLogin(
   await requireLoginInstance(teamId, runtimeId, userId)
   const doc = await claimRuntimeLogin(teamId, runtimeId, userId)
 
-  void performRuntimeLogin(doc, loginDeps).catch(() => {
+  void performRuntimeLogin(doc, controlLoginTransport).catch(() => {
     /* Expiry bounds recovery after a database outage. */
   })
 
@@ -252,27 +250,6 @@ export async function cancelRuntimeLogin(
   )
 
   if (result.matchedCount) running.get(attemptId)?.abort()
-}
-
-/**
- * The `code#state` Claude's callback page shows, or the loopback address Google's
- * sign-in leaves the browser on for Antigravity. The runtime checks the port itself.
- */
-export const AUTHORIZATION_CODE =
-  /^(?:[\w.~-]{1,2048}#[\w.~-]{1,512}|http:\/\/(?:127\.0\.0\.1|localhost):\d{1,5}\/\?[\w.~%&=/+:-]{1,4096})$/u
-/** In place of the account sign-in: an API key for the runtime's CLI, or removing it. */
-export const API_KEY_ANSWER = /^(?:sk-[\w-]{20,400}|sign-out)$/u
-const LOOPBACK_ADDRESS = /^http:\/\/(?:127\.0\.0\.1|localhost):\d{1,5}\/\S*$/u
-
-/** Whether `answer` is what the sign-in is waiting for; the runtime checks it again. */
-export function acceptsAnswer(doc: RuntimeLoginDoc, answer: string): boolean {
-  const { step } = doc
-
-  if (!step) return AUTHORIZATION_CODE.test(answer) || API_KEY_ANSWER.test(answer)
-  if (step.kind === 'choose') return step.options.some((option) => option.value === answer)
-  if (step.kind === 'browser' && step.paste === 'address') return LOOPBACK_ADDRESS.test(answer)
-
-  return answer.length > 0
 }
 
 export async function submitRuntimeLoginCode(

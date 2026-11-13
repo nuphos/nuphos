@@ -119,6 +119,23 @@ test('a person’s computer never removes a default agent or touches its login',
   assert.deepEqual(signedIn(controller), { 'claude-code': true, codex: true })
 })
 
+test('a finished sign-in of a default agent is checked at once, not at the next poll', async (t) => {
+  const { start, signedIn, owner } = box(t, false)
+
+  rmSync(path.join(owner, 'auth.json'))
+  const controller = await start()
+
+  assert.equal(signedIn(controller).codex, false)
+  // The sign-in writes the login; the host only learns of it from the commit.
+  writeFileSync(path.join(owner, 'auth.json'), '{}')
+  assert.deepEqual(await controller.instanceRequest({ method: 'commit', provider: 'codex' }), {})
+  assert.equal(signedIn(controller).codex, true)
+  await assert.rejects(
+    controller.instanceRequest({ method: 'commit', provider: '../x' }),
+    /Invalid runtime provider/u,
+  )
+})
+
 test('removing names a known provider', async (t) => {
   const { start } = box(t, true)
   const controller = await start()

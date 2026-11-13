@@ -36,8 +36,19 @@ export function taskPageSections(items: Item[]): Section[] {
   const inbox = ordered.filter(attention).flat()
   const read = ordered.filter((group) => !attention(group)).flat()
 
+  const firstRead = read.find((item) => !item.parentKey || !byKey.has(item.parentKey))?.key
+
+  // One keyed list lets a row cross the boundary without remounting or replaying its entrance.
   return [
-    { title: 'Tasks', items: inbox, compact: true },
-    ...(read.length ? [{ items: read, compact: true, separator: inbox.length > 0 }] : []),
+    {
+      title: 'Tasks',
+      compact: true,
+      items: [
+        ...inbox,
+        ...read.map((item) =>
+          inbox.length > 0 && item.key === firstRead ? { ...item, taskDivider: true } : item,
+        ),
+      ],
+    },
   ]
 }

@@ -7,7 +7,6 @@ import type {
   AwsResourceDetailRef,
   AwsS3Detail,
   CloudflareResourceDetailRef,
-  ConnectorDetailRef,
   LinearNavState,
   NuphosDashboardRef,
 } from '../../lib/appRoutes'
@@ -107,12 +106,6 @@ export function useTabDetailSetters(tabId: string, updateTab: UpdateWorkspaceTab
     },
     [tabId, updateTab],
   )
-  const setConnectorDetail = useCallback(
-    (connectorDetail: ConnectorDetailRef | null) => {
-      updateTab(tabId, (cur) => ({ ...cur, connectorDetail }))
-    },
-    [tabId, updateTab],
-  )
   const setCloudflareDetail = useCallback(
     (cloudflareDetail: CloudflareResourceDetailRef | null) => {
       updateTab(tabId, (cur) => {
@@ -132,12 +125,6 @@ export function useTabDetailSetters(tabId: string, updateTab: UpdateWorkspaceTab
     },
     [tabId, updateTab],
   )
-  const setAddIntegrationOpen = useCallback(
-    (addIntegrationOpen: boolean) => {
-      updateTab(tabId, (cur) => ({ ...cur, addIntegrationOpen }))
-    },
-    [tabId, updateTab],
-  )
 
   return {
     setTarget,
@@ -148,8 +135,6 @@ export function useTabDetailSetters(tabId: string, updateTab: UpdateWorkspaceTab
     setNuphosDashboard,
     setNuphosDashboards,
     setLinearNav,
-    setConnectorDetail,
     setCloudflareDetail,
-    setAddIntegrationOpen,
   }
 }

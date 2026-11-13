@@ -75,6 +75,8 @@ test(
         )
         // The child's HOME is the one the caller pinned, not the runner's.
         assert.equal(credential.env.HOME, directory)
+        // An npm-installed CLI finds node through the caller's PATH.
+        assert.equal(credential.env.PATH, process.env.PATH)
         await assert.rejects(readFile(join(credential.home, 'auth.json')), { code: 'ENOENT' })
 
         return credential.home

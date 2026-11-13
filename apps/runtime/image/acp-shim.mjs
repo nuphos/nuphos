@@ -167,7 +167,11 @@ export function runShim({
   output = process.stdout,
   runtimeEnv = process.env,
   spawnAgent = (command, env) =>
-    spawn(command[0], command.slice(1), { env, stdio: ['pipe', 'pipe', 'inherit'] }),
+    spawn(command[0], command.slice(1), {
+      env,
+      stdio: ['pipe', 'pipe', 'inherit'],
+      windowsHide: true,
+    }),
   onExit = (code) => process.exit(code),
   // How long a prompt's answer gets to close its turn upstream before the
   // turn the agent started next is released.

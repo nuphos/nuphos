@@ -5,31 +5,10 @@ import { join } from 'node:path'
 import { postFileTransfer } from '../atlas'
 
 import { collectEntries, deriveArchiveName } from './local-entries'
+import { uploadEntriesIndividually } from './upload-entries.ts'
 import { zipEntriesToFile } from './zip'
 
 import type { CreatedTransfer, LocalEntry, TransferGroup } from './types'
-
-const UPLOAD_CONCURRENCY = 4
-
-async function mapWithLimit<T, R>(
-  items: T[],
-  limit: number,
-  fn: (item: T, i: number) => Promise<R>,
-): Promise<R[]> {
-  const out: R[] = new Array(items.length)
-  let next = 0
-
-  async function worker() {
-    while (next < items.length) {
-      const i = next++
-
-      out[i] = await fn(items[i], i)
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
-
-  return out
-}
 
 let uploadTmpSeq = 0
 
@@ -60,7 +39,7 @@ export async function uploadFiles(args: {
   const distinctNames = new Set(entries.map((e) => e.relPath)).size === entries.length
 
   if (stats.every((s) => s.isFile()) && entries.length <= MAX_FILES_PER_TRANSFER && distinctNames) {
-    return uploadEntriesIndividually(teamId, sessionId, entries, label)
+    return uploadEntriesIndividually(teamId, sessionId, entries, postFileTransfer, label)
   }
   const singleDir = filePaths.length === 1 && stats[0].isDirectory()
 
@@ -71,49 +50,6 @@ export async function uploadFiles(args: {
     deriveArchiveName(filePaths, singleDir, label),
     label,
   )
-}
-
-// Per-file path: create intent → PUT each object → finalize.
-async function uploadEntriesIndividually(
-  teamId: string,
-  sessionId: string | undefined,
-  entries: LocalEntry[],
-  label?: string,
-): Promise<TransferGroup> {
-  const created = await postFileTransfer<CreatedTransfer>(teamId, sessionId, '', {
-    direction: 'upload',
-    ...(label ? { label } : {}),
-    files: entries.map((e) => ({
-      fileName: e.fileName,
-      relPath: e.relPath,
-      size: e.size,
-      contentType: e.contentType,
-    })),
-  })
-
-  // Match created items back to local paths by relPath.
-  const byRel = new Map(entries.map((e) => [e.relPath, e]))
-
-  await mapWithLimit(created.files, UPLOAD_CONCURRENCY, async (item) => {
-    const e = byRel.get(item.relPath)
-
-    if (!e) return
-    const res = await fetch(item.uploadUrl, {
-      method: 'PUT',
-      headers: e.contentType ? { 'Content-Type': e.contentType } : undefined,
-      body: await fs.readFile(e.path),
-    })
-
-    if (!res.ok) throw new Error(`Upload failed for ${e.relPath}: HTTP ${String(res.status)}`)
-  })
-
-  const group = await postFileTransfer<TransferGroup>(
-    teamId,
-    sessionId,
-    `/${created.groupId}/finalize`,
-  )
-
-  return { ...group, archive: false }
 }
 
 // Archive path: zip everything to one temp object → create intent → PUT → finalize.

@@ -26,7 +26,7 @@ import { readAppIcon, setAppIcon } from './app-icon'
 import { readLoginItem, writeLoginItem } from './login-item'
 import { writePersistedThemeSource } from './theme'
 import { fileTransferReadChannels } from './channels-file-transfer'
-import { checkForUpdates, getUpdaterState, installUpdate } from './updater'
+import { updaterChannels } from './channels-updater'
 import { mostRecentlyFocusedVisibleAppWindow } from './windows'
 
 import type { PastedAttachmentPayload } from './dialogs'
@@ -238,9 +238,7 @@ export const appChannels = {
     return dirs
   },
   'changelog:getState': () => getChangelogState(),
-  'updater:getState': () => getUpdaterState(),
-  'updater:check': () => checkForUpdates(),
-  'updater:install': () => installUpdate(),
+  ...updaterChannels,
 } as const
 
 // Avatar trust runs during render, so the renderer reads the endpoint synchronously.

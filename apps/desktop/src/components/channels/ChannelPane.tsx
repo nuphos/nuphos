@@ -30,6 +30,7 @@ import { useChannel } from './useChannel'
 import { useStickToBottom } from './useStickToBottom'
 
 import type { AgentMessageReply, AgentPersistedMessage } from '../../api'
+import type { ChannelFixes } from './ChannelReplyFix'
 import type { UserInfo } from '../../types'
 import type { ComposerSend } from '../agent/panel/composerMentionChips'
 import type { AgentPromptSeed } from '../agent/panel/model'
@@ -47,6 +48,7 @@ export function ChannelPane({
   onOpenSession,
   onOpenTask,
   onOpenNuphosLink,
+  fixes,
 }: {
   teamId: string
   channelId: string
@@ -59,6 +61,8 @@ export function ChannelPane({
   onOpenSession: (sessionId: string) => void
   onOpenTask?: (sessionId: string) => void
   onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
+  /** What the workspace lends to repair an agent that could not reply. */
+  fixes?: ChannelFixes
 }) {
   const { detail, agents, refresh } = useChannel(teamId, channelId)
 
@@ -134,7 +138,7 @@ export function ChannelPane({
       sendingPost(id, text, user, files?.optimisticPart(), mentions, reply),
     ])
     try {
-      const upload = files ? (await files.runUpload(undefined)).groupId : undefined
+      const upload = files ? (await files.runUpload()).groupId : undefined
 
       await api.agentPostChannelMessage(
         channelId,
@@ -242,7 +246,9 @@ export function ChannelPane({
               onOpenSession={onOpenSession}
               onOpenNuphosLink={onOpenNuphosLink}
               channelId={channelId}
+              botId={bot}
               extraRows={questions.rows}
+              fixes={fixes}
               onReply={
                 detail.readOnly
                   ? undefined
@@ -262,23 +268,28 @@ export function ChannelPane({
         }}
       >
         {replying && <ReplyingBanner reply={replying} onCancel={() => setReplying(null)} />}
-        <Composer
-          onSend={send}
-          onStop={() => {}}
-          readOnly={detail?.readOnly === true}
-          pendingSeed={restore}
-          onSeedConsumed={() => setRestore(null)}
-          draftKey={composerDraftKey(teamId, channelId)}
-          dropRegisterRef={dropRef}
-          mentionScope={{
-            teamId,
-            sessionId: channelId,
-            channel: true,
-            only: { agentIds: agents.map((agent) => agent.sessionId), selfId: user.id },
-          }}
-          placeholder={t('Message {name}', { name: title })}
-          credentialSelector={questions.credentials}
-        />
+        {/* Inset past the faces on both sides, so the composer lines up with the
+            bubbles: the column's own width (760px plus the Composer's px-3), less a
+            face and its gap (2.375rem) on each side. */}
+        <div className="mx-auto w-full max-w-[calc(760px+1.5rem)] px-[2.375rem]">
+          <Composer
+            onSend={send}
+            onStop={() => {}}
+            readOnly={detail?.readOnly === true}
+            pendingSeed={restore}
+            onSeedConsumed={() => setRestore(null)}
+            draftKey={composerDraftKey(teamId, channelId)}
+            dropRegisterRef={dropRef}
+            mentionScope={{
+              teamId,
+              sessionId: channelId,
+              channel: true,
+              only: { agentIds: agents.map((agent) => agent.sessionId), selfId: user.id },
+            }}
+            placeholder={t('Message {name}', { name: title })}
+            credentialSelector={questions.credentials}
+          />
+        </div>
       </div>
     </FileDropZone>
   )

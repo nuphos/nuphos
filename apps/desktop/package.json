@@ -1,7 +1,7 @@
 {
   "name": "k8s-gui",
   "private": true,
-  "version": "0.117.0",
+  "version": "0.118.0",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -73,6 +73,7 @@
     "lucide-react": "^1.11.0",
     "monaco-editor": "^0.55.1",
     "node-api-headers": "^1.9.0",
+    "opencc-js": "1.4.2",
     "postcss": "^8.5.23",
     "posthog-js": "^1.376.0",
     "react": "^19.2.5",

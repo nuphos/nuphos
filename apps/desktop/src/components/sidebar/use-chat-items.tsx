@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { useAgentAvatarPicks } from '../../lib/agentAvatarChoices'
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
-import { useAgentUnreadSessions } from '../../lib/agentUnreadSessions'
+import { useAgentActivityTimes, useAgentUnreadSessions } from '../../lib/agentUnreadSessions'
 import { runtimeTurnActive, runtimeBackgroundRunning } from '../../lib/runtimeExecution'
 import { botOfChannel } from '../channels/botChannel'
 
@@ -31,6 +31,7 @@ export function useChatItems({
 }): Item[] {
   const runtimeStates = useAgentRuntimeStates()
   const unreadSessions = useAgentUnreadSessions()
+  const activityTimes = useAgentActivityTimes()
   const avatarPicks = useAgentAvatarPicks()
   const openId = chatShown ? (agentSessionId ?? undefined) : undefined
   const previousUnread = useRef(unreadSessions)
@@ -80,7 +81,10 @@ export function useChatItems({
   return agentSessions.flatMap((conversation) => {
     const unread = unreadSessions.has(conversation.sessionId)
     const item = chatSidebarItem({
-      conversation,
+      conversation: {
+        ...conversation,
+        lastActiveAt: activityTimes.get(conversation.sessionId) ?? conversation.lastActiveAt,
+      },
       teamId,
       active: chatShown && agentSessionId === conversation.sessionId,
       runtimeState: runtimeStates.get(conversation.sessionId),

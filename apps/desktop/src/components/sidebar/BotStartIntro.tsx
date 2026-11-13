@@ -9,8 +9,10 @@ export function BotStartIntro({
   onCreate,
   onImport,
   visible = true,
+  firstBot = false,
 }: {
   visible?: boolean
+  firstBot?: boolean
   onCreate: () => void
   onImport: () => void
 }) {
@@ -49,7 +51,7 @@ export function BotStartIntro({
         />
       </motion.div>
       <motion.h1 variants={reveal} className="text-2xl font-semibold tracking-tight text-main">
-        {t('Start with your first Bot')}
+        {firstBot ? t('Start with your first Bot') : t('New Bot')}
       </motion.h1>
       <motion.p
         variants={reveal}

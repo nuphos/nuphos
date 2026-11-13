@@ -1,39 +1,61 @@
-import { AppError } from '@/lib/errors'
+import { getTeamMembership } from '@/lib/identity'
+import { nextCronRuns } from '@/lib/cron'
 import { logError, logEvent } from '@/lib/observability'
 import { clearSlackNotificationIncidentsForTrigger } from '@/lib/slack/incident-notifications'
 
 import { assertTriggerAccess, canManageTrigger } from '../trigger-access'
-import { agentTriggers, liveTriggerShapeFilter, triggerConfigRevisionFilter } from '../trigger-db'
+import { agentTriggers, triggerConfigRevisionFilter } from '../trigger-db'
 import { managedProviderResourcePlanForTrigger } from '../trigger-provider-resources'
 import { unscheduleCronTrigger } from '../trigger-scheduler'
 
+import { triggerListFilter } from './list-filter'
+import { triggerScheduleDescription } from './schedule-description'
 import { findManagedTrigger, parseTriggerId, serializeTrigger } from './shared'
 
 import type { TriggerActor } from '../trigger-access'
 import type { ManagedProviderResourcePlan } from '../trigger-provider-resources'
 import type { SerializedTrigger } from './shared'
 
-export async function listTriggers(scope: {
-  userId: string
-  teamId?: string
-}): Promise<SerializedTrigger[]> {
-  const ownership = scope.teamId
-    ? { teamId: scope.teamId }
-    : { userId: scope.userId, teamId: { $exists: false } }
+export async function listTriggers(
+  scope: {
+    userId: string
+    teamId?: string
+  },
+  targetSessionId?: string,
+) {
   const rows = await agentTriggers()
-    .find({ ...ownership, ...liveTriggerShapeFilter })
+    .find(triggerListFilter(scope, targetSessionId))
     .sort({ createdAt: -1 })
     .limit(100)
     .toArray()
 
-  return rows.map((t) => serializeTrigger(t))
+  const canManage =
+    rows.length > 0 &&
+    (await canManageTrigger({ userId: scope.userId, teamId: scope.teamId }, scope))
+
+  const canDelete = scope.teamId
+    ? (await getTeamMembership(scope.userId, scope.teamId))?.role === 'ADMINISTRATOR'
+    : true
+
+  return rows.map((trigger) => ({
+    ...serializeTrigger(trigger),
+    scheduleDescription: triggerScheduleDescription(trigger),
+    canManage: !trigger.cleanupStatus && canManage,
+    canDelete,
+    nextRunAt:
+      trigger.enabled && trigger.triggerType === 'cron' && trigger.cronExpression
+        ? (nextCronRuns(trigger.cronExpression, 1, trigger.timeZone)[0] ?? null)
+        : null,
+  }))
 }
 
 /** The single-trigger view exposes the webhook secret only to an authorized manager. */
 export async function getTrigger(
   triggerId: string,
   actor: TriggerActor,
-): Promise<SerializedTrigger & { managedProviderResources?: ManagedProviderResourcePlan }> {
+): Promise<
+  SerializedTrigger & { canManage: boolean; managedProviderResources?: ManagedProviderResourcePlan }
+> {
   const trigger = await findManagedTrigger(parseTriggerId(triggerId))
 
   await assertTriggerAccess(trigger, actor, 'read')
@@ -42,6 +64,8 @@ export async function getTrigger(
 
   return {
     ...serializeTrigger(trigger, exposeSecret),
+    // As in the list, so a card shows its switch only to whoever may flip it.
+    canManage: !trigger.cleanupStatus && exposeSecret,
     ...(managedProviderResources ? { managedProviderResources } : {}),
   }
 }

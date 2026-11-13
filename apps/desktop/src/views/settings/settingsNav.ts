@@ -2,7 +2,6 @@ import {
   Archive,
   Brain,
   CircleUserRound,
-  Clock,
   CreditCard,
   Download,
   FileText,
@@ -48,8 +47,6 @@ const SETTINGS_SECTION_FOR_PAGE: Partial<Record<string, string>> = {
   'team.agents': 'workspace.computers',
   'team.agent-skills': 'workspace.skills',
   'team.agent-memories': 'workspace.memories',
-  'team.triggers': 'workspace.triggers',
-  'team.schedule': 'workspace.triggers',
 }
 
 export function settingsSectionForPage(key: string): string | undefined {
@@ -84,7 +81,6 @@ const TEAM_GROUPS: SettingsNavGroup[] = [
       { key: 'workspace.instructions', label: t('Instructions'), icon: FileText },
       { key: 'workspace.skills', label: t('Skills'), icon: Sparkles },
       { key: 'workspace.memories', label: t('Memories'), icon: Brain },
-      { key: 'workspace.triggers', label: t('Triggers'), icon: Clock },
       { key: 'workspace.archived', label: t('Archived agents'), icon: Archive },
       { key: 'workspace.audit', label: t('Audit log'), icon: ScrollText },
     ],

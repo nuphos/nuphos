@@ -79,7 +79,7 @@ export function PanelEditorModal({ teamId, panel, saving, onCancel, onSave }: Pr
   const credentials = usePanelCredentials(teamId, panel)
 
   const counts = {
-    selected: countSelectedCredentials(credentials.control.value),
+    selected: countSelectedCredentials(credentials.control.value, credentials.control.options),
     total: countTotalCredentials(credentials.control.options),
   }
 

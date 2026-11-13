@@ -8,6 +8,7 @@ import { redisEnabled } from '@/lib/redis'
 import { closeThreadQueue } from './thread-queue'
 import { agentTriggers, liveTriggerShapeFilter } from './trigger-db'
 import { executeTrigger } from './trigger-executor'
+import { startMissedRunDetector, stopMissedRunDetector } from './trigger-missed-runs'
 import { AGENT_TRIGGER_QUEUE, buildBullMQConnection } from './trigger-scheduler-setup'
 // Straight to the two section modules, not the trigger-service barrel: the
 // barrel would also pull create/update/transfer into our graph and widen the
@@ -71,6 +72,11 @@ export async function initTriggerScheduler(): Promise<boolean> {
       // fire that races it must not execute an already-expired trigger.
       if (trigger.expiresAt && trigger.expiresAt.getTime() <= Date.now()) return
       if (trigger.triggerType !== 'cron') return
+      // Recorded before the turn so a long or failing turn still counts as fired.
+      await agentTriggers().updateOne(
+        { _id: trigger._id },
+        { $set: { lastFiredAt: new Date() }, $unset: { missedRunAt: '' } },
+      )
       await executeTrigger(trigger, undefined, {
         runKind: 'scheduled',
         ...(job.id ? { fireId: job.id } : {}),
@@ -121,6 +127,8 @@ export async function initTriggerScheduler(): Promise<boolean> {
     { name: EXPIRY_SWEEP_JOB, opts: { attempts: 1, removeOnComplete: 24, removeOnFail: 24 } },
   )
 
+  startMissedRunDetector()
+
   logEvent('info', 'agent.trigger_scheduler.initialized', {
     cron_trigger_count: cronTriggers.length,
     resumed_cleanup_count: resumedCleanupCount,
@@ -131,6 +139,7 @@ export async function initTriggerScheduler(): Promise<boolean> {
 }
 
 export async function stopTriggerWorkers(): Promise<void> {
+  stopMissedRunDetector()
   await _worker?.close()
   _worker = undefined
 }

@@ -188,7 +188,7 @@ export function RuntimeSelector({
           {error && <p className="px-2 py-2 text-xs text-error">{error}</p>}
           {!loading && !error && groups.length === 0 && (
             <p className="px-2 py-2 text-xs text-tertiary">
-              {t('Connect a runtime in Settings → Runtimes to get started.')}
+              {t('Connect a runtime in Settings → Computers to get started.')}
             </p>
           )}
           <div className="max-h-96 overflow-auto">

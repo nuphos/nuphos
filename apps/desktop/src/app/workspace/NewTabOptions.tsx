@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import { History, Star } from 'lucide-react'
+import { ChevronDown, ChevronRight, History, Star } from 'lucide-react'
 
 import { t } from '../../i18n'
 import { newTabOptionDomId } from '../../lib/launcherMatch'
@@ -86,23 +86,43 @@ export function HistoryIcon() {
 export function NewTabGroupSection({
   title,
   favorites,
+  count,
+  collapsed,
+  onToggle,
   children,
 }: {
   title: string
   favorites?: boolean
+  count: number
+  collapsed: boolean
+  onToggle: () => void
   children: ReactNode
 }) {
   return (
-    <section className="mb-4">
-      <div className="mb-1 flex items-center gap-1.5 px-2">
-        {favorites && (
-          <Star className="h-2.5 w-2.5 text-warning/80" fill="currentColor" strokeWidth={1.7} />
-        )}
-        <h2 className="text-[10px] font-medium uppercase tracking-[0.08em] text-tertiary">
-          {title}
-        </h2>
-      </div>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-x-1">{children}</div>
+    <section className={collapsed ? 'mb-1.5' : 'mb-4'}>
+      <h2 className="mb-1">
+        <button
+          type="button"
+          aria-expanded={!collapsed}
+          onClick={onToggle}
+          className="flex w-full items-center gap-1.5 rounded-md px-2 py-0.5 text-left text-[10px] font-medium uppercase tracking-[0.08em] text-tertiary outline-none transition-colors hover:text-secondary focus-visible:text-secondary focus-visible:ring-1 focus-visible:ring-line-control"
+        >
+          {favorites && (
+            <Star className="h-2.5 w-2.5 text-warning/80" fill="currentColor" strokeWidth={1.7} />
+          )}
+          <span>{title}</span>
+          {collapsed && <span className="tabular-nums">{count}</span>}
+          <span className="t-icon-swap h-3 w-3 shrink-0" data-state={collapsed ? 'a' : 'b'}>
+            <ChevronRight className="t-icon h-3 w-3" data-icon="a" />
+            <ChevronDown className="t-icon h-3 w-3" data-icon="b" />
+          </span>
+        </button>
+      </h2>
+      {!collapsed && (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-x-1">
+          {children}
+        </div>
+      )}
     </section>
   )
 }

@@ -4,7 +4,13 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import { AppError } from '@/lib/errors'
 import { authenticateToken } from '@/lib/identity/auth'
 import { FIRST_TOUCH_COOKIE, recordSignupSource } from '@/lib/identity/signup-source'
-import { exchangeSocialCode, providerSettings, signInSocial } from '@/lib/identity/social'
+import { config } from '@/config'
+import {
+  SOCIAL_PROVIDERS,
+  exchangeSocialCode,
+  providerSettings,
+  signInSocial,
+} from '@/lib/identity/social'
 import { socialAuthAttempts as attempts } from '@/lib/identity/social-store'
 import { startSession } from '@/lib/identity/start-session'
 import {
@@ -13,6 +19,7 @@ import {
   findPendingNativeSession,
 } from '@/lib/native-auth'
 import { generateOpaqueToken, hashToken, safeEqualStr } from '@/lib/oauth/tokens'
+import { deviceApproval, escapeHtml, providerName, safeNext } from '@/routes/device-approval'
 
 import type { SocialProvider } from '@/lib/identity/social'
 
@@ -34,9 +41,9 @@ socialAuth.get('/login', async (c) => {
     throw new AppError(400, 'invalid_handle', 'Start sign-in again from the app')
   const suffix = handle ? `?handle=${encodeURIComponent(handle)}` : ''
   // Only configured providers are offered; with none, clients show no provider button.
-  const providers = (['google', 'apple'] as const).filter((provider) => isConfigured(provider))
+  const providers = await configuredProviders()
   const links = providers.map(
-    (p) => `<a href="${p}/start${suffix}">Continue with ${p === 'google' ? 'Google' : 'Apple'}</a>`,
+    (p) => `<a href="${p}/start${suffix}">Continue with ${escapeHtml(providerName(p))}</a>`,
   )
 
   if (!links.length)
@@ -44,11 +51,14 @@ socialAuth.get('/login', async (c) => {
   c.header('X-Nuphos-Social-Login', '1')
   // Lets apps show one button per provider and skip this page.
   c.header('X-Nuphos-Social-Providers', providers.join(','))
+  if (providers.includes('oidc')) c.header('X-Nuphos-Social-Oidc-Name', config.auth.oidc.name)
 
   return c.html(
     `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Sign in to Nuphos</title><style>body{font:18px system-ui;max-width:360px;margin:15vh auto;padding:24px}a{display:block;padding:16px;margin:16px 0;border:1px solid;border-radius:8px;color:inherit;text-decoration:none}</style><h1>Sign in to Nuphos</h1>${links.join('')}<p>Use the same provider as your existing account.</p></html>`,
   )
 })
+
+socialAuth.route('/device', deviceApproval)
 
 socialAuth.get('/session', async (c) => {
   const token = getCookie(c, '__Host-nuphos-social')
@@ -61,7 +71,7 @@ socialAuth.get('/session', async (c) => {
 
 socialAuth.get('/:provider/start', async (c) => {
   const provider = parseProvider(c.req.param('provider'))
-  const settings = providerSettings(provider)
+  const settings = await providerSettings(provider)
   const handle = c.req.query('handle')
 
   if (handle && !(await findPendingNativeSession(handle)))
@@ -74,6 +84,7 @@ socialAuth.get('/:provider/start', async (c) => {
     provider,
     nonce,
     handle,
+    next: handle ? undefined : safeNext(c.req.query('next')),
     // Read here: Apple's callback is a cross-site POST, which drops Lax cookies.
     firstTouch: getCookie(c, FIRST_TOUCH_COOKIE),
     expiresAt: new Date(Date.now() + 600_000),
@@ -95,6 +106,10 @@ socialAuth.get('/:provider/start', async (c) => {
     state,
     nonce,
     ...(provider === 'apple' ? { response_mode: 'form_post' } : {}),
+    // Asked by "Use another account": skip the provider's remembered session.
+    ...(c.req.query('prompt') === 'login' && provider !== 'apple'
+      ? { prompt: provider === 'google' ? 'select_account' : 'login' }
+      : {}),
   }).toString()
 
   return c.redirect(url.toString())
@@ -150,6 +165,7 @@ socialAuth.on(['GET', 'POST'], '/:provider/callback', async (c) => {
       path: '/',
       maxAge: 30 * 24 * 60 * 60,
     })
+    if (attempt.next) return c.redirect(attempt.next)
 
     return c.html(
       '<!doctype html><html lang="en"><meta charset="utf-8"><title>Signed in</title><h1>Signed in to Nuphos</h1><p>You can return to your workspace.</p></html>',
@@ -172,17 +188,23 @@ socialAuth.on(['GET', 'POST'], '/:provider/callback', async (c) => {
   }
 })
 
-function isConfigured(provider: SocialProvider) {
-  try {
-    return Boolean(providerSettings(provider))
-  } catch {
-    return false
-  }
+async function configuredProviders(): Promise<SocialProvider[]> {
+  const offered = await Promise.all(
+    SOCIAL_PROVIDERS.map((provider) =>
+      providerSettings(provider).then(
+        () => true,
+        () => false,
+      ),
+    ),
+  )
+
+  return SOCIAL_PROVIDERS.filter((_, index) => offered[index])
 }
 
 function parseProvider(raw: string): SocialProvider {
-  if (raw !== 'google' && raw !== 'apple')
-    throw new AppError(404, 'unknown_provider', 'Unknown sign-in provider')
+  const provider = SOCIAL_PROVIDERS.find((p) => p === raw)
 
-  return raw
+  if (!provider) throw new AppError(404, 'unknown_provider', 'Unknown sign-in provider')
+
+  return provider
 }

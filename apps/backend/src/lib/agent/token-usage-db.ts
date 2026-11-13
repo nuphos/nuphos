@@ -104,6 +104,16 @@ export async function setupTokenUsageIndexes(): Promise<void> {
   } catch (err) {
     logError('agent.token_usage.indexes_create_failed', err)
   }
+  // Backs getTriggerUsage. Not awaited: building it scans the whole collection,
+  // and until it exists the query is only slower, so boot must not wait for it.
+  void c
+    .createIndex(
+      { triggerId: 1, createdAt: -1 },
+      { background: true, partialFilterExpression: { triggerId: { $exists: true } } },
+    )
+    .catch((err: unknown) => {
+      logError('agent.token_usage.trigger_index_failed', err)
+    })
 }
 
 export function cleanRecord<T extends Record<string, unknown>>(record: T): T {

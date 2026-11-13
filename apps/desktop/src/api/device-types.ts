@@ -59,8 +59,9 @@ export type AgentCliStatus =
       loggedIn: boolean | null
       account?: string
       plan?: string
-      /** Signed in with an API key rather than an account. */
+      /** Signed in with an API key, or the host of a custom provider, rather than an account. */
       apiKey?: true
+      customProvider?: string
       /** Lives inside an app bundle, which updates it. */
       bundled?: true
     }
@@ -111,6 +112,7 @@ export type LocalRuntimeState = {
   instances?: LocalAgentInstance[]
   workspace: string | null
   userId: string | null
+  customProviders?: Partial<Record<CliLoginProvider, { baseUrl: string; models: string[] }>>
   deviceId?: string
   devBundle?: DevBundleHint
 }
@@ -150,10 +152,9 @@ export type LocalShareInput = {
   managerIds?: string[]
 }
 
-/** A computer's share in one team, the most the team's administrators allow, and its managers. */
+/** A computer's share in one team and its managers. */
 export type LocalAgentShareState = {
   share: LocalShareInput
-  ceiling: LocalShareLevel
   /** Absent from older backends. */
   managerIds?: string[]
 }

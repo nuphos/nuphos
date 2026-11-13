@@ -230,6 +230,13 @@ test('a Codex API key login says so without the part of the key Codex prints', (
     loggedIn: true,
     apiKey: true,
   })
+  // What codex-cli 0.164 prints for a key.
+  assert.deepEqual(
+    parseCodexLoginStatus(
+      'API key configured - sk-proj-***67890\nAuthentication is checked when you send a request.\n',
+    ),
+    { loggedIn: true, apiKey: true },
+  )
   assert.deepEqual(parseCodexLoginStatus('Logged in using ChatGPT'), {
     loggedIn: true,
     account: 'ChatGPT',

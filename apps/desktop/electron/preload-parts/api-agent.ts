@@ -36,6 +36,8 @@ export const agentApi = {
     ),
   agentCheckConversationMove: (sessionId: string, teamId: string, runtimeId: string) =>
     ipcRenderer.invoke('agent:checkConversationMove', sessionId, teamId, runtimeId),
+  agentRecordFork: (sessionId: string, forkSessionId: string, teamId?: string) =>
+    ipcRenderer.invoke('agent:recordFork', sessionId, forkSessionId, teamId),
   agentRecordEditFork: (sessionId: string, forkSessionId: string, teamId?: string) =>
     ipcRenderer.invoke('agent:recordEditFork', sessionId, forkSessionId, teamId),
   agentGetSessionConfig: (sessionId: string, teamId: string) =>
@@ -197,7 +199,8 @@ export const agentApi = {
     ipcRenderer.invoke('agent:getPlanApprovalPolicy', teamId),
   agentUpdatePlanApprovalPolicy: (teamId: string, minimumOtherApprovals: number) =>
     ipcRenderer.invoke('agent:updatePlanApprovalPolicy', teamId, minimumOtherApprovals),
-  agentListTriggers: (teamId?: string) => ipcRenderer.invoke('agent:listTriggers', teamId),
+  agentListTriggers: (teamId?: string, targetSessionId?: string) =>
+    ipcRenderer.invoke('agent:listTriggers', teamId, targetSessionId),
   agentListTriggerGroups: (teamId?: string) =>
     ipcRenderer.invoke('agent:listTriggerGroups', teamId),
   agentUpdateTriggerGroup: (

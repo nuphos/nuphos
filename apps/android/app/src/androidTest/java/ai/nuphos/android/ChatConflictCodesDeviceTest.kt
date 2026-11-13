@@ -32,6 +32,8 @@ class ChatConflictCodesDeviceTest {
     private val puts = CopyOnWriteArrayList<JsonValue>()
     /** What each `POST /agent/chat` answers, in order. Past the end, a finished reply. */
     private val answers = java.util.concurrent.ConcurrentLinkedQueue<Pair<Int, String>>()
+    /** What the server holds once the resume found the stream gone, from the id of the message sent. */
+    @Volatile private var storedAfterGone: ((String) -> String)? = null
 
     @Suppress("UNCHECKED_CAST") private fun access() = AiAccess::class.java.getDeclaredField("state")
         .also { it.isAccessible = true }.get(AiAccess) as MutableState<Any?>
@@ -61,6 +63,8 @@ class ChatConflictCodesDeviceTest {
                     else { media = "text/event-stream".toMediaType(); reply }
                 }
                 path.endsWith("/transcript") -> { puts += JsonValue.parse(sent)!!; "{}" }
+                path == "/agent/conversations/fixture" && posted.size >= 3 && storedAfterGone != null ->
+                    storedAfterGone!!(userIds(posted[0]).last()!!)
                 path == "/agent/conversations/fixture" ->
                     """{"title":"Fixture","isOwner":true,"canManage":true,"messagesFirstIndex":10,"messageCount":12,"messages":[$history]}"""
                 else -> "{}"
@@ -97,6 +101,7 @@ class ChatConflictCodesDeviceTest {
         assertEquals("No retry for $code", 1, posted.size)
         assertEquals(expected, session.error)
         assertEquals("The draft comes back for $code", "Next", session.rejectedSubmission?.text)
+        assertEquals("The refused bubble goes for $code", 0, session.messages.count { it.text == "Next" })
         assertFalse(session.runtimeRecoveryRequired)
     }
 
@@ -160,7 +165,51 @@ class ChatConflictCodesDeviceTest {
         assertNull("It may have been taken, so the draft doesn't come back to send twice", session.rejectedSubmission)
         assertTrue(session.runtimeRecoveryRequired)
     }
-    /** The refused message stays on screen and its draft comes back: sending it again is one message. */
+    /**
+     * A taken send pauses, its continuation's stream closes before the first frame, and the resume finds
+     * the stream gone. [stored] is what the server holds then.
+     */
+    private fun continuationWhoseStreamIsGone(stored: (sent: String) -> String): ChatSession {
+        answers += 200 to listOf("{\"type\":\"start\",\"messageId\":\"partial\"}", "{\"type\":\"text-start\",\"id\":\"t\"}",
+            "{\"type\":\"text-delta\",\"id\":\"t\",\"delta\":\"Partial\"}", "{\"type\":\"text-end\",\"id\":\"t\"}",
+            "{\"type\":\"atlas-turn-paused\",\"reason\":\"model-silence\"}", "{\"type\":\"atlas-stream-done\"}").joinToString("") { "data: $it\n\n" }
+        answers += 200 to ""
+        answers += 409 to error("stream_not_resumable", "The agent stream is no longer resumable", """{"reason":"gone"}""")
+        storedAfterGone = stored
+        val session = send()
+        assertEquals(JsonValue.Bool(true), posted[1]["continueAfterInterruption"])
+        assertEquals(JsonValue.Bool(true), posted[2]["resume"])
+        return session
+    }
+    private fun stored(sent: String, reply: String = "", activeRun: String = "null") =
+        """{"title":"Fixture","isOwner":true,"canManage":true,"messagesFirstIndex":10,"messageCount":14,"activeRun":$activeRun,"messages":[$history,{"id":"$sent","role":"user","parts":[{"type":"text","text":"Next"}]}$reply]}"""
+
+    @Test fun aReplyTheServerAlreadyStoredIsShownInsteadOfAskingAgain() {
+        val session = continuationWhoseStreamIsGone { sent ->
+            stored(sent, """,{"id":"stored","role":"assistant","parts":[{"type":"text","text":"Stored reply"}]}""")
+        }
+        assertEquals("The send, the continuation, the resume, and no fresh start", 3, posted.size)
+        assertNull(session.error)
+        assertEquals(1, session.messages.count { it.text == "Stored reply" })
+        assertEquals(1, session.messages.count { it.text == "Next" })
+    }
+    @Test fun aRunStillLiveIsFollowedInsteadOfAskingAgain() {
+        val session = continuationWhoseStreamIsGone { sent -> stored(sent, activeRun = """{"streamId":"live"}""") }
+        assertEquals("Then one resume of the live run", 4, posted.size)
+        assertEquals("live", posted[3]["streamId"]?.stringValue)
+        assertEquals(JsonValue.Bool(true), posted[3]["resume"])
+        assertNull(session.error)
+        assertEquals(1, session.messages.count { it.text == "Reply" })
+    }
+    @Test fun aTurnNothingAnsweredIsSentAgainOnce() {
+        val session = continuationWhoseStreamIsGone { sent -> stored(sent) }
+        assertEquals("Then one fresh start", 4, posted.size)
+        assertEquals(posted[2]["streamId"], posted[3]["streamId"])
+        assertNotEquals(JsonValue.Bool(true), posted[3]["resume"])
+        assertNull(session.error)
+        assertEquals(1, session.messages.count { it.text == "Reply" })
+    }
+    /** The refused message leaves the list and its draft comes back: sending it again is one message. */
     @Test fun sendingARefusedMessageAgainDoesNotDuplicateIt() {
         answers += 409 to error("conversation_busy", "busy")
         val session = send()
@@ -174,5 +223,38 @@ class ChatConflictCodesDeviceTest {
         assertEquals(1, session.messages.count { it.text == "Next" })
         assertEquals(1, session.messages.count { it.text == "Reply" })
         assertNull(session.error)
+    }
+
+    @Test fun aStartingRuntimeIsWaitedForWithTheSameMessage() {
+        repeat(2) { answers += 409 to error("runtime_not_accepting_message", "The runtime is starting") }
+        val session = send()
+        assertEquals("Two refusals, then the reply", 3, posted.size)
+        assertEquals(1, posted.map { userIds(it).last() }.distinct().size)
+        assertEquals(1, posted.map { it["streamId"] }.distinct().size)
+        assertNull(session.error)
+        assertNull(session.rejectedSubmission)
+        assertEquals(1, session.messages.count { it.text == "Next" })
+        assertEquals(1, session.messages.count { it.text == "Reply" })
+    }
+    @Test fun anInvalidBatchTakesTheServersTranscriptAndKeepsTheDraft() {
+        answers += 400 to error("invalid_message_batch", "Send one new user message at a time, as the final message.")
+        val session = send()
+        assertEquals("No retry", 1, posted.size)
+        assertEquals("This agent changed elsewhere and was reloaded. Retry to send your message.", session.error)
+        assertEquals("Next", session.rejectedSubmission?.text)
+        assertEquals("The server's transcript", listOf("one", "two"), session.messages.map { it.id })
+    }
+    /** A resume the app sent itself, for a conversation the server never created: start over once. */
+    @Test fun aResumeForAMissingConversationStartsOverWithTheSameMessage() {
+        answers += 200 to ""
+        answers += 404 to error("not_found", "Conversation not found")
+        val session = send()
+        assertEquals("The send, the resume, then a fresh start", 3, posted.size)
+        assertEquals(JsonValue.Bool(true), posted[1]["resume"])
+        assertNotEquals(JsonValue.Bool(true), posted[2]["resume"])
+        assertEquals(1, posted.map { userIds(it).last() }.distinct().size)
+        assertNull(session.error)
+        assertEquals(1, session.messages.count { it.text == "Next" })
+        assertEquals(1, session.messages.count { it.text == "Reply" })
     }
 }

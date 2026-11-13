@@ -4,7 +4,6 @@ import type {
   AwsResourceDetailRef,
   AwsS3Detail,
   CloudflareResourceDetailRef,
-  ConnectorDetailRef,
   LinearNavState,
   NuphosDashboardRef,
   RepoProvider,
@@ -67,14 +66,10 @@ export type ScopeContentProps = {
   linearNav: LinearNavState | null
   setLinearNav: (nav: LinearNavState) => void
   restoredTitle: string | undefined
-  connectorDetail: ConnectorDetailRef | null
-  setConnectorDetail: (d: ConnectorDetailRef | null) => void
   awsDetail: AwsResourceDetailRef | null
   setAwsDetail: (d: AwsResourceDetailRef | null) => void
   cloudflareDetail: CloudflareResourceDetailRef | null
   setCloudflareDetail: (d: CloudflareResourceDetailRef | null) => void
-  addIntegrationOpen: boolean
-  setAddIntegrationOpen: (open: boolean) => void
   grafanaInstance: { id: string; name: string; url: string } | null
   setGrafanaInstance: (i: { id: string; name: string; url: string } | null) => void
   dashboardTarget: { uid: string; title: string; folderTitle?: string } | null
@@ -93,8 +88,6 @@ export type ScopeContentProps = {
   onConnectGithub: () => void
   onConnectGitlab: () => void
   onOpenSettingsSection: (section: string) => void
-  slackBindRequested: boolean
-  onSlackBindHandled: () => void
   onSelectActive: (key: string, filter?: string) => void
   onCount: (n: number) => void
   onLoading: (loading: boolean) => void

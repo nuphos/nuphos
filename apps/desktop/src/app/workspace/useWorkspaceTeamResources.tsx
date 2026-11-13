@@ -29,6 +29,7 @@ export function useWorkspaceTeamResources(a: Args) {
     setGitlabNamespacesByTeam,
     scope,
     refreshKey,
+    connectorsRefreshKey,
     updateTab,
   } = a
 
@@ -128,7 +129,7 @@ export function useWorkspaceTeamResources(a: Args) {
       if (spinnerTimer != null) window.clearTimeout(spinnerTimer)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teamId, refreshKey, scope?.kind, activeTabId, updateTab])
+  }, [teamId, refreshKey, connectorsRefreshKey, scope?.kind, activeTabId, updateTab])
 
   // Grafana instances, GitHub installations, and GitLab bindings arrive with
   // the aggregated connectors bundle above — no separate loads.

@@ -1,13 +1,10 @@
-import { useState } from 'react'
-
-import { api } from '../../api'
 import { parseConnectRequest } from '../../components/agent/panel/connectCardModel'
 import { CredentialSelectorButton } from '../../components/agent/panel/CredentialSelectorButton'
 import { BotChatQuestion } from '../../components/channels/BotChatQuestions'
 import { useBotCredentials } from '../../components/channels/useBotCredentials'
-import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
-import { refreshInputRequests } from '../../lib/inputRequestRefresh'
+
+import { DismissQuestionButton } from './DismissQuestionButton'
 
 import type { DecisionAnswer } from '../../api/agent-chat-types'
 import type { AgentInputRequest } from '../../api/agent-types'
@@ -39,21 +36,8 @@ export function DecisionCard({
   onAnswer: (answer: DecisionAnswer) => void
   onOpenConversation: () => void
 }) {
-  const [dismissing, setDismissing] = useState(false)
   const connect = parseConnectRequest(request) !== null
   const credentials = useBotCredentials(teamId, connect && canManage ? sessionId : undefined)
-
-  async function dismiss() {
-    setDismissing(true)
-    try {
-      await api.agentResolveDecision(sessionId, request.id, teamId, 'dismissed')
-      refreshInputRequests()
-    } catch (error) {
-      toast.apiError(t('Could not dismiss question'), error)
-    } finally {
-      setDismissing(false)
-    }
-  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 pb-5 pt-4">
@@ -83,14 +67,12 @@ export function DecisionCard({
               {t('Only the owner of this conversation can connect this.')}
             </span>
           )}
-          <button
-            type="button"
-            disabled={dismissing}
-            onClick={() => void dismiss()}
-            className="ml-auto text-[11px] text-tertiary hover:text-main"
-          >
-            {dismissing ? t('Dismissing...') : t('Dismiss question')}
-          </button>
+          <DismissQuestionButton
+            teamId={teamId}
+            sessionId={sessionId}
+            requestId={request.id}
+            className="ml-auto"
+          />
         </div>
       </section>
     </div>

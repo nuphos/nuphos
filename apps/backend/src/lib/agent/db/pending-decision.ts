@@ -37,21 +37,37 @@ export type ConversationInputRequests = {
   inputRequests?: InputRequest[]
 }
 
-/** Resolved requests are kept for history; the oldest fall off past this many. */
+/** Resolved requests are kept for history; the oldest fall off past this many requests. */
 const MAX_INPUT_REQUESTS = 100
 
-/** A new question joins the open ones; it never replaces another open request. */
+/** A new question joins the open ones; it never replaces or evicts another open request. */
 export async function addInputRequest(
   sessionId: string,
   userId: string,
   request: Omit<InputRequest, 'status' | 'resolvedAt'>,
 ): Promise<void> {
   const entry: InputRequest = { ...request, status: 'open' }
+  const conversations = agentConversations()
 
-  await agentConversations().updateOne(
+  await conversations.updateOne(
     { sessionId, userId },
-    { $push: { inputRequests: { $each: [entry], $slice: -MAX_INPUT_REQUESTS } } },
+    { $push: { inputRequests: { $each: [entry] } } },
   )
+  const conversation = await conversations.findOne(
+    { sessionId, userId },
+    { projection: { inputRequests: 1 } },
+  )
+  const requests = conversation?.inputRequests ?? []
+  const stale = requests
+    .filter((stored) => stored.status !== 'open')
+    .slice(0, Math.max(0, requests.length - MAX_INPUT_REQUESTS))
+    .map((stored) => stored.id)
+
+  if (stale.length)
+    await conversations.updateOne(
+      { sessionId, userId },
+      { $pull: { inputRequests: { id: { $in: stale } } } },
+    )
 }
 
 /** The agent corrects a request while it is still open; an answered one stays as answered. */

@@ -249,7 +249,7 @@ class ConversationLinksFixtureDeviceTest {
         awaitText("Fixture content: fixture-chat")
         snapshot("selected-chat")
         val wide = activity!!.resources.configuration.screenWidthDp >= 600
-        if (wide) compose.onNodeWithText("New agent").performClick()
+        if (wide) compose.onNodeWithText("New task").performClick()
         else compose.onNodeWithContentDescription("Back").performClick()
         awaitText("Fixture first")
         if (wide) awaitText("Start a new agent")

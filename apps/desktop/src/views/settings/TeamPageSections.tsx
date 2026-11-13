@@ -12,10 +12,8 @@ import { WorkspaceTabContext } from '../../hooks/useWorkspaceTab'
 import { t } from '../../i18n'
 import { AgentMemoriesView } from '../AgentMemoriesView'
 import { TeamSkillsView } from '../TeamSkillsView'
-import { TriggersView } from '../TriggersView'
 
 import type { ToolbarPrimaryAction } from '../../hooks/useToolbarPrimaryAction'
-import type { TriggerFormRef } from '../../lib/app-routes/types'
 import type { ReactNode } from 'react'
 
 type OpenAgentChat = (prompt: string, options?: { send?: boolean }) => void
@@ -165,49 +163,6 @@ export function MemoriesSection({ teamId, onOpenAgentChat }: Omit<PageProps, 'cu
         filter={filter}
         refreshKey={0}
         onCount={setCount}
-        onOpenAgentChat={onOpenAgentChat}
-      />
-    </SettingsPageFrame>
-  )
-}
-
-export function TriggersSection({ teamId, currentUserId, onOpenAgentChat }: PageProps) {
-  const [filter, setFilter] = useState('')
-  const [count, setCount] = useState(0)
-  const [detail, setDetail] = useState<{ triggerId: string; triggerName: string } | null>(null)
-  const [form, setForm] = useState<TriggerFormRef | null>(null)
-
-  if (!teamId) return <NoTeam />
-  let title = t('Triggers')
-  let back: (() => void) | undefined
-
-  // Leaving a form returns to the trigger it was opened from, if any.
-  if (form) {
-    title = form.kind === 'create' ? t('New trigger') : form.name
-    back = () => setForm(null)
-  } else if (detail) {
-    title = detail.triggerName
-    back = () => setDetail(null)
-  }
-
-  return (
-    <SettingsPageFrame
-      title={title}
-      onBack={back}
-      searchable={!form}
-      filter={filter}
-      onFilterChange={setFilter}
-      count={count}
-    >
-      <TriggersView
-        teamId={teamId}
-        currentUserId={currentUserId}
-        filter={filter}
-        onCount={setCount}
-        triggerDetail={detail}
-        setTriggerDetail={setDetail}
-        triggerForm={form}
-        setTriggerForm={setForm}
         onOpenAgentChat={onOpenAgentChat}
       />
     </SettingsPageFrame>

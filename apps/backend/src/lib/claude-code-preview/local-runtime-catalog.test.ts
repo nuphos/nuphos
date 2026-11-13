@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { localRuntimeId, parseLocalRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 
-import { listOwnLocalRuntimes, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
+import {
+  listOwnLocalRuntimes,
+  localRuntimeModels,
+  resolveLocalRuntimeEndpoint,
+} from './local-runtime-catalog'
 
 import type { LocalRuntimeCatalogDeps } from './local-runtime-catalog'
 import type { RegisteredAgent } from '@/lib/agent/devices/agent-registry'
@@ -290,7 +294,7 @@ describe('local runtime catalog', () => {
 })
 
 describe('team Box runtime authorization before transport', () => {
-  test('uses the persistent owner, lets a shared member sign in, and denies revoked use, missing membership and forged owner', async () => {
+  test('uses the persistent owner, lets only a manager sign in, and denies revoked use, missing membership and forged owner', async () => {
     const box = {
       ...device('host', 'box', 'Shared'),
       box: {
@@ -318,9 +322,15 @@ describe('team Box runtime authorization before transport', () => {
       (await resolveLocalRuntimeEndpoint('t1', id, 'teammate', 'transport', shared)).local,
     ).toEqual({ userId: 'host', deviceId: 'box' })
     expect(calls).toEqual(['presence:host'])
+    // An agent acts as whoever signed it in, so one who only uses the Box cannot.
+    await expect(
+      resolveLocalRuntimeEndpoint('t1', id, 'teammate', 'login', shared),
+    ).rejects.toMatchObject({ status: 403, code: 'device_manage_required' })
+    box.access[0]!.managerIds = ['teammate']
     expect((await resolveLocalRuntimeEndpoint('t1', id, 'teammate', 'login', shared)).authKey).toBe(
       'control',
     )
+    box.access[0]!.managerIds = []
     calls.length = 0
     await expect(
       resolveLocalRuntimeEndpoint('t2', id, 'teammate', 'transport', shared),
@@ -409,5 +419,102 @@ describe('team Box runtime authorization before transport', () => {
     expect(listed[0]?.label).not.toContain('(shared)')
     box.box.teamId = 't2'
     expect(await listOwnLocalRuntimes('t1', 'teammate', shared)).toEqual([])
+  })
+})
+
+describe('a computer that reports settings without a model list', () => {
+  beforeEach(() => {
+    teams = new Set(['owner:t1'])
+  })
+
+  /** A Grok Build report: effort, no models, and its one entry under `default`. */
+  function grokPresence(): LocalRuntimePresence {
+    return {
+      conn: 'c1',
+      seenAt: Date.now(),
+      status: {
+        agents: {
+          grok: {
+            cli: { installed: true, loggedIn: true },
+            models: {
+              models: [],
+              defaultModel: '',
+              controlsOnly: true,
+              controls: {
+                default: {
+                  effort: [
+                    { value: 'high', name: 'High' },
+                    { value: 'low', name: 'Low' },
+                  ],
+                  fast: [],
+                  defaultEffort: 'high',
+                },
+              },
+            },
+          },
+        },
+      },
+    } as LocalRuntimePresence
+  }
+
+  test('its effort reaches the catalog, instead of being lost with the missing model id', async () => {
+    presence = grokPresence()
+    const catalog = await localRuntimeModels(
+      localRuntimeId({ ...ref, provider: 'grok' }),
+      undefined,
+      {
+        getPresence: async () => presence,
+      },
+    )
+
+    // No models to pick, but the effort the runtime does offer is still a setting.
+    expect(catalog.models).toEqual([])
+    expect(catalog.controls?.effort.map((choice) => choice.value)).toEqual(['high', 'low'])
+    expect(catalog.controls?.defaultEffort).toBe('high')
+    // The catalog schema wants a non-empty `modelId`; this report names no model.
+    expect(catalog.controls?.modelId).toBeUndefined()
+  })
+
+  test('a concrete model asked of it gets no controls, since it advertised none', async () => {
+    presence = grokPresence()
+    const catalog = await localRuntimeModels(
+      localRuntimeId({ ...ref, provider: 'grok' }),
+      'gpt-5',
+      { getPresence: async () => presence },
+    )
+
+    expect(catalog.models).toEqual([])
+    expect(catalog.controls).toBeUndefined()
+  })
+
+  test('a report that does name a model still resolves its controls by that model', async () => {
+    presence = {
+      conn: 'c1',
+      seenAt: Date.now(),
+      status: {
+        agents: {
+          'claude-code': {
+            cli: { installed: true, loggedIn: true },
+            models: {
+              models: [{ id: 'opus', name: 'Opus' }],
+              defaultModel: 'opus',
+              controls: {
+                opus: {
+                  effort: [{ value: 'xhigh', name: 'Extra high' }],
+                  fast: [],
+                  defaultEffort: 'xhigh',
+                },
+              },
+            },
+          },
+        },
+      },
+    } as LocalRuntimePresence
+    const catalog = await localRuntimeModels(runtimeId, undefined, {
+      getPresence: async () => presence,
+    })
+
+    expect(catalog.models.map((entry) => entry.id)).toEqual(['opus'])
+    expect(catalog.controls?.modelId).toBe('opus')
   })
 })

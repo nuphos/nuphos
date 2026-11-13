@@ -2,6 +2,7 @@ import { MongoServerError } from 'mongodb'
 
 import { setupAutoModeIndexes } from '@/lib/agent/auto-mode/store'
 import { backfillConversationWatchers, setupAgentIndexes } from '@/lib/agent/db'
+import { setupDeviceAccessAuditIndexes } from '@/lib/agent/devices/access-audit'
 import { setupDeviceExecAuditIndexes } from '@/lib/agent/devices/audit'
 import { setupBoxUsageHistoryIndexes } from '@/lib/agent/devices/box-usage-history'
 import { setupDeviceGrantIndexes } from '@/lib/agent/devices/device-grants'
@@ -133,6 +134,7 @@ export async function setupIndexes(): Promise<void> {
     ['agent-device-share-orphans', dropOrphanedShareState],
     ['agent-device-join-tokens', setupDeviceJoinTokenIndexes],
     ['agent-device-exec-audit', setupDeviceExecAuditIndexes],
+    ['agent-device-access-audit', setupDeviceAccessAuditIndexes],
     ['agent-device-runtime-sessions', setupLocalRuntimeActivityIndexes],
     ['agent-instructions', setupAgentInstructionIndexes],
     // Idempotent backfill, not an index; remove once every deployment ran it.

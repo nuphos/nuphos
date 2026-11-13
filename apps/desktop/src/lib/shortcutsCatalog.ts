@@ -23,7 +23,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     title: t('Tabs & windows'),
     entries: [
-      { label: t('New agent'), combos: ['mod+n'] },
+      { label: `${t('New Bot')} / ${t('New task')}`, combos: ['mod+n'] },
       { label: t('New window'), combos: ['mod+shift+n'] },
       { label: t('New tab'), combos: ['mod+t'] },
       { label: t('Close tab'), combos: ['mod+w'] },

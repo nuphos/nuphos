@@ -43,7 +43,8 @@ struct InboxPage: View {
                                 onOpen: { open(question, in: inbox) },
                                 onAnswer: { answer in Task { await inbox.answer(question, with: answer) } },
                                 failure: inbox.failures[question.id],
-                                onConnect: { Task { await connect(question, in: inbox) } })
+                                onConnect: { Task { await connect(question, in: inbox) } },
+                                answersInPlace: true)
                         }
                     }
                     .padding(.horizontal, 16)

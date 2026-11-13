@@ -63,45 +63,47 @@ export function keepTeamIdentity(
 }
 
 /**
- * The member's own GitHub / Linear rows that Select all and the N/M badge count: under
- * a team binding the identity row (ticked = act as the member), without one the
- * credential itself. Under a binding the own credential is opted into only by its row.
+ * The member's own GitHub / Linear rows that Select all and the N/M badge count, as
+ * drawn: the own credential, and under a team binding also the identity row
+ * (ticked = the binding acts as the member).
  */
 export function personalRows(options: AgentCredentialOptions, value: AgentCredentialSelection) {
-  return (options.personalCredentials ?? []).map(({ provider, login }) => {
+  return (options.personalCredentials ?? []).flatMap(({ provider }) => {
+    const own = {
+      provider,
+      identity: false,
+      checked: (value.personalCredentialIds ?? []).includes(provider),
+    }
     const bound =
       provider === 'github'
         ? options.githubInstallations.length > 0
         : options.linearWorkspaces.length > 0
-    const checked = bound
-      ? !(value.teamIdentity ?? []).includes(provider)
-      : (value.personalCredentialIds ?? []).includes(provider)
 
-    return { provider, login, bound, checked }
+    if (!bound) return [own]
+
+    return [
+      own,
+      { provider, identity: true, checked: !(value.teamIdentity ?? []).includes(provider) },
+    ]
   })
 }
 
 /**
- * Select all ticks every counted own row, keeping an own credential already opted
- * into under a binding; Clear all unticks them and revokes every own credential.
- * Other providers' identity is kept.
+ * Select all ticks every counted own row; Clear all unticks them and revokes every
+ * own credential. Other providers' identity is kept.
  */
 export function setAllPersonal(
   value: AgentCredentialSelection,
   rows: ReturnType<typeof personalRows>,
   select: boolean,
 ): Pick<AgentCredentialSelection, 'teamIdentity' | 'personalCredentialIds'> {
-  const bound = rows.filter((row) => row.bound).map((row) => row.provider)
+  const bound = rows.filter((row) => row.identity).map((row) => row.provider)
   const others = (value.teamIdentity ?? []).filter((p) => !bound.includes(p as 'github'))
-  const teamIdentity = select ? others : [...others, ...bound]
 
   return {
-    teamIdentity,
+    teamIdentity: select ? others : [...others, ...bound],
     personalCredentialIds: select
-      ? [
-          ...rows.filter((row) => !row.bound).map((row) => row.provider),
-          ...(value.personalCredentialIds ?? []).filter((p) => bound.includes(p)),
-        ]
+      ? rows.filter((row) => !row.identity).map((row) => row.provider)
       : [],
   }
 }

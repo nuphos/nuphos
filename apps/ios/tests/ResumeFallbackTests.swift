@@ -7,6 +7,9 @@ enum ResumeFallbackTests {
         startsOverOnlyOnce()
         keepsARunThatAlreadyStreamed()
         leavesANativeStreamGoneAlone()
+        keepsAReplyTheServerAlreadyStored()
+        followsARunThatIsStillLive()
+        resendsWhenNothingAnswersTheTurn()
         print("Resume fallback passed")
     }
 
@@ -55,5 +58,39 @@ enum ResumeFallbackTests {
         precondition(nuphos.sendsFresh(status: 409, body: streamNotResumable, resumed: true, framesReceived: 0, explicit: false, nativeRuntime: false))
         var native = ResumeFallback()
         precondition(!native.sendsFresh(status: 409, body: streamNotResumable, resumed: true, framesReceived: 0, explicit: false, nativeRuntime: true))
+    }
+
+    private static let question = ChatMessage(id: "u1", role: .user, parts: [])
+    private static let earlier = [ChatMessage(id: "u0", role: .user, parts: []), ChatMessage(id: "a0", role: .assistant, parts: [])]
+
+    /// The turn ended while the stream was down: the stored reply is used, and
+    /// the question is not asked again.
+    private static func keepsAReplyTheServerAlreadyStored() {
+        let stored = earlier + [question, ChatMessage(id: "a1", role: .assistant, parts: [])]
+        precondition(
+            ResumeFallback.afterStreamGone(stored: stored, activeRun: nil, sent: "u1") == .replied,
+            "a stored reply to the turn's message is never asked for again"
+        )
+    }
+
+    /// The run is still going on the server: attach to it.
+    private static func followsARunThatIsStillLive() {
+        precondition(
+            ResumeFallback.afterStreamGone(stored: earlier + [question], activeRun: "s2", sent: "u1") == .follow("s2"),
+            "a live run is followed, not started again"
+        )
+    }
+
+    /// Nothing on the server answers the turn: it is sent once more.
+    private static func resendsWhenNothingAnswersTheTurn() {
+        let local = earlier + [question]
+        precondition(ResumeFallback.afterStreamGone(stored: local, activeRun: nil, sent: "u1") == .resend, "a stored question with no reply is sent again")
+        precondition(ResumeFallback.afterStreamGone(stored: earlier, activeRun: nil, sent: "u1") == .resend, "a question the server never stored is sent again")
+        // Even a reply already visible locally must never be requested twice.
+        let shown = local + [ChatMessage(id: "a1", role: .assistant, parts: [])]
+        precondition(ResumeFallback.afterStreamGone(stored: shown, activeRun: nil, sent: "u1") == .replied)
+        var fallback = ResumeFallback()
+        precondition(fallback.sendsFresh(status: 409, body: streamNotResumable, resumed: true, framesReceived: 0, explicit: false, nativeRuntime: false))
+        precondition(!fallback.sendsFresh(status: 409, body: streamNotResumable, resumed: true, framesReceived: 0, explicit: false, nativeRuntime: false), "only once per turn")
     }
 }

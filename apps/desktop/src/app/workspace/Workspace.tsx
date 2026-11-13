@@ -14,6 +14,7 @@ import { OnboardingFlow } from '../../views/onboarding/OnboardingFlow'
 import { SettingsPage } from '../../views/SettingsPage'
 import { UnknownTeamGate } from '../../views/UnknownTeamGate'
 
+import { ConnectorsDialog } from './ConnectorsDialog'
 import { ActivePaneSidebar } from './SidebarSlotHost'
 import { usePaletteCommand } from './usePaletteCommand'
 import { useWorkspaceController } from './useWorkspaceController'
@@ -237,6 +238,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
         </div>
         <PortForwardBottomBar />
         <WorkspaceBindDialogs ws={ws} />
+        <ConnectorsDialog ws={ws} user={user} />
       </div>
       {settingsOpen && (
         <SettingsPage

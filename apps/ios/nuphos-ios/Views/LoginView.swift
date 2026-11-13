@@ -15,6 +15,7 @@ struct LoginView: View {
     @State private var error: String?
     @State private var resendAt = Date.distantPast
     @State private var providers: [NuphosWeb.Provider] = []
+    @State private var oidcName = "SSO"
     @State private var loadingProviders = true
     @State private var providerError = false
     @FocusState private var focused: Field?
@@ -175,6 +176,19 @@ struct LoginView: View {
                         .foregroundStyle(loginButtonLabel)
                 }
                 .buttonStyle(.borderedProminent).accessibilityIdentifier("login.google")
+            }
+            if providers.contains(.oidc) {
+                Button {
+                    clearFeedback()
+                    Task { await session.signIn(provider: .oidc) }
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "key.fill").frame(width: 20, height: 20)
+                        Text("Continue with \(oidcName)")
+                    }.frame(maxWidth: .infinity, minHeight: 20)
+                        .foregroundStyle(loginButtonLabel)
+                }
+                .buttonStyle(.borderedProminent).accessibilityIdentifier("login.oidc")
             }
             if loadingProviders { ProgressView().frame(minHeight: 44) }
             if providerError {
@@ -349,7 +363,8 @@ struct LoginView: View {
             let offered = try await NuphosWeb.availableProviders(baseURL: baseURL)
             try Task.checkCancellation()
             guard baseURL == NuphosAPI.baseURL else { return }
-            providers = offered
+            providers = offered.providers
+            oidcName = offered.oidcName
         } catch {
             guard !Task.isCancelled, baseURL == NuphosAPI.baseURL else { return }
             providerError = true

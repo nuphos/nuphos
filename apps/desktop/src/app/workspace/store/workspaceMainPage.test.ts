@@ -161,17 +161,13 @@ test('a dock tab navigating to a management page stays put; the page opens in th
   actions.updateActiveTab((tab) => ({ ...tab, active: 'team.architecture' }))
   const dockTab = selectActiveTab(store.getState())
 
-  actions.updateActiveTab((tab) => ({
-    ...tab,
-    active: 'team.integrations',
-    connectorDetail: { provider: 'aws', connectorId: 'c-1', name: 'Prod' },
-  }))
+  actions.updateActiveTab((tab) => ({ ...tab, active: 'team.plans', filter: 'plan=3' }))
   const state = store.getState()
   const chatDock = selectBucket(state, 'chat-1')
 
   assert.equal(state.mainPageOpen, true)
-  assert.equal(selectActiveTab(state)?.active, 'team.integrations')
-  assert.equal(selectActiveTab(state)?.connectorDetail?.connectorId, 'c-1')
+  assert.equal(selectActiveTab(state)?.active, 'team.plans')
+  assert.equal(selectActiveTab(state)?.filter, 'plan=3')
   assert.notEqual(selectActiveTab(state)?.id, dockTab?.id)
   assert.deepEqual(chatDock.tabs, [dockTab])
   assert.equal(chatDock.dockOpen, true)
@@ -184,15 +180,74 @@ test('a management tab opened into a dock is dropped there and shown in the main
   const before = selectBucket(store.getState(), 'chat-1')
 
   actions.openTab(
-    { ...createWorkspaceTab(TEAM_A), id: 'reopened', active: 'team.accounts' },
+    { ...createWorkspaceTab(TEAM_A), id: 'reopened', active: 'team.inbox' },
     { openDock: true },
   )
   const state = store.getState()
 
   assert.equal(state.mainPageOpen, true)
-  assert.equal(selectActiveTab(state)?.active, 'team.accounts')
+  assert.equal(selectActiveTab(state)?.active, 'team.inbox')
   assert.deepEqual(selectBucket(state, 'chat-1').tabs, before.tabs)
   assert.equal(selectBucket(state, 'chat-1').dockOpen, false)
+})
+
+test('a dock tab navigating to Connectors stays put and opens the dialog on its connector', () => {
+  const { store, actions } = setup()
+
+  actions.updateActiveTab((tab) => ({ ...tab, active: 'team.architecture' }))
+  const dockTab = selectActiveTab(store.getState())
+
+  actions.updateActiveTab((tab) => ({
+    ...tab,
+    active: 'team.integrations',
+    connectorDetail: { provider: 'aws', connectorId: 'c-1', name: 'Prod' },
+  }))
+  const state = store.getState()
+
+  assert.equal(state.mainPageOpen, false)
+  assert.equal(selectActiveTab(state), dockTab)
+  assert.equal(selectBucket(state, 'chat-1').dockOpen, true)
+  assert.deepEqual(state.connectorsDialog, {
+    detail: { provider: 'aws', connectorId: 'c-1', name: 'Prod' },
+    addIntegrationOpen: false,
+  })
+  assert.equal(dockTab?.navHistory.at(-1)?.active, 'team.architecture')
+
+  actions.setConnectorsDialog(null)
+  assert.equal(store.getState().connectorsDialog, null)
+  assert.equal(selectActiveTab(store.getState()), dockTab)
+})
+
+test('opening Connectors as a main page from a chat keeps the chat and opens the dialog', () => {
+  const { store, actions } = setup()
+  const before = store.getState()
+
+  actions.openMainPage(TEAM_A, (tab) => ({ ...tab, active: 'team.accounts' }))
+  const state = store.getState()
+
+  assert.equal(state.mainPageOpen, false)
+  assert.equal(state.sessionId, 'chat-1')
+  assert.equal(MAIN_PAGE_BUCKET_KEY in state.buckets, false)
+  assert.equal(state.surfaceHistory, before.surfaceHistory)
+  assert.deepEqual(state.connectorsDialog, { detail: null, addIntegrationOpen: false })
+})
+
+test('a main page leaving for Connectors stays on its page under the dialog', () => {
+  const { store, actions } = setup()
+
+  openTriggers(actions)
+  const mainTab = selectActiveTab(store.getState())
+
+  actions.updateActiveTab((tab) => ({
+    ...tab,
+    active: 'team.integrations',
+    addIntegrationOpen: true,
+  }))
+  const state = store.getState()
+
+  assert.equal(state.mainPageOpen, true)
+  assert.equal(selectActiveTab(state), mainTab)
+  assert.deepEqual(state.connectorsDialog, { detail: null, addIntegrationOpen: true })
 })
 
 test('connector scopes may still live in a dock', () => {

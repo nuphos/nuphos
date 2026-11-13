@@ -1,5 +1,12 @@
 import { spawn } from 'node:child_process'
 
+import { agentEnv } from './config.ts'
+import { customProviderLaunch } from './custom-provider.ts'
+
+import type { LocalRuntimeBundle } from './config.ts'
+import type { KeyStore } from './custom-provider.ts'
+import type { ProbeModelsRun } from './controller-types.ts'
+
 export type ModelControls = {
   effort: { value: string; name: string; description?: string }[]
   /** Off and each speed the adapter offers; empty when it has none. */
@@ -8,11 +15,18 @@ export type ModelControls = {
   defaultEffort?: string
 }
 
-/** What the adapter offers before any conversation, reported so teams can pick up front. */
+/**
+ * What the adapter offers before any conversation, reported so teams can pick up front.
+ * A runtime may offer controls without a model list (Grok Build reports its effort and
+ * no model picker), so the models are empty there rather than the whole read failing.
+ */
 export type LocalModelCatalog = {
   models: { id: string; name: string; description?: string }[]
+  /** The model the controls were read for; empty when none was listed. */
   defaultModel: string
   controls: Record<string, ModelControls>
+  /** Controls but no model list: `controls` holds one entry and a pick starts the session. */
+  controlsOnly?: true
 }
 
 type ConfigOption = {
@@ -23,6 +37,9 @@ type ConfigOption = {
 }
 
 const PROBE_TIMEOUT_MS = 30_000
+
+/** The `controls` key of a catalog with no model: no model names the session it applies to. */
+export const CONTROLS_ONLY_KEY = 'default'
 
 function findOption(options: ConfigOption[], kind: 'model' | 'effort' | 'fast') {
   return options.find((option) => {
@@ -85,6 +102,21 @@ export function controlsOf(options: ConfigOption[]): ModelControls {
   }
 }
 
+/** A runtime's settings when it lists no models, or null when it offers no choices. */
+function settingsOnlyCatalog(configOptions: ConfigOption[]): LocalModelCatalog | null {
+  const controls = controlsOf(configOptions)
+
+  // Choices only: an empty level is nothing to pick, so it would open an empty popover.
+  if (!controls.effort.length && !controls.fast.length) return null
+
+  return {
+    models: [],
+    defaultModel: '',
+    controls: { [CONTROLS_ONLY_KEY]: controls },
+    controlsOnly: true,
+  }
+}
+
 /**
  * Opens one disposable session on the adapter, never prompts it, and reads the
  * models and per-model controls it advertises.
@@ -94,11 +126,15 @@ export function probeLocalModels(options: {
   adapter: string
   cwd: string
   env: Record<string, string>
+  /** A custom provider's key, which reaches the adapter only in its environment. */
+  secretEnv?: Record<string, string>
+  /** A custom provider's own model ids, offered instead of the adapter's list. */
+  models?: string[]
 }): Promise<LocalModelCatalog> {
   return new Promise((resolve, reject) => {
     const child = spawn(options.nodeExecPath, [options.adapter], {
       cwd: options.cwd,
-      env: options.env,
+      env: { ...options.env, ...options.secretEnv },
       stdio: ['pipe', 'pipe', 'ignore'],
       windowsHide: true,
     })
@@ -177,10 +213,21 @@ export function probeLocalModels(options: {
       const sessionId = String(session.sessionId)
       let configOptions = (session.configOptions ?? []) as ConfigOption[]
       const model = findOption(configOptions, 'model')
-      const { models, defaultModel } = modelChoices(model)
+      const advertised = modelChoices(model)
+      // Each id is still tried below, so one the adapter refuses is left out.
+      const { models, defaultModel } = options.models?.length
+        ? {
+            models: options.models.map((id) => ({ id, name: id })),
+            defaultModel: options.models[0],
+          }
+        : advertised
 
       if (!model || typeof model.currentValue !== 'string' || models.length === 0) {
-        finish(new Error('The runtime did not advertise any models'))
+        // Grok Build offers effort and no model: report that, or fail as before if it offers none.
+        const only = settingsOnlyCatalog(configOptions)
+
+        if (only) finish(null, only)
+        else finish(new Error('The runtime did not advertise any models'))
 
         return
       }
@@ -217,4 +264,36 @@ export function probeLocalModels(options: {
       finish(error instanceof Error ? error : new Error(String(error)))
     })
   })
+}
+
+/** `probeModels` for a host that stages `bundle`: the adapter runs as it would under openab. */
+/** `keys` holds the custom providers' keys, whose models the probe then offers. */
+export function bundledModelProbe(bundle: () => LocalRuntimeBundle | null, keys?: KeyStore) {
+  return async ({ provider, workspace, env, cliPath, agentHome }: ProbeModelsRun) => {
+    const staged = bundle()
+    const adapter = staged?.adapters[provider]
+
+    if (!staged || !adapter) throw new Error('The local runtime is not bundled')
+    const custom = keys && (await customProviderLaunch(keys, provider, agentHome))
+
+    return probeLocalModels({
+      nodeExecPath: process.execPath,
+      adapter: adapter.entry,
+      cwd: workspace,
+      env: agentEnv({
+        provider,
+        bundle: staged,
+        adapter,
+        nodeExecPath: process.execPath,
+        cliPath,
+        agentHome,
+        workspace,
+        openabHome: workspace,
+        port: 0,
+        authKey: '',
+        env,
+      }),
+      ...(custom ? { secretEnv: custom.env, models: custom.models } : {}),
+    })
+  }
 }

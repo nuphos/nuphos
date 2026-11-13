@@ -47,7 +47,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
   const draftKey = newChatDraftKey(teamId, c.newChatDraftId)
   const project = useTaskProject(c)
   const owner = useThisComputer()
-  const addAgent = useAddAgent(teamId, isTeamAdmin, selectConversationRuntime)
+  const addAgent = useAddAgent(teamId, selectConversationRuntime)
   const { importSession } = useLocalSessionImport({
     teamId,
     runtime: newConversationRuntime,

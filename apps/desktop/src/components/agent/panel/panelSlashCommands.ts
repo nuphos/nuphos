@@ -17,7 +17,7 @@ export function usePanelSlashCommands(c: PanelViewCtx): SlashCommand[] {
 
   return useMemo(
     () => [
-      { id: 'new', title: t('New agent'), description: t('Start a new agent'), run: startNewChat },
+      { id: 'new', title: t('New task'), description: t('New task'), run: startNewChat },
       ...(forkableSessionId
         ? [
             {

@@ -10,30 +10,44 @@ import { MAIN_PAGE_BUCKET_KEY, createWorkspaceState, isManagementTab } from './w
 
 import type { TabBucket, WorkspaceState } from './workspaceState'
 import type { WorkspaceStore } from './workspaceStore'
-import type { PersistedWorkspace, PersistedWorkspaceBySession } from '../../workspacePersistence'
+import type {
+  PersistedWorkspace,
+  PersistedWorkspaceBySession,
+  PersistedWorkspaceTab,
+} from '../../workspacePersistence'
 import type { WorkspaceTabState } from '../../workspaceTabState'
 
 /** Before New Tab existed, the tab factory opened a bare Connectors page;
- *  a restored tab of exactly that shape becomes a New Tab. */
-function upgradeLegacyLauncherTab(tab: WorkspaceTabState): WorkspaceTabState {
-  const isLegacyLauncher =
-    tab.scope.kind === 'team' &&
-    tab.active === 'team.integrations' &&
-    tab.filter === '' &&
-    tab.navHistory.length === 1 &&
-    tab.navHistoryIndex === 0 &&
-    tab.target === null &&
-    (tab.connectorDetail ?? null) === null &&
-    !(tab.addIntegrationOpen ?? false)
+ *  a saved tab of exactly that shape restores as a New Tab. It is read off
+ *  the saved page, since restoring moves any Connectors page to the agent home. */
+function isLegacyLauncherTab(persisted: PersistedWorkspaceTab): boolean {
+  const history = Array.isArray(persisted.navHistory) ? persisted.navHistory : []
+  const [page] = history
 
-  return isLegacyLauncher ? { ...createWorkspaceTab(tab.scope.teamId), id: tab.id } : tab
+  return (
+    history.length === 1 &&
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- untrusted storage
+    page.scope?.kind === 'team' &&
+    page.active === 'team.integrations' &&
+    !page.filter &&
+    (page.target ?? null) === null &&
+    (page.connectorDetail ?? null) === null &&
+    !(page.addIntegrationOpen ?? false)
+  )
+}
+
+function restoreTab(persisted: PersistedWorkspaceTab): WorkspaceTabState | null {
+  const tab = restorePersistedTab(persisted)
+
+  return tab && isLegacyLauncherTab(persisted)
+    ? { ...createWorkspaceTab(tab.scope.teamId), id: tab.id }
+    : tab
 }
 
 function hydrateBucket(persisted: PersistedWorkspace, isDock: boolean): TabBucket | null {
   const restored = persisted.tabs
-    .map(restorePersistedTab)
+    .map(restoreTab)
     .filter((tab): tab is WorkspaceTabState => tab !== null)
-    .map(upgradeLegacyLauncherTab)
     .filter((tab) => !isDock || !isManagementTab(tab))
 
   if (restored.length === 0) return null

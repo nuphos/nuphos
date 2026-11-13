@@ -13,11 +13,12 @@ import { shellsFromRuntimeState } from '../panel/shells'
 
 import { BackgroundTasksSection } from './ChatSummaryBackgroundTasks'
 import { ChangesSection } from './ChatSummaryChanges'
-import { ChatSummaryEnvironment } from './ChatSummaryEnvironment'
 import { changesOf, splitFileName, subAgentsOf } from './chatSummaryModel'
 import { SummaryRow, SummarySection } from './ChatSummaryRows'
 import { SubAgentsSection } from './ChatSummarySubAgents'
 import { ChatSummaryTaskActions } from './ChatSummaryTaskActions'
+import { summaryTriggerHome } from './chatSummaryTriggerHome'
+import { ChatSummaryTriggers } from './ChatSummaryTriggers'
 import { SessionInputQueue, SessionInputReply } from './SessionInputQueue'
 import { inputRequestKey } from './sessionInputRequests'
 import { PANE, TOGGLE, useDismissOutside, useSummaryPlacement } from './summaryPlacement'
@@ -194,6 +195,7 @@ function SummaryBody({
   // The lists that listed these threads published their states to the shared store.
   const runtimeStates = useAgentRuntimeStates()
   const subAgents = subAgentsOf(threads, runtimeStates)
+  const triggerHome = summaryTriggerHome(sessionId, conversation)
   const changes = changesOf(conversation?.linkedResources ?? [])
   const background = shellsFromRuntimeState(runtimeStates.get(sessionId))
   const { floating, style } = useSummaryPlacement(frameRef, selected !== null, docked)
@@ -231,6 +233,11 @@ function SummaryBody({
           />
           {conversation && <ChatSummaryTaskActions conversation={conversation} teamId={teamId} />}
           {background.length > 0 && <BackgroundTasksSection shells={background} />}
+          <ChatSummaryTriggers
+            key={`${teamId}:${triggerHome}`}
+            teamId={teamId}
+            sessionId={triggerHome}
+          />
           {!loaded && <Skeleton />}
           {changes.length > 0 && (
             <ChangesSection sessionId={sessionId} changes={changes} onOpen={onOpenLink} />
@@ -238,7 +245,6 @@ function SummaryBody({
           {subAgents.length > 0 && (
             <SubAgentsSection subAgents={subAgents} onOpen={onOpenSession} />
           )}
-          {conversation && <ChatSummaryEnvironment conversation={conversation} />}
           {outputs.length > 0 && (
             <OutputsSection files={outputs} teamId={teamId} sessionId={sessionId} />
           )}

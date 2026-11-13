@@ -701,7 +701,7 @@ impl App {
 
     /// The conversation's title on the left, the team on the right.
     fn draw_top_bar(&self, f: &mut Frame, area: Rect) {
-        let title = self.title.as_deref().unwrap_or("New agent");
+        let title = self.title.as_deref().unwrap_or("New task");
         let team = self.team_label();
         let room = (area.width as usize).saturating_sub(team.width() + 2);
         let title: String = render::clean(title).chars().take(room).collect();

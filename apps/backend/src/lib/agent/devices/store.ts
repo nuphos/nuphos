@@ -25,6 +25,8 @@ export type AgentDeviceBox = {
   createdBy?: string
   /** When an update last restarted its host; see box-updating. */
   updateStartedAt?: Date
+  /** Its owner lets those who only use it open a terminal too; see manage-access. */
+  useTerminal?: boolean
 }
 
 /** In one team: who may use a computer and who may also manage it. */

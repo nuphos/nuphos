@@ -14,6 +14,14 @@ export function usePinReflow(zone: HTMLElement | null) {
     for (const element of zone.querySelectorAll<HTMLElement>('[data-pin-slot]')) {
       const key = element.dataset.pinSlot ?? ''
       const old = previous.current.get(key)
+      const position: Previous = { left: element.offsetLeft, top: element.offsetTop }
+
+      // Runtime and hover updates must not restart a move already in flight.
+      // Retarget only when the grid's layout position actually changes.
+      if (old?.left === position.left && old.top === position.top && !reduced) {
+        next.set(key, old)
+        continue
+      }
       let x = 0,
         y = 0
 
@@ -30,8 +38,6 @@ export function usePinReflow(zone: HTMLElement | null) {
       }
       // Local layout coordinates ignore the swipe track's translate3d and
       // scrolling. Only moving a pin within this grid should trigger FLIP.
-      const position: Previous = { left: element.offsetLeft, top: element.offsetTop }
-
       if (old && !reduced) {
         const dx = old.left + x - position.left,
           dy = old.top + y - position.top

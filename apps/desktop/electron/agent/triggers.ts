@@ -130,8 +130,16 @@ export type TestAgentTriggerResult = {
 export type DeleteAgentTriggerResult =
   { ok: true; deleted: true } | { ok: true; deleted: false; trigger: AgentTrigger }
 
-export async function listAgentTriggers(teamId?: string): Promise<AgentTrigger[]> {
-  return callJson<AgentTrigger[]>('GET', `/agent/triggers${teamQuery(teamId)}`)
+export async function listAgentTriggers(
+  teamId?: string,
+  targetSessionId?: string,
+): Promise<AgentTrigger[]> {
+  const query = new URLSearchParams()
+
+  if (teamId) query.set('teamId', teamId)
+  if (targetSessionId) query.set('targetSessionId', targetSessionId)
+
+  return callJson<AgentTrigger[]>('GET', `/agent/triggers?${query.toString()}`)
 }
 
 export async function listAgentTriggerGroups(teamId?: string): Promise<AgentTriggerGroup[]> {

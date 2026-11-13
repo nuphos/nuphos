@@ -26,10 +26,12 @@ export function NewChatButton({
   onCreated,
   empty = false,
   visible = true,
+  firstBot = false,
 }: {
   teamId: string
   empty?: boolean
   visible?: boolean
+  firstBot?: boolean
   onCreated: (sessionId: string) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -44,6 +46,7 @@ export function NewChatButton({
     <>
       {empty ? (
         <BotStartIntro
+          firstBot={firstBot}
           visible={visible}
           onCreate={() => setOpen(true)}
           onImport={() => setImportOpen(true)}

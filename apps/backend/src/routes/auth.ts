@@ -286,7 +286,7 @@ auth.post('/google/sign-in', async (c) => {
             message: 'Failed to sign in',
             extensions: {
               description: e instanceof Error ? e.message : String(e),
-              ...(e instanceof AppError ? { code: e.code } : {}),
+              ...(e instanceof AppError ? { code: e.code, details: e.details } : {}),
             },
           },
         ],

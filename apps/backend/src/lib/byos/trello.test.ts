@@ -90,6 +90,30 @@ describe('Trello Composio authorization', () => {
       expect(calls).toHaveLength(1)
     }
   })
+  test('names the Composio log of a failed tool call without its error text', async () => {
+    globalThis.fetch = (async (_url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+      calls.push({ url: '', init })
+
+      return new Response(
+        JSON.stringify(
+          calls.length === 1
+            ? account
+            : { successful: false, data: {}, error: 'fixture-secret-token', log_id: 'log_fixture' },
+        ),
+      )
+    }) as typeof fetch
+    const error = await executeTrelloTool(
+      'ca_fixture',
+      'team:member',
+      'TRELLO_GET_BOARDS_BY_ID_BOARD',
+      {
+        idBoard: ID,
+      },
+    ).catch((e: unknown) => e)
+
+    expect(String(error)).toContain('Composio log log_fixture')
+    expect(String(error)).not.toContain('fixture-secret-token')
+  })
   test('refuses arbitrary and deprecated tools before network access', async () => {
     respond(account)
     await expect(
@@ -130,14 +154,14 @@ describe('bounded Trello reads', () => {
     ).toMatchObject({
       idBoard: '000000000000000000000001',
       before: '000000000000000000000002',
-      limit: 100,
+      limit: '100',
     })
     expect(
       trelloToolArguments('TRELLO_GET_LISTS_CARDS_BY_ID_LIST', {
         idList: '000000000000000000000001',
         limit: 20,
       }),
-    ).toMatchObject({ idList: '000000000000000000000001', limit: 20 })
+    ).toMatchObject({ idList: '000000000000000000000001', limit: '20' })
   })
   test.each([0, 101, '100', 1.5])('rejects an invalid page size', (limit) => {
     expect(() =>
@@ -220,12 +244,12 @@ describe('Trello argument values', () => {
         pos: 12.5,
         desc: '',
       }),
-    ).toEqual({ idCard: ID, closed: false, pos: 12.5, desc: '' })
+    ).toEqual({ idCard: ID, closed: 'false', pos: '12.5', desc: '' })
     expect(
       trelloToolArguments('TRELLO_GET_BOARDS_CARDS_BY_ID_BOARD', {
         idBoard: ID,
         before: '2026-11-11T00:00:00Z',
       }),
-    ).toMatchObject({ before: '2026-11-11T00:00:00Z', limit: 100 })
+    ).toMatchObject({ before: '2026-11-11T00:00:00Z', limit: '100' })
   })
 })
