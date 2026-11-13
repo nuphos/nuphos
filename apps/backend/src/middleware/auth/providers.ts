@@ -44,6 +44,7 @@ export function requireGrafanaInstance(): MiddlewareHandler<{
     c.set('grafanaUrl', binding.grafanaUrl)
     c.set('grafanaSaToken', grafanaBindingToken(binding))
     c.set('grafanaName', binding.name)
+    c.set('grafanaAccess', binding.access)
     await next()
   }
 }
@@ -185,4 +186,11 @@ export const requireCloudflareMemberAccess = () =>
     (c) => c.get('cloudflareBinding').access,
     'cloudflare_account_access_denied',
     'You are not allowed to use this Cloudflare account binding',
+  )
+
+export const requireGrafanaMemberAccess = () =>
+  requireBindingMemberAccess<{ Variables: GrafanaInstanceVariables }>(
+    (c) => c.get('grafanaAccess'),
+    'grafana_instance_access_denied',
+    'You are not allowed to use this Grafana instance',
   )

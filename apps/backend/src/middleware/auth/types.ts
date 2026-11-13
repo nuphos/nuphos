@@ -69,6 +69,7 @@ export type GrafanaInstanceVariables = TeamAuthVariables & {
   grafanaUrl: string
   grafanaSaToken: string
   grafanaName: string
+  grafanaAccess?: BindingAccess
 }
 
 export type GithubInstallationVariables = TeamAuthVariables & {
