@@ -1,6 +1,6 @@
 import { ObjectId } from 'mongodb'
 
-import { accessView, bindingAccessUpdateSchema, normalizeAccessInput } from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import {
   verifyBetterStackTelemetryToken,
   verifyBetterStackUptimeToken,
@@ -31,6 +31,7 @@ export function registerBetterStackIntegrationRoutes(
   integrationScoped.patch(
     '/',
     requireTeamRole('ADMINISTRATOR'),
+    requireBetterStackMemberAccess(),
     zv('json', updateSchema),
     async (c) => {
       const teamId = parseObjectId(c.get('teamId'), 'teamId')
@@ -157,31 +158,8 @@ export function registerBetterStackIntegrationRoutes(
     return c.body(null, 204)
   })
 
-  integrationScoped.get('/access', requireTeamRole('ADMINISTRATOR'), (c) => {
-    return c.json(accessView(c.get('betterStackAccess')))
-  })
-
-  integrationScoped.put(
-    '/access',
-    requireTeamRole('ADMINISTRATOR'),
-    zv('json', bindingAccessUpdateSchema),
-    async (c) => {
-      const teamId = parseObjectId(c.get('teamId'), 'teamId')
-      const integrationId = new ObjectId(c.get('betterStackIntegrationId'))
-      const access = normalizeAccessInput(c.req.valid('json'), c.get('userId'))
-
-      await teamByosBindings().updateOne(
-        { _id: teamId, 'betterStackIntegrations.id': integrationId },
-        {
-          $set: {
-            'betterStackIntegrations.$.access': access,
-            updatedAt: access.updatedAt,
-          },
-        },
-      )
-
-      return c.json(accessView(access))
-    },
+  registerBindingAccessRoutes(integrationScoped, 'betterStackIntegrations', (c) =>
+    c.get('betterStackBinding'),
   )
 
   // The tokens can change monitors, so handing them out is write-level.

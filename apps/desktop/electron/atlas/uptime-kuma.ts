@@ -1,4 +1,7 @@
+import { withShare } from './binding-access'
 import { appendQuery, call } from './client'
+
+import type { BindingShare } from './binding-access'
 
 export type UptimeKumaInstance = {
   id: string
@@ -46,17 +49,21 @@ export async function bindUptimeKumaInstance(
     password?: string | null
     authToken?: string | null
   },
+  share?: BindingShare,
 ): Promise<UptimeKumaInstance> {
   return call<UptimeKumaInstance>(
     'POST',
     `/teams/${teamId}/uptime-kuma-instances`,
-    {
-      label: input.label,
-      baseUrl: input.baseUrl,
-      ...(input.username ? { username: input.username } : {}),
-      ...(input.password ? { password: input.password } : {}),
-      ...(input.authToken ? { authToken: input.authToken } : {}),
-    },
+    withShare(
+      {
+        label: input.label,
+        baseUrl: input.baseUrl,
+        ...(input.username ? { username: input.username } : {}),
+        ...(input.password ? { password: input.password } : {}),
+        ...(input.authToken ? { authToken: input.authToken } : {}),
+      },
+      share,
+    ),
     { retry: false },
   )
 }

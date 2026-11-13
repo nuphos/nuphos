@@ -1,3 +1,4 @@
+import type { BindingShare } from '../lib/bindingShare.ts'
 import type { BindingAccess } from '../types/k8s-core.ts'
 
 export const providerAccessApi = {
@@ -36,7 +37,15 @@ export const providerAccessApi = {
     label: string,
     uptimeApiToken: string | null,
     telemetryApiToken: string | null,
-  ) => window.api.atlasBindBetterStackIntegration(teamId, label, uptimeApiToken, telemetryApiToken),
+    share?: BindingShare,
+  ) =>
+    window.api.atlasBindBetterStackIntegration(
+      teamId,
+      label,
+      uptimeApiToken,
+      telemetryApiToken,
+      share,
+    ),
   atlasUpdateBetterStackIntegration: (
     teamId: string,
     integrationId: string,

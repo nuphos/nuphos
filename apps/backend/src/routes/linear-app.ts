@@ -12,13 +12,13 @@ import {
   verifyWebhookSignature,
 } from '@/lib/byos/linear'
 import { encryptLinearSecret } from '@/lib/byos/secrets'
-import { finishConnectorOAuth } from '@/lib/connector-oauth'
+import { finishConnectorOAuth, reboundAccess } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { logEvent } from '@/lib/observability'
 import { linearPendingOAuth, teamByosBindings } from '@/models'
 
-import type { LinearWorkspaceBinding } from '@/models'
+import type { BindingAccess, LinearWorkspaceBinding } from '@/models'
 import type { Context } from 'hono'
 
 export const linearAppRoutes = new Hono()
@@ -127,6 +127,7 @@ linearAppRoutes.get('/setup', async (c) => {
       state,
       teamId: pending.teamId,
       requesterUserId: pending.requesterUserId,
+      share: pending.share,
       draft,
       persist: persistLinearBinding,
     }),
@@ -141,6 +142,7 @@ type LinearBindingDraft = Omit<LinearWorkspaceBinding, 'id' | 'label' | 'created
 export async function persistLinearBinding(
   teamId: ObjectId,
   draft: LinearBindingDraft,
+  access: BindingAccess,
 ): Promise<Record<string, string>> {
   const existingDoc = await teamByosBindings().findOne(
     { _id: teamId },
@@ -153,7 +155,7 @@ export async function persistLinearBinding(
     id: bindingId,
     label: existing?.label ?? draft.workspaceName,
     createdAt: existing?.createdAt ?? new Date(),
-    ...(existing?.access ? { access: existing.access } : {}),
+    ...reboundAccess(existing, access),
   }
 
   if (existing) {

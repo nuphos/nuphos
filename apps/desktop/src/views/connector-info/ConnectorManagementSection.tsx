@@ -53,31 +53,7 @@ export function ConnectorManagementSection({
     )
   }
 
-  if (provider === 'sonarqube') {
-    return (
-      <SonarqubeConnectorGuide
-        teamId={teamId}
-        connectorId={connectorId}
-        connectorName={info.name}
-        refreshKey={refreshKey}
-        onOpenAgentChat={onOpenAgentChat}
-      />
-    )
-  }
-
-  if (provider === 'tailscale') {
-    return (
-      <TailscalePrivateNetworkPanel
-        teamId={teamId}
-        connectorId={connectorId}
-        sandboxAccess={info.tailscaleSandboxAccess}
-      />
-    )
-  }
-
-  if (!accessProvider) return null
-
-  const accessSection = (
+  const accessSection = accessProvider ? (
     <div className="-mx-4 -my-5 [&>section]:border-t-0">
       <BindingAccessSection
         teamId={teamId}
@@ -86,7 +62,35 @@ export function ConnectorManagementSection({
         refreshKey={refreshKey}
       />
     </div>
-  )
+  ) : null
+
+  if (provider === 'sonarqube') {
+    return (
+      <>
+        <SonarqubeConnectorGuide
+          teamId={teamId}
+          connectorId={connectorId}
+          connectorName={info.name}
+          refreshKey={refreshKey}
+          onOpenAgentChat={onOpenAgentChat}
+        />
+        <div className="mt-8">{accessSection}</div>
+      </>
+    )
+  }
+
+  if (provider === 'tailscale') {
+    return (
+      <>
+        <TailscalePrivateNetworkPanel
+          teamId={teamId}
+          connectorId={connectorId}
+          sandboxAccess={info.tailscaleSandboxAccess}
+        />
+        <div className="mt-8">{accessSection}</div>
+      </>
+    )
+  }
 
   if (provider === 'posthog') {
     return (

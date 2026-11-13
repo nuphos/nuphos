@@ -2,7 +2,8 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { createDefaultAccess } from '@/lib/byos/access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import {
   NOTION_VERSION,
   NotionApiError,
@@ -33,6 +34,7 @@ const bindSchema = z
   .object({
     label: z.string().trim().min(1).max(100),
     token: z.string().trim().min(1).max(300),
+    share: bindingShareSchema.optional(),
   })
   .strict()
 
@@ -88,7 +90,7 @@ notionIntegrationsRoutes.post(
       botId: info.botId,
       encryptedToken: encryptNotionSecret(token),
       createdAt: now,
-      access: createDefaultAccess(c.get('userId'), now),
+      access: await newBindingAccess(c, { now: now }),
     }
 
     await teamByosBindings().updateOne(
@@ -116,6 +118,7 @@ notionIntegrationsRoutes.post(
 const integrationScoped = new Hono<{ Variables: NotionIntegrationVariables }>()
 
 integrationScoped.use('*', requireNotionIntegration())
+registerBindingAccessRoutes(integrationScoped, 'notionIntegrations', (c) => c.get('notionBinding'))
 
 integrationScoped.get('/', (c) => {
   const binding = c.get('notionBinding')

@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
 import { MongoServerError, ObjectId } from 'mongodb'
 
-import { accessView, canUseAllowList, createDefaultAccess } from '@/lib/byos/access'
+import { accessView, canUseAllowList, canUseBinding } from '@/lib/byos/access'
+import { newBindingAccess } from '@/lib/byos/initial-access'
 import { huaweiConnectorSchema } from '@/lib/byos/connector-schemas'
 import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
 import { huaweiOidcInfo, verifyHuaweiIdentity } from '@/lib/byos/huawei'
@@ -47,7 +48,7 @@ export function huaweiAccountsView(
     // The ACL (allow list + updatedAt/updatedBy) is admin-only metadata —
     // /access is admin-gated, so don't leak it to members in the list.
     ...(isAdmin ? { access: accessView(b.access) } : {}),
-    canUse: isAdmin || canUseAllowList(b.access?.memberAllowList, userId),
+    canUse: canUseBinding(b.access, userId, teamRole),
     createdAt: b.createdAt,
   }))
 }
@@ -101,7 +102,7 @@ huaweiAccountsRoutes.post(
 
     const id = new ObjectId()
     const createdAt = new Date()
-    const access = createDefaultAccess(c.get('userId'), createdAt)
+    const access = await newBindingAccess(c, { now: createdAt, highPrivilege: true })
 
     let inserted: boolean
 

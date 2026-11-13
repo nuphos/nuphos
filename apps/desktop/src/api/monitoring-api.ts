@@ -1,3 +1,5 @@
+import type { BindingShare } from '../lib/bindingShare.ts'
+
 export const monitoringApi = {
   atlasBindUptimeKumaInstance: (
     teamId: string,
@@ -8,7 +10,8 @@ export const monitoringApi = {
       password?: string | null
       authToken?: string | null
     },
-  ) => window.api.atlasBindUptimeKumaInstance(teamId, input),
+    share?: BindingShare,
+  ) => window.api.atlasBindUptimeKumaInstance(teamId, input, share),
   atlasUpdateUptimeKumaInstance: (
     teamId: string,
     instanceId: string,

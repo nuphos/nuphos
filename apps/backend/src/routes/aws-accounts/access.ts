@@ -1,6 +1,5 @@
-import { accessView, bindingAccessUpdateSchema, normalizeAccessInput } from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { parseObjectId } from '@/lib/objectid'
-import { zv } from '@/lib/validate'
 import { requireTeamRole } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 
@@ -10,32 +9,7 @@ import type { Hono } from 'hono'
 export function registerAwsAccessRoutes(
   accountScoped: Hono<{ Variables: AwsAccountVariables }>,
 ): void {
-  accountScoped.get('/access', requireTeamRole('ADMINISTRATOR'), (c) => {
-    return c.json(accessView(c.get('awsBinding').access))
-  })
-
-  accountScoped.put(
-    '/access',
-    requireTeamRole('ADMINISTRATOR'),
-    zv('json', bindingAccessUpdateSchema),
-    async (c) => {
-      const teamId = parseObjectId(c.get('teamId'), 'teamId')
-      const roleId = c.get('awsBinding').id
-      const access = normalizeAccessInput(c.req.valid('json'), c.get('userId'))
-
-      await teamByosBindings().updateOne(
-        { _id: teamId, 'awsRoles.id': roleId },
-        {
-          $set: {
-            'awsRoles.$.access': access,
-            updatedAt: access.updatedAt,
-          },
-        },
-      )
-
-      return c.json(accessView(access))
-    },
-  )
+  registerBindingAccessRoutes(accountScoped, 'awsRoles', (c) => c.get('awsBinding'))
 
   accountScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
     const teamId = parseObjectId(c.get('teamId'), 'teamId')

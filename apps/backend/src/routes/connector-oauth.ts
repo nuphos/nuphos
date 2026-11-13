@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 
+import { initialBindingAccess } from '@/lib/byos/initial-access'
 import { claimConnectorOAuth } from '@/lib/connector-oauth'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
@@ -59,5 +60,9 @@ connectorOAuthRoutes.post('/:state/complete', async (c) => {
 
   if (!persist) throw new AppError(404, 'oauth_not_ready', 'Unknown connector provider')
 
-  return c.json(await persist(teamId, ready.binding as never))
+  // Grants staged before the access was kept fall back to the team default.
+  const access =
+    ready.access ?? initialBindingAccess({ userId: ready.requesterUserId, team: c.get('team') })
+
+  return c.json(await persist(teamId, ready.binding as never, access))
 })

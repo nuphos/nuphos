@@ -24,7 +24,7 @@ export async function submitLinode(st: BindState, env: SubmitEnv) {
   }
   setSubmitting(true)
   try {
-    await api.atlasBindLinodeAccount(env.teamId, label, token)
+    await api.atlasBindLinodeAccount(env.teamId, label, token, env.share)
     reset()
     env.onBound()
     env.onClose()
@@ -51,7 +51,7 @@ export async function submitHetzner(st: BindState, env: SubmitEnv) {
   }
   setSubmitting(true)
   try {
-    await api.atlasBindHetznerAccount(env.teamId, label, token)
+    await api.atlasBindHetznerAccount(env.teamId, label, token, env.share)
     reset()
     env.onBound()
     env.onClose()
@@ -86,6 +86,7 @@ export async function submitBetterStack(st: BindState, env: SubmitEnv) {
       label,
       uptimeApiToken || null,
       telemetryApiToken || null,
+      env.share,
     )
     reset()
     env.onBound()
@@ -121,11 +122,15 @@ export async function submitUptimeKuma(st: BindState, env: SubmitEnv) {
   }
   setSubmitting(true)
   try {
-    await api.atlasBindUptimeKumaInstance(env.teamId, {
-      label,
-      baseUrl,
-      ...(authToken ? { authToken } : { username, password }),
-    })
+    await api.atlasBindUptimeKumaInstance(
+      env.teamId,
+      {
+        label,
+        baseUrl,
+        ...(authToken ? { authToken } : { username, password }),
+      },
+      env.share,
+    )
     reset()
     env.onBound()
     env.onClose()
@@ -166,6 +171,7 @@ export async function submitTailscale(st: BindState, env: SubmitEnv) {
       clientId,
       tailscaleFederated ? null : clientSecret,
       tailscaleFederated,
+      env.share,
     )
     reset()
     env.onBound()

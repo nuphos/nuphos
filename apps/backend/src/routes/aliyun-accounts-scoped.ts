@@ -1,19 +1,13 @@
 import { Hono } from 'hono'
 
-import {
-  accessView,
-  bindingAccessUpdateSchema,
-  canUseAllowList,
-  normalizeAccessInput,
-} from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { listAckClusters, generateAckKubeconfig, aliyunBootstrapRegion } from '@/lib/byos/aliyun'
 import { listEcsInstances } from '@/lib/byos/aliyun-ecs'
 import { listSwasInstances } from '@/lib/byos/aliyun-swas'
 import { aliyunHandleFor } from '@/lib/byos/handles'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
-import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
+import { canRequestUseBinding, requireTeamRole } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -55,32 +49,7 @@ export const aliyunAccountScoped = new Hono<{ Variables: AliyunAccountVariables 
 
 aliyunAccountScoped.use('*', requireAliyunAccount())
 
-aliyunAccountScoped.get('/access', requireTeamRole('ADMINISTRATOR'), (c) =>
-  c.json(accessView(c.get('aliyunBinding').access)),
-)
-
-aliyunAccountScoped.put(
-  '/access',
-  requireTeamRole('ADMINISTRATOR'),
-  zv('json', bindingAccessUpdateSchema),
-  async (c) => {
-    const teamId = parseObjectId(c.get('teamId'), 'teamId')
-    const accountId = c.get('aliyunBinding').id
-    const access = normalizeAccessInput(c.req.valid('json'), c.get('userId'))
-    const res = await teamByosBindings().updateOne(
-      { _id: teamId, 'aliyunAccounts.id': accountId },
-      { $set: { 'aliyunAccounts.$.access': access, updatedAt: access.updatedAt } },
-    )
-
-    // Guard the concurrent-delete race: if the binding was removed between the
-    // middleware fetch and this write, don't report success for a no-op.
-    if (res.matchedCount === 0) {
-      throw new AppError(404, 'aliyun_account_not_found', 'Alibaba Cloud account binding not found')
-    }
-
-    return c.json(accessView(access))
-  },
-)
+registerBindingAccessRoutes(aliyunAccountScoped, 'aliyunAccounts', (c) => c.get('aliyunBinding'))
 
 aliyunAccountScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
   const teamId = parseObjectId(c.get('teamId'), 'teamId')
@@ -96,10 +65,7 @@ aliyunAccountScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
 
 // Below: any team member with allow-list access to this binding.
 aliyunAccountScoped.use('*', async (c, next) => {
-  if (
-    c.get('teamRole') !== 'ADMINISTRATOR' &&
-    !canUseAllowList(c.get('aliyunBinding').access?.memberAllowList, c.get('userId'))
-  ) {
+  if (!canRequestUseBinding(c, c.get('aliyunBinding').access)) {
     throw new AppError(403, 'forbidden', 'You do not have access to this Alibaba Cloud binding')
   }
   await next()

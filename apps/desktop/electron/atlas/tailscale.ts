@@ -1,4 +1,7 @@
+import { withShare } from './binding-access'
 import { call } from './client'
+
+import type { BindingShare } from './binding-access'
 
 export type TailscaleSandboxAccess = {
   enabled: boolean
@@ -44,11 +47,15 @@ export async function bindTailscaleClient(
   clientId: string,
   clientSecret: string | null,
   federated?: boolean,
+  share?: BindingShare,
 ): Promise<TailscaleOAuthClient> {
   return call<TailscaleOAuthClient>(
     'POST',
     `/teams/${teamId}/tailscale-clients`,
-    federated ? { label, clientId, federated: true } : { label, clientId, clientSecret },
+    withShare(
+      federated ? { label, clientId, federated: true } : { label, clientId, clientSecret },
+      share,
+    ),
     { retry: false },
   )
 }

@@ -55,6 +55,8 @@ trelloAppRoutes.get('/setup', async (c) => {
         state,
         teamId: pending.teamId,
         requesterUserId: pending.requesterUserId,
+        share: pending.share,
+        highPrivilege: true,
         draft: {
           memberId: member.id,
           username: member.username,

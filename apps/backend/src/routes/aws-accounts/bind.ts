@@ -1,6 +1,7 @@
 import { ObjectId } from 'mongodb'
 
-import { accessView, canUseAllowList, createDefaultAccess } from '@/lib/byos/access'
+import { accessView, canUseAllowList, canUseBinding } from '@/lib/byos/access'
+import { newBindingAccess } from '@/lib/byos/initial-access'
 import {
   extractAwsAccountId,
   findAwsBindingByRoleArn,
@@ -89,7 +90,7 @@ export async function awsAccountsView(
         // The ACL (allow list + updatedAt/updatedBy) is admin-only metadata —
         // /access is admin-gated, so don't leak it to members in the list.
         ...(isAdmin ? { access: accessView(b.access) } : {}),
-        canUse: canUseAllowList(b.access?.memberAllowList, userId),
+        canUse: canUseBinding(b.access, userId, teamRole),
         createdAt: b.createdAt,
         purpose: b.purpose ?? null,
       }
@@ -141,7 +142,7 @@ export function registerAwsBindRoutes(routes: Hono<{ Variables: TeamAuthVariable
 
     const id = new ObjectId()
     const createdAt = new Date()
-    const access = createDefaultAccess(c.get('userId'), createdAt)
+    const access = await newBindingAccess(c, { now: createdAt, highPrivilege: true })
 
     const inserted = await appendEnvironmentBinding(
       teamId,

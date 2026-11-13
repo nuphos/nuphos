@@ -1,6 +1,5 @@
 import { ObjectId } from 'mongodb'
 
-import { canUseAllowList } from '@/lib/byos/access'
 import {
   findTailscaleClient,
   findLinearWorkspace,
@@ -10,6 +9,7 @@ import {
 } from '@/lib/byos/account'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
+import { canRequestUseBinding } from '@/middleware/auth/binding-access'
 
 import type {
   AsanaAccountVariables,
@@ -57,7 +57,7 @@ export function requireTailscaleMemberAccess(): MiddlewareHandler<{
   Variables: TailscaleClientVariables
 }> {
   return async (c, next) => {
-    if (!canUseAllowList(c.get('tailscaleAccess')?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('tailscaleAccess'))) {
       throw new AppError(
         403,
         'tailscale_client_access_denied',
@@ -99,7 +99,7 @@ export function requireLinearMemberAccess(): MiddlewareHandler<{
   Variables: LinearWorkspaceVariables
 }> {
   return async (c, next) => {
-    if (!canUseAllowList(c.get('linearAccess')?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('linearAccess'))) {
       throw new AppError(
         403,
         'linear_workspace_access_denied',
@@ -137,7 +137,7 @@ export function requireJiraMemberAccess(): MiddlewareHandler<{
   Variables: JiraSiteVariables
 }> {
   return async (c, next) => {
-    if (!canUseAllowList(c.get('jiraAccess')?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('jiraAccess'))) {
       throw new AppError(
         403,
         'jira_site_access_denied',
@@ -179,7 +179,7 @@ export function requireAsanaMemberAccess(): MiddlewareHandler<{
   Variables: AsanaAccountVariables
 }> {
   return async (c, next) => {
-    if (!canUseAllowList(c.get('asanaAccess')?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('asanaAccess'))) {
       throw new AppError(
         403,
         'asana_account_access_denied',
@@ -221,7 +221,7 @@ export function requireSentryMemberAccess(): MiddlewareHandler<{
   Variables: SentryAccountVariables
 }> {
   return async (c, next) => {
-    if (!canUseAllowList(c.get('sentryAccess')?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('sentryAccess'))) {
       throw new AppError(
         403,
         'sentry_account_access_denied',

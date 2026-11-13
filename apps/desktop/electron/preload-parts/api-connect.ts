@@ -7,6 +7,7 @@ export const connectApi = {
     clientId: string,
     clientSecret: string | null,
     federated?: boolean,
+    share?: unknown,
   ) =>
     ipcRenderer.invoke(
       'atlas:bindTailscaleClient',
@@ -15,6 +16,7 @@ export const connectApi = {
       clientId,
       clientSecret,
       federated,
+      share,
     ),
   atlasUnbindTailscaleClient: (teamId: string, clientId: string) =>
     ipcRenderer.invoke('atlas:unbindTailscaleClient', teamId, clientId),

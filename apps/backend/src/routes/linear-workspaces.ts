@@ -2,6 +2,8 @@ import crypto from 'node:crypto'
 
 import { Hono } from 'hono'
 
+import { requestedBindingShare } from '@/lib/byos/initial-access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import {
   buildAuthorizeUrl,
   getDefaultClientCredentials,
@@ -78,6 +80,7 @@ linearWorkspacesRoutes.post('/start-oauth', requireTeamRole('ADMINISTRATOR'), as
   const expiresAt = new Date(Date.now() + OAUTH_PENDING_TTL_MS)
 
   await linearPendingOAuth().insertOne({
+    ...(await requestedBindingShare(c)),
     _id: state,
     teamId,
     requesterUserId,
@@ -120,6 +123,7 @@ linearWorkspacesRoutes.delete(
 const bindingScoped = new Hono<{ Variables: LinearWorkspaceVariables }>()
 
 bindingScoped.use('*', requireLinearWorkspace())
+registerBindingAccessRoutes(bindingScoped, 'linearWorkspaces', (c) => c.get('linearBinding'))
 
 bindingScoped.get('/', (c) => {
   return c.json(publicView(c.get('linearBinding')))
