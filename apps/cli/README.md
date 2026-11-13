@@ -69,6 +69,8 @@ nuphos exec "list the EKS clusters"          # send, print the reply, exit
 echo "..." | nuphos exec --session ID        # continue an agent
 nuphos exec --approve --agent Codex "..."    # allow commands needing approval
 nuphos conversations [QUERY]                 # recent agents / find one by title
+nuphos triggers [list]                       # schedules and webhooks with last and next run
+nuphos triggers usage TRIGGER                # what a trigger spent in the last 7 days
 nuphos team [NAME] [--create]                # list teams / set the default / create
 nuphos agents [NAME] [--session ID]          # list runtimes (Claude Code, Codex, …) / pick or move
 nuphos agents NAME --create | --login        # add a Cloud runtime / sign one in

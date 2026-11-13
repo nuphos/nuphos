@@ -196,6 +196,21 @@ impl Api {
         Ok(v["runtimes"].as_array().cloned().unwrap_or_default())
     }
 
+    /// The team's Triggers (the backend returns a bare array of up to 100).
+    pub async fn triggers(&self, team: &str) -> Result<Vec<Value>, ApiError> {
+        let v = self.call(Method::GET, "/agent/triggers", &[("teamId", team)], None).await?;
+        Ok(v.as_array().cloned().unwrap_or_default())
+    }
+
+    pub async fn trigger(&self, team: &str, id: &str) -> Result<Value, ApiError> {
+        self.call(Method::GET, &format!("/agent/triggers/{id}"), &[("teamId", team)], None).await
+    }
+
+    /// A Trigger's token spend over the last 7 days.
+    pub async fn trigger_usage(&self, team: &str, id: &str) -> Result<Value, ApiError> {
+        self.call(Method::GET, &format!("/agent/triggers/{id}/usage"), &[("teamId", team)], None).await
+    }
+
     /// A Nuphos-managed Cloud agent; administrators only.
     pub async fn create_runtime(&self, team: &str, provider: &str) -> Result<Value, ApiError> {
         let body = json!({ "provider": provider });
