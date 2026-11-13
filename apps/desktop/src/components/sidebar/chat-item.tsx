@@ -19,6 +19,16 @@ import type { Item } from './types'
 import type { AgentConversation } from '../../api'
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
 
+/** A Bot: a face, picked in this app since the list loaded (null: taken away) or stored. */
+export function isBotRow(
+  conversation: Pick<AgentConversation, 'avatar' | 'kind'>,
+  picked?: string | null,
+): boolean {
+  return Boolean(
+    (picked === undefined ? conversation.avatar : picked) && conversation.kind !== 'channel',
+  )
+}
+
 /** One chat row in the sidebar; the caller adds its row actions. */
 export function chatSidebarItem({
   conversation,
@@ -36,9 +46,7 @@ export function chatSidebarItem({
   /** A face picked in this app since the list loaded (null: taken away), which wins. */
   picked?: string | null
 }): Item {
-  const isBot = Boolean(
-    (picked === undefined ? conversation.avatar : picked) && conversation.kind !== 'channel',
-  )
+  const isBot = isBotRow(conversation, picked)
   const waiting = openInputRequests(conversation).length > 0 || Boolean(conversation.signInRequest)
   const dot = waiting ? 'waiting' : unread ? 'unread' : rowDot(conversation, runtimeState, unread)
   const status = <ChatRowStatus runtimeState={runtimeState} dot={dot} />
@@ -88,7 +96,8 @@ export function chatSidebarItem({
       : {}),
     ...chatRowAccess(conversation),
     ...(conversation.watching !== undefined ? { watching: conversation.watching } : {}),
-    ...(conversation.parentSessionId
+    // A Bot stands on its own: even one an agent nested is a top-level Bot, never a sub-task.
+    ...(conversation.parentSessionId && !isBot
       ? { parentKey: `agent-session:${conversation.parentSessionId}` }
       : {}),
     href: pageLocationForNavigation(

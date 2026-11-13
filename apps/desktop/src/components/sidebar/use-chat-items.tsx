@@ -7,7 +7,7 @@ import { runtimeTurnActive, runtimeBackgroundRunning } from '../../lib/runtimeEx
 import { botOfChannel } from '../channels/botChannel'
 
 import { botChatRows } from './bot-status'
-import { chatSidebarItem } from './chat-item'
+import { chatSidebarItem, isBotRow } from './chat-item'
 import { nextReplyInbox } from './replyInbox'
 import { RowMenuButton } from './row-menu-button'
 
@@ -67,8 +67,12 @@ export function useChatItems({
   const byId = new Map(agentSessions.map((conversation) => [conversation.sessionId, conversation]))
   const kidsOf = new Map<string, AgentConversation[]>()
 
+  // A Bot is never listed as a sub-agent under another Bot's chat; it has a row of its own.
   for (const conversation of agentSessions)
-    if (conversation.parentSessionId)
+    if (
+      conversation.parentSessionId &&
+      !isBotRow(conversation, avatarPicks.get(conversation.sessionId))
+    )
       kidsOf.set(conversation.parentSessionId, [
         ...(kidsOf.get(conversation.parentSessionId) ?? []),
         conversation,

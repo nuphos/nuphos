@@ -66,10 +66,12 @@ useAgentDb({
 
     return true
   },
+  // As the write: a face changes only on a Bot; taking it away works on any.
   setConversationAvatar: async (_session, avatar) => {
+    if (!stillThere || (avatar !== null && !currentAvatar)) return false
     saved.push(avatar)
 
-    return stillThere
+    return true
   },
 })
 // Full-access grants a new Bot starts with: \`${userId}:${conversationId}\` → bypass.
@@ -113,7 +115,8 @@ const pick = (avatar: unknown, team = teamId) =>
     body: JSON.stringify({ avatar }),
   })
 
-test('the owner picks a character and can go back to the derived one', async () => {
+test("the owner changes a Bot's face, and taking it away makes it a Task", async () => {
+  currentAvatar = '07-ada'
   const response = await pick('05-rembrandt')
 
   expect(response.status).toBe(200)
@@ -142,8 +145,18 @@ test('another team cannot see the conversation', async () => {
 })
 
 test('an Agent deleted between the check and the write is not found', async () => {
+  currentAvatar = '07-ada'
   stillThere = false
-  expect((await pick('07-ada')).status).toBe(404)
+  expect((await pick('05-rembrandt')).status).toBe(404)
+})
+
+test('a face never makes a Task a Bot', async () => {
+  parentSessionId = 'lead'
+  const response = await pick('07-ada')
+
+  expect(response.status).toBe(400)
+  expect(await response.json()).toEqual({ error: 'Only a Bot has a face to change' })
+  expect(saved).toEqual([])
 })
 
 const createBot = (body: Record<string, unknown> = {}, team = teamId) =>

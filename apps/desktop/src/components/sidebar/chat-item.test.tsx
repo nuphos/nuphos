@@ -78,3 +78,18 @@ test('Bots show actual sub-agents directly, without a duplicate own Task', () =>
     ],
   )
 })
+
+test('a Bot an agent nested is a top-level Bot; a nested Task keeps its parent', () => {
+  const nested = (picked?: string | null) =>
+    chatSidebarItem({
+      conversation: { ...conversation, parentSessionId: 'lead' },
+      teamId: 'team-a',
+      active: false,
+      runtimeState: undefined,
+      unread: false,
+      picked,
+    })
+
+  assert.equal(nested().parentKey, undefined)
+  assert.equal(nested(null).parentKey, 'agent-session:lead')
+})
