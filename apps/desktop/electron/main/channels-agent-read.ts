@@ -17,6 +17,8 @@ export const agentReadChannels = {
     teamId: string,
     resourceId: string,
   ) => agent.unlinkSessionResource(sessionId, teamId, resourceId),
+  'agent:recordFork': (_e: unknown, ...args: Parameters<typeof agent.recordFork>) =>
+    agent.recordFork(...args),
   'agent:recordEditFork': (
     _e: unknown,
     sessionId: string,

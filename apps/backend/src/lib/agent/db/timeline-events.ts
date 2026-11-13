@@ -40,6 +40,10 @@ export type ConversationTimelineEvent = { at: Date; actorId: string } & (
       forkSessionId: string
     }
   | {
+      kind: 'conversation_forked'
+      forkSessionId: string
+    }
+  | {
       kind: 'runtime_fallback_stopped'
       /** Each agent in the fallback list that was passed over, and why. */
       skipped: { label: string; reason: string }[]

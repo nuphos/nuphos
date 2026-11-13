@@ -16,6 +16,7 @@ const caller = 'bbbbbbbbbbbbbbbbbbbbbbbb'
 
 let recorded: string[] = []
 let participants: string[] = []
+let kinds: string[] = []
 let forks: Record<string, Partial<AgentConversation>> = {}
 
 useIdentity({
@@ -28,7 +29,8 @@ useAgentDb({
       ? { sessionId: 's1', userId: 'owner', teamId, participantIds: participants }
       : null,
   getConversationBySessionId: async (sessionId) => forks[sessionId] ?? null,
-  recordMessageEditedInFork: async (sessionId, actorId, forkSessionId) => {
+  recordMessageEditedInFork: async (sessionId, actorId, forkSessionId, kind) => {
+    kinds.push(kind ?? 'message_edited')
     recorded.push(`${sessionId}:${actorId}:${forkSessionId}`)
   },
 })
@@ -39,11 +41,12 @@ app.onError((error, c) =>
 )
 beforeEach(() => {
   recorded = []
+  kinds = []
   participants = [caller]
   forks = { f1: { sessionId: 'f1', userId: caller, teamId } }
 })
-const linkFork = (forkSessionId = 'f1', team = teamId) =>
-  app.request('/agent/conversations/s1/edit-forks', {
+const linkFork = (forkSessionId = 'f1', team = teamId, path = 'edit-forks') =>
+  app.request(`/agent/conversations/s1/${path}`, {
     method: 'POST',
     headers: { authorization: 'Bearer test-token', 'content-type': 'application/json' },
     body: JSON.stringify({ forkSessionId, teamId: team }),
@@ -77,5 +80,21 @@ test('never links a fork from another team, a missing one, or itself', async () 
 
 test('another team cannot see the conversation', async () => {
   expect((await linkFork('f1', otherTeam)).status).toBe(404)
+  expect(recorded).toEqual([])
+})
+
+test('a readable source can record a normal fork before any new turn', async () => {
+  participants = []
+  expect((await linkFork('f1', teamId, 'forks')).status).toBe(200)
+  expect(recorded).toEqual([`s1:${caller}:f1`])
+  expect(kinds).toEqual(['conversation_forked'])
+})
+
+test('normal forks enforce the same destination ownership and team scope', async () => {
+  forks = { f1: { sessionId: 'f1', userId: 'owner', teamId } }
+  expect((await linkFork('f1', teamId, 'forks')).status).toBe(404)
+  forks = { f1: { sessionId: 'f1', userId: caller, teamId: otherTeam } }
+  expect((await linkFork('f1', teamId, 'forks')).status).toBe(404)
+  expect((await linkFork('missing', teamId, 'forks')).status).toBe(404)
   expect(recorded).toEqual([])
 })

@@ -1,21 +1,18 @@
 import { pushTimelineEvent } from './participants'
 import { agentConversations } from './shared'
 
-/**
- * Leave a line in the conversation that one of its messages was edited and ran
- * again in `forkSessionId`, so whoever opens it can follow the edit. Once per
- * fork: a retried call adds nothing twice.
- */
+/** Link a stored fork once, whether it copied the whole chat or reran an edit. */
 export async function recordMessageEditedInFork(
   sessionId: string,
   actorId: string,
   forkSessionId: string,
+  kind: 'message_edited' | 'conversation_forked' = 'message_edited',
 ): Promise<void> {
   await agentConversations().updateOne(
     { sessionId, 'timelineEvents.forkSessionId': { $ne: forkSessionId } },
     {
       $push: pushTimelineEvent({
-        kind: 'message_edited',
+        kind,
         at: new Date(),
         actorId,
         forkSessionId,
