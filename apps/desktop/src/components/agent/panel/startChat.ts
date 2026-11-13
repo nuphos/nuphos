@@ -71,7 +71,7 @@ export function runStartChatWith(
   if (newConversationRuntime?.status !== 'active') {
     toast.error(
       t('Choose an available runtime'),
-      t('Connect or enable a runtime in Settings → Runtimes.'),
+      t('Connect or enable a runtime in Settings → Computers.'),
       onOpenAgentSettings
         ? { action: { label: t('Runtime settings'), onClick: onOpenAgentSettings } }
         : undefined,
