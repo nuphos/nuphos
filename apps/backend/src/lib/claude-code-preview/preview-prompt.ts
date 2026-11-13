@@ -120,15 +120,14 @@ async function taskNameSection(sessionId: string): Promise<string | null> {
 async function channelsSection(sessionId: string): Promise<string | null> {
   const channels = await agentConversations()
     .find({ kind: 'channel', agentSessionIds: sessionId, archivedAt: { $exists: false } })
-    .project<{ sessionId: string; title?: string }>({ _id: 0, sessionId: 1, title: 1 })
+    .project<{ sessionId: string }>({ _id: 0, sessionId: 1 })
     .toArray()
 
   if (channels.length === 0) return null
-  const list = channels
-    .map((channel) => `- ${channel.sessionId} (${safePromptField(channel.title || 'untitled')})`)
-    .join('\n')
+  // Ids only: a title is free text the channel's creator, maybe not the owner, chose.
+  const ids = channels.map((channel) => channel.sessionId).join(', ')
 
-  return `## Channels you are in\n${list}\nThe people in these channels see you only there: nothing you write in this conversation reaches them, and only channel_post does. Whatever woke this turn (a channel, a sub-agent, an Inbox answer, a Trigger, a Nuphos notice or your owner here), when it produced something they should know, such as a result, a finding or a blocker, post it in the channel with channel_post. ${OWNER_DECISION_NOTE}`
+  return `## Channels you are in\nYou are a member of the channels ${ids}; channel_read shows who is in each. The people in a channel see you only there: nothing you write in this conversation reaches them, and only channel_post does. Whatever woke this turn (a channel, a sub-agent, an Inbox answer, a Trigger, a Nuphos notice or your owner here), when it produced something a channel's people are meant to see, such as a result, a finding or a blocker for work they asked for, post it in that channel with channel_post. ${OWNER_DECISION_NOTE}`
 }
 
 /** Build credential context and permission recovery guidance together. */
