@@ -7,6 +7,7 @@ import { holderChannel, parseJson } from '@/lib/agent/devices/local-runtime/prot
 import { isShuttingDown } from '@/lib/lifecycle'
 import { errorTelemetryProperties, logError, logEvent } from '@/lib/observability'
 import { notifyLiveActivities } from '@/lib/push/live-activities'
+import { replicaId, withRedis } from '@/lib/redis'
 
 import { registry, sessionsByConversation } from './agent-chat-registry'
 import { invokeUpdateHandler, observeAutonomousUpdates } from './autonomous-session-observer'
@@ -18,6 +19,13 @@ import { closeAutonomousTranscript, RUNTIME_CWD } from './team-openab-runtime'
 import type { TeamPreviewClient, TeamSession } from './team-openab-runtime'
 
 export const REATTACH_DELAYS_MS = [0, 1_000, 2_000, 5_000, 10_000, 30_000, 60_000]
+
+// Every replica that served a conversation keeps its session, and after a
+// dropped transport each would resume it; the gateway gives the output to the
+// last, leaving the others with a turn that never ends. Only the replica that
+// took the session last gets it back.
+const holderKey = (openabSessionId: string) => `agent:openab-session-holder:${openabSessionId}`
+const HOLDER_TTL_SECONDS = 7 * 24 * 60 * 60
 
 type Sleep = (ms: number) => Promise<void>
 const sleep: Sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -82,6 +90,9 @@ export function endAutonomousTranscriptAfterLoss(session: TeamSession): void {
  */
 export function observeSession(session: TeamSession): void {
   observeAutonomousUpdates(session)
+  void withRedis((redis) =>
+    redis.set(holderKey(session.openabSessionId), replicaId, 'EX', HOLDER_TTL_SECONDS),
+  )
   const transport = session.client
   const release = holdRuntimeState(
     transport,
@@ -185,6 +196,9 @@ async function stillOwned(session: TeamSession, transport: TeamPreviewClient): P
   if (session.client !== transport) return false
   if (sessionsByConversation.get(`${session.teamId}:${session.conversationId}`) !== session)
     return false
+  const holder = await withRedis((redis) => redis.get(holderKey(session.openabSessionId)))
+
+  if (holder && holder !== replicaId) return false
   const attachment = await getConversationPreviewAttachment(session.conversationId, session.teamId)
 
   return Boolean(

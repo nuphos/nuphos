@@ -26,10 +26,17 @@ let attachmentError: Error | null = null
 let attachmentErrorOnce = false
 let workLost: string | null = null
 const handoffs = new Map<string, string>()
+const keys = new Map<string, string>()
 
 useRedis({
   withRedis: (op) =>
     op({
+      get: async (key: string) => keys.get(key) ?? null,
+      set: async (key: string, value: string) => {
+        keys.set(key, value)
+
+        return 'OK'
+      },
       hset: async (_key: string, fields: Record<string, string>) => {
         for (const [field, value] of Object.entries(fields)) handoffs.set(field, value)
 
@@ -97,6 +104,7 @@ const instant = async () => undefined
 beforeEach(() => {
   workLost = null
   handoffs.clear()
+  keys.clear()
   attachmentError = null
   attachmentErrorOnce = false
   attachment = { openabSessionId: 'sess-1', runtimeUrl: endpoint.url }
@@ -241,6 +249,29 @@ test('leaves a session alone once its attachment moved elsewhere', async () => {
   expect(await reattachAfterTransportLoss(session, lost, [0], instant)).toBe(false)
   expect(acquire).not.toHaveBeenCalled()
   expect(session.client).toBe(lost)
+})
+
+// #2360: replicas that served the conversation earlier still hold it. Only the
+// one that took it last gets it back; another would take its output away and
+// keep a turn of its own open that nothing ever ends.
+test('leaves a session alone once another replica took it', async () => {
+  acquire = spyOn(registry, 'acquire').mockResolvedValue(fakeClient('replacement'))
+  keys.set('agent:openab-session-holder:sess-1', 'another-replica')
+  const lost = session.client
+
+  expect(await reattachAfterTransportLoss(session, lost, [0], instant)).toBe(false)
+  expect(acquire).not.toHaveBeenCalled()
+  expect(session.client).toBe(lost)
+})
+
+test('the replica that took the session last gets it back', async () => {
+  const replacement = fakeClient('replacement')
+
+  acquire = spyOn(registry, 'acquire').mockResolvedValue(replacement)
+  observeSession(session)
+
+  expect(await reattachAfterTransportLoss(session, session.client, [0], instant)).toBe(true)
+  expect(session.client).toBe(replacement)
 })
 
 test('does not replace a transport a turn already moved the session to', async () => {
