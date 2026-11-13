@@ -146,6 +146,7 @@ describe('credentialsMcpTools', () => {
       backendUrl: 'https://backend.example',
     })
 
+    expect(mcpServers.length).toBeGreaterThan(0)
     for (const server of mcpServers)
       expect(server.headers).toEqual([
         { name: 'Authorization', value: expect.stringMatching(/^Bearer \S+$/u) },
