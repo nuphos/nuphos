@@ -4,7 +4,7 @@ import XCTest
 /// offline chats fixture with a native runtime conversation whose last turn
 /// failed.
 final class TurnRetryUITests: XCTestCase {
-    private let sessionId = "agent-ops"
+    private let sessionId = "agent-staging"
     private let teamId = "64b5f1c2e4b0a1d2c3e4f5a6"
     private let failure = "The agent stopped responding before it finished the turn."
     private var live: URL!
@@ -58,17 +58,17 @@ final class TurnRetryUITests: XCTestCase {
     private func conversation() -> [String: Any] {
         let messages: [[String: Any]] = [
             ["id": "m0", "role": "user", "createdAt": "2026-11-03T09:00:00.000Z",
-             "parts": [["type": "text", "text": "Run the release checklist for 2.4 and post the summary."]]],
+             "parts": [["type": "text", "text": "Check the staging cluster and restart any crashed pods."]]],
             ["id": "m1", "role": "assistant", "createdAt": "2026-11-03T09:00:05.000Z",
              "parts": [
-                ["type": "text", "text": "Starting with the signing step."],
+                ["type": "text", "text": "Listing the pods in staging first."],
                 ["type": "turn-interrupted", "id": "int-1", "reason": "error", "message": failure,
                  "createdAt": "2026-11-03T09:02:00.000Z"],
              ]],
         ]
         return [
             "sessionId": sessionId,
-            "title": "Release ops",
+            "title": "Check the staging cluster",
             "messages": messages,
             "messagesFirstIndex": 0,
             "messageCount": messages.count,
@@ -82,8 +82,8 @@ final class TurnRetryUITests: XCTestCase {
             "runtimeState": [
                 "schemaVersion": 2,
                 "epoch": "test",
-                "revision": 2,
-                "state": "active",
+                "revision": 3,
+                "state": "idle",
                 "phase": "idle",
                 "label": "Ready",
                 "actions": ["send": true, "cancel": false, "reply": false, "steer": false],

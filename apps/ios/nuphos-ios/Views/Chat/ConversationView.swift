@@ -515,7 +515,7 @@ struct ConversationView: View {
                 text: text, isError: isError,
                 onSwitchRuntime: session.canManage && AgentChatAPI.switchRuntimeErrors.contains(text) ? { showRuntimes = true } : nil,
                 ask: text == AgentChatAPI.Conflict.runtimeLoginRequired.errorDescription ? signInAskRow : nil,
-                onRetry: session.failedTurn?.rowId == id ? session.retryFailedTurn : nil,
+                onRetry: session.failedTurn?.rowId == id ? { session.retryFailedTurn() } : nil,
                 copyText: isError ? ChatRow.failureReport(rowId: id, in: session.messages) : nil
             )
         case .event(_, let event):
