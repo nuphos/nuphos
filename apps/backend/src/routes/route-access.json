@@ -724,6 +724,7 @@
   "POST /lark/events/:appId": "public",
   "POST /lark/pair-code": "user",
   "POST /linear-app/webhook": "public",
+  "POST /meetings/recall/webhook": "public",
   "POST /mcp": "user",
   "POST /oauth/authorize": "public",
   "POST /oauth/authorize/email": "public",
