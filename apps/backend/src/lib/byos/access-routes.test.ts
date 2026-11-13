@@ -134,4 +134,13 @@ describe('registerBindingAccessRoutes', () => {
     expect((await put('EDITOR', ['*'], 'u1')).status).toBe(200)
     expect((await app('EDITOR', 'u2').request('/access')).status).toBe(403)
   })
+
+  test('keeps the inferred owner of an older private list once it is shared', async () => {
+    memberAllowList = ['u1']
+    ownerUserId = undefined
+    expect((await put('EDITOR', ['u1', 'u2'], 'u1')).status).toBe(200)
+    expect(updates[0]?.update.$set).toMatchObject({
+      'linodeAccounts.$.access': { memberAllowList: ['u1', 'u2'], ownerUserId: 'u1' },
+    })
+  })
 })
