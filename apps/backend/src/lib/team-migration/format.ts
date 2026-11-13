@@ -180,8 +180,6 @@ export const portableSchemas = {
   trigger: z
     .object({
       ...base,
-      userId: id,
-      createdByUserId: id.optional(),
       name: text,
       triggerType: z.enum(['cron', 'webhook']),
       targetSessionId: id,

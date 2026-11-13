@@ -56,7 +56,8 @@ test('keeps conversation text and attribution, excluding runtime credentials and
 test('trigger keeps its owning conversation, drops execution authority and imports disabled', () => {
   const row = portableSchemas.trigger.parse({
     _id: 't',
-    userId: 'u',
+    userId: secret,
+    createdByUserId: secret,
     targetSessionId: 's',
     name: 'Watch',
     triggerType: 'webhook',
@@ -72,6 +73,9 @@ test('trigger keeps its owning conversation, drops execution authority and impor
 
   expect(row.targetSessionId).toBe('s')
   expect(row.enabled).toBe(false)
+  expect(row).not.toHaveProperty('userId')
+  expect(row).not.toHaveProperty('createdByUserId')
+  expect(row).not.toHaveProperty('executionPrincipalUserId')
   expect(JSON.stringify(row)).not.toContain(secret)
   expect(() => portableSchemas.trigger.parse({ ...row, targetSessionId: undefined })).toThrow()
 })

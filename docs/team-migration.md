@@ -14,6 +14,8 @@ One team's portable settings and default layout, current and former membership
 attribution, team instructions, team memories/playbooks, UTF-8 skill source,
 conversation text and sender attribution, Bot/group-chat relationships, Plans,
 dashboard/panel source, diagrams, designs, and conversation-owned triggers.
+Triggers retain only their owning conversation reference (`targetSessionId`),
+without user ownership, creator, or execution-principal fields, and remain disabled.
 
 The archive uses `manifest.json` with `format: "nuphos-team"` and
 `formatVersion: 1`. It records the backend version, source team, export time,
