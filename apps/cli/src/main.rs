@@ -12,6 +12,7 @@ mod secret;
 mod service;
 mod shared;
 mod transcript;
+mod triggers;
 mod update;
 
 use std::io::{IsTerminal, Read};
@@ -60,6 +61,12 @@ enum Command {
     Resume { session: Option<String> },
     /// List recent agents, or find them by a word in the title or first message.
     Conversations { query: Option<String> },
+    /// List the team's Triggers (schedules and webhooks) with their last and next run.
+    #[command(alias = "trigger")]
+    Triggers {
+        #[command(subcommand)]
+        command: Option<TriggersCommand>,
+    },
     /// List teams, make TEAM the default, or create it with --create.
     Team {
         name: Option<String>,
@@ -139,6 +146,14 @@ enum Command {
     },
     /// Install the newest release over this binary.
     Update,
+}
+
+#[derive(Subcommand)]
+enum TriggersCommand {
+    /// The team's Triggers with their last and next run (the default).
+    List,
+    /// What a Trigger spent over the last 7 days (its id or name).
+    Usage { trigger: String },
 }
 
 #[derive(Subcommand)]
@@ -268,6 +283,10 @@ async fn run(args: Args) -> Result<i32> {
             cli::exec(&mut ctx, prompt.trim().to_string(), session, runtime, approve).await
         }
         Some(Command::Conversations { query }) => cli::conversations(&ctx, query.as_deref()).await.map(|_| 0),
+        Some(Command::Triggers { command: Some(TriggersCommand::Usage { trigger }) }) => {
+            triggers::usage(&ctx, &trigger).await.map(|_| 0)
+        }
+        Some(Command::Triggers { .. }) => triggers::list(&ctx).await.map(|_| 0),
         Some(Command::Team { name, .. }) => cli::team(&mut ctx, name).await.map(|_| 0),
         Some(Command::Runtime { name: Some(provider), create: true, .. }) => {
             cli::create_runtime(&mut ctx, &provider).await.map(|_| 0)

@@ -151,7 +151,7 @@ pub fn conversation_time(c: &Value) -> String {
 }
 
 /// `2026-10-08T09:41:05.869Z` as seconds since the epoch, UTC.
-fn unix_seconds(t: &str) -> Option<i64> {
+pub fn unix_seconds(t: &str) -> Option<i64> {
     let n = |r: std::ops::Range<usize>| t.get(r)?.parse::<i64>().ok();
     let (y, m, d) = (n(0..4)?, n(5..7)?, n(8..10)?);
     // Days from civil, Howard Hinnant's algorithm.
