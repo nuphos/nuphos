@@ -29,6 +29,8 @@ export type ChannelFields = {
   channelWakes?: string[]
   /** People @mentioned here, in a channel or a shared agent, who have not posted since: their Inbox entry. */
   mentions?: Record<string, { messageId: string; at: Date }>
+  /** A live call mirrored here: speech and chat come in, agents' posts go to its chat. */
+  meeting?: { botId: string; botName: string; url: string }
 }
 
 /** The sender id a channel notice carries, which also picks its instructions. */
@@ -120,6 +122,16 @@ export const CHANNEL_READ_NOTE =
 // One agent with its people is a conversation with that agent: staying silent reads as broken.
 const ONLY_AGENT_NOTE =
   ' You are the only agent in this channel, so every message here is addressed to you: answer it.'
+const MEETING_NOTE =
+  ' This channel mirrors a live meeting. Each message is a participant speaking, transcribed by speech recognition that can mishear names, or "[chat]" for one they typed; your channel_post appears in the meeting chat. Act on requests addressed to you and post only when you have something useful: do not answer every remark.'
+
+function readNote(channel: ChannelFields): string {
+  if (channel.meeting) return CHANNEL_READ_NOTE + MEETING_NOTE
+
+  return channel.agentSessionIds?.length === 1
+    ? CHANNEL_READ_NOTE + ONLY_AGENT_NOTE
+    : CHANNEL_READ_NOTE
+}
 
 /** A stored chat post's words. */
 export function postText(parts: readonly unknown[] | undefined): string {
@@ -243,10 +255,7 @@ export async function readChannelMessages(
     ...(channel.leadAgentSessionId && channel.agentSessionIds?.includes(channel.leadAgentSessionId)
       ? { leadAgentSessionId: channel.leadAgentSessionId }
       : {}),
-    note:
-      channel.agentSessionIds?.length === 1
-        ? CHANNEL_READ_NOTE + ONLY_AGENT_NOTE
-        : CHANNEL_READ_NOTE,
+    note: readNote(channel),
   }
 }
 
