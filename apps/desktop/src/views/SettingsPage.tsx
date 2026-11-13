@@ -13,12 +13,7 @@ import {
 } from './settings/settingsNav'
 import { SettingsNav } from './settings/SettingsNavPanel'
 import { SettingsSectionBody } from './settings/SettingsSectionBody'
-import {
-  MemoriesSection,
-  NoTeam,
-  SkillsSection,
-  TriggersSection,
-} from './settings/TeamPageSections'
+import { MemoriesSection, NoTeam, SkillsSection } from './settings/TeamPageSections'
 
 import type { JournalChatTarget } from '../lib/journalEvent'
 import type { AtlasTeam, UserInfo } from '../types'
@@ -93,7 +88,6 @@ export function SettingsPage({
       <SkillsSection key={initialFilter} {...pageProps} initialFilter={initialFilter} />
     ),
     'workspace.memories': <MemoriesSection {...pageProps} />,
-    'workspace.triggers': <TriggersSection {...pageProps} />,
     'workspace.audit': (
       <AuditSection teamId={team?.id} onOpenConversation={openAuditConversation} />
     ),

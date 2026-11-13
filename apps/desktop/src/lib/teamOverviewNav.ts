@@ -7,7 +7,6 @@ import {
   Brain,
   ChartLine,
   ClipboardList,
-  Clock,
   Cloud,
   HeartPulse,
   Globe,
@@ -49,7 +48,6 @@ export const TEAM_SETTINGS_PAGE_NAV_ITEMS: TeamOverviewNavItem[] = [
   { key: 'team.agents', label: t('Computers'), icon: Monitor },
   { key: 'team.agent-skills', label: t('Skills'), icon: Sparkles },
   { key: 'team.agent-memories', label: t('Memories'), icon: Brain },
-  { key: 'team.triggers', label: t('Triggers'), icon: Clock },
 ]
 
 /** Opened from the foot of the sidebar's Chats list, not from the nav rows. */
@@ -97,12 +95,12 @@ export const TEAM_SIDEBAR_NAV_ITEMS: TeamOverviewNavItem[] = [
 
 /**
  * Legacy keys that still reach a live page resolve to its nav item rather than
- * falling off the list: `team.accounts` opens Connectors, and `team.schedule`
- * opens Triggers.
+ * falling off the list: `team.accounts` opens Connectors; retired scheduling pages open Inbox.
  */
 const TEAM_OVERVIEW_KEY_ALIASES: Record<string, string> = {
   'team.accounts': 'team.integrations',
-  'team.schedule': 'team.triggers',
+  'team.schedule': 'team.inbox',
+  'team.triggers': 'team.inbox',
 }
 
 /** A renamed page's key as stored by an older build (saved tabs, favorites),

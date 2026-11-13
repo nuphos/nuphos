@@ -1,21 +1,20 @@
 import clsx from 'clsx'
-import { AlarmClock, ArrowUpRight, Loader2, Pencil } from 'lucide-react'
+import { AlarmClock, ArrowUpRight } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../../api'
-import { ConfirmDialog } from '../../ConfirmDialog'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { t } from '../../../i18n'
 import { useTeamMembers } from '../../../lib/bindingAccess'
 import { scheduleSummary } from '../../../views/triggers/cron'
 import { viewerTimeZone } from '../../../views/triggers/cronTime'
 import { canManageTeamTriggers } from '../../../views/triggers/shared'
-import { Button } from '../../ui/button'
+import { ConfirmDialog } from '../../ConfirmDialog'
 import { Switch } from '../../ui/Switch'
 import { toast } from '../../ui/toast'
 import { ChatLink } from '../MessageResponse'
 
-import { NextRuns, ScheduleEditor } from './TriggerCardBody'
+import { NextRuns } from './TriggerCardBody'
 import { triggerCardInfo } from './triggerCards'
 import { cardSchedule } from './triggerSchedule'
 import { useTrigger } from './useTrigger'
@@ -23,7 +22,6 @@ import { useTrigger } from './useTrigger'
 import type { OpenLink } from './LocalUrlChip'
 import type { ToolPart } from './parts'
 import type { AgentTrigger } from '../../../api/agent-trigger-types'
-import type { KeyboardEvent } from 'react'
 
 const CARD =
   't-chat-card-in w-full max-w-[520px] overflow-hidden rounded-xl border border-line-control bg-state-selected'
@@ -54,7 +52,7 @@ function Placeholder({ missing }: { missing: boolean }) {
   )
 }
 
-/** A cron trigger the agent created or changed: its schedule, next runs, on/off and in-place edit. */
+/** A trigger the agent created or changed: its schedule, next runs and on/off. */
 export function TriggerCard({
   part,
   teamId,
@@ -66,7 +64,6 @@ export function TriggerCard({
 }) {
   const info = triggerCardInfo(part)
   const { trigger, missing, setTrigger } = useTrigger(info?.triggerId ?? null, teamId)
-  const [draft, setDraft] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   // The transcript is shared, so turning a live trigger on or off asks first.
   const [switching, setSwitching] = useState<boolean | null>(null)
@@ -79,10 +76,8 @@ export function TriggerCard({
 
   if (!info) return null
   if (!trigger) return <Placeholder missing={missing} />
-  const editing = draft !== null
-  const current = trigger.cronExpression ?? ''
 
-  const update = async (patch: { enabled?: boolean; cronExpression?: string }, failure: string) => {
+  const update = async (patch: { enabled: boolean }, failure: string) => {
     setBusy(true)
     try {
       setTrigger(await api.agentUpdateTrigger(trigger.id, patch, teamId))
@@ -96,22 +91,9 @@ export function TriggerCard({
       setBusy(false)
     }
   }
-  const save = async () => {
-    if (draft === null || draft.trim() === current) return setDraft(null)
-    if (await update({ cronExpression: draft.trim() }, t('Could not change the schedule'))) {
-      setDraft(null)
-    }
-  }
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'Escape' && editing && !busy) setDraft(null)
-  }
 
   return (
-    <section
-      className={CARD}
-      aria-label={t('Trigger {name}', { name: trigger.name })}
-      onKeyDown={onKeyDown}
-    >
+    <section className={CARD} aria-label={t('Trigger {name}', { name: trigger.name })}>
       <header className="flex items-start gap-3 px-3.5 pb-2.5 pt-3">
         <span
           className={clsx(
@@ -160,44 +142,18 @@ export function TriggerCard({
         onClose={() => setSwitching(null)}
       />
       <div className="border-t border-line-control px-3.5 py-2.5">
-        {editing ? (
-          <ScheduleEditor value={draft} onChange={setDraft} timeZone={trigger.timeZone} />
-        ) : (
-          <NextRuns trigger={trigger} />
-        )}
+        <NextRuns trigger={trigger} />
       </div>
       <footer className="flex items-center justify-end gap-1 border-t border-line-control px-2 py-1.5">
-        {editing ? (
-          <>
-            <Button variant="ghost" size="sm" disabled={busy} onClick={() => setDraft(null)}>
-              {t('Cancel')}
-            </Button>
-            <Button size="sm" disabled={busy || !draft.trim()} onClick={() => void save()}>
-              {busy && (
-                <Loader2 aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" />
-              )}
-              {t('Save schedule')}
-            </Button>
-          </>
-        ) : (
-          <>
-            {teamId && (
-              <ChatLink
-                link={`/teams/${teamId}/triggers`}
-                onLinkClick={onOpen}
-                className="inline-flex h-8 items-center gap-1 rounded-md px-2.5 text-[13px] font-medium text-secondary no-underline transition-colors hover:bg-state-hover hover:text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-line-focus"
-              >
-                {t('All triggers')}
-                <ArrowUpRight aria-hidden className="size-3.5" />
-              </ChatLink>
-            )}
-            {trigger.triggerType === 'cron' && canManage && (
-              <Button variant="ghost" size="sm" disabled={busy} onClick={() => setDraft(current)}>
-                <Pencil aria-hidden className="size-3.5" />
-                {t('Edit schedule')}
-              </Button>
-            )}
-          </>
+        {teamId && trigger.targetSessionId && (
+          <ChatLink
+            link={`/teams/${teamId}/agent/${trigger.targetSessionId}`}
+            onLinkClick={onOpen}
+            className="inline-flex h-8 items-center gap-1 rounded-md px-2.5 text-[13px] font-medium text-secondary no-underline hover:bg-state-hover"
+          >
+            {t('Open conversation')}
+            <ArrowUpRight aria-hidden className="size-3.5" />
+          </ChatLink>
         )}
       </footer>
     </section>

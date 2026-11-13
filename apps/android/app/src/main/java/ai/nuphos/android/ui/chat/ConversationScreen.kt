@@ -235,13 +235,10 @@ fun ConversationScreen(
     val rows = ChatRow.rows(session)
     val uriHandler = LocalUriHandler.current
 
-    var showTitle by remember(session.title) { mutableStateOf(false) }
-    if (showTitle) androidx.compose.material3.AlertDialog(
-        onDismissRequest = { showTitle = false },
-        title = { Text("Agent title") },
-        text = { androidx.compose.foundation.text.selection.SelectionContainer { Text(session.title) } },
-        confirmButton = { TextButton(onClick = { showTitle = false }) { Text("Done") } },
-    )
+    var showTriggers by remember(sessionId) { mutableStateOf(false) }
+    if (showTriggers && auth.token != null) {
+        ConversationTriggersSheet(auth.token!!, session.teamId, sessionId) { showTriggers = false }
+    }
     val chatCanvas = ai.nuphos.android.ui.theme.LocalChatCanvas.current
     Scaffold(
         containerColor = chatCanvas,
@@ -254,7 +251,7 @@ fun ConversationScreen(
                         Column(Modifier.weight(1f)) {
                             Text(session.title, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.clickable { showTitle = true }.semantics { contentDescription = "Show full agent title" })
+                                modifier = Modifier.clickable { showTriggers = true }.semantics { contentDescription = "Show conversation triggers" })
                             val label = session.runtimeDeviceLabel
                             if (session.agentRuntime != null || label != null) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {

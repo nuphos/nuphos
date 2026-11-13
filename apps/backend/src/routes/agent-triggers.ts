@@ -39,7 +39,7 @@ agentTriggersRoutes.get('/', async (c) => {
 
   await assertTeamTriggerRole(actor, 'read')
 
-  return c.json(await listTriggers(actor))
+  return c.json(await listTriggers(actor, c.req.query('targetSessionId')))
 })
 
 registerTriggerGroupRoutes(agentTriggersRoutes)

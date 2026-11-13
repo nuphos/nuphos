@@ -88,13 +88,13 @@ test('resolves the nav item for each page key', () => {
   assert.equal(teamOverviewNavItemFor('team.monitoring')?.label, 'Monitoring')
   assert.equal(teamOverviewNavItemFor('team.agent')?.label, 'New agent')
   assert.equal(teamOverviewNavItemFor('team.agent-memories')?.label, 'Memories')
-  assert.equal(teamOverviewNavItemFor('team.triggers')?.label, 'Triggers')
+  assert.equal(teamOverviewNavItemFor('team.triggers')?.label, 'Inbox')
 })
 
-test('the legacy Schedule keys resolve to Triggers', () => {
-  assert.equal(canonicalTeamOverviewKey(renamedTeamNavKey('team.calendar')), 'team.triggers')
-  assert.equal(teamOverviewNavItemFor('team.schedule')?.label, 'Triggers')
-  assert.equal(isTeamManagementKey('team.schedule'), false)
+test('retired scheduling pages resolve to Inbox', () => {
+  assert.equal(canonicalTeamOverviewKey(renamedTeamNavKey('team.calendar')), 'team.inbox')
+  assert.equal(teamOverviewNavItemFor('team.schedule')?.label, 'Inbox')
+  assert.equal(isTeamManagementKey('team.schedule'), true)
 })
 
 test('the legacy team.accounts alias resolves to Connectors', () => {
