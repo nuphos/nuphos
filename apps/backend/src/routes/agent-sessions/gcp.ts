@@ -2,11 +2,10 @@ import { Hono } from 'hono'
 
 import { config } from '@/config'
 import { agentSubjectId } from '@/lib/agents/identity'
-import { canUseAllowList } from '@/lib/byos/access'
 import { getGkeAdminAccess, impersonateSa, listGkeClusters } from '@/lib/byos/gcp'
 import { renderKubeconfig } from '@/lib/byos/kubeconfig'
 import { AppError } from '@/lib/errors'
-import { requireGcpProject, requireGcpMemberAccess } from '@/middleware/auth'
+import { canRequestUseBinding, requireGcpMemberAccess, requireGcpProject } from '@/middleware/auth'
 import { execCredentialResponse, getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
 import { firebaseRoutes } from '@/routes/gcp-projects/firebase'
 
@@ -135,7 +134,7 @@ function requireSelectedGcpAgentCredential(): MiddlewareHandler<{ Variables: Age
         .find(
           (binding) =>
             selectedServiceAccountIds.includes(binding.id.toHexString()) &&
-            canUseAllowList(binding.access?.memberAllowList, c.get('userId')),
+            canRequestUseBinding(c, binding.access),
         )
 
       if (selected) {
@@ -151,6 +150,15 @@ function requireSelectedGcpAgentCredential(): MiddlewareHandler<{ Variables: Age
         403,
         'gcp_project_agent_access_denied',
         'This GCP service account is not enabled for this agent session',
+      )
+    }
+    // The selection above may have swapped bindings, so the member gate that ran
+    // on the requested one is checked again on the one being vended.
+    if (!canRequestUseBinding(c, c.get('gcpBinding').access)) {
+      throw new AppError(
+        403,
+        'gcp_project_agent_access_denied',
+        'You are not allowed to use this GCP service account',
       )
     }
     // Permission-admin bindings are human-only break-glass credentials: an SA
