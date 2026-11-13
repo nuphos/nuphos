@@ -70,7 +70,7 @@ export async function answerCredentialAsks(sessionId: string, added: AddedCreden
       // Only the call that resolves it wakes the agent, so a question wakes it once.
       if (
         selected.length &&
-        (await resolveInputRequest(sessionId, conversation.userId, request.id, 'answered'))
+        (await resolveInputRequest(sessionId, conversation.userId, request.id))
       ) {
         answered.push(request.id)
         selected.forEach((provider) => providers.add(provider))

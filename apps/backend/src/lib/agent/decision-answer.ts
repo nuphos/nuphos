@@ -130,9 +130,7 @@ export async function answerDecision(args: {
 
     return
   }
-  if (
-    !(await resolveInputRequest(conversation.sessionId, conversation.userId, requestId, 'answered'))
-  )
+  if (!(await resolveInputRequest(conversation.sessionId, conversation.userId, requestId)))
     throw new AppError(409, 'decision_already_answered', 'This question is no longer open')
   const who = { displayName: actor.displayName, owner: actor.id === conversation.userId }
   const { startConversationTurn } = await import('./conversation-turn')
@@ -150,7 +148,7 @@ export async function answerDecision(args: {
     'agent.resource',
     systemSender(SENDER, 'Nuphos'),
   ).catch(async (error: unknown) => {
-    await reopenInputRequest(conversation.sessionId, conversation.userId, requestId)
+    await reopenInputRequest(conversation.sessionId, conversation.userId, request)
     throw error
   })
 

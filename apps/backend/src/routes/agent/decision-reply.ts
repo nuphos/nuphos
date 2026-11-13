@@ -29,8 +29,9 @@ export async function answeringIds(conversation: Asked): Promise<ReadonlySet<str
 
 /**
  * A question takes one answer. A second one (a repeated click, another option)
- * is refused while the first waits in the queue or once the question was
- * resolved. A resent copy of the same message is not a second answer.
+ * is refused while the first waits in the queue. Once answered the question is
+ * off the list, like a card this conversation never listed: the turn takes the
+ * message as it is. A resent copy of the same message is not a second answer.
  */
 export async function assertDecisionUnanswered(
   conversation: Asked,
@@ -38,11 +39,10 @@ export async function assertDecisionUnanswered(
   messageId: string,
 ): Promise<void> {
   const request = conversation.inputRequests?.find((entry) => entry.id === decisionId)
-  const waiting =
-    request?.status === 'open'
-      ? (await queuedAnswers(conversation.userId, conversation.sessionId)).get(decisionId)
-      : undefined
+  const waiting = request
+    ? (await queuedAnswers(conversation.userId, conversation.sessionId)).get(decisionId)
+    : undefined
 
-  if ((request && request.status !== 'open') || (waiting && waiting !== messageId))
+  if (waiting && waiting !== messageId)
     throw new AppError(409, 'decision_already_answered', 'This question was already answered')
 }

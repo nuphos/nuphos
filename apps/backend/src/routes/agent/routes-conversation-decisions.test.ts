@@ -80,13 +80,12 @@ function resolve(id = 'question-1', resolution: unknown = 'answered', team = TEA
 
 const statusOf = (id: string) => conversation.inputRequests?.find((r) => r.id === id)?.status
 
-test('an exact answer resolves only that request, and repeating it is harmless', async () => {
+test('an exact answer takes only that request off the list, and repeating it is harmless', async () => {
   const response = await resolve()
 
   expect(response.status).toBe(200)
   expect(await response.json()).toEqual({ ok: true, resolved: true })
-  expect(statusOf('question-1')).toBe('answered')
-  expect(conversation.inputRequests?.[0]?.resolvedAt).toBeInstanceOf(Date)
+  expect(statusOf('question-1')).toBeUndefined()
   expect(statusOf('question-2')).toBe('open')
   expect(await (await resolve()).json()).toEqual({ ok: true, resolved: false })
 })
@@ -100,7 +99,7 @@ test('a participant can dismiss the owner’s question', async () => {
   viewer = TEAMMATE
 
   expect((await resolve('question-1', 'dismissed')).status).toBe(200)
-  expect(statusOf('question-1')).toBe('dismissed')
+  expect(statusOf('question-1')).toBeUndefined()
 })
 
 test('viewers and former team members cannot resolve a question', async () => {

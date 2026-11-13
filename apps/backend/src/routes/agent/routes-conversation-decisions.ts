@@ -44,7 +44,7 @@ agent.post('/conversations/:sessionId/decisions/:toolCallId/resolve', async (c) 
     (resolution !== 'answered' && resolution !== 'dismissed')
   )
     throw new AppError(400, 'invalid_request', 'A question id and resolution are required')
-  const resolved = await resolveInputRequest(sessionId, conversation.userId, toolCallId, resolution)
+  const resolved = await resolveInputRequest(sessionId, conversation.userId, toolCallId)
 
   if (resolved)
     logEvent('info', 'agent.pending_decision.resolved', {
